@@ -9169,6 +9169,14 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     handleSwiftAsyncError(S, D, AL);
     break;
 
+  // Duetto attributes
+  case AttributeList::AT_Client:
+    handleClient(S, D, AL);
+    break;
+  case AttributeList::AT_Server:
+    handleServer(S, D, AL);
+    break;
+
   // XRay attributes.
   case ParsedAttr::AT_XRayLogArgs:
     handleXRayLogArgsAttr(S, D, AL);
