@@ -1,4 +1,4 @@
-;===- ./lib/Target/CppBackend/TargetInfo/LLVMBuild.txt ---------*- Conf -*--===;
+;===- ./lib/Target/DuettoBackend/TargetInfo/LLVMBuild.txt ---------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
