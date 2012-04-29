@@ -1,6 +1,11 @@
 //===-- DuettoTargetMachine.h - TargetMachine for the DuettoBackend -------===//
 //
-//	Copyright 2011-2013 Leaning Technlogies
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+// Copyright 2011-2013 Leaning Technlogies
 //===----------------------------------------------------------------------===//
 
 #ifndef _DUETTO_TARGETMACHINE_H
