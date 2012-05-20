@@ -194,6 +194,7 @@ protected:
   // Target values set by the ctor of the actual target implementation.  Default
   // values are specified by the TargetInfo constructor.
   bool BigEndian;
+  bool ByteAddressable;
   bool TLSSupported;
   bool VLASupported;
   bool NoAsmVariants;  // True if {|} are normal characters.
@@ -1446,6 +1447,8 @@ public:
 
   /// Controls if __arithmetic_fence is supported in the targeted backend.
   virtual bool checkArithmeticFenceSupported() const { return false; }
+
+  bool isByteAddressable() const { return ByteAddressable; }
 
   /// Gets the default calling convention for the given target and
   /// declaration context.
