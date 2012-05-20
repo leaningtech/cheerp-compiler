@@ -184,6 +184,7 @@ protected:
   // Target values set by the ctor of the actual target implementation.  Default
   // values are specified by the TargetInfo constructor.
   bool BigEndian;
+  bool ByteAddressable;
   bool TLSSupported;
   bool VLASupported;
   bool NoAsmVariants;  // True if {|} are normal characters.
@@ -1346,6 +1347,8 @@ public:
 
   bool isBigEndian() const { return BigEndian; }
   bool isLittleEndian() const { return !BigEndian; }
+
+  bool isByteAddressable() const { return ByteAddressable; }
 
   /// Gets the default calling convention for the given target and
   /// declaration context.

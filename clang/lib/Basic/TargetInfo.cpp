@@ -30,6 +30,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   // Set defaults.  Defaults are set for a 32-bit RISC platform, like PPC or
   // SPARC.  These should be overridden by concrete targets as needed.
   BigEndian = !T.isLittleEndian();
+  ByteAddressable = true;
   TLSSupported = true;
   VLASupported = true;
   NoAsmVariants = false;
