@@ -271,6 +271,7 @@ private:
 	Module* module;
 	raw_fd_ostream& stream;
 	uint32_t getIntFromValue(Value* v);
+	std::map<const Value*, std::string> inlineOperandMap;
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -350,6 +351,14 @@ void JSWriter::compileConstant(Constant* c)
 
 void JSWriter::compileOperand(Value* v)
 {
+	//Check the inline map first
+	map<const Value*, std::string>::iterator it=inlineOperandMap.find(v);
+	if(it!=inlineOperandMap.end())
+	{
+		stream << it->second;
+		return;
+	}
+
 	Constant* c=dyn_cast<Constant>(v);
 	if(c)
 		compileConstant(c);
@@ -414,6 +423,36 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 				stream << ");\n";
 				//Add code to jump to the next block
 				stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
+				break;
+			}
+			case Instruction::BitCast:
+			{
+				const BitCastInst& bi=static_cast<const BitCastInst&>(*I);
+				Type* srcPtr=bi.getSrcTy();
+				Type* dstPtr=bi.getDestTy();
+				//Conversion between client objects is free
+				assert(srcPtr->isPointerTy() && dstPtr->isPointerTy());
+				Type* src=cast<PointerType>(srcPtr)->getElementType();
+				Type* dst=cast<PointerType>(dstPtr)->getElementType();
+				assert(src->isStructTy() && dst->isStructTy());
+				assert(strncmp(src->getStructName().data(),
+					"class.client::", 14)==0);
+				assert(strncmp(dst->getStructName().data(),
+					"class.client::", 14)==0);
+				//HACK?: Some bitcast seems to have no name
+				//Since they are nop, just put in the inline operand map
+				//the name of the source if so
+				if(bi.hasName())
+				{
+					stream << "var " << bi.getName().data() << " = " <<
+						bi.getOperand(0)->getName().data() << ";\n";
+				}
+				else
+				{
+					const Value* srcVal = bi.getOperand(0);
+					assert(srcVal->hasName());
+					inlineOperandMap.insert(make_pair(&bi, srcVal->getName()));
+				}
 				break;
 			}
 			default:
