@@ -31,6 +31,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include <memory>
+#include <map>
 #include <iostream>
 using namespace llvm;
 using namespace std;
@@ -276,7 +277,7 @@ public:
 	}
 	void makeJS();
 	void compileMethod(Function& F);
-	void compileBB(BasicBlock& BB);
+	void compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap);
 	void compileOperand(Value* v);
 	void compileConstant(Constant* c);
 	void compileConstantExpr(ConstantExpr* ce);
@@ -361,7 +362,7 @@ void JSWriter::compileOperand(Value* v)
 	}
 }
 
-void JSWriter::compileBB(BasicBlock& BB)
+void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
 {
 	BasicBlock::iterator I=BB.begin();
 	BasicBlock::iterator IE=BB.end();
@@ -395,6 +396,26 @@ void JSWriter::compileBB(BasicBlock& BB)
 				stream << ";\n";
 				break;
 			}
+			case Instruction::Invoke:
+			{
+				const InvokeInst& ci=static_cast<const InvokeInst&>(*I);
+				//TODO: Support unwind
+				//For now, pretend it's a regular call
+				bool isVoid=ci.getType()->isVoidTy();
+				if(isVoid==false)
+					stream << "var " << ci.getName().data() << " = ";
+				stream << ci.getCalledFunction()->getName().data() << '(';
+				for(uint32_t i=0;i<ci.getNumArgOperands();i++)
+				{
+					if(i!=0)
+						stream << ", ";
+					compileOperand(ci.getArgOperand(i));
+				}
+				stream << ");\n";
+				//Add code to jump to the next block
+				stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
+				break;
+			}
 			default:
 				cerr << "\tImplement inst " << I->getOpcodeName() << endl;
 				return;
@@ -404,6 +425,8 @@ void JSWriter::compileBB(BasicBlock& BB)
 
 void JSWriter::compileMethod(Function& F)
 {
+	if(F.empty())
+		return;
 	std::cerr << (string)F.getName() << std::endl;
 	stream << "function " << (string)F.getName() << "(";
 	Function::const_arg_iterator A=F.arg_begin();
@@ -417,19 +440,34 @@ void JSWriter::compileMethod(Function& F)
 		stream << "arg" << A->getArgNo();
 	}
 	stream << ") {\n";
-	if(F.size()!=1)
+	std::map<const BasicBlock*, uint32_t> blocksMap;
+	if(F.size()==1)
+		compileBB(*F.begin(), blocksMap);
+	else
 	{
-		std::cerr << "\tImplement control flow" << endl;
+		Function::iterator B=F.begin();
+		Function::iterator BE=F.end();
+		//Build a map from basicblocks to ids
+		uint32_t blockId=0;
+		for(;B!=BE;++B)
+		{
+			blocksMap.insert(make_pair(&(*B), blockId));
+			blockId++;
+		}
+		//Rest the iterator
+		B=F.begin();
+
+		//Create an emscripten style switch for now
+		stream << "var __block=0;\nswitch(__block){\n";
+		for(;B!=BE;++B)
+		{
+			stream << "case " << blocksMap.find(&(*B))->second << ":\n";
+			compileBB(*B, blocksMap);
+			stream << "break;\n";
+		}
 		stream << "}\n";
-		return;
 	}
 
-	Function::iterator B=F.begin();
-	Function::iterator BE=F.end();
-	for(;B!=BE;++B)
-	{
-		compileBB(*B);
-	}
 	stream << "}\n";
 }
 
