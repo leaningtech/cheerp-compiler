@@ -342,6 +342,17 @@ void JSWriter::compileConstant(Constant* c)
 		stream << d->getAsString().data();
 		stream << '"';
 	}
+	else if(ConstantFP::classof(c))
+	{
+		ConstantFP* f=cast<ConstantFP>(c);
+		stream << f->getValueAPF().convertToDouble();
+	}
+	else if(ConstantInt::classof(c))
+	{
+		ConstantInt* i=cast<ConstantInt>(c);
+		assert(i->getBitWidth()>=32);
+		stream << i->getSExtValue();
+	}
 	else
 	{
 		cerr << "Unsupported constant type ";
