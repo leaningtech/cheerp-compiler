@@ -272,6 +272,7 @@ private:
 	raw_fd_ostream& stream;
 	uint32_t getIntFromValue(Value* v);
 	std::map<const Value*, std::string> inlineOperandMap;
+	std::set<const Value*> completeObjects;
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -283,6 +284,7 @@ public:
 	void compileConstant(Constant* c);
 	void compileConstantExpr(ConstantExpr* ce);
 	void compileRecursiveGEP(ConstantExpr* ce, Constant* base, uint32_t level);
+	uint32_t compileType(Type* t);
 };
 
 uint32_t JSWriter::getIntFromValue(Value* v)
@@ -382,6 +384,47 @@ void JSWriter::compileOperand(Value* v)
 	}
 }
 
+uint32_t JSWriter::compileType(Type* t)
+{
+	switch(t->getTypeID())
+	{
+		case Type::IntegerTyID:
+		{
+			IntegerType* it=static_cast<IntegerType*>(t);
+			//We only really have 32bit integers.
+			//We will allow anything shorter.
+			//NOTE: Only bit operations are allowed on shorter types
+			//this is enforced on a per-operation basis
+			assert(it->getBitWidth()<=32);
+			//Print out a '0'. To let the engine know this is an integer
+			stream << '0';
+			return 4;
+		}
+		case Type::StructTyID:
+		{
+			stream << "{ ";
+			StructType* st=static_cast<StructType*>(t);
+			StructType::element_iterator E=st->element_begin();
+			StructType::element_iterator EE=st->element_end();
+			uint32_t offset=0;
+			for(;E!=EE;++E)
+			{
+				if(offset!=0)
+					stream << ", ";
+				stream << "a" << offset << ": ";
+				offset+=compileType(*E);
+			}
+			stream << " }";
+			return offset;
+		}
+		default:
+			cerr << "Support type ";
+			t->dump();
+			cerr << endl;
+			return 0;
+	}
+}
+
 void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
 {
 	BasicBlock::iterator I=BB.begin();
@@ -464,6 +507,24 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 					assert(srcVal->hasName());
 					inlineOperandMap.insert(make_pair(&bi, srcVal->getName()));
 				}
+				break;
+			}
+			case Instruction::LandingPad:
+			{
+				//TODO: Support exceptions
+				return;
+			}
+			case Instruction::Alloca:
+			{
+				const AllocaInst& ai=static_cast<const AllocaInst&>(*I);
+				//Alloca is supposed to return a pointer. We will cheat and return
+				//an object.
+				assert(ai.hasName());
+				stream << "var " << ai.getName().data() << " = ";
+				compileType(ai.getAllocatedType());
+				stream << ";\n";
+				//Take note that this is a complete object
+				completeObjects.insert(&(*I));
 				break;
 			}
 			default:
