@@ -527,6 +527,25 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 				completeObjects.insert(&(*I));
 				break;
 			}
+			case Instruction::FPToSI:
+			{
+				const CastInst& ci=static_cast<CastInst&>(*I);
+				//Check that the in and out types are sane
+				Type* srcT = ci.getSrcTy();
+				Type* dstT = ci.getDestTy();
+				assert(srcT->isDoubleTy());
+				assert(dstT->isIntegerTy());
+				IntegerType* dstIntT = static_cast<IntegerType*>(dstT);
+				assert(dstIntT->getBitWidth()==32);
+
+				assert(ci.hasName());
+				stream << "var " << ci.getName().data() << " = ";
+				compileOperand(ci.getOperand(0));
+				//Seems to be the fastest way
+				//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
+				stream << " >> 0;\n";
+				break;
+			}
 			default:
 				cerr << "\tImplement inst " << I->getOpcodeName() << endl;
 				return;
