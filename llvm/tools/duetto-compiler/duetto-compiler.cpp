@@ -271,8 +271,12 @@ private:
 	Module* module;
 	raw_fd_ostream& stream;
 	uint32_t getIntFromValue(Value* v);
-	std::map<const Value*, std::string> inlineOperandMap;
 	std::set<const Value*> completeObjects;
+	bool isValidTypeCast(Type* src, Type* dst) const;
+	bool isClientType(Type* t) const;
+	bool compileNotInlineableInstruction(const Instruction& I,
+			const std::map<const BasicBlock*, uint32_t>& blocksMap);
+	bool compileInlineableInstruction(const Instruction& I);
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -285,7 +289,6 @@ public:
 	void compileConstantExpr(ConstantExpr* ce);
 	void compileRecursiveGEP(ConstantExpr* ce, Constant* base, uint32_t level);
 	uint32_t compileType(Type* t);
-	bool isValidTypeCast(Type* src, Type* dst) const;
 };
 
 uint32_t JSWriter::getIntFromValue(Value* v)
@@ -307,6 +310,12 @@ void JSWriter::compileRecursiveGEP(ConstantExpr* ce, Constant* base, uint32_t le
 	stream << "'' }";
 }
 
+bool JSWriter::isClientType(Type* t) const
+{
+	return (t->isStructTy() && 
+		strncmp(t->getStructName().data(), "class.client::", 14)==0);
+}
+
 bool JSWriter::isValidTypeCast(Type* srcPtr, Type* dstPtr) const
 {
 	//Only pointer casts are possible anyway
@@ -314,12 +323,8 @@ bool JSWriter::isValidTypeCast(Type* srcPtr, Type* dstPtr) const
 	Type* src=cast<PointerType>(srcPtr)->getElementType();
 	Type* dst=cast<PointerType>(dstPtr)->getElementType();
 	//Conversion between client objects is free
-	if(src->isStructTy() && dst->isStructTy() &&
-		strncmp(src->getStructName().data(), "class.client::", 14)==0 &&
-		strncmp(dst->getStructName().data(), "class.client::", 14)==0)
-	{
+	if(isClientType(src) && isClientType(dst))
 		return true;
-	}
 	//Conversion between any function pointers are ok
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
@@ -400,18 +405,13 @@ void JSWriter::compileConstant(Constant* c)
 void JSWriter::compileOperand(Value* v)
 {
 	//Check the inline map first
-	map<const Value*, std::string>::iterator it=inlineOperandMap.find(v);
-	if(it!=inlineOperandMap.end())
-	{
-		stream << it->second;
-		return;
-	}
-
 	Constant* c=dyn_cast<Constant>(v);
 	if(c)
 		compileConstant(c);
 	else if(v->hasName())
 		stream << v->getName().data();
+	else if(Instruction* I=dyn_cast<Instruction>(v))
+		compileInlineableInstruction(*I);
 	else
 	{
 		cerr << "No name for value ";
@@ -460,122 +460,158 @@ uint32_t JSWriter::compileType(Type* t)
 	}
 }
 
+bool JSWriter::compileNotInlineableInstruction(const Instruction& I,
+		const std::map<const BasicBlock*, uint32_t>& blocksMap)
+{
+	switch(I.getOpcode())
+	{
+		case Instruction::Call:
+		{
+			const CallInst& ci=static_cast<const CallInst&>(I);
+			stream << ci.getCalledFunction()->getName().data() << '(';
+			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
+			{
+				if(i!=0)
+					stream << ", ";
+				compileOperand(ci.getArgOperand(i));
+			}
+			stream << ")";
+			return true;
+		}
+		case Instruction::Ret:
+		{
+			const ReturnInst& ri=static_cast<const ReturnInst&>(I);
+			Value* retVal = ri.getReturnValue();
+			stream << "return ";
+			if(retVal)
+				compileOperand(retVal);
+			return true;
+		}
+		case Instruction::Invoke:
+		{
+			const InvokeInst& ci=static_cast<const InvokeInst&>(I);
+			//TODO: Support unwind
+			//For now, pretend it's a regular call
+			stream << ci.getCalledFunction()->getName().data() << '(';
+			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
+			{
+				if(i!=0)
+					stream << ", ";
+				compileOperand(ci.getArgOperand(i));
+			}
+			stream << ");\n";
+			//Add code to jump to the next block
+			//HACK: This will be completed by the block handling code
+			//it's not clean though
+			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second;
+			return true;
+		}
+		case Instruction::LandingPad:
+		{
+			//TODO: Support exceptions
+			//Do not continue block
+			return false;
+		}
+		default:
+			return compileInlineableInstruction(I);
+	}
+}
+
+/*
+ * This can be used for both named instructions and inlined ones
+ * NOTE: Call, Ret, Invoke are NEVER inlined
+ */
+bool JSWriter::compileInlineableInstruction(const Instruction& I)
+{
+	switch(I.getOpcode())
+	{
+		case Instruction::BitCast:
+		{
+			const BitCastInst& bi=static_cast<const BitCastInst&>(I);
+			Type* srcPtr=bi.getSrcTy();
+			Type* dstPtr=bi.getDestTy();
+			assert(isValidTypeCast(srcPtr, dstPtr));
+			compileOperand(bi.getOperand(0));
+			return true;
+		}
+		case Instruction::Alloca:
+		{
+			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
+			//Alloca is supposed to return a pointer. We will cheat and return
+			//an object.
+			assert(ai.hasName());
+			compileType(ai.getAllocatedType());
+			//Take note that this is a complete object
+			completeObjects.insert(&I);
+			return true;
+		}
+		case Instruction::FPToSI:
+		{
+			const CastInst& ci=static_cast<const CastInst&>(I);
+			//Check that the in and out types are sane
+			Type* srcT = ci.getSrcTy();
+			Type* dstT = ci.getDestTy();
+			assert(srcT->isDoubleTy());
+			assert(dstT->isIntegerTy());
+			IntegerType* dstIntT = static_cast<IntegerType*>(dstT);
+			assert(dstIntT->getBitWidth()==32);
+
+			assert(ci.hasName());
+			stream << "(";
+			compileOperand(ci.getOperand(0));
+			//Seems to be the fastest way
+			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
+			stream << " >> 0)";
+			return true;
+		}
+		case Instruction::GetElementPtr:
+		{
+			const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(I);
+			//TODO: properly implement GEP
+			//For now just support client objects, which are only
+			//passed through
+			Type* t=gep.getOperand(0)->getType();
+			assert(t->isPointerTy());
+			PointerType* ptrT=static_cast<PointerType*>(t);
+			assert(isClientType(ptrT->getElementType()));
+			compileOperand(gep.getOperand(0));
+			return true;
+		}
+		default:
+			cerr << "\tImplement inst " << I.getOpcodeName() << endl;
+			return false;
+	}
+}
+
 void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
 {
 	BasicBlock::iterator I=BB.begin();
 	BasicBlock::iterator IE=BB.end();
 	for(;I!=IE;++I)
 	{
-		switch(I->getOpcode())
+		if(I->hasName()==false)
 		{
-			case Instruction::Call:
+			//A few opcodes needs to be executed anyway as they
+			//do not operated on registers
+			switch(I->getOpcode())
 			{
-				const CallInst& ci=static_cast<const CallInst&>(*I);
-				bool isVoid=ci.getType()->isVoidTy();
-				if(isVoid==false)
-					stream << "var " << ci.getName().data() << " = ";
-				stream << ci.getCalledFunction()->getName().data() << '(';
-				for(uint32_t i=0;i<ci.getNumArgOperands();i++)
-				{
-					if(i!=0)
-						stream << ", ";
-					compileOperand(ci.getArgOperand(i));
-				}
-				stream << ");\n";
-				break;
+				case Instruction::Call:
+				case Instruction::Invoke:
+				case Instruction::Ret:
+				case Instruction::LandingPad:
+					break;
+				default:
+					continue;
 			}
-			case Instruction::Ret:
-			{
-				const ReturnInst& ri=static_cast<const ReturnInst&>(*I);
-				Value* retVal = ri.getReturnValue();
-				stream << "return ";
-				if(retVal)
-					compileOperand(retVal);
-				stream << ";\n";
-				break;
-			}
-			case Instruction::Invoke:
-			{
-				const InvokeInst& ci=static_cast<const InvokeInst&>(*I);
-				//TODO: Support unwind
-				//For now, pretend it's a regular call
-				bool isVoid=ci.getType()->isVoidTy();
-				if(isVoid==false)
-					stream << "var " << ci.getName().data() << " = ";
-				stream << ci.getCalledFunction()->getName().data() << '(';
-				for(uint32_t i=0;i<ci.getNumArgOperands();i++)
-				{
-					if(i!=0)
-						stream << ", ";
-					compileOperand(ci.getArgOperand(i));
-				}
-				stream << ");\n";
-				//Add code to jump to the next block
-				stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
-				break;
-			}
-			case Instruction::BitCast:
-			{
-				const BitCastInst& bi=static_cast<const BitCastInst&>(*I);
-				Type* srcPtr=bi.getSrcTy();
-				Type* dstPtr=bi.getDestTy();
-				assert(isValidTypeCast(srcPtr, dstPtr));
-				//HACK?: Some bitcast seems to have no name
-				//Since they are nop, just put in the inline operand map
-				//the name of the source if so
-				if(bi.hasName())
-				{
-					stream << "var " << bi.getName().data() << " = " <<
-						bi.getOperand(0)->getName().data() << ";\n";
-				}
-				else
-				{
-					const Value* srcVal = bi.getOperand(0);
-					assert(srcVal->hasName());
-					inlineOperandMap.insert(make_pair(&bi, srcVal->getName()));
-				}
-				break;
-			}
-			case Instruction::LandingPad:
-			{
-				//TODO: Support exceptions
-				return;
-			}
-			case Instruction::Alloca:
-			{
-				const AllocaInst& ai=static_cast<const AllocaInst&>(*I);
-				//Alloca is supposed to return a pointer. We will cheat and return
-				//an object.
-				assert(ai.hasName());
-				stream << "var " << ai.getName().data() << " = ";
-				compileType(ai.getAllocatedType());
-				stream << ";\n";
-				//Take note that this is a complete object
-				completeObjects.insert(&(*I));
-				break;
-			}
-			case Instruction::FPToSI:
-			{
-				const CastInst& ci=static_cast<CastInst&>(*I);
-				//Check that the in and out types are sane
-				Type* srcT = ci.getSrcTy();
-				Type* dstT = ci.getDestTy();
-				assert(srcT->isDoubleTy());
-				assert(dstT->isIntegerTy());
-				IntegerType* dstIntT = static_cast<IntegerType*>(dstT);
-				assert(dstIntT->getBitWidth()==32);
-
-				assert(ci.hasName());
-				stream << "var " << ci.getName().data() << " = ";
-				compileOperand(ci.getOperand(0));
-				//Seems to be the fastest way
-				//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
-				stream << " >> 0;\n";
-				break;
-			}
-			default:
-				cerr << "\tImplement inst " << I->getOpcodeName() << endl;
-				return;
+		}
+		else
+			stream << "var " << I->getName().data() << " = ";
+		bool ret=compileNotInlineableInstruction(*I, blocksMap);
+		stream << ";\n";
+		if(ret==false)
+		{
+			//Stop basic block compilation
+			return;
 		}
 	}
 }
