@@ -274,6 +274,7 @@ private:
 	std::set<const Value*> completeObjects;
 	bool isValidTypeCast(Type* src, Type* dst) const;
 	bool isClientType(Type* t) const;
+	bool isI32Type(Type* t) const;
 	bool compileNotInlineableInstruction(const Instruction& I,
 			const std::map<const BasicBlock*, uint32_t>& blocksMap);
 	bool compileInlineableInstruction(const Instruction& I);
@@ -517,6 +518,11 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I,
 	}
 }
 
+bool JSWriter::isI32Type(Type* t) const
+{
+	return t->isIntegerTy() && static_cast<IntegerType*>(t)->getBitWidth()==32;
+}
+
 /*
  * This can be used for both named instructions and inlined ones
  * NOTE: Call, Ret, Invoke are NEVER inlined
@@ -552,9 +558,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			Type* srcT = ci.getSrcTy();
 			Type* dstT = ci.getDestTy();
 			assert(srcT->isDoubleTy());
-			assert(dstT->isIntegerTy());
-			IntegerType* dstIntT = static_cast<IntegerType*>(dstT);
-			assert(dstIntT->getBitWidth()==32);
+			assert(isI32Type(dstT));
 
 			assert(ci.hasName());
 			stream << "(";
@@ -582,6 +586,8 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer subtraction
 			//TODO: optimize negation
 			assert(I.getNumOperands()==2);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(isI32Type(I.getOperand(1)->getType()));
 			stream << "((";
 			compileOperand(I.getOperand(0));
 			stream << " - ";
