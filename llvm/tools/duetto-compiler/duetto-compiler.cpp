@@ -577,6 +577,18 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			compileOperand(gep.getOperand(0));
 			return true;
 		}
+		case Instruction::Sub:
+		{
+			//Integer subtraction
+			//TODO: optimize negation
+			assert(I.getNumOperands()==2);
+			stream << "((";
+			compileOperand(I.getOperand(0));
+			stream << " - ";
+			compileOperand(I.getOperand(1));
+			stream << ") >> 0)";
+			return true;
+		}
 		default:
 			cerr << "\tImplement inst " << I.getOpcodeName() << endl;
 			return false;
