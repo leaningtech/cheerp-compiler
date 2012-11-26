@@ -275,6 +275,7 @@ private:
 	bool isValidTypeCast(Type* src, Type* dst) const;
 	bool isClientType(Type* t) const;
 	bool isI32Type(Type* t) const;
+	bool isInlineable(const Instruction& I) const;
 	bool compileNotInlineableInstruction(const Instruction& I,
 			const std::map<const BasicBlock*, uint32_t>& blocksMap);
 	bool compileInlineableInstruction(const Instruction& I);
@@ -409,10 +410,10 @@ void JSWriter::compileOperand(Value* v)
 	Constant* c=dyn_cast<Constant>(v);
 	if(c)
 		compileConstant(c);
+	else if(dyn_cast<Instruction>(v) && isInlineable(*cast<Instruction>(v)))
+		compileInlineableInstruction(*cast<Instruction>(v));
 	else if(v->hasName())
 		stream << v->getName().data();
-	else if(Instruction* I=dyn_cast<Instruction>(v))
-		compileInlineableInstruction(*I);
 	else
 	{
 		cerr << "No name for value ";
@@ -601,28 +602,47 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 	}
 }
 
+bool JSWriter::isInlineable(const Instruction& I) const
+{
+	//Beside a few cases, instructions without name
+	//or with a single use may be inlined
+	if(I.hasName()==false || I.hasOneUse())
+	{
+		//A few opcodes needs to be executed anyway as they
+		//do not operated on registers
+		switch(I.getOpcode())
+		{
+			case Instruction::Call:
+			case Instruction::Invoke:
+			case Instruction::Ret:
+			case Instruction::LandingPad:
+			case Instruction::PHI:
+			case Instruction::Store:
+				return false;
+			case Instruction::FPToSI:
+			case Instruction::Sub:
+			case Instruction::SDiv:
+			case Instruction::BitCast:
+			case Instruction::GetElementPtr:
+			case Instruction::FCmp:
+				return true;
+			default:
+				cerr << "Is " << I.getOpcodeName() << " inlineable?" << endl;
+				assert(false);
+		}
+	}
+	return false;
+}
+
 void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
 {
 	BasicBlock::iterator I=BB.begin();
 	BasicBlock::iterator IE=BB.end();
 	for(;I!=IE;++I)
 	{
-		if(I->hasName()==false)
-		{
-			//A few opcodes needs to be executed anyway as they
-			//do not operated on registers
-			switch(I->getOpcode())
-			{
-				case Instruction::Call:
-				case Instruction::Invoke:
-				case Instruction::Ret:
-				case Instruction::LandingPad:
-					break;
-				default:
-					continue;
-			}
-		}
-		else
+		if(isInlineable(*I))
+			continue;
+		if(I->hasName())
 			stream << "var " << I->getName().data() << " = ";
 		bool ret=compileNotInlineableInstruction(*I, blocksMap);
 		stream << ";\n";
