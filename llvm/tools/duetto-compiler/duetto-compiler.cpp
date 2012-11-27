@@ -276,9 +276,13 @@ private:
 	bool isClientType(Type* t) const;
 	bool isI32Type(Type* t) const;
 	bool isInlineable(const Instruction& I) const;
-	bool compileNotInlineableInstruction(const Instruction& I,
+	void compileTerminatorInstruction(const TerminatorInst& I,
 			const std::map<const BasicBlock*, uint32_t>& blocksMap);
 	bool compileInlineableInstruction(const Instruction& I);
+	bool compileNotInlineableInstruction(const Instruction& I);
+	void compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from) const;
+	uint32_t compileType(Type* t);
+	uint32_t getTypeSize(Type* t);
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -286,11 +290,10 @@ public:
 	void makeJS();
 	void compileMethod(Function& F);
 	void compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap);
-	void compileOperand(Value* v);
-	void compileConstant(Constant* c);
-	void compileConstantExpr(ConstantExpr* ce);
-	void compileRecursiveGEP(ConstantExpr* ce, Constant* base, uint32_t level);
-	uint32_t compileType(Type* t);
+	void compileOperand(const Value* v);
+	void compileConstant(const Constant* c);
+	void compileConstantExpr(const ConstantExpr* ce);
+	void compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level);
 };
 
 uint32_t JSWriter::getIntFromValue(Value* v)
@@ -300,7 +303,7 @@ uint32_t JSWriter::getIntFromValue(Value* v)
 	return i->getZExtValue();
 }
 
-void JSWriter::compileRecursiveGEP(ConstantExpr* ce, Constant* base, uint32_t level)
+void JSWriter::compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level)
 {
 	//TODO: Support multiple dereferece in GEP
 	assert(ce->getNumOperands()==level+3);
@@ -337,7 +340,7 @@ bool JSWriter::isValidTypeCast(Type* srcPtr, Type* dstPtr) const
 	return false;
 }
 
-void JSWriter::compileConstantExpr(ConstantExpr* ce)
+void JSWriter::compileConstantExpr(const ConstantExpr* ce)
 {
 	switch(ce->getOpcode())
 	{
@@ -373,13 +376,13 @@ void JSWriter::compileConstantExpr(ConstantExpr* ce)
 	}
 }
 
-void JSWriter::compileConstant(Constant* c)
+void JSWriter::compileConstant(const Constant* c)
 {
 	if(ConstantExpr::classof(c))
 		compileConstantExpr(cast<ConstantExpr>(c));
 	else if(ConstantDataSequential::classof(c))
 	{
-		ConstantDataSequential* d=cast<ConstantDataSequential>(c);
+		const ConstantDataSequential* d=cast<const ConstantDataSequential>(c);
 		assert(d->isString());
 		//TODO: Support \x escapes
 		stream << '"';
@@ -388,12 +391,12 @@ void JSWriter::compileConstant(Constant* c)
 	}
 	else if(ConstantFP::classof(c))
 	{
-		ConstantFP* f=cast<ConstantFP>(c);
+		const ConstantFP* f=cast<const ConstantFP>(c);
 		stream << f->getValueAPF().convertToDouble();
 	}
 	else if(ConstantInt::classof(c))
 	{
-		ConstantInt* i=cast<ConstantInt>(c);
+		const ConstantInt* i=cast<const ConstantInt>(c);
 		assert(i->getBitWidth()>=32);
 		stream << i->getSExtValue();
 	}
@@ -404,10 +407,10 @@ void JSWriter::compileConstant(Constant* c)
 	}
 }
 
-void JSWriter::compileOperand(Value* v)
+void JSWriter::compileOperand(const Value* v)
 {
 	//Check the inline map first
-	Constant* c=dyn_cast<Constant>(v);
+	const Constant* c=dyn_cast<const Constant>(v);
 	if(c)
 		compileConstant(c);
 	else if(dyn_cast<Instruction>(v) && isInlineable(*cast<Instruction>(v)))
@@ -418,6 +421,34 @@ void JSWriter::compileOperand(Value* v)
 	{
 		cerr << "No name for value ";
 		v->dump();
+	}
+}
+
+/*
+ * Keep in sync with compileType
+ */
+uint32_t JSWriter::getTypeSize(Type* t)
+{
+	switch(t->getTypeID())
+	{
+		case Type::IntegerTyID:
+		case Type::PointerTyID:
+			return 4;
+		case Type::StructTyID:
+		{
+			StructType* st=static_cast<StructType*>(t);
+			StructType::element_iterator E=st->element_begin();
+			StructType::element_iterator EE=st->element_end();
+			uint32_t offset=0;
+			for(;E!=EE;++E)
+				offset+=getTypeSize(*E);
+			return offset;
+		}
+		default:
+			cerr << "Support type ";
+			t->dump();
+			cerr << endl;
+			return 0;
 	}
 }
 
@@ -454,6 +485,11 @@ uint32_t JSWriter::compileType(Type* t)
 			stream << " }";
 			return offset;
 		}
+		case Type::PointerTyID:
+		{
+			stream << "{ d:null, o: 0, p: '' }";
+			return 4;
+		}
 		default:
 			cerr << "Support type ";
 			t->dump();
@@ -462,8 +498,70 @@ uint32_t JSWriter::compileType(Type* t)
 	}
 }
 
-bool JSWriter::compileNotInlineableInstruction(const Instruction& I,
+void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from) const
+{
+	BasicBlock::const_iterator I=to->begin();
+	BasicBlock::const_iterator IE=to->end();
+	for(;I!=IE;++I)
+	{
+		const PHINode* phi=dyn_cast<const PHINode>(I);
+		assert(phi==NULL);
+	}
+}
+
+/*
+ * This method is fragile, each opcode must handle the phis in the correct place
+ */
+void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 		const std::map<const BasicBlock*, uint32_t>& blocksMap)
+{
+	switch(I.getOpcode())
+	{
+		case Instruction::Ret:
+		{
+			const ReturnInst& ri=static_cast<const ReturnInst&>(I);
+			Value* retVal = ri.getReturnValue();
+			stream << "return ";
+			if(retVal)
+				compileOperand(retVal);
+			assert(I.getNumSuccessors()==0);
+			break;
+		}
+		case Instruction::Invoke:
+		{
+			const InvokeInst& ci=static_cast<const InvokeInst&>(I);
+			//TODO: Support unwind
+			//For now, pretend it's a regular call
+			stream << ci.getCalledFunction()->getName().data() << '(';
+			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
+			{
+				if(i!=0)
+					stream << ", ";
+				compileOperand(ci.getArgOperand(i));
+			}
+			stream << ");\n";
+			//For each successor output the variables for the phi nodes
+			for(uint32_t i=0;i<I.getNumSuccessors();i++)
+			{
+				BasicBlock* b=I.getSuccessor(i);
+				compilePHIOfBlockFromOtherBlock(b, I.getParent());
+			}
+			//Add code to jump to the next block
+			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
+			break;
+		}
+		case Instruction::Resume:
+		{
+			//TODO: support exceptions
+			break;
+		}
+		default:
+			cerr << "\tImplement terminator inst " << I.getOpcodeName() << endl;
+			break;
+	}
+}
+
+bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 {
 	switch(I.getOpcode())
 	{
@@ -480,39 +578,40 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I,
 			stream << ")";
 			return true;
 		}
-		case Instruction::Ret:
-		{
-			const ReturnInst& ri=static_cast<const ReturnInst&>(I);
-			Value* retVal = ri.getReturnValue();
-			stream << "return ";
-			if(retVal)
-				compileOperand(retVal);
-			return true;
-		}
-		case Instruction::Invoke:
-		{
-			const InvokeInst& ci=static_cast<const InvokeInst&>(I);
-			//TODO: Support unwind
-			//For now, pretend it's a regular call
-			stream << ci.getCalledFunction()->getName().data() << '(';
-			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
-			{
-				if(i!=0)
-					stream << ", ";
-				compileOperand(ci.getArgOperand(i));
-			}
-			stream << ");\n";
-			//Add code to jump to the next block
-			//HACK: This will be completed by the block handling code
-			//it's not clean though
-			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second;
-			return true;
-		}
 		case Instruction::LandingPad:
 		{
 			//TODO: Support exceptions
 			//Do not continue block
 			return false;
+		}
+		case Instruction::PHI:
+		{
+			//Phis are handled at each terminator, so nothing to do here
+			return true;
+		}
+		case Instruction::InsertValue:
+		{
+			const InsertValueInst& ivi=static_cast<const InsertValueInst&>(I);
+			const Value* aggr=ivi.getAggregateOperand();
+			Type* t=aggr->getType();
+			assert(t->isStructTy());
+			StructType* st=static_cast<StructType*>(t);
+			if(UndefValue::classof(aggr))
+			{
+				//We have to assemble the type object from scratch
+				compileType(t);
+			}
+			stream << ";\n";
+			//Also assign the element
+			assert(ivi.getNumIndices()==1);
+			//Find the offset to the pointed element
+			uint32_t offset=0;
+			for(uint32_t i=0;i<ivi.getIndices()[0];i++)
+				offset+=getTypeSize(st->getElementType(i));
+			assert(ivi.hasName());
+			stream << ivi.getName() << ".a" << offset << " = ";
+			compileOperand(ivi.getInsertedValueOperand());
+			return true;
 		}
 		default:
 			return compileInlineableInstruction(I);
@@ -618,6 +717,8 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::LandingPad:
 			case Instruction::PHI:
 			case Instruction::Store:
+			case Instruction::InsertValue:
+			case Instruction::Resume:
 				return false;
 			case Instruction::FPToSI:
 			case Instruction::Sub:
@@ -644,14 +745,22 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 			continue;
 		if(I->hasName())
 			stream << "var " << I->getName().data() << " = ";
-		bool ret=compileNotInlineableInstruction(*I, blocksMap);
-		stream << ";\n";
-		if(ret==false)
+		if(I->isTerminator())
 		{
-			//Stop basic block compilation
-			return;
+			compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I), blocksMap);
+		}
+		else
+		{
+			bool ret=compileNotInlineableInstruction(*I);
+			stream << ";\n";
+			if(ret==false)
+			{
+				//Stop basic block compilation
+				return;
+			}
 		}
 	}
+	//At the end of the block
 }
 
 void JSWriter::compileMethod(Function& F)
