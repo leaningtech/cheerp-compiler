@@ -270,7 +270,7 @@ class JSWriter
 private:
 	Module* module;
 	raw_fd_ostream& stream;
-	uint32_t getIntFromValue(Value* v);
+	uint32_t getIntFromValue(Value* v) const;
 	std::set<const Value*> completeObjects;
 	bool isValidTypeCast(Type* src, Type* dst) const;
 	bool isClientType(Type* t) const;
@@ -281,8 +281,12 @@ private:
 	bool compileInlineableInstruction(const Instruction& I);
 	bool compileNotInlineableInstruction(const Instruction& I);
 	void compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from) const;
+	void compileRecursiveAccessToGEP(const GetElementPtrInst& gep, const Type* curType,
+		GetElementPtrInst::const_op_iterator it);
 	uint32_t compileType(Type* t);
-	uint32_t getTypeSize(Type* t);
+	uint32_t getTypeSize(Type* t) const;
+	uint32_t getStructOffsetFromElement(const StructType* st, uint32_t elem) const;
+	void compileDereferencePointer(const Value* v);
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -291,24 +295,52 @@ public:
 	void compileMethod(Function& F);
 	void compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap);
 	void compileOperand(const Value* v);
-	void compileConstant(const Constant* c);
-	void compileConstantExpr(const ConstantExpr* ce);
-	void compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level);
+	void compileConstant(const Constant* c) const;
+	void compileConstantExpr(const ConstantExpr* ce) const;
+	void compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level) const;
 };
 
-uint32_t JSWriter::getIntFromValue(Value* v)
+void JSWriter::compileDereferencePointer(const Value* v)
+{
+	assert(v->getType()->isPointerTy());
+	compileOperand(v);
+	stream << ".d[";
+	compileOperand(v);
+	stream << ".p+";
+	compileOperand(v);
+	stream << ".o]";
+}
+
+uint32_t JSWriter::getIntFromValue(Value* v) const
 {
 	assert(ConstantInt::classof(v));
 	ConstantInt* i=cast<ConstantInt>(v);
 	return i->getZExtValue();
 }
 
-void JSWriter::compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level)
+void JSWriter::compileRecursiveAccessToGEP(const GetElementPtrInst& gep,
+		const Type* curType,
+		GetElementPtrInst::const_op_iterator it)
+{
+	//Before this the base name has been already printed
+	if(it==gep.idx_end())
+		return;
+	assert(curType->isStructTy());
+	const StructType* st=static_cast<const StructType*>(curType);
+	//Special handling for constant offsets
+	assert(ConstantInt::classof(*it));
+	uint32_t elementIndex = getIntFromValue(*it);
+	stream << ".a" << getStructOffsetFromElement(st, elementIndex);
+	compileRecursiveAccessToGEP(gep, st->getElementType(elementIndex), ++it);
+}
+
+void JSWriter::compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level) const
 {
 	//TODO: Support multiple dereferece in GEP
 	assert(ce->getNumOperands()==level+3);
 	stream << "{ d: ";
 	compileConstant(base);
+	//TODO: this should include the size of the fields
 	stream << ", o: " << getIntFromValue(ce->getOperand(level+2));
 	stream << ", p: ";
 	assert(!ConstantStruct::classof(base));
@@ -340,7 +372,7 @@ bool JSWriter::isValidTypeCast(Type* srcPtr, Type* dstPtr) const
 	return false;
 }
 
-void JSWriter::compileConstantExpr(const ConstantExpr* ce)
+void JSWriter::compileConstantExpr(const ConstantExpr* ce) const
 {
 	switch(ce->getOpcode())
 	{
@@ -376,7 +408,7 @@ void JSWriter::compileConstantExpr(const ConstantExpr* ce)
 	}
 }
 
-void JSWriter::compileConstant(const Constant* c)
+void JSWriter::compileConstant(const Constant* c) const
 {
 	if(ConstantExpr::classof(c))
 		compileConstantExpr(cast<ConstantExpr>(c));
@@ -427,7 +459,7 @@ void JSWriter::compileOperand(const Value* v)
 /*
  * Keep in sync with compileType
  */
-uint32_t JSWriter::getTypeSize(Type* t)
+uint32_t JSWriter::getTypeSize(Type* t) const
 {
 	switch(t->getTypeID())
 	{
@@ -450,6 +482,14 @@ uint32_t JSWriter::getTypeSize(Type* t)
 			cerr << endl;
 			return 0;
 	}
+}
+
+uint32_t JSWriter::getStructOffsetFromElement(const StructType* st, uint32_t elem) const
+{
+	uint32_t ret=0;
+	for(uint32_t i=0;i<elem;i++)
+		ret+=getTypeSize(st->getElementType(i));
+	return ret;
 }
 
 uint32_t JSWriter::compileType(Type* t)
@@ -605,12 +645,19 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			//Also assign the element
 			assert(ivi.getNumIndices()==1);
 			//Find the offset to the pointed element
-			uint32_t offset=0;
-			for(uint32_t i=0;i<ivi.getIndices()[0];i++)
-				offset+=getTypeSize(st->getElementType(i));
+			uint32_t offset=getStructOffsetFromElement(st, ivi.getIndices()[0]);
 			assert(ivi.hasName());
 			stream << ivi.getName() << ".a" << offset << " = ";
 			compileOperand(ivi.getInsertedValueOperand());
+			return true;
+		}
+		case Instruction::Store:
+		{
+			const StoreInst& si=static_cast<const StoreInst&>(I);
+			const Value* ptrOp=si.getPointerOperand();
+			const Value* valOp=si.getValueOperand();
+			compileOperand(ptrOp);
+			compileOperand(valOp);
 			return true;
 		}
 		default:
@@ -671,14 +718,32 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::GetElementPtr:
 		{
 			const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(I);
-			//TODO: properly implement GEP
-			//For now just support client objects, which are only
-			//passed through
 			Type* t=gep.getOperand(0)->getType();
 			assert(t->isPointerTy());
 			PointerType* ptrT=static_cast<PointerType*>(t);
-			assert(isClientType(ptrT->getElementType()));
-			compileOperand(gep.getOperand(0));
+			if(isClientType(ptrT->getElementType()))
+			{
+				//Client objects are just passed through
+				compileOperand(gep.getOperand(0));
+			}
+			else
+			{
+				GetElementPtrInst::const_op_iterator it=gep.idx_begin();
+				assert(ConstantInt::classof(*it));
+				assert(getIntFromValue(*it)==0);
+				//First dereference the pointer
+				compileDereferencePointer(gep.getOperand(0));
+				//TODO: properly implement GEP
+				//If this has one use and the user
+				//is a store, optimize the code
+				assert(gep.hasOneUse());
+				const User* u=*gep.use_begin();
+				assert(StoreInst::classof(u));
+				compileRecursiveAccessToGEP(gep, ptrT->getElementType(), ++it);
+				//NOTE: here, we are assuming that we are being inlined by the store
+				//is this always true?
+				stream << " = ";
+			}
 			return true;
 		}
 		case Instruction::Sub:
@@ -726,6 +791,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::BitCast:
 			case Instruction::GetElementPtr:
 			case Instruction::FCmp:
+			case Instruction::ZExt:
 				return true;
 			default:
 				cerr << "Is " << I.getOpcodeName() << " inlineable?" << endl;
