@@ -775,6 +775,19 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			compileOperand(bi.getOperand(0));
 			return true;
 		}
+		case Instruction::SDiv:
+		{
+			//Integer signed division
+			assert(I.getNumOperands()==2);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(isI32Type(I.getOperand(1)->getType()));
+			stream << "((";
+			compileOperand(I.getOperand(0));
+			stream << " / ";
+			compileOperand(I.getOperand(1));
+			stream << ") >> 0)";
+			return true;
+		}
 		default:
 			cerr << "\tImplement inst " << I.getOpcodeName() << endl;
 			return false;
@@ -799,6 +812,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::Store:
 			case Instruction::InsertValue:
 			case Instruction::Resume:
+			case Instruction::Br:
 				return false;
 			case Instruction::FPToSI:
 			case Instruction::Sub:
@@ -806,7 +820,9 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::BitCast:
 			case Instruction::GetElementPtr:
 			case Instruction::FCmp:
+			case Instruction::ICmp:
 			case Instruction::ZExt:
+			case Instruction::Load:
 				return true;
 			default:
 				cerr << "Is " << I.getOpcodeName() << " inlineable?" << endl;
