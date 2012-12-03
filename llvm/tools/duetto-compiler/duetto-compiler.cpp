@@ -760,6 +760,21 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ") >> 0)";
 			return true;
 		}
+		case Instruction::ZExt:
+		{
+			const BitCastInst& bi=static_cast<const BitCastInst&>(I);
+			Type* src=bi.getSrcTy();
+			Type* dst=bi.getDestTy();
+			assert(src->isIntegerTy() && dst->isIntegerTy());
+			IntegerType* srcI=static_cast<IntegerType*>(src);
+			IntegerType* dstI=static_cast<IntegerType*>(dst);
+			assert(srcI->getBitWidth()<=32);
+			assert(dstI->getBitWidth()<=32);
+			assert(srcI->getBitWidth()<=dstI->getBitWidth());
+			//The operation is a NOP
+			compileOperand(bi.getOperand(0));
+			return true;
+		}
 		default:
 			cerr << "\tImplement inst " << I.getOpcodeName() << endl;
 			return false;
