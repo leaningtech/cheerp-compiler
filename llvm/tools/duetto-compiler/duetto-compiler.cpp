@@ -564,6 +564,7 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 			stream << "return ";
 			if(retVal)
 				compileOperand(retVal);
+			stream << ");\n";
 			assert(I.getNumSuccessors()==0);
 			break;
 		}
@@ -593,6 +594,21 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 		case Instruction::Resume:
 		{
 			//TODO: support exceptions
+			break;
+		}
+		case Instruction::Br:
+		{
+			const BranchInst& bi=static_cast<const BranchInst&>(I);
+			if(bi.isUnconditional())
+				stream << "__block = " << blocksMap.find(bi.getSuccessor(0))->second << ";\n";
+			else
+			{
+				stream << "if( ";
+				compileOperand(bi.getCondition());
+				stream << ") __block = " << blocksMap.find(bi.getSuccessor(0))->second <<
+					"; else __block = " << blocksMap.find(bi.getSuccessor(1))->second <<
+					";\n";
+			}
 			break;
 		}
 		default:
