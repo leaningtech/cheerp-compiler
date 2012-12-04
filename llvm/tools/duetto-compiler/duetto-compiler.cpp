@@ -283,6 +283,7 @@ private:
 	void compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from) const;
 	void compileRecursiveAccessToGEP(const GetElementPtrInst& gep, const Type* curType,
 		GetElementPtrInst::const_op_iterator it);
+	void compilePredicate(CmpInst::Predicate p);
 	uint32_t compileType(Type* t);
 	uint32_t getTypeSize(Type* t) const;
 	uint32_t getStructOffsetFromElement(const StructType* st, uint32_t elem) const;
@@ -299,6 +300,33 @@ public:
 	void compileConstantExpr(const ConstantExpr* ce) const;
 	void compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level) const;
 };
+
+void JSWriter::compilePredicate(CmpInst::Predicate p)
+{
+	switch(p)
+	{
+		case CmpInst::ICMP_EQ:
+			stream << " == ";
+			break;
+		case CmpInst::ICMP_NE:
+			stream << " != ";
+			break;
+		case CmpInst::ICMP_SGT:
+			stream << " > ";
+			break;
+		case CmpInst::ICMP_SGE:
+			stream << " >= ";
+			break;
+		case CmpInst::ICMP_SLT:
+			stream << " < ";
+			break;
+		case CmpInst::ICMP_SLE:
+			stream << " <= ";
+			break;
+		default:
+			cerr << "Support predicate " << p << endl;
+	}
+}
 
 void JSWriter::compileDereferencePointer(const Value* v)
 {
@@ -429,7 +457,7 @@ void JSWriter::compileConstant(const Constant* c) const
 	else if(ConstantInt::classof(c))
 	{
 		const ConstantInt* i=cast<const ConstantInt>(c);
-		assert(i->getBitWidth()>=32);
+		assert(i->getBitWidth()<=32);
 		stream << i->getSExtValue();
 	}
 	else
@@ -802,6 +830,29 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << " / ";
 			compileOperand(I.getOperand(1));
 			stream << ") >> 0)";
+			return true;
+		}
+		case Instruction::ICmp:
+		{
+			//Integer comparison
+			const CmpInst& ci=static_cast<const CmpInst&>(I);
+			assert(ci.getNumOperands()==2);
+			//Check that the operation is JS safe
+			switch(ci.getPredicate())
+			{
+				case CmpInst::ICMP_EQ:
+				case CmpInst::ICMP_NE:
+					//Those are safe in any size
+					break;
+				default:
+					assert(isI32Type(ci.getOperand(0)->getType()));
+					assert(isI32Type(ci.getOperand(1)->getType()));
+			}
+			stream << "(";
+			compileOperand(ci.getOperand(0));
+			compilePredicate(ci.getPredicate());
+			compileOperand(ci.getOperand(1));
+			stream << ")";
 			return true;
 		}
 		default:
