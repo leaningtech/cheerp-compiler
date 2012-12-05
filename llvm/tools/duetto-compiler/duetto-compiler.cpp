@@ -289,6 +289,7 @@ private:
 	uint32_t getStructOffsetFromElement(const StructType* st, uint32_t elem) const;
 	void compileDereferencePointer(const Value* v);
 	void compileFastGEPDereference(const GetElementPtrInst& gep);
+	void printLLVMName(const StringRef& s) const;
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -328,6 +329,18 @@ void JSWriter::compilePredicate(CmpInst::Predicate p)
 			break;
 		default:
 			cerr << "Support predicate " << p << endl;
+	}
+}
+
+void JSWriter::printLLVMName(const StringRef& s) const
+{
+	const char* data=s.data();
+	for(uint32_t i=0;i<s.size();i++)
+	{
+		if(data[i]=='.')
+			stream.write("_",1);
+		else
+			stream.write(data+i,1);
 	}
 }
 
@@ -1000,7 +1013,11 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 		if(isInlineable(*I))
 			continue;
 		if(I->hasName())
-			stream << "var " << I->getName().data() << " = ";
+		{
+			stream << "var ";
+			printLLVMName(I->getName());
+			stream << " = ";
+		}
 		if(I->isTerminator())
 		{
 			compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I), blocksMap);
