@@ -1054,14 +1054,14 @@ void JSWriter::compileMethod(Function& F)
 		B=F.begin();
 
 		//Create an emscripten style switch for now
-		stream << "var __block=0;\nswitch(__block){\n";
+		stream << "var __block=0;\nwhile(true)}\nswitch(__block){\n";
 		for(;B!=BE;++B)
 		{
 			stream << "case " << blocksMap.find(&(*B))->second << ":\n";
 			compileBB(*B, blocksMap);
 			stream << "break;\n";
 		}
-		stream << "}\n";
+		stream << "}}\n";
 	}
 
 	stream << "}\n";
