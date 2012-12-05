@@ -271,7 +271,7 @@ private:
 	Module* module;
 	raw_fd_ostream& stream;
 	uint32_t getIntFromValue(Value* v) const;
-	std::set<const Value*> completeObjects;
+	//std::set<const Value*> completeObjects;
 	bool isValidTypeCast(Type* src, Type* dst) const;
 	bool isClientType(Type* t) const;
 	bool isI32Type(Type* t) const;
@@ -288,6 +288,7 @@ private:
 	uint32_t getTypeSize(Type* t) const;
 	uint32_t getStructOffsetFromElement(const StructType* st, uint32_t elem) const;
 	void compileDereferencePointer(const Value* v);
+	void compileFastGEPDereference(const GetElementPtrInst& gep);
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -700,7 +701,14 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			const StoreInst& si=static_cast<const StoreInst&>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
-			compileOperand(ptrOp);
+			assert(GetElementPtrInst::classof(ptrOp));
+			//If the ptrOp has a single use and it'a a GEP
+			//we can optimize it
+			assert(ptrOp->hasOneUse());
+			assert(GetElementPtrInst::classof(ptrOp));
+			const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
+			compileFastGEPDereference(gep);
+			stream << " = ";
 			compileOperand(valOp);
 			return true;
 		}
@@ -712,6 +720,19 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 bool JSWriter::isI32Type(Type* t) const
 {
 	return t->isIntegerTy() && static_cast<IntegerType*>(t)->getBitWidth()==32;
+}
+
+void JSWriter::compileFastGEPDereference(const GetElementPtrInst& gep)
+{
+	GetElementPtrInst::const_op_iterator it=gep.idx_begin();
+	assert(ConstantInt::classof(*it));
+	assert(getIntFromValue(*it)==0);
+	//First dereference the pointer
+	compileDereferencePointer(gep.getOperand(0));
+	Type* t=gep.getOperand(0)->getType();
+	assert(t->isPointerTy());
+	PointerType* ptrT=static_cast<PointerType*>(t);
+	compileRecursiveAccessToGEP(gep, ptrT->getElementType(), ++it);
 }
 
 /*
@@ -734,12 +755,13 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::Alloca:
 		{
 			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
-			//Alloca is supposed to return a pointer. We will cheat and return
-			//an object.
+			//Alloca must return a pointer, create a 1 element array
 			assert(ai.hasName());
+			stream << "{ d: [";
 			compileType(ai.getAllocatedType());
+			stream << "], o: 0, p: ''}";
 			//Take note that this is a complete object
-			completeObjects.insert(&I);
+			//completeObjects.insert(&I);
 			return true;
 		}
 		case Instruction::FPToSI:
@@ -772,21 +794,8 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			}
 			else
 			{
-				GetElementPtrInst::const_op_iterator it=gep.idx_begin();
-				assert(ConstantInt::classof(*it));
-				assert(getIntFromValue(*it)==0);
-				//First dereference the pointer
-				compileDereferencePointer(gep.getOperand(0));
 				//TODO: properly implement GEP
-				//If this has one use and the user
-				//is a store, optimize the code
-				assert(gep.hasOneUse());
-				const User* u=*gep.use_begin();
-				assert(StoreInst::classof(u));
-				compileRecursiveAccessToGEP(gep, ptrT->getElementType(), ++it);
-				//NOTE: here, we are assuming that we are being inlined by the store
-				//is this always true?
-				stream << " = ";
+				assert(false);
 			}
 			return true;
 		}
@@ -854,6 +863,22 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			compileOperand(ci.getOperand(1));
 			stream << ")";
 			return true;
+		}
+		case Instruction::Load:
+		{
+			const LoadInst& li=static_cast<const LoadInst&>(I);
+			const Value* ptrOp=li.getPointerOperand();
+			assert(GetElementPtrInst::classof(ptrOp));
+			//If the ptrOp has a single use and it'a a GEP
+			//we can optimize it
+			assert(ptrOp->hasOneUse());
+			assert(GetElementPtrInst::classof(ptrOp));
+			const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
+			stream << "(";
+			compileFastGEPDereference(gep);
+			stream << ")";
+			return true;
+
 		}
 		default:
 			cerr << "\tImplement inst " << I.getOpcodeName() << endl;
