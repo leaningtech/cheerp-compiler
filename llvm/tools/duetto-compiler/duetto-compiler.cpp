@@ -492,7 +492,7 @@ void JSWriter::compileOperand(const Value* v)
 	else if(dyn_cast<Instruction>(v) && isInlineable(*cast<Instruction>(v)))
 		compileInlineableInstruction(*cast<Instruction>(v));
 	else if(v->hasName())
-		stream << v->getName().data();
+		printLLVMName(v->getName());
 	else
 	{
 		cerr << "No name for value ";
@@ -681,6 +681,7 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 		case Instruction::LandingPad:
 		{
 			//TODO: Support exceptions
+			stream << " alert('Exceptions not supported')";
 			//Do not continue block
 			return false;
 		}
@@ -700,14 +701,22 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			{
 				//We have to assemble the type object from scratch
 				compileType(t);
+				stream << ";\n";
+				//Also assign the element
+				assert(ivi.getNumIndices()==1);
+				//Find the offset to the pointed element
+				assert(ivi.hasName());
+				printLLVMName(ivi.getName());
 			}
-			stream << ";\n";
-			//Also assign the element
-			assert(ivi.getNumIndices()==1);
-			//Find the offset to the pointed element
+			else
+			{
+				//Optimize for the assembly of the aggregate values
+				assert(aggr->hasOneUse());
+				assert(aggr->hasName());
+				printLLVMName(aggr->getName());
+			}
 			uint32_t offset=getStructOffsetFromElement(st, ivi.getIndices()[0]);
-			assert(ivi.hasName());
-			stream << ivi.getName() << ".a" << offset << " = ";
+			stream << ".a" << offset << " = ";
 			compileOperand(ivi.getInsertedValueOperand());
 			return true;
 		}
@@ -1012,7 +1021,7 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 	{
 		if(isInlineable(*I))
 			continue;
-		if(I->hasName())
+		if(I->hasName() && I->getOpcode()!=Instruction::PHI) //Phys are manually handled
 		{
 			stream << "var ";
 			printLLVMName(I->getName());
