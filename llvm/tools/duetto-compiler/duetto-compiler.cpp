@@ -595,7 +595,7 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 			stream << "return ";
 			if(retVal)
 				compileOperand(retVal);
-			stream << ");\n";
+			stream << ";\n";
 			assert(I.getNumSuccessors()==0);
 			break;
 		}
@@ -1054,7 +1054,7 @@ void JSWriter::compileMethod(Function& F)
 		B=F.begin();
 
 		//Create an emscripten style switch for now
-		stream << "var __block=0;\nwhile(true)}\nswitch(__block){\n";
+		stream << "var __block=0;\nwhile(true){\nswitch(__block){\n";
 		for(;B!=BE;++B)
 		{
 			stream << "case " << blocksMap.find(&(*B))->second << ":\n";
