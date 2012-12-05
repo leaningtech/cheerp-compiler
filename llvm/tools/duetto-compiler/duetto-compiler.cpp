@@ -307,10 +307,12 @@ void JSWriter::compilePredicate(CmpInst::Predicate p)
 	switch(p)
 	{
 		case CmpInst::ICMP_EQ:
-			stream << " == ";
+			stream << " === ";
 			break;
+		case CmpInst::FCMP_UNE: //The undordered case correspond to the usual JS operator
+					//See ECMA-262, Section 11.9.6
 		case CmpInst::ICMP_NE:
-			stream << " != ";
+			stream << " !== ";
 			break;
 		case CmpInst::ICMP_SGT:
 			stream << " > ";
@@ -856,6 +858,25 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 				default:
 					assert(isI32Type(ci.getOperand(0)->getType()));
 					assert(isI32Type(ci.getOperand(1)->getType()));
+			}
+			stream << "(";
+			compileOperand(ci.getOperand(0));
+			compilePredicate(ci.getPredicate());
+			compileOperand(ci.getOperand(1));
+			stream << ")";
+			return true;
+		}
+		case Instruction::FCmp:
+		{
+			//Integer comparison
+			const CmpInst& ci=static_cast<const CmpInst&>(I);
+			assert(ci.getNumOperands()==2);
+			//Check that the operation is JS safe
+			switch(ci.getPredicate())
+			{
+				default:
+					assert(ci.getOperand(0)->getType()->isDoubleTy());
+					assert(ci.getOperand(1)->getType()->isDoubleTy());
 			}
 			stream << "(";
 			compileOperand(ci.getOperand(0));
