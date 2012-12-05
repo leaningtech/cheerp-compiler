@@ -617,7 +617,7 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 			const InvokeInst& ci=static_cast<const InvokeInst&>(I);
 			//TODO: Support unwind
 			//For now, pretend it's a regular call
-			stream << ci.getCalledFunction()->getName().data() << '(';
+			stream << '_' << ci.getCalledFunction()->getName().data() << '(';
 			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
 			{
 				if(i!=0)
@@ -668,7 +668,7 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 		case Instruction::Call:
 		{
 			const CallInst& ci=static_cast<const CallInst&>(I);
-			stream << ci.getCalledFunction()->getName().data() << '(';
+			stream << '_' << ci.getCalledFunction()->getName().data() << '(';
 			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
 			{
 				if(i!=0)
@@ -1050,7 +1050,7 @@ void JSWriter::compileMethod(Function& F)
 	if(F.empty())
 		return;
 	std::cerr << (string)F.getName() << std::endl;
-	stream << "function " << (string)F.getName() << "(";
+	stream << "function _" << F.getName().data() << "(";
 	Function::const_arg_iterator A=F.arg_begin();
 	Function::const_arg_iterator AE=F.arg_end();
 	int i=0;
