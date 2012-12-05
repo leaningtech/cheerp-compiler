@@ -775,12 +775,25 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			assert(srcT->isDoubleTy());
 			assert(isI32Type(dstT));
 
-			assert(ci.hasName());
 			stream << "(";
 			compileOperand(ci.getOperand(0));
 			//Seems to be the fastest way
 			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
 			stream << " >> 0)";
+			return true;
+		}
+		case Instruction::SIToFP:
+		{
+			const CastInst& ci=static_cast<const CastInst&>(I);
+			//Check that the in and out types are sane
+			Type* srcT = ci.getSrcTy();
+			Type* dstT = ci.getDestTy();
+			assert(isI32Type(srcT));
+			assert(dstT->isDoubleTy());
+			//It's a NOP, values are logically FP anyway in JS
+			compileOperand(ci.getOperand(0));
+			//Seems to be the fastest way
+			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
 			return true;
 		}
 		case Instruction::GetElementPtr:
@@ -944,8 +957,10 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::Br:
 				return false;
 			case Instruction::Add:
-			case Instruction::FPToSI:
 			case Instruction::Sub:
+			case Instruction::Mul:
+			case Instruction::FPToSI:
+			case Instruction::SIToFP:
 			case Instruction::SDiv:
 			case Instruction::BitCast:
 			case Instruction::GetElementPtr:
