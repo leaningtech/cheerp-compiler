@@ -290,6 +290,10 @@ private:
 	void compileDereferencePointer(const Value* v);
 	void compileFastGEPDereference(const GetElementPtrInst& gep);
 	void printLLVMName(const StringRef& s) const;
+	void handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
+			User::const_op_iterator itE);
+	bool handleBuiltinCall(const char* ident, User::const_op_iterator it,
+			User::const_op_iterator itE);
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -302,6 +306,88 @@ public:
 	void compileConstantExpr(const ConstantExpr* ce) const;
 	void compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level) const;
 };
+
+void JSWriter::handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
+			User::const_op_iterator itE)
+{
+	//Read the class name
+	char* className;
+	int classLen = strtol(ident,&className,10);
+	ident = className + classLen;
+
+	//Read the function name
+	char* funcName;
+	int funcNameLen=strtol(ident,&funcName,10);
+	(void)funcNameLen;//Silence a warning
+
+	//The first arg should be the object
+	assert(it!=itE);
+	if(strncmp(funcName,"get_",4)==0 && (itE-it)==1)
+	{
+		//Getter
+		compileOperand(*it);
+		stream << "." << funcName+4;
+	}
+	else if(strncmp(funcName,"set_",4)==0 && (itE-it)==2)
+	{
+		//Setter
+		compileOperand(*it);
+		++it;
+		stream << "." << funcName+4 << " = ";
+		compileOperand(*it);
+	}
+	else
+	{
+		//Regular call
+		compileOperand(*it);
+		++it;
+		stream << "." << funcName << "(";
+		for(User::const_op_iterator cur=it;it!=itE;++it)
+		{
+			if(cur!=it)
+				stream << ",";
+			compileOperand(*it);
+		}
+	}
+}
+
+bool JSWriter::handleBuiltinCall(const char* ident, User::const_op_iterator it,
+			User::const_op_iterator itE)
+{
+	if(strcmp(ident,"__ZN6client5ArrayixEi")==0 ||
+		strcmp(ident,"__ZNK6client6ObjectcvdEv"))
+	{
+		//Do not touch method that are implemented in native JS code
+		return false;
+	}
+	else if(strncmp(ident,"__ZN6client6Client",18))
+	{
+		//Handle getters in Client
+		const char* rest=ident+18;
+		char* functionName;
+		int functionNameLen=strtol(rest,&functionName,10);
+		assert(strcmp(functionName,"get_")==0);
+		stream.write(functionName+4,functionNameLen-4);
+		return true;
+	}
+	else if(strncmp(ident,"__ZN6client",11)==0)
+	{
+		handleBuiltinNamespace(ident+11,it,itE);
+		return true;
+	}
+	else if(strncmp(ident,"__ZNK6client",12)==0)
+	{
+		handleBuiltinNamespace(ident+12,it,itE);
+		return true;
+	}
+	else if(strncmp(ident,"_default_duettoCreateBuiltin_",29)==0)
+	{
+	    //Default handling of builtin constructors
+	    stream << "new " << (ident+29) << "()";
+	    return true;
+	}
+	return false;
+}
 
 void JSWriter::compilePredicate(CmpInst::Predicate p)
 {
