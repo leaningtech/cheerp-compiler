@@ -348,42 +348,43 @@ void JSWriter::handleBuiltinNamespace(const char* ident, User::const_op_iterator
 				stream << ",";
 			compileOperand(*it);
 		}
+		stream << ")";
 	}
 }
 
 bool JSWriter::handleBuiltinCall(const char* ident, User::const_op_iterator it,
 			User::const_op_iterator itE)
 {
-	if(strcmp(ident,"__ZN6client5ArrayixEi")==0 ||
-		strcmp(ident,"__ZNK6client6ObjectcvdEv"))
+	if(strcmp(ident,"_ZN6client5ArrayixEi")==0 ||
+		strcmp(ident,"_ZNK6client6ObjectcvdEv")==0)
 	{
 		//Do not touch method that are implemented in native JS code
 		return false;
 	}
-	else if(strncmp(ident,"__ZN6client6Client",18))
+	else if(strncmp(ident,"_ZN6client6Client",17)==0)
 	{
 		//Handle getters in Client
-		const char* rest=ident+18;
+		const char* rest=ident+17;
 		char* functionName;
 		int functionNameLen=strtol(rest,&functionName,10);
-		assert(strcmp(functionName,"get_")==0);
+		assert(strncmp(functionName,"get_",4)==0);
 		stream.write(functionName+4,functionNameLen-4);
 		return true;
 	}
-	else if(strncmp(ident,"__ZN6client",11)==0)
+	else if(strncmp(ident,"_ZN6client",10)==0)
+	{
+		handleBuiltinNamespace(ident+10,it,itE);
+		return true;
+	}
+	else if(strncmp(ident,"_ZNK6client",11)==0)
 	{
 		handleBuiltinNamespace(ident+11,it,itE);
 		return true;
 	}
-	else if(strncmp(ident,"__ZNK6client",12)==0)
-	{
-		handleBuiltinNamespace(ident+12,it,itE);
-		return true;
-	}
-	else if(strncmp(ident,"_default_duettoCreateBuiltin_",29)==0)
+	else if(strncmp(ident,"default_duettoCreateBuiltin_",28)==0)
 	{
 	    //Default handling of builtin constructors
-	    stream << "new " << (ident+29) << "()";
+	    stream << "new " << (ident+28) << "()";
 	    return true;
 	}
 	return false;
@@ -701,21 +702,27 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 		case Instruction::Invoke:
 		{
 			const InvokeInst& ci=static_cast<const InvokeInst&>(I);
-			//TODO: Support unwind
-			//For now, pretend it's a regular call
-			stream << '_' << ci.getCalledFunction()->getName().data() << '(';
-			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
+			const char* funcName=ci.getCalledFunction()->getName().data();
+			if(handleBuiltinCall(funcName,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
+				stream << ";\n";
+			else
 			{
-				if(i!=0)
-					stream << ", ";
-				compileOperand(ci.getArgOperand(i));
-			}
-			stream << ");\n";
-			//For each successor output the variables for the phi nodes
-			for(uint32_t i=0;i<I.getNumSuccessors();i++)
-			{
-				BasicBlock* b=I.getSuccessor(i);
-				compilePHIOfBlockFromOtherBlock(b, I.getParent());
+				//TODO: Support unwind
+				//For now, pretend it's a regular call
+				stream << '_' << ci.getCalledFunction()->getName().data() << '(';
+				for(uint32_t i=0;i<ci.getNumArgOperands();i++)
+				{
+					if(i!=0)
+						stream << ", ";
+					compileOperand(ci.getArgOperand(i));
+				}
+				stream << ");\n";
+				//For each successor output the variables for the phi nodes
+				for(uint32_t i=0;i<I.getNumSuccessors();i++)
+				{
+					BasicBlock* b=I.getSuccessor(i);
+					compilePHIOfBlockFromOtherBlock(b, I.getParent());
+				}
 			}
 			//Add code to jump to the next block
 			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
@@ -754,7 +761,10 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 		case Instruction::Call:
 		{
 			const CallInst& ci=static_cast<const CallInst&>(I);
-			stream << '_' << ci.getCalledFunction()->getName().data() << '(';
+			const char* funcName=ci.getCalledFunction()->getName().data();
+			if(handleBuiltinCall(funcName,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
+				return true;
+			stream << '_' << funcName << '(';
 			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
 			{
 				if(i!=0)
@@ -1181,6 +1191,8 @@ void JSWriter::compileMethod(Function& F)
 
 void JSWriter::makeJS()
 {
+	//Header: output a guard variable to to set the environment
+	stream << "var __duetto_compiler = true;\n";
 	Module::iterator F=module->begin();
 	Module::iterator FE=module->end();
 	for (; F != FE; ++F)
