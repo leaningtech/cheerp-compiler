@@ -427,6 +427,8 @@ void JSWriter::compilePredicate(CmpInst::Predicate p)
 void JSWriter::printLLVMName(const StringRef& s) const
 {
 	const char* data=s.data();
+	//Add an '_' to skip reserved names
+	stream.write("_",1);
 	for(uint32_t i=0;i<s.size();i++)
 	{
 		if(data[i]=='.')
@@ -570,8 +572,7 @@ void JSWriter::compileConstant(const Constant* c)
 	else if(Function::classof(c))
 	{
 		assert(c->hasName());
-		//We must prefix a '_' to function names
-		stream << '_';
+		//printLLVMName already add '_' to the name
 		printLLVMName(c->getName());
 	}
 	else
@@ -1158,15 +1159,16 @@ void JSWriter::compileMethod(Function& F)
 		return;
 	std::cerr << (string)F.getName() << std::endl;
 	stream << "function _" << F.getName().data() << "(";
-	Function::const_arg_iterator A=F.arg_begin();
-	Function::const_arg_iterator AE=F.arg_end();
-	int i=0;
-	for(;A!=AE;++A)
+	const Function::const_arg_iterator A=F.arg_begin();
+	const Function::const_arg_iterator AE=F.arg_end();
+	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 	{
-		if(i!=0)
+		if(curArg!=A)
 			stream << ", ";
-		i++;
-		stream << "arg" << A->getArgNo();
+		if(A->hasName())
+			printLLVMName(A->getName());
+		else
+			stream << "arg" << A->getArgNo();
 	}
 	stream << ") {\n";
 	std::map<const BasicBlock*, uint32_t> blocksMap;
@@ -1210,6 +1212,8 @@ void JSWriter::makeJS()
 	{
 		compileMethod(*F);
 	}
+	//Invoke the webMain function
+	stream << "__Z7webMainv();\n";
 }
 
 // main - Entry point for the duetto double target compiler.
