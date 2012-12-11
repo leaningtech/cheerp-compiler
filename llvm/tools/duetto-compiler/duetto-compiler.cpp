@@ -833,13 +833,16 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			const StoreInst& si=static_cast<const StoreInst&>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
-			assert(GetElementPtrInst::classof(ptrOp));
 			//If the ptrOp has a single use and it'a a GEP
 			//we can optimize it
-			assert(ptrOp->hasOneUse());
-			assert(GetElementPtrInst::classof(ptrOp));
-			const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
-			compileFastGEPDereference(gep);
+			if(ptrOp->hasOneUse())
+			{
+				assert(GetElementPtrInst::classof(ptrOp));
+				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
+				compileFastGEPDereference(gep);
+			}
+			else
+				compileDereferencePointer(ptrOp);
 			stream << " = ";
 			compileOperand(valOp);
 			return true;
@@ -1062,14 +1065,16 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 		{
 			const LoadInst& li=static_cast<const LoadInst&>(I);
 			const Value* ptrOp=li.getPointerOperand();
-			assert(GetElementPtrInst::classof(ptrOp));
+			stream << "(";
 			//If the ptrOp has a single use and it'a a GEP
 			//we can optimize it
-			assert(ptrOp->hasOneUse());
-			assert(GetElementPtrInst::classof(ptrOp));
-			const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
-			stream << "(";
-			compileFastGEPDereference(gep);
+			if(ptrOp->hasOneUse() && GetElementPtrInst::classof(ptrOp))
+			{
+				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
+				compileFastGEPDereference(gep);
+			}
+			else
+				compileDereferencePointer(ptrOp);
 			stream << ")";
 			return true;
 
@@ -1112,6 +1117,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::ICmp:
 			case Instruction::ZExt:
 			case Instruction::Load:
+			case Instruction::Select:
 				return true;
 			default:
 				cerr << "Is " << I.getOpcodeName() << " inlineable?" << endl;
