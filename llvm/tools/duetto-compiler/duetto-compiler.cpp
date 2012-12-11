@@ -1165,10 +1165,10 @@ void JSWriter::compileMethod(Function& F)
 	{
 		if(curArg!=A)
 			stream << ", ";
-		if(A->hasName())
-			printLLVMName(A->getName());
+		if(curArg->hasName())
+			printLLVMName(curArg->getName());
 		else
-			stream << "arg" << A->getArgNo();
+			stream << "arg" << curArg->getArgNo();
 	}
 	stream << ") {\n";
 	std::map<const BasicBlock*, uint32_t> blocksMap;
