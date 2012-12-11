@@ -566,7 +566,8 @@ void JSWriter::compileConstant(const Constant* c)
 	else if(ConstantInt::classof(c))
 	{
 		const ConstantInt* i=cast<const ConstantInt>(c);
-		assert(i->getBitWidth()<=32);
+		//TODO: Restore when 64bit are forbidden by the frontend
+		//assert(i->getBitWidth()<=32);
 		stream << i->getSExtValue();
 	}
 	else if(Function::classof(c))
@@ -646,7 +647,8 @@ uint32_t JSWriter::compileType(Type* t)
 			//We will allow anything shorter.
 			//NOTE: Only bit operations are allowed on shorter types
 			//this is enforced on a per-operation basis
-			assert(it->getBitWidth()<=32);
+			//TODO: out assertion back
+			//assert(it->getBitWidth()<=32);
 			//Print out a '0'. To let the engine know this is an integer
 			stream << '0';
 			return 4;
@@ -761,6 +763,7 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 			break;
 		}
 		default:
+			stream << "alert('Unsupported code');\n";
 			cerr << "\tImplement terminator inst " << I.getOpcodeName() << endl;
 			break;
 	}
@@ -854,7 +857,11 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 
 bool JSWriter::isI32Type(Type* t) const
 {
-	return t->isIntegerTy() && static_cast<IntegerType*>(t)->getBitWidth()==32;
+	//TODO: To compile bullet 64 bit integers
+	//are needed. We don't want to support them
+	//but for first round support we will cheat
+	//as emscripten does and allow them
+	return t->isIntegerTy();// && static_cast<IntegerType*>(t)->getBitWidth()==32;
 }
 
 void JSWriter::compileFastGEPDereference(const GetElementPtrInst& gep)
@@ -984,8 +991,9 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			assert(src->isIntegerTy() && dst->isIntegerTy());
 			IntegerType* srcI=static_cast<IntegerType*>(src);
 			IntegerType* dstI=static_cast<IntegerType*>(dst);
-			assert(srcI->getBitWidth()<=32);
-			assert(dstI->getBitWidth()<=32);
+			//TODO: put asserts back
+			//assert(srcI->getBitWidth()<=32);
+			//assert(dstI->getBitWidth()<=32);
 			assert(srcI->getBitWidth()<=dstI->getBitWidth());
 			//The operation is a NOP
 			compileOperand(bi.getOperand(0));
@@ -1080,6 +1088,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 
 		}
 		default:
+			stream << "alert('Unsupported code');\n";
 			cerr << "\tImplement inst " << I.getOpcodeName() << endl;
 			return false;
 	}
@@ -1104,10 +1113,12 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::InsertValue:
 			case Instruction::Resume:
 			case Instruction::Br:
+			case Instruction::Alloca:
 				return false;
 			case Instruction::Add:
 			case Instruction::Sub:
 			case Instruction::Mul:
+			case Instruction::Xor:
 			case Instruction::FPToSI:
 			case Instruction::SIToFP:
 			case Instruction::SDiv:
@@ -1118,6 +1129,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::ZExt:
 			case Instruction::Load:
 			case Instruction::Select:
+			case Instruction::ExtractValue:
 				return true;
 			default:
 				cerr << "Is " << I.getOpcodeName() << " inlineable?" << endl;
