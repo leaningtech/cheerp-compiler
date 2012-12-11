@@ -281,14 +281,16 @@ private:
 	bool compileInlineableInstruction(const Instruction& I);
 	bool compileNotInlineableInstruction(const Instruction& I);
 	void compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from) const;
-	void compileRecursiveAccessToGEP(const GetElementPtrInst& gep, const Type* curType,
-		GetElementPtrInst::const_op_iterator it);
+	const Type* compileRecursiveAccessToGEP(const Type* curType,
+		GetElementPtrInst::const_op_iterator it,
+		const GetElementPtrInst::const_op_iterator itE);
 	void compilePredicate(CmpInst::Predicate p);
 	uint32_t compileType(Type* t);
 	uint32_t getTypeSize(Type* t) const;
 	uint32_t getStructOffsetFromElement(const StructType* st, uint32_t elem) const;
 	void compileDereferencePointer(const Value* v);
 	void compileFastGEPDereference(const GetElementPtrInst& gep);
+	void compileGEP(const GetElementPtrInst& gep);
 	void printLLVMName(const StringRef& s) const;
 	void handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
 			User::const_op_iterator itE);
@@ -456,20 +458,20 @@ uint32_t JSWriter::getIntFromValue(Value* v) const
 	return i->getZExtValue();
 }
 
-void JSWriter::compileRecursiveAccessToGEP(const GetElementPtrInst& gep,
-		const Type* curType,
-		GetElementPtrInst::const_op_iterator it)
+const Type* JSWriter::compileRecursiveAccessToGEP(const Type* curType,
+		GetElementPtrInst::const_op_iterator it,
+		const GetElementPtrInst::const_op_iterator itE)
 {
 	//Before this the base name has been already printed
-	if(it==gep.idx_end())
-		return;
+	if(it==itE)
+		return curType;
 	assert(curType->isStructTy());
 	const StructType* st=static_cast<const StructType*>(curType);
 	//Special handling for constant offsets
 	assert(ConstantInt::classof(*it));
 	uint32_t elementIndex = getIntFromValue(*it);
 	stream << ".a" << getStructOffsetFromElement(st, elementIndex);
-	compileRecursiveAccessToGEP(gep, st->getElementType(elementIndex), ++it);
+	return compileRecursiveAccessToGEP(st->getElementType(elementIndex), ++it, itE);
 }
 
 void JSWriter::compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level)
@@ -877,6 +879,7 @@ bool JSWriter::isI32Type(Type* t) const
 void JSWriter::compileFastGEPDereference(const GetElementPtrInst& gep)
 {
 	GetElementPtrInst::const_op_iterator it=gep.idx_begin();
+	const GetElementPtrInst::const_op_iterator itE=gep.idx_end();
 	assert(ConstantInt::classof(*it));
 	assert(getIntFromValue(*it)==0);
 	//First dereference the pointer
@@ -884,7 +887,32 @@ void JSWriter::compileFastGEPDereference(const GetElementPtrInst& gep)
 	Type* t=gep.getOperand(0)->getType();
 	assert(t->isPointerTy());
 	PointerType* ptrT=static_cast<PointerType*>(t);
-	compileRecursiveAccessToGEP(gep, ptrT->getElementType(), ++it);
+	compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+}
+
+void JSWriter::compileGEP(const GetElementPtrInst& gep)
+{
+	GetElementPtrInst::const_op_iterator it=gep.idx_begin();
+	//We compile as usual till the last level
+	GetElementPtrInst::const_op_iterator itE=gep.idx_end()-1;
+	assert(ConstantInt::classof(*it));
+	assert(getIntFromValue(*it)==0);
+	//TODO: Same level access?
+	assert(it!=itE);
+	stream << "{ d: ";
+	//First dereference the pointer
+	compileDereferencePointer(gep.getOperand(0));
+	Type* t=gep.getOperand(0)->getType();
+	assert(t->isPointerTy());
+	PointerType* ptrT=static_cast<PointerType*>(t);
+	const Type* lastType=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+	//Now add the offset for the desired element
+	assert(StructType::classof(lastType));
+	assert(ConstantInt::classof(*itE));
+	uint32_t elementIndex = getIntFromValue(*itE);
+	stream << ", o: " << getStructOffsetFromElement(static_cast<const StructType*>(lastType),
+			elementIndex);
+	stream << ", p: '' }";
 }
 
 /*
@@ -958,10 +986,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 				compileOperand(gep.getOperand(0));
 			}
 			else
-			{
-				//TODO: properly implement GEP
-				assert(false);
-			}
+				compileGEP(gep);
 			return true;
 		}
 		case Instruction::Add:
