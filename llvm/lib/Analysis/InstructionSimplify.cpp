@@ -4525,7 +4525,7 @@ static Value *SimplifyGEPInst(Type *SrcTy, Value *Ptr,
       return Ptr;
 
     Type *Ty = SrcTy;
-    if (!IsScalableVec && Ty->isSized()) {
+    if (Q.DL.isByteAddressable() && !IsScalableVec && Ty->isSized()) {
       Value *P;
       uint64_t C;
       uint64_t TyAllocSize = Q.DL.getTypeAllocSize(Ty);
