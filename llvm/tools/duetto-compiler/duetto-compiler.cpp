@@ -776,10 +776,20 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 		case Instruction::Call:
 		{
 			const CallInst& ci=static_cast<const CallInst&>(I);
-			const char* funcName=ci.getCalledFunction()->getName().data();
-			if(handleBuiltinCall(funcName,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
-				return true;
-			stream << '_' << funcName << '(';
+			if(ci.getCalledFunction())
+			{
+				//Direct call
+				const char* funcName=ci.getCalledFunction()->getName().data();
+				if(handleBuiltinCall(funcName,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
+					return true;
+				stream << '_' << funcName;
+			}
+			else
+			{
+				//Indirect call
+				compileOperand(ci.getCalledValue());
+			}
+			stream << '(';
 			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
 			{
 				if(i!=0)
