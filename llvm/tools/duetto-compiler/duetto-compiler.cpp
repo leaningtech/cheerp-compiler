@@ -272,7 +272,7 @@ private:
 	raw_fd_ostream& stream;
 	uint32_t getIntFromValue(Value* v) const;
 	//std::set<const Value*> completeObjects;
-	bool isValidTypeCast(Type* src, Type* dst) const;
+	bool isValidTypeCast(const Value* cast, Type* src, Type* dst) const;
 	bool isClientType(Type* t) const;
 	bool isI32Type(Type* t) const;
 	bool isInlineable(const Instruction& I) const;
@@ -493,7 +493,7 @@ bool JSWriter::isClientType(Type* t) const
 		strncmp(t->getStructName().data(), "class.client::", 14)==0);
 }
 
-bool JSWriter::isValidTypeCast(Type* srcPtr, Type* dstPtr) const
+bool JSWriter::isValidTypeCast(const Value* castI, Type* srcPtr, Type* dstPtr) const
 {
 	//Only pointer casts are possible anyway
 	assert(srcPtr->isPointerTy() && dstPtr->isPointerTy());
@@ -505,6 +505,15 @@ bool JSWriter::isValidTypeCast(Type* srcPtr, Type* dstPtr) const
 	//Conversion between any function pointers are ok
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
+	//We allow the unsafe conversion to i8* only
+	//if there is a single usage and the usage is memcpy
+	if(dst->isIntegerTy(8) && castI->hasOneUse())
+	{
+		const User* u=*castI->use_begin();
+		const CallInst* ci=dyn_cast<const CallInst>(u);
+		if(ci && ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32")
+			return true;
+	}
 	src->dump();
 	cerr << endl;
 	dst->dump();
@@ -538,7 +547,7 @@ void JSWriter::compileConstantExpr(const ConstantExpr* ce)
 			Value* val=ce->getOperand(0);
 			Type* src=ce->getType();
 			Type* dst=val->getType();
-			assert(isValidTypeCast(src, dst));
+			assert(isValidTypeCast(val, src, dst));
 			compileOperand(val);
 			break;
 		}
@@ -928,7 +937,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			const BitCastInst& bi=static_cast<const BitCastInst&>(I);
 			Type* srcPtr=bi.getSrcTy();
 			Type* dstPtr=bi.getDestTy();
-			assert(isValidTypeCast(srcPtr, dstPtr));
+			assert(isValidTypeCast(&bi, srcPtr, dstPtr));
 			compileOperand(bi.getOperand(0));
 			return true;
 		}
@@ -1162,6 +1171,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::FCmp:
 			case Instruction::ICmp:
 			case Instruction::ZExt:
+			case Instruction::SExt:
 			case Instruction::Load:
 			case Instruction::Select:
 			case Instruction::ExtractValue:
