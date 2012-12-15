@@ -272,7 +272,7 @@ private:
 	raw_fd_ostream& stream;
 	uint32_t getIntFromValue(Value* v) const;
 	//std::set<const Value*> completeObjects;
-	bool isValidTypeCast(const Value* cast, Type* src, Type* dst) const;
+	bool isValidTypeCast(const Value* cast, const Value* castOp, Type* src, Type* dst) const;
 	bool isClientType(Type* t) const;
 	bool isI32Type(Type* t) const;
 	bool isInlineable(const Instruction& I) const;
@@ -493,7 +493,7 @@ bool JSWriter::isClientType(Type* t) const
 		strncmp(t->getStructName().data(), "class.client::", 14)==0);
 }
 
-bool JSWriter::isValidTypeCast(const Value* castI, Type* srcPtr, Type* dstPtr) const
+bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* srcPtr, Type* dstPtr) const
 {
 	//Only pointer casts are possible anyway
 	assert(srcPtr->isPointerTy() && dstPtr->isPointerTy());
@@ -505,13 +505,40 @@ bool JSWriter::isValidTypeCast(const Value* castI, Type* srcPtr, Type* dstPtr) c
 	//Conversion between any function pointers are ok
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
-	//We allow the unsafe conversion to i8* only
+	//We allow the unsafe cast to i8* only
 	//if there is a single usage and the usage is memcpy
 	if(dst->isIntegerTy(8) && castI->hasOneUse())
 	{
 		const User* u=*castI->use_begin();
 		const CallInst* ci=dyn_cast<const CallInst>(u);
 		if(ci && ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32")
+			return true;
+	}
+	//Also allow the unsafe cast from i8* only in the following 2 cases
+	//1) Casting from new
+	//2) Zeroing new memory
+	if(src->isIntegerTy(8) && castOp->getNumUses()<=2)
+	{
+		bool comesFromNew = false;
+		bool goesToMemset = false;
+		const CallInst* newCall=dyn_cast<const CallInst>(castOp);
+		if(newCall && newCall->getCalledFunction()->getName()=="_Znwj")
+			comesFromNew = true;
+		Value::const_use_iterator it=castOp->use_begin();
+		Value::const_use_iterator itE=castOp->use_end();
+		for(;it!=itE;++it)
+		{
+			//Check that the other use is a memset
+			if((*it)==castI)
+				continue;
+			const CallInst* ci=dyn_cast<const CallInst>(*it);
+			if(ci && ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32")
+			{
+				assert(!goesToMemset);
+				goesToMemset = true;
+			}
+		}
+		if(comesFromNew && goesToMemset)
 			return true;
 	}
 	src->dump();
@@ -547,7 +574,7 @@ void JSWriter::compileConstantExpr(const ConstantExpr* ce)
 			Value* val=ce->getOperand(0);
 			Type* src=ce->getType();
 			Type* dst=val->getType();
-			assert(isValidTypeCast(val, src, dst));
+			assert(isValidTypeCast(ce, val, src, dst));
 			compileOperand(val);
 			break;
 		}
@@ -859,9 +886,8 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			const Value* valOp=si.getValueOperand();
 			//If the ptrOp has a single use and it'a a GEP
 			//we can optimize it
-			if(ptrOp->hasOneUse())
+			if(ptrOp->hasOneUse() && GetElementPtrInst::classof(ptrOp))
 			{
-				assert(GetElementPtrInst::classof(ptrOp));
 				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
 				compileFastGEPDereference(gep);
 			}
@@ -937,7 +963,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			const BitCastInst& bi=static_cast<const BitCastInst&>(I);
 			Type* srcPtr=bi.getSrcTy();
 			Type* dstPtr=bi.getDestTy();
-			assert(isValidTypeCast(&bi, srcPtr, dstPtr));
+			assert(isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr));
 			compileOperand(bi.getOperand(0));
 			return true;
 		}
