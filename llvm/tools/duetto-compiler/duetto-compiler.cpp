@@ -506,13 +506,17 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
 	//We allow the unsafe cast to i8* only
-	//if there is a single usage and the usage is memcpy
+	//if there is a single usage and the usage is memcpy or memset
 	if(dst->isIntegerTy(8) && castI->hasOneUse())
 	{
 		const User* u=*castI->use_begin();
 		const CallInst* ci=dyn_cast<const CallInst>(u);
-		if(ci && ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32")
+		if(ci &&
+			(ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32" ||
+			(ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64")))
+		{
 			return true;
+		}
 	}
 	//Also allow the unsafe cast from i8* only in the following 2 cases
 	//1) Casting from new
@@ -1184,10 +1188,12 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::Resume:
 			case Instruction::Br:
 			case Instruction::Alloca:
+			case Instruction::Switch:
 				return false;
 			case Instruction::Add:
 			case Instruction::Sub:
 			case Instruction::Mul:
+			case Instruction::And:
 			case Instruction::Xor:
 			case Instruction::FPToSI:
 			case Instruction::SIToFP:
