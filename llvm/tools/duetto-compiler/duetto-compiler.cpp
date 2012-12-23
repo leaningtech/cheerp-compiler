@@ -288,7 +288,8 @@ private:
 	uint32_t compileType(Type* t);
 	uint32_t getTypeSize(Type* t) const;
 	uint32_t getStructOffsetFromElement(const StructType* st, uint32_t elem) const;
-	void compileDereferencePointer(const Value* v);
+	void compileDereferencePointer(const Value* v, int byteOffset);
+	void compileDereferencePointer(const Value* v, const Value* offset, int multiplier);
 	void compileFastGEPDereference(const GetElementPtrInst& gep);
 	void compileGEP(const GetElementPtrInst& gep);
 	void printLLVMName(const StringRef& s) const;
@@ -440,15 +441,39 @@ void JSWriter::printLLVMName(const StringRef& s) const
 	}
 }
 
-void JSWriter::compileDereferencePointer(const Value* v)
+void JSWriter::compileDereferencePointer(const Value* v, const Value* offset, int multiplier)
 {
 	assert(v->getType()->isPointerTy());
 	compileOperand(v);
 	stream << ".d[";
 	compileOperand(v);
 	stream << ".p+";
+	assert(multiplier!=0);
+	stream << '(';
 	compileOperand(v);
-	stream << ".o]";
+	stream << ".o+(";
+	compileOperand(offset);
+	stream << "*" << multiplier << "))]";
+}
+
+void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
+{
+	assert(v->getType()->isPointerTy());
+	compileOperand(v);
+	stream << ".d[";
+	compileOperand(v);
+	stream << ".p+";
+	if(byteOffset==0)
+	{
+		compileOperand(v);
+		stream << ".o]";
+	}
+	else
+	{
+		stream << '(';
+		compileOperand(v);
+		stream << ".o+" << byteOffset << ")]";
+	}
 }
 
 uint32_t JSWriter::getIntFromValue(Value* v) const
@@ -465,13 +490,28 @@ const Type* JSWriter::compileRecursiveAccessToGEP(const Type* curType,
 	//Before this the base name has been already printed
 	if(it==itE)
 		return curType;
-	assert(curType->isStructTy());
-	const StructType* st=static_cast<const StructType*>(curType);
-	//Special handling for constant offsets
-	assert(ConstantInt::classof(*it));
-	uint32_t elementIndex = getIntFromValue(*it);
-	stream << ".a" << getStructOffsetFromElement(st, elementIndex);
-	return compileRecursiveAccessToGEP(st->getElementType(elementIndex), ++it, itE);
+	const Type* subType = NULL;
+	if(curType->isStructTy())
+	{
+		const StructType* st=static_cast<const StructType*>(curType);
+		//Special handling for constant offsets
+		assert(ConstantInt::classof(*it));
+		uint32_t elementIndex = getIntFromValue(*it);
+		stream << ".a" << getStructOffsetFromElement(st, elementIndex);
+		subType = st->getElementType(elementIndex);
+	}
+	else if(curType->isArrayTy())
+	{
+		const ArrayType* at=static_cast<const ArrayType*>(curType);
+		//Special handling for constant offsets
+		assert(ConstantInt::classof(*it));
+		uint32_t elementIndex = getIntFromValue(*it);
+		stream << '[' << elementIndex << ']';
+		subType = at->getElementType();
+	}
+	else
+		assert(false);
+	return compileRecursiveAccessToGEP(subType, ++it, itE);
 }
 
 void JSWriter::compileRecursiveGEP(const ConstantExpr* ce, const Constant* base, uint32_t level)
@@ -506,17 +546,25 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
 	//We allow the unsafe cast to i8* only
-	//if there is a single usage and the usage is memcpy or memset
-	if(dst->isIntegerTy(8) && castI->hasOneUse())
+	//if the usage is memcpy or memset
+	if(dst->isIntegerTy(8))
 	{
-		const User* u=*castI->use_begin();
-		const CallInst* ci=dyn_cast<const CallInst>(u);
-		if(ci &&
-			(ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32" ||
-			(ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64")))
+		Value::const_use_iterator it=castI->use_begin();
+		Value::const_use_iterator itE=castI->use_end();
+		bool safeUsage=true;
+		for(;it!=itE;++it)
 		{
-			return true;
+			const CallInst* ci=dyn_cast<const CallInst>(*it);
+			if(ci==NULL ||
+				(ci->getCalledFunction()->getName()!="llvm.memcpy.p0i8.p0i8.i32" &&
+				(ci->getCalledFunction()->getName()!="llvm.memset.p0i8.i64")))
+			{
+				safeUsage=false;
+				break;
+			}
 		}
+		if(safeUsage)
+			return true;
 	}
 	//Also allow the unsafe cast from i8* only in the following 2 cases
 	//1) Casting from new
@@ -603,7 +651,13 @@ void JSWriter::compileConstant(const Constant* c)
 	else if(ConstantFP::classof(c))
 	{
 		const ConstantFP* f=cast<const ConstantFP>(c);
-		stream << f->getValueAPF().convertToDouble();
+		//Must compare pointers, it seems
+		if(&f->getValueAPF().getSemantics()==&APFloat::IEEEsingle)
+			stream << f->getValueAPF().convertToFloat();
+		else if(&f->getValueAPF().getSemantics()==&APFloat::IEEEdouble)
+			stream << f->getValueAPF().convertToDouble();
+		else
+			assert(false);
 	}
 	else if(ConstantInt::classof(c))
 	{
@@ -896,7 +950,7 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 				compileFastGEPDereference(gep);
 			}
 			else
-				compileDereferencePointer(ptrOp);
+				compileDereferencePointer(ptrOp, 0);
 			stream << " = ";
 			compileOperand(valOp);
 			return true;
@@ -919,13 +973,21 @@ void JSWriter::compileFastGEPDereference(const GetElementPtrInst& gep)
 {
 	GetElementPtrInst::const_op_iterator it=gep.idx_begin();
 	const GetElementPtrInst::const_op_iterator itE=gep.idx_end();
-	assert(ConstantInt::classof(*it));
-	assert(getIntFromValue(*it)==0);
-	//First dereference the pointer
-	compileDereferencePointer(gep.getOperand(0));
 	Type* t=gep.getOperand(0)->getType();
 	assert(t->isPointerTy());
 	PointerType* ptrT=static_cast<PointerType*>(t);
+	if(ConstantInt::classof(*it))
+	{
+		uint32_t firstElement = getIntFromValue(*it);
+		uint32_t byteOffset=getTypeSize(t)*firstElement;
+		//First dereference the pointer
+		compileDereferencePointer(gep.getOperand(0), byteOffset);
+	}
+	else
+	{
+		//First dereference the pointer
+		compileDereferencePointer(gep.getOperand(0), *it, getTypeSize(t));
+	}
 	compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 }
 
@@ -935,23 +997,36 @@ void JSWriter::compileGEP(const GetElementPtrInst& gep)
 	//We compile as usual till the last level
 	GetElementPtrInst::const_op_iterator itE=gep.idx_end()-1;
 	assert(ConstantInt::classof(*it));
-	assert(getIntFromValue(*it)==0);
-	//TODO: Same level access?
-	assert(it!=itE);
-	stream << "{ d: ";
-	//First dereference the pointer
-	compileDereferencePointer(gep.getOperand(0));
+	uint32_t firstElement = getIntFromValue(*it);
 	Type* t=gep.getOperand(0)->getType();
 	assert(t->isPointerTy());
 	PointerType* ptrT=static_cast<PointerType*>(t);
-	const Type* lastType=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
-	//Now add the offset for the desired element
-	assert(StructType::classof(lastType));
-	assert(ConstantInt::classof(*itE));
-	uint32_t elementIndex = getIntFromValue(*itE);
-	stream << ", o: " << getStructOffsetFromElement(static_cast<const StructType*>(lastType),
-			elementIndex);
-	stream << ", p: '' }";
+	uint32_t byteOffset=getTypeSize(ptrT)*firstElement;
+	stream << "{ d: ";
+	if(it==itE)
+	{
+		const Value* val=gep.getOperand(0);
+		//Same level access, we are just computing another pointer from this pointer
+		compileOperand(val);
+		stream << ".d, o: ";
+		compileOperand(val);
+		stream << ".o+" << byteOffset << ", p: ";
+		compileOperand(val);
+		stream << ".p }";
+	}
+	else
+	{
+		//First dereference the pointer
+		compileDereferencePointer(gep.getOperand(0), byteOffset);
+		const Type* lastType=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+		//Now add the offset for the desired element
+		assert(StructType::classof(lastType));
+		assert(ConstantInt::classof(*itE));
+		uint32_t elementIndex = getIntFromValue(*itE);
+		stream << ", o: " << getStructOffsetFromElement(static_cast<const StructType*>(lastType),
+				elementIndex);
+		stream << ", p: '' }";
+	}
 }
 
 /*
@@ -1130,12 +1205,13 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			const CmpInst& ci=static_cast<const CmpInst&>(I);
 			assert(ci.getNumOperands()==2);
 			//Check that the operation is JS safe
-			switch(ci.getPredicate())
+			//TOTO: Verify that any float type is ok
+			/*switch(ci.getPredicate())
 			{
 				default:
 					assert(ci.getOperand(0)->getType()->isDoubleTy());
 					assert(ci.getOperand(1)->getType()->isDoubleTy());
-			}
+			}*/
 			stream << "(";
 			compileOperand(ci.getOperand(0));
 			compilePredicate(ci.getPredicate());
@@ -1156,7 +1232,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 				compileFastGEPDereference(gep);
 			}
 			else
-				compileDereferencePointer(ptrOp);
+				compileDereferencePointer(ptrOp, 0);
 			stream << ")";
 			return true;
 
@@ -1194,12 +1270,16 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::Sub:
 			case Instruction::Mul:
 			case Instruction::And:
+			case Instruction::Or:
 			case Instruction::Xor:
 			case Instruction::FPToSI:
 			case Instruction::SIToFP:
 			case Instruction::SDiv:
 			case Instruction::BitCast:
 			case Instruction::GetElementPtr:
+			case Instruction::FAdd:
+			case Instruction::FDiv:
+			case Instruction::FMul:
 			case Instruction::FCmp:
 			case Instruction::ICmp:
 			case Instruction::ZExt:
