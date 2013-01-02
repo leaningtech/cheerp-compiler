@@ -552,7 +552,8 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
 	//We allow the unsafe cast to i8* only
-	//if the usage is memcpy or memset
+	//if the usage is memcpy, memset, free or delete
+	//or one of the lifetime intrinsics
 	if(dst->isIntegerTy(8))
 	{
 		Value::const_use_iterator it=castI->use_begin();
@@ -563,7 +564,11 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 			const CallInst* ci=dyn_cast<const CallInst>(*it);
 			if(ci==NULL ||
 				(ci->getCalledFunction()->getName()!="llvm.memcpy.p0i8.p0i8.i32" &&
-				(ci->getCalledFunction()->getName()!="llvm.memset.p0i8.i64")))
+				ci->getCalledFunction()->getName()!="llvm.memset.p0i8.i64" &&
+				ci->getCalledFunction()->getName()!="free" &&
+				ci->getCalledFunction()->getName()!="_ZdlPv" &&
+				ci->getCalledFunction()->getName()!="llvm.lifetime.start" &&
+				ci->getCalledFunction()->getName()!="llvm.lifetime.end"))
 			{
 				safeUsage=false;
 				break;
@@ -572,31 +577,46 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 		if(safeUsage)
 			return true;
 	}
-	//Also allow the unsafe cast from i8* only in the following 2 cases
-	//1) Casting from new
-	//2) Zeroing new memory
+	//Also allow the unsafe cast from i8* only when casting from new, malloc
+	//NOTE: The fresh memory may be passed uncasted to memset to zero new memory
+	//NOTE: The fresh memory may be passed uncasted to icmp to test against null
 	if(src->isIntegerTy(8) && castOp->getNumUses()<=2)
 	{
 		bool comesFromNew = false;
-		bool goesToMemset = false;
+		bool allowedRawUsages = true;
 		const CallInst* newCall=dyn_cast<const CallInst>(castOp);
-		if(newCall && newCall->getCalledFunction()->getName()=="_Znwj")
+		if(newCall && (newCall->getCalledFunction()->getName()=="_Znwj"
+				|| newCall->getCalledFunction()->getName()=="malloc"))
+		{
 			comesFromNew = true;
+		}
+		else
+		{
+			//Try invoke
+			//TODO: Disable throgin new, it's nonsense here
+			const InvokeInst* newCall=dyn_cast<const InvokeInst>(castOp);
+			if(newCall && (newCall->getCalledFunction()->getName()=="_Znwj"
+					|| newCall->getCalledFunction()->getName()=="malloc"))
+			{
+				comesFromNew = true;
+			}
+		}
 		Value::const_use_iterator it=castOp->use_begin();
 		Value::const_use_iterator itE=castOp->use_end();
 		for(;it!=itE;++it)
 		{
-			//Check that the other use is a memset
+			//Check that the other use is a memset or an icmp
 			if((*it)==castI)
 				continue;
 			const CallInst* ci=dyn_cast<const CallInst>(*it);
-			if(ci && ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32")
+			if(!(ICmpInst::classof(*it) ||
+				(ci && (ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32"
+				|| ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64"))))
 			{
-				assert(!goesToMemset);
-				goesToMemset = true;
+				allowedRawUsages = false;
 			}
 		}
-		if(comesFromNew && goesToMemset)
+		if(comesFromNew && allowedRawUsages)
 			return true;
 	}
 	src->dump();
