@@ -503,10 +503,16 @@ const Type* JSWriter::compileRecursiveAccessToGEP(const Type* curType,
 	else if(curType->isArrayTy())
 	{
 		const ArrayType* at=static_cast<const ArrayType*>(curType);
+		stream << '[';
 		//Special handling for constant offsets
-		assert(ConstantInt::classof(*it));
-		uint32_t elementIndex = getIntFromValue(*it);
-		stream << '[' << elementIndex << ']';
+		if(ConstantInt::classof(*it))
+		{
+			uint32_t elementIndex = getIntFromValue(*it);
+			stream << elementIndex;
+		}
+		else
+			compileOperand(*it);
+		stream << ']';
 		subType = at->getElementType();
 	}
 	else
@@ -996,12 +1002,9 @@ void JSWriter::compileGEP(const GetElementPtrInst& gep)
 	GetElementPtrInst::const_op_iterator it=gep.idx_begin();
 	//We compile as usual till the last level
 	GetElementPtrInst::const_op_iterator itE=gep.idx_end()-1;
-	assert(ConstantInt::classof(*it));
-	uint32_t firstElement = getIntFromValue(*it);
 	Type* t=gep.getOperand(0)->getType();
 	assert(t->isPointerTy());
 	PointerType* ptrT=static_cast<PointerType*>(t);
-	uint32_t byteOffset=getTypeSize(ptrT)*firstElement;
 	stream << "{ d: ";
 	if(it==itE)
 	{
@@ -1010,22 +1013,44 @@ void JSWriter::compileGEP(const GetElementPtrInst& gep)
 		compileOperand(val);
 		stream << ".d, o: ";
 		compileOperand(val);
-		stream << ".o+" << byteOffset << ", p: ";
+		stream << ".o+";
+		//Compute the offset
+		if(ConstantInt::classof(*it))
+		{
+			uint32_t firstElement = getIntFromValue(*it);
+			uint32_t byteOffset=getTypeSize(ptrT)*firstElement;
+			stream << byteOffset;
+		}
+		else
+		{
+			stream << '(';
+			compileOperand(*it);
+			stream << '*' << getTypeSize(ptrT) << ')';
+		}
+		stream << ", p: ";
 		compileOperand(val);
 		stream << ".p }";
 	}
 	else
 	{
+		assert(ConstantInt::classof(*it));
+		uint32_t firstElement = getIntFromValue(*it);
+		uint32_t byteOffset=getTypeSize(ptrT)*firstElement;
 		//First dereference the pointer
 		compileDereferencePointer(gep.getOperand(0), byteOffset);
 		const Type* lastType=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 		//Now add the offset for the desired element
-		assert(StructType::classof(lastType));
 		assert(ConstantInt::classof(*itE));
 		uint32_t elementIndex = getIntFromValue(*itE);
-		stream << ", o: " << getStructOffsetFromElement(static_cast<const StructType*>(lastType),
-				elementIndex);
-		stream << ", p: '' }";
+		if(StructType::classof(lastType))
+		{
+			stream << ", o: " << getStructOffsetFromElement(static_cast<const StructType*>(lastType),
+					elementIndex) << ", p: 'a' }";
+		}
+		else if(ArrayType::classof(lastType))
+			stream << ", o: " << elementIndex << ", p: '' }";
+		else
+			assert(false);
 	}
 }
 
