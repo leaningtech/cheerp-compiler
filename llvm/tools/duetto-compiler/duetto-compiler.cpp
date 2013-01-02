@@ -1109,7 +1109,8 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			//Check that the in and out types are sane
 			Type* srcT = ci.getSrcTy();
 			Type* dstT = ci.getDestTy();
-			assert(srcT->isDoubleTy());
+			//TODO: Restore type check, now relax it
+			//assert(srcT->isDoubleTy());
 			assert(isI32Type(dstT));
 
 			stream << "(";
