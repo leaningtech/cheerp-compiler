@@ -285,11 +285,9 @@ private:
 		GetElementPtrInst::const_op_iterator it,
 		const GetElementPtrInst::const_op_iterator itE);
 	void compilePredicate(CmpInst::Predicate p);
-	uint32_t compileType(Type* t);
-	uint32_t getTypeSize(Type* t) const;
-	uint32_t getStructOffsetFromElement(const StructType* st, uint32_t elem) const;
+	void compileType(Type* t);
 	void compileDereferencePointer(const Value* v, int byteOffset);
-	void compileDereferencePointer(const Value* v, const Value* offset, int multiplier);
+	void compileDereferencePointer(const Value* v, const Value* offset);
 	void compileFastGEPDereference(const GetElementPtrInst& gep);
 	void compileGEP(const GetElementPtrInst& gep);
 	void printLLVMName(const StringRef& s) const;
@@ -441,19 +439,18 @@ void JSWriter::printLLVMName(const StringRef& s) const
 	}
 }
 
-void JSWriter::compileDereferencePointer(const Value* v, const Value* offset, int multiplier)
+void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 {
 	assert(v->getType()->isPointerTy());
 	compileOperand(v);
 	stream << ".d[";
 	compileOperand(v);
 	stream << ".p+";
-	assert(multiplier!=0);
 	stream << '(';
 	compileOperand(v);
-	stream << ".o+(";
+	stream << ".o+";
 	compileOperand(offset);
-	stream << "*" << multiplier << "))]";
+	stream << ")]";
 }
 
 void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
@@ -497,7 +494,7 @@ const Type* JSWriter::compileRecursiveAccessToGEP(const Type* curType,
 		//Special handling for constant offsets
 		assert(ConstantInt::classof(*it));
 		uint32_t elementIndex = getIntFromValue(*it);
-		stream << ".a" << getStructOffsetFromElement(st, elementIndex);
+		stream << ".a" << elementIndex;
 		subType = st->getElementType(elementIndex);
 	}
 	else if(curType->isArrayTy())
@@ -730,43 +727,7 @@ void JSWriter::compileOperand(const Value* v)
 	}
 }
 
-/*
- * Keep in sync with compileType
- */
-uint32_t JSWriter::getTypeSize(Type* t) const
-{
-	switch(t->getTypeID())
-	{
-		case Type::IntegerTyID:
-		case Type::PointerTyID:
-			return 4;
-		case Type::StructTyID:
-		{
-			StructType* st=static_cast<StructType*>(t);
-			StructType::element_iterator E=st->element_begin();
-			StructType::element_iterator EE=st->element_end();
-			uint32_t offset=0;
-			for(;E!=EE;++E)
-				offset+=getTypeSize(*E);
-			return offset;
-		}
-		default:
-			cerr << "Support type ";
-			t->dump();
-			cerr << endl;
-			return 0;
-	}
-}
-
-uint32_t JSWriter::getStructOffsetFromElement(const StructType* st, uint32_t elem) const
-{
-	uint32_t ret=0;
-	for(uint32_t i=0;i<elem;i++)
-		ret+=getTypeSize(st->getElementType(i));
-	return ret;
-}
-
-uint32_t JSWriter::compileType(Type* t)
+void JSWriter::compileType(Type* t)
 {
 	switch(t->getTypeID())
 	{
@@ -781,7 +742,7 @@ uint32_t JSWriter::compileType(Type* t)
 			//assert(it->getBitWidth()<=32);
 			//Print out a '0'. To let the engine know this is an integer
 			stream << '0';
-			return 4;
+			break;
 		}
 		case Type::StructTyID:
 		{
@@ -795,21 +756,19 @@ uint32_t JSWriter::compileType(Type* t)
 				if(offset!=0)
 					stream << ", ";
 				stream << "a" << offset << ": ";
-				offset+=compileType(*E);
+				compileType(*E);
+				offset++;
 			}
 			stream << " }";
-			return offset;
+			break;
 		}
 		case Type::PointerTyID:
-		{
 			stream << "{ d:null, o: 0, p: '' }";
-			return 4;
-		}
+			break;
 		default:
 			cerr << "Support type ";
 			t->dump();
 			cerr << endl;
-			return 0;
 	}
 }
 
@@ -947,7 +906,6 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			const Value* aggr=ivi.getAggregateOperand();
 			Type* t=aggr->getType();
 			assert(t->isStructTy());
-			StructType* st=static_cast<StructType*>(t);
 			if(UndefValue::classof(aggr))
 			{
 				//We have to assemble the type object from scratch
@@ -966,7 +924,7 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 				assert(aggr->hasName());
 				printLLVMName(aggr->getName());
 			}
-			uint32_t offset=getStructOffsetFromElement(st, ivi.getIndices()[0]);
+			uint32_t offset=ivi.getIndices()[0];
 			stream << ".a" << offset << " = ";
 			compileOperand(ivi.getInsertedValueOperand());
 			return true;
@@ -1013,14 +971,13 @@ void JSWriter::compileFastGEPDereference(const GetElementPtrInst& gep)
 	if(ConstantInt::classof(*it))
 	{
 		uint32_t firstElement = getIntFromValue(*it);
-		uint32_t byteOffset=getTypeSize(t)*firstElement;
 		//First dereference the pointer
-		compileDereferencePointer(gep.getOperand(0), byteOffset);
+		compileDereferencePointer(gep.getOperand(0), firstElement);
 	}
 	else
 	{
 		//First dereference the pointer
-		compileDereferencePointer(gep.getOperand(0), *it, getTypeSize(t));
+		compileDereferencePointer(gep.getOperand(0), *it);
 	}
 	compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 }
@@ -1046,39 +1003,45 @@ void JSWriter::compileGEP(const GetElementPtrInst& gep)
 		if(ConstantInt::classof(*it))
 		{
 			uint32_t firstElement = getIntFromValue(*it);
-			uint32_t byteOffset=getTypeSize(ptrT)*firstElement;
-			stream << byteOffset;
+			stream << firstElement;
 		}
 		else
-		{
-			stream << '(';
 			compileOperand(*it);
-			stream << '*' << getTypeSize(ptrT) << ')';
-		}
 		stream << ", p: ";
 		compileOperand(val);
 		stream << ".p }";
 	}
 	else
 	{
-		assert(ConstantInt::classof(*it));
-		uint32_t firstElement = getIntFromValue(*it);
-		uint32_t byteOffset=getTypeSize(ptrT)*firstElement;
-		//First dereference the pointer
-		compileDereferencePointer(gep.getOperand(0), byteOffset);
+		if(ConstantInt::classof(*it))
+		{
+			uint32_t firstElement = getIntFromValue(*it);
+			//First dereference the pointer
+			compileDereferencePointer(gep.getOperand(0), firstElement);
+		}
+		else
+			compileDereferencePointer(gep.getOperand(0), *it);
 		const Type* lastType=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 		//Now add the offset for the desired element
-		assert(ConstantInt::classof(*itE));
-		uint32_t elementIndex = getIntFromValue(*itE);
-		if(StructType::classof(lastType))
+		if(ConstantInt::classof(*itE))
 		{
-			stream << ", o: " << getStructOffsetFromElement(static_cast<const StructType*>(lastType),
-					elementIndex) << ", p: 'a' }";
+			uint32_t elementIndex = getIntFromValue(*itE);
+			stream << ", o: " << elementIndex << ", p: ";
+			if(StructType::classof(lastType))
+				stream << "'a' }";
+			else if(ArrayType::classof(lastType))
+				stream << "'' }";
+			else
+				assert(false);
 		}
-		else if(ArrayType::classof(lastType))
-			stream << ", o: " << elementIndex << ", p: '' }";
 		else
-			assert(false);
+		{
+			//Only arrays are accepted
+			assert(ArrayType::classof(lastType));
+			stream << ", o: ";
+			compileOperand(*itE);
+			stream << ", p: '' }";
+		}
 	}
 }
 
@@ -1329,6 +1292,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::FPToSI:
 			case Instruction::SIToFP:
 			case Instruction::SDiv:
+			case Instruction::SRem:
 			case Instruction::Shl:
 			case Instruction::AShr:
 			case Instruction::BitCast:
