@@ -280,7 +280,7 @@ private:
 			const std::map<const BasicBlock*, uint32_t>& blocksMap);
 	bool compileInlineableInstruction(const Instruction& I);
 	bool compileNotInlineableInstruction(const Instruction& I);
-	void compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from) const;
+	void compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from);
 	const Type* compileRecursiveAccessToGEP(const Type* curType,
 		GetElementPtrInst::const_op_iterator it,
 		const GetElementPtrInst::const_op_iterator itE);
@@ -772,14 +772,23 @@ void JSWriter::compileType(Type* t)
 	}
 }
 
-void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from) const
+void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
 {
 	BasicBlock::const_iterator I=to->begin();
 	BasicBlock::const_iterator IE=to->end();
 	for(;I!=IE;++I)
 	{
 		const PHINode* phi=dyn_cast<const PHINode>(I);
-		assert(phi==NULL);
+		if(phi==NULL)
+			continue;
+		assert(phi->hasName());
+		const Value* val=phi->getIncomingValueForBlock(from);
+		//TODO: verify that 'var' works
+		stream << "var ";
+		printLLVMName(phi->getName());
+		stream << " = ";
+		compileOperand(val);
+		stream << ";\n";
 	}
 }
 
@@ -820,12 +829,12 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 					compileOperand(ci.getArgOperand(i));
 				}
 				stream << ");\n";
-				//For each successor output the variables for the phi nodes
-				for(uint32_t i=0;i<I.getNumSuccessors();i++)
-				{
-					BasicBlock* b=I.getSuccessor(i);
-					compilePHIOfBlockFromOtherBlock(b, I.getParent());
-				}
+			}
+			//For each successor output the variables for the phi nodes
+			for(uint32_t i=0;i<I.getNumSuccessors();i++)
+			{
+				BasicBlock* b=I.getSuccessor(i);
+				compilePHIOfBlockFromOtherBlock(b, I.getParent());
 			}
 			//Add code to jump to the next block
 			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
@@ -838,6 +847,12 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 		}
 		case Instruction::Br:
 		{
+			//For each successor output the variables for the phi nodes
+			for(uint32_t i=0;i<I.getNumSuccessors();i++)
+			{
+				BasicBlock* b=I.getSuccessor(i);
+				compilePHIOfBlockFromOtherBlock(b, I.getParent());
+			}
 			const BranchInst& bi=static_cast<const BranchInst&>(I);
 			if(bi.isUnconditional())
 				stream << "__block = " << blocksMap.find(bi.getSuccessor(0))->second << ";\n";
@@ -1289,12 +1304,14 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::And:
 			case Instruction::Or:
 			case Instruction::Xor:
+			case Instruction::Trunc:
 			case Instruction::FPToSI:
 			case Instruction::SIToFP:
 			case Instruction::SDiv:
 			case Instruction::SRem:
 			case Instruction::Shl:
 			case Instruction::AShr:
+			case Instruction::LShr:
 			case Instruction::BitCast:
 			case Instruction::GetElementPtr:
 			case Instruction::FAdd:
