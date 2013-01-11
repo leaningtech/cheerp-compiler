@@ -562,6 +562,7 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 			const CallInst* ci=dyn_cast<const CallInst>(*it);
 			if(ci==NULL ||
 				(ci->getCalledFunction()->getName()!="llvm.memcpy.p0i8.p0i8.i32" &&
+				ci->getCalledFunction()->getName()!="llvm.memset.p0i8.i32" &&
 				ci->getCalledFunction()->getName()!="llvm.memset.p0i8.i64" &&
 				ci->getCalledFunction()->getName()!="free" &&
 				ci->getCalledFunction()->getName()!="_ZdlPv" &&
