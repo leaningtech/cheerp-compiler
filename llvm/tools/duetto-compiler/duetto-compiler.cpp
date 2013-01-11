@@ -295,6 +295,7 @@ private:
 			User::const_op_iterator itE);
 	bool handleBuiltinCall(const char* ident, User::const_op_iterator it,
 			User::const_op_iterator itE);
+	std::map<const Value*, int> unnamedValueMap;
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -590,7 +591,7 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 		else
 		{
 			//Try invoke
-			//TODO: Disable throgin new, it's nonsense here
+			//TODO: Disable throw in new, it's nonsense in JS context
 			const InvokeInst* newCall=dyn_cast<const InvokeInst>(castOp);
 			if(newCall && (newCall->getCalledFunction()->getName()=="_Znwj"
 					|| newCall->getCalledFunction()->getName()=="malloc"))
@@ -647,8 +648,8 @@ void JSWriter::compileConstantExpr(const ConstantExpr* ce)
 		{
 			assert(ce->getNumOperands()==1);
 			Value* val=ce->getOperand(0);
-			Type* src=ce->getType();
-			Type* dst=val->getType();
+			Type* dst=ce->getType();
+			Type* src=val->getType();
 			//Special case guard variables, they are defined as 64bit,
 			//but only the first byte is specified and probably used
 			//Guard variables are identified by their mangling prefix
@@ -781,11 +782,18 @@ void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const Basic
 		const PHINode* phi=dyn_cast<const PHINode>(I);
 		if(phi==NULL)
 			continue;
-		assert(phi->hasName());
 		const Value* val=phi->getIncomingValueForBlock(from);
 		//TODO: verify that 'var' works
 		stream << "var ";
-		printLLVMName(phi->getName());
+		if(phi->hasName())
+			printLLVMName(phi->getName());
+		else
+		{
+			std::map<const Value*,int>::iterator it=unnamedValueMap.find(phi);
+			if(it==unnamedValueMap.end())
+				it=unnamedValueMap.insert(make_pair(phi, unnamedValueMap.size())).first;
+			stream << "phi" << it->second;
+		}
 		stream << " = ";
 		compileOperand(val);
 		stream << ";\n";
@@ -830,12 +838,9 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 				}
 				stream << ");\n";
 			}
+			//Only consider the normal successor for PHIs here
 			//For each successor output the variables for the phi nodes
-			for(uint32_t i=0;i<I.getNumSuccessors();i++)
-			{
-				BasicBlock* b=I.getSuccessor(i);
-				compilePHIOfBlockFromOtherBlock(b, I.getParent());
-			}
+			compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
 			//Add code to jump to the next block
 			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
 			break;
@@ -848,21 +853,25 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 		case Instruction::Br:
 		{
 			//For each successor output the variables for the phi nodes
-			for(uint32_t i=0;i<I.getNumSuccessors();i++)
-			{
-				BasicBlock* b=I.getSuccessor(i);
-				compilePHIOfBlockFromOtherBlock(b, I.getParent());
-			}
 			const BranchInst& bi=static_cast<const BranchInst&>(I);
 			if(bi.isUnconditional())
+			{
+				//Generate the PHIs
+				compilePHIOfBlockFromOtherBlock(bi.getSuccessor(0), I.getParent());
 				stream << "__block = " << blocksMap.find(bi.getSuccessor(0))->second << ";\n";
+			}
 			else
 			{
+				//In each branch generate the right PHIs
 				stream << "if( ";
 				compileOperand(bi.getCondition());
-				stream << ") __block = " << blocksMap.find(bi.getSuccessor(0))->second <<
-					"; else __block = " << blocksMap.find(bi.getSuccessor(1))->second <<
-					";\n";
+				stream << ") { ";
+				compilePHIOfBlockFromOtherBlock(bi.getSuccessor(0), I.getParent());
+				stream << "__block = " << blocksMap.find(bi.getSuccessor(0))->second <<
+					"; } else {";
+				compilePHIOfBlockFromOtherBlock(bi.getSuccessor(1), I.getParent());
+				stream << "__block = " << blocksMap.find(bi.getSuccessor(1))->second <<
+					";}\n";
 			}
 			break;
 		}
