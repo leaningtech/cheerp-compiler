@@ -578,6 +578,7 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 	}
 	//Also allow the unsafe cast from i8* only when casting from new, malloc
 	//NOTE: The fresh memory may be passed uncasted to memset to zero new memory
+	//NOTE: The fresh memory may be passed uncasted to memcpy (it optimizes another cast to i8*)
 	//NOTE: The fresh memory may be passed uncasted to icmp to test against null
 	if(src->isIntegerTy(8) && castOp->getNumUses()<=2)
 	{
@@ -608,9 +609,10 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 			if((*it)==castI)
 				continue;
 			const CallInst* ci=dyn_cast<const CallInst>(*it);
-			if(!(ICmpInst::classof(*it) ||
-				(ci && (ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32"
-				|| ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64"))))
+			if(!(ICmpInst::classof(*it) || (ci &&
+				 (ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32"
+				|| ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64"
+				|| ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32"))))
 			{
 				allowedRawUsages = false;
 			}
