@@ -546,7 +546,10 @@ bool JSWriter::safeCallForNewedMemory(const CallInst* ci) const
 		ci->getCalledFunction()->getName()=="free" ||
 		ci->getCalledFunction()->getName()=="_ZdlPv" ||
 		ci->getCalledFunction()->getName()=="llvm.lifetime.start" ||
-		ci->getCalledFunction()->getName()=="llvm.lifetime.end"));
+		ci->getCalledFunction()->getName()=="llvm.lifetime.end" ||
+		//Allow unsafe casts for a limited number of functions that accepts callback args
+		//TODO: find a nicer approach for this
+		ci->getCalledFunction()->getName()=="__cxa_atexit"));
 }
 
 bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* srcPtr, Type* dstPtr) const
