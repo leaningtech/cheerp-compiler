@@ -580,7 +580,7 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 	//NOTE: The fresh memory may be passed uncasted to memset to zero new memory
 	//NOTE: The fresh memory may be passed uncasted to memcpy (it optimizes another cast to i8*)
 	//NOTE: The fresh memory may be passed uncasted to icmp to test against null
-	if(src->isIntegerTy(8) && castOp->getNumUses()<=2)
+	if(src->isIntegerTy(8))
 	{
 		bool comesFromNew = false;
 		bool allowedRawUsages = true;
@@ -1330,6 +1330,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::FDiv:
 			case Instruction::FSub:
 			case Instruction::FPTrunc:
+			case Instruction::FPExt:
 			case Instruction::FMul:
 			case Instruction::FCmp:
 			case Instruction::ICmp:
