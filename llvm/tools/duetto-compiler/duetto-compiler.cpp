@@ -295,6 +295,7 @@ private:
 			User::const_op_iterator itE);
 	bool handleBuiltinCall(const char* ident, User::const_op_iterator it,
 			User::const_op_iterator itE);
+	bool safeCallForNewedMemory(const CallInst* ci) const;
 	std::map<const Value*, int> unnamedValueMap;
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
@@ -537,6 +538,17 @@ bool JSWriter::isClientType(Type* t) const
 		strncmp(t->getStructName().data(), "class.client::", 14)==0);
 }
 
+bool JSWriter::safeCallForNewedMemory(const CallInst* ci) const
+{
+	return (ci && (ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32" ||
+		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32" ||
+		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64" ||
+		ci->getCalledFunction()->getName()=="free" ||
+		ci->getCalledFunction()->getName()=="_ZdlPv" ||
+		ci->getCalledFunction()->getName()=="llvm.lifetime.start" ||
+		ci->getCalledFunction()->getName()=="llvm.lifetime.end"));
+}
+
 bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* srcPtr, Type* dstPtr) const
 {
 	//Only pointer casts are possible anyway
@@ -560,14 +572,7 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 		for(;it!=itE;++it)
 		{
 			const CallInst* ci=dyn_cast<const CallInst>(*it);
-			if(ci==NULL ||
-				(ci->getCalledFunction()->getName()!="llvm.memcpy.p0i8.p0i8.i32" &&
-				ci->getCalledFunction()->getName()!="llvm.memset.p0i8.i32" &&
-				ci->getCalledFunction()->getName()!="llvm.memset.p0i8.i64" &&
-				ci->getCalledFunction()->getName()!="free" &&
-				ci->getCalledFunction()->getName()!="_ZdlPv" &&
-				ci->getCalledFunction()->getName()!="llvm.lifetime.start" &&
-				ci->getCalledFunction()->getName()!="llvm.lifetime.end"))
+			if(!safeCallForNewedMemory(ci))
 			{
 				safeUsage=false;
 				break;
@@ -609,13 +614,8 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 			if((*it)==castI)
 				continue;
 			const CallInst* ci=dyn_cast<const CallInst>(*it);
-			if(!(ICmpInst::classof(*it) || (ci &&
-				 (ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32"
-				|| ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64"
-				|| ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32"))))
-			{
+			if(!(ICmpInst::classof(*it) || safeCallForNewedMemory(ci)))
 				allowedRawUsages = false;
-			}
 		}
 		if(comesFromNew && allowedRawUsages)
 			return true;
