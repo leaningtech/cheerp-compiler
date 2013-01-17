@@ -540,6 +540,9 @@ bool JSWriter::isClientType(Type* t) const
 
 bool JSWriter::safeCallForNewedMemory(const CallInst* ci) const
 {
+	//We allow the unsafe cast to i8* only
+	//if the usage is memcpy, memset, free or delete
+	//or one of the lifetime intrinsics
 	return (ci && (ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32" ||
 		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32" ||
 		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64" ||
@@ -564,9 +567,6 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 	//Conversion between any function pointers are ok
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
-	//We allow the unsafe cast to i8* only
-	//if the usage is memcpy, memset, free or delete
-	//or one of the lifetime intrinsics
 	if(dst->isIntegerTy(8))
 	{
 		Value::const_use_iterator it=castI->use_begin();
@@ -583,6 +583,29 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 		}
 		if(safeUsage)
 			return true;
+	}
+	//Support getting functions back from the Vtable
+	if(src->isPointerTy() && dst->isPointerTy())
+	{
+		Type* innerSrc=cast<PointerType>(src)->getElementType();
+		Type* innerDst=cast<PointerType>(dst)->getElementType();
+		if(innerSrc->isIntegerTy(8) || innerDst->isFunctionTy())
+		{
+			const GetElementPtrInst* gep=dyn_cast<const GetElementPtrInst>(castOp);
+			if(gep)
+				assert(false);
+			const ConstantExpr* constGep=dyn_cast<const ConstantExpr>(castOp);
+			if(constGep && constGep->getOpcode()==Instruction::GetElementPtr)
+			{
+				const Value* sourceVal = constGep->getOperand(0);
+				if(sourceVal->hasName() &&
+					strncmp(sourceVal->getName().data(),"_ZTV",4)==0)
+				{
+					//This casts ultimately comes from a VTable, it's ok
+					return true;
+				}
+			}
+		}
 	}
 	//Also allow the unsafe cast from i8* only when casting from new, malloc
 	//NOTE: The fresh memory may be passed uncasted to memset to zero new memory
