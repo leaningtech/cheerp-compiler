@@ -1148,9 +1148,10 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			bi.dump();
 			cerr << endl;
 			bool vtableCast = isVTableCast(srcPtr, dstPtr);
-			assert(isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr) || vtableCast);
+			assert(vtableCast || isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr));
 			if(vtableCast)
 			{
+				//TODO: Implement recursive access to vtable
 			}
 			else
 				compileOperand(bi.getOperand(0));
