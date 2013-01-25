@@ -591,7 +591,7 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 	//Conversion between client objects is free
 	if(isClientType(src) && isClientType(dst))
 		return true;
-	//Conversion between any function pointers are ok
+	//Conversion between any function pointer are ok
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
 	if(dst->isIntegerTy(8))
@@ -671,6 +671,17 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 				allowedRawUsages = false;
 		}
 		if(comesFromNew && allowedRawUsages)
+			return true;
+	}
+	//Support upcasting. This is safe in javascript since at most we will access
+	//undefined stuff. Start from the destination and see check the first element
+	//recursively until the source type is found
+	Type* currentType=dst;
+	while(currentType->isStructTy())
+	{
+		StructType* t=static_cast<StructType*>(currentType);
+		currentType=t->getElementType(0);
+		if(currentType==src)
 			return true;
 	}
 	src->dump();
