@@ -889,22 +889,39 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 		case Instruction::Invoke:
 		{
 			const InvokeInst& ci=static_cast<const InvokeInst&>(I);
-			const char* funcName=ci.getCalledFunction()->getName().data();
-			if(handleBuiltinCall(funcName,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
-				stream << ";\n";
+			//TODO: Support unwind
+			//For now, pretend it's a regular call
+			if(ci.getCalledFunction())
+			{
+				//Direct call
+				const char* funcName=ci.getCalledFunction()->getName().data();
+				if(handleBuiltinCall(funcName,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
+				{
+					stream << ";\n";
+					//Only consider the normal successor for PHIs here
+					//For each successor output the variables for the phi nodes
+					compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
+					//Add code to jump to the next block
+					stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
+					break;
+				}
+				else
+					stream << '_' << funcName;
+			}
 			else
 			{
-				//TODO: Support unwind
-				//For now, pretend it's a regular call
-				stream << '_' << ci.getCalledFunction()->getName().data() << '(';
-				for(uint32_t i=0;i<ci.getNumArgOperands();i++)
-				{
-					if(i!=0)
-						stream << ", ";
-					compileOperand(ci.getArgOperand(i));
-				}
-				stream << ");\n";
+				//Indirect call
+				compileOperand(ci.getCalledValue());
 			}
+
+			stream << '(';
+			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
+			{
+				if(i!=0)
+					stream << ", ";
+				compileOperand(ci.getArgOperand(i));
+			}
+			stream << ");\n";
 			//Only consider the normal successor for PHIs here
 			//For each successor output the variables for the phi nodes
 			compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
