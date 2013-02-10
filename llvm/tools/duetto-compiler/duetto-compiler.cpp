@@ -526,14 +526,17 @@ bool JSWriter::safeCallForNewedMemory(const CallInst* ci) const
 {
 	//We allow the unsafe cast to i8* only
 	//if the usage is memcpy, memset, free or delete
-	//or one of the lifetime intrinsics
+	//or one of the lifetime/invariant intrinsics
 	return (ci && (ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32" ||
 		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32" ||
 		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64" ||
+		ci->getCalledFunction()->getName()=="llvm.memmove.p0i8.p0i8.i32" ||
 		ci->getCalledFunction()->getName()=="free" ||
 		ci->getCalledFunction()->getName()=="_ZdlPv" ||
 		ci->getCalledFunction()->getName()=="llvm.lifetime.start" ||
 		ci->getCalledFunction()->getName()=="llvm.lifetime.end" ||
+		ci->getCalledFunction()->getName()=="llvm.invariant.start" ||
+		ci->getCalledFunction()->getName()=="llvm.invariant.end" ||
 		//Allow unsafe casts for a limited number of functions that accepts callback args
 		//TODO: find a nicer approach for this
 		ci->getCalledFunction()->getName()=="__cxa_atexit"));
