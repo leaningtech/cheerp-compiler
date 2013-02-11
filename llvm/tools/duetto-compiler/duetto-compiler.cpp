@@ -295,6 +295,7 @@ private:
 			User::const_op_iterator itE);
 	bool handleBuiltinCall(const char* ident, User::const_op_iterator it,
 			User::const_op_iterator itE);
+	bool safeUsagesForNewedMemory(const Value* v) const;
 	bool safeCallForNewedMemory(const CallInst* ci) const;
 	std::map<const Value*, int> unnamedValueMap;
 public:
@@ -522,6 +523,29 @@ bool JSWriter::isClientType(Type* t) const
 		strncmp(t->getStructName().data(), "class.client::", 14)==0);
 }
 
+bool JSWriter::safeUsagesForNewedMemory(const Value* v) const
+{
+	Value::const_use_iterator it=v->use_begin();
+	Value::const_use_iterator itE=v->use_end();
+	for(;it!=itE;++it)
+	{
+		const PHINode* p=dyn_cast<const PHINode>(*it);
+		//If the usage is a PHI node, recursively check its usages
+		if(p)
+		{
+			if(!safeUsagesForNewedMemory(p))
+				return false;
+		}
+		else
+		{
+			const CallInst* ci=dyn_cast<const CallInst>(*it);
+			if(!safeCallForNewedMemory(ci))
+				return false;
+		}
+	}
+	return true;
+}
+
 bool JSWriter::safeCallForNewedMemory(const CallInst* ci) const
 {
 	//We allow the unsafe cast to i8* only
@@ -599,19 +623,7 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 		return true;
 	if(dst->isIntegerTy(8))
 	{
-		Value::const_use_iterator it=castI->use_begin();
-		Value::const_use_iterator itE=castI->use_end();
-		bool safeUsage=true;
-		for(;it!=itE;++it)
-		{
-			const CallInst* ci=dyn_cast<const CallInst>(*it);
-			if(!safeCallForNewedMemory(ci))
-			{
-				safeUsage=false;
-				break;
-			}
-		}
-		if(safeUsage)
+		if(safeUsagesForNewedMemory(castI))
 			return true;
 	}
 	//Support getting functions back from the Vtable
