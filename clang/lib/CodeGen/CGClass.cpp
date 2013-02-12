@@ -247,6 +247,9 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   // 'this' must be a pointer (in some address space) to Derived.
   assert(This.getElementType() == ConvertType(Derived));
 
+  if (BaseIsVirtual && !getTarget().isByteAddressable())
+    CGM.ErrorUnsupported(Derived, "Duetto: Virtual bases on non-byte addressable targets are not supported yet");
+
   // Compute the offset of the virtual base.
   CharUnits Offset;
   const ASTRecordLayout &Layout = getContext().getASTRecordLayout(Derived);
@@ -254,6 +257,18 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
     Offset = Layout.getVBaseClassOffset(Base);
   else
     Offset = Layout.getBaseClassOffset(Base);
+
+  // For non byte addressable targtes use type safe path
+  if (!getTarget().isByteAddressable())
+  {
+    SmallVector<llvm::Value*, 4> GEPConstantIndexes;
+    GEPConstantIndexes.push_back(llvm::ConstantInt::get(PtrDiffTy, 0));
+    // Get the layout.
+    const CGRecordLayout &Layout = getTypes().getCGRecordLayout(Derived);
+    uint32_t index=Layout.getNonVirtualBaseLLVMFieldNo(Base);
+    GEPConstantIndexes.push_back(llvm::ConstantInt::get(PtrDiffTy, index));
+    return Builder.CreateGEP(This, GEPConstantIndexes);
+  }
 
   // Shift and cast down to the base type.
   // TODO: for complete types, this should be possible with a GEP.
