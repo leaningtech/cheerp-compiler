@@ -52,7 +52,10 @@ ASTRecordLayout::ASTRecordLayout(
     const CXXRecordDecl *PrimaryBase, bool IsPrimaryBaseVirtual,
     const CXXRecordDecl *BaseSharingVBPtr, bool EndsWithZeroSizedObject,
     bool LeadsWithZeroSizedBase, const BaseOffsetsMapTy &BaseOffsets,
-    const VBaseOffsetsMapTy &VBaseOffsets)
+    const VBaseOffsetsMapTy &VBaseOffsets, 
+    const llvm::SmallVector<unsigned, 4>& BaseOffsetFromNo,
+    unsigned firstBaseElement,
+    unsigned totalNumberOfBases)
     : Size(size), DataSize(datasize), Alignment(alignment),
       PreferredAlignment(preferredAlignment),
       UnadjustedAlignment(unadjustedAlignment),
@@ -74,6 +77,9 @@ ASTRecordLayout::ASTRecordLayout(
   CXXInfo->BaseSharingVBPtr = BaseSharingVBPtr;
   CXXInfo->EndsWithZeroSizedObject = EndsWithZeroSizedObject;
   CXXInfo->LeadsWithZeroSizedBase = LeadsWithZeroSizedBase;
+  CXXInfo->BaseOffsetFromNo = BaseOffsetFromNo;
+  CXXInfo->firstBaseElement = firstBaseElement;
+  CXXInfo->totalNumberOfBases = totalNumberOfBases;
 
 #ifndef NDEBUG
     if (const CXXRecordDecl *PrimaryBase = getPrimaryBase()) {

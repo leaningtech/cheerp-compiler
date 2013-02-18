@@ -685,6 +685,12 @@ protected:
   /// Valid if UseExternalLayout is true.
   ExternalLayout External;
 
+  llvm::SmallVector<unsigned, 4> BaseOffsetFromNo;
+  // The first element which is a base (e.g. not the vtable)
+  unsigned firstBaseElement;
+  // The total count of bases, including the inherited ones
+  unsigned totalNumberOfBases;
+
   ItaniumRecordLayoutBuilder(const ASTContext &Context,
                              EmptySubobjectMap *EmptySubobjects)
       : Context(Context), EmptySubobjects(EmptySubobjects), Size(0),
@@ -700,7 +706,10 @@ protected:
         PaddedFieldSize(CharUnits::Zero()), PrimaryBase(nullptr),
         PrimaryBaseIsVirtual(false), HasOwnVFPtr(false), HasPackedField(false),
         HandledFirstNonOverlappingEmptyField(false),
-        FirstNearlyEmptyVBase(nullptr) {}
+        FirstNearlyEmptyVBase(nullptr),
+        firstBaseElement(0xffffffff),
+        totalNumberOfBases(1) //Initialized to 1, counting itself
+        { }
 
   void Layout(const RecordDecl *D);
   void Layout(const CXXRecordDecl *D);
@@ -1301,6 +1310,13 @@ ItaniumRecordLayoutBuilder::LayoutBase(const BaseSubobjectInfo *Base) {
 
   // Remember max struct/class alignment.
   UpdateAlignment(BaseAlign, UnpackedAlignTo, PreferredBaseAlign);
+
+  if (firstBaseElement==0xffffffff)
+    firstBaseElement = HasOwnVFPtr ? 1 : 0;
+
+  BaseOffsetFromNo.push_back(totalNumberOfBases);
+
+  totalNumberOfBases += Layout.getTotalNumberOfBases();
 
   return Offset;
 }
@@ -3241,7 +3257,8 @@ ASTContext::getASTRecordLayout(const RecordDecl *D) const {
           Builder.PreferredNVAlignment,
           EmptySubobjects.SizeOfLargestEmptySubobject, Builder.PrimaryBase,
           Builder.PrimaryBaseIsVirtual, nullptr, false, false, Builder.Bases,
-          Builder.VBases);
+          Builder.VBases,
+          Builder.BaseOffsetFromNo, Builder.firstBaseElement, Builder.totalNumberOfBases);
     } else {
       ItaniumRecordLayoutBuilder Builder(*this, /*EmptySubobjects=*/nullptr);
       Builder.Layout(D);

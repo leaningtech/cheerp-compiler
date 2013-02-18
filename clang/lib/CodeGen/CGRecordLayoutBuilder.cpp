@@ -767,6 +767,13 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
   RL->NonVirtualBases.swap(Builder.NonVirtualBases);
   RL->CompleteObjectVirtualBases.swap(Builder.VirtualBases);
 
+  if(isa<CXXRecordDecl>(D))
+  {
+    RL->firstBaseElement = Builder.Layout.getFirstBaseElement();
+    RL->totalNumberOfBases = Builder.Layout.getTotalNumberOfBases();
+    RL->BaseOffsetFromNo = Builder.Layout.getBaseOffsetFromNo();
+  }
+
   // Add all the field numbers.
   RL->FieldInfo.swap(Builder.Fields);
 
