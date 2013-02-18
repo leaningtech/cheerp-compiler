@@ -688,17 +688,6 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 		if(comesFromNew && allowedRawUsages)
 			return true;
 	}
-	//Support upcasting. This is safe in javascript since at most we will access
-	//undefined stuff. Start from the destination and see check the first element
-	//recursively until the source type is found
-	Type* currentType=dst;
-	while(currentType->isStructTy())
-	{
-		StructType* t=static_cast<StructType*>(currentType);
-		currentType=t->getElementType(0);
-		if(currentType==src)
-			return true;
-	}
 	src->dump();
 	cerr << endl;
 	dst->dump();
@@ -1170,6 +1159,15 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
  */
 bool JSWriter::compileInlineableInstruction(const Instruction& I)
 {
+	//Check if there are any special metadata
+	if(I.getMetadata("duetto.downcast.ignore"))
+		return true;
+	if(I.getMetadata("duetto.downcast"))
+	{
+		//Downcast will be handled with an access to the base table
+		stream << "alert('support downcast');";
+		return true;
+	}
 	switch(I.getOpcode())
 	{
 		case Instruction::BitCast:
