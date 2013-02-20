@@ -2,6 +2,8 @@
 ; XFAIL: *
 ; We do not recognize anymore variable size arrays.
 
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
+target triple = "x86_64-apple-macosx10.6.0"
 ; extern void bar(long n, long m, double A[n][m]);
 ;
 ; void foo(long a, long b) {
@@ -17,7 +19,7 @@
 
 ; AddRec: {{%vla.us,+,{8,+,8}<%for.cond7.preheader.lr.ph.split.us.us>}<%for.body9.lr.ph.us.us>,+,8}<%for.body9.us.us>
 ; CHECK: Base offset: %vla.us
-; CHECK: ArrayDecl[UnknownSize][{1,+,1}<%for.cond7.preheader.lr.ph.split.us.us>] with elements of sizeof(double) bytes.
+; CHECK: ArrayDecl[UnknownSize][{1,+,1}<%for.cond7.preheader.lr.ph.split.us.us>] with elements of 8 bytes.
 ; CHECK: ArrayRef[{0,+,1}<nuw><nsw><%for.body9.lr.ph.us.us>][{0,+,1}<nuw><nsw><%for.body9.us.us>]
 
 define void @foo(i64 %a, i64 %b) nounwind uwtable {
