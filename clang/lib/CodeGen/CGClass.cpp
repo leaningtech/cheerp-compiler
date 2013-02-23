@@ -2594,6 +2594,9 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // Compute where to store the address point.
   llvm::Value *VirtualOffset = nullptr;
   CharUnits NonVirtualOffset = CharUnits::Zero();
+  
+  if (NeedsVirtualOffset && !getTarget().isByteAddressable())
+    CGM.ErrorUnsupported(VTableClass, "Duetto: Virtual bases on non-byte addressable targets are not supported yet");
 
   if (CGM.getCXXABI().isVirtualOffsetNeededForVTableField(*this, Vptr)) {
     // We need to use the virtual base offset offset because the virtual base
@@ -2612,7 +2615,19 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   unsigned ThisAddrSpace =
       VTableField.getPointer()->getType()->getPointerAddressSpace();
 
-  if (!NonVirtualOffset.isZero() || VirtualOffset)
+  if (!getTarget().isByteAddressable()) {
+    if(VTableClass != Base.getBase()) {
+      VTableField = GetAddressOfDirectBaseInCompleteClass(VTableField,
+                                                          Vptr.VTableClass, Vptr.Base.getBase(),
+                                                          false);
+    }
+  } else if (!NonVirtualOffset.isZero() || VirtualOffset)
+    VTableField = ApplyNonVirtualAndVirtualOffset(*this, VTableField,
+                                                  NonVirtualOffset,
+                                                  VirtualOffset,
+                                                  VTableClass,
+                                                  NearestVBase);
+  else if (!NonVirtualOffset.isZero() || VirtualOffset)
     VTableField = ApplyNonVirtualAndVirtualOffset(
         *this, VTableField, NonVirtualOffset, VirtualOffset, Vptr.VTableClass,
         Vptr.NearestVBase);
