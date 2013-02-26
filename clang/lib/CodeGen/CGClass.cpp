@@ -48,12 +48,14 @@ ComputeNonVirtualBaseClassGepPath(CodeGenTypes& Types,
     const CXXRecordDecl *BaseDecl =
       cast<CXXRecordDecl>(Base->getType()->getAs<RecordType>()->getDecl());
 
-    // Get the layout.
-    const CGRecordLayout &Layout = Types.getCGRecordLayout(RD);
-    uint32_t index=Layout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
+    if(!BaseDecl->isEmpty())
+    {
+      // Get the layout.
+      const CGRecordLayout &Layout = Types.getCGRecordLayout(RD);
+      uint32_t index=Layout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
 
-    GEPIndexes.push_back(llvm::ConstantInt::get(PtrDiffTy, index));
-
+      GEPIndexes.push_back(llvm::ConstantInt::get(PtrDiffTy, index));
+    }
     RD = BaseDecl;
   }
 }
@@ -73,13 +75,13 @@ static unsigned ComputeBaseIdOffset(CodeGenTypes& Types,
     const CXXRecordDecl *BaseDecl =
       cast<CXXRecordDecl>(Base->getType()->getAs<RecordType>()->getDecl());
 
-    // Get the layout.
-    const CGRecordLayout &Layout = Types.getCGRecordLayout(RD);
-
-    unsigned baseId = Layout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
-
-    Offset += Layout.getTotalOffsetToBase(baseId);
-
+    if(!BaseDecl->isEmpty())
+    {
+      // Get the layout.
+      const CGRecordLayout &Layout = Types.getCGRecordLayout(RD);
+      unsigned baseId = Layout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
+      Offset += Layout.getTotalOffsetToBase(baseId);
+    }
     RD = BaseDecl;
   }
 
@@ -291,12 +293,23 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   {
     SmallVector<llvm::Value*, 4> GEPConstantIndexes;
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
-    // Get the layout.
-    // TODO: Duetto: if the base class has no members this will fail, fix it
-    const CGRecordLayout &Layout = getTypes().getCGRecordLayout(Derived);
-    uint32_t index=Layout.getNonVirtualBaseLLVMFieldNo(Base);
-    GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, index));
-    return Builder.CreateGEP(This, GEPConstantIndexes);
+    // Duetto: if the base class has no member create a bitcast with duetto metadata
+    if(Base->isEmpty())
+    {
+       llvm::Instruction* castI=cast<llvm::Instruction>(Builder.CreateBitCast(This, ConvertType(Base)->getPointerTo()));
+       llvm::MDNode* md=llvm::MDNode::get(getLLVMContext(), llvm::SmallVector<llvm::Metadata*, 1>());
+       //TODO: Convert this to a builtin
+       castI->setMetadata("duetto.upcast.collapsed", md);
+       return castI;
+    }
+    else
+    {
+      // Get the layout.
+      const CGRecordLayout &Layout = getTypes().getCGRecordLayout(Derived);
+      uint32_t index=Layout.getNonVirtualBaseLLVMFieldNo(Base);
+      GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, index));
+      return Builder.CreateGEP(This, GEPConstantIndexes);
+    }
   }
 
   // Shift and cast down to the base type.
@@ -455,8 +468,16 @@ Address CodeGenFunction::GetAddressOfBaseClass(
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     ComputeNonVirtualBaseClassGepPath(getTypes(), GEPConstantIndexes, Int32Ty,
                                     Derived, PathBegin, PathEnd);
-    assert(GEPConstantIndexes.size()>1);
     Value = Builder.CreateGEP(Value, GEPConstantIndexes);
+    //Duetto: Check if the type is the expected one. If not create a cast with a metadata for duetto
+    //This may happen when empty classes are found
+    if(Value->getType()!=BasePtrTy)
+    {
+       llvm::Instruction* castI=cast<llvm::Instruction>(Builder.CreateBitCast(Value, BasePtrTy));
+       llvm::MDNode* md=llvm::MDNode::get(getLLVMContext(), llvm::SmallVector<llvm::Metadata*, 1>());
+       //TODO: Convert this to a builtin
+       castI->setMetadata("duetto.upcast.collapsed", md);
+    }
   }
   else
   {
