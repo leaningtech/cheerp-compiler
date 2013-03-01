@@ -1435,6 +1435,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::Br:
 			case Instruction::Alloca:
 			case Instruction::Switch:
+			case Instruction::Unreachable:
 				return false;
 			case Instruction::Add:
 			case Instruction::Sub:
