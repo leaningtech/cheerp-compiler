@@ -277,6 +277,7 @@ private:
 	bool isVTableCast(Type* src, Type* dst) const;
 	bool isClientType(Type* t) const;
 	bool isI32Type(Type* t) const;
+	bool isComingFromAllocation(const Value* val) const;
 	bool isInlineable(const Instruction& I) const;
 	void compileTerminatorInstruction(const TerminatorInst& I,
 			const std::map<const BasicBlock*, uint32_t>& blocksMap);
@@ -580,6 +581,37 @@ bool JSWriter::isFunctionPointerPointerType(Type* t) const
 	return true;
 }
 
+bool JSWriter::isComingFromAllocation(const Value* val) const
+{
+	const CallInst* newCall=dyn_cast<const CallInst>(val);
+	if(newCall)
+	{
+		return newCall->getCalledFunction()->getName()=="_Znwj"
+			|| newCall->getCalledFunction()->getName()=="_Znaj"
+			|| newCall->getCalledFunction()->getName()=="malloc";
+	}
+	//Try invoke as well
+	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
+	if(newInvoke)
+	{
+		//TODO: Disable throw in new, it's nonsense in JS context
+		return newInvoke->getCalledFunction()->getName()=="_Znwj"
+			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
+			|| newInvoke->getCalledFunction()->getName()=="malloc";
+	}
+	const PHINode* newPHI=dyn_cast<const PHINode>(val);
+	if(newPHI)
+	{
+		for(unsigned i=0;i<newPHI->getNumIncomingValues();i++)
+		{
+			if(!isComingFromAllocation(newPHI->getIncomingValue(i)))
+				return false;
+		}
+		return true;
+	}
+	return false;
+}
+
 bool JSWriter::isVTableCast(Type* srcPtr, Type* dstPtr) const
 {
 	//Only pointer casts are possible anyway
@@ -656,27 +688,8 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 	//NOTE: The fresh memory may be passed uncasted to icmp to test against null
 	if(src->isIntegerTy(8))
 	{
-		bool comesFromNew = false;
+		bool comesFromNew = isComingFromAllocation(castOp);
 		bool allowedRawUsages = true;
-		const CallInst* newCall=dyn_cast<const CallInst>(castOp);
-		if(newCall && (newCall->getCalledFunction()->getName()=="_Znwj"
-				|| newCall->getCalledFunction()->getName()=="_Znaj"
-				|| newCall->getCalledFunction()->getName()=="malloc"))
-		{
-			comesFromNew = true;
-		}
-		else
-		{
-			//Try invoke
-			//TODO: Disable throw in new, it's nonsense in JS context
-			const InvokeInst* newCall=dyn_cast<const InvokeInst>(castOp);
-			if(newCall && (newCall->getCalledFunction()->getName()=="_Znwj"
-					|| newCall->getCalledFunction()->getName()=="_Znaj"
-					|| newCall->getCalledFunction()->getName()=="malloc"))
-			{
-				comesFromNew = true;
-			}
-		}
 		Value::const_use_iterator it=castOp->use_begin();
 		Value::const_use_iterator itE=castOp->use_end();
 		for(;it!=itE;++it)
@@ -691,6 +704,8 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 		if(comesFromNew && allowedRawUsages)
 			return true;
 	}
+	castI->dump();
+	cerr << endl;
 	src->dump();
 	cerr << endl;
 	dst->dump();
