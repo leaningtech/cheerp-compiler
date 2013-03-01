@@ -1193,16 +1193,19 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			const BitCastInst& bi=static_cast<const BitCastInst&>(I);
 			Type* srcPtr=bi.getSrcTy();
 			Type* dstPtr=bi.getDestTy();
-			bi.dump();
-			cerr << endl;
+
 			bool vtableCast = isVTableCast(srcPtr, dstPtr);
-			assert(vtableCast || isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr));
+			bool isCollapsedUpcast = I.getMetadata("duetto.upcast.collapsed")!=NULL;
+			assert(vtableCast || isCollapsedUpcast || isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr));
 			if(vtableCast)
 			{
 				//TODO: Implement recursive access to vtable
 			}
 			else
+			{
+				//Collapsed upcast are ok as well by compiling the operand
 				compileOperand(bi.getOperand(0));
+			}
 			return true;
 		}
 		case Instruction::Alloca:
