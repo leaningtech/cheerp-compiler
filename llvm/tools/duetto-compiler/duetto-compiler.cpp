@@ -588,6 +588,7 @@ bool JSWriter::isComingFromAllocation(const Value* val) const
 	{
 		return newCall->getCalledFunction()->getName()=="_Znwj"
 			|| newCall->getCalledFunction()->getName()=="_Znaj"
+			|| newCall->getCalledFunction()->getName()=="realloc"
 			|| newCall->getCalledFunction()->getName()=="malloc";
 	}
 	//Try invoke as well
@@ -597,6 +598,7 @@ bool JSWriter::isComingFromAllocation(const Value* val) const
 		//TODO: Disable throw in new, it's nonsense in JS context
 		return newInvoke->getCalledFunction()->getName()=="_Znwj"
 			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
+			|| newCall->getCalledFunction()->getName()=="realloc"
 			|| newInvoke->getCalledFunction()->getName()=="malloc";
 	}
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
