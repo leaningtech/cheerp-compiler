@@ -1909,6 +1909,9 @@ Instruction *InstCombinerImpl::visitIntToPtr(IntToPtrInst &CI) {
 Instruction *InstCombinerImpl::commonPointerCastTransforms(CastInst &CI) {
   Value *Src = CI.getOperand(0);
 
+  if (!DL.isByteAddressable())
+    return commonCastTransforms(CI);
+
   if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Src)) {
     // If casting the result of a getelementptr instruction with no offset, turn
     // this into a cast of the original pointer!
