@@ -795,6 +795,14 @@ void JSWriter::compileConstant(const Constant* c)
 		//printLLVMName already add '_' to the name
 		printLLVMName(c->getName());
 	}
+	else if(c->isNullValue())
+	{
+		stream << "null";
+	}
+	else if(c->hasName())
+	{
+		printLLVMName(c->getName());
+	}
 	else
 	{
 		cerr << "Unsupported constant type ";
