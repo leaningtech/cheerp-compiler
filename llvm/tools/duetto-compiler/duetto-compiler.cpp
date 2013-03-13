@@ -1326,6 +1326,21 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ") >> 0)";
 			return true;
 		}
+		case Instruction::FSub:
+		{
+			//Double subtraction
+			//TODO: optimize negation
+			assert(I.getNumOperands()==2);
+			assert(I.getOperand(0)->getType()->isDoubleTy());
+			assert(I.getOperand(1)->getType()->isDoubleTy());
+			assert(I.getType()->isDoubleTy());
+			stream << "(";
+			compileOperand(I.getOperand(0));
+			stream << " - ";
+			compileOperand(I.getOperand(1));
+			stream << ")";
+			return true;
+		}
 		case Instruction::ZExt:
 		{
 			const BitCastInst& bi=static_cast<const BitCastInst&>(I);
@@ -1356,6 +1371,20 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ") >> 0)";
 			return true;
 		}
+		case Instruction::FDiv:
+		{
+			//Double multiplication
+			assert(I.getNumOperands()==2);
+			assert(I.getOperand(0)->getType()->isDoubleTy());
+			assert(I.getOperand(1)->getType()->isDoubleTy());
+			assert(I.getType()->isDoubleTy());
+			stream << "(";
+			compileOperand(I.getOperand(0));
+			stream << " / ";
+			compileOperand(I.getOperand(1));
+			stream << ")";
+			return true;
+		}
 		case Instruction::Mul:
 		{
 			//Integer signed multiplication
@@ -1368,6 +1397,20 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << " * ";
 			compileOperand(I.getOperand(1));
 			stream << ") >> 0)";
+			return true;
+		}
+		case Instruction::FMul:
+		{
+			//Double multiplication
+			assert(I.getNumOperands()==2);
+			assert(I.getOperand(0)->getType()->isDoubleTy());
+			assert(I.getOperand(1)->getType()->isDoubleTy());
+			assert(I.getType()->isDoubleTy());
+			stream << "(";
+			compileOperand(I.getOperand(0));
+			stream << " * ";
+			compileOperand(I.getOperand(1));
+			stream << ")";
 			return true;
 		}
 		case Instruction::ICmp:
@@ -1430,7 +1473,18 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 				compileDereferencePointer(ptrOp, 0);
 			stream << ")";
 			return true;
-
+		}
+		case Instruction::Select:
+		{
+			const SelectInst& si=static_cast<const SelectInst&>(I);
+			stream << "(";
+			compileOperand(si.getCondition());
+			stream << "?";
+			compileOperand(si.getTrueValue());
+			stream << ":";
+			compileOperand(si.getFalseValue());
+			stream << ")";
+			return true;
 		}
 		default:
 			stream << "alert('Unsupported code');\n";
