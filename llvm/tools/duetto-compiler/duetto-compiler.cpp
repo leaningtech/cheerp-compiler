@@ -800,10 +800,24 @@ void JSWriter::compileOperand(const Value* v)
 	const Constant* c=dyn_cast<const Constant>(v);
 	if(c)
 		compileConstant(c);
-	else if(dyn_cast<Instruction>(v) && isInlineable(*cast<Instruction>(v)))
-		compileInlineableInstruction(*cast<Instruction>(v));
 	else if(v->hasName())
 		printLLVMName(v->getName());
+	else if(dyn_cast<Instruction>(v))
+	{
+		const Instruction* it=cast<const Instruction>(v);
+		if(isInlineable(*it))
+			compileInlineableInstruction(*cast<Instruction>(v));
+		else if(it->getOpcode()==Instruction::PHI)
+		{
+			const PHINode* phi=static_cast<const PHINode*>(it);
+			printPHIName(phi);
+		}
+		else
+		{
+			cerr << "Instrucion not handled\n";
+			it->dump();
+		}
+	}
 	else
 	{
 		cerr << "No name for value ";
