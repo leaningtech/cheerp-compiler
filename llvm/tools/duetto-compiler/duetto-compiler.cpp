@@ -280,7 +280,9 @@ private:
 			User::const_op_iterator itE);
 	bool safeUsagesForNewedMemory(const Value* v) const;
 	bool safeCallForNewedMemory(const CallInst* ci) const;
-	std::map<const Value*, int> unnamedValueMap;
+	uint32_t getUniqueIndexForValue(const Value* v);
+	void printPHIName(const PHINode* phi);
+	std::map<const Value*, uint32_t> unnamedValueMap;
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -854,6 +856,22 @@ void JSWriter::compileType(Type* t)
 	}
 }
 
+uint32_t JSWriter::getUniqueIndexForValue(const Value* v)
+{
+	std::map<const Value*,uint32_t>::iterator it=unnamedValueMap.find(v);
+	if(it==unnamedValueMap.end())
+		it=unnamedValueMap.insert(make_pair(v, unnamedValueMap.size())).first;
+	return it->second;
+}
+
+void JSWriter::printPHIName(const PHINode* phi)
+{
+	if(phi->hasName())
+		printLLVMName(phi->getName());
+	else
+		stream << "phi" << getUniqueIndexForValue(phi);
+}
+
 void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
 {
 	BasicBlock::const_iterator I=to->begin();
@@ -866,15 +884,7 @@ void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const Basic
 		const Value* val=phi->getIncomingValueForBlock(from);
 		//TODO: verify that 'var' works
 		stream << "var ";
-		if(phi->hasName())
-			printLLVMName(phi->getName());
-		else
-		{
-			std::map<const Value*,int>::iterator it=unnamedValueMap.find(phi);
-			if(it==unnamedValueMap.end())
-				it=unnamedValueMap.insert(make_pair(phi, unnamedValueMap.size())).first;
-			stream << "phi" << it->second;
-		}
+		printPHIName(phi);
 		stream << " = ";
 		compileOperand(val);
 		stream << ";\n";
@@ -1016,11 +1026,6 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			stream << " alert('Exceptions not supported')";
 			//Do not continue block
 			return false;
-		}
-		case Instruction::PHI:
-		{
-			//Phis are handled at each terminator, so nothing to do here
-			return true;
 		}
 		case Instruction::InsertValue:
 		{
@@ -1479,7 +1484,9 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 	{
 		if(isInlineable(*I))
 			continue;
-		if(I->hasName() && I->getOpcode()!=Instruction::PHI) //Phys are manually handled
+		if(I->getOpcode()==Instruction::PHI) //Phys are manually handled
+			continue;
+		if(I->hasName())
 		{
 			stream << "var ";
 			printLLVMName(I->getName());
