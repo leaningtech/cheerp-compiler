@@ -1297,6 +1297,20 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ") >> 0)";
 			return true;
 		}
+		case Instruction::FAdd:
+		{
+			//Double addition
+			assert(I.getNumOperands()==2);
+			assert(I.getOperand(0)->getType()->isDoubleTy());
+			assert(I.getOperand(1)->getType()->isDoubleTy());
+			assert(I.getType()->isDoubleTy());
+			stream << "(";
+			compileOperand(I.getOperand(0));
+			stream << " + ";
+			compileOperand(I.getOperand(1));
+			stream << ")";
+			return true;
+		}
 		case Instruction::Sub:
 		{
 			//Integer subtraction
