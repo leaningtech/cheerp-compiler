@@ -55,24 +55,6 @@ OptLevel("O",
          cl::ZeroOrMore,
          cl::init(' '));
 
-static cl::opt<std::string>
-TargetTriple("mtriple", cl::desc("Override target triple for module"));
-
-static cl::opt<std::string>
-MArch("march", cl::desc("Architecture to generate code for (see --version)"));
-
-static cl::opt<std::string>
-MCPU("mcpu",
-  cl::desc("Target a specific cpu type (-mcpu=help for details)"),
-  cl::value_desc("cpu-name"),
-  cl::init(""));
-
-static cl::list<std::string>
-MAttrs("mattr",
-  cl::CommaSeparated,
-  cl::desc("Target specific attributes (-mattr=help for details)"),
-  cl::value_desc("a1,+a2,-a3,..."));
-
 static cl::opt<Reloc::Model>
 RelocModel("relocation-model",
              cl::desc("Choose relocation model"),
