@@ -839,9 +839,14 @@ void JSWriter::compileType(Type* t)
 			//We will allow anything shorter.
 			//NOTE: Only bit operations are allowed on shorter types
 			//this is enforced on a per-operation basis
-			//TODO: out assertion back
+			//TODO: put assertion back
 			//assert(it->getBitWidth()<=32);
 			//Print out a '0'. To let the engine know this is an integer
+			stream << '0';
+			break;
+		}
+		case Type::DoubleTyID:
+		{
 			stream << '0';
 			break;
 		}
@@ -866,6 +871,19 @@ void JSWriter::compileType(Type* t)
 		case Type::PointerTyID:
 			stream << "{ d:null, o: 0, p: '' }";
 			break;
+		case Type::ArrayTyID:
+		{
+			ArrayType* at=static_cast<ArrayType*>(t);
+			stream << '[';
+			for(uint64_t i=0;i<at->getNumElements();i++)
+			{
+				compileType(at->getElementType());
+				if((i+1)<at->getNumElements())
+					stream << ",";
+			}
+			stream << ']';
+			break;
+		}
 		default:
 			cerr << "Support type ";
 			t->dump();
