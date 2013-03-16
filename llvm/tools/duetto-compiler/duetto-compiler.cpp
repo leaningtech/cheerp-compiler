@@ -1459,6 +1459,51 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ")";
 			return true;
 		}
+		case Instruction::And:
+		{
+			//Integer logical and
+			assert(I.getNumOperands()==2);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(isI32Type(I.getOperand(1)->getType()));
+			assert(isI32Type(I.getType()));
+			//No need to apply the >> operator. The result is an integer by spec
+			stream << '(';
+			compileOperand(I.getOperand(0));
+			stream << " & ";
+			compileOperand(I.getOperand(1));
+			stream << ')';
+			return true;
+		}
+		case Instruction::LShr:
+		{
+			//Integer logical shift right
+			assert(I.getNumOperands()==2);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(isI32Type(I.getOperand(1)->getType()));
+			assert(isI32Type(I.getType()));
+			//No need to apply the >> operator. The result is an integer by spec
+			stream << '(';
+			compileOperand(I.getOperand(0));
+			stream << " >>> ";
+			compileOperand(I.getOperand(1));
+			stream << ')';
+			return true;
+		}
+		case Instruction::Or:
+		{
+			//Integer logical or
+			assert(I.getNumOperands()==2);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(isI32Type(I.getOperand(1)->getType()));
+			assert(isI32Type(I.getType()));
+			//No need to apply the >> operator. The result is an integer by spec
+			stream << '(';
+			compileOperand(I.getOperand(0));
+			stream << " | ";
+			compileOperand(I.getOperand(1));
+			stream << ')';
+			return true;
+		}
 		case Instruction::Load:
 		{
 			const LoadInst& li=static_cast<const LoadInst&>(I);
