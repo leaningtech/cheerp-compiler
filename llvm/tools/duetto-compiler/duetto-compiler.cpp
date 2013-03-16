@@ -1239,6 +1239,20 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << " >> 0)";
 			return true;
 		}
+		case Instruction::FPToUI:
+		{
+			const CastInst& ci=static_cast<const CastInst&>(I);
+			//Check that the in and out types are sane
+			Type* srcT = ci.getSrcTy();
+			Type* dstT = ci.getDestTy();
+			assert(srcT->isDoubleTy());
+			assert(isI32Type(dstT));
+
+			stream << "(";
+			compileOperand(ci.getOperand(0));
+			stream << " >>> 0)";
+			return true;
+		}
 		case Instruction::SIToFP:
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
@@ -1249,8 +1263,20 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			assert(dstT->isDoubleTy());
 			//It's a NOP, values are logically FP anyway in JS
 			compileOperand(ci.getOperand(0));
-			//Seems to be the fastest way
-			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
+			return true;
+		}
+		case Instruction::UIToFP:
+		{
+			const CastInst& ci=static_cast<const CastInst&>(I);
+			//Check that the in and out types are sane
+			Type* srcT = ci.getSrcTy();
+			Type* dstT = ci.getDestTy();
+			assert(isI32Type(srcT));
+			assert(dstT->isDoubleTy());
+			//We need to cast to unsigned before
+			stream << "(";
+			compileOperand(ci.getOperand(0));
+			stream << " >>> 0)";
 			return true;
 		}
 		case Instruction::GetElementPtr:
@@ -1505,6 +1531,52 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << " | ";
 			compileOperand(I.getOperand(1));
 			stream << ')';
+			return true;
+		}
+		case Instruction::Xor:
+		{
+			//Integer logical or
+			assert(I.getNumOperands()==2);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(isI32Type(I.getOperand(1)->getType()));
+			assert(isI32Type(I.getType()));
+			//No need to apply the >> operator. The result is an integer by spec
+			stream << '(';
+			compileOperand(I.getOperand(0));
+			stream << " ^ ";
+			compileOperand(I.getOperand(1));
+			stream << ')';
+			return true;
+		}
+		case Instruction::Trunc:
+		{
+			//Well, ideally this should not be used since, since it's a waste of bit to
+			//use integers less than 32 bit wide. Still we can support it
+			assert(I.getNumOperands()==1);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(I.getType()->isIntegerTy());
+			uint32_t finalSize = I.getType()->getIntegerBitWidth();
+			assert(finalSize < 32);
+			uint32_t mask = (1 << finalSize) - 1;
+			stream << '(';
+			compileOperand(I.getOperand(0));
+			stream << " & " << mask << ')';
+			return true;
+		}
+		case Instruction::SExt:
+		{
+			//We can use a couple of shift to make this work
+			assert(I.getNumOperands()==1);
+			assert(I.getOperand(0)->getType()->isIntegerTy());
+			uint32_t initialSize = I.getOperand(0)->getType()->getIntegerBitWidth();
+			assert(initialSize < 32);
+			assert(I.getType()->isIntegerTy());
+			assert(I.getType()->getIntegerBitWidth()<=32);
+			//We anyway have to use 32 bits for sign extension to work
+			uint32_t shiftAmount = 32-initialSize;
+			stream << "((";
+			compileOperand(I.getOperand(0));
+			stream << "<<" << shiftAmount << ")>>" << shiftAmount << ')';
 			return true;
 		}
 		case Instruction::Load:
