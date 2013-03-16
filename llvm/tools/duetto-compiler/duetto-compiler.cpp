@@ -359,6 +359,9 @@ void JSWriter::compilePredicate(CmpInst::Predicate p)
 		case CmpInst::ICMP_NE:
 			stream << " !== ";
 			break;
+		case CmpInst::FCMP_OGT: //TODO: fix this, if an operand is NaN LLVM expects false,
+					//but JS returns undefined. Adding ==true after the whole expression
+					//should work
 		case CmpInst::ICMP_SGT:
 			stream << " > ";
 			break;
