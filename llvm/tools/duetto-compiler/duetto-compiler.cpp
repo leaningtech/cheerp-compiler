@@ -988,6 +988,27 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 			}
 			break;
 		}
+		case Instruction::Switch:
+		{
+			//Create a JS switch
+			const SwitchInst& si=static_cast<const SwitchInst&>(I);
+			stream << "switch (";
+			compileOperand(si.getCondition());
+			stream << "){";
+			SwitchInst::ConstCaseIt it=si.case_begin();
+			for(;it!=si.case_end();++it)
+			{
+				stream << "case ";
+				compileConstant(it.getCaseValue());
+				stream << ":\n__block = " << blocksMap.find(it.getCaseSuccessor())->second <<
+					"; break;";
+			}
+			assert(si.getDefaultDest());
+			stream << "default:\n__block = " << blocksMap.find(si.getDefaultDest())->second <<
+				";";
+			stream << "}\n";
+			break;
+		}
 		default:
 			stream << "alert('Unsupported code');\n";
 			cerr << "\tImplement terminator inst " << I.getOpcodeName() << endl;
