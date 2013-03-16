@@ -992,6 +992,18 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 {
 	switch(I.getOpcode())
 	{
+		case Instruction::Alloca:
+		{
+			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
+			//Alloca must return a pointer, create a 1 element array
+			assert(ai.hasName());
+			stream << "{ d: [";
+			compileType(ai.getAllocatedType());
+			stream << "], o: 0, p: ''}";
+			//Take note that this is a complete object
+			//completeObjects.insert(&I);
+			return true;
+		}
 		case Instruction::Call:
 		{
 			const CallInst& ci=static_cast<const CallInst&>(I);
@@ -1201,18 +1213,6 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 				//Collapsed upcast are ok as well by compiling the operand
 				compileOperand(bi.getOperand(0));
 			}
-			return true;
-		}
-		case Instruction::Alloca:
-		{
-			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
-			//Alloca must return a pointer, create a 1 element array
-			assert(ai.hasName());
-			stream << "{ d: [";
-			compileType(ai.getAllocatedType());
-			stream << "], o: 0, p: ''}";
-			//Take note that this is a complete object
-			//completeObjects.insert(&I);
 			return true;
 		}
 		case Instruction::FPToSI:
