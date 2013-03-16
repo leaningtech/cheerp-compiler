@@ -1470,6 +1470,20 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ")";
 			return true;
 		}
+		case Instruction::ExtractValue:
+		{
+			const ExtractValueInst& evi=static_cast<const ExtractValueInst&>(I);
+			const Value* aggr=evi.getAggregateOperand();
+			Type* t=aggr->getType();
+			assert(t->isStructTy());
+			assert(!UndefValue::classof(aggr));
+
+			printVarName(aggr);
+
+			uint32_t offset=evi.getIndices()[0];
+			stream << ".a" << offset;
+			return true;
+		}
 		default:
 			stream << "alert('Unsupported code');\n";
 			cerr << "\tImplement inst " << I.getOpcodeName() << endl;
