@@ -238,6 +238,7 @@ private:
 	void compileFastGEPDereference(const GetElementPtrInst& gep);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
 	void printLLVMName(const StringRef& s) const;
+	void printVarName(const Value* v);
 	void handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
 			User::const_op_iterator itE);
 	bool handleBuiltinCall(const char* ident, User::const_op_iterator it,
@@ -245,7 +246,6 @@ private:
 	bool safeUsagesForNewedMemory(const Value* v) const;
 	bool safeCallForNewedMemory(const CallInst* ci) const;
 	uint32_t getUniqueIndexForValue(const Value* v);
-	void printPHIName(const PHINode* phi);
 	std::map<const Value*, uint32_t> unnamedValueMap;
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
@@ -776,8 +776,7 @@ void JSWriter::compileOperand(const Value* v)
 			compileInlineableInstruction(*cast<Instruction>(v));
 		else if(it->getOpcode()==Instruction::PHI)
 		{
-			const PHINode* phi=static_cast<const PHINode*>(it);
-			printPHIName(phi);
+			printVarName(it);
 		}
 		else
 		{
@@ -863,12 +862,12 @@ uint32_t JSWriter::getUniqueIndexForValue(const Value* v)
 	return it->second;
 }
 
-void JSWriter::printPHIName(const PHINode* phi)
+void JSWriter::printVarName(const Value* val)
 {
-	if(phi->hasName())
-		printLLVMName(phi->getName());
+	if(val->hasName())
+		printLLVMName(val->getName());
 	else
-		stream << "phi" << getUniqueIndexForValue(phi);
+		stream << "tmp" << getUniqueIndexForValue(val);
 }
 
 void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
@@ -883,7 +882,7 @@ void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const Basic
 		const Value* val=phi->getIncomingValueForBlock(from);
 		//TODO: verify that 'var' works
 		stream << "var ";
-		printPHIName(phi);
+		printVarName(phi);
 		stream << " = ";
 		compileOperand(val);
 		stream << ";\n";
@@ -1553,10 +1552,10 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 			continue;
 		if(I->getOpcode()==Instruction::PHI) //Phys are manually handled
 			continue;
-		if(I->hasName())
+		if(I->getType()->getTypeID()!=Type::VoidTyID)
 		{
 			stream << "var ";
-			printLLVMName(I->getName());
+			printVarName(&(*I));
 			stream << " = ";
 		}
 		if(I->isTerminator())
