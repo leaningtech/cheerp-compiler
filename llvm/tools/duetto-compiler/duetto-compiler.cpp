@@ -1714,6 +1714,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::ExtractValue:
 			//Unsigned opcodes are a problem, where do they come
 			case Instruction::URem:
+			case Instruction::UDiv:
 			case Instruction::UIToFP:
 			case Instruction::FPToUI:
 				return true;
