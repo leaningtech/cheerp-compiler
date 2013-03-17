@@ -1407,11 +1407,25 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			assert(isI32Type(I.getOperand(0)->getType()));
 			assert(isI32Type(I.getOperand(1)->getType()));
 			assert(isI32Type(I.getType()));
-			stream << "((";
+			stream << "(((";
 			compileOperand(I.getOperand(0));
-			stream << " / ";
+			stream << ">> 0) / (";
 			compileOperand(I.getOperand(1));
-			stream << ") >> 0)";
+			stream << ">> 0)) >> 0)";
+			return true;
+		}
+		case Instruction::UDiv:
+		{
+			//Integer unsigned division
+			assert(I.getNumOperands()==2);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(isI32Type(I.getOperand(1)->getType()));
+			assert(isI32Type(I.getType()));
+			stream << "(((";
+			compileOperand(I.getOperand(0));
+			stream << ">>> 0) / (";
+			compileOperand(I.getOperand(1));
+			stream << ">>> 0)) >>> 0)";
 			return true;
 		}
 		case Instruction::SRem:
@@ -1421,11 +1435,25 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			assert(isI32Type(I.getOperand(0)->getType()));
 			assert(isI32Type(I.getOperand(1)->getType()));
 			assert(isI32Type(I.getType()));
-			stream << "((";
+			stream << "(((";
 			compileOperand(I.getOperand(0));
-			stream << " % ";
+			stream << ">> 0) % (";
 			compileOperand(I.getOperand(1));
-			stream << ") >> 0)";
+			stream << ">> 0)) >> 0)";
+			return true;
+		}
+		case Instruction::URem:
+		{
+			//Integer unsigned division
+			assert(I.getNumOperands()==2);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(isI32Type(I.getOperand(1)->getType()));
+			assert(isI32Type(I.getType()));
+			stream << "(((";
+			compileOperand(I.getOperand(0));
+			stream << ">>> 0) % (";
+			compileOperand(I.getOperand(1));
+			stream << ">>> 0)) >>> 0)";
 			return true;
 		}
 		case Instruction::FDiv:
