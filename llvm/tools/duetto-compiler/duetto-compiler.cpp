@@ -235,7 +235,7 @@ private:
 	void compileType(Type* t);
 	void compileDereferencePointer(const Value* v, int byteOffset);
 	void compileDereferencePointer(const Value* v, const Value* offset);
-	void compileFastGEPDereference(const GetElementPtrInst& gep);
+	void compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
 	void printLLVMName(const StringRef& s) const;
 	void printVarName(const Value* v);
@@ -1104,7 +1104,13 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			if(ptrOp->hasOneUse() && GetElementPtrInst::classof(ptrOp))
 			{
 				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
-				compileFastGEPDereference(gep);
+				compileFastGEPDereference(gep.getOperand(0), gep.idx_begin(), gep.idx_end());
+			}
+			else if((ConstantExpr::classof(ptrOp)) &&
+					cast<ConstantExpr>(ptrOp)->getOpcode()==Instruction::GetElementPtr)
+			{
+				const ConstantExpr& cgep=static_cast<const ConstantExpr&>(*ptrOp);
+				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
 			}
 			else
 				compileDereferencePointer(ptrOp, 0);
@@ -1126,25 +1132,23 @@ bool JSWriter::isI32Type(Type* t) const
 	return t->isIntegerTy();// && static_cast<IntegerType*>(t)->getBitWidth()==32;
 }
 
-void JSWriter::compileFastGEPDereference(const GetElementPtrInst& gep)
+void JSWriter::compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end)
 {
-	GetElementPtrInst::const_op_iterator it=gep.idx_begin();
-	const GetElementPtrInst::const_op_iterator itE=gep.idx_end();
-	Type* t=gep.getOperand(0)->getType();
+	Type* t=operand->getType();
 	assert(t->isPointerTy());
 	PointerType* ptrT=static_cast<PointerType*>(t);
-	if(ConstantInt::classof(*it))
+	if(ConstantInt::classof(*idx_begin))
 	{
-		uint32_t firstElement = getIntFromValue(*it);
+		uint32_t firstElement = getIntFromValue(*idx_begin);
 		//First dereference the pointer
-		compileDereferencePointer(gep.getOperand(0), firstElement);
+		compileDereferencePointer(operand, firstElement);
 	}
 	else
 	{
 		//First dereference the pointer
-		compileDereferencePointer(gep.getOperand(0), *it);
+		compileDereferencePointer(operand, *idx_begin);
 	}
-	compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+	compileRecursiveAccessToGEP(ptrT->getElementType(), ++idx_begin, idx_end);
 }
 
 void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
@@ -1610,7 +1614,13 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			if(ptrOp->hasOneUse() && GetElementPtrInst::classof(ptrOp))
 			{
 				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
-				compileFastGEPDereference(gep);
+				compileFastGEPDereference(gep.getOperand(0), gep.idx_begin(), gep.idx_end());
+			}
+			else if((ConstantExpr::classof(ptrOp)) &&
+					cast<ConstantExpr>(ptrOp)->getOpcode()==Instruction::GetElementPtr)
+			{
+				const ConstantExpr& cgep=static_cast<const ConstantExpr&>(*ptrOp);
+				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
 			}
 			else
 				compileDereferencePointer(ptrOp, 0);
