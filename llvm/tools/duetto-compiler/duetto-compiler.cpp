@@ -815,6 +815,7 @@ void JSWriter::compileType(Type* t)
 			stream << '0';
 			break;
 		}
+		case Type::FloatTyID:
 		case Type::DoubleTyID:
 		{
 			stream << '0';
