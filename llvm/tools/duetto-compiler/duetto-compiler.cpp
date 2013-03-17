@@ -389,7 +389,7 @@ void JSWriter::printLLVMName(const StringRef& s) const
 	stream.write("_",1);
 	for(uint32_t i=0;i<s.size();i++)
 	{
-		if(data[i]=='.')
+		if(data[i]=='.' || data[i]=='-')
 			stream.write("_",1);
 		else
 			stream.write(data+i,1);
