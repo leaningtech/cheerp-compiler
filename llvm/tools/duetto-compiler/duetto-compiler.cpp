@@ -351,6 +351,7 @@ void JSWriter::compilePredicate(CmpInst::Predicate p)
 {
 	switch(p)
 	{
+		case CmpInst::FCMP_OEQ:
 		case CmpInst::ICMP_EQ:
 			stream << " === ";
 			break;
@@ -360,21 +361,29 @@ void JSWriter::compilePredicate(CmpInst::Predicate p)
 			stream << " !== ";
 			break;
 		case CmpInst::FCMP_OGT: //TODO: fix this, if an operand is NaN LLVM expects false,
-					//but JS returns undefined. Adding ==true after the whole expression
+		case CmpInst::FCMP_UGT:	//but JS returns undefined. Adding ==true after the whole expression
 					//should work
 		case CmpInst::ICMP_SGT:
+		case CmpInst::ICMP_UGT: //TODO: To support unsigned we need to add casts around the ops
 			stream << " > ";
 			break;
+		case CmpInst::FCMP_UGE:
+		case CmpInst::FCMP_OGE:
 		case CmpInst::ICMP_SGE:
+		case CmpInst::ICMP_UGE:
 			stream << " >= ";
 			break;
 		case CmpInst::FCMP_OLT: //TODO: fix this, if an operand is NaN LLVM expects false,
-					//but JS returns undefined. Adding ==true after the whole expression
+		case CmpInst::FCMP_ULT:	//but JS returns undefined. Adding ==true after the whole expression
 					//should work
 		case CmpInst::ICMP_SLT:
+		case CmpInst::ICMP_ULT: //TODO: To support unsigned we need to add casts around the ops
 			stream << " < ";
 			break;
+		case CmpInst::FCMP_ULE:
+		case CmpInst::FCMP_OLE:
 		case CmpInst::ICMP_SLE:
+		case CmpInst::ICMP_ULE:
 			stream << " <= ";
 			break;
 		default:
