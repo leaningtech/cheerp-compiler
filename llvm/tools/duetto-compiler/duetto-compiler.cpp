@@ -1574,6 +1574,21 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ')';
 			return true;
 		}
+		case Instruction::Shl:
+		{
+			//Integer shift left
+			assert(I.getNumOperands()==2);
+			assert(isI32Type(I.getOperand(0)->getType()));
+			assert(isI32Type(I.getOperand(1)->getType()));
+			assert(isI32Type(I.getType()));
+			//No need to apply the >> operator. The result is an integer by spec
+			stream << '(';
+			compileOperand(I.getOperand(0));
+			stream << " << ";
+			compileOperand(I.getOperand(1));
+			stream << ')';
+			return true;
+		}
 		case Instruction::Or:
 		{
 			//Integer logical or
