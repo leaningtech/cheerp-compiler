@@ -237,6 +237,8 @@ private:
 	void compileDereferencePointer(const Value* v, const Value* offset);
 	void compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
+	const Type* compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
+	void compileObjectForPointer(const Value* val);
 	void printLLVMName(const StringRef& s) const;
 	void printVarName(const Value* v);
 	void handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
@@ -1154,17 +1156,57 @@ void JSWriter::compileFastGEPDereference(const Value* operand, const Use* idx_be
 	compileRecursiveAccessToGEP(ptrT->getElementType(), ++idx_begin, idx_end);
 }
 
+void JSWriter::compileObjectForPointer(const Value* val)
+{
+	if(GetElementPtrInst::classof(val))
+	{
+		const GetElementPtrInst* gep=static_cast<const GetElementPtrInst*>(val);
+		GetElementPtrInst::const_op_iterator it=gep->idx_begin();
+		//We compile as usual till the last level
+		GetElementPtrInst::const_op_iterator itE=gep->idx_end()-1;
+		compileObjectForPointerGEP(gep->getOperand(0), it, itE);
+		return;
+	}
+	compileOperand(val);
+	stream << ".d";
+}
+
+const Type* JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
+{
+	Type* t=val->getType();
+	assert(t->isPointerTy());
+	PointerType* ptrT=static_cast<PointerType*>(t);
+	if(it==itE)
+	{
+		//Same level access, we are just computing another pointer from this pointer
+		compileObjectForPointer(val);
+		return ptrT->getElementType();
+	}
+	else
+	{
+		if(ConstantInt::classof(*it))
+		{
+			uint32_t firstElement = getIntFromValue(*it);
+			//First dereference the pointer
+			compileDereferencePointer(val, firstElement);
+		}
+		else
+			compileDereferencePointer(val, *it);
+		return compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+	}
+}
+
 void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
 	assert(t->isPointerTy());
 	PointerType* ptrT=static_cast<PointerType*>(t);
 	stream << "{ d: ";
+	const Type* lastType=compileObjectForPointerGEP(val, it, itE);
+	stream << ", o: ";
 	if(it==itE)
 	{
 		//Same level access, we are just computing another pointer from this pointer
-		compileOperand(val);
-		stream << ".d, o: ";
 		compileOperand(val);
 		stream << ".o+";
 		//Compute the offset
@@ -1181,20 +1223,11 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 	}
 	else
 	{
-		if(ConstantInt::classof(*it))
-		{
-			uint32_t firstElement = getIntFromValue(*it);
-			//First dereference the pointer
-			compileDereferencePointer(val, firstElement);
-		}
-		else
-			compileDereferencePointer(val, *it);
-		const Type* lastType=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 		//Now add the offset for the desired element
 		if(ConstantInt::classof(*itE))
 		{
 			uint32_t elementIndex = getIntFromValue(*itE);
-			stream << ", o: " << elementIndex << ", p: ";
+			stream << elementIndex << ", p: ";
 			if(StructType::classof(lastType))
 				stream << "'a' }";
 			else if(ArrayType::classof(lastType))
@@ -1206,7 +1239,6 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 		{
 			//Only arrays are accepted
 			assert(ArrayType::classof(lastType));
-			stream << ", o: ";
 			compileOperand(*itE);
 			stream << ", p: '' }";
 		}
@@ -1523,16 +1555,15 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			{
 				//Comparison on pointers is only valid
 				//for the same base!
-				stream << "(";
-				compileOperand(ci.getOperand(0));
-				stream << ".d===";
-				compileOperand(ci.getOperand(1));
-				stream << ".d && ";
+				compileObjectForPointer(ci.getOperand(0));
+				stream << "===";
+				compileObjectForPointer(ci.getOperand(1));
+				stream << " && ";
 				compileOperand(ci.getOperand(0));
 				stream << ".o";
 				compilePredicate(ci.getPredicate());
 				compileOperand(ci.getOperand(1));
-				stream << ".o)";
+				stream << ".o";
 			}
 			else
 			{
