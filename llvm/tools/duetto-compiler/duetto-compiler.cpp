@@ -1517,10 +1517,29 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 					/*assert(isI32Type(ci.getOperand(0)->getType()));
 					assert(isI32Type(ci.getOperand(1)->getType()));*/
 			}
+			assert(ci.getOperand(0)->getType()==ci.getOperand(1)->getType());
 			stream << "(";
-			compileOperand(ci.getOperand(0));
-			compilePredicate(ci.getPredicate());
-			compileOperand(ci.getOperand(1));
+			if(ci.getOperand(0)->getType()->isPointerTy())
+			{
+				//Comparison on pointers is only valid
+				//for the same base!
+				stream << "(";
+				compileOperand(ci.getOperand(0));
+				stream << ".d===";
+				compileOperand(ci.getOperand(1));
+				stream << ".d && ";
+				compileOperand(ci.getOperand(0));
+				stream << ".o";
+				compilePredicate(ci.getPredicate());
+				compileOperand(ci.getOperand(1));
+				stream << ".o)";
+			}
+			else
+			{
+				compileOperand(ci.getOperand(0));
+				compilePredicate(ci.getPredicate());
+				compileOperand(ci.getOperand(1));
+			}
 			stream << ")";
 			return true;
 		}
