@@ -781,6 +781,21 @@ void JSWriter::compileConstant(const Constant* c)
 	{
 		stream << "undefined";
 	}
+	else if(GlobalValue::classof(c))
+	{
+		assert(c->hasName());
+		//Check if this is a client global value, if so skip mangling
+		const char* mangledName = c->getName().data();
+		if(strncmp(mangledName,"_ZN6client",10)==0)
+		{
+			//Client value
+			char* objName;
+			int nameLen=strtol(mangledName+10,&objName,10);
+			stream.write(objName, nameLen);
+		}
+		else
+			printLLVMName(c->getName());
+	}
 	else if(c->hasName())
 	{
 		printLLVMName(c->getName());
