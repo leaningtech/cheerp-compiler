@@ -233,7 +233,9 @@ private:
 	const Type* compileRecursiveAccessToGEP(const Type* curType, const Use* it, const Use* const itE);
 	void compilePredicate(CmpInst::Predicate p);
 	void compileType(Type* t);
-	void compileDereferencePointer(const Value* v, int byteOffset);
+	bool isCompleteObject(const Value* val) const;
+	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
+	void compileDereferencePointer(const Value* v, int byteOffset, OperandFix fix);
 	void compileDereferencePointer(const Value* v, const Value* offset);
 	void compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
@@ -256,7 +258,7 @@ public:
 	void makeJS();
 	void compileMethod(Function& F);
 	void compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap);
-	void compileOperand(const Value* v);
+	void compileOperand(const Value* v, OperandFix fix = OPERAND_NO_FIX);
 	void compileConstant(const Constant* c);
 	void compileConstantExpr(const ConstantExpr* ce);
 };
@@ -407,6 +409,11 @@ void JSWriter::printLLVMName(const StringRef& s) const
 	}
 }
 
+bool JSWriter::isCompleteObject(const Value* v) const
+{
+	return false;
+}
+
 void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 {
 	assert(v->getType()->isPointerTy());
@@ -421,9 +428,15 @@ void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 	stream << ")]";
 }
 
-void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
+void JSWriter::compileDereferencePointer(const Value* v, int byteOffset, OperandFix fix)
 {
 	assert(v->getType()->isPointerTy());
+	if(isCompleteObject(v) && fix!=OPERAND_EXPAND_COMPLETE_OBJECTS)
+	{
+		//We can use the much quicker complete object access
+		compileOperand(v);
+		return;
+	}
 	compileOperand(v);
 	stream << ".d[";
 	compileOperand(v);
@@ -779,9 +792,16 @@ void JSWriter::compileConstant(const Constant* c)
 	}
 }
 
-void JSWriter::compileOperand(const Value* v)
+void JSWriter::compileOperand(const Value* v, OperandFix fix)
 {
-	//Check the inline map first
+	//First deal with complete objects
+	if(v->getType()->isPointerTy() && isCompleteObject(v))
+	{
+		//Since we cannot predict how the value will be used we have to expand it
+		compileDereferencePointer(v, 0, fix);
+		return;
+	}
+
 	const Constant* c=dyn_cast<const Constant>(v);
 	if(c)
 		compileConstant(c);
@@ -953,7 +973,7 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 			{
 				if(i!=0)
 					stream << ", ";
-				compileOperand(ci.getArgOperand(i));
+				compileOperand(ci.getArgOperand(i), OPERAND_EXPAND_COMPLETE_OBJECTS);
 			}
 			stream << ");\n";
 			//Only consider the normal successor for PHIs here
@@ -1058,7 +1078,7 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			{
 				if(i!=0)
 					stream << ", ";
-				compileOperand(ci.getArgOperand(i));
+				compileOperand(ci.getArgOperand(i), OPERAND_EXPAND_COMPLETE_OBJECTS);
 			}
 			stream << ")";
 			return true;
@@ -1118,9 +1138,9 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
 			}
 			else
-				compileDereferencePointer(ptrOp, 0);
+				compileDereferencePointer(ptrOp, 0, OPERAND_NO_FIX);
 			stream << " = ";
-			compileOperand(valOp);
+			compileOperand(valOp, OPERAND_EXPAND_COMPLETE_OBJECTS);
 			return true;
 		}
 		default:
@@ -1139,21 +1159,8 @@ bool JSWriter::isI32Type(Type* t) const
 
 void JSWriter::compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end)
 {
-	Type* t=operand->getType();
-	assert(t->isPointerTy());
-	PointerType* ptrT=static_cast<PointerType*>(t);
-	if(ConstantInt::classof(*idx_begin))
-	{
-		uint32_t firstElement = getIntFromValue(*idx_begin);
-		//First dereference the pointer
-		compileDereferencePointer(operand, firstElement);
-	}
-	else
-	{
-		//First dereference the pointer
-		compileDereferencePointer(operand, *idx_begin);
-	}
-	compileRecursiveAccessToGEP(ptrT->getElementType(), ++idx_begin, idx_end);
+	assert(idx_begin!=idx_end);
+	compileObjectForPointerGEP(operand, idx_begin, idx_end);
 }
 
 void JSWriter::compileObjectForPointer(const Value* val)
@@ -1188,11 +1195,11 @@ const Type* JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it
 		{
 			uint32_t firstElement = getIntFromValue(*it);
 			//First dereference the pointer
-			compileDereferencePointer(val, firstElement);
+			compileDereferencePointer(val, firstElement, OPERAND_NO_FIX);
 		}
 		else
 			compileDereferencePointer(val, *it);
-		return compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+		compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 	}
 }
 
@@ -1719,7 +1726,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
 			}
 			else
-				compileDereferencePointer(ptrOp, 0);
+				compileDereferencePointer(ptrOp, 0, OPERAND_NO_FIX);
 			stream << ")";
 			return true;
 		}
