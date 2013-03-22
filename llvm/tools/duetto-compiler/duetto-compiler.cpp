@@ -225,6 +225,7 @@ private:
 	bool isI32Type(Type* t) const;
 	bool isComingFromAllocation(const Value* val) const;
 	bool isInlineable(const Instruction& I) const;
+	bool isBitCast(const Value* v) const;
 	void compileTerminatorInstruction(const TerminatorInst& I,
 			const std::map<const BasicBlock*, uint32_t>& blocksMap);
 	bool compileInlineableInstruction(const Instruction& I);
@@ -310,6 +311,16 @@ void JSWriter::handleBuiltinNamespace(const char* ident, User::const_op_iterator
 		}
 		stream << ")";
 	}
+}
+
+bool JSWriter::isBitCast(const Value* v) const
+{
+	if(BitCastInst::classof(v))
+		return true;
+	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
+	if(ce && ce->getOpcode()==Instruction::BitCast)
+		return true;
+	return false;
 }
 
 bool JSWriter::handleBuiltinCall(const char* ident, User::const_op_iterator it,
