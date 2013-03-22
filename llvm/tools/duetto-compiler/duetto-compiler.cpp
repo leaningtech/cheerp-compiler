@@ -56,35 +56,6 @@ OptLevel("O",
          cl::ZeroOrMore,
          cl::init(' '));
 
-cl::opt<TargetMachine::CodeGenFileType>
-FileType("filetype", cl::init(TargetMachine::CGFT_AssemblyFile),
-  cl::desc("Choose a file type (not all types are supported by all targets):"),
-  cl::values(
-       clEnumValN(TargetMachine::CGFT_AssemblyFile, "asm",
-                  "Emit an assembly ('.s') file"),
-       clEnumValN(TargetMachine::CGFT_ObjectFile, "obj",
-                  "Emit a native object ('.o') file [experimental]"),
-       clEnumValN(TargetMachine::CGFT_Null, "null",
-                  "Emit nothing, for performance testing"),
-       clEnumValEnd));
-
-cl::opt<bool> NoVerify("disable-verify", cl::Hidden,
-                       cl::desc("Do not verify input module"));
-
-cl::opt<bool> DisableDotLoc("disable-dot-loc", cl::Hidden,
-                            cl::desc("Do not use .loc entries"));
-
-cl::opt<bool> DisableCFI("disable-cfi", cl::Hidden,
-                         cl::desc("Do not use .cfi_* directives"));
-
-cl::opt<bool> EnableDwarfDirectory("enable-dwarf-directory", cl::Hidden,
-    cl::desc("Use .file directives with an explicit directory."));
-
-static cl::opt<bool>
-DisableRedZone("disable-red-zone",
-  cl::desc("Do not emit code that uses the red zone."),
-  cl::init(false));
-
 static cl::opt<bool>
 EnableFPMAD("enable-fp-mad",
   cl::desc("Enable less precise MAD instructions to be generated"),
