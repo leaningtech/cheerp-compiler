@@ -1419,6 +1419,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			if(vtableCast)
 			{
 				//TODO: Implement recursive access to vtable
+				stream << "alert('implement vtable');";
 			}
 			else
 			{
