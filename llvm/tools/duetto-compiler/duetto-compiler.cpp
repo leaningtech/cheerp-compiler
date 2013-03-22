@@ -422,6 +422,8 @@ void JSWriter::printLLVMName(const StringRef& s) const
 
 bool JSWriter::isCompleteObject(const Value* v) const
 {
+	if(AllocaInst::classof(v))
+		return true;
 	return false;
 }
 
@@ -1076,11 +1078,9 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 		case Instruction::Alloca:
 		{
 			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
-			//Alloca must return a pointer, create a 1 element array
+			//Alloca returns complete objects, not pointers
 			assert(ai.hasName());
-			stream << "{ d: [";
 			compileType(ai.getAllocatedType());
-			stream << "], o: 0, p: ''}";
 			//Take note that this is a complete object
 			//completeObjects.insert(&I);
 			return true;
