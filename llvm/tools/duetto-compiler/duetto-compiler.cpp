@@ -33,6 +33,7 @@
 #include <memory>
 #include <map>
 #include <iostream>
+#include <stdio.h>
 using namespace llvm;
 using namespace std;
 
@@ -241,6 +242,9 @@ private:
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
 	const Type* compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
 	void compileObjectForPointer(const Value* val);
+	void compileCopy(const Value* dest, const Value* src);
+	void compileCopyRecursive(const std::string& baseName, const Value* baseDest,
+		const Value* baseSrc, const Type* currentType);
 	void printLLVMName(const StringRef& s) const;
 	void printVarName(const Value* v);
 	void handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
@@ -323,6 +327,69 @@ bool JSWriter::isBitCast(const Value* v) const
 	return false;
 }
 
+void JSWriter::compileCopyRecursive(const std::string& baseName, const Value* baseDest,
+		const Value* baseSrc, const Type* currentType)
+{
+	switch(currentType->getTypeID())
+	{
+		case Type::IntegerTyID:
+		case Type::DoubleTyID:
+		case Type::PointerTyID:
+		{
+			compileDereferencePointer(baseDest, 0);
+			stream << baseName << " = ";
+			compileDereferencePointer(baseSrc, 0);
+			stream << baseName << ";\n";
+			break;
+		}
+		case Type::StructTyID:
+		{
+			const StructType* st=static_cast<const StructType*>(currentType);
+			StructType::element_iterator E=st->element_begin();
+			StructType::element_iterator EE=st->element_end();
+			uint32_t offset=0;
+			for(;E!=EE;++E)
+			{
+				char buf[16];
+				snprintf(buf,16,".a%u",offset);
+				compileCopyRecursive(baseName+buf, baseDest, baseSrc, *E);
+				offset++;
+			}
+			break;
+		}
+		case Type::ArrayTyID:
+		{
+			const ArrayType* at=static_cast<const ArrayType*>(currentType);
+			char buf[16];
+			for(uint64_t i=0;i<at->getNumElements();i++)
+			{
+				snprintf(buf,16,"[%lu]",i);
+				compileCopyRecursive(baseName+buf, baseDest, baseSrc, at->getElementType());
+			}
+			break;
+		}
+		default:
+			cerr << "Support type in copy ";
+			currentType->dump();
+			cerr << endl;
+	}
+}
+
+void JSWriter::compileCopy(const Value* castedDest, const Value* castedSrc)
+{
+	stream << '{';
+	//First all of dump the bitcast
+	assert(isBitCast(castedDest));
+	assert(isBitCast(castedSrc));
+	const Value* dest=static_cast<const BitCastInst*>(castedDest)->getOperand(0);
+	const Value* src=static_cast<const BitCastInst*>(castedSrc)->getOperand(0);
+	assert(dest->getType()==src->getType());
+	assert(dest->getType()->isPointerTy());
+	const PointerType* pointedType = static_cast<const PointerType*>(dest->getType());
+	compileCopyRecursive("", dest, src, pointedType->getElementType());
+	stream << '}';
+}
+
 bool JSWriter::handleBuiltinCall(const char* ident, User::const_op_iterator it,
 			User::const_op_iterator itE)
 {
@@ -357,6 +424,11 @@ bool JSWriter::handleBuiltinCall(const char* ident, User::const_op_iterator it,
 		assert(it==itE);
 		//Default handling of builtin constructors
 		stream << "new " << (ident+28) << "()";
+		return true;
+	}
+	else if(strncmp(ident,"llvm.memcpy",11)==0)
+	{
+		compileCopy(*(it), *(it+1));
 		return true;
 	}
 	return false;
