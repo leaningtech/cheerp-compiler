@@ -1376,7 +1376,7 @@ void JSWriter::compilePrefixForPointerGEP(const Value* val, const Use* it, const
 		return;
 	}
 	compileOperand(val);
-	stream << ".o";
+	stream << ".p";
 }
 
 void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
