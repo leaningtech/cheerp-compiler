@@ -211,10 +211,12 @@ private:
 	void compileDereferencePointer(const Value* v, const Value* offset);
 	void compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
-	const Type* compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
+	void compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
 	void compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE);
+	void compilePrefixForPointerGEP(const Value* val, const Use* it, const Use* const itE);
 	void compileObjectForPointer(const Value* val);
 	void compileOffsetForPointer(const Value* val);
+	void compilePrefixForPointer(const Value* val);
 	void compileCopy(const Value* dest, const Value* src);
 	void compileCopyRecursive(const std::string& baseName, const Value* baseDest,
 		const Value* baseSrc, const Type* currentType);
@@ -497,8 +499,8 @@ void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
 	}
 	compileObjectForPointer(v);
 	stream << "[";
-	compileOperand(v);
-	stream << ".p+";
+	compilePrefixForPointer(v);
+	stream << '+';
 	if(byteOffset==0)
 	{
 		compileOffsetForPointer(v);
@@ -1266,7 +1268,22 @@ void JSWriter::compileOffsetForPointer(const Value* val)
 	stream << ".o";
 }
 
-const Type* JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
+void JSWriter::compilePrefixForPointer(const Value* val)
+{
+	if(GetElementPtrInst::classof(val))
+	{
+		const GetElementPtrInst* gep=static_cast<const GetElementPtrInst*>(val);
+		GetElementPtrInst::const_op_iterator it=gep->idx_begin();
+		//We compile as usual till the last level
+		GetElementPtrInst::const_op_iterator itE=gep->idx_end()-1;
+		compilePrefixForPointerGEP(gep->getOperand(0), it, itE);
+		return;
+	}
+	compileOperand(val);
+	stream << ".p";
+}
+
+void JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
 	assert(t->isPointerTy());
@@ -1275,7 +1292,7 @@ const Type* JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it
 	{
 		//Same level access, we are just computing another pointer from this pointer
 		compileObjectForPointer(val);
-		return ptrT->getElementType();
+		ptrT->getElementType();
 	}
 	else
 	{
@@ -1287,7 +1304,7 @@ const Type* JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it
 		}
 		else
 			compileDereferencePointer(val, *it);
-		return compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+		compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 	}
 }
 
@@ -1320,41 +1337,57 @@ void JSWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, const
 	}
 }
 
+void JSWriter::compilePrefixForPointerGEP(const Value* val, const Use* it, const Use* const itE)
+{
+	if(it!=itE)
+	{
+		//Find the one to last type
+		const Type* lastType=val->getType();
+		assert(lastType->isPointerTy());
+		const PointerType* pt=static_cast<const PointerType*>(lastType);
+		lastType=pt->getElementType();
+		++it;
+		for(;it!=itE;++it)
+		{
+			if(StructType::classof(lastType))
+			{
+				const StructType* st=static_cast<const StructType*>(lastType);
+				//The value must be a constant
+				assert(ConstantInt::classof(*it));
+				uint32_t elementIndex = getIntFromValue(*it);
+				lastType = st->getElementType(elementIndex);
+			}
+			else if(ArrayType::classof(lastType))
+			{
+				const ArrayType* at=static_cast<const ArrayType*>(lastType);
+				lastType=at->getElementType();
+			}
+			else
+				assert(false);
+		}
+		if(StructType::classof(lastType))
+			stream << "'a'";
+		else if(ArrayType::classof(lastType))
+			stream << "''";
+		else
+			assert(false);
+		return;
+	}
+	compileOperand(val);
+	stream << ".o";
+}
+
 void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
 	assert(t->isPointerTy());
 	stream << "{ d: ";
-	const Type* lastType=compileObjectForPointerGEP(val, it, itE);
+	compileObjectForPointerGEP(val, it, itE);
 	stream << ", o: ";
 	compileOffsetForPointerGEP(val, it, itE);
-	if(it==itE)
-	{
-		//Same level access, we are just computing another pointer from this pointer
-		stream << ", p: ";
-		compileOperand(val);
-		stream << ".p }";
-	}
-	else
-	{
-		//Now add the offset for the desired element
-		if(ConstantInt::classof(*itE))
-		{
-			stream << ", p: ";
-			if(StructType::classof(lastType))
-				stream << "'a' }";
-			else if(ArrayType::classof(lastType))
-				stream << "'' }";
-			else
-				assert(false);
-		}
-		else
-		{
-			//Only arrays are accepted
-			assert(ArrayType::classof(lastType));
-			stream << ", p: '' }";
-		}
-	}
+	stream << ", p: ";
+	compilePrefixForPointerGEP(val, it, itE);
+	stream << '}';
 }
 
 /*
