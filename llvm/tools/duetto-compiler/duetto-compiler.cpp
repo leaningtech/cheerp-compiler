@@ -235,8 +235,7 @@ private:
 	void compilePredicate(CmpInst::Predicate p);
 	void compileType(Type* t);
 	bool isCompleteObject(const Value* val) const;
-	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
-	void compileDereferencePointer(const Value* v, int byteOffset, OperandFix fix);
+	void compileDereferencePointer(const Value* v, int byteOffset);
 	void compileDereferencePointer(const Value* v, const Value* offset);
 	void compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
@@ -259,6 +258,7 @@ public:
 	void makeJS();
 	void compileMethod(Function& F);
 	void compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap);
+	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
 	void compileOperand(const Value* v, OperandFix fix = OPERAND_NO_FIX);
 	void compileConstant(const Constant* c);
 	void compileConstantExpr(const ConstantExpr* ce);
@@ -439,12 +439,12 @@ void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 	stream << ")]";
 }
 
-void JSWriter::compileDereferencePointer(const Value* v, int byteOffset, OperandFix fix)
+void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
 {
 	assert(v->getType()->isPointerTy());
-	if(isCompleteObject(v) && fix!=OPERAND_EXPAND_COMPLETE_OBJECTS)
+	if(isCompleteObject(v))
 	{
-		//We can use the much quicker complete object access
+		assert(byteOffset==0);
 		compileOperand(v);
 		return;
 	}
@@ -821,10 +821,12 @@ void JSWriter::compileConstant(const Constant* c)
 void JSWriter::compileOperand(const Value* v, OperandFix fix)
 {
 	//First deal with complete objects
-	if(v->getType()->isPointerTy() && isCompleteObject(v))
+	if(v->getType()->isPointerTy() && isCompleteObject(v) && fix==OPERAND_EXPAND_COMPLETE_OBJECTS)
 	{
-		//Since we cannot predict how the value will be used we have to expand it
-		compileDereferencePointer(v, 0, fix);
+		//Synthetize a pointer just in time
+		stream << "{ d: ";
+		compileOperand(v, OPERAND_NO_FIX);
+		stream << ", o: 0, p: ''}";
 		return;
 	}
 
@@ -1164,7 +1166,7 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
 			}
 			else
-				compileDereferencePointer(ptrOp, 0, OPERAND_NO_FIX);
+				compileDereferencePointer(ptrOp, 0);
 			stream << " = ";
 			compileOperand(valOp, OPERAND_EXPAND_COMPLETE_OBJECTS);
 			return true;
@@ -1221,11 +1223,11 @@ const Type* JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it
 		{
 			uint32_t firstElement = getIntFromValue(*it);
 			//First dereference the pointer
-			compileDereferencePointer(val, firstElement, OPERAND_NO_FIX);
+			compileDereferencePointer(val, firstElement);
 		}
 		else
 			compileDereferencePointer(val, *it);
-		compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+		return compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 	}
 }
 
@@ -1751,7 +1753,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
 			}
 			else
-				compileDereferencePointer(ptrOp, 0, OPERAND_NO_FIX);
+				compileDereferencePointer(ptrOp, 0);
 			stream << ")";
 			return true;
 		}
