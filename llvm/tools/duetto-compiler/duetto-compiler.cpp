@@ -212,7 +212,9 @@ private:
 	void compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
 	const Type* compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
+	void compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE);
 	void compileObjectForPointer(const Value* val);
+	void compileOffsetForPointer(const Value* val);
 	void compileCopy(const Value* dest, const Value* src);
 	void compileCopyRecursive(const std::string& baseName, const Value* baseDest,
 		const Value* baseSrc, const Type* currentType);
@@ -493,20 +495,20 @@ void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
 		compileOperand(v);
 		return;
 	}
-	compileOperand(v);
-	stream << ".d[";
+	compileObjectForPointer(v);
+	stream << "[";
 	compileOperand(v);
 	stream << ".p+";
 	if(byteOffset==0)
 	{
-		compileOperand(v);
-		stream << ".o]";
+		compileOffsetForPointer(v);
+		stream << "]";
 	}
 	else
 	{
 		stream << '(';
-		compileOperand(v);
-		stream << ".o+" << byteOffset << ")]";
+		compileOffsetForPointer(v);
+		stream << "+" << byteOffset << ")]";
 	}
 }
 
@@ -1249,6 +1251,21 @@ void JSWriter::compileObjectForPointer(const Value* val)
 	stream << ".d";
 }
 
+void JSWriter::compileOffsetForPointer(const Value* val)
+{
+	if(GetElementPtrInst::classof(val))
+	{
+		const GetElementPtrInst* gep=static_cast<const GetElementPtrInst*>(val);
+		GetElementPtrInst::const_op_iterator it=gep->idx_begin();
+		//We compile as usual till the last level
+		GetElementPtrInst::const_op_iterator itE=gep->idx_end()-1;
+		compileOffsetForPointerGEP(gep->getOperand(0), it, itE);
+		return;
+	}
+	compileOperand(val);
+	stream << ".o";
+}
+
 const Type* JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
@@ -1274,6 +1291,35 @@ const Type* JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it
 	}
 }
 
+void JSWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE)
+{
+	if(it==itE)
+	{
+		//Same level access, we are just computing another pointer from this pointer
+		compileOffsetForPointer(val);
+		stream << '+';
+		//Compute the offset
+		if(ConstantInt::classof(*itE))
+		{
+			uint32_t firstElement = getIntFromValue(*itE);
+			stream << firstElement;
+		}
+		else
+			compileOperand(*itE);
+	}
+	else
+	{
+		//Now add the offset for the desired element
+		if(ConstantInt::classof(*itE))
+		{
+			uint32_t elementIndex = getIntFromValue(*itE);
+			stream << elementIndex;
+		}
+		else
+			compileOperand(*itE);
+	}
+}
+
 void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
@@ -1281,19 +1327,10 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 	stream << "{ d: ";
 	const Type* lastType=compileObjectForPointerGEP(val, it, itE);
 	stream << ", o: ";
+	compileOffsetForPointerGEP(val, it, itE);
 	if(it==itE)
 	{
 		//Same level access, we are just computing another pointer from this pointer
-		compileOperand(val);
-		stream << ".o+";
-		//Compute the offset
-		if(ConstantInt::classof(*it))
-		{
-			uint32_t firstElement = getIntFromValue(*it);
-			stream << firstElement;
-		}
-		else
-			compileOperand(*it);
 		stream << ", p: ";
 		compileOperand(val);
 		stream << ".p }";
@@ -1303,8 +1340,7 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 		//Now add the offset for the desired element
 		if(ConstantInt::classof(*itE))
 		{
-			uint32_t elementIndex = getIntFromValue(*itE);
-			stream << elementIndex << ", p: ";
+			stream << ", p: ";
 			if(StructType::classof(lastType))
 				stream << "'a' }";
 			else if(ArrayType::classof(lastType))
@@ -1316,7 +1352,6 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 		{
 			//Only arrays are accepted
 			assert(ArrayType::classof(lastType));
-			compileOperand(*itE);
 			stream << ", p: '' }";
 		}
 	}
