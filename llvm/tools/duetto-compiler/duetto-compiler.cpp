@@ -717,7 +717,7 @@ void JSWriter::compileConstantExpr(const ConstantExpr* ce)
 			//in the form { d: [<objPointed>], o: 0, p: '' }
 			assert(cast<GlobalVariable>(base)->hasInitializer());
 			//TODO: Support external global variables
-			Constant* initializer = cast<GlobalVariable>(base)->getInitializer();
+			//Constant* initializer = cast<GlobalVariable>(base)->getInitializer();
 			//NOTE: the first dereference must be 0, they point to a single object
 			Value* first=ce->getOperand(1);
 			assert(getIntFromValue(first)==0);
@@ -854,7 +854,7 @@ void JSWriter::compileType(Type* t)
 	{
 		case Type::IntegerTyID:
 		{
-			IntegerType* it=static_cast<IntegerType*>(t);
+			//IntegerType* it=static_cast<IntegerType*>(t);
 			//We only really have 32bit integers.
 			//We will allow anything shorter.
 			//NOTE: Only bit operations are allowed on shorter types
@@ -1233,7 +1233,6 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
 	assert(t->isPointerTy());
-	PointerType* ptrT=static_cast<PointerType*>(t);
 	stream << "{ d: ";
 	const Type* lastType=compileObjectForPointerGEP(val, it, itE);
 	stream << ", o: ";
@@ -1319,7 +1318,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
 			//Check that the in and out types are sane
-			Type* srcT = ci.getSrcTy();
+			//Type* srcT = ci.getSrcTy();
 			Type* dstT = ci.getDestTy();
 			//TODO: Restore type check, now relax it
 			//assert(srcT->isDoubleTy());
@@ -1363,7 +1362,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			const CastInst& ci=static_cast<const CastInst&>(I);
 			//Check that the in and out types are sane
 			Type* srcT = ci.getSrcTy();
-			Type* dstT = ci.getDestTy();
+			//Type* dstT = ci.getDestTy();
 			assert(isI32Type(srcT));
 			assert(dstT->isDoubleTy());
 			//We need to cast to unsigned before
