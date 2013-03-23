@@ -221,6 +221,9 @@ private:
 	void compileCopy(const Value* dest, const Value* src);
 	void compileCopyRecursive(const std::string& baseName, const Value* baseDest,
 		const Value* baseSrc, const Type* currentType);
+	void compileReset(const Value* dest, uint8_t resetValue);
+	void compileResetRecursive(const std::string& baseName, const Value* baseDest,
+		uint8_t resetValue, const Type* currentType);
 	void printLLVMName(const StringRef& s) const;
 	void printVarName(const Value* v);
 	void handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
@@ -361,6 +364,81 @@ void JSWriter::compileCopyRecursive(const std::string& baseName, const Value* ba
 	}
 }
 
+void JSWriter::compileReset(const Value* castedDest, uint8_t resetValue)
+{
+	stream << '{';
+	//First of all dump the bitcast
+	assert(isBitCast(castedDest));
+	const Value* dest=static_cast<const BitCastInst*>(castedDest)->getOperand(0);
+	assert(dest->getType()->isPointerTy());
+	const PointerType* pointedType = static_cast<const PointerType*>(dest->getType());
+	compileResetRecursive("", dest, resetValue, pointedType->getElementType());
+	stream << '}';
+}
+
+void JSWriter::compileResetRecursive(const std::string& baseName, const Value* baseDest,
+		uint8_t resetValue, const Type* currentType)
+{
+	switch(currentType->getTypeID())
+	{
+		case Type::IntegerTyID:
+		{
+			compileDereferencePointer(baseDest, 0);
+			assert(resetValue == 0 || resetValue == 0xff);
+			if(resetValue == 0)
+				stream << baseName << " = 0";
+			else if(resetValue == 0xff)
+				stream << baseName << " = 0xffffffff";
+			stream << ";\n";
+			break;
+		}
+		case Type::DoubleTyID:
+		{
+			compileDereferencePointer(baseDest, 0);
+			assert(resetValue == 0);
+			stream << baseName << " = 0;\n";
+			break;
+		}
+		case Type::PointerTyID:
+		{
+			compileDereferencePointer(baseDest, 0);
+			assert(resetValue == 0);
+			stream << baseName << " = null;\n";
+			break;
+		}
+		case Type::StructTyID:
+		{
+			const StructType* st=static_cast<const StructType*>(currentType);
+			StructType::element_iterator E=st->element_begin();
+			StructType::element_iterator EE=st->element_end();
+			uint32_t offset=0;
+			for(;E!=EE;++E)
+			{
+				char buf[16];
+				snprintf(buf,16,".a%u",offset);
+				compileResetRecursive(baseName+buf, baseDest, resetValue, *E);
+				offset++;
+			}
+			break;
+		}
+		case Type::ArrayTyID:
+		{
+			const ArrayType* at=static_cast<const ArrayType*>(currentType);
+			char buf[16];
+			for(uint64_t i=0;i<at->getNumElements();i++)
+			{
+				snprintf(buf,16,"[%lu]",i);
+				compileResetRecursive(baseName+buf, baseDest, resetValue, at->getElementType());
+			}
+			break;
+		}
+		default:
+			cerr << "Support type in reset ";
+			currentType->dump();
+			cerr << endl;
+	}
+}
+
 void JSWriter::compileCopy(const Value* castedDest, const Value* castedSrc)
 {
 	stream << '{';
@@ -415,6 +493,12 @@ bool JSWriter::handleBuiltinCall(const char* ident, User::const_op_iterator it,
 	else if(strncmp(ident,"llvm.memcpy",11)==0)
 	{
 		compileCopy(*(it), *(it+1));
+		return true;
+	}
+	else if(strncmp(ident,"llvm.memset",11)==0)
+	{
+		uint32_t resetVal = getIntFromValue(*(it+1));
+		compileReset(*(it), resetVal);
 		return true;
 	}
 	return false;
