@@ -509,19 +509,19 @@ void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
 		return;
 	}
 	compileObjectForPointer(v);
-	stream << "[";
+	stream << '[';
 	compilePrefixForPointer(v);
 	stream << '+';
 	if(byteOffset==0)
 	{
 		compileOffsetForPointer(v);
-		stream << "]";
+		stream << ']';
 	}
 	else
 	{
 		stream << '(';
 		compileOffsetForPointer(v);
-		stream << "+" << byteOffset << ")]";
+		stream << '+' << byteOffset << ")]";
 	}
 }
 
@@ -952,7 +952,7 @@ void JSWriter::compileType(Type* t)
 			break;
 		}
 		case Type::PointerTyID:
-			stream << "{ d:null, o: 0, p: '' }";
+			stream << "null";
 			break;
 		case Type::ArrayTyID:
 		{
