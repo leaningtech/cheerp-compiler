@@ -241,6 +241,7 @@ public:
 	}
 	void makeJS();
 	void compileMethod(Function& F);
+	void compileGlobal(GlobalVariable& G);
 	void compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap);
 	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
 	void compileOperand(const Value* v, OperandFix fix = OPERAND_NO_FIX);
@@ -565,7 +566,10 @@ void JSWriter::printLLVMName(const StringRef& s) const
 
 bool JSWriter::isCompleteObject(const Value* v) const
 {
+	assert(v->getType()->isPointerTy());
 	if(AllocaInst::classof(v))
+		return true;
+	if(GlobalVariable::classof(v))
 		return true;
 	return false;
 }
@@ -2155,10 +2159,36 @@ void JSWriter::compileMethod(Function& F)
 	stream << "}\n";
 }
 
+void JSWriter::compileGlobal(GlobalVariable& G)
+{
+	assert(G.hasName());
+	if(isClientGlobal(G.getName().data()))
+	{
+		//Global objects in the client namespace are only
+		//placeholders for JS calls
+		return;
+	}
+	stream  << "var ";
+	printLLVMName(G.getName());
+	if(G.hasInitializer())
+	{
+		stream << " = ";
+		compileConstant(G.getInitializer());
+	}
+	stream << ";\n";
+}
+
 void JSWriter::makeJS()
 {
 	//Header: output a guard variable to to set the environment
 	stream << "var __duetto_compiler = true;\n";
+	//Output all the globals
+	Module::global_iterator G=module->global_begin();
+	Module::global_iterator GE=module->global_end();
+	for(; G != GE; ++G)
+	{
+		compileGlobal(*G);
+	}
 	Module::iterator F=module->begin();
 	Module::iterator FE=module->end();
 	for (; F != FE; ++F)
