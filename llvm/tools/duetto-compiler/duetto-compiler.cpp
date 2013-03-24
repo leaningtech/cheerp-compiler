@@ -908,11 +908,38 @@ void JSWriter::compileConstant(const Constant* c)
 	else if(ConstantDataSequential::classof(c))
 	{
 		const ConstantDataSequential* d=cast<const ConstantDataSequential>(c);
-		assert(d->isString());
-		//TODO: Support \x escapes
-		stream << '"';
-		stream << d->getAsString().data();
-		stream << '"';
+		if(d->isString())
+		{
+			//TODO: Support \x escapes
+			stream << '"';
+			const StringRef str=d->getRawDataValues();
+			for(uint32_t i=0;i<str.size();i++)
+			{
+				if(str[i]>=0x0 && str[i]<=0x9)
+					stream << "\\x0" << (int)str[i];
+				else if(str[i]=='\n')
+					stream << "\\n";
+				else if(str[i]=='\r')
+					stream << "\\r";
+				else if(str[i]>=0x11 && str[i]<=0x31)
+					stream << "\\x" << (int)str[i];
+				else
+					stream.write(str.data()+i,1);
+			}
+			stream << '"';
+		}
+		else
+		{
+			//TODO: Use typed arrays
+			stream << '[';
+			for(uint32_t i=0;i<d->getNumElements();i++)
+			{
+				compileConstant(d->getElementAsConstant(i));
+				if((i+1)<d->getNumElements())
+					stream << ",";
+			}
+			stream << ']';
+		}
 	}
 	else if(ConstantFP::classof(c))
 	{
