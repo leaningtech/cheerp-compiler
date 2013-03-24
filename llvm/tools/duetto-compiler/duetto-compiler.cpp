@@ -194,6 +194,7 @@ private:
 	bool isValidTypeCast(const Value* cast, const Value* castOp, Type* src, Type* dst) const;
 	bool isVTableCast(Type* src, Type* dst) const;
 	bool isClientType(Type* t) const;
+	bool isClientGlobal(const char* mangledName) const;
 	bool isI32Type(Type* t) const;
 	bool isComingFromAllocation(const Value* val) const;
 	bool isInlineable(const Instruction& I) const;
@@ -891,6 +892,11 @@ void JSWriter::compileConstantExpr(const ConstantExpr* ce)
 	}
 }
 
+bool JSWriter::isClientGlobal(const char* mangledName) const
+{
+	return strncmp(mangledName,"_ZN6client",10)==0;
+}
+
 void JSWriter::compileConstant(const Constant* c)
 {
 	if(ConstantExpr::classof(c))
@@ -941,7 +947,7 @@ void JSWriter::compileConstant(const Constant* c)
 		assert(c->hasName());
 		//Check if this is a client global value, if so skip mangling
 		const char* mangledName = c->getName().data();
-		if(strncmp(mangledName,"_ZN6client",10)==0)
+		if(isClientGlobal(mangledName))
 		{
 			//Client value
 			char* objName;
