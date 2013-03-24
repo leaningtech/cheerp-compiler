@@ -926,11 +926,11 @@ void JSWriter::compileConstant(const Constant* c)
 		const ConstantDataSequential* d=cast<const ConstantDataSequential>(c);
 		if(d->isString())
 		{
-			//TODO: Support \x escapes
 			stream << '"';
 			const StringRef str=d->getRawDataValues();
 			for(uint32_t i=0;i<str.size();i++)
 			{
+				//TODO: Those should print in hexadecimal!
 				if(str[i]>=0x0 && str[i]<=0x9)
 					stream << "\\x0" << (int)str[i];
 				else if(str[i]=='\n')
