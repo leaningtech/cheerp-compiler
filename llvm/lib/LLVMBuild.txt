@@ -20,6 +20,7 @@ subdirectories =
  AsmParser
  Bitcode
  Bitstream
+ CheerpUtils
  CodeGen
  DebugInfo
  Demangle
