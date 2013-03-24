@@ -255,17 +255,29 @@ void JSWriter::handleBuiltinNamespace(const char* ident, User::const_op_iterator
 	//Read the class name
 	char* className;
 	int classLen = strtol(ident,&className,10);
+	assert(classLen!=0);
 	ident = className + classLen;
 
 	//Read the function name
 	char* funcName;
 	int funcNameLen=strtol(ident,&funcName,10);
+	if(funcNameLen==0)
+	{
+		//This means that we are parsing a fuction which is not in a class
+		//and we already parsed the function name
+		funcName = className;
+		funcNameLen = classLen;
+		className = NULL;
+		classLen = 0;
+	}
+	assert(funcNameLen!=0);
 
 	//The first arg should be the object
 	assert(it!=itE);
 	if(strncmp(funcName,"get_",4)==0 && (itE-it)==1)
 	{
 		//Getter
+		assert(className);
 		compileOperand(*it);
 		stream << ".";
 		stream.write(funcName+4,funcNameLen-4);
@@ -273,6 +285,7 @@ void JSWriter::handleBuiltinNamespace(const char* ident, User::const_op_iterator
 	else if(strncmp(funcName,"set_",4)==0 && (itE-it)==2)
 	{
 		//Setter
+		assert(className);
 		compileOperand(*it);
 		++it;
 		stream << ".";
@@ -283,9 +296,12 @@ void JSWriter::handleBuiltinNamespace(const char* ident, User::const_op_iterator
 	else
 	{
 		//Regular call
-		compileOperand(*it);
-		++it;
-		stream << ".";
+		if(className)
+		{
+			compileOperand(*it);
+			++it;
+			stream << ".";
+		}
 		stream.write(funcName,funcNameLen);
 		stream << "(";
 		for(User::const_op_iterator cur=it;it!=itE;++it)
