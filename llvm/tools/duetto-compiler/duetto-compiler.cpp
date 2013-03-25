@@ -11,6 +11,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
+#include "llvm/Duetto/Utils.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -2236,6 +2237,7 @@ void JSWriter::makeJS()
 	Module::iterator FE=module->end();
 	for (; F != FE; ++F)
 	{
+		DuettoUtils::rewriteNativeObjectsConstructors(*module, *F);
 		compileMethod(*F);
 	}
 	//Invoke the webMain function
