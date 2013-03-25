@@ -19,4 +19,4 @@
 type = Tool
 name = duetto-compiler
 parent = Tools
-required_libraries = AsmParser BitReader BitWriter IRReader all-targets
+required_libraries = AsmParser BitReader BitWriter DuettoUtils IRReader all-targets
