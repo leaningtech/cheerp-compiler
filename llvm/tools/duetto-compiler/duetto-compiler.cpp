@@ -931,15 +931,20 @@ void JSWriter::compileConstant(const Constant* c)
 			const StringRef str=d->getRawDataValues();
 			for(uint32_t i=0;i<str.size();i++)
 			{
-				//TODO: Those should print in hexadecimal!
-				if(str[i]>=0x0 && str[i]<=0x9)
-					stream << "\\x0" << (int)str[i];
+				//Skip closing null character
+				if((i+1)==str.size() && str[i]==0)
+					break;
 				else if(str[i]=='\n')
 					stream << "\\n";
 				else if(str[i]=='\r')
 					stream << "\\r";
-				else if(str[i]>=0x11 && str[i]<=0x31)
-					stream << "\\x" << (int)str[i];
+				else if((str[i]>=0x0 && str[i]<=0x9) ||
+					(str[i]>=0x11 && str[i]<=0x1f))
+				{
+					char buf[5];
+					snprintf(buf,5,"\\x%02x",str[i]);
+					stream << buf;
+				}
 				else
 					stream.write(str.data()+i,1);
 			}
