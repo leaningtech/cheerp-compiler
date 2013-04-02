@@ -938,6 +938,8 @@ void JSWriter::compileConstant(const Constant* c)
 					stream << "\\n";
 				else if(str[i]=='\r')
 					stream << "\\r";
+				else if(str[i]=='"')
+					stream << "\\\"";
 				else if((str[i]>=0x0 && str[i]<=0x9) ||
 					(str[i]>=0x11 && str[i]<=0x1f))
 				{
