@@ -208,6 +208,7 @@ private:
 	void compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from);
 	const Type* compileRecursiveAccessToGEP(const Type* curType, const Use* it, const Use* const itE);
 	void compilePredicate(CmpInst::Predicate p);
+	void compileOperandForIntegerPredicate(const Value* v, CmpInst::Predicate p);
 	void compileType(Type* t);
 	bool isCompleteObject(const Value* val) const;
 	void compileDereferencePointer(const Value* v, int byteOffset);
@@ -564,6 +565,22 @@ void JSWriter::compilePredicate(CmpInst::Predicate p)
 			break;
 		default:
 			cerr << "Support predicate " << p << endl;
+	}
+}
+
+void JSWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Predicate p)
+{
+	if(CmpInst::isUnsigned(p))
+	{
+		stream << "(";
+		compileOperand(v);
+		stream << ">>>0)";
+	}
+	else
+	{
+		stream << "(";
+		compileOperand(v);
+		stream << ">>0)";
 	}
 }
 
@@ -1869,9 +1886,9 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			}
 			else
 			{
-				compileOperand(ci.getOperand(0));
+				compileOperandForIntegerPredicate(ci.getOperand(0),ci.getPredicate());
 				compilePredicate(ci.getPredicate());
-				compileOperand(ci.getOperand(1));
+				compileOperandForIntegerPredicate(ci.getOperand(1),ci.getPredicate());
 			}
 			stream << ")";
 			return true;
