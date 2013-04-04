@@ -217,10 +217,18 @@ private:
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
 	void compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
 	void compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE);
-	void compilePrefixForPointerGEP(const Value* val, const Use* it, const Use* const itE);
+	enum SKIP_MODE { NO_SKIP=0, SKIP_USELESS };
+	/*
+	 * Returns SKIP_USELESS if it has skipped compiling a useless prefix
+	 */
+	SKIP_MODE compilePrefixForPointerGEP(const Value* val, const Use* it, const Use* const itE, SKIP_MODE skipMode);
 	void compileObjectForPointer(const Value* val);
 	void compileOffsetForPointer(const Value* val);
-	void compilePrefixForPointer(const Value* val);
+	/*
+	 * Returns SKIP_USELESS if it has skipped compiling a useless prefix
+	 */
+	SKIP_MODE compilePrefixForPointer(const Value* val);
+	void compileAccessForPointer(const Value* v, int byteOffset);
 	void compileCopy(const Value* dest, const Value* src);
 	void compileCopyRecursive(const std::string& baseName, const Value* baseDest,
 		const Value* baseSrc, const Type* currentType);
@@ -622,6 +630,24 @@ void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 	stream << ")]";
 }
 
+void JSWriter::compileAccessForPointer(const Value* v, int byteOffset)
+{
+	//compileAccessForPointer returns true if a useless prefix has been skipped
+	//If so we can skip the add operator
+	if(compilePrefixForPointer(v)==false)
+		stream << '+';
+	if(byteOffset==0)
+	{
+		compileOffsetForPointer(v);
+	}
+	else
+	{
+		stream << '(';
+		compileOffsetForPointer(v);
+		stream << '+' << byteOffset << ')';
+	}
+}
+
 void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
 {
 	assert(v->getType()->isPointerTy());
@@ -633,19 +659,8 @@ void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
 	}
 	compileObjectForPointer(v);
 	stream << '[';
-	compilePrefixForPointer(v);
-	stream << '+';
-	if(byteOffset==0)
-	{
-		compileOffsetForPointer(v);
-		stream << ']';
-	}
-	else
-	{
-		stream << '(';
-		compileOffsetForPointer(v);
-		stream << '+' << byteOffset << ")]";
-	}
+	compileAccessForPointer(v, byteOffset);
+	stream << ']';
 }
 
 uint32_t JSWriter::getIntFromValue(const Value* v) const
@@ -1441,7 +1456,7 @@ void JSWriter::compileOffsetForPointer(const Value* val)
 	stream << ".o";
 }
 
-void JSWriter::compilePrefixForPointer(const Value* val)
+JSWriter::SKIP_MODE JSWriter::compilePrefixForPointer(const Value* val)
 {
 	if(isGEP(val))
 	{
@@ -1449,11 +1464,11 @@ void JSWriter::compilePrefixForPointer(const Value* val)
 		GetElementPtrInst::const_op_iterator it=gep->op_begin()+1;
 		//We compile as usual till the last level
 		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
-		compilePrefixForPointerGEP(gep->getOperand(0), it, itE);
-		return;
+		return compilePrefixForPointerGEP(gep->getOperand(0), it, itE, SKIP_USELESS);
 	}
 	compileOperand(val);
 	stream << ".p";
+	return NO_SKIP;
 }
 
 void JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
@@ -1512,7 +1527,7 @@ void JSWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, const
 	}
 }
 
-void JSWriter::compilePrefixForPointerGEP(const Value* val, const Use* it, const Use* const itE)
+JSWriter::SKIP_MODE JSWriter::compilePrefixForPointerGEP(const Value* val, const Use* it, const Use* const itE, SKIP_MODE skipMode)
 {
 	if(it!=itE)
 	{
@@ -1543,13 +1558,18 @@ void JSWriter::compilePrefixForPointerGEP(const Value* val, const Use* it, const
 		if(StructType::classof(lastType))
 			stream << "'a'";
 		else if(ArrayType::classof(lastType))
+		{
+			if(skipMode == SKIP_USELESS)
+				return SKIP_USELESS;
 			stream << "''";
+		}
 		else
 			assert(false);
-		return;
+		return NO_SKIP;
 	}
 	compileOperand(val);
 	stream << ".p";
+	return NO_SKIP;
 }
 
 void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
@@ -1561,7 +1581,7 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 	stream << ", o: ";
 	compileOffsetForPointerGEP(val, it, itE);
 	stream << ", p: ";
-	compilePrefixForPointerGEP(val, it, itE);
+	compilePrefixForPointerGEP(val, it, itE, NO_SKIP);
 	stream << '}';
 }
 
