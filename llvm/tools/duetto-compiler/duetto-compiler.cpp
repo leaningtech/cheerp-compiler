@@ -218,17 +218,8 @@ private:
 	void compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
 	void compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE);
 	enum SKIP_MODE { NO_SKIP=0, SKIP_USELESS };
-	/*
-	 * Returns SKIP_USELESS if it has skipped compiling a useless prefix
-	 */
-	SKIP_MODE compilePrefixForPointerGEP(const Value* val, const Use* it, const Use* const itE, SKIP_MODE skipMode);
 	void compileObjectForPointer(const Value* val);
 	void compileOffsetForPointer(const Value* val);
-	/*
-	 * Returns SKIP_USELESS if it has skipped compiling a useless prefix
-	 */
-	SKIP_MODE compilePrefixForPointer(const Value* val);
-	void compileAccessForPointer(const Value* v, int byteOffset);
 	void compileCopy(const Value* dest, const Value* src);
 	void compileCopyRecursive(const std::string& baseName, const Value* baseDest,
 		const Value* baseSrc, const Type* currentType);
@@ -622,30 +613,9 @@ void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 	compileOperand(v);
 	stream << ".d[";
 	compileOperand(v);
-	stream << ".p+";
-	stream << '(';
-	compileOperand(v);
 	stream << ".o+";
 	compileOperand(offset);
-	stream << ")]";
-}
-
-void JSWriter::compileAccessForPointer(const Value* v, int byteOffset)
-{
-	//compileAccessForPointer returns true if a useless prefix has been skipped
-	//If so we can skip the add operator
-	if(compilePrefixForPointer(v)==false)
-		stream << '+';
-	if(byteOffset==0)
-	{
-		compileOffsetForPointer(v);
-	}
-	else
-	{
-		stream << '(';
-		compileOffsetForPointer(v);
-		stream << '+' << byteOffset << ')';
-	}
+	stream << ']';
 }
 
 void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
@@ -659,7 +629,13 @@ void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
 	}
 	compileObjectForPointer(v);
 	stream << '[';
-	compileAccessForPointer(v, byteOffset);
+	if(byteOffset==0)
+		compileOffsetForPointer(v);
+	else
+	{
+		compileOffsetForPointer(v);
+		stream << '+' << byteOffset;
+	}
 	stream << ']';
 }
 
@@ -912,7 +888,7 @@ void JSWriter::compileConstantExpr(const ConstantExpr* ce)
 			Value* base = ce->getOperand(0);
 			assert(GlobalVariable::classof(base));
 			//GlobalVariables never changes, they are assumed to be
-			//in the form { d: [<objPointed>], o: 0, p: '' }
+			//in the form { d: [<objPointed>], o: 0 }
 			assert(cast<GlobalVariable>(base)->hasInitializer());
 			//TODO: Support external global variables
 			//Constant* initializer = cast<GlobalVariable>(base)->getInitializer();
@@ -1063,7 +1039,7 @@ void JSWriter::compileOperand(const Value* v, OperandFix fix)
 		//Synthetize a pointer just in time
 		stream << "{ d: ";
 		compileOperand(v, OPERAND_NO_FIX);
-		stream << ", o: 0, p: ''}";
+		stream << ", o: 0}";
 		return;
 	}
 
@@ -1456,21 +1432,6 @@ void JSWriter::compileOffsetForPointer(const Value* val)
 	stream << ".o";
 }
 
-JSWriter::SKIP_MODE JSWriter::compilePrefixForPointer(const Value* val)
-{
-	if(isGEP(val))
-	{
-		const User* gep=static_cast<const User*>(val);
-		GetElementPtrInst::const_op_iterator it=gep->op_begin()+1;
-		//We compile as usual till the last level
-		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
-		return compilePrefixForPointerGEP(gep->getOperand(0), it, itE, SKIP_USELESS);
-	}
-	compileOperand(val);
-	stream << ".p";
-	return NO_SKIP;
-}
-
 void JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
@@ -1527,51 +1488,6 @@ void JSWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, const
 	}
 }
 
-JSWriter::SKIP_MODE JSWriter::compilePrefixForPointerGEP(const Value* val, const Use* it, const Use* const itE, SKIP_MODE skipMode)
-{
-	if(it!=itE)
-	{
-		//Find the one to last type
-		const Type* lastType=val->getType();
-		assert(lastType->isPointerTy());
-		const PointerType* pt=static_cast<const PointerType*>(lastType);
-		lastType=pt->getElementType();
-		++it;
-		for(;it!=itE;++it)
-		{
-			if(StructType::classof(lastType))
-			{
-				const StructType* st=static_cast<const StructType*>(lastType);
-				//The value must be a constant
-				assert(ConstantInt::classof(*it));
-				uint32_t elementIndex = getIntFromValue(*it);
-				lastType = st->getElementType(elementIndex);
-			}
-			else if(ArrayType::classof(lastType))
-			{
-				const ArrayType* at=static_cast<const ArrayType*>(lastType);
-				lastType=at->getElementType();
-			}
-			else
-				assert(false);
-		}
-		if(StructType::classof(lastType))
-			stream << "'a'";
-		else if(ArrayType::classof(lastType))
-		{
-			if(skipMode == SKIP_USELESS)
-				return SKIP_USELESS;
-			stream << "''";
-		}
-		else
-			assert(false);
-		return NO_SKIP;
-	}
-	compileOperand(val);
-	stream << ".p";
-	return NO_SKIP;
-}
-
 void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
@@ -1580,8 +1496,6 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 	compileObjectForPointerGEP(val, it, itE);
 	stream << ", o: ";
 	compileOffsetForPointerGEP(val, it, itE);
-	stream << ", p: ";
-	compilePrefixForPointerGEP(val, it, itE, NO_SKIP);
 	stream << '}';
 }
 
