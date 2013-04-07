@@ -1384,9 +1384,8 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			const StoreInst& si=static_cast<const StoreInst&>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
-			//If the ptrOp has a single use and it'a a GEP
-			//we can optimize it
-			if(ptrOp->hasOneUse() && GetElementPtrInst::classof(ptrOp))
+			//If the ptrOp is a GEP we can optimize the access
+			if(GetElementPtrInst::classof(ptrOp))
 			{
 				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
 				compileFastGEPDereference(gep.getOperand(0), gep.idx_begin(), gep.idx_end());
@@ -1981,7 +1980,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "(";
 			//If the ptrOp has a single use and it'a a GEP
 			//we can optimize it
-			if(ptrOp->hasOneUse() && GetElementPtrInst::classof(ptrOp))
+			if(GetElementPtrInst::classof(ptrOp))
 			{
 				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
 				compileFastGEPDereference(gep.getOperand(0), gep.idx_begin(), gep.idx_end());
