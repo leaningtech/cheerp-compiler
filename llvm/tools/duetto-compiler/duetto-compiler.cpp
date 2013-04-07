@@ -31,6 +31,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
+#include "Relooper.h"
 #include <memory>
 #include <map>
 #include <iostream>
@@ -2137,7 +2138,41 @@ void JSWriter::compileMethod(Function& F)
 	{
 		Function::iterator B=F.begin();
 		Function::iterator BE=F.end();
-		//Build a map from basicblocks to ids
+		//First run, create the corresponding relooper blocks
+		std::map<const BasicBlock*, /*relooper::*/Block*> relooperMap;
+		for(;B!=BE;++B)
+		{
+			Block* rlBlock = new Block("a");
+			relooperMap.insert(make_pair(&(*B),rlBlock));
+		}
+
+		B=F.begin();
+		BE=F.end();
+		//Second run, add the branches
+		for(;B!=BE;++B)
+		{
+			const TerminatorInst* term=B->getTerminator();
+			for(uint32_t i=0;i<term->getNumSuccessors();i++)
+			{
+				Block* target=relooperMap[term->getSuccessor(i)];
+				const BranchInst* bi=dyn_cast<const BranchInst>(term);
+				assert(bi);
+				relooperMap[&(*B)]->AddBranchTo(target,(bi->isConditional() && i==1)?"b":NULL);
+			}
+		}
+
+		B=F.begin();
+		BE=F.end();
+		//Third run, add the block to the relooper and run it
+		Relooper* rl=new Relooper();
+		char buf[1000];
+		Relooper::SetOutputBuffer(buf,1000);
+		for(;B!=BE;++B)
+			rl->AddBlock(relooperMap[&(*B)]);
+		rl->Calculate(relooperMap[&F.getEntryBlock()]);
+		rl->Render();
+		__asm__("int $3");
+/*		//Build a map from basicblocks to ids
 		uint32_t blockId=0;
 		for(;B!=BE;++B)
 		{
@@ -2155,7 +2190,7 @@ void JSWriter::compileMethod(Function& F)
 			compileBB(*B, blocksMap);
 			stream << "break;\n";
 		}
-		stream << "}}\n";
+		stream << "}}\n";*/
 	}
 
 	stream << "}\n";
