@@ -237,6 +237,26 @@ private:
 	bool safeCallForNewedMemory(const CallInst* ci) const;
 	uint32_t getUniqueIndexForValue(const Value* v);
 	std::map<const Value*, uint32_t> unnamedValueMap;
+	class DuettoRenderInterface: public RenderInterface
+	{
+	private:
+		JSWriter* writer;
+	public:
+		DuettoRenderInterface(JSWriter* w):writer(w)
+		{
+		}
+		void renderBlock(void* privateBlock);
+		void renderIfBlockBegin(void* privateBlock, int branchId, bool first);
+		void renderElseBlockBegin();
+		void renderBlockEnd();
+		void renderBlockPrologue(void* privateBlockTo, void* privateBlockFrom);
+		void renderWhileBlockBegin();
+		void renderWhileBlockBegin(int labelId);
+		void renderBreak();
+		void renderBreak(int labelId);
+		void renderContinue();
+		void renderContinue(int labelId);
+	};
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
 	{
@@ -2097,7 +2117,7 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 		}
 		if(I->isTerminator())
 		{
-			compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I), blocksMap);
+			//compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I), blocksMap);
 		}
 		else
 		{
@@ -2111,6 +2131,81 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 		}
 	}
 	//At the end of the block
+}
+
+void JSWriter::DuettoRenderInterface::renderBlock(void* privateBlock)
+{
+	BasicBlock* bb=(BasicBlock*)privateBlock;
+	std::map<const BasicBlock*, uint32_t> blocksMap;
+	writer->compileBB(*bb, blocksMap);
+}
+
+void JSWriter::DuettoRenderInterface::renderIfBlockBegin(void* privateBlock, int branchId, bool first)
+{
+	BasicBlock* bb=(BasicBlock*)privateBlock;
+	if(!first)
+		writer->stream << "} else ";
+	TerminatorInst* term=bb->getTerminator();
+	writer->stream << "if (";
+	if(BranchInst::classof(term))
+	{
+		const BranchInst* bi=cast<const BranchInst>(term);
+		assert(bi->isConditional());
+		//The second branch is the default
+		assert(branchId==0);
+		writer->compileOperand(bi->getCondition());
+	}
+	else
+		assert(false);
+	writer->stream << ") {\n";
+}
+
+void JSWriter::DuettoRenderInterface::renderElseBlockBegin()
+{
+	writer->stream << "} else {\n";
+}
+
+void JSWriter::DuettoRenderInterface::renderBlockEnd()
+{
+	writer->stream << "}\n";
+}
+
+void JSWriter::DuettoRenderInterface::renderBlockPrologue(void* privateBlockTo,void* privateBlockFrom)
+{
+	BasicBlock* bbTo=(BasicBlock*)privateBlockTo;
+	BasicBlock* bbFrom=(BasicBlock*)privateBlockFrom;
+	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
+}
+
+void JSWriter::DuettoRenderInterface::renderWhileBlockBegin()
+{
+	writer->stream << "while(1) {\n";
+}
+
+void JSWriter::DuettoRenderInterface::renderWhileBlockBegin(int blockLabel)
+{
+	writer->stream << 'L' << blockLabel << ':';
+	renderWhileBlockBegin();
+}
+
+void JSWriter::DuettoRenderInterface::renderBreak()
+{
+	writer->stream << "break;\n";
+}
+
+void JSWriter::DuettoRenderInterface::renderBreak(int labelId)
+{
+	writer->stream << "break L" << labelId << ";\n";
+}
+
+void JSWriter::DuettoRenderInterface::renderContinue()
+{
+	writer->stream << "continue;\n";
+}
+
+void JSWriter::DuettoRenderInterface::renderContinue(int labelId)
+{
+	writer->stream << "continue L" << labelId << "\n";
 }
 
 void JSWriter::compileMethod(Function& F)
@@ -2142,7 +2237,7 @@ void JSWriter::compileMethod(Function& F)
 		std::map<const BasicBlock*, /*relooper::*/Block*> relooperMap;
 		for(;B!=BE;++B)
 		{
-			Block* rlBlock = new Block("a");
+			Block* rlBlock = new Block(&(*B));
 			relooperMap.insert(make_pair(&(*B),rlBlock));
 		}
 
@@ -2152,12 +2247,28 @@ void JSWriter::compileMethod(Function& F)
 		for(;B!=BE;++B)
 		{
 			const TerminatorInst* term=B->getTerminator();
+			uint32_t defaultBranchId=-1;
+			//Find out which brandh id is the default
+			if(BranchInst::classof(term))
+			{
+				const BranchInst* bi=cast<const BranchInst>(term);
+				if(bi->isUnconditional())
+					defaultBranchId = 0;
+				else
+					defaultBranchId = 1;
+			}
+			else if(term->getNumSuccessors())
+			{
+				//Only a problem if there are successors
+				term->dump();
+				assert(false);
+			}
+
 			for(uint32_t i=0;i<term->getNumSuccessors();i++)
 			{
 				Block* target=relooperMap[term->getSuccessor(i)];
-				const BranchInst* bi=dyn_cast<const BranchInst>(term);
-				assert(bi);
-				relooperMap[&(*B)]->AddBranchTo(target,(bi->isConditional() && i==1)?"b":NULL);
+				//Use -1 for the default target
+				relooperMap[&(*B)]->AddBranchTo(target, (i==defaultBranchId)?-1:i);
 			}
 		}
 
@@ -2165,13 +2276,12 @@ void JSWriter::compileMethod(Function& F)
 		BE=F.end();
 		//Third run, add the block to the relooper and run it
 		Relooper* rl=new Relooper();
-		char buf[1000];
-		Relooper::SetOutputBuffer(buf,1000);
+		Relooper::SetOutputBuffer(NULL,10);
 		for(;B!=BE;++B)
 			rl->AddBlock(relooperMap[&(*B)]);
 		rl->Calculate(relooperMap[&F.getEntryBlock()]);
-		rl->Render();
-		__asm__("int $3");
+		RenderInterface* ri=new DuettoRenderInterface(this);
+		rl->Render(ri);
 /*		//Build a map from basicblocks to ids
 		uint32_t blockId=0;
 		for(;B!=BE;++B)

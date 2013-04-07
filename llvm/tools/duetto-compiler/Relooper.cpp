@@ -70,25 +70,30 @@ int Indenter::CurrIndent = 0;
 
 // Branch
 
-Branch::Branch(const char *ConditionInit, const char *CodeInit) : Ancestor(NULL), Labeled(false) {
-  Condition = ConditionInit ? strdup(ConditionInit) : NULL;
+Branch::Branch(int bId, const char *CodeInit) : Ancestor(NULL), Labeled(false), branchId(bId) {
   Code = CodeInit ? strdup(CodeInit) : NULL;
 }
 
 Branch::~Branch() {
-  if (Condition) free((void*)Condition);
   if (Code) free((void*)Code);
 }
 
-void Branch::Render(Block *Target, bool SetLabel) {
+void Branch::Render(Block *Target, bool SetLabel, RenderInterface* renderInterface) {
+  assert(SetLabel==false);
   if (Code) PrintIndented("%s\n", Code);
   if (SetLabel) PrintIndented("label = %d;\n", Target->Id);
   if (Ancestor) {
     if (Type != Direct) {
       if (Labeled) {
-        PrintIndented("%s L%d;\n", Type == Break ? "break" : "continue", Ancestor->Id);
+	if(Break)
+          renderInterface->renderBreak(Ancestor->Id);
+	else
+          renderInterface->renderContinue(Ancestor->Id);
       } else {
-        PrintIndented("%s;\n", Type == Break ? "break" : "continue");
+	if(Break)
+          renderInterface->renderBreak();
+	else
+          renderInterface->renderContinue();
       }
     }
   }
@@ -98,12 +103,11 @@ void Branch::Render(Block *Target, bool SetLabel) {
 
 int Block::IdCounter = 1; // 0 is reserved for clearings
 
-Block::Block(const char *CodeInit) : Parent(NULL), Id(Block::IdCounter++), DefaultTarget(NULL), IsCheckedMultipleEntry(false) {
-  Code = strdup(CodeInit);
+Block::Block(void* b) : Parent(NULL), Id(Block::IdCounter++), privateBlock(b), DefaultTarget(NULL),
+	IsCheckedMultipleEntry(false) {
 }
 
 Block::~Block() {
-  if (Code) free((void*)Code);
   for (BlockBranchMap::iterator iter = ProcessedBranchesIn.begin(); iter != ProcessedBranchesIn.end(); iter++) {
     delete iter->second;
   }
@@ -113,27 +117,17 @@ Block::~Block() {
   // XXX If not reachable, expected to have branches here. But need to clean them up to prevent leaks!
 }
 
-void Block::AddBranchTo(Block *Target, const char *Condition, const char *Code) {
+void Block::AddBranchTo(Block *Target, int branchId, const char *Code) {
   assert(BranchesOut.find(Target) == BranchesOut.end()); // cannot add more than one branch to the same target
-  BranchesOut[Target] = new Branch(Condition, Code);
+  BranchesOut[Target] = new Branch(branchId, Code);
 }
 
-void Block::Render(bool InLoop) {
+void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   if (IsCheckedMultipleEntry && InLoop) {
     PrintIndented("label = 0;\n");
   }
 
-  if (Code) {
-    // Print code in an indented manner, even over multiple lines
-    char *Start = const_cast<char*>(Code);
-    while (*Start) {
-      char *End = strchr(Start, '\n');
-      if (End) *End = 0;
-      PutIndented(Start);
-      if (End) *End = '\n'; else break;
-      Start = End+1;
-    }
-  }
+  renderInterface->renderBlock(privateBlock);
 
   if (!ProcessedBranchesOut.size()) return;
 
@@ -181,14 +175,14 @@ void Block::Render(bool InLoop) {
 
   // We must do this here, because blocks can be split and even comparing their Ids is not enough. We must check the conditions.
   for (BlockBranchMap::iterator iter = ProcessedBranchesOut.begin(); iter != ProcessedBranchesOut.end(); iter++) {
-    if (!iter->second->Condition) {
+    if (iter->second->branchId == -1) {
       assert(!DefaultTarget); // Must be exactly one default
       DefaultTarget = iter->first;
     }
   }
   assert(DefaultTarget); // Must be a default
 
-  ministring RemainingConditions;
+  //ministring RemainingConditions;
   bool First = true;
   for (BlockBranchMap::iterator iter = ProcessedBranchesOut.begin();; iter++) {
     Block *Target;
@@ -197,27 +191,28 @@ void Block::Render(bool InLoop) {
       Target = iter->first;
       if (Target == DefaultTarget) continue; // done at the end
       Details = iter->second;
-      assert(Details->Condition); // must have a condition if this is not the default target
+      assert(Details->branchId != -1); // must have a condition if this is not the default target
     } else {
       Target = DefaultTarget;
       Details = ProcessedBranchesOut[DefaultTarget];
     }
     bool SetCurrLabel = SetLabel && Target->IsCheckedMultipleEntry;
     bool HasFusedContent = Fused && Fused->InnerMap.find(Target) != Fused->InnerMap.end();
-    bool HasContent = SetCurrLabel || Details->Type != Branch::Direct || HasFusedContent || Details->Code;
+    //Duetto: We assume that the block has content, otherwise why it's even here?
+    //bool HasContent = SetCurrLabel || Details->Type != Branch::Direct || HasFusedContent || Details->Code;
     if (iter != ProcessedBranchesOut.end()) {
       // If there is nothing to show in this branch, omit the condition
-      if (HasContent) {
-        PrintIndented("%sif (%s) {\n", First ? "" : "} else ", Details->Condition);
+      //if (HasContent) {
+        renderInterface->renderIfBlockBegin(privateBlock, Details->branchId, First);
         First = false;
-      } else {
+      /*} else {
         if (RemainingConditions.size() > 0) RemainingConditions += " && ";
         RemainingConditions += "!(";
         RemainingConditions += Details->Condition;
         RemainingConditions += ")";
-      }
+      }*/
     } else {
-      if (HasContent) {
+      /*if (HasContent) {
         if (RemainingConditions.size() > 0) {
           if (First) {
             PrintIndented("if (%s) {\n", RemainingConditions.c_str());
@@ -225,20 +220,21 @@ void Block::Render(bool InLoop) {
           } else {
             PrintIndented("} else if (%s) {\n", RemainingConditions.c_str());
           }
-        } else if (!First) {
-          PrintIndented("} else {\n");
+        } else */ if (!First) {
+	  renderInterface->renderElseBlockBegin();
         }
-      }
+    //}
     }
+    renderInterface->renderBlockPrologue(Target->privateBlock, privateBlock);
     if (!First) Indenter::Indent();
-    Details->Render(Target, SetCurrLabel);
+    Details->Render(Target, SetCurrLabel, renderInterface);
     if (HasFusedContent) {
-      Fused->InnerMap.find(Target)->second->Render(InLoop);
+      Fused->InnerMap.find(Target)->second->Render(InLoop, renderInterface);
     }
     if (!First) Indenter::Unindent();
     if (iter == ProcessedBranchesOut.end()) break;
   }
-  if (!First) PrintIndented("}\n");
+  if (!First) renderInterface->renderBlockEnd();
 
   if (Fused) {
     Fused->RenderLoopPostfix();
@@ -269,7 +265,7 @@ void MultipleShape::RenderLoopPostfix() {
   }
 }
 
-void MultipleShape::Render(bool InLoop) {
+void MultipleShape::Render(bool InLoop, RenderInterface* renderInterface) {
   RenderLoopPrefix();
   bool First = true;
   for (BlockShapeMap::iterator iter = InnerMap.begin(); iter != InnerMap.end(); iter++) {
@@ -280,28 +276,28 @@ void MultipleShape::Render(bool InLoop) {
     }
     First = false;
     Indenter::Indent();
-    iter->second->Render(InLoop);
+    iter->second->Render(InLoop, renderInterface);
     Indenter::Unindent();
     PrintIndented("}\n");
   }
   RenderLoopPostfix();
-  if (Next) Next->Render(InLoop);
-};
+  if (Next) Next->Render(InLoop, renderInterface);
+}
 
 // LoopShape
 
-void LoopShape::Render(bool InLoop) {
+void LoopShape::Render(bool InLoop, RenderInterface* renderInterface) {
   if (Labeled) {
-    PrintIndented("L%d: while(1) {\n", Id);
+    renderInterface->renderWhileBlockBegin(Id);
   } else {
-    PrintIndented("while(1) {\n");
+    renderInterface->renderWhileBlockBegin();
   }
   Indenter::Indent();
-  Inner->Render(true);
+  Inner->Render(true, renderInterface);
   Indenter::Unindent();
-  PrintIndented("}\n");
-  if (Next) Next->Render(InLoop);
-};
+  renderInterface->renderBlockEnd();
+  if (Next) Next->Render(InLoop, renderInterface);
+}
 
 /*
 // EmulatedShape
@@ -334,8 +330,8 @@ Relooper::Relooper() : Root(NULL) {
 }
 
 Relooper::~Relooper() {
-  for (int i = 0; i < Blocks.size(); i++) delete Blocks[i];
-  for (int i = 0; i < Shapes.size(); i++) delete Shapes[i];
+  for (unsigned int i = 0; i < Blocks.size(); i++) delete Blocks[i];
+  for (unsigned int i = 0; i < Shapes.size(); i++) delete Shapes[i];
 }
 
 void Relooper::AddBlock(Block *New) {
@@ -374,7 +370,8 @@ void Relooper::Calculate(Block *Entry) {
     // RAII cleanup. Without splitting, we will be forced to introduce labelled loops to allow
     // reaching the final block
     void SplitDeadEnds() {
-      int TotalCodeSize = 0;
+      // Duetto: temporarily disable, then do unconditionally
+/*      int TotalCodeSize = 0;
       for (BlockSet::iterator iter = Live.begin(); iter != Live.end(); iter++) {
         Block *Curr = *iter;
         TotalCodeSize += strlen(Curr->Code);
@@ -394,18 +391,18 @@ void Relooper::Calculate(Block *Entry) {
           Parent->AddBlock(Split);
           Live.insert(Split);
         }
-      }
+      }*/
     }
   };
   PreOptimizer Pre(this);
   Pre.FindLive(Entry);
 
   // Add incoming branches from live blocks, ignoring dead code
-  for (int i = 0; i < Blocks.size(); i++) {
+  for (unsigned int i = 0; i < Blocks.size(); i++) {
     Block *Curr = Blocks[i];
     if (Pre.Live.find(Curr) == Pre.Live.end()) continue;
     for (BlockBranchMap::iterator iter = Curr->BranchesOut.begin(); iter != Curr->BranchesOut.end(); iter++) {
-      iter->first->BranchesIn[Curr] = new Branch(NULL);
+      iter->first->BranchesIn[Curr] = new Branch(-1);
     }
   }
 
@@ -821,7 +818,7 @@ void Relooper::Calculate(Block *Entry) {
   // Main
 
   BlockSet AllBlocks;
-  for (int i = 0; i < Blocks.size(); i++) {
+  for (unsigned int i = 0; i < Blocks.size(); i++) {
     AllBlocks.insert(Blocks[i]);
 #if DEBUG
     PrintDebug("Adding block %d (%s)\n", Blocks[i]->Id, Blocks[i]->Code);
@@ -985,9 +982,9 @@ void Relooper::Calculate(Block *Entry) {
   PostOptimizer(this).Process(Root);
 }
 
-void Relooper::Render() {
+void Relooper::Render(RenderInterface* renderInterface) {
   OutputBuffer = OutputBufferRoot;
-  Root->Render(false);
+  Root->Render(false, renderInterface);
 }
 
 void Relooper::SetOutputBuffer(char *Buffer, int Size) {
@@ -1049,8 +1046,8 @@ void rl_set_asm_js_mode(int on) {
   Relooper::SetAsmJSMode(on);
 }
 
-void *rl_new_block(const char *text) {
-  Block *ret = new Block(text);
+void *rl_new_block(void *p) {
+  Block *ret = new Block(p);
 #if DEBUG
   printf("  void *b%d = rl_new_block(\"// code %d\");\n", ret->Id, ret->Id);
   __blockDebugMap__[ret] = ret->Id;
@@ -1066,11 +1063,11 @@ void rl_delete_block(void *block) {
   delete (Block*)block;
 }
 
-void rl_block_add_branch_to(void *from, void *to, const char *condition, const char *code) {
+void rl_block_add_branch_to(void *from, void *to, int branchId, const char *code) {
 #if DEBUG
   printf("  rl_block_add_branch_to(block_map[%d], block_map[%d], %s%s%s, %s%s%s);\n", ((Block*)from)->Id, ((Block*)to)->Id, condition ? "\"" : "", condition ? condition : "NULL", condition ? "\"" : "", code ? "\"" : "", code ? code : "NULL", code ? "\"" : "");
 #endif
-  ((Block*)from)->AddBranchTo((Block*)to, condition, code);
+  ((Block*)from)->AddBranchTo((Block*)to, branchId, code);
 }
 
 void *rl_new_relooper() {
@@ -1104,8 +1101,8 @@ void rl_relooper_calculate(void *relooper, void *entry) {
   ((Relooper*)relooper)->Calculate((Block*)entry);
 }
 
-void rl_relooper_render(void *relooper) {
-  ((Relooper*)relooper)->Render();
+void rl_relooper_render(void *relooper, void* renderInterface) {
+  ((Relooper*)relooper)->Render(((RenderInterface*)renderInterface));
 }
 
 }

@@ -21,6 +21,22 @@ LLVM.
 struct Block;
 struct Shape;
 
+class RenderInterface
+{
+public:
+	virtual void renderBlock(void* privateBlock) = 0;
+	virtual void renderIfBlockBegin(void* privateBlock, int branchId, bool first) = 0;
+	virtual void renderElseBlockBegin() = 0;
+	virtual void renderBlockEnd() = 0;
+	virtual void renderBlockPrologue(void* privateBlockTo, void* privateBlockFrom) = 0;
+	virtual void renderWhileBlockBegin() = 0;
+	virtual void renderWhileBlockBegin(int labelId) = 0;
+	virtual void renderBreak() = 0;
+	virtual void renderBreak(int labelId) = 0;
+	virtual void renderContinue() = 0;
+	virtual void renderContinue(int labelId) = 0;
+};
+
 // Info about a branching from one block to another
 struct Branch {
   enum FlowType {
@@ -31,14 +47,14 @@ struct Branch {
   Shape *Ancestor; // If not NULL, this shape is the relevant one for purposes of getting to the target block. We break or continue on it
   Branch::FlowType Type; // If Ancestor is not NULL, this says whether to break or continue
   bool Labeled; // If a break or continue, whether we need to use a label
-  const char *Condition; // The condition for which we branch. For example, "my_var == 1". Conditions are checked one by one. One of the conditions should have NULL as the condition, in which case it is the default
+  int branchId;
   const char *Code; // If provided, code that is run right before the branch is taken. This is useful for phis
 
-  Branch(const char *ConditionInit, const char *CodeInit=NULL);
+  Branch(int bId, const char *CodeInit=NULL);
   ~Branch();
 
   // Prints out the branch
-  void Render(Block *Target, bool SetLabel);
+  void Render(Block *Target, bool SetLabel, RenderInterface* renderInterface);
 };
 
 typedef std::map<Block*, Branch*> BlockBranchMap;
@@ -57,18 +73,18 @@ struct Block {
   BlockBranchMap ProcessedBranchesIn;
   Shape *Parent; // The shape we are directly inside
   int Id; // A unique identifier
-  const char *Code; // The string representation of the code in this block. Owning pointer (we copy the input)
+  void* privateBlock; //A priate value that will be passed back to the callback
   Block *DefaultTarget; // The block we branch to without checking the condition, if none of the other conditions held.
                         // Since each block *must* branch somewhere, this must be set
   bool IsCheckedMultipleEntry; // If true, we are a multiple entry, so reaching us requires setting the label variable
 
-  Block(const char *CodeInit);
+  Block(void* privateBlock);
   ~Block();
 
-  void AddBranchTo(Block *Target, const char *Condition, const char *Code=NULL);
+  void AddBranchTo(Block *Target, int branchId, const char *Code=NULL);
 
   // Prints out the instructions code and branchings
-  void Render(bool InLoop);
+  void Render(bool InLoop, RenderInterface* renderInterface);
 
   // INTERNAL
   static int IdCounter;
@@ -111,7 +127,7 @@ struct Shape {
   Shape(ShapeType TypeInit) : Id(Shape::IdCounter++), Next(NULL), Type(TypeInit) {}
   virtual ~Shape() {}
 
-  virtual void Render(bool InLoop) = 0;
+  virtual void Render(bool InLoop, RenderInterface* renderInterface) = 0;
 
   static SimpleShape *IsSimple(Shape *It) { return It && It->Type == Simple ? (SimpleShape*)It : NULL; }
   static MultipleShape *IsMultiple(Shape *It) { return It && It->Type == Multiple ? (MultipleShape*)It : NULL; }
@@ -126,9 +142,9 @@ struct SimpleShape : public Shape {
   Block *Inner;
 
   SimpleShape() : Shape(Simple), Inner(NULL) {}
-  void Render(bool InLoop) {
-    Inner->Render(InLoop);
-    if (Next) Next->Render(InLoop);
+  void Render(bool InLoop, RenderInterface* renderInterface) {
+    Inner->Render(InLoop, renderInterface);
+    if (Next) Next->Render(InLoop, renderInterface);
   }
 };
 
@@ -151,14 +167,14 @@ struct MultipleShape : public LabeledShape {
   void RenderLoopPrefix();
   void RenderLoopPostfix();
 
-  void Render(bool InLoop);
+  void Render(bool InLoop, RenderInterface* renderInterface);
 };
 
 struct LoopShape : public LabeledShape {
   Shape *Inner;
 
   LoopShape() : LabeledShape(Loop), Inner(NULL) {}
-  void Render(bool InLoop);
+  void Render(bool InLoop, RenderInterface* renderInterface);
 };
 
 /*
@@ -193,7 +209,7 @@ struct Relooper {
   void Calculate(Block *Entry);
 
   // Renders the result.
-  void Render();
+  void Render(RenderInterface* renderInterface);
 
   // Sets the global buffer all printing goes to. Must call this or MakeOutputBuffer.
   static void SetOutputBuffer(char *Buffer, int Size);
@@ -235,14 +251,14 @@ extern "C" {
 RELOOPERDLL_API void  rl_set_output_buffer(char *buffer, int size);
 RELOOPERDLL_API void  rl_make_output_buffer(int size);
 RELOOPERDLL_API void  rl_set_asm_js_mode(int on);
-RELOOPERDLL_API void *rl_new_block(const char *text);
+RELOOPERDLL_API void *rl_new_block(void* p);
 RELOOPERDLL_API void  rl_delete_block(void *block);
-RELOOPERDLL_API void  rl_block_add_branch_to(void *from, void *to, const char *condition, const char *code);
+RELOOPERDLL_API void  rl_block_add_branch_to(void *from, void *to, int branchId, const char *code);
 RELOOPERDLL_API void *rl_new_relooper();
 RELOOPERDLL_API void  rl_delete_relooper(void *relooper);
 RELOOPERDLL_API void  rl_relooper_add_block(void *relooper, void *block);
 RELOOPERDLL_API void  rl_relooper_calculate(void *relooper, void *entry);
-RELOOPERDLL_API void  rl_relooper_render(void *relooper);
+RELOOPERDLL_API void  rl_relooper_render(void *relooper, void* renderInterface);
 
 #ifdef __cplusplus
 }
