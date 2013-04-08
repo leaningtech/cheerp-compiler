@@ -164,7 +164,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   if (Fused) {
     PrintDebug("Fusing Multiple to Simple\n");
     Parent->Next = Parent->Next->Next;
-    Fused->RenderLoopPrefix();
+    Fused->RenderLoopPrefix(renderInterface);
 
     // When the Multiple has the same number of groups as we have branches,
     // they will all be fused, so it is safe to not set the label at all
@@ -237,7 +237,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   if (!First) renderInterface->renderBlockEnd();
 
   if (Fused) {
-    Fused->RenderLoopPostfix();
+    Fused->RenderLoopPostfix(renderInterface);
   }
 }
 
@@ -247,26 +247,26 @@ int Shape::IdCounter = 0;
 
 // MultipleShape
 
-void MultipleShape::RenderLoopPrefix() {
+void MultipleShape::RenderLoopPrefix(RenderInterface* renderInterface) {
   if (NeedLoop) {
     if (Labeled) {
-      PrintIndented("L%d: do {\n", Id);
+      renderInterface->renderDoBlockBegin(Id);
     } else {
-      PrintIndented("do {\n");
+      renderInterface->renderDoBlockBegin();
     }
     Indenter::Indent();
   }
 }
 
-void MultipleShape::RenderLoopPostfix() {
+void MultipleShape::RenderLoopPostfix(RenderInterface* renderInterface) {
   if (NeedLoop) {
     Indenter::Unindent();
-    PrintIndented("} while(0);\n");
+    renderInterface->renderDoBlockEnd();
   }
 }
 
 void MultipleShape::Render(bool InLoop, RenderInterface* renderInterface) {
-  RenderLoopPrefix();
+  RenderLoopPrefix(renderInterface);
   bool First = true;
   for (BlockShapeMap::iterator iter = InnerMap.begin(); iter != InnerMap.end(); iter++) {
     if (AsmJS) {
@@ -280,7 +280,7 @@ void MultipleShape::Render(bool InLoop, RenderInterface* renderInterface) {
     Indenter::Unindent();
     PrintIndented("}\n");
   }
-  RenderLoopPostfix();
+  RenderLoopPostfix(renderInterface);
   if (Next) Next->Render(InLoop, renderInterface);
 }
 
