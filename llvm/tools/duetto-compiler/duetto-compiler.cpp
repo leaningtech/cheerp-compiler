@@ -202,6 +202,7 @@ private:
 	bool isInlineable(const Instruction& I) const;
 	bool isBitCast(const Value* v) const;
 	bool isGEP(const Value* v) const;
+	void compileTerminatorInstruction(const TerminatorInst& I);
 	void compileTerminatorInstruction(const TerminatorInst& I,
 			const std::map<const BasicBlock*, uint32_t>& blocksMap);
 	bool compileInlineableInstruction(const Instruction& I);
@@ -259,6 +260,8 @@ private:
 		void renderBreak(int labelId);
 		void renderContinue();
 		void renderContinue(int labelId);
+		void renderLabel(int labelId);
+		void renderIfOnLabel(int labelId, bool first);
 	};
 public:
 	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
@@ -1189,20 +1192,19 @@ void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const Basic
 /*
  * This method is fragile, each opcode must handle the phis in the correct place
  */
-void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
-		const std::map<const BasicBlock*, uint32_t>& blocksMap)
+void JSWriter::compileTerminatorInstruction(const TerminatorInst& I)
 {
 	switch(I.getOpcode())
 	{
 		case Instruction::Ret:
 		{
 			const ReturnInst& ri=static_cast<const ReturnInst&>(I);
+			assert(I.getNumSuccessors()==0);
 			Value* retVal = ri.getReturnValue();
 			stream << "return ";
 			if(retVal)
 				compileOperand(retVal);
 			stream << ";\n";
-			assert(I.getNumSuccessors()==0);
 			break;
 		}
 		case Instruction::Invoke:
@@ -1220,8 +1222,6 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 					//Only consider the normal successor for PHIs here
 					//For each successor output the variables for the phi nodes
 					compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
-					//Add code to jump to the next block
-					stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
 					break;
 				}
 				else
@@ -1244,7 +1244,35 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
 			//Only consider the normal successor for PHIs here
 			//For each successor output the variables for the phi nodes
 			compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
-			//Add code to jump to the next block
+			break;
+		}
+		case Instruction::Resume:
+		{
+			//TODO: support exceptions
+			break;
+		}
+		case Instruction::Br:
+		case Instruction::Switch:
+			break;
+		default:
+			stream << "alert('Unsupported code');\n";
+			cerr << "\tImplement terminator inst " << I.getOpcodeName() << endl;
+			break;
+	}
+}
+
+void JSWriter::compileTerminatorInstruction(const TerminatorInst& I,
+		const std::map<const BasicBlock*, uint32_t>& blocksMap)
+{
+	compileTerminatorInstruction(I);
+	switch(I.getOpcode())
+	{
+		case Instruction::Ret:
+			break;
+		case Instruction::Invoke:
+		{
+			//TODO: Support unwind
+			const InvokeInst& ci=static_cast<const InvokeInst&>(I);
 			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
 			break;
 		}
@@ -2119,6 +2147,8 @@ void JSWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint3
 		}
 		if(I->isTerminator())
 		{
+			//TODO: Keep support for both relooper and swicth generation
+			compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I));
 			//compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I), blocksMap);
 		}
 		else
@@ -2157,8 +2187,22 @@ void JSWriter::DuettoRenderInterface::renderIfBlockBegin(void* privateBlock, int
 		assert(branchId==0);
 		writer->compileOperand(bi->getCondition());
 	}
+	else if(SwitchInst::classof(term))
+	{
+		const SwitchInst* si=cast<const SwitchInst>(term);
+		writer->compileOperand(si->getCondition());
+		writer->stream << " === ";
+		assert(branchId > 0);
+		SwitchInst::ConstCaseIt it=si->case_begin();
+		for(int i=1;i<branchId;i++)
+			++it;
+		writer->compileConstant(it.getCaseValue());
+	}
 	else
+	{
+		term->dump();
 		assert(false);
+	}
 	writer->stream << ") {\n";
 }
 
@@ -2226,6 +2270,18 @@ void JSWriter::DuettoRenderInterface::renderContinue(int labelId)
 	writer->stream << "continue L" << labelId << "\n";
 }
 
+void JSWriter::DuettoRenderInterface::renderLabel(int labelId)
+{
+	writer->stream << "label = " << labelId << ";\n";
+}
+
+void JSWriter::DuettoRenderInterface::renderIfOnLabel(int labelId, bool first)
+{
+	if(first==false)
+		writer->stream << "else ";
+	writer->stream << "if (label === " << labelId << ") {\n";
+}
+
 void JSWriter::compileMethod(Function& F)
 {
 	if(F.empty())
@@ -2249,12 +2305,15 @@ void JSWriter::compileMethod(Function& F)
 		compileBB(*F.begin(), blocksMap);
 	else
 	{
+		//TODO: Support exceptions
 		Function::iterator B=F.begin();
 		Function::iterator BE=F.end();
 		//First run, create the corresponding relooper blocks
 		std::map<const BasicBlock*, /*relooper::*/Block*> relooperMap;
 		for(;B!=BE;++B)
 		{
+			if(B->isLandingPad())
+				continue;
 			Block* rlBlock = new Block(&(*B));
 			relooperMap.insert(make_pair(&(*B),rlBlock));
 		}
@@ -2264,9 +2323,11 @@ void JSWriter::compileMethod(Function& F)
 		//Second run, add the branches
 		for(;B!=BE;++B)
 		{
+			if(B->isLandingPad())
+				continue;
 			const TerminatorInst* term=B->getTerminator();
 			uint32_t defaultBranchId=-1;
-			//Find out which brandh id is the default
+			//Find out which branch id is the default
 			if(BranchInst::classof(term))
 			{
 				const BranchInst* bi=cast<const BranchInst>(term);
@@ -2274,6 +2335,18 @@ void JSWriter::compileMethod(Function& F)
 					defaultBranchId = 0;
 				else
 					defaultBranchId = 1;
+			}
+			else if(SwitchInst::classof(term))
+			{
+				const SwitchInst* si=cast<const SwitchInst>(term);
+				assert(si->getDefaultDest()==si->getSuccessor(0));
+				defaultBranchId = 0;
+			}
+			else if(InvokeInst::classof(term))
+			{
+				const InvokeInst* ii=cast<const InvokeInst>(term);
+				assert(ii->getNormalDest()==ii->getSuccessor(0));
+				defaultBranchId = 0;
 			}
 			else if(term->getNumSuccessors())
 			{
@@ -2284,6 +2357,8 @@ void JSWriter::compileMethod(Function& F)
 
 			for(uint32_t i=0;i<term->getNumSuccessors();i++)
 			{
+				if(term->getSuccessor(i)->isLandingPad())
+					continue;
 				Block* target=relooperMap[term->getSuccessor(i)];
 				//Use -1 for the default target
 				relooperMap[&(*B)]->AddBranchTo(target, (i==defaultBranchId)?-1:i);
@@ -2296,7 +2371,11 @@ void JSWriter::compileMethod(Function& F)
 		Relooper* rl=new Relooper();
 		Relooper::SetOutputBuffer(NULL,10);
 		for(;B!=BE;++B)
+		{
+			if(B->isLandingPad())
+				continue;
 			rl->AddBlock(relooperMap[&(*B)]);
+		}
 		rl->Calculate(relooperMap[&F.getEntryBlock()]);
 		RenderInterface* ri=new DuettoRenderInterface(this);
 		rl->Render(ri);
