@@ -214,15 +214,6 @@ struct Relooper {
 
   // Renders the result.
   void Render(RenderInterface* renderInterface);
-
-  // Sets the global buffer all printing goes to. Must call this or MakeOutputBuffer.
-  static void SetOutputBuffer(char *Buffer, int Size);
-
-  // Creates an output buffer. Must call this or SetOutputBuffer.
-  static void MakeOutputBuffer(int Size);
-
-  // Sets asm.js mode on or off (default is off)
-  static void SetAsmJSMode(int On);
 };
 
 typedef std::set<Block*> BlockSet;
@@ -252,9 +243,6 @@ struct Debugging {
 extern "C" {
 #endif
 
-RELOOPERDLL_API void  rl_set_output_buffer(char *buffer, int size);
-RELOOPERDLL_API void  rl_make_output_buffer(int size);
-RELOOPERDLL_API void  rl_set_asm_js_mode(int on);
 RELOOPERDLL_API void *rl_new_block(void* p);
 RELOOPERDLL_API void  rl_delete_block(void *block);
 RELOOPERDLL_API void  rl_block_add_branch_to(void *from, void *to, int branchId);
