@@ -51,9 +51,8 @@ struct Branch {
   Branch::FlowType Type; // If Ancestor is not NULL, this says whether to break or continue
   bool Labeled; // If a break or continue, whether we need to use a label
   int branchId;
-  const char *Code; // If provided, code that is run right before the branch is taken. This is useful for phis
 
-  Branch(int bId, const char *CodeInit=NULL);
+  Branch(int bId);
   ~Branch();
 
   // Prints out the branch
@@ -84,7 +83,7 @@ struct Block {
   Block(void* privateBlock);
   ~Block();
 
-  void AddBranchTo(Block *Target, int branchId, const char *Code=NULL);
+  void AddBranchTo(Block *Target, int branchId);
 
   // Prints out the instructions code and branchings
   void Render(bool InLoop, RenderInterface* renderInterface);
@@ -256,7 +255,7 @@ RELOOPERDLL_API void  rl_make_output_buffer(int size);
 RELOOPERDLL_API void  rl_set_asm_js_mode(int on);
 RELOOPERDLL_API void *rl_new_block(void* p);
 RELOOPERDLL_API void  rl_delete_block(void *block);
-RELOOPERDLL_API void  rl_block_add_branch_to(void *from, void *to, int branchId, const char *code);
+RELOOPERDLL_API void  rl_block_add_branch_to(void *from, void *to, int branchId);
 RELOOPERDLL_API void *rl_new_relooper();
 RELOOPERDLL_API void  rl_delete_relooper(void *relooper);
 RELOOPERDLL_API void  rl_relooper_add_block(void *relooper, void *block);
