@@ -252,6 +252,9 @@ private:
 		void renderBlockPrologue(void* privateBlockTo, void* privateBlockFrom);
 		void renderWhileBlockBegin();
 		void renderWhileBlockBegin(int labelId);
+		void renderDoBlockBegin();
+		void renderDoBlockBegin(int labelId);
+		void renderDoBlockEnd();
 		void renderBreak();
 		void renderBreak(int labelId);
 		void renderContinue();
@@ -2185,6 +2188,22 @@ void JSWriter::DuettoRenderInterface::renderWhileBlockBegin(int blockLabel)
 {
 	writer->stream << 'L' << blockLabel << ':';
 	renderWhileBlockBegin();
+}
+
+void JSWriter::DuettoRenderInterface::renderDoBlockBegin()
+{
+	writer->stream << "do {\n";
+}
+
+void JSWriter::DuettoRenderInterface::renderDoBlockBegin(int blockLabel)
+{
+	writer->stream << 'L' << blockLabel << ':';
+	renderDoBlockBegin();
+}
+
+void JSWriter::DuettoRenderInterface::renderDoBlockEnd()
+{
+	writer->stream << "} while(0);\n";
 }
 
 void JSWriter::DuettoRenderInterface::renderBreak()
