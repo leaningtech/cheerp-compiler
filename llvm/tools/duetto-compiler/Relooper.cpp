@@ -70,17 +70,14 @@ int Indenter::CurrIndent = 0;
 
 // Branch
 
-Branch::Branch(int bId, const char *CodeInit) : Ancestor(NULL), Labeled(false), branchId(bId) {
-  Code = CodeInit ? strdup(CodeInit) : NULL;
+Branch::Branch(int bId) : Ancestor(NULL), Labeled(false), branchId(bId) {
 }
 
 Branch::~Branch() {
-  if (Code) free((void*)Code);
 }
 
 void Branch::Render(Block *Target, bool SetLabel, RenderInterface* renderInterface) {
   assert(SetLabel==false);
-  if (Code) PrintIndented("%s\n", Code);
   if (SetLabel) PrintIndented("label = %d;\n", Target->Id);
   if (Ancestor) {
     if (Type != Direct) {
@@ -117,9 +114,9 @@ Block::~Block() {
   // XXX If not reachable, expected to have branches here. But need to clean them up to prevent leaks!
 }
 
-void Block::AddBranchTo(Block *Target, int branchId, const char *Code) {
+void Block::AddBranchTo(Block *Target, int branchId) {
   assert(BranchesOut.find(Target) == BranchesOut.end()); // cannot add more than one branch to the same target
-  BranchesOut[Target] = new Branch(branchId, Code);
+  BranchesOut[Target] = new Branch(branchId);
 }
 
 void Block::Render(bool InLoop, RenderInterface* renderInterface) {
@@ -1063,11 +1060,11 @@ void rl_delete_block(void *block) {
   delete (Block*)block;
 }
 
-void rl_block_add_branch_to(void *from, void *to, int branchId, const char *code) {
+void rl_block_add_branch_to(void *from, void *to, int branchId) {
 #if DEBUG
   printf("  rl_block_add_branch_to(block_map[%d], block_map[%d], %s%s%s, %s%s%s);\n", ((Block*)from)->Id, ((Block*)to)->Id, condition ? "\"" : "", condition ? condition : "NULL", condition ? "\"" : "", code ? "\"" : "", code ? code : "NULL", code ? "\"" : "");
 #endif
-  ((Block*)from)->AddBranchTo((Block*)to, branchId, code);
+  ((Block*)from)->AddBranchTo((Block*)to, branchId);
 }
 
 void *rl_new_relooper() {
