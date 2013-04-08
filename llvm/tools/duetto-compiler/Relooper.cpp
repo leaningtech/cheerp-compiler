@@ -77,8 +77,7 @@ Branch::~Branch() {
 }
 
 void Branch::Render(Block *Target, bool SetLabel, RenderInterface* renderInterface) {
-  assert(SetLabel==false);
-  if (SetLabel) PrintIndented("label = %d;\n", Target->Id);
+  if (SetLabel) renderInterface->renderLabel(Target->Id);
   if (Ancestor) {
     if (Type != Direct) {
       if (Labeled) {
@@ -121,7 +120,7 @@ void Block::AddBranchTo(Block *Target, int branchId) {
 
 void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   if (IsCheckedMultipleEntry && InLoop) {
-    PrintIndented("label = 0;\n");
+    renderInterface->renderLabel(0);
   }
 
   renderInterface->renderBlock(privateBlock);
@@ -269,13 +268,13 @@ void MultipleShape::Render(bool InLoop, RenderInterface* renderInterface) {
     if (AsmJS) {
       PrintIndented("%sif ((label|0) == %d) {\n", First ? "" : "else ", iter->first->Id);
     } else {
-      PrintIndented("%sif (label == %d) {\n", First ? "" : "else ", iter->first->Id);
+      renderInterface->renderIfOnLabel(iter->first->Id, First);
     }
     First = false;
     Indenter::Indent();
     iter->second->Render(InLoop, renderInterface);
     Indenter::Unindent();
-    PrintIndented("}\n");
+    renderInterface->renderBlockEnd();
   }
   RenderLoopPostfix(renderInterface);
   if (Next) Next->Render(InLoop, renderInterface);

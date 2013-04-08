@@ -25,6 +25,7 @@ class RenderInterface
 {
 public:
 	virtual void renderBlock(void* privateBlock) = 0;
+	virtual void renderIfOnLabel(int labelId, bool first) = 0;
 	virtual void renderIfBlockBegin(void* privateBlock, int branchId, bool first) = 0;
 	virtual void renderElseBlockBegin() = 0;
 	virtual void renderBlockEnd() = 0;
@@ -38,6 +39,7 @@ public:
 	virtual void renderBreak(int labelId) = 0;
 	virtual void renderContinue() = 0;
 	virtual void renderContinue(int labelId) = 0;
+	virtual void renderLabel(int labelId) = 0;
 };
 
 // Info about a branching from one block to another
