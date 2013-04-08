@@ -31,6 +31,9 @@ public:
 	virtual void renderBlockPrologue(void* privateBlockTo, void* privateBlockFrom) = 0;
 	virtual void renderWhileBlockBegin() = 0;
 	virtual void renderWhileBlockBegin(int labelId) = 0;
+	virtual void renderDoBlockBegin() = 0;
+	virtual void renderDoBlockBegin(int labelId) = 0;
+	virtual void renderDoBlockEnd() = 0;
 	virtual void renderBreak() = 0;
 	virtual void renderBreak(int labelId) = 0;
 	virtual void renderContinue() = 0;
@@ -164,8 +167,8 @@ struct MultipleShape : public LabeledShape {
 
   MultipleShape() : LabeledShape(Multiple), NeedLoop(0) {}
 
-  void RenderLoopPrefix();
-  void RenderLoopPostfix();
+  void RenderLoopPrefix(RenderInterface* renderInterface);
+  void RenderLoopPostfix(RenderInterface* renderInterface);
 
   void Render(bool InLoop, RenderInterface* renderInterface);
 };
