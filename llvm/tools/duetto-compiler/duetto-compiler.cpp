@@ -2369,7 +2369,6 @@ void JSWriter::compileMethod(Function& F)
 		BE=F.end();
 		//Third run, add the block to the relooper and run it
 		Relooper* rl=new Relooper();
-		Relooper::SetOutputBuffer(NULL,10);
 		for(;B!=BE;++B)
 		{
 			if(B->isLandingPad())

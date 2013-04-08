@@ -18,56 +18,6 @@ static void PrintDebug(const char *Format, ...);
 #define DebugDump(x, ...)
 #endif
 
-struct Indenter {
-  static int CurrIndent;
-
-  static void Indent() { CurrIndent++; }
-  static void Unindent() { CurrIndent--; }
-};
-
-static void PrintIndented(const char *Format, ...);
-static void PutIndented(const char *String);
-
-static char *OutputBufferRoot = NULL;
-static char *OutputBuffer = NULL;
-static int OutputBufferSize = 0;
-
-void PrintIndented(const char *Format, ...) {
-  assert(OutputBuffer);
-  assert(OutputBuffer + Indenter::CurrIndent*2 - OutputBufferRoot < OutputBufferSize);
-  for (int i = 0; i < Indenter::CurrIndent*2; i++, OutputBuffer++) *OutputBuffer = ' ';
-  va_list Args;
-  va_start(Args, Format);
-  int left = OutputBufferSize - (OutputBuffer - OutputBufferRoot);
-  int written = vsnprintf(OutputBuffer, left, Format, Args);
-  assert(written < left);
-  OutputBuffer += written;
-  va_end(Args);
-}
-
-void PutIndented(const char *String) {
-  assert(OutputBuffer);
-  assert(OutputBuffer + Indenter::CurrIndent*2 - OutputBufferRoot < OutputBufferSize);
-  for (int i = 0; i < Indenter::CurrIndent*2; i++, OutputBuffer++) *OutputBuffer = ' ';
-  int left = OutputBufferSize - (OutputBuffer - OutputBufferRoot);
-  int needed = strlen(String)+1;
-  assert(needed < left);
-  strcpy(OutputBuffer, String);
-  OutputBuffer += strlen(String);
-  *OutputBuffer++ = '\n';
-  *OutputBuffer = 0;
-}
-
-static int AsmJS = 0;
-
-// Indenter
-
-#if EMSCRIPTEN
-int Indenter::CurrIndent = 1;
-#else
-int Indenter::CurrIndent = 0;
-#endif
-
 // Branch
 
 Branch::Branch(int bId) : Ancestor(NULL), Labeled(false), branchId(bId) {
@@ -222,12 +172,10 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
     //}
     }
     renderInterface->renderBlockPrologue(Target->privateBlock, privateBlock);
-    if (!First) Indenter::Indent();
     Details->Render(Target, SetCurrLabel, renderInterface);
     if (HasFusedContent) {
       Fused->InnerMap.find(Target)->second->Render(InLoop, renderInterface);
     }
-    if (!First) Indenter::Unindent();
     if (iter == ProcessedBranchesOut.end()) break;
   }
   if (!First) renderInterface->renderBlockEnd();
@@ -250,13 +198,11 @@ void MultipleShape::RenderLoopPrefix(RenderInterface* renderInterface) {
     } else {
       renderInterface->renderDoBlockBegin();
     }
-    Indenter::Indent();
   }
 }
 
 void MultipleShape::RenderLoopPostfix(RenderInterface* renderInterface) {
   if (NeedLoop) {
-    Indenter::Unindent();
     renderInterface->renderDoBlockEnd();
   }
 }
@@ -265,15 +211,9 @@ void MultipleShape::Render(bool InLoop, RenderInterface* renderInterface) {
   RenderLoopPrefix(renderInterface);
   bool First = true;
   for (BlockShapeMap::iterator iter = InnerMap.begin(); iter != InnerMap.end(); iter++) {
-    if (AsmJS) {
-      PrintIndented("%sif ((label|0) == %d) {\n", First ? "" : "else ", iter->first->Id);
-    } else {
-      renderInterface->renderIfOnLabel(iter->first->Id, First);
-    }
+    renderInterface->renderIfOnLabel(iter->first->Id, First);
     First = false;
-    Indenter::Indent();
     iter->second->Render(InLoop, renderInterface);
-    Indenter::Unindent();
     renderInterface->renderBlockEnd();
   }
   RenderLoopPostfix(renderInterface);
@@ -288,9 +228,7 @@ void LoopShape::Render(bool InLoop, RenderInterface* renderInterface) {
   } else {
     renderInterface->renderWhileBlockBegin();
   }
-  Indenter::Indent();
   Inner->Render(true, renderInterface);
-  Indenter::Unindent();
   renderInterface->renderBlockEnd();
   if (Next) Next->Render(InLoop, renderInterface);
 }
@@ -979,22 +917,7 @@ void Relooper::Calculate(Block *Entry) {
 }
 
 void Relooper::Render(RenderInterface* renderInterface) {
-  OutputBuffer = OutputBufferRoot;
   Root->Render(false, renderInterface);
-}
-
-void Relooper::SetOutputBuffer(char *Buffer, int Size) {
-  OutputBufferRoot = OutputBuffer = Buffer;
-  OutputBufferSize = Size;
-}
-
-void Relooper::MakeOutputBuffer(int Size) {
-  OutputBufferRoot = OutputBuffer = (char*)malloc(Size);
-  OutputBufferSize = Size;
-}
-
-void Relooper::SetAsmJSMode(int On) {
-  AsmJS = On;
 }
 
 #if DEBUG
@@ -1023,24 +946,6 @@ typedef std::map<void*, int> VoidIntMap;
 VoidIntMap __blockDebugMap__; // maps block pointers in currently running code to block ids, for generated debug output
 
 extern "C" {
-
-void rl_set_output_buffer(char *buffer, int size) {
-#if DEBUG
-  printf("#include \"Relooper.h\"\n");
-  printf("int main() {\n");
-  printf("  char buffer[100000];\n");
-  printf("  rl_set_output_buffer(buffer);\n");
-#endif
-  Relooper::SetOutputBuffer(buffer, size);
-}
-
-void rl_make_output_buffer(int size) {
-  Relooper::SetOutputBuffer((char*)malloc(size), size);
-}
-
-void rl_set_asm_js_mode(int on) {
-  Relooper::SetAsmJSMode(on);
-}
 
 void *rl_new_block(void *p) {
   Block *ret = new Block(p);
