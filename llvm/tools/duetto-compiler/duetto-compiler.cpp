@@ -1616,7 +1616,10 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 
 			stream << "(";
 			compileOperand(ci.getOperand(0));
-			stream << " >>> 0)";
+			//Cast to signed anyway
+			//ECMA-262 guarantees that (a >> 0) >>> 0
+			//is the same as (a >>> 0)
+			stream << " >> 0)";
 			return true;
 		}
 		case Instruction::SIToFP:
