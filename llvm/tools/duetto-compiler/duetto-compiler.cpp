@@ -485,17 +485,19 @@ void JSWriter::compileResetRecursive(const std::string& baseName, const Value* b
 	}
 }
 
-void JSWriter::compileCopy(const Value* castedDest, const Value* castedSrc)
+void JSWriter::compileCopy(const Value* dest, const Value* src)
 {
-	stream << '{';
-	//First all of dump the bitcast
-	assert(isBitCast(castedDest));
-	assert(isBitCast(castedSrc));
-	const Value* dest=static_cast<const BitCastInst*>(castedDest)->getOperand(0);
-	const Value* src=static_cast<const BitCastInst*>(castedSrc)->getOperand(0);
+	//Find out the real type of the copied object
+	if(isBitCast(dest))
+	{
+		assert(isBitCast(src));
+		dest=static_cast<const BitCastInst*>(dest)->getOperand(0);
+		src=static_cast<const BitCastInst*>(src)->getOperand(0);
+	}
 	assert(dest->getType()==src->getType());
 	assert(dest->getType()->isPointerTy());
 	const PointerType* pointedType = static_cast<const PointerType*>(dest->getType());
+	stream << '{';
 	compileCopyRecursive("", dest, src, pointedType->getElementType());
 	stream << '}';
 }
