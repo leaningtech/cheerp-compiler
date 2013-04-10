@@ -79,6 +79,7 @@ class JSWriter
 {
 private:
 	Module* module;
+	TargetData targetData;
 	raw_fd_ostream& stream;
 	uint32_t getIntFromValue(const Value* v) const;
 	//std::set<const Value*> completeObjects;
@@ -154,7 +155,7 @@ private:
 		void renderIfOnLabel(int labelId, bool first);
 	};
 public:
-	JSWriter(Module* m, raw_fd_ostream& s):module(m),stream(s)
+	JSWriter(Module* m, raw_fd_ostream& s):module(m),targetData(m),stream(s)
 	{
 	}
 	void makeJS();
