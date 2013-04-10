@@ -420,10 +420,10 @@ void JSWriter::compileAllocation(const Value* callV, const Value* size)
 
 	assert(castedType->isPointerTy());
 	Type* t=static_cast<const PointerType*>(castedType)->getElementType();
-	callV->dump();
+	/*callV->dump();
 	llvm::errs() << "\n";
 	t->dump();
-	llvm::errs() << "\n";
+	llvm::errs() << "\n";*/
 	//For numerical types, create typed arrays
 	if(t->isIntegerTy() || t->isDoubleTy())
 	{
@@ -444,7 +444,7 @@ void JSWriter::compileAllocation(const Value* callV, const Value* size)
 	else
 	{
 		uint32_t typeSize = targetData.getTypeAllocSize(t);
-		llvm::errs() << "TYPE SIZE " << typeSize  << "\n";
+		//llvm::errs() << "TYPE SIZE " << typeSize  << "\n";
 		stream << "new Array(";
 		if(ConstantInt::classof(size))
 		{
