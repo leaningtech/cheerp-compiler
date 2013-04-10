@@ -90,6 +90,7 @@ private:
 	bool isClientGlobal(const char* mangledName) const;
 	bool isI32Type(Type* t) const;
 	bool isComingFromAllocation(const Value* val) const;
+	bool isComingFromAllocation(const Value* val, std::set<const PHINode*>& visitedPhis) const;
 	bool isInlineable(const Instruction& I) const;
 	bool isBitCast(const Value* v) const;
 	bool isGEP(const Value* v) const;
@@ -746,8 +747,14 @@ bool JSWriter::isFunctionPointerPointerType(Type* t) const
 
 bool JSWriter::isComingFromAllocation(const Value* val) const
 {
+	std::set<const PHINode*> visitedPhis;
+	return isComingFromAllocation(val, visitedPhis);
+}
+
+bool JSWriter::isComingFromAllocation(const Value* val, std::set<const PHINode*>& visitedPhis) const
+{
 	const CallInst* newCall=dyn_cast<const CallInst>(val);
-	if(newCall)
+	if(newCall && newCall->getCalledFunction())
 	{
 		return newCall->getCalledFunction()->getName()=="_Znwj"
 			|| newCall->getCalledFunction()->getName()=="_Znaj"
@@ -756,22 +763,32 @@ bool JSWriter::isComingFromAllocation(const Value* val) const
 	}
 	//Try invoke as well
 	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
-	if(newInvoke)
+	if(newInvoke && newInvoke->getCalledFunction())
 	{
 		//TODO: Disable throw in new, it's nonsense in JS context
 		return newInvoke->getCalledFunction()->getName()=="_Znwj"
 			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
-			|| newCall->getCalledFunction()->getName()=="realloc"
+			|| newInvoke->getCalledFunction()->getName()=="realloc"
 			|| newInvoke->getCalledFunction()->getName()=="malloc";
 	}
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
 	if(newPHI)
 	{
+		if(visitedPhis.count(newPHI))
+		{
+			//Assume true, if needed it will become false later on
+			return true;
+		}
+		visitedPhis.insert(newPHI);
 		for(unsigned i=0;i<newPHI->getNumIncomingValues();i++)
 		{
-			if(!isComingFromAllocation(newPHI->getIncomingValue(i)))
+			if(!isComingFromAllocation(newPHI->getIncomingValue(i),visitedPhis))
+			{
+				visitedPhis.erase(newPHI);
 				return false;
+			}
 		}
+		visitedPhis.erase(newPHI);
 		return true;
 	}
 	return false;
@@ -1190,7 +1207,7 @@ void JSWriter::compileTerminatorInstruction(const TerminatorInst& I)
 			{
 				//Direct call
 				const char* funcName=ci.getCalledFunction()->getName().data();
-				if(handleBuiltinCall(funcName,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
+				if(handleBuiltinCall(funcName,&ci,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
 				{
 					stream << ";\n";
 					//Only consider the normal successor for PHIs here
@@ -1329,7 +1346,7 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			{
 				//Direct call
 				const char* funcName=ci.getCalledFunction()->getName().data();
-				if(handleBuiltinCall(funcName,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
+				if(handleBuiltinCall(funcName,&ci,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
 					return true;
 				stream << '_' << funcName;
 			}
