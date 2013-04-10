@@ -119,12 +119,13 @@ private:
 	void compileReset(const Value* dest, uint8_t resetValue);
 	void compileResetRecursive(const std::string& baseName, const Value* baseDest,
 		uint8_t resetValue, const Type* currentType);
+	void compileAllocation(const Value* callV, const Value* size);
 	void printLLVMName(const StringRef& s) const;
 	void printVarName(const Value* v);
 	void handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
 			User::const_op_iterator itE);
-	bool handleBuiltinCall(const char* ident, User::const_op_iterator it,
-			User::const_op_iterator itE);
+	bool handleBuiltinCall(const char* ident, const Value* callV,
+			User::const_op_iterator it, User::const_op_iterator itE);
 	bool safeUsagesForNewedMemory(const Value* v) const;
 	bool safeCallForNewedMemory(const CallInst* ci) const;
 	uint32_t getUniqueIndexForValue(const Value* v);
@@ -393,8 +394,75 @@ void JSWriter::compileCopy(const Value* dest, const Value* src)
 	stream << '}';
 }
 
-bool JSWriter::handleBuiltinCall(const char* ident, User::const_op_iterator it,
-			User::const_op_iterator itE)
+void JSWriter::compileAllocation(const Value* callV, const Value* size)
+{
+	//Find out if this is casted to something
+	Value::const_use_iterator it=callV->use_begin();
+	Value::const_use_iterator itE=callV->use_end();
+	const Type* castedType = NULL;
+	for(;it!=itE;++it)
+	{
+		if(!BitCastInst::classof(*it))
+			continue;
+		if(castedType == NULL)
+			castedType = it->getType();
+		else
+		{
+			//Make sure this is not casted to more than a type
+			assert(castedType == it->getType());
+		}
+	}
+
+	//If there are no casts, use i8* from the call itself
+	if(castedType==0)
+		castedType = callV->getType();
+
+	assert(castedType->isPointerTy());
+	Type* t=static_cast<const PointerType*>(castedType)->getElementType();
+	callV->dump();
+	llvm::errs() << "\n";
+	t->dump();
+	llvm::errs() << "\n";
+	//For numerical types, create typed arrays
+	if(t->isIntegerTy() || t->isDoubleTy())
+	{
+		stream << "new ";
+		if(t->isIntegerTy(8))
+			stream << "Int8Array";
+		else if(t->isIntegerTy(16))
+			stream << "Int16Array";
+		else if(t->isIntegerTy(32))
+			stream << "Int32Array";
+		else if(t->isDoubleTy())
+			stream << "Float64Array";
+		stream << "(new ArrayBuffer(";
+		//Use the size in bytes
+		compileOperand(size);
+		stream << "))";
+	}
+	else
+	{
+		uint32_t typeSize = targetData.getTypeAllocSize(t);
+		llvm::errs() << "TYPE SIZE " << typeSize  << "\n";
+		stream << "new Array(";
+		if(ConstantInt::classof(size))
+		{
+			//TODO: Use typed arrays when possible
+			uint32_t allocatedSize = getIntFromValue(size);
+			assert((allocatedSize % typeSize) == 0);
+			stream << (allocatedSize/typeSize);
+		}
+		else
+		{
+			compileOperand(size);
+			stream << '/' << typeSize;
+		}
+		stream << ')';
+	}
+}
+
+bool JSWriter::handleBuiltinCall(const char* ident, const Value* callV,
+			User::const_op_iterator it, User::const_op_iterator itE)
 {
 	if(strcmp(ident,"_ZN6client5ArrayixEi")==0 ||
 		strcmp(ident,"_ZNK6client6ObjectcvdEv")==0)
@@ -438,6 +506,11 @@ bool JSWriter::handleBuiltinCall(const char* ident, User::const_op_iterator it,
 	{
 		uint32_t resetVal = getIntFromValue(*(it+1));
 		compileReset(*(it), resetVal);
+		return true;
+	}
+	else if(strcmp(ident,"malloc")==0)
+	{
+		compileAllocation(callV, *it);
 		return true;
 	}
 	return false;
@@ -524,6 +597,8 @@ bool JSWriter::isCompleteObject(const Value* v) const
 		return true;
 	if(GlobalVariable::classof(v))
 		return true;
+	if(isComingFromAllocation(v))
+		return true;
 	return false;
 }
 
@@ -531,9 +606,14 @@ void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 {
 	assert(v->getType()->isPointerTy());
 	compileOperand(v);
-	stream << ".d[";
-	compileOperand(v);
-	stream << ".o+";
+	if(isCompleteObject(v))
+		stream << '[';
+	else
+	{
+		stream << ".d[";
+		compileOperand(v);
+		stream << ".o+";
+	}
 	compileOperand(offset);
 	stream << ']';
 }
