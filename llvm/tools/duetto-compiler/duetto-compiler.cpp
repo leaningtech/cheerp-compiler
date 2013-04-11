@@ -1477,10 +1477,16 @@ void JSWriter::compileObjectForPointer(const Value* val)
 		//We compile as usual till the last level
 		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
 		compileObjectForPointerGEP(gep->getOperand(0), it, itE);
-		return;
 	}
-	compileOperand(val);
-	stream << ".d";
+	else if(isCompleteObject(val))
+	{
+		compileOperand(val);
+	}
+	else
+	{
+		compileOperand(val);
+		stream << ".d";
+	}
 }
 
 void JSWriter::compileOffsetForPointer(const Value* val)
@@ -1492,10 +1498,16 @@ void JSWriter::compileOffsetForPointer(const Value* val)
 		//We compile as usual till the last level
 		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
 		compileOffsetForPointerGEP(gep->getOperand(0), it, itE);
-		return;
 	}
-	compileOperand(val);
-	stream << ".o";
+	else if(isCompleteObject(val))
+	{
+		stream << '0';
+	}
+	else
+	{
+		compileOperand(val);
+		stream << ".o";
+	}
 }
 
 void JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
