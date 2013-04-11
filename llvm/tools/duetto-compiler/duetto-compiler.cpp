@@ -613,6 +613,17 @@ bool JSWriter::isCompleteObject(const Value* v) const
 		return true;
 	if(isComingFromAllocation(v))
 		return true;
+	if(ConstantPointerNull::classof(v))
+	{
+		//null can be considered a complete object
+		return true;
+	}
+	//Follow bitcasts
+	if(BitCastInst::classof(v))
+	{
+		const BitCastInst* bi=static_cast<const BitCastInst*>(v);
+		return isCompleteObject(bi->getOperand(0));
+	}
 	return false;
 }
 
