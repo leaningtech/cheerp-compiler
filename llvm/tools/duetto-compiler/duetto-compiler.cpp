@@ -83,9 +83,7 @@ private:
 	raw_fd_ostream& stream;
 	uint32_t getIntFromValue(const Value* v) const;
 	//std::set<const Value*> completeObjects;
-	bool isFunctionPointerPointerType(Type* t) const;
 	bool isValidTypeCast(const Value* cast, const Value* castOp, Type* src, Type* dst) const;
-	bool isVTableCast(Type* src, Type* dst) const;
 	bool isClientType(Type* t) const;
 	bool isClientGlobal(const char* mangledName) const;
 	bool isI32Type(Type* t) const;
@@ -830,19 +828,6 @@ bool JSWriter::safeCallForNewedMemory(const CallInst* ci) const
 		ci->getCalledFunction()->getName()=="__cxa_atexit"));
 }
 
-bool JSWriter::isFunctionPointerPointerType(Type* t) const
-{
-	if(!t->isPointerTy())
-		return false;
-	Type* innerDst=cast<PointerType>(t)->getElementType();
-	if(!innerDst->isPointerTy())
-		return false;
-	Type* innerDst2=cast<PointerType>(innerDst)->getElementType();
-	if(!innerDst2->isFunctionTy())
-		return false;
-	return true;
-}
-
 bool JSWriter::isComingFromAllocation(const Value* val) const
 {
 	std::set<const PHINode*> visitedPhis;
@@ -888,36 +873,6 @@ bool JSWriter::isComingFromAllocation(const Value* val, std::set<const PHINode*>
 		}
 		visitedPhis.erase(newPHI);
 		return true;
-	}
-	return false;
-}
-
-bool JSWriter::isVTableCast(Type* srcPtr, Type* dstPtr) const
-{
-	//Only pointer casts are possible anyway
-	assert(srcPtr->isPointerTy() && dstPtr->isPointerTy());
-	Type* src=cast<PointerType>(srcPtr)->getElementType();
-	Type* dst=cast<PointerType>(dstPtr)->getElementType();
-	//Support getting the vtable from the object
-	if(!src->isStructTy() || !dst->isPointerTy())
-		return false;
-
-	if(!isFunctionPointerPointerType(dst))
-		return false;
-
-	//There is no easy way of convincing clang to emit proper
-	//access to the actual vtable pointer. It uses a direct bitcast
-	//Support this by iteratively getting the first member of any struct
-	//until we find a vtable compatible type
-	StructType* innerSrc=static_cast<StructType*>(src);
-	while(true)
-	{
-		Type* tmp=innerSrc->getElementType(0);
-		if(isFunctionPointerPointerType(tmp))
-			return true;
-		if(!tmp->isStructTy())
-			return false;
-		innerSrc=static_cast<StructType*>(tmp);
 	}
 	return false;
 }
@@ -1682,19 +1637,10 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			Type* srcPtr=bi.getSrcTy();
 			Type* dstPtr=bi.getDestTy();
 
-			bool vtableCast = isVTableCast(srcPtr, dstPtr);
 			bool isCollapsedUpcast = I.getMetadata("duetto.upcast.collapsed")!=NULL;
-			assert(vtableCast || isCollapsedUpcast || isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr));
-			if(vtableCast)
-			{
-				//TODO: Implement recursive access to vtable
-				stream << "alert('implement vtable');";
-			}
-			else
-			{
-				//Collapsed upcast are ok as well by compiling the operand
-				compileOperand(bi.getOperand(0));
-			}
+			assert(isCollapsedUpcast || isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr));
+			//Collapsed upcast are ok as well by compiling the operand
+			compileOperand(bi.getOperand(0));
 			return true;
 		}
 		case Instruction::FPToSI:
