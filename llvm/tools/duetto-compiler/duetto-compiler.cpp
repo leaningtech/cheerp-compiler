@@ -121,6 +121,7 @@ private:
 	void compileResetRecursive(const std::string& baseName, const Value* baseDest,
 		uint8_t resetValue, const Type* currentType);
 	void compileAllocation(const Value* callV, const Value* size);
+	void compileFree(const Value* obj);
 	void printLLVMName(const StringRef& s) const;
 	void printVarName(const Value* v);
 	void handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
@@ -462,6 +463,13 @@ void JSWriter::compileAllocation(const Value* callV, const Value* size)
 	}
 }
 
+void JSWriter::compileFree(const Value* obj)
+{
+	//Best effort
+	compileOperand(obj);
+	stream << "=null";
+}
+
 bool JSWriter::handleBuiltinCall(const char* ident, const Value* callV,
 			User::const_op_iterator it, User::const_op_iterator itE)
 {
@@ -512,6 +520,11 @@ bool JSWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	else if(strcmp(ident,"malloc")==0)
 	{
 		compileAllocation(callV, *it);
+		return true;
+	}
+	else if(strcmp(ident,"free")==0)
+	{
+		compileFree(*it);
 		return true;
 	}
 	return false;
