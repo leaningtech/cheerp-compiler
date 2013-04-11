@@ -105,7 +105,6 @@ private:
 	void compileOperandForIntegerPredicate(const Value* v, CmpInst::Predicate p);
 	void compileType(Type* t);
 	bool isCompleteObject(const Value* val) const;
-	void compileDereferencePointer(const Value* v, int byteOffset);
 	bool isCompleteObject(const Value* val, std::set<const PHINode*>& visitedPhis) const;
 	bool isCompleteArray(const Value* val) const;
 	bool isCompleteArray(const Value* val, std::set<const PHINode*>& visitedPhis) const;
@@ -268,9 +267,9 @@ void JSWriter::compileCopyRecursive(const std::string& baseName, const Value* ba
 		case Type::DoubleTyID:
 		case Type::PointerTyID:
 		{
-			compileDereferencePointer(baseDest, 0);
+			compileDereferencePointer(baseDest, NULL);
 			stream << baseName << " = ";
-			compileDereferencePointer(baseSrc, 0);
+			compileDereferencePointer(baseSrc, NULL);
 			stream << baseName << ";\n";
 			break;
 		}
@@ -326,7 +325,7 @@ void JSWriter::compileResetRecursive(const std::string& baseName, const Value* b
 	{
 		case Type::IntegerTyID:
 		{
-			compileDereferencePointer(baseDest, 0);
+			compileDereferencePointer(baseDest, NULL);
 			assert(resetValue == 0 || resetValue == 0xff);
 			if(resetValue == 0)
 				stream << baseName << " = 0";
@@ -337,14 +336,14 @@ void JSWriter::compileResetRecursive(const std::string& baseName, const Value* b
 		}
 		case Type::DoubleTyID:
 		{
-			compileDereferencePointer(baseDest, 0);
+			compileDereferencePointer(baseDest, NULL);
 			assert(resetValue == 0);
 			stream << baseName << " = 0;\n";
 			break;
 		}
 		case Type::PointerTyID:
 		{
-			compileDereferencePointer(baseDest, 0);
+			compileDereferencePointer(baseDest, NULL);
 			assert(resetValue == 0);
 			stream << baseName << " = null;\n";
 			break;
@@ -706,36 +705,36 @@ bool JSWriter::isCompleteObject(const Value* v, std::set<const PHINode*>& visite
 void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 {
 	assert(v->getType()->isPointerTy());
-	compileOperand(v);
-	if(isCompleteObject(v))
-		stream << '[';
-	else
-	{
-		stream << ".d[";
-		compileOperand(v);
-		stream << ".o+";
-	}
-	compileOperand(offset);
-	stream << ']';
-}
+	bool isArray = isCompleteArray(v);
+	bool isObj = isCompleteObject(v);
+	bool isOffsetConstantZero = false;
+	if(offset==NULL || (ConstantInt::classof(offset) && getIntFromValue(offset)==0))
+		isOffsetConstantZero = true;
 
-void JSWriter::compileDereferencePointer(const Value* v, int byteOffset)
-{
-	assert(v->getType()->isPointerTy());
-	if(isCompleteObject(v))
+	compileObjectForPointer(v);
+	if(isObj && !isArray)
 	{
-		assert(byteOffset==0);
-		compileOperand(v);
+		assert(isOffsetConstantZero);
 		return;
 	}
-	compileObjectForPointer(v);
 	stream << '[';
-	if(byteOffset==0)
-		compileOffsetForPointer(v);
+	if(isArray)
+	{
+		if(isOffsetConstantZero)
+			stream << '0';
+		else
+			compileOperand(offset);
+	}
 	else
 	{
-		compileOffsetForPointer(v);
-		stream << '+' << byteOffset;
+		if(isOffsetConstantZero)
+			compileOffsetForPointer(v);
+		else
+		{
+			compileOffsetForPointer(v);
+			stream << '+';
+			compileOperand(offset);
+		}
 	}
 	stream << ']';
 }
@@ -1533,7 +1532,7 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
 			}
 			else
-				compileDereferencePointer(ptrOp, 0);
+				compileDereferencePointer(ptrOp, NULL);
 			stream << " = ";
 			compileOperand(valOp, OPERAND_EXPAND_COMPLETE_OBJECTS);
 			return true;
@@ -1613,14 +1612,8 @@ void JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const
 	}
 	else
 	{
-		if(ConstantInt::classof(*it))
-		{
-			uint32_t firstElement = getIntFromValue(*it);
-			//First dereference the pointer
-			compileDereferencePointer(val, firstElement);
-		}
-		else
-			compileDereferencePointer(val, *it);
+		//First dereference the pointer
+		compileDereferencePointer(val, *it);
 		compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 	}
 }
@@ -2158,7 +2151,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
 			}
 			else
-				compileDereferencePointer(ptrOp, 0);
+				compileDereferencePointer(ptrOp, NULL);
 			stream << ")";
 			return true;
 		}
