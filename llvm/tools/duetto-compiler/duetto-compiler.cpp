@@ -1976,10 +1976,14 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 				compileObjectForPointer(ci.getOperand(0));
 				stream << "===";
 				compileObjectForPointer(ci.getOperand(1));
-				stream << " && ";
-				compileOffsetForPointer(ci.getOperand(0));
-				compilePredicate(ci.getPredicate());
-				compileOffsetForPointer(ci.getOperand(1));
+				if(!isCompleteObject(ci.getOperand(0)) ||
+					!isCompleteObject(ci.getOperand(1)))
+				{
+					stream << " && ";
+					compileOffsetForPointer(ci.getOperand(0));
+					compilePredicate(ci.getPredicate());
+					compileOffsetForPointer(ci.getOperand(1));
+				}
 			}
 			else
 			{
