@@ -451,7 +451,6 @@ void JSWriter::compileAllocation(const Value* callV, const Value* size)
 		stream << "new Array(";
 		if(ConstantInt::classof(size))
 		{
-			//TODO: Use typed arrays when possible
 			uint32_t allocatedSize = getIntFromValue(size);
 			assert((allocatedSize % typeSize) == 0);
 			stream << (allocatedSize/typeSize);
