@@ -106,6 +106,9 @@ private:
 	void compileType(Type* t);
 	bool isCompleteObject(const Value* val) const;
 	void compileDereferencePointer(const Value* v, int byteOffset);
+	bool isCompleteObject(const Value* val, std::set<const PHINode*>& visitedPhis) const;
+	bool isCompleteArray(const Value* val) const;
+	bool isCompleteArray(const Value* val, std::set<const PHINode*>& visitedPhis) const;
 	void compileDereferencePointer(const Value* v, const Value* offset);
 	void compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
@@ -604,25 +607,98 @@ void JSWriter::printLLVMName(const StringRef& s) const
 	}
 }
 
-bool JSWriter::isCompleteObject(const Value* v) const
+bool JSWriter::isCompleteArray(const Value* v) const
+{
+	std::set<const PHINode*> visitedPhis;
+	return isCompleteArray(v, visitedPhis);
+}
+
+bool JSWriter::isCompleteArray(const Value* v, std::set<const PHINode*>& visitedPhis) const
 {
 	assert(v->getType()->isPointerTy());
-	if(AllocaInst::classof(v))
-		return true;
-	if(GlobalVariable::classof(v))
-		return true;
 	if(isComingFromAllocation(v))
 		return true;
 	if(ConstantPointerNull::classof(v))
 	{
-		//null can be considered a complete object
+		//null can be considered a complete array as well as an object
+		//dereferencing it is undefined anyway
 		return true;
 	}
 	//Follow bitcasts
 	if(BitCastInst::classof(v))
 	{
 		const BitCastInst* bi=static_cast<const BitCastInst*>(v);
+		return isCompleteArray(bi->getOperand(0));
+	}
+	//Follow PHIs
+	const PHINode* newPHI=dyn_cast<const PHINode>(v);
+	if(newPHI)
+	{
+		if(visitedPhis.count(newPHI))
+		{
+			//Assume true, if needed it will become false later on
+			return true;
+		}
+		visitedPhis.insert(newPHI);
+		for(unsigned i=0;i<newPHI->getNumIncomingValues();i++)
+		{
+			if(!isCompleteArray(newPHI->getIncomingValue(i),visitedPhis))
+			{
+				visitedPhis.erase(newPHI);
+				return false;
+			}
+		}
+		visitedPhis.erase(newPHI);
+		return true;
+	}
+	return false;
+}
+
+bool JSWriter::isCompleteObject(const Value* v) const
+{
+	std::set<const PHINode*> visitedPhis;
+	return isCompleteObject(v, visitedPhis);
+}
+
+bool JSWriter::isCompleteObject(const Value* v, std::set<const PHINode*>& visitedPhis) const
+{
+	assert(v->getType()->isPointerTy());
+	if(AllocaInst::classof(v))
+		return true;
+	if(GlobalVariable::classof(v))
+		return true;
+	if(ConstantPointerNull::classof(v))
+	{
+		//null can be considered a complete object
+		return true;
+	}
+	if(isCompleteArray(v, visitedPhis))
+		return true;
+	//Follow bitcasts
+	if(BitCastInst::classof(v))
+	{
+		const BitCastInst* bi=static_cast<const BitCastInst*>(v);
 		return isCompleteObject(bi->getOperand(0));
+	}
+	const PHINode* newPHI=dyn_cast<const PHINode>(v);
+	if(newPHI)
+	{
+		if(visitedPhis.count(newPHI))
+		{
+			//Assume true, if needed it will become false later on
+			return true;
+		}
+		visitedPhis.insert(newPHI);
+		for(unsigned i=0;i<newPHI->getNumIncomingValues();i++)
+		{
+			if(!isCompleteObject(newPHI->getIncomingValue(i),visitedPhis))
+			{
+				visitedPhis.erase(newPHI);
+				return false;
+			}
+		}
+		visitedPhis.erase(newPHI);
+		return true;
 	}
 	return false;
 }
@@ -1076,13 +1152,23 @@ void JSWriter::compileConstant(const Constant* c)
 void JSWriter::compileOperand(const Value* v, OperandFix fix)
 {
 	//First deal with complete objects
-	if(v->getType()->isPointerTy() && isCompleteObject(v) && fix==OPERAND_EXPAND_COMPLETE_OBJECTS)
+	if(v->getType()->isPointerTy() && fix==OPERAND_EXPAND_COMPLETE_OBJECTS && isCompleteObject(v))
 	{
 		//Synthetize a pointer just in time
-		stream << "{ d: ";
-		compileOperand(v, OPERAND_NO_FIX);
-		stream << ", o: 0}";
-		return;
+		if(isCompleteArray(v))
+		{
+			stream << "{ d: ";
+			compileOperand(v, OPERAND_NO_FIX);
+			stream << ", o: 0}";
+			return;
+		}
+		else //if(isCompleteObject(v))
+		{
+			stream << "{ d: [";
+			compileOperand(v, OPERAND_NO_FIX);
+			stream << "], o: 0}";
+			return;
+		}
 	}
 
 	const Constant* c=dyn_cast<const Constant>(v);
