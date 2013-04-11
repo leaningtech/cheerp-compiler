@@ -1199,7 +1199,11 @@ void JSWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const Basic
 		stream << "var ";
 		printVarName(phi);
 		stream << " = ";
-		compileOperand(val);
+		//Fix complete object pointers if needed
+		OperandFix fix=OPERAND_NO_FIX;
+		if(val->getType()->isPointerTy() && !isCompleteObject(phi))
+			fix = OPERAND_EXPAND_COMPLETE_OBJECTS;
+		compileOperand(val, fix);
 		stream << ";\n";
 	}
 }
