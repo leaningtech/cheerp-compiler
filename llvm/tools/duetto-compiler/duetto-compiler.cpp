@@ -1477,6 +1477,29 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 			compileOperand(ivi.getInsertedValueOperand());
 			return true;
 		}
+		case Instruction::Load:
+		{
+			const LoadInst& li=static_cast<const LoadInst&>(I);
+			const Value* ptrOp=li.getPointerOperand();
+			stream << "(";
+			//If the ptrOp has a single use and it'a a GEP
+			//we can optimize it
+			if(GetElementPtrInst::classof(ptrOp))
+			{
+				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
+				compileFastGEPDereference(gep.getOperand(0), gep.idx_begin(), gep.idx_end());
+			}
+			else if((ConstantExpr::classof(ptrOp)) &&
+					cast<ConstantExpr>(ptrOp)->getOpcode()==Instruction::GetElementPtr)
+			{
+				const ConstantExpr& cgep=static_cast<const ConstantExpr&>(*ptrOp);
+				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
+			}
+			else
+				compileDereferencePointer(ptrOp, NULL);
+			stream << ")";
+			return true;
+		}
 		case Instruction::Store:
 		{
 			const StoreInst& si=static_cast<const StoreInst&>(I);
@@ -2090,29 +2113,6 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "<<" << shiftAmount << ")>>" << shiftAmount << ')';
 			return true;
 		}
-		case Instruction::Load:
-		{
-			const LoadInst& li=static_cast<const LoadInst&>(I);
-			const Value* ptrOp=li.getPointerOperand();
-			stream << "(";
-			//If the ptrOp has a single use and it'a a GEP
-			//we can optimize it
-			if(GetElementPtrInst::classof(ptrOp))
-			{
-				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
-				compileFastGEPDereference(gep.getOperand(0), gep.idx_begin(), gep.idx_end());
-			}
-			else if((ConstantExpr::classof(ptrOp)) &&
-					cast<ConstantExpr>(ptrOp)->getOpcode()==Instruction::GetElementPtr)
-			{
-				const ConstantExpr& cgep=static_cast<const ConstantExpr&>(*ptrOp);
-				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
-			}
-			else
-				compileDereferencePointer(ptrOp, NULL);
-			stream << ")";
-			return true;
-		}
 		case Instruction::Select:
 		{
 			const SelectInst& si=static_cast<const SelectInst&>(I);
@@ -2161,6 +2161,7 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::Ret:
 			case Instruction::LandingPad:
 			case Instruction::PHI:
+			case Instruction::Load:
 			case Instruction::Store:
 			case Instruction::InsertValue:
 			case Instruction::Resume:
@@ -2197,16 +2198,11 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::SExt:
 			case Instruction::Select:
 			case Instruction::ExtractValue:
-			//Unsigned opcodes are a problem, where do they come
 			case Instruction::URem:
 			case Instruction::UDiv:
 			case Instruction::UIToFP:
 			case Instruction::FPToUI:
 				return true;
-			case Instruction::Load:
-				//Loads are inlineable only when the type in not a pointer
-				//otherwise it will be used multiple times when dereferencing it
-				return (I.getType()->isPointerTy()==false);
 			default:
 				cerr << "Is " << I.getOpcodeName() << " inlineable?" << endl;
 				assert(false);
