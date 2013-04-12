@@ -446,19 +446,28 @@ void JSWriter::compileAllocation(const Value* callV, const Value* size)
 	{
 		uint32_t typeSize = targetData.getTypeAllocSize(t);
 		//llvm::errs() << "TYPE SIZE " << typeSize  << "\n";
-		stream << "new Array(";
 		if(ConstantInt::classof(size))
 		{
 			uint32_t allocatedSize = getIntFromValue(size);
 			assert((allocatedSize % typeSize) == 0);
-			stream << (allocatedSize/typeSize);
+			uint32_t numElem = allocatedSize/typeSize;
+			stream << '[';
+			for(uint64_t i=0;i<numElem;i++)
+			{
+				compileType(t);
+				if((i+1)<numElem)
+					stream << ",";
+			}
+			stream << ']';
 		}
 		else
 		{
+			//TODO: Initialize the values
+			stream << "new Array(";
 			compileOperand(size);
 			stream << '/' << typeSize;
+			stream << ')';
 		}
-		stream << ')';
 	}
 }
 
