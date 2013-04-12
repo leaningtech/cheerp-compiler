@@ -2148,6 +2148,9 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 
 bool JSWriter::isInlineable(const Instruction& I) const
 {
+	//Special case GEPs. They should always be inline since creating the object is really slow
+	if(I.getOpcode()==Instruction::GetElementPtr)
+		return true;
 	//Beside a few cases, instructions without name
 	//or with a single use may be inlined
 	if(I.hasName()==false || I.hasOneUse())
@@ -2185,7 +2188,6 @@ bool JSWriter::isInlineable(const Instruction& I) const
 			case Instruction::AShr:
 			case Instruction::LShr:
 			case Instruction::BitCast:
-			case Instruction::GetElementPtr:
 			case Instruction::FAdd:
 			case Instruction::FDiv:
 			case Instruction::FSub:
