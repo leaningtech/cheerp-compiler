@@ -31,12 +31,12 @@ void Branch::Render(Block *Target, bool SetLabel, RenderInterface* renderInterfa
   if (Ancestor) {
     if (Type != Direct) {
       if (Labeled) {
-	if(Break)
+	if(Type == Break)
           renderInterface->renderBreak(Ancestor->Id);
 	else
           renderInterface->renderContinue(Ancestor->Id);
       } else {
-	if(Break)
+	if(Type == Break)
           renderInterface->renderBreak();
 	else
           renderInterface->renderContinue();
