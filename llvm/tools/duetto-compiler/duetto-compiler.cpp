@@ -106,7 +106,12 @@ private:
 	bool isCompleteObject(const Value* val, std::set<const PHINode*>& visitedPhis) const;
 	bool isCompleteArray(const Value* val) const;
 	bool isCompleteArray(const Value* val, std::set<const PHINode*>& visitedPhis) const;
-	void compileDereferencePointer(const Value* v, const Value* offset);
+	/*
+	 * \param v The pointer to dereference, it may be a regular pointer, a complete obj or a complete array
+	 * \param offset An offset coming from code, which may be also NULL
+	 * \param namedOffset An offset that will be added verbatim to the code
+	 */
+	void compileDereferencePointer(const Value* v, const Value* offset, const char* namedOffset);
 	void compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
 	const Type* compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
@@ -116,12 +121,12 @@ private:
 	 * Returns true if anything is printed
 	 */
 	bool compileOffsetForPointer(const Value* val, const Type* lastType);
-	void compileCopy(const Value* dest, const Value* src);
+	void compileCopy(const Value* dest, const Value* src, const Value* size);
 	void compileCopyRecursive(const std::string& baseName, const Value* baseDest,
-		const Value* baseSrc, const Type* currentType);
-	void compileReset(const Value* dest, uint8_t resetValue);
+		const Value* baseSrc, const Type* currentType, const char* namedOffset);
+	void compileReset(const Value* dest, uint8_t resetValue, const Value* size);
 	void compileResetRecursive(const std::string& baseName, const Value* baseDest,
-		uint8_t resetValue, const Type* currentType);
+		uint8_t resetValue, const Type* currentType, const char* namedOffset);
 	void compileAllocation(const Value* callV, const Value* size);
 	void compileFree(const Value* obj);
 	void printLLVMName(const StringRef& s) const;
@@ -259,7 +264,7 @@ bool JSWriter::isGEP(const Value* v) const
 }
 
 void JSWriter::compileCopyRecursive(const std::string& baseName, const Value* baseDest,
-		const Value* baseSrc, const Type* currentType)
+		const Value* baseSrc, const Type* currentType, const char* namedOffset)
 {
 	switch(currentType->getTypeID())
 	{
@@ -267,9 +272,9 @@ void JSWriter::compileCopyRecursive(const std::string& baseName, const Value* ba
 		case Type::DoubleTyID:
 		case Type::PointerTyID:
 		{
-			compileDereferencePointer(baseDest, NULL);
+			compileDereferencePointer(baseDest, NULL, namedOffset);
 			stream << baseName << " = ";
-			compileDereferencePointer(baseSrc, NULL);
+			compileDereferencePointer(baseSrc, NULL, namedOffset);
 			stream << baseName << ";\n";
 			break;
 		}
@@ -283,7 +288,7 @@ void JSWriter::compileCopyRecursive(const std::string& baseName, const Value* ba
 			{
 				char buf[16];
 				snprintf(buf,16,".a%u",offset);
-				compileCopyRecursive(baseName+buf, baseDest, baseSrc, *E);
+				compileCopyRecursive(baseName+buf, baseDest, baseSrc, *E, namedOffset);
 				offset++;
 			}
 			break;
@@ -295,7 +300,7 @@ void JSWriter::compileCopyRecursive(const std::string& baseName, const Value* ba
 			for(uint64_t i=0;i<at->getNumElements();i++)
 			{
 				snprintf(buf,16,"[%lu]",i);
-				compileCopyRecursive(baseName+buf, baseDest, baseSrc, at->getElementType());
+				compileCopyRecursive(baseName+buf, baseDest, baseSrc, at->getElementType(), namedOffset);
 			}
 			break;
 		}
@@ -306,26 +311,26 @@ void JSWriter::compileCopyRecursive(const std::string& baseName, const Value* ba
 	}
 }
 
-void JSWriter::compileReset(const Value* castedDest, uint8_t resetValue)
+void JSWriter::compileReset(const Value* castedDest, uint8_t resetValue, const Value* size)
 {
-	stream << '{';
 	//First of all dump the bitcast
 	assert(isBitCast(castedDest));
 	const Value* dest=static_cast<const BitCastInst*>(castedDest)->getOperand(0);
 	assert(dest->getType()->isPointerTy());
 	const PointerType* pointedType = static_cast<const PointerType*>(dest->getType());
-	compileResetRecursive("", dest, resetValue, pointedType->getElementType());
+	stream << '{';
+	compileResetRecursive("", dest, resetValue, pointedType->getElementType(), NULL);
 	stream << '}';
 }
 
 void JSWriter::compileResetRecursive(const std::string& baseName, const Value* baseDest,
-		uint8_t resetValue, const Type* currentType)
+		uint8_t resetValue, const Type* currentType, const char* namedOffset)
 {
 	switch(currentType->getTypeID())
 	{
 		case Type::IntegerTyID:
 		{
-			compileDereferencePointer(baseDest, NULL);
+			compileDereferencePointer(baseDest, NULL, namedOffset);
 			assert(resetValue == 0 || resetValue == 0xff);
 			if(resetValue == 0)
 				stream << baseName << " = 0";
@@ -336,14 +341,14 @@ void JSWriter::compileResetRecursive(const std::string& baseName, const Value* b
 		}
 		case Type::DoubleTyID:
 		{
-			compileDereferencePointer(baseDest, NULL);
+			compileDereferencePointer(baseDest, NULL, namedOffset);
 			assert(resetValue == 0);
 			stream << baseName << " = 0;\n";
 			break;
 		}
 		case Type::PointerTyID:
 		{
-			compileDereferencePointer(baseDest, NULL);
+			compileDereferencePointer(baseDest, NULL, namedOffset);
 			assert(resetValue == 0);
 			stream << baseName << " = null;\n";
 			break;
@@ -358,7 +363,7 @@ void JSWriter::compileResetRecursive(const std::string& baseName, const Value* b
 			{
 				char buf[16];
 				snprintf(buf,16,".a%u",offset);
-				compileResetRecursive(baseName+buf, baseDest, resetValue, *E);
+				compileResetRecursive(baseName+buf, baseDest, resetValue, *E, namedOffset);
 				offset++;
 			}
 			break;
@@ -370,7 +375,7 @@ void JSWriter::compileResetRecursive(const std::string& baseName, const Value* b
 			for(uint64_t i=0;i<at->getNumElements();i++)
 			{
 				snprintf(buf,16,"[%lu]",i);
-				compileResetRecursive(baseName+buf, baseDest, resetValue, at->getElementType());
+				compileResetRecursive(baseName+buf, baseDest, resetValue, at->getElementType(), namedOffset);
 			}
 			break;
 		}
@@ -381,7 +386,7 @@ void JSWriter::compileResetRecursive(const std::string& baseName, const Value* b
 	}
 }
 
-void JSWriter::compileCopy(const Value* dest, const Value* src)
+void JSWriter::compileCopy(const Value* dest, const Value* src, const Value* size)
 {
 	//Find out the real type of the copied object
 	if(isBitCast(dest))
@@ -392,10 +397,35 @@ void JSWriter::compileCopy(const Value* dest, const Value* src)
 	}
 	assert(dest->getType()==src->getType());
 	assert(dest->getType()->isPointerTy());
-	const PointerType* pointedType = static_cast<const PointerType*>(dest->getType());
-	stream << '{';
-	compileCopyRecursive("", dest, src, pointedType->getElementType());
-	stream << '}';
+
+	Type* pointedType = static_cast<const PointerType*>(dest->getType())->getElementType();
+	uint32_t typeSize = targetData.getTypeAllocSize(pointedType);
+	if(ConstantInt::classof(size))
+	{
+		uint32_t allocatedSize = getIntFromValue(size);
+		assert((allocatedSize % typeSize) == 0);
+		uint32_t numElem = allocatedSize/typeSize;
+		assert(numElem>0);
+		//The first element is always copied directly, to support complete objects
+		compileCopyRecursive("", dest, src, pointedType,NULL);
+		//The rest is compiled using a for loop
+		if(numElem>1)
+		{
+			stream << "for(var __i__=1;__i__<" << numElem << ";__i__++) {\n";
+			compileCopyRecursive("", dest, src, pointedType,"__i__");
+			stream << "}\n";
+		}
+	}
+	else
+	{
+		//TODO: See if we should support complete objects for dynamic sizes
+		//TODO: Remove division for size 1
+		stream << "for(var __i__=0;__i__<(";
+		compileOperand(size);
+		stream << '/' << typeSize << ");__i__++) {\n";
+		compileCopyRecursive("", dest, src, pointedType,"__i__");
+		stream << "}\n";
+	}
 }
 
 void JSWriter::compileAllocation(const Value* callV, const Value* size)
@@ -513,13 +543,13 @@ bool JSWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	}
 	else if(strncmp(ident,"llvm.memcpy",11)==0)
 	{
-		compileCopy(*(it), *(it+1));
+		compileCopy(*(it), *(it+1), *(it+2));
 		return true;
 	}
 	else if(strncmp(ident,"llvm.memset",11)==0)
 	{
 		uint32_t resetVal = getIntFromValue(*(it+1));
-		compileReset(*(it), resetVal);
+		compileReset(*(it), resetVal, (*it+2));
 		return true;
 	}
 	else if(strcmp(ident,"malloc")==0)
@@ -705,7 +735,7 @@ bool JSWriter::isCompleteObject(const Value* v, std::set<const PHINode*>& visite
 	return false;
 }
 
-void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
+void JSWriter::compileDereferencePointer(const Value* v, const Value* offset, const char* namedOffset = NULL)
 {
 	assert(v->getType()->isPointerTy());
 	bool isArray = isCompleteArray(v);
@@ -718,12 +748,19 @@ void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 	if(isObj && !isArray)
 	{
 		assert(isOffsetConstantZero);
+		assert(namedOffset==NULL);
 		return;
 	}
 	stream << '[';
 	if(isArray)
 	{
 		bool notFirst=false;
+		if(namedOffset)
+		{
+			stream << namedOffset;
+			notFirst = true;
+		}
+
 		if(isOffsetConstantZero)
 		{
 			if(!notFirst)
@@ -746,6 +783,15 @@ void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 			compileOperand(offset);
 			notFirst = true;
 		}
+		if(namedOffset)
+		{
+			if(notFirst)
+				stream << '+';
+			stream << namedOffset;
+			notFirst = true;
+		}
+		if(!notFirst)
+			stream << '0';
 	}
 	stream << ']';
 }
