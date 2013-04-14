@@ -552,12 +552,15 @@ bool JSWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		compileReset(*(it), resetVal, (*it+2));
 		return true;
 	}
-	else if(strcmp(ident,"malloc")==0)
+	else if(strcmp(ident,"malloc")==0 ||
+		strcmp(ident,"_Znaj")==0)
 	{
 		compileAllocation(callV, *it);
 		return true;
 	}
-	else if(strcmp(ident,"free")==0)
+	else if(strcmp(ident,"free")==0 ||
+		strcmp(ident,"_ZdlPv")==0 ||
+		strcmp(ident,"_ZdaPv")==0)
 	{
 		compileFree(*it);
 		return true;
