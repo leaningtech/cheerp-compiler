@@ -1066,45 +1066,52 @@ void JSWriter::compileConstant(const Constant* c)
 	else if(ConstantDataSequential::classof(c))
 	{
 		const ConstantDataSequential* d=cast<const ConstantDataSequential>(c);
-		if(d->isString())
-		{
-			stream << '"';
-			const StringRef str=d->getRawDataValues();
-			for(uint32_t i=0;i<str.size();i++)
-			{
-				//Skip closing null character
-				if((i+1)==str.size() && str[i]==0)
-					break;
-				else if(str[i]=='\n')
-					stream << "\\n";
-				else if(str[i]=='\r')
-					stream << "\\r";
-				else if(str[i]=='"')
-					stream << "\\\"";
-				else if((str[i]>=0x0 && str[i]<=0x9) ||
-					(str[i]>=0x11 && str[i]<=0x1f))
-				{
-					char buf[5];
-					snprintf(buf,5,"\\x%02x",str[i]);
-					stream << buf;
-				}
-				else
-					stream.write(str.data()+i,1);
-			}
-			stream << '"';
-		}
+		Type* t=d->getElementType();
+		if(t->isIntegerTy(8))
+			stream << "Int8Array";
+		else if(t->isIntegerTy(16))
+			stream << "Int16Array";
+		else if(t->isIntegerTy(32))
+			stream << "Int32Array";
+		else if(t->isDoubleTy())
+			stream << "Float64Array";
 		else
+			assert(false);
+		stream << "([";
+		for(uint32_t i=0;i<d->getNumElements();i++)
 		{
-			//TODO: Use typed arrays
-			stream << '[';
-			for(uint32_t i=0;i<d->getNumElements();i++)
-			{
-				compileConstant(d->getElementAsConstant(i));
-				if((i+1)<d->getNumElements())
-					stream << ",";
-			}
-			stream << ']';
+			compileConstant(d->getElementAsConstant(i));
+			if((i+1)<d->getNumElements())
+				stream << ",";
 		}
+		stream << "])";
+	}
+	else if(ConstantArray::classof(c))
+	{
+		const ConstantArray* d=cast<const ConstantArray>(c);
+		stream << '[';
+		assert(d->getType()->getNumElements() == d->getNumOperands());
+		for(uint32_t i=0;i<d->getNumOperands();i++)
+		{
+			compileConstant(d->getOperand(i));
+			if((i+1)<d->getNumOperands())
+				stream << ",";
+		}
+		stream << ']';
+	}
+	else if(ConstantStruct::classof(c))
+	{
+		const ConstantStruct* d=cast<const ConstantStruct>(c);
+		stream << '{';
+		assert(d->getType()->getNumElements() == d->getNumOperands());
+		for(uint32_t i=0;i<d->getNumOperands();i++)
+		{
+			stream << 'a' << i << ':';
+			compileConstant(d->getOperand(i));
+			if((i+1)<d->getNumOperands())
+				stream << ",";
+		}
+		stream << '}';
 	}
 	else if(ConstantFP::classof(c))
 	{
@@ -1130,7 +1137,7 @@ void JSWriter::compileConstant(const Constant* c)
 		//printLLVMName already add '_' to the name
 		printLLVMName(c->getName());
 	}
-	else if(c->isNullValue())
+	else if(ConstantPointerNull::classof(c))
 	{
 		stream << "null";
 	}
@@ -1152,6 +1159,10 @@ void JSWriter::compileConstant(const Constant* c)
 		}
 		else
 			printLLVMName(c->getName());
+	}
+	else if(ConstantAggregateZero::classof(c))
+	{
+		compileType(c->getType());
 	}
 	else if(c->hasName())
 	{
