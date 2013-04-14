@@ -465,10 +465,10 @@ void JSWriter::compileAllocation(const Value* callV, const Value* size)
 			stream << "Int32Array";
 		else if(t->isDoubleTy())
 			stream << "Float64Array";
-		stream << "(new ArrayBuffer(";
+		stream << '(';
 		//Use the size in bytes
 		compileOperand(size);
-		stream << "))";
+		stream << ')';
 	}
 	else
 	{
