@@ -109,11 +109,13 @@ private:
 	void compileDereferencePointer(const Value* v, const Value* offset);
 	void compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end);
 	void compileGEP(const Value* val, const Use* it, const Use* const itE);
-	void compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
-	void compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE);
-	enum SKIP_MODE { NO_SKIP=0, SKIP_USELESS };
-	void compileObjectForPointer(const Value* val);
-	void compileOffsetForPointer(const Value* val);
+	const Type* compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE);
+	bool compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE, const Type* lastType);
+	const Type* compileObjectForPointer(const Value* val);
+	/*
+	 * Returns true if anything is printed
+	 */
+	bool compileOffsetForPointer(const Value* val, const Type* lastType);
 	void compileCopy(const Value* dest, const Value* src);
 	void compileCopyRecursive(const std::string& baseName, const Value* baseDest,
 		const Value* baseSrc, const Type* currentType);
@@ -712,7 +714,7 @@ void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 	if(offset==NULL || (ConstantInt::classof(offset) && getIntFromValue(offset)==0))
 		isOffsetConstantZero = true;
 
-	compileObjectForPointer(v);
+	const Type* lastType=compileObjectForPointer(v);
 	if(isObj && !isArray)
 	{
 		assert(isOffsetConstantZero);
@@ -721,20 +723,28 @@ void JSWriter::compileDereferencePointer(const Value* v, const Value* offset)
 	stream << '[';
 	if(isArray)
 	{
+		bool notFirst=false;
 		if(isOffsetConstantZero)
-			stream << '0';
+		{
+			if(!notFirst)
+				stream << '0';
+		}
 		else
+		{
+			if(notFirst)
+				stream << '+';
 			compileOperand(offset);
+		}
 	}
 	else
 	{
-		if(isOffsetConstantZero)
-			compileOffsetForPointer(v);
-		else
+		bool notFirst=compileOffsetForPointer(v, lastType);
+		if(!isOffsetConstantZero)
 		{
-			compileOffsetForPointer(v);
-			stream << '+';
+			if(notFirst)
+				stream << '+';
 			compileOperand(offset);
+			notFirst = true;
 		}
 	}
 	stream << ']';
@@ -1538,7 +1548,7 @@ void JSWriter::compileFastGEPDereference(const Value* operand, const Use* idx_be
 	compileObjectForPointerGEP(operand, idx_begin, idx_end);
 }
 
-void JSWriter::compileObjectForPointer(const Value* val)
+const Type* JSWriter::compileObjectForPointer(const Value* val)
 {
 	if(isGEP(val))
 	{
@@ -1546,20 +1556,22 @@ void JSWriter::compileObjectForPointer(const Value* val)
 		GetElementPtrInst::const_op_iterator it=gep->op_begin()+1;
 		//We compile as usual till the last level
 		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
-		compileObjectForPointerGEP(gep->getOperand(0), it, itE);
+		return compileObjectForPointerGEP(gep->getOperand(0), it, itE);
 	}
 	else if(isCompleteObject(val))
 	{
 		compileOperand(val);
+		return NULL;
 	}
 	else
 	{
 		compileOperand(val);
 		stream << ".d";
+		return NULL;
 	}
 }
 
-void JSWriter::compileOffsetForPointer(const Value* val)
+bool JSWriter::compileOffsetForPointer(const Value* val, const Type* lastType)
 {
 	if(isGEP(val))
 	{
@@ -1567,20 +1579,19 @@ void JSWriter::compileOffsetForPointer(const Value* val)
 		GetElementPtrInst::const_op_iterator it=gep->op_begin()+1;
 		//We compile as usual till the last level
 		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
-		compileOffsetForPointerGEP(gep->getOperand(0), it, itE);
+		return compileOffsetForPointerGEP(gep->getOperand(0), it, itE, lastType);
 	}
 	else if(isCompleteObject(val))
-	{
-		stream << '0';
-	}
+		return false;
 	else
 	{
 		compileOperand(val);
 		stream << ".o";
+		return true;
 	}
 }
 
-void JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
+const Type* JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
 	assert(t->isPointerTy());
@@ -1589,33 +1600,38 @@ void JSWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const
 	{
 		//Same level access, we are just computing another pointer from this pointer
 		compileObjectForPointer(val);
-		ptrT->getElementType();
+		return ptrT->getElementType();
 	}
 	else
 	{
 		//First dereference the pointer
 		compileDereferencePointer(val, *it);
-		compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+		return compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
 	}
 }
 
-void JSWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE)
+bool JSWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE, const Type* lastType)
 {
 	if(it==itE)
 	{
-		stream << '(';
 		//Same level access, we are just computing another pointer from this pointer
-		compileOffsetForPointer(val);
-		stream << '+';
+		bool notFirst=compileOffsetForPointer(val, lastType);
 		//Compute the offset
 		if(ConstantInt::classof(*itE))
 		{
 			uint32_t firstElement = getIntFromValue(*itE);
+			if(firstElement==0)
+				return notFirst;
+			if(notFirst)
+				stream << '+';
 			stream << firstElement;
 		}
 		else
+		{
+			if(notFirst)
+				stream << '+';
 			compileOperand(*itE);
-		stream << ')';
+		}
 	}
 	else
 	{
@@ -1623,11 +1639,22 @@ void JSWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, const
 		if(ConstantInt::classof(*itE))
 		{
 			uint32_t elementIndex = getIntFromValue(*itE);
+			if(elementIndex == 0 && !lastType->isStructTy())
+				return false;
+			if(lastType->isStructTy())
+				stream << "\"a";
 			stream << elementIndex;
+			if(lastType->isStructTy())
+				stream << '"';
 		}
 		else
+		{
+			assert(!lastType->isStructTy());
 			compileOperand(*itE);
+		}
 	}
+	//TODO: Skip some useless offsets when possible
+	return true;
 }
 
 void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
@@ -1635,9 +1662,11 @@ void JSWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 	Type* t=val->getType();
 	assert(t->isPointerTy());
 	stream << "{ d: ";
-	compileObjectForPointerGEP(val, it, itE);
+	const Type* lastType=compileObjectForPointerGEP(val, it, itE);
 	stream << ", o: ";
-	compileOffsetForPointerGEP(val, it, itE);
+	bool notFirst=compileOffsetForPointerGEP(val, it, itE,lastType);
+	if(!notFirst)
+		stream << '0';
 	stream << '}';
 }
 
@@ -1946,16 +1975,20 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			{
 				//Comparison on pointers is only valid
 				//for the same base!
-				compileObjectForPointer(ci.getOperand(0));
+				const Type* lastType1=compileObjectForPointer(ci.getOperand(0));
 				stream << "===";
-				compileObjectForPointer(ci.getOperand(1));
+				const Type* lastType2=compileObjectForPointer(ci.getOperand(1));
 				if(!isCompleteObject(ci.getOperand(0)) ||
 					!isCompleteObject(ci.getOperand(1)))
 				{
 					stream << " && ";
-					compileOffsetForPointer(ci.getOperand(0));
+					bool notFirst=compileOffsetForPointer(ci.getOperand(0),lastType1);
+					if(!notFirst)
+						stream << '0';
 					compilePredicate(ci.getPredicate());
-					compileOffsetForPointer(ci.getOperand(1));
+					notFirst=compileOffsetForPointer(ci.getOperand(1),lastType2);
+					if(!notFirst)
+						stream << '0';
 				}
 			}
 			else
