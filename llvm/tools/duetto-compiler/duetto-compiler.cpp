@@ -408,8 +408,32 @@ void JSWriter::compileCopy(const Value* dest, const Value* src, const Value* siz
 		assert(numElem>0);
 		//The first element is always copied directly, to support complete objects
 		compileCopyRecursive("", dest, src, pointedType,NULL);
-		//The rest is compiled using a for loop
-		if(numElem>1)
+		//The rest is compiled using a for loop, or native TypedArray set operator
+		if(numElem==1)
+			return;
+
+		if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
+				pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
+		{
+			const Type* lastTypeDest=compileObjectForPointer(dest);
+			stream << ".set(";
+			const Type* lastTypeSrc=compileObjectForPointer(src);
+			//We need to get a subview of the source
+			stream << ".subarray(";
+			bool notFirst=compileOffsetForPointer(src,lastTypeSrc);
+			if(!notFirst)
+				stream << '0';
+			stream << ',';
+			notFirst=compileOffsetForPointer(src,lastTypeSrc);
+			if(notFirst)
+				stream << '+';
+			stream << numElem << "),";
+			notFirst=compileOffsetForPointer(dest,lastTypeDest);
+			if(!notFirst)
+				stream << '0';
+			stream << ')';
+		}
+		else
 		{
 			stream << "for(var __i__=1;__i__<" << numElem << ";__i__++) {\n";
 			compileCopyRecursive("", dest, src, pointedType,"__i__");
@@ -420,11 +444,37 @@ void JSWriter::compileCopy(const Value* dest, const Value* src, const Value* siz
 	{
 		//TODO: See if we should support complete objects for dynamic sizes
 		//TODO: Remove division for size 1
-		stream << "for(var __i__=0;__i__<(";
-		compileOperand(size);
-		stream << '/' << typeSize << ");__i__++) {\n";
-		compileCopyRecursive("", dest, src, pointedType,"__i__");
-		stream << "}\n";
+		if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
+				pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
+		{
+			const Type* lastTypeDest=compileObjectForPointer(dest);
+			stream << ".set(";
+			const Type* lastTypeSrc=compileObjectForPointer(src);
+			//We need to get a subview of the source
+			stream << ".subarray(";
+			bool notFirst=compileOffsetForPointer(src,lastTypeSrc);
+			if(!notFirst)
+				stream << '0';
+			stream << ',';
+			notFirst=compileOffsetForPointer(src,lastTypeSrc);
+			if(notFirst)
+				stream << '+';
+			stream << '(';
+			compileOperand(size);
+			stream << '/' << typeSize << ")),";
+			notFirst=compileOffsetForPointer(dest,lastTypeDest);
+			if(!notFirst)
+				stream << '0';
+			stream << ')';
+		}
+		else
+		{
+			stream << "for(var __i__=0;__i__<(";
+			compileOperand(size);
+			stream << '/' << typeSize << ");__i__++) {\n";
+			compileCopyRecursive("", dest, src, pointedType,"__i__");
+			stream << "}\n";
+		}
 	}
 }
 
