@@ -1524,10 +1524,7 @@ bool JSWriter::compileNotInlineableInstruction(const Instruction& I)
 		{
 			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
 			//Alloca returns complete objects, not pointers
-			assert(ai.hasName());
 			compileType(ai.getAllocatedType());
-			//Take note that this is a complete object
-			//completeObjects.insert(&I);
 			return true;
 		}
 		case Instruction::Call:
