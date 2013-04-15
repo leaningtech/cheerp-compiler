@@ -2286,10 +2286,15 @@ bool JSWriter::isInlineable(const Instruction& I) const
 	//Special case GEPs. They should always be inline since creating the object is really slow
 	if(I.getOpcode()==Instruction::GetElementPtr)
 		return true;
-	//Beside a few cases, instructions without name
-	//or with a single use may be inlined
-	if(I.hasName()==false || I.hasOneUse())
+	//Beside a few cases, instructions with a single use may be inlined
+	if(I.hasOneUse())
 	{
+		//Inlining a variable used by a PHI it's unsafe
+		//When the phi's are computed the result
+		//correctness may depend on the order they are
+		//computed. A single use is guaranteed
+		if(PHINode::classof(I.use_back()))
+			return false;
 		//A few opcodes needs to be executed anyway as they
 		//do not operated on registers
 		switch(I.getOpcode())
