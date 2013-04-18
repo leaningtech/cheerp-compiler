@@ -84,8 +84,8 @@ void call_complete_dtor(C *obj_ptr) {
 // CHECK: define dso_local void @"?call_complete_dtor@basic@@YAXPAUC@1@@Z"(%"struct.basic::C"* %obj_ptr)
   obj_ptr->~C();
 // CHECK: %[[OBJ_PTR_VALUE:.*]] = load %"struct.basic::C"*, %"struct.basic::C"** %{{.*}}, align 4
-// CHECK-NEXT: %[[PVTABLE:.*]] = bitcast %"struct.basic::C"* %[[OBJ_PTR_VALUE]] to i8* (%"struct.basic::C"*, i32)***
-// CHECK-NEXT: %[[VTABLE:.*]] = load i8* (%"struct.basic::C"*, i32)**, i8* (%"struct.basic::C"*, i32)*** %[[PVTABLE]]
+// CHECK: %[[PVTABLE:.*]] = load i32 (...)**, i32 (...)*** {{.*}}
+// CHECK-NEXT: %[[VTABLE:.*]] = bitcast i32 (...)** %[[PVTABLE]] to i8* (%"struct.basic::C"*, i32)**
 // CHECK-NEXT: %[[PVDTOR:.*]] = getelementptr inbounds i8* (%"struct.basic::C"*, i32)*, i8* (%"struct.basic::C"*, i32)** %[[VTABLE]], i64 0
 // CHECK-NEXT: %[[VDTOR:.*]] = load i8* (%"struct.basic::C"*, i32)*, i8* (%"struct.basic::C"*, i32)** %[[PVDTOR]]
 // CHECK-NEXT: call x86_thiscallcc i8* %[[VDTOR]](%"struct.basic::C"* %[[OBJ_PTR_VALUE]], i32 0)
@@ -99,9 +99,9 @@ void call_deleting_dtor(C *obj_ptr) {
 // CHECK:      br i1 {{.*}}, label %[[DELETE_NULL:.*]], label %[[DELETE_NOTNULL:.*]]
 
 // CHECK:      [[DELETE_NOTNULL]]
-// CHECK-NEXT:   %[[PVTABLE:.*]] = bitcast %"struct.basic::C"* %[[OBJ_PTR_VALUE]] to i8* (%"struct.basic::C"*, i32)***
-// CHECK-NEXT:   %[[VTABLE:.*]] = load i8* (%"struct.basic::C"*, i32)**, i8* (%"struct.basic::C"*, i32)*** %[[PVTABLE]]
-// CHECK-NEXT:   %[[PVDTOR:.*]] = getelementptr inbounds i8* (%"struct.basic::C"*, i32)*, i8* (%"struct.basic::C"*, i32)** %[[VTABLE]], i64 0
+// CHECK:        %[[VTABLE:.*]] = load i32 (...)**, i32 (...)*** %{{.*}}
+// CHECK-NEXT:   %[[PVTABLE:.*]] = bitcast i32 (...)** %[[VTABLE]] to i8* (%"struct.basic::C"*, i32)**
+// CHECK-NEXT:   %[[PVDTOR:.*]] = getelementptr inbounds i8* (%"struct.basic::C"*, i32)*, i8* (%"struct.basic::C"*, i32)** %[[PVTABLE]], i64 0
 // CHECK-NEXT:   %[[VDTOR:.*]] = load i8* (%"struct.basic::C"*, i32)*, i8* (%"struct.basic::C"*, i32)** %[[PVDTOR]]
 // CHECK-NEXT:   call x86_thiscallcc i8* %[[VDTOR]](%"struct.basic::C"* %[[OBJ_PTR_VALUE]], i32 1)
 // CHECK:      ret void
@@ -114,9 +114,9 @@ void call_deleting_dtor_and_global_delete(C *obj_ptr) {
 // CHECK:      br i1 {{.*}}, label %[[DELETE_NULL:.*]], label %[[DELETE_NOTNULL:.*]]
 
 // CHECK:      [[DELETE_NOTNULL]]
-// CHECK-NEXT:   %[[PVTABLE:.*]] = bitcast %"struct.basic::C"* %[[OBJ_PTR_VALUE]] to i8* (%"struct.basic::C"*, i32)***
-// CHECK-NEXT:   %[[VTABLE:.*]] = load i8* (%"struct.basic::C"*, i32)**, i8* (%"struct.basic::C"*, i32)*** %[[PVTABLE]]
-// CHECK-NEXT:   %[[PVDTOR:.*]] = getelementptr inbounds i8* (%"struct.basic::C"*, i32)*, i8* (%"struct.basic::C"*, i32)** %[[VTABLE]], i64 0
+// CHECK:      %[[VTABLE:.*]] = load i32 (...)**, i32 (...)*** %{{.*}}
+// CHECK-NEXT:   %[[PVTABLE:.*]] = bitcast i32 (...)** %[[VTABLE]] to i8* (%"struct.basic::C"*, i32)**
+// CHECK-NEXT:   %[[PVDTOR:.*]] = getelementptr inbounds i8* (%"struct.basic::C"*, i32)*, i8* (%"struct.basic::C"*, i32)** %[[PVTABLE]], i64 0
 // CHECK-NEXT:   %[[VDTOR:.*]] = load i8* (%"struct.basic::C"*, i32)*, i8* (%"struct.basic::C"*, i32)** %[[PVDTOR]]
 // CHECK-NEXT:   %[[CALL:.*]] = call x86_thiscallcc i8* %[[VDTOR]](%"struct.basic::C"* %[[OBJ_PTR_VALUE]], i32 0)
 // CHECK-NEXT:   call void @"??3@YAXPAX@Z"(i8* %[[CALL]])

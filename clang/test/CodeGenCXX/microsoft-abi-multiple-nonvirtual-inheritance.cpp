@@ -25,8 +25,9 @@ void call_left_no_override(ChildNoOverride *child) {
   child->left();
 // Only need to cast 'this' to Left*.
 // CHECK: %[[LEFT:.*]] = bitcast %struct.ChildNoOverride* %[[CHILD]] to %struct.Left*
-// CHECK: %[[VFPTR:.*]] = bitcast %struct.Left* %[[LEFT]] to void (%struct.Left*)***
-// CHECK: %[[VFTABLE:.*]] = load void (%struct.Left*)**, void (%struct.Left*)*** %[[VFPTR]]
+// CHECK: %[[VFPTR:.*]] = getelementptr %struct.Left, %struct.Left* %[[LEFT]], i32 0, i32 0
+// CHECK: %[[VFTABLE0:.*]] = load i32 (...)**, i32 (...)*** %[[VFPTR]]
+// CHECK: %[[VFTABLE:.*]] = bitcast i32 (...)** %[[VFTABLE0]] to void (%struct.Left*)**
 // CHECK: %[[VFUN:.*]] = getelementptr inbounds void (%struct.Left*)*, void (%struct.Left*)** %[[VFTABLE]], i64 0
 // CHECK: %[[VFUN_VALUE:.*]] = load void (%struct.Left*)*, void (%struct.Left*)** %[[VFUN]]
 // CHECK: call x86_thiscallcc void %[[VFUN_VALUE]](%struct.Left* %[[LEFT]])
@@ -53,8 +54,9 @@ void call_left_override(ChildOverride *child) {
 // CHECK: %[[CHILD:.*]] = load %struct.ChildOverride
 
   child->left();
-// CHECK: %[[VFPTR:.*]] = bitcast %struct.ChildOverride* %[[CHILD]] to void (%struct.ChildOverride*)***
-// CHECK: %[[VFTABLE:.*]] = load void (%struct.ChildOverride*)**, void (%struct.ChildOverride*)*** %[[VFPTR]]
+// CHECK: %[[VFPTR:.*]] = getelementptr %struct.ChildOverride, %struct.ChildOverride* %[[CHILD]], i32 0, i32 0
+// CHECK: %[[VFTABLE0:.*]] = load i32 (...)**, i32 (...)*** %[[VFPTR]]
+// CHECK: %[[VFTABLE:.*]] = bitcast i32 (...)** %[[VFTABLE0]] to void (%struct.ChildOverride*)**
 // CHECK: %[[VFUN:.*]] = getelementptr inbounds void (%struct.ChildOverride*)*, void (%struct.ChildOverride*)** %[[VFTABLE]], i64 0
 // CHECK: %[[VFUN_VALUE:.*]] = load void (%struct.ChildOverride*)*, void (%struct.ChildOverride*)** %[[VFUN]]
 //
@@ -74,8 +76,9 @@ void call_right_no_override(ChildNoOverride *child) {
 // CHECK: %[[RIGHT_i8:.*]] = getelementptr inbounds i8, i8* %[[CHILD_i8]], i32 4
 // CHECK: %[[RIGHT:.*]] = bitcast i8* %[[RIGHT_i8]] to %struct.Right*
 //
-// CHECK: %[[VFPTR:.*]] = bitcast %struct.Right* %[[RIGHT]] to void (%struct.Right*)***
-// CHECK: %[[VFTABLE:.*]] = load void (%struct.Right*)**, void (%struct.Right*)*** %[[VFPTR]]
+// CHECK: %[[VFPTR:.*]] = getelementptr %struct.Right, %struct.Right* %[[RIGHT]], i32 0, i32 0
+// CHECK: %[[VFTABLE0:.*]] = load i32 (...)**, i32 (...)*** %[[VFPTR]]
+// CHECK: %[[VFTABLE:.*]] = bitcast i32 (...)** %[[VFTABLE0]] to void (%struct.Right*)**
 // CHECK: %[[VFUN:.*]] = getelementptr inbounds void (%struct.Right*)*, void (%struct.Right*)** %[[VFTABLE]], i64 0
 // CHECK: %[[VFUN_VALUE:.*]] = load void (%struct.Right*)*, void (%struct.Right*)** %[[VFUN]]
 // CHECK: call x86_thiscallcc void %[[VFUN_VALUE]](%struct.Right* %[[RIGHT]])
