@@ -102,7 +102,10 @@ namespace Test5 {
     // FIXME: It should be possible to devirtualize this case, but that is
     // not implemented yet.
     // CHECK: getelementptr
-    // CHECK-NEXT: %[[FUNC:.*]] = load
+    // CHECK-NEXT: %[[FUNCTMP1:.*]] = load
+    // CHECK-NEXT: %[[FUNCTMP2:.*]] = bitcast i32 (...)** %[[FUNCTMP1]] to void (%"struct.Test5::A"*)**
+    // CHECK-NEXT: %[[FUNCTMP3:.*]] = getelementptr inbounds void (%"struct.Test5::A"*)** %[[FUNCTMP2]], i64 0
+    // CHECK-NEXT: %[[FUNC:.*]] = load void (%"struct.Test5::A"*)** %[[FUNCTMP3]]
     // CHECK-NEXT: call void %[[FUNC]]
     static_cast<A*>(d)->f();
   }
@@ -110,7 +113,7 @@ namespace Test5 {
   void fop(C* d) {
     // FIXME: It should be possible to devirtualize this case, but that is
     // not implemented yet.
-    // CHECK: getelementptr
+    // CHECK: getelementptr inbounds i32
     // CHECK-NEXT: %[[FUNC:.*]] = load
     // CHECK-NEXT: call i32 %[[FUNC]]
     -static_cast<A&>(*d);
@@ -217,9 +220,9 @@ namespace Test9 {
     // not implemented yet.
     // CHECK: load
     // CHECK: bitcast
-    // CHECK: [[F_PTR_RA:%.+]] = bitcast
-    // CHECK: [[VTABLE:%.+]] = load {{.+}} [[F_PTR_RA]]
-    // CHECK: [[VFN:%.+]] = getelementptr inbounds {{.+}} [[VTABLE]], i{{[0-9]+}} 0
+    // CHECK: [[VTABLE:%.+]] = load {{.+}}
+    // CHECK: [[F_PTR_RA:%.+]] = bitcast {{.+}} [[VTABLE]]
+    // CHECK: [[VFN:%.+]] = getelementptr inbounds {{.+}} [[F_PTR_RA]], i{{[0-9]+}} 0
     // CHECK-NEXT: %[[FUNC:.*]] = load {{.+}} [[VFN]]
     // CHECK-NEXT: = call {{.*}} %[[FUNC]]
     return static_cast<RA*>(x)->f();
@@ -230,9 +233,9 @@ namespace Test9 {
     // not implemented yet.
     // CHECK: load
     // CHECK: bitcast
-    // CHECK: [[F_PTR_RA:%.+]] = bitcast
-    // CHECK: [[VTABLE:%.+]] = load {{.+}} [[F_PTR_RA]]
-    // CHECK: [[VFN:%.+]] = getelementptr inbounds {{.+}} [[VTABLE]], i{{[0-9]+}} 1
+    // CHECK: [[VTABLE:%.+]] = load {{.+}}
+    // CHECK: [[F_PTR_RA:%.+]] = bitcast {{.+}} [[VTABLE]]
+    // CHECK: [[VFN:%.+]] = getelementptr inbounds {{.+}} [[F_PTR_RA]], i{{[0-9]+}} 1
     // CHECK-NEXT: %[[FUNC:.*]] = load {{.+}} [[VFN]]
     // CHECK-NEXT: = call {{.*}} %[[FUNC]]
     return -static_cast<RA&>(*x);
