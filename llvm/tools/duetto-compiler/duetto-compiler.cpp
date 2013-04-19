@@ -893,7 +893,7 @@ const Type* JSWriter::compileRecursiveAccessToGEP(const Type* curType, const Use
 
 bool JSWriter::isClientType(Type* t) const
 {
-	return (t->isStructTy() && 
+	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
 		strncmp(t->getStructName().data(), "class.client::", 14)==0);
 }
 
@@ -1074,7 +1074,6 @@ void JSWriter::compileConstantExpr(const ConstantExpr* ce)
 			//in the form { d: [<objPointed>], o: 0 }
 			assert(cast<GlobalVariable>(base)->hasInitializer());
 			//TODO: Support external global variables
-			//Constant* initializer = cast<GlobalVariable>(base)->getInitializer();
 			//NOTE: the first dereference must be 0, they point to a single object
 			Value* first=ce->getOperand(1);
 			assert(getIntFromValue(first)==0);
@@ -1789,7 +1788,7 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 	if(I.getMetadata("duetto.downcast"))
 	{
 		//Downcast will be handled with an access to the base table
-		stream << "alert('support downcast');";
+		stream << "alert('support downcast')";
 		return true;
 	}
 	switch(I.getOpcode())
@@ -2287,6 +2286,8 @@ bool JSWriter::isInlineable(const Instruction& I) const
 	if(I.getOpcode()==Instruction::GetElementPtr)
 		return true;
 	//Beside a few cases, instructions with a single use may be inlined
+	//TODO: Find out a better heuristic for inlining, it's seems that computing
+	//may be faster even on more than 1 use
 	if(I.hasOneUse())
 	{
 		//Inlining a variable used by a PHI it's unsafe
