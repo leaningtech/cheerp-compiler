@@ -121,6 +121,7 @@ private:
 	 * Returns true if anything is printed
 	 */
 	bool compileOffsetForPointer(const Value* val, const Type* lastType);
+	Type* findRealType(const Value* v, std::set<const PHINode*>& visitedPhis) const;
 	void compileCopy(const Value* dest, const Value* src, const Value* size);
 	void compileCopyRecursive(const std::string& baseName, const Value* baseDest,
 		const Value* baseSrc, const Type* currentType, const char* namedOffset);
@@ -384,6 +385,36 @@ void JSWriter::compileResetRecursive(const std::string& baseName, const Value* b
 			currentType->dump();
 			cerr << endl;
 	}
+}
+
+Type* JSWriter::findRealType(const Value* v, std::set<const PHINode*>& visitedPhis) const
+{
+	if(isBitCast(v))
+		return static_cast<const User*>(v)->getOperand(0)->getType();
+
+	const PHINode* newPHI=dyn_cast<const PHINode>(v);
+	if(newPHI)
+ 	{
+		if(visitedPhis.count(newPHI))
+		{
+			//Assume true, if needed it will become false later on
+			return NULL;
+		}
+		visitedPhis.insert(newPHI);
+		assert(newPHI->getNumIncomingValues()>=1);
+		Type* ret=findRealType(newPHI->getIncomingValue(0),visitedPhis);
+		for(unsigned i=1;i<newPHI->getNumIncomingValues();i++)
+		{
+			Type* t=findRealType(newPHI->getIncomingValue(i),visitedPhis);
+			if(ret==NULL)
+				ret=t;
+			else
+				assert(ret==t);
+		}
+		visitedPhis.erase(newPHI);
+		return ret;
+ 	}
+	return v->getType();
 }
 
 void JSWriter::compileCopy(const Value* dest, const Value* src, const Value* size)
