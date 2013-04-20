@@ -2321,8 +2321,26 @@ bool JSWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ".a" << offset;
 			return true;
 		}
+		case Instruction::FPExt:
+		{
+			const FPExtInst& fei=static_cast<const FPExtInst&>(I);
+			const Value* src=I.getOperand(0);
+			assert(src->getType()->isFloatTy());
+			assert(fei.getType()->isDoubleTy());
+			compileOperand(src);
+			return true;
+		}
+		case Instruction::FPTrunc:
+		{
+			const FPTruncInst& fei=static_cast<const FPTruncInst&>(I);
+			const Value* src=I.getOperand(0);
+			assert(src->getType()->isDoubleTy());
+			assert(fei.getType()->isFloatTy());
+			compileOperand(src);
+			return true;
+		}
 		default:
-			stream << "alert('Unsupported code');\n";
+			stream << "alert('Unsupported code')";
 			cerr << "\tImplement inst " << I.getOpcodeName() << endl;
 			return false;
 	}
