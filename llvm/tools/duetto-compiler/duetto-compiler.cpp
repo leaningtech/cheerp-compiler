@@ -420,16 +420,14 @@ Type* JSWriter::findRealType(const Value* v, std::set<const PHINode*>& visitedPh
 void JSWriter::compileCopy(const Value* dest, const Value* src, const Value* size)
 {
 	//Find out the real type of the copied object
-	if(isBitCast(dest))
-	{
-		assert(isBitCast(src));
-		dest=static_cast<const BitCastInst*>(dest)->getOperand(0);
-		src=static_cast<const BitCastInst*>(src)->getOperand(0);
-	}
-	assert(dest->getType()==src->getType());
-	assert(dest->getType()->isPointerTy());
+	std::set<const PHINode*> visitedPhis;
+	Type* destType=findRealType(dest,visitedPhis);
+	visitedPhis.clear();
+	Type* srcType=findRealType(src,visitedPhis);
+	assert(destType==srcType);
+	assert(destType->isPointerTy());
 
-	Type* pointedType = static_cast<const PointerType*>(dest->getType())->getElementType();
+	Type* pointedType = static_cast<PointerType*>(destType)->getElementType();
 	uint32_t typeSize = targetData.getTypeAllocSize(pointedType);
 	if(ConstantInt::classof(size))
 	{
