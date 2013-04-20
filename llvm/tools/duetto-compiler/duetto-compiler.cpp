@@ -1227,6 +1227,11 @@ void JSWriter::compileConstant(const Constant* c)
 	{
 		stream << "undefined";
 	}
+	else if(GlobalAlias::classof(c))
+	{
+		const GlobalAlias* a=cast<const GlobalAlias>(c);
+		compileOperand(a->getAliasedGlobal());
+	}
 	else if(GlobalValue::classof(c))
 	{
 		assert(c->hasName());
