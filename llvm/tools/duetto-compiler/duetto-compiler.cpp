@@ -1060,6 +1060,8 @@ bool JSWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* sr
 				}
 			}
 		}
+		if(innerSrc->isFunctionTy() && innerDst->isFunctionTy())
+			return true;
 	}
 	//Also allow the unsafe cast from i8* only when casting from new, malloc
 	//NOTE: The fresh memory may be passed uncasted to memset to zero new memory
