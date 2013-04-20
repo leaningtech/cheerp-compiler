@@ -2578,7 +2578,7 @@ void JSWriter::compileMethod(Function& F)
 {
 	if(F.empty())
 		return;
-	std::cerr << (string)F.getName() << std::endl;
+	//std::cerr << F.getName().data() << std::endl;
 	stream << "function _" << F.getName().data() << "(";
 	const Function::const_arg_iterator A=F.arg_begin();
 	const Function::const_arg_iterator AE=F.arg_end();
