@@ -632,7 +632,8 @@ bool JSWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		return true;
 	}
 	else if(strcmp(ident,"malloc")==0 ||
-		strcmp(ident,"_Znaj")==0)
+		strcmp(ident,"_Znaj")==0 ||
+		strcmp(ident,"_Znwj")==0)
 	{
 		compileAllocation(callV, *it);
 		return true;
