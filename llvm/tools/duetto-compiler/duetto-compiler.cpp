@@ -740,10 +740,10 @@ bool JSWriter::isCompleteArray(const Value* v, std::set<const PHINode*>& visited
 		return true;
 	}
 	//Follow bitcasts
-	if(BitCastInst::classof(v))
+	if(isBitCast(v))
 	{
-		const BitCastInst* bi=static_cast<const BitCastInst*>(v);
-		return isCompleteArray(bi->getOperand(0));
+		const User* bi=static_cast<const User*>(v);
+		return isCompleteArray(bi->getOperand(0), visitedPhis);
 	}
 	//Follow PHIs
 	const PHINode* newPHI=dyn_cast<const PHINode>(v);
@@ -790,10 +790,11 @@ bool JSWriter::isCompleteObject(const Value* v, std::set<const PHINode*>& visite
 	if(isCompleteArray(v, visitedPhis))
 		return true;
 	//Follow bitcasts
-	if(BitCastInst::classof(v))
+	if(isBitCast(v))
 	{
-		const BitCastInst* bi=static_cast<const BitCastInst*>(v);
-		return isCompleteObject(bi->getOperand(0));
+		//stream << "IS BITCAST\n";
+		const User* bi=static_cast<const User*>(v);
+		return isCompleteObject(bi->getOperand(0), visitedPhis);
 	}
 	const PHINode* newPHI=dyn_cast<const PHINode>(v);
 	if(newPHI)
@@ -1694,6 +1695,11 @@ const Type* JSWriter::compileObjectForPointer(const Value* val)
 		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
 		return compileObjectForPointerGEP(gep->getOperand(0), it, itE);
 	}
+	else if(isBitCast(val))
+	{
+		const User* b=static_cast<const User*>(val);
+		return compileObjectForPointer(b->getOperand(0));
+	}
 	else if(isCompleteObject(val))
 	{
 		compileOperand(val);
@@ -1716,6 +1722,11 @@ bool JSWriter::compileOffsetForPointer(const Value* val, const Type* lastType)
 		//We compile as usual till the last level
 		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
 		return compileOffsetForPointerGEP(gep->getOperand(0), it, itE, lastType);
+	}
+	else if(isBitCast(val))
+	{
+		const User* b=static_cast<const User*>(val);
+		return compileOffsetForPointer(b->getOperand(0), lastType);
 	}
 	else if(isCompleteObject(val))
 		return false;
