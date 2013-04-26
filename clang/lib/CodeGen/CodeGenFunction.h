@@ -2693,6 +2693,8 @@ public:
                                 CastExpr::path_const_iterator PathEnd,
                                 bool NullCheckValue, SourceLocation Loc);
 
+  unsigned ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
+                               llvm::SmallVector<const CXXBaseSpecifier*, 4>& path);
   llvm::Value * GenerateDowncast(llvm::Value* Value,
                                  const CXXRecordDecl *Derived,
                                  unsigned BaseIdOffset);
