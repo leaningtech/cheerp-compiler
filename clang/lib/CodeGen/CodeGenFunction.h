@@ -2693,6 +2693,10 @@ public:
                                 CastExpr::path_const_iterator PathEnd,
                                 bool NullCheckValue, SourceLocation Loc);
 
+  llvm::Value * GenerateDowncast(llvm::Value* Value,
+                                 const CXXRecordDecl *Derived,
+                                 unsigned BaseIdOffset);
+
   Address GetAddressOfDerivedClass(Address Value,
                                    const CXXRecordDecl *Derived,
                                    CastExpr::path_const_iterator PathBegin,

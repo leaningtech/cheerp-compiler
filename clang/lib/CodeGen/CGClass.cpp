@@ -504,6 +504,25 @@ Address CodeGenFunction::GetAddressOfBaseClass(
   return Value;
 }
 
+llvm::Value *
+CodeGenFunction::GenerateDowncast(llvm::Value* Value,
+                                  const CXXRecordDecl *Derived,
+                                  unsigned BaseIdOffset)
+{
+  QualType DerivedTy =
+    getContext().getCanonicalType(getContext().getTagDeclType(Derived));
+  llvm::Type *DerivedPtrTy = ConvertType(DerivedTy)->getPointerTo();
+
+  //It sucks, but we need to cast to i8* and back
+  llvm::Value* tmp1=Builder.CreateBitCast(Value, Int8PtrTy);
+  llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(), llvm::Intrinsic::duetto_downcast);
+
+  llvm::Constant* baseOffset = llvm::ConstantInt::get(Int32Ty, BaseIdOffset);
+  Value = Builder.CreateCall2(intrinsic, tmp1, baseOffset);
+
+  return Builder.CreateBitCast(Value, DerivedPtrTy);
+}
+
 Address
 CodeGenFunction::GetAddressOfDerivedClass(Address BaseAddr,
                                           const CXXRecordDecl *Derived,
