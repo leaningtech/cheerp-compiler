@@ -37,6 +37,23 @@ llvm::Constant *CodeGenModule::GetAddrOfThunk(StringRef Name, llvm::Type *FnTy,
                                  /*DontDefer=*/true, /*IsThunk=*/true);
 }
 
+static unsigned ComputeTopologicalBaseOffset(CodeGenModule &CGM,
+                                          const CXXRecordDecl* AdjustmentTarget,
+					  const CXXRecordDecl* AdjustmentSource) {
+  CXXBasePaths Paths(/*FindAmbiguities=*/true, /*RecordPaths=*/true,
+                     /*DetectVirtual=*/false);
+  assert(AdjustmentTarget->isDerivedFrom(AdjustmentSource, Paths));
+
+  CXXBasePaths::const_paths_iterator it=Paths.begin();
+  const CXXBasePath& p=*it;
+  assert((++it)==Paths.end());
+  llvm::SmallVector<const CXXBaseSpecifier*, 4> path;
+  for(unsigned i=0;i<p.size();i++)
+	path.push_back(p[i].Base);
+
+  return CGM.ComputeBaseIdOffset(AdjustmentTarget, path);
+}
+
 static void setThunkProperties(CodeGenModule &CGM, const ThunkInfo &Thunk,
                                llvm::Function *ThunkFn, bool ForVTable,
                                GlobalDecl GD) {
