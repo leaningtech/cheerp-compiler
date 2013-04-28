@@ -489,7 +489,7 @@ static bool shouldEmitVTableThunk(CodeGenModule &CGM, const CXXMethodDecl *MD,
 }
 
 llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
-                                               const ThunkInfo &TI,
+                                               ThunkInfo TI,
                                                bool ForVTable) {
   const CXXMethodDecl *MD = cast<CXXMethodDecl>(GD.getDecl());
 
