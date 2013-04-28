@@ -58,7 +58,7 @@ class CodeGenVTables {
 
   /// Get the address of a thunk and emit it if necessary.
   llvm::Constant *maybeEmitThunk(GlobalDecl GD,
-                                 const ThunkInfo &ThunkAdjustments,
+                                 ThunkInfo ThunkAdjustments,
                                  bool ForVTable);
 
   void addVTableComponent(ConstantArrayBuilder &builder,
