@@ -909,6 +909,9 @@ public:
                                CastExpr::path_const_iterator PathBegin,
                                CastExpr::path_const_iterator PathEnd);
 
+  unsigned ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
+                               llvm::SmallVector<const CXXBaseSpecifier*, 4>& path);
+
   llvm::FoldingSet<BlockByrefHelpers> ByrefHelpersCache;
 
   /// Fetches the global unique block count.
