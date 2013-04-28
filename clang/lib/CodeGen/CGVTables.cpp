@@ -510,9 +510,14 @@ static bool shouldEmitVTableThunk(CodeGenModule &CGM, const CXXMethodDecl *MD,
 llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
                                                ThunkInfo TI,
                                                bool ForVTable) {
+  bool byteAddressable = CGM.getTarget().isByteAddressable();
   const CXXMethodDecl* OriginalMethod = Thunk.This.Method;
   const CXXMethodDecl *MD = cast<CXXMethodDecl>(GD.getDecl());
 
+  // Override the non virtual offset in bytes with the topological offset on NBA targets
+  if(!byteAddressable)
+    TI.This.NonVirtual = ComputeTopologicalBaseOffset(CGM, Thunk.This.AdjustmentTarget, Thunk.This.AdjustmentSource);
+ 
   // First, get a declaration. Compute the mangled name. Don't worry about
   // getting the function prototype right, since we may only need this
   // declaration to fill in a vtable slot.
@@ -539,7 +544,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   const CGFunctionInfo &FnInfo =
       IsUnprototyped ? CGM.getTypes().arrangeUnprototypedMustTailThunk(MD)
                      : CGM.getTypes().arrangeGlobalDeclaration(
-                                      CGM.getTarget().isByteAddressable()?GD:GD.getWithDecl(OriginalMethod));
+                     +                byteAddressable?GD:GD.getWithDecl(OriginalMethod));
   llvm::FunctionType *ThunkFnTy = CGM.getTypes().GetFunctionType(FnInfo);
 
   // If the type of the underlying GlobalValue is wrong, we'll have to replace
@@ -894,10 +899,16 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
 
     // Thunks.
     } else if (nextVTableThunkIndex < layout.vtable_thunks().size() &&
-               layout.vtable_thunks()[nextVTableThunkIndex].first ==
-                   componentIndex) {
+               layout.vtable_thunks()[nextVTableThunkIndex].first == idx) {
       auto &thunkInfo = layout.vtable_thunks()[nextVTableThunkIndex].second;
 
+      if (!CGM.getTarget().isByteAddressable())
+      {
+        // Override the non virtual offset in bytes with the topological offset
+        // TODO: Really move topological offset logic in AST
+        thunkInfo.This.NonVirtual = ComputeTopologicalBaseOffset(CGM, thunkInfo.This.AdjustmentTarget, thunkInfo.This.AdjustmentSource);
+      }
+ 
       nextVTableThunkIndex++;
       fnPtr = maybeEmitThunk(GD, thunkInfo, /*ForVTable=*/true);
 
