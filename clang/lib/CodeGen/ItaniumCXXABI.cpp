@@ -2024,7 +2024,24 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
                                           Address InitialPtr,
                                           int64_t NonVirtualAdjustment,
                                           int64_t VirtualAdjustment,
-                                          bool IsReturnAdjustment) {
+                                          bool IsReturnAdjustment,
+                                          const CXXRecordDecl* AdjustmentTarget,
+                                          const CXXRecordDecl* AdjustmentSource) {
+  if (!CGF.getTarget().isByteAddressable() && VirtualAdjustment)
+    CGF.CGM.ErrorUnsupported(AdjustmentSource, "Duetto: Virtual bases on non-byte addressable targets are not supported yet");
+  if (!CGF.getTarget().isByteAddressable() && IsReturnAdjustment)
+  {
+    CGF.CGM.ErrorUnsupported(CGF.CurGD.getDecl(),
+                    "Duetto: Covariant returns on non-byte addressable targets are not supported yet");
+  }
+
+  // Duetto: Handle byte addressable case before
+  if (!CGF.getTarget().isByteAddressable())
+  {
+    //TODO: We need to support calling a different thunk based on the type of the incoming this pointer
+    return CGF.GenerateDowncast(Ptr, AdjustmentTarget, NonVirtualAdjustment);
+  }
+
   if (!NonVirtualAdjustment && !VirtualAdjustment)
     return InitialPtr.getPointer();
 
@@ -2083,7 +2100,8 @@ llvm::Value *ItaniumCXXABI::performThisAdjustment(CodeGenFunction &CGF,
                                                   const ThisAdjustment &TA) {
   return performTypeAdjustment(CGF, This, TA.NonVirtual,
                                TA.Virtual.Itanium.VCallOffsetOffset,
-                               /*IsReturnAdjustment=*/false);
+                               /*IsReturnAdjustment=*/false,
+                               TA.AdjustmentTarget, TA.AdjustmentSource);
 }
 
 llvm::Value *
@@ -2091,7 +2109,8 @@ ItaniumCXXABI::performReturnAdjustment(CodeGenFunction &CGF, Address Ret,
                                        const ReturnAdjustment &RA) {
   return performTypeAdjustment(CGF, Ret, RA.NonVirtual,
                                RA.Virtual.Itanium.VBaseOffsetOffset,
-                               /*IsReturnAdjustment=*/true);
+                               /*IsReturnAdjustment=*/true,
+                               RA.AdjustmentTarget, RA.AdjustmentSource);
 }
 
 void ARMCXXABI::EmitReturnFromThunk(CodeGenFunction &CGF,
