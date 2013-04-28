@@ -252,7 +252,7 @@ CodeGenFunction::GenerateVarArgsThunk(llvm::Function *Fn,
 
 void CodeGenFunction::StartThunk(llvm::Function *Fn, GlobalDecl GD,
                                  const CGFunctionInfo &FnInfo,
-                                 bool IsUnprototyped) {
+                                 bool IsUnprototyped, const CXXMethodDecl* OriginalMethod) {
   assert(!CurGD.getDecl() && "CurGD was already set!");
   CurGD = GD;
   CurFuncIsThunk = true;
@@ -272,7 +272,7 @@ void CodeGenFunction::StartThunk(llvm::Function *Fn, GlobalDecl GD,
   FunctionArgList FunctionArgs;
 
   // Create the implicit 'this' parameter declaration.
-  CGM.getCXXABI().buildThisParam(*this, FunctionArgs);
+  CGM.getCXXABI().buildThisParam(*this, FunctionArgs, OriginalMethod);
 
   // Add the rest of the parameters, if we have a prototype to work with.
   if (!IsUnprototyped) {
@@ -464,7 +464,9 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo, GlobalDecl GD,
                                     const ThunkInfo &Thunk,
                                     bool IsUnprototyped) {
-  StartThunk(Fn, GD, FnInfo, IsUnprototyped);
+  const CXXMethodDecl* OriginalMethod = getTarget().isByteAddressable() ? cast<CXXMethodDecl>(GD.getDecl()) :
+                                                                          Thunk.This.Method;
+  StartThunk(Fn, GD, FnInfo, IsUnprototyped, OriginalMethod);
   // Create a scope with an artificial location for the body of this function.
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
 
@@ -508,6 +510,7 @@ static bool shouldEmitVTableThunk(CodeGenModule &CGM, const CXXMethodDecl *MD,
 llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
                                                ThunkInfo TI,
                                                bool ForVTable) {
+  const CXXMethodDecl* OriginalMethod = Thunk.This.Method;
   const CXXMethodDecl *MD = cast<CXXMethodDecl>(GD.getDecl());
 
   // First, get a declaration. Compute the mangled name. Don't worry about
@@ -520,7 +523,8 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
     MCtx.mangleCXXDtorThunk(DD, GD.getDtorType(), TI.This, Out);
   else
     MCtx.mangleThunk(MD, TI, Out);
-  llvm::Type *ThunkVTableTy = CGM.getTypes().GetFunctionTypeForVTable(GD);
+  llvm::Type *ThunkVTableTy = CGM.getTypes().GetFunctionTypeForVTable(
+                                  getTarget().isByteAddressable()?GD:GD.getWithDecl(OriginalMethod));
   llvm::Constant *Thunk = CGM.GetAddrOfThunk(Name, ThunkVTableTy, GD);
 
   // If we don't need to emit a definition, return this declaration as is.
@@ -531,9 +535,11 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
 
   // Arrange a function prototype appropriate for a function definition. In some
   // cases in the MS ABI, we may need to build an unprototyped musttail thunk.
+  const CXXMethodDecl* OriginalMethod = TI.This.Method;
   const CGFunctionInfo &FnInfo =
       IsUnprototyped ? CGM.getTypes().arrangeUnprototypedMustTailThunk(MD)
-                     : CGM.getTypes().arrangeGlobalDeclaration(GD);
+                     : CGM.getTypes().arrangeGlobalDeclaration(
+                                      CGM.getTarget().isByteAddressable()?GD:GD.getWithDecl(OriginalMethod));
   llvm::FunctionType *ThunkFnTy = CGM.getTypes().GetFunctionType(FnInfo);
 
   // If the type of the underlying GlobalValue is wrong, we'll have to replace

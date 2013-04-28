@@ -367,7 +367,7 @@ public:
   }
 
   /// Build a parameter variable suitable for 'this'.
-  void buildThisParam(CodeGenFunction &CGF, FunctionArgList &Params);
+  void buildThisParam(CodeGenFunction &CGF, FunctionArgList &Params, const CXXMethodDecl* MD);
 
   /// Insert any ABI-specific implicit parameters into the parameter list for a
   /// function.  This generally involves extra data for constructors and
