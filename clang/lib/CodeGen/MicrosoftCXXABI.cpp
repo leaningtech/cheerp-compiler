@@ -2072,7 +2072,7 @@ MicrosoftCXXABI::EmitVirtualMemPtrThunk(const CXXMethodDecl *MD,
   // Build FunctionArgs, but only include the implicit 'this' parameter
   // declaration.
   FunctionArgList FunctionArgs;
-  buildThisParam(CGF, FunctionArgs);
+  buildThisParam(CGF, FunctionArgs, MD);
 
   // Start defining the function.
   CGF.StartFunction(GlobalDecl(), FnInfo.getReturnType(), ThunkFn, FnInfo,
@@ -4085,7 +4085,7 @@ MicrosoftCXXABI::getAddrOfCXXCtorClosure(const CXXConstructorDecl *CD,
   FunctionArgList FunctionArgs;
 
   // A constructor always starts with a 'this' pointer as its first argument.
-  buildThisParam(CGF, FunctionArgs);
+  buildThisParam(CGF, FunctionArgs, CD);
 
   // Following the 'this' pointer is a reference to the source object that we
   // are copying from.
