@@ -37,6 +37,9 @@ enum CXXDtorType {
     Dtor_Comdat    ///< The COMDAT used for dtors
 };
 
+class CXXRecordDecl;
+class CXXMethodDecl;
+
 /// A return adjustment.
 struct ReturnAdjustment {
   /// The non-virtual adjustment from the derived object to its
@@ -80,14 +83,24 @@ struct ReturnAdjustment {
       return memcmp(this, &RHS, sizeof(RHS)) < 0;
     }
   } Virtual;
+  
+  const CXXRecordDecl* AdjustmentTarget;
+  const CXXRecordDecl* AdjustmentSource;
 
-  ReturnAdjustment() : NonVirtual(0) {}
-
-  bool isEmpty() const { return !NonVirtual && Virtual.isEmpty(); }
+  ReturnAdjustment(bool byteAddressable, const CXXRecordDecl* t, const CXXRecordDecl* s) :
+        NonVirtual(0), AdjustmentTarget(byteAddressable?NULL:t),
+        AdjustmentSource(byteAddressable?NULL:s) { }
+  
+  bool isEmpty() const { return !NonVirtual && Virtual.isEmpty() &&
+            AdjustmentSource==AdjustmentTarget; }
 
   friend bool operator==(const ReturnAdjustment &LHS,
                          const ReturnAdjustment &RHS) {
-    return LHS.NonVirtual == RHS.NonVirtual && LHS.Virtual.Equals(RHS.Virtual);
+    return LHS.NonVirtual == RHS.NonVirtual &&
+      LHS.Virtual.Equals(RHS.Virtual) &&
+      //Those are all NULL in the byte addressable case
+      LHS.AdjustmentSource == RHS.AdjustmentSource &&
+      LHS.AdjustmentTarget == RHS.AdjustmentTarget;
   }
 
   friend bool operator!=(const ReturnAdjustment &LHS, const ReturnAdjustment &RHS) {
@@ -148,14 +161,25 @@ struct ThisAdjustment {
       return memcmp(this, &RHS, sizeof(RHS)) < 0;
     }
   } Virtual;
+  
+  const CXXRecordDecl* AdjustmentTarget;
+  const CXXRecordDecl* AdjustmentSource;
+  const CXXMethodDecl* Method;
 
-  ThisAdjustment() : NonVirtual(0) { }
+  ThisAdjustment(bool byteAddressable, const CXXRecordDecl* t, const CXXRecordDecl* s) :
+        NonVirtual(0), AdjustmentTarget(byteAddressable?NULL:t),
+        AdjustmentSource(byteAddressable?NULL:s), Method(0){ }
 
-  bool isEmpty() const { return !NonVirtual && Virtual.isEmpty(); }
+  bool isEmpty() const { return !NonVirtual && Virtual.isEmpty() &&
+            AdjustmentSource==AdjustmentTarget; }
 
   friend bool operator==(const ThisAdjustment &LHS,
                          const ThisAdjustment &RHS) {
-    return LHS.NonVirtual == RHS.NonVirtual && LHS.Virtual.Equals(RHS.Virtual);
+    return LHS.NonVirtual == RHS.NonVirtual &&
+      LHS.Virtual.Equals(RHS.Virtual) &&
+      //Those are all NULL in the byte addressable case
+      LHS.AdjustmentSource == RHS.AdjustmentSource &&
+      LHS.AdjustmentTarget == RHS.AdjustmentTarget;
   }
 
   friend bool operator!=(const ThisAdjustment &LHS, const ThisAdjustment &RHS) {
@@ -189,7 +213,7 @@ struct ThunkInfo {
   /// an ABI-specific comparator.
   const CXXMethodDecl *Method;
 
-  ThunkInfo() : Method(nullptr) { }
+  ThunkInfo() : This(false,0,0), Return(false, 0, 0), Method(nullptr) { }
 
   ThunkInfo(const ThisAdjustment &This, const ReturnAdjustment &Return,
             const CXXMethodDecl *Method = nullptr)
