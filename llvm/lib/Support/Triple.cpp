@@ -78,6 +78,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case x86:            return "i386";
   case x86_64:         return "x86_64";
   case xcore:          return "xcore";
+  case cheerp:         return "cheerp";
   }
 
   llvm_unreachable("Invalid ArchType!");
@@ -158,6 +159,7 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
 
   case ve:          return "ve";
   case csky:        return "csky";
+  case cheerp:      return "cheerp";
   }
 }
 
@@ -332,6 +334,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("renderscript64", renderscript64)
     .Case("ve", ve)
     .Case("csky", csky)
+    .Case("cheerp", cheerp)
     .Default(UnknownArch);
 }
 
@@ -465,6 +468,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("wasm32", Triple::wasm32)
     .Case("wasm64", Triple::wasm64)
     .Case("csky", Triple::csky)
+    .Case("cheerp", Triple::cheerp)
     .Default(Triple::UnknownArch);
 
   // Some architectures require special parsing logic just to compute the
@@ -1311,6 +1315,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::wasm32:
   case llvm::Triple::x86:
   case llvm::Triple::xcore:
+  case llvm::Triple::cheerp:
     return 32;
 
   case llvm::Triple::aarch64:
@@ -1396,6 +1401,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::wasm32:
   case Triple::x86:
   case Triple::xcore:
+  case Triple::cheerp:
     // Already 32-bit.
     break;
 
@@ -1437,6 +1443,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::tce:
   case Triple::tcele:
   case Triple::xcore:
+  case Triple::cheerp:
     T.setArch(UnknownArch);
     break;
 
