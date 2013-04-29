@@ -319,16 +319,40 @@ void JSWriter::compileCopyRecursive(const std::string& baseName, const Value* ba
 	}
 }
 
-void JSWriter::compileReset(const Value* castedDest, uint8_t resetValue, const Value* size)
+void JSWriter::compileReset(const Value* dest, uint8_t resetValue, const Value* size)
 {
-	//First of all dump the bitcast
-	assert(isBitCast(castedDest));
-	const Value* dest=static_cast<const BitCastInst*>(castedDest)->getOperand(0);
-	assert(dest->getType()->isPointerTy());
-	const PointerType* pointedType = static_cast<const PointerType*>(dest->getType());
-	stream << '{';
-	compileResetRecursive("", dest, resetValue, pointedType->getElementType(), NULL);
-	stream << '}';
+	std::set<const PHINode*> visitedPhis;
+	Type* destType=findRealType(dest,visitedPhis);
+	assert(destType->isPointerTy());
+	Type* pointedType = static_cast<PointerType*>(destType)->getElementType();
+	uint32_t typeSize = targetData.getTypeAllocSize(pointedType);
+
+	if(ConstantInt::classof(size))
+	{
+		uint32_t allocatedSize = getIntFromValue(size);
+		//assert((allocatedSize % typeSize) == 0);
+		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
+		assert(numElem>0);
+		//The first element is always copied directly, to support complete objects
+		compileResetRecursive("", dest, resetValue, pointedType,NULL);
+		//The rest is compiled using a for loop
+		if(numElem==1)
+			return;
+
+		stream << "for(var __i__=1;__i__<" << numElem << ";__i__++) {\n";
+		compileResetRecursive("", dest, resetValue, pointedType,"__i__");
+		stream << "}\n";
+	}
+	else
+	{
+		//TODO: See if we should support complete objects for dynamic sizes
+		//TODO: Remove division for size 1
+		stream << "for(var __i__=0;__i__<(";
+		compileOperand(size);
+		stream << '/' << typeSize << ");__i__++) {\n";
+		compileResetRecursive("", dest, resetValue, pointedType,"__i__");
+		stream << "}\n";
+	}
 }
 
 void JSWriter::compileResetRecursive(const std::string& baseName, const Value* baseDest,
@@ -635,7 +659,7 @@ bool JSWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	else if(strncmp(ident,"llvm.memset",11)==0)
 	{
 		uint32_t resetVal = getIntFromValue(*(it+1));
-		compileReset(*(it), resetVal, (*it+2));
+		compileReset(*(it), resetVal, *(it+2));
 		return true;
 	}
 	else if(strcmp(ident,"malloc")==0 ||
