@@ -414,6 +414,7 @@ set(LLVM_ALL_TARGETS
   ARM
   AVR
   BPF
+  CheerpBackend
   Hexagon
   Lanai
   Mips
