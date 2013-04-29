@@ -662,6 +662,10 @@ bool JSWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		compileReset(*(it), resetVal, *(it+2));
 		return true;
 	}
+	else if(strncmp(ident,"llvm.lifetime",13)==0)
+	{
+		return true;
+	}
 	else if(strcmp(ident,"malloc")==0 ||
 		strcmp(ident,"_Znaj")==0 ||
 		strcmp(ident,"_Znwj")==0)
