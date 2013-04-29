@@ -2482,13 +2482,28 @@ void JSWriter::DuettoRenderInterface::renderIfBlockBegin(void* privateBlock, int
 	else if(SwitchInst::classof(term))
 	{
 		const SwitchInst* si=cast<const SwitchInst>(term);
-		writer->compileOperand(si->getCondition());
-		writer->stream << " === ";
 		assert(branchId > 0);
 		SwitchInst::ConstCaseIt it=si->case_begin();
 		for(int i=1;i<branchId;i++)
 			++it;
+		const BasicBlock* dest=it.getCaseSuccessor();
+		//We found the destination, there may be more cases for the same
+		//destination though
+		writer->compileOperand(si->getCondition());
+		writer->stream << " === ";
 		writer->compileConstant(it.getCaseValue());
+		for(;it!=si->case_end();++it)
+		{
+			if(it.getCaseSuccessor()==dest)
+			{
+				//Also add this condition
+				writer->stream << "|| (";
+				writer->compileOperand(si->getCondition());
+				writer->stream << " === ";
+				writer->compileConstant(it.getCaseValue());
+				writer->stream << ')';
+			}
+		}
 	}
 	else
 	{
@@ -2654,7 +2669,9 @@ void JSWriter::compileMethod(Function& F)
 					continue;
 				Block* target=relooperMap[term->getSuccessor(i)];
 				//Use -1 for the default target
-				relooperMap[&(*B)]->AddBranchTo(target, (i==defaultBranchId)?-1:i);
+				bool ret=relooperMap[&(*B)]->AddBranchTo(target, (i==defaultBranchId)?-1:i);
+				if(ret==false) //More than a path for a single block can only happen for switch
+					assert(SwitchInst::classof(term));
 			}
 		}
 
