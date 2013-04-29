@@ -246,11 +246,18 @@ void JSWriter::handleBuiltinNamespace(const char* ident, User::const_op_iterator
 
 bool JSWriter::isBitCast(const Value* v) const
 {
+	const User* b=static_cast<const User*>(v);
 	if(BitCastInst::classof(v))
+	{
+		assert(isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType()));
 		return true;
+	}
 	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
 	if(ce && ce->getOpcode()==Instruction::BitCast)
+	{
+		assert(isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType()));
 		return true;
+	}
 	return false;
 }
 
