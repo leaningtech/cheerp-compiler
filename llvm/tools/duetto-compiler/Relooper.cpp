@@ -63,9 +63,11 @@ Block::~Block() {
   // XXX If not reachable, expected to have branches here. But need to clean them up to prevent leaks!
 }
 
-void Block::AddBranchTo(Block *Target, int branchId) {
-  assert(BranchesOut.find(Target) == BranchesOut.end()); // cannot add more than one branch to the same target
+bool Block::AddBranchTo(Block *Target, int branchId) {
+  if(BranchesOut.find(Target) != BranchesOut.end()) // cannot add more than one branch to the same target
+    return false;
   BranchesOut[Target] = new Branch(branchId);
+  return true;
 }
 
 void Block::Render(bool InLoop, RenderInterface* renderInterface) {

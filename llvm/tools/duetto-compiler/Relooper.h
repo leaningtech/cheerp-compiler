@@ -85,7 +85,10 @@ struct Block {
   Block(void* privateBlock);
   ~Block();
 
-  void AddBranchTo(Block *Target, int branchId);
+  /*
+   * Return false is a branch to the Target already exists
+   */
+  bool AddBranchTo(Block *Target, int branchId);
 
   // Prints out the instructions code and branchings
   void Render(bool InLoop, RenderInterface* renderInterface);
