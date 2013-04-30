@@ -119,6 +119,9 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
   case llvm::Triple::arc:
     return new ARCTargetInfo(Triple, Opts);
 
+  case llvm::Triple::cheerp:
+    return new LinuxTargetInfo<CheerpTargetInfo>(Triple);
+
   case llvm::Triple::xcore:
     return new XCoreTargetInfo(Triple, Opts);
 
