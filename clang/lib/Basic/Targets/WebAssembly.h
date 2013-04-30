@@ -168,6 +168,47 @@ protected:
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
 };
+
+// Duetto base class
+class DuettoTargetInfo : public TargetInfo {
+public:
+  DuettoTargetInfo(const llvm::Triple &triple) : TargetInfo(triple) {
+    DescriptionString = "e-p:32:8-i16:8-i32:8-"
+                        "i64:8-f32:8-f64:8-"
+                        "a:0:8-f80:8-n8:8:8-S8";
+    BigEndian = false;
+  }
+
+  virtual ArrayRef<Builtin::Info> getTargetBuiltins() const {
+    return llvm::makeArrayRef(BuiltinInfo, clang::Cheerp::LastTSBuiltin - Builtin::FirstTSBuiltin);
+  }
+
+  virtual void getTargetDefines(const LangOptions &Opts,
+                                MacroBuilder &Builder) const {
+    // Target identification.
+    Builder.defineMacro("__DUETTO__");
+  }
+
+  virtual BuiltinVaListKind getBuiltinVaListKind() const {
+    return TargetInfo::CharPtrBuiltinVaList;
+  }
+
+  virtual ArrayRef<const char *> getGCCRegNames() const {
+    return None;
+  }
+
+  virtual ArrayRef<GCCRegAlias> getGCCRegAliases() const {
+    return None;
+  }
+
+  virtual bool validateAsmConstraint(const char *&Name,
+                                     TargetInfo::ConstraintInfo &Info) const {
+    return false;
+  }
+  virtual const char *getClobbers() const {
+    return "";
+  }
+};
 } // namespace targets
 } // namespace clang
 #endif // LLVM_CLANG_LIB_BASIC_TARGETS_WEBASSEMBLY_H

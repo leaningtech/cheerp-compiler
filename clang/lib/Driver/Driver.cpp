@@ -576,6 +576,12 @@ static llvm::Triple computeTargetTriple(const Driver &D,
       Target.setArch(llvm::Triple::riscv64);
   }
 
+  if (Target.getArch() == llvm::Triple::cheerp)
+  {
+    //HACK: We need to fake the OS as Linux to find C++ headers
+    Target.setOS(llvm::Triple::Linux);
+  }
+
   return Target;
 }
 

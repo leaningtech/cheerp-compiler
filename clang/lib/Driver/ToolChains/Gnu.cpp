@@ -2300,6 +2300,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
       BiarchTripleAliases.append(begin(X86Triples), end(X86Triples));
     }
     break;
+  case llvm::Triple::duetto:
   case llvm::Triple::x86:
     LibDirs.append(begin(X86LibDirs), end(X86LibDirs));
     // MCU toolchain is 32 bit only and its triple alias is TargetTriple
@@ -2392,6 +2393,9 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
   case llvm::Triple::systemz:
     LibDirs.append(begin(SystemZLibDirs), end(SystemZLibDirs));
     TripleAliases.append(begin(SystemZTriples), end(SystemZTriples));
+    break;
+  case llvm::Triple::cheerp:
+    MultiarchIncludeDirs = CheerpMultiarchIncludeDirs;
     break;
   default:
     // By default, just rely on the standard lib directories and the original
