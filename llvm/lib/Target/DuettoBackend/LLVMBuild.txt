@@ -27,5 +27,5 @@ parent = Target
 type = Library
 name = DuettoBackendCodeGen
 parent = DuettoBackend
-required_libraries = Core DuettoBackendInfo Support Target
+required_libraries = Core DuettoBackendInfo Support Target DuettoWriter
 add_to_library_groups = DuettoBackend
