@@ -1,3 +1,3 @@
-add_llvm_library(DuettoUtils
+add_llvm_library(LLVMDuettoUtils
   NativeRewriter.cpp
   )

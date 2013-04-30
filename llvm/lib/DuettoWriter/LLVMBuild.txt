@@ -1,4 +1,4 @@
-;===- ./tools/llc/LLVMBuild.txt --------------------------------*- Conf -*--===;
+;===- ./lib/Linker/LLVMBuild.txt -------------------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -16,7 +16,7 @@
 ;===------------------------------------------------------------------------===;
 
 [component_0]
-type = Tool
-name = duetto-compiler
-parent = Tools
-required_libraries = AsmParser BitReader BitWriter DuettoWriter DuettoUtils IRReader all-targets
+type = Library
+name = DuettoWriter
+parent = Libraries
+required_libraries = BitReader Core Support TransformUtils DuettoUtils
