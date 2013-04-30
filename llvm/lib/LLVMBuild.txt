@@ -21,6 +21,7 @@ subdirectories =
  Bitcode
  Bitstream
  CheerpUtils
+ CheerpWriter
  CodeGen
  DebugInfo
  Demangle

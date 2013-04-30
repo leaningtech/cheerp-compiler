@@ -1,6 +1,5 @@
-set(LLVM_LINK_COMPONENTS ${LLVM_TARGETS_TO_BUILD} bitreader bitwriter asmparser all)
+set(LLVM_LINK_COMPONENTS bitreader bitwriter target asmparser duettowriter irreader)
 
 add_llvm_tool(duetto-compiler
   duetto-compiler.cpp
-  Relooper.cpp
   )

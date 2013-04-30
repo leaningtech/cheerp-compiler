@@ -100,7 +100,7 @@ struct Block {
 // Represents a structured control flow shape, one of
 //
 //  Simple: No control flow at all, just instructions. If several
-//          blocks, then 
+//          blocks, then
 //
 //  Multiple: A shape with more than one entry. If the next block to
 //            be entered is among them, we run it and continue to
