@@ -69,6 +69,7 @@ private:
 	void compileReset(const llvm::Value* dest, uint8_t resetValue, const llvm::Value* size);
 	void compileResetRecursive(const std::string& baseName, const llvm::Value* baseDest,
 		uint8_t resetValue, const llvm::Type* currentType, const char* namedOffset);
+	void compileDowncast(const llvm::Value* src);
 	void compileAllocation(const llvm::Value* callV, const llvm::Value* size);
 	void compileFree(const llvm::Value* obj);
 	void printLLVMName(const llvm::StringRef& s) const;
