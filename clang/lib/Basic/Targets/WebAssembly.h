@@ -187,6 +187,7 @@ public:
     FloatAlign = 8;
     DoubleAlign = 8;
     LongDoubleAlign = 8;
+    SizeType = UnsignedInt;
   }
 
   virtual ArrayRef<Builtin::Info> getTargetBuiltins() const {
