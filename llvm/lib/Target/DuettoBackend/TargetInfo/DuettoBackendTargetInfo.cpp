@@ -14,5 +14,3 @@ extern "C" void LLVMInitializeDuettoBackendTargetInfo() {
   RegisterTarget<Triple::duetto, /*HasJIT=*/false>
     X(TheDuettoBackendTarget, "duetto", "Duetto client side backend");
 }
-
-extern "C" void LLVMInitializeDuettoBackendTargetMC() {}
