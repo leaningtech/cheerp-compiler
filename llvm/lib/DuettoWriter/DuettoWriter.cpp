@@ -1078,6 +1078,7 @@ void DuettoWriter::compileConstant(const Constant* c)
 	{
 		const ConstantDataSequential* d=cast<const ConstantDataSequential>(c);
 		Type* t=d->getElementType();
+		stream << "new ";
 		if(t->isIntegerTy(8))
 			stream << "Int8Array";
 		else if(t->isIntegerTy(16))
