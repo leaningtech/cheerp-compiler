@@ -36,17 +36,10 @@ static void
 ComputeNonVirtualBaseClassGepPath(CodeGenModule& CGM,
                                   SmallVector<llvm::Value*, 4>& GEPIndexes,
                                   const CXXRecordDecl *DerivedClass,
-                                  CastExpr::path_const_iterator Start,
-                                  CastExpr::path_const_iterator End) {
+                                  llvm::ArrayRef<const CXXRecordDecl*> BasePath) {
   const CXXRecordDecl *RD = DerivedClass;
 
-  for (CastExpr::path_const_iterator I = Start; I != End; ++I) {
-    const CXXBaseSpecifier *Base = *I;
-    assert(!Base->isVirtual() && "Should not see virtual bases here!");
-
-    const CXXRecordDecl *BaseDecl =
-      cast<CXXRecordDecl>(Base->getType()->getAs<RecordType>()->getDecl());
-
+  for (const CXXRecordDecl* BaseDecl: BasePath) {
     if(!BaseDecl->isEmpty())
     {
       // Get the layout.
@@ -437,8 +430,17 @@ Address CodeGenFunction::GetAddressOfBaseClass(
     SmallVector<llvm::Value*, 4> GEPConstantIndexes;
 
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
+    llvm::SmallVector<const CXXRecordDecl*, 4> BasePath;
+    for (CastExpr::path_const_iterator I = Start; I != End; ++I) {
+      const CXXBaseSpecifier *Base = *I;
+      assert(!Base->isVirtual() && "Should not see virtual bases here!");
+
+      const CXXRecordDecl *BaseDecl = cast<CXXRecordDecl>(Base->getType()->getAs<RecordType>()->getDecl());
+
+      BasePath.push_back(BaseDecl);
+    }
     ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes,
-                                    Derived, PathBegin, PathEnd);
+                                    Derived, BasePath);
     Value = Builder.CreateGEP(Value, GEPConstantIndexes);
     //Duetto: Check if the type is the expected one. If not create a cast with a metadata for duetto
     //This may happen when empty classes are found
@@ -493,6 +495,9 @@ CodeGenModule::ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
       // Get the layout.
       const CGRecordLayout &Layout = getTypes().getCGRecordLayout(RD);
       unsigned baseId = Layout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
+      // Decrease by one if our own vtable is in front
+      if(DerivedClass->isDynamicClass())
+        baseId--;
       Offset += Layout.getTotalOffsetToBase(baseId);
     }
     RD = BaseDecl;
@@ -2642,21 +2647,17 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   Address VTableField = LoadCXXThisAddress();
 
   if (!getTarget().isByteAddressable()) {
-    if(VTableClass != Base.getBase()) {
-      VTableField = GetAddressOfDirectBaseInCompleteClass(VTableField,
-                                                          Vptr.VTableClass, Vptr.Base.getBase(),
-                                                          false);
-    }
+    SmallVector<llvm::Value*, 4> GEPConstantIndexes;
+
+    GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
+    ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes,
+                                    Vptr.VTableClass, Vptr.Bases);
+    VTableField = Builder.CreateGEP(Value, GEPConstantIndexes);
   } else if (!NonVirtualOffset.isZero() || VirtualOffset)
-    VTableField = ApplyNonVirtualAndVirtualOffset(*this, VTableField,
-                                                  NonVirtualOffset,
-                                                  VirtualOffset,
-                                                  VTableClass,
-                                                  NearestVBase);
-  else if (!NonVirtualOffset.isZero() || VirtualOffset)
     VTableField = ApplyNonVirtualAndVirtualOffset(
         *this, VTableField, NonVirtualOffset, VirtualOffset, Vptr.VTableClass,
         Vptr.NearestVBase);
+
 
   // Finally, store the address point. Use the same LLVM types as the field to
   // support optimization.
@@ -2679,7 +2680,9 @@ CodeGenFunction::VPtrsVector
 CodeGenFunction::getVTablePointers(const CXXRecordDecl *VTableClass) {
   CodeGenFunction::VPtrsVector VPtrsResult;
   VisitedVirtualBasesSetTy VBases;
+  llvm::SmallVector<const CXXRecordDecl*, 4> Bases;
   getVTablePointers(BaseSubobject(VTableClass, CharUnits::Zero()),
+                    Bases,
                     /*NearestVBase=*/nullptr,
                     /*OffsetFromNearestVBase=*/CharUnits::Zero(),
                     /*BaseIsNonVirtualPrimaryBase=*/false, VTableClass, VBases,
@@ -2688,6 +2691,7 @@ CodeGenFunction::getVTablePointers(const CXXRecordDecl *VTableClass) {
 }
 
 void CodeGenFunction::getVTablePointers(BaseSubobject Base,
+                                        const llvm::SmallVector<const CXXRecordDecl*, 4>& Bases,
                                         const CXXRecordDecl *NearestVBase,
                                         CharUnits OffsetFromNearestVBase,
                                         bool BaseIsNonVirtualPrimaryBase,
@@ -2698,7 +2702,7 @@ void CodeGenFunction::getVTablePointers(BaseSubobject Base,
   // been set.
   if (!BaseIsNonVirtualPrimaryBase) {
     // Initialize the vtable pointer for this base.
-    VPtr Vptr = {Base, NearestVBase, OffsetFromNearestVBase, VTableClass};
+    VPtr Vptr = {Base, Bases, NearestVBase, OffsetFromNearestVBase, VTableClass};
     Vptrs.push_back(Vptr);
   }
 
@@ -2737,8 +2741,12 @@ void CodeGenFunction::getVTablePointers(BaseSubobject Base,
       BaseDeclIsNonVirtualPrimaryBase = Layout.getPrimaryBase() == BaseDecl;
     }
 
+    llvm::SmallVector<const CXXRecordDecl*, 4> NewBases = Bases;
+    NewBases.push_back(BaseDecl);
+
     getVTablePointers(
         BaseSubobject(BaseDecl, BaseOffset),
+        NewBases,
         I.isVirtual() ? BaseDecl : NearestVBase, BaseOffsetFromNearestVBase,
         BaseDeclIsNonVirtualPrimaryBase, VTableClass, VBases, Vptrs);
   }
