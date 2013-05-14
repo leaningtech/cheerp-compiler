@@ -2263,6 +2263,7 @@ public:
   /// Struct with all information about dynamic [sub]class needed to set vptr.
   struct VPtr {
     BaseSubobject Base;
+    llvm::SmallVector<const CXXRecordDecl*, 4> Bases;
     const CXXRecordDecl *NearestVBase;
     CharUnits OffsetFromNearestVBase;
     const CXXRecordDecl *VTableClass;
@@ -2276,7 +2277,9 @@ public:
   typedef llvm::SmallPtrSet<const CXXRecordDecl *, 4> VisitedVirtualBasesSetTy;
   VPtrsVector getVTablePointers(const CXXRecordDecl *VTableClass);
 
-  void getVTablePointers(BaseSubobject Base, const CXXRecordDecl *NearestVBase,
+  void getVTablePointers(BaseSubobject Base,
+                         const llvm::SmallVector<const CXXRecordDecl*, 4>& Bases,
+                         const CXXRecordDecl *NearestVBase,
                          CharUnits OffsetFromNearestVBase,
                          bool BaseIsNonVirtualPrimaryBase,
                          const CXXRecordDecl *VTableClass,
