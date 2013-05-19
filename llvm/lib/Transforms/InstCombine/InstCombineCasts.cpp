@@ -2519,9 +2519,12 @@ Instruction *InstCombinerImpl::visitBitCast(BitCastInst &CI) {
     // size, rewrite the allocation instruction to allocate the "right" type.
     // There is no need to modify malloc calls because it is their bitcast that
     // needs to be cleaned up.
-    if (AllocaInst *AI = dyn_cast<AllocaInst>(Src))
-      if (Instruction *V = PromoteCastOfAllocation(CI, *AI))
-        return V;
+    if (DL.isByteAddressable())
+    {
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(Src))
+        if (Instruction *V = PromoteCastOfAllocation(CI, *AI))
+          return V;
+    }
 
     // When the type pointed to is not sized the cast cannot be
     // turned into a gep.
