@@ -107,9 +107,12 @@ bool DuettoWriter::isBitCast(const Value* v) const
 #ifndef NDEBUG
 	const User* b=static_cast<const User*>(v);
 #endif
-	if(BitCastInst::classof(v))
+	if(const Instruction* I=dyn_cast<BitCastInst>(v))
 	{
-		assert(isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType()));
+#ifndef NDEBUG
+		bool isCollapsedUpcast = I->getMetadata("duetto.upcast.collapsed")!=NULL;
+#endif
+		assert(isCollapsedUpcast || isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType()));
 		return true;
 	}
 	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
@@ -194,7 +197,7 @@ void DuettoWriter::compileReset(const Value* dest, uint8_t resetValue, const Val
 		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
 		assert(numElem>0);
 		//The first element is always copied directly, to support complete objects
-		compileResetRecursive("", dest, resetValue, pointedType,NULL);
+		compileResetRecursive("", dest, resetValue, pointedType, NULL);
 		//The rest is compiled using a for loop
 		if(numElem==1)
 			return;
@@ -905,7 +908,9 @@ bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINo
 		return newCall->getCalledFunction()->getName()=="_Znwj"
 			|| newCall->getCalledFunction()->getName()=="_Znaj"
 			|| newCall->getCalledFunction()->getName()=="realloc"
-			|| newCall->getCalledFunction()->getName()=="malloc";
+			|| newCall->getCalledFunction()->getName()=="malloc"
+			//Downcast can be considered an allocation
+			|| newCall->getCalledFunction()->getName()=="llvm.duetto.downcast";
 	}
 	//Try invoke as well
 	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
@@ -915,7 +920,9 @@ bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINo
 		return newInvoke->getCalledFunction()->getName()=="_Znwj"
 			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
 			|| newInvoke->getCalledFunction()->getName()=="realloc"
-			|| newInvoke->getCalledFunction()->getName()=="malloc";
+			|| newInvoke->getCalledFunction()->getName()=="malloc"
+			//Downcast can be considered an allocation
+			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.downcast";
 	}
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
 	if(newPHI)
