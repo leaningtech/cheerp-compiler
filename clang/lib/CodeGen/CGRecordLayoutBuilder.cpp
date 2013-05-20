@@ -772,6 +772,18 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
     RL->firstBaseElement = Builder.Layout.getFirstBaseElement();
     RL->totalNumberOfBases = Builder.Layout.getTotalNumberOfBases();
     RL->BaseOffsetFromNo = Builder.Layout.getBaseOffsetFromNo();
+
+    // Create metadata with bases range
+    if (RL->firstBaseElement != 0xffffffff)
+    {
+      llvm::SmallVector<llvm::Metadata*, 2> basesRange;
+      basesRange.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, RL->firstBaseElement)));
+      basesRange.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, RL->totalNumberOfBases)));
+      llvm::MDNode* meta = llvm::MDNode::get(getLLVMContext(), basesRange);
+      llvm::Twine basesMetaName(Ty->getName(),"_bases");
+      llvm::NamedMDNode* basesMeta = TheModule.getOrInsertNamedMetadata(basesMetaName.str());
+      basesMeta->addOperand(meta);
+    }
   }
 
   // Add all the field numbers.
