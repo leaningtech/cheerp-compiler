@@ -1033,6 +1033,8 @@ void ItaniumRecordLayoutBuilder::EnsureVTablePointerAlignment(
 
 void ItaniumRecordLayoutBuilder::LayoutNonVirtualBases(
     const CXXRecordDecl *RD) {
+  assert(firstBaseElement == -1 && totalNumberOfBases == 1);
+
   // Only byte addressable targets have a primary base
   if (Context.getTargetInfo().isByteAddressable())
   {
