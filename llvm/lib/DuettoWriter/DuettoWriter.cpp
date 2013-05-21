@@ -1242,7 +1242,7 @@ void DuettoWriter::compileOperand(const Value* v, OperandFix fix)
 	}
 }
 
-void DuettoWriter::compileType(Type* t)
+void DuettoWriter::compileTypeImpl(Type* t)
 {
 	switch(t->getTypeID())
 	{
@@ -1267,8 +1267,12 @@ void DuettoWriter::compileType(Type* t)
 		}
 		case Type::StructTyID:
 		{
-			stream << "{ ";
 			StructType* st=static_cast<StructType*>(t);
+			assert(st->hasName());
+			NamedMDNode* basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
+			if(basesMeta)
+				classesNeeded.insert(st);
+			stream << "{ ";
 			StructType::element_iterator E=st->element_begin();
 			StructType::element_iterator EE=st->element_end();
 			uint32_t offset=0;
@@ -1304,6 +1308,24 @@ void DuettoWriter::compileType(Type* t)
 			t->dump();
 			llvm::errs() << '\n';
 	}
+}
+
+void DuettoWriter::compileType(Type* t)
+{
+	if(StructType* st=dyn_cast<StructType>(t))
+	{
+		assert(st->hasName());
+		NamedMDNode* basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
+		if(basesMeta)
+		{
+			classesNeeded.insert(st);
+			stream << "create";
+			printLLVMName(st->getName());
+			stream << "()";
+		}
+	}
+	else
+		compileTypeImpl(t);
 }
 
 uint32_t DuettoWriter::getUniqueIndexForValue(const Value* v)
@@ -2690,6 +2712,69 @@ void DuettoWriter::compileGlobal(GlobalVariable& G)
 	stream << ";\n";
 }
 
+uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
+{
+	stream << "a[" << baseCount << "] = " << baseName << ";\n";
+	stream << baseName << ".o=" << baseCount << ";\n";
+	baseCount++;
+
+	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(currentType->getName(),"_bases"));
+	if(!basesNamedMeta)
+		return baseCount;
+
+	assert(basesNamedMeta->getNumOperands()==1);
+	MDNode* basesMeta=basesNamedMeta->getOperand(0);
+	assert(basesMeta->getNumOperands()==2);
+	uint32_t firstBase=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue());
+	uint32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
+	uint32_t offset=0;
+
+	StructType::element_iterator E=currentType->element_begin();
+	StructType::element_iterator EE=currentType->element_end();
+
+	for(;E!=EE;++E)
+	{
+		if(offset < firstBase)
+			continue;
+		else
+		{
+			char buf[12];
+			snprintf(buf,12,".a%u",offset);
+			baseCount=compileClassTypeRecursive(baseName + buf, cast<StructType>(*E), baseCount);
+			if(baseMax==baseCount)
+				break;
+		}
+		offset++;
+	}
+	assert(baseMax==baseCount);
+	return baseCount;
+}
+
+void DuettoWriter::compileClassType(StructType* T)
+{
+	assert(T->hasName());
+	stream << "function create";
+	printLLVMName(T->getName());
+	stream << "(){\n";
+
+	stream << "var t=";
+	compileTypeImpl(T);
+	stream << "\n";
+
+	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(T->getName(),"_bases"));
+	if(basesNamedMeta)
+	{
+		assert(basesNamedMeta->getNumOperands()==1);
+		MDNode* basesMeta=basesNamedMeta->getOperand(0);
+		assert(basesMeta->getNumOperands()==2);
+		uint32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
+		stream << "var a=new Array(" << baseMax << ");\n";
+
+		compileClassTypeRecursive("t", T, 0);
+	}
+	stream << "}\n";
+}
+
 void DuettoWriter::makeJS()
 {
 	//Output all the globals
@@ -2705,6 +2790,12 @@ void DuettoWriter::makeJS()
 	{
 		DuettoUtils::rewriteNativeObjectsConstructors(module, *F);
 		compileMethod(*F);
+	}
+	std::set<StructType*>::const_iterator T=classesNeeded.begin();
+	std::set<StructType*>::const_iterator TE=classesNeeded.end();
+	for (; T != TE; ++T)
+	{
+		compileClassType(*T);
 	}
 	//Invoke the webMain function
 	stream << "__Z7webMainv();\n";
