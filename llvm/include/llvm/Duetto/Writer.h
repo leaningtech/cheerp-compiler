@@ -22,6 +22,7 @@ class DuettoWriter
 private:
 	llvm::Module& module;
 	llvm::DataLayout targetData;
+	std::set<llvm::StructType*> classesNeeded;
 	uint32_t getIntFromValue(const llvm::Value* v) const;
 	bool isValidTypeCast(const llvm::Value* cast, const llvm::Value* castOp, llvm::Type* src, llvm::Type* dst) const;
 	bool isClientType(llvm::Type* t) const;
@@ -42,6 +43,7 @@ private:
 	void compilePredicate(llvm::CmpInst::Predicate p);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
 	void compileType(llvm::Type* t);
+	void compileTypeImpl(llvm::Type* t);
 	bool isCompleteObject(const llvm::Value* val) const;
 	bool isCompleteObject(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis) const;
 	bool isCompleteArray(const llvm::Value* val) const;
@@ -84,6 +86,8 @@ private:
 	std::map<const llvm::Value*, uint32_t> unnamedValueMap;
 	void compileMethod(llvm::Function& F);
 	void compileGlobal(llvm::GlobalVariable& G);
+	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
+	void compileClassType(llvm::StructType* T);
 	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
 public:
