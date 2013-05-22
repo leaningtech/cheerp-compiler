@@ -741,7 +741,7 @@ bool DuettoWriter::isCompleteObject(const Value* v, std::set<const PHINode*>& vi
 	return false;
 }
 
-void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset, const char* namedOffset = NULL)
+void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset, const char* namedOffset)
 {
 	assert(v->getType()->isPointerTy());
 	bool isArray = isCompleteArray(v);
