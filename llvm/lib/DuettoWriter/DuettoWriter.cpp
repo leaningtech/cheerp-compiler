@@ -1281,7 +1281,7 @@ void DuettoWriter::compileTypeImpl(Type* t)
 				if(offset!=0)
 					stream << ", ";
 				stream << "a" << offset << ": ";
-				compileType(*E);
+				compileTypeImpl(*E);
 				offset++;
 			}
 			stream << " }";
@@ -1296,7 +1296,7 @@ void DuettoWriter::compileTypeImpl(Type* t)
 			stream << '[';
 			for(uint64_t i=0;i<at->getNumElements();i++)
 			{
-				compileType(at->getElementType());
+				compileTypeImpl(at->getElementType());
 				if((i+1)<at->getNumElements())
 					stream << ",";
 			}
@@ -2716,6 +2716,7 @@ uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, St
 {
 	stream << "a[" << baseCount << "] = " << baseName << ";\n";
 	stream << baseName << ".o=" << baseCount << ";\n";
+	stream << baseName << ".a=a;\n";
 	baseCount++;
 
 	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(currentType->getName(),"_bases"));
@@ -2772,7 +2773,7 @@ void DuettoWriter::compileClassType(StructType* T)
 
 		compileClassTypeRecursive("t", T, 0);
 	}
-	stream << "}\n";
+	stream << "return t;\n}\n";
 }
 
 void DuettoWriter::makeJS()
