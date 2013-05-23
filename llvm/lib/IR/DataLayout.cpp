@@ -183,6 +183,7 @@ void DataLayout::reset(StringRef Desc) {
   LayoutMap = nullptr;
   BigEndian = false;
   AllocaAddrSpace = 0;
+  ByteAddressable = true;
   StackNaturalAlign.reset();
   ProgramAddrSpace = 0;
   DefaultGlobalsAddrSpace = 0;
@@ -295,6 +296,12 @@ Error DataLayout::parseSpecifier(StringRef Desc) {
     case 's':
       // Deprecated, but ignoring here to preserve loading older textual llvm
       // ASM file
+      break;
+    case 'B':
+      ByteAddressable = true;
+      break;
+    case 'b':
+      ByteAddressable = false;
       break;
     case 'E':
       BigEndian = true;

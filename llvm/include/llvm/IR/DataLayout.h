@@ -121,6 +121,8 @@ public:
 private:
   /// Defaults to false.
   bool BigEndian;
+  /// Defaults to true
+  bool ByteAddressable;
 
   unsigned AllocaAddrSpace;
   MaybeAlign StackNaturalAlign;
@@ -214,6 +216,7 @@ public:
     StringRepresentation = DL.StringRepresentation;
     BigEndian = DL.isBigEndian();
     AllocaAddrSpace = DL.AllocaAddrSpace;
+    ByteAddressable = DL.isByteAddressable();
     StackNaturalAlign = DL.StackNaturalAlign;
     FunctionPtrAlign = DL.FunctionPtrAlign;
     TheFunctionPtrAlignType = DL.TheFunctionPtrAlignType;
@@ -242,6 +245,7 @@ public:
   /// Layout endianness...
   bool isLittleEndian() const { return !BigEndian; }
   bool isBigEndian() const { return BigEndian; }
+  bool isByteAddressable() const { return ByteAddressable; }
 
   /// Returns the string representation of the DataLayout.
   ///
