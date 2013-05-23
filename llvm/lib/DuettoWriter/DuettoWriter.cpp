@@ -2761,9 +2761,7 @@ uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, St
 
 	for(;E!=EE;++E)
 	{
-		if(offset < firstBase)
-			continue;
-		else
+		if(offset >= firstBase)
 		{
 			char buf[12];
 			snprintf(buf,12,".a%u",offset);
