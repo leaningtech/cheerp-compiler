@@ -514,6 +514,14 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		stream.write(functionName+4,functionNameLen-4);
 		return true;
 	}
+	else if(strncmp(ident,"_ZN6client18duettoVariadicTrap",30)==0)
+	{
+		//Forward to the actual method, which is the first argument
+		assert(Function::classof(*it));
+		const Function* f=cast<Function>(*it);
+		assert(f->hasName());
+		return handleBuiltinCall(f->getName().data(), callV, it+1, itE);
+	}
 	else if(strncmp(ident,"_ZN6client",10)==0)
 	{
 		handleBuiltinNamespace(ident+10,it,itE);
