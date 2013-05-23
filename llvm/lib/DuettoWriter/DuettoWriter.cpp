@@ -2290,9 +2290,9 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "(";
 			compileOperand(si.getCondition());
 			stream << "?";
-			compileOperand(si.getTrueValue());
+			compileOperand(si.getTrueValue(), OPERAND_EXPAND_COMPLETE_OBJECTS);
 			stream << ":";
-			compileOperand(si.getFalseValue());
+			compileOperand(si.getFalseValue(), OPERAND_EXPAND_COMPLETE_OBJECTS);
 			stream << ")";
 			return true;
 		}
