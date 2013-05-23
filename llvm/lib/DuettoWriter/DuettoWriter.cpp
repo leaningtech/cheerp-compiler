@@ -311,10 +311,18 @@ Type* DuettoWriter::findRealType(const Value* v, std::set<const PHINode*>& visit
 	return v->getType();
 }
 
-void DuettoWriter::compileDowncast(const Value* src)
+void DuettoWriter::compileDowncast(const Value* src, uint32_t baseOffset)
 {
-	assert(isClientType(src->getType()));
-	compileOperand(src);
+	if(isClientType(src->getType()))
+		compileOperand(src);
+	else
+	{
+		//Do a runtime downcast
+		compileDereferencePointer(src, NULL);
+		stream << ".a[";
+		compileDereferencePointer(src, NULL);
+		stream << ".o-" << baseOffset << "]";
+	}
 }
 
 void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value* size)
@@ -550,7 +558,7 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	}
 	else if(strncmp(ident,"llvm.duetto.downcast",20)==0)
 	{
-		compileDowncast(*(it));
+		compileDowncast(*(it), getIntFromValue(*(it+1)));
 		return true;
 	}
 	else if(strcmp(ident,"malloc")==0 ||
@@ -653,7 +661,8 @@ bool DuettoWriter::isCompleteArray(const Value* v) const
 bool DuettoWriter::isCompleteArray(const Value* v, std::set<const PHINode*>& visitedPhis) const
 {
 	assert(v->getType()->isPointerTy());
-	if(isComingFromAllocation(v))
+	//HACK: This should really be reworked
+	if(isComingFromAllocation(v) && !isDowncast(v))
 		return true;
 	if(ConstantPointerNull::classof(v))
 	{
@@ -697,6 +706,14 @@ bool DuettoWriter::isCompleteObject(const Value* v) const
 	return isCompleteObject(v, visitedPhis);
 }
 
+bool DuettoWriter::isDowncast(const Value* val) const
+{
+	const CallInst* newCall=dyn_cast<const CallInst>(val);
+	if(newCall && newCall->getCalledFunction())
+		return newCall->getCalledFunction()->getName()=="llvm.duetto.downcast";
+	return false;
+}
+
 bool DuettoWriter::isCompleteObject(const Value* v, std::set<const PHINode*>& visitedPhis) const
 {
 	assert(v->getType()->isPointerTy());
@@ -714,10 +731,11 @@ bool DuettoWriter::isCompleteObject(const Value* v, std::set<const PHINode*>& vi
 	//Follow bitcasts
 	if(isBitCast(v))
 	{
-		//stream << "IS BITCAST\n";
 		const User* bi=static_cast<const User*>(v);
 		return isCompleteObject(bi->getOperand(0), visitedPhis);
 	}
+	if(isDowncast(v))
+		return true;
 	const PHINode* newPHI=dyn_cast<const PHINode>(v);
 	if(newPHI)
 	{
