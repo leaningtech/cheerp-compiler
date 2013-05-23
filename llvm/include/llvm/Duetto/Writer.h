@@ -48,6 +48,7 @@ private:
 	bool isCompleteObject(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis) const;
 	bool isCompleteArray(const llvm::Value* val) const;
 	bool isCompleteArray(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis) const;
+	bool isDowncast(const llvm::Value* val) const;
 	/*
 	 * \param v The pointer to dereference, it may be a regular pointer, a complete obj or a complete array
 	 * \param offset An offset coming from code, which may be also NULL
@@ -71,7 +72,7 @@ private:
 	void compileReset(const llvm::Value* dest, uint8_t resetValue, const llvm::Value* size);
 	void compileResetRecursive(const std::string& baseName, const llvm::Value* baseDest,
 		uint8_t resetValue, const llvm::Type* currentType, const char* namedOffset);
-	void compileDowncast(const llvm::Value* src);
+	void compileDowncast(const llvm::Value* src, uint32_t baseOffset);
 	void compileAllocation(const llvm::Value* callV, const llvm::Value* size);
 	void compileFree(const llvm::Value* obj);
 	void printLLVMName(const llvm::StringRef& s) const;
