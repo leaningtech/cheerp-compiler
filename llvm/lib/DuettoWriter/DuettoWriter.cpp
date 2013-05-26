@@ -660,58 +660,62 @@ void DuettoWriter::printLLVMName(const StringRef& s) const
 	}
 }
 
-bool DuettoWriter::isCompleteArray(const Value* v) const
-{
-	std::set<const PHINode*> visitedPhis;
-	return isCompleteArray(v, visitedPhis);
-}
-
-bool DuettoWriter::isCompleteArray(const Value* v, std::set<const PHINode*>& visitedPhis) const
+/*
+ * The map is used to handle cyclic PHI nodes
+ */
+DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map<const PHINode*, POINTER_KIND>& visitedPhis)
 {
 	assert(v->getType()->isPointerTy());
-	//HACK: This should really be reworked
-	if(isComingFromAllocation(v) && !isDowncast(v))
-		return true;
+	if(AllocaInst::classof(v))
+		return COMPLETE_OBJECT;
+	if(GlobalVariable::classof(v))
+		return COMPLETE_OBJECT;
 	if(ConstantPointerNull::classof(v))
 	{
-		//null can be considered a complete array as well as an object
-		//dereferencing it is undefined anyway
-		return true;
+		//null can be considered a complete object
+		//It may also be considered a complete array maybe
+		return COMPLETE_OBJECT;
 	}
 	//Follow bitcasts
 	if(isBitCast(v))
 	{
 		const User* bi=static_cast<const User*>(v);
-		return isCompleteArray(bi->getOperand(0), visitedPhis);
+		return getPointerKind(bi->getOperand(0), visitedPhis);
 	}
+	if(isDowncast(v))
+		return COMPLETE_OBJECT;
+	if(isComingFromAllocation(v))
+		return COMPLETE_ARRAY;
 	//Follow PHIs
 	const PHINode* newPHI=dyn_cast<const PHINode>(v);
 	if(newPHI)
 	{
-		if(visitedPhis.count(newPHI))
+		std::map<const PHINode*, POINTER_KIND>::iterator alreadyVisited=visitedPhis.find(newPHI);
+		if(alreadyVisited!=visitedPhis.end())
 		{
 			//Assume true, if needed it will become false later on
-			return true;
+			return alreadyVisited->second;
 		}
-		visitedPhis.insert(newPHI);
+		//Intialize the value with the best scenario, demote it later if necessary
+		std::map<const PHINode*, POINTER_KIND>::iterator current=
+			visitedPhis.insert(make_pair(newPHI, COMPLETE_OBJECT)).first;
 		for(unsigned i=0;i<newPHI->getNumIncomingValues();i++)
 		{
-			if(!isCompleteArray(newPHI->getIncomingValue(i),visitedPhis))
-			{
-				visitedPhis.erase(newPHI);
-				return false;
-			}
+			POINTER_KIND k=getPointerKind(newPHI->getIncomingValue(i), visitedPhis);
+			if (k > current->second)
+				current->second=k;
+			if (k == REGULAR)
+				break;
 		}
-		visitedPhis.erase(newPHI);
-		return true;
+		return current->second;
 	}
-	return false;
+	return REGULAR;
 }
 
-bool DuettoWriter::isCompleteObject(const Value* v) const
+DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v)
 {
-	std::set<const PHINode*> visitedPhis;
-	return isCompleteObject(v, visitedPhis);
+	std::map<const PHINode*, POINTER_KIND> visitedPhis;
+	return getPointerKind(v, visitedPhis);
 }
 
 bool DuettoWriter::isDowncast(const Value* val) const
@@ -722,56 +726,11 @@ bool DuettoWriter::isDowncast(const Value* val) const
 	return false;
 }
 
-bool DuettoWriter::isCompleteObject(const Value* v, std::set<const PHINode*>& visitedPhis) const
-{
-	assert(v->getType()->isPointerTy());
-	if(AllocaInst::classof(v))
-		return true;
-	if(GlobalVariable::classof(v))
-		return true;
-	if(ConstantPointerNull::classof(v))
-	{
-		//null can be considered a complete object
-		return true;
-	}
-	if(isCompleteArray(v, visitedPhis))
-		return true;
-	//Follow bitcasts
-	if(isBitCast(v))
-	{
-		const User* bi=static_cast<const User*>(v);
-		return isCompleteObject(bi->getOperand(0), visitedPhis);
-	}
-	if(isDowncast(v))
-		return true;
-	const PHINode* newPHI=dyn_cast<const PHINode>(v);
-	if(newPHI)
-	{
-		if(visitedPhis.count(newPHI))
-		{
-			//Assume true, if needed it will become false later on
-			return true;
-		}
-		visitedPhis.insert(newPHI);
-		for(unsigned i=0;i<newPHI->getNumIncomingValues();i++)
-		{
-			if(!isCompleteObject(newPHI->getIncomingValue(i),visitedPhis))
-			{
-				visitedPhis.erase(newPHI);
-				return false;
-			}
-		}
-		visitedPhis.erase(newPHI);
-		return true;
-	}
-	return false;
-}
-
 void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset, const char* namedOffset)
 {
 	assert(v->getType()->isPointerTy());
-	bool isArray = isCompleteArray(v);
-	bool isObj = isCompleteObject(v);
+	bool isArray = getPointerKind(v)==COMPLETE_ARRAY;
+	bool isObj = getPointerKind(v)==COMPLETE_OBJECT;
 	bool isOffsetConstantZero = false;
 	if(offset==NULL || (ConstantInt::classof(offset) && getIntFromValue(offset)==0))
 		isOffsetConstantZero = true;
@@ -1229,17 +1188,17 @@ void DuettoWriter::compileConstant(const Constant* c)
 void DuettoWriter::compileOperand(const Value* v, OperandFix fix)
 {
 	//First deal with complete objects
-	if(v->getType()->isPointerTy() && fix==OPERAND_EXPAND_COMPLETE_OBJECTS && isCompleteObject(v))
+	if(v->getType()->isPointerTy() && fix==OPERAND_EXPAND_COMPLETE_OBJECTS && getPointerKind(v)!=REGULAR)
 	{
 		//Synthetize a pointer just in time
-		if(isCompleteArray(v))
+		if(getPointerKind(v)==COMPLETE_ARRAY)
 		{
 			stream << "{ d: ";
 			compileOperand(v, OPERAND_NO_FIX);
 			stream << ", o: 0}";
 			return;
 		}
-		else //if(isCompleteObject(v))
+		else //COMPLETE_OBJECT
 		{
 			stream << "{ d: [";
 			compileOperand(v, OPERAND_NO_FIX);
@@ -1387,7 +1346,7 @@ void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		stream << " = ";
 		//Fix complete object pointers if needed
 		OperandFix fix=OPERAND_NO_FIX;
-		if(val->getType()->isPointerTy() && !isCompleteObject(phi))
+		if(val->getType()->isPointerTy() && getPointerKind(phi)!=REGULAR)
 			fix = OPERAND_EXPAND_COMPLETE_OBJECTS;
 		compileOperand(val, fix);
 		stream << ";\n";
@@ -1693,7 +1652,7 @@ const Type* DuettoWriter::compileObjectForPointer(const Value* val)
 		const User* b=static_cast<const User*>(val);
 		return compileObjectForPointer(b->getOperand(0));
 	}
-	else if(isCompleteObject(val))
+	else if(getPointerKind(val)!=REGULAR)
 	{
 		compileOperand(val);
 		return NULL;
@@ -1721,7 +1680,7 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastTyp
 		const User* b=static_cast<const User*>(val);
 		return compileOffsetForPointer(b->getOperand(0), lastType);
 	}
-	else if(isCompleteObject(val))
+	else if(getPointerKind(val)!=REGULAR)
 		return false;
 	else
 	{
@@ -2130,8 +2089,8 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 				const Type* lastType1=compileObjectForPointer(ci.getOperand(0));
 				stream << "===";
 				const Type* lastType2=compileObjectForPointer(ci.getOperand(1));
-				if(!isCompleteObject(ci.getOperand(0)) ||
-					!isCompleteObject(ci.getOperand(1)))
+				if(getPointerKind(ci.getOperand(0))==REGULAR ||
+					getPointerKind(ci.getOperand(1))==REGULAR)
 				{
 					stream << " && ";
 					bool notFirst=compileOffsetForPointer(ci.getOperand(0),lastType1);
