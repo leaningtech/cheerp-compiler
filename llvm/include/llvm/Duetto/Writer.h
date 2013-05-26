@@ -44,10 +44,9 @@ private:
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
 	void compileType(llvm::Type* t);
 	void compileTypeImpl(llvm::Type* t);
-	bool isCompleteObject(const llvm::Value* val) const;
-	bool isCompleteObject(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis) const;
-	bool isCompleteArray(const llvm::Value* val) const;
-	bool isCompleteArray(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis) const;
+	enum POINTER_KIND { COMPLETE_OBJECT = 0, COMPLETE_ARRAY, REGULAR };
+	POINTER_KIND getPointerKind(const llvm::Value* v, std::map<const llvm::PHINode*, POINTER_KIND>& visitedPhis);
+	POINTER_KIND getPointerKind(const llvm::Value* v);
 	bool isDowncast(const llvm::Value* val) const;
 	/*
 	 * \param v The pointer to dereference, it may be a regular pointer, a complete obj or a complete array
