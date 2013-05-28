@@ -729,21 +729,21 @@ bool DuettoWriter::isDowncast(const Value* val) const
 void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset, const char* namedOffset)
 {
 	assert(v->getType()->isPointerTy());
-	bool isArray = getPointerKind(v)==COMPLETE_ARRAY;
-	bool isObj = getPointerKind(v)==COMPLETE_OBJECT;
+	POINTER_KIND k=getPointerKind(v);
+
 	bool isOffsetConstantZero = false;
 	if(offset==NULL || (ConstantInt::classof(offset) && getIntFromValue(offset)==0))
 		isOffsetConstantZero = true;
 
 	const Type* lastType=compileObjectForPointer(v);
-	if(isObj && !isArray)
+	if(k==COMPLETE_OBJECT)
 	{
 		assert(isOffsetConstantZero);
 		assert(namedOffset==NULL);
 		return;
 	}
 	stream << '[';
-	if(isArray)
+	if(k==COMPLETE_ARRAY)
 	{
 		bool notFirst=false;
 		if(namedOffset)
