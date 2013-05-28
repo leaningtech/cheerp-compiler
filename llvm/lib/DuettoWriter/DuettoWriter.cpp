@@ -61,7 +61,6 @@ void DuettoWriter::handleBuiltinNamespace(const char* ident, User::const_op_iter
 	assert(funcNameLen!=0);
 
 	//The first arg should be the object
-	assert(it!=itE);
 	if(strncmp(funcName,"get_",4)==0 && (itE-it)==1)
 	{
 		//Getter
@@ -1667,6 +1666,7 @@ void DuettoWriter::compileFastGEPDereference(const Value* operand, const Use* id
 
 const Type* DuettoWriter::compileObjectForPointer(const Value* val)
 {
+	assert(val->getType()->isPointerTy());
 	if(isGEP(val))
 	{
 		const User* gep=static_cast<const User*>(val);
@@ -1680,21 +1680,19 @@ const Type* DuettoWriter::compileObjectForPointer(const Value* val)
 		const User* b=static_cast<const User*>(val);
 		return compileObjectForPointer(b->getOperand(0));
 	}
-	else if(getPointerKind(val)!=REGULAR)
-	{
-		compileOperand(val);
-		return NULL;
-	}
 	else
 	{
-		compileOperand(val);
-		stream << ".d";
+		POINTER_KIND k=getPointerKind(val);
+		compilePointer(val, k);
+		if(k==REGULAR)
+			stream << ".d";
 		return NULL;
 	}
 }
 
 bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastType)
 {
+	assert(val->getType()->isPointerTy());
 	if(isGEP(val))
 	{
 		const User* gep=static_cast<const User*>(val);
