@@ -491,7 +491,8 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 void DuettoWriter::compileFree(const Value* obj)
 {
 	//Best effort
-	compileOperand(obj);
+	POINTER_KIND k=getPointerKind(obj);
+	compilePointer(obj, k);
 	stream << "=null";
 }
 
@@ -1185,30 +1186,45 @@ void DuettoWriter::compileConstant(const Constant* c)
 	}
 }
 
-void DuettoWriter::compileOperand(const Value* v, OperandFix fix)
+void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 {
-	//First deal with complete objects
-	if(v->getType()->isPointerTy() && fix==OPERAND_EXPAND_COMPLETE_OBJECTS && getPointerKind(v)!=REGULAR)
+	assert(v->getType()->isPointerTy());
+	POINTER_KIND k=getPointerKind(v);
+	assert(acceptedKind>=k);
+	if(acceptedKind==k)
 	{
-		//Synthetize a pointer just in time
-		if(getPointerKind(v)==COMPLETE_ARRAY)
+		//Nothing to do, forward
+		compileOperandImpl(v);
+	}
+	else if(acceptedKind==COMPLETE_ARRAY)
+	{
+		assert(k==COMPLETE_OBJECT);
+		//We need to forge a complete array
+		stream << '[';
+		compileOperandImpl(v);
+		stream << ']';
+	}
+	else
+	{
+		assert(acceptedKind==REGULAR);
+		if(k==COMPLETE_ARRAY)
 		{
 			stream << "{ d: ";
-			compileOperand(v, OPERAND_NO_FIX);
+			compileOperandImpl(v);
 			stream << ", o: 0}";
-			return;
 		}
-		else //COMPLETE_OBJECT
+		else if(k==COMPLETE_OBJECT)
 		{
 			stream << "{ d: [";
-			compileOperand(v, OPERAND_NO_FIX);
+			compileOperandImpl(v);
 			stream << "], o: 0}";
-			return;
 		}
 	}
+}
 
-	const Constant* c=dyn_cast<const Constant>(v);
-	if(c)
+void DuettoWriter::compileOperandImpl(const Value* v)
+{
+	if(const Constant* c=dyn_cast<const Constant>(v))
 		compileConstant(c);
 	else if(dyn_cast<Instruction>(v))
 	{
@@ -1225,6 +1241,15 @@ void DuettoWriter::compileOperand(const Value* v, OperandFix fix)
 		llvm::errs() << "No name for value ";
 		v->dump();
 	}
+}
+
+void DuettoWriter::compileOperand(const Value* v, OperandFix fix)
+{
+	//First deal with complete objects
+	if(v->getType()->isPointerTy() && fix==OPERAND_EXPAND_COMPLETE_OBJECTS)
+		compilePointer(v, REGULAR);
+	else
+		compileOperandImpl(v);
 }
 
 void DuettoWriter::compileTypeImpl(Type* t)
@@ -1344,11 +1369,14 @@ void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		stream << "var ";
 		printVarName(phi);
 		stream << " = ";
-		//Fix complete object pointers if needed
-		OperandFix fix=OPERAND_NO_FIX;
-		if(val->getType()->isPointerTy() && getPointerKind(phi)!=REGULAR)
-			fix = OPERAND_EXPAND_COMPLETE_OBJECTS;
-		compileOperand(val, fix);
+		if(val->getType()->isPointerTy())
+		{
+			//Fix complete object pointers if needed
+			POINTER_KIND k=getPointerKind(phi);
+			compilePointer(val, k);
+		}
+		else
+			compileOperand(val);
 		stream << ";\n";
 	}
 }
