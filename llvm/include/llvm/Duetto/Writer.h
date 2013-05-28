@@ -74,6 +74,8 @@ private:
 	void compileDowncast(const llvm::Value* src, uint32_t baseOffset);
 	void compileAllocation(const llvm::Value* callV, const llvm::Value* size);
 	void compileFree(const llvm::Value* obj);
+	void compilePointer(const llvm::Value* v, POINTER_KIND acceptedKind);
+	void compileOperandImpl(const llvm::Value* v);
 	void printLLVMName(const llvm::StringRef& s) const;
 	void printVarName(const llvm::Value* v);
 	void handleBuiltinNamespace(const char* ident, llvm::User::const_op_iterator it,
