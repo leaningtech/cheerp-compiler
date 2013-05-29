@@ -564,6 +564,12 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	{
 		return true;
 	}
+	else if(strncmp(ident,"llvm.invariant",14)==0)
+	{
+		//TODO: Try to optimize using this, for now just pass the second arg
+		compileOperand(*(it+1));
+		return true;
+	}
 	else if(strncmp(ident,"llvm.duetto.downcast",20)==0)
 	{
 		compileDowncast(*(it), getIntFromValue(*(it+1)));
