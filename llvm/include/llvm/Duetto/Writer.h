@@ -92,6 +92,7 @@ private:
 	void compileClassType(llvm::StructType* T);
 	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
+	void compileConstructors(llvm::GlobalVariable* GV) const;
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):module(m),targetData(&m),stream(s)

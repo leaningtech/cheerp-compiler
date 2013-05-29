@@ -2807,6 +2807,29 @@ void DuettoWriter::compileClassType(StructType* T)
 	stream << "return t;\n}\n";
 }
 
+void DuettoWriter::compileConstructors(GlobalVariable* GV) const
+{
+	assert(GV->hasInitializer());
+	Constant* C=GV->getInitializer();
+	assert(ConstantArray::classof(C));
+	ConstantArray* CA=cast<ConstantArray>(C);
+	uint32_t numElements=CA->getType()->getNumElements();
+	uint32_t lastPriority=0;
+	for(uint32_t i=0;i<numElements;i++)
+	{
+		Constant* E=CA->getAggregateElement(i);
+		Constant* PS=E->getAggregateElement((unsigned)0);
+		uint32_t priority = getIntFromValue(PS);
+		//TODO: handle priority
+		assert(priority>=lastPriority);
+		lastPriority=priority;
+		Constant* F=E->getAggregateElement((unsigned)1);
+		assert(Function::classof(F) && assert(F->hasName()));
+		printLLVMName(F->getName());
+		stream << "();\n";
+	}
+}
+
 void DuettoWriter::makeJS()
 {
 	//Output all the globals
@@ -2829,6 +2852,10 @@ void DuettoWriter::makeJS()
 	{
 		compileClassType(*T);
 	}
+	//Execute constructors
+	GlobalVariable* GV=module.getGlobalVariable("llvm.global_ctors");
+	if(GV)
+		compileConstructors(GV);
 	//Invoke the webMain function
 	stream << "__Z7webMainv();\n";
 }
