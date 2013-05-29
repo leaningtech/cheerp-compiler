@@ -1401,7 +1401,7 @@ void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I)
 			Value* retVal = ri.getReturnValue();
 			stream << "return ";
 			if(retVal)
-				compileOperand(retVal);
+				compileOperand(retVal, OPERAND_EXPAND_COMPLETE_OBJECTS);
 			stream << ";\n";
 			break;
 		}
