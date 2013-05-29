@@ -1756,7 +1756,7 @@ bool DuettoWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, c
 				return notFirst;
 			if(notFirst)
 				stream << '+';
-			stream << firstElement;
+			compileOperand(*itE);
 		}
 		else
 		{
