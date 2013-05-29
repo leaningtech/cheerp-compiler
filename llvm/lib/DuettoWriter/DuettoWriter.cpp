@@ -681,7 +681,7 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 	{
 		//null can be considered a complete object
 		//It may also be considered a complete array maybe
-		return COMPLETE_OBJECT;
+		return COMPLETE_ARRAY;
 	}
 	//Follow bitcasts
 	if(isBitCast(v))
@@ -1304,7 +1304,7 @@ void DuettoWriter::compileTypeImpl(Type* t)
 			break;
 		}
 		case Type::PointerTyID:
-			stream << "null";
+			stream << "{d:null,o:0}";
 			break;
 		case Type::ArrayTyID:
 		{
