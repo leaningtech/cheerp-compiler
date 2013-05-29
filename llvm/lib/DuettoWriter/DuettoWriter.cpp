@@ -478,11 +478,23 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 		}
 		else
 		{
-			//TODO: Initialize the values
-			stream << "new Array(";
-			compileOperand(size);
-			stream << '/' << typeSize;
-			stream << ')';
+			assert(t->isStructTy() || t->isPointerTy());
+			if(t->isStructTy())
+			{
+				StructType* st=cast<StructType>(t);
+				arraysNeeded.insert(st);
+				stream << "createArray";
+				printLLVMName(st->getName());
+				stream << '(';
+				compileOperand(size);
+				stream << '/' << typeSize << ')';
+			}
+			else if(t->isPointerTy())
+			{
+				stream << "createPointerArray(";
+				compileOperand(size);
+				stream << '/' << typeSize << ')';
+			}
 		}
 	}
 }
@@ -2829,6 +2841,18 @@ void DuettoWriter::compileClassType(StructType* T)
 	stream << "return t;\n}\n";
 }
 
+void DuettoWriter::compileArrayClassType(StructType* T)
+{
+	assert(T->hasName());
+	stream << "function createArray";
+	printLLVMName(T->getName());
+	stream << "(size){\n";
+	stream << "var ret=new Array(size);\nfor(var __i__=0;__i__<size;__i__++)\n";
+	stream << "ret[__i__]=";
+	compileType(T);
+	stream << ";\nreturn ret;\n}\n";
+}
+
 void DuettoWriter::compileConstructors(GlobalVariable* GV) const
 {
 	assert(GV->hasInitializer());
@@ -2873,6 +2897,12 @@ void DuettoWriter::makeJS()
 	for (; T != TE; ++T)
 	{
 		compileClassType(*T);
+	}
+	T=arraysNeeded.begin();
+	TE=arraysNeeded.end();
+	for (; T != TE; ++T)
+	{
+		compileArrayClassType(*T);
 	}
 	//Execute constructors
 	GlobalVariable* GV=module.getGlobalVariable("llvm.global_ctors");
