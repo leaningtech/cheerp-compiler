@@ -667,16 +667,27 @@ void DuettoWriter::printLLVMName(const StringRef& s) const
 	}
 }
 
+bool DuettoWriter::isImmutableType(const Type* t) const
+{
+	if(t->isIntegerTy())
+		return true;
+	return false;
+}
+
 /*
  * The map is used to handle cyclic PHI nodes
  */
 DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map<const PHINode*, POINTER_KIND>& visitedPhis)
 {
 	assert(v->getType()->isPointerTy());
-	if(AllocaInst::classof(v))
-		return COMPLETE_OBJECT;
-	if(GlobalVariable::classof(v))
-		return COMPLETE_OBJECT;
+	PointerType* pt=cast<PointerType>(v->getType());
+	if(AllocaInst::classof(v) || GlobalVariable::classof(v))
+	{
+		if(isImmutableType(pt->getElementType()))
+			return COMPLETE_ARRAY;
+		else
+			return COMPLETE_OBJECT;
+	}
 	if(ConstantPointerNull::classof(v))
 	{
 		//null can be considered a complete object
@@ -1539,8 +1550,13 @@ bool DuettoWriter::compileNotInlineableInstruction(const Instruction& I)
 		case Instruction::Alloca:
 		{
 			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
-			//Alloca returns complete objects, not pointers
-			compileType(ai.getAllocatedType());
+			Type* t=ai.getAllocatedType();
+			//Alloca returns complete objects or arrays, not pointers
+			if(isImmutableType(t))
+				stream << '[';
+			compileType(t);
+			if(isImmutableType(t))
+				stream << ']';
 			return true;
 		}
 		case Instruction::Call:
@@ -2741,7 +2757,13 @@ void DuettoWriter::compileGlobal(GlobalVariable& G)
 	if(G.hasInitializer())
 	{
 		stream << " = ";
-		compileConstant(G.getInitializer());
+		Constant* C=G.getInitializer();
+		Type* t=C->getType();
+		if(isImmutableType(t))
+			stream << '[';
+		compileOperand(C, OPERAND_EXPAND_COMPLETE_OBJECTS);
+		if(isImmutableType(t))
+			stream << ']';
 	}
 	stream << ";\n";
 }
