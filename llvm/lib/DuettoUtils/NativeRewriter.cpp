@@ -194,21 +194,23 @@ void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 				Function* called=i->getCalledFunction();
 				if(called==NULL)
 					continue;
-				if(called->getName()!="_Znwm")
+				if(called->getName()!="_Znwj")
 					continue;
 				//Ok, it's a new, find if the only use is a bitcast
 				//in such case we assume that the allocation was for the target type
 				Instruction::use_iterator it=i->use_begin();
-				if(i->getNumUses()>1)
-					continue;
-				BitCastInst* bc=dyn_cast<BitCastInst>(*it);
-				if(bc==NULL)
-					continue;
-				Type* t=bc->getDestTy()->getContainedType(0);
-				std::string builtinTypeName;
-				if(!t->isStructTy() || !isBuiltinType((std::string)t->getStructName(), builtinTypeName))
-					continue;
-				rewriteNativeAllocationUsers(M,toRemove,bc,t,builtinTypeName);
+				Instruction::use_iterator itE=i->use_end();
+				for(;it!=itE;++it)
+				{
+					BitCastInst* bc=dyn_cast<BitCastInst>(*it);
+					if(bc==NULL)
+						continue;
+					Type* t=bc->getDestTy()->getContainedType(0);
+					std::string builtinTypeName;
+					if(!t->isStructTy() || !isBuiltinType((std::string)t->getStructName(), builtinTypeName))
+						continue;
+					rewriteNativeAllocationUsers(M,toRemove,bc,t,builtinTypeName);
+				}
 			}
 		}
 	}
