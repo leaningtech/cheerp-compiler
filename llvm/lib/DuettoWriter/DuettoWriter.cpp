@@ -1981,8 +1981,8 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::ZExt:
 		{
 			const BitCastInst& bi=static_cast<const BitCastInst&>(I);
-#ifndef NDEBUG
 			Type* src=bi.getSrcTy();
+#ifndef NDEBUG
 			Type* dst=bi.getDestTy();
 #endif
 			assert(src->isIntegerTy() && dst->isIntegerTy());
@@ -1994,8 +1994,17 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			//assert(srcI->getBitWidth()<=32);
 			//assert(dstI->getBitWidth()<=32);
 			assert(srcI->getBitWidth()<=dstI->getBitWidth());
-			//The operation is a NOP
-			compileOperand(bi.getOperand(0));
+			if(src->isIntegerTy(1))
+			{
+				//If the source type is i1, attempt casting from Boolean
+				compileOperand(bi.getOperand(0));
+				stream << "==false?0:1";
+			}
+			else
+			{
+				//The operation is a NOP
+				compileOperand(bi.getOperand(0));
+			}
 			return true;
 		}
 		case Instruction::SDiv:
