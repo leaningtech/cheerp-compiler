@@ -2129,12 +2129,18 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 				//Comparison on pointers is only valid
 				//for the same base!
 				const Type* lastType1=compileObjectForPointer(ci.getOperand(0));
-				stream << "===";
+				if(ci.getPredicate()==CmpInst::ICMP_NE)
+					stream << "!==";
+				else
+					stream << "===";
 				const Type* lastType2=compileObjectForPointer(ci.getOperand(1));
 				if(getPointerKind(ci.getOperand(0))==REGULAR ||
 					getPointerKind(ci.getOperand(1))==REGULAR)
 				{
-					stream << " && ";
+					if(ci.getPredicate()==CmpInst::ICMP_NE)
+						stream << " || ";
+					else
+						stream << " && ";
 					bool notFirst=compileOffsetForPointer(ci.getOperand(0),lastType1);
 					if(!notFirst)
 						stream << '0';
