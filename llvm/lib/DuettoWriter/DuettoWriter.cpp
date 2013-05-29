@@ -312,7 +312,11 @@ Type* DuettoWriter::findRealType(const Value* v, std::set<const PHINode*>& visit
 
 void DuettoWriter::compileDowncast(const Value* src, uint32_t baseOffset)
 {
-	if(isClientType(src->getType()))
+	std::set<const PHINode*> visitedPhis;
+	Type* pointerType=findRealType(src, visitedPhis);
+	assert(pointerType->isPointerTy());
+	Type* t=cast<PointerType>(pointerType)->getElementType();
+	if(isClientType(t))
 		compileOperand(src);
 	else
 	{
