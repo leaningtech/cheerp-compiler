@@ -23,6 +23,7 @@ private:
 	llvm::Module& module;
 	llvm::DataLayout targetData;
 	std::set<llvm::StructType*> classesNeeded;
+	std::set<llvm::StructType*> arraysNeeded;
 	uint32_t getIntFromValue(const llvm::Value* v) const;
 	bool isValidTypeCast(const llvm::Value* cast, const llvm::Value* castOp, llvm::Type* src, llvm::Type* dst) const;
 	bool isClientType(llvm::Type* t) const;
@@ -33,6 +34,7 @@ private:
 	bool isInlineable(const llvm::Instruction& I) const;
 	bool isBitCast(const llvm::Value* v) const;
 	bool isGEP(const llvm::Value* v) const;
+	bool isImmutableType(const llvm::Type* t) const;
 	void compileTerminatorInstruction(const llvm::TerminatorInst& I);
 	void compileTerminatorInstruction(const llvm::TerminatorInst& I,
 			const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
@@ -90,6 +92,7 @@ private:
 	void compileGlobal(llvm::GlobalVariable& G);
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
+	void compileArrayClassType(llvm::StructType* T);
 	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
 	void compileConstructors(llvm::GlobalVariable* GV) const;
