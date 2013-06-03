@@ -1154,8 +1154,14 @@ void DuettoWriter::compileConstant(const Constant* c)
 	else if(ConstantFP::classof(c))
 	{
 		const ConstantFP* f=cast<const ConstantFP>(c);
-		//Must compare pointers, it seems
-		if(&f->getValueAPF().getSemantics()==&APFloat::IEEEsingle)
+		//Must compare pointers for semantics, it seems
+		if(f->getValueAPF().isInfinity())
+		{
+			if(f->getValueAPF().isNegative())
+				stream << '-';
+			stream << "Infinity";
+		}
+		else if(&f->getValueAPF().getSemantics()==&APFloat::IEEEsingle)
 			stream << f->getValueAPF().convertToFloat();
 		else if(&f->getValueAPF().getSemantics()==&APFloat::IEEEdouble)
 			stream << f->getValueAPF().convertToDouble();
