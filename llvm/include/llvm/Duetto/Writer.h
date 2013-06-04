@@ -22,6 +22,7 @@ class DuettoWriter
 private:
 	llvm::Module& module;
 	llvm::DataLayout targetData;
+	const llvm::Function* currentFun;
 	std::set<llvm::StructType*> classesNeeded;
 	std::set<llvm::StructType*> arraysNeeded;
 	uint32_t getIntFromValue(const llvm::Value* v) const;
@@ -98,7 +99,7 @@ private:
 	void compileConstructors(llvm::GlobalVariable* GV) const;
 public:
 	llvm::raw_ostream& stream;
-	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):module(m),targetData(&m),stream(s)
+	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):module(m),targetData(&m),currentFun(NULL),stream(s)
 	{
 	}
 	void makeJS();
