@@ -586,6 +586,14 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		compileOperand(*(it+1));
 		return true;
 	}
+	else if(strncmp(ident,"llvm.va_start",13)==0)
+	{
+		compileDereferencePointer(*it, NULL);
+		stream << ".d=arguments;\n";
+		compileDereferencePointer(*it, NULL);
+		stream << ".o=_" << currentFun->getName() << ".length;\n";
+		return true;
+	}
 	else if(strncmp(ident,"llvm.duetto.downcast",20)==0)
 	{
 		compileDowncast(*(it), getIntFromValue(*(it+1)));
@@ -2642,8 +2650,9 @@ void DuettoWriter::compileMethod(Function& F)
 {
 	if(F.empty())
 		return;
+	currentFun = &F;
 	//llvm::errs() << F.getName() << "\n";
-	stream << "function _" << F.getName().data() << "(";
+	stream << "function _" << F.getName() << "(";
 	const Function::const_arg_iterator A=F.arg_begin();
 	const Function::const_arg_iterator AE=F.arg_end();
 	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
@@ -2763,6 +2772,7 @@ void DuettoWriter::compileMethod(Function& F)
 	}
 
 	stream << "}\n";
+	currentFun = NULL;
 }
 
 void DuettoWriter::compileGlobal(GlobalVariable& G)
