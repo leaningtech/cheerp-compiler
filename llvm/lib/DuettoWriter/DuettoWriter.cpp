@@ -1215,7 +1215,14 @@ void DuettoWriter::compileConstant(const Constant* c)
 			stream.write(objName, nameLen);
 		}
 		else
-			printLLVMName(c->getName());
+		{
+			const GlobalVariable* GV=cast<const GlobalVariable>(c);
+			//Verify that is has been already defined, if not use undefined
+			if(globalsDone.count(GV))
+				printLLVMName(c->getName());
+			else
+				stream << "undefined";
+		}
 	}
 	else if(ConstantAggregateZero::classof(c))
 	{
@@ -2775,8 +2782,77 @@ void DuettoWriter::compileMethod(Function& F)
 	currentFun = NULL;
 }
 
-void DuettoWriter::compileGlobal(GlobalVariable& G)
+/*
+ * Use Twine since in most cases the complete string will not be used
+ */
+void DuettoWriter::gatherDependencies(const Constant* c, const llvm::GlobalVariable* base,
+		const Twine& baseName, const Constant* value)
 {
+	//TODO: Maybe add Function too
+	if(ConstantExpr::classof(c))
+	{
+		const ConstantExpr* ce=cast<const ConstantExpr>(c);
+		if(ce->getOpcode()==Instruction::GetElementPtr)
+		{
+			//TODO: Maybe it's possible to set directly .d in the fixup
+			Value* gepBase = ce->getOperand(0);
+			assert(GlobalVariable::classof(getBase));
+			GlobalVariable* GV=cast<GlobalVariable>(gepBase);
+			gatherDependencies(GV, base, baseName, c);
+		}
+		else if(ce->getOpcode()==Instruction::BitCast)
+		{
+			assert(ce->getNumOperands()==1);
+			Value* val=ce->getOperand(0);
+			gatherDependencies(cast<Constant>(val), base, baseName, c);
+		}
+	}
+	else if(ConstantArray::classof(c))
+	{
+		const ConstantArray* d=cast<const ConstantArray>(c);
+		assert(d->getType()->getNumElements() == d->getNumOperands());
+		char buf[12];
+		for(uint32_t i=0;i<d->getNumOperands();i++)
+		{
+			snprintf(buf,12,"[%u]",i);
+			gatherDependencies(d->getOperand(i), base, baseName.concat(buf), NULL);
+		}
+	}
+	else if(ConstantStruct::classof(c))
+	{
+		const ConstantStruct* d=cast<const ConstantStruct>(c);
+		assert(d->getType()->getNumElements() == d->getNumOperands());
+		char buf[12];
+		for(uint32_t i=0;i<d->getNumOperands();i++)
+		{
+			snprintf(buf,12,".a%u",i);
+			gatherDependencies(d->getOperand(i), base, baseName.concat(buf), NULL);
+		}
+	}
+	else if(GlobalAlias::classof(c))
+	{
+		const GlobalAlias* a=cast<const GlobalAlias>(c);
+		gatherDependencies(a->getAliasee(), base, baseName, NULL);
+	}
+	else if(GlobalVariable::classof(c))
+	{
+		assert(c->hasName());
+		const GlobalVariable* GV=cast<GlobalVariable>(c);
+		if(globalsDone.count(GV))
+			return;
+		/*
+		 * Insert the fixup in the map, if a value is specified (e.g. this global is in a ConstantExpr)
+		 * use value, otherwise it's a regular value and you use GV
+		 */
+		globalsFixupMap.insert(make_pair(GV, Fixup(base, baseName.str(), (value)?value:c)));
+	}
+}
+
+void DuettoWriter::compileGlobal(const GlobalVariable& G)
+{
+	if(globalsDone.count(&G))
+		return;
+
 	assert(G.hasName());
 	if(isClientGlobal(G.getName().data()))
 	{
@@ -2789,7 +2865,11 @@ void DuettoWriter::compileGlobal(GlobalVariable& G)
 	if(G.hasInitializer())
 	{
 		stream << " = ";
-		Constant* C=G.getInitializer();
+		const Constant* C=G.getInitializer();
+
+		//Gather the needed fixups
+		gatherDependencies(C, &G, "", NULL);
+
 		Type* t=C->getType();
 		if(isImmutableType(t))
 			stream << '[';
@@ -2798,6 +2878,18 @@ void DuettoWriter::compileGlobal(GlobalVariable& G)
 			stream << ']';
 	}
 	stream << ";\n";
+	globalsDone.insert(&G);
+	//Check if any fixup needs to be applied
+	std::pair<FixupMapType::iterator, FixupMapType::iterator> f=globalsFixupMap.equal_range(&G);
+	for(FixupMapType::iterator it=f.first;it!=f.second;++it)
+	{
+		printLLVMName(it->second.base->getName());
+		stream << it->second.baseName << " = ";
+		compileOperand(it->second.value, OPERAND_EXPAND_COMPLETE_OBJECTS);
+		stream << ";\n";
+	}
+	if(f.first!=f.second)
+		globalsFixupMap.erase(f.first,f.second);
 }
 
 uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
