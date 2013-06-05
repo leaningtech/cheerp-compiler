@@ -20,11 +20,25 @@ namespace duetto
 class DuettoWriter
 {
 private:
+	struct Fixup
+	{
+		const llvm::GlobalVariable* base;
+		std::string baseName;
+		const llvm::Constant* value;
+		Fixup(const llvm::GlobalVariable* b, const std::string& bn, const llvm::Constant* v):
+			base(b),baseName(bn),value(v)
+		{
+		}
+	};
+
 	llvm::Module& module;
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
 	std::set<llvm::StructType*> classesNeeded;
 	std::set<llvm::StructType*> arraysNeeded;
+	std::set<const llvm::GlobalValue*> globalsDone;
+	typedef std::multimap<const llvm::GlobalVariable*, Fixup> FixupMapType;
+	FixupMapType globalsFixupMap;
 	uint32_t getIntFromValue(const llvm::Value* v) const;
 	bool isValidTypeCast(const llvm::Value* cast, const llvm::Value* castOp, llvm::Type* src, llvm::Type* dst) const;
 	bool isClientType(llvm::Type* t) const;
@@ -90,7 +104,9 @@ private:
 	uint32_t getUniqueIndexForValue(const llvm::Value* v);
 	std::map<const llvm::Value*, uint32_t> unnamedValueMap;
 	void compileMethod(llvm::Function& F);
-	void compileGlobal(llvm::GlobalVariable& G);
+	void compileGlobal(const llvm::GlobalVariable& G);
+	void gatherDependencies(const llvm::Constant* C, const llvm::GlobalVariable* base,
+			const llvm::Twine& baseName, const llvm::Constant* value);
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
 	void compileArrayClassType(llvm::StructType* T);
