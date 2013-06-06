@@ -1333,8 +1333,9 @@ void DuettoWriter::compileTypeImpl(Type* t)
 		case Type::StructTyID:
 		{
 			StructType* st=static_cast<StructType*>(t);
-			assert(st->hasName());
-			NamedMDNode* basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
+			NamedMDNode* basesMeta=NULL;
+			if(st->hasName())
+				basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
 			if(basesMeta)
 				classesNeeded.insert(st);
 			stream << "{ ";
@@ -1379,8 +1380,10 @@ void DuettoWriter::compileType(Type* t)
 {
 	if(StructType* st=dyn_cast<StructType>(t))
 	{
-		assert(st->hasName());
-		NamedMDNode* basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
+		NamedMDNode* basesMeta=NULL;
+		//TODO: Verify that it makes sense tp assume struct with no name has no bases
+		if(st->hasName())
+			basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
 		if(basesMeta)
 		{
 			classesNeeded.insert(st);
