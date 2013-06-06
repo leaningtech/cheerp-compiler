@@ -2658,7 +2658,8 @@ void DuettoWriter::compileMethod(Function& F)
 	if(F.empty())
 		return;
 	currentFun = &F;
-	//llvm::errs() << F.getName() << "\n";
+	if(printMethodNames)
+		llvm::errs() << F.getName() << "\n";
 	stream << "function _" << F.getName() << "(";
 	const Function::const_arg_iterator A=F.arg_begin();
 	const Function::const_arg_iterator AE=F.arg_end();
