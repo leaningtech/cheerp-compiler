@@ -572,6 +572,7 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	}
 	else if(strncmp(ident,"llvm.memset",11)==0)
 	{
+		//TODO: memset on allocate memory may be optimized
 		uint32_t resetVal = getIntFromValue(*(it+1));
 		compileReset(*(it), resetVal, *(it+2));
 		return true;
@@ -2797,7 +2798,7 @@ void DuettoWriter::gatherDependencies(const Constant* c, const llvm::GlobalVaria
 		{
 			//TODO: Maybe it's possible to set directly .d in the fixup
 			Value* gepBase = ce->getOperand(0);
-			assert(GlobalVariable::classof(getBase));
+			assert(GlobalVariable::classof(gepBase));
 			GlobalVariable* GV=cast<GlobalVariable>(gepBase);
 			gatherDependencies(GV, base, baseName, c);
 		}
