@@ -2415,6 +2415,20 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			compileOperand(src);
 			return true;
 		}
+		case Instruction::PtrToInt:
+		{
+			const PtrToIntInst& pi=static_cast<const PtrToIntInst&>(I);
+			//Comparison between pointers is significant only for pointers in the same array
+			POINTER_KIND k=getPointerKind(pi.getOperand(0));
+			if(k==REGULAR)
+			{
+				compileOperand(pi.getOperand(0));
+				stream << ".o";
+			}
+			else
+				stream << '0';
+			return true;
+		}
 		default:
 			stream << "alert('Unsupported code')";
 			llvm::errs() << "\tImplement inst " << I.getOpcodeName() << '\n';
