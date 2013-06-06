@@ -2502,6 +2502,7 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 			case Instruction::UIToFP:
 			case Instruction::FPToUI:
 			case Instruction::PtrToInt:
+			case Instruction::VAArg:
 				return true;
 			default:
 				llvm::errs() << "Is " << I.getOpcodeName() << " inlineable?\n";
