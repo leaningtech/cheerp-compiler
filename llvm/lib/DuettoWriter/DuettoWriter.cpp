@@ -987,6 +987,14 @@ bool DuettoWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type
 	//Conversion between any function pointer are ok
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
+	//Allow conversions between equivalent struct types
+	if(src->isStructTy() && dst->isStructTy())
+	{
+		StructType* srcSt = cast<StructType>(src);
+		StructType* dstSt = cast<StructType>(dst);
+		if(srcSt->isLayoutIdentical(dstSt))
+			return true;
+	}
 	if(dst->isIntegerTy(8))
 	{
 //		if(safeUsagesForNewedMemory(castI))
