@@ -113,7 +113,8 @@ private:
 	void compileArrayClassType(llvm::StructType* T);
 	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
-	void compileConstructors(llvm::GlobalVariable* GV) const;
+	enum CONSTRUCTOR_ACTION { ADD_TO_QUEUE=0, COMPILE=1 };
+	void handleConstructors(llvm::GlobalVariable* GV, CONSTRUCTOR_ACTION action);
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):
