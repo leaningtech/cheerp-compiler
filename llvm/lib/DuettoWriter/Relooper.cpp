@@ -49,7 +49,7 @@ void Branch::Render(Block *Target, bool SetLabel, RenderInterface* renderInterfa
 
 int Block::IdCounter = 1; // 0 is reserved for clearings
 
-Block::Block(void* b) : Parent(NULL), Id(Block::IdCounter++), privateBlock(b), DefaultTarget(NULL),
+Block::Block(const void* b) : Parent(NULL), Id(Block::IdCounter++), privateBlock(b), DefaultTarget(NULL),
 	IsCheckedMultipleEntry(false) {
 }
 

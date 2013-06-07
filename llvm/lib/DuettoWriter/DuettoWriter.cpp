@@ -19,11 +19,11 @@ public:
 	DuettoRenderInterface(DuettoWriter* w):writer(w)
 	{
 	}
-	void renderBlock(void* privateBlock);
-	void renderIfBlockBegin(void* privateBlock, int branchId, bool first);
+	void renderBlock(const void* privateBlock);
+	void renderIfBlockBegin(const void* privateBlock, int branchId, bool first);
 	void renderElseBlockBegin();
 	void renderBlockEnd();
-	void renderBlockPrologue(void* privateBlockTo, void* privateBlockFrom);
+	void renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom);
 	void renderWhileBlockBegin();
 	void renderWhileBlockBegin(int labelId);
 	void renderDoBlockBegin();
@@ -2512,10 +2512,10 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 	return false;
 }
 
-void DuettoWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
+void DuettoWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
 {
-	BasicBlock::iterator I=BB.begin();
-	BasicBlock::iterator IE=BB.end();
+	BasicBlock::const_iterator I=BB.begin();
+	BasicBlock::const_iterator IE=BB.end();
 	for(;I!=IE;++I)
 	{
 		if(isInlineable(*I))
@@ -2548,19 +2548,19 @@ void DuettoWriter::compileBB(BasicBlock& BB, const std::map<const BasicBlock*, u
 	//At the end of the block
 }
 
-void DuettoRenderInterface::renderBlock(void* privateBlock)
+void DuettoRenderInterface::renderBlock(const void* privateBlock)
 {
-	BasicBlock* bb=(BasicBlock*)privateBlock;
+	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	std::map<const BasicBlock*, uint32_t> blocksMap;
 	writer->compileBB(*bb, blocksMap);
 }
 
-void DuettoRenderInterface::renderIfBlockBegin(void* privateBlock, int branchId, bool first)
+void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, int branchId, bool first)
 {
-	BasicBlock* bb=(BasicBlock*)privateBlock;
+	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if(!first)
 		writer->stream << "} else ";
-	TerminatorInst* term=bb->getTerminator();
+	const TerminatorInst* term=bb->getTerminator();
 	writer->stream << "if (";
 	if(BranchInst::classof(term))
 	{
@@ -2614,10 +2614,10 @@ void DuettoRenderInterface::renderBlockEnd()
 	writer->stream << "}\n";
 }
 
-void DuettoRenderInterface::renderBlockPrologue(void* privateBlockTo,void* privateBlockFrom)
+void DuettoRenderInterface::renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom)
 {
-	BasicBlock* bbTo=(BasicBlock*)privateBlockTo;
-	BasicBlock* bbFrom=(BasicBlock*)privateBlockFrom;
+	const BasicBlock* bbTo=(const BasicBlock*)privateBlockTo;
+	const BasicBlock* bbFrom=(const BasicBlock*)privateBlockFrom;
 	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
 }
 
@@ -2680,7 +2680,7 @@ void DuettoRenderInterface::renderIfOnLabel(int labelId, bool first)
 	writer->stream << "if (label === " << labelId << ") {\n";
 }
 
-void DuettoWriter::compileMethod(Function& F)
+void DuettoWriter::compileMethod(const Function& F)
 {
 	if(F.empty())
 		return;
@@ -2707,8 +2707,8 @@ void DuettoWriter::compileMethod(Function& F)
 	{
 		stream << "var label = 0;\n";
 		//TODO: Support exceptions
-		Function::iterator B=F.begin();
-		Function::iterator BE=F.end();
+		Function::const_iterator B=F.begin();
+		Function::const_iterator BE=F.end();
 		//First run, create the corresponding relooper blocks
 		std::map<const BasicBlock*, /*relooper::*/Block*> relooperMap;
 		for(;B!=BE;++B)

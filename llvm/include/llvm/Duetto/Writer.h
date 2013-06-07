@@ -104,7 +104,7 @@ private:
 	bool safeCallForNewedMemory(const llvm::CallInst* ci) const;
 	uint32_t getUniqueIndexForValue(const llvm::Value* v);
 	std::map<const llvm::Value*, uint32_t> unnamedValueMap;
-	void compileMethod(llvm::Function& F);
+	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void gatherDependencies(const llvm::Constant* C, const llvm::GlobalVariable* base,
 			const llvm::Twine& baseName, const llvm::Constant* value);
@@ -121,7 +121,7 @@ public:
 	{
 	}
 	void makeJS();
-	void compileBB(llvm::BasicBlock& BB, const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
+	void compileBB(const llvm::BasicBlock& BB, const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
 	void compileOperand(const llvm::Value* v, OperandFix fix = OPERAND_NO_FIX);
 	void compileConstant(const llvm::Constant* c);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
