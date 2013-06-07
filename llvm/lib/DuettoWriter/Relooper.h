@@ -24,12 +24,12 @@ struct Shape;
 class RenderInterface
 {
 public:
-	virtual void renderBlock(void* privateBlock) = 0;
+	virtual void renderBlock(const void* privateBlock) = 0;
 	virtual void renderIfOnLabel(int labelId, bool first) = 0;
-	virtual void renderIfBlockBegin(void* privateBlock, int branchId, bool first) = 0;
+	virtual void renderIfBlockBegin(const void* privateBlock, int branchId, bool first) = 0;
 	virtual void renderElseBlockBegin() = 0;
 	virtual void renderBlockEnd() = 0;
-	virtual void renderBlockPrologue(void* privateBlockTo, void* privateBlockFrom) = 0;
+	virtual void renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) = 0;
 	virtual void renderWhileBlockBegin() = 0;
 	virtual void renderWhileBlockBegin(int labelId) = 0;
 	virtual void renderDoBlockBegin() = 0;
@@ -77,12 +77,12 @@ struct Block {
   BlockBranchMap ProcessedBranchesIn;
   Shape *Parent; // The shape we are directly inside
   int Id; // A unique identifier
-  void* privateBlock; //A priate value that will be passed back to the callback
+  const void* privateBlock; //A private value that will be passed back to the callback
   Block *DefaultTarget; // The block we branch to without checking the condition, if none of the other conditions held.
                         // Since each block *must* branch somewhere, this must be set
   bool IsCheckedMultipleEntry; // If true, we are a multiple entry, so reaching us requires setting the label variable
 
-  Block(void* privateBlock);
+  Block(const void* privateBlock);
   ~Block();
 
   /*
