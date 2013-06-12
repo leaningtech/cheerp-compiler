@@ -37,6 +37,7 @@ private:
 	std::set<llvm::StructType*> classesNeeded;
 	std::set<llvm::StructType*> arraysNeeded;
 	std::set<const llvm::GlobalValue*> globalsDone;
+	std::set<const llvm::GlobalValue*> globalsQueue;
 	typedef std::multimap<const llvm::GlobalVariable*, Fixup> FixupMapType;
 	FixupMapType globalsFixupMap;
 	bool printMethodNames;
