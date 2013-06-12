@@ -2425,6 +2425,14 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 				stream << '0';
 			return true;
 		}
+		case Instruction::VAArg:
+		{
+			const VAArgInst& vi=static_cast<const VAArgInst&>(I);
+			stream << "handleVAArg(";
+			compileDereferencePointer(vi.getPointerOperand(), NULL);
+			stream << ')';
+			return true;
+		}
 		default:
 			stream << "alert('Unsupported code')";
 			llvm::errs() << "\tImplement inst " << I.getOpcodeName() << '\n';
@@ -2465,6 +2473,7 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 			case Instruction::Alloca:
 			case Instruction::Switch:
 			case Instruction::Unreachable:
+			case Instruction::VAArg:
 				return false;
 			case Instruction::Add:
 			case Instruction::Sub:
@@ -2498,7 +2507,6 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 			case Instruction::UIToFP:
 			case Instruction::FPToUI:
 			case Instruction::PtrToInt:
-			case Instruction::VAArg:
 				return true;
 			default:
 				llvm::errs() << "Is " << I.getOpcodeName() << " inlineable?\n";
