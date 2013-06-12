@@ -529,8 +529,23 @@ bool StructType::isLayoutIdentical(StructType *Other) const {
 
   if (isPacked() != Other->isPacked())
     return false;
-
-  return elements() == Other->elements();
+  
+  element_iterator it=element_begin();
+  element_iterator itOther=Other->element_begin();
+  element_iterator itE=element_end();
+  for(;it!=itE;++it,++itOther)
+  {
+    if((*it)->isStructTy())
+    {
+      if(!(*itOther)->isStructTy())
+        return false;
+      if(!cast<StructType>(*it)->isLayoutIdentical(cast<StructType>(*itOther)))
+        return false;
+    }
+    else if((*it)!=(*itOther))
+      return false;
+  }
+  return true;
 }
 
 StructType *Module::getTypeByName(StringRef Name) const {
