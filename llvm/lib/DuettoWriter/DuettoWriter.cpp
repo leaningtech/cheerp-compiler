@@ -1192,12 +1192,6 @@ void DuettoWriter::compileConstant(const Constant* c)
 		//assert(i->getBitWidth()<=32);
 		stream << i->getSExtValue();
 	}
-	else if(Function::classof(c))
-	{
-		assert(c->hasName());
-		//printLLVMName already add '_' to the name
-		printLLVMName(c->getName());
-	}
 	else if(ConstantPointerNull::classof(c))
 	{
 		stream << "null";
@@ -1236,10 +1230,6 @@ void DuettoWriter::compileConstant(const Constant* c)
 	else if(ConstantAggregateZero::classof(c))
 	{
 		compileType(c->getType());
-	}
-	else if(c->hasName())
-	{
-		printLLVMName(c->getName());
 	}
 	else
 	{
@@ -1297,8 +1287,10 @@ void DuettoWriter::compileOperandImpl(const Value* v)
 		else
 			printVarName(it);
 	}
-	else if(v->hasName())
+	else if(Argument::classof(v) && v->hasName())
+	{
 		printLLVMName(v->getName());
+	}
 	else
 	{
 		llvm::errs() << "No name for value ";
