@@ -497,6 +497,8 @@ llvm::Constant *ConstantAggregateBuilder::buildFrom(
   if (llvm::StructType *DesiredSTy = dyn_cast<llvm::StructType>(DesiredTy)) {
     if (DesiredSTy->isLayoutIdentical(STy))
       STy = DesiredSTy;
+    else if(!CGM.getTarget().isByteAddressable())
+      CGM.Error(RD->getLocation(), "Explicit braces on subobjects are needed");
   }
 
   return llvm::ConstantStruct::get(STy, Packed ? PackedElems : UnpackedElems);
