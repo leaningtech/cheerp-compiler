@@ -595,6 +595,12 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		stream << ".o=_" << currentFun->getName() << ".length;\n";
 		return true;
 	}
+	else if(strncmp(ident,"llvm.va_end",11)==0)
+	{
+		compileDereferencePointer(*it, NULL);
+		stream << ".d=null;\n";
+		return true;
+	}
 	else if(strncmp(ident,"llvm.duetto.downcast",20)==0)
 	{
 		compileDowncast(*(it), getIntFromValue(*(it+1)));
