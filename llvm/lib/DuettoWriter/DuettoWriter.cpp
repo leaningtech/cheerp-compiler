@@ -1219,12 +1219,10 @@ void DuettoWriter::compileConstant(const Constant* c)
 		}
 		else
 		{
-			const GlobalVariable* GV=cast<const GlobalVariable>(c);
-			//Verify that is has been already defined, if not use undefined
-			if(globalsDone.count(GV))
-				printLLVMName(c->getName());
-			else
-				stream << "undefined";
+			const GlobalValue* GV=cast<const GlobalValue>(c);
+			printLLVMName(c->getName());
+			if(globalsDone.count(GV)==0)
+				globalsQueue.insert(GV);
 		}
 	}
 	else if(ConstantAggregateZero::classof(c))
@@ -1475,7 +1473,11 @@ void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I)
 					break;
 				}
 				else
+				{
 					stream << '_' << funcName;
+					if(!globalsDone.count(ci.getCalledFunction()))
+						globalsQueue.insert(ci.getCalledFunction());
+				}
 			}
 			else
 			{
@@ -1610,6 +1612,8 @@ bool DuettoWriter::compileNotInlineableInstruction(const Instruction& I)
 				if(handleBuiltinCall(funcName,&ci,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
 					return true;
 				stream << '_' << funcName;
+				if(!globalsDone.count(ci.getCalledFunction()))
+					globalsQueue.insert(ci.getCalledFunction());
 			}
 			else
 			{
@@ -2676,6 +2680,7 @@ void DuettoWriter::compileMethod(const Function& F)
 {
 	if(F.empty())
 		return;
+	globalsDone.insert(&F);
 	currentFun = &F;
 	if(printMethodNames)
 		llvm::errs() << F.getName() << "\n";
@@ -2865,6 +2870,17 @@ void DuettoWriter::gatherDependencies(const Constant* c, const llvm::GlobalVaria
 		 * use value, otherwise it's a regular value and you use GV
 		 */
 		globalsFixupMap.insert(make_pair(GV, Fixup(base, baseName.str(), (value)?value:c)));
+		/*
+		 * Also add the global to the globals queue
+		 */
+		globalsQueue.insert(GV);
+	}
+	else if(Function::classof(c))
+	{
+		const Function* F=cast<const Function>(c);
+		if(globalsDone.count(F))
+			return;
+		globalsQueue.insert(F);
 	}
 }
 
@@ -2995,7 +3011,17 @@ void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION act
 	uint32_t lastPriority=0;
 	for(uint32_t i=0;i<numElements;i++)
 	{
-		if(action==COMPILE)
+		if(action==ADD_TO_QUEUE)
+		{
+			Constant* E=CA->getAggregateElement(i);
+			Constant* FA=E->getAggregateElement((unsigned)1);
+			assert(Function::classof(FA));
+			Function* F=cast<Function>(FA);
+			if(globalsDone.count(F))
+				continue;
+			globalsQueue.insert(F);
+		}
+		else if(action==COMPILE)
 		{
 			Constant* E=CA->getAggregateElement(i);
 			Constant* PS=E->getAggregateElement((unsigned)0);
@@ -3013,20 +3039,36 @@ void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION act
 
 void DuettoWriter::makeJS()
 {
-	//Output all the globals
-	Module::global_iterator G=module.global_begin();
-	Module::global_iterator GE=module.global_end();
-	for(; G != GE; ++G)
-	{
-		compileGlobal(*G);
-	}
+	//Fix all client methods first
 	Module::iterator F=module.begin();
 	Module::iterator FE=module.end();
 	for (; F != FE; ++F)
-	{
 		DuettoUtils::rewriteNativeObjectsConstructors(module, *F);
-		compileMethod(*F);
+
+	Function* webMain=module.getFunction("_Z7webMainv");
+	globalsQueue.insert(webMain);
+	//Add the constructors
+	GlobalVariable* constructors=module.getGlobalVariable("llvm.global_ctors");
+	if(constructors)
+		handleConstructors(constructors, ADD_TO_QUEUE);
+
+	while(!globalsQueue.empty())
+	{
+		std::set<const GlobalValue*>::iterator it=globalsQueue.begin();
+		const GlobalValue* v=*it;
+		globalsQueue.erase(it);
+		if(GlobalVariable::classof(v))
+		{
+			const GlobalVariable* GV=cast<const GlobalVariable>(v);
+			compileGlobal(*GV);
+		}
+		else if(Function::classof(v))
+		{
+			const Function* F=cast<const Function>(v);
+			compileMethod(*F);
+		}
 	}
+
 	std::set<StructType*>::const_iterator T=classesNeeded.begin();
 	std::set<StructType*>::const_iterator TE=classesNeeded.end();
 	for (; T != TE; ++T)
@@ -3040,7 +3082,6 @@ void DuettoWriter::makeJS()
 		compileArrayClassType(*T);
 	}
 	//Execute constructors
-	GlobalVariable* constructors=module.getGlobalVariable("llvm.global_ctors");
 	if(constructors)
 		handleConstructors(constructors, COMPILE);
 	//Invoke the webMain function
