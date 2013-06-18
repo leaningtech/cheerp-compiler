@@ -2326,10 +2326,10 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		}
 		case Instruction::Xor:
 		{
-			//Integer logical or
+			//Integer logical xor
 			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
+			//Xor with 1s is used to implement bitwise and logical negation
+			//TODO: Optimize the operation with 1s
 			assert(isI32Type(I.getType()));
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
