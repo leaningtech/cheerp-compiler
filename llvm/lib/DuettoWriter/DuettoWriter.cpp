@@ -1196,7 +1196,10 @@ void DuettoWriter::compileConstant(const Constant* c)
 		const ConstantInt* i=cast<const ConstantInt>(c);
 		//TODO: Restore when 64bit are forbidden by the frontend
 		//assert(i->getBitWidth()<=32);
-		stream << i->getSExtValue();
+		if(i->getBitWidth()==1)
+			stream << (i->isZero()?"false":"true");
+		else
+			stream << i->getSExtValue();
 	}
 	else if(ConstantPointerNull::classof(c))
 	{
