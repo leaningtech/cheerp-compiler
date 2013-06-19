@@ -700,7 +700,7 @@ void DuettoWriter::printLLVMName(const StringRef& s) const
 
 bool DuettoWriter::isImmutableType(const Type* t) const
 {
-	if(t->isIntegerTy())
+	if(t->isIntegerTy() || t->isDoubleTy() || t->isPointerTy())
 		return true;
 	return false;
 }
@@ -2932,11 +2932,17 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 	}
 	stream << ";\n";
 	globalsDone.insert(&G);
-	//Check if any fixup needs to be applied
+	//Now we have defined a new global, check if there are fixups for previously defined globals
 	std::pair<FixupMapType::iterator, FixupMapType::iterator> f=globalsFixupMap.equal_range(&G);
 	for(FixupMapType::iterator it=f.first;it!=f.second;++it)
 	{
-		printLLVMName(it->second.base->getName());
+		const GlobalVariable* otherGV=it->second.base;
+		assert(otherGV->hasInitializer());
+		const Constant* C=otherGV->getInitializer();
+
+		printLLVMName(otherGV->getName());
+		if(isImmutableType(C->getType()))
+			stream << "[0]";
 		stream << it->second.baseName << " = ";
 		compileOperand(it->second.value, OPERAND_EXPAND_COMPLETE_OBJECTS);
 		stream << ";\n";
