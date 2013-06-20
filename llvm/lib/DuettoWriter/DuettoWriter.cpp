@@ -2067,8 +2067,9 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			if(src->isIntegerTy(1))
 			{
 				//If the source type is i1, attempt casting from Boolean
+				stream << '(';
 				compileOperand(bi.getOperand(0));
-				stream << "==false?0:1";
+				stream << "==false?0:1)";
 			}
 			else
 			{
