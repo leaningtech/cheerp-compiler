@@ -657,7 +657,11 @@ locale::id::__get()
 void
 locale::id::__init()
 {
+#ifdef __DUETTO__
+    __id_ = ++__next_id;
+#else
     __id_ = __libcpp_atomic_add(&__next_id, 1);
+#endif
 }
 
 // template <> class collate_byname<char>
@@ -1291,8 +1295,8 @@ ctype_byname<wchar_t>::do_is(const char_type* low, const char_type* high, mask* 
                 *vec |= space;
 #ifndef _LIBCPP_CTYPE_MASK_IS_COMPOSITE_PRINT
             if (iswprint_l(ch, __l))
-                *vec |= print;
 #endif
+                *vec |= print;
             if (iswcntrl_l(ch, __l))
                 *vec |= cntrl;
             if (iswupper_l(ch, __l))
@@ -1301,16 +1305,16 @@ ctype_byname<wchar_t>::do_is(const char_type* low, const char_type* high, mask* 
                 *vec |= lower;
 #ifndef _LIBCPP_CTYPE_MASK_IS_COMPOSITE_ALPHA
             if (iswalpha_l(ch, __l))
-                *vec |= alpha;
 #endif
+                *vec |= alpha;
             if (iswdigit_l(ch, __l))
                 *vec |= digit;
             if (iswpunct_l(ch, __l))
                 *vec |= punct;
 #ifndef _LIBCPP_CTYPE_MASK_IS_COMPOSITE_XDIGIT
             if (iswxdigit_l(ch, __l))
-                *vec |= xdigit;
 #endif
+                *vec |= xdigit;
 #if !defined(__sun__)
             if (iswblank_l(ch, __l))
                 *vec |= blank;
@@ -1339,7 +1343,6 @@ ctype_byname<wchar_t>::do_scan_is(mask m, const char_type* low, const char_type*
         if ((m & digit) == digit && iswdigit_l(ch, __l)) break;
         if ((m & punct) == punct && iswpunct_l(ch, __l)) break;
         if ((m & xdigit) == xdigit && iswxdigit_l(ch, __l)) break;
-        if ((m & blank) == blank && iswblank_l(ch, __l)) break;
 #endif
     }
     return low;

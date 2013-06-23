@@ -43,7 +43,9 @@ public:
 
 mutex::~mutex() _NOEXCEPT
 {
+#ifndef __CHEERP__
     __libcpp_mutex_destroy(&__m_);
+#endif
 }
 
 #endif // !_LIBCPP_HAS_NO_THREADS

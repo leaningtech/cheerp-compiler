@@ -31,7 +31,11 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 class _LIBCPP_TYPE_VIS _LIBCPP_THREAD_SAFETY_ANNOTATION(capability("mutex")) mutex
 {
+#ifdef __CHEERP__
+    int __m_ = 0;
+#else
     __libcpp_mutex_t __m_ = _LIBCPP_MUTEX_INITIALIZER;
+#endif
 
 public:
     _LIBCPP_INLINE_VISIBILITY
@@ -50,7 +54,11 @@ public:
     bool try_lock() _NOEXCEPT _LIBCPP_THREAD_SAFETY_ANNOTATION(try_acquire_capability(true));
     void unlock() _NOEXCEPT _LIBCPP_THREAD_SAFETY_ANNOTATION(release_capability());
 
+#ifdef __CHEERP__
+    typedef int* native_handle_type;
+#else
     typedef __libcpp_mutex_t* native_handle_type;
+#endif
     _LIBCPP_INLINE_VISIBILITY native_handle_type native_handle() {return &__m_;}
 };
 
@@ -273,6 +281,7 @@ _LIBCPP_DECLARE_STRONG_ENUM(cv_status)
 };
 _LIBCPP_DECLARE_STRONG_ENUM_EPILOG(cv_status)
 
+#ifndef __CHEERP__
 class _LIBCPP_TYPE_VIS condition_variable
 {
     __libcpp_condvar_t __cv_ = _LIBCPP_CONDVAR_INITIALIZER;
@@ -482,6 +491,7 @@ condition_variable::wait_for(unique_lock<mutex>& __lk,
     return wait_until(__lk, chrono::steady_clock::now() + __d,
                       _VSTD::move(__pred));
 }
+#endif
 
 #if defined(_LIBCPP_HAS_COND_CLOCKWAIT)
 inline
