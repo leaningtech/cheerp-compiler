@@ -223,7 +223,8 @@ public:
     WASI,       // Experimental WebAssembly OS
     Emscripten,
     ShaderModel, // DirectX ShaderModel
-    LastOSType = ShaderModel
+    WebBrowser,
+    LastOSType = WebBrowser
   };
   enum EnvironmentType {
     UnknownEnvironment,

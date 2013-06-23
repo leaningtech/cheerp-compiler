@@ -243,6 +243,7 @@ StringRef Triple::getOSTypeName(OSType Kind) {
   case Win32: return "windows";
   case ZOS: return "zos";
   case ShaderModel: return "shadermodel";
+  case WebBrowser: return "webbrowser";
   }
 
   llvm_unreachable("Invalid OSType");
@@ -596,6 +597,7 @@ static Triple::OSType parseOS(StringRef OSName) {
     .StartsWith("wasi", Triple::WASI)
     .StartsWith("emscripten", Triple::Emscripten)
     .StartsWith("shadermodel", Triple::ShaderModel)
+    .StartsWith("webbrowser", Triple::WebBrowser)
     .Default(Triple::UnknownOS);
 }
 
