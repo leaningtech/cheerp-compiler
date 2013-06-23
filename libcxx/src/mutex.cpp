@@ -35,61 +35,101 @@ const adopt_lock_t  adopt_lock{};
 void
 mutex::lock()
 {
+#ifdef __CHEERP__
+    if(__m_)
+      client::console.log("Cheerp: mutex::lock can't block");
+    else
+      __m_++;
+#else
     int ec = __libcpp_mutex_lock(&__m_);
     if (ec)
         __throw_system_error(ec, "mutex lock failed");
+#endif
 }
 
 bool
 mutex::try_lock() noexcept
 {
+#ifdef __CHEERP__
+    if(__m_)
+      return false;
+    else
+    {
+      __m_++;
+      return true;
+    }
+#else
     return __libcpp_mutex_trylock(&__m_);
+#endif
 }
 
 void
 mutex::unlock() noexcept
 {
+#ifdef __CHEERP__
+    __m_--;
+#else
     int ec = __libcpp_mutex_unlock(&__m_);
     (void)ec;
     _LIBCPP_ASSERT(ec == 0, "call to mutex::unlock failed");
+#endif
 }
 
 // recursive_mutex
 
 recursive_mutex::recursive_mutex()
 {
+#ifdef __CHEERP__
+    __m_ = 0;
+#else
     int ec = __libcpp_recursive_mutex_init(&__m_);
     if (ec)
         __throw_system_error(ec, "recursive_mutex constructor failed");
+#endif
 }
 
 recursive_mutex::~recursive_mutex()
 {
+#ifndef __CHEERP__
     int e = __libcpp_recursive_mutex_destroy(&__m_);
     (void)e;
     _LIBCPP_ASSERT(e == 0, "call to ~recursive_mutex() failed");
+#endif
 }
 
 void
 recursive_mutex::lock()
 {
+#ifdef __CHEERP__
+    __m_++;
+#else
     int ec = __libcpp_recursive_mutex_lock(&__m_);
     if (ec)
         __throw_system_error(ec, "recursive_mutex lock failed");
+#endif
 }
 
 void
 recursive_mutex::unlock() noexcept
 {
+#ifdef __CHEERP__
+    __m_--;
+#else
     int e = __libcpp_recursive_mutex_unlock(&__m_);
     (void)e;
     _LIBCPP_ASSERT(e == 0, "call to recursive_mutex::unlock() failed");
+#endif
 }
 
 bool
 recursive_mutex::try_lock() noexcept
 {
+#ifdef __CHEERP__
+    __m_++;
+    return true;
+#else
     return __libcpp_recursive_mutex_trylock(&__m_);
+#endif
 }
 
 // timed_mutex
@@ -108,8 +148,13 @@ void
 timed_mutex::lock()
 {
     unique_lock<mutex> lk(__m_);
+#ifdef __CHEERP__
+    if (__locked_)
+        client::console.log("Cheerp: timed_mutex::lock can't block");
+#else
     while (__locked_)
         __cv_.wait(lk);
+#endif
     __locked_ = true;
 }
 
@@ -130,14 +175,18 @@ timed_mutex::unlock() noexcept
 {
     lock_guard<mutex> _(__m_);
     __locked_ = false;
+#ifndef __CHEERP__
     __cv_.notify_one();
+#endif
 }
 
 // recursive_timed_mutex
 
 recursive_timed_mutex::recursive_timed_mutex()
-    : __count_(0),
-      __id_{}
+    : __count_(0)
+#ifndef __CHEERP__
+      ,__id_{}
+#endif
 {
 }
 
@@ -149,26 +198,37 @@ recursive_timed_mutex::~recursive_timed_mutex()
 void
 recursive_timed_mutex::lock()
 {
+#ifndef __CHEERP__
     __thread_id id = this_thread::get_id();
+#endif
     unique_lock<mutex> lk(__m_);
+#ifndef __CHEERP__
     if (id ==__id_)
+#endif
     {
         if (__count_ == numeric_limits<size_t>::max())
             __throw_system_error(EAGAIN, "recursive_timed_mutex lock limit reached");
         ++__count_;
         return;
     }
+#ifndef __CHEERP__
     while (__count_ != 0)
         __cv_.wait(lk);
     __count_ = 1;
     __id_ = id;
+#endif
 }
 
 bool
 recursive_timed_mutex::try_lock() noexcept
 {
+#ifndef __CHEERP__
     __thread_id id = this_thread::get_id();
+#endif
     unique_lock<mutex> lk(__m_, try_to_lock);
+#ifdef __CHEERP__
+    return true;
+#else
     if (lk.owns_lock() && (__count_ == 0 || id == __id_))
     {
         if (__count_ == numeric_limits<size_t>::max())
@@ -178,6 +238,7 @@ recursive_timed_mutex::try_lock() noexcept
         return true;
     }
     return false;
+#endif
 }
 
 void
@@ -186,9 +247,13 @@ recursive_timed_mutex::unlock() noexcept
     unique_lock<mutex> lk(__m_);
     if (--__count_ == 0)
     {
+#ifndef __CHEERP__
         __id_.__reset();
+#endif
         lk.unlock();
+#ifndef __CHEERP__
         __cv_.notify_one();
+#endif
     }
 }
 
@@ -261,7 +326,6 @@ void __call_once(volatile once_flag::_State_type& flag, void* arg,
         __libcpp_mutex_unlock(&mut);
 #endif // !_LIBCPP_HAS_NO_THREADS
 }
-
 _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
