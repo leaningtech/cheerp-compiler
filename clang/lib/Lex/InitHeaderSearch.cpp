@@ -417,6 +417,7 @@ bool InitHeaderSearch::ShouldAddDefaultIncludePaths(
   case llvm::Triple::OpenBSD:
   case llvm::Triple::Solaris:
   case llvm::Triple::WASI:
+  case llvm::Triple::WebBrowser:
     return false;
 
   case llvm::Triple::Win32:
