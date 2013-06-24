@@ -327,6 +327,10 @@
 #  define _LIBCPP_USING_DEV_RANDOM
 #endif
 
+#ifdef __DUETTO__
+# define _LIBCPP_BIG_ENDIAN    0
+#endif
+
 #if !defined(_LIBCPP_LITTLE_ENDIAN) && !defined(_LIBCPP_BIG_ENDIAN)
 #  include <endian.h>
 #  if __BYTE_ORDER == __LITTLE_ENDIAN
