@@ -426,6 +426,7 @@ void InitHeaderSearch::AddDefaultIncludePaths(const LangOptions &Lang,
   case llvm::Triple::Solaris:
   case llvm::Triple::WASI:
   case llvm::Triple::AIX:
+  case llvm::Triple::WebBrowser:
     return;
 
   case llvm::Triple::Win32:
