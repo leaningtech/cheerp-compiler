@@ -133,8 +133,10 @@ using ::fwide _LIBCPP_USING_IF_EXISTS;
 using ::getwc _LIBCPP_USING_IF_EXISTS;
 using ::putwc _LIBCPP_USING_IF_EXISTS;
 using ::ungetwc _LIBCPP_USING_IF_EXISTS;
+#ifndef __CHEERP__
 using ::wcstod _LIBCPP_USING_IF_EXISTS;
 using ::wcstof _LIBCPP_USING_IF_EXISTS;
+#endif
 using ::wcstold _LIBCPP_USING_IF_EXISTS;
 using ::wcstol _LIBCPP_USING_IF_EXISTS;
 using ::wcstoll _LIBCPP_USING_IF_EXISTS;
