@@ -134,8 +134,10 @@ using ::getwc;
 using ::putwc;
 using ::ungetwc;
 using ::wcstod;
+#ifndef __CHEERP__
 using ::wcstof;
 using ::wcstold;
+#endif
 using ::wcstol;
 #ifndef _LIBCPP_HAS_NO_LONG_LONG
 using ::wcstoll;

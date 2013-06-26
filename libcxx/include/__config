@@ -329,6 +329,7 @@
 
 #ifdef __DUETTO__
 # define _LIBCPP_BIG_ENDIAN    0
+# define _LIBCPP_HAS_NO_THREADS
 #endif
 
 #if !defined(_LIBCPP_LITTLE_ENDIAN) && !defined(_LIBCPP_BIG_ENDIAN)
@@ -876,7 +877,7 @@ typedef unsigned int   char32_t;
 #  define _LIBCPP_EXPLICIT
 #endif
 
-#if !__has_builtin(__builtin_operator_new) || !__has_builtin(__builtin_operator_delete)
+#if !__has_builtin(__builtin_operator_new) || !__has_builtin(__builtin_operator_delete) || defined(__CHEERP__)
 #define _LIBCPP_HAS_NO_BUILTIN_OPERATOR_NEW_DELETE
 #endif
 
