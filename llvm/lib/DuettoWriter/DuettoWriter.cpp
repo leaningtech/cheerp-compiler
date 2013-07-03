@@ -912,7 +912,8 @@ bool DuettoWriter::safeCallForNewedMemory(const CallInst* ci) const
 	//We allow the unsafe cast to i8* only
 	//if the usage is memcpy, memset, free or delete
 	//or one of the lifetime/invariant intrinsics
-	return (ci && (ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32" ||
+	return (ci && ci->getCalledFunction() &&
+		(ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32" ||
 		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32" ||
 		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64" ||
 		ci->getCalledFunction()->getName()=="llvm.memmove.p0i8.p0i8.i32" ||
