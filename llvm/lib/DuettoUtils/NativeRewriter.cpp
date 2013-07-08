@@ -183,7 +183,7 @@ void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 				Type* t=i->getAllocatedType();
 
 				std::string builtinTypeName;
-				if(!t->isStructTy() || !isBuiltinType((std::string)t->getStructName(), builtinTypeName))
+				if(!t->isStructTy() || !cast<StructType>(t)->hasName() || !isBuiltinType((std::string)t->getStructName(), builtinTypeName))
 					continue;
 				rewriteNativeAllocationUsers(M,toRemove,i,t,builtinTypeName);
 			}
