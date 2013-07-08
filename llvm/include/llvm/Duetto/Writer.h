@@ -14,6 +14,9 @@
 #include <set>
 #include <map>
 
+//Comment out this to debug why a global is included in the JS
+//#define DEBUG_GLOBAL_DEPS
+
 namespace duetto
 {
 
@@ -37,7 +40,11 @@ private:
 	std::set<llvm::StructType*> classesNeeded;
 	std::set<llvm::StructType*> arraysNeeded;
 	std::set<const llvm::GlobalValue*> globalsDone;
+#ifdef DEBUG_GLOBAL_DEPS
+	std::map<const llvm::GlobalValue*, const llvm::GlobalValue*> globalsQueue;
+#else
 	std::set<const llvm::GlobalValue*> globalsQueue;
+#endif
 	typedef std::multimap<const llvm::GlobalVariable*, Fixup> FixupMapType;
 	FixupMapType globalsFixupMap;
 	bool printMethodNames;
