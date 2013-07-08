@@ -620,6 +620,16 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		compileFree(*it);
 		return true;
 	}
+	else if(strcmp(ident,"fmod")==0)
+	{
+		// Handle this internally, C++ does not have float mod operation
+		stream << '(';
+		compileOperand(*(it));
+		stream << '%';
+		compileOperand(*(it+1));
+		stream << ')';
+		return true;
+	}
 	return false;
 }
 
