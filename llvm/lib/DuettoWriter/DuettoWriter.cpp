@@ -329,7 +329,33 @@ void DuettoWriter::compileDowncast(const Value* src, uint32_t baseOffset)
 	}
 }
 
-void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value* size)
+void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value* size)
+{
+	//TODO: Optimize the checks if possible
+	//Check if they are inside the same memory island
+	stream << "if(";
+	const Type* lastTypeDest=compileObjectForPointer(dest);
+	stream << "===";
+	const Type* lastTypeSrc=compileObjectForPointer(src);
+	//If so they may overlap, check and use reverse copy if needed
+	stream << "&&";
+	bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
+	if(!notFirst)
+		stream << '0';
+	stream << ">";
+	notFirst=compileOffsetForPointer(src,lastTypeSrc);
+	if(!notFirst)
+		stream << '0';
+	stream << "){\n";
+	//Destination is before source, copy forward
+	compileCopy(dest, src, size, BACKWARD);
+	stream << "}else{";
+	//Destination is after source, copy backward
+	compileCopy(dest, src, size, FORWARD);
+	stream << "}\n";
+}
+
+void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value* size, COPY_DIRECTION copyDirection)
 {
 	//Find out the real type of the copied object
 	std::set<const PHINode*> visitedPhis;
@@ -359,6 +385,7 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 		if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
 				pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
 		{
+			// The semantics of set is memmove like, no need to care about direction
 			const Type* lastTypeDest=compileObjectForPointer(dest);
 			stream << ".set(";
 			const Type* lastTypeSrc=compileObjectForPointer(src);
@@ -379,7 +406,10 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 		}
 		else
 		{
-			stream << "for(var __i__=1;__i__<" << numElem << ";__i__++) {\n";
+			if(copyDirection == FORWARD)
+				stream << "for(var __i__=1;__i__<" << numElem << ";__i__++) {\n";
+			else
+				stream << "for(var __i__=" << numElem << "-1;__i__>1;__i__--) {\n";
 			compileCopyRecursive("", dest, src, pointedType,"__i__");
 			stream << "}\n";
 		}
@@ -391,6 +421,7 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 		if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
 				pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
 		{
+			// The semantics of set is memmove like, no need to care about direction
 			const Type* lastTypeDest=compileObjectForPointer(dest);
 			stream << ".set(";
 			const Type* lastTypeSrc=compileObjectForPointer(src);
@@ -413,9 +444,18 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 		}
 		else
 		{
-			stream << "for(var __i__=0;__i__<(";
-			compileOperand(size);
-			stream << '/' << typeSize << ");__i__++) {\n";
+			if(copyDirection == FORWARD)
+			{
+				stream << "for(var __i__=0;__i__<(";
+				compileOperand(size);
+				stream << '/' << typeSize << ");__i__++) {\n";
+			}
+			else
+			{
+				stream << "for(var __i__=(";
+				compileOperand(size);
+				stream << '/' << typeSize << "-1);__i__>1;__i__--) {\n";
+			}
 			compileCopyRecursive("", dest, src, pointedType,"__i__");
 			stream << "}\n";
 		}
@@ -566,9 +606,14 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		stream << "new " << (ident+28) << "()";
 		return true;
 	}
+	else if(strncmp(ident,"llvm.memmove",12)==0)
+	{
+		compileMove(*(it), *(it+1), *(it+2));
+		return true;
+	}
 	else if(strncmp(ident,"llvm.memcpy",11)==0)
 	{
-		compileCopy(*(it), *(it+1), *(it+2));
+		compileCopy(*(it), *(it+1), *(it+2), FORWARD);
 		return true;
 	}
 	else if(strncmp(ident,"llvm.memset",11)==0)
