@@ -85,6 +85,7 @@ void DuettoWriter::handleBuiltinNamespace(const char* ident, User::const_op_iter
 		//Regular call
 		if(className)
 		{
+			assert(it!=itE);
 			compileOperand(*it);
 			++it;
 			stream << ".";
