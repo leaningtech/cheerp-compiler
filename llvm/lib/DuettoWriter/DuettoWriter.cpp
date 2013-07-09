@@ -1382,14 +1382,32 @@ void DuettoWriter::compileTypeImpl(Type* t)
 		case Type::ArrayTyID:
 		{
 			ArrayType* at=static_cast<ArrayType*>(t);
-			stream << '[';
-			for(uint64_t i=0;i<at->getNumElements();i++)
+			Type* et=at->getElementType();
+			//For numerical types, create typed arrays
+			if(et->isIntegerTy() || et->isDoubleTy())
 			{
-				compileTypeImpl(at->getElementType());
-				if((i+1)<at->getNumElements())
-					stream << ",";
+				stream << "new ";
+				if(et->isIntegerTy(8))
+					stream << "Int8Array";
+				else if(et->isIntegerTy(16))
+					stream << "Int16Array";
+				else if(et->isIntegerTy(32))
+					stream << "Int32Array";
+				else if(et->isDoubleTy())
+					stream << "Float64Array";
+				stream << '(' << at->getNumElements() << ')';
 			}
-			stream << ']';
+			else
+			{
+				stream << '[';
+				for(uint64_t i=0;i<at->getNumElements();i++)
+				{
+					compileTypeImpl(at->getElementType());
+					if((i+1)<at->getNumElements())
+						stream << ",";
+				}
+				stream << ']';
+			}
 			break;
 		}
 		default:
