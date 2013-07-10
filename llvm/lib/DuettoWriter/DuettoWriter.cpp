@@ -649,16 +649,6 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		//Do not touch method that are implemented in native JS code
 		return false;
 	}
-	else if(strncmp(ident,"_ZN6client6Client",17)==0)
-	{
-		//Handle getters in Client
-		const char* rest=ident+17;
-		char* functionName;
-		int functionNameLen=strtol(rest,&functionName,10);
-		assert(strncmp(functionName,"get_",4)==0);
-		stream.write(functionName+4,functionNameLen-4);
-		return true;
-	}
 	else if(strncmp(ident,"_ZN6client18duettoVariadicTrap",30)==0)
 	{
 		//Forward to the actual method, which is the first argument
