@@ -369,96 +369,107 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 
 	Type* pointedType = static_cast<PointerType*>(destType)->getElementType();
 	uint32_t typeSize = targetData.getTypeAllocSize(pointedType);
+
+	//Check that the number of element is not zero
+	if(ConstantInt::classof(size))
+	{
+		uint32_t allocatedSize = getIntFromValue(size);
+		//assert((allocatedSize % typeSize) == 0);
+		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
+		if(numElem==0)
+			return;
+	}
+	else
+	{
+		//Compute number of elements at runtime
+		stream << "var __numElem__=";
+		compileOperand(size);
+		stream << '/' << typeSize;
+		//Make sure to close this if below
+		stream << "if(__numElem__!=0)\n{";
+	}
+
+	//The first element is always copied directly, to support complete objects
+	compileCopyRecursive("", dest, src, pointedType, NULL);
+	//The rest is compiled using a for loop, or native TypedArray set operator
+
 	if(ConstantInt::classof(size))
 	{
 		uint32_t allocatedSize = getIntFromValue(size);
 		//assert((allocatedSize % typeSize) == 0);
 		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
 
-		assert(numElem>0);
-		//The first element is always copied directly, to support complete objects
-		compileCopyRecursive("", dest, src, pointedType,NULL);
-		//The rest is compiled using a for loop, or native TypedArray set operator
 		if(numElem==1)
 			return;
-
-		if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
-				pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
-		{
-			// The semantics of set is memmove like, no need to care about direction
-			const Type* lastTypeDest=compileObjectForPointer(dest);
-			stream << ".set(";
-			const Type* lastTypeSrc=compileObjectForPointer(src);
-			//We need to get a subview of the source
-			stream << ".subarray(";
-			bool notFirst=compileOffsetForPointer(src,lastTypeSrc);
-			if(!notFirst)
-				stream << '0';
-			stream << ',';
-			notFirst=compileOffsetForPointer(src,lastTypeSrc);
-			if(notFirst)
-				stream << '+';
-			stream << numElem << "),";
-			notFirst=compileOffsetForPointer(dest,lastTypeDest);
-			if(!notFirst)
-				stream << '0';
-			stream << ')';
-		}
-		else
-		{
-			if(copyDirection == FORWARD)
-				stream << "for(var __i__=1;__i__<" << numElem << ";__i__++) {\n";
-			else
-				stream << "for(var __i__=" << numElem << "-1;__i__>1;__i__--) {\n";
-			compileCopyRecursive("", dest, src, pointedType,"__i__");
-			stream << "}\n";
-		}
 	}
 	else
 	{
-		//TODO: See if we should support complete objects for dynamic sizes
-		//TODO: Remove division for size 1
-		if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
-				pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
-		{
-			// The semantics of set is memmove like, no need to care about direction
-			const Type* lastTypeDest=compileObjectForPointer(dest);
-			stream << ".set(";
-			const Type* lastTypeSrc=compileObjectForPointer(src);
-			//We need to get a subview of the source
-			stream << ".subarray(";
-			bool notFirst=compileOffsetForPointer(src,lastTypeSrc);
-			if(!notFirst)
-				stream << '0';
-			stream << ',';
-			notFirst=compileOffsetForPointer(src,lastTypeSrc);
-			if(notFirst)
-				stream << '+';
-			stream << '(';
-			compileOperand(size);
-			stream << '/' << typeSize << ")),";
-			notFirst=compileOffsetForPointer(dest,lastTypeDest);
-			if(!notFirst)
-				stream << '0';
-			stream << ')';
-		}
+		//Close the if for the '0' case
+		//If the number of elements is 1 the loop will not execute
+		//so we don't need a special check
+		stream << "\n}";
+	}
+
+	const Type* lastTypeSrc = NULL;
+	const Type* lastTypeDest = NULL;
+	//Prologue: Construct the first part, up to using the size
+	if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
+			pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
+	{
+		// The semantics of set is memmove like, no need to care about direction
+		lastTypeDest=compileObjectForPointer(dest);
+		stream << ".set(";
+		lastTypeSrc=compileObjectForPointer(src);
+		//We need to get a subview of the source
+		stream << ".subarray(";
+		bool notFirst=compileOffsetForPointer(src,lastTypeSrc);
+		if(!notFirst)
+			stream << '0';
+		stream << ',';
+		notFirst=compileOffsetForPointer(src,lastTypeSrc);
+		if(notFirst)
+			stream << '+';
+	}
+	else
+	{
+		if(copyDirection == FORWARD)
+			stream << "for(var __i__=1;__i__<";
 		else
-		{
-			if(copyDirection == FORWARD)
-			{
-				stream << "for(var __i__=0;__i__<(";
-				compileOperand(size);
-				stream << '/' << typeSize << ");__i__++) {\n";
-			}
-			else
-			{
-				stream << "for(var __i__=(";
-				compileOperand(size);
-				stream << '/' << typeSize << "-1);__i__>1;__i__--) {\n";
-			}
-			compileCopyRecursive("", dest, src, pointedType,"__i__");
-			stream << "}\n";
-		}
+			stream << "for(var __i__=";
+	}
+
+	// Use the size
+	if(ConstantInt::classof(size))
+	{
+		uint32_t allocatedSize = getIntFromValue(size);
+		//assert((allocatedSize % typeSize) == 0);
+		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
+
+		stream << numElem;
+	}
+	else
+	{
+		stream << "__numElem__";
+	}
+
+	//Epilogue: Write the code after the size
+	if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
+			pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
+	{
+		stream << "),";
+		bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
+		if(!notFirst)
+			stream << '0';
+		stream << ')';
+	}
+	else
+	{
+		if(copyDirection == FORWARD)
+			stream	<< ";__i__++){\n";
+		else
+			stream << "-1;__i__>0;__i__--){\n";
+		compileCopyRecursive("", dest, src, pointedType,"__i__");
+		stream << "\n}";
 	}
 }
 
