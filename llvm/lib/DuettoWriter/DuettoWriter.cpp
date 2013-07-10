@@ -386,7 +386,7 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 		compileOperand(size);
 		stream << '/' << typeSize;
 		//Make sure to close this if below
-		stream << "if(__numElem__!=0)\n{";
+		stream << ";\nif(__numElem__!=0)\n{";
 	}
 
 	//The first element is always copied directly, to support complete objects
