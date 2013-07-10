@@ -1898,16 +1898,16 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastTyp
 const Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	Type* t=val->getType();
-	assert(t->isPointerTy());
-	PointerType* ptrT=static_cast<PointerType*>(t);
 	if(it==itE)
 	{
 		//Same level access, we are just computing another pointer from this pointer
 		compileObjectForPointer(val);
-		return ptrT->getElementType();
+		return t;
 	}
 	else
 	{
+		assert(t->isPointerTy());
+		PointerType* ptrT=static_cast<PointerType*>(t);
 		//First dereference the pointer
 		compileDereferencePointer(val, *it);
 		return compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
