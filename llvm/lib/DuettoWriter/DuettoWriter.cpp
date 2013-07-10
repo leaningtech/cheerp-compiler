@@ -564,60 +564,11 @@ void DuettoWriter::compileFree(const Value* obj)
 }
 
 bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
-			User::const_op_iterator it, User::const_op_iterator itE)
+			User::const_op_iterator it, User::const_op_iterator itE, bool userImplemented)
 {
-	if(strcmp(ident,"_ZN6client5ArrayixEi")==0 ||
-		strcmp(ident,"_ZNK6client6ObjectcvdEv")==0)
-	{
-		//Do not touch method that are implemented in native JS code
-		return false;
-	}
-	else if(strncmp(ident,"_ZN6client6Client",17)==0)
-	{
-		//Handle getters in Client
-		const char* rest=ident+17;
-		char* functionName;
-		int functionNameLen=strtol(rest,&functionName,10);
-		assert(strncmp(functionName,"get_",4)==0);
-		stream.write(functionName+4,functionNameLen-4);
-		return true;
-	}
-	else if(strncmp(ident,"_ZN6client18duettoVariadicTrap",30)==0)
-	{
-		//Forward to the actual method, which is the first argument
-		assert(Function::classof(*it));
-		const Function* f=cast<Function>(*it);
-		assert(f->hasName());
-		return handleBuiltinCall(f->getName().data(), callV, it+1, itE);
-	}
-	else if(strncmp(ident,"_ZN6client",10)==0)
-	{
-		handleBuiltinNamespace(ident+10,it,itE);
-		return true;
-	}
-	else if(strncmp(ident,"_ZNK6client",11)==0)
-	{
-		handleBuiltinNamespace(ident+11,it,itE);
-		return true;
-	}
-	else if(strncmp(ident,"_duettoCreateBuiltin_ZN6client12Float32ArrayC1EPf",49)==0)
-	{
-		const Type* lastType=compileObjectForPointer(*it);
-		stream << ".subarray(";
-		bool notFirst=compileOffsetForPointer(*it, lastType);
-		if(!notFirst)
-			stream << '0';
-		stream << ')';
-		return true;
-	}
-	else if(strncmp(ident,"default_duettoCreateBuiltin_",28)==0)
-	{
-		assert(it==itE);
-		//Default handling of builtin constructors
-		stream << "new " << (ident+28) << "()";
-		return true;
-	}
-	else if(strncmp(ident,"llvm.memmove",12)==0)
+	//First handle high priority builtins, they will be used even
+	//if an implementation is available from the user
+	if(strncmp(ident,"llvm.memmove",12)==0)
 	{
 		compileMove(*(it), *(it+1), *(it+2));
 		return true;
@@ -685,6 +636,62 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		stream << '%';
 		compileOperand(*(it+1));
 		stream << ')';
+		return true;
+	}
+
+	//If the method is implemented by the user, stop here
+	if(userImplemented)
+		return false;
+
+	if(strcmp(ident,"_ZN6client5ArrayixEi")==0 ||
+		strcmp(ident,"_ZNK6client6ObjectcvdEv")==0)
+	{
+		//Do not touch method that are implemented in native JS code
+		return false;
+	}
+	else if(strncmp(ident,"_ZN6client6Client",17)==0)
+	{
+		//Handle getters in Client
+		const char* rest=ident+17;
+		char* functionName;
+		int functionNameLen=strtol(rest,&functionName,10);
+		assert(strncmp(functionName,"get_",4)==0);
+		stream.write(functionName+4,functionNameLen-4);
+		return true;
+	}
+	else if(strncmp(ident,"_ZN6client18duettoVariadicTrap",30)==0)
+	{
+		//Forward to the actual method, which is the first argument
+		assert(Function::classof(*it));
+		const Function* f=cast<Function>(*it);
+		assert(f->hasName());
+		return handleBuiltinCall(f->getName().data(), callV, it+1, itE, false);
+	}
+	else if(strncmp(ident,"_ZN6client",10)==0)
+	{
+		handleBuiltinNamespace(ident+10,it,itE);
+		return true;
+	}
+	else if(strncmp(ident,"_ZNK6client",11)==0)
+	{
+		handleBuiltinNamespace(ident+11,it,itE);
+		return true;
+	}
+	else if(strncmp(ident,"_duettoCreateBuiltin_ZN6client12Float32ArrayC1EPf",49)==0)
+	{
+		const Type* lastType=compileObjectForPointer(*it);
+		stream << ".subarray(";
+		bool notFirst=compileOffsetForPointer(*it, lastType);
+		if(!notFirst)
+			stream << '0';
+		stream << ')';
+		return true;
+	}
+	else if(strncmp(ident,"default_duettoCreateBuiltin_",28)==0)
+	{
+		assert(it==itE);
+		//Default handling of builtin constructors
+		stream << "new " << (ident+28) << "()";
 		return true;
 	}
 	return false;
@@ -1563,8 +1570,8 @@ void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I)
 			{
 				//Direct call
 				const char* funcName=ci.getCalledFunction()->getName().data();
-				if(ci.getCalledFunction()->empty() &&
-					handleBuiltinCall(funcName,&ci,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
+				if(handleBuiltinCall(funcName,&ci,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),
+						!ci.getCalledFunction()->empty()))
 				{
 					stream << ";\n";
 					//Only consider the normal successor for PHIs here
@@ -1713,8 +1720,8 @@ bool DuettoWriter::compileNotInlineableInstruction(const Instruction& I)
 			{
 				//Direct call
 				const char* funcName=ci.getCalledFunction()->getName().data();
-				if(ci.getCalledFunction()->empty() &&
-					handleBuiltinCall(funcName,&ci,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands()))
+				if(handleBuiltinCall(funcName,&ci,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),
+						!ci.getCalledFunction()->empty()))
 				{
 					return true;
 				}

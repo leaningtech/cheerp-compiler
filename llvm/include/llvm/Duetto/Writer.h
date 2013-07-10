@@ -109,7 +109,7 @@ private:
 	void handleBuiltinNamespace(const char* ident, llvm::User::const_op_iterator it,
 			llvm::User::const_op_iterator itE);
 	bool handleBuiltinCall(const char* ident, const llvm::Value* callV,
-			llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE);
+			llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, bool userImplemented);
 	bool safeUsagesForNewedMemory(const llvm::Value* v) const;
 	bool safeCallForNewedMemory(const llvm::CallInst* ci) const;
 	uint32_t getUniqueIndexForValue(const llvm::Value* v);
