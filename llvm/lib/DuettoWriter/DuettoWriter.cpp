@@ -140,6 +140,7 @@ void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value
 	switch(currentType->getTypeID())
 	{
 		case Type::IntegerTyID:
+		case Type::FloatTyID:
 		case Type::DoubleTyID:
 		case Type::PointerTyID:
 		{
@@ -234,6 +235,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 			stream << ";\n";
 			break;
 		}
+		case Type::FloatTyID:
 		case Type::DoubleTyID:
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
