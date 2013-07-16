@@ -355,6 +355,28 @@ void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value*
 	stream << "}\n";
 }
 
+bool DuettoWriter::isTypedArrayType(Type* t) const
+{
+	return t->isIntegerTy(8) || t->isIntegerTy(16) || t->isIntegerTy(32) ||
+		t->isFloatTy() || t->isDoubleTy();
+}
+
+void DuettoWriter::compileTypedArrayType(Type* t)
+{
+	if(t->isIntegerTy(8))
+		stream << "Int8Array";
+	else if(t->isIntegerTy(16))
+		stream << "Int16Array";
+	else if(t->isIntegerTy(32))
+		stream << "Int32Array";
+	else if(t->isFloatTy())
+		stream << "Float32Array";
+	else if(t->isDoubleTy())
+		stream << "Float64Array";
+	else
+		assert(false);
+}
+
 void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value* size, COPY_DIRECTION copyDirection)
 {
 	//Find out the real type of the copied object
@@ -413,8 +435,7 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 	const Type* lastTypeSrc = NULL;
 	const Type* lastTypeDest = NULL;
 	//Prologue: Construct the first part, up to using the size
-	if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
-			pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
+	if(isTypedArrayType(pointedType))
 	{
 		// The semantics of set is memmove like, no need to care about direction
 		lastTypeDest=compileObjectForPointer(dest);
@@ -453,8 +474,7 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 	}
 
 	//Epilogue: Write the code after the size
-	if(pointedType->isIntegerTy(8) || pointedType->isIntegerTy(16) ||
-			pointedType->isIntegerTy(32) || pointedType->isDoubleTy())
+	if(isTypedArrayType(pointedType))
 	{
 		stream << "),";
 		bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
@@ -499,17 +519,10 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 	assert(castedType->isPointerTy());
 	Type* t=static_cast<const PointerType*>(castedType)->getElementType();
 	//For numerical types, create typed arrays
-	if(t->isIntegerTy() || t->isDoubleTy())
+	if(isTypedArrayType(t))
 	{
 		stream << "new ";
-		if(t->isIntegerTy(8))
-			stream << "Int8Array";
-		else if(t->isIntegerTy(16))
-			stream << "Int16Array";
-		else if(t->isIntegerTy(32))
-			stream << "Int32Array";
-		else if(t->isDoubleTy())
-			stream << "Float64Array";
+		compileTypedArrayType(t);
 		stream << '(';
 		//Use the size in bytes
 		compileOperand(size);
@@ -764,7 +777,7 @@ void DuettoWriter::printLLVMName(const StringRef& s) const
 
 bool DuettoWriter::isImmutableType(const Type* t) const
 {
-	if(t->isIntegerTy() || t->isDoubleTy() || t->isPointerTy())
+	if(t->isIntegerTy() || t->isFloatTy() || t->isDoubleTy() || t->isPointerTy())
 		return true;
 	return false;
 }
@@ -1193,16 +1206,7 @@ void DuettoWriter::compileConstant(const Constant* c)
 		const ConstantDataSequential* d=cast<const ConstantDataSequential>(c);
 		Type* t=d->getElementType();
 		stream << "new ";
-		if(t->isIntegerTy(8))
-			stream << "Int8Array";
-		else if(t->isIntegerTy(16))
-			stream << "Int16Array";
-		else if(t->isIntegerTy(32))
-			stream << "Int32Array";
-		else if(t->isDoubleTy())
-			stream << "Float64Array";
-		else
-			assert(false);
+		compileTypedArrayType(t);
 		stream << "([";
 		for(uint32_t i=0;i<d->getNumElements();i++)
 		{
@@ -1437,17 +1441,10 @@ void DuettoWriter::compileTypeImpl(Type* t)
 			ArrayType* at=static_cast<ArrayType*>(t);
 			Type* et=at->getElementType();
 			//For numerical types, create typed arrays
-			if(et->isIntegerTy() || et->isDoubleTy())
+			if(isTypedArrayType(et))
 			{
 				stream << "new ";
-				if(et->isIntegerTy(8))
-					stream << "Int8Array";
-				else if(et->isIntegerTy(16))
-					stream << "Int16Array";
-				else if(et->isIntegerTy(32))
-					stream << "Int32Array";
-				else if(et->isDoubleTy())
-					stream << "Float64Array";
+				compileTypedArrayType(et);
 				stream << '(' << at->getNumElements() << ')';
 			}
 			else
