@@ -509,10 +509,14 @@ CodeGenFunction::GenerateUpcast(llvm::Value* Value,
   if(Value->getType()!=BasePtrTy)
   {
     //This should become an intrinsic
-    llvm::Instruction* castI=cast<llvm::Instruction>(Builder.CreateBitCast(Value, BasePtrTy));
-    llvm::MDNode* md=llvm::MDNode::get(getLLVMContext(), llvm::SmallVector<llvm::Metadata*, 1>());
-    castI->setMetadata("duetto.upcast.collapsed", md);
-    Value=castI;
+    Value=Builder.CreateBitCast(Value, BasePtrTy);
+    //TODO: How to handle constexpr cases?
+    if(llvm::Instruction::classof(Value))
+    {
+      llvm::Instruction* castI=cast<llvm::Instruction>(Value);
+      llvm::MDNode* md=llvm::MDNode::get(getLLVMContext(), llvm::SmallVector<llvm::Metadata*, 1>());
+      castI->setMetadata("duetto.upcast.collapsed", md);
+    }
   }
   return Value;
 }
