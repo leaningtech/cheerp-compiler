@@ -53,6 +53,8 @@ private:
 	bool isClientType(llvm::Type* t) const;
 	bool isClientGlobal(const char* mangledName) const;
 	bool isI32Type(llvm::Type* t) const;
+	bool isTypedArrayType(llvm::Type* t) const;
+	void compileTypedArrayType(llvm::Type* t);
 	bool isComingFromAllocation(const llvm::Value* val) const;
 	bool isComingFromAllocation(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis) const;
 	bool isInlineable(const llvm::Instruction& I) const;
