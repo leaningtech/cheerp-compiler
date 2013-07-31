@@ -1361,18 +1361,15 @@ void DuettoWriter::compileOperandImpl(const Value* v)
 {
 	if(const Constant* c=dyn_cast<const Constant>(v))
 		compileConstant(c);
-	else if(dyn_cast<Instruction>(v))
+	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
-		const Instruction* it=cast<const Instruction>(v);
 		if(isInlineable(*it))
 			compileInlineableInstruction(*cast<Instruction>(v));
 		else
 			printVarName(it);
 	}
-	else if(Argument::classof(v) && v->hasName())
-	{
-		printLLVMName(v->getName());
-	}
+	else if(const Argument* arg=dyn_cast<const Argument>(v))
+		printArgName(arg);
 	else
 	{
 		llvm::errs() << "No name for value ";
@@ -1504,6 +1501,14 @@ void DuettoWriter::printVarName(const Value* val)
 		printLLVMName(val->getName());
 	else
 		stream << "tmp" << getUniqueIndexForValue(val);
+}
+
+void DuettoWriter::printArgName(const Argument* val) const
+{
+	if(val->hasName())
+		printLLVMName(val->getName());
+	else
+		stream << "arg" << val->getArgNo();
 }
 
 void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
@@ -2805,10 +2810,7 @@ void DuettoWriter::compileMethod(const Function& F)
 	{
 		if(curArg!=A)
 			stream << ", ";
-		if(curArg->hasName())
-			printLLVMName(curArg->getName());
-		else
-			stream << "arg" << curArg->getArgNo();
+		printArgName(curArg);
 	}
 	stream << ") {\n";
 	std::map<const BasicBlock*, uint32_t> blocksMap;
