@@ -178,6 +178,15 @@ public:
                         "a:0:8-f80:8-n8:8:8-S8";
     BigEndian = false;
     ByteAddressable = false;
+    PointerAlign = 8;
+    IntAlign = 8;
+    LongAlign = 8;
+    LongLongAlign = 8;
+    SuitableAlign = 8;
+    HalfAlign = 8;
+    FloatAlign = 8;
+    DoubleAlign = 8;
+    LongDoubleAlign = 8;
   }
 
   virtual ArrayRef<Builtin::Info> getTargetBuiltins() const {
