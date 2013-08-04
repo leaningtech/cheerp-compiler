@@ -1413,11 +1413,6 @@ void DuettoWriter::compileTypeImpl(Type* t)
 		case Type::StructTyID:
 		{
 			StructType* st=static_cast<StructType*>(t);
-			NamedMDNode* basesMeta=NULL;
-			if(st->hasName())
-				basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
-			if(basesMeta)
-				classesNeeded.insert(st);
 			stream << "{ ";
 			StructType::element_iterator E=st->element_begin();
 			StructType::element_iterator EE=st->element_end();
@@ -3226,14 +3221,21 @@ void DuettoWriter::makeJS()
 		}
 	}
 
-	std::set<StructType*>::const_iterator T=classesNeeded.begin();
-	std::set<StructType*>::const_iterator TE=classesNeeded.end();
-	for (; T != TE; ++T)
+	std::set<StructType*> classesDone;
+	while(!classesNeeded.empty())
 	{
-		compileClassType(*T);
+		std::set<StructType*>::const_iterator CN=classesNeeded.begin();
+		StructType* st=*CN;
+		classesNeeded.erase(CN);
+		if(!classesDone.count(st))
+		{
+			compileClassType(st);
+			classesDone.insert(st);
+		}
 	}
-	T=arraysNeeded.begin();
-	TE=arraysNeeded.end();
+
+	std::set<StructType*>::const_iterator T=arraysNeeded.begin();
+	std::set<StructType*>::const_iterator TE=arraysNeeded.end();
 	for (; T != TE; ++T)
 	{
 		compileArrayClassType(*T);
