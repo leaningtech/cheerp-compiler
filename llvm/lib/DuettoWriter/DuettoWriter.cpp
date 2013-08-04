@@ -417,6 +417,8 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 	compileCopyRecursive("", dest, src, pointedType, NULL);
 	//The rest is compiled using a for loop, or native TypedArray set operator
 
+	//NOTE: For constant values we can stop code generation here
+	//For the dynamic case we still need to close the if below
 	if(ConstantInt::classof(size))
 	{
 		uint32_t allocatedSize = getIntFromValue(size);
@@ -425,13 +427,6 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 
 		if(numElem==1)
 			return;
-	}
-	else
-	{
-		//Close the if for the '0' case
-		//If the number of elements is 1 the loop will not execute
-		//so we don't need a special check
-		stream << "\n}";
 	}
 
 	const Type* lastTypeSrc = NULL;
@@ -491,6 +486,12 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 		else
 			stream << "-1;__i__>0;__i__--){\n";
 		compileCopyRecursive("", dest, src, pointedType,"__i__");
+		stream << "\n}";
+	}
+
+	if(!ConstantInt::classof(size))
+	{
+		//Close the if for the '0' case
 		stream << "\n}";
 	}
 }
