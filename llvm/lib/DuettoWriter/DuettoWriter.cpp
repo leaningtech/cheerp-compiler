@@ -183,42 +183,6 @@ void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value
 	}
 }
 
-void DuettoWriter::compileReset(const Value* dest, uint8_t resetValue, const Value* size)
-{
-	std::set<const PHINode*> visitedPhis;
-	Type* destType=findRealType(dest,visitedPhis);
-	assert(destType->isPointerTy());
-	Type* pointedType = static_cast<PointerType*>(destType)->getElementType();
-	uint32_t typeSize = targetData.getTypeAllocSize(pointedType);
-
-	if(ConstantInt::classof(size))
-	{
-		uint32_t allocatedSize = getIntFromValue(size);
-		//assert((allocatedSize % typeSize) == 0);
-		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
-		assert(numElem>0);
-		//The first element is always copied directly, to support complete objects
-		compileResetRecursive("", dest, resetValue, pointedType, NULL);
-		//The rest is compiled using a for loop
-		if(numElem==1)
-			return;
-
-		stream << "for(var __i__=1;__i__<" << numElem << ";__i__++) {\n";
-		compileResetRecursive("", dest, resetValue, pointedType,"__i__");
-		stream << "}\n";
-	}
-	else
-	{
-		//TODO: See if we should support complete objects for dynamic sizes
-		//TODO: Remove division for size 1
-		stream << "for(var __i__=0;__i__<(";
-		compileOperand(size);
-		stream << '/' << typeSize << ");__i__++) {\n";
-		compileResetRecursive("", dest, resetValue, pointedType,"__i__");
-		stream << "}\n";
-	}
-}
-
 void DuettoWriter::compileResetRecursive(const std::string& baseName, const Value* baseDest,
 		uint8_t resetValue, const Type* currentType, const char* namedOffset)
 {
@@ -350,10 +314,10 @@ void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value*
 		stream << '0';
 	stream << "){\n";
 	//Destination is before source, copy forward
-	compileCopy(dest, src, size, BACKWARD);
+	compileMemFunc(dest, src, size, BACKWARD, 0);
 	stream << "}else{";
 	//Destination is after source, copy backward
-	compileCopy(dest, src, size, FORWARD);
+	compileMemFunc(dest, src, size, FORWARD, 0);
 	stream << "}\n";
 }
 
@@ -379,16 +343,23 @@ void DuettoWriter::compileTypedArrayType(Type* t)
 		assert(false);
 }
 
-void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value* size, COPY_DIRECTION copyDirection)
+/* Method that handles memcpy, memset and memmove.
+ * If src is not NULL present a copy operation is done using the supplied direction.
+ * memset is handled by passing a NULL src and setting resetValue as needed. direction should be FORWARD */
+void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Value* size,
+		COPY_DIRECTION copyDirection, uint8_t resetValue)
 {
 	//Find out the real type of the copied object
 	std::set<const PHINode*> visitedPhis;
 	Type* destType=findRealType(dest,visitedPhis);
-	visitedPhis.clear();
+	if(src)
+	{
+		visitedPhis.clear();
 #ifndef NDEBUG
-	Type* srcType=findRealType(src,visitedPhis);
+		Type* srcType=findRealType(src,visitedPhis);
 #endif
-	assert(destType==srcType);
+		assert(destType==srcType);
+	}
 	assert(destType->isPointerTy());
 
 	Type* pointedType = static_cast<PointerType*>(destType)->getElementType();
@@ -413,8 +384,12 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 		stream << ";\nif(__numElem__!=0)\n{";
 	}
 
-	//The first element is always copied directly, to support complete objects
-	compileCopyRecursive("", dest, src, pointedType, NULL);
+	//The first element is handled copied directly, to support complete objects
+	if(src)
+		compileCopyRecursive("", dest, src, pointedType, NULL);
+	else
+		compileResetRecursive("", dest, resetValue, pointedType, NULL);
+
 	//The rest is compiled using a for loop, or native TypedArray set operator
 
 	//NOTE: For constant values we can stop code generation here
@@ -432,7 +407,7 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 	const Type* lastTypeSrc = NULL;
 	const Type* lastTypeDest = NULL;
 	//Prologue: Construct the first part, up to using the size
-	if(isTypedArrayType(pointedType))
+	if(src && isTypedArrayType(pointedType))
 	{
 		// The semantics of set is memmove like, no need to care about direction
 		lastTypeDest=compileObjectForPointer(dest);
@@ -450,6 +425,7 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 	}
 	else
 	{
+		//memset is always handled using the for loop
 		if(copyDirection == FORWARD)
 			stream << "for(var __i__=1;__i__<";
 		else
@@ -471,7 +447,7 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 	}
 
 	//Epilogue: Write the code after the size
-	if(isTypedArrayType(pointedType))
+	if(src && isTypedArrayType(pointedType))
 	{
 		stream << "),";
 		bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
@@ -485,7 +461,11 @@ void DuettoWriter::compileCopy(const Value* dest, const Value* src, const Value*
 			stream	<< ";__i__++){\n";
 		else
 			stream << "-1;__i__>0;__i__--){\n";
-		compileCopyRecursive("", dest, src, pointedType,"__i__");
+
+		if(src)
+			compileCopyRecursive("", dest, src, pointedType,"__i__");
+		else
+			compileResetRecursive("", dest, resetValue, pointedType,"__i__");
 		stream << "\n}";
 	}
 
@@ -591,14 +571,14 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	}
 	else if(strncmp(ident,"llvm.memcpy",11)==0)
 	{
-		compileCopy(*(it), *(it+1), *(it+2), FORWARD);
+		compileMemFunc(*(it), *(it+1), *(it+2), FORWARD, 0);
 		return true;
 	}
 	else if(strncmp(ident,"llvm.memset",11)==0)
 	{
 		//TODO: memset on allocate memory may be optimized
 		uint32_t resetVal = getIntFromValue(*(it+1));
-		compileReset(*(it), resetVal, *(it+2));
+		compileMemFunc(*(it), NULL, *(it+2), FORWARD, resetVal);
 		return true;
 	}
 	else if(strncmp(ident,"llvm.lifetime",13)==0)
