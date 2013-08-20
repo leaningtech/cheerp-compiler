@@ -211,7 +211,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
 			assert(resetValue == 0);
-			stream << baseName << " = null;\n";
+			stream << baseName << " = {d:null,o:0};\n";
 			break;
 		}
 		case Type::StructTyID:
@@ -784,11 +784,14 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 		else
 			return COMPLETE_OBJECT;
 	}
-	if(ConstantPointerNull::classof(v))
+	if(const ConstantPointerNull* nullPtr=dyn_cast<ConstantPointerNull>(v))
 	{
-		//null can be considered a complete object
-		//It may also be considered a complete array maybe
-		return COMPLETE_ARRAY;
+		//null can be considered a complete array.
+		//For client object is a complete object
+		if(isClientType(nullPtr->getType()->getElementType()))
+			return COMPLETE_OBJECT;
+		else
+			return COMPLETE_ARRAY;
 	}
 	//Follow bitcasts
 	if(isBitCast(v))
