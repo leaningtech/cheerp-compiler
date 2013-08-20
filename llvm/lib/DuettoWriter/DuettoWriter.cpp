@@ -941,7 +941,7 @@ const Type* DuettoWriter::compileRecursiveAccessToGEP(const Type* curType, const
 bool DuettoWriter::isClientType(Type* t) const
 {
 	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		strncmp(t->getStructName().data(), "class.client::", 14)==0);
+		strncmp(t->getStructName().data(), "class._ZN6client", 16)==0);
 }
 
 bool DuettoWriter::safeUsagesForNewedMemory(const Value* v) const
