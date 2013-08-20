@@ -648,10 +648,15 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	else if(strncmp(ident,"_ZN6client18duettoVariadicTrap",30)==0)
 	{
 		//Forward to the actual method, which is the first argument
-		assert(Function::classof(*it));
-		const Function* f=cast<Function>(*it);
-		assert(f->hasName());
-		return handleBuiltinCall(f->getName().data(), callV, it+1, itE, false);
+		assert(isGEP(*it));
+		Value* strVal = cast<User>(*it)->getOperand(0);
+		assert(GlobalVariable::classof(strVal));
+		Constant* strGlobal = cast<GlobalVariable>(strVal)->getInitializer();
+		assert(ConstantDataSequential::classof(strGlobal));
+		StringRef strName=cast<ConstantDataSequential>(strGlobal)->getAsCString();
+		stream << strName;
+		compileMethodArgs(it+1, itE);
+		return true;
 	}
 	else if(strncmp(ident,"_ZN6client",10)==0)
 	{
