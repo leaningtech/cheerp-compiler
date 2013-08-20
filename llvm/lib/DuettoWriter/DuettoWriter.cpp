@@ -1513,6 +1513,18 @@ void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	}
 }
 
+void DuettoWriter::compileMethodArgs(const llvm::User::const_op_iterator it, const llvm::User::const_op_iterator itE)
+{
+	stream << '(';
+	for(llvm::User::const_op_iterator cur=it;cur!=itE;++cur)
+	{
+		if(cur!=it)
+			stream << ", ";
+		compileOperand(*cur, OPERAND_EXPAND_COMPLETE_OBJECTS);
+	}
+	stream << ')';
+}
+
 /*
  * This method is fragile, each opcode must handle the phis in the correct place
  */
@@ -1566,14 +1578,8 @@ void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I)
 				compileOperand(ci.getCalledValue());
 			}
 
-			stream << '(';
-			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
-			{
-				if(i!=0)
-					stream << ", ";
-				compileOperand(ci.getArgOperand(i), OPERAND_EXPAND_COMPLETE_OBJECTS);
-			}
-			stream << ");\n";
+			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands());
+			stream << ";\n";
 			//Only consider the normal successor for PHIs here
 			//For each successor output the variables for the phi nodes
 			compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
@@ -1708,14 +1714,7 @@ bool DuettoWriter::compileNotInlineableInstruction(const Instruction& I)
 				//Indirect call
 				compileOperand(ci.getCalledValue());
 			}
-			stream << '(';
-			for(uint32_t i=0;i<ci.getNumArgOperands();i++)
-			{
-				if(i!=0)
-					stream << ", ";
-				compileOperand(ci.getArgOperand(i), OPERAND_EXPAND_COMPLETE_OBJECTS);
-			}
-			stream << ")";
+			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands());
 			return true;
 		}
 		case Instruction::LandingPad:
