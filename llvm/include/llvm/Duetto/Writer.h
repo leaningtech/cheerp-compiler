@@ -109,6 +109,7 @@ private:
 	void printLLVMName(const llvm::StringRef& s) const;
 	void printVarName(const llvm::Value* v);
 	void printArgName(const llvm::Argument* v) const;
+	void compileMethodArgs(const llvm::User::const_op_iterator it, const llvm::User::const_op_iterator itE);
 	void handleBuiltinNamespace(const char* ident, llvm::User::const_op_iterator it,
 			llvm::User::const_op_iterator itE);
 	bool handleBuiltinCall(const char* ident, const llvm::Value* callV,
