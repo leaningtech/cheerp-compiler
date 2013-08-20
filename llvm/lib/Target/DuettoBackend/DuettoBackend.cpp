@@ -52,7 +52,9 @@ char DuettoWritePass::ID = 0;
 bool DuettoTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            formatted_raw_ostream &o,
                                            CodeGenFileType FileType,
-                                           bool DisableVerify) {
+                                           bool DisableVerify,
+                                           AnalysisID StartAfter,
+                                           AnalysisID StopAfter) {
   if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
   PM.add(new DuettoWritePass(o));
   return false;
