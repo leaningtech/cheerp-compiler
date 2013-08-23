@@ -2399,10 +2399,10 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     // analysis of unions. If "A" is also a bitcast, wait for A/X to be merged.
     unsigned OffsetBits = DL.getIndexTypeSizeInBits(GEPType);
     APInt Offset(OffsetBits, 0);
-    if (!isa<BitCastInst>(SrcOp) && GEP.accumulateConstantOffset(DL, Offset)) {
+    if (!isa<BitCastInst>(SrcOp) && GEP.accumulateConstantOffset(DL, Offset) && DL.isByteAddressable()) {
       // If this GEP instruction doesn't move the pointer, just replace the GEP
       // with a bitcast of the real input to the dest type.
-      if (!Offset && DL->isByteAddressable()) {
+      if (!Offset) {
         // If the bitcast is of an allocation, and the allocation will be
         // converted to match the type of the cast, don't touch this.
         if (isa<AllocaInst>(SrcOp) || isAllocationFn(SrcOp, &TLI)) {

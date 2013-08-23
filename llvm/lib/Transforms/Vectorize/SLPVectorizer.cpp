@@ -5709,6 +5709,9 @@ bool SLPVectorizerPass::runImpl(Function &F, ScalarEvolution *SE_,
   if (!TTI->getNumberOfRegisters(TTI->getRegisterClassForType(true)))
     return false;
 
+  if (!DL->isByteAddressable())
+    return false;
+
   // Don't vectorize when the attribute NoImplicitFloat is used.
   if (F.hasFnAttribute(Attribute::NoImplicitFloat))
     return false;
