@@ -340,7 +340,7 @@ static enum BaseType getBaseType(const Value *Val) {
       continue;
 
     if (const auto *CI = dyn_cast<CastInst>(V)) {
-      Worklist.push_back(CI->stripPointerCasts());
+      Worklist.push_back(CI->stripPointerCastsSafe());
       continue;
     }
     if (const auto *GEP = dyn_cast<GetElementPtrInst>(V)) {

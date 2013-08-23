@@ -1076,7 +1076,7 @@ private:
       SmallVector<Value *, 8> Args;
       for (auto *CI : MergableCIs) {
         Value *Callee =
-            CI->getArgOperand(CallbackCalleeOperand)->stripPointerCasts();
+            CI->getArgOperand(CallbackCalleeOperand)->stripPointerCastsSafe();
         FunctionType *FT =
             cast<FunctionType>(Callee->getType()->getPointerElementType());
         Args.clear();
@@ -1260,7 +1260,7 @@ private:
       if (!CI)
         return false;
       auto *Fn = dyn_cast<Function>(
-          CI->getArgOperand(CallbackCalleeOperand)->stripPointerCasts());
+          CI->getArgOperand(CallbackCalleeOperand)->stripPointerCastsSafe());
       if (!Fn)
         return false;
       if (!Fn->onlyReadsMemory())

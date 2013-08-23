@@ -3738,7 +3738,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
   if (LangOpts.CUDA && !LangOpts.CUDAIsDevice &&
       cast<FunctionDecl>(GD.getDecl())->hasAttr<CUDAGlobalAttr>()) {
     auto *Handle = getCUDARuntime().getKernelHandle(
-        cast<llvm::Function>(F->stripPointerCasts()), GD);
+        cast<llvm::Function>(F->stripPointerCastsSafe()), GD);
     if (IsForDefinition)
       return F;
     return llvm::ConstantExpr::getBitCast(Handle, Ty->getPointerTo());
@@ -4009,7 +4009,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
               // to work.
               auto *NewGV = cast<llvm::GlobalVariable>(
                   GetAddrOfGlobalVar(D, InitType, IsForDefinition)
-                      ->stripPointerCasts());
+                      ->stripPointerCastsSafe());
 
               // Erase the old global, since it is no longer used.
               GV->eraseFromParent();
@@ -4409,7 +4409,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
       GetAddrOfGlobalVar(D, InitType, ForDefinition_t(!IsTentative));
 
   // Strip off pointer casts if we got them.
-  Entry = Entry->stripPointerCasts();
+  Entry = Entry->stripPointerCasts(false);
 
   // Entry is now either a Function or GlobalVariable.
   auto *GV = dyn_cast<llvm::GlobalVariable>(Entry);
@@ -4433,7 +4433,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     // Make a new global with the correct type, this is now guaranteed to work.
     GV = cast<llvm::GlobalVariable>(
         GetAddrOfGlobalVar(D, InitType, ForDefinition_t(!IsTentative))
-            ->stripPointerCasts());
+            ->stripPointerCastsSafe());
 
     // Replace all uses of the old global with the new global
     llvm::Constant *NewPtrForOldDecl =
@@ -4560,7 +4560,7 @@ void CodeGenModule::EmitExternalVarDeclaration(const VarDecl *D) {
       llvm::Constant *GV =
           GetOrCreateLLVMGlobal(D->getName(), Ty, ASTTy.getAddressSpace(), D);
       DI->EmitExternalVariable(
-          cast<llvm::GlobalVariable>(GV->stripPointerCasts()), D);
+          cast<llvm::GlobalVariable>(GV->stripPointerCastsSafe()), D);
     }
 }
 

@@ -1725,7 +1725,7 @@ void NVPTXAsmPrinter::printScalarConstant(const Constant *CPV, raw_ostream &O) {
     return;
   }
   if (const ConstantExpr *Cexpr = dyn_cast<ConstantExpr>(CPV)) {
-    const Value *v = Cexpr->stripPointerCasts();
+    const Value *v = Cexpr->stripPointerCasts(true);
     PointerType *PTy = dyn_cast<PointerType>(Cexpr->getType());
     bool IsNonGenericPointer = false;
     if (PTy && PTy->getAddressSpace() != 0) {

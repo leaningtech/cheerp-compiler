@@ -1409,7 +1409,7 @@ static bool simplifySuspendPoint(CoroSuspendInst *Suspend,
   if (!CB)
     return false;
 
-  auto *Callee = CB->getCalledOperand()->stripPointerCasts();
+  auto *Callee = CB->getCalledOperand()->stripPointerCastsSafe();
 
   // See if the callsite is for resumption or destruction of the coroutine.
   auto *SubFn = dyn_cast<CoroSubFnInst>(Callee);
@@ -1966,7 +1966,7 @@ static void createDevirtTriggerFunc(CallGraph &CG, CallGraphSCC &SCC) {
 static void replacePrepare(CallInst *Prepare, LazyCallGraph &CG,
                            LazyCallGraph::SCC &C) {
   auto CastFn = Prepare->getArgOperand(0); // as an i8*
-  auto Fn = CastFn->stripPointerCasts();   // as its original type
+  auto Fn = CastFn->stripPointerCastsSafe();   // as its original type
 
   // Attempt to peephole this pattern:
   //    %0 = bitcast [[TYPE]] @some_function to i8*
@@ -2001,7 +2001,7 @@ static void replacePrepare(CallInst *Prepare, LazyCallGraph &CG,
 /// Replace a call to llvm.coro.prepare.retcon.
 static void replacePrepare(CallInst *Prepare, CallGraph &CG) {
   auto CastFn = Prepare->getArgOperand(0); // as an i8*
-  auto Fn = CastFn->stripPointerCasts(); // as its original type
+  auto Fn = CastFn->stripPointerCastsSafe(); // as its original type
 
   // Find call graph nodes for the preparation.
   CallGraphNode *PrepareUserNode = nullptr, *FnNode = nullptr;

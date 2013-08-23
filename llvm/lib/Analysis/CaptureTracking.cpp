@@ -419,7 +419,7 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
         // captures. This allows us to ignore comparisons of malloc results
         // with null, for example.
         if (CPN->getType()->getAddressSpace() == 0)
-          if (isNoAliasCall(U->get()->stripPointerCasts()))
+          if (isNoAliasCall(U->get()->stripPointerCastsSafe()))
             break;
         if (!I->getFunction()->nullPointerIsDefined()) {
           auto *O = I->getOperand(Idx)->stripPointerCastsSameRepresentation();

@@ -229,7 +229,7 @@ private:
   CVPLatticeVal computeConstant(Constant *C) {
     if (isa<ConstantPointerNull>(C))
       return CVPLatticeVal(CVPLatticeVal::FunctionSet);
-    if (auto *F = dyn_cast<Function>(C->stripPointerCasts()))
+    if (auto *F = dyn_cast<Function>(C->stripPointerCastsSafe()))
       return CVPLatticeVal({F});
     return getOverdefinedVal();
   }

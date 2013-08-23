@@ -1228,7 +1228,7 @@ GlobalsMetadata::GlobalsMetadata(Module &M) {
     // The optimizer may optimize away a global entirely.
     if (!V)
       continue;
-    auto *StrippedV = V->stripPointerCasts();
+    auto *StrippedV = V->stripPointerCastsSafe();
     auto *GV = dyn_cast<GlobalVariable>(StrippedV);
     if (!GV)
       continue;

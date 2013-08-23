@@ -1247,33 +1247,33 @@ void DataFlowSanitizer::initializeRuntimeFunctions(Module &M) {
   }
 
   DFSanRuntimeFunctions.insert(
-      DFSanUnionLoadFn.getCallee()->stripPointerCasts());
+      DFSanUnionLoadFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
       DFSanLoadLabelAndOriginFn.getCallee()->stripPointerCasts());
   DFSanRuntimeFunctions.insert(
-      DFSanUnimplementedFn.getCallee()->stripPointerCasts());
+      DFSanUnimplementedFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
-      DFSanSetLabelFn.getCallee()->stripPointerCasts());
+      DFSanSetLabelFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
-      DFSanNonzeroLabelFn.getCallee()->stripPointerCasts());
+      DFSanNonzeroLabelFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
-      DFSanVarargWrapperFn.getCallee()->stripPointerCasts());
+      DFSanVarargWrapperFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
-      DFSanLoadCallbackFn.getCallee()->stripPointerCasts());
+      DFSanLoadCallbackFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
-      DFSanStoreCallbackFn.getCallee()->stripPointerCasts());
+      DFSanStoreCallbackFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
-      DFSanMemTransferCallbackFn.getCallee()->stripPointerCasts());
+      DFSanMemTransferCallbackFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
-      DFSanCmpCallbackFn.getCallee()->stripPointerCasts());
+      DFSanCmpCallbackFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
-      DFSanChainOriginFn.getCallee()->stripPointerCasts());
+      DFSanChainOriginFn.getCallee()->stripPointerCastsSafe());
   DFSanRuntimeFunctions.insert(
       DFSanChainOriginIfTaintedFn.getCallee()->stripPointerCasts());
   DFSanRuntimeFunctions.insert(
       DFSanMemOriginTransferFn.getCallee()->stripPointerCasts());
   DFSanRuntimeFunctions.insert(
-      DFSanMaybeStoreOriginFn.getCallee()->stripPointerCasts());
+      DFSanMaybeStoreOriginFn.getCallee()->stripPointerCastsSafe());
 }
 
 // Initializes event callback functions and declare them in the module
@@ -2903,7 +2903,7 @@ void DFSanVisitor::visitCallBase(CallBase &CB) {
 
   // Calls to this function are synthesized in wrappers, and we shouldn't
   // instrument them.
-  if (F == DFSF.DFS.DFSanVarargWrapperFn.getCallee()->stripPointerCasts())
+  if (F == DFSF.DFS.DFSanVarargWrapperFn.getCallee()->stripPointerCastsSafe())
     return;
 
   DenseMap<Value *, Function *>::iterator UnwrappedFnIt =

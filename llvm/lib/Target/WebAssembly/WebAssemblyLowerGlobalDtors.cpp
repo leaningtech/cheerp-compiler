@@ -98,7 +98,7 @@ bool LowerGlobalDtors::runOnModule(Module &M) {
       break; // Found a null terminator, skip the rest.
 
     Constant *Associated = CS->getOperand(2);
-    Associated = cast<Constant>(Associated->stripPointerCasts());
+    Associated = cast<Constant>(Associated->stripPointerCastsSafe());
 
     auto &AtThisPriority = DtorFuncs[PriorityValue];
     if (AtThisPriority.empty() || AtThisPriority.back().first != Associated) {

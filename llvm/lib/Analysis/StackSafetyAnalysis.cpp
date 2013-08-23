@@ -428,7 +428,7 @@ void StackSafetyLocalAnalysis::analyzeAllUses(Value *Ptr,
         // Do not follow aliases, otherwise we could inadvertently follow
         // dso_preemptable aliases or aliases with interposable linkage.
         const GlobalValue *Callee =
-            dyn_cast<GlobalValue>(CB.getCalledOperand()->stripPointerCasts());
+            dyn_cast<GlobalValue>(CB.getCalledOperand()->stripPointerCastsSafe());
         if (!Callee) {
           US.addRange(I, UnknownRange);
           break;
