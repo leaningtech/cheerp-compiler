@@ -652,7 +652,7 @@ int main(int argc, char **argv, char * const *envp) {
     // If the program didn't call exit explicitly, we should call it now.
     // This ensures that any atexit handlers get called correctly.
     if (Function *ExitF =
-            dyn_cast<Function>(Exit.getCallee()->stripPointerCasts())) {
+            dyn_cast<Function>(Exit.getCallee()->stripPointerCastsSafe())) {
       if (ExitF->getFunctionType() == Exit.getFunctionType()) {
         std::vector<GenericValue> Args;
         GenericValue ResultGV;

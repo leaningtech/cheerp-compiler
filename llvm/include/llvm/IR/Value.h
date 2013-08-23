@@ -550,10 +550,16 @@ public:
   ///
   /// Returns the original uncasted value.  If this is called on a non-pointer
   /// value, it returns 'this'.
-  const Value *stripPointerCasts() const;
-  Value *stripPointerCasts() {
+  const Value *stripPointerCasts(bool byteAddressable) const;
+  Value *stripPointerCasts(bool byteAddressable) {
     return const_cast<Value *>(
-        static_cast<const Value *>(this)->stripPointerCasts());
+        static_cast<const Value *>(this)->stripPointerCasts(byteAddressable));
+  }
+
+  const Value *stripPointerCastsSafe() const;
+  Value *stripPointerCastsSafe() {
+    return const_cast<Value *>(
+                         static_cast<const Value *>(this)->stripPointerCastsSafe());
   }
 
   /// Strip off pointer casts, all-zero GEPs, address space casts, and aliases.

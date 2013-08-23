@@ -361,7 +361,7 @@ struct ScopedSaveAliaseesAndUsed {
       // FIXME: This should look past all aliases not just interposable ones,
       // see discussion on D65118.
       if (auto *F =
-              dyn_cast<Function>(GIS.getIndirectSymbol()->stripPointerCasts()))
+              dyn_cast<Function>(GIS.getIndirectSymbol()->stripPointerCastsSafe()))
         FunctionAliases.push_back({&GIS, F});
     }
   }
@@ -990,7 +990,7 @@ LowerTypeTestsModule::importTypeId(StringRef TypeId) {
     }
 
     Constant *C = ImportGlobal(Name);
-    auto *GV = cast<GlobalVariable>(C->stripPointerCasts());
+    auto *GV = cast<GlobalVariable>(C->stripPointerCastsSafe());
     if (isa<IntegerType>(Ty))
       C = ConstantExpr::getPtrToInt(C, Ty);
     if (GV->getMetadata(LLVMContext::MD_absolute_symbol))

@@ -2398,8 +2398,8 @@ computePointerICmp(const DataLayout &DL, const TargetLibraryInfo *TLI,
                    AssumptionCache *AC, const Instruction *CxtI,
                    const InstrInfoQuery &IIQ, Value *LHS, Value *RHS) {
   // First, skip past any trivial no-ops.
-  LHS = LHS->stripPointerCasts();
-  RHS = RHS->stripPointerCasts();
+  LHS = LHS->stripPointerCasts(DL.isByteAddressable());
+  RHS = RHS->stripPointerCasts(DL.isByteAddressable());
 
   // A non-null pointer is not equal to a null pointer.
   if (isa<ConstantPointerNull>(RHS) && ICmpInst::isEquality(Pred) &&

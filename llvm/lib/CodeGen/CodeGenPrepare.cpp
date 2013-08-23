@@ -2242,7 +2242,7 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB, bool &ModifiedDT
   if (PN) {
     for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I) {
       // Look through bitcasts.
-      Value *IncomingVal = PN->getIncomingValue(I)->stripPointerCasts();
+      Value *IncomingVal = PN->getIncomingValue(I)->stripPointerCastsSafe();
       CallInst *CI = dyn_cast<CallInst>(IncomingVal);
       BasicBlock *PredBB = PN->getIncomingBlock(I);
       // Make sure the phi value is indeed produced by the tail call.

@@ -210,7 +210,7 @@ static StoreInst *findSafeStoreForStoreStrongContraction(LoadInst *Load,
 
   // Get the location associated with Load.
   MemoryLocation Loc = MemoryLocation::get(Load);
-  auto *LocPtr = Loc.Ptr->stripPointerCasts();
+  auto *LocPtr = Loc.Ptr->stripPointerCastsSafe();
 
   // Walk down to find the store and the release, which may be in either order.
   for (auto I = std::next(BasicBlock::iterator(Load)),
@@ -271,7 +271,7 @@ static StoreInst *findSafeStoreForStoreStrongContraction(LoadInst *Load,
 
     // Then make sure that the pointer we are storing to is Ptr. If so, we
     // found our Store!
-    if (Store->getPointerOperand()->stripPointerCasts() == LocPtr)
+    if (Store->getPointerOperand()->stripPointerCastsSafe() == LocPtr)
       continue;
 
     // Otherwise, we have an unknown store to some other ptr that clobbers

@@ -827,18 +827,18 @@ bool DataFlowSanitizer::runImpl(Module &M) {
   SmallPtrSet<Function *, 2> FnsWithNativeABI;
   for (Function &i : M) {
     if (!i.isIntrinsic() &&
-        &i != DFSanUnionFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanCheckedUnionFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanUnionLoadFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanUnionLoadFast16LabelsFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanUnimplementedFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanSetLabelFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanNonzeroLabelFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanVarargWrapperFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanLoadCallbackFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanStoreCallbackFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanMemTransferCallbackFn.getCallee()->stripPointerCasts() &&
-        &i != DFSanCmpCallbackFn.getCallee()->stripPointerCasts())
+        &i != DFSanUnionFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanCheckedUnionFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanUnionLoadFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanUnionLoadFast16LabelsFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanUnimplementedFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanSetLabelFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanNonzeroLabelFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanVarargWrapperFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanLoadCallbackFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanStoreCallbackFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanMemTransferCallbackFn.getCallee()->stripPointerCastsSafe() &&
+        &i != DFSanCmpCallbackFn.getCallee()->stripPointerCastsSafe())
       FnsToInstrument.push_back(&i);
   }
 
@@ -1626,7 +1626,7 @@ void DFSanVisitor::visitCallBase(CallBase &CB) {
 
   // Calls to this function are synthesized in wrappers, and we shouldn't
   // instrument them.
-  if (F == DFSF.DFS.DFSanVarargWrapperFn.getCallee()->stripPointerCasts())
+  if (F == DFSF.DFS.DFSanVarargWrapperFn.getCallee()->stripPointerCastsSafe())
     return;
 
   IRBuilder<> IRB(&CB);

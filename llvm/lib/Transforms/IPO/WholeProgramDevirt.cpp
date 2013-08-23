@@ -958,7 +958,7 @@ bool DevirtModule::tryFindVirtualCallTargets(
     if (!Ptr)
       return false;
 
-    auto Fn = dyn_cast<Function>(Ptr->stripPointerCasts());
+    auto Fn = dyn_cast<Function>(Ptr->stripPointerCastsSafe());
     if (!Fn)
       return false;
 
@@ -1029,7 +1029,7 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
     for (auto &&VCallSite : CSInfo.CallSites) {
       if (RemarksEnabled)
         VCallSite.emitRemark("single-impl",
-                             TheFn->stripPointerCasts()->getName(), OREGetter);
+                             TheFn->stripPointerCastsSafe()->getName(), OREGetter);
       VCallSite.CB.setCalledOperand(ConstantExpr::getBitCast(
           TheFn, VCallSite.CB.getCalledOperand()->getType()));
       // This use is no longer unsafe.
@@ -1264,7 +1264,7 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
 
       if (RemarksEnabled)
         VCallSite.emitRemark("branch-funnel",
-                             JT->stripPointerCasts()->getName(), OREGetter);
+                             JT->stripPointerCastsSafe()->getName(), OREGetter);
 
       // Pass the address of the vtable in the nest register, which is r10 on
       // x86_64.
@@ -1434,7 +1434,7 @@ Constant *DevirtModule::importConstant(VTableSlot Slot, ArrayRef<uint64_t> Args,
     return ConstantInt::get(IntTy, Storage);
 
   Constant *C = importGlobal(Slot, Args, Name);
-  auto *GV = cast<GlobalVariable>(C->stripPointerCasts());
+  auto *GV = cast<GlobalVariable>(C->stripPointerCastsSafe());
   C = ConstantExpr::getPtrToInt(C, IntTy);
 
   // We only need to set metadata if the global is newly created, in which
@@ -1732,7 +1732,7 @@ void DevirtModule::scanTypeTestUsers(
         cast<MetadataAsValue>(CI->getArgOperand(1))->getMetadata();
     // If we found any, add them to CallSlots.
     if (!Assumes.empty()) {
-      Value *Ptr = CI->getArgOperand(0)->stripPointerCasts();
+      Value *Ptr = CI->getArgOperand(0)->stripPointerCastsSafe();
       for (DevirtCallSite Call : DevirtCalls)
         CallSlots[{TypeId, Call.Offset}].addCallSite(Ptr, Call.CB, nullptr);
     }

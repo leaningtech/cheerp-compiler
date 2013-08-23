@@ -744,7 +744,7 @@ void FuncPGOInstrumentation<Edge, BBInfo>::renameComdatFunction() {
   for (auto &&CM : make_range(ComdatMembers.equal_range(OrigComdat))) {
     if (GlobalAlias *GA = dyn_cast<GlobalAlias>(CM.second)) {
       // For aliases, change the name directly.
-      assert(dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()) == &F);
+      assert(dyn_cast<Function>(GA->getAliasee()->stripPointerCastsSafe()) == &F);
       std::string OrigGAName = GA->getName().str();
       GA->setName(Twine(GA->getName() + "." + Twine(FunctionHash)));
       GlobalAlias::create(GlobalValue::WeakAnyLinkage, OrigGAName, GA);

@@ -2164,8 +2164,8 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     return nullptr;
 
   // Handle gep(bitcast x) and gep(gep x, 0, 0, 0).
-  Value *StrippedPtr = PtrOp->stripPointerCasts();
-  PointerType *StrippedPtrTy = cast<PointerType>(StrippedPtr->getType());
+  Value *StrippedPtr = PtrOp->stripPointerCasts(DL.isByteAddressable());
+  PointerType *StrippedPtrTy = dyn_cast<PointerType>(StrippedPtr->getType());
 
   if (StrippedPtr != PtrOp) {
     bool HasZeroPointerIndex = false;
@@ -2699,7 +2699,7 @@ static Instruction *tryToMoveFreeBeforeNullTest(CallInst &FI,
   ICmpInst::Predicate Pred;
   if (!match(TI, m_Br(m_ICmp(Pred,
                              m_CombineOr(m_Specific(Op),
-                                         m_Specific(Op->stripPointerCasts())),
+                                         m_Specific(Op->stripPointerCastsSafe())),
                              m_Zero()),
                       TrueBB, FalseBB)))
     return nullptr;
@@ -3085,7 +3085,7 @@ Instruction *InstCombinerImpl::visitLandingPadInst(LandingPadInst &LI) {
     if (LI.isCatch(i)) {
       // A catch clause.
       Constant *CatchClause = LI.getClause(i);
-      Constant *TypeInfo = CatchClause->stripPointerCasts();
+      Constant *TypeInfo = CatchClause->stripPointerCasts(DL.isByteAddressable());
 
       // If we already saw this clause, there is no point in having a second
       // copy of it.
@@ -3159,7 +3159,7 @@ Instruction *InstCombinerImpl::visitLandingPadInst(LandingPadInst &LI) {
         bool SawCatchAll = false;
         for (unsigned j = 0; j != NumTypeInfos; ++j) {
           Constant *Elt = Filter->getOperand(j);
-          Constant *TypeInfo = Elt->stripPointerCasts();
+          Constant *TypeInfo = Elt->stripPointerCasts(DL.isByteAddressable());
           if (isCatchAll(Personality, TypeInfo)) {
             // This element is a catch-all.  Bail out, noting this fact.
             SawCatchAll = true;
@@ -3327,10 +3327,10 @@ Instruction *InstCombinerImpl::visitLandingPadInst(LandingPadInst &LI) {
       ConstantArray *FArray = cast<ConstantArray>(Filter);
       bool AllFound = true;
       for (unsigned f = 0; f != FElts; ++f) {
-        Value *FTypeInfo = FArray->getOperand(f)->stripPointerCasts();
+        Value *FTypeInfo = FArray->getOperand(f)->stripPointerCasts(DL.isByteAddressable());
         AllFound = false;
         for (unsigned l = 0; l != LElts; ++l) {
-          Value *LTypeInfo = LArray->getOperand(l)->stripPointerCasts();
+          Value *LTypeInfo = LArray->getOperand(l)->stripPointerCasts(DL.isByteAddressable());
           if (LTypeInfo == FTypeInfo) {
             AllFound = true;
             break;

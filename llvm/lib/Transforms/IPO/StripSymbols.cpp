@@ -199,7 +199,7 @@ static void findUsedValues(GlobalVariable *LLVMUsed,
 
   for (unsigned i = 0, e = Inits->getNumOperands(); i != e; ++i)
     if (GlobalValue *GV =
-          dyn_cast<GlobalValue>(Inits->getOperand(i)->stripPointerCasts()))
+          dyn_cast<GlobalValue>(Inits->getOperand(i)->stripPointerCastsSafe()))
       UsedValues.insert(GV);
 }
 

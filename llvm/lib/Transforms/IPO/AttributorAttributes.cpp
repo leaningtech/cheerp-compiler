@@ -287,7 +287,7 @@ static bool genericValueTraversal(
     // not have a pointer as stripPointerCasts only works on them.
     Value *NewV = nullptr;
     if (V->getType()->isPointerTy()) {
-      NewV = V->stripPointerCasts();
+      NewV = V->stripPointerCastsSafe();
     } else {
       auto *CB = dyn_cast<CallBase>(V);
       if (CB && CB->getCalledFunction()) {

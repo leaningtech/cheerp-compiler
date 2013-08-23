@@ -1707,7 +1707,7 @@ bool AsmPrinter::doFinalization(Module &M) {
              "expected llvm.used to be an array type");
       if (const auto *A = cast<ConstantArray>(LU->getInitializer())) {
         for (const Value *Op : A->operands()) {
-          const auto *GV = cast<GlobalValue>(Op->stripPointerCasts());
+          const auto *GV = cast<GlobalValue>(Op->stripPointerCastsSafe());
           // Global symbols with internal or private linkage are not visible to
           // the linker, and thus would cause an error when the linker tried to
           // preserve the symbol due to the `/include:` directive.
@@ -2056,7 +2056,7 @@ void AsmPrinter::emitJumpTableEntry(const MachineJumpTableInfo *MJTI,
 bool AsmPrinter::emitSpecialLLVMGlobal(const GlobalVariable *GV) {
   if (GV->getName() == "llvm.used") {
     if (MAI->hasNoDeadStrip())    // No need to emit this at all.
-      emitLLVMUsedList(cast<ConstantArray>(GV->getInitializer()));
+      emitLLVMUsedList(cast<ConstantArray>(GV->getInitializer()), GV->getParent()->getDataLayout());
     return true;
   }
 
@@ -2088,11 +2088,11 @@ bool AsmPrinter::emitSpecialLLVMGlobal(const GlobalVariable *GV) {
 
 /// EmitLLVMUsedList - For targets that define a MAI::UsedDirective, mark each
 /// global in the specified llvm.used list.
-void AsmPrinter::emitLLVMUsedList(const ConstantArray *InitList) {
+void AsmPrinter::emitLLVMUsedList(const ConstantArray *InitList, const DataLayout& DL) {
   // Should be an array of 'i8*'.
   for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
     const GlobalValue *GV =
-      dyn_cast<GlobalValue>(InitList->getOperand(i)->stripPointerCasts());
+      dyn_cast<GlobalValue>(InitList->getOperand(i)->stripPointerCasts(DL.isByteAddressable()));
     if (GV)
       OutStreamer->emitSymbolAttribute(getSymbol(GV), MCSA_NoDeadStrip);
   }
@@ -2132,7 +2132,7 @@ void AsmPrinter::emitXXStructorList(const DataLayout &DL, const Constant *List,
     S.Func = CS->getOperand(1);
     if (!CS->getOperand(2)->isNullValue())
       S.ComdatKey =
-          dyn_cast<GlobalValue>(CS->getOperand(2)->stripPointerCasts());
+          dyn_cast<GlobalValue>(CS->getOperand(2)->stripPointerCastsSafe());
   }
 
   // Emit the function pointers in the target-specific order

@@ -36,7 +36,7 @@ public:
     if (CB.getCalledFunction())
       return;
     auto *Callee =
-        dyn_cast<Function>(CB.getCalledOperand()->stripPointerCasts());
+        dyn_cast<Function>(CB.getCalledOperand()->stripPointerCastsSafe());
     if (Callee && isLegalToPromote(CB, Callee)) {
       promoteCall(CB, Callee);
       Modified = true;

@@ -34,7 +34,7 @@ entry:
 
 ; CHECK-LABEL: @InsertValueDouble(
 ; CHECK-DAG: [[Sy:%.*]] = load i64, i64* {{.*}}@__msan_param_tls to i64), i64 8) to i64*)
-; CHECK-DAG: [[Sx:%.*]] = load i64, i64* getelementptr {{.*}}@__msan_param_tls, i32 0, i32 0
+; CHECK-DAG: [[Sx:%.*]] = load i64, i64* bitcast ([100 x i64]* @__msan_param_tls to i64*)
 ; CHECK: [[A:%.*]] = insertvalue [2 x i64] [i64 -1, i64 -1], i64 [[Sx]], 0
 ; CHECK: [[B:%.*]] = insertvalue [2 x i64] [[A]], i64 [[Sy]], 1
 ; CHECK: store [2 x i64] [[B]], [2 x i64]* {{.*}}@__msan_retval_tls

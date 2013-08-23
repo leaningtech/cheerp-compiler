@@ -879,7 +879,7 @@ void ObjCARCOpt::OptimizeIndividualCalls(Function &F) {
 /// This function returns true if the value is inert. An ObjC ARC runtime call
 /// taking an inert operand can be safely deleted.
 static bool isInertARCValue(Value *V, SmallPtrSet<Value *, 1> &VisitedPhis) {
-  V = V->stripPointerCasts();
+  V = V->stripPointerCastsSafe();
 
   if (IsNullOrUndef(V))
     return true;

@@ -152,11 +152,11 @@ static void addTryBlockMapEntry(WinEHFuncInfo &FuncInfo, int TryLow,
     if (TypeInfo->isNullValue())
       HT.TypeDescriptor = nullptr;
     else
-      HT.TypeDescriptor = cast<GlobalVariable>(TypeInfo->stripPointerCasts());
+      HT.TypeDescriptor = cast<GlobalVariable>(TypeInfo->stripPointerCastsSafe());
     HT.Adjectives = cast<ConstantInt>(CPI->getArgOperand(1))->getZExtValue();
     HT.Handler = CPI->getParent();
     if (auto *AI =
-            dyn_cast<AllocaInst>(CPI->getArgOperand(2)->stripPointerCasts()))
+            dyn_cast<AllocaInst>(CPI->getArgOperand(2)->stripPointerCastsSafe()))
       HT.CatchObj.Alloca = AI;
     else
       HT.CatchObj.Alloca = nullptr;
@@ -376,7 +376,7 @@ static void calculateSEHStateNumbers(WinEHFuncInfo &FuncInfo,
         cast<CatchPadInst>((*CatchSwitch->handler_begin())->getFirstNonPHI());
     const BasicBlock *CatchPadBB = CatchPad->getParent();
     const Constant *FilterOrNull =
-        cast<Constant>(CatchPad->getArgOperand(0)->stripPointerCasts());
+        cast<Constant>(CatchPad->getArgOperand(0)->stripPointerCastsSafe());
     const Function *Filter = dyn_cast<Function>(FilterOrNull);
     assert((Filter || FilterOrNull->isNullValue()) &&
            "unexpected filter value");
@@ -977,7 +977,7 @@ void WinEHPrepare::removeImplausibleInstructions(Function &F) {
 
         // Skip call sites which are nounwind intrinsics or inline asm.
         auto *CalledFn =
-            dyn_cast<Function>(CB->getCalledOperand()->stripPointerCasts());
+            dyn_cast<Function>(CB->getCalledOperand()->stripPointerCastsSafe());
         if (CalledFn && ((CalledFn->isIntrinsic() && CB->doesNotThrow()) ||
                          CB->isInlineAsm()))
           continue;

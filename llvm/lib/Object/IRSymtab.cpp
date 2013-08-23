@@ -290,7 +290,7 @@ Error Builder::addSymbol(const ModuleSymbolTable &Msymtab,
     if ((Flags & object::BasicSymbolRef::SF_Weak) &&
         (Flags & object::BasicSymbolRef::SF_Indirect)) {
       auto *Fallback = dyn_cast<GlobalValue>(
-          cast<GlobalAlias>(GV)->getAliasee()->stripPointerCasts());
+          cast<GlobalAlias>(GV)->getAliasee()->stripPointerCastsSafe());
       if (!Fallback)
         return make_error<StringError>("Invalid weak external",
                                        inconvertibleErrorCode());

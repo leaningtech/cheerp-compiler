@@ -225,7 +225,7 @@ static void RemoveFunctionReferences(Module *M, const char *Name) {
   auto *OldUsedVal = cast<ConstantArray>(UsedVar->getInitializer());
   std::vector<Constant *> Used;
   for (Value *V : OldUsedVal->operand_values()) {
-    Constant *Op = cast<Constant>(V->stripPointerCasts());
+    Constant *Op = cast<Constant>(V->stripPointerCastsSafe());
     if (!Op->isNullValue()) {
       Used.push_back(cast<Constant>(V));
     }

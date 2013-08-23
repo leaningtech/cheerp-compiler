@@ -593,7 +593,7 @@ static bool addArgumentReturnedAttrs(const SCCNodeSet &SCCNodes) {
         if (auto *Ret = dyn_cast<ReturnInst>(BB.getTerminator())) {
           // Note that stripPointerCasts should look through functions with
           // returned arguments.
-          Value *RetVal = Ret->getReturnValue()->stripPointerCasts();
+          Value *RetVal = Ret->getReturnValue()->stripPointerCastsSafe();
           if (!isa<Argument>(RetVal) || RetVal->getType() != F->getReturnType())
             return nullptr;
 

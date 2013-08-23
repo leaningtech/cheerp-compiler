@@ -104,7 +104,7 @@ GetUnderlyingObjCPtrCached(const Value *V,
 /// This implies that two RCIdentical values must alias.
 inline const Value *GetRCIdentityRoot(const Value *V) {
   for (;;) {
-    V = V->stripPointerCasts();
+    V = V->stripPointerCastsSafe();
     if (!IsForwarding(GetBasicARCInstKind(V)))
       break;
     V = cast<CallInst>(V)->getArgOperand(0);

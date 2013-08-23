@@ -738,7 +738,7 @@ void InstrProfiling::lowerCoverageData(GlobalVariable *CoverageNamesVar) {
       cast<ConstantArray>(CoverageNamesVar->getInitializer());
   for (unsigned I = 0, E = Names->getNumOperands(); I < E; ++I) {
     Constant *NC = Names->getOperand(I);
-    Value *V = NC->stripPointerCasts();
+    Value *V = NC->stripPointerCastsSafe();
     assert(isa<GlobalVariable>(V) && "Missing reference to function name");
     GlobalVariable *Name = cast<GlobalVariable>(V);
 

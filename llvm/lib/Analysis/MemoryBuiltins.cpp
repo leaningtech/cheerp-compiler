@@ -117,7 +117,7 @@ static const Function *getCalledFunction(const Value *V, bool LookThroughBitCast
     return nullptr;
 
   if (LookThroughBitCast)
-    V = V->stripPointerCasts();
+    V = V->stripPointerCastsSafe();
 
   const auto *CB = dyn_cast<CallBase>(V);
   if (!CB)
@@ -228,7 +228,7 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
 
 static bool hasNoAliasAttr(const Value *V, bool LookThroughBitCast) {
   const auto *CB =
-      dyn_cast<CallBase>(LookThroughBitCast ? V->stripPointerCasts() : V);
+      dyn_cast<CallBase>(LookThroughBitCast ? V->stripPointerCastsSafe() : V);
   return CB && CB->hasRetAttr(Attribute::NoAlias);
 }
 
@@ -601,7 +601,7 @@ SizeOffsetType ObjectSizeOffsetVisitor::compute(Value *V) {
   IntTyBits = DL.getIndexTypeSizeInBits(V->getType());
   Zero = APInt::getNullValue(IntTyBits);
 
-  V = V->stripPointerCasts();
+  V = V->stripPointerCasts(DL.isByteAddressable());
   if (Instruction *I = dyn_cast<Instruction>(V)) {
     // If we have already seen this instruction, bail out. Cycles can happen in
     // unreachable code after constant propagation.
@@ -895,7 +895,7 @@ SizeOffsetEvalType ObjectSizeOffsetEvaluator::compute_(Value *V) {
     return std::make_pair(ConstantInt::get(Context, Const.first),
                           ConstantInt::get(Context, Const.second));
 
-  V = V->stripPointerCasts();
+  V = V->stripPointerCasts(DL.isByteAddressable());
 
   // Check cache.
   CacheMapTy::iterator CacheIt = CacheMap.find(V);

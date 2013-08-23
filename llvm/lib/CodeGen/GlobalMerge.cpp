@@ -572,9 +572,10 @@ void GlobalMerge::collectUsedGlobalVariables(Module &M, StringRef Name) {
   // Should be an array of 'i8*'.
   const ConstantArray *InitList = cast<ConstantArray>(GV->getInitializer());
 
+  const DataLayout &DL = M.getDataLayout();
   for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i)
     if (const GlobalVariable *G =
-        dyn_cast<GlobalVariable>(InitList->getOperand(i)->stripPointerCasts()))
+        dyn_cast<GlobalVariable>(InitList->getOperand(i)->stripPointerCasts(DL.isByteAddressable())))
       MustKeepGlobalVariables.insert(G);
 }
 
@@ -591,7 +592,7 @@ void GlobalMerge::setMustKeepGlobalVariables(Module &M) {
       // Keep globals used by landingpads and catchpads.
       for (const Use &U : Pad->operands()) {
         if (const GlobalVariable *GV =
-                dyn_cast<GlobalVariable>(U->stripPointerCasts()))
+                dyn_cast<GlobalVariable>(U->stripPointerCastsSafe()))
           MustKeepGlobalVariables.insert(GV);
       }
     }

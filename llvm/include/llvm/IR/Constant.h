@@ -188,13 +188,13 @@ public:
   /// hanging off of the globals.
   void removeDeadConstantUsers() const;
 
-  const Constant *stripPointerCasts() const {
-    return cast<Constant>(Value::stripPointerCasts());
+  const Constant *stripPointerCasts(bool byteAddressable) const {
+    return cast<Constant>(Value::stripPointerCasts(byteAddressable));
   }
 
-  Constant *stripPointerCasts() {
+  Constant *stripPointerCasts(bool byteAddressable) {
     return const_cast<Constant*>(
-                      static_cast<const Constant *>(this)->stripPointerCasts());
+                      static_cast<const Constant *>(this)->stripPointerCasts(byteAddressable));
   }
 
   /// Try to replace undefined constant C or undefined elements in C with

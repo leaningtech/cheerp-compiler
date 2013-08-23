@@ -536,7 +536,7 @@ template <PointerStripKind StripKind> static void NoopCallback(const Value *) {}
 
 template <PointerStripKind StripKind>
 static const Value *stripPointerCastsAndOffsets(
-    const Value *V,
+    const Value *V, bool byteAddressable,
     function_ref<void(const Value *)> Func = NoopCallback<StripKind>) {
   if (!V->getType()->isPointerTy())
     return V;
@@ -554,7 +554,7 @@ static const Value *stripPointerCastsAndOffsets(
       case PSK_ZeroIndicesAndAliases:
       case PSK_ZeroIndicesSameRepresentation:
       case PSK_ZeroIndicesAndInvariantGroups:
-        if (!GEP->hasAllZeroIndices())
+        if (!GEP->hasAllZeroIndices() || !byteAddressable)
           return V;
         break;
       case PSK_InBoundsConstantIndices:
@@ -603,8 +603,12 @@ static const Value *stripPointerCastsAndOffsets(
 }
 } // end anonymous namespace
 
-const Value *Value::stripPointerCasts() const {
-  return stripPointerCastsAndOffsets<PSK_ZeroIndices>(this);
+const Value *Value::stripPointerCasts(bool byteAddressable) const {
+  return stripPointerCastsAndOffsets<PSK_ZeroIndices>(this, byteAddressable);
+}
+
+const Value *Value::stripPointerCastsSafe() const {
+  return stripPointerCastsAndOffsets<PSK_ZeroIndices>(this, false);
 }
 
 const Value *Value::stripPointerCastsAndAliases() const {
@@ -612,11 +616,12 @@ const Value *Value::stripPointerCastsAndAliases() const {
 }
 
 const Value *Value::stripPointerCastsSameRepresentation() const {
-  return stripPointerCastsAndOffsets<PSK_ZeroIndicesSameRepresentation>(this);
+  return stripPointerCastsAndOffsets<
+      PSK_ZeroIndicesSameRepresentation>(this);
 }
 
 const Value *Value::stripInBoundsConstantOffsets() const {
-  return stripPointerCastsAndOffsets<PSK_InBoundsConstantIndices>(this);
+  return stripPointerCastsAndOffsets<PSK_InBoundsConstantIndices>(this, false);
 }
 
 const Value *Value::stripPointerCastsAndInvariantGroups() const {
@@ -693,7 +698,7 @@ const Value *Value::stripAndAccumulateConstantOffsets(
 
 const Value *
 Value::stripInBoundsOffsets(function_ref<void(const Value *)> Func) const {
-  return stripPointerCastsAndOffsets<PSK_InBounds>(this, Func);
+  return stripPointerCastsAndOffsets<PSK_InBounds>(this, false, Func);
 }
 
 uint64_t Value::getPointerDereferenceableBytes(const DataLayout &DL,

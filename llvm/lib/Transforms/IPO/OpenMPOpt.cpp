@@ -587,7 +587,7 @@ private:
       if (!CI)
         return false;
       auto *Fn = dyn_cast<Function>(
-          CI->getArgOperand(CallbackCalleeOperand)->stripPointerCasts());
+          CI->getArgOperand(CallbackCalleeOperand)->stripPointerCastsSafe());
       if (!Fn)
         return false;
       if (!Fn->onlyReadsMemory())

@@ -1153,7 +1153,7 @@ struct Attributor {
   /// manifested. This also triggers deletion of trivially dead istructions.
   bool changeUseAfterManifest(Use &U, Value &NV) {
     Value *&V = ToBeChangedUses[&U];
-    if (V && (V->stripPointerCasts() == NV.stripPointerCasts() ||
+    if (V && (V->stripPointerCastsSafe() == NV.stripPointerCastsSafe() ||
               isa_and_nonnull<UndefValue>(V)))
       return false;
     assert((!V || V == &NV || isa<UndefValue>(NV)) &&

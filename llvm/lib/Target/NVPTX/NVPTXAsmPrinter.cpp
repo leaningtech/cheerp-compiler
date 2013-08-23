@@ -1727,7 +1727,7 @@ void NVPTXAsmPrinter::printScalarConstant(const Constant *CPV, raw_ostream &O) {
     return;
   }
   if (const ConstantExpr *Cexpr = dyn_cast<ConstantExpr>(CPV)) {
-    const Value *v = Cexpr->stripPointerCasts();
+    const Value *v = Cexpr->stripPointerCasts(true);
     PointerType *PTy = dyn_cast<PointerType>(Cexpr->getType());
     bool IsNonGenericPointer = false;
     if (PTy && PTy->getAddressSpace() != 0) {
@@ -1814,7 +1814,7 @@ void NVPTXAsmPrinter::bufferLEByte(const Constant *CPV, int Bytes,
           break;
         }
         if (Cexpr->getOpcode() == Instruction::PtrToInt) {
-          Value *v = Cexpr->getOperand(0)->stripPointerCasts();
+          Value *v = Cexpr->getOperand(0)->stripPointerCasts(true);
           aggBuffer->addSymbol(v, Cexpr->getOperand(0));
           aggBuffer->addZeros(4);
           break;
@@ -1836,7 +1836,7 @@ void NVPTXAsmPrinter::bufferLEByte(const Constant *CPV, int Bytes,
           break;
         }
         if (Cexpr->getOpcode() == Instruction::PtrToInt) {
-          Value *v = Cexpr->getOperand(0)->stripPointerCasts();
+          Value *v = Cexpr->getOperand(0)->stripPointerCasts(true);
           aggBuffer->addSymbol(v, Cexpr->getOperand(0));
           aggBuffer->addZeros(8);
           break;
@@ -1874,7 +1874,7 @@ void NVPTXAsmPrinter::bufferLEByte(const Constant *CPV, int Bytes,
     if (const GlobalValue *GVar = dyn_cast<GlobalValue>(CPV)) {
       aggBuffer->addSymbol(GVar, GVar);
     } else if (const ConstantExpr *Cexpr = dyn_cast<ConstantExpr>(CPV)) {
-      const Value *v = Cexpr->stripPointerCasts();
+      const Value *v = Cexpr->stripPointerCasts(true);
       aggBuffer->addSymbol(v, Cexpr);
     }
     unsigned int s = DL.getTypeAllocSize(CPV->getType());

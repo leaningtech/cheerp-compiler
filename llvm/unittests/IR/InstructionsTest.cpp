@@ -424,10 +424,10 @@ TEST(InstructionsTest, VectorGep) {
   CastInst *BTC2 = new BitCastInst(Gep2, V2xi8PTy);
   CastInst *BTC3 = new BitCastInst(Gep3, V2xi8PTy);
 
-  Value *S0 = BTC0->stripPointerCasts();
-  Value *S1 = BTC1->stripPointerCasts();
-  Value *S2 = BTC2->stripPointerCasts();
-  Value *S3 = BTC3->stripPointerCasts();
+  Value *S0 = BTC0->stripPointerCastsSafe();
+  Value *S1 = BTC1->stripPointerCastsSafe();
+  Value *S2 = BTC2->stripPointerCastsSafe();
+  Value *S3 = BTC3->stripPointerCastsSafe();
 
   EXPECT_NE(S0, Gep0);
   EXPECT_NE(S1, Gep1);

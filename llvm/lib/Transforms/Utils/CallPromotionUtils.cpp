@@ -583,7 +583,7 @@ bool llvm::tryPromoteCall(CallBase &CB) {
                                      *M);
   if (!Ptr)
     return false; // No constant (function) pointer found.
-  Function *DirectCallee = dyn_cast<Function>(Ptr->stripPointerCasts());
+  Function *DirectCallee = dyn_cast<Function>(Ptr->stripPointerCastsSafe());
   if (!DirectCallee)
     return false; // No function pointer found.
 

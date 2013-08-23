@@ -92,7 +92,7 @@ void llvm::findDevirtualizableCallsForTypeTest(
   // DevirtCalls.
   if (!Assumes.empty())
     findLoadCallsAtConstantOffset(
-        M, DevirtCalls, CI->getArgOperand(0)->stripPointerCasts(), 0, CI, DT);
+        M, DevirtCalls, CI->getArgOperand(0)->stripPointerCastsSafe(), 0, CI, DT);
 }
 
 void llvm::findDevirtualizableCallsForTypeCheckedLoad(

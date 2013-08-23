@@ -115,7 +115,7 @@ static Constant *FoldBitCast(Constant *V, Type *DestTy) {
 
   // Check to see if we are casting a pointer to an aggregate to a pointer to
   // the first element.  If so, return the appropriate GEP instruction.
-  if (PointerType *PTy = dyn_cast<PointerType>(V->getType()))
+  /*if (PointerType *PTy = dyn_cast<PointerType>(V->getType()))
     if (PointerType *DPTy = dyn_cast<PointerType>(DestTy))
       if (PTy->getAddressSpace() == DPTy->getAddressSpace()
           && PTy->getElementType()->isSized()) {
@@ -133,7 +133,7 @@ static Constant *FoldBitCast(Constant *V, Type *DestTy) {
           // This GEP is inbounds because all indices are zero.
           return ConstantExpr::getInBoundsGetElementPtr(PTy->getElementType(),
                                                         V, IdxList);
-      }
+      }*/
 
   // Handle casts from one vector constant to another.  We know that the src
   // and dest type have the same size (otherwise its an illegal cast).

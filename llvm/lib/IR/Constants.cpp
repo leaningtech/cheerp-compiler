@@ -646,8 +646,8 @@ bool Constant::needsRelocation() const {
           return false;
 
         // Relative pointers do not need to be dynamically relocated.
-        if (auto *LHSGV = dyn_cast<GlobalValue>(LHSOp0->stripPointerCasts()))
-          if (auto *RHSGV = dyn_cast<GlobalValue>(RHSOp0->stripPointerCasts()))
+        if (auto *LHSGV = dyn_cast<GlobalValue>(LHSOp0->stripPointerCastsSafe()))
+          if (auto *RHSGV = dyn_cast<GlobalValue>(RHSOp0->stripPointerCastsSafe()))
             if (LHSGV->isDSOLocal() && RHSGV->isDSOLocal())
               return false;
       }
@@ -1725,7 +1725,7 @@ Value *BlockAddress::handleOperandChangeImpl(Value *From, Value *To) {
   BasicBlock *NewBB = getBasicBlock();
 
   if (From == NewF)
-    NewF = cast<Function>(To->stripPointerCasts());
+    NewF = cast<Function>(To->stripPointerCastsSafe());
   else {
     assert(From == NewBB && "From does not match any operand");
     NewBB = cast<BasicBlock>(To);

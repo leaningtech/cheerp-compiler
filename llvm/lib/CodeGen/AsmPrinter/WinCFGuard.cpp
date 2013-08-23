@@ -68,7 +68,7 @@ static bool isPossibleIndirectCallTarget(const Function *F) {
         // direct calls with mismatched prototypes don't end up in the CFG
         // table. Consider other constants, such as vtable initializers, to
         // escape the function.
-        if (C->stripPointerCasts() == F)
+        if (C->stripPointerCastsSafe() == F)
           Users.push_back(FnUser);
         else
           return true;

@@ -1425,7 +1425,7 @@ void HWAddressSanitizer::instrumentPersonalityFunctions() {
       continue;
 
     if (F.hasPersonalityFn()) {
-      PersonalityFns[F.getPersonalityFn()->stripPointerCasts()].push_back(&F);
+      PersonalityFns[F.getPersonalityFn()->stripPointerCasts(false)].push_back(&F);
     } else if (!F.hasFnAttribute(Attribute::NoUnwind)) {
       PersonalityFns[nullptr].push_back(&F);
     }

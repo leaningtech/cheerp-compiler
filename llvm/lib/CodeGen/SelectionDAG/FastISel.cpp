@@ -923,7 +923,7 @@ bool FastISel::selectPatchpoint(const CallInst *I) {
   CallingConv::ID CC = I->getCallingConv();
   bool IsAnyRegCC = CC == CallingConv::AnyReg;
   bool HasDef = !I->getType()->isVoidTy();
-  Value *Callee = I->getOperand(PatchPointOpers::TargetPos)->stripPointerCasts();
+  Value *Callee = I->getOperand(PatchPointOpers::TargetPos)->stripPointerCastsSafe();
 
   // Get the real number of arguments participating in the call <numArgs>
   assert(isa<ConstantInt>(I->getOperand(PatchPointOpers::NArgPos)) &&

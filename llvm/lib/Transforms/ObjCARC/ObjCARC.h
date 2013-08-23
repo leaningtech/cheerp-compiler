@@ -45,7 +45,7 @@ static inline void EraseInstruction(Instruction *CI) {
     // Replace the return value with the argument.
     assert((IsForwarding(GetBasicARCInstKind(CI)) ||
             (IsNoopOnNull(GetBasicARCInstKind(CI)) &&
-             IsNullOrUndef(OldArg->stripPointerCasts()))) &&
+             IsNullOrUndef(OldArg->stripPointerCastsSafe()))) &&
            "Can't delete non-forwarding instruction with users!");
     CI->replaceAllUsesWith(OldArg);
   }
@@ -63,7 +63,7 @@ static inline const Instruction *getreturnRVOperand(const Instruction &Inst,
   if (Class != ARCInstKind::RetainRV)
     return nullptr;
 
-  const auto *Opnd = Inst.getOperand(0)->stripPointerCasts();
+  const auto *Opnd = Inst.getOperand(0)->stripPointerCastsSafe();
   if (const auto *C = dyn_cast<CallInst>(Opnd))
     return C;
   return dyn_cast<InvokeInst>(Opnd);
@@ -79,8 +79,8 @@ void getEquivalentPHIs(PHINodeTy &PN, VectorTy &PHIList) {
     unsigned I = 0, E = PN.getNumIncomingValues();
     for (; I < E; ++I) {
       auto *BB = PN.getIncomingBlock(I);
-      auto *PNOpnd = PN.getIncomingValue(I)->stripPointerCasts();
-      auto *POpnd = P.getIncomingValueForBlock(BB)->stripPointerCasts();
+      auto *PNOpnd = PN.getIncomingValue(I)->stripPointerCastsSafe();
+      auto *POpnd = P.getIncomingValueForBlock(BB)->stripPointerCastsSafe();
       if (PNOpnd != POpnd)
         break;
     }

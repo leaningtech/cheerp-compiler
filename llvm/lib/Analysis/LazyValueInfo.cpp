@@ -1551,7 +1551,7 @@ LazyValueInfo LazyValueAnalysis::run(Function &F,
 /// precision in dead code (a constant result) in favour of avoiding a
 /// expensive search for a easily answered common query.
 static bool isKnownNonConstant(Value *V) {
-  V = V->stripPointerCasts();
+  V = V->stripPointerCastsSafe();
   // The return val of alloc cannot be a Constant.
   if (isa<AllocaInst>(V))
     return true;

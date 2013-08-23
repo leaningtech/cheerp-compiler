@@ -1617,8 +1617,8 @@ Value *InstCombinerImpl::OptimizePointerDifference(Value *LHS, Value *RHS,
       Swapped = false;
     } else if (GEPOperator *RHSGEP = dyn_cast<GEPOperator>(RHS)) {
       // (gep X, ...) - (gep X, ...)
-      if (LHSGEP->getOperand(0)->stripPointerCasts() ==
-            RHSGEP->getOperand(0)->stripPointerCasts()) {
+      if (LHSGEP->getOperand(0)->stripPointerCasts(DL.isByteAddressable()) ==
+            RHSGEP->getOperand(0)->stripPointerCasts(DL.isByteAddressable())) {
         GEP2 = RHSGEP;
         GEP1 = LHSGEP;
         Swapped = false;
@@ -1633,8 +1633,8 @@ Value *InstCombinerImpl::OptimizePointerDifference(Value *LHS, Value *RHS,
       Swapped = true;
     } else if (GEPOperator *LHSGEP = dyn_cast<GEPOperator>(LHS)) {
       // (gep X, ...) - (gep X, ...)
-      if (RHSGEP->getOperand(0)->stripPointerCasts() ==
-            LHSGEP->getOperand(0)->stripPointerCasts()) {
+      if (RHSGEP->getOperand(0)->stripPointerCasts(DL.isByteAddressable()) ==
+            LHSGEP->getOperand(0)->stripPointerCasts(DL.isByteAddressable())) {
         GEP2 = LHSGEP;
         GEP1 = RHSGEP;
         Swapped = true;

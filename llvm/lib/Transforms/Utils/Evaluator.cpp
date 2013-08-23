@@ -525,7 +525,7 @@ bool Evaluator::EvaluateBlock(BasicBlock::iterator CurInst,
           }
           ConstantInt *Size = cast<ConstantInt>(II->getArgOperand(0));
           Value *PtrArg = getVal(II->getArgOperand(1));
-          Value *Ptr = PtrArg->stripPointerCasts();
+          Value *Ptr = PtrArg->stripPointerCastsSafe();
           if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
             Type *ElemTy = GV->getValueType();
             if (!Size->isMinusOne() &&
@@ -622,7 +622,7 @@ bool Evaluator::EvaluateBlock(BasicBlock::iterator CurInst,
         if (!Val) return false;  // Cannot determine.
         NextBB = SI->findCaseValue(Val)->getCaseSuccessor();
       } else if (IndirectBrInst *IBI = dyn_cast<IndirectBrInst>(CurInst)) {
-        Value *Val = getVal(IBI->getAddress())->stripPointerCasts();
+        Value *Val = getVal(IBI->getAddress())->stripPointerCastsSafe();
         if (BlockAddress *BA = dyn_cast<BlockAddress>(Val))
           NextBB = BA->getBasicBlock();
         else

@@ -3945,7 +3945,7 @@ bool llvm::getConstantDataArrayInfo(const Value *V,
   assert(V);
 
   // Look through bitcast instructions and geps.
-  V = V->stripPointerCasts();
+  V = V->stripPointerCastsSafe();
 
   // If the value is a GEP instruction or constant expression, treat it as an
   // offset.
@@ -4060,7 +4060,7 @@ static uint64_t GetStringLengthH(const Value *V,
                                  SmallPtrSetImpl<const PHINode*> &PHIs,
                                  unsigned CharSize) {
   // Look through noop bitcast instructions.
-  V = V->stripPointerCasts();
+  V = V->stripPointerCastsSafe();
 
   // If this is a PHI node, there are two cases: either we have already seen it
   // or we haven't.
@@ -6565,8 +6565,8 @@ getOffsetFromIndex(const GEPOperator *GEP, unsigned Idx, const DataLayout &DL) {
 
 Optional<int64_t> llvm::isPointerOffset(const Value *Ptr1, const Value *Ptr2,
                                         const DataLayout &DL) {
-  Ptr1 = Ptr1->stripPointerCasts();
-  Ptr2 = Ptr2->stripPointerCasts();
+  Ptr1 = Ptr1->stripPointerCasts(DL.isByteAddressable());
+  Ptr2 = Ptr2->stripPointerCasts(DL.isByteAddressable());
 
   // Handle the trivial case first.
   if (Ptr1 == Ptr2) {
@@ -6596,7 +6596,7 @@ Optional<int64_t> llvm::isPointerOffset(const Value *Ptr1, const Value *Ptr2,
       if (!Offset)
         return None;
       OffsetVal += *Offset;
-      auto Op0 = GEP_T->getOperand(0)->stripPointerCasts();
+      auto Op0 = GEP_T->getOperand(0)->stripPointerCasts(DL.isByteAddressable());
       if (Op0 == Ptr) {
         HasSameBase = true;
         break;

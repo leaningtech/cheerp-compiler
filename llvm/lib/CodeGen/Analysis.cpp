@@ -157,7 +157,7 @@ void llvm::computeValueLLTs(const DataLayout &DL, Type &Ty,
 
 /// ExtractTypeInfo - Returns the type info, possibly bitcast, encoded in V.
 GlobalValue *llvm::ExtractTypeInfo(Value *V) {
-  V = V->stripPointerCasts();
+  V = V->stripPointerCastsSafe();
   GlobalValue *GV = dyn_cast<GlobalValue>(V);
   GlobalVariable *Var = dyn_cast<GlobalVariable>(V);
 

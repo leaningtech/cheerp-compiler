@@ -735,7 +735,7 @@ static bool isObjectSizeLessThanOrEq(Value *V, uint64_t MaxSize,
 
   do {
     Value *P = Worklist.pop_back_val();
-    P = P->stripPointerCasts();
+    P = P->stripPointerCastsSafe();
 
     if (!Visited.insert(P).second)
       continue;

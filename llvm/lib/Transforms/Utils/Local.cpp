@@ -302,7 +302,7 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
   if (auto *IBI = dyn_cast<IndirectBrInst>(T)) {
     // indirectbr blockaddress(@F, @BB) -> br label @BB
     if (auto *BA =
-          dyn_cast<BlockAddress>(IBI->getAddress()->stripPointerCasts())) {
+          dyn_cast<BlockAddress>(IBI->getAddress()->stripPointerCastsSafe())) {
       BasicBlock *TheOnlyDest = BA->getBasicBlock();
       std::vector <DominatorTree::UpdateType> Updates;
       if (DTU)
@@ -1180,7 +1180,7 @@ static Align enforceKnownAlignment(Value *V, Align Alignment, Align PrefAlign,
                                    const DataLayout &DL) {
   assert(PrefAlign > Alignment);
 
-  V = V->stripPointerCasts();
+  V = V->stripPointerCasts(DL.isByteAddressable());
 
   if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
     // TODO: ideally, computeKnownBits ought to have used

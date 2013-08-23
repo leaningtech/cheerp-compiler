@@ -1150,7 +1150,7 @@ ChangeStatus Attributor::cleanupIR() {
     // Do not replace uses in returns if the value is a must-tail call we will
     // not delete.
     if (isa<ReturnInst>(U->getUser()))
-      if (auto *CI = dyn_cast<CallInst>(OldV->stripPointerCasts()))
+      if (auto *CI = dyn_cast<CallInst>(OldV->stripPointerCastsSafe()))
         if (CI->isMustTailCall() && !ToBeDeletedInsts.count(CI))
           continue;
 

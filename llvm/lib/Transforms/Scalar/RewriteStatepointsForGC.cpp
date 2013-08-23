@@ -523,7 +523,7 @@ static BaseDefiningValueResult findBaseDefiningValue(Value *I) {
   }
 
   if (CastInst *CI = dyn_cast<CastInst>(I)) {
-    Value *Def = CI->stripPointerCasts();
+    Value *Def = CI->stripPointerCastsSafe();
     // If stripping pointer casts changes the address space there is an
     // addrspacecast in between.
     assert(cast<PointerType>(Def->getType())->getAddressSpace() ==
@@ -1118,7 +1118,7 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &Cache) {
           // that remains TODO is changing findBaseOrBDV to return an
           // llvm::Value of the correct type (and still remain pure).
           // This will remove the need to add bitcasts.
-          assert(Base->stripPointerCasts() == OldBase->stripPointerCasts() &&
+          assert(Base->stripPointerCastsSafe() == OldBase->stripPointerCastsSafe() &&
                  "Sanity -- findBaseOrBDV should be pure!");
 #endif
           continue;

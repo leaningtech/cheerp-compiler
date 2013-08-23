@@ -283,7 +283,7 @@ MemoryDependenceResults::getInvariantGroupPointerDependency(LoadInst *LI,
 
   // Take the ptr operand after all casts and geps 0. This way we can search
   // cast graph down only.
-  Value *LoadOperand = LI->getPointerOperand()->stripPointerCasts();
+  Value *LoadOperand = LI->getPointerOperand()->stripPointerCastsSafe();
 
   // It's is not safe to walk the use list of global value, because function
   // passes aren't allowed to look outside their functions.
