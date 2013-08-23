@@ -3164,7 +3164,7 @@ void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION act
 			assert(priority>=lastPriority);
 			lastPriority=priority;
 			Constant* F=E->getAggregateElement((unsigned)1);
-			assert(Function::classof(F) && assert(F->hasName()));
+			assert(Function::classof(F) && F->hasName());
 			printLLVMName(F->getName());
 			stream << "();\n";
 		}
