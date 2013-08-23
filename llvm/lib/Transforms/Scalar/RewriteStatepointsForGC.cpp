@@ -539,7 +539,7 @@ static BaseDefiningValueResult findBaseDefiningValue(Value *I) {
     return BaseDefiningValueResult(I, true);
 
   if (CastInst *CI = dyn_cast<CastInst>(I)) {
-    Value *Def = CI->stripPointerCasts();
+    Value *Def = CI->stripPointerCastsSafe();
     // If stripping pointer casts changes the address space there is an
     // addrspacecast in between.
     assert(cast<PointerType>(Def->getType())->getAddressSpace() ==

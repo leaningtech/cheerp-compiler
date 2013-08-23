@@ -90,7 +90,7 @@ void ARMAsmPrinter::emitXXStructor(const DataLayout &DL, const Constant *CV) {
   uint64_t Size = getDataLayout().getTypeAllocSize(CV->getType());
   assert(Size && "C++ constructor pointer had zero size!");
 
-  const GlobalValue *GV = dyn_cast<GlobalValue>(CV->stripPointerCasts());
+  const GlobalValue *GV = dyn_cast<GlobalValue>(CV->stripPointerCasts(true));
   assert(GV && "C++ constructor pointer was not a GlobalValue!");
 
   const MCExpr *E = MCSymbolRefExpr::create(GetARMGVSymbol(GV,

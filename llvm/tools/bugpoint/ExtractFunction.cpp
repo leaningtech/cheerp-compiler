@@ -185,7 +185,7 @@ static void eliminateAliases(GlobalValue *GV) {
     Module *M = GV->getParent();
     for (Module::alias_iterator I = M->alias_begin(), E = M->alias_end();
          I != E; ++I)
-      if (I->getAliasee()->stripPointerCasts() == GV)
+      if (I->getAliasee()->stripPointerCastsSafe() == GV)
         aliases.push_back(&*I);
     if (aliases.empty())
       break;

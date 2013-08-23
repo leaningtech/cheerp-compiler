@@ -730,7 +730,7 @@ MCSymbol *MachineFunction::addLandingPad(MachineBasicBlock *LandingPad) {
   const Instruction *FirstI = LandingPad->getBasicBlock()->getFirstNonPHI();
   if (const auto *LPI = dyn_cast<LandingPadInst>(FirstI)) {
     if (const auto *PF =
-            dyn_cast<Function>(F.getPersonalityFn()->stripPointerCasts()))
+            dyn_cast<Function>(F.getPersonalityFn()->stripPointerCastsSafe()))
       getMMI().addPersonality(PF);
 
     if (LPI->isCleanup())
@@ -743,7 +743,7 @@ MCSymbol *MachineFunction::addLandingPad(MachineBasicBlock *LandingPad) {
       Value *Val = LPI->getClause(I - 1);
       if (LPI->isCatch(I - 1)) {
         addCatchTypeInfo(LandingPad,
-                         dyn_cast<GlobalValue>(Val->stripPointerCasts()));
+                         dyn_cast<GlobalValue>(Val->stripPointerCastsSafe()));
       } else {
         // Add filters in a list.
         auto *CVal = cast<Constant>(Val);
@@ -757,7 +757,7 @@ MCSymbol *MachineFunction::addLandingPad(MachineBasicBlock *LandingPad) {
 
   } else if (const auto *CPI = dyn_cast<CatchPadInst>(FirstI)) {
     for (unsigned I = CPI->getNumArgOperands(); I != 0; --I) {
-      Value *TypeInfo = CPI->getArgOperand(I - 1)->stripPointerCasts();
+      Value *TypeInfo = CPI->getArgOperand(I - 1)->stripPointerCastsSafe();
       addCatchTypeInfo(LandingPad, dyn_cast<GlobalValue>(TypeInfo));
     }
 

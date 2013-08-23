@@ -2678,7 +2678,7 @@ void MemoryUse::deleteMe(DerivedUser *Self) {
 
 bool upward_defs_iterator::IsGuaranteedLoopInvariant(Value *Ptr) const {
   auto IsGuaranteedLoopInvariantBase = [](Value *Ptr) {
-    Ptr = Ptr->stripPointerCasts();
+    Ptr = Ptr->stripPointerCastsSafe();
     if (!isa<Instruction>(Ptr))
       return true;
     return isa<AllocaInst>(Ptr);

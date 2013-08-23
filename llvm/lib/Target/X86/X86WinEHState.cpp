@@ -153,7 +153,7 @@ bool WinEHStatePass::runOnFunction(Function &F) {
   if (!F.hasPersonalityFn())
     return false;
   PersonalityFn =
-      dyn_cast<Function>(F.getPersonalityFn()->stripPointerCasts());
+      dyn_cast<Function>(F.getPersonalityFn()->stripPointerCastsSafe());
   if (!PersonalityFn)
     return false;
   Personality = classifyEHPersonality(PersonalityFn);
@@ -297,7 +297,7 @@ void WinEHStatePass::emitExceptionRegistrationRecord(Function *F) {
     CxxLongjmpUnwind = TheModule->getOrInsertFunction(
         "__CxxLongjmpUnwind",
         FunctionType::get(VoidTy, Int8PtrType, /*isVarArg=*/false));
-    cast<Function>(CxxLongjmpUnwind.getCallee()->stripPointerCasts())
+    cast<Function>(CxxLongjmpUnwind.getCallee()->stripPointerCastsSafe())
         ->setCallingConv(CallingConv::X86_StdCall);
   } else if (Personality == EHPersonality::MSVC_X86SEH) {
     // If _except_handler4 is in use, some additional guard checks and prologue
@@ -353,7 +353,7 @@ void WinEHStatePass::emitExceptionRegistrationRecord(Function *F) {
         UseStackGuard ? "_seh_longjmp_unwind4" : "_seh_longjmp_unwind",
         FunctionType::get(Type::getVoidTy(TheModule->getContext()), Int8PtrType,
                           /*isVarArg=*/false));
-    cast<Function>(SehLongjmpUnwind.getCallee()->stripPointerCasts())
+    cast<Function>(SehLongjmpUnwind.getCallee()->stripPointerCastsSafe())
         ->setCallingConv(CallingConv::X86_StdCall);
   } else {
     llvm_unreachable("unexpected personality function");
@@ -755,8 +755,8 @@ void WinEHStatePass::addStateStores(Function &F, WinEHFuncInfo &FuncInfo) {
       auto *Call = dyn_cast<CallBase>(&I);
       if (!Call)
         continue;
-      if (Call->getCalledOperand()->stripPointerCasts() !=
-          SetJmp3.getCallee()->stripPointerCasts())
+      if (Call->getCalledOperand()->stripPointerCastsSafe() !=
+          SetJmp3.getCallee()->stripPointerCastsSafe())
         continue;
 
       SetJmp3Calls.push_back(Call);

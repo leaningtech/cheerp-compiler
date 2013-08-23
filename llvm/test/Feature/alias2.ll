@@ -13,7 +13,7 @@
 ; CHECK: @a1 = alias i16, bitcast (i32* @v1 to i16*)
 
 @a2 = alias i32, bitcast([1 x i32]* @v2 to i32*)
-; CHECK: @a2 = alias i32, getelementptr inbounds ([1 x i32], [1 x i32]* @v2, i32 0, i32 0)
+; CHECK: @a2 = alias i32, bitcast ([1 x i32]* @v2 to i32*)
 
 @a3 = alias i32, addrspacecast (i32* @v1 to i32 addrspace(2)*)
 ; CHECK: @a3 = alias i32, addrspacecast (i32* @v1 to i32 addrspace(2)*)

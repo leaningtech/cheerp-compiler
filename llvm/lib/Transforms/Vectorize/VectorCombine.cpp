@@ -149,7 +149,7 @@ bool VectorCombine::vectorizeLoadInsert(Instruction &I) {
     return false;
 
   const DataLayout &DL = I.getModule()->getDataLayout();
-  Value *SrcPtr = Load->getPointerOperand()->stripPointerCasts();
+  Value *SrcPtr = Load->getPointerOperand()->stripPointerCastsSafe();
   assert(isa<PointerType>(SrcPtr->getType()) && "Expected a pointer type");
 
   unsigned AS = Load->getPointerAddressSpace();
