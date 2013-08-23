@@ -2109,7 +2109,7 @@ CGDebugInfo::CollectTemplateParams(Optional<TemplateArgs> OArgs,
       assert(V && "Expression in template argument isn't constant");
       llvm::DIType *TTy = getOrCreateType(T, Unit);
       TemplateParams.push_back(DBuilder.createTemplateValueParameter(
-          TheCU, Name, TTy, defaultParameter, V->stripPointerCasts()));
+          TheCU, Name, TTy, defaultParameter, V->stripPointerCasts(false)));
     } break;
     // And the following should never occur:
     case TemplateArgument::TemplateExpansion:

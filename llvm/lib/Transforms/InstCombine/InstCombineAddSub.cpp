@@ -1759,8 +1759,8 @@ Value *InstCombinerImpl::OptimizePointerDifference(Value *LHS, Value *RHS,
       GEP1 = LHSGEP;
     } else if (auto *RHSGEP = dyn_cast<GEPOperator>(RHS)) {
       // (gep X, ...) - (gep X, ...)
-      if (LHSGEP->getOperand(0)->stripPointerCasts() ==
-          RHSGEP->getOperand(0)->stripPointerCasts()) {
+      if (LHSGEP->getOperand(0)->stripPointerCasts(DL.isByteAddressable()) ==
+          RHSGEP->getOperand(0)->stripPointerCasts(DL.isByteAddressable())) {
         GEP1 = LHSGEP;
         GEP2 = RHSGEP;
       }

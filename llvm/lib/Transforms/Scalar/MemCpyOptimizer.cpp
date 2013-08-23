@@ -787,8 +787,8 @@ bool MemCpyOptPass::processStore(StoreInst *SI, BasicBlock::iterator &BBI) {
       };
 
       bool changed = performCallSlotOptzn(
-          LI, SI, SI->getPointerOperand()->stripPointerCasts(),
-          LI->getPointerOperand()->stripPointerCasts(),
+          LI, SI, SI->getPointerOperand()->stripPointerCastsSafe(),
+          LI->getPointerOperand()->stripPointerCastsSafe(),
           DL.getTypeStoreSize(SI->getOperand(0)->getType()),
           std::min(SI->getAlign(), LI->getAlign()), GetCall);
       if (changed) {
@@ -1091,7 +1091,7 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
       cpyDest->getType()->getPointerAddressSpace())
     return false;
   for (unsigned ArgI = 0; ArgI < C->arg_size(); ++ArgI)
-    if (C->getArgOperand(ArgI)->stripPointerCasts() == cpySrc &&
+    if (C->getArgOperand(ArgI)->stripPointerCastsSafe() == cpySrc &&
         cpySrc->getType()->getPointerAddressSpace() !=
             C->getArgOperand(ArgI)->getType()->getPointerAddressSpace())
       return false;
@@ -1099,7 +1099,7 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
   // All the checks have passed, so do the transformation.
   bool changedArgument = false;
   for (unsigned ArgI = 0; ArgI < C->arg_size(); ++ArgI)
-    if (C->getArgOperand(ArgI)->stripPointerCasts() == cpySrc) {
+    if (C->getArgOperand(ArgI)->stripPointerCasts(DL.isByteAddressable()) == cpySrc) {
       Value *Dest = cpySrc->getType() == cpyDest->getType() ?  cpyDest
         : CastInst::CreatePointerCast(cpyDest, cpySrc->getType(),
                                       cpyDest->getName(), C);
@@ -1579,7 +1579,7 @@ bool MemCpyOptPass::processByValArgument(CallBase &CB, unsigned ArgNo) {
   // a memcpy, see if we can byval from the source of the memcpy instead of the
   // result.
   if (!MDep || MDep->isVolatile() ||
-      ByValArg->stripPointerCasts() != MDep->getDest())
+      ByValArg->stripPointerCasts(DL.isByteAddressable()) != MDep->getDest())
     return false;
 
   // The length of the memcpy must be larger or equal to the size of the byval.

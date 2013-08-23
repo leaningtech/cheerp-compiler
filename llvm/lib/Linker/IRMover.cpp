@@ -943,7 +943,7 @@ IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
   if (IsNewStructor) {
     erase_if(SrcElements, [this](Constant *E) {
       auto *Key =
-          dyn_cast<GlobalValue>(E->getAggregateElement(2)->stripPointerCasts());
+          dyn_cast<GlobalValue>(E->getAggregateElement(2)->stripPointerCastsSafe());
       if (!Key)
         return false;
       GlobalValue *DGV = getLinkedToGlobal(Key);

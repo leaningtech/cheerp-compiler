@@ -956,7 +956,7 @@ public:
     assert(cast<PointerType>(Ptr->getType()->getScalarType())
                ->isOpaqueOrPointeeTypeMatches(PointeeType) &&
            "explicit pointee type doesn't match operand's pointee type");
-    auto *BaseGV = dyn_cast<GlobalValue>(Ptr->stripPointerCasts());
+    auto *BaseGV = dyn_cast<GlobalValue>(Ptr->stripPointerCastsSafe());
     bool HasBaseReg = (BaseGV == nullptr);
 
     auto PtrSizeBits = DL.getPointerTypeSizeInBits(Ptr->getType());

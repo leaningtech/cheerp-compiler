@@ -1792,7 +1792,7 @@ Value *BlockAddress::handleOperandChangeImpl(Value *From, Value *To) {
   BasicBlock *NewBB = getBasicBlock();
 
   if (From == NewF)
-    NewF = cast<Function>(To->stripPointerCasts());
+    NewF = cast<Function>(To->stripPointerCastsSafe());
   else {
     assert(From == NewBB && "From does not match any operand");
     NewBB = cast<BasicBlock>(To);

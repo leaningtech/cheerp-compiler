@@ -76,7 +76,7 @@ void DwarfCFIException::beginFunction(const MachineFunction *MF) {
   unsigned PerEncoding = TLOF.getPersonalityEncoding();
   const Function *Per = nullptr;
   if (F.hasPersonalityFn())
-    Per = dyn_cast<Function>(F.getPersonalityFn()->stripPointerCasts());
+    Per = dyn_cast<Function>(F.getPersonalityFn()->stripPointerCastsSafe());
 
   // Emit a personality function even when there are no landing pads
   forceEmitPersonality =

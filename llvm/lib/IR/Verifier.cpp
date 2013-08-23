@@ -2610,7 +2610,7 @@ void Verifier::visitFunction(const Function &F) {
 
   // Check validity of the personality function
   if (F.hasPersonalityFn()) {
-    auto *Per = dyn_cast<Function>(F.getPersonalityFn()->stripPointerCasts());
+    auto *Per = dyn_cast<Function>(F.getPersonalityFn()->stripPointerCastsSafe());
     if (Per)
       Check(Per->getParent() == F.getParent(),
             "Referencing personality function in another module!", &F,
@@ -4998,7 +4998,7 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     break;
   }
   case Intrinsic::coro_id: {
-    auto *InfoArg = Call.getArgOperand(3)->stripPointerCasts();
+    auto *InfoArg = Call.getArgOperand(3)->stripPointerCastsSafe();
     if (isa<ConstantPointerNull>(InfoArg))
       break;
     auto *GV = dyn_cast<GlobalVariable>(InfoArg);
@@ -5237,7 +5237,7 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     break;
   }
   case Intrinsic::localrecover: {
-    Value *FnArg = Call.getArgOperand(0)->stripPointerCasts();
+    Value *FnArg = Call.getArgOperand(0)->stripPointerCastsSafe();
     Function *Fn = dyn_cast<Function>(FnArg);
     Check(Fn && !Fn->isDeclaration(),
           "llvm.localrecover first "

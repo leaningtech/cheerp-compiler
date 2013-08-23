@@ -2709,8 +2709,8 @@ static Constant *computePointerICmp(CmpInst::Predicate Pred, Value *LHS,
   const InstrInfoQuery &IIQ = Q.IIQ;
 
   // First, skip past any trivial no-ops.
-  LHS = LHS->stripPointerCasts();
-  RHS = RHS->stripPointerCasts();
+  LHS = LHS->stripPointerCasts(DL.isByteAddressable());
+  RHS = RHS->stripPointerCasts(DL.isByteAddressable());
 
   // A non-null pointer is not equal to a null pointer.
   if (isa<ConstantPointerNull>(RHS) && ICmpInst::isEquality(Pred) &&

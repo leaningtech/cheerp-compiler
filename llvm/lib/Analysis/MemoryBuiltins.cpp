@@ -1084,7 +1084,7 @@ SizeOffsetEvalType ObjectSizeOffsetEvaluator::compute_(Value *V) {
     return std::make_pair(ConstantInt::get(Context, Const.first),
                           ConstantInt::get(Context, Const.second));
 
-  V = V->stripPointerCasts();
+  V = V->stripPointerCasts(DL.isByteAddressable());
 
   // Check cache.
   CacheMapTy::iterator CacheIt = CacheMap.find(V);

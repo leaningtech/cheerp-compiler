@@ -351,7 +351,7 @@ bool llvm::isSafeToLoadUnconditionally(Value *V, Align Alignment, APInt &Size,
 
   // We can at least always strip pointer casts even though we can't use the
   // base here.
-  V = V->stripPointerCasts();
+  V = V->stripPointerCastsSafe();
 
   while (BBI != E) {
     --BBI;
@@ -392,7 +392,7 @@ bool llvm::isSafeToLoadUnconditionally(Value *V, Align Alignment, APInt &Size,
         LoadSize <= DL.getTypeStoreSize(AccessedTy))
       return true;
 
-    if (AreEquivalentAddressValues(AccessedPtr->stripPointerCasts(), V) &&
+    if (AreEquivalentAddressValues(AccessedPtr->stripPointerCastsSafe(), V) &&
         LoadSize <= DL.getTypeStoreSize(AccessedTy))
       return true;
   }
@@ -477,7 +477,7 @@ static Value *getAvailableLoadStore(Instruction *Inst, const Value *Ptr,
     if (LI->isAtomic() < AtLeastAtomic)
       return nullptr;
 
-    Value *LoadPtr = LI->getPointerOperand()->stripPointerCasts();
+    Value *LoadPtr = LI->getPointerOperand()->stripPointerCastsSafe();
     if (!AreEquivalentAddressValues(LoadPtr, Ptr))
       return nullptr;
 
@@ -497,7 +497,7 @@ static Value *getAvailableLoadStore(Instruction *Inst, const Value *Ptr,
     if (SI->isAtomic() < AtLeastAtomic)
       return nullptr;
 
-    Value *StorePtr = SI->getPointerOperand()->stripPointerCasts();
+    Value *StorePtr = SI->getPointerOperand()->stripPointerCastsSafe();
     if (!AreEquivalentAddressValues(StorePtr, Ptr))
       return nullptr;
 
@@ -563,7 +563,8 @@ Value *llvm::findAvailablePtrLoadStore(
     MaxInstsToScan = ~0U;
 
   const DataLayout &DL = ScanBB->getModule()->getDataLayout();
-  const Value *StrippedPtr = Loc.Ptr->stripPointerCasts();
+  // Cheerp: We don't want to change the type as we may break union support
+  const Value *StrippedPtr = DL.isByteAddressable() ? Loc.Ptr->stripPointerCasts(true) : Loc.Ptr;
 
   while (ScanFrom != ScanBB->begin()) {
     // We must ignore debug info directives when counting (otherwise they
@@ -590,7 +591,7 @@ Value *llvm::findAvailablePtrLoadStore(
 
     // Try to get the store size for the type.
     if (StoreInst *SI = dyn_cast<StoreInst>(Inst)) {
-      Value *StorePtr = SI->getPointerOperand()->stripPointerCasts();
+      Value *StorePtr = SI->getPointerOperand()->stripPointerCastsSafe();
 
       // If both StrippedPtr and StorePtr reach all the way to an alloca or
       // global and they are different, ignore the store. This is a trivial form
@@ -643,7 +644,7 @@ Value *llvm::FindAvailableLoadedValue(LoadInst *Load, AAResults &AA,
                                       bool *IsLoadCSE,
                                       unsigned MaxInstsToScan) {
   const DataLayout &DL = Load->getModule()->getDataLayout();
-  Value *StrippedPtr = Load->getPointerOperand()->stripPointerCasts();
+  Value *StrippedPtr = Load->getPointerOperand()->stripPointerCastsSafe();
   BasicBlock *ScanBB = Load->getParent();
   Type *AccessTy = Load->getType();
   bool AtLeastAtomic = Load->isAtomic();

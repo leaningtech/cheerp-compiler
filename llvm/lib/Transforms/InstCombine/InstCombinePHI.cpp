@@ -1401,7 +1401,7 @@ Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
   if (PN.getType()->isPointerTy() &&
       PN.getParent()->getFirstInsertionPt() != PN.getParent()->end()) {
     Value *IV0 = PN.getIncomingValue(0);
-    Value *IV0Stripped = IV0->stripPointerCasts();
+    Value *IV0Stripped = IV0->stripPointerCastsSafe();
     // Set to keep track of values known to be equal to IV0Stripped after
     // stripping pointer casts.
     SmallPtrSet<Value *, 4> CheckedIVs;
@@ -1409,7 +1409,7 @@ Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
     if (IV0 != IV0Stripped &&
         all_of(PN.incoming_values(), [&CheckedIVs, IV0Stripped](Value *IV) {
           return !CheckedIVs.insert(IV).second ||
-                 IV0Stripped == IV->stripPointerCasts();
+                 IV0Stripped == IV->stripPointerCastsSafe();
         })) {
       return CastInst::CreatePointerCast(IV0Stripped, PN.getType());
     }

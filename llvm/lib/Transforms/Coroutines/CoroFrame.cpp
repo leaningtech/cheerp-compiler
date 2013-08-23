@@ -2522,7 +2522,7 @@ static void sinkLifetimeStartMarkers(Function &F, coro::Shape &Shape,
           Lifetimes.push_back(U);
           return true;
         }
-        if (!U->hasOneUse() || U->stripPointerCasts() != AI)
+        if (!U->hasOneUse() || U->stripPointerCastsSafe() != AI)
           return false;
         if (isLifetimeStart(U->user_back())) {
           Lifetimes.push_back(U->user_back());

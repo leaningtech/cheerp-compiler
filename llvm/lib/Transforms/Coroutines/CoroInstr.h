@@ -118,7 +118,7 @@ public:
     Value *Arg = getArgOperand(PromiseArg);
     return isa<ConstantPointerNull>(Arg)
                ? nullptr
-               : cast<AllocaInst>(Arg->stripPointerCasts());
+               : cast<AllocaInst>(Arg->stripPointerCastsSafe());
   }
 
   void clearPromise() {
@@ -174,13 +174,13 @@ public:
     return Result;
   }
   Constant *getRawInfo() const {
-    return cast<Constant>(getArgOperand(InfoArg)->stripPointerCasts());
+    return cast<Constant>(getArgOperand(InfoArg)->stripPointerCastsSafe());
   }
 
   void setInfo(Constant *C) { setArgOperand(InfoArg, C); }
 
   Function *getCoroutine() const {
-    return cast<Function>(getArgOperand(CoroutineArg)->stripPointerCasts());
+    return cast<Function>(getArgOperand(CoroutineArg)->stripPointerCastsSafe());
   }
   void setCoroutineSelf() {
     assert(isa<ConstantPointerNull>(getArgOperand(CoroutineArg)) &&
@@ -223,17 +223,17 @@ public:
   /// attributes, and calling convention of the continuation function(s)
   /// are taken from this declaration.
   Function *getPrototype() const {
-    return cast<Function>(getArgOperand(PrototypeArg)->stripPointerCasts());
+    return cast<Function>(getArgOperand(PrototypeArg)->stripPointerCastsSafe());
   }
 
   /// Return the function to use for allocating memory.
   Function *getAllocFunction() const {
-    return cast<Function>(getArgOperand(AllocArg)->stripPointerCasts());
+    return cast<Function>(getArgOperand(AllocArg)->stripPointerCastsSafe());
   }
 
   /// Return the function to use for deallocating memory.
   Function *getDeallocFunction() const {
-    return cast<Function>(getArgOperand(DeallocArg)->stripPointerCasts());
+    return cast<Function>(getArgOperand(DeallocArg)->stripPointerCastsSafe());
   }
 
   // Methods to support type inquiry through isa, cast, and dyn_cast:
@@ -310,7 +310,7 @@ public:
   ///  };
   GlobalVariable *getAsyncFunctionPointer() const {
     return cast<GlobalVariable>(
-        getArgOperand(AsyncFuncPtrArg)->stripPointerCasts());
+        getArgOperand(AsyncFuncPtrArg)->stripPointerCastsSafe());
   }
 
   // Methods to support type inquiry through isa, cast, and dyn_cast:
@@ -331,7 +331,7 @@ class LLVM_LIBRARY_VISIBILITY CoroAsyncContextAllocInst : public IntrinsicInst {
 public:
   GlobalVariable *getAsyncFunctionPointer() const {
     return cast<GlobalVariable>(
-        getArgOperand(AsyncFuncPtrArg)->stripPointerCasts());
+        getArgOperand(AsyncFuncPtrArg)->stripPointerCastsSafe());
   }
 
   // Methods to support type inquiry through isa, cast, and dyn_cast:
@@ -350,7 +350,7 @@ class LLVM_LIBRARY_VISIBILITY CoroAsyncContextDeallocInst
 
 public:
   Value *getAsyncContext() const {
-    return getArgOperand(AsyncContextArg)->stripPointerCasts();
+    return getArgOperand(AsyncContextArg)->stripPointerCastsSafe();
   }
 
   // Methods to support type inquiry through isa, cast, and dyn_cast:
@@ -540,17 +540,17 @@ public:
 
   Function *getAsyncContextProjectionFunction() const {
     return cast<Function>(
-        getArgOperand(AsyncContextProjectionArg)->stripPointerCasts());
+        getArgOperand(AsyncContextProjectionArg)->stripPointerCastsSafe());
   }
 
   CoroAsyncResumeInst *getResumeFunction() const {
     return cast<CoroAsyncResumeInst>(
-        getArgOperand(ResumeFunctionArg)->stripPointerCasts());
+        getArgOperand(ResumeFunctionArg)->stripPointerCastsSafe());
   }
 
   Function *getMustTailCallFunction() const {
     return cast<Function>(
-        getArgOperand(MustTailCallFuncArg)->stripPointerCasts());
+        getArgOperand(MustTailCallFuncArg)->stripPointerCastsSafe());
   }
 
   // Methods to support type inquiry through isa, cast, and dyn_cast:
@@ -654,7 +654,7 @@ public:
       return nullptr;
 
     return cast<Function>(
-        getArgOperand(MustTailCallFuncArg)->stripPointerCasts());
+        getArgOperand(MustTailCallFuncArg)->stripPointerCastsSafe());
   }
 
   // Methods to support type inquiry through isa, cast, and dyn_cast:

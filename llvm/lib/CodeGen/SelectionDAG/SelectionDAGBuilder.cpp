@@ -6224,7 +6224,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     // Get and store the index of the function context.
     MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
     AllocaInst *FnCtx =
-      cast<AllocaInst>(I.getArgOperand(0)->stripPointerCasts());
+      cast<AllocaInst>(I.getArgOperand(0)->stripPointerCastsSafe());
     int FI = FuncInfo.StaticAllocaMap[FnCtx];
     MFI.setFunctionContextIndex(FI);
     return;
@@ -6756,7 +6756,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   }
 
   case Intrinsic::init_trampoline: {
-    const Function *F = cast<Function>(I.getArgOperand(1)->stripPointerCasts());
+    const Function *F = cast<Function>(I.getArgOperand(1)->stripPointerCastsSafe());
 
     SDValue Ops[6];
     Ops[0] = getRoot();
@@ -6780,7 +6780,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     assert(DAG.getMachineFunction().getFunction().hasGC() &&
            "only valid in functions with gc specified, enforced by Verifier");
     assert(GFI && "implied by previous");
-    const Value *Alloca = I.getArgOperand(0)->stripPointerCasts();
+    const Value *Alloca = I.getArgOperand(0)->stripPointerCastsSafe();
     const Constant *TypeMap = cast<Constant>(I.getArgOperand(1));
 
     FrameIndexSDNode *FI = cast<FrameIndexSDNode>(getValue(Alloca).getNode());
@@ -7013,7 +7013,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     MachineFunction &MF = DAG.getMachineFunction();
 
     // Get the symbol that defines the frame offset.
-    auto *Fn = cast<Function>(I.getArgOperand(0)->stripPointerCasts());
+    auto *Fn = cast<Function>(I.getArgOperand(0)->stripPointerCastsSafe());
     auto *Idx = cast<ConstantInt>(I.getArgOperand(2));
     unsigned IdxVal =
         unsigned(Idx->getLimitedValue(std::numeric_limits<int>::max()));
@@ -10303,7 +10303,7 @@ findArgumentCopyElisionCandidates(const DataLayout &DL,
   auto GetInfoIfStaticAlloca = [&](const Value *V) -> StaticAllocaInfo * {
     if (!V)
       return nullptr;
-    V = V->stripPointerCasts();
+    V = V->stripPointerCastsSafe();
     const auto *AI = dyn_cast<AllocaInst>(V);
     if (!AI || !AI->isStaticAlloca() || !FuncInfo->StaticAllocaMap.count(AI))
       return nullptr;
@@ -10341,7 +10341,7 @@ findArgumentCopyElisionCandidates(const DataLayout &DL,
       *Info = StaticAllocaInfo::Clobbered;
 
     // Check if the destination is a static alloca.
-    const Value *Dst = SI->getPointerOperand()->stripPointerCasts();
+    const Value *Dst = SI->getPointerOperand()->stripPointerCastsSafe();
     StaticAllocaInfo *Info = GetInfoIfStaticAlloca(Dst);
     if (!Info)
       continue;

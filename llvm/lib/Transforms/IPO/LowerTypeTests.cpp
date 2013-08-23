@@ -965,7 +965,7 @@ LowerTypeTestsModule::importTypeId(StringRef TypeId) {
     }
 
     Constant *C = ImportGlobal(Name);
-    auto *GV = cast<GlobalVariable>(C->stripPointerCasts());
+    auto *GV = cast<GlobalVariable>(C->stripPointerCastsSafe());
     if (isa<IntegerType>(Ty))
       C = ConstantExpr::getPtrToInt(C, Ty);
     if (GV->getMetadata(LLVMContext::MD_absolute_symbol))

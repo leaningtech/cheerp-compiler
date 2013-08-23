@@ -206,13 +206,13 @@ public:
   /// Constant::removeDeadConstantUsers, but doesn't remove dead constants.
   bool hasZeroLiveUses() const;
 
-  const Constant *stripPointerCasts() const {
-    return cast<Constant>(Value::stripPointerCasts());
+  const Constant *stripPointerCasts(bool byteAddressable = false) const {
+    return cast<Constant>(Value::stripPointerCasts(byteAddressable));
   }
 
-  Constant *stripPointerCasts() {
+  Constant *stripPointerCasts(bool byteAddressable = false) {
     return const_cast<Constant*>(
-                      static_cast<const Constant *>(this)->stripPointerCasts());
+                      static_cast<const Constant *>(this)->stripPointerCasts(byteAddressable));
   }
 
   /// Try to replace undefined constant C or undefined elements in C with

@@ -2606,7 +2606,7 @@ void AsmPrinter::emitJumpTableEntry(const MachineJumpTableInfo *MJTI,
 bool AsmPrinter::emitSpecialLLVMGlobal(const GlobalVariable *GV) {
   if (GV->getName() == "llvm.used") {
     if (MAI->hasNoDeadStrip())    // No need to emit this at all.
-      emitLLVMUsedList(cast<ConstantArray>(GV->getInitializer()));
+      emitLLVMUsedList(cast<ConstantArray>(GV->getInitializer()), GV->getParent()->getDataLayout());
     return true;
   }
 
@@ -2638,11 +2638,11 @@ bool AsmPrinter::emitSpecialLLVMGlobal(const GlobalVariable *GV) {
 
 /// EmitLLVMUsedList - For targets that define a MAI::UsedDirective, mark each
 /// global in the specified llvm.used list.
-void AsmPrinter::emitLLVMUsedList(const ConstantArray *InitList) {
+void AsmPrinter::emitLLVMUsedList(const ConstantArray *InitList, const DataLayout& DL) {
   // Should be an array of 'i8*'.
   for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
     const GlobalValue *GV =
-      dyn_cast<GlobalValue>(InitList->getOperand(i)->stripPointerCasts());
+      dyn_cast<GlobalValue>(InitList->getOperand(i)->stripPointerCasts(DL.isByteAddressable()));
     if (GV)
       OutStreamer->emitSymbolAttribute(getSymbol(GV), MCSA_NoDeadStrip);
   }
@@ -2673,7 +2673,7 @@ void AsmPrinter::preprocessXXStructorList(const DataLayout &DL,
         llvm::report_fatal_error(
             "associated data of XXStructor list is not yet supported on AIX");
       S.ComdatKey =
-          dyn_cast<GlobalValue>(CS->getOperand(2)->stripPointerCasts());
+          dyn_cast<GlobalValue>(CS->getOperand(2)->stripPointerCastsSafe());
     }
   }
 

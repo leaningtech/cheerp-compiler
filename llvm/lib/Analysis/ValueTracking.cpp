@@ -4368,7 +4368,7 @@ static uint64_t GetStringLengthH(const Value *V,
                                  SmallPtrSetImpl<const PHINode*> &PHIs,
                                  unsigned CharSize) {
   // Look through noop bitcast instructions.
-  V = V->stripPointerCasts();
+  V = V->stripPointerCastsSafe();
 
   // If this is a PHI node, there are two cases: either we have already seen it
   // or we haven't.

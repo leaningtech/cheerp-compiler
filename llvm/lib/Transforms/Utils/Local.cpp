@@ -335,7 +335,7 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
   if (auto *IBI = dyn_cast<IndirectBrInst>(T)) {
     // indirectbr blockaddress(@F, @BB) -> br label @BB
     if (auto *BA =
-          dyn_cast<BlockAddress>(IBI->getAddress()->stripPointerCasts())) {
+          dyn_cast<BlockAddress>(IBI->getAddress()->stripPointerCastsSafe())) {
       BasicBlock *TheOnlyDest = BA->getBasicBlock();
       SmallSet<BasicBlock *, 8> RemovedSuccessors;
 
@@ -1375,7 +1375,7 @@ bool llvm::EliminateDuplicatePHINodes(BasicBlock *BB) {
 /// and allocation instructions to their preferred alignment from the beginning.
 static Align tryEnforceAlignment(Value *V, Align PrefAlign,
                                  const DataLayout &DL) {
-  V = V->stripPointerCasts();
+  V = V->stripPointerCasts(DL.isByteAddressable());
 
   if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
     // TODO: Ideally, this function would not be called if PrefAlign is smaller
