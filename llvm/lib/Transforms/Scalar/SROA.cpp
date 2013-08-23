@@ -4708,6 +4708,8 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
   C = &F.getContext();
   DT = &RunDT;
   AC = &RunAC;
+  if (!DL->isByteAddressable())
+    return false;
 
   BasicBlock &EntryBB = F.getEntryBlock();
   for (BasicBlock::iterator I = EntryBB.begin(), E = std::prev(EntryBB.end());
