@@ -42,7 +42,11 @@ static unsigned ComputeTopologicalBaseOffset(CodeGenModule &CGM,
 					  const CXXRecordDecl* AdjustmentSource) {
   CXXBasePaths Paths(/*FindAmbiguities=*/true, /*RecordPaths=*/true,
                      /*DetectVirtual=*/false);
-  assert(AdjustmentTarget->isDerivedFrom(AdjustmentSource, Paths));
+#ifndef NDEBUG
+  bool isDerived=
+#endif
+  AdjustmentTarget->isDerivedFrom(AdjustmentSource, Paths);
+  assert(isDerived);
 
   CXXBasePaths::const_paths_iterator it=Paths.begin();
   const CXXBasePath& p=*it;
