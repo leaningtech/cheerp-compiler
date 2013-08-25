@@ -657,6 +657,8 @@ void CXXNameMangler::mangle(GlobalDecl GD) {
     mangleName(FD);
   else if (const MSGuidDecl *GuidD = dyn_cast<MSGuidDecl>(GD.getDecl()))
     mangleName(GuidD);
+  else if (const RecordDecl *RD = dyn_cast<RecordDecl>(GD.getDecl()))
+    mangleName(RD);
   else
     llvm_unreachable("unexpected kind of global decl");
 }
@@ -5144,7 +5146,7 @@ bool CXXNameMangler::shouldHaveAbiTags(ItaniumMangleContextImpl &C,
 void ItaniumMangleContextImpl::mangleCXXName(GlobalDecl GD,
                                              raw_ostream &Out) {
   const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
-  assert((isa<FunctionDecl>(D) || isa<VarDecl>(D)) &&
+  assert((isa<FunctionDecl>(D) || isa<VarDecl>(D) || isa<RecordDecl>(D)) &&
           "Invalid mangleName() call, argument is not a variable or function!");
 
   PrettyStackTraceDecl CrashInfo(D, SourceLocation(),
