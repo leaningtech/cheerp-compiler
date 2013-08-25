@@ -2671,21 +2671,22 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
     ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes,
                                     Vptr.VTableClass, Vptr.Bases);
     VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), VTableField.getAlignment());
-  } else if (!NonVirtualOffset.isZero() || VirtualOffset)
-    VTableField = ApplyNonVirtualAndVirtualOffset(
+  } else {
+    if (!NonVirtualOffset.isZero() || VirtualOffset) {
+      VTableField = ApplyNonVirtualAndVirtualOffset(
         *this, VTableField, NonVirtualOffset, VirtualOffset, Vptr.VTableClass,
         Vptr.NearestVBase);
-
-
-  // Finally, store the address point. Use the same LLVM types as the field to
-  // support optimization.
-  llvm::Type *VTablePtrTy =
+    }
+    llvm::Type *VTablePtrTy =
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo()
           ->getPointerTo();
-  VTableField = Builder.CreateBitCast(VTableField, VTablePtrTy->getPointerTo());
-  VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
+    VTableField = Builder.CreateBitCast(VTableField, VTablePtrTy->getPointerTo());
+    VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
+  }
 
+  // Finally, store the address point. Use the same LLVM types as the field to
+  // support optimization.
   llvm::StoreInst *Store = Builder.CreateStore(VTableAddressPoint, VTableField);
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTablePtrTy);
   CGM.DecorateInstructionWithTBAA(Store, TBAAInfo);
