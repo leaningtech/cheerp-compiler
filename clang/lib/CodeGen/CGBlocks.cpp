@@ -2873,7 +2873,7 @@ void CodeGenFunction::enterByrefCleanup(CleanupKind Kind, Address Addr,
 /// Adjust the declaration of something from the blocks API.
 static void configureBlocksRuntimeObject(CodeGenModule &CGM,
                                          llvm::Constant *C) {
-  auto *GV = cast<llvm::GlobalValue>(C->stripPointerCastsSafe());
+  auto *GV = cast<llvm::GlobalValue>(C->stripPointerCasts(CGM.getTarget().isByteAddressable()));
 
   if (CGM.getTarget().getTriple().isOSBinFormatCOFF()) {
     IdentifierInfo &II = CGM.getContext().Idents.get(C->getName());

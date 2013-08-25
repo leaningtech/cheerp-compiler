@@ -287,12 +287,12 @@ static bool LandingPadHasOnlyCXXUses(llvm::LandingPadInst *LPI) {
 
 /// Check whether a personality function could reasonably be swapped
 /// for a C++ personality function.
-static bool PersonalityHasOnlyCXXUses(llvm::Constant *Fn) {
+static bool PersonalityHasOnlyCXXUses(llvm::Constant *Fn, bool byteAddressable) {
   for (llvm::User *U : Fn->users()) {
     // Conditionally white-list bitcasts.
     if (llvm::ConstantExpr *CE = dyn_cast<llvm::ConstantExpr>(U)) {
       if (CE->getOpcode() != llvm::Instruction::BitCast) return false;
-      if (!PersonalityHasOnlyCXXUses(CE))
+      if (!PersonalityHasOnlyCXXUses(CE, byteAddressable))
         return false;
       continue;
     }
@@ -339,7 +339,7 @@ void CodeGenModule::SimplifyPersonality() {
   if (!Fn || Fn->use_empty()) return;
 
   // Can't do the optimization if it has non-C++ uses.
-  if (!PersonalityHasOnlyCXXUses(Fn)) return;
+  if (!PersonalityHasOnlyCXXUses(Fn, getTarget().isByteAddressable())) return;
 
   // Create the C++ personality function and kill off the old
   // function.

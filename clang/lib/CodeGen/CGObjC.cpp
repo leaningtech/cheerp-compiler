@@ -2192,7 +2192,7 @@ llvm::Value *CodeGenFunction::EmitARCRetainBlock(llvm::Value *value,
   // count as escaping.
   if (!mandatory && isa<llvm::Instruction>(result)) {
     llvm::CallInst *call
-      = cast<llvm::CallInst>(result->stripPointerCastsSafe());
+      = cast<llvm::CallInst>(result->stripPointerCasts(getTarget().isByteAddressable()));
     assert(call->getCalledOperand() ==
            CGM.getObjCEntrypoints().objc_retainBlock);
 
