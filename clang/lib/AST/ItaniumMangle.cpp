@@ -775,7 +775,7 @@ void CXXNameMangler::mangle(GlobalDecl GD) {
   if (isa<FunctionDecl>(GD.getDecl()))
     mangleFunctionEncoding(GD);
   else if (isa<VarDecl, FieldDecl, MSGuidDecl, TemplateParamObjectDecl,
-               BindingDecl>(GD.getDecl()))
+               BindingDecl, RecordDecl>(GD.getDecl()))
     mangleName(GD);
   else if (const IndirectFieldDecl *IFD =
                dyn_cast<IndirectFieldDecl>(GD.getDecl()))
@@ -6307,7 +6307,7 @@ bool CXXNameMangler::shouldHaveAbiTags(ItaniumMangleContextImpl &C,
 void ItaniumMangleContextImpl::mangleCXXName(GlobalDecl GD,
                                              raw_ostream &Out) {
   const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
-  assert((isa<FunctionDecl, VarDecl, TemplateParamObjectDecl>(D)) &&
+  assert((isa<FunctionDecl, VarDecl, TemplateParamObjectDecl, RecordDecl>(D)) &&
          "Invalid mangleName() call, argument is not a variable or function!");
 
   PrettyStackTraceDecl CrashInfo(D, SourceLocation(),

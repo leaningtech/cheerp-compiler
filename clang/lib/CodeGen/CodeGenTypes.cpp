@@ -64,7 +64,9 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   if (RD->getIdentifier()) {
     // FIXME: We should not have to check for a null decl context here.
     // Right now we do it because the implicit Obj-C decls don't have one.
-    if (RD->getDeclContext())
+    if (!getTarget().isByteAddressable())
+      getCXXABI().getMangleContext().mangleName(RD, OS);
+    else if (RD->getDeclContext())
       RD->printQualifiedName(OS, Policy);
     else
       RD->printName(OS, Policy);
