@@ -2739,25 +2739,29 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
     ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes,
                                     Vptr.VTableClass, Vptr.Bases);
     VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), VTableField.getAlignment());
-  } else if (!NonVirtualOffset.isZero() || VirtualOffset)
-    VTableField = ApplyNonVirtualAndVirtualOffset(
+  } else {
+    if (!NonVirtualOffset.isZero() || VirtualOffset) {
+      VTableField = ApplyNonVirtualAndVirtualOffset(
         *this, VTableField, NonVirtualOffset, VirtualOffset, Vptr.VTableClass,
         Vptr.NearestVBase);
+    }
 
-
-  // Finally, store the address point. Use the same LLVM types as the field to
-  // support optimization.
-  unsigned GlobalsAS = CGM.getDataLayout().getDefaultGlobalsAddressSpace();
-  unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
-  llvm::Type *VTablePtrTy =
+    // Finally, store the address point. Use the same LLVM types as the field to
+    // support optimization.
+    unsigned GlobalsAS = CGM.getDataLayout().getDefaultGlobalsAddressSpace();
+    unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
+    llvm::Type *VTablePtrTy =
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS);
-  // vtable field is derived from `this` pointer, therefore they should be in
-  // the same addr space. Note that this might not be LLVM address space 0.
-  VTableField = Builder.CreateElementBitCast(VTableField, VTablePtrTy);
-  VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
+    // vtable field is derived from `this` pointer, therefore they should be in
+    // the same addr space. Note that this might not be LLVM address space 0.
+    VTableField = Builder.CreateElementBitCast(VTableField, VTablePtrTy);
+    VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
+  }
 
+  // Finally, store the address point. Use the same LLVM types as the field to
+  // support optimization.
   llvm::StoreInst *Store = Builder.CreateStore(VTableAddressPoint, VTableField);
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTablePtrTy);
   CGM.DecorateInstructionWithTBAA(Store, TBAAInfo);
