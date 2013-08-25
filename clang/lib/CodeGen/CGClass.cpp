@@ -427,7 +427,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
 
   // First handle the non-byte addressable case (Duetto)
   if (!getTarget().isByteAddressable())
-    return GenerateUpcast(Value, Derived, PathBegin, PathEnd);
+    Value = GenerateUpcast(Value, Derived, PathBegin, PathEnd);
   else
   {
     // Apply both offsets.
