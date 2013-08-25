@@ -1738,6 +1738,13 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   if (UseExternalLayout)
     FieldOffset = updateExternalFieldOffset(D, FieldOffset);
 
+  //Duetto: We must fit inside the unfilled space, otherwise we need to allocate a new slot
+  bool byteAddressable = Context.getTargetInfo().isByteAddressable();
+  if (!byteAddressable && FieldSize > UnfilledBitsInLastUnit)
+  {
+    FieldOffset += UnfilledBitsInLastUnit;
+    UnfilledBitsInLastUnit = 0;
+  }
   // Okay, place the bitfield at the calculated offset.
   FieldOffsets.push_back(FieldOffset);
 
@@ -1789,10 +1796,19 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   // including padding up to char alignment, and then remember how
   // bits we didn't use.
   } else {
-    uint64_t NewSizeInBits = FieldOffset + FieldSize;
-    uint64_t CharAlignment = Context.getTargetInfo().getCharAlign();
-    setDataSize(llvm::alignTo(NewSizeInBits, CharAlignment));
-    UnfilledBitsInLastUnit = getDataSizeInBits() - NewSizeInBits;
+    uint64_t NewSizeInBits = getDataSizeInBits();
+    if (FieldOffset > NewSizeInBits)
+      NewSizeInBits = FieldOffset;
+    if ((FieldOffset + FieldSize) > NewSizeInBits)
+    {
+      // We need to bump a unit, on Duetto units are 32bit wide
+      uint64_t BitfieldBumpUnit = byteAddressable ? Context.getTargetInfo().getCharWidth():
+                                   Context.getTargetInfo().getIntWidth();
+      NewSizeInBits += llvm::alignTo(FieldOffset + FieldSize - NewSizeInBits, BitfieldBumpUnit);
+    }
+    setDataSize(NewSizeInBits);
+    uint64_t UsedSizeInBits = FieldOffset + FieldSize;
+    UnfilledBitsInLastUnit = NewSizeInBits - UsedSizeInBits;
 
     // The only time we can get here for an ms_struct is if this is a
     // zero-width bitfield, which doesn't count as anything for the

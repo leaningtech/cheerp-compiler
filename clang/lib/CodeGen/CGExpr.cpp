@@ -4205,7 +4205,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     const RecordDecl *rec = field->getParent();
     if (!IsInPreservedAIRegion &&
         (!getDebugInfo() || !rec->hasAttr<BPFPreserveAccessIndexAttr>())) {
-      if (Idx != 0)
+      if (Idx != 0 || !getTarget().isByteAddressable())
         // For structs, we GEP to the field that the record layout suggests.
         Addr = Builder.CreateStructGEP(Addr, Idx, field->getName());
     } else {

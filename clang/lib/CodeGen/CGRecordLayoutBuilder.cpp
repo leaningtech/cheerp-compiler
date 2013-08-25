@@ -468,7 +468,15 @@ CGRecordLowering::accumulateBitFields(RecordDecl::field_iterator Field,
     }
 
     // We've hit a break-point in the run and need to emit a storage field.
-    llvm::Type *Type = getIntNType(Tail - StartBitOffset);
+    llvm::Type *Type = NULL;
+    if (!Types.getTarget().isByteAddressable())
+    {
+      //Duetto: 32 should not be hardcoded
+      assert (Tail-StartBitOffset <= 32);
+      Type = llvm::Type::getInt32Ty(Types.getLLVMContext());
+    }
+    else
+      Type = getIntNType(Tail - StartBitOffset);
     // Add the storage member to the record and set the bitfield info for all of
     // the bitfields in the run.  Bitfields get the offset of their storage but
     // come afterward and remain there after a stable sort.
