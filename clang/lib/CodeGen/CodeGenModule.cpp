@@ -3996,6 +3996,19 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     emitter.emplace(*this);
     Init = emitter->tryEmitForInitializer(*InitDecl);
 
+    if(!getTarget().isByteAddressable() &&
+         Init && llvm::ConstantExpr::classof(Init) &&
+         CodeGenFunction::hasScalarEvaluationKind(ASTTy))
+    {
+      // Try to generate the init code using CodeGenFunction emitter for scalars,
+      // since it generates more type safe code.
+      // TODO: We are leaking the constant
+      llvm::Value* SafeInit = CodeGenFunction(*this).EmitScalarExpr(InitExpr, false);
+      llvm::Constant* Init2 = dyn_cast<llvm::Constant>(SafeInit);
+      if(Init2)
+        Init = Init2;
+    }
+
     if (!Init) {
       QualType T = InitExpr->getType();
       if (D->getType()->isReferenceType())
