@@ -3415,11 +3415,12 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   if (!VTable)
     VTable = CGM.getModule().getOrInsertGlobal(VTableName, CGM.Int8PtrTy);
 
-  CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
+  CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCastsSafe()));
 
   llvm::Type *PtrDiffTy =
       CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
 
+  llvm::Constant *Zero = llvm::ConstantInt::get(CGM.Int32Ty, 0);
   // The vtable address point is 2.
   if (CGM.getItaniumVTableContext().isRelativeLayout()) {
     // The vtable address point is 8 bytes after its start:
@@ -3428,12 +3429,15 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
     VTable =
         llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8Ty, VTable, Eight);
+    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
   } else {
-    llvm::Constant *Two = llvm::ConstantInt::get(PtrDiffTy, 2);
-    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8PtrTy, VTable,
-                                                          Two);
+    llvm::Constant *Two = llvm::ConstantInt::get(CGM.Int32Ty, 2);
+    llvm::SmallVector<llvm::Constant*, 2> GepIndexes;
+    GepIndexes.push_back(Zero);
+    GepIndexes.push_back(Two);
+    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(VTable->getType()->getPointerElementType(), VTable, GepIndexes);
+    assert(VTable->getType()==CGM.Int8PtrTy->getPointerTo());
   }
-  VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.Int8PtrTy);
 
   Fields.push_back(VTable);
 }
