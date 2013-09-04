@@ -3034,6 +3034,7 @@ public:
             {return !(__x == __y);}
 };
 
+#ifndef __DUETTO__
 template<class _IntType>
 template<class _URNG>
 typename uniform_int_distribution<_IntType>::result_type
@@ -3060,6 +3061,7 @@ _LIBCPP_DISABLE_UBSAN_UNSIGNED_INTEGER_CHECK
     } while (__u >= _Rp);
     return static_cast<result_type>(__u + __p.a());
 }
+#endif
 
 #if _LIBCPP_STD_VER <= 14 || defined(_LIBCPP_ENABLE_CXX17_REMOVED_RANDOM_SHUFFLE) \
   || defined(_LIBCPP_BUILDING_LIBRARY)
