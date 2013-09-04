@@ -1138,6 +1138,8 @@ static Address createUnnamedGlobalForMemcpyFrom(CodeGenModule &CGM,
   Address SrcPtr = CGM.createUnnamedGlobalFrom(D, Constant, Align);
   llvm::Type *BP = llvm::PointerType::getInt8PtrTy(CGM.getLLVMContext(),
                                                    SrcPtr.getAddressSpace());
+  if (constant->getType()->isArrayTy())
+    SrcPtr = Builder.CreateConstGEP2_32(GV->getType()->getPointerElementType(), SrcPtr, 0, 0);
   if (SrcPtr.getType() != BP)
     SrcPtr = Builder.CreateBitCast(SrcPtr, BP);
   return SrcPtr;
@@ -1866,6 +1868,9 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
     lv.setNonGC(true);
     return EmitStoreThroughLValue(RValue::get(constant), lv, true);
   }
+
+  if (D.getType()->isArrayType())
+    Loc = Builder.CreateConstGEP2_32(Loc->getType()->getPointerElementType(), Loc, 0, 0);
 
   llvm::Type *BP = CGM.Int8Ty->getPointerTo(Loc.getAddressSpace());
   emitStoresForConstant(

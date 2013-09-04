@@ -4523,7 +4523,6 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   case CK_ToVoid:
   case CK_BitCast:
   case CK_LValueToRValueBitCast:
-  case CK_ArrayToPointerDecay:
   case CK_FunctionToPointerDecay:
   case CK_NullToMemberPointer:
   case CK_NullToPointer:
@@ -4583,6 +4582,15 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     return MakeNaturalAlignAddrLValue(EmitDynamicCast(V, DCE), E->getType());
   }
 
+  case CK_ArrayToPointerDecay: {
+    LValue LV = EmitLValue(E->getSubExpr());
+    llvm::SmallVector<llvm::Value*, 2> Idxs;
+    llvm::Constant* Zero = llvm::ConstantInt::get(Int32Ty, 0);
+    Idxs.push_back(Zero);
+    Idxs.push_back(Zero);
+    llvm::Value *V = Builder.CreateGEP(LV.getAddress(), Idxs);
+    return MakeAddrLValue(V, E->getType());
+  }
   case CK_ConstructorConversion:
   case CK_UserDefinedConversion:
   case CK_CPointerToObjCPointerCast:
