@@ -1168,6 +1168,8 @@ static Address createUnnamedGlobalForMemcpyFrom(CodeGenModule &CGM,
                                                 llvm::Constant *Constant,
                                                 CharUnits Align) {
   Address SrcPtr = CGM.createUnnamedGlobalFrom(D, Constant, Align);
+  if (constant->getType()->isArrayTy())
+    SrcPtr = Builder.CreateConstArrayGEP(SrcPtr, 0);
   return Builder.CreateElementBitCast(SrcPtr, CGM.Int8Ty);
 }
 
@@ -1916,6 +1918,9 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
     lv.setNonGC(true);
     return EmitStoreThroughLValue(RValue::get(constant), lv, true);
   }
+
+  if (D.getType()->isArrayType())
+    Loc = Builder.CreateConstArrayGEP(Loc, 0, CharUnits());
 
   emitStoresForConstant(CGM, D, Builder.CreateElementBitCast(Loc, CGM.Int8Ty),
                         type.isVolatileQualified(), Builder, constant,
