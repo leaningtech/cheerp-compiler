@@ -87,6 +87,7 @@ __murmur2_or_cityhash<_Size, 32>::operator()(const void* __key, _Size __len)
     return __h;
 }
 
+#ifndef __CHEERP__
 template <class _Size>
 struct __murmur2_or_cityhash<_Size, 64>
 {
@@ -214,6 +215,7 @@ struct __murmur2_or_cityhash<_Size, 64>
     return __shift_mix(__r * __k0 + __vs) * __k2;
   }
 };
+#endif
 
 // cityhash64
 template <class _Size>
