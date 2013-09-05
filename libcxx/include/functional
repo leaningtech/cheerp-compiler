@@ -1,6 +1,25 @@
 // -*- C++ -*-
 //===------------------------ functional ----------------------------------===//
 //
+// Copyright (C) 2013 Alessandro Pignotti <alessandro@leaningtech.com>
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+//
+// This file incorporates work covered by the following copyright and
+// permission notice:
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -1691,7 +1710,7 @@ __func<_Fp, _Alloc, _Rp(_ArgTypes...)>::__clone() const
     _Ap __a(__f_.__get_allocator());
     typedef __allocator_destructor<_Ap> _Dp;
     unique_ptr<__func, _Dp> __hold(__a.allocate(1), _Dp(__a, 1));
-    ::new ((void*)__hold.get()) __func(__f_.__target(), _Alloc(__a));
+    ::new (__hold.get()) __func(__f_.__target(), _Alloc(__a));
     return __hold.release();
 }
 
@@ -1699,7 +1718,7 @@ template<class _Fp, class _Alloc, class _Rp, class ..._ArgTypes>
 void
 __func<_Fp, _Alloc, _Rp(_ArgTypes...)>::__clone(__base<_Rp(_ArgTypes...)>* __p) const
 {
-    ::new (__p) __func(__f_.__target(), __f_.__get_allocator());
+    ::new (static_cast<__func*>(__p)) __func(__f_.__target(), __f_.__get_allocator());
 }
 
 template<class _Fp, class _Alloc, class _Rp, class ..._ArgTypes>
@@ -1779,6 +1798,7 @@ template <class _Rp, class... _ArgTypes> class __value_func<_Rp(_ArgTypes...)>
         if (__function::__not_null(__f))
         {
             _FunAlloc __af(__a);
+#ifndef __CHEERP__
             if (sizeof(_Fun) <= sizeof(__buf_) &&
                 is_nothrow_copy_constructible<_Fp>::value &&
                 is_nothrow_copy_constructible<_FunAlloc>::value)
@@ -1787,10 +1807,11 @@ template <class _Rp, class... _ArgTypes> class __value_func<_Rp(_ArgTypes...)>
                     ::new ((void*)&__buf_) _Fun(_VSTD::move(__f), _Alloc(__af));
             }
             else
+#endif
             {
                 typedef __allocator_destructor<_FunAlloc> _Dp;
                 unique_ptr<__func, _Dp> __hold(__af.allocate(1), _Dp(__af, 1));
-                ::new ((void*)__hold.get()) _Fun(_VSTD::move(__f), _Alloc(__a));
+                ::new (__hold.get()) _Fun(_VSTD::move(__f), _Alloc(__a));
                 __f_ = __hold.release();
             }
         }
@@ -1944,7 +1965,9 @@ template <class _Rp, class... _ArgTypes> class __value_func<_Rp(_ArgTypes...)>
 // destruction.
 union __policy_storage
 {
+#ifndef __CHEERP__
     mutable char __small[sizeof(void*) * 2];
+#endif
     void* __large;
 };
 
@@ -1952,10 +1975,14 @@ union __policy_storage
 template <typename _Fun>
 struct __use_small_storage
     : public _VSTD::integral_constant<
+#ifdef __CHEERP__
+          bool, false> {};
+#else
           bool, sizeof(_Fun) <= sizeof(__policy_storage) &&
                     _LIBCPP_ALIGNOF(_Fun) <= _LIBCPP_ALIGNOF(__policy_storage) &&
                     _VSTD::is_trivially_copy_constructible<_Fun>::value &&
                     _VSTD::is_trivially_destructible<_Fun>::value> {};
+#endif
 
 // Policy contains information about how to copy, destroy, and move the
 // underlying functor. You can think of it as a vtable of sorts.
@@ -2078,9 +2105,13 @@ struct __policy_invoker<_Rp(_ArgTypes...)>
     static _Rp __call_impl(const __policy_storage* __buf,
                            __fast_forward<_ArgTypes>... __args)
     {
+#ifdef __CHEERP__
+        _Fun* __f = reinterpret_cast<_Fun*>(__buf->__large);
+#else
         _Fun* __f = reinterpret_cast<_Fun*>(__use_small_storage<_Fun>::value
                                                 ? &__buf->__small
                                                 : __buf->__large);
+#endif
         return (*__f)(_VSTD::forward<_ArgTypes>(__args)...);
     }
 };
@@ -2124,12 +2155,14 @@ template <class _Rp, class... _ArgTypes> class __policy_func<_Rp(_ArgTypes...)>
             __policy_ = __policy::__create<_Fun>();
 
             _FunAlloc __af(__a);
+#ifndef __CHEERP__
             if (__use_small_storage<_Fun>())
             {
                 ::new ((void*)&__buf_.__small)
                     _Fun(_VSTD::move(__f), _Alloc(__af));
             }
             else
+#endif
             {
                 typedef __allocator_destructor<_FunAlloc> _Dp;
                 unique_ptr<_Fun, _Dp> __hold(__af.allocate(1), _Dp(__af, 1));
@@ -2245,8 +2278,10 @@ template <class _Rp, class... _ArgTypes> class __policy_func<_Rp(_ArgTypes...)>
             return nullptr;
         if (__policy_->__clone) // Out of line storage.
             return reinterpret_cast<const _Tp*>(__buf_.__large);
+#ifndef __CHEERP__
         else
             return reinterpret_cast<const _Tp*>(&__buf_.__small);
+#endif
     }
 #endif // _LIBCPP_NO_RTTI
 };
