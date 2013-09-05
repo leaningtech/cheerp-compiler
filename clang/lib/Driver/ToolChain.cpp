@@ -67,6 +67,10 @@ static ToolChain::RTTIMode CalculateRTTIMode(const ArgList &Args,
       return ToolChain::RM_Disabled;
   }
 
+  // On Cheerp -frtti is disabled by default
+  if (Triple.getArch() == llvm::Triple::cheerp)
+    return ToolChain::RM_DisabledImplicitly;
+
   // -frtti is default, except for the PS4/PS5 and DriverKit.
   bool NoRTTI = Triple.isPS() || Triple.isDriverKit();
   return NoRTTI ? ToolChain::RM_Disabled : ToolChain::RM_Enabled;
