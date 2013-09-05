@@ -1,6 +1,25 @@
 // -*- C++ -*-
 //===----------------------------------------------------------------------===//
 //
+// Copyright (C) 2013 Alessandro Pignotti <alessandro@leaningtech.com>
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+//
+// This file incorporates work covered by the following copyright and
+// permission notice:
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -320,7 +339,7 @@ __func<_Fp, _Alloc, _Rp(_ArgTypes...)>::__clone() const
     _Ap __a(__f_.__get_allocator());
     typedef __allocator_destructor<_Ap> _Dp;
     unique_ptr<__func, _Dp> __hold(__a.allocate(1), _Dp(__a, 1));
-    ::new ((void*)__hold.get()) __func(__f_.__target(), _Alloc(__a));
+    ::new (__hold.get()) __func(__f_.__target(), _Alloc(__a));
     return __hold.release();
 }
 
@@ -328,7 +347,7 @@ template<class _Fp, class _Alloc, class _Rp, class ..._ArgTypes>
 void
 __func<_Fp, _Alloc, _Rp(_ArgTypes...)>::__clone(__base<_Rp(_ArgTypes...)>* __p) const
 {
-    ::new ((void*)__p) __func(__f_.__target(), __f_.__get_allocator());
+    ::new (static_cast<__func*>(__p)) __func(__f_.__target(), __f_.__get_allocator());
 }
 
 template<class _Fp, class _Alloc, class _Rp, class ..._ArgTypes>
@@ -408,6 +427,7 @@ template <class _Rp, class... _ArgTypes> class __value_func<_Rp(_ArgTypes...)>
         if (__function::__not_null(__f))
         {
             _FunAlloc __af(__a);
+#ifndef __CHEERP__
             if (sizeof(_Fun) <= sizeof(__buf_) &&
                 is_nothrow_copy_constructible<_Fp>::value &&
                 is_nothrow_copy_constructible<_FunAlloc>::value)
@@ -416,10 +436,11 @@ template <class _Rp, class... _ArgTypes> class __value_func<_Rp(_ArgTypes...)>
                     ::new ((void*)&__buf_) _Fun(_VSTD::move(__f), _Alloc(__af));
             }
             else
+#endif
             {
                 typedef __allocator_destructor<_FunAlloc> _Dp;
                 unique_ptr<__func, _Dp> __hold(__af.allocate(1), _Dp(__af, 1));
-                ::new ((void*)__hold.get()) _Fun(_VSTD::move(__f), _Alloc(__a));
+                ::new (__hold.get()) _Fun(_VSTD::move(__f), _Alloc(__a));
                 __f_ = __hold.release();
             }
         }
@@ -573,7 +594,9 @@ template <class _Rp, class... _ArgTypes> class __value_func<_Rp(_ArgTypes...)>
 // destruction.
 union __policy_storage
 {
+#ifndef __CHEERP__
     mutable char __small[sizeof(void*) * 2];
+#endif
     void* __large;
 };
 
@@ -581,10 +604,14 @@ union __policy_storage
 template <typename _Fun>
 struct __use_small_storage
     : public integral_constant<
+#ifdef __CHEERP__
+          bool, false> {};
+#else
           bool, sizeof(_Fun) <= sizeof(__policy_storage) &&
                     _LIBCPP_ALIGNOF(_Fun) <= _LIBCPP_ALIGNOF(__policy_storage) &&
                     is_trivially_copy_constructible<_Fun>::value &&
                     is_trivially_destructible<_Fun>::value> {};
+#endif
 
 // Policy contains information about how to copy, destroy, and move the
 // underlying functor. You can think of it as a vtable of sorts.
@@ -707,9 +734,13 @@ struct __policy_invoker<_Rp(_ArgTypes...)>
     static _Rp __call_impl(const __policy_storage* __buf,
                            __fast_forward<_ArgTypes>... __args)
     {
+#ifdef __CHEERP__
+        _Fun* __f = reinterpret_cast<_Fun*>(__buf->__large);
+#else
         _Fun* __f = reinterpret_cast<_Fun*>(__use_small_storage<_Fun>::value
                                                 ? &__buf->__small
                                                 : __buf->__large);
+#endif
         return (*__f)(_VSTD::forward<_ArgTypes>(__args)...);
     }
 };
@@ -753,12 +784,14 @@ template <class _Rp, class... _ArgTypes> class __policy_func<_Rp(_ArgTypes...)>
             __policy_ = __policy::__create<_Fun>();
 
             _FunAlloc __af(__a);
+#ifndef __CHEERP__
             if (__use_small_storage<_Fun>())
             {
                 ::new ((void*)&__buf_.__small)
                     _Fun(_VSTD::move(__f), _Alloc(__af));
             }
             else
+#endif
             {
                 typedef __allocator_destructor<_FunAlloc> _Dp;
                 unique_ptr<_Fun, _Dp> __hold(__af.allocate(1), _Dp(__af, 1));
@@ -874,8 +907,10 @@ template <class _Rp, class... _ArgTypes> class __policy_func<_Rp(_ArgTypes...)>
             return nullptr;
         if (__policy_->__clone) // Out of line storage.
             return reinterpret_cast<const _Tp*>(__buf_.__large);
+#ifndef __CHEERP__
         else
             return reinterpret_cast<const _Tp*>(&__buf_.__small);
+#endif
     }
 #endif // _LIBCPP_NO_RTTI
 };
@@ -1254,7 +1289,9 @@ public:
     __base() {}
     virtual ~__base() {}
     virtual __base* __clone() const = 0;
+#ifndef __DUETTO__
     virtual void __clone(__base*) const = 0;
+#endif
     virtual void destroy() = 0;
     virtual void destroy_deallocate() = 0;
     virtual _Rp operator()() = 0;
@@ -1273,7 +1310,9 @@ public:
     __base() {}
     virtual ~__base() {}
     virtual __base* __clone() const = 0;
+#ifndef __DUETTO__
     virtual void __clone(__base*) const = 0;
+#endif
     virtual void destroy() = 0;
     virtual void destroy_deallocate() = 0;
     virtual _Rp operator()(_A0) = 0;
@@ -1292,7 +1331,9 @@ public:
     __base() {}
     virtual ~__base() {}
     virtual __base* __clone() const = 0;
+#ifndef __DUETTO__
     virtual void __clone(__base*) const = 0;
+#endif
     virtual void destroy() = 0;
     virtual void destroy_deallocate() = 0;
     virtual _Rp operator()(_A0, _A1) = 0;
@@ -1311,7 +1352,9 @@ public:
     __base() {}
     virtual ~__base() {}
     virtual __base* __clone() const = 0;
+#ifndef __DUETTO__
     virtual void __clone(__base*) const = 0;
+#endif
     virtual void destroy() = 0;
     virtual void destroy_deallocate() = 0;
     virtual _Rp operator()(_A0, _A1, _A2) = 0;
@@ -1332,7 +1375,9 @@ public:
     explicit __func(_Fp __f) : __f_(_VSTD::move(__f), __default_init_tag()) {}
     explicit __func(_Fp __f, _Alloc __a) : __f_(_VSTD::move(__f), _VSTD::move(__a)) {}
     virtual __base<_Rp()>* __clone() const;
+#ifndef __DUETTO__
     virtual void __clone(__base<_Rp()>*) const;
+#endif
     virtual void destroy();
     virtual void destroy_deallocate();
     virtual _Rp operator()();
@@ -1355,12 +1400,14 @@ __func<_Fp, _Alloc, _Rp()>::__clone() const
     return __hold.release();
 }
 
+#ifndef __DUETTO__
 template<class _Fp, class _Alloc, class _Rp>
 void
 __func<_Fp, _Alloc, _Rp()>::__clone(__base<_Rp()>* __p) const
 {
     ::new ((void*)__p) __func(__f_.first(), __f_.second());
 }
+#endif
 
 template<class _Fp, class _Alloc, class _Rp>
 void
@@ -1418,7 +1465,9 @@ public:
     _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f, _Alloc __a)
         : __f_(_VSTD::move(__f), _VSTD::move(__a)) {}
     virtual __base<_Rp(_A0)>* __clone() const;
+#ifndef __DUETTO__
     virtual void __clone(__base<_Rp(_A0)>*) const;
+#endif
     virtual void destroy();
     virtual void destroy_deallocate();
     virtual _Rp operator()(_A0);
@@ -1441,12 +1490,14 @@ __func<_Fp, _Alloc, _Rp(_A0)>::__clone() const
     return __hold.release();
 }
 
+#ifndef __DUETTO__
 template<class _Fp, class _Alloc, class _Rp, class _A0>
 void
 __func<_Fp, _Alloc, _Rp(_A0)>::__clone(__base<_Rp(_A0)>* __p) const
 {
     ::new ((void*)__p) __func(__f_.first(), __f_.second());
 }
+#endif
 
 template<class _Fp, class _Alloc, class _Rp, class _A0>
 void
@@ -1504,7 +1555,9 @@ public:
     _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f, _Alloc __a)
         : __f_(_VSTD::move(__f), _VSTD::move(__a)) {}
     virtual __base<_Rp(_A0, _A1)>* __clone() const;
+#ifndef __DUETTO__
     virtual void __clone(__base<_Rp(_A0, _A1)>*) const;
+#endif
     virtual void destroy();
     virtual void destroy_deallocate();
     virtual _Rp operator()(_A0, _A1);
@@ -1527,12 +1580,14 @@ __func<_Fp, _Alloc, _Rp(_A0, _A1)>::__clone() const
     return __hold.release();
 }
 
+#ifndef __DUETTO__
 template<class _Fp, class _Alloc, class _Rp, class _A0, class _A1>
 void
 __func<_Fp, _Alloc, _Rp(_A0, _A1)>::__clone(__base<_Rp(_A0, _A1)>* __p) const
 {
     ::new ((void*)__p) __func(__f_.first(), __f_.second());
 }
+#endif
 
 template<class _Fp, class _Alloc, class _Rp, class _A0, class _A1>
 void
@@ -1590,7 +1645,9 @@ public:
     _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f, _Alloc __a)
         : __f_(_VSTD::move(__f), _VSTD::move(__a)) {}
     virtual __base<_Rp(_A0, _A1, _A2)>* __clone() const;
+#ifndef __DUETTO__
     virtual void __clone(__base<_Rp(_A0, _A1, _A2)>*) const;
+#endif
     virtual void destroy();
     virtual void destroy_deallocate();
     virtual _Rp operator()(_A0, _A1, _A2);
@@ -1613,12 +1670,14 @@ __func<_Fp, _Alloc, _Rp(_A0, _A1, _A2)>::__clone() const
     return __hold.release();
 }
 
+#ifndef __DUETTO__
 template<class _Fp, class _Alloc, class _Rp, class _A0, class _A1, class _A2>
 void
 __func<_Fp, _Alloc, _Rp(_A0, _A1, _A2)>::__clone(__base<_Rp(_A0, _A1, _A2)>* __p) const
 {
     ::new ((void*)__p) __func(__f_.first(), __f_.second());
 }
+#endif
 
 template<class _Fp, class _Alloc, class _Rp, class _A0, class _A1, class _A2>
 void
@@ -1672,7 +1731,9 @@ template<class _Rp>
 class _LIBCPP_TEMPLATE_VIS function<_Rp()>
 {
     typedef __function::__base<_Rp()> __base;
+#ifndef __DUETTO__
     aligned_storage<3*sizeof(void*)>::type __buf_;
+#endif
     __base* __f_;
 
 public:
@@ -1741,11 +1802,13 @@ function<_Rp()>::function(const function& __f)
 {
     if (__f.__f_ == 0)
         __f_ = 0;
+#ifndef __DUETTO__
     else if (__f.__f_ == (const __base*)&__f.__buf_)
     {
         __f_ = (__base*)&__buf_;
         __f.__f_->__clone(__f_);
     }
+#endif
     else
         __f_ = __f.__f_->__clone();
 }
@@ -1756,11 +1819,13 @@ function<_Rp()>::function(allocator_arg_t, const _Alloc&, const function& __f)
 {
     if (__f.__f_ == 0)
         __f_ = 0;
+#ifndef __DUETTO__
     else if (__f.__f_ == (const __base*)&__f.__buf_)
     {
         __f_ = (__base*)&__buf_;
         __f.__f_->__clone(__f_);
     }
+#endif
     else
         __f_ = __f.__f_->__clone();
 }
@@ -1774,12 +1839,14 @@ function<_Rp()>::function(_Fp __f,
     if (__function::__not_null(__f))
     {
         typedef __function::__func<_Fp, allocator<_Fp>, _Rp()> _FF;
+#ifndef __DUETTO__
         if (sizeof(_FF) <= sizeof(__buf_))
         {
             __f_ = (__base*)&__buf_;
             ::new ((void*)__f_) _FF(__f);
         }
         else
+#endif
         {
             typedef allocator<_FF> _Ap;
             _Ap __a;
@@ -1801,12 +1868,14 @@ function<_Rp()>::function(allocator_arg_t, const _Alloc& __a0, _Fp __f,
     if (__function::__not_null(__f))
     {
         typedef __function::__func<_Fp, _Alloc, _Rp()> _FF;
+#ifndef __DUETTO__
         if (sizeof(_FF) <= sizeof(__buf_))
         {
             __f_ = (__base*)&__buf_;
             ::new ((void*)__f_) _FF(__f, __a0);
         }
         else
+#endif
         {
             typedef typename __rebind_alloc_helper<__alloc_traits, _FF>::type _Ap;
             _Ap __a(__a0);
@@ -1835,9 +1904,12 @@ function<_Rp()>::operator=(nullptr_t)
 {
     __base* __t = __f_;
     __f_ = 0;
+#ifndef __CHEERP__
     if (__t == (__base*)&__buf_)
         __t->destroy();
-    else if (__t)
+    else
+#endif
+    if (__t)
         __t->destroy_deallocate();
     return *this;
 }
@@ -1858,9 +1930,12 @@ function<_Rp()>::operator=(_Fp __f)
 template<class _Rp>
 function<_Rp()>::~function()
 {
+#ifndef __DUETTO__
     if (__f_ == (__base*)&__buf_)
         __f_->destroy();
-    else if (__f_)
+    else
+#endif
+    if (__f_)
         __f_->destroy_deallocate();
 }
 
@@ -1870,6 +1945,7 @@ function<_Rp()>::swap(function& __f)
 {
     if (_VSTD::addressof(__f) == this)
       return;
+#ifndef __DUETTO__
     if (__f_ == (__base*)&__buf_ && __f.__f_ == (__base*)&__f.__buf_)
     {
         typename aligned_storage<sizeof(__buf_)>::type __tempbuf;
@@ -1900,6 +1976,7 @@ function<_Rp()>::swap(function& __f)
         __f_ = (__base*)&__buf_;
     }
     else
+#endif
         _VSTD::swap(__f_, __f.__f_);
 }
 
@@ -1950,7 +2027,9 @@ class _LIBCPP_TEMPLATE_VIS function<_Rp(_A0)>
     : public unary_function<_A0, _Rp>
 {
     typedef __function::__base<_Rp(_A0)> __base;
+#ifndef __DUETTO__
     aligned_storage<3*sizeof(void*)>::type __buf_;
+#endif
     __base* __f_;
 
 public:
@@ -2019,11 +2098,13 @@ function<_Rp(_A0)>::function(const function& __f)
 {
     if (__f.__f_ == 0)
         __f_ = 0;
+#ifndef __DUETTO__
     else if (__f.__f_ == (const __base*)&__f.__buf_)
     {
         __f_ = (__base*)&__buf_;
         __f.__f_->__clone(__f_);
     }
+#endif
     else
         __f_ = __f.__f_->__clone();
 }
@@ -2034,11 +2115,13 @@ function<_Rp(_A0)>::function(allocator_arg_t, const _Alloc&, const function& __f
 {
     if (__f.__f_ == 0)
         __f_ = 0;
+#ifndef __DUETTO__
     else if (__f.__f_ == (const __base*)&__f.__buf_)
     {
         __f_ = (__base*)&__buf_;
         __f.__f_->__clone(__f_);
     }
+#endif
     else
         __f_ = __f.__f_->__clone();
 }
@@ -2052,12 +2135,14 @@ function<_Rp(_A0)>::function(_Fp __f,
     if (__function::__not_null(__f))
     {
         typedef __function::__func<_Fp, allocator<_Fp>, _Rp(_A0)> _FF;
+#ifndef __DUETTO__
         if (sizeof(_FF) <= sizeof(__buf_))
         {
             __f_ = (__base*)&__buf_;
             ::new ((void*)__f_) _FF(__f);
         }
         else
+#endif
         {
             typedef allocator<_FF> _Ap;
             _Ap __a;
@@ -2079,12 +2164,14 @@ function<_Rp(_A0)>::function(allocator_arg_t, const _Alloc& __a0, _Fp __f,
     if (__function::__not_null(__f))
     {
         typedef __function::__func<_Fp, _Alloc, _Rp(_A0)> _FF;
+#ifndef __DUETTO__
         if (sizeof(_FF) <= sizeof(__buf_))
         {
             __f_ = (__base*)&__buf_;
             ::new ((void*)__f_) _FF(__f, __a0);
         }
         else
+#endif
         {
             typedef typename __rebind_alloc_helper<__alloc_traits, _FF>::type _Ap;
             _Ap __a(__a0);
@@ -2113,9 +2200,12 @@ function<_Rp(_A0)>::operator=(nullptr_t)
 {
     __base* __t = __f_;
     __f_ = 0;
+#ifndef __DUETTO__
     if (__t == (__base*)&__buf_)
         __t->destroy();
-    else if (__t)
+    else
+#endif
+    if (__t)
         __t->destroy_deallocate();
     return *this;
 }
@@ -2136,9 +2226,12 @@ function<_Rp(_A0)>::operator=(_Fp __f)
 template<class _Rp, class _A0>
 function<_Rp(_A0)>::~function()
 {
+#ifndef __DUETTO__
     if (__f_ == (__base*)&__buf_)
         __f_->destroy();
-    else if (__f_)
+    else
+#endif
+    if (__f_)
         __f_->destroy_deallocate();
 }
 
@@ -2148,6 +2241,7 @@ function<_Rp(_A0)>::swap(function& __f)
 {
     if (_VSTD::addressof(__f) == this)
       return;
+#ifndef __DUETTO__
     if (__f_ == (__base*)&__buf_ && __f.__f_ == (__base*)&__f.__buf_)
     {
         typename aligned_storage<sizeof(__buf_)>::type __tempbuf;
@@ -2178,6 +2272,7 @@ function<_Rp(_A0)>::swap(function& __f)
         __f_ = (__base*)&__buf_;
     }
     else
+#endif
         _VSTD::swap(__f_, __f.__f_);
 }
 
@@ -2228,7 +2323,9 @@ class _LIBCPP_TEMPLATE_VIS function<_Rp(_A0, _A1)>
     : public binary_function<_A0, _A1, _Rp>
 {
     typedef __function::__base<_Rp(_A0, _A1)> __base;
+#ifndef __DUETTO__
     aligned_storage<3*sizeof(void*)>::type __buf_;
+#endif
     __base* __f_;
 
 public:
@@ -2297,11 +2394,13 @@ function<_Rp(_A0, _A1)>::function(const function& __f)
 {
     if (__f.__f_ == 0)
         __f_ = 0;
+#ifndef __DUETTO__
     else if (__f.__f_ == (const __base*)&__f.__buf_)
     {
         __f_ = (__base*)&__buf_;
         __f.__f_->__clone(__f_);
     }
+#endif
     else
         __f_ = __f.__f_->__clone();
 }
@@ -2312,11 +2411,13 @@ function<_Rp(_A0, _A1)>::function(allocator_arg_t, const _Alloc&, const function
 {
     if (__f.__f_ == 0)
         __f_ = 0;
+#ifndef __DUETTO__
     else if (__f.__f_ == (const __base*)&__f.__buf_)
     {
         __f_ = (__base*)&__buf_;
         __f.__f_->__clone(__f_);
     }
+#endif
     else
         __f_ = __f.__f_->__clone();
 }
@@ -2330,12 +2431,14 @@ function<_Rp(_A0, _A1)>::function(_Fp __f,
     if (__function::__not_null(__f))
     {
         typedef __function::__func<_Fp, allocator<_Fp>, _Rp(_A0, _A1)> _FF;
+#ifndef __DUETTO__
         if (sizeof(_FF) <= sizeof(__buf_))
         {
             __f_ = (__base*)&__buf_;
             ::new ((void*)__f_) _FF(__f);
         }
         else
+#endif
         {
             typedef allocator<_FF> _Ap;
             _Ap __a;
@@ -2357,12 +2460,14 @@ function<_Rp(_A0, _A1)>::function(allocator_arg_t, const _Alloc& __a0, _Fp __f,
     if (__function::__not_null(__f))
     {
         typedef __function::__func<_Fp, _Alloc, _Rp(_A0, _A1)> _FF;
+#ifndef __DUETTO__
         if (sizeof(_FF) <= sizeof(__buf_))
         {
             __f_ = (__base*)&__buf_;
             ::new ((void*)__f_) _FF(__f, __a0);
         }
         else
+#endif
         {
             typedef typename __rebind_alloc_helper<__alloc_traits, _FF>::type _Ap;
             _Ap __a(__a0);
@@ -2391,9 +2496,12 @@ function<_Rp(_A0, _A1)>::operator=(nullptr_t)
 {
     __base* __t = __f_;
     __f_ = 0;
+#ifndef __DUETTO__
     if (__t == (__base*)&__buf_)
         __t->destroy();
-    else if (__t)
+    else
+#endif
+    if (__t)
         __t->destroy_deallocate();
     return *this;
 }
@@ -2414,9 +2522,12 @@ function<_Rp(_A0, _A1)>::operator=(_Fp __f)
 template<class _Rp, class _A0, class _A1>
 function<_Rp(_A0, _A1)>::~function()
 {
+#ifndef __DUETTO__
     if (__f_ == (__base*)&__buf_)
         __f_->destroy();
-    else if (__f_)
+    else
+#endif
+    if (__f_)
         __f_->destroy_deallocate();
 }
 
@@ -2426,6 +2537,7 @@ function<_Rp(_A0, _A1)>::swap(function& __f)
 {
     if (_VSTD::addressof(__f) == this)
       return;
+#ifndef __DUETTO__
     if (__f_ == (__base*)&__buf_ && __f.__f_ == (__base*)&__f.__buf_)
     {
         typename aligned_storage<sizeof(__buf_)>::type __tempbuf;
@@ -2456,6 +2568,7 @@ function<_Rp(_A0, _A1)>::swap(function& __f)
         __f_ = (__base*)&__buf_;
     }
     else
+#endif
         _VSTD::swap(__f_, __f.__f_);
 }
 
@@ -2505,7 +2618,9 @@ template<class _Rp, class _A0, class _A1, class _A2>
 class _LIBCPP_TEMPLATE_VIS function<_Rp(_A0, _A1, _A2)>
 {
     typedef __function::__base<_Rp(_A0, _A1, _A2)> __base;
+#ifndef __DUETTO__
     aligned_storage<3*sizeof(void*)>::type __buf_;
+#endif
     __base* __f_;
 
 public:
@@ -2574,11 +2689,13 @@ function<_Rp(_A0, _A1, _A2)>::function(const function& __f)
 {
     if (__f.__f_ == 0)
         __f_ = 0;
+#ifndef __DUETTO__
     else if (__f.__f_ == (const __base*)&__f.__buf_)
     {
         __f_ = (__base*)&__buf_;
         __f.__f_->__clone(__f_);
     }
+#endif
     else
         __f_ = __f.__f_->__clone();
 }
@@ -2590,11 +2707,13 @@ function<_Rp(_A0, _A1, _A2)>::function(allocator_arg_t, const _Alloc&,
 {
     if (__f.__f_ == 0)
         __f_ = 0;
+#ifndef __DUETTO__
     else if (__f.__f_ == (const __base*)&__f.__buf_)
     {
         __f_ = (__base*)&__buf_;
         __f.__f_->__clone(__f_);
     }
+#endif
     else
         __f_ = __f.__f_->__clone();
 }
@@ -2608,12 +2727,14 @@ function<_Rp(_A0, _A1, _A2)>::function(_Fp __f,
     if (__function::__not_null(__f))
     {
         typedef __function::__func<_Fp, allocator<_Fp>, _Rp(_A0, _A1, _A2)> _FF;
+#ifndef __DUETTO__
         if (sizeof(_FF) <= sizeof(__buf_))
         {
             __f_ = (__base*)&__buf_;
             ::new ((void*)__f_) _FF(__f);
         }
         else
+#endif
         {
             typedef allocator<_FF> _Ap;
             _Ap __a;
@@ -2635,12 +2756,14 @@ function<_Rp(_A0, _A1, _A2)>::function(allocator_arg_t, const _Alloc& __a0, _Fp 
     if (__function::__not_null(__f))
     {
         typedef __function::__func<_Fp, _Alloc, _Rp(_A0, _A1, _A2)> _FF;
+#ifndef __DUETTO__
         if (sizeof(_FF) <= sizeof(__buf_))
         {
             __f_ = (__base*)&__buf_;
             ::new ((void*)__f_) _FF(__f, __a0);
         }
         else
+#endif
         {
             typedef typename __rebind_alloc_helper<__alloc_traits, _FF>::type _Ap;
             _Ap __a(__a0);
@@ -2669,9 +2792,12 @@ function<_Rp(_A0, _A1, _A2)>::operator=(nullptr_t)
 {
     __base* __t = __f_;
     __f_ = 0;
+#ifndef __DUETTO__
     if (__t == (__base*)&__buf_)
         __t->destroy();
-    else if (__t)
+    else
+#endif
+    if (__t)
         __t->destroy_deallocate();
     return *this;
 }
@@ -2692,9 +2818,12 @@ function<_Rp(_A0, _A1, _A2)>::operator=(_Fp __f)
 template<class _Rp, class _A0, class _A1, class _A2>
 function<_Rp(_A0, _A1, _A2)>::~function()
 {
+#ifndef __DUETTO__
     if (__f_ == (__base*)&__buf_)
         __f_->destroy();
-    else if (__f_)
+    else
+#endif
+    if (__f_)
         __f_->destroy_deallocate();
 }
 
@@ -2704,6 +2833,7 @@ function<_Rp(_A0, _A1, _A2)>::swap(function& __f)
 {
     if (_VSTD::addressof(__f) == this)
       return;
+#ifndef __DUETTO__
     if (__f_ == (__base*)&__buf_ && __f.__f_ == (__base*)&__f.__buf_)
     {
         typename aligned_storage<sizeof(__buf_)>::type __tempbuf;
@@ -2734,6 +2864,7 @@ function<_Rp(_A0, _A1, _A2)>::swap(function& __f)
         __f_ = (__base*)&__buf_;
     }
     else
+#endif
         _VSTD::swap(__f_, __f.__f_);
 }
 
