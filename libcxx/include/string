@@ -1,6 +1,25 @@
 // -*- C++ -*-
 //===--------------------------- string -----------------------------------===//
 //
+// Copyright (C) 2013 Alessandro Pignotti <alessandro@leaningtech.com>
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+//
+// This file incorporates work covered by the following copyright and
+// permission notice:
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -771,12 +790,16 @@ private:
 
     struct __rep
     {
+#ifndef __DUETTO__
         union
         {
+#endif
             __long  __l;
+#ifndef __DUETTO__
             __short __s;
             __raw   __r;
         };
+#endif
     };
 
     __compressed_pair<__rep, allocator_type> __r_;
@@ -1420,7 +1443,13 @@ public:
 
     _LIBCPP_INLINE_VISIBILITY
     bool __is_long() const _NOEXCEPT
-        {return bool(__r_.first().__s.__size_ & __short_mask);}
+        {
+#ifndef __DUETTO__
+		return bool(__r_.first().__s.__size_ & __short_mask);
+#else
+		return true;
+#endif
+	}
 
 #if _LIBCPP_DEBUG_LEVEL >= 2
 
@@ -1461,7 +1490,9 @@ private:
 
     _LIBCPP_INLINE_VISIBILITY
     void __set_short_size(size_type __s) _NOEXCEPT
-#   ifdef _LIBCPP_BIG_ENDIAN
+#   ifdef __DUETTO__
+	{}
+#   elif defined(_LIBCPP_BIG_ENDIAN)
         {__r_.first().__s.__size_ = (unsigned char)(__s);}
 #   else
         {__r_.first().__s.__size_ = (unsigned char)(__s << 1);}
@@ -1469,7 +1500,9 @@ private:
 
     _LIBCPP_INLINE_VISIBILITY
     size_type __get_short_size() const _NOEXCEPT
-#   ifdef _LIBCPP_BIG_ENDIAN
+#   ifdef __DUETTO__
+	{return 0;}
+#   elif defined(_LIBCPP_BIG_ENDIAN)
         {return __r_.first().__s.__size_;}
 #   else
         {return __r_.first().__s.__size_ >> 1;}
@@ -1505,10 +1538,22 @@ private:
         {return __r_.first().__l.__data_;}
     _LIBCPP_INLINE_VISIBILITY
     pointer __get_short_pointer() _NOEXCEPT
-        {return pointer_traits<pointer>::pointer_to(__r_.first().__s.__data_[0]);}
+        {
+#ifndef __DUETTO__
+		return pointer_traits<pointer>::pointer_to(__r_.first().__s.__data_[0]);
+#else
+		return NULL;
+#endif
+	}
     _LIBCPP_INLINE_VISIBILITY
     const_pointer __get_short_pointer() const _NOEXCEPT
-        {return pointer_traits<const_pointer>::pointer_to(__r_.first().__s.__data_[0]);}
+        {
+#ifndef __DUETTO__
+		return pointer_traits<const_pointer>::pointer_to(__r_.first().__s.__data_[0]);
+#else
+		return NULL;
+#endif
+	}
     _LIBCPP_INLINE_VISIBILITY
     pointer __get_pointer() _NOEXCEPT
         {return __is_long() ? __get_long_pointer() : __get_short_pointer();}
@@ -1519,9 +1564,11 @@ private:
     _LIBCPP_INLINE_VISIBILITY
     void __zero() _NOEXCEPT
         {
+#ifndef __DUETTO__
             size_type (&__a)[__n_words] = __r_.first().__r.__words;
             for (unsigned __i = 0; __i < __n_words; ++__i)
                 __a[__i] = 0;
+#endif
         }
 
     template <size_type __a> static
@@ -1878,9 +1925,11 @@ template <class _CharT, class _Traits, class _Allocator>
 basic_string<_CharT, _Traits, _Allocator>::basic_string(const basic_string& __str)
     : __r_(__default_init_tag(), __alloc_traits::select_on_container_copy_construction(__str.__alloc()))
 {
+#ifndef __DUETTO__
     if (!__str.__is_long())
         __r_.first().__r = __str.__r_.first().__r;
     else
+#endif
         __init_copy_ctor_external(_VSTD::__to_address(__str.__get_long_pointer()),
                                   __str.__get_long_size());
 
@@ -1894,9 +1943,11 @@ basic_string<_CharT, _Traits, _Allocator>::basic_string(
     const basic_string& __str, const allocator_type& __a)
     : __r_(__default_init_tag(), __a)
 {
+#ifndef __DUETTO__
     if (!__str.__is_long())
         __r_.first().__r = __str.__r_.first().__r;
     else
+#endif
         __init_copy_ctor_external(_VSTD::__to_address(__str.__get_long_pointer()),
                                   __str.__get_long_size());
 #if _LIBCPP_DEBUG_LEVEL >= 2
@@ -1952,7 +2003,11 @@ basic_string<_CharT, _Traits, _Allocator>::basic_string(basic_string&& __str, co
         __init(_VSTD::__to_address(__str.__get_long_pointer()), __str.__get_long_size());
     else
     {
+#ifdef __DUETTO__
+        __r_.first().__l = __str.__r_.first().__l;
+#else
         __r_.first().__r = __str.__r_.first().__r;
+#endif
         __str.__zero();
     }
 #if _LIBCPP_DEBUG_LEVEL >= 2
