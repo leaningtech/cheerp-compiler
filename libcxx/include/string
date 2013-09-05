@@ -1,6 +1,25 @@
 // -*- C++ -*-
 //===----------------------------------------------------------------------===//
 //
+// Copyright (C) 2013 Alessandro Pignotti <alessandro@leaningtech.com>
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+//
+// This file incorporates work covered by the following copyright and
+// permission notice:
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -781,12 +800,16 @@ private:
 
     struct __rep
     {
+#ifndef __DUETTO__
         union
         {
+#endif
             __long  __l;
+#ifndef __DUETTO__
             __short __s;
             __raw   __r;
         };
+#endif
     };
 
     __compressed_pair<__rep, allocator_type> __r_;
@@ -1679,7 +1702,11 @@ private:
     bool __is_long() const _NOEXCEPT {
         if (__libcpp_is_constant_evaluated())
             return true;
+#ifndef __CHEERP__
         return __r_.first().__s.__is_long_;
+#else
+	return true;
+#endif
     }
 
     static _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 void __begin_lifetime(pointer __begin, size_type __n) {
@@ -1748,15 +1775,21 @@ private:
 
     _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20
     void __set_short_size(size_type __s) _NOEXCEPT {
+#ifndef __CHEERP__
         _LIBCPP_ASSERT(__s < __min_cap, "__s should never be greater than or equal to the short string capacity");
         __r_.first().__s.__size_ = __s;
         __r_.first().__s.__is_long_ = false;
+#endif
     }
 
     _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20
     size_type __get_short_size() const _NOEXCEPT {
+#ifdef __CHEERP__
+	return 0;
+#else
         _LIBCPP_ASSERT(!__r_.first().__s.__is_long_, "String has to be short when trying to get the short size");
         return __r_.first().__s.__size_;
+#endif
     }
 
     _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20
@@ -1791,10 +1824,18 @@ private:
         {return __r_.first().__l.__data_;}
     _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20
     pointer __get_short_pointer() _NOEXCEPT
+#ifdef __CHEERP__
+	{return NULL;}
+#else
         {return pointer_traits<pointer>::pointer_to(__r_.first().__s.__data_[0]);}
+#endif
     _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20
     const_pointer __get_short_pointer() const _NOEXCEPT
+#ifdef __CHEERP__
+	{return NULL;}
+#else
         {return pointer_traits<const_pointer>::pointer_to(__r_.first().__s.__data_[0]);}
+#endif
     _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20
     pointer __get_pointer() _NOEXCEPT
         {return __is_long() ? __get_long_pointer() : __get_short_pointer();}
@@ -2144,9 +2185,11 @@ _LIBCPP_CONSTEXPR_SINCE_CXX20
 basic_string<_CharT, _Traits, _Allocator>::basic_string(const basic_string& __str)
     : __r_(__default_init_tag(), __alloc_traits::select_on_container_copy_construction(__str.__alloc()))
 {
+#ifndef __DUETTO__
     if (!__str.__is_long())
         __r_.first() = __str.__r_.first();
     else
+#endif
         __init_copy_ctor_external(std::__to_address(__str.__get_long_pointer()),
                                   __str.__get_long_size());
     std::__debug_db_insert_c(this);
@@ -2158,9 +2201,11 @@ basic_string<_CharT, _Traits, _Allocator>::basic_string(
     const basic_string& __str, const allocator_type& __a)
     : __r_(__default_init_tag(), __a)
 {
+#ifndef __DUETTO__
     if (!__str.__is_long())
         __r_.first() = __str.__r_.first();
     else
+#endif
         __init_copy_ctor_external(std::__to_address(__str.__get_long_pointer()),
                                   __str.__get_long_size());
     std::__debug_db_insert_c(this);
