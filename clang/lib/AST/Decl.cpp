@@ -4047,7 +4047,14 @@ bool FieldDecl::isAnonymousStructOrUnion() const {
 
 unsigned FieldDecl::getBitWidthValue(const ASTContext &Ctx) const {
   assert(isBitField() && "not a bitfield");
-  return getBitWidth()->EvaluateKnownConstInt(Ctx).getZExtValue();
+  unsigned FieldSize = getBitWidth()->EvaluateKnownConstInt(Ctx).getZExtValue();
+  unsigned TypeSize = Ctx.getTypeInfo(getType()).Width;
+  if (!Ctx.getTargetInfo().isByteAddressable() && FieldSize > TypeSize)
+  {
+    //On NBA targets padding is useless, kill it
+    FieldSize = TypeSize;
+  }
+  return FieldSize;
 }
 
 bool FieldDecl::isZeroLengthBitField(const ASTContext &Ctx) const {
