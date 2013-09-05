@@ -208,6 +208,7 @@ public:
     DoubleAlign = 8;
     LongDoubleAlign = 8;
     LongLongWidth = 32;
+    //NOTE: We support float only for usage in typed array
     SizeType = UnsignedInt;
   }
 
