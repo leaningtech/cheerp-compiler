@@ -1,5 +1,24 @@
 //===---------------------------- cxa_guard.cpp ---------------------------===//
 //
+// Copyright (C) 2013 Alessandro Pignotti <alessandro@leaningtech.com>
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+//
+// This file incorporates work covered by the following copyright and
+// permission notice:
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -26,7 +45,7 @@
 
 namespace __cxxabiv1 {
 
-#if defined(_LIBCXXABI_GUARD_ABI_ARM)
+#if defined(_LIBCXXABI_GUARD_ABI_ARM) || defined(__CHEERP__)
 using guard_type = uint32_t;
 #else
 using guard_type = uint64_t;
