@@ -612,7 +612,8 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	}
 	else if(strcmp(ident,"malloc")==0 ||
 		strcmp(ident,"_Znaj")==0 ||
-		strcmp(ident,"_Znwj")==0)
+		strcmp(ident,"_Znwj")==0 ||
+		strncmp(ident,"__duettoNew_",12)==0)
 	{
 		compileAllocation(callV, *it);
 		return true;
@@ -1012,6 +1013,7 @@ bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINo
 			|| newCall->getCalledFunction()->getName()=="_Znaj"
 			|| newCall->getCalledFunction()->getName()=="realloc"
 			|| newCall->getCalledFunction()->getName()=="malloc"
+			|| newCall->getCalledFunction()->getName().startswith("__duettoNew_")
 			//Downcast can be considered an allocation
 			|| newCall->getCalledFunction()->getName()=="llvm.duetto.downcast";
 	}
@@ -1024,6 +1026,7 @@ bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINo
 			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
 			|| newInvoke->getCalledFunction()->getName()=="realloc"
 			|| newInvoke->getCalledFunction()->getName()=="malloc"
+			|| newInvoke->getCalledFunction()->getName().startswith("__duettoNew_")
 			//Downcast can be considered an allocation
 			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.downcast";
 	}
