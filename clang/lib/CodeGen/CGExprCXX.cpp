@@ -1301,10 +1301,20 @@ static void EmitNewInitializer(CodeGenFunction &CGF, const CXXNewExpr *E,
 static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
                                 const FunctionDecl *CalleeDecl,
                                 const FunctionProtoType *CalleeType,
-                                const CallArgList &Args) {
+                                const CallArgList &Args,
+                                llvm::Type* allocatedType = NULL) {
   llvm::CallBase *CallOrInvoke;
   llvm::Constant *CalleePtr = CGF.CGM.GetAddrOfFunction(CalleeDecl);
   CGCallee Callee = CGCallee::forDirect(CalleePtr, GlobalDecl(CalleeDecl));
+
+  if(CalleeDecl->hasAttr<MallocAttr>() && !CGF.getTarget().isByteAddressable() &&
+     allocatedType && allocatedType->isStructTy())
+  {
+    // Forge a call to a special type safe allocator
+    CalleePtr = CGF.CGM.CreateRuntimeFunction(cast<llvm::FunctionType>(CalleePtr->getType()->getPointerElementType()),
+                                               Twine("__duettoNew_", allocatedType->getStructName()).str());
+  }
+
   RValue RV =
       CGF.EmitCall(CGF.CGM.getTypes().arrangeFreeFunctionCall(
                        Args, CalleeType, /*ChainCall=*/false),
@@ -1636,7 +1646,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
                  /*AC*/AbstractCallee(), /*ParamsToSkip*/ParamsToSkip);
 
     RValue RV =
-      EmitNewDeleteCall(*this, allocator, allocatorType, allocatorArgs);
+      EmitNewDeleteCall(*this, allocator, allocatorType, allocatorArgs, ConvertType(allocType));
 
     // Set !heapallocsite metadata on the call to operator new.
     if (getDebugInfo())
