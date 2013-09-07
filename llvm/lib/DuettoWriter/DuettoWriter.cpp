@@ -2046,13 +2046,10 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::FPToSI:
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
-			//Check that the in and out types are sane
+			//Check that the out type is sane
 #ifndef NDEBUG
-			//Type* srcT = ci.getSrcTy();
 			Type* dstT = ci.getDestTy();
 #endif
-			//TODO: Restore type check, now relax it
-			//assert(srcT->isDoubleTy());
 			assert(isI32Type(dstT));
 
 			stream << "(";
@@ -2065,12 +2062,10 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::FPToUI:
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
-			//Check that the in and out types are sane
+			//Check that the out type is sane
 #ifndef NDEBUG
-			Type* srcT = ci.getSrcTy();
 			Type* dstT = ci.getDestTy();
 #endif
-			assert(srcT->isDoubleTy());
 			assert(isI32Type(dstT));
 
 			stream << "(";
@@ -2084,13 +2079,11 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::SIToFP:
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
-			//Check that the in and out types are sane
+			//Check that the in type is sane
 #ifndef NDEBUG
 			Type* srcT = ci.getSrcTy();
-			Type* dstT = ci.getDestTy();
 #endif
 			assert(isI32Type(srcT));
-			//assert(dstT->isDoubleTy());
 			//It's a NOP, values are logically FP anyway in JS
 			compileOperand(ci.getOperand(0));
 			return true;
@@ -2098,13 +2091,11 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::UIToFP:
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
-			//Check that the in and out types are sane
+			//Check that the in type is sane
 #ifndef NDEBUG
 			Type* srcT = ci.getSrcTy();
-			//Type* dstT = ci.getDestTy();
 #endif
 			assert(isI32Type(srcT));
-			//assert(dstT->isDoubleTy());
 			//We need to cast to unsigned before
 			stream << "(";
 			compileOperand(ci.getOperand(0));
@@ -2149,10 +2140,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::FAdd:
 		{
 			//Double addition
-			assert(I.getNumOperands()==2);
-			//assert(I.getOperand(0)->getType()->isDoubleTy());
-			//assert(I.getOperand(1)->getType()->isDoubleTy());
-			//assert(I.getType()->isDoubleTy());
 			stream << "(";
 			compileOperand(I.getOperand(0));
 			stream << " + ";
@@ -2179,10 +2166,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		{
 			//Double subtraction
 			//TODO: optimize negation
-			assert(I.getNumOperands()==2);
-			assert(I.getOperand(0)->getType()->isDoubleTy());
-			assert(I.getOperand(1)->getType()->isDoubleTy());
-			assert(I.getType()->isDoubleTy());
 			stream << "(";
 			compileOperand(I.getOperand(0));
 			stream << " - ";
@@ -2278,11 +2261,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		}
 		case Instruction::FDiv:
 		{
-			//Double multiplication
-			assert(I.getNumOperands()==2);
-			//assert(I.getOperand(0)->getType()->isDoubleTy());
-			//assert(I.getOperand(1)->getType()->isDoubleTy());
-			//assert(I.getType()->isDoubleTy());
+			//Double division
 			stream << "(";
 			compileOperand(I.getOperand(0));
 			stream << " / ";
@@ -2307,10 +2286,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::FMul:
 		{
 			//Double multiplication
-			assert(I.getNumOperands()==2);
-			//assert(I.getOperand(0)->getType()->isDoubleTy());
-			//assert(I.getOperand(1)->getType()->isDoubleTy());
-			//assert(I.getType()->isDoubleTy());
 			stream << "(";
 			compileOperand(I.getOperand(0));
 			stream << " * ";
@@ -2373,13 +2348,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			const CmpInst& ci=static_cast<const CmpInst&>(I);
 			assert(ci.getNumOperands()==2);
 			//Check that the operation is JS safe
-			//TOTO: Verify that any float type is ok
-			/*switch(ci.getPredicate())
-			{
-				default:
-					assert(ci.getOperand(0)->getType()->isDoubleTy());
-					assert(ci.getOperand(1)->getType()->isDoubleTy());
-			}*/
 			stream << "(";
 			compileOperand(ci.getOperand(0));
 			compilePredicate(ci.getPredicate());
@@ -2538,23 +2506,13 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		}
 		case Instruction::FPExt:
 		{
-#ifndef NDEBUG
-			const FPExtInst& fei=static_cast<const FPExtInst&>(I);
-#endif
 			const Value* src=I.getOperand(0);
-			assert(src->getType()->isFloatTy());
-			assert(fei.getType()->isDoubleTy());
 			compileOperand(src);
 			return true;
 		}
 		case Instruction::FPTrunc:
 		{
-#ifndef NDEBUG
-			const FPTruncInst& fti=static_cast<const FPTruncInst&>(I);
-#endif
 			const Value* src=I.getOperand(0);
-			assert(src->getType()->isDoubleTy());
-			assert(fti.getType()->isFloatTy());
 			compileOperand(src);
 			return true;
 		}
