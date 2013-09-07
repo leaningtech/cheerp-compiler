@@ -115,10 +115,10 @@ struct Block {
 //            setjmp returns, etc.)
 //
 
-class SimpleShape;
-class LabeledShape;
-class MultipleShape;
-class LoopShape;
+struct SimpleShape;
+struct LabeledShape;
+struct MultipleShape;
+struct LoopShape;
 
 struct Shape {
   int Id; // A unique identifier. Used to identify loops, labels are Lx where x is the Id.
