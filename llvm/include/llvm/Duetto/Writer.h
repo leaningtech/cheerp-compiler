@@ -66,10 +66,12 @@ private:
 			const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
 	bool compileInlineableInstruction(const llvm::Instruction& I);
 	bool compileNotInlineableInstruction(const llvm::Instruction& I);
+	enum COMPILE_FLAG { NORMAL = 0, DRY_RUN = 1 };
 	const llvm::Type* compileRecursiveAccessToGEP(const llvm::Type* curType, const llvm::Use* it,
-			const llvm::Use* const itE);
+			const llvm::Use* const itE, COMPILE_FLAG flag);
 	void compilePredicate(llvm::CmpInst::Predicate p);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
+	void compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p);
 	void compileType(llvm::Type* t);
 	void compileTypeImpl(llvm::Type* t);
 	enum POINTER_KIND { COMPLETE_OBJECT = 0, COMPLETE_ARRAY, REGULAR };
@@ -84,10 +86,11 @@ private:
 	void compileDereferencePointer(const llvm::Value* v, const llvm::Value* offset, const char* namedOffset = NULL);
 	void compileFastGEPDereference(const llvm::Value* operand, const llvm::Use* idx_begin, const llvm::Use* idx_end);
 	void compileGEP(const llvm::Value* val, const llvm::Use* it, const llvm::Use* const itE);
-	const llvm::Type* compileObjectForPointerGEP(const llvm::Value* val, const llvm::Use* it, const llvm::Use* const itE);
+	const llvm::Type* compileObjectForPointerGEP(const llvm::Value* val, const llvm::Use* it,
+			const llvm::Use* const itE, COMPILE_FLAG flag);
 	bool compileOffsetForPointerGEP(const llvm::Value* val, const llvm::Use* it, const llvm::Use* const itE,
 			const llvm::Type* lastType);
-	const llvm::Type* compileObjectForPointer(const llvm::Value* val);
+	const llvm::Type* compileObjectForPointer(const llvm::Value* val, COMPILE_FLAG flag);
 	/*
 	 * Returns true if anything is printed
 	 */
