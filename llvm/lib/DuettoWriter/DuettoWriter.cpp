@@ -761,6 +761,7 @@ void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 
 	llvm::Type* pointedType = lhs->getType()->getPointerElementType();
 	bool isImmutable = isImmutableType(pointedType);
+	bool isFunction = pointedType->isFunctionTy();
 
 	if (isImmutable)
 	{
@@ -788,6 +789,17 @@ void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 			if(!notFirst)
 				stream << '0';
 		}
+	}
+	else if(isFunction)
+	{
+		//Functions can be compared by reference, the can't be in an array
+		//There can be an array of pointer to functions, not an array of functions
+		compileOperand(lhs);
+		if(p==CmpInst::ICMP_NE)
+			stream << "!==";
+		else
+			stream << "===";
+		compileOperand(rhs);
 	}
 	else
 	{
