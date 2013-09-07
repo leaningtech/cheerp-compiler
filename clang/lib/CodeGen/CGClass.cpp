@@ -259,13 +259,7 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     // Duetto: if the base class has no member create a bitcast with duetto metadata
     if(Base->isEmpty())
-    {
-       llvm::Instruction* castI=cast<llvm::Instruction>(Builder.CreateBitCast(This, ConvertType(Base)->getPointerTo()));
-       llvm::MDNode* md=llvm::MDNode::get(getLLVMContext(), llvm::SmallVector<llvm::Metadata*, 1>());
-       //TODO: Convert this to a builtin
-       castI->setMetadata("duetto.upcast.collapsed", md);
-       return castI;
-    }
+       return GenerateUpcastCollapsed(This, ConvertType(Base)->getPointerTo());
     else
     {
       // Get the layout.
@@ -479,6 +473,18 @@ CodeGenModule::ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
   return Offset;
 }
 
+llvm::Value *
+CodeGenFunction::GenerateUpcastCollapsed(llvm::Value* Value,
+                                         llvm::Type* BaseTy)
+{
+  llvm::Value* tmp1=Builder.CreateBitCast(Value, Int8PtrTy);
+  llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(), llvm::Intrinsic::duetto_upcast_collapsed);
+
+  Value = Builder.CreateCall(intrinsic, tmp1);
+
+  return Builder.CreateBitCast(Value, BaseTy);
+}
+
 llvm::Value * 
 CodeGenFunction::GenerateUpcast(llvm::Value* Value,
                                 const CXXRecordDecl *Derived,
@@ -504,20 +510,10 @@ CodeGenFunction::GenerateUpcast(llvm::Value* Value,
   llvm::Type *BasePtrTy = 
     ConvertType((PathEnd[-1])->getType())->getPointerTo();
 
-  //Duetto: Check if the type is the expected one. If not create a cast with a metadata for duetto
+  //Duetto: Check if the type is the expected one. If not create a builtin to handle this.
   //This may happen when empty base classes are used
   if(Value->getType()!=BasePtrTy)
-  {
-    //This should become an intrinsic
-    Value=Builder.CreateBitCast(Value, BasePtrTy);
-    //TODO: How to handle constexpr cases?
-    if(llvm::Instruction::classof(Value))
-    {
-      llvm::Instruction* castI=cast<llvm::Instruction>(Value);
-      llvm::MDNode* md=llvm::MDNode::get(getLLVMContext(), llvm::SmallVector<llvm::Metadata*, 1>());
-      castI->setMetadata("duetto.upcast.collapsed", md);
-    }
-  }
+    Value = GenerateUpcastCollapsed(Value, BasePtrTy);
   return Value;
 }
 
