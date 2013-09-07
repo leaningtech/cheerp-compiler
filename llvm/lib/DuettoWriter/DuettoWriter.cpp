@@ -107,12 +107,9 @@ bool DuettoWriter::isBitCast(const Value* v) const
 #ifndef NDEBUG
 	const User* b=static_cast<const User*>(v);
 #endif
-	if(const Instruction* I=dyn_cast<BitCastInst>(v))
+	if(isa<BitCastInst>(v))
 	{
-#ifndef NDEBUG
-		bool isCollapsedUpcast = I->getMetadata("duetto.upcast.collapsed")!=NULL;
-#endif
-		assert(isCollapsedUpcast || isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType()));
+		assert(isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType()));
 		return true;
 	}
 	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
@@ -610,6 +607,11 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		compileDowncast(*(it), getIntFromValue(*(it+1)));
 		return true;
 	}
+	else if(strncmp(ident,"llvm.duetto.upcast.collapsed",28)==0)
+	{
+		compileOperand(*it);
+		return true;
+	}
 	else if(strcmp(ident,"malloc")==0 ||
 		strcmp(ident,"_Znaj")==0 ||
 		strcmp(ident,"_Znwj")==0 ||
@@ -1015,7 +1017,8 @@ bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINo
 			|| newCall->getCalledFunction()->getName()=="malloc"
 			|| newCall->getCalledFunction()->getName().startswith("__duettoNew_")
 			//Downcast can be considered an allocation
-			|| newCall->getCalledFunction()->getName()=="llvm.duetto.downcast";
+			|| newCall->getCalledFunction()->getName()=="llvm.duetto.downcast"
+			|| newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed";
 	}
 	//Try invoke as well
 	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
@@ -1028,7 +1031,8 @@ bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINo
 			|| newInvoke->getCalledFunction()->getName()=="malloc"
 			|| newInvoke->getCalledFunction()->getName().startswith("__duettoNew_")
 			//Downcast can be considered an allocation
-			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.downcast";
+			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.downcast"
+			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed";
 	}
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
 	if(newPHI)
@@ -1966,15 +1970,6 @@ void DuettoWriter::compileGEP(const Value* val, const Use* it, const Use* const 
  */
 bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 {
-	//Check if there are any special metadata
-	if(I.getMetadata("duetto.downcast.ignore"))
-		return true;
-	if(I.getMetadata("duetto.downcast"))
-	{
-		//Downcast will be handled with an access to the base table
-		stream << "alert('support downcast')";
-		return true;
-	}
 	switch(I.getOpcode())
 	{
 		case Instruction::BitCast:
@@ -1983,10 +1978,8 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 #ifndef NDEBUG
 			Type* srcPtr=bi.getSrcTy();
 			Type* dstPtr=bi.getDestTy();
-			bool isCollapsedUpcast = I.getMetadata("duetto.upcast.collapsed")!=NULL;
 #endif
-			assert(isCollapsedUpcast || isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr));
-			//Collapsed upcast are ok as well by compiling the operand
+			assert(isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr));
 			compileOperand(bi.getOperand(0));
 			return true;
 		}
