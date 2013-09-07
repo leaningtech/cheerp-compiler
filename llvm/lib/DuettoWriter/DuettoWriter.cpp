@@ -208,7 +208,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
 			assert(resetValue == 0);
-			stream << baseName << " = {d:null,o:0};\n";
+			stream << baseName << " = nullObj;\n";
 			break;
 		}
 		case Type::StructTyID:
@@ -787,15 +787,6 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 		else
 			return COMPLETE_OBJECT;
 	}
-	if(const ConstantPointerNull* nullPtr=dyn_cast<ConstantPointerNull>(v))
-	{
-		//null can be considered a complete array.
-		//For client object is a complete object
-		if(isClientType(nullPtr->getType()->getElementType()))
-			return COMPLETE_OBJECT;
-		else
-			return COMPLETE_ARRAY;
-	}
 	//Follow bitcasts
 	if(isBitCast(v))
 	{
@@ -1270,7 +1261,7 @@ void DuettoWriter::compileConstant(const Constant* c)
 	}
 	else if(ConstantPointerNull::classof(c))
 	{
-		stream << "null";
+		stream << "nullObj";
 	}
 	else if(UndefValue::classof(c))
 	{
@@ -1424,7 +1415,7 @@ void DuettoWriter::compileTypeImpl(Type* t)
 			break;
 		}
 		case Type::PointerTyID:
-			stream << "{d:null,o:0}";
+			stream << "nullObj";
 			break;
 		case Type::ArrayTyID:
 		{
@@ -3153,6 +3144,11 @@ void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION act
 	}
 }
 
+void DuettoWriter::compileNullPtrs()
+{
+	stream << "var nullArray = [null];\nvar nullObj = { d: nullArray, o: 0 };\n";
+}
+
 void DuettoWriter::makeJS()
 {
 	//Fix all client methods first
@@ -3171,6 +3167,8 @@ void DuettoWriter::makeJS()
 	GlobalVariable* constructors=module.getGlobalVariable("llvm.global_ctors");
 	if(constructors)
 		handleConstructors(constructors, ADD_TO_QUEUE);
+
+	compileNullPtrs();
 
 	while(!globalsQueue.empty())
 	{
