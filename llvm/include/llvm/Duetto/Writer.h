@@ -129,6 +129,7 @@ private:
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
 	enum CONSTRUCTOR_ACTION { ADD_TO_QUEUE=0, COMPILE=1 };
 	void handleConstructors(llvm::GlobalVariable* GV, CONSTRUCTOR_ACTION action);
+	void compileNullPtrs();
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):
