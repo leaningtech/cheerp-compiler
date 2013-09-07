@@ -297,9 +297,9 @@ void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value*
 	//TODO: Optimize the checks if possible
 	//Check if they are inside the same memory island
 	stream << "if(";
-	const Type* lastTypeDest=compileObjectForPointer(dest);
+	const Type* lastTypeDest=compileObjectForPointer(dest, NORMAL);
 	stream << "===";
-	const Type* lastTypeSrc=compileObjectForPointer(src);
+	const Type* lastTypeSrc=compileObjectForPointer(src, NORMAL);
 	//If so they may overlap, check and use reverse copy if needed
 	stream << "&&";
 	bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
@@ -407,9 +407,9 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	if(src && isTypedArrayType(pointedType))
 	{
 		// The semantics of set is memmove like, no need to care about direction
-		lastTypeDest=compileObjectForPointer(dest);
+		lastTypeDest=compileObjectForPointer(dest, NORMAL);
 		stream << ".set(";
-		lastTypeSrc=compileObjectForPointer(src);
+		lastTypeSrc=compileObjectForPointer(src, NORMAL);
 		//We need to get a subview of the source
 		stream << ".subarray(";
 		bool notFirst=compileOffsetForPointer(src,lastTypeSrc);
@@ -673,7 +673,7 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	}
 	else if(strncmp(ident,"_duettoCreateBuiltin_ZN6client12Float32ArrayC1EPf",49)==0)
 	{
-		const Type* lastType=compileObjectForPointer(*it);
+		const Type* lastType=compileObjectForPointer(*it, NORMAL);
 		stream << ".subarray(";
 		bool notFirst=compileOffsetForPointer(*it, lastType);
 		if(!notFirst)
@@ -748,6 +748,57 @@ void DuettoWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Pr
 		stream << "(";
 		compileOperand(v);
 		stream << ">>0)";
+	}
+}
+
+void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
+{
+	// To correctly compare every kind of pointers, we need to distinguish between
+	// pointer to immutable types and the rest.
+	// 1) Pointers to immutable types must be compared by base and offset, they are
+	//    guaranteed to have the same array as a base since they are created as array
+	// 2) Other pointers are compared by dereferencing the JS pointer struct. This works
+	//    because they can be compatred by reference, while immutable types are compared by
+	//    value.
+
+	llvm::Type* pointedType = lhs->getType()->getPointerElementType();
+	bool isImmutable = isImmutableType(pointedType);
+
+	if (isImmutable)
+	{
+		const Type* lastType1=compileObjectForPointer(lhs, NORMAL);
+		if(p==CmpInst::ICMP_NE)
+			stream << "!==";
+		else
+			stream << "===";
+		const Type* lastType2=compileObjectForPointer(rhs, NORMAL);
+		if(getPointerKind(lhs)==REGULAR ||
+			getPointerKind(rhs)==REGULAR)
+		{
+			if(p==CmpInst::ICMP_NE)
+				stream << " || ";
+			else
+				stream << " && ";
+			bool notFirst=compileOffsetForPointer(lhs,lastType1);
+			if(!notFirst)
+				stream << '0';
+			if(p==CmpInst::ICMP_NE)
+				stream << "!==";
+			else
+				stream << "===";
+			notFirst=compileOffsetForPointer(rhs,lastType2);
+			if(!notFirst)
+				stream << '0';
+		}
+	}
+	else
+	{
+		compileDereferencePointer(lhs, NULL);
+		if(p==CmpInst::ICMP_NE)
+			stream << "!==";
+		else
+			stream << "===";
+		compileDereferencePointer(rhs, NULL);
 	}
 }
 
@@ -846,7 +897,7 @@ void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset
 	if(offset==NULL || (ConstantInt::classof(offset) && getIntFromValue(offset)==0))
 		isOffsetConstantZero = true;
 
-	const Type* lastType=compileObjectForPointer(v);
+	const Type* lastType=compileObjectForPointer(v, NORMAL);
 	if(k==COMPLETE_OBJECT)
 	{
 		assert(isOffsetConstantZero);
@@ -905,7 +956,8 @@ uint32_t DuettoWriter::getIntFromValue(const Value* v) const
 	return i->getZExtValue();
 }
 
-const Type* DuettoWriter::compileRecursiveAccessToGEP(const Type* curType, const Use* it, const Use* const itE)
+const Type* DuettoWriter::compileRecursiveAccessToGEP(const Type* curType, const Use* it, const Use* const itE,
+							COMPILE_FLAG flag)
 {
 	//Before this the base name has been already printed
 	if(it==itE)
@@ -917,27 +969,31 @@ const Type* DuettoWriter::compileRecursiveAccessToGEP(const Type* curType, const
 		//Special handling for constant offsets
 		assert(ConstantInt::classof(*it));
 		uint32_t elementIndex = getIntFromValue(*it);
-		stream << ".a" << elementIndex;
+		if(flag!=DRY_RUN)
+			stream << ".a" << elementIndex;
 		subType = st->getElementType(elementIndex);
 	}
 	else if(curType->isArrayTy())
 	{
 		const ArrayType* at=static_cast<const ArrayType*>(curType);
-		stream << '[';
-		//Special handling for constant offsets
-		if(ConstantInt::classof(*it))
+		if(flag!=DRY_RUN)
 		{
-			uint32_t elementIndex = getIntFromValue(*it);
-			stream << elementIndex;
+			stream << '[';
+			//Special handling for constant offsets
+			if(ConstantInt::classof(*it))
+			{
+				uint32_t elementIndex = getIntFromValue(*it);
+				stream << elementIndex;
+			}
+			else
+				compileOperand(*it);
+			stream << ']';
 		}
-		else
-			compileOperand(*it);
-		stream << ']';
 		subType = at->getElementType();
 	}
 	else
 		assert(false);
-	return compileRecursiveAccessToGEP(subType, ++it, itE);
+	return compileRecursiveAccessToGEP(subType, ++it, itE, flag);
 }
 
 bool DuettoWriter::isClientType(Type* t) const
@@ -1822,10 +1878,10 @@ bool DuettoWriter::isI32Type(Type* t) const
 void DuettoWriter::compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end)
 {
 	assert(idx_begin!=idx_end);
-	compileObjectForPointerGEP(operand, idx_begin, idx_end);
+	compileObjectForPointerGEP(operand, idx_begin, idx_end, NORMAL);
 }
 
-const Type* DuettoWriter::compileObjectForPointer(const Value* val)
+const Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG flag)
 {
 	assert(val->getType()->isPointerTy());
 	if(isGEP(val))
@@ -1834,19 +1890,22 @@ const Type* DuettoWriter::compileObjectForPointer(const Value* val)
 		GetElementPtrInst::const_op_iterator it=gep->op_begin()+1;
 		//We compile as usual till the last level
 		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
-		return compileObjectForPointerGEP(gep->getOperand(0), it, itE);
+		return compileObjectForPointerGEP(gep->getOperand(0), it, itE, flag);
 	}
 	else if(isBitCast(val))
 	{
 		const User* b=static_cast<const User*>(val);
-		return compileObjectForPointer(b->getOperand(0));
+		return compileObjectForPointer(b->getOperand(0), flag);
 	}
 	else
 	{
-		POINTER_KIND k=getPointerKind(val);
-		compilePointer(val, k);
-		if(k==REGULAR)
-			stream << ".d";
+		if(flag!=DRY_RUN)
+		{
+			POINTER_KIND k=getPointerKind(val);
+			compilePointer(val, k);
+			if(k==REGULAR)
+				stream << ".d";
+		}
 		return NULL;
 	}
 }
@@ -1877,13 +1936,13 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastTyp
 	}
 }
 
-const Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE)
+const Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE, COMPILE_FLAG flag)
 {
 	Type* t=val->getType();
 	if(it==itE)
 	{
 		//Same level access, we are just computing another pointer from this pointer
-		compileObjectForPointer(val);
+		compileObjectForPointer(val, flag);
 		return t;
 	}
 	else
@@ -1892,7 +1951,7 @@ const Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use
 		PointerType* ptrT=static_cast<PointerType*>(t);
 		//First dereference the pointer
 		compileDereferencePointer(val, *it);
-		return compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE);
+		return compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE, flag);
 	}
 }
 
@@ -1947,7 +2006,7 @@ void DuettoWriter::compileGEP(const Value* val, const Use* it, const Use* const 
 {
 	assert(val->getType()->isPointerTy());
 	stream << "{ d: ";
-	const Type* lastType=compileObjectForPointerGEP(val, it, itE);
+	const Type* lastType=compileObjectForPointerGEP(val, it, itE, NORMAL);
 	stream << ", o: ";
 	bool notFirst=compileOffsetForPointerGEP(val, it, itE,lastType);
 	if(!notFirst)
@@ -2270,21 +2329,16 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "(";
 			if(ci.getOperand(0)->getType()->isPointerTy())
 			{
-				//Comparison on pointers is only valid
-				//for the same base!
-				const Type* lastType1=compileObjectForPointer(ci.getOperand(0));
-				if(ci.getPredicate()==CmpInst::ICMP_NE)
-					stream << "!==";
-				else
-					stream << "===";
-				const Type* lastType2=compileObjectForPointer(ci.getOperand(1));
-				if(getPointerKind(ci.getOperand(0))==REGULAR ||
-					getPointerKind(ci.getOperand(1))==REGULAR)
+				if(ci.getPredicate()==CmpInst::ICMP_EQ ||
+				   ci.getPredicate()==CmpInst::ICMP_NE)
 				{
-					if(ci.getPredicate()==CmpInst::ICMP_NE)
-						stream << " || ";
-					else
-						stream << " && ";
+					compileEqualPointersComparison(ci.getOperand(0), ci.getOperand(1), ci.getPredicate());
+				}
+				else
+				{
+					//Comparison on different bases is anyway undefined, so ignore them
+					const Type* lastType1=compileObjectForPointer(ci.getOperand(0), DRY_RUN);
+					const Type* lastType2=compileObjectForPointer(ci.getOperand(1), DRY_RUN);
 					bool notFirst=compileOffsetForPointer(ci.getOperand(0),lastType1);
 					if(!notFirst)
 						stream << '0';
