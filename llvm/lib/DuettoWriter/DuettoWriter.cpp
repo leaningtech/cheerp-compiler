@@ -498,6 +498,7 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 
 	assert(castedType->isPointerTy());
 	Type* t=static_cast<const PointerType*>(castedType)->getElementType();
+	uint32_t typeSize = targetData.getTypeAllocSize(t);
 	//For numerical types, create typed arrays
 	if(isTypedArrayType(t))
 	{
@@ -505,12 +506,22 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 		compileTypedArrayType(t);
 		stream << '(';
 		//Use the size in bytes
-		compileOperand(size);
+		if(ConstantInt::classof(size))
+		{
+			uint32_t allocatedSize = getIntFromValue(size);
+			assert((allocatedSize % typeSize) == 0);
+			uint32_t numElem = allocatedSize/typeSize;
+			stream << numElem;
+		}
+		else
+		{
+			compileOperand(size);
+			stream << '/' << typeSize;
+		}
 		stream << ')';
 	}
 	else
 	{
-		uint32_t typeSize = targetData.getTypeAllocSize(t);
 		if(ConstantInt::classof(size))
 		{
 			uint32_t allocatedSize = getIntFromValue(size);
