@@ -481,19 +481,23 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 	const Type* castedType = NULL;
 	for(;it!=itE;++it)
 	{
-		if(!BitCastInst::classof(*it))
-			continue;
-		if(castedType == NULL)
-			castedType = (*it)->getType();
-		else
+		if(isNopCast(*it))
 		{
-			//Make sure this is not casted to more than a type
-			assert(castedType == (*it)->getType());
+			assert((it)->hasOneUse());
+			const llvm::Value* cast=*(*it)->use_begin();
+			assert(BitCastInst::classof(cast));
+			castedType = cast->getType();
+			break;
+		}
+		else if(BitCastInst::classof(*it))
+		{
+			castedType = (*it)->getType();
+			break;
 		}
 	}
 
 	//If there are no casts, use i8* from the call itself
-	if(castedType==0)
+	if(castedType==NULL)
 		castedType = callV->getType();
 
 	assert(castedType->isPointerTy());
