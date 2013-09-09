@@ -475,21 +475,16 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 
 void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 {
+	//Skip over cast.user intrinsics
+	if(isNopCast(*callV->use_begin()))
+		callV = *callV->use_begin();
 	//Find out if this is casted to something
 	Value::const_use_iterator it=callV->use_begin();
 	Value::const_use_iterator itE=callV->use_end();
 	const Type* castedType = NULL;
 	for(;it!=itE;++it)
 	{
-		if(isNopCast(*it))
-		{
-			assert((it)->hasOneUse());
-			const llvm::Value* cast=*(*it)->use_begin();
-			assert(BitCastInst::classof(cast));
-			castedType = cast->getType();
-			break;
-		}
-		else if(BitCastInst::classof(*it))
+		if(BitCastInst::classof(*it))
 		{
 			castedType = (*it)->getType();
 			break;
