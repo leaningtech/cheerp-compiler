@@ -11561,4 +11561,10 @@ def err_std_source_location_impl_not_found : Error<
   "'std::source_location::__impl' was not found; it must be defined before '__builtin_source_location' is called">;
 def err_std_source_location_impl_malformed : Error<
   "'std::source_location::__impl' must be standard-layout and have only two 'const char *' fields '_M_file_name' and '_M_function_name', and two integral fields '_M_line' and '_M_column'">;
+
+let CategoryName = "Duetto Issue" in {
+def warn_duetto_unsafe_cast : Warning<
+  "Using values casted to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
+} // end of duetto issue category
+
 } // end of sema component.
