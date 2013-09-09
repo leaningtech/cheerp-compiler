@@ -56,7 +56,9 @@ private:
 	bool isTypedArrayType(llvm::Type* t) const;
 	void compileTypedArrayType(llvm::Type* t);
 	bool isComingFromAllocation(const llvm::Value* val) const;
-	bool isComingFromAllocation(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis) const;
+	bool isNopCast(const llvm::Value* val) const;
+	bool isValidVoidPtrSource(const llvm::Value* val) const;
+	bool isValidVoidPtrSource(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis) const;
 	bool isInlineable(const llvm::Instruction& I) const;
 	bool isBitCast(const llvm::Value* v) const;
 	bool isGEP(const llvm::Value* v) const;

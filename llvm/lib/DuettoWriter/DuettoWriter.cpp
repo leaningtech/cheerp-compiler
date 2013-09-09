@@ -610,6 +610,11 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		compileOperand(*it);
 		return true;
 	}
+	else if(strncmp(ident,"llvm.duetto.cast.user",21)==0)
+	{
+		compileOperand(*it);
+		return true;
+	}
 	else if(strcmp(ident,"malloc")==0 ||
 		strcmp(ident,"_Znaj")==0 ||
 		strcmp(ident,"_Znwj")==0 ||
@@ -849,7 +854,7 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 			return COMPLETE_OBJECT;
 	}
 	//Follow bitcasts
-	if(isBitCast(v))
+	if(isBitCast(v) || isNopCast(v))
 	{
 		const User* bi=static_cast<const User*>(v);
 		return getPointerKind(bi->getOperand(0), visitedPhis);
@@ -895,6 +900,15 @@ bool DuettoWriter::isDowncast(const Value* val) const
 	const CallInst* newCall=dyn_cast<const CallInst>(val);
 	if(newCall && newCall->getCalledFunction())
 		return newCall->getCalledFunction()->getName()=="llvm.duetto.downcast";
+	return false;
+}
+
+bool DuettoWriter::isNopCast(const Value* val) const
+{
+	const CallInst* newCall=dyn_cast<const CallInst>(val);
+	if(newCall && newCall->getCalledFunction())
+		return newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
+			|| newCall->getCalledFunction()->getName()=="llvm.duetto.cast.user";
 	return false;
 }
 
@@ -1057,13 +1071,13 @@ bool DuettoWriter::safeCallForNewedMemory(const CallInst* ci) const
 		ci->getCalledFunction()->getName()=="__cxa_atexit"));
 }
 
-bool DuettoWriter::isComingFromAllocation(const Value* val) const
+bool DuettoWriter::isValidVoidPtrSource(const Value* val) const
 {
 	std::set<const PHINode*> visitedPhis;
-	return isComingFromAllocation(val, visitedPhis);
+	return isValidVoidPtrSource(val, visitedPhis);
 }
 
-bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINode*>& visitedPhis) const
+bool DuettoWriter::isComingFromAllocation(const Value* val) const
 {
 	const CallInst* newCall=dyn_cast<const CallInst>(val);
 	if(newCall && newCall->getCalledFunction())
@@ -1072,10 +1086,7 @@ bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINo
 			|| newCall->getCalledFunction()->getName()=="_Znaj"
 			|| newCall->getCalledFunction()->getName()=="realloc"
 			|| newCall->getCalledFunction()->getName()=="malloc"
-			|| newCall->getCalledFunction()->getName().startswith("__duettoNew_")
-			//Downcast can be considered an allocation
-			|| newCall->getCalledFunction()->getName()=="llvm.duetto.downcast"
-			|| newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed";
+			|| newCall->getCalledFunction()->getName().startswith("__duettoNew_");
 	}
 	//Try invoke as well
 	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
@@ -1086,10 +1097,29 @@ bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINo
 			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
 			|| newInvoke->getCalledFunction()->getName()=="realloc"
 			|| newInvoke->getCalledFunction()->getName()=="malloc"
-			|| newInvoke->getCalledFunction()->getName().startswith("__duettoNew_")
-			//Downcast can be considered an allocation
-			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.downcast"
-			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed";
+			|| newInvoke->getCalledFunction()->getName().startswith("__duettoNew_");
+	}
+	return false;
+}
+
+bool DuettoWriter::isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhis) const
+{
+	if(isComingFromAllocation(val))
+		return true;
+	const CallInst* newCall=dyn_cast<const CallInst>(val);
+	if(newCall && newCall->getCalledFunction())
+	{
+		return newCall->getCalledFunction()->getName()=="llvm.duetto.downcast"
+			|| newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
+			|| newCall->getCalledFunction()->getName()=="llvm.duetto.cast.user";
+	}
+	//Try invoke as well
+	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
+	if(newInvoke && newInvoke->getCalledFunction())
+	{
+		return newInvoke->getCalledFunction()->getName()=="llvm.duetto.downcast"
+			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
+			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.cast.user";
 	}
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
 	if(newPHI)
@@ -1102,7 +1132,7 @@ bool DuettoWriter::isComingFromAllocation(const Value* val, std::set<const PHINo
 		visitedPhis.insert(newPHI);
 		for(unsigned i=0;i<newPHI->getNumIncomingValues();i++)
 		{
-			if(!isComingFromAllocation(newPHI->getIncomingValue(i),visitedPhis))
+			if(!isValidVoidPtrSource(newPHI->getIncomingValue(i),visitedPhis))
 			{
 				visitedPhis.erase(newPHI);
 				return false;
@@ -1164,13 +1194,10 @@ bool DuettoWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type
 		if(innerSrc->isFunctionTy() && innerDst->isFunctionTy())
 			return true;
 	}
-	//Also allow the unsafe cast from i8* only when casting from new, malloc
-	//NOTE: The fresh memory may be passed uncasted to memset to zero new memory
-	//NOTE: The fresh memory may be passed uncasted to memcpy (it optimizes another cast to i8*)
-	//NOTE: The fresh memory may be passed uncasted to icmp to test against null
+	//Also allow the unsafe cast from i8* in a few selected cases
 	if(src->isIntegerTy(8))
 	{
-		bool comesFromNew = isComingFromAllocation(castOp);
+		bool comesFromNew = isValidVoidPtrSource(castOp);
 		bool allowedRawUsages = true;
 		Value::const_use_iterator it=castOp->use_begin();
 		Value::const_use_iterator itE=castOp->use_end();
