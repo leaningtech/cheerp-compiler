@@ -2080,7 +2080,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       }
     }
 
-    if (!CGF.getTarget().isByteAddressable())
+    if (!CGF.getTarget().isByteAddressable() && !isa<llvm::ConstantPointerNull>(Src))
     {
       // Add an intrincic to tag the cast as one requested by the user
       // And also emit a warning
