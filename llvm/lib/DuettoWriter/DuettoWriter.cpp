@@ -2386,9 +2386,21 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			assert(ci.getNumOperands()==2);
 			//Check that the operation is JS safe
 			stream << "(";
-			compileOperand(ci.getOperand(0));
-			compilePredicate(ci.getPredicate());
-			compileOperand(ci.getOperand(1));
+			//Special case orderedness check
+			if(ci.getPredicate()==CmpInst::FCMP_ORD)
+			{
+				stream << "!isNaN(";
+				compileOperand(ci.getOperand(0));
+				stream << ") && !isNaN(";
+				compileOperand(ci.getOperand(1));
+				stream << ')';
+			}
+			else
+			{
+				compileOperand(ci.getOperand(0));
+				compilePredicate(ci.getPredicate());
+				compileOperand(ci.getOperand(1));
+			}
 			stream << ")";
 			return true;
 		}
