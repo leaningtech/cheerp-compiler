@@ -215,7 +215,7 @@ void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 				Function* called=i->getCalledFunction();
 				if(called==NULL)
 					continue;
-				if(called->getName()!="_Znwj")
+				if(!called->getName().startswith("__duettoNew_class"))
 					continue;
 				//Ok, it's a new, find if the only use is a bitcast
 				//in such case we assume that the allocation was for the target type
@@ -230,6 +230,7 @@ void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 					std::string builtinTypeName;
 					if(!t->isStructTy() || !isBuiltinType(t->getStructName().data(), builtinTypeName))
 						continue;
+					toRemove.push_back(i);
 					rewriteNativeAllocationUsers(M,toRemove,bc,t,builtinTypeName);
 				}
 			}
