@@ -2584,20 +2584,22 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 
 bool DuettoWriter::isInlineable(const Instruction& I) const
 {
-	//Special case GEPs. They should always be inline since creating the object is really slow
-	if(I.getOpcode()==Instruction::GetElementPtr)
-		return true;
+	//Inlining a variable used by a PHI it's unsafe
+	//When the phi's are computed the result
+	//correctness may depend on the order they are
+	//computed. Check all uses
+	Value::const_use_iterator it=I.use_begin();
+	Value::const_use_iterator itE=I.use_end();
+	for(;it!=itE;++it)
+	{
+		if(PHINode::classof(it->getUser()))
+			return false;
+	}
 	//Beside a few cases, instructions with a single use may be inlined
-	//TODO: Find out a better heuristic for inlining, it's seems that computing
+	//TODO: Find out a better heuristic for inlining, it seems that computing
 	//may be faster even on more than 1 use
 	if(I.hasOneUse())
 	{
-		//Inlining a variable used by a PHI it's unsafe
-		//When the phi's are computed the result
-		//correctness may depend on the order they are
-		//computed. A single use is guaranteed
-		if(PHINode::classof(I.user_back()))
-			return false;
 		//A few opcodes needs to be executed anyway as they
 		//do not operated on registers
 		switch(I.getOpcode())
@@ -2649,11 +2651,17 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 			case Instruction::UIToFP:
 			case Instruction::FPToUI:
 			case Instruction::PtrToInt:
+			case Instruction::GetElementPtr:
 				return true;
 			default:
 				llvm::errs() << "Is " << I.getOpcodeName() << " inlineable?\n";
 				assert(false);
 		}
+	}
+	else if(I.getOpcode()==Instruction::GetElementPtr)
+	{
+		//Special case GEPs. They should always be inline since creating the object is really slow
+		return true;
 	}
 	return false;
 }
