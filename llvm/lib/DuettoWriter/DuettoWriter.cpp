@@ -504,7 +504,6 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 		stream << "new ";
 		compileTypedArrayType(t);
 		stream << '(';
-		//Use the size in bytes
 		if(ConstantInt::classof(size))
 		{
 			uint32_t allocatedSize = getIntFromValue(size);
