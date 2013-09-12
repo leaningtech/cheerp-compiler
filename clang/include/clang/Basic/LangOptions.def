@@ -313,6 +313,8 @@ VALUE_LANGOPT(TrivialAutoVarInitStopAfter, 32, 0,
              "stop trivial automatic variable initialization after the specified number of instances. Must be greater than 0.")
 ENUM_LANGOPT(SignedOverflowBehavior, SignedOverflowBehaviorTy, 2, SOB_Undefined,
              "signed integer overflow handling")
+ENUM_LANGOPT(DuettoSide, DuettoSideTy, 2, DUETTO_Client,
+             "how to handle [[client]] and [[server]] tags")
 
 BENIGN_LANGOPT(ArrowDepth, 32, 256,
                "maximum number of operator->s to follow")
