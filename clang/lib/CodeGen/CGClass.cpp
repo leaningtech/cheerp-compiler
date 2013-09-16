@@ -1079,6 +1079,8 @@ namespace {
       Qualifiers Qual = F->getType().getQualifiers();
       if (Qual.hasVolatile() || Qual.hasObjCLifetime())
         return false;
+      if (!CGF.getTarget().isByteAddressable())
+        return false;
       return true;
     }
 
@@ -1216,8 +1218,6 @@ namespace {
     // that can be rolled into a memcpy.
     bool isMemberInitMemcpyable(CXXCtorInitializer *MemberInit) const {
       if (!MemcpyableCtor)
-        return false;
-      if (!CGF.getTarget().isByteAddressable())
         return false;
       FieldDecl *Field = MemberInit->getMember();
       assert(Field && "No field for member init.");
