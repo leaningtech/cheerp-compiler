@@ -11735,7 +11735,9 @@ def err_loongarch_builtin_requires_la64 : Error<
 
 let CategoryName = "Duetto Issue" in {
 def warn_duetto_unsafe_cast : Warning<
-  "Using values casted to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
+  "Duetto: Using values casted to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
+def err_duetto_missing_special_definition : Error<
+  "Duetto: '%1' is undeclared">;
 } // end of duetto issue category
 
 } // end of sema component.
