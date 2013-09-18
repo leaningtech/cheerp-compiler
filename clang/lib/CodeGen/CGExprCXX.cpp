@@ -896,7 +896,7 @@ static llvm::Value *EmitCXXNewAllocSize(CodeGenFunction &CGF,
       else
       {
         //Duetto: Ignore overflow
-	//TODO: Check if by the standard this is undefined behaviour or not
+        //TODO: Check if by the standard this is undefined behaviour or not
         size = CGF.Builder.CreateMul(size, tsmV);
       }
 
