@@ -863,6 +863,12 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 {
 	assert(v->getType()->isPointerTy());
 	PointerType* pt=cast<PointerType>(v->getType());
+	if(isClientType(pt->getElementType()))
+	{
+		//Pointers to client type are treated as regular, but they are actually never
+		//dereferenced or used as arrays. They can only be passed aaround as opaque symbols
+		return REGULAR;
+	}
 	if(AllocaInst::classof(v) || GlobalVariable::classof(v))
 	{
 		if(isImmutableType(pt->getElementType()))
