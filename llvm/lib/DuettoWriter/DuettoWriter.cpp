@@ -317,10 +317,10 @@ void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value*
 	if(!notFirst)
 		stream << '0';
 	stream << "){\n";
-	//Destination is before source, copy forward
+	//Destination is after source, copy backward
 	compileMemFunc(dest, src, size, BACKWARD, 0);
 	stream << "}else{";
-	//Destination is after source, copy backward
+	//Destination is before source, copy forward
 	compileMemFunc(dest, src, size, FORWARD, 0);
 	stream << "}\n";
 }
