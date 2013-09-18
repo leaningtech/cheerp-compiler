@@ -208,7 +208,14 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
 			assert(resetValue == 0);
-			stream << baseName << " = nullObj;\n";
+			//Pointers to client objects must use a normal null
+			const Type* pointedType = currentType->getPointerElementType();
+			stream << baseName << " = ";
+			if(isClientType(pointedType))
+				stream << "null";
+			else
+				stream << "nullObj";
+			stream << ";\n";
 			break;
 		}
 		case Type::StructTyID:
@@ -776,6 +783,7 @@ void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	llvm::Type* pointedType = lhs->getType()->getPointerElementType();
 	bool isImmutable = isImmutableType(pointedType);
 	bool isFunction = pointedType->isFunctionTy();
+	bool isClient = isClientType(pointedType);
 
 	if (isImmutable)
 	{
@@ -804,7 +812,7 @@ void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 				stream << '0';
 		}
 	}
-	else if(isFunction)
+	else if(isFunction || isClient)
 	{
 		//Functions can be compared by reference, the can't be in an array
 		//There can be an array of pointer to functions, not an array of functions
@@ -1029,7 +1037,7 @@ const Type* DuettoWriter::compileRecursiveAccessToGEP(const Type* curType, const
 	return compileRecursiveAccessToGEP(subType, ++it, itE, flag);
 }
 
-bool DuettoWriter::isClientType(Type* t) const
+bool DuettoWriter::isClientType(const Type* t) const
 {
 	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
 		strncmp(t->getStructName().data(), "class._ZN6client", 16)==0);
@@ -1363,7 +1371,11 @@ void DuettoWriter::compileConstant(const Constant* c)
 	}
 	else if(ConstantPointerNull::classof(c))
 	{
-		stream << "nullObj";
+		const Type* pointedType = c->getType()->getPointerElementType();
+		if(isClientType(pointedType))
+			stream << "null";
+		else
+			stream << "nullObj";
 	}
 	else if(UndefValue::classof(c))
 	{
@@ -1517,8 +1529,14 @@ void DuettoWriter::compileTypeImpl(Type* t)
 			break;
 		}
 		case Type::PointerTyID:
-			stream << "nullObj";
+		{
+			const Type* pointedType = t->getPointerElementType();
+			if(isClientType(pointedType))
+				stream << "null";
+			else
+				stream << "nullObj";
 			break;
+		}
 		case Type::ArrayTyID:
 		{
 			ArrayType* at=static_cast<ArrayType*>(t);
