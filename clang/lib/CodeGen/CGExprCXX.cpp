@@ -875,21 +875,30 @@ static llvm::Value *EmitCXXNewAllocSize(CodeGenFunction &CGF,
     // can be ignored because the result shouldn't be used if
     // allocation fails.
     if (typeSizeMultiplier != 1) {
-      llvm::Function *umul_with_overflow
-        = CGF.CGM.getIntrinsic(llvm::Intrinsic::umul_with_overflow, CGF.SizeTy);
-
       llvm::Value *tsmV =
         llvm::ConstantInt::get(CGF.SizeTy, typeSizeMultiplier);
-      llvm::Value *result =
-          CGF.Builder.CreateCall(umul_with_overflow, {size, tsmV});
+      if (CGF.getTarget().isByteAddressable())
+      {
+        llvm::Function *umul_with_overflow
+          = CGF.CGM.getIntrinsic(llvm::Intrinsic::umul_with_overflow, CGF.SizeTy);
 
-      llvm::Value *overflowed = CGF.Builder.CreateExtractValue(result, 1);
-      if (hasOverflow)
-        hasOverflow = CGF.Builder.CreateOr(hasOverflow, overflowed);
+        llvm::Value *result =
+            CGF.Builder.CreateCall(umul_with_overflow, {size, tsmV});
+
+        llvm::Value *overflowed = CGF.Builder.CreateExtractValue(result, 1);
+        if (hasOverflow)
+          hasOverflow = CGF.Builder.CreateOr(hasOverflow, overflowed);
+        else
+          hasOverflow = overflowed;
+
+        size = CGF.Builder.CreateExtractValue(result, 0);
+      }
       else
-        hasOverflow = overflowed;
-
-      size = CGF.Builder.CreateExtractValue(result, 0);
+      {
+        //Duetto: Ignore overflow
+	//TODO: Check if by the standard this is undefined behaviour or not
+        size = CGF.Builder.CreateMul(size, tsmV);
+      }
 
       // Also scale up numElements by the array size multiplier.
       if (arraySizeMultiplier != 1) {
