@@ -50,7 +50,7 @@ private:
 	bool printMethodNames;
 	uint32_t getIntFromValue(const llvm::Value* v) const;
 	bool isValidTypeCast(const llvm::Value* cast, const llvm::Value* castOp, llvm::Type* src, llvm::Type* dst) const;
-	bool isClientType(llvm::Type* t) const;
+	bool isClientType(const llvm::Type* t) const;
 	bool isClientGlobal(const char* mangledName) const;
 	bool isI32Type(llvm::Type* t) const;
 	bool isTypedArrayType(llvm::Type* t) const;
