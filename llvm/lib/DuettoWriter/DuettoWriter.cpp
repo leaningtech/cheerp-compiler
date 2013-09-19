@@ -975,6 +975,27 @@ void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset
 	}
 	else
 	{
+		// We need to explicitly avoid adding 0 to the offset. It has no
+		// effect on numeric offsets, but screws up string offsets.
+		// When there are string offset the pointer is for a struct member,
+		// in this case it is only valid to dereference the exact pointer.
+		// It is also possible to add 1, but in such case only comparing is allowed
+		// so doing the string concatenation is ok.
+		// NOTE: It actually breaks if we do +1 -1
+		// NOTE: namedOffset is only used in memcpy/memove which already handle the 0th
+		// case in a special way
+		// TODO: We need to add a pointer kind which allows arithmetic
+		if(!isOffsetConstantZero)
+		{
+			assert(namedOffset==NULL);
+			compileOperand(offset);
+			stream << "===0?";
+			bool notFirst=compileOffsetForPointer(v, lastType);
+			//TODO: Optimize this
+			if(!notFirst)
+				stream << '0';
+			stream << ':';
+		}
 		bool notFirst=compileOffsetForPointer(v, lastType);
 		if(!isOffsetConstantZero)
 		{
