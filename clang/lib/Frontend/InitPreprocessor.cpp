@@ -719,6 +719,15 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.CPlusPlus)
     InitializeCPlusPlusFeatureTestMacros(LangOpts, Builder);
 
+  if (LangOpts.getDuettoSide()==LangOptions::DUETTO_Client)
+  {
+    Builder.defineMacro("__DUETTO_CLIENT__");
+  }
+  else if (LangOpts.getDuettoSide()==LangOptions::DUETTO_Server)
+  {
+    Builder.defineMacro("__DUETTO_SERVER__");
+  }
+
   // darwin_constant_cfstrings controls this. This is also dependent
   // on other things like the runtime I believe.  This is set even for C code.
   if (!LangOpts.NoConstantCFStrings)
