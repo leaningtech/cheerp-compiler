@@ -680,6 +680,21 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		compileMethodArgs(it+1, itE);
 		return true;
 	}
+	else if(strncmp(ident,"_ZN6client24duettoVariadicMemberTrap",36)==0)
+	{
+		//Forward to the actual method, which is the first argument
+		assert(isGEP(*it));
+		Value* strVal = cast<User>(*it)->getOperand(0);
+		assert(GlobalVariable::classof(strVal));
+		Constant* strGlobal = cast<GlobalVariable>(strVal)->getInitializer();
+		assert(ConstantDataSequential::classof(strGlobal));
+		StringRef strName=cast<ConstantDataSequential>(strGlobal)->getAsCString();
+		assert((it+1)!=itE);
+		compileOperand(*(it+1));
+		stream << '.' << strName;
+		compileMethodArgs(it+2, itE);
+		return true;
+	}
 	else if(strncmp(ident,"_ZN6client",10)==0)
 	{
 		handleBuiltinNamespace(ident+10,it,itE);
