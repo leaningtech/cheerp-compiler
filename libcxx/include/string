@@ -1568,6 +1568,10 @@ private:
             size_type (&__a)[__n_words] = __r_.first().__r.__words;
             for (unsigned __i = 0; __i < __n_words; ++__i)
                 __a[__i] = 0;
+#else
+            __r_.first().__l.__cap_ = 0;
+            __r_.first().__l.__size_ = 0;
+            __r_.first().__l.__data_ = 0;
 #endif
         }
 
