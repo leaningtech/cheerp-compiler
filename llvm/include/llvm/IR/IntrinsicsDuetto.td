@@ -16,12 +16,12 @@
 //
 def int_duetto_downcast  : Intrinsic<[llvm_ptr_ty],
                              [llvm_ptr_ty, llvm_i32_ty],
-                             [IntrNoMem, NoCapture<0>]>;
+                             [NoCapture<0>]>;
 
 def int_duetto_upcast_collapsed  : Intrinsic<[llvm_ptr_ty],
                              [llvm_ptr_ty],
-                             [IntrNoMem, NoCapture<0>]>;
+                             [IntrNoMem]>;
 
 def int_duetto_cast_user  : Intrinsic<[llvm_ptr_ty],
                              [llvm_ptr_ty],
-                             [IntrNoMem, NoCapture<0>]>;
+                             [IntrNoMem]>;
