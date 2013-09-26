@@ -6,6 +6,7 @@
 #include "Relooper.h"
 #include "llvm/Duetto/Utils.h"
 #include "llvm/Duetto/Writer.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 using namespace std;
@@ -3296,6 +3297,11 @@ void DuettoWriter::makeJS()
 		DuettoUtils::rewriteNativeObjectsConstructors(module, *F);
 
 	Function* webMain=module.getFunction("_Z7webMainv");
+	if(webMain==NULL)
+	{
+		llvm::report_fatal_error("No webMain entry point found", false);
+		return;
+	}
 #ifdef DEBUG_GLOBAL_DEPS
 	globalsQueue.insert(make_pair(webMain,(const GlobalValue*)NULL));
 #else
