@@ -20,8 +20,8 @@ def int_duetto_downcast  : Intrinsic<[llvm_ptr_ty],
 
 def int_duetto_upcast_collapsed  : Intrinsic<[llvm_ptr_ty],
                              [llvm_ptr_ty],
-                             [IntrNoMem]>;
+                             [IntrReadWriteArgMem]>;
 
 def int_duetto_cast_user  : Intrinsic<[llvm_ptr_ty],
                              [llvm_ptr_ty],
-                             [IntrNoMem]>;
+                             [IntrReadWriteArgMem]>;
