@@ -24,6 +24,7 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
+#include "llvm/Cheerp/NativeRewriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -574,6 +575,11 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
   return Options;
 }
 
+static void addDuettoNativeRewriterPass(const PassManagerBuilder &Builder,
+                                   PassManagerBase &PM) {
+  PM.add(createDuettoNativeRewriterPass());
+}
+
 void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
                                       legacy::FunctionPassManager &FPM) {
   // Handle disabling of all LLVM passes, where we want to preserve the
@@ -588,6 +594,11 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   Triple TargetTriple(TheModule->getTargetTriple());
   std::unique_ptr<TargetLibraryInfoImpl> TLII(
       createTLII(TargetTriple, CodeGenOpts));
+
+  if (TargetTriple.getArch() == llvm::Triple::duetto)
+    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
+                           addDuettoNativeRewriterPass);
+
 
   // If we reached here with a non-empty index file name, then the index file
   // was empty and we are not performing ThinLTO backend compilation (used in
