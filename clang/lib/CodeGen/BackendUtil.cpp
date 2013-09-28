@@ -26,6 +26,7 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
+#include "llvm/Cheerp/NativeRewriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -536,6 +537,11 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
   Options.InstrProfileOutput = CodeGenOpts.InstrProfileOutput;
   Options.Atomic = CodeGenOpts.AtomicProfileUpdate;
   return Options;
+}
+
+static void addDuettoNativeRewriterPass(const PassManagerBuilder &Builder,
+                                   PassManagerBase &PM) {
+  PM.add(createDuettoNativeRewriterPass());
 }
 
 static void setCommandLineOpts(const CodeGenOptions &CodeGenOpts) {
