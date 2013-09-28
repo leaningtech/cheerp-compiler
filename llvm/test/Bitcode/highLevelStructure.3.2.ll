@@ -76,11 +76,11 @@ entry:
 ; CHECK: !name = !{!0, !1, !2}
 !name = !{!0, !1, !2}
 ; CHECK: !0 = !{!"zero"}
-!0 = metadata !{metadata !"zero"}
+!0 = !{!"zero"}
 ; CHECK: !1 = !{!"one"}
-!1 = metadata !{metadata !"one"}
+!1 = !{!"one"}
 ; CHECK: !2 = !{!"two"}
-!2 = metadata !{metadata !"two"}
+!2 = !{!"two"}
 
 
 
