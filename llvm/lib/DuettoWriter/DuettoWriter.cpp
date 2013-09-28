@@ -3290,12 +3290,6 @@ void DuettoWriter::compileNullPtrs()
 
 void DuettoWriter::makeJS()
 {
-	//Fix all client methods first
-	Module::iterator F=module.begin();
-	Module::iterator FE=module.end();
-	for (; F != FE; ++F)
-		DuettoUtils::rewriteNativeObjectsConstructors(module, *F);
-
 	Function* webMain=module.getFunction("_Z7webMainv");
 	if(webMain==NULL)
 	{
