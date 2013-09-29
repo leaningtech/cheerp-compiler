@@ -6,8 +6,6 @@
 #include "llvm/Duetto/Utils.h"
 #include "llvm/IR/Constants.h"
 
-#include <iostream>
-
 using namespace llvm;
 using namespace std;
 
@@ -90,7 +88,6 @@ bool DuettoUtils::rewriteIfNativeConstructorCall(Module& M, Instruction* i, Allo
 	//Verify that this contructor is for the current alloca
 	if(callInst->getOperand(0)!=i)
 		return false;
-	std::cerr << "Rewriting constructor for type " << builtinTypeName << std::endl;
 
 	FunctionType* initialType=called->getFunctionType();
 	SmallVector<Type*, 4> initialArgsTypes(initialType->param_begin()+1,
@@ -134,7 +131,6 @@ void DuettoUtils::rewriteNativeAllocationUsers(Module& M, SmallVector<Instructio
 		Instruction* userInst = dyn_cast<Instruction>(users[j]);
 		if(userInst==NULL)
 		{
-			std::cerr << "Unsupported non instruction user of builtin alloca" << std::endl;
 			baseSubstitutionForBuiltin(users[j], i, newI);
 			continue;
 		}
@@ -174,7 +170,6 @@ void DuettoUtils::rewriteNativeAllocationUsers(Module& M, SmallVector<Instructio
 			default:
 			{
 				userInst->dump();
-				std::cerr << "Unsupported opcode for builtin alloca" << std::endl;
 				baseSubstitutionForBuiltin(users[j], i, newI);
 				break;
 			}
