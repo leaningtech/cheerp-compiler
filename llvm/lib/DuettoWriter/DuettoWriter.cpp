@@ -92,14 +92,7 @@ void DuettoWriter::handleBuiltinNamespace(const char* ident, User::const_op_iter
 			stream << ".";
 		}
 		stream.write(funcName,funcNameLen);
-		stream << "(";
-		for(User::const_op_iterator cur=it;it!=itE;++it)
-		{
-			if(cur!=it)
-				stream << ",";
-			compileOperand(*it);
-		}
-		stream << ")";
+		compileMethodArgs(it,itE);
 	}
 }
 
