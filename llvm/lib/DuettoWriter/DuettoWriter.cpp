@@ -38,13 +38,18 @@ public:
 	void renderIfOnLabel(int labelId, bool first);
 };
 
-void DuettoWriter::handleBuiltinNamespace(const char* ident, User::const_op_iterator it,
+void DuettoWriter::handleBuiltinNamespace(const char* identifier, User::const_op_iterator it,
 			User::const_op_iterator itE)
 {
+	const char* ident = identifier;
 	//Read the class name
 	char* className;
 	int classLen = strtol(ident,&className,10);
-	assert(classLen!=0);
+	if(classLen == 0)
+	{
+		llvm::report_fatal_error(Twine("Unexpected C++ mangled name: ", StringRef(identifier)), false);
+		return;
+	}
 	ident = className + classLen;
 
 	//Read the function name
@@ -59,13 +64,18 @@ void DuettoWriter::handleBuiltinNamespace(const char* ident, User::const_op_iter
 		className = NULL;
 		classLen = 0;
 	}
+	//This condition is necessarily true
 	assert(funcNameLen!=0);
 
 	//The first arg should be the object
 	if(strncmp(funcName,"get_",4)==0 && (itE-it)==1)
 	{
 		//Getter
-		assert(className);
+		if(className == NULL)
+		{
+			llvm::report_fatal_error(Twine("Unexpected getter without class: ", StringRef(identifier)), false);
+			return;
+		}
 		compileOperand(*it);
 		stream << ".";
 		stream.write(funcName+4,funcNameLen-4);
@@ -73,7 +83,11 @@ void DuettoWriter::handleBuiltinNamespace(const char* ident, User::const_op_iter
 	else if(strncmp(funcName,"set_",4)==0 && (itE-it)==2)
 	{
 		//Setter
-		assert(className);
+		if(className == NULL)
+		{
+			llvm::report_fatal_error(Twine("Unexpected setter without class: ", StringRef(identifier)), false);
+			return;
+		}
 		compileOperand(*it);
 		++it;
 		stream << ".";
@@ -86,7 +100,11 @@ void DuettoWriter::handleBuiltinNamespace(const char* ident, User::const_op_iter
 		//Regular call
 		if(className)
 		{
-			assert(it!=itE);
+			if(it == itE)
+			{
+				llvm::report_fatal_error(Twine("At least 'this' parameter was expected: ", StringRef(identifier)), false);
+				return;
+			}
 			compileOperand(*it);
 			++it;
 			stream << ".";
@@ -103,13 +121,25 @@ bool DuettoWriter::isBitCast(const Value* v) const
 #endif
 	if(isa<BitCastInst>(v))
 	{
-		assert(isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType()));
+		bool validCast = isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType());
+		if(!validCast)
+		{
+			llvm::errs() << "Error while handling cast " << *v << "\n";
+			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+			return false;
+		}
 		return true;
 	}
 	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
 	if(ce && ce->getOpcode()==Instruction::BitCast)
 	{
-		assert(isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType()));
+		bool validCast = isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType());
+		if(!validCast)
+		{
+			llvm::errs() << "Error while handling cast " << *v << "\n";
+			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+			return false;
+		}
 		return true;
 	}
 	return false;
@@ -182,7 +212,8 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		case Type::IntegerTyID:
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
-			assert(resetValue == 0 || resetValue == 0xff);
+			if(resetValue != 0 && resetValue != 0xff)
+				llvm::report_fatal_error("Unsupported values for memset", false);
 			if(resetValue == 0)
 				stream << baseName << " = 0";
 			else if(resetValue == 0xff)
@@ -194,14 +225,16 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		case Type::DoubleTyID:
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
-			assert(resetValue == 0);
+			if(resetValue != 0)
+				llvm::report_fatal_error("Unsupported values for memset", false);
 			stream << baseName << " = 0;\n";
 			break;
 		}
 		case Type::PointerTyID:
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
-			assert(resetValue == 0);
+			if(resetValue != 0)
+				llvm::report_fatal_error("Unsupported values for memset", false);
 			//Pointers to client objects must use a normal null
 			const Type* pointedType = currentType->getPointerElementType();
 			stream << baseName << " = ";
@@ -267,7 +300,11 @@ Type* DuettoWriter::findRealType(const Value* v, std::set<const PHINode*>& visit
 			if(ret==NULL)
 				ret=t;
 			else
-				assert(ret==t);
+			{
+				llvm::errs() << "Unconsistent real types for phi " << *v << "\n";
+				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+				return ret;
+			}
 		}
 		visitedPhis.erase(newPHI);
 		return ret;
@@ -338,7 +375,10 @@ void DuettoWriter::compileTypedArrayType(Type* t)
 	else if(t->isDoubleTy())
 		stream << "Float64Array";
 	else
-		assert(false);
+	{
+		llvm::errs() << "Typed array reuested for type " << *t << "\n";
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+	}
 }
 
 /* Method that handles memcpy, memset and memmove.
@@ -353,10 +393,9 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	if(src)
 	{
 		visitedPhis.clear();
-#ifndef NDEBUG
 		Type* srcType=findRealType(src,visitedPhis);
-#endif
-		assert(destType==srcType);
+		if(destType!=srcType)
+			llvm::report_fatal_error("Different destination and source type for memcpy/memmove", false);
 	}
 	assert(destType->isPointerTy());
 
@@ -367,7 +406,6 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	if(ConstantInt::classof(size))
 	{
 		uint32_t allocatedSize = getIntFromValue(size);
-		//assert((allocatedSize % typeSize) == 0);
 		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
 		if(numElem==0)
 			return;
@@ -395,7 +433,6 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	if(ConstantInt::classof(size))
 	{
 		uint32_t allocatedSize = getIntFromValue(size);
-		//assert((allocatedSize % typeSize) == 0);
 		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
 
 		if(numElem==1)
@@ -434,7 +471,6 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	if(ConstantInt::classof(size))
 	{
 		uint32_t allocatedSize = getIntFromValue(size);
-		//assert((allocatedSize % typeSize) == 0);
 		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
 
 		stream << numElem;
@@ -508,8 +544,7 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 		if(ConstantInt::classof(size))
 		{
 			uint32_t allocatedSize = getIntFromValue(size);
-			assert((allocatedSize % typeSize) == 0);
-			uint32_t numElem = allocatedSize/typeSize;
+			uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
 			stream << numElem;
 		}
 		else
@@ -524,8 +559,7 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 		if(ConstantInt::classof(size))
 		{
 			uint32_t allocatedSize = getIntFromValue(size);
-			assert((allocatedSize % typeSize) == 0);
-			uint32_t numElem = allocatedSize/typeSize;
+			uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
 			stream << '[';
 			for(uint64_t i=0;i<numElem;i++)
 			{
@@ -537,7 +571,6 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 		}
 		else
 		{
-			assert(t->isStructTy() || t->isPointerTy());
 			if(t->isStructTy())
 			{
 				StructType* st=cast<StructType>(t);
@@ -553,6 +586,11 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 				stream << "createPointerArray(";
 				compileOperand(size);
 				stream << '/' << typeSize << ')';
+			}
+			else
+			{
+				llvm::errs() << "Allocating type " << *t << "\n";
+				llvm::report_fatal_error("Unsupported type in allocation", false);
 			}
 		}
 	}
@@ -1028,18 +1066,24 @@ void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset
 
 uint32_t DuettoWriter::getIntFromValue(const Value* v) const
 {
-	assert(ConstantInt::classof(v));
+	if(!ConstantInt::classof(v))
+	{
+		llvm::errs() << "Expected constant int found " << *v << "\n";
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		return 0;
+	}
+
 	const ConstantInt* i=cast<const ConstantInt>(v);
 	return i->getZExtValue();
 }
 
-const Type* DuettoWriter::compileRecursiveAccessToGEP(const Type* curType, const Use* it, const Use* const itE,
+const Type* DuettoWriter::compileRecursiveAccessToGEP(Type* curType, const Use* it, const Use* const itE,
 							COMPILE_FLAG flag)
 {
 	//Before this the base name has been already printed
 	if(it==itE)
 		return curType;
-	const Type* subType = NULL;
+	Type* subType = NULL;
 	if(curType->isStructTy())
 	{
 		const StructType* st=static_cast<const StructType*>(curType);
@@ -1069,7 +1113,11 @@ const Type* DuettoWriter::compileRecursiveAccessToGEP(const Type* curType, const
 		subType = at->getElementType();
 	}
 	else
-		assert(false);
+	{
+		llvm::errs() << "Unexpected type during GEP access " << *curType << "\n";
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		return curType;
+	}
 	return compileRecursiveAccessToGEP(subType, ++it, itE, flag);
 }
 
@@ -1229,9 +1277,6 @@ bool DuettoWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type
 		Type* innerDst=cast<PointerType>(dst)->getElementType();
 		if(innerSrc->isIntegerTy(8) || innerDst->isFunctionTy())
 		{
-			const GetElementPtrInst* gep=dyn_cast<const GetElementPtrInst>(castOp);
-			if(gep)
-				assert(false);
 			const ConstantExpr* constGep=dyn_cast<const ConstantExpr>(castOp);
 			if(constGep && constGep->getOpcode()==Instruction::GetElementPtr)
 			{
@@ -1267,12 +1312,6 @@ bool DuettoWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type
 		if(comesFromNew && allowedRawUsages)
 			return true;
 	}
-	castI->dump();
-	llvm::errs() << '\n';
-	src->dump();
-	llvm::errs() << '\n';
-	dst->dump();
-	llvm::errs() << '\n';
 	return false;
 }
 
@@ -1289,11 +1328,6 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 				return;
 			}
 			Value* base = ce->getOperand(0);
-			assert(GlobalVariable::classof(base));
-			//GlobalVariables never changes, they are assumed to be
-			//in the form { d: [<objPointed>], o: 0 }
-			assert(cast<GlobalVariable>(base)->hasInitializer());
-			//TODO: Support external global variables
 			//NOTE: the first dereference must be 0, they point to a single object
 #ifndef NDEBUG
 			Value* first=ce->getOperand(1);
@@ -1304,7 +1338,6 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 		}
 		case Instruction::BitCast:
 		{
-			assert(ce->getNumOperands()==1);
 			Value* val=ce->getOperand(0);
 			//Special case guard variables, they are defined as 64bit,
 			//but only the first byte is specified and probably used
@@ -1314,16 +1347,18 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 				compileOperand(val);
 				break;
 			}
-#ifndef NDEBUG
 			Type* dst=ce->getType();
 			Type* src=val->getType();
-#endif
-			assert(isValidTypeCast(ce, val, src, dst));
+			if(!isValidTypeCast(ce, val, src, dst))
+			{
+				llvm::errs() << "Between:\n\t" << *src << "\n\t" << *dst << "\n";
+				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
+			}
 			compileOperand(val);
 			break;
 		}
 		default:
-			llvm::errs() << "Unsupported constant expr " << ce->getOpcodeName() << '\n';
+			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
 	}
 }
 
@@ -1393,13 +1428,11 @@ void DuettoWriter::compileConstant(const Constant* c)
 		else if(&f->getValueAPF().getSemantics()==&APFloat::IEEEdouble)
 			stream << f->getValueAPF().convertToDouble();
 		else
-			assert(false);
+			llvm::report_fatal_error("Unsupported float type, please report a bug", false);
 	}
 	else if(ConstantInt::classof(c))
 	{
 		const ConstantInt* i=cast<const ConstantInt>(c);
-		//TODO: Restore when 64bit are forbidden by the frontend
-		//assert(i->getBitWidth()<=32);
 		if(i->getBitWidth()==1)
 			stream << (i->isZero()?"false":"true");
 		else
@@ -1529,14 +1562,11 @@ void DuettoWriter::compileTypeImpl(Type* t)
 	{
 		case Type::IntegerTyID:
 		{
-			//IntegerType* it=static_cast<IntegerType*>(t);
 			//We only really have 32bit integers.
 			//We will allow anything shorter.
 			//NOTE: Only bit operations are allowed on shorter types
 			//this is enforced on a per-operation basis
-			//TODO: put assertion back
-			//assert(it->getBitWidth()<=32);
-			//Print out a '0'. To let the engine know this is an integer
+			//Print out a '0' to let the engine know this is an integer.
 			stream << '0';
 			break;
 		}
@@ -1822,9 +1852,8 @@ void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I,
 				stream << ":\n__block = " << blocksMap.find(it.getCaseSuccessor())->second <<
 					"; break;";
 			}
-			assert(si.getDefaultDest());
-			stream << "default:\n__block = " << blocksMap.find(si.getDefaultDest())->second <<
-				";";
+			if(si.getDefaultDest())
+				stream << "default:\n__block = " << blocksMap.find(si.getDefaultDest())->second << ";";
 			stream << "}\n";
 			break;
 		}
@@ -1891,7 +1920,12 @@ bool DuettoWriter::compileNotInlineableInstruction(const Instruction& I)
 			const InsertValueInst& ivi=static_cast<const InsertValueInst&>(I);
 			const Value* aggr=ivi.getAggregateOperand();
 			Type* t=aggr->getType();
-			assert(t->isStructTy());
+			if(!t->isStructTy())
+			{
+				llvm::errs() << "insertvalue: Expected struct, found " << *t << "\n";
+				llvm::report_fatal_error("Unsupported float type, please report a bug", false);
+				return true;
+			}
 			if(UndefValue::classof(aggr))
 			{
 				//We have to assemble the type object from scratch
@@ -2125,24 +2159,20 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::BitCast:
 		{
 			const BitCastInst& bi=static_cast<const BitCastInst&>(I);
-#ifndef NDEBUG
-			Type* srcPtr=bi.getSrcTy();
-			Type* dstPtr=bi.getDestTy();
-#endif
-			assert(isValidTypeCast(&bi, bi.getOperand(0), srcPtr, dstPtr));
+			Type* src=bi.getSrcTy();
+			Type* dst=bi.getDestTy();
+			if(!isValidTypeCast(&bi, bi.getOperand(0), src, dst))
+			{
+				llvm::errs() << "Between:\n\t" << *src << "\n\t" << *dst << "\n";
+				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
+			}
 			compileOperand(bi.getOperand(0));
 			return true;
 		}
 		case Instruction::FPToSI:
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
-			//Check that the out type is sane
-#ifndef NDEBUG
-			Type* dstT = ci.getDestTy();
-#endif
-			assert(isI32Type(dstT));
-
-			stream << "(";
+			stream << '(';
 			compileOperand(ci.getOperand(0));
 			//Seems to be the fastest way
 			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
@@ -2152,13 +2182,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::FPToUI:
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
-			//Check that the out type is sane
-#ifndef NDEBUG
-			Type* dstT = ci.getDestTy();
-#endif
-			assert(isI32Type(dstT));
-
-			stream << "(";
+			stream << '(';
 			compileOperand(ci.getOperand(0));
 			//Cast to signed anyway
 			//ECMA-262 guarantees that (a >> 0) >>> 0
@@ -2169,27 +2193,18 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::SIToFP:
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
-			//Check that the in type is sane
-#ifndef NDEBUG
-			Type* srcT = ci.getSrcTy();
-#endif
-			assert(isI32Type(srcT));
-			//It's a NOP, values are logically FP anyway in JS
+			stream << "(+";
 			compileOperand(ci.getOperand(0));
+			stream << ')';
 			return true;
 		}
 		case Instruction::UIToFP:
 		{
 			const CastInst& ci=static_cast<const CastInst&>(I);
-			//Check that the in type is sane
-#ifndef NDEBUG
-			Type* srcT = ci.getSrcTy();
-#endif
-			assert(isI32Type(srcT));
 			//We need to cast to unsigned before
-			stream << "(";
+			stream << "(+(";
 			compileOperand(ci.getOperand(0));
-			stream << " >>> 0)";
+			stream << " >>> 0))";
 			return true;
 		}
 		case Instruction::GetElementPtr:
