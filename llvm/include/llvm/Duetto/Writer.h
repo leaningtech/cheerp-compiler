@@ -69,7 +69,7 @@ private:
 	bool compileInlineableInstruction(const llvm::Instruction& I);
 	bool compileNotInlineableInstruction(const llvm::Instruction& I);
 	enum COMPILE_FLAG { NORMAL = 0, DRY_RUN = 1 };
-	const llvm::Type* compileRecursiveAccessToGEP(const llvm::Type* curType, const llvm::Use* it,
+	const llvm::Type* compileRecursiveAccessToGEP(llvm::Type* curType, const llvm::Use* it,
 			const llvm::Use* const itE, COMPILE_FLAG flag);
 	void compilePredicate(llvm::CmpInst::Predicate p);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
