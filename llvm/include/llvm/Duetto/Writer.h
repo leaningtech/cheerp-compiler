@@ -135,6 +135,8 @@ private:
 	enum CONSTRUCTOR_ACTION { ADD_TO_QUEUE=0, COMPILE=1 };
 	void handleConstructors(llvm::GlobalVariable* GV, CONSTRUCTOR_ACTION action);
 	void compileNullPtrs();
+	static uint32_t getMaskForBitWidth(int width);
+	void compileSignedInteger(const llvm::Value* v);
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):
