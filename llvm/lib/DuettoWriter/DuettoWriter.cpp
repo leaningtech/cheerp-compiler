@@ -804,17 +804,9 @@ void DuettoWriter::compilePredicate(CmpInst::Predicate p)
 void DuettoWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Predicate p)
 {
 	if(CmpInst::isUnsigned(p))
-	{
-		stream << "(";
-		compileOperand(v);
-		stream << ">>>0)";
-	}
+		compileUnsignedInteger(v);
 	else
-	{
-		stream << "(";
-		compileOperand(v);
-		stream << ">>0)";
-	}
+		compileSignedInteger(v);
 }
 
 void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
@@ -1923,7 +1915,7 @@ bool DuettoWriter::compileNotInlineableInstruction(const Instruction& I)
 			if(!t->isStructTy())
 			{
 				llvm::errs() << "insertvalue: Expected struct, found " << *t << "\n";
-				llvm::report_fatal_error("Unsupported float type, please report a bug", false);
+				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 				return true;
 			}
 			if(UndefValue::classof(aggr))
@@ -2167,6 +2159,25 @@ void DuettoWriter::compileSignedInteger(const llvm::Value* v)
 		stream << "<<" << shiftAmount << ")>>" << shiftAmount << ')';
 	}
 }
+
+void DuettoWriter::compileUnsignedInteger(const llvm::Value* v)
+{
+	//We anyway have to use 32 bits for sign extension to work
+	uint32_t initialSize = v->getType()->getIntegerBitWidth();
+	stream << '(';
+	if(initialSize == 32)
+	{
+		//Use simpler code
+		compileOperand(v);
+		stream << ">>> 0)";
+	}
+	else
+	{
+		compileOperand(v);
+		stream << " & " << getMaskForBitWidth(initialSize) << ')';
+	}
+}
+
 /*
  * This can be used for both named instructions and inlined ones
  * NOTE: Call, Ret, Invoke are NEVER inlined
@@ -2307,14 +2318,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			Type* dst=bi.getDestTy();
 #endif
 			assert(src->isIntegerTy() && dst->isIntegerTy());
-#ifndef NDEBUG
-			IntegerType* srcI=static_cast<IntegerType*>(src);
-			IntegerType* dstI=static_cast<IntegerType*>(dst);
-#endif
-			//TODO: put asserts back
-			//assert(srcI->getBitWidth()<=32);
-			//assert(dstI->getBitWidth()<=32);
-			assert(srcI->getBitWidth()<=dstI->getBitWidth());
 			if(src->isIntegerTy(1))
 			{
 				//If the source type is i1, attempt casting from Boolean
@@ -2326,10 +2329,8 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			{
 				//Let's mask out upper bits, to make sure we get zero extension
 				//The value might have been initialized with a negative value
-				uint32_t initialSize = srcI->getIntegerBitWidth();
-				stream << '(';
-				compileOperand(I.getOperand(0));
-				stream << " & " << getMaskForBitWidth(initialSize) << ')';
+				uint32_t initialSize = src->getIntegerBitWidth();
+				compileUnsignedInteger(I.getOperand(0));
 			}
 			return true;
 		}
@@ -2346,19 +2347,11 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::UDiv:
 		{
 			//Integer unsigned division
-			stream << "(((";
-			compileOperand(I.getOperand(0));
-			if(isI32Type(I.getType()))
-				stream << ">>> 0";
-			else
-				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			stream << ") / (";
-			compileOperand(I.getOperand(1));
-			if(isI32Type(I.getType()))
-				stream << ">>> 0";
-			else
-				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			stream << ")) >>> 0)";
+			stream << "((";
+			compileUnsignedInteger(I.getOperand(0));
+			stream << " / ";
+			compileUnsignedInteger(I.getOperand(1));
+			stream << ") >>> 0)";
 			return true;
 		}
 		case Instruction::SRem:
@@ -2374,19 +2367,11 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::URem:
 		{
 			//Integer unsigned remainder
-			stream << "(((";
-			compileOperand(I.getOperand(0));
-			if(isI32Type(I.getType()))
-				stream << ">>> 0";
-			else
-				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			stream << ") % (";
-			compileOperand(I.getOperand(1));
-			if(isI32Type(I.getType()))
-				stream << ">>> 0";
-			else
-				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			stream << ")) >>> 0)";
+			stream << "((";
+			compileUnsignedInteger(I.getOperand(0));
+			stream << " % ";
+			compileUnsignedInteger(I.getOperand(1));
+			stream << ") >>> 0)";
 			return true;
 		}
 		case Instruction::FDiv:
@@ -2428,21 +2413,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		{
 			//Integer comparison
 			const CmpInst& ci=static_cast<const CmpInst&>(I);
-			assert(ci.getNumOperands()==2);
-			//Check that the operation is JS safe
-			switch(ci.getPredicate())
-			{
-				case CmpInst::ICMP_EQ:
-				case CmpInst::ICMP_NE:
-					//Those are safe in any size
-					break;
-				default:
-					break;
-					/*assert(isI32Type(ci.getOperand(0)->getType()));
-					assert(isI32Type(ci.getOperand(1)->getType()));*/
-			}
-			assert(ci.getOperand(0)->getType()==ci.getOperand(1)->getType());
-			stream << "(";
+			stream << '(';
 			if(ci.getOperand(0)->getType()->isPointerTy())
 			{
 				if(ci.getPredicate()==CmpInst::ICMP_EQ ||
@@ -2470,14 +2441,13 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 				compilePredicate(ci.getPredicate());
 				compileOperandForIntegerPredicate(ci.getOperand(1),ci.getPredicate());
 			}
-			stream << ")";
+			stream << ')';
 			return true;
 		}
 		case Instruction::FCmp:
 		{
 			//Integer comparison
 			const CmpInst& ci=static_cast<const CmpInst&>(I);
-			assert(ci.getNumOperands()==2);
 			//Check that the operation is JS safe
 			stream << "(";
 			//Special case orderedness check
@@ -2501,10 +2471,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::And:
 		{
 			//Integer logical and
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
@@ -2516,10 +2482,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::LShr:
 		{
 			//Integer logical shift right
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
@@ -2530,14 +2492,13 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		}
 		case Instruction::AShr:
 		{
-			//Integer logical shift right
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
+			//Integer arithmetic shift right
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
-			compileOperand(I.getOperand(0));
+			if(isI32Type(I.getOperand(0)->getType()))
+				compileOperand(I.getOperand(0));
+			else
+				compileSignedInteger(I.getOperand(0));
 			stream << " >> ";
 			compileOperand(I.getOperand(1));
 			stream << ')';
@@ -2546,10 +2507,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::Shl:
 		{
 			//Integer shift left
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
@@ -2561,10 +2518,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::Or:
 		{
 			//Integer logical or
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
@@ -2576,10 +2529,8 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::Xor:
 		{
 			//Integer logical xor
-			assert(I.getNumOperands()==2);
 			//Xor with 1s is used to implement bitwise and logical negation
 			//TODO: Optimize the operation with 1s
-			assert(isI32Type(I.getType()));
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
@@ -2592,11 +2543,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		{
 			//Well, ideally this should not be used since, since it's a waste of bit to
 			//use integers less than 32 bit wide. Still we can support it
-			assert(I.getNumOperands()==1);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(I.getType()->isIntegerTy());
 			uint32_t finalSize = I.getType()->getIntegerBitWidth();
-			assert(finalSize < 32);
 			stream << '(';
 			compileOperand(I.getOperand(0));
 			stream << " & " << getMaskForBitWidth(finalSize) << ')';
@@ -2605,10 +2552,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::SExt:
 		{
 			//We can use a couple of shift to make this work
-			assert(I.getNumOperands()==1);
-			assert(I.getOperand(0)->getType()->isIntegerTy());
-			assert(I.getType()->isIntegerTy());
-			assert(I.getType()->getIntegerBitWidth()<=32);
 			compileSignedInteger(I.getOperand(0));
 			return true;
 		}
@@ -2631,7 +2574,12 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 #ifndef NDEBUG
 			Type* t=aggr->getType();
 #endif
-			assert(t->isStructTy());
+			if(!t->isStructTy())
+			{
+				llvm::errs() << "extractvalue: Expected struct, found " << *t << "\n";
+				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+				return true;
+			}
 			assert(!UndefValue::classof(aggr));
 
 			printVarName(aggr);
@@ -2753,8 +2701,8 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 			case Instruction::GetElementPtr:
 				return true;
 			default:
-				llvm::errs() << "Is " << I.getOpcodeName() << " inlineable?\n";
-				assert(false);
+				llvm::report_fatal_error(Twine("Unsupported opcode: ",StringRef(I.getOpcodeName())), false);
+				return true;
 		}
 	}
 	else if(I.getOpcode()==Instruction::GetElementPtr)
@@ -2852,7 +2800,7 @@ void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, int bra
 	else
 	{
 		term->dump();
-		assert(false);
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
 	writer->stream << ") {\n";
 }
@@ -3006,7 +2954,7 @@ void DuettoWriter::compileMethod(const Function& F)
 			{
 				//Only a problem if there are successors
 				term->dump();
-				assert(false);
+				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 			}
 
 			for(uint32_t i=0;i<term->getNumSuccessors();i++)
@@ -3072,14 +3020,11 @@ void DuettoWriter::gatherDependencies(const Constant* c, const llvm::GlobalVaria
 		if(ce->getOpcode()==Instruction::GetElementPtr)
 		{
 			//TODO: Maybe it's possible to set directly .d in the fixup
-			Value* gepBase = ce->getOperand(0);
-			assert(GlobalVariable::classof(gepBase));
-			GlobalVariable* GV=cast<GlobalVariable>(gepBase);
-			gatherDependencies(GV, base, baseName, c);
+			Constant* gepBase = ce->getOperand(0);
+			gatherDependencies(gepBase, base, baseName, c);
 		}
 		else if(ce->getOpcode()==Instruction::BitCast)
 		{
-			assert(ce->getNumOperands()==1);
 			Value* val=ce->getOperand(0);
 			gatherDependencies(cast<Constant>(val), base, baseName, c);
 		}
@@ -3180,7 +3125,14 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 	for(FixupMapType::iterator it=f.first;it!=f.second;++it)
 	{
 		const GlobalVariable* otherGV=it->second.base;
-		assert(otherGV->hasInitializer());
+		if(!otherGV->hasInitializer())
+		{
+			llvm::errs() << "Expected initializer for ";
+			otherGV->dump();
+			llvm::errs() << "\n";
+			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+			continue;
+		}
 		const Constant* C=otherGV->getInitializer();
 
 		printLLVMName(otherGV->getName());
@@ -3233,7 +3185,12 @@ uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, St
 
 void DuettoWriter::compileClassType(StructType* T)
 {
-	assert(T->hasName());
+	if(!T->hasName())
+	{
+		llvm::errs() << "Expected name for struct " << *T << "\n";
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		return;
+	}
 	stream << "function create";
 	printLLVMName(T->getName());
 	stream << "(){\n";
@@ -3260,7 +3217,12 @@ void DuettoWriter::compileClassType(StructType* T)
 
 void DuettoWriter::compileArrayClassType(StructType* T)
 {
-	assert(T->hasName());
+	if(!T->hasName())
+	{
+		llvm::errs() << "Expected name for struct " << *T << "\n";
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		return;
+	}
 	stream << "function createArray";
 	printLLVMName(T->getName());
 	stream << "(size){\n";
@@ -3274,6 +3236,8 @@ void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION act
 {
 	assert(GV->hasInitializer());
 	Constant* C=GV->getInitializer();
+	if(ConstantAggregateZero::classof(C))
+		return;
 	assert(ConstantArray::classof(C));
 	ConstantArray* CA=cast<ConstantArray>(C);
 	uint32_t numElements=CA->getType()->getNumElements();
