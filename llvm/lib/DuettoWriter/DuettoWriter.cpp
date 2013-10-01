@@ -116,9 +116,7 @@ void DuettoWriter::handleBuiltinNamespace(const char* identifier, User::const_op
 
 bool DuettoWriter::isBitCast(const Value* v) const
 {
-#ifndef NDEBUG
 	const User* b=static_cast<const User*>(v);
-#endif
 	if(isa<BitCastInst>(v))
 	{
 		bool validCast = isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType());
@@ -2571,9 +2569,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		{
 			const ExtractValueInst& evi=static_cast<const ExtractValueInst&>(I);
 			const Value* aggr=evi.getAggregateOperand();
-#ifndef NDEBUG
 			Type* t=aggr->getType();
-#endif
 			if(!t->isStructTy())
 			{
 				llvm::errs() << "extractvalue: Expected struct, found " << *t << "\n";
