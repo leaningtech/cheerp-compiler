@@ -2002,11 +2002,7 @@ bool DuettoWriter::compileNotInlineableInstruction(const Instruction& I)
 
 bool DuettoWriter::isI32Type(Type* t) const
 {
-	//TODO: To compile bullet 64 bit integers
-	//are needed. We don't want to support them
-	//but for first round support we will cheat
-	//as emscripten does and allow them
-	return t->isIntegerTy();// && static_cast<IntegerType*>(t)->getBitWidth()==32;
+	return t->isIntegerTy() && static_cast<IntegerType*>(t)->getBitWidth()==32;
 }
 
 void DuettoWriter::compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end)
@@ -2148,6 +2144,29 @@ void DuettoWriter::compileGEP(const Value* val, const Use* it, const Use* const 
 	stream << '}';
 }
 
+uint32_t DuettoWriter::getMaskForBitWidth(int width)
+{
+	return (1 << width) - 1;
+}
+
+void DuettoWriter::compileSignedInteger(const llvm::Value* v)
+{
+	//We anyway have to use 32 bits for sign extension to work
+	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
+	if(shiftAmount==0)
+	{
+		//Use simpler code
+		stream << '(';
+		compileOperand(v);
+		stream << ">> 0)";
+	}
+	else
+	{
+		stream << "((";
+		compileOperand(v);
+		stream << "<<" << shiftAmount << ")>>" << shiftAmount << ')';
+	}
+}
 /*
  * This can be used for both named instructions and inlined ones
  * NOTE: Call, Ret, Invoke are NEVER inlined
@@ -2231,15 +2250,16 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::Add:
 		{
 			//Integer addition
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
 			stream << "((";
 			compileOperand(I.getOperand(0));
 			stream << " + ";
 			compileOperand(I.getOperand(1));
-			stream << ") >> 0)";
+			stream << ')';
+			if(isI32Type(I.getType()))
+				stream << ">> 0";
+			else
+				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
+			stream << ')';
 			return true;
 		}
 		case Instruction::FAdd:
@@ -2256,15 +2276,16 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		{
 			//Integer subtraction
 			//TODO: optimize negation
-			assert(I.getNumOperands()==2);
-			//assert(isI32Type(I.getOperand(0)->getType()));
-			//assert(isI32Type(I.getOperand(1)->getType()));
-			//assert(isI32Type(I.getType()));
 			stream << "((";
 			compileOperand(I.getOperand(0));
 			stream << " - ";
 			compileOperand(I.getOperand(1));
-			stream << ") >> 0)";
+			stream << ')';
+			if(isI32Type(I.getType()))
+				stream << ">> 0";
+			else
+				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
+			stream << ')';
 			return true;
 		}
 		case Instruction::FSub:
@@ -2303,65 +2324,69 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			}
 			else
 			{
-				//The operation is a NOP
-				compileOperand(bi.getOperand(0));
+				//Let's mask out upper bits, to make sure we get zero extension
+				//The value might have been initialized with a negative value
+				uint32_t initialSize = srcI->getIntegerBitWidth();
+				stream << '(';
+				compileOperand(I.getOperand(0));
+				stream << " & " << getMaskForBitWidth(initialSize) << ')';
 			}
 			return true;
 		}
 		case Instruction::SDiv:
 		{
 			//Integer signed division
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
-			stream << "(((";
-			compileOperand(I.getOperand(0));
-			stream << ">> 0) / (";
-			compileOperand(I.getOperand(1));
-			stream << ">> 0)) >> 0)";
+			stream << "((";
+			compileSignedInteger(I.getOperand(0));
+			stream << " / ";
+			compileSignedInteger(I.getOperand(1));
+			stream << ") >> 0)";
 			return true;
 		}
 		case Instruction::UDiv:
 		{
 			//Integer unsigned division
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
 			stream << "(((";
 			compileOperand(I.getOperand(0));
-			stream << ">>> 0) / (";
+			if(isI32Type(I.getType()))
+				stream << ">>> 0";
+			else
+				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
+			stream << ") / (";
 			compileOperand(I.getOperand(1));
-			stream << ">>> 0)) >>> 0)";
+			if(isI32Type(I.getType()))
+				stream << ">>> 0";
+			else
+				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
+			stream << ")) >>> 0)";
 			return true;
 		}
 		case Instruction::SRem:
 		{
 			//Integer signed remainder
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
-			stream << "(((";
-			compileOperand(I.getOperand(0));
-			stream << ">> 0) % (";
-			compileOperand(I.getOperand(1));
-			stream << ">> 0)) >> 0)";
+			stream << "((";
+			compileSignedInteger(I.getOperand(0));
+			stream << " % ";
+			compileSignedInteger(I.getOperand(1));
+			stream << ") >> 0)";
 			return true;
 		}
 		case Instruction::URem:
 		{
-			//Integer unsigned division
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
+			//Integer unsigned remainder
 			stream << "(((";
 			compileOperand(I.getOperand(0));
-			stream << ">>> 0) % (";
+			if(isI32Type(I.getType()))
+				stream << ">>> 0";
+			else
+				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
+			stream << ") % (";
 			compileOperand(I.getOperand(1));
-			stream << ">>> 0)) >>> 0)";
+			if(isI32Type(I.getType()))
+				stream << ">>> 0";
+			else
+				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
+			stream << ")) >>> 0)";
 			return true;
 		}
 		case Instruction::FDiv:
@@ -2377,15 +2402,16 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::Mul:
 		{
 			//Integer signed multiplication
-			assert(I.getNumOperands()==2);
-			assert(isI32Type(I.getOperand(0)->getType()));
-			assert(isI32Type(I.getOperand(1)->getType()));
-			assert(isI32Type(I.getType()));
 			stream << "((";
 			compileOperand(I.getOperand(0));
 			stream << " * ";
 			compileOperand(I.getOperand(1));
-			stream << ") >> 0)";
+			stream << ')';
+			if(isI32Type(I.getType()))
+				stream << ">> 0";
+			else
+				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
+			stream << ')';
 			return true;
 		}
 		case Instruction::FMul:
@@ -2571,10 +2597,9 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			assert(I.getType()->isIntegerTy());
 			uint32_t finalSize = I.getType()->getIntegerBitWidth();
 			assert(finalSize < 32);
-			uint32_t mask = (1 << finalSize) - 1;
 			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " & " << mask << ')';
+			stream << " & " << getMaskForBitWidth(finalSize) << ')';
 			return true;
 		}
 		case Instruction::SExt:
@@ -2582,15 +2607,9 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			//We can use a couple of shift to make this work
 			assert(I.getNumOperands()==1);
 			assert(I.getOperand(0)->getType()->isIntegerTy());
-			uint32_t initialSize = I.getOperand(0)->getType()->getIntegerBitWidth();
-			assert(initialSize < 32);
 			assert(I.getType()->isIntegerTy());
 			assert(I.getType()->getIntegerBitWidth()<=32);
-			//We anyway have to use 32 bits for sign extension to work
-			uint32_t shiftAmount = 32-initialSize;
-			stream << "((";
-			compileOperand(I.getOperand(0));
-			stream << "<<" << shiftAmount << ")>>" << shiftAmount << ')';
+			compileSignedInteger(I.getOperand(0));
 			return true;
 		}
 		case Instruction::Select:
