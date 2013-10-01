@@ -299,7 +299,7 @@ Type* DuettoWriter::findRealType(const Value* v, std::set<const PHINode*>& visit
 			Type* t=findRealType(newPHI->getIncomingValue(i),visitedPhis);
 			if(ret==NULL)
 				ret=t;
-			else
+			else if(ret!=t)
 			{
 				llvm::errs() << "Unconsistent real types for phi " << *v << "\n";
 				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
