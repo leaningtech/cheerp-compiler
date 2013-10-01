@@ -137,6 +137,7 @@ private:
 	void compileNullPtrs();
 	static uint32_t getMaskForBitWidth(int width);
 	void compileSignedInteger(const llvm::Value* v);
+	void compileUnsignedInteger(const llvm::Value* v);
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):
