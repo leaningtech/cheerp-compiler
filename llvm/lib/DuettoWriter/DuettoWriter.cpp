@@ -2327,7 +2327,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			{
 				//Let's mask out upper bits, to make sure we get zero extension
 				//The value might have been initialized with a negative value
-				uint32_t initialSize = src->getIntegerBitWidth();
 				compileUnsignedInteger(I.getOperand(0));
 			}
 			return true;
