@@ -10900,6 +10900,8 @@ def warn_duetto_unsafe_cast : Warning<
   "Duetto: Using values casted to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
 def err_duetto_missing_special_definition : Error<
   "Duetto: '%1' is undeclared">;
+def err_duetto_unions_not_supported : Error<
+  "Duetto: Unions are not currently supported">;
 } // end of duetto issue category
 
 } // end of sema component.

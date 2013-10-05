@@ -1330,6 +1330,11 @@ ItaniumRecordLayoutBuilder::LayoutBase(const BaseSubobjectInfo *Base) {
 void ItaniumRecordLayoutBuilder::InitializeLayout(const Decl *D) {
   if (const RecordDecl *RD = dyn_cast<RecordDecl>(D)) {
     IsUnion = RD->isUnion();
+    if (IsUnion && !Context.getTargetInfo().isByteAddressable())
+    {
+      //Unions are not currently supported
+      Diag(RD->getLocation(), diag::err_duetto_unions_not_supported);
+    }
     IsMsStruct = RD->isMsStruct(Context);
   }
 
