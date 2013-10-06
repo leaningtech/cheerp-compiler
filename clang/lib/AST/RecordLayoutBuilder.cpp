@@ -777,6 +777,8 @@ protected:
   /// placed, in chars.
   CharUnits LayoutBase(const BaseSubobjectInfo *Base);
 
+  bool verifyDataOnlyUnion(const RecordDecl* RD);
+
   /// InitializeLayout - Initialize record layout for the given record decl.
   void InitializeLayout(const Decl *D);
 
@@ -1327,13 +1329,58 @@ ItaniumRecordLayoutBuilder::LayoutBase(const BaseSubobjectInfo *Base) {
   return Offset;
 }
 
+bool ItaniumRecordLayoutBuilder::verifyDataOnlyUnion(const RecordDecl* RD)
+{
+  RecordDecl::field_iterator it=RD->field_begin();
+  RecordDecl::field_iterator itE=RD->field_end();
+  for(;it!=itE;++it)
+  {
+    if (it->isBitField())
+      return false;
+    //We need canonical type to remove typedefs
+    const Type* t=it->getType().getCanonicalType().getTypePtr();
+    if(const ConstantArrayType* at=dyn_cast<ConstantArrayType>(t))
+        t=at->getElementType().getCanonicalType().getTypePtr();
+    //HACK: Add fake support for complex values, to let newlib compile
+    if(const ComplexType* ct=dyn_cast<ComplexType>(t))
+        t=ct->getElementType().getCanonicalType().getTypePtr();
+    if(const BuiltinType* bt=dyn_cast<BuiltinType>(t))
+    {
+      switch(bt->getKind())
+      {
+        case BuiltinType::Char_S:
+        case BuiltinType::UChar:
+        case BuiltinType::Short:
+        case BuiltinType::UShort:
+        case BuiltinType::Int:
+        case BuiltinType::UInt:
+        case BuiltinType::Long:
+        case BuiltinType::ULong:
+        case BuiltinType::Float:
+        case BuiltinType::Double:
+        case BuiltinType::LongDouble:
+          continue;
+	default:
+	  ;
+      }
+    }
+    Diag(it->getLocation(), diag::err_duetto_field_not_supported_in_union);
+    return false;
+  }
+  return true;
+}
+
 void ItaniumRecordLayoutBuilder::InitializeLayout(const Decl *D) {
   if (const RecordDecl *RD = dyn_cast<RecordDecl>(D)) {
     IsUnion = RD->isUnion();
     if (IsUnion && !Context.getTargetInfo().isByteAddressable())
     {
-      //Unions are not currently supported
-      Diag(RD->getLocation(), diag::err_duetto_unions_not_supported);
+      //Check that the union can be supported
+      //Currently only data only unions are
+      bool isDataOnly = verifyDataOnlyUnion(RD);
+      //Even if the union is suppported, tell the user it is less efficient
+      if(isDataOnly)
+        Diag(RD->getLocation(), diag::warn_duetto_inefficient_unions);
     }
     IsMsStruct = RD->isMsStruct(Context);
   }

@@ -10898,10 +10898,12 @@ def err_probability_out_of_range : Error<
 let CategoryName = "Duetto Issue" in {
 def warn_duetto_unsafe_cast : Warning<
   "Duetto: Using values casted to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
+def warn_duetto_inefficient_unions : Warning<
+  "Duetto: Unions are less efficient than on native targets">;
 def err_duetto_missing_special_definition : Error<
   "Duetto: '%1' is undeclared">;
-def err_duetto_unions_not_supported : Error<
-  "Duetto: Unions are not currently supported">;
+def err_duetto_field_not_supported_in_union : Error<
+  "Duetto: Field not supported in union">;
 } // end of duetto issue category
 
 } // end of sema component.

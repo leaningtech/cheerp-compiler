@@ -48,6 +48,7 @@ CHECK-NEXT:   warn_drv_assuming_mfloat_abi_is
 CHECK-NEXT:   warn_drv_clang_unsupported
 CHECK-NEXT:   warn_drv_pch_not_first_include
 CHECK-NEXT:   warn_drv_use_ld_non_word
+CHECK-NEXT:   warn_duetto_inefficient_unions
 CHECK-NEXT:   warn_duetto_unsafe_cast
 CHECK-NEXT:   warn_dup_category_def
 CHECK-NEXT:   warn_enum_value_overflow
