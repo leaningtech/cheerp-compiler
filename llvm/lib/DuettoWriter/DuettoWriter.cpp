@@ -914,7 +914,21 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 			return COMPLETE_OBJECT;
 	}
 	//Follow bitcasts
-	if(isBitCast(v) || isNopCast(v))
+	if(isBitCast(v))
+	{
+		const User* bi=static_cast<const User*>(v);
+		//Casts from unions return regular pointers
+		if(isUnion(bi->getOperand(0)->getType()->getPointerElementType()))
+		{
+			//Special case arrays
+			if(ArrayType::classof(pt->getElementType()))
+				return COMPLETE_OBJECT;
+			else
+				return REGULAR;
+		}
+		return getPointerKind(bi->getOperand(0), visitedPhis);
+	}
+	if(isNopCast(v))
 	{
 		const User* bi=static_cast<const User*>(v);
 		return getPointerKind(bi->getOperand(0), visitedPhis);
@@ -1117,6 +1131,12 @@ bool DuettoWriter::isClientType(const Type* t) const
 		strncmp(t->getStructName().data(), "class._ZN6client", 16)==0);
 }
 
+bool DuettoWriter::isUnion(const Type* t) const
+{
+	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
+		t->getStructName().startswith("union."));
+}
+
 bool DuettoWriter::safeUsagesForNewedMemory(const Value* v) const
 {
 	Value::const_use_iterator it=v->use_begin();
@@ -1256,10 +1276,7 @@ bool DuettoWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type
 			return true;
 	}
 	if(dst->isIntegerTy(8))
-	{
-//		if(safeUsagesForNewedMemory(castI))
-			return true;
-	}
+		return true;
 	//Support getting functions back from the Vtable
 	if(src->isPointerTy() && dst->isPointerTy())
 	{
@@ -1302,6 +1319,8 @@ bool DuettoWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type
 		if(comesFromNew && allowedRawUsages)
 			return true;
 	}
+	if(isUnion(src) && (ArrayType::classof(dst) || isTypedArrayType(dst)))
+		return true;
 	return false;
 }
 
@@ -1568,6 +1587,15 @@ void DuettoWriter::compileTypeImpl(Type* t)
 		}
 		case Type::StructTyID:
 		{
+			//Special case union first
+			if(isUnion(t))
+			{
+				uint32_t typeSize = targetData.getTypeAllocSize(t);
+				stream << "new ArrayBuffer(";
+				stream << typeSize;
+				stream << ')';
+				break;
+			}
 			StructType* st=static_cast<StructType*>(t);
 			stream << "{ ";
 			StructType::element_iterator E=st->element_begin();
@@ -2015,19 +2043,19 @@ const Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG
 	else if(isBitCast(val))
 	{
 		const User* b=static_cast<const User*>(val);
-		return compileObjectForPointer(b->getOperand(0), flag);
+		//If it is a union, handle below
+		if(!isUnion(b->getOperand(0)->getType()->getPointerElementType()))
+			return compileObjectForPointer(b->getOperand(0), flag);
 	}
-	else
+
+	if(flag!=DRY_RUN)
 	{
-		if(flag!=DRY_RUN)
-		{
-			POINTER_KIND k=getPointerKind(val);
-			compilePointer(val, k);
-			if(k==REGULAR)
-				stream << ".d";
-		}
-		return NULL;
+		POINTER_KIND k=getPointerKind(val);
+		compilePointer(val, k);
+		if(k==REGULAR)
+			stream << ".d";
 	}
+	return NULL;
 }
 
 bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastType)
@@ -2044,16 +2072,16 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastTyp
 	else if(isBitCast(val))
 	{
 		const User* b=static_cast<const User*>(val);
-		return compileOffsetForPointer(b->getOperand(0), lastType);
+		//If it is a union, handle below
+		if(!isUnion(b->getOperand(0)->getType()->getPointerElementType()))
+			return compileOffsetForPointer(b->getOperand(0), lastType);
 	}
 	else if(getPointerKind(val)!=REGULAR)
 		return false;
-	else
-	{
-		compileOperand(val);
-		stream << ".o";
-		return true;
-	}
+
+	compileOperand(val);
+	stream << ".o";
+	return true;
 }
 
 const Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE, COMPILE_FLAG flag)
@@ -2194,6 +2222,24 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 				llvm::errs() << "Between:\n\t" << *src << "\n\t" << *dst << "\n";
 				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
 			}
+			//Special case unions
+			if(src->isPointerTy() && isUnion(src->getPointerElementType()))
+			{
+				//Find the type
+				llvm::Type* elementType = dst->getPointerElementType();
+				bool isArray=ArrayType::classof(elementType);
+				if(!isArray)
+					stream << "{d:";
+				stream << "new ";
+				compileTypedArrayType((isArray)?elementType->getSequentialElementType():elementType);
+				stream << '(';
+				compileOperand(bi.getOperand(0));
+				stream << ')';
+				if(!isArray)
+					stream << ", o: 0}";
+				return true;
+			}
+
 			compileOperand(bi.getOperand(0));
 			return true;
 		}
@@ -2675,7 +2721,6 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 			case Instruction::Shl:
 			case Instruction::AShr:
 			case Instruction::LShr:
-			case Instruction::BitCast:
 			case Instruction::FAdd:
 			case Instruction::FDiv:
 			case Instruction::FSub:
@@ -2695,6 +2740,12 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 			case Instruction::PtrToInt:
 			case Instruction::GetElementPtr:
 				return true;
+			case Instruction::BitCast:
+			{
+				//Union are complex, do not inline them
+				llvm::Type* src=I.getOperand(0)->getType();
+				return !(src->isPointerTy() && isUnion(src->getPointerElementType()));
+			}
 			default:
 				llvm::report_fatal_error(Twine("Unsupported opcode: ",StringRef(I.getOpcodeName())), false);
 				return true;
