@@ -63,6 +63,7 @@ private:
 	bool isBitCast(const llvm::Value* v) const;
 	bool isGEP(const llvm::Value* v) const;
 	bool isImmutableType(const llvm::Type* t) const;
+	bool isUnion(const llvm::Type* t) const;
 	void compileTerminatorInstruction(const llvm::TerminatorInst& I);
 	void compileTerminatorInstruction(const llvm::TerminatorInst& I,
 			const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
