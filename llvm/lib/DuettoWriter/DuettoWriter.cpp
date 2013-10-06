@@ -374,7 +374,7 @@ void DuettoWriter::compileTypedArrayType(Type* t)
 		stream << "Float64Array";
 	else
 	{
-		llvm::errs() << "Typed array reuested for type " << *t << "\n";
+		llvm::errs() << "Typed array requested for type " << *t << "\n";
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
 }
