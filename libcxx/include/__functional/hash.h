@@ -317,10 +317,10 @@ struct __scalar_hash<_Tp, 2>
             {
                 size_t __a;
                 size_t __b;
-            } __s;
+            };
         } __u;
         __u.__t = __v;
-        return __murmur2_or_cityhash<size_t>()(&__u, sizeof(__u));
+        return __murmur2_or_cityhash<size_t>()(&__u.__a, sizeof(__u));
     }
 };
 
@@ -339,10 +339,10 @@ struct __scalar_hash<_Tp, 3>
                 size_t __a;
                 size_t __b;
                 size_t __c;
-            } __s;
+            };
         } __u;
         __u.__t = __v;
-        return __murmur2_or_cityhash<size_t>()(&__u, sizeof(__u));
+        return __murmur2_or_cityhash<size_t>()(&__u.__a, sizeof(__u));
     }
 };
 
@@ -362,10 +362,10 @@ struct __scalar_hash<_Tp, 4>
                 size_t __b;
                 size_t __c;
                 size_t __d;
-            } __s;
+            };
         } __u;
         __u.__t = __v;
-        return __murmur2_or_cityhash<size_t>()(&__u, sizeof(__u));
+        return __murmur2_or_cityhash<size_t>()(&__u.__a, sizeof(__u));
     }
 };
 
