@@ -779,6 +779,7 @@ private:
 
 #endif  // _LIBCPP_ABI_ALTERNATE_STRING_LAYOUT
 
+#ifndef __DUETTO__
     union __ulx{__long __lx; __short __lxx;};
 
     enum {__n_words = sizeof(__ulx) / sizeof(size_type)};
@@ -787,6 +788,7 @@ private:
     {
         size_type __words[__n_words];
     };
+#endif
 
     struct __rep
     {
