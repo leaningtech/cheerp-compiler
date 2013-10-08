@@ -171,6 +171,17 @@ void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value
 		}
 		case Type::StructTyID:
 		{
+			if(isUnion(currentType))
+			{
+				stream << "__tmp__=new Int8Array(";
+				compileDereferencePointer(baseDest, NULL, namedOffset);
+				stream << baseName << ");\n";
+				stream << "__tmp__.set(";
+				stream << "new Int8Array(";
+				compileDereferencePointer(baseSrc, NULL, namedOffset);
+				stream << baseName << "))";
+				break;
+			}
 			const StructType* st=static_cast<const StructType*>(currentType);
 			StructType::element_iterator E=st->element_begin();
 			StructType::element_iterator EE=st->element_end();
@@ -245,6 +256,14 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		}
 		case Type::StructTyID:
 		{
+			if(isUnion(currentType))
+			{
+				stream << "__tmp__=new Int8Array(";
+				compileDereferencePointer(baseDest, NULL, namedOffset);
+				stream << baseName << ");\n";
+				stream << "for(var __i__=0;__i__<__tmp__.length;__i__++) __tmp__[__i__]=0\n";
+				break;
+			}
 			const StructType* st=static_cast<const StructType*>(currentType);
 			StructType::element_iterator E=st->element_begin();
 			StructType::element_iterator EE=st->element_end();
@@ -398,6 +417,12 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	assert(destType->isPointerTy());
 
 	Type* pointedType = static_cast<PointerType*>(destType)->getElementType();
+	if(isUnion(pointedType))
+	{
+		//We can use the natural i8*, since the union will have already an allocated
+		//typed array when it has been casted to i8*
+		pointedType = dest->getType()->getPointerElementType();
+	}
 	uint32_t typeSize = targetData.getTypeAllocSize(pointedType);
 
 	//Check that the number of element is not zero
