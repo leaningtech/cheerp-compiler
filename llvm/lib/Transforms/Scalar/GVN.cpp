@@ -1171,6 +1171,9 @@ bool GVNPass::AnalyzeLoadAvailability(LoadInst *Load, MemDepResult DepInfo,
 
   Instruction *DepInst = DepInfo.getInst();
   if (DepInfo.isClobber()) {
+    // TODO: Cheerp: Verify if we can relax the byte addressable requirement
+    if(!DL.isByteAddressable())
+      return false;
     // If the dependence is to a store that writes to a superset of the bits
     // read by the load, we can extract the bits we need for the load from the
     // stored value.
