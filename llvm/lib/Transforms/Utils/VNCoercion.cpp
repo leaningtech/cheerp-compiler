@@ -16,6 +16,10 @@ static bool isFirstClassAggregateOrScalableType(Type *Ty) {
 /// Return true if coerceAvailableValueToLoadType will succeed.
 bool canCoerceMustAliasedValueToLoad(Value *StoredVal, Type *LoadTy,
                                      const DataLayout &DL) {
+  // Do not even try on NBA targets
+  if (!DL.isByteAddressable())
+    return false;
+
   Type *StoredTy = StoredVal->getType();
   if (StoredTy == LoadTy)
     return true;
@@ -164,6 +168,8 @@ static int analyzeLoadFromClobberingWrite(Type *LoadTy, Value *LoadPtr,
                                           Value *WritePtr,
                                           uint64_t WriteSizeInBits,
                                           const DataLayout &DL) {
+  if (!DL.isByteAddressable())
+    return -1;
   // If the loaded/stored value is a first class array/struct, or scalable type,
   // don't try to transform them. We need to be able to bitcast to integer.
   if (isFirstClassAggregateOrScalableType(LoadTy))
@@ -217,6 +223,8 @@ static int analyzeLoadFromClobberingWrite(Type *LoadTy, Value *LoadPtr,
 /// memdep query of a load that ends up being a clobbering store.
 int analyzeLoadFromClobberingStore(Type *LoadTy, Value *LoadPtr,
                                    StoreInst *DepSI, const DataLayout &DL) {
+  if (!DL.isByteAddressable())
+    return -1;
   auto *StoredVal = DepSI->getValueOperand();
 
   // Cannot handle reading from store of first-class aggregate or scalable type.
@@ -329,6 +337,8 @@ static unsigned getLoadLoadClobberFullWidthSize(const Value *MemLocBase,
 /// the other load can feed into the second load.
 int analyzeLoadFromClobberingLoad(Type *LoadTy, Value *LoadPtr, LoadInst *DepLI,
                                   const DataLayout &DL) {
+  if (!DL.isByteAddressable())
+    return -1;
   // Cannot handle reading from store of first-class aggregate yet.
   if (DepLI->getType()->isStructTy() || DepLI->getType()->isArrayTy())
     return -1;
