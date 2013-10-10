@@ -1346,6 +1346,12 @@ bool DuettoWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type
 	}
 	if(isUnion(src) && (ArrayType::classof(dst) || isTypedArrayType(dst)))
 		return true;
+	//Allow changing the size of an array
+	if (ArrayType::classof(src) && ArrayType::classof(dst) &&
+		src->getSequentialElementType() == dst->getSequentialElementType())
+	{
+		return true;
+	}
 	return false;
 }
 
