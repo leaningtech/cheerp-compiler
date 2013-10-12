@@ -925,7 +925,8 @@ void DuettoWriter::printLLVMName(const StringRef& s, NAME_KIND nameKind) const
 				stream.write("_s",2);
 				break;
 			case '_':
-				stream.write("__",2);
+				//NOTE: This may cause collisions
+				stream.write("_",1);
 				break;
 			default:
 				stream.write(data+i,1);
