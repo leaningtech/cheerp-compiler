@@ -112,7 +112,8 @@ private:
 	void compileFree(const llvm::Value* obj);
 	void compilePointer(const llvm::Value* v, POINTER_KIND acceptedKind);
 	void compileOperandImpl(const llvm::Value* v);
-	void printLLVMName(const llvm::StringRef& s) const;
+	enum NAME_KIND { LOCAL=0, GLOBAL=1 };
+	void printLLVMName(const llvm::StringRef& s, NAME_KIND nameKind) const;
 	void printVarName(const llvm::Value* v);
 	void printArgName(const llvm::Argument* v) const;
 	void compileMethodArgs(const llvm::User::const_op_iterator it, const llvm::User::const_op_iterator itE);
