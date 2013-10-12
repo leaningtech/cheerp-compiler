@@ -599,7 +599,7 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 				StructType* st=cast<StructType>(t);
 				arraysNeeded.insert(st);
 				stream << "createArray";
-				printLLVMName(st->getName());
+				printLLVMName(st->getName(), GLOBAL);
 				stream << '(';
 				compileOperand(size);
 				stream << '/' << typeSize << ')';
@@ -896,18 +896,40 @@ void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	}
 }
 
-void DuettoWriter::printLLVMName(const StringRef& s) const
+void DuettoWriter::printLLVMName(const StringRef& s, NAME_KIND nameKind) const
 {
 	const char* data=s.data();
-	//Add an '_' to skip reserved names
-	stream.write("_",1);
+	//Add an '_' or 'L' to skip reserved names
+	stream.write((nameKind==GLOBAL)?"_":"L",1);
 	for(uint32_t i=0;i<s.size();i++)
 	{
-		if(data[i]=='.' || data[i]=='-' || data[i]==':' ||
-			data[i]=='<' || data[i]=='>' || data[i]==' ')
-			stream.write("_",1);
-		else
-			stream.write(data+i,1);
+		//We need to escape invalid chars
+		switch(data[i])
+		{
+			case '.':
+				stream.write("_p",2);
+				break;
+			case '-':
+				stream.write("_m",2);
+				break;
+			case ':':
+				stream.write("_c",2);
+				break;
+			case '<':
+				stream.write("_l",2);
+				break;
+			case '>':
+				stream.write("_r",2);
+				break;
+			case ' ':
+				stream.write("_s",2);
+				break;
+			case '_':
+				stream.write("__",2);
+				break;
+			default:
+				stream.write(data+i,1);
+		}
 	}
 }
 
@@ -1510,7 +1532,7 @@ void DuettoWriter::compileConstant(const Constant* c)
 		else
 		{
 			const GlobalValue* GV=cast<const GlobalValue>(c);
-			printLLVMName(c->getName());
+			printLLVMName(c->getName(), GLOBAL);
 			if(globalsDone.count(GV)==0)
 #ifdef DEBUG_GLOBAL_DEPS
 				globalsQueue.insert(make_pair(GV,currentFun));
@@ -1695,7 +1717,7 @@ void DuettoWriter::compileType(Type* t)
 		{
 			classesNeeded.insert(st);
 			stream << "create";
-			printLLVMName(st->getName());
+			printLLVMName(st->getName(), GLOBAL);
 			stream << "()";
 			return;
 		}
@@ -1715,7 +1737,7 @@ uint32_t DuettoWriter::getUniqueIndexForValue(const Value* v)
 void DuettoWriter::printVarName(const Value* val)
 {
 	if(val->hasName())
-		printLLVMName(val->getName());
+		printLLVMName(val->getName(), GlobalValue::classof(val)?GLOBAL:LOCAL);
 	else
 		stream << "tmp" << getUniqueIndexForValue(val);
 }
@@ -1723,7 +1745,7 @@ void DuettoWriter::printVarName(const Value* val)
 void DuettoWriter::printArgName(const Argument* val) const
 {
 	if(val->hasName())
-		printLLVMName(val->getName());
+		printLLVMName(val->getName(), LOCAL);
 	else
 		stream << "arg" << val->getArgNo();
 }
@@ -1984,14 +2006,14 @@ bool DuettoWriter::compileNotInlineableInstruction(const Instruction& I)
 				assert(ivi.getNumIndices()==1);
 				//Find the offset to the pointed element
 				assert(ivi.hasName());
-				printLLVMName(ivi.getName());
+				printLLVMName(ivi.getName(), LOCAL);
 			}
 			else
 			{
 				//Optimize for the assembly of the aggregate values
 				assert(aggr->hasOneUse());
 				assert(aggr->hasName());
-				printLLVMName(aggr->getName());
+				printLLVMName(aggr->getName(), LOCAL);
 			}
 			uint32_t offset=ivi.getIndices()[0];
 			stream << ".a" << offset << " = ";
@@ -3180,7 +3202,7 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		return;
 	}
 	stream  << "var ";
-	printLLVMName(G.getName());
+	printLLVMName(G.getName(), GLOBAL);
 	if(G.hasInitializer())
 	{
 		stream << " = ";
@@ -3213,7 +3235,7 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		}
 		const Constant* C=otherGV->getInitializer();
 
-		printLLVMName(otherGV->getName());
+		printLLVMName(otherGV->getName(), GLOBAL);
 		if(isImmutableType(C->getType()))
 			stream << "[0]";
 		stream << it->second.baseName << " = ";
@@ -3270,7 +3292,7 @@ void DuettoWriter::compileClassType(StructType* T)
 		return;
 	}
 	stream << "function create";
-	printLLVMName(T->getName());
+	printLLVMName(T->getName(), GLOBAL);
 	stream << "(){\n";
 
 	stream << "var t=";
@@ -3302,7 +3324,7 @@ void DuettoWriter::compileArrayClassType(StructType* T)
 		return;
 	}
 	stream << "function createArray";
-	printLLVMName(T->getName());
+	printLLVMName(T->getName(), GLOBAL);
 	stream << "(size){\n";
 	stream << "var ret=new Array(size);\nfor(var __i__=0;__i__<size;__i__++)\n";
 	stream << "ret[__i__]=";
@@ -3346,7 +3368,7 @@ void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION act
 			lastPriority=priority;
 			Constant* F=E->getAggregateElement((unsigned)1);
 			assert(Function::classof(F) && F->hasName());
-			printLLVMName(F->getName());
+			printLLVMName(F->getName(), GLOBAL);
 			stream << "();\n";
 		}
 	}
