@@ -2080,15 +2080,22 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       }
     }
 
-    if (!CGF.getTarget().isByteAddressable() && !isa<llvm::ConstantPointerNull>(Src))
+    if (CGF.getTarget().isByteAddressable() || isa<llvm::ConstantPointerNull>(Src) ||
+        (isa<llvm::Function>(Src) && isa<llvm::FunctionType>(DstTy)))
+    {
+      return Builder.CreateBitCast(Src, DstTy);
+    }
+    else
     {
       // Add an intrincic to tag the cast as one requested by the user
       // And also emit a warning
       CGF.CGM.getDiags().Report(CE->getLocStart(), diag::warn_duetto_unsafe_cast);
 
-      llvm::Value* tmp1=Builder.CreateBitCast(Src, CGF.Int8PtrTy);
-      llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(), llvm::Intrinsic::duetto_cast_user);
-      Src = Builder.CreateCall(intrinsic, tmp1);
+      llvm::Type* types[] = { DstTy, SrcTy };
+
+      llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
+                                        llvm::Intrinsic::duetto_cast_user, types);
+      return Builder.CreateCall(intrinsic, Src);
     }
     return Builder.CreateBitCast(Src, DstTy);
   }
