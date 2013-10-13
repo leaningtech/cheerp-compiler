@@ -1692,7 +1692,7 @@ private:
         _LIBCPP_INLINE_VISIBILITY
         static void __construct(false_type, allocator_type&, _Tp* __p, _Args&&... __args)
             {
-                ::new ((void*)__p) _Tp(_VSTD::forward<_Args>(__args)...);
+                ::new (__p) _Tp(_VSTD::forward<_Args>(__args)...);
             }
 
     template <class _Tp>
