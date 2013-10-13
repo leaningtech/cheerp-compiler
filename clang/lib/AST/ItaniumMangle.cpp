@@ -164,6 +164,7 @@ public:
   void mangleCXXRTTI(QualType T, raw_ostream &) override;
   void mangleCXXRTTIName(QualType T, raw_ostream &) override;
   void mangleTypeName(QualType T, raw_ostream &) override;
+  void mangleType(QualType Ty, raw_ostream &) override;
 
   void mangleCXXCtorComdat(const CXXConstructorDecl *D, raw_ostream &) override;
   void mangleCXXDtorComdat(const CXXDestructorDecl *D, raw_ostream &) override;
@@ -6223,6 +6224,11 @@ void ItaniumMangleContextImpl::mangleCXXDtorComdat(const CXXDestructorDecl *D,
                                                    raw_ostream &Out) {
   CXXNameMangler Mangler(*this, Out, D, Dtor_Comdat);
   Mangler.mangle(GlobalDecl(D, Dtor_Comdat));
+}
+
+void ItaniumMangleContextImpl::mangleType(QualType Ty, raw_ostream &Out) {
+  CXXNameMangler Mangler(*this, Out);
+  Mangler.mangleType(Ty);
 }
 
 void ItaniumMangleContextImpl::mangleThunk(const CXXMethodDecl *MD,
