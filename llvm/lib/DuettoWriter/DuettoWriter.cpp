@@ -6,6 +6,7 @@
 #include "Relooper.h"
 #include "llvm/Duetto/Utils.h"
 #include "llvm/Duetto/Writer.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -535,9 +536,6 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 
 void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 {
-	//Skip over cast.user intrinsics
-	if(isNopCast(*callV->use_begin()))
-		callV = *callV->use_begin();
 	//Find out if this is casted to something
 	Value::const_use_iterator it=callV->use_begin();
 	Value::const_use_iterator itE=callV->use_end();
@@ -1030,7 +1028,7 @@ bool DuettoWriter::isNopCast(const Value* val) const
 	const CallInst* newCall=dyn_cast<const CallInst>(val);
 	if(newCall && newCall->getCalledFunction())
 		return newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
-			|| newCall->getCalledFunction()->getName()=="llvm.duetto.cast.user";
+			|| newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_cast_user;
 	return false;
 }
 
