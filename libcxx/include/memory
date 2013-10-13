@@ -1872,7 +1872,7 @@ public:
         void
         construct(_Up* __p, _Args&&... __args)
         {
-            ::new((void*)__p) _Up(_VSTD::forward<_Args>(__args)...);
+            ::new(__p) _Up(_VSTD::forward<_Args>(__args)...);
         }
 #else  // !defined(_LIBCPP_HAS_NO_RVALUE_REFERENCES) && !defined(_LIBCPP_HAS_NO_VARIADICS)
         _LIBCPP_INLINE_VISIBILITY
