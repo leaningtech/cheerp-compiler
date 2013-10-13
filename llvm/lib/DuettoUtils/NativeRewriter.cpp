@@ -5,6 +5,7 @@
 
 #include "llvm/Duetto/Utils.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Intrinsics.h"
 
 using namespace llvm;
 using namespace std;
@@ -210,31 +211,19 @@ void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 				Function* called=i->getCalledFunction();
 				if(called==NULL)
 					continue;
-				if(!called->getName().startswith("__duettoNew_class"))
+				if(called->getIntrinsicID() != Intrinsic::duetto_allocate)
 					continue;
-				//Ok, it's a new, find if the only use is a bitcast
-				//in such case we assume that the allocation was for the target type
-				Instruction::use_iterator it=i->use_begin();
-				Instruction::use_iterator itE=i->use_end();
-				for(;it!=itE;++it)
-				{
-					BitCastInst* bc=dyn_cast<BitCastInst>(*it);
-					if(bc==NULL)
-						continue;
-					Type* t=bc->getDestTy()->getContainedType(0);
-					std::string builtinTypeName;
-					if(!t->isStructTy() || !isBuiltinType(t->getStructName().data(), builtinTypeName))
-						continue;
-					toRemove.push_back(i);
-					rewriteNativeAllocationUsers(M,toRemove,bc,t,builtinTypeName);
-				}
+				//This should be a typed new
+				Type* t=i->getType()->getPointerElementType();
+				std::string builtinTypeName;
+				if(!t->isStructTy() || !isBuiltinType(t->getStructName().data(), builtinTypeName))
+					continue;
+				rewriteNativeAllocationUsers(M,toRemove,i,t,builtinTypeName);
 			}
 		}
 	}
 
 	//Remove the instructions in backward order to avoid dependency issues
 	for(int i=toRemove.size();i>0;i--)
-	{
 		toRemove[i-1]->eraseFromParent();
-	}
 }
