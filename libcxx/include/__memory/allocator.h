@@ -148,7 +148,7 @@ public:
     template <class _Up, class... _Args>
     _LIBCPP_DEPRECATED_IN_CXX17 _LIBCPP_INLINE_VISIBILITY
     void construct(_Up* __p, _Args&&... __args) {
-        ::new ((void*)__p) _Up(_VSTD::forward<_Args>(__args)...);
+        ::new (__p) _Up(_VSTD::forward<_Args>(__args)...);
     }
 
     _LIBCPP_DEPRECATED_IN_CXX17 _LIBCPP_INLINE_VISIBILITY
