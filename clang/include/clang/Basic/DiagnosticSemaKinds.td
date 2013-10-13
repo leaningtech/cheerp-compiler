@@ -10904,6 +10904,8 @@ def err_duetto_missing_special_definition : Error<
   "Duetto: '%1' is undeclared">;
 def err_duetto_field_not_supported_in_union : Error<
   "Duetto: Field not supported in union">;
+def err_duetto_invalid_plament_new : Error<
+  "Duetto: Placement new is only valid on memory of the same type. If this is a custom allocator, disable it">;
 } // end of duetto issue category
 
 } // end of sema component.
