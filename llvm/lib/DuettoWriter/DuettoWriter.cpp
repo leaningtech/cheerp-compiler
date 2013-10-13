@@ -540,12 +540,27 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 	Value::const_use_iterator it=callV->use_begin();
 	Value::const_use_iterator itE=callV->use_end();
 	const Type* castedType = NULL;
-	for(;it!=itE;++it)
+	//If we are using the typed allocation it's easy
+	if(const CallInst* ci=dyn_cast<CallInst>(callV))
+	{
+		if(ci->getCalledFunction() &&
+			ci->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate)
+		{
+			castedType = ci->getType();
+		}
+	}
+	for(;it!=itE && castedType==NULL;++it)
 	{
 		if(BitCastInst::classof(*it))
-		{
 			castedType = (*it)->getType();
-			break;
+		else if(const CallInst* ci = dyn_cast<CallInst>(*it))
+		{
+			//Support duetto.cast.user
+			if(ci->getCalledFunction() &&
+				ci->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_cast_user)
+			{
+				castedType = (*it)->getType();
+			}
 		}
 	}
 
@@ -687,7 +702,7 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	else if(strcmp(ident,"malloc")==0 ||
 		strcmp(ident,"_Znaj")==0 ||
 		strcmp(ident,"_Znwj")==0 ||
-		strncmp(ident,"__duettoNew_",12)==0)
+		strncmp(ident,"llvm.duetto.allocate",20)==0)
 	{
 		compileAllocation(callV, *it);
 		return true;
@@ -1243,7 +1258,7 @@ bool DuettoWriter::isComingFromAllocation(const Value* val) const
 			|| newCall->getCalledFunction()->getName()=="_Znaj"
 			|| newCall->getCalledFunction()->getName()=="realloc"
 			|| newCall->getCalledFunction()->getName()=="malloc"
-			|| newCall->getCalledFunction()->getName().startswith("__duettoNew_");
+			|| newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate;
 	}
 	//Try invoke as well
 	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
@@ -1254,7 +1269,7 @@ bool DuettoWriter::isComingFromAllocation(const Value* val) const
 			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
 			|| newInvoke->getCalledFunction()->getName()=="realloc"
 			|| newInvoke->getCalledFunction()->getName()=="malloc"
-			|| newInvoke->getCalledFunction()->getName().startswith("__duettoNew_");
+			|| newInvoke->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate;
 	}
 	return false;
 }
