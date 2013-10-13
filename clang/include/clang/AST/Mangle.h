@@ -167,6 +167,7 @@ public:
                                             raw_ostream &) = 0;
   virtual void mangleItaniumThreadLocalWrapper(const VarDecl *D,
                                                raw_ostream &) = 0;
+  virtual void mangleType(QualType Ty, raw_ostream &) = 0;
 
   virtual void mangleCXXCtorComdat(const CXXConstructorDecl *D,
                                    raw_ostream &) = 0;
