@@ -179,6 +179,10 @@ static const Function *getCalledFunction(const Value *V,
 static Optional<AllocFnsTy>
 getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
                              const TargetLibraryInfo *TLI) {
+
+  if (Callee->getIntrinsicID() == Intrinsic::duetto_allocate)
+    return &AllocationFnData[0];
+
   // Make sure that the function is available.
   LibFunc TLIFn;
   if (!TLI || !TLI->getLibFunc(*Callee, TLIFn) || !TLI->has(TLIFn))
