@@ -71,6 +71,8 @@ struct AllocFnsTy {
 // FIXME: certain users need more information. E.g., SimplifyLibCalls needs to
 // know which functions are nounwind, noalias, nocapture parameters, etc.
 static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
+  // Keep this one as the first one
+  {LibFunc_duetto_allocate,     {CallocLike,  1, 0,  -1}},
   {LibFunc_malloc,              {MallocLike,  1, 0,  -1}},
   {LibFunc_vec_malloc,          {MallocLike,  1, 0,  -1}},
   {LibFunc_valloc,              {MallocLike,  1, 0,  -1}},
@@ -140,6 +142,10 @@ static const Function *getCalledFunction(const Value *V, bool LookThroughBitCast
 static Optional<AllocFnsTy>
 getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
                              const TargetLibraryInfo *TLI) {
+
+  if (Callee->getIntrinsicID() == Intrinsic::duetto_allocate)
+    return &AllocationFnData[0];
+
   // Make sure that the function is available.
   LibFunc TLIFn;
   if (!TLI || !TLI->getLibFunc(*Callee, TLIFn) || !TLI->has(TLIFn))
