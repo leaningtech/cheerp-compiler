@@ -29,4 +29,4 @@ def int_duetto_cast_user  : Intrinsic<[llvm_anyptr_ty],
 // Ok, it's not really a cast but we use this to signal intrinsics that may have non parsable names
 def int_duetto_allocate  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_i32_ty],
-                             [IntrNoMem, IntrIsCast]>;
+                             [IntrIsCast]>;
