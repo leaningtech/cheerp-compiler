@@ -10906,6 +10906,8 @@ def err_duetto_field_not_supported_in_union : Error<
   "Duetto: Field not supported in union">;
 def err_duetto_invalid_plament_new : Error<
   "Duetto: Placement new is only valid on memory of the same type. If this is a custom allocator, disable it">;
+def err_duetto_void_ptr_compare : Error<
+  "Duetto: Comparing void* is not supported. Please cast to the actual type of the object">;
 } // end of duetto issue category
 
 } // end of sema component.
