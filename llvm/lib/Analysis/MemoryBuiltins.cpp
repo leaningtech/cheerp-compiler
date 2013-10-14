@@ -178,6 +178,9 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
   if (!Callee->getReturnType()->isPointerTy())
     return None;
 
+  if (Callee->getIntrinsicID() == Intrinsic::duetto_allocate)
+    return &AllocationFnData[0];
+
   // Make sure that the function is available.
   LibFunc TLIFn;
   if (!TLI || !TLI->getLibFunc(*Callee, TLIFn) || !TLI->has(TLIFn))
