@@ -1,0 +1,14 @@
+Source: duetto
+Maintainer: Alessandro Pignotti <alessandro@leaningtech.com>
+Section: devel
+Priority: optional
+Standards-Version: 3.9.2
+Build-Depends: debhelper (>=8)
+
+Package: duetto
+Architecture: i386 amd64
+Depends: ${shlibs:Depends} ${misc:Depends}
+Description: A C++ compiler for the Web
+ Duetto is a tool to bring C++ programming to the Web,
+ designed to provide a seamless experience for client/server
+ development.
