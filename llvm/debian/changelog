@@ -1,3 +1,9 @@
+duetto (0.9-3) raring; urgency=low
+
+  * debian/control fixes
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 17 Oct 2013 10:57:54 +0200
+
 duetto (0.9-1) raring; urgency=low
 
   * Initial release
