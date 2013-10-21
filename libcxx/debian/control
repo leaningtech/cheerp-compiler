@@ -1,0 +1,14 @@
+Source: duetto-libcxx
+Maintainer: Alessandro Pignotti <alessandro@leaningtech.com>
+Section: devel
+Priority: optional
+Standards-Version: 3.9.2
+Build-Depends: debhelper (>=8), cmake, duetto, duetto-utils, duetto-newlib
+
+Package: duetto-libcxx
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, duetto, duetto-utils, duetto-newlib
+Description: A C++ compiler for the Web, C++ library implementation
+ Duetto is a tool to bring C++ programming to the Web,
+ designed to provide a seamless experience for client/server
+ development.
