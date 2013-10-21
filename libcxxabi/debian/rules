@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+	cd lib; CXX="/opt/duetto/bin/clang -target duetto -emit-llvm" ./buildit
+
+override_dh_auto_install:
+	mkdir -p $(CURDIR)/debian/duetto-libcxxabi/opt/duetto/lib
+	cp lib/libcxxabi.bc $(CURDIR)/debian/duetto-libcxxabi/opt/duetto/lib
