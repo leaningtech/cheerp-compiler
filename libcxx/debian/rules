@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ -Scmake --parallel
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+	    -DCMAKE_BUILD_TYPE=Relase \
+	    -DCMAKE_INSTALL_PREFIX=/opt/duetto \
+	    -DCMAKE_TOOLCHAIN_FILE=/opt/duetto/share/cmake/Modules/DuettoToolchain.cmake \
+	    -DLIBCXX_ENABLE_SHARED=OFF \
+	    -DLIBCXX_LIBCXXABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
+	    -DLIBCXX_CXX_ABI=libcxxabi
