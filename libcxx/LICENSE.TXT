@@ -237,6 +237,9 @@ mechanisms:
 Legacy LLVM License (https://llvm.org/docs/DeveloperPolicy.html#legacy):
 ==============================================================================
 
+Parts of this library are licensed under GPLv2+. Full text of the license is
+included in the file COPYING.
+
 The libc++ library is dual licensed under both the University of Illinois
 "BSD-Like" license and the MIT license.  As a user of this code you may choose
 to use it under either license.  As a contributor, you agree to allow your code
