@@ -1,9 +1,12 @@
 //===- IntrinsicsARM.td - Defines ARM intrinsics -----------*- tablegen -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//                     Duetto: The C++ compiler for the Web
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
+//
+// Copyright 2013 Leaning Technologies
+//
 //
 //===----------------------------------------------------------------------===//
 //

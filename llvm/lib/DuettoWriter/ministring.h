@@ -1,3 +1,4 @@
+// Developed as part of the emscripten project. License: MIT&LLVM
 
 // Tiny implementation of strings. Avoids linking in all of std::string
 

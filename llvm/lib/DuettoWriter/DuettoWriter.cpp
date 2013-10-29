@@ -1,6 +1,12 @@
 //===-- DuettoWriter.cpp - The Duetto JavaScript generator -------------===//
 //
-//	Copyright 2011-2013 Leaning Technlogies
+//                     Duetto: The C++ compiler for the Web
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+// Copyright 2011-2013 Leaning Technologies
+//
 //===----------------------------------------------------------------------===//
 
 #include "Relooper.h"
@@ -3422,7 +3428,7 @@ void DuettoWriter::makeJS()
 		std::set<const GlobalValue*>::iterator it=globalsQueue.begin();
 		const GlobalValue* v=*it;
 #endif
-		//printMethodNames=true;
+		printMethodNames=true;
 		if(printMethodNames)
 		{
 			llvm::errs() << v->getName();

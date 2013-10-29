@@ -5,7 +5,8 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2013 Leaning Technlogies
+// Copyright 2011-2013 Leaning Technologies
+//
 //===----------------------------------------------------------------------===//
 
 #include "DuettoTargetMachine.h"
