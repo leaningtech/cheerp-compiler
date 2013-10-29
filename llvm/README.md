@@ -1,3 +1,6 @@
+Duetto: A C++ compiler for the Web
+==================================
+
 Duetto compiler build instructions
 ----------------------------------
 
