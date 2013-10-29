@@ -11,4 +11,4 @@ override_dh_auto_configure:
 	    -DLLVM_TARGETS_TO_BUILD="ARM;DuettoBackend;X86"
 
 override_dh_auto_install:
-	        dh_auto_install --destdir=debian/tmp
+	dh_auto_install --destdir=debian/tmp
