@@ -1,6 +1,12 @@
 //===-- duetto-compiler.cpp - The Duetto JavaScript generator -------------===//
 //
-//	Copyright 2011-2012 Leaning Technlogies
+//                     Duetto: The C++ compiler for the Web
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+// Copyright 2011-2013 Leaning Technologies
+//
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Duetto/Writer.h"

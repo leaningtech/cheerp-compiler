@@ -1,3 +1,4 @@
+// Developed as part of the emscripten project. License: MIT&LLVM
 /*
 This is an optimized C++ implemention of the Relooper algorithm originally
 developed as part of Emscripten. This implementation includes optimizations

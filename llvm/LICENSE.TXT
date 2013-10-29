@@ -244,6 +244,8 @@ All rights reserved.
 
 Developed by:
 
+    Leaning Technologies Ltd.
+
     LLVM Team
 
     University of Illinois at Urbana-Champaign

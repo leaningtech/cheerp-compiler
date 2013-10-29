@@ -1,4 +1,4 @@
-;===- ./lib/Linker/LLVMBuild.txt -------------------------------*- Conf -*--===;
+;===- ./lib/DuettoUtils/LLVMBuild.txt -------------------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;

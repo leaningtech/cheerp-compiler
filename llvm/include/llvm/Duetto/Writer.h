@@ -1,6 +1,12 @@
 //===-- Duetto/Writer.h - The Duetto JavaScript generator -------------===//
 //
-//	Copyright 2011-2013 Leaning Technlogies
+//                     Duetto: The C++ compiler for the Web
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+// Copyright 2011-2013 Leaning Technologies
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef _DUETTO_WRITER_H
@@ -15,7 +21,7 @@
 #include <map>
 
 //Comment out this to debug why a global is included in the JS
-//#define DEBUG_GLOBAL_DEPS
+#define DEBUG_GLOBAL_DEPS
 
 namespace duetto
 {
