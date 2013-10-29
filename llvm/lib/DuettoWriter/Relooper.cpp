@@ -1,3 +1,4 @@
+// Developed as part of the emscripten project. License: MIT&LLVM
 
 #include "Relooper.h"
 
