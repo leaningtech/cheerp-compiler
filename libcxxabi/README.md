@@ -1,6 +1,9 @@
 Duetto: A C++ compiler for the Web
 ==================================
 
+Please report bugs on launchpad:
+https://bugs.launchpad.net/duetto
+
 Duetto libcxxabi build instructions
 -----------------------------------
 
