@@ -10901,7 +10901,7 @@ def warn_duetto_unsafe_cast : Warning<
 def warn_duetto_inefficient_unions : Warning<
   "Duetto: Unions are less efficient than on native targets">;
 def err_duetto_missing_special_definition : Error<
-  "Duetto: '%1' is undeclared">;
+  "Duetto: '%0' is undeclared">;
 def err_duetto_field_not_supported_in_union : Error<
   "Duetto: Field not supported in union">;
 def err_duetto_invalid_plament_new : Error<
