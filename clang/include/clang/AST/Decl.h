@@ -2929,7 +2929,6 @@ public:
   FunctionDecl* skelFunction;
   //Duetto, pointer to the stub function for this server function
   FunctionDecl* stubFunction;
-  Stmt* stubBody;
 };
 
 /// Represents a member of a struct/union/class.
