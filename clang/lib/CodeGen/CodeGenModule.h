@@ -912,6 +912,8 @@ public:
   unsigned ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
                                llvm::SmallVector<const CXXBaseSpecifier*, 4>& path);
 
+  llvm::Function* GetUserCastIntrinsic(SourceLocation srcLoc, QualType SrcTy, QualType DestTy);
+
   llvm::FoldingSet<BlockByrefHelpers> ByrefHelpersCache;
 
   /// Fetches the global unique block count.

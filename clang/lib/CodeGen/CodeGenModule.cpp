@@ -4564,6 +4564,16 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalAnnotations(D, Fn);
 }
 
+llvm::Function* CodeGenModule::GetUserCastIntrinsic(SourceLocation srcLoc, QualType SrcTy, QualType DestTy)
+{
+  getDiags().Report(srcLoc, diag::warn_duetto_unsafe_cast);
+
+  llvm::Type* types[] = { getTypes().ConvertType(DestTy), getTypes().ConvertType(SrcTy) };
+
+  return llvm::Intrinsic::getDeclaration(&getModule(),
+                                     llvm::Intrinsic::duetto_cast_user, types);
+}
+
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
   const auto *D = cast<ValueDecl>(GD.getDecl());
   const AliasAttr *AA = D->getAttr<AliasAttr>();
