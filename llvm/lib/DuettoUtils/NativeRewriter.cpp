@@ -176,7 +176,6 @@ void DuettoUtils::rewriteNativeAllocationUsers(Module& M, SmallVector<Instructio
 			}
 			default:
 			{
-				userInst->dump();
 				baseSubstitutionForBuiltin(users[j], i, newI);
 				break;
 			}
