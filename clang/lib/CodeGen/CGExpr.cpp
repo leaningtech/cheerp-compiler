@@ -4877,15 +4877,25 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
 
     CGM.EmitExplicitCastExprType(CE, this);
     LValue LV = EmitLValue(E->getSubExpr());
-    Address V = Builder.CreateElementBitCast(
-        LV.getAddress(*this),
+    Address V = LV.getAddress(*this);
+    if (CGM.getTarget().isByteAddressable())
+    {
+      V = Builder.CreateElementBitCast(
+        V,
         ConvertTypeForMem(CE->getTypeAsWritten()->getPointeeType()));
 
-    if (SanOpts.has(SanitizerKind::CFIUnrelatedCast))
-      EmitVTablePtrCheckForCast(E->getType(), V,
+      if (SanOpts.has(SanitizerKind::CFIUnrelatedCast))
+        EmitVTablePtrCheckForCast(E->getType(), V,
                                 /*MayBeNull=*/false, CFITCK_UnrelatedCast,
                                 E->getBeginLoc());
-
+    }
+    else
+    {
+      llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(CE->getBeginLoc(),
+		      getContext().getPointerType(E->getSubExpr()->getType()),
+		      CE->getTypeAsWritten());
+      V = Address(Builder.CreateCall(intrinsic, V.getPointer()), V.getAlignment());
+    }
     return MakeAddrLValue(V, E->getType(), LV.getBaseInfo(),
                           CGM.getTBAAInfoForSubobject(LV, E->getType()));
   }

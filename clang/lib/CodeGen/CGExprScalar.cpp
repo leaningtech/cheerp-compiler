@@ -2040,8 +2040,19 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_LValueBitCast:
   case CK_ObjCObjectLValueCast: {
     Address Addr = EmitLValue(E).getAddress(CGF);
-    Addr = Builder.CreateElementBitCast(Addr, CGF.ConvertTypeForMem(DestTy));
-    LValue LV = CGF.MakeAddrLValue(Addr, DestTy);
+    Value LV;
+    if (CGF.getTarget().isByteAddressable())
+    {
+      Addr = Builder.CreateElementBitCast(Addr, CGF.ConvertTypeForMem(DestTy));
+      LV = CGF.MakeAddrLValue(Addr, DestTy);
+    }
+    else
+    {
+      llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE->getLocStart(),
+		      CGF.getContext().getPointerType(E->getType()),
+		      CGF.getContext().getPointerType(DestTy));
+      V = Builder.CreateCall(intrinsic, V);
+    }
     return EmitLoadOfLValue(LV, CE->getExprLoc());
   }
 
@@ -2184,14 +2195,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     }
     else
     {
-      // Add an intrincic to tag the cast as one requested by the user
-      // And also emit a warning
-      CGF.CGM.getDiags().Report(CE->getLocStart(), diag::warn_duetto_unsafe_cast);
-
-      llvm::Type* types[] = { DstTy, SrcTy };
-
-      llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
-                                        llvm::Intrinsic::duetto_cast_user, types);
+      llvm::Function* intrinsic = CGF.CGM.GetUserCastIntrinsic(CE->getLocStart(), E->getType(), DestTy);
       return Builder.CreateCall(intrinsic, Src);
     }
     return Builder.CreateBitCast(Src, DstTy);
