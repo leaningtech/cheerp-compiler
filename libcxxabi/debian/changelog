@@ -1,3 +1,9 @@
+duetto-libcxxabi (0.9.1) raring; urgency=low
+
+  * Bump version
+
+ -- Alessandro Pignotti <a.pignotti@sssup.it>  Thu, 07 Nov 2013 23:11:22 +0100
+
 duetto-libcxxabi (0.9-1) raring; urgency=low
 
   * Initial release
