@@ -20,8 +20,8 @@
 #include <set>
 #include <map>
 
-//Comment out this to debug why a global is included in the JS
-#define DEBUG_GLOBAL_DEPS
+//De-comment this to debug why a global is included in the JS
+//#define DEBUG_GLOBAL_DEPS
 
 namespace duetto
 {
