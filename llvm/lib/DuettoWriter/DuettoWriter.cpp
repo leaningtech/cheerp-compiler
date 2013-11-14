@@ -3428,7 +3428,7 @@ void DuettoWriter::makeJS()
 		std::set<const GlobalValue*>::iterator it=globalsQueue.begin();
 		const GlobalValue* v=*it;
 #endif
-		printMethodNames=true;
+		//printMethodNames=true;
 		if(printMethodNames)
 		{
 			llvm::errs() << v->getName();
