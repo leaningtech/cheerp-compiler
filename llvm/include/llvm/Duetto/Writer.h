@@ -130,7 +130,9 @@ private:
 	bool safeUsagesForNewedMemory(const llvm::Value* v) const;
 	bool safeCallForNewedMemory(const llvm::CallInst* ci) const;
 	uint32_t getUniqueIndexForValue(const llvm::Value* v);
+	uint32_t getUniqueIndex();
 	std::map<const llvm::Value*, uint32_t> unnamedValueMap;
+	uint32_t currentUniqueIndex;
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void gatherDependencies(const llvm::Constant* C, const llvm::GlobalVariable* base,
