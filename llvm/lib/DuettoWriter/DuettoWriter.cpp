@@ -1750,8 +1750,13 @@ uint32_t DuettoWriter::getUniqueIndexForValue(const Value* v)
 {
 	std::map<const Value*,uint32_t>::iterator it=unnamedValueMap.find(v);
 	if(it==unnamedValueMap.end())
-		it=unnamedValueMap.insert(make_pair(v, unnamedValueMap.size())).first;
+		it=unnamedValueMap.insert(make_pair(v, currentUniqueIndex++)).first;
 	return it->second;
+}
+
+uint32_t DuettoWriter::getUniqueIndex()
+{
+	return currentUniqueIndex++;
 }
 
 void DuettoWriter::printVarName(const Value* val)
@@ -1774,16 +1779,18 @@ void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 {
 	BasicBlock::const_iterator I=to->begin();
 	BasicBlock::const_iterator IE=to->end();
+	SmallVector<uint32_t, 4> tmps;
+	//Phase 1, use temporaries to store the results of PHIs
 	for(;I!=IE;++I)
 	{
 		const PHINode* phi=dyn_cast<const PHINode>(I);
+		//TODO: I think that after the first non-phi node we can stop
 		if(phi==NULL)
 			continue;
 		const Value* val=phi->getIncomingValueForBlock(from);
-		//TODO: verify that 'var' works
-		stream << "var ";
-		printVarName(phi);
-		stream << " = ";
+		uint32_t tmpIndex = getUniqueIndex();
+		stream << "var tmpphi" << tmpIndex << " = ";
+		tmps.push_back(tmpIndex);
 		if(val->getType()->isPointerTy())
 		{
 			//Fix complete object pointers if needed
@@ -1793,6 +1800,18 @@ void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		else
 			compileOperand(val);
 		stream << ";\n";
+	}
+	//Phase 2, actually assign the values
+	I=to->begin();
+	for(uint32_t tmpI=0;I!=IE;++I,tmpI++)
+	{
+		const PHINode* phi=dyn_cast<const PHINode>(I);
+		if(phi==NULL)
+			continue;
+		//TODO: verify that 'var' works
+		stream << "var ";
+		printVarName(phi);
+		stream << " = tmpphi" << tmps[tmpI] << ";\n";
 	}
 }
 
