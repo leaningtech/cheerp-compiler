@@ -151,7 +151,7 @@ private:
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):
-		module(m),targetData(&m),currentFun(NULL),printMethodNames(false),stream(s)
+		module(m),targetData(&m),currentFun(NULL),printMethodNames(false),currentUniqueIndex(0),stream(s)
 	{
 	}
 	void makeJS();
