@@ -791,9 +791,9 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	}
 	else if(strncmp(ident,"default_duettoCreateBuiltin_",28)==0)
 	{
-		assert(it==itE);
 		//Default handling of builtin constructors
-		stream << "new " << (ident+28) << "()";
+		stream << "new " << (ident+28);
+		compileMethodArgs(it, itE);
 		return true;
 	}
 	return false;
