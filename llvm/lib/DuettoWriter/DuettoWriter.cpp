@@ -779,16 +779,6 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		handleBuiltinNamespace(ident+11,it,itE);
 		return true;
 	}
-	else if(strncmp(ident,"_duettoCreateBuiltin_ZN6client12Float32ArrayC1EPf",49)==0)
-	{
-		const Type* lastType=compileObjectForPointer(*it, NORMAL);
-		stream << ".subarray(";
-		bool notFirst=compileOffsetForPointer(*it, lastType);
-		if(!notFirst)
-			stream << '0';
-		stream << ')';
-		return true;
-	}
 	else if(strncmp(ident,"default_duettoCreateBuiltin_",28)==0)
 	{
 		//Default handling of builtin constructors
