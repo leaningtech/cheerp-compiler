@@ -3754,7 +3754,7 @@ Action *Driver::ConstructPhaseAction(
           Args.hasArg(options::OPT_S) ? types::TY_LTO_IR : types::TY_LTO_BC;
       return C.MakeAction<BackendJobAction>(Input, Output);
     }
-    if (Args.hasArg(options::OPT_emit_llvm) ||
+    if (Args.hasArg(options::OPT_emit_llvm) || TC.getArch() == llvm::Triple::duetto ||
         (TargetDeviceOffloadKind == Action::OFK_HIP &&
          Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc,
                       false))) {
