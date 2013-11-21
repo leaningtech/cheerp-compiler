@@ -364,3 +364,44 @@ SanitizerMask WebAssembly::getSupportedSanitizers() const {
 Tool *WebAssembly::buildLinker() const {
   return new tools::wasm::Linker(*this);
 }
+
+void duetto::Link::ConstructJob(Compilation &C, const JobAction &JA,
+                                const InputInfo &Output,
+                                const InputInfoList &Inputs,
+                                const ArgList &Args,
+                                const char *LinkingOutput) const {
+  ArgStringList CmdArgs;
+
+  CmdArgs.push_back("-o");
+  CmdArgs.push_back(Output.getFilename());
+
+  for (InputInfoList::const_iterator
+         it = Inputs.begin(), ie = Inputs.end(); it != ie; ++it) {
+    const InputInfo &II = *it;
+    if(II.isFilename())
+      CmdArgs.push_back(II.getFilename());
+  }
+
+  for (arg_iterator it = Args.filtered_begin(options::OPT_l),
+         ie = Args.filtered_end(); it != ie; ++it) {
+    std::string libName("lib");
+    libName += (*it)->getValue();
+    libName += ".bc";
+    const std::string& foundLib = getToolChain().GetFilePath(libName.c_str());
+    CmdArgs.push_back(Args.MakeArgString(foundLib));
+  }
+
+  const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llvm-link")));
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
+}
+
+void duetto::DuettoCompiler::ConstructJob(Compilation &C, const JobAction &JA,
+  CmdArgs.push_back("-o");
+  CmdArgs.push_back(Output.getFilename());
+
+  const InputInfo &II = *Inputs.begin();
+  CmdArgs.push_back(II.getFilename());
+
+  const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("duetto-compiler")));
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
+}
