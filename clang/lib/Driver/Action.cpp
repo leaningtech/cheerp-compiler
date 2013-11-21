@@ -45,6 +45,7 @@ const char *Action::getClassName(ActionClass AC) {
     return "clang-offload-wrapper";
   case StaticLibJobClass:
     return "static-lib-linker";
+  case CheerpCompileJobClass: return "cheerp-compiler";
   }
 
   llvm_unreachable("invalid class");
@@ -422,3 +423,9 @@ void StaticLibJobAction::anchor() {}
 
 StaticLibJobAction::StaticLibJobAction(ActionList &Inputs, types::ID Type)
     : JobAction(StaticLibJobClass, Inputs, Type) {}
+
+void CheerpCompileJobAction::anchor() {}
+
+CheerpCompileJobAction::CheerpCompileJobAction(ActionList &Inputs, types::ID Type)
+  : JobAction(CheerpCompileJobClass, Inputs, Type) {
+}
