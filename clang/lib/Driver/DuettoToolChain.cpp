@@ -15,14 +15,30 @@
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Options.h"
 #include "llvm/Config/config.h"
+#include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 
 using namespace clang::driver;
 using namespace clang::driver::toolchains;
 using namespace clang;
+using namespace llvm::opt;
 
 Duetto::Duetto(const Driver &D, const llvm::Triple& Triple, const llvm::opt::ArgList &Args)
   : ToolChain(D, Triple, Args) {
+
+  getProgramPaths().push_back(LLVM_PREFIX "/bin");
+
+  path_list& filePaths = getFilePaths();
+
+  // Add default path
+  filePaths.push_back(LLVM_PREFIX "/lib");
+
+  // Add paths passed from the command line
+  for (arg_iterator it = Args.filtered_begin(options::OPT_L),
+         ie = Args.filtered_end(); it != ie; ++it) {
+    (*it)->claim();
+    filePaths.push_back((*it)->getValue());
+  }
 }
 
 void Duetto::AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
