@@ -382,6 +382,15 @@ void duetto::Link::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(II.getFilename());
   }
 
+  // Add standard libraries
+  if (!Args.hasArg(options::OPT_nostdlib) &&
+      !Args.hasArg(options::OPT_nodefaultlibs)) {
+    CmdArgs.push_back(LLVM_PREFIX "/lib/libc.bc");
+    CmdArgs.push_back(LLVM_PREFIX "/lib/libm.bc");
+    if (C.getDriver().CCCIsCXX())
+      CmdArgs.push_back(LLVM_PREFIX "/lib/libc++.bc");
+  }
+
   for (arg_iterator it = Args.filtered_begin(options::OPT_l),
          ie = Args.filtered_end(); it != ie; ++it) {
     std::string libName("lib");
