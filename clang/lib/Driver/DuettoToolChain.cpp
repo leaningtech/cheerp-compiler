@@ -69,3 +69,18 @@ bool Duetto::isPIEDefault() const {
 bool Duetto::isPICDefaultForced() const {
   return true;
 }
+
+Tool *Duetto::buildLinker() const {
+  return new tools::duetto::Link(*this);
+}
+
+Tool *Duetto::getTool(Action::ActionClass AC) const {
+  switch (AC) {
+  case Action::DuettoCompileJobClass:
+    if (!DuettoCompiler)
+      DuettoCompiler.reset(new tools::duetto::DuettoCompiler(*this));
+    return DuettoCompiler.get();
+  default:
+    return ToolChain::getTool(AC);
+  }
+}
