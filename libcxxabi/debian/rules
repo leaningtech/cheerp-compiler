@@ -6,7 +6,7 @@
 override_dh_auto_configure:
 
 override_dh_auto_build:
-	cd lib; CXX="/opt/duetto/bin/clang -target duetto -emit-llvm" ./buildit
+	cd lib; CXX="/opt/duetto/bin/clang -target duetto" ./buildit
 
 override_dh_auto_install:
 	mkdir -p $(CURDIR)/debian/duetto-libcxxabi/opt/duetto/lib
