@@ -9,7 +9,7 @@ Duetto libcxxabi build instructions
 
 ```
 cd lib
-export CXX="/opt/duetto/bin/clang -target duetto -emit-llvm"
+export CXX="/opt/duetto/bin/clang -target duetto"
 ./buildit
 cp libcxxabi.bc /opt/duetto/lib/
 ```
