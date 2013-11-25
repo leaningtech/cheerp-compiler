@@ -104,7 +104,7 @@ bool DuettoUtils::rewriteIfNativeConstructorCall(Module& M, Instruction* i, Allo
 	//Morph into a different call
 	//For some builtins we have special support. For the rest we use a default implementation
 	std::string duettoBuiltinCreateName;
-	if(builtinTypeName=="String" || builtinTypeName=="Callback")
+	if(builtinTypeName=="String")
 		duettoBuiltinCreateName=std::string("_duettoCreateBuiltin")+funcName;
 	else
 		duettoBuiltinCreateName="default_duettoCreateBuiltin_"+builtinTypeName;
