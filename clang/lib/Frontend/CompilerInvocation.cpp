@@ -3201,6 +3201,9 @@ static bool ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
       Group = frontend::ExternCSystem;
     Opts.AddPath(A->getValue(), Group, false, true);
   }
+  // Add duetto specific include directory for server side stuff
+  if (duettoSide == LangOptions::DUETTO_Server)
+    Opts.AddPath(LLVM_PREFIX "/include/native", frontend::System, false, true);
 
   // Add the path prefixes which are implicitly treated as being system headers.
   for (const auto *A :
