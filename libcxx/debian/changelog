@@ -1,3 +1,9 @@
+duetto-libcxx (0.9.2-1) saucy; urgency=low
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com> Sat, 30 Nov 2013 19:02:22 +0100
+
 duetto-libcxx (0.9.1) raring; urgency=low
 
   * Bump version
