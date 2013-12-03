@@ -106,13 +106,13 @@ private:
 	bool compileOffsetForPointer(const llvm::Value* val, const llvm::Type* lastType);
 	llvm::Type* findRealType(const llvm::Value* v, std::set<const llvm::PHINode*>& visitedPhis) const;
 	void compileMove(const llvm::Value* dest, const llvm::Value* src, const llvm::Value* size);
-	enum COPY_DIRECTION { FORWARD=0, BACKWARD };
+	enum COPY_DIRECTION { FORWARD=0, BACKWARD, RESET };
 	void compileMemFunc(const llvm::Value* dest, const llvm::Value* src, const llvm::Value* size,
-			COPY_DIRECTION copyDirection, uint8_t resetValue);
+			COPY_DIRECTION copyDirection);
 	void compileCopyRecursive(const std::string& baseName, const llvm::Value* baseDest,
 		const llvm::Value* baseSrc, const llvm::Type* currentType, const char* namedOffset);
 	void compileResetRecursive(const std::string& baseName, const llvm::Value* baseDest,
-		uint8_t resetValue, const llvm::Type* currentType, const char* namedOffset);
+		const llvm::Value* resetValue, const llvm::Type* currentType, const char* namedOffset);
 	void compileDowncast(const llvm::Value* src, uint32_t baseOffset);
 	void compileAllocation(const llvm::Value* callV, const llvm::Value* size);
 	void compileFree(const llvm::Value* obj);

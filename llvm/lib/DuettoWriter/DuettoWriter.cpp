@@ -221,19 +221,38 @@ void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value
 }
 
 void DuettoWriter::compileResetRecursive(const std::string& baseName, const Value* baseDest,
-		uint8_t resetValue, const Type* currentType, const char* namedOffset)
+		const Value* resetValue, const Type* currentType, const char* namedOffset)
 {
 	switch(currentType->getTypeID())
 	{
 		case Type::IntegerTyID:
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
-			if(resetValue != 0 && resetValue != 0xff)
-				llvm::report_fatal_error("Unsupported values for memset", false);
-			if(resetValue == 0)
-				stream << baseName << " = 0";
-			else if(resetValue == 0xff)
-				stream << baseName << " = 0xffffffff";
+			stream << baseName << " = ";
+			if(Constant::classof(resetValue))
+			{
+				uint8_t constResetValue = getIntFromValue(resetValue);
+				char buf[11];
+				buf[10]=0;
+				if(currentType->getIntegerBitWidth()==8)
+					snprintf(buf,10,"0x%x",constResetValue);
+				else if(currentType->getIntegerBitWidth()==16)
+					snprintf(buf,10,"0x%x%x",constResetValue,constResetValue);
+				else if(currentType->getIntegerBitWidth()==32)
+				{
+					snprintf(buf,10,"0x%x%x%x%x",
+						constResetValue,constResetValue,constResetValue,constResetValue);
+				}
+				else
+					llvm::report_fatal_error("Unsupported values for memset", false);
+				stream << buf;
+			}
+			else
+			{
+				if(currentType->getIntegerBitWidth()!=8)
+					llvm::report_fatal_error("Unsupported values for memset", false);
+				compileOperand(resetValue);
+			}
 			stream << ";\n";
 			break;
 		}
@@ -241,7 +260,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		case Type::DoubleTyID:
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
-			if(resetValue != 0)
+			if(!Constant::classof(resetValue) || getIntFromValue(resetValue) != 0)
 				llvm::report_fatal_error("Unsupported values for memset", false);
 			stream << baseName << " = 0;\n";
 			break;
@@ -249,7 +268,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		case Type::PointerTyID:
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
-			if(resetValue != 0)
+			if(!Constant::classof(resetValue) || getIntFromValue(resetValue) != 0)
 				llvm::report_fatal_error("Unsupported values for memset", false);
 			//Pointers to client objects must use a normal null
 			const Type* pointedType = currentType->getPointerElementType();
@@ -373,10 +392,10 @@ void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value*
 		stream << '0';
 	stream << "){\n";
 	//Destination is after source, copy backward
-	compileMemFunc(dest, src, size, BACKWARD, 0);
+	compileMemFunc(dest, src, size, BACKWARD);
 	stream << "}else{";
 	//Destination is before source, copy forward
-	compileMemFunc(dest, src, size, FORWARD, 0);
+	compileMemFunc(dest, src, size, FORWARD);
 	stream << "}\n";
 }
 
@@ -409,12 +428,12 @@ void DuettoWriter::compileTypedArrayType(Type* t)
  * If src is not NULL present a copy operation is done using the supplied direction.
  * memset is handled by passing a NULL src and setting resetValue as needed. direction should be FORWARD */
 void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Value* size,
-		COPY_DIRECTION copyDirection, uint8_t resetValue)
+		COPY_DIRECTION copyDirection)
 {
 	//Find out the real type of the copied object
 	std::set<const PHINode*> visitedPhis;
 	Type* destType=findRealType(dest,visitedPhis);
-	if(src)
+	if(copyDirection!=RESET)
 	{
 		visitedPhis.clear();
 		Type* srcType=findRealType(src,visitedPhis);
@@ -451,10 +470,10 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	}
 
 	//The first element is handled copied directly, to support complete objects
-	if(src)
-		compileCopyRecursive("", dest, src, pointedType, NULL);
+	if(copyDirection==RESET)
+		compileResetRecursive("", dest, src, pointedType, NULL);
 	else
-		compileResetRecursive("", dest, resetValue, pointedType, NULL);
+		compileCopyRecursive("", dest, src, pointedType, NULL);
 
 	//The rest is compiled using a for loop, or native TypedArray set operator
 
@@ -472,7 +491,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	const Type* lastTypeSrc = NULL;
 	const Type* lastTypeDest = NULL;
 	//Prologue: Construct the first part, up to using the size
-	if(src && isTypedArrayType(pointedType))
+	if(copyDirection!=RESET && isTypedArrayType(pointedType))
 	{
 		// The semantics of set is memmove like, no need to care about direction
 		lastTypeDest=compileObjectForPointer(dest, NORMAL);
@@ -491,7 +510,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	else
 	{
 		//memset is always handled using the for loop
-		if(copyDirection == FORWARD)
+		if(copyDirection == FORWARD || copyDirection == RESET)
 			stream << "for(var __i__=1;__i__<";
 		else
 			stream << "for(var __i__=";
@@ -511,7 +530,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	}
 
 	//Epilogue: Write the code after the size
-	if(src && isTypedArrayType(pointedType))
+	if(copyDirection!=RESET && isTypedArrayType(pointedType))
 	{
 		stream << "),";
 		bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
@@ -521,15 +540,15 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	}
 	else
 	{
-		if(copyDirection == FORWARD)
+		if(copyDirection == FORWARD || copyDirection == RESET)
 			stream	<< ";__i__++){\n";
 		else
 			stream << "-1;__i__>0;__i__--){\n";
 
-		if(src)
-			compileCopyRecursive("", dest, src, pointedType,"__i__");
+		if(copyDirection==RESET)
+			compileResetRecursive("", dest, src, pointedType,"__i__");
 		else
-			compileResetRecursive("", dest, resetValue, pointedType,"__i__");
+			compileCopyRecursive("", dest, src, pointedType,"__i__");
 		stream << "\n}";
 	}
 
@@ -658,14 +677,13 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	}
 	else if(strncmp(ident,"llvm.memcpy",11)==0)
 	{
-		compileMemFunc(*(it), *(it+1), *(it+2), FORWARD, 0);
+		compileMemFunc(*(it), *(it+1), *(it+2), FORWARD);
 		return true;
 	}
 	else if(strncmp(ident,"llvm.memset",11)==0)
 	{
 		//TODO: memset on allocate memory may be optimized
-		uint32_t resetVal = getIntFromValue(*(it+1));
-		compileMemFunc(*(it), NULL, *(it+2), FORWARD, resetVal);
+		compileMemFunc(*(it), *(it+1), *(it+2), RESET);
 		return true;
 	}
 	else if(strncmp(ident,"llvm.lifetime",13)==0)
