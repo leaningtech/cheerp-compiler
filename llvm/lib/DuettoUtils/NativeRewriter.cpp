@@ -9,9 +9,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Duetto/Utils.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/PassManager.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
 using namespace std;
@@ -36,7 +40,7 @@ bool DuettoUtils::findMangledClassName(const char* const s, const char* &classNa
 	return true;
 }
 
-bool DuettoUtils::isBuiltinConstructor(const char* s, const std::string& typeName)
+bool DuettoUtils::isBuiltinConstructor(const char* s, const char*& startOfType, const char*& endOfType)
 {
 	const char* mangledName;
 	int mangledNameLen;
@@ -44,14 +48,27 @@ bool DuettoUtils::isBuiltinConstructor(const char* s, const std::string& typeNam
 	if(findMangledClassName(s, mangledName, mangledNameLen)==false)
 		return false;
 
-	if(typeName.compare(0, std::string::npos, mangledName, mangledNameLen)!=0)
-		return false;
+	startOfType = mangledName;
+	endOfType = mangledName+mangledNameLen;
 
 	if(strncmp(mangledName+mangledNameLen, "C1", 2)==0 ||
 	   strncmp(mangledName+mangledNameLen, "C2", 2)==0)
 		return true;
 
 	return false;
+}
+
+bool DuettoUtils::isBuiltinConstructorForType(const char* s, const std::string& typeName)
+{
+	const char* startOfType;
+	const char* endOfType;
+	if(!isBuiltinConstructor(s, startOfType, endOfType))
+		return false;
+
+	if(typeName.compare(0, std::string::npos, startOfType, endOfType-startOfType)!=0)
+		return false;
+
+	return true;
 }
 
 void DuettoUtils::baseSubstitutionForBuiltin(User* i, Instruction* old, AllocaInst* source)
@@ -79,39 +96,37 @@ bool DuettoUtils::isBuiltinType(const char* typeName, std::string& builtinName)
 	return true;
 }
 
+Function* DuettoUtils::getReturningConstructor(Module& M, Function* called)
+{
+	FunctionType* initialType=called->getFunctionType();
+	SmallVector<Type*, 4> initialArgsTypes(initialType->param_begin()+1, initialType->param_end());
+	FunctionType* newFunctionType=FunctionType::get(*initialType->param_begin(), initialArgsTypes, false);
+	return cast<Function>(M.getOrInsertFunction(Twine("duettoCreate",called->getName()).str(),newFunctionType));
+}
+
 bool DuettoUtils::rewriteIfNativeConstructorCall(Module& M, Instruction* i, AllocaInst* newI, Instruction* callInst,
-						  Function* called,const std::string& builtinTypeName,
+						  Function* called, const std::string& builtinTypeName,
 						  SmallVector<Value*, 4>& initialArgs)
 {
-	//A constructor call does have a name, it's non virtual!
+	//Indirect call, ignore it
 	if(called==NULL)
 		return false;
-	//To be a candidate for substitution it must have an empty body
-	if(!called->empty())
-		return false;
+
+	//Check if this is a builtin constructor for the type
 	const char* funcName=called->getName().data();
-	if(!isBuiltinConstructor(funcName, builtinTypeName))
+	if(!isBuiltinConstructorForType(funcName, builtinTypeName))
 		return false;
+
 	//Verify that this contructor is for the current alloca
 	if(callInst->getOperand(0)!=i)
 		return false;
 
-	FunctionType* initialType=called->getFunctionType();
-	SmallVector<Type*, 4> initialArgsTypes(initialType->param_begin()+1,
-			initialType->param_end());
-	FunctionType* newFunctionType=FunctionType::get(*initialType->param_begin(),
-			initialArgsTypes, false);
-	//Morph into a different call
-	//For some builtins we have special support. For the rest we use a default implementation
-	std::string duettoBuiltinCreateName;
-	if(builtinTypeName=="String")
-		duettoBuiltinCreateName=std::string("_duettoCreateBuiltin")+funcName;
-	else
-		duettoBuiltinCreateName="default_duettoCreateBuiltin_"+builtinTypeName;
-	Function* duettoBuiltinCreate=cast<Function>(M.getOrInsertFunction(duettoBuiltinCreateName,
-			newFunctionType));
-	CallInst* newCall=CallInst::Create(duettoBuiltinCreate,
-			initialArgs, "duettoCreateCall", callInst);
+	//Verify that this one is not already a returning construtor
+	if(!callInst->getType()->isVoidTy())
+		return false;
+
+	Function* newFunc = getReturningConstructor(M, called);
+	CallInst* newCall=CallInst::Create(newFunc, initialArgs, "retConstructor", callInst);
 	new StoreInst(newCall, newI, callInst);
 	return true;
 }
@@ -180,8 +195,136 @@ void DuettoUtils::rewriteNativeAllocationUsers(Module& M, SmallVector<Instructio
 	}
 }
 
+void DuettoUtils::rewriteConstructorImplementation(Module& M, Function& F)
+{
+	//Visit each instruction and take note of the ones that needs to be replaced
+	Function::iterator B=F.begin();
+	Function::iterator BE=F.end();
+	ValueToValueMapTy valueMap;
+	CallInst* lowerConstructor = NULL;
+	CallInst* oldLowerConstructor = NULL;
+	for(;B!=BE;++B)
+	{
+		BasicBlock::iterator I=B->begin();
+		BasicBlock::iterator IE=B->end();
+		for(;I!=IE;++I)
+		{
+			switch(I->getOpcode())
+			{
+				case Instruction::Call:
+				{
+					CallInst* callInst=static_cast<CallInst*>(&(*I));
+					if(Function* f=callInst->getCalledFunction())
+					{
+						const char* startOfType;
+						const char* endOfType;
+						if(!DuettoUtils::isBuiltinConstructor(f->getName().data(),
+									startOfType, endOfType))
+						{
+							continue;
+						}
+						//Check that the constructor is for 'this'
+						if(callInst->getOperand(0)!=F.arg_begin())
+							continue;
+						//Only one lower constructor can be allowed
+						if(lowerConstructor)
+						{
+							llvm::report_fatal_error("Only one base constructor is supported",
+									false);
+							return;
+						}
+						//If this is another constructor for the same type, change it to a
+						//returning constructor and use it as the 'this' argument
+						Function* newFunc = getReturningConstructor(M, f);
+						llvm::SmallVector<Value*, 4> newArgs;
+						for(unsigned i=1;i<callInst->getNumArgOperands();i++)
+						{
+							newArgs.push_back(callInst->getArgOperand(i));
+						}
+						lowerConstructor = CallInst::Create(newFunc, newArgs);
+						//Save which call is the constructror, we need to remove it after this loop
+						oldLowerConstructor = callInst;
+					}
+					break;
+				}
+			}
+		}
+	}
+	//Kill the old base construtor now
+	oldLowerConstructor->eraseFromParent();
+	valueMap.insert(make_pair(F.arg_begin(), lowerConstructor));
+
+	//Copy the simplified code in a function with the right signature
+	Function* newFunc=getReturningConstructor(M, &F);
+	Function::arg_iterator origArg=++F.arg_begin();
+	Function::arg_iterator newArg=newFunc->arg_begin();
+	for(unsigned i=1;i<F.arg_size();i++)
+	{
+		valueMap.insert(make_pair(&(*origArg), &(*newArg)));
+		++origArg;
+		++newArg;
+	}
+	SmallVector<ReturnInst*, 4> returns;
+	CloneFunctionInto(newFunc, &F, valueMap, false, returns);
+
+	//Find the right place to add the base construtor call
+	assert(lowerConstructor->getNumArgOperands()<=1 && "Native constructors with multiple args are not supported");
+	Instruction* callPred = NULL;
+	if (lowerConstructor->getNumArgOperands()==1 && Instruction::classof(lowerConstructor->getArgOperand(0)))
+	{
+		//Switch the argument to the one in the new func
+		lowerConstructor->setArgOperand(0, valueMap[lowerConstructor->getArgOperand(0)]);
+		callPred = cast<Instruction>(lowerConstructor->getArgOperand(0));
+	}
+	else
+		callPred = &newFunc->getEntryBlock().front();
+
+	//Add add it
+	lowerConstructor->insertAfter(callPred);
+
+	//Override the returs values
+	for(unsigned i=0;i<returns.size();i++)
+	{
+		Instruction* newInst = ReturnInst::Create(M.getContext(),lowerConstructor);
+		newInst->insertBefore(returns[i]);
+		returns[i]->removeFromParent();
+	}
+	//Recursively move all the users of the lower constructor after the call itself
+	Instruction* insertPoint = lowerConstructor->getNextNode();
+	SmallVector<Value*, 4> usersQueue(lowerConstructor->getNumUses());
+	unsigned int i;
+	Value::use_iterator it;
+	for(i=usersQueue.size()-1,it=lowerConstructor->use_begin();it!=lowerConstructor->use_end();++it,i--)
+		usersQueue[i]=it->getUser();
+
+	SmallSet<Instruction*, 4> movedInstructions;
+	while(!usersQueue.empty())
+	{
+		Instruction* cur=dyn_cast<Instruction>(usersQueue.pop_back_val());
+		if(!cur)
+			continue;
+		if(movedInstructions.count(cur))
+			continue;
+		movedInstructions.insert(cur);
+		cur->moveBefore(insertPoint);
+		//Add users of this instrucution as well
+		usersQueue.resize(usersQueue.size()+cur->getNumUses());
+		for(i=usersQueue.size()-1,it=cur->use_begin();it!=cur->use_end();++it,i--)
+			usersQueue[i]=it->getUser();
+	}
+}
+
 void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 {
+	const char* startOfType;
+	const char* endOfType;
+	if(isBuiltinConstructor(F.getName().data(), startOfType, endOfType) &&
+		F.getReturnType()->isVoidTy())
+	{
+		assert(!F.empty());
+		rewriteConstructorImplementation(M, F);
+		return;
+	}
 	//Vector of the instructions to be removed in the second pass
 	SmallVector<Instruction*, 4> toRemove;
 

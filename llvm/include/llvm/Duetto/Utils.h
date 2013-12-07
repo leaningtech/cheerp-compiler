@@ -19,10 +19,13 @@
 class DuettoUtils
 {
 private:
-	static bool isBuiltinConstructor(const char* s, const std::string& typeName);
+	static bool isBuiltinConstructor(const char* s, const char*& startOfType, const char*& endOfType);
+	static bool isBuiltinConstructorForType(const char* s, const std::string& typeName);
 	static bool isBuiltinType(const char* typeName, std::string& builtinName);
 	static void baseSubstitutionForBuiltin(llvm::User* i, llvm::Instruction* old, llvm::AllocaInst* source);
 	static bool findMangledClassName(const char* const s, const char* &className, int& classLen);
+	static llvm::Function* getReturningConstructor(llvm::Module& M, llvm::Function* called);
+	static void rewriteConstructorImplementation(llvm::Module& M, llvm::Function& F);
 public:
 	static void rewriteNativeObjectsConstructors(llvm::Module& M, llvm::Function& F);
 	/*
