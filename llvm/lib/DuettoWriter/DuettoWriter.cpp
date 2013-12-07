@@ -797,10 +797,13 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		handleBuiltinNamespace(ident+11,it,itE);
 		return true;
 	}
-	else if(strncmp(ident,"default_duettoCreateBuiltin_",28)==0)
+	else if(strncmp(ident,"duettoCreate_ZN6client",22)==0)
 	{
 		//Default handling of builtin constructors
-		stream << "new " << (ident+28);
+		char* typeName;
+		int typeLen=strtol(ident+22,&typeName,10);
+		stream << "new ";
+		stream.write(typeName, typeLen);
 		compileMethodArgs(it, itE);
 		return true;
 	}
