@@ -93,7 +93,11 @@ struct release
 template <class T, class ...Args>
 T& make(Args ...args)
 {
+#ifdef __DUETTO__
+    static T buf [[noinit]];
+#else
     static typename aligned_storage<sizeof(T)>::type buf;
+#endif
     auto *obj = ::new (&buf) T(args...);
     return *obj;
 }
@@ -554,7 +558,11 @@ const locale&
 locale::__imp::make_classic()
 {
     // only one thread can get in here and it only gets in once
+#ifdef __DUETTO__
+    static locale buf [[noinit]];
+#else
     static aligned_storage<sizeof(locale)>::type buf;
+#endif
     locale* c = reinterpret_cast<locale*>(&buf);
     c->__locale_ = &make<__imp>(1u);
     return *c;
@@ -571,7 +579,11 @@ locale&
 locale::__imp::make_global()
 {
     // only one thread can get in here and it only gets in once
+#ifdef __DUETTO__
+    static locale buf [[noinit]];
+#else
     static aligned_storage<sizeof(locale)>::type buf;
+#endif
     auto *obj = ::new (&buf) locale(locale::classic());
     return *obj;
 }
