@@ -674,10 +674,10 @@ public:
 
     static locale::id id;
 
-protected:
     _LIBCPP_INLINE_VISIBILITY
     ~num_get() {}
 
+protected:
     template <class _Fp>
     _LIBCPP_METHOD_TEMPLATE_IMPLICIT_INSTANTIATION_VIS
     iter_type __do_get_floating_point
@@ -1345,10 +1345,10 @@ public:
 
     static locale::id id;
 
-protected:
     _LIBCPP_INLINE_VISIBILITY
     ~num_put() {}
 
+protected:
     virtual iter_type do_put(iter_type __s, ios_base& __iob, char_type __fl,
                              bool __v) const;
     virtual iter_type do_put(iter_type __s, ios_base& __iob, char_type __fl,
@@ -1791,10 +1791,10 @@ public:
 
     static locale::id id;
 
-protected:
     _LIBCPP_INLINE_VISIBILITY
     ~time_get() {}
 
+protected:
     virtual dateorder do_date_order() const;
     virtual iter_type do_get_time(iter_type __b, iter_type __e, ios_base& __iob,
                                   ios_base::iostate& __err, tm* __tm) const;
@@ -2476,9 +2476,9 @@ public:
 
     static locale::id id;
 
-protected:
     _LIBCPP_INLINE_VISIBILITY
     ~time_put() {}
+protected:
     virtual iter_type do_put(iter_type __s, ios_base&, char_type, const tm* __tm,
                              char __fmt, char __mod) const;
 
@@ -2614,10 +2614,10 @@ public:
     static locale::id id;
     static const bool intl = _International;
 
-protected:
     _LIBCPP_INLINE_VISIBILITY
     ~moneypunct() {}
 
+protected:
     virtual char_type   do_decimal_point() const {return numeric_limits<char_type>::max();}
     virtual char_type   do_thousands_sep() const {return numeric_limits<char_type>::max();}
     virtual string      do_grouping()      const {return string();}
@@ -2794,10 +2794,10 @@ public:
 
     static locale::id id;
 
-protected:
-
     _LIBCPP_INLINE_VISIBILITY
     ~money_get() {}
+
+protected:
 
     virtual iter_type do_get(iter_type __b, iter_type __e, bool __intl,
                              ios_base& __iob, ios_base::iostate& __err,
@@ -3340,10 +3340,10 @@ public:
 
     static locale::id id;
 
-protected:
     _LIBCPP_INLINE_VISIBILITY
     ~money_put() {}
 
+protected:
     virtual iter_type do_put(iter_type __s, bool __intl, ios_base& __iob,
                              char_type __fl, long double __units) const;
     virtual iter_type do_put(iter_type __s, bool __intl, ios_base& __iob,
@@ -3509,10 +3509,10 @@ public:
 
     static locale::id id;
 
-protected:
     _LIBCPP_INLINE_VISIBILITY
     ~messages() {}
 
+protected:
     virtual catalog do_open(const basic_string<char>&, const locale&) const;
     virtual string_type do_get(catalog, int __set, int __msgid,
                                const string_type& __dflt) const;
