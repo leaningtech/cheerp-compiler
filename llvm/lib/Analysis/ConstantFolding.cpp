@@ -969,7 +969,7 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
 
   Type *ElemTy = SrcElemTy;
   SmallVector<APInt> Indices = DL.getGEPIndicesForOffset(ElemTy, Offset);
-  if (Offset != 0)
+  if (Offset != 0 || !TD || !TD->isByteAddressable())
     return nullptr;
 
   // Try to add additional zero indices to reach the desired result element
