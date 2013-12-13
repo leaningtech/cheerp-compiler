@@ -15,7 +15,9 @@
 #include <cctype>
 #include <cstdint>
 #include <locale.h>
+#ifndef __DUETTO__
 #include <mutex>
+#endif
 #include <string>
 
 // Some platforms require more includes than others. Keep the includes on all plaforms for now.
@@ -203,12 +205,20 @@ private:
 
 class _LIBCPP_TYPE_VIS locale::id
 {
+#ifdef __DUETTO__
+    bool           __flag_;
+#else
     once_flag      __flag_;
+#endif
     int32_t        __id_;
 
     static int32_t __next_id;
 public:
+#ifdef __DUETTO__
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR id() :__flag_(false), __id_(0) {}
+#else
     _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR id() :__id_(0) {}
+#endif
     void operator=(const id&) = delete;
     id(const id&) = delete;
 
