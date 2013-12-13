@@ -1006,7 +1006,7 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
   // If we haven't used up the entire offset by descending the static
   // type, then the offset is pointing into the middle of an indivisible
   // member, so we can't simplify it.
-  if (Offset != 0)
+  if (Offset != 0 || !TD || !TD->isByteAddressable())
     return nullptr;
 
   // Preserve the inrange index from the innermost GEP if possible. We must

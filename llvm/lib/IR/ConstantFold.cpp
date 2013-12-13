@@ -2498,6 +2498,13 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
       Unknown = true;
       continue;
     }
+    // Cheerp: disables this optimization, it not allowed on NBA platforms
+    // and it is anyway duplicated in lib/Analysis/ConstantFolding.cpp
+    // where it can be enabled depending on the isByteAddressable flag
+#if 1
+    Unknown = true;
+    continue;
+#else
     // It's out of range, but we can factor it into the prior
     // dimension.
     NewIdxs.resize(Idxs.size());
@@ -2556,6 +2563,7 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
       Div = ConstantExpr::getSExt(Div, ExtendedTy);
 
     NewIdxs[i - 1] = ConstantExpr::getAdd(PrevIdx, Div);
+#endif
   }
 
   // If we did any factoring, start over with the adjusted indices.
