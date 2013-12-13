@@ -366,14 +366,14 @@ protected:
     }
 
 private:
-    // All data members must be scalars
+    // All data members must be scalars or noinit
     fmtflags        __fmtflags_;
     streamsize      __precision_;
     streamsize      __width_;
     iostate         __rdstate_;
     iostate         __exceptions_;
     void*           __rdbuf_;
-    void*           __loc_;
+    locale          __loc_ [[noinit]];
     event_callback* __fn_;
     int*            __index_;
     size_t          __event_size_;
