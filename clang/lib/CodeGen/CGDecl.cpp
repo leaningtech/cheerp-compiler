@@ -333,7 +333,8 @@ CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
       // be constant.
       GV->setConstant(false);
 
-      EmitCXXGuardedInit(D, GV, /*PerformInit*/true);
+      if(!D.hasAttr<NoInitAttr>())
+        EmitCXXGuardedInit(D, GV, /*PerformInit*/true);
     }
     return GV;
   }
