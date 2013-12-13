@@ -13071,8 +13071,10 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl) {
     //   If no initializer is specified for an object, the object is
     //   default-initialized; [...].
     InitializedEntity Entity = InitializedEntity::InitializeVariable(Var);
-    InitializationKind Kind
-      = InitializationKind::CreateDefault(Var->getLocation());
+    if (!Var->hasAttr<NoInitAttr>())
+    {
+      InitializationKind Kind
+        = InitializationKind::CreateDefault(Var->getLocation());
 
     InitializationSequence InitSeq(*this, Entity, Kind, None);
     ExprResult Init = InitSeq.Perform(*this, Entity, Kind, None);
@@ -13088,6 +13090,7 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl) {
           CreateRecoveryExpr(Var->getLocation(), Var->getLocation(), {});
       if (RecoveryExpr.get())
         Var->setInit(RecoveryExpr.get());
+    }
     }
 
     CheckCompleteVariableDeclaration(Var);

@@ -4563,7 +4563,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
 
   llvm::TrackingVH<llvm::Constant> Init;
   bool NeedsGlobalCtor = false;
-  bool NeedsGlobalDtor =
+  bool NeedsGlobalDtor = !D->hasAttr<NoInitAttr>() &&
       D->needsDestruction(getContext()) == QualType::DK_cxx_destructor;
 
   const VarDecl *InitDecl;
@@ -4629,7 +4629,8 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
 
       if (getLangOpts().CPlusPlus) {
         Init = EmitNullConstant(T);
-        NeedsGlobalCtor = true;
+	if (!D->hasAttr<NoInitAttr>())
+          NeedsGlobalCtor = true;
       } else {
         ErrorUnsupported(D, "static initializer");
         Init = llvm::UndefValue::get(getTypes().ConvertType(T));
