@@ -1850,12 +1850,14 @@ void basic_string<_CharT, _Traits, _Allocator>::__init(const value_type* __s,
     if (__reserve > max_size())
         this->__throw_length_error();
     pointer __p;
+#ifndef __DUETTO__
     if (__reserve < __min_cap)
     {
         __set_short_size(__sz);
         __p = __get_short_pointer();
     }
     else
+#endif
     {
         size_type __cap = __recommend(__reserve);
         __p = __alloc_traits::allocate(__alloc(), __cap+1);
@@ -1874,12 +1876,14 @@ basic_string<_CharT, _Traits, _Allocator>::__init(const value_type* __s, size_ty
     if (__sz > max_size())
         this->__throw_length_error();
     pointer __p;
+#ifndef __DUETTO__
     if (__sz < __min_cap)
     {
         __set_short_size(__sz);
         __p = __get_short_pointer();
     }
     else
+#endif
     {
         size_type __cap = __recommend(__sz);
         __p = __alloc_traits::allocate(__alloc(), __cap+1);
@@ -2032,12 +2036,14 @@ basic_string<_CharT, _Traits, _Allocator>::__init(size_type __n, value_type __c)
     if (__n > max_size())
         this->__throw_length_error();
     pointer __p;
+#ifndef __DUETTO__
     if (__n < __min_cap)
     {
         __set_short_size(__n);
         __p = __get_short_pointer();
     }
     else
+#endif
     {
         size_type __cap = __recommend(__n);
         __p = __alloc_traits::allocate(__alloc(), __cap+1);
