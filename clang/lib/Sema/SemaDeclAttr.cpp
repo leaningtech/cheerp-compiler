@@ -8423,6 +8423,11 @@ EnforceTCBLeafAttr *Sema::mergeEnforceTCBLeafAttr(
       *this, D, AL);
 }
 
+static void handleNoInit(Sema &S, Decl* D, const AttributeList &Attr)
+{
+  D->addAttr(::new (S.Context) NoInitAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
@@ -9169,14 +9174,6 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     handleSwiftAsyncError(S, D, AL);
     break;
 
-  // Duetto attributes
-  case AttributeList::AT_Client:
-    handleClient(S, D, AL);
-    break;
-  case AttributeList::AT_Server:
-    handleServer(S, D, AL);
-    break;
-
   // XRay attributes.
   case ParsedAttr::AT_XRayLogArgs:
     handleXRayLogArgsAttr(S, D, AL);
@@ -9184,6 +9181,11 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
 
   case ParsedAttr::AT_PatchableFunctionEntry:
     handlePatchableFunctionEntryAttr(S, D, AL);
+    break;
+
+  // Cheerp attributes
+  case AttributeList::AT_NoInit:
+    handleNoInit(S, D, Attr);
     break;
 
   case ParsedAttr::AT_AlwaysDestroy:
