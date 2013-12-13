@@ -1465,8 +1465,12 @@ public:
 
 private:
     _LIBCPP_CONSTEXPR _LIBCPP_HIDE_FROM_ABI static bool __fits_in_sso(size_type __sz) {
+#ifdef __CHEERP__
+        return false;
+#else
         // SSO is disabled during constant evaluation because `__is_long` isn't constexpr friendly
         return !__libcpp_is_constant_evaluated() && (__sz < __min_cap);
+#endif
     }
 
     template <class _ForwardIterator>
