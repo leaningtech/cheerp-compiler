@@ -350,7 +350,10 @@ Address CodeGenFunction::GetAddressOfBaseClass(
   }
 
   if (VBase && !getTarget().isByteAddressable())
+  {
     CGM.ErrorUnsupported(Derived, "Duetto: Virtual bases on non-byte addressable targets are not supported yet");
+    return Value;
+  }
 
   // Compute the static offset of the ultimate destination within its
   // allocating subobject (the virtual base, if there is one, or else
