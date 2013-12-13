@@ -650,7 +650,15 @@ public:
 long
 locale::id::__get()
 {
+#ifdef __DUETTO__
+    if(!__flag_)
+    {
+        __init();
+        __flag_ = true;
+    }
+#else
     call_once(__flag_, __fake_bind(&locale::id::__init, this));
+#endif
     return __id_ - 1;
 }
 
