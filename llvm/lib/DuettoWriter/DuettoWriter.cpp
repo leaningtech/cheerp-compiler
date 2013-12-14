@@ -802,7 +802,9 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		//Default handling of builtin constructors
 		char* typeName;
 		int typeLen=strtol(ident+22,&typeName,10);
-		stream << "new ";
+		//For builtin String, do not use new
+		if(strncmp(typeName, "String", 6)!=0)
+			stream << "new ";
 		stream.write(typeName, typeLen);
 		compileMethodArgs(it, itE);
 		return true;
