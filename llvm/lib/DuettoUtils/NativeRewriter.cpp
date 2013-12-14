@@ -256,6 +256,8 @@ void DuettoUtils::rewriteConstructorImplementation(Module& M, Function& F)
 
 	//Copy the simplified code in a function with the right signature
 	Function* newFunc=getReturningConstructor(M, &F);
+	//Clone the linkage first
+	newFunc->setLinkage(F.getLinkage());
 	Function::arg_iterator origArg=++F.arg_begin();
 	Function::arg_iterator newArg=newFunc->arg_begin();
 	for(unsigned i=1;i<F.arg_size();i++)
