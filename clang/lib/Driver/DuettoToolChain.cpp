@@ -57,6 +57,8 @@ void Duetto::AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
 
   addExternCSystemInclude(DriverArgs, CC1Args,
 		  LLVM_PREFIX "/include");
+  addExternCSystemInclude(DriverArgs, CC1Args,
+		  LLVM_PREFIX "/include/client");
 }
 
 void Duetto::AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
