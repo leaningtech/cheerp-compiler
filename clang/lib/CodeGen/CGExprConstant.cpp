@@ -1278,9 +1278,56 @@ public:
     return Const.build(ValTy, HasFlexibleArray);
   }
 
+  llvm::Constant* GenerateConstantCXXInitializer(CXXConstructorDecl* D)
+  {
+    if(!D->hasTrivialBody())
+      return 0;
+    //Base and dynamic classes are currently unsupported
+    if(D->getParent()->getNumBases() ||
+       D->getParent()->getNumVBases() ||
+       D->getParent()->isDynamicClass())
+    {
+      return 0;
+    }
+    CXXConstructorDecl::init_iterator it=D->init_begin();
+    CXXConstructorDecl::init_iterator itE=D->init_end();
+    const CGRecordLayout& rl = CGM.getTypes().getCGRecordLayout(D->getParent());
+    //Allocate a vector to hold all the initializer
+    llvm::SmallVector<llvm::Constant*, 4> initializers;
+    llvm::StructType* llvmType = rl.getLLVMType();
+    initializers.resize(llvmType->getNumElements(), NULL);
+    for(;it!=itE;++it)
+    {
+      if((*it)->isBaseInitializer())
+        return 0;
+      llvm::Constant* init=Visit((*it)->getInit());
+      if(!init)
+        return 0;
+      FieldDecl* field = (*it)->getMember();
+      if(!field)
+        return 0;
+      unsigned idx=rl.getLLVMFieldNo(field);
+      initializers[idx] = init;
+    }
+    //Fill NULL values with Null values as required
+    for(unsigned i=0;i<initializers.size();i++)
+    {
+      if(initializers[i]==NULL)
+        initializers[i] = llvm::Constant::getNullValue(llvmType->getElementType(i));
+    }
+    return llvm::ConstantStruct::get(llvmType, initializers);
+  }
+
   llvm::Constant *VisitCXXConstructExpr(CXXConstructExpr *E, QualType Ty) {
-    if (!E->getConstructor()->isTrivial())
+    // Do not const collapse constructors in O0
+    if (!CGM.getCodeGenOpts().OptimizationLevel)
+      return 0;
+
+    if(Ty->isArrayType())
       return nullptr;
+
+    if (!E->getConstructor()->isTrivial())
+      return GenerateConstantCXXInitializer(E->getConstructor());
 
     // Only default and copy/move constructors can be trivial.
     if (E->getNumArgs()) {
