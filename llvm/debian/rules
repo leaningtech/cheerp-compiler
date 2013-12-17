@@ -8,7 +8,8 @@ override_dh_auto_configure:
 	    -DCMAKE_BUILD_TYPE=Debug \
 	    -DCMAKE_INSTALL_PREFIX=/opt/duetto \
 	    -DCMAKE_CXX_FLAGS_DEBUG="-O2" \
-	    -DLLVM_TARGETS_TO_BUILD="ARM;DuettoBackend;X86"
+	    -DLLVM_TARGETS_TO_BUILD="ARM;DuettoBackend;X86" \
+	    -DCLANG_VENDOR="Duetto"
 
 override_dh_auto_install:
 	dh_auto_install --destdir=debian/tmp
