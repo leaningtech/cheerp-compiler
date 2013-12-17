@@ -982,9 +982,10 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 	PointerType* pt=cast<PointerType>(v->getType());
 	if(isClientType(pt->getElementType()))
 	{
-		//Pointers to client type are treated as regular, but they are actually never
-		//dereferenced or used as arrays. They can only be passed aaround as opaque symbols
-		return REGULAR;
+		//Pointers to client type are complete objects, and are never expanded to
+		//regular ones since an array of client objects does not exists.
+		//NOTE: An array of pointer to client objects exists, not an array of objects.
+		return COMPLETE_OBJECT;
 	}
 	if(AllocaInst::classof(v) || GlobalVariable::classof(v))
 	{
@@ -1644,9 +1645,13 @@ void DuettoWriter::compileOperandImpl(const Value* v)
 
 void DuettoWriter::compileOperand(const Value* v, OperandFix fix)
 {
-	//First deal with complete objects
-	if(v->getType()->isPointerTy() && fix==OPERAND_EXPAND_COMPLETE_OBJECTS)
+	//First deal with complete objects, but never expand pointers to client objects
+	if(v->getType()->isPointerTy() &&
+		fix==OPERAND_EXPAND_COMPLETE_OBJECTS &&
+		!isClientType(v->getType()->getPointerElementType()))
+	{
 		compilePointer(v, REGULAR);
+	}
 	else
 		compileOperandImpl(v);
 }
