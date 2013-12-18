@@ -973,8 +973,12 @@ public:
     _LIBCPP_INLINE_VISIBILITY size_type length() const _NOEXCEPT {return size();}
     _LIBCPP_INLINE_VISIBILITY size_type max_size() const _NOEXCEPT;
     _LIBCPP_INLINE_VISIBILITY size_type capacity() const _NOEXCEPT
+#ifndef __DUETTO__
         {return (__is_long() ? __get_long_cap()
                              : static_cast<size_type>(__min_cap)) - 1;}
+#else
+        {return __get_long_cap() ? __get_long_cap() -1 : 0;}
+#endif
 
     void resize(size_type __n, value_type __c);
     _LIBCPP_INLINE_VISIBILITY void resize(size_type __n) {resize(__n, value_type());}
@@ -2183,12 +2187,14 @@ basic_string<_CharT, _Traits, _Allocator>::__init(_ForwardIterator __first, _For
     if (__sz > max_size())
         this->__throw_length_error();
     pointer __p;
+#ifndef __DUETTO__
     if (__sz < __min_cap)
     {
         __set_short_size(__sz);
         __p = __get_short_pointer();
     }
     else
+#endif
     {
         size_type __cap = __recommend(__sz);
         __p = __alloc_traits::allocate(__alloc(), __cap+1);
@@ -2649,7 +2655,7 @@ basic_string<_CharT, _Traits, _Allocator>::push_back(value_type __c)
     }
     else
     {
-        __cap = __get_long_cap() - 1;
+        __cap = __get_long_cap() ? __get_long_cap() - 1 : 0;
         __sz = __get_long_size();
     }
     if (__sz == __cap)
