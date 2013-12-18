@@ -1114,7 +1114,11 @@ public:
   }
 
     _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX20 size_type capacity() const _NOEXCEPT {
+#ifndef __CHEERP__
         return (__is_long() ? __get_long_cap() : static_cast<size_type>(__min_cap)) - 1;
+#else
+        {return __get_long_cap() ? __get_long_cap() -1 : 0;}
+#endif
     }
 
     _LIBCPP_CONSTEXPR_SINCE_CXX20 void resize(size_type __n, value_type __c);
@@ -2813,7 +2817,7 @@ basic_string<_CharT, _Traits, _Allocator>::push_back(value_type __c)
     }
     else
     {
-        __cap = __get_long_cap() - 1;
+        __cap = __get_long_cap() ? __get_long_cap() - 1 : 0;
         __sz = __get_long_size();
     }
     if (__sz == __cap)
