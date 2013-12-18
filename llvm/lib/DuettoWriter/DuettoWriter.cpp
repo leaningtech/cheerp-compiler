@@ -186,7 +186,7 @@ void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value
 				stream << "__tmp__.set(";
 				stream << "new Int8Array(";
 				compileDereferencePointer(baseSrc, NULL, namedOffset);
-				stream << baseName << "))";
+				stream << baseName << "));\n";
 				break;
 			}
 			const StructType* st=static_cast<const StructType*>(currentType);
