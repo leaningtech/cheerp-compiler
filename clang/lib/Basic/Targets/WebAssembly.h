@@ -171,6 +171,8 @@ protected:
 
 // Duetto base class
 class DuettoTargetInfo : public TargetInfo {
+private:
+    static const Builtin::Info BuiltinInfo[];
 public:
   DuettoTargetInfo(const llvm::Triple &triple) : TargetInfo(triple) {
     DescriptionString = "b-e-p:32:8-i16:8-i32:8-"

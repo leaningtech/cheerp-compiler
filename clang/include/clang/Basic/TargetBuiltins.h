@@ -75,6 +75,16 @@ namespace clang {
   };
   }
 
+  /// Duetto builtins
+  namespace Duetto {
+    enum {
+        LastTIBuiltin = clang::Builtin::FirstTSBuiltin-1,
+#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+#include "clang/Basic/BuiltinsDuetto.def"
+        LastTSBuiltin
+    };
+  }
+
   /// PPC builtins
   namespace PPC {
     enum {
