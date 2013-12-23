@@ -723,6 +723,17 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		compileOperand(*it);
 		return true;
 	}
+	else if(strncmp(ident,"llvm.duetto.pointer.base",24)==0)
+	{
+		compileObjectForPointer(*it, NORMAL);
+		return true;
+	}
+	else if(strncmp(ident,"llvm.duetto.pointer.offset",26)==0)
+	{
+		const Type* lastType = compileObjectForPointer(*it, DRY_RUN);
+		compileOffsetForPointer(*it, lastType);
+		return true;
+	}
 	else if(strcmp(ident,"malloc")==0 ||
 		strcmp(ident,"_Znaj")==0 ||
 		strcmp(ident,"_Znwj")==0 ||
