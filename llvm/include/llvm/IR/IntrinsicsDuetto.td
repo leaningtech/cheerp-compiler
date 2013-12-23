@@ -33,3 +33,11 @@ def int_duetto_cast_user  : Intrinsic<[llvm_anyptr_ty],
 def int_duetto_allocate  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_i32_ty],
                              [IntrIsCast]>;
+
+// Access to pointer components
+def int_duetto_pointer_base : Intrinsic<[llvm_ptr_ty],
+                                [llvm_ptr_ty],
+                                [IntrNoMem]>;
+def int_duetto_pointer_offset : Intrinsic<[llvm_i32_ty],
+                                [llvm_ptr_ty],
+                                [IntrNoMem]>;
