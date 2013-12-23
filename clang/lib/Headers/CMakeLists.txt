@@ -161,6 +161,7 @@ set(x86_files
   clzerointrin.h
   cmpccxaddintrin.h
   crc32intrin.h
+  duettointrin.h
   emmintrin.h
   enqcmdintrin.h
   f16cintrin.h
