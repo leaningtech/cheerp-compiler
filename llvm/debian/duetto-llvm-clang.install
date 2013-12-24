@@ -46,7 +46,6 @@ opt/duetto/lib/clang/3.4/include/mm_malloc.h
 opt/duetto/lib/clang/3.4/include/stdbool.h
 opt/duetto/lib/libclang.so*
 opt/duetto/bin/
-opt/duetto/bin/duetto
 opt/duetto/bin/clang-check
 opt/duetto/bin/clang-3.4
 opt/duetto/bin/llvm-nm
