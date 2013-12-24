@@ -764,10 +764,18 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	if(userImplemented)
 		return false;
 
-	if(strcmp(ident,"_ZN6client5ArrayixEi")==0 ||
-		strcmp(ident,"_ZNK6client6ObjectcvdEv")==0)
+	if(strcmp(ident,"_ZNK6client6ObjectcvdEv")==0)
 	{
-		//Do not touch method that are implemented in native JS code
+		//Do not touch methods that are implemented in native JS code
+		return false;
+	}
+	else if(strncmp(ident,"_Z8CallbackPFvvEPv",18)==0)
+	{
+		//This is the bridge to JS lambda creation, if ever used
+		//set the flag and implement is as usual, if the flag is
+		//set the implementation will be printed at the end of the
+		//compiled file
+		printLambdaBridge = true;
 		return false;
 	}
 	else if(strncmp(ident,"_ZN6client18duettoVariadicTrap",30)==0)
@@ -3447,6 +3455,11 @@ void DuettoWriter::compileNullPtrs()
 	stream << "var nullArray = [null];\nvar nullObj = { d: nullArray, o: 0 };\n";
 }
 
+void DuettoWriter::compileLambdaBridge()
+{
+	stream << "function __Z8CallbackPFvvEPv(func, obj) { return function(e) { func(obj, e); }; }\n";
+}
+
 void DuettoWriter::makeJS()
 {
 	Function* webMain=module.getFunction("_Z7webMainv");
@@ -3518,6 +3531,9 @@ void DuettoWriter::makeJS()
 	{
 		compileArrayClassType(*T);
 	}
+	//Compile the lambda bridge if needed
+	if(printLambdaBridge)
+		compileLambdaBridge();
 	//Execute constructors
 	if(constructors)
 		handleConstructors(constructors, COMPILE);
