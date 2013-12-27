@@ -55,6 +55,8 @@ private:
 	FixupMapType globalsFixupMap;
 	bool printMethodNames;
 	bool printLambdaBridge;
+	bool printHandleVAArg;
+	bool printCreateArrayPointer;
 	uint32_t getIntFromValue(const llvm::Value* v) const;
 	bool isValidTypeCast(const llvm::Value* cast, const llvm::Value* castOp, llvm::Type* src, llvm::Type* dst) const;
 	bool isClientType(const llvm::Type* t) const;
@@ -141,7 +143,9 @@ private:
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
 	void compileArrayClassType(llvm::StructType* T);
+	void compileArrayPointerType();
 	void compileLambdaBridge();
+	void compileHandleVAArg();
 	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
 	enum CONSTRUCTOR_ACTION { ADD_TO_QUEUE=0, COMPILE=1 };
@@ -153,7 +157,8 @@ private:
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):
-		module(m),targetData(&m),currentFun(NULL),printMethodNames(false),printLambdaBridge(false),currentUniqueIndex(0),stream(s)
+		module(m),targetData(&m),currentFun(NULL),printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
+		printCreateArrayPointer(false),currentUniqueIndex(0),stream(s)
 	{
 	}
 	void makeJS();
