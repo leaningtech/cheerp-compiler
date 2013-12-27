@@ -647,6 +647,7 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 				stream << "createPointerArray(";
 				compileOperand(size);
 				stream << '/' << typeSize << ')';
+				printCreateArrayPointer = true;
 			}
 			else
 			{
@@ -2791,6 +2792,8 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "handleVAArg(";
 			compileDereferencePointer(vi.getPointerOperand(), NULL);
 			stream << ')';
+			//Set the flag to print the implementation of handleVAArg at the end
+			printHandleVAArg = true;
 			return true;
 		}
 		default:
@@ -3408,6 +3411,11 @@ void DuettoWriter::compileArrayClassType(StructType* T)
 	stream << ";\nreturn ret;\n}\n";
 }
 
+void DuettoWriter::compileArrayPointerType()
+{
+	stream << "function createPointerArray(size) { var ret=new Array(size); for(var __i__=0;__i__<size;__i__++) ret[__i__]={ d: null, o: 0}; return ret; }\n";
+}
+
 void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION action)
 {
 	assert(GV->hasInitializer());
@@ -3458,6 +3466,11 @@ void DuettoWriter::compileNullPtrs()
 void DuettoWriter::compileLambdaBridge()
 {
 	stream << "function __Z8CallbackPFvvEPv(func, obj) { return function(e) { func(obj, e); }; }\n";
+}
+
+void DuettoWriter::compileHandleVAArg()
+{
+	stream << "function handleVAArg(ptr) { var ret=ptr.d[ptr.o]; ptr.o++; return ret; }\n";
 }
 
 void DuettoWriter::makeJS()
@@ -3531,9 +3544,14 @@ void DuettoWriter::makeJS()
 	{
 		compileArrayClassType(*T);
 	}
+	if(printCreateArrayPointer)
+		compileArrayPointerType();
 	//Compile the lambda bridge if needed
 	if(printLambdaBridge)
 		compileLambdaBridge();
+	//Compile handleVAArg if needed
+	if(printHandleVAArg)
+		compileHandleVAArg();
 	//Execute constructors
 	if(constructors)
 		handleConstructors(constructors, COMPILE);
