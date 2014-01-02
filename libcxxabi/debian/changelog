@@ -1,3 +1,9 @@
+duetto-libcxxabi (0.9.3-1) saucy; urgency=low
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 02 Jan 2014 18:27:45 +0100
+
 duetto-libcxxabi (0.9.2-1) saucy; urgency=low
 
   * New release
