@@ -1619,18 +1619,13 @@ void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 	else
 	{
 		assert(acceptedKind==REGULAR);
+		stream << "{ d: ";
+		compileOperandImpl(v);
+		stream << ", o: ";
 		if(k==COMPLETE_ARRAY)
-		{
-			stream << "{ d: ";
-			compileOperandImpl(v);
-			stream << ", o: 0}";
-		}
+			stream << "0}";
 		else if(k==COMPLETE_OBJECT)
-		{
-			stream << "{ d: [";
-			compileOperandImpl(v);
-			stream << "], o: 0}";
-		}
+			stream << "'s'}";
 	}
 }
 
