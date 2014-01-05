@@ -89,7 +89,6 @@ private:
 	enum POINTER_KIND { UNDECIDED = 0, COMPLETE_OBJECT, COMPLETE_ARRAY, REGULAR };
 	POINTER_KIND getPointerKind(const llvm::Value* v, std::map<const llvm::PHINode*, POINTER_KIND>& visitedPhis);
 	POINTER_KIND getPointerKind(const llvm::Value* v);
-	bool isDowncast(const llvm::Value* val) const;
 	/*
 	 * \param v The pointer to dereference, it may be a regular pointer, a complete obj or a complete array
 	 * \param offset An offset coming from code, which may be also NULL
