@@ -366,10 +366,11 @@ void DuettoWriter::compileDowncast(const Value* src, uint32_t baseOffset)
 	else
 	{
 		//Do a runtime downcast
+		stream << "{d:";
 		compileDereferencePointer(src, NULL);
-		stream << ".a[";
+		stream << ".a,o:";
 		compileDereferencePointer(src, NULL);
-		stream << ".o-" << baseOffset << "]";
+		stream << ".o-" << baseOffset << "}";
 	}
 }
 
@@ -1034,8 +1035,6 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 		const User* bi=static_cast<const User*>(v);
 		return getPointerKind(bi->getOperand(0), visitedPhis);
 	}
-	if(isDowncast(v))
-		return COMPLETE_OBJECT;
 	if(isComingFromAllocation(v))
 		return COMPLETE_ARRAY;
 	//Follow PHIs
@@ -1070,14 +1069,6 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v)
 {
 	std::map<const PHINode*, POINTER_KIND> visitedPhis;
 	return getPointerKind(v, visitedPhis);
-}
-
-bool DuettoWriter::isDowncast(const Value* val) const
-{
-	const CallInst* newCall=dyn_cast<const CallInst>(val);
-	if(newCall && newCall->getCalledFunction())
-		return newCall->getCalledFunction()->getName()=="llvm.duetto.downcast";
-	return false;
 }
 
 bool DuettoWriter::isNopCast(const Value* val) const
