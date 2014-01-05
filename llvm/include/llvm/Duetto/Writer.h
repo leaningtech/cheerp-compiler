@@ -77,7 +77,10 @@ private:
 	void compileTerminatorInstruction(const llvm::TerminatorInst& I,
 			const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
 	bool compileInlineableInstruction(const llvm::Instruction& I);
-	bool compileNotInlineableInstruction(const llvm::Instruction& I);
+	void addSelfPointer(const llvm::Value* obj);
+	// COMPILE_ADD_SELF is returned by AllocaInst when a self pointer must be added to the returned value
+	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_ADD_SELF };
+	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I);
 	enum COMPILE_FLAG { NORMAL = 0, DRY_RUN = 1 };
 	const llvm::Type* compileRecursiveAccessToGEP(llvm::Type* curType, const llvm::Use* it,
 			const llvm::Use* const itE, COMPILE_FLAG flag);
