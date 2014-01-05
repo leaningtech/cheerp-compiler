@@ -1048,16 +1048,18 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 			//Assume true, if needed it will become false later on
 			return alreadyVisited->second;
 		}
-		//Intialize the value with the best scenario, demote it later if necessary
+		//Intialize the PHI with undecided
 		std::map<const PHINode*, POINTER_KIND>::iterator current=
-			visitedPhis.insert(make_pair(newPHI, COMPLETE_OBJECT)).first;
-		for(unsigned i=0;i<newPHI->getNumIncomingValues();i++)
+			visitedPhis.insert(make_pair(newPHI, UNDECIDED)).first;
+		for(unsigned i=0;i<newPHI->getNumIncomingValues() && current->second!=REGULAR;i++)
 		{
 			POINTER_KIND k=getPointerKind(newPHI->getIncomingValue(i), visitedPhis);
-			if (k > current->second)
-				current->second=k;
-			if (k == REGULAR)
-				break;
+			if(current->second == UNDECIDED)
+				current->second = k;
+			// COMPLETE_OBJECT can't change to COMPLETE_ARRAY for the "self" optimization
+			// so switch directly to REGULAR
+			else if (k != current->second)
+				current->second = REGULAR;
 		}
 		return current->second;
 	}
@@ -1619,11 +1621,9 @@ void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 	}
 	else if(acceptedKind==COMPLETE_ARRAY)
 	{
+		//Bacause of the "self" optimization a COMPLETE_OBJECT
+		//is not convertible to a COMPLETE_ARRAY
 		assert(k==COMPLETE_OBJECT);
-		//We need to forge a complete array
-		stream << '[';
-		compileOperandImpl(v);
-		stream << ']';
 	}
 	else
 	{
