@@ -142,6 +142,7 @@ private:
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void gatherDependencies(const llvm::Constant* C, const llvm::GlobalVariable* base,
 			const llvm::Twine& baseName, const llvm::Constant* value);
+	bool getBasesInfo(const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
 	void compileArrayClassType(llvm::StructType* T);

@@ -3329,6 +3329,39 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		globalsFixupMap.erase(f.first,f.second);
 }
 
+bool DuettoWriter::getBasesInfo(const StructType* t, uint32_t& firstBase, uint32_t& baseCount)
+{
+	if(!t->hasName())
+		return false;
+
+	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(t->getName(),"_bases"));
+	if(!basesNamedMeta)
+		return false;
+
+	MDNode* basesMeta=basesNamedMeta->getOperand(0);
+	assert(basesMeta->getNumOperands()==2);
+	firstBase=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue());
+	int32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue())-1;
+	baseCount=0;
+
+	StructType::element_iterator E=t->element_begin()+firstBase;
+	StructType::element_iterator EE=t->element_end();
+	for(;E!=EE;++E)
+	{
+		baseCount++;
+		StructType* baseT=cast<StructType>(*E);
+		NamedMDNode* baseNamedMeta=module.getNamedMetadata(Twine(baseT->getName(),"_bases"));
+		if(baseNamedMeta)
+			baseMax-=getIntFromValue(cast<ConstantAsMetadata>(baseNamedMeta->getOperand(0)->getOperand(1))->getValue());
+		else
+			baseMax--;
+		assert(baseMax>=0);
+		if(baseMax==0)
+			break;
+	}
+	return true;
+}
+
 uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
 {
 	stream << "a[" << baseCount << "] = " << baseName << ";\n";
@@ -3336,31 +3369,19 @@ uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, St
 	stream << baseName << ".a=a;\n";
 	baseCount++;
 
-	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(currentType->getName(),"_bases"));
-	if(!basesNamedMeta)
+	uint32_t firstBase, localBaseCount;
+	if(!getBasesInfo(currentType, firstBase, localBaseCount))
 		return baseCount;
-
-	MDNode* basesMeta=basesNamedMeta->getOperand(0);
-	assert(basesMeta->getNumOperands()==2);
-	uint32_t firstBase=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue());
 	//baseCount has been already incremented above
-	uint32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue())+(baseCount-1);
-	uint32_t offset=0;
+#ifndef NDEBUG
+	uint32_t baseMax=localBaseCount+(baseCount-1);
+#endif
 
-	StructType::element_iterator E=currentType->element_begin();
-	StructType::element_iterator EE=currentType->element_end();
-
-	for(;E!=EE;++E)
+	for(uint32_t i=firstBase;i<(firstBase+localBaseCount);i++)
 	{
-		if(offset >= firstBase)
-		{
-			char buf[12];
-			snprintf(buf,12,".a%u",offset);
-			baseCount=compileClassTypeRecursive(baseName + buf, cast<StructType>(*E), baseCount);
-			if(baseMax==baseCount)
-				break;
-		}
-		offset++;
+		char buf[12];
+		snprintf(buf,12,".a%u",i);
+		baseCount=compileClassTypeRecursive(baseName+buf, cast<StructType>(currentType->getElementType(i)), baseCount);
 	}
 	assert(baseMax==baseCount);
 	return baseCount;
