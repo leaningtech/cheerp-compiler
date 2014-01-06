@@ -1602,7 +1602,8 @@ void DuettoWriter::compileConstant(const Constant* c)
 
 void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 {
-	assert(v->getType()->isPointerTy());
+	const Type* t=v->getType();
+	assert(t->isPointerTy());
 	POINTER_KIND k=getPointerKind(v);
 	assert(acceptedKind>=k);
 	if(acceptedKind==k)
@@ -1619,10 +1620,17 @@ void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 	else
 	{
 		assert(acceptedKind==REGULAR);
+		bool hasBaseInfo = false;
 		stream << "{ d: ";
 		compileOperandImpl(v);
+		if(k==COMPLETE_OBJECT && isa<StructType>(t->getPointerElementType()) &&
+			classesNeeded.count(cast<StructType>(t->getPointerElementType())))
+		{
+			hasBaseInfo = true;
+			stream << ".a";
+		}
 		stream << ", o: ";
-		if(k==COMPLETE_ARRAY)
+		if(k==COMPLETE_ARRAY || hasBaseInfo)
 			stream << "0}";
 		else if(k==COMPLETE_OBJECT)
 			stream << "'s'}";
@@ -2012,7 +2020,10 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			compileType(t);
 			if(isImmutableType(t))
 				stream << ']';
-			return isImmutableType(t)?COMPILE_OK:COMPILE_ADD_SELF;
+			if(isImmutableType(t) || !isa<StructType>(t) || classesNeeded.count(cast<StructType>(t)))
+				return COMPILE_OK;
+			else
+				return COMPILE_ADD_SELF;
 		}
 		case Instruction::Call:
 		{
@@ -2216,7 +2227,21 @@ const Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use
 		//First dereference the pointer
 		if(flag!=DRY_RUN)
 			compileDereferencePointer(val, *it);
-		return compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE, flag);
+		const Type* ret=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE, flag);
+		if(flag!=NORMAL)
+			return ret;
+		//If we are accessing a base class, use the downcast array
+		if(const StructType* st=dyn_cast<StructType>(ret))
+		{
+			uint32_t firstBase, baseCount;
+			if(getBasesInfo(st, firstBase, baseCount))
+			{
+				uint32_t lastIndex=getIntFromValue(*itE);
+				if(lastIndex>=firstBase && lastIndex<(firstBase+baseCount))
+					stream << ".a";
+			}
+		}
+		return ret;
 	}
 }
 
@@ -2251,10 +2276,27 @@ bool DuettoWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, c
 			uint32_t elementIndex = getIntFromValue(*itE);
 			if(elementIndex == 0 && !lastType->isStructTy())
 				return false;
-			if(lastType->isStructTy())
+			bool isStruct=false;
+			//If we are accessing a base class, use the downcast array
+			if(const StructType* st=dyn_cast<StructType>(lastType))
+			{
+				isStruct=true;
+				uint32_t firstBase, baseCount;
+				if(getBasesInfo(st, firstBase, baseCount) && elementIndex>=firstBase &&
+					elementIndex<(firstBase+baseCount))
+				{
+					compileDereferencePointer(val, *it);
+					compileRecursiveAccessToGEP(val->getType()->getPointerElementType(), ++it, itE, NORMAL);
+					stream << ".a";
+					stream << elementIndex;
+					stream << ".o";
+					return true;
+				}
+			}
+			if(isStruct)
 				stream << "\"a";
 			stream << elementIndex;
-			if(lastType->isStructTy())
+			if(isStruct)
 				stream << '"';
 		}
 		else
