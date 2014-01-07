@@ -1089,13 +1089,15 @@ void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset
 	if(offset==NULL || (ConstantInt::classof(offset) && getIntFromValue(offset)==0))
 		isOffsetConstantZero = true;
 
-	const Type* lastType=compileObjectForPointer(v, NORMAL);
-	if(k==COMPLETE_OBJECT)
-	{
-		assert(isOffsetConstantZero);
-		assert(namedOffset==NULL);
+	//If we know that no offset should be applied we can ask for the object directly.
+	//If v is a GEP this optimizes away the separate access to the base and the offset
+	//which would then be conbined dynamically. The idea is as follow
+	//obj.a0["a1"] -> obj.a0.a1
+	const Type* lastType=compileObjectForPointer(v, (isOffsetConstantZero && !namedOffset)?GEP_DIRECT:NORMAL);
+	//If a type has been returned (i.e. the value is a GEP) and we asked for direct access,
+	//we can just stop
+	if(k==COMPLETE_OBJECT || (lastType && isOffsetConstantZero && !namedOffset))
 		return;
-	}
 	stream << '[';
 	if(k==COMPLETE_ARRAY)
 	{
@@ -2153,7 +2155,7 @@ bool DuettoWriter::isI32Type(Type* t) const
 void DuettoWriter::compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end)
 {
 	assert(idx_begin!=idx_end);
-	compileObjectForPointerGEP(operand, idx_begin, idx_end, NORMAL);
+	compileObjectForPointerGEP(operand, idx_begin, idx_end, GEP_DIRECT);
 }
 
 const Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG flag)
@@ -2163,8 +2165,11 @@ const Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG
 	{
 		const User* gep=static_cast<const User*>(val);
 		GetElementPtrInst::const_op_iterator it=gep->op_begin()+1;
-		//We compile as usual till the last level
-		GetElementPtrInst::const_op_iterator itE=gep->op_end()-1;
+		GetElementPtrInst::const_op_iterator itE=gep->op_end();
+		//When generating a regular pointer, do not compile the last level
+		//If the access is direct compile all offsets
+		if(flag!=GEP_DIRECT)
+			--itE;
 		return compileObjectForPointerGEP(gep->getOperand(0), it, itE, flag);
 	}
 	else if(isBitCast(val))
