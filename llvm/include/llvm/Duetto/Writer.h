@@ -81,7 +81,7 @@ private:
 	// COMPILE_ADD_SELF is returned by AllocaInst when a self pointer must be added to the returned value
 	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_ADD_SELF };
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I);
-	enum COMPILE_FLAG { NORMAL = 0, DRY_RUN = 1 };
+	enum COMPILE_FLAG { NORMAL = 0, DRY_RUN = 1, GEP_DIRECT = 2 };
 	const llvm::Type* compileRecursiveAccessToGEP(llvm::Type* curType, const llvm::Use* it,
 			const llvm::Use* const itE, COMPILE_FLAG flag);
 	void compilePredicate(llvm::CmpInst::Predicate p);
