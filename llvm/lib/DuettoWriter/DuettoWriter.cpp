@@ -887,20 +887,24 @@ void DuettoWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Pr
 
 void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
 {
-	// To correctly compare every kind of pointers, we need to distinguish between
-	// pointer to immutable types and the rest.
-	// 1) Pointers to immutable types must be compared by base and offset, they are
-	//    guaranteed to have the same array as a base since they are created as array
-	// 2) Other pointers are compared by dereferencing the JS pointer struct. This works
-	//    because they can be compatred by reference, while immutable types are compared by
-	//    value.
-
+	// Pointers to functions and client objects are compared directly.
+	// All other pointers are compared using the base and offset separately
 	llvm::Type* pointedType = lhs->getType()->getPointerElementType();
-	bool isImmutable = isImmutableType(pointedType);
 	bool isFunction = pointedType->isFunctionTy();
 	bool isClient = isClientType(pointedType);
 
-	if (isImmutable)
+	if(isFunction || isClient)
+	{
+		//Functions can be compared by reference, the can't be in an array
+		//There can be an array of pointer to functions, not an array of functions
+		compileOperand(lhs);
+		if(p==CmpInst::ICMP_NE)
+			stream << "!==";
+		else
+			stream << "===";
+		compileOperand(rhs);
+	}
+	else
 	{
 		const Type* lastType1=compileObjectForPointer(lhs, NORMAL);
 		if(p==CmpInst::ICMP_NE)
@@ -926,26 +930,6 @@ void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 			if(!notFirst)
 				stream << '0';
 		}
-	}
-	else if(isFunction || isClient)
-	{
-		//Functions can be compared by reference, the can't be in an array
-		//There can be an array of pointer to functions, not an array of functions
-		compileOperand(lhs);
-		if(p==CmpInst::ICMP_NE)
-			stream << "!==";
-		else
-			stream << "===";
-		compileOperand(rhs);
-	}
-	else
-	{
-		compileDereferencePointer(lhs, NULL);
-		if(p==CmpInst::ICMP_NE)
-			stream << "!==";
-		else
-			stream << "===";
-		compileDereferencePointer(rhs, NULL);
 	}
 }
 
