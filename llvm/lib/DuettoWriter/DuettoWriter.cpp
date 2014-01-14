@@ -287,7 +287,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 				stream << "__tmp__=new Int8Array(";
 				compileDereferencePointer(baseDest, NULL, namedOffset);
 				stream << baseName << ");\n";
-				stream << "for(var __i__=0;__i__<__tmp__.length;__i__++) __tmp__[__i__]=0\n";
+				stream << "for(var __i__=0;__i__<__tmp__.length;__i__++) __tmp__[__i__]=0;\n";
 				break;
 			}
 			const StructType* st=static_cast<const StructType*>(currentType);
@@ -537,7 +537,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
 		if(!notFirst)
 			stream << '0';
-		stream << ')';
+		stream << ");\n";
 	}
 	else
 	{
@@ -667,7 +667,7 @@ void DuettoWriter::compileFree(const Value* obj)
 	stream << "=null";
 }
 
-bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
+DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 			User::const_op_iterator it, User::const_op_iterator itE, bool userImplemented)
 {
 	//First handle high priority builtins, they will be used even
@@ -675,66 +675,66 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 	if(strncmp(ident,"llvm.memmove",12)==0)
 	{
 		compileMove(*(it), *(it+1), *(it+2));
-		return true;
+		return COMPILE_EMPTY;
 	}
 	else if(strncmp(ident,"llvm.memcpy",11)==0)
 	{
 		compileMemFunc(*(it), *(it+1), *(it+2), FORWARD);
-		return true;
+		return COMPILE_EMPTY;
 	}
 	else if(strncmp(ident,"llvm.memset",11)==0)
 	{
 		//TODO: memset on allocate memory may be optimized
 		compileMemFunc(*(it), *(it+1), *(it+2), RESET);
-		return true;
+		return COMPILE_EMPTY;
 	}
 	else if(strncmp(ident,"llvm.lifetime",13)==0)
 	{
-		return true;
+		return COMPILE_EMPTY;
 	}
 	else if(strncmp(ident,"llvm.invariant",14)==0)
 	{
 		//TODO: Try to optimize using this, for now just pass the second arg
 		compileOperand(*(it+1));
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"llvm.va_start",13)==0)
 	{
 		compileDereferencePointer(*it, NULL);
 		stream << " = { d:arguments, o:_" << currentFun->getName() << ".length }";
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"llvm.va_end",11)==0)
 	{
 		compileDereferencePointer(*it, NULL);
 		stream << "=null";
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"llvm.duetto.downcast",20)==0)
 	{
 		compileDowncast(*(it), getIntFromValue(*(it+1)));
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"llvm.duetto.upcast.collapsed",28)==0)
 	{
 		compileOperand(*it);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"llvm.duetto.cast.user",21)==0)
 	{
 		compileOperand(*it);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"llvm.duetto.pointer.base",24)==0)
 	{
 		compileObjectForPointer(*it, NORMAL);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"llvm.duetto.pointer.offset",26)==0)
 	{
 		const Type* lastType = compileObjectForPointer(*it, DRY_RUN);
 		compileOffsetForPointer(*it, lastType);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strcmp(ident,"malloc")==0 ||
 		strcmp(ident,"_Znaj")==0 ||
@@ -742,14 +742,14 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		strncmp(ident,"llvm.duetto.allocate",20)==0)
 	{
 		compileAllocation(callV, *it);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strcmp(ident,"free")==0 ||
 		strcmp(ident,"_ZdlPv")==0 ||
 		strcmp(ident,"_ZdaPv")==0)
 	{
 		compileFree(*it);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strcmp(ident,"fmod")==0)
 	{
@@ -759,26 +759,21 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		stream << '%';
 		compileOperand(*(it+1));
 		stream << ')';
-		return true;
+		return COMPILE_OK;
 	}
 
 	//If the method is implemented by the user, stop here
 	if(userImplemented)
-		return false;
+		return COMPILE_UNSUPPORTED;
 
-	if(strcmp(ident,"_ZNK6client6ObjectcvdEv")==0)
-	{
-		//Do not touch methods that are implemented in native JS code
-		return false;
-	}
-	else if(strncmp(ident,"_Z8CallbackPFvvEPv",18)==0)
+	if(strncmp(ident,"_Z8CallbackPFvvEPv",18)==0)
 	{
 		//This is the bridge to JS lambda creation, if ever used
 		//set the flag and implement is as usual, if the flag is
 		//set the implementation will be printed at the end of the
 		//compiled file
 		printLambdaBridge = true;
-		return false;
+		return COMPILE_UNSUPPORTED;
 	}
 	else if(strncmp(ident,"_ZN6client18duettoVariadicTrap",30)==0)
 	{
@@ -791,7 +786,7 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		StringRef strName=cast<ConstantDataSequential>(strGlobal)->getAsCString();
 		stream << strName;
 		compileMethodArgs(it+1, itE);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"_ZN6client24duettoVariadicMemberTrap",36)==0)
 	{
@@ -806,17 +801,17 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 		compileOperand(*(it+1));
 		stream << '.' << strName;
 		compileMethodArgs(it+2, itE);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"_ZN6client",10)==0)
 	{
 		handleBuiltinNamespace(ident+10,it,itE);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"_ZNK6client",11)==0)
 	{
 		handleBuiltinNamespace(ident+11,it,itE);
-		return true;
+		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"duettoCreate_ZN6client",22)==0)
 	{
@@ -828,9 +823,9 @@ bool DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
 			stream << "new ";
 		stream.write(typeName, typeLen);
 		compileMethodArgs(it, itE);
-		return true;
+		return COMPILE_OK;
 	}
-	return false;
+	return COMPILE_UNSUPPORTED;
 }
 
 void DuettoWriter::compilePredicate(CmpInst::Predicate p)
@@ -1848,7 +1843,7 @@ void DuettoWriter::compileMethodArgs(const llvm::User::const_op_iterator it, con
 /*
  * This method is fragile, each opcode must handle the phis in the correct place
  */
-void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I)
+DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I)
 {
 	switch(I.getOpcode())
 	{
@@ -1861,7 +1856,7 @@ void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I)
 			if(retVal)
 				compileOperand(retVal, OPERAND_EXPAND_COMPLETE_OBJECTS);
 			stream << ";\n";
-			break;
+			return COMPILE_OK;
 		}
 		case Instruction::Invoke:
 		{
@@ -1872,14 +1867,16 @@ void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I)
 			{
 				//Direct call
 				const char* funcName=ci.getCalledFunction()->getName().data();
-				if(handleBuiltinCall(funcName,&ci,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),
-						!ci.getCalledFunction()->empty()))
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(funcName,&ci,ci.op_begin(),
+						ci.op_begin()+ci.getNumArgOperands(),!ci.getCalledFunction()->empty());
+				assert(cf!=COMPILE_EMPTY);
+				if(cf==COMPILE_OK)
 				{
 					stream << ";\n";
 					//Only consider the normal successor for PHIs here
 					//For each successor output the variables for the phi nodes
 					compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
-					break;
+					return COMPILE_OK;
 				}
 				else
 				{
@@ -1903,27 +1900,27 @@ void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I)
 			//Only consider the normal successor for PHIs here
 			//For each successor output the variables for the phi nodes
 			compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
-			break;
+			return COMPILE_OK;
 		}
 		case Instruction::Resume:
 		{
 			//TODO: support exceptions
-			break;
+			return COMPILE_OK;
 		}
 		case Instruction::Br:
 		case Instruction::Switch:
-			break;
+			return COMPILE_OK;
 		default:
 			stream << "alert('Unsupported code');\n";
 			llvm::errs() << "\tImplement terminator inst " << I.getOpcodeName() << '\n';
-			break;
 	}
+	return COMPILE_UNSUPPORTED;
 }
 
-void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I,
+DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I,
 		const std::map<const BasicBlock*, uint32_t>& blocksMap)
 {
-	compileTerminatorInstruction(I);
+	COMPILE_INSTRUCTION_FEEDBACK cf=compileTerminatorInstruction(I);
 	switch(I.getOpcode())
 	{
 		case Instruction::Ret:
@@ -1990,6 +1987,7 @@ void DuettoWriter::compileTerminatorInstruction(const TerminatorInst& I,
 			llvm::errs() << "\tImplement terminator inst " << I.getOpcodeName() << '\n';
 			break;
 	}
+	return cf;
 }
 
 DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableInstruction(const Instruction& I)
@@ -2018,11 +2016,10 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			{
 				//Direct call
 				const char* funcName=ci.getCalledFunction()->getName().data();
-				if(handleBuiltinCall(funcName,&ci,ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),
-						!ci.getCalledFunction()->empty()))
-				{
-					return COMPILE_OK;
-				}
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(funcName,&ci,ci.op_begin(),
+						ci.op_begin()+ci.getNumArgOperands(),!ci.getCalledFunction()->empty());
+				if(cf!=COMPILE_UNSUPPORTED)
+					return cf;
 				stream << '_' << funcName;
 				if(!globalsDone.count(ci.getCalledFunction()))
 #ifdef DEBUG_GLOBAL_DEPS
@@ -2945,7 +2942,8 @@ void DuettoWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 		else
 		{
 			COMPILE_INSTRUCTION_FEEDBACK ret=compileNotInlineableInstruction(*I);
-			stream << ";\n";
+			if(ret==COMPILE_OK || ret==COMPILE_ADD_SELF)
+				stream << ";\n";
 			if(ret==COMPILE_ADD_SELF)
 				addSelfPointer(&(*I));
 			else if(ret==COMPILE_UNSUPPORTED)

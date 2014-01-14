@@ -73,13 +73,14 @@ private:
 	bool isGEP(const llvm::Value* v) const;
 	bool isImmutableType(const llvm::Type* t) const;
 	bool isUnion(const llvm::Type* t) const;
-	void compileTerminatorInstruction(const llvm::TerminatorInst& I);
-	void compileTerminatorInstruction(const llvm::TerminatorInst& I,
+	// COMPILE_ADD_SELF is returned by AllocaInst when a self pointer must be added to the returned value
+	// COMPILE_EMPTY is returned if there is no need to add a ;\n to end the line
+	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_ADD_SELF, COMPILE_EMPTY };
+	COMPILE_INSTRUCTION_FEEDBACK compileTerminatorInstruction(const llvm::TerminatorInst& I);
+	COMPILE_INSTRUCTION_FEEDBACK compileTerminatorInstruction(const llvm::TerminatorInst& I,
 			const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
 	bool compileInlineableInstruction(const llvm::Instruction& I);
 	void addSelfPointer(const llvm::Value* obj);
-	// COMPILE_ADD_SELF is returned by AllocaInst when a self pointer must be added to the returned value
-	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_ADD_SELF };
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I);
 	enum COMPILE_FLAG { NORMAL = 0, DRY_RUN = 1, GEP_DIRECT = 2 };
 	const llvm::Type* compileRecursiveAccessToGEP(llvm::Type* curType, const llvm::Use* it,
@@ -130,7 +131,7 @@ private:
 	void compileMethodArgs(const llvm::User::const_op_iterator it, const llvm::User::const_op_iterator itE);
 	void handleBuiltinNamespace(const char* ident, llvm::User::const_op_iterator it,
 			llvm::User::const_op_iterator itE);
-	bool handleBuiltinCall(const char* ident, const llvm::Value* callV,
+	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(const char* ident, const llvm::Value* callV,
 			llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, bool userImplemented);
 	bool safeUsagesForNewedMemory(const llvm::Value* v) const;
 	bool safeCallForNewedMemory(const llvm::CallInst* ci) const;
