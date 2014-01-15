@@ -2189,9 +2189,19 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastTyp
 		if(!isUnion(b->getOperand(0)->getType()->getPointerElementType()))
 			return compileOffsetForPointer(b->getOperand(0), lastType);
 	}
-	else if(getPointerKind(val)!=REGULAR)
+	else if(getPointerKind(val)==COMPLETE_OBJECT)
+	{
+		//Print the regular "s" offset for complete objects
+		stream << "'s'";
+		return true;
+	}
+	else if(getPointerKind(val)==COMPLETE_ARRAY)
+	{
+		//Skip printing 0 offset for complete arrays
 		return false;
+	}
 
+	//Regular pointer case
 	compileOperand(val);
 	stream << ".o";
 	return true;
