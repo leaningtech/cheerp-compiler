@@ -980,6 +980,12 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 {
 	assert(v->getType()->isPointerTy());
 	PointerType* pt=cast<PointerType>(v->getType());
+	if(isClientArrayType(pt->getElementType()))
+	{
+		//Handle client arrays like COMPLETE_ARRAYs, so the right 0 offset
+		//is used when doing GEPs
+		return COMPLETE_ARRAY;
+	}
 	if(isClientType(pt->getElementType()))
 	{
 		//Pointers to client type are complete objects, and are never expanded to
@@ -1204,6 +1210,12 @@ bool DuettoWriter::isClientType(const Type* t) const
 {
 	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
 		strncmp(t->getStructName().data(), "class._ZN6client", 16)==0);
+}
+
+bool DuettoWriter::isClientArrayType(const Type* t) const
+{
+	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
+		strcmp(t->getStructName().data(), "class._ZN6client5ArrayE")==0);
 }
 
 bool DuettoWriter::isUnion(const Type* t) const
