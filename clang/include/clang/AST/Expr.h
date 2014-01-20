@@ -3472,6 +3472,7 @@ public:
 /// classes).
 class CastExpr : public Expr {
   Stmt *Op;
+  bool DuettoSafe;
 
   bool CastConsistency() const;
 
@@ -3485,7 +3486,7 @@ class CastExpr : public Expr {
 protected:
   CastExpr(StmtClass SC, QualType ty, ExprValueKind VK, const CastKind kind,
            Expr *op, unsigned BasePathSize, bool HasFPFeatures)
-      : Expr(SC, ty, VK, OK_Ordinary), Op(op) {
+      : Expr(SC, ty, VK, OK_Ordinary), Op(op), CheerpSafe(false) {
     CastExprBits.Kind = kind;
     CastExprBits.PartOfExplicitCast = false;
     CastExprBits.BasePathSize = BasePathSize;
@@ -3524,6 +3525,8 @@ public:
   Expr *getSubExpr() { return cast<Expr>(Op); }
   const Expr *getSubExpr() const { return cast<Expr>(Op); }
   void setSubExpr(Expr *E) { Op = E; }
+  void setDuettoSafe(bool s) { DuettoSafe = s; }
+  bool isDuettoSafe() const { return DuettoSafe; }
 
   /// Retrieve the cast subexpression as it was written in the source
   /// code, looking through any implicit casts or other intermediate nodes
