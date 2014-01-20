@@ -2188,7 +2188,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       return EmitLoadOfLValue(DestLV, CE->getExprLoc());
     }
 
-    if (CGF.getTarget().isByteAddressable() || isa<llvm::ConstantPointerNull>(Src) ||
+    //We don't care about casts to functions types
+    if (CGF.getTarget().isByteAddressable() || CE->isDuettoSafe() || isa<llvm::ConstantPointerNull>(Src) ||
         (isa<llvm::Function>(Src) && isa<llvm::FunctionType>(DstTy)))
     {
       return Builder.CreateBitCast(Src, DstTy);
