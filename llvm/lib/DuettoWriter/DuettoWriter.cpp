@@ -2855,7 +2855,18 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 	//Beside a few cases, instructions with a single use may be inlined
 	//TODO: Find out a better heuristic for inlining, it seems that computing
 	//may be faster even on more than 1 use
-	if(I.hasOneUse())
+	if(I.getOpcode()==Instruction::GetElementPtr)
+	{
+		//Special case GEPs. They should always be inline since creating the object is really slow
+		return true;
+	}
+	else if(I.getOpcode()==Instruction::BitCast)
+	{
+		//Union are complex, do not inline them
+		llvm::Type* src=I.getOperand(0)->getType();
+		return !(src->isPointerTy() && isUnion(src->getPointerElementType()));
+	}
+	else if(I.hasOneUse())
 	{
 		//A few opcodes needs to be executed anyway as they
 		//do not operated on registers
@@ -2907,23 +2918,11 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 			case Instruction::UIToFP:
 			case Instruction::FPToUI:
 			case Instruction::PtrToInt:
-			case Instruction::GetElementPtr:
 				return true;
-			case Instruction::BitCast:
-			{
-				//Union are complex, do not inline them
-				llvm::Type* src=I.getOperand(0)->getType();
-				return !(src->isPointerTy() && isUnion(src->getPointerElementType()));
-			}
 			default:
 				llvm::report_fatal_error(Twine("Unsupported opcode: ",StringRef(I.getOpcodeName())), false);
 				return true;
 		}
-	}
-	else if(I.getOpcode()==Instruction::GetElementPtr)
-	{
-		//Special case GEPs. They should always be inline since creating the object is really slow
-		return true;
 	}
 	return false;
 }
