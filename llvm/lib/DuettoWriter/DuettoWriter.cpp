@@ -832,6 +832,7 @@ void DuettoWriter::compilePredicate(CmpInst::Predicate p)
 {
 	switch(p)
 	{
+		case CmpInst::FCMP_UEQ: //TODO: fix this, if an operand is NaN LLVM expects false,
 		case CmpInst::FCMP_OEQ:
 		case CmpInst::ICMP_EQ:
 			stream << " === ";
