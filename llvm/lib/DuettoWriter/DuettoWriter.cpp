@@ -3347,7 +3347,8 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		compileOperand(C, OPERAND_EXPAND_COMPLETE_OBJECTS);
 		if(isImmutableType(t))
 			stream << ']';
-		else
+
+		if(getPointerKind(&G)==COMPLETE_OBJECT)
 			addSelf = true;
 	}
 	stream << ";\n";
