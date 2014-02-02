@@ -1308,16 +1308,14 @@ bool DuettoWriter::isValidVoidPtrSource(const Value* val, std::set<const PHINode
 	const CallInst* newCall=dyn_cast<const CallInst>(val);
 	if(newCall && newCall->getCalledFunction())
 	{
-		return newCall->getCalledFunction()->getName()=="llvm.duetto.downcast"
-			|| newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
+		return newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
 			|| newCall->getCalledFunction()->getName()=="llvm.duetto.cast.user";
 	}
 	//Try invoke as well
 	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
 	if(newInvoke && newInvoke->getCalledFunction())
 	{
-		return newInvoke->getCalledFunction()->getName()=="llvm.duetto.downcast"
-			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
+		return newInvoke->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
 			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.cast.user";
 	}
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
@@ -1352,7 +1350,7 @@ bool DuettoWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type
 	//Conversion between client objects is free
 	if(isClientType(src) && isClientType(dst))
 		return true;
-	//Conversion between any function pointer are ok
+	//Conversion between any function pointer is ok
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
 	//Allow conversions between equivalent struct types
