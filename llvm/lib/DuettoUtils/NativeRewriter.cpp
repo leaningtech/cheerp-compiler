@@ -197,69 +197,56 @@ void DuettoUtils::rewriteNativeAllocationUsers(Module& M, SmallVector<Instructio
 
 void DuettoUtils::rewriteConstructorImplementation(Module& M, Function& F)
 {
+	//Copy the code in a function with the right signature
+	Function* newFunc=getReturningConstructor(M, &F);
+	if(!newFunc->empty())
+		return;
+
 	//Visit each instruction and take note of the ones that needs to be replaced
-	Function::iterator B=F.begin();
-	Function::iterator BE=F.end();
+	Function::const_iterator B=F.begin();
+	Function::const_iterator BE=F.end();
 	ValueToValueMapTy valueMap;
 	CallInst* lowerConstructor = NULL;
-	CallInst* oldLowerConstructor = NULL;
+	const CallInst* oldLowerConstructor = NULL;
 	for(;B!=BE;++B)
 	{
-		BasicBlock::iterator I=B->begin();
-		BasicBlock::iterator IE=B->end();
+		BasicBlock::const_iterator I=B->begin();
+		BasicBlock::const_iterator IE=B->end();
 		for(;I!=IE;++I)
 		{
-			switch(I->getOpcode())
-			{
-				case Instruction::Call:
-				{
-					CallInst* callInst=static_cast<CallInst*>(&(*I));
-					if(Function* f=callInst->getCalledFunction())
-					{
-						const char* startOfType;
-						const char* endOfType;
-						if(!DuettoUtils::isBuiltinConstructor(f->getName().data(),
-									startOfType, endOfType))
-						{
-							continue;
-						}
-						//Check that the constructor is for 'this'
-						if(callInst->getOperand(0)!=F.arg_begin())
-							continue;
-						//Only one lower constructor can be allowed
-						if(lowerConstructor)
-						{
-							llvm::report_fatal_error("Only one base constructor is supported",
-									false);
-							return;
-						}
-						//If this is another constructor for the same type, change it to a
-						//returning constructor and use it as the 'this' argument
-						Function* newFunc = getReturningConstructor(M, f);
-						llvm::SmallVector<Value*, 4> newArgs;
-						for(unsigned i=1;i<callInst->getNumArgOperands();i++)
-						{
-							newArgs.push_back(callInst->getArgOperand(i));
-						}
-						lowerConstructor = CallInst::Create(newFunc, newArgs);
-						//Save which call is the constructror, we need to remove it after this loop
-						oldLowerConstructor = callInst;
-					}
-					break;
-				}
-			}
+			if(!I->getOpcode()==Instruction::Call)
+				continue;
+			const CallInst* callInst=cast<CallInst>(&(*I));
+			Function* f=callInst->getCalledFunction();
+			if(!f)
+				continue;
+			const char* startOfType;
+			const char* endOfType;
+			if(!DuettoUtils::isBuiltinConstructor(f->getName().data(), startOfType, endOfType))
+				continue;
+			//Check that the constructor is for 'this'
+			if(callInst->getOperand(0)!=F.arg_begin())
+				continue;
+			//If this is another constructor for the same type, change it to a
+			//returning constructor and use it as the 'this' argument
+			Function* newFunc = getReturningConstructor(M, f);
+			llvm::SmallVector<Value*, 4> newArgs;
+			for(unsigned i=1;i<callInst->getNumArgOperands();i++)
+				newArgs.push_back(callInst->getArgOperand(i));
+			lowerConstructor = CallInst::Create(newFunc, newArgs);
+			oldLowerConstructor = callInst;
+			break;
 		}
+		if(lowerConstructor)
+			break;
 	}
-	//Kill the old base construtor now
-	oldLowerConstructor->eraseFromParent();
-	valueMap.insert(make_pair(F.arg_begin(), lowerConstructor));
 
-	//Copy the simplified code in a function with the right signature
-	Function* newFunc=getReturningConstructor(M, &F);
 	//Clone the linkage first
 	newFunc->setLinkage(F.getLinkage());
 	Function::arg_iterator origArg=++F.arg_begin();
 	Function::arg_iterator newArg=newFunc->arg_begin();
+	valueMap.insert(make_pair(F.arg_begin(), lowerConstructor));
+
 	for(unsigned i=1;i<F.arg_size();i++)
 	{
 		valueMap.insert(make_pair(&(*origArg), &(*newArg)));
@@ -314,6 +301,7 @@ void DuettoUtils::rewriteConstructorImplementation(Module& M, Function& F)
 		for(i=usersQueue.size()-1,it=cur->use_begin();it!=cur->use_end();++it,i--)
 			usersQueue[i]=it->getUser();
 	}
+	cast<Instruction>(valueMap[oldLowerConstructor])->eraseFromParent();
 }
 
 void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
