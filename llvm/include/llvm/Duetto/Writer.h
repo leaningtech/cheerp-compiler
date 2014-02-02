@@ -121,7 +121,7 @@ private:
 	void compileResetRecursive(const std::string& baseName, const llvm::Value* baseDest,
 		const llvm::Value* resetValue, const llvm::Type* currentType, const char* namedOffset);
 	void compileDowncast(const llvm::Value* src, uint32_t baseOffset);
-	void compileAllocation(const llvm::Value* callV, const llvm::Value* size);
+	void compileAllocation(const llvm::Value* callV, const llvm::Value* size, const llvm::Value* numElements = NULL);
 	void compileFree(const llvm::Value* obj);
 	void compilePointer(const llvm::Value* v, POINTER_KIND acceptedKind);
 	void compileOperandImpl(const llvm::Value* v);
