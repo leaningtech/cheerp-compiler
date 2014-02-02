@@ -560,7 +560,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	}
 }
 
-void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
+void DuettoWriter::compileAllocation(const Value* callV, const Value* size, const Value* numElements)
 {
 	//Find out if this is casted to something
 	Value::const_use_iterator it=callV->use_begin();
@@ -603,7 +603,9 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 		stream << "new ";
 		compileTypedArrayType(t);
 		stream << '(';
-		if(ConstantInt::classof(size))
+		if(numElements)
+			compileOperand(numElements);
+		else if(ConstantInt::classof(size))
 		{
 			uint32_t allocatedSize = getIntFromValue(size);
 			uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
@@ -618,7 +620,19 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 	}
 	else
 	{
-		if(ConstantInt::classof(size))
+		if(numElements && ConstantInt::classof(numElements))
+		{
+			uint32_t numElem = getIntFromValue(numElements);
+			stream << '[';
+			for(uint64_t i=0;i<numElem;i++)
+			{
+				compileType(t);
+				if((i+1)<numElem)
+					stream << ",";
+			}
+			stream << ']';
+		}
+		else if(ConstantInt::classof(size))
 		{
 			uint32_t allocatedSize = getIntFromValue(size);
 			uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
@@ -640,14 +654,26 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size)
 				stream << "createArray";
 				printLLVMName(st->getName(), GLOBAL);
 				stream << '(';
-				compileOperand(size);
-				stream << '/' << typeSize << ')';
+				if(numElements)
+					compileOperand(numElements);
+				else
+				{
+					compileOperand(size);
+					stream << '/' << typeSize;
+				}
+				stream << ')';
 			}
 			else if(t->isPointerTy())
 			{
 				stream << "createPointerArray(";
-				compileOperand(size);
-				stream << '/' << typeSize << ')';
+				if(numElements)
+					compileOperand(numElements);
+				else
+				{
+					compileOperand(size);
+					stream << '/' << typeSize;
+				}
+				stream << ')';
 				printCreateArrayPointer = true;
 			}
 			else
@@ -742,6 +768,11 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 		strncmp(ident,"llvm.duetto.allocate",20)==0)
 	{
 		compileAllocation(callV, *it);
+		return COMPILE_OK;
+	}
+	else if(strcmp(ident,"calloc")==0)
+	{
+		compileAllocation(callV, *(it+1), *it);
 		return COMPILE_OK;
 	}
 	else if(strcmp(ident,"free")==0 ||
@@ -1285,6 +1316,7 @@ bool DuettoWriter::isComingFromAllocation(const Value* val) const
 			|| newCall->getCalledFunction()->getName()=="_Znaj"
 			|| newCall->getCalledFunction()->getName()=="realloc"
 			|| newCall->getCalledFunction()->getName()=="malloc"
+			|| newCall->getCalledFunction()->getName()=="calloc"
 			|| newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate;
 	}
 	//Try invoke as well
@@ -1296,6 +1328,7 @@ bool DuettoWriter::isComingFromAllocation(const Value* val) const
 			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
 			|| newInvoke->getCalledFunction()->getName()=="realloc"
 			|| newInvoke->getCalledFunction()->getName()=="malloc"
+			|| newInvoke->getCalledFunction()->getName()=="calloc"
 			|| newInvoke->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate;
 	}
 	return false;
