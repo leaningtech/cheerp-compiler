@@ -592,7 +592,9 @@ llvm::Type *
 ItaniumCXXABI::ConvertMemberPointerType(const MemberPointerType *MPT) {
   if (MPT->isMemberDataPointer())
     return CGM.PtrDiffTy;
-  return llvm::StructType::get(CGM.PtrDiffTy, CGM.PtrDiffTy);
+  llvm::Type* elementType = CGM.getTarget().isByteAddressable()?
+                          (llvm::Type*)CGM.PtrDiffTy:(llvm::Type*)CGM.VoidPtrTy;
+  return llvm::StructType::get(elementType, CGM.PtrDiffTy);
 }
 
 /// In the Itanium and ARM ABIs, method pointers have the form:
@@ -643,16 +645,23 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   if (UseARMMethodPtrABI)
     Adj = Builder.CreateAShr(Adj, ptrdiff_1, "memptr.adj.shifted");
 
-  // Apply the adjustment and cast back to the original struct type
-  // for consistency.
-  llvm::Value *This = ThisAddr.getPointer();
-  llvm::Value *Ptr = Builder.CreateBitCast(This, Builder.getInt8PtrTy());
-  Ptr = Builder.CreateInBoundsGEP(Ptr, Adj);
-  This = Builder.CreateBitCast(Ptr, This->getType(), "this.adjusted");
-  ThisPtrForCall = This;
-
+  //On NBA only 0 adjustment is currently supported
+  if (CGF.getTarget().isByteAddressable())
+  {
+    // Apply the adjustment and cast back to the original struct type
+    // for consistency.
+    llvm::Value *This = ThisAddr.getPointer();
+    llvm::Value *Ptr = Builder.CreateBitCast(This, Builder.getInt8PtrTy());
+    Ptr = Builder.CreateInBoundsGEP(Ptr, Adj);
+    This = Builder.CreateBitCast(Ptr, This->getType(), "this.adjusted");
+    ThisPtrForCall = This;
+  }
+  
   // Load the function pointer.
   llvm::Value *FnAsInt = Builder.CreateExtractValue(MemFnPtr, 0, "memptr.ptr");
+  
+  if (!CGF.getTarget().isByteAddressable())
+    return Builder.CreateBitCast(FnAsInt, FTy->getPointerTo(), "memptr.nonvirtualfn");
 
   // If the LSB in the function pointer is 1, the function pointer points to
   // a virtual function.
@@ -1026,6 +1035,11 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
   // Get the function pointer (or index if this is a virtual function).
   llvm::Constant *MemPtr[2];
   if (MD->isVirtual()) {
+    if (!CGM.getTarget().isByteAddressable())
+    {
+      CGM.ErrorUnsupported(MD, "Duetto: pointers to virtual methods are not supported");
+      return NULL;
+    }
     uint64_t Index = CGM.getItaniumVTableContext().getMethodVTableIndex(MD);
     uint64_t VTableOffset;
     if (CGM.getItaniumVTableContext().isRelativeLayout()) {
@@ -1071,7 +1085,17 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
     }
     llvm::Constant *addr = CGM.GetAddrOfFunction(MD, Ty);
 
-    MemPtr[0] = llvm::ConstantExpr::getPtrToInt(addr, CGM.PtrDiffTy);
+    if (CGM.getTarget().isByteAddressable())
+      MemPtr[0] = llvm::ConstantExpr::getPtrToInt(addr, CGM.PtrDiffTy);
+    else
+    {
+      MemPtr[0] = llvm::ConstantExpr::getBitCast(addr, CGM.VoidPtrTy);
+      if (ThisAdjustment.getQuantity())
+      {
+        CGM.ErrorUnsupported(MD, "Duetto: this pointer to member function is not yet supported");
+        return NULL;
+      }
+    }
     MemPtr[1] = llvm::ConstantInt::get(CGM.PtrDiffTy,
                                        (UseARMMethodPtrABI ? 2 : 1) *
                                        ThisAdjustment.getQuantity());
