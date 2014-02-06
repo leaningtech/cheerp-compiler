@@ -13,6 +13,7 @@
 #include "llvm/Duetto/Utils.h"
 #include "llvm/Duetto/Writer.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -325,6 +326,12 @@ Type* DuettoWriter::findRealType(const Value* v, std::set<const PHINode*>& visit
 {
 	if(isBitCast(v))
 		return static_cast<const User*>(v)->getOperand(0)->getType();
+	else if(const IntrinsicInst* ci = dyn_cast<IntrinsicInst>(v))
+	{
+		//Support duetto.cast.user
+		if(ci->getIntrinsicID() == Intrinsic::duetto_cast_user)
+			return ci->getArgOperand(0)->getType();
+	}
 
 	const PHINode* newPHI=dyn_cast<const PHINode>(v);
 	if(newPHI)
@@ -567,26 +574,21 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size, cons
 	Value::const_use_iterator itE=callV->use_end();
 	const Type* castedType = NULL;
 	//If we are using the typed allocation it's easy
-	if(const CallInst* ci=dyn_cast<CallInst>(callV))
+	if(const IntrinsicInst* ci=dyn_cast<IntrinsicInst>(callV))
 	{
-		if(ci->getCalledFunction() &&
-			ci->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate)
-		{
+		if(ci->getIntrinsicID() == Intrinsic::duetto_allocate)
 			castedType = ci->getType();
-		}
 	}
 	for(;it!=itE && castedType==NULL;++it)
 	{
-		if(BitCastInst::classof(*it))
-			castedType = (*it)->getType();
-		else if(const CallInst* ci = dyn_cast<CallInst>(*it))
+		const User* U=it->getUser();
+		if(BitCastInst::classof(U))
+			castedType = U->getType();
+		else if(const IntrinsicInst* ci = dyn_cast<IntrinsicInst>(U))
 		{
 			//Support duetto.cast.user
-			if(ci->getCalledFunction() &&
-				ci->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_cast_user)
-			{
-				castedType = (*it)->getType();
-			}
+			if(ci->getIntrinsicID() == Intrinsic::duetto_cast_user)
+				castedType = (U)->getType();
 		}
 	}
 
@@ -1340,17 +1342,11 @@ bool DuettoWriter::isValidVoidPtrSource(const Value* val, std::set<const PHINode
 		return true;
 	const CallInst* newCall=dyn_cast<const CallInst>(val);
 	if(newCall && newCall->getCalledFunction())
-	{
-		return newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
-			|| newCall->getCalledFunction()->getName()=="llvm.duetto.cast.user";
-	}
+		return newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed";
 	//Try invoke as well
 	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
 	if(newInvoke && newInvoke->getCalledFunction())
-	{
-		return newInvoke->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
-			|| newInvoke->getCalledFunction()->getName()=="llvm.duetto.cast.user";
-	}
+		return newInvoke->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed";
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
 	if(newPHI)
 	{
