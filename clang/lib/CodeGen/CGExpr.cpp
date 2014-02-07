@@ -4891,7 +4891,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     }
     else
     {
-      llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(CE->getBeginLoc(),
+      llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(CE,
 		      getContext().getPointerType(E->getSubExpr()->getType()),
 		      CE->getTypeAsWritten());
       V = Address(Builder.CreateCall(intrinsic, V.getPointer()), V.getAlignment());
