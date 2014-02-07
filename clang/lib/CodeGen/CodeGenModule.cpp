@@ -4565,11 +4565,10 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalAnnotations(D, Fn);
 }
 
-llvm::Function* CodeGenModule::GetUserCastIntrinsic(SourceLocation srcLoc, QualType SrcTy, QualType DestTy)
+llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy)
 {
-  //Do not print the waring when casting function pointers
-  if(!(SrcTy->isFunctionPointerType() && DestTy->isFunctionPointerType()))
-    getDiags().Report(srcLoc, diag::warn_duetto_unsafe_cast);
+  if(!CE->isDuettoSafe())
+    getDiags().Report(CE->getBeginLoc(), diag::warn_duetto_unsafe_cast);
 
   llvm::Type* types[] = { getTypes().ConvertType(DestTy), getTypes().ConvertType(SrcTy) };
 
