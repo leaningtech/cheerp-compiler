@@ -1045,7 +1045,7 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 			if(ArrayType::classof(pt->getElementType()))
 				return COMPLETE_OBJECT;
 			else
-				return REGULAR;
+				return COMPLETE_ARRAY;
 		}
 		return getPointerKind(bi->getOperand(0), visitedPhis);
 	}
@@ -2229,7 +2229,8 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastTyp
 		if(!isUnion(b->getOperand(0)->getType()->getPointerElementType()))
 			return compileOffsetForPointer(b->getOperand(0), lastType);
 	}
-	else if(getPointerKind(val)==COMPLETE_OBJECT)
+
+	if(getPointerKind(val)==COMPLETE_OBJECT)
 	{
 		//Print the regular "s" offset for complete objects
 		stream << "'s'";
@@ -2423,15 +2424,11 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 				//Find the type
 				llvm::Type* elementType = dst->getPointerElementType();
 				bool isArray=ArrayType::classof(elementType);
-				if(!isArray)
-					stream << "{d:";
 				stream << "new ";
 				compileTypedArrayType((isArray)?elementType->getSequentialElementType():elementType);
 				stream << '(';
 				compileOperand(bi.getOperand(0));
 				stream << ')';
-				if(!isArray)
-					stream << ", o: 0}";
 				return true;
 			}
 
