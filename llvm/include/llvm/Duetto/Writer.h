@@ -94,6 +94,9 @@ private:
 	enum POINTER_KIND { UNDECIDED = 0, COMPLETE_OBJECT, COMPLETE_ARRAY, REGULAR };
 	POINTER_KIND getPointerKind(const llvm::Value* v, std::map<const llvm::PHINode*, POINTER_KIND>& visitedPhis);
 	POINTER_KIND getPointerKind(const llvm::Value* v);
+	// ALWAYS_DEREFERENCED means that the pointer is always used as a base for a GEP, 0 or a store/load
+	enum POINTER_USAGE { ANY = 0, ALWAYS_DEREFERENCED };
+	POINTER_USAGE getPointerUsage(const llvm::Value* v);
 	/*
 	 * \param v The pointer to dereference, it may be a regular pointer, a complete obj or a complete array
 	 * \param offset An offset coming from code, which may be also NULL
