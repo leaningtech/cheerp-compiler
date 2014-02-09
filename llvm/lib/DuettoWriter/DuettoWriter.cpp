@@ -1746,9 +1746,9 @@ void DuettoWriter::compileTypeImpl(Type* t)
 			if(isUnion(t))
 			{
 				uint32_t typeSize = targetData.getTypeAllocSize(t);
-				stream << "new ArrayBuffer(";
+				stream << "new DataView(new ArrayBuffer(";
 				stream << typeSize;
-				stream << ')';
+				stream << "))";
 				break;
 			}
 			StructType* st=static_cast<StructType*>(t);
@@ -2164,6 +2164,24 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 				const ConstantExpr& cgep=static_cast<const ConstantExpr&>(*ptrOp);
 				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
 			}
+			else if(BitCastInst::classof(ptrOp) &&
+					isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
+					!ArrayType::classof(ptrOp->getType()->getPointerElementType()))
+			{
+				//Optimize loads of single values from unions
+				compileOperand(cast<BitCastInst>(ptrOp)->getOperand(0));
+				Type* pointedType=ptrOp->getType()->getPointerElementType();
+				if(pointedType->isIntegerTy(8))
+					stream << ".getInt8(0)";
+				else if(pointedType->isIntegerTy(16))
+					stream << ".getInt16(0,true)";
+				else if(pointedType->isIntegerTy(32))
+					stream << ".getInt32(0,true)";
+				else if(pointedType->isFloatTy())
+					stream << ".getFloat32(0,true)";
+				else if(pointedType->isDoubleTy())
+					stream << ".getFloat64(0,true)";
+			}
 			else
 				compileDereferencePointer(ptrOp, NULL);
 			stream << ")";
@@ -2185,6 +2203,30 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			{
 				const ConstantExpr& cgep=static_cast<const ConstantExpr&>(*ptrOp);
 				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
+			}
+			else if(BitCastInst::classof(ptrOp) &&
+					isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
+					!ArrayType::classof(ptrOp->getType()->getPointerElementType()))
+			{
+				//Optimize loads of single values from unions
+				compileOperand(cast<BitCastInst>(ptrOp)->getOperand(0));
+				Type* pointedType=ptrOp->getType()->getPointerElementType();
+				if(pointedType->isIntegerTy(8))
+					stream << ".setInt8(0,";
+				else if(pointedType->isIntegerTy(16))
+					stream << ".setInt16(0,";
+				else if(pointedType->isIntegerTy(32))
+					stream << ".setInt32(0,";
+				else if(pointedType->isFloatTy())
+					stream << ".setFloat32(0,";
+				else if(pointedType->isDoubleTy())
+					stream << ".setFloat64(0,";
+				//Special case compilation of operand, the default behavior use =
+				compileOperand(valOp, OPERAND_EXPAND_COMPLETE_OBJECTS);
+				if(!pointedType->isIntegerTy(8))
+					stream << ",true";
+				stream << ')';
+				return COMPILE_OK;
 			}
 			else
 				compileDereferencePointer(ptrOp, NULL);
@@ -2457,7 +2499,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 				compileTypedArrayType((isArray)?elementType->getSequentialElementType():elementType);
 				stream << '(';
 				compileOperand(bi.getOperand(0));
-				stream << ')';
+				stream << ".buffer)";
 				return true;
 			}
 
@@ -2916,9 +2958,23 @@ bool DuettoWriter::isInlineable(const Instruction& I) const
 	}
 	else if(I.getOpcode()==Instruction::BitCast)
 	{
-		//Union are complex, do not inline them
+		//Inline casts which are not unions
 		llvm::Type* src=I.getOperand(0)->getType();
-		return !(src->isPointerTy() && isUnion(src->getPointerElementType()));
+		if(!src->isPointerTy() || !isUnion(src->getPointerElementType()))
+			return true;
+		Type* pointedType=src->getPointerElementType();
+		//Do not inline union casts to array
+		if(ArrayType::classof(pointedType))
+			return false;
+		//Inline if the only uses are load and stores
+		Value::const_use_iterator it=I.use_begin();
+		Value::const_use_iterator itE=I.use_end();
+		for(;it!=itE;++it)
+		{
+			if(!LoadInst::classof(it->getUser()) && !StoreInst::classof(it->getUser()))
+				return false;
+		}
+		return true;
 	}
 	else if(I.hasOneUse())
 	{
