@@ -3320,25 +3320,6 @@ void DuettoWriter::compileMethod(const Function& F)
 		rl->Calculate(relooperMap[&F.getEntryBlock()]);
 		RenderInterface* ri=new DuettoRenderInterface(this);
 		rl->Render(ri);
-/*		//Build a map from basicblocks to ids
-		uint32_t blockId=0;
-		for(;B!=BE;++B)
-		{
-			blocksMap.insert(make_pair(&(*B), blockId));
-			blockId++;
-		}
-		//Rest the iterator
-		B=F.begin();
-
-		//Create an emscripten style switch for now
-		stream << "var __block=0;\nwhile(true){\nswitch(__block){\n";
-		for(;B!=BE;++B)
-		{
-			stream << "case " << blocksMap.find(&(*B))->second << ":\n";
-			compileBB(*B, blocksMap);
-			stream << "break;\n";
-		}
-		stream << "}}\n";*/
 	}
 
 	stream << "}\n";
