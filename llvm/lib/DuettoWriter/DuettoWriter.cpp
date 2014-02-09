@@ -1090,6 +1090,35 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v)
 	return getPointerKind(v, visitedPhis);
 }
 
+DuettoWriter::POINTER_USAGE DuettoWriter::getPointerUsage(const Value* v)
+{
+	Value::const_use_iterator it=v->use_begin();
+	Value::const_use_iterator itE=v->use_end();
+	POINTER_USAGE ret = ALWAYS_DEREFERENCED;
+	for(;it!=itE;++it)
+	{
+		POINTER_USAGE thisUsage = ret;
+		if(const Instruction* I = dyn_cast<Instruction>(*it))
+		{
+			switch(I->getOpcode())
+			{
+				case Instruction::BitCast:
+					thisUsage=getPointerUsage(I);
+					break;
+				case Instruction::Load:
+				case Instruction::Store:
+					thisUsage=ALWAYS_DEREFERENCED;
+					break;
+				default:
+					thisUsage=ANY;
+			}
+		}
+		if (thisUsage < ret)
+			ret = thisUsage;
+	}
+	return ret;
+}
+
 bool DuettoWriter::isNopCast(const Value* val) const
 {
 	const CallInst* newCall=dyn_cast<const CallInst>(val);
@@ -2990,7 +3019,7 @@ void DuettoWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 			COMPILE_INSTRUCTION_FEEDBACK ret=compileNotInlineableInstruction(*I);
 			if(ret==COMPILE_OK || ret==COMPILE_ADD_SELF)
 				stream << ";\n";
-			if(ret==COMPILE_ADD_SELF)
+			if(ret==COMPILE_ADD_SELF && getPointerUsage(&(*I))==ANY)
 				addSelfPointer(&(*I));
 			else if(ret==COMPILE_UNSUPPORTED)
 			{
