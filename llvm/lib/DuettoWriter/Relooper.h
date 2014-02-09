@@ -82,8 +82,9 @@ struct Block {
   Block *DefaultTarget; // The block we branch to without checking the condition, if none of the other conditions held.
                         // Since each block *must* branch somewhere, this must be set
   bool IsCheckedMultipleEntry; // If true, we are a multiple entry, so reaching us requires setting the label variable
+  bool IsSplittable;
 
-  Block(const void* privateBlock);
+  Block(const void* privateBlock, bool splittable);
   ~Block();
 
   /*
