@@ -50,8 +50,8 @@ void Branch::Render(Block *Target, bool SetLabel, RenderInterface* renderInterfa
 
 int Block::IdCounter = 1; // 0 is reserved for clearings
 
-Block::Block(const void* b) : Parent(NULL), Id(Block::IdCounter++), privateBlock(b), DefaultTarget(NULL),
-	IsCheckedMultipleEntry(false) {
+Block::Block(const void* b, bool s) : Parent(NULL), Id(Block::IdCounter++), privateBlock(b), DefaultTarget(NULL),
+	IsCheckedMultipleEntry(false), IsSplittable(s) {
 }
 
 Block::~Block() {
@@ -307,28 +307,21 @@ void Relooper::Calculate(Block *Entry) {
     // RAII cleanup. Without splitting, we will be forced to introduce labelled loops to allow
     // reaching the final block
     void SplitDeadEnds() {
-      // Duetto: temporarily disable, then do unconditionally
-/*      int TotalCodeSize = 0;
-      for (BlockSet::iterator iter = Live.begin(); iter != Live.end(); iter++) {
-        Block *Curr = *iter;
-        TotalCodeSize += strlen(Curr->Code);
-      }
-
       for (BlockSet::iterator iter = Live.begin(); iter != Live.end(); iter++) {
         Block *Original = *iter;
         if (Original->BranchesIn.size() <= 1 || Original->BranchesOut.size() > 0) continue;
-        if (strlen(Original->Code)*(Original->BranchesIn.size()-1) > TotalCodeSize/5) continue; // if splitting increases raw code size by a significant amount, abort
+	if (!Original->IsSplittable) continue;
         // Split the node (for simplicity, we replace all the blocks, even though we could have reused the original)
         for (BlockBranchMap::iterator iter = Original->BranchesIn.begin(); iter != Original->BranchesIn.end(); iter++) {
           Block *Prior = iter->first;
-          Block *Split = new Block(Original->Code);
-          Split->BranchesIn[Prior] = new Branch(NULL);
-          Prior->BranchesOut[Split] = new Branch(Prior->BranchesOut[Original]->Condition, Prior->BranchesOut[Original]->Code);
+          Block *Split = new Block(Original->privateBlock, Original->IsSplittable);
+          Split->BranchesIn[Prior] = new Branch(-1);
+          Prior->BranchesOut[Split] = new Branch(Prior->BranchesOut[Original]->branchId);
           Prior->BranchesOut.erase(Original);
           Parent->AddBlock(Split);
           Live.insert(Split);
         }
-      }*/
+      }
     }
   };
   PreOptimizer Pre(this);

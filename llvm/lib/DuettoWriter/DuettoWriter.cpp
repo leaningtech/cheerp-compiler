@@ -3250,7 +3250,12 @@ void DuettoWriter::compileMethod(const Function& F)
 		{
 			if(B->isLandingPad())
 				continue;
-			Block* rlBlock = new Block(&(*B));
+			//Decide if this block should be duplicated instead
+			//of actually directing the control flow to reach it
+			//Currently we just check if the block ends with a return
+			//and its small enough. This should simplify some control flows.
+			bool isSplittable = B->size()<3 && ReturnInst::classof(B->getTerminator());
+			Block* rlBlock = new Block(&(*B), isSplittable);
 			relooperMap.insert(make_pair(&(*B),rlBlock));
 		}
 
