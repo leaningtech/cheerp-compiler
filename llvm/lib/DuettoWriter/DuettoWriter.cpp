@@ -3156,18 +3156,14 @@ void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, const s
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if(!first)
 		writer->stream << "} else ";
-	writer->stream << "if (!";
-	if(skipBranchIds.size()>1)
-		writer->stream << '(';
+	writer->stream << "if (!(";
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
 	{
 		if(i!=0)
 			writer->stream << "||";
 		renderCondition(bb, skipBranchIds[i]);
 	}
-	if(skipBranchIds.size()>1)
-		writer->stream << ')';
-	writer->stream << ") {\n";
+	writer->stream << ")) {\n";
 }
 
 void DuettoRenderInterface::renderElseBlockBegin()
