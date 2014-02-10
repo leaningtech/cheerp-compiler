@@ -24,15 +24,18 @@ class DuettoRenderInterface: public RenderInterface
 {
 private:
 	DuettoWriter* writer;
+	void renderCondition(const BasicBlock* B, int branchId);
 public:
 	DuettoRenderInterface(DuettoWriter* w):writer(w)
 	{
 	}
 	void renderBlock(const void* privateBlock);
 	void renderIfBlockBegin(const void* privateBlock, int branchId, bool first);
+	void renderIfBlockBegin(const void* privateBlock, const vector<int>& branchId, bool first);
 	void renderElseBlockBegin();
 	void renderBlockEnd();
 	void renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom);
+	bool hasBlockPrologue(const void* privateBlockTo) const;
 	void renderWhileBlockBegin();
 	void renderWhileBlockBegin(int labelId);
 	void renderDoBlockBegin();
@@ -3094,13 +3097,9 @@ void DuettoRenderInterface::renderBlock(const void* privateBlock)
 	writer->compileBB(*bb, blocksMap);
 }
 
-void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, int branchId, bool first)
+void DuettoRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 {
-	const BasicBlock* bb=(const BasicBlock*)privateBlock;
-	if(!first)
-		writer->stream << "} else ";
 	const TerminatorInst* term=bb->getTerminator();
-	writer->stream << "if (";
 	if(BranchInst::classof(term))
 	{
 		const BranchInst* bi=cast<const BranchInst>(term);
@@ -3140,6 +3139,34 @@ void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, int bra
 		term->dump();
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
+}
+
+void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, int branchId, bool first)
+{
+	const BasicBlock* bb=(const BasicBlock*)privateBlock;
+	if(!first)
+		writer->stream << "} else ";
+	writer->stream << "if (";
+	renderCondition(bb, branchId);
+	writer->stream << ") {\n";
+}
+
+void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first)
+{
+	const BasicBlock* bb=(const BasicBlock*)privateBlock;
+	if(!first)
+		writer->stream << "} else ";
+	writer->stream << "if (!";
+	if(skipBranchIds.size()>1)
+		writer->stream << '(';
+	for(uint32_t i=0;i<skipBranchIds.size();i++)
+	{
+		if(i!=0)
+			writer->stream << "||";
+		renderCondition(bb, skipBranchIds[i]);
+	}
+	if(skipBranchIds.size()>1)
+		writer->stream << ')';
 	writer->stream << ") {\n";
 }
 
@@ -3158,6 +3185,12 @@ void DuettoRenderInterface::renderBlockPrologue(const void* privateBlockTo, cons
 	const BasicBlock* bbTo=(const BasicBlock*)privateBlockTo;
 	const BasicBlock* bbFrom=(const BasicBlock*)privateBlockFrom;
 	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
+}
+
+bool DuettoRenderInterface::hasBlockPrologue(const void* privateBlockTo) const
+{
+	const BasicBlock* bbTo=(const BasicBlock*)privateBlockTo;
+	return bbTo->getFirstNonPHI()!=&bbTo->front();
 }
 
 void DuettoRenderInterface::renderWhileBlockBegin()

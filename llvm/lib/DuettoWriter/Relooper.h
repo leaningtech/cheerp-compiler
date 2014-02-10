@@ -18,6 +18,7 @@ LLVM.
 #include <map>
 #include <deque>
 #include <set>
+#include <vector>
 
 struct Block;
 struct Shape;
@@ -28,9 +29,11 @@ public:
 	virtual void renderBlock(const void* privateBlock) = 0;
 	virtual void renderIfOnLabel(int labelId, bool first) = 0;
 	virtual void renderIfBlockBegin(const void* privateBlock, int branchId, bool first) = 0;
+	virtual void renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first) = 0;
 	virtual void renderElseBlockBegin() = 0;
 	virtual void renderBlockEnd() = 0;
 	virtual void renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) = 0;
+	virtual bool hasBlockPrologue(const void* privateBlockTo) const = 0;
 	virtual void renderWhileBlockBegin() = 0;
 	virtual void renderWhileBlockBegin(int labelId) = 0;
 	virtual void renderDoBlockBegin() = 0;
