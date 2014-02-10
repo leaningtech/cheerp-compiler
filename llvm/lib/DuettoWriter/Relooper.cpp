@@ -131,7 +131,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   }
   assert(DefaultTarget); // Must be a default
 
-  //ministring RemainingConditions;
+  std::vector<int> emptyBranchesIds;
   bool First = true;
   for (BlockBranchMap::iterator iter = ProcessedBranchesOut.begin();; iter++) {
     Block *Target;
@@ -148,31 +148,25 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
     bool SetCurrLabel = SetLabel && Target->IsCheckedMultipleEntry;
     bool HasFusedContent = Fused && Fused->InnerMap.find(Target) != Fused->InnerMap.end();
     //Duetto: We assume that the block has content, otherwise why it's even here?
-    //bool HasContent = SetCurrLabel || Details->Type != Branch::Direct || HasFusedContent || Details->Code;
+    bool HasContent = SetCurrLabel || Details->Type != Branch::Direct ||
+                      HasFusedContent || renderInterface->hasBlockPrologue(Target->privateBlock);
     if (iter != ProcessedBranchesOut.end()) {
       // If there is nothing to show in this branch, omit the condition
-      //if (HasContent) {
+      if (HasContent) {
         renderInterface->renderIfBlockBegin(privateBlock, Details->branchId, First);
         First = false;
-      /*} else {
-        if (RemainingConditions.size() > 0) RemainingConditions += " && ";
-        RemainingConditions += "!(";
-        RemainingConditions += Details->Condition;
-        RemainingConditions += ")";
-      }*/
+      } else {
+	emptyBranchesIds.push_back(Details->branchId);
+      }
     } else {
-      /*if (HasContent) {
-        if (RemainingConditions.size() > 0) {
-          if (First) {
-            PrintIndented("if (%s) {\n", RemainingConditions.c_str());
-            First = false;
-          } else {
-            PrintIndented("} else if (%s) {\n", RemainingConditions.c_str());
-          }
-        } else */ if (!First) {
+      if (HasContent) {
+        if (!emptyBranchesIds.empty()) {
+          renderInterface->renderIfBlockBegin(privateBlock, emptyBranchesIds, First);
+          First = false;
+        } else if (!First) {
 	  renderInterface->renderElseBlockBegin();
         }
-    //}
+      }
     }
     renderInterface->renderBlockPrologue(Target->privateBlock, privateBlock);
     Details->Render(Target, SetCurrLabel, renderInterface);
