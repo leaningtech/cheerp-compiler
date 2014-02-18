@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2013 Leaning Technologies
+// Copyright 2011-2014 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -416,25 +416,6 @@ bool DuettoWriter::isTypedArrayType(Type* t) const
 		t->isFloatTy() || t->isDoubleTy();
 }
 
-void DuettoWriter::compileTypedArrayType(Type* t)
-{
-	if(t->isIntegerTy(8))
-		stream << "Int8Array";
-	else if(t->isIntegerTy(16))
-		stream << "Int16Array";
-	else if(t->isIntegerTy(32))
-		stream << "Int32Array";
-	else if(t->isFloatTy())
-		stream << "Float32Array";
-	else if(t->isDoubleTy())
-		stream << "Float64Array";
-	else
-	{
-		llvm::errs() << "Typed array requested for type " << *t << "\n";
-		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-	}
-}
-
 /* Method that handles memcpy, memset and memmove.
  * If src is not NULL present a copy operation is done using the supplied direction.
  * memset is handled by passing a NULL src and setting resetValue as needed. direction should be FORWARD */
@@ -631,7 +612,7 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size, cons
 			stream << '[';
 			for(uint64_t i=0;i<numElem;i++)
 			{
-				compileType(t);
+				compileType(t, LITERAL_OBJ);
 				if((i+1)<numElem)
 					stream << ",";
 			}
@@ -644,7 +625,7 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size, cons
 			stream << '[';
 			for(uint64_t i=0;i<numElem;i++)
 			{
-				compileType(t);
+				compileType(t, LITERAL_OBJ);
 				if((i+1)<numElem)
 					stream << ",";
 			}
@@ -1643,7 +1624,7 @@ void DuettoWriter::compileConstant(const Constant* c)
 	}
 	else if(ConstantAggregateZero::classof(c))
 	{
-		compileType(c->getType());
+		compileType(c->getType(), LITERAL_OBJ);
 	}
 	else
 	{
@@ -1721,114 +1702,6 @@ void DuettoWriter::compileOperand(const Value* v, OperandFix fix)
 	}
 	else
 		compileOperandImpl(v);
-}
-
-void DuettoWriter::compileTypeImpl(Type* t)
-{
-	switch(t->getTypeID())
-	{
-		case Type::IntegerTyID:
-		{
-			//We only really have 32bit integers.
-			//We will allow anything shorter.
-			//NOTE: Only bit operations are allowed on shorter types
-			//this is enforced on a per-operation basis
-			//Print out a '0' to let the engine know this is an integer.
-			stream << '0';
-			break;
-		}
-		case Type::FloatTyID:
-		case Type::DoubleTyID:
-		{
-			stream << '0';
-			break;
-		}
-		case Type::StructTyID:
-		{
-			//Special case union first
-			if(isUnion(t))
-			{
-				uint32_t typeSize = targetData.getTypeAllocSize(t);
-				stream << "new DataView(new ArrayBuffer(";
-				stream << typeSize;
-				stream << "))";
-				break;
-			}
-			StructType* st=static_cast<StructType*>(t);
-			stream << "{ ";
-			StructType::element_iterator E=st->element_begin();
-			StructType::element_iterator EE=st->element_end();
-			uint32_t offset=0;
-			for(;E!=EE;++E)
-			{
-				if(offset!=0)
-					stream << ", ";
-				stream << "a" << offset << ": ";
-				compileType(*E);
-				offset++;
-			}
-			stream << " }";
-			break;
-		}
-		case Type::PointerTyID:
-		{
-			const Type* pointedType = t->getPointerElementType();
-			if(isClientType(pointedType))
-				stream << "null";
-			else
-				stream << "nullObj";
-			break;
-		}
-		case Type::ArrayTyID:
-		{
-			ArrayType* at=static_cast<ArrayType*>(t);
-			Type* et=at->getElementType();
-			//For numerical types, create typed arrays
-			if(isTypedArrayType(et))
-			{
-				stream << "new ";
-				compileTypedArrayType(et);
-				stream << '(' << at->getNumElements() << ')';
-			}
-			else
-			{
-				stream << '[';
-				for(uint64_t i=0;i<at->getNumElements();i++)
-				{
-					compileType(at->getElementType());
-					if((i+1)<at->getNumElements())
-						stream << ",";
-				}
-				stream << ']';
-			}
-			break;
-		}
-		default:
-			llvm::errs() << "Support type ";
-			t->dump();
-			llvm::errs() << '\n';
-	}
-}
-
-void DuettoWriter::compileType(Type* t)
-{
-	if(StructType* st=dyn_cast<StructType>(t))
-	{
-		NamedMDNode* basesMeta=NULL;
-		//TODO: Verify that it makes sense to assume struct with no name has no bases
-		if(st->hasName())
-			basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
-		if(basesMeta)
-		{
-			classesNeeded.insert(st);
-			stream << "create";
-			printLLVMName(st->getName(), GLOBAL);
-			stream << "()";
-			return;
-		}
-		//Else fallthrough to base case
-	}
-	compileTypeImpl(t);
 }
 
 uint32_t DuettoWriter::getUniqueIndexForValue(const Value* v)
@@ -2073,7 +1946,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			//Alloca returns complete objects or arrays, not pointers
 			if(isImmutableType(t))
 				stream << '[';
-			compileType(t);
+			compileType(t, LITERAL_OBJ);
 			if(isImmutableType(t))
 				stream << ']';
 			if(isImmutableType(t) || !isa<StructType>(t) || classesNeeded.count(cast<StructType>(t)))
@@ -2129,7 +2002,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			if(UndefValue::classof(aggr))
 			{
 				//We have to assemble the type object from scratch
-				compileType(t);
+				compileType(t, LITERAL_OBJ);
 				stream << ";\n";
 				//Also assign the element
 				assert(ivi.getNumIndices()==1);
@@ -3503,114 +3376,6 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 	}
 	if(f.first!=f.second)
 		globalsFixupMap.erase(f.first,f.second);
-}
-
-bool DuettoWriter::getBasesInfo(const StructType* t, uint32_t& firstBase, uint32_t& baseCount)
-{
-	if(!t->hasName())
-		return false;
-
-	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(t->getName(),"_bases"));
-	if(!basesNamedMeta)
-		return false;
-
-	MDNode* basesMeta=basesNamedMeta->getOperand(0);
-	assert(basesMeta->getNumOperands()==2);
-	firstBase=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue());
-	int32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue())-1;
-	baseCount=0;
-
-	StructType::element_iterator E=t->element_begin()+firstBase;
-	StructType::element_iterator EE=t->element_end();
-	for(;E!=EE;++E)
-	{
-		baseCount++;
-		StructType* baseT=cast<StructType>(*E);
-		NamedMDNode* baseNamedMeta=module.getNamedMetadata(Twine(baseT->getName(),"_bases"));
-		if(baseNamedMeta)
-			baseMax-=getIntFromValue(cast<ConstantAsMetadata>(baseNamedMeta->getOperand(0)->getOperand(1))->getValue());
-		else
-			baseMax--;
-		assert(baseMax>=0);
-		if(baseMax==0)
-			break;
-	}
-	return true;
-}
-
-uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
-{
-	stream << "a[" << baseCount << "] = " << baseName << ";\n";
-	stream << baseName << ".o=" << baseCount << ";\n";
-	stream << baseName << ".a=a;\n";
-	baseCount++;
-
-	uint32_t firstBase, localBaseCount;
-	if(!getBasesInfo(currentType, firstBase, localBaseCount))
-		return baseCount;
-	//baseCount has been already incremented above
-
-	for(uint32_t i=firstBase;i<(firstBase+localBaseCount);i++)
-	{
-		char buf[12];
-		snprintf(buf,12,".a%u",i);
-		baseCount=compileClassTypeRecursive(baseName+buf, cast<StructType>(currentType->getElementType(i)), baseCount);
-	}
-	return baseCount;
-}
-
-void DuettoWriter::compileClassType(StructType* T)
-{
-	if(!T->hasName())
-	{
-		llvm::errs() << "Expected name for struct " << *T << "\n";
-		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-		return;
-	}
-	stream << "function create";
-	printLLVMName(T->getName(), GLOBAL);
-	stream << "(){\n";
-
-	stream << "var t=";
-	//TODO: Currently base classes are initialized also during compileTypeImpl
-	//find a way to skip it. It's also necessary to initialize members that require
-	//downcast support
-	compileTypeImpl(T);
-	stream << "\n";
-
-	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(T->getName(),"_bases"));
-	if(basesNamedMeta)
-	{
-		MDNode* basesMeta=basesNamedMeta->getOperand(0);
-		assert(basesMeta->getNumOperands()==2);
-		uint32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
-		stream << "var a=new Array(" << baseMax << ");\n";
-
-		compileClassTypeRecursive("t", T, 0);
-	}
-	stream << "return t;\n}\n";
-}
-
-void DuettoWriter::compileArrayClassType(StructType* T)
-{
-	if(!T->hasName())
-	{
-		llvm::errs() << "Expected name for struct " << *T << "\n";
-		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-		return;
-	}
-	stream << "function createArray";
-	printLLVMName(T->getName(), GLOBAL);
-	stream << "(size){\n";
-	stream << "var ret=new Array(size);\nfor(var __i__=0;__i__<size;__i__++)\n";
-	stream << "ret[__i__]=";
-	compileType(T);
-	stream << ";\nreturn ret;\n}\n";
-}
-
-void DuettoWriter::compileArrayPointerType()
-{
-	stream << "function createPointerArray(size) { var ret=new Array(size); for(var __i__=0;__i__<size;__i__++) ret[__i__]={ d: null, o: 0}; return ret; }\n";
 }
 
 void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION action)
