@@ -89,8 +89,9 @@ private:
 	void compilePredicate(llvm::CmpInst::Predicate p);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
 	void compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p);
-	void compileType(llvm::Type* t);
-	void compileTypeImpl(llvm::Type* t);
+	enum COMPILE_TYPE_STYLE { LITERAL_OBJ=0, THIS_OBJ };
+	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style);
+	void compileTypeImpl(llvm::Type* t, COMPILE_TYPE_STYLE style);
 	enum POINTER_KIND { UNDECIDED = 0, COMPLETE_OBJECT, COMPLETE_ARRAY, REGULAR };
 	POINTER_KIND getPointerKind(const llvm::Value* v, std::map<const llvm::PHINode*, POINTER_KIND>& visitedPhis);
 	POINTER_KIND getPointerKind(const llvm::Value* v);
