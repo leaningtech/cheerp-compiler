@@ -2141,6 +2141,11 @@ def NoInit : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def JsExport : InheritableAttr {
+  let Spellings = [CXX11<"", "jsexport", 12>];
+  let Documentation = [Undocumented];
+}
+
 def ObjCBridge : InheritableAttr {
   let Spellings = [Clang<"objc_bridge">];
   let Subjects = SubjectList<[Record, TypedefName], ErrorDiag>;
