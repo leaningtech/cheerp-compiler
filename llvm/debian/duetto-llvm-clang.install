@@ -69,7 +69,6 @@ opt/duetto/bin/llvm-objdump
 opt/duetto/bin/opt
 opt/duetto/bin/llvm-stress
 opt/duetto/bin/llvm-readobj
-opt/duetto/bin/duetto-compiler
 opt/duetto/bin/macho-dump
 opt/duetto/bin/llvm-dis
 opt/duetto/bin/llvm-tblgen
