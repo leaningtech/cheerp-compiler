@@ -8180,6 +8180,13 @@ static void handleNoInit(Sema &S, Decl* D, const AttributeList &Attr)
   D->addAttr(::new (S.Context) NoInitAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
 
+static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (CXXRecordDecl *RD = dyn_cast<CXXRecordDecl>(D))
+    RD->addAttr(::new (S.Context) JsExportAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  else
+    S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
+}
+
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
@@ -8836,11 +8843,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handlePatchableFunctionEntryAttr(S, D, AL);
     break;
 
-  // Cheerp attributes
-  case AttributeList::AT_NoInit:
-    handleNoInit(S, D, Attr);
-    break;
-
   case ParsedAttr::AT_AlwaysDestroy:
   case ParsedAttr::AT_NoDestroy:
     handleDestroyAttr(S, D, AL);
@@ -8892,6 +8894,14 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   case ParsedAttr::AT_UsingIfExists:
     handleSimpleAttribute<UsingIfExistsAttr>(S, D, AL);
+    break;
+
+  // Cheerp attributes
+  case AttributeList::AT_NoInit:
+    handleNoInit(S, D, Attr);
+    break;
+  case AttributeList::AT_JsExport:
+    handleJsExportAttr(S, D, Attr);
     break;
   }
 }
