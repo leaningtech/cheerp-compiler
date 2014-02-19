@@ -3455,6 +3455,9 @@ void DuettoWriter::makeJS()
 
 	compileNullPtrs();
 
+	//Compile JS interoperability for classes, this also add any needed functions to the globalsQueue
+	compileClassesExportedToJs();
+
 	while(!globalsQueue.empty())
 	{
 #ifdef DEBUG_GLOBAL_DEPS
