@@ -12,6 +12,7 @@
 #include "Relooper.h"
 #include "llvm/Duetto/Utils.h"
 #include "llvm/Duetto/Writer.h"
+#include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -1684,6 +1685,11 @@ void DuettoWriter::compileOperandImpl(const Value* v)
 	}
 	else if(const Argument* arg=dyn_cast<const Argument>(v))
 		printArgName(arg);
+	else if(const InlineAsm* a=dyn_cast<const InlineAsm>(v))
+	{
+		assert(a->getConstraintString().empty());
+		stream << a->getAsmString();
+	}
 	else
 	{
 		llvm::errs() << "No name for value ";
@@ -1978,7 +1984,9 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 				//Indirect call
 				compileOperand(ci.getCalledValue());
 			}
-			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands());
+			//If we are dealing with inline asm we are done
+			if(!ci.isInlineAsm())
+				compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands());
 			return COMPILE_OK;
 		}
 		case Instruction::LandingPad:
