@@ -1053,6 +1053,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
     CGM.getCXXABI().EmitInstanceFunctionProlog(*this);
     const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
+
+    //Duetto: Emit metadata to know about member methods in the backend
+    if (!CGM.getTarget().isByteAddressable() && MD->getParent()->hasAttr<JsExportAttr>() &&
+        (!CXXConstructorDecl::classof(GD.getDecl()) || GD.getCtorType()==Ctor_Complete))
+    {
+      llvm::StructType *classType = cast<llvm::StructType>(ConvertType(MD->getParent()));
+      llvm::NamedMDNode* namedNode = CGM.getModule().getOrInsertNamedMetadata(Twine(classType->getName(),"_methods").str());
+      llvm::SmallVector<llvm::Metadata*,1> values;
+      values.push_back(llvm::ConstantAsMetadata::get(CurFn));
+      llvm::MDNode* node = llvm::MDNode::get(getLLVMContext(),values);
+      namedNode->addOperand(node);
+    }
+
     if (MD->getParent()->isLambda() &&
         MD->getOverloadedOperator() == OO_Call) {
       // We're in a lambda; figure out the captures.

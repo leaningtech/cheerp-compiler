@@ -6829,6 +6829,23 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     else if (Record->hasAttr<CUDADeviceBuiltinTextureTypeAttr>())
       checkCUDADeviceBuiltinTextureClassTemplate(*this, Record);
   }
+
+  //Verify that this object is simple enough to have JS layout
+  if (Record->hasAttr<JsExportAttr>())
+  {
+    if (Record->isDynamicClass())
+      Diag(Record->getLocation(), diag::err_duetto_jsexport_on_virtual_class);
+
+    if (Record->hasNonTrivialDestructor())
+      Diag(Record->getLocation(), diag::err_duetto_jsexport_with_non_trivial_destructor);
+
+    //Mark all methods as used
+    CXXRecordDecl::method_iterator it=Record->method_begin();
+    CXXRecordDecl::method_iterator itE=Record->method_end();
+    for(;it!=itE;++it)
+      (*it)->addAttr(::new (Context) UsedAttr(Record->getLocation(), Context, 0));
+    //TODO: Check for any public data or static member
+  }
 }
 
 /// Look up the special member function that would be called by a special

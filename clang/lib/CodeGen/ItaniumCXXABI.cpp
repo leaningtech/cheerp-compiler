@@ -4089,7 +4089,7 @@ static StructorCodegen getCodegenToUse(CodeGenModule &CGM,
 
   // The complete and base structors are not equivalent if there are any virtual
   // bases, so emit separate functions.
-  if (MD->getParent()->getNumVBases())
+  if (MD->getParent()->getNumVBases() || MD->getParent()->hasAttr<JsExportAttr>())
     return StructorCodegen::Emit;
 
   GlobalDecl AliasDecl;

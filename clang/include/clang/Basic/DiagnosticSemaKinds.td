@@ -10908,6 +10908,10 @@ def err_duetto_invalid_plament_new : Error<
   "Duetto: Placement new is only valid on memory of the same type. If this is a custom allocator, disable it">;
 def err_duetto_attribute_not_on_function : Error<
   "Duetto: This attribute can only be used on functions">;
+def err_duetto_jsexport_on_virtual_class : Error<
+  "Duetto: A virtual class cannot have the [[jsexport]] attribute">;
+def err_duetto_jsexport_with_non_trivial_destructor : Error<
+  "Duetto: A class with non trivial destrutor cannot have the [[jsexport]] attribute">;
 } // end of duetto issue category
 
 } // end of sema component.
