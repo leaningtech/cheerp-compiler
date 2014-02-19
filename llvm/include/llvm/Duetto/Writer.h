@@ -163,6 +163,8 @@ private:
 	static uint32_t getMaskForBitWidth(int width);
 	void compileSignedInteger(const llvm::Value* v);
 	void compileUnsignedInteger(const llvm::Value* v);
+	//JS interoperability support
+	void compileClassesExportedToJs();
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):
