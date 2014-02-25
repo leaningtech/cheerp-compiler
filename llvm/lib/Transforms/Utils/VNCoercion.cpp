@@ -175,8 +175,6 @@ static int analyzeLoadFromClobberingWrite(Type *LoadTy, Value *LoadPtr,
                                           Value *WritePtr,
                                           uint64_t WriteSizeInBits,
                                           const DataLayout &DL) {
-  if (!DL.isByteAddressable())
-    return -1;
   // If the loaded/stored value is a first class array/struct, or scalable type,
   // don't try to transform them. We need to be able to bitcast to integer.
   if (isFirstClassAggregateOrScalableType(LoadTy))
@@ -213,8 +211,6 @@ static int analyzeLoadFromClobberingWrite(Type *LoadTy, Value *LoadPtr,
 /// memdep query of a load that ends up being a clobbering store.
 int analyzeLoadFromClobberingStore(Type *LoadTy, Value *LoadPtr,
                                    StoreInst *DepSI, const DataLayout &DL) {
-  if (!DL.isByteAddressable())
-    return -1;
   auto *StoredVal = DepSI->getValueOperand();
 
   // Cannot handle reading from store of first-class aggregate or scalable type.
@@ -321,8 +317,6 @@ static unsigned getLoadLoadClobberFullWidthSize(const Value *MemLocBase,
 /// the other load can feed into the second load.
 int analyzeLoadFromClobberingLoad(Type *LoadTy, Value *LoadPtr, LoadInst *DepLI,
                                   const DataLayout &DL) {
-  if (!DL.isByteAddressable())
-    return -1;
   // Cannot handle reading from store of first-class aggregate yet.
   if (DepLI->getType()->isStructTy() || DepLI->getType()->isArrayTy())
     return -1;
@@ -336,6 +330,8 @@ int analyzeLoadFromClobberingLoad(Type *LoadTy, Value *LoadPtr, LoadInst *DepLI,
   if (R != -1)
     return R;
 
+  if (!DL.isByteAddressable())
+    return -1;
   // If we have a load/load clobber an DepLI can be widened to cover this load,
   // then we should widen it!
   int64_t LoadOffs = 0;
@@ -372,6 +368,14 @@ int analyzeLoadFromClobberingMemInst(Type *LoadTy, Value *LoadPtr,
       if (!CI || !CI->isZero())
         return -1;
     }
+    //On NBA targets we only support constant values being set on float,double,int
+    if (!DL.isByteAddressable())
+    {
+      if (!LoadTy->isIntegerTy() && !LoadTy->isFloatTy() && !LoadTy->isDoubleTy())
+        return -1;
+      if (!ConstantInt::classof(cast<MemSetInst>(MI)->getValue()))
+        return -1;
+    }
     return analyzeLoadFromClobberingWrite(LoadTy, LoadPtr, MI->getDest(),
                                           MemSizeInBits, DL);
   }
@@ -394,6 +398,11 @@ int analyzeLoadFromClobberingMemInst(Type *LoadTy, Value *LoadPtr,
                                               MemSizeInBits, DL);
   if (Offset == -1)
     return Offset;
+  if(!DL.isByteAddressable())
+  {
+    if(Src->getType()!=LoadPtr->getType())
+      return -1;
+  }
 
   // Otherwise, see if we can constant fold a load from the constant with the
   // offset applied as appropriate.
@@ -536,6 +545,8 @@ Value *getMemInstValueForLoad(MemIntrinsic *SrcInst, unsigned Offset,
   // We know that this method is only called when the mem transfer fully
   // provides the bits for the load.
   if (MemSetInst *MSI = dyn_cast<MemSetInst>(SrcInst)) {
+    if (!DL.isByteAddressable())
+      return nullptr;
     // memset(P, 'x', 1234) -> splat('x'), even if x is a variable, and
     // independently of what the offset is.
     Value *Val = MSI->getValue();
@@ -568,6 +579,13 @@ Value *getMemInstValueForLoad(MemIntrinsic *SrcInst, unsigned Offset,
   // Otherwise, this is a memcpy/memmove from a constant global.
   MemTransferInst *MTI = cast<MemTransferInst>(SrcInst);
   Constant *Src = cast<Constant>(MTI->getSource());
+
+  // Otherwise, see if we can constant fold a load from the constant with the
+  // offset applied as appropriate.
+  if(!DL.isByteAddressable())
+  {
+    assert(Src->getType()==PointerType::getUnqual(LoadTy));
+  }
   unsigned IndexSize = DL.getIndexTypeSizeInBits(Src->getType());
   return ConstantFoldLoadFromConstPtr(Src, LoadTy, APInt(IndexSize, Offset),
                                       DL);
@@ -585,6 +603,7 @@ Constant *getConstantMemInstValueForLoad(MemIntrinsic *SrcInst, unsigned Offset,
     if (!Val)
       return nullptr;
 
+    assert(LoadTy->isFloatTy() || LoadTy->isDoubleTy() || LoadTy->isIntegerTy());
     Val = ConstantInt::get(Ctx, APInt::getSplat(LoadSize * 8, Val->getValue()));
     return ConstantFoldLoadFromConst(Val, LoadTy, DL);
   }
