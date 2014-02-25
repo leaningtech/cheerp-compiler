@@ -7,9 +7,8 @@ deb_version := $(shell dpkg-parsechangelog | sed -n 's/^Version: //p')
 
 override_dh_auto_configure:
 	dh_auto_configure -- \
-	    -DCMAKE_BUILD_TYPE=Debug \
+	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/duetto \
-	    -DCMAKE_CXX_FLAGS_DEBUG="-O2" \
 	    -DLLVM_TARGETS_TO_BUILD="ARM;DuettoBackend;X86" \
 	    -DCLANG_VENDOR="Duetto ${deb_version}"
 
