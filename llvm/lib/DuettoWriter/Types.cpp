@@ -18,9 +18,9 @@ using namespace llvm;
 void DuettoWriter::compileTypedArrayType(Type* t)
 {
 	if(t->isIntegerTy(8))
-		stream << "Int8Array";
+		stream << "Uint8Array";
 	else if(t->isIntegerTy(16))
-		stream << "Int16Array";
+		stream << "Uint16Array";
 	else if(t->isIntegerTy(32))
 		stream << "Int32Array";
 	else if(t->isFloatTy())
