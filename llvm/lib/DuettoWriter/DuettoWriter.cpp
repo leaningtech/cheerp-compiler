@@ -1328,13 +1328,6 @@ bool DuettoWriter::isValidVoidPtrSource(const Value* val, std::set<const PHINode
 {
 	if(isComingFromAllocation(val))
 		return true;
-	const CallInst* newCall=dyn_cast<const CallInst>(val);
-	if(newCall && newCall->getCalledFunction())
-		return newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed";
-	//Try invoke as well
-	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
-	if(newInvoke && newInvoke->getCalledFunction())
-		return newInvoke->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed";
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
 	if(newPHI)
 	{
