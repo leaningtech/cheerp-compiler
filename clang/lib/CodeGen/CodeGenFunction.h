@@ -2836,7 +2836,9 @@ public:
                                 bool NullCheckValue, SourceLocation Loc);
 
   llvm::Value * GenerateUpcastCollapsed(llvm::Value* Value,
-                               llvm::Type *BaseTy);
+                               QualType BaseTy,
+                               QualType DerivedTy,
+                               llvm::Type *BasePtrTy);
   llvm::Value * GenerateUpcast(llvm::Value* Value,
                                const CXXRecordDecl *Derived,
                                CastExpr::path_const_iterator PathBegin,
