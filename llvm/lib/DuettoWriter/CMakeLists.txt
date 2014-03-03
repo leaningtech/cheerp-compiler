@@ -3,4 +3,5 @@ add_llvm_library(LLVMDuettoWriter
   JSInterop.cpp
   Types.cpp
   Relooper.cpp
+  Pointers.cpp
   )

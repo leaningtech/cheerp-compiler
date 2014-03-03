@@ -997,6 +997,9 @@ bool DuettoWriter::isImmutableType(const Type* t) const
  */
 DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map<const PHINode*, POINTER_KIND>& visitedPhis)
 {
+#ifdef DUETTO_DEBUG_POINTERS
+	debugAllPointersSet.insert(v);
+#endif
 	assert(v->getType()->isPointerTy());
 	PointerType* pt=cast<PointerType>(v->getType());
 	if(isClientArrayType(pt->getElementType()))
@@ -1073,35 +1076,6 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v)
 {
 	std::map<const PHINode*, POINTER_KIND> visitedPhis;
 	return getPointerKind(v, visitedPhis);
-}
-
-DuettoWriter::POINTER_USAGE DuettoWriter::getPointerUsage(const Value* v)
-{
-	Value::const_use_iterator it=v->use_begin();
-	Value::const_use_iterator itE=v->use_end();
-	POINTER_USAGE ret = ALWAYS_DEREFERENCED;
-	for(;it!=itE;++it)
-	{
-		POINTER_USAGE thisUsage = ret;
-		if(const Instruction* I = dyn_cast<Instruction>(*it))
-		{
-			switch(I->getOpcode())
-			{
-				case Instruction::BitCast:
-					thisUsage=getPointerUsage(I);
-					break;
-				case Instruction::Load:
-				case Instruction::Store:
-					thisUsage=ALWAYS_DEREFERENCED;
-					break;
-				default:
-					thisUsage=ANY;
-			}
-		}
-		if (thisUsage < ret)
-			ret = thisUsage;
-	}
-	return ret;
 }
 
 bool DuettoWriter::isNopCast(const Value* val) const
@@ -1668,7 +1642,10 @@ void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 		if(k==COMPLETE_ARRAY || hasBaseInfo)
 			stream << "0}";
 		else if(k==COMPLETE_OBJECT)
+		{
 			stream << "'s'}";
+			assert(getPointerUsageFlagsComplete(v) != 0);
+		}
 	}
 }
 
@@ -1955,7 +1932,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			compileType(t, LITERAL_OBJ);
 			if(isImmutableType(t))
 				stream << ']';
-			if(isImmutableType(t) || !isa<StructType>(t) || classesNeeded.count(cast<StructType>(t)))
+			if(isImmutableType(t) || !isa<StructType>(t) || classesNeeded.count(cast<StructType>(t)) || (getPointerUsageFlagsComplete(&I) == 0))
 				return COMPILE_OK;
 			else
 				return COMPILE_ADD_SELF;
@@ -2959,7 +2936,7 @@ void DuettoWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 			COMPILE_INSTRUCTION_FEEDBACK ret=compileNotInlineableInstruction(*I);
 			if(ret==COMPILE_OK || ret==COMPILE_ADD_SELF)
 				stream << ";\n";
-			if(ret==COMPILE_ADD_SELF && getPointerUsage(&(*I))==ANY)
+			if(ret==COMPILE_ADD_SELF)
 				addSelfPointer(&(*I));
 			else if(ret==COMPILE_UNSUPPORTED)
 			{
@@ -3530,4 +3507,24 @@ void DuettoWriter::makeJS()
 		handleConstructors(constructors, COMPILE);
 	//Invoke the webMain function
 	stream << "__Z7webMainv();\n";
+	
+#ifdef DUETTO_DEBUG_POINTERS
+	
+	llvm::errs() << "Debugging pointers\n";
+	
+	llvm::errs() << "Name\t\tKind\tUsageFlags\tUsageFlagsComplete\n";
+	
+	for (known_pointers_t::iterator iter = debugAllPointersSet.begin(); iter != debugAllPointersSet.end(); ++iter)
+	{
+		const Value * v = *iter;
+		
+		if (v->getName().empty())
+			llvm::errs() << "unnamed(" << getUniqueIndexForValue(v) << ")";
+		else 
+			llvm::errs() << v->getName();
+		
+		llvm::errs() << "\t\t" << getPointerKind(v) << "\t" << getPointerUsageFlags(v) << "\t" << getPointerUsageFlagsComplete(v) << "\n";
+	}
+#endif
+
 }
