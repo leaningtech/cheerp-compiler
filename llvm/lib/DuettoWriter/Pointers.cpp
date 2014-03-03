@@ -61,7 +61,7 @@ uint32_t DuettoWriter::getPointerUsageFlags(const llvm::Value * v)
 					ans |= POINTER_NONCONST_DEREF; 
 			}
 			
-			// Check if the pointer "v" is used as lhs or rhs of a binary operations
+			// Check if the pointer "v" is used as lhs or rhs of a comparison operation
 			else if (const CmpInst * I = dyn_cast<const CmpInst>(U) )
 			{
 				if (!I->isEquality())
@@ -144,10 +144,6 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 			//TODO deal with me properly
 			f |= POINTER_UNKNOWN;
 		}
-		else if (isa<const PtrToIntInst>(U))
-		{
-			f |= POINTER_UNKNOWN; // Everything is lost
-		}
 		else if (const StoreInst * I = dyn_cast<const StoreInst>(U) )
 		{
 			if (I->getOperand(0) == v)
@@ -163,6 +159,7 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 			isa<const CmpInst>(U) ||
  			isa<const GetElementPtrInst>(U) ||
 			isa<const LoadInst>(U) ||
+			isa<const PtrToIntInst>(U) || 
 			(dyn_cast_to_constant_gep(U) != 0) )
 		{
 			continue;
