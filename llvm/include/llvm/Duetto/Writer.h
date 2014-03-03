@@ -106,10 +106,10 @@ private:
 	 *                     the object bound to a COMPLETE_OBJECT pointer shall contain the member "s", which is a JS ref to the object itself.
 	 *   - COMPLETE_ARRAY  This pointer points to the first element of a C++ array of struct/class or primitive type.
 	 *                     It is implemented in JS by binding a var to the pointed array. It does not support
-	 *                     arithmetic nor ordering.
+	 *                     global ordering.
 	 *   - REGULAR         Regular pointers are implemented with a JS object of the form: "{ d : OBJ, o : OFFSET }", where
 	 *                     OBJ is a JS reference to a *container* object of the pointer, and OFFSET is the offset of the pointed
-	 *                     object inside the container object (it can be a character or a integral value).
+	 *                     object inside the container object (it can be a string or a integral value).
 	 *                     Pointers of type COMPLETE_OBJECT and COMPLETE_ARRAY are always convertible to REGULAR pointers,
 	 *                     but not viceversa. REGULAR pointers support pointer arithmetic; two REGULAR pointers are ordinable 
 	 *                     if they have the same container object. 
@@ -152,7 +152,7 @@ private:
 	
 	// Returns a bitmask of POINTER_USAGE_FLAG
 	/** 
-	 * Compute the usage of a single pointer, regardless of nodes
+	 * Compute the usage of a single pointer, regardless of the phi nodes
 	 */
 	//TODO at the moment if it is used in a CallInst it returns POINTER_UNKNOWN.
 	// CallInst should be handled inside getPointerUsageFlagsComplete, in order to provide information on how that pointer is used inside the function call.
