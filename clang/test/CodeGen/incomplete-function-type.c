@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -triple x86_64-apple-darwin -emit-llvm -o - %s | FileCheck %s
 // CHECK: ModuleID
-// CHECK-NOT: opaque
+// XFAIL: opaque
 // CHECK-LABEL: define void @f0
 
 enum teste1 test1f(void), (*test1)(void) = test1f;
