@@ -25,9 +25,41 @@ static void print_debug_pointer_uknown(const llvm::Value * v, const llvm::User *
 		llvm::errs() << " instruction " << p->getOpcodeName() << "\n";
 	else if (const Constant * p = dyn_cast<const Constant>(u) )
 	{
-		llvm::errs() << " constant " << p->getName() << ":\n";
+		llvm::errs() << " constant " << p->getName() << "(";
+		
+		// Feel free to find a way to avoid this obscenity
+		if (isa<const BlockAddress>(p))
+			llvm::errs() << "BlockAddress";
+		else if (isa<const ConstantAggregateZero>(p))
+			llvm::errs() << "ConstantAggregateZero";
+		else if (isa<const ConstantArray>(p))
+			llvm::errs() << "ConstantArray";
+		else if (isa<const ConstantDataSequential>(p))
+			llvm::errs() << "ConstantDataSequential";
+		else if (const ConstantExpr * pc = dyn_cast<const ConstantExpr>(p))
+		{
+			llvm::errs() << "ConstantExpr [" << pc->getOpcodeName() <<"]";
+		}
+		else if (isa<const ConstantFP>(p))
+			llvm::errs() << "ConstantFP";
+		else if (isa<const ConstantInt>(p))
+			llvm::errs() << "ConstantInt";
+		else if (isa<const ConstantPointerNull>(p))
+			llvm::errs() << "ConstantPointerNull";
+		else if (isa<const ConstantStruct>(p))
+			llvm::errs() << "ConstantStruct";
+		else if (isa<const ConstantVector>(p))
+			llvm::errs() << "ConstantVector";
+		else if (isa<const GlobalValue>(p))
+			llvm::errs() << "GlobalValue";
+		else if (isa<const UndefValue>(p))
+			llvm::errs() << "UndefValue";
+		else
+			llvm::errs() << "Unknown";
+		llvm::errs() << ")\n";
+		
 		llvm::errs() << "Object dump: "; p->dump(); llvm::errs() << "\n";
-		llvm::errs() << "Yields type: "; p->getType()->dump(); llvm::errs() << "\n";
+		llvm::errs() << "Of type: "; p->getType()->dump(); llvm::errs() << "\n";
 		llvm::errs() << "\n";
 	}
 	else if (const Operator * p = dyn_cast<const Operator>(u) )
