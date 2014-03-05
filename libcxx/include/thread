@@ -82,6 +82,10 @@ void sleep_for(const chrono::duration<Rep, Period>& rel_time);
 
 */
 
+#ifdef __DUETTO__
+#error Duetto: C++ thread are not supported since they do not map to the threading model of the Web
+#else
+
 #include <__config>
 #include <iosfwd>
 #include <__functional_base>
@@ -415,3 +419,4 @@ _LIBCPP_END_NAMESPACE_STD
 _LIBCPP_POP_MACROS
 
 #endif  // _LIBCPP_THREAD
+#endif
