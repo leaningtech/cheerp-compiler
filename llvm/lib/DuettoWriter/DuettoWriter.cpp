@@ -1095,7 +1095,7 @@ bool DuettoWriter::isNopCast(const Value* val) const
 {
 	const CallInst* newCall=dyn_cast<const CallInst>(val);
 	if(newCall && newCall->getCalledFunction())
-		return newCall->getCalledFunction()->getName()=="llvm.duetto.upcast.collapsed"
+		return newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_upcast_collapsed
 			|| newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_cast_user;
 	return false;
 }
