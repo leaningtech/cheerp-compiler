@@ -16,6 +16,8 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <iomanip>
+#include <sstream>
 
 using namespace llvm;
 using namespace std;
@@ -3414,18 +3416,39 @@ void DuettoWriter::makeJS()
 	
 	llvm::errs() << "Debugging pointers\n";
 	
-	llvm::errs() << "Name\t\tKind\tUsageFlags\tUsageFlagsComplete\n";
+	llvm::errs() << "Name" << std::string(92,' ') << "Kind              UsageFlags        UsageFlagsComplete IsImmutable?\n";
 	
 	for (known_pointers_t::iterator iter = debugAllPointersSet.begin(); iter != debugAllPointersSet.end(); ++iter)
 	{
 		const Value * v = *iter;
 		
-		if (v->getName().empty())
-			llvm::errs() << "unnamed(" << getUniqueIndexForValue(v) << ")";
-		else 
-			llvm::errs() << v->getName();
+		std::ostringstream fmt;
+		fmt << std::setw(96) << std::left;
+	
+		if (v->hasName())
+			fmt << v->getName().data();
+		else
+		{
+			std::ostringstream tmp;
+			tmp << "tmp" << getUniqueIndexForValue(v);
+			fmt << tmp.str();
+		}
+
+		fmt << std::setw(18) << std::left;
+		switch (getPointerKind(v))
+		{
+			case COMPLETE_OBJECT: fmt << "COMPLETE_OBJECT"; break;
+			case COMPLETE_ARRAY: fmt << "COMPLETE_ARRAY"; break;
+			case REGULAR: fmt << "REGULAR"; break;
+			default: fmt << "UNDECIDED"; break;
+		}
 		
-		llvm::errs() << "\t\t" << getPointerKind(v) << "\t" << getPointerUsageFlags(v) << "\t" << getPointerUsageFlagsComplete(v) << "\n";
+
+		fmt << std::setw(18) << std::left << getPointerUsageFlags(v);
+		fmt << std::setw(18) << std::left << getPointerUsageFlagsComplete(v);
+		fmt << std::setw(18) << std::left << std::boolalpha << isImmutableType( v->getType()->getPointerElementType() );
+
+		llvm::errs() << fmt.str() << "\n";
 	}
 #endif
 
