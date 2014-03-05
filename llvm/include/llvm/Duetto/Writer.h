@@ -92,9 +92,6 @@ private:
 	enum COMPILE_TYPE_STYLE { LITERAL_OBJ=0, THIS_OBJ };
 	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style);
 	void compileTypeImpl(llvm::Type* t, COMPILE_TYPE_STYLE style);
-	enum POINTER_KIND { UNDECIDED = 0, COMPLETE_OBJECT, COMPLETE_ARRAY, REGULAR };
-	POINTER_KIND getPointerKind(const llvm::Value* v, std::map<const llvm::PHINode*, POINTER_KIND>& visitedPhis);
-	POINTER_KIND getPointerKind(const llvm::Value* v);
 	
 	/**
 	 * \addtogroup pointers Pointer implementation
@@ -138,6 +135,19 @@ private:
 	 * @{
 	 */
 	
+	enum POINTER_KIND {
+		UNDECIDED = 0,
+		COMPLETE_OBJECT,
+		COMPLETE_ARRAY,
+		REGULAR
+	};
+	
+	typedef std::map<const llvm::Value *, POINTER_KIND> pointer_kind_map_t;
+	mutable pointer_kind_map_t pointerKindMap;
+
+	POINTER_KIND dfsPointerKind(const llvm::Value* v, std::map<const llvm::PHINode*, POINTER_KIND>& visitedPhis) const;
+	POINTER_KIND getPointerKind(const llvm::Value* v) const;
+	
 	// Functionalities provided by a pointer
 	enum POINTER_USAGE_FLAG {
 		POINTER_NONCONST_DEREF = 0x1, // The pointer is used to modify the pointed object
@@ -157,25 +167,25 @@ private:
 	//TODO at the moment if it is used in a CallInst it returns POINTER_UNKNOWN.
 	// CallInst should be handled inside getPointerUsageFlagsComplete, in order to provide information on how that pointer is used inside the function call.
 	// This is especially important at the moment for memset/memcpy/memmove.
-	uint32_t getPointerUsageFlags(const llvm::Value* v);
-	pointer_usage_map_t pointerUsageMap;
+	uint32_t getPointerUsageFlags(const llvm::Value* v) const;
+	mutable pointer_usage_map_t pointerUsageMap;
 	
 	/**
 	 * Compute the sum of the usages of all the "child" pointers, where "child pointer" means any pointer which can be initialized to this one's value.
 	 * \param v The pointer to inspect.
 	 * \param openset Set of the visited pointers in order to stop cyclic dependencies in the phi node.
 	 */
-	uint32_t dfsPointerUsageFlagsComplete(const llvm::Value * v,std::set<const llvm::Value *> & openset);
+	uint32_t dfsPointerUsageFlagsComplete(const llvm::Value * v,std::set<const llvm::Value *> & openset) const;
 	
 	/**
 	 * Memoization wrapper around dfsPointerUsageFlagsComplete
 	 */
-	uint32_t getPointerUsageFlagsComplete(const llvm::Value * v);
-	pointer_usage_map_t pointerCompleteUsageMap;
+	uint32_t getPointerUsageFlagsComplete(const llvm::Value * v) const;
+	mutable pointer_usage_map_t pointerCompleteUsageMap;
 	
 #ifdef DUETTO_DEBUG_POINTERS
 	typedef std::set<const llvm::Value *> known_pointers_t;
-	known_pointers_t debugAllPointersSet;
+	mutable known_pointers_t debugAllPointersSet;
 #endif //DUETTO_DEBUG_POINTERS
 	
 	/** @} */
