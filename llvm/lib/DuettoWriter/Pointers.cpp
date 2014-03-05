@@ -67,6 +67,113 @@ static void print_debug_pointer_uknown(const llvm::Value * v, const llvm::User *
 }
 #endif //DUETTO_DEBUG_POINTERS
 
+/*
+ * The map is used to handle cyclic PHI nodes
+ */
+DuettoWriter::POINTER_KIND DuettoWriter::dfsPointerKind(const Value* v, std::map<const PHINode*, POINTER_KIND>& visitedPhis) const
+{
+#ifdef DUETTO_DEBUG_POINTERS
+	debugAllPointersSet.insert(v);
+#endif
+	assert(v->getType()->isPointerTy());
+	PointerType* pt=cast<PointerType>(v->getType());
+	if(isClientArrayType(pt->getElementType()))
+	{
+		//Handle client arrays like COMPLETE_ARRAYs, so the right 0 offset
+		//is used when doing GEPs
+		return COMPLETE_ARRAY;
+	}
+	if(isClientType(pt->getElementType()))
+	{
+		//Pointers to client type are complete objects, and are never expanded to
+		//regular ones since an array of client objects does not exists.
+		//NOTE: An array of pointer to client objects exists, not an array of objects.
+		return COMPLETE_OBJECT;
+	}
+	if(AllocaInst::classof(v) || GlobalVariable::classof(v))
+	{
+		if(isImmutableType(pt->getElementType()))
+			return COMPLETE_ARRAY;
+		else
+			return COMPLETE_OBJECT;
+	}
+	//Follow bitcasts
+	if(isBitCast(v))
+	{
+		const User* bi=static_cast<const User*>(v);
+		//Casts from unions return regular pointers
+		if(isUnion(bi->getOperand(0)->getType()->getPointerElementType()))
+		{
+			//Special case arrays
+			if(ArrayType::classof(pt->getElementType()))
+				return COMPLETE_OBJECT;
+			else
+				return COMPLETE_ARRAY;
+		}
+		return dfsPointerKind(bi->getOperand(0), visitedPhis);
+	}
+	if(isNopCast(v))
+	{
+		const User* bi=static_cast<const User*>(v);
+		return dfsPointerKind(bi->getOperand(0), visitedPhis);
+	}
+	//Follow select
+	if(const SelectInst* s=dyn_cast<SelectInst>(v))
+	{
+		POINTER_KIND k1=dfsPointerKind(s->getTrueValue(), visitedPhis);
+		if(k1==REGULAR)
+			return REGULAR;
+		POINTER_KIND k2=dfsPointerKind(s->getFalseValue(), visitedPhis);
+		//If the type is different we need to collapse to REGULAR
+		if(k1!=k2)
+			return REGULAR;
+		//The type is the same
+		return k1;
+	}
+	if(isComingFromAllocation(v))
+		return COMPLETE_ARRAY;
+	//Follow PHIs
+	const PHINode* newPHI=dyn_cast<const PHINode>(v);
+	if(newPHI)
+	{
+		std::map<const PHINode*, POINTER_KIND>::iterator alreadyVisited=visitedPhis.find(newPHI);
+		if(alreadyVisited!=visitedPhis.end())
+		{
+			//Assume true, if needed it will become false later on
+			return alreadyVisited->second;
+		}
+		//Intialize the PHI with undecided
+		std::map<const PHINode*, POINTER_KIND>::iterator current=
+			visitedPhis.insert(std::make_pair(newPHI, UNDECIDED)).first;
+		for(unsigned i=0;i<newPHI->getNumIncomingValues() && current->second!=REGULAR;i++)
+		{
+			POINTER_KIND k=dfsPointerKind(newPHI->getIncomingValue(i), visitedPhis);
+			if(current->second == UNDECIDED)
+				current->second = k;
+			// COMPLETE_OBJECT can't change to COMPLETE_ARRAY for the "self" optimization
+			// so switch directly to REGULAR
+			else if (k != current->second)
+				current->second = REGULAR;
+		}
+		return current->second;
+	}
+	return REGULAR;
+}
+
+DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v) const
+{
+	assert(v->getType()->isPointerTy());
+
+	pointer_kind_map_t::const_iterator iter = pointerKindMap.find(v);
+
+	if (pointerKindMap.end() == iter)
+	{
+		std::map<const PHINode*, POINTER_KIND> visitedPhis;
+		iter = pointerKindMap.insert( std::make_pair(v,dfsPointerKind(v, visitedPhis)) ).first;
+	}
+	return iter->second;
+}
+
 //TODO this is a workaround for missing getElementPtrConstantExpr
 static const ConstantExpr* dyn_cast_to_constant_gep(const Value * v)
 {
@@ -74,7 +181,7 @@ static const ConstantExpr* dyn_cast_to_constant_gep(const Value * v)
 	return (I && I->getOpcode() == Instruction::GetElementPtr) ? I : 0;
 }
 
-uint32_t DuettoWriter::getPointerUsageFlags(const llvm::Value * v)
+uint32_t DuettoWriter::getPointerUsageFlags(const llvm::Value * v) const
 {
 	assert(v->getType()->isPointerTy());
 
@@ -147,7 +254,7 @@ uint32_t DuettoWriter::getPointerUsageFlags(const llvm::Value * v)
 	return iter->second;
 }
 
-uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<const Value *> & openset)
+uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<const Value *> & openset) const
 {
 	if ( !openset.insert(v).second )
 	{
@@ -209,7 +316,7 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 	return f;
 }
 
-uint32_t DuettoWriter::getPointerUsageFlagsComplete(const Value * v)
+uint32_t DuettoWriter::getPointerUsageFlagsComplete(const Value * v) const
 {
 	assert(v->getType()->isPointerTy());
 
