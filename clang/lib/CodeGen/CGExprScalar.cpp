@@ -2041,7 +2041,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_ObjCObjectLValueCast: {
     Address Addr = EmitLValue(E).getAddress(CGF);
     Value LV;
-    if (CGF.getTarget().isByteAddressable())
+    if (CGF.getTarget().isByteAddressable() || DestType==V->getType())
     {
       Addr = Builder.CreateElementBitCast(Addr, CGF.ConvertTypeForMem(DestTy));
       LV = CGF.MakeAddrLValue(Addr, DestTy);
@@ -2190,7 +2190,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
 
     //We don't care about casts to functions types
     if (CGF.getTarget().isByteAddressable() || isa<llvm::ConstantPointerNull>(Src) ||
-        (isa<llvm::Function>(Src) && isa<llvm::FunctionType>(DstTy)))
+        (isa<llvm::Function>(Src) && isa<llvm::FunctionType>(DstTy)) || DstTy == SrcTy)
     {
       return Builder.CreateBitCast(Src, DstTy);
     }
