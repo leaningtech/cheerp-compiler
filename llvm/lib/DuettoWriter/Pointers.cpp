@@ -327,3 +327,9 @@ uint32_t DuettoWriter::getPointerUsageFlagsComplete(const Value * v) const
 
 	return iter->second;
 }
+
+bool DuettoWriter::isNoSelfPointerOptimizable(const llvm::Value * v) const
+{
+	assert( v->getType()->isPointerTy() );
+	return ! (getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT) );
+}
