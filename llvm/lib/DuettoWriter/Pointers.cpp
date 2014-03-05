@@ -92,7 +92,7 @@ DuettoWriter::POINTER_KIND DuettoWriter::dfsPointerKind(const Value* v, std::map
 	}
 	if(AllocaInst::classof(v) || GlobalVariable::classof(v))
 	{
-		if(isImmutableType(pt->getElementType()))
+		if(isImmutableType(pt->getElementType()) && !isNoWrappingArrayOptimizable(v))
 			return COMPLETE_ARRAY;
 		else
 			return COMPLETE_OBJECT;
@@ -252,7 +252,8 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 		return 0;
 	}
 
-	uint32_t f = getPointerUsageFlags(v);
+	uint32_t f = getPointerUsageFlags(v) | (
+		(isBitCast(v) || isa<const PHINode>(v) || isa<const SelectInst>(v)) ? POINTER_IS_NOT_UNIQUE_OWNER : 0);
 
 	for (Value::const_use_iterator it = v->use_begin(); it != v->use_end(); ++it)
 	{
@@ -263,7 +264,7 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 			isBitCast(U) ||
 			isNopCast(U))
 		{
-			f |= dfsPointerUsageFlagsComplete(U, openset);
+			f |= dfsPointerUsageFlagsComplete(U, openset) | POINTER_IS_NOT_UNIQUE_OWNER;
 		} 
 		else if (isa<const CallInst>(U) || isa<const InvokeInst>(U) )
 		{
@@ -307,6 +308,7 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 			print_debug_pointer_uknown(v,it->getUser(),"dfsPointerUsageFlagsComplete");
 #endif //DUETTO_DEBUG_POINTERS
 
+			//NOTE no need to add POINTER_IS_NOT_UNIQUE_OWNER to PtrToIntInst since IntToPtr are disabled anyway
 			f |= POINTER_UNKNOWN;
 		}
 	}
@@ -332,4 +334,12 @@ bool DuettoWriter::isNoSelfPointerOptimizable(const llvm::Value * v) const
 {
 	assert( v->getType()->isPointerTy() );
 	return ! (getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT) );
+}
+
+bool DuettoWriter::isNoWrappingArrayOptimizable(const llvm::Value * v) const
+{
+	assert( v->getType()->isPointerTy() );
+	
+	return isImmutableType(v->getType()->getPointerElementType()) && // This type of optimization makes sense only for immutable types
+		!(getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT | POINTER_IS_NOT_UNIQUE_OWNER) );
 }

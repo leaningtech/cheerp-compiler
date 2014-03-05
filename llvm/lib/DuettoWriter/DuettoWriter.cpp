@@ -1554,6 +1554,7 @@ void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 		{
 			stream << "'s'}";
 			assert(!isNoSelfPointerOptimizable(v));
+			assert(!isNoWrappingArrayOptimizable(v));
 		}
 	}
 }
@@ -1830,10 +1831,10 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
 			Type* t=ai.getAllocatedType();
 			//Alloca returns complete objects or arrays, not pointers
-			if(isImmutableType(t))
+			if(isImmutableType(t) && !isNoWrappingArrayOptimizable(&I))
 				stream << '[';
 			compileType(t, LITERAL_OBJ);
-			if(isImmutableType(t))
+			if(isImmutableType(t) && !isNoWrappingArrayOptimizable(&I))
 				stream << ']';
 			if(isImmutableType(t) || !isa<StructType>(t) || classesNeeded.count(cast<StructType>(t)) || isNoSelfPointerOptimizable(&I) )
 				return COMPILE_OK;
@@ -3228,10 +3229,10 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		gatherDependencies(C, &G, "", NULL);
 
 		Type* t=C->getType();
-		if(isImmutableType(t))
+		if(isImmutableType(t) && !isNoWrappingArrayOptimizable(&G))
 			stream << '[';
 		compileOperand(C, REGULAR);
-		if(isImmutableType(t))
+		if(isImmutableType(t) && !isNoWrappingArrayOptimizable(&G))
 			stream << ']';
 
 		if(getPointerKind(&G)==COMPLETE_OBJECT && !isNoSelfPointerOptimizable(&G) )
@@ -3257,7 +3258,7 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		const Constant* C=otherGV->getInitializer();
 
 		printLLVMName(otherGV->getName(), GLOBAL);
-		if(isImmutableType(C->getType()))
+		if(isImmutableType(C->getType()) && !isNoWrappingArrayOptimizable(otherGV))
 			stream << "[0]";
 		stream << it->second.baseName << " = ";
 		compileOperand(it->second.value, REGULAR);
