@@ -95,6 +95,7 @@ private:
 	
 	/**
 	 * \addtogroup pointers Pointer implementation
+	 * \note Functions belonging to this group are implemented in Pointers.cpp
 	 * 
 	 * Three type of pointers are used:
 	 *   - COMPLETE_OBJECT This pointer can point only to a C++ struct/class type. It is implemented 
@@ -129,7 +130,7 @@ private:
 	 *       
 	 * 
 	 * Optimization:
-	 *    -  Remove self-pointer. Avoid the creation of the member ".s" if the conversion to REGULAR pointer is not required.
+	 *    -  no-self-pointer. Avoid the creation of the member ".s" if the conversion to REGULAR pointer is not required, \sa{isNoSelfPointerOptimizable}.
 	 * 
 	 * 
 	 * @{
@@ -187,6 +188,10 @@ private:
 	typedef std::set<const llvm::Value *> known_pointers_t;
 	mutable known_pointers_t debugAllPointersSet;
 #endif //DUETTO_DEBUG_POINTERS
+	
+	// Detect if a no-self-pointer optimization is applicable to the pointer value
+	bool isNoSelfPointerOptimizable(const llvm::Value * v) const;
+
 	
 	/** @} */
 
