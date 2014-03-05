@@ -130,8 +130,8 @@ private:
 	 *       
 	 * 
 	 * Optimization:
-	 *    -  no-self-pointer. Avoid the creation of the member ".s" if the conversion to REGULAR pointer is not required, \sa{isNoSelfPointerOptimizable}.
-	 * 
+	 *    - no-self-pointer. Avoid the creation of the member ".s" if the conversion to REGULAR pointer is not required, \sa{isNoSelfPointerOptimizable}.
+	 *    - no-wrapping-array. Avoid the creation of a wrapping array for immutable types if possible, \sa{isNoWrappingArrayOptimizable}.
 	 * 
 	 * @{
 	 */
@@ -151,10 +151,11 @@ private:
 	
 	// Functionalities provided by a pointer
 	enum POINTER_USAGE_FLAG {
-		POINTER_NONCONST_DEREF = 0x1, // The pointer is used to modify the pointed object
-		POINTER_ARITHMETIC = 0x2, // The pointer can be incremented/decremented etc, and/or it is used to access an array (i.e. p[i])
-		POINTER_ORDINABLE = 0x4, // The pointer is used for a comparison with another pointer
-		POINTER_CASTABLE_TO_INT = 0x8,  // The pointer is explicitly casted to an integer (usually used to implement pointers hash table)
+		POINTER_NONCONST_DEREF = 1, // The pointer is used to modify the pointed object
+		POINTER_IS_NOT_UNIQUE_OWNER = (1 << 1), // The pointer is not the only one which points to the object
+		POINTER_ARITHMETIC = (1 << 2), // The pointer can be incremented/decremented etc, and/or it is used to access an array (i.e. p[i])
+		POINTER_ORDINABLE = (1 << 3), // The pointer is used for a comparison with another pointer
+		POINTER_CASTABLE_TO_INT = (1 << 4),  // The pointer is explicitly casted to an integer (usually used to implement pointers hash table)
 		
 		POINTER_UNKNOWN = (1LL << 32LL) - 1
 	};
@@ -192,7 +193,9 @@ private:
 	// Detect if a no-self-pointer optimization is applicable to the pointer value
 	bool isNoSelfPointerOptimizable(const llvm::Value * v) const;
 
-	
+	// Detect if a no-wrapping-array optimization is applicable to the pointer value
+	bool isNoWrappingArrayOptimizable(const llvm::Value * v) const;
+
 	/** @} */
 
 	/*
