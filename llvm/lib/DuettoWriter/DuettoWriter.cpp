@@ -1042,6 +1042,19 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v, std::map
 		const User* bi=static_cast<const User*>(v);
 		return getPointerKind(bi->getOperand(0), visitedPhis);
 	}
+	//Follow select
+	if(const SelectInst* s=dyn_cast<SelectInst>(v))
+	{
+		POINTER_KIND k1=getPointerKind(s->getTrueValue(), visitedPhis);
+		if(k1==REGULAR)
+			return REGULAR;
+		POINTER_KIND k2=getPointerKind(s->getFalseValue(), visitedPhis);
+		//If the type is different we need to collapse to REGULAR
+		if(k1!=k2)
+			return REGULAR;
+		//The type is the same
+		return k1;
+	}
 	if(isComingFromAllocation(v))
 		return COMPLETE_ARRAY;
 	//Follow PHIs
