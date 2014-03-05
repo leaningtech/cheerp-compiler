@@ -237,7 +237,6 @@ private:
 	void compileArrayPointerType();
 	void compileLambdaBridge();
 	void compileHandleVAArg();
-	enum OperandFix{ OPERAND_NO_FIX = 0, OPERAND_EXPAND_COMPLETE_OBJECTS };
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
 	enum CONSTRUCTOR_ACTION { ADD_TO_QUEUE=0, COMPILE=1 };
 	void handleConstructors(llvm::GlobalVariable* GV, CONSTRUCTOR_ACTION action);
@@ -256,7 +255,7 @@ public:
 	}
 	void makeJS();
 	void compileBB(const llvm::BasicBlock& BB, const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
-	void compileOperand(const llvm::Value* v, OperandFix fix = OPERAND_NO_FIX);
+	void compileOperand(const llvm::Value* v, POINTER_KIND requestedPointerKind = UNDECIDED);
 	void compileConstant(const llvm::Constant* c);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 };
