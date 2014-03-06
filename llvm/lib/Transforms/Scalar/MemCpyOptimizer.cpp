@@ -362,6 +362,7 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
                                                  Value *StartPtr,
                                                  Value *ByteVal) {
   const DataLayout &DL = StartInst->getModule()->getDataLayout();
+  if (!DL.isByteAddressable()) return nullptr;
 
   // We can't track scalable types
   if (StoreInst *SI = dyn_cast<StoreInst>(StartInst))
