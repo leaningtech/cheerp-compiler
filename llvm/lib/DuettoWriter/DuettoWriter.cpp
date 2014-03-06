@@ -748,7 +748,9 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 	else if(strncmp(ident,"llvm.duetto.pointer.offset",26)==0)
 	{
 		const Type* lastType = compileObjectForPointer(*it, DRY_RUN);
-		compileOffsetForPointer(*it, lastType);
+		bool ret=compileOffsetForPointer(*it, lastType);
+		if(!ret)
+			stream << '0';
 		return COMPILE_OK;
 	}
 	else if(strcmp(ident,"malloc")==0 ||
