@@ -73,15 +73,20 @@ bool DuettoWriter::printPointerInfo(const Value * v)
 	std::ostringstream fmt;
 	fmt << std::setw(96) << std::left;
 
-	if (v->hasName())
-		fmt << v->getName().data();
-	else
 	{
 		std::ostringstream tmp;
-		tmp << "tmp" << getUniqueIndexForValue(v);
+		if (v->hasName())
+			tmp << v->getName().data();
+		else
+			tmp << "tmp" << getUniqueIndexForValue(v);
+		
+		if (const Argument * arg = dyn_cast<const Argument>(v))
+		{
+			tmp << " arg of function: " << arg->getParent()->getName().data();
+		}
 		fmt << tmp.str();
 	}
-
+	
 	if (v->getType()->isPointerTy())
 	{
 		fmt << std::setw(18) << std::left;
@@ -109,7 +114,7 @@ bool DuettoWriter::printPointerInfo(const Value * v)
 /*
  * The map is used to handle cyclic PHI nodes
  */
-DuettoWriter::POINTER_KIND DuettoWriter::dfsPointerKind(const Value* v, std::map<const PHINode*, POINTER_KIND>& visitedPhis) const
+DuettoWriter::POINTER_KIND DuettoWriter::dfsPointerKind(const Value* v, std::map<const Value*, POINTER_KIND>& visitedPhisOrArguments) const
 {
 #ifdef DUETTO_DEBUG_POINTERS
 	debugAllPointersSet.insert(v);
@@ -149,20 +154,20 @@ DuettoWriter::POINTER_KIND DuettoWriter::dfsPointerKind(const Value* v, std::map
 			else
 				return COMPLETE_ARRAY;
 		}
-		return dfsPointerKind(bi->getOperand(0), visitedPhis);
+		return dfsPointerKind(bi->getOperand(0), visitedPhisOrArguments);
 	}
 	if(isNopCast(v))
 	{
 		const User* bi=static_cast<const User*>(v);
-		return dfsPointerKind(bi->getOperand(0), visitedPhis);
+		return dfsPointerKind(bi->getOperand(0), visitedPhisOrArguments);
 	}
 	//Follow select
 	if(const SelectInst* s=dyn_cast<SelectInst>(v))
 	{
-		POINTER_KIND k1=dfsPointerKind(s->getTrueValue(), visitedPhis);
+		POINTER_KIND k1=dfsPointerKind(s->getTrueValue(), visitedPhisOrArguments);
 		if(k1==REGULAR)
 			return REGULAR;
-		POINTER_KIND k2=dfsPointerKind(s->getFalseValue(), visitedPhis);
+		POINTER_KIND k2=dfsPointerKind(s->getFalseValue(), visitedPhisOrArguments);
 		//If the type is different we need to collapse to REGULAR
 		if(k1!=k2)
 			return REGULAR;
@@ -171,22 +176,22 @@ DuettoWriter::POINTER_KIND DuettoWriter::dfsPointerKind(const Value* v, std::map
 	}
 	if(isComingFromAllocation(v))
 		return COMPLETE_ARRAY;
+
 	//Follow PHIs
-	const PHINode* newPHI=dyn_cast<const PHINode>(v);
-	if(newPHI)
+	if( const PHINode * newPHI = dyn_cast<const PHINode>(v) )
 	{
-		std::map<const PHINode*, POINTER_KIND>::iterator alreadyVisited=visitedPhis.find(newPHI);
-		if(alreadyVisited!=visitedPhis.end())
+		std::map<const Value*, POINTER_KIND>::iterator alreadyVisited=visitedPhisOrArguments.find(newPHI);
+		if(alreadyVisited!=visitedPhisOrArguments.end())
 		{
 			//Assume true, if needed it will become false later on
 			return alreadyVisited->second;
 		}
 		//Intialize the PHI with undecided
-		std::map<const PHINode*, POINTER_KIND>::iterator current=
-			visitedPhis.insert(std::make_pair(newPHI, UNDECIDED)).first;
+		std::map<const Value*, POINTER_KIND>::iterator current=
+			visitedPhisOrArguments.insert(std::make_pair(newPHI, UNDECIDED)).first;
 		for(unsigned i=0;i<newPHI->getNumIncomingValues() && current->second!=REGULAR;i++)
 		{
-			POINTER_KIND k=dfsPointerKind(newPHI->getIncomingValue(i), visitedPhis);
+			POINTER_KIND k=dfsPointerKind(newPHI->getIncomingValue(i), visitedPhisOrArguments);
 			if(current->second == UNDECIDED)
 				current->second = k;
 			// COMPLETE_OBJECT can't change to COMPLETE_ARRAY for the "self" optimization
@@ -196,6 +201,79 @@ DuettoWriter::POINTER_KIND DuettoWriter::dfsPointerKind(const Value* v, std::map
 		}
 		return current->second;
 	}
+	
+	if ( const Argument * arg = dyn_cast<const Argument>(v) )
+	{
+		std::map<const Value*, POINTER_KIND>::iterator alreadyVisited=visitedPhisOrArguments.find(arg);
+		if(alreadyVisited!=visitedPhisOrArguments.end())
+		{
+			//Assume true, if needed it will become false later on
+			return alreadyVisited->second;
+		}
+
+		//Intialize the arg with undecided
+		std::map<const Value*, POINTER_KIND>::iterator current=
+			visitedPhisOrArguments.insert(std::make_pair(arg, UNDECIDED)).first;
+
+		const Function * F = arg->getParent();
+		
+		//TODO properly handle varargs
+		if (!F || canBeCalledIndirectly(F) || F->isVarArg())
+			return REGULAR;
+		
+		// Compute the argument index
+		unsigned argIndex = arg->getArgNo();
+		assert(argIndex < F->arg_size());
+		
+		//TODO: this is used co check if the function F is called at least once in the code, it should be removed in the future
+		int nCall = 0;
+		
+		//We do roughly the same thing we do with phi-nodes, but with function calls
+		for( Function::const_use_iterator iter = F->use_begin(); iter != F->use_end() && current->second != REGULAR; ++iter)
+		{
+			const Value * arg = 0;
+			const User* U = iter->getUser();
+			
+			// Set arg to the argIndex-th argument of the function call, or leave it to 0 if this use is not a function call
+			if (const CallInst * call = dyn_cast<const CallInst>(U) )
+			{
+				if (call->getCalledFunction() == F)
+				{
+					assert (F->getArgumentList().size() == call->getNumArgOperands() || (F->dump(),false) );
+					assert (argIndex < call->getNumArgOperands());
+					
+					arg = call->getArgOperand(argIndex);
+				}
+			}
+			else if (const InvokeInst * call = dyn_cast<const InvokeInst>(U) )
+			{
+				if (call->getCalledFunction() == F)
+				{
+					assert (F->getArgumentList().size() == call->getNumArgOperands() || (F->dump(),false) );
+					assert (argIndex < call->getNumArgOperands());
+					
+					arg = call->getArgOperand(argIndex);
+				}
+			}
+			
+			if (arg != 0)
+			{
+				++nCall;
+				POINTER_KIND k = dfsPointerKind(arg, visitedPhisOrArguments );
+				if(current->second == UNDECIDED)
+					current->second = k;
+				else if (k != current->second)
+					current->second = REGULAR;
+			}
+		}
+		if (nCall == 0)
+		{
+			//llvm::errs() << "warning: function " << F->getName() << " seems to never be called\n";
+			current->second = REGULAR;
+		}
+		return current->second;
+	}
+	
 	return REGULAR;
 }
 
@@ -207,8 +285,10 @@ DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v) const
 
 	if (pointerKindMap.end() == iter)
 	{
-		std::map<const PHINode*, POINTER_KIND> visitedPhis;
+		std::map<const Value*, POINTER_KIND> visitedPhis;
 		iter = pointerKindMap.insert( std::make_pair(v,dfsPointerKind(v, visitedPhis)) ).first;
+		
+		assert(iter->second != UNDECIDED);
 	}
 	return iter->second;
 }
@@ -304,10 +384,15 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 			isNopCast(U))
 		{
 			f |= dfsPointerUsageFlagsComplete(U, openset) | POINTER_IS_NOT_UNIQUE_OWNER;
-		} 
-		else if (isa<const CallInst>(U) || isa<const InvokeInst>(U) )
+		}
+		else if (const CallInst * I = dyn_cast<const CallInst>(U))
 		{
-			//TODO deal with me properly
+			// Indirect calls require a finer analysis
+			f |= POINTER_UNKNOWN;
+		}
+		else if (isa<const InvokeInst>(U))
+		{
+			//TODO same thing as CallInst.
 			f |= POINTER_UNKNOWN;
 		}
 		else if (isa<const ReturnInst>(U))
