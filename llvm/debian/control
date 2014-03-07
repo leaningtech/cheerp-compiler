@@ -8,6 +8,7 @@ Build-Depends: debhelper (>=8), cmake, python
 Package: duetto-llvm-clang
 Architecture: i386 amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Conflicts: duetto
 Description: A C++ compiler for the Web
  Duetto is a tool to bring C++ programming to the Web,
  designed to provide a seamless experience for client/server
