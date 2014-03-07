@@ -12,6 +12,8 @@
 #include "llvm/Duetto/Utils.h"
 #include "llvm/Duetto/Writer.h"
 #include <llvm/IR/Operator.h>
+#include <iomanip>
+#include <sstream>
 
 using namespace llvm;
 using namespace duetto;
@@ -65,6 +67,43 @@ static void print_debug_pointer_uknown(const llvm::Value * v, const llvm::User *
 	else if (const Operator * p = dyn_cast<const Operator>(u) )
 		llvm::errs() << " operator " << p->getName() << "\n";
 }
+
+bool DuettoWriter::printPointerInfo(const Value * v)
+{
+	std::ostringstream fmt;
+	fmt << std::setw(96) << std::left;
+
+	if (v->hasName())
+		fmt << v->getName().data();
+	else
+	{
+		std::ostringstream tmp;
+		tmp << "tmp" << getUniqueIndexForValue(v);
+		fmt << tmp.str();
+	}
+
+	if (v->getType()->isPointerTy())
+	{
+		fmt << std::setw(18) << std::left;
+		switch (getPointerKind(v))
+		{
+			case COMPLETE_OBJECT: fmt << "COMPLETE_OBJECT"; break;
+			case COMPLETE_ARRAY: fmt << "COMPLETE_ARRAY"; break;
+			case REGULAR: fmt << "REGULAR"; break;
+			default: fmt << "UNDECIDED"; break;
+		}
+		
+		fmt << std::setw(18) << std::left << getPointerUsageFlags(v);
+		fmt << std::setw(18) << std::left << getPointerUsageFlagsComplete(v);
+		fmt << std::setw(18) << std::left << std::boolalpha << isImmutableType( v->getType()->getPointerElementType() );
+	}
+	else
+		fmt << "Is not a pointer";
+
+	llvm::errs() << fmt.str() << "\n";
+	return false;
+}
+
 #endif //DUETTO_DEBUG_POINTERS
 
 /*

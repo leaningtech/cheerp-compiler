@@ -16,8 +16,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/ErrorHandling.h"
-#include <iomanip>
-#include <sstream>
 
 using namespace llvm;
 using namespace std;
@@ -1555,8 +1553,8 @@ void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 		else if(k==COMPLETE_OBJECT)
 		{
 			stream << "'s'}";
-			assert(!isNoSelfPointerOptimizable(v));
-			assert(!isNoWrappingArrayOptimizable(v));
+			assert(!isNoSelfPointerOptimizable(v) || printPointerInfo(v));
+			assert(!isNoWrappingArrayOptimizable(v) || printPointerInfo(v));
 		}
 	}
 }
@@ -3425,35 +3423,7 @@ void DuettoWriter::makeJS()
 	
 	for (known_pointers_t::iterator iter = debugAllPointersSet.begin(); iter != debugAllPointersSet.end(); ++iter)
 	{
-		const Value * v = *iter;
-		
-		std::ostringstream fmt;
-		fmt << std::setw(96) << std::left;
-	
-		if (v->hasName())
-			fmt << v->getName().data();
-		else
-		{
-			std::ostringstream tmp;
-			tmp << "tmp" << getUniqueIndexForValue(v);
-			fmt << tmp.str();
-		}
-
-		fmt << std::setw(18) << std::left;
-		switch (getPointerKind(v))
-		{
-			case COMPLETE_OBJECT: fmt << "COMPLETE_OBJECT"; break;
-			case COMPLETE_ARRAY: fmt << "COMPLETE_ARRAY"; break;
-			case REGULAR: fmt << "REGULAR"; break;
-			default: fmt << "UNDECIDED"; break;
-		}
-		
-
-		fmt << std::setw(18) << std::left << getPointerUsageFlags(v);
-		fmt << std::setw(18) << std::left << getPointerUsageFlagsComplete(v);
-		fmt << std::setw(18) << std::left << std::boolalpha << isImmutableType( v->getType()->getPointerElementType() );
-
-		llvm::errs() << fmt.str() << "\n";
+		printPointerInfo(*iter);
 	}
 #endif
 
