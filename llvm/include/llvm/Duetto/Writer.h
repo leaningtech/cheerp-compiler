@@ -188,6 +188,11 @@ private:
 #ifdef DUETTO_DEBUG_POINTERS
 	typedef std::set<const llvm::Value *> known_pointers_t;
 	mutable known_pointers_t debugAllPointersSet;
+	
+	// Debugging utility to send formatted output to llvm::errs. Always returns false for ease of use in assertions
+	bool printPointerInfo(const llvm::Value *);
+#else
+	bool printPointerInfo(const llvm::Value *) const {return false;}
 #endif //DUETTO_DEBUG_POINTERS
 	
 	// Detect if a no-self-pointer optimization is applicable to the pointer value
