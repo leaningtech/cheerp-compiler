@@ -351,7 +351,9 @@ Type* DuettoWriter::findRealType(const Value* v, std::set<const PHINode*>& visit
 		for(unsigned i=1;i<newPHI->getNumIncomingValues();i++)
 		{
 			Type* t=findRealType(newPHI->getIncomingValue(i),visitedPhis);
-			if(ret==NULL)
+			if(t==NULL)
+				continue;
+			else if(ret==NULL)
 				ret=t;
 			else if(ret!=t)
 			{
