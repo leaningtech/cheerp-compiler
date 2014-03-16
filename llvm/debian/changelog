@@ -1,3 +1,9 @@
+duetto-llvm-clang (0.9.4-1) saucy; urgency=low
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Mon, 17 Mar 2014 00:24:57 +0100
+
 duetto-llvm-clang (0.9.3-1) saucy; urgency=low
 
   * New release
