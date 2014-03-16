@@ -676,10 +676,7 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size, cons
 
 void DuettoWriter::compileFree(const Value* obj)
 {
-	//Best effort
-	POINTER_KIND k=getPointerKind(obj);
-	compilePointer(obj, k);
-	stream << "=null";
+	//TODO: Clean up class related data structures
 }
 
 DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
