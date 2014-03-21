@@ -3874,7 +3874,7 @@ MicrosoftCXXABI::getAddrOfCXXCatchHandlerType(QualType Type,
   if (IsReference)
     Flags |= 8;
 
-  return CatchTypeInfo{getAddrOfRTTIDescriptor(Type)->stripPointerCasts(),
+  return CatchTypeInfo{llvm::cast<llvm::Constant>(getAddrOfRTTIDescriptor(Type)->stripPointerCastsSafe()),
                        Flags};
 }
 

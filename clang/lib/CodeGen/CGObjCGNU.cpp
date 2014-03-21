@@ -1587,7 +1587,7 @@ class CGObjCGNUstep2 : public CGObjCGNUstep {
     InitVar->setComdat(TheModule.getOrInsertComdat(".objc_ctor"));
     CGM.addUsedGlobal(InitVar);
     for (auto *C : Categories) {
-      auto *Cat = cast<llvm::GlobalVariable>(C->stripPointerCasts());
+      auto *Cat = cast<llvm::GlobalVariable>(C->stripPointerCastsSafe());
       Cat->setSection(sectionName<CategorySection>());
       CGM.addUsedGlobal(Cat);
     }
