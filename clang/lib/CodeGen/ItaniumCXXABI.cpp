@@ -2576,7 +2576,7 @@ static void emitGlobalDtorWithCXAAtExit(CodeGenFunction &CGF,
   // Create a variable that binds the atexit to this shared object.
   llvm::Constant *handle =
       CGF.CGM.CreateRuntimeVariable(CGF.Int8Ty, "__dso_handle");
-  auto *GV = cast<llvm::GlobalValue>(handle->stripPointerCasts());
+  auto *GV = cast<llvm::GlobalValue>(handle->stripPointerCastsSafe());
   GV->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
   // extern "C" int __cxa_atexit(void (*f)(void *), void *p, void *d);
@@ -4685,7 +4685,7 @@ static llvm::FunctionCallee getClangCallTerminateFn(CodeGenModule &CGM) {
   llvm::FunctionCallee fnRef = CGM.CreateRuntimeFunction(
       fnTy, "__clang_call_terminate", llvm::AttributeList(), /*Local=*/true);
   llvm::Function *fn =
-      cast<llvm::Function>(fnRef.getCallee()->stripPointerCasts());
+      cast<llvm::Function>(fnRef.getCallee()->stripPointerCastsSafe());
   if (fn->empty()) {
     CGM.SetLLVMFunctionAttributes(GlobalDecl(), FI, fn, /*IsThunk=*/false);
     fn->setDoesNotThrow();
