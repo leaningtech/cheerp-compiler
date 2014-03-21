@@ -3399,7 +3399,7 @@ void CodeGenFunction::EmitCfiSlowPathCheck(
   }
 
   CGM.setDSOLocal(
-      cast<llvm::GlobalValue>(SlowPathFn.getCallee()->stripPointerCasts()));
+      cast<llvm::GlobalValue>(SlowPathFn.getCallee()->stripPointerCastsSafe()));
   CheckCall->setDoesNotThrow();
 
   EmitBlock(Cont);
