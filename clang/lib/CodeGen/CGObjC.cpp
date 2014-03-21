@@ -2192,7 +2192,7 @@ llvm::Value *CodeGenFunction::EmitARCRetainBlock(llvm::Value *value,
   // count as escaping.
   if (!mandatory && isa<llvm::Instruction>(result)) {
     llvm::CallInst *call
-      = cast<llvm::CallInst>(result->stripPointerCasts());
+      = cast<llvm::CallInst>(result->stripPointerCastsSafe());
     assert(call->getCalledOperand() ==
            CGM.getObjCEntrypoints().objc_retainBlock);
 
@@ -3784,7 +3784,7 @@ void CodeGenModule::emitAtAvailableLinkGuard() {
       CheckFTy, "__clang_at_available_requires_core_foundation_framework",
       llvm::AttributeList(), /*Local=*/true);
   llvm::Function *CFLinkCheckFunc =
-      cast<llvm::Function>(CFLinkCheckFuncRef.getCallee()->stripPointerCasts());
+      cast<llvm::Function>(CFLinkCheckFuncRef.getCallee()->stripPointerCastsSafe());
   if (CFLinkCheckFunc->empty()) {
     CFLinkCheckFunc->setLinkage(llvm::GlobalValue::LinkOnceAnyLinkage);
     CFLinkCheckFunc->setVisibility(llvm::GlobalValue::HiddenVisibility);

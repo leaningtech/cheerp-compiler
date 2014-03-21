@@ -260,7 +260,7 @@ static bool LandingPadHasOnlyCXXUses(llvm::LandingPadInst *LPI) {
   for (unsigned I = 0, E = LPI->getNumClauses(); I != E; ++I) {
     // Look for something that would've been returned by the ObjC
     // runtime's GetEHType() method.
-    llvm::Value *Val = LPI->getClause(I)->stripPointerCasts();
+    llvm::Value *Val = LPI->getClause(I)->stripPointerCastsSafe();
     if (LPI->isCatch(I)) {
       // Check if the catch value has the ObjC prefix.
       if (llvm::GlobalVariable *GV = dyn_cast<llvm::GlobalVariable>(Val))
@@ -274,7 +274,7 @@ static bool LandingPadHasOnlyCXXUses(llvm::LandingPadInst *LPI) {
       for (llvm::User::op_iterator
               II = CVal->op_begin(), IE = CVal->op_end(); II != IE; ++II) {
         if (llvm::GlobalVariable *GV =
-            cast<llvm::GlobalVariable>((*II)->stripPointerCasts()))
+            cast<llvm::GlobalVariable>((*II)->stripPointerCastsSafe()))
           // ObjC EH selector entries are always global variables with
           // names starting like this.
           if (GV->getName().startswith("OBJC_EHTYPE"))
@@ -1757,7 +1757,7 @@ Address CodeGenFunction::recoverAddrOfEscapedLocal(CodeGenFunction &ParentCGF,
     // Just clone the existing localrecover call, but tweak the FP argument to
     // use our FP value. All other arguments are constants.
     auto *ParentRecover =
-        cast<llvm::IntrinsicInst>(ParentVar.getPointer()->stripPointerCasts());
+        cast<llvm::IntrinsicInst>(ParentVar.getPointer()->stripPointerCastsSafe());
     assert(ParentRecover->getIntrinsicID() == llvm::Intrinsic::localrecover &&
            "expected alloca or localrecover in parent LocalDeclMap");
     RecoverCall = cast<llvm::CallInst>(ParentRecover->clone());

@@ -2201,7 +2201,7 @@ CGObjCCommonMac::EmitMessageSend(CodeGen::CodeGenFunction &CGF,
                dyn_cast_or_null<ObjCMethodDecl>(CGF.CurCodeDecl)) {
     auto Self = CurMethod->getSelfDecl();
     if (Self->getType().isConstQualified()) {
-      if (auto LI = dyn_cast<llvm::LoadInst>(Arg0->stripPointerCasts())) {
+      if (auto LI = dyn_cast<llvm::LoadInst>(Arg0->stripPointerCastsSafe())) {
         llvm::Value *SelfAddr = CGF.GetAddrOfLocalVar(Self).getPointer();
         if (SelfAddr == LI->getPointerOperand()) {
           ReceiverCanBeNull = false;

@@ -1394,7 +1394,7 @@ static llvm::Constant *buildGlobalBlock(CodeGenModule &CGM,
   if (CGM.getContext().getLangOpts().OpenCL)
     CGM.getOpenCLRuntime().recordBlockInfo(
         blockInfo.BlockExpression,
-        cast<llvm::Function>(blockFn->stripPointerCasts()), Result);
+        cast<llvm::Function>(blockFn->stripPointerCastsSafe()), Result);
   return Result;
 }
 
@@ -2873,15 +2873,15 @@ void CodeGenFunction::enterByrefCleanup(CleanupKind Kind, Address Addr,
 /// Adjust the declaration of something from the blocks API.
 static void configureBlocksRuntimeObject(CodeGenModule &CGM,
                                          llvm::Constant *C) {
-  auto *GV = cast<llvm::GlobalValue>(C->stripPointerCasts());
+  auto *GV = cast<llvm::GlobalValue>(C->stripPointerCastsSafe());
 
   if (CGM.getTarget().getTriple().isOSBinFormatCOFF()) {
     IdentifierInfo &II = CGM.getContext().Idents.get(C->getName());
     TranslationUnitDecl *TUDecl = CGM.getContext().getTranslationUnitDecl();
     DeclContext *DC = TranslationUnitDecl::castToDeclContext(TUDecl);
 
-    assert((isa<llvm::Function>(C->stripPointerCasts()) ||
-            isa<llvm::GlobalVariable>(C->stripPointerCasts())) &&
+    assert((isa<llvm::Function>(C->stripPointerCastsSafe()) ||
+            isa<llvm::GlobalVariable>(C->stripPointerCastsSafe())) &&
            "expected Function or GlobalVariable");
 
     const NamedDecl *ND = nullptr;

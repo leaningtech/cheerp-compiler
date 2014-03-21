@@ -175,7 +175,7 @@ CGOpenCLRuntime::emitOpenCLEnqueuedBlock(CodeGenFunction &CGF, const Expr *E) {
 
   auto *F = CGF.getTargetHooks().createEnqueuedBlockKernel(
       CGF, EnqueuedBlockMap[Block].InvokeFunc,
-      EnqueuedBlockMap[Block].BlockArg->stripPointerCasts());
+      EnqueuedBlockMap[Block].BlockArg->stripPointerCastsSafe());
 
   // The common part of the post-processing of the kernel goes here.
   F->addFnAttr(llvm::Attribute::NoUnwind);

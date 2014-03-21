@@ -1895,7 +1895,7 @@ CGDebugInfo::CollectTemplateParams(const TemplateParameterList *TPList,
           V = CGM.GetAddrOfMSGuidDecl(GD).getPointer();
         }
         assert(V && "Failed to find template parameter pointer");
-        V = V->stripPointerCasts();
+        V = V->stripPointerCasts(false);
       }
       TemplateParams.push_back(DBuilder.createTemplateValueParameter(
           TheCU, Name, TTy, defaultParameter, cast_or_null<llvm::Constant>(V)));

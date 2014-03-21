@@ -405,7 +405,7 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
   llvm::Type *expectedType = addr->getType();
 
   llvm::GlobalVariable *var =
-    cast<llvm::GlobalVariable>(addr->stripPointerCasts());
+    cast<llvm::GlobalVariable>(addr->stripPointerCastsSafe());
 
   // CUDA's local and local static __shared__ variables should not
   // have any non-empty initializers. This is ensured by Sema.
