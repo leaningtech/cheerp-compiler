@@ -34,9 +34,9 @@ void local(void) {
 // LOCAL-LABEL: define void @local()
 // LOCAL:      [[LOCALVAR:%.*]] = alloca i32,
 // LOCAL-NEXT: [[T0:%.*]] = bitcast i32* [[LOCALVAR]] to i8*
-// LOCAL-NEXT: call void @llvm.var.annotation(i8* [[T0]], i8* getelementptr inbounds ([15 x i8], [15 x i8]* @{{.*}}), i8* getelementptr inbounds ({{.*}}), i32 33)
+// LOCAL-NEXT: call void @llvm.var.annotation(i8* [[T0]], i8* bitcast ([15 x i8]* @{{.*}}), i8* bitcast ({{.*}}), i32 33)
 // LOCAL-NEXT: [[T0:%.*]] = bitcast i32* [[LOCALVAR]] to i8*
-// LOCAL-NEXT: call void @llvm.var.annotation(i8* [[T0]], i8* getelementptr inbounds ([15 x i8], [15 x i8]* @{{.*}}), i8* getelementptr inbounds ({{.*}}), i32 33)
+// LOCAL-NEXT: call void @llvm.var.annotation(i8* [[T0]], i8* bitcast ([15 x i8]* @{{.*}}), i8* bitcast ({{.*}}), i32 33)
 }
 
 void local_after_return(void) {

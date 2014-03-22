@@ -46,16 +46,16 @@ namespace test2 {
   };
   void A::foo() {}
   // CHECK-GLOBALS-DAG: @_ZTSN5test21AE = constant [11 x i8]
-  // CHECK-GLOBALS-DAG: @_ZTIN5test21AE = constant { {{.*}}, i8* getelementptr inbounds ([11 x i8], [11 x i8]* @_ZTSN5test21AE, i32 0, i32 0) }
+  // CHECK-GLOBALS-DAG: @_ZTIN5test21AE = constant { {{.*}}, i8* bitcast ([11 x i8]* @_ZTSN5test21AE to i8*) }
 
   struct __attribute__((visibility("hidden"))) B {};
   const std::type_info &b0 = typeid(B);
   // CHECK-GLOBALS-DAG: @_ZTSN5test21BE = linkonce_odr hidden constant
-  // CHECK-GLOBALS-DAG: @_ZTIN5test21BE = linkonce_odr hidden constant { {{.*}}, i8* getelementptr inbounds ([11 x i8], [11 x i8]* @_ZTSN5test21BE, i32 0, i32 0) }
+  // CHECK-GLOBALS-DAG: @_ZTIN5test21BE = linkonce_odr hidden constant { {{.*}}, i8* bitcast ([11 x i8]* @_ZTSN5test21BE to i8*) }
 
   const std::type_info &b1 = typeid(B*);
   // CHECK-GLOBALS-DAG: @_ZTSPN5test21BE = linkonce_odr hidden constant
-  // CHECK-GLOBALS-DAG: @_ZTIPN5test21BE = linkonce_odr hidden constant { {{.*}}, i8* getelementptr inbounds ([12 x i8], [12 x i8]* @_ZTSPN5test21BE, i32 0, i32 0), i32 0, i8* bitcast
+  // CHECK-GLOBALS-DAG: @_ZTIPN5test21BE = linkonce_odr hidden constant { {{.*}}, i8* bitcast ([12 x i8]* @_ZTSPN5test21BE to i8*), i32 0, i8* bitcast
 
   struct C {};
   const std::type_info &c0 = typeid(C);
@@ -82,6 +82,7 @@ namespace test2 {
   template class E<int>;
   // CHECK-GLOBALS-DAG: @_ZTSN5test21EIiEE = weak_odr constant [14 x i8]
   // CHECK-GLOBALS-DAG: @_ZTIN5test21EIiEE = weak_odr constant { {{.*}}, i8* inttoptr (i64 add (i64 ptrtoint ([14 x i8]* @_ZTSN5test21EIiEE to i64), i64 -9223372036854775808) to i8*) }
+
 
 }
 

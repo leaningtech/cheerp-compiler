@@ -19,7 +19,7 @@ namespace StructUnion {
   // CHECK: @_ZN11StructUnion1aE = constant {{.*}} { i32 1, double 2.000000e+00, {{.*}} { i32 3, [4 x i8] undef } }
   extern constexpr A a(1, 2.0, 3);
 
-  // CHECK: @_ZN11StructUnion1bE = constant {{.*}} { i32 4, double 5.000000e+00, {{.*}} { i8* getelementptr inbounds ([6 x i8], [6 x i8]* @{{.*}}, i32 0, i32 0) } }
+  // CHECK: @_ZN11StructUnion1bE = constant {{.*}} { i32 4, double 5.000000e+00, {{.*}} { i8* bitcast ([6 x i8]* @{{.*}} to i8*) } }
   extern constexpr A b(4, 5, "hello");
 
   struct B {
@@ -286,7 +286,7 @@ namespace NonLiteralConstexpr {
     int *p;
   };
   static_assert(!__is_literal(NonTrivialDtor), "");
-  // CHECK: @_ZN19NonLiteralConstexpr3ntdE = global {{.*}} { i32 120, i32* getelementptr
+  // CHECK: @_ZN19NonLiteralConstexpr3ntdE = global {{.*}} { i32 120, i32* bitcast
   NonTrivialDtor ntd;
 
   struct VolatileMember {
@@ -306,7 +306,7 @@ namespace NonLiteralConstexpr {
   Both b;
 
   void StaticVars() {
-    // CHECK: @_ZZN19NonLiteralConstexpr10StaticVarsEvE3ntd = {{.*}} { i32 120, i32* getelementptr {{.*}}
+    // CHECK: @_ZZN19NonLiteralConstexpr10StaticVarsEvE3ntd = {{.*}} { i32 120, i32* bitcast {{.*}}
     // CHECK: @_ZGVZN19NonLiteralConstexpr10StaticVarsEvE3ntd =
     static NonTrivialDtor ntd;
     // CHECK: @_ZZN19NonLiteralConstexpr10StaticVarsEvE2vm = {{.*}} { i32 5 }
