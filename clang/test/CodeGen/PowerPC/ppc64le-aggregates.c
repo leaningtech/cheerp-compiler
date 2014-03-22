@@ -172,7 +172,7 @@ struct vab func_vab(struct vab x) { return x; }
 struct vabc func_vabc(struct vabc x) { return x; }
 
 // CHECK-LABEL: @call_v1
-// CHECK: %[[TMP:[^ ]+]] = load <4 x i32>, <4 x i32>* getelementptr inbounds (%struct.v1, %struct.v1* @global_v1, i32 0, i32 0, i32 0), align 1
+// CHECK: %[[TMP:[^ ]+]] = load <4 x i32>, <4 x i32>* bitcast ([1 x <4 x i32>]* getelementptr inbounds (%struct.v1, %struct.v1* @global_v1, i32 0, i32 0) to <4 x i32>*), align 1
 // CHECK: call [1 x <4 x i32>] @func_v1(<4 x i32> inreg %[[TMP]])
 struct v1 global_v1;
 void call_v1(void) { global_v1 = func_v1(global_v1); }

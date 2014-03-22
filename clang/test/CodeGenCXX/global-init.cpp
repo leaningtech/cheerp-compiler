@@ -37,7 +37,7 @@ B b;
 // CHECK-NOT: call void @_ZN1CC1Ev(%struct.C* @c)
 C c;
 
-// CHECK: call i32 @__cxa_atexit(void (i8*)* bitcast (void (%struct.D*)* @_ZN1DD1Ev to void (i8*)*), i8* getelementptr inbounds (%struct.D, %struct.D* @d, i32 0, i32 0), i8* @__dso_handle)
+// CHECK: call i32 @__cxa_atexit(void (i8*)* bitcast (void (%struct.D*)* @_ZN1DD1Ev to void (i8*)*), i8* bitcast (%struct.D* @d to i8*), i8* @__dso_handle)
 D d;
 
 // <rdar://problem/7458115>
