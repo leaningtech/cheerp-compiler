@@ -85,8 +85,8 @@ int main(void) {
 // CHECK: load volatile i32, i32* getelementptr {{.*}} @vF3
 // CHECK: store i32 {{.*}}, i32* [[I]]
   i=BF.x;
-// CHECK-IT: load i8, i8* getelementptr {{.*}} @BF
-// CHECK-MS: load i32, i32* getelementptr {{.*}} @BF
+// CHECK-IT: load i8, i8* bitcast {{.*}} @BF
+// CHECK-MS: load i32, i32* bitcast {{.*}} @BF
 // CHECK: store i32 {{.*}}, i32* [[I]]
   i=vBF.x;
 // CHECK-IT-OTHER: load volatile i8, i8* getelementptr {{.*}} @vBF
@@ -159,10 +159,10 @@ int main(void) {
 // CHECK: store volatile i32 {{.*}}, i32* getelementptr {{.*}} @vF3
   BF.x=i;
 // CHECK: load i32, i32* [[I]]
-// CHECK-IT: load i8, i8* getelementptr {{.*}} @BF
-// CHECK-MS: load i32, i32* getelementptr {{.*}} @BF
-// CHECK-IT: store i8 {{.*}}, i8* getelementptr {{.*}} @BF
-// CHECK-MS: store i32 {{.*}}, i32* getelementptr {{.*}} @BF
+// CHECK-IT: load i8, i8* bitcast {{.*}} @BF
+// CHECK-MS: load i32, i32* bitcast {{.*}} @BF
+// CHECK-IT: store i8 {{.*}}, i8* bitcast {{.*}} @BF
+// CHECK-MS: store i32 {{.*}}, i32* bitcast {{.*}} @BF
   vBF.x=i;
 // CHECK: load i32, i32* [[I]]
 // CHECK-IT-OTHER: load volatile i8, i8* getelementptr {{.*}} @vBF

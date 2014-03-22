@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -triple i386-pc-linux-gnu -emit-llvm -o %t %s
-// RUN: grep "g.b = internal global i8. getelementptr" %t
+// RUN: grep "g.b = internal global i8. bitcast" %t
 
 struct AStruct { 
   int i;
