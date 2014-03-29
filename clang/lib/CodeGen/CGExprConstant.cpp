@@ -1849,11 +1849,48 @@ private:
     if (!hasNonZeroOffset())
       return C;
 
+    uint64_t OffsetVal = Value.getLValueOffset().getQuantity();
+
+    // Try to build a naturally looking GEP from the returned expression to the
+    // required type
+    llvm::SmallVector<llvm::Constant*, 4> Indexes;
+    llvm::Type* CurrentType = C->getType()->getPointerElementType();
+    Indexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
+    llvm::Type* DestTy = CGM.getTypes().ConvertTypeForMem(DestType);
+    while(DestTy->isPointerTy() && (OffsetVal || CurrentType!=DestTy->getPointerElementType()))
+    {
+      if (llvm::StructType* ST=dyn_cast<llvm::StructType>(CurrentType))
+      {
+        if (ST->isOpaque())
+          break;
+        const llvm::StructLayout *SL = CGM.getDataLayout().getStructLayout(ST);
+        unsigned Index = SL->getElementContainingOffset(OffsetVal);
+        Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, Index));
+        OffsetVal -= SL->getElementOffset(Index);
+        CurrentType = ST->getElementType(Index);
+      }
+      else if (llvm::ArrayType* AT=dyn_cast<llvm::ArrayType>(CurrentType))
+      {
+        llvm::Type *ElementTy = AT->getElementType();
+        unsigned ElementSize = CGM.getDataLayout().getTypeAllocSize(ElementTy);
+        unsigned Index = OffsetVal / ElementSize;
+        Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, Index));
+        OffsetVal -= Index * ElementSize;
+        CurrentType = ElementTy;
+      }
+      else
+        break;
+    }
+
+    C = llvm::ConstantExpr::getGetElementPtr(C, Indexes);
+
+    if (OffsetVal == 0)
+      return C;
     llvm::Type *origPtrTy = C->getType();
     unsigned AS = origPtrTy->getPointerAddressSpace();
     llvm::Type *charPtrTy = CGM.Int8Ty->getPointerTo(AS);
     C = llvm::ConstantExpr::getBitCast(C, charPtrTy);
-    C = llvm::ConstantExpr::getGetElementPtr(CGM.Int8Ty, C, getOffset());
+    C = llvm::ConstantExpr::getGetElementPtr(CGM.Int8Ty, C, llvm::ConstantInt::get(CGM.Int64Ty, OffsetVal));
     C = llvm::ConstantExpr::getPointerCast(C, origPtrTy);
     return C;
   }

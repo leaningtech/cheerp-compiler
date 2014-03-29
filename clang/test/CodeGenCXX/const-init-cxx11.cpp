@@ -19,7 +19,7 @@ namespace StructUnion {
   // CHECK: @_ZN11StructUnion1aE = constant {{.*}} { i32 1, double 2.000000e+00, {{.*}} { i32 3, [4 x i8] undef } }
   extern constexpr A a(1, 2.0, 3);
 
-  // CHECK: @_ZN11StructUnion1bE = constant {{.*}} { i32 4, double 5.000000e+00, {{.*}} { i8* bitcast ([6 x i8]* @{{.*}} to i8*) } }
+  // CHECK: @_ZN11StructUnion1bE = constant {{.*}} { i32 4, double 5.000000e+00, {{.*}} { i8* getelementptr inbounds ([6 x i8]* @{{.*}}, i32 0, i32 0) } }
   extern constexpr A b(4, 5, "hello");
 
   struct B {
@@ -250,7 +250,7 @@ namespace LiteralReference {
     int a, b, c;
   };
   // CHECK: @[[TEMP:.*]] = internal global {{.*}} { i32 1, i32 2, i32 3 }, align 4
-  // CHECK: @_ZN16LiteralReference2soE = constant {{.*}} (i8* getelementptr {{.*}} @[[TEMP]]{{.*}}, i64 4)
+  // CHECK: @_ZN16LiteralReference2soE = constant i32* getelementptr inbounds ({{.*}} @[[TEMP]], i32 0, i32 1)
   constexpr int &&so = Subobj{ 1, 2, 3 }.b;
 
   struct Dummy { int padding; };
@@ -259,11 +259,11 @@ namespace LiteralReference {
   };
   using ConstDerived = const Derived;
   // CHECK: @[[TEMPCOMMA:.*]] = internal constant {{.*}} { i32 200, i32 4, i32 5, i32 6 }
-  // CHECK: @_ZN16LiteralReference5commaE = constant {{.*}} getelementptr {{.*}} @[[TEMPCOMMA]]{{.*}}, i64 8)
+  // CHECK: @_ZN16LiteralReference5commaE = constant i32* getelementptr inbounds ({{.*}} @[[TEMPCOMMA]], i32 0, i32 2)
   constexpr const int &comma = (1, (2, ConstDerived{}).b);
 
   // CHECK: @[[TEMPDERIVED:.*]] = internal global {{.*}} { i32 200, i32 4, i32 5, i32 6 }
-  // CHECK: @_ZN16LiteralReference4baseE = constant {{.*}} getelementptr {{.*}} @[[TEMPDERIVED]]{{.*}}, i64 4)
+  // CHECK: @_ZN16LiteralReference4baseE = constant {{.*}} (i32* getelementptr inbounds ({{.*}} @[[TEMPDERIVED]], i32 0, i32 1)
   constexpr Subobj &&base = Derived{};
 
   // CHECK: @_ZN16LiteralReference7derivedE = constant {{.*}} @[[TEMPDERIVED]]
@@ -286,7 +286,7 @@ namespace NonLiteralConstexpr {
     int *p;
   };
   static_assert(!__is_literal(NonTrivialDtor), "");
-  // CHECK: @_ZN19NonLiteralConstexpr3ntdE = global {{.*}} { i32 120, i32* bitcast
+  // CHECK: @_ZN19NonLiteralConstexpr3ntdE = global {{.*}} { i32 120, i32* getelementptr
   NonTrivialDtor ntd;
 
   struct VolatileMember {
@@ -306,7 +306,7 @@ namespace NonLiteralConstexpr {
   Both b;
 
   void StaticVars() {
-    // CHECK: @_ZZN19NonLiteralConstexpr10StaticVarsEvE3ntd = {{.*}} { i32 120, i32* bitcast {{.*}}
+    // CHECK: @_ZZN19NonLiteralConstexpr10StaticVarsEvE3ntd = {{.*}} { i32 120, i32* getelementptr {{.*}}
     // CHECK: @_ZGVZN19NonLiteralConstexpr10StaticVarsEvE3ntd =
     static NonTrivialDtor ntd;
     // CHECK: @_ZZN19NonLiteralConstexpr10StaticVarsEvE2vm = {{.*}} { i32 5 }
