@@ -306,7 +306,7 @@ namespace NonLiteralConstexpr {
   Both b;
 
   void StaticVars() {
-    // CHECK: @_ZZN19NonLiteralConstexpr10StaticVarsEvE3ntd = {{.*}} { i32 120, i32* bitcast {{.*}}
+    // CHECK: @_ZZN19NonLiteralConstexpr10StaticVarsEvE3ntd = {{.*}} { i32 120, i32* getelementptr {{.*}}
     // CHECK: @_ZGVZN19NonLiteralConstexpr10StaticVarsEvE3ntd =
     static NonTrivialDtor ntd;
     // CHECK: @_ZZN19NonLiteralConstexpr10StaticVarsEvE2vm = {{.*}} { i32 5 }
