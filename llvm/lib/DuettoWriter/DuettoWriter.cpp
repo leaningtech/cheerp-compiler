@@ -464,10 +464,12 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		stream << ";\nif(__numElem__!=0)\n{";
 	}
 
-	//The first element is handled copied directly, to support complete objects
+	//The first element is copied directly, to support complete objects
+	//In the BACKWARD case we need to copy the first as the last element
+        //and we do this below
 	if(copyDirection==RESET)
 		compileResetRecursive("", dest, src, pointedType, NULL);
-	else
+	else if(copyDirection==FORWARD)
 		compileCopyRecursive("", dest, src, pointedType, NULL);
 
 	//The rest is compiled using a for loop, or native TypedArray set operator
@@ -546,6 +548,10 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 			compileCopyRecursive("", dest, src, pointedType,"__i__");
 		stream << "\n}";
 	}
+
+	//The first element must be copied last in the backward case
+	if(copyDirection==BACKWARD)
+		compileCopyRecursive("", dest, src, pointedType, NULL);
 
 	if(!ConstantInt::classof(size))
 	{
