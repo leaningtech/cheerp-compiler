@@ -23,20 +23,103 @@ using namespace llvm;
 
 namespace duetto {
 
-POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const llvm::Value* v) const
+
+/*
+ * The map is used to handle cyclic PHI nodes
+ */
+POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 {
 	assert(v->getType()->isPointerTy());
 
-	pointer_kind_map_t::const_iterator iter = pointerKindMap.find(v);
+	pointer_kind_map_t::iterator iter = pointerKindMap.find(v);
 
-	if (pointerKindMap.end() == iter)
+	if (pointerKindMap.end() != iter)
+		return iter->second;
+	iter = pointerKindMap.insert( std::make_pair(v, UNDECIDED) ).first;
+	
+	#ifdef DUETTO_DEBUG_POINTERS
+	debugAllPointersSet.insert(v);
+	#endif
+ 
+	PointerType * pt = cast<PointerType>(v->getType());
+	if(isClientArrayType(pt->getElementType()))
 	{
-		std::map<const Value*, POINTER_KIND> visitedPhis;
-		iter = pointerKindMap.insert( std::make_pair(v,dfsPointerKind(v, visitedPhis)) ).first;
-		
-		assert(iter->second != UNDECIDED);
+		//Handle client arrays like COMPLETE_ARRAYs, so the right 0 offset
+		//is used when doing GEPs
+		return iter->second = COMPLETE_ARRAY;
 	}
-	return iter->second;
+	if(isClientType(pt->getElementType()))
+	{
+		//Pointers to client type are complete objects, and are never expanded to
+		//regular ones since an array of client objects does not exists.
+		//NOTE: An array of pointer to client objects exists, not an array of objects.
+		return iter->second = COMPLETE_OBJECT;
+	}
+	if(AllocaInst::classof(v) || GlobalVariable::classof(v))
+	{
+		if(isImmutableType(pt->getElementType()) && !isNoWrappingArrayOptimizable(v))
+			return iter->second = COMPLETE_ARRAY;
+		else
+			return iter->second = COMPLETE_OBJECT;
+	}
+	//Follow bitcasts
+	if(isBitCast(v))
+	{
+		const User* bi=static_cast<const User*>(v);
+		//Casts from unions return regular pointers
+		if(isUnion(bi->getOperand(0)->getType()->getPointerElementType()))
+		{
+			//Special case arrays
+			if(ArrayType::classof(pt->getElementType()))
+				return iter->second = COMPLETE_OBJECT;
+			else
+				return iter->second = COMPLETE_ARRAY;
+		}
+		return iter->second = getPointerKind(bi->getOperand(0));
+	}
+	if(isNopCast(v))
+	{
+		const User* bi=static_cast<const User*>(v);
+		return iter->second = getPointerKind(bi->getOperand(0));
+	}
+	//Follow select
+	if(const SelectInst* s=dyn_cast<SelectInst>(v))
+	{
+		POINTER_KIND k1 = getPointerKind(s->getTrueValue());
+		if(k1 == REGULAR)
+			return iter->second = REGULAR;
+		
+		POINTER_KIND k2 = getPointerKind(s->getFalseValue());
+		//If the type is different we need to collapse to REGULAR
+		if(k1!=k2)
+			return iter->second = REGULAR;
+		//The type is the same
+		return iter->second = k1;
+	}
+	if(isComingFromAllocation(v))
+		return iter->second = COMPLETE_ARRAY;
+
+	if ( const Argument * arg = dyn_cast<const Argument>(v) )
+	{
+		const Function * F = arg->getParent();
+		
+		//TODO properly handle varargs
+		if (!F || canBeCalledIndirectly(F) || F->isVarArg())
+			return iter->second = REGULAR;
+	}
+	
+	if (isa<const PHINode>(v) || isa<const Argument>(v))
+	{
+		if (isImmutableType( pt->getElementType() ) )
+		{
+			return iter->second = (isNoWrappingArrayOptimizable(v) ? COMPLETE_OBJECT : REGULAR);
+		}
+		else
+		{
+			return iter->second = (isNoSelfPointerOptimizable(v) ? COMPLETE_OBJECT : REGULAR);
+		}
+	}
+	return iter->second = REGULAR;
 }
 
 uint32_t DuettoPointerAnalyzer::getPointerUsageFlagsComplete(const Value * v) const
@@ -159,173 +242,6 @@ std::string DuettoPointerAnalyzer::valueObjectName(const Value* v)
 	return os.str();
 }
 
-
-/*
- * The map is used to handle cyclic PHI nodes
- */
-POINTER_KIND DuettoPointerAnalyzer::dfsPointerKind(const Value* v, std::map<const Value*, POINTER_KIND>& visitedPhisOrArguments) const
-{
-#ifdef DUETTO_DEBUG_POINTERS
-	debugAllPointersSet.insert(v);
-#endif
-	assert(v->getType()->isPointerTy());
-	PointerType* pt=cast<PointerType>(v->getType());
-	if(isClientArrayType(pt->getElementType()))
-	{
-		//Handle client arrays like COMPLETE_ARRAYs, so the right 0 offset
-		//is used when doing GEPs
-		return COMPLETE_ARRAY;
-	}
-	if(isClientType(pt->getElementType()))
-	{
-		//Pointers to client type are complete objects, and are never expanded to
-		//regular ones since an array of client objects does not exists.
-		//NOTE: An array of pointer to client objects exists, not an array of objects.
-		return COMPLETE_OBJECT;
-	}
-	if(AllocaInst::classof(v) || GlobalVariable::classof(v))
-	{
-		if(isImmutableType(pt->getElementType()) && !isNoWrappingArrayOptimizable(v))
-			return COMPLETE_ARRAY;
-		else
-			return COMPLETE_OBJECT;
-	}
-	//Follow bitcasts
-	if(isBitCast(v))
-	{
-		const User* bi=static_cast<const User*>(v);
-		//Casts from unions return regular pointers
-		if(isUnion(bi->getOperand(0)->getType()->getPointerElementType()))
-		{
-			//Special case arrays
-			if(ArrayType::classof(pt->getElementType()))
-				return COMPLETE_OBJECT;
-			else
-				return COMPLETE_ARRAY;
-		}
-		return dfsPointerKind(bi->getOperand(0), visitedPhisOrArguments);
-	}
-	if(isNopCast(v))
-	{
-		const User* bi=static_cast<const User*>(v);
-		return dfsPointerKind(bi->getOperand(0), visitedPhisOrArguments);
-	}
-	//Follow select
-	if(const SelectInst* s=dyn_cast<SelectInst>(v))
-	{
-		POINTER_KIND k1=dfsPointerKind(s->getTrueValue(), visitedPhisOrArguments);
-		if(k1==REGULAR)
-			return REGULAR;
-		POINTER_KIND k2=dfsPointerKind(s->getFalseValue(), visitedPhisOrArguments);
-		//If the type is different we need to collapse to REGULAR
-		if(k1!=k2)
-			return REGULAR;
-		//The type is the same
-		return k1;
-	}
-	if(isComingFromAllocation(v))
-		return COMPLETE_ARRAY;
-
-	//Follow PHIs
-	if( const PHINode * newPHI = dyn_cast<const PHINode>(v) )
-	{
-		std::map<const Value*, POINTER_KIND>::iterator alreadyVisited=visitedPhisOrArguments.find(newPHI);
-		if(alreadyVisited!=visitedPhisOrArguments.end())
-		{
-			//Assume true, if needed it will become false later on
-			return alreadyVisited->second;
-		}
-		//Intialize the PHI with undecided
-		std::map<const Value*, POINTER_KIND>::iterator current=
-			visitedPhisOrArguments.insert(std::make_pair(newPHI, UNDECIDED)).first;
-		for(unsigned i=0;i<newPHI->getNumIncomingValues() && current->second!=REGULAR;i++)
-		{
-			POINTER_KIND k=dfsPointerKind(newPHI->getIncomingValue(i), visitedPhisOrArguments);
-			if(current->second == UNDECIDED)
-				current->second = k;
-			// COMPLETE_OBJECT can't change to COMPLETE_ARRAY for the "self" optimization
-			// so switch directly to REGULAR
-			else if (k != current->second)
-				current->second = REGULAR;
-		}
-		return current->second;
-	}
-	
-	if ( const Argument * arg = dyn_cast<const Argument>(v) )
-	{
-		std::map<const Value*, POINTER_KIND>::iterator alreadyVisited=visitedPhisOrArguments.find(arg);
-		if(alreadyVisited!=visitedPhisOrArguments.end())
-		{
-			//Assume true, if needed it will become false later on
-			return alreadyVisited->second;
-		}
-
-		//Intialize the arg with undecided
-		std::map<const Value*, POINTER_KIND>::iterator current=
-			visitedPhisOrArguments.insert(std::make_pair(arg, UNDECIDED)).first;
-
-		const Function * F = arg->getParent();
-		
-		//TODO properly handle varargs
-		if (!F || canBeCalledIndirectly(F) || F->isVarArg())
-			return REGULAR;
-		
-		// Compute the argument index
-		unsigned argIndex = arg->getArgNo();
-		assert(argIndex < F->arg_size());
-		
-		//TODO: this is used co check if the function F is called at least once in the code, it should be removed in the future
-		int nCall = 0;
-		
-		//We do roughly the same thing we do with phi-nodes, but with function calls
-		for( Function::const_use_iterator iter = F->use_begin(); iter != F->use_end() && current->second != REGULAR; ++iter)
-		{
-			const Value * arg = 0;
-			const User* U = iter->getUser();
-			
-			// Set arg to the argIndex-th argument of the function call, or leave it to 0 if this use is not a function call
-			if (const CallInst * call = dyn_cast<const CallInst>(U) )
-			{
-				if (call->getCalledFunction() == F)
-				{
-					assert (F->getArgumentList().size() == call->getNumArgOperands() || (F->dump(),false) );
-					assert (argIndex < call->getNumArgOperands());
-					
-					arg = call->getArgOperand(argIndex);
-				}
-			}
-			else if (const InvokeInst * call = dyn_cast<const InvokeInst>(U) )
-			{
-				if (call->getCalledFunction() == F)
-				{
-					assert (F->getArgumentList().size() == call->getNumArgOperands() || (F->dump(),false) );
-					assert (argIndex < call->getNumArgOperands());
-					
-					arg = call->getArgOperand(argIndex);
-				}
-			}
-			
-			if (arg != 0)
-			{
-				++nCall;
-				POINTER_KIND k = dfsPointerKind(arg, visitedPhisOrArguments );
-				if(current->second == UNDECIDED)
-					current->second = k;
-				else if (k != current->second)
-					current->second = REGULAR;
-			}
-		}
-		if (nCall == 0)
-		{
-			//llvm::errs() << "warning: function " << F->getName() << " seems to never be called\n";
-			current->second = REGULAR;
-		}
-		return current->second;
-	}
-	
-	return REGULAR;
-}
-
 uint32_t DuettoPointerAnalyzer::getPointerUsageFlags(const llvm::Value * v) const
 {
 	assert(v->getType()->isPointerTy());
@@ -350,6 +266,8 @@ uint32_t DuettoPointerAnalyzer::getPointerUsageFlags(const llvm::Value * v) cons
 			{
 				if (!I->isEquality())
 					ans |= POINTER_ORDINABLE;
+				else
+					ans |= POINTER_EQUALITY_COMPARABLE;
 			}
 			
 			// Check if the pointer is casted to int
@@ -404,8 +322,10 @@ uint32_t DuettoPointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, st
 		return 0;
 	}
 
-	uint32_t f = getPointerUsageFlags(v) | (
-		(isBitCast(v) || isa<const PHINode>(v) || isa<const SelectInst>(v)) ? POINTER_IS_NOT_UNIQUE_OWNER : 0);
+	uint32_t f = getPointerUsageFlags(v);
+	
+	if (isBitCast(v) || isNopCast(v) || isa<const PHINode>(v) || isa<const Argument>(v) || isa<const SelectInst>(v))
+		f |= POINTER_IS_NOT_UNIQUE_OWNER;
 
 	for (Value::const_use_iterator it = v->use_begin(); it != v->use_end(); ++it)
 	{
@@ -421,12 +341,11 @@ uint32_t DuettoPointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, st
 		else if (const CallInst * I = dyn_cast<const CallInst>(U))
 		{
 			// Indirect calls require a finer analysis
-			f |= POINTER_UNKNOWN;
+			f |= usageFlagsForStoreAndInvoke(v,I,openset);
 		}
-		else if (isa<const InvokeInst>(U))
+		else if (const InvokeInst * I = dyn_cast<const InvokeInst>(U))
 		{
-			//TODO same thing as CallInst.
-			f |= POINTER_UNKNOWN;
+			f |= usageFlagsForStoreAndInvoke(v,I,openset);
 		}
 		else if (isa<const ReturnInst>(U))
 		{
@@ -472,10 +391,29 @@ uint32_t DuettoPointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, st
 	return f;
 }
 
+template<class CallOrInvokeInst>
+uint32_t DuettoPointerAnalyzer::usageFlagsForStoreAndInvoke(const Value * v, const CallOrInvokeInst * I, std::set<const Value *> & openset) const
+{
+	const Function * f = I->getCalledFunction();
+	if ( !f || canBeCalledIndirectly(f) || f->isVarArg())
+		return POINTER_UNKNOWN;
+
+	Function::const_arg_iterator iter = f->arg_begin();
+	
+	assert( f->arg_size() == I->getNumArgOperands() );
+	
+	for (unsigned int argNo = 0; iter != f->arg_end(); ++iter, ++argNo)
+		if ( I->getArgOperand(argNo) == v ) break;
+
+	assert( iter != f->arg_end() );
+	
+	return dfsPointerUsageFlagsComplete( &(*iter), openset ) | POINTER_IS_NOT_UNIQUE_OWNER;
+}
+
 bool DuettoPointerAnalyzer::isNoSelfPointerOptimizable(const llvm::Value * v) const
 {
 	assert( v->getType()->isPointerTy() );
-	return ! (getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT) );
+	return ! (getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT | POINTER_EQUALITY_COMPARABLE) );
 }
 
 bool DuettoPointerAnalyzer::isNoWrappingArrayOptimizable(const llvm::Value * v) const
@@ -483,7 +421,7 @@ bool DuettoPointerAnalyzer::isNoWrappingArrayOptimizable(const llvm::Value * v) 
 	assert( v->getType()->isPointerTy() );
 	
 	return isImmutableType(v->getType()->getPointerElementType()) && // This type of optimization makes sense only for immutable types
-		!(getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT | POINTER_IS_NOT_UNIQUE_OWNER) );
+		!(getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT | POINTER_IS_NOT_UNIQUE_OWNER | POINTER_EQUALITY_COMPARABLE) );
 }
 
 bool DuettoPointerAnalyzer::canBeCalledIndirectly(const Function * f) const 

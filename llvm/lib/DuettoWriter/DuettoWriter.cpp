@@ -1261,43 +1261,70 @@ void DuettoWriter::compileConstant(const Constant* c)
 	}
 }
 
-void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
+void DuettoWriter::compilePointer(const Value* v, POINTER_KIND toKind)
 {
-	const Type* t=v->getType();
-	assert(t->isPointerTy());
-	POINTER_KIND k=analyzer.getPointerKind(v);
-	assert(acceptedKind>=k);
-	if(acceptedKind==k)
+	assert(toKind != UNDECIDED);
+	
+	POINTER_KIND fromKind = analyzer.getPointerKind(v);
+	assert(fromKind != UNDECIDED);
+	
+	if(fromKind == toKind)
 	{
 		//Nothing to do, forward
 		compileOperandImpl(v);
+		return;
 	}
-	else if(acceptedKind==COMPLETE_ARRAY)
+	
+	// Impossible conversions:
+	assert( ! (fromKind == REGULAR && toKind == COMPLETE_ARRAY) );
+	assert( ! (fromKind == COMPLETE_OBJECT && toKind == COMPLETE_ARRAY) );
+	
+	// Syntetize a REGULAR pointer from a COMPLETE_ARRAY or a COMPLETE_OBJECT
+	if (toKind == REGULAR)
 	{
-		//Bacause of the "self" optimization a COMPLETE_OBJECT
-		//is not convertible to a COMPLETE_ARRAY
-		assert(k==COMPLETE_OBJECT);
+		// Check if we need to make a pointer to the first element of a struct/class type
+		bool hasBaseInfo = 
+			fromKind == COMPLETE_OBJECT &&
+			isa<StructType>( v->getType()->getPointerElementType() ) &&
+			classesNeeded.count( cast<StructType>( v->getType()->getPointerElementType()) ); // Pointers to undefined classes are legit.
+		
+		stream << "{ d: ";
+		compileOperandImpl(v);
+
+		if (hasBaseInfo)
+			stream << ".a";
+		
+		stream << ", o: ";
+		
+		if (fromKind == COMPLETE_ARRAY || hasBaseInfo)
+			stream << "0}";
+		else
+		{
+			assert( fromKind == COMPLETE_OBJECT );
+			assert(!analyzer.isNoSelfPointerOptimizable(v) || (analyzer.dumpPointer(v),false) );
+			assert(!analyzer.isNoWrappingArrayOptimizable(v) || (analyzer.dumpPointer(v),false) );
+
+			stream << "'s'}";
+		}
 	}
 	else
 	{
-		assert(acceptedKind==REGULAR);
-		bool hasBaseInfo = false;
-		stream << "{ d: ";
+		// Syntetize a promotion from a REGULAR or COMPLETE_ARRAY to a COMPLETE_OBJECT
+		assert(toKind == COMPLETE_OBJECT && fromKind != COMPLETE_OBJECT);
+		
 		compileOperandImpl(v);
-		if(k==COMPLETE_OBJECT && isa<StructType>(t->getPointerElementType()) &&
-			classesNeeded.count(cast<StructType>(t->getPointerElementType())))
+		
+		if (fromKind == REGULAR)
 		{
-			hasBaseInfo = true;
-			stream << ".a";
+			if (! UndefValue::classof(v) )
+			{
+				stream << ".d[";
+				compileOperandImpl(v);
+				stream << ".o]";
+			}
 		}
-		stream << ", o: ";
-		if(k==COMPLETE_ARRAY || hasBaseInfo)
-			stream << "0}";
-		else if(k==COMPLETE_OBJECT)
-		{
-			stream << "'s'}";
-			assert( (!analyzer.isNoSelfPointerOptimizable(v) && !analyzer.isNoWrappingArrayOptimizable(v) ) || (analyzer.dumpPointer(v),false));
-		}
+		else
+			stream << "[0]";
 	}
 }
 
@@ -1822,6 +1849,7 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastTyp
 	if(analyzer.getPointerKind(val)==COMPLETE_OBJECT)
 	{
 		//Print the regular "s" offset for complete objects
+		assert(! analyzer.isNoSelfPointerOptimizable(val) );
 		stream << "'s'";
 		return true;
 	}
@@ -2767,8 +2795,9 @@ void DuettoWriter::compileMethod(const Function& F)
 			rl->AddBlock(relooperMap[&(*B)]);
 		}
 		rl->Calculate(relooperMap[&F.getEntryBlock()]);
-		RenderInterface* ri=new DuettoRenderInterface(this);
-		rl->Render(ri);
+		
+		DuettoRenderInterface ri(this);
+		rl->Render(&ri);
 	}
 
 	stream << "}\n";
