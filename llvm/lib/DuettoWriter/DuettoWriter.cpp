@@ -11,6 +11,7 @@
 
 #include "Relooper.h"
 #include "llvm/Duetto/Utils.h"
+#include "llvm/Duetto/Utility.h"
 #include "llvm/Duetto/Writer.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
@@ -124,45 +125,6 @@ void DuettoWriter::handleBuiltinNamespace(const char* identifier, User::const_op
 		stream.write(funcName,funcNameLen);
 		compileMethodArgs(it,itE);
 	}
-}
-
-bool DuettoWriter::isBitCast(const Value* v) const
-{
-	const User* b=static_cast<const User*>(v);
-	if(isa<BitCastInst>(v))
-	{
-		bool validCast = isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType());
-		if(!validCast)
-		{
-			llvm::errs() << "Error while handling cast " << *v << "\n";
-			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-			return false;
-		}
-		return true;
-	}
-	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
-	if(ce && ce->getOpcode()==Instruction::BitCast)
-	{
-		bool validCast = isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType());
-		if(!validCast)
-		{
-			llvm::errs() << "Error while handling cast " << *v << "\n";
-			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-			return false;
-		}
-		return true;
-	}
-	return false;
-}
-
-bool DuettoWriter::isGEP(const Value* v) const
-{
-	if(GetElementPtrInst::classof(v))
-		return true;
-	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
-	if(ce && ce->getOpcode()==Instruction::GetElementPtr)
-		return true;
-	return false;
 }
 
 void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value* baseDest,
@@ -413,11 +375,6 @@ void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value*
 	stream << "}\n";
 }
 
-bool DuettoWriter::isTypedArrayType(Type* t) const
-{
-	return t->isIntegerTy(8) || t->isIntegerTy(16) || t->isIntegerTy(32) ||
-		t->isFloatTy() || t->isDoubleTy();
-}
 
 /* Method that handles memcpy, memset and memmove.
  * If src is not NULL present a copy operation is done using the supplied direction.
@@ -933,8 +890,8 @@ void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 		else
 			stream << "===";
 		const Type* lastType2=compileObjectForPointer(rhs, NORMAL);
-		if(getPointerKind(lhs)==REGULAR ||
-			getPointerKind(rhs)==REGULAR)
+		if(analyzer.getPointerKind(lhs)==REGULAR ||
+			analyzer.getPointerKind(rhs)==REGULAR)
 		{
 			if(p==CmpInst::ICMP_NE)
 				stream << " || ";
@@ -992,26 +949,10 @@ void DuettoWriter::printLLVMName(const StringRef& s, NAME_KIND nameKind) const
 	}
 }
 
-bool DuettoWriter::isImmutableType(const Type* t) const
-{
-	if(t->isIntegerTy() || t->isFloatTy() || t->isDoubleTy() || t->isPointerTy())
-		return true;
-	return false;
-}
-
-bool DuettoWriter::isNopCast(const Value* val) const
-{
-	const CallInst* newCall=dyn_cast<const CallInst>(val);
-	if(newCall && newCall->getCalledFunction())
-		return newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_upcast_collapsed
-			|| newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_cast_user;
-	return false;
-}
-
 void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset, const char* namedOffset)
 {
 	assert(v->getType()->isPointerTy());
-	POINTER_KIND k=getPointerKind(v);
+	POINTER_KIND k=analyzer.getPointerKind(v);
 
 	bool isOffsetConstantZero = false;
 	if(offset==NULL || (ConstantInt::classof(offset) && getIntFromValue(offset)==0))
@@ -1149,219 +1090,6 @@ const Type* DuettoWriter::compileRecursiveAccessToGEP(Type* curType, const Use* 
 	return compileRecursiveAccessToGEP(subType, ++it, itE, flag);
 }
 
-bool DuettoWriter::isClientType(const Type* t) const
-{
-	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		strncmp(t->getStructName().data(), "class._ZN6client", 16)==0);
-}
-
-bool DuettoWriter::isClientArrayType(const Type* t) const
-{
-	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		strcmp(t->getStructName().data(), "class._ZN6client5ArrayE")==0);
-}
-
-bool DuettoWriter::isUnion(const Type* t) const
-{
-	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		t->getStructName().startswith("union."));
-}
-
-bool DuettoWriter::canBeCalledIndirectly(const Function * f) const 
-{
-	assert(f);
-	function_indirect_call_map_t::iterator iter = functionIndirectCallMap.find(f);
-	
-	if (functionIndirectCallMap.end() == iter)
-	{
-		bool ans = f->hasAddressTaken() ||
-			f->empty(); //TODO: atm intrinsic functions are assumed to always be called indirectly
-		iter = functionIndirectCallMap.insert(std::make_pair(f, ans) ).first;
-	}
-
-	return iter->second;
-}
-
-bool DuettoWriter::safeUsagesForNewedMemory(const Value* v) const
-{
-	Value::const_use_iterator it=v->use_begin();
-	Value::const_use_iterator itE=v->use_end();
-	for(;it!=itE;++it)
-	{
-		const PHINode* p=dyn_cast<const PHINode>(it->getUser());
-		//If the usage is a PHI node, recursively check its usages
-		if(p)
-		{
-			if(!safeUsagesForNewedMemory(p))
-				return false;
-		}
-		else
-		{
-			const CallInst* ci=dyn_cast<const CallInst>(*it);
-			if(!safeCallForNewedMemory(ci))
-				return false;
-		}
-	}
-	return true;
-}
-
-bool DuettoWriter::safeCallForNewedMemory(const CallInst* ci) const
-{
-	//We allow the unsafe cast to i8* only
-	//if the usage is memcpy, memset, free or delete
-	//or one of the lifetime/invariant intrinsics
-	return (ci && ci->getCalledFunction() &&
-		(ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32" ||
-		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32" ||
-		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64" ||
-		ci->getCalledFunction()->getName()=="llvm.memmove.p0i8.p0i8.i32" ||
-		ci->getCalledFunction()->getName()=="free" ||
-		ci->getCalledFunction()->getName()=="_ZdaPv" ||
-		ci->getCalledFunction()->getName()=="_ZdlPv" ||
-		ci->getCalledFunction()->getName()=="llvm.lifetime.start" ||
-		ci->getCalledFunction()->getName()=="llvm.lifetime.end" ||
-		ci->getCalledFunction()->getName()=="llvm.invariant.start" ||
-		ci->getCalledFunction()->getName()=="llvm.invariant.end" ||
-		//Allow unsafe casts for a limited number of functions that accepts callback args
-		//TODO: find a nicer approach for this
-		ci->getCalledFunction()->getName()=="__cxa_atexit"));
-}
-
-bool DuettoWriter::isValidVoidPtrSource(const Value* val) const
-{
-	std::set<const PHINode*> visitedPhis;
-	return isValidVoidPtrSource(val, visitedPhis);
-}
-
-bool DuettoWriter::isComingFromAllocation(const Value* val) const
-{
-	const CallInst* newCall=dyn_cast<const CallInst>(val);
-	if(newCall && newCall->getCalledFunction())
-	{
-		return newCall->getCalledFunction()->getName()=="_Znwj"
-			|| newCall->getCalledFunction()->getName()=="_Znaj"
-			|| newCall->getCalledFunction()->getName()=="realloc"
-			|| newCall->getCalledFunction()->getName()=="malloc"
-			|| newCall->getCalledFunction()->getName()=="calloc"
-			|| newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate;
-	}
-	//Try invoke as well
-	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
-	if(newInvoke && newInvoke->getCalledFunction())
-	{
-		//TODO: Disable throw in new, it's nonsense in JS context
-		return newInvoke->getCalledFunction()->getName()=="_Znwj"
-			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
-			|| newInvoke->getCalledFunction()->getName()=="realloc"
-			|| newInvoke->getCalledFunction()->getName()=="malloc"
-			|| newInvoke->getCalledFunction()->getName()=="calloc"
-			|| newInvoke->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate;
-	}
-	return false;
-}
-
-bool DuettoWriter::isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhis) const
-{
-	if(isComingFromAllocation(val))
-		return true;
-	const PHINode* newPHI=dyn_cast<const PHINode>(val);
-	if(newPHI)
-	{
-		if(visitedPhis.count(newPHI))
-		{
-			//Assume true, if needed it will become false later on
-			return true;
-		}
-		visitedPhis.insert(newPHI);
-		for(unsigned i=0;i<newPHI->getNumIncomingValues();i++)
-		{
-			if(!isValidVoidPtrSource(newPHI->getIncomingValue(i),visitedPhis))
-			{
-				visitedPhis.erase(newPHI);
-				return false;
-			}
-		}
-		visitedPhis.erase(newPHI);
-		return true;
-	}
-	return false;
-}
-
-bool DuettoWriter::isValidTypeCast(const Value* castI, const Value* castOp, Type* srcPtr, Type* dstPtr) const
-{
-	//Only pointer casts are possible anyway
-	assert(srcPtr->isPointerTy() && dstPtr->isPointerTy());
-	Type* src=cast<PointerType>(srcPtr)->getElementType();
-	Type* dst=cast<PointerType>(dstPtr)->getElementType();
-	//Conversion between client objects is free
-	if(isClientType(src) && isClientType(dst))
-		return true;
-	//Conversion between any function pointer is ok
-	if(src->isFunctionTy() && dst->isFunctionTy())
-		return true;
-	//Allow conversions between equivalent struct types
-	if(src->isStructTy() && dst->isStructTy())
-	{
-		StructType* srcSt = cast<StructType>(src);
-		StructType* dstSt = cast<StructType>(dst);
-		if(srcSt->isLayoutIdentical(dstSt))
-			return true;
-	}
-	if(dst->isIntegerTy(8))
-		return true;
-	//Support getting functions back from the Vtable
-	if(src->isPointerTy() && dst->isPointerTy())
-	{
-		Type* innerSrc=cast<PointerType>(src)->getElementType();
-		Type* innerDst=cast<PointerType>(dst)->getElementType();
-		if(innerSrc->isIntegerTy(8) || innerDst->isFunctionTy())
-		{
-			const ConstantExpr* constGep=dyn_cast<const ConstantExpr>(castOp);
-			if(constGep && constGep->getOpcode()==Instruction::GetElementPtr)
-			{
-				const Value* sourceVal = constGep->getOperand(0);
-				if(sourceVal->hasName() &&
-					strncmp(sourceVal->getName().data(),"_ZTV",4)==0)
-				{
-					//This casts ultimately comes from a VTable, it's ok
-					return true;
-				}
-			}
-		}
-		if(innerSrc->isFunctionTy() && innerDst->isFunctionTy())
-			return true;
-	}
-	//Also allow the unsafe cast from i8* in a few selected cases
-	if(src->isIntegerTy(8))
-	{
-		bool comesFromNew = isValidVoidPtrSource(castOp);
-		bool allowedRawUsages = true;
-		Value::const_use_iterator it=castOp->use_begin();
-		Value::const_use_iterator itE=castOp->use_end();
-		for(;it!=itE;++it)
-		{
-			const User* U = it->getUser();
-			//Check that the other use is a memset or an icmp
-			if(U==castI)
-				continue;
-			const CallInst* ci=dyn_cast<const CallInst>(U);
-			if(!(ICmpInst::classof(U) || safeCallForNewedMemory(ci)))
-				allowedRawUsages = false;
-		}
-		if(comesFromNew && allowedRawUsages)
-			return true;
-	}
-	if(isUnion(src) && (ArrayType::classof(dst) || isTypedArrayType(dst)))
-		return true;
-	//Allow changing the size of an array
-	if (ArrayType::classof(src) && ArrayType::classof(dst) &&
-		src->getSequentialElementType() == dst->getSequentialElementType())
-	{
-		return true;
-	}
-	return false;
-}
-
 void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 {
 	switch(ce->getOpcode())
@@ -1407,11 +1135,6 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 		default:
 			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
 	}
-}
-
-bool DuettoWriter::isClientGlobal(const char* mangledName) const
-{
-	return strncmp(mangledName,"_ZN6client",10)==0;
 }
 
 void DuettoWriter::compileConstant(const Constant* c)
@@ -1542,7 +1265,7 @@ void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 {
 	const Type* t=v->getType();
 	assert(t->isPointerTy());
-	POINTER_KIND k=getPointerKind(v);
+	POINTER_KIND k=analyzer.getPointerKind(v);
 	assert(acceptedKind>=k);
 	if(acceptedKind==k)
 	{
@@ -1573,8 +1296,7 @@ void DuettoWriter::compilePointer(const Value* v, POINTER_KIND acceptedKind)
 		else if(k==COMPLETE_OBJECT)
 		{
 			stream << "'s'}";
-			assert(!isNoSelfPointerOptimizable(v) || printPointerInfo(v));
-			assert(!isNoWrappingArrayOptimizable(v) || printPointerInfo(v));
+			assert( (!analyzer.isNoSelfPointerOptimizable(v) && !analyzer.isNoWrappingArrayOptimizable(v) ) || (analyzer.dumpPointer(v),false));
 		}
 	}
 }
@@ -1617,25 +1339,12 @@ void DuettoWriter::compileOperand(const Value* v, POINTER_KIND requestedPointerK
 		compileOperandImpl(v);
 }
 
-uint32_t DuettoWriter::getUniqueIndexForValue(const Value* v)
-{
-	std::map<const Value*,uint32_t>::iterator it=unnamedValueMap.find(v);
-	if(it==unnamedValueMap.end())
-		it=unnamedValueMap.insert(make_pair(v, currentUniqueIndex++)).first;
-	return it->second;
-}
-
-uint32_t DuettoWriter::getUniqueIndex()
-{
-	return currentUniqueIndex++;
-}
-
 void DuettoWriter::printVarName(const Value* val)
 {
 	if(val->hasName())
 		printLLVMName(val->getName(), GlobalValue::classof(val)?GLOBAL:LOCAL);
 	else
-		stream << "tmp" << getUniqueIndexForValue(val);
+		stream << "tmp" << namegen.getUniqueIndexForValue(val);
 }
 
 void DuettoWriter::printArgName(const Argument* val) const
@@ -1659,10 +1368,10 @@ void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		if(phi==NULL)
 			continue;
 		const Value* val=phi->getIncomingValueForBlock(from);
-		uint32_t tmpIndex = getUniqueIndex();
+		uint32_t tmpIndex = namegen.getUniqueIndex();
 		stream << "var tmpphi" << tmpIndex << " = ";
 		tmps.push_back(tmpIndex);
-		POINTER_KIND k=phi->getType()->isPointerTy()?getPointerKind(phi):UNDECIDED;
+		POINTER_KIND k=phi->getType()->isPointerTy()? analyzer.getPointerKind(phi):UNDECIDED;
 		compileOperand(val, k);
 		stream << ";\n";
 	}
@@ -1703,7 +1412,7 @@ void DuettoWriter::compileMethodArgsForDirectCall(const llvm::User::const_op_ite
 		if(cur!=it)
 			stream << ", ";
 		if ( arg_it->getType()->isPointerTy() )
-			compileOperand(*cur, getPointerKind(&(*arg_it)));
+			compileOperand(*cur, analyzer.getPointerKind(&(*arg_it)));
 		else
 			compileOperand(*cur, REGULAR);
 	}
@@ -1871,12 +1580,12 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
 			Type* t=ai.getAllocatedType();
 			//Alloca returns complete objects or arrays, not pointers
-			if(isImmutableType(t) && !isNoWrappingArrayOptimizable(&I))
+			if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&I))
 				stream << '[';
 			compileType(t, LITERAL_OBJ);
-			if(isImmutableType(t) && !isNoWrappingArrayOptimizable(&I))
+			if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&I))
 				stream << ']';
-			if(isImmutableType(t) || !isa<StructType>(t) || classesNeeded.count(cast<StructType>(t)) || isNoSelfPointerOptimizable(&I) )
+			if(isImmutableType(t) || !isa<StructType>(t) || classesNeeded.count(cast<StructType>(t)) || analyzer.isNoSelfPointerOptimizable(&I) )
 				return COMPILE_OK;
 			else
 				return COMPILE_ADD_SELF;
@@ -2053,11 +1762,6 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 	}
 }
 
-bool DuettoWriter::isI32Type(Type* t) const
-{
-	return t->isIntegerTy() && static_cast<IntegerType*>(t)->getBitWidth()==32;
-}
-
 void DuettoWriter::compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end)
 {
 	assert(idx_begin!=idx_end);
@@ -2088,7 +1792,7 @@ const Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG
 
 	if(flag!=DRY_RUN)
 	{
-		POINTER_KIND k=getPointerKind(val);
+		POINTER_KIND k=analyzer.getPointerKind(val);
 		compilePointer(val, k);
 		if(k==REGULAR)
 			stream << ".d";
@@ -2115,13 +1819,13 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastTyp
 			return compileOffsetForPointer(b->getOperand(0), lastType);
 	}
 
-	if(getPointerKind(val)==COMPLETE_OBJECT)
+	if(analyzer.getPointerKind(val)==COMPLETE_OBJECT)
 	{
 		//Print the regular "s" offset for complete objects
 		stream << "'s'";
 		return true;
 	}
-	else if(getPointerKind(val)==COMPLETE_ARRAY)
+	else if(analyzer.getPointerKind(val)==COMPLETE_ARRAY)
 	{
 		//Skip printing 0 offset for complete arrays
 		return false;
@@ -2681,7 +2385,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "(";
 			compileOperand(si.getCondition());
 			stream << "?";
-			POINTER_KIND k=si.getType()->isPointerTy()?getPointerKind(&si):UNDECIDED;
+			POINTER_KIND k=si.getType()->isPointerTy()?analyzer.getPointerKind(&si):UNDECIDED;
 			compileOperand(si.getTrueValue(), k);
 			stream << ":";
 			compileOperand(si.getFalseValue(), k);
@@ -2723,7 +2427,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		{
 			const PtrToIntInst& pi=static_cast<const PtrToIntInst&>(I);
 			//Comparison between pointers is significant only for pointers in the same array
-			POINTER_KIND k=getPointerKind(pi.getOperand(0));
+			POINTER_KIND k=analyzer.getPointerKind(pi.getOperand(0));
 			if(k==REGULAR)
 			{
 				compileOperand(pi.getOperand(0));
@@ -2750,107 +2454,6 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 	}
 }
 
-bool DuettoWriter::isInlineable(const Instruction& I) const
-{
-	//Inlining a variable used by a PHI it's unsafe
-	//When the phi's are computed the result
-	//correctness may depend on the order they are
-	//computed. Check all uses
-	Value::const_use_iterator it=I.use_begin();
-	Value::const_use_iterator itE=I.use_end();
-	for(;it!=itE;++it)
-	{
-		if(PHINode::classof(it->getUser()))
-			return false;
-	}
-	//Beside a few cases, instructions with a single use may be inlined
-	//TODO: Find out a better heuristic for inlining, it seems that computing
-	//may be faster even on more than 1 use
-	if(I.getOpcode()==Instruction::GetElementPtr)
-	{
-		//Special case GEPs. They should always be inline since creating the object is really slow
-		return true;
-	}
-	else if(I.getOpcode()==Instruction::BitCast)
-	{
-		//Inline casts which are not unions
-		llvm::Type* src=I.getOperand(0)->getType();
-		if(!src->isPointerTy() || !isUnion(src->getPointerElementType()))
-			return true;
-		Type* pointedType=src->getPointerElementType();
-		//Do not inline union casts to array
-		if(ArrayType::classof(pointedType))
-			return false;
-		//Inline if the only uses are load and stores
-		Value::const_use_iterator it=I.use_begin();
-		Value::const_use_iterator itE=I.use_end();
-		for(;it!=itE;++it)
-		{
-			if(!LoadInst::classof(it->getUser()) && !StoreInst::classof(it->getUser()))
-				return false;
-		}
-		return true;
-	}
-	else if(I.hasOneUse())
-	{
-		//A few opcodes needs to be executed anyway as they
-		//do not operated on registers
-		switch(I.getOpcode())
-		{
-			case Instruction::Call:
-			case Instruction::Invoke:
-			case Instruction::Ret:
-			case Instruction::LandingPad:
-			case Instruction::PHI:
-			case Instruction::Load:
-			case Instruction::Store:
-			case Instruction::InsertValue:
-			case Instruction::Resume:
-			case Instruction::Br:
-			case Instruction::Alloca:
-			case Instruction::Switch:
-			case Instruction::Unreachable:
-			case Instruction::VAArg:
-				return false;
-			case Instruction::Add:
-			case Instruction::Sub:
-			case Instruction::Mul:
-			case Instruction::And:
-			case Instruction::Or:
-			case Instruction::Xor:
-			case Instruction::Trunc:
-			case Instruction::FPToSI:
-			case Instruction::SIToFP:
-			case Instruction::SDiv:
-			case Instruction::SRem:
-			case Instruction::Shl:
-			case Instruction::AShr:
-			case Instruction::LShr:
-			case Instruction::FAdd:
-			case Instruction::FDiv:
-			case Instruction::FSub:
-			case Instruction::FPTrunc:
-			case Instruction::FPExt:
-			case Instruction::FMul:
-			case Instruction::FCmp:
-			case Instruction::ICmp:
-			case Instruction::ZExt:
-			case Instruction::SExt:
-			case Instruction::Select:
-			case Instruction::ExtractValue:
-			case Instruction::URem:
-			case Instruction::UDiv:
-			case Instruction::UIToFP:
-			case Instruction::FPToUI:
-			case Instruction::PtrToInt:
-				return true;
-			default:
-				llvm::report_fatal_error(Twine("Unsupported opcode: ",StringRef(I.getOpcodeName())), false);
-				return true;
-		}
-	}
-	return false;
-}
 
 /* We add a ".s" member pointing to itself, this can be used to convert complete objects
    to regular pointers on demand with a low overhead. The complete pointer will be
@@ -3278,13 +2881,13 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		gatherDependencies(C, &G, "", NULL);
 
 		Type* t=C->getType();
-		if(isImmutableType(t) && !isNoWrappingArrayOptimizable(&G))
+		if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&G))
 			stream << '[';
 		compileOperand(C, REGULAR);
-		if(isImmutableType(t) && !isNoWrappingArrayOptimizable(&G))
+		if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&G))
 			stream << ']';
 
-		if(getPointerKind(&G)==COMPLETE_OBJECT && !isNoSelfPointerOptimizable(&G) )
+		if(analyzer.getPointerKind(&G)==COMPLETE_OBJECT && !analyzer.isNoSelfPointerOptimizable(&G) )
 			addSelf = true;
 	}
 	stream << ";\n";
@@ -3307,7 +2910,7 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		const Constant* C=otherGV->getInitializer();
 
 		printLLVMName(otherGV->getName(), GLOBAL);
-		if(isImmutableType(C->getType()) && !isNoWrappingArrayOptimizable(otherGV))
+		if(isImmutableType(C->getType()) && !analyzer.isNoWrappingArrayOptimizable(otherGV))
 			stream << "[0]";
 		stream << it->second.baseName << " = ";
 		compileOperand(it->second.value, REGULAR);
@@ -3461,23 +3064,8 @@ void DuettoWriter::makeJS()
 		handleConstructors(constructors, COMPILE);
 	//Invoke the webMain function
 	stream << "__Z7webMainv();\n";
-	
-#ifdef DUETTO_DEBUG_POINTERS
-	
-	llvm::errs() << "Debugging pointers\n";
-	
-	llvm::errs() << "Name" << std::string(92,' ') << "Kind              UsageFlags        UsageFlagsComplete IsImmutable?\n";
-	
-	for (known_pointers_t::iterator iter = debugAllPointersSet.begin(); iter != debugAllPointersSet.end(); ++iter)
-	{
-		printPointerInfo(*iter);
-	}
-	
-	llvm::errs() << "Debug indirect function calls:\n";
-	for (function_indirect_call_map_t::iterator iter = functionIndirectCallMap.begin(); iter != functionIndirectCallMap.end(); ++iter)
-	{
-		llvm::errs() << iter->first->getName() << ": " << iter->second << "\n";
-	}
-#endif
 
+#ifdef DUETTO_DEBUG_POINTERS
+	analyzer.dumpAllPointers();
+#endif //DUETTO_DEBUG_POINTERS
 }

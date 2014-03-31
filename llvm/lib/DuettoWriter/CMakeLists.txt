@@ -1,7 +1,9 @@
 add_llvm_library(LLVMDuettoWriter
   DuettoWriter.cpp
   JSInterop.cpp
-  Types.cpp
+  NameGenerator.cpp
+  PointerAnalyzer.cpp
   Relooper.cpp
-  Pointers.cpp
+  Types.cpp
+  Utility.cpp
   )
