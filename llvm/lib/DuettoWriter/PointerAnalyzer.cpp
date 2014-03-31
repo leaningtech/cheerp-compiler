@@ -1,4 +1,4 @@
-//===-- Pointers.cpp - The Duetto JavaScript C pointers implementation ----===//
+//===-- Analyzer.cpp - The Duetto JavaScript generator --------------------===//
 //
 //                     Duetto: The C++ compiler for the Web
 //
@@ -9,66 +9,52 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Duetto/Utils.h"
-#include "llvm/Duetto/Writer.h"
-#include <llvm/IR/Operator.h>
 #include <iomanip>
 #include <sstream>
+#include "llvm/Duetto/PointerAnalyzer.h"
+#include "llvm/Duetto/Utility.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
-using namespace duetto;
 
-#ifdef DUETTO_DEBUG_POINTERS
-static void print_debug_pointer_uknown(const llvm::Value * v, const llvm::User * u,const char * f)
+namespace duetto {
+
+POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const llvm::Value* v) const
 {
-	llvm::errs() << "Adding POINTER_UNKNOWN in \"" << f << "\", pointer: " << v->getName() << " being used by: ";
+	assert(v->getType()->isPointerTy());
 
-	if (const Instruction * p = dyn_cast<const Instruction>(u) )
-		llvm::errs() << " instruction " << p->getOpcodeName() << "\n";
-	else if (const Constant * p = dyn_cast<const Constant>(u) )
+	pointer_kind_map_t::const_iterator iter = pointerKindMap.find(v);
+
+	if (pointerKindMap.end() == iter)
 	{
-		llvm::errs() << " constant " << p->getName() << "(";
+		std::map<const Value*, POINTER_KIND> visitedPhis;
+		iter = pointerKindMap.insert( std::make_pair(v,dfsPointerKind(v, visitedPhis)) ).first;
 		
-		// Feel free to find a way to avoid this obscenity
-		if (isa<const BlockAddress>(p))
-			llvm::errs() << "BlockAddress";
-		else if (isa<const ConstantAggregateZero>(p))
-			llvm::errs() << "ConstantAggregateZero";
-		else if (isa<const ConstantArray>(p))
-			llvm::errs() << "ConstantArray";
-		else if (isa<const ConstantDataSequential>(p))
-			llvm::errs() << "ConstantDataSequential";
-		else if (const ConstantExpr * pc = dyn_cast<const ConstantExpr>(p))
-		{
-			llvm::errs() << "ConstantExpr [" << pc->getOpcodeName() <<"]";
-		}
-		else if (isa<const ConstantFP>(p))
-			llvm::errs() << "ConstantFP";
-		else if (isa<const ConstantInt>(p))
-			llvm::errs() << "ConstantInt";
-		else if (isa<const ConstantPointerNull>(p))
-			llvm::errs() << "ConstantPointerNull";
-		else if (isa<const ConstantStruct>(p))
-			llvm::errs() << "ConstantStruct";
-		else if (isa<const ConstantVector>(p))
-			llvm::errs() << "ConstantVector";
-		else if (isa<const GlobalValue>(p))
-			llvm::errs() << "GlobalValue";
-		else if (isa<const UndefValue>(p))
-			llvm::errs() << "UndefValue";
-		else
-			llvm::errs() << "Unknown";
-		llvm::errs() << ")\n";
-		
-		llvm::errs() << "Object dump: "; p->dump(); llvm::errs() << "\n";
-		llvm::errs() << "Of type: "; p->getType()->dump(); llvm::errs() << "\n";
-		llvm::errs() << "\n";
+		assert(iter->second != UNDECIDED);
 	}
-	else if (const Operator * p = dyn_cast<const Operator>(u) )
-		llvm::errs() << " operator " << p->getName() << "\n";
+	return iter->second;
 }
 
-bool DuettoWriter::printPointerInfo(const Value * v)
+uint32_t DuettoPointerAnalyzer::getPointerUsageFlagsComplete(const Value * v) const
+{
+	assert(v->getType()->isPointerTy());
+
+	pointer_usage_map_t::const_iterator iter = pointerCompleteUsageMap.find(v);
+
+	if (pointerCompleteUsageMap.end() == iter)
+	{
+		std::set<const Value *> openset;
+		iter = pointerCompleteUsageMap.insert( std::make_pair(v,dfsPointerUsageFlagsComplete(v, openset) ) ).first;
+	}
+
+	return iter->second;
+}
+
+void DuettoPointerAnalyzer::dumpPointer(const Value* v) const
 {
 	std::ostringstream fmt;
 	fmt << std::setw(96) << std::left;
@@ -78,7 +64,7 @@ bool DuettoWriter::printPointerInfo(const Value * v)
 		if (v->hasName())
 			tmp << v->getName().data();
 		else
-			tmp << "tmp" << getUniqueIndexForValue(v);
+			tmp << "tmp" << namegen.getUniqueIndexForValue(v);
 		
 		if (const Argument * arg = dyn_cast<const Argument>(v))
 		{
@@ -106,15 +92,78 @@ bool DuettoWriter::printPointerInfo(const Value * v)
 		fmt << "Is not a pointer";
 
 	llvm::errs() << fmt.str() << "\n";
-	return false;
+}
+
+#ifdef DUETTO_DEBUG_POINTERS
+
+void DuettoPointerAnalyzer::dumpAllPointers() const
+{
+	llvm::errs() << "Dumping all pointers\n";
+	
+	llvm::errs() << "Name" << std::string(92,' ') << "Kind              UsageFlags        UsageFlagsComplete IsImmutable?\n";
+	
+	for (auto ptr : debugAllPointersSet)
+		dumpPointer(ptr);
+	
+// 	llvm::errs() << "Debug indirect function calls:\n";
+// 	for (function_indirect_call_map_t::iterator iter = functionIndirectCallMap.begin(); iter != functionIndirectCallMap.end(); ++iter)
+// 	{
+// 		llvm::errs() << iter->first->getName() << ": " << iter->second << "\n";
+// 	}
 }
 
 #endif //DUETTO_DEBUG_POINTERS
 
+std::string DuettoPointerAnalyzer::valueObjectName(const Value* v)
+{
+	std::ostringstream os;
+	if (const Instruction * p = dyn_cast<const Instruction>(v) )
+		os << " instruction " << p->getOpcodeName() << "\n";
+	else if (const Constant * p = dyn_cast<const Constant>(v) )
+	{
+		os << " constant " << p->getName().str() << "(";
+		
+		// Feel free to find a way to avoid this obscenity
+		if (isa<const BlockAddress>(p))
+			os << "BlockAddress";
+		else if (isa<const ConstantAggregateZero>(p))
+			os << "ConstantAggregateZero";
+		else if (isa<const ConstantArray>(p))
+			os << "ConstantArray";
+		else if (isa<const ConstantDataSequential>(p))
+			os << "ConstantDataSequential";
+		else if (const ConstantExpr * pc = dyn_cast<const ConstantExpr>(p))
+		{
+			os << "ConstantExpr [" << pc->getOpcodeName() <<"]";
+		}
+		else if (isa<const ConstantFP>(p))
+			os << "ConstantFP";
+		else if (isa<const ConstantInt>(p))
+			os << "ConstantInt";
+		else if (isa<const ConstantPointerNull>(p))
+			os << "ConstantPointerNull";
+		else if (isa<const ConstantStruct>(p))
+			os << "ConstantStruct";
+		else if (isa<const ConstantVector>(p))
+			os << "ConstantVector";
+		else if (isa<const GlobalValue>(p))
+			os << "GlobalValue";
+		else if (isa<const UndefValue>(p))
+			os << "UndefValue";
+		else
+			os << "Unknown";
+		os << ")\n";
+	}
+	else if ( isa<const Operator>(p) )
+		os << " operator " << p->getName().str() << "\n";
+	return os.str();
+}
+
+
 /*
  * The map is used to handle cyclic PHI nodes
  */
-DuettoWriter::POINTER_KIND DuettoWriter::dfsPointerKind(const Value* v, std::map<const Value*, POINTER_KIND>& visitedPhisOrArguments) const
+POINTER_KIND DuettoPointerAnalyzer::dfsPointerKind(const Value* v, std::map<const Value*, POINTER_KIND>& visitedPhisOrArguments) const
 {
 #ifdef DUETTO_DEBUG_POINTERS
 	debugAllPointersSet.insert(v);
@@ -277,23 +326,7 @@ DuettoWriter::POINTER_KIND DuettoWriter::dfsPointerKind(const Value* v, std::map
 	return REGULAR;
 }
 
-DuettoWriter::POINTER_KIND DuettoWriter::getPointerKind(const Value* v) const
-{
-	assert(v->getType()->isPointerTy());
-
-	pointer_kind_map_t::const_iterator iter = pointerKindMap.find(v);
-
-	if (pointerKindMap.end() == iter)
-	{
-		std::map<const Value*, POINTER_KIND> visitedPhis;
-		iter = pointerKindMap.insert( std::make_pair(v,dfsPointerKind(v, visitedPhis)) ).first;
-		
-		assert(iter->second != UNDECIDED);
-	}
-	return iter->second;
-}
-
-uint32_t DuettoWriter::getPointerUsageFlags(const llvm::Value * v) const
+uint32_t DuettoPointerAnalyzer::getPointerUsageFlags(const llvm::Value * v) const
 {
 	assert(v->getType()->isPointerTy());
 
@@ -352,7 +385,7 @@ uint32_t DuettoWriter::getPointerUsageFlags(const llvm::Value * v) const
 			else
 			{
 #ifdef DUETTO_DEBUG_POINTERS
-				print_debug_pointer_uknown(v,it->getUser(),"getPointerUsageFlags");
+				llvm::errs() << "Adding POINTER_UNKNOWN in getPointerUsageFlags due to instruction: " << valueObjectName(U) << "\n";
 #endif //DUETTO_DEBUG_POINTERS
 				ans |= POINTER_UNKNOWN;
 			}
@@ -364,7 +397,7 @@ uint32_t DuettoWriter::getPointerUsageFlags(const llvm::Value * v) const
 	return iter->second;
 }
 
-uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<const Value *> & openset) const
+uint32_t DuettoPointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, std::set<const Value *> & openset) const
 {
 	if ( !openset.insert(v).second )
 	{
@@ -376,7 +409,7 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 
 	for (Value::const_use_iterator it = v->use_begin(); it != v->use_end(); ++it)
 	{
-		const User* U = it->getUser();
+		const User * U = it->getUser();
 		// Check if "v" is used as a operand in a phi node
 		if (isa<const PHINode>(U) ||
 			isa<const SelectInst>(U) ||
@@ -429,7 +462,7 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 		else
 		{
 #ifdef DUETTO_DEBUG_POINTERS
-			print_debug_pointer_uknown(v,it->getUser(),"dfsPointerUsageFlagsComplete");
+			llvm::errs() << "Adding POINTER_UNKNOWN in dfsPointerUsageFlagsComplete due to instruction: " << valueObjectName(U) << "\n";
 #endif //DUETTO_DEBUG_POINTERS
 
 			//NOTE no need to add POINTER_IS_NOT_UNIQUE_OWNER to PtrToIntInst since IntToPtr are disabled anyway
@@ -439,31 +472,25 @@ uint32_t DuettoWriter::dfsPointerUsageFlagsComplete(const Value * v, std::set<co
 	return f;
 }
 
-uint32_t DuettoWriter::getPointerUsageFlagsComplete(const Value * v) const
-{
-	assert(v->getType()->isPointerTy());
-
-	pointer_usage_map_t::const_iterator iter = pointerCompleteUsageMap.find(v);
-
-	if (pointerCompleteUsageMap.end() == iter)
-	{
-		std::set<const Value *> openset;
-		iter = pointerCompleteUsageMap.insert( std::make_pair(v,dfsPointerUsageFlagsComplete(v, openset) ) ).first;
-	}
-
-	return iter->second;
-}
-
-bool DuettoWriter::isNoSelfPointerOptimizable(const llvm::Value * v) const
+bool DuettoPointerAnalyzer::isNoSelfPointerOptimizable(const llvm::Value * v) const
 {
 	assert( v->getType()->isPointerTy() );
 	return ! (getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT) );
 }
 
-bool DuettoWriter::isNoWrappingArrayOptimizable(const llvm::Value * v) const
+bool DuettoPointerAnalyzer::isNoWrappingArrayOptimizable(const llvm::Value * v) const
 {
 	assert( v->getType()->isPointerTy() );
 	
 	return isImmutableType(v->getType()->getPointerElementType()) && // This type of optimization makes sense only for immutable types
 		!(getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT | POINTER_IS_NOT_UNIQUE_OWNER) );
+}
+
+bool DuettoPointerAnalyzer::canBeCalledIndirectly(const Function * f) const 
+{
+	assert(f);
+	return  f->hasAddressTaken() ||
+			f->empty(); //TODO: atm intrinsic functions are assumed to always be called indirectly
+}
+
 }
