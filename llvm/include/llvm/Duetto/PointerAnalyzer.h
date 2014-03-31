@@ -65,8 +65,8 @@ namespace duetto {
 
 enum POINTER_KIND {
 	UNDECIDED = 0,
-	COMPLETE_OBJECT,
 	COMPLETE_ARRAY,
+	COMPLETE_OBJECT,
 	REGULAR
 };
 
@@ -76,7 +76,8 @@ enum POINTER_USAGE_FLAG {
 	POINTER_IS_NOT_UNIQUE_OWNER = (1 << 1), // The pointer is not the only one which points to the object
 	POINTER_ARITHMETIC = (1 << 2), // The pointer can be incremented/decremented etc, and/or it is used to access an array (i.e. p[i])
 	POINTER_ORDINABLE = (1 << 3), // The pointer is used for a comparison with another pointer
-	POINTER_CASTABLE_TO_INT = (1 << 4),  // The pointer is explicitly casted to an integer (usually used to implement pointers hash table)
+	POINTER_EQUALITY_COMPARABLE = (1 << 4), // The pointer is used for ==/!= comparison with another pointer.
+	POINTER_CASTABLE_TO_INT = (1 << 5),  // The pointer is explicitly casted to an integer (usually used to implement pointers hash table)
 	
 	POINTER_UNKNOWN = (1LL << 32LL) - 1
 };
@@ -103,16 +104,8 @@ public:
 	
 	// Return a string containing the type name of the object V.
 	static std::string valueObjectName(const llvm::Value * v);
-	
-	// Determine whether a pointer value contains a .s member
-// 	bool hasSelfMember(const llvm::Value *) const;
-	
-	// Determine whether a pointer value can be promoted/demoted
-// 	bool canBePromoted(const llvm::Value *, POINTER_KIND promotedKind) const;
 
 private:
-	POINTER_KIND dfsPointerKind(const llvm::Value* v, std::map<const llvm::Value*, POINTER_KIND>& visitedPhis) const;
-
 	/** 
 	 * Compute the usage of a single pointer, regardless of the phi nodes
 	 */
@@ -128,6 +121,9 @@ private:
 	 */
 	uint32_t dfsPointerUsageFlagsComplete(const llvm::Value * v,std::set<const llvm::Value *> & openset) const;
 	
+	template<class ArgOrInvokeInst>
+	uint32_t usageFlagsForStoreAndInvoke(const llvm::Value * v, const ArgOrInvokeInst * I, std::set<const llvm::Value *> & openset) const;
+
 public:
 	// Detect if a no-self-pointer optimization is applicable to the pointer value
 	bool isNoSelfPointerOptimizable(const llvm::Value * v) const;
