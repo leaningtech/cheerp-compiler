@@ -12,6 +12,8 @@
 #ifndef _DUETTO_WRITER_H
 #define _DUETTO_WRITER_H
 
+#include "llvm/Duetto/NameGenerator.h"
+#include "llvm/Duetto/PointerAnalyzer.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
@@ -53,33 +55,16 @@ private:
 #endif
 	typedef std::multimap<const llvm::GlobalVariable*, Fixup> FixupMapType;
 	FixupMapType globalsFixupMap;
+	
+	NameGenerator namegen;
+	DuettoPointerAnalyzer analyzer;
+	
 	bool printMethodNames;
 	bool printLambdaBridge;
 	bool printHandleVAArg;
 	bool printCreateArrayPointer;
 	uint32_t getIntFromValue(const llvm::Value* v) const;
-	bool isValidTypeCast(const llvm::Value* cast, const llvm::Value* castOp, llvm::Type* src, llvm::Type* dst) const;
-	bool isClientType(const llvm::Type* t) const;
-	bool isClientArrayType(const llvm::Type* t) const;
-	bool isClientGlobal(const char* mangledName) const;
-	bool isI32Type(llvm::Type* t) const;
-	bool isTypedArrayType(llvm::Type* t) const;
 	void compileTypedArrayType(llvm::Type* t);
-	bool isComingFromAllocation(const llvm::Value* val) const;
-	bool isNopCast(const llvm::Value* val) const;
-	bool isValidVoidPtrSource(const llvm::Value* val) const;
-	bool isValidVoidPtrSource(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis) const;
-	bool isInlineable(const llvm::Instruction& I) const;
-	bool isBitCast(const llvm::Value* v) const;
-	bool isGEP(const llvm::Value* v) const;
-	bool isImmutableType(const llvm::Type* t) const;
-	bool isUnion(const llvm::Type* t) const;
-	
-	// Detect if a function can be used in an indirect call
-	bool canBeCalledIndirectly(const llvm::Function * f) const;
-	typedef std::map<const llvm::Function *, bool> function_indirect_call_map_t;
-	mutable function_indirect_call_map_t functionIndirectCallMap;
-
 	
 	// COMPILE_ADD_SELF is returned by AllocaInst when a self pointer must be added to the returned value
 	// COMPILE_EMPTY is returned if there is no need to add a ;\n to end the line
@@ -100,116 +85,6 @@ private:
 	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style);
 	void compileTypeImpl(llvm::Type* t, COMPILE_TYPE_STYLE style);
 	
-	/**
-	 * \addtogroup pointers Pointer implementation
-	 * \note Functions belonging to this group are implemented in Pointers.cpp
-	 * 
-	 * Three type of pointers are used:
-	 *   - COMPLETE_OBJECT This pointer can point only to a C++ struct/class type. It is implemented 
-	 *                     by directly binding a JS var to the pointed object. This type of pointer
-	 *                     does not support arithmetic nor ordering. In order to allow conversion to REGULAR pointer,
-	 *                     the object bound to a COMPLETE_OBJECT pointer shall contain the member "s", which is a JS ref to the object itself.
-	 *   - COMPLETE_ARRAY  This pointer points to the first element of a C++ array of struct/class or primitive type.
-	 *                     It is implemented in JS by binding a var to the pointed array. It does not support
-	 *                     global ordering.
-	 *   - REGULAR         Regular pointers are implemented with a JS object of the form: "{ d : OBJ, o : OFFSET }", where
-	 *                     OBJ is a JS reference to a *container* object of the pointer, and OFFSET is the offset of the pointed
-	 *                     object inside the container object (it can be a string or a integral value).
-	 *                     Pointers of type COMPLETE_OBJECT and COMPLETE_ARRAY are always convertible to REGULAR pointers,
-	 *                     but not viceversa. REGULAR pointers support pointer arithmetic; two REGULAR pointers are ordinable 
-	 *                     if they have the same container object. 
-	 * 
-	 * General rules (which apply both to JS immutable types and to struct/class objects):
-	 *    -# In order for an object to be bound to a regular pointer, a "container" object must exists. If the 
-	 *       object being bound to a pointer is a member object of some class/struct type or a member of an array the 
-	 *       container object naturally exists. Otherwise such object must be created inside an array of size one.
-	 * 
-	 *    -# An array of objects can always be bound to a COMPLETE_ARRAY pointer, just by taking its name.
-	 * 
-	 *    -# A single object can always be bound to a COMPLETE_OBJECT pointer, just by taking its name.
-	 * 
-	 *    -# A COMPLETE_ARRAY pointer can be converted to a REGULAR pointer by setting the "d" member to the COMPLETE_ARRAY pointer
-	 *       name, and the "o" member to zero.
-	 * 
-	 *    -# A COMPLETE_OBJECT pointer can be converted to a REGULAR pointer using the self member. Notice that
-	 *       arithmetic operations on such pointer are still available, provided the user does not dereference the result, and generate
-	 *       a on offset value like "s1, s2" etc.
-	 *       
-	 * 
-	 * Optimization:
-	 *    - no-self-pointer. Avoid the creation of the member ".s" if the conversion to REGULAR pointer is not required, \sa{isNoSelfPointerOptimizable}.
-	 *    - no-wrapping-array. Avoid the creation of a wrapping array for immutable types if possible, \sa{isNoWrappingArrayOptimizable}.
-	 * 
-	 * @{
-	 */
-	
-	enum POINTER_KIND {
-		UNDECIDED = 0,
-		COMPLETE_OBJECT,
-		COMPLETE_ARRAY,
-		REGULAR
-	};
-	
-	typedef std::map<const llvm::Value *, POINTER_KIND> pointer_kind_map_t;
-	mutable pointer_kind_map_t pointerKindMap;
-
-	POINTER_KIND dfsPointerKind(const llvm::Value* v, std::map<const llvm::Value*, POINTER_KIND>& visitedPhis) const;
-	POINTER_KIND getPointerKind(const llvm::Value* v) const;
-	
-	// Functionalities provided by a pointer
-	enum POINTER_USAGE_FLAG {
-		POINTER_NONCONST_DEREF = 1, // The pointer is used to modify the pointed object
-		POINTER_IS_NOT_UNIQUE_OWNER = (1 << 1), // The pointer is not the only one which points to the object
-		POINTER_ARITHMETIC = (1 << 2), // The pointer can be incremented/decremented etc, and/or it is used to access an array (i.e. p[i])
-		POINTER_ORDINABLE = (1 << 3), // The pointer is used for a comparison with another pointer
-		POINTER_CASTABLE_TO_INT = (1 << 4),  // The pointer is explicitly casted to an integer (usually used to implement pointers hash table)
-		
-		POINTER_UNKNOWN = (1LL << 32LL) - 1
-	};
-
-	typedef std::map<const llvm::Value *, uint32_t> pointer_usage_map_t;
-	
-	// Returns a bitmask of POINTER_USAGE_FLAG
-	/** 
-	 * Compute the usage of a single pointer, regardless of the phi nodes
-	 */
-	//TODO at the moment if it is used in a CallInst it returns POINTER_UNKNOWN.
-	// CallInst should be handled inside getPointerUsageFlagsComplete, in order to provide information on how that pointer is used inside the function call.
-	// This is especially important at the moment for memset/memcpy/memmove.
-	uint32_t getPointerUsageFlags(const llvm::Value* v) const;
-	mutable pointer_usage_map_t pointerUsageMap;
-	
-	/**
-	 * Compute the sum of the usages of all the "child" pointers, where "child pointer" means any pointer which can be initialized to this one's value.
-	 * \param v The pointer to inspect.
-	 * \param openset Set of the visited pointers in order to stop cyclic dependencies in the phi node.
-	 */
-	uint32_t dfsPointerUsageFlagsComplete(const llvm::Value * v,std::set<const llvm::Value *> & openset) const;
-	
-	/**
-	 * Memoization wrapper around dfsPointerUsageFlagsComplete
-	 */
-	uint32_t getPointerUsageFlagsComplete(const llvm::Value * v) const;
-	mutable pointer_usage_map_t pointerCompleteUsageMap;
-	
-#ifdef DUETTO_DEBUG_POINTERS
-	typedef std::set<const llvm::Value *> known_pointers_t;
-	mutable known_pointers_t debugAllPointersSet;
-	
-	// Debugging utility to send formatted output to llvm::errs. Always returns false for ease of use in assertions
-	bool printPointerInfo(const llvm::Value *);
-#else
-	bool printPointerInfo(const llvm::Value *) const {return false;}
-#endif //DUETTO_DEBUG_POINTERS
-	
-	// Detect if a no-self-pointer optimization is applicable to the pointer value
-	bool isNoSelfPointerOptimizable(const llvm::Value * v) const;
-
-	// Detect if a no-wrapping-array optimization is applicable to the pointer value
-	bool isNoWrappingArrayOptimizable(const llvm::Value * v) const;
-
-	/** @} */
-
 	/*
 	 * \param v The pointer to dereference, it may be a regular pointer, a complete obj or a complete array
 	 * \param offset An offset coming from code, which may be also NULL
@@ -251,12 +126,6 @@ private:
 			llvm::User::const_op_iterator itE);
 	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(const char* ident, const llvm::Value* callV,
 			llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, bool userImplemented);
-	bool safeUsagesForNewedMemory(const llvm::Value* v) const;
-	bool safeCallForNewedMemory(const llvm::CallInst* ci) const;
-	uint32_t getUniqueIndexForValue(const llvm::Value* v);
-	uint32_t getUniqueIndex();
-	std::map<const llvm::Value*, uint32_t> unnamedValueMap;
-	uint32_t currentUniqueIndex;
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void gatherDependencies(const llvm::Constant* C, const llvm::GlobalVariable* base,
@@ -280,8 +149,8 @@ private:
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):
-		module(m),targetData(&m),currentFun(NULL),printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
-		printCreateArrayPointer(false),currentUniqueIndex(0),stream(s)
+		module(m),targetData(&m),currentFun(NULL),namegen(),analyzer( namegen ),printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
+		printCreateArrayPointer(false),stream(s)
 	{
 	}
 	void makeJS();

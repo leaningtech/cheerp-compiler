@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Duetto/Writer.h"
+#include "llvm/Duetto/Utility.h"
 #include <stdio.h>
 
 using namespace duetto;
