@@ -59,7 +59,6 @@ opt/duetto/bin/llvm-as
 opt/duetto/bin/llvm-bcanalyzer
 opt/duetto/bin/llvm-extract
 opt/duetto/bin/llvm-diff
-opt/duetto/bin/llvm-lit
 opt/duetto/bin/clang-format
 opt/duetto/bin/llvm-rtdyld
 opt/duetto/bin/llvm-symbolizer
@@ -67,8 +66,7 @@ opt/duetto/bin/lli
 opt/duetto/bin/bugpoint
 opt/duetto/bin/llvm-dwarfdump
 opt/duetto/bin/llvm-mc
-opt/duetto/bin/llvm-prof
-opt/duetto/bin/clang-tblgen
+opt/duetto/bin/llvm-profdata
 opt/duetto/bin/llvm-size
 opt/duetto/bin/llvm-objdump
 opt/duetto/bin/opt
