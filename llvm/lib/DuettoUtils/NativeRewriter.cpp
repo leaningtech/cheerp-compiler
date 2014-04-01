@@ -214,7 +214,7 @@ void DuettoUtils::rewriteConstructorImplementation(Module& M, Function& F)
 		BasicBlock::const_iterator IE=B->end();
 		for(;I!=IE;++I)
 		{
-			if(!I->getOpcode()==Instruction::Call)
+			if(I->getOpcode()!=Instruction::Call)
 				continue;
 			const CallInst* callInst=cast<CallInst>(&(*I));
 			Function* f=callInst->getCalledFunction();
