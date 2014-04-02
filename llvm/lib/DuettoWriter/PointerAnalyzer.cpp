@@ -14,6 +14,7 @@
 #include "llvm/Duetto/PointerAnalyzer.h"
 #include "llvm/Duetto/Utility.h"
 #include "llvm/IR/Argument.h"
+#include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
@@ -187,12 +188,21 @@ void DuettoPointerAnalyzer::dumpAllPointers() const
 	
 	for (auto ptr : debugAllPointersSet)
 		dumpPointer(ptr);
-	
-// 	llvm::errs() << "Debug indirect function calls:\n";
-// 	for (function_indirect_call_map_t::iterator iter = functionIndirectCallMap.begin(); iter != functionIndirectCallMap.end(); ++iter)
-// 	{
-// 		llvm::errs() << iter->first->getName() << ": " << iter->second << "\n";
-// 	}
+}
+
+void DuettoPointerAnalyzer::dumpAllFunctions() const
+{
+	llvm::errs() << "Dumping functions:\n";
+
+	for (auto f : debugAllFunctionsSet)
+	{
+		llvm::errs() << f->getName();
+		if (canBeCalledIndirectly(f))
+		{
+			llvm::errs() << " called indirectly";
+		}
+		llvm::errs() << "\n";
+	}
 }
 
 #endif //DUETTO_DEBUG_POINTERS
@@ -229,6 +239,8 @@ std::string DuettoPointerAnalyzer::valueObjectName(const Value* v)
 			os << "ConstantStruct";
 		else if (isa<const ConstantVector>(p))
 			os << "ConstantVector";
+		else if (isa<const GlobalAlias>(p))
+			os << "GlobalAlias";
 		else if (isa<const GlobalValue>(p))
 			os << "GlobalValue";
 		else if (isa<const UndefValue>(p))
@@ -405,7 +417,16 @@ uint32_t DuettoPointerAnalyzer::usageFlagsForStoreAndInvoke(const Value * v, con
 	for (unsigned int argNo = 0; iter != f->arg_end(); ++iter, ++argNo)
 		if ( I->getArgOperand(argNo) == v ) break;
 
-	assert( iter != f->arg_end() );
+	if ( iter == f->arg_end() )
+	{
+		const User * u;
+		f->hasAddressTaken(&u);
+		
+		u->dump();
+		
+		llvm::errs() << u->getName() << ", " << valueObjectName(u) << "\n";
+	}
+	assert( iter != f->arg_end() || ((llvm::errs() << f->getName()),false) );
 	
 	return dfsPointerUsageFlagsComplete( &(*iter), openset ) | POINTER_IS_NOT_UNIQUE_OWNER;
 }
@@ -424,11 +445,46 @@ bool DuettoPointerAnalyzer::isNoWrappingArrayOptimizable(const llvm::Value * v) 
 		!(getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT | POINTER_IS_NOT_UNIQUE_OWNER | POINTER_EQUALITY_COMPARABLE) );
 }
 
-bool DuettoPointerAnalyzer::canBeCalledIndirectly(const Function * f) const 
+bool DuettoPointerAnalyzer::canBeCalledIndirectly(const Function* f) const
+{
+#ifdef DUETTO_DEBUG_POINTERS
+		debugAllFunctionsSet.insert(f);
+#endif //DUETTO_DEBUG_POINTERS
+
+	auto iter = functionIndirectCallMap.find( f ) ;
+	if ( functionIndirectCallMap.end() == iter )
+		iter = functionIndirectCallMap.insert( 
+			std::make_pair(
+				f,
+				computeCanBeCalledIndirectly(f) 
+			) ).first;
+
+	return iter->second;
+}
+
+bool DuettoPointerAnalyzer::computeCanBeCalledIndirectly(const Constant* f) const
 {
 	assert(f);
-	return  f->hasAddressTaken() ||
-			f->empty(); //TODO: atm intrinsic functions are assumed to always be called indirectly
+	
+	if (const Function * F = dyn_cast<const Function>(f) )
+	{
+		if (F->empty())
+			return true;
+	}
+
+	return  !std::all_of(f->user_begin(), f->user_end(),[&](const User * u)
+		{
+			if ( const CallInst * c = dyn_cast<const CallInst>(u) )
+				return ( c->getCalledFunction() == f );
+			if ( const InvokeInst * c = dyn_cast<const InvokeInst>(u) )
+				return ( c->getCalledFunction() == f );
+			if ( const GlobalAlias * a = dyn_cast<const GlobalAlias>(u) )
+			{
+				assert( a->getAliasee() == f );
+				return computeCanBeCalledIndirectly( a );
+			}
+			return false;
+		});
 }
 
 }

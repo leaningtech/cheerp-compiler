@@ -1620,20 +1620,30 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 		case Instruction::Call:
 		{
 			const CallInst& ci=static_cast<const CallInst&>(I);
-			if(ci.getCalledFunction())
+			const Function * calledFunc = ci.getCalledFunction();
+	
+			// Try to resolve aliases
+			if (!calledFunc)
+				if(const GlobalAlias * a = dyn_cast<const GlobalAlias>(ci.getCalledValue()) )
+				{
+					const GlobalValue * gv = cast<GlobalValue>(a->getAliasee());
+					assert( gv );
+					calledFunc = dyn_cast<const Function>( gv );
+				}
+			if(calledFunc)
 			{
 				//Direct call
-				const char* funcName=ci.getCalledFunction()->getName().data();
+				const char* funcName=calledFunc->getName().data();
 				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(funcName,&ci,ci.op_begin(),
-						ci.op_begin()+ci.getNumArgOperands(),!ci.getCalledFunction()->empty());
+						ci.op_begin()+ci.getNumArgOperands(),!calledFunc->empty());
 				if(cf!=COMPILE_UNSUPPORTED)
 					return cf;
 				stream << '_' << funcName;
-				if(!globalsDone.count(ci.getCalledFunction()))
+				if(!globalsDone.count(calledFunc) )
 #ifdef DEBUG_GLOBAL_DEPS
-					globalsQueue.insert(make_pair(ci.getCalledFunction(),currentFun));
+					globalsQueue.insert(make_pair(calledFunc,currentFun));
 #else
-					globalsQueue.insert(ci.getCalledFunction());
+					globalsQueue.insert(calledFunc);
 #endif
 			}
 			else
@@ -1644,11 +1654,10 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			//If we are dealing with inline asm we are done
 			if(!ci.isInlineAsm())
 			{
-				const Function * f = ci.getCalledFunction();
-				if ( f && !f->isVarArg() )
+				if (calledFunc && !analyzer.canBeCalledIndirectly(calledFunc) && !calledFunc->isVarArg() )
 				{
-					assert( f->getArgumentList().size() == ci.getNumArgOperands() );
-					compileMethodArgsForDirectCall(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),f->arg_begin() );
+					assert( calledFunc->getArgumentList().size() == ci.getNumArgOperands() );
+					compileMethodArgsForDirectCall(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),calledFunc->arg_begin() );
 				}
 				else
 					compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands());
@@ -3095,6 +3104,7 @@ void DuettoWriter::makeJS()
 	stream << "__Z7webMainv();\n";
 
 #ifdef DUETTO_DEBUG_POINTERS
+	analyzer.dumpAllFunctions();
 	analyzer.dumpAllPointers();
 #endif //DUETTO_DEBUG_POINTERS
 }
