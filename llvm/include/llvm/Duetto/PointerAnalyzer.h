@@ -100,6 +100,7 @@ public:
 
 #ifdef DUETTO_DEBUG_POINTERS
 	void dumpAllPointers() const;
+        void dumpAllFunctions() const;
 #endif //DUETTO_DEBUG_POINTERS
 	
 	// Return a string containing the type name of the object V.
@@ -131,10 +132,13 @@ public:
 	// Detect if a no-wrapping-array optimization is applicable to the pointer value
 	bool isNoWrappingArrayOptimizable(const llvm::Value * v) const;
 
-private:
 	// Detect if a function can possibly be called indirectly
 	bool canBeCalledIndirectly(const llvm::Function * f) const;
 
+private:
+	
+	bool computeCanBeCalledIndirectly(const llvm::Constant * c) const;
+	
 	typedef std::map<const llvm::Value *, POINTER_KIND> pointer_kind_map_t;
 	typedef std::map<const llvm::Value *, uint32_t> pointer_usage_map_t;
 	
@@ -142,9 +146,15 @@ private:
 	mutable pointer_usage_map_t pointerCompleteUsageMap;	
 	mutable pointer_usage_map_t pointerUsageMap;
 	
+	typedef std::map<const llvm::Function *, bool > function_indirect_call_map_t;
+	mutable function_indirect_call_map_t functionIndirectCallMap;
+	
 #ifdef DUETTO_DEBUG_POINTERS
 	typedef std::set<const llvm::Value *> known_pointers_t;
 	mutable known_pointers_t debugAllPointersSet;
+        
+        typedef std::set<const llvm::Function *> known_functions_t;
+        mutable known_functions_t debugAllFunctionsSet;
 #endif //DUETTO_DEBUG_POINTERS
 	
 	const NameGenerator & namegen;
