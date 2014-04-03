@@ -30,6 +30,7 @@ namespace {
   private:
     formatted_raw_ostream &Out;
     static char ID;
+    void getAnalysisUsage(AnalysisUsage& AU) const;
   public:
     explicit DuettoWritePass(formatted_raw_ostream &o) :
       ModulePass(ID), Out(o) { }
@@ -39,9 +40,15 @@ namespace {
 
 bool DuettoWritePass::runOnModule(Module& M)
 {
-  duetto::DuettoWriter writer(M, Out);
+  AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
+  duetto::DuettoWriter writer(M, Out, AA);
   writer.makeJS();
   return false;
+}
+
+void DuettoWritePass::getAnalysisUsage(AnalysisUsage& AU) const
+{
+  AU.addRequired<AliasAnalysis>();
 }
 
 char DuettoWritePass::ID = 0;
