@@ -5,13 +5,14 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2013 Leaning Technologies
+// Copyright 2011-2014 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef _DUETTO_WRITER_H
 #define _DUETTO_WRITER_H
 
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Duetto/NameGenerator.h"
 #include "llvm/Duetto/PointerAnalyzer.h"
 #include "llvm/IR/Module.h"
@@ -44,6 +45,7 @@ private:
 
 	llvm::Module& module;
 	llvm::DataLayout targetData;
+	llvm::AliasAnalysis& AA;
 	const llvm::Function* currentFun;
 	std::set<llvm::StructType*> classesNeeded;
 	std::set<llvm::StructType*> arraysNeeded;
@@ -148,8 +150,8 @@ private:
 	void compileClassesExportedToJs();
 public:
 	llvm::raw_ostream& stream;
-	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s):
-		module(m),targetData(&m),currentFun(NULL),namegen(),analyzer( namegen ),printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
+	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA):
+		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ),printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
 		printCreateArrayPointer(false),stream(s)
 	{
 	}
