@@ -2513,7 +2513,9 @@ void DuettoWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 		{
 			//Skip some kind of intrinsics
 			if(II->getIntrinsicID()==Intrinsic::lifetime_start ||
-				II->getIntrinsicID()==Intrinsic::lifetime_end)
+				II->getIntrinsicID()==Intrinsic::lifetime_end ||
+				II->getIntrinsicID()==Intrinsic::dbg_declare ||
+				II->getIntrinsicID()==Intrinsic::dbg_value)
 			{
 				continue;
 			}
