@@ -663,10 +663,6 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 		compileMemFunc(*(it), *(it+1), *(it+2), RESET);
 		return COMPILE_EMPTY;
 	}
-	else if(strncmp(ident,"llvm.lifetime",13)==0)
-	{
-		return COMPILE_EMPTY;
-	}
 	else if(strncmp(ident,"llvm.invariant",14)==0)
 	{
 		//TODO: Try to optimize using this, for now just pass the second arg
@@ -2513,6 +2509,15 @@ void DuettoWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 			continue;
 		if(I->getOpcode()==Instruction::PHI) //Phys are manually handled
 			continue;
+		if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&(*I)))
+		{
+			//Skip some kind of intrinsics
+			if(II->getIntrinsicID()==Intrinsic::lifetime_start ||
+				II->getIntrinsicID()==Intrinsic::lifetime_end)
+			{
+				continue;
+			}
+		}
 		if(I->getType()->getTypeID()!=Type::VoidTyID)
 		{
 			stream << "var ";
