@@ -1,16 +1,16 @@
-//===-- NativeRewriter.cpp.cpp - Duetto helper ----------------------------===//
+//===-- NativeRewriter.cpp - Duetto helper --------------------------------===//
 //
 //                     Duetto: The C++ compiler for the Web
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2013 Leaning Technologies
+// Copyright 2011-2014 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Duetto/Utils.h"
+#include "llvm/Duetto/NativeRewriter.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/PassManager.h"
@@ -20,7 +20,7 @@
 using namespace llvm;
 using namespace std;
 
-bool DuettoUtils::findMangledClassName(const char* const s, const char* &className, int& classLen)
+bool DuettoNativeRewriter::findMangledClassName(const char* const s, const char* &className, int& classLen)
 {
 	if(strncmp(s,"_ZN",3)!=0)
 		return false;
@@ -40,7 +40,7 @@ bool DuettoUtils::findMangledClassName(const char* const s, const char* &classNa
 	return true;
 }
 
-bool DuettoUtils::isBuiltinConstructor(const char* s, const char*& startOfType, const char*& endOfType)
+bool DuettoNativeRewriter::isBuiltinConstructor(const char* s, const char*& startOfType, const char*& endOfType)
 {
 	const char* mangledName;
 	int mangledNameLen;
@@ -58,7 +58,7 @@ bool DuettoUtils::isBuiltinConstructor(const char* s, const char*& startOfType, 
 	return false;
 }
 
-bool DuettoUtils::isBuiltinConstructorForType(const char* s, const std::string& typeName)
+bool DuettoNativeRewriter::isBuiltinConstructorForType(const char* s, const std::string& typeName)
 {
 	const char* startOfType;
 	const char* endOfType;
@@ -71,7 +71,7 @@ bool DuettoUtils::isBuiltinConstructorForType(const char* s, const std::string& 
 	return true;
 }
 
-void DuettoUtils::baseSubstitutionForBuiltin(User* i, Instruction* old, AllocaInst* source)
+void DuettoNativeRewriter::baseSubstitutionForBuiltin(User* i, Instruction* old, AllocaInst* source)
 {
 	Instruction* userInst=dyn_cast<Instruction>(i);
 	assert(userInst);
@@ -82,7 +82,7 @@ void DuettoUtils::baseSubstitutionForBuiltin(User* i, Instruction* old, AllocaIn
 /*
  * Check if a type is builtin and return the type name
  */
-bool DuettoUtils::isBuiltinType(const char* typeName, std::string& builtinName)
+bool DuettoNativeRewriter::isBuiltinType(const char* typeName, std::string& builtinName)
 {
 	if(strncmp(typeName, "class.", 6)!=0)
 		return false;
@@ -96,7 +96,7 @@ bool DuettoUtils::isBuiltinType(const char* typeName, std::string& builtinName)
 	return true;
 }
 
-Function* DuettoUtils::getReturningConstructor(Module& M, Function* called)
+Function* DuettoNativeRewriter::getReturningConstructor(Module& M, Function* called)
 {
 	FunctionType* initialType=called->getFunctionType();
 	SmallVector<Type*, 4> initialArgsTypes(initialType->param_begin()+1, initialType->param_end());
@@ -104,7 +104,7 @@ Function* DuettoUtils::getReturningConstructor(Module& M, Function* called)
 	return cast<Function>(M.getOrInsertFunction(Twine("duettoCreate",called->getName()).str(),newFunctionType));
 }
 
-bool DuettoUtils::rewriteIfNativeConstructorCall(Module& M, Instruction* i, AllocaInst* newI, Instruction* callInst,
+bool DuettoNativeRewriter::rewriteIfNativeConstructorCall(Module& M, Instruction* i, AllocaInst* newI, Instruction* callInst,
 						  Function* called, const std::string& builtinTypeName,
 						  SmallVector<Value*, 4>& initialArgs)
 {
@@ -131,7 +131,7 @@ bool DuettoUtils::rewriteIfNativeConstructorCall(Module& M, Instruction* i, Allo
 	return true;
 }
 
-void DuettoUtils::rewriteNativeAllocationUsers(Module& M, SmallVector<Instruction*,4>& toRemove,
+void DuettoNativeRewriter::rewriteNativeAllocationUsers(Module& M, SmallVector<Instruction*,4>& toRemove,
 						Instruction* i, Type* t,
 						const std::string& builtinTypeName)
 {
@@ -195,7 +195,7 @@ void DuettoUtils::rewriteNativeAllocationUsers(Module& M, SmallVector<Instructio
 	}
 }
 
-void DuettoUtils::rewriteConstructorImplementation(Module& M, Function& F)
+void DuettoNativeRewriter::rewriteConstructorImplementation(Module& M, Function& F)
 {
 	//Copy the code in a function with the right signature
 	Function* newFunc=getReturningConstructor(M, &F);
@@ -222,7 +222,7 @@ void DuettoUtils::rewriteConstructorImplementation(Module& M, Function& F)
 				continue;
 			const char* startOfType;
 			const char* endOfType;
-			if(!DuettoUtils::isBuiltinConstructor(f->getName().data(), startOfType, endOfType))
+			if(!DuettoNativeRewriter::isBuiltinConstructor(f->getName().data(), startOfType, endOfType))
 				continue;
 			//Check that the constructor is for 'this'
 			if(callInst->getOperand(0)!=F.arg_begin())
@@ -304,7 +304,7 @@ void DuettoUtils::rewriteConstructorImplementation(Module& M, Function& F)
 	cast<Instruction>(valueMap[oldLowerConstructor])->eraseFromParent();
 }
 
-void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
+bool DuettoNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function& F)
 {
 	const char* startOfType;
 	const char* endOfType;
@@ -313,11 +313,12 @@ void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 	{
 		assert(!F.empty());
 		rewriteConstructorImplementation(M, F);
-		return;
+		return true;
 	}
 	//Vector of the instructions to be removed in the second pass
 	SmallVector<Instruction*, 4> toRemove;
 
+	bool Changed = false;
 	Function::iterator B=F.begin();
 	Function::iterator BE=F.end();
 	for(;B!=BE;++B)
@@ -338,6 +339,7 @@ void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 					continue;
 				}
 				rewriteNativeAllocationUsers(M,toRemove,i,t,builtinTypeName);
+				Changed = true;
 			}
 			else if(I->getOpcode()==Instruction::Call)
 			{
@@ -354,6 +356,7 @@ void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 				if(!t->isStructTy() || !isBuiltinType(t->getStructName().data(), builtinTypeName))
 					continue;
 				rewriteNativeAllocationUsers(M,toRemove,i,t,builtinTypeName);
+				Changed = true;
 			}
 		}
 	}
@@ -361,4 +364,19 @@ void DuettoUtils::rewriteNativeObjectsConstructors(Module& M, Function& F)
 	//Remove the instructions in backward order to avoid dependency issues
 	for(int i=toRemove.size();i>0;i--)
 		toRemove[i-1]->eraseFromParent();
+	return Changed;
 }
+
+const char *DuettoNativeRewriter::getPassName() const {
+	return "DuettoNativeRewriter";
+}
+
+bool DuettoNativeRewriter::runOnFunction(Function& F)
+{
+	rewriteNativeObjectsConstructors(*F.getParent(), F);
+	return true;
+}
+
+char DuettoNativeRewriter::ID = 0;
+
+FunctionPass *llvm::createDuettoNativeRewriterPass() { return new DuettoNativeRewriter(); }

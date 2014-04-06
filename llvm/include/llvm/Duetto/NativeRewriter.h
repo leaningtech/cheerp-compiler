@@ -1,22 +1,25 @@
-//===-- Duetto/Utils.h - Duetto utility code -----------------------------===//
+//===-- Duetto/NativeRewriter.h - Duetto utility code ---------------------===//
 //
 //                     Duetto: The C++ compiler for the Web
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2013 Leaning Technologies
+// Copyright 2011-2014 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef DUETTO_UTILS_H
-#define DUETTO_UTILS_H
+#ifndef DUETTO_NATIVE_REWRITER_H
+#define DUETTO_NATIVE_REWRITER_H
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include <string>
 
-class DuettoUtils
+namespace llvm
+{
+
+class DuettoNativeRewriter: public FunctionPass
 {
 private:
 	static bool isBuiltinConstructor(const char* s, const char*& startOfType, const char*& endOfType);
@@ -26,8 +29,7 @@ private:
 	static bool findMangledClassName(const char* const s, const char* &className, int& classLen);
 	static llvm::Function* getReturningConstructor(llvm::Module& M, llvm::Function* called);
 	static void rewriteConstructorImplementation(llvm::Module& M, llvm::Function& F);
-public:
-	static void rewriteNativeObjectsConstructors(llvm::Module& M, llvm::Function& F);
+	static bool rewriteNativeObjectsConstructors(llvm::Module& M, llvm::Function& F);
 	/*
 	 * Return true if callInst has been rewritten and it must be deleted
 	 */
@@ -38,6 +40,20 @@ public:
 	static void rewriteNativeAllocationUsers(llvm::Module& M,llvm::SmallVector<llvm::Instruction*,4>& toRemove,
 							llvm::Instruction* allocation, llvm::Type* t,
 							const std::string& builtinTypeName);
+public:
+	static char ID;
+	explicit DuettoNativeRewriter() : FunctionPass(ID) { }
+	bool runOnFunction(Function &F);
+	const char *getPassName() const;
 };
+
+//===----------------------------------------------------------------------===//
+//
+// DuettoNativeRewriter - This pass converts constructors of classes implemented
+// on the browser to returning constructors
+//
+FunctionPass *createDuettoNativeRewriterPass();
+
+}
 
 #endif
