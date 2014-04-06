@@ -10,7 +10,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Relooper.h"
-#include "llvm/Duetto/Utils.h"
 #include "llvm/Duetto/Utility.h"
 #include "llvm/Duetto/Writer.h"
 #include "llvm/IR/InlineAsm.h"
