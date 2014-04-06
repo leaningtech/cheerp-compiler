@@ -1,4 +1,4 @@
-//===-- Analyzer.cpp - The Duetto JavaScript generator --------------------===//
+//===-- PointerAnalyzer.cpp - The Duetto JavaScript generator -------------===//
 //
 //                     Duetto: The C++ compiler for the Web
 //
@@ -23,7 +23,6 @@
 using namespace llvm;
 
 namespace duetto {
-
 
 /*
  * The map is used to handle cyclic PHI nodes
