@@ -653,7 +653,7 @@ template <class _Key, class _Tp, class _Compare, class _Allocator>
     class multimap;
 template <class _TreeIterator> class __map_const_iterator;
 
-#ifndef _LIBCPP_CXX03_LANG
+#if !defined(_LIBCPP_CXX03_LANG) && !defined(__DUETTO__)
 
 template <class _Key, class _Tp>
 struct __value_type
