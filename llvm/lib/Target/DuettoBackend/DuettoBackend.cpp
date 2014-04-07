@@ -17,6 +17,7 @@
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Duetto/Writer.h"
+#include "llvm/Duetto/AllocaMerging.h"
 
 using namespace llvm;
 
@@ -64,6 +65,7 @@ bool DuettoTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            AnalysisID StartAfter,
                                            AnalysisID StopAfter) {
   if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
+  PM.add(createAllocaMergingPass());
   PM.add(new DuettoWritePass(o));
   return false;
 }
