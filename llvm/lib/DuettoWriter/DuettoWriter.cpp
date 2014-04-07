@@ -146,7 +146,7 @@ void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value
 		{
 			if(isUnion(currentType))
 			{
-				stream << "__tmp__=new Int8Array(";
+				stream << "var __tmp__=new Int8Array(";
 				compileDereferencePointer(baseDest, NULL, namedOffset);
 				stream << baseName << ");\n";
 				stream << "__tmp__.set(";
@@ -250,7 +250,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		{
 			if(isUnion(currentType))
 			{
-				stream << "__tmp__=new Int8Array(";
+				stream << "var __tmp__=new Int8Array(";
 				compileDereferencePointer(baseDest, NULL, namedOffset);
 				stream << baseName << ");\n";
 				stream << "for(var __i__=0;__i__<__tmp__.length;__i__++) __tmp__[__i__]=0;\n";
@@ -3023,6 +3023,8 @@ void DuettoWriter::compileHandleVAArg()
 
 void DuettoWriter::makeJS()
 {
+	// Enable strict mode first
+	stream << "\"use strict\"\n";
 	Function* webMain=module.getFunction("_Z7webMainv");
 	if(webMain==NULL)
 	{
