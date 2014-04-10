@@ -1,4 +1,5 @@
 add_llvm_library(LLVMDuettoWriter
+  SourceMaps.cpp
   DuettoWriter.cpp
   JSInterop.cpp
   NameGenerator.cpp
