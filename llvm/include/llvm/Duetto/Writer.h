@@ -41,6 +41,8 @@ public:
 	}
 };
 
+llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const NewLineHandler& handler);
+
 class DuettoWriter
 {
 private:
