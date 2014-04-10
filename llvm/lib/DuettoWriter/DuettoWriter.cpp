@@ -1135,6 +1135,12 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 			compileOperand(val);
 			break;
 		}
+		case Instruction::IntToPtr:
+		{
+			// NOTE: This is necessary for virtual inheritance. It should be made type safe.
+			compileOperand(ce->getOperand(0));
+			break;
+		}
 		default:
 			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
 	}
