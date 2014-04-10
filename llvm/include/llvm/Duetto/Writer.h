@@ -15,6 +15,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Duetto/NameGenerator.h"
 #include "llvm/Duetto/PointerAnalyzer.h"
+#include "llvm/Duetto/SourceMaps.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
@@ -32,6 +33,12 @@ namespace duetto
 class NewLineHandler
 {
 friend llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const NewLineHandler& handler);
+private:
+	SourceMapGenerator& sourceMapGenerator;
+public:
+	NewLineHandler(SourceMapGenerator& s):sourceMapGenerator(s)
+	{
+	}
 };
 
 class DuettoWriter
@@ -66,6 +73,9 @@ private:
 	NameGenerator namegen;
 	DuettoPointerAnalyzer analyzer;
 	
+	// Support for source maps
+	SourceMapGenerator sourceMapGenerator;
+	std::string sourceMapName;
 	const NewLineHandler NewLine;
 
 	bool printMethodNames;
@@ -157,9 +167,11 @@ private:
 	void compileClassesExportedToJs();
 public:
 	llvm::raw_ostream& stream;
-	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA):
+	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,
+		const std::string& sourceMapName, llvm::raw_ostream* sourceMap):
 		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ),
-		NewLine(),printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
+		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
+		printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
 		printCreateArrayPointer(false),stream(s)
 	{
 	}

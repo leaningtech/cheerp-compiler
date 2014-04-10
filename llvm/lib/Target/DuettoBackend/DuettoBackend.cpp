@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2013 Leaning Technologies
+// Copyright 2011-2014 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,8 +18,15 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Duetto/Writer.h"
 #include "llvm/Duetto/AllocaMerging.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 using namespace llvm;
+
+static cl::opt<std::string> SourceMap("duetto-sourcemap", cl::Optional,
+  cl::desc("If specified, the file name of the source map"), cl::value_desc("filename"));
+
 
 extern "C" void LLVMInitializeDuettoBackendTarget() {
   // Register the target.
@@ -42,8 +49,20 @@ namespace {
 bool DuettoWritePass::runOnModule(Module& M)
 {
   AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
-  duetto::DuettoWriter writer(M, Out, AA);
-  writer.makeJS();
+  if (!SourceMap.empty())
+  {
+    std::error_code ErrorString;
+    tool_output_file sourceMap(SourceMap.c_str(), ErrorString, sys::fs::F_None);
+    duetto::DuettoWriter writer(M, Out, AA, SourceMap, &sourceMap.os());
+    sourceMap.keep();
+    writer.makeJS();
+  }
+  else
+  {
+    duetto::DuettoWriter writer(M, Out, AA, SourceMap, NULL);
+    writer.makeJS();
+  }
+
   return false;
 }
 
