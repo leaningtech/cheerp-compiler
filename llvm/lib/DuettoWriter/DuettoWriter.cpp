@@ -54,6 +54,7 @@ public:
 raw_ostream& duetto::operator<<(raw_ostream& s, const NewLineHandler& handler)
 {
 	s << "\n";
+	handler.sourceMapGenerator.finishLine();
 	return s;
 }
 
@@ -2528,6 +2529,9 @@ void DuettoWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 				continue;
 			}
 		}
+		const DebugLoc& debugLoc = I->getDebugLoc();
+		if(!debugLoc.isUnknown())
+			sourceMapGenerator.setDebugLoc(I->getDebugLoc());
 		if(I->getType()->getTypeID()!=Type::VoidTyID)
 		{
 			stream << "var ";
@@ -3032,6 +3036,7 @@ void DuettoWriter::compileHandleVAArg()
 
 void DuettoWriter::makeJS()
 {
+	sourceMapGenerator.beginFile();
 	// Enable strict mode first
 	stream << "\"use strict\"" << NewLine;
 	Function* webMain=module.getFunction("_Z7webMainv");
@@ -3124,4 +3129,8 @@ void DuettoWriter::makeJS()
 	analyzer.dumpAllFunctions();
 	analyzer.dumpAllPointers();
 #endif //DUETTO_DEBUG_POINTERS
+	sourceMapGenerator.endFile();
+	// Link the source map if necessary
+	if (!sourceMapName.empty())
+		stream << "//# sourceMappingURL=" << sourceMapName;
 }
