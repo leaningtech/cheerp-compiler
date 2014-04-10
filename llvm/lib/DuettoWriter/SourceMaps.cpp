@@ -67,7 +67,7 @@ void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
 		uint32_t currentFile = fileMapIt->second;
 		uint32_t currentLine = debugLoc.getLine() - 1;
 		uint32_t currentColoumn = debugLoc.getCol();
-		llvm::errs() << "COLUM " << currentColoumn << "\n";		// Starting coloumn in the generated code
+		// Starting coloumn in the generated code
 		writeBase64VLQInt(0);
 		// Other fields are encoded as difference from the previous one in the file
 		// We can use the last value directly because it is initialized as 0
