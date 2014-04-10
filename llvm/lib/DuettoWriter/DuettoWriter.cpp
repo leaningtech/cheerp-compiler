@@ -343,7 +343,7 @@ void DuettoWriter::compileDowncast(const Value* src, uint32_t baseOffset)
 	Type* pointerType=findRealType(src, visitedPhis);
 	assert(pointerType->isPointerTy());
 	Type* t=cast<PointerType>(pointerType)->getElementType();
-	if(isClientType(t))
+	if(isClientType(t) || baseOffset==0)
 		compileOperand(src);
 	else
 	{
