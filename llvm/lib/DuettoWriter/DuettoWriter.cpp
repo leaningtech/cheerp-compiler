@@ -1141,9 +1141,19 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 			compileOperand(ce->getOperand(0));
 			break;
 		}
+		case Instruction::PtrToInt:
+		{
+			compilePtrToInt(ce->getOperand(0));
+			break;
+		}
 		case Instruction::ICmp:
 		{
 			compileIntegerComparison(ce->getOperand(0), ce->getOperand(1), (CmpInst::Predicate)ce->getPredicate());
+			break;
+		}
+		case Instruction::Sub:
+		{
+			compileSubtraction(ce->getOperand(0), ce->getOperand(1));
 			break;
 		}
 		default:
@@ -2163,18 +2173,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		}
 		case Instruction::Sub:
 		{
-			//Integer subtraction
-			//TODO: optimize negation
-			stream << "((";
-			compileOperand(I.getOperand(0));
-			stream << " - ";
-			compileOperand(I.getOperand(1));
-			stream << ')';
-			if(isI32Type(I.getType()))
-				stream << ">> 0";
-			else
-				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			stream << ')';
+			compileSubtraction(I.getOperand(0), I.getOperand(1));
 			return true;
 		}
 		case Instruction::FSub:
@@ -2453,15 +2452,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::PtrToInt:
 		{
 			const PtrToIntInst& pi=static_cast<const PtrToIntInst&>(I);
-			//Comparison between pointers is significant only for pointers in the same array
-			POINTER_KIND k=analyzer.getPointerKind(pi.getOperand(0));
-			if(k==REGULAR)
-			{
-				compileOperand(pi.getOperand(0));
-				stream << ".o";
-			}
-			else
-				stream << '0';
+			compilePtrToInt(pi.getOperand(0));
 			return true;
 		}
 		case Instruction::VAArg:
