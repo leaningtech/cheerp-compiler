@@ -19,20 +19,19 @@
 //
 def int_duetto_downcast  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty, llvm_i32_ty],
-                             [NoCapture<0>, IntrIsCast]>;
+                             [NoCapture<0>, IntrFullyTyped]>;
 
 def int_duetto_upcast_collapsed  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
-                             [IntrNoMem, IntrIsCast]>;
+                             [IntrNoMem, IntrFullyTyped]>;
 
 def int_duetto_cast_user  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
-                             [IntrNoMem, IntrIsCast]>;
+                             [IntrNoMem, IntrFullyTyped]>;
 
-// Ok, it's not really a cast but we use this to signal intrinsics that may have non parsable names
 def int_duetto_allocate  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_i32_ty],
-                             [IntrIsCast]>;
+                             [IntrFullyTyped]>;
 
 // Access to pointer components
 def int_duetto_pointer_base : Intrinsic<[llvm_ptr_ty],
