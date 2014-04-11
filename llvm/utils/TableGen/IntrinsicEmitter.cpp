@@ -607,8 +607,8 @@ struct AttributeComparator {
     CodeGenIntrinsic::ModRefBehavior RK = R->ModRef;
     if (LK != RK) return (LK > RK);
 
-    if (L->isCast != R->isCast)
-      return R->isCast;
+    if (L->isFullyTyped != R->isFullyTyped)
+      return R->isFullyTyped;
 
     // Order by argument attributes.
     // This is reliable because each side is already sorted internally.
