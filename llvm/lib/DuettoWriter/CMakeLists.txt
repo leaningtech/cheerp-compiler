@@ -7,4 +7,5 @@ add_llvm_library(LLVMDuettoWriter
   Relooper.cpp
   Types.cpp
   Utility.cpp
+  Opcodes.cpp
   )
