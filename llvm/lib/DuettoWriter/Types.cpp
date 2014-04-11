@@ -1,4 +1,4 @@
-//===-- Types.cpp - The Duetto JavaScript generator -------------===//
+//===-- Types.cpp - The Duetto JavaScript generator -----------------------===//
 //
 //                     Duetto: The C++ compiler for the Web
 //
