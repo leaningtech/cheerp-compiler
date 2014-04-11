@@ -42,3 +42,31 @@ void DuettoWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 		compileOperandForIntegerPredicate(rhs,p);
 	}
 }
+
+void DuettoWriter::compilePtrToInt(const llvm::Value* v)
+{
+	POINTER_KIND k=analyzer.getPointerKind(v);
+	if(k==REGULAR)
+	{
+		compileOperand(v);
+		stream << ".o";
+	}
+	else
+		stream << '0';
+}
+
+void DuettoWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs)
+{
+	//Integer subtraction
+	//TODO: optimize negation
+	stream << "((";
+	compileOperand(lhs);
+	stream << " - ";
+	compileOperand(rhs);
+	stream << ')';
+	if(isI32Type(lhs->getType()))
+		stream << ">> 0";
+	else
+		stream << "& " << getMaskForBitWidth(lhs->getType()->getIntegerBitWidth());
+	stream << ')';
+}
