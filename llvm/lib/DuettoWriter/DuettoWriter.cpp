@@ -866,6 +866,34 @@ void DuettoWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Pr
 		compileSignedInteger(v);
 }
 
+void DuettoWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
+{
+	if(lhs->getType()->isPointerTy())
+	{
+		if(p==CmpInst::ICMP_EQ || p==CmpInst::ICMP_NE)
+			compileEqualPointersComparison(lhs, rhs, p);
+		else
+		{
+			//Comparison on different bases is anyway undefined, so ignore them
+			const Type* lastType1=compileObjectForPointer(lhs, DRY_RUN);
+			const Type* lastType2=compileObjectForPointer(rhs, DRY_RUN);
+			bool notFirst=compileOffsetForPointer(lhs,lastType1);
+			if(!notFirst)
+				stream << '0';
+			compilePredicate(p);
+			notFirst=compileOffsetForPointer(rhs,lastType2);
+			if(!notFirst)
+				stream << '0';
+		}
+	}
+	else
+	{
+		compileOperandForIntegerPredicate(lhs,p);
+		compilePredicate(p);
+		compileOperandForIntegerPredicate(rhs,p);
+	}
+}
+
 void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
 {
 	// Pointers to functions and client objects are compared directly.
@@ -1139,6 +1167,11 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 		{
 			// NOTE: This is necessary for virtual inheritance. It should be made type safe.
 			compileOperand(ce->getOperand(0));
+			break;
+		}
+		case Instruction::ICmp:
+		{
+			compileIntegerComparison(ce->getOperand(0), ce->getOperand(1), (CmpInst::Predicate)ce->getPredicate());
 			break;
 		}
 		default:
@@ -2286,33 +2319,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer comparison
 			const CmpInst& ci=static_cast<const CmpInst&>(I);
 			stream << '(';
-			if(ci.getOperand(0)->getType()->isPointerTy())
-			{
-				if(ci.getPredicate()==CmpInst::ICMP_EQ ||
-				   ci.getPredicate()==CmpInst::ICMP_NE)
-				{
-					compileEqualPointersComparison(ci.getOperand(0), ci.getOperand(1), ci.getPredicate());
-				}
-				else
-				{
-					//Comparison on different bases is anyway undefined, so ignore them
-					const Type* lastType1=compileObjectForPointer(ci.getOperand(0), DRY_RUN);
-					const Type* lastType2=compileObjectForPointer(ci.getOperand(1), DRY_RUN);
-					bool notFirst=compileOffsetForPointer(ci.getOperand(0),lastType1);
-					if(!notFirst)
-						stream << '0';
-					compilePredicate(ci.getPredicate());
-					notFirst=compileOffsetForPointer(ci.getOperand(1),lastType2);
-					if(!notFirst)
-						stream << '0';
-				}
-			}
-			else
-			{
-				compileOperandForIntegerPredicate(ci.getOperand(0),ci.getPredicate());
-				compilePredicate(ci.getPredicate());
-				compileOperandForIntegerPredicate(ci.getOperand(1),ci.getPredicate());
-			}
+			compileIntegerComparison(ci.getOperand(0), ci.getOperand(1), ci.getPredicate());
 			stream << ')';
 			return true;
 		}
