@@ -1099,18 +1099,7 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 	{
 		case Instruction::GetElementPtr:
 		{
-			if(ce->getNumOperands()<3)
-			{
-				//HACK: Type info for type info is accessed weirdly, understand why
-				stream << "null";
-				return;
-			}
 			Value* base = ce->getOperand(0);
-			//NOTE: the first dereference must be 0, they point to a single object
-#ifndef NDEBUG
-			Value* first=ce->getOperand(1);
-#endif
-			assert(getIntFromValue(first)==0);
 			compileGEP(base, ce->op_begin()+1, ce->op_end()-1);
 			break;
 		}
