@@ -7,8 +7,6 @@
 #include <list>
 #include <stack>
 
-#include "ministring.h"
-
 // TODO: move all set to unorderedset
 
 #if DEBUG
