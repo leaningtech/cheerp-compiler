@@ -53,6 +53,12 @@ bool DuettoWritePass::runOnModule(Module& M)
   {
     std::error_code ErrorString;
     tool_output_file sourceMap(SourceMap.c_str(), ErrorString, sys::fs::F_None);
+    if (ErrorString)
+    {
+       // An error occurred opening the source map file, bail out
+       llvm::report_fatal_error(ErrorString.message(), false);
+       return false;
+    }
     duetto::DuettoWriter writer(M, Out, AA, SourceMap, &sourceMap.os());
     sourceMap.keep();
     writer.makeJS();
