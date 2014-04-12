@@ -779,13 +779,58 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
 
     if (IsConstantOffsetFromGlobal(Op0, GV1, Offs1, DL))
       if (IsConstantOffsetFromGlobal(Op1, GV2, Offs2, DL) && GV1 == GV2) {
-        unsigned OpSize = DL.getTypeSizeInBits(Op0->getType());
+        if (!DL.isByteAddressable()) {
+          // Verify that the ops are ptrtoins
+          ConstantExpr* COp0 = dyn_cast<ConstantExpr>(Op0);
+          ConstantExpr* COp1 = dyn_cast<ConstantExpr>(Op1);
+          if (COp0 == 0 || COp0->getOpcode() != Instruction::PtrToInt ||
+              COp1 == 0 || COp1->getOpcode() != Instruction::PtrToInt) {
+            return 0;
+          }
+          Op0 = COp0->getOperand(0);
+          Op1 = COp1->getOperand(0);
+          // We can handle two possibilities:
+          // 1) 2 GEPs which have the same indices but for the last
+          // 2) 1 GEP and 1 constant. The GEP may have a single index
+          ConstantExpr* CE0 = dyn_cast<ConstantExpr>(Op0);
+          ConstantExpr* CE1 = dyn_cast<ConstantExpr>(Op1);
+          if (CE0 && CE0->getOpcode() == Instruction::GetElementPtr &&
+              CE0->getOperand(0) == Op1) {
+            // This is only ok if the GEP is only moving a pointer
+            // In this case it must have a single index, the result is the index itself
+            if (CE0->getNumOperands() != 2)
+              return 0;
+            return cast<Constant>(CE0->getOperand(1));
+          } else if (CE1 && CE1->getOpcode() == Instruction::GetElementPtr &&
+                     CE1->getOperand(0) == Op0) {
+            // Like before, but negate the result
+            if (CE1->getNumOperands() != 2)
+              return 0;
+            return ConstantExpr::getNeg(CE1->getOperand(1));
+          } else if (CE0 && CE0->getOpcode() == Instruction::GetElementPtr &&
+                     CE1 && CE1->getOpcode() == Instruction::GetElementPtr) {
+            // Duetto: the two geps must have equal indexes up to the last.
+            // The index difference is the result.
+            if (CE0->getNumOperands() != CE1->getNumOperands())
+              return 0;
+            User::op_iterator it1=CE0->op_begin();
+            User::op_iterator it2=CE1->op_begin();
+            for (;it1!=CE0->op_end()-1;++it1,++it2)
+            {
+              if (*it1 != *it2)
+                return 0;
+            }
+            return ConstantExpr::getSub(cast<Constant>(*it1), cast<Constant>(*it2));
+          }
+        } else {
+          unsigned OpSize = DL.getTypeSizeInBits(Op0->getType());
 
-        // (&GV+C1) - (&GV+C2) -> C1-C2, pointer arithmetic cannot overflow.
-        // PtrToInt may change the bitwidth so we have convert to the right size
-        // first.
-        return ConstantInt::get(Op0->getType(), Offs1.zextOrTrunc(OpSize) -
-                                                Offs2.zextOrTrunc(OpSize));
+          // (&GV+C1) - (&GV+C2) -> C1-C2, pointer arithmetic cannot overflow.
+          // PtrToInt may change the bitwidth so we have convert to the right size
+          // first.
+          return ConstantInt::get(Op0->getType(), Offs1.zextOrTrunc(OpSize) -
+                                                  Offs2.zextOrTrunc(OpSize));
+        }
       }
   }
 
