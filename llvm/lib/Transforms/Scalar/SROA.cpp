@@ -764,7 +764,7 @@ private:
     // We allow splitting of non-volatile loads and stores where the type is an
     // integer type. These may be used to implement 'memcpy' or other "transfer
     // of bits" patterns.
-    bool IsSplittable = Ty->isIntegerTy() && !IsVolatile;
+    bool IsSplittable = DL.isByteAddressable() && Ty->isIntegerTy() && !IsVolatile;
 
     insertUse(I, Offset, Size, IsSplittable);
   }
@@ -1661,6 +1661,9 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
 
   // On the off chance we were targeting i8*, guard the bitcast here.
   if (cast<PointerType>(Ptr->getType()) != TargetPtrTy) {
+    // Duetto: We don't accept a unsafe cast
+    if(!DL.isByteAddressable())
+      return NULL;
     Ptr = IRB.CreatePointerBitCastOrAddrSpaceCast(Ptr,
                                                   TargetPtrTy,
                                                   NamePrefix + "sroa_cast");
@@ -2365,7 +2368,7 @@ public:
     SliceSize = NewEndOffset - NewBeginOffset;
 
     OldUse = I->getUse();
-    OldPtr = cast<Instruction>(OldUse->get());
+    OldPtr = cast<Instruction>(OldUse->get()->stripPointerCastsSafe());
 
     Instruction *OldUserI = cast<Instruction>(OldUse->getUser());
     IRB.SetInsertPoint(OldUserI);
@@ -2425,6 +2428,25 @@ private:
                           Twine()
 #endif
                           );
+  }
+
+  Value *getAllocaCompatiblePtr(IRBuilderTy &IRB, Value* BasePtr, const APInt& BaseOffset, Type *TargetTy) {
+    assert(NewBeginOffset==NewAllocaBeginOffset);
+    while(1)
+    {
+      Value *RetPtr = getAdjustedPtr(IRB, DL, BasePtr, BaseOffset, TargetTy->getPointerTo(),
+                                BasePtr->getName() + ".");
+      if (RetPtr)
+        return RetPtr;
+
+      if(TargetTy->isStructTy())
+        TargetTy = TargetTy->getContainedType(0);
+      else if(TargetTy->isArrayTy())
+        TargetTy = TargetTy->getSequentialElementType();
+      else
+        assert(false && "Unsupported SROA for memcpy");
+     }
+     return NULL;
   }
 
   /// Compute suitable alignment to access this slice of the *new*
@@ -2488,7 +2510,7 @@ private:
 
   bool visitLoadInst(LoadInst &LI) {
     LLVM_DEBUG(dbgs() << "    original: " << LI << "\n");
-    Value *OldOp = LI.getOperand(0);
+    Value *OldOp = LI.getOperand(0)->stripPointerCastsSafe();
     assert(OldOp == OldPtr);
 
     AAMDNodes AATags;
@@ -2649,7 +2671,7 @@ private:
 
   bool visitStoreInst(StoreInst &SI) {
     LLVM_DEBUG(dbgs() << "    original: " << SI << "\n");
-    Value *OldOp = SI.getOperand(1);
+    Value *OldOp = SI.getOperand(1)->stripPointerCastsSafe();
     assert(OldOp == OldPtr);
 
     AAMDNodes AATags;
@@ -2759,7 +2781,7 @@ private:
 
   bool visitMemSetInst(MemSetInst &II) {
     LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
-    assert(II.getRawDest() == OldPtr);
+    assert(II.getDest(false) == OldPtr);
 
     AAMDNodes AATags;
     II.getAAMetadata(AATags);
@@ -2803,8 +2825,11 @@ private:
     if (!CanContinue) {
       Type *SizeTy = II.getLength()->getType();
       Constant *Size = ConstantInt::get(SizeTy, NewEndOffset - NewBeginOffset);
+      Value* OurPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
+      if (!OurPtr)
+        OurPtr = &NewAI;
       CallInst *New = IRB.CreateMemSet(
-          getNewAllocaSlicePtr(IRB, OldPtr->getType()), II.getValue(), Size,
+          OurPtr, II.getValue(), Size,
           MaybeAlign(getSliceAlign()), II.isVolatile());
       if (AATags)
         New->setAAMetadata(AATags);
@@ -2891,8 +2916,8 @@ private:
     II.getAAMetadata(AATags);
 
     bool IsDest = &II.getRawDestUse() == OldUse;
-    assert((IsDest && II.getRawDest() == OldPtr) ||
-           (!IsDest && II.getRawSource() == OldPtr));
+    assert((IsDest && II.getDest(false) == OldPtr) ||
+           (!IsDest && II.getSource(false) == OldPtr));
 
     MaybeAlign SliceAlign = getSliceAlign();
 
@@ -2905,6 +2930,8 @@ private:
     // update both source and dest of a single call.
     if (!IsSplittable) {
       Value *AdjustedPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
+      if (AdjustedPtr->getType() != IRB.getInt8PtrTy(cast<PointerType>(AdjustedPtr->getType())->getAddressSpace()))
+        AdjustedPtr = IRB.CreateBitCast(AdjustedPtr, IRB.getInt8PtrTy());
       if (IsDest) {
         II.setDest(AdjustedPtr);
         II.setDestAlignment(SliceAlign);
@@ -2973,10 +3000,18 @@ private:
     if (EmitMemCpy) {
       // Compute the other pointer, folding as much as possible to produce
       // a single, simple GEP in most cases.
-      OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, OtherOffset, OtherPtrTy,
-                                OtherPtr->getName() + ".");
 
       Value *OurPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
+      if (!OurPtr) {
+        // It's not possible to get the right type from the alloca.
+        // This means that we need to look the other way around.
+        OtherPtr = getAllocaCompatiblePtr(IRB, OtherPtr, OtherOffset, NewAI.getAllocatedType());
+        OurPtr = getNewAllocaSlicePtr(IRB, OtherPtr->getType());
+      } else {
+        OtherPtr = getAdjustedPtr(IRB, DL, OtherPtr, OtherOffset, OtherPtrTy,
+                                  OtherPtr->getName() + ".");
+      }
+
       Type *SizeTy = II.getLength()->getType();
       Constant *Size = ConstantInt::get(SizeTy, NewEndOffset - NewBeginOffset);
 
@@ -3091,7 +3126,7 @@ private:
       return true;
     }
 
-    assert(II.getArgOperand(1) == OldPtr);
+    assert(II.getArgOperand(1)->stripPointerCastsSafe() == OldPtr);
     // Lifetime intrinsics are only promotable if they cover the whole alloca.
     // Therefore, we drop lifetime intrinsics which don't cover the whole
     // alloca.
@@ -3106,10 +3141,8 @@ private:
     ConstantInt *Size =
         ConstantInt::get(cast<IntegerType>(II.getArgOperand(0)->getType()),
                          NewEndOffset - NewBeginOffset);
-    // Lifetime intrinsics always expect an i8* so directly get such a pointer
-    // for the new alloca slice.
-    Type *PointerTy = IRB.getInt8PtrTy(OldPtr->getType()->getPointerAddressSpace());
-    Value *Ptr = getNewAllocaSlicePtr(IRB, PointerTy);
+    // A lifetime intrinsic works on the whole partition
+    Value *Ptr = &NewAI;
     Value *New;
     if (II.getIntrinsicID() == Intrinsic::lifetime_start)
       New = IRB.CreateLifetimeStart(Ptr, Size);
@@ -3186,7 +3219,7 @@ private:
 
   bool visitSelectInst(SelectInst &SI) {
     LLVM_DEBUG(dbgs() << "    original: " << SI << "\n");
-    assert((SI.getTrueValue() == OldPtr || SI.getFalseValue() == OldPtr) &&
+    assert((SI.getTrueValue()->stripPointerCastsSafe() == OldPtr || SI.getFalseValue()->stripPointerCastsSafe() == OldPtr) &&
            "Pointer isn't an operand!");
     assert(BeginOffset >= NewAllocaBeginOffset && "Selects are unsplittable");
     assert(EndOffset <= NewAllocaEndOffset && "Selects are unsplittable");
@@ -3694,6 +3727,10 @@ static Type *getTypePartition(const DataLayout &DL, Type *Ty, uint64_t Offset,
   if (Size == ElementSize)
     return stripAggregateTypeWrapping(DL, ElementTy);
 
+  // Duetto: Do not try to create subtypes.
+  // Memcpy/memsets works only on whole objects.
+  if (!DL.isByteAddressable())
+    return 0;
   StructType::element_iterator EI = STy->element_begin() + Index,
                                EE = STy->element_end();
   if (EndOffset < SL->getSizeInBytes()) {
@@ -4258,7 +4295,11 @@ AllocaInst *SROA::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
       DL.isLegalInteger(P.size() * 8))
     SliceTy = Type::getIntNTy(*C, P.size() * 8);
   if (!SliceTy)
+  {
+    if (!DL.isByteAddressable())
+      return false;
     SliceTy = ArrayType::get(Type::getInt8Ty(*C), P.size());
+  }
   assert(DL.getTypeAllocSize(SliceTy).getFixedSize() >= P.size());
 
   bool IsIntegerPromotable = isIntegerWideningViable(P, SliceTy, DL);
@@ -4688,8 +4729,6 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
   C = &F.getContext();
   DT = &RunDT;
   AC = &RunAC;
-  if (!DL->isByteAddressable())
-    return false;
 
   BasicBlock &EntryBB = F.getEntryBlock();
   for (BasicBlock::iterator I = EntryBB.begin(), E = std::prev(EntryBB.end());
