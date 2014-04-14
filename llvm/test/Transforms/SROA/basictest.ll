@@ -1243,7 +1243,7 @@ entry:
 ; CHECK: alloca [16 x i8], align 8
 
   %gep = getelementptr inbounds { [16 x i8] }, { [16 x i8] }* %ptr, i64 -1
-; CHECK-NEXT: getelementptr inbounds { [16 x i8] }, { [16 x i8] }* %ptr, i64 -1, i32 0, i64 0
+; CHECK: getelementptr inbounds { [16 x i8] }, { [16 x i8] }* %ptr, i64 -1
 
   %cast1 = bitcast { [16 x i8 ] }* %gep to i8*
   %cast2 = bitcast { [16 x i8 ] }* %a to i8*
