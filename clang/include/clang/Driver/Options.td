@@ -4342,6 +4342,8 @@ def cl_ext_EQ : CommaJoined<["-"], "cl-ext=">,
 
 def duetto_side_EQ : Joined<["-"], "duetto-side=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Specify which side to build [client/server]">;
+def duetto_sourcemap_EQ : Joined<["-"], "duetto-sourcemap=">, Flags<[DriverOption]>,
+  HelpText<"Write sourcemap to <file>">, MetaVarName<"<file>">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options

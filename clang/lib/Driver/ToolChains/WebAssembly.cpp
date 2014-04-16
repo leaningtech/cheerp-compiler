@@ -417,6 +417,9 @@ void duetto::DuettoCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
+  if(Arg* duettoSourceMap = Args.getLastArg(options::OPT_duetto_sourcemap_EQ))
+    duettoSourceMap->render(Args, CmdArgs);
+
   const InputInfo &II = *Inputs.begin();
   CmdArgs.push_back(II.getFilename());
 
