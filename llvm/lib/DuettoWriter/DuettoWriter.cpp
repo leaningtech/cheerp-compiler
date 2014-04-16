@@ -1106,14 +1106,6 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 		case Instruction::BitCast:
 		{
 			Value* val=ce->getOperand(0);
-			//Special case guard variables, they are defined as 64bit,
-			//but only the first byte is specified and probably used
-			//Guard variables are identified by their mangling prefix
-			if(val->hasName() && strncmp("_ZGV",val->getName().data(),4)==0)
-			{
-				compileOperand(val);
-				break;
-			}
 			Type* dst=ce->getType();
 			Type* src=val->getType();
 			if(!isValidTypeCast(ce, val, src, dst))
