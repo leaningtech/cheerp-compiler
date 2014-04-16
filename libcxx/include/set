@@ -906,6 +906,7 @@ public:
     typename enable_if<__is_transparent<_Compare, _K2>::value,pair<const_iterator,const_iterator>>::type
     equal_range(const _K2& __k) const {return __tree_.__equal_range_multi(__k);}
 #endif
+    static_assert(!std::is_pointer<_Key>::value, "Duetto: std::set of pointers is not currently supported");
 };
 
 #if _LIBCPP_STD_VER >= 17
@@ -1438,6 +1439,7 @@ public:
     typename enable_if<__is_transparent<_Compare, _K2>::value,pair<const_iterator,const_iterator>>::type
     equal_range(const _K2& __k) const {return __tree_.__equal_range_multi(__k);}
 #endif
+    static_assert(!std::is_pointer<_Key>::value, "Duetto: std::multiset of pointers is not currently supported");
 };
 
 #if _LIBCPP_STD_VER >= 17
