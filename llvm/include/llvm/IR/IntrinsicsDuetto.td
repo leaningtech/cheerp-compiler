@@ -1,4 +1,4 @@
-//===- IntrinsicsARM.td - Defines ARM intrinsics -----------*- tablegen -*-===//
+//===- IntrinsicsDuetto.td - Defines Duetto intrinsics -----*- tablegen -*-===//
 //
 //                     Duetto: The C++ compiler for the Web
 //
@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines all of the ARM-specific intrinsics.
+// This file defines all of the Duetto-specific intrinsics.
 //
 //===----------------------------------------------------------------------===//
 
