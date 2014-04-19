@@ -290,6 +290,9 @@ def ZExt : EnumAttr<"zeroext", [ParamAttr, RetAttr]>;
 /// Function is required to make Forward Progress.
 def MustProgress : EnumAttr<"mustprogress", [FnAttr]>;
 
+/// Static C++ method
+def Static : EnumAttr<"static">;
+
 /// Target-independent string attributes.
 def LessPreciseFPMAD : StrBoolAttr<"less-precise-fpmad">;
 def NoInfsFPMath : StrBoolAttr<"no-infs-fp-math">;

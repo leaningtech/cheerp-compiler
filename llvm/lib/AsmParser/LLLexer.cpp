@@ -708,6 +708,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(immarg);
   KEYWORD(byref);
   KEYWORD(mustprogress);
+  KEYWORD(static);
 
   KEYWORD(type);
   KEYWORD(opaque);
