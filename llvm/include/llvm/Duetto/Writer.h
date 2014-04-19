@@ -146,9 +146,9 @@ private:
 	void printArgName(const llvm::Argument* v) const;
 	void compileMethodArgs(const llvm::User::const_op_iterator it, const llvm::User::const_op_iterator itE);
 	void compileMethodArgsForDirectCall(const llvm::User::const_op_iterator it, const llvm::User::const_op_iterator itE, llvm::Function::const_arg_iterator arg_it);
-	void handleBuiltinNamespace(const char* ident, llvm::User::const_op_iterator it,
-			llvm::User::const_op_iterator itE);
-	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(const char* ident, const llvm::Value* callV,
+	void handleBuiltinNamespace(const char* ident, const llvm::Function* calledFunction,
+			llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE);
+	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(const char* ident, llvm::CallSite callV,
 			llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, bool userImplemented);
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
