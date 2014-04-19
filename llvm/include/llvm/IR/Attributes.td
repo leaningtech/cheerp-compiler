@@ -306,6 +306,9 @@ def MustProgress : EnumAttr<"mustprogress", [FnAttr]>;
 /// Function is a presplit coroutine.
 def PresplitCoroutine : EnumAttr<"presplitcoroutine", [FnAttr]>;
 
+/// Static C++ method
+def Static : EnumAttr<"static">;
+
 /// Target-independent string attributes.
 def LessPreciseFPMAD : StrBoolAttr<"less-precise-fpmad">;
 def NoInfsFPMath : StrBoolAttr<"no-infs-fp-math">;

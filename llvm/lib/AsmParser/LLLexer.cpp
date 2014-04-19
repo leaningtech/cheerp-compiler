@@ -638,6 +638,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(attributes);
   KEYWORD(sync);
   KEYWORD(async);
+  KEYWORD(static);
 
 #define GET_ATTR_NAMES
 #define ATTRIBUTE_ENUM(ENUM_NAME, DISPLAY_NAME) \
