@@ -8423,6 +8423,14 @@ EnforceTCBLeafAttr *Sema::mergeEnforceTCBLeafAttr(
       *this, D, AL);
 }
 
+static void handleStatic(Sema &S, Decl *D, const AttributeList &Attr)
+{
+  D->addAttr(::new (S.Context) StaticAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  //This should be a function
+  if (!isa<FunctionDecl>(D))
+    S.Diag(Attr.getLoc(), diag::err_duetto_attribute_not_on_function);
+}
+
 static void handleNoInit(Sema &S, Decl* D, const AttributeList &Attr)
 {
   D->addAttr(::new (S.Context) NoInitAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
@@ -8487,8 +8495,11 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
   // `DeclSpec`, so we need to let it through here to make sure it is processed
   // appropriately. Once the behavior of isCXX11Attribute() is fixed, we can
   // go back to using that here.
-  if (AL.getSyntax() == ParsedAttr::AS_CXX11 && !Options.IncludeCXX11Attributes)
+  if (AL.getSyntax() == ParsedAttr::AS_CXX11 && !Options.IncludeCXX11Attributes &&
+      AL.getKind()!=AttributeList::AT_Static)
+  {
     return;
+  }
 
   // Unknown attributes are automatically warned on. Target-specific attributes
   // which do not apply to the current target architecture are treated as
@@ -9244,11 +9255,14 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     break;
 
   // Cheerp attributes
+  case AttributeList::AT_Static:
+    handleStatic(S, D, AL);
+    break;
   case AttributeList::AT_NoInit:
-    handleNoInit(S, D, Attr);
+    handleNoInit(S, D, AL);
     break;
   case AttributeList::AT_JsExport:
-    handleJsExportAttr(S, D, Attr);
+    handleJsExportAttr(S, D, AL);
     break;
   }
 }

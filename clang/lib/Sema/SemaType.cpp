@@ -8379,6 +8379,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       break;
 
     case ParsedAttr::IgnoredAttribute:
+    case ParsedAttr::AT_Static:
       break;
 
     case ParsedAttr::AT_BTFTypeTag:
