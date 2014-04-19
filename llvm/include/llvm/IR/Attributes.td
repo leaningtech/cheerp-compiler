@@ -235,6 +235,9 @@ def WriteOnly : EnumAttr<"writeonly">;
 /// Zero extended before/after call.
 def ZExt : EnumAttr<"zeroext">;
 
+/// Static C++ method
+def Static : EnumAttr<"static">;
+
 /// Target-independent string attributes.
 def LessPreciseFPMAD : StrBoolAttr<"less-precise-fpmad">;
 def NoInfsFPMath : StrBoolAttr<"no-infs-fp-math">;

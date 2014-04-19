@@ -1366,6 +1366,7 @@ bool LLParser::ParseFnAttributeValuePairs(AttrBuilder &B,
       B.addPreallocatedAttr(Ty);
       break;
     }
+    case lltok::kw_static: B.addAttribute(Attribute::Static); break;
 
     // Error handling.
     case lltok::kw_inreg:
