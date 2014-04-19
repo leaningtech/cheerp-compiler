@@ -712,6 +712,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(mustprogress);
   KEYWORD(sync);
   KEYWORD(async);
+  KEYWORD(static);
 
   KEYWORD(type);
   KEYWORD(opaque);

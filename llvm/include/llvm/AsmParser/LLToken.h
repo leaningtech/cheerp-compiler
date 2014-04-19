@@ -256,6 +256,7 @@ enum Kind {
   kw_mustprogress,
   kw_sync,
   kw_async,
+  kw_static,
 
   kw_type,
   kw_opaque,
