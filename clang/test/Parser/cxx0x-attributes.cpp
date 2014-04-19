@@ -47,8 +47,7 @@ int && [[]] rref_attr = 0;
 int array_attr [1] [[]];
 alignas(8) int aligned_attr;
 [[test::valid(for 42 [very] **** '+' symbols went on a trip and had a "good"_time; the end.)]] int garbage_attr; // expected-warning {{unknown attribute 'valid' ignored}}
-[[,,,static, class, namespace,, inline, constexpr, mutable,, bitand, bitor::compl(!.*_ Cx.!U^*R),,,]] int more_garbage_attr; // expected-warning {{unknown attribute 'static' ignored}} \
-    // expected-warning {{unknown attribute 'class' ignored}} \
+[[,,,, class, namespace,, inline, constexpr, mutable,, bitand, bitor::compl(!.*_ Cx.!U^*R),,,]] int more_garbage_attr; // expected-warning {{unknown attribute 'class' ignored}} \
     // expected-warning {{unknown attribute 'namespace' ignored}} \
     // expected-warning {{unknown attribute 'inline' ignored}} \
     // expected-warning {{unknown attribute 'constexpr' ignored}} \

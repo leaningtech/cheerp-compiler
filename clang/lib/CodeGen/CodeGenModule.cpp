@@ -1294,6 +1294,8 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
   ConstructAttributeList(F->getName(), Info, GD, PAL, CallingConv, false);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
+  if(D->hasAttr<StaticAttr>())
+    F->addFnAttr(llvm::Attribute::Static);
 }
 
 static void removeImageAccessQualifier(std::string& TyName) {
