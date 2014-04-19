@@ -58,8 +58,8 @@ raw_ostream& duetto::operator<<(raw_ostream& s, const NewLineHandler& handler)
 	return s;
 }
 
-void DuettoWriter::handleBuiltinNamespace(const char* identifier, User::const_op_iterator it,
-			User::const_op_iterator itE)
+void DuettoWriter::handleBuiltinNamespace(const char* identifier, const llvm::Function* calledFunction,
+			User::const_op_iterator it, User::const_op_iterator itE)
 {
 	const char* ident = identifier;
 	//Read the class name
@@ -87,6 +87,7 @@ void DuettoWriter::handleBuiltinNamespace(const char* identifier, User::const_op
 	//This condition is necessarily true
 	assert(funcNameLen!=0);
 
+	bool isClientStatic = calledFunction->hasFnAttribute(Attribute::Static);
 	//The first arg should be the object
 	if(strncmp(funcName,"get_",4)==0 && (itE-it)==1)
 	{
@@ -120,13 +121,19 @@ void DuettoWriter::handleBuiltinNamespace(const char* identifier, User::const_op
 		//Regular call
 		if(className)
 		{
-			if(it == itE)
+			if(isClientStatic)
+				stream.write(className,classLen);
+			else if(it == itE)
 			{
-				llvm::report_fatal_error(Twine("At least 'this' parameter was expected: ", StringRef(identifier)), false);
+				llvm::report_fatal_error(Twine("At least 'this' parameter was expected: ",
+					StringRef(identifier)), false);
 				return;
 			}
-			compileOperand(*it);
-			++it;
+			else
+			{
+				compileOperand(*it);
+				++it;
+			}
 			stream << ".";
 		}
 		stream.write(funcName,funcNameLen);
@@ -649,7 +656,7 @@ void DuettoWriter::compileFree(const Value* obj)
 	//TODO: Clean up class related data structures
 }
 
-DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const char* ident, const Value* callV,
+DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const char* ident, const CallSite callV,
 			User::const_op_iterator it, User::const_op_iterator itE, bool userImplemented)
 {
 	//First handle high priority builtins, they will be used even
@@ -721,12 +728,12 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 		strcmp(ident,"_Znwj")==0 ||
 		strncmp(ident,"llvm.duetto.allocate",20)==0)
 	{
-		compileAllocation(callV, *it);
+		compileAllocation(callV.getInstruction(), *it);
 		return COMPILE_OK;
 	}
 	else if(strcmp(ident,"calloc")==0)
 	{
-		compileAllocation(callV, *(it+1), *it);
+		compileAllocation(callV.getInstruction(), *(it+1), *it);
 		return COMPILE_OK;
 	}
 	else if(strcmp(ident,"free")==0 ||
@@ -790,12 +797,12 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 	}
 	else if(strncmp(ident,"_ZN6client",10)==0)
 	{
-		handleBuiltinNamespace(ident+10,it,itE);
+		handleBuiltinNamespace(ident+10,callV.getCalledFunction(),it,itE);
 		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"_ZNK6client",11)==0)
 	{
-		handleBuiltinNamespace(ident+11,it,itE);
+		handleBuiltinNamespace(ident+11,callV.getCalledFunction(),it,itE);
 		return COMPILE_OK;
 	}
 	else if(strncmp(ident,"duettoCreate_ZN6client",22)==0)
@@ -1477,7 +1484,8 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 			{
 				//Direct call
 				const char* funcName=ci.getCalledFunction()->getName().data();
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(funcName,&ci,ci.op_begin(),
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(funcName,const_cast<InvokeInst*>(&ci),
+						ci.op_begin(),
 						ci.op_begin()+ci.getNumArgOperands(),!ci.getCalledFunction()->empty());
 				assert(cf!=COMPILE_EMPTY);
 				if(cf==COMPILE_OK)
@@ -1641,7 +1649,8 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			{
 				//Direct call
 				const char* funcName=calledFunc->getName().data();
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(funcName,&ci,ci.op_begin(),
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(funcName,const_cast<CallInst*>(&ci),
+						ci.op_begin(),
 						ci.op_begin()+ci.getNumArgOperands(),!calledFunc->empty());
 				if(cf!=COMPILE_UNSUPPORTED)
 					return cf;
