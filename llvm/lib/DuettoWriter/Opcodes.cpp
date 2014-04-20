@@ -46,9 +46,11 @@ void DuettoWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 void DuettoWriter::compilePtrToInt(const llvm::Value* v)
 {
 	const Type* lastType = compileObjectForPointer(v, DRY_RUN);
+	stream << '(';
 	bool ret=compileOffsetForPointer(v, lastType);
 	if(!ret)
 		stream << '0';
+	stream << ')';
 }
 
 void DuettoWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs)
