@@ -45,13 +45,9 @@ void DuettoWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 
 void DuettoWriter::compilePtrToInt(const llvm::Value* v)
 {
-	POINTER_KIND k=analyzer.getPointerKind(v);
-	if(k==REGULAR)
-	{
-		compileOperand(v);
-		stream << ".o";
-	}
-	else
+	const Type* lastType = compileObjectForPointer(v, DRY_RUN);
+	bool ret=compileOffsetForPointer(v, lastType);
+	if(!ret)
 		stream << '0';
 }
 
