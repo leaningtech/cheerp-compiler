@@ -27,7 +27,7 @@ const char* getMethodFromMangledName(StringRef className, const char* name)
 	return localClassName+classNameLen;
 }
 
-void DuettoWriter::compileClassesExportedToJs()
+void DuettoWriter::compileClassesExportedToJs(std::set<const llvm::GlobalValue*>* analysisQueue)
 {
 	Module::const_named_metadata_iterator it=module.named_metadata_begin();
 	Module::const_named_metadata_iterator itE=module.named_metadata_end();
@@ -77,7 +77,7 @@ void DuettoWriter::compileClassesExportedToJs()
 			for(uint32_t i=0;i<f->arg_size()-1;i++)
 				stream << ",a" << i;
 			stream << ");\n}\n";
-			globalsQueue.insert(f);
+			analysisQueue->insert(f);
 			break;
 		}
 		//Then compile other methods and add them to the prototype
@@ -105,7 +105,7 @@ void DuettoWriter::compileClassesExportedToJs()
 			for(uint32_t i=0;i<f->arg_size()-1;i++)
 				stream << ",a" << i;
 			stream << ");\n}\n";
-			globalsQueue.insert(f);
+			analysisQueue->insert(f);
 		}
 	}
 }
