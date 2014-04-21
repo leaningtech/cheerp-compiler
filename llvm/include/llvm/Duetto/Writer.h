@@ -24,9 +24,6 @@
 #include <set>
 #include <map>
 
-//De-comment this to debug why a global is included in the JS
-//#define DEBUG_GLOBAL_DEPS
-
 namespace duetto
 {
 
@@ -63,12 +60,7 @@ private:
 	const llvm::Function* currentFun;
 	std::set<llvm::StructType*> classesNeeded;
 	std::set<llvm::StructType*> arraysNeeded;
-	std::set<const llvm::GlobalValue*> globalsDone;
-#ifdef DEBUG_GLOBAL_DEPS
-	std::map<const llvm::GlobalValue*, const llvm::GlobalValue*> globalsQueue;
-#else
 	std::set<const llvm::GlobalValue*> globalsQueue;
-#endif
 	typedef std::multimap<const llvm::GlobalVariable*, Fixup> FixupMapType;
 	FixupMapType globalsFixupMap;
 	
@@ -152,8 +144,12 @@ private:
 			llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, bool userImplemented);
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
-	void gatherDependencies(const llvm::Constant* C, const llvm::GlobalVariable* base,
-			const llvm::Twine& baseName, const llvm::Constant* value);
+	void gatherGlobalDependencies(const llvm::Constant* C, const llvm::GlobalVariable* base,
+			const llvm::Twine& baseName, const llvm::Constant* value,
+			std::set<const llvm::GlobalValue*>* analysisQueue);
+	void gatherOperandDependencies(const llvm::Function* F, const llvm::Constant* C,
+			std::set<const llvm::GlobalValue*>* analysisQueue);
+	void computeGlobalsQueue();
 	bool getBasesInfo(const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
@@ -162,14 +158,13 @@ private:
 	void compileLambdaBridge();
 	void compileHandleVAArg();
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
-	enum CONSTRUCTOR_ACTION { ADD_TO_QUEUE=0, COMPILE=1 };
-	void handleConstructors(llvm::GlobalVariable* GV, CONSTRUCTOR_ACTION action);
+	void handleConstructors(llvm::GlobalVariable* GV, std::set<const llvm::GlobalValue*>* analysisQueue);
 	void compileNullPtrs();
 	static uint32_t getMaskForBitWidth(int width);
 	void compileSignedInteger(const llvm::Value* v);
 	void compileUnsignedInteger(const llvm::Value* v);
 	//JS interoperability support
-	void compileClassesExportedToJs();
+	void compileClassesExportedToJs(std::set<const llvm::GlobalValue*>* analysisQueue);
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,

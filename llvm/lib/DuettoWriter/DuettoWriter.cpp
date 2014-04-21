@@ -21,6 +21,9 @@ using namespace llvm;
 using namespace std;
 using namespace duetto;
 
+//De-comment this to debug why a global is included in the JS
+//#define DEBUG_GLOBAL_DEPS
+
 class DuettoRenderInterface: public RenderInterface
 {
 private:
@@ -1222,16 +1225,7 @@ void DuettoWriter::compileConstant(const Constant* c)
 			stream.write(objName, nameLen);
 		}
 		else
-		{
-			const GlobalValue* GV=cast<const GlobalValue>(c);
 			printLLVMName(c->getName(), GLOBAL);
-			if(globalsDone.count(GV)==0)
-#ifdef DEBUG_GLOBAL_DEPS
-				globalsQueue.insert(make_pair(GV,currentFun));
-#else
-				globalsQueue.insert(GV);
-#endif
-		}
 	}
 	else if(ConstantAggregateZero::classof(c))
 	{
@@ -1469,15 +1463,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 					return COMPILE_OK;
 				}
 				else
-				{
 					stream << '_' << funcName;
-					if(!globalsDone.count(ci.getCalledFunction()))
-#ifdef DEBUG_GLOBAL_DEPS
-						globalsQueue.insert(make_pair(ci.getCalledFunction(),currentFun));
-#else
-						globalsQueue.insert(ci.getCalledFunction());
-#endif
-				}
 			}
 			else
 			{
@@ -1627,12 +1613,6 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 				if(cf!=COMPILE_UNSUPPORTED)
 					return cf;
 				stream << '_' << funcName;
-				if(!globalsDone.count(calledFunc) )
-#ifdef DEBUG_GLOBAL_DEPS
-					globalsQueue.insert(make_pair(calledFunc,currentFun));
-#else
-					globalsQueue.insert(calledFunc);
-#endif
 			}
 			else
 			{
@@ -2659,9 +2639,6 @@ void DuettoRenderInterface::renderIfOnLabel(int labelId, bool first)
 
 void DuettoWriter::compileMethod(const Function& F)
 {
-	if(F.empty())
-		return;
-	globalsDone.insert(&F);
 	currentFun = &F;
 	stream << "function _" << F.getName() << "(";
 	const Function::const_arg_iterator A=F.arg_begin();
@@ -2773,10 +2750,9 @@ void DuettoWriter::compileMethod(const Function& F)
 /*
  * Use Twine since in most cases the complete string will not be used
  */
-void DuettoWriter::gatherDependencies(const Constant* c, const llvm::GlobalVariable* base,
-		const Twine& baseName, const Constant* value)
+void DuettoWriter::gatherGlobalDependencies(const Constant* c, const llvm::GlobalVariable* base,
+		const Twine& baseName, const Constant* value, std::set<const llvm::GlobalValue*>* analysisQueue)
 {
-	//TODO: Maybe add Function too
 	if(ConstantExpr::classof(c))
 	{
 		const ConstantExpr* ce=cast<const ConstantExpr>(c);
@@ -2784,12 +2760,12 @@ void DuettoWriter::gatherDependencies(const Constant* c, const llvm::GlobalVaria
 		{
 			//TODO: Maybe it's possible to set directly .d in the fixup
 			Constant* gepBase = ce->getOperand(0);
-			gatherDependencies(gepBase, base, baseName, c);
+			gatherGlobalDependencies(gepBase, base, baseName, c, analysisQueue);
 		}
 		else if(ce->getOpcode()==Instruction::BitCast)
 		{
 			Value* val=ce->getOperand(0);
-			gatherDependencies(cast<Constant>(val), base, baseName, c);
+			gatherGlobalDependencies(cast<Constant>(val), base, baseName, c, analysisQueue);
 		}
 	}
 	else if(ConstantArray::classof(c))
@@ -2800,7 +2776,7 @@ void DuettoWriter::gatherDependencies(const Constant* c, const llvm::GlobalVaria
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
 			snprintf(buf,12,"[%u]",i);
-			gatherDependencies(d->getOperand(i), base, baseName.concat(buf), NULL);
+			gatherGlobalDependencies(d->getOperand(i), base, baseName.concat(buf), NULL, analysisQueue);
 		}
 	}
 	else if(ConstantStruct::classof(c))
@@ -2811,52 +2787,84 @@ void DuettoWriter::gatherDependencies(const Constant* c, const llvm::GlobalVaria
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
 			snprintf(buf,12,".a%u",i);
-			gatherDependencies(d->getOperand(i), base, baseName.concat(buf), NULL);
+			gatherGlobalDependencies(d->getOperand(i), base, baseName.concat(buf), NULL, analysisQueue);
 		}
 	}
 	else if(GlobalAlias::classof(c))
 	{
 		const GlobalAlias* a=cast<const GlobalAlias>(c);
-		gatherDependencies(a->getAliasee(), base, baseName, NULL);
+		gatherGlobalDependencies(a->getAliasee(), base, baseName, NULL, analysisQueue);
 	}
 	else if(GlobalVariable::classof(c))
 	{
 		assert(c->hasName());
 		const GlobalVariable* GV=cast<GlobalVariable>(c);
-		if(globalsDone.count(GV))
-			return;
 		/*
 		 * Insert the fixup in the map, if a value is specified (e.g. this global is in a ConstantExpr)
 		 * use value, otherwise it's a regular value and you use GV
 		 */
 		globalsFixupMap.insert(make_pair(GV, Fixup(base, baseName.str(), (value)?value:c)));
+		if(analysisQueue->count(GV))
+			return;
 		/*
 		 * Also add the global to the globals queue
 		 */
 #ifdef DEBUG_GLOBAL_DEPS
-		globalsQueue.insert(make_pair(GV,base));
-#else
-		globalsQueue.insert(GV);
+		llvm::errs() << GV->getName() << " included by " << base->getName() << "\n";
 #endif
+		analysisQueue->insert(GV);
 	}
 	else if(Function::classof(c))
 	{
 		const Function* F=cast<const Function>(c);
-		if(globalsDone.count(F))
+		if(globalsQueue.count(F) || analysisQueue->count(F) || F->empty())
 			return;
 #ifdef DEBUG_GLOBAL_DEPS
-		globalsQueue.insert(make_pair(F,base));
-#else
-		globalsQueue.insert(F);
+		llvm::errs() << F->getName() << " included by " << base->getName() << "\n";
 #endif
+		analysisQueue->insert(F);
+	}
+}
+
+void DuettoWriter::gatherOperandDependencies(const Function* base, const Constant* C,
+						std::set<const llvm::GlobalValue*>* analysisQueue)
+{
+	if(const ConstantExpr* CE=dyn_cast<const ConstantExpr>(C))
+	{
+		// Keep in sync with compileConstantExpr
+		switch(CE->getOpcode())
+		{
+			case Instruction::GetElementPtr:
+			case Instruction::BitCast:
+			case Instruction::PtrToInt:
+				gatherOperandDependencies(base, CE->getOperand(0), analysisQueue);
+				break;
+			case Instruction::IntToPtr:
+			case Instruction::ICmp:
+			case Instruction::Sub:
+			default:
+				// Nothing to do
+				break;
+		}
+	}
+	else if(const GlobalAlias* GA=dyn_cast<GlobalAlias>(C))
+		gatherOperandDependencies(base, GA->getAliasee(), analysisQueue);
+	else if(const GlobalVariable* GV=dyn_cast<GlobalVariable>(C))
+	{
+		if(globalsQueue.count(GV) || analysisQueue->count(GV))
+			return;
+		analysisQueue->insert(GV);
+	}
+	else if(const Function* F=dyn_cast<Function>(C))
+	{
+		if(globalsQueue.count(F) || analysisQueue->count(F) || F->empty())
+			return;
+		analysisQueue->insert(F);
 	}
 }
 
 void DuettoWriter::compileGlobal(const GlobalVariable& G)
 {
-	if(globalsDone.count(&G))
-		return;
-
 	assert(G.hasName());
 	if(isClientGlobal(G.getName().data()))
 	{
@@ -2872,9 +2880,6 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		stream << " = ";
 		const Constant* C=G.getInitializer();
 
-		//Gather the needed fixups
-		gatherDependencies(C, &G, "", NULL);
-
 		Type* t=C->getType();
 		if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&G))
 			stream << '[';
@@ -2888,7 +2893,6 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 	stream << ';' << NewLine;
 	if(addSelf)
 		addSelfPointer(&G);
-	globalsDone.insert(&G);
 	//Now we have defined a new global, check if there are fixups for previously defined globals
 	std::pair<FixupMapType::iterator, FixupMapType::iterator> f=globalsFixupMap.equal_range(&G);
 	for(FixupMapType::iterator it=f.first;it!=f.second;++it)
@@ -2902,6 +2906,8 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 			continue;
 		}
+		if(globalsQueue.count(otherGV))
+			continue;
 		const Constant* C=otherGV->getInitializer();
 
 		printLLVMName(otherGV->getName(), GLOBAL);
@@ -2915,7 +2921,7 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		globalsFixupMap.erase(f.first,f.second);
 }
 
-void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION action)
+void DuettoWriter::handleConstructors(GlobalVariable* GV, std::set<const llvm::GlobalValue*>* analysisQueue)
 {
 	assert(GV->hasInitializer());
 	Constant* C=GV->getInitializer();
@@ -2927,22 +2933,21 @@ void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION act
 	uint32_t lastPriority=0;
 	for(uint32_t i=0;i<numElements;i++)
 	{
-		if(action==ADD_TO_QUEUE)
+		if(analysisQueue)
 		{
+			//Only add to the queue
 			Constant* E=CA->getAggregateElement(i);
 			Constant* FA=E->getAggregateElement((unsigned)1);
 			assert(Function::classof(FA));
 			Function* F=cast<Function>(FA);
-			if(globalsDone.count(F))
-				continue;
 #ifdef DEBUG_GLOBAL_DEPS
-			globalsQueue.insert(make_pair(F,GV));
-#else
-			globalsQueue.insert(F);
+			llvm::errs() << F->getName() << " included by " << GV->getName() << "\n";
 #endif
+			analysisQueue->insert(F);
 		}
-		else if(action==COMPILE)
+		else
 		{
+			//Run the constructors
 			Constant* E=CA->getAggregateElement(i);
 			Constant* PS=E->getAggregateElement((unsigned)0);
 			uint32_t priority = getIntFromValue(PS);
@@ -2972,6 +2977,52 @@ void DuettoWriter::compileHandleVAArg()
 	stream << "function handleVAArg(ptr) { var ret=ptr.d[ptr.o]; ptr.o++; return ret; }" << NewLine;
 }
 
+void DuettoWriter::computeGlobalsQueue()
+{
+	Function* webMain=module.getFunction("_Z7webMainv");
+
+	std::set<const llvm::GlobalValue*> analysisQueue;
+	analysisQueue.insert(webMain);
+
+	//Add the constructors
+	GlobalVariable* constructors=module.getGlobalVariable("llvm.global_ctors");
+	if(constructors)
+		handleConstructors(constructors, &analysisQueue);
+
+	//Compile JS interoperability for classes, this also add any needed functions to the analysisQueue
+	compileClassesExportedToJs(&analysisQueue);
+
+	while(!analysisQueue.empty())
+	{
+		std::set<const GlobalValue*>::iterator it=analysisQueue.begin();
+		const GlobalValue* v=*it;
+		globalsQueue.insert(v);
+		analysisQueue.erase(it);
+		if(const GlobalVariable* G = dyn_cast<GlobalVariable>(v))
+		{
+			if(G->hasInitializer())
+				gatherGlobalDependencies(G->getInitializer(), G, "", NULL, &analysisQueue);
+		}
+		else if(const Function* F = dyn_cast<Function>(v))
+		{
+			// Traverse all instructions and find all operands which are globals
+			for(const BasicBlock& BB: *F)
+			{
+				for(const Instruction& I: BB)
+				{
+					for(const Value* V: I.operands())
+					{
+						const Constant* C = dyn_cast<Constant>(V);
+						if(!C)
+							continue;
+						gatherOperandDependencies(F, C, &analysisQueue);
+					}
+				}
+			}
+		}
+	}
+}
+
 void DuettoWriter::makeJS()
 {
 	sourceMapGenerator.beginFile();
@@ -2983,40 +3034,18 @@ void DuettoWriter::makeJS()
 		llvm::report_fatal_error("No webMain entry point found", false);
 		return;
 	}
-#ifdef DEBUG_GLOBAL_DEPS
-	globalsQueue.insert(make_pair(webMain,(const GlobalValue*)NULL));
-#else
-	globalsQueue.insert(webMain);
-#endif
-	//Add the constructors
-	GlobalVariable* constructors=module.getGlobalVariable("llvm.global_ctors");
-	if(constructors)
-		handleConstructors(constructors, ADD_TO_QUEUE);
+
+	computeGlobalsQueue();
 
 	compileNullPtrs();
 
-	//Compile JS interoperability for classes, this also add any needed functions to the globalsQueue
-	compileClassesExportedToJs();
-
 	while(!globalsQueue.empty())
 	{
-#ifdef DEBUG_GLOBAL_DEPS
-		std::map<const GlobalValue*, const GlobalValue*>::iterator it=globalsQueue.begin();
-		const GlobalValue* v=it->first;
-#else
 		std::set<const GlobalValue*>::iterator it=globalsQueue.begin();
 		const GlobalValue* v=*it;
-#endif
 		//printMethodNames=true;
 		if(printMethodNames)
-		{
-			llvm::errs() << v->getName();
-#ifdef DEBUG_GLOBAL_DEPS
-			if(it->second)
-				llvm::errs() << " included by " << it->second->getName();
-#endif
-			llvm::errs() << "\n";
-		}
+			llvm::errs() << v->getName() << "\n";
 		globalsQueue.erase(it);
 		if(GlobalVariable::classof(v))
 		{
@@ -3058,8 +3087,9 @@ void DuettoWriter::makeJS()
 	if(printHandleVAArg)
 		compileHandleVAArg();
 	//Execute constructors
+	GlobalVariable* constructors=module.getGlobalVariable("llvm.global_ctors");
 	if(constructors)
-		handleConstructors(constructors, COMPILE);
+		handleConstructors(constructors, NULL);
 	//Invoke the webMain function
 	stream << "__Z7webMainv();" << NewLine;
 
