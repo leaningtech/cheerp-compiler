@@ -3303,7 +3303,7 @@ void
 basic_string<_CharT, _Traits, _Allocator>::resize(size_type __n, value_type __c)
 {
     size_type __sz = size();
-    if (__n > __sz)
+    if (__n >= __sz)
         append(__n - __sz, __c);
     else
         __erase_to_end(__n);
