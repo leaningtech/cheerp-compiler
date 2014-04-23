@@ -9,3 +9,5 @@ add_llvm_library(LLVMDuettoWriter
   Utility.cpp
   Opcodes.cpp
   )
+
+add_dependencies(LLVMDuettoWriter intrinsics_gen)
