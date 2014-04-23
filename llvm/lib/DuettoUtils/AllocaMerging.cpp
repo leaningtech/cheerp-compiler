@@ -14,7 +14,6 @@
 #include "llvm/Duetto/AllocaMerging.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
