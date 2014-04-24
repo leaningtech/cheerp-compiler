@@ -371,9 +371,9 @@ void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value*
 	//TODO: Optimize the checks if possible
 	//Check if they are inside the same memory island
 	stream << "if(";
-	const Type* lastTypeDest=compileObjectForPointer(dest, NORMAL);
+	Type* lastTypeDest=compileObjectForPointer(dest, NORMAL);
 	stream << "===";
-	const Type* lastTypeSrc=compileObjectForPointer(src, NORMAL);
+	Type* lastTypeSrc=compileObjectForPointer(src, NORMAL);
 	//If so they may overlap, check and use reverse copy if needed
 	stream << "&&";
 	bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
@@ -459,8 +459,8 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 			return;
 	}
 
-	const Type* lastTypeSrc = NULL;
-	const Type* lastTypeDest = NULL;
+	Type* lastTypeSrc = NULL;
+	Type* lastTypeDest = NULL;
 	//Prologue: Construct the first part, up to using the size
 	if(copyDirection!=RESET && isTypedArrayType(pointedType))
 	{
@@ -720,7 +720,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 	}
 	else if(strncmp(ident,"llvm.duetto.pointer.offset",26)==0)
 	{
-		const Type* lastType = compileObjectForPointer(*it, DRY_RUN);
+		Type* lastType = compileObjectForPointer(*it, DRY_RUN);
 		bool ret=compileOffsetForPointer(*it, lastType);
 		if(!ret)
 			stream << '0';
@@ -869,12 +869,12 @@ void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	}
 	else
 	{
-		const Type* lastType1=compileObjectForPointer(lhs, NORMAL);
+		Type* lastType1=compileObjectForPointer(lhs, NORMAL);
 		if(p==CmpInst::ICMP_NE)
 			stream << "!==";
 		else
 			stream << "===";
-		const Type* lastType2=compileObjectForPointer(rhs, NORMAL);
+		Type* lastType2=compileObjectForPointer(rhs, NORMAL);
 		if(analyzer.getPointerKind(lhs)==REGULAR ||
 			analyzer.getPointerKind(rhs)==REGULAR)
 		{
@@ -947,7 +947,7 @@ void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset
 	//If v is a GEP this optimizes away the separate access to the base and the offset
 	//which would then be conbined dynamically. The idea is as follow
 	//obj.a0["a1"] -> obj.a0.a1
-	const Type* lastType=compileObjectForPointer(v, (isOffsetConstantZero && !namedOffset)?GEP_DIRECT:NORMAL);
+	Type* lastType=compileObjectForPointer(v, (isOffsetConstantZero && !namedOffset)?GEP_DIRECT:NORMAL);
 	//If a type has been returned (i.e. the value is a GEP) and we asked for direct access,
 	//we can just stop
 	if(k==COMPLETE_OBJECT || (lastType && isOffsetConstantZero && !namedOffset))
@@ -1031,7 +1031,7 @@ uint32_t DuettoWriter::getIntFromValue(const Value* v) const
 	return i->getZExtValue();
 }
 
-const Type* DuettoWriter::compileRecursiveAccessToGEP(Type* curType, const Use* it, const Use* const itE,
+Type* DuettoWriter::compileRecursiveAccessToGEP(Type* curType, const Use* it, const Use* const itE,
 							COMPILE_FLAG flag)
 {
 	//Before this the base name has been already printed
@@ -1772,7 +1772,7 @@ void DuettoWriter::compileFastGEPDereference(const Value* operand, const Use* id
 	compileObjectForPointerGEP(operand, idx_begin, idx_end, GEP_DIRECT);
 }
 
-const Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG flag)
+Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG flag)
 {
 	assert(val->getType()->isPointerTy());
 	if(isGEP(val))
@@ -1804,7 +1804,7 @@ const Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG
 	return NULL;
 }
 
-bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastType)
+bool DuettoWriter::compileOffsetForPointer(const Value* val, Type* lastType)
 {
 	assert(val->getType()->isPointerTy());
 	if(isGEP(val))
@@ -1842,7 +1842,7 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, const Type* lastTyp
 	return true;
 }
 
-const Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE, COMPILE_FLAG flag)
+Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE, COMPILE_FLAG flag)
 {
 	Type* t=val->getType();
 	if(it==itE)
@@ -1858,11 +1858,11 @@ const Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use
 		//First dereference the pointer
 		if(flag!=DRY_RUN)
 			compileDereferencePointer(val, *it);
-		const Type* ret=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE, flag);
+		Type* ret=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE, flag);
 		if(flag!=NORMAL)
 			return ret;
 		//If we are accessing a base class, use the downcast array
-		if(const StructType* st=dyn_cast<StructType>(ret))
+		if(StructType* st=dyn_cast<StructType>(ret))
 		{
 			uint32_t firstBase, baseCount;
 			if(getBasesInfo(st, firstBase, baseCount))
@@ -1876,7 +1876,7 @@ const Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use
 	}
 }
 
-bool DuettoWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE, const Type* lastType)
+bool DuettoWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, const Use* const itE, Type* lastType)
 {
 	if(it==itE)
 	{
@@ -1909,7 +1909,7 @@ bool DuettoWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, c
 				return false;
 			bool isStruct=false;
 			//If we are accessing a base class, use the downcast array
-			if(const StructType* st=dyn_cast<StructType>(lastType))
+			if(StructType* st=dyn_cast<StructType>(lastType))
 			{
 				isStruct=true;
 				uint32_t firstBase, baseCount;
@@ -1944,7 +1944,7 @@ void DuettoWriter::compileGEP(const Value* val, const Use* it, const Use* const 
 {
 	assert(val->getType()->isPointerTy());
 	stream << "{ d: ";
-	const Type* lastType=compileObjectForPointerGEP(val, it, itE, NORMAL);
+	Type* lastType=compileObjectForPointerGEP(val, it, itE, NORMAL);
 	stream << ", o: ";
 	bool notFirst=compileOffsetForPointerGEP(val, it, itE,lastType);
 	if(!notFirst)
