@@ -374,17 +374,16 @@ bool safeCallForNewedMemory(const CallInst* ci)
 	//if the usage is memcpy, memset, free or delete
 	//or one of the lifetime/invariant intrinsics
 	return (ci && ci->getCalledFunction() &&
-		(ci->getCalledFunction()->getName()=="llvm.memcpy.p0i8.p0i8.i32" ||
-		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i32" ||
-		ci->getCalledFunction()->getName()=="llvm.memset.p0i8.i64" ||
-		ci->getCalledFunction()->getName()=="llvm.memmove.p0i8.p0i8.i32" ||
+		(ci->getCalledFunction()->getIntrinsicID()==Intrinsic::memcpy ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::memset ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::memmove ||
 		ci->getCalledFunction()->getName()=="free" ||
 		ci->getCalledFunction()->getName()=="_ZdaPv" ||
 		ci->getCalledFunction()->getName()=="_ZdlPv" ||
-		ci->getCalledFunction()->getName()=="llvm.lifetime.start" ||
-		ci->getCalledFunction()->getName()=="llvm.lifetime.end" ||
-		ci->getCalledFunction()->getName()=="llvm.invariant.start" ||
-		ci->getCalledFunction()->getName()=="llvm.invariant.end" ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::lifetime_start ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::lifetime_end ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::invariant_start ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::invariant_end ||
 		//Allow unsafe casts for a limited number of functions that accepts callback args
 		//TODO: find a nicer approach for this
 		ci->getCalledFunction()->getName()=="__cxa_atexit"));
