@@ -1865,7 +1865,7 @@ Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use* it, 
 		if(StructType* st=dyn_cast<StructType>(ret))
 		{
 			uint32_t firstBase, baseCount;
-			if(getBasesInfo(st, firstBase, baseCount))
+			if(getBasesInfo(st, firstBase, baseCount) && classesNeeded.count(st))
 			{
 				uint32_t lastIndex=getIntFromValue(*itE);
 				if(lastIndex>=firstBase && lastIndex<(firstBase+baseCount))
@@ -1914,7 +1914,7 @@ bool DuettoWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, c
 				isStruct=true;
 				uint32_t firstBase, baseCount;
 				if(getBasesInfo(st, firstBase, baseCount) && elementIndex>=firstBase &&
-					elementIndex<(firstBase+baseCount))
+					elementIndex<(firstBase+baseCount) && classesNeeded.count(st))
 				{
 					compileDereferencePointer(val, *it);
 					compileRecursiveAccessToGEP(val->getType()->getPointerElementType(), ++it, itE, NORMAL);
@@ -3019,6 +3019,14 @@ void DuettoWriter::computeGlobalsQueue()
 					}
 				}
 			}
+			// Gather informations about all the classes which may be downcast targets
+			if (F->getName().startswith("llvm.duetto.downcast"))
+			{
+				Type* retType = F->getReturnType()->getPointerElementType();
+				assert(retType->isStructTy());
+				if (!isClientType(retType))
+					classesNeeded.insert(cast<StructType>(retType));
+			}
 		}
 	}
 }
@@ -3061,18 +3069,8 @@ void DuettoWriter::makeJS()
 		}
 	}
 
-	std::set<StructType*> classesDone;
-	while(!classesNeeded.empty())
-	{
-		std::set<StructType*>::const_iterator CN=classesNeeded.begin();
-		StructType* st=*CN;
-		classesNeeded.erase(CN);
-		if(!classesDone.count(st))
-		{
-			compileClassType(st);
-			classesDone.insert(st);
-		}
-	}
+	for(StructType* st: classesNeeded)
+		compileClassType(st);
 
 	std::set<StructType*>::const_iterator T=arraysNeeded.begin();
 	std::set<StructType*>::const_iterator TE=arraysNeeded.end();
