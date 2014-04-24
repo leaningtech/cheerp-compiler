@@ -3027,8 +3027,11 @@ void DuettoWriter::computeGlobalsQueue()
 			{
 				Type* retType = F->getReturnType()->getPointerElementType();
 				assert(retType->isStructTy());
-				if (!isClientType(retType))
-					classesNeeded.insert(cast<StructType>(retType));
+				StructType* st=cast<StructType>(retType);
+				uint32_t firstBase, baseCount;
+				// We only need metadata for non client objects and if there are bases
+				if (!isClientType(retType) && getBasesInfo(st, firstBase, baseCount))
+					classesNeeded.insert(cast<StructType>(st));
 			}
 		}
 	}
