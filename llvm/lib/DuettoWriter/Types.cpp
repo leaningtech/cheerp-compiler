@@ -143,9 +143,8 @@ void DuettoWriter::compileType(Type* t, COMPILE_TYPE_STYLE style)
 		//TODO: Verify that it makes sense to assume struct with no name has no bases
 		if(st->hasName())
 			basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
-		if(basesMeta)
+		if(basesMeta && classesNeeded.count(st))
 		{
-			classesNeeded.insert(st);
 			if(style==LITERAL_OBJ)
 			{
 				stream << "new create";
