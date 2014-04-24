@@ -659,66 +659,70 @@ void DuettoWriter::compileFree(const Value* obj)
 	//TODO: Clean up class related data structures
 }
 
-DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const char* ident, const CallSite callV,
+DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const Function* func, const CallSite callV,
 			User::const_op_iterator it, User::const_op_iterator itE, bool userImplemented)
 {
+	const char* ident=func->getName().data();
+	unsigned instrinsicId = func->getIntrinsicID();
 	//First handle high priority builtins, they will be used even
 	//if an implementation is available from the user
-	if(strncmp(ident,"llvm.memmove",12)==0)
+	if(instrinsicId==Intrinsic::memmove)
 	{
 		compileMove(*(it), *(it+1), *(it+2));
 		return COMPILE_EMPTY;
 	}
-	else if(strncmp(ident,"llvm.memcpy",11)==0)
+	else if(instrinsicId==Intrinsic::memcpy)
 	{
 		compileMemFunc(*(it), *(it+1), *(it+2), FORWARD);
 		return COMPILE_EMPTY;
 	}
-	else if(strncmp(ident,"llvm.memset",11)==0)
+	else if(instrinsicId==Intrinsic::memset)
 	{
 		//TODO: memset on allocate memory may be optimized
 		compileMemFunc(*(it), *(it+1), *(it+2), RESET);
 		return COMPILE_EMPTY;
 	}
-	else if(strncmp(ident,"llvm.invariant",14)==0)
+	else if(instrinsicId==Intrinsic::invariant_start)
 	{
 		//TODO: Try to optimize using this, for now just pass the second arg
 		compileOperand(*(it+1));
 		return COMPILE_OK;
 	}
-	else if(strncmp(ident,"llvm.va_start",13)==0)
+	else if(instrinsicId==Intrinsic::invariant_end)
+		return COMPILE_EMPTY;
+	else if(instrinsicId==Intrinsic::vastart)
 	{
 		compileDereferencePointer(*it, NULL);
 		stream << " = { d:arguments, o:_" << currentFun->getName() << ".length }";
 		return COMPILE_OK;
 	}
-	else if(strncmp(ident,"llvm.va_end",11)==0)
+	else if(instrinsicId==Intrinsic::vaend)
 	{
 		compileDereferencePointer(*it, NULL);
 		stream << "=null";
 		return COMPILE_OK;
 	}
-	else if(strncmp(ident,"llvm.duetto.downcast",20)==0)
+	else if(instrinsicId==Intrinsic::duetto_downcast)
 	{
 		compileDowncast(*(it), getIntFromValue(*(it+1)));
 		return COMPILE_OK;
 	}
-	else if(strncmp(ident,"llvm.duetto.upcast.collapsed",28)==0)
+	else if(instrinsicId==Intrinsic::duetto_upcast_collapsed)
 	{
 		compileOperand(*it);
 		return COMPILE_OK;
 	}
-	else if(strncmp(ident,"llvm.duetto.cast.user",21)==0)
+	else if(instrinsicId==Intrinsic::duetto_cast_user)
 	{
 		compileOperand(*it);
 		return COMPILE_OK;
 	}
-	else if(strncmp(ident,"llvm.duetto.pointer.base",24)==0)
+	else if(instrinsicId==Intrinsic::duetto_pointer_base)
 	{
 		compileObjectForPointer(*it, NORMAL);
 		return COMPILE_OK;
 	}
-	else if(strncmp(ident,"llvm.duetto.pointer.offset",26)==0)
+	else if(instrinsicId==Intrinsic::duetto_pointer_offset)
 	{
 		Type* lastType = compileObjectForPointer(*it, DRY_RUN);
 		bool ret=compileOffsetForPointer(*it, lastType);
@@ -729,7 +733,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 	else if(strcmp(ident,"malloc")==0 ||
 		strcmp(ident,"_Znaj")==0 ||
 		strcmp(ident,"_Znwj")==0 ||
-		strncmp(ident,"llvm.duetto.allocate",20)==0)
+		instrinsicId==Intrinsic::duetto_allocate)
 	{
 		compileAllocation(callV.getInstruction(), *it);
 		return COMPILE_OK;
@@ -1449,8 +1453,8 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 			if(ci.getCalledFunction())
 			{
 				//Direct call
-				const char* funcName=ci.getCalledFunction()->getName().data();
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(funcName,const_cast<InvokeInst*>(&ci),
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(ci.getCalledFunction(),
+						const_cast<InvokeInst*>(&ci),
 						ci.op_begin(),
 						ci.op_begin()+ci.getNumArgOperands(),!ci.getCalledFunction()->empty());
 				assert(cf!=COMPILE_EMPTY);
@@ -1463,7 +1467,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 					return COMPILE_OK;
 				}
 				else
-					stream << '_' << funcName;
+					stream << '_' << ci.getCalledFunction()->getName();
 			}
 			else
 			{
@@ -1606,13 +1610,12 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			if(calledFunc)
 			{
 				//Direct call
-				const char* funcName=calledFunc->getName().data();
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(funcName,const_cast<CallInst*>(&ci),
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(calledFunc,const_cast<CallInst*>(&ci),
 						ci.op_begin(),
 						ci.op_begin()+ci.getNumArgOperands(),!calledFunc->empty());
 				if(cf!=COMPILE_UNSUPPORTED)
 					return cf;
-				stream << '_' << funcName;
+				stream << '_' << calledFunc->getName();
 			}
 			else
 			{
@@ -3020,7 +3023,7 @@ void DuettoWriter::computeGlobalsQueue()
 				}
 			}
 			// Gather informations about all the classes which may be downcast targets
-			if (F->getName().startswith("llvm.duetto.downcast"))
+			if (F->getIntrinsicID()==Intrinsic::duetto_downcast)
 			{
 				Type* retType = F->getReturnType()->getPointerElementType();
 				assert(retType->isStructTy());
