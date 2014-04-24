@@ -24,8 +24,8 @@ void DuettoWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 		else
 		{
 			//Comparison on different bases is anyway undefined, so ignore them
-			const Type* lastType1=compileObjectForPointer(lhs, DRY_RUN);
-			const Type* lastType2=compileObjectForPointer(rhs, DRY_RUN);
+			Type* lastType1=compileObjectForPointer(lhs, DRY_RUN);
+			Type* lastType2=compileObjectForPointer(rhs, DRY_RUN);
 			bool notFirst=compileOffsetForPointer(lhs,lastType1);
 			if(!notFirst)
 				stream << '0';
@@ -45,7 +45,7 @@ void DuettoWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 
 void DuettoWriter::compilePtrToInt(const llvm::Value* v)
 {
-	const Type* lastType = compileObjectForPointer(v, DRY_RUN);
+	Type* lastType = compileObjectForPointer(v, DRY_RUN);
 	stream << '(';
 	bool ret=compileOffsetForPointer(v, lastType);
 	if(!ret)
