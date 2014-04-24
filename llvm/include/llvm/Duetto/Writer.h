@@ -89,7 +89,7 @@ private:
 	void addSelfPointer(const llvm::Value* obj);
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I);
 	enum COMPILE_FLAG { NORMAL = 0, DRY_RUN = 1, GEP_DIRECT = 2 };
-	const llvm::Type* compileRecursiveAccessToGEP(llvm::Type* curType, const llvm::Use* it,
+	llvm::Type* compileRecursiveAccessToGEP(llvm::Type* curType, const llvm::Use* it,
 			const llvm::Use* const itE, COMPILE_FLAG flag);
 	void compilePredicate(llvm::CmpInst::Predicate p);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
@@ -109,15 +109,15 @@ private:
 	void compileDereferencePointer(const llvm::Value* v, const llvm::Value* offset, const char* namedOffset = NULL);
 	void compileFastGEPDereference(const llvm::Value* operand, const llvm::Use* idx_begin, const llvm::Use* idx_end);
 	void compileGEP(const llvm::Value* val, const llvm::Use* it, const llvm::Use* const itE);
-	const llvm::Type* compileObjectForPointerGEP(const llvm::Value* val, const llvm::Use* it,
+	llvm::Type* compileObjectForPointerGEP(const llvm::Value* val, const llvm::Use* it,
 			const llvm::Use* const itE, COMPILE_FLAG flag);
 	bool compileOffsetForPointerGEP(const llvm::Value* val, const llvm::Use* it, const llvm::Use* const itE,
-			const llvm::Type* lastType);
-	const llvm::Type* compileObjectForPointer(const llvm::Value* val, COMPILE_FLAG flag);
+			llvm::Type* lastType);
+	llvm::Type* compileObjectForPointer(const llvm::Value* val, COMPILE_FLAG flag);
 	/*
 	 * Returns true if anything is printed
 	 */
-	bool compileOffsetForPointer(const llvm::Value* val, const llvm::Type* lastType);
+	bool compileOffsetForPointer(const llvm::Value* val, llvm::Type* lastType);
 	llvm::Type* findRealType(const llvm::Value* v, std::set<const llvm::PHINode*>& visitedPhis) const;
 	void compileMove(const llvm::Value* dest, const llvm::Value* src, const llvm::Value* size);
 	enum COPY_DIRECTION { FORWARD=0, BACKWARD, RESET };
