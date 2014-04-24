@@ -2817,7 +2817,7 @@ void DuettoWriter::gatherGlobalDependencies(const Constant* c, const llvm::Globa
 	else if(Function::classof(c))
 	{
 		const Function* F=cast<const Function>(c);
-		if(globalsQueue.count(F) || analysisQueue->count(F) || F->empty())
+		if(globalsQueue.count(F) || analysisQueue->count(F))
 			return;
 #ifdef DEBUG_GLOBAL_DEPS
 		llvm::errs() << F->getName() << " included by " << base->getName() << "\n";
@@ -2857,7 +2857,7 @@ void DuettoWriter::gatherOperandDependencies(const Function* base, const Constan
 	}
 	else if(const Function* F=dyn_cast<Function>(C))
 	{
-		if(globalsQueue.count(F) || analysisQueue->count(F) || F->empty())
+		if(globalsQueue.count(F) || analysisQueue->count(F))
 			return;
 		analysisQueue->insert(F);
 	}
@@ -3055,6 +3055,8 @@ void DuettoWriter::makeJS()
 		else if(Function::classof(v))
 		{
 			const Function* F=cast<const Function>(v);
+			if (F->empty())
+				continue;
 			compileMethod(*F);
 		}
 	}
