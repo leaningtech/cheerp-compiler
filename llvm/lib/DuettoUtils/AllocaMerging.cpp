@@ -91,42 +91,50 @@ bool AllocaMerging::hasUseBelow(const Instruction* U, const std::set<const Instr
 	Returns true if I escapes our analysis, false otherwise.
 	If true is returned the vector of uses will not be complete.
 */
-std::set<const Instruction*> AllocaMerging::gatherDerivedUses(const Instruction* rootI)
+std::set<const Instruction*> AllocaMerging::gatherDerivedUses(const AllocaInst* rootI)
 {
-	SmallVector<const Instruction*, 10> allUses;
-	for(const User* U: rootI->users())
-		allUses.push_back(cast<Instruction>(U));
+	SmallVector<const Use*, 10> allUses;
+	for(const Use& U: rootI->uses())
+		allUses.push_back(&U);
 
 	bool escapes = false;
-	// We need to keep track of all our users, to discriminate StoreInst and similar
-	std::set<const Instruction*> allUsers;
-	allUsers.insert(rootI);
 	// NOTE: allUses.size() will grow over time, that's fine
 	for(uint32_t i=0;i<allUses.size();i++)
 	{
-		const Instruction* I = allUses[i];
+		const Use* U = allUses[i];
+		const Instruction* I = cast<Instruction>(U->getUser());
 		switch(I->getOpcode())
 		{
 			case Instruction::BitCast:
 			case Instruction::GetElementPtr:
 			{
 				// Check derived uses
-				for(const User* U: I->users())
-					allUses.push_back(cast<Instruction>(U));
-				allUsers.insert(I);
+				for(const Use& U: I->uses())
+					allUses.push_back(&U);
 				break;
 			}
 			case Instruction::Store:
 			{
-				// If we are storing any user, it escapes
-				const StoreInst* SI = cast<StoreInst>(I);
-				if (allUsers.count(dyn_cast<Instruction>(SI->getValueOperand())))
+				// If we are storing away one of the values, it escape
+				// NOTE: Operand 0 is the value
+				if (U->getOperandNo() == 0)
 					escapes = true;
 				break;
 			}
 			case Instruction::Load:
 			{
 				// Loads are fine
+				break;
+			}
+			case Instruction::Call:
+			{
+				// This escapes, unless the argument is flagged as nocapture
+				const CallInst* CI = cast<CallInst>(I);
+				const Function* F = CI->getCalledFunction();
+				//NOTE: Parameter attributes start at index 1
+				if(F && F->getAttributes().hasAttribute(U->getOperandNo()+1, Attribute::NoCapture))
+					break;
+				escapes = true;
 				break;
 			}
 			default:
@@ -140,7 +148,10 @@ std::set<const Instruction*> AllocaMerging::gatherDerivedUses(const Instruction*
 			break;
 		}
 	}
-	return std::set<const Instruction*>(allUses.begin(), allUses.end());
+	std::set<const Instruction*> ret;
+	for(const Use* U: allUses)
+		ret.insert(cast<Instruction>(U->getUser()));
+	return ret;
 }
 
 void AllocaMerging::analyzeBlock(BasicBlock& BB)

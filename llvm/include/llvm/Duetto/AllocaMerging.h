@@ -47,7 +47,7 @@ private:
 								std::set<const llvm::BasicBlock*>& visitedSet);
 	bool hasUseAbove(const llvm::Instruction* U, const std::set<const llvm::Instruction*>& curAllocaUsers,
 						const std::set<const llvm::BasicBlock*>& curAllocaUsersBlocks);
-	std::set<const llvm::Instruction*> gatherDerivedUses(const llvm::Instruction* rootI);
+	std::set<const llvm::Instruction*> gatherDerivedUses(const llvm::AllocaInst* rootI);
 public:
 	static char ID;
 	explicit AllocaMerging() : FunctionPass(ID) { }
