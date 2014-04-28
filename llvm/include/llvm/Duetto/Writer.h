@@ -107,7 +107,6 @@ private:
 	 * \param namedOffset An offset that will be added verbatim to the code
 	 */
 	void compileDereferencePointer(const llvm::Value* v, const llvm::Value* offset, const char* namedOffset = NULL);
-	void compileFastGEPDereference(const llvm::Value* operand, const llvm::Use* idx_begin, const llvm::Use* idx_end);
 	void compileGEP(const llvm::Value* val, const llvm::Use* it, const llvm::Use* const itE);
 	llvm::Type* compileObjectForPointerGEP(const llvm::Value* val, const llvm::Use* it,
 			const llvm::Use* const itE, COMPILE_FLAG flag);
