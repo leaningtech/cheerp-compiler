@@ -1651,20 +1651,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			const LoadInst& li=static_cast<const LoadInst&>(I);
 			const Value* ptrOp=li.getPointerOperand();
 			stream << "(";
-			//If the ptrOp has a single use and it'a a GEP
-			//we can optimize it
-			if(GetElementPtrInst::classof(ptrOp))
-			{
-				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
-				compileFastGEPDereference(gep.getOperand(0), gep.idx_begin(), gep.idx_end());
-			}
-			else if((ConstantExpr::classof(ptrOp)) &&
-					cast<ConstantExpr>(ptrOp)->getOpcode()==Instruction::GetElementPtr)
-			{
-				const ConstantExpr& cgep=static_cast<const ConstantExpr&>(*ptrOp);
-				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
-			}
-			else if(BitCastInst::classof(ptrOp) &&
+			if(BitCastInst::classof(ptrOp) &&
 					isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
 					!ArrayType::classof(ptrOp->getType()->getPointerElementType()))
 			{
@@ -1692,19 +1679,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			const StoreInst& si=static_cast<const StoreInst&>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
-			//If the ptrOp is a GEP we can optimize the access
-			if(GetElementPtrInst::classof(ptrOp))
-			{
-				const GetElementPtrInst& gep=static_cast<const GetElementPtrInst&>(*ptrOp);
-				compileFastGEPDereference(gep.getOperand(0), gep.idx_begin(), gep.idx_end());
-			}
-			else if((ConstantExpr::classof(ptrOp)) &&
-					cast<ConstantExpr>(ptrOp)->getOpcode()==Instruction::GetElementPtr)
-			{
-				const ConstantExpr& cgep=static_cast<const ConstantExpr&>(*ptrOp);
-				compileFastGEPDereference(cgep.getOperand(0), cgep.op_begin()+1, cgep.op_end());
-			}
-			else if(BitCastInst::classof(ptrOp) &&
+			if(BitCastInst::classof(ptrOp) &&
 					isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
 					!ArrayType::classof(ptrOp->getType()->getPointerElementType()))
 			{
@@ -1737,12 +1712,6 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 		default:
 			return compileInlineableInstruction(I)?COMPILE_OK:COMPILE_UNSUPPORTED;
 	}
-}
-
-void DuettoWriter::compileFastGEPDereference(const Value* operand, const Use* idx_begin, const Use* idx_end)
-{
-	assert(idx_begin!=idx_end);
-	compileObjectForPointerGEP(operand, idx_begin, idx_end, GEP_DIRECT);
 }
 
 Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG flag)
