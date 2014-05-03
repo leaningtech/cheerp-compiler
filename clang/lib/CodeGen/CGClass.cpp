@@ -470,9 +470,6 @@ CodeGenModule::ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
       // Get the layout.
       const CGRecordLayout &Layout = getTypes().getCGRecordLayout(RD);
       unsigned baseId = Layout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
-      // Decrease by one if our own vtable is in front
-      if(DerivedClass->isDynamicClass())
-        baseId--;
       Offset += Layout.getTotalOffsetToBase(baseId);
     }
     RD = BaseDecl;

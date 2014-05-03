@@ -222,6 +222,8 @@ public:
 
   unsigned getTotalOffsetToBase(unsigned baseIndex) const {
     // Used in the downcast code path
+    assert(baseIndex >= firstBaseElement);
+    baseIndex -= firstBaseElement;
     assert(baseIndex < BaseOffsetFromNo.size());
     return BaseOffsetFromNo[baseIndex];
   }
