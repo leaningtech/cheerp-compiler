@@ -207,6 +207,13 @@ struct CGRecordLowering {
   bool IsZeroInitializable : 1;
   bool IsZeroInitializableAsBase : 1;
   bool Packed : 1;
+  // Duetto: Fields to handle down and dynamic casting
+  // The first element which is a base (e.g. not the vtable)
+  unsigned firstBaseElement;
+  // The total number of bases including inherited ones
+  unsigned totalNumberOfBases;
+
+  llvm::SmallVector<unsigned, 4> BaseOffsetFromNo;
 private:
   CGRecordLowering(const CGRecordLowering &) = delete;
   void operator =(const CGRecordLowering &) = delete;
@@ -219,7 +226,8 @@ CGRecordLowering::CGRecordLowering(CodeGenTypes &Types, const RecordDecl *D,
       RD(dyn_cast<CXXRecordDecl>(D)),
       Layout(Types.getContext().getASTRecordLayout(D)),
       DataLayout(Types.getDataLayout()), IsZeroInitializable(true),
-      IsZeroInitializableAsBase(true), Packed(Packed) {}
+      IsZeroInitializableAsBase(true), Packed(Packed),
+      firstBaseElement(0xffffffff), totalNumberOfBases(1) {}
 
 void CGRecordLowering::setBitFieldInfo(
     const FieldDecl *FD, CharUnits StartOffset, llvm::Type *StorageType) {
@@ -694,8 +702,14 @@ void CGRecordLowering::fillOutputFields() {
       // A field without storage must be a bitfield.
       if (!Member->Data)
         setBitFieldInfo(Member->FD, Member->Offset, FieldTypes.back());
-    } else if (Member->Kind == MemberInfo::Base)
+    } else if (Member->Kind == MemberInfo::Base) {
+      const CGRecordLayout& BaseLayout = Types.getCGRecordLayout(Member->RD);
+      if (firstBaseElement==0xffffffff)
+        firstBaseElement = FieldTypes.size() - 1;
+      BaseOffsetFromNo.push_back(totalNumberOfBases);
+      totalNumberOfBases += BaseLayout.totalNumberOfBases;
       NonVirtualBases[Member->RD] = FieldTypes.size() - 1;
+    }
     else if (Member->Kind == MemberInfo::VBase)
       VirtualBases[Member->RD] = FieldTypes.size() - 1;
   }
@@ -777,9 +791,9 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
 
   if(isa<CXXRecordDecl>(D))
   {
-    RL->firstBaseElement = Builder.Layout.getFirstBaseElement();
-    RL->totalNumberOfBases = Builder.Layout.getTotalNumberOfBases();
-    RL->BaseOffsetFromNo = Builder.Layout.getBaseOffsetFromNo();
+    RL->firstBaseElement = Builder.firstBaseElement;
+    RL->totalNumberOfBases = Builder.totalNumberOfBases;
+    RL->BaseOffsetFromNo.swap(Builder.BaseOffsetFromNo);
 
     // Create metadata with bases range
     if (RL->firstBaseElement != 0xffffffff)
