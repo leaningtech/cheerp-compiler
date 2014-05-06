@@ -730,6 +730,16 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 			stream << '0';
 		return COMPILE_OK;
 	}
+	else if(instrinsicId==Intrinsic::duetto_create_closure)
+	{
+		//We use an helper method to create closures without
+		//keeping all local variable around. The helper
+		//method is printed on demand depending on a flag
+		printCreateClosure = true;
+		stream << "duettoCreateClosure";
+		compileMethodArgs(it, itE);
+		return COMPILE_OK;
+	}
 	else if(strcmp(ident,"malloc")==0 ||
 		strcmp(ident,"_Znaj")==0 ||
 		strcmp(ident,"_Znwj")==0 ||
@@ -765,16 +775,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 	if(userImplemented)
 		return COMPILE_UNSUPPORTED;
 
-	if(strncmp(ident,"_Z8CallbackPFvvEPv",18)==0)
-	{
-		//This is the bridge to JS lambda creation, if ever used
-		//set the flag and implement is as usual, if the flag is
-		//set the implementation will be printed at the end of the
-		//compiled file
-		printLambdaBridge = true;
-		return COMPILE_UNSUPPORTED;
-	}
-	else if(strncmp(ident,"_ZN6client",10)==0)
+	if(strncmp(ident,"_ZN6client",10)==0)
 	{
 		handleBuiltinNamespace(ident+10,callV.getCalledFunction(),it,itE);
 		return COMPILE_OK;
@@ -2924,9 +2925,9 @@ void DuettoWriter::compileNullPtrs()
 	stream << "var nullArray = [null];var nullObj = { d: nullArray, o: 0 };" << NewLine;
 }
 
-void DuettoWriter::compileLambdaBridge()
+void DuettoWriter::compileCreateClosure()
 {
-	stream << "function __Z8CallbackPFvvEPv(func, obj) { return function(e) { func(obj, e); }; }" << NewLine;
+	stream << "function duettoCreateClosure(func, obj) { return function(e) { func(obj, e); }; }" << NewLine;
 }
 
 void DuettoWriter::compileHandleVAArg()
@@ -3040,9 +3041,9 @@ void DuettoWriter::makeJS()
 	}
 	if(printCreateArrayPointer)
 		compileArrayPointerType();
-	//Compile the lambda bridge if needed
-	if(printLambdaBridge)
-		compileLambdaBridge();
+	//Compile the closure creation helper
+	if(printCreateClosure)
+		compileCreateClosure();
 	//Compile handleVAArg if needed
 	if(printHandleVAArg)
 		compileHandleVAArg();
