@@ -73,7 +73,7 @@ private:
 	const NewLineHandler NewLine;
 
 	bool printMethodNames;
-	bool printLambdaBridge;
+	bool printCreateClosure;
 	bool printHandleVAArg;
 	bool printCreateArrayPointer;
 	uint32_t getIntFromValue(const llvm::Value* v) const;
@@ -154,7 +154,7 @@ private:
 	void compileClassType(llvm::StructType* T);
 	void compileArrayClassType(llvm::StructType* T);
 	void compileArrayPointerType();
-	void compileLambdaBridge();
+	void compileCreateClosure();
 	void compileHandleVAArg();
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
 	void handleConstructors(llvm::GlobalVariable* GV, std::set<const llvm::GlobalValue*>* analysisQueue);
@@ -170,7 +170,7 @@ public:
 		const std::string& sourceMapName, llvm::raw_ostream* sourceMap):
 		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ),
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
-		printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
+		printMethodNames(false),printCreateClosure(false),printHandleVAArg(false),
 		printCreateArrayPointer(false),stream(s)
 	{
 	}
