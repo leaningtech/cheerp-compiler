@@ -26,5 +26,12 @@
 
 void* __builtin_duetto_pointer_base(const void* ptr);
 size_t __builtin_duetto_pointer_offset(const void* ptr);
+/* This method returns a closure. Shen it is invoked it will execute func with obj as the first argument
+   and its own argument as the second one
+
+   A more correct signature would be:
+void (*)(void*) __builtin_duetto_create_closure(void (*func)(), void* obj):
+*/
+const void* __builtin_duetto_create_closure(const void* func, void* obj):
 
 #endif /* __DUETTOINTRIN_H */

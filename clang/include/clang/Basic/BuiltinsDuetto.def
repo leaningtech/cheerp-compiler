@@ -16,5 +16,6 @@
 
 BUILTIN(__builtin_duetto_pointer_base, "v*vC*", "")
 BUILTIN(__builtin_duetto_pointer_offset, "zvC*", "")
+BUILTIN(__builtin_duetto_create_closure, "vC*vC*v*", "")
 
 #undef BUILTIN
