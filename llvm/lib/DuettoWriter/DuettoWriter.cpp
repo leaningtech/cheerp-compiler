@@ -2845,8 +2845,11 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&G))
 			stream << ']';
 
-		if(analyzer.getPointerKind(&G)==COMPLETE_OBJECT && !analyzer.isNoSelfPointerOptimizable(&G) )
+		if(analyzer.getPointerKind(&G)==COMPLETE_OBJECT && !analyzer.isNoSelfPointerOptimizable(&G) &&
+			(!isa<StructType>(t) || !classesNeeded.count(cast<StructType>(t))))
+		{
 			addSelf = true;
+		}
 	}
 	stream << ';' << NewLine;
 	if(addSelf)
