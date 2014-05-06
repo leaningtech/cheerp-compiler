@@ -11037,6 +11037,10 @@ Value *CodeGenFunction::EmitDuettoBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::duetto_pointer_offset);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Duetto::BI__builtin_duetto_create_closure) {
+    Function *F = CGM.getIntrinsic(Intrinsic::duetto_create_closure);
+    return Builder.CreateCall(F, Ops);
+  }
   return 0;
 }
 
