@@ -32,6 +32,6 @@ size_t __builtin_duetto_pointer_offset(const void* ptr);
    A more correct signature would be:
 void (*)(void*) __builtin_duetto_create_closure(void (*func)(), void* obj):
 */
-const void* __builtin_duetto_create_closure(const void* func, void* obj):
+const void* __builtin_duetto_create_closure(const void* func, void* obj);
 
 #endif /* __DUETTOINTRIN_H */
