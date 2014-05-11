@@ -41,12 +41,14 @@ bool AllocaMerging::hasUseAbove(const Instruction* U, const std::set<const Instr
 						const std::set<const BasicBlock*>& curAllocaUsersBlocks)
 {
 	// Look for any use from the beginning of the block
-	for(BasicBlock::const_iterator it=U->getParent()->begin(); &(*it)!=U; ++it)
+	BasicBlock::const_iterator it=U->getParent()->begin();
+	do
 	{
 		// Check if instructions is a user of curAlloca
 		if(curAllocaUsers.count(&(*it)))
 			return true;
 	}
+	while(&(*it++)!=U);
 
 	// Look in predecessors blocks
 	std::set<const BasicBlock*> visitedBlocks;
@@ -75,12 +77,14 @@ bool AllocaMerging::hasUseBelow(const Instruction* U, const std::set<const Instr
 						const std::set<const BasicBlock*>& curAllocaUsersBlocks)
 {
 	// Look for any use from the end of the block to U
-	for(BasicBlock::const_reverse_iterator it=U->getParent()->rbegin(); &(*it)!=U; ++it)
+	BasicBlock::const_reverse_iterator it=U->getParent()->rbegin();
+	do
 	{
 		// Check if instructions is a user of curAlloca
 		if(curAllocaUsers.count(&(*it)))
 			return true;
 	}
+	while(&(*it++)!=U);
 
 	// Look in successors blocks
 	std::set<const BasicBlock*> visitedBlocks;
