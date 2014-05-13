@@ -13,6 +13,7 @@
 #define _DUETTO_POINTER_ANALYZER_H
 
 #include "llvm/Duetto/NameGenerator.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
 #include <map>
@@ -122,8 +123,7 @@ private:
 	 */
 	uint32_t dfsPointerUsageFlagsComplete(const llvm::Value * v,std::set<const llvm::Value *> & openset) const;
 	
-	template<class ArgOrInvokeInst>
-	uint32_t usageFlagsForStoreAndInvoke(const llvm::Value * v, const ArgOrInvokeInst * I, std::set<const llvm::Value *> & openset) const;
+	uint32_t usageFlagsForCall(const llvm::Value * v, llvm::ImmutableCallSite I, std::set<const llvm::Value *> & openset) const;
 
 public:
 	// Detect if a no-self-pointer optimization is applicable to the pointer value
