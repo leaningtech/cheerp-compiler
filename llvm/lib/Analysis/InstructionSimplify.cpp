@@ -706,6 +706,10 @@ static Constant *stripAndComputeConstantOffsets(const DataLayout &DL, Value *&V,
 /// If the difference is not a constant, returns zero.
 static Constant *computePointerDifference(const DataLayout &DL, Value *LHS,
                                           Value *RHS) {
+  // On NBA we do this optimization in a safe way inside InstCombine
+  if (!DL.isByteAddressable())
+    return 0;
+
   Constant *LHSOffset = stripAndComputeConstantOffsets(DL, LHS);
   Constant *RHSOffset = stripAndComputeConstantOffsets(DL, RHS);
 
