@@ -352,11 +352,11 @@ uint32_t DuettoPointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, st
 		else if (const CallInst * I = dyn_cast<const CallInst>(U))
 		{
 			// Indirect calls require a finer analysis
-			f |= usageFlagsForStoreAndInvoke(v,I,openset);
+			f |= usageFlagsForCall(v,I,openset);
 		}
 		else if (const InvokeInst * I = dyn_cast<const InvokeInst>(U))
 		{
-			f |= usageFlagsForStoreAndInvoke(v,I,openset);
+			f |= usageFlagsForCall(v,I,openset);
 		}
 		else if (isa<const ReturnInst>(U))
 		{
@@ -399,35 +399,35 @@ uint32_t DuettoPointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, st
 			f |= POINTER_UNKNOWN;
 		}
 	}
+	
 	return f;
 }
 
-template<class CallOrInvokeInst>
-uint32_t DuettoPointerAnalyzer::usageFlagsForStoreAndInvoke(const Value * v, const CallOrInvokeInst * I, std::set<const Value *> & openset) const
+uint32_t DuettoPointerAnalyzer::usageFlagsForCall(const Value * v, ImmutableCallSite I, std::set<const Value *> & openset) const
 {
-	const Function * f = I->getCalledFunction();
+	const Function * f = I.getCalledFunction();
+
 	if ( !f || canBeCalledIndirectly(f) || f->isVarArg())
 		return POINTER_UNKNOWN;
 
+	assert( f->arg_size() == I.arg_size() );
+	
+	uint32_t flags = 0;
 	Function::const_arg_iterator iter = f->arg_begin();
-	
-	assert( f->arg_size() == I->getNumArgOperands() );
-	
-	for (unsigned int argNo = 0; iter != f->arg_end(); ++iter, ++argNo)
-		if ( I->getArgOperand(argNo) == v ) break;
 
-	if ( iter == f->arg_end() )
-	{
-		const User * u;
-		f->hasAddressTaken(&u);
-		
-		u->dump();
-		
-		llvm::errs() << u->getName() << ", " << valueObjectName(u) << "\n";
-	}
-	assert( iter != f->arg_end() || ((llvm::errs() << f->getName()),false) );
+	for (unsigned int argNo = 0; iter != f->arg_end(); ++iter, ++argNo)
+		if ( I.getArgument(argNo) == v )
+			flags |= dfsPointerUsageFlagsComplete( iter, openset );
+
+#ifndef NDEBUG
+	bool ok = false;
+	for (unsigned int argNo = 0; argNo < I.arg_size(); ++argNo)
+		if ( I.getArgument(argNo) == v )
+			ok = true;
+	assert(  ok || ((llvm::errs() << f->getName()),false) );
+#endif
 	
-	return dfsPointerUsageFlagsComplete( &(*iter), openset ) | POINTER_IS_NOT_UNIQUE_OWNER;
+	return flags | POINTER_IS_NOT_UNIQUE_OWNER;
 }
 
 bool DuettoPointerAnalyzer::isNoSelfPointerOptimizable(const llvm::Value * v) const
