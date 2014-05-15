@@ -305,48 +305,6 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 	}
 }
 
-Type* DuettoWriter::findRealType(const Value* v, std::set<const PHINode*>& visitedPhis) const
-{
-	if(isBitCast(v))
-		return static_cast<const User*>(v)->getOperand(0)->getType();
-	else if(const IntrinsicInst* ci = dyn_cast<IntrinsicInst>(v))
-	{
-		//Support duetto.cast.user
-		if(ci->getIntrinsicID() == Intrinsic::duetto_cast_user)
-			return ci->getArgOperand(0)->getType();
-	}
-
-	const PHINode* newPHI=dyn_cast<const PHINode>(v);
-	if(newPHI)
- 	{
-		if(visitedPhis.count(newPHI))
-		{
-			//Assume true, if needed it will become false later on
-			return NULL;
-		}
-		visitedPhis.insert(newPHI);
-		assert(newPHI->getNumIncomingValues()>=1);
-		Type* ret=findRealType(newPHI->getIncomingValue(0),visitedPhis);
-		for(unsigned i=1;i<newPHI->getNumIncomingValues();i++)
-		{
-			Type* t=findRealType(newPHI->getIncomingValue(i),visitedPhis);
-			if(t==NULL)
-				continue;
-			else if(ret==NULL)
-				ret=t;
-			else if(ret!=t)
-			{
-				llvm::errs() << "Unconsistent real types for phi " << *v << "\n";
-				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-				return ret;
-			}
-		}
-		visitedPhis.erase(newPHI);
-		return ret;
- 	}
-	return v->getType();
-}
-
 void DuettoWriter::compileDowncast(const Value* src, uint32_t baseOffset)
 {
 	std::set<const PHINode*> visitedPhis;
@@ -1021,19 +979,6 @@ void DuettoWriter::compileDereferencePointer(const Value* v, const Value* offset
 			stream << '0';
 	}
 	stream << ']';
-}
-
-uint32_t DuettoWriter::getIntFromValue(const Value* v) const
-{
-	if(!ConstantInt::classof(v))
-	{
-		llvm::errs() << "Expected constant int found " << *v << "\n";
-		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-		return 0;
-	}
-
-	const ConstantInt* i=cast<const ConstantInt>(v);
-	return i->getZExtValue();
 }
 
 Type* DuettoWriter::compileRecursiveAccessToGEP(Type* curType, const Use* it, const Use* const itE,

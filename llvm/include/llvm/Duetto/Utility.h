@@ -36,6 +36,8 @@ bool isImmutableType(const llvm::Type* t);
 bool isUnion(const llvm::Type* t);
 bool safeUsagesForNewedMemory(const llvm::Value* v);
 bool safeCallForNewedMemory(const llvm::CallInst* ci);
+uint32_t getIntFromValue(const llvm::Value* v);
+llvm::Type* findRealType(const llvm::Value* v, std::set<const llvm::PHINode*>& visitedPhis);
 
 }
 
