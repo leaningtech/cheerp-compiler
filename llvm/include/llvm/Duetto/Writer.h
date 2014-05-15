@@ -76,7 +76,6 @@ private:
 	bool printCreateClosure;
 	bool printHandleVAArg;
 	bool printCreateArrayPointer;
-	uint32_t getIntFromValue(const llvm::Value* v) const;
 	void compileTypedArrayType(llvm::Type* t);
 	
 	// COMPILE_ADD_SELF is returned by AllocaInst when a self pointer must be added to the returned value
@@ -117,7 +116,6 @@ private:
 	 * Returns true if anything is printed
 	 */
 	bool compileOffsetForPointer(const llvm::Value* val, llvm::Type* lastType);
-	llvm::Type* findRealType(const llvm::Value* v, std::set<const llvm::PHINode*>& visitedPhis) const;
 	void compileMove(const llvm::Value* dest, const llvm::Value* src, const llvm::Value* size);
 	enum COPY_DIRECTION { FORWARD=0, BACKWARD, RESET };
 	void compileMemFunc(const llvm::Value* dest, const llvm::Value* src, const llvm::Value* size,

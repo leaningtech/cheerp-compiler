@@ -13,6 +13,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
@@ -151,10 +152,30 @@ bool isComingFromAllocation(const Value* val)
 
 bool isNopCast(const Value* val)
 {
-	const CallInst* newCall=dyn_cast<const CallInst>(val);
+	const CallInst * newCall = dyn_cast<const CallInst>(val);
 	if(newCall && newCall->getCalledFunction())
-		return newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_upcast_collapsed
-			|| newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_cast_user;
+	{
+		unsigned int id = newCall->getCalledFunction()->getIntrinsicID();
+		
+		if ( Intrinsic::duetto_upcast_collapsed == id ||
+			Intrinsic::duetto_cast_user == id )
+			return true;
+		
+		if ( Intrinsic::duetto_downcast == id )
+		{
+			std::set<const PHINode*> visitedPhis;
+		
+			Type * pointerType = findRealType( newCall->getArgOperand(0), visitedPhis);
+			assert(pointerType->isPointerTy());
+		
+			Type* t = cast<PointerType>(pointerType)->getElementType();
+
+			if ( isClientType(t) ||
+				getIntFromValue( newCall->getArgOperand(1) ) == 0 )
+				return true;
+		}
+		
+	}
 	return false;
 }
 
@@ -387,6 +408,61 @@ bool safeCallForNewedMemory(const CallInst* ci)
 		//Allow unsafe casts for a limited number of functions that accepts callback args
 		//TODO: find a nicer approach for this
 		ci->getCalledFunction()->getName()=="__cxa_atexit"));
+}
+
+uint32_t getIntFromValue(const Value* v)
+{
+	if(!ConstantInt::classof(v))
+	{
+		llvm::errs() << "Expected constant int found " << *v << "\n";
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		return 0;
+	}
+
+	const ConstantInt* i=cast<const ConstantInt>(v);
+	return i->getZExtValue();
+}
+
+Type* findRealType(const Value* v, std::set<const PHINode*>& visitedPhis)
+{
+	if(isBitCast(v))
+		return static_cast<const User*>(v)->getOperand(0)->getType();
+	else if(const IntrinsicInst* ci = dyn_cast<IntrinsicInst>(v))
+	{
+		//Support duetto.cast.user
+		if(ci->getIntrinsicID() == Intrinsic::duetto_cast_user)
+			return ci->getArgOperand(0)->getType();
+	}
+
+	const PHINode* newPHI=dyn_cast<const PHINode>(v);
+	if(newPHI)
+ 	{
+		if(visitedPhis.count(newPHI))
+		{
+			//Assume true, if needed it will become false later on
+			return NULL;
+		}
+		visitedPhis.insert(newPHI);
+		assert(newPHI->getNumIncomingValues()>=1);
+		Type* ret=findRealType(newPHI->getIncomingValue(0),visitedPhis);
+		for(unsigned i=1;i<newPHI->getNumIncomingValues();i++)
+		{
+			Type* t=findRealType(newPHI->getIncomingValue(i),visitedPhis);
+			if(t==NULL)
+				continue;
+			else if(ret==NULL)
+				ret=t;
+			else if(ret!=t)
+			{
+				llvm::errs() << "Unconsistent real types for phi " << *v << "\n";
+				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+				return ret;
+			}
+		}
+		visitedPhis.erase(newPHI);
+		return ret;
+ 	}
+	return v->getType();
 }
 
 }
