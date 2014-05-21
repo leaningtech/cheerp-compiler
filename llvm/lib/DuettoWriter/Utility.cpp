@@ -9,11 +9,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <sstream>
 #include "llvm/Duetto/Utility.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
@@ -463,6 +466,53 @@ Type* findRealType(const Value* v, std::set<const PHINode*>& visitedPhis)
 		return ret;
  	}
 	return v->getType();
+}
+
+std::string valueObjectName(const Value* v)
+{
+	std::ostringstream os;
+	if (const Instruction * p = dyn_cast<const Instruction>(v) )
+		os << " instruction " << p->getOpcodeName() << "\n";
+	else if (const Constant * p = dyn_cast<const Constant>(v) )
+	{
+		os << " constant " << p->getName().str() << "(";
+		
+		// Feel free to find a way to avoid this obscenity
+		if (isa<const BlockAddress>(p))
+			os << "BlockAddress";
+		else if (isa<const ConstantAggregateZero>(p))
+			os << "ConstantAggregateZero";
+		else if (isa<const ConstantArray>(p))
+			os << "ConstantArray";
+		else if (isa<const ConstantDataSequential>(p))
+			os << "ConstantDataSequential";
+		else if (const ConstantExpr * pc = dyn_cast<const ConstantExpr>(p))
+		{
+			os << "ConstantExpr [" << pc->getOpcodeName() <<"]";
+		}
+		else if (isa<const ConstantFP>(p))
+			os << "ConstantFP";
+		else if (isa<const ConstantInt>(p))
+			os << "ConstantInt";
+		else if (isa<const ConstantPointerNull>(p))
+			os << "ConstantPointerNull";
+		else if (isa<const ConstantStruct>(p))
+			os << "ConstantStruct";
+		else if (isa<const ConstantVector>(p))
+			os << "ConstantVector";
+		else if (isa<const GlobalAlias>(p))
+			os << "GlobalAlias";
+		else if (isa<const GlobalValue>(p))
+			os << "GlobalValue";
+		else if (isa<const UndefValue>(p))
+			os << "UndefValue";
+		else
+			os << "Unknown";
+		os << ")\n";
+	}
+	else if ( isa<const Operator>(p) )
+		os << " operator " << p->getName().str() << "\n";
+	return os.str();
 }
 
 }
