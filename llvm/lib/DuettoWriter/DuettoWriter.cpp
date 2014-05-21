@@ -2707,7 +2707,7 @@ void DuettoWriter::gatherGlobalDependencies(const Constant* c, const llvm::Globa
 		 * use value, otherwise it's a regular value and you use GV
 		 */
 		globalsFixupMap.insert(make_pair(GV, Fixup(base, baseName.str(), (value)?value:c)));
-		if(analysisQueue->count(GV))
+		if(globalsQueue.count(GV) || analysisQueue->count(GV))
 			return;
 		/*
 		 * Also add the global to the globals queue
@@ -2902,7 +2902,9 @@ void DuettoWriter::computeGlobalsQueue()
 	{
 		std::set<const GlobalValue*>::iterator it=analysisQueue.begin();
 		const GlobalValue* v=*it;
-		globalsQueue.insert(v);
+		bool inserted=globalsQueue.insert(v).second;
+		(void)inserted;
+		assert(inserted);
 		analysisQueue.erase(it);
 		if(const GlobalVariable* G = dyn_cast<GlobalVariable>(v))
 		{
