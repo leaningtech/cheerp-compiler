@@ -1,3 +1,9 @@
+duetto-libcxx (1.0-1) trusty; urgency=medium
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Wed, 21 May 2014 16:30:41 +0200
+
 duetto-libcxx (0.9.6-1) saucy; urgency=low
 
   * New release
