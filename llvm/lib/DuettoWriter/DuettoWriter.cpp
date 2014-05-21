@@ -1497,18 +1497,18 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 	{
 		case Instruction::Alloca:
 		{
-			const AllocaInst& ai=static_cast<const AllocaInst&>(I);
-			Type* t=ai.getAllocatedType();
-			//Alloca returns complete objects or arrays, not pointers
-			if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&I))
+			const AllocaInst * ai = cast<AllocaInst>(&I);
+			
+			if( analyzer.getPointerKind(ai) == COMPLETE_ARRAY )
+			{
 				stream << '[';
-			compileType(t, LITERAL_OBJ);
-			if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&I))
+				compileType( ai->getAllocatedType(), LITERAL_OBJ);
 				stream << ']';
-			if(isImmutableType(t) || !isa<StructType>(t) || classesNeeded.count(cast<StructType>(t)) || analyzer.isNoSelfPointerOptimizable(&I) )
-				return COMPILE_OK;
-			else
-				return COMPILE_ADD_SELF;
+			}
+			else 
+				compileType( ai->getAllocatedType(), LITERAL_OBJ);
+
+			return analyzer.hasSelfMember(ai) ? COMPILE_ADD_SELF : COMPILE_OK;
 		}
 		case Instruction::Call:
 		{
@@ -1541,7 +1541,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			//If we are dealing with inline asm we are done
 			if(!ci.isInlineAsm())
 			{
-				if (calledFunc && !analyzer.canBeCalledIndirectly(calledFunc) && !calledFunc->isVarArg() )
+				if ( analyzer.hasNonRegularArgs(calledFunc) )
 				{
 					assert( calledFunc->getArgumentList().size() == ci.getNumArgOperands() );
 					compileMethodArgsForDirectCall(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),calledFunc->arg_begin() );
@@ -1717,7 +1717,7 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, Type* lastType)
 			return compileOffsetForPointer(b->getOperand(0), lastType);
 	}
 
-	if(analyzer.getPointerKind(val)==COMPLETE_OBJECT)
+	if(analyzer.getPointerKind(val) == COMPLETE_OBJECT)
 	{
 		// Objects with the downcast array uses it directly, not the self pointer
 		if(StructType::classof(val->getType()->getPointerElementType()) &&
@@ -1728,7 +1728,7 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, Type* lastType)
 		else
 		{
 			//Print the regular "s" offset for complete objects
-			assert(! analyzer.isNoSelfPointerOptimizable(val) );
+// 			assert(analyzer.hasSelfMember(val) );
 			stream << "'s'";
 		}
 		return true;
@@ -2777,28 +2777,29 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 	}
 	stream  << "var ";
 	printLLVMName(G.getName(), GLOBAL);
+
 	bool addSelf = false;
 	if(G.hasInitializer())
 	{
 		stream << " = ";
-		const Constant* C=G.getInitializer();
-
-		Type* t=C->getType();
-		if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&G))
-			stream << '[';
-		compileOperand(C, REGULAR);
-		if(isImmutableType(t) && !analyzer.isNoWrappingArrayOptimizable(&G))
-			stream << ']';
-
-		if(analyzer.getPointerKind(&G)==COMPLETE_OBJECT && !analyzer.isNoSelfPointerOptimizable(&G) &&
-			(!isa<StructType>(t) || !classesNeeded.count(cast<StructType>(t))))
+		const Constant* C = G.getInitializer();
+		
+		if( analyzer.getPointerKind(&G) == COMPLETE_ARRAY )
 		{
-			addSelf = true;
+			stream << '[';
+			compileOperand(C, REGULAR);
+			stream << ']';
 		}
+		else 
+			compileOperand(C, REGULAR);
+
+		addSelf = analyzer.hasSelfMember(&G);
 	}
 	stream << ';' << NewLine;
+
 	if(addSelf)
 		addSelfPointer(&G);
+
 	//Now we have defined a new global, check if there are fixups for previously defined globals
 	std::pair<FixupMapType::iterator, FixupMapType::iterator> f=globalsFixupMap.equal_range(&G);
 	for(FixupMapType::iterator it=f.first;it!=f.second;++it)
@@ -2817,7 +2818,7 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		const Constant* C=otherGV->getInitializer();
 
 		printLLVMName(otherGV->getName(), GLOBAL);
-		if(isImmutableType(C->getType()) && !analyzer.isNoWrappingArrayOptimizable(otherGV))
+		if( analyzer.getPointerKind(otherGV) == COMPLETE_ARRAY )
 			stream << "[0]";
 		stream << it->second.baseName << " = ";
 		compileOperand(it->second.value, REGULAR);
