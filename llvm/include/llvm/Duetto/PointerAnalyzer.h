@@ -1,4 +1,4 @@
-//===-- Duetto/Analyzer.h - Duetto analyzer code -----------------------------===//
+//===-- Duetto/PointerAnalyzer.h - Duetto pointer analyzer code --------------===//
 //
 //                     Duetto: The C++ compiler for the Web
 //
@@ -16,6 +16,7 @@
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Function.h"
 #include <map>
 #include <set>
 
@@ -74,11 +75,10 @@ enum POINTER_KIND {
 // Functionalities provided by a pointer
 enum POINTER_USAGE_FLAG {
 	POINTER_NONCONST_DEREF = 1, // The pointer is used to modify the pointed object
-	POINTER_IS_NOT_UNIQUE_OWNER = (1 << 1), // The pointer is not the only one which points to the object
-	POINTER_ARITHMETIC = (1 << 2), // The pointer can be incremented/decremented etc, and/or it is used to access an array (i.e. p[i])
-	POINTER_ORDINABLE = (1 << 3), // The pointer is used for a comparison with another pointer
-	POINTER_EQUALITY_COMPARABLE = (1 << 4), // The pointer is used for ==/!= comparison with another pointer.
-	POINTER_CASTABLE_TO_INT = (1 << 5),  // The pointer is explicitly casted to an integer (usually used to implement pointers hash table)
+	POINTER_ARITHMETIC = (1 << 1), // The pointer can be incremented/decremented etc, and/or it is used to access an array (i.e. p[i])
+	POINTER_ORDINABLE = (1 << 2), // The pointer is used for a comparison with another pointer
+	POINTER_EQUALITY_COMPARABLE = (1 << 3), // The pointer is used for ==/!= comparison with another pointer.
+	POINTER_CASTABLE_TO_INT = (1 << 4),  // The pointer is explicitly casted to an integer (usually used to implement pointers hash table)
 	
 	POINTER_UNKNOWN = (1LL << 32LL) - 1
 };
@@ -89,25 +89,49 @@ public:
 	DuettoPointerAnalyzer( NameGenerator & namegen ) : namegen(namegen) {}
 	
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
-
-	// Returns a bitmask of POINTER_USAGE_FLAG
-	/**
-	 * Memoization wrapper around dfsPointerUsageFlagsComplete
-	 */
-	uint32_t getPointerUsageFlagsComplete(const llvm::Value * v) const;
 	
+	// Detect if every object pointed by this pointer has a .s member
+	bool hasSelfMember(const llvm::Value * v) const;
+	
+	// Return true if the given function might expect non-regular arguments.
+	// The function pointer might be null, in this case return false.
+	bool hasNonRegularArgs(const llvm::Function * f) const
+	{
+		return (f && !canBeCalledIndirectly(f) && !f->isVarArg() );
+	}
+
+#ifndef NDEBUG	
 	// Dump a pointer value info
 	void dumpPointer(const llvm::Value * v) const;
+#endif
 
 #ifdef DUETTO_DEBUG_POINTERS
 	void dumpAllPointers() const;
         void dumpAllFunctions() const;
 #endif //DUETTO_DEBUG_POINTERS
-	
-	// Return a string containing the type name of the object V.
-	static std::string valueObjectName(const llvm::Value * v);
 
 private:
+	
+	static constexpr uint32_t need_wrap_array_flags = 
+		POINTER_ARITHMETIC | 
+		POINTER_ORDINABLE | 
+		POINTER_CASTABLE_TO_INT | 
+		POINTER_EQUALITY_COMPARABLE;
+
+	static constexpr uint32_t need_self_flags = 
+		POINTER_ARITHMETIC | 
+		POINTER_ORDINABLE | 
+		POINTER_CASTABLE_TO_INT | 
+		POINTER_EQUALITY_COMPARABLE;
+	
+	bool needsWrappingArray(const llvm::Value * v) const;
+	
+	// Returns a bitmask of POINTER_USAGE_FLAG
+	/**
+	 * Memoization wrapper around dfsPointerUsageFlagsComplete
+	 */
+	uint32_t getPointerUsageFlagsComplete(const llvm::Value * v) const;
+
 	/** 
 	 * Compute the usage of a single pointer, regardless of the phi nodes
 	 */
@@ -123,19 +147,10 @@ private:
 	 */
 	uint32_t dfsPointerUsageFlagsComplete(const llvm::Value * v,std::set<const llvm::Value *> & openset) const;
 	
-	uint32_t usageFlagsForCall(const llvm::Value * v, llvm::ImmutableCallSite I, std::set<const llvm::Value *> & openset) const;
-
-public:
-	// Detect if a no-self-pointer optimization is applicable to the pointer value
-	bool isNoSelfPointerOptimizable(const llvm::Value * v) const;
-
-	// Detect if a no-wrapping-array optimization is applicable to the pointer value
-	bool isNoWrappingArrayOptimizable(const llvm::Value * v) const;
+	uint32_t usageFlagsForCall(const llvm::Value * v, llvm::ImmutableCallSite I, std::set<const llvm::Value *> & openset) const;	
 
 	// Detect if a function can possibly be called indirectly
 	bool canBeCalledIndirectly(const llvm::Function * f) const;
-
-private:
 	
 	bool computeCanBeCalledIndirectly(const llvm::Constant * c) const;
 	
