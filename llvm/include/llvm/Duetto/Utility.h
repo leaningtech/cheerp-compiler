@@ -39,6 +39,9 @@ bool safeCallForNewedMemory(const llvm::CallInst* ci);
 uint32_t getIntFromValue(const llvm::Value* v);
 llvm::Type* findRealType(const llvm::Value* v, std::set<const llvm::PHINode*>& visitedPhis);
 
+// Printable name of the llvm type - useful only for debugging
+std::string valueObjectName(const llvm::Value * v);
+
 }
 
 #endif //_DUETTO_UTILITY_H

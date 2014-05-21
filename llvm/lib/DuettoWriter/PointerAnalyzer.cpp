@@ -17,7 +17,6 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
@@ -37,9 +36,9 @@ POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 		return iter->second;
 	iter = pointerKindMap.insert( std::make_pair(v, UNDECIDED) ).first;
 	
-	#ifdef DUETTO_DEBUG_POINTERS
+#ifdef DUETTO_DEBUG_POINTERS
 	debugAllPointersSet.insert(v);
-	#endif
+#endif
  
 	PointerType * pt = cast<PointerType>(v->getType());
 	if(isClientArrayType(pt->getElementType()))
@@ -57,7 +56,7 @@ POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 	}
 	if(AllocaInst::classof(v) || GlobalVariable::classof(v))
 	{
-		if(isImmutableType(pt->getElementType()) && !isNoWrappingArrayOptimizable(v))
+		if(isImmutableType(pt->getElementType()) &&  needsWrappingArray(v) )
 			return iter->second = COMPLETE_ARRAY;
 		else
 			return iter->second = COMPLETE_OBJECT;
@@ -112,31 +111,29 @@ POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 	{
 		if (isImmutableType( pt->getElementType() ) )
 		{
-			return iter->second = (isNoWrappingArrayOptimizable(v) ? COMPLETE_OBJECT : REGULAR);
+			return iter->second = needsWrappingArray(v)? REGULAR : COMPLETE_OBJECT;
 		}
 		else
 		{
-			return iter->second = (isNoSelfPointerOptimizable(v) ? COMPLETE_OBJECT : REGULAR);
+			return iter->second = (getPointerUsageFlagsComplete(v) & need_self_flags) ? REGULAR : COMPLETE_OBJECT;
 		}
 	}
 	return iter->second = REGULAR;
 }
 
-uint32_t DuettoPointerAnalyzer::getPointerUsageFlagsComplete(const Value * v) const
+bool DuettoPointerAnalyzer::hasSelfMember(const Value* v) const
 {
-	assert(v->getType()->isPointerTy());
+	assert( v->getType()->isPointerTy() );
+	
+	PointerType * tp = cast<PointerType>(v->getType());
 
-	pointer_usage_map_t::const_iterator iter = pointerCompleteUsageMap.find(v);
+	if ( isImmutableType(tp->getElementType()) || !isa<StructType>(tp->getElementType()) )
+		return false;
 
-	if (pointerCompleteUsageMap.end() == iter)
-	{
-		std::set<const Value *> openset;
-		iter = pointerCompleteUsageMap.insert( std::make_pair(v,dfsPointerUsageFlagsComplete(v, openset) ) ).first;
-	}
-
-	return iter->second;
+	return (getPointerUsageFlagsComplete(v) & need_self_flags);
 }
 
+#ifndef NDEBUG
 void DuettoPointerAnalyzer::dumpPointer(const Value* v) const
 {
 	std::ostringstream fmt;
@@ -176,6 +173,7 @@ void DuettoPointerAnalyzer::dumpPointer(const Value* v) const
 
 	llvm::errs() << fmt.str() << "\n";
 }
+#endif
 
 #ifdef DUETTO_DEBUG_POINTERS
 
@@ -206,51 +204,44 @@ void DuettoPointerAnalyzer::dumpAllFunctions() const
 
 #endif //DUETTO_DEBUG_POINTERS
 
-std::string DuettoPointerAnalyzer::valueObjectName(const Value* v)
+bool DuettoPointerAnalyzer::needsWrappingArray(const Value* v) const
 {
-	std::ostringstream os;
-	if (const Instruction * p = dyn_cast<const Instruction>(v) )
-		os << " instruction " << p->getOpcodeName() << "\n";
-	else if (const Constant * p = dyn_cast<const Constant>(v) )
+	assert( v->getType()->isPointerTy() );
+	assert( isImmutableType(cast<PointerType>( v->getType() )->getElementType() ) );
+	
+	bool hasAliasedStore = std::any_of( v->use_begin(), v->use_end(), [&]( const Use & u )
 	{
-		os << " constant " << p->getName().str() << "(";
-		
-		// Feel free to find a way to avoid this obscenity
-		if (isa<const BlockAddress>(p))
-			os << "BlockAddress";
-		else if (isa<const ConstantAggregateZero>(p))
-			os << "ConstantAggregateZero";
-		else if (isa<const ConstantArray>(p))
-			os << "ConstantArray";
-		else if (isa<const ConstantDataSequential>(p))
-			os << "ConstantDataSequential";
-		else if (const ConstantExpr * pc = dyn_cast<const ConstantExpr>(p))
+		const User * U = u.getUser();
+		if (isBitCast(U) || isNopCast(U) || isa<const PHINode>(U) || isa<const SelectInst>(U) )
+			if ( getPointerUsageFlagsComplete(U) & POINTER_NONCONST_DEREF )
+				return true;
+			
+		if (isa<CallInst>(U) || isa<InvokeInst>(U) )
 		{
-			os << "ConstantExpr [" << pc->getOpcodeName() <<"]";
+			std::set<const Value *> openset;
+			if ( usageFlagsForCall(v, ImmutableCallSite(U), openset ) & POINTER_NONCONST_DEREF )
+				return true;
 		}
-		else if (isa<const ConstantFP>(p))
-			os << "ConstantFP";
-		else if (isa<const ConstantInt>(p))
-			os << "ConstantInt";
-		else if (isa<const ConstantPointerNull>(p))
-			os << "ConstantPointerNull";
-		else if (isa<const ConstantStruct>(p))
-			os << "ConstantStruct";
-		else if (isa<const ConstantVector>(p))
-			os << "ConstantVector";
-		else if (isa<const GlobalAlias>(p))
-			os << "GlobalAlias";
-		else if (isa<const GlobalValue>(p))
-			os << "GlobalValue";
-		else if (isa<const UndefValue>(p))
-			os << "UndefValue";
-		else
-			os << "Unknown";
-		os << ")\n";
+		return false;
+	});
+	
+	return hasAliasedStore || (getPointerUsageFlagsComplete(v) & need_wrap_array_flags ) ||
+		( (isa<Argument>(v) || isa<PHINode>(v) ) && (getPointerUsageFlagsComplete(v) & POINTER_NONCONST_DEREF) );
+}
+
+uint32_t DuettoPointerAnalyzer::getPointerUsageFlagsComplete(const Value * v) const
+{
+	assert(v->getType()->isPointerTy());
+
+	pointer_usage_map_t::const_iterator iter = pointerCompleteUsageMap.find(v);
+
+	if (pointerCompleteUsageMap.end() == iter)
+	{
+		std::set<const Value *> openset;
+		iter = pointerCompleteUsageMap.insert( std::make_pair(v,dfsPointerUsageFlagsComplete(v, openset) ) ).first;
 	}
-	else if ( isa<const Operator>(p) )
-		os << " operator " << p->getName().str() << "\n";
-	return os.str();
+
+	return iter->second;
 }
 
 uint32_t DuettoPointerAnalyzer::getPointerUsageFlags(const llvm::Value * v) const
@@ -334,9 +325,6 @@ uint32_t DuettoPointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, st
 	}
 
 	uint32_t f = getPointerUsageFlags(v);
-	
-	if (isBitCast(v) || isNopCast(v) || isa<const PHINode>(v) || isa<const Argument>(v) || isa<const SelectInst>(v))
-		f |= POINTER_IS_NOT_UNIQUE_OWNER;
 
 	for (Value::const_use_iterator it = v->use_begin(); it != v->use_end(); ++it)
 	{
@@ -347,7 +335,7 @@ uint32_t DuettoPointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, st
 			isBitCast(U) ||
 			isNopCast(U))
 		{
-			f |= dfsPointerUsageFlagsComplete(U, openset) | POINTER_IS_NOT_UNIQUE_OWNER;
+			f |= dfsPointerUsageFlagsComplete(U, openset);
 		}
 		else if (const CallInst * I = dyn_cast<const CallInst>(U))
 		{
@@ -395,7 +383,6 @@ uint32_t DuettoPointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, st
 			llvm::errs() << "Adding POINTER_UNKNOWN in dfsPointerUsageFlagsComplete due to instruction: " << valueObjectName(U) << "\n";
 #endif //DUETTO_DEBUG_POINTERS
 
-			//NOTE no need to add POINTER_IS_NOT_UNIQUE_OWNER to PtrToIntInst since IntToPtr are disabled anyway
 			f |= POINTER_UNKNOWN;
 		}
 	}
@@ -427,21 +414,7 @@ uint32_t DuettoPointerAnalyzer::usageFlagsForCall(const Value * v, ImmutableCall
 	assert(  ok || ((llvm::errs() << f->getName()),false) );
 #endif
 	
-	return flags | POINTER_IS_NOT_UNIQUE_OWNER;
-}
-
-bool DuettoPointerAnalyzer::isNoSelfPointerOptimizable(const llvm::Value * v) const
-{
-	assert( v->getType()->isPointerTy() );
-	return ! (getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT | POINTER_EQUALITY_COMPARABLE) );
-}
-
-bool DuettoPointerAnalyzer::isNoWrappingArrayOptimizable(const llvm::Value * v) const
-{
-	assert( v->getType()->isPointerTy() );
-	
-	return isImmutableType(v->getType()->getPointerElementType()) && // This type of optimization makes sense only for immutable types
-		!(getPointerUsageFlagsComplete(v) & (POINTER_ARITHMETIC | POINTER_ORDINABLE | POINTER_CASTABLE_TO_INT | POINTER_IS_NOT_UNIQUE_OWNER | POINTER_EQUALITY_COMPARABLE) );
+	return flags;
 }
 
 bool DuettoPointerAnalyzer::canBeCalledIndirectly(const Function* f) const
