@@ -58,7 +58,7 @@ void DuettoWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 		case Type::StructTyID:
 		{
 			//Special case union first
-			if(isUnion(t))
+			if(TypeSupport::isUnion(t))
 			{
 				uint32_t typeSize = targetData.getTypeAllocSize(t);
 				stream << "new DataView(new ArrayBuffer(";
