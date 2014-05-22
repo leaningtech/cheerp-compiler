@@ -127,7 +127,7 @@ private:
 	void compileResetRecursive(const std::string& baseName, const llvm::Value* baseDest,
 		const llvm::Value* resetValue, const llvm::Type* currentType, const char* namedOffset);
 	void compileDowncast(const llvm::Value* src, uint32_t baseOffset);
-	void compileAllocation(const llvm::Value* callV, const llvm::Value* size, const llvm::Value* numElements = NULL);
+	void compileAllocation(const DynamicAllocInfo & info);
 	void compileFree(const llvm::Value* obj);
 	void compilePointer(const llvm::Value* v, POINTER_KIND acceptedKind);
 	void compileOperandImpl(const llvm::Value* v);
@@ -139,8 +139,7 @@ private:
 	void compileMethodArgsForDirectCall(const llvm::User::const_op_iterator it, const llvm::User::const_op_iterator itE, llvm::Function::const_arg_iterator arg_it);
 	void handleBuiltinNamespace(const char* ident, const llvm::Function* calledFunction,
 			llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE);
-	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(const llvm::Function* func, llvm::CallSite callV,
-			llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, bool userImplemented);
+	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(llvm::ImmutableCallSite callV, const llvm::Function * f);
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void gatherGlobalDependencies(const llvm::Constant* C, const llvm::GlobalVariable* base,
