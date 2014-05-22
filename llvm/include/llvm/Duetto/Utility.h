@@ -22,7 +22,6 @@ namespace duetto
 {
 
 bool isClientGlobal(const char* mangledName);
-bool isComingFromAllocation(const llvm::Value* val);
 bool isNopCast(const llvm::Value* val);
 bool isValidVoidPtrSource(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis);
 
@@ -102,6 +101,8 @@ public:
 	bool isValidAlloc() const { return type != not_an_alloc; }
 	
 	AllocType getAllocType() const { return type; }
+	
+	static AllocType getAllocType(llvm::ImmutableCallSite);
 	
 	/**
 	 * Every alloc instruction produces an i8*.
