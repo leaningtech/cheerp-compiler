@@ -62,7 +62,7 @@ void DuettoWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 	stream << " - ";
 	compileOperand(rhs);
 	stream << ')';
-	if(isI32Type(lhs->getType()))
+	if(types.isI32Type(lhs->getType()))
 		stream << ">> 0";
 	else
 		stream << "& " << getMaskForBitWidth(lhs->getType()->getIntegerBitWidth());

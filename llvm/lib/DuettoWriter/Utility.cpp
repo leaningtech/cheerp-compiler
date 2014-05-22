@@ -16,6 +16,7 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/FormattedStream.h"
 
@@ -23,107 +24,9 @@ using namespace llvm;
 
 namespace duetto {
 
-bool isValidTypeCast(const Value* castI, const Value* castOp, Type* srcPtr, Type* dstPtr)
-{
-	//Only pointer casts are possible anyway
-	assert(srcPtr->isPointerTy() && dstPtr->isPointerTy());
-	Type* src=cast<PointerType>(srcPtr)->getElementType();
-	Type* dst=cast<PointerType>(dstPtr)->getElementType();
-	//Conversion between client objects is free
-	if(isClientType(src) && isClientType(dst))
-		return true;
-	//Conversion between any function pointer is ok
-	if(src->isFunctionTy() && dst->isFunctionTy())
-		return true;
-	//Allow conversions between equivalent struct types
-	if(src->isStructTy() && dst->isStructTy())
-	{
-		StructType* srcSt = cast<StructType>(src);
-		StructType* dstSt = cast<StructType>(dst);
-		if(srcSt->isLayoutIdentical(dstSt))
-			return true;
-	}
-	if(dst->isIntegerTy(8))
-		return true;
-	//Support getting functions back from the Vtable
-	if(src->isPointerTy() && dst->isPointerTy())
-	{
-		Type* innerSrc=cast<PointerType>(src)->getElementType();
-		Type* innerDst=cast<PointerType>(dst)->getElementType();
-		if(innerSrc->isIntegerTy(8) || innerDst->isFunctionTy())
-		{
-			const ConstantExpr* constGep=dyn_cast<const ConstantExpr>(castOp);
-			if(constGep && constGep->getOpcode()==Instruction::GetElementPtr)
-			{
-				const Value* sourceVal = constGep->getOperand(0);
-				if(sourceVal->hasName() &&
-					strncmp(sourceVal->getName().data(),"_ZTV",4)==0)
-				{
-					//This casts ultimately comes from a VTable, it's ok
-					return true;
-				}
-			}
-		}
-		if(innerSrc->isFunctionTy() && innerDst->isFunctionTy())
-			return true;
-	}
-	//Also allow the unsafe cast from i8* in a few selected cases
-	if(src->isIntegerTy(8))
-	{
-		bool comesFromNew = isValidVoidPtrSource(castOp);
-		bool allowedRawUsages = true;
-		Value::const_use_iterator it=castOp->use_begin();
-		Value::const_use_iterator itE=castOp->use_end();
-		for(;it!=itE;++it)
-		{
-			const User* U = it->getUser();
-			//Check that the other use is a memset or an icmp
-			if(U==castI)
-				continue;
-			const CallInst* ci=dyn_cast<const CallInst>(U);
-			if(!(ICmpInst::classof(U) || safeCallForNewedMemory(ci)))
-				allowedRawUsages = false;
-		}
-		if(comesFromNew && allowedRawUsages)
-			return true;
-	}
-	if(isUnion(src) && (ArrayType::classof(dst) || isTypedArrayType(dst)))
-		return true;
-	//Allow changing the size of an array
-	if (ArrayType::classof(src) && ArrayType::classof(dst) &&
-		src->getSequentialElementType() == dst->getSequentialElementType())
-	{
-		return true;
-	}
-	return false;
-}
-
-bool isClientType(const Type* t)
-{
-	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		strncmp(t->getStructName().data(), "class._ZN6client", 16)==0);
-}
-
-bool isClientArrayType(const Type* t)
-{
-	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		strcmp(t->getStructName().data(), "class._ZN6client5ArrayE")==0);
-}
-
 bool isClientGlobal(const char* mangledName)
 {
 	return strncmp(mangledName,"_ZN6client",10)==0;
-}
-
-bool isI32Type(Type* t)
-{
-	return t->isIntegerTy() && static_cast<IntegerType*>(t)->getBitWidth()==32;
-}
-
-bool isTypedArrayType(Type* t)
-{
-	return t->isIntegerTy(8) || t->isIntegerTy(16) || t->isIntegerTy(32) ||
-		t->isFloatTy() || t->isDoubleTy();
 }
 
 bool isComingFromAllocation(const Value* val)
@@ -166,14 +69,12 @@ bool isNopCast(const Value* val)
 		
 		if ( Intrinsic::duetto_downcast == id )
 		{
-			std::set<const PHINode*> visitedPhis;
-		
-			Type * pointerType = findRealType( newCall->getArgOperand(0), visitedPhis);
+			Type * pointerType = TypeSupport::findRealType( newCall->getArgOperand(0) );
 			assert(pointerType->isPointerTy());
 		
 			Type* t = cast<PointerType>(pointerType)->getElementType();
 
-			if ( isClientType(t) ||
+			if ( TypeSupport::isClientType(t) ||
 				getIntFromValue( newCall->getArgOperand(1) ) == 0 )
 				return true;
 		}
@@ -322,7 +223,7 @@ bool isBitCast(const Value* v)
 	const User* b=static_cast<const User*>(v);
 	if(isa<BitCastInst>(v))
 	{
-		bool validCast = isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType());
+		bool validCast = TypeSupport::isValidTypeCast(b->getOperand(0), v->getType());
 		if(!validCast)
 		{
 			llvm::errs() << "Error while handling cast " << *v << "\n";
@@ -334,7 +235,7 @@ bool isBitCast(const Value* v)
 	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
 	if(ce && ce->getOpcode()==Instruction::BitCast)
 	{
-		bool validCast = isValidTypeCast(v, b->getOperand(0), b->getOperand(0)->getType(), v->getType());
+		bool validCast = TypeSupport::isValidTypeCast(b->getOperand(0), v->getType());
 		if(!validCast)
 		{
 			llvm::errs() << "Error while handling cast " << *v << "\n";
@@ -426,48 +327,6 @@ uint32_t getIntFromValue(const Value* v)
 	return i->getZExtValue();
 }
 
-Type* findRealType(const Value* v, std::set<const PHINode*>& visitedPhis)
-{
-	if(isBitCast(v))
-		return static_cast<const User*>(v)->getOperand(0)->getType();
-	else if(const IntrinsicInst* ci = dyn_cast<IntrinsicInst>(v))
-	{
-		//Support duetto.cast.user
-		if(ci->getIntrinsicID() == Intrinsic::duetto_cast_user)
-			return ci->getArgOperand(0)->getType();
-	}
-
-	const PHINode* newPHI=dyn_cast<const PHINode>(v);
-	if(newPHI)
- 	{
-		if(visitedPhis.count(newPHI))
-		{
-			//Assume true, if needed it will become false later on
-			return NULL;
-		}
-		visitedPhis.insert(newPHI);
-		assert(newPHI->getNumIncomingValues()>=1);
-		Type* ret=findRealType(newPHI->getIncomingValue(0),visitedPhis);
-		for(unsigned i=1;i<newPHI->getNumIncomingValues();i++)
-		{
-			Type* t=findRealType(newPHI->getIncomingValue(i),visitedPhis);
-			if(t==NULL)
-				continue;
-			else if(ret==NULL)
-				ret=t;
-			else if(ret!=t)
-			{
-				llvm::errs() << "Unconsistent real types for phi " << *v << "\n";
-				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-				return ret;
-			}
-		}
-		visitedPhis.erase(newPHI);
-		return ret;
- 	}
-	return v->getType();
-}
-
 std::string valueObjectName(const Value* v)
 {
 	std::ostringstream os;
@@ -514,5 +373,194 @@ std::string valueObjectName(const Value* v)
 		os << " operator " << p->getName().str() << "\n";
 	return os.str();
 }
+
+bool TypeSupport::isValidTypeCast(const Value * castOp, Type * dstPtr)
+{
+	Type * srcPtr = castOp->getType();
+
+	//Only pointer casts are possible anyway
+	assert(srcPtr->isPointerTy() && dstPtr->isPointerTy());
+	Type * src = cast<PointerType>(srcPtr)->getElementType();
+	Type * dst = cast<PointerType>(dstPtr)->getElementType();
+
+	//Conversion between client objects is free
+	if(isClientType(src) && isClientType(dst))
+		return true;
+
+	//Conversion between any function pointer is ok
+	if(src->isFunctionTy() && dst->isFunctionTy())
+		return true;
+
+	//Allow conversions between equivalent struct types
+	if(src->isStructTy() && dst->isStructTy())
+	{
+		StructType* srcSt = cast<StructType>(src);
+		StructType* dstSt = cast<StructType>(dst);
+		if(srcSt->isLayoutIdentical(dstSt))
+			return true;
+	}
+	if(dst->isIntegerTy(8))
+		return true;
+
+	//Support getting functions back from the Vtable
+	if(src->isPointerTy() && dst->isPointerTy())
+	{
+		Type* innerSrc=cast<PointerType>(src)->getElementType();
+		Type* innerDst=cast<PointerType>(dst)->getElementType();
+		if(innerSrc->isIntegerTy(8) || innerDst->isFunctionTy())
+		{
+			const ConstantExpr* constGep=dyn_cast<const ConstantExpr>(castOp);
+			if(constGep && constGep->getOpcode()==Instruction::GetElementPtr)
+			{
+				const Value* sourceVal = constGep->getOperand(0);
+				if(sourceVal->hasName() &&
+					strncmp(sourceVal->getName().data(),"_ZTV",4)==0)
+				{
+					//This casts ultimately comes from a VTable, it's ok
+					return true;
+				}
+			}
+		}
+		if(innerSrc->isFunctionTy() && innerDst->isFunctionTy())
+			return true;
+	}
+	//Also allow the unsafe cast from i8* in a few selected cases
+	if(src->isIntegerTy(8))
+	{
+		if ( isValidVoidPtrSource(castOp) )
+		{
+			bool allowedRawUsages = std::all_of(
+				castOp->user_begin(),
+				castOp->user_end(),
+				[](const User * U) -> bool
+				{
+					//Check that the other use is a memset or an icmp
+					if ( const ConstantExpr * ce = dyn_cast<ConstantExpr>(U) )
+						return ce->getOpcode() == Instruction::BitCast;
+					return isa<ICmpInst>(U) || isa<CastInst>(U) || safeCallForNewedMemory(dyn_cast<CallInst>(U));
+				});
+
+			if(allowedRawUsages)
+				return true;
+		}
+	}
+	if(isUnion(src) && (ArrayType::classof(dst) || isTypedArrayType(dst)))
+		return true;
+
+	//Allow changing the size of an array
+	if (ArrayType::classof(src) && ArrayType::classof(dst) &&
+		src->getSequentialElementType() == dst->getSequentialElementType())
+	{
+		return true;
+	}
+	return false;
+}
+
+bool TypeSupport::isClientType(const Type* t)
+{
+	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
+		strncmp(t->getStructName().data(), "class._ZN6client", 16)==0);
+}
+
+bool TypeSupport::isClientArrayType(const Type* t)
+{
+	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
+		strcmp(t->getStructName().data(), "class._ZN6client5ArrayE")==0);
+}
+
+bool TypeSupport::isI32Type(Type* t)
+{
+	return t->isIntegerTy() && static_cast<IntegerType*>(t)->getBitWidth()==32;
+}
+
+bool TypeSupport::isTypedArrayType(Type* t)
+{
+	return t->isIntegerTy(8) || t->isIntegerTy(16) || t->isIntegerTy(32) ||
+		t->isFloatTy() || t->isDoubleTy();
+}
+
+Type* TypeSupport::dfsFindRealType(const Value* v, std::set<const PHINode*>& visitedPhis)
+{
+	if(isBitCast(v))
+		return static_cast<const User*>(v)->getOperand(0)->getType();
+	else if(const IntrinsicInst* ci = dyn_cast<IntrinsicInst>(v))
+	{
+		//Support duetto.cast.user
+		if(ci->getIntrinsicID() == Intrinsic::duetto_cast_user)
+			return ci->getArgOperand(0)->getType();
+	}
+
+	const PHINode* newPHI=dyn_cast<const PHINode>(v);
+	if(newPHI)
+ 	{
+		if(!visitedPhis.insert(newPHI).second)
+		{
+			//Assume true, if needed it will become false later on
+			return nullptr;
+		}
+		
+		assert(newPHI->getNumIncomingValues()>=1);
+
+		Type* ret = dfsFindRealType(newPHI->getIncomingValue(0),visitedPhis);
+
+		for(unsigned i=1;i<newPHI->getNumIncomingValues();i++)
+		{
+			Type* t=dfsFindRealType(newPHI->getIncomingValue(i),visitedPhis);
+			if(t==NULL)
+				continue;
+			else if(ret==NULL)
+				ret=t;
+			else if(ret!=t)
+			{
+				llvm::errs() << "Unconsistent real types for phi " << *v << "\n";
+				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+				return ret;
+			}
+		}
+		visitedPhis.erase(newPHI);
+		return ret;
+ 	}
+	return v->getType();
+}
+
+const llvm::NamedMDNode* TypeSupport::getBasesMetadata(const llvm::StructType * t) const
+{
+	if(!t->hasName())
+		return nullptr;
+
+	return module.getNamedMetadata(Twine(t->getName(),"_bases"));
+}
+
+bool TypeSupport::getBasesInfo(const StructType* t, uint32_t& firstBase, uint32_t& baseCount) const
+{
+	const NamedMDNode* basesNamedMeta = getBasesMetadata(t);
+	if(!basesNamedMeta)
+		return false;
+
+	MDNode* basesMeta=basesNamedMeta->getOperand(0);
+	assert(basesMeta->getNumOperands()==2);
+	firstBase=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue());
+	int32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue())-1;
+	baseCount=0;
+
+	StructType::element_iterator E=t->element_begin()+firstBase;
+	StructType::element_iterator EE=t->element_end();
+	for(;E!=EE;++E)
+	{
+		baseCount++;
+		StructType* baseT=cast<StructType>(*E);
+		NamedMDNode* baseNamedMeta=module.getNamedMetadata(Twine(baseT->getName(),"_bases"));
+		if(baseNamedMeta)
+			baseMax-=getIntFromValue(cast<ConstantAsMetadata>(baseNamedMeta->getOperand(0)->getOperand(1))->getValue());
+		else
+			baseMax--;
+		assert(baseMax>=0);
+		if(baseMax==0)
+			break;
+	}
+	return true;
+}
+
+
 
 }

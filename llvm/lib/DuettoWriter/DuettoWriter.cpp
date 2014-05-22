@@ -257,7 +257,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 			//Pointers to client objects must use a normal null
 			const Type* pointedType = currentType->getPointerElementType();
 			stream << baseName << " = ";
-			if(isClientType(pointedType))
+			if(types.isClientType(pointedType))
 				stream << "null";
 			else
 				stream << "nullObj";
@@ -307,11 +307,10 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 
 void DuettoWriter::compileDowncast(const Value* src, uint32_t baseOffset)
 {
-	std::set<const PHINode*> visitedPhis;
-	Type* pointerType=findRealType(src, visitedPhis);
+	Type* pointerType=types.findRealType(src);
 	assert(pointerType->isPointerTy());
 	Type* t=cast<PointerType>(pointerType)->getElementType();
-	if(isClientType(t) || baseOffset==0)
+	if(types.isClientType(t) || baseOffset==0)
 		compileOperand(src);
 	else
 	{
@@ -358,12 +357,10 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		COPY_DIRECTION copyDirection)
 {
 	//Find out the real type of the copied object
-	std::set<const PHINode*> visitedPhis;
-	Type* destType=findRealType(dest,visitedPhis);
+	Type* destType=types.findRealType(dest);
 	if(copyDirection!=RESET)
 	{
-		visitedPhis.clear();
-		Type* srcType=findRealType(src,visitedPhis);
+		Type* srcType=types.findRealType(src);
 		if(destType!=srcType)
 			llvm::report_fatal_error("Different destination and source type for memcpy/memmove", false);
 	}
@@ -420,7 +417,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	Type* lastTypeSrc = NULL;
 	Type* lastTypeDest = NULL;
 	//Prologue: Construct the first part, up to using the size
-	if(copyDirection!=RESET && isTypedArrayType(pointedType))
+	if(copyDirection!=RESET && types.isTypedArrayType(pointedType))
 	{
 		// The semantics of set is memmove like, no need to care about direction
 		lastTypeDest=compileObjectForPointer(dest, NORMAL);
@@ -459,7 +456,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	}
 
 	//Epilogue: Write the code after the size
-	if(copyDirection!=RESET && isTypedArrayType(pointedType))
+	if(copyDirection!=RESET && types.isTypedArrayType(pointedType))
 	{
 		stream << "),";
 		bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
@@ -525,7 +522,7 @@ void DuettoWriter::compileAllocation(const Value* callV, const Value* size, cons
 	Type* t=static_cast<const PointerType*>(castedType)->getElementType();
 	uint32_t typeSize = targetData.getTypeAllocSize(t);
 	//For numerical types, create typed arrays
-	if(isTypedArrayType(t))
+	if(types.isTypedArrayType(t))
 	{
 		stream << "new ";
 		compileTypedArrayType(t);
@@ -817,7 +814,7 @@ void DuettoWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	// All other pointers are compared using the base and offset separately
 	llvm::Type* pointedType = lhs->getType()->getPointerElementType();
 	bool isFunction = pointedType->isFunctionTy();
-	bool isClient = isClientType(pointedType);
+	bool isClient = types.isClientType(pointedType);
 
 	if(isFunction || isClient)
 	{
@@ -1040,7 +1037,7 @@ void DuettoWriter::compileConstantExpr(const ConstantExpr* ce)
 			Value* val=ce->getOperand(0);
 			Type* dst=ce->getType();
 			Type* src=val->getType();
-			if(!isValidTypeCast(ce, val, src, dst))
+			if(!types.isValidTypeCast(val, dst) )
 			{
 				llvm::errs() << "Between:\n\t" << *src << "\n\t" << *dst << "\n";
 				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
@@ -1148,7 +1145,7 @@ void DuettoWriter::compileConstant(const Constant* c)
 	else if(ConstantPointerNull::classof(c))
 	{
 		const Type* pointedType = c->getType()->getPointerElementType();
-		if(isClientType(pointedType))
+		if(types.isClientType(pointedType))
 			stream << "null";
 		else
 			stream << "nullObj";
@@ -1256,7 +1253,7 @@ void DuettoWriter::compileOperand(const Value* v, POINTER_KIND requestedPointerK
 	//First deal with complete objects, but never expand pointers to client objects
 	if(v->getType()->isPointerTy() &&
 		requestedPointerKind!=UNDECIDED &&
-		!isClientType(v->getType()->getPointerElementType()))
+		!types.isClientType(v->getType()->getPointerElementType()))
 	{
 		compilePointer(v, requestedPointerKind);
 	}
@@ -1768,7 +1765,7 @@ Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use* it, 
 		if(StructType* st=dyn_cast<StructType>(ret))
 		{
 			uint32_t firstBase, baseCount;
-			if(getBasesInfo(st, firstBase, baseCount) && classesNeeded.count(st))
+			if(types.getBasesInfo(st, firstBase, baseCount) && classesNeeded.count(st))
 			{
 				uint32_t lastIndex=getIntFromValue(*itE);
 				if(lastIndex>=firstBase && lastIndex<(firstBase+baseCount))
@@ -1816,7 +1813,7 @@ bool DuettoWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, c
 			{
 				isStruct=true;
 				uint32_t firstBase, baseCount;
-				if(getBasesInfo(st, firstBase, baseCount) && elementIndex>=firstBase &&
+				if(types.getBasesInfo(st, firstBase, baseCount) && elementIndex>=firstBase &&
 					elementIndex<(firstBase+baseCount) && classesNeeded.count(st))
 				{
 					compileDereferencePointer(val, *it);
@@ -1910,7 +1907,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			const BitCastInst& bi=static_cast<const BitCastInst&>(I);
 			Type* src=bi.getSrcTy();
 			Type* dst=bi.getDestTy();
-			if(!isValidTypeCast(&bi, bi.getOperand(0), src, dst))
+			if(!TypeSupport::isValidTypeCast(bi.getOperand(0), dst))
 			{
 				llvm::errs() << "Between:\n\t" << *src << "\n\t" << *dst << "\n";
 				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
@@ -1976,7 +1973,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			Type* t=gep.getOperand(0)->getType();
 			assert(t->isPointerTy());
 			PointerType* ptrT=static_cast<PointerType*>(t);
-			if(isClientType(ptrT->getElementType()))
+			if(types.isClientType(ptrT->getElementType()))
 			{
 				//Client objects are just passed through
 				compileOperand(gep.getOperand(0));
@@ -1999,7 +1996,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			stream << " + ";
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			if(isI32Type(I.getType()))
+			if(types.isI32Type(I.getType()))
 				stream << ">> 0";
 			else
 				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
@@ -2113,7 +2110,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			stream << " * ";
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			if(isI32Type(I.getType()))
+			if(types.isI32Type(I.getType()))
 				stream << ">> 0";
 			else
 				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
@@ -2190,7 +2187,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer arithmetic shift right
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
-			if(isI32Type(I.getOperand(0)->getType()))
+			if(types.isI32Type(I.getOperand(0)->getType()))
 				compileOperand(I.getOperand(0));
 			else
 				compileSignedInteger(I.getOperand(0));
@@ -2815,7 +2812,6 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		}
 		if(globalsQueue.count(otherGV))
 			continue;
-		const Constant* C=otherGV->getInitializer();
 
 		printLLVMName(otherGV->getName(), GLOBAL);
 		if( analyzer.getPointerKind(otherGV) == COMPLETE_ARRAY )
@@ -2936,7 +2932,7 @@ void DuettoWriter::computeGlobalsQueue()
 				StructType* st=cast<StructType>(retType);
 				uint32_t firstBase, baseCount;
 				// We only need metadata for non client objects and if there are bases
-				if (!isClientType(retType) && getBasesInfo(st, firstBase, baseCount))
+				if (!types.isClientType(retType) && types.getBasesInfo(st, firstBase, baseCount))
 					classesNeeded.insert(cast<StructType>(st));
 			}
 		}
