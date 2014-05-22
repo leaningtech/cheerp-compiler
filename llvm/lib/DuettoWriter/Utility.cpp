@@ -83,12 +83,6 @@ bool isNopCast(const Value* val)
 	return false;
 }
 
-bool isValidVoidPtrSource(const Value* val)
-{
-	std::set<const PHINode*> visitedPhis;
-	return isValidVoidPtrSource(val, visitedPhis);
-}
-
 bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhis)
 {
 	if(isComingFromAllocation(val))
@@ -141,7 +135,7 @@ bool isInlineable(const Instruction& I)
 	{
 		//Inline casts which are not unions
 		llvm::Type* src=I.getOperand(0)->getType();
-		if(!src->isPointerTy() || !isUnion(src->getPointerElementType()))
+		if(!src->isPointerTy() || !TypeSupport::isUnion(src->getPointerElementType()))
 			return true;
 		Type* pointedType=src->getPointerElementType();
 		//Do not inline union casts to array
@@ -257,62 +251,6 @@ bool isGEP(const Value* v)
 	return false;
 }
 
-bool isImmutableType(const Type* t)
-{
-	if(t->isIntegerTy() || t->isFloatTy() || t->isDoubleTy() || t->isPointerTy())
-		return true;
-	return false;
-}
-
-bool isUnion(const Type* t)
-{
-	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		t->getStructName().startswith("union."));
-}
-
-bool safeUsagesForNewedMemory(const Value* v)
-{
-	Value::const_use_iterator it=v->use_begin();
-	Value::const_use_iterator itE=v->use_end();
-	for(;it!=itE;++it)
-	{
-		const PHINode* p=dyn_cast<const PHINode>(it->getUser());
-		//If the usage is a PHI node, recursively check its usages
-		if(p)
-		{
-			if(!safeUsagesForNewedMemory(p))
-				return false;
-		}
-		else
-		{
-			const CallInst* ci=dyn_cast<const CallInst>(*it);
-			if(!safeCallForNewedMemory(ci))
-				return false;
-		}
-	}
-	return true;
-}
-
-bool safeCallForNewedMemory(const CallInst* ci)
-{
-	//We allow the unsafe cast to i8* only
-	//if the usage is memcpy, memset, free or delete
-	//or one of the lifetime/invariant intrinsics
-	return (ci && ci->getCalledFunction() &&
-		(ci->getCalledFunction()->getIntrinsicID()==Intrinsic::memcpy ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::memset ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::memmove ||
-		ci->getCalledFunction()->getName()=="free" ||
-		ci->getCalledFunction()->getName()=="_ZdaPv" ||
-		ci->getCalledFunction()->getName()=="_ZdlPv" ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::lifetime_start ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::lifetime_end ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::invariant_start ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::invariant_end ||
-		//Allow unsafe casts for a limited number of functions that accepts callback args
-		//TODO: find a nicer approach for this
-		ci->getCalledFunction()->getName()=="__cxa_atexit"));
-}
 
 uint32_t getIntFromValue(const Value* v)
 {
@@ -468,15 +406,28 @@ bool TypeSupport::isClientArrayType(const Type* t)
 		strcmp(t->getStructName().data(), "class._ZN6client5ArrayE")==0);
 }
 
-bool TypeSupport::isI32Type(Type* t)
+bool TypeSupport::isI32Type(const Type* t)
 {
-	return t->isIntegerTy() && static_cast<IntegerType*>(t)->getBitWidth()==32;
+	return t->isIntegerTy() && static_cast<const IntegerType*>(t)->getBitWidth()==32;
 }
 
-bool TypeSupport::isTypedArrayType(Type* t)
+bool TypeSupport::isTypedArrayType(const Type* t)
 {
 	return t->isIntegerTy(8) || t->isIntegerTy(16) || t->isIntegerTy(32) ||
 		t->isFloatTy() || t->isDoubleTy();
+}
+
+bool TypeSupport::isImmutableType(const Type* t)
+{
+	if(t->isIntegerTy() || t->isFloatTy() || t->isDoubleTy() || t->isPointerTy())
+		return true;
+	return false;
+}
+
+bool TypeSupport::isUnion(const Type* t)
+{
+	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
+		t->getStructName().startswith("union."));
 }
 
 Type* TypeSupport::dfsFindRealType(const Value* v, std::set<const PHINode*>& visitedPhis)
@@ -561,6 +512,25 @@ bool TypeSupport::getBasesInfo(const StructType* t, uint32_t& firstBase, uint32_
 	return true;
 }
 
-
+bool TypeSupport::safeCallForNewedMemory(const CallInst* ci)
+{
+	//We allow the unsafe cast to i8* only
+	//if the usage is memcpy, memset, free or delete
+	//or one of the lifetime/invariant intrinsics
+	return (ci && ci->getCalledFunction() &&
+		(ci->getCalledFunction()->getIntrinsicID()==Intrinsic::memcpy ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::memset ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::memmove ||
+		ci->getCalledFunction()->getName()=="free" ||
+		ci->getCalledFunction()->getName()=="_ZdaPv" ||
+		ci->getCalledFunction()->getName()=="_ZdlPv" ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::lifetime_start ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::lifetime_end ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::invariant_start ||
+		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::invariant_end ||
+		//Allow unsafe casts for a limited number of functions that accepts callback args
+		//TODO: find a nicer approach for this
+		ci->getCalledFunction()->getName()=="__cxa_atexit"));
+}
 
 }
