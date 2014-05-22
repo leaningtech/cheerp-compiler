@@ -1481,7 +1481,10 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			else 
 				compileType( ai->getAllocatedType(), LITERAL_OBJ);
 
-			return analyzer.hasSelfMember(ai) ? COMPILE_ADD_SELF : COMPILE_OK;
+			if ( isa<StructType>( ai->getAllocatedType()) && classesNeeded.count(cast<StructType>(ai->getAllocatedType())) )
+				return COMPILE_OK;
+			else
+				return analyzer.hasSelfMember(ai) ? COMPILE_ADD_SELF : COMPILE_OK;
 		}
 		case Instruction::Call:
 		{
@@ -1699,7 +1702,7 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, Type* lastType)
 		else
 		{
 			//Print the regular "s" offset for complete objects
-// 			assert(analyzer.hasSelfMember(val) );
+			assert(analyzer.hasSelfMember(val) );
 			stream << "'s'";
 		}
 		return true;
@@ -2764,7 +2767,10 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		else 
 			compileOperand(C, REGULAR);
 
-		addSelf = analyzer.hasSelfMember(&G);
+		if ( isa<StructType>( C->getType() ) && classesNeeded.count(cast<StructType>(C->getType()) ) )
+			addSelf = false;
+		else
+			addSelf = analyzer.hasSelfMember(&G);
 	}
 	stream << ';' << NewLine;
 
