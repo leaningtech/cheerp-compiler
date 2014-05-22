@@ -162,7 +162,7 @@ void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value
 		}
 		case Type::StructTyID:
 		{
-			if(isUnion(currentType))
+			if(TypeSupport::isUnion(currentType))
 			{
 				stream << "var __tmp__=new Int8Array(";
 				compileDereferencePointer(baseDest, NULL, namedOffset);
@@ -266,7 +266,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 		}
 		case Type::StructTyID:
 		{
-			if(isUnion(currentType))
+			if(TypeSupport::isUnion(currentType))
 			{
 				stream << "var __tmp__=new Int8Array(";
 				compileDereferencePointer(baseDest, NULL, namedOffset);
@@ -367,7 +367,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	assert(destType->isPointerTy());
 
 	Type* pointedType = static_cast<PointerType*>(destType)->getElementType();
-	if(isUnion(pointedType))
+	if(TypeSupport::isUnion(pointedType))
 	{
 		//We can use the natural i8*, since the union will have already an allocated
 		//typed array when it has been casted to i8*
@@ -1595,7 +1595,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			const Value* ptrOp=li.getPointerOperand();
 			stream << "(";
 			if(BitCastInst::classof(ptrOp) &&
-					isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
+					TypeSupport::isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
 					!ArrayType::classof(ptrOp->getType()->getPointerElementType()))
 			{
 				//Optimize loads of single values from unions
@@ -1623,7 +1623,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
 			if(BitCastInst::classof(ptrOp) &&
-					isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
+					TypeSupport::isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
 					!ArrayType::classof(ptrOp->getType()->getPointerElementType()))
 			{
 				//Optimize loads of single values from unions
@@ -1675,7 +1675,7 @@ Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG flag)
 	{
 		const User* b=static_cast<const User*>(val);
 		//If it is a union, handle below
-		if(!isUnion(b->getOperand(0)->getType()->getPointerElementType()))
+		if(!TypeSupport::isUnion(b->getOperand(0)->getType()->getPointerElementType()))
 			return compileObjectForPointer(b->getOperand(0), flag);
 	}
 
@@ -1710,7 +1710,7 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, Type* lastType)
 	{
 		const User* b=static_cast<const User*>(val);
 		//If it is a union, handle below
-		if(!isUnion(b->getOperand(0)->getType()->getPointerElementType()))
+		if(!TypeSupport::isUnion(b->getOperand(0)->getType()->getPointerElementType()))
 			return compileOffsetForPointer(b->getOperand(0), lastType);
 	}
 
@@ -1913,7 +1913,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
 			}
 			//Special case unions
-			if(src->isPointerTy() && isUnion(src->getPointerElementType()))
+			if(src->isPointerTy() && TypeSupport::isUnion(src->getPointerElementType()))
 			{
 				//Find the type
 				llvm::Type* elementType = dst->getPointerElementType();

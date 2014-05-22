@@ -56,7 +56,7 @@ POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 	}
 	if(AllocaInst::classof(v) || GlobalVariable::classof(v))
 	{
-		if(isImmutableType(pt->getElementType()) &&  needsWrappingArray(v) )
+		if(TypeSupport::isImmutableType(pt->getElementType()) &&  needsWrappingArray(v) )
 			return iter->second = COMPLETE_ARRAY;
 		else
 			return iter->second = COMPLETE_OBJECT;
@@ -66,7 +66,7 @@ POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 	{
 		const User* bi=static_cast<const User*>(v);
 		//Casts from unions return regular pointers
-		if(isUnion(bi->getOperand(0)->getType()->getPointerElementType()))
+		if(TypeSupport::isUnion(bi->getOperand(0)->getType()->getPointerElementType()))
 		{
 			//Special case arrays
 			if(ArrayType::classof(pt->getElementType()))
@@ -109,7 +109,7 @@ POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 	
 	if (isa<const PHINode>(v) || isa<const Argument>(v))
 	{
-		if (isImmutableType( pt->getElementType() ) )
+		if (TypeSupport::isImmutableType( pt->getElementType() ) )
 		{
 			return iter->second = needsWrappingArray(v)? REGULAR : COMPLETE_OBJECT;
 		}
@@ -127,7 +127,7 @@ bool DuettoPointerAnalyzer::hasSelfMember(const Value* v) const
 	
 	PointerType * tp = cast<PointerType>(v->getType());
 
-	if ( isImmutableType(tp->getElementType()) || !isa<StructType>(tp->getElementType()) )
+	if ( TypeSupport::isImmutableType(tp->getElementType()) || !isa<StructType>(tp->getElementType()) )
 		return false;
 
 	return (getPointerUsageFlagsComplete(v) & need_self_flags);
@@ -166,7 +166,7 @@ void DuettoPointerAnalyzer::dumpPointer(const Value* v) const
 		
 		fmt << std::setw(18) << std::left << getPointerUsageFlags(v);
 		fmt << std::setw(18) << std::left << getPointerUsageFlagsComplete(v);
-		fmt << std::setw(18) << std::left << std::boolalpha << isImmutableType( v->getType()->getPointerElementType() );
+		fmt << std::setw(18) << std::left << std::boolalpha << TypeSupport::isImmutableType( v->getType()->getPointerElementType() );
 	}
 	else
 		fmt << "Is not a pointer";
@@ -207,7 +207,7 @@ void DuettoPointerAnalyzer::dumpAllFunctions() const
 bool DuettoPointerAnalyzer::needsWrappingArray(const Value* v) const
 {
 	assert( v->getType()->isPointerTy() );
-	assert( isImmutableType(cast<PointerType>( v->getType() )->getElementType() ) );
+	assert( TypeSupport::isImmutableType(cast<PointerType>( v->getType() )->getElementType() ) );
 	
 	bool hasAliasedStore = std::any_of( v->use_begin(), v->use_end(), [&]( const Use & u )
 	{
