@@ -489,123 +489,98 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	}
 }
 
-void DuettoWriter::compileAllocation(const Value* callV, const Value* size, const Value* numElements)
+void DuettoWriter::compileAllocation(const DynamicAllocInfo & info)
 {
-	//Find out if this is casted to something
-	Value::const_use_iterator it=callV->use_begin();
-	Value::const_use_iterator itE=callV->use_end();
-	const Type* castedType = NULL;
-	//If we are using the typed allocation it's easy
-	if(const IntrinsicInst* ci=dyn_cast<IntrinsicInst>(callV))
-	{
-		if(ci->getIntrinsicID() == Intrinsic::duetto_allocate)
-			castedType = ci->getType();
-	}
-	for(;it!=itE && castedType==NULL;++it)
-	{
-		const User* U=it->getUser();
-		if(BitCastInst::classof(U))
-			castedType = U->getType();
-		else if(const IntrinsicInst* ci = dyn_cast<IntrinsicInst>(U))
-		{
-			//Support duetto.cast.user
-			if(ci->getIntrinsicID() == Intrinsic::duetto_cast_user)
-				castedType = (U)->getType();
-		}
-	}
+	assert (info.isValidAlloc());
 
-	//If there are no casts, use i8* from the call itself
-	if(castedType==NULL)
-		castedType = callV->getType();
+	Type * t = info.getCastedType()->getElementType();
 
-	assert(castedType->isPointerTy());
-	Type* t=static_cast<const PointerType*>(castedType)->getElementType();
 	uint32_t typeSize = targetData.getTypeAllocSize(t);
-	//For numerical types, create typed arrays
-	if(types.isTypedArrayType(t))
+	
+	if (info.useTypedArray())
 	{
 		stream << "new ";
 		compileTypedArrayType(t);
 		stream << '(';
-		if(numElements)
-			compileOperand(numElements);
-		else if(ConstantInt::classof(size))
+		
+		if(info.getNumberOfElementsArg())
+			compileOperand(info.getNumberOfElementsArg());
+		else if( !info.sizeIsRuntime() )
 		{
-			uint32_t allocatedSize = getIntFromValue(size);
+			uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
 			uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
 			stream << numElem;
 		}
 		else
 		{
-			compileOperand(size);
+			compileOperand( info.getByteSizeArg() );
 			stream << '/' << typeSize;
 		}
 		stream << ')';
 	}
-	else
+	else if (info.useCreateArrayFunc() )
 	{
-		if(numElements && ConstantInt::classof(numElements))
-		{
-			uint32_t numElem = getIntFromValue(numElements);
-			stream << '[';
-			for(uint64_t i=0;i<numElem;i++)
-			{
-				compileType(t, LITERAL_OBJ);
-				if((i+1)<numElem)
-					stream << ",";
-			}
-			stream << ']';
-		}
-		else if(ConstantInt::classof(size))
-		{
-			uint32_t allocatedSize = getIntFromValue(size);
-			uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
-			stream << '[';
-			for(uint64_t i=0;i<numElem;i++)
-			{
-				compileType(t, LITERAL_OBJ);
-				if((i+1)<numElem)
-					stream << ",";
-			}
-			stream << ']';
-		}
+		assert( t->isStructTy() );
+		StructType* st = cast<StructType>(t);
+		arraysNeeded.insert(st);
+		
+		stream << "createArray";
+		printLLVMName(st->getName(), GLOBAL);
+		stream << '(';
+		if( info.getNumberOfElementsArg() )
+			compileOperand( info.getNumberOfElementsArg() );
 		else
 		{
-			if(t->isStructTy())
-			{
-				StructType* st=cast<StructType>(t);
-				arraysNeeded.insert(st);
-				stream << "createArray";
-				printLLVMName(st->getName(), GLOBAL);
-				stream << '(';
-				if(numElements)
-					compileOperand(numElements);
-				else
-				{
-					compileOperand(size);
-					stream << '/' << typeSize;
-				}
-				stream << ')';
-			}
-			else if(t->isPointerTy())
-			{
-				stream << "createPointerArray(";
-				if(numElements)
-					compileOperand(numElements);
-				else
-				{
-					compileOperand(size);
-					stream << '/' << typeSize;
-				}
-				stream << ')';
-				printCreateArrayPointer = true;
-			}
-			else
-			{
-				llvm::errs() << "Allocating type " << *t << "\n";
-				llvm::report_fatal_error("Unsupported type in allocation", false);
-			}
+			compileOperand( info.getByteSizeArg() );
+			stream << '/' << typeSize;
 		}
+		stream << ')';
+	}
+	else if (info.useCreatePointerArrayFunc() )
+	{
+		stream << "createPointerArray(";
+		if( info.getNumberOfElementsArg() )
+			compileOperand( info.getNumberOfElementsArg() );
+		else
+		{
+			compileOperand( info.getByteSizeArg() );
+			stream << '/' << typeSize;
+		}
+		stream << ')';
+	
+		printCreateArrayPointer = true;
+	}
+	else if (!info.sizeIsRuntime() )
+	{
+		// Create a plain array
+		const Value * numberOfElems = info.getNumberOfElementsArg();
+		
+		//NOTE should we use uint32_t here? Probably not, but need to fix getIntFromValue too!
+		uint32_t numElem;
+		
+		if (numberOfElems)
+			numElem = getIntFromValue( numberOfElems );
+		else
+		{
+			assert( isa<ConstantInt>( info.getByteSizeArg() ) );
+			uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
+
+			numElem = (allocatedSize+typeSize-1)/typeSize;
+		}
+		
+		stream << '[';
+		for(uint32_t i = 0; i < numElem;i++)
+		{
+			compileType(t, LITERAL_OBJ);
+			if((i+1) < numElem)
+				stream << ",";
+		}
+		stream << ']';
+	}
+	else
+	{
+		llvm::errs() << "Allocating type " << *t << "\n";
+		llvm::report_fatal_error("Unsupported type in allocation", false);
 	}
 }
 
@@ -614,10 +589,17 @@ void DuettoWriter::compileFree(const Value* obj)
 	//TODO: Clean up class related data structures
 }
 
-DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const Function* func, const CallSite callV,
-			User::const_op_iterator it, User::const_op_iterator itE, bool userImplemented)
+DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(ImmutableCallSite callV, const Function * func)
 {
-	const char* ident=func->getName().data();
+	assert( callV.isCall() || callV.isInvoke() );
+	assert( func );
+	assert( (func == callV.getCalledFunction() ) || !(callV.getCalledFunction()) );
+	
+	bool userImplemented = !func->empty();
+	
+	ImmutableCallSite::arg_iterator it = callV.arg_begin(), itE = callV.arg_end();
+	
+	const char* ident = func->getName().data();
 	unsigned instrinsicId = func->getIntrinsicID();
 	//First handle high priority builtins, they will be used even
 	//if an implementation is available from the user
@@ -695,19 +677,6 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 		compileMethodArgs(it, itE);
 		return COMPILE_OK;
 	}
-	else if(strcmp(ident,"malloc")==0 ||
-		strcmp(ident,"_Znaj")==0 ||
-		strcmp(ident,"_Znwj")==0 ||
-		instrinsicId==Intrinsic::duetto_allocate)
-	{
-		compileAllocation(callV.getInstruction(), *it);
-		return COMPILE_OK;
-	}
-	else if(strcmp(ident,"calloc")==0)
-	{
-		compileAllocation(callV.getInstruction(), *(it+1), *it);
-		return COMPILE_OK;
-	}
 	else if(strcmp(ident,"free")==0 ||
 		strcmp(ident,"_ZdlPv")==0 ||
 		strcmp(ident,"_ZdaPv")==0)
@@ -724,6 +693,16 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(const
 		compileOperand(*(it+1));
 		stream << ')';
 		return COMPILE_OK;
+	}
+	else
+	{
+		DynamicAllocInfo da(callV);
+		
+		if (da.isValidAlloc())
+		{
+			compileAllocation(da);
+			return COMPILE_OK;
+		}
 	}
 
 	//If the method is implemented by the user, stop here
@@ -1366,10 +1345,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 			if(ci.getCalledFunction())
 			{
 				//Direct call
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(ci.getCalledFunction(),
-						const_cast<InvokeInst*>(&ci),
-						ci.op_begin(),
-						ci.op_begin()+ci.getNumArgOperands(),!ci.getCalledFunction()->empty());
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, ci.getCalledFunction());
 				assert(cf!=COMPILE_EMPTY);
 				if(cf==COMPILE_OK)
 				{
@@ -1523,9 +1499,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			if(calledFunc)
 			{
 				//Direct call
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(calledFunc,const_cast<CallInst*>(&ci),
-						ci.op_begin(),
-						ci.op_begin()+ci.getNumArgOperands(),!calledFunc->empty());
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
 				if(cf!=COMPILE_UNSUPPORTED)
 					return cf;
 				stream << '_' << calledFunc->getName();

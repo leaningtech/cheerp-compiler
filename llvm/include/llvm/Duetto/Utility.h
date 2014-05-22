@@ -13,6 +13,7 @@
 #define _DUETTO_UTILITY_H
 
 #include <set>
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
@@ -73,6 +74,81 @@ private:
 	const llvm::Module & module;
 };
 
+/*
+ * Provide information about a malloc/calloc/etc call
+ */
+class DynamicAllocInfo
+{
+public:
+	enum AllocType
+	{
+		not_an_alloc,
+		malloc,
+		calloc,
+		duetto_allocate,
+		opnew, // operator new(unsigned int)
+		opnew_array // operator new[](unsigned int)
+	};
+	
+	/**
+	 * This constructor works with any instruction.
+	 * 
+	 * If the passed argument is not a call, or is not an alloc,
+	 * isValidAlloc will return false. In this case any other
+	 * use of this object is not permitted.
+	 */
+	DynamicAllocInfo(llvm::ImmutableCallSite);
+	
+	bool isValidAlloc() const { return type != not_an_alloc; }
+	
+	AllocType getAllocType() const { return type; }
+	
+	/**
+	 * Every alloc instruction produces an i8*.
+	 * This function tries to understand how the result of an alloc
+	 * is used, and deduce the actual used type of the allocation.
+	 * 
+	 * Will report an llvm error if the use of the result is not consistent
+	 */
+	const llvm::PointerType * getCastedType() const { return castedType; }
+	
+	/**
+	 * This argument will never be null
+	 */
+	const llvm::Value * getByteSizeArg() const;
+	
+	/**
+	 * This can be null if getAllocType() == calloc
+	 */
+	const llvm::Value * getNumberOfElementsArg() const;
+	
+	/**
+	 * Check if the size of the allocation is known only at runtime
+	 */
+	bool sizeIsRuntime() const;
+	
+	/**
+	 * Check if the allocation should use a createArray function
+	 */
+	bool useCreateArrayFunc() const;
+	
+	/**
+	 * Check if the allocation should use a createTypedArray function
+	 */
+	bool useCreatePointerArrayFunc() const;
+	
+	/**
+	 * Check if the allocation should use typed arrays
+	 */
+	bool useTypedArray() const;
+
+private:
+	const llvm::PointerType * computeCastedType() const;
+	
+	llvm::ImmutableCallSite call;
+	AllocType type;
+	const llvm::PointerType * castedType;
+};
 }
 
 #endif //_DUETTO_UTILITY_H

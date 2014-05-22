@@ -533,4 +533,139 @@ bool TypeSupport::safeCallForNewedMemory(const CallInst* ci)
 		ci->getCalledFunction()->getName()=="__cxa_atexit"));
 }
 
+DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV ) : call(callV), type(not_an_alloc), castedType(nullptr)
+{
+	if (callV.isCall() || callV.isInvoke() )
+	{
+		if (const Function * f = callV.getCalledFunction() )
+		{
+			if (f->getName() == "malloc")
+				type = malloc;
+			else if (f->getName() == "calloc")
+				type = calloc;
+			else if (f->getIntrinsicID() == Intrinsic::duetto_allocate)
+				type = duetto_allocate;
+			else if (f->getName() == "_Znwj")
+				type = opnew;
+			else if (f->getName() == "_Znaj")
+				type = opnew_array;
+			
+			if ( isValidAlloc() )
+				castedType = computeCastedType();
+		}
+	}
+}
+
+const PointerType * DynamicAllocInfo::computeCastedType() const 
+{
+	assert(isValidAlloc() );
+	
+	if ( type == duetto_allocate )
+	{
+		assert( call.getType()->isPointerTy() );
+		return cast<PointerType>(call.getType());
+	}
+	
+	auto getTypeForUse = [](const User * U) -> const Type *
+	{
+		if ( isa<BitCastInst>(U) )
+			return U->getType();
+		else if ( const IntrinsicInst * ci = dyn_cast<IntrinsicInst>(U) )
+			if ( ci->getIntrinsicID() == Intrinsic::duetto_cast_user )
+				return U->getType();
+		return nullptr;
+	};
+	
+	auto firstNonNull = std::find_if(
+		call->user_begin(),
+		call->user_end(),
+		getTypeForUse);
+	
+	// If there are no casts, use i8* from the call itself
+	if ( call->user_end() == firstNonNull )
+	{
+		assert( call->getType()->isPointerTy() );
+		return cast<PointerType>(call->getType());
+	}
+	
+	assert( getTypeForUse(*firstNonNull)->isPointerTy() );
+	
+	const PointerType * pt = cast<PointerType>( getTypeForUse(*firstNonNull) );
+	
+	// Check that all uses are the same
+	if (! std::all_of( 
+		std::next(firstNonNull),
+		call->user_end(),
+		[&]( const User * U ) { return getTypeForUse(U) == pt; }) )
+	{
+		llvm::errs() << "Can not deduce valid type for allocation instruction: " << call->getName() << '\n';
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+	}
+	
+	return pt;
+}
+
+const Value * DynamicAllocInfo::getByteSizeArg() const
+{
+	assert( isValidAlloc() );
+
+	if ( calloc == type )
+	{
+		assert( call.arg_size() == 2 );
+		return call.getArgument(1);
+	}
+
+	assert( call.arg_size() == 1 );
+	return call.getArgument(0);
+}
+
+const Value * DynamicAllocInfo::getNumberOfElementsArg() const
+{
+	assert( isValidAlloc() );
+	
+	if ( type == calloc )
+	{
+		assert( call.arg_size() == 2 );
+		return call.getArgument(0);
+	}
+	return nullptr;
+}
+
+bool DynamicAllocInfo::sizeIsRuntime() const
+{
+	assert( isValidAlloc() );
+	if ( getAllocType() == calloc && isa<ConstantInt> (getNumberOfElementsArg() ) )
+	{
+		return false;
+	}
+	if ( isa<ConstantInt>(getByteSizeArg()) )
+		return false;
+	return true;
+}
+
+bool DynamicAllocInfo::useCreateArrayFunc() const
+{
+	if (getCastedType()->getElementType()->isStructTy() )
+	{
+		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType() ) );
+		return sizeIsRuntime();
+	}
+	return false;
+}
+
+bool DynamicAllocInfo::useCreatePointerArrayFunc() const
+{
+	if (getCastedType()->getElementType()->isPointerTy() )
+	{
+		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType() ) );
+		return sizeIsRuntime();
+	}
+	return false;
+}
+
+bool DynamicAllocInfo::useTypedArray() const
+{
+	return TypeSupport::isTypedArrayType( getCastedType()->getElementType() );
+}
+
 }
