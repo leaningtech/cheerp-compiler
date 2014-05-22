@@ -95,7 +95,7 @@ POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 		//The type is the same
 		return iter->second = k1;
 	}
-	if(isComingFromAllocation(v))
+	if (DynamicAllocInfo::getAllocType(v) != DynamicAllocInfo::not_an_alloc )
 		return iter->second = COMPLETE_ARRAY;
 
 	if ( const Argument * arg = dyn_cast<const Argument>(v) )

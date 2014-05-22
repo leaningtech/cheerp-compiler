@@ -29,33 +29,6 @@ bool isClientGlobal(const char* mangledName)
 	return strncmp(mangledName,"_ZN6client",10)==0;
 }
 
-bool isComingFromAllocation(const Value* val)
-{
-	const CallInst* newCall=dyn_cast<const CallInst>(val);
-	if(newCall && newCall->getCalledFunction())
-	{
-		return newCall->getCalledFunction()->getName()=="_Znwj"
-			|| newCall->getCalledFunction()->getName()=="_Znaj"
-			|| newCall->getCalledFunction()->getName()=="realloc"
-			|| newCall->getCalledFunction()->getName()=="malloc"
-			|| newCall->getCalledFunction()->getName()=="calloc"
-			|| newCall->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate;
-	}
-	//Try invoke as well
-	const InvokeInst* newInvoke=dyn_cast<const InvokeInst>(val);
-	if(newInvoke && newInvoke->getCalledFunction())
-	{
-		//TODO: Disable throw in new, it's nonsense in JS context
-		return newInvoke->getCalledFunction()->getName()=="_Znwj"
-			|| newInvoke->getCalledFunction()->getName()=="_Znaj"
-			|| newInvoke->getCalledFunction()->getName()=="realloc"
-			|| newInvoke->getCalledFunction()->getName()=="malloc"
-			|| newInvoke->getCalledFunction()->getName()=="calloc"
-			|| newInvoke->getCalledFunction()->getIntrinsicID() == Intrinsic::duetto_allocate;
-	}
-	return false;
-}
-
 bool isNopCast(const Value* val)
 {
 	const CallInst * newCall = dyn_cast<const CallInst>(val);
@@ -85,7 +58,7 @@ bool isNopCast(const Value* val)
 
 bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhis)
 {
-	if(isComingFromAllocation(val))
+	if (DynamicAllocInfo::getAllocType(val) != DynamicAllocInfo::not_an_alloc )
 		return true;
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
 	if(newPHI)
@@ -533,27 +506,31 @@ bool TypeSupport::safeCallForNewedMemory(const CallInst* ci)
 		ci->getCalledFunction()->getName()=="__cxa_atexit"));
 }
 
-DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV ) : call(callV), type(not_an_alloc), castedType(nullptr)
+DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV ) : call(callV), type( getAllocType(callV) ), castedType(nullptr)
+{
+	if ( isValidAlloc() )
+		castedType = computeCastedType();
+}
+
+DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( ImmutableCallSite callV )
 {
 	if (callV.isCall() || callV.isInvoke() )
 	{
 		if (const Function * f = callV.getCalledFunction() )
 		{
 			if (f->getName() == "malloc")
-				type = malloc;
+				return malloc;
 			else if (f->getName() == "calloc")
-				type = calloc;
+				return calloc;
 			else if (f->getIntrinsicID() == Intrinsic::duetto_allocate)
-				type = duetto_allocate;
+				return duetto_allocate;
 			else if (f->getName() == "_Znwj")
-				type = opnew;
+				return opnew;
 			else if (f->getName() == "_Znaj")
-				type = opnew_array;
-			
-			if ( isValidAlloc() )
-				castedType = computeCastedType();
+				return opnew_array;
 		}
 	}
+	return not_an_alloc;
 }
 
 const PointerType * DynamicAllocInfo::computeCastedType() const 
