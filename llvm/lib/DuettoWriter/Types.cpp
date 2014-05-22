@@ -98,7 +98,7 @@ void DuettoWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 		case Type::PointerTyID:
 		{
 			const Type* pointedType = t->getPointerElementType();
-			if(isClientType(pointedType))
+			if(types.isClientType(pointedType))
 				stream << "null";
 			else
 				stream << "nullObj";
@@ -109,7 +109,7 @@ void DuettoWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 			ArrayType* at=static_cast<ArrayType*>(t);
 			Type* et=at->getElementType();
 			//For numerical types, create typed arrays
-			if(isTypedArrayType(et))
+			if(types.isTypedArrayType(et))
 			{
 				stream << "new ";
 				compileTypedArrayType(et);
@@ -164,39 +164,6 @@ void DuettoWriter::compileType(Type* t, COMPILE_TYPE_STYLE style)
 	compileTypeImpl(t, style);
 }
 
-bool DuettoWriter::getBasesInfo(const StructType* t, uint32_t& firstBase, uint32_t& baseCount)
-{
-	if(!t->hasName())
-		return false;
-
-	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(t->getName(),"_bases"));
-	if(!basesNamedMeta)
-		return false;
-
-	MDNode* basesMeta=basesNamedMeta->getOperand(0);
-	assert(basesMeta->getNumOperands()==2);
-	firstBase=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue());
-	int32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue())-1;
-	baseCount=0;
-
-	StructType::element_iterator E=t->element_begin()+firstBase;
-	StructType::element_iterator EE=t->element_end();
-	for(;E!=EE;++E)
-	{
-		baseCount++;
-		StructType* baseT=cast<StructType>(*E);
-		NamedMDNode* baseNamedMeta=module.getNamedMetadata(Twine(baseT->getName(),"_bases"));
-		if(baseNamedMeta)
-			baseMax-=getIntFromValue(cast<ConstantAsMetadata>(baseNamedMeta->getOperand(0)->getOperand(1))->getValue());
-		else
-			baseMax--;
-		assert(baseMax>=0);
-		if(baseMax==0)
-			break;
-	}
-	return true;
-}
-
 uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
 {
 	stream << "a[" << baseCount << "] = " << baseName << ';' << NewLine;
@@ -205,7 +172,7 @@ uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, St
 	baseCount++;
 
 	uint32_t firstBase, localBaseCount;
-	if(!getBasesInfo(currentType, firstBase, localBaseCount))
+	if(!types.getBasesInfo(currentType, firstBase, localBaseCount))
 		return baseCount;
 	//baseCount has been already incremented above
 
