@@ -14,17 +14,13 @@
 
 #include <set>
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
 
 namespace duetto
 {
 
-bool isValidTypeCast(const llvm::Value* cast, const llvm::Value* castOp, llvm::Type* src, llvm::Type* dst);
-bool isClientType(const llvm::Type* t);
-bool isClientArrayType(const llvm::Type* t);
 bool isClientGlobal(const char* mangledName);
-bool isI32Type(llvm::Type* t);
-bool isTypedArrayType(llvm::Type* t);
 bool isComingFromAllocation(const llvm::Value* val);
 bool isNopCast(const llvm::Value* val);
 bool isValidVoidPtrSource(const llvm::Value* val);
@@ -37,10 +33,39 @@ bool isUnion(const llvm::Type* t);
 bool safeUsagesForNewedMemory(const llvm::Value* v);
 bool safeCallForNewedMemory(const llvm::CallInst* ci);
 uint32_t getIntFromValue(const llvm::Value* v);
-llvm::Type* findRealType(const llvm::Value* v, std::set<const llvm::PHINode*>& visitedPhis);
 
 // Printable name of the llvm type - useful only for debugging
 std::string valueObjectName(const llvm::Value * v);
+
+class TypeSupport
+{
+public:
+	TypeSupport( const llvm::Module & module ) : module(module) {}
+	
+	static bool isValidTypeCast(const llvm::Value * castOp, llvm::Type * dstPtr);
+	static bool isClientType(const llvm::Type* t);
+	static bool isClientArrayType(const llvm::Type* t);
+	static bool isI32Type(llvm::Type* t);
+	static bool isTypedArrayType(llvm::Type* t);
+	static llvm::Type* findRealType(const llvm::Value* v)
+	{
+		 std::set<const llvm::PHINode*> visitedPhis;
+		 return dfsFindRealType(v, visitedPhis);
+	}
+
+	bool hasBasesInfo(const llvm::StructType* t) const
+	{
+		return getBasesMetadata(t) != nullptr;
+	}
+
+	bool getBasesInfo(const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount) const;
+
+private:
+	static llvm::Type* dfsFindRealType(const llvm::Value* v, std::set<const llvm::PHINode*>& visitedPhis);
+	const llvm::NamedMDNode* getBasesMetadata(const llvm::StructType * t) const;
+
+	const llvm::Module & module;
+};
 
 }
 

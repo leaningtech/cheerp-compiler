@@ -16,6 +16,7 @@
 #include "llvm/Duetto/NameGenerator.h"
 #include "llvm/Duetto/PointerAnalyzer.h"
 #include "llvm/Duetto/SourceMaps.h"
+#include "llvm/Duetto/Utility.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
@@ -66,6 +67,7 @@ private:
 	
 	NameGenerator namegen;
 	DuettoPointerAnalyzer analyzer;
+	TypeSupport types;
 	
 	// Support for source maps
 	SourceMapGenerator sourceMapGenerator;
@@ -147,7 +149,6 @@ private:
 	void gatherOperandDependencies(const llvm::Function* F, const llvm::Constant* C,
 			std::set<const llvm::GlobalValue*>* analysisQueue);
 	void computeGlobalsQueue();
-	bool getBasesInfo(const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
 	void compileArrayClassType(llvm::StructType* T);
@@ -166,7 +167,7 @@ public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,
 		const std::string& sourceMapName, llvm::raw_ostream* sourceMap):
-		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ),
+		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ), types(m),
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
 		printMethodNames(false),printCreateClosure(false),printHandleVAArg(false),
 		printCreateArrayPointer(false),stream(s)

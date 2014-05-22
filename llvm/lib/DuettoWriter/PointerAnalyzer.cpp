@@ -41,13 +41,13 @@ POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 #endif
  
 	PointerType * pt = cast<PointerType>(v->getType());
-	if(isClientArrayType(pt->getElementType()))
+	if(TypeSupport::isClientArrayType(pt->getElementType()))
 	{
 		//Handle client arrays like COMPLETE_ARRAYs, so the right 0 offset
 		//is used when doing GEPs
 		return iter->second = COMPLETE_ARRAY;
 	}
-	if(isClientType(pt->getElementType()))
+	if(TypeSupport::isClientType(pt->getElementType()))
 	{
 		//Pointers to client type are complete objects, and are never expanded to
 		//regular ones since an array of client objects does not exists.
