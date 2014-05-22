@@ -23,15 +23,17 @@ namespace duetto
 bool isClientGlobal(const char* mangledName);
 bool isComingFromAllocation(const llvm::Value* val);
 bool isNopCast(const llvm::Value* val);
-bool isValidVoidPtrSource(const llvm::Value* val);
 bool isValidVoidPtrSource(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis);
+
+inline bool isValidVoidPtrSource(const llvm::Value* val)
+{
+	std::set<const llvm::PHINode*> visitedPhis;
+	return isValidVoidPtrSource(val, visitedPhis);
+}
+
 bool isInlineable(const llvm::Instruction& I);
 bool isBitCast(const llvm::Value* v);
 bool isGEP(const llvm::Value* v);
-bool isImmutableType(const llvm::Type* t);
-bool isUnion(const llvm::Type* t);
-bool safeUsagesForNewedMemory(const llvm::Value* v);
-bool safeCallForNewedMemory(const llvm::CallInst* ci);
 uint32_t getIntFromValue(const llvm::Value* v);
 
 // Printable name of the llvm type - useful only for debugging
@@ -45,8 +47,11 @@ public:
 	static bool isValidTypeCast(const llvm::Value * castOp, llvm::Type * dstPtr);
 	static bool isClientType(const llvm::Type* t);
 	static bool isClientArrayType(const llvm::Type* t);
-	static bool isI32Type(llvm::Type* t);
-	static bool isTypedArrayType(llvm::Type* t);
+	static bool isI32Type(const llvm::Type* t);
+	static bool isTypedArrayType(const llvm::Type* t);
+	static bool isImmutableType(const llvm::Type* t);
+	static bool isUnion(const llvm::Type* t);
+
 	static llvm::Type* findRealType(const llvm::Value* v)
 	{
 		 std::set<const llvm::PHINode*> visitedPhis;
@@ -63,6 +68,7 @@ public:
 private:
 	static llvm::Type* dfsFindRealType(const llvm::Value* v, std::set<const llvm::PHINode*>& visitedPhis);
 	const llvm::NamedMDNode* getBasesMetadata(const llvm::StructType * t) const;
+	static bool safeCallForNewedMemory(const llvm::CallInst* ci);
 
 	const llvm::Module & module;
 };
