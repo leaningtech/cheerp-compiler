@@ -123,9 +123,9 @@ POINTER_KIND DuettoPointerAnalyzer::getPointerKind(const Value* v) const
 
 bool DuettoPointerAnalyzer::hasSelfMember(const Value* v) const
 {
-	assert( v->getType()->isPointerTy() );
+	assert( TypeSupport::findRealType(v)->isPointerTy() );
 	
-	PointerType * tp = cast<PointerType>(v->getType());
+	PointerType * tp = cast<PointerType>(TypeSupport::findRealType(v) );
 
 	if ( TypeSupport::isImmutableType(tp->getElementType()) || !isa<StructType>(tp->getElementType()) )
 		return false;
@@ -212,11 +212,12 @@ bool DuettoPointerAnalyzer::needsWrappingArray(const Value* v) const
 	bool hasAliasedStore = std::any_of( v->use_begin(), v->use_end(), [&]( const Use & u )
 	{
 		const User * U = u.getUser();
-		if (isBitCast(U) || isNopCast(U) || isa<const PHINode>(U) || isa<const SelectInst>(U) )
+		if (isBitCast(U) || isNopCast(U) || isa<PHINode>(U) || isa<SelectInst>(U) )
+		{
 			if ( getPointerUsageFlagsComplete(U) & POINTER_NONCONST_DEREF )
 				return true;
-			
-		if (isa<CallInst>(U) || isa<InvokeInst>(U) )
+		}
+		else if (isa<CallInst>(U) || isa<InvokeInst>(U) )
 		{
 			std::set<const Value *> openset;
 			if ( usageFlagsForCall(v, ImmutableCallSite(U), openset ) & POINTER_NONCONST_DEREF )
