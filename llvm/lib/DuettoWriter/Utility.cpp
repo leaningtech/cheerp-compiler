@@ -530,7 +530,7 @@ DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( ImmutableCallSite ca
 	return not_an_alloc;
 }
 
-const PointerType * DynamicAllocInfo::computeCastedType() const 
+PointerType * DynamicAllocInfo::computeCastedType() const 
 {
 	assert(isValidAlloc() );
 	
@@ -540,7 +540,7 @@ const PointerType * DynamicAllocInfo::computeCastedType() const
 		return cast<PointerType>(call.getType());
 	}
 	
-	auto getTypeForUse = [](const User * U) -> const Type *
+	auto getTypeForUse = [](const User * U) -> Type *
 	{
 		if ( isa<BitCastInst>(U) )
 			return U->getType();
@@ -564,7 +564,7 @@ const PointerType * DynamicAllocInfo::computeCastedType() const
 	
 	assert( getTypeForUse(*firstNonNull)->isPointerTy() );
 	
-	const PointerType * pt = cast<PointerType>( getTypeForUse(*firstNonNull) );
+	PointerType * pt = cast<PointerType>( getTypeForUse(*firstNonNull) );
 	
 	// Check that all uses are the same
 	if (! std::all_of( 
