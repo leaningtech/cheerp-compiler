@@ -111,7 +111,7 @@ public:
 	 * 
 	 * Will report an llvm error if the use of the result is not consistent
 	 */
-	const llvm::PointerType * getCastedType() const { return castedType; }
+	llvm::PointerType * getCastedType() const { return castedType; }
 	
 	/**
 	 * This argument will never be null
@@ -144,11 +144,11 @@ public:
 	bool useTypedArray() const;
 
 private:
-	const llvm::PointerType * computeCastedType() const;
+	llvm::PointerType * computeCastedType() const;
 	
 	llvm::ImmutableCallSite call;
 	AllocType type;
-	const llvm::PointerType * castedType;
+	llvm::PointerType * castedType;
 };
 }
 
