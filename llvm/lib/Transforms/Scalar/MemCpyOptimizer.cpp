@@ -944,14 +944,15 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
   // TODO: Is this worth it if we're creating a less aligned memcpy? For
   // example we could be moving from movaps -> movq on x86.
   IRBuilder<> Builder(M);
+  const DataLayout &DL = M->getModule()->getDataLayout();
   if (UseMemMove)
     Builder.CreateMemMove(M->getRawDest(), M->getDestAlign(),
                           MDep->getRawSource(), MDep->getSourceAlign(),
-                          M->getLength(), M->isVolatile());
+                          M->getLength(), M->isVolatile(), NULL, NULL, NULL, DL.isByteAddressable());
   else
     Builder.CreateMemCpy(M->getRawDest(), M->getDestAlign(),
                          MDep->getRawSource(), MDep->getSourceAlign(),
-                         M->getLength(), M->isVolatile());
+                         M->getLength(), M->isVolatile(), NULL, NULL, NULL, NULL, DL.isByteAddressable());
 
   // Remove the instruction we're replacing.
   MD->removeInstruction(M);
@@ -1111,13 +1112,14 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
   }
 
   // If copying from a constant, try to turn the memcpy into a memset.
+  const DataLayout &DL = M->getModule()->getDataLayout();
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(M->getSource()))
     if (GV->isConstant() && GV->hasDefinitiveInitializer())
       if (Value *ByteVal = isBytewiseValue(GV->getInitializer(),
                                            M->getModule()->getDataLayout())) {
         IRBuilder<> Builder(M);
         Builder.CreateMemSet(M->getRawDest(), ByteVal, M->getLength(),
-                             MaybeAlign(M->getDestAlignment()), false);
+                             MaybeAlign(M->getDestAlignment()), false, NULL, NULL, NULL, DL.isByteAddressable());
         MD->removeInstruction(M);
         M->eraseFromParent();
         ++NumCpyToSet;

@@ -1351,7 +1351,7 @@ static void HandleByValArgumentInit(Value *Dst, Value *Src, Module *M,
   // the alignment of the src pointer.  Other optimizations can infer
   // better alignment.
   Builder.CreateMemCpy(Dst, /*DstAlign*/ Align(1), Src,
-                       /*SrcAlign*/ Align(1), Size);
+                       /*SrcAlign*/ Align(1), Size, /*isVolatile=*/false, nullptr, nullptr, nullptr, nullptr, M->getDataLayout().isByteAddressable());
 }
 
 /// When inlining a call site that has a byval argument,
