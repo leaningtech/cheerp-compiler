@@ -150,9 +150,13 @@ private:
 	uint32_t usageFlagsForCall(const llvm::Value * v, llvm::ImmutableCallSite I, std::set<const llvm::Value *> & openset) const;	
 
 	// Detect if a function can possibly be called indirectly
-	bool canBeCalledIndirectly(const llvm::Function * f) const;
-	
-	bool computeCanBeCalledIndirectly(const llvm::Constant * c) const;
+	bool canBeCalledIndirectly(const llvm::Function * f) const
+	{
+#ifdef DUETTO_DEBUG_POINTERS
+		debugAllFunctionsSet.insert(f);
+#endif
+		return f->empty() || f->hasAddressTaken();
+	}
 	
 	typedef std::map<const llvm::Value *, POINTER_KIND> pointer_kind_map_t;
 	typedef std::map<const llvm::Value *, uint32_t> pointer_usage_map_t;
@@ -160,9 +164,6 @@ private:
 	mutable pointer_kind_map_t pointerKindMap;
 	mutable pointer_usage_map_t pointerCompleteUsageMap;	
 	mutable pointer_usage_map_t pointerUsageMap;
-	
-	typedef std::map<const llvm::Function *, bool > function_indirect_call_map_t;
-	mutable function_indirect_call_map_t functionIndirectCallMap;
 	
 #ifdef DUETTO_DEBUG_POINTERS
 	typedef std::set<const llvm::Value *> known_pointers_t;
