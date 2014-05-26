@@ -257,13 +257,9 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   {
     SmallVector<llvm::Value*, 4> GEPConstantIndexes;
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
-    // Duetto: if the base class has no member create a bitcast with duetto metadata
+    // Duetto: if the base class has no members create a bitcast with duetto specific intrinsic
     if(Base->isEmpty())
-    {
-       QualType BaseTy = getContext().getCanonicalType(getContext().getTagDeclType(Base));
-       QualType DerivedTy = getContext().getCanonicalType(getContext().getTagDeclType(Derived));
-       return GenerateUpcastCollapsed(This, BaseTy, DerivedTy, ConvertType(Base)->getPointerTo());
-    }
+       return GenerateUpcastCollapsed(This, ConvertType(Base)->getPointerTo());
     else
     {
       // Get the layout.
@@ -479,8 +475,6 @@ CodeGenModule::ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
 
 llvm::Value *
 CodeGenFunction::GenerateUpcastCollapsed(llvm::Value* Value,
-                                         QualType BaseTy,
-                                         QualType DerivedTy,
                                          llvm::Type* BasePtrTy)
 {
   llvm::Type* types[] = { BasePtrTy, Value->getType() };
@@ -513,23 +507,18 @@ CodeGenFunction::GenerateUpcast(llvm::Value* Value,
     Value = Address(Builder.CreateGEP(Value.getElementType(), Value.getPointer(), GEPConstantIndexes), Value.getAlignment());
 
   // Get the base pointer type.
-  QualType BaseTy = PathEnd[-1]->getType();
   llvm::Type *BasePtrTy = 
     ConvertType((PathEnd[-1])->getType())->getPointerTo();
-  // Get the derived type
-  QualType DerivedTy =
-    getContext().getCanonicalType(getContext().getTagDeclType(Derived));
 
   //Duetto: Check if the type is the expected one. If not create a builtin to handle this.
   //This may happen when empty base classes are used
   if(Value->getType()!=BasePtrTy)
-    Value = GenerateUpcastCollapsed(Value, BaseTy, DerivedTy, BasePtrTy);
+    Value = GenerateUpcastCollapsed(Value, BasePtrTy);
   return Value;
 }
 
 llvm::Value *
 CodeGenFunction::GenerateDowncast(llvm::Value* Value,
-                                  QualType BaseTy,
                                   const CXXRecordDecl *Derived,
                                   unsigned BaseIdOffset)
 {
@@ -589,7 +578,7 @@ CodeGenFunction::GetAddressOfDerivedClass(Address BaseAddr,
       path.push_back(*I);
 
     unsigned BaseIdOffset=CGM.ComputeBaseIdOffset(Derived, path);
-    Value = GenerateDowncast(Value, path.back()->getType(), Derived, BaseIdOffset);
+    Value = GenerateDowncast(Value, Derived, BaseIdOffset);
   }
   else
   {

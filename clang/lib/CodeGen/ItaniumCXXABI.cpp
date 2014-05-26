@@ -2062,10 +2062,8 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
   // Duetto: Handle non byte addressable case before
   if (!CGF.getTarget().isByteAddressable())
   {
-    QualType BaseTy =
-      CGF.getContext().getCanonicalType(CGF.getContext().getTagDeclType(AdjustmentSource));
     //TODO: We need to support calling a different thunk based on the type of the incoming this pointer
-    return CGF.GenerateDowncast(Ptr, BaseTy, AdjustmentTarget, NonVirtualAdjustment);
+    return CGF.GenerateDowncast(Ptr, AdjustmentTarget, NonVirtualAdjustment);
   }
 
   if (!NonVirtualAdjustment && !VirtualAdjustment)
