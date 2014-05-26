@@ -20,20 +20,19 @@
 // Casting helpers
 def int_duetto_downcast  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty, llvm_i32_ty],
-                             [NoCapture<0>, IntrFullyTyped]>;
+                             [NoCapture<0>]>;
 
 def int_duetto_upcast_collapsed  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
-                             [IntrNoMem, IntrFullyTyped]>;
+                             [IntrNoMem]>;
 
 def int_duetto_cast_user  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
-                             [IntrNoMem, IntrFullyTyped]>;
+                             [IntrNoMem]>;
 
 // Type safe memory allocation
 def int_duetto_allocate  : Intrinsic<[llvm_anyptr_ty],
-                             [llvm_i32_ty],
-                             [IntrFullyTyped]>;
+                             [llvm_i32_ty]>;
 
 // Access to pointer components
 def int_duetto_pointer_base : Intrinsic<[llvm_ptr_ty],
