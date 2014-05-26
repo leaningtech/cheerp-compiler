@@ -512,7 +512,8 @@ void DuettoWriter::compileAllocation(const DynamicAllocInfo & info)
 	{
 		assert( t->isStructTy() );
 		StructType* st = cast<StructType>(t);
-		arraysNeeded.insert(st);
+		
+		assert( globalDeps.dynAllocArrays().count(st) );
 		
 		stream << "createArray";
 		printLLVMName(st->getName(), GLOBAL);
@@ -538,7 +539,7 @@ void DuettoWriter::compileAllocation(const DynamicAllocInfo & info)
 		}
 		stream << ')';
 	
-		printCreateArrayPointer = true;
+		assert( globalDeps.needCreatePointerArray() );
 	}
 	else if (!info.sizeIsRuntime() )
 	{
@@ -659,10 +660,11 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(Immut
 	}
 	else if(instrinsicId==Intrinsic::duetto_create_closure)
 	{
+		assert( globalDeps.needCreateClosure() );
+
 		//We use an helper method to create closures without
 		//keeping all local variable around. The helper
 		//method is printed on demand depending on a flag
-		printCreateClosure = true;
 		stream << "duettoCreateClosure";
 		compileMethodArgs(it, itE);
 		return COMPILE_OK;
@@ -1219,6 +1221,14 @@ void DuettoWriter::compileOperandImpl(const Value* v)
 
 void DuettoWriter::compileOperand(const Value* v, POINTER_KIND requestedPointerKind)
 {
+	if (!currentFun && isa<GlobalVariable>(v) && !compiledGVars.count( cast<GlobalVariable>(v)) )
+	{
+		// If we are compiling a constant expr for a GVar, and v has not been defined yet
+		// just print undefined
+		stream << "undefined";
+		return;
+	}
+
 	//First deal with complete objects, but never expand pointers to client objects
 	if(v->getType()->isPointerTy() &&
 		requestedPointerKind!=UNDECIDED &&
@@ -1471,7 +1481,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			else 
 				compileType( ai->getAllocatedType(), LITERAL_OBJ);
 
-			if ( isa<StructType>( ai->getAllocatedType()) && classesNeeded.count(cast<StructType>(ai->getAllocatedType())) )
+			if ( isa<StructType>( ai->getAllocatedType()) && globalDeps.classesWithBaseInfo().count(cast<StructType>(ai->getAllocatedType())) )
 				return COMPILE_OK;
 			else
 				return analyzer.hasSelfMember(ai) ? COMPILE_ADD_SELF : COMPILE_OK;
@@ -1654,7 +1664,7 @@ Type* DuettoWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG flag)
 			stream << ".d";
 		else if(k==COMPLETE_OBJECT && flag == NORMAL &&
 			StructType::classof(val->getType()->getPointerElementType()) &&
-			classesNeeded.count(cast<StructType>(val->getType()->getPointerElementType())))
+			globalDeps.classesWithBaseInfo().count(cast<StructType>(val->getType()->getPointerElementType())))
 		{
 			stream << ".a";
 		}
@@ -1685,7 +1695,7 @@ bool DuettoWriter::compileOffsetForPointer(const Value* val, Type* lastType)
 	{
 		// Objects with the downcast array uses it directly, not the self pointer
 		if(StructType::classof(val->getType()->getPointerElementType()) &&
-			classesNeeded.count(cast<StructType>(val->getType()->getPointerElementType())))
+			globalDeps.classesWithBaseInfo().count(cast<StructType>(val->getType()->getPointerElementType())))
 		{
 			stream << '0';
 		}
@@ -1732,7 +1742,7 @@ Type* DuettoWriter::compileObjectForPointerGEP(const Value* val, const Use* it, 
 		if(StructType* st=dyn_cast<StructType>(ret))
 		{
 			uint32_t firstBase, baseCount;
-			if(types.getBasesInfo(st, firstBase, baseCount) && classesNeeded.count(st))
+			if(types.getBasesInfo(st, firstBase, baseCount) && globalDeps.classesWithBaseInfo().count(st))
 			{
 				uint32_t lastIndex=getIntFromValue(*itE);
 				if(lastIndex>=firstBase && lastIndex<(firstBase+baseCount))
@@ -1781,7 +1791,7 @@ bool DuettoWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, c
 				isStruct=true;
 				uint32_t firstBase, baseCount;
 				if(types.getBasesInfo(st, firstBase, baseCount) && elementIndex>=firstBase &&
-					elementIndex<(firstBase+baseCount) && classesNeeded.count(st))
+					elementIndex<(firstBase+baseCount) && globalDeps.classesWithBaseInfo().count(st))
 				{
 					compileDereferencePointer(val, *it);
 					compileRecursiveAccessToGEP(val->getType()->getPointerElementType(), ++it, itE, NORMAL);
@@ -2270,8 +2280,8 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "handleVAArg(";
 			compileDereferencePointer(vi.getPointerOperand(), NULL);
 			stream << ')';
-			//Set the flag to print the implementation of handleVAArg at the end
-			printHandleVAArg = true;
+			
+			assert( globalDeps.needHandleVAArg() );
 			return true;
 		}
 		default:
@@ -2614,122 +2624,6 @@ void DuettoWriter::compileMethod(const Function& F)
 	currentFun = NULL;
 }
 
-/*
- * Use Twine since in most cases the complete string will not be used
- */
-void DuettoWriter::gatherGlobalDependencies(const Constant* c, const llvm::GlobalVariable* base,
-		const Twine& baseName, const Constant* value, std::set<const llvm::GlobalValue*>* analysisQueue)
-{
-	if(ConstantExpr::classof(c))
-	{
-		const ConstantExpr* ce=cast<const ConstantExpr>(c);
-		if(ce->getOpcode()==Instruction::GetElementPtr)
-		{
-			//TODO: Maybe it's possible to set directly .d in the fixup
-			Constant* gepBase = ce->getOperand(0);
-			gatherGlobalDependencies(gepBase, base, baseName, c, analysisQueue);
-		}
-		else if(ce->getOpcode()==Instruction::BitCast)
-		{
-			Value* val=ce->getOperand(0);
-			gatherGlobalDependencies(cast<Constant>(val), base, baseName, c, analysisQueue);
-		}
-	}
-	else if(ConstantArray::classof(c))
-	{
-		const ConstantArray* d=cast<const ConstantArray>(c);
-		assert(d->getType()->getNumElements() == d->getNumOperands());
-		char buf[12];
-		for(uint32_t i=0;i<d->getNumOperands();i++)
-		{
-			snprintf(buf,12,"[%u]",i);
-			gatherGlobalDependencies(d->getOperand(i), base, baseName.concat(buf), NULL, analysisQueue);
-		}
-	}
-	else if(ConstantStruct::classof(c))
-	{
-		const ConstantStruct* d=cast<const ConstantStruct>(c);
-		assert(d->getType()->getNumElements() == d->getNumOperands());
-		char buf[12];
-		for(uint32_t i=0;i<d->getNumOperands();i++)
-		{
-			snprintf(buf,12,".a%u",i);
-			gatherGlobalDependencies(d->getOperand(i), base, baseName.concat(buf), NULL, analysisQueue);
-		}
-	}
-	else if(GlobalAlias::classof(c))
-	{
-		const GlobalAlias* a=cast<const GlobalAlias>(c);
-		gatherGlobalDependencies(a->getAliasee(), base, baseName, NULL, analysisQueue);
-	}
-	else if(GlobalVariable::classof(c))
-	{
-		assert(c->hasName());
-		const GlobalVariable* GV=cast<GlobalVariable>(c);
-		/*
-		 * Insert the fixup in the map, if a value is specified (e.g. this global is in a ConstantExpr)
-		 * use value, otherwise it's a regular value and you use GV
-		 */
-		globalsFixupMap.insert(make_pair(GV, Fixup(base, baseName.str(), (value)?value:c)));
-		if(globalsQueue.count(GV) || analysisQueue->count(GV))
-			return;
-		/*
-		 * Also add the global to the globals queue
-		 */
-#ifdef DEBUG_GLOBAL_DEPS
-		llvm::errs() << GV->getName() << " included by " << base->getName() << "\n";
-#endif
-		analysisQueue->insert(GV);
-	}
-	else if(Function::classof(c))
-	{
-		const Function* F=cast<const Function>(c);
-		if(globalsQueue.count(F) || analysisQueue->count(F))
-			return;
-#ifdef DEBUG_GLOBAL_DEPS
-		llvm::errs() << F->getName() << " included by " << base->getName() << "\n";
-#endif
-		analysisQueue->insert(F);
-	}
-}
-
-void DuettoWriter::gatherOperandDependencies(const Function* base, const Constant* C,
-						std::set<const llvm::GlobalValue*>* analysisQueue)
-{
-	if(const ConstantExpr* CE=dyn_cast<const ConstantExpr>(C))
-	{
-		// Keep in sync with compileConstantExpr
-		switch(CE->getOpcode())
-		{
-			case Instruction::GetElementPtr:
-			case Instruction::BitCast:
-			case Instruction::PtrToInt:
-				gatherOperandDependencies(base, CE->getOperand(0), analysisQueue);
-				break;
-			case Instruction::IntToPtr:
-			case Instruction::ICmp:
-			case Instruction::Sub:
-			default:
-				// Nothing to do
-				break;
-		}
-	}
-	else if(const GlobalAlias* GA=dyn_cast<GlobalAlias>(C))
-		gatherOperandDependencies(base, GA->getAliasee(), analysisQueue);
-	else if(const GlobalVariable* GV=dyn_cast<GlobalVariable>(C))
-	{
-		if(globalsQueue.count(GV) || analysisQueue->count(GV))
-			return;
-		analysisQueue->insert(GV);
-	}
-	else if(const Function* F=dyn_cast<Function>(C))
-	{
-		if(globalsQueue.count(F) || analysisQueue->count(F))
-			return;
-		analysisQueue->insert(F);
-	}
-}
-
 void DuettoWriter::compileGlobal(const GlobalVariable& G)
 {
 	assert(G.hasName());
@@ -2757,7 +2651,7 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		else 
 			compileOperand(C, REGULAR);
 
-		if ( isa<StructType>( C->getType() ) && classesNeeded.count(cast<StructType>(C->getType()) ) )
+		if ( isa<StructType>( C->getType() ) && globalDeps.classesWithBaseInfo().count(cast<StructType>(C->getType()) ) )
 			addSelf = false;
 		else
 			addSelf = analyzer.hasSelfMember(&G);
@@ -2766,12 +2660,20 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 
 	if(addSelf)
 		addSelfPointer(&G);
+	
+	compiledGVars.insert(&G);
 
 	//Now we have defined a new global, check if there are fixups for previously defined globals
-	std::pair<FixupMapType::iterator, FixupMapType::iterator> f=globalsFixupMap.equal_range(&G);
-	for(FixupMapType::iterator it=f.first;it!=f.second;++it)
+	auto fixup_range = globalDeps.fixupVars().equal_range(&G);
+	
+	for ( auto it = fixup_range.first; it != fixup_range.second; ++it )
 	{
-		const GlobalVariable* otherGV=it->second.base;
+		const GlobalDepsAnalyzer::SubExprVec & subExpr = it->second;
+		
+		assert( !subExpr.empty() );
+		assert( isa<GlobalVariable>( subExpr.front()->getUser() ) );
+		
+		const GlobalVariable* otherGV = cast<GlobalVariable>(subExpr.front()->getUser());
 		if(!otherGV->hasInitializer())
 		{
 			llvm::errs() << "Expected initializer for ";
@@ -2780,58 +2682,24 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 			continue;
 		}
-		if(globalsQueue.count(otherGV))
-			continue;
 
 		printLLVMName(otherGV->getName(), GLOBAL);
 		if( analyzer.getPointerKind(otherGV) == COMPLETE_ARRAY )
 			stream << "[0]";
-		stream << it->second.baseName << " = ";
-		compileOperand(it->second.value, REGULAR);
-		stream << ';' << NewLine;
-	}
-	if(f.first!=f.second)
-		globalsFixupMap.erase(f.first,f.second);
-}
 
-void DuettoWriter::handleConstructors(GlobalVariable* GV, std::set<const llvm::GlobalValue*>* analysisQueue)
-{
-	assert(GV->hasInitializer());
-	Constant* C=GV->getInitializer();
-	if(ConstantAggregateZero::classof(C))
-		return;
-	assert(ConstantArray::classof(C));
-	ConstantArray* CA=cast<ConstantArray>(C);
-	uint32_t numElements=CA->getType()->getNumElements();
-	uint32_t lastPriority=0;
-	for(uint32_t i=0;i<numElements;i++)
-	{
-		if(analysisQueue)
+		for ( auto it = std::next(subExpr.begin()); it != subExpr.end(); ++it )
 		{
-			//Only add to the queue
-			Constant* E=CA->getAggregateElement(i);
-			Constant* FA=E->getAggregateElement((unsigned)1);
-			assert(Function::classof(FA));
-			Function* F=cast<Function>(FA);
-#ifdef DEBUG_GLOBAL_DEPS
-			llvm::errs() << F->getName() << " included by " << GV->getName() << "\n";
-#endif
-			analysisQueue->insert(F);
+			const Use * u = *it;
+
+			if ( isa<ConstantArray>( u->getUser() ) )
+				stream << '[' << u->getOperandNo() << ']';
+			else if ( isa<ConstantStruct>( u->getUser() ) )
+				stream << ".a" << u->getOperandNo();
 		}
-		else
-		{
-			//Run the constructors
-			Constant* E=CA->getAggregateElement(i);
-			Constant* PS=E->getAggregateElement((unsigned)0);
-			uint32_t priority = getIntFromValue(PS);
-			//TODO: handle priority
-			assert(priority>=lastPriority);
-			lastPriority=priority;
-			Constant* F=E->getAggregateElement((unsigned)1);
-			assert(Function::classof(F) && F->hasName());
-			printLLVMName(F->getName(), GLOBAL);
-			stream << "();" << NewLine;
-		}
+
+		stream << " = ";
+		compileOperand( subExpr.back()->get(), REGULAR);
+		stream << ';' << NewLine;
 	}
 }
 
@@ -2850,133 +2718,57 @@ void DuettoWriter::compileHandleVAArg()
 	stream << "function handleVAArg(ptr) { var ret=ptr.d[ptr.o]; ptr.o++; return ret; }" << NewLine;
 }
 
-void DuettoWriter::computeGlobalsQueue()
-{
-	Function* webMain=module.getFunction("_Z7webMainv");
-
-	std::set<const llvm::GlobalValue*> analysisQueue;
-	analysisQueue.insert(webMain);
-
-	//Add the constructors
-	GlobalVariable* constructors=module.getGlobalVariable("llvm.global_ctors");
-	if(constructors)
-		handleConstructors(constructors, &analysisQueue);
-
-	//Compile JS interoperability for classes, this also add any needed functions to the analysisQueue
-	compileClassesExportedToJs(&analysisQueue);
-
-	while(!analysisQueue.empty())
-	{
-		std::set<const GlobalValue*>::iterator it=analysisQueue.begin();
-		const GlobalValue* v=*it;
-		bool inserted=globalsQueue.insert(v).second;
-		(void)inserted;
-		assert(inserted);
-		analysisQueue.erase(it);
-		if(const GlobalVariable* G = dyn_cast<GlobalVariable>(v))
-		{
-			if(G->hasInitializer())
-				gatherGlobalDependencies(G->getInitializer(), G, "", NULL, &analysisQueue);
-		}
-		else if(const Function* F = dyn_cast<Function>(v))
-		{
-			// Traverse all instructions and find all operands which are globals
-			for(const BasicBlock& BB: *F)
-			{
-				for(const Instruction& I: BB)
-				{
-					for(const Value* V: I.operands())
-					{
-						const Constant* C = dyn_cast<Constant>(V);
-						if(!C)
-							continue;
-						gatherOperandDependencies(F, C, &analysisQueue);
-					}
-				}
-			}
-			// Gather informations about all the classes which may be downcast targets
-			if (F->getIntrinsicID()==Intrinsic::duetto_downcast)
-			{
-				Type* retType = F->getReturnType()->getPointerElementType();
-				assert(retType->isStructTy());
-				StructType* st=cast<StructType>(retType);
-				uint32_t firstBase, baseCount;
-				// We only need metadata for non client objects and if there are bases
-				if (!types.isClientType(retType) && types.getBasesInfo(st, firstBase, baseCount))
-					classesNeeded.insert(cast<StructType>(st));
-			}
-		}
-	}
-}
-
 void DuettoWriter::makeJS()
 {
 	sourceMapGenerator.beginFile();
 	// Enable strict mode first
 	stream << "\"use strict\"" << NewLine;
-	Function* webMain=module.getFunction("_Z7webMainv");
-	if(webMain==NULL)
-	{
-		llvm::report_fatal_error("No webMain entry point found", false);
-		return;
-	}
 
-	computeGlobalsQueue();
-
+	compileClassesExportedToJs();
 	compileNullPtrs();
-
-	while(!globalsQueue.empty())
-	{
-		std::set<const GlobalValue*>::iterator it=globalsQueue.begin();
-		const GlobalValue* v=*it;
-		//printMethodNames=true;
-		if(printMethodNames)
-			llvm::errs() << v->getName() << "\n";
-		globalsQueue.erase(it);
-		if(GlobalVariable::classof(v))
-		{
-			const GlobalVariable* GV=cast<const GlobalVariable>(v);
-			compileGlobal(*GV);
-		}
-		else if(Function::classof(v))
-		{
-			const Function* F=cast<const Function>(v);
-			if (F->empty())
-				continue;
+	
+	for ( const Function * F : globalDeps.functionOrderedList() )
+		if (!F->empty())
 			compileMethod(*F);
-		}
-	}
+	
+	for ( const GlobalVariable * GV : globalDeps.varsOrderedList() )
+		compileGlobal(*GV);
 
-	for(StructType* st: classesNeeded)
+	for ( StructType * st : globalDeps.classesWithBaseInfo() )
 		compileClassType(st);
 
-	std::set<StructType*>::const_iterator T=arraysNeeded.begin();
-	std::set<StructType*>::const_iterator TE=arraysNeeded.end();
-	for (; T != TE; ++T)
-	{
-		compileArrayClassType(*T);
-	}
-	if(printCreateArrayPointer)
+	for ( StructType * st : globalDeps.dynAllocArrays() )
+		compileArrayClassType(st);
+
+	if ( globalDeps.needCreatePointerArray() )
 		compileArrayPointerType();
+	
 	//Compile the closure creation helper
-	if(printCreateClosure)
+	if ( globalDeps.needCreateClosure() )
 		compileCreateClosure();
+	
 	//Compile handleVAArg if needed
-	if(printHandleVAArg)
+	if( globalDeps.needHandleVAArg() )
 		compileHandleVAArg();
-	//Execute constructors
-	GlobalVariable* constructors=module.getGlobalVariable("llvm.global_ctors");
-	if(constructors)
-		handleConstructors(constructors, NULL);
+	
+	//Call constructors
+	for (const Function * F : globalDeps.constructors() )
+	{
+		printLLVMName(F->getName(), GLOBAL);
+		stream << "();" << NewLine;
+	}
+
 	//Invoke the webMain function
 	stream << "__Z7webMainv();" << NewLine;
 
-#ifdef DUETTO_DEBUG_POINTERS
-	analyzer.dumpAllFunctions();
-	analyzer.dumpAllPointers();
-#endif //DUETTO_DEBUG_POINTERS
 	sourceMapGenerator.endFile();
 	// Link the source map if necessary
 	if (!sourceMapName.empty())
 		stream << "//# sourceMappingURL=" << sourceMapName;
+	
+#ifdef DUETTO_DEBUG_POINTERS
+	analyzer.dumpAllFunctions();
+	analyzer.dumpAllPointers();
+#endif //DUETTO_DEBUG_POINTERS
+
 }
