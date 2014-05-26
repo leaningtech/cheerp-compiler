@@ -1200,22 +1200,23 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
   // TODO: Is this worth it if we're creating a less aligned memcpy? For
   // example we could be moving from movaps -> movq on x86.
   IRBuilder<> Builder(M);
+  const DataLayout &DL = M->getModule()->getDataLayout();
   Instruction *NewM;
   if (UseMemMove)
     NewM = Builder.CreateMemMove(M->getRawDest(), M->getDestAlign(),
                                  MDep->getRawSource(), MDep->getSourceAlign(),
-                                 M->getLength(), M->isVolatile());
+                                 M->getLength(), M->isVolatile(), NULL, NULL, NULL, DL.isByteAddressable());
   else if (isa<MemCpyInlineInst>(M)) {
     // llvm.memcpy may be promoted to llvm.memcpy.inline, but the converse is
     // never allowed since that would allow the latter to be lowered as a call
     // to an external function.
     NewM = Builder.CreateMemCpyInline(
         M->getRawDest(), M->getDestAlign(), MDep->getRawSource(),
-        MDep->getSourceAlign(), M->getLength(), M->isVolatile());
+        MDep->getSourceAlign(), M->getLength(), M->isVolatile(), NULL, NULL, NULL, NULL, DL.isByteAddressable());
   } else
     NewM = Builder.CreateMemCpy(M->getRawDest(), M->getDestAlign(),
                                 MDep->getRawSource(), MDep->getSourceAlign(),
-                                M->getLength(), M->isVolatile());
+                                M->getLength(), M->isVolatile(), NULL, NULL, NULL, NULL, DL.isByteAddressable());
   NewM->copyMetadata(*M, LLVMContext::MD_DIAssignID);
 
   assert(isa<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M)));
@@ -1445,6 +1446,7 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
   }
 
   // If copying from a constant, try to turn the memcpy into a memset.
+  const DataLayout &DL = M->getModule()->getDataLayout();
   if (auto *GV = dyn_cast<GlobalVariable>(M->getSource()))
     if (GV->isConstant() && GV->hasDefinitiveInitializer())
       if (Value *ByteVal = isBytewiseValue(GV->getInitializer(),
@@ -1452,7 +1454,7 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
         IRBuilder<> Builder(M);
         Instruction *NewM =
             Builder.CreateMemSet(M->getRawDest(), ByteVal, M->getLength(),
-                                 MaybeAlign(M->getDestAlignment()), false);
+                                 MaybeAlign(M->getDestAlignment()), false, NULL, NULL, NULL, DL.isByteAddressable());
         auto *LastDef =
             cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(M));
         auto *NewAccess =
