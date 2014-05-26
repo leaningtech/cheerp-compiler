@@ -28,11 +28,13 @@ class NameGenerator
 {
 public:
 	uint32_t getUniqueIndexForValue(const llvm::Value* v) const;
-	uint32_t getUniqueIndex();
+	uint32_t getUniqueIndexForPHI(const llvm::Function * f);
 
 private:
-	mutable std::map<const llvm::Value*, uint32_t> unnamedValueMap;
-	mutable uint32_t currentUniqueIndex;
+	typedef std::map<const llvm::Value*, uint32_t> UnnamedMap;
+
+	mutable std::map<const llvm::Function*, UnnamedMap> unnamedValueMap;
+	std::map<const llvm::Function *, uint32_t> currentUniqueIndex;
 };
 
 }
