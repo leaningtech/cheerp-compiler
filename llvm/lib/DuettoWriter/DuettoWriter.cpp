@@ -1259,7 +1259,7 @@ void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		if(phi==NULL)
 			continue;
 		const Value* val=phi->getIncomingValueForBlock(from);
-		uint32_t tmpIndex = namegen.getUniqueIndex();
+		uint32_t tmpIndex = namegen.getUniqueIndexForPHI( currentFun );
 		stream << "var tmpphi" << tmpIndex << " = ";
 		tmps.push_back(tmpIndex);
 		POINTER_KIND k=phi->getType()->isPointerTy()? analyzer.getPointerKind(phi):UNDECIDED;
