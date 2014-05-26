@@ -13,6 +13,7 @@
 #define _DUETTO_WRITER_H
 
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Duetto/GlobalDepsAnalyzer.h"
 #include "llvm/Duetto/NameGenerator.h"
 #include "llvm/Duetto/PointerAnalyzer.h"
 #include "llvm/Duetto/SourceMaps.h"
@@ -44,40 +45,23 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const NewLineHandler& handle
 class DuettoWriter
 {
 private:
-	struct Fixup
-	{
-		const llvm::GlobalVariable* base;
-		std::string baseName;
-		const llvm::Constant* value;
-		Fixup(const llvm::GlobalVariable* b, const std::string& bn, const llvm::Constant* v):
-			base(b),baseName(bn),value(v)
-		{
-		}
-	};
 
 	llvm::Module& module;
 	llvm::DataLayout targetData;
 	llvm::AliasAnalysis& AA;
 	const llvm::Function* currentFun;
-	std::set<llvm::StructType*> classesNeeded;
-	std::set<llvm::StructType*> arraysNeeded;
-	std::set<const llvm::GlobalValue*> globalsQueue;
-	typedef std::multimap<const llvm::GlobalVariable*, Fixup> FixupMapType;
-	FixupMapType globalsFixupMap;
 	
 	NameGenerator namegen;
 	DuettoPointerAnalyzer analyzer;
 	TypeSupport types;
+	GlobalDepsAnalyzer globalDeps;
+	std::set<const llvm::GlobalVariable *> compiledGVars;
 	
 	// Support for source maps
 	SourceMapGenerator sourceMapGenerator;
 	std::string sourceMapName;
 	const NewLineHandler NewLine;
 
-	bool printMethodNames;
-	bool printCreateClosure;
-	bool printHandleVAArg;
-	bool printCreateArrayPointer;
 	void compileTypedArrayType(llvm::Type* t);
 	
 	// COMPILE_ADD_SELF is returned by AllocaInst when a self pointer must be added to the returned value
@@ -142,12 +126,6 @@ private:
 	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(llvm::ImmutableCallSite callV, const llvm::Function * f);
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
-	void gatherGlobalDependencies(const llvm::Constant* C, const llvm::GlobalVariable* base,
-			const llvm::Twine& baseName, const llvm::Constant* value,
-			std::set<const llvm::GlobalValue*>* analysisQueue);
-	void gatherOperandDependencies(const llvm::Function* F, const llvm::Constant* C,
-			std::set<const llvm::GlobalValue*>* analysisQueue);
-	void computeGlobalsQueue();
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
 	void compileArrayClassType(llvm::StructType* T);
@@ -155,21 +133,19 @@ private:
 	void compileCreateClosure();
 	void compileHandleVAArg();
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
-	void handleConstructors(llvm::GlobalVariable* GV, std::set<const llvm::GlobalValue*>* analysisQueue);
 	void compileNullPtrs();
 	static uint32_t getMaskForBitWidth(int width);
 	void compileSignedInteger(const llvm::Value* v);
 	void compileUnsignedInteger(const llvm::Value* v);
 	//JS interoperability support
-	void compileClassesExportedToJs(std::set<const llvm::GlobalValue*>* analysisQueue);
+	void compileClassesExportedToJs();
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,
 		const std::string& sourceMapName, llvm::raw_ostream* sourceMap):
-		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ), types(m),
+		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ), types(m), globalDeps(m),
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
-		printMethodNames(false),printCreateClosure(false),printHandleVAArg(false),
-		printCreateArrayPointer(false),stream(s)
+		stream(s)
 	{
 	}
 	void makeJS();

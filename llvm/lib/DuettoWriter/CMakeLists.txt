@@ -2,6 +2,7 @@ add_llvm_library(LLVMDuettoWriter
   SourceMaps.cpp
   DuettoWriter.cpp
   JSInterop.cpp
+  GlobalDepsAnalyzer.cpp
   NameGenerator.cpp
   PointerAnalyzer.cpp
   Relooper.cpp
