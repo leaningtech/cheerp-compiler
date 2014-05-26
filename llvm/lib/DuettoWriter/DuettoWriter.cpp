@@ -1491,14 +1491,6 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			const CallInst& ci=static_cast<const CallInst&>(I);
 			const Function * calledFunc = ci.getCalledFunction();
 	
-			// Try to resolve aliases
-			if (!calledFunc)
-				if(const GlobalAlias * a = dyn_cast<const GlobalAlias>(ci.getCalledValue()) )
-				{
-					const GlobalValue * gv = cast<GlobalValue>(a->getAliasee());
-					assert( gv );
-					calledFunc = dyn_cast<const Function>( gv );
-				}
 			if(calledFunc)
 			{
 				//Direct call
