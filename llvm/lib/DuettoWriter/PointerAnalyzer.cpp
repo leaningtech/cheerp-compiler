@@ -418,46 +418,4 @@ uint32_t DuettoPointerAnalyzer::usageFlagsForCall(const Value * v, ImmutableCall
 	return flags;
 }
 
-bool DuettoPointerAnalyzer::canBeCalledIndirectly(const Function* f) const
-{
-#ifdef DUETTO_DEBUG_POINTERS
-		debugAllFunctionsSet.insert(f);
-#endif //DUETTO_DEBUG_POINTERS
-
-	auto iter = functionIndirectCallMap.find( f ) ;
-	if ( functionIndirectCallMap.end() == iter )
-		iter = functionIndirectCallMap.insert( 
-			std::make_pair(
-				f,
-				computeCanBeCalledIndirectly(f) 
-			) ).first;
-
-	return iter->second;
-}
-
-bool DuettoPointerAnalyzer::computeCanBeCalledIndirectly(const Constant* f) const
-{
-	assert(f);
-	
-	if (const Function * F = dyn_cast<const Function>(f) )
-	{
-		if (F->empty())
-			return true;
-	}
-
-	return  !std::all_of(f->user_begin(), f->user_end(),[&](const User * u)
-		{
-			if ( const CallInst * c = dyn_cast<const CallInst>(u) )
-				return ( c->getCalledFunction() == f );
-			if ( const InvokeInst * c = dyn_cast<const InvokeInst>(u) )
-				return ( c->getCalledFunction() == f );
-			if ( const GlobalAlias * a = dyn_cast<const GlobalAlias>(u) )
-			{
-				assert( a->getAliasee() == f );
-				return computeCanBeCalledIndirectly( a );
-			}
-			return false;
-		});
-}
-
 }
