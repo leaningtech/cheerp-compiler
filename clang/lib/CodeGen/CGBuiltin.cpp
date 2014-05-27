@@ -49,6 +49,7 @@
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/X86TargetParser.h"
 #include <sstream>
+#include "clang/Sema/SemaDiagnostic.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -2618,21 +2619,49 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Value *SizeVal = EmitScalarExpr(E->getArg(1));
     EmitNonNullArgCheck(RValue::get(Dest.getPointer()), E->getArg(0)->getType(),
                         E->getArg(0)->getExprLoc(), FD, 0);
-    Builder.CreateMemSet(Dest, Builder.getInt8(0), SizeVal, false);
+    Builder.CreateMemSet(Dest, Builder.getInt8(0), SizeVal, false, getTarget().isByteAddressable());
     return RValue::get(nullptr);
   }
   case Builtin::BImemcpy:
   case Builtin::BI__builtin_memcpy:
   case Builtin::BImempcpy:
   case Builtin::BI__builtin_mempcpy: {
-    Address Dest = EmitPointerWithAlignment(E->getArg(0));
-    Address Src = EmitPointerWithAlignment(E->getArg(1));
+    const Expr *DestE = E->getArg(0);
+    const Expr *SrcE = E->getArg(1);
+    if (!getTarget().isByteAddressable())
+    {
+      // There must be a cast from a valid type to void*
+      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
+      const CastExpr *SrcCast = dyn_cast<CastExpr>(SrcE);
+      if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
+        CGM.getDiags().Report(DestE->getLocStart(), diag::err_duetto_memintrinsic_type_unknown);
+      else if (!SrcCast || SrcCast->getSubExpr()->getType()->isVoidPointerType())
+        CGM.getDiags().Report(SrcE->getLocStart(), diag::err_duetto_memintrinsic_type_unknown);
+      else
+      {
+        // Discard the casts to void*
+        DestE = DestCast->getSubExpr();
+        SrcE = SrcCast->getSubExpr();
+        QualType DestType = DestE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
+        QualType SrcType = SrcE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
+        if (DestType != SrcType)
+          CGM.getDiags().Report(SrcE->getLocStart(), diag::err_duetto_memintrinsic_same_type);
+        // Revert to the original arguments, unions are handled like on BA
+        if (DestType->isUnionType())
+        {
+          DestE = E->getArg(0);
+          SrcE = E->getArg(1);
+        }
+      }
+    }
+    Address Dest = EmitPointerWithAlignment(DestE);
+    Address Src = EmitPointerWithAlignment(SrcE);
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
     EmitNonNullArgCheck(RValue::get(Dest.getPointer()), E->getArg(0)->getType(),
                         E->getArg(0)->getExprLoc(), FD, 0);
     EmitNonNullArgCheck(RValue::get(Src.getPointer()), E->getArg(1)->getType(),
                         E->getArg(1)->getExprLoc(), FD, 1);
-    Builder.CreateMemCpy(Dest, Src, SizeVal, false);
+    Builder.CreateMemCpy(Dest, Src, SizeVal, false, getTarget().isByteAddressable());
     if (BuiltinID == Builtin::BImempcpy ||
         BuiltinID == Builtin::BI__builtin_mempcpy)
       return RValue::get(Builder.CreateInBoundsGEP(Dest.getPointer(), SizeVal));
@@ -2702,25 +2731,70 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
 
   case Builtin::BImemmove:
   case Builtin::BI__builtin_memmove: {
-    Address Dest = EmitPointerWithAlignment(E->getArg(0));
-    Address Src = EmitPointerWithAlignment(E->getArg(1));
+    const Expr *DestE = E->getArg(0);
+    const Expr *SrcE = E->getArg(1);
+    if (!getTarget().isByteAddressable())
+    {
+      // There must be a cast from a valid type to void*
+      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
+      const CastExpr *SrcCast = dyn_cast<CastExpr>(SrcE);
+      if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
+        CGM.getDiags().Report(DestE->getLocStart(), diag::err_duetto_memintrinsic_type_unknown);
+      else if (!SrcCast || SrcCast->getSubExpr()->getType()->isVoidPointerType())
+        CGM.getDiags().Report(SrcE->getLocStart(), diag::err_duetto_memintrinsic_type_unknown);
+      else
+      {
+        // Discard the casts to void*
+        DestE = DestCast->getSubExpr();
+        SrcE = SrcCast->getSubExpr();
+        QualType DestType = DestE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
+        QualType SrcType = SrcE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
+        if (DestType != SrcType)
+          CGM.getDiags().Report(SrcE->getLocStart(), diag::err_duetto_memintrinsic_same_type);
+        // Revert to the original arguments, unions are handled like on BA
+        if (DestType->isUnionType())
+        {
+          DestE = E->getArg(0);
+          SrcE = E->getArg(1);
+        }
+      }
+    }
+    Address Dest = EmitPointerWithAlignment(DestE);
+    Address Src = EmitPointerWithAlignment(SrcE);
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
     EmitNonNullArgCheck(RValue::get(Dest.getPointer()), E->getArg(0)->getType(),
                         E->getArg(0)->getExprLoc(), FD, 0);
     EmitNonNullArgCheck(RValue::get(Src.getPointer()), E->getArg(1)->getType(),
                         E->getArg(1)->getExprLoc(), FD, 1);
-    Builder.CreateMemMove(Dest, Src, SizeVal, false);
+    Builder.CreateMemMove(Dest, Src, SizeVal, false, getTarget().isByteAddressable());
     return RValue::get(Dest.getPointer());
   }
   case Builtin::BImemset:
   case Builtin::BI__builtin_memset: {
-    Address Dest = EmitPointerWithAlignment(E->getArg(0));
+    const Expr *DestE = E->getArg(0);
+    if (!getTarget().isByteAddressable())
+    {
+      // There must be a cast from a valid type to void*
+      const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
+      if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
+        CGM.getDiags().Report(DestE->getLocStart(), diag::err_duetto_memintrinsic_type_unknown);
+      else
+      {
+        // Discard the cast to void*
+        DestE = DestCast->getSubExpr();
+        QualType DestType = DestE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
+        // Revert to the original arguments, unions are handled like on BA
+        if (DestType->isUnionType())
+          DestE = E->getArg(0);
+      }
+    }
+    Address Dest = EmitPointerWithAlignment(DestE);
     Value *ByteVal = Builder.CreateTrunc(EmitScalarExpr(E->getArg(1)),
                                          Builder.getInt8Ty());
     Value *SizeVal = EmitScalarExpr(E->getArg(2));
     EmitNonNullArgCheck(RValue::get(Dest.getPointer()), E->getArg(0)->getType(),
                         E->getArg(0)->getExprLoc(), FD, 0);
-    Builder.CreateMemSet(Dest, ByteVal, SizeVal, false);
+    Builder.CreateMemSet(Dest, ByteVal, SizeVal, false, getTarget().isByteAddressable());
     return RValue::get(Dest.getPointer());
   }
   case Builtin::BI__builtin___memset_chk: {

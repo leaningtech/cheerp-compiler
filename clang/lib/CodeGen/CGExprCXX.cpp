@@ -498,7 +498,8 @@ static void EmitNullBaseClassInitialization(CodeGenFunction &CGF,
   if (Base->isEmpty())
     return;
 
-  DestPtr = CGF.Builder.CreateElementBitCast(DestPtr, CGF.Int8Ty);
+  if (CGF.getTarget().isByteAddressable())
+    DestPtr = CGF.Builder.CreateElementBitCast(DestPtr, CGF.Int8Ty);
 
   const ASTRecordLayout &Layout = CGF.getContext().getASTRecordLayout(Base);
   CharUnits NVSize = Layout.getNonVirtualSize();
@@ -561,7 +562,7 @@ static void EmitNullBaseClassInitialization(CodeGenFunction &CGF,
       CGF.Builder.CreateMemCpy(
           CGF.Builder.CreateConstInBoundsByteGEP(DestPtr, StoreOffset),
           CGF.Builder.CreateConstInBoundsByteGEP(SrcPtr, StoreOffset),
-          StoreSizeVal);
+          StoreSizeVal, false, CGF.getTarget().isByteAddressable());
     }
 
   // Otherwise, just memset the whole thing to zero.  This is legal
@@ -574,7 +575,7 @@ static void EmitNullBaseClassInitialization(CodeGenFunction &CGF,
       llvm::Value *StoreSizeVal = CGF.CGM.getSize(StoreSize);
       CGF.Builder.CreateMemSet(
           CGF.Builder.CreateConstInBoundsByteGEP(DestPtr, StoreOffset),
-          CGF.Builder.getInt8(0), StoreSizeVal);
+          CGF.Builder.getInt8(0), StoreSizeVal, false, CGF.getTarget().isByteAddressable());
     }
   }
 }

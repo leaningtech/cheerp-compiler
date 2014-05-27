@@ -10912,6 +10912,10 @@ def err_duetto_jsexport_on_virtual_class : Error<
   "Duetto: A virtual class cannot have the [[jsexport]] attribute">;
 def err_duetto_jsexport_with_non_trivial_destructor : Error<
   "Duetto: A class with non trivial destrutor cannot have the [[jsexport]] attribute">;
+def err_duetto_memintrinsic_type_unknown : Error<
+  "Duetto: Memory operations require the actual type of the pointers. Pass the typed pointers instead of a generic void*">;
+def err_duetto_memintrinsic_same_type : Error<
+  "Duetto: Memory operations require source and destination pointers of the same type">;
 } // end of duetto issue category
 
 } // end of sema component.

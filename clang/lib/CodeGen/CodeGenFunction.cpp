@@ -1744,7 +1744,7 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
   }
 
   // Cast the dest ptr to the appropriate i8 pointer type.
-  if (DestPtr.getElementType() != Int8Ty)
+  if (DestPtr.getElementType() != Int8Ty && getTarget().isByteAddressable())
     DestPtr = Builder.CreateElementBitCast(DestPtr, Int8Ty);
 
   // Get size and alignment info for this aggregate.
@@ -1796,14 +1796,14 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
     if (vla) return emitNonZeroVLAInit(*this, Ty, DestPtr, SrcPtr, SizeVal);
 
     // Get and call the appropriate llvm.memcpy overload.
-    Builder.CreateMemCpy(DestPtr, SrcPtr, SizeVal, false);
+    Builder.CreateMemCpy(DestPtr, SrcPtr, SizeVal, false, getTarget().isByteAddressable());
     return;
   }
 
   // Otherwise, just memset the whole thing to zero.  This is legal
   // because in LLVM, all default initializers (other than the ones we just
   // handled above) are guaranteed to have a bit pattern of all zeros.
-  Builder.CreateMemSet(DestPtr, Builder.getInt8(0), SizeVal, false);
+  Builder.CreateMemSet(DestPtr, Builder.getInt8(0), SizeVal, false, getTarget().isByteAddressable());
 }
 
 llvm::BlockAddress *CodeGenFunction::GetAddrOfLabel(const LabelDecl *L) {
