@@ -1159,6 +1159,8 @@ static Address createUnnamedGlobalForMemcpyFrom(CodeGenModule &CGM,
   Address SrcPtr = CGM.createUnnamedGlobalFrom(D, Constant, Align);
   if (constant->getType()->isArrayTy())
     SrcPtr = Builder.CreateConstArrayGEP(SrcPtr, 0);
+  if (!CGM.getTarget().isByteAddressable())
+    return SrcPtr;
   return Builder.CreateElementBitCast(SrcPtr, CGM.Int8Ty);
 }
 
@@ -1186,7 +1188,7 @@ static void emitStoresForConstant(CodeGenModule &CGM, const VarDecl &D,
   // then do a few stores afterward.
   if (shouldUseBZeroPlusStoresToInitialize(constant, ConstantSize)) {
     auto *I = Builder.CreateMemSet(Loc, llvm::ConstantInt::get(CGM.Int8Ty, 0),
-                                   SizeVal, isVolatile);
+                                   SizeVal, isVolatile, CGM.getTarget().isByteAddressable());
     if (IsAutoInit)
       I->addAnnotationMetadata("auto-init");
 
@@ -1211,7 +1213,7 @@ static void emitStoresForConstant(CodeGenModule &CGM, const VarDecl &D,
       Value = AP.getLimitedValue();
     }
     auto *I = Builder.CreateMemSet(
-        Loc, llvm::ConstantInt::get(CGM.Int8Ty, Value), SizeVal, isVolatile);
+        Loc, llvm::ConstantInt::get(CGM.Int8Ty, Value), SizeVal, isVolatile, CGM.getTarget().isByteAddressable());
     if (IsAutoInit)
       I->addAnnotationMetadata("auto-init");
     return;
@@ -1251,7 +1253,7 @@ static void emitStoresForConstant(CodeGenModule &CGM, const VarDecl &D,
       Builder.CreateMemCpy(Loc,
                            createUnnamedGlobalForMemcpyFrom(
                                CGM, D, Builder, constant, Loc.getAlignment()),
-                           SizeVal, isVolatile);
+                           SizeVal, isVolatile, CGM.getTarget().isByteAddressable());
   if (IsAutoInit)
     I->addAnnotationMetadata("auto-init");
 }
@@ -1911,7 +1913,7 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
   if (D.getType()->isArrayType())
     Loc = Builder.CreateConstArrayGEP(Loc, 0, CharUnits());
 
-  emitStoresForConstant(CGM, D, Builder.CreateElementBitCast(Loc, CGM.Int8Ty),
+  emitStoresForConstant(CGM, D, getTarget().isByteAddressable() ? Builder.CreateElementBitCast(Loc, CGM.Int8Ty) : Loc,
                         type.isVolatileQualified(), Builder, constant,
                         /*IsAutoInit=*/false);
 }
