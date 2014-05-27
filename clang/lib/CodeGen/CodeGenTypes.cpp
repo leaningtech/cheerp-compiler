@@ -70,7 +70,9 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
       TDD->printQualifiedName(OS);
     else
       TDD->printName(OS);
-  } else
+  } else if (!getTarget().isByteAddressable() && isa<CXXRecordDecl>(RD))
+    getCXXABI().getMangleContext().mangleName(RD, OS);
+  else
     OS << "anon";
 
   if (!suffix.empty())
