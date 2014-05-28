@@ -307,9 +307,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 
 void DuettoWriter::compileDowncast(const Value* src, uint32_t baseOffset)
 {
-	Type* pointerType=types.findRealType(src);
-	assert(pointerType->isPointerTy());
-	Type* t=cast<PointerType>(pointerType)->getElementType();
+	Type* t=src->getType()->getPointerElementType();
 	if(types.isClientType(t) || baseOffset==0)
 		compileOperand(src);
 	else
@@ -356,22 +354,14 @@ void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value*
 void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Value* size,
 		COPY_DIRECTION copyDirection)
 {
-	//Find out the real type of the copied object
-	Type* destType=types.findRealType(dest);
-	if(copyDirection!=RESET)
-	{
-		Type* srcType=types.findRealType(src);
-		if(destType!=srcType)
-			llvm::report_fatal_error("Different destination and source type for memcpy/memmove", false);
-	}
-	assert(destType->isPointerTy());
+	Type* destType=dest->getType();
 
 	Type* pointedType = static_cast<PointerType*>(destType)->getElementType();
 	if(TypeSupport::isUnion(pointedType))
 	{
 		//We can use the natural i8*, since the union will have already an allocated
 		//typed array when it has been casted to i8*
-		pointedType = dest->getType()->getPointerElementType();
+		pointedType = destType->getPointerElementType();
 	}
 	uint32_t typeSize = targetData.getTypeAllocSize(pointedType);
 
