@@ -42,10 +42,7 @@ bool isNopCast(const Value* val)
 		
 		if ( Intrinsic::duetto_downcast == id )
 		{
-			Type * pointerType = TypeSupport::findRealType( newCall->getArgOperand(0) );
-			assert(pointerType->isPointerTy());
-		
-			Type* t = cast<PointerType>(pointerType)->getElementType();
+			Type* t = newCall->getArgOperand(0)->getType()->getPointerElementType();
 
 			if ( TypeSupport::isClientType(t) ||
 				getIntFromValue( newCall->getArgOperand(1) ) == 0 )
