@@ -1008,7 +1008,10 @@ ItaniumCXXABI::EmitNullMemberPointer(const MemberPointerType *MPT) {
     return llvm::ConstantInt::get(CGM.PtrDiffTy, -1ULL, /*isSigned=*/true);
 
   llvm::Constant *Zero = llvm::ConstantInt::get(CGM.PtrDiffTy, 0);
-  llvm::Constant *Values[2] = { Zero, Zero };
+  llvm::Constant *Zero2 = CGM.getTarget().isByteAddressable()?
+                          (llvm::Constant*)llvm::ConstantInt::get(CGM.PtrDiffTy, 0):
+                          (llvm::Constant*)llvm::ConstantPointerNull::get(CGM.VoidPtrTy);
+  llvm::Constant *Values[2] = { Zero2, Zero };
   return llvm::ConstantStruct::getAnon(Values);
 }
 
@@ -1216,7 +1219,9 @@ ItaniumCXXABI::EmitMemberPointerIsNotNull(CodeGenFunction &CGF,
   // In Itanium, a member function pointer is not null if 'ptr' is not null.
   llvm::Value *Ptr = Builder.CreateExtractValue(MemPtr, 0, "memptr.ptr");
 
-  llvm::Constant *Zero = llvm::ConstantInt::get(Ptr->getType(), 0);
+  llvm::Constant *Zero = CGM.getTarget().isByteAddressable()?
+                          (llvm::Constant*)llvm::ConstantInt::get(Ptr->getType(), 0):
+                          (llvm::Constant*)llvm::ConstantPointerNull::get(cast<llvm::PointerType>(Ptr->getType()));
   llvm::Value *Result = Builder.CreateICmpNE(Ptr, Zero, "memptr.tobool");
 
   // On ARM, a member function pointer is also non-null if the low bit of 'adj'
