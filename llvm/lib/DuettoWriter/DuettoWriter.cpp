@@ -669,6 +669,12 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::handleBuiltinCall(Immut
 		compileMethodArgs(it, itE);
 		return COMPILE_OK;
 	}
+	else if(instrinsicId==Intrinsic::flt_rounds)
+	{
+		// Rounding mode 1: nearest
+		stream << "1";
+		return COMPILE_OK;
+	}
 	else if(strcmp(ident,"free")==0 ||
 		strcmp(ident,"_ZdlPv")==0 ||
 		strcmp(ident,"_ZdaPv")==0)
