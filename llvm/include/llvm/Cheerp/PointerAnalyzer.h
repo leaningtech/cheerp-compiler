@@ -14,6 +14,7 @@
 
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
@@ -76,7 +77,7 @@ enum POINTER_KIND {
 class PointerAnalyzer {
 public:
 	
-	PointerAnalyzer( NameGenerator & namegen, const TypeSupport & types ) : namegen(namegen), types(types) {}
+	PointerAnalyzer( NameGenerator & namegen, const TypeSupport & types, llvm::AliasAnalysis & AA ) : namegen(namegen), types(types),AA(AA) {}
 	
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
 	
@@ -136,6 +137,7 @@ private:
 		POINTER_EQUALITY_COMPARABLE;
 	
 	bool needsWrappingArray(const llvm::Value * v) const;
+	bool isArgumentReadOnly(const llvm::Argument * v) const;
 	
 	// Returns a bitmask of POINTER_USAGE_FLAG
 	/**
@@ -189,6 +191,7 @@ private:
 	
 	const NameGenerator & namegen;
 	const TypeSupport & types;
+	llvm::AliasAnalysis & AA;
 
 };
 
