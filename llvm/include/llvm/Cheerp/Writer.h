@@ -52,9 +52,9 @@ private:
 	const llvm::Function* currentFun;
 	
 	NameGenerator namegen;
-	CheerpPointerAnalyzer analyzer;
 	GlobalDepsAnalyzer globalDeps;
 	TypeSupport types;
+	PointerAnalyzer analyzer;
 	std::set<const llvm::GlobalVariable *> compiledGVars;
 	
 	// Support for source maps
@@ -110,7 +110,7 @@ private:
 		const llvm::Value* baseSrc, llvm::Type* currentType, const char* namedOffset);
 	void compileResetRecursive(const std::string& baseName, const llvm::Value* baseDest,
 		const llvm::Value* resetValue, llvm::Type* currentType, const char* namedOffset);
-	void compileDowncast(const llvm::Value* src, uint32_t baseOffset);
+	void compileDowncast( llvm::ImmutableCallSite callV );
 	void compileAllocation(const DynamicAllocInfo & info);
 	void compileFree(const llvm::Value* obj);
 	void compilePointer(const llvm::Value* v, POINTER_KIND acceptedKind);
@@ -143,7 +143,7 @@ public:
 	llvm::raw_ostream& stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,
 		const std::string& sourceMapName, llvm::raw_ostream* sourceMap):
-		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ), globalDeps(m), types(m, globalDeps.classesWithBaseInfo() ),
+		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),globalDeps(m), types(m, globalDeps.classesWithBaseInfo() ), analyzer( namegen, types ), 
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
 		stream(s)
 	{

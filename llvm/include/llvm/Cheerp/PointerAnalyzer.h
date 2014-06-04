@@ -13,6 +13,7 @@
 #define _CHEERP_POINTER_ANALYZER_H
 
 #include "llvm/Cheerp/NameGenerator.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
@@ -72,21 +73,10 @@ enum POINTER_KIND {
 	REGULAR
 };
 
-// Functionalities provided by a pointer
-enum POINTER_USAGE_FLAG {
-	POINTER_NONCONST_DEREF = 1, // The pointer is used to modify the pointed object
-	POINTER_ARITHMETIC = (1 << 1), // The pointer can be incremented/decremented etc, and/or it is used to access an array (i.e. p[i])
-	POINTER_ORDINABLE = (1 << 2), // The pointer is used for a comparison with another pointer
-	POINTER_EQUALITY_COMPARABLE = (1 << 3), // The pointer is used for ==/!= comparison with another pointer.
-	POINTER_CASTABLE_TO_INT = (1 << 4),  // The pointer is explicitly casted to an integer (usually used to implement pointers hash table)
-	
-	POINTER_UNKNOWN = (1LL << 32LL) - 1
-};
-
-class CheerpPointerAnalyzer {
+class PointerAnalyzer {
 public:
 	
-	CheerpPointerAnalyzer( NameGenerator & namegen ) : namegen(namegen) {}
+	PointerAnalyzer( NameGenerator & namegen, const TypeSupport & types ) : namegen(namegen), types(types) {}
 	
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
 	
@@ -100,18 +90,39 @@ public:
 		return (f && !canBeCalledIndirectly(f) && !f->isVarArg() );
 	}
 
-#ifndef NDEBUG	
+#ifndef NDEBUG
 	// Dump a pointer value info
 	void dumpPointer(const llvm::Value * v) const;
-#endif
-
-#ifdef CHEERP_DEBUG_POINTERS
 	void dumpAllPointers() const;
         void dumpAllFunctions() const;
-#endif //CHEERP_DEBUG_POINTERS
+#endif //NDEBUG
 
 private:
-	
+	// Strategies to demote a COMPLETE_OBJECT to a REGULAR
+	enum POINTER_DEMOTION_STRATS {
+		NO_DEMOTION, // Not possible (i.e. immutable type or no self member)
+		SELF, // Uses the .s member
+		BASE_INFO // Uses the base info
+	};
+
+	POINTER_DEMOTION_STRATS getStratForType( llvm::PointerType * pt ) const
+	{
+		if ( llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(pt->getElementType() ) )
+			return types.hasBasesInfo(st) ? BASE_INFO : SELF;
+		return NO_DEMOTION;
+	}
+
+	// Functionalities provided by a pointer
+	enum POINTER_USAGE_FLAG {
+		POINTER_NONCONST_DEREF = 1, // The pointer is used to modify the pointed object
+		POINTER_ARITHMETIC = (1 << 1), // The pointer can be incremented/decremented etc, and/or it is used to access an array (i.e. p[i])
+		POINTER_ORDINABLE = (1 << 2), // The pointer is used for a comparison with another pointer
+		POINTER_EQUALITY_COMPARABLE = (1 << 3), // The pointer is used for ==/!= comparison with another pointer.
+		POINTER_CASTABLE_TO_INT = (1 << 4),  // The pointer is explicitly casted to an integer (usually used to implement pointers hash table)
+
+		POINTER_UNKNOWN = (1LL << 32LL) - 1
+	};
+
 	static constexpr uint32_t need_wrap_array_flags = 
 		POINTER_ARITHMETIC | 
 		POINTER_ORDINABLE | 
@@ -152,7 +163,7 @@ private:
 	// Detect if a function can possibly be called indirectly
 	bool canBeCalledIndirectly(const llvm::Function * f) const
 	{
-#ifdef CHEERP_DEBUG_POINTERS
+#ifndef NDEBUG
 		debugAllFunctionsSet.insert(f);
 #endif
 		return f->empty() || f->hasAddressTaken();
@@ -168,15 +179,16 @@ private:
 	typedef std::map<const llvm::Function *, bool > function_indirect_call_map_t;
 	mutable function_indirect_call_map_t functionIndirectCallMap;
 	
-#ifdef CHEERP_DEBUG_POINTERS
+#ifndef NDEBUG
 	typedef std::set<const llvm::Value *> known_pointers_t;
 	mutable known_pointers_t debugAllPointersSet;
         
         typedef std::set<const llvm::Function *> known_functions_t;
         mutable known_functions_t debugAllFunctionsSet;
-#endif //CHEERP_DEBUG_POINTERS
+#endif //NDEBUG
 	
 	const NameGenerator & namegen;
+	const TypeSupport & types;
 
 };
 
