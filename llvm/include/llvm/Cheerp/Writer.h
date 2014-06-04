@@ -53,8 +53,8 @@ private:
 	
 	NameGenerator namegen;
 	CheerpPointerAnalyzer analyzer;
-	TypeSupport types;
 	GlobalDepsAnalyzer globalDeps;
+	TypeSupport types;
 	std::set<const llvm::GlobalVariable *> compiledGVars;
 	
 	// Support for source maps
@@ -107,9 +107,9 @@ private:
 	void compileMemFunc(const llvm::Value* dest, const llvm::Value* src, const llvm::Value* size,
 			COPY_DIRECTION copyDirection);
 	void compileCopyRecursive(const std::string& baseName, const llvm::Value* baseDest,
-		const llvm::Value* baseSrc, const llvm::Type* currentType, const char* namedOffset);
+		const llvm::Value* baseSrc, llvm::Type* currentType, const char* namedOffset);
 	void compileResetRecursive(const std::string& baseName, const llvm::Value* baseDest,
-		const llvm::Value* resetValue, const llvm::Type* currentType, const char* namedOffset);
+		const llvm::Value* resetValue, llvm::Type* currentType, const char* namedOffset);
 	void compileDowncast(const llvm::Value* src, uint32_t baseOffset);
 	void compileAllocation(const DynamicAllocInfo & info);
 	void compileFree(const llvm::Value* obj);
@@ -143,7 +143,7 @@ public:
 	llvm::raw_ostream& stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,
 		const std::string& sourceMapName, llvm::raw_ostream* sourceMap):
-		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ), types(m), globalDeps(m),
+		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ), globalDeps(m), types(m, globalDeps.classesWithBaseInfo() ),
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
 		stream(s)
 	{
