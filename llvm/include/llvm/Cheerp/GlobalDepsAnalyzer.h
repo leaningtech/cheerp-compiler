@@ -153,7 +153,6 @@ private:
 	}
 
 	const llvm::Module & module;
-	TypeSupport types;
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;

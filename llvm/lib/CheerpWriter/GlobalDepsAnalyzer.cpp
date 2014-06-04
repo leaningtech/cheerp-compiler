@@ -21,8 +21,7 @@ using namespace std;
 using namespace llvm;
 
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(const llvm::Module & module) :
-	module(module),
-	types(module)
+	module(module)
 {
 	VisitedSet visited;
 	
@@ -272,9 +271,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		
 		StructType * st = cast<StructType>(retType);
 		
-		uint32_t firstBase, baseCount;
 		// We only need metadata for non client objects and if there are bases
-		if (!TypeSupport::isClientType(retType) && types.getBasesInfo(st, firstBase, baseCount))
+		if (!TypeSupport::isClientType(retType) && TypeSupport::hasBasesInfoMetadata(st, module) )
 			classesNeeded.insert(st);
 	}
 	else if (F->getIntrinsicID() == Intrinsic::cheerp_create_closure)
