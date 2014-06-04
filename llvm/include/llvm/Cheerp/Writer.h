@@ -143,7 +143,7 @@ public:
 	llvm::raw_ostream& stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,
 		const std::string& sourceMapName, llvm::raw_ostream* sourceMap):
-		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),globalDeps(m), types(m, globalDeps.classesWithBaseInfo() ), analyzer( namegen, types ), 
+		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),globalDeps(m), types(m, globalDeps.classesWithBaseInfo() ), analyzer( namegen, types, AA ), 
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
 		stream(s)
 	{
