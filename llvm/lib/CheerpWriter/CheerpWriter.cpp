@@ -305,11 +305,17 @@ void CheerpWriter::compileResetRecursive(const std::string& baseName, const Valu
 	}
 }
 
-void CheerpWriter::compileDowncast(const Value* src, uint32_t baseOffset)
+void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 {
+	assert( callV.arg_size() == 2 );
+	assert( callV.getCalledFunction() && callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast);
+
+	const Value * src = callV.getArgument(0);
+	uint32_t baseOffset = getIntFromValue( callV.getArgument(1));
+
 	Type* t=src->getType()->getPointerElementType();
 	if(types.isClientType(t) || baseOffset==0)
-		compileOperand(src);
+		compileOperand(src, analyzer.getPointerKind(callV.getInstruction()) );
 	else
 	{
 		//Do a runtime downcast
@@ -632,17 +638,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(instrinsicId==Intrinsic::cheerp_downcast)
 	{
-		compileDowncast(*(it), getIntFromValue(*(it+1)));
+		compileDowncast( callV );
 		return COMPILE_OK;
 	}
 	else if(instrinsicId==Intrinsic::cheerp_upcast_collapsed)
 	{
-		compileOperand(*it);
+		compileOperand(*it, analyzer.getPointerKind(callV.getInstruction()) );
 		return COMPILE_OK;
 	}
 	else if(instrinsicId==Intrinsic::cheerp_cast_user)
 	{
-		compileOperand(*it);
+		compileOperand(*it, analyzer.getPointerKind(callV.getInstruction()));
 		return COMPILE_OK;
 	}
 	else if(instrinsicId==Intrinsic::cheerp_pointer_base)
@@ -1019,7 +1025,7 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
 				llvm::errs() << "Between:\n\t" << *src << "\n\t" << *dst << "\n";
 				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
 			}
-			compileOperand(val);
+			compileOperand(val, analyzer.getPointerKind(ce) );
 			break;
 		}
 		case Instruction::IntToPtr:
@@ -1487,10 +1493,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			else 
 				compileType( ai->getAllocatedType(), LITERAL_OBJ);
 
-			if ( types.hasBasesInfo(ai->getAllocatedType() ) )
-				return COMPILE_OK;
-			else
-				return analyzer.hasSelfMember(ai) ? COMPILE_ADD_SELF : COMPILE_OK;
+			return analyzer.hasSelfMember(ai) ? COMPILE_ADD_SELF : COMPILE_OK;
 		}
 		case Instruction::Call:
 		{
@@ -1899,7 +1902,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 				return true;
 			}
 
-			compileOperand(bi.getOperand(0));
+			compileOperand(bi.getOperand(0), analyzer.getPointerKind(&I) );
 			return true;
 		}
 		case Instruction::FPToSI:
@@ -2632,7 +2635,6 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 	stream  << "var ";
 	printLLVMName(G.getName(), GLOBAL);
 
-	bool addSelf = false;
 	if(G.hasInitializer())
 	{
 		stream << " = ";
@@ -2646,15 +2648,10 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		}
 		else 
 			compileOperand(C, REGULAR);
-
-		if ( types.hasBasesInfo(C->getType()) )
-			addSelf = false;
-		else
-			addSelf = analyzer.hasSelfMember(&G);
 	}
 	stream << ';' << NewLine;
 
-	if(addSelf)
+	if( analyzer.hasSelfMember(&G) )
 		addSelfPointer(&G);
 	
 	compiledGVars.insert(&G);
