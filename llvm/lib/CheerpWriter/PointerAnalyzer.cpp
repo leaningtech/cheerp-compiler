@@ -123,7 +123,10 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* v) const
 	{
 		if (TypeSupport::isImmutableType( pt->getElementType() ) )
 		{
-			return iter->second = needsWrappingArray(v)? REGULAR : COMPLETE_OBJECT;
+			if ( isa<Argument>(v) )
+				return iter->second = (needsWrappingArray(v) || isArgumentReadOnly( cast<Argument>(v) ) ) ? REGULAR : COMPLETE_OBJECT;
+			else
+				return iter->second = REGULAR;
 		}
 		else
 		{
@@ -238,6 +241,28 @@ bool PointerAnalyzer::needsWrappingArray(const Value* v) const
 		( (isa<Argument>(v) || isa<PHINode>(v) ) && (getPointerUsageFlagsComplete(v) & POINTER_NONCONST_DEREF) );
 }
 
+bool PointerAnalyzer::isArgumentReadOnly(const Argument* v) const
+{
+	const Function * F = v->getParent();
+	if ( F->hasAddressTaken() ) return false;
+
+	AliasAnalysis::Location L(v);
+
+	for ( const Use & u : F->uses() )
+	{
+		ImmutableCallSite callV (u.getUser() );
+		
+		if ( ! (callV.isCall() || callV.isInvoke() ) )
+			continue;
+
+		assert( callV.getCalledFunction() == F );
+		
+		if ( AA.getModRefInfo(callV, L) & AliasAnalysis::Mod )
+			return false;
+	}
+	return true;
+}
+
 uint32_t PointerAnalyzer::getPointerUsageFlagsComplete(const Value * v) const
 {
 	assert(v->getType()->isPointerTy());
@@ -256,6 +281,12 @@ uint32_t PointerAnalyzer::getPointerUsageFlagsComplete(const Value * v) const
 uint32_t PointerAnalyzer::getPointerUsageFlags(const llvm::Value * v) const
 {
 	assert(v->getType()->isPointerTy());
+	
+	// HACK
+	// Temporary workaround to force all the PHIs of immutable types to be REGULAR.
+	// this will be removed when we will get rid of PHIs entirely
+	if ( isa< PHINode > (v) && TypeSupport::isImmutableType( v->getType()->getPointerElementType()) )
+		return POINTER_UNKNOWN;
 
 	pointer_usage_map_t::const_iterator iter = pointerUsageMap.find(v);
 
