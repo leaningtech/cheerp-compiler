@@ -97,7 +97,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 		}
 		case Type::PointerTyID:
 		{
-			const Type* pointedType = t->getPointerElementType();
+			Type* pointedType = t->getPointerElementType();
 			if(types.isClientType(pointedType))
 				stream << "null";
 			else
