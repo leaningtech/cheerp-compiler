@@ -24,11 +24,6 @@ using namespace llvm;
 
 namespace cheerp {
 
-bool isClientGlobal(const char* mangledName)
-{
-	return strncmp(mangledName,"_ZN6client",10)==0;
-}
-
 bool isNopCast(const Value* val)
 {
 	const CallInst * newCall = dyn_cast<const CallInst>(val);
@@ -182,46 +177,6 @@ bool isInlineable(const Instruction& I)
 	return false;
 }
 
-bool isBitCast(const Value* v)
-{
-	const User* b=static_cast<const User*>(v);
-	if(isa<BitCastInst>(v))
-	{
-		bool validCast = TypeSupport::isValidTypeCast(b->getOperand(0), v->getType());
-		if(!validCast)
-		{
-			llvm::errs() << "Error while handling cast " << *v << "\n";
-			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-			return false;
-		}
-		return true;
-	}
-	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
-	if(ce && ce->getOpcode()==Instruction::BitCast)
-	{
-		bool validCast = TypeSupport::isValidTypeCast(b->getOperand(0), v->getType());
-		if(!validCast)
-		{
-			llvm::errs() << "Error while handling cast " << *v << "\n";
-			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-			return false;
-		}
-		return true;
-	}
-	return false;
-}
-
-bool isGEP(const Value* v)
-{
-	if(GetElementPtrInst::classof(v))
-		return true;
-	const ConstantExpr* ce=dyn_cast<const ConstantExpr>(v);
-	if(ce && ce->getOpcode()==Instruction::GetElementPtr)
-		return true;
-	return false;
-}
-
-
 uint32_t getIntFromValue(const Value* v)
 {
 	if(!ConstantInt::classof(v))
@@ -364,42 +319,6 @@ bool TypeSupport::isValidTypeCast(const Value * castOp, Type * dstPtr)
 	return false;
 }
 
-bool TypeSupport::isClientType(const Type* t)
-{
-	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		strncmp(t->getStructName().data(), "class._ZN6client", 16)==0);
-}
-
-bool TypeSupport::isClientArrayType(const Type* t)
-{
-	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		strcmp(t->getStructName().data(), "class._ZN6client5ArrayE")==0);
-}
-
-bool TypeSupport::isI32Type(const Type* t)
-{
-	return t->isIntegerTy() && static_cast<const IntegerType*>(t)->getBitWidth()==32;
-}
-
-bool TypeSupport::isTypedArrayType(const Type* t)
-{
-	return t->isIntegerTy(8) || t->isIntegerTy(16) || t->isIntegerTy(32) ||
-		t->isFloatTy() || t->isDoubleTy();
-}
-
-bool TypeSupport::isImmutableType(const Type* t)
-{
-	if(t->isIntegerTy() || t->isFloatTy() || t->isDoubleTy() || t->isPointerTy())
-		return true;
-	return false;
-}
-
-bool TypeSupport::isUnion(const Type* t)
-{
-	return (t->isStructTy() && cast<StructType>(t)->hasName() &&
-		t->getStructName().startswith("union."));
-}
-
 Type* TypeSupport::dfsFindRealType(const Value* v, std::set<const PHINode*>& visitedPhis)
 {
 	if(isBitCast(v))
@@ -444,17 +363,9 @@ Type* TypeSupport::dfsFindRealType(const Value* v, std::set<const PHINode*>& vis
 	return v->getType();
 }
 
-const llvm::NamedMDNode* TypeSupport::getBasesMetadata(const llvm::StructType * t) const
-{
-	if(!t->hasName())
-		return nullptr;
-
-	return module.getNamedMetadata(Twine(t->getName(),"_bases"));
-}
-
 bool TypeSupport::getBasesInfo(const StructType* t, uint32_t& firstBase, uint32_t& baseCount) const
 {
-	const NamedMDNode* basesNamedMeta = getBasesMetadata(t);
+	const NamedMDNode* basesNamedMeta = getBasesMetadata(t, module);
 	if(!basesNamedMeta)
 		return false;
 
