@@ -114,12 +114,6 @@ public:
 			return false;
 	}
 
-	static llvm::Type* findRealType(const llvm::Value* v)
-	{
-		 std::set<const llvm::PHINode*> visitedPhis;
-		 return dfsFindRealType(v, visitedPhis);
-	}
-
 	static bool hasBasesInfoMetadata(llvm::StructType* t, const llvm::Module & m)
 	{
 		return getBasesMetadata(t, m) != nullptr;
@@ -142,7 +136,6 @@ public:
 	bool getBasesInfo(const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount) const;
 
 private:
-	static llvm::Type* dfsFindRealType(const llvm::Value* v, std::set<const llvm::PHINode*>& visitedPhis);
 	static const llvm::NamedMDNode* getBasesMetadata(const llvm::StructType * t, const llvm::Module & m)
 	{
 		if(!t->hasName())
