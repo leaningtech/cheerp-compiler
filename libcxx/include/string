@@ -760,7 +760,7 @@ private:
 
 #endif // _LIBCPP_ABI_ALTERNATE_STRING_LAYOUT
 
-#ifndef __DUETTO__
+#ifndef __CHEERP__
     union __ulx{__long __lx; __short __lxx;};
 
     enum {__n_words = sizeof(__ulx) / sizeof(size_type)};
@@ -773,12 +773,12 @@ private:
 
     struct __rep
     {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
         union
         {
 #endif
             __long  __l;
-#ifndef __DUETTO__
+#ifndef __CHEERP__
             __short __s;
             __raw   __r;
         };
@@ -959,7 +959,7 @@ public:
     _LIBCPP_INLINE_VISIBILITY size_type length() const _NOEXCEPT {return size();}
     _LIBCPP_INLINE_VISIBILITY size_type max_size() const _NOEXCEPT;
     _LIBCPP_INLINE_VISIBILITY size_type capacity() const _NOEXCEPT
-#ifndef __DUETTO__
+#ifndef __CHEERP__
         {return (__is_long() ? __get_long_cap()
                              : static_cast<size_type>(__min_cap)) - 1;}
 #else
@@ -1451,7 +1451,7 @@ public:
     _LIBCPP_INLINE_VISIBILITY
     bool __is_long() const _NOEXCEPT
         {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
 		return bool(__r_.first().__s.__size_ & __short_mask);
 #else
 		return true;
@@ -1529,7 +1529,7 @@ private:
 
     _LIBCPP_INLINE_VISIBILITY
     void __set_short_size(size_type __s) _NOEXCEPT
-#   ifdef __DUETTO__
+#   ifdef __CHEERP__
 	{}
 #   elif defined(_LIBCPP_BIG_ENDIAN)
         {__r_.first().__s.__size_ = (unsigned char)(__s);}
@@ -1539,7 +1539,7 @@ private:
 
     _LIBCPP_INLINE_VISIBILITY
     size_type __get_short_size() const _NOEXCEPT
-#   ifdef __DUETTO__
+#   ifdef __CHEERP__
 	{return 0;}
 #   elif defined(_LIBCPP_BIG_ENDIAN)
         {return __r_.first().__s.__size_;}
@@ -1578,7 +1578,7 @@ private:
     _LIBCPP_INLINE_VISIBILITY
     pointer __get_short_pointer() _NOEXCEPT
         {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
 		return pointer_traits<pointer>::pointer_to(__r_.first().__s.__data_[0]);
 #else
 		return NULL;
@@ -1587,7 +1587,7 @@ private:
     _LIBCPP_INLINE_VISIBILITY
     const_pointer __get_short_pointer() const _NOEXCEPT
         {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
 		return pointer_traits<const_pointer>::pointer_to(__r_.first().__s.__data_[0]);
 #else
 		return NULL;
@@ -1603,7 +1603,7 @@ private:
     _LIBCPP_INLINE_VISIBILITY
     void __zero() _NOEXCEPT
         {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
             size_type (&__a)[__n_words] = __r_.first().__r.__words;
             for (unsigned __i = 0; __i < __n_words; ++__i)
                 __a[__i] = 0;
@@ -1987,7 +1987,7 @@ template <class _CharT, class _Traits, class _Allocator>
 basic_string<_CharT, _Traits, _Allocator>::basic_string(const basic_string& __str)
     : __r_(__default_init_tag(), __alloc_traits::select_on_container_copy_construction(__str.__alloc()))
 {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
     if (!__str.__is_long())
         __r_.first().__r = __str.__r_.first().__r;
     else
@@ -2002,7 +2002,7 @@ basic_string<_CharT, _Traits, _Allocator>::basic_string(
     const basic_string& __str, const allocator_type& __a)
     : __r_(__default_init_tag(), __a)
 {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
     if (!__str.__is_long())
         __r_.first().__r = __str.__r_.first().__r;
     else
@@ -2060,7 +2060,7 @@ basic_string<_CharT, _Traits, _Allocator>::basic_string(basic_string&& __str, co
         __init(_VSTD::__to_address(__str.__get_long_pointer()), __str.__get_long_size());
     else
     {
-#ifdef __DUETTO__
+#ifdef __CHEERP__
         __r_.first().__l = __str.__r_.first().__l;
 #else
         __r_.first().__r = __str.__r_.first().__r;

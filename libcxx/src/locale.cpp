@@ -93,7 +93,7 @@ struct release
 template <class T, class ...Args>
 T& make(Args ...args)
 {
-#ifdef __DUETTO__
+#ifdef __CHEERP__
     static T buf [[noinit]];
 #else
     static typename aligned_storage<sizeof(T)>::type buf;
@@ -558,7 +558,7 @@ const locale&
 locale::__imp::make_classic()
 {
     // only one thread can get in here and it only gets in once
-#ifdef __DUETTO__
+#ifdef __CHEERP__
     static locale buf [[noinit]];
 #else
     static aligned_storage<sizeof(locale)>::type buf;
@@ -579,7 +579,7 @@ locale&
 locale::__imp::make_global()
 {
     // only one thread can get in here and it only gets in once
-#ifdef __DUETTO__
+#ifdef __CHEERP__
     static locale buf [[noinit]];
 #else
     static aligned_storage<sizeof(locale)>::type buf;
@@ -737,7 +737,7 @@ public:
 long
 locale::id::__get()
 {
-#ifdef __DUETTO__
+#ifdef __CHEERP__
     if(!__flag_)
     {
         __init();
@@ -752,7 +752,7 @@ locale::id::__get()
 void
 locale::id::__init()
 {
-#ifdef __DUETTO__
+#ifdef __CHEERP__
     __id_ = ++__next_id;
 #else
     __id_ = __libcpp_atomic_add(&__next_id, 1);
