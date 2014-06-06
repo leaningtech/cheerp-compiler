@@ -1,15 +1,15 @@
-Source: duetto-libcxxabi
+Source: cheerp-libcxxabi
 Maintainer: Alessandro Pignotti <alessandro@leaningtech.com>
 Section: devel
 Priority: optional
 Standards-Version: 3.9.2
-Build-Depends: debhelper (>=8), cmake, duetto-llvm-clang, duetto-utils, duetto-newlib, duetto-libcxx
+Build-Depends: debhelper (>=8), cmake, cheerp-llvm-clang, cheerp-utils, cheerp-newlib, cheerp-libcxx
 
-Package: duetto-libcxxabi
+Package: cheerp-libcxxabi
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, duetto-llvm-clang, duetto-utils, duetto-newlib, duetto-libcxx
-Conflicts: duetto
+Depends: ${shlibs:Depends}, ${misc:Depends}, cheerp-llvm-clang, cheerp-utils, cheerp-newlib, cheerp-libcxx
+Conflicts: cheerp
 Description: A C++ compiler for the Web, C++ ABI implementation
- Duetto is a tool to bring C++ programming to the Web,
+ Cheerp is a tool to bring C++ programming to the Web,
  designed to provide a seamless experience for client/server
  development.
