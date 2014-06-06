@@ -17,7 +17,7 @@ namespace __cxxabiv1 {
 extern "C" {
 _LIBCXXABI_FUNC_VIS _LIBCXXABI_NORETURN void __cxa_bad_cast(void) {
 #ifndef _LIBCXXABI_NO_EXCEPTIONS
-#ifndef __DUETTO__
+#ifndef __CHEERP__
   throw std::bad_cast();
 #endif
 #else
@@ -27,7 +27,7 @@ _LIBCXXABI_FUNC_VIS _LIBCXXABI_NORETURN void __cxa_bad_cast(void) {
 
 _LIBCXXABI_FUNC_VIS _LIBCXXABI_NORETURN void __cxa_bad_typeid(void) {
 #ifndef _LIBCXXABI_NO_EXCEPTIONS
-#ifndef __DUETTO__
+#ifndef __CHEERP__
   throw std::bad_typeid();
 #endif
 #else
@@ -38,7 +38,7 @@ _LIBCXXABI_FUNC_VIS _LIBCXXABI_NORETURN void __cxa_bad_typeid(void) {
 _LIBCXXABI_FUNC_VIS _LIBCXXABI_NORETURN void
 __cxa_throw_bad_array_new_length(void) {
 #ifndef _LIBCXXABI_NO_EXCEPTIONS
-#ifndef __DUETTO__
+#ifndef __CHEERP__
   throw std::bad_array_new_length();
 #endif
 #else
