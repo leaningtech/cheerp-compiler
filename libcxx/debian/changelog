@@ -1,46 +1,46 @@
-duetto-libcxx (1.0-1) trusty; urgency=medium
+cheerp-libcxx (1.0-1) trusty; urgency=medium
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Wed, 21 May 2014 16:30:41 +0200
 
-duetto-libcxx (0.9.6-1) saucy; urgency=low
+cheerp-libcxx (0.9.6-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 17 Apr 2014 17:27:01 +0200
 
-duetto-libcxx (0.9.5-1) saucy; urgency=low
+cheerp-libcxx (0.9.5-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 03 Apr 2014 13:35:14 +0200
 
-duetto-libcxx (0.9.4-1) saucy; urgency=low
+cheerp-libcxx (0.9.4-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Mon, 17 Mar 2014 02:03:55 +0100
 
-duetto-libcxx (0.9.3-1) saucy; urgency=low
+cheerp-libcxx (0.9.3-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 02 Jan 2014 18:26:42 +0100
 
-duetto-libcxx (0.9.2-1) saucy; urgency=low
+cheerp-libcxx (0.9.2-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com> Sat, 30 Nov 2013 19:02:22 +0100
 
-duetto-libcxx (0.9.1) raring; urgency=low
+cheerp-libcxx (0.9.1) raring; urgency=low
 
   * Bump version
 
  -- Alessandro Pignotti <a.pignotti@sssup.it>  Thu, 07 Nov 2013 23:10:26 +0100
 
-duetto-libcxx (0.9-1) raring; urgency=low
+cheerp-libcxx (0.9-1) raring; urgency=low
 
   * Initial release
 

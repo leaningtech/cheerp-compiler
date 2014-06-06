@@ -653,7 +653,7 @@ template <class _Key, class _Tp, class _Compare, class _Allocator>
     class multimap;
 template <class _TreeIterator> class __map_const_iterator;
 
-#if !defined(_LIBCPP_CXX03_LANG) && !defined(__DUETTO__)
+#if !defined(_LIBCPP_CXX03_LANG)
 
 template <class _Key, class _Tp>
 struct __value_type
@@ -2134,8 +2134,8 @@ private:
 
     typedef __map_node_destructor<__node_allocator> _Dp;
     typedef unique_ptr<__node, _Dp> __node_holder;
-#ifdef __DUETTO__
-    static_assert(!std::is_pointer<_Key>::value, "Duetto: std::multimap with pointers as keys is not currently supported");
+#ifdef __CHEERP__
+    static_assert(!std::is_pointer<_Key>::value, "Cheerp: std::multimap with pointers as keys is not currently supported");
 #endif
 };
 

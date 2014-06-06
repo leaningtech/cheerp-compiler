@@ -626,7 +626,7 @@ public:
     }
 };
 
-#if !defined(_LIBCPP_CXX03_LANG) && !defined(__DUETTO__)
+#if !defined(_LIBCPP_CXX03_LANG)
 
 template <class _Key, class _Tp>
 struct __hash_value_type

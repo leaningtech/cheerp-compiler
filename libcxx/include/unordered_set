@@ -738,8 +738,8 @@ public:
         {return __table_.__addable(__i, __n);}
 
 #endif  // _LIBCPP_DEBUG_LEVEL >= 2
-#ifdef __DUETTO__
-    static_assert(!std::is_pointer<_Value>::value, "Duetto: std::unordered_set of pointers is not currently supported");
+#ifdef __CHEERP__
+    static_assert(!std::is_pointer<_Value>::value, "Cheerp: std::unordered_set of pointers is not currently supported");
 #endif
 };
 

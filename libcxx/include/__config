@@ -327,7 +327,7 @@
 #  define _LIBCPP_USING_DEV_RANDOM
 #endif
 
-#ifdef __DUETTO__
+#ifdef __CHEERP__
 # define _LIBCPP_BIG_ENDIAN    0
 # define _LIBCPP_HAS_NO_THREADS
 # define _LIBCPP_HAS_NO_ALIGNED_ALLOCATION

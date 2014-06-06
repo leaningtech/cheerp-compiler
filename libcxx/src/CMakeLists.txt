@@ -56,9 +56,9 @@ set(LIBCXX_SOURCES
   vector.cpp
   )
 
-# Duetto: Remove istream/ostream users as they depend on virtual bases
+# Cheerp: Remove istream/ostream users as they depend on virtual bases
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/strstream.cpp")
-# Duetto: Remove pthread related stuff
+# Cheerp: Remove pthread related stuff
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/algorithm.cpp")
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/debug.cpp")
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/regex.cpp")
@@ -67,7 +67,7 @@ list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/future.cpp")
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/condition_variable.cpp")
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/random.cpp")
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/shared_mutex.cpp")
-# Duetto: Remove clock_gettime related stuff
+# Cheerp: Remove clock_gettime related stuff
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/chrono.cpp")
 if(WIN32)
   list(APPEND LIBCXX_SOURCES
