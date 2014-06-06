@@ -789,7 +789,7 @@ private:
 
     static_assert(sizeof(__short) == (sizeof(value_type) * (__min_cap + 1)), "__short has an unexpected size.");
 
-#ifndef __DUETTO__
+#ifndef __CHEERP__
     union __ulx{__long __lx; __short __lxx;};
 
     enum {__n_words = sizeof(__ulx) / sizeof(size_type)};
@@ -802,12 +802,12 @@ private:
 
     struct __rep
     {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
         union
         {
 #endif
             __long  __l;
-#ifndef __DUETTO__
+#ifndef __CHEERP__
             __short __s;
             __raw   __r;
         };
@@ -2195,7 +2195,7 @@ _LIBCPP_CONSTEXPR_SINCE_CXX20
 basic_string<_CharT, _Traits, _Allocator>::basic_string(const basic_string& __str)
     : __r_(__default_init_tag(), __alloc_traits::select_on_container_copy_construction(__str.__alloc()))
 {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
     if (!__str.__is_long())
         __r_.first() = __str.__r_.first();
     else
@@ -2211,7 +2211,7 @@ basic_string<_CharT, _Traits, _Allocator>::basic_string(
     const basic_string& __str, const allocator_type& __a)
     : __r_(__default_init_tag(), __a)
 {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
     if (!__str.__is_long())
         __r_.first() = __str.__r_.first();
     else
