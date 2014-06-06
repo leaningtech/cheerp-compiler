@@ -78,7 +78,7 @@ extern _LIBCXXABI_FUNC_VIS _LIBCXXABI_NORETURN void __cxa_pure_virtual(void);
 extern _LIBCXXABI_FUNC_VIS _LIBCXXABI_NORETURN void __cxa_deleted_virtual(void);
 
 // 3.3.2 One-time Construction API
-#if defined(_LIBCXXABI_GUARD_ABI_ARM) || defined(__DUETTO__)
+#if defined(_LIBCXXABI_GUARD_ABI_ARM) || defined(__CHEERP__)
 extern _LIBCXXABI_FUNC_VIS _LIBCXXABI_ALWAYS_COLD int __cxa_guard_acquire(uint32_t *);
 extern _LIBCXXABI_FUNC_VIS _LIBCXXABI_ALWAYS_COLD void __cxa_guard_release(uint32_t *);
 extern _LIBCXXABI_FUNC_VIS _LIBCXXABI_ALWAYS_COLD void __cxa_guard_abort(uint32_t *);

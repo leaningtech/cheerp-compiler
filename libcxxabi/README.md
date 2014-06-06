@@ -1,15 +1,15 @@
-Duetto: A C++ compiler for the Web
+Cheerp: A C++ compiler for the Web
 ==================================
 
 Please report bugs on launchpad:
-https://bugs.launchpad.net/duetto
+https://bugs.launchpad.net/cheerp
 
-Duetto libcxxabi build instructions
+Cheerp libcxxabi build instructions
 -----------------------------------
 
 ```
 cd lib
-export CXX="/opt/duetto/bin/clang -target duetto"
+export CXX="/opt/cheerp/bin/clang -target cheerp"
 ./buildit
-cp libcxxabi.bc /opt/duetto/lib/
+cp libcxxabi.bc /opt/cheerp/lib/
 ```

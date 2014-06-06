@@ -6,8 +6,8 @@
 override_dh_auto_configure:
 
 override_dh_auto_build:
-	cd lib; CXX="/opt/duetto/bin/clang -target duetto" ./buildit
+	cd lib; CXX="/opt/cheerp/bin/clang -target cheerp" ./buildit
 
 override_dh_auto_install:
-	mkdir -p $(CURDIR)/debian/duetto-libcxxabi/opt/duetto/lib
-	cp lib/libcxxabi.bc $(CURDIR)/debian/duetto-libcxxabi/opt/duetto/lib
+	mkdir -p $(CURDIR)/debian/cheerp-libcxxabi/opt/cheerp/lib
+	cp lib/libcxxabi.bc $(CURDIR)/debian/cheerp-libcxxabi/opt/cheerp/lib
