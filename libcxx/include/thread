@@ -82,8 +82,8 @@ void sleep_for(const chrono::duration<Rep, Period>& rel_time);
 
 */
 
-#ifdef __DUETTO__
-#error Duetto: C++ thread are not supported since they do not map to the threading model of the Web
+#ifdef __CHEERP__
+#error Cheerp: C++ thread are not supported since they do not map to the threading model of the Web
 #else
 
 #include <__config>

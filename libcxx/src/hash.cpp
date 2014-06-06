@@ -162,7 +162,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 typename enable_if<_Sz == 8, void>::type
 __check_for_overflow(size_t N)
 {
-#ifndef __DUETTO__
+#ifndef __CHEERP__
     if (N > 0xFFFFFFFFFFFFFFC5ull)
         __throw_overflow_error("__next_prime overflow");
 #endif

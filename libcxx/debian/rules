@@ -6,8 +6,8 @@
 override_dh_auto_configure:
 	dh_auto_configure -- \
 	    -DCMAKE_BUILD_TYPE=Release \
-	    -DCMAKE_INSTALL_PREFIX=/opt/duetto \
-	    -DCMAKE_TOOLCHAIN_FILE=/opt/duetto/share/cmake/Modules/DuettoToolchain.cmake \
+	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
+	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake \
 	    -DLIBCXX_ENABLE_SHARED=OFF \
 	    -DLIBCXX_LIBCXXABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
 	    -DLIBCXX_CXX_ABI=libcxxabi
