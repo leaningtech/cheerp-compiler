@@ -1574,7 +1574,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 					!ArrayType::classof(ptrOp->getType()->getPointerElementType()))
 			{
 				//Optimize loads of single values from unions
-				compileOperand(cast<BitCastInst>(ptrOp)->getOperand(0));
+				compileDereferencePointer(cast<BitCastInst>(ptrOp)->getOperand(0), 0);
 				Type* pointedType=ptrOp->getType()->getPointerElementType();
 				if(pointedType->isIntegerTy(8))
 					stream << ".getInt8(0)";
@@ -1602,7 +1602,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 					!ArrayType::classof(ptrOp->getType()->getPointerElementType()))
 			{
 				//Optimize loads of single values from unions
-				compileOperand(cast<BitCastInst>(ptrOp)->getOperand(0));
+				compileDereferencePointer(cast<BitCastInst>(ptrOp)->getOperand(0), NULL);
 				Type* pointedType=ptrOp->getType()->getPointerElementType();
 				if(pointedType->isIntegerTy(8))
 					stream << ".setInt8(0,";
@@ -1896,7 +1896,7 @@ bool DuettoWriter::compileInlineableInstruction(const Instruction& I)
 				stream << "new ";
 				compileTypedArrayType((isArray)?elementType->getSequentialElementType():elementType);
 				stream << '(';
-				compileOperand(bi.getOperand(0));
+				compileDereferencePointer(bi.getOperand(0), NULL);
 				stream << ".buffer)";
 				return true;
 			}
