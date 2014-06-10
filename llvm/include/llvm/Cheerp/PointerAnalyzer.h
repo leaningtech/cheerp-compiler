@@ -80,6 +80,8 @@ public:
 	PointerAnalyzer( NameGenerator & namegen, const TypeSupport & types, llvm::AliasAnalysis & AA ) : namegen(namegen), types(types),AA(AA) {}
 	
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
+	POINTER_KIND getPointerKindForStore(const llvm::Value * storeDest) const;
+	POINTER_KIND getPointerKindForStore(const llvm::Constant * cval) const;
 	
 	// Detect if every object pointed by this pointer has a .s member
 	bool hasSelfMember(const llvm::Value * v) const;

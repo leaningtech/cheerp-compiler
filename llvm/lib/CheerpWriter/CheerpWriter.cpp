@@ -672,7 +672,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		//keeping all local variable around. The helper
 		//method is printed on demand depending on a flag
 		stream << "cheerpCreateClosure";
-		compileMethodArgs(it, itE);
+		compileMethodArgsForDirectCall(it,itE, func->arg_begin());
 		return COMPILE_OK;
 	}
 	else if(instrinsicId==Intrinsic::flt_rounds)
@@ -1080,7 +1080,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 		assert(d->getType()->getNumElements() == d->getNumOperands());
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
-			compileOperand(d->getOperand(i), REGULAR);
+			compileOperand(d->getOperand(i), analyzer.getPointerKindForStore(d->getOperand(i)) );
 			if((i+1)<d->getNumOperands())
 				stream << ",";
 		}
@@ -1094,7 +1094,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
 			stream << 'a' << i << ':';
-			compileOperand(d->getOperand(i), REGULAR);
+			compileOperand(d->getOperand(i), analyzer.getPointerKindForStore(d->getOperand(i)));
 			if((i+1)<d->getNumOperands())
 				stream << ",";
 		}
@@ -1627,7 +1627,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			else
 				compileDereferencePointer(ptrOp, NULL);
 			stream << " = ";
-			compileOperand(valOp, REGULAR);
+			compileOperand(valOp, analyzer.getPointerKindForStore(ptrOp));
 			return COMPILE_OK;
 		}
 		default:
@@ -2645,11 +2645,11 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		if( analyzer.getPointerKind(&G) == COMPLETE_ARRAY )
 		{
 			stream << '[';
-			compileOperand(C, REGULAR);
+			compileOperand(C, analyzer.getPointerKindForStore(C));
 			stream << ']';
 		}
 		else 
-			compileOperand(C, REGULAR);
+			compileOperand(C, analyzer.getPointerKindForStore(C));
 	}
 	stream << ';' << NewLine;
 

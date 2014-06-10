@@ -41,6 +41,15 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* v) const
 #endif
  
 	PointerType * pt = cast<PointerType>(v->getType());
+
+	if ( pt->getPointerElementType()->isFunctionTy() )
+		return iter->second = COMPLETE_OBJECT;
+
+	if( const CallInst * ci = dyn_cast<CallInst>(v) )
+		if ( const Function * f = ci->getCalledFunction() )
+			if ( f->getIntrinsicID() == Intrinsic::cheerp_create_closure )
+				return iter->second = COMPLETE_OBJECT;
+
 	if(TypeSupport::isClientArrayType(pt->getElementType()))
 	{
 		//Handle client arrays like COMPLETE_ARRAYs, so the right 0 offset
@@ -114,6 +123,10 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* v) const
 	{
 		const Function * F = arg->getParent();
 		
+		if ( F->getIntrinsicID() == Intrinsic::cheerp_create_closure && 
+			arg->getArgNo() == 0 )
+			return iter->second = COMPLETE_OBJECT;
+		
 		//TODO properly handle varargs
 		if (!F || canBeCalledIndirectly(F) || F->isVarArg())
 			return iter->second = REGULAR;
@@ -134,6 +147,29 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* v) const
 		}
 	}
 	return iter->second = REGULAR;
+}
+
+POINTER_KIND PointerAnalyzer::getPointerKindForStore(const Value* v) const
+{
+	if (const PointerType * pt = dyn_cast<PointerType>(v->getType()) )
+	{
+		if ( const PointerType * pt2 = dyn_cast<PointerType>( pt->getPointerElementType() ) )
+		{
+			if ( pt2->getPointerElementType()->isFunctionTy() )
+				return COMPLETE_OBJECT;
+		}
+	}
+	return REGULAR;
+}
+
+POINTER_KIND PointerAnalyzer::getPointerKindForStore(const Constant* v) const
+{
+	if (const PointerType * pt = dyn_cast<PointerType>(v->getType()) )
+	{
+		if ( pt->getPointerElementType()->isFunctionTy() )
+			return COMPLETE_OBJECT;
+	}
+	return REGULAR;
 }
 
 bool PointerAnalyzer::hasSelfMember(const Value* v) const
@@ -160,6 +196,9 @@ void PointerAnalyzer::dumpPointer(const Value* v) const
 	v->printAsOperand( fmt );
 	fmt.resetColor();
 	
+	if ( const Instruction * I = dyn_cast<Instruction>(v) )
+		fmt << " in function: " << I->getParent()->getParent()->getName();
+
 	if (v->getType()->isPointerTy())
 	{
 		fmt.PadToColumn(92);
