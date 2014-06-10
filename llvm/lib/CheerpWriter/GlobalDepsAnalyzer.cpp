@@ -61,8 +61,10 @@ GlobalDepsAnalyzer::GlobalDepsAnalyzer(const llvm::Module & module) :
 	//Process constructors
 	if (const GlobalVariable * constructorVar = module.getGlobalVariable("llvm.global_ctors") )
 	{
-		assert( constructorVar->hasInitializer() );
-		assert( isa<ConstantArray>( constructorVar->getInitializer() ) );
+		// Random things which may go boom
+		if ( !constructorVar->hasInitializer() ||
+			!isa<ConstantArray>( constructorVar->getInitializer() ) )
+			return;
 		
 		const ConstantArray * constructors = cast<ConstantArray>( constructorVar->getInitializer() );
 
