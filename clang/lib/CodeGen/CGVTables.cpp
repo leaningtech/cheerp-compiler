@@ -747,6 +747,8 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
   auto addOffsetConstant =
       useRelativeLayout() ? AddRelativeLayoutOffset : AddPointerLayoutOffset;
 
+  llvm::PointerType* elemType = CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
+
   switch (component.getKind()) {
   case VTableComponent::CK_VCallOffset:
     return addOffsetConstant(CGM, builder, component.getVCallOffset());
@@ -808,7 +810,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
           CGM.CreateRuntimeFunction(fnTy, name).getCallee());
       if (auto f = dyn_cast<llvm::Function>(fn))
         f->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      return llvm::ConstantExpr::getBitCast(fn, CGM.Int8PtrTy);
+      return fn;
     };
 
     llvm::Constant *fnPtr;
@@ -832,8 +834,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
                layout.vtable_thunks()[nextVTableThunkIndex].first == idx) {
       auto &thunkInfo = layout.vtable_thunks()[nextVTableThunkIndex].second;
 
-      if (!CGM.getTarget().isByteAddressable())
-      {
+      if (!CGM.getTarget().isByteAddressable()) {
         // Override the non virtual offset in bytes with the topological offset
         // TODO: Really move topological offset logic in AST
         thunkInfo.This.NonVirtual = ComputeTopologicalBaseOffset(CGM, thunkInfo.This.AdjustmentTarget, thunkInfo.This.AdjustmentSource);
@@ -853,14 +854,14 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
           builder, fnPtr, vtableAddressPoint, vtableHasLocalLinkage,
           component.getKind() == VTableComponent::CK_CompleteDtorPointer);
     } else
-      return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, CGM.Int8PtrTy));
+      return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, elemType));
   }
 
   case VTableComponent::CK_UnusedFunctionPointer:
     if (useRelativeLayout())
       return builder.add(llvm::ConstantExpr::getNullValue(CGM.Int32Ty));
     else
-      return builder.addNullPointer(CGM.Int8PtrTy);
+      return builder.addNullPointer(elemType);
   }
 
   llvm_unreachable("Unexpected vtable component kind");
@@ -870,7 +871,7 @@ llvm::Type *CodeGenVTables::getVTableType(const VTableLayout &layout) {
   SmallVector<llvm::Type *, 4> tys;
   llvm::Type *componentType = getVTableComponentType();
   for (unsigned i = 0, e = layout.getNumVTables(); i != e; ++i)
-    tys.push_back(llvm::ArrayType::get(componentType, layout.getVTableSize(i)));
+    tys.push_back(llvm::ArrayType::get(CGM.getTarget().isByteAddressable() ? componentType : llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo(), layout.getVTableSize(i)));
 
   return llvm::StructType::get(CGM.getLLVMContext(), tys);
 }
