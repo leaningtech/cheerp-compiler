@@ -262,31 +262,9 @@ bool TypeSupport::isValidTypeCast(const Value * castOp, Type * dstPtr)
 		if(srcSt->isLayoutIdentical(dstSt))
 			return true;
 	}
-	if(dst->isIntegerTy(8))
+	if(dst->isIntegerTy(8) && !src->isFunctionTy())
 		return true;
 
-	//Support getting functions back from the Vtable
-	if(src->isPointerTy() && dst->isPointerTy())
-	{
-		Type* innerSrc=cast<PointerType>(src)->getElementType();
-		Type* innerDst=cast<PointerType>(dst)->getElementType();
-		if(innerSrc->isIntegerTy(8) || innerDst->isFunctionTy())
-		{
-			const ConstantExpr* constGep=dyn_cast<const ConstantExpr>(castOp);
-			if(constGep && constGep->getOpcode()==Instruction::GetElementPtr)
-			{
-				const Value* sourceVal = constGep->getOperand(0);
-				if(sourceVal->hasName() &&
-					strncmp(sourceVal->getName().data(),"_ZTV",4)==0)
-				{
-					//This casts ultimately comes from a VTable, it's ok
-					return true;
-				}
-			}
-		}
-		if(innerSrc->isFunctionTy() && innerDst->isFunctionTy())
-			return true;
-	}
 	//Also allow the unsafe cast from i8* in a few selected cases
 	if(src->isIntegerTy(8))
 	{
