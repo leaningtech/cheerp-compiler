@@ -28,6 +28,7 @@ using namespace llvm;
 static cl::opt<std::string> SourceMap("cheerp-sourcemap", cl::Optional,
   cl::desc("If specified, the file name of the source map"), cl::value_desc("filename"));
 
+static cl::opt<bool> PrettyCode("cheerp-pretty-code", cl::desc("Generate human-readable JS") );
 
 extern "C" void LLVMInitializeCheerpBackendTarget() {
   // Register the target.
@@ -60,13 +61,13 @@ bool CheerpWritePass::runOnModule(Module& M)
        llvm::report_fatal_error(ErrorString.message(), false);
        return false;
     }
-    cheerp::CheerpWriter writer(M, Out, AA, SourceMap, &sourceMap.os());
+    cheerp::CheerpWriter writer(M, Out, AA, SourceMap, &sourceMap.os(), PrettyCode);
     sourceMap.keep();
     writer.makeJS();
   }
   else
   {
-    cheerp::CheerpWriter writer(M, Out, AA, SourceMap, NULL);
+    cheerp::CheerpWriter writer(M, Out, AA, SourceMap, NULL, PrettyCode);
     writer.makeJS();
   }
 
