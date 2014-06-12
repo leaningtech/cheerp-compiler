@@ -521,8 +521,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		
 		assert( globalDeps.dynAllocArrays().count(st) );
 		
-		stream << "createArray";
-		printLLVMName(st->getName(), GLOBAL);
+		stream << "createArray" << namegen.filterLLVMName(st->getName(), true);
 		stream << '(';
 		if( info.getNumberOfElementsArg() )
 			compileOperand( info.getNumberOfElementsArg() );
@@ -627,7 +626,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	else if(instrinsicId==Intrinsic::vastart)
 	{
 		compileDereferencePointer(*it, NULL);
-		stream << " = { d:arguments, o:_" << currentFun->getName() << ".length }";
+		stream << " = { d:arguments, o:" << namegen.getName(currentFun) << ".length }";
 		return COMPILE_OK;
 	}
 	else if(instrinsicId==Intrinsic::vaend)
@@ -835,44 +834,6 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 			notFirst=compileOffsetForPointer(rhs,lastType2);
 			if(!notFirst)
 				stream << '0';
-		}
-	}
-}
-
-void CheerpWriter::printLLVMName(const StringRef& s, NAME_KIND nameKind) const
-{
-	const char* data=s.data();
-	//Add an '_' or 'L' to skip reserved names
-	stream.write((nameKind==GLOBAL)?"_":"L",1);
-	for(uint32_t i=0;i<s.size();i++)
-	{
-		//We need to escape invalid chars
-		switch(data[i])
-		{
-			case '.':
-				stream.write("_p",2);
-				break;
-			case '-':
-				stream.write("_m",2);
-				break;
-			case ':':
-				stream.write("_c",2);
-				break;
-			case '<':
-				stream.write("_l",2);
-				break;
-			case '>':
-				stream.write("_r",2);
-				break;
-			case ' ':
-				stream.write("_s",2);
-				break;
-			case '_':
-				//NOTE: This may cause collisions
-				stream.write("_",1);
-				break;
-			default:
-				stream.write(data+i,1);
 		}
 	}
 }
@@ -1146,16 +1107,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 	{
 		assert(c->hasName());
 		//Check if this is a client global value, if so skip mangling
-		const char* mangledName = c->getName().data();
-		if(TypeSupport::isClientGlobal(c))
-		{
-			//Client value
-			char* objName;
-			int nameLen=strtol(mangledName+10,&objName,10);
-			stream.write(objName, nameLen);
-		}
-		else
-			printLLVMName(c->getName(), GLOBAL);
+		stream << namegen.getName(c);
 	}
 	else if(ConstantAggregateZero::classof(c))
 	{
@@ -1215,10 +1167,10 @@ void CheerpWriter::compileOperandImpl(const Value* v)
 		if(isInlineable(*it))
 			compileInlineableInstruction(*cast<Instruction>(v));
 		else
-			printVarName(it);
+			stream << namegen.getName(it);
 	}
 	else if(const Argument* arg=dyn_cast<const Argument>(v))
-		printArgName(arg);
+		stream << namegen.getName(arg);
 	else if(const InlineAsm* a=dyn_cast<const InlineAsm>(v))
 	{
 		assert(a->getConstraintString().empty());
@@ -1252,22 +1204,6 @@ void CheerpWriter::compileOperand(const Value* v, POINTER_KIND requestedPointerK
 		compileOperandImpl(v);
 }
 
-void CheerpWriter::printVarName(const Value* val)
-{
-	if(val->hasName())
-		printLLVMName(val->getName(), GlobalValue::classof(val)?GLOBAL:LOCAL);
-	else
-		stream << "tmp" << namegen.getUniqueIndexForValue(val);
-}
-
-void CheerpWriter::printArgName(const Argument* val) const
-{
-	if(val->hasName())
-		printLLVMName(val->getName(), LOCAL);
-	else
-		stream << "arg" << val->getArgNo();
-}
-
 void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
 {
 	BasicBlock::const_iterator I=to->begin();
@@ -1295,8 +1231,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		const PHINode* phi=dyn_cast<const PHINode>(I);
 		if(phi==NULL)
 			continue;
-		stream << "var ";
-		printVarName(phi);
+		stream << "var " << namegen.getName(phi);
 		stream << " = tmpphi" << tmps[tmpI] << ';' << NewLine;
 	}
 }
@@ -1368,7 +1303,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 					return COMPILE_OK;
 				}
 				else
-					stream << '_' << ci.getCalledFunction()->getName();
+					stream << namegen.getName(ci.getCalledFunction());
 			}
 			else
 			{
@@ -1506,7 +1441,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
 				if(cf!=COMPILE_UNSUPPORTED)
 					return cf;
-				stream << '_' << calledFunc->getName();
+				stream << namegen.getName(calledFunc);
 			}
 			else
 			{
@@ -1553,14 +1488,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				assert(ivi.getNumIndices()==1);
 				//Find the offset to the pointed element
 				assert(ivi.hasName());
-				printLLVMName(ivi.getName(), LOCAL);
+				stream << namegen.getName(&ivi);
 			}
 			else
 			{
 				//Optimize for the assembly of the aggregate values
 				assert(aggr->hasOneUse());
 				assert(aggr->hasName());
-				printLLVMName(aggr->getName(), LOCAL);
+				stream << namegen.getName(aggr);
 			}
 			uint32_t offset=ivi.getIndices()[0];
 			stream << ".a" << offset << " = ";
@@ -2251,7 +2186,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			}
 			assert(!UndefValue::classof(aggr));
 
-			printVarName(aggr);
+			stream << namegen.getName(aggr);
 
 			uint32_t offset=evi.getIndices()[0];
 			stream << ".a" << offset;
@@ -2298,10 +2233,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
    { d: obj, o: "s" } */
 void CheerpWriter::addSelfPointer(const llvm::Value* obj)
 {
-	printVarName(obj);
-	stream << ".s = ";
-	printVarName(obj);
-	stream << ';' << NewLine;
+	stream << namegen.getName(obj) << ".s = " << namegen.getName(obj) << ';' << NewLine;
 }
 
 void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
@@ -2330,9 +2262,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 			sourceMapGenerator.setDebugLoc(I->getDebugLoc());
 		if(I->getType()->getTypeID()!=Type::VoidTyID)
 		{
-			stream << "var ";
-			printVarName(&(*I));
-			stream << " = ";
+			stream << "var " << namegen.getName(I) << " = ";
 		}
 		if(I->isTerminator())
 		{
@@ -2518,14 +2448,14 @@ void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 void CheerpWriter::compileMethod(const Function& F)
 {
 	currentFun = &F;
-	stream << "function _" << F.getName() << "(";
+	stream << "function " << namegen.getName(&F) << "(";
 	const Function::const_arg_iterator A=F.arg_begin();
 	const Function::const_arg_iterator AE=F.arg_end();
 	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 	{
 		if(curArg!=A)
 			stream << ", ";
-		printArgName(curArg);
+		stream << namegen.getName(curArg);
 	}
 	stream << ") {" << NewLine;
 	std::map<const BasicBlock*, uint32_t> blocksMap;
@@ -2634,8 +2564,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		//placeholders for JS calls
 		return;
 	}
-	stream  << "var ";
-	printLLVMName(G.getName(), GLOBAL);
+	stream  << "var " << namegen.getName(&G);
 
 	if(G.hasInitializer())
 	{
@@ -2678,7 +2607,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			continue;
 		}
 
-		printLLVMName(otherGV->getName(), GLOBAL);
+		stream << namegen.getName(otherGV);
 		if( analyzer.getPointerKind(otherGV) == COMPLETE_ARRAY )
 			stream << "[0]";
 
@@ -2749,12 +2678,12 @@ void CheerpWriter::makeJS()
 	//Call constructors
 	for (const Function * F : globalDeps.constructors() )
 	{
-		printLLVMName(F->getName(), GLOBAL);
-		stream << "();" << NewLine;
+		stream << namegen.getName(F) << "();" << NewLine;
 	}
 
 	//Invoke the webMain function
-	stream << "__Z7webMainv();" << NewLine;
+	if ( const Function * webMain = module.getFunction("_Z7webMainv") )
+		stream << namegen.getName(webMain) << "()" << NewLine;
 
 	sourceMapGenerator.endFile();
 	// Link the source map if necessary
