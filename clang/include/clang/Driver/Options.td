@@ -4344,6 +4344,8 @@ def cheerp_side_EQ : Joined<["-"], "cheerp-side=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Specify which side to build [client/server]">;
 def cheerp_sourcemap_EQ : Joined<["-"], "cheerp-sourcemap=">, Flags<[DriverOption]>,
   HelpText<"Write sourcemap to <file>">, MetaVarName<"<file>">;
+def cheerp_pretty_code : Flag<["-"], "cheerp-pretty-code">, Flags<[DriverOption]>,
+  HelpText<"Generate human-readable JS">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options
