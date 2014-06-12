@@ -1110,12 +1110,12 @@ void CheerpWriter::compileConstant(const Constant* c)
 				stream << '-';
 			stream << "Infinity";
 		}
-		else if(&f->getValueAPF().getSemantics()==&APFloat::IEEEsingle)
-			stream << f->getValueAPF().convertToFloat();
-		else if(&f->getValueAPF().getSemantics()==&APFloat::IEEEdouble)
-			stream << f->getValueAPF().convertToDouble();
 		else
-			llvm::report_fatal_error("Unsupported float type, please report a bug", false);
+		{
+			SmallString<32> buf;
+			f->getValueAPF().toString(buf);
+			stream << buf;
+		}
 	}
 	else if(ConstantInt::classof(c))
 	{
