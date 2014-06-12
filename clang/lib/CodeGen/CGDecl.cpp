@@ -2013,6 +2013,9 @@ void CodeGenFunction::EmitAutoVarCleanups(const AutoVarEmission &emission) {
 
   const VarDecl &D = *emission.Variable;
 
+  // Do not run the destructor for [[noinit]] variables
+  if(D.hasAttr<NoInitAttr>())
+    return;
   // Check the type for a cleanup.
   if (QualType::DestructionKind dtorKind = D.needsDestruction(getContext()))
     emitAutoVarTypeCleanup(emission, dtorKind);
