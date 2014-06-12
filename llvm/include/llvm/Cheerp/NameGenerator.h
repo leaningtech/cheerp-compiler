@@ -38,6 +38,7 @@ public:
 	llvm::StringRef getName(const llvm::Value* v) const
 	{
 		assert(namemap.count(v) );
+		assert(! namemap.at(v).empty() );
 		return namemap.at(v);
 	}
 

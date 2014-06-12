@@ -54,13 +54,6 @@ public:
 	void renderIfOnLabel(int labelId, bool first);
 };
 
-raw_ostream& cheerp::operator<<(raw_ostream& s, const NewLineHandler& handler)
-{
-	s << "\n";
-	handler.sourceMapGenerator.finishLine();
-	return s;
-}
-
 void CheerpWriter::handleBuiltinNamespace(const char* identifier, const llvm::Function* calledFunction,
 			User::const_op_iterator it, User::const_op_iterator itE)
 {
@@ -101,8 +94,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, const llvm::Fu
 			return;
 		}
 		compileOperand(*it);
-		stream << ".";
-		stream.write(funcName+4,funcNameLen-4);
+		stream << "." << StringRef( funcName + 4, funcNameLen - 4 );
 	}
 	else if(strncmp(funcName,"set_",4)==0 && (itE-it)==2)
 	{
@@ -114,9 +106,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, const llvm::Fu
 		}
 		compileOperand(*it);
 		++it;
-		stream << ".";
-		stream.write(funcName+4,funcNameLen-4);
-		stream << " = ";
+		stream << "." << StringRef( funcName + 4, funcNameLen - 4 ) <<  " = ";
 		compileOperand(*it);
 	}
 	else
@@ -125,7 +115,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, const llvm::Fu
 		if(className)
 		{
 			if(isClientStatic)
-				stream.write(className,classLen);
+				stream << StringRef(className,classLen);
 			else if(it == itE)
 			{
 				llvm::report_fatal_error(Twine("At least 'this' parameter was expected: ",
@@ -139,7 +129,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, const llvm::Fu
 			}
 			stream << ".";
 		}
-		stream.write(funcName,funcNameLen);
+		stream << StringRef(funcName,funcNameLen);
 		compileMethodArgs(it,itE);
 	}
 }
@@ -730,7 +720,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		//For builtin String, do not use new
 		if(strncmp(typeName, "String", 6)!=0)
 			stream << "new ";
-		stream.write(typeName, typeLen);
+		stream << StringRef(typeName, typeLen);
 		compileMethodArgs(it, itE);
 		return COMPILE_OK;
 	}
