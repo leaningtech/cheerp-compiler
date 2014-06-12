@@ -226,7 +226,7 @@ void NameGenerator::generateCompressedNames(const GlobalDepsAnalyzer& gda)
 
 	for ( const GlobalValue * GV : gda.globalOrderedList() )
 	{
-		if (TypeSupport::isClientGlobal(GV) )
+		if ( isa<GlobalVariable>(GV) && TypeSupport::isClientGlobal(GV) )
 		{
 			demangler_iterator dmg( GV->getName() );
 			assert(*dmg == "client");

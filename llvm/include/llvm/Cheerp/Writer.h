@@ -31,16 +31,105 @@ namespace cheerp
 
 class NewLineHandler
 {
-friend llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const NewLineHandler& handler);
 private:
 	SourceMapGenerator& sourceMapGenerator;
 public:
 	NewLineHandler(SourceMapGenerator& s):sourceMapGenerator(s)
 	{
 	}
+
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const NewLineHandler& handler)
+	{
+		s << '\n';
+		handler.sourceMapGenerator.finishLine();
+		return s;
+	}
+
 };
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const NewLineHandler& handler);
+/**
+ * Black magic to conditionally enable indented output
+ */
+class ostream_proxy
+{
+public:
+	ostream_proxy( llvm::raw_ostream & s, bool readableOutput = false ) :
+		stream(s),
+		readableOutput(readableOutput)
+	{}
+
+	friend ostream_proxy& operator<<( ostream_proxy & os, char c )
+	{
+		os.write_indent(c);
+		return os;
+	}
+
+	friend ostream_proxy& operator<<( ostream_proxy & os, llvm::StringRef s )
+	{
+		os.write_indent(s);
+		return os;
+	}
+
+	friend ostream_proxy& operator<<( ostream_proxy & os, const NewLineHandler& handler)
+	{
+		os.stream << handler;
+		os.newLine = true;
+		return os;
+	}
+
+	template<class T>
+	friend typename std::enable_if<
+		!std::is_convertible<T&&, llvm::StringRef>::value, // Use this only if T is not convertible to StringRef
+		ostream_proxy&>::type operator<<( ostream_proxy & os, T && t )
+	{
+		if ( os.newLine && os.readableOutput )
+			for ( int i = 0; i < os.indentLevel; i++ )
+				os.stream << '\t';
+
+		os.stream << std::forward<T>(t);
+		os.newLine = false;
+		return os;
+	}
+
+private:
+
+	// Return true if we are closing a curly bracket, need to unindent by 1.
+	bool updateIndent( char c ) {
+		if ( c == '{') indentLevel++;
+		else if ( c == '}') {indentLevel--; return true; }
+		return false;
+	}
+
+	// Return true if we are closing a curly, need to unindent by 1.
+	bool updateIndent( llvm::StringRef s) {
+		if (s.empty() )
+			return false;
+		bool ans = updateIndent(s.front());
+		for (auto it = s.begin()+1; it != s.end(); ++it)
+			updateIndent(*it);
+		return ans;
+	}
+
+	template<class T>
+	void write_indent(T && t)
+	{
+		int oldIndent = indentLevel;
+		if (updateIndent( std::forward<T>(t) ) )
+			oldIndent--;
+
+		if ( newLine && readableOutput )
+			for ( int i = 0; i < oldIndent; i++ )
+				stream << '\t';
+
+		stream << std::forward<T>(t);
+		newLine = false;
+	}
+
+	llvm::raw_ostream & stream;
+	bool readableOutput;
+	bool newLine = true;
+	int indentLevel = 0;
+};
 
 class CheerpWriter
 {
@@ -136,12 +225,12 @@ private:
 	//JS interoperability support
 	void compileClassesExportedToJs();
 public:
-	llvm::raw_ostream& stream;
+	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,
-		const std::string& sourceMapName, llvm::raw_ostream* sourceMap):
-		module(m),targetData(&m),AA(AA),currentFun(NULL),globalDeps(m), namegen( globalDeps, false ),types(m, globalDeps.classesWithBaseInfo() ), analyzer( namegen, types, AA ), 
+		const std::string& sourceMapName, llvm::raw_ostream* sourceMap, bool ReadableOutput):
+		module(m),targetData(&m),AA(AA),currentFun(NULL),globalDeps(m), namegen( globalDeps, ReadableOutput ),types(m, globalDeps.classesWithBaseInfo() ), analyzer( namegen, types, AA ),
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
-		stream(s)
+		stream(s, ReadableOutput)
 	{
 	}
 	void makeJS();
