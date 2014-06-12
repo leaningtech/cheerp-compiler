@@ -120,6 +120,8 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
     C.toCharUnitsFromBits(C.getTargetInfo().getPointerAlign(0)).getQuantity();
   SizeSizeInBytes =
     C.toCharUnitsFromBits(C.getTargetInfo().getMaxPointerWidth()).getQuantity();
+  PointerSizeInBytes =
+    C.toCharUnitsFromBits(C.getTargetInfo().getPointerWidth(0)).getQuantity();
   IntAlignInBytes =
     C.toCharUnitsFromBits(C.getTargetInfo().getIntAlign()).getQuantity();
   IntTy = llvm::IntegerType::get(LLVMContext, C.getTargetInfo().getIntWidth());
