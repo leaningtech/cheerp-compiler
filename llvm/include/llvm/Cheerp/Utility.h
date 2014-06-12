@@ -14,6 +14,7 @@
 
 #include <set>
 #include <unordered_set>
+#include "llvm/ADT/SmallString.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
@@ -227,7 +228,207 @@ private:
 	AllocType type;
 	llvm::PointerType * castedType;
 };
+
+/**
+ * Iterator over all the worlds composed by a given set of symbols.
+ * 
+ * SymbolTraits model:
+ * 
+ * struct SymbolTraits {
+ * 	static constexpr char first_symbol = ... ; // The first symbol in the symbol order (i.e. 'a' for alphabet, etc.)
+ * 	static char next( char c ); // The symbol after c, or first symbol if c is the last symbol
+ * 	// Determine if the passed string is valid. 
+ * 	// The implementation is free to modify the passed string in order to skip a long sequence of invalid symbols
+ * 	template< class String >
+ * 	static bool is_valid( String & ); 
+ * };
+ */
+template<class SymbolTraits, unsigned StringSize = 4>
+class name_iterator : 
+	public std::iterator< std::input_iterator_tag, llvm::SmallString<StringSize> >,
+	SymbolTraits // Empty base opt
+{
+public:
+	name_iterator(SymbolTraits st = SymbolTraits () ) : 
+		SymbolTraits( std::move(st) )
+	{
+		value_.assign(1, SymbolTraits::first_symbol );
+	}
+	
+	explicit name_iterator(llvm::StringRef s, SymbolTraits st = SymbolTraits () ) : 
+		SymbolTraits( std::move(st) ),
+		value_(s) 
+	{}
+	
+	const llvm::SmallString<4>& operator*() const { return value_; }
+	const llvm::SmallString<4>* operator->() const { return &value_; }
+	
+	name_iterator& operator++() { advance(); return *this; }
+	name_iterator operator++(int) { name_iterator cpy(*this); advance(); return cpy; }
+	
+	bool operator==(const name_iterator & other) const { return value_ == other.value_; }
+	bool operator!=(const name_iterator & other) const { return ! operator==(other); }
+	
+private:
+	void advance()
+	{
+		do
+		{
+			for ( std::size_t i = value_.size(); (i--) > 0; )
+			{
+				value_[i] = SymbolTraits::next(value_[i]);
+				
+				if ( i == 0 )
+				{
+					if ( value_[0] == SymbolTraits::first_symbol )
+						value_.insert( value_.begin(), SymbolTraits::first_symbol );
+				}
+				else if ( value_[i] != SymbolTraits::first_symbol  )
+					break;
+			}
+		}
+		while( !SymbolTraits::is_valid( value_ ) );
+	}
+	
+	llvm::SmallString<4> value_;
+};
+
+/**
+ * Demangles a C++ name by iterating over its (demangled) nested names.
+ * We do not need to handle arguments' types (yet!).
+ * 
+ * Hopefully we can use this everywhere we need demangling, in order
+ * to be safe.
+ * 
+ * Whenever we find a demangling error, we set an error state "error".
+ * Whenever this happens, we set ourself to the "end" iterator. So error() can
+ * never return true for a non-end iterator.
+ * 
+ * NOTE we obviously do not honor all the rules of a mangled C++ identifier.
+ * We ignore templates, union and probably much more.
+ */
+struct demangler_iterator : std::iterator< 
+	std::forward_iterator_tag,
+	llvm::StringRef,
+	std::ptrdiff_t,
+	const char *,
+	llvm::StringRef>
+{
+	demangler_iterator() {}
+
+	explicit demangler_iterator( llvm::StringRef i ) : tokenSize(0),isNested(false)
+	{
+		if ( i.startswith("_ZN") )
+		{
+			isNested = true;
+			input = i.drop_front(3);
+		}
+		else if ( i.startswith("_Z") )
+		{
+			input = i.drop_front(2);
+		}
+		else
+		{
+			// Just return the name
+			input = i;
+			tokenSize = input.size();
+			return;
+		}
+
+		advance();
+	}
+	
+	llvm::StringRef operator*() const {
+		assert( tokenSize <= input.size());
+		return llvm::StringRef( input.begin(), tokenSize );
+	}
+	
+	// TODO find a way to safely implement this
+// 	const char * operator->() const;
+	
+	bool operator==(const demangler_iterator & other) const
+	{
+		return input == other.input;
+	}
+	
+	bool operator!=(const demangler_iterator & other) const
+	{
+		return !operator==(other);
+	}
+	
+	demangler_iterator& operator++() {
+		advance();
+		return *this;
+	}
+	
+	demangler_iterator operator++(int) {
+		demangler_iterator cpy(*this);
+		advance();
+		return cpy;
+	}
+	
+	bool error() const { return hasFailed; }
+	
+private:
+	
+	void advance()
+	{
+		// Advance by tokenSize;
+		input = input.drop_front(tokenSize);
+		
+		if ( input.empty() )
+		{
+			// End of input
+			if ( isNested ) hasFailed = true;
+			input = llvm::StringRef();
+			return;
+		}
+		
+		// We can not use strtol since StringRef is not guaranteed to be null-terminated!
+		const char * FirstValid = std::find_if_not( 
+			input.begin(),
+			input.end(),
+			::isdigit );
+
+		bool parseFail = input.drop_back( input.end() -  FirstValid ).getAsInteger(10, tokenSize);
+
+		if ( parseFail )
+		{
+			// Check if we have a constructor/destructor
+			if ( input.size() >= 2 &&
+				(input.startswith("C") || input.startswith("D") ) &&
+				std::isdigit( input[1] ) )
+			{
+				tokenSize = 2;
+			}
+			else
+			{
+				// Bail out.
+				if ( isNested && input.front() != 'E' )
+					hasFailed = true;
+				input = llvm::StringRef();
+			}
+		}
+		else
+		{
+			// We successfully parsed tokenSize.
+			// Drop all the initial characters which represent the token length
+			input = input.drop_front( FirstValid - input.begin() );
+			if ( input.size() < tokenSize )
+			{
+				//Oh oh.. the mangled name lied to us!
+				hasFailed = true;
+				input = llvm::StringRef();
+			}
+		}
+	}
+	
+	llvm::StringRef input;
+	std::size_t tokenSize;
+	bool isNested;
+	bool hasFailed = false;
+};
+
 }
 
 #endif //_CHEERP_UTILITY_H
-
