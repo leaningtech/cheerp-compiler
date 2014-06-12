@@ -51,8 +51,8 @@ private:
 	llvm::AliasAnalysis& AA;
 	const llvm::Function* currentFun;
 	
-	NameGenerator namegen;
 	GlobalDepsAnalyzer globalDeps;
+	NameGenerator namegen;
 	TypeSupport types;
 	PointerAnalyzer analyzer;
 	std::set<const llvm::GlobalVariable *> compiledGVars;
@@ -115,10 +115,6 @@ private:
 	void compileFree(const llvm::Value* obj);
 	void compilePointer(const llvm::Value* v, POINTER_KIND acceptedKind);
 	void compileOperandImpl(const llvm::Value* v);
-	enum NAME_KIND { LOCAL=0, GLOBAL=1 };
-	void printLLVMName(const llvm::StringRef& s, NAME_KIND nameKind) const;
-	void printVarName(const llvm::Value* v);
-	void printArgName(const llvm::Argument* v) const;
 	void compileMethodArgs(const llvm::User::const_op_iterator it, const llvm::User::const_op_iterator itE);
 	void compileMethodArgsForDirectCall(const llvm::User::const_op_iterator it, const llvm::User::const_op_iterator itE, llvm::Function::const_arg_iterator arg_it);
 	void handleBuiltinNamespace(const char* ident, const llvm::Function* calledFunction,
@@ -143,7 +139,7 @@ public:
 	llvm::raw_ostream& stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,
 		const std::string& sourceMapName, llvm::raw_ostream* sourceMap):
-		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),globalDeps(m), types(m, globalDeps.classesWithBaseInfo() ), analyzer( namegen, types, AA ), 
+		module(m),targetData(&m),AA(AA),currentFun(NULL),globalDeps(m), namegen( globalDeps, false ),types(m, globalDeps.classesWithBaseInfo() ), analyzer( namegen, types, AA ), 
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
 		stream(s)
 	{

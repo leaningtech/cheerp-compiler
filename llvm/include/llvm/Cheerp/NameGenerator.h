@@ -12,29 +12,50 @@
 #ifndef _CHEERP_NAME_GENERATOR_H
 #define _CHEERP_NAME_GENERATOR_H
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
-#include <map>
-#include <set>
+#include <unordered_map>
 
 namespace cheerp {
 
-// This class is responsible for generate unique indices for a llvm::Value
-/**
- * At the moment the implementation is very simple, it is supposed to become
- * much more smarter (i.e. recicle names depending on the scope) in the future.
- */
+class GlobalDepsAnalyzer;
+
+// This class is responsible for generate unique names for a llvm::Value
 class NameGenerator
 {
 public:
-	uint32_t getUniqueIndexForValue(const llvm::Value* v) const;
+	/**
+	 * This initialize the namegenerator by collecting
+	 * all the global variable names
+	 */
+	explicit NameGenerator( const GlobalDepsAnalyzer &, bool makeReadableNames = true );
+
+	/**
+	 * Return the computed name for the given variable.
+	 * This function can be called only if the passed value is not an inlined instruction
+	 */
+	llvm::StringRef getName(const llvm::Value* v) const
+	{
+		assert(namemap.count(v) );
+		return namemap.at(v);
+	}
+
+	// This will be removed when we will entirely get rid of PHIs.
 	uint32_t getUniqueIndexForPHI(const llvm::Function * f);
 
-private:
-	typedef std::map<const llvm::Value*, uint32_t> UnnamedMap;
+	// Filter the original string so that it no longer contains invalid JS characters.
+	static llvm::SmallString<4> filterLLVMName( llvm::StringRef, bool isGlobalName );
 
-	mutable std::map<const llvm::Function*, UnnamedMap> unnamedValueMap;
-	std::map<const llvm::Function *, uint32_t> currentUniqueIndex;
+private:
+	void generateCompressedNames( const GlobalDepsAnalyzer & );
+	void generateReadableNames( const GlobalDepsAnalyzer & );
+	
+	// Determine if an instruction actually needs a name
+	bool needsName(const llvm::Instruction &) const;
+
+	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
+	std::unordered_map<const llvm::Function *, uint32_t> currentUniqueIndexForPHI;
 };
 
 }
