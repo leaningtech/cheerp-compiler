@@ -26,12 +26,10 @@
 
 void* __builtin_cheerp_pointer_base(const void* ptr);
 size_t __builtin_cheerp_pointer_offset(const void* ptr);
-/* This method returns a closure. Shen it is invoked it will execute func with obj as the first argument
+/* This method returns a closure. When it is invoked it will execute func with obj as the first argument
    and its own argument as the second one
-
-   A more correct signature would be:
-void (*)(void*) __builtin_cheerp_create_closure(void (*func)(), void* obj):
 */
-const void* __builtin_cheerp_create_closure(const void* func, void* obj);
+template<class R,class T,class O>
+R* __builtin_cheerp_create_closure(T* func, O* obj);
 
 #endif /* __CHEERPINTRIN_H */
