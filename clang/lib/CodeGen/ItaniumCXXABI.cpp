@@ -593,7 +593,8 @@ ItaniumCXXABI::ConvertMemberPointerType(const MemberPointerType *MPT) {
   if (MPT->isMemberDataPointer())
     return CGM.PtrDiffTy;
   llvm::Type* elementType = CGM.getTarget().isByteAddressable()?
-                          (llvm::Type*)CGM.PtrDiffTy:(llvm::Type*)CGM.VoidPtrTy;
+                            (llvm::Type*)CGM.PtrDiffTy:
+                            (llvm::Type*)llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo();
   return llvm::StructType::get(elementType, CGM.PtrDiffTy);
 }
 
@@ -1010,7 +1011,8 @@ ItaniumCXXABI::EmitNullMemberPointer(const MemberPointerType *MPT) {
   llvm::Constant *Zero = llvm::ConstantInt::get(CGM.PtrDiffTy, 0);
   llvm::Constant *Zero2 = CGM.getTarget().isByteAddressable()?
                           (llvm::Constant*)llvm::ConstantInt::get(CGM.PtrDiffTy, 0):
-                          (llvm::Constant*)llvm::ConstantPointerNull::get(CGM.VoidPtrTy);
+                          (llvm::Constant*)llvm::ConstantPointerNull::get(
+					llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
   llvm::Constant *Values[2] = { Zero2, Zero };
   return llvm::ConstantStruct::getAnon(Values);
 }
@@ -1092,7 +1094,7 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
       MemPtr[0] = llvm::ConstantExpr::getPtrToInt(addr, CGM.PtrDiffTy);
     else
     {
-      MemPtr[0] = llvm::ConstantExpr::getBitCast(addr, CGM.VoidPtrTy);
+      MemPtr[0] = llvm::ConstantExpr::getBitCast(addr, llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
       if (ThisAdjustment.getQuantity())
       {
         CGM.ErrorUnsupported(MD, "Cheerp: this pointer to member function is not yet supported");
