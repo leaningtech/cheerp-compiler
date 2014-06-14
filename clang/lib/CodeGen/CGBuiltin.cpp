@@ -11112,7 +11112,8 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_create_closure) {
-    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_create_closure);
+    llvm::Type *Tys[] = { ConvertType(E->getType()), Ops[0]->getType(), Ops[1]->getType() };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_create_closure, Tys);
     return Builder.CreateCall(F, Ops);
   }
   return 0;
