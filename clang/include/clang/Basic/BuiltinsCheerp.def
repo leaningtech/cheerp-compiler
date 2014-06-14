@@ -16,6 +16,6 @@
 
 BUILTIN(__builtin_cheerp_pointer_base, "v*vC*", "")
 BUILTIN(__builtin_cheerp_pointer_offset, "zvC*", "")
-BUILTIN(__builtin_cheerp_create_closure, "vC*vC*v*", "")
+BUILTIN(__builtin_cheerp_create_closure, "", "h")
 
 #undef BUILTIN
