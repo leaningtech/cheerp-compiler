@@ -43,6 +43,6 @@ def int_cheerp_pointer_offset : Intrinsic<[llvm_i32_ty],
                                 [IntrNoMem]>;
 
 // Closure creation for callbacks
-def int_cheerp_create_closure : Intrinsic<[llvm_ptr_ty],
-                                [llvm_ptr_ty, llvm_ptr_ty],
+def int_cheerp_create_closure : Intrinsic<[llvm_anyptr_ty],
+                                [llvm_anyptr_ty, llvm_anyptr_ty],
                                 [IntrNoMem]>;
