@@ -2093,9 +2093,16 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
 
     //We don't care about casts to functions types
     if (CGF.getTarget().isByteAddressable() || isa<llvm::ConstantPointerNull>(Src) ||
-        (isa<llvm::Function>(Src) && isa<llvm::FunctionType>(DstTy)) || DstTy == SrcTy)
+        (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) && isa<llvm::FunctionType>(DstTy->getPointerElementType())) ||
+        DstTy == SrcTy)
     {
-      return Builder.CreateBitCast(Src, DstTy);
+      // See below
+    }
+    else if (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) &&
+		!isa<llvm::FunctionType>(DstTy->getPointerElementType()))
+    {
+      // On Cheerp we can't allow any function pointer to become any other pointer
+      CGF.CGM.getDiags().Report(CE->getLocStart(), diag::err_cheerp_bad_function_to_non_function_cast);
     }
     else
     {

@@ -10916,6 +10916,8 @@ def err_cheerp_memintrinsic_type_unknown : Error<
   "Cheerp: Memory operations require the actual type of the pointers. Pass the typed pointers instead of a generic void*">;
 def err_cheerp_memintrinsic_same_type : Error<
   "Cheerp: Memory operations require source and destination pointers of the same type">;
+def err_cheerp_bad_function_to_non_function_cast : Error<
+  "Cheerp: Casting from function pointers to non-function pointers is not allowed">;
 } // end of cheerp issue category
 
 } // end of sema component.
