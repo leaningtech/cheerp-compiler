@@ -98,6 +98,7 @@
 //  V:N: -> requires vectors of at least N bits to be legal
 //  C<N,M_0,...,M_k> -> callback behavior: argument N is called with argument
 //                      M_0, ..., M_k as payload
+//  h -> signature is meaningless, use the one declared in the header. Do not include automatically.
 //  FIXME: gcc has nonnull
 
 #if defined(BUILTIN) && !defined(LIBBUILTIN)

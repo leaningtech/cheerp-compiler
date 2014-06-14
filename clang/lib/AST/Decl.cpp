@@ -3177,6 +3177,8 @@ unsigned FunctionDecl::getBuiltinID(bool ConsiderWrapperFunctions) const {
     return 0;
 
   ASTContext &Context = getASTContext();
+  if (Context.BuiltinInfo.isFullyTyped(BuiltinID))
+    return BuiltinID;
   if (Context.getLangOpts().CPlusPlus) {
     const auto *LinkageDecl =
         dyn_cast<LinkageSpecDecl>(getFirstDecl()->getDeclContext());

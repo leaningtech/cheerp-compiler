@@ -153,6 +153,11 @@ public:
     return strchr(getRecord(ID).Attributes, 'i') != nullptr;
   }
 
+  /// Determines whether this builtin types are defined in the header as it is.
+  bool isFullyTyped(unsigned ID) const {
+    return strchr(GetRecord(ID).Attributes, 'h') != 0;
+  }
+
   /// Determines whether this builtin has custom typechecking.
   bool hasCustomTypechecking(unsigned ID) const {
     return strchr(getRecord(ID).Attributes, 't') != nullptr;
