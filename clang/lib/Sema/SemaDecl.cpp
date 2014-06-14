@@ -2419,6 +2419,10 @@ NamedDecl *Sema::LazilyCreateBuiltin(IdentifierInfo *II, unsigned ID,
                                      SourceLocation Loc) {
   LookupNecessaryTypesForBuiltin(S, ID);
 
+  // If a builtin type is determined by the header, bail out immediately
+  if (Context.BuiltinInfo.isFullyTyped(ID))
+    return 0;
+
   ASTContext::GetBuiltinTypeError Error;
   QualType R = Context.GetBuiltinType(ID, Error);
   if (Error) {

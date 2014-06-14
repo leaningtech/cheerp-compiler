@@ -106,6 +106,7 @@
 //                      M_0, ..., M_k as payload
 //  z -> this is a function in (possibly-versioned) namespace std
 //  E -> this function can be constant evaluated by Clang frontend
+//  h -> signature is meaningless, use the one declared in the header. Do not include automatically.
 //  FIXME: gcc has nonnull
 
 #if defined(BUILTIN) && !defined(LIBBUILTIN)
