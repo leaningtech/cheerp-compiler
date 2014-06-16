@@ -62,12 +62,12 @@ void f2() {
   // CODE-LP64: store { i64, i64 } { i64 ptrtoint (ptr @_ZN1A1fEv to i64), i64 0 }
   void (A::*pa2)() = &A::f;
   
-  // CODE-LP64: store { i64, i64 } { i64 1, i64 0 }
-  // CODE-LP32: store { i32, i32 } { i32 1, i32 0 }
+  // CODE-LP64: store %memberptr { i64 1, i64 0 }
+  // CODE-LP32: store %memberptr { i32 1, i32 0 }
   void (A::*pa3)() = &A::vf1;
   
-  // CODE-LP64: store { i64, i64 } { i64 9, i64 0 }
-  // CODE-LP32: store { i32, i32 } { i32 5, i32 0 }
+  // CODE-LP64: store %memberptr { i64 9, i64 0 }
+  // CODE-LP32: store %memberptr { i32 5, i32 0 }
   void (A::*pa4)() = &A::vf2;
 }
 
