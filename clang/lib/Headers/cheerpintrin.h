@@ -32,4 +32,7 @@ size_t __builtin_cheerp_pointer_offset(const void* ptr);
 template<class R,class T,class O>
 R* __builtin_cheerp_create_closure(T* func, O* obj);
 
+template<class R,class T>
+R* __builtin_cheerp_make_complete_object(T*);
+
 #endif /* __CHEERPINTRIN_H */
