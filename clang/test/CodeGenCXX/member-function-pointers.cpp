@@ -38,38 +38,38 @@ void (C::*pc2)() = &C::f;
 void (A::*pc3)() = &A::vf1;
 
 void f() {
-  // CODE-LP64: store { i64, i64 } zeroinitializer, { i64, i64 }* @pa
+  // CODE-LP64: store %memberptr zeroinitializer, %memberptr* @pa
   pa = 0;
 
   // Is this okay?  What are LLVM's volatile semantics for structs?
-  // CODE-LP64: store volatile { i64, i64 } zeroinitializer, { i64, i64 }* @vpa
+  // CODE-LP64: store volatile %memberptr zeroinitializer, %memberptr* @vpa
   vpa = 0;
 
-  // CODE-LP64: [[TMP:%.*]] = load { i64, i64 }, { i64, i64 }* @pa, align 8
-  // CODE-LP64: [[TMPADJ:%.*]] = extractvalue { i64, i64 } [[TMP]], 1
+  // CODE-LP64: [[TMP:%.*]] = load %memberptr, %memberptr* @pa, align 8
+  // CODE-LP64: [[TMPADJ:%.*]] = extractvalue %memberptr [[TMP]], 1
   // CODE-LP64: [[ADJ:%.*]] = add nsw i64 [[TMPADJ]], 16
-  // CODE-LP64: [[RES:%.*]] = insertvalue { i64, i64 } [[TMP]], i64 [[ADJ]], 1
-  // CODE-LP64: store { i64, i64 } [[RES]], { i64, i64 }* @pc, align 8
+  // CODE-LP64: [[RES:%.*]] = insertvalue %memberptr [[TMP]], i64 [[ADJ]], 1
+  // CODE-LP64: store %memberptr [[RES]], %memberptr* @pc, align 8
   pc = pa;
 
-  // CODE-LP64: [[TMP:%.*]] = load { i64, i64 }, { i64, i64 }* @pc, align 8
-  // CODE-LP64: [[TMPADJ:%.*]] = extractvalue { i64, i64 } [[TMP]], 1
+  // CODE-LP64: [[TMP:%.*]] = load %memberptr, %memberptr* @pc, align 8
+  // CODE-LP64: [[TMPADJ:%.*]] = extractvalue %memberptr [[TMP]], 1
   // CODE-LP64: [[ADJ:%.*]] = sub nsw i64 [[TMPADJ]], 16
-  // CODE-LP64: [[RES:%.*]] = insertvalue { i64, i64 } [[TMP]], i64 [[ADJ]], 1
-  // CODE-LP64: store { i64, i64 } [[RES]], { i64, i64 }* @pa, align 8
+  // CODE-LP64: [[RES:%.*]] = insertvalue %memberptr [[TMP]], i64 [[ADJ]], 1
+  // CODE-LP64: store %memberptr [[RES]], %memberptr* @pa, align 8
   pa = static_cast<void (A::*)()>(pc);
 }
 
 void f2() {
-  // CODE-LP64: store { i64, i64 } { i64 ptrtoint (void (%struct.A*)* @_ZN1A1fEv to i64), i64 0 }
+  // CODE-LP64: store %memberptr { i64 ptrtoint (void (%struct.A*)* @_ZN1A1fEv to i64), i64 0 }
   void (A::*pa2)() = &A::f;
   
-  // CODE-LP64: store { i64, i64 } { i64 1, i64 0 }
-  // CODE-LP32: store { i32, i32 } { i32 1, i32 0 }
+  // CODE-LP64: store %memberptr { i64 1, i64 0 }
+  // CODE-LP32: store %memberptr { i32 1, i32 0 }
   void (A::*pa3)() = &A::vf1;
   
-  // CODE-LP64: store { i64, i64 } { i64 9, i64 0 }
-  // CODE-LP32: store { i32, i32 } { i32 5, i32 0 }
+  // CODE-LP64: store %memberptr { i64 9, i64 0 }
+  // CODE-LP32: store %memberptr { i32 5, i32 0 }
   void (A::*pa4)() = &A::vf2;
 }
 
