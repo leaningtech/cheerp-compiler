@@ -47,8 +47,12 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* v) const
 
 	if( const CallInst * ci = dyn_cast<CallInst>(v) )
 		if ( const Function * f = ci->getCalledFunction() )
-			if ( f->getIntrinsicID() == Intrinsic::cheerp_create_closure )
+			if ( f->getIntrinsicID() == Intrinsic::cheerp_create_closure ||
+				f->getIntrinsicID() == Intrinsic::cheerp_pointer_base ||
+				f->getIntrinsicID() == Intrinsic::cheerp_make_complete_object)
+			{
 				return iter->second = COMPLETE_OBJECT;
+			}
 
 	if(TypeSupport::isClientArrayType(pt->getElementType()))
 	{
