@@ -664,6 +664,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileMethodArgsForDirectCall(it,itE, func->arg_begin());
 		return COMPILE_OK;
 	}
+	else if(instrinsicId==Intrinsic::cheerp_make_complete_object)
+	{
+		compileOperand(*it, COMPLETE_OBJECT);
+		return COMPILE_OK;
+	}
 	else if(instrinsicId==Intrinsic::flt_rounds)
 	{
 		// Rounding mode 1: nearest
