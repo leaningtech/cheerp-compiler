@@ -1024,6 +1024,9 @@ private:
 
     if (!IsOffsetKnown)
       return PI.setAborted(&I);
+    // PHIs are complicated to handle on NBA targets
+    if (!DL.isByteAddressable())
+      return PI.setAborted(&I);
 
     // See if we already have computed info on this node.
     uint64_t &Size = PHIOrSelectSizes[&I];
