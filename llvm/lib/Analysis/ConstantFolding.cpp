@@ -978,6 +978,10 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
     Ptr = StripPtrCastKeepAS(Ptr);
   }
 
+  // The transformation below are not safe on NBA
+  if (!DL.isByteAddressable())
+    return 0;
+
   // If the base value for this address is a literal integer value, fold the
   // getelementptr to the resulting integer value casted to the pointer type.
   APInt BasePtr(BitWidth, 0);
@@ -1014,7 +1018,7 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
 
   Type *ElemTy = SrcElemTy;
   SmallVector<APInt> Indices = DL.getGEPIndicesForOffset(ElemTy, Offset);
-  if (Offset != 0 || !TD || !TD->isByteAddressable())
+  if (Offset != 0)
     return nullptr;
 
   // Try to add additional zero indices to reach the desired result element
