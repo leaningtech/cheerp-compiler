@@ -884,7 +884,7 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
 
   // If this is "gep i8* Ptr, (sub 0, V)", fold this as:
   // "inttoptr (sub (ptrtoint Ptr), V)"
-  if (Ops.size() == 2 && ResElemTy->isIntegerTy(8)) {
+  if (Ops.size() == 2 && ResElemTy->isIntegerTy(8) && DL.isByteAddressable()) {
     auto *CE = dyn_cast<ConstantExpr>(Ops[1]);
     assert((!CE || CE->getType() == IntIdxTy) &&
            "CastGEPIndices didn't canonicalize index types!");
@@ -932,6 +932,10 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
     Ptr = StripPtrCastKeepAS(Ptr);
   }
 
+  // The transformation below are not safe on NBA
+  if (!DL.isByteAddressable())
+    return 0;
+
   // If the base value for this address is a literal integer value, fold the
   // getelementptr to the resulting integer value casted to the pointer type.
   APInt BasePtr(BitWidth, 0);
@@ -968,7 +972,7 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
 
   Type *ElemTy = SrcElemTy;
   SmallVector<APInt> Indices = DL.getGEPIndicesForOffset(ElemTy, Offset);
-  if (Offset != 0 || !TD || !TD->isByteAddressable())
+  if (Offset != 0)
     return nullptr;
 
   // Try to add additional zero indices to reach the desired result element
