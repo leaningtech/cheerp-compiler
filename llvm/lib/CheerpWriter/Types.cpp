@@ -221,8 +221,8 @@ void CheerpWriter::compileArrayClassType(StructType* T)
 	}
 	stream << "function createArray";
 	stream << namegen.filterLLVMName(T->getName(), true);
-	stream << "(size){" << NewLine;
-	stream << "var ret=new Array(size);" << NewLine << "for(var __i__=0;__i__<size;__i__++)" << NewLine;
+	stream << "(ret, start){" << NewLine;
+	stream << "for(var __i__=start;__i__<ret.length;__i__++)" << NewLine;
 	stream << "ret[__i__]=";
 	compileType(T, LITERAL_OBJ);
 	stream << ';' << NewLine << "return ret;" << NewLine << '}' << NewLine;
@@ -230,7 +230,7 @@ void CheerpWriter::compileArrayClassType(StructType* T)
 
 void CheerpWriter::compileArrayPointerType()
 {
-	stream << "function createPointerArray(size) { var ret=new Array(size); for(var __i__=0;__i__<size;__i__++) ret[__i__]={ d: null, o: 0}; return ret; }"
+	stream << "function createPointerArray(ret, start) { for(var __i__=start;__i__<ret.length;__i__++) ret[__i__]={ d: null, o: 0}; return ret; }"
 		<< NewLine;
 }
 
