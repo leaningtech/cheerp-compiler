@@ -482,6 +482,40 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	Type * t = info.getCastedType()->getElementType();
 
 	uint32_t typeSize = targetData.getTypeAllocSize(t);
+
+	// To implement realloc we need to strategies:
+	// 1) Immutable types are stored in typed array which cannot be resized, we need to make a new one
+	//    and copy the old data over
+	// 2) Objects and pointers are stored in a regular array and we can just resize them
+	if (info.getAllocType() == DynamicAllocInfo::realloc)
+	{
+		stream << "(function(){";
+		stream << "var __old__=";
+		compileObjectForPointer(info.getMemoryArg(), NORMAL);
+		stream << ';' << NewLine;
+		if (!info.useTypedArray())
+		{
+			stream << "var __len__=__old__.length; " << NewLine;
+			stream << "__old__.length = ";
+			if( !info.sizeIsRuntime() )
+			{
+				uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
+				uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
+				stream << numElem;
+			}
+			else
+			{
+				compileOperand( info.getByteSizeArg() );
+				stream << '/' << typeSize;
+			}
+			stream << ';' << NewLine;
+		}
+		else
+		{
+			//Allocated the new array (created below) in a temporary var
+			stream << "var __ret__=";
+		}
+	}
 	
 	if (info.useTypedArray())
 	{
@@ -513,31 +547,44 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		
 		stream << "createArray" << namegen.filterLLVMName(st->getName(), true);
 		stream << '(';
-		if( info.getNumberOfElementsArg() )
-			compileOperand( info.getNumberOfElementsArg() );
+		if (info.getAllocType() == DynamicAllocInfo::realloc)
+			stream << "__old__,__len__)";
 		else
 		{
-			compileOperand( info.getByteSizeArg() );
-			stream << '/' << typeSize;
+			stream << "new Array(";
+			if( info.getNumberOfElementsArg() )
+				compileOperand( info.getNumberOfElementsArg() );
+			else
+			{
+				compileOperand( info.getByteSizeArg() );
+				stream << '/' << typeSize;
+			}
+			stream << "),0)";
 		}
-		stream << ')';
 	}
 	else if (info.useCreatePointerArrayFunc() )
 	{
 		stream << "createPointerArray(";
-		if( info.getNumberOfElementsArg() )
-			compileOperand( info.getNumberOfElementsArg() );
+		if (info.getAllocType() == DynamicAllocInfo::realloc)
+			stream << "__old__,__len__)";
 		else
 		{
-			compileOperand( info.getByteSizeArg() );
-			stream << '/' << typeSize;
+			stream << "new Array(";
+			if( info.getNumberOfElementsArg() )
+				compileOperand( info.getNumberOfElementsArg() );
+			else
+			{
+				compileOperand( info.getByteSizeArg() );
+				stream << '/' << typeSize;
+			}
+			stream << "),0)";
 		}
-		stream << ')';
 	
 		assert( globalDeps.needCreatePointerArray() );
 	}
 	else if (!info.sizeIsRuntime() )
 	{
+		assert( info.getAllocType() != DynamicAllocInfo::realloc );
 		// Create a plain array
 		const Value * numberOfElems = info.getNumberOfElementsArg();
 		
@@ -567,6 +614,20 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	{
 		llvm::errs() << "Allocating type " << *t << "\n";
 		llvm::report_fatal_error("Unsupported type in allocation", false);
+	}
+
+	if (info.getAllocType() == DynamicAllocInfo::realloc)
+	{
+		stream << ';' << NewLine;
+		if (info.useTypedArray())
+		{
+			//__ret__ now contains the new array, we need to copy over the data
+			//The amount of data to copy is limited by the shortest between the old and new array
+			stream << "__ret__.set(__old__.subarray(0, Math.min(__ret__.length,__old__.length)));" << NewLine;
+			stream << "return __ret__;})()";
+		}
+		else
+			stream << "return __old__;})()";
 	}
 }
 

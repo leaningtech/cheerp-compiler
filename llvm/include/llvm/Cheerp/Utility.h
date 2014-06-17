@@ -162,6 +162,7 @@ public:
 		not_an_alloc,
 		malloc,
 		calloc,
+		realloc,
 		cheerp_allocate,
 		opnew, // operator new(unsigned int)
 		opnew_array // operator new[](unsigned int)
@@ -200,7 +201,12 @@ public:
 	 * This can be null if getAllocType() == calloc
 	 */
 	const llvm::Value * getNumberOfElementsArg() const;
-	
+
+	/**
+	 * This can be null if getAllocType() != realloc
+	 */
+	const llvm::Value * getMemoryArg() const;
+
 	/**
 	 * Check if the size of the allocation is known only at runtime
 	 */
