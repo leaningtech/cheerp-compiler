@@ -297,7 +297,7 @@ bool TypeSupport::isValidTypeCast(const Value * castOp, Type * dstPtr)
 	return false;
 }
 
-bool TypeSupport::getBasesInfo(const StructType* t, uint32_t& firstBase, uint32_t& baseCount) const
+bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32_t& firstBase, uint32_t& baseCount)
 {
 	const NamedMDNode* basesNamedMeta = getBasesMetadata(t, module);
 	if(!basesNamedMeta)
