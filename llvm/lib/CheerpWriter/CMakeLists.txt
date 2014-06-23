@@ -7,7 +7,6 @@ add_llvm_library(LLVMCheerpWriter
   PointerAnalyzer.cpp
   Relooper.cpp
   Types.cpp
-  Utility.cpp
   Opcodes.cpp
   )
 
