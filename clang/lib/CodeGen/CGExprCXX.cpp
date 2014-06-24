@@ -1324,8 +1324,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   llvm::Constant *CalleePtr = CGF.CGM.GetAddrOfFunction(CalleeDecl);
 
   RValue RV;
-  if(CalleeDecl->hasAttr<MallocAttr>() && !CGF.getTarget().isByteAddressable() &&
-     allocatedType && allocatedType->isStructTy())
+  if(CalleeDecl->hasAttr<MallocAttr>() && !CGF.getTarget().isByteAddressable())
   {
     // Forge a call to a special type safe allocator intrinsic
     QualType allocPtrType = CGF.getContext().getPointerType(*allocType);
