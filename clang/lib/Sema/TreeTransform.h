@@ -2999,7 +2999,8 @@ public:
                                TypeSourceInfo *AllocatedTypeInfo,
                                Optional<Expr *> ArraySize,
                                SourceRange DirectInitRange,
-                               Expr *Initializer) {
+                               Expr *Initializer,
+                               bool noInit) {
     return getSema().BuildCXXNew(StartLoc, UseGlobal,
                                  PlacementLParen,
                                  PlacementArgs,
@@ -3009,7 +3010,8 @@ public:
                                  AllocatedTypeInfo,
                                  ArraySize,
                                  DirectInitRange,
-                                 Initializer);
+                                 Initializer,
+                                 noInit);
   }
 
   /// Build a new C++ "delete" expression.
@@ -11560,7 +11562,7 @@ TreeTransform<Derived>::TransformCXXNewExpr(CXXNewExpr *E) {
       E->getBeginLoc(), E->isGlobalNew(),
       /*FIXME:*/ E->getBeginLoc(), PlacementArgs,
       /*FIXME:*/ E->getBeginLoc(), E->getTypeIdParens(), AllocType,
-      AllocTypeInfo, ArraySize, E->getDirectInitRange(), NewInit.get());
+      AllocTypeInfo, ArraySize, E->getDirectInitRange(), NewInit.get(), E->shouldNotInitialize());
 }
 
 template<typename Derived>

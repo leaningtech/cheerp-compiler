@@ -3205,6 +3205,7 @@ void Parser::ParseDirectNewDeclarator(Declarator &D) {
     // Attributes here appertain to the array type. C++11 [expr.new]p5.
     ParsedAttributes Attrs(AttrFactory);
     MaybeParseCXX11Attributes(Attrs);
+    D.takeAttributes(Attrs, T.getCloseLocation());
 
     D.AddTypeInfo(DeclaratorChunk::getArray(0,
                                             /*isStatic=*/false, /*isStar=*/false,

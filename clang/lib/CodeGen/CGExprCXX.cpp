@@ -1298,6 +1298,9 @@ static void EmitNewInitializer(CodeGenFunction &CGF, const CXXNewExpr *E,
                                QualType ElementType, llvm::Type *ElementTy,
                                Address NewPtr, llvm::Value *NumElements,
                                llvm::Value *AllocSizeWithoutCookie) {
+  // Support [[noinit]] attribute
+  //if (E->shouldNotInitialize())
+  //  return;
   ApplyDebugLocation DL(CGF, E);
   if (E->isArray())
     CGF.EmitNewArrayInitializer(E, ElementType, ElementTy, NewPtr, NumElements,

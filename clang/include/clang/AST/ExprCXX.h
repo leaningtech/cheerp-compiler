@@ -2163,7 +2163,7 @@ private:
              SourceRange TypeIdParens, Optional<Expr *> ArraySize,
              InitializationStyle InitializationStyle, Expr *Initializer,
              QualType Ty, TypeSourceInfo *AllocatedTypeInfo, SourceRange Range,
-             SourceRange DirectInitRange);
+             SourceRange DirectInitRange, bool doNotInitialize);
 
   /// Build an empty c++ new expression.
   CXXNewExpr(EmptyShell Empty, bool IsArray, unsigned NumPlacementArgs,
@@ -2178,7 +2178,7 @@ public:
          SourceRange TypeIdParens, Optional<Expr *> ArraySize,
          InitializationStyle InitializationStyle, Expr *Initializer,
          QualType Ty, TypeSourceInfo *AllocatedTypeInfo, SourceRange Range,
-         SourceRange DirectInitRange);
+         SourceRange DirectInitRange, bool doNotInitialize);
 
   /// Create an empty c++ new expression.
   static CXXNewExpr *CreateEmpty(const ASTContext &Ctx, bool IsArray,
@@ -2252,6 +2252,8 @@ public:
   }
 
   bool isGlobalNew() const { return CXXNewExprBits.IsGlobalNew; }
+
+  bool shouldNotInitialize() const { return CXXNewExprBits.DoNotInitialize; }
 
   /// Whether this new-expression has any initializer at all.
   bool hasInitializer() const {

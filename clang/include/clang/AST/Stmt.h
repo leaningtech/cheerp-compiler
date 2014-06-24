@@ -732,6 +732,9 @@ protected:
     /// True if the allocated type was expressed as a parenthesized type-id.
     unsigned IsParenTypeId : 1;
 
+    /// Should the objects be left not initialized?
+    unsigned DoNotInitialize : 1;
+
     /// The number of placement new arguments.
     unsigned NumPlacementArgs;
   };

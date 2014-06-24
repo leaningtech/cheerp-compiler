@@ -7273,7 +7273,7 @@ ExpectedStmt ASTNodeImporter::VisitCXXNewExpr(CXXNewExpr *E) {
       ToOperatorDelete, E->passAlignment(), E->doesUsualArrayDeleteWantSize(),
       ToPlacementArgs, ToTypeIdParens, ToArraySize, E->getInitializationStyle(),
       ToInitializer, ToType, ToAllocatedTypeSourceInfo, ToSourceRange,
-      ToDirectInitRange);
+      ToDirectInitRange, E->shouldNotInitialize());
 }
 
 ExpectedStmt ASTNodeImporter::VisitCXXDeleteExpr(CXXDeleteExpr *E) {
