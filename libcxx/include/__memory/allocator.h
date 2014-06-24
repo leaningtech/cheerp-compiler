@@ -102,7 +102,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             return static_cast<_Tp*>(::operator new(__n * sizeof(_Tp)));
         } else {
-            return static_cast<_Tp*>(_VSTD::__libcpp_allocate(__n * sizeof(_Tp), _LIBCPP_ALIGNOF(_Tp)));
+            return static_cast<_Tp*>(new _Tp [__n] [[noinit]]);
         }
     }
 
@@ -111,7 +111,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             ::operator delete(__p);
         } else {
-            _VSTD::__libcpp_deallocate((void*)__p, __n * sizeof(_Tp), _LIBCPP_ALIGNOF(_Tp));
+            delete[] ((void*)__p);
         }
     }
 
@@ -184,7 +184,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             return static_cast<const _Tp*>(::operator new(__n * sizeof(_Tp)));
         } else {
-            return static_cast<const _Tp*>(_VSTD::__libcpp_allocate(__n * sizeof(_Tp), _LIBCPP_ALIGNOF(_Tp)));
+            return static_cast<const _Tp*>(new _Tp[__n] [[noinit]]);
         }
     }
 
@@ -193,7 +193,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             ::operator delete(const_cast<_Tp*>(__p));
         } else {
-            _VSTD::__libcpp_deallocate((void*) const_cast<_Tp *>(__p), __n * sizeof(_Tp), _LIBCPP_ALIGNOF(_Tp));
+            delete[] ((void*)__p);
         }
     }
 
