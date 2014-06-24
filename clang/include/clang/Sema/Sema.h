@@ -6426,7 +6426,8 @@ public:
                          TypeSourceInfo *AllocTypeInfo,
                          Optional<Expr *> ArraySize,
                          SourceRange DirectInitRange,
-                         Expr *Initializer);
+                         Expr *Initializer,
+                         bool noInit);
 
   /// Determine whether \p FD is an aligned allocation or deallocation
   /// function that is unavailable.
