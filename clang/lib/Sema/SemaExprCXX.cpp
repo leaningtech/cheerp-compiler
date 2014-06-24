@@ -1850,10 +1850,23 @@ Sema::ActOnCXXNew(SourceLocation StartLoc, bool UseGlobal,
   if (ParenListExpr *List = dyn_cast_or_null<ParenListExpr>(Initializer))
     DirectInitRange = List->getSourceRange();
 
+  // Find out if [[noinit]] has been used
+  bool isNoInit = false;
+  const AttributeList* Attrs = D.getAttributes();
+  while(Attrs)
+  {
+    if (Attrs->getKind() == AttributeList::AT_NoInit)
+    {
+      isNoInit = true;
+      break;
+    }
+    Attrs = Attrs->getNext();
+  }
+
   return BuildCXXNew(SourceRange(StartLoc, D.getEndLoc()), UseGlobal,
                      PlacementLParen, PlacementArgs, PlacementRParen,
                      TypeIdParens, AllocType, TInfo, ArraySize, DirectInitRange,
-                     Initializer);
+                     Initializer, isNoInit);
 }
 
 static bool isLegalArrayNewInitializer(CXXNewExpr::InitializationStyle Style,
@@ -1917,7 +1930,8 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
                   TypeSourceInfo *AllocTypeInfo,
                   Optional<Expr *> ArraySize,
                   SourceRange DirectInitRange,
-                  Expr *Initializer) {
+                  Expr *Initializer,
+                  bool isNoInit) {
   SourceRange TypeRange = AllocTypeInfo->getTypeLoc().getSourceRange();
   SourceLocation StartLoc = Range.getBegin();
 
@@ -2324,7 +2338,8 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
   // do it now.
   if (!AllocType->isDependentType() &&
       !Expr::hasAnyTypeDependentArguments(
-          llvm::makeArrayRef(Inits, NumInits))) {
+          llvm::makeArrayRef(Inits, NumInits)) &&
+      !isNoInit) {
     // The type we initialize is the complete type, including the array bound.
     QualType InitType;
     if (KnownArraySize)
@@ -2390,7 +2405,7 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
                             PassAlignment, UsualArrayDeleteWantsSize,
                             PlacementArgs, TypeIdParens, ArraySize, initStyle,
                             Initializer, ResultType, AllocTypeInfo, Range,
-                            DirectInitRange);
+                            DirectInitRange, isNoInit);
 }
 
 /// Checks that a type is suitable as the allocated type
