@@ -68,7 +68,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 			}
 			StructType* st=static_cast<StructType*>(t);
 			if(style == LITERAL_OBJ)
-				stream << "{ ";
+				stream << '{';
 			StructType::element_iterator E=st->element_begin();
 			StructType::element_iterator EE=st->element_end();
 			uint32_t offset=0;
@@ -77,22 +77,22 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 				if(offset!=0)
 				{
 					if(style==LITERAL_OBJ)
-						stream << ", ";
+						stream << ',';
 					else
 						stream << ';' << NewLine;
 				}
 				if(style==THIS_OBJ)
 					stream << "this.";
-				stream << "a" << offset;
+				stream << 'a' << offset;
 				if(style==LITERAL_OBJ)
-					stream << ": ";
+					stream << ':';
 				else
-					stream << "= ";
+					stream << '=';
 				compileType(*E, LITERAL_OBJ);
 				offset++;
 			}
 			if(style == LITERAL_OBJ)
-				stream << " }";
+				stream << '}';
 			break;
 		}
 		case Type::PointerTyID:
@@ -122,7 +122,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 				{
 					compileType(at->getElementType(), LITERAL_OBJ);
 					if((i+1)<at->getNumElements())
-						stream << ",";
+						stream << ',';
 				}
 				stream << ']';
 			}
@@ -162,7 +162,7 @@ void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style)
 
 uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
 {
-	stream << "a[" << baseCount << "] = " << baseName << ';' << NewLine;
+	stream << "a[" << baseCount << "]=" << baseName << ';' << NewLine;
 	stream << baseName << ".o=" << baseCount << ';' << NewLine;
 	stream << baseName << ".a=a;" << NewLine;
 	baseCount++;
@@ -221,7 +221,7 @@ void CheerpWriter::compileArrayClassType(StructType* T)
 	}
 	stream << "function createArray";
 	stream << namegen.filterLLVMName(T->getName(), true);
-	stream << "(ret, start){" << NewLine;
+	stream << "(ret,start){" << NewLine;
 	stream << "for(var __i__=start;__i__<ret.length;__i__++)" << NewLine;
 	stream << "ret[__i__]=";
 	compileType(T, LITERAL_OBJ);
