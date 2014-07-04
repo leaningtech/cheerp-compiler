@@ -94,7 +94,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, const llvm::Fu
 			return;
 		}
 		compileOperand(*it);
-		stream << "." << StringRef( funcName + 4, funcNameLen - 4 );
+		stream << '.' << StringRef( funcName + 4, funcNameLen - 4 );
 	}
 	else if(strncmp(funcName,"set_",4)==0 && (itE-it)==2)
 	{
@@ -106,7 +106,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, const llvm::Fu
 		}
 		compileOperand(*it);
 		++it;
-		stream << "." << StringRef( funcName + 4, funcNameLen - 4 ) <<  " = ";
+		stream << '.' << StringRef( funcName + 4, funcNameLen - 4 ) <<  '=';
 		compileOperand(*it);
 	}
 	else
@@ -127,7 +127,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, const llvm::Fu
 				compileOperand(*it);
 				++it;
 			}
-			stream << ".";
+			stream << '.';
 		}
 		stream << StringRef(funcName,funcNameLen);
 		compileMethodArgs(it,itE);
@@ -145,7 +145,7 @@ void CheerpWriter::compileCopyRecursive(const std::string& baseName, const Value
 		case Type::PointerTyID:
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
-			stream << baseName << " = ";
+			stream << baseName << '=';
 			compileDereferencePointer(baseSrc, NULL, namedOffset);
 			stream << baseName << ';' << NewLine;
 			break;
@@ -202,7 +202,7 @@ void CheerpWriter::compileResetRecursive(const std::string& baseName, const Valu
 		case Type::IntegerTyID:
 		{
 			compileDereferencePointer(baseDest, NULL, namedOffset);
-			stream << baseName << " = ";
+			stream << baseName << '=';
 			if(Constant::classof(resetValue))
 			{
 				uint8_t constResetValue = getIntFromValue(resetValue);
@@ -236,7 +236,7 @@ void CheerpWriter::compileResetRecursive(const std::string& baseName, const Valu
 			compileDereferencePointer(baseDest, NULL, namedOffset);
 			if(!Constant::classof(resetValue) || getIntFromValue(resetValue) != 0)
 				llvm::report_fatal_error("Unsupported values for memset", false);
-			stream << baseName << " = 0;" << NewLine;
+			stream << baseName << "=0;" << NewLine;
 			break;
 		}
 		case Type::PointerTyID:
@@ -246,7 +246,7 @@ void CheerpWriter::compileResetRecursive(const std::string& baseName, const Valu
 				llvm::report_fatal_error("Unsupported values for memset", false);
 			//Pointers to client objects must use a normal null
 			Type* pointedType = currentType->getPointerElementType();
-			stream << baseName << " = ";
+			stream << baseName << '=';
 			if(types.isClientType(pointedType))
 				stream << "null";
 			else
@@ -313,7 +313,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 		compileDereferencePointer(src, NULL);
 		stream << ".a,o:";
 		compileDereferencePointer(src, NULL);
-		stream << ".o-" << baseOffset << "}";
+		stream << ".o-" << baseOffset << '}';
 	}
 }
 
@@ -330,7 +330,7 @@ void CheerpWriter::compileMove(const Value* dest, const Value* src, const Value*
 	bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
 	if(!notFirst)
 		stream << '0';
-	stream << ">";
+	stream << '>';
 	notFirst=compileOffsetForPointer(src,lastTypeSrc);
 	if(!notFirst)
 		stream << '0';
@@ -340,7 +340,7 @@ void CheerpWriter::compileMove(const Value* dest, const Value* src, const Value*
 	stream << "}else{";
 	//Destination is before source, copy forward
 	compileMemFunc(dest, src, size, FORWARD);
-	stream << "}" << NewLine;
+	stream << '}' << NewLine;
 }
 
 
@@ -606,7 +606,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		{
 			compileType(t, LITERAL_OBJ);
 			if((i+1) < numElem)
-				stream << ",";
+				stream << ',';
 		}
 		stream << ']';
 	}
@@ -677,7 +677,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	else if(instrinsicId==Intrinsic::vastart)
 	{
 		compileDereferencePointer(*it, NULL);
-		stream << " = { d:arguments, o:" << namegen.getName(currentFun) << ".length }";
+		stream << "={d:arguments,o:" << namegen.getName(currentFun) << ".length}";
 		return COMPILE_OK;
 	}
 	else if(instrinsicId==Intrinsic::vaend)
@@ -733,7 +733,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	else if(instrinsicId==Intrinsic::flt_rounds)
 	{
 		// Rounding mode 1: nearest
-		stream << "1";
+		stream << '1';
 		return COMPILE_OK;
 	}
 	else if(strcmp(ident,"free")==0 ||
@@ -800,38 +800,38 @@ void CheerpWriter::compilePredicate(CmpInst::Predicate p)
 		case CmpInst::FCMP_UEQ: //TODO: fix this, if an operand is NaN LLVM expects false,
 		case CmpInst::FCMP_OEQ:
 		case CmpInst::ICMP_EQ:
-			stream << " === ";
+			stream << "===";
 			break;
 		case CmpInst::FCMP_UNE: //The undordered case correspond to the usual JS operator
 					//See ECMA-262, Section 11.9.6
 		case CmpInst::ICMP_NE:
-			stream << " !== ";
+			stream << "!==";
 			break;
 		case CmpInst::FCMP_OGT: //TODO: fix this, if an operand is NaN LLVM expects false,
 		case CmpInst::FCMP_UGT:	//but JS returns undefined. Adding ==true after the whole expression
 					//should work
 		case CmpInst::ICMP_SGT:
 		case CmpInst::ICMP_UGT: //TODO: To support unsigned we need to add casts around the ops
-			stream << " > ";
+			stream << '>';
 			break;
 		case CmpInst::FCMP_UGE:
 		case CmpInst::FCMP_OGE:
 		case CmpInst::ICMP_SGE:
 		case CmpInst::ICMP_UGE:
-			stream << " >= ";
+			stream << ">=";
 			break;
 		case CmpInst::FCMP_OLT: //TODO: fix this, if an operand is NaN LLVM expects false,
 		case CmpInst::FCMP_ULT:	//but JS returns undefined. Adding ==true after the whole expression
 					//should work
 		case CmpInst::ICMP_SLT:
 		case CmpInst::ICMP_ULT: //TODO: To support unsigned we need to add casts around the ops
-			stream << " < ";
+			stream << '<';
 			break;
 		case CmpInst::FCMP_ULE:
 		case CmpInst::FCMP_OLE:
 		case CmpInst::ICMP_SLE:
 		case CmpInst::ICMP_ULE:
-			stream << " <= ";
+			stream << "<=";
 			break;
 		default:
 			llvm::errs() << "Support predicate " << p << '\n';
@@ -877,9 +877,9 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 			analyzer.getPointerKind(rhs)==REGULAR)
 		{
 			if(p==CmpInst::ICMP_NE)
-				stream << " || ";
+				stream << "||";
 			else
-				stream << " && ";
+				stream << "&&";
 			bool notFirst=compileOffsetForPointer(lhs,lastType1);
 			if(!notFirst)
 				stream << '0';
@@ -1087,7 +1087,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 		{
 			compileConstant(d->getElementAsConstant(i));
 			if((i+1)<d->getNumElements())
-				stream << ",";
+				stream << ',';
 		}
 		stream << "])";
 	}
@@ -1100,7 +1100,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 		{
 			compileOperand(d->getOperand(i), analyzer.getPointerKindForStore(d->getOperand(i)) );
 			if((i+1)<d->getNumOperands())
-				stream << ",";
+				stream << ',';
 		}
 		stream << ']';
 	}
@@ -1114,7 +1114,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 			stream << 'a' << i << ':';
 			compileOperand(d->getOperand(i), analyzer.getPointerKindForStore(d->getOperand(i)));
 			if((i+1)<d->getNumOperands())
-				stream << ",";
+				stream << ',';
 		}
 		stream << '}';
 	}
@@ -1199,9 +1199,9 @@ void CheerpWriter::compilePointer(const Value* v, POINTER_KIND toKind)
 	// Syntetize a REGULAR pointer from a COMPLETE_ARRAY or a COMPLETE_OBJECT
 	if (toKind == REGULAR)
 	{
-		stream << "{ d: ";
+		stream << "{d:";
 		Type* lastType = compileObjectForPointer(v, NORMAL);
-		stream << ", o: ";
+		stream << ",o:";
 		bool notEmpty = compileOffsetForPointer(v, lastType);
 		if (!notEmpty)
 			stream << '0';
@@ -1275,7 +1275,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			continue;
 		const Value* val=phi->getIncomingValueForBlock(from);
 		uint32_t tmpIndex = namegen.getUniqueIndexForPHI( currentFun );
-		stream << "var tmpphi" << tmpIndex << " = ";
+		stream << "var tmpphi" << tmpIndex << '=';
 		tmps.push_back(tmpIndex);
 		POINTER_KIND k=phi->getType()->isPointerTy()? analyzer.getPointerKind(phi):UNDECIDED;
 		compileOperand(val, k);
@@ -1289,7 +1289,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		if(phi==NULL)
 			continue;
 		stream << "var " << namegen.getName(phi);
-		stream << " = tmpphi" << tmps[tmpI] << ';' << NewLine;
+		stream << "=tmpphi" << tmps[tmpI] << ';' << NewLine;
 	}
 }
 
@@ -1299,7 +1299,7 @@ void CheerpWriter::compileMethodArgs(const llvm::User::const_op_iterator it, con
 	for(llvm::User::const_op_iterator cur=it;cur!=itE;++cur)
 	{
 		if(cur!=it)
-			stream << ", ";
+			stream << ',';
 		compileOperand(*cur, REGULAR);
 	}
 	stream << ')';
@@ -1314,7 +1314,7 @@ void CheerpWriter::compileMethodArgsForDirectCall(const llvm::User::const_op_ite
 	for(llvm::User::const_op_iterator cur=it;cur!=itE;++cur, ++arg_it)
 	{
 		if(cur!=it)
-			stream << ", ";
+			stream << ',';
 		if ( arg_it->getType()->isPointerTy() )
 			compileOperand(*cur, analyzer.getPointerKind(&(*arg_it)));
 		else
@@ -1404,7 +1404,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 		{
 			//TODO: Support unwind
 			const InvokeInst& ci=static_cast<const InvokeInst&>(I);
-			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ';' << NewLine;
+			stream << "__block=" << blocksMap.find(ci.getNormalDest())->second << ';' << NewLine;
 			break;
 		}
 		case Instruction::Resume:
@@ -1420,19 +1420,19 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			{
 				//Generate the PHIs
 				compilePHIOfBlockFromOtherBlock(bi.getSuccessor(0), I.getParent());
-				stream << "__block = " << blocksMap.find(bi.getSuccessor(0))->second << ';' << NewLine;
+				stream << "__block=" << blocksMap.find(bi.getSuccessor(0))->second << ';' << NewLine;
 			}
 			else
 			{
 				//In each branch generate the right PHIs
-				stream << "if( ";
+				stream << "if(";
 				compileOperand(bi.getCondition());
-				stream << ") { ";
+				stream << "){";
 				compilePHIOfBlockFromOtherBlock(bi.getSuccessor(0), I.getParent());
-				stream << "__block = " << blocksMap.find(bi.getSuccessor(0))->second <<
-					"; } else {";
+				stream << "__block=" << blocksMap.find(bi.getSuccessor(0))->second <<
+					";}else{";
 				compilePHIOfBlockFromOtherBlock(bi.getSuccessor(1), I.getParent());
-				stream << "__block = " << blocksMap.find(bi.getSuccessor(1))->second <<
+				stream << "__block=" << blocksMap.find(bi.getSuccessor(1))->second <<
 					";}" << NewLine;
 			}
 			break;
@@ -1441,7 +1441,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 		{
 			//Create a JS switch
 			const SwitchInst& si=static_cast<const SwitchInst&>(I);
-			stream << "switch (";
+			stream << "switch(";
 			compileOperand(si.getCondition());
 			stream << "){";
 			SwitchInst::ConstCaseIt it=si.case_begin();
@@ -1449,12 +1449,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			{
 				stream << "case ";
 				compileConstant(it.getCaseValue());
-				stream << ':' << NewLine << "__block = " << blocksMap.find(it.getCaseSuccessor())->second <<
-					"; break;";
+				stream << ':' << NewLine << "__block=" << blocksMap.find(it.getCaseSuccessor())->second <<
+					";break;";
 			}
 			if(si.getDefaultDest())
 			{
-				stream << "default:" << NewLine << "__block = " <<
+				stream << "default:" << NewLine << "__block=" <<
 					blocksMap.find(si.getDefaultDest())->second << ';';
 			}
 			stream << '}' << NewLine;
@@ -1555,7 +1555,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				stream << namegen.getName(aggr);
 			}
 			uint32_t offset=ivi.getIndices()[0];
-			stream << ".a" << offset << " = ";
+			stream << ".a" << offset << '=';
 			compileOperand(ivi.getInsertedValueOperand());
 			return COMPILE_OK;
 		}
@@ -1563,7 +1563,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		{
 			const LoadInst& li=static_cast<const LoadInst&>(I);
 			const Value* ptrOp=li.getPointerOperand();
-			stream << "(";
+			stream << '(';
 			if(BitCastInst::classof(ptrOp) &&
 					TypeSupport::isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
 					!ArrayType::classof(ptrOp->getType()->getPointerElementType()))
@@ -1584,7 +1584,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 			else
 				compileDereferencePointer(ptrOp, NULL);
-			stream << ")";
+			stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Store:
@@ -1618,7 +1618,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 			else
 				compileDereferencePointer(ptrOp, NULL);
-			stream << " = ";
+			stream << '=';
 			compileOperand(valOp, analyzer.getPointerKindForStore(ptrOp));
 			return COMPILE_OK;
 		}
@@ -1813,9 +1813,9 @@ bool CheerpWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, c
 void CheerpWriter::compileGEP(const Value* val, const Use* it, const Use* const itE)
 {
 	assert(val->getType()->isPointerTy());
-	stream << "{ d: ";
+	stream << "{d:";
 	Type* lastType=compileObjectForPointerGEP(val, it, itE, NORMAL);
-	stream << ", o: ";
+	stream << ",o:";
 	bool notFirst=compileOffsetForPointerGEP(val, it, itE,lastType);
 	if(!notFirst)
 		stream << '0';
@@ -1836,7 +1836,7 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v)
 		//Use simpler code
 		stream << '(';
 		compileOperand(v);
-		stream << ">> 0)";
+		stream << ">>0)";
 	}
 	else
 	{
@@ -1855,12 +1855,12 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v)
 	{
 		//Use simpler code
 		compileOperand(v);
-		stream << ">>> 0)";
+		stream << ">>>0)";
 	}
 	else
 	{
 		compileOperand(v);
-		stream << " & " << getMaskForBitWidth(initialSize) << ')';
+		stream << '&' << getMaskForBitWidth(initialSize) << ')';
 	}
 }
 
@@ -1906,7 +1906,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			compileOperand(ci.getOperand(0));
 			//Seems to be the fastest way
 			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
-			stream << " >> 0)";
+			stream << ">>0)";
 			return true;
 		}
 		case Instruction::FPToUI:
@@ -1917,7 +1917,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Cast to signed anyway
 			//ECMA-262 guarantees that (a >> 0) >>> 0
 			//is the same as (a >>> 0)
-			stream << " >> 0)";
+			stream << ">>0)";
 			return true;
 		}
 		case Instruction::SIToFP:
@@ -1934,7 +1934,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//We need to cast to unsigned before
 			stream << "(+(";
 			compileOperand(ci.getOperand(0));
-			stream << " >>> 0))";
+			stream << ">>>0))";
 			return true;
 		}
 		case Instruction::GetElementPtr:
@@ -1963,24 +1963,24 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer addition
 			stream << "((";
 			compileOperand(I.getOperand(0));
-			stream << " + ";
+			stream << '+';
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			if(types.isI32Type(I.getType()))
-				stream << ">> 0";
+				stream << ">>0";
 			else
-				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
+				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
 			stream << ')';
 			return true;
 		}
 		case Instruction::FAdd:
 		{
 			//Double addition
-			stream << "(";
+			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " + ";
+			stream << '+';
 			compileOperand(I.getOperand(1));
-			stream << ")";
+			stream << ')';
 			return true;
 		}
 		case Instruction::Sub:
@@ -1992,11 +1992,11 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 		{
 			//Double subtraction
 			//TODO: optimize negation
-			stream << "(";
+			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " - ";
+			stream << '-';
 			compileOperand(I.getOperand(1));
-			stream << ")";
+			stream << ')';
 			return true;
 		}
 		case Instruction::ZExt:
@@ -2027,9 +2027,9 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer signed division
 			stream << "((";
 			compileSignedInteger(I.getOperand(0));
-			stream << " / ";
+			stream << '/';
 			compileSignedInteger(I.getOperand(1));
-			stream << ") >> 0)";
+			stream << ")>>0)";
 			return true;
 		}
 		case Instruction::UDiv:
@@ -2037,9 +2037,9 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer unsigned division
 			stream << "((";
 			compileUnsignedInteger(I.getOperand(0));
-			stream << " / ";
+			stream << '/';
 			compileUnsignedInteger(I.getOperand(1));
-			stream << ") >>> 0)";
+			stream << ")>>>0)";
 			return true;
 		}
 		case Instruction::SRem:
@@ -2047,9 +2047,9 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer signed remainder
 			stream << "((";
 			compileSignedInteger(I.getOperand(0));
-			stream << " % ";
+			stream << '%';
 			compileSignedInteger(I.getOperand(1));
-			stream << ") >> 0)";
+			stream << ")>>0)";
 			return true;
 		}
 		case Instruction::URem:
@@ -2057,19 +2057,19 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer unsigned remainder
 			stream << "((";
 			compileUnsignedInteger(I.getOperand(0));
-			stream << " % ";
+			stream << '%';
 			compileUnsignedInteger(I.getOperand(1));
-			stream << ") >>> 0)";
+			stream << ")>>>0)";
 			return true;
 		}
 		case Instruction::FDiv:
 		{
 			//Double division
-			stream << "(";
+			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " / ";
+			stream << '/';
 			compileOperand(I.getOperand(1));
-			stream << ")";
+			stream << ')';
 			return true;
 		}
 		case Instruction::Mul:
@@ -2077,24 +2077,24 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer signed multiplication
 			stream << "((";
 			compileOperand(I.getOperand(0));
-			stream << " * ";
+			stream << '*';
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			if(types.isI32Type(I.getType()))
-				stream << ">> 0";
+				stream << ">>0";
 			else
-				stream << "& " << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
+				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
 			stream << ')';
 			return true;
 		}
 		case Instruction::FMul:
 		{
 			//Double multiplication
-			stream << "(";
+			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " * ";
+			stream << '*';
 			compileOperand(I.getOperand(1));
-			stream << ")";
+			stream << ')';
 			return true;
 		}
 		case Instruction::ICmp:
@@ -2111,13 +2111,13 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Integer comparison
 			const CmpInst& ci=static_cast<const CmpInst&>(I);
 			//Check that the operation is JS safe
-			stream << "(";
+			stream << '(';
 			//Special case orderedness check
 			if(ci.getPredicate()==CmpInst::FCMP_ORD)
 			{
 				stream << "!isNaN(";
 				compileOperand(ci.getOperand(0));
-				stream << ") && !isNaN(";
+				stream << ")&&!isNaN(";
 				compileOperand(ci.getOperand(1));
 				stream << ')';
 			}
@@ -2127,7 +2127,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 				compilePredicate(ci.getPredicate());
 				compileOperand(ci.getOperand(1));
 			}
-			stream << ")";
+			stream << ')';
 			return true;
 		}
 		case Instruction::And:
@@ -2136,7 +2136,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " & ";
+			stream << '&';
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			return true;
@@ -2147,7 +2147,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " >>> ";
+			stream << ">>>";
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			return true;
@@ -2161,7 +2161,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 				compileOperand(I.getOperand(0));
 			else
 				compileSignedInteger(I.getOperand(0));
-			stream << " >> ";
+			stream << ">>";
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			return true;
@@ -2172,7 +2172,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " << ";
+			stream << "<<";
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			return true;
@@ -2183,7 +2183,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " | ";
+			stream << '|';
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			return true;
@@ -2196,7 +2196,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " ^ ";
+			stream << '^';
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			return true;
@@ -2208,7 +2208,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			uint32_t finalSize = I.getType()->getIntegerBitWidth();
 			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << " & " << getMaskForBitWidth(finalSize) << ')';
+			stream << '&' << getMaskForBitWidth(finalSize) << ')';
 			return true;
 		}
 		case Instruction::SExt:
@@ -2220,14 +2220,14 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 		case Instruction::Select:
 		{
 			const SelectInst& si=static_cast<const SelectInst&>(I);
-			stream << "(";
+			stream << '(';
 			compileOperand(si.getCondition());
-			stream << "?";
+			stream << '?';
 			POINTER_KIND k=si.getType()->isPointerTy()?analyzer.getPointerKind(&si):UNDECIDED;
 			compileOperand(si.getTrueValue(), k);
-			stream << ":";
+			stream << ':';
 			compileOperand(si.getFalseValue(), k);
-			stream << ")";
+			stream << ')';
 			return true;
 		}
 		case Instruction::ExtractValue:
@@ -2290,7 +2290,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
    { d: obj, o: "s" } */
 void CheerpWriter::addSelfPointer(const llvm::Value* obj)
 {
-	stream << namegen.getName(obj) << ".s = " << namegen.getName(obj) << ';' << NewLine;
+	stream << namegen.getName(obj) << ".s=" << namegen.getName(obj) << ';' << NewLine;
 }
 
 void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
@@ -2319,7 +2319,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 			sourceMapGenerator.setDebugLoc(I->getDebugLoc());
 		if(I->getType()->getTypeID()!=Type::VoidTyID)
 		{
-			stream << "var " << namegen.getName(I) << " = ";
+			stream << "var " << namegen.getName(I) << '=';
 		}
 		if(I->isTerminator())
 		{
@@ -2373,16 +2373,16 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 		//We found the destination, there may be more cases for the same
 		//destination though
 		writer->compileOperand(si->getCondition());
-		writer->stream << " === ";
+		writer->stream << "===";
 		writer->compileConstant(it.getCaseValue());
 		for(;it!=si->case_end();++it)
 		{
 			if(it.getCaseSuccessor()==dest)
 			{
 				//Also add this condition
-				writer->stream << "|| (";
+				writer->stream << "||(";
 				writer->compileOperand(si->getCondition());
-				writer->stream << " === ";
+				writer->stream << "===";
 				writer->compileConstant(it.getCaseValue());
 				writer->stream << ')';
 			}
@@ -2399,30 +2399,30 @@ void CheerpRenderInterface::renderIfBlockBegin(const void* privateBlock, int bra
 {
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if(!first)
-		writer->stream << "} else ";
-	writer->stream << "if (";
+		writer->stream << "}else ";
+	writer->stream << "if(";
 	renderCondition(bb, branchId);
-	writer->stream << ") {" << NewLine;
+	writer->stream << "){" << NewLine;
 }
 
 void CheerpRenderInterface::renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first)
 {
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if(!first)
-		writer->stream << "} else ";
-	writer->stream << "if (!(";
+		writer->stream << "}else ";
+	writer->stream << "if(!(";
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
 	{
 		if(i!=0)
 			writer->stream << "||";
 		renderCondition(bb, skipBranchIds[i]);
 	}
-	writer->stream << ")) {" << NewLine;
+	writer->stream << ")){" << NewLine;
 }
 
 void CheerpRenderInterface::renderElseBlockBegin()
 {
-	writer->stream << "} else {" << NewLine;
+	writer->stream << "}else{" << NewLine;
 }
 
 void CheerpRenderInterface::renderBlockEnd()
@@ -2445,7 +2445,7 @@ bool CheerpRenderInterface::hasBlockPrologue(const void* privateBlockTo) const
 
 void CheerpRenderInterface::renderWhileBlockBegin()
 {
-	writer->stream << "while(1) {" << NewLine;
+	writer->stream << "while(1){" << NewLine;
 }
 
 void CheerpRenderInterface::renderWhileBlockBegin(int blockLabel)
@@ -2456,7 +2456,7 @@ void CheerpRenderInterface::renderWhileBlockBegin(int blockLabel)
 
 void CheerpRenderInterface::renderDoBlockBegin()
 {
-	writer->stream << "do {" << NewLine;
+	writer->stream << "do{" << NewLine;
 }
 
 void CheerpRenderInterface::renderDoBlockBegin(int blockLabel)
@@ -2467,7 +2467,7 @@ void CheerpRenderInterface::renderDoBlockBegin(int blockLabel)
 
 void CheerpRenderInterface::renderDoBlockEnd()
 {
-	writer->stream << "} while(0);" << NewLine;
+	writer->stream << "}while(0);" << NewLine;
 }
 
 void CheerpRenderInterface::renderBreak()
@@ -2477,7 +2477,7 @@ void CheerpRenderInterface::renderBreak()
 
 void CheerpRenderInterface::renderBreak(int labelId)
 {
-	writer->stream << "break L" << labelId << ";" << NewLine;
+	writer->stream << "break L" << labelId << ';' << NewLine;
 }
 
 void CheerpRenderInterface::renderContinue()
@@ -2492,35 +2492,35 @@ void CheerpRenderInterface::renderContinue(int labelId)
 
 void CheerpRenderInterface::renderLabel(int labelId)
 {
-	writer->stream << "label = " << labelId << ';' << NewLine;
+	writer->stream << "label=" << labelId << ';' << NewLine;
 }
 
 void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 {
 	if(first==false)
 		writer->stream << "else ";
-	writer->stream << "if (label === " << labelId << ") {" << NewLine;
+	writer->stream << "if(label===" << labelId << "){" << NewLine;
 }
 
 void CheerpWriter::compileMethod(const Function& F)
 {
 	currentFun = &F;
-	stream << "function " << namegen.getName(&F) << "(";
+	stream << "function " << namegen.getName(&F) << '(';
 	const Function::const_arg_iterator A=F.arg_begin();
 	const Function::const_arg_iterator AE=F.arg_end();
 	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 	{
 		if(curArg!=A)
-			stream << ", ";
+			stream << ',';
 		stream << namegen.getName(curArg);
 	}
-	stream << ") {" << NewLine;
+	stream << "){" << NewLine;
 	std::map<const BasicBlock*, uint32_t> blocksMap;
 	if(F.size()==1)
 		compileBB(*F.begin(), blocksMap);
 	else
 	{
-		stream << "var label = 0;" << NewLine;
+		stream << "var label=0;" << NewLine;
 		//TODO: Support exceptions
 		Function::const_iterator B=F.begin();
 		Function::const_iterator BE=F.end();
@@ -2625,7 +2625,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 	if(G.hasInitializer())
 	{
-		stream << " = ";
+		stream << '=';
 		const Constant* C = G.getInitializer();
 		
 		if( analyzer.getPointerKind(&G) == COMPLETE_ARRAY )
@@ -2678,7 +2678,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				stream << ".a" << u->getOperandNo();
 		}
 
-		stream << " = ";
+		stream << '=';
 		compileOperand( subExpr.back()->get(), REGULAR);
 		stream << ';' << NewLine;
 	}
@@ -2686,17 +2686,17 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 void CheerpWriter::compileNullPtrs()
 {
-	stream << "var nullArray = [null];var nullObj = { d: nullArray, o: 0 };" << NewLine;
+	stream << "var nullArray=[null];var nullObj={d:nullArray,o:0};" << NewLine;
 }
 
 void CheerpWriter::compileCreateClosure()
 {
-	stream << "function cheerpCreateClosure(func, obj) { return function(e) { func(obj, e); }; }" << NewLine;
+	stream << "function cheerpCreateClosure(func, obj){return function(e){func(obj,e);};}" << NewLine;
 }
 
 void CheerpWriter::compileHandleVAArg()
 {
-	stream << "function handleVAArg(ptr) { var ret=ptr.d[ptr.o]; ptr.o++; return ret; }" << NewLine;
+	stream << "function handleVAArg(ptr){var ret=ptr.d[ptr.o];ptr.o++;return ret;}" << NewLine;
 }
 
 void CheerpWriter::makeJS()
