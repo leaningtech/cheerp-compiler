@@ -241,7 +241,7 @@ private:
 };
 
 /**
- * Iterator over all the worlds composed by a given set of symbols.
+ * Iterator over all the words composed by a given set of symbols.
  * 
  * SymbolTraits model:
  * 
