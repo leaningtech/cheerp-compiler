@@ -2370,7 +2370,7 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
 
   // If we have a global variable with internal linkage and thread-safe statics
   // are disabled, we can just let the guard variable be of type i8.
-  bool useInt8GuardVariable = !threadsafe && var->hasInternalLinkage();
+  bool useInt8GuardVariable = (!threadsafe && var->hasInternalLinkage()) || !CGF.getTarget().isByteAddressable();
 
   llvm::IntegerType *guardTy;
   CharUnits guardAlignment;
