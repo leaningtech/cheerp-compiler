@@ -100,6 +100,7 @@ const std::set< StringRef > JSSymbols::reserved_names = {
 	"let",
 	"new",
 	"this",
+	"top",
 	"try",
 	"var",
 	"void",
