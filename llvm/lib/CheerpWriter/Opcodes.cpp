@@ -59,12 +59,12 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 	//TODO: optimize negation
 	stream << "((";
 	compileOperand(lhs);
-	stream << " - ";
+	stream << '-';
 	compileOperand(rhs);
 	stream << ')';
 	if(types.isI32Type(lhs->getType()))
-		stream << ">> 0";
+		stream << ">>0";
 	else
-		stream << "& " << getMaskForBitWidth(lhs->getType()->getIntegerBitWidth());
+		stream << '&' << getMaskForBitWidth(lhs->getType()->getIntegerBitWidth());
 	stream << ')';
 }
