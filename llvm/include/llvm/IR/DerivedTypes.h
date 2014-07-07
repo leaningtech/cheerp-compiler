@@ -223,7 +223,8 @@ class StructType : public Type {
     SCDB_HasBody = 1,
     SCDB_Packed = 2,
     SCDB_IsLiteral = 4,
-    SCDB_IsSized = 8
+    SCDB_IsSized = 8,
+    SCDB_ByteLayout = 16
   };
 
   /// For a named struct that actually has a name, this is a pointer to the
@@ -285,6 +286,11 @@ public:
 
   /// isSized - Return true if this is a sized type.
   bool isSized(SmallPtrSetImpl<Type *> *Visited = nullptr) const;
+  
+  /// hasByteLayout - Return true if this type should be handled mapped to bytes
+  //// instead of objects on NBA
+  bool hasByteLayout() const { return getSubclassData() & SCDB_ByteLayout; }
+  void setByteLayout() { setSubclassData(getSubclassData() | SCDB_ByteLayout); }
 
   /// Return true if this is a named struct that has a non-empty name.
   bool hasName() const { return SymbolTableEntry != nullptr; }

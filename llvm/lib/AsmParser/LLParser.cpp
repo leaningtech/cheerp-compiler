@@ -2822,6 +2822,9 @@ bool LLParser::ParseStructDefinition(SMLoc TypeLoc, StringRef Name,
     return false;
   }
 
+  // Read if the type has byte layout
+  bool hasByteLayout = EatIfPresent(lltok::kw_bytelayout);
+
   // If the type starts with '<', then it is either a packed struct or a vector.
   bool isPacked = EatIfPresent(lltok::less);
 
@@ -2853,6 +2856,8 @@ bool LLParser::ParseStructDefinition(SMLoc TypeLoc, StringRef Name,
     return true;
 
   STy->setBody(Body, isPacked);
+  if (hasByteLayout)
+    STy->setByteLayout();
   ResultTy = STy;
   return false;
 }

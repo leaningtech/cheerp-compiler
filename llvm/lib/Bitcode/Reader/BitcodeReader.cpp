@@ -1825,19 +1825,23 @@ Error BitcodeReader::parseTypeTableBody() {
       ResultTy = FunctionType::get(ResultTy, ArgTys, Record[0]);
       break;
     }
-    case bitc::TYPE_CODE_STRUCT_ANON: {  // STRUCT: [ispacked, eltty x N]
-      if (Record.empty())
+    case bitc::TYPE_CODE_STRUCT_ANON: {  // STRUCT: [ispacked, bytelayout, eltty x N]
+      if (Record.size() < 2)
         return error("Invalid record");
+      bool hasByteLayout = Record[1];
       SmallVector<Type*, 8> EltTys;
-      for (unsigned i = 1, e = Record.size(); i != e; ++i) {
+      for (unsigned i = 2, e = Record.size(); i != e; ++i) {
         if (Type *T = getTypeByID(Record[i]))
           EltTys.push_back(T);
         else
           break;
       }
-      if (EltTys.size() != Record.size()-1)
+      if (EltTys.size() != Record.size()-2)
         return error("Invalid type");
-      ResultTy = StructType::get(Context, EltTys, Record[0]);
+      StructType* Res = StructType::get(Context, EltTys, Record[0]);
+      if (hasByteLayout)
+        Res->setByteLayout();
+      ResultTy = Res;
       break;
     }
     case bitc::TYPE_CODE_STRUCT_NAME:   // STRUCT_NAME: [strchr x N]
@@ -1845,9 +1849,10 @@ Error BitcodeReader::parseTypeTableBody() {
         return error("Invalid record");
       continue;
 
-    case bitc::TYPE_CODE_STRUCT_NAMED: { // STRUCT: [ispacked, eltty x N]
-      if (Record.empty())
+    case bitc::TYPE_CODE_STRUCT_NAMED: { // STRUCT: [ispacked, bytelayout, eltty x N]
+      if (Record.size() < 2)
         return error("Invalid record");
+      bool hasByteLayout = Record[1];
 
       if (NumRecords >= TypeList.size())
         return error("Invalid TYPE table");
@@ -1862,20 +1867,22 @@ Error BitcodeReader::parseTypeTableBody() {
       TypeName.clear();
 
       SmallVector<Type*, 8> EltTys;
-      for (unsigned i = 1, e = Record.size(); i != e; ++i) {
+      for (unsigned i = 2, e = Record.size(); i != e; ++i) {
         if (Type *T = getTypeByID(Record[i]))
           EltTys.push_back(T);
         else
           break;
       }
-      if (EltTys.size() != Record.size()-1)
+      if (EltTys.size() != Record.size()-2)
         return error("Invalid record");
       Res->setBody(EltTys, Record[0]);
+      if (hasByteLayout)
+        Res->setByteLayout();
       ResultTy = Res;
       break;
     }
     case bitc::TYPE_CODE_OPAQUE: {       // OPAQUE: []
-      if (Record.size() != 1)
+      if (Record.size() != 2)
         return error("Invalid record");
 
       if (NumRecords >= TypeList.size())
