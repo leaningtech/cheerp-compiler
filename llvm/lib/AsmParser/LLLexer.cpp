@@ -656,6 +656,7 @@ lltok::Kind LLLexer::LexIdentifier() {
 
   KEYWORD(type);
   KEYWORD(opaque);
+  KEYWORD(bytelayout);
 
   KEYWORD(comdat);
 

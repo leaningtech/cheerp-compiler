@@ -1012,8 +1012,9 @@ void ModuleBitcodeWriter::writeTypeTable() {
     }
     case Type::StructTyID: {
       StructType *ST = cast<StructType>(T);
-      // STRUCT: [ispacked, eltty x N]
+      // STRUCT: [ispacked, bytelayout, eltty x N]
       TypeVals.push_back(ST->isPacked());
+      TypeVals.push_back(ST->hasByteLayout());
       // Output all of the element types.
       for (Type *ET : ST->elements())
         TypeVals.push_back(VE.getTypeID(ET));

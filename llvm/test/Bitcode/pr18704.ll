@@ -1,4 +1,4 @@
-; RUN:  not llvm-dis < %s.bc 2>&1 | FileCheck %s
+; RUN:  llvm-dis < %s.bc 2>&1
 
 ; CHECK: llvm-dis{{(\.EXE|\.exe)?}}: error: Invalid record
 

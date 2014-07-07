@@ -182,6 +182,7 @@ enum Kind {
 #define ATTRIBUTE_ENUM(ENUM_NAME, DISPLAY_NAME) \
   kw_##DISPLAY_NAME,
 #include "llvm/IR/Attributes.inc"
+  kw_bytelayout,
 
   // Memory attribute:
   kw_read,
