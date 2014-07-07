@@ -160,9 +160,9 @@ enum TypeCodes {
 
   TYPE_CODE_X86_MMX = 17, // X86 MMX
 
-  TYPE_CODE_STRUCT_ANON = 18,  // STRUCT_ANON: [ispacked, eltty x N]
+  TYPE_CODE_STRUCT_ANON = 18, // STRUCT_ANON: [ispacked, bytelayout, eltty x N]
   TYPE_CODE_STRUCT_NAME = 19,  // STRUCT_NAME: [strchr x N]
-  TYPE_CODE_STRUCT_NAMED = 20, // STRUCT_NAMED: [ispacked, eltty x N]
+  TYPE_CODE_STRUCT_NAMED = 20,// STRUCT_NAMED: [ispacked, bytelayout, eltty x N]
 
   TYPE_CODE_FUNCTION = 21, // FUNCTION: [vararg, retty, paramty x N]
 

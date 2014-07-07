@@ -253,6 +253,7 @@ enum Kind {
   kw_byref,
   kw_mustprogress,
   kw_static,
+  kw_bytelayout,
 
   kw_type,
   kw_opaque,
