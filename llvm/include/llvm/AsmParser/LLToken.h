@@ -257,6 +257,7 @@ enum Kind {
   kw_sync,
   kw_async,
   kw_static,
+  kw_bytelayout,
 
   kw_type,
   kw_opaque,
