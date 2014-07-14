@@ -322,9 +322,9 @@ void CheerpWriter::compileMove(const Value* dest, const Value* src, const Value*
 	//TODO: Optimize the checks if possible
 	//Check if they are inside the same memory island
 	stream << "if(";
-	Type* lastTypeDest=compileObjectForPointer(dest, NORMAL);
+	Type* lastTypeDest=compileObjectForPointer<false>(dest, NORMAL);
 	stream << "===";
-	Type* lastTypeSrc=compileObjectForPointer(src, NORMAL);
+	Type* lastTypeSrc=compileObjectForPointer<false>(src, NORMAL);
 	//If so they may overlap, check and use reverse copy if needed
 	stream << "&&";
 	bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
@@ -406,9 +406,9 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	if(copyDirection!=RESET && types.isTypedArrayType(pointedType))
 	{
 		// The semantics of set is memmove like, no need to care about direction
-		lastTypeDest=compileObjectForPointer(dest, NORMAL);
+		lastTypeDest=compileObjectForPointer<false>(dest, NORMAL);
 		stream << ".set(";
-		lastTypeSrc=compileObjectForPointer(src, NORMAL);
+		lastTypeSrc=compileObjectForPointer<false>(src, NORMAL);
 		//We need to get a subview of the source
 		stream << ".subarray(";
 		bool notFirst=compileOffsetForPointer(src,lastTypeSrc);
@@ -491,7 +491,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	{
 		stream << "(function(){";
 		stream << "var __old__=";
-		compileObjectForPointer(info.getMemoryArg(), NORMAL);
+		compileObjectForPointer<false>(info.getMemoryArg(), NORMAL);
 		stream << ';' << NewLine;
 		if (!info.useTypedArray())
 		{
@@ -703,12 +703,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(instrinsicId==Intrinsic::cheerp_pointer_base)
 	{
-		compileObjectForPointer(*it, NORMAL);
+		compileObjectForPointer<false>(*it, NORMAL);
 		return COMPILE_OK;
 	}
 	else if(instrinsicId==Intrinsic::cheerp_pointer_offset)
 	{
-		Type* lastType = compileObjectForPointer(*it, DRY_RUN);
+		Type* lastType = compileObjectForPointer<true>(*it, NORMAL);
 		bool ret=compileOffsetForPointer(*it, lastType);
 		if(!ret)
 			stream << '0';
@@ -867,12 +867,12 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	}
 	else
 	{
-		Type* lastType1=compileObjectForPointer(lhs, NORMAL);
+		Type* lastType1=compileObjectForPointer<false>(lhs, NORMAL);
 		if(p==CmpInst::ICMP_NE)
 			stream << "!==";
 		else
 			stream << "===";
-		Type* lastType2=compileObjectForPointer(rhs, NORMAL);
+		Type* lastType2=compileObjectForPointer<false>(rhs, NORMAL);
 		if(analyzer.getPointerKind(lhs)==REGULAR ||
 			analyzer.getPointerKind(rhs)==REGULAR)
 		{
@@ -907,7 +907,7 @@ void CheerpWriter::compileDereferencePointer(const Value* v, const Value* offset
 	//If v is a GEP this optimizes away the separate access to the base and the offset
 	//which would then be conbined dynamically. The idea is as follow
 	//obj.a0["a1"] -> obj.a0.a1
-	Type* lastType=compileObjectForPointer(v, (isOffsetConstantZero && !namedOffset)?GEP_DIRECT:NORMAL);
+	Type* lastType=compileObjectForPointer<false>(v, (isOffsetConstantZero && !namedOffset)?GEP_DIRECT:NORMAL);
 	//If a type has been returned (i.e. the value is a GEP) and we asked for direct access,
 	//we can just stop
 	if(k==COMPLETE_OBJECT || (lastType && isOffsetConstantZero && !namedOffset))
@@ -978,8 +978,8 @@ void CheerpWriter::compileDereferencePointer(const Value* v, const Value* offset
 	stream << ']';
 }
 
-Type* CheerpWriter::compileRecursiveAccessToGEP(Type* curType, const Use* it, const Use* const itE,
-							COMPILE_FLAG flag)
+template<bool dryRun>
+Type* CheerpWriter::compileRecursiveAccessToGEP(Type* curType, const Use* it, const Use* const itE)
 {
 	//Before this the base name has been already printed
 	if(it==itE)
@@ -991,14 +991,14 @@ Type* CheerpWriter::compileRecursiveAccessToGEP(Type* curType, const Use* it, co
 		//Special handling for constant offsets
 		assert(ConstantInt::classof(*it));
 		uint32_t elementIndex = getIntFromValue(*it);
-		if(flag!=DRY_RUN)
+		if(!dryRun)
 			stream << ".a" << elementIndex;
 		subType = st->getElementType(elementIndex);
 	}
 	else if(curType->isArrayTy())
 	{
 		const ArrayType* at=static_cast<const ArrayType*>(curType);
-		if(flag!=DRY_RUN)
+		if(!dryRun)
 		{
 			stream << '[';
 			//Special handling for constant offsets
@@ -1019,7 +1019,7 @@ Type* CheerpWriter::compileRecursiveAccessToGEP(Type* curType, const Use* it, co
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 		return curType;
 	}
-	return compileRecursiveAccessToGEP(subType, ++it, itE, flag);
+	return compileRecursiveAccessToGEP<dryRun>(subType, ++it, itE);
 }
 
 void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
@@ -1200,7 +1200,7 @@ void CheerpWriter::compilePointer(const Value* v, POINTER_KIND toKind)
 	if (toKind == REGULAR)
 	{
 		stream << "{d:";
-		Type* lastType = compileObjectForPointer(v, NORMAL);
+		Type* lastType = compileObjectForPointer<false>(v, NORMAL);
 		stream << ",o:";
 		bool notEmpty = compileOffsetForPointer(v, lastType);
 		if (!notEmpty)
@@ -1627,6 +1627,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 	}
 }
 
+template<bool dryRun>
 Type* CheerpWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG flag)
 {
 	assert(val->getType()->isPointerTy());
@@ -1639,17 +1640,17 @@ Type* CheerpWriter::compileObjectForPointer(const Value* val, COMPILE_FLAG flag)
 		//If the access is direct compile all offsets
 		if(flag!=GEP_DIRECT)
 			--itE;
-		return compileObjectForPointerGEP(gep->getOperand(0), it, itE, flag);
+		return compileObjectForPointerGEP<dryRun>(gep->getOperand(0), it, itE, flag);
 	}
 	else if(isBitCast(val))
 	{
 		const User* b=static_cast<const User*>(val);
 		//If it is a union, handle below
 		if(!TypeSupport::isUnion(b->getOperand(0)->getType()->getPointerElementType()))
-			return compileObjectForPointer(b->getOperand(0), flag);
+			return compileObjectForPointer<dryRun>(b->getOperand(0), flag);
 	}
 
-	if(flag!=DRY_RUN)
+	if(!dryRun)
 	{
 		POINTER_KIND k=analyzer.getPointerKind(val);
 		compilePointer(val, k);
@@ -1711,13 +1712,14 @@ bool CheerpWriter::compileOffsetForPointer(const Value* val, Type* lastType)
 	return true;
 }
 
+template<bool dryRun>
 Type* CheerpWriter::compileObjectForPointerGEP(const Value* val, const Use* it, const Use* const itE, COMPILE_FLAG flag)
 {
 	Type* t=val->getType();
 	if(it==itE)
 	{
 		//Same level access, we are just computing another pointer from this pointer
-		compileObjectForPointer(val, flag);
+		compileObjectForPointer<dryRun>(val, flag);
 		return t;
 	}
 	else
@@ -1725,9 +1727,9 @@ Type* CheerpWriter::compileObjectForPointerGEP(const Value* val, const Use* it, 
 		assert(t->isPointerTy());
 		PointerType* ptrT=static_cast<PointerType*>(t);
 		//First dereference the pointer
-		if(flag!=DRY_RUN)
+		if(!dryRun)
 			compileDereferencePointer(val, *it);
-		Type* ret=compileRecursiveAccessToGEP(ptrT->getElementType(), ++it, itE, flag);
+		Type* ret=compileRecursiveAccessToGEP<dryRun>(ptrT->getElementType(), ++it, itE);
 		if(flag!=NORMAL)
 			return ret;
 		//If we are accessing a base class, use the downcast array
@@ -1787,7 +1789,7 @@ bool CheerpWriter::compileOffsetForPointerGEP(const Value* val, const Use* it, c
 				   elementIndex<(firstBase+baseCount) )
 				{
 					compileDereferencePointer(val, *it);
-					compileRecursiveAccessToGEP(val->getType()->getPointerElementType(), ++it, itE, NORMAL);
+					compileRecursiveAccessToGEP<false>(val->getType()->getPointerElementType(), ++it, itE);
 					stream << ".a";
 					stream << elementIndex;
 					stream << ".o";
@@ -1814,7 +1816,7 @@ void CheerpWriter::compileGEP(const Value* val, const Use* it, const Use* const 
 {
 	assert(val->getType()->isPointerTy());
 	stream << "{d:";
-	Type* lastType=compileObjectForPointerGEP(val, it, itE, NORMAL);
+	Type* lastType=compileObjectForPointerGEP<false>(val, it, itE, NORMAL);
 	stream << ",o:";
 	bool notFirst=compileOffsetForPointerGEP(val, it, itE,lastType);
 	if(!notFirst)
