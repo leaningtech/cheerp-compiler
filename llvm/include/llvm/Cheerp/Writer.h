@@ -162,9 +162,10 @@ private:
 	bool compileInlineableInstruction(const llvm::Instruction& I);
 	void addSelfPointer(const llvm::Value* obj);
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I);
-	enum COMPILE_FLAG { NORMAL = 0, DRY_RUN = 1, GEP_DIRECT = 2 };
+	enum COMPILE_FLAG { NORMAL = 0, GEP_DIRECT = 1 };
+	template<bool dryRun>
 	llvm::Type* compileRecursiveAccessToGEP(llvm::Type* curType, const llvm::Use* it,
-			const llvm::Use* const itE, COMPILE_FLAG flag);
+			const llvm::Use* const itE);
 	void compilePredicate(llvm::CmpInst::Predicate p);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
 	void compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p);
@@ -182,10 +183,12 @@ private:
 	 */
 	void compileDereferencePointer(const llvm::Value* v, const llvm::Value* offset, const char* namedOffset = NULL);
 	void compileGEP(const llvm::Value* val, const llvm::Use* it, const llvm::Use* const itE);
+	template<bool dryRun>
 	llvm::Type* compileObjectForPointerGEP(const llvm::Value* val, const llvm::Use* it,
 			const llvm::Use* const itE, COMPILE_FLAG flag);
 	bool compileOffsetForPointerGEP(const llvm::Value* val, const llvm::Use* it, const llvm::Use* const itE,
 			llvm::Type* lastType);
+	template<bool dryRun>
 	llvm::Type* compileObjectForPointer(const llvm::Value* val, COMPILE_FLAG flag);
 	/*
 	 * Returns true if anything is printed
