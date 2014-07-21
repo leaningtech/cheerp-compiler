@@ -24,15 +24,9 @@ void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 		else
 		{
 			//Comparison on different bases is anyway undefined, so ignore them
-			Type* lastType1=compileObjectForPointer<true>(lhs, NORMAL);
-			Type* lastType2=compileObjectForPointer<true>(rhs, NORMAL);
-			bool notFirst=compileOffsetForPointer(lhs,lastType1);
-			if(!notFirst)
-				stream << '0';
+			compilePointerOffset( lhs );
 			compilePredicate(p);
-			notFirst=compileOffsetForPointer(rhs,lastType2);
-			if(!notFirst)
-				stream << '0';
+			compilePointerOffset( rhs );
 		}
 	}
 	else
@@ -45,11 +39,8 @@ void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 
 void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 {
-	Type* lastType = compileObjectForPointer<true>(v, NORMAL);
 	stream << '(';
-	bool ret=compileOffsetForPointer(v, lastType);
-	if(!ret)
-		stream << '0';
+	compilePointerOffset(v);
 	stream << ')';
 }
 
