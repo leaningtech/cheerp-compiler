@@ -187,7 +187,15 @@ public:
 	AllocType getAllocType() const { return type; }
 	
 	static AllocType getAllocType(llvm::ImmutableCallSite);
-	
+
+	/**
+	 * Get the call/invoke instruction
+	 */
+	const llvm::Instruction * getInstruction() const
+	{
+		return call.getInstruction();
+	}
+
 	/**
 	 * Every alloc instruction produces an i8*.
 	 * This function tries to understand how the result of an alloc
