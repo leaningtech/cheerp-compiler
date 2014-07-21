@@ -9,12 +9,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <iomanip>
-#include <sstream>
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/Argument.h"
-#include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/FormattedStream.h"
@@ -23,185 +21,271 @@ using namespace llvm;
 
 namespace cheerp {
 
-/*
- * The map is used to handle cyclic PHI nodes
- */
-POINTER_KIND PointerAnalyzer::getPointerKind(const Value* v) const
+struct PointerUsageVisitor
 {
-	assert(v->getType()->isPointerTy());
+	typedef llvm::SmallSet< const llvm::Value *, 8> visited_set_t;
 
-	pointer_kind_map_t::iterator iter = pointerKindMap.find(v);
+	POINTER_KIND visitValue( const Value * v );
+	POINTER_KIND visitUse( const Use * U );
+	POINTER_KIND visitReturn( const Function * F);
+	POINTER_KIND getKindForType( Type * ) const;
 
-	if (pointerKindMap.end() != iter)
-		return iter->second;
-	iter = pointerKindMap.insert( std::make_pair(v, UNDECIDED) ).first;
-	
-#ifdef CHEERP_DEBUG_POINTERS
-	debugAllPointersSet.insert(v);
-#endif
- 
-	PointerType * pt = cast<PointerType>(v->getType());
+	bool allUsesAreCO( const Value * U )
+	{
+		return std::all_of( U->use_begin(), U->use_end(),
+				[this]( const Use & u )
+				{
+					return visitUse( &u ) == COMPLETE_OBJECT;
+				} );
+	}
 
-	if ( pt->getPointerElementType()->isFunctionTy() )
-		return iter->second = COMPLETE_OBJECT;
+	Type * realType( const Value * v ) const
+	{
+		assert( v->getType()->isPointerTy() );
+		if ( isBitCast(v) )
+			v = cast<User>(v)->getOperand(0);
+		return v->getType()->getPointerElementType();
+	}
 
-	if( const CallInst * ci = dyn_cast<CallInst>(v) )
-		if ( const Function * f = ci->getCalledFunction() )
-			if ( f->getIntrinsicID() == Intrinsic::cheerp_create_closure ||
-				f->getIntrinsicID() == Intrinsic::cheerp_pointer_base ||
-				f->getIntrinsicID() == Intrinsic::cheerp_make_complete_object)
+	visited_set_t closedset;
+};
+
+POINTER_KIND PointerUsageVisitor::visitValue( const Value * p )
+{
+	if ( !closedset.insert(p).second )
+		return COMPLETE_OBJECT;
+
+	llvm::Type * type = realType(p);
+
+	if ( getKindForType(type) == COMPLETE_OBJECT )
+		return COMPLETE_OBJECT;
+
+	if ( TypeSupport::isImmutableType( type ) )
+	{
+		return REGULAR;
+	}
+
+	if ( isa<LoadInst>(p) )
+		return REGULAR;
+
+	if ( const Argument * arg = dyn_cast<Argument>(p) )
+	{
+		if ( arg->getParent()->hasAddressTaken() )
+			return REGULAR;
+	}
+
+	if ( const IntrinsicInst * intrinsic = dyn_cast<IntrinsicInst>(p) )
+	{
+		switch ( intrinsic->getIntrinsicID() )
+		{
+		case Intrinsic::cheerp_downcast:
+		case Intrinsic::cheerp_upcast_collapsed:
+		case Intrinsic::cheerp_cast_user:
+			break;
+		case Intrinsic::cheerp_allocate:
+			break;
+		case Intrinsic::cheerp_pointer_base:
+		case Intrinsic::cheerp_create_closure:
+		case Intrinsic::cheerp_make_complete_object:
+			if ( ! allUsesAreCO(p) )
 			{
-				return iter->second = COMPLETE_OBJECT;
+				llvm::errs() << "Result of " << intrinsic->getName() << " used as REGULAR: " << *p << "\n";
+				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+			}
+			return COMPLETE_OBJECT;
+		case Intrinsic::cheerp_pointer_offset:
+		case Intrinsic::memmove:
+		case Intrinsic::memcpy:
+		case Intrinsic::memset:
+		case Intrinsic::invariant_start:
+		case Intrinsic::invariant_end:
+		case Intrinsic::vastart:
+		case Intrinsic::vaend:
+		case Intrinsic::flt_rounds:
+		default:
+			llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitValue, unhandled intrinsic");
+		}
+	}
+	else
+	// TODO this is not really necessary,
+	// but we need to modify the writer so that CallInst and InvokeInst 
+	// perform a demotion in place.
+	if ( ImmutableCallSite cs = p )
+	{
+		if ( visitReturn( cs.getCalledFunction() ) == REGULAR )
+			return REGULAR;
+// 		else
+// 		{
+// 			assert( allUsesAreCO(p) );
+// 			return COMPLETE_OBJECT;
+// 		}
+	}
+	
+	return allUsesAreCO(p) ? COMPLETE_OBJECT : REGULAR;
+}
+
+POINTER_KIND PointerUsageVisitor::visitUse(const Use* U)
+{
+	const User * p = U->getUser();
+	if ( isGEP(p) )
+	{
+		const Constant * constOffset = dyn_cast<Constant>( p->getOperand(1) );
+		
+		if ( constOffset && constOffset->isNullValue() )
+		{
+			if ( p->getNumOperands() == 2 )
+				return visitValue( p );
+			return COMPLETE_OBJECT;
+		}
+		
+		return REGULAR;
+	}
+
+	if ( isa<StoreInst>(p) && U->getOperandNo() == 0 )
+		return REGULAR;
+
+	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
+		return REGULAR;
+
+	if ( const IntrinsicInst * intrinsic = dyn_cast<IntrinsicInst>(p) )
+	{
+		switch ( intrinsic->getIntrinsicID() )
+		{
+		case Intrinsic::memmove:
+		case Intrinsic::memcpy:
+		case Intrinsic::memset:
+			return REGULAR;
+		case Intrinsic::invariant_start:
+		case Intrinsic::invariant_end:
+		case Intrinsic::vastart:
+		case Intrinsic::vaend:
+		case Intrinsic::lifetime_start:
+		case Intrinsic::lifetime_end:
+		case Intrinsic::cheerp_element_distance:
+			return COMPLETE_OBJECT;
+		case Intrinsic::cheerp_downcast:
+		case Intrinsic::cheerp_upcast_collapsed:
+		case Intrinsic::cheerp_cast_user:
+			return visitValue( p );
+		case Intrinsic::cheerp_pointer_base:
+		case Intrinsic::cheerp_pointer_offset:
+			return REGULAR;
+		case Intrinsic::cheerp_create_closure:
+			assert( U->getOperandNo() == 1 );
+			if ( const Function * f = dyn_cast<Function>(p->getOperand(0) ) )
+			{
+				return visitValue( f->arg_begin() );
+			}
+			else
+				llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, cheerp_create_closure");
+		case Intrinsic::cheerp_make_complete_object:
+			return COMPLETE_OBJECT;
+		case Intrinsic::flt_rounds:
+		case Intrinsic::cheerp_allocate:
+		default:
+			llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, unhandled intrinsic");
+		}
+		return REGULAR;
+	}
+
+	if ( ImmutableCallSite cs = p )
+	{
+		if ( cs.isCallee(U) )
+			return COMPLETE_OBJECT;
+
+		const Function * calledFunction = cs.getCalledFunction();
+		if ( !calledFunction )
+			return REGULAR;
+
+		unsigned argNo = cs.getArgumentNo(U);
+
+		if ( argNo >= calledFunction->arg_size() )
+		{
+			// Passed as a variadic argument
+			return REGULAR;
+		}
+
+		Function::const_arg_iterator arg = calledFunction->arg_begin();
+		std::advance(arg, argNo);
+
+		return visitValue( arg );
+	}
+
+	if ( const ReturnInst * ret = dyn_cast<ReturnInst>(p) )
+	{
+		return visitReturn( ret->getParent()->getParent() );
+	}
+
+	if ( isBitCast(p) || isa< SelectInst > (p) || isa < PHINode >(p) )
+		return visitValue( p );
+
+	if ( isa<Constant>(p) )
+		return REGULAR;
+
+	return COMPLETE_OBJECT;
+}
+
+POINTER_KIND PointerUsageVisitor::visitReturn(const Function * F)
+{
+	if ( !F || F->hasAddressTaken() )
+		return REGULAR;
+
+	if ( std::all_of( F->use_begin(), F->use_end(),
+		[this]( const Use & u )
+		{
+			ImmutableCallSite cs = u.getUser();
+			if ( cs && cs.isCallee(&u) )
+			{
+				return visitValue(cs.getInstruction()) == COMPLETE_OBJECT;
 			}
 
-	if(TypeSupport::isClientArrayType(pt->getElementType()))
-	{
-		//Handle client arrays like COMPLETE_ARRAYs, so the right 0 offset
-		//is used when doing GEPs
-		return iter->second = COMPLETE_ARRAY;
-	}
-	if(TypeSupport::isClientType(pt->getElementType()))
-	{
-		//Pointers to client type are complete objects, and are never expanded to
-		//regular ones since an array of client objects does not exists.
-		//NOTE: An array of pointer to client objects exists, not an array of objects.
-		return iter->second = COMPLETE_OBJECT;
-	}
-	if( isa<AllocaInst>(v) || isa<GlobalVariable>(v))
-	{
-		if(TypeSupport::isImmutableType(pt->getElementType()) &&  needsWrappingArray(v) )
-			return iter->second = COMPLETE_ARRAY;
-		else
-			return iter->second = COMPLETE_OBJECT;
-	}
-	//Follow bitcasts
-	if(isBitCast(v))
-	{
-		const User* bi = cast<User>(v);
-		//Casts from unions return regular pointers
-		if(TypeSupport::isUnion(bi->getOperand(0)->getType()->getPointerElementType()))
-		{
-			//Special case arrays
-			if(ArrayType::classof(pt->getElementType()))
-				return iter->second = COMPLETE_OBJECT;
-			else
-				return iter->second = COMPLETE_ARRAY;
-		}
-	}
-	if( isBitCast(v) || isNopCast(v))
-	{
-		const User* bi = cast<User>(v);
+			return true;
+		} ) )
+		return COMPLETE_OBJECT;
 
-		assert( bi->getOperand(0)->getType()->isPointerTy() );
-
-		PointerType * toTy = cast<PointerType>(v->getType());
-		PointerType * fromTy = cast<PointerType>(bi->getOperand(0)->getType());
-
-		if ( (getStratForType(fromTy) != getStratForType(toTy) ) &&
-			! TypeSupport::isClientType( fromTy->getElementType() ) &&
-			( getPointerUsageFlagsComplete(bi) & need_self_flags ) )
-		{
-			return iter->second = REGULAR;
-		}
-		else
-			return iter->second = getPointerKind(bi->getOperand(0));
-	}
-	//Follow select
-	if(const SelectInst* s=dyn_cast<SelectInst>(v))
-	{
-		POINTER_KIND k1 = getPointerKind(s->getTrueValue());
-		if(k1 == REGULAR)
-			return iter->second = REGULAR;
-		
-		POINTER_KIND k2 = getPointerKind(s->getFalseValue());
-		//If the type is different we need to collapse to REGULAR
-		if(k1!=k2)
-			return iter->second = REGULAR;
-		//The type is the same
-		return iter->second = k1;
-	}
-	if (DynamicAllocInfo::getAllocType(v) != DynamicAllocInfo::not_an_alloc )
-		return iter->second = COMPLETE_ARRAY;
-
-	if ( const Argument * arg = dyn_cast<Argument>(v) )
-	{
-		const Function * F = arg->getParent();
-		
-		if ( F->getIntrinsicID() == Intrinsic::cheerp_create_closure && 
-			arg->getArgNo() == 0 )
-			return iter->second = COMPLETE_OBJECT;
-		
-		//TODO properly handle varargs
-		if (!F || canBeCalledIndirectly(F) || F->isVarArg())
-			return iter->second = REGULAR;
-	}
-	
-	if (isa<PHINode>(v) || isa<Argument>(v))
-	{
-		if (TypeSupport::isImmutableType( pt->getElementType() ) )
-		{
-			if ( isa<Argument>(v) )
-				return iter->second = (needsWrappingArray(v) || isArgumentReadOnly( cast<Argument>(v) ) ) ? REGULAR : COMPLETE_OBJECT;
-			else
-				return iter->second = REGULAR;
-		}
-		else
-		{
-			return iter->second = (getPointerUsageFlagsComplete(v) & need_self_flags) ? REGULAR : COMPLETE_OBJECT;
-		}
-	}
-	return iter->second = REGULAR;
-}
-
-POINTER_KIND PointerAnalyzer::getPointerKindForStore(const Value* v) const
-{
-	if (const PointerType * pt = dyn_cast<PointerType>(v->getType()) )
-	{
-		if ( const PointerType * pt2 = dyn_cast<PointerType>( pt->getPointerElementType() ) )
-		{
-			if ( pt2->getPointerElementType()->isFunctionTy() )
-				return COMPLETE_OBJECT;
-		}
-	}
 	return REGULAR;
 }
 
-POINTER_KIND PointerAnalyzer::getPointerKindForStore(const Constant* v) const
+POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp) const
 {
-	if (const PointerType * pt = dyn_cast<PointerType>(v->getType()) )
-	{
-		if ( pt->getPointerElementType()->isFunctionTy() )
-			return COMPLETE_OBJECT;
-	}
+	if ( tp->isFunctionTy() ||
+		TypeSupport::isClientType( tp ) )
+		return COMPLETE_OBJECT;
 	return REGULAR;
 }
 
-bool PointerAnalyzer::hasSelfMember(const Value* v) const
+POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 {
-	assert( v->getType()->isPointerTy() );
-	
-	PointerType * tp = cast<PointerType>( v->getType() );
+	return PointerUsageVisitor().visitValue(p);
+}
 
-	if ( TypeSupport::isImmutableType(tp->getElementType()) )
-		return false;
+POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
+{
+	return PointerUsageVisitor().visitReturn(F);
+}
 
-	if ( isa<StructType>( tp->getElementType() ) && types.hasBasesInfo( tp->getElementType() ) )
-		return false;
-
-	return (getPointerUsageFlagsComplete(v) & need_self_flags);
+POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* tp) const
+{
+	return PointerUsageVisitor().getKindForType(tp);
 }
 
 #ifndef NDEBUG
-void PointerAnalyzer::dumpPointer(const Value* v) const
+
+void PointerAnalyzer::dumpPointer(const Value* v, bool dumpOwnerFunc) const
 {
 	llvm::formatted_raw_ostream fmt( llvm::errs() );
 
 	fmt.changeColor( llvm::raw_ostream::RED, false, false );
 	v->printAsOperand( fmt );
 	fmt.resetColor();
-	
-	if ( const Instruction * I = dyn_cast<Instruction>(v) )
-		fmt << " in function: " << I->getParent()->getParent()->getName();
+
+	if (dumpOwnerFunc)
+	{
+		if ( const Instruction * I = dyn_cast<Instruction>(v) )
+			fmt << " in function: " << I->getParent()->getParent()->getName();
+		else if ( const Argument * A = dyn_cast<Argument>(v) )
+			fmt << " arg of function: " << A->getParent()->getName();
+	}
 
 	if (v->getType()->isPointerTy())
 	{
@@ -209,295 +293,58 @@ void PointerAnalyzer::dumpPointer(const Value* v) const
 		switch (getPointerKind(v))
 		{
 			case COMPLETE_OBJECT: fmt << "COMPLETE_OBJECT"; break;
-			case COMPLETE_ARRAY: fmt << "COMPLETE_ARRAY"; break;
 			case REGULAR: fmt << "REGULAR"; break;
-			default: fmt << "UNDECIDED"; break;
 		}
-		
-		fmt.PadToColumn(112); fmt << "0x"; fmt.write_hex(getPointerUsageFlags(v));
-		fmt.PadToColumn(132); fmt << "0x"; fmt.write_hex(getPointerUsageFlagsComplete(v));
-		fmt.PadToColumn(152) << (TypeSupport::isImmutableType( v->getType()->getPointerElementType() ) ? "true" : "false" );
+		fmt.PadToColumn(112) << (TypeSupport::isImmutableType( v->getType()->getPointerElementType() ) ? "true" : "false" );
 	}
 	else
 		fmt << " is not a pointer";
 	fmt << '\n';
 }
 
-void PointerAnalyzer::dumpAllPointers() const
+void dumpAllPointers(const Function & F, const PointerAnalyzer & analyzer)
 {
-	llvm::errs() << "Dumping all pointers\n";
-	
+	llvm::errs() << "Function: " << F.getName();
+	if ( F.hasAddressTaken() )
+		llvm::errs() << " (with address taken)";
+	if ( F.getReturnType()->isPointerTy() )
 	{
-		llvm::formatted_raw_ostream fmt( llvm::errs() );
-		fmt.PadToColumn(0) << "Name";
-		fmt.PadToColumn(92) << "Kind";
-		fmt.PadToColumn(112) << "UsageFlags";
-		fmt.PadToColumn(132) << "UsageFlagsComplete";
-		fmt.PadToColumn(152) << "IsImmutable";
-		fmt << '\n';
+		llvm::errs() << " [";
+		switch (analyzer.getPointerKindForReturn(&F))
+		{
+			case COMPLETE_OBJECT: llvm::errs() << "COMPLETE_OBJECT"; break;
+			case REGULAR: llvm::errs() << "REGULAR"; break;
+		}
+		llvm::errs() << ']';
 	}
-	
-	for (auto ptr : debugAllPointersSet)
-		dumpPointer(ptr);
+
+	llvm::errs() << "\n";
+
+	for ( const Argument & arg : F.getArgumentList() )
+		analyzer.dumpPointer(&arg, false);
+
+	for ( const BasicBlock & BB : F )
+	{
+		for ( const Instruction & I : BB )
+		{
+			if ( I.getType()->isPointerTy() )
+				analyzer.dumpPointer(&I, false);
+		}
+	}
+	llvm::errs() << "\n";
 }
 
-void PointerAnalyzer::dumpAllFunctions() const
+void writePointerDumpHeader()
 {
-	llvm::errs() << "Dumping functions:\n";
-
-	for (auto f : debugAllFunctionsSet)
-	{
-		llvm::errs() << f->getName();
-		if (canBeCalledIndirectly(f))
-		{
-			llvm::errs() << " called indirectly";
-		}
-		llvm::errs() << "\n";
-	}
+	llvm::formatted_raw_ostream fmt( llvm::errs() );
+	fmt.PadToColumn(0) << "Name";
+	fmt.PadToColumn(92) << "Kind";
+	fmt.PadToColumn(112) << "UsageFlags";
+	fmt.PadToColumn(132) << "UsageFlagsComplete";
+	fmt.PadToColumn(152) << "IsImmutable";
+	fmt << '\n';
 }
 
 #endif //NDEBUG
-
-bool PointerAnalyzer::needsWrappingArray(const Value* v) const
-{
-	assert( v->getType()->isPointerTy() );
-	assert( TypeSupport::isImmutableType(cast<PointerType>( v->getType() )->getElementType() ) );
-	
-	bool hasAliasedStore = std::any_of( v->use_begin(), v->use_end(), [&]( const Use & u )
-	{
-		const User * U = u.getUser();
-		if (isBitCast(U) || isNopCast(U) || isa<PHINode>(U) || isa<SelectInst>(U) )
-		{
-			if ( getPointerUsageFlagsComplete(U) & POINTER_NONCONST_DEREF )
-				return true;
-		}
-		else if (isa<CallInst>(U) || isa<InvokeInst>(U) )
-		{
-			std::set<const Value *> openset;
-			if ( usageFlagsForCall(v, ImmutableCallSite(U), openset ) & POINTER_NONCONST_DEREF )
-				return true;
-		}
-		return false;
-	});
-	
-	return hasAliasedStore || (getPointerUsageFlagsComplete(v) & need_wrap_array_flags ) ||
-		( (isa<Argument>(v) || isa<PHINode>(v) ) && (getPointerUsageFlagsComplete(v) & POINTER_NONCONST_DEREF) );
-}
-
-bool PointerAnalyzer::isArgumentReadOnly(const Argument* v) const
-{
-	const Function * F = v->getParent();
-	if ( F->hasAddressTaken() ) return false;
-
-	AliasAnalysis::Location L(v);
-
-	for ( const Use & u : F->uses() )
-	{
-		ImmutableCallSite callV (u.getUser() );
-		
-		if ( ! (callV.isCall() || callV.isInvoke() ) )
-			continue;
-
-		assert( callV.getCalledFunction() == F );
-		
-		if ( AA.getModRefInfo(callV, L) & AliasAnalysis::Mod )
-			return false;
-	}
-	return true;
-}
-
-uint32_t PointerAnalyzer::getPointerUsageFlagsComplete(const Value * v) const
-{
-	assert(v->getType()->isPointerTy());
-
-	pointer_usage_map_t::const_iterator iter = pointerCompleteUsageMap.find(v);
-
-	if (pointerCompleteUsageMap.end() == iter)
-	{
-		std::set<const Value *> openset;
-		iter = pointerCompleteUsageMap.insert( std::make_pair(v,dfsPointerUsageFlagsComplete(v, openset) ) ).first;
-	}
-
-	return iter->second;
-}
-
-uint32_t PointerAnalyzer::getPointerUsageFlags(const llvm::Value * v) const
-{
-	assert(v->getType()->isPointerTy());
-	
-	// HACK
-	// Temporary workaround to force all the PHIs of immutable types to be REGULAR.
-	// this will be removed when we will get rid of PHIs entirely
-	if ( isa< PHINode > (v) && TypeSupport::isImmutableType( v->getType()->getPointerElementType()) )
-		return POINTER_UNKNOWN;
-
-	pointer_usage_map_t::const_iterator iter = pointerUsageMap.find(v);
-
-	if (iter == pointerUsageMap.end())
-	{
-		uint32_t ans = 0;
-		for (Value::const_use_iterator it = v->use_begin(); it != v->use_end(); ++it)
-		{
-			const User* U = it->getUser();
-			// Check if the pointer "v" is used as "ptr" for a StoreInst. 
-			if (const StoreInst * I = dyn_cast<StoreInst>(U) )
-			{
-				if (I->getPointerOperand() == v)
-					ans |= POINTER_NONCONST_DEREF; 
-			}
-			
-			// Check if the pointer "v" is used as lhs or rhs of a comparison operation
-			else if (const CmpInst * I = dyn_cast<CmpInst>(U) )
-			{
-				if (!I->isEquality())
-					ans |= POINTER_ORDINABLE;
-				else
-					ans |= POINTER_EQUALITY_COMPARABLE;
-			}
-			
-			// Check if the pointer is casted to int
-			else if (isa<PtrToIntInst>(U) )
-			{
-				ans |= POINTER_CASTABLE_TO_INT;
-			}
-			
-			// Pointer used as a base to a getElementPtr
-			else if (isGEP(U) )
-			{
-				const User * I = cast<User>(U);
-				const ConstantInt * p = dyn_cast<ConstantInt>(I->getOperand(1));
-				if (!p || !p->isZero())
-					ans |= POINTER_ARITHMETIC;
-			}
-			/** TODO deal with all use cases and remove the following 2 blocks **/
-			else if (
-				isa<PHINode>(U) ||
-				isa<SelectInst>(U) ||
-				isa<LoadInst>(U) ||
-				isa<CallInst>(U) ||
-				isa<InvokeInst>(U) ||
-				isa<ReturnInst>(U) ||
-				isa<GlobalValue>(U) ||
-				isa<ConstantArray>(U) ||
-				isa<ConstantStruct>(U) ||
-				isBitCast(U) ||
-				isNopCast(U) )
-			{
-				continue;
-			}
-			else
-			{
-#ifdef CHEERP_DEBUG_POINTERS
-				llvm::errs() << "Adding POINTER_UNKNOWN in getPointerUsageFlags due to instruction: " << valueObjectName(U) << "\n";
-#endif //CHEERP_DEBUG_POINTERS
-				ans |= POINTER_UNKNOWN;
-			}
-		}
-		
-		iter = pointerUsageMap.insert( std::make_pair(v, ans) ).first;
-	}
-
-	return iter->second;
-}
-
-uint32_t PointerAnalyzer::dfsPointerUsageFlagsComplete(const Value * v, std::set<const Value *> & openset) const
-{
-	if ( !openset.insert(v).second )
-	{
-		return 0;
-	}
-
-	uint32_t f = getPointerUsageFlags(v);
-
-	for (Value::const_use_iterator it = v->use_begin(); it != v->use_end(); ++it)
-	{
-		const User * U = it->getUser();
-		// Check if "v" is used as a operand in a phi node
-		if (isa<PHINode>(U) ||
-			isa<SelectInst>(U) ||
-			isBitCast(U) ||
-			isNopCast(U))
-		{
-			f |= dfsPointerUsageFlagsComplete(U, openset);
-		}
-		else if (const CallInst * I = dyn_cast<CallInst>(U))
-		{
-			// Indirect calls require a finer analysis
-			f |= usageFlagsForCall(v,I,openset);
-		}
-		else if (const InvokeInst * I = dyn_cast<InvokeInst>(U))
-		{
-			f |= usageFlagsForCall(v,I,openset);
-		}
-		else if (isa<ReturnInst>(U))
-		{
-			//TODO deal with me properly
-			f |= POINTER_UNKNOWN;
-		}
-		else if (const StoreInst * I = dyn_cast<StoreInst>(U) )
-		{
-			if (I->getValueOperand() == v)
-			{
-				// Tracking the stores is almost impossible
-				/** But we can do this - in a conservative way - by checking the type of the pointed object.
-				 * This should be implemented in future
-				 */
-				f |= POINTER_UNKNOWN;
-			}
-		}
-		else if (
-			isa<ConstantStruct>(U) ||
-			isa<ConstantArray>(U) ||
-			isa<GlobalValue>(U) )
-		{
-			f |= POINTER_UNKNOWN;
-		}
-		else if ( // Things we know are ok
-			isa<CmpInst>(U) ||
-			isa<LoadInst>(U) ||
-			isa<PtrToIntInst>(U) ||
-			isGEP(U) )
-		{
-			continue;
-		}
-		else
-		{
-#ifdef CHEERP_DEBUG_POINTERS
-			llvm::errs() << "Adding POINTER_UNKNOWN in dfsPointerUsageFlagsComplete due to instruction: " << valueObjectName(U) << "\n";
-#endif //CHEERP_DEBUG_POINTERS
-
-			f |= POINTER_UNKNOWN;
-		}
-	}
-	
-	return f;
-}
-
-uint32_t PointerAnalyzer::usageFlagsForCall(const Value * v, ImmutableCallSite I, std::set<const Value *> & openset) const
-{
-	const Function * f = I.getCalledFunction();
-
-	if ( !f || canBeCalledIndirectly(f) || f->isVarArg())
-		return POINTER_UNKNOWN;
-
-	assert( f->arg_size() == I.arg_size() );
-	
-	uint32_t flags = 0;
-	Function::const_arg_iterator iter = f->arg_begin();
-
-	for (unsigned int argNo = 0; iter != f->arg_end(); ++iter, ++argNo)
-		if ( I.getArgument(argNo) == v )
-			flags |= dfsPointerUsageFlagsComplete( iter, openset );
-
-#ifndef NDEBUG
-	bool ok = false;
-	for (unsigned int argNo = 0; argNo < I.arg_size(); ++argNo)
-		if ( I.getArgument(argNo) == v )
-			ok = true;
-	assert(  ok || ((llvm::errs() << f->getName()),false) );
-#endif
-	
-	return flags;
-}
 
 }
