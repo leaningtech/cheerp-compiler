@@ -18,6 +18,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/AllocaMerging.h"
+#include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/ResolveAliases.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
@@ -96,6 +97,8 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
   PM.add(createResolveAliasesPass());
   PM.add(createAllocaMergingPass());
+  PM.add(createIndirectCallOptimizerPass());
+  PM.add(createAllocaArraysPass());
   PM.add(new CheerpWritePass(o));
   return false;
 }
