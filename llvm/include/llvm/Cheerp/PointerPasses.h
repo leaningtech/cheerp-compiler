@@ -34,6 +34,8 @@ public:
 	explicit AllocaArrays() : FunctionPass(ID) { }
 	bool runOnFunction(Function &F);
 	const char *getPassName() const;
+
+	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };
 
 //===----------------------------------------------------------------------===//
@@ -65,6 +67,8 @@ public:
 	explicit IndirectCallOptimizer() : ModulePass(ID) { }
 	bool runOnModule(Module &);
 	const char *getPassName() const;
+
+	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };
 
 
