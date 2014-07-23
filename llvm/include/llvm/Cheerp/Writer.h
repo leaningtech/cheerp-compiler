@@ -137,13 +137,12 @@ private:
 
 	llvm::Module& module;
 	llvm::DataLayout targetData;
-	llvm::AliasAnalysis& AA;
 	const llvm::Function* currentFun;
-	
+	const PointerAnalyzer & PA;
+
 	GlobalDepsAnalyzer globalDeps;
 	NameGenerator namegen;
 	TypeSupport types;
-	PointerAnalyzer PA;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
 
 	// Support for source maps
@@ -316,9 +315,9 @@ private:
 	void compileClassesExportedToJs();
 public:
 	ostream_proxy stream;
-	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA,
+	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
 	             const std::string& sourceMapName, llvm::raw_ostream* sourceMap, bool ReadableOutput):
-		module(m),targetData(&m),AA(AA),currentFun(NULL),globalDeps(m), namegen(globalDeps, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
+		module(m),targetData(&m),currentFun(NULL),PA(PA),globalDeps(m), namegen(globalDeps, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
 		stream(s, ReadableOutput)
 	{

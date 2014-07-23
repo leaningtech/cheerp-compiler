@@ -71,6 +71,22 @@ static KindOrUnknown operator||(const KindOrUnknown & lhs, const KindOrUnknown &
 	return COMPLETE_OBJECT;
 }
 
+char PointerAnalyzer::ID = 0;
+
+const char* PointerAnalyzer::getPassName() const
+{
+	return "CheerpPointerAnalyzer";
+}
+
+bool PointerAnalyzer::runOnModule(Module& M)
+{
+	for (const Function & F : M )
+		if ( F.getReturnType()->isPointerTy() )
+			getPointerKindForReturn(&F);
+
+	return false;
+}
+
 struct PointerUsageVisitor
 {
 	typedef llvm::DenseSet< const llvm::Value* > visited_set_t;
@@ -115,9 +131,9 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 	if(!closedset.insert(p).second)
 		return {};
 
-	auto CacheAndReturn = [&](KindOrUnknown k) 
-	{ 
-		closedset.erase(p); 
+	auto CacheAndReturn = [&](KindOrUnknown k)
+	{
+		closedset.erase(p);
 		if (k)
 			cachedValues.insert( std::make_pair(p, k.getValue() ) );
 		return k;
@@ -175,7 +191,7 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 		default:
 			SmallString<128> str("Unreachable code in cheerp::PointerAnalyzer::visitValue, unhandled intrinsic: ");
 			str+=intrinsic->getCalledFunction()->getName();
-			llvm::report_fatal_error(str,false);
+			llvm::report_fatal_error(StringRef(str),false);
 		}
 	}
 	else
@@ -250,7 +266,7 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 		default:
 			SmallString<128> str("Unreachable code in cheerp::PointerAnalyzer::visitUse, unhandled intrinsic: ");
 			str+=intrinsic->getCalledFunction()->getName();
-			llvm::report_fatal_error(str,false);
+			llvm::report_fatal_error(StringRef(str),false);
 		}
 		return REGULAR;
 	}
@@ -390,7 +406,7 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 	TimerGuard guard(gpkTimer);
 #endif //NDEBUG
 	KindOrUnknown k = PointerUsageVisitor(cache).visitValue(p);
-	
+
 	//If all the uses are unknown no use is REGULAR, we can return CO
 	if (!k)
 	{
@@ -417,6 +433,36 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* tp) const
 {
 	return PointerUsageVisitor(cache).getKindForType(tp);
+}
+
+void PointerAnalyzer::invalidate(const Value * v)
+{
+	if ( cache.erase(v) )
+	{
+		const User * u = dyn_cast<User>(v);
+
+		// Go on and invalidate all the operands
+		if ( u && u->getType()->isPointerTy() )
+		{
+			for ( const Use & U : u->operands() )
+			{
+				if ( U->getType()->isPointerTy() )
+					invalidate(U.get());
+			}
+		}
+
+		// If v is a function invalidate also all its call and arguments
+		if ( const Function * F = dyn_cast<Function>(u) )
+		{
+			for ( const Argument & arg : F->getArgumentList() )
+				if (arg.getType()->isPointerTy())
+					invalidate(&arg);
+
+			for ( const Use & U : F->uses() )
+				if ( ImmutableCallSite cs = U.getUser() )
+					invalidate( cs.getInstruction() );
+		}
+	}
 }
 
 #ifndef NDEBUG

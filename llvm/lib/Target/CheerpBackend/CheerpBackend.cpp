@@ -51,7 +51,7 @@ namespace {
 
 bool CheerpWritePass::runOnModule(Module& M)
 {
-  AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
+  cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   if (!SourceMap.empty())
   {
     std::error_code ErrorString;
@@ -62,13 +62,13 @@ bool CheerpWritePass::runOnModule(Module& M)
        llvm::report_fatal_error(ErrorString.message(), false);
        return false;
     }
-    cheerp::CheerpWriter writer(M, Out, AA, SourceMap, &sourceMap.os(), PrettyCode);
+    cheerp::CheerpWriter writer(M, Out, PA, SourceMap, &sourceMap.os(), PrettyCode);
     sourceMap.keep();
     writer.makeJS();
   }
   else
   {
-    cheerp::CheerpWriter writer(M, Out, AA, SourceMap, NULL, PrettyCode);
+    cheerp::CheerpWriter writer(M, Out, PA, SourceMap, NULL, PrettyCode);
     writer.makeJS();
   }
 
@@ -77,7 +77,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 
 void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
 {
-  AU.addRequired<AliasAnalysis>();
+  AU.addRequired<cheerp::PointerAnalyzer>();
 }
 
 char CheerpWritePass::ID = 0;
@@ -97,6 +97,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
   PM.add(createResolveAliasesPass());
   PM.add(createAllocaMergingPass());
+  PM.add(cheerp::createPointerAnalyzerPass());
   PM.add(createIndirectCallOptimizerPass());
   PM.add(createAllocaArraysPass());
   PM.add(new CheerpWritePass(o));
