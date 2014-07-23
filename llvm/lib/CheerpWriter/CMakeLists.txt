@@ -4,7 +4,6 @@ add_llvm_library(LLVMCheerpWriter
   JSInterop.cpp
   GlobalDepsAnalyzer.cpp
   NameGenerator.cpp
-  PointerAnalyzer.cpp
   Relooper.cpp
   Types.cpp
   Opcodes.cpp

@@ -89,23 +89,24 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai)
 bool AllocaArrays::runOnFunction(Function& F)
 {
 	bool Changed = false;
-	
+	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
+
 	for ( BasicBlock & BB : F )
 	{
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
 		{
 			AllocaInst * ai = dyn_cast<AllocaInst>(it++);
 			if (! ai ) continue;
-			
-			cheerp::PointerAnalyzer PA;
-			
+
 			if (PA.getPointerKind(ai) == cheerp::COMPLETE_OBJECT )
 			{
 				// No need to optimize if it is already a CO
 				continue;
 			}
-			
+
 			NumAllocasTransformedToArrays++;
+
+			PA.invalidate(ai);
 			Changed |= replaceAlloca( ai );
 		}
 	}
@@ -120,6 +121,14 @@ const char* AllocaArrays::getPassName() const
 
 char AllocaArrays::ID = 0;
 
+void AllocaArrays::getAnalysisUsage(AnalysisUsage & AU) const
+{
+	AU.addRequired<cheerp::PointerAnalyzer>();
+	AU.addPreserved<cheerp::PointerAnalyzer>();
+
+	llvm::Pass::getAnalysisUsage(AU);
+}
+
 FunctionPass *createAllocaArraysPass() { return new AllocaArrays(); }
 
 
@@ -133,11 +142,10 @@ char IndirectCallOptimizer::ID = 0;
 bool IndirectCallOptimizer::runOnModule(Module & m)
 {
 	bool Changed = false;
+	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 
 	for (Module::iterator it = m.begin();it != m.end(); ++it)
 	{
-		cheerp::PointerAnalyzer PA;
-
 		if ( it->hasAddressTaken() &&
 		     !it->empty() &&
 		     // Check that at least one argument is a regular pointer
@@ -156,6 +164,7 @@ bool IndirectCallOptimizer::runOnModule(Module & m)
 				 }) )
 		{
 			Function * oldFun = it;
+			PA.invalidate(oldFun);
 			Function * newFun = Function::Create( oldFun->getFunctionType(),
 							      oldFun->getLinkage(),
 							      Twine("__duettoindirect", oldFun->getName() ) );
@@ -208,6 +217,14 @@ bool IndirectCallOptimizer::runOnModule(Module & m)
 	assert( m.alias_empty() );
 	
 	return Changed;
+}
+
+void IndirectCallOptimizer::getAnalysisUsage(AnalysisUsage& AU) const
+{
+	AU.addRequired<cheerp::PointerAnalyzer>();
+	AU.addPreserved<cheerp::PointerAnalyzer>();
+
+	llvm::Pass::getAnalysisUsage(AU);
 }
 
 ModulePass* createIndirectCallOptimizerPass()
