@@ -1,6 +1,7 @@
 add_llvm_library(LLVMCheerpUtils
   AllocaMerging.cpp
   NativeRewriter.cpp
+  PointerPasses.cpp
   ResolveAliases.cpp
   Utility.cpp
   )
