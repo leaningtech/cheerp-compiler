@@ -15,6 +15,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Support/Timer.h"
 
 namespace cheerp {
 
@@ -25,6 +26,16 @@ enum POINTER_KIND {
 
 class PointerAnalyzer {
 public:
+	PointerAnalyzer() : 
+#ifndef NDEBUG
+		timerGroup("Pointer Analyzer"),
+		gpkTimer("getPointerKind",timerGroup),
+		gpkfrTimer("getPointerKindForReturn",timerGroup)
+#endif //NDEBUG
+	{}
+
+	void prefetch( const llvm::Module & ) const;
+
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
 	POINTER_KIND getPointerKindForReturn(const llvm::Function* F) const;
 	POINTER_KIND getPointerKindForType( llvm::Type * tp) const;
@@ -37,6 +48,11 @@ public:
 
 private:
 	mutable ValueKindMap cache;
+
+#ifndef NDEBUG
+	mutable llvm::TimerGroup timerGroup;
+	mutable llvm::Timer gpkTimer, gpkfrTimer;
+#endif //NDEBUG
 };
 
 #ifndef NDEBUG
