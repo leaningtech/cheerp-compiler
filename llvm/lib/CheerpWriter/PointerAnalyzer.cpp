@@ -71,13 +71,16 @@ struct PointerUsageVisitor
 	KindOrUnknown visitReturn(const Function* F);
 	POINTER_KIND getKindForType(Type*) const;
 
-	KindOrUnknown visitAllUses(const Value* U)
+	KindOrUnknown visitAllUses(const Value* v)
 	{
-		return std::accumulate(U->use_begin(), U->use_end(), KindOrUnknown(COMPLETE_OBJECT),
-				       [this](KindOrUnknown lhs, const Use & u)
-				       {
-					       return lhs || visitUse(&u);
-				       });
+		KindOrUnknown result = COMPLETE_OBJECT;
+		for(const Use& u : v->uses())
+		{
+			result = result || visitUse(&u);
+			if (REGULAR==result)
+				break;
+		}
+		return result;
 	}
 
 	Type * realType( const Value * v ) const
@@ -297,21 +300,28 @@ KindOrUnknown PointerUsageVisitor::visitReturn(const Function* F)
 		return k;
 	};
 
+	Type* returnPointedType = F->getReturnType()->getPointerElementType();
+
+	if(getKindForType(returnPointedType)==COMPLETE_OBJECT)
+		return CacheAndReturn(COMPLETE_OBJECT);
+
+	if(TypeSupport::isImmutableType(returnPointedType))
+		return CacheAndReturn(REGULAR);
+
 	if(F->hasAddressTaken())
 		return CacheAndReturn(REGULAR);
 
-	return CacheAndReturn(
-		std::accumulate(F->use_begin(),
-				F->use_end(),
-				KindOrUnknown(COMPLETE_OBJECT),
-				[&](KindOrUnknown lhs, const Use & u)
-				{
-					ImmutableCallSite cs = u.getUser();
+	KindOrUnknown result = COMPLETE_OBJECT;
+	for(const Use& u : F->uses())
+	{
+		ImmutableCallSite cs = u.getUser();
+		if(cs && cs.isCallee(&u))
+			result = result || visitAllUses(cs.getInstruction());
 
-					return (cs && cs.isCallee(&u)) ?
-						lhs || visitAllUses(cs.getInstruction()) : 
-						lhs;
-				}) );
+		if (REGULAR==result)
+			break;
+	}
+	return CacheAndReturn(result);
 }
 
 POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp) const
