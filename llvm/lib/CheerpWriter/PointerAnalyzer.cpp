@@ -149,17 +149,21 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 			}
 			return CacheAndReturn(COMPLETE_OBJECT);
-		case Intrinsic::cheerp_pointer_offset:
 		case Intrinsic::memmove:
 		case Intrinsic::memcpy:
 		case Intrinsic::memset:
+			return CacheAndReturn(visitValue(intrinsic->getArgOperand(0)));
+		case Intrinsic::cheerp_pointer_offset:
 		case Intrinsic::invariant_start:
+			return CacheAndReturn(visitValue(intrinsic->getArgOperand(1)));
 		case Intrinsic::invariant_end:
 		case Intrinsic::vastart:
 		case Intrinsic::vaend:
 		case Intrinsic::flt_rounds:
 		default:
-			llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitValue, unhandled intrinsic");
+			SmallString<128> str("Unreachable code in cheerp::PointerAnalyzer::visitValue, unhandled intrinsic: ");
+			str+=intrinsic->getCalledFunction()->getName();
+			llvm::report_fatal_error(str,false);
 		}
 	}
 	else
@@ -232,7 +236,9 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 		case Intrinsic::flt_rounds:
 		case Intrinsic::cheerp_allocate:
 		default:
-			llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, unhandled intrinsic");
+			SmallString<128> str("Unreachable code in cheerp::PointerAnalyzer::visitUse, unhandled intrinsic: ");
+			str+=intrinsic->getCalledFunction()->getName();
+			llvm::report_fatal_error(str,false);
 		}
 		return REGULAR;
 	}
@@ -332,8 +338,45 @@ POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp) const
 	return REGULAR;
 }
 
+struct TimerGuard
+{
+	TimerGuard(Timer & timer) : timer(timer)
+	{
+		timer.startTimer();
+	}
+	~TimerGuard()
+	{
+		timer.stopTimer();
+	}
+
+	Timer & timer;
+};
+
+void PointerAnalyzer::prefetch(const Module& m) const
+{
+#ifndef NDEBUG
+	Timer t( "prefetch", timerGroup);
+	TimerGuard guard(t);
+#endif //NDEBUG
+
+	for(const Function & F : m)
+	{
+		for(const BasicBlock & BB : F)
+		{
+			for(auto it=BB.rbegin();it != BB.rend();++it)
+				if(it->getType()->isPointerTy())
+					getPointerKind(&(*it));
+		}
+		if(F.getReturnType()->isPointerTy())
+			getPointerKindForReturn(&F);
+	}
+}
+
 POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 {
+#ifndef NDEBUG
+	TimerGuard guard(gpkTimer);
+#endif //NDEBUG
 	KindOrUnknown k = PointerUsageVisitor(cache).visitValue(p);
 	
 	//If all the uses are unknown no use is REGULAR, we can return CO
@@ -346,6 +389,9 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 
 POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 {
+#ifndef NDEBUG
+	TimerGuard guard(gpkfrTimer);
+#endif //NDEBUG
 	KindOrUnknown k = PointerUsageVisitor(cache).visitReturn(F);
 
 	//If all the uses are unknown no use is REGULAR, we can return CO
