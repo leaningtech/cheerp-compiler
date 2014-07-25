@@ -2648,6 +2648,8 @@ void CheerpWriter::makeJS()
 	compileClassesExportedToJs();
 	compileNullPtrs();
 	
+	PA.prefetch(module);
+
 	for ( const Function * F : globalDeps.functionOrderedList() )
 		if (!F->empty())
 		{
