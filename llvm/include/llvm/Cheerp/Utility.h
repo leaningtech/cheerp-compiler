@@ -107,10 +107,10 @@ public:
 		return false;
 	}
 
-	static bool isUnion(llvm::Type* t)
+	static bool hasByteLayout(llvm::Type* t)
 	{
 		if ( llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
-			return st->hasName() && st->getName().startswith("union.");
+			return st->hasByteLayout();
 		else
 			return false;
 	}
