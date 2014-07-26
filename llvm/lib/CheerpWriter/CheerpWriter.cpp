@@ -164,11 +164,11 @@ void CheerpWriter::compileCopyRecursive(const Twine& baseName,
 			{
 				stream << "var __tmp__=new Int8Array(";
 				compileCompleteObject(baseDest, offset);
-				stream << baseName << ");" << NewLine;
+				stream << baseName << ".buffer);" << NewLine;
 				stream << "__tmp__.set(";
 				stream << "new Int8Array(";
 				compileCompleteObject(baseSrc, offset);
-				stream << baseName << "));" << NewLine;
+				stream << baseName << ".buffer));" << NewLine;
 				break;
 			}
 
@@ -279,7 +279,7 @@ void CheerpWriter::compileResetRecursive(const Twine& baseName,
 			{
 				stream << "var __tmp__=new Int8Array(";
 				compileCompleteObject(baseDest, offset);
-				stream << baseName << ");" << NewLine;
+				stream << baseName << ".buffer);" << NewLine;
 				stream << "for(var __i__=0;__i__<__tmp__.length;__i__++) __tmp__[__i__]=0;" << NewLine;
 				break;
 			}
