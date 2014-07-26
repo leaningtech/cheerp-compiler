@@ -160,7 +160,7 @@ void CheerpWriter::compileCopyRecursive(const Twine& baseName,
 		}
 		case Type::StructTyID:
 		{
-			if(TypeSupport::isUnion(currentType))
+			if(TypeSupport::hasByteLayout(currentType))
 			{
 				stream << "var __tmp__=new Int8Array(";
 				compileCompleteObject(baseDest, offset);
@@ -275,7 +275,7 @@ void CheerpWriter::compileResetRecursive(const Twine& baseName,
 		}
 		case Type::StructTyID:
 		{
-			if(TypeSupport::isUnion(currentType))
+			if(TypeSupport::hasByteLayout(currentType))
 			{
 				stream << "var __tmp__=new Int8Array(";
 				compileCompleteObject(baseDest, offset);
@@ -387,7 +387,7 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	Type* destType=dest->getType();
 	Type* pointedType = cast<PointerType>(destType)->getElementType();
 
-	if(TypeSupport::isUnion(pointedType))
+	if(TypeSupport::hasByteLayout(pointedType))
 	{
 		//We can use the natural i8*, since the union will have already an allocated
 		//typed array when it has been casted to i8*
@@ -1644,7 +1644,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			stream << '(';
 
 			if(isa<BitCastInst>(ptrOp) &&
-					TypeSupport::isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
+					TypeSupport::hasByteLayout(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
 					!isa<ArrayType>(ptrOp->getType()->getPointerElementType()))
 			{
 				//Optimize loads of single values from unions
@@ -1677,7 +1677,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const Value* valOp=si.getValueOperand();
 
 			if(isa<BitCastInst>(ptrOp) &&
-					TypeSupport::isUnion(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
+					TypeSupport::hasByteLayout(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
 					!isa<ArrayType>(ptrOp->getType()->getPointerElementType()))
 			{
 				//Optimize loads of single values from unions
@@ -1813,7 +1813,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
 			}
 			//Special case unions
-			if(src->isPointerTy() && TypeSupport::isUnion(src->getPointerElementType()))
+			if(src->isPointerTy() && TypeSupport::hasByteLayout(src->getPointerElementType()))
 			{
 				if(PA.getPointerKind(&I) == REGULAR)
 				{
