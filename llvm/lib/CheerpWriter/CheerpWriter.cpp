@@ -1122,16 +1122,11 @@ void CheerpWriter::compilePointerBase(const Value* p)
 
 void CheerpWriter::compilePointerOffset(const Value* p)
 {
-	if(PA.getPointerKind(p) != REGULAR)
+	if ( PA.getPointerKind(p) == COMPLETE_OBJECT )
 	{
-		llvm::errs() << "compilePointerOffset with COMPLETE_OBJECT pointer:" << *p<< "\n";
-
-		for(auto ui = p->use_begin(); ui != p->use_end(); ++ ui)
-		{
-			llvm::errs() << *ui->getUser() << "\n";
-		}
-
-		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		// This may still happen when doing ptrtoint of a function
+		stream << '0';
+		return;
 	}
 
 	const User* gep_inst = propagate_till_gep(p);
