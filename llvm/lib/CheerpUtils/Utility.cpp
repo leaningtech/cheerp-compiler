@@ -100,7 +100,7 @@ bool isInlineable(const Instruction& I)
 	{
 		//Inline casts which are not unions
 		llvm::Type* src=I.getOperand(0)->getType();
-		if(!src->isPointerTy() || !TypeSupport::isUnion(src->getPointerElementType()))
+		if(!src->isPointerTy() || !TypeSupport::hasByteLayout(src->getPointerElementType()))
 			return true;
 		Type* pointedType=src->getPointerElementType();
 		//Do not inline union casts to array
@@ -285,7 +285,7 @@ bool TypeSupport::isValidTypeCast(const Value * castOp, Type * dstPtr)
 				return true;
 		}
 	}
-	if(isUnion(src) && (ArrayType::classof(dst) || isTypedArrayType(dst)))
+	if(hasByteLayout(src) && (ArrayType::classof(dst) || isTypedArrayType(dst)))
 		return true;
 
 	//Allow changing the size of an array

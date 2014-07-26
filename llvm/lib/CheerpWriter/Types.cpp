@@ -58,7 +58,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 		case Type::StructTyID:
 		{
 			//Special case union first
-			if(TypeSupport::isUnion(t))
+			if(TypeSupport::hasByteLayout(t))
 			{
 				uint32_t typeSize = targetData.getTypeAllocSize(t);
 				stream << "new DataView(new ArrayBuffer(";
