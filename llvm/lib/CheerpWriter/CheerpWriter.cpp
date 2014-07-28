@@ -387,13 +387,6 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	Type* destType=dest->getType();
 	Type* pointedType = cast<PointerType>(destType)->getElementType();
 
-	if(TypeSupport::hasByteLayout(pointedType))
-	{
-		//We can use the natural i8*, since the union will have already an allocated
-		//typed array when it has been casted to i8*
-		pointedType = destType->getPointerElementType();
-	}
-
 	uint64_t typeSize = targetData.getTypeAllocSize(pointedType);
 
 	//Check that the number of element is not zero
@@ -950,8 +943,11 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 {
 	for(const Value * idx : indices)
 	{
-		if(const StructType* st = dyn_cast<StructType>(tp))
+		if(StructType* st = dyn_cast<StructType>(tp))
 		{
+			// Stop when a byte layout type is found
+			if (TypeSupport::hasByteLayout(st))
+				return;
 			assert(isa<ConstantInt>(idx));
 			const APInt& index = cast<Constant>(idx)->getUniqueInteger();
 
@@ -1083,6 +1079,29 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 
 void CheerpWriter::compilePointerBase(const Value* p)
 {
+	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
+	// If the value has byte layout skip GEPS and BitCasts until the base is found
+	if ( byteLayout )
+	{
+		bool byteLayoutFromHere = false;
+		while ( isBitCast(p) || isGEP(p) )
+		{
+			const Value* operand = cast<User>(p)->getOperand(0);
+			if ( PA.getPointerKind(operand) != BYTE_LAYOUT)
+			{
+				byteLayoutFromHere = true;
+				break;
+			}
+			p = operand;
+		}
+		if ( !byteLayoutFromHere )
+			return compilePointerBase(p);
+		else if ( isBitCast(p))
+			compileCompleteObject(cast<User>(p)->getOperand(0));
+		else
+			compileCompleteObject(p);
+		return;
+	}
 	// Collapse if p is a gepInst
 	while(const User* gepInst = propagate_till_gep(p))
 	{
@@ -1120,6 +1139,72 @@ void CheerpWriter::compilePointerBase(const Value* p)
 	stream << ".d";
 }
 
+const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode)
+{
+	// If the value has byte layout skip GEPS and BitCasts until the base is found
+	bool byteLayoutFromHere = false;
+	// We need to handle the first GEP having more than an index (so it actually changes types)
+	// to support BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY
+	// If offsetMode is BYTE_LAYOUT_OFFSET_FULL we can treat every GEP in the same way
+	bool findFirstTypeChangingGEP = (offsetMode == BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY);
+	const Value* lastOffset = NULL;
+	while ( isBitCast(p) || isGEP(p) )
+	{
+		const User * u = cast<User>(p);
+		bool byteLayoutFromHere = PA.getPointerKind(u->getOperand(0)) != BYTE_LAYOUT;
+		Type* curType = u->getOperand(0)->getType();
+		if (isGEP(p))
+		{
+			bool skipUntilBytelayout = byteLayoutFromHere;
+			SmallVector< const Value *, 8 > indices ( std::next(u->op_begin()), u->op_end() );
+			for (uint32_t i=0;i<indices.size();i++)
+			{
+				if (StructType* ST = dyn_cast<StructType>(curType))
+				{
+					uint32_t index = cast<ConstantInt>( indices[i] )->getZExtValue();
+					const StructLayout* SL = targetData.getStructLayout( ST );
+					if (!skipUntilBytelayout)
+						stream << SL->getElementOffset(index) << '+';
+					curType = ST->getElementType(index);
+				}
+				else
+				{
+					if (findFirstTypeChangingGEP && indices.size() > 1 && i == (indices.size() - 1))
+					{
+						assert (curType->isArrayTy());
+						assert (offsetMode == BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY);
+						// We have found an array just before the last type, the last offset will be returned instead of used directly.
+						lastOffset = indices[i];
+						break;
+					}
+					// This case also handles the first index
+					if (!skipUntilBytelayout)
+					{
+						compileOperand( indices[i] );
+						stream << '*' << targetData.getTypeAllocSize(curType->getSequentialElementType()) << '+';
+					}
+					curType = curType->getSequentialElementType();
+				}
+				if (skipUntilBytelayout && TypeSupport::hasByteLayout(curType))
+					skipUntilBytelayout = false;
+			}
+			if (indices.size() > 1)
+				findFirstTypeChangingGEP = false;
+		}
+		// In any case, close the summation here
+		if(byteLayoutFromHere)
+		{
+			stream << '0';
+			return lastOffset;
+		}
+		p = u->getOperand(0);
+		continue;
+	}
+	assert (PA.getPointerKind(p) == BYTE_LAYOUT);
+	stream << ".o";
+	return NULL;
+}
+
 void CheerpWriter::compilePointerOffset(const Value* p)
 {
 	if ( PA.getPointerKind(p) == COMPLETE_OBJECT )
@@ -1129,6 +1214,12 @@ void CheerpWriter::compilePointerOffset(const Value* p)
 		return;
 	}
 
+	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
+	if ( byteLayout )
+	{
+		compileByteLayoutOffset(p, BYTE_LAYOUT_OFFSET_FULL);
+		return;
+	}
 	const User* gep_inst = propagate_till_gep(p);
 
 	if(gep_inst)
@@ -1638,23 +1729,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const Value* ptrOp=li.getPointerOperand();
 			stream << '(';
 
-			if(isa<BitCastInst>(ptrOp) &&
-					TypeSupport::hasByteLayout(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
-					!isa<ArrayType>(ptrOp->getType()->getPointerElementType()))
+			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
 			{
 				//Optimize loads of single values from unions
-				compileCompleteObject(cast<BitCastInst>(ptrOp)->getOperand(0));
+				compilePointerBase(ptrOp);
 				Type* pointedType=ptrOp->getType()->getPointerElementType();
 				if(pointedType->isIntegerTy(8))
-					stream << ".getInt8(0)";
+					stream << ".getInt8(";
 				else if(pointedType->isIntegerTy(16))
-					stream << ".getInt16(0,true)";
+					stream << ".getInt16(";
 				else if(pointedType->isIntegerTy(32))
-					stream << ".getInt32(0,true)";
+					stream << ".getInt32(";
 				else if(pointedType->isFloatTy())
-					stream << ".getFloat32(0,true)";
+					stream << ".getFloat32(";
 				else if(pointedType->isDoubleTy())
-					stream << ".getFloat64(0,true)";
+					stream << ".getFloat64(";
+				compilePointerOffset(ptrOp);
+				if(!pointedType->isIntegerTy(8))
+					stream << ",true)";
 			}
 			else
 			{
@@ -1671,23 +1763,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
 
-			if(isa<BitCastInst>(ptrOp) &&
-					TypeSupport::hasByteLayout(cast<BitCastInst>(ptrOp)->getOperand(0)->getType()->getPointerElementType()) &&
-					!isa<ArrayType>(ptrOp->getType()->getPointerElementType()))
+			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
 			{
-				//Optimize loads of single values from unions
-				compileCompleteObject(cast<BitCastInst>(ptrOp)->getOperand(0));
+				//Optimize stores of single values from unions
+				compilePointerBase(ptrOp);
 				Type* pointedType=ptrOp->getType()->getPointerElementType();
 				if(pointedType->isIntegerTy(8))
-					stream << ".setInt8(0,";
+					stream << ".setInt8(";
 				else if(pointedType->isIntegerTy(16))
-					stream << ".setInt16(0,";
+					stream << ".setInt16(";
 				else if(pointedType->isIntegerTy(32))
-					stream << ".setInt32(0,";
+					stream << ".setInt32(";
 				else if(pointedType->isFloatTy())
-					stream << ".setFloat32(0,";
+					stream << ".setFloat32(";
 				else if(pointedType->isDoubleTy())
-					stream << ".setFloat64(0,";
+					stream << ".setFloat64(";
+				compilePointerOffset(ptrOp);
+				stream << ',';
+
 				//Special case compilation of operand, the default behavior use =
 				compileOperand(valOp);
 				if(!pointedType->isIntegerTy(8))
@@ -1712,6 +1805,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
+	Type * targetType = gep_inst->getType()->getPointerElementType();
 
 	if(COMPLETE_OBJECT == kind)
 	{
@@ -1721,7 +1815,40 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	}
 	else
 	{
-		if(indices.size() == 1)
+		bool byteLayout = PA.getPointerKind(gep_inst) == BYTE_LAYOUT;
+		if (byteLayout)
+		{
+			if (TypeSupport::hasByteLayout(targetType))
+			{
+				stream << "{d:";
+				compilePointerBase( gep_inst );
+				stream << ",o:";
+				compilePointerOffset( gep_inst );
+				stream << '}';
+			}
+			else
+			{
+				assert(TypeSupport::isTypedArrayType(targetType));
+				stream << "{d:";
+				// Forge an appropiate typed array
+				assert (!TypeSupport::hasByteLayout(targetType));
+				stream << "new ";
+				compileTypedArrayType(targetType);
+				stream << '(';
+				compilePointerBase( gep_inst );
+				stream << ".buffer,";
+				// If this GEP or a previous one passed through an array of immutables generate a regular from
+				// the start of the array and not from the pointed element
+				const Value* lastOffset = compileByteLayoutOffset( gep_inst, BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY );
+				stream << "),o:";
+				if (lastOffset)
+					compileOperand(lastOffset);
+				else
+					stream << '0';
+				stream << '}';
+			}
+		}
+		else if (indices.size() == 1)
 		{
 			bool isOffsetConstantZero = isa<Constant>(indices.front()) && cast<Constant>(indices.front())->isNullValue();
 
@@ -1810,11 +1937,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Special case unions
 			if(src->isPointerTy() && TypeSupport::hasByteLayout(src->getPointerElementType()))
 			{
-				if(PA.getPointerKind(&I) == REGULAR)
-				{
-					stream << "{d:";
-				}
-
+				stream << "{d:";
 				//Find the type
 				llvm::Type* elementType = dst->getPointerElementType();
 				bool isArray=isa<ArrayType>(elementType);
@@ -1822,13 +1945,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 				compileTypedArrayType((isArray)?elementType->getSequentialElementType():elementType);
 				stream << '(';
 				compileCompleteObject(bi.getOperand(0));
-				stream << ".buffer)";
-
-				if(PA.getPointerKind(&I) == REGULAR)
-				{
-					stream << ", o:0}";
-				}
-
+				stream << ".buffer), o:0}";
 				return true;
 			}
 
