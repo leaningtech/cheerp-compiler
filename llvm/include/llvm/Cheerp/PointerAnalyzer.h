@@ -22,7 +22,8 @@ namespace cheerp {
 
 enum POINTER_KIND {
 	COMPLETE_OBJECT,
-	REGULAR
+	REGULAR,
+	BYTE_LAYOUT
 };
 
 class PointerAnalyzer : public llvm::ModulePass

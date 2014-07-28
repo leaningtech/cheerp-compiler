@@ -97,25 +97,7 @@ bool isInlineable(const Instruction& I)
 		return true;
 	}
 	else if(I.getOpcode()==Instruction::BitCast)
-	{
-		//Inline casts which are not unions
-		llvm::Type* src=I.getOperand(0)->getType();
-		if(!src->isPointerTy() || !TypeSupport::hasByteLayout(src->getPointerElementType()))
-			return true;
-		Type* pointedType=src->getPointerElementType();
-		//Do not inline union casts to array
-		if(ArrayType::classof(pointedType))
-			return false;
-		//Inline if the only uses are load and stores
-		Value::const_use_iterator it=I.use_begin();
-		Value::const_use_iterator itE=I.use_end();
-		for(;it!=itE;++it)
-		{
-			if(!LoadInst::classof(it->getUser()) && !StoreInst::classof(it->getUser()))
-				return false;
-		}
 		return true;
-	}
 	else if(I.hasOneUse())
 	{
 		//A few opcodes needs to be executed anyway as they
