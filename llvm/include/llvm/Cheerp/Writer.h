@@ -243,6 +243,19 @@ private:
 	void compilePointerOffset(const llvm::Value*);
 
 	/**
+	 * BYTE_LAYOUT_OFFSET_FULL: Compile the full offset in bytes till the element
+	 * BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY: Compile the offset in bytes till the array, if any, containing the element.
+	 *                                   The offset into the array will be returned.
+	 */
+	enum BYTE_LAYOUT_OFFSET_MODE { BYTE_LAYOUT_OFFSET_FULL = 0, BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY };
+	/**
+	 * Compile the offset in bytes from the byte layout base found by recursively traversing BitCasts and GEPs.
+	 * If a GEP from a byte layout pointer to an immutable type is contained in an ArrayType we want to construct the typed array
+	 * starting from the array itself instead of from the value. This will make it possible to loop backward over the array.
+	 */
+	const llvm::Value* compileByteLayoutOffset(const llvm::Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode);
+
+	/**
 	 * Compile a pointer from a GEP expression, with the given pointer kind
 	 */
 	void compileGEP(const llvm::User* gepInst, POINTER_KIND kind);
@@ -260,7 +273,7 @@ private:
 		}
 		else
 		{
-			assert(PA.getPointerKind(p) == REGULAR);
+			assert(PA.getPointerKind(p) == REGULAR || PA.getPointerKind(p) == BYTE_LAYOUT);
 			compileOperand(p);
 		}
 	}
