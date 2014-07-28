@@ -97,6 +97,7 @@ struct PointerUsageVisitor
 	KindOrUnknown visitValue(const Value* v);
 	KindOrUnknown visitUse(const Use* U);
 	KindOrUnknown visitReturn(const Function* F);
+	bool visitByteLayoutChain ( const Value * v );
 	POINTER_KIND getKindForType(Type*) const;
 
 	KindOrUnknown visitAllUses(const Value* v)
@@ -122,6 +123,48 @@ struct PointerUsageVisitor
 	value_kind_map_t & cachedValues;
 	visited_set_t closedset;
 };
+
+bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
+{
+	if ( getKindForType(p->getType()->getPointerElementType()) == BYTE_LAYOUT && visitValue(p) != COMPLETE_OBJECT)
+		return true;
+	if ( isGEP(p))
+	{
+		const User* u = cast<User>(p);
+		// We need to find out if the base element or any element accessed by the GEP is byte layout
+		if (visitByteLayoutChain(u->getOperand(0)))
+			return true;
+		Type* curType = u->getOperand(0)->getType();
+		for (uint32_t i=1;i<u->getNumOperands();i++)
+		{
+			if (StructType* ST = dyn_cast<StructType>(curType))
+			{
+				if (ST->hasByteLayout())
+					return true;
+				uint32_t index = cast<ConstantInt>( u->getOperand(i) )->getZExtValue();
+				curType = ST->getElementType(index);
+			}
+			else
+			{
+				// This case also handles the first index
+				curType = curType->getSequentialElementType();
+			}
+		}
+		return false;
+	}
+
+	if ( isBitCast(p))
+	{
+		const User* u = cast<User>(p);
+		if (TypeSupport::hasByteLayout(u->getOperand(0)->getType()->getPointerElementType()))
+			return true;
+		if (visitByteLayoutChain(u->getOperand(0)))
+			return true;
+		return false;
+	}
+
+	return false;
+}
 
 KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 {
@@ -299,8 +342,17 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 		return visitReturn( ret->getParent()->getParent() );
 	}
 
-	if ( isBitCast(p) || isa< SelectInst > (p) || isa < PHINode >(p) )
-		return visitValue( p );
+	// Bitcasts from byte layout types require COMPLETE_OBJECT, and generate BYTE_LAYOUT
+	if(isBitCast(p))
+	{
+		if (TypeSupport::hasByteLayout(p->getOperand(0)->getType()->getPointerElementType()))
+			return COMPLETE_OBJECT;
+		else
+			return visitValue( p );
+	}
+
+	if(isa<SelectInst> (p) || isa <PHINode>(p))
+		return visitValue(p);
 
 	if ( isa<Constant>(p) )
 		return REGULAR;
@@ -363,6 +415,10 @@ POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp) const
 	if ( tp->isFunctionTy() ||
 		TypeSupport::isClientType( tp ) )
 		return COMPLETE_OBJECT;
+
+	if ( TypeSupport::hasByteLayout( tp ) )
+		return BYTE_LAYOUT;
+
 	return REGULAR;
 }
 
@@ -405,6 +461,10 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 #ifndef NDEBUG
 	TimerGuard guard(gpkTimer);
 #endif //NDEBUG
+	if (PointerUsageVisitor(cache).visitByteLayoutChain(p))
+	{
+		return cache.insert( std::make_pair(p, BYTE_LAYOUT) ).first->second;
+	}
 	KindOrUnknown k = PointerUsageVisitor(cache).visitValue(p);
 
 	//If all the uses are unknown no use is REGULAR, we can return CO
