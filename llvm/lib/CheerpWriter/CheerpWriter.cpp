@@ -139,11 +139,9 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 	}
 }
 
-void CheerpWriter::compileCopyRecursive(const Twine& baseName,
-                                        const Value* baseDest,
-                                        const Value* baseSrc,
-                                        Type* currentType,
-                                        const Value* offset)
+void CheerpWriter::compileCopyElement(const Value* baseDest,
+                                      const Value* baseSrc,
+                                      Type* currentType)
 {
 	switch(currentType->getTypeID())
 	{
@@ -152,10 +150,10 @@ void CheerpWriter::compileCopyRecursive(const Twine& baseName,
 		case Type::DoubleTyID:
 		case Type::PointerTyID:
 		{
-			compileCompleteObject(baseDest, offset);
-			stream << baseName << '=';
-			compileCompleteObject(baseSrc, offset);
-			stream << baseName << ';' << NewLine;
+			compileCompleteObject(baseDest, nullptr);
+			stream << '=';
+			compileCompleteObject(baseSrc, nullptr);
+			stream << ';' << NewLine;
 			break;
 		}
 		case Type::StructTyID:
@@ -163,156 +161,18 @@ void CheerpWriter::compileCopyRecursive(const Twine& baseName,
 			if(TypeSupport::hasByteLayout(currentType))
 			{
 				stream << "var __tmp__=new Int8Array(";
-				compileCompleteObject(baseDest, offset);
-				stream << baseName << ".buffer);" << NewLine;
+				compileCompleteObject(baseDest, nullptr);
+				stream << ".buffer);" << NewLine;
 				stream << "__tmp__.set(";
 				stream << "new Int8Array(";
-				compileCompleteObject(baseSrc, offset);
-				stream << baseName << ".buffer));" << NewLine;
+				compileCompleteObject(baseSrc, nullptr);
+				stream << ".buffer));" << NewLine;
 				break;
 			}
-
-			const StructType* st = cast<StructType>(currentType);
-			StructType::element_iterator E=st->element_begin();
-			StructType::element_iterator EE=st->element_end();
-			for(;E!=EE;++E)
-			{
-
-				compileCopyRecursive(baseName + ".a" + Twine(E - st->element_begin()),
-						     baseDest,
-						     baseSrc,
-						     *E,
-						     offset);
-			}
-			break;
-		}
-		case Type::ArrayTyID:
-		{
-			const ArrayType* at = cast<ArrayType>(currentType);
-
-			for(uint64_t i=0;i<at->getNumElements();i++)
-			{
-				compileCopyRecursive(baseName + "[" + Twine(i) + "]",
-						     baseDest,
-						     baseSrc,
-						     at->getElementType(),
-						     offset);
-			}
-			break;
+			// Fallthrough if not byte layout
 		}
 		default:
 			llvm::errs() << "Support type in copy ";
-			currentType->dump();
-			llvm::errs() << '\n';
-	}
-}
-
-void CheerpWriter::compileResetRecursive(const Twine& baseName,
-                const Value* baseDest,
-                const Value* resetValue,
-                Type* currentType,
-                const Value* offset)
-{
-	switch(currentType->getTypeID())
-	{
-		case Type::IntegerTyID:
-		{
-			compileCompleteObject(baseDest, offset);
-			stream << baseName << '=';
-
-			if(isa<Constant>(resetValue))
-			{
-				uint8_t constResetValue = getIntFromValue(resetValue);
-				char buf[11];
-				buf[10]=0;
-				if(currentType->getIntegerBitWidth()==8)
-					snprintf(buf,10,"0x%x",constResetValue);
-				else if(currentType->getIntegerBitWidth()==16)
-					snprintf(buf,10,"0x%x%x",constResetValue,constResetValue);
-				else if(currentType->getIntegerBitWidth()==32)
-				{
-					snprintf(buf,10,"0x%x%x%x%x",
-						constResetValue,constResetValue,constResetValue,constResetValue);
-				}
-				else
-					llvm::report_fatal_error("Unsupported values for memset", false);
-				stream << buf;
-			}
-			else
-			{
-				if(currentType->getIntegerBitWidth()!=8)
-					llvm::report_fatal_error("Unsupported values for memset", false);
-				compileOperand(resetValue);
-			}
-			stream << ';' << NewLine;
-			break;
-		}
-		case Type::FloatTyID:
-		case Type::DoubleTyID:
-		{
-			compileCompleteObject(baseDest, offset);
-
-			if(!isa<Constant>(resetValue) || getIntFromValue(resetValue) != 0)
-				llvm::report_fatal_error("Unsupported values for memset", false);
-			stream << baseName << "=0;" << NewLine;
-			break;
-		}
-		case Type::PointerTyID:
-		{
-			compileCompleteObject(baseDest, offset);
-
-			if(!isa<Constant>(resetValue) || getIntFromValue(resetValue) != 0)
-				llvm::report_fatal_error("Unsupported values for memset", false);
-			//Pointers to client objects must use a normal null
-			Type* pointedType = currentType->getPointerElementType();
-			stream << baseName << '=';
-			if(types.isClientType(pointedType))
-				stream << "null";
-			else
-				stream << "nullObj";
-			stream << ';' << NewLine;
-			break;
-		}
-		case Type::StructTyID:
-		{
-			if(TypeSupport::hasByteLayout(currentType))
-			{
-				stream << "var __tmp__=new Int8Array(";
-				compileCompleteObject(baseDest, offset);
-				stream << baseName << ".buffer);" << NewLine;
-				stream << "for(var __i__=0;__i__<__tmp__.length;__i__++) __tmp__[__i__]=0;" << NewLine;
-				break;
-			}
-
-			const StructType* st = cast<StructType>(currentType);
-			StructType::element_iterator E=st->element_begin();
-			StructType::element_iterator EE=st->element_end();
-			for(;E!=EE;++E)
-			{
-				compileResetRecursive(baseName + ".a" + Twine(E - st->element_begin()),
-						      baseDest,
-						      resetValue,
-						      *E,
-						      offset);
-			}
-			break;
-		}
-		case Type::ArrayTyID:
-		{
-			const ArrayType* at = cast<ArrayType>(currentType);
-
-			for(uint64_t i=0;i<at->getNumElements();i++)
-			{
-				compileResetRecursive(baseName + "[" + Twine(i) + "]",
-						      baseDest,
-						      resetValue,
-						      at->getElementType(),
-						      offset);
-			}
-			break;
-		}
-		default:
-			llvm::errs() << "Support type in reset ";
 			currentType->dump();
 			llvm::errs() << '\n';
 	}
@@ -355,47 +215,27 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 	}
 }
 
-void CheerpWriter::compileMove(const Value* dest, const Value* src, const Value* size)
-{
-	//TODO: Optimize the checks if possible
-	//Check if they are inside the same memory island
-	stream << "if(";
-	compilePointerBase(dest);
-	stream << "===";
-	compilePointerBase(src);
-	//If so they may overlap, check and use reverse copy if needed
-	stream << "&&";
-	compilePointerOffset(dest);
-	stream << '>';
-	compilePointerOffset(src);
-	stream << "){" << NewLine;
-	//Destination is after source, copy backward
-	compileMemFunc(dest, src, size, BACKWARD);
-	stream << "}else{";
-	//Destination is before source, copy forward
-	compileMemFunc(dest, src, size, FORWARD);
-	stream << '}' << NewLine;
-}
-
-
-/* Method that handles memcpy, memset and memmove.
- * If src is not NULL present a copy operation is done using the supplied direction.
- * memset is handled by passing a NULL src and setting resetValue as needed. direction should be FORWARD */
-void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Value* size,
-		COPY_DIRECTION copyDirection)
+/* Method that handles memcpy and memmove.
+ * Since only immutable types are handled in the backend and we use TypedArray.set to make the copy
+ * there is not need to handle memmove in a special way
+*/
+void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Value* size)
 {
 	Type* destType=dest->getType();
 	Type* pointedType = cast<PointerType>(destType)->getElementType();
+	if(!(types.isTypedArrayType(pointedType) || TypeSupport::hasByteLayout(pointedType)))
+		llvm::report_fatal_error("Unsupported memory intrinsic, please rebuild the code using an updated version of Cheerp", false);
 
 	uint64_t typeSize = targetData.getTypeAllocSize(pointedType);
 
-	//Check that the number of element is not zero
+	bool constantNumElements = false;
+	uint32_t numElem = 0;
+
 	if(isa<ConstantInt>(size))
 	{
 		uint32_t allocatedSize = getIntFromValue(size);
-		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
-		if(numElem==0)
-			return;
+		numElem = (allocatedSize+typeSize-1)/typeSize;
+		constantNumElements = true;
 	}
 	else
 	{
@@ -404,34 +244,16 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		compileOperand(size);
 		stream << '/' << typeSize;
 		//Make sure to close this if below
-		stream << ';' << NewLine << "if(__numElem__!=0)" << NewLine << '{';
+		stream << ';' << NewLine;
 	}
 
-	//The first element is copied directly, to support complete objects
-	//In the BACKWARD case we need to copy the first as the last element
-	//and we do this below
-	if(copyDirection==RESET)
-		compileResetRecursive("", dest, src, pointedType, nullptr);
-	else if(copyDirection==FORWARD)
-		compileCopyRecursive("", dest, src, pointedType, nullptr);
 
-	//The rest is compiled using a for loop, or native TypedArray set operator
-
-	//NOTE: For constant values we can stop code generation here
-	//For the dynamic case we still need to close the if below
-	if(isa<ConstantInt>(size))
+	// Handle the case for multiple elements, it assumes that we can use TypedArray.set
+	if(!constantNumElements)
+		stream << "if(__numElem__>1)" << NewLine << '{';
+	if(!constantNumElements || numElem>1)
 	{
-		uint32_t allocatedSize = getIntFromValue(size);
-		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
-
-		if(numElem==1)
-			return;
-	}
-
-	//Prologue: Construct the first part, up to using the size
-	if(copyDirection!=RESET && types.isTypedArrayType(pointedType))
-	{
-		// The semantics of set is memmove like, no need to care about direction
+		// The semantics of TypedArray.set is memmove-like, no need to care about direction
 		compilePointerBase(dest);
 		stream << ".set(";
 		compilePointerBase(src);
@@ -442,65 +264,26 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		stream << ',';
 		compilePointerOffset(src);
 		stream << '+';
-	}
-	else
-	{
-		//memset is always handled using the for loop
-		if(copyDirection == FORWARD || copyDirection == RESET)
-			stream << "for(var __i__=1;__i__<";
+
+		// Use the size
+		if(constantNumElements)
+			stream << numElem;
 		else
-			stream << "for(var __i__=";
-	}
+			stream << "__numElem__";
 
-	// Use the size
-	if(isa<ConstantInt>(size))
-	{
-		uint32_t allocatedSize = getIntFromValue(size);
-		uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
-
-		stream << numElem;
-	}
-	else
-	{
-		stream << "__numElem__";
-	}
-
-	//Epilogue: Write the code after the size
-	if(copyDirection!=RESET && types.isTypedArrayType(pointedType))
-	{
 		stream << "),";
 		compilePointerOffset(dest);
 		stream << ");" << NewLine;
 	}
-	else
+	// Handle the single element case, do not assume we have a typed array
+	if(!constantNumElements)
+		stream << NewLine << "}else if(__numElem__===1)" << NewLine << '{';
+	if(!constantNumElements || numElem==1)
 	{
-		if(copyDirection == FORWARD || copyDirection == RESET)
-			stream	<< ";__i__++){" << NewLine;
-		else
-			stream << "-1;__i__>0;__i__--){" << NewLine;
-		InlineAsm* index = InlineAsm::get(
-		                           FunctionType::get(llvm::Type::getVoidTy(dest->getContext()), false),
-		                           "__i__",
-		                           "",
-		                           false);
-
-		if(copyDirection==RESET)
-			compileResetRecursive("", dest, src, pointedType, index);
-		else
-			compileCopyRecursive("", dest, src, pointedType, index);
-
-		stream << NewLine << '}';
+		compileCopyElement(dest, src, pointedType);
 	}
-
-	//The first element must be copied last in the backward case
-	if(copyDirection==BACKWARD)
-		compileCopyRecursive("", dest, src, pointedType, nullptr);
-
-	if(!isa<ConstantInt>(size))
-	{
-		//Close the if for the '0' case
+	if(!constantNumElements)
 		stream << NewLine << '}';
-	}
 }
 
 void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
@@ -696,20 +479,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	unsigned instrinsicId = func->getIntrinsicID();
 	//First handle high priority builtins, they will be used even
 	//if an implementation is available from the user
-	if(instrinsicId==Intrinsic::memmove)
+	if(instrinsicId==Intrinsic::memmove ||
+		instrinsicId==Intrinsic::memcpy)
 	{
-		compileMove(*(it), *(it+1), *(it+2));
-		return COMPILE_EMPTY;
-	}
-	else if(instrinsicId==Intrinsic::memcpy)
-	{
-		compileMemFunc(*(it), *(it+1), *(it+2), FORWARD);
+		compileMemFunc(*(it), *(it+1), *(it+2));
 		return COMPILE_EMPTY;
 	}
 	else if(instrinsicId==Intrinsic::memset)
 	{
-		//TODO: memset on allocate memory may be optimized
-		compileMemFunc(*(it), *(it+1), *(it+2), RESET);
+		llvm::report_fatal_error("Unsupported memory intrinsic, please rebuild the code using an updated version of Cheerp", false);
 		return COMPILE_EMPTY;
 	}
 	else if(instrinsicId==Intrinsic::invariant_start)
