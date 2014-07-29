@@ -1648,9 +1648,9 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 			bool isOffsetConstantZero = isa<Constant>(indices.front()) && cast<Constant>(indices.front())->isNullValue();
 
 			// Just another pointer from this one
-			stream << "{ d: ";
+			stream << "{d:";
 			compilePointerBase(gep_inst->getOperand(0));
-			stream << ", o: ";
+			stream << ",o:";
 			compilePointerOffset(gep_inst->getOperand(0));
 
 			if(!isOffsetConstantZero)
@@ -1663,11 +1663,11 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		}
 		else
 		{
-			stream << "{ d: ";
+			stream << "{d:";
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
 			compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
 			                       makeArrayRef(std::next(indices.begin()), std::prev(indices.end())));
-			stream << ", o: ";
+			stream << ",o:";
 			compileOffsetForGEP(gep_inst->getOperand(0)->getType(), indices);
 			stream << '}';
 		}
