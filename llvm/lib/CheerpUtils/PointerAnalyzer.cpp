@@ -278,7 +278,12 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 		{
 		case Intrinsic::memmove:
 		case Intrinsic::memcpy:
-			return REGULAR;
+		{
+			if (TypeSupport::hasByteLayout(intrinsic->getOperand(0)->getType()->getPointerElementType()))
+				return COMPLETE_OBJECT;
+			else
+				return REGULAR;
+		}
 		case Intrinsic::invariant_start:
 		case Intrinsic::invariant_end:
 		case Intrinsic::vastart:
