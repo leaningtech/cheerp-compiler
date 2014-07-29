@@ -278,7 +278,6 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 		{
 		case Intrinsic::memmove:
 		case Intrinsic::memcpy:
-		case Intrinsic::memset:
 			return REGULAR;
 		case Intrinsic::invariant_start:
 		case Intrinsic::invariant_end:
@@ -307,6 +306,7 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 			return COMPLETE_OBJECT;
 		case Intrinsic::flt_rounds:
 		case Intrinsic::cheerp_allocate:
+		case Intrinsic::memset:
 		default:
 			SmallString<128> str("Unreachable code in cheerp::PointerAnalyzer::visitUse, unhandled intrinsic: ");
 			str+=intrinsic->getCalledFunction()->getName();
