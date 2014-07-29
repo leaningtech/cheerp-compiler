@@ -1470,6 +1470,9 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		if(phi==NULL)
 			continue;
 		const Value* val=phi->getIncomingValueForBlock(from);
+		// We only need temporaries for PHIs which may be mutually dependent
+		if (!isa<PHINode>(val))
+			continue;
 		uint32_t tmpIndex = namegen.getUniqueIndexForPHI( currentFun );
 		stream << "var tmpphi" << tmpIndex << '=';
 		tmps.push_back(tmpIndex);
@@ -1487,13 +1490,27 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	}
 	//Phase 2, actually assign the values
 	I=to->begin();
-	for(uint32_t tmpI=0;I!=IE;++I,tmpI++)
+	for(uint32_t tmpI=0;I!=IE;++I)
 	{
 		const PHINode* phi=dyn_cast<PHINode>(I);
 		if(phi==NULL)
 			continue;
 		stream << "var " << namegen.getName(phi);
-		stream << "=tmpphi" << tmps[tmpI] << ';' << NewLine;
+		const Value* val=phi->getIncomingValueForBlock(from);
+		stream << '=';
+		if (!isa<PHINode>(val))
+		{
+			if(phi->getType()->isPointerTy())
+				compilePointerAs(val, PA.getPointerKind(phi));
+			else
+				compileOperand(val);
+		}
+		else
+		{
+			stream << "tmpphi" << tmps[tmpI];
+			tmpI++;
+		}
+		stream << ';' << NewLine;
 	}
 }
 
