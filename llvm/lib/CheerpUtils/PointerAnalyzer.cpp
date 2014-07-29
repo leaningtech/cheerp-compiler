@@ -184,23 +184,6 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 
 	llvm::Type * type = realType(p);
 
-	if ( getKindForType(type) == COMPLETE_OBJECT )
-		return CacheAndReturn(COMPLETE_OBJECT);
-
-	if ( TypeSupport::isImmutableType( type ) )
-	{
-		return CacheAndReturn(REGULAR);
-	}
-
-	if ( isa<LoadInst>(p) )
-		return CacheAndReturn(REGULAR);
-
-	if ( const Argument * arg = dyn_cast<Argument>(p) )
-	{
-		if ( arg->getParent()->hasAddressTaken() )
-			return CacheAndReturn(REGULAR);
-	}
-
 	if ( const IntrinsicInst * intrinsic = dyn_cast<IntrinsicInst>(p) )
 	{
 		switch ( intrinsic->getIntrinsicID() )
@@ -237,13 +220,31 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 			llvm::report_fatal_error(StringRef(str),false);
 		}
 	}
-	else
 
-		// TODO this is not really necessary,
-		// but we need to modify the writer so that CallInst and InvokeInst
-		// perform a demotion in place.
-		if(ImmutableCallSite cs = p)
-			return CacheAndReturn(visitReturn(cs.getCalledFunction()));
+	if(getKindForType(type) == COMPLETE_OBJECT)
+	{
+		return CacheAndReturn(COMPLETE_OBJECT);
+	}
+
+	if(TypeSupport::isImmutableType(type))
+	{
+		return CacheAndReturn(REGULAR);
+	}
+
+	if(isa<LoadInst>(p))
+		return CacheAndReturn(REGULAR);
+
+	if(const Argument* arg = dyn_cast<Argument>(p))
+	{
+		if(arg->getParent()->hasAddressTaken())
+			return CacheAndReturn(REGULAR);
+	}
+
+	// TODO this is not really necessary,
+	// but we need to modify the writer so that CallInst and InvokeInst
+	// perform a demotion in place.
+	if(ImmutableCallSite cs = p)
+		return CacheAndReturn(visitReturn(cs.getCalledFunction()));
 
 	return CacheAndReturn(visitAllUses(p));
 }
