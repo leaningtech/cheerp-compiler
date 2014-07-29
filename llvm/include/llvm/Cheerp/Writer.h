@@ -151,46 +151,24 @@ private:
 	const NewLineHandler NewLine;
 
 	/**
-	 * \addtogroup MemFunction methods to handle memset, memcpy, memmove, mallocs and free (and alike)
+	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
 	 *
 	 * @{
 	 */
 
-	enum COPY_DIRECTION { FORWARD=0, BACKWARD, RESET };
-
 	/**
-	 * Compile memcpy, memmove or memset, depending on the value of copyDirection.
+	 * Compile memcpy and memmove
 	 */
 	void compileMemFunc(const llvm::Value* dest,
 	                    const llvm::Value* srcOrResetVal,
-	                    const llvm::Value* size,
-	                    COPY_DIRECTION copyDirection);
+	                    const llvm::Value* size);
 
 	/**
-	 * Copy baseSrc[offset] into baseDest[offset]
-	 * offset might be nullptr
+	 * Copy baseSrc into baseDest
 	 */
-	void compileCopyRecursive(const llvm::Twine& baseName,
-	                          const llvm::Value* baseDest,
-	                          const llvm::Value* baseSrc,
-	                          llvm::Type* currentType,
-	                          const llvm::Value* offset);
-
-	/**
-	 * Set baseSrc[offset] to resetValue
-	 * offset might be nullptr
-	 */
-	void compileResetRecursive(const llvm::Twine& baseName,
-	                           const llvm::Value* baseDest,
-	                           const llvm::Value* resetValue,
-	                           llvm::Type* currentType,
-	                           const llvm::Value* offset);
-
-	/**
-	 * Compile a memmove by adding a runtime check for the offset, and copying
-	 * forward or backward.
-	 */
-	void compileMove(const llvm::Value* dest, const llvm::Value* src, const llvm::Value* size);
+	void compileCopyElement(const llvm::Value* baseDest,
+	                        const llvm::Value* baseSrc,
+	                        llvm::Type* currentType);
 
 	void compileAllocation(const DynamicAllocInfo& info);
 	void compileFree(const llvm::Value* obj);
