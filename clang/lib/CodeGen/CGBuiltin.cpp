@@ -2646,12 +2646,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         QualType SrcType = SrcE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
         if (DestType != SrcType)
           CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_same_type);
-        // Revert to the original arguments, unions are handled like on BA
-        if (DestType->isUnionType())
-        {
-          DestE = E->getArg(0);
-          SrcE = E->getArg(1);
-        }
       }
     }
     Address Dest = EmitPointerWithAlignment(DestE);
@@ -2751,12 +2745,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         QualType SrcType = SrcE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
         if (DestType != SrcType)
           CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_same_type);
-        // Revert to the original arguments, unions are handled like on BA
-        if (DestType->isUnionType())
-        {
-          DestE = E->getArg(0);
-          SrcE = E->getArg(1);
-        }
       }
     }
     Address Dest = EmitPointerWithAlignment(DestE);
@@ -2782,10 +2770,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       {
         // Discard the cast to void*
         DestE = DestCast->getSubExpr();
-        QualType DestType = DestE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
-        // Revert to the original arguments, unions are handled like on BA
-        if (DestType->isUnionType())
-          DestE = E->getArg(0);
       }
     }
     Address Dest = EmitPointerWithAlignment(DestE);
