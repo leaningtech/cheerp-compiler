@@ -1021,13 +1021,8 @@ void ItaniumRecordLayoutBuilder::EnsureVTablePointerAlignment(
 
 void ItaniumRecordLayoutBuilder::LayoutNonVirtualBases(
     const CXXRecordDecl *RD) {
-
-  // Only byte addressable targets have a primary base
-  if (Context.getTargetInfo().isByteAddressable())
-  {
-    // Then, determine the primary base class.
-    DeterminePrimaryBase(RD);
-  }
+  // Then, determine the primary base class.
+  DeterminePrimaryBase(RD);
 
   // Compute base subobject info.
   ComputeBaseSubobjectInfo(RD);
