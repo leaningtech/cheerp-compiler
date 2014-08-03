@@ -25,6 +25,7 @@
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/Cheerp/NativeRewriter.h"
+#include "llvm/Cheerp/StructMemFuncLowering.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -576,12 +577,18 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
 }
 
 static void addCheerpPasses(const PassManagerBuilder &Builder,
-                                   PassManagerBase &PM) {
+                            PassManagerBase &PM) {
   //Run InstCombine first, to remove load/stores for the this argument
   PM.add(createInstructionCombiningPass());
   PM.add(createCheerpNativeRewriterPass());
   //Cheerp is single threaded, convert atomic instructions to regular ones
   PM.add(createLowerAtomicPass());
+}
+
+static void addPostInlineCheerpPasses(const PassManagerBuilder &Builder,
+                                      PassManagerBase &PM) {
+  //Memory intrinsic on structs should be decomposed
+  PM.add(createStructMemFuncLowering());
 }
 
 void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
@@ -600,8 +607,14 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
       createTLII(TargetTriple, CodeGenOpts));
 
   if (TargetTriple.getArch() == llvm::Triple::cheerp)
+  {
     PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                            addCheerpPasses);
+    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                           addPostInlineCheerpPasses);
+    PMBuilder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+                           addPostInlineCheerpPasses);
+  }
 
 
   // If we reached here with a non-empty index file name, then the index file
