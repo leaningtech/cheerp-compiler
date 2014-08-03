@@ -40,7 +40,8 @@ ComputeNonVirtualBaseClassGepPath(CodeGenModule& CGM,
   const CXXRecordDecl *RD = DerivedClass;
 
   for (const CXXRecordDecl* BaseDecl: BasePath) {
-    if(!BaseDecl->isEmpty())
+    const ASTRecordLayout &ASTLayout = CGM.getContext().getASTRecordLayout(RD);
+    if(!BaseDecl->isEmpty() && !ASTLayout.getBaseClassOffset(BaseDecl).isZero())
     {
       // Get the layout.
       const CGRecordLayout &Layout = CGM.getTypes().getCGRecordLayout(RD);
@@ -258,7 +259,7 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
     SmallVector<llvm::Value*, 4> GEPConstantIndexes;
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     // Cheerp: if the base class has no members create a bitcast with cheerp specific intrinsic
-    if(Base->isEmpty())
+    if(Base->isEmpty() || Offset.isZero())
        return GenerateUpcastCollapsed(This, ConvertType(Base)->getPointerTo());
     else
     {
@@ -461,7 +462,8 @@ CodeGenModule::ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
     const CXXRecordDecl *BaseDecl =
       cast<CXXRecordDecl>(Base->getType()->getAs<RecordType>()->getDecl());
 
-    if(!BaseDecl->isEmpty())
+    const ASTRecordLayout &ASTLayout = getContext().getASTRecordLayout(RD);
+    if(!BaseDecl->isEmpty() && !ASTLayout.getBaseClassOffset(BaseDecl).isZero())
     {
       // Get the layout.
       const CGRecordLayout &Layout = getTypes().getCGRecordLayout(RD);

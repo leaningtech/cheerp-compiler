@@ -694,6 +694,13 @@ void CGRecordLowering::fillOutputFields() {
   for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),
                                                MemberEnd = Members.end();
        Member != MemberEnd; ++Member) {
+    if (!Types.getTarget().isByteAddressable() && Member->Kind == MemberInfo::Base && Member->Offset.isZero())
+    {
+      assert(isa<llvm::StructType>(Member->Data));
+      llvm::StructType* ST = cast<llvm::StructType>(Member->Data);
+      FieldTypes.insert(FieldTypes.end(), ST->element_begin(), ST->element_end());
+      continue;
+    }
     if (Member->Data)
       FieldTypes.push_back(Member->Data);
     if (Member->Kind == MemberInfo::Field) {
