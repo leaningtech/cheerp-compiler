@@ -1521,14 +1521,6 @@ void ItaniumVTableBuilder::AddMethods(
     // then we can just use the member function from the primary base.
     if (const CXXMethodDecl *OverriddenMD =
           FindNearestOverriddenMethod(MD, PrimaryBases)) {
-      if (!Context.getTargetInfo().isByteAddressable())
-      {
-        clang::DiagnosticsEngine &Diags = Context.getDiagnostics();
-        unsigned DiagID = Diags.getCustomDiagID(
-            DiagnosticsEngine::Error, "Cheerp:");
-        Diags.Report(Context.getFullLoc(MD->getLocation()), DiagID) << "Covariant returns are not supported yet";
-        continue;
-      }
       if (ComputeReturnAdjustmentBaseOffset(Context, MD, 
                                             OverriddenMD).isEmpty()) {
         // Replace the method info of the overridden method with our own
