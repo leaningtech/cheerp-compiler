@@ -1965,6 +1965,14 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 				compileOperand(ci.getOperand(1));
 				stream << ')';
 			}
+			else if(ci.getPredicate()==CmpInst::FCMP_UNO)
+			{
+				stream << "isNaN(";
+				compileOperand(ci.getOperand(0));
+				stream << ")||isNaN(";
+				compileOperand(ci.getOperand(1));
+				stream << ')';
+			}
 			else
 			{
 				compileOperand(ci.getOperand(0));
