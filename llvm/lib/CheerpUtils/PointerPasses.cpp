@@ -160,14 +160,14 @@ bool IndirectCallOptimizer::runOnModule(Module & m)
 				 it->use_end(),
 				 [](const Use & u)
 				 {
-					 return ImmutableCallSite(u.get());
+					 return ImmutableCallSite(u.getUser());
 				 }) )
 		{
 			Function * oldFun = it;
 			PA.invalidate(oldFun);
 			Function * newFun = Function::Create( oldFun->getFunctionType(),
 							      oldFun->getLinkage(),
-							      Twine("__duettoindirect", oldFun->getName() ) );
+							      Twine("__cheerpindirect", oldFun->getName() ) );
 			
 			it = m.getFunctionList().insertAfter( it, newFun);
 			
