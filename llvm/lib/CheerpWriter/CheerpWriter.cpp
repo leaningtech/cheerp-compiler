@@ -1247,8 +1247,8 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		if(phi==NULL)
 			continue;
 		const Value* val=phi->getIncomingValueForBlock(from);
-		// We only need temporaries for PHIs which may be mutually dependent
-		if (!isa<PHINode>(val))
+		// We only need temporaries for PHIs from this same block as they may be mutually dependent
+		if (!isa<PHINode>(val) || cast<PHINode>(val)->getParent()!=to)
 			continue;
 		uint32_t tmpIndex = namegen.getUniqueIndexForPHI( currentFun );
 		stream << "var tmpphi" << tmpIndex << '=';
@@ -1275,7 +1275,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		stream << "var " << namegen.getName(phi);
 		const Value* val=phi->getIncomingValueForBlock(from);
 		stream << '=';
-		if (!isa<PHINode>(val))
+		if (!isa<PHINode>(val) || cast<PHINode>(val)->getParent()!=to)
 		{
 			if(phi->getType()->isPointerTy())
 				compilePointerAs(val, PA.getPointerKind(phi));
