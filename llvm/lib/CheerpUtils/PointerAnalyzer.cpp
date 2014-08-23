@@ -184,8 +184,10 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 
 	llvm::Type * type = realType(p);
 
+	bool isIntrinsic = false;
 	if ( const IntrinsicInst * intrinsic = dyn_cast<IntrinsicInst>(p) )
 	{
+		isIntrinsic = true;
 		switch ( intrinsic->getIntrinsicID() )
 		{
 		case Intrinsic::cheerp_downcast:
@@ -197,9 +199,9 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 		case Intrinsic::cheerp_pointer_base:
 		case Intrinsic::cheerp_create_closure:
 		case Intrinsic::cheerp_make_complete_object:
-			if(visitAllUses(p) != COMPLETE_OBJECT)
+			if(getKindForType(type) != COMPLETE_OBJECT && visitAllUses(p) != COMPLETE_OBJECT)
 			{
-				llvm::errs() << "Result of " << intrinsic->getName() << " used as REGULAR: " << *p << "\n";
+				llvm::errs() << "Result of " << *intrinsic << " used as REGULAR: " << *p << "\n";
 				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 			}
 			return CacheAndReturn(COMPLETE_OBJECT);
@@ -244,7 +246,10 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 	// but we need to modify the writer so that CallInst and InvokeInst
 	// perform a demotion in place.
 	if(ImmutableCallSite cs = p)
-		return CacheAndReturn(visitReturn(cs.getCalledFunction()));
+	{
+		if (!isIntrinsic)
+			return CacheAndReturn(visitReturn(cs.getCalledFunction()));
+	}
 
 	return CacheAndReturn(visitAllUses(p));
 }
@@ -271,6 +276,14 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 
 	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
 		return REGULAR;
+
+	if ( const CmpInst * I = dyn_cast<CmpInst>(p) )
+	{
+		if ( !I->isEquality() )
+			return REGULAR;
+		else
+			return COMPLETE_OBJECT;
+	}
 
 	if ( const IntrinsicInst * intrinsic = dyn_cast<IntrinsicInst>(p) )
 	{
