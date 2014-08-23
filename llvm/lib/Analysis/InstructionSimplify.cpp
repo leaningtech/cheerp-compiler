@@ -3578,7 +3578,8 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
           GLHS->hasAllConstantIndices() && GRHS->hasAllConstantIndices() &&
           (ICmpInst::isEquality(Pred) ||
            (GLHS->isInBounds() && GRHS->isInBounds() &&
-            Pred == ICmpInst::getSignedPredicate(Pred)))) {
+            Pred == ICmpInst::getSignedPredicate(Pred))) &&
+            Q.DL.isByteAddressable()) {
         // The bases are equal and the indices are constant.  Build a constant
         // expression GEP with the same indices and a null base pointer to see
         // what constant folding can make out of it.
