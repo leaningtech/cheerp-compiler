@@ -136,7 +136,8 @@ void CheerpNativeRewriter::rewriteNativeAllocationUsers(Module& M, SmallVector<I
 						const std::string& builtinTypeName)
 {
 	//Instead of allocating the type, allocate a pointer to the type
-	AllocaInst* newI=new AllocaInst(PointerType::getUnqual(t),"cheerpPtrAlloca",i);
+	AllocaInst* newI=new AllocaInst(PointerType::getUnqual(t),"cheerpPtrAlloca",
+		&i->getParent()->getParent()->front().front());
 	toRemove.push_back(i);
 
 	Instruction::use_iterator it=i->use_begin();
