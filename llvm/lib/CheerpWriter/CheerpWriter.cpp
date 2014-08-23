@@ -920,7 +920,6 @@ void CheerpWriter::compilePointerBase(const Value* p)
 const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode)
 {
 	// If the value has byte layout skip GEPS and BitCasts until the base is found
-	bool byteLayoutFromHere = false;
 	// We need to handle the first GEP having more than an index (so it actually changes types)
 	// to support BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY
 	// If offsetMode is BYTE_LAYOUT_OFFSET_FULL we can treat every GEP in the same way
