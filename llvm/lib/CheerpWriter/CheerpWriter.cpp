@@ -787,7 +787,7 @@ static const User* propagate_till_gep(const Value* p)
 		q = cast<User>(q)->getOperand(0);
 	}
 
-	return isGEP(q) ? cast<User>(q) : nullptr;
+	return isGEP(q) && (!isa<Instruction>(q) || isInlineable(*cast<Instruction>(q))) ? cast<User>(q) : nullptr;
 }
 
 void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
