@@ -1662,12 +1662,30 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		}
 		else
 		{
+			bool hasBasesInfo = isa<StructType>(targetType) && types.hasBasesInfo(cast<StructType>(targetType));
 			stream << "{d:";
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
-			compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
-			                       makeArrayRef(std::next(indices.begin()), std::prev(indices.end())));
+			if (hasBasesInfo)
+			{
+				compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
+						makeArrayRef(std::next(indices.begin()),indices.end()));
+				stream << ".a";
+			}
+			else
+			{
+				compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
+						makeArrayRef(std::next(indices.begin()),std::prev(indices.end())));
+			}
 			stream << ",o:";
-			compileOffsetForGEP(gep_inst->getOperand(0)->getType(), indices);
+			if (hasBasesInfo)
+			{
+				compileCompleteObject(gep_inst->getOperand(0), indices.front());
+				compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
+						makeArrayRef(std::next(indices.begin()), indices.end()));
+				stream << ".o";
+			}
+			else
+				compileOffsetForGEP(gep_inst->getOperand(0)->getType(), indices);
 			stream << '}';
 		}
 	}
