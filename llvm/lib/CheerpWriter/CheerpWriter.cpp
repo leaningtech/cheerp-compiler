@@ -2106,7 +2106,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			}
 			assert(!isa<UndefValue>(aggr));
 
-			stream << namegen.getName(aggr);
+			compileOperand(aggr);
 
 			uint32_t offset=evi.getIndices()[0];
 			stream << ".a" << offset;
