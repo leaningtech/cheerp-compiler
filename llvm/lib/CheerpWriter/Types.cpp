@@ -109,7 +109,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 			ArrayType* at=static_cast<ArrayType*>(t);
 			Type* et=at->getElementType();
 			//For numerical types, create typed arrays
-			if(types.isTypedArrayType(et))
+			if(types.isTypedArrayType(et) && at->getNumElements()>1)
 			{
 				stream << "new ";
 				compileTypedArrayType(et);
