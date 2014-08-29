@@ -2501,6 +2501,20 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 	stream << ';' << NewLine;
 
 	compiledGVars.insert(&G);
+	if(G.hasInitializer())
+	{
+		if(StructType* st=dyn_cast<StructType>(G.getType()->getPointerElementType()))
+		{
+			//TODO: Verify that it makes sense to assume struct with no name has no bases
+			if(st->hasName() && module.getNamedMetadata(Twine(st->getName(),"_bases")) &&
+				globalDeps.classesWithBaseInfo().count(st))
+			{
+				stream << "create" << namegen.filterLLVMName(st->getName(), true) << '(';
+				compilePointerAs(&G, COMPLETE_OBJECT);
+				stream << ");" << NewLine;
+			}
+		}
+	}
 
 	//Now we have defined a new global, check if there are fixups for previously defined globals
 	auto fixup_range = globalDeps.fixupVars().equal_range(&G);

@@ -137,27 +137,32 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 
 void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style)
 {
+	bool addDowncastArray = false;
 	if(StructType* st=dyn_cast<StructType>(t))
 	{
-		NamedMDNode* basesMeta=NULL;
 		//TODO: Verify that it makes sense to assume struct with no name has no bases
-		if(st->hasName())
-			basesMeta=module.getNamedMetadata(Twine(st->getName(),"_bases"));
-		if(basesMeta && globalDeps.classesWithBaseInfo().count(st))
+		if(st->hasName() && module.getNamedMetadata(Twine(st->getName(),"_bases")) &&
+			globalDeps.classesWithBaseInfo().count(st))
 		{
-			if(style==LITERAL_OBJ)
-			{
-				stream << "new create" << namegen.filterLLVMName(st->getName(), true) << "()";
-			}
-			else
-			{
-				stream << "create" << namegen.filterLLVMName(st->getName(), true) << ".call(this)";
-			}
-			return;
+			addDowncastArray = true;
 		}
-		//Else fallthrough to base case
 	}
-	compileTypeImpl(t, style);
+	if(addDowncastArray)
+	{
+		if(style==LITERAL_OBJ)
+		{
+			stream << "create" << namegen.filterLLVMName(cast<StructType>(t)->getName(), true) << '(';
+			compileTypeImpl(t, LITERAL_OBJ);
+			stream << ')';
+		}
+		else
+		{
+			compileTypeImpl(t, THIS_OBJ);
+			stream << "create" << namegen.filterLLVMName(cast<StructType>(t)->getName(), true) << "(this)";
+		}
+	}
+	else
+		compileTypeImpl(t, style);
 }
 
 uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
@@ -190,25 +195,16 @@ void CheerpWriter::compileClassType(StructType* T)
 		return;
 	}
 	//This function is used as a constructor using the new syntax
-	stream << "function create" << namegen.filterLLVMName(T->getName(), true) << "(){" << NewLine;
-
-	//TODO: Currently base classes are initialized also during compileTypeImpl
-	//find a way to skip it. It's also necessary to initialize members that require
-	//downcast support
-	compileTypeImpl(T, THIS_OBJ);
-	stream << NewLine;
+	stream << "function create" << namegen.filterLLVMName(T->getName(), true) << "(obj){" << NewLine;
 
 	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(T->getName(),"_bases"));
-	if(basesNamedMeta)
-	{
-		MDNode* basesMeta=basesNamedMeta->getOperand(0);
-		assert(basesMeta->getNumOperands()==2);
-		uint32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
-		stream << "var a=new Array(" << baseMax << ");" << NewLine;
-
-		compileClassTypeRecursive("this", T, 0);
-	}
-	stream << '}' << NewLine;
+	assert(basesNamedMeta);
+	MDNode* basesMeta=basesNamedMeta->getOperand(0);
+	assert(basesMeta->getNumOperands()==2);
+	uint32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
+	stream << "var a=new Array(" << baseMax << ");" << NewLine;
+	compileClassTypeRecursive("obj", T, 0);
+	stream << "return obj;}" << NewLine;
 }
 
 void CheerpWriter::compileArrayClassType(StructType* T)
