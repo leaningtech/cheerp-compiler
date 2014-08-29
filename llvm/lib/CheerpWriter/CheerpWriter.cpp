@@ -2226,12 +2226,12 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 		for(int i=1;i<branchId;i++)
 			++it;
 		const BasicBlock* dest=it.getCaseSuccessor();
-		//We found the destination, there may be more cases for the same
-		//destination though
 		writer->compileOperand(si->getCondition());
 		writer->stream << "===";
 		writer->compileConstant(it.getCaseValue());
-		for(;it!=si->case_end();++it)
+		//We found the destination, there may be more cases for the same
+		//destination though
+		for(++it;it!=si->case_end();++it)
 		{
 			if(it.getCaseSuccessor()==dest)
 			{
