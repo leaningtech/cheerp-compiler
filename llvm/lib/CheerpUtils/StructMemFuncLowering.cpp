@@ -50,7 +50,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	{
 		Type* elementType = AT->getElementType();
 		indexes.push_back(NULL);
-		if (elementType->isIntegerTy() || elementType->isFloatingPointTy())
+		if (elementType->isIntegerTy() || elementType->isFloatingPointTy() && AT->getNumElements()>1)
 		{
 			indexes.back() = ConstantInt::get(indexType, 0);
 			createMemFunc(IRB, baseDst, baseSrc, DL->getTypeAllocSize(curType), indexes);
