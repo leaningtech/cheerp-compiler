@@ -54,6 +54,7 @@ public:
 	explicit AllocaMerging() : FunctionPass(ID) { }
 	bool runOnFunction(Function &F);
 	const char *getPassName() const;
+	void getAnalysisUsage(AnalysisUsage & AU) const;
 };
 
 //===----------------------------------------------------------------------===//
