@@ -4,6 +4,7 @@ add_llvm_library(LLVMCheerpUtils
   PointerAnalyzer.cpp
   PointerPasses.cpp
   ResolveAliases.cpp
+  Registerize.cpp
   StructMemFuncLowering.cpp
   Utility.cpp
   )
