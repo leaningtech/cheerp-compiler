@@ -96,10 +96,10 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            MachineFunctionInitializer* MFInit) {
   if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
   PM.add(createResolveAliasesPass());
-  PM.add(createAllocaMergingPass());
   PM.add(cheerp::createPointerAnalyzerPass());
   PM.add(createIndirectCallOptimizerPass());
   PM.add(createAllocaArraysPass());
+  PM.add(createAllocaMergingPass());
   PM.add(new CheerpWritePass(o));
   return false;
 }

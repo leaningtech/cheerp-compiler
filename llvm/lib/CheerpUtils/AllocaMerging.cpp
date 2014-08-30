@@ -12,6 +12,7 @@
 #include <algorithm>
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Cheerp/AllocaMerging.h"
+#include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/IntrinsicInst.h"
 
@@ -255,6 +256,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 	std::set<const Instruction*> targetAllocaUsers;
 	std::set<const BasicBlock*> targetAllocaUsersBlocks;
 	bool Changed = false;
+	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	while(sourceCandidate!=allocaInfos.end())
 	{
 		AllocaInst* targetAlloca = *targetCandidate;
@@ -319,6 +321,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 			targetAllocaUsers.insert(U);
 		}
 		sourceAlloca->replaceAllUsesWith(targetAlloca);
+		PA.invalidate(sourceAlloca);
 		sourceAlloca->eraseFromParent();
 		allocaInfos.erase(sourceCandidate++);
 		Changed = true;
@@ -392,6 +395,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 					Value* gep2 = GetElementPtrInst::Create(gep1, indices, "gep2", oldGep);
 					// Replace all uses with gep2
 					oldGep->replaceAllUsesWith(gep2);
+					PA.invalidate(oldGep);
 					oldGep->eraseFromParent();
 				}
 				else if(BitCastInst* BI=dyn_cast<BitCastInst>(u))
@@ -399,12 +403,14 @@ bool AllocaMerging::runOnFunction(Function& F)
 					//Only used for lifetime intrinsics
 					Value* newBitCast=new BitCastInst(newAlloca, BI->getType(), "", BI);
 					BI->replaceAllUsesWith(newBitCast);
+					PA.invalidate(BI);
 					BI->eraseFromParent();
 				}
 				else
 					assert(false && "Unexpected use while merging arrays");
 			}
 			// Kill the alloca itself now
+			PA.invalidate(allocaToMerge);
 			allocaToMerge->eraseFromParent();
 			allocaInfos.erase(allocaToMerge);
 			Changed = true;
@@ -415,6 +421,14 @@ bool AllocaMerging::runOnFunction(Function& F)
 
 const char *AllocaMerging::getPassName() const {
 	return "AllocaMerging";
+}
+
+void AllocaMerging::getAnalysisUsage(AnalysisUsage & AU) const
+{
+	AU.addRequired<cheerp::PointerAnalyzer>();
+	AU.addPreserved<cheerp::PointerAnalyzer>();
+
+	llvm::Pass::getAnalysisUsage(AU);
 }
 
 char AllocaMerging::ID = 0;
