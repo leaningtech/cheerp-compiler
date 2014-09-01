@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <sstream>
+#include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -483,6 +484,71 @@ bool DynamicAllocInfo::useCreatePointerArrayFunc() const
 bool DynamicAllocInfo::useTypedArray() const
 {
 	return TypeSupport::isTypedArrayType( getCastedType()->getElementType() );
+}
+
+void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, llvm::SmallVector<const PHINode*, 4>& orderedPHIs)
+{
+	auto it=phiRegs.find(regId);
+	if(it==phiRegs.end())
+		return;
+	PHIRegData& regData=it->second;
+	if(regData.status==PHIRegData::VISITED)
+		return;
+	else if(regData.status==PHIRegData::VISITING)
+	{
+		// Report the recursive dependency to the user
+		handleRecursivePHIDependency(regData.phiInst);
+		return;
+	}
+	// Not yet visited
+	regData.status=PHIRegData::VISITING;
+	runOnPHI(phiRegs, regData.incomingReg, orderedPHIs);
+	// Add the PHI to orderedPHIs only after eventual dependencies have been added
+	orderedPHIs.push_back(regData.phiInst);
+	regData.status=PHIRegData::VISITED;
+}
+
+void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const BasicBlock* fromBB, const BasicBlock* toBB)
+{
+	BasicBlock::const_iterator I=toBB->begin();
+	BasicBlock::const_iterator IE=toBB->end();
+	PHIRegs phiRegs;
+	llvm::SmallVector<const PHINode*, 4> orderedPHIs;
+	for(;I!=IE;++I)
+	{
+		// Gather the dependency graph between registers for PHIs and incoming values
+		// Also add PHIs which are always safe to the orderedPHIs vector
+		const PHINode* phi=dyn_cast<PHINode>(I);
+		if(!phi)
+			break;
+		const Value* val=phi->getIncomingValueForBlock(fromBB);
+		const Instruction* I=dyn_cast<Instruction>(val);
+		if(!I)
+		{
+			orderedPHIs.push_back(phi);
+			continue;
+		}
+		uint32_t incomingValueId = registerize.getRegisterId(I);
+		uint32_t phiReg = registerize.getRegisterId(phi);
+		if(incomingValueId==phiReg)
+		{
+			orderedPHIs.push_back(phi);
+			continue;
+		}
+		phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, incomingValueId)));
+	}
+	for(auto it: phiRegs)
+	{
+		if(it.second.status!=PHIRegData::VISITED)
+			runOnPHI(phiRegs, it.first, orderedPHIs);
+	}
+	// Notify the user for each PHI, in the right order to avoid accidental overwriting
+	for(uint32_t i=orderedPHIs.size();i>0;i--)
+	{
+		const PHINode* phi=orderedPHIs[i-1];
+		const Value* val=phi->getIncomingValueForBlock(fromBB);
+		handlePHI(phi, val);
+	}
 }
 
 }
