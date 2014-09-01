@@ -448,6 +448,36 @@ private:
 	bool hasFailed = false;
 };
 
+// Forward define the Registerize class
+class Registerize;
+
+class EndOfBlockPHIHandler
+{
+public:
+	void runOnEdge(const Registerize& registerize, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB);
+protected:
+	virtual ~EndOfBlockPHIHandler()
+	{
+	}
+private:
+	struct PHIRegData
+	{
+		const llvm::PHINode* phiInst;
+		uint32_t incomingReg;
+		enum STATUS { NOT_VISITED=0, VISITING, VISITED };
+		STATUS status;
+		PHIRegData(const llvm::PHINode* p, uint32_t r):
+			phiInst(p), incomingReg(r), status(NOT_VISITED)
+		{
+		}
+	};
+	typedef std::map<uint32_t, PHIRegData> PHIRegs;
+	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, llvm::SmallVector<const llvm::PHINode*, 4>& orderedPHIs);
+	// Callbacks implemented by derived classes
+	virtual void handleRecursivePHIDependency(const llvm::Instruction* phi) = 0;
+	virtual void handlePHI(const llvm::Instruction* phi, const llvm::Value* incoming) = 0;
+};
+
 }
 
 #endif //_CHEERP_UTILITY_H
