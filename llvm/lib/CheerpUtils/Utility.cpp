@@ -151,6 +151,7 @@ bool isInlineable(const Instruction& I)
 			case Instruction::UIToFP:
 			case Instruction::FPToUI:
 			case Instruction::PtrToInt:
+			case Instruction::IntToPtr:
 				return true;
 			default:
 				llvm::report_fatal_error(Twine("Unsupported opcode: ",StringRef(I.getOpcodeName())), false);
