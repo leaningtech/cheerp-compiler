@@ -1236,59 +1236,48 @@ void CheerpWriter::compileOperand(const Value* v)
 
 void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
 {
-	BasicBlock::const_iterator I=to->begin();
-	BasicBlock::const_iterator IE=to->end();
-	SmallVector<uint32_t, 4> tmps;
-	//Phase 1, use temporaries to store the results of PHIs
-	for(;I!=IE;++I)
+	class WriterPHIHandler: public EndOfBlockPHIHandler
 	{
-		const PHINode* phi=dyn_cast<PHINode>(I);
-		//TODO: I think that after the first non-phi node we can stop
-		if(phi==NULL)
-			continue;
-		const Value* val=phi->getIncomingValueForBlock(from);
-		// We only need temporaries for PHIs from this same block as they may be mutually dependent
-		if (!isa<PHINode>(val) || cast<PHINode>(val)->getParent()!=to)
-			continue;
-		uint32_t tmpIndex = namegen.getUniqueIndexForPHI( currentFun );
-		stream << "var tmpphi" << tmpIndex << '=';
-		tmps.push_back(tmpIndex);
-
-		if(phi->getType()->isPointerTy())
+	public:
+		WriterPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t):writer(w),fromBB(f),toBB(t)
 		{
-			compilePointerAs(val, PA.getPointerKind(phi));
 		}
-		else
+		~WriterPHIHandler()
 		{
-			compileOperand(val);
 		}
-
-		stream << ';' << NewLine;
-	}
-	//Phase 2, actually assign the values
-	I=to->begin();
-	for(uint32_t tmpI=0;I!=IE;++I)
-	{
-		const PHINode* phi=dyn_cast<PHINode>(I);
-		if(phi==NULL)
-			continue;
-		stream << "var " << namegen.getName(phi);
-		const Value* val=phi->getIncomingValueForBlock(from);
-		stream << '=';
-		if (!isa<PHINode>(val) || cast<PHINode>(val)->getParent()!=to)
+	private:
+		CheerpWriter& writer;
+		const BasicBlock* fromBB;
+		const BasicBlock* toBB;
+		void handleRecursivePHIDependency(const Instruction* phi) override
 		{
-			if(phi->getType()->isPointerTy())
-				compilePointerAs(val, PA.getPointerKind(phi));
+			writer.namegen.setEdgeContext(fromBB, toBB);
+			writer.stream << "var " << writer.namegen.getNameForEdge(phi);
+			writer.namegen.clearEdgeContext();
+			writer.stream << '=' << writer.namegen.getName(phi) << ';' << writer.NewLine;
+		}
+		void handlePHI(const Instruction* phi, const Value* incoming) override
+		{
+			Type* phiType=phi->getType();
+			const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
+			// We can avoid assignment from the same register if no pointer kind conversion is required
+			if(incomingInst &&
+				writer.registerize.getRegisterId(phi)==writer.registerize.getRegisterId(incomingInst) &&
+				(!phiType->isPointerTy() || writer.PA.getPointerKind(phi)==writer.PA.getPointerKind(incoming)))
+			{
+				return;
+			}
+			writer.stream << "var " << writer.namegen.getName(phi) << '=';
+			writer.namegen.setEdgeContext(fromBB, toBB);
+			if(phiType->isPointerTy())
+				writer.compilePointerAs(incoming, writer.PA.getPointerKind(phi));
 			else
-				compileOperand(val);
+				writer.compileOperand(incoming);
+			writer.stream << ';' << writer.NewLine;
+			writer.namegen.clearEdgeContext();
 		}
-		else
-		{
-			stream << "tmpphi" << tmps[tmpI];
-			tmpI++;
-		}
-		stream << ';' << NewLine;
-	}
+	};
+	WriterPHIHandler(*this, from, to).runOnEdge(registerize, from, to);
 }
 
 void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_iterator itE, ImmutableCallSite callV)
