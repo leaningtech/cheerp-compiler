@@ -107,7 +107,7 @@ const std::set< StringRef > JSSymbols::reserved_names = {
 	"with"
 };
 
-NameGenerator::NameGenerator(const GlobalDepsAnalyzer& gda, bool makeReadableNames)
+NameGenerator::NameGenerator(const GlobalDepsAnalyzer& gda, const Registerize& r, bool makeReadableNames):registerize(r)
 {
 	if ( makeReadableNames )
 		generateReadableNames(gda);
@@ -115,9 +115,16 @@ NameGenerator::NameGenerator(const GlobalDepsAnalyzer& gda, bool makeReadableNam
 		generateCompressedNames(gda);
 }
 
-uint32_t NameGenerator::getUniqueIndexForPHI(const llvm::Function * f)
+llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v) const
 {
-	return currentUniqueIndexForPHI[f]++;
+	assert(!edgeContext.isNull());
+	if (const Instruction* I=dyn_cast<Instruction>(v))
+	{
+		auto it=edgeNamemap.find(InstOnEdge({ edgeContext.fromBB, edgeContext.toBB, registerize.getRegisterId(I)}));
+		if (it!=edgeNamemap.end())
+			return it->second;
+	}
+	return namemap.at(v);
 }
 
 SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, bool isGlobalName)
@@ -164,7 +171,40 @@ void NameGenerator::generateCompressedNames(const GlobalDepsAnalyzer& gda)
 	typedef std::pair<unsigned, const Value *> useValuePair;
 	typedef std::pair<unsigned, std::vector<const Value *> > useValuesPair;
 	typedef std::vector<useValuesPair> useValuesVec;
+	typedef std::pair<unsigned, std::vector<InstOnEdge> > useInstsOnEdgePair;
+	typedef std::vector<useInstsOnEdgePair> useInstsOnEdgeVec;
         
+	// Class to handle giving names to temporary variables needed for recursively dependent PHIs
+	class CompressedPHIHandler: public EndOfBlockPHIHandler
+	{
+	public:
+		CompressedPHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n, useInstsOnEdgeVec& a ):
+			fromBB(f), toBB(t), namegen(n), allTmpPHIs(a), nextIndex(0)
+		{
+		}
+	private:
+		const BasicBlock* fromBB;
+		const BasicBlock* toBB;
+		NameGenerator& namegen;
+		useInstsOnEdgeVec& allTmpPHIs;
+		uint32_t nextIndex;
+		void handleRecursivePHIDependency(const Instruction* phi) override
+		{
+			uint32_t regId=namegen.registerize.getRegisterId(phi);
+			// We don't know exactly how many times the tmpphi is going to be used in this edge
+			// but assume 1. We increment the usage count for the first not already used tmpphi
+			// and add the InstOnEdge to its list
+			if (nextIndex >= allTmpPHIs.size())
+				allTmpPHIs.resize(nextIndex+1);
+			allTmpPHIs[nextIndex].first++;
+			allTmpPHIs[nextIndex].second.emplace_back(InstOnEdge{fromBB, toBB, regId});
+			nextIndex++;
+		}
+		void handlePHI(const Instruction* phi, const Value* incoming) override
+		{
+			// Nothing to do here, we have already given names to all PHIs
+		}
+	};
 	/**
 	 * Collect the local values.
 	 * 
@@ -174,7 +214,8 @@ void NameGenerator::generateCompressedNames(const GlobalDepsAnalyzer& gda)
 	 * of all those local values.
 	 */
         
-        useValuesVec allLocalValues;
+	useValuesVec allLocalValues;
+	useInstsOnEdgeVec allTmpPHIs;
         
 	for (const Function * f : gda.functionOrderedList() )
 	{
@@ -185,32 +226,55 @@ void NameGenerator::generateCompressedNames(const GlobalDepsAnalyzer& gda)
 		if ( f->empty() ) 
 			continue;
 
-		std::set< useValuePair > thisFunctionLocals;
+		// Local values are all stored in registers
+		useValuesVec thisFunctionLocals;
 
 		// Insert all the instructions
 		for (const BasicBlock & bb : *f)
+		{
 			for (const Instruction & I : bb)
 			{
 				if ( needsName(I) )
 				{
-					thisFunctionLocals.emplace( I.getNumUses(), &I );
+					uint32_t registerId = registerize.getRegisterId(&I);
+					if (registerId >= thisFunctionLocals.size())
+						thisFunctionLocals.resize(registerId+1);
+					useValuesPair& regData = thisFunctionLocals[registerId];
+					// Add the uses for this instruction to the total count for the register
+					regData.first+=I.getNumUses();
+					// Add the instruction itself to the list of istructions
+					regData.second.push_back(&I);
 				}
 			}
+			// Handle the special names required for the edges between blocks
+			const TerminatorInst* term=bb.getTerminator();
+			for(uint32_t i=0;i<term->getNumSuccessors();i++)
+			{
+				const BasicBlock* succBB=term->getSuccessor(i);
+				CompressedPHIHandler(&bb, succBB, *this, allTmpPHIs).runOnEdge(registerize, &bb, succBB);
+			}
+		}
 
+		uint32_t currentArgPos=thisFunctionLocals.size();
+		thisFunctionLocals.resize(currentArgPos+f->arg_size());
 		// Insert the arguments
-		for ( auto arg_it = f->arg_begin(); arg_it != f->arg_end(); ++arg_it )
-			thisFunctionLocals.emplace( arg_it->getNumUses(), arg_it );
+		for ( auto arg_it = f->arg_begin(); arg_it != f->arg_end(); ++arg_it, currentArgPos++ )
+		{
+			thisFunctionLocals[currentArgPos].first = f->getNumUses();
+			thisFunctionLocals[currentArgPos].second.push_back( arg_it );
+		}
 
 		// Resize allLocalValues so that we have empty useValuesPair at the end of the container
 		if ( thisFunctionLocals.size() > allLocalValues.size() )
 			allLocalValues.resize( thisFunctionLocals.size() );
 
+		std::sort(thisFunctionLocals.begin(),thisFunctionLocals.end());
 		auto dst_it = allLocalValues.begin();
 
 		for (auto src_it = thisFunctionLocals.rbegin(); src_it != thisFunctionLocals.rend(); ++src_it, ++dst_it )
 		{
 			dst_it->first += src_it->first;
-			dst_it->second.push_back( src_it->second );
+			dst_it->second.insert(dst_it->second.end(), src_it->second.begin(), src_it->second.end());
 		}
 	}
         
@@ -258,22 +322,29 @@ void NameGenerator::generateCompressedNames(const GlobalDepsAnalyzer& gda)
 	 */
 	name_iterator<JSSymbols> name_it;
 	
-	// Instead of merging allGlobalValues and allLocalValues, we iterate
-	// over *both* of them, incrementing selectively only one of the iterator
+	// We need to iterate over allGlobalValues, allLocalValues and allTmpPHIs
+	// at the same time incrementing selectively only one of the iterators
 	
 	std::set< useValuePair >::const_iterator global_it = allGlobalValues.begin();
 	useValuesVec::const_iterator local_it = allLocalValues.begin();
+	useInstsOnEdgeVec::const_iterator tmpphi_it = allTmpPHIs.begin();
 
-	for ( ; global_it != allGlobalValues.end() && local_it != allLocalValues.end(); ++name_it )
+	bool globalsFinished = global_it == allGlobalValues.end();
+	bool localsFinished = local_it == allLocalValues.end();
+	bool tmpPHIsFinished = tmpphi_it == allTmpPHIs.end();
+	for ( ; !globalsFinished || !localsFinished || !tmpPHIsFinished; ++name_it )
 	{
-		if ( global_it->first >= local_it->first )
+		if ( !globalsFinished &&
+			(localsFinished || global_it->first >= local_it->first) &&
+			(tmpPHIsFinished || global_it->first >= tmpphi_it->first))
 		{
 			// Assign this name to a global value
 			namemap.emplace( global_it->second, *name_it );
-			
 			++global_it;
 		}
-		else
+		else if ( !localsFinished &&
+			(globalsFinished || local_it->first >= global_it->first) &&
+			(tmpPHIsFinished || local_it->first >= tmpphi_it->first))
 		{
 			// Assign this name to all the local values
 			for ( const Value * v : local_it->second )
@@ -281,34 +352,85 @@ void NameGenerator::generateCompressedNames(const GlobalDepsAnalyzer& gda)
 			
 			++local_it;
 		}
+		else
+		{
+			// Assign this name to all the tmpphis
+			for ( const InstOnEdge& i : tmpphi_it->second )
+				edgeNamemap.emplace( i, StringRef(*name_it));
+			
+			++tmpphi_it;
+		}
+		globalsFinished = global_it == allGlobalValues.end();
+		localsFinished = local_it == allLocalValues.end();
+		tmpPHIsFinished = tmpphi_it == allTmpPHIs.end();
 	}
-
-	// Assign remaining vars        
-	for ( ; global_it != allGlobalValues.end(); ++global_it, ++name_it )
-		namemap.emplace( global_it->second, *name_it );
-
-	for ( ; local_it != allLocalValues.end(); ++local_it, ++name_it )
-		for ( const Value * v : local_it->second )
-			namemap.emplace( v, *name_it );
 }
 
 void NameGenerator::generateReadableNames(const GlobalDepsAnalyzer& gda)
 {
+	// Class to handle giving names to temporary variables needed for recursively dependent PHIs
+	class ReadablePHIHandler: public EndOfBlockPHIHandler
+	{
+	public:
+		ReadablePHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n ):
+			fromBB(f), toBB(t), namegen(n), nextIndex(0)
+		{
+		}
+	private:
+		const BasicBlock* fromBB;
+		const BasicBlock* toBB;
+		NameGenerator& namegen;
+		uint32_t nextIndex;
+		void handleRecursivePHIDependency(const Instruction* phi) override
+		{
+			uint32_t regId=namegen.registerize.getRegisterId(phi);
+			namegen.edgeNamemap.emplace( InstOnEdge{fromBB, toBB, regId},
+							StringRef( "tmpphi" + std::to_string(nextIndex++)));
+		}
+		void handlePHI(const Instruction* phi, const Value* incoming) override
+		{
+			// Nothing to do here, we have already given names to all PHIs
+		}
+	};
 	for (const Function * f : gda.functionOrderedList() )
 	{
-		unsigned tmpCounter = 0;
+		// Temporary mapping between registers and names
+		// NOTE: We only store references to names in the namemap
+		std::unordered_map<uint32_t, llvm::SmallString<4>& > regmap;
 
 		for (const BasicBlock & bb : *f)
+		{
 			for (const Instruction & I : bb)
 			{
 				if ( needsName(I) )
 				{
-					if ( I.hasName() )
-						namemap.emplace( &I, filterLLVMName(I.getName(), false) );
+					uint32_t registerId = registerize.getRegisterId(&I);
+					// If the register already has a name, use it
+					// Otherwise assign one as good as possible and assign it to the register as well
+					auto regNameIt = regmap.find(registerId);
+					if(regNameIt != regmap.end())
+						namemap.emplace( &I, regNameIt->second );
+					else if ( I.hasName() )
+					{
+						auto it=namemap.emplace( &I, filterLLVMName(I.getName(), false) ).first;
+						regmap.emplace( registerId, it->second );
+					}
 					else
-						namemap.emplace( &I, StringRef( "tmp" + std::to_string(tmpCounter++) ) );
+					{
+						auto it=namemap.emplace( &I,
+							StringRef( "tmp" + std::to_string(registerId) ) ).first;
+						regmap.emplace( registerId, it->second );
+					}
 				}
 			}
+			// Handle the special names required for the edges between blocks
+			const TerminatorInst* term=bb.getTerminator();
+			for(uint32_t i=0;i<term->getNumSuccessors();i++)
+			{
+				const BasicBlock* succBB=term->getSuccessor(i);
+				ReadablePHIHandler(&bb, succBB, *this).runOnEdge(registerize, &bb, succBB);
+			}
+		}
 
 		unsigned argCounter = 0;
 		for ( auto arg_it = f->arg_begin(); arg_it != f->arg_end(); ++arg_it )
