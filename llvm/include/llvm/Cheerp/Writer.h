@@ -16,6 +16,7 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
+#include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Module.h"
@@ -139,6 +140,7 @@ private:
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
 	const PointerAnalyzer & PA;
+	const Registerize & registerize;
 
 	GlobalDepsAnalyzer globalDeps;
 	NameGenerator namegen;
@@ -306,9 +308,10 @@ private:
 	void compileClassesExportedToJs();
 public:
 	ostream_proxy stream;
-	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
-	             const std::string& sourceMapName, llvm::raw_ostream* sourceMap, bool ReadableOutput):
-		module(m),targetData(&m),currentFun(NULL),PA(PA),globalDeps(m), namegen(globalDeps, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
+	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
+	             const std::string& sourceMapName, llvm::raw_ostream* sourceMap, bool ReadableOutput, bool NoRegisterize):
+		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(m),
+		namegen(globalDeps, registerize, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
 		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
 		stream(s, ReadableOutput)
 	{

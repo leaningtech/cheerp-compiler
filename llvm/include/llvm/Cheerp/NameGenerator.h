@@ -15,6 +15,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Cheerp/Registerize.h"
 #include <unordered_map>
 
 namespace cheerp {
@@ -22,6 +23,7 @@ namespace cheerp {
 class GlobalDepsAnalyzer;
 
 // This class is responsible for generate unique names for a llvm::Value
+// The class is dependent on registerize to work properly
 class NameGenerator
 {
 public:
@@ -29,7 +31,7 @@ public:
 	 * This initialize the namegenerator by collecting
 	 * all the global variable names
 	 */
-	explicit NameGenerator( const GlobalDepsAnalyzer &, bool makeReadableNames = true );
+	explicit NameGenerator( const GlobalDepsAnalyzer &, const Registerize &, bool makeReadableNames = true );
 
 	/**
 	 * Return the computed name for the given variable.
@@ -39,11 +41,28 @@ public:
 	{
 		assert(namemap.count(v) );
 		assert(! namemap.at(v).empty() );
+		if(!edgeContext.isNull())
+			return getNameForEdge(v);
 		return namemap.at(v);
 	}
 
-	// This will be removed when we will entirely get rid of PHIs.
-	uint32_t getUniqueIndexForPHI(const llvm::Function * f);
+	/**
+	 * Same as getName, but supports the required temporary variables in edges between blocks
+	 * It uses the current edge context.
+	*/
+	llvm::StringRef getNameForEdge(const llvm::Value* v) const;
+
+	void setEdgeContext(const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB)
+	{
+		assert(edgeContext.isNull());
+		edgeContext.fromBB=fromBB;
+		edgeContext.toBB=toBB;
+	}
+
+	void clearEdgeContext()
+	{
+		edgeContext.clear();
+	}
 
 	// Filter the original string so that it no longer contains invalid JS characters.
 	static llvm::SmallString<4> filterLLVMName( llvm::StringRef, bool isGlobalName );
@@ -55,8 +74,47 @@ private:
 	// Determine if an instruction actually needs a name
 	bool needsName(const llvm::Instruction &) const;
 
+	const Registerize& registerize;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
-	std::unordered_map<const llvm::Function *, uint32_t> currentUniqueIndexForPHI;
+	struct InstOnEdge
+	{
+		const llvm::BasicBlock* fromBB;
+		const llvm::BasicBlock* toBB;
+		uint32_t registerId;
+		bool operator==(const InstOnEdge& r) const
+		{
+			return fromBB==r.fromBB && toBB==r.toBB && registerId==r.registerId;
+		}
+		struct Hash
+		{
+			size_t operator()(const InstOnEdge& i) const
+			{
+				return std::hash<const llvm::BasicBlock*>()(i.fromBB) ^
+					std::hash<const llvm::BasicBlock*>()(i.toBB) ^
+					std::hash<uint32_t>()(i.registerId);
+			}
+		};
+	};
+	typedef std::unordered_map<InstOnEdge, llvm::SmallString<8>, InstOnEdge::Hash > EdgeNameMapTy;
+	EdgeNameMapTy edgeNamemap;
+	struct EdgeContext
+	{
+		const llvm::BasicBlock* fromBB;
+		const llvm::BasicBlock* toBB;
+		EdgeContext():fromBB(NULL), toBB(NULL)
+		{
+		}
+		bool isNull() const
+		{
+			return fromBB==NULL;
+		}
+		void clear()
+		{
+			fromBB=NULL;
+			toBB=NULL;
+		}
+	};
+	EdgeContext edgeContext;
 };
 
 }
