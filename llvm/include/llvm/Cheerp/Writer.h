@@ -269,7 +269,7 @@ private:
 	void compileMethodArgs(llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, llvm::ImmutableCallSite);
 	COMPILE_INSTRUCTION_FEEDBACK compileTerminatorInstruction(const llvm::TerminatorInst& I);
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I);
-	bool compileInlineableInstruction(const llvm::Instruction& I);
+	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I);
 
 	void compileSignedInteger(const llvm::Value* v);
 	void compileUnsignedInteger(const llvm::Value* v);
