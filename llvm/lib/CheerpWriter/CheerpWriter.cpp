@@ -1581,7 +1581,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			return COMPILE_OK;
 		}
 		default:
-			return compileInlineableInstruction(I)?COMPILE_OK:COMPILE_UNSUPPORTED;
+			return compileInlineableInstruction(I);
 	}
 }
 
@@ -1721,7 +1721,7 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v)
  * This can be used for both named instructions and inlined ones
  * NOTE: Call, Ret, Invoke are NEVER inlined
  */
-bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
+CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstruction(const Instruction& I)
 {
 	switch(I.getOpcode())
 	{
@@ -1747,11 +1747,11 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 				stream << '(';
 				compileCompleteObject(bi.getOperand(0));
 				stream << ".buffer), o:0}";
-				return true;
+				return COMPILE_OK;
 			}
 
 			compilePointerAs(bi.getOperand(0), PA.getPointerKind(&I));
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::FPToSI:
 		{
@@ -1761,7 +1761,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//Seems to be the fastest way
 			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
 			stream << ">>0)";
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::FPToUI:
 		{
@@ -1772,7 +1772,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			//ECMA-262 guarantees that (a >> 0) >>> 0
 			//is the same as (a >>> 0)
 			stream << ">>0)";
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::SIToFP:
 		{
@@ -1780,7 +1780,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "(+";
 			compileOperand(ci.getOperand(0));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::UIToFP:
 		{
@@ -1789,7 +1789,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "(+(";
 			compileOperand(ci.getOperand(0));
 			stream << ">>>0))";
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::GetElementPtr:
 		{
@@ -1807,7 +1807,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			{
 				compileGEP(&gep, PA.getPointerKind(&gep));
 			}
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::Add:
 		{
@@ -1822,7 +1822,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			else
 				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::FAdd:
 		{
@@ -1832,12 +1832,12 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '+';
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::Sub:
 		{
 			compileSubtraction(I.getOperand(0), I.getOperand(1));
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::FSub:
 		{
@@ -1848,7 +1848,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '-';
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::ZExt:
 		{
@@ -1871,7 +1871,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 				//The value might have been initialized with a negative value
 				compileUnsignedInteger(I.getOperand(0));
 			}
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::SDiv:
 		{
@@ -1881,7 +1881,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '/';
 			compileSignedInteger(I.getOperand(1));
 			stream << ")>>0)";
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::UDiv:
 		{
@@ -1891,7 +1891,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '/';
 			compileUnsignedInteger(I.getOperand(1));
 			stream << ")>>>0)";
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::SRem:
 		{
@@ -1901,7 +1901,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '%';
 			compileSignedInteger(I.getOperand(1));
 			stream << ")>>0)";
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::URem:
 		{
@@ -1911,7 +1911,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '%';
 			compileUnsignedInteger(I.getOperand(1));
 			stream << ")>>>0)";
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::FDiv:
 		{
@@ -1921,7 +1921,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '/';
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::Mul:
 		{
@@ -1936,7 +1936,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			else
 				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::FMul:
 		{
@@ -1946,7 +1946,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '*';
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::ICmp:
 		{
@@ -1955,7 +1955,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '(';
 			compileIntegerComparison(ci.getOperand(0), ci.getOperand(1), ci.getPredicate());
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::FCmp:
 		{
@@ -1987,7 +1987,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 				compileOperand(ci.getOperand(1));
 			}
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::And:
 		{
@@ -1998,7 +1998,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '&';
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::LShr:
 		{
@@ -2009,7 +2009,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ">>>";
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::AShr:
 		{
@@ -2023,7 +2023,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ">>";
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::Shl:
 		{
@@ -2034,7 +2034,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << "<<";
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::Or:
 		{
@@ -2045,7 +2045,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '|';
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::Xor:
 		{
@@ -2058,7 +2058,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '^';
 			compileOperand(I.getOperand(1));
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::Trunc:
 		{
@@ -2068,13 +2068,13 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << '(';
 			compileOperand(I.getOperand(0));
 			stream << '&' << getMaskForBitWidth(finalSize) << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::SExt:
 		{
 			//We can use a couple of shift to make this work
 			compileSignedInteger(I.getOperand(0));
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::Select:
 		{
@@ -2098,7 +2098,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			}
 
 			stream << ')';
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::ExtractValue:
 		{
@@ -2109,7 +2109,7 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			{
 				llvm::errs() << "extractvalue: Expected struct, found " << *t << "\n";
 				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-				return true;
+				return COMPILE_OK;
 			}
 			assert(!isa<UndefValue>(aggr));
 
@@ -2117,25 +2117,25 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 
 			uint32_t offset=evi.getIndices()[0];
 			stream << ".a" << offset;
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::FPExt:
 		{
 			const Value* src=I.getOperand(0);
 			compileOperand(src);
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::FPTrunc:
 		{
 			const Value* src=I.getOperand(0);
 			compileOperand(src);
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::PtrToInt:
 		{
 			const PtrToIntInst& pi=cast<PtrToIntInst>(I);
 			compilePtrToInt(pi.getOperand(0));
-			return true;
+			return COMPILE_OK;
 		}
 		case Instruction::VAArg:
 		{
@@ -2145,12 +2145,12 @@ bool CheerpWriter::compileInlineableInstruction(const Instruction& I)
 			stream << ')';
 			
 			assert( globalDeps.needHandleVAArg() );
-			return true;
+			return COMPILE_OK;
 		}
 		default:
 			stream << "alert('Unsupported code')";
 			llvm::errs() << "\tImplement inst " << I.getOpcodeName() << '\n';
-			return false;
+			return COMPILE_UNSUPPORTED;
 	}
 }
 
