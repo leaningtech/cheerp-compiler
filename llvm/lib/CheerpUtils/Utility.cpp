@@ -101,18 +101,22 @@ bool isInlineable(const Instruction& I)
 		return true;
 	else if(I.hasOneUse())
 	{
-		//A few opcodes needs to be executed anyway as they
-		//do not operated on registers
 		switch(I.getOpcode())
 		{
+			// A few opcodes if immediately used in a store or return can be inlined
 			case Instruction::Call:
+			case Instruction::Load:
+			{
+				const Instruction* nextInst=I.getNextNode();
+				assert(nextInst);
+				return I.user_back()==nextInst && (isa<StoreInst>(nextInst) || isa<ReturnInst>(nextInst));
+			}
 			case Instruction::Invoke:
 			case Instruction::Ret:
 			case Instruction::LandingPad:
-			case Instruction::PHI:
-			case Instruction::Load:
 			case Instruction::Store:
 			case Instruction::InsertValue:
+			case Instruction::PHI:
 			case Instruction::Resume:
 			case Instruction::Br:
 			case Instruction::Alloca:

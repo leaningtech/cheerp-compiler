@@ -1441,30 +1441,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 
 			return COMPILE_OK;
 		}
-		case Instruction::Call:
-		{
-			const CallInst& ci = cast<CallInst>(I);
-			const Function * calledFunc = ci.getCalledFunction();
-			if(calledFunc)
-			{
-				//Direct call
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
-				if(cf!=COMPILE_UNSUPPORTED)
-					return cf;
-				stream << namegen.getName(calledFunc);
-			}
-			else
-			{
-				//Indirect call
-				compilePointerAs(ci.getCalledValue(), COMPLETE_OBJECT);
-			}
-			//If we are dealing with inline asm we are done
-			if(!ci.isInlineAsm())
-			{
-				compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(), &ci);
-			}
-			return COMPILE_OK;
-		}
 		case Instruction::LandingPad:
 		{
 			//TODO: Support exceptions
@@ -1506,40 +1482,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			compileOperand(ivi.getInsertedValueOperand());
 			return COMPILE_OK;
 		}
-		case Instruction::Load:
-		{
-			const LoadInst& li = cast<LoadInst>(I);
-			const Value* ptrOp=li.getPointerOperand();
-			stream << '(';
-
-			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
-			{
-				//Optimize loads of single values from unions
-				compilePointerBase(ptrOp);
-				Type* pointedType=ptrOp->getType()->getPointerElementType();
-				if(pointedType->isIntegerTy(8))
-					stream << ".getInt8(";
-				else if(pointedType->isIntegerTy(16))
-					stream << ".getInt16(";
-				else if(pointedType->isIntegerTy(32))
-					stream << ".getInt32(";
-				else if(pointedType->isFloatTy())
-					stream << ".getFloat32(";
-				else if(pointedType->isDoubleTy())
-					stream << ".getFloat64(";
-				compilePointerOffset(ptrOp);
-				if(!pointedType->isIntegerTy(8))
-					stream << ",true)";
-			}
-			else
-			{
-				compileCompleteObject(ptrOp);
-			}
-
-			stream << ')';
-			return COMPILE_OK;
-		}
-
 		case Instruction::Store:
 		{
 			const StoreInst& si = cast<StoreInst>(I);
@@ -2145,6 +2087,76 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			stream << ')';
 			
 			assert( globalDeps.needHandleVAArg() );
+			return COMPILE_OK;
+		}
+		case Instruction::Call:
+		{
+			const CallInst& ci = cast<CallInst>(I);
+			const Function * calledFunc = ci.getCalledFunction();
+			if(calledFunc)
+			{
+				//Direct call
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
+				if(cf!=COMPILE_UNSUPPORTED)
+					return cf;
+				stream << namegen.getName(calledFunc);
+			}
+			else
+			{
+				//Indirect call
+				compilePointerAs(ci.getCalledValue(), COMPLETE_OBJECT);
+			}
+			//If we are dealing with inline asm we are done
+			if(!ci.isInlineAsm())
+			{
+				compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(), &ci);
+			}
+			return COMPILE_OK;
+		}
+		case Instruction::Load:
+		{
+			const LoadInst& li = cast<LoadInst>(I);
+			const Value* ptrOp=li.getPointerOperand();
+			stream << '(';
+
+			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
+			{
+				//Optimize loads of single values from unions
+				compilePointerBase(ptrOp);
+				Type* pointedType=ptrOp->getType()->getPointerElementType();
+				if(pointedType->isIntegerTy(8))
+					stream << ".getInt8(";
+				else if(pointedType->isIntegerTy(16))
+					stream << ".getInt16(";
+				else if(pointedType->isIntegerTy(32))
+					stream << ".getInt32(";
+				else if(pointedType->isFloatTy())
+					stream << ".getFloat32(";
+				else if(pointedType->isDoubleTy())
+					stream << ".getFloat64(";
+				compilePointerOffset(ptrOp);
+				if(!pointedType->isIntegerTy(8))
+					stream << ",true)";
+			}
+			else
+			{
+				compileCompleteObject(ptrOp);
+			}
+			if(li.getType()->isIntegerTy())
+			{
+				uint32_t shiftAmount = 32-li.getType()->getIntegerBitWidth();
+				if(shiftAmount==0)
+				{
+					//Use simpler code
+					stream << ">>0";
+				}
+				else
+				{
+					stream << "<<" << shiftAmount << ">>" << shiftAmount;
+				}
+			}
+
+			stream << ')';
 			return COMPILE_OK;
 		}
 		default:
