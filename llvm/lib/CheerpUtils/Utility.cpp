@@ -225,6 +225,19 @@ std::string valueObjectName(const Value* v)
 	return os.str();
 }
 
+bool TypeSupport::isDerivedStructType(StructType* derivedType, StructType* baseType)
+{
+	if(derivedType->getNumElements() < baseType->getNumElements())
+		return false;
+	// If a type is derived should begin with the same fields as the base type
+	for(uint32_t i=0;i<baseType->getNumElements();i++)
+	{
+		if(derivedType->getElementType(i)!=baseType->getElementType(i))
+			return false;
+	}
+	return true;
+}
+
 bool TypeSupport::isValidTypeCast(const Value * castOp, Type * dstPtr)
 {
 	Type * srcPtr = castOp->getType();
@@ -242,12 +255,16 @@ bool TypeSupport::isValidTypeCast(const Value * castOp, Type * dstPtr)
 	if(src->isFunctionTy() && dst->isFunctionTy())
 		return true;
 
-	//Allow conversions between equivalent struct types
+	//Allow conversions between equivalent struct types and base/derived types
 	if(src->isStructTy() && dst->isStructTy())
 	{
 		StructType* srcSt = cast<StructType>(src);
 		StructType* dstSt = cast<StructType>(dst);
 		if(srcSt->isLayoutIdentical(dstSt))
+			return true;
+		if(isDerivedStructType(srcSt, dstSt))
+			return true;
+		if(isDerivedStructType(dstSt, srcSt))
 			return true;
 	}
 	if(dst->isIntegerTy(8) && !src->isFunctionTy())
@@ -273,7 +290,7 @@ bool TypeSupport::isValidTypeCast(const Value * castOp, Type * dstPtr)
 				return true;
 		}
 	}
-	if(hasByteLayout(src) && (ArrayType::classof(dst) || isTypedArrayType(dst)))
+	if(hasByteLayout(src) && (ArrayType::classof(dst) || isTypedArrayType(dst) || hasByteLayout(dst)))
 		return true;
 
 	//Allow changing the size of an array
