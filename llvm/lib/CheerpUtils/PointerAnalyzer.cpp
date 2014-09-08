@@ -195,6 +195,7 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 		case Intrinsic::cheerp_cast_user:
 			break;
 		case Intrinsic::cheerp_allocate:
+		case Intrinsic::cheerp_reallocate:
 			break;
 		case Intrinsic::cheerp_pointer_base:
 		case Intrinsic::cheerp_create_closure:
