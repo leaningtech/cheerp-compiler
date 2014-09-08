@@ -167,8 +167,8 @@ public:
 		not_an_alloc,
 		malloc,
 		calloc,
-		realloc,
 		cheerp_allocate,
+		cheerp_reallocate,
 		opnew, // operator new(unsigned int)
 		opnew_array // operator new[](unsigned int)
 	};
@@ -216,7 +216,7 @@ public:
 	const llvm::Value * getNumberOfElementsArg() const;
 
 	/**
-	 * This can be null if getAllocType() != realloc
+	 * This can be null if getAllocType() != cheerp_reallocate
 	 */
 	const llvm::Value * getMemoryArg() const;
 

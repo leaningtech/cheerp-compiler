@@ -349,10 +349,10 @@ DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( ImmutableCallSite ca
 				return malloc;
 			else if (f->getName() == "calloc")
 				return calloc;
-			else if (f->getName() == "realloc")
-				return realloc;
 			else if (f->getIntrinsicID() == Intrinsic::cheerp_allocate)
 				return cheerp_allocate;
+			else if (f->getIntrinsicID() == Intrinsic::cheerp_reallocate)
+				return cheerp_reallocate;
 			else if (f->getName() == "_Znwj")
 				return opnew;
 			else if (f->getName() == "_Znaj")
@@ -366,7 +366,7 @@ PointerType * DynamicAllocInfo::computeCastedType() const
 {
 	assert(isValidAlloc() );
 	
-	if ( type == cheerp_allocate )
+	if ( type == cheerp_allocate || type == cheerp_reallocate )
 	{
 		assert( call.getType()->isPointerTy() );
 		return cast<PointerType>(call.getType());
@@ -420,7 +420,7 @@ const Value * DynamicAllocInfo::getByteSizeArg() const
 		assert( call.arg_size() == 2 );
 		return call.getArgument(1);
 	}
-	else if ( realloc == type )
+	else if ( cheerp_reallocate == type )
 	{
 		assert( call.arg_size() == 2 );
 		return call.getArgument(1);
@@ -446,7 +446,7 @@ const Value * DynamicAllocInfo::getMemoryArg() const
 {
 	assert( isValidAlloc() );
 	
-	if ( type == realloc )
+	if ( type == cheerp_reallocate )
 	{
 		assert( call.arg_size() == 2 );
 		return call.getArgument(0);
@@ -471,7 +471,7 @@ bool DynamicAllocInfo::useCreateArrayFunc() const
 	if (getCastedType()->getElementType()->isStructTy() )
 	{
 		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType() ) );
-		return sizeIsRuntime() || type == realloc;
+		return sizeIsRuntime() || type == cheerp_reallocate;
 	}
 	return false;
 }
@@ -481,7 +481,7 @@ bool DynamicAllocInfo::useCreatePointerArrayFunc() const
 	if (getCastedType()->getElementType()->isPointerTy() )
 	{
 		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType() ) );
-		return sizeIsRuntime() || type == realloc;
+		return sizeIsRuntime() || type == cheerp_reallocate;
 	}
 	return false;
 }
