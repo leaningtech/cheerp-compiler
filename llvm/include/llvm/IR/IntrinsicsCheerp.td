@@ -58,3 +58,6 @@ def int_cheerp_create_closure : Intrinsic<[llvm_anyptr_ty],
 def int_cheerp_make_complete_object : Intrinsic<[llvm_anyptr_ty],
                                       [llvm_anyptr_ty],
                                       [IntrNoMem]>;
+def int_cheerp_make_regular : Intrinsic<[llvm_anyptr_ty],
+                                      [llvm_anyptr_ty, llvm_i32_ty],
+                                      [IntrNoMem]>;
