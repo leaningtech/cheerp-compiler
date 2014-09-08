@@ -301,11 +301,11 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		stream << "{d:";
 	}
 
-	// To implement realloc we need to strategies:
+	// To implement cheerp_reallocate we need to strategies:
 	// 1) Immutable types are stored in typed array which cannot be resized, we need to make a new one
 	//    and copy the old data over
 	// 2) Objects and pointers are stored in a regular array and we can just resize them
-	if (info.getAllocType() == DynamicAllocInfo::realloc)
+	if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 	{
 		stream << "(function(){";
 		stream << "var __old__=";
@@ -365,7 +365,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		
 		stream << "createArray" << namegen.filterLLVMName(st->getName(), true);
 		stream << '(';
-		if (info.getAllocType() == DynamicAllocInfo::realloc)
+		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 			stream << "__old__,__len__)";
 		else
 		{
@@ -383,7 +383,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	else if (info.useCreatePointerArrayFunc() )
 	{
 		stream << "createPointerArray(";
-		if (info.getAllocType() == DynamicAllocInfo::realloc)
+		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 			stream << "__old__,__len__)";
 		else
 		{
@@ -402,7 +402,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	}
 	else if (!info.sizeIsRuntime() )
 	{
-		assert( info.getAllocType() != DynamicAllocInfo::realloc );
+		assert( info.getAllocType() != DynamicAllocInfo::cheerp_reallocate );
 		// Create a plain array
 		const Value * numberOfElems = info.getNumberOfElementsArg();
 		
@@ -440,7 +440,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		llvm::report_fatal_error("Unsupported type in allocation", false);
 	}
 
-	if (info.getAllocType() == DynamicAllocInfo::realloc)
+	if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 	{
 		stream << ';' << NewLine;
 		if (info.useTypedArray())
