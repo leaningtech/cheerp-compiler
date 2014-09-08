@@ -571,6 +571,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileCompleteObject(*it);
 		return COMPILE_OK;
 	}
+	else if(instrinsicId==Intrinsic::cheerp_make_regular)
+	{
+		stream << "{d:";
+		compileCompleteObject(*it);
+		stream << ",o:";
+		compileOperand(*(it+1));
+		stream << '}';
+		return COMPILE_OK;
+	}
 	else if(instrinsicId==Intrinsic::cheerp_element_distance)
 	{
 		// TODO: Eliminate this intrinsic in a pre-processing step

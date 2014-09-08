@@ -206,6 +206,8 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 			}
 			return CacheAndReturn(COMPLETE_OBJECT);
+		case Intrinsic::cheerp_make_regular:
+			return CacheAndReturn(REGULAR);
 		case Intrinsic::memmove:
 		case Intrinsic::memcpy:
 		case Intrinsic::memset:
