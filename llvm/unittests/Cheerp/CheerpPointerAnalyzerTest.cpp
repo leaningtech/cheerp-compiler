@@ -137,6 +137,7 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(d1) );
 	}
 	
+#ifndef NDEBUG
 	/** Just dump everything, and see if some assertion fails **/
 	dumpAllPointers(*f1, PA);
 	dumpAllPointers(*f2, PA);
@@ -144,6 +145,7 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 	dumpAllPointers(*f4, PA);
 	dumpAllPointers(*f5, PA);
 	dumpAllPointers(*webMain, PA);
+#endif
 }
 
 }
