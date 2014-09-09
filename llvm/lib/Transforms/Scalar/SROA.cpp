@@ -649,12 +649,12 @@ class AllocaSlices::SliceBuilder : public PtrUseVisitor<SliceBuilder> {
   /// Set to de-duplicate dead instructions found in the use walk.
   SmallPtrSet<Instruction *, 4> VisitedDeadInsts;
 
-  Type* CastDestTy;
+  Type* AllocaTy;
 public:
   SliceBuilder(const DataLayout &DL, AllocaInst &AI, AllocaSlices &AS)
       : PtrUseVisitor<SliceBuilder>(DL),
         AllocSize(DL.getTypeAllocSize(AI.getAllocatedType()).getFixedSize()),
-        AS(AS), CastDestTy(NULL) {}
+        AS(AS), AllocaTy(AI.getAllocatedType()) {}
 
 private:
   void markAsDead(Instruction &I) {
@@ -702,10 +702,8 @@ private:
     if (BC.use_empty())
       return markAsDead(BC);
 
-    if (!CastDestTy)
-      CastDestTy = BC.getType();
-    else if (CastDestTy != BC.getType() && !DL.isByteAddressable())
-      PI.setAborted(&BC);
+    if (!DL.isByteAddressable() && AllocaTy->isStructTy() && cast<StructType>(AllocaTy)->hasByteLayout())
+      return PI.setAborted(&BC);
     return Base::visitBitCastInst(BC);
   }
 
@@ -982,9 +980,9 @@ private:
       }
 
       if (BitCastInst* BC = dyn_cast<BitCastInst>(I)) {
-        if (!CastDestTy)
-          CastDestTy = BC->getType();
-        else if (CastDestTy != BC->getType() && !DL.isByteAddressable())
+        assert(UsedI->getType()->isPointerTy());
+        Type* UsedTy = UsedI->getType()->getPointerElementType();
+        if (!DL.isByteAddressable() && UsedTy->isStructTy() && cast<StructType>(UsedTy)->hasByteLayout())
           return BC;
       }
 
