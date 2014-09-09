@@ -3,6 +3,7 @@ add_llvm_library(LLVMCheerpUtils
   NativeRewriter.cpp
   PointerAnalyzer.cpp
   PointerPasses.cpp
+  ReplaceNopCasts.cpp
   ResolveAliases.cpp
   Registerize.cpp
   StructMemFuncLowering.cpp
