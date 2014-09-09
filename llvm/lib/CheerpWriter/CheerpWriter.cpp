@@ -1681,11 +1681,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const BitCastInst& bi = cast<BitCastInst>(I);
 			Type* src=bi.getSrcTy();
 			Type* dst=bi.getDestTy();
-			if(!TypeSupport::isValidTypeCast(bi.getOperand(0), dst))
-			{
-				llvm::errs() << "Between:\n\t" << *src << "\n\t" << *dst << "\n";
-				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
-			}
 			//Special case unions
 			if(src->isPointerTy() && TypeSupport::hasByteLayout(src->getPointerElementType()))
 			{
