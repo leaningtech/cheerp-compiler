@@ -400,6 +400,20 @@ bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const In
 	return true;
 }
 
+void Registerize::invalidateFunction(llvm::Function& F)
+{
+	for(const llvm::BasicBlock& BB: F)
+	{
+		for(const llvm::Instruction& I: BB)
+		{
+			// It's safe to delete non existing keys
+			registersMap.erase(&I);
+			if(const AllocaInst* AI=dyn_cast<AllocaInst>(&I))
+				allocaLiveRanges.erase(AI);
+		}
+	}
+}
+
 ModulePass* createRegisterizePass(bool NoRegisterize)
 {
 	return new Registerize(NoRegisterize);
