@@ -16,6 +16,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -52,10 +53,10 @@ void Registerize::InstructionLiveRange::addUse(uint32_t curCodePath, uint32_t th
 	// If we are still in the same code path we can directly extend the last range
 	// since inside a code path the instructions are numbered sequentially
 	if(codePathId==curCodePath)
-		ranges.back().end=thisIndex;
+		range.back().end=thisIndex;
 	else
 	{
-		ranges.push_back({curCodePath, thisIndex});
+		range.push_back({curCodePath, thisIndex});
 		codePathId=curCodePath;
 	}
 }
@@ -89,7 +90,7 @@ void Registerize::handleFunction(Function& F)
 		for(auto it: liveRanges)
 		{
 			DEBUG(dbgs() << "Instruction " << *it.first << " alive in ranges ");
-			for(const Registerize::LiveRangeChunk& chunk: it.second.ranges)
+			for(const Registerize::LiveRangeChunk& chunk: it.second.range)
 				DEBUG(dbgs() << '[' << chunk.start << ',' << chunk.end << ')');
 			DEBUG(dbgs() << "\n");
 			DEBUG(dbgs() << "\tMapped to register " << registersMap[it.first] << "\n");
@@ -185,7 +186,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		{
 			InstructionLiveRange& range=liveRanges.emplace(&I,
 				InstructionLiveRange(codePathId)).first->second;
-			range.ranges.push_back({thisIndex, thisIndex});
+			range.range.push_back({thisIndex, thisIndex});
 		}
 		// Operands of PHIs are declared as live out from the source block.
 		// This is handled below.
@@ -329,7 +330,7 @@ uint32_t Registerize::findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& 
 			return i;
 	}
 	// Create a new register with the range of the current instruction already used
-	registers.push_back(RegisterRange(range, kind));
+	registers.push_back(RegisterRange(range.range, kind));
 	return registers.size()-1;
 }
 
@@ -345,37 +346,55 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(llvm::Type* t)
 		return OBJECT;
 }
 
+bool Registerize::LiveRange::doesInterfere(const LiveRange& other) const
+{
+	// Check if all the ranges in this range fit inside other's holes
+	llvm::SmallVector<LiveRangeChunk, 4>::const_iterator otherIt = other.begin();
+	llvm::SmallVector<LiveRangeChunk, 4>::const_iterator otherItE = other.end();
+	llvm::SmallVector<LiveRangeChunk, 4>::const_iterator thisIt = begin();
+	llvm::SmallVector<LiveRangeChunk, 4>::const_iterator thisItE = end();
+	while(otherIt!=otherItE && thisIt!=thisItE)
+	{
+		// Case 1: thisRange << otherRange
+		if(thisIt->start < otherIt->start && thisIt->end <= otherIt->start)
+		{
+			// Move to the next range of this
+			++thisIt;
+			continue;
+		}
+		// Case 2: otherRange << thisRange
+		if(otherIt->start < thisIt->start && otherIt->end <= thisIt->start)
+		{
+			// Move the the next range of other
+			++otherIt;
+			continue;
+		}
+		return true;
+	}
+	return false;
+}
+
+void Registerize::LiveRange::merge(const LiveRange& other)
+{
+	insert(end(), other.begin(), other.end());
+	std::sort(begin(), end());
+	//TODO: Merge adjacent ranges
+}
+
+void Registerize::LiveRange::dump() const
+{
+	for(const Registerize::LiveRangeChunk& chunk: *this)
+		dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
+}
+
 bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange,
 						REGISTER_KIND kind)
 {
 	if(regRange.regKind!=kind)
 		return false;
-	// Check if all the ranges in liveRange fit inside regRange holes
-	llvm::SmallVector<LiveRangeChunk, 4>::const_iterator regRangeIt = regRange.ranges.begin();
-	llvm::SmallVector<LiveRangeChunk, 4>::const_iterator regRangeItE = regRange.ranges.end();
-	llvm::SmallVector<LiveRangeChunk, 4>::const_iterator liveRangeIt = liveRange.ranges.begin();
-	llvm::SmallVector<LiveRangeChunk, 4>::const_iterator liveRangeItE = liveRange.ranges.end();
-	while(regRangeIt!=regRangeItE && liveRangeIt!=liveRangeItE)
-	{
-		// Case 1: liveRange << regRange
-		if(liveRangeIt->start < regRangeIt->start && liveRangeIt->end <= regRangeIt->start)
-		{
-			// Move to the next live range
-			++liveRangeIt;
-			continue;
-		}
-		// Case 2: regRange << liveRange
-		if(regRangeIt->start < liveRangeIt->start && regRangeIt->end <= liveRangeIt->start)
-		{
-			// Move the the next register range
-			++regRangeIt;
-			continue;
-		}
+	if(regRange.range.doesInterfere(liveRange.range))
 		return false;
-	}
-	// Add the ranges to the register and sort them
-	regRange.ranges.insert(regRange.ranges.end(), liveRange.ranges.begin(), liveRange.ranges.end());
-	std::sort(regRange.ranges.begin(), regRange.ranges.end());
+	regRange.range.merge(liveRange.range);
 	return true;
 }
 
