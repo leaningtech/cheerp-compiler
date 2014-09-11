@@ -24,6 +24,30 @@ namespace cheerp
 class Registerize : public llvm::ModulePass
 {
 public:
+	struct LiveRangeChunk
+	{
+		// [start,end)
+		uint32_t start;
+		uint32_t end;
+		bool operator<(const LiveRangeChunk& r) const
+		{
+			return start < r.start;
+		}
+	};
+	struct LiveRange: public llvm::SmallVector<LiveRangeChunk, 4>
+	{
+		LiveRange()
+		{
+		}
+		template<class Iterator>
+		LiveRange(const Iterator& begin, const Iterator& end):llvm::SmallVector<LiveRangeChunk, 4>(begin,end)
+		{
+		}
+		bool doesInterfere(const LiveRange& other) const;
+		void merge(const LiveRange& other);
+		void dump() const;
+	};
+
 	static char ID;
 	
 	explicit Registerize(bool n) : ModulePass(ID), NoRegisterize(n) { }
@@ -40,22 +64,12 @@ private:
 	std::map<const llvm::Instruction*, uint32_t> registersMap;
 	bool NoRegisterize;
 	// Temporary data structure that represent a range
-	struct LiveRangeChunk
-	{
-		// [start,end)
-		uint32_t start;
-		uint32_t end;
-		bool operator<(const LiveRangeChunk& r) const
-		{
-			return start < r.start;
-		}
-	};
 	// Temporary data structure used to compute the live range of an instruction
 	struct InstructionLiveRange
 	{
 		// codePathId is used to efficently coalesce uses in a sequential range when possible
 		uint32_t codePathId;
-		llvm::SmallVector<LiveRangeChunk, 4> ranges;
+		LiveRange range;
 		InstructionLiveRange(uint32_t c): codePathId(c)
 		{
 		}
@@ -67,9 +81,9 @@ private:
 	enum REGISTER_KIND { OBJECT=0, INTEGER, FLOAT, DOUBLE };
 	struct RegisterRange
 	{
-		llvm::SmallVector<LiveRangeChunk, 4> ranges;
+		LiveRange range;
 		REGISTER_KIND regKind;
-		RegisterRange(const InstructionLiveRange& range, REGISTER_KIND k):ranges(range.ranges),regKind(k)
+		RegisterRange(const LiveRange& range, REGISTER_KIND k):range(range),regKind(k)
 		{
 		}
 	};
