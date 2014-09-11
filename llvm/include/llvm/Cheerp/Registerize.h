@@ -13,6 +13,7 @@
 #define _CHEERP_REGISTERIZE_H
 
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
 #include <set>
 
 namespace cheerp
@@ -62,9 +63,16 @@ public:
 
 	void handleFunction(llvm::Function& F);
 	void invalidateFunction(llvm::Function& F);
+
+	const LiveRange& getLiveRangeForAlloca(const llvm::AllocaInst* alloca) const
+	{
+		assert(allocaLiveRanges.count(alloca));
+		return allocaLiveRanges.find(alloca)->second;
+	}
 private:
-	// Final data structure
+	// Final data structures
 	std::map<const llvm::Instruction*, uint32_t> registersMap;
+	std::map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
 	bool NoRegisterize;
 	// Temporary data structure used to compute the live range of an instruction
 	struct InstructionLiveRange
@@ -120,9 +128,35 @@ private:
 		}
 	};
 	typedef std::map<llvm::BasicBlock*, BlockState> BlocksState;
+	// Temporary data used to registerize allocas
+	typedef std::vector<llvm::AllocaInst*> AllocaSetTy;
+	typedef std::map<uint32_t, uint32_t> RangeChunksTy;
+	struct AllocaBlockState
+	{
+		bool liveOut:1;
+		// If notLiveOut is true we know that the blocks above do not ever use the alloca
+		bool notLiveOut:1;
+		bool visited:1;
+		bool inLoop:1;
+		AllocaBlockState():liveOut(false),notLiveOut(false),visited(false)
+		{
+		}
+	};
+	struct AllocaBlocksState: public std::map<llvm::BasicBlock*, AllocaBlockState>
+	{
+		std::vector<llvm::BasicBlock*> pendingBlocks;
+		void markAndFlushPendingBlocks()
+		{
+			for(llvm::BasicBlock* BB: pendingBlocks)
+			{
+				assert(count(BB));
+				find(BB)->second.liveOut=true;
+			}
+			pendingBlocks.clear();
+		}
+	};
 
-	void handleFunction(llvm::Function& F);
-	LiveRangesTy computeLiveRanges(llvm::Function& F, InstIdMapTy& instIdMap);
+	LiveRangesTy computeLiveRanges(llvm::Function& F, InstIdMapTy& instIdMap, AllocaSetTy& allocaSet);
 	void doUpAndMark(BlocksState& blocksState, llvm::BasicBlock* BB, llvm::Instruction* I);
 	uint32_t dfsLiveRangeInBlock(BlocksState& blockState, LiveRangesTy& liveRanges, InstIdMapTy& instIdMap,
 					llvm::BasicBlock& BB, uint32_t nextIndex, uint32_t codePathId);
@@ -134,6 +168,11 @@ private:
 					REGISTER_KIND kind);
 	static REGISTER_KIND getRegKindFromType(llvm::Type*);
 	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind);
+	void computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap);
+	std::set<llvm::Instruction*> gatherDerivedMemoryAccesses(llvm::AllocaInst* rootI);
+	bool doUpAndMarkForAlloca(AllocaBlocksState& blocksState, const std::set<llvm::Instruction*>& allUses,
+				RangeChunksTy& allocaRanges, const InstIdMapTy& instIdMap,
+				llvm::BasicBlock* BB, llvm::AllocaInst* alloca);
 };
 
 llvm::ModulePass *createRegisterizePass(bool NoRegisterize);

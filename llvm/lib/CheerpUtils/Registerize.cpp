@@ -1,4 +1,4 @@
-//===-- Registerize.cpp - TTODO -----------------===//
+//===-- Registerize.cpp - Compute live ranges to minimize variables--------===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
@@ -15,6 +15,8 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -73,6 +75,11 @@ void Registerize::handleFunction(Function& F)
 		{
 			for(Instruction& I: BB)
 			{
+				if(AllocaInst* AI=dyn_cast<AllocaInst>(&I))
+				{
+					// Initialize an empty live range, which means that the alloca escapes analysis
+					allocaLiveRanges[AI];
+				}
 				if (isInlineable(I) || I.getType()->isVoidTy())
 					continue;
 				registersMap[&I]=nextRegister++;
@@ -81,11 +88,14 @@ void Registerize::handleFunction(Function& F)
 	}
 	else
 	{
+		AllocaSetTy allocaSet;
 		InstIdMapTy instIdMap;
 		// First, build live ranges for all instructions
-		LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap);
+		LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap, allocaSet);
 		// Assign each instruction to a virtual register
 		assignToRegisters(liveRanges);
+		// Now compute live ranges for alloca memory which is not in SSA form
+		computeAllocaLiveRanges(allocaSet, instIdMap);
 		// To debug we need to know the ranges for each instructions and the assigned register
 		DEBUG(dbgs() << F);
 		for(auto it: liveRanges)
@@ -96,16 +106,27 @@ void Registerize::handleFunction(Function& F)
 			DEBUG(dbgs() << "\n");
 			DEBUG(dbgs() << "\tMapped to register " << registersMap[it.first] << "\n");
 		}
+		for(auto it: allocaLiveRanges)
+		{
+			DEBUG(dbgs() << "Alloca " << *it.first << " alive in ranges ");
+			for(const Registerize::LiveRangeChunk& chunk: it.second)
+				DEBUG(dbgs() << '[' << chunk.start << ',' << chunk.end << ')');
+			DEBUG(dbgs() << "\n");
+		}
 	}
 }
 
-Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, InstIdMapTy& instIdMap)
+Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, InstIdMapTy& instIdMap, AllocaSetTy& allocaSet)
 {
 	BlocksState blocksState;
 	for(BasicBlock& BB: F)
 	{
 		for(Instruction& I: BB)
 		{
+			// Take our chance to store away all alloca, they are registerized
+			// later on using non-SSA logic
+			if (isa<AllocaInst>(I))
+				allocaSet.push_back(cast<AllocaInst>(&I));
 			// Start from each use and trace up until the definition is found
 			for(Use& U: I.uses())
 			{
@@ -398,6 +419,261 @@ bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const In
 		return false;
 	regRange.range.merge(liveRange.range);
 	return true;
+}
+
+void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap)
+{
+	for(AllocaInst* alloca: allocaSet)
+	{
+		AllocaBlocksState blocksState;
+		RangeChunksTy ranges;
+		// For each alloca gather all uses and derived uses
+		std::set<Instruction*> allUses=gatherDerivedMemoryAccesses(alloca);
+		if(allUses.empty())
+		{
+			// Initialize an empty live range to signal that no analysis is possible
+			allocaLiveRanges[alloca];
+			continue;
+		}
+		// Now we run a modified up and mark algorithm on every use
+		// For each use, get the parent block
+		// 1) Find all uses in the block to build a base use range, also set the inLoop flag for the block
+		// 2) Recursively navigate predecessors, if any use is found extend the live range
+		// 3) If no use is found in a block, put it in a list of pending blocks and proceed to the predecessors
+		// 4) If a loop is found and the inLoop flag is set mark all pending blocks with the inLoop and live-out flags
+		// 4) When a use is found mark all pending blocks with the inLoop and live-out flags
+		// 4) If a lifetime_start intrinsic is found we can stop immediately as above the memory would be not valid
+		for(Instruction* I: allUses)
+		{
+			assert(instIdMap.count(I));
+			uint32_t instId=instIdMap.find(I)->second;
+			auto it=ranges.upper_bound(instId);
+			// Check if the instruction id is inside an already explored range and if so skip it.
+			if(it!=ranges.begin())
+			{
+				--it;
+				if(it->first <= instId && instId < it->second)
+					continue;
+			}
+			// Memory may be used until the end of the opcode (especially valid for calls)
+			LiveRangeChunk localRange{instId, instId+1};
+			BasicBlock* BB=I->getParent();
+			AllocaBlockState& blockState=blocksState[BB];
+			blockState.visited=true;
+			blockState.inLoop=true;
+			bool onlyLocal=false;
+			// Iterate on instructions of the parent block while expanding the range as much as possible
+			for(Instruction& I: *BB)
+			{
+				if(allUses.count(&I))
+				{
+					assert(instIdMap.count(&I));
+					uint32_t useId=instIdMap.find(&I)->second;
+					if(useId < localRange.start)
+						localRange.start=useId;
+					if(useId+1 > localRange.end)
+						localRange.end=useId+1;
+					// If we find a lifetime_start intrinsic we can skip the predecessors
+					if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
+					{
+						if(II->getIntrinsicID()==Intrinsic::lifetime_start)
+							onlyLocal=true;
+					}
+				}
+			}
+			// We need to know if the range should start from the beginning of the block,
+			// so we need to check the predecessors blocks
+			if(!onlyLocal)
+			{
+				bool alreadyLiveIn=false;
+				for(::pred_iterator it=pred_begin(BB);it!=pred_end(BB);++it)
+				{
+					bool predecessorUse=doUpAndMarkForAlloca(blocksState, allUses, ranges,
+										instIdMap, *it, alloca);
+					if(predecessorUse && !alreadyLiveIn)
+					{
+						localRange.start=instIdMap.find(&(*BB->begin()))->second;
+						alreadyLiveIn=true;
+					}
+				}
+			}
+			blockState.visited=false;
+			if(blockState.liveOut)
+				localRange.end=instIdMap.find(&(*BB->rbegin()))->second+1;
+			ranges[localRange.start]=localRange.end;
+		}
+		// Construct the vector uf use ranges
+		LiveRange& allocaRanges=allocaLiveRanges[alloca];
+		for(auto& it: ranges)
+		{
+			// Extend the previous range if possible
+			if(!allocaRanges.empty() && allocaRanges.back().end==it.first)
+				allocaRanges.back().end=it.second;
+			else
+				allocaRanges.push_back({it.first,it.second});
+		}
+	}
+}
+
+/*
+	Returns the set of instruction which access memory derived from the passed Alloca
+*/
+std::set<Instruction*> Registerize::gatherDerivedMemoryAccesses(AllocaInst* rootI)
+{
+	SmallVector<Use*, 10> allUses;
+	for(Use& U: rootI->uses())
+		allUses.push_back(&U);
+
+	bool escapes = false;
+	// NOTE: allUses.size() will grow over time, that's fine
+	for(uint32_t i=0;i<allUses.size();i++)
+	{
+		Use* U = allUses[i];
+		Instruction* I = cast<Instruction>(U->getUser());
+		switch(I->getOpcode())
+		{
+			case Instruction::BitCast:
+			case Instruction::GetElementPtr:
+			{
+				// Check derived uses
+				for(Use& U: I->uses())
+					allUses.push_back(&U);
+				break;
+			}
+			case Instruction::Store:
+			{
+				// If we are storing away one of the values, it escape
+				// NOTE: Operand 0 is the value
+				if (U->getOperandNo() == 0)
+					escapes = true;
+				break;
+			}
+			case Instruction::Load:
+			{
+				// Loads are fine
+				break;
+			}
+			case Instruction::Call:
+			{
+				const CallInst* CI = cast<CallInst>(I);
+				const Function* F = CI->getCalledFunction();
+				// Lifetime intrinsics are ok
+				if(F && (F->getIntrinsicID()==Intrinsic::lifetime_start ||
+					F->getIntrinsicID()==Intrinsic::lifetime_end))
+				{
+					break;
+				}
+				// This escapes, unless the argument is flagged as nocapture
+				//NOTE: Parameter attributes start at index 1
+				if(F && F->getAttributes().hasAttribute(U->getOperandNo()+1, Attribute::NoCapture))
+					break;
+				escapes = true;
+				break;
+			}
+			default:
+				// Be conservative
+				escapes = true;
+				break;
+		}
+		if (escapes)
+		{
+			allUses.clear();
+			break;
+		}
+	}
+	std::set<Instruction*> ret;
+	for(const Use* U: allUses)
+	{
+		Instruction* userI=cast<Instruction>(U->getUser());
+		// Skip instruction which only touch the pointer and not the actual memory
+		if(isa<BitCastInst>(userI) || isa<GetElementPtrInst>(userI))
+			continue;
+		ret.insert(userI);
+	}
+	return ret;
+}
+
+bool Registerize::doUpAndMarkForAlloca(AllocaBlocksState& blocksState, const std::set<Instruction*>& allUses,
+				RangeChunksTy& allocaRanges, const InstIdMapTy& instIdMap, BasicBlock* BB, AllocaInst* alloca)
+{
+	AllocaBlockState& blockState=blocksState[BB];
+	// We have encountered this block before so we are inside a loop.
+	if (blockState.visited)
+	{
+		// If the inLoop flag is set we need to set all pending blocks to live-out
+		if(blockState.inLoop)
+		{
+			blocksState.markAndFlushPendingBlocks();
+			return true;
+		}
+		return false;
+	}
+	// Even if not in a loop we may have already visited this block from some other path
+	if (blockState.liveOut)
+	{
+		blocksState.markAndFlushPendingBlocks();
+		return true;
+	}
+	// Or we could now already that the alloca is not live out from this block
+	if (blockState.notLiveOut)
+		return false;
+	blockState.visited=true;
+	uint32_t firstUseId=0xffffffff;
+	bool alreadyLiveIn=false;
+	bool onlyLocal=false;
+	// We only need to look for the earliest use, since the ones in the middle are inside the range anyway
+	for(Instruction& I: *BB)
+	{
+		if(allUses.count(&I))
+		{
+			// We have found a use inside a predecessor block
+			// Flag the alloca as live-out
+			blockState.liveOut=true;
+			assert(instIdMap.count(&I));
+			firstUseId=instIdMap.find(&I)->second+1;
+			if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
+			{
+				if(II->getIntrinsicID()==Intrinsic::lifetime_start)
+					onlyLocal=true;
+			}
+			blocksState.markAndFlushPendingBlocks();
+			break;
+		}
+	}
+	if(!onlyLocal)
+	{
+		// Add this block to the pending list
+		blocksState.pendingBlocks.push_back(BB);
+		for(::pred_iterator it=pred_begin(BB);it!=pred_end(BB);++it)
+		{
+			bool predecessorUse=doUpAndMarkForAlloca(blocksState, allUses, allocaRanges, instIdMap, *it, alloca);
+			// If the alloca is used in a predecessor extend the range from the beginning of the block
+			if(predecessorUse && !alreadyLiveIn)
+			{
+				assert(blockState.liveOut);
+				firstUseId=instIdMap.find(&(*BB->begin()))->second;
+				alreadyLiveIn=true;
+			}
+		}
+		if(!blocksState.pendingBlocks.empty())
+		{
+			assert(blocksState.pendingBlocks.back()==BB);
+			blocksState.pendingBlocks.pop_back();
+		}
+	}
+	blockState.visited=false;
+	if(blockState.liveOut)
+	{
+		// Create a range from the computed first use to the end of the block
+		allocaRanges[firstUseId]=instIdMap.find(&(*BB->rbegin()))->second+1;
+		return true;
+	}
+	else
+	{
+		// Now we know that the alloca is not used in this block or above. Cache this information.
+		blockState.notLiveOut=true;
+		return false;
+	}
 }
 
 void Registerize::invalidateFunction(llvm::Function& F)
