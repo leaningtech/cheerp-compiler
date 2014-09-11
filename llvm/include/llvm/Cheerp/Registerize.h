@@ -77,6 +77,8 @@ private:
 	};
 	// Map from instructions to their live ranges
 	typedef std::map<llvm::Instruction*, InstructionLiveRange> LiveRangesTy;
+	// Map from instructions to their unique identifier
+	typedef std::map<llvm::Instruction*, uint32_t> InstIdMapTy;
 	// Registers should have a consistent JS type
 	enum REGISTER_KIND { OBJECT=0, INTEGER, FLOAT, DOUBLE };
 	struct RegisterRange
@@ -100,9 +102,9 @@ private:
 	typedef std::map<llvm::BasicBlock*, BlockState> BlocksState;
 
 	void handleFunction(llvm::Function& F);
-	LiveRangesTy computeLiveRanges(llvm::Function& F);
+	LiveRangesTy computeLiveRanges(llvm::Function& F, InstIdMapTy& instIdMap);
 	void doUpAndMark(BlocksState& blocksState, llvm::BasicBlock* BB, llvm::Instruction* I);
-	uint32_t dfsLiveRangeInBlock(BlocksState& blockState, LiveRangesTy& liveRanges,
+	uint32_t dfsLiveRangeInBlock(BlocksState& blockState, LiveRangesTy& liveRanges, InstIdMapTy& instIdMap,
 					llvm::BasicBlock& BB, uint32_t nextIndex, uint32_t codePathId);
 	void extendRangeForUsedOperands(llvm::Instruction& I, LiveRangesTy& liveRanges,
 					uint32_t thisIndex, uint32_t codePathId);

@@ -81,8 +81,9 @@ void Registerize::handleFunction(Function& F)
 	}
 	else
 	{
+		InstIdMapTy instIdMap;
 		// First, build live ranges for all instructions
-		LiveRangesTy liveRanges=computeLiveRanges(F);
+		LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap);
 		// Assign each instruction to a virtual register
 		assignToRegisters(liveRanges);
 		// To debug we need to know the ranges for each instructions and the assigned register
@@ -98,7 +99,7 @@ void Registerize::handleFunction(Function& F)
 	}
 }
 
-Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F)
+Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, InstIdMapTy& instIdMap)
 {
 	BlocksState blocksState;
 	for(BasicBlock& BB: F)
@@ -137,7 +138,7 @@ Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F)
 	);
 	// Depth first analysis of blocks, starting from the entry block
 	LiveRangesTy liveRanges;
-	dfsLiveRangeInBlock(blocksState, liveRanges, F.getEntryBlock(), 1, 1);
+	dfsLiveRangeInBlock(blocksState, liveRanges, instIdMap, F.getEntryBlock(), 1, 1);
 	return liveRanges;
 }
 
@@ -164,7 +165,7 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 	}
 }
 
-uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy& liveRanges,
+uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy& liveRanges, InstIdMapTy& instIdMap,
 					BasicBlock& BB, uint32_t nextIndex, uint32_t codePathId)
 {
 	BlockState& blockState=blocksState[&BB];
@@ -177,6 +178,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	{
 		assert(liveRanges.count(&I)==0);
 		uint32_t thisIndex = nextIndex++;
+		instIdMap[&I]=thisIndex;
 		// Inlineable instructions extends the life of the not-inlineable instructions they use.
 		// This happens inside extendRangeForUsedOperands.
 		if (isInlineable(I))
@@ -213,7 +215,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	for(uint32_t i=0;i<term->getNumSuccessors();i++)
 	{
 		BasicBlock* succ=term->getSuccessor(i);
-		uint32_t newNextIndex=dfsLiveRangeInBlock(blocksState, liveRanges, *succ, nextIndex, codePathId);
+		uint32_t newNextIndex=dfsLiveRangeInBlock(blocksState, liveRanges, instIdMap, *succ, nextIndex, codePathId);
 		// If any new instruction has ben added (i.e. nextIndex if changed) update codePathId
 		if(newNextIndex!=nextIndex)
 			codePathId = newNextIndex;
