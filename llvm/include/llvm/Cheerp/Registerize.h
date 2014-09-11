@@ -59,11 +59,13 @@ public:
 	const char *getPassName() const override;
 
 	uint32_t getRegisterId(const llvm::Instruction* I) const;
+
+	void handleFunction(llvm::Function& F);
+	void invalidateFunction(llvm::Function& F);
 private:
 	// Final data structure
 	std::map<const llvm::Instruction*, uint32_t> registersMap;
 	bool NoRegisterize;
-	// Temporary data structure that represent a range
 	// Temporary data structure used to compute the live range of an instruction
 	struct InstructionLiveRange
 	{
