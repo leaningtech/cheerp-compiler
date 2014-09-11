@@ -117,7 +117,7 @@ Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, InstIdMapT
 					// And start going up from the predecessor itself
 					useBB=phi->getIncomingBlock(U.getOperandNo());
 					BlockState& blockState=blocksState[useBB];
-					blockState.outSet.push_back(&I);
+					blockState.addLiveOut(&I);
 				}
 				doUpAndMark(blocksState, useBB, &I);
 			}
@@ -149,9 +149,9 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 		return;
 	BlockState& blockState=blocksState[BB];
 	// Already propagated
-	if(!blockState.inSet.empty() && blockState.inSet.back()==I)
+	if(blockState.isLiveIn(I))
 		return;
-	blockState.inSet.push_back(I);
+	blockState.addLiveIn(I);
 	if(I->getParent()==BB && isa<PHINode>(I))
 		return;
 	// Run on predecessor blocks
@@ -159,8 +159,8 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 	{
 		BasicBlock* pred=*it;
 		BlockState& predBlockState=blocksState[pred];
-		if(predBlockState.outSet.empty() || predBlockState.outSet.back()!=I)
-			predBlockState.outSet.push_back(I);
+		if(!predBlockState.isLiveOut(I))
+			predBlockState.addLiveOut(I);
 		doUpAndMark(blocksState, pred, I);
 	}
 }

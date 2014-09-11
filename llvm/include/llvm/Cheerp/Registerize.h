@@ -94,8 +94,26 @@ private:
 	{
 		llvm::SmallVector<llvm::Instruction*, 4> inSet;
 		llvm::SmallVector<llvm::Instruction*, 4> outSet;
+		void addLiveOut(llvm::Instruction* I)
+		{
+			if(outSet.empty() || outSet.back()!=I)
+				outSet.push_back(I);
+		}
+		void addLiveIn(llvm::Instruction* I)
+		{
+			if(inSet.empty() || inSet.back()!=I)
+				inSet.push_back(I);
+		}
+		bool isLiveOut(llvm::Instruction* I) const
+		{
+			return !outSet.empty() && outSet.back()==I;
+		}
+		bool isLiveIn(llvm::Instruction* I) const
+		{
+			return !inSet.empty() && inSet.back()==I;
+		}
 		bool indexesAssigned;
-		BlockState():indexesAssigned(0)
+		BlockState():indexesAssigned(false)
 		{
 		}
 	};
