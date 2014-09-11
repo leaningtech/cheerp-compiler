@@ -18,5 +18,6 @@ BUILTIN(__builtin_cheerp_pointer_base, "v*vC*", "")
 BUILTIN(__builtin_cheerp_pointer_offset, "zvC*", "")
 BUILTIN(__builtin_cheerp_create_closure, "", "h")
 BUILTIN(__builtin_cheerp_make_complete_object, "", "h")
+BUILTIN(__builtin_cheerp_make_regular, "", "h")
 
 #undef BUILTIN
