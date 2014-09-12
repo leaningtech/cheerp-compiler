@@ -255,7 +255,7 @@ void EmulatedShape::Render(bool InLoop) {
 
 // Relooper
 
-Relooper::Relooper() : Root(NULL) {
+Relooper::Relooper() : Root(NULL), NeedsLabel(false) {
 }
 
 Relooper::~Relooper() {
@@ -571,6 +571,7 @@ void Relooper::Calculate(Block *Entry) {
     Shape *MakeMultiple(BlockSet &Blocks, BlockSet& Entries, BlockBlockSetMap& IndependentGroups, Shape *Prev, BlockSet &NextEntries) {
       PrintDebug("creating multiple block with %d inner groups\n", IndependentGroups.size());
       bool Fused = !!(Shape::IsSimple(Prev));
+      Parent->NeedsLabel = true;
       MultipleShape *Multiple = new MultipleShape();
       Notice(Multiple);
       BlockSet CurrEntries;
