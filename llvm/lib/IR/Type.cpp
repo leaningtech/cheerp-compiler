@@ -526,8 +526,10 @@ bool StructType::isValidElementType(Type *ElemTy) {
 
 bool StructType::isLayoutIdentical(StructType *Other) const {
   if (this == Other) return true;
-
-  if (isPacked() != Other->isPacked())
+  
+  if (isPacked() != Other->isPacked() ||
+      hasByteLayout() != Other->hasByteLayout() ||
+      getNumElements() != Other->getNumElements())
     return false;
   
   element_iterator it=element_begin();
