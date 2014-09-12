@@ -211,6 +211,7 @@ struct Relooper {
   std::deque<Block*> Blocks;
   std::deque<Shape*> Shapes;
   Shape *Root;
+  bool NeedsLabel;
 
   Relooper();
   ~Relooper();
@@ -222,6 +223,8 @@ struct Relooper {
 
   // Renders the result.
   void Render(RenderInterface* renderInterface);
+
+  bool needsLabel() const { return NeedsLabel; }
 };
 
 typedef std::set<Block*> BlockSet;
