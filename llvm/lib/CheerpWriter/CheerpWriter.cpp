@@ -1528,7 +1528,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 
 			stream << '=';
-			compileOperand(valOp);
+			if(valOp->getType()->isIntegerTy())
+				compileSignedInteger(valOp);
+			else
+				compileOperand(valOp);
 			return COMPILE_OK;
 		}
 		default:
