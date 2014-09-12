@@ -430,6 +430,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   const InputInfo &II = *Inputs.begin();
   CmdArgs.push_back(II.getFilename());
 
+  // Honor -mllvm
+  Args.AddAllArgValues(CmdArgs, options::OPT_mllvm);
+
   const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llc")));
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
 }
