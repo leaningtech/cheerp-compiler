@@ -2399,7 +2399,6 @@ void CheerpWriter::compileMethod(const Function& F)
 		compileBB(*F.begin(), blocksMap);
 	else
 	{
-		stream << "var label=0;" << NewLine;
 		//TODO: Support exceptions
 		Function::const_iterator B=F.begin();
 		Function::const_iterator BE=F.end();
@@ -2485,6 +2484,8 @@ void CheerpWriter::compileMethod(const Function& F)
 			rl->AddBlock(relooperMap[&(*B)]);
 		}
 		rl->Calculate(relooperMap[&F.getEntryBlock()]);
+		if(rl->needsLabel())
+			stream << "var label=0;" << NewLine;
 		
 		CheerpRenderInterface ri(this, NewLine);
 		rl->Render(&ri);
