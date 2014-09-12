@@ -1682,18 +1682,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			Type* src=bi.getSrcTy();
 			Type* dst=bi.getDestTy();
 			//Special case unions
-			if(src->isPointerTy() && TypeSupport::hasByteLayout(src->getPointerElementType()))
+			if(TypeSupport::hasByteLayout(src->getPointerElementType()))
 			{
-				stream << "{d:";
 				//Find the type
 				llvm::Type* elementType = dst->getPointerElementType();
 				bool isArray=isa<ArrayType>(elementType);
-				stream << "new ";
-				compileTypedArrayType((isArray)?elementType->getSequentialElementType():elementType);
-				stream << '(';
-				compileCompleteObject(bi.getOperand(0));
-				stream << ".buffer), o:0}";
-				return COMPILE_OK;
+				llvm::Type* pointedType = (isArray)?elementType->getSequentialElementType():elementType;
+				if(TypeSupport::isTypedArrayType(pointedType))
+				{
+					stream << "{d:";
+					stream << "new ";
+					compileTypedArrayType(pointedType);
+					stream << '(';
+					compileCompleteObject(bi.getOperand(0));
+					stream << ".buffer), o:0}";
+					return COMPILE_OK;
+				}
 			}
 
 			compilePointerAs(bi.getOperand(0), PA.getPointerKind(&I));
