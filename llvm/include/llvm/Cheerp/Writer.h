@@ -33,16 +33,17 @@ namespace cheerp
 class NewLineHandler
 {
 private:
-	SourceMapGenerator& sourceMapGenerator;
+	SourceMapGenerator* sourceMapGenerator;
 public:
-	NewLineHandler(SourceMapGenerator& s):sourceMapGenerator(s)
+	NewLineHandler(SourceMapGenerator* s):sourceMapGenerator(s)
 	{
 	}
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const NewLineHandler& handler)
 	{
 		s << '\n';
-		handler.sourceMapGenerator.finishLine();
+		if(handler.sourceMapGenerator)
+			handler.sourceMapGenerator->finishLine();
 		return s;
 	}
 
@@ -148,8 +149,7 @@ private:
 	std::set<const llvm::GlobalVariable*> compiledGVars;
 
 	// Support for source maps
-	SourceMapGenerator sourceMapGenerator;
-	std::string sourceMapName;
+	SourceMapGenerator* sourceMapGenerator;
 	const NewLineHandler NewLine;
 
 	/**
@@ -309,10 +309,10 @@ private:
 public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
-	             const std::string& sourceMapName, llvm::raw_ostream* sourceMap, bool ReadableOutput, bool NoRegisterize):
+	             SourceMapGenerator* sourceMapGenerator, bool ReadableOutput, bool NoRegisterize):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(m),
 		namegen(globalDeps, registerize, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
-		sourceMapGenerator(sourceMap,m.getContext()),sourceMapName(sourceMapName),NewLine(sourceMapGenerator),
+		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),
 		stream(s, ReadableOutput)
 	{
 	}

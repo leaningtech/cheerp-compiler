@@ -2199,8 +2199,8 @@ void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 			}
 		}
 		const DebugLoc& debugLoc = I->getDebugLoc();
-		if(!debugLoc.isUnknown())
-			sourceMapGenerator.setDebugLoc(I->getDebugLoc());
+		if(sourceMapGenerator && !debugLoc.isUnknown())
+			sourceMapGenerator->setDebugLoc(I->getDebugLoc());
 		if(I->getType()->getTypeID()!=Type::VoidTyID)
 		{
 			stream << "var " << namegen.getName(I) << '=';
@@ -2600,7 +2600,8 @@ void CheerpWriter::compileHandleVAArg()
 
 void CheerpWriter::makeJS()
 {
-	sourceMapGenerator.beginFile();
+	if(sourceMapGenerator)
+		sourceMapGenerator->beginFile();
 	// Enable strict mode first
 	stream << "\"use strict\"" << NewLine;
 
@@ -2648,8 +2649,10 @@ void CheerpWriter::makeJS()
 	if ( const Function * webMain = module.getFunction("_Z7webMainv") )
 		stream << namegen.getName(webMain) << "()" << NewLine;
 
-	sourceMapGenerator.endFile();
 	// Link the source map if necessary
-	if (!sourceMapName.empty())
-		stream << "//# sourceMappingURL=" << sourceMapName;
+	if(sourceMapGenerator)
+	{
+		sourceMapGenerator->endFile();
+		stream << "//# sourceMappingURL=" << sourceMapGenerator->getSourceMapName();
+	}
 }
