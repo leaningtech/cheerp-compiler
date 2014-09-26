@@ -29,6 +29,9 @@ using namespace llvm;
 static cl::opt<std::string> SourceMap("cheerp-sourcemap", cl::Optional,
   cl::desc("If specified, the file name of the source map"), cl::value_desc("filename"));
 
+static cl::opt<std::string> SourceMapPrefix("cheerp-sourcemap-prefix", cl::Optional,
+  cl::desc("If specified, this prefix will be removed from source map file paths"), cl::value_desc("path"));
+
 static cl::opt<bool> PrettyCode("cheerp-pretty-code", cl::desc("Generate human-readable JS") );
 
 static cl::opt<bool> NoRegisterize("cheerp-no-registerize", cl::desc("Disable registerize pass") );
@@ -59,7 +62,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   if (!SourceMap.empty())
   {
     std::error_code ErrorCode;
-    sourceMapGenerator = new cheerp::SourceMapGenerator(SourceMap, M.getContext(), ErrorCode);
+    sourceMapGenerator = new cheerp::SourceMapGenerator(SourceMap, SourceMapPrefix, M.getContext(), ErrorCode);
     if (ErrorCode)
     {
        // An error occurred opening the source map file, bail out
