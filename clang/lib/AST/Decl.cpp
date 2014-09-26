@@ -4459,7 +4459,20 @@ bool RecordDecl::isOrContainsUnion() const {
         return true;
     }
   }
+  return false;
+}
 
+bool RecordDecl::isByteLayout() const
+{
+  // Unions and anonymous structures inside unions use bytelayout
+  const RecordDecl *CurDecl = this;
+  while (CurDecl && (CurDecl->isUnion() || CurDecl->isAnonymousStructOrUnion()))
+  {
+    if (CurDecl->isUnion())
+      return true;
+    const DeclContext* Owner = CurDecl->getParent();
+    CurDecl = dyn_cast<RecordDecl>(Owner);
+  }
   return false;
 }
 

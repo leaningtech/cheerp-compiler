@@ -1344,6 +1344,12 @@ bool ItaniumRecordLayoutBuilder::verifyDataOnlyUnion(const RecordDecl* RD)
 	  ;
       }
     }
+    else if(const RecordType* rt=dyn_cast<RecordType>(t))
+    {
+      // It must be a byte layout record
+      if(rt->getDecl()->isByteLayout())
+        continue;
+    }
     Diag(it->getLocation(), diag::err_cheerp_field_not_supported_in_union);
     return false;
   }
