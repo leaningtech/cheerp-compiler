@@ -424,6 +424,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
 
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);
+  if(Arg* cheerpSourceMapPrefix = Args.getLastArg(options::OPT_cheerp_sourcemap_prefix_EQ))
+    cheerpSourceMapPrefix->render(Args, CmdArgs);
   if(Arg* cheerpPrettyCode = Args.getLastArg(options::OPT_cheerp_pretty_code))
     cheerpPrettyCode->render(Args, CmdArgs);
 
