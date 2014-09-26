@@ -112,7 +112,18 @@ void SourceMapGenerator::endFile()
 	{
 		if(i!=0)
 			sourceMap.os() << ',';
-		sourceMap.os() << '"' << files[i]->getString() << '"';
+		// Fix slashes in the file path
+		std::string tmp;
+		StringRef string=files[i]->getString();
+		tmp.reserve(string.size());
+		for(unsigned i=0;i<string.size();i++)
+		{
+			char c=string[i];
+			if(c=='\\')
+				c='/';
+			tmp.push_back(c);
+		}
+		sourceMap.os() << '"' << tmp << '"';
 	}
 	sourceMap.os() << "]\n";
 	sourceMap.os() << "}\n";
