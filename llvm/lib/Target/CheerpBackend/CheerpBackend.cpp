@@ -21,9 +21,8 @@
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/ResolveAliases.h"
+#include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/ToolOutputFile.h"
 
 using namespace llvm;
 
@@ -56,26 +55,22 @@ bool CheerpWritePass::runOnModule(Module& M)
 {
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
+  cheerp::SourceMapGenerator* sourceMapGenerator = NULL;
   if (!SourceMap.empty())
   {
-    std::error_code ErrorString;
-    tool_output_file sourceMap(SourceMap.c_str(), ErrorString, sys::fs::F_None);
-    if (ErrorString)
+    std::error_code ErrorCode;
+    sourceMapGenerator = new cheerp::SourceMapGenerator(SourceMap, M.getContext(), ErrorCode);
+    if (ErrorCode)
     {
        // An error occurred opening the source map file, bail out
-       llvm::report_fatal_error(ErrorString.message(), false);
+       delete sourceMapGenerator;
+       llvm::report_fatal_error(ErrorCode.message(), false);
        return false;
     }
-    cheerp::CheerpWriter writer(M, Out, PA, registerize, SourceMap, &sourceMap.os(), PrettyCode, NoRegisterize);
-    sourceMap.keep();
-    writer.makeJS();
   }
-  else
-  {
-    cheerp::CheerpWriter writer(M, Out, PA, registerize, SourceMap, NULL, PrettyCode, NoRegisterize);
-    writer.makeJS();
-  }
-
+  cheerp::CheerpWriter writer(M, Out, PA, registerize, sourceMapGenerator, PrettyCode, NoRegisterize);
+  writer.makeJS();
+  delete sourceMapGenerator;
   return false;
 }
 
