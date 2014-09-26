@@ -11,15 +11,16 @@
 
 #include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/Support/FileSystem.h"
 
 using namespace llvm;
 
 namespace cheerp
 {
 
-SourceMapGenerator::SourceMapGenerator(llvm::raw_ostream* s, llvm::LLVMContext& C):
-	sourceMap(s), Ctx(C), lastFile(0), lastLine(0), lastColoumn(0),
-	validInfo(false), lineStart(true)
+SourceMapGenerator::SourceMapGenerator(const std::string& sourceMapName, llvm::LLVMContext& C, std::error_code& ErrorCode):
+	sourceMap(sourceMapName.c_str(), ErrorCode, sys::fs::F_None), sourceMapName(sourceMapName), Ctx(C), lastFile(0),
+	lastLine(0), lastColoumn(0), validInfo(false), lineStart(true)
 {
 }
 
@@ -39,15 +40,13 @@ void SourceMapGenerator::writeBase64VLQInt(int i)
 		i >>= 5;
 		if(i)
 			base64Char |= 0x20;
-		*sourceMap << base64Chars[base64Char];
+		sourceMap.os() << base64Chars[base64Char];
 	}
 	while(i);
 }
 
 void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
 {
-	if(!sourceMap)
-		return;
 	if(!lineStart)
 	{
 		//TODO: Support multi-segment
@@ -86,43 +85,38 @@ void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
 
 void SourceMapGenerator::beginFile()
 {
-	if(!sourceMap)
-		return;
 	// Output the prologue of the file
-	*sourceMap << "{\n";
-	*sourceMap << "\"version\": 3,\n";
-	*sourceMap << "\"names\": [],\n";
-	*sourceMap << "\"mappings\": \"";
+	sourceMap.os() << "{\n";
+	sourceMap.os() << "\"version\": 3,\n";
+	sourceMap.os() << "\"names\": [],\n";
+	sourceMap.os() << "\"mappings\": \"";
 }
 
 void SourceMapGenerator::finishLine()
 {
-	if(!sourceMap)
-		return;
 	assert(!validInfo);
-	*sourceMap << ";";
+	sourceMap.os() << ";";
 	lineStart = true;
 }
 
 void SourceMapGenerator::endFile()
 {
-	if(!sourceMap)
-		return;
 	// Output the prologue of the file
-	*sourceMap << "\",\n";
+	sourceMap.os() << "\",\n";
 	// Output file names
 	SmallVector<MDString*, 10> files(fileMap.size(), NULL);
 	for(auto mapItem: fileMap)
 		files[mapItem.second] = mapItem.first;
-	*sourceMap << "\"sources\": [";
+	sourceMap.os() << "\"sources\": [";
 	for(uint32_t i=0;i<files.size();i++)
 	{
 		if(i!=0)
-			*sourceMap << ',';
-		*sourceMap << '"' << files[i]->getString() << '"';
+			sourceMap.os() << ',';
+		sourceMap.os() << '"' << files[i]->getString() << '"';
 	}
-	*sourceMap << "]\n";
-	*sourceMap << "}\n";
+	sourceMap.os() << "]\n";
+	sourceMap.os() << "}\n";
+	sourceMap.keep();
 }
 
 }

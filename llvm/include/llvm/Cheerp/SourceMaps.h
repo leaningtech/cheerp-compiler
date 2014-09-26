@@ -12,9 +12,9 @@
 #ifndef _CHEERP_SOURCE_MAPS_H
 #define _CHEERP_SOURCE_MAPS_H
 
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include <map>
 
 namespace cheerp
@@ -23,7 +23,8 @@ namespace cheerp
 class SourceMapGenerator
 {
 private:
-	llvm::raw_ostream* sourceMap;
+	llvm::tool_output_file sourceMap;
+	const std::string& sourceMapName;
 	llvm::LLVMContext& Ctx;
 	std::map<llvm::MDString*, uint32_t> fileMap;
 	uint32_t lastFile;
@@ -33,7 +34,8 @@ private:
 	bool lineStart;
 	void writeBase64VLQInt(int32_t i);
 public:
-	SourceMapGenerator(llvm::raw_ostream* s, llvm::LLVMContext& C);
+	// sourceMapName life span should be longer than the one of the SourceMapGenerator
+	SourceMapGenerator(const std::string& sourceMapName, llvm::LLVMContext& C, std::error_code& ErrorCode);
 	void setDebugLoc(const llvm::DebugLoc& debugLoc);
 	void clearDebugInfo()
 	{
@@ -42,6 +44,10 @@ public:
 	void beginFile();
 	void finishLine();
 	void endFile();
+	const std::string& getSourceMapName() const
+	{
+		return sourceMapName;
+	}
 };
 
 }
