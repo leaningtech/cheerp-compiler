@@ -25,6 +25,7 @@ class SourceMapGenerator
 private:
 	llvm::tool_output_file sourceMap;
 	const std::string& sourceMapName;
+	const std::string& sourceMapPrefix;
 	llvm::LLVMContext& Ctx;
 	std::map<llvm::MDString*, uint32_t> fileMap;
 	uint32_t lastFile;
@@ -34,8 +35,8 @@ private:
 	bool lineStart;
 	void writeBase64VLQInt(int32_t i);
 public:
-	// sourceMapName life span should be longer than the one of the SourceMapGenerator
-	SourceMapGenerator(const std::string& sourceMapName, llvm::LLVMContext& C, std::error_code& ErrorCode);
+	// sourceMapName and sourceMapPrefix life spans should be longer than the one of the SourceMapGenerator
+	SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, llvm::LLVMContext& C, std::error_code& ErrorCode);
 	void setDebugLoc(const llvm::DebugLoc& debugLoc);
 	void clearDebugInfo()
 	{
