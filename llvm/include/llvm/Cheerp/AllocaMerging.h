@@ -12,6 +12,7 @@
 #ifndef _CHEERP_ALLOCA_MERGING_H
 #define _CHEERP_ALLOCA_MERGING_H
 
+#include "llvm/Cheerp/Registerize.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Pass.h"
@@ -20,38 +21,37 @@
 
 namespace llvm {
 
+class AllocaMergingBase: public FunctionPass
+{
+protected:
+	AllocaMergingBase(char& ID):FunctionPass(ID)
+	{
+	}
+	void analyzeBlock(const cheerp::Registerize& registerize, llvm::BasicBlock& BB,
+				std::map<AllocaInst*, cheerp::Registerize::LiveRange>& allocaInfos);
+};
+
 // This class is resposible for recycling allocas. We can use lifetime intrinsics to know
 // about the lifetime of an alloca
-class AllocaMerging: public FunctionPass
+class AllocaMerging: public AllocaMergingBase
 {
 private:
-	// Sort allocas based on type
-	struct OrderAllocasByType
-	{
-		bool operator()(llvm::AllocaInst* LHS, llvm::AllocaInst* RHS)
-		{
-			if (LHS->getType() == RHS->getType())
-				return LHS < RHS;
-			else
-				return LHS->getType() < RHS->getType();
-		}
-	};
-	std::set<llvm::AllocaInst*, OrderAllocasByType> allocaInfos;
-	
-	void analyzeBlock(llvm::BasicBlock& BB);
-	bool hasUseBelowInBlocks(const llvm::BasicBlock* BB, const std::set<const llvm::BasicBlock*>& curAllocaUsersBlocks,
-								std::set<const llvm::BasicBlock*>& visitedSet);
-	bool hasUseBelow(const llvm::Instruction* U, const std::set<const llvm::Instruction*>& curAllocaUsers,
-						const std::set<const llvm::BasicBlock*>& curAllocaUsersBlocks);
-	bool hasUseAboveInBlocks(const llvm::BasicBlock* BB, const std::set<const llvm::BasicBlock*>& curAllocaUsersBlocks,
-								std::set<const llvm::BasicBlock*>& visitedSet);
-	bool hasUseAbove(const llvm::Instruction* U, const std::set<const llvm::Instruction*>& curAllocaUsers,
-						const std::set<const llvm::BasicBlock*>& curAllocaUsersBlocks);
-	std::set<const llvm::Instruction*> gatherDerivedUses(const llvm::AllocaInst* rootI);
+	static bool areTypesEquivalent(Type* a, Type* b);
+public:
+	static char ID;
+	explicit AllocaMerging() : AllocaMergingBase(ID) { }
+	bool runOnFunction(Function &F);
+	const char *getPassName() const;
+	void getAnalysisUsage(AnalysisUsage & AU) const;
+};
+
+class AllocaArraysMerging: public AllocaMergingBase
+{
+private:
 	bool checkUsesForArrayMerging(AllocaInst* alloca);
 public:
 	static char ID;
-	explicit AllocaMerging() : FunctionPass(ID) { }
+	explicit AllocaArraysMerging() : AllocaMergingBase(ID) { }
 	bool runOnFunction(Function &F);
 	const char *getPassName() const;
 	void getAnalysisUsage(AnalysisUsage & AU) const;
@@ -62,6 +62,7 @@ public:
 // AllocaMerging - This pass merges allocas which are not used at the same time
 //
 FunctionPass *createAllocaMergingPass();
+FunctionPass *createAllocaArraysMergingPass();
 }
 
 #endif //_CHEERP_ALLOCA_MERGING_H
