@@ -13,6 +13,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/PointerPasses.h"
+#include "llvm/Cheerp/Registerize.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
@@ -90,6 +91,7 @@ bool AllocaArrays::runOnFunction(Function& F)
 {
 	bool Changed = false;
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
+	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 
 	for ( BasicBlock & BB : F )
 	{
@@ -107,10 +109,14 @@ bool AllocaArrays::runOnFunction(Function& F)
 			NumAllocasTransformedToArrays++;
 
 			PA.invalidate(ai);
+			// Careful, registerize must be invalidated before changing the function
+			registerize.invalidateFunction(F);
 			Changed |= replaceAlloca( ai );
 		}
 	}
 	
+	if (Changed)
+		registerize.handleFunction(F);
 	return Changed;
 }
 
@@ -125,7 +131,8 @@ void AllocaArrays::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addRequired<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::PointerAnalyzer>();
-
+	AU.addRequired<cheerp::Registerize>();
+	AU.addPreserved<cheerp::Registerize>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
