@@ -23,7 +23,47 @@ namespace cheerp {
 enum POINTER_KIND {
 	COMPLETE_OBJECT,
 	REGULAR,
-	BYTE_LAYOUT
+	BYTE_LAYOUT,
+	LAST_POINTER_KIND=BYTE_LAYOUT
+};
+
+class PointerKindWrapper
+{
+private:
+	uint32_t kind;
+public:
+	enum WRAPPED_POINTER_KIND { UNKNOWN=LAST_POINTER_KIND+1, INDIRECT=LAST_POINTER_KIND+2 };
+	std::vector<const llvm::Function*> returnConstraints;
+	std::vector<std::pair<const llvm::Function*, uint32_t>> argsConstraints;
+	PointerKindWrapper(uint32_t k):kind(k)
+	{
+	}
+	PointerKindWrapper(const llvm::Function* f):kind(INDIRECT)
+	{
+		returnConstraints.push_back(f);
+	}
+	PointerKindWrapper(const llvm::Function* f, uint32_t arg):kind(INDIRECT)
+	{
+		argsConstraints.push_back(std::make_pair(f, arg));
+	}
+	bool operator==(uint32_t rhs) const
+	{
+		return kind==rhs;
+	}
+	bool operator!=(uint32_t rhs) const
+	{
+		return kind!=rhs;
+	}
+	PointerKindWrapper operator||(const PointerKindWrapper & rhs);
+	bool isKnown() const
+	{
+		return kind!=UNKNOWN;
+	}
+	explicit operator POINTER_KIND() const
+	{
+		return (POINTER_KIND)kind;
+	}
+	void dump() const;
 };
 
 class PointerAnalyzer : public llvm::ModulePass
@@ -61,7 +101,7 @@ public:
 	void dumpPointer(const llvm::Value * v, bool dumpOwnerFuncion = true) const;
 #endif //NDEBUG
 
-	typedef llvm::DenseMap<const llvm::Value*, POINTER_KIND> ValueKindMap;
+	typedef llvm::DenseMap<const llvm::Value*, PointerKindWrapper> ValueKindMap;
 
 private:
 	mutable ValueKindMap cache;
