@@ -97,22 +97,22 @@ void Registerize::handleFunction(Function& F)
 		// Now compute live ranges for alloca memory which is not in SSA form
 		computeAllocaLiveRanges(allocaSet, instIdMap);
 		// To debug we need to know the ranges for each instructions and the assigned register
-		DEBUG(dbgs() << F);
+		DEBUG(dbgs() << F;
 		for(auto it: liveRanges)
 		{
-			DEBUG(dbgs() << "Instruction " << *it.first << " alive in ranges ");
+			dbgs() << "Instruction " << *it.first << " alive in ranges ";
 			for(const Registerize::LiveRangeChunk& chunk: it.second.range)
-				DEBUG(dbgs() << '[' << chunk.start << ',' << chunk.end << ')');
-			DEBUG(dbgs() << "\n");
-			DEBUG(dbgs() << "\tMapped to register " << registersMap[it.first] << "\n");
+				dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
+			dbgs() << "\n";
+			dbgs() << "\tMapped to register " << registersMap[it.first] << "\n";
 		}
 		for(auto it: allocaLiveRanges)
 		{
-			DEBUG(dbgs() << "Alloca " << *it.first << " alive in ranges ");
+			dbgs() << "Alloca " << *it.first << " alive in ranges ";
 			for(const Registerize::LiveRangeChunk& chunk: it.second)
-				DEBUG(dbgs() << '[' << chunk.start << ',' << chunk.end << ')');
-			DEBUG(dbgs() << "\n");
-		}
+				dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
+			dbgs() << "\n";
+		});
 	}
 }
 
@@ -149,9 +149,6 @@ Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, InstIdMapT
 		for(auto it: blocksState)
 		{
 			llvm::errs() << "Block:\n" << *it.first << "\n";
-			llvm::errs() << "Inst in:\n";
-			for(Instruction* I: it.second.inSet)
-				llvm::errs() << *I << "\n";
 			llvm::errs() << "Inst out:\n";
 			for(Instruction* I: it.second.outSet)
 				llvm::errs() << *I << "\n";
@@ -172,7 +169,7 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 	// Already propagated
 	if(blockState.isLiveIn(I))
 		return;
-	blockState.addLiveIn(I);
+	blockState.setLiveIn(I);
 	if(I->getParent()==BB && isa<PHINode>(I))
 		return;
 	// Run on predecessor blocks
@@ -428,7 +425,7 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 		AllocaBlocksState blocksState;
 		RangeChunksTy ranges;
 		// For each alloca gather all uses and derived uses
-		std::set<Instruction*> allUses=gatherDerivedMemoryAccesses(alloca);
+		std::unordered_set<Instruction*> allUses=gatherDerivedMemoryAccesses(alloca);
 		if(allUses.empty())
 		{
 			// Initialize an empty live range to signal that no analysis is possible
@@ -518,7 +515,7 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 /*
 	Returns the set of instruction which access memory derived from the passed Alloca
 */
-std::set<Instruction*> Registerize::gatherDerivedMemoryAccesses(AllocaInst* rootI)
+std::unordered_set<Instruction*> Registerize::gatherDerivedMemoryAccesses(AllocaInst* rootI)
 {
 	SmallVector<Use*, 10> allUses;
 	for(Use& U: rootI->uses())
@@ -581,7 +578,7 @@ std::set<Instruction*> Registerize::gatherDerivedMemoryAccesses(AllocaInst* root
 			break;
 		}
 	}
-	std::set<Instruction*> ret;
+	std::unordered_set<Instruction*> ret;
 	for(const Use* U: allUses)
 	{
 		Instruction* userI=cast<Instruction>(U->getUser());
@@ -593,7 +590,7 @@ std::set<Instruction*> Registerize::gatherDerivedMemoryAccesses(AllocaInst* root
 	return ret;
 }
 
-bool Registerize::doUpAndMarkForAlloca(AllocaBlocksState& blocksState, const std::set<Instruction*>& allUses,
+bool Registerize::doUpAndMarkForAlloca(AllocaBlocksState& blocksState, const std::unordered_set<Instruction*>& allUses,
 				RangeChunksTy& allocaRanges, const InstIdMapTy& instIdMap, BasicBlock* BB, AllocaInst* alloca)
 {
 	AllocaBlockState& blockState=blocksState[BB];
