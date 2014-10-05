@@ -103,10 +103,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 			continue;
 
 		if(!Changed)
-		{
-			//F.dump();
 			registerize.invalidateFunction(F);
-		}
 
 		// We can merge the allocas
 		for(AllocaInst* allocaToMerge: mergeSet)
