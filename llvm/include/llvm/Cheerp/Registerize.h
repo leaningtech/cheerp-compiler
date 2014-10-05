@@ -14,7 +14,8 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
-#include <set>
+#include <unordered_set>
+#include <unordered_map>
 
 namespace cheerp
 {
@@ -71,8 +72,8 @@ public:
 	}
 private:
 	// Final data structures
-	std::map<const llvm::Instruction*, uint32_t> registersMap;
-	std::map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
+	std::unordered_map<const llvm::Instruction*, uint32_t> registersMap;
+	std::unordered_map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
 	bool NoRegisterize;
 	// Temporary data structure used to compute the live range of an instruction
 	struct InstructionLiveRange
@@ -86,9 +87,9 @@ private:
 		void addUse(uint32_t codePathId, uint32_t thisIndex);
 	};
 	// Map from instructions to their live ranges
-	typedef std::map<llvm::Instruction*, InstructionLiveRange> LiveRangesTy;
+	typedef std::unordered_map<llvm::Instruction*, InstructionLiveRange> LiveRangesTy;
 	// Map from instructions to their unique identifier
-	typedef std::map<llvm::Instruction*, uint32_t> InstIdMapTy;
+	typedef std::unordered_map<llvm::Instruction*, uint32_t> InstIdMapTy;
 	// Registers should have a consistent JS type
 	enum REGISTER_KIND { OBJECT=0, INTEGER, FLOAT, DOUBLE };
 	struct RegisterRange
@@ -102,17 +103,16 @@ private:
 	// Temporary data structures used while exploring the CFG
 	struct BlockState
 	{
-		llvm::SmallVector<llvm::Instruction*, 4> inSet;
+		llvm::Instruction* inInst;
 		llvm::SmallVector<llvm::Instruction*, 4> outSet;
 		void addLiveOut(llvm::Instruction* I)
 		{
 			if(outSet.empty() || outSet.back()!=I)
 				outSet.push_back(I);
 		}
-		void addLiveIn(llvm::Instruction* I)
+		void setLiveIn(llvm::Instruction* I)
 		{
-			if(inSet.empty() || inSet.back()!=I)
-				inSet.push_back(I);
+			inInst=I;
 		}
 		bool isLiveOut(llvm::Instruction* I) const
 		{
@@ -120,14 +120,14 @@ private:
 		}
 		bool isLiveIn(llvm::Instruction* I) const
 		{
-			return !inSet.empty() && inSet.back()==I;
+			return inInst==I;
 		}
 		bool indexesAssigned;
 		BlockState():indexesAssigned(false)
 		{
 		}
 	};
-	typedef std::map<llvm::BasicBlock*, BlockState> BlocksState;
+	typedef std::unordered_map<llvm::BasicBlock*, BlockState> BlocksState;
 	// Temporary data used to registerize allocas
 	typedef std::vector<llvm::AllocaInst*> AllocaSetTy;
 	typedef std::map<uint32_t, uint32_t> RangeChunksTy;
@@ -142,7 +142,7 @@ private:
 		{
 		}
 	};
-	struct AllocaBlocksState: public std::map<llvm::BasicBlock*, AllocaBlockState>
+	struct AllocaBlocksState: public std::unordered_map<llvm::BasicBlock*, AllocaBlockState>
 	{
 		std::vector<llvm::BasicBlock*> pendingBlocks;
 		void markAndFlushPendingBlocks()
@@ -169,8 +169,8 @@ private:
 	static REGISTER_KIND getRegKindFromType(llvm::Type*);
 	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind);
 	void computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap);
-	std::set<llvm::Instruction*> gatherDerivedMemoryAccesses(llvm::AllocaInst* rootI);
-	bool doUpAndMarkForAlloca(AllocaBlocksState& blocksState, const std::set<llvm::Instruction*>& allUses,
+	std::unordered_set<llvm::Instruction*> gatherDerivedMemoryAccesses(llvm::AllocaInst* rootI);
+	bool doUpAndMarkForAlloca(AllocaBlocksState& blocksState, const std::unordered_set<llvm::Instruction*>& allUses,
 				RangeChunksTy& allocaRanges, const InstIdMapTy& instIdMap,
 				llvm::BasicBlock* BB, llvm::AllocaInst* alloca);
 };
