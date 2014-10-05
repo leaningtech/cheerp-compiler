@@ -16,59 +16,51 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Debug.h"
 #include <numeric>
 
 using namespace llvm;
 
 namespace cheerp {
 
-struct KindOrUnknown
+PointerKindWrapper PointerKindWrapper::operator||(const PointerKindWrapper & rhs)
 {
-	enum {UNKNOWN = REGULAR+1};
-
-	KindOrUnknown() : val(UNKNOWN){}
-	KindOrUnknown(POINTER_KIND k) : val(k){}
-
-	friend bool operator==(const KindOrUnknown & lhs, const KindOrUnknown & rhs)
-	{
-		return lhs.val == rhs.val;
-	}
-
-	friend bool operator!=(const KindOrUnknown & lhs, const KindOrUnknown & rhs)
-	{
-		return !(lhs==rhs);
-	}
-
-	explicit operator bool() const
-	{
-		return val!=UNKNOWN;
-	}
-
-	POINTER_KIND getValue() const
-	{
-		assert(val!=UNKNOWN);
-		return POINTER_KIND(val);
-	}
-
-	unsigned val;
-};
-
-static KindOrUnknown operator||(const KindOrUnknown & lhs, const KindOrUnknown & rhs)
-{
-	// Unknown | CO = Unknown
-	// Unknown | RE = RE
-	// Unknown | Unknown = Unknown
-	// CO | RE = RE
-	// CO | CO = CO
-	// RE | RE = RE
+	// 1) REGULAR | Any = REGULAR
+	// 2) UNKNOWN | Any = Any
+	// 3) COMPLETE_OBJECT | Any = Any
+	// 4) INDIRECT | INDIRECT = INDIRECT with all constraints
+	PointerKindWrapper& lhs=*this;
 	
-	// Handle 2,4, and 6
+	// Handle 1
 	if (lhs==REGULAR || rhs==REGULAR)
 		return REGULAR;
-	// Handle 1 and 3
-	if ( !(lhs && rhs) )
-		return {};
-	return COMPLETE_OBJECT;
+	// Handle 2 and 2
+	if (lhs==UNKNOWN || lhs==COMPLETE_OBJECT)
+		return rhs;
+	if (rhs==UNKNOWN || rhs==COMPLETE_OBJECT)
+		return lhs;
+
+	// Handle 4
+	assert(lhs==INDIRECT && rhs==INDIRECT);
+	PointerKindWrapper ret(INDIRECT);
+	ret.returnConstraints.insert(ret.returnConstraints.end(), lhs.returnConstraints.begin(), lhs.returnConstraints.end());
+	ret.returnConstraints.insert(ret.returnConstraints.end(), rhs.returnConstraints.begin(), rhs.returnConstraints.end());
+	ret.argsConstraints.insert(ret.argsConstraints.end(), lhs.argsConstraints.begin(), lhs.argsConstraints.end());
+	ret.argsConstraints.insert(ret.argsConstraints.end(), rhs.argsConstraints.begin(), rhs.argsConstraints.end());
+	return ret;
+}
+
+void PointerKindWrapper::dump() const
+{
+	if(kind!=INDIRECT)
+		dbgs() << "Wraps plain kind " << kind << "\n";
+	else
+	{
+		for(const llvm::Function* f: returnConstraints)
+			dbgs() << "Depends on return value of: " << f->getName() << "\n";
+		for(auto it: argsConstraints)
+			llvm::errs() << "Depends on argument " << it.second << " of " << it.first->getName() << "\n";
+	}
 }
 
 char PointerAnalyzer::ID = 0;
@@ -94,19 +86,20 @@ struct PointerUsageVisitor
 
 	PointerUsageVisitor( value_kind_map_t & cache ) : cachedValues(cache) {}
 
-	KindOrUnknown visitValue(const Value* v);
-	KindOrUnknown visitUse(const Use* U);
-	KindOrUnknown visitReturn(const Function* F);
+	PointerKindWrapper visitValue(const Value* v);
+	PointerKindWrapper visitUse(const Use* U);
+	PointerKindWrapper visitReturn(const Function* F);
+	POINTER_KIND resolvePointerKind(const PointerKindWrapper& k, visited_set_t& closedset);
 	bool visitByteLayoutChain ( const Value * v );
 	POINTER_KIND getKindForType(Type*) const;
 
-	KindOrUnknown visitAllUses(const Value* v)
+	PointerKindWrapper visitAllUses(const Value* v)
 	{
-		KindOrUnknown result = COMPLETE_OBJECT;
+		PointerKindWrapper result = COMPLETE_OBJECT;
 		for(const Use& u : v->uses())
 		{
 			result = result || visitUse(&u);
-			if (REGULAR==result)
+			if (result==REGULAR)
 				break;
 		}
 		return result;
@@ -166,19 +159,19 @@ bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 	return false;
 }
 
-KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
+PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 {
 	if( cachedValues.count(p) )
-		return cachedValues[p];
+		return cachedValues.find(p)->second;
 
 	if(!closedset.insert(p).second)
-		return {};
+		return {PointerKindWrapper::UNKNOWN};
 
-	auto CacheAndReturn = [&](KindOrUnknown k)
+	auto CacheAndReturn = [&](const PointerKindWrapper& k)
 	{
 		closedset.erase(p);
-		if (k)
-			cachedValues.insert( std::make_pair(p, k.getValue() ) );
+		if (k.isKnown())
+			return (const PointerKindWrapper&)cachedValues.insert( std::make_pair(p, k ) ).first->second;
 		return k;
 	};
 
@@ -251,13 +244,13 @@ KindOrUnknown PointerUsageVisitor::visitValue(const Value* p)
 	if(ImmutableCallSite cs = p)
 	{
 		if (!isIntrinsic)
-			return CacheAndReturn(visitReturn(cs.getCalledFunction()));
+			return CacheAndReturn(cs.getCalledFunction());
 	}
 
 	return CacheAndReturn(visitAllUses(p));
 }
 
-KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
+PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 {
 	const User * p = U->getUser();
 	if ( isGEP(p) )
@@ -319,7 +312,7 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 			assert( U->getOperandNo() == 1 );
 			if ( const Function * f = dyn_cast<Function>(p->getOperand(0) ) )
 			{
-				return visitValue( f->arg_begin() );
+				return { f, 0 };
 			}
 			else
 				llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, cheerp_create_closure");
@@ -353,15 +346,12 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 			return REGULAR;
 		}
 
-		Function::const_arg_iterator arg = calledFunction->arg_begin();
-		std::advance(arg, argNo);
-
-		return visitValue( arg );
+		return { calledFunction, argNo };
 	}
 
 	if ( const ReturnInst * ret = dyn_cast<ReturnInst>(p) )
 	{
-		return visitReturn( ret->getParent()->getParent() );
+		return { ret->getParent()->getParent() };
 	}
 
 	// Bitcasts from byte layout types require COMPLETE_OBJECT, and generate BYTE_LAYOUT
@@ -382,7 +372,7 @@ KindOrUnknown PointerUsageVisitor::visitUse(const Use* U)
 	return COMPLETE_OBJECT;
 }
 
-KindOrUnknown PointerUsageVisitor::visitReturn(const Function* F)
+PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 {
 	if(!F)
 		return REGULAR;
@@ -395,16 +385,16 @@ KindOrUnknown PointerUsageVisitor::visitReturn(const Function* F)
 	 */
 
 	if(cachedValues.count(F->begin()))
-		return cachedValues[F->begin()];
+		return cachedValues.find(F->begin())->second;
 
-	if(!closedset.insert(F).second)
-		return {};
+	if(!closedset.insert(F->begin()).second)
+		return {PointerKindWrapper::UNKNOWN};
 
-	auto CacheAndReturn = [&](KindOrUnknown k) 
-	{ 
-		closedset.erase(F); 
-		if (k)
-			cachedValues.insert( std::make_pair(F->begin(), k.getValue() ) );
+	auto CacheAndReturn = [&](const PointerKindWrapper& k)
+	{
+		closedset.erase(F);
+		if (k.isKnown())
+			return (const PointerKindWrapper&)cachedValues.insert( std::make_pair(F->begin(), k ) ).first->second;
 		return k;
 	};
 
@@ -419,14 +409,14 @@ KindOrUnknown PointerUsageVisitor::visitReturn(const Function* F)
 	if(F->hasAddressTaken())
 		return CacheAndReturn(REGULAR);
 
-	KindOrUnknown result = COMPLETE_OBJECT;
+	PointerKindWrapper result = COMPLETE_OBJECT;
 	for(const Use& u : F->uses())
 	{
 		ImmutableCallSite cs = u.getUser();
 		if(cs && cs.isCallee(&u))
 			result = result || visitAllUses(cs.getInstruction());
 
-		if (REGULAR==result)
+		if (result==REGULAR)
 			break;
 	}
 	return CacheAndReturn(result);
@@ -442,6 +432,44 @@ POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp) const
 		return BYTE_LAYOUT;
 
 	return REGULAR;
+}
+
+POINTER_KIND PointerUsageVisitor::resolvePointerKind(const PointerKindWrapper& k, visited_set_t& closedset)
+{
+	assert(k==PointerKindWrapper::INDIRECT);
+	for(const llvm::Function* f: k.returnConstraints)
+	{
+		const PointerKindWrapper& retKind=visitReturn(f);
+		assert(retKind!=BYTE_LAYOUT);
+		if(retKind==REGULAR)
+			return REGULAR;
+		else if(retKind==PointerKindWrapper::INDIRECT)
+		{
+			if(!closedset.insert(f).second)
+				continue;
+			POINTER_KIND resolvedKind=resolvePointerKind(retKind, closedset);
+			if(resolvedKind==REGULAR)
+				return REGULAR;
+		}
+	}
+	for(auto it: k.argsConstraints)
+	{
+		Function::const_arg_iterator arg = it.first->arg_begin();
+		std::advance(arg, it.second);
+		const PointerKindWrapper& retKind=visitValue( arg );
+		assert(retKind!=BYTE_LAYOUT);
+		if(retKind==REGULAR)
+			return REGULAR;
+		else if(retKind==PointerKindWrapper::INDIRECT)
+		{
+			if(!closedset.insert(arg).second)
+				continue;
+			POINTER_KIND resolvedKind=resolvePointerKind(retKind, closedset);
+			if(resolvedKind==REGULAR)
+				return REGULAR;
+		}
+	}
+	return COMPLETE_OBJECT;
 }
 
 struct TimerGuard
@@ -485,16 +513,23 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 #endif //NDEBUG
 	if (PointerUsageVisitor(cache).visitByteLayoutChain(p))
 	{
-		return cache.insert( std::make_pair(p, BYTE_LAYOUT) ).first->second;
+		cache.insert( std::make_pair(p, BYTE_LAYOUT) );
+		return BYTE_LAYOUT;
 	}
-	KindOrUnknown k = PointerUsageVisitor(cache).visitValue(p);
+	PointerKindWrapper k = PointerUsageVisitor(cache).visitValue(p);
 
 	//If all the uses are unknown no use is REGULAR, we can return CO
-	if (!k)
+	if (!k.isKnown())
 	{
-		return cache.insert( std::make_pair(p, COMPLETE_OBJECT) ).first->second;
+		cache.insert( std::make_pair(p, COMPLETE_OBJECT) );
+		return COMPLETE_OBJECT;
 	}
-	return k.getValue();
+	if (k!=PointerKindWrapper::INDIRECT)
+		return (POINTER_KIND)k;
+
+	// Got an indirect value, we need to resolve it now
+	PointerUsageVisitor::visited_set_t closedset;
+	return PointerUsageVisitor(cache).resolvePointerKind(k, closedset);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
@@ -502,14 +537,19 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 #ifndef NDEBUG
 	TimerGuard guard(gpkfrTimer);
 #endif //NDEBUG
-	KindOrUnknown k = PointerUsageVisitor(cache).visitReturn(F);
+	PointerKindWrapper k = PointerUsageVisitor(cache).visitReturn(F);
 
 	//If all the uses are unknown no use is REGULAR, we can return CO
-	if (!k)
+	if (!k.isKnown())
 	{
-		return cache.insert( std::make_pair(F->begin(), COMPLETE_OBJECT) ).first->second;
+		cache.insert( std::make_pair(F->begin(), COMPLETE_OBJECT) );
+		return COMPLETE_OBJECT;
 	}
-	return k.getValue();
+	if (k!=PointerKindWrapper::INDIRECT)
+		return (POINTER_KIND)k;
+
+	PointerUsageVisitor::visited_set_t closedset;
+	return PointerUsageVisitor(cache).resolvePointerKind(k, closedset);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* tp) const
@@ -524,6 +564,7 @@ void PointerAnalyzer::invalidate(const Value * v)
 		const User * u = dyn_cast<User>(v);
 
 		// Go on and invalidate all the operands
+		// Users should not be invalidated since they are independent
 		if ( u && u->getType()->isPointerTy() )
 		{
 			for ( const Use & U : u->operands() )
@@ -532,18 +573,13 @@ void PointerAnalyzer::invalidate(const Value * v)
 					invalidate(U.get());
 			}
 		}
-
-		// If v is a function invalidate also all its call and arguments
-		if ( const Function * F = dyn_cast<Function>(u) )
-		{
-			for ( const Argument & arg : F->getArgumentList() )
-				if (arg.getType()->isPointerTy())
-					invalidate(&arg);
-
-			for ( const Use & U : F->uses() )
-				if ( ImmutableCallSite cs = U.getUser() )
-					invalidate( cs.getInstruction() );
-		}
+	}
+	// If v is a function invalidate also all its call and arguments
+	if ( const Function * F = dyn_cast<Function>(v) )
+	{
+		for ( const Argument & arg : F->getArgumentList() )
+			if (arg.getType()->isPointerTy())
+				invalidate(&arg);
 	}
 }
 
@@ -572,6 +608,7 @@ void PointerAnalyzer::dumpPointer(const Value* v, bool dumpOwnerFunc) const
 		{
 			case COMPLETE_OBJECT: fmt << "COMPLETE_OBJECT"; break;
 			case REGULAR: fmt << "REGULAR"; break;
+			case BYTE_LAYOUT: fmt << "BYTE_LAYOUT"; break;
 		}
 		fmt.PadToColumn(112) << (TypeSupport::isImmutableType( v->getType()->getPointerElementType() ) ? "true" : "false" );
 	}
@@ -592,6 +629,7 @@ void dumpAllPointers(const Function & F, const PointerAnalyzer & analyzer)
 		{
 			case COMPLETE_OBJECT: llvm::errs() << "COMPLETE_OBJECT"; break;
 			case REGULAR: llvm::errs() << "REGULAR"; break;
+			case BYTE_LAYOUT: llvm::errs() << "BYTE_LAYOUT"; break;
 		}
 		llvm::errs() << ']';
 	}
