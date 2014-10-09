@@ -12157,6 +12157,7 @@ private:
 
   bool CheckAArch64BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
                                        CallExpr *TheCall);
+  bool CheckCheerpBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckBPFBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckHexagonBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckHexagonBuiltinArgument(unsigned BuiltinID, CallExpr *TheCall);

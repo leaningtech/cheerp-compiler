@@ -10918,6 +10918,10 @@ def err_cheerp_memintrinsic_same_type : Error<
   "Cheerp: Memory operations require source and destination pointers of the same type">;
 def err_cheerp_bad_function_to_non_function_cast : Error<
   "Cheerp: Casting from function pointers to non-function pointers is not allowed">;
+def err_cheerp_alloc_requires_cast : Error<
+  "Cheerp: Legacy C memory allocation must be immediately casted to the actual type. Any other use of the return value is invalid">;
+def err_cheerp_realloc_different_types : Error<
+  "Cheerp: the memory returned by realloc should be casted to the same type of the memory passed as the first argument">;
 } // end of cheerp issue category
 
 } // end of sema component.

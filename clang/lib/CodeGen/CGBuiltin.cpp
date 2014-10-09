@@ -11120,25 +11120,30 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
   else if (BuiltinID == Builtin::BIrealloc) {
     // There must be an incoming cast, void* are not directly accepted
     const CastExpr* argCE=dyn_cast<CastExpr>(E->getArg(0));
-    assert(argCE);
-    assert(argCE->getType()->isVoidPointerType());
+    // This condition is verified in Sema
+    assert(argCE && !argCE->getSubExpr()->getType()->isVoidPointerType());
     //TODO: realloc can be invoked with NULL, support that
     const Expr* existingMem=argCE->getSubExpr();
     // The type for the realloc is decided from the base type
     QualType reallocType=existingMem->getType();
+    llvm::Type *Tys[] = { VoidPtrTy, ConvertType(reallocType) };
+    Ops[0]=EmitScalarExpr(existingMem);
+    // Some additional checks that can't be done in Sema
     const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
     assert(FD);
     ParentMap PM(FD->getBody());
     const Stmt* parent=PM.getParent(E);
     // We need an explicit cast after the call, void* can't be used
     const CastExpr* retCE=dyn_cast<CastExpr>(parent);
-    assert(retCE);
-    QualType returnType=retCE->getType();
-    assert(returnType.getCanonicalType()==reallocType.getCanonicalType());
-
-    llvm::Type *Tys[] = { ConvertType(reallocType), ConvertType(reallocType) };
+    if (!retCE || retCE->getType()->isVoidPointerType())
+        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_alloc_requires_cast);
+    else if(retCE->getType().getCanonicalType()!=reallocType.getCanonicalType())
+        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_realloc_different_types);
+    else {
+      // The call is fully valid, so set the return type to the existing type
+      Tys[0]=Tys[1];
+    }
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_reallocate, Tys);
-    Ops[0]=EmitScalarExpr(existingMem);
     return Builder.CreateCall(F, Ops);
   }
   return 0;
