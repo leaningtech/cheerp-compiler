@@ -738,7 +738,7 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 			assert(isa<ConstantInt>(idx));
 			const APInt& index = cast<Constant>(idx)->getUniqueInteger();
 
-			stream << ".a" << index;
+			stream << ".a" << index << '0';
 
 			tp = st->getElementType(index.getZExtValue());
 		}
@@ -826,29 +826,16 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 
 	if(PA.getPointerKind(p) == REGULAR)
 	{
-		// Determine if we need to add a runtime check to avoid adding 0
-		// This is an hack to avoid adding a zero offset to a literal offset,
-		// i.e. to avoid things like "a0" + 0 ( "a00" ).
-		bool isChecked = offset && (!isa<Constant>(offset));
-
 		compilePointerBase(p);
 		stream << '[';
 
-		if(isChecked)
-		{
-			compileOperand(offset);
-			stream << "===0?";
-			compilePointerOffset(p);
-			stream <<':';
-		}
-
 		compilePointerOffset(p);
+		stream << '+';
 
 		if(!isOffsetConstantZero)
-		{
-			stream << '+';
 			compileOperand(offset);
-		}
+		else
+			stream << '0';
 
 		stream << ']';
 	}
@@ -1135,7 +1122,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
-			stream << 'a' << i << ':';
+			stream << 'a' << i << "0:";
 			compileOperand(d->getOperand(i));
 
 			if((i+1)<d->getNumOperands())
@@ -1487,7 +1474,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				stream << namegen.getName(aggr);
 			}
 			uint32_t offset=ivi.getIndices()[0];
-			stream << ".a" << offset << '=';
+			stream << ".a" << offset << "0=";
 			compileOperand(ivi.getInsertedValueOperand());
 			return COMPILE_OK;
 		}
@@ -2069,7 +2056,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			compileOperand(aggr);
 
 			uint32_t offset=evi.getIndices()[0];
-			stream << ".a" << offset;
+			stream << ".a" << offset << '0';
 			return COMPILE_OK;
 		}
 		case Instruction::FPExt:
@@ -2574,7 +2561,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			if ( isa<ConstantArray>( u->getUser() ) )
 				stream << '[' << u->getOperandNo() << ']';
 			else if ( isa<ConstantStruct>( u->getUser() ) )
-				stream << ".a" << u->getOperandNo();
+				stream << ".a" << u->getOperandNo() << '0';
 		}
 
 		stream << '=';
