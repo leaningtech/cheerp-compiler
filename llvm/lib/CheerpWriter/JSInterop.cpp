@@ -99,7 +99,7 @@ void CheerpWriter::compileClassesExportedToJs()
 		stream << "){" << NewLine;
 		compileType(t, THIS_OBJ);
 		//We need to manually add the self pointer
-		stream << ";" << NewLine << "this.s=this;" << NewLine;
+		stream << ';' << NewLine << "this.s0=this;" << NewLine;
 		compileOperand(f);
 		stream << "({d:this,o:'s'}";
 		for(uint32_t i=0;i<f->arg_size()-1;i++)
