@@ -79,6 +79,27 @@ public:
 //
 ModulePass *createIndirectCallOptimizerPass();
 
+/**
+ * This pass will convert PHIs of pointers inside the same array to PHIs of the corresponding indexes
+ * It is useful to avoid generating tons of small pointer objects in tight loops.
+ */
+class PointerArithmeticToArrayIndexing: public FunctionPass
+{
+public:
+	static char ID;
+	explicit PointerArithmeticToArrayIndexing() : FunctionPass(ID) { }
+	bool runOnFunction(Function &F);
+	const char *getPassName() const;
+
+	virtual void getAnalysisUsage(AnalysisUsage&) const override;
+};
+
+//===----------------------------------------------------------------------===//
+//
+// PointerArithmeticToArrayIndexing
+//
+FunctionPass *createPointerArithmeticToArrayIndexingPass();
+
 
 }
 
