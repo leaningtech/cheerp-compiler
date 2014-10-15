@@ -18,6 +18,8 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include <set>
+#include <map>
 
 STATISTIC(NumIndirectFun, "Number of indirect functions processed");
 STATISTIC(NumAllocasTransformedToArrays, "Number of allocas of values transformed to allocas of arrays");
@@ -238,5 +240,151 @@ ModulePass* createIndirectCallOptimizerPass()
 {
 	return new IndirectCallOptimizer();
 }
+
+class PHIVisitor
+{
+public:
+	typedef std::map<PHINode*, PHINode*> PHIMap;
+	PHIVisitor(PHIMap& phiMap):aborted(false),mappedPHIs(phiMap)
+	{
+	}
+	bool visitPHI(PHINode* phi);
+	Value* findBase(Instruction* I);
+	Value* rewrite(Instruction* I, Value* base);
+private:
+	std::set<PHINode*> visited;
+	PHIMap& mappedPHIs;
+	bool aborted;
+};
+
+Value* PHIVisitor::findBase(Instruction* I)
+{
+	if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(I))
+	{
+		if (gep->getNumIndices() == 1)
+		{
+			Value* ptr=gep->getPointerOperand();
+			if (Instruction* ptrI=dyn_cast<Instruction>(ptr))
+				return findBase(ptrI);
+			else
+				return ptr;
+		}
+	}
+	else if(PHINode* phi = dyn_cast<PHINode>(I))
+	{
+		if(visited.count(phi))
+			return NULL;
+		visited.insert(phi);
+		Value* ret = NULL;
+		for (unsigned i=0;i<phi->getNumIncomingValues();i++)
+		{
+			Value* incomingValue=phi->getIncomingValue(i);
+			Instruction* incomingInst=dyn_cast<Instruction>(incomingValue);
+			Value* baseCandidate = incomingInst ? findBase(incomingInst) : incomingValue;
+			if (baseCandidate == NULL)
+				continue;
+			if (ret == NULL)
+				ret = baseCandidate;
+			else if (ret != baseCandidate)
+			{
+				aborted = true;
+				return NULL;
+			}
+		}
+		return ret;
+	}
+	return I;
+}
+
+Value* PHIVisitor::rewrite(Instruction* I, Value* base)
+{
+	if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(I))
+	{
+		if (gep->getNumIndices() == 1)
+		{
+			Value* ptr=gep->getPointerOperand();
+			Instruction* ptrI=dyn_cast<Instruction>(ptr);
+			Value* parentOffset = ptrI ? rewrite(ptrI, base) : NULL;
+			Value* thisOffset = *gep->idx_begin();
+			if (parentOffset == NULL)
+				return thisOffset;
+			else
+			{
+				Value* newIndex=BinaryOperator::Create(BinaryOperator::Add, parentOffset, thisOffset, "geptoindex", gep);
+				Value* newGep=GetElementPtrInst::Create(base, newIndex, "geptoindex", gep);
+				gep->replaceAllUsesWith(newGep);
+				return newIndex;
+			}
+		}
+	}
+	else if(PHINode* phi = dyn_cast<PHINode>(I))
+	{
+		auto it = mappedPHIs.find(phi);
+		if (it!=mappedPHIs.end())
+			return it->second;
+		PHINode* newPHI = PHINode::Create(IntegerType::get(phi->getContext(), 32), phi->getNumIncomingValues(), "geptoindexphi", phi);
+		mappedPHIs.insert(std::make_pair(phi, newPHI));
+		for (unsigned i=0;i<phi->getNumIncomingValues();i++)
+		{
+			Value* incomingValue=phi->getIncomingValue(i);
+			Instruction* incomingInst=dyn_cast<Instruction>(incomingValue);
+			Value* index = incomingInst ? rewrite(incomingInst, base) : NULL;
+			if (index == NULL)
+				index = ConstantInt::get(newPHI->getType(), 0);
+			newPHI->addIncoming(index, phi->getIncomingBlock(i));
+		}
+		Value* newGep=GetElementPtrInst::Create(base, newPHI, "geptoindex",phi->getParent()->getFirstInsertionPt());
+		phi->replaceAllUsesWith(newGep);
+		return newPHI;
+	}
+	return NULL;
+}
+
+bool PHIVisitor::visitPHI(PHINode* phi)
+{
+	Value* base = findBase(phi);
+	if (base == NULL || aborted)
+		return false;
+	// We have found a common base for all incoming values.
+	// Now we want to build an integer PHI
+	rewrite(phi, base);
+	return true;
+}
+
+bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
+{
+	bool Changed = false;
+
+	PHIVisitor::PHIMap phiMap;
+	for ( BasicBlock & BB : F )
+	{
+		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
+		{
+			PHINode * phi = dyn_cast<PHINode>(it++);
+			if (! phi )
+				continue;
+			if (! phi->getType()->isPointerTy() )
+				continue;
+			Changed |= PHIVisitor(phiMap).visitPHI(phi);
+		}
+	}
+	for(auto& it: phiMap)
+		it.first->eraseFromParent();
+	return Changed;
+}
+
+const char* PointerArithmeticToArrayIndexing::getPassName() const
+{
+	return "PointerArithmeticToArrayIndexing";
+}
+
+char PointerArithmeticToArrayIndexing::ID = 0;
+
+void PointerArithmeticToArrayIndexing::getAnalysisUsage(AnalysisUsage & AU) const
+{
+	llvm::Pass::getAnalysisUsage(AU);
+}
+
+FunctionPass *createPointerArithmeticToArrayIndexingPass() { return new PointerArithmeticToArrayIndexing(); }
 
 }
