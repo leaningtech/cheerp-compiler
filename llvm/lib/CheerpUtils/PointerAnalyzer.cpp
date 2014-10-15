@@ -83,8 +83,9 @@ struct PointerUsageVisitor
 {
 	typedef llvm::DenseSet< const llvm::Value* > visited_set_t;
 	typedef PointerAnalyzer::ValueKindMap value_kind_map_t;
+	typedef PointerAnalyzer::AddressTakenMap address_taken_map_t;
 
-	PointerUsageVisitor( value_kind_map_t & cache ) : cachedValues(cache) {}
+	PointerUsageVisitor( value_kind_map_t & cache, address_taken_map_t & cachedAddressTaken ) : cachedValues(cache), cachedAddressTaken( cachedAddressTaken ) {}
 
 	PointerKindWrapper visitValue(const Value* v);
 	PointerKindWrapper visitUse(const Use* U);
@@ -114,6 +115,7 @@ struct PointerUsageVisitor
 	}
 
 	value_kind_map_t & cachedValues;
+	address_taken_map_t & cachedAddressTaken;
 	visited_set_t closedset;
 };
 
@@ -234,7 +236,7 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 
 	if(const Argument* arg = dyn_cast<Argument>(p))
 	{
-		if(arg->getParent()->hasAddressTaken())
+		if(cachedAddressTaken.checkAddressTaken(arg->getParent()))
 			return CacheAndReturn(REGULAR);
 	}
 
@@ -406,7 +408,7 @@ PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 	if(TypeSupport::isImmutableType(returnPointedType))
 		return CacheAndReturn(REGULAR);
 
-	if(F->hasAddressTaken())
+	if(cachedAddressTaken.checkAddressTaken(F))
 		return CacheAndReturn(REGULAR);
 
 	PointerKindWrapper result = COMPLETE_OBJECT;
@@ -511,12 +513,12 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 #ifndef NDEBUG
 	TimerGuard guard(gpkTimer);
 #endif //NDEBUG
-	if (PointerUsageVisitor(cache).visitByteLayoutChain(p))
+	if (PointerUsageVisitor(cache, addressTakenCache).visitByteLayoutChain(p))
 	{
 		cache.insert( std::make_pair(p, BYTE_LAYOUT) );
 		return BYTE_LAYOUT;
 	}
-	PointerKindWrapper k = PointerUsageVisitor(cache).visitValue(p);
+	PointerKindWrapper k = PointerUsageVisitor(cache, addressTakenCache).visitValue(p);
 
 	//If all the uses are unknown no use is REGULAR, we can return CO
 	if (!k.isKnown())
@@ -529,7 +531,7 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 
 	// Got an indirect value, we need to resolve it now
 	PointerUsageVisitor::visited_set_t closedset;
-	return PointerUsageVisitor(cache).resolvePointerKind(k, closedset);
+	return PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(k, closedset);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
@@ -537,7 +539,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 #ifndef NDEBUG
 	TimerGuard guard(gpkfrTimer);
 #endif //NDEBUG
-	PointerKindWrapper k = PointerUsageVisitor(cache).visitReturn(F);
+	PointerKindWrapper k = PointerUsageVisitor(cache, addressTakenCache).visitReturn(F);
 
 	//If all the uses are unknown no use is REGULAR, we can return CO
 	if (!k.isKnown())
@@ -549,12 +551,12 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 		return (POINTER_KIND)k;
 
 	PointerUsageVisitor::visited_set_t closedset;
-	return PointerUsageVisitor(cache).resolvePointerKind(k, closedset);
+	return PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(k, closedset);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* tp) const
 {
-	return PointerUsageVisitor(cache).getKindForType(tp);
+	return PointerUsageVisitor(cache, addressTakenCache).getKindForType(tp);
 }
 
 void PointerAnalyzer::invalidate(const Value * v)
@@ -580,6 +582,7 @@ void PointerAnalyzer::invalidate(const Value * v)
 		for ( const Argument & arg : F->getArgumentList() )
 			if (arg.getType()->isPointerTy())
 				invalidate(&arg);
+		addressTakenCache.erase(F);
 	}
 }
 
