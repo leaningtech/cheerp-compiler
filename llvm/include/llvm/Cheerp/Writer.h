@@ -311,7 +311,7 @@ public:
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
 	             SourceMapGenerator* sourceMapGenerator, bool ReadableOutput, bool NoRegisterize):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(m),
-		namegen(globalDeps, registerize, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
+		namegen(globalDeps, registerize, PA, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
 		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),
 		stream(s, ReadableOutput)
 	{

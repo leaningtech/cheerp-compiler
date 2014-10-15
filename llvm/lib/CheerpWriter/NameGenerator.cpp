@@ -107,7 +107,7 @@ const std::set< StringRef > JSSymbols::reserved_names = {
 	"with"
 };
 
-NameGenerator::NameGenerator(const GlobalDepsAnalyzer& gda, const Registerize& r, bool makeReadableNames):registerize(r)
+NameGenerator::NameGenerator(const GlobalDepsAnalyzer& gda, const Registerize& r, const PointerAnalyzer& PA, bool makeReadableNames):registerize(r), PA(PA)
 {
 	if ( makeReadableNames )
 		generateReadableNames(gda);
@@ -234,7 +234,7 @@ void NameGenerator::generateCompressedNames(const GlobalDepsAnalyzer& gda)
 		{
 			for (const Instruction & I : bb)
 			{
-				if ( needsName(I) )
+				if ( needsName(I, PA) )
 				{
 					uint32_t registerId = registerize.getRegisterId(&I);
 					if (registerId >= thisFunctionLocals.size())
@@ -402,7 +402,7 @@ void NameGenerator::generateReadableNames(const GlobalDepsAnalyzer& gda)
 		{
 			for (const Instruction & I : bb)
 			{
-				if ( needsName(I) )
+				if ( needsName(I, PA) )
 				{
 					uint32_t registerId = registerize.getRegisterId(&I);
 					// If the register already has a name, use it
@@ -455,9 +455,9 @@ void NameGenerator::generateReadableNames(const GlobalDepsAnalyzer& gda)
 			namemap.emplace( GV, filterLLVMName( GV->getName(), true ) );
 }
 
-bool NameGenerator::needsName(const Instruction & I) const
+bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) const
 {
-	return !isInlineable(I) && !I.getType()->isVoidTy();
+	return !isInlineable(I, PA) && !I.getType()->isVoidTy();
 }
 
 }

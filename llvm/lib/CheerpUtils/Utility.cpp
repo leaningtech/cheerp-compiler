@@ -76,7 +76,7 @@ bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhi
 	return false;
 }
 
-bool isInlineable(const Instruction& I)
+bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 {
 	//Inlining a variable used by a PHI it's unsafe
 	//When the phi's are computed the result
@@ -98,7 +98,11 @@ bool isInlineable(const Instruction& I)
 		return true;
 	}
 	else if(I.getOpcode()==Instruction::BitCast)
+	{
+		if(PA.getPointerKind(&I)==COMPLETE_OBJECT && PA.getPointerKind(I.getOperand(0))==REGULAR)
+			return false;
 		return true;
+	}
 	else if(I.hasOneUse())
 	{
 		switch(I.getOpcode())
