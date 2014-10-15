@@ -45,10 +45,7 @@ public:
 	void beginFile();
 	void finishLine();
 	void endFile();
-	const std::string& getSourceMapName() const
-	{
-		return sourceMapName;
-	}
+	std::string getSourceMapName() const;
 };
 
 }
