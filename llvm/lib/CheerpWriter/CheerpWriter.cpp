@@ -787,16 +787,16 @@ void CheerpWriter::compileOffsetForGEP(Type* pointerOperandType, ArrayRef< const
  * Return the GEP this value comes from (propagating across bitcasts/nopcasts).
  * If the value is not a GEP, return null
  */
-static const User* propagate_till_gep(const Value* p)
+static const User* propagate_till_gep(const Value* p, const PointerAnalyzer& PA)
 {
 	const Value* q = p;
 
-	while((isNopCast(q) || isBitCast(q)) && (!isa<Instruction>(q) || isInlineable(*cast<Instruction>(q))))
+	while((isNopCast(q) || isBitCast(q)) && (!isa<Instruction>(q) || isInlineable(*cast<Instruction>(q), PA)))
 	{
 		q = cast<User>(q)->getOperand(0);
 	}
 
-	return isGEP(q) && (!isa<Instruction>(q) || isInlineable(*cast<Instruction>(q))) ? cast<User>(q) : nullptr;
+	return isGEP(q) && (!isa<Instruction>(q) || isInlineable(*cast<Instruction>(q), PA)) ? cast<User>(q) : nullptr;
 }
 
 void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
@@ -817,7 +817,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	 */
 	if(isOffsetConstantZero)
 	{
-		if(const User* gepInst = propagate_till_gep(p))
+		if(const User* gepInst = propagate_till_gep(p, PA))
 		{
 			compileGEP(gepInst, COMPLETE_OBJECT);
 			return;
@@ -877,7 +877,7 @@ void CheerpWriter::compilePointerBase(const Value* p)
 		return;
 	}
 	// Collapse if p is a gepInst
-	while(const User* gepInst = propagate_till_gep(p))
+	while(const User* gepInst = propagate_till_gep(p, PA))
 	{
 		assert(gepInst->getNumOperands() > 1);
 
@@ -993,7 +993,7 @@ void CheerpWriter::compilePointerOffset(const Value* p)
 		compileByteLayoutOffset(p, BYTE_LAYOUT_OFFSET_FULL);
 		return;
 	}
-	const User* gep_inst = propagate_till_gep(p);
+	const User* gep_inst = propagate_till_gep(p, PA);
 
 	if(gep_inst)
 	{
@@ -1209,7 +1209,7 @@ void CheerpWriter::compileOperand(const Value* v)
 	}
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
-		if(isInlineable(*it))
+		if(isInlineable(*it, PA))
 			compileInlineableInstruction(*cast<Instruction>(v));
 		else
 			stream << namegen.getName(it);
@@ -2170,7 +2170,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 	BasicBlock::const_iterator IE=BB.end();
 	for(;I!=IE;++I)
 	{
-		if(isInlineable(*I))
+		if(isInlineable(*I, PA))
 			continue;
 		if(I->getOpcode()==Instruction::PHI) //Phys are manually handled
 			continue;

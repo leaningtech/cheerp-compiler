@@ -16,6 +16,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/PointerAnalyzer.h"
 #include <unordered_map>
 
 namespace cheerp {
@@ -31,7 +32,7 @@ public:
 	 * This initialize the namegenerator by collecting
 	 * all the global variable names
 	 */
-	explicit NameGenerator( const GlobalDepsAnalyzer &, const Registerize &, bool makeReadableNames = true );
+	explicit NameGenerator( const GlobalDepsAnalyzer &, const Registerize &, const PointerAnalyzer& PA, bool makeReadableNames = true );
 
 	/**
 	 * Return the computed name for the given variable.
@@ -72,9 +73,10 @@ private:
 	void generateReadableNames( const GlobalDepsAnalyzer & );
 	
 	// Determine if an instruction actually needs a name
-	bool needsName(const llvm::Instruction &) const;
+	bool needsName(const llvm::Instruction &, const PointerAnalyzer& PA) const;
 
 	const Registerize& registerize;
+	const PointerAnalyzer& PA;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
 	struct InstOnEdge
 	{
