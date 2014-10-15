@@ -102,9 +102,25 @@ public:
 #endif //NDEBUG
 
 	typedef llvm::DenseMap<const llvm::Value*, PointerKindWrapper> ValueKindMap;
+	struct AddressTakenMap: public llvm::DenseMap<const llvm::Function*, bool>
+	{
+		bool checkAddressTaken(const llvm::Function* F)
+		{
+			auto it=find(F);
+			if(it==end())
+			{
+				bool ret=F->hasAddressTaken();
+				insert(std::make_pair(F, ret));
+				return ret;
+			}
+			else
+				return it->second;
+		}
+	};
 
 private:
 	mutable ValueKindMap cache;
+	mutable AddressTakenMap addressTakenCache;
 
 #ifndef NDEBUG
 	mutable llvm::TimerGroup timerGroup;
