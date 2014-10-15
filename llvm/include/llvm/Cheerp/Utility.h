@@ -20,6 +20,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
+#include "llvm/Cheerp/PointerAnalyzer.h"
 
 namespace cheerp
 {
@@ -33,7 +34,7 @@ inline bool isValidVoidPtrSource(const llvm::Value* val)
 	return isValidVoidPtrSource(val, visitedPhis);
 }
 
-bool isInlineable(const llvm::Instruction& I);
+bool isInlineable(const llvm::Instruction& I, const PointerAnalyzer& PA);
 
 inline bool isBitCast(const llvm::Value* v)
 {

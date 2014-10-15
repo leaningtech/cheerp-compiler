@@ -29,6 +29,7 @@ char Registerize::ID = 0;
 void Registerize::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addPreserved<cheerp::PointerAnalyzer>();
+	AU.addRequired<cheerp::PointerAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
@@ -67,6 +68,7 @@ void Registerize::handleFunction(Function& F)
 {
 	if (F.empty())
 		return;
+	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	if (NoRegisterize)
 	{
 		// Do a fake run and assign every instruction to a different register
@@ -80,7 +82,7 @@ void Registerize::handleFunction(Function& F)
 					// Initialize an empty live range, which means that the alloca escapes analysis
 					allocaLiveRanges[AI];
 				}
-				if (isInlineable(I) || I.getType()->isVoidTy())
+				if (isInlineable(I, PA) || I.getType()->isVoidTy())
 					continue;
 				registersMap[&I]=nextRegister++;
 			}
@@ -186,6 +188,7 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy& liveRanges, InstIdMapTy& instIdMap,
 					BasicBlock& BB, uint32_t nextIndex, uint32_t codePathId)
 {
+	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	BlockState& blockState=blocksState[&BB];
 	if(blockState.indexesAssigned)
 		return nextIndex;
@@ -199,7 +202,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		instIdMap[&I]=thisIndex;
 		// Inlineable instructions extends the life of the not-inlineable instructions they use.
 		// This happens inside extendRangeForUsedOperands.
-		if (isInlineable(I))
+		if (isInlineable(I, PA))
 			continue;
 		// Void instruction do not need any lifetime computation
 		if (!I.getType()->isVoidTy())
@@ -220,7 +223,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	for(Instruction* outLiveInst: blockState.outSet)
 	{
 		// If inlineable we need to extend the life of the not-inlineable operands
-		if (isInlineable(*outLiveInst))
+		if (isInlineable(*outLiveInst, PA))
 			extendRangeForUsedOperands(*outLiveInst, liveRanges, endOfBlockIndex, codePathId);
 		else
 		{
@@ -245,6 +248,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveRanges,
 						uint32_t thisIndex, uint32_t codePathId)
 {
+	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	for(Value* op: I.operands())
 	{
 		Instruction* usedI = dyn_cast<Instruction>(op);
@@ -252,7 +256,7 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 		if(!usedI)
 			continue;
 		// Recursively traverse inlineable operands
-		if(isInlineable(*usedI))
+		if(isInlineable(*usedI, PA))
 			extendRangeForUsedOperands(*usedI, liveRanges, thisIndex, codePathId);
 		else
 		{
