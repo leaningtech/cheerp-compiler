@@ -575,9 +575,9 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 	return PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(k, closedset);
 }
 
-POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* tp) const
+POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* pointerType) const
 {
-	return PointerUsageVisitor(cache, addressTakenCache).getKindForType(tp);
+	return PointerUsageVisitor(cache, addressTakenCache).getKindForType(pointerType->getPointerElementType());
 }
 
 void PointerAnalyzer::invalidate(const Value * v)
