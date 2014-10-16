@@ -72,10 +72,7 @@ const char* PointerAnalyzer::getPassName() const
 
 bool PointerAnalyzer::runOnModule(Module& M)
 {
-	for (const Function & F : M )
-		if ( F.getReturnType()->isPointerTy() )
-			getPointerKindForReturn(&F);
-
+	prefetch(M);
 	return false;
 }
 
@@ -518,14 +515,17 @@ void PointerAnalyzer::prefetch(const Module& m) const
 
 	for(const Function & F : m)
 	{
+		for(const Argument & arg : F.getArgumentList())
+			if(arg.getType()->isPointerTy())
+				getFinalPointerKindWrapper(&arg);
 		for(const BasicBlock & BB : F)
 		{
 			for(auto it=BB.rbegin();it != BB.rend();++it)
 				if(it->getType()->isPointerTy())
-					getPointerKind(&(*it));
+					getFinalPointerKindWrapper(&(*it));
 		}
 		if(F.getReturnType()->isPointerTy())
-			getPointerKindForReturn(&F);
+			getFinalPointerKindWrapperForReturn(&F);
 	}
 }
 
