@@ -97,8 +97,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 		}
 		case Type::PointerTyID:
 		{
-			Type* pointedType = t->getPointerElementType();
-			if(types.isClientType(pointedType))
+			if(PA.getPointerKindForType(t)==COMPLETE_OBJECT)
 				stream << "null";
 			else
 				stream << "nullObj";

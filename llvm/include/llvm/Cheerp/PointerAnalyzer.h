@@ -88,7 +88,7 @@ public:
 
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
 	POINTER_KIND getPointerKindForReturn(const llvm::Function* F) const;
-	POINTER_KIND getPointerKindForType( llvm::Type * tp) const;
+	POINTER_KIND getPointerKindForType( llvm::Type * pointerType ) const;
 
 	/**
 	 * Functions to manually invalidate the cache
