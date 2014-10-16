@@ -529,7 +529,7 @@ void PointerAnalyzer::prefetch(const Module& m) const
 	}
 }
 
-POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
+PointerKindWrapper PointerAnalyzer::getFinalPointerKindWrapper(const Value* p) const
 {
 #ifndef NDEBUG
 	TimerGuard guard(gpkTimer);
@@ -547,6 +547,16 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 		cache.insert( std::make_pair(p, COMPLETE_OBJECT) );
 		return COMPLETE_OBJECT;
 	}
+	return k;
+}
+
+POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
+{
+#ifndef NDEBUG
+	TimerGuard guard(gpkTimer);
+#endif //NDEBUG
+	PointerKindWrapper k = getFinalPointerKindWrapper(p);
+
 	if (k!=PointerKindWrapper::INDIRECT)
 		return (POINTER_KIND)k;
 
@@ -555,7 +565,7 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 	return PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(k, closedset);
 }
 
-POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
+PointerKindWrapper PointerAnalyzer::getFinalPointerKindWrapperForReturn(const Function* F) const
 {
 #ifndef NDEBUG
 	TimerGuard guard(gpkfrTimer);
@@ -568,6 +578,15 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 		cache.insert( std::make_pair(F->begin(), COMPLETE_OBJECT) );
 		return COMPLETE_OBJECT;
 	}
+	return k;
+}
+
+POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
+{
+#ifndef NDEBUG
+	TimerGuard guard(gpkfrTimer);
+#endif //NDEBUG
+	PointerKindWrapper k = getFinalPointerKindWrapperForReturn(F);
 	if (k!=PointerKindWrapper::INDIRECT)
 		return (POINTER_KIND)k;
 
