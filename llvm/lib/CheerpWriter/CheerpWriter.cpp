@@ -807,6 +807,11 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 		compileOperand(p);
 		return;
 	}
+	if(isa<ConstantPointerNull>(p))
+	{
+		stream << "null";
+		return;
+	}
 
 	bool isOffsetConstantZero = offset == nullptr || (isa<Constant>(offset) && cast<Constant>(offset)->isZeroValue());
 
