@@ -2596,6 +2596,7 @@ void CheerpWriter::makeJS()
 	compileNullPtrs();
 	
 	PA.prefetch(module);
+	PA.fullResolve();
 
 	for ( const Function * F : globalDeps.functionOrderedList() )
 		if (!F->empty())

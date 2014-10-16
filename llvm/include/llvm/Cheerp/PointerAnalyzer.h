@@ -72,7 +72,8 @@ public:
 	PointerAnalyzer() : 
 		ModulePass(ID)
 #ifndef NDEBUG
-		,timerGroup("Pointer Analyzer"),
+		,fullyResolved(false),
+		timerGroup("Pointer Analyzer"),
 		gpkTimer("getPointerKind",timerGroup),
 		gpkfrTimer("getPointerKindForReturn",timerGroup)
 #endif //NDEBUG
@@ -96,7 +97,11 @@ public:
 	// Notify that a value has been invalidated
 	void invalidate( const llvm::Value * );
 
+	// Fully resolve indirect pointer kinds. After you call this function you should not call invalidate anymore.
+	void fullResolve() const;
+
 #ifndef NDEBUG
+	mutable bool fullyResolved;
 	// Dump a pointer value info
 	void dumpPointer(const llvm::Value * v, bool dumpOwnerFuncion = true) const;
 #endif //NDEBUG

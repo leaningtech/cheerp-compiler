@@ -79,9 +79,30 @@ bool PointerAnalyzer::runOnModule(Module& M)
 	return false;
 }
 
+enum VISITED_KIND { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT };
+
 struct PointerUsageVisitor
 {
 	typedef llvm::DenseSet< const llvm::Value* > visited_set_t;
+	struct ResolveVisitedItem
+	{
+		VISITED_KIND kind;
+		const void* ptr;
+		uint32_t i;
+		bool operator<(const ResolveVisitedItem& rhs) const
+		{
+			if (kind == rhs.kind)
+			{
+				if(ptr == rhs.ptr)
+					return i < rhs.i;
+				else
+					return ptr < rhs.ptr;
+			}
+			else
+				return kind < rhs.kind;
+		}
+	};
+	typedef std::set< ResolveVisitedItem > resolve_visited_set_t;
 	typedef PointerAnalyzer::ValueKindMap value_kind_map_t;
 	typedef PointerAnalyzer::AddressTakenMap address_taken_map_t;
 
@@ -90,7 +111,7 @@ struct PointerUsageVisitor
 	PointerKindWrapper visitValue(const Value* v);
 	PointerKindWrapper visitUse(const Use* U);
 	PointerKindWrapper visitReturn(const Function* F);
-	POINTER_KIND resolvePointerKind(const PointerKindWrapper& k, visited_set_t& closedset);
+	POINTER_KIND resolvePointerKind(const PointerKindWrapper& k, resolve_visited_set_t& closedset);
 	bool visitByteLayoutChain ( const Value * v );
 	POINTER_KIND getKindForType(Type*) const;
 
@@ -436,7 +457,7 @@ POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp) const
 	return REGULAR;
 }
 
-POINTER_KIND PointerUsageVisitor::resolvePointerKind(const PointerKindWrapper& k, visited_set_t& closedset)
+POINTER_KIND PointerUsageVisitor::resolvePointerKind(const PointerKindWrapper& k, resolve_visited_set_t& closedset)
 {
 	assert(k==PointerKindWrapper::INDIRECT);
 	for(const llvm::Function* f: k.returnConstraints)
@@ -447,7 +468,7 @@ POINTER_KIND PointerUsageVisitor::resolvePointerKind(const PointerKindWrapper& k
 			return REGULAR;
 		else if(retKind==PointerKindWrapper::INDIRECT)
 		{
-			if(!closedset.insert(f).second)
+			if(!closedset.insert({ RETURN_CONSTRAINT, f, 0}).second)
 				continue;
 			POINTER_KIND resolvedKind=resolvePointerKind(retKind, closedset);
 			if(resolvedKind==REGULAR)
@@ -464,7 +485,7 @@ POINTER_KIND PointerUsageVisitor::resolvePointerKind(const PointerKindWrapper& k
 			return REGULAR;
 		else if(retKind==PointerKindWrapper::INDIRECT)
 		{
-			if(!closedset.insert(arg).second)
+			if(!closedset.insert({ DIRECT_ARG_CONSTRAINT, arg, 0}).second)
 				continue;
 			POINTER_KIND resolvedKind=resolvePointerKind(retKind, closedset);
 			if(resolvedKind==REGULAR)
@@ -530,7 +551,7 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 		return (POINTER_KIND)k;
 
 	// Got an indirect value, we need to resolve it now
-	PointerUsageVisitor::visited_set_t closedset;
+	PointerUsageVisitor::resolve_visited_set_t closedset;
 	return PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(k, closedset);
 }
 
@@ -550,7 +571,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 	if (k!=PointerKindWrapper::INDIRECT)
 		return (POINTER_KIND)k;
 
-	PointerUsageVisitor::visited_set_t closedset;
+	PointerUsageVisitor::resolve_visited_set_t closedset;
 	return PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(k, closedset);
 }
 
@@ -561,6 +582,9 @@ POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* tp) const
 
 void PointerAnalyzer::invalidate(const Value * v)
 {
+#ifndef NDEBUG
+	assert(!fullyResolved);
+#endif
 	if ( cache.erase(v) )
 	{
 		const User * u = dyn_cast<User>(v);
@@ -584,6 +608,22 @@ void PointerAnalyzer::invalidate(const Value * v)
 				invalidate(&arg);
 		addressTakenCache.erase(F);
 	}
+}
+
+void PointerAnalyzer::fullResolve() const
+{
+	for(auto& it: cache)
+	{
+		if(it.second!=PointerKindWrapper::INDIRECT)
+			continue;
+		PointerUsageVisitor::resolve_visited_set_t closedset;
+		POINTER_KIND k=PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(it.second, closedset);
+		assert(k==COMPLETE_OBJECT || k==REGULAR);
+		it.second=PointerKindWrapper(k);
+	}
+#ifndef NDEBUG
+	fullyResolved = true;
+#endif
 }
 
 #ifndef NDEBUG
