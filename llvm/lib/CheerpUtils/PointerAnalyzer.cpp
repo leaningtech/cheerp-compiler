@@ -621,7 +621,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 	return PointerUsageVisitor(cacheBundle).resolvePointerKind(k, closedset);
 }
 
-POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* pointerType) const
+POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) const
 {
 	POINTER_KIND ret=PointerUsageVisitor(cacheBundle).getKindForType(pointerType->getPointerElementType());
 	if(ret!=REGULAR)
@@ -637,6 +637,11 @@ POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* pointerType) const
 
 	PointerUsageVisitor::resolve_visited_set_t closedset;
 	return PointerUsageVisitor(cacheBundle).resolvePointerKind(k, closedset);
+}
+
+POINTER_KIND PointerAnalyzer::getPointerKindForArgumentType(Type* pointerType) const
+{
+	return PointerUsageVisitor(cacheBundle).getKindForType(pointerType->getPointerElementType());
 }
 
 void PointerAnalyzer::invalidate(const Value * v)
