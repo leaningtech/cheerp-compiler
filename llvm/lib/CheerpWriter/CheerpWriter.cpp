@@ -1322,7 +1322,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			// (that is: CO if client or function pointer, REGULAR otherwise )
 			POINTER_KIND k = (F && arg_it != F->arg_end()) ?
 			                 PA.getPointerKind(arg_it) :
-			                 PA.getPointerKindForType(tp->getPointerElementType());
+			                 PA.getPointerKindForType(tp);
 			compilePointerAs(*cur, k);
 		}
 		else
