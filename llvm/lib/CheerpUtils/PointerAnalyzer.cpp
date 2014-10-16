@@ -325,6 +325,7 @@ PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 		case Intrinsic::cheerp_upcast_collapsed:
 		case Intrinsic::cheerp_cast_user:
 			return visitValue( p );
+		case Intrinsic::cheerp_reallocate:
 		case Intrinsic::cheerp_pointer_base:
 		case Intrinsic::cheerp_pointer_offset:
 			return REGULAR;
