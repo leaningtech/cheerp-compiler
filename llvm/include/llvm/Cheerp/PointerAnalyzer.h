@@ -117,7 +117,8 @@ public:
 
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
 	POINTER_KIND getPointerKindForReturn(const llvm::Function* F) const;
-	POINTER_KIND getPointerKindForType( llvm::Type * pointerType ) const;
+	POINTER_KIND getPointerKindForStoredType( llvm::Type * pointerType ) const;
+	POINTER_KIND getPointerKindForArgumentType( llvm::Type * pointerType ) const;
 	PointerKindWrapper getFinalPointerKindWrapper(const llvm::Value* v ) const;
 	PointerKindWrapper getFinalPointerKindWrapperForReturn(const llvm::Function* F) const;
 

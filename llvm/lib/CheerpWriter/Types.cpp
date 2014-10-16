@@ -97,7 +97,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 		}
 		case Type::PointerTyID:
 		{
-			if(PA.getPointerKindForType(t)==COMPLETE_OBJECT)
+			if(PA.getPointerKindForStoredType(t)==COMPLETE_OBJECT)
 				stream << "null";
 			else
 				stream << "nullObj";
