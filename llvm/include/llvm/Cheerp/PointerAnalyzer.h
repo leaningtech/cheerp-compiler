@@ -31,6 +31,15 @@ class PointerKindWrapper
 {
 private:
 	uint32_t kind;
+	bool hasConstraints() const
+	{
+		return !(returnConstraints.empty() && argsConstraints.empty());
+	}
+	void clearConstraints()
+	{
+		returnConstraints.clear();
+		argsConstraints.clear();
+	}
 public:
 	enum WRAPPED_POINTER_KIND { UNKNOWN=LAST_POINTER_KIND+1, INDIRECT=LAST_POINTER_KIND+2 };
 	std::vector<const llvm::Function*> returnConstraints;
@@ -54,7 +63,8 @@ public:
 	{
 		return kind!=rhs;
 	}
-	PointerKindWrapper operator||(const PointerKindWrapper & rhs);
+	PointerKindWrapper operator|(const PointerKindWrapper & rhs);
+	PointerKindWrapper& operator|=(const PointerKindWrapper& rhs);
 	bool isKnown() const
 	{
 		return kind!=UNKNOWN;
@@ -62,6 +72,16 @@ public:
 	explicit operator POINTER_KIND() const
 	{
 		return (POINTER_KIND)kind;
+	}
+	void makeKnown()
+	{
+		//If all the uses are unknown no use is REGULAR, we can return CO
+		if(kind!=UNKNOWN)
+			return;
+		if(hasConstraints())
+			kind = INDIRECT;
+		else
+			kind = COMPLETE_OBJECT;
 	}
 	void dump() const;
 };
