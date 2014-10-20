@@ -1734,7 +1734,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const CastInst& ci = cast<CastInst>(I);
 			stream << "(+";
-			compileOperand(ci.getOperand(0));
+			compileSignedInteger(ci.getOperand(0));
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -1742,9 +1742,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const CastInst& ci = cast<CastInst>(I);
 			//We need to cast to unsigned before
-			stream << "(+(";
-			compileOperand(ci.getOperand(0));
-			stream << ">>>0))";
+			stream << "(+";
+			compileUnsignedInteger(ci.getOperand(0));
+			stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::GetElementPtr:
