@@ -229,7 +229,7 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 			return (const PointerKindWrapper&)cacheBundle.valueCache.insert( std::make_pair(p, k ) ).first->second;
 	};
 
-	llvm::Type * type = realType(p);
+	llvm::Type * type = p->getType()->getPointerElementType();
 
 	bool isIntrinsic = false;
 	if ( const IntrinsicInst * intrinsic = dyn_cast<IntrinsicInst>(p) )
@@ -247,12 +247,15 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 		case Intrinsic::cheerp_pointer_base:
 		case Intrinsic::cheerp_create_closure:
 		case Intrinsic::cheerp_make_complete_object:
-			if(getKindForType(type) != COMPLETE_OBJECT && visitAllUses(p) != COMPLETE_OBJECT)
+		{
+			llvm::Type * rType = realType(p);
+			if(getKindForType(rType) != COMPLETE_OBJECT && visitAllUses(p) != COMPLETE_OBJECT)
 			{
 				llvm::errs() << "Result of " << *intrinsic << " used as REGULAR: " << *p << "\n";
 				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 			}
 			return CacheAndReturn(COMPLETE_OBJECT);
+		}
 		case Intrinsic::cheerp_make_regular:
 			return CacheAndReturn(REGULAR);
 		case Intrinsic::memmove:
