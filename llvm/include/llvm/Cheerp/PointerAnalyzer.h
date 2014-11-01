@@ -46,6 +46,7 @@ public:
 	std::vector<const llvm::Function*> returnConstraints;
 	std::vector<std::pair<const llvm::Function*, uint32_t>> argsConstraints;
 	std::vector<llvm::Type*> storedTypeConstraints;
+	std::vector<llvm::Type*> returnTypeConstraints;
 	PointerKindWrapper():kind(COMPLETE_OBJECT)
 	{
 	}
@@ -63,6 +64,10 @@ public:
 	PointerKindWrapper(llvm::Type* t):kind(INDIRECT)
 	{
 		storedTypeConstraints.push_back(t);
+	}
+	PointerKindWrapper(llvm::Type* t, int, int):kind(INDIRECT)
+	{
+		returnTypeConstraints.push_back(t);
 	}
 	bool operator==(uint32_t rhs) const
 	{
@@ -140,6 +145,7 @@ public:
 
 	typedef llvm::DenseMap<const llvm::Value*, PointerKindWrapper> ValueKindMap;
 	typedef llvm::DenseMap<llvm::Type*, PointerKindWrapper> TypeKindMap;
+	typedef llvm::DenseMap<llvm::Type*, PointerKindWrapper> ReturnTypeKindMap;
 	struct AddressTakenMap: public llvm::DenseMap<const llvm::Function*, bool>
 	{
 		bool checkAddressTaken(const llvm::Function* F)
@@ -159,6 +165,7 @@ public:
 	{
 		ValueKindMap valueCache;
 		TypeKindMap typeCache;
+		ReturnTypeKindMap returnTypeCache;
 		AddressTakenMap addressTakenCache;
 	};
 

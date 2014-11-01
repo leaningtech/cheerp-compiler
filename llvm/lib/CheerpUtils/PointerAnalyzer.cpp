@@ -62,6 +62,7 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper & rh
 	lhs.returnConstraints.insert(lhs.returnConstraints.end(), rhs.returnConstraints.begin(), rhs.returnConstraints.end());
 	lhs.argsConstraints.insert(lhs.argsConstraints.end(), rhs.argsConstraints.begin(), rhs.argsConstraints.end());
 	lhs.storedTypeConstraints.insert(lhs.storedTypeConstraints.end(), rhs.storedTypeConstraints.begin(), rhs.storedTypeConstraints.end());
+	lhs.returnTypeConstraints.insert(lhs.returnTypeConstraints.end(), rhs.returnTypeConstraints.begin(), rhs.returnTypeConstraints.end());
 	return *this;
 }
 
@@ -95,7 +96,7 @@ bool PointerAnalyzer::runOnModule(Module& M)
 	return false;
 }
 
-enum VISITED_KIND { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT };
+enum VISITED_KIND { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT, RETURN_TYPE_CONSTAINT};
 
 struct PointerUsageVisitor
 {
@@ -203,6 +204,7 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 	if(!closedset.insert(p).second)
 		return {PointerKindWrapper::UNKNOWN};
 
+	bool indirectRet = false;
 	auto CacheAndReturn = [&](PointerKindWrapper k)
 	{
 		// Do not recurse below here
@@ -214,6 +216,12 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 			Type* curType = p->getType()->getPointerElementType();
 			cacheBundle.typeCache[curType] |= k;
 			return (const PointerKindWrapper&)cacheBundle.valueCache.insert( std::make_pair(p, curType ) ).first->second;
+		}
+		else if(indirectRet)
+		{
+			k.makeKnown();
+			cacheBundle.returnTypeCache[p->getType()] |= k;
+			return (const PointerKindWrapper&)cacheBundle.valueCache.insert( std::make_pair(p, PointerKindWrapper{ p->getType(), 0, 0 } ) ).first->second;
 		}
 		else if(!k.isKnown())
 			return (const PointerKindWrapper&)k;
@@ -287,7 +295,12 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 	if(ImmutableCallSite cs = p)
 	{
 		if (!isIntrinsic)
-			return CacheAndReturn(cs.getCalledFunction());
+		{
+			if(cs.getCalledFunction())
+				return CacheAndReturn(cs.getCalledFunction());
+			else
+				indirectRet = true;
+		}
 	}
 
 	return CacheAndReturn(visitAllUses(p));
@@ -422,8 +435,7 @@ PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 
 PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 {
-	if(!F)
-		return REGULAR;
+	assert(F);
 
 	/**
 	 * Note:
@@ -452,7 +464,7 @@ PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 		return CacheAndReturn(getKindForType(returnPointedType));
 
 	if(cacheBundle.addressTakenCache.checkAddressTaken(F))
-		return CacheAndReturn(REGULAR);
+		return CacheAndReturn({ F->getReturnType(), 0, 0 });
 
 	PointerKindWrapper result = COMPLETE_OBJECT;
 	for(const Use& u : F->uses())
@@ -532,6 +544,26 @@ PointerKindWrapper PointerUsageVisitor::resolvePointerKind(const PointerKindWrap
 		else if(retKind==PointerKindWrapper::INDIRECT)
 		{
 			if(!closedset.insert({ STORED_TYPE_CONSTRAINT, t, 0}).second)
+				continue;
+			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
+			if(resolvedKind==REGULAR)
+				return resolvedKind;
+		}
+	}
+	for(uint32_t i=0;i<k.returnTypeConstraints.size();i++)
+	{
+		Type* retType=k.returnTypeConstraints[i];
+		// We will resolve this constraint indirectly through TODO
+		const auto& it=cacheBundle.returnTypeCache.find(retType);
+		if(it==cacheBundle.returnTypeCache.end())
+			continue;
+		const PointerKindWrapper& retKind=it->second;
+
+		if(retKind==REGULAR || retKind==BYTE_LAYOUT)
+			return retKind;
+		else if(retKind==PointerKindWrapper::INDIRECT)
+		{
+			if(!closedset.insert({ RETURN_TYPE_CONSTAINT, retType, 0}).second)
 				continue;
 			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
 			if(resolvedKind==REGULAR)
