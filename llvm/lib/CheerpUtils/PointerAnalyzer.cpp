@@ -61,6 +61,7 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper & rh
 
 	lhs.returnConstraints.insert(lhs.returnConstraints.end(), rhs.returnConstraints.begin(), rhs.returnConstraints.end());
 	lhs.argsConstraints.insert(lhs.argsConstraints.end(), rhs.argsConstraints.begin(), rhs.argsConstraints.end());
+	lhs.storedTypeConstraints.insert(lhs.storedTypeConstraints.end(), rhs.storedTypeConstraints.begin(), rhs.storedTypeConstraints.end());
 	return *this;
 }
 
@@ -77,6 +78,8 @@ void PointerKindWrapper::dump() const
 		dbgs() << "\tDepends on return value of: " << f->getName() << "\n";
 	for(auto& it: argsConstraints)
 		llvm::errs() << "\tDepends on argument " << it.second << " of " << it.first->getName() << "\n";
+	for(llvm::Type* t: storedTypeConstraints)
+		llvm::errs() << "Depends on stored type " << *t << "\n";
 }
 
 char PointerAnalyzer::ID = 0;
@@ -92,7 +95,7 @@ bool PointerAnalyzer::runOnModule(Module& M)
 	return false;
 }
 
-enum VISITED_KIND { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT };
+enum VISITED_KIND { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT };
 
 struct PointerUsageVisitor
 {
@@ -117,9 +120,10 @@ struct PointerUsageVisitor
 	};
 	typedef std::set< ResolveVisitedItem > resolve_visited_set_t;
 	typedef PointerAnalyzer::ValueKindMap value_kind_map_t;
+	typedef PointerAnalyzer::TypeKindMap type_kind_map_t;
 	typedef PointerAnalyzer::AddressTakenMap address_taken_map_t;
 
-	PointerUsageVisitor( value_kind_map_t & cache, address_taken_map_t & cachedAddressTaken ) : cachedValues(cache), cachedAddressTaken( cachedAddressTaken ) {}
+	PointerUsageVisitor( value_kind_map_t & cache, type_kind_map_t & typeCache, address_taken_map_t & cachedAddressTaken ) : cachedValues(cache), cachedTypes(typeCache), cachedAddressTaken( cachedAddressTaken ) {}
 
 	PointerKindWrapper visitValue(const Value* v);
 	PointerKindWrapper visitUse(const Use* U);
@@ -149,6 +153,7 @@ struct PointerUsageVisitor
 	}
 
 	value_kind_map_t & cachedValues;
+	type_kind_map_t & cachedTypes;
 	address_taken_map_t & cachedAddressTaken;
 	visited_set_t closedset;
 };
@@ -506,6 +511,26 @@ POINTER_KIND PointerUsageVisitor::resolvePointerKind(const PointerKindWrapper& k
 				return REGULAR;
 		}
 	}
+	for(uint32_t i=0;i<k.storedTypeConstraints.size();i++)
+	{
+		Type* t=k.storedTypeConstraints[i];
+		// We will resolve this contraint indirectly through the cachedTypes map
+		auto it=cachedTypes.find(t);
+		if(it==cachedTypes.end())
+			continue;
+		const PointerKindWrapper& retKind=it->second;
+		assert(retKind!=BYTE_LAYOUT);
+		if(retKind==REGULAR)
+			return REGULAR;
+		else if(retKind==PointerKindWrapper::INDIRECT)
+		{
+			if(!closedset.insert({ STORED_TYPE_CONSTRAINT, t, 0}).second)
+				continue;
+			POINTER_KIND resolvedKind=resolvePointerKind(retKind, closedset);
+			if(resolvedKind==REGULAR)
+				return REGULAR;
+		}
+	}
 	return COMPLETE_OBJECT;
 }
 
@@ -551,12 +576,12 @@ PointerKindWrapper PointerAnalyzer::getFinalPointerKindWrapper(const Value* p) c
 #ifndef NDEBUG
 	TimerGuard guard(gpkTimer);
 #endif //NDEBUG
-	if (PointerUsageVisitor(cache, addressTakenCache).visitByteLayoutChain(p))
+	if (PointerUsageVisitor(cache, typeCache, addressTakenCache).visitByteLayoutChain(p))
 	{
 		cache.insert( std::make_pair(p, BYTE_LAYOUT) );
 		return BYTE_LAYOUT;
 	}
-	PointerKindWrapper k = PointerUsageVisitor(cache, addressTakenCache).visitValue(p);
+	PointerKindWrapper k = PointerUsageVisitor(cache, typeCache, addressTakenCache).visitValue(p);
 
 	k.makeKnown();
 	return k;
@@ -574,7 +599,7 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 
 	// Got an indirect value, we need to resolve it now
 	PointerUsageVisitor::resolve_visited_set_t closedset;
-	return PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(k, closedset);
+	return PointerUsageVisitor(cache, typeCache, addressTakenCache).resolvePointerKind(k, closedset);
 }
 
 PointerKindWrapper PointerAnalyzer::getFinalPointerKindWrapperForReturn(const Function* F) const
@@ -582,7 +607,7 @@ PointerKindWrapper PointerAnalyzer::getFinalPointerKindWrapperForReturn(const Fu
 #ifndef NDEBUG
 	TimerGuard guard(gpkfrTimer);
 #endif //NDEBUG
-	PointerKindWrapper k = PointerUsageVisitor(cache, addressTakenCache).visitReturn(F);
+	PointerKindWrapper k = PointerUsageVisitor(cache, typeCache, addressTakenCache).visitReturn(F);
 
 	k.makeKnown();
 	return k;
@@ -598,12 +623,25 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 		return (POINTER_KIND)k;
 
 	PointerUsageVisitor::resolve_visited_set_t closedset;
-	return PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(k, closedset);
+	return PointerUsageVisitor(cache, typeCache, addressTakenCache).resolvePointerKind(k, closedset);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForType(Type* pointerType) const
 {
-	return PointerUsageVisitor(cache, addressTakenCache).getKindForType(pointerType->getPointerElementType());
+	POINTER_KIND ret=PointerUsageVisitor(cache, typeCache, addressTakenCache).getKindForType(pointerType->getPointerElementType());
+	if(ret!=REGULAR)
+		return ret;
+	// If REGULAR by default, try harder using the typeCache map
+	auto it=typeCache.find(pointerType->getPointerElementType());
+	if(it==typeCache.end())
+		return REGULAR;
+
+	const PointerKindWrapper& k = it->second;
+	if (k!=PointerKindWrapper::INDIRECT)
+		return (POINTER_KIND)k;
+
+	PointerUsageVisitor::resolve_visited_set_t closedset;
+	return PointerUsageVisitor(cache, typeCache, addressTakenCache).resolvePointerKind(k, closedset);
 }
 
 void PointerAnalyzer::invalidate(const Value * v)
@@ -643,7 +681,16 @@ void PointerAnalyzer::fullResolve() const
 		if(it.second!=PointerKindWrapper::INDIRECT)
 			continue;
 		PointerUsageVisitor::resolve_visited_set_t closedset;
-		POINTER_KIND k=PointerUsageVisitor(cache, addressTakenCache).resolvePointerKind(it.second, closedset);
+		POINTER_KIND k=PointerUsageVisitor(cache, typeCache, addressTakenCache).resolvePointerKind(it.second, closedset);
+		assert(k==COMPLETE_OBJECT || k==REGULAR);
+		it.second=PointerKindWrapper(k);
+	}
+	for(auto& it: typeCache)
+	{
+		if(it.second!=PointerKindWrapper::INDIRECT)
+			continue;
+		PointerUsageVisitor::resolve_visited_set_t closedset;
+		POINTER_KIND k=PointerUsageVisitor(cache, typeCache, addressTakenCache).resolvePointerKind(it.second, closedset);
 		assert(k==COMPLETE_OBJECT || k==REGULAR);
 		it.second=PointerKindWrapper(k);
 	}
