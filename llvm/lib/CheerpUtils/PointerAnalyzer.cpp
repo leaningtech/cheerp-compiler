@@ -349,7 +349,7 @@ PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 			assert( U->getOperandNo() == 1 );
 			if ( const Function * f = dyn_cast<Function>(p->getOperand(0) ) )
 			{
-				return { f, 0 };
+				return REGULAR;
 			}
 			else
 				llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, cheerp_create_closure");
