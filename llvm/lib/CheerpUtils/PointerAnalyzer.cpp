@@ -155,7 +155,7 @@ struct PointerUsageVisitor
 
 bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 {
-	if ( getKindForType(p->getType()->getPointerElementType()) == BYTE_LAYOUT && visitValue(p) != COMPLETE_OBJECT)
+	if ( TypeSupport::hasByteLayout(p->getType()->getPointerElementType()) && visitValue(p) != COMPLETE_OBJECT)
 		return true;
 	if ( isGEP(p))
 	{
@@ -437,11 +437,8 @@ PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 
 	Type* returnPointedType = F->getReturnType()->getPointerElementType();
 
-	if(getKindForType(returnPointedType)==COMPLETE_OBJECT)
-		return CacheAndReturn(COMPLETE_OBJECT);
-
-	if(TypeSupport::isImmutableType(returnPointedType))
-		return CacheAndReturn(REGULAR);
+	if((PointerKindWrapper::WRAPPED_POINTER_KIND)getKindForType(returnPointedType) != PointerKindWrapper::UNKNOWN)
+		return CacheAndReturn(getKindForType(returnPointedType));
 
 	if(cachedAddressTaken.checkAddressTaken(F))
 		return CacheAndReturn(REGULAR);
@@ -465,10 +462,10 @@ POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp) const
 		TypeSupport::isClientType( tp ) )
 		return COMPLETE_OBJECT;
 
-	if ( TypeSupport::hasByteLayout( tp ) )
-		return BYTE_LAYOUT;
+	if ( TypeSupport::isImmutableType( tp ) )
+		return REGULAR;
 
-	return REGULAR;
+	return (POINTER_KIND)PointerKindWrapper::UNKNOWN;
 }
 
 POINTER_KIND PointerUsageVisitor::resolvePointerKind(const PointerKindWrapper& k, resolve_visited_set_t& closedset)
