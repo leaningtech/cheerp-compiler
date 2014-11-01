@@ -127,7 +127,7 @@ struct PointerUsageVisitor
 	PointerKindWrapper visitReturn(const Function* F);
 	POINTER_KIND resolvePointerKind(const PointerKindWrapper& k, resolve_visited_set_t& closedset);
 	bool visitByteLayoutChain ( const Value * v );
-	POINTER_KIND getKindForType(Type*) const;
+	static POINTER_KIND getKindForType(Type*);
 
 	PointerKindWrapper visitAllUses(const Value* v)
 	{
@@ -467,7 +467,7 @@ PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 	return CacheAndReturn(result);
 }
 
-POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp) const
+POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp)
 {
 	if ( tp->isFunctionTy() ||
 		TypeSupport::isClientType( tp ) )
