@@ -1178,7 +1178,6 @@ void CheerpWriter::compileConstant(const Constant* c)
 	else if(isa<GlobalValue>(c))
 	{
 		assert(c->hasName());
-		//Check if this is a client global value, if so skip mangling
 		stream << namegen.getName(c);
 	}
 	else if(isa<ConstantAggregateZero>(c))
