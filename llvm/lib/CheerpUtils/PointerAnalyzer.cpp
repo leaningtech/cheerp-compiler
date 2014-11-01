@@ -203,12 +203,22 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 	if(!closedset.insert(p).second)
 		return {PointerKindWrapper::UNKNOWN};
 
-	auto CacheAndReturn = [&](const PointerKindWrapper& k)
+	auto CacheAndReturn = [&](PointerKindWrapper k)
 	{
+		// Do not recurse below here
 		closedset.erase(p);
-		if (k.isKnown())
+		// Keep track of the constraints for loaded pointers of this type
+		if(isa<LoadInst>(p))
+		{
+			k.makeKnown();
+			Type* curType = p->getType()->getPointerElementType();
+			cacheBundle.typeCache[curType] |= k;
+			return (const PointerKindWrapper&)cacheBundle.valueCache.insert( std::make_pair(p, curType ) ).first->second;
+		}
+		else if(!k.isKnown())
+			return (const PointerKindWrapper&)k;
+		else
 			return (const PointerKindWrapper&)cacheBundle.valueCache.insert( std::make_pair(p, k ) ).first->second;
-		return k;
 	};
 
 	llvm::Type * type = realType(p);
@@ -265,9 +275,6 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 		return CacheAndReturn(REGULAR);
 	}
 
-	if(isa<LoadInst>(p))
-		return CacheAndReturn(REGULAR);
-
 	if(const Argument* arg = dyn_cast<Argument>(p))
 	{
 		if(cacheBundle.addressTakenCache.checkAddressTaken(arg->getParent()))
@@ -303,8 +310,12 @@ PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 		return REGULAR;
 	}
 
-	if ( isa<StoreInst>(p) && U->getOperandNo() == 0 )
-		return REGULAR;
+	// Constant data in memory is equivalent to store
+	if ( (isa<StoreInst>(p) && U->getOperandNo() == 0 ) ||
+		isa<ConstantStruct>(p) || isa<ConstantArray>(p))
+	{
+		return { U->get()->getType()->getPointerElementType() };
+	}
 
 	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
 		return REGULAR;
@@ -510,10 +521,11 @@ POINTER_KIND PointerUsageVisitor::resolvePointerKind(const PointerKindWrapper& k
 	{
 		Type* t=k.storedTypeConstraints[i];
 		// We will resolve this constraint indirectly through the typeCache map
-		auto it=cacheBundle.typeCache.find(t);
+		const auto& it=cacheBundle.typeCache.find(t);
 		if(it==cacheBundle.typeCache.end())
 			continue;
-		const PointerKindWrapper& retKind=it->second;
+		PointerKindWrapper retKind=it->second;
+		retKind.makeKnown();
 		assert(retKind!=BYTE_LAYOUT);
 		if(retKind==REGULAR)
 			return REGULAR;
@@ -624,14 +636,15 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) const
 {
 	POINTER_KIND ret=PointerUsageVisitor(cacheBundle).getKindForType(pointerType->getPointerElementType());
-	if(ret!=REGULAR)
+	if(ret!=PointerKindWrapper::UNKNOWN)
 		return ret;
 	// If REGULAR by default, try harder using the typeCache map
 	auto it=cacheBundle.typeCache.find(pointerType->getPointerElementType());
 	if(it==cacheBundle.typeCache.end())
-		return REGULAR;
+		return COMPLETE_OBJECT;
 
 	const PointerKindWrapper& k = it->second;
+	assert(k!=PointerKindWrapper::UNKNOWN);
 	if (k!=PointerKindWrapper::INDIRECT)
 		return (POINTER_KIND)k;
 
