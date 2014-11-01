@@ -1103,10 +1103,14 @@ void CheerpWriter::compileConstant(const Constant* c)
 		const ConstantArray* d=cast<ConstantArray>(c);
 		stream << '[';
 		assert(d->getType()->getNumElements() == d->getNumOperands());
+		Type* elementType = d->getType()->getElementType();
 
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
-			compileOperand(d->getOperand(i));
+			if(elementType->isPointerTy())
+				compilePointerAs(d->getOperand(i), PA.getPointerKindForStoredType(elementType));
+			else
+				compileOperand(d->getOperand(i));
 
 			if((i+1)<d->getNumOperands())
 				stream << ',';
@@ -1123,7 +1127,11 @@ void CheerpWriter::compileConstant(const Constant* c)
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
 			stream << 'a' << i << "0:";
-			compileOperand(d->getOperand(i));
+			Type* elementType = d->getOperand(i)->getType();
+			if(elementType->isPointerTy())
+				compilePointerAs(d->getOperand(i), PA.getPointerKindForStoredType(elementType));
+			else
+				compileOperand(d->getOperand(i));
 
 			if((i+1)<d->getNumOperands())
 				stream << ',';
@@ -1516,6 +1524,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			stream << '=';
 			if(valOp->getType()->isIntegerTy())
 				compileSignedInteger(valOp);
+			else if(valOp->getType()->isPointerTy())
+				compilePointerAs(valOp, PA.getPointerKindForStoredType(valOp->getType()));
 			else
 				compileOperand(valOp);
 			return COMPILE_OK;
@@ -2507,12 +2517,18 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		if(PA.getPointerKind(&G) == REGULAR)
 		{
 			stream << "{d:[";
-			compileOperand(C);
+			if(C->getType()->isPointerTy())
+				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
+			else
+				compileOperand(C);
 			stream << "],o:0}";
 		}
 		else
 		{
-			compileOperand(C);
+			if(C->getType()->isPointerTy())
+				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
+			else
+				compileOperand(C);
 		}
 	}
 	stream << ';' << NewLine;
@@ -2564,7 +2580,11 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		}
 
 		stream << '=';
-		compileOperand(subExpr.back()->get());
+		Value* valOp = subExpr.back()->get();
+		if (valOp->getType()->isPointerTy())
+			compilePointerAs(valOp, PA.getPointerKindForStoredType(valOp->getType()));
+		else
+			compileOperand(valOp);
 		stream << ';' << NewLine;
 	}
 }
