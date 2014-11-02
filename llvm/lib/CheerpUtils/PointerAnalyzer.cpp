@@ -276,15 +276,8 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 		}
 	}
 
-	if(getKindForType(type) == COMPLETE_OBJECT)
-	{
-		return CacheAndReturn(COMPLETE_OBJECT);
-	}
-
-	if(TypeSupport::isImmutableType(type))
-	{
-		return CacheAndReturn(REGULAR);
-	}
+	if((PointerKindWrapper::WRAPPED_POINTER_KIND)getKindForType(type) != PointerKindWrapper::UNKNOWN)
+		return CacheAndReturn(getKindForType(type));
 
 	if(const Argument* arg = dyn_cast<Argument>(p))
 	{
