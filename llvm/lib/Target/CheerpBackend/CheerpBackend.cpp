@@ -100,6 +100,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
   PM.add(createResolveAliasesPass());
   PM.add(createPointerArithmeticToArrayIndexingPass());
+  PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(cheerp::createPointerAnalyzerPass());
   PM.add(createIndirectCallOptimizerPass());
   PM.add(cheerp::createRegisterizePass(NoRegisterize));
