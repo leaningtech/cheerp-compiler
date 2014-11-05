@@ -14,10 +14,13 @@
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <set>
 #include <map>
 
@@ -386,5 +389,88 @@ void PointerArithmeticToArrayIndexing::getAnalysisUsage(AnalysisUsage & AU) cons
 }
 
 FunctionPass *createPointerArithmeticToArrayIndexingPass() { return new PointerArithmeticToArrayIndexing(); }
+
+void PointerToImmutablePHIRemoval::hoistBlock(BasicBlock* targetBlock)
+{
+	SmallVector<BasicBlock*, 4> predBlocks(pred_begin(targetBlock), pred_end(targetBlock));;
+	for(BasicBlock* curBlock: predBlocks)
+	{
+		ValueToValueMapTy valueMap;
+		BasicBlock* newBlock = CloneBasicBlock(targetBlock, valueMap, "phirem", targetBlock->getParent());
+		// Fix the copied block
+		for(Instruction& I: *targetBlock)
+		{
+			Instruction* mappedI = cast<Instruction>(valueMap[&I]);
+			PHINode* phi = dyn_cast<PHINode>(&I);
+			if(phi)
+			{
+				// Override the map
+				valueMap[phi] = phi->getIncomingValueForBlock(curBlock);
+				mappedI->eraseFromParent();
+				continue;
+			}
+			for(uint32_t i=0;i<I.getNumOperands();i++)
+			{
+				Value* oldOp = mappedI->getOperand(i);
+				if(valueMap[oldOp])
+					mappedI->setOperand(i, valueMap[oldOp]);
+			}
+		}
+		// Update the terminator to go to the new block
+		TerminatorInst* curTerm = curBlock->getTerminator();
+		for(uint32_t j = 0; j < curTerm->getNumSuccessors(); j++)
+		{
+			if (curTerm->getSuccessor(j) == targetBlock)
+				curTerm->setSuccessor(j, newBlock);
+		}
+	}
+	targetBlock->eraseFromParent();
+}
+
+bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
+{
+	bool Changed = false;
+
+	SmallVector<BasicBlock*, 4> blocks;
+	for ( BasicBlock& BB : F )
+		blocks.push_back(&BB);
+	for ( BasicBlock* BB : blocks )
+	{
+		for ( BasicBlock::iterator it = BB->begin(); it != BB->end(); )
+		{
+			PHINode * phi = dyn_cast<PHINode>(it++);
+			if (! phi )
+				continue;
+			Type* phiType = phi->getType();
+			if (! phiType->isPointerTy() )
+				continue;
+			if (! cheerp::TypeSupport::isImmutableType(phiType->getPointerElementType()) )
+				continue;
+			BasicBlock* parentBlock = phi->getParent();
+			if ( parentBlock->getTerminator()->getNumSuccessors() != 0 )
+				continue;
+			if ( parentBlock->size() > 5 )
+				continue;
+			hoistBlock(parentBlock);
+			Changed = true;
+			break;
+		}
+	}
+	return Changed;
+}
+
+const char* PointerToImmutablePHIRemoval::getPassName() const
+{
+	return "PointerToImmutablePHIRemoval";
+}
+
+char PointerToImmutablePHIRemoval::ID = 0;
+
+void PointerToImmutablePHIRemoval::getAnalysisUsage(AnalysisUsage & AU) const
+{
+	llvm::Pass::getAnalysisUsage(AU);
+}
+
+FunctionPass *createPointerToImmutablePHIRemovalPass() { return new PointerToImmutablePHIRemoval(); }
 
 }
