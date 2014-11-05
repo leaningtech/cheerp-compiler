@@ -248,16 +248,15 @@ class PHIVisitor
 {
 public:
 	typedef std::map<PHINode*, PHINode*> PHIMap;
-	PHIVisitor(PHIMap& phiMap):aborted(false),mappedPHIs(phiMap)
+	PHIVisitor(PHIMap& phiMap):mappedPHIs(phiMap)
 	{
 	}
 	bool visitPHI(PHINode* phi);
 	Value* findBase(Instruction* I);
 	Value* rewrite(Instruction* I, Value* base);
 private:
-	std::set<PHINode*> visited;
+	std::set<Value*> visited;
 	PHIMap& mappedPHIs;
-	bool aborted;
 };
 
 Value* PHIVisitor::findBase(Instruction* I)
@@ -268,7 +267,13 @@ Value* PHIVisitor::findBase(Instruction* I)
 		{
 			Value* ptr=gep->getPointerOperand();
 			if (Instruction* ptrI=dyn_cast<Instruction>(ptr))
-				return findBase(ptrI);
+			{
+				Value* base = findBase(ptrI);
+				if(base)
+					return base;
+				else
+					return gep;
+			}
 			else
 				return ptr;
 		}
@@ -276,24 +281,34 @@ Value* PHIVisitor::findBase(Instruction* I)
 	else if(PHINode* phi = dyn_cast<PHINode>(I))
 	{
 		if(visited.count(phi))
-			return NULL;
-		visited.insert(phi);
+			return phi;
 		Value* ret = NULL;
+		// Avoid loops down this exploration paths
+		// When the PHI is finished it will be removed from the set
+		// To be eventually re-entered later on
+		// NOTE: Be careful for PHIs which are not part of the loop to be transformed
+		visited.insert(phi);
 		for (unsigned i=0;i<phi->getNumIncomingValues();i++)
 		{
 			Value* incomingValue=phi->getIncomingValue(i);
 			Instruction* incomingInst=dyn_cast<Instruction>(incomingValue);
 			Value* baseCandidate = incomingInst ? findBase(incomingInst) : incomingValue;
-			if (baseCandidate == NULL)
+			if(visited.count(baseCandidate))
 				continue;
+			if (baseCandidate == NULL)
+			{
+				ret = NULL;
+				break;
+			}
 			if (ret == NULL)
 				ret = baseCandidate;
 			else if (ret != baseCandidate)
 			{
-				aborted = true;
-				return NULL;
+				ret = NULL;
+				break;
 			}
 		}
+		visited.erase(phi);
 		return ret;
 	}
 	return I;
@@ -301,6 +316,8 @@ Value* PHIVisitor::findBase(Instruction* I)
 
 Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 {
+	if (I==base)
+		return NULL;
 	if (GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(I))
 	{
 		if (gep->getNumIndices() == 1)
@@ -346,7 +363,7 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 bool PHIVisitor::visitPHI(PHINode* phi)
 {
 	Value* base = findBase(phi);
-	if (base == NULL || aborted)
+	if (base == NULL)
 		return false;
 	// We have found a common base for all incoming values.
 	// Now we want to build an integer PHI
