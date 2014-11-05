@@ -21,6 +21,8 @@
 // in this shared library, so that they can be overridden by programs
 // that define non-weak copies of the functions.
 
+#ifndef __CHEERP__
+
 _LIBCXXABI_WEAK
 void *
 operator new(std::size_t size) _THROW_BAD_ALLOC
@@ -260,3 +262,5 @@ operator delete[] (void* ptr, size_t, std::align_val_t alignment) _NOEXCEPT
 }
 
 #endif // !_LIBCPP_HAS_NO_LIBRARY_ALIGNED_ALLOCATION
+
+#endif
