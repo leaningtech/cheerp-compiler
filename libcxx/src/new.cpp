@@ -53,6 +53,7 @@ __throw_bad_alloc()
     !defined(_LIBCPP_ABI_VCRUNTIME) &&      \
     !defined(_LIBCPP_DISABLE_NEW_DELETE_DEFINITIONS)
 
+#ifndef __CHEERP__
 // Implement all new and delete operators as weak definitions
 // in this shared library, so that they can be overridden by programs
 // that define non-weak copies of the functions.
@@ -294,4 +295,5 @@ operator delete[] (void* ptr, size_t, std::align_val_t alignment) _NOEXCEPT
 }
 
 #endif // !_LIBCPP_HAS_NO_LIBRARY_ALIGNED_ALLOCATION
+#endif // !__CHEERP__
 #endif // !__GLIBCXX__ && !_LIBCPP_ABI_VCRUNTIME && !_LIBCPP_DISABLE_NEW_DELETE_DEFINITIONS
