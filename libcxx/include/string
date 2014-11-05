@@ -2512,7 +2512,7 @@ basic_string<_CharT, _Traits, _Allocator>&
 basic_string<_CharT, _Traits, _Allocator>::__assign_external(
     const value_type* __s, size_type __n) {
   size_type __cap = capacity();
-  if (__cap >= __n) {
+  if (__cap > __n) {
     value_type* __p = std::__to_address(__get_pointer());
     traits_type::move(__p, __s, __n);
     return __null_terminate_at(__p, __n);
@@ -3404,6 +3404,7 @@ basic_string<_CharT, _Traits, _Allocator>::__shrink_or_extend(size_type __target
 
     pointer __new_data, __p;
     bool __was_long, __now_long;
+#ifndef __CHEERP__
     if (__fits_in_sso(__target_capacity))
     {
         __was_long = true;
@@ -3412,6 +3413,7 @@ basic_string<_CharT, _Traits, _Allocator>::__shrink_or_extend(size_type __target
         __p = __get_long_pointer();
     }
     else
+#endif
     {
         if (__target_capacity > __cap) {
             auto __allocation = std::__allocate_at_least(__alloc(), __target_capacity + 1);
