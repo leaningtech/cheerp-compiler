@@ -100,6 +100,27 @@ public:
 //
 FunctionPass *createPointerArithmeticToArrayIndexingPass();
 
+/**
+ * This pass removes REGULAR pointers by duplicating small blocks which immediately return
+ */
+class PointerToImmutablePHIRemoval: public FunctionPass
+{
+private:
+	void hoistBlock(BasicBlock* targetBlock);
+public:
+	static char ID;
+	explicit PointerToImmutablePHIRemoval() : FunctionPass(ID) { }
+	bool runOnFunction(Function &F);
+	const char *getPassName() const;
+
+	virtual void getAnalysisUsage(AnalysisUsage&) const override;
+};
+
+//===----------------------------------------------------------------------===//
+//
+// PointerToImmutablePHIRemoval
+//
+FunctionPass *createPointerToImmutablePHIRemovalPass();
 
 }
 
