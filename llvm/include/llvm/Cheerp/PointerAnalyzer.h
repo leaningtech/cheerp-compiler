@@ -83,7 +83,7 @@ public:
 	{
 		return kind!=UNKNOWN;
 	}
-	explicit operator POINTER_KIND() const
+	POINTER_KIND getPointerKind() const
 	{
 		return (POINTER_KIND)kind;
 	}
