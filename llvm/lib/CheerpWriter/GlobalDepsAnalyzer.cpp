@@ -21,7 +21,7 @@ using namespace std;
 using namespace llvm;
 
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(const llvm::Module & module) :
-	module(module)
+	module(module),	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false)
 {
 	VisitedSet visited;
 	

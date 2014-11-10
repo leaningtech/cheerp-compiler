@@ -164,9 +164,9 @@ private:
 	std::vector< const llvm::Function * > functionOrder;
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	
-	bool hasCreateClosureUsers = false;
-	bool hasVAArgs = false;
-	bool hasPointerArrays = false;
+	bool hasCreateClosureUsers;
+	bool hasVAArgs;
+	bool hasPointerArrays;
 };
 
 /**

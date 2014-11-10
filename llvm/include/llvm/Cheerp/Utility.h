@@ -336,9 +336,9 @@ struct demangler_iterator : std::iterator<
 	const char *,
 	llvm::StringRef>
 {
-	demangler_iterator() {}
+	demangler_iterator(): isNested(false),hasFailed(false) {}
 
-	explicit demangler_iterator( llvm::StringRef i ) : tokenSize(0),isNested(false)
+	explicit demangler_iterator( llvm::StringRef i ) : tokenSize(0),isNested(false),hasFailed(false)
 	{
 		if ( i.startswith("_ZN") )
 		{
@@ -448,7 +448,7 @@ private:
 	llvm::StringRef input;
 	std::size_t tokenSize;
 	bool isNested;
-	bool hasFailed = false;
+	bool hasFailed;
 };
 
 // Forward define the Registerize class
