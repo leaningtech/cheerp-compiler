@@ -57,7 +57,9 @@ class ostream_proxy
 public:
 	ostream_proxy( llvm::raw_ostream & s, bool readableOutput = false ) :
 		stream(s),
-		readableOutput(readableOutput)
+		readableOutput(readableOutput),
+		newLine(true),
+		indentLevel(0)
 	{}
 
 	friend ostream_proxy& operator<<( ostream_proxy & os, char c )
@@ -129,8 +131,8 @@ private:
 
 	llvm::raw_ostream & stream;
 	bool readableOutput;
-	bool newLine = true;
-	int indentLevel = 0;
+	bool newLine;
+	int indentLevel;
 };
 
 class CheerpWriter
