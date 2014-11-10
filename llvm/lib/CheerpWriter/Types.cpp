@@ -178,9 +178,11 @@ uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, St
 
 	for(uint32_t i=firstBase;i<(firstBase+localBaseCount);i++)
 	{
-		char buf[12];
-		snprintf(buf,12,".a%u0",i);
-		baseCount=compileClassTypeRecursive(baseName+buf, cast<StructType>(currentType->getElementType(i)), baseCount);
+		SmallString<16> buf;
+		llvm::raw_svector_ostream bufStream(buf);
+		bufStream << ".a" << i << '0';
+		bufStream.flush();
+		baseCount=compileClassTypeRecursive(baseName+buf.c_str(), cast<StructType>(currentType->getElementType(i)), baseCount);
 	}
 	return baseCount;
 }
