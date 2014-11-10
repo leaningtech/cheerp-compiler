@@ -83,6 +83,9 @@ private:
 		const llvm::BasicBlock* fromBB;
 		const llvm::BasicBlock* toBB;
 		uint32_t registerId;
+		InstOnEdge(const llvm::BasicBlock* f, const llvm::BasicBlock* t, uint32_t r):fromBB(f),toBB(t),registerId(r)
+		{
+		}
 		bool operator==(const InstOnEdge& r) const
 		{
 			return fromBB==r.fromBB && toBB==r.toBB && registerId==r.registerId;
