@@ -630,11 +630,11 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 	PointerKindWrapper k = getFinalPointerKindWrapper(p);
 
 	if (k!=PointerKindWrapper::INDIRECT)
-		return (POINTER_KIND)k;
+		return k.getPointerKind();
 
 	// Got an indirect value, we need to resolve it now
 	PointerUsageVisitor::resolve_visited_set_t closedset;
-	return (POINTER_KIND)PointerUsageVisitor(cacheBundle).resolvePointerKind(k, closedset);
+	return PointerUsageVisitor(cacheBundle).resolvePointerKind(k, closedset).getPointerKind();
 }
 
 PointerKindWrapper PointerAnalyzer::getFinalPointerKindWrapperForReturn(const Function* F) const
@@ -655,10 +655,10 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 #endif //NDEBUG
 	PointerKindWrapper k = getFinalPointerKindWrapperForReturn(F);
 	if (k!=PointerKindWrapper::INDIRECT)
-		return (POINTER_KIND)k;
+		return k.getPointerKind();
 
 	PointerUsageVisitor::resolve_visited_set_t closedset;
-	return (POINTER_KIND)PointerUsageVisitor(cacheBundle).resolvePointerKind(k, closedset);
+	return PointerUsageVisitor(cacheBundle).resolvePointerKind(k, closedset).getPointerKind();
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) const
@@ -674,10 +674,10 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 	const PointerKindWrapper& k = it->second;
 	assert(k!=PointerKindWrapper::UNKNOWN);
 	if (k!=PointerKindWrapper::INDIRECT)
-		return (POINTER_KIND)k;
+		return k.getPointerKind();
 
 	PointerUsageVisitor::resolve_visited_set_t closedset;
-	return (POINTER_KIND)PointerUsageVisitor(cacheBundle).resolvePointerKind(k, closedset);
+	return PointerUsageVisitor(cacheBundle).resolvePointerKind(k, closedset).getPointerKind();
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForArgumentType(Type* pointerType) const
