@@ -31,6 +31,9 @@ public:
 		// [start,end)
 		uint32_t start;
 		uint32_t end;
+		LiveRangeChunk(uint32_t s, uint32_t e):start(s),end(e)
+		{
+		}
 		bool operator<(const LiveRangeChunk& r) const
 		{
 			return start < r.start;
