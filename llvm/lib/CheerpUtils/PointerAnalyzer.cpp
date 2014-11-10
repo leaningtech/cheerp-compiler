@@ -106,6 +106,9 @@ struct PointerUsageVisitor
 		VISITED_KIND kind;
 		const void* ptr;
 		uint32_t i;
+		ResolveVisitedItem(VISITED_KIND k, const void* p, uint32_t i):kind(k),ptr(p),i(i)
+		{
+		}
 		bool operator<(const ResolveVisitedItem& rhs) const
 		{
 			if (kind == rhs.kind)
@@ -202,7 +205,7 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 		return cacheBundle.valueCache.find(p)->second;
 
 	if(!closedset.insert(p).second)
-		return {PointerKindWrapper::UNKNOWN};
+		return PointerKindWrapper::UNKNOWN;
 
 	bool indirectRet = false;
 	auto CacheAndReturn = [&](PointerKindWrapper k)
@@ -221,7 +224,7 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 		{
 			k.makeKnown();
 			cacheBundle.returnTypeCache[p->getType()] |= k;
-			return (const PointerKindWrapper&)cacheBundle.valueCache.insert( std::make_pair(p, PointerKindWrapper{ p->getType(), 0, 0 } ) ).first->second;
+			return (const PointerKindWrapper&)cacheBundle.valueCache.insert( std::make_pair(p, PointerKindWrapper(p->getType(), 0, 0) ) ).first->second;
 		}
 		else if(!k.isKnown())
 			return (const PointerKindWrapper&)k;
@@ -323,7 +326,7 @@ PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 	if ( (isa<StoreInst>(p) && U->getOperandNo() == 0 ) ||
 		isa<ConstantStruct>(p) || isa<ConstantArray>(p))
 	{
-		return { U->get()->getType()->getPointerElementType() };
+		return U->get()->getType()->getPointerElementType();
 	}
 
 	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
@@ -403,12 +406,12 @@ PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 			return REGULAR;
 		}
 
-		return { calledFunction, argNo };
+		return PointerKindWrapper(calledFunction, argNo);
 	}
 
 	if ( const ReturnInst * ret = dyn_cast<ReturnInst>(p) )
 	{
-		return { ret->getParent()->getParent() };
+		return ret->getParent()->getParent();
 	}
 
 	// Bitcasts from byte layout types require COMPLETE_OBJECT, and generate BYTE_LAYOUT
@@ -444,7 +447,7 @@ PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 		return cacheBundle.valueCache.find(F->begin())->second;
 
 	if(!closedset.insert(F->begin()).second)
-		return {PointerKindWrapper::UNKNOWN};
+		return PointerKindWrapper::UNKNOWN;
 
 	auto CacheAndReturn = [&](const PointerKindWrapper& k)
 	{
@@ -460,7 +463,7 @@ PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 		return CacheAndReturn(getKindForType(returnPointedType));
 
 	if(cacheBundle.addressTakenCache.checkAddressTaken(F))
-		return CacheAndReturn({ F->getReturnType(), 0, 0 });
+		return CacheAndReturn(PointerKindWrapper(F->getReturnType(), 0, 0));
 
 	PointerKindWrapper result = COMPLETE_OBJECT;
 	for(const Use& u : F->uses())
@@ -500,7 +503,7 @@ PointerKindWrapper PointerUsageVisitor::resolvePointerKind(const PointerKindWrap
 			return retKind;
 		else if(retKind==PointerKindWrapper::INDIRECT)
 		{
-			if(!closedset.insert({ RETURN_CONSTRAINT, f, 0}).second)
+			if(!closedset.insert(ResolveVisitedItem(RETURN_CONSTRAINT, f, 0)).second)
 				continue;
 			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
 			if(resolvedKind==REGULAR)
@@ -518,7 +521,7 @@ PointerKindWrapper PointerUsageVisitor::resolvePointerKind(const PointerKindWrap
 			return retKind;
 		else if(retKind==PointerKindWrapper::INDIRECT)
 		{
-			if(!closedset.insert({ DIRECT_ARG_CONSTRAINT, arg, 0}).second)
+			if(!closedset.insert(ResolveVisitedItem(DIRECT_ARG_CONSTRAINT, arg, 0)).second)
 				continue;
 			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
 			if(resolvedKind==REGULAR)
@@ -539,7 +542,7 @@ PointerKindWrapper PointerUsageVisitor::resolvePointerKind(const PointerKindWrap
 			return retKind;
 		else if(retKind==PointerKindWrapper::INDIRECT)
 		{
-			if(!closedset.insert({ STORED_TYPE_CONSTRAINT, t, 0}).second)
+			if(!closedset.insert(ResolveVisitedItem(STORED_TYPE_CONSTRAINT, t, 0)).second)
 				continue;
 			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
 			if(resolvedKind==REGULAR)
@@ -559,7 +562,7 @@ PointerKindWrapper PointerUsageVisitor::resolvePointerKind(const PointerKindWrap
 			return retKind;
 		else if(retKind==PointerKindWrapper::INDIRECT)
 		{
-			if(!closedset.insert({ RETURN_TYPE_CONSTAINT, retType, 0}).second)
+			if(!closedset.insert(ResolveVisitedItem(RETURN_TYPE_CONSTAINT, retType, 0)).second)
 				continue;
 			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
 			if(resolvedKind==REGULAR)

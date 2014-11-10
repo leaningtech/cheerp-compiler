@@ -120,7 +120,7 @@ llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v) const
 	assert(!edgeContext.isNull());
 	if (const Instruction* I=dyn_cast<Instruction>(v))
 	{
-		auto it=edgeNamemap.find(InstOnEdge({ edgeContext.fromBB, edgeContext.toBB, registerize.getRegisterId(I)}));
+		auto it=edgeNamemap.find(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, registerize.getRegisterId(I)));
 		if (it!=edgeNamemap.end())
 			return it->second;
 	}
@@ -197,7 +197,7 @@ void NameGenerator::generateCompressedNames(const GlobalDepsAnalyzer& gda)
 			if (nextIndex >= allTmpPHIs.size())
 				allTmpPHIs.resize(nextIndex+1);
 			allTmpPHIs[nextIndex].first++;
-			allTmpPHIs[nextIndex].second.emplace_back(InstOnEdge{fromBB, toBB, regId});
+			allTmpPHIs[nextIndex].second.emplace_back(InstOnEdge(fromBB, toBB, regId));
 			nextIndex++;
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
@@ -384,7 +384,7 @@ void NameGenerator::generateReadableNames(const GlobalDepsAnalyzer& gda)
 		void handleRecursivePHIDependency(const Instruction* phi) override
 		{
 			uint32_t regId=namegen.registerize.getRegisterId(phi);
-			namegen.edgeNamemap.emplace( InstOnEdge{fromBB, toBB, regId},
+			namegen.edgeNamemap.emplace(InstOnEdge(fromBB, toBB, regId),
 							StringRef( "tmpphi" + std::to_string(nextIndex++)));
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override

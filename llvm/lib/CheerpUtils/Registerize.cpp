@@ -59,7 +59,7 @@ void Registerize::InstructionLiveRange::addUse(uint32_t curCodePath, uint32_t th
 		range.back().end=thisIndex;
 	else
 	{
-		range.push_back({curCodePath, thisIndex});
+		range.push_back(LiveRangeChunk(curCodePath, thisIndex));
 		codePathId=curCodePath;
 	}
 }
@@ -209,7 +209,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		{
 			InstructionLiveRange& range=liveRanges.emplace(&I,
 				InstructionLiveRange(codePathId)).first->second;
-			range.range.push_back({thisIndex, thisIndex});
+			range.range.push_back(LiveRangeChunk(thisIndex, thisIndex));
 		}
 		// Operands of PHIs are declared as live out from the source block.
 		// This is handled below.
@@ -457,7 +457,7 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 					continue;
 			}
 			// Memory may be used until the end of the opcode (especially valid for calls)
-			LiveRangeChunk localRange{instId, instId+1};
+			LiveRangeChunk localRange(instId, instId+1);
 			BasicBlock* BB=I->getParent();
 			AllocaBlockState& blockState=blocksState[BB];
 			blockState.visited=true;
@@ -511,7 +511,7 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 			if(!allocaRanges.empty() && allocaRanges.back().end==it.first)
 				allocaRanges.back().end=it.second;
 			else
-				allocaRanges.push_back({it.first,it.second});
+				allocaRanges.push_back(LiveRangeChunk(it.first,it.second));
 		}
 	}
 }
