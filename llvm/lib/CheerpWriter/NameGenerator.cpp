@@ -57,7 +57,7 @@ struct JSSymbols
 			return false;
 		
 		// Check for reserved keywords
-		if ( reserved_names.count(s) )
+		if ( is_reserved_name(s) )
 			return false;
 		
 		// "null" is used by cheerp internally
@@ -82,29 +82,32 @@ struct JSSymbols
 		return true;
 	}
 
-	static const std::set< StringRef > reserved_names;
-};
-
-const std::set< StringRef > JSSymbols::reserved_names = {
-	"byte",
-	"case",
-	"char",
-	"do",
-	"else",
-	"enum",
-	"for",
-	"goto",
-	"if",
-	"in",
-	"int",
-	"let",
-	"new",
-	"this",
-	"top",
-	"try",
-	"var",
-	"void",
-	"with"
+	template< class String >
+	static bool is_reserved_name( String& s)
+	{
+		const char* reserved_names[] = {
+			"byte",
+			"case",
+			"char",
+			"do",
+			"else",
+			"enum",
+			"for",
+			"goto",
+			"if",
+			"in",
+			"int",
+			"let",
+			"new",
+			"this",
+			"top",
+			"try",
+			"var",
+			"void",
+			"with"
+		};
+		return std::binary_search(reserved_names, reserved_names+(sizeof(reserved_names)/sizeof(const char*)), s);
+	}
 };
 
 NameGenerator::NameGenerator(const GlobalDepsAnalyzer& gda, const Registerize& r, const PointerAnalyzer& PA, bool makeReadableNames):registerize(r), PA(PA)
