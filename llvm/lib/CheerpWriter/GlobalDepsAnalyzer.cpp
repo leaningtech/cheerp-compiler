@@ -41,7 +41,8 @@ GlobalDepsAnalyzer::GlobalDepsAnalyzer(const llvm::Module & module) :
 			assert( isa<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue()) );
 			const Function* f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
 			
-			visitGlobal( f, visited );
+			SubExprVec vec;
+			visitGlobal( f, visited, vec );
 			assert( visited.empty() );
 		}
 	}
@@ -54,7 +55,8 @@ GlobalDepsAnalyzer::GlobalDepsAnalyzer(const llvm::Module & module) :
 	else
 	{
 		// Webmain entry point
-		visitGlobal( webMain, visited );
+		SubExprVec vec;
+		visitGlobal( webMain, visited, vec );
 		assert( visited.empty() );
 	}
 	
@@ -124,7 +126,8 @@ GlobalDepsAnalyzer::GlobalDepsAnalyzer(const llvm::Module & module) :
 				if ( nullptr == var  || reachableGlobals.count(var) )
 				{
 					requiredConstructors.insert(p);
-					visitGlobal( getConstructorFunction(p), visited );
+					SubExprVec vec;
+					visitGlobal( getConstructorFunction(p), visited, vec );
 					assert( visited.empty() );
 					
 					Modified = true;
@@ -159,7 +162,10 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 	{
 
 		if(const GlobalAlias * GA = dyn_cast<GlobalAlias>(C) )
-			visitGlobal(cast<GlobalValue>(GA->getAliasee()), visited );
+		{
+			SubExprVec vec;
+			visitGlobal(cast<GlobalValue>(GA->getAliasee()), visited, vec );
+		}
 		else if (const Function * F = dyn_cast<Function>(C) )
 			visitFunction(F, visited);
 		else if (const GlobalVariable * GV = dyn_cast<GlobalVariable>(C) )

@@ -12,6 +12,7 @@
 #ifndef _CHEERP_UTILITY_H
 #define _CHEERP_UTILITY_H
 
+#include <cctype>
 #include <set>
 #include <unordered_set>
 #include "llvm/ADT/SmallString.h"
