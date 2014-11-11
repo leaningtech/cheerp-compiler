@@ -120,7 +120,7 @@ private:
 	 */
 	void visitGlobal( const llvm::GlobalValue *, 
 			  VisitedSet & visited, 
-			  const SubExprVec & subexpr = SubExprVec() );
+			  const SubExprVec & subexpr );
 	
 	/** 
 	 * Propagate the search across constant expressions.
