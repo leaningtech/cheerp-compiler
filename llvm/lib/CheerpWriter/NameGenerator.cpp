@@ -14,6 +14,7 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Function.h"
+#include <functional>
 #include <set>
 
 using namespace llvm;
