@@ -24,7 +24,38 @@ enum POINTER_KIND {
 	COMPLETE_OBJECT,
 	REGULAR,
 	BYTE_LAYOUT,
-	LAST_POINTER_KIND=BYTE_LAYOUT
+	UNKNOWN,
+	INDIRECT
+};
+
+enum INDIRECT_POINTER_KIND_CONSTRAINT { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT, RETURN_TYPE_CONSTRAINT};
+
+struct IndirectPointerKindConstraint
+{
+	INDIRECT_POINTER_KIND_CONSTRAINT kind;
+	union
+	{
+		const llvm::Function* funcPtr;
+		llvm::Type* typePtr;
+		const void* ptr;
+	};
+	uint32_t i;
+	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p, uint32_t i = 0):kind(k),ptr(p),i(i)
+	{
+	}
+	bool operator<(const IndirectPointerKindConstraint& rhs) const
+	{
+		if (kind == rhs.kind)
+		{
+			if(ptr == rhs.ptr)
+				return i < rhs.i;
+			else
+				return ptr < rhs.ptr;
+		}
+		else
+			return kind < rhs.kind;
+	}
+	void dump() const;
 };
 
 class PointerKindWrapper
@@ -33,20 +64,14 @@ private:
 	uint32_t kind;
 	bool hasConstraints() const
 	{
-		return !(returnConstraints.empty() && argsConstraints.empty() && storedTypeConstraints.empty());
+		return !constraints.empty();
 	}
 	void clearConstraints()
 	{
-		returnConstraints.clear();
-		argsConstraints.clear();
-		storedTypeConstraints.clear();
+		constraints.clear();
 	}
 public:
-	enum WRAPPED_POINTER_KIND { UNKNOWN=LAST_POINTER_KIND+1, INDIRECT=LAST_POINTER_KIND+2 };
-	std::vector<const llvm::Function*> returnConstraints;
-	std::vector<std::pair<const llvm::Function*, uint32_t>> argsConstraints;
-	std::vector<llvm::Type*> storedTypeConstraints;
-	std::vector<llvm::Type*> returnTypeConstraints;
+	std::vector<IndirectPointerKindConstraint> constraints;
 	PointerKindWrapper():kind(COMPLETE_OBJECT)
 	{
 	}
@@ -55,19 +80,19 @@ public:
 	}
 	PointerKindWrapper(const llvm::Function* f):kind(INDIRECT)
 	{
-		returnConstraints.push_back(f);
+		constraints.emplace_back(RETURN_CONSTRAINT, f);
 	}
 	PointerKindWrapper(const llvm::Function* f, uint32_t arg):kind(INDIRECT)
 	{
-		argsConstraints.push_back(std::make_pair(f, arg));
+		constraints.emplace_back(DIRECT_ARG_CONSTRAINT, f, arg);
 	}
 	PointerKindWrapper(llvm::Type* t):kind(INDIRECT)
 	{
-		storedTypeConstraints.push_back(t);
+		constraints.emplace_back(STORED_TYPE_CONSTRAINT, t);
 	}
 	PointerKindWrapper(llvm::Type* t, int, int):kind(INDIRECT)
 	{
-		returnTypeConstraints.push_back(t);
+		constraints.emplace_back(RETURN_TYPE_CONSTRAINT, t);
 	}
 	bool operator==(uint32_t rhs) const
 	{
