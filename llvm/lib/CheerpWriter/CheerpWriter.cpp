@@ -476,51 +476,51 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	ImmutableCallSite::arg_iterator it = callV.arg_begin(), itE = callV.arg_end();
 	
 	const char* ident = func->getName().data();
-	unsigned instrinsicId = func->getIntrinsicID();
+	unsigned intrinsicId = func->getIntrinsicID();
 	//First handle high priority builtins, they will be used even
 	//if an implementation is available from the user
-	if(instrinsicId==Intrinsic::memmove ||
-		instrinsicId==Intrinsic::memcpy)
+	if(intrinsicId==Intrinsic::memmove ||
+		intrinsicId==Intrinsic::memcpy)
 	{
 		compileMemFunc(*(it), *(it+1), *(it+2));
 		return COMPILE_EMPTY;
 	}
-	else if(instrinsicId==Intrinsic::memset)
+	else if(intrinsicId==Intrinsic::memset)
 	{
 		llvm::report_fatal_error("Unsupported memory intrinsic, please rebuild the code using an updated version of Cheerp", false);
 		return COMPILE_EMPTY;
 	}
-	else if(instrinsicId==Intrinsic::invariant_start)
+	else if(intrinsicId==Intrinsic::invariant_start)
 	{
 		//TODO: Try to optimize using this, for now just pass the second arg
 		compileOperand(*(it+1));
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::invariant_end)
+	else if(intrinsicId==Intrinsic::invariant_end)
 		return COMPILE_EMPTY;
-	else if(instrinsicId==Intrinsic::vastart)
+	else if(intrinsicId==Intrinsic::vastart)
 	{
 		compileCompleteObject(*it);
 		stream << "={d:arguments,o:" << namegen.getName(currentFun) << ".length}";
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::vaend)
+	else if(intrinsicId==Intrinsic::vaend)
 	{
 		compileCompleteObject(*it);
 		stream << "=null";
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::cheerp_downcast)
+	else if(intrinsicId==Intrinsic::cheerp_downcast)
 	{
 		compileDowncast( callV );
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::cheerp_upcast_collapsed)
+	else if(intrinsicId==Intrinsic::cheerp_upcast_collapsed)
 	{
 		compilePointerAs(*it, PA.getPointerKind(callV.getInstruction()));
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::cheerp_cast_user)
+	else if(intrinsicId==Intrinsic::cheerp_cast_user)
 	{
 		//HACK to make client array works, we produce a regular even if we have a client object
 		// This is to emulate the old COMPLETE_ARRAY, we should actually make this cast return a pointer to array
@@ -540,17 +540,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::cheerp_pointer_base)
+	else if(intrinsicId==Intrinsic::cheerp_pointer_base)
 	{
 		compilePointerBase(*it);
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::cheerp_pointer_offset)
+	else if(intrinsicId==Intrinsic::cheerp_pointer_offset)
 	{
 		compilePointerOffset(*it);
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::cheerp_create_closure)
+	else if(intrinsicId==Intrinsic::cheerp_create_closure)
 	{
 		assert( globalDeps.needCreateClosure() );
 
@@ -566,12 +566,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << ')';
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::cheerp_make_complete_object)
+	else if(intrinsicId==Intrinsic::cheerp_make_complete_object)
 	{
 		compileCompleteObject(*it);
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::cheerp_make_regular)
+	else if(intrinsicId==Intrinsic::cheerp_make_regular)
 	{
 		stream << "{d:";
 		compileCompleteObject(*it);
@@ -580,13 +580,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << '}';
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::cheerp_element_distance)
+	else if(intrinsicId==Intrinsic::cheerp_element_distance)
 	{
 		// TODO: Eliminate this intrinsic in a pre-processing step
 		stream << '1';
 		return COMPILE_OK;
 	}
-	else if(instrinsicId==Intrinsic::flt_rounds)
+	else if(intrinsicId==Intrinsic::flt_rounds)
 	{
 		// Rounding mode 1: nearest
 		stream << '1';
