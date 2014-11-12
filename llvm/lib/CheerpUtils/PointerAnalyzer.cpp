@@ -23,6 +23,27 @@ using namespace llvm;
 
 namespace cheerp {
 
+void IndirectPointerKindConstraint::dump() const
+{
+	switch(kind)
+	{
+		case RETURN_CONSTRAINT:
+			dbgs() << "\tDepends on return value of: " << funcPtr->getName() << "\n";
+			break;
+		case DIRECT_ARG_CONSTRAINT:
+			dbgs() << "\tDepends on argument " << i << " of " << funcPtr->getName() << "\n";
+			break;
+		case STORED_TYPE_CONSTRAINT:
+			dbgs() << "Depends on stored type " << *typePtr << "\n";
+			break;
+		case RETURN_TYPE_CONSTRAINT:
+			dbgs() << "Depends on returned type " << *typePtr << "\n";
+			break;
+		default:
+			assert(false);
+	}
+}
+
 PointerKindWrapper PointerKindWrapper::operator|(const PointerKindWrapper & rhs)
 {
 	PointerKindWrapper ret=*this;
@@ -59,10 +80,7 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper & rh
 	if (lhs==UNKNOWN || rhs==UNKNOWN)
 		lhs.kind = UNKNOWN;
 
-	lhs.returnConstraints.insert(lhs.returnConstraints.end(), rhs.returnConstraints.begin(), rhs.returnConstraints.end());
-	lhs.argsConstraints.insert(lhs.argsConstraints.end(), rhs.argsConstraints.begin(), rhs.argsConstraints.end());
-	lhs.storedTypeConstraints.insert(lhs.storedTypeConstraints.end(), rhs.storedTypeConstraints.begin(), rhs.storedTypeConstraints.end());
-	lhs.returnTypeConstraints.insert(lhs.returnTypeConstraints.end(), rhs.returnTypeConstraints.begin(), rhs.returnTypeConstraints.end());
+	lhs.constraints.insert(lhs.constraints.end(), rhs.constraints.begin(), rhs.constraints.end());
 	return *this;
 }
 
@@ -75,12 +93,8 @@ void PointerKindWrapper::dump() const
 	else
 		dbgs() << "Wraps plain kind " << kind << "\n";
 
-	for(const llvm::Function* f: returnConstraints)
-		dbgs() << "\tDepends on return value of: " << f->getName() << "\n";
-	for(auto& it: argsConstraints)
-		llvm::errs() << "\tDepends on argument " << it.second << " of " << it.first->getName() << "\n";
-	for(llvm::Type* t: storedTypeConstraints)
-		llvm::errs() << "Depends on stored type " << *t << "\n";
+	for(const IndirectPointerKindConstraint& c: constraints)
+		c.dump();
 }
 
 char PointerAnalyzer::ID = 0;
@@ -96,33 +110,10 @@ bool PointerAnalyzer::runOnModule(Module& M)
 	return false;
 }
 
-enum VISITED_KIND { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT, RETURN_TYPE_CONSTAINT};
-
 struct PointerUsageVisitor
 {
 	typedef llvm::DenseSet< const llvm::Value* > visited_set_t;
-	struct ResolveVisitedItem
-	{
-		VISITED_KIND kind;
-		const void* ptr;
-		uint32_t i;
-		ResolveVisitedItem(VISITED_KIND k, const void* p, uint32_t i):kind(k),ptr(p),i(i)
-		{
-		}
-		bool operator<(const ResolveVisitedItem& rhs) const
-		{
-			if (kind == rhs.kind)
-			{
-				if(ptr == rhs.ptr)
-					return i < rhs.i;
-				else
-					return ptr < rhs.ptr;
-			}
-			else
-				return kind < rhs.kind;
-		}
-	};
-	typedef std::set< ResolveVisitedItem > resolve_visited_set_t;
+	typedef std::set< IndirectPointerKindConstraint > resolve_visited_set_t;
 
 	PointerUsageVisitor( PointerAnalyzer::CacheBundle& cacheBundle ) : cacheBundle(cacheBundle) {}
 
@@ -130,6 +121,7 @@ struct PointerUsageVisitor
 	PointerKindWrapper visitUse(const Use* U);
 	PointerKindWrapper visitReturn(const Function* F);
 	PointerKindWrapper resolvePointerKind(const PointerKindWrapper& k, resolve_visited_set_t& closedset);
+	PointerKindWrapper resolveConstraint(const IndirectPointerKindConstraint& c);
 	bool visitByteLayoutChain ( const Value * v );
 	static POINTER_KIND getKindForType(Type*);
 
@@ -205,7 +197,7 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 		return cacheBundle.valueCache.find(p)->second;
 
 	if(!closedset.insert(p).second)
-		return PointerKindWrapper::UNKNOWN;
+		return UNKNOWN;
 
 	bool indirectRet = false;
 	auto CacheAndReturn = [&](PointerKindWrapper k)
@@ -279,7 +271,7 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 		}
 	}
 
-	if((PointerKindWrapper::WRAPPED_POINTER_KIND)getKindForType(type) != PointerKindWrapper::UNKNOWN)
+	if(getKindForType(type) != UNKNOWN)
 		return CacheAndReturn(getKindForType(type));
 
 	if(const Argument* arg = dyn_cast<Argument>(p))
@@ -448,7 +440,7 @@ PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 		return cacheBundle.valueCache.find(F->begin())->second;
 
 	if(!closedset.insert(F->begin()).second)
-		return PointerKindWrapper::UNKNOWN;
+		return UNKNOWN;
 
 	auto CacheAndReturn = [&](const PointerKindWrapper& k)
 	{
@@ -460,7 +452,7 @@ PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 
 	Type* returnPointedType = F->getReturnType()->getPointerElementType();
 
-	if((PointerKindWrapper::WRAPPED_POINTER_KIND)getKindForType(returnPointedType) != PointerKindWrapper::UNKNOWN)
+	if(getKindForType(returnPointedType) != UNKNOWN)
 		return CacheAndReturn(getKindForType(returnPointedType));
 
 	if(cacheBundle.addressTakenCache.checkAddressTaken(F))
@@ -488,82 +480,53 @@ POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp)
 	if ( TypeSupport::isImmutableType( tp ) )
 		return REGULAR;
 
-	return (POINTER_KIND)PointerKindWrapper::UNKNOWN;
+	return (POINTER_KIND)UNKNOWN;
+}
+
+PointerKindWrapper PointerUsageVisitor::resolveConstraint(const IndirectPointerKindConstraint& c)
+{
+	switch(c.kind)
+	{
+		case RETURN_CONSTRAINT:
+			return visitReturn(c.funcPtr);
+		case DIRECT_ARG_CONSTRAINT:
+		{
+			Function::const_arg_iterator arg = c.funcPtr->arg_begin();
+			std::advance(arg, c.i);
+			return visitValue( arg );
+		}
+		case STORED_TYPE_CONSTRAINT:
+		{
+			// We will resolve this constraint indirectly through the typeCache map
+			const auto& it=cacheBundle.typeCache.find(c.typePtr);
+			if(it==cacheBundle.typeCache.end())
+				return COMPLETE_OBJECT;
+			return it->second;
+		}
+		case RETURN_TYPE_CONSTRAINT:
+		{
+			// We will resolve this constraint indirectly through the returnTypeCache map
+			const auto& it=cacheBundle.returnTypeCache.find(c.typePtr);
+			if(it==cacheBundle.returnTypeCache.end())
+				return COMPLETE_OBJECT;
+			return it->second;
+		}
+	}
+	assert(false);
 }
 
 PointerKindWrapper PointerUsageVisitor::resolvePointerKind(const PointerKindWrapper& k, resolve_visited_set_t& closedset)
 {
-	assert(k==PointerKindWrapper::INDIRECT);
-	for(uint32_t i=0;i<k.returnConstraints.size();i++)
+	assert(k==INDIRECT);
+	for(uint32_t i=0;i<k.constraints.size();i++)
 	{
-		const Function* f=k.returnConstraints[i];
-		PointerKindWrapper retKind=visitReturn(f);
-		retKind.makeKnown();
-		assert(retKind!=BYTE_LAYOUT);
-		if(retKind==REGULAR)
-			return retKind;
-		else if(retKind==PointerKindWrapper::INDIRECT)
-		{
-			if(!closedset.insert(ResolveVisitedItem(RETURN_CONSTRAINT, f, 0)).second)
-				continue;
-			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
-			if(resolvedKind==REGULAR)
-				return resolvedKind;
-		}
-	}
-	for(uint32_t i=0;i<k.argsConstraints.size();i++)
-	{
-		auto& it=k.argsConstraints[i];
-		Function::const_arg_iterator arg = it.first->arg_begin();
-		std::advance(arg, it.second);
-		PointerKindWrapper retKind=visitValue( arg );
+		PointerKindWrapper retKind=resolveConstraint(k.constraints[i]);
 		retKind.makeKnown();
 		if(retKind==REGULAR || retKind==BYTE_LAYOUT)
 			return retKind;
-		else if(retKind==PointerKindWrapper::INDIRECT)
+		else if(retKind==INDIRECT)
 		{
-			if(!closedset.insert(ResolveVisitedItem(DIRECT_ARG_CONSTRAINT, arg, 0)).second)
-				continue;
-			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
-			if(resolvedKind==REGULAR)
-				return resolvedKind;
-		}
-	}
-	for(uint32_t i=0;i<k.storedTypeConstraints.size();i++)
-	{
-		Type* t=k.storedTypeConstraints[i];
-		// We will resolve this constraint indirectly through the typeCache map
-		const auto& it=cacheBundle.typeCache.find(t);
-		if(it==cacheBundle.typeCache.end())
-			continue;
-		PointerKindWrapper retKind=it->second;
-		retKind.makeKnown();
-		assert(retKind!=BYTE_LAYOUT);
-		if(retKind==REGULAR)
-			return retKind;
-		else if(retKind==PointerKindWrapper::INDIRECT)
-		{
-			if(!closedset.insert(ResolveVisitedItem(STORED_TYPE_CONSTRAINT, t, 0)).second)
-				continue;
-			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
-			if(resolvedKind==REGULAR)
-				return resolvedKind;
-		}
-	}
-	for(uint32_t i=0;i<k.returnTypeConstraints.size();i++)
-	{
-		Type* retType=k.returnTypeConstraints[i];
-		// We will resolve this constraint indirectly through TODO
-		const auto& it=cacheBundle.returnTypeCache.find(retType);
-		if(it==cacheBundle.returnTypeCache.end())
-			continue;
-		const PointerKindWrapper& retKind=it->second;
-
-		if(retKind==REGULAR || retKind==BYTE_LAYOUT)
-			return retKind;
-		else if(retKind==PointerKindWrapper::INDIRECT)
-		{
-			if(!closedset.insert(ResolveVisitedItem(RETURN_TYPE_CONSTAINT, retType, 0)).second)
+			if(!closedset.insert(k.constraints[i]).second)
 				continue;
 			PointerKindWrapper resolvedKind=resolvePointerKind(retKind, closedset);
 			if(resolvedKind==REGULAR)
@@ -633,7 +596,7 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 #endif //NDEBUG
 	PointerKindWrapper k = getFinalPointerKindWrapper(p);
 
-	if (k!=PointerKindWrapper::INDIRECT)
+	if (k!=INDIRECT)
 		return k.getPointerKind();
 
 	// Got an indirect value, we need to resolve it now
@@ -658,7 +621,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 	TimerGuard guard(gpkfrTimer);
 #endif //NDEBUG
 	PointerKindWrapper k = getFinalPointerKindWrapperForReturn(F);
-	if (k!=PointerKindWrapper::INDIRECT)
+	if (k!=INDIRECT)
 		return k.getPointerKind();
 
 	PointerUsageVisitor::resolve_visited_set_t closedset;
@@ -668,7 +631,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) const
 {
 	POINTER_KIND ret=PointerUsageVisitor(cacheBundle).getKindForType(pointerType->getPointerElementType());
-	if(ret!=PointerKindWrapper::UNKNOWN)
+	if(ret!=UNKNOWN)
 		return ret;
 	// If REGULAR by default, try harder using the typeCache map
 	auto it=cacheBundle.typeCache.find(pointerType->getPointerElementType());
@@ -676,8 +639,8 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 		return COMPLETE_OBJECT;
 
 	const PointerKindWrapper& k = it->second;
-	assert(k!=PointerKindWrapper::UNKNOWN);
-	if (k!=PointerKindWrapper::INDIRECT)
+	assert(k!=UNKNOWN);
+	if (k!=INDIRECT)
 		return k.getPointerKind();
 
 	PointerUsageVisitor::resolve_visited_set_t closedset;
@@ -723,7 +686,7 @@ void PointerAnalyzer::fullResolve() const
 {
 	for(auto& it: cacheBundle.valueCache)
 	{
-		if(it.second!=PointerKindWrapper::INDIRECT)
+		if(it.second!=INDIRECT)
 			continue;
 		PointerUsageVisitor::resolve_visited_set_t closedset;
 		PointerKindWrapper k=PointerUsageVisitor(cacheBundle).resolvePointerKind(it.second, closedset);
@@ -732,7 +695,7 @@ void PointerAnalyzer::fullResolve() const
 	}
 	for(auto& it: cacheBundle.typeCache)
 	{
-		if(it.second!=PointerKindWrapper::INDIRECT)
+		if(it.second!=INDIRECT)
 			continue;
 		PointerUsageVisitor::resolve_visited_set_t closedset;
 		PointerKindWrapper k=PointerUsageVisitor(cacheBundle).resolvePointerKind(it.second, closedset);
@@ -770,6 +733,8 @@ void PointerAnalyzer::dumpPointer(const Value* v, bool dumpOwnerFunc) const
 			case COMPLETE_OBJECT: fmt << "COMPLETE_OBJECT"; break;
 			case REGULAR: fmt << "REGULAR"; break;
 			case BYTE_LAYOUT: fmt << "BYTE_LAYOUT"; break;
+			default:
+				assert(false && "Unexpected pointer kind");
 		}
 		fmt.PadToColumn(112) << (TypeSupport::isImmutableType( v->getType()->getPointerElementType() ) ? "true" : "false" );
 	}
@@ -791,6 +756,8 @@ void dumpAllPointers(const Function & F, const PointerAnalyzer & analyzer)
 			case COMPLETE_OBJECT: llvm::errs() << "COMPLETE_OBJECT"; break;
 			case REGULAR: llvm::errs() << "REGULAR"; break;
 			case BYTE_LAYOUT: llvm::errs() << "BYTE_LAYOUT"; break;
+			default:
+				assert(false && "Unexpected pointer kind");
 		}
 		llvm::errs() << ']';
 	}
