@@ -594,7 +594,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(strcmp(ident,"free")==0 ||
 		strcmp(ident,"_ZdlPv")==0 ||
-		strcmp(ident,"_ZdaPv")==0)
+		strcmp(ident,"_ZdaPv")==0 ||
+		intrinsicId==Intrinsic::cheerp_deallocate)
 	{
 		compileFree(*it);
 		return COMPILE_OK;

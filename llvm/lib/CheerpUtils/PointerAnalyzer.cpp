@@ -359,6 +359,7 @@ PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 		case Intrinsic::lifetime_start:
 		case Intrinsic::lifetime_end:
 		case Intrinsic::cheerp_element_distance:
+		case Intrinsic::cheerp_deallocate:
 			return COMPLETE_OBJECT;
 		case Intrinsic::cheerp_downcast:
 		case Intrinsic::cheerp_upcast_collapsed:
