@@ -408,11 +408,10 @@ PointerType * DynamicAllocInfo::computeCastedType() const
 		call->user_end(),
 		getTypeForUse);
 	
-	// If there are no casts, use i8* from the call itself
+	// If there are no casts, use i8*
 	if ( call->user_end() == firstNonNull )
 	{
-		assert( call->getType()->isPointerTy() );
-		return cast<PointerType>(call->getType());
+		return cast<PointerType>(Type::getInt8PtrTy(call->getContext()));
 	}
 	
 	assert( getTypeForUse(*firstNonNull)->isPointerTy() );
