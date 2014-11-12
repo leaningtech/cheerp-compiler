@@ -40,7 +40,7 @@ struct IndirectPointerKindConstraint
 		const void* ptr;
 	};
 	uint32_t i;
-	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p, uint32_t i = 0):kind(k),ptr(p),i(i)
+	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p, uint32_t i):kind(k),ptr(p),i(i)
 	{
 	}
 	bool operator<(const IndirectPointerKindConstraint& rhs) const
@@ -78,21 +78,9 @@ public:
 	PointerKindWrapper(uint32_t k):kind(k)
 	{
 	}
-	PointerKindWrapper(const llvm::Function* f):kind(INDIRECT)
+	PointerKindWrapper(INDIRECT_POINTER_KIND_CONSTRAINT constraint, const void* ptr, uint32_t i=0):kind(INDIRECT)
 	{
-		constraints.emplace_back(RETURN_CONSTRAINT, f);
-	}
-	PointerKindWrapper(const llvm::Function* f, uint32_t arg):kind(INDIRECT)
-	{
-		constraints.emplace_back(DIRECT_ARG_CONSTRAINT, f, arg);
-	}
-	PointerKindWrapper(llvm::Type* t):kind(INDIRECT)
-	{
-		constraints.emplace_back(STORED_TYPE_CONSTRAINT, t);
-	}
-	PointerKindWrapper(llvm::Type* t, int, int):kind(INDIRECT)
-	{
-		constraints.emplace_back(RETURN_TYPE_CONSTRAINT, t);
+		constraints.emplace_back(constraint, ptr, i);
 	}
 	bool operator==(uint32_t rhs) const
 	{
