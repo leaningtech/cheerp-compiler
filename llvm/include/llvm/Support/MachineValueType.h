@@ -239,6 +239,7 @@ namespace llvm {
                               // will be determined by the opcode.
 
       exnref         = 155,   // WebAssembly's exnref type
+      varArg         = 156,   // This is used to mark the first variable argument
 
       FIRST_VALUETYPE =  1,   // This is always the beginning of the list.
       LAST_VALUETYPE = 156,   // This always remains at the end of the list.

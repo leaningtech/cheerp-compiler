@@ -310,7 +310,7 @@ def llvm_v4f64_ty      : LLVMType<v4f64>;    //  4 x double
 def llvm_v8f64_ty      : LLVMType<v8f64>;    //  8 x double
 def llvm_v16f64_ty     : LLVMType<v16f64>;   // 16 x double
 
-def llvm_vararg_ty     : LLVMType<isVoid>;   // this means vararg here
+def llvm_vararg_ty     : LLVMType<varArg>;   // this means vararg here
 
 //===----------------------------------------------------------------------===//
 // Intrinsic Definitions.
