@@ -291,6 +291,7 @@ namespace llvm {
       externref      = 193,    // WebAssembly's externref type
       x86amx         = 194,    // This is an X86 AMX value
       i64x8          = 195,    // 8 Consecutive GPRs (AArch64)
+      varArg         = 196,    // This is used to mark the first variable argument
 
       FIRST_VALUETYPE =  1,    // This is always the beginning of the list.
       LAST_VALUETYPE = i64x8,  // This always remains at the end of the list.
