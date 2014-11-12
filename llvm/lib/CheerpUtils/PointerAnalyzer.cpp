@@ -210,13 +210,15 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 			k.makeKnown();
 			Type* curType = p->getType()->getPointerElementType();
 			cacheBundle.typeCache[curType] |= k;
-			return (const PointerKindWrapper&)cacheBundle.valueCache.insert( std::make_pair(p, curType ) ).first->second;
+			return (const PointerKindWrapper&)cacheBundle.valueCache.insert(
+					std::make_pair(p, PointerKindWrapper( STORED_TYPE_CONSTRAINT, curType ) ) ).first->second;
 		}
 		else if(indirectRet)
 		{
 			k.makeKnown();
 			cacheBundle.returnTypeCache[p->getType()] |= k;
-			return (const PointerKindWrapper&)cacheBundle.valueCache.insert( std::make_pair(p, PointerKindWrapper(p->getType(), 0, 0) ) ).first->second;
+			return (const PointerKindWrapper&)cacheBundle.valueCache.insert(
+					std::make_pair(p, PointerKindWrapper( RETURN_TYPE_CONSTRAINT, p->getType() ) ) ).first->second;
 		}
 		else if(!k.isKnown())
 			return (const PointerKindWrapper&)k;
@@ -288,7 +290,7 @@ PointerKindWrapper PointerUsageVisitor::visitValue(const Value* p)
 		if (!isIntrinsic)
 		{
 			if(cs.getCalledFunction())
-				return CacheAndReturn(cs.getCalledFunction());
+				return CacheAndReturn(PointerKindWrapper( RETURN_CONSTRAINT, cs.getCalledFunction() ));
 			else
 				indirectRet = true;
 		}
@@ -318,7 +320,7 @@ PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 	if ( (isa<StoreInst>(p) && U->getOperandNo() == 0 ) ||
 		isa<ConstantStruct>(p) || isa<ConstantArray>(p))
 	{
-		return U->get()->getType()->getPointerElementType();
+		return PointerKindWrapper( STORED_TYPE_CONSTRAINT, U->get()->getType()->getPointerElementType() );
 	}
 
 	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
@@ -399,12 +401,12 @@ PointerKindWrapper PointerUsageVisitor::visitUse(const Use* U)
 			return REGULAR;
 		}
 
-		return PointerKindWrapper(calledFunction, argNo);
+		return PointerKindWrapper(DIRECT_ARG_CONSTRAINT, calledFunction, argNo);
 	}
 
 	if ( const ReturnInst * ret = dyn_cast<ReturnInst>(p) )
 	{
-		return ret->getParent()->getParent();
+		return PointerKindWrapper(RETURN_CONSTRAINT, ret->getParent()->getParent());
 	}
 
 	// Bitcasts from byte layout types require COMPLETE_OBJECT, and generate BYTE_LAYOUT
@@ -456,7 +458,7 @@ PointerKindWrapper PointerUsageVisitor::visitReturn(const Function* F)
 		return CacheAndReturn(getKindForType(returnPointedType));
 
 	if(cacheBundle.addressTakenCache.checkAddressTaken(F))
-		return CacheAndReturn(PointerKindWrapper(F->getReturnType(), 0, 0));
+		return CacheAndReturn(PointerKindWrapper(RETURN_TYPE_CONSTRAINT, F->getReturnType()));
 
 	PointerKindWrapper result = COMPLETE_OBJECT;
 	for(const Use& u : F->uses())
