@@ -176,17 +176,15 @@ public:
 				return it->second;
 		}
 	};
-	struct CacheBundle
+	struct PointerKindData
 	{
 		ValueKindMap valueCache;
-		TypeKindMap typeCache;
-		ReturnTypeKindMap returnTypeCache;
+		TypeKindMap storedTypeMap;
+		ReturnTypeKindMap returnTypeMap;
 		AddressTakenMap addressTakenCache;
 	};
-
 private:
-
-	mutable CacheBundle cacheBundle;
+	mutable PointerKindData pointerKindData;
 
 #ifndef NDEBUG
 	mutable llvm::TimerGroup timerGroup;
