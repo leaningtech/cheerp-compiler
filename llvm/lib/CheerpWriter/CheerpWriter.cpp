@@ -1546,7 +1546,19 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
-	Type * targetType = gep_inst->getType()->getPointerElementType();
+	Type* basePointerType = gep_inst->getOperand(0)->getType();
+	Type* targetType = gep_inst->getType()->getPointerElementType();
+
+	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType,
+			makeArrayRef(const_cast<Value* const*>(indices.begin()),
+				     const_cast<Value* const*>(indices.end() - 1))));
+	uint32_t lastOffsetConstant = 0;
+	if(containerStructType && indices.size() > 1)
+	{
+		assert(isa<ConstantInt>(indices.back()));
+		const ConstantInt* idx = cast<ConstantInt>(indices.back());
+		lastOffsetConstant = idx->getZExtValue();
+	}
 
 	if(COMPLETE_OBJECT == kind)
 	{
@@ -1609,26 +1621,33 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		}
 		else
 		{
-			bool hasBasesInfo = isa<StructType>(targetType) && types.hasBasesInfo(cast<StructType>(targetType));
+			
+			Type* basePointedType = basePointerType->getPointerElementType();
+			bool useDownCastArray = false;
+			if(containerStructType && types.hasBasesInfo(containerStructType))
+			{
+				uint32_t firstBase, baseCount;
+				types.getBasesInfo(containerStructType, firstBase, baseCount);
+				if(lastOffsetConstant >= firstBase && lastOffsetConstant < (firstBase+baseCount))
+					useDownCastArray = true;
+			}
+
 			stream << "{d:";
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
-			if (hasBasesInfo)
+			if (useDownCastArray)
 			{
-				compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
-						makeArrayRef(std::next(indices.begin()),indices.end()));
+				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()));
 				stream << ".a";
 			}
 			else
 			{
-				compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
-						makeArrayRef(std::next(indices.begin()),std::prev(indices.end())));
+				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())));
 			}
 			stream << ",o:";
-			if (hasBasesInfo)
+			if (useDownCastArray)
 			{
 				compileCompleteObject(gep_inst->getOperand(0), indices.front());
-				compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
-						makeArrayRef(std::next(indices.begin()), indices.end()));
+				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()));
 				stream << ".o";
 			}
 			else
