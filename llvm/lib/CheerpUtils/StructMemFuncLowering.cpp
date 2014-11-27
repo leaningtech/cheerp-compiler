@@ -285,3 +285,8 @@ bool StructMemFuncLowering::runOnFunction(Function& F)
 char StructMemFuncLowering::ID = 0;
 
 FunctionPass *llvm::createStructMemFuncLowering() { return new StructMemFuncLowering(); }
+
+INITIALIZE_PASS_BEGIN(StructMemFuncLowering, "StructMemFuncLowering", "Lower memory intrinsics for structure types",
+                      false, false)
+INITIALIZE_PASS_END(StructMemFuncLowering, "StructMemFuncLowering", "Lower memory intrinsics for structure types",
+                    false, false)
