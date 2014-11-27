@@ -17,6 +17,7 @@ set(LLVM_LINK_COMPONENTS
   IRPrinter
   InstCombine
   Instrumentation
+  CheerpUtils
   MC
   ObjCARCOpts
   Remarks

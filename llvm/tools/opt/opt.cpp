@@ -423,6 +423,7 @@ int main(int argc, char **argv) {
   initializeTransformUtils(Registry);
   initializeInstCombine(Registry);
   initializeTarget(Registry);
+  initializeCheerpOpts(Registry);
   // For codegen passes, only passes that do IR to IR transformation are
   // supported.
   initializeExpandLargeDivRemLegacyPassPass(Registry);
