@@ -577,3 +577,14 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 }
 
 }
+
+namespace llvm
+{
+
+void initializeCheerpOpts(PassRegistry &Registry)
+{
+	initializeStructMemFuncLoweringPass(Registry);
+	initializeAllocaMergingPass(Registry);
+}
+
+}

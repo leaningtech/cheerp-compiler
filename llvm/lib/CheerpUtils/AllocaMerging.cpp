@@ -336,3 +336,9 @@ char AllocaArraysMerging::ID = 0;
 FunctionPass *createAllocaArraysMergingPass() { return new AllocaArraysMerging(); }
 
 }
+
+INITIALIZE_PASS_BEGIN(AllocaMerging, "AllocaMerging", "Merge alloca instructions used on non-overlapping ranges",
+			false, false)
+INITIALIZE_PASS_END(AllocaMerging, "AllocaMerging", "Merge alloca instructions used on non-overlapping ranges",
+			false, false)
+
