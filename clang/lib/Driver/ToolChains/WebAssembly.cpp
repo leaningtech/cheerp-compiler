@@ -440,6 +440,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   ArgStringList CmdArgs;
 
   CmdArgs.push_back("-march=cheerp");
+  CmdArgs.push_back("-ReplaceNopCasts");
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 

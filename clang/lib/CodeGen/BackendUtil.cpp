@@ -25,7 +25,6 @@
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/Cheerp/NativeRewriter.h"
-#include "llvm/Cheerp/ReplaceNopCasts.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
@@ -584,8 +583,6 @@ static void addCheerpPasses(const PassManagerBuilder &Builder,
   PM.add(createCheerpNativeRewriterPass());
   //Cheerp is single threaded, convert atomic instructions to regular ones
   PM.add(createLowerAtomicPass());
-  //Convert all typed casts to plain bitcasts while checking that the code is valid
-  PM.add(cheerp::createReplaceNopCastsPass());
 }
 
 static void addPostInlineCheerpPasses(const PassManagerBuilder &Builder,
