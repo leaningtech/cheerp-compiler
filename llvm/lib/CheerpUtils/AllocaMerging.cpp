@@ -106,12 +106,16 @@ bool AllocaMerging::runOnFunction(Function& F)
 		if(!Changed)
 			registerize.invalidateFunction(F);
 
+		PA.invalidate(targetAlloca);
 		// We can merge the allocas
 		for(AllocaInst* allocaToMerge: mergeSet)
 		{
-			Value* targetVal=targetAlloca;
+			Instruction* targetVal=targetAlloca;
 			if(targetVal->getType()!=allocaToMerge->getType())
-				targetVal=new BitCastInst(targetVal, allocaToMerge->getType(), "", allocaToMerge);
+			{
+				targetVal=new BitCastInst(targetVal, allocaToMerge->getType());
+				targetVal->insertAfter(targetAlloca);
+			}
 			allocaToMerge->replaceAllUsesWith(targetVal);
 			PA.invalidate(allocaToMerge);
 			allocaToMerge->eraseFromParent();
