@@ -9,7 +9,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#define DEBUG_TYPE "CheerpAllocaMerging"
 #include <algorithm>
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
@@ -20,6 +22,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
+
+STATISTIC(NumAllocaMerged, "Number of alloca which are merged");
 
 namespace llvm {
 
@@ -120,6 +124,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 			PA.invalidate(allocaToMerge);
 			allocaToMerge->eraseFromParent();
 			allocaInfos.erase(allocaToMerge);
+			NumAllocaMerged++;
 		}
 		Changed = true;
 	}
