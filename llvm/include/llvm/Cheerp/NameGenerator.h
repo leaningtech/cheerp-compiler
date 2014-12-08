@@ -32,7 +32,7 @@ public:
 	 * This initialize the namegenerator by collecting
 	 * all the global variable names
 	 */
-	explicit NameGenerator( const GlobalDepsAnalyzer &, const Registerize &, const PointerAnalyzer& PA, bool makeReadableNames = true );
+	explicit NameGenerator( const llvm::Module&, const GlobalDepsAnalyzer &, const Registerize &, const PointerAnalyzer& PA, bool makeReadableNames = true );
 
 	/**
 	 * Return the computed name for the given variable.
@@ -69,8 +69,8 @@ public:
 	static llvm::SmallString<4> filterLLVMName( llvm::StringRef, bool isGlobalName );
 
 private:
-	void generateCompressedNames( const GlobalDepsAnalyzer & );
-	void generateReadableNames( const GlobalDepsAnalyzer & );
+	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
+	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
 	
 	// Determine if an instruction actually needs a name
 	bool needsName(const llvm::Instruction &, const PointerAnalyzer& PA) const;

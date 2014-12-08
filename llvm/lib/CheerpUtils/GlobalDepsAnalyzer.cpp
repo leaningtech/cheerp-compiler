@@ -9,19 +9,44 @@
 //
 //===----------------------------------------------------------------------===//
 
+#define DEBUG_TYPE "GlobalDepsAnalyzer"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/FormattedStream.h"
 
+using namespace llvm;
+
+STATISTIC(NumRemovedGlobals, "Number of unused globals which have been removed");
+
 namespace cheerp {
 
 using namespace std;
-using namespace llvm;
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer(const llvm::Module & module) :
-	module(module),	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false)
+char GlobalDepsAnalyzer::ID = 0;
+
+const char* GlobalDepsAnalyzer::getPassName() const
+{
+	return "GlobalDepsAnalyzer";
+}
+
+GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID),
+	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false)
+{
+}
+
+void GlobalDepsAnalyzer::getAnalysisUsage(AnalysisUsage& AU) const
+{
+	AU.addPreserved<cheerp::PointerAnalyzer>();
+	AU.addPreserved<cheerp::Registerize>();
+
+	llvm::ModulePass::getAnalysisUsage(AU);
+}
+
+bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
 	VisitedSet visited;
 	
@@ -66,7 +91,7 @@ GlobalDepsAnalyzer::GlobalDepsAnalyzer(const llvm::Module & module) :
 		// Random things which may go boom
 		if ( !constructorVar->hasInitializer() ||
 			!isa<ConstantArray>( constructorVar->getInitializer() ) )
-			return;
+			return false;
 		
 		const ConstantArray * constructors = cast<ConstantArray>( constructorVar->getInitializer() );
 
@@ -141,6 +166,8 @@ GlobalDepsAnalyzer::GlobalDepsAnalyzer(const llvm::Module & module) :
 				std::back_inserter(constructorsNeeded),
 				getConstructorFunction );
 	}
+	NumRemovedGlobals = filterModule(module);
+	return true;
 }
 
 void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visited, const SubExprVec & subexpr )
@@ -178,7 +205,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 				visitConstant( GV->getInitializer(), visited, Newsubexpr);
 			}
 			
-			pushVar(GV);
+			varsOrder.push_back(GV);
 		}
 	}
 
@@ -280,16 +307,14 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		StructType * st = cast<StructType>(retType);
 		
 		// We only need metadata for non client objects and if there are bases
-		if (!TypeSupport::isClientType(retType) && TypeSupport::hasBasesInfoMetadata(st, module) )
+		if (!TypeSupport::isClientType(retType) && TypeSupport::hasBasesInfoMetadata(st, *F->getParent()) )
 			classesNeeded.insert(st);
 	}
 	else if (F->getIntrinsicID() == Intrinsic::cheerp_create_closure)
 		hasCreateClosureUsers = true;
-	
-	pushFunction(F);
 }
 
-int filterModule( llvm::Module & module, const GlobalDepsAnalyzer & fg )
+int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 {
 	std::vector< llvm::GlobalValue * > eraseQueue;
 	
@@ -299,7 +324,7 @@ int filterModule( llvm::Module & module, const GlobalDepsAnalyzer & fg )
 		GlobalVariable * var = it++;
 		var->removeFromParent();
 		
-		if ( ! fg.isReachable(var) )
+		if ( ! isReachable(var) )
 			eraseQueue.push_back(var);
 	}
 	
@@ -307,10 +332,12 @@ int filterModule( llvm::Module & module, const GlobalDepsAnalyzer & fg )
 	for (Module::iterator it = module.begin(); it != module.end(); )
 	{
 		Function * f = it++;
-		f->removeFromParent();
 		
-		if ( !fg.isReachable(f) )
+		if ( !isReachable(f) )
+		{
 			eraseQueue.push_back(f);
+			f->removeFromParent();
+		}
 	}
 
 	// Detach only the unreachable aliases
@@ -318,7 +345,7 @@ int filterModule( llvm::Module & module, const GlobalDepsAnalyzer & fg )
 	{
 		GlobalAlias * GA = it++;
 		
-		if ( !fg.isReachable(GA) )
+		if ( !isReachable(GA) )
 		{
 			eraseQueue.push_back(GA);
 			GA->removeFromParent();
@@ -326,13 +353,9 @@ int filterModule( llvm::Module & module, const GlobalDepsAnalyzer & fg )
 	}
 
 	// Put back all the global variables, in the right order
-	for ( const GlobalVariable * var : fg.varsOrderedList() )
+	for ( const GlobalVariable * var : varsOrder )
 		module.getGlobalList().push_back( const_cast<GlobalVariable*>(var) );
 	
-	// Put back all the functions, in the right order
-	for ( const Function * f : fg.functionOrderedList() )
-		module.getFunctionList().push_back( const_cast<Function*>(f) );
-
 	// Drop all the references from the eraseQueue
 	for ( GlobalValue * var : eraseQueue )
 	{
@@ -355,3 +378,10 @@ int filterModule( llvm::Module & module, const GlobalDepsAnalyzer & fg )
 }
 
 }
+
+using namespace cheerp;
+
+INITIALIZE_PASS_BEGIN(GlobalDepsAnalyzer, "GlobalDepsAnalyzer", "Remove unused globals from the module",
+                      false, false)
+INITIALIZE_PASS_END(GlobalDepsAnalyzer, "GlobalDepsAnalyzer", "Remove unused globals from the module",
+                    false, false)

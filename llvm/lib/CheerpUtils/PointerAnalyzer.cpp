@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/ADT/DenseSet.h"
@@ -102,6 +103,13 @@ char PointerAnalyzer::ID = 0;
 const char* PointerAnalyzer::getPassName() const
 {
 	return "CheerpPointerAnalyzer";
+}
+
+void PointerAnalyzer::getAnalysisUsage(AnalysisUsage& AU) const
+{
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+
+	llvm::Pass::getAnalysisUsage(AU);
 }
 
 bool PointerAnalyzer::runOnModule(Module& M)

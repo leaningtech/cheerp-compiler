@@ -446,6 +446,7 @@ void initializeWriteThinLTOBitcodePass(PassRegistry&);
 void initializeXRayInstrumentationPass(PassRegistry&);
 void initializeStructMemFuncLoweringPass(PassRegistry&);
 void initializeAllocaMergingPass(PassRegistry&);
+void initializeGlobalDepsAnalyzerPass(PassRegistry&);
 
 } // end namespace llvm
 

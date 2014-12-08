@@ -129,6 +129,8 @@ public:
 	void prefetch( const llvm::Module & ) const;
 	static char ID;
 
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
+
 	bool runOnModule( llvm::Module & ) override;
 
 	const char *getPassName() const override;

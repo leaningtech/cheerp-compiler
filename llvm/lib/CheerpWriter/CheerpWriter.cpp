@@ -2644,17 +2644,17 @@ void CheerpWriter::makeJS()
 	PA.prefetch(module);
 	PA.fullResolve();
 
-	for ( const Function * F : globalDeps.functionOrderedList() )
-		if (!F->empty())
+	for ( const Function & F : module.getFunctionList() )
+		if (!F.empty())
 		{
 #ifdef CHEERP_DEBUG_POINTERS
-			dumpAllPointers(*F, PA);
+			dumpAllPointers(F, PA);
 #endif //CHEERP_DEBUG_POINTERS
-			compileMethod(*F);
+			compileMethod(F);
 		}
 	
-	for ( const GlobalVariable * GV : globalDeps.varsOrderedList() )
-		compileGlobal(*GV);
+	for ( const GlobalVariable & GV : module.getGlobalList() )
+		compileGlobal(GV);
 
 	for ( StructType * st : globalDeps.classesWithBaseInfo() )
 		compileClassType(st);
