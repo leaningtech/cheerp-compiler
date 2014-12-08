@@ -28,40 +28,17 @@ namespace cheerp
  * 
  * It also computes a proper ordering between variables and functions to satisfy dependencies
  */
-class GlobalDepsAnalyzer
+class GlobalDepsAnalyzer : public llvm::ModulePass
 {
 public:
+	static char ID;
 	typedef llvm::SmallVector<const llvm::Use *, 8> SubExprVec;
 	typedef std::unordered_multimap< const llvm::GlobalVariable *, SubExprVec > FixupMap;
 
 	/**
 	 * Run the filter. Notice that it does not modify the module.
 	 */
-	GlobalDepsAnalyzer( const llvm::Module & );
-	
-	/**
-	 * Get the ordered list of all the global values
-	 */
-	const std::vector< const llvm::GlobalValue * > globalOrderedList() const
-	{
-		return globalsOrder;
-	}
-	
-	/**
-	 * Get the ordered list of all the functions
-	 */
-	const std::vector< const llvm::Function * > functionOrderedList() const
-	{
-		return functionOrder;
-	}
-	
-	/**
-	 * Get the ordered list of all the global variables
-	 */
-	const std::vector< const llvm::GlobalVariable * > varsOrderedList() const
-	{
-		return varsOrder;
-	}
+	GlobalDepsAnalyzer();
 	
 	/**
 	 * Determine if a given global value is reachable
@@ -108,9 +85,14 @@ public:
 	 */
 	bool needCreatePointerArray() const { return hasPointerArrays; }
 	
+	bool runOnModule( llvm::Module & ) override;
+
+	void getAnalysisUsage( llvm::AnalysisUsage& ) const override;
 private:
 	typedef llvm::SmallSet<const llvm::GlobalValue*, 8> VisitedSet;
 	
+	const char* getPassName() const;
+
 	/**
 	 * Propagate the search across globalvalues (i.e. Functions, GlobalVariables and GlobalAliases)
 	 * 
@@ -138,21 +120,17 @@ private:
 	void visitFunction( const llvm::Function * F, VisitedSet & visited );
 	
 	/**
-	 * Helper functions to push a variable/function in the right list
+	 * Remove all the unused function/variables from a module.
+	 * 
+	 * This also sorts the global variables to minimize unresolved dependencies
+	 * 
+	 * Return the number of globals removed from the module.
+	 * 
+	 * \warning Even if this returns 0, it does *not* mean that the module has 
+	 * not been modified. This function also *reorders* the variables inside the module.
 	 */
-	void pushFunction( const llvm::Function * F )
-	{
-		globalsOrder.push_back(F);
-		functionOrder.push_back(F);
-	}
-	
-	void pushVar( const llvm::GlobalVariable * V )
-	{
-		globalsOrder.push_back(V);
-		varsOrder.push_back(V);
-	}
+	int filterModule( llvm::Module & );
 
-	const llvm::Module & module;
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
@@ -160,8 +138,6 @@ private:
 	std::unordered_set<llvm::StructType* > arraysNeeded;
 	std::vector< const llvm::Function* > constructorsNeeded;
 		
-	std::vector< const llvm::GlobalValue * > globalsOrder;
-	std::vector< const llvm::Function * > functionOrder;
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	
 	bool hasCreateClosureUsers;
@@ -169,19 +145,10 @@ private:
 	bool hasPointerArrays;
 };
 
-/**
- * Use a GlobalDepsAnalyzer object to actually remove all the unused
- * function/variables from a module.
- * 
- * This also sorts the functions and the global variables in the module
- * according to the ordering provided by the GlobalDepsAnalyzer object.
- * 
- * Return the number of globals removed from the module.
- * 
- * \warning Even if this returns 0, it does *not* mean that the module has 
- * not been modified. This function also *reorders* the variables inside the module.
- */
-int filterModule( llvm::Module &, const GlobalDepsAnalyzer & fg );
+inline llvm::Pass * createGlobalDepsAnalyzerPass()
+{
+	return new GlobalDepsAnalyzer;
+}
 
 }
 

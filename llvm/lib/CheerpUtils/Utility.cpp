@@ -585,6 +585,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 {
 	initializeStructMemFuncLoweringPass(Registry);
 	initializeAllocaMergingPass(Registry);
+	initializeGlobalDepsAnalyzerPass(Registry);
 }
 
 }

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Cheerp/AllocaMerging.h"
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/IR/CFG.h"
@@ -133,6 +134,7 @@ void AllocaMerging::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addPreserved<cheerp::Registerize>();
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 
 	llvm::FunctionPass::getAnalysisUsage(AU);
 }
@@ -327,6 +329,7 @@ void AllocaArraysMerging::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addPreserved<cheerp::Registerize>();
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 
 	llvm::FunctionPass::getAnalysisUsage(AU);
 }

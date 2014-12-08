@@ -145,7 +145,7 @@ private:
 	const PointerAnalyzer & PA;
 	const Registerize & registerize;
 
-	GlobalDepsAnalyzer globalDeps;
+	GlobalDepsAnalyzer & globalDeps;
 	NameGenerator namegen;
 	TypeSupport types;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
@@ -311,9 +311,9 @@ private:
 public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
-	             SourceMapGenerator* sourceMapGenerator, bool ReadableOutput, bool NoRegisterize):
-		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(m),
-		namegen(globalDeps, registerize, PA, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
+	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, bool ReadableOutput, bool NoRegisterize):
+		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
+		namegen(m, globalDeps, registerize, PA, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
 		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),
 		stream(s, ReadableOutput)
 	{
