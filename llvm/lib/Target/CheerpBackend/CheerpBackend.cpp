@@ -57,6 +57,7 @@ namespace {
 bool CheerpWritePass::runOnModule(Module& M)
 {
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
+  cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
   cheerp::SourceMapGenerator* sourceMapGenerator = NULL;
   if (!SourceMap.empty())
@@ -71,7 +72,7 @@ bool CheerpWritePass::runOnModule(Module& M)
        return false;
     }
   }
-  cheerp::CheerpWriter writer(M, Out, PA, registerize, sourceMapGenerator, PrettyCode, NoRegisterize);
+  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, PrettyCode, NoRegisterize);
   writer.makeJS();
   delete sourceMapGenerator;
   return false;
@@ -79,6 +80,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 
 void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
 {
+  AU.addRequired<cheerp::GlobalDepsAnalyzer>();
   AU.addRequired<cheerp::PointerAnalyzer>();
   AU.addRequired<cheerp::Registerize>();
 }
@@ -99,6 +101,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            MachineFunctionInitializer* MFInit) {
   if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
   PM.add(createResolveAliasesPass());
+  PM.add(cheerp::createGlobalDepsAnalyzerPass());
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(cheerp::createPointerAnalyzerPass());
