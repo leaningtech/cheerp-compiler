@@ -11,6 +11,7 @@
 
 #define DEBUG_TYPE "CheerpPointerPasses"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
@@ -138,6 +139,7 @@ void AllocaArrays::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addPreserved<cheerp::Registerize>();
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
@@ -235,6 +237,7 @@ void IndirectCallOptimizer::getAnalysisUsage(AnalysisUsage& AU) const
 {
 	AU.addRequired<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::PointerAnalyzer>();
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 
 	llvm::Pass::getAnalysisUsage(AU);
 }
@@ -402,6 +405,7 @@ char PointerArithmeticToArrayIndexing::ID = 0;
 
 void PointerArithmeticToArrayIndexing::getAnalysisUsage(AnalysisUsage & AU) const
 {
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
@@ -485,6 +489,7 @@ char PointerToImmutablePHIRemoval::ID = 0;
 
 void PointerToImmutablePHIRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 {
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
