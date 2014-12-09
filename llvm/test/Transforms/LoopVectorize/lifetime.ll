@@ -5,9 +5,9 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 ; Make sure we can vectorize loops which contain lifetime markers.
 
 ; CHECK-LABEL: @test(
-; CHECK: call void @llvm.lifetime.end
+; CHECK: call void @llvm.lifetime.end.p0i8
 ; CHECK: store <2 x i32>
-; CHECK: call void @llvm.lifetime.start
+; CHECK: call void @llvm.lifetime.start.p0i8
 
 define void @test(i32 *%d) {
 entry:
@@ -34,9 +34,9 @@ for.end:
 }
 
 ; CHECK-LABEL: @testbitcast(
-; CHECK: call void @llvm.lifetime.end
+; CHECK: call void @llvm.lifetime.end.p0i8
 ; CHECK: store <2 x i32>
-; CHECK: call void @llvm.lifetime.start
+; CHECK: call void @llvm.lifetime.start.p0i8
 
 define void @testbitcast(i32 *%d) {
 entry:
@@ -64,9 +64,9 @@ for.end:
 }
 
 ; CHECK-LABEL: @testloopvariant(
-; CHECK: call void @llvm.lifetime.end
+; CHECK: call void @llvm.lifetime.end.p0i8
 ; CHECK: store <2 x i32>
-; CHECK: call void @llvm.lifetime.start
+; CHECK: call void @llvm.lifetime.start.p0i8
 
 define void @testloopvariant(i32 *%d) {
 entry:
