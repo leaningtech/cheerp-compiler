@@ -7,7 +7,7 @@ declare void @llvm.lifetime.end.p0i8(i64, i8*)
 
 define void @helper_both_markers() {
   %a = alloca i8
-  ; Size in llvm.lifetime.start / llvm.lifetime.end differs from
+  ; Size in llvm.lifetime.start.p0i8 / llvm.lifetime.end.p0i8 differs from
   ; allocation size. We should use the former.
   call void @llvm.lifetime.start.p0i8(i64 2, i8* %a)
   call void @llvm.lifetime.end.p0i8(i64 2, i8* %a)
