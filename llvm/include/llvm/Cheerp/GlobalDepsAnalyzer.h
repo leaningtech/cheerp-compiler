@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2014 Leaning Technologies
+// Copyright 2011-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -150,6 +150,7 @@ private:
 	std::vector< const llvm::Function* > constructorsNeeded;
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;
+	std::vector< llvm::GlobalValue * > externals;
 	
 	bool hasCreateClosureUsers;
 	bool hasVAArgs;
