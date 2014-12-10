@@ -1301,9 +1301,8 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
              CGM.getDataLayout().getAllocaAddrSpace() &&
          "Pointer should be in alloca address space");
   llvm::Value *SizeV = llvm::ConstantInt::get(Int64Ty, Size);
-  Addr = Builder.CreateBitCast(Addr, AllocaInt8PtrTy);
   llvm::CallInst *C =
-      Builder.CreateCall(CGM.getLLVMLifetimeStartFn(), {SizeV, Addr});
+      Builder.CreateCall(CGM.getLLVMLifetimeStartFn(Addr->getType()), {SizeV, Addr});
   C->setDoesNotThrow();
   return SizeV;
 }
@@ -1312,9 +1311,8 @@ void CodeGenFunction::EmitLifetimeEnd(llvm::Value *Size, llvm::Value *Addr) {
   assert(Addr->getType()->getPointerAddressSpace() ==
              CGM.getDataLayout().getAllocaAddrSpace() &&
          "Pointer should be in alloca address space");
-  Addr = Builder.CreateBitCast(Addr, AllocaInt8PtrTy);
   llvm::CallInst *C =
-      Builder.CreateCall(CGM.getLLVMLifetimeEndFn(), {Size, Addr});
+      Builder.CreateCall(CGM.getLLVMLifetimeEndFn(Addr->getType()), {Size, Addr});
   C->setDoesNotThrow();
 }
 
@@ -2333,21 +2331,13 @@ void CodeGenFunction::pushRegularPartialArrayCleanup(llvm::Value *arrayBegin,
 }
 
 /// Lazily declare the @llvm.lifetime.start intrinsic.
-llvm::Function *CodeGenModule::getLLVMLifetimeStartFn() {
-  if (LifetimeStartFn)
-    return LifetimeStartFn;
-  LifetimeStartFn = llvm::Intrinsic::getDeclaration(&getModule(),
-    llvm::Intrinsic::lifetime_start, AllocaInt8PtrTy);
-  return LifetimeStartFn;
+llvm::Function *CodeGenModule::getLLVMLifetimeStartFn(llvm::Type* ptrType) {
+  return llvm::Intrinsic::getDeclaration(&getModule(), llvm::Intrinsic::lifetime_start, ptrType);
 }
 
 /// Lazily declare the @llvm.lifetime.end intrinsic.
-llvm::Function *CodeGenModule::getLLVMLifetimeEndFn() {
-  if (LifetimeEndFn)
-    return LifetimeEndFn;
-  LifetimeEndFn = llvm::Intrinsic::getDeclaration(&getModule(),
-    llvm::Intrinsic::lifetime_end, AllocaInt8PtrTy);
-  return LifetimeEndFn;
+llvm::Function *CodeGenModule::getLLVMLifetimeEndFn(llvm::Type* ptrType) {
+  return llvm::Intrinsic::getDeclaration(&getModule(), llvm::Intrinsic::lifetime_end, ptrType);
 }
 
 namespace {
