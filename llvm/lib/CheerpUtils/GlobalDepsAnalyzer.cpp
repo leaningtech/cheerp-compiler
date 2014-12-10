@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2014 Leaning Technologies
+// Copyright 2011-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -53,7 +53,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	//Compile the list of JS methods
 	//Look for metadata which ends in _methods. They are the have the list
 	//of exported methods for JS layout classes
-	for (const NamedMDNode & namedNode : module.named_metadata() )
+	for (NamedMDNode & namedNode : module.named_metadata() )
 	{
 		StringRef name = namedNode.getName();
 
@@ -67,15 +67,16 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		for (const MDNode * node : namedNode.operands() )
 		{
 			assert( isa<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue()) );
-			const Function* f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
+			Function* f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
 			
 			SubExprVec vec;
 			visitGlobal( f, visited, vec );
 			assert( visited.empty() );
+			externals.push_back(f);
 		}
 	}
 	
-	const Function * webMain = module.getFunction("_Z7webMainv");
+	Function * webMain = module.getFunction("_Z7webMainv");
 	if(!webMain)
 	{
 		llvm::report_fatal_error("No webMain entry point found", false);
@@ -86,10 +87,11 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		SubExprVec vec;
 		visitGlobal( webMain, visited, vec );
 		assert( visited.empty() );
+		externals.push_back(webMain);
 	}
 	
 	//Process constructors
-	if (const GlobalVariable * constructorVar = module.getGlobalVariable("llvm.global_ctors") )
+	if (GlobalVariable * constructorVar = module.getGlobalVariable("llvm.global_ctors") )
 	{
 		// Random things which may go boom
 		if ( !constructorVar->hasInitializer() ||
@@ -357,6 +359,8 @@ int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 	{
 		GlobalVariable * var = it++;
 		var->removeFromParent();
+		if( var->hasInitializer() && var->getName()!="llvm.global_ctors")
+			var->setLinkage(GlobalValue::InternalLinkage);
 		
 		if ( ! isReachable(var) )
 			eraseQueue.push_back(var);
@@ -366,6 +370,8 @@ int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 	for (Module::iterator it = module.begin(); it != module.end(); )
 	{
 		Function * f = it++;
+		if( !f->empty() )
+			f->setLinkage(GlobalValue::InternalLinkage);
 		
 		if ( !isReachable(f) )
 		{
@@ -407,6 +413,9 @@ int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 	// Now we can safely invoke operator delete
 	for ( GlobalValue * var : eraseQueue )
 		delete var;
+
+	for ( GlobalValue * var: externals)
+		var->setLinkage(GlobalValue::ExternalLinkage);
 
 	return eraseQueue.size();
 }
