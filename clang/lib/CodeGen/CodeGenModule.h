@@ -569,12 +569,6 @@ private:
 
   /// @}
 
-  /// void @llvm.lifetime.start(i64 %size, i8* nocapture <ptr>)
-  llvm::Function *LifetimeStartFn = nullptr;
-
-  /// void @llvm.lifetime.end(i64 %size, i8* nocapture <ptr>)
-  llvm::Function *LifetimeEndFn = nullptr;
-
   std::unique_ptr<SanitizerMetadata> SanitizerMD;
 
   llvm::MapVector<const Decl *, bool> DeferredEmptyCoverageMappingDecls;
@@ -1170,8 +1164,8 @@ public:
 
   ///@}
 
-  llvm::Function *getLLVMLifetimeStartFn();
-  llvm::Function *getLLVMLifetimeEndFn();
+  llvm::Function *getLLVMLifetimeStartFn(llvm::Type* ptrType);
+  llvm::Function *getLLVMLifetimeEndFn(llvm::Type* ptrType);
 
   // Make sure that this type is translated.
   void UpdateCompletedType(const TagDecl *TD);
