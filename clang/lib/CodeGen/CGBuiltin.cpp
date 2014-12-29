@@ -12414,7 +12414,8 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
   }
 
   if (BuiltinID == Cheerp::BI__builtin_cheerp_pointer_base) {
-    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_pointer_base);
+    llvm::Type *Tys[] = { ConvertType(E->getType()) };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_pointer_base, Tys);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_pointer_offset) {
