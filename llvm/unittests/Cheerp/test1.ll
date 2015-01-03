@@ -75,8 +75,6 @@ entry:
   call void @f1(i32* %c, %struct._Z1A* %call, %struct._ZN6client1BE* %b1)
   %call1 = call %struct._Z1A* @f2(%struct._Z1A* %a2, i32* %c)
   %call2 = call %struct._Z1A* @f3(%struct._Z1A* %a3, i32* %c)
-  %0 = bitcast [10 x %struct._Z7Derived]* %d1 to i8*
-  call void @llvm.lifetime.start(i64 120, i8* %0) #1
   %array.begin = getelementptr inbounds [10 x %struct._Z7Derived]* %d1, i32 0, i32 0
   %arrayctor.end = getelementptr inbounds [10 x %struct._Z7Derived]* %d1, i32 0, i32 10
   br label %arrayctor.loop
@@ -89,10 +87,10 @@ arrayctor.loop:                                   ; preds = %arrayctor.loop, %en
   br i1 %arrayctor.done, label %cast.notnull, label %arrayctor.loop
 
 cast.notnull:                                     ; preds = %arrayctor.loop
-  %1 = getelementptr [10 x %struct._Z7Derived]* %d1, i32 0, i32 4, i32 1
-  call void @f4(%struct._Z4Base* %1)
-  %2 = getelementptr [10 x %struct._Z7Derived]* %d1, i32 0, i32 2, i32 1
-  call void @f5(%struct._Z4Base* %2)
+  %0 = getelementptr [10 x %struct._Z7Derived]* %d1, i32 0, i32 4, i32 1
+  call void @f4(%struct._Z4Base* %0)
+  %1 = getelementptr [10 x %struct._Z7Derived]* %d1, i32 0, i32 2, i32 1
+  call void @f5(%struct._Z4Base* %1)
   br label %arraydestroy.body
 
 arraydestroy.body:                                ; preds = %arraydestroy.body, %cast.notnull
@@ -102,7 +100,6 @@ arraydestroy.body:                                ; preds = %arraydestroy.body, 
   br i1 %arraydestroy.done, label %arraydestroy.done8, label %arraydestroy.body
 
 arraydestroy.done8:                               ; preds = %arraydestroy.body
-  call void @llvm.lifetime.end(i64 120, i8* %0) #1
   ret void
 }
 
