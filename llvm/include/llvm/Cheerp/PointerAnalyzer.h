@@ -61,7 +61,7 @@ struct IndirectPointerKindConstraint
 class PointerKindWrapper
 {
 private:
-	uint32_t kind;
+	POINTER_KIND kind;
 	bool hasConstraints() const
 	{
 		return !constraints.empty();
@@ -75,7 +75,7 @@ public:
 	PointerKindWrapper():kind(COMPLETE_OBJECT)
 	{
 	}
-	PointerKindWrapper(uint32_t k):kind(k)
+	PointerKindWrapper(POINTER_KIND k):kind(k)
 	{
 	}
 	PointerKindWrapper(INDIRECT_POINTER_KIND_CONSTRAINT constraint, const void* ptr, uint32_t i=0):kind(INDIRECT)
@@ -90,7 +90,13 @@ public:
 	{
 		return kind!=rhs;
 	}
-	PointerKindWrapper operator|(const PointerKindWrapper & rhs);
+	PointerKindWrapper& operator=(const PointerKindWrapper& rhs)
+	{
+		assert(this != &rhs);
+		kind = rhs.kind;
+		constraints = rhs.constraints;
+		return *this;
+	}
 	PointerKindWrapper& operator|=(const PointerKindWrapper& rhs);
 	bool isKnown() const
 	{
@@ -98,17 +104,21 @@ public:
 	}
 	POINTER_KIND getPointerKind() const
 	{
-		return (POINTER_KIND)kind;
+		return kind;
+	}
+	POINTER_KIND getPointerKindForKnown() const
+	{
+		//If all the uses are unknown, no use is REGULAR and we can return CO
+		if(kind!=UNKNOWN)
+			return kind;
+		if(hasConstraints())
+			return INDIRECT;
+		else
+			return COMPLETE_OBJECT;
 	}
 	void makeKnown()
 	{
-		//If all the uses are unknown no use is REGULAR, we can return CO
-		if(kind!=UNKNOWN)
-			return;
-		if(hasConstraints())
-			kind = INDIRECT;
-		else
-			kind = COMPLETE_OBJECT;
+		kind = getPointerKindForKnown();
 	}
 	void dump() const;
 };
@@ -126,7 +136,7 @@ public:
 #endif //NDEBUG
 	{}
 
-	void prefetch( const llvm::Module & ) const;
+	void prefetchFunc( const llvm::Function & ) const;
 	static char ID;
 
 	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
@@ -139,8 +149,7 @@ public:
 	POINTER_KIND getPointerKindForReturn(const llvm::Function* F) const;
 	POINTER_KIND getPointerKindForStoredType( llvm::Type * pointerType ) const;
 	POINTER_KIND getPointerKindForArgumentType( llvm::Type * pointerType ) const;
-	PointerKindWrapper getFinalPointerKindWrapper(const llvm::Value* v ) const;
-	PointerKindWrapper getFinalPointerKindWrapperForReturn(const llvm::Function* F) const;
+	const PointerKindWrapper& getFinalPointerKindWrapper(const llvm::Value* v ) const;
 
 	/**
 	 * Functions to manually invalidate the cache
@@ -183,7 +192,10 @@ public:
 		ReturnTypeKindMap returnTypeMap;
 		AddressTakenMap addressTakenCache;
 	};
+
+	static PointerKindWrapper staticCompleteObjectKind;
 private:
+	const PointerKindWrapper& getFinalPointerKindWrapperForReturn(const llvm::Function* F) const;
 	mutable PointerKindData pointerKindData;
 
 #ifndef NDEBUG

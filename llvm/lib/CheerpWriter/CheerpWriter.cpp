@@ -865,20 +865,14 @@ void CheerpWriter::compilePointerBase(const Value* p)
 	// If the value has byte layout skip GEPS and BitCasts until the base is found
 	if ( byteLayout )
 	{
-		bool byteLayoutFromHere = false;
 		while ( isBitCast(p) || isGEP(p) )
 		{
 			const Value* operand = cast<User>(p)->getOperand(0);
 			if ( PA.getPointerKind(operand) != BYTE_LAYOUT)
-			{
-				byteLayoutFromHere = true;
 				break;
-			}
 			p = operand;
 		}
-		if ( !byteLayoutFromHere )
-			return compilePointerBase(p);
-		else if ( isBitCast(p))
+		if ( isBitCast(p))
 			compileCompleteObject(cast<User>(p)->getOperand(0));
 		else
 			compileCompleteObject(p);
@@ -982,6 +976,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 		continue;
 	}
 	assert (PA.getPointerKind(p) == BYTE_LAYOUT);
+	compileCompleteObject(p);
 	stream << ".o";
 	return NULL;
 }
@@ -2641,7 +2636,6 @@ void CheerpWriter::makeJS()
 	compileClassesExportedToJs();
 	compileNullPtrs();
 	
-	PA.prefetch(module);
 	PA.fullResolve();
 
 	for ( const Function & F : module.getFunctionList() )
