@@ -583,9 +583,12 @@ namespace llvm
 
 void initializeCheerpOpts(PassRegistry &Registry)
 {
-	initializeStructMemFuncLoweringPass(Registry);
+	initializeAllocaArraysPass(Registry);
 	initializeAllocaMergingPass(Registry);
 	initializeGlobalDepsAnalyzerPass(Registry);
+	initializePointerAnalyzerPass(Registry);
+	initializeRegisterizePass(Registry);
+	initializeStructMemFuncLoweringPass(Registry);
 }
 
 }

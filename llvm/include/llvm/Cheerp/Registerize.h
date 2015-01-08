@@ -55,7 +55,7 @@ public:
 
 	static char ID;
 	
-	explicit Registerize(bool n) : ModulePass(ID), NoRegisterize(n) { }
+	explicit Registerize(bool n = false) : ModulePass(ID), NoRegisterize(n) { }
 	
 	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
 
