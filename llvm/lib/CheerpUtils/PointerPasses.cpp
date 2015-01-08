@@ -496,3 +496,10 @@ void PointerToImmutablePHIRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 FunctionPass *createPointerToImmutablePHIRemovalPass() { return new PointerToImmutablePHIRemoval(); }
 
 }
+
+using namespace llvm;
+
+INITIALIZE_PASS_BEGIN(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR type to arrays of 1 element",
+			false, false)
+INITIALIZE_PASS_END(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR type to arrays of 1 element",
+			false, false)
