@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "CheerpRegisterize"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
@@ -22,6 +23,11 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
+
+// Uncomment the following line to enable very verbose debugging
+// #define VERBOSEDEBUG
+
+STATISTIC(NumRegisters, "Total number of registers allocated to functions");
 
 namespace cheerp {
 
@@ -64,6 +70,7 @@ void Registerize::InstructionLiveRange::addUse(uint32_t curCodePath, uint32_t th
 		range.push_back(LiveRangeChunk(curCodePath, thisIndex));
 		codePathId=curCodePath;
 	}
+	assert(!range.back().empty());
 }
 
 void Registerize::handleFunction(Function& F)
@@ -84,7 +91,7 @@ void Registerize::handleFunction(Function& F)
 					// Initialize an empty live range, which means that the alloca escapes analysis
 					allocaLiveRanges[AI];
 				}
-				if (isInlineable(I, PA) || I.getType()->isVoidTy())
+				if (isInlineable(I, PA) || I.getType()->isVoidTy() || I.use_empty())
 					continue;
 				registersMap[&I]=nextRegister++;
 			}
@@ -97,13 +104,18 @@ void Registerize::handleFunction(Function& F)
 		// First, build live ranges for all instructions
 		LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap, allocaSet);
 		// Assign each instruction to a virtual register
-		assignToRegisters(liveRanges);
+		uint32_t registersCount = assignToRegisters(liveRanges);
 		// Now compute live ranges for alloca memory which is not in SSA form
 		computeAllocaLiveRanges(allocaSet, instIdMap);
+		NumRegisters += registersCount;
 		// To debug we need to know the ranges for each instructions and the assigned register
-		DEBUG(dbgs() << F;
+		DEBUG(if (registersCount) dbgs() << "Function " << F.getName() << " needs " << registersCount << " registers\n");
+		// Very verbose debugging below, activate if needed
+#ifdef VERBOSEDEBUG
 		for(auto it: liveRanges)
 		{
+			if(it.first->getParent()->getParent() != &F)
+				continue;
 			dbgs() << "Instruction " << *it.first << " alive in ranges ";
 			for(const Registerize::LiveRangeChunk& chunk: it.second.range)
 				dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
@@ -112,11 +124,14 @@ void Registerize::handleFunction(Function& F)
 		}
 		for(auto it: allocaLiveRanges)
 		{
+			if(it.first->getParent()->getParent() != &F)
+				continue;
 			dbgs() << "Alloca " << *it.first << " alive in ranges ";
 			for(const Registerize::LiveRangeChunk& chunk: it.second)
 				dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
 			dbgs() << "\n";
-		});
+		}
+#endif
 	}
 }
 
@@ -148,16 +163,16 @@ Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, InstIdMapT
 			}
 		}
 	}
-	// Also print the inSet and outSet for each block while debugging
-	DEBUG(
-		for(auto it: blocksState)
-		{
-			llvm::errs() << "Block:\n" << *it.first << "\n";
-			llvm::errs() << "Inst out:\n";
-			for(Instruction* I: it.second.outSet)
-				llvm::errs() << *I << "\n";
-		}
-	);
+	// Remove verbose debugging output
+#ifdef VERBOSEDEBUG
+	for(auto it: blocksState)
+	{
+		llvm::errs() << "Block:\n" << *it.first << "\n";
+		llvm::errs() << "Inst out:\n";
+		for(Instruction* I: it.second.outSet)
+			llvm::errs() << *I << "\n";
+	}
+#endif
 	// Depth first analysis of blocks, starting from the entry block
 	LiveRangesTy liveRanges;
 	dfsLiveRangeInBlock(blocksState, liveRanges, instIdMap, F.getEntryBlock(), 1, 1);
@@ -206,8 +221,8 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		// This happens inside extendRangeForUsedOperands.
 		if (isInlineable(I, PA))
 			continue;
-		// Void instruction do not need any lifetime computation
-		if (!I.getType()->isVoidTy())
+		// Void instruction and instructions without uses do not need any lifetime computation
+		if (!I.getType()->isVoidTy() && !I.use_empty())
 		{
 			InstructionLiveRange& range=liveRanges.emplace(&I,
 				InstructionLiveRange(codePathId)).first->second;
@@ -264,12 +279,13 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 		{
 			assert(liveRanges.count(usedI));
 			InstructionLiveRange& range=liveRanges.find(usedI)->second;
-			range.addUse(codePathId, thisIndex);
+			if(codePathId!=thisIndex)
+				range.addUse(codePathId, thisIndex);
 		}
 	}
 }
 
-void Registerize::assignToRegisters(const LiveRangesTy& liveRanges)
+uint32_t Registerize::assignToRegisters(const LiveRangesTy& liveRanges)
 {
 	llvm::SmallVector<RegisterRange, 4> registers;
 	// First try to assign all PHI operands to the same register as the PHI itself
@@ -293,6 +309,7 @@ void Registerize::assignToRegisters(const LiveRangesTy& liveRanges)
 		uint32_t chosenRegister=findOrCreateRegister(registers, range, getRegKindFromType(I->getType()));
 		registersMap[I] = chosenRegister;
 	}
+	return registers.size();
 }
 
 void Registerize::handlePHI(Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers)
@@ -431,81 +448,132 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 		AllocaBlocksState blocksState;
 		RangeChunksTy ranges;
 		// For each alloca gather all uses and derived uses
-		std::unordered_set<Instruction*> allUses=gatherDerivedMemoryAccesses(alloca);
+		InstructionSetOrderedByID allUses=gatherDerivedMemoryAccesses(alloca, instIdMap);
 		if(allUses.empty())
 		{
 			// Initialize an empty live range to signal that no analysis is possible
 			allocaLiveRanges[alloca];
 			continue;
 		}
-		// Now we run a modified up and mark algorithm on every use
-		// For each use, get the parent block
-		// 1) Find all uses in the block to build a base use range, also set the inLoop flag for the block
-		// 2) Recursively navigate predecessors, if any use is found extend the live range
-		// 3) If no use is found in a block, put it in a list of pending blocks and proceed to the predecessors
-		// 4) If a loop is found and the inLoop flag is set mark all pending blocks with the inLoop and live-out flags
-		// 4) When a use is found mark all pending blocks with the inLoop and live-out flags
-		// 4) If a lifetime_start intrinsic is found we can stop immediately as above the memory would be not valid
+
+		// The instructions are ordered by their ID, so the instruction in the same block are consecutive
+		// Build the range containing the uses directly inside the block.
+		BasicBlock* currentBlock = NULL;
+		LiveRangeChunk localRange(0, 0);
 		for(Instruction* I: allUses)
 		{
 			assert(instIdMap.count(I));
 			uint32_t instId=instIdMap.find(I)->second;
-			auto it=ranges.upper_bound(instId);
-			// Check if the instruction id is inside an already explored range and if so skip it.
-			if(it!=ranges.begin())
+			// If the current use is the first of a new block
+			if(I->getParent() != currentBlock)
 			{
-				--it;
-				if(it->first <= instId && instId < it->second)
-					continue;
-			}
-			// Memory may be used until the end of the opcode (especially valid for calls)
-			LiveRangeChunk localRange(instId, instId+1);
-			BasicBlock* BB=I->getParent();
-			AllocaBlockState& blockState=blocksState[BB];
-			blockState.visited=true;
-			blockState.inLoop=true;
-			bool onlyLocal=false;
-			// Iterate on instructions of the parent block while expanding the range as much as possible
-			for(Instruction& I: *BB)
-			{
-				if(allUses.count(&I))
+				// Save the range if it is valid when we change block
+				if(!localRange.empty())
+					ranges[localRange.start] = localRange.end;
+
+				localRange = LiveRangeChunk(instId, instId+1);
+
+				// Set the initial state for this block
+				currentBlock = I->getParent();
+				AllocaBlockState& blockState=blocksState[currentBlock];
+				blockState.hasUse=true;
+				// If the first instruction in the block is lifetime_start we need to set the notLiveIn flag
+				if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(I))
 				{
-					assert(instIdMap.count(&I));
-					uint32_t useId=instIdMap.find(&I)->second;
-					if(useId < localRange.start)
-						localRange.start=useId;
-					if(useId+1 > localRange.end)
-						localRange.end=useId+1;
-					// If we find a lifetime_start intrinsic we can skip the predecessors
-					if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
+					if(II->getIntrinsicID()==Intrinsic::lifetime_start)
+						blockState.notLiveIn = true;
+				}
+			}
+			else
+			{
+				assert(!localRange.empty());
+				assert(instId+1 > localRange.end);
+				localRange.end=instId+1;
+				// If we find a lifetime_end intrinsic we have to close the range and start again
+				if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(I))
+				{
+					if(II->getIntrinsicID()==Intrinsic::lifetime_start)
 					{
-						if(II->getIntrinsicID()==Intrinsic::lifetime_start)
-							onlyLocal=true;
+						ranges[localRange.start] = localRange.end;
+						localRange = LiveRangeChunk(0, 0);
+						currentBlock = NULL;
 					}
 				}
 			}
-			// We need to know if the range should start from the beginning of the block,
-			// so we need to check the predecessors blocks
-			if(!onlyLocal)
-			{
-				bool alreadyLiveIn=false;
-				for(::pred_iterator it=pred_begin(BB);it!=pred_end(BB);++it)
-				{
-					bool predecessorUse=doUpAndMarkForAlloca(blocksState, allUses, ranges,
-										instIdMap, *it, alloca);
-					if(predecessorUse && !alreadyLiveIn)
-					{
-						localRange.start=instIdMap.find(&(*BB->begin()))->second;
-						alreadyLiveIn=true;
-					}
-				}
-			}
-			blockState.visited=false;
-			if(blockState.liveOut)
-				localRange.end=instIdMap.find(&(*BB->rbegin()))->second+1;
-			ranges[localRange.start]=localRange.end;
 		}
-		// Construct the vector uf use ranges
+		// Add the last range if necessary
+		if(!localRange.empty())
+			ranges[localRange.start] = localRange.end;
+
+		// Now we have marked all blocks which contains a use of the alloca with:
+		// 1) The hasUse flag
+		// 2) The notLiveIn if predecessors should not be checked
+		// For each block now we have to find out if the range should be extended
+		// till the first and/or the last instruction of the block
+		SmallVector<BasicBlock*, 4> startingBlocksList;
+		for(auto& it: blocksState)
+			startingBlocksList.push_back(it.first);
+
+		for(BasicBlock* BB: startingBlocksList)
+		{
+			// Explore the graph of the predecessors
+			// 1) If a use is found in the predecessors, set the liveIn flag
+			// 2) If no use is found in the predecessors, set the notLiveIn flag
+			// 3) If there is a loop in the predecessors, the return value will be the depth of the block
+			//    which is the lowest one that can make the pending blocks live.
+			// 3.1) If the returned value >= the current upAndMarkId, there is no hope to
+			//      make the pending blocks alive anymore
+			// 3.2) If the returned value is lower than the current upAndMarkId, we have to propagate it
+			assert(blocksState.pendingBlocks.empty());
+			// We keep track of the explored depth starting from USE_UNKNOWN, this is useful since
+			// any value >= USE_UNKNOWN means: "Unknown and depending on this depth of exploration"
+			UpAndMarkAllocaState state = doUpAndMarkForAlloca(blocksState, BB, alloca, USE_UNKNOWN);
+			if(state == USE_FOUND)
+				blocksState.markPendingBlocksAsLiveOut(0);
+			else
+				blocksState.markPendingBlocksAsNotLiveOut(0);
+		}
+
+		// Now we have all blocks correctly flagged, use the information to extend range as required
+		for(auto& it: blocksState)
+		{
+			const AllocaBlockState& blockState = it.second;
+			assert(!(blockState.liveOut && blockState.notLiveOut));
+			assert(!(blockState.liveIn && blockState.notLiveIn));
+			BasicBlock* BB = it.first;
+			assert(instIdMap.count(&(*BB->begin())));
+			assert(instIdMap.count(&(*BB->rbegin())));
+			uint32_t firstIdInBlock = instIdMap.find(&(*BB->begin()))->second;
+			uint32_t lastIdInBlock = instIdMap.find(&(*BB->rbegin()))->second+1;
+			// If the alloca is used in a predecessor extend the range from the beginning of the block
+			if(blockState.hasUse)
+			{
+				if(blockState.liveIn)
+				{
+					auto firstUseIterator = ranges.lower_bound(firstIdInBlock);
+					assert(firstUseIterator != ranges.end() && firstUseIterator->first < lastIdInBlock);
+					// If there already is a range contained in this block, make a new one from the beginning to the first use
+					if(firstUseIterator->first != firstIdInBlock)
+						ranges[firstIdInBlock] = firstUseIterator->first;
+				}
+				if(blockState.liveOut)
+				{
+					auto lastUseIterator = ranges.upper_bound(lastIdInBlock-1);
+					assert(lastUseIterator != ranges.begin());
+					--lastUseIterator;
+					assert(lastUseIterator->first >= instIdMap.find(&(*BB->begin()))->second);
+					// Extend the last range of the block to the last instruction
+					lastUseIterator->second = lastIdInBlock+1;
+				}
+			}
+			else if(blockState.liveIn || blockState.liveOut)
+			{
+				// Make a new range from the first to the last instruction of the block
+				ranges[firstIdInBlock] = lastIdInBlock;
+			}
+		}
+
+		// Construct the vector of use ranges
 		LiveRange& allocaRanges=allocaLiveRanges[alloca];
 		for(auto& it: ranges)
 		{
@@ -521,7 +589,7 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 /*
 	Returns the set of instruction which access memory derived from the passed Alloca
 */
-std::unordered_set<Instruction*> Registerize::gatherDerivedMemoryAccesses(AllocaInst* rootI)
+Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(AllocaInst* rootI, const InstIdMapTy& instIdMap)
 {
 	SmallVector<Use*, 10> allUses;
 	for(Use& U: rootI->uses())
@@ -584,7 +652,7 @@ std::unordered_set<Instruction*> Registerize::gatherDerivedMemoryAccesses(Alloca
 			break;
 		}
 	}
-	std::unordered_set<Instruction*> ret;
+	InstructionSetOrderedByID ret(instIdMap);
 	for(const Use* U: allUses)
 	{
 		Instruction* userI=cast<Instruction>(U->getUser());
@@ -596,87 +664,126 @@ std::unordered_set<Instruction*> Registerize::gatherDerivedMemoryAccesses(Alloca
 	return ret;
 }
 
-bool Registerize::doUpAndMarkForAlloca(AllocaBlocksState& blocksState, const std::unordered_set<Instruction*>& allUses,
-				RangeChunksTy& allocaRanges, const InstIdMapTy& instIdMap, BasicBlock* BB, AllocaInst* alloca)
+Registerize::UpAndMarkAllocaState Registerize::doUpAndMarkForAlloca(AllocaBlocksState& blocksState, BasicBlock* BB, AllocaInst* alloca, uint32_t upAndMarkId)
 {
 	AllocaBlockState& blockState=blocksState[BB];
+	if(upAndMarkId > USE_UNKNOWN)
+	{
+		// Use cached information from previous runs if available
+		if (blockState.liveOut)
+			return USE_FOUND;
+		else if (blockState.notLiveOut)
+			return USE_NOT_FOUND;
+	}
+
 	// We have encountered this block before so we are inside a loop.
-	if (blockState.visited)
+	if (blockState.upAndMarkId)
 	{
-		// If the inLoop flag is set we need to set all pending blocks to live-out
-		if(blockState.inLoop)
+		// We are looping over a block which contains a use
+		if(blockState.hasUse)
 		{
-			blocksState.markAndFlushPendingBlocks();
-			return true;
+			blockState.liveOut = true;
+			return USE_FOUND;
 		}
-		return false;
+		// We return the upAndMarkId for the block, to signal that the result is unknown
+		// and depends at least from blockState.upAndMarkId depth level in the graph.
+		// When we reach a block with a lower upAndMarkId than this one we are sure that there were
+		// no uses in the predecessors of this block
+		// blockState.upAndMarkId is guaranteed to be >= USE_UNKNOWN
+		return UpAndMarkAllocaState(blockState.upAndMarkId);
 	}
-	// Even if not in a loop we may have already visited this block from some other path
-	if (blockState.liveOut)
+
+	// Keep track of the current size of the pending blocks list, we don't want to interfere with blocks already on the list
+	uint32_t currentPendingSize = blocksState.pendingBlocks.size();
+
+	UpAndMarkAllocaState finalState(blockState.hasUse ? USE_FOUND : USE_NOT_FOUND);
+	// If the notLiveIn flag the variable is reset at the beginning of the block and we don't have to check predecessors
+	if(!blockState.notLiveIn)
 	{
-		blocksState.markAndFlushPendingBlocks();
-		return true;
-	}
-	// Or we could now already that the alloca is not live out from this block
-	if (blockState.notLiveOut)
-		return false;
-	blockState.visited=true;
-	uint32_t firstUseId=0xffffffff;
-	bool alreadyLiveIn=false;
-	bool onlyLocal=false;
-	// We only need to look for the earliest use, since the ones in the middle are inside the range anyway
-	for(Instruction& I: *BB)
-	{
-		if(allUses.count(&I))
-		{
-			// We have found a use inside a predecessor block
-			// Flag the alloca as live-out
-			blockState.liveOut=true;
-			assert(instIdMap.count(&I));
-			firstUseId=instIdMap.find(&I)->second+1;
-			if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
-			{
-				if(II->getIntrinsicID()==Intrinsic::lifetime_start)
-					onlyLocal=true;
-			}
-			blocksState.markAndFlushPendingBlocks();
-			break;
-		}
-	}
-	if(!onlyLocal)
-	{
-		// Add this block to the pending list
-		blocksState.pendingBlocks.push_back(BB);
+		// Check predecessors now
+
+		// Flag this block as being visited using the current upAndMarkId. This is always >= than USE_UNKNOWN
+		blockState.upAndMarkId = upAndMarkId;
+		// By default we want to reset upAndMarkId of the block to 0, which means "not being visited".
+		// Unless we find a USE_UNKNOWN, in which case the block is left in the pending list with
+		// upAndMarkId set to lowest upAndMarkId of the blocks it depends on.
+		// This is used to avoid exploring again a part of the graph which we know will not provide a definite value
+		// until we get back to the block it depends on.
+		uint32_t upAndMarkIdResetValue = 0;
+
+		UpAndMarkAllocaState predecessorsState(USE_NOT_FOUND);
 		for(::pred_iterator it=pred_begin(BB);it!=pred_end(BB);++it)
 		{
-			bool predecessorUse=doUpAndMarkForAlloca(blocksState, allUses, allocaRanges, instIdMap, *it, alloca);
-			// If the alloca is used in a predecessor extend the range from the beginning of the block
-			if(predecessorUse && !alreadyLiveIn)
+			uint32_t pendingSizeBeforePredecessor = blocksState.pendingBlocks.size();
+			UpAndMarkAllocaState predecessorState = doUpAndMarkForAlloca(blocksState, *it, alloca, upAndMarkId+1);
+			if(predecessorState.state < USE_UNKNOWN)
+				assert(blocksState.pendingBlocks.size() == pendingSizeBeforePredecessor);
+			// If the returned predecessorState is higher than upAndMarkId it is also USE_UNKNOWN,
+			// and the lowest block it depends on has been already explored, so there is no hope anymore
+			// of finding a use
+			if(predecessorState.state > upAndMarkId)
 			{
-				assert(blockState.liveOut);
-				firstUseId=instIdMap.find(&(*BB->begin()))->second;
-				alreadyLiveIn=true;
+				blocksState.discardPendingBlocks(currentPendingSize);
+				continue;
+			}
+			predecessorsState |= predecessorState;
+		}
+		// We have a USE_UNKNOWN depending on this or earlier block
+		// We have already ignored USE_UNKNOWNs depending on later blocks
+		if(predecessorsState.state >= USE_UNKNOWN)
+		{
+			if(predecessorsState.state < upAndMarkId)
+			{
+				// If depending on earlier blocks there is still hope that a use will be found somewhere
+				// Add this block to the pending list
+				assert(find(blocksState.pendingBlocks.begin(),blocksState.pendingBlocks.end(),BB)==blocksState.pendingBlocks.end());
+				blocksState.pendingBlocks.push_back(BB);
+				upAndMarkIdResetValue = predecessorsState.state;
+			}
+			else
+			{
+				// If equal to upAndMarkId, this block was the last hope to find any use.
+				// Convert to USE_NOT_FOUND, if this block had uses it would have returned USE_FOUND during the visit.
+				assert(predecessorsState.state == upAndMarkId);
+				predecessorsState = UpAndMarkAllocaState(USE_NOT_FOUND);
 			}
 		}
-		if(!blocksState.pendingBlocks.empty())
+		// Please note that USE_NOT_FOUND could have been converted above from a USE_UNKNOWN depending on this block.
+		if(predecessorsState == USE_NOT_FOUND)
 		{
-			assert(blocksState.pendingBlocks.back()==BB);
-			blocksState.pendingBlocks.pop_back();
+			// We definitely have no use in the predecessors
+			blocksState.markPendingBlocksAsNotLiveOut(currentPendingSize);
+			blockState.notLiveIn = true;
 		}
+		else if(predecessorsState == USE_FOUND)
+		{
+			// We definitely have a use in the predecessors, so this block is also liveIn.
+			blocksState.markPendingBlocksAsLiveOut(currentPendingSize);
+			blockState.liveIn = true;
+		}
+
+		// Combine the predecessorsState with the local state to obtain the final state
+		finalState |= predecessorsState;
+
+		// Reset the upAndMarkId for the block as required
+		blockState.upAndMarkId = upAndMarkIdResetValue;
 	}
-	blockState.visited=false;
-	if(blockState.liveOut)
+
+	// Final checks. Discard all pending blocks if we have a definite result
+	if(finalState == USE_FOUND && upAndMarkId > USE_UNKNOWN)
 	{
-		// Create a range from the computed first use to the end of the block
-		allocaRanges[firstUseId]=instIdMap.find(&(*BB->rbegin()))->second+1;
-		return true;
+		// If upAndMarkId has been increment at least once, this block is a predecessor of a block with uses, so it's liveOut
+		blockState.liveOut = true;
+		blocksState.markPendingBlocksAsLiveOut(currentPendingSize);
 	}
-	else
+	else if(finalState == USE_NOT_FOUND)
 	{
 		// Now we know that the alloca is not used in this block or above. Cache this information.
-		blockState.notLiveOut=true;
-		return false;
+		blockState.notLiveOut = true;
+		assert(blocksState.pendingBlocks.size() == currentPendingSize);
 	}
+
+	return finalState;
 }
 
 void Registerize::invalidateFunction(llvm::Function& F)
