@@ -464,7 +464,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 
 bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) const
 {
-	return !isInlineable(I, PA) && !I.getType()->isVoidTy();
+	return !isInlineable(I, PA) && !I.getType()->isVoidTy() && !I.use_empty();
 }
 
 }
