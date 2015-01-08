@@ -14,7 +14,7 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
-#include <unordered_set>
+#include <set>
 #include <unordered_map>
 
 namespace cheerp
@@ -37,6 +37,10 @@ public:
 		bool operator<(const LiveRangeChunk& r) const
 		{
 			return start < r.start;
+		}
+		bool empty() const
+		{
+			return start == end;
 		}
 	};
 	struct LiveRange: public llvm::SmallVector<LiveRangeChunk, 4>
@@ -89,10 +93,24 @@ private:
 		}
 		void addUse(uint32_t codePathId, uint32_t thisIndex);
 	};
-	// Map from instructions to their live ranges
-	typedef std::unordered_map<llvm::Instruction*, InstructionLiveRange> LiveRangesTy;
 	// Map from instructions to their unique identifier
 	typedef std::unordered_map<llvm::Instruction*, uint32_t> InstIdMapTy;
+	struct CompareInstructionByID
+	{
+	private:
+		const InstIdMapTy& instIdMap;
+	public:
+		CompareInstructionByID(const InstIdMapTy& i):instIdMap(i)
+		{
+		}
+		bool operator()(llvm::Instruction* l, llvm::Instruction*r) const
+		{
+			assert(instIdMap.count(l) && instIdMap.count(r));
+			return instIdMap.find(l)->second < instIdMap.find(r)->second;
+		}
+	};
+	// Map from instructions to their live ranges
+	typedef std::map<llvm::Instruction*, InstructionLiveRange> LiveRangesTy;
 	// Registers should have a consistent JS type
 	enum REGISTER_KIND { OBJECT=0, INTEGER, FLOAT, DOUBLE };
 	struct RegisterRange
@@ -137,25 +155,47 @@ private:
 	struct AllocaBlockState
 	{
 		bool liveOut:1;
-		// If notLiveOut is true we know that the blocks above do not ever use the alloca
+		// If notLiveOut is true neither this block or the blocks above do not use the alloca
 		bool notLiveOut:1;
-		bool visited:1;
-		bool inLoop:1;
-		AllocaBlockState():liveOut(false),notLiveOut(false),visited(false)
+		bool liveIn:1;
+		// If notLiveIn is true we know that the alloca is reset using lifetime_start in the block
+		bool notLiveIn:1;
+		// Is hasUse is true there is a use for the alloca inside the block
+		bool hasUse:1;
+		// upAndMarkId is used for various purposes:
+		// 1) Is non-zero if the block is currently being explored
+		// 2) Is non-zero if the block is in the pending list, the value is the lowest upAndMarkId on which the block state depend
+		uint32_t upAndMarkId;
+		AllocaBlockState():liveOut(false),notLiveOut(false),liveIn(false),notLiveIn(false),hasUse(false),upAndMarkId(0)
 		{
 		}
 	};
 	struct AllocaBlocksState: public std::unordered_map<llvm::BasicBlock*, AllocaBlockState>
 	{
 		std::vector<llvm::BasicBlock*> pendingBlocks;
-		void markAndFlushPendingBlocks()
+		void markPendingBlocksAsLiveOut(uint32_t index)
 		{
-			for(llvm::BasicBlock* BB: pendingBlocks)
+			for(uint32_t i=index;i<pendingBlocks.size();i++)
 			{
-				assert(count(BB));
-				find(BB)->second.liveOut=true;
+				find(pendingBlocks[i])->second.liveOut = true;
+				find(pendingBlocks[i])->second.upAndMarkId = 0;
 			}
-			pendingBlocks.clear();
+			pendingBlocks.resize(index);
+		}
+		void markPendingBlocksAsNotLiveOut(uint32_t index)
+		{
+			for(uint32_t i=index;i<pendingBlocks.size();i++)
+			{
+				find(pendingBlocks[i])->second.notLiveOut = true;
+				find(pendingBlocks[i])->second.upAndMarkId = 0;
+			}
+			pendingBlocks.resize(index);
+		}
+		void discardPendingBlocks(uint32_t index)
+		{
+			for(uint32_t i=index;i<pendingBlocks.size();i++)
+				find(pendingBlocks[i])->second.upAndMarkId = 0;
+			pendingBlocks.resize(index);
 		}
 	};
 
@@ -165,17 +205,62 @@ private:
 					llvm::BasicBlock& BB, uint32_t nextIndex, uint32_t codePathId);
 	void extendRangeForUsedOperands(llvm::Instruction& I, LiveRangesTy& liveRanges,
 					uint32_t thisIndex, uint32_t codePathId);
-	void assignToRegisters(const LiveRangesTy& F);
+	uint32_t assignToRegisters(const LiveRangesTy& F);
 	void handlePHI(llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers);
 	uint32_t findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
 					REGISTER_KIND kind);
 	static REGISTER_KIND getRegKindFromType(llvm::Type*);
 	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind);
 	void computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap);
-	std::unordered_set<llvm::Instruction*> gatherDerivedMemoryAccesses(llvm::AllocaInst* rootI);
-	bool doUpAndMarkForAlloca(AllocaBlocksState& blocksState, const std::unordered_set<llvm::Instruction*>& allUses,
-				RangeChunksTy& allocaRanges, const InstIdMapTy& instIdMap,
-				llvm::BasicBlock* BB, llvm::AllocaInst* alloca);
+	typedef std::set<llvm::Instruction*, CompareInstructionByID> InstructionSetOrderedByID;
+	InstructionSetOrderedByID gatherDerivedMemoryAccesses(llvm::AllocaInst* rootI, const InstIdMapTy& instIdMap);
+	enum UP_AND_MARK_ALLOCA_STATE { USE_FOUND = 0, USE_NOT_FOUND, USE_UNKNOWN };
+	struct UpAndMarkAllocaState
+	{
+		uint32_t state;
+		UpAndMarkAllocaState(uint32_t s):state(s)
+		{
+		}
+		UpAndMarkAllocaState& operator|=(const UpAndMarkAllocaState& rhs)
+		{
+			UpAndMarkAllocaState& lhs = *this;
+			// 1) FOUND | Any = FOUND
+			// 2) UNKNOWN | Any = UNKNOWN
+			// 3) NOT_FOUND | NOT_FOUND = NOT_FOUND
+			if (lhs.state == USE_FOUND || rhs.state == USE_FOUND)
+			{
+				lhs.state = USE_FOUND;
+				return lhs;
+			}
+			// Return the smaller one as it is the one closest to the start
+			if (lhs.state >= USE_UNKNOWN && rhs.state >= USE_UNKNOWN)
+			{
+				if (rhs.state < lhs.state)
+					lhs.state = rhs.state;
+				return lhs;
+			}
+			if (rhs.state >= USE_UNKNOWN)
+			{
+				lhs.state = rhs.state;
+				return lhs;
+			}
+			if (lhs.state >= USE_UNKNOWN)
+			{
+				return lhs;
+			}
+			assert(lhs.state == USE_NOT_FOUND && rhs.state == USE_NOT_FOUND);
+			return lhs;
+		}
+		bool operator==(UP_AND_MARK_ALLOCA_STATE r) const
+		{
+			return state == r;
+		}
+		bool operator!=(UP_AND_MARK_ALLOCA_STATE r) const
+		{
+			return state != r;
+		}
+	};
+	UpAndMarkAllocaState doUpAndMarkForAlloca(AllocaBlocksState& blocksState, llvm::BasicBlock* BB, llvm::AllocaInst* alloca, uint32_t upAndMarkId);
 };
 
 llvm::ModulePass *createRegisterizePass(bool NoRegisterize);

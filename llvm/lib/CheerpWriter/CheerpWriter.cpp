@@ -2219,7 +2219,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 		const DebugLoc& debugLoc = I->getDebugLoc();
 		if(sourceMapGenerator && !debugLoc.isUnknown())
 			sourceMapGenerator->setDebugLoc(I->getDebugLoc());
-		if(I->getType()->getTypeID()!=Type::VoidTyID)
+		if(!I->getType()->isVoidTy() && !I->use_empty())
 		{
 			stream << "var " << namegen.getName(I) << '=';
 		}
