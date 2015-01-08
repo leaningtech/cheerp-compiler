@@ -833,3 +833,10 @@ void writePointerDumpHeader()
 #endif //NDEBUG
 
 }
+
+using namespace cheerp;
+
+INITIALIZE_PASS_BEGIN(PointerAnalyzer, "PointerAnalyzer", "Analyze the requirements of each pointers in the module",
+			false, false)
+INITIALIZE_PASS_END(PointerAnalyzer, "PointerAnalyzer", "Analyze the requirements of each pointers in the module",
+			false, false)

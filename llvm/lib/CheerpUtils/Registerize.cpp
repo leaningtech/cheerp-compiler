@@ -699,3 +699,10 @@ ModulePass* createRegisterizePass(bool NoRegisterize)
 }
 
 }
+
+using namespace cheerp;
+
+INITIALIZE_PASS_BEGIN(Registerize, "Registerize", "Allocate stack registers for each virtual register",
+			false, false)
+INITIALIZE_PASS_END(Registerize, "Registerize", "Allocate stack registers for each virtual register",
+			false, false)

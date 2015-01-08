@@ -472,6 +472,10 @@ void initializeXRayInstrumentationPass(PassRegistry&);
 void initializeStructMemFuncLoweringPass(PassRegistry&);
 void initializeAllocaMergingPass(PassRegistry&);
 void initializeGlobalDepsAnalyzerPass(PassRegistry&);
+void initializePointerAnalyzerPass(PassRegistry&);
+void initializeRegisterizePass(PassRegistry&);
+void initializeStructMemFuncLoweringPass(PassRegistry&);
+void initializeAllocaArraysPass(PassRegistry&);
 
 } // end namespace llvm
 
