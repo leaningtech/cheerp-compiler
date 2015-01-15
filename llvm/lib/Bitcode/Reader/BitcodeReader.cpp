@@ -1850,9 +1850,10 @@ Error BitcodeReader::parseTypeTableBody() {
       continue;
 
     case bitc::TYPE_CODE_STRUCT_NAMED: { // STRUCT: [ispacked, bytelayout, eltty x N]
-      if (Record.size() < 2)
+      if (Record.size() < 3)
         return error("Invalid record");
       bool hasByteLayout = Record[1];
+      bool hasDirectBase = Record[2];
 
       if (NumRecords >= TypeList.size())
         return error("Invalid TYPE table");
@@ -1867,15 +1868,16 @@ Error BitcodeReader::parseTypeTableBody() {
       TypeName.clear();
 
       SmallVector<Type*, 8> EltTys;
-      for (unsigned i = 2, e = Record.size(); i != e; ++i) {
+      for (unsigned i = 3, e = (hasDirectBase ? Record.size()-1 : Record.size()); i != e; ++i) {
         if (Type *T = getTypeByID(Record[i]))
           EltTys.push_back(T);
         else
           break;
       }
-      if (EltTys.size() != Record.size()-2)
+      StructType* directBase = hasDirectBase ? cast<StructType>(getTypeByID(Record.back())) : NULL;
+      if (EltTys.size() != (hasDirectBase ? Record.size()-4 : Record.size()-3))
         return error("Invalid record");
-      Res->setBody(EltTys, Record[0]);
+      Res->setBody(EltTys, Record[0], directBase);
       if (hasByteLayout)
         Res->setByteLayout();
       ResultTy = Res;

@@ -209,8 +209,11 @@ void TypeMapTy::linkDefinedTypeBodies() {
     Elements.resize(SrcSTy->getNumElements());
     for (unsigned I = 0, E = Elements.size(); I != E; ++I)
       Elements[I] = get(SrcSTy->getElementType(I));
+    StructType* DirectBase = SrcSTy->getDirectBase();
+    if (DirectBase)
+      DirectBase = cast<StructType>(get(DirectBase));
 
-    DstSTy->setBody(Elements, SrcSTy->isPacked());
+    DstSTy->setBody(Elements, SrcSTy->isPacked(), DirectBase);
     DstStructTypesSet.switchToNonOpaque(DstSTy);
     if(SrcSTy->hasByteLayout())
       DstSTy->setByteLayout();

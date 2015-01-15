@@ -676,6 +676,9 @@ void TypePrinting::printStructBody(StructType *STy, raw_ostream &OS) {
   if(STy->hasByteLayout())
     OS << "bytelayout ";
 
+  if(STy->hasDirectBase())
+    OS << "directbase " << STy->getDirectBase()->getName() << " ";
+
   if (STy->isPacked())
     OS << '<';
 
