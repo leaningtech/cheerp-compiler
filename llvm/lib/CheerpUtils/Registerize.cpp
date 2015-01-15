@@ -44,8 +44,18 @@ void Registerize::getAnalysisUsage(AnalysisUsage & AU) const
 bool Registerize::runOnModule(Module & M)
 {
 	for (Function& F: M)
-		handleFunction(F);
+		computeLiveRangeForAllocas(F);
 	return false;
+}
+
+void Registerize::assignRegisters(Module & M)
+{
+	assert(!RegistersAssigned);
+	for (Function& F: M)
+		assignRegistersToInstructions(F);
+#ifndef NDEBUG
+	RegistersAssigned = true;
+#endif
 }
 
 const char* Registerize::getPassName() const
@@ -55,6 +65,7 @@ const char* Registerize::getPassName() const
 
 uint32_t Registerize::getRegisterId(const llvm::Instruction* I) const
 {
+	assert(RegistersAssigned);
 	assert(registersMap.count(I));
 	return registersMap.find(I)->second;
 }
@@ -73,7 +84,7 @@ void Registerize::InstructionLiveRange::addUse(uint32_t curCodePath, uint32_t th
 	assert(!range.back().empty());
 }
 
-void Registerize::handleFunction(Function& F)
+void Registerize::assignRegistersToInstructions(Function& F)
 {
 	if (F.empty())
 		return;
@@ -86,11 +97,6 @@ void Registerize::handleFunction(Function& F)
 		{
 			for(Instruction& I: BB)
 			{
-				if(AllocaInst* AI=dyn_cast<AllocaInst>(&I))
-				{
-					// Initialize an empty live range, which means that the alloca escapes analysis
-					allocaLiveRanges[AI];
-				}
 				if (isInlineable(I, PA) || I.getType()->isVoidTy() || I.use_empty())
 					continue;
 				registersMap[&I]=nextRegister++;
@@ -99,14 +105,17 @@ void Registerize::handleFunction(Function& F)
 	}
 	else
 	{
-		AllocaSetTy allocaSet;
 		InstIdMapTy instIdMap;
+#ifndef NDEBUG
+		AllocaSetTy allocaSet;
+		// Assign sequential identifiers to all instructions
+		assignInstructionsIds(instIdMap, F, allocaSet);
+#endif
 		// First, build live ranges for all instructions
-		LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap, allocaSet);
+		LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap);
 		// Assign each instruction to a virtual register
 		uint32_t registersCount = assignToRegisters(liveRanges);
 		// Now compute live ranges for alloca memory which is not in SSA form
-		computeAllocaLiveRanges(allocaSet, instIdMap);
 		NumRegisters += registersCount;
 		// To debug we need to know the ranges for each instructions and the assigned register
 		DEBUG(if (registersCount) dbgs() << "Function " << F.getName() << " needs " << registersCount << " registers\n");
@@ -122,6 +131,37 @@ void Registerize::handleFunction(Function& F)
 			dbgs() << "\n";
 			dbgs() << "\tMapped to register " << registersMap[it.first] << "\n";
 		}
+#endif
+	}
+}
+
+void Registerize::computeLiveRangeForAllocas(Function& F)
+{
+	assert(!RegistersAssigned);
+	if (F.empty())
+		return;
+	if (NoRegisterize)
+	{
+		for(BasicBlock& BB: F)
+		{
+			for(Instruction& I: BB)
+			{
+				// Initialize an empty live range, which means that the alloca escapes analysis
+				if(AllocaInst* AI=dyn_cast<AllocaInst>(&I))
+					allocaLiveRanges[AI];
+			}
+		}
+	}
+	else
+	{
+		AllocaSetTy allocaSet;
+		InstIdMapTy instIdMap;
+		// Assign sequential identifiers to all instructions
+		assignInstructionsIds(instIdMap, F, allocaSet);
+		// Now compute live ranges for alloca memory which is not in SSA form
+		computeAllocaLiveRanges(allocaSet, instIdMap);
+		// Very verbose debugging below, activate if needed
+#ifdef VERBOSEDEBUG
 		for(auto it: allocaLiveRanges)
 		{
 			if(it.first->getParent()->getParent() != &F)
@@ -135,17 +175,13 @@ void Registerize::handleFunction(Function& F)
 	}
 }
 
-Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, InstIdMapTy& instIdMap, AllocaSetTy& allocaSet)
+Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, const InstIdMapTy& instIdMap)
 {
 	BlocksState blocksState;
 	for(BasicBlock& BB: F)
 	{
 		for(Instruction& I: BB)
 		{
-			// Take our chance to store away all alloca, they are registerized
-			// later on using non-SSA logic
-			if (isa<AllocaInst>(I))
-				allocaSet.push_back(cast<AllocaInst>(&I));
 			// Start from each use and trace up until the definition is found
 			for(Use& U: I.uses())
 			{
@@ -202,12 +238,47 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 	}
 }
 
-uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy& liveRanges, InstIdMapTy& instIdMap,
+void Registerize::assignInstructionsIds(InstIdMapTy& instIdMap, const Function& F, AllocaSetTy& allocaSet)
+{
+	SmallVector<const BasicBlock*, 4> bbQueue;
+	std::set<const BasicBlock*> doneBlocks;
+	uint32_t nextIndex = 1;
+
+	bbQueue.push_back(&F.getEntryBlock());
+	while(!bbQueue.empty())
+	{
+		const BasicBlock* BB = bbQueue.pop_back_val();
+		if(!doneBlocks.insert(BB).second)
+			continue;
+
+		for (const Instruction& I: *BB)
+		{
+			// Take our chance to store away all alloca, they are registerized using non-SSA logic
+			if (isa<AllocaInst>(I))
+				allocaSet.push_back(cast<AllocaInst>(&I));
+			uint32_t thisIndex = nextIndex++;
+			instIdMap[&I]=thisIndex;
+		}
+
+		const TerminatorInst* term=BB->getTerminator();
+		uint32_t numSuccessors = term->getNumSuccessors();
+		for(uint32_t i=0;i<numSuccessors;i++)
+		{
+			// Push them from the last to the first to be consistent with dfsLiveRangeInBlock
+			BasicBlock* succ=term->getSuccessor(numSuccessors - i - 1);
+			if (doneBlocks.count(succ))
+				continue;
+			bbQueue.push_back(succ);
+		}
+	}
+}
+
+uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy& liveRanges, const InstIdMapTy& instIdMap,
 					BasicBlock& BB, uint32_t nextIndex, uint32_t codePathId)
 {
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	BlockState& blockState=blocksState[&BB];
-	if(blockState.indexesAssigned)
+	if(blockState.completed)
 		return nextIndex;
 	// Iterate over instructions
 	// For each instruction start an empty range
@@ -216,7 +287,8 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	{
 		assert(liveRanges.count(&I)==0);
 		uint32_t thisIndex = nextIndex++;
-		instIdMap[&I]=thisIndex;
+		assert(instIdMap.count(&I));
+		assert(instIdMap.find(&I)->second==thisIndex);
 		// Inlineable instructions extends the life of the not-inlineable instructions they use.
 		// This happens inside extendRangeForUsedOperands.
 		if (isInlineable(I, PA))
@@ -248,7 +320,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 			range.addUse(codePathId, endOfBlockIndex);
 		}
 	}
-	blockState.indexesAssigned=true;
+	blockState.completed=true;
 	// Run on successor blocks
 	for(uint32_t i=0;i<term->getNumSuccessors();i++)
 	{
@@ -443,7 +515,7 @@ bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const In
 
 void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap)
 {
-	for(AllocaInst* alloca: allocaSet)
+	for(const AllocaInst* alloca: allocaSet)
 	{
 		AllocaBlocksState blocksState;
 		RangeChunksTy ranges;
@@ -527,7 +599,7 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 			assert(blocksState.pendingBlocks.empty());
 			// We keep track of the explored depth starting from USE_UNKNOWN, this is useful since
 			// any value >= USE_UNKNOWN means: "Unknown and depending on this depth of exploration"
-			UpAndMarkAllocaState state = doUpAndMarkForAlloca(blocksState, BB, alloca, USE_UNKNOWN);
+			UpAndMarkAllocaState state = doUpAndMarkForAlloca(blocksState, BB, USE_UNKNOWN);
 			if(state == USE_FOUND)
 				blocksState.markPendingBlocksAsLiveOut(0);
 			else
@@ -589,17 +661,17 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 /*
 	Returns the set of instruction which access memory derived from the passed Alloca
 */
-Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(AllocaInst* rootI, const InstIdMapTy& instIdMap)
+Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(const AllocaInst* rootI, const InstIdMapTy& instIdMap)
 {
-	SmallVector<Use*, 10> allUses;
-	for(Use& U: rootI->uses())
+	SmallVector<const Use*, 10> allUses;
+	for(const Use& U: rootI->uses())
 		allUses.push_back(&U);
 
 	bool escapes = false;
 	// NOTE: allUses.size() will grow over time, that's fine
 	for(uint32_t i=0;i<allUses.size();i++)
 	{
-		Use* U = allUses[i];
+		const Use* U = allUses[i];
 		Instruction* I = cast<Instruction>(U->getUser());
 		switch(I->getOpcode())
 		{
@@ -664,7 +736,7 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 	return ret;
 }
 
-Registerize::UpAndMarkAllocaState Registerize::doUpAndMarkForAlloca(AllocaBlocksState& blocksState, BasicBlock* BB, AllocaInst* alloca, uint32_t upAndMarkId)
+Registerize::UpAndMarkAllocaState Registerize::doUpAndMarkForAlloca(AllocaBlocksState& blocksState, BasicBlock* BB, uint32_t upAndMarkId)
 {
 	AllocaBlockState& blockState=blocksState[BB];
 	if(upAndMarkId > USE_UNKNOWN)
@@ -715,7 +787,8 @@ Registerize::UpAndMarkAllocaState Registerize::doUpAndMarkForAlloca(AllocaBlocks
 		for(::pred_iterator it=pred_begin(BB);it!=pred_end(BB);++it)
 		{
 			uint32_t pendingSizeBeforePredecessor = blocksState.pendingBlocks.size();
-			UpAndMarkAllocaState predecessorState = doUpAndMarkForAlloca(blocksState, *it, alloca, upAndMarkId+1);
+			(void)pendingSizeBeforePredecessor;
+			UpAndMarkAllocaState predecessorState = doUpAndMarkForAlloca(blocksState, *it, upAndMarkId+1);
 			if(predecessorState.state < USE_UNKNOWN)
 				assert(blocksState.pendingBlocks.size() == pendingSizeBeforePredecessor);
 			// If the returned predecessorState is higher than upAndMarkId it is also USE_UNKNOWN,
@@ -786,14 +859,14 @@ Registerize::UpAndMarkAllocaState Registerize::doUpAndMarkForAlloca(AllocaBlocks
 	return finalState;
 }
 
-void Registerize::invalidateFunction(llvm::Function& F)
+void Registerize::invalidateLiveRangeForAllocas(llvm::Function& F)
 {
+	assert(!RegistersAssigned);
 	for(const llvm::BasicBlock& BB: F)
 	{
 		for(const llvm::Instruction& I: BB)
 		{
 			// It's safe to delete non existing keys
-			registersMap.erase(&I);
 			if(const AllocaInst* AI=dyn_cast<AllocaInst>(&I))
 				allocaLiveRanges.erase(AI);
 		}
