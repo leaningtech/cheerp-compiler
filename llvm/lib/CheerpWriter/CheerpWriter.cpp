@@ -2636,8 +2636,6 @@ void CheerpWriter::makeJS()
 	compileClassesExportedToJs();
 	compileNullPtrs();
 	
-	PA.fullResolve();
-
 	for ( const Function & F : module.getFunctionList() )
 		if (!F.empty())
 		{
