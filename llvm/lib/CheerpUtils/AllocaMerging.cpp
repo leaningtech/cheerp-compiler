@@ -108,7 +108,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 			continue;
 
 		if(!Changed)
-			registerize.invalidateFunction(F);
+			registerize.invalidateLiveRangeForAllocas(F);
 
 		PA.invalidate(targetAlloca);
 		// We can merge the allocas
@@ -129,7 +129,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 		Changed = true;
 	}
 	if(Changed)
-		registerize.handleFunction(F);
+		registerize.computeLiveRangeForAllocas(F);
 	return Changed;
 }
 
@@ -273,7 +273,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 			continue;
 		}
 		if(!Changed)
-			registerize.invalidateFunction(F);
+			registerize.invalidateLiveRangeForAllocas(F);
 		// Build new alloca
 		Type* newAllocaType = ArrayType::get(targetElementType, arraysToMerge.getNewSize());
 		AllocaInst* newAlloca = new AllocaInst(newAllocaType, "mergedArray", &(*F.getEntryBlock().begin()));
@@ -324,7 +324,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 		}
 	}
 	if(Changed)
-		registerize.handleFunction(F);
+		registerize.computeLiveRangeForAllocas(F);
 	return Changed;
 }
 

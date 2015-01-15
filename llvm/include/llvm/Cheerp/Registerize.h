@@ -59,7 +59,11 @@ public:
 
 	static char ID;
 	
-	explicit Registerize(bool n = false) : ModulePass(ID), NoRegisterize(n) { }
+	explicit Registerize(bool n = false) : ModulePass(ID), NoRegisterize(n)
+#ifndef NDEBUG
+			, RegistersAssigned(false)
+#endif
+	{ }
 	
 	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
 
@@ -69,8 +73,9 @@ public:
 
 	uint32_t getRegisterId(const llvm::Instruction* I) const;
 
-	void handleFunction(llvm::Function& F);
-	void invalidateFunction(llvm::Function& F);
+	void assignRegisters(llvm::Module& M);
+	void computeLiveRangeForAllocas(llvm::Function& F);
+	void invalidateLiveRangeForAllocas(llvm::Function& F);
 
 	const LiveRange& getLiveRangeForAlloca(const llvm::AllocaInst* alloca) const
 	{
@@ -82,6 +87,9 @@ private:
 	std::unordered_map<const llvm::Instruction*, uint32_t> registersMap;
 	std::unordered_map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
 	bool NoRegisterize;
+#ifndef NDEBUG
+	bool RegistersAssigned;
+#endif
 	// Temporary data structure used to compute the live range of an instruction
 	struct InstructionLiveRange
 	{
@@ -94,7 +102,7 @@ private:
 		void addUse(uint32_t codePathId, uint32_t thisIndex);
 	};
 	// Map from instructions to their unique identifier
-	typedef std::unordered_map<llvm::Instruction*, uint32_t> InstIdMapTy;
+	typedef std::unordered_map<const llvm::Instruction*, uint32_t> InstIdMapTy;
 	struct CompareInstructionByID
 	{
 	private:
@@ -143,14 +151,14 @@ private:
 		{
 			return inInst==I;
 		}
-		bool indexesAssigned;
-		BlockState():indexesAssigned(false)
+		bool completed;
+		BlockState():completed(false)
 		{
 		}
 	};
 	typedef std::unordered_map<llvm::BasicBlock*, BlockState> BlocksState;
 	// Temporary data used to registerize allocas
-	typedef std::vector<llvm::AllocaInst*> AllocaSetTy;
+	typedef std::vector<const llvm::AllocaInst*> AllocaSetTy;
 	typedef std::map<uint32_t, uint32_t> RangeChunksTy;
 	struct AllocaBlockState
 	{
@@ -199,9 +207,10 @@ private:
 		}
 	};
 
-	LiveRangesTy computeLiveRanges(llvm::Function& F, InstIdMapTy& instIdMap, AllocaSetTy& allocaSet);
+	LiveRangesTy computeLiveRanges(llvm::Function& F, const InstIdMapTy& instIdMap);
 	void doUpAndMark(BlocksState& blocksState, llvm::BasicBlock* BB, llvm::Instruction* I);
-	uint32_t dfsLiveRangeInBlock(BlocksState& blockState, LiveRangesTy& liveRanges, InstIdMapTy& instIdMap,
+	static void assignInstructionsIds(InstIdMapTy& instIdMap, const llvm::Function& F, AllocaSetTy& allocaSet);
+	uint32_t dfsLiveRangeInBlock(BlocksState& blockState, LiveRangesTy& liveRanges, const InstIdMapTy& instIdMap,
 					llvm::BasicBlock& BB, uint32_t nextIndex, uint32_t codePathId);
 	void extendRangeForUsedOperands(llvm::Instruction& I, LiveRangesTy& liveRanges,
 					uint32_t thisIndex, uint32_t codePathId);
@@ -213,7 +222,7 @@ private:
 	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind);
 	void computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap);
 	typedef std::set<llvm::Instruction*, CompareInstructionByID> InstructionSetOrderedByID;
-	InstructionSetOrderedByID gatherDerivedMemoryAccesses(llvm::AllocaInst* rootI, const InstIdMapTy& instIdMap);
+	InstructionSetOrderedByID gatherDerivedMemoryAccesses(const llvm::AllocaInst* rootI, const InstIdMapTy& instIdMap);
 	enum UP_AND_MARK_ALLOCA_STATE { USE_FOUND = 0, USE_NOT_FOUND, USE_UNKNOWN };
 	struct UpAndMarkAllocaState
 	{
@@ -260,7 +269,8 @@ private:
 			return state != r;
 		}
 	};
-	UpAndMarkAllocaState doUpAndMarkForAlloca(AllocaBlocksState& blocksState, llvm::BasicBlock* BB, llvm::AllocaInst* alloca, uint32_t upAndMarkId);
+	UpAndMarkAllocaState doUpAndMarkForAlloca(AllocaBlocksState& blocksState, llvm::BasicBlock* BB, uint32_t upAndMarkId);
+	void assignRegistersToInstructions(llvm::Function& F);
 };
 
 llvm::ModulePass *createRegisterizePass(bool NoRegisterize);
