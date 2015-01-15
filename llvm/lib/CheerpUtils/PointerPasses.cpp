@@ -116,13 +116,13 @@ bool AllocaArrays::runOnFunction(Function& F)
 
 			PA.invalidate(ai);
 			// Careful, registerize must be invalidated before changing the function
-			registerize.invalidateFunction(F);
+			registerize.invalidateLiveRangeForAllocas(F);
 			Changed |= replaceAlloca( ai );
 		}
 	}
 	
 	if (Changed)
-		registerize.handleFunction(F);
+		registerize.computeLiveRangeForAllocas(F);
 	return Changed;
 }
 

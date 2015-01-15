@@ -76,6 +76,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     }
   }
   PA.fullResolve();
+  registerize.assignRegisters(M);
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, PrettyCode, NoRegisterize);
   writer.makeJS();
   delete sourceMapGenerator;
