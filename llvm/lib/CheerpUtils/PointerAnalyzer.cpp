@@ -725,7 +725,7 @@ void PointerAnalyzer::invalidate(const Value * v)
 	}
 }
 
-void PointerAnalyzer::fullResolve() const
+void PointerAnalyzer::fullResolve()
 {
 	for(auto& it: pointerKindData.valueCache)
 	{

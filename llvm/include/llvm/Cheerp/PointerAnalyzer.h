@@ -159,7 +159,7 @@ public:
 	void invalidate( const llvm::Value * );
 
 	// Fully resolve indirect pointer kinds. After you call this function you should not call invalidate anymore.
-	void fullResolve() const;
+	void fullResolve();
 
 #ifndef NDEBUG
 	mutable bool fullyResolved;
