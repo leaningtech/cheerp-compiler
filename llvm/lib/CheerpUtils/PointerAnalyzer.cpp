@@ -118,9 +118,9 @@ struct PointerUsageVisitor
 {
 	PointerUsageVisitor( PointerAnalyzer::PointerKindData& pointerKindData ) : pointerKindData(pointerKindData) {}
 
-	PointerKindWrapper& visitValue(PointerKindWrapper& ret, const Value* v);
+	PointerKindWrapper& visitValue(PointerKindWrapper& ret, const Value* v, bool first);
 	PointerKindWrapper& visitUse(PointerKindWrapper& ret, const Use* U);
-	PointerKindWrapper& visitReturn(PointerKindWrapper& ret, const Function* F);
+	PointerKindWrapper& visitReturn(PointerKindWrapper& ret, const Function* F, bool first);
 	static bool visitByteLayoutChain ( const Value * v );
 	static POINTER_KIND getKindForType(Type*);
 
@@ -200,7 +200,7 @@ bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 	return false;
 }
 
-PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, const Value* p)
+PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, const Value* p, bool first)
 {
 	if (p->getType()->isPointerTy() && visitByteLayoutChain(p))
 		return pointerKindData.valueCache.insert( std::make_pair(p, BYTE_LAYOUT ) ).first->second;
@@ -211,28 +211,13 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	if(!closedset.insert(p).second)
 		return ret |= UNKNOWN;
 
-	bool indirectRet = false;
 	auto CacheAndReturn = [&](PointerKindWrapper& k) -> PointerKindWrapper&
 	{
 		// Do not recurse below here
 		closedset.erase(p);
-		// Keep track of the constraints for loaded pointers of this type
-		if(isa<LoadInst>(p))
-		{
+		if(first)
 			k.makeKnown();
-			Type* curType = p->getType()->getPointerElementType();
-			pointerKindData.storedTypeMap[curType] |= k;
-			return pointerKindData.valueCache.insert(
-					std::make_pair(p, PointerKindWrapper( STORED_TYPE_CONSTRAINT, curType ) ) ).first->second;
-		}
-		else if(indirectRet)
-		{
-			k.makeKnown();
-			pointerKindData.returnTypeMap[p->getType()] |= k;
-			return pointerKindData.valueCache.insert(
-					std::make_pair(p, PointerKindWrapper( RETURN_TYPE_CONSTRAINT, p->getType() ) ) ).first->second;
-		}
-		else if(!k.isKnown())
+		if(!k.isKnown())
 			return k;
 		else
 			return pointerKindData.valueCache.insert( std::make_pair(p, k ) ).first->second;
@@ -271,10 +256,10 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		case Intrinsic::memmove:
 		case Intrinsic::memcpy:
 		case Intrinsic::memset:
-			return CacheAndReturn(visitValue(ret, intrinsic->getArgOperand(0)));
+			return CacheAndReturn(visitValue(ret, intrinsic->getArgOperand(0), /*first*/ false));
 		case Intrinsic::cheerp_pointer_offset:
 		case Intrinsic::invariant_start:
-			return CacheAndReturn(visitValue(ret, intrinsic->getArgOperand(1)));
+			return CacheAndReturn(visitValue(ret, intrinsic->getArgOperand(1), /*first*/ false));
 		case Intrinsic::invariant_end:
 		case Intrinsic::vastart:
 		case Intrinsic::vaend:
@@ -305,8 +290,27 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			if(cs.getCalledFunction())
 				return CacheAndReturn(ret |= PointerKindWrapper( RETURN_CONSTRAINT, cs.getCalledFunction() ));
 			else
-				indirectRet = true;
+			{
+				assert(first);
+				PointerKindWrapper& k = visitAllUses(ret, p);
+				k.makeKnown();
+				pointerKindData.returnTypeMap[p->getType()] |= k;
+				// We want to override the ret value, not add a constraint
+				return CacheAndReturn(ret = PointerKindWrapper( RETURN_TYPE_CONSTRAINT, p->getType() ));
+			}
 		}
+	}
+
+	// Keep track of the constraints for loaded pointers of this type
+	if(isa<LoadInst>(p))
+	{
+		assert(first);
+		PointerKindWrapper& k = visitAllUses(ret, p);
+		k.makeKnown();
+		Type* curType = p->getType()->getPointerElementType();
+		pointerKindData.storedTypeMap[curType] |= k;
+		// We want to override the ret value, not add a constraint
+		return CacheAndReturn(ret = PointerKindWrapper( STORED_TYPE_CONSTRAINT, curType ));
 	}
 
 	return CacheAndReturn(visitAllUses(ret, p));
@@ -322,7 +326,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		if ( constOffset && constOffset->isNullValue() )
 		{
 			if ( p->getNumOperands() == 2 )
-				return visitValue( ret, p );
+				return visitValue( ret, p, /*first*/ false );
 			return ret |= COMPLETE_OBJECT;
 		}
 		return ret |= REGULAR;
@@ -371,7 +375,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_upcast_collapsed:
 		case Intrinsic::cheerp_cast_user:
 		{
-			return visitValue( ret, p );
+			return visitValue( ret, p, /*first*/ false );
 		}
 		case Intrinsic::cheerp_reallocate:
 		case Intrinsic::cheerp_pointer_base:
@@ -429,11 +433,11 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		if (TypeSupport::hasByteLayout(p->getOperand(0)->getType()->getPointerElementType()))
 			return ret |= COMPLETE_OBJECT;
 		else
-			return visitValue( ret, p );
+			return visitValue( ret, p, /*first*/ false );
 	}
 
 	if(isa<SelectInst> (p) || isa <PHINode>(p))
-		return visitValue(ret, p);
+		return visitValue(ret, p, /*first*/ false);
 
 	if ( isa<Constant>(p) )
 		return ret |= REGULAR;
@@ -441,7 +445,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 	return ret |= COMPLETE_OBJECT;
 }
 
-PointerKindWrapper& PointerUsageVisitor::visitReturn(PointerKindWrapper& ret, const Function* F)
+PointerKindWrapper& PointerUsageVisitor::visitReturn(PointerKindWrapper& ret, const Function* F, bool first)
 {
 	assert(F);
 
@@ -461,6 +465,9 @@ PointerKindWrapper& PointerUsageVisitor::visitReturn(PointerKindWrapper& ret, co
 	auto CacheAndReturn = [&](PointerKindWrapper& k) -> PointerKindWrapper&
 	{
 		closedset.erase(F);
+		if(first)
+			k.makeKnown();
+
 		if (k.isKnown())
 			return pointerKindData.valueCache.insert( std::make_pair(F->begin(), k ) ).first->second;
 		return k;
@@ -597,22 +604,13 @@ const PointerKindWrapper& PointerAnalyzer::getFinalPointerKindWrapper(const Valu
 		return it->second;
 
 	PointerKindWrapper ret;
-	PointerKindWrapper& k = PointerUsageVisitor(pointerKindData).visitValue(ret, p);
-	// If the value is not cached at this point it means that the kind is unknown
-	// Make it known and cache it
+	PointerKindWrapper& k = PointerUsageVisitor(pointerKindData).visitValue(ret, p, /*first*/ true);
+#ifndef NDEBUG
 	it = pointerKindData.valueCache.find(p);
-	if(it==pointerKindData.valueCache.end())
-	{
-		assert(&ret == &k);
-		assert(!k.isKnown());
-		k.makeKnown();
-		return pointerKindData.valueCache.insert(std::make_pair(p,k)).first->second;
-	}
-	else
-	{
-		assert(&it->second == &k);
-		return k;
-	}
+	assert(it!=pointerKindData.valueCache.end());
+	assert(&it->second == &k);
+#endif
+	return k;
 }
 
 const PointerKindWrapper& PointerAnalyzer::getFinalPointerKindWrapperForReturn(const Function* F) const
@@ -626,21 +624,13 @@ const PointerKindWrapper& PointerAnalyzer::getFinalPointerKindWrapperForReturn(c
 		return it->second;
 
 	PointerKindWrapper ret;
-	PointerKindWrapper& k = PointerUsageVisitor(pointerKindData).visitReturn(ret, F);
-	// If the value is not cached at this point it means that the kind is unknown
-	// Make it known and cache it
+	PointerKindWrapper& k = PointerUsageVisitor(pointerKindData).visitReturn(ret, F, /* first*/ true);
+#ifndef NDEBUG
 	it = pointerKindData.valueCache.find(F->begin());
-	if(it==pointerKindData.valueCache.end())
-	{
-		assert(&ret == &k);
-		k.makeKnown();
-		return pointerKindData.valueCache.insert(std::make_pair(F->begin(),k)).first->second;
-	}
-	else
-	{
-		assert(&it->second == &k);
-		return k;
-	}
+	assert(it!=pointerKindData.valueCache.end());
+	assert(&it->second == &k);
+#endif
+	return k;
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
