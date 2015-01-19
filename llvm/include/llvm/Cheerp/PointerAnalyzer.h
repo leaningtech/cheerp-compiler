@@ -28,7 +28,7 @@ enum POINTER_KIND {
 	INDIRECT
 };
 
-enum INDIRECT_POINTER_KIND_CONSTRAINT { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT, RETURN_TYPE_CONSTRAINT};
+enum INDIRECT_POINTER_KIND_CONSTRAINT { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT, RETURN_TYPE_CONSTRAINT, BASE_AND_INDEX_CONSTRAINT};
 
 struct IndirectPointerKindConstraint
 {
@@ -136,6 +136,35 @@ public:
 #endif //NDEBUG
 	{}
 
+	struct TypeAndIndex
+	{
+		llvm::Type* type;
+		uint32_t index;
+		TypeAndIndex(llvm::Type* t, uint32_t i):type(t),index(i)
+		{
+			if(!t)
+				return;
+			// Find if a direct base is the actual owner of the field
+			if(llvm::StructType* st=llvm::dyn_cast<llvm::StructType>(t))
+			{
+				while(st->getDirectBase() && st->getDirectBase()->getNumElements() > i)
+					st = st->getDirectBase();
+				type = st;
+			}
+		}
+		bool operator<(const TypeAndIndex& rhs) const
+		{
+			if(type==rhs.type)
+				return index < rhs.index;
+			else
+				return type < rhs.type;
+		}
+		operator bool() const
+		{
+			return type != NULL;
+		}
+	};
+
 	void prefetchFunc( const llvm::Function & ) const;
 	static char ID;
 
@@ -149,7 +178,10 @@ public:
 	POINTER_KIND getPointerKindForReturn(const llvm::Function* F) const;
 	POINTER_KIND getPointerKindForStoredType( llvm::Type * pointerType ) const;
 	POINTER_KIND getPointerKindForArgumentType( llvm::Type * pointerType ) const;
+	POINTER_KIND getPointerKindForMemberPointer( const TypeAndIndex& baseAndIndex ) const;
 	const PointerKindWrapper& getFinalPointerKindWrapper(const llvm::Value* v ) const;
+	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
+	static bool hasNonLoadStoreUses ( const llvm::Value* v );
 
 	/**
 	 * Functions to manually invalidate the cache
@@ -170,6 +202,7 @@ public:
 	typedef llvm::DenseMap<const llvm::Value*, PointerKindWrapper> ValueKindMap;
 	typedef llvm::DenseMap<llvm::Type*, PointerKindWrapper> TypeKindMap;
 	typedef llvm::DenseMap<llvm::Type*, PointerKindWrapper> ReturnTypeKindMap;
+	typedef std::map<TypeAndIndex, PointerKindWrapper> TypeAndIndexMap;
 	struct AddressTakenMap: public llvm::DenseMap<const llvm::Function*, bool>
 	{
 		bool checkAddressTaken(const llvm::Function* F)
@@ -189,6 +222,7 @@ public:
 	{
 		ValueKindMap valueCache;
 		TypeKindMap storedTypeMap;
+		TypeAndIndexMap baseStructAndIndexMapForPointers;
 		ReturnTypeKindMap returnTypeMap;
 		AddressTakenMap addressTakenCache;
 	};
