@@ -88,7 +88,15 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 					stream << ':';
 				else
 					stream << '=';
-				compileType(*E, LITERAL_OBJ);
+				if ((*E)->isPointerTy())
+				{
+					if (PA.getPointerKindForMemberPointer(PointerAnalyzer::TypeAndIndex(t, offset))==COMPLETE_OBJECT)
+						stream << "null";
+					else
+						stream << "nullObj";
+				}
+				else
+					compileType(*E, LITERAL_OBJ);
 				offset++;
 			}
 			if(style == LITERAL_OBJ)

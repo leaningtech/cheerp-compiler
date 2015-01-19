@@ -1132,7 +1132,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 			stream << 'a' << i << "0:";
 			Type* elementType = d->getOperand(i)->getType();
 			if(elementType->isPointerTy())
-				compilePointerAs(d->getOperand(i), PA.getPointerKindForStoredType(elementType));
+				compilePointerAs(d->getOperand(i), PA.getPointerKindForMemberPointer(PointerAnalyzer::TypeAndIndex(d->getType(), i)));
 			else
 				compileOperand(d->getOperand(i));
 
@@ -1528,7 +1528,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			if(valOp->getType()->isIntegerTy())
 				compileSignedInteger(valOp);
 			else if(valOp->getType()->isPointerTy())
-				compilePointerAs(valOp, PA.getPointerKindForStoredType(valOp->getType()));
+			{
+				if(PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(ptrOp))
+					compilePointerAs(valOp, PA.getPointerKindForMemberPointer(baseAndIndex));
+				else
+					compilePointerAs(valOp, PA.getPointerKindForStoredType(valOp->getType()));
+			}
 			else
 				compileOperand(valOp);
 			return COMPILE_OK;
@@ -2604,7 +2609,10 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		stream << '=';
 		Value* valOp = subExpr.back()->get();
 		if (valOp->getType()->isPointerTy())
-			compilePointerAs(valOp, PA.getPointerKindForStoredType(valOp->getType()));
+		{
+			PointerAnalyzer::TypeAndIndex b(subExpr.back()->getUser()->getType(), subExpr.back()->getOperandNo());
+			compilePointerAs(valOp, PA.getPointerKindForMemberPointer(b));
+		}
 		else
 			compileOperand(valOp);
 		stream << ';' << NewLine;
