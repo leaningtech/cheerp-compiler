@@ -62,7 +62,6 @@ bool AllocaMerging::areTypesEquivalent(Type* a, Type* b)
 
 bool AllocaMerging::runOnFunction(Function& F)
 {
-	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 	std::map<AllocaInst*, cheerp::Registerize::LiveRange> allocaInfos;
 	// Gather all the allocas
@@ -110,7 +109,6 @@ bool AllocaMerging::runOnFunction(Function& F)
 		if(!Changed)
 			registerize.invalidateLiveRangeForAllocas(F);
 
-		PA.invalidate(targetAlloca);
 		// We can merge the allocas
 		for(AllocaInst* allocaToMerge: mergeSet)
 		{
@@ -121,7 +119,6 @@ bool AllocaMerging::runOnFunction(Function& F)
 				targetVal->insertAfter(targetAlloca);
 			}
 			allocaToMerge->replaceAllUsesWith(targetVal);
-			PA.invalidate(allocaToMerge);
 			allocaToMerge->eraseFromParent();
 			allocaInfos.erase(allocaToMerge);
 			NumAllocaMerged++;
@@ -139,8 +136,6 @@ const char *AllocaMerging::getPassName() const {
 
 void AllocaMerging::getAnalysisUsage(AnalysisUsage & AU) const
 {
-	AU.addRequired<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
