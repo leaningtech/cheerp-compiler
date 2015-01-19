@@ -14,6 +14,7 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Cheerp/PointerAnalyzer.h"
 #include <set>
 #include <unordered_map>
 
@@ -73,7 +74,7 @@ public:
 
 	uint32_t getRegisterId(const llvm::Instruction* I) const;
 
-	void assignRegisters(llvm::Module& M);
+	void assignRegisters(llvm::Module& M, cheerp::PointerAnalyzer& PA);
 	void computeLiveRangeForAllocas(llvm::Function& F);
 	void invalidateLiveRangeForAllocas(llvm::Function& F);
 
@@ -207,12 +208,12 @@ private:
 		}
 	};
 
-	LiveRangesTy computeLiveRanges(llvm::Function& F, const InstIdMapTy& instIdMap);
+	LiveRangesTy computeLiveRanges(llvm::Function& F, const InstIdMapTy& instIdMap, cheerp::PointerAnalyzer& PA);
 	void doUpAndMark(BlocksState& blocksState, llvm::BasicBlock* BB, llvm::Instruction* I);
 	static void assignInstructionsIds(InstIdMapTy& instIdMap, const llvm::Function& F, AllocaSetTy& allocaSet);
 	uint32_t dfsLiveRangeInBlock(BlocksState& blockState, LiveRangesTy& liveRanges, const InstIdMapTy& instIdMap,
-					llvm::BasicBlock& BB, uint32_t nextIndex, uint32_t codePathId);
-	void extendRangeForUsedOperands(llvm::Instruction& I, LiveRangesTy& liveRanges,
+					llvm::BasicBlock& BB, cheerp::PointerAnalyzer& PA, uint32_t nextIndex, uint32_t codePathId);
+	void extendRangeForUsedOperands(llvm::Instruction& I, LiveRangesTy& liveRanges, cheerp::PointerAnalyzer& PA,
 					uint32_t thisIndex, uint32_t codePathId);
 	uint32_t assignToRegisters(const LiveRangesTy& F);
 	void handlePHI(llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers);
@@ -270,7 +271,7 @@ private:
 		}
 	};
 	UpAndMarkAllocaState doUpAndMarkForAlloca(AllocaBlocksState& blocksState, llvm::BasicBlock* BB, uint32_t upAndMarkId);
-	void assignRegistersToInstructions(llvm::Function& F);
+	void assignRegistersToInstructions(llvm::Function& F, cheerp::PointerAnalyzer& PA);
 };
 
 llvm::ModulePass *createRegisterizePass(bool NoRegisterize);

@@ -238,6 +238,7 @@ void IndirectCallOptimizer::getAnalysisUsage(AnalysisUsage& AU) const
 	AU.addRequired<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::Registerize>();
 
 	llvm::Pass::getAnalysisUsage(AU);
 }

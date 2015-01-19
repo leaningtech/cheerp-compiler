@@ -76,7 +76,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     }
   }
   PA.fullResolve();
-  registerize.assignRegisters(M);
+  registerize.assignRegisters(M, PA);
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, PrettyCode, NoRegisterize);
   writer.makeJS();
   delete sourceMapGenerator;
@@ -109,10 +109,10 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(cheerp::createGlobalDepsAnalyzerPass());
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
-  PM.add(cheerp::createPointerAnalyzerPass());
-  PM.add(createIndirectCallOptimizerPass());
   PM.add(cheerp::createRegisterizePass(NoRegisterize));
   PM.add(createAllocaMergingPass());
+  PM.add(cheerp::createPointerAnalyzerPass());
+  PM.add(createIndirectCallOptimizerPass());
   PM.add(createAllocaArraysPass());
   PM.add(createAllocaArraysMergingPass());
   PM.add(new CheerpWritePass(o));
