@@ -43,6 +43,9 @@ void IndirectPointerKindConstraint::dump() const
 		case RETURN_TYPE_CONSTRAINT:
 			dbgs() << "Depends on returned type " << *typePtr << "\n";
 			break;
+		case BASE_AND_INDEX_CONSTRAINT:
+			dbgs() << "Depends on index " << i << " of struct " << *typePtr << "\n";
+			break;
 		default:
 			assert(false);
 	}
@@ -225,6 +228,20 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			return pointerKindData.valueCache.insert( std::make_pair(p, k ) ).first->second;
 	};
 
+	PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(p);
+	if(baseAndIndex && p->getType()->getPointerElementType()->isPointerTy())
+	{
+		// If the pointer inside a structure has uses which are not just loads and stores
+		// we have merge the BASE_AND_INDEX_CONSTRAINT with the STORED_TYPE_CONSTRAINT
+		// We do this by making both indirectly dependent on the other
+		if(PointerAnalyzer::hasNonLoadStoreUses(p))
+		{
+			Type* pointedType = cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index)->getPointerElementType();
+			pointerKindData.baseStructAndIndexMapForPointers[baseAndIndex] |= PointerKindWrapper( STORED_TYPE_CONSTRAINT, pointedType );
+			pointerKindData.storedTypeMap[pointedType] |= PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index );
+		}
+	}
+
 	llvm::Type * type = p->getType()->getPointerElementType();
 
 	bool isIntrinsic = false;
@@ -304,15 +321,23 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	}
 
 	// Keep track of the constraints for loaded pointers of this type
-	if(isa<LoadInst>(p))
+	if(const LoadInst* LI = dyn_cast<LoadInst>(p))
 	{
 		assert(first);
 		PointerKindWrapper& k = visitAllUses(ret, p);
 		k.makeKnown();
-		Type* curType = p->getType()->getPointerElementType();
-		pointerKindData.storedTypeMap[curType] |= k;
 		// We want to override the ret value, not add a constraint
-		return CacheAndReturn(ret = PointerKindWrapper( STORED_TYPE_CONSTRAINT, curType ));
+		if (PointerAnalyzer::TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getOperand(0)))
+		{
+			pointerKindData.baseStructAndIndexMapForPointers[b] |= k;
+			return CacheAndReturn(ret = PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, b.type, b.index ) );
+		}
+		else
+		{
+			Type* curType = p->getType()->getPointerElementType();
+			pointerKindData.storedTypeMap[curType] |= k;
+			return CacheAndReturn(ret = PointerKindWrapper( STORED_TYPE_CONSTRAINT, curType ));
+		}
 	}
 
 	return CacheAndReturn(visitAllUses(ret, p));
@@ -334,11 +359,24 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return ret |= REGULAR;
 	}
 
-	// Constant data in memory is equivalent to store
-	if ( (isa<StoreInst>(p) && U->getOperandNo() == 0 ) ||
-		isa<ConstantStruct>(p) || isa<ConstantArray>(p))
-	{
+	// Constant data in memory is considered stored
+	if (isa<ConstantArray>(p))
 		return ret |= PointerKindWrapper( STORED_TYPE_CONSTRAINT, U->get()->getType()->getPointerElementType() );
+
+	if (isa<ConstantStruct>(p))
+	{
+		// Build a TypeAndIndex struct to get the normalized type
+		PointerAnalyzer::TypeAndIndex baseAndIndex(p->getType(), U->getOperandNo());
+		return ret |= PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index );
+	}
+
+	if ( (isa<StoreInst>(p) && U->getOperandNo() == 0 ))
+	{
+		PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(p->getOperand(1));
+		if (baseAndIndex)
+			return ret |= PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index);
+		else
+			return ret |= PointerKindWrapper( STORED_TYPE_CONSTRAINT, U->get()->getType()->getPointerElementType() );
 	}
 
 	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
@@ -540,6 +578,14 @@ const PointerKindWrapper& PointerResolverVisitor::resolveConstraint(const Indire
 				return PointerAnalyzer::staticCompleteObjectKind;
 			return it->second;
 		}
+		case BASE_AND_INDEX_CONSTRAINT:
+		{
+			// We will resolve this constraint indirectly through the baseStructAndIndexMapForPointers map
+			const auto& it=pointerKindData.baseStructAndIndexMapForPointers.find(PointerAnalyzer::TypeAndIndex( c.typePtr, c.i ));
+			if(it==pointerKindData.baseStructAndIndexMapForPointers.end())
+				return PointerAnalyzer::staticCompleteObjectKind;
+			return it->second;
+		}
 	}
 	assert(false);
 }
@@ -684,6 +730,65 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgumentType(Type* pointerType) c
 	return PointerUsageVisitor(pointerKindData).getKindForType(pointerType->getPointerElementType());
 }
 
+POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex& baseAndIndex) const
+{
+	Type* elementType = cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index);
+	POINTER_KIND ret=PointerUsageVisitor(pointerKindData).getKindForType(elementType->getPointerElementType());
+	if(ret!=UNKNOWN)
+		return ret;
+
+	auto it=pointerKindData.baseStructAndIndexMapForPointers.find(baseAndIndex);
+	if(it==pointerKindData.baseStructAndIndexMapForPointers.end())
+		return COMPLETE_OBJECT;
+
+	const PointerKindWrapper& k = it->second;
+	assert(k!=UNKNOWN);
+
+	if (k!=INDIRECT)
+		return k.getPointerKind();
+
+	return PointerResolverVisitor(pointerKindData).resolvePointerKind(k).getPointerKind();
+}
+
+PointerAnalyzer::TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(const Value* p)
+{
+	if(!isGEP(p))
+		return PointerAnalyzer::TypeAndIndex(NULL, 0);
+	const User* gep=cast<User>(p);
+	if (gep->getNumOperands() == 2)
+		return PointerAnalyzer::TypeAndIndex(NULL, 0);
+
+	SmallVector<Value*, 4> indexes;
+	for(uint32_t i=1;i<gep->getNumOperands()-1;i++)
+		indexes.push_back(*(gep->op_begin()+i));
+	Type* containerType = GetElementPtrInst::getIndexedType(
+				(*gep->op_begin())->getType(), indexes);
+
+	if (containerType->isStructTy())
+	{
+		Value* lastIndex = *std::prev(gep->op_end());
+		assert(isa<ConstantInt>(lastIndex));
+		uint32_t lastOffsetConstant =  cast<ConstantInt>(lastIndex)->getZExtValue();
+		return PointerAnalyzer::TypeAndIndex(containerType, lastOffsetConstant);
+	}
+	return PointerAnalyzer::TypeAndIndex(NULL, 0);
+}
+
+
+bool PointerAnalyzer::hasNonLoadStoreUses( const Value* v)
+{
+	for(const Use& U: v->uses())
+	{
+		const User* user = U.getUser();
+		if (isa<LoadInst>(user))
+			continue;
+		if (isa<StoreInst>(user) && U.getOperandNo()==1)
+			continue;
+		return true;
+	}
+	return false;
+}
+
 void PointerAnalyzer::invalidate(const Value * v)
 {
 #ifndef NDEBUG
@@ -728,6 +833,14 @@ void PointerAnalyzer::fullResolve()
 		it.second=k;
 	}
 	for(auto& it: pointerKindData.storedTypeMap)
+	{
+		if(it.second!=INDIRECT)
+			continue;
+		const PointerKindWrapper& k=PointerResolverVisitor(pointerKindData).resolvePointerKind(it.second);
+		assert(k==COMPLETE_OBJECT || k==REGULAR);
+		it.second=k;
+	}
+	for(auto& it: pointerKindData.baseStructAndIndexMapForPointers)
 	{
 		if(it.second!=INDIRECT)
 			continue;
