@@ -526,7 +526,7 @@ const PointerKindWrapper& PointerResolverVisitor::resolveConstraint(const Indire
 		}
 		case STORED_TYPE_CONSTRAINT:
 		{
-			// We will resolve this constraint indirectly through the typeCache map
+			// We will resolve this constraint indirectly through the storedTypeMap map
 			const auto& it=pointerKindData.storedTypeMap.find(c.typePtr);
 			if(it==pointerKindData.storedTypeMap.end())
 				return PointerAnalyzer::staticCompleteObjectKind;
@@ -534,7 +534,7 @@ const PointerKindWrapper& PointerResolverVisitor::resolveConstraint(const Indire
 		}
 		case RETURN_TYPE_CONSTRAINT:
 		{
-			// We will resolve this constraint indirectly through the returnTypeCache map
+			// We will resolve this constraint indirectly through the returnTypeMap map
 			const auto& it=pointerKindData.returnTypeMap.find(c.typePtr);
 			if(it==pointerKindData.returnTypeMap.end())
 				return PointerAnalyzer::staticCompleteObjectKind;
@@ -666,7 +666,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 	POINTER_KIND ret=PointerUsageVisitor(pointerKindData).getKindForType(pointerType->getPointerElementType());
 	if(ret!=UNKNOWN)
 		return ret;
-	// If REGULAR by default, try harder using the typeCache map
+
 	auto it=pointerKindData.storedTypeMap.find(pointerType->getPointerElementType());
 	if(it==pointerKindData.storedTypeMap.end())
 		return COMPLETE_OBJECT;
