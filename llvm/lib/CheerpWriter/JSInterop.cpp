@@ -99,9 +99,9 @@ void CheerpWriter::compileClassesExportedToJs()
 		stream << "){" << NewLine;
 		compileType(t, THIS_OBJ);
 		//We need to manually add the self pointer
-		stream << ';' << NewLine << "this.s0=this;" << NewLine;
+		stream << ';' << NewLine << "this.d=[this];" << NewLine;
 		compileOperand(f);
-		stream << "({d:this,o:'s'}";
+		stream << "({d:this.d,o:0}";
 		for(uint32_t i=0;i<f->arg_size()-1;i++)
 			stream << ",a" << i;
 		stream << ");" << NewLine << "}" << NewLine;
@@ -128,7 +128,7 @@ void CheerpWriter::compileClassesExportedToJs()
 			}
 			stream << "){" << NewLine << "return ";
 			compileOperand(f);
-			stream << "({d:this,o:'s'}";
+			stream << "({d:this.d,o:0}";
 			for(uint32_t i=0;i<f->arg_size()-1;i++)
 				stream << ",a" << i;
 			stream << ");" << NewLine << '}' << NewLine;

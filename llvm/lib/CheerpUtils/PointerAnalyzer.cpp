@@ -229,19 +229,27 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	};
 
 	PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(p);
-	if(baseAndIndex && p->getType()->getPointerElementType()->isPointerTy())
+	if(baseAndIndex)
 	{
 		// If the pointer inside a structure has uses which are not just loads and stores
 		// we have merge the BASE_AND_INDEX_CONSTRAINT with the STORED_TYPE_CONSTRAINT
 		// We do this by making both indirectly dependent on the other
-		if(PointerAnalyzer::hasNonLoadStoreUses(p))
+		if(p->getType()->getPointerElementType()->isPointerTy() && PointerAnalyzer::hasNonLoadStoreUses(p))
 		{
 			Type* pointedType = cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index)->getPointerElementType();
 			pointerKindData.baseStructAndIndexMapForPointers[baseAndIndex] |= PointerKindWrapper( STORED_TYPE_CONSTRAINT, pointedType );
 			pointerKindData.storedTypeMap[pointedType] |= PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index );
 		}
-	}
 
+		if(first)
+		{
+			PointerKindWrapper& k = visitAllUses(ret, p);
+			k.makeKnown();
+			// In general, keep track of the contraints on elements of structures
+			pointerKindData.baseStructAndIndexMapForMembers[baseAndIndex] |= k;
+			return CacheAndReturn(k);
+		}
+	}
 	llvm::Type * type = p->getType()->getPointerElementType();
 
 	bool isIntrinsic = false;
@@ -410,6 +418,8 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::lifetime_end:
 		case Intrinsic::cheerp_element_distance:
 		case Intrinsic::cheerp_deallocate:
+		case Intrinsic::cheerp_make_regular:
+		case Intrinsic::cheerp_make_complete_object:
 			return ret |= COMPLETE_OBJECT;
 		case Intrinsic::cheerp_downcast:
 		case Intrinsic::cheerp_upcast_collapsed:
@@ -422,15 +432,12 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_pointer_offset:
 			return ret |= REGULAR;
 		case Intrinsic::cheerp_create_closure:
-			assert( U->getOperandNo() == 1 );
-			if ( const Function * f = dyn_cast<Function>(p->getOperand(0) ) )
-			{
+			if ( U->getOperandNo() == 0)
+				return ret |= COMPLETE_OBJECT;
+			else if ( isa<Function>( p->getOperand(0) ) )
 				return ret |= REGULAR;
-			}
 			else
 				llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, cheerp_create_closure");
-		case Intrinsic::cheerp_make_complete_object:
-			return ret |= COMPLETE_OBJECT;
 		case Intrinsic::flt_rounds:
 		case Intrinsic::cheerp_allocate:
 		case Intrinsic::memset:
@@ -750,6 +757,21 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex&
 	return PointerResolverVisitor(pointerKindData).resolvePointerKind(k).getPointerKind();
 }
 
+POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAndIndex) const
+{
+	auto it=pointerKindData.baseStructAndIndexMapForMembers.find(baseAndIndex);
+	if(it==pointerKindData.baseStructAndIndexMapForMembers.end())
+		return COMPLETE_OBJECT;
+
+	const PointerKindWrapper& k = it->second;
+	assert(k!=UNKNOWN);
+
+	if (k!=INDIRECT)
+		return k.getPointerKind();
+
+	return PointerResolverVisitor(pointerKindData).resolvePointerKind(k).getPointerKind();
+}
+
 PointerAnalyzer::TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(const Value* p)
 {
 	if(!isGEP(p))
@@ -841,6 +863,14 @@ void PointerAnalyzer::fullResolve()
 		it.second=k;
 	}
 	for(auto& it: pointerKindData.baseStructAndIndexMapForPointers)
+	{
+		if(it.second!=INDIRECT)
+			continue;
+		const PointerKindWrapper& k=PointerResolverVisitor(pointerKindData).resolvePointerKind(it.second);
+		assert(k==COMPLETE_OBJECT || k==REGULAR);
+		it.second=k;
+	}
+	for(auto& it: pointerKindData.baseStructAndIndexMapForMembers)
 	{
 		if(it.second!=INDIRECT)
 			continue;
