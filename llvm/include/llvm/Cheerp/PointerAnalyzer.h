@@ -179,6 +179,7 @@ public:
 	POINTER_KIND getPointerKindForStoredType( llvm::Type * pointerType ) const;
 	POINTER_KIND getPointerKindForArgumentType( llvm::Type * pointerType ) const;
 	POINTER_KIND getPointerKindForMemberPointer( const TypeAndIndex& baseAndIndex ) const;
+	POINTER_KIND getPointerKindForMember( const TypeAndIndex& baseAndIndex ) const;
 	const PointerKindWrapper& getFinalPointerKindWrapper(const llvm::Value* v ) const;
 	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
 	static bool hasNonLoadStoreUses ( const llvm::Value* v );
@@ -222,6 +223,9 @@ public:
 	{
 		ValueKindMap valueCache;
 		TypeKindMap storedTypeMap;
+		// This map stores constraints about pointer to members
+		TypeAndIndexMap baseStructAndIndexMapForMembers;
+		// This map stores constraints about pointers stored and loaded from a member which is a pointer
 		TypeAndIndexMap baseStructAndIndexMapForPointers;
 		ReturnTypeKindMap returnTypeMap;
 		AddressTakenMap addressTakenCache;

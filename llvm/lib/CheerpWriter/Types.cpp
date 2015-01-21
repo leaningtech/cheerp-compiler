@@ -88,15 +88,22 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 					stream << ':';
 				else
 					stream << '=';
+				// Create a wrapper array for all members which require REGULAR pointers, if they are not already covered by the downcast array
+				PointerAnalyzer::TypeAndIndex baseAndIndex(st, offset);
+				bool useWrapperArray = useWrapperArrayForMember(st, offset);
+				if (useWrapperArray)
+					stream << '[';
 				if ((*E)->isPointerTy())
 				{
-					if (PA.getPointerKindForMemberPointer(PointerAnalyzer::TypeAndIndex(t, offset))==COMPLETE_OBJECT)
+					if (PA.getPointerKindForMemberPointer(baseAndIndex)==COMPLETE_OBJECT)
 						stream << "null";
 					else
 						stream << "nullObj";
 				}
 				else
 					compileType(*E, LITERAL_OBJ);
+				if(useWrapperArray)
+					stream << ']';
 				offset++;
 			}
 			if(style == LITERAL_OBJ)

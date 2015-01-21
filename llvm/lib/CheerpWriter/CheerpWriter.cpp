@@ -731,24 +731,26 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 
 void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > indices)
 {
-	for(const Value * idx : indices)
+	for(uint32_t i=0;i<indices.size();i++)
 	{
 		if(StructType* st = dyn_cast<StructType>(tp))
 		{
 			// Stop when a byte layout type is found
 			if (TypeSupport::hasByteLayout(st))
 				return;
-			assert(isa<ConstantInt>(idx));
-			const APInt& index = cast<Constant>(idx)->getUniqueInteger();
+			assert(isa<ConstantInt>(indices[i]));
+			const APInt& index = cast<Constant>(indices[i])->getUniqueInteger();
 
 			stream << ".a" << index << '0';
+			if((i!=indices.size()-1) && useWrapperArrayForMember(st, index.getLimitedValue()))
+				stream << "[0]";
 
 			tp = st->getElementType(index.getZExtValue());
 		}
 		else if(const ArrayType* at = dyn_cast<ArrayType>(tp))
 		{
 			stream << '[';
-			compileOperand(idx);
+			compileOperand(indices[i]);
 			stream << ']';
 
 			tp = at->getElementType();
@@ -776,9 +778,11 @@ void CheerpWriter::compileOffsetForGEP(Type* pointerOperandType, ArrayRef< const
 	{
 		// Literal index
 		assert(isa<ConstantInt>(indices.back()));
-
 		const ConstantInt* idx = cast<ConstantInt>(indices.back());
-		stream << "\"a" << idx->getZExtValue() << '\"';
+
+		assert(useWrapperArrayForMember(cast<StructType>(tp), idx->getZExtValue()));
+
+		stream << '0';
 	}
 	else
 	{
@@ -888,11 +892,19 @@ void CheerpWriter::compilePointerBase(const Value* p)
 
 		if(indices.size() > 1)
 		{
+			Type* basePointerType = gepInst->getOperand(0)->getType();
+			Type* basePointedType = basePointerType->getPointerElementType();
+			Type* tp = GetElementPtrInst::getIndexedType(basePointerType,
+					makeArrayRef(const_cast<Value* const*>(indices.begin()),
+						     const_cast<Value* const*>(indices.end() - 1)));
+
 			// If we have gep(val, idx, ..., iN ) the base is always gep(val, idx, ... )
 			// we want to write val. access_expression
 			compileCompleteObject(gepInst->getOperand(0), indices.front());
-			compileAccessToElement(gepInst->getOperand(0)->getType()->getPointerElementType(),
-			                       makeArrayRef(std::next(indices.begin()), std::prev(indices.end())));
+			if (tp->isStructTy())
+				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()));
+			else
+				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), std::prev(indices.end())));
 
 			// We are done
 			return;
@@ -1130,12 +1142,17 @@ void CheerpWriter::compileConstant(const Constant* c)
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
 			stream << 'a' << i << "0:";
+			bool useWrapperArray = useWrapperArrayForMember(d->getType(), i);
+			if (useWrapperArray)
+				stream << '[';
 			Type* elementType = d->getOperand(i)->getType();
 			if(elementType->isPointerTy())
 				compilePointerAs(d->getOperand(i), PA.getPointerKindForMemberPointer(PointerAnalyzer::TypeAndIndex(d->getType(), i)));
 			else
 				compileOperand(d->getOperand(i));
 
+			if (useWrapperArray)
+				stream << ']';
 			if((i+1)<d->getNumOperands())
 				stream << ',';
 		}
@@ -1543,6 +1560,20 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 	}
 }
 
+bool CheerpWriter::useWrapperArrayForMember(StructType* st, uint32_t memberIndex)
+{
+	if(types.hasBasesInfo(st))
+	{
+		uint32_t firstBase, baseCount;
+		types.getBasesInfo(st, firstBase, baseCount);
+		if(memberIndex >= firstBase && memberIndex < (firstBase+baseCount))
+			return false;
+	}
+	// We don't want to use the wrapper array if the downcast array is alredy available
+	PointerAnalyzer::TypeAndIndex baseAndIndex(st, memberIndex);
+	return PA.getPointerKindForMember(baseAndIndex)==REGULAR;
+}
+
 void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
@@ -1552,19 +1583,33 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType,
 			makeArrayRef(const_cast<Value* const*>(indices.begin()),
 				     const_cast<Value* const*>(indices.end() - 1))));
-	uint32_t lastOffsetConstant = 0;
+	bool useWrapperArray = false;
+	bool useDownCastArray = false;
 	if(containerStructType && indices.size() > 1)
 	{
 		assert(isa<ConstantInt>(indices.back()));
 		const ConstantInt* idx = cast<ConstantInt>(indices.back());
-		lastOffsetConstant = idx->getZExtValue();
+		uint32_t lastOffsetConstant = idx->getZExtValue();
+		if(types.hasBasesInfo(containerStructType))
+		{
+			uint32_t firstBase, baseCount;
+			types.getBasesInfo(containerStructType, firstBase, baseCount);
+			if(lastOffsetConstant >= firstBase && lastOffsetConstant < (firstBase+baseCount))
+				useDownCastArray = true;
+		}
+		// We don't want to use the wrapper array if the downcast array is alredy available
+		if(!useDownCastArray)
+			useWrapperArray = useWrapperArrayForMember(containerStructType, lastOffsetConstant);
 	}
+
 
 	if(COMPLETE_OBJECT == kind)
 	{
 		compileCompleteObject(gep_inst->getOperand(0), indices.front());
 		compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
 		                       makeArrayRef(std::next(indices.begin()), indices.end()));
+		if(useWrapperArray)
+			stream << "[0]";
 	}
 	else
 	{
@@ -1623,21 +1668,16 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		{
 			
 			Type* basePointedType = basePointerType->getPointerElementType();
-			bool useDownCastArray = false;
-			if(containerStructType && types.hasBasesInfo(containerStructType))
-			{
-				uint32_t firstBase, baseCount;
-				types.getBasesInfo(containerStructType, firstBase, baseCount);
-				if(lastOffsetConstant >= firstBase && lastOffsetConstant < (firstBase+baseCount))
-					useDownCastArray = true;
-			}
-
 			stream << "{d:";
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
 			if (useDownCastArray)
 			{
 				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()));
 				stream << ".a";
+			}
+			else if(containerStructType)
+			{
+				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()));
 			}
 			else
 			{
@@ -2602,8 +2642,12 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 			if ( isa<ConstantArray>( u->getUser() ) )
 				stream << '[' << u->getOperandNo() << ']';
-			else if ( isa<ConstantStruct>( u->getUser() ) )
+			else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
+			{
 				stream << ".a" << u->getOperandNo() << '0';
+				if (useWrapperArrayForMember(cs->getType(), u->getOperandNo()))
+					stream << "[0]";
+			}
 		}
 
 		stream << '=';
