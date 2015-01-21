@@ -83,7 +83,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 				}
 				if(style==THIS_OBJ)
 					stream << "this.";
-				stream << 'a' << offset << '0';
+				stream << 'a' << offset;
 				if(style==LITERAL_OBJ)
 					stream << ':';
 				else
@@ -195,7 +195,7 @@ uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, St
 	{
 		SmallString<16> buf;
 		llvm::raw_svector_ostream bufStream(buf);
-		bufStream << ".a" << i << '0';
+		bufStream << ".a" << i;
 		bufStream.flush();
 		baseCount=compileClassTypeRecursive(baseName+buf.c_str(), cast<StructType>(currentType->getElementType(i)), baseCount);
 	}

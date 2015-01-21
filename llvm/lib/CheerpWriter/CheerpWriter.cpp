@@ -741,7 +741,7 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 			assert(isa<ConstantInt>(indices[i]));
 			const APInt& index = cast<Constant>(indices[i])->getUniqueInteger();
 
-			stream << ".a" << index << '0';
+			stream << ".a" << index;
 			if((i!=indices.size()-1) && useWrapperArrayForMember(st, index.getLimitedValue()))
 				stream << "[0]";
 
@@ -842,14 +842,14 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 		stream << '[';
 
 		compilePointerOffset(p);
-		stream << '+';
 
 		if(!isOffsetConstantZero)
+		{
+			stream << '+';
 			compileOperand(offset);
-		else
-			stream << '0';
+		}
 
-		stream << ']';
+		stream << ">>0]";
 	}
 	else
 	{
@@ -1141,7 +1141,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
-			stream << 'a' << i << "0:";
+			stream << 'a' << i << ":";
 			bool useWrapperArray = useWrapperArrayForMember(d->getType(), i);
 			if (useWrapperArray)
 				stream << '[';
@@ -1501,7 +1501,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				stream << namegen.getName(aggr);
 			}
 			uint32_t offset=ivi.getIndices()[0];
-			stream << ".a" << offset << "0=";
+			stream << ".a" << offset << '=';
 			compileOperand(ivi.getInsertedValueOperand());
 			return COMPILE_OK;
 		}
@@ -1660,6 +1660,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 			{
 				stream << '+';
 				compileOperand(indices.front());
+				stream << ">>0";
 			}
 
 			stream << '}';
@@ -2132,7 +2133,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			compileOperand(aggr);
 
 			uint32_t offset=evi.getIndices()[0];
-			stream << ".a" << offset << '0';
+			stream << ".a" << offset;
 			return COMPILE_OK;
 		}
 		case Instruction::FPExt:
@@ -2644,7 +2645,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				stream << '[' << u->getOperandNo() << ']';
 			else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
 			{
-				stream << ".a" << u->getOperandNo() << '0';
+				stream << ".a" << u->getOperandNo();
 				if (useWrapperArrayForMember(cs->getType(), u->getOperandNo()))
 					stream << "[0]";
 			}
