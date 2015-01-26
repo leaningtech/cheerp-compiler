@@ -2861,6 +2861,17 @@ bool GVNPass::performScalarPRE(Instruction *CurInst) {
   if (NumWithout > 1 || NumWith == 0)
     return false;
 
+  // Avoid moving pointer which will be heavy on Cheerp
+  const DataLayout &DL = CurInst->getModule()->getDataLayout();
+  if (!DL.isByteAddressable() && CurInst->getType()->isPointerTy()) {
+    Type *elementType = CurInst->getType()->getPointerElementType();
+    if(elementType->isPointerTy() || elementType->isIntegerTy() || elementType->isFloatTy() || elementType->isDoubleTy())
+      return false;
+    StructType *st = dyn_cast<StructType>(elementType);
+    if (st && st->hasByteLayout())
+      return false;
+  }
+
   // We may have a case where all predecessors have the instruction,
   // and we just need to insert a phi node. Otherwise, perform
   // insertion.
