@@ -16,6 +16,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Support/Timer.h"
 
 namespace cheerp {
@@ -125,6 +126,58 @@ public:
 	static PointerKindWrapper staticDefaultValue;
 };
 
+class PointerConstantOffsetWrapper
+{
+public:
+	enum STATUS { UNINITALIZED = 0, VALID, INVALID };
+private:
+	const llvm::ConstantInt* offset;
+	STATUS status;
+	void clearConstraints()
+	{
+		constraints.clear();
+	}
+public:
+	std::vector<IndirectPointerKindConstraint> constraints;
+	PointerConstantOffsetWrapper():offset(NULL),status(UNINITALIZED)
+	{
+	}
+	PointerConstantOffsetWrapper(const llvm::ConstantInt* o, STATUS s = VALID):offset(o),status(s)
+	{
+		if(o == NULL && s == VALID)
+			status = INVALID;
+	}
+	PointerConstantOffsetWrapper(INDIRECT_POINTER_KIND_CONSTRAINT constraint, const void* ptr, uint32_t i=0):offset(NULL),status(UNINITALIZED)
+	{
+		constraints.emplace_back(constraint, ptr, i);
+	}
+	PointerConstantOffsetWrapper& operator|=(const PointerConstantOffsetWrapper& rhs);
+	bool isInvalid() const
+	{
+		return status == INVALID;
+	}
+	bool isValid() const
+	{
+		return status == VALID;
+	}
+	bool isUninitialized() const
+	{
+		return status == UNINITALIZED;
+	}
+	bool hasConstraints() const
+	{
+		return !constraints.empty();
+	}
+	const llvm::ConstantInt* getPointerOffset() const
+	{
+		assert(status == VALID);
+		return offset;
+	}
+	void dump() const;
+
+	static PointerConstantOffsetWrapper staticDefaultValue;
+};
+
 class PointerAnalyzer : public llvm::ModulePass
 {
 public:
@@ -185,6 +238,7 @@ public:
 	const PointerKindWrapper& getFinalPointerKindWrapper(const llvm::Value* v ) const;
 	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
 	static bool hasNonLoadStoreUses ( const llvm::Value* v );
+	const llvm::ConstantInt* getConstantOffsetForPointer( const llvm::Value* ) const;
 
 	/**
 	 * Functions to manually invalidate the cache
@@ -195,6 +249,8 @@ public:
 
 	// Fully resolve indirect pointer kinds. After you call this function you should not call invalidate anymore.
 	void fullResolve();
+	// Compute all the offsets for REGULAR pointer which may be assumed constant
+	void computeConstantOffsets(const llvm::Module& M );
 
 #ifndef NDEBUG
 	mutable bool fullyResolved;
@@ -233,9 +289,12 @@ public:
 	};
 
 	typedef PointerData<PointerKindWrapper> PointerKindData;
+	typedef PointerData<PointerConstantOffsetWrapper> PointerOffsetData;
 private:
 	const PointerKindWrapper& getFinalPointerKindWrapperForReturn(const llvm::Function* F) const;
+	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Value*) const;
 	mutable PointerKindData pointerKindData;
+	mutable PointerOffsetData pointerOffsetData;
 	mutable AddressTakenMap addressTakenCache;
 
 #ifndef NDEBUG
