@@ -261,6 +261,14 @@ private:
 		{
 			compileCompleteObject(p);
 		}
+		else if (PA.getConstantOffsetForPointer(p))
+		{
+			stream << "{d:";
+			compilePointerBase(p, true);
+			stream << ",o:";
+			compilePointerOffset(p);
+			stream << "}";
+		}
 		else
 		{
 			assert(PA.getPointerKind(p) == REGULAR || PA.getPointerKind(p) == BYTE_LAYOUT);

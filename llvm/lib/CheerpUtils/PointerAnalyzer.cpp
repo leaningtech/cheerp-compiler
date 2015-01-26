@@ -26,6 +26,7 @@ using namespace llvm;
 namespace cheerp {
 
 PointerKindWrapper PointerKindWrapper::staticDefaultValue(COMPLETE_OBJECT);
+PointerConstantOffsetWrapper PointerConstantOffsetWrapper::staticDefaultValue(NULL, PointerConstantOffsetWrapper::INVALID);
 
 void IndirectPointerKindConstraint::dump() const
 {
@@ -90,6 +91,58 @@ void PointerKindWrapper::dump() const
 		dbgs() << "Indirect kind\n";
 	else
 		dbgs() << "Wraps plain kind " << kind << "\n";
+
+	for(const IndirectPointerKindConstraint& c: constraints)
+		c.dump();
+}
+
+PointerConstantOffsetWrapper& PointerConstantOffsetWrapper::operator|=(const PointerConstantOffsetWrapper & rhs)
+{
+	PointerConstantOffsetWrapper& lhs=*this;
+
+	if(lhs.status == INVALID || rhs.status == INVALID)
+	{
+		lhs.clearConstraints();
+		lhs.status = INVALID;
+		return lhs;
+	}
+
+	// Merge the constraints, if any
+	if (rhs.hasConstraints())
+		lhs.constraints.insert(lhs.constraints.end(), rhs.constraints.begin(), rhs.constraints.end());
+	else
+		assert(rhs.status != UNINITALIZED);
+
+	// From now on both offsets can only be UNINITALIZED or VALID
+	if(rhs.status == UNINITALIZED)
+		return lhs;
+
+	if(lhs.status == UNINITALIZED)
+	{
+		lhs.status = rhs.status;
+		lhs.offset = rhs.offset;
+		return lhs;
+	}
+
+	// Both are VALID, check if the are the same constant
+	assert(rhs.offset != NULL && lhs.offset != NULL);
+
+	if(rhs.offset != lhs.offset)
+	{
+		lhs.offset = NULL;
+		lhs.status = INVALID;
+		lhs.clearConstraints();
+		return lhs;
+	}
+
+	// Both are valid and contain the same constant
+	return lhs;
+}
+
+void PointerConstantOffsetWrapper::dump() const
+{
+	if(status==VALID)
+		dbgs() << "Constant offset " << *offset << "\n";
 
 	for(const IndirectPointerKindConstraint& c: constraints)
 		c.dump();
@@ -635,6 +688,125 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 	return PointerKindWrapper::staticDefaultValue;
 }
 
+struct PointerConstantOffsetVisitor
+{
+	PointerConstantOffsetVisitor( PointerAnalyzer::PointerOffsetData& pointerOffsetData ) : pointerOffsetData(pointerOffsetData) {}
+
+	PointerConstantOffsetWrapper& visitValue(PointerConstantOffsetWrapper& ret, const Value* v);
+	static const llvm::ConstantInt* getPointerOffsetFromGEP( const llvm::Value* v );
+
+	PointerAnalyzer::PointerOffsetData& pointerOffsetData;
+	llvm::DenseSet< const llvm::Value* > closedset;
+};
+
+struct PointerResolverForOffsetVisitor: public PointerResolverBaseVisitor<PointerConstantOffsetWrapper>
+{
+	PointerResolverForOffsetVisitor(const PointerAnalyzer::PointerOffsetData& pointerData):PointerResolverBaseVisitor<PointerConstantOffsetWrapper>(pointerData){}
+	PointerConstantOffsetWrapper resolvePointerOffset(const PointerConstantOffsetWrapper& o);
+};
+
+const ConstantInt* PointerConstantOffsetVisitor::getPointerOffsetFromGEP(const Value* p)
+{
+	if(!isGEP(p))
+		return NULL;
+	const User* gep=cast<User>(p);
+	if (gep->getNumOperands() == 2)
+		return NULL;
+	SmallVector<Value*, 4> indexes;
+	for(uint32_t i=1;i<gep->getNumOperands()-1;i++)
+		indexes.push_back(*(gep->op_begin()+i));
+	Type* containerType = GetElementPtrInst::getIndexedType(
+				(*gep->op_begin())->getType(), indexes);
+	if (containerType->isStructTy())
+		return NULL;
+	return dyn_cast<ConstantInt>(*std::prev(gep->op_end()));
+}
+
+PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerConstantOffsetWrapper& ret, const Value* v)
+{
+	// At the moment PHIs are not supported, so we don't expect any recursion
+	assert(closedset.insert(v).second);
+
+	// Find out if the pointer offset can be a constant
+	auto CacheAndReturn = [&](PointerConstantOffsetWrapper& o) -> PointerConstantOffsetWrapper&
+	{
+		// Do not recurse below here
+		closedset.erase(v);
+		assert(!o.isUninitialized() || o.hasConstraints());
+		return pointerOffsetData.valueMap.insert( std::make_pair(v, o ) ).first->second;
+	};
+
+	if ( isGEP(v) )
+		return CacheAndReturn(ret |= getPointerOffsetFromGEP(v));
+
+	if(const StoreInst* SI=dyn_cast<StoreInst>(v))
+	{
+		assert(SI->getValueOperand()->getType()->isPointerTy());
+		PointerConstantOffsetWrapper& o = visitValue(ret, SI->getValueOperand());
+
+		if (PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
+		{
+			pointerOffsetData.baseStructAndIndexMapForPointers[baseAndIndex] |= o;
+			return CacheAndReturn(ret |= PointerConstantOffsetWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index));
+		}
+		else
+			return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
+	}
+
+	if(const LoadInst* LI=dyn_cast<LoadInst>(v))
+	{
+		if (PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getPointerOperand()))
+			return CacheAndReturn(ret |= PointerConstantOffsetWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index));
+	}
+
+	return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
+}
+
+PointerConstantOffsetWrapper PointerResolverForOffsetVisitor::resolvePointerOffset(const PointerConstantOffsetWrapper& o)
+{
+	assert(!o.isInvalid());
+	assert(o.hasConstraints());
+	// 'o' may be VALID (which means it contains a valid offset) or UNINITALIZED
+	const llvm::ConstantInt* offset = o.isValid() ? o.getPointerOffset() : NULL;
+	for(uint32_t i=0;i<o.constraints.size();i++)
+	{
+		if(!closedset.insert(o.constraints[i]).second)
+			continue;
+		const PointerConstantOffsetWrapper& c = resolveConstraint(o.constraints[i]);
+		if(c.isInvalid())
+			return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
+		// 'c' is VALID or UNINITALIZED
+		if(c.isValid())
+		{
+			if(offset == NULL)
+				offset = c.getPointerOffset();
+			else if(offset != c.getPointerOffset())
+				return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
+		}
+		if(c.hasConstraints())
+		{
+			const PointerConstantOffsetWrapper& resolved = resolvePointerOffset(c);
+			// No constrains allowed below here!
+			assert(!resolved.hasConstraints());
+			if(resolved.isInvalid())
+				return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
+			if(resolved.isUninitialized())
+				continue;
+			assert(resolved.isValid());
+			if(offset == NULL)
+				offset = resolved.getPointerOffset();
+			else if(offset != resolved.getPointerOffset())
+				return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
+		}
+	}
+	// No constrains were INVALID, so if offset is still NULL it means we should be UNINITALIZED
+	// Otherwise we found a valid value
+	if (offset == NULL)
+		return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::UNINITALIZED);
+	else
+		return PointerConstantOffsetWrapper(offset, PointerConstantOffsetWrapper::VALID);
+}
+
 struct TimerGuard
 {
 	TimerGuard(Timer & timer) : timer(timer)
@@ -708,6 +880,23 @@ const PointerKindWrapper& PointerAnalyzer::getFinalPointerKindWrapperForReturn(c
 	assert(&it->second == &k);
 #endif
 	return k;
+}
+
+const PointerConstantOffsetWrapper& PointerAnalyzer::getFinalPointerConstantOffsetWrapper(const Value* p) const
+{
+	// If the values is already cached just return it
+	auto it = pointerOffsetData.valueMap.find(p);
+	if(it!=pointerOffsetData.valueMap.end())
+		return it->second;
+
+	PointerConstantOffsetWrapper ret;
+	PointerConstantOffsetWrapper& o = PointerConstantOffsetVisitor(pointerOffsetData).visitValue(ret, p);
+#ifndef NDEBUG
+	it = pointerOffsetData.valueMap.find(p);
+	assert(it!=pointerOffsetData.valueMap.end());
+	assert(&it->second == &o);
+#endif
+	return o;
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
@@ -818,7 +1007,6 @@ PointerAnalyzer::TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(cons
 	return PointerAnalyzer::TypeAndIndex(NULL, 0);
 }
 
-
 bool PointerAnalyzer::hasNonLoadStoreUses( const Value* v)
 {
 	for(const Use& U: v->uses())
@@ -831,6 +1019,29 @@ bool PointerAnalyzer::hasNonLoadStoreUses( const Value* v)
 		return true;
 	}
 	return false;
+}
+
+const ConstantInt* PointerAnalyzer::getConstantOffsetForPointer(const Value * v) const
+{
+	auto it=pointerOffsetData.valueMap.find(v);
+	if(it==pointerOffsetData.valueMap.end())
+		return NULL;
+
+	if(!it->second.hasConstraints())
+	{
+		assert(!it->second.isUninitialized());
+		if(it->second.isInvalid())
+			return NULL;
+		else if(it->second.isValid())
+			return it->second.getPointerOffset();
+	}
+	assert(!it->second.isInvalid());
+	const PointerConstantOffsetWrapper& ret=PointerResolverForOffsetVisitor(pointerOffsetData).resolvePointerOffset(it->second);
+	if(ret.isInvalid() || ret.isUninitialized())
+		return NULL;
+	assert(ret.isValid());
+	assert(ret.getPointerOffset());
+	return ret.getPointerOffset();
 }
 
 void PointerAnalyzer::invalidate(const Value * v)
@@ -864,6 +1075,8 @@ void PointerAnalyzer::invalidate(const Value * v)
 		prefetchFunc(*F);
 		//TODO: Return
 	}
+	// Constant offsets should only be computed at the end, so they should be never invalidated
+	assert( !pointerOffsetData.valueMap.count(v) );
 }
 
 void PointerAnalyzer::fullResolve()
@@ -905,8 +1118,28 @@ void PointerAnalyzer::fullResolve()
 #endif
 }
 
+void PointerAnalyzer::computeConstantOffsets(const Module& M)
+{
 #ifndef NDEBUG
+	assert(fullyResolved);
+#endif
+	for(const Function & F : M)
+	{
+		for(const BasicBlock & BB : F)
+		{
+			for(auto it=BB.rbegin();it != BB.rend();++it)
+			{
+				if(it->getType()->isPointerTy() ||
+					(isa<StoreInst>(*it) && it->getOperand(0)->getType()->isPointerTy()))
+				{
+					getFinalPointerConstantOffsetWrapper(&(*it));
+				}
+			}
+		}
+	}
+}
 
+#ifndef NDEBUG
 void PointerAnalyzer::dumpPointer(const Value* v, bool dumpOwnerFunc) const
 {
 	llvm::formatted_raw_ostream fmt( llvm::errs() );
