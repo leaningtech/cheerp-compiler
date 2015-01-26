@@ -863,60 +863,23 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	}
 }
 
-void CheerpWriter::compilePointerBase(const Value* p)
+void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 {
-	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
-	// If the value has byte layout skip GEPS and BitCasts until the base is found
-	if ( byteLayout )
-	{
-		while ( isBitCast(p) || isGEP(p) )
-		{
-			const Value* operand = cast<User>(p)->getOperand(0);
-			if ( PA.getPointerKind(operand) != BYTE_LAYOUT)
-				break;
-			p = operand;
-		}
-		if ( isBitCast(p))
-			compileCompleteObject(cast<User>(p)->getOperand(0));
-		else
-			compileCompleteObject(p);
-		return;
-	}
 	// Collapse if p is a gepInst
-	while(const User* gepInst = propagate_till_gep(p, PA))
+	if(const User* gepInst = propagate_till_gep(p, PA))
 	{
 		assert(gepInst->getNumOperands() > 1);
-
-		// Load the indices
-		SmallVector< const Value*, 8 > indices(std::next(gepInst->op_begin()), gepInst->op_end());
-
-		if(indices.size() > 1)
-		{
-			Type* basePointerType = gepInst->getOperand(0)->getType();
-			Type* basePointedType = basePointerType->getPointerElementType();
-			Type* tp = GetElementPtrInst::getIndexedType(basePointerType,
-					makeArrayRef(const_cast<Value* const*>(indices.begin()),
-						     const_cast<Value* const*>(indices.end() - 1)));
-
-			// If we have gep(val, idx, ..., iN ) the base is always gep(val, idx, ... )
-			// we want to write val. access_expression
-			compileCompleteObject(gepInst->getOperand(0), indices.front());
-			if (tp->isStructTy())
-				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()));
-			else
-				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), std::prev(indices.end())));
-
-			// We are done
-			return;
-		}
-		else
-		{
-			// If we have gep(val, idx) the base is val regardless of the value of idx
-			p = gepInst->getOperand(0);
-		}
+		return compileGEPBase(gepInst, forEscapingPointer);
 	}
 
-	if(PA.getPointerKind(p) != REGULAR)
+	if(isBitCast(p))
+	{
+		const Value* operand = cast<User>(p)->getOperand(0);
+		assert(PA.getPointerKind(p) != BYTE_LAYOUT || PA.getPointerKind(operand) == BYTE_LAYOUT);
+		return compilePointerBase(operand, forEscapingPointer);
+	}
+
+	if(PA.getPointerKind(p) == COMPLETE_OBJECT)
 	{
 		llvm::errs() << "compilePointerBase with COMPLETE_OBJECT pointer:" << *p << '\n' << "In function: " << *currentFun << '\n';
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
@@ -933,7 +896,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 	// We need to handle the first GEP having more than an index (so it actually changes types)
 	// to support BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY
 	// If offsetMode is BYTE_LAYOUT_OFFSET_FULL we can treat every GEP in the same way
-	bool findFirstTypeChangingGEP = (offsetMode == BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY);
+	bool findFirstTypeChangingGEP = (offsetMode != BYTE_LAYOUT_OFFSET_FULL);
 	const Value* lastOffset = NULL;
 	while ( isBitCast(p) || isGEP(p) )
 	{
@@ -950,7 +913,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 				{
 					uint32_t index = cast<ConstantInt>( indices[i] )->getZExtValue();
 					const StructLayout* SL = targetData.getStructLayout( ST );
-					if (!skipUntilBytelayout)
+					if (!skipUntilBytelayout && (offsetMode != BYTE_LAYOUT_OFFSET_NO_PRINT))
 						stream << SL->getElementOffset(index) << '+';
 					curType = ST->getElementType(index);
 				}
@@ -959,13 +922,13 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 					if (findFirstTypeChangingGEP && indices.size() > 1 && i == (indices.size() - 1))
 					{
 						assert (curType->isArrayTy());
-						assert (offsetMode == BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY);
+						assert (offsetMode != BYTE_LAYOUT_OFFSET_FULL);
 						// We have found an array just before the last type, the last offset will be returned instead of used directly.
 						lastOffset = indices[i];
 						break;
 					}
 					// This case also handles the first index
-					if (!skipUntilBytelayout)
+					if (!skipUntilBytelayout && (offsetMode != BYTE_LAYOUT_OFFSET_NO_PRINT))
 					{
 						compileOperand( indices[i] );
 						stream << '*' << targetData.getTypeAllocSize(curType->getSequentialElementType()) << '+';
@@ -981,15 +944,19 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 		// In any case, close the summation here
 		if(byteLayoutFromHere)
 		{
-			stream << '0';
+			if(offsetMode != BYTE_LAYOUT_OFFSET_NO_PRINT)
+				stream << '0';
 			return lastOffset;
 		}
 		p = u->getOperand(0);
 		continue;
 	}
 	assert (PA.getPointerKind(p) == BYTE_LAYOUT);
-	compileCompleteObject(p);
-	stream << ".o";
+	if(offsetMode != BYTE_LAYOUT_OFFSET_NO_PRINT)
+	{
+		compileCompleteObject(p);
+		stream << ".o";
+	}
 	return NULL;
 }
 
@@ -1006,30 +973,10 @@ void CheerpWriter::compilePointerOffset(const Value* p)
 	if ( byteLayout )
 	{
 		compileByteLayoutOffset(p, BYTE_LAYOUT_OFFSET_FULL);
-		return;
 	}
-	const User* gep_inst = propagate_till_gep(p, PA);
-
-	if(gep_inst)
+	else if(const User* gep_inst = propagate_till_gep(p, PA))
 	{
-		SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
-
-		if(indices.size() == 1)
-		{
-			compilePointerOffset(gep_inst->getOperand(0));
-
-			bool isOffsetConstantZero = isa<Constant>(indices.front()) && cast<Constant>(indices.front())->isNullValue();
-
-			if(!isOffsetConstantZero)
-			{
-				stream << '+';
-				compileOperand(indices.front());
-			}
-		}
-		else
-		{
-			compileOffsetForGEP(gep_inst->getOperand(0)->getType(), indices);
-		}
+		compileGEPOffset(gep_inst);
 	}
 	else
 	{
@@ -1569,11 +1516,152 @@ bool CheerpWriter::useWrapperArrayForMember(StructType* st, uint32_t memberIndex
 	return PA.getPointerKindForMember(baseAndIndex)==REGULAR;
 }
 
-void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
+void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPointer)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
 	Type* basePointerType = gep_inst->getOperand(0)->getType();
 	Type* targetType = gep_inst->getType()->getPointerElementType();
+
+	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType,
+			makeArrayRef(const_cast<Value* const*>(indices.begin()),
+				     const_cast<Value* const*>(indices.end() - 1))));
+	bool useDownCastArray = false;
+	if(containerStructType && indices.size() > 1)
+	{
+		assert(isa<ConstantInt>(indices.back()));
+		const ConstantInt* idx = cast<ConstantInt>(indices.back());
+		uint32_t lastOffsetConstant = idx->getZExtValue();
+		if(types.hasBasesInfo(containerStructType))
+		{
+			uint32_t firstBase, baseCount;
+			types.getBasesInfo(containerStructType, firstBase, baseCount);
+			if(lastOffsetConstant >= firstBase && lastOffsetConstant < (firstBase+baseCount))
+				useDownCastArray = true;
+		}
+	}
+
+	bool byteLayout = PA.getPointerKind(gep_inst) == BYTE_LAYOUT;
+	if (byteLayout)
+	{
+		const Value* baseOperand = gep_inst->getOperand(0);
+		bool byteLayoutFromHere = PA.getPointerKind(baseOperand) != BYTE_LAYOUT;
+		if (byteLayoutFromHere)
+			compileCompleteObject(gep_inst);
+		else if (!TypeSupport::hasByteLayout(targetType) && forEscapingPointer)
+		{
+			assert(TypeSupport::isTypedArrayType(targetType));
+			// Forge an appropiate typed array
+			assert (!TypeSupport::hasByteLayout(targetType));
+			stream << "new ";
+			compileTypedArrayType(targetType);
+			stream << '(';
+			compilePointerBase( baseOperand );
+			stream << ".buffer,";
+			// If this GEP or a previous one passed through an array of immutables generate a regular from
+			// the start of the array and not from the pointed element
+			compileByteLayoutOffset( gep_inst, BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY );
+			stream << ')';
+		}
+		else
+			compilePointerBase( baseOperand );
+	}
+	else if (indices.size() == 1)
+	{
+		// Just another pointer from this one
+		compilePointerBase(gep_inst->getOperand(0));
+	}
+	else
+	{
+		compileCompleteObject(gep_inst->getOperand(0), indices.front());
+		Type* basePointedType = basePointerType->getPointerElementType();
+		if (useDownCastArray)
+		{
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()));
+			stream << ".a";
+		}
+		else if(containerStructType)
+		{
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()));
+		}
+		else
+		{
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())));
+		}
+	}
+}
+
+void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
+{
+	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
+	Type* basePointerType = gep_inst->getOperand(0)->getType();
+	Type* targetType = gep_inst->getType()->getPointerElementType();
+
+	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType,
+			makeArrayRef(const_cast<Value* const*>(indices.begin()),
+				     const_cast<Value* const*>(indices.end() - 1))));
+	bool useDownCastArray = false;
+	if(containerStructType && indices.size() > 1)
+	{
+		assert(isa<ConstantInt>(indices.back()));
+		const ConstantInt* idx = cast<ConstantInt>(indices.back());
+		uint32_t lastOffsetConstant = idx->getZExtValue();
+		if(types.hasBasesInfo(containerStructType))
+		{
+			uint32_t firstBase, baseCount;
+			types.getBasesInfo(containerStructType, firstBase, baseCount);
+			if(lastOffsetConstant >= firstBase && lastOffsetConstant < (firstBase+baseCount))
+				useDownCastArray = true;
+		}
+	}
+
+	bool byteLayout = PA.getPointerKind(gep_inst) == BYTE_LAYOUT;
+	if (byteLayout)
+	{
+		if (TypeSupport::hasByteLayout(targetType))
+			compilePointerOffset( gep_inst );
+		else
+		{
+			assert(TypeSupport::isTypedArrayType(targetType));
+			// If this GEP or a previous one passed through an array of immutables generate a regular from
+			// the start of the array and not from the pointed element
+			const Value* lastOffset = compileByteLayoutOffset( gep_inst, BYTE_LAYOUT_OFFSET_NO_PRINT );
+			if (lastOffset)
+				compileOperand(lastOffset);
+			else
+				stream << '0';
+		}
+	}
+	else if (indices.size() == 1)
+	{
+		bool isOffsetConstantZero = isa<Constant>(indices.front()) && cast<Constant>(indices.front())->isNullValue();
+
+		// Just another pointer from this one
+		compilePointerOffset(gep_inst->getOperand(0));
+
+		if(!isOffsetConstantZero)
+		{
+			stream << '+';
+			compileOperand(indices.front());
+		}
+	}
+	else
+	{
+		if (useDownCastArray)
+		{
+			Type* basePointedType = basePointerType->getPointerElementType();
+			compileCompleteObject(gep_inst->getOperand(0), indices.front());
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()));
+			stream << ".o";
+		}
+		else
+			compileOffsetForGEP(gep_inst->getOperand(0)->getType(), indices);
+	}
+}
+
+void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
+{
+	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
+	Type* basePointerType = gep_inst->getOperand(0)->getType();
 
 	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType,
 			makeArrayRef(const_cast<Value* const*>(indices.begin()),
@@ -1608,88 +1696,13 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	}
 	else
 	{
-		bool byteLayout = PA.getPointerKind(gep_inst) == BYTE_LAYOUT;
-		if (byteLayout)
-		{
-			if (TypeSupport::hasByteLayout(targetType))
-			{
-				stream << "{d:";
-				compilePointerBase( gep_inst );
-				stream << ",o:";
-				compilePointerOffset( gep_inst );
-				stream << '}';
-			}
-			else
-			{
-				assert(TypeSupport::isTypedArrayType(targetType));
-				stream << "{d:";
-				// Forge an appropiate typed array
-				assert (!TypeSupport::hasByteLayout(targetType));
-				stream << "new ";
-				compileTypedArrayType(targetType);
-				stream << '(';
-				compilePointerBase( gep_inst );
-				stream << ".buffer,";
-				// If this GEP or a previous one passed through an array of immutables generate a regular from
-				// the start of the array and not from the pointed element
-				const Value* lastOffset = compileByteLayoutOffset( gep_inst, BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY );
-				stream << "),o:";
-				if (lastOffset)
-					compileOperand(lastOffset);
-				else
-					stream << '0';
-				stream << '}';
-			}
-		}
-		else if (indices.size() == 1)
-		{
-			bool isOffsetConstantZero = isa<Constant>(indices.front()) && cast<Constant>(indices.front())->isNullValue();
 
-			// Just another pointer from this one
-			stream << "{d:";
-			compilePointerBase(gep_inst->getOperand(0));
-			stream << ",o:";
-			compilePointerOffset(gep_inst->getOperand(0));
-
-			if(!isOffsetConstantZero)
-			{
-				stream << '+';
-				compileOperand(indices.front());
-				stream << ">>0";
-			}
-
-			stream << '}';
-		}
-		else
-		{
-			
-			Type* basePointedType = basePointerType->getPointerElementType();
-			stream << "{d:";
-			compileCompleteObject(gep_inst->getOperand(0), indices.front());
-			if (useDownCastArray)
-			{
-				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()));
-				stream << ".a";
-			}
-			else if(containerStructType)
-			{
-				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()));
-			}
-			else
-			{
-				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())));
-			}
-			stream << ",o:";
-			if (useDownCastArray)
-			{
-				compileCompleteObject(gep_inst->getOperand(0), indices.front());
-				compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()));
-				stream << ".o";
-			}
-			else
-				compileOffsetForGEP(gep_inst->getOperand(0)->getType(), indices);
-			stream << '}';
-		}
+		stream << "{d:";
+		compileGEPBase( gep_inst, true );
+		stream << ",o:";
+		compileGEPOffset( gep_inst );
+		stream << ">>0";
+		stream << '}';
 	}
 }
 
