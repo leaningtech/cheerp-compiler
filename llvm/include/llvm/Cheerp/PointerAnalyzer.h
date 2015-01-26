@@ -82,11 +82,11 @@ public:
 	{
 		constraints.emplace_back(constraint, ptr, i);
 	}
-	bool operator==(uint32_t rhs) const
+	bool operator==(POINTER_KIND rhs) const
 	{
 		return kind==rhs;
 	}
-	bool operator!=(uint32_t rhs) const
+	bool operator!=(POINTER_KIND rhs) const
 	{
 		return kind!=rhs;
 	}
@@ -121,6 +121,8 @@ public:
 		kind = getPointerKindForKnown();
 	}
 	void dump() const;
+
+	static PointerKindWrapper staticDefaultValue;
 };
 
 class PointerAnalyzer : public llvm::ModulePass
@@ -199,11 +201,6 @@ public:
 	// Dump a pointer value info
 	void dumpPointer(const llvm::Value * v, bool dumpOwnerFuncion = true) const;
 #endif //NDEBUG
-
-	typedef llvm::DenseMap<const llvm::Value*, PointerKindWrapper> ValueKindMap;
-	typedef llvm::DenseMap<llvm::Type*, PointerKindWrapper> TypeKindMap;
-	typedef llvm::DenseMap<llvm::Type*, PointerKindWrapper> ReturnTypeKindMap;
-	typedef std::map<TypeAndIndex, PointerKindWrapper> TypeAndIndexMap;
 	struct AddressTakenMap: public llvm::DenseMap<const llvm::Function*, bool>
 	{
 		bool checkAddressTaken(const llvm::Function* F)
@@ -219,22 +216,27 @@ public:
 				return it->second;
 		}
 	};
-	struct PointerKindData
+	template<class T>
+	struct PointerData
 	{
-		ValueKindMap valueCache;
+		typedef llvm::DenseMap<const llvm::Value*, T> ValueKindMap;
+		typedef llvm::DenseMap<llvm::Type*, T> TypeKindMap;
+		typedef llvm::DenseMap<llvm::Type*, T> ReturnTypeKindMap;
+		typedef std::map<TypeAndIndex, T> TypeAndIndexMap;
+		ValueKindMap valueMap;
 		TypeKindMap storedTypeMap;
 		// This map stores constraints about pointer to members
 		TypeAndIndexMap baseStructAndIndexMapForMembers;
 		// This map stores constraints about pointers stored and loaded from a member which is a pointer
 		TypeAndIndexMap baseStructAndIndexMapForPointers;
 		ReturnTypeKindMap returnTypeMap;
-		AddressTakenMap addressTakenCache;
 	};
 
-	static PointerKindWrapper staticCompleteObjectKind;
+	typedef PointerData<PointerKindWrapper> PointerKindData;
 private:
 	const PointerKindWrapper& getFinalPointerKindWrapperForReturn(const llvm::Function* F) const;
 	mutable PointerKindData pointerKindData;
+	mutable AddressTakenMap addressTakenCache;
 
 #ifndef NDEBUG
 	mutable llvm::TimerGroup timerGroup;
