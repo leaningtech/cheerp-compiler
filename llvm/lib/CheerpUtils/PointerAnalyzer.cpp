@@ -250,6 +250,23 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			return CacheAndReturn(k);
 		}
 	}
+
+	if(const StoreInst* SI=dyn_cast<StoreInst>(p))
+	{
+		assert(SI->getValueOperand()->getType()->isPointerTy());
+		if(getKindForType(SI->getValueOperand()->getType()->getPointerElementType()) != UNKNOWN)
+			return CacheAndReturn(ret |= getKindForType(SI->getValueOperand()->getType()->getPointerElementType()));
+		if(PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
+			ret |= PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index);
+		else
+			ret |= PointerKindWrapper( STORED_TYPE_CONSTRAINT, SI->getValueOperand()->getType()->getPointerElementType());
+		// Only cache the result for SI when not recursing, otherwise we would poison the kind of SI with the other uses of valOp
+		if(first)
+			return CacheAndReturn(ret);
+		else
+			return ret;
+	}
+
 	llvm::Type * type = p->getType()->getPointerElementType();
 
 	bool isIntrinsic = false;
@@ -379,13 +396,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 	}
 
 	if ( (isa<StoreInst>(p) && U->getOperandNo() == 0 ))
-	{
-		PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(p->getOperand(1));
-		if (baseAndIndex)
-			return ret |= PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index);
-		else
-			return ret |= PointerKindWrapper( STORED_TYPE_CONSTRAINT, U->get()->getType()->getPointerElementType() );
-	}
+		return visitValue(ret, p, /*first*/ false);
 
 	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
 		return ret |= REGULAR;
@@ -640,8 +651,13 @@ void PointerAnalyzer::prefetchFunc(const Function& F) const
 	for(const BasicBlock & BB : F)
 	{
 		for(auto it=BB.rbegin();it != BB.rend();++it)
-			if(it->getType()->isPointerTy())
+		{
+			if(it->getType()->isPointerTy() ||
+				(isa<StoreInst>(*it) && it->getOperand(0)->getType()->isPointerTy()))
+			{
 				getFinalPointerKindWrapper(&(*it));
+			}
+		}
 	}
 	if(F.getReturnType()->isPointerTy())
 		getFinalPointerKindWrapperForReturn(&F);

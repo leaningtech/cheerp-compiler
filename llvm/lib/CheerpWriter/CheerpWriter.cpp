@@ -1545,12 +1545,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			if(valOp->getType()->isIntegerTy())
 				compileSignedInteger(valOp);
 			else if(valOp->getType()->isPointerTy())
-			{
-				if(PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(ptrOp))
-					compilePointerAs(valOp, PA.getPointerKindForMemberPointer(baseAndIndex));
-				else
-					compilePointerAs(valOp, PA.getPointerKindForStoredType(valOp->getType()));
-			}
+				compilePointerAs(valOp, PA.getPointerKind(&si));
 			else
 				compileOperand(valOp);
 			return COMPILE_OK;
