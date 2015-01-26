@@ -103,7 +103,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			return false;
 		return true;
 	}
-	else if(I.hasOneUse())
+	else if(!I.hasNUsesOrMore(2))
 	{
 		switch(I.getOpcode())
 		{
@@ -111,6 +111,8 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			case Instruction::Call:
 			case Instruction::Load:
 			{
+				if(I.use_empty())
+					return false;
 				const Instruction* nextInst=I.getNextNode();
 				assert(nextInst);
 				return I.user_back()==nextInst && (isa<StoreInst>(nextInst) || isa<ReturnInst>(nextInst));
