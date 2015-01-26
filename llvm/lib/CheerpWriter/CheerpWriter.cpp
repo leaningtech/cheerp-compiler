@@ -887,7 +887,8 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 
 	// If value has not been generated from a GEP, just compile it and ask for .d
 	compileOperand(p);
-	stream << ".d";
+	if(!PA.getConstantOffsetForPointer(p))
+		stream << ".d";
 }
 
 const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode)
@@ -977,6 +978,11 @@ void CheerpWriter::compilePointerOffset(const Value* p)
 	else if(const User* gep_inst = propagate_till_gep(p, PA))
 	{
 		compileGEPOffset(gep_inst);
+	}
+	else if (const ConstantInt* CI = PA.getConstantOffsetForPointer(p))
+	{
+		// Check if the offset has been constantized for this pointer
+		compileConstant(CI);
 	}
 	else
 	{
@@ -1233,7 +1239,8 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(incomingInst &&
 				writer.registerize.getRegisterId(phi)==writer.registerize.getRegisterId(incomingInst) &&
-				(!phiType->isPointerTy() || writer.PA.getPointerKind(phi)==writer.PA.getPointerKind(incoming)))
+				(!phiType->isPointerTy() || writer.PA.getPointerKind(phi)==writer.PA.getPointerKind(incoming)) &&
+				writer.PA.getConstantOffsetForPointer(phi)==writer.PA.getConstantOffsetForPointer(incoming))
 			{
 				return;
 			}
@@ -1492,7 +1499,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			if(valOp->getType()->isIntegerTy())
 				compileSignedInteger(valOp);
 			else if(valOp->getType()->isPointerTy())
-				compilePointerAs(valOp, PA.getPointerKind(&si));
+			{
+				POINTER_KIND storedKind = PA.getPointerKind(&si);
+				// If regular see if we can omit the offset part
+				if(storedKind==REGULAR && PA.getConstantOffsetForPointer(&si))
+					compilePointerBase(valOp);
+				else
+					compilePointerAs(valOp, storedKind);
+			}
 			else
 				compileOperand(valOp);
 			return COMPILE_OK;
@@ -1696,6 +1710,13 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	}
 	else
 	{
+		if (PA.getConstantOffsetForPointer(gep_inst))
+		{
+			Type* basePointedType = basePointerType->getPointerElementType();
+			compileCompleteObject(gep_inst->getOperand(0), indices.front());
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())));
+			return;
+		}
 
 		stream << "{d:";
 		compileGEPBase( gep_inst, true );
