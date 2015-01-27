@@ -239,6 +239,7 @@ public:
 	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
 	static bool hasNonLoadStoreUses ( const llvm::Value* v );
 	const llvm::ConstantInt* getConstantOffsetForPointer( const llvm::Value* ) const;
+	const llvm::ConstantInt* getConstantOffsetForMember( const TypeAndIndex& baseAndIndex ) const;
 
 	/**
 	 * Functions to manually invalidate the cache

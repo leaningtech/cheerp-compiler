@@ -261,6 +261,10 @@ private:
 		{
 			compileCompleteObject(p);
 		}
+		else if (llvm::isa<llvm::ConstantPointerNull>(p))
+		{
+			stream << "nullObj";
+		}
 		else if (PA.getConstantOffsetForPointer(p))
 		{
 			stream << "{d:";

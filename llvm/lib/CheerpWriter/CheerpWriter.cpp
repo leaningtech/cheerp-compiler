@@ -885,6 +885,12 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
 
+	if(isa<ConstantPointerNull>(p))
+	{
+		stream << "nullArray";
+		return;
+	}
+
 	// If value has not been generated from a GEP, just compile it and ask for .d
 	compileOperand(p);
 	if(!PA.getConstantOffsetForPointer(p))

@@ -759,6 +759,12 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			return CacheAndReturn(ret |= PointerConstantOffsetWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index));
 	}
 
+	if(isa<ConstantPointerNull>(v))
+	{
+		Type* Int32Ty=IntegerType::get(v->getContext(), 32);
+		return CacheAndReturn(ret |= PointerConstantOffsetWrapper(cast<ConstantInt>(ConstantInt::get(Int32Ty, 0))));
+	}
+
 	return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
 }
 
@@ -1025,6 +1031,29 @@ const ConstantInt* PointerAnalyzer::getConstantOffsetForPointer(const Value * v)
 {
 	auto it=pointerOffsetData.valueMap.find(v);
 	if(it==pointerOffsetData.valueMap.end())
+		return NULL;
+
+	if(!it->second.hasConstraints())
+	{
+		assert(!it->second.isUninitialized());
+		if(it->second.isInvalid())
+			return NULL;
+		else if(it->second.isValid())
+			return it->second.getPointerOffset();
+	}
+	assert(!it->second.isInvalid());
+	const PointerConstantOffsetWrapper& ret=PointerResolverForOffsetVisitor(pointerOffsetData).resolvePointerOffset(it->second);
+	if(ret.isInvalid() || ret.isUninitialized())
+		return NULL;
+	assert(ret.isValid());
+	assert(ret.getPointerOffset());
+	return ret.getPointerOffset();
+}
+
+const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForMember( const TypeAndIndex& baseAndIndex ) const
+{
+	auto it=pointerOffsetData.baseStructAndIndexMapForPointers.find(baseAndIndex);
+	if(it==pointerOffsetData.baseStructAndIndexMapForPointers.end())
 		return NULL;
 
 	if(!it->second.hasConstraints())
