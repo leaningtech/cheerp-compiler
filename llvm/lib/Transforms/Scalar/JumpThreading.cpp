@@ -519,6 +519,8 @@ static unsigned getJumpThreadDuplicationCost(BasicBlock *BB,
   // terminator-based Size adjustment at the end.
   Threshold += Bonus;
 
+  const DataLayout &DL = BB->getModule()->getDataLayout();
+
   // Sum up the cost of each instruction until we get to the terminator.  Don't
   // include the terminator because the copy won't include it.
   unsigned Size = 0;
@@ -530,6 +532,19 @@ static unsigned getJumpThreadDuplicationCost(BasicBlock *BB,
 
     // Debugger intrinsics don't incur code size.
     if (isa<DbgInfoIntrinsic>(I)) continue;
+
+    // On Cheerp do not ever duplicate a block which contains a pointer to an immutable type used outside of the block
+    if (!DL.isByteAddressable())
+    {
+      if (I->getType()->isPointerTy() && I->getType()->getPointerElementType()->isSingleValueType())
+      {
+        for (const User* U: I->users())
+        {
+          if (cast<Instruction>(U)->getParent() != BB)
+            return ~0U;
+        }
+      }
+    }
 
     // If this is a pointer->pointer bitcast, it is free.
     if (isa<BitCastInst>(I) && I->getType()->isPointerTy())
@@ -1267,6 +1282,10 @@ static bool isOpDefinedInBlock(Value *Op, BasicBlock *BB) {
 bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
   // Don't hack volatile and ordered loads.
   if (!LoadI->isUnordered()) return false;
+
+  const DataLayout &DL = LoadI->getModule()->getDataLayout();
+  if (!DL.isByteAddressable() && LoadI->getType()->isSingleValueType())
+    return false;
 
   // If the load is defined in a block with exactly one predecessor, it can't be
   // partially redundant.
