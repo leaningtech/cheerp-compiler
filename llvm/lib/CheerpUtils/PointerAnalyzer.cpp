@@ -619,7 +619,7 @@ POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp)
 	if ( TypeSupport::isImmutableType( tp ) )
 		return REGULAR;
 
-	return (POINTER_KIND)UNKNOWN;
+	return UNKNOWN;
 }
 
 template<class T>
