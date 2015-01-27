@@ -36,7 +36,7 @@ void IndirectPointerKindConstraint::dump() const
 			dbgs() << "\tDepends on return value of: " << funcPtr->getName() << "\n";
 			break;
 		case DIRECT_ARG_CONSTRAINT:
-			dbgs() << "\tDepends on argument " << i << " of " << funcPtr->getName() << "\n";
+			dbgs() << "\tDepends on argument " << argPtr->getArgNo() << " of " << argPtr->getParent()->getName() << "\n";
 			break;
 		case STORED_TYPE_CONSTRAINT:
 			dbgs() << "Depends on stored type " << *typePtr << "\n";
@@ -539,7 +539,9 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			return ret |= REGULAR;
 		}
 
-		return ret |= PointerKindWrapper(DIRECT_ARG_CONSTRAINT, calledFunction, argNo);
+		Function::const_arg_iterator arg = calledFunction->arg_begin();
+		std::advance(arg, argNo);
+		return ret |= PointerKindWrapper(DIRECT_ARG_CONSTRAINT, arg);
 	}
 
 	if ( const ReturnInst * retInst = dyn_cast<ReturnInst>(p) )
@@ -637,10 +639,8 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 		}
 		case DIRECT_ARG_CONSTRAINT:
 		{
-			Function::const_arg_iterator arg = c.funcPtr->arg_begin();
-			std::advance(arg, c.i);
-			assert(pointerData.valueMap.count(arg));
-			return pointerData.valueMap.find(arg)->second;
+			assert(pointerData.valueMap.count(c.argPtr));
+			return pointerData.valueMap.find(c.argPtr)->second;
 		}
 		case STORED_TYPE_CONSTRAINT:
 		{

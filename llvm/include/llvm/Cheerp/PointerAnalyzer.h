@@ -38,6 +38,7 @@ struct IndirectPointerKindConstraint
 	{
 		const llvm::Function* funcPtr;
 		llvm::Type* typePtr;
+		const llvm::Argument* argPtr;
 		const void* ptr;
 	};
 	uint32_t i;
