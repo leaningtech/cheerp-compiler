@@ -97,6 +97,8 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 				{
 					if (PA.getPointerKindForMemberPointer(baseAndIndex)==COMPLETE_OBJECT)
 						stream << "null";
+					else if (PA.getConstantOffsetForMember(baseAndIndex))
+						stream << "nullArray";
 					else
 						stream << "nullObj";
 				}
