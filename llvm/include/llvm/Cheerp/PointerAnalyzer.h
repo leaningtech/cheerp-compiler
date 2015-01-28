@@ -29,7 +29,8 @@ enum POINTER_KIND {
 	INDIRECT
 };
 
-enum INDIRECT_POINTER_KIND_CONSTRAINT { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT, RETURN_TYPE_CONSTRAINT, BASE_AND_INDEX_CONSTRAINT};
+enum INDIRECT_POINTER_KIND_CONSTRAINT { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT, RETURN_TYPE_CONSTRAINT, BASE_AND_INDEX_CONSTRAINT,
+	INDIRECT_ARG_CONSTRAINT, DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN };
 
 struct IndirectPointerKindConstraint
 {
@@ -257,6 +258,7 @@ public:
 	POINTER_KIND getPointerKindForArgumentType( llvm::Type * pointerType ) const;
 	POINTER_KIND getPointerKindForMemberPointer( const TypeAndIndex& baseAndIndex ) const;
 	POINTER_KIND getPointerKindForMember( const TypeAndIndex& baseAndIndex ) const;
+	POINTER_KIND getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const;
 	const PointerKindWrapper& getFinalPointerKindWrapper(const llvm::Value* v ) const;
 	static TypeAndIndex getBaseStructAndIndexFromGEP( const llvm::Value* v );
 	static bool hasNonLoadStoreUses ( const llvm::Value* v );
@@ -309,6 +311,9 @@ public:
 		// This map stores constraints about pointers stored and loaded from a member which is a pointer
 		TypeAndIndexMap baseStructAndIndexMapForPointers;
 		ReturnTypeKindMap returnTypeMap;
+		// This map stores constraints about a pointer argument for a given argument index
+		TypeAndIndexMap paramTypeMap;
+		ValueKindMap argsMap;
 	};
 
 	typedef PointerData<PointerKindWrapper> PointerKindData;
