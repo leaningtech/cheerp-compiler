@@ -84,6 +84,12 @@ public:
 	{
 		constraints.emplace_back(constraint, ptr, i);
 	}
+	PointerKindWrapper(const PointerKindWrapper& rhs)
+	{
+		assert(this != &rhs);
+		kind = rhs.kind;
+		constraints = rhs.constraints;
+	}
 	bool operator==(POINTER_KIND rhs) const
 	{
 		return kind==rhs;
