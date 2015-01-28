@@ -47,6 +47,12 @@ void IndirectPointerKindConstraint::dump() const
 		case BASE_AND_INDEX_CONSTRAINT:
 			dbgs() << "Depends on index " << i << " of struct " << *typePtr << "\n";
 			break;
+		case INDIRECT_ARG_CONSTRAINT:
+			dbgs() << "Depends on argument " << i << " of type pointer to " << *typePtr << "\n";
+			break;
+		case DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN:
+			dbgs() << "\tDepends on argument " << argPtr->getArgNo() << " of " << argPtr->getParent()->getName() << ", if it is used indirectly\n";
+			break;
 	}
 }
 
@@ -382,8 +388,15 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 
 	if(const Argument* arg = dyn_cast<Argument>(p))
 	{
-		if(addressTakenCache.checkAddressTaken(arg->getParent()))
-			return CacheAndReturn(ret |= REGULAR);
+		Type* argPointedType = arg->getType()->getPointerElementType();
+		pointerKindData.paramTypeMap[PointerAnalyzer::TypeAndIndex(argPointedType, arg->getArgNo(), PointerAnalyzer::TypeAndIndex::ARGUMENT)] |=
+					PointerKindWrapper( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg );
+
+		assert(first);
+		PointerKindWrapper& k = visitAllUses(ret, p);
+		k.makeKnown();
+		pointerKindData.argsMap[arg] = k;
+		return CacheAndReturn(ret = PointerKindWrapper( DIRECT_ARG_CONSTRAINT, arg ) );
 	}
 
 	// TODO this is not really necessary,
@@ -527,9 +540,17 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		if ( cs.isCallee(U) )
 			return ret |= COMPLETE_OBJECT;
 
+		Type* pointedType = U->get()->getType()->getPointerElementType();
+
+		// We need to check for basic type kinds here, because visitValue may have not done it,
+		// for example when computing kinds for members
+		if(getKindForType(pointedType) != UNKNOWN)
+			return ret |= getKindForType(pointedType);
+
 		const Function * calledFunction = cs.getCalledFunction();
+		// TODO: Use function type
 		if ( !calledFunction )
-			return ret |= REGULAR;
+			return ret |= PointerKindWrapper(INDIRECT_ARG_CONSTRAINT, pointedType, U->getOperandNo());
 
 		unsigned argNo = cs.getArgumentNo(U);
 
@@ -639,8 +660,17 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 		}
 		case DIRECT_ARG_CONSTRAINT:
 		{
-			assert(pointerData.valueMap.count(c.argPtr));
-			return pointerData.valueMap.find(c.argPtr)->second;
+			// If the function has its address taken we need to do the indirect arg check
+			if (addressTakenCache.checkAddressTaken(c.argPtr->getParent()))
+			{
+				Type* argPointedType = c.argPtr->getType()->getPointerElementType();
+				return resolveConstraint(IndirectPointerKindConstraint( INDIRECT_ARG_CONSTRAINT, argPointedType, c.argPtr->getArgNo()));
+			}
+			else
+			{
+				assert(pointerData.argsMap.count(c.argPtr));
+				return pointerData.argsMap.find(c.argPtr)->second;
+			}
 		}
 		case STORED_TYPE_CONSTRAINT:
 		{
@@ -666,6 +696,26 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 			if(it==pointerData.baseStructAndIndexMapForPointers.end())
 				return T::staticDefaultValue;
 			return it->second;
+		}
+		case INDIRECT_ARG_CONSTRAINT:
+		{
+			Type* argPointedType = c.typePtr;
+			const auto& it=pointerData.paramTypeMap.find(PointerAnalyzer::TypeAndIndex( argPointedType, c.i,
+												PointerAnalyzer::TypeAndIndex::ARGUMENT ));
+			if(it==pointerData.paramTypeMap.end())
+				return T::staticDefaultValue;
+			return it->second;
+		}
+		case DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN:
+		{
+			// If the function address is not taken we can ignore this constraint
+			if (!addressTakenCache.checkAddressTaken(c.argPtr->getParent()))
+				return T::staticDefaultValue;
+			else
+			{
+				assert(pointerData.argsMap.count(c.argPtr));
+				return pointerData.argsMap.find(c.argPtr)->second;
+			}
 		}
 	}
 	assert(false);
@@ -959,6 +1009,24 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgumentType(Type* pointerType) c
 	return PointerUsageVisitor::getKindForType(pointerType->getPointerElementType());
 }
 
+POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const
+{
+	Type* pointedType = argTypeAndIndex.type;
+	uint32_t argNo = argTypeAndIndex.index;
+	POINTER_KIND ret=PointerUsageVisitor::getKindForType(pointedType);
+	if(ret!=UNKNOWN)
+		return ret;
+
+	const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolveConstraint(
+										IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, pointedType, argNo));
+	assert(k!=UNKNOWN);
+
+	if (k!=INDIRECT)
+		return k.getPointerKind();
+
+	return PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(k).getPointerKind();
+}
+
 POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex& baseAndIndex) const
 {
 	Type* elementType = cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index);
@@ -1140,6 +1208,14 @@ void PointerAnalyzer::fullResolve()
 		it.second=k;
 	}
 	for(auto& it: pointerKindData.baseStructAndIndexMapForMembers)
+	{
+		if(it.second!=INDIRECT)
+			continue;
+		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second);
+		assert(k==COMPLETE_OBJECT || k==REGULAR);
+		it.second=k;
+	}
+	for(auto& it: pointerKindData.paramTypeMap)
 	{
 		if(it.second!=INDIRECT)
 			continue;

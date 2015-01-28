@@ -1294,7 +1294,8 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		}
 	}
 
-	for(User::const_op_iterator cur=it; cur!=itE; ++cur)
+	uint32_t opCount = 0;
+	for(User::const_op_iterator cur=it; cur!=itE; ++cur, ++opCount)
 	{
 		if(cur!=it)
 			stream << ',';
@@ -1306,12 +1307,17 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			// Calling convention:
 			// If this is a direct call and the argument is not a variadic one,
 			// we pass the kind decided by getPointerKind(arg_it).
-			// Otherwise we pass the generic kind for the pointer type
-			// (that is: CO if client or function pointer, REGULAR otherwise )
-			POINTER_KIND k = (F && arg_it != F->arg_end()) ?
-			                 PA.getPointerKind(arg_it) :
-			                 PA.getPointerKindForArgumentType(tp);
-			compilePointerAs(*cur, k);
+			// If it's variadic we use the base kind derived from the type
+			// If it's indirect we use a kind good for any argument of a given type at a given position
+			if (!F)
+			{
+				PointerAnalyzer::TypeAndIndex typeAndIndex(tp->getPointerElementType(), opCount, PointerAnalyzer::TypeAndIndex::ARGUMENT);
+				compilePointerAs(*cur, PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex));
+			}
+			else if (arg_it != F->arg_end())
+				compilePointerAs(*cur, PA.getPointerKind(arg_it));
+			else
+				compilePointerAs(*cur, PA.getPointerKindForArgumentType(tp));
 		}
 		else
 		{
