@@ -453,7 +453,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 	if (isa<ConstantStruct>(p))
 	{
 		// Build a TypeAndIndex struct to get the normalized type
-		PointerAnalyzer::TypeAndIndex baseAndIndex(p->getType(), U->getOperandNo());
+		PointerAnalyzer::TypeAndIndex baseAndIndex(p->getType(), U->getOperandNo(), PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
 		return ret |= PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index );
 	}
 
@@ -661,7 +661,8 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 		case BASE_AND_INDEX_CONSTRAINT:
 		{
 			// We will resolve this constraint indirectly through the baseStructAndIndexMapForPointers map
-			const auto& it=pointerData.baseStructAndIndexMapForPointers.find(PointerAnalyzer::TypeAndIndex( c.typePtr, c.i ));
+			const auto& it=pointerData.baseStructAndIndexMapForPointers.find(PointerAnalyzer::TypeAndIndex( c.typePtr, c.i,
+											PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER ));
 			if(it==pointerData.baseStructAndIndexMapForPointers.end())
 				return T::staticDefaultValue;
 			return it->second;
@@ -996,10 +997,10 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAn
 PointerAnalyzer::TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(const Value* p)
 {
 	if(!isGEP(p))
-		return PointerAnalyzer::TypeAndIndex(NULL, 0);
+		return PointerAnalyzer::TypeAndIndex(NULL, 0, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
 	const User* gep=cast<User>(p);
 	if (gep->getNumOperands() == 2)
-		return PointerAnalyzer::TypeAndIndex(NULL, 0);
+		return PointerAnalyzer::TypeAndIndex(NULL, 0, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
 
 	SmallVector<Value*, 4> indexes;
 	for(uint32_t i=1;i<gep->getNumOperands()-1;i++)
@@ -1012,9 +1013,9 @@ PointerAnalyzer::TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(cons
 		Value* lastIndex = *std::prev(gep->op_end());
 		assert(isa<ConstantInt>(lastIndex));
 		uint32_t lastOffsetConstant =  cast<ConstantInt>(lastIndex)->getZExtValue();
-		return PointerAnalyzer::TypeAndIndex(containerType, lastOffsetConstant);
+		return PointerAnalyzer::TypeAndIndex(containerType, lastOffsetConstant, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
 	}
-	return PointerAnalyzer::TypeAndIndex(NULL, 0);
+	return PointerAnalyzer::TypeAndIndex(NULL, 0, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
 }
 
 bool PointerAnalyzer::hasNonLoadStoreUses( const Value* v)

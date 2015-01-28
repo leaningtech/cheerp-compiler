@@ -1106,7 +1106,8 @@ void CheerpWriter::compileConstant(const Constant* c)
 				stream << '[';
 			Type* elementType = d->getOperand(i)->getType();
 			if(elementType->isPointerTy())
-				compilePointerAs(d->getOperand(i), PA.getPointerKindForMemberPointer(PointerAnalyzer::TypeAndIndex(d->getType(), i)));
+				compilePointerAs(d->getOperand(i), PA.getPointerKindForMemberPointer(PointerAnalyzer::TypeAndIndex(d->getType(), i,
+													PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER)));
 			else
 				compileOperand(d->getOperand(i));
 
@@ -1532,7 +1533,7 @@ bool CheerpWriter::useWrapperArrayForMember(StructType* st, uint32_t memberIndex
 			return false;
 	}
 	// We don't want to use the wrapper array if the downcast array is alredy available
-	PointerAnalyzer::TypeAndIndex baseAndIndex(st, memberIndex);
+	PointerAnalyzer::TypeAndIndex baseAndIndex(st, memberIndex, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
 	return PA.getPointerKindForMember(baseAndIndex)==REGULAR;
 }
 
@@ -2690,7 +2691,8 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		Value* valOp = subExpr.back()->get();
 		if (valOp->getType()->isPointerTy())
 		{
-			PointerAnalyzer::TypeAndIndex b(subExpr.back()->getUser()->getType(), subExpr.back()->getOperandNo());
+			PointerAnalyzer::TypeAndIndex b(subExpr.back()->getUser()->getType(), subExpr.back()->getOperandNo(),
+							PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
 			compilePointerAs(valOp, PA.getPointerKindForMemberPointer(b));
 		}
 		else
