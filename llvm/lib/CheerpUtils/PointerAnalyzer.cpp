@@ -389,14 +389,20 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	if(const Argument* arg = dyn_cast<Argument>(p))
 	{
 		Type* argPointedType = arg->getType()->getPointerElementType();
-		pointerKindData.paramTypeMap[PointerAnalyzer::TypeAndIndex(argPointedType, arg->getArgNo(), PointerAnalyzer::TypeAndIndex::ARGUMENT)] |=
-					PointerKindWrapper( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg );
-
 		assert(first);
 		PointerKindWrapper& k = visitAllUses(ret, p);
 		k.makeKnown();
 		pointerKindData.argsMap[arg] = k;
-		return CacheAndReturn(ret = PointerKindWrapper( DIRECT_ARG_CONSTRAINT, arg ) );
+
+		// Keep track of the constraint for each argument/type pair, but only if the function is indirectly used
+		if(addressTakenCache.checkAddressTaken(arg->getParent()))
+		{
+			pointerKindData.paramTypeMap[PointerAnalyzer::TypeAndIndex(argPointedType, arg->getArgNo(), PointerAnalyzer::TypeAndIndex::ARGUMENT)] |=
+						PointerKindWrapper( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg );
+			return CacheAndReturn(ret = PointerKindWrapper( DIRECT_ARG_CONSTRAINT, arg ) );
+		}
+		else
+			return CacheAndReturn(k);
 	}
 
 	// TODO this is not really necessary,
