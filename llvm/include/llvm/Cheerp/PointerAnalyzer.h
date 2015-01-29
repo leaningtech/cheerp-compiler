@@ -35,6 +35,7 @@ enum INDIRECT_POINTER_KIND_CONSTRAINT { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT
 struct IndirectPointerKindConstraint
 {
 	INDIRECT_POINTER_KIND_CONSTRAINT kind;
+	uint32_t i;
 	union
 	{
 		const llvm::Function* funcPtr;
@@ -42,8 +43,7 @@ struct IndirectPointerKindConstraint
 		const llvm::Argument* argPtr;
 		const void* ptr;
 	};
-	uint32_t i;
-	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p, uint32_t i):kind(k),ptr(p),i(i)
+	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p, uint32_t i):kind(k),i(i),ptr(p)
 	{
 	}
 	bool operator<(const IndirectPointerKindConstraint& rhs) const
