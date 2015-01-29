@@ -466,7 +466,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 	}
 
 	// Constant data in memory is considered stored
-	if (isa<ConstantArray>(p))
+	if (isa<ConstantArray>(p) || isa<GlobalVariable>(p))
 		return ret |= PointerKindWrapper( STORED_TYPE_CONSTRAINT, U->get()->getType()->getPointerElementType() );
 
 	if (isa<ConstantStruct>(p))
@@ -587,9 +587,6 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 
 	if(isa<SelectInst> (p) || isa <PHINode>(p))
 		return visitValue(ret, p, /*first*/ false);
-
-	if ( isa<Constant>(p) )
-		return ret |= REGULAR;
 
 	return ret |= COMPLETE_OBJECT;
 }
