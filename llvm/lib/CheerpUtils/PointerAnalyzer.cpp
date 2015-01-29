@@ -319,6 +319,9 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		}
 	}
 
+	if((isa<AllocaInst>(p) || isa<GlobalVariable>(p)) && !PointerAnalyzer::hasNonLoadStoreUses(p))
+		return CacheAndReturn(ret |= COMPLETE_OBJECT);
+
 	if(const StoreInst* SI=dyn_cast<StoreInst>(p))
 	{
 		assert(SI->getValueOperand()->getType()->isPointerTy());
