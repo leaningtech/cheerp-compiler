@@ -165,6 +165,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				requiredConstructors.end(),
 				std::back_inserter(constructorsNeeded),
 				getConstructorFunction );
+
+		reachableGlobals.insert(constructorVar);
+		varsOrder.push_back(constructorVar);
 	}
 	NumRemovedGlobals = filterModule(module);
 	return true;
