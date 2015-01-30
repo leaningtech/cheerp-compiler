@@ -96,7 +96,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 				if ((*E)->isPointerTy())
 				{
 					if (PA.getPointerKindForMemberPointer(baseAndIndex)==COMPLETE_OBJECT)
-						stream << "null";
+						stream << "nullRef";
 					else if (PA.getConstantOffsetForMember(baseAndIndex))
 						stream << "nullArray";
 					else
@@ -115,7 +115,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 		case Type::PointerTyID:
 		{
 			if(PA.getPointerKindForStoredType(t)==COMPLETE_OBJECT)
-				stream << "null";
+				stream << "nullRef";
 			else
 				stream << "nullObj";
 			break;
@@ -244,7 +244,7 @@ void CheerpWriter::compileArrayClassType(StructType* T)
 
 void CheerpWriter::compileArrayPointerType()
 {
-	stream << "function createPointerArray(ret, start) { for(var __i__=start;__i__<ret.length;__i__++) ret[__i__]={ d: null, o: 0}; return ret; }"
+	stream << "function createPointerArray(ret, start) { for(var __i__=start;__i__<ret.length;__i__++) ret[__i__]={ d: nullArray, o: 0}; return ret; }"
 		<< NewLine;
 }
 
