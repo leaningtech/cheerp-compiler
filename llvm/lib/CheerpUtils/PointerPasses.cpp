@@ -19,6 +19,7 @@
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -495,6 +496,61 @@ void PointerToImmutablePHIRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 }
 
 FunctionPass *createPointerToImmutablePHIRemovalPass() { return new PointerToImmutablePHIRemoval(); }
+
+void FreeAndDeleteRemoval::deleteInstructionAndUnusedOperands(Instruction* I)
+{
+	SmallVector<Instruction*, 4> operandsToErase;
+	for(Value* op: I->operands())
+	{
+		if(Instruction* opI = dyn_cast<Instruction>(op))
+		{
+			if(opI->hasOneUse())
+				operandsToErase.push_back(opI);
+		}
+	}
+	I->eraseFromParent();
+	for(Instruction* I: operandsToErase)
+		deleteInstructionAndUnusedOperands(I);
+}
+
+bool FreeAndDeleteRemoval::runOnFunction(Function& F)
+{
+	bool Changed = false;
+
+	for ( BasicBlock& BB : F )
+	{
+		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
+		{
+			CallInst * call = dyn_cast<CallInst>(it++);
+			if (!call)
+				continue;
+			Function* F = call->getCalledFunction();
+			if(!F)
+				continue;
+			if(F->getIntrinsicID()==Intrinsic::cheerp_deallocate ||
+				F->getName()=="free")
+			{
+				deleteInstructionAndUnusedOperands(call);
+				Changed = true;
+			}
+		}
+	}
+	return Changed;
+}
+
+const char* FreeAndDeleteRemoval::getPassName() const
+{
+	return "FreeAndDeleteRemoval";
+}
+
+char FreeAndDeleteRemoval::ID = 0;
+
+void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
+{
+	llvm::Pass::getAnalysisUsage(AU);
+}
+
+FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
 }
 
