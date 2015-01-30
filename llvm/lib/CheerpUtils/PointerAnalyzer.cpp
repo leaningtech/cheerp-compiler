@@ -173,6 +173,15 @@ bool PointerAnalyzer::runOnModule(Module& M)
 {
 	for(const Function & F : M)
 		prefetchFunc(F);
+
+	for(const GlobalVariable & GV : M.getGlobalList())
+	{
+		if(!GV.hasInitializer())
+			continue;
+		if(!GV.getInitializer()->getType()->isStructTy())
+			continue;
+		getFinalPointerConstantOffsetWrapper(GV.getInitializer());
+	}
 	return false;
 }
 
@@ -818,6 +827,22 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	{
 		if (PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getPointerOperand()))
 			return CacheAndReturn(ret |= PointerConstantOffsetWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index));
+	}
+
+	if(const ConstantStruct* CS=dyn_cast<ConstantStruct>(v))
+	{
+		Type* structType = CS->getType();
+		// We need to keep track of all offsets for each member
+		for(uint32_t i=0;i<CS->getNumOperands();i++)
+		{
+			const Value* op = CS->getOperand(i);
+			if(!op->getType()->isPointerTy())
+				continue;
+			PointerConstantOffsetWrapper localRet;
+			PointerAnalyzer::TypeAndIndex typeAndIndex(structType, i, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+			pointerOffsetData.baseStructAndIndexMapForPointers[typeAndIndex] |= visitValue(localRet, op);
+		}
+		return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
 	}
 
 	if(isa<ConstantPointerNull>(v))
