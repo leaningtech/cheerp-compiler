@@ -794,20 +794,28 @@ const ConstantInt* PointerConstantOffsetVisitor::getPointerOffsetFromGEP(const V
 
 PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerConstantOffsetWrapper& ret, const Value* v)
 {
-	// At the moment PHIs are not supported, so we don't expect any recursion
-	assert(closedset.insert(v).second);
+	if(!closedset.insert(v).second)
+		return ret;
 
 	// Find out if the pointer offset can be a constant
 	auto CacheAndReturn = [&](PointerConstantOffsetWrapper& o) -> PointerConstantOffsetWrapper&
 	{
 		// Do not recurse below here
 		closedset.erase(v);
-		assert(!o.isUninitialized() || o.hasConstraints());
+		if(o.isUninitialized() && !o.hasConstraints())
+			return o;
 		return pointerOffsetData.valueMap.insert( std::make_pair(v, o ) ).first->second;
 	};
 
 	if ( isGEP(v) )
+	{
+		if(PointerAnalyzer::TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(v))
+		{
+			if(PointerAnalyzer::hasNonLoadStoreUses(v))
+				pointerOffsetData.baseStructAndIndexMapForPointers[b] |= PointerConstantOffsetWrapper( NULL, PointerConstantOffsetWrapper::INVALID );
+		}
 		return CacheAndReturn(ret |= getPointerOffsetFromGEP(v));
+	}
 
 	if(const StoreInst* SI=dyn_cast<StoreInst>(v))
 	{
@@ -829,6 +837,19 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			return CacheAndReturn(ret |= PointerConstantOffsetWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index));
 	}
 
+	if(isBitCast(v))
+		return CacheAndReturn(visitValue(ret, cast<User>(v)->getOperand(0)));
+
+	if(const PHINode* phi=dyn_cast<PHINode>(v))
+	{
+		for(uint32_t i=0;i<phi->getNumIncomingValues();i++)
+		{
+			const Value* incoming = phi->getIncomingValue(i);
+			visitValue(ret, incoming);
+		}
+		return CacheAndReturn(ret);
+	}
+
 	if(const ConstantStruct* CS=dyn_cast<ConstantStruct>(v))
 	{
 		Type* structType = CS->getType();
@@ -845,10 +866,21 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
 	}
 
+	Type* Int32Ty=IntegerType::get(v->getContext(), 32);
+	ConstantInt* Zero = cast<ConstantInt>(ConstantInt::get(Int32Ty, 0));
 	if(isa<ConstantPointerNull>(v))
+		return CacheAndReturn(ret |= Zero);
+
+	if(const CallInst * CI = dyn_cast<CallInst>(v))
 	{
-		Type* Int32Ty=IntegerType::get(v->getContext(), 32);
-		return CacheAndReturn(ret |= PointerConstantOffsetWrapper(cast<ConstantInt>(ConstantInt::get(Int32Ty, 0))));
+		Function* F = CI->getCalledFunction();
+		if(!F)
+			return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
+		if(F->getIntrinsicID()==Intrinsic::cheerp_allocate ||
+			F->getIntrinsicID()==Intrinsic::cheerp_reallocate)
+		{
+			return CacheAndReturn(ret |= Zero);
+		}
 	}
 
 	return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
