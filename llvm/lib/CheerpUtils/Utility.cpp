@@ -548,6 +548,8 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		const PHINode* phi=dyn_cast<PHINode>(I);
 		if(!phi)
 			break;
+		if(phi->use_empty())
+			continue;
 		const Value* val=phi->getIncomingValueForBlock(fromBB);
 		const Instruction* I=dyn_cast<Instruction>(val);
 		if(!I)
