@@ -122,6 +122,28 @@ public:
 //
 FunctionPass *createPointerToImmutablePHIRemovalPass();
 
+/**
+ * This pass removes all free/delete/delete[] calls as their are no-op in Cheerp
+ */
+class FreeAndDeleteRemoval: public FunctionPass
+{
+private:
+	void deleteInstructionAndUnusedOperands(Instruction* I);
+public:
+	static char ID;
+	explicit FreeAndDeleteRemoval() : FunctionPass(ID) { }
+	bool runOnFunction(Function &F);
+	const char *getPassName() const;
+
+	virtual void getAnalysisUsage(AnalysisUsage&) const override;
+};
+
+//===----------------------------------------------------------------------===//
+//
+// FreeAndDeleteRemoval
+//
+FunctionPass *createFreeAndDeleteRemovalPass();
+
 }
 
 #endif
