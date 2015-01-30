@@ -295,8 +295,10 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	uint32_t typeSize = targetData.getTypeAllocSize(t);
 
 	POINTER_KIND result = PA.getPointerKind(info.getInstruction());
+	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());
+	bool needsRegular = result==REGULAR && !constantOffset;
 
-	if(result == REGULAR)
+	if(needsRegular)
 	{
 		stream << "{d:";
 	}
@@ -454,7 +456,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 			stream << "return __old__;})()";
 	}
 
-	if(result == REGULAR)
+	if(needsRegular)
 	{
 		stream << ",o:0}";
 	}
@@ -1106,8 +1108,14 @@ void CheerpWriter::compileConstant(const Constant* c)
 				stream << '[';
 			Type* elementType = d->getOperand(i)->getType();
 			if(elementType->isPointerTy())
-				compilePointerAs(d->getOperand(i), PA.getPointerKindForMemberPointer(PointerAnalyzer::TypeAndIndex(d->getType(), i,
-													PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER)));
+			{
+				PointerAnalyzer::TypeAndIndex baseAndIndex(d->getType(), i, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+				POINTER_KIND k = PA.getPointerKindForMemberPointer(baseAndIndex);
+				if(k==REGULAR && PA.getConstantOffsetForMember(baseAndIndex))
+					compilePointerBase(d->getOperand(i));
+				else
+					compilePointerAs(d->getOperand(i), k);
+			}
 			else
 				compileOperand(d->getOperand(i));
 
@@ -1254,7 +1262,13 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			writer.stream << "var " << writer.namegen.getName(phi) << '=';
 			writer.namegen.setEdgeContext(fromBB, toBB);
 			if(phiType->isPointerTy())
-				writer.compilePointerAs(incoming, writer.PA.getPointerKind(phi));
+			{
+				POINTER_KIND k=writer.PA.getPointerKind(phi);
+				if(k==REGULAR && writer.PA.getConstantOffsetForPointer(phi))
+					writer.compilePointerBase(incoming);
+				else
+					writer.compilePointerAs(incoming, k);
+			}
 			else
 				writer.compileOperand(incoming);
 			writer.stream << ';' << writer.NewLine;
@@ -1809,7 +1823,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				}
 			}
 
-			compilePointerAs(bi.getOperand(0), PA.getPointerKind(&I));
+			POINTER_KIND k=PA.getPointerKind(&I);
+			if(k==REGULAR && PA.getConstantOffsetForPointer(&I))
+				compilePointerBase(bi.getOperand(0));
+			else
+				compilePointerAs(bi.getOperand(0), k);
 			return COMPILE_OK;
 		}
 		case Instruction::FPToSI:
