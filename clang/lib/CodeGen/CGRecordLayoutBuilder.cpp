@@ -204,6 +204,7 @@ struct CGRecordLowering {
   llvm::DenseMap<const FieldDecl *, CGBitFieldInfo> BitFields;
   llvm::DenseMap<const CXXRecordDecl *, unsigned> NonVirtualBases;
   llvm::DenseMap<const CXXRecordDecl *, unsigned> VirtualBases;
+  llvm::StructType* DirectBase;
   bool IsZeroInitializable : 1;
   bool IsZeroInitializableAsBase : 1;
   bool Packed : 1;
@@ -225,7 +226,7 @@ CGRecordLowering::CGRecordLowering(CodeGenTypes &Types, const RecordDecl *D,
     : Types(Types), Context(Types.getContext()), D(D),
       RD(dyn_cast<CXXRecordDecl>(D)),
       Layout(Types.getContext().getASTRecordLayout(D)),
-      DataLayout(Types.getDataLayout()), IsZeroInitializable(true),
+      DataLayout(Types.getDataLayout()), DirectBase(NULL), IsZeroInitializable(true),
       IsZeroInitializableAsBase(true), Packed(Packed),
       firstBaseElement(0xffffffff), totalNumberOfBases(1) {}
 
@@ -699,6 +700,7 @@ void CGRecordLowering::fillOutputFields() {
       assert(isa<llvm::StructType>(Member->Data));
       llvm::StructType* ST = cast<llvm::StructType>(Member->Data);
       FieldTypes.insert(FieldTypes.end(), ST->element_begin(), ST->element_end());
+      DirectBase = ST;
       continue;
     }
     if (Member->Data)
@@ -787,7 +789,7 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
   // Fill in the struct *after* computing the base type.  Filling in the body
   // signifies that the type is no longer opaque and record layout is complete,
   // but we may need to recursively layout D while laying D out as a base type.
-  Ty->setBody(Builder.FieldTypes, Builder.Packed);
+  Ty->setBody(Builder.FieldTypes, Builder.Packed, Builder.DirectBase);
 
   auto RL = std::make_unique<CGRecordLayout>(
       Ty, BaseTy, (bool)Builder.IsZeroInitializable,
