@@ -4424,8 +4424,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return RValue::get(Builder.CreateStore(ArgPtr, DestAddr));
   }
 
+  case Builtin::BImalloc:
   case Builtin::BIrealloc: {
-    // On cheerp we need special handling for realloc
+    // On cheerp we need special handling for malloc and realloc
     if (getTarget().getTriple().getArch() == llvm::Triple::cheerp)
       return RValue::get(EmitCheerpBuiltinExpr(BuiltinID, E));
   }
@@ -11116,6 +11117,24 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_make_regular) {
     llvm::Type *Tys[] = { ConvertType(E->getType()), Ops[0]->getType() };
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_make_regular, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
+  else if (BuiltinID == Builtin::BImalloc) {
+    const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
+    assert(FD);
+    ParentMap PM(FD->getBody());
+    const Stmt* parent=PM.getParent(E);
+    // We need an explicit cast after the call, void* can't be used
+    llvm::Type *Tys[] = { VoidPtrTy };
+    const CastExpr* retCE=dyn_cast<CastExpr>(parent);
+    if (!retCE || retCE->getType()->isVoidPointerType())
+        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_alloc_requires_cast);
+    else
+    {
+        QualType returnType=retCE->getType();
+        Tys[0] = ConvertType(returnType);
+    }
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Builtin::BIrealloc) {
