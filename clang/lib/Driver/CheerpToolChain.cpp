@@ -98,6 +98,10 @@ Tool *Cheerp::getTool(Action::ActionClass AC) const {
     if (!CheerpCompiler)
       CheerpCompiler.reset(new tools::cheerp::CheerpCompiler(*this));
     return CheerpCompiler.get();
+  case Action::CheerpOptimizeJobClass:
+    if (!CheerpOptimizer)
+      CheerpOptimizer.reset(new tools::cheerp::CheerpOptimizer(*this));
+    return CheerpOptimizer.get();
   default:
     return ToolChain::getTool(AC);
   }
