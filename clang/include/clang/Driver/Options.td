@@ -4348,6 +4348,8 @@ def cheerp_sourcemap_prefix_EQ : Joined<["-"], "cheerp-sourcemap-prefix=">, Flag
   HelpText<"Remove <prefix> from sourcemap paths">, MetaVarName<"<prefix>">;
 def cheerp_pretty_code : Flag<["-"], "cheerp-pretty-code">, Flags<[DriverOption]>,
   HelpText<"Generate human-readable JS">;
+def cheerp_no_lto : Flag<["-"], "cheerp-no-lto">, Flags<[DriverOption]>,
+  HelpText<"Disable final optimization step at link time">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options

@@ -411,6 +411,27 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
 }
 
+void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
+                                          const InputInfo &Output,
+                                          const InputInfoList &Inputs,
+                                          const ArgList &Args,
+                                          const char *LinkingOutput) const {
+  ArgStringList CmdArgs;
+
+  CmdArgs.push_back("-march=cheerp");
+  CmdArgs.push_back("-Oz");
+  // Inlining from -Oz may generate memcpy calls that we need to lower
+  CmdArgs.push_back("-StructMemFuncLowering");
+  CmdArgs.push_back("-o");
+  CmdArgs.push_back(Output.getFilename());
+
+  const InputInfo &II = *Inputs.begin();
+  CmdArgs.push_back(II.getFilename());
+
+  const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("opt")));
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
+}
+
 void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
                                           const InputInfo &Output,
                                           const InputInfoList &Inputs,

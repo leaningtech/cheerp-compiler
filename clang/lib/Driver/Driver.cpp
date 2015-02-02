@@ -3574,9 +3574,20 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     // Cheerp: We need an additional step for to generated JS
     if (TC.getArch() == llvm::Triple::cheerp)
     {
+      // First link the whole program
       Action* linkJob = C.MakeAction<LinkJobAction>(LinkerInputs, types::TY_LLVM_BC);
-      ActionList cheerpCompilerList;
-      cheerpCompilerList.push_back(linkJob);
+      ActionList cheerpOptimizerList, cheerpCompilerList;
+      // Check if we need to run link time optimization or not
+      if(Args.hasArg(options::OPT_cheerp_no_lto))
+        cheerpCompilerList.push_back(linkJob);
+      else
+      {
+        cheerpOptimizerList.push_back(linkJob);
+        // Then optimize it
+        Action* optJob = C.MakeAction<CheerpOptimizeJobAction>(cheerpOptimizerList, types::TY_LLVM_BC);
+        cheerpCompilerList.push_back(optJob);
+      }
+      // Before generating JS
       Actions.push_back(C.MakeAction<CheerpCompileJobAction>(cheerpCompilerList, types::TY_Image));
     }
     else {
