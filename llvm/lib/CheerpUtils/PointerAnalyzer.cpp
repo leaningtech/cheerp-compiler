@@ -351,8 +351,8 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			Type* pointedType = cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index)->getPointerElementType();
 			IndirectPointerKindConstraint baseAndIndexContraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex);
 			IndirectPointerKindConstraint storedTypeConstraint(STORED_TYPE_CONSTRAINT, pointedType);
-			pointerKindData.baseStructAndIndexMapForPointers[baseAndIndex] |= storedTypeConstraint;
-			pointerKindData.storedTypeMap[pointedType] |= baseAndIndexContraint;
+			pointerKindData.constraintsMap[baseAndIndexContraint] |= storedTypeConstraint;
+			pointerKindData.constraintsMap[storedTypeConstraint] |= baseAndIndexContraint;
 		}
 
 		if(first)
@@ -449,8 +449,9 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			// If the kind is COMPLETE_OBJECT it is ok to omit it from the constraints for this argument index and type
 			if(k != COMPLETE_OBJECT)
 			{
-				pointerKindData.paramTypeMap[TypeAndIndex(argPointedType, arg->getArgNo(), TypeAndIndex::ARGUMENT)] |=
-						IndirectPointerKindConstraint( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg );
+				TypeAndIndex typeAndIndex(argPointedType, arg->getArgNo(), TypeAndIndex::ARGUMENT);
+				pointerKindData.constraintsMap[IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, typeAndIndex)] |=
+								IndirectPointerKindConstraint( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg );
 			}
 			return CacheAndReturn(ret = PointerKindWrapper( IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, arg) ) );
 		}
@@ -473,7 +474,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 				PointerKindWrapper& k = visitAllUses(ret, p);
 				k.makeKnown();
 				IndirectPointerKindConstraint c(RETURN_TYPE_CONSTRAINT, p->getType());
-				pointerKindData.returnTypeMap[p->getType()] |= k;
+				pointerKindData.constraintsMap[c] |= k;
 				// We want to override the ret value, not add a constraint
 				return CacheAndReturn(ret = PointerKindWrapper(c));
 			}
@@ -490,14 +491,14 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		if (TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getOperand(0)))
 		{
 			IndirectPointerKindConstraint baseAndIndexContraint(BASE_AND_INDEX_CONSTRAINT, b);
-			pointerKindData.baseStructAndIndexMapForPointers[b] |= k;
+			pointerKindData.constraintsMap[baseAndIndexContraint] |= k;
 			return CacheAndReturn(ret = PointerKindWrapper( baseAndIndexContraint ) );
 		}
 		else
 		{
 			Type* curType = p->getType()->getPointerElementType();
 			IndirectPointerKindConstraint storedTypeConstraint(STORED_TYPE_CONSTRAINT, curType);
-			pointerKindData.storedTypeMap[curType] |= k;
+			pointerKindData.constraintsMap[storedTypeConstraint] |= k;
 			return CacheAndReturn(ret = PointerKindWrapper( storedTypeConstraint ));
 		}
 	}
@@ -736,34 +737,12 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 			}
 		}
 		case STORED_TYPE_CONSTRAINT:
-		{
-			// We will resolve this constraint indirectly through the storedTypeMap map
-			const auto& it=pointerData.storedTypeMap.find(c.typePtr);
-			if(it==pointerData.storedTypeMap.end())
-				return T::staticDefaultValue;
-			return it->second;
-		}
 		case RETURN_TYPE_CONSTRAINT:
-		{
-			// We will resolve this constraint indirectly through the returnTypeMap map
-			const auto& it=pointerData.returnTypeMap.find(c.typePtr);
-			if(it==pointerData.returnTypeMap.end())
-				return T::staticDefaultValue;
-			return it->second;
-		}
 		case BASE_AND_INDEX_CONSTRAINT:
-		{
-			// We will resolve this constraint indirectly through the baseStructAndIndexMapForPointers map
-			const auto& it=pointerData.baseStructAndIndexMapForPointers.find(TypeAndIndex( c.typePtr, c.i, TypeAndIndex::STRUCT_MEMBER ));
-			if(it==pointerData.baseStructAndIndexMapForPointers.end())
-				return T::staticDefaultValue;
-			return it->second;
-		}
 		case INDIRECT_ARG_CONSTRAINT:
 		{
-			Type* argPointedType = c.typePtr;
-			const auto& it=pointerData.paramTypeMap.find(TypeAndIndex( argPointedType, c.i, TypeAndIndex::ARGUMENT ));
-			if(it==pointerData.paramTypeMap.end())
+			const auto& it=pointerData.constraintsMap.find(c);
+			if(it==pointerData.constraintsMap.end())
 				return T::staticDefaultValue;
 			return it->second;
 		}
@@ -858,7 +837,10 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		if(TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(v))
 		{
 			if(PointerAnalyzer::hasNonLoadStoreUses(v))
-				pointerOffsetData.baseStructAndIndexMapForPointers[b] |= PointerConstantOffsetWrapper( NULL, PointerConstantOffsetWrapper::INVALID );
+			{
+				pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, b)] |=
+								PointerConstantOffsetWrapper( NULL, PointerConstantOffsetWrapper::INVALID );
+			}
 		}
 		return CacheAndReturn(ret |= getPointerOffsetFromGEP(v));
 	}
@@ -871,7 +853,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		if (TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 		{
 			IndirectPointerKindConstraint baseAndIndexContraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex);
-			pointerOffsetData.baseStructAndIndexMapForPointers[baseAndIndex] |= o;
+			pointerOffsetData.constraintsMap[baseAndIndexContraint] |= o;
 			return CacheAndReturn(ret |= baseAndIndexContraint);
 		}
 		else
@@ -908,7 +890,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 				continue;
 			PointerConstantOffsetWrapper localRet;
 			TypeAndIndex typeAndIndex(structType, i, TypeAndIndex::STRUCT_MEMBER);
-			pointerOffsetData.baseStructAndIndexMapForPointers[typeAndIndex] |= visitValue(localRet, op);
+			pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, typeAndIndex)] |= visitValue(localRet, op);
 		}
 		return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
 	}
@@ -1102,8 +1084,8 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 	if(ret!=UNKNOWN)
 		return ret;
 
-	auto it=pointerKindData.storedTypeMap.find(pointerType->getPointerElementType());
-	if(it==pointerKindData.storedTypeMap.end())
+	auto it=pointerKindData.constraintsMap.find(IndirectPointerKindConstraint(STORED_TYPE_CONSTRAINT, pointerType->getPointerElementType()));
+	if(it==pointerKindData.constraintsMap.end())
 		return COMPLETE_OBJECT;
 
 	const PointerKindWrapper& k = it->second;
@@ -1143,8 +1125,8 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex&
 	if(ret!=UNKNOWN)
 		return ret;
 
-	auto it=pointerKindData.baseStructAndIndexMapForPointers.find(baseAndIndex);
-	if(it==pointerKindData.baseStructAndIndexMapForPointers.end())
+	auto it=pointerKindData.constraintsMap.find(IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex));
+	if(it==pointerKindData.constraintsMap.end())
 		return COMPLETE_OBJECT;
 
 	const PointerKindWrapper& k = it->second;
@@ -1234,8 +1216,8 @@ const ConstantInt* PointerAnalyzer::getConstantOffsetForPointer(const Value * v)
 
 const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForMember( const TypeAndIndex& baseAndIndex ) const
 {
-	auto it=pointerOffsetData.baseStructAndIndexMapForPointers.find(baseAndIndex);
-	if(it==pointerOffsetData.baseStructAndIndexMapForPointers.end())
+	auto it=pointerOffsetData.constraintsMap.find(IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex));
+	if(it==pointerOffsetData.constraintsMap.end())
 		return NULL;
 
 	if(!it->second.hasConstraints())
@@ -1308,15 +1290,7 @@ void PointerAnalyzer::fullResolve()
 		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR);
 		it.second=k;
 	}
-	for(auto& it: pointerKindData.storedTypeMap)
-	{
-		if(it.second!=INDIRECT)
-			continue;
-		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second);
-		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR);
-		it.second=k;
-	}
-	for(auto& it: pointerKindData.baseStructAndIndexMapForPointers)
+	for(auto& it: pointerKindData.constraintsMap)
 	{
 		if(it.second!=INDIRECT)
 			continue;
@@ -1331,14 +1305,6 @@ void PointerAnalyzer::fullResolve()
 		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second);
 		// BYTE_LAYOUT is not expected for the kind of pointers to member
 		assert(k==COMPLETE_OBJECT || k==REGULAR);
-		it.second=k;
-	}
-	for(auto& it: pointerKindData.paramTypeMap)
-	{
-		if(it.second!=INDIRECT)
-			continue;
-		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second);
-		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR);
 		it.second=k;
 	}
 #ifndef NDEBUG
