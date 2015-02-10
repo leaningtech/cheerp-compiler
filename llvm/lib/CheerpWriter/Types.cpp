@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2014 Leaning Technologies
+// Copyright 2011-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -89,7 +89,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 				else
 					stream << '=';
 				// Create a wrapper array for all members which require REGULAR pointers, if they are not already covered by the downcast array
-				PointerAnalyzer::TypeAndIndex baseAndIndex(st, offset, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+				TypeAndIndex baseAndIndex(st, offset, TypeAndIndex::STRUCT_MEMBER);
 				bool useWrapperArray = useWrapperArrayForMember(st, offset);
 				if (useWrapperArray)
 					stream << '[';
