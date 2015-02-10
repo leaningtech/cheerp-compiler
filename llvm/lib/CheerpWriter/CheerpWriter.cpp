@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2014 Leaning Technologies
+// Copyright 2011-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -1109,7 +1109,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 			Type* elementType = d->getOperand(i)->getType();
 			if(elementType->isPointerTy())
 			{
-				PointerAnalyzer::TypeAndIndex baseAndIndex(d->getType(), i, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+				TypeAndIndex baseAndIndex(d->getType(), i, TypeAndIndex::STRUCT_MEMBER);
 				POINTER_KIND k = PA.getPointerKindForMemberPointer(baseAndIndex);
 				if(k==REGULAR && PA.getConstantOffsetForMember(baseAndIndex))
 					compilePointerBase(d->getOperand(i));
@@ -1325,7 +1325,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			// If it's indirect we use a kind good for any argument of a given type at a given position
 			if (!F)
 			{
-				PointerAnalyzer::TypeAndIndex typeAndIndex(tp->getPointerElementType(), opCount, PointerAnalyzer::TypeAndIndex::ARGUMENT);
+				TypeAndIndex typeAndIndex(tp->getPointerElementType(), opCount, TypeAndIndex::ARGUMENT);
 				compilePointerAs(*cur, PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex));
 			}
 			else if (arg_it != F->arg_end())
@@ -1553,7 +1553,7 @@ bool CheerpWriter::useWrapperArrayForMember(StructType* st, uint32_t memberIndex
 			return false;
 	}
 	// We don't want to use the wrapper array if the downcast array is alredy available
-	PointerAnalyzer::TypeAndIndex baseAndIndex(st, memberIndex, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+	TypeAndIndex baseAndIndex(st, memberIndex, TypeAndIndex::STRUCT_MEMBER);
 	return PA.getPointerKindForMember(baseAndIndex)==REGULAR;
 }
 
@@ -2715,8 +2715,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		Value* valOp = subExpr.back()->get();
 		if (valOp->getType()->isPointerTy())
 		{
-			PointerAnalyzer::TypeAndIndex b(subExpr.back()->getUser()->getType(), subExpr.back()->getOperandNo(),
-							PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+			TypeAndIndex b(subExpr.back()->getUser()->getType(), subExpr.back()->getOperandNo(), TypeAndIndex::STRUCT_MEMBER);
 			compilePointerAs(valOp, PA.getPointerKindForMemberPointer(b));
 		}
 		else
