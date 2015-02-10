@@ -305,7 +305,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			return pointerKindData.valueMap.insert( std::make_pair(p, k ) ).first->second;
 	};
 
-	PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(p);
+	TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(p);
 	if(baseAndIndex)
 	{
 		// If the pointer inside a structure has uses which are not just loads and stores
@@ -336,7 +336,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		assert(SI->getValueOperand()->getType()->isPointerTy());
 		if(getKindForType(SI->getValueOperand()->getType()->getPointerElementType()) != UNKNOWN)
 			return CacheAndReturn(ret |= getKindForType(SI->getValueOperand()->getType()->getPointerElementType()));
-		if(PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
+		if(TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 			ret |= PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index);
 		else
 			ret |= PointerKindWrapper( STORED_TYPE_CONSTRAINT, SI->getValueOperand()->getType()->getPointerElementType());
@@ -412,7 +412,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			// If the kind is COMPLETE_OBJECT it is ok to omit it from the constraints for this argument index and type
 			if(k != COMPLETE_OBJECT)
 			{
-				pointerKindData.paramTypeMap[PointerAnalyzer::TypeAndIndex(argPointedType, arg->getArgNo(), PointerAnalyzer::TypeAndIndex::ARGUMENT)] |=
+				pointerKindData.paramTypeMap[TypeAndIndex(argPointedType, arg->getArgNo(), TypeAndIndex::ARGUMENT)] |=
 						PointerKindWrapper( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg );
 			}
 			return CacheAndReturn(ret = PointerKindWrapper( DIRECT_ARG_CONSTRAINT, arg ) );
@@ -449,7 +449,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		PointerKindWrapper& k = visitAllUses(ret, p);
 		k.makeKnown();
 		// We want to override the ret value, not add a constraint
-		if (PointerAnalyzer::TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getOperand(0)))
+		if (TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getOperand(0)))
 		{
 			pointerKindData.baseStructAndIndexMapForPointers[b] |= k;
 			return CacheAndReturn(ret = PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, b.type, b.index ) );
@@ -488,7 +488,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 	if (isa<ConstantStruct>(p))
 	{
 		// Build a TypeAndIndex struct to get the normalized type
-		PointerAnalyzer::TypeAndIndex baseAndIndex(p->getType(), U->getOperandNo(), PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+		TypeAndIndex baseAndIndex(p->getType(), U->getOperandNo(), TypeAndIndex::STRUCT_MEMBER);
 		return ret |= PointerKindWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index );
 	}
 
@@ -710,8 +710,7 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 		case BASE_AND_INDEX_CONSTRAINT:
 		{
 			// We will resolve this constraint indirectly through the baseStructAndIndexMapForPointers map
-			const auto& it=pointerData.baseStructAndIndexMapForPointers.find(PointerAnalyzer::TypeAndIndex( c.typePtr, c.i,
-											PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER ));
+			const auto& it=pointerData.baseStructAndIndexMapForPointers.find(TypeAndIndex( c.typePtr, c.i, TypeAndIndex::STRUCT_MEMBER ));
 			if(it==pointerData.baseStructAndIndexMapForPointers.end())
 				return T::staticDefaultValue;
 			return it->second;
@@ -719,8 +718,7 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 		case INDIRECT_ARG_CONSTRAINT:
 		{
 			Type* argPointedType = c.typePtr;
-			const auto& it=pointerData.paramTypeMap.find(PointerAnalyzer::TypeAndIndex( argPointedType, c.i,
-												PointerAnalyzer::TypeAndIndex::ARGUMENT ));
+			const auto& it=pointerData.paramTypeMap.find(TypeAndIndex( argPointedType, c.i, TypeAndIndex::ARGUMENT ));
 			if(it==pointerData.paramTypeMap.end())
 				return T::staticDefaultValue;
 			return it->second;
@@ -813,7 +811,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 
 	if ( isGEP(v) )
 	{
-		if(PointerAnalyzer::TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(v))
+		if(TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(v))
 		{
 			if(PointerAnalyzer::hasNonLoadStoreUses(v))
 				pointerOffsetData.baseStructAndIndexMapForPointers[b] |= PointerConstantOffsetWrapper( NULL, PointerConstantOffsetWrapper::INVALID );
@@ -826,7 +824,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		assert(SI->getValueOperand()->getType()->isPointerTy());
 		PointerConstantOffsetWrapper& o = visitValue(ret, SI->getValueOperand());
 
-		if (PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
+		if (TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 		{
 			pointerOffsetData.baseStructAndIndexMapForPointers[baseAndIndex] |= o;
 			return CacheAndReturn(ret |= PointerConstantOffsetWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index));
@@ -837,7 +835,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 
 	if(const LoadInst* LI=dyn_cast<LoadInst>(v))
 	{
-		if (PointerAnalyzer::TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getPointerOperand()))
+		if (TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getPointerOperand()))
 			return CacheAndReturn(ret |= PointerConstantOffsetWrapper( BASE_AND_INDEX_CONSTRAINT, baseAndIndex.type, baseAndIndex.index));
 	}
 
@@ -864,7 +862,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			if(!op->getType()->isPointerTy())
 				continue;
 			PointerConstantOffsetWrapper localRet;
-			PointerAnalyzer::TypeAndIndex typeAndIndex(structType, i, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+			TypeAndIndex typeAndIndex(structType, i, TypeAndIndex::STRUCT_MEMBER);
 			pointerOffsetData.baseStructAndIndexMapForPointers[typeAndIndex] |= visitValue(localRet, op);
 		}
 		return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
@@ -1129,13 +1127,13 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAn
 	return PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(k).getPointerKind();
 }
 
-PointerAnalyzer::TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(const Value* p)
+TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(const Value* p)
 {
 	if(!isGEP(p))
-		return PointerAnalyzer::TypeAndIndex(NULL, 0, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+		return TypeAndIndex(NULL, 0, TypeAndIndex::STRUCT_MEMBER);
 	const User* gep=cast<User>(p);
 	if (gep->getNumOperands() == 2)
-		return PointerAnalyzer::TypeAndIndex(NULL, 0, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+		return TypeAndIndex(NULL, 0, TypeAndIndex::STRUCT_MEMBER);
 
 	SmallVector<Value*, 4> indexes;
 	for(uint32_t i=1;i<gep->getNumOperands()-1;i++)
@@ -1148,9 +1146,9 @@ PointerAnalyzer::TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(cons
 		Value* lastIndex = *std::prev(gep->op_end());
 		assert(isa<ConstantInt>(lastIndex));
 		uint32_t lastOffsetConstant =  cast<ConstantInt>(lastIndex)->getZExtValue();
-		return PointerAnalyzer::TypeAndIndex(containerType, lastOffsetConstant, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+		return TypeAndIndex(containerType, lastOffsetConstant, TypeAndIndex::STRUCT_MEMBER);
 	}
-	return PointerAnalyzer::TypeAndIndex(NULL, 0, PointerAnalyzer::TypeAndIndex::STRUCT_MEMBER);
+	return TypeAndIndex(NULL, 0, TypeAndIndex::STRUCT_MEMBER);
 }
 
 bool PointerAnalyzer::hasNonLoadStoreUses( const Value* v)
