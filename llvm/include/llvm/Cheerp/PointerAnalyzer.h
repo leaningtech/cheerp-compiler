@@ -18,6 +18,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Timer.h"
+#include <unordered_map>
 
 namespace cheerp {
 
@@ -308,18 +309,13 @@ public:
 	struct PointerData
 	{
 		typedef llvm::DenseMap<const llvm::Value*, T> ValueKindMap;
-		typedef llvm::DenseMap<llvm::Type*, T> TypeKindMap;
-		typedef llvm::DenseMap<llvm::Type*, T> ReturnTypeKindMap;
 		typedef std::map<TypeAndIndex, T> TypeAndIndexMap;
+		typedef std::unordered_map<IndirectPointerKindConstraint, T, IndirectPointerKindConstraint::Hash> ConstraintsMap;
+		ConstraintsMap constraintsMap;
+
 		ValueKindMap valueMap;
-		TypeKindMap storedTypeMap;
 		// This map stores constraints about pointer to members
 		TypeAndIndexMap baseStructAndIndexMapForMembers;
-		// This map stores constraints about pointers stored and loaded from a member which is a pointer
-		TypeAndIndexMap baseStructAndIndexMapForPointers;
-		ReturnTypeKindMap returnTypeMap;
-		// This map stores constraints about a pointer argument for a given argument index
-		TypeAndIndexMap paramTypeMap;
 		ValueKindMap argsMap;
 	};
 
