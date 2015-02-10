@@ -87,7 +87,7 @@ struct IndirectPointerKindConstraint
 	};
 	uint32_t i;
 	INDIRECT_POINTER_KIND_CONSTRAINT kind;
-	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p, uint32_t i):ptr(p),i(i),kind(k)
+	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p, uint32_t i=0xffffffff):ptr(p),i(i),kind(k)
 	{
 	}
 	bool operator==(const IndirectPointerKindConstraint& rhs) const
@@ -124,9 +124,9 @@ public:
 	PointerKindWrapper(POINTER_KIND k):kind(k)
 	{
 	}
-	PointerKindWrapper(INDIRECT_POINTER_KIND_CONSTRAINT constraint, const void* ptr, uint32_t i=0):kind(INDIRECT)
+	PointerKindWrapper(const IndirectPointerKindConstraint& constraint):kind(INDIRECT)
 	{
-		constraints.emplace_back(constraint, ptr, i);
+		constraints.push_back(constraint);
 	}
 	PointerKindWrapper(const PointerKindWrapper& rhs)
 	{
@@ -150,6 +150,7 @@ public:
 		return *this;
 	}
 	PointerKindWrapper& operator|=(const PointerKindWrapper& rhs);
+	PointerKindWrapper& operator|=(const IndirectPointerKindConstraint& rhs);
 	bool isKnown() const
 	{
 		return kind!=UNKNOWN;
@@ -198,11 +199,12 @@ public:
 		if(o == NULL && s == VALID)
 			status = INVALID;
 	}
-	PointerConstantOffsetWrapper(INDIRECT_POINTER_KIND_CONSTRAINT constraint, const void* ptr, uint32_t i=0):offset(NULL),status(UNINITALIZED)
+	PointerConstantOffsetWrapper(const IndirectPointerKindConstraint& constraint):offset(NULL),status(UNINITALIZED)
 	{
-		constraints.emplace_back(constraint, ptr, i);
+		constraints.push_back(constraint);
 	}
 	PointerConstantOffsetWrapper& operator|=(const PointerConstantOffsetWrapper& rhs);
+	PointerConstantOffsetWrapper& operator|=(const IndirectPointerKindConstraint& rhs);
 	bool isInvalid() const
 	{
 		return status == INVALID;
