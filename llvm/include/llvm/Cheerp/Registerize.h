@@ -153,7 +153,7 @@ private:
 			return inInst==I;
 		}
 		bool completed;
-		BlockState():completed(false)
+		BlockState():inInst(NULL),completed(false)
 		{
 		}
 	};
