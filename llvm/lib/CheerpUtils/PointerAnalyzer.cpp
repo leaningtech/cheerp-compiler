@@ -409,8 +409,12 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		// Keep track of the constraint for each argument/type pair, but only if the function is indirectly used
 		if(addressTakenCache.checkAddressTaken(arg->getParent()))
 		{
-			pointerKindData.paramTypeMap[PointerAnalyzer::TypeAndIndex(argPointedType, arg->getArgNo(), PointerAnalyzer::TypeAndIndex::ARGUMENT)] |=
+			// If the kind is COMPLETE_OBJECT it is ok to omit it from the constraints for this argument index and type
+			if(k != COMPLETE_OBJECT)
+			{
+				pointerKindData.paramTypeMap[PointerAnalyzer::TypeAndIndex(argPointedType, arg->getArgNo(), PointerAnalyzer::TypeAndIndex::ARGUMENT)] |=
 						PointerKindWrapper( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg );
+			}
 			return CacheAndReturn(ret = PointerKindWrapper( DIRECT_ARG_CONSTRAINT, arg ) );
 		}
 		else
