@@ -34,8 +34,6 @@ enum INDIRECT_POINTER_KIND_CONSTRAINT { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT
 
 struct IndirectPointerKindConstraint
 {
-	INDIRECT_POINTER_KIND_CONSTRAINT kind;
-	uint32_t i;
 	union
 	{
 		const llvm::Function* funcPtr;
@@ -43,22 +41,23 @@ struct IndirectPointerKindConstraint
 		const llvm::Argument* argPtr;
 		const void* ptr;
 	};
-	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p, uint32_t i):kind(k),i(i),ptr(p)
+	uint32_t i;
+	INDIRECT_POINTER_KIND_CONSTRAINT kind;
+	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p, uint32_t i):ptr(p),i(i),kind(k)
 	{
 	}
-	bool operator<(const IndirectPointerKindConstraint& rhs) const
+	bool operator==(const IndirectPointerKindConstraint& rhs) const
 	{
-		if (kind == rhs.kind)
-		{
-			if(ptr == rhs.ptr)
-				return i < rhs.i;
-			else
-				return ptr < rhs.ptr;
-		}
-		else
-			return kind < rhs.kind;
+		return kind == rhs.kind && ptr == rhs.ptr && i == rhs.i;
 	}
 	void dump() const;
+	struct Hash
+	{
+		size_t operator()(const IndirectPointerKindConstraint& c) const
+		{
+			return std::hash<uint32_t>()((uint32_t)c.kind) ^ std::hash<const void*>()(c.ptr) ^ std::hash<uint32_t>()(c.i);
+		}
+	};
 };
 
 class PointerKindWrapper
