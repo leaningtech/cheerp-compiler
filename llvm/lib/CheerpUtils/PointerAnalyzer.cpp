@@ -230,7 +230,7 @@ struct PointerResolverBaseVisitor
 
 	const PointerAnalyzer::PointerData<T>& pointerData;
 	PointerAnalyzer::AddressTakenMap& addressTakenCache;
-	std::set< IndirectPointerKindConstraint > closedset;
+	std::unordered_set< IndirectPointerKindConstraint, IndirectPointerKindConstraint::Hash > closedset;
 };
 
 struct PointerResolverForKindVisitor: public PointerResolverBaseVisitor<PointerKindWrapper>
