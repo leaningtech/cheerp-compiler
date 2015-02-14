@@ -124,14 +124,15 @@ private:
 		constraints.clear();
 	}
 public:
-	std::vector<IndirectPointerKindConstraint> constraints;
+	// We can store pointers to constraint as they are made unique by PointerData::getConstraintPtr
+	std::vector<const IndirectPointerKindConstraint*> constraints;
 	PointerKindWrapper():kind(COMPLETE_OBJECT)
 	{
 	}
 	PointerKindWrapper(POINTER_KIND k):kind(k)
 	{
 	}
-	PointerKindWrapper(const IndirectPointerKindConstraint& constraint):kind(INDIRECT)
+	PointerKindWrapper(const IndirectPointerKindConstraint* constraint):kind(INDIRECT)
 	{
 		constraints.push_back(constraint);
 	}
@@ -157,7 +158,7 @@ public:
 		return *this;
 	}
 	PointerKindWrapper& operator|=(const PointerKindWrapper& rhs);
-	PointerKindWrapper& operator|=(const IndirectPointerKindConstraint& rhs);
+	PointerKindWrapper& operator|=(const IndirectPointerKindConstraint* rhs);
 	bool isKnown() const
 	{
 		return kind!=UNKNOWN;
@@ -197,7 +198,7 @@ private:
 		constraints.clear();
 	}
 public:
-	std::vector<IndirectPointerKindConstraint> constraints;
+	std::vector<const IndirectPointerKindConstraint*> constraints;
 	PointerConstantOffsetWrapper():offset(NULL),status(UNINITALIZED)
 	{
 	}
@@ -206,12 +207,12 @@ public:
 		if(o == NULL && s == VALID)
 			status = INVALID;
 	}
-	PointerConstantOffsetWrapper(const IndirectPointerKindConstraint& constraint):offset(NULL),status(UNINITALIZED)
+	PointerConstantOffsetWrapper(const IndirectPointerKindConstraint* constraint):offset(NULL),status(UNINITALIZED)
 	{
 		constraints.push_back(constraint);
 	}
 	PointerConstantOffsetWrapper& operator|=(const PointerConstantOffsetWrapper& rhs);
-	PointerConstantOffsetWrapper& operator|=(const IndirectPointerKindConstraint& rhs);
+	PointerConstantOffsetWrapper& operator|=(const IndirectPointerKindConstraint* rhs);
 	bool isInvalid() const
 	{
 		return status == INVALID;
@@ -312,6 +313,12 @@ public:
 		typedef std::map<TypeAndIndex, T> TypeAndIndexMap;
 		typedef std::unordered_map<IndirectPointerKindConstraint, T, IndirectPointerKindConstraint::Hash> ConstraintsMap;
 		ConstraintsMap constraintsMap;
+		// Helper function to make constraints unique, they are stored as the key field into constraintsMap
+		// and may or may not hold any actual pointer data as the corresponding valiue
+		const IndirectPointerKindConstraint* getConstraintPtr(const IndirectPointerKindConstraint& c)
+		{
+			return &constraintsMap.insert(std::make_pair(c, T())).first->first;
+		}
 
 		ValueKindMap valueMap;
 		// This map stores constraints about pointer to members
