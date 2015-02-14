@@ -88,12 +88,14 @@ struct IndirectPointerKindConstraint
 	};
 	uint32_t i;
 	INDIRECT_POINTER_KIND_CONSTRAINT kind;
-	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p):ptr(p),i(0xffffffff),kind(k)
+	mutable bool isBeingVisited;
+	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p):ptr(p),i(0xffffffff),kind(k),isBeingVisited(false)
 	{
 		assert(k == RETURN_CONSTRAINT || k == DIRECT_ARG_CONSTRAINT || k == STORED_TYPE_CONSTRAINT ||
 			k == RETURN_TYPE_CONSTRAINT || k == DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN);
 	}
-	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const TypeAndIndex& typeAndIndex):ptr(typeAndIndex.type),i(typeAndIndex.index),kind(k)
+	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const TypeAndIndex& typeAndIndex):ptr(typeAndIndex.type),i(typeAndIndex.index),
+														kind(k),isBeingVisited(false)
 	{
 		assert(k == BASE_AND_INDEX_CONSTRAINT || k == INDIRECT_ARG_CONSTRAINT);
 	}

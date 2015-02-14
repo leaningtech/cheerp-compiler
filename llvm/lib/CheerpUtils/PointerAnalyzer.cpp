@@ -263,12 +263,17 @@ struct PointerResolverBaseVisitor
 {
 	PointerResolverBaseVisitor( const PointerAnalyzer::PointerData<T>& pointerData, PointerAnalyzer::AddressTakenMap& addressTakenCache ) :
 				pointerData(pointerData) , addressTakenCache(addressTakenCache){}
+	~PointerResolverBaseVisitor()
+	{
+		for(const IndirectPointerKindConstraint* c: closedset)
+			c->isBeingVisited = false;
+	}
 
 	const T& resolveConstraint(const IndirectPointerKindConstraint& c);
 
 	const PointerAnalyzer::PointerData<T>& pointerData;
 	PointerAnalyzer::AddressTakenMap& addressTakenCache;
-	std::unordered_set< IndirectPointerKindConstraint, IndirectPointerKindConstraint::Hash > closedset;
+	std::vector< const IndirectPointerKindConstraint* > closedset;
 };
 
 struct PointerResolverForKindVisitor: public PointerResolverBaseVisitor<PointerKindWrapper>
@@ -771,14 +776,16 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 	assert(k==INDIRECT);
 	for(uint32_t i=0;i<k.constraints.size();i++)
 	{
+		if(k.constraints[i]->isBeingVisited)
+			continue;
+		k.constraints[i]->isBeingVisited = true;
+		closedset.push_back(k.constraints[i]);
 		const PointerKindWrapper& retKind=resolveConstraint(*k.constraints[i]);
 		assert(retKind.isKnown());
 		if(retKind==REGULAR || retKind==BYTE_LAYOUT)
 			return retKind;
 		else if(retKind==INDIRECT)
 		{
-			if(!closedset.insert(*k.constraints[i]).second)
-				continue;
 			const PointerKindWrapper& resolvedKind=resolvePointerKind(retKind);
 			if(resolvedKind==REGULAR)
 				return resolvedKind;
@@ -928,8 +935,10 @@ PointerConstantOffsetWrapper PointerResolverForOffsetVisitor::resolvePointerOffs
 	const llvm::ConstantInt* offset = o.isValid() ? o.getPointerOffset() : NULL;
 	for(uint32_t i=0;i<o.constraints.size();i++)
 	{
-		if(!closedset.insert(*o.constraints[i]).second)
+		if(o.constraints[i]->isBeingVisited)
 			continue;
+		o.constraints[i]->isBeingVisited = true;
+		closedset.push_back(o.constraints[i]);
 		const PointerConstantOffsetWrapper& c = resolveConstraint(*o.constraints[i]);
 		if(c.isInvalid())
 			return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
