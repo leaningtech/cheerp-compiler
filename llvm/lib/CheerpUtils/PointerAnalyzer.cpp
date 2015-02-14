@@ -89,7 +89,7 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper& rhs
 	return *this;
 }
 
-PointerKindWrapper& PointerKindWrapper::operator|=(const IndirectPointerKindConstraint& rhs)
+PointerKindWrapper& PointerKindWrapper::operator|=(const IndirectPointerKindConstraint* rhs)
 {
 	// 1) REGULAR | Rhs = REGULAR
 	// 2) COMPLETE_OBJECT | Rhs = Rhs
@@ -105,7 +105,10 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const IndirectPointerKindCons
 
 	// Handle 2
 	if (lhs==COMPLETE_OBJECT)
-		return *this = rhs;
+	{
+		lhs.kind = INDIRECT;
+		assert(lhs.constraints.empty());
+	}
 
 	// Handle 3, 4
 	lhs.constraints.push_back(rhs);
@@ -121,8 +124,8 @@ void PointerKindWrapper::dump() const
 	else
 		dbgs() << "Wraps plain kind " << kind << "\n";
 
-	for(const IndirectPointerKindConstraint& c: constraints)
-		c.dump();
+	for(const IndirectPointerKindConstraint* c: constraints)
+		c->dump();
 }
 
 PointerConstantOffsetWrapper& PointerConstantOffsetWrapper::operator|=(const PointerConstantOffsetWrapper & rhs)
@@ -168,7 +171,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetWrapper::operator|=(const Poi
 	return lhs;
 }
 
-PointerConstantOffsetWrapper& PointerConstantOffsetWrapper::operator|=(const IndirectPointerKindConstraint & rhs)
+PointerConstantOffsetWrapper& PointerConstantOffsetWrapper::operator|=(const IndirectPointerKindConstraint* rhs)
 {
 	PointerConstantOffsetWrapper& lhs=*this;
 
@@ -185,8 +188,8 @@ void PointerConstantOffsetWrapper::dump() const
 	if(status==VALID)
 		dbgs() << "Constant offset " << *offset << "\n";
 
-	for(const IndirectPointerKindConstraint& c: constraints)
-		c.dump();
+	for(const IndirectPointerKindConstraint* c: constraints)
+		c->dump();
 }
 
 char PointerAnalyzer::ID = 0;
@@ -351,8 +354,8 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			Type* pointedType = cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index)->getPointerElementType();
 			IndirectPointerKindConstraint baseAndIndexContraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex);
 			IndirectPointerKindConstraint storedTypeConstraint(STORED_TYPE_CONSTRAINT, pointedType);
-			pointerKindData.constraintsMap[baseAndIndexContraint] |= storedTypeConstraint;
-			pointerKindData.constraintsMap[storedTypeConstraint] |= baseAndIndexContraint;
+			pointerKindData.constraintsMap[baseAndIndexContraint] |= pointerKindData.getConstraintPtr(storedTypeConstraint);
+			pointerKindData.constraintsMap[storedTypeConstraint] |= pointerKindData.getConstraintPtr(baseAndIndexContraint);
 		}
 
 		if(first)
@@ -371,12 +374,13 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	if(const StoreInst* SI=dyn_cast<StoreInst>(p))
 	{
 		assert(SI->getValueOperand()->getType()->isPointerTy());
-		if(getKindForType(SI->getValueOperand()->getType()->getPointerElementType()) != UNKNOWN)
-			return CacheAndReturn(ret |= getKindForType(SI->getValueOperand()->getType()->getPointerElementType()));
+		Type* pointedValueType = SI->getValueOperand()->getType()->getPointerElementType();
+		if(getKindForType(pointedValueType) != UNKNOWN)
+			return CacheAndReturn(ret |= getKindForType(pointedValueType));
 		if(TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
-			ret |= IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex );
+			ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex ));
 		else
-			ret |= IndirectPointerKindConstraint( STORED_TYPE_CONSTRAINT, SI->getValueOperand()->getType()->getPointerElementType());
+			ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( STORED_TYPE_CONSTRAINT, pointedValueType));
 		// Only cache the result for SI when not recursing, otherwise we would poison the kind of SI with the other uses of valOp
 		if(first)
 			return CacheAndReturn(ret);
@@ -451,9 +455,9 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			{
 				TypeAndIndex typeAndIndex(argPointedType, arg->getArgNo(), TypeAndIndex::ARGUMENT);
 				pointerKindData.constraintsMap[IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, typeAndIndex)] |=
-								IndirectPointerKindConstraint( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg );
+						pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg ));
 			}
-			return CacheAndReturn(ret = PointerKindWrapper( IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, arg) ) );
+			return CacheAndReturn(ret = PointerKindWrapper(pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, arg))));
 		}
 		else
 			return CacheAndReturn(k);
@@ -467,7 +471,8 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		if (!isIntrinsic)
 		{
 			if(cs.getCalledFunction())
-				return CacheAndReturn(ret |= IndirectPointerKindConstraint(RETURN_CONSTRAINT, cs.getCalledFunction() ));
+				return CacheAndReturn(ret |= pointerKindData.getConstraintPtr(
+								IndirectPointerKindConstraint(RETURN_CONSTRAINT, cs.getCalledFunction())));
 			else
 			{
 				assert(first);
@@ -476,7 +481,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 				IndirectPointerKindConstraint c(RETURN_TYPE_CONSTRAINT, p->getType());
 				pointerKindData.constraintsMap[c] |= k;
 				// We want to override the ret value, not add a constraint
-				return CacheAndReturn(ret = PointerKindWrapper(c));
+				return CacheAndReturn(ret = PointerKindWrapper(pointerKindData.getConstraintPtr(c)));
 			}
 		}
 	}
@@ -492,14 +497,14 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		{
 			IndirectPointerKindConstraint baseAndIndexContraint(BASE_AND_INDEX_CONSTRAINT, b);
 			pointerKindData.constraintsMap[baseAndIndexContraint] |= k;
-			return CacheAndReturn(ret = PointerKindWrapper( baseAndIndexContraint ) );
+			return CacheAndReturn(ret = PointerKindWrapper( pointerKindData.getConstraintPtr(baseAndIndexContraint) ) );
 		}
 		else
 		{
 			Type* curType = p->getType()->getPointerElementType();
 			IndirectPointerKindConstraint storedTypeConstraint(STORED_TYPE_CONSTRAINT, curType);
 			pointerKindData.constraintsMap[storedTypeConstraint] |= k;
-			return CacheAndReturn(ret = PointerKindWrapper( storedTypeConstraint ));
+			return CacheAndReturn(ret = PointerKindWrapper( pointerKindData.getConstraintPtr(storedTypeConstraint) ));
 		}
 	}
 
@@ -524,13 +529,13 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 
 	// Constant data in memory is considered stored
 	if (isa<ConstantArray>(p) || isa<GlobalVariable>(p))
-		return ret |= IndirectPointerKindConstraint( STORED_TYPE_CONSTRAINT, U->get()->getType()->getPointerElementType() );
+		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( STORED_TYPE_CONSTRAINT, U->get()->getType()->getPointerElementType() ));
 
 	if (isa<ConstantStruct>(p))
 	{
 		// Build a TypeAndIndex struct to get the normalized type
 		TypeAndIndex baseAndIndex(p->getType(), U->getOperandNo(), TypeAndIndex::STRUCT_MEMBER);
-		return ret |= IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex);
+		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex));
 	}
 
 	if ( (isa<StoreInst>(p) && U->getOperandNo() == 0 ))
@@ -615,7 +620,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		if ( !calledFunction )
 		{
 			TypeAndIndex typeAndIndex(pointedType, U->getOperandNo(), TypeAndIndex::ARGUMENT);
-			return ret |= IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, typeAndIndex);
+			return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, typeAndIndex));
 		}
 
 		unsigned argNo = cs.getArgumentNo(U);
@@ -628,12 +633,12 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 
 		Function::const_arg_iterator arg = calledFunction->arg_begin();
 		std::advance(arg, argNo);
-		return ret |= IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, arg);
+		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, arg));
 	}
 
 	if ( const ReturnInst * retInst = dyn_cast<ReturnInst>(p) )
 	{
-		return ret |= IndirectPointerKindConstraint(RETURN_CONSTRAINT, retInst->getParent()->getParent());
+		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(RETURN_CONSTRAINT, retInst->getParent()->getParent()));
 	}
 
 	// Bitcasts from byte layout types require COMPLETE_OBJECT, and generate BYTE_LAYOUT
@@ -685,7 +690,7 @@ PointerKindWrapper& PointerUsageVisitor::visitReturn(PointerKindWrapper& ret, co
 		return CacheAndReturn(ret |= getKindForType(returnPointedType));
 
 	if(addressTakenCache.checkAddressTaken(F))
-		return CacheAndReturn(ret |= IndirectPointerKindConstraint(RETURN_TYPE_CONSTRAINT, F->getReturnType()));
+		return CacheAndReturn(ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(RETURN_TYPE_CONSTRAINT, F->getReturnType())));
 
 	for(const Use& u : F->uses())
 	{
@@ -766,13 +771,13 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 	assert(k==INDIRECT);
 	for(uint32_t i=0;i<k.constraints.size();i++)
 	{
-		const PointerKindWrapper& retKind=resolveConstraint(k.constraints[i]);
+		const PointerKindWrapper& retKind=resolveConstraint(*k.constraints[i]);
 		assert(retKind.isKnown());
 		if(retKind==REGULAR || retKind==BYTE_LAYOUT)
 			return retKind;
 		else if(retKind==INDIRECT)
 		{
-			if(!closedset.insert(k.constraints[i]).second)
+			if(!closedset.insert(*k.constraints[i]).second)
 				continue;
 			const PointerKindWrapper& resolvedKind=resolvePointerKind(retKind);
 			if(resolvedKind==REGULAR)
@@ -854,7 +859,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		{
 			IndirectPointerKindConstraint baseAndIndexContraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex);
 			pointerOffsetData.constraintsMap[baseAndIndexContraint] |= o;
-			return CacheAndReturn(ret |= baseAndIndexContraint);
+			return CacheAndReturn(ret |= pointerOffsetData.getConstraintPtr(baseAndIndexContraint));
 		}
 		else
 			return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
@@ -863,7 +868,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	if(const LoadInst* LI=dyn_cast<LoadInst>(v))
 	{
 		if (TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getPointerOperand()))
-			return CacheAndReturn(ret |= IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex));
+			return CacheAndReturn(ret |= pointerOffsetData.getConstraintPtr(IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex)));
 	}
 
 	if(isBitCast(v))
@@ -923,9 +928,9 @@ PointerConstantOffsetWrapper PointerResolverForOffsetVisitor::resolvePointerOffs
 	const llvm::ConstantInt* offset = o.isValid() ? o.getPointerOffset() : NULL;
 	for(uint32_t i=0;i<o.constraints.size();i++)
 	{
-		if(!closedset.insert(o.constraints[i]).second)
+		if(!closedset.insert(*o.constraints[i]).second)
 			continue;
-		const PointerConstantOffsetWrapper& c = resolveConstraint(o.constraints[i]);
+		const PointerConstantOffsetWrapper& c = resolveConstraint(*o.constraints[i]);
 		if(c.isInvalid())
 			return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
 		// 'c' is VALID or UNINITALIZED
@@ -1199,8 +1204,7 @@ const ConstantInt* PointerAnalyzer::getConstantOffsetForPointer(const Value * v)
 
 	if(!it->second.hasConstraints())
 	{
-		assert(!it->second.isUninitialized());
-		if(it->second.isInvalid())
+		if(it->second.isInvalid() || it->second.isUninitialized())
 			return NULL;
 		else if(it->second.isValid())
 			return it->second.getPointerOffset();
@@ -1222,8 +1226,7 @@ const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForMember( const Type
 
 	if(!it->second.hasConstraints())
 	{
-		assert(!it->second.isUninitialized());
-		if(it->second.isInvalid())
+		if(it->second.isInvalid() || it->second.isUninitialized())
 			return NULL;
 		else if(it->second.isValid())
 			return it->second.getPointerOffset();
