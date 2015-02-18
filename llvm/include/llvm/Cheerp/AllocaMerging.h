@@ -16,8 +16,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Pass.h"
-#include <map>
-#include <set>
+#include <list>
 
 namespace llvm {
 
@@ -27,8 +26,9 @@ protected:
 	AllocaMergingBase(char& ID):FunctionPass(ID)
 	{
 	}
+	typedef std::list<std::pair<AllocaInst*, cheerp::Registerize::LiveRange>> AllocaInfos;
 	void analyzeBlock(const cheerp::Registerize& registerize, llvm::BasicBlock& BB,
-				std::map<AllocaInst*, cheerp::Registerize::LiveRange>& allocaInfos);
+				AllocaInfos& allocaInfos);
 };
 
 // This class is resposible for recycling allocas. We can use lifetime intrinsics to know

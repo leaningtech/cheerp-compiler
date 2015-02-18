@@ -27,7 +27,7 @@ STATISTIC(NumAllocaMerged, "Number of alloca which are merged");
 namespace llvm {
 
 void AllocaMergingBase::analyzeBlock(const cheerp::Registerize& registerize, BasicBlock& BB,
-				std::map<AllocaInst*, cheerp::Registerize::LiveRange>& allocaInfos)
+				AllocaInfos& allocaInfos)
 {
 	for(Instruction& I: BB)
 	{
@@ -36,7 +36,7 @@ void AllocaMergingBase::analyzeBlock(const cheerp::Registerize& registerize, Bas
 		{
 			AllocaInst* AI = cast<AllocaInst>(&I);
 			assert(!AI->isArrayAllocation());
-			allocaInfos.insert(std::make_pair(AI, registerize.getLiveRangeForAlloca(AI)));
+			allocaInfos.push_back(std::make_pair(AI, registerize.getLiveRangeForAlloca(AI)));
 		}
 	}
 }
@@ -62,7 +62,7 @@ bool AllocaMerging::areTypesEquivalent(Type* a, Type* b)
 bool AllocaMerging::runOnFunction(Function& F)
 {
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
-	std::map<AllocaInst*, cheerp::Registerize::LiveRange> allocaInfos;
+	AllocaInfos allocaInfos;
 	// Gather all the allocas
 	for(BasicBlock& BB: F)
 		analyzeBlock(registerize, BB, allocaInfos);
@@ -79,7 +79,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 		// If the range is empty, we have an alloca that we can't analyze
 		if (targetRange.empty())
 			continue;
-		std::set<AllocaInst*> mergeSet;
+		std::vector<AllocaInfos::iterator> mergeSet;
 		auto sourceCandidate=targetCandidate;
 		++sourceCandidate;
 		for(;sourceCandidate!=allocaInfos.end();++sourceCandidate)
@@ -97,7 +97,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 			if(targetRange.doesInterfere(sourceRange))
 				continue;
 			// Add the range to the target range and the source alloca to the mergeSet
-			mergeSet.insert(sourceAlloca);
+			mergeSet.push_back(sourceCandidate);
 			targetRange.merge(sourceRange);
 		}
 
@@ -109,8 +109,9 @@ bool AllocaMerging::runOnFunction(Function& F)
 			registerize.invalidateLiveRangeForAllocas(F);
 
 		// We can merge the allocas
-		for(AllocaInst* allocaToMerge: mergeSet)
+		for(const AllocaInfos::iterator& it: mergeSet)
 		{
+			AllocaInst* allocaToMerge = it->first;
 			Instruction* targetVal=targetAlloca;
 			if(targetVal->getType()!=allocaToMerge->getType())
 			{
@@ -119,7 +120,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 			}
 			allocaToMerge->replaceAllUsesWith(targetVal);
 			allocaToMerge->eraseFromParent();
-			allocaInfos.erase(allocaToMerge);
+			allocaInfos.erase(it);
 			NumAllocaMerged++;
 		}
 		Changed = true;
@@ -218,7 +219,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
-	std::map<AllocaInst*, cheerp::Registerize::LiveRange> allocaInfos;
+	std::list<std::pair<AllocaInst*, cheerp::Registerize::LiveRange>> allocaInfos;
 	// Gather all the allocas
 	for(BasicBlock& BB: F)
 		analyzeBlock(registerize, BB, allocaInfos);
@@ -242,30 +243,43 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 		Type* targetElementType = targetAlloca->getAllocatedType()->getSequentialElementType();
 		auto sourceCandidate=targetCandidate;
 		++sourceCandidate;
-		for(;sourceCandidate!=allocaInfos.end();++sourceCandidate)
+		// Now that we have computed the sourceCandidate we can invalidate the targetCandidate
+		allocaInfos.erase(targetCandidate);
+		while(sourceCandidate!=allocaInfos.end())
 		{
 			AllocaInst* sourceAlloca = sourceCandidate->first;
 			// Check that allocas are arrays of the same type
 			if(!sourceAlloca->getAllocatedType()->isArrayTy())
+			{
+				++sourceCandidate;
 				continue;
-				// Both are arrays, check the types
+			}
+			// Both are arrays, check the types
 			if(targetElementType != sourceAlloca->getAllocatedType()->getSequentialElementType())
+			{
+				++sourceCandidate;
 				continue;
+			}
 			// Verify that the source candidate has supported uses
 			if(!checkUsesForArrayMerging(sourceAlloca))
+			{
+				++sourceCandidate;
 				continue;
+			}
 			// We can merge the source and the target
 			// If the set is empty add the target as well
 			if(arraysToMerge.empty())
 				arraysToMerge.add(targetAlloca);
 			arraysToMerge.add(sourceAlloca);
+			auto oldCandidate = sourceCandidate;
+			++sourceCandidate;
+			// Now that we have moved to the next candidate, we can invalidate the old one
+			allocaInfos.erase(oldCandidate);
 		}
 		// If we have a non-empty set of alloca merge them
 		if (arraysToMerge.empty())
-		{
-			allocaInfos.erase(targetCandidate);
 			continue;
-		}
+
 		if(!Changed)
 			registerize.invalidateLiveRangeForAllocas(F);
 		// Build new alloca
@@ -289,11 +303,11 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 					indices.push_back(ConstantInt::get(indexType, 0));
 					// Reach offset
 					indices.push_back(ConstantInt::get(indexType, baseOffset));
-					Value* gep1 = GetElementPtrInst::Create(newAlloca, indices, "gep1", oldGep);
+					Value* gep1 = GetElementPtrInst::Create(newAlloca, indices, "", oldGep);
 					// Apply all the old offsets but the first one using a new GEP
 					indices.clear();
 					indices.insert(indices.begin(), oldGep->idx_begin()+1, oldGep->idx_end());
-					Value* gep2 = GetElementPtrInst::Create(gep1, indices, "gep2", oldGep);
+					Value* gep2 = GetElementPtrInst::Create(gep1, indices, "", oldGep);
 					// Replace all uses with gep2
 					oldGep->replaceAllUsesWith(gep2);
 					PA.invalidate(oldGep);
@@ -313,7 +327,6 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 			// Kill the alloca itself now
 			PA.invalidate(allocaToMerge);
 			allocaToMerge->eraseFromParent();
-			allocaInfos.erase(allocaToMerge);
 			Changed = true;
 		}
 	}
