@@ -468,7 +468,7 @@ void Relooper::Calculate(Block *Entry) {
             Block *Invalidatee = ToInvalidate.front();
             ToInvalidate.pop_front();
             Block *Owner = Ownership[Invalidatee];
-            if (IndependentGroups.find(Owner) != IndependentGroups.end()) { // Owner may have been invalidated, do not add to IndependentGroups!
+            if (Owner && IndependentGroups.find(Owner) != IndependentGroups.end()) { // Owner may have been invalidated, do not add to IndependentGroups!
               IndependentGroups[Owner].erase(Invalidatee);
             }
             if (Ownership[Invalidatee]) { // may have been seen before and invalidated already

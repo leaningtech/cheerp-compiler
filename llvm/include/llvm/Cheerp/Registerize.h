@@ -119,7 +119,7 @@ private:
 		}
 	};
 	// Map from instructions to their live ranges
-	typedef std::map<llvm::Instruction*, InstructionLiveRange> LiveRangesTy;
+	typedef std::map<llvm::Instruction*, InstructionLiveRange, CompareInstructionByID> LiveRangesTy;
 	// Registers should have a consistent JS type
 	enum REGISTER_KIND { OBJECT=0, INTEGER, FLOAT, DOUBLE };
 	struct RegisterRange

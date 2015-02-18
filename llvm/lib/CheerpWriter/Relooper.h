@@ -65,7 +65,12 @@ struct Branch {
   void Render(Block *Target, bool SetLabel, RenderInterface* renderInterface);
 };
 
-typedef std::map<Block*, Branch*> BlockBranchMap;
+struct OrderBlocksById
+{
+	bool operator()(Block* lhs, Block* rhs) const;
+};
+
+typedef std::map<Block*, Branch*, OrderBlocksById> BlockBranchMap;
 
 // Represents a basic block of code - some instructions that end with a
 // control flow modifier (a branch, return or throw).
@@ -102,6 +107,10 @@ struct Block {
   static int IdCounter;
 };
 
+inline bool OrderBlocksById::operator()(Block* lhs, Block* rhs) const
+{
+	return lhs->Id < rhs->Id;
+}
 // Represents a structured control flow shape, one of
 //
 //  Simple: No control flow at all, just instructions. If several
@@ -160,7 +169,7 @@ struct SimpleShape : public Shape {
   }
 };
 
-typedef std::map<Block*, Shape*> BlockShapeMap;
+typedef std::map<Block*, Shape*, OrderBlocksById> BlockShapeMap;
 
 // A shape that may be implemented with a labeled loop.
 struct LabeledShape : public Shape {
@@ -228,7 +237,7 @@ struct Relooper {
 };
 
 typedef std::set<Block*> BlockSet;
-typedef std::map<Block*, BlockSet> BlockBlockSetMap;
+typedef std::map<Block*, BlockSet, OrderBlocksById> BlockBlockSetMap;
 
 #if DEBUG
 struct Debugging {
