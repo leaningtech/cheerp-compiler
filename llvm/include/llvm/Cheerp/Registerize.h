@@ -215,8 +215,8 @@ private:
 					llvm::BasicBlock& BB, cheerp::PointerAnalyzer& PA, uint32_t nextIndex, uint32_t codePathId);
 	void extendRangeForUsedOperands(llvm::Instruction& I, LiveRangesTy& liveRanges, cheerp::PointerAnalyzer& PA,
 					uint32_t thisIndex, uint32_t codePathId);
-	uint32_t assignToRegisters(const LiveRangesTy& F);
-	void handlePHI(llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers);
+	uint32_t assignToRegisters(const LiveRangesTy& F, const PointerAnalyzer& PA);
+	void handlePHI(llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA);
 	uint32_t findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
 					REGISTER_KIND kind);
 	static REGISTER_KIND getRegKindFromType(llvm::Type*);

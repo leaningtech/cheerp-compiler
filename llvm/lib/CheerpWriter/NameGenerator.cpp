@@ -185,7 +185,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	{
 	public:
 		CompressedPHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n, useInstsOnEdgeVec& a ):
-			fromBB(f), toBB(t), namegen(n), allTmpPHIs(a), nextIndex(0)
+			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n), allTmpPHIs(a), nextIndex(0)
 		{
 		}
 	private:
@@ -381,7 +381,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	{
 	public:
 		ReadablePHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n ):
-			fromBB(f), toBB(t), namegen(n), nextIndex(0)
+			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n), nextIndex(0)
 		{
 		}
 	private:
