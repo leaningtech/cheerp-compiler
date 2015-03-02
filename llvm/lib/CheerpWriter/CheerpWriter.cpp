@@ -1237,7 +1237,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	class WriterPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		WriterPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t):writer(w),fromBB(f),toBB(t)
+		WriterPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t):EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t)
 		{
 		}
 		~WriterPHIHandler()
@@ -1259,7 +1259,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			Type* phiType=phi->getType();
 			const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
 			// We can avoid assignment from the same register if no pointer kind conversion is required
-			if(incomingInst &&
+			if(incomingInst && !isInlineable(*incomingInst, writer.PA) &&
 				writer.registerize.getRegisterId(phi)==writer.registerize.getRegisterId(incomingInst) &&
 				(!phiType->isPointerTy() || writer.PA.getPointerKind(phi)==writer.PA.getPointerKind(incoming)) &&
 				writer.PA.getConstantOffsetForPointer(phi)==writer.PA.getConstantOffsetForPointer(incoming))

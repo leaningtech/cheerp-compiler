@@ -459,8 +459,12 @@ class Registerize;
 class EndOfBlockPHIHandler
 {
 public:
+	EndOfBlockPHIHandler(const PointerAnalyzer& PA):PA(PA)
+	{
+	}
 	void runOnEdge(const Registerize& registerize, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB);
 protected:
+	const PointerAnalyzer& PA;
 	virtual ~EndOfBlockPHIHandler()
 	{
 	}
@@ -468,11 +472,16 @@ private:
 	struct PHIRegData
 	{
 		const llvm::PHINode* phiInst;
-		uint32_t incomingReg;
+		llvm::SmallVector<uint32_t,2> incomingRegs;
 		enum STATUS { NOT_VISITED=0, VISITING, VISITED };
 		STATUS status;
 		PHIRegData(const llvm::PHINode* p, uint32_t r):
-			phiInst(p), incomingReg(r), status(NOT_VISITED)
+			phiInst(p), status(NOT_VISITED)
+		{
+			incomingRegs.push_back(r);
+		}
+		PHIRegData(const llvm::PHINode* p, llvm::ArrayRef<uint32_t> r):
+			phiInst(p), incomingRegs(r.begin(),r.end()), status(NOT_VISITED)
 		{
 		}
 	};
