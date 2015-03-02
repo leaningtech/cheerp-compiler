@@ -78,17 +78,6 @@ bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhi
 
 bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 {
-	//Inlining a variable used by a PHI it's unsafe
-	//When the phi's are computed the result
-	//correctness may depend on the order they are
-	//computed. Check all uses
-	Value::const_use_iterator it=I.use_begin();
-	Value::const_use_iterator itE=I.use_end();
-	for(;it!=itE;++it)
-	{
-		if(PHINode::classof(it->getUser()))
-			return false;
-	}
 	//Beside a few cases, instructions with a single use may be inlined
 	//TODO: Find out a better heuristic for inlining, it seems that computing
 	//may be faster even on more than 1 use
@@ -555,7 +544,8 @@ void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, llvm::Smal
 	}
 	// Not yet visited
 	regData.status=PHIRegData::VISITING;
-	runOnPHI(phiRegs, regData.incomingReg, orderedPHIs);
+	for(uint32_t reg: regData.incomingRegs)
+		runOnPHI(phiRegs, reg, orderedPHIs);
 	// Add the PHI to orderedPHIs only after eventual dependencies have been added
 	orderedPHIs.push_back(regData.phiInst);
 	regData.status=PHIRegData::VISITED;
@@ -583,14 +573,36 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			orderedPHIs.push_back(phi);
 			continue;
 		}
-		uint32_t incomingValueId = registerize.getRegisterId(I);
 		uint32_t phiReg = registerize.getRegisterId(phi);
-		if(incomingValueId==phiReg)
+		// This instruction may depend on multiple registers
+		llvm::SmallVector<uint32_t, 2> incomingRegisters;
+		llvm::SmallVector<const Instruction*, 4> instQueue;
+		instQueue.push_back(I);
+		while(!instQueue.empty())
 		{
-			orderedPHIs.push_back(phi);
-			continue;
+			const Instruction* incomingInst = instQueue.pop_back_val();
+			if(!isInlineable(*incomingInst, PA))
+			{
+				uint32_t incomingValueId = registerize.getRegisterId(incomingInst);
+				if(incomingValueId==phiReg)
+					continue;
+				incomingRegisters.push_back(incomingValueId);
+			}
+			else
+			{
+				for(const Value* op: incomingInst->operands())
+				{
+					const Instruction* opI = dyn_cast<Instruction>(op);
+					if(!opI)
+						continue;
+					instQueue.push_back(opI);
+				}
+			}
 		}
-		phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, incomingValueId)));
+		if(incomingRegisters.empty())
+			orderedPHIs.push_back(phi);
+		else
+			phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, incomingRegisters)));
 	}
 	for(auto it: phiRegs)
 	{
