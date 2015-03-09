@@ -48,6 +48,18 @@ public:
 	}
 
 	/**
+	 * Return a JS compatible name for the StructType, potentially minimized
+	 * A name is guaranteed also for literal structs which have otherwise no name
+	 */
+	llvm::StringRef getTypeName(llvm::StructType* ST) const
+	{
+		if(!typemap.count(ST))
+			ST->dump();
+		assert(typemap.count(ST));
+		return typemap.at(ST);
+	}
+
+	/**
 	 * Same as getName, but supports the required temporary variables in edges between blocks
 	 * It uses the current edge context.
 	*/
@@ -71,6 +83,7 @@ public:
 private:
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
 	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
+	void generateTypeNames( const GlobalDepsAnalyzer& );
 	
 	// Determine if an instruction actually needs a name
 	bool needsName(const llvm::Instruction &, const PointerAnalyzer& PA) const;
@@ -78,6 +91,7 @@ private:
 	const Registerize& registerize;
 	const PointerAnalyzer& PA;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
+	std::unordered_map<llvm::StructType*, llvm::SmallString<4> > typemap;
 	struct InstOnEdge
 	{
 		const llvm::BasicBlock* fromBB;
