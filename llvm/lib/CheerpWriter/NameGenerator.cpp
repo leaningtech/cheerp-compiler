@@ -118,6 +118,7 @@ NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, con
 		generateReadableNames(M, gda);
 	else
 		generateCompressedNames(M, gda);
+	generateTypeNames(gda);
 }
 
 llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v) const
@@ -460,6 +461,17 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		}
 		else
 			namemap.emplace( &GV, filterLLVMName( GV.getName(), true ) );
+}
+
+void NameGenerator::generateTypeNames(const GlobalDepsAnalyzer& gda)
+{
+	for(StructType* ST: gda.classesUsed())
+	{
+		if(ST->hasName())
+			typemap.insert(std::make_pair(ST, filterLLVMName(ST->getName(), true)));
+		else
+			typemap.insert(std::make_pair(ST, StringRef("_literal" + std::to_string(typemap.size()))));
+	}
 }
 
 bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) const
