@@ -58,8 +58,13 @@ public:
 	/**
 	 * Get a list of the classes which require bases info
 	 */
-	const std::unordered_set<llvm::StructType*> & classesWithBaseInfo() const { return classesNeeded; }
+	const std::unordered_set<llvm::StructType*> & classesWithBaseInfo() const { return classesWithBaseInfoNeeded; }
 	
+	/**
+	 * Get a list of the classes which are allocated in the code
+	 */
+	const std::unordered_set<llvm::StructType*> & classesUsed() const { return classesNeeded; }
+
 	/**
 	 * Get a list of the arrays which are dynamically allocated with unknown size
 	 */
@@ -119,6 +124,11 @@ private:
 	 */
 	void visitFunction( const llvm::Function * F, VisitedSet & visited );
 	
+
+	/**
+	 * Visit every sub-structure inside this struct
+	 */
+	void visitStruct( llvm::StructType* ST );
 	/**
 	 * Remove all the unused function/variables from a module.
 	 * 
@@ -134,6 +144,7 @@ private:
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
+	std::unordered_set<llvm::StructType* > classesWithBaseInfoNeeded;
 	std::unordered_set<llvm::StructType* > classesNeeded;
 	std::unordered_set<llvm::StructType* > arraysNeeded;
 	std::vector< const llvm::Function* > constructorsNeeded;
