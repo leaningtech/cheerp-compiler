@@ -301,6 +301,10 @@ private:
 	void compileNullPtrs();
 	void compileCreateClosure();
 	void compileHandleVAArg();
+	/**
+	 * This method supports both ConstantArray and ConstantDataSequential
+	 */
+	void compileConstantArrayMembers(const llvm::Constant* C);
 
 	/**
 	 * Methods implemented in types.cpp
