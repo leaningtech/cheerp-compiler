@@ -1049,6 +1049,34 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
 	}
 }
 
+void CheerpWriter::compileConstantArrayMembers(const Constant* C)
+{
+	if(const ConstantArray* CA = dyn_cast<ConstantArray>(C))
+	{
+		Type* elementType = CA->getType()->getElementType();
+		for(uint32_t i=0;i<CA->getNumOperands();i++)
+		{
+			if(i!=0)
+				stream << ',';
+			if(elementType->isPointerTy())
+				compilePointerAs(CA->getOperand(i), PA.getPointerKindForStoredType(elementType));
+			else
+				compileOperand(CA->getOperand(i));
+		}
+	}
+	else
+	{
+		const ConstantDataSequential* CD = dyn_cast<ConstantDataSequential>(C);
+		assert(CD);
+		for(uint32_t i=0;i<CD->getNumElements();i++)
+		{
+			if(i!=0)
+				stream << ',';
+			compileConstant(CD->getElementAsConstant(i));
+		}
+	}
+}
+
 void CheerpWriter::compileConstant(const Constant* c)
 {
 	if(isa<ConstantExpr>(c))
@@ -1062,15 +1090,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 		stream << "new ";
 		compileTypedArrayType(t);
 		stream << "([";
-
-		for(uint32_t i=0;i<d->getNumElements();i++)
-		{
-			compileConstant(d->getElementAsConstant(i));
-
-			if((i+1)<d->getNumElements())
-				stream << ',';
-		}
-
+		compileConstantArrayMembers(d);
 		stream << "])";
 	}
 	else if(isa<ConstantArray>(c))
@@ -1078,19 +1098,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 		const ConstantArray* d=cast<ConstantArray>(c);
 		stream << '[';
 		assert(d->getType()->getNumElements() == d->getNumOperands());
-		Type* elementType = d->getType()->getElementType();
-
-		for(uint32_t i=0;i<d->getNumOperands();i++)
-		{
-			if(elementType->isPointerTy())
-				compilePointerAs(d->getOperand(i), PA.getPointerKindForStoredType(elementType));
-			else
-				compileOperand(d->getOperand(i));
-
-			if((i+1)<d->getNumOperands())
-				stream << ',';
-		}
-
+		compileConstantArrayMembers(d);
 		stream << ']';
 	}
 	else if(isa<ConstantStruct>(c))
