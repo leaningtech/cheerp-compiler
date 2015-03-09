@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -27,27 +27,9 @@ void CheerpWriter::compileClassesExportedToJs()
 		if (!name.endswith("_methods") || !name.startswith("class.") )
 			continue;
 
-		StringRef mangledName = name.drop_front(6).drop_back(8);
-
-		demangler_iterator demangler( mangledName );
-
-		StringRef jsClassName = *demangler++;
-
-		if ( demangler != demangler_iterator() )
-		{
-			Twine errorString("Class: ",jsClassName);
-
-			for ( ; demangler != demangler_iterator(); ++ demangler )
-				errorString.concat("::").concat(*demangler);
-
-			errorString.concat(" is not a valid [[jsexport]] class (not in global namespace)\n");
-
-			llvm::report_fatal_error( errorString );
-		}
-
-		assert( jsClassName.end() > name.begin() && std::size_t(jsClassName.end() - name.begin()) <= name.size() );
-		StructType * t = module.getTypeByName( StringRef(name.begin(), jsClassName.end() - name.begin() ) );
-		assert(t);
+		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, module);
+		StructType* t = structAndName.first;
+		StringRef jsClassName = structAndName.second;
 
 		auto getMethodName = [&](const MDNode * node) -> StringRef
 		{
