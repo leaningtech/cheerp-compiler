@@ -365,8 +365,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		
 		assert( globalDeps.dynAllocArrays().count(st) );
 		
-		stream << "createArray" << namegen.filterLLVMName(st->getName(), true);
-		stream << '(';
+		stream << "createArray" << namegen.getTypeName(st) << '(';
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 			stream << "__old__,__len__)";
 		else
@@ -2670,7 +2669,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			if(st->hasName() && module.getNamedMetadata(Twine(st->getName(),"_bases")) &&
 				globalDeps.classesWithBaseInfo().count(st))
 			{
-				stream << "create" << namegen.filterLLVMName(st->getName(), true) << '(';
+				stream << "create" << namegen.getTypeName(st) << '(';
 				compilePointerAs(&G, COMPLETE_OBJECT);
 				stream << ");" << NewLine;
 			}

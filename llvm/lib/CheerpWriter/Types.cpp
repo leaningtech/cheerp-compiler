@@ -167,14 +167,14 @@ void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style)
 	{
 		if(style==LITERAL_OBJ)
 		{
-			stream << "create" << namegen.filterLLVMName(cast<StructType>(t)->getName(), true) << '(';
+			stream << "create" << namegen.getTypeName(cast<StructType>(t)) << '(';
 			compileTypeImpl(t, LITERAL_OBJ);
 			stream << ')';
 		}
 		else
 		{
 			compileTypeImpl(t, THIS_OBJ);
-			stream << "create" << namegen.filterLLVMName(cast<StructType>(t)->getName(), true) << "(this)";
+			stream << "create" << namegen.getTypeName(cast<StructType>(t)) << "(this)";
 		}
 	}
 	else
@@ -234,7 +234,7 @@ void CheerpWriter::compileArrayClassType(StructType* T)
 		return;
 	}
 	stream << "function createArray";
-	stream << namegen.filterLLVMName(T->getName(), true);
+	stream << namegen.getTypeName(T);
 	stream << "(ret,start){" << NewLine;
 	stream << "for(var __i__=start;__i__<ret.length;__i__++)" << NewLine;
 	stream << "ret[__i__]=";
