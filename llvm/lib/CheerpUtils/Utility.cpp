@@ -381,6 +381,37 @@ std::pair<StructType*, StringRef> TypeSupport::getJSExportedTypeFromMetadata(Str
 	return std::make_pair(t, jsClassName);
 }
 
+bool TypeSupport::isSimpleType(Type* t)
+{
+	switch(t->getTypeID())
+	{
+		case Type::IntegerTyID:
+		case Type::FloatTyID:
+		case Type::DoubleTyID:
+		case Type::PointerTyID:
+			return true;
+		case Type::StructTyID:
+		{
+			// Union are considered simple because they use a single DataView object
+			if(TypeSupport::hasByteLayout(t))
+				return true;
+			break;
+		}
+		case Type::ArrayTyID:
+		{
+			ArrayType* at=static_cast<ArrayType*>(t);
+			Type* et=at->getElementType();
+			// When a single typed array object is used, we consider this array as simple
+			if(isTypedArrayType(et) && at->getNumElements()>1)
+				return true;
+			break;
+		}
+		default:
+			assert(false);
+	}
+	return false;
+}
+
 bool TypeSupport::safeCallForNewedMemory(const CallInst* ci)
 {
 	//We allow the unsafe cast to i8* only

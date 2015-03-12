@@ -157,6 +157,9 @@ public:
 	static bool getBasesInfo(const llvm::Module& module, const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 
 	static std::pair<llvm::StructType*, llvm::StringRef> getJSExportedTypeFromMetadata(llvm::StringRef name, const llvm::Module & module);
+
+	// Returns true if the type is not considered a literal object or array in JS
+	static bool isSimpleType(llvm::Type* t);
 private:
 	static const llvm::NamedMDNode* getBasesMetadata(const llvm::StructType * t, const llvm::Module & m)
 	{
