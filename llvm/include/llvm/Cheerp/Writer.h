@@ -309,7 +309,8 @@ private:
 	 */
 	enum COMPILE_TYPE_STYLE { LITERAL_OBJ=0, THIS_OBJ };
 	void compileTypedArrayType(llvm::Type* t);
-	void compileTypeImpl(llvm::Type* t, COMPILE_TYPE_STYLE style);
+	void compileSimpleType(llvm::Type* t);
+	void compileComplexType(llvm::Type* t, COMPILE_TYPE_STYLE style);
 	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style);
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);

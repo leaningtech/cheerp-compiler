@@ -35,8 +35,9 @@ void CheerpWriter::compileTypedArrayType(Type* t)
 	}
 }
 
-void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
+void CheerpWriter::compileSimpleType(Type* t)
 {
+	assert(TypeSupport::isSimpleType(t));
 	switch(t->getTypeID())
 	{
 		case Type::IntegerTyID:
@@ -53,63 +54,6 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 			stream << '0';
 			break;
 		}
-		case Type::StructTyID:
-		{
-			//Special case union first
-			if(TypeSupport::hasByteLayout(t))
-			{
-				uint32_t typeSize = targetData.getTypeAllocSize(t);
-				stream << "new DataView(new ArrayBuffer(";
-				stream << typeSize;
-				stream << "))";
-				break;
-			}
-			StructType* st=static_cast<StructType*>(t);
-			if(style == LITERAL_OBJ)
-				stream << '{';
-			StructType::element_iterator E=st->element_begin();
-			StructType::element_iterator EE=st->element_end();
-			uint32_t offset=0;
-			for(;E!=EE;++E)
-			{
-				if(offset!=0)
-				{
-					if(style==LITERAL_OBJ)
-						stream << ',';
-					else
-						stream << ';' << NewLine;
-				}
-				if(style==THIS_OBJ)
-					stream << "this.";
-				stream << types.getPrefixCharForMember(PA, st, offset) << offset;
-				if(style==LITERAL_OBJ)
-					stream << ':';
-				else
-					stream << '=';
-				// Create a wrapper array for all members which require REGULAR pointers, if they are not already covered by the downcast array
-				TypeAndIndex baseAndIndex(st, offset, TypeAndIndex::STRUCT_MEMBER);
-				bool useWrapperArray = types.useWrapperArrayForMember(PA, st, offset);
-				if (useWrapperArray)
-					stream << '[';
-				if ((*E)->isPointerTy())
-				{
-					if (PA.getPointerKindForMemberPointer(baseAndIndex)==COMPLETE_OBJECT)
-						stream << "nullRef";
-					else if (PA.getConstantOffsetForMember(baseAndIndex))
-						stream << "nullArray";
-					else
-						stream << "nullObj";
-				}
-				else
-					compileType(*E, LITERAL_OBJ);
-				if(useWrapperArray)
-					stream << ']';
-				offset++;
-			}
-			if(style == LITERAL_OBJ)
-				stream << '}';
-			break;
-		}
 		case Type::PointerTyID:
 		{
 			if(PA.getPointerKindForStoredType(t)==COMPLETE_OBJECT)
@@ -118,65 +62,116 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 				stream << "nullObj";
 			break;
 		}
+		case Type::StructTyID:
+		{
+			assert(TypeSupport::hasByteLayout(t));
+			uint32_t typeSize = targetData.getTypeAllocSize(t);
+			stream << "new DataView(new ArrayBuffer(";
+			stream << typeSize;
+			stream << "))";
+			break;
+		}
 		case Type::ArrayTyID:
 		{
-			ArrayType* at=static_cast<ArrayType*>(t);
+			ArrayType* at=cast<ArrayType>(t);
 			Type* et=at->getElementType();
-			//For numerical types, create typed arrays
-			if(types.isTypedArrayType(et) && at->getNumElements()>1)
-			{
-				stream << "new ";
-				compileTypedArrayType(et);
-				stream << '(' << at->getNumElements() << ')';
-			}
-			else
-			{
-				stream << '[';
-				for(uint64_t i=0;i<at->getNumElements();i++)
-				{
-					compileType(at->getElementType(), LITERAL_OBJ);
-					if((i+1)<at->getNumElements())
-						stream << ',';
-				}
-				stream << ']';
-			}
+			assert(types.isTypedArrayType(et) && at->getNumElements()>1);
+			stream << "new ";
+			compileTypedArrayType(et);
+			stream << '(' << at->getNumElements() << ')';
 			break;
 		}
 		default:
-			llvm::errs() << "Support type ";
-			t->dump();
-			llvm::errs() << '\n';
+			assert(false);
+	}
+}
+
+void CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style)
+{
+	assert(!TypeSupport::isSimpleType(t));
+	assert(t->getTypeID() == Type::StructTyID || t->getTypeID() == Type::ArrayTyID);
+
+	if (StructType* st = dyn_cast<StructType>(t))
+	{
+		assert(!TypeSupport::hasByteLayout(st));
+		bool addDowncastArray = types.hasBasesInfo(t);
+		if(style == LITERAL_OBJ)
+		{
+			if(addDowncastArray)
+				stream << "create" << namegen.getTypeName(cast<StructType>(t)) << '(';
+			stream << '{';
+		}
+		for(uint32_t i=0;i<st->getNumElements();i++)
+		{
+			Type* element = st->getElementType(i);
+			if(i!=0)
+			{
+				if(style==THIS_OBJ)
+					stream << ';' << NewLine;
+				else
+					stream << ',';
+			}
+			if(style==THIS_OBJ)
+				stream << "this.";
+			stream << types.getPrefixCharForMember(PA, st, i) << i;
+			if(style==THIS_OBJ)
+				stream << '=';
+			else
+				stream << ':';
+			// Create a wrapper array for all members which require REGULAR pointers, if they are not already covered by the downcast array
+			TypeAndIndex baseAndIndex(st, i, TypeAndIndex::STRUCT_MEMBER);
+			bool useWrapperArray = types.useWrapperArrayForMember(PA, st, i);
+			if (useWrapperArray)
+				stream << '[';
+			if (element->isPointerTy())
+			{
+				if (PA.getPointerKindForMemberPointer(baseAndIndex)==COMPLETE_OBJECT)
+					stream << "nullRef";
+				else if (PA.getConstantOffsetForMember(baseAndIndex))
+					stream << "nullArray";
+				else
+					stream << "nullObj";
+			}
+			else
+				compileType(element, LITERAL_OBJ);
+			if(useWrapperArray)
+				stream << ']';
+		}
+		if(style == LITERAL_OBJ)
+		{
+			stream << '}';
+			if(addDowncastArray)
+				stream << ')';
+		}
+		else if(addDowncastArray)
+		{
+			assert(style == THIS_OBJ);
+			stream << "create" << namegen.getTypeName(cast<StructType>(t)) << "(this)";
+		}
+	}
+	else
+	{
+		assert(style == LITERAL_OBJ);
+		ArrayType* at=cast<ArrayType>(t);
+		Type* element = at->getElementType();
+		assert(!(types.isTypedArrayType(element) && at->getNumElements()>1));
+		stream << '[';
+		for(uint64_t i=0;i<at->getNumElements();i++)
+		{
+			if(i!=0)
+				stream << ',';
+			compileType(at->getElementType(), LITERAL_OBJ);
+		}
+		stream << ']';
 	}
 }
 
 void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style)
 {
-	bool addDowncastArray = false;
-	if(StructType* st=dyn_cast<StructType>(t))
-	{
-		//TODO: Verify that it makes sense to assume struct with no name has no bases
-		if(st->hasName() && module.getNamedMetadata(Twine(st->getName(),"_bases")) &&
-			globalDeps.classesWithBaseInfo().count(st))
-		{
-			addDowncastArray = true;
-		}
-	}
-	if(addDowncastArray)
-	{
-		if(style==LITERAL_OBJ)
-		{
-			stream << "create" << namegen.getTypeName(cast<StructType>(t)) << '(';
-			compileTypeImpl(t, LITERAL_OBJ);
-			stream << ')';
-		}
-		else
-		{
-			compileTypeImpl(t, THIS_OBJ);
-			stream << "create" << namegen.getTypeName(cast<StructType>(t)) << "(this)";
-		}
-	}
+	if(TypeSupport::isSimpleType(t))
+		compileSimpleType(t);
 	else
-		compileTypeImpl(t, style);
+		compileComplexType(t, style);
 }
 
 uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
