@@ -213,7 +213,7 @@ void CheerpWriter::compileClassType(StructType* T)
 		return;
 	}
 	//This function is used as a constructor using the new syntax
-	stream << "function create" << namegen.filterLLVMName(T->getName(), true) << "(obj){" << NewLine;
+	stream << "function create" << namegen.filterLLVMName(T->getName(), NameGenerator::GLOBAL) << "(obj){" << NewLine;
 
 	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(T->getName(),"_bases"));
 	assert(basesNamedMeta);
