@@ -133,13 +133,24 @@ llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v) const
 	return namemap.at(v);
 }
 
-SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, bool isGlobalName)
+SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, NAME_FILTER_MODE filterMode)
 {
 	SmallString< 4 > ans;
 	ans.reserve( s.size() + 1 );
 
-	//Add an '_' or 'L' to skip reserved names
-	ans.push_back( isGlobalName ? '_' : 'L' );
+	//Add an '_', 'L' or 'M' to skip reserved names
+	switch(filterMode)
+	{
+		case GLOBAL:
+			ans.push_back( '_' );
+			break;
+		case LOCAL:
+			ans.push_back( 'L' );
+			break;
+		case LOCAL_SECONDARY:
+			ans.push_back( 'M' );
+			break;
+	}
 
 	for ( char c : s )
 	{
@@ -356,7 +367,20 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		{
 			// Assign this name to all the local values
 			for ( const Value * v : local_it->second )
+			{
 				namemap.emplace( v, *name_it );
+				StringRef secondaryName;
+				// We need to consume another name to assign the secondary one
+				if(needsSecondaryName(v, PA))
+				{
+					if(secondaryName.empty())
+					{
+						++name_it;
+						secondaryName = *name_it;
+					}
+					secondaryNamemap.emplace( v, secondaryName );
+				}
+			}
 			
 			++local_it;
 		}
@@ -420,7 +444,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 						namemap.emplace( &I, regNameIt->second );
 					else if ( I.hasName() )
 					{
-						auto it=namemap.emplace( &I, filterLLVMName(I.getName(), false) ).first;
+						auto it=namemap.emplace( &I, filterLLVMName(I.getName(), LOCAL) ).first;
 						regmap.emplace( registerId, it->second );
 					}
 					else
@@ -440,14 +464,24 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 			}
 		}
 
-		unsigned argCounter = 0;
 		for ( auto arg_it = f.arg_begin(); arg_it != f.arg_end(); ++arg_it )
+		{
+			bool needsTwoNames = needsSecondaryName(arg_it, PA);
 			if ( arg_it->hasName() )
-				namemap.emplace( arg_it, filterLLVMName(arg_it->getName(), false) );
+			{
+				namemap.emplace( arg_it, filterLLVMName(arg_it->getName(), LOCAL) );
+				if(needsTwoNames)
+					secondaryNamemap.emplace( arg_it, filterLLVMName(arg_it->getName(), LOCAL_SECONDARY) );
+			}
 			else
-				namemap.emplace( arg_it, StringRef( "arg" + std::to_string(argCounter++) ) );
+			{
+				namemap.emplace( arg_it, StringRef( "Larg" + std::to_string(arg_it->getArgNo()) ) );
+				if(needsTwoNames)
+					secondaryNamemap.emplace( arg_it, StringRef( "Marg" + std::to_string(arg_it->getArgNo()) ) );
+			}
+		}
 			
-		namemap.emplace( &f, filterLLVMName( f.getName(), true ) );
+		namemap.emplace( &f, filterLLVMName( f.getName(), GLOBAL ) );
 	}
 
 	for (const GlobalVariable & GV : M.getGlobalList() )
@@ -460,7 +494,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 			
 		}
 		else
-			namemap.emplace( &GV, filterLLVMName( GV.getName(), true ) );
+			namemap.emplace( &GV, filterLLVMName( GV.getName(), GLOBAL ) );
 }
 
 void NameGenerator::generateTypeNames(const GlobalDepsAnalyzer& gda)
@@ -468,7 +502,7 @@ void NameGenerator::generateTypeNames(const GlobalDepsAnalyzer& gda)
 	for(StructType* ST: gda.classesUsed())
 	{
 		if(ST->hasName())
-			typemap.insert(std::make_pair(ST, filterLLVMName(ST->getName(), true)));
+			typemap.insert(std::make_pair(ST, filterLLVMName(ST->getName(), GLOBAL)));
 		else
 			typemap.insert(std::make_pair(ST, StringRef("_literal" + std::to_string(typemap.size()))));
 	}
@@ -477,6 +511,11 @@ void NameGenerator::generateTypeNames(const GlobalDepsAnalyzer& gda)
 bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) const
 {
 	return !isInlineable(I, PA) && !I.getType()->isVoidTy() && !I.use_empty();
+}
+
+bool NameGenerator::needsSecondaryName(const Value* V, const PointerAnalyzer& PA) const
+{
+	return V->getType()->isPointerTy() && isa<Argument>(V) && PA.getPointerKind(V) == REGULAR;
 }
 
 }
