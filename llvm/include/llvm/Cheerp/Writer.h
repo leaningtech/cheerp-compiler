@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2014 Leaning Technologies
+// Copyright 2011-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -222,7 +222,7 @@ private:
 	/**
 	 * Compile the pointer offset.
 	 */
-	void compilePointerOffset(const llvm::Value*);
+	void compilePointerOffset(const llvm::Value*, bool forEscapingPointer=false);
 
 	/**
 	 * BYTE_LAYOUT_OFFSET_FULL: Compile the full offset in bytes till the element
@@ -324,6 +324,9 @@ private:
 	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p);
 	void compilePtrToInt(const llvm::Value* v);
 	void compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs);
+	void compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind);
+	void compileBitCastBase(const llvm::User* bi, bool forEscapingPointer);
+	void compileBitCastOffset(const llvm::User* bi);
 
 	static uint32_t getMaskForBitWidth(int width)
 	{
