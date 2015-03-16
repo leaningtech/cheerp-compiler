@@ -710,9 +710,7 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	StringRef joinString = (p == CmpInst::ICMP_NE) ? " || " : " && ";
 
 	if(PA.getPointerKind(lhs) == REGULAR &&
-	                PA.getPointerKind(rhs) == REGULAR &&
-			!isa<ConstantPointerNull>(lhs) &&
-			!isa<ConstantPointerNull>(rhs))
+	                PA.getPointerKind(rhs) == REGULAR)
 	{
 		compilePointerBase(lhs);
 		stream << compareString;
