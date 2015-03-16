@@ -265,7 +265,7 @@ private:
 		{
 			stream << "nullObj";
 		}
-		else if (PA.getConstantOffsetForPointer(p))
+		else if (PA.getConstantOffsetForPointer(p) || llvm::isa<llvm::Argument>(p))
 		{
 			stream << "{d:";
 			compilePointerBase(p, true);

@@ -875,6 +875,12 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		return;
 	}
 
+	if(isa<Argument>(p))
+	{
+		stream << namegen.getName(p);
+		return;
+	}
+
 	// If value has not been generated from a GEP, just compile it and ask for .d
 	compileOperand(p);
 	if(!PA.getConstantOffsetForPointer(p))
@@ -976,6 +982,11 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 	{
 		// Check if the offset has been constantized for this pointer
 		compileConstant(CI);
+	}
+	else if(isa<Argument>(p))
+	{
+		stream << namegen.getSecondaryName(p);
+		return;
 	}
 	else
 	{
@@ -1307,15 +1318,25 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			// we pass the kind decided by getPointerKind(arg_it).
 			// If it's variadic we use the base kind derived from the type
 			// If it's indirect we use a kind good for any argument of a given type at a given position
+			POINTER_KIND argKind = UNKNOWN;
 			if (!F)
 			{
 				TypeAndIndex typeAndIndex(tp->getPointerElementType(), opCount, TypeAndIndex::ARGUMENT);
-				compilePointerAs(*cur, PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex));
+				argKind = PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex);
 			}
 			else if (arg_it != F->arg_end())
-				compilePointerAs(*cur, PA.getPointerKind(arg_it));
+				argKind = PA.getPointerKind(arg_it);
 			else
 				compilePointerAs(*cur, PA.getPointerKindForArgumentType(tp));
+
+			if(argKind == REGULAR)
+			{
+				compilePointerBase(*cur, true);
+				stream << ',';
+				compilePointerOffset(*cur, true);
+			}
+			else if(argKind != UNKNOWN)
+				compilePointerAs(*cur, argKind);
 		}
 		else
 		{
@@ -2481,7 +2502,10 @@ void CheerpWriter::compileMethod(const Function& F)
 	{
 		if(curArg!=A)
 			stream << ',';
-		stream << namegen.getName(curArg);
+		if(curArg->getType()->isPointerTy() && PA.getPointerKind(curArg) == REGULAR)
+			stream << namegen.getName(curArg) << ',' << namegen.getSecondaryName(curArg);
+		else
+			stream << namegen.getName(curArg);
 	}
 	stream << "){" << NewLine;
 	std::map<const BasicBlock*, uint32_t> blocksMap;
