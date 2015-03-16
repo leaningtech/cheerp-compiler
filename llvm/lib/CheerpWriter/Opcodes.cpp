@@ -68,7 +68,7 @@ void CheerpWriter::compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind)
 	{
 		if(PA.getConstantOffsetForPointer(bc_inst))
 			compilePointerBase(bc_inst);
-		else if(PA.getPointerKind(bc_inst->getOperand(0)) == REGULAR)
+		else if(PA.getPointerKind(bc_inst->getOperand(0)) == REGULAR && !isa<Argument>(bc_inst->getOperand(0)))
 			compileOperand(bc_inst->getOperand(0));
 		else
 		{
