@@ -48,6 +48,16 @@ public:
 	}
 
 	/**
+	 * Some values, such as arguments which are REGULAR pointers needs two names
+	 */
+	llvm::StringRef getSecondaryName(const llvm::Value* v) const
+	{
+		assert(namemap.count(v) );
+		assert(!secondaryNamemap.at(v).empty());
+		return secondaryNamemap.at(v);
+	}
+
+	/**
 	 * Return a JS compatible name for the StructType, potentially minimized
 	 * A name is guaranteed also for literal structs which have otherwise no name
 	 */
@@ -77,8 +87,9 @@ public:
 		edgeContext.clear();
 	}
 
+	enum NAME_FILTER_MODE { GLOBAL = 0, LOCAL, LOCAL_SECONDARY };
 	// Filter the original string so that it no longer contains invalid JS characters.
-	static llvm::SmallString<4> filterLLVMName( llvm::StringRef, bool isGlobalName );
+	static llvm::SmallString<4> filterLLVMName( llvm::StringRef, NAME_FILTER_MODE filterMode );
 
 private:
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
@@ -87,10 +98,12 @@ private:
 	
 	// Determine if an instruction actually needs a name
 	bool needsName(const llvm::Instruction &, const PointerAnalyzer& PA) const;
+	bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA) const;
 
 	const Registerize& registerize;
 	const PointerAnalyzer& PA;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
+	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > secondaryNamemap;
 	std::unordered_map<llvm::StructType*, llvm::SmallString<4> > typemap;
 	struct InstOnEdge
 	{
