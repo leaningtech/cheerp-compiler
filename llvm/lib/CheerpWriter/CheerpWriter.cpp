@@ -791,22 +791,6 @@ void CheerpWriter::compileOffsetForGEP(Type* pointerOperandType, ArrayRef< const
 	}
 }
 
-/**
- * Return the GEP this value comes from (propagating across bitcasts/nopcasts).
- * If the value is not a GEP, return null
- */
-static const User* propagate_till_gep(const Value* p, const PointerAnalyzer& PA)
-{
-	const Value* q = p;
-
-	while((isNopCast(q) || isBitCast(q)) && (!isa<Instruction>(q) || isInlineable(*cast<Instruction>(q), PA)))
-	{
-		q = cast<User>(q)->getOperand(0);
-	}
-
-	return isGEP(q) && (!isa<Instruction>(q) || isInlineable(*cast<Instruction>(q), PA)) ? cast<User>(q) : nullptr;
-}
-
 void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 {
 	// Special handle for undefined pointers
@@ -830,9 +814,9 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	 */
 	if(isOffsetConstantZero)
 	{
-		if(const User* gepInst = propagate_till_gep(p, PA))
+		if(isGEP(p))
 		{
-			compileGEP(gepInst, COMPLETE_OBJECT);
+			compileGEP(cast<User>(p), COMPLETE_OBJECT);
 			return;
 		}
 	}
@@ -867,17 +851,18 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 {
 	// Collapse if p is a gepInst
-	if(const User* gepInst = propagate_till_gep(p, PA))
+	if(isGEP(p))
 	{
+		assert(!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA));
+		const User* gepInst = cast<User>(p);
 		assert(gepInst->getNumOperands() > 1);
 		return compileGEPBase(gepInst, forEscapingPointer);
 	}
 
-	if(isBitCast(p))
+	if(isBitCast(p) && (!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA) || forEscapingPointer))
 	{
-		const Value* operand = cast<User>(p)->getOperand(0);
-		assert(PA.getPointerKind(p) != BYTE_LAYOUT || PA.getPointerKind(operand) == BYTE_LAYOUT);
-		return compilePointerBase(operand, forEscapingPointer);
+		compileBitCastBase(cast<User>(p), forEscapingPointer);
+		return;
 	}
 
 	if(PA.getPointerKind(p) == COMPLETE_OBJECT)
@@ -968,7 +953,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 	return NULL;
 }
 
-void CheerpWriter::compilePointerOffset(const Value* p)
+void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 {
 	if ( PA.getPointerKind(p) == COMPLETE_OBJECT )
 	{
@@ -976,15 +961,18 @@ void CheerpWriter::compilePointerOffset(const Value* p)
 		stream << '0';
 		return;
 	}
-
 	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
-	if ( byteLayout )
+	if ( byteLayout && !forEscapingPointer)
 	{
 		compileByteLayoutOffset(p, BYTE_LAYOUT_OFFSET_FULL);
 	}
-	else if(const User* gep_inst = propagate_till_gep(p, PA))
+	else if(isGEP(p) && (!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA) || forEscapingPointer))
 	{
-		compileGEPOffset(gep_inst);
+		compileGEPOffset(cast<User>(p));
+	}
+	else if(isBitCast(p) && (!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA) || forEscapingPointer))
+	{
+		compileBitCastOffset(cast<User>(p));
 	}
 	else if (const ConstantInt* CI = PA.getConstantOffsetForPointer(p))
 	{
@@ -1009,17 +997,8 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
 		}
 		case Instruction::BitCast:
 		{
-			Value* val=ce->getOperand(0);
-			Type* dst=ce->getType();
-			Type* src=val->getType();
-
-			if(!TypeSupport::isValidTypeCast(val, dst))
-			{
-				llvm::errs() << "Between:\n\t" << *src << "\n\t" << *dst << "\n";
-				llvm::errs() << "warning: Type conversion is not safe, expect issues. And report a bug.\n";
-			}
-
-			compilePointerAs(val, PA.getPointerKind(ce));
+			POINTER_KIND k = PA.getPointerKind(ce);
+			compileBitCast(ce, k);
 			break;
 		}
 		case Instruction::IntToPtr:
@@ -1753,9 +1732,9 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		}
 
 		stream << "{d:";
-		compileGEPBase( gep_inst, true );
+		compilePointerBase( gep_inst, true);
 		stream << ",o:";
-		compileGEPOffset( gep_inst );
+		compilePointerOffset( gep_inst, true);
 		stream << ">>0";
 		stream << '}';
 	}
@@ -1808,33 +1787,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 	{
 		case Instruction::BitCast:
 		{
-			const BitCastInst& bi = cast<BitCastInst>(I);
-			Type* src=bi.getSrcTy();
-			Type* dst=bi.getDestTy();
-			//Special case unions
-			if(TypeSupport::hasByteLayout(src->getPointerElementType()))
-			{
-				//Find the type
-				llvm::Type* elementType = dst->getPointerElementType();
-				bool isArray=isa<ArrayType>(elementType);
-				llvm::Type* pointedType = (isArray)?elementType->getSequentialElementType():elementType;
-				if(TypeSupport::isTypedArrayType(pointedType))
-				{
-					stream << "{d:";
-					stream << "new ";
-					compileTypedArrayType(pointedType);
-					stream << '(';
-					compileCompleteObject(bi.getOperand(0));
-					stream << ".buffer), o:0}";
-					return COMPILE_OK;
-				}
-			}
-
 			POINTER_KIND k=PA.getPointerKind(&I);
-			if(k==REGULAR && PA.getConstantOffsetForPointer(&I))
-				compilePointerBase(bi.getOperand(0));
-			else
-				compilePointerAs(bi.getOperand(0), k);
+			compileBitCast(&I, k);
 			return COMPILE_OK;
 		}
 		case Instruction::FPToSI:

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -59,3 +59,71 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 		stream << '&' << getMaskForBitWidth(lhs->getType()->getIntegerBitWidth());
 	stream << ')';
 }
+
+void CheerpWriter::compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind)
+{
+	if(kind==COMPLETE_OBJECT)
+		compileCompleteObject(bc_inst->getOperand(0));
+	else
+	{
+		if(PA.getConstantOffsetForPointer(bc_inst))
+			compilePointerBase(bc_inst);
+		else if(PA.getPointerKind(bc_inst->getOperand(0)) == REGULAR)
+			compileOperand(bc_inst->getOperand(0));
+		else
+		{
+			stream << "{d:";
+			compilePointerBase(bc_inst, true);
+			stream << ",o:";
+			compilePointerOffset(bc_inst, true);
+			stream << "}";
+		}
+	}
+}
+
+void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPointer)
+{
+	Type* src=bi->getOperand(0)->getType();
+	Type* dst=bi->getType();
+	//Special case unions
+	if(TypeSupport::hasByteLayout(src->getPointerElementType()) && forEscapingPointer)
+	{
+		//Find the type
+		llvm::Type* elementType = dst->getPointerElementType();
+		bool isArray=isa<ArrayType>(elementType);
+		llvm::Type* pointedType = (isArray)?elementType->getSequentialElementType():elementType;
+		if(TypeSupport::isTypedArrayType(pointedType))
+		{
+			stream << "new ";
+			compileTypedArrayType(pointedType);
+			stream << '(';
+			compileCompleteObject(bi->getOperand(0));
+			stream << ".buffer)";
+			return;
+		}
+	}
+
+	compilePointerBase(bi->getOperand(0), forEscapingPointer);
+}
+
+void CheerpWriter::compileBitCastOffset(const llvm::User* bi)
+{
+	Type* src=bi->getOperand(0)->getType();
+	Type* dst=bi->getType();
+	//Special case unions
+	if(TypeSupport::hasByteLayout(src->getPointerElementType()))
+	{
+		//Find the type
+		llvm::Type* elementType = dst->getPointerElementType();
+		bool isArray=isa<ArrayType>(elementType);
+		llvm::Type* pointedType = (isArray)?elementType->getSequentialElementType():elementType;
+		if(TypeSupport::isTypedArrayType(pointedType))
+		{
+			stream << '0';
+			return;
+		}
+	}
+
+	compilePointerOffset(bi->getOperand(0));
+}
+
