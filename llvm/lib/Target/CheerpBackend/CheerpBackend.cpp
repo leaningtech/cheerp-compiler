@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2014 Leaning Technologies
+// Copyright 2011-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -112,11 +112,11 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(cheerp::createRegisterizePass(NoRegisterize));
-  PM.add(createAllocaMergingPass());
+  PM.add(cheerp::createAllocaMergingPass());
   PM.add(cheerp::createPointerAnalyzerPass());
   PM.add(createIndirectCallOptimizerPass());
   PM.add(createAllocaArraysPass());
-  PM.add(createAllocaArraysMergingPass());
+  PM.add(cheerp::createAllocaArraysMergingPass());
   PM.add(new CheerpWritePass(o));
   return false;
 }
