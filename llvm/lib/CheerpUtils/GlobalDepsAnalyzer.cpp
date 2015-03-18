@@ -235,9 +235,7 @@ void GlobalDepsAnalyzer::visitConstant( const Constant * C, VisitedSet & visited
 			case Instruction::GetElementPtr:
 			case Instruction::BitCast:
 			case Instruction::PtrToInt:
-				subexpr.push_back(&CE->getOperandUse(0) );
 				visitConstant(CE->getOperand(0), visited, subexpr );
-				subexpr.pop_back();
 				break;
 			case Instruction::IntToPtr:
 			case Instruction::ICmp:
