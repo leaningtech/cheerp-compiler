@@ -327,6 +327,20 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 	return true;
 }
 
+bool TypeSupport::useWrapperArrayForMember(const PointerAnalyzer& PA, StructType* st, uint32_t memberIndex) const
+{
+	if(hasBasesInfo(st))
+	{
+		uint32_t firstBase, baseCount;
+		getBasesInfo(st, firstBase, baseCount);
+		if(memberIndex >= firstBase && memberIndex < (firstBase+baseCount))
+			return false;
+	}
+	// We don't want to use the wrapper array if the downcast array is alredy available
+	TypeAndIndex baseAndIndex(st, memberIndex, TypeAndIndex::STRUCT_MEMBER);
+	return PA.getPointerKindForMember(baseAndIndex)==REGULAR;
+}
+
 std::pair<StructType*, StringRef> TypeSupport::getJSExportedTypeFromMetadata(StringRef name, const Module& module)
 {
 	StringRef mangledName = name.drop_front(6).drop_back(8);

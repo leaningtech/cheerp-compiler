@@ -90,7 +90,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 					stream << '=';
 				// Create a wrapper array for all members which require REGULAR pointers, if they are not already covered by the downcast array
 				TypeAndIndex baseAndIndex(st, offset, TypeAndIndex::STRUCT_MEMBER);
-				bool useWrapperArray = useWrapperArrayForMember(st, offset);
+				bool useWrapperArray = types.useWrapperArrayForMember(PA, st, offset);
 				if (useWrapperArray)
 					stream << '[';
 				if ((*E)->isPointerTy())

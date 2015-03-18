@@ -741,7 +741,7 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 			const APInt& index = cast<Constant>(indices[i])->getUniqueInteger();
 
 			stream << ".a" << index;
-			if((i!=indices.size()-1) && useWrapperArrayForMember(st, index.getLimitedValue()))
+			if((i!=indices.size()-1) && types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
 				stream << "[0]";
 
 			tp = st->getElementType(index.getZExtValue());
@@ -779,7 +779,7 @@ void CheerpWriter::compileOffsetForGEP(Type* pointerOperandType, ArrayRef< const
 		assert(isa<ConstantInt>(indices.back()));
 		const ConstantInt* idx = cast<ConstantInt>(indices.back());
 
-		assert(useWrapperArrayForMember(cast<StructType>(tp), idx->getZExtValue()));
+		assert(types.useWrapperArrayForMember(PA, cast<StructType>(tp), idx->getZExtValue()));
 
 		stream << '0';
 	}
@@ -1098,7 +1098,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
 			stream << 'a' << i << ":";
-			bool useWrapperArray = useWrapperArrayForMember(d->getType(), i);
+			bool useWrapperArray = types.useWrapperArrayForMember(PA, d->getType(), i);
 			if (useWrapperArray)
 				stream << '[';
 			Type* elementType = d->getOperand(i)->getType();
@@ -1548,20 +1548,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 	}
 }
 
-bool CheerpWriter::useWrapperArrayForMember(StructType* st, uint32_t memberIndex)
-{
-	if(types.hasBasesInfo(st))
-	{
-		uint32_t firstBase, baseCount;
-		types.getBasesInfo(st, firstBase, baseCount);
-		if(memberIndex >= firstBase && memberIndex < (firstBase+baseCount))
-			return false;
-	}
-	// We don't want to use the wrapper array if the downcast array is alredy available
-	TypeAndIndex baseAndIndex(st, memberIndex, TypeAndIndex::STRUCT_MEMBER);
-	return PA.getPointerKindForMember(baseAndIndex)==REGULAR;
-}
-
 void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPointer)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
@@ -1728,7 +1714,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		}
 		// We don't want to use the wrapper array if the downcast array is alredy available
 		if(!useDownCastArray)
-			useWrapperArray = useWrapperArrayForMember(containerStructType, lastOffsetConstant);
+			useWrapperArray = types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
 	}
 
 
@@ -2689,7 +2675,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
 			{
 				stream << ".a" << u->getOperandNo();
-				if (useWrapperArrayForMember(cs->getType(), u->getOperandNo()))
+				if (types.useWrapperArrayForMember(PA, cs->getType(), u->getOperandNo()))
 					stream << "[0]";
 			}
 		}
