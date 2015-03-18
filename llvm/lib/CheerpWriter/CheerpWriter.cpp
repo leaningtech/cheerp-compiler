@@ -1178,9 +1178,25 @@ void CheerpWriter::compileConstantArrayMembers(const Constant* C)
 	}
 }
 
+bool CheerpWriter::doesConstantDependOnUndefined(const Constant* C) const
+{
+	if(isa<ConstantExpr>(C) && C->getOperand(0)->getType()->isPointerTy())
+		return doesConstantDependOnUndefined(cast<Constant>(C->getOperand(0)));
+	else if(isa<GlobalVariable>(C) && !compiledGVars.count(cast<GlobalVariable>(C)))
+		return true;
+	else
+		return false;
+}
+
 void CheerpWriter::compileConstant(const Constant* c)
 {
-	if(isa<ConstantExpr>(c))
+	if(!currentFun && doesConstantDependOnUndefined(c))
+	{
+		// If we are compiling a constant expr using a global variable which has
+		// not been defined yet, just print undefined
+		stream << "undefined";
+	}
+	else if(isa<ConstantExpr>(c))
 	{
 		compileConstantExpr(cast<ConstantExpr>(c));
 	}
@@ -1215,7 +1231,9 @@ void CheerpWriter::compileConstant(const Constant* c)
 			if (useWrapperArray)
 				stream << '[';
 			Type* elementType = d->getOperand(i)->getType();
-			if(elementType->isPointerTy())
+			if(!currentFun && doesConstantDependOnUndefined(d->getOperand(i)))
+				stream << "undefined";
+			else if(elementType->isPointerTy())
 			{
 				TypeAndIndex baseAndIndex(d->getType(), i, TypeAndIndex::STRUCT_MEMBER);
 				POINTER_KIND k = PA.getPointerKindForMemberPointer(baseAndIndex);
@@ -1299,17 +1317,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 void CheerpWriter::compileOperand(const Value* v)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
-	{
-		if(!currentFun && isa<GlobalVariable>(v) && !compiledGVars.count(cast<GlobalVariable>(v)))
-		{
-			// If we are compiling a constant expr for a GVar, and v has not been defined yet
-			// just print undefined
-			stream << "undefined";
-			return;
-		}
-
 		compileConstant(c);
-	}
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
 		if(isInlineable(*it, PA))
@@ -2789,12 +2797,19 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 		compileCompleteObject(otherGV);
 
+		POINTER_KIND elementPointerKind = UNKNOWN;
+		bool hasConstantOffset = false;
+		Value* valOp = subExpr.back()->get();
 		for ( auto it = std::next(subExpr.begin()); it != subExpr.end(); ++it )
 		{
 			const Use * u = *it;
 
 			if ( isa<ConstantArray>( u->getUser() ) )
+			{
 				stream << '[' << u->getOperandNo() << ']';
+				if (it == (subExpr.end()-1) && valOp->getType()->isPointerTy())
+					elementPointerKind = PA.getPointerKindForStoredType(valOp->getType()->getPointerElementType());
+			}
 			else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
 			{
 				// We don't expect anything which is not a pointer here, as we are fixing dependencies between globals
@@ -2802,15 +2817,25 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				stream << ".a" << u->getOperandNo();
 				if (types.useWrapperArrayForMember(PA, cs->getType(), u->getOperandNo()))
 					stream << "[0]";
+				if (it == (subExpr.end()-1) && valOp->getType()->isPointerTy())
+				{
+					TypeAndIndex b(cs->getType(), u->getOperandNo(), TypeAndIndex::STRUCT_MEMBER);
+					elementPointerKind = PA.getPointerKindForMemberPointer(b);
+					hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
+				}
 			}
+			else
+				assert(false);
 		}
 
 		stream << '=';
-		Value* valOp = subExpr.back()->get();
 		if (valOp->getType()->isPointerTy())
 		{
-			TypeAndIndex b(subExpr.back()->getUser()->getType(), subExpr.back()->getOperandNo(), TypeAndIndex::STRUCT_MEMBER);
-			compilePointerAs(valOp, PA.getPointerKindForMemberPointer(b));
+			assert(elementPointerKind != UNKNOWN);
+			if(elementPointerKind==REGULAR && hasConstantOffset)
+				compilePointerBase(valOp);
+			else
+				compilePointerAs(valOp, elementPointerKind);
 		}
 		else
 			compileOperand(valOp);
