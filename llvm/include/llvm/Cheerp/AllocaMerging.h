@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,16 +18,16 @@
 #include "llvm/Pass.h"
 #include <list>
 
-namespace llvm {
+namespace cheerp {
 
-class AllocaMergingBase: public FunctionPass
+class AllocaMergingBase: public llvm::FunctionPass
 {
 protected:
 	AllocaMergingBase(char& ID):FunctionPass(ID)
 	{
 	}
-	typedef std::list<std::pair<AllocaInst*, cheerp::Registerize::LiveRange>> AllocaInfos;
-	void analyzeBlock(const cheerp::Registerize& registerize, llvm::BasicBlock& BB,
+	typedef std::list<std::pair<llvm::AllocaInst*, Registerize::LiveRange>> AllocaInfos;
+	void analyzeBlock(const Registerize& registerize, llvm::BasicBlock& BB,
 				AllocaInfos& allocaInfos);
 };
 
@@ -36,33 +36,33 @@ protected:
 class AllocaMerging: public AllocaMergingBase
 {
 private:
-	static bool areTypesEquivalent(Type* a, Type* b);
+	static bool areTypesEquivalent(llvm::Type* a, llvm::Type* b);
 public:
 	static char ID;
 	explicit AllocaMerging() : AllocaMergingBase(ID) { }
-	bool runOnFunction(Function &F);
+	bool runOnFunction(llvm::Function &F);
 	const char *getPassName() const;
-	void getAnalysisUsage(AnalysisUsage & AU) const;
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
 };
 
 class AllocaArraysMerging: public AllocaMergingBase
 {
 private:
-	bool checkUsesForArrayMerging(AllocaInst* alloca);
+	bool checkUsesForArrayMerging(llvm::AllocaInst* alloca);
 public:
 	static char ID;
 	explicit AllocaArraysMerging() : AllocaMergingBase(ID) { }
-	bool runOnFunction(Function &F);
+	bool runOnFunction(llvm::Function &F);
 	const char *getPassName() const;
-	void getAnalysisUsage(AnalysisUsage & AU) const;
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
 };
 
 //===----------------------------------------------------------------------===//
 //
 // AllocaMerging - This pass merges allocas which are not used at the same time
 //
-FunctionPass *createAllocaMergingPass();
-FunctionPass *createAllocaArraysMergingPass();
+llvm::FunctionPass *createAllocaMergingPass();
+llvm::FunctionPass *createAllocaArraysMergingPass();
 }
 
 #endif //_CHEERP_ALLOCA_MERGING_H
