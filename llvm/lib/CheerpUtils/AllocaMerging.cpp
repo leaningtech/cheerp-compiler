@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,7 +24,7 @@ using namespace llvm;
 
 STATISTIC(NumAllocaMerged, "Number of alloca which are merged");
 
-namespace llvm {
+namespace cheerp {
 
 void AllocaMergingBase::analyzeBlock(const cheerp::Registerize& registerize, BasicBlock& BB,
 				AllocaInfos& allocaInfos)
@@ -355,6 +355,8 @@ char AllocaArraysMerging::ID = 0;
 FunctionPass *createAllocaArraysMergingPass() { return new AllocaArraysMerging(); }
 
 }
+
+using namespace cheerp;
 
 INITIALIZE_PASS_BEGIN(AllocaMerging, "AllocaMerging", "Merge alloca instructions used on non-overlapping ranges",
 			false, false)
