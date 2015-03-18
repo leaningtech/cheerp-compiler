@@ -239,11 +239,6 @@ private:
 	const llvm::Value* compileByteLayoutOffset(const llvm::Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode);
 
 	/**
-	 * Find out if a given member of a struct requires the wrapping array
-	 */
-	bool useWrapperArrayForMember(llvm::StructType* st, uint32_t memberIndex);
-
-	/**
 	 * Compile a pointer from a GEP expression, with the given pointer kind
 	 */
 	void compileGEP(const llvm::User* gepInst, POINTER_KIND kind);

@@ -143,6 +143,12 @@ public:
 	{
 		return getBasesInfo(module, t, firstBase, baseCount);
 	}
+
+	/**
+	 * Find out if a given member of a struct requires the wrapping array
+	 */
+	bool useWrapperArrayForMember(const PointerAnalyzer& PA, llvm::StructType* st, uint32_t memberIndex) const;
+
 	static bool getBasesInfo(const llvm::Module& module, const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 
 	static std::pair<llvm::StructType*, llvm::StringRef> getJSExportedTypeFromMetadata(llvm::StringRef name, const llvm::Module & module);
