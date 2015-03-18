@@ -41,27 +41,49 @@ void AllocaMergingBase::analyzeBlock(const cheerp::Registerize& registerize, Bas
 	}
 }
 
-bool AllocaMerging::areTypesEquivalent(Type* a, Type* b)
+bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp::PointerAnalyzer& PA, Type* a, Type* b)
 {
 	//TODO: Integer types may be equivalent as well
 	if(a==b)
 		return true;
+	else if(a->isPointerTy() && b->isPointerTy())
+		return true;
+	else if(a->isFloatingPointTy() && b->isFloatingPointTy())
+		return true;
+	else if(a->isArrayTy() && b->isArrayTy())
+		return areTypesEquivalent(types, PA, a->getArrayElementType(), b->getArrayElementType());
 	else if(a->isStructTy() && b->isStructTy())
 	{
+		// TODO: Byte layout structs with the same size are equivalent
 		if(cast<StructType>(a)->hasByteLayout() ||
 			cast<StructType>(b)->hasByteLayout())
 			return false;
-		return cast<StructType>(a)->isLayoutIdentical(cast<StructType>(b));
-	}
-	else if(a->isPointerTy() && b->isPointerTy())
+		StructType* stA = cast<StructType>(a);
+		StructType* stB = cast<StructType>(b);
+		if(stA->getNumElements() != stB->getNumElements())
+			return false;
+		for(uint32_t i=0;i<stA->getNumElements();i++)
+		{
+			Type* elementA = stA->getElementType(i);
+			Type* elementB = stB->getElementType(i);
+			// The types needs to have consistent wrapper arrays
+			if(types.useWrapperArrayForMember(PA, stA, i) ^ types.useWrapperArrayForMember(PA, stB, i))
+				return false;
+			if(!areTypesEquivalent(types, PA, elementA, elementB))
+				return false;
+		}
 		return true;
+	}
 	else
 		return false;
 }
 
 bool AllocaMerging::runOnFunction(Function& F)
 {
+	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
+	cheerp::GlobalDepsAnalyzer & GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
+	cheerp::TypeSupport types(*F.getParent(), GDA.classesWithBaseInfo());
 	AllocaInfos allocaInfos;
 	// Gather all the allocas
 	for(BasicBlock& BB: F)
@@ -87,7 +109,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 			AllocaInst* sourceAlloca = sourceCandidate->first;
 			Type* sourceType = sourceAlloca->getAllocatedType();
 			// Bail out for non compatible types
-			if(!areTypesEquivalent(targetType, sourceType))
+			if(!areTypesEquivalent(types, PA, targetType, sourceType))
 				continue;
 			const cheerp::Registerize::LiveRange& sourceRange = sourceCandidate->second;
 			// Bail out if this source candidate is not analyzable
@@ -98,12 +120,15 @@ bool AllocaMerging::runOnFunction(Function& F)
 				continue;
 			// Add the range to the target range and the source alloca to the mergeSet
 			mergeSet.push_back(sourceCandidate);
+			PA.invalidate(sourceAlloca);
 			targetRange.merge(sourceRange);
 		}
 
 		// If the merge set is empty try another target
 		if(mergeSet.empty())
 			continue;
+
+		PA.invalidate(targetAlloca);
 
 		if(!Changed)
 			registerize.invalidateLiveRangeForAllocas(F);
@@ -120,9 +145,12 @@ bool AllocaMerging::runOnFunction(Function& F)
 			}
 			allocaToMerge->replaceAllUsesWith(targetVal);
 			allocaToMerge->eraseFromParent();
+			if(targetVal != targetAlloca)
+				PA.getPointerKind(targetVal);
 			allocaInfos.erase(it);
 			NumAllocaMerged++;
 		}
+		PA.getPointerKind(targetAlloca);
 		Changed = true;
 	}
 	if(Changed)
@@ -138,6 +166,9 @@ void AllocaMerging::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addRequired<cheerp::Registerize>();
 	AU.addPreserved<cheerp::Registerize>();
+	AU.addRequired<cheerp::PointerAnalyzer>();
+	AU.addPreserved<cheerp::PointerAnalyzer>();
+	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 
 	llvm::FunctionPass::getAnalysisUsage(AU);
