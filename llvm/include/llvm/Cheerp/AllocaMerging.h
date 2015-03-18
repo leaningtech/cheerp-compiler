@@ -13,6 +13,7 @@
 #define _CHEERP_ALLOCA_MERGING_H
 
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Pass.h"
@@ -36,7 +37,7 @@ protected:
 class AllocaMerging: public AllocaMergingBase
 {
 private:
-	static bool areTypesEquivalent(llvm::Type* a, llvm::Type* b);
+	static bool areTypesEquivalent(const TypeSupport& types, PointerAnalyzer& PA, llvm::Type* a, llvm::Type* b);
 public:
 	static char ID;
 	explicit AllocaMerging() : AllocaMergingBase(ID) { }
