@@ -2432,7 +2432,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 		{
 			compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I));
 		}
-		else
+		else if(!I->use_empty() || I->mayHaveSideEffects())
 		{
 			COMPILE_INSTRUCTION_FEEDBACK ret=compileNotInlineableInstruction(*I);
 
