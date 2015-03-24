@@ -31,11 +31,11 @@ void AllocaMergingBase::analyzeBlock(const cheerp::Registerize& registerize, Bas
 {
 	for(Instruction& I: BB)
 	{
-		// We are interested in Allocas and lifetime intrinsics
 		if(I.getOpcode() == Instruction::Alloca)
 		{
 			AllocaInst* AI = cast<AllocaInst>(&I);
-			assert(!AI->isArrayAllocation());
+			if(AI->isArrayAllocation())
+				continue;
 			allocaInfos.push_back(std::make_pair(AI, registerize.getLiveRangeForAlloca(AI)));
 		}
 	}
