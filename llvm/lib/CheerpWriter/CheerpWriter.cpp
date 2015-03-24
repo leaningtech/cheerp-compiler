@@ -740,7 +740,7 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 			assert(isa<ConstantInt>(indices[i]));
 			const APInt& index = cast<Constant>(indices[i])->getUniqueInteger();
 
-			stream << ".a" << index;
+			stream << '.' << types.getPrefixCharForMember(PA, st, index.getLimitedValue()) << index;
 			if((i!=indices.size()-1) && types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
 				stream << "[0]";
 
@@ -1097,7 +1097,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 
 		for(uint32_t i=0;i<d->getNumOperands();i++)
 		{
-			stream << 'a' << i << ":";
+			stream << types.getPrefixCharForMember(PA, d->getType(), i) << i << ':';
 			bool useWrapperArray = types.useWrapperArrayForMember(PA, d->getType(), i);
 			if (useWrapperArray)
 				stream << '[';
@@ -1487,7 +1487,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				stream << namegen.getName(aggr);
 			}
 			uint32_t offset=ivi.getIndices()[0];
-			stream << ".a" << offset << '=';
+			stream << '.' << types.getPrefixCharForMember(PA, cast<StructType>(t), offset) << offset;
+			if(types.useWrapperArrayForMember(PA, cast<StructType>(t), offset))
+				stream << "[0]";
+			stream << '=';
 			compileOperand(ivi.getInsertedValueOperand());
 			return COMPILE_OK;
 		}
@@ -2159,7 +2162,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			compileOperand(aggr);
 
 			uint32_t offset=evi.getIndices()[0];
-			stream << ".a" << offset;
+			stream << '.' << types.getPrefixCharForMember(PA, cast<StructType>(t), offset) << offset;
+			if(types.useWrapperArrayForMember(PA, cast<StructType>(t), offset))
+				stream << "[0]";
 			return COMPILE_OK;
 		}
 		case Instruction::FPExt:
@@ -2674,6 +2679,8 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				stream << '[' << u->getOperandNo() << ']';
 			else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
 			{
+				// We don't expect anything which is not a pointer here, as we are fixing dependencies between globals
+				assert(cs->getType()->getElementType(u->getOperandNo())->isPointerTy());
 				stream << ".a" << u->getOperandNo();
 				if (types.useWrapperArrayForMember(PA, cs->getType(), u->getOperandNo()))
 					stream << "[0]";
