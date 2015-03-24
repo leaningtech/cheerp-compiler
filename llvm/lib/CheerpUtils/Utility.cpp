@@ -341,6 +341,20 @@ bool TypeSupport::useWrapperArrayForMember(const PointerAnalyzer& PA, StructType
 	return PA.getPointerKindForMember(baseAndIndex)==REGULAR;
 }
 
+char TypeSupport::getPrefixCharForMember(const PointerAnalyzer& PA, llvm::StructType* st, uint32_t memberIndex) const
+{
+	bool useWrapperArray = useWrapperArrayForMember(PA, st, memberIndex);
+	Type* elementType = st->getElementType(memberIndex);
+	if(useWrapperArray)
+		return 'a';
+	else if(elementType->isIntegerTy())
+		return 'i';
+	else if(elementType->isFloatTy() || elementType->isDoubleTy())
+		return 'd';
+	else
+		return 'a';
+}
+
 std::pair<StructType*, StringRef> TypeSupport::getJSExportedTypeFromMetadata(StringRef name, const Module& module)
 {
 	StringRef mangledName = name.drop_front(6).drop_back(8);
