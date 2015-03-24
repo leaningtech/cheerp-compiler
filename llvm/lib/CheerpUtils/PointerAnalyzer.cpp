@@ -336,16 +336,20 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	if(!closedset.insert(p).second)
 		return ret |= UNKNOWN;
 
+	bool mayCache = first || ret == COMPLETE_OBJECT;
 	auto CacheAndReturn = [&](PointerKindWrapper& k) -> PointerKindWrapper&
 	{
 		// Do not recurse below here
 		closedset.erase(p);
 		if(first)
 			k.makeKnown();
-		if(!k.isKnown())
-			return k;
-		else
+		if(k.isKnown() && mayCache)
 			return pointerKindData.valueMap.insert( std::make_pair(p, k ) ).first->second;
+		else
+		{
+			assert(!first);
+			return k;
+		}
 	};
 
 	TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(p);
