@@ -149,6 +149,11 @@ public:
 	 */
 	bool useWrapperArrayForMember(const PointerAnalyzer& PA, llvm::StructType* st, uint32_t memberIndex) const;
 
+	/**
+	 * Returns the prefix character for an element of the passed type and index
+	 */
+	char getPrefixCharForMember(const PointerAnalyzer& PA, llvm::StructType* st, uint32_t memberIndex) const;
+
 	static bool getBasesInfo(const llvm::Module& module, const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 
 	static std::pair<llvm::StructType*, llvm::StringRef> getJSExportedTypeFromMetadata(llvm::StringRef name, const llvm::Module & module);
