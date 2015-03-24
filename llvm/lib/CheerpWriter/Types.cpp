@@ -83,7 +83,7 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 				}
 				if(style==THIS_OBJ)
 					stream << "this.";
-				stream << 'a' << offset;
+				stream << types.getPrefixCharForMember(PA, st, offset) << offset;
 				if(style==LITERAL_OBJ)
 					stream << ':';
 				else
