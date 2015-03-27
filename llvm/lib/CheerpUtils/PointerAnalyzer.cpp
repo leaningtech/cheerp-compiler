@@ -85,7 +85,7 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper& rhs
 	if (lhs==UNKNOWN || rhs==UNKNOWN)
 		lhs.kind = UNKNOWN;
 
-	lhs.constraints.insert(lhs.constraints.end(), rhs.constraints.begin(), rhs.constraints.end());
+	lhs.constraints.insert(rhs.constraints.begin(), rhs.constraints.end());
 	return *this;
 }
 
@@ -111,7 +111,7 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const IndirectPointerKindCons
 	}
 
 	// Handle 3, 4
-	lhs.constraints.push_back(rhs);
+	lhs.constraints.insert(rhs);
 	return *this;
 }
 
@@ -141,7 +141,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetWrapper::operator|=(const Poi
 
 	// Merge the constraints, if any
 	if (rhs.hasConstraints())
-		lhs.constraints.insert(lhs.constraints.end(), rhs.constraints.begin(), rhs.constraints.end());
+		lhs.constraints.insert(rhs.constraints.begin(), rhs.constraints.end());
 	else
 		assert(rhs.status != UNINITALIZED);
 
@@ -179,7 +179,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetWrapper::operator|=(const Ind
 		return lhs;
 
 	// Merge the constraint
-	lhs.constraints.push_back(rhs);
+	lhs.constraints.insert(rhs);
 	return lhs;
 }
 
@@ -775,13 +775,13 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(const PointerKindWrapper& k)
 {
 	assert(k==INDIRECT);
-	for(uint32_t i=0;i<k.constraints.size();i++)
+	for(const IndirectPointerKindConstraint* constraint: k.constraints)
 	{
-		if(k.constraints[i]->isBeingVisited)
+		if(constraint->isBeingVisited)
 			continue;
-		k.constraints[i]->isBeingVisited = true;
-		closedset.push_back(k.constraints[i]);
-		const PointerKindWrapper& retKind=resolveConstraint(*k.constraints[i]);
+		constraint->isBeingVisited = true;
+		closedset.push_back(constraint);
+		const PointerKindWrapper& retKind=resolveConstraint(*constraint);
 		assert(retKind.isKnown());
 		if(retKind==REGULAR || retKind==BYTE_LAYOUT)
 			return retKind;
@@ -934,13 +934,13 @@ PointerConstantOffsetWrapper PointerResolverForOffsetVisitor::resolvePointerOffs
 	assert(o.hasConstraints());
 	// 'o' may be VALID (which means it contains a valid offset) or UNINITALIZED
 	const llvm::ConstantInt* offset = o.isValid() ? o.getPointerOffset() : NULL;
-	for(uint32_t i=0;i<o.constraints.size();i++)
+	for(const IndirectPointerKindConstraint* constraint: o.constraints)
 	{
-		if(o.constraints[i]->isBeingVisited)
+		if(constraint->isBeingVisited)
 			continue;
-		o.constraints[i]->isBeingVisited = true;
-		closedset.push_back(o.constraints[i]);
-		const PointerConstantOffsetWrapper& c = resolveConstraint(*o.constraints[i]);
+		constraint->isBeingVisited = true;
+		closedset.push_back(constraint);
+		const PointerConstantOffsetWrapper& c = resolveConstraint(*constraint);
 		if(c.isInvalid())
 			return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
 		// 'c' is VALID or UNINITALIZED
