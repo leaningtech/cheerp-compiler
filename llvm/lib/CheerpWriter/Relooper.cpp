@@ -46,9 +46,7 @@ void Branch::Render(Block *Target, bool SetLabel, RenderInterface* renderInterfa
 
 // Block
 
-int Block::IdCounter = 1; // 0 is reserved for clearings
-
-Block::Block(const void* b, bool s) : Parent(NULL), Id(Block::IdCounter++), privateBlock(b), DefaultTarget(NULL),
+Block::Block(const void* b, bool s, int Id) : Parent(NULL), Id(Id), privateBlock(b), DefaultTarget(NULL),
 	IsCheckedMultipleEntry(false), IsSplittable(s) {
 }
 
@@ -180,10 +178,6 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   }
 }
 
-// Shape
-
-int Shape::IdCounter = 0;
-
 // MultipleShape
 
 void MultipleShape::RenderLoopPrefix(RenderInterface* renderInterface) {
@@ -255,7 +249,7 @@ void EmulatedShape::Render(bool InLoop) {
 
 // Relooper
 
-Relooper::Relooper() : Root(NULL), NeedsLabel(false) {
+Relooper::Relooper(int BlockCount) : Root(NULL), NeedsLabel(false), IdCounter(BlockCount) {
 }
 
 Relooper::~Relooper() {
@@ -306,7 +300,7 @@ void Relooper::Calculate(Block *Entry) {
         // Split the node (for simplicity, we replace all the blocks, even though we could have reused the original)
         for (BlockBranchMap::iterator iter = Original->BranchesIn.begin(); iter != Original->BranchesIn.end(); iter++) {
           Block *Prior = iter->first;
-          Block *Split = new Block(Original->privateBlock, Original->IsSplittable);
+          Block *Split = new Block(Original->privateBlock, Original->IsSplittable, Parent->IdCounter++);
           Split->BranchesIn[Prior] = new Branch(-1);
           Prior->BranchesOut[Split] = new Branch(Prior->BranchesOut[Original]->branchId);
           Prior->BranchesOut.erase(Original);
@@ -378,7 +372,7 @@ void Relooper::Calculate(Block *Entry) {
 
     Shape *MakeSimple(BlockSet &Blocks, Block *Inner, BlockSet &NextEntries) {
       PrintDebug("creating simple block with block #%d\n", Inner->Id);
-      SimpleShape *Simple = new SimpleShape;
+      SimpleShape *Simple = new SimpleShape(Parent->IdCounter++);
       Notice(Simple);
       Simple->Inner = Inner;
       Inner->Parent = Simple;
@@ -432,7 +426,7 @@ void Relooper::Calculate(Block *Entry) {
 
       // TODO: Optionally hoist additional blocks into the loop
 
-      LoopShape *Loop = new LoopShape();
+      LoopShape *Loop = new LoopShape(Parent->IdCounter++);
       Notice(Loop);
 
       // Solipsize the loop, replacing with break/continue and marking branches as Processed (will not affect later calculations)
@@ -572,7 +566,7 @@ void Relooper::Calculate(Block *Entry) {
       PrintDebug("creating multiple block with %d inner groups\n", IndependentGroups.size());
       bool Fused = !!(Shape::IsSimple(Prev));
       Parent->NeedsLabel = true;
-      MultipleShape *Multiple = new MultipleShape();
+      MultipleShape *Multiple = new MultipleShape(Parent->IdCounter++);
       Notice(Multiple);
       BlockSet CurrEntries;
       for (BlockBlockSetMap::iterator iter = IndependentGroups.begin(); iter != IndependentGroups.end(); iter++) {

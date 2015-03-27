@@ -2514,6 +2514,7 @@ void CheerpWriter::compileMethod(const Function& F)
 		Function::const_iterator BE=F.end();
 		//First run, create the corresponding relooper blocks
 		std::map<const BasicBlock*, /*relooper::*/Block*> relooperMap;
+		int BlockId = 0;
 		for(;B!=BE;++B)
 		{
 			if(B->isLandingPad())
@@ -2523,7 +2524,7 @@ void CheerpWriter::compileMethod(const Function& F)
 			//Currently we just check if the block ends with a return
 			//and its small enough. This should simplify some control flows.
 			bool isSplittable = B->size()<3 && isa<ReturnInst>(B->getTerminator());
-			Block* rlBlock = new Block(&(*B), isSplittable);
+			Block* rlBlock = new Block(&(*B), isSplittable, BlockId++);
 			relooperMap.insert(make_pair(&(*B),rlBlock));
 		}
 
@@ -2586,7 +2587,7 @@ void CheerpWriter::compileMethod(const Function& F)
 		B=F.begin();
 		BE=F.end();
 		//Third run, add the block to the relooper and run it
-		Relooper* rl=new Relooper();
+		Relooper* rl=new Relooper(BlockId);
 		for(;B!=BE;++B)
 		{
 			if(B->isLandingPad())
