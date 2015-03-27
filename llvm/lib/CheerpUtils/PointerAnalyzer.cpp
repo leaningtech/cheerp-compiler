@@ -799,7 +799,7 @@ struct PointerConstantOffsetVisitor
 {
 	PointerConstantOffsetVisitor( PointerAnalyzer::PointerOffsetData& pointerOffsetData ) : pointerOffsetData(pointerOffsetData) {}
 
-	PointerConstantOffsetWrapper& visitValue(PointerConstantOffsetWrapper& ret, const Value* v);
+	PointerConstantOffsetWrapper& visitValue(PointerConstantOffsetWrapper& ret, const Value* v, bool first);
 	static const llvm::ConstantInt* getPointerOffsetFromGEP( const llvm::Value* v );
 
 	PointerAnalyzer::PointerOffsetData& pointerOffsetData;
@@ -830,7 +830,7 @@ const ConstantInt* PointerConstantOffsetVisitor::getPointerOffsetFromGEP(const V
 	return dyn_cast<ConstantInt>(*std::prev(gep->op_end()));
 }
 
-PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerConstantOffsetWrapper& ret, const Value* v)
+PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerConstantOffsetWrapper& ret, const Value* v, bool first)
 {
 	if(!closedset.insert(v).second)
 		return ret;
@@ -840,6 +840,8 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	{
 		// Do not recurse below here
 		closedset.erase(v);
+		if(!first)
+			return o;
 		if(o.isUninitialized() && !o.hasConstraints())
 			return o;
 		return pointerOffsetData.valueMap.insert( std::make_pair(v, o ) ).first->second;
@@ -861,7 +863,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	if(const StoreInst* SI=dyn_cast<StoreInst>(v))
 	{
 		assert(SI->getValueOperand()->getType()->isPointerTy());
-		PointerConstantOffsetWrapper& o = visitValue(ret, SI->getValueOperand());
+		PointerConstantOffsetWrapper& o = visitValue(ret, SI->getValueOperand(), false);
 
 		if (TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 		{
@@ -880,14 +882,14 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	}
 
 	if(isBitCast(v))
-		return CacheAndReturn(visitValue(ret, cast<User>(v)->getOperand(0)));
+		return CacheAndReturn(visitValue(ret, cast<User>(v)->getOperand(0), false));
 
 	if(const PHINode* phi=dyn_cast<PHINode>(v))
 	{
 		for(uint32_t i=0;i<phi->getNumIncomingValues();i++)
 		{
 			const Value* incoming = phi->getIncomingValue(i);
-			visitValue(ret, incoming);
+			visitValue(ret, incoming, false);
 		}
 		return CacheAndReturn(ret);
 	}
@@ -903,7 +905,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 				continue;
 			PointerConstantOffsetWrapper localRet;
 			TypeAndIndex typeAndIndex(structType, i, TypeAndIndex::STRUCT_MEMBER);
-			pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, typeAndIndex)] |= visitValue(localRet, op);
+			pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, typeAndIndex)] |= visitValue(localRet, op, false);
 		}
 		return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
 	}
@@ -1058,7 +1060,7 @@ const PointerConstantOffsetWrapper& PointerAnalyzer::getFinalPointerConstantOffs
 		return it->second;
 
 	PointerConstantOffsetWrapper ret;
-	PointerConstantOffsetWrapper& o = PointerConstantOffsetVisitor(pointerOffsetData).visitValue(ret, p);
+	PointerConstantOffsetWrapper& o = PointerConstantOffsetVisitor(pointerOffsetData).visitValue(ret, p, /*first*/ true);
 #ifndef NDEBUG
 	it = pointerOffsetData.valueMap.find(p);
 	assert(it!=pointerOffsetData.valueMap.end());
