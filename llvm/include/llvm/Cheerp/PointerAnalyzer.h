@@ -19,6 +19,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Timer.h"
 #include <unordered_map>
+#include <unordered_set>
 
 namespace cheerp {
 
@@ -127,7 +128,7 @@ private:
 	}
 public:
 	// We can store pointers to constraint as they are made unique by PointerData::getConstraintPtr
-	std::vector<const IndirectPointerKindConstraint*> constraints;
+	std::unordered_set<const IndirectPointerKindConstraint*> constraints;
 	PointerKindWrapper():kind(COMPLETE_OBJECT)
 	{
 	}
@@ -136,7 +137,7 @@ public:
 	}
 	PointerKindWrapper(const IndirectPointerKindConstraint* constraint):kind(INDIRECT)
 	{
-		constraints.push_back(constraint);
+		constraints.insert(constraint);
 	}
 	PointerKindWrapper(const PointerKindWrapper& rhs)
 	{
@@ -200,7 +201,7 @@ private:
 		constraints.clear();
 	}
 public:
-	std::vector<const IndirectPointerKindConstraint*> constraints;
+	std::unordered_set<const IndirectPointerKindConstraint*> constraints;
 	PointerConstantOffsetWrapper():offset(NULL),status(UNINITALIZED)
 	{
 	}
@@ -211,7 +212,7 @@ public:
 	}
 	PointerConstantOffsetWrapper(const IndirectPointerKindConstraint* constraint):offset(NULL),status(UNINITALIZED)
 	{
-		constraints.push_back(constraint);
+		constraints.insert(constraint);
 	}
 	PointerConstantOffsetWrapper& operator|=(const PointerConstantOffsetWrapper& rhs);
 	PointerConstantOffsetWrapper& operator|=(const IndirectPointerKindConstraint* rhs);
