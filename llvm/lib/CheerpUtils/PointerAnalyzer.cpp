@@ -391,10 +391,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		else
 			ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( STORED_TYPE_CONSTRAINT, pointedValueType));
 		// Only cache the result for SI when not recursing, otherwise we would poison the kind of SI with the other uses of valOp
-		if(first)
-			return CacheAndReturn(ret);
-		else
-			return ret;
+		return CacheAndReturn(ret);
 	}
 
 	llvm::Type * type = p->getType()->getPointerElementType();
