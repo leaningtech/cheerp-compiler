@@ -92,7 +92,7 @@ struct Block {
   bool IsCheckedMultipleEntry; // If true, we are a multiple entry, so reaching us requires setting the label variable
   bool IsSplittable;
 
-  Block(const void* privateBlock, bool splittable);
+  Block(const void* privateBlock, bool splittable, int Id);
   ~Block();
 
   /*
@@ -102,9 +102,6 @@ struct Block {
 
   // Prints out the instructions code and branchings
   void Render(bool InLoop, RenderInterface* renderInterface);
-
-  // INTERNAL
-  static int IdCounter;
 };
 
 inline bool OrderBlocksById::operator()(Block* lhs, Block* rhs) const
@@ -145,7 +142,7 @@ struct Shape {
   };
   ShapeType Type;
 
-  Shape(ShapeType TypeInit) : Id(Shape::IdCounter++), Next(NULL), Type(TypeInit) {}
+  Shape(ShapeType TypeInit, int Id) : Id(Id), Next(NULL), Type(TypeInit) {}
   virtual ~Shape() {}
 
   virtual void Render(bool InLoop, RenderInterface* renderInterface) = 0;
@@ -154,15 +151,12 @@ struct Shape {
   static MultipleShape *IsMultiple(Shape *It) { return It && It->Type == Multiple ? (MultipleShape*)It : NULL; }
   static LoopShape *IsLoop(Shape *It) { return It && It->Type == Loop ? (LoopShape*)It : NULL; }
   static LabeledShape *IsLabeled(Shape *It) { return IsMultiple(It) || IsLoop(It) ? (LabeledShape*)It : NULL; }
-
-  // INTERNAL
-  static int IdCounter;
 };
 
 struct SimpleShape : public Shape {
   Block *Inner;
 
-  SimpleShape() : Shape(Simple), Inner(NULL) {}
+  SimpleShape(int Id) : Shape(Simple, Id), Inner(NULL) {}
   void Render(bool InLoop, RenderInterface* renderInterface) {
     Inner->Render(InLoop, renderInterface);
     if (Next) Next->Render(InLoop, renderInterface);
@@ -175,7 +169,7 @@ typedef std::map<Block*, Shape*, OrderBlocksById> BlockShapeMap;
 struct LabeledShape : public Shape {
   bool Labeled; // If we have a loop, whether it needs to be labeled
 
-  LabeledShape(ShapeType TypeInit) : Shape(TypeInit), Labeled(false) {}
+  LabeledShape(ShapeType TypeInit, int Id) : Shape(TypeInit, Id), Labeled(false) {}
 };
 
 struct MultipleShape : public LabeledShape {
@@ -183,7 +177,7 @@ struct MultipleShape : public LabeledShape {
   int NeedLoop; // If we have branches, we need a loop. This is a counter of loop requirements,
                 // if we optimize it to 0, the loop is unneeded
 
-  MultipleShape() : LabeledShape(Multiple), NeedLoop(0) {}
+  MultipleShape(int Id) : LabeledShape(Multiple, Id), NeedLoop(0) {}
 
   void RenderLoopPrefix(RenderInterface* renderInterface);
   void RenderLoopPostfix(RenderInterface* renderInterface);
@@ -194,7 +188,7 @@ struct MultipleShape : public LabeledShape {
 struct LoopShape : public LabeledShape {
   Shape *Inner;
 
-  LoopShape() : LabeledShape(Loop), Inner(NULL) {}
+  LoopShape(int Id) : LabeledShape(Loop, Id), Inner(NULL) {}
   void Render(bool InLoop, RenderInterface* renderInterface);
 };
 
@@ -221,8 +215,9 @@ struct Relooper {
   std::deque<Shape*> Shapes;
   Shape *Root;
   bool NeedsLabel;
+  int IdCounter;
 
-  Relooper();
+  Relooper(int BlockCount);
   ~Relooper();
 
   void AddBlock(Block *New);
