@@ -1438,6 +1438,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		case Instruction::Alloca:
 		{
 			const AllocaInst* ai = cast<AllocaInst>(&I);
+			//V8: If the variable is passed to a call make sure that V8 does not try to SROA it
+			//This can be a problem if this function or one of the called ones is deoptimized,
+			//as the SROA-ed object will then be materialied with a pessimized hidden type map
+			//which will then be used for all the objects with the same structure
+			stream << "aSlot=";
 
 			if(PA.getPointerKind(ai) == REGULAR)
 			{
@@ -2702,7 +2707,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 void CheerpWriter::compileNullPtrs()
 {
-	stream << "var nullRef=null;var nullArray=[null];var nullObj={d:nullArray,o:0};" << NewLine;
+	stream << "var aSlot=null;var nullRef=null;var nullArray=[null];var nullObj={d:nullArray,o:0};" << NewLine;
 }
 
 void CheerpWriter::compileCreateClosure()
