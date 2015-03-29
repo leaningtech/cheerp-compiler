@@ -476,7 +476,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	
 	ImmutableCallSite::arg_iterator it = callV.arg_begin(), itE = callV.arg_end();
 	
-	const char* ident = func->getName().data();
+	StringRef ident = func->getName();
 	unsigned intrinsicId = func->getIntrinsicID();
 	//First handle high priority builtins, they will be used even
 	//if an implementation is available from the user
@@ -593,15 +593,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << '1';
 		return COMPILE_OK;
 	}
-	else if(strcmp(ident,"free")==0 ||
-		strcmp(ident,"_ZdlPv")==0 ||
-		strcmp(ident,"_ZdaPv")==0 ||
-		intrinsicId==Intrinsic::cheerp_deallocate)
+	else if(ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate)
 	{
 		compileFree(*it);
 		return COMPILE_OK;
 	}
-	else if(strcmp(ident,"fmod")==0)
+	else if(ident=="fmod")
 	{
 		// Handle this internally, C++ does not have float mod operation
 		stream << '(';
@@ -626,21 +623,21 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	if(userImplemented)
 		return COMPILE_UNSUPPORTED;
 
-	if(strncmp(ident,"_ZN6client",10)==0)
+	if(ident.startswith("_ZN6client"))
 	{
-		handleBuiltinNamespace(ident+10,callV);
+		handleBuiltinNamespace(ident.data()+10,callV);
 		return COMPILE_OK;
 	}
-	else if(strncmp(ident,"_ZNK6client",11)==0)
+	else if(ident.startswith("_ZNK6client"))
 	{
-		handleBuiltinNamespace(ident+11,callV);
+		handleBuiltinNamespace(ident.data()+11,callV);
 		return COMPILE_OK;
 	}
-	else if(strncmp(ident,"cheerpCreate_ZN6client",22)==0)
+	else if(ident.startswith("cheerpCreate_ZN6client"))
 	{
 		//Default handling of builtin constructors
 		char* typeName;
-		int typeLen=strtol(ident+22,&typeName,10);
+		int typeLen=strtol(ident.data()+22,&typeName,10);
 		//For builtin String, do not use new
 		if(strncmp(typeName, "String", 6)!=0)
 			stream << "new ";
