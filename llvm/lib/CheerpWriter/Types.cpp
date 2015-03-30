@@ -43,8 +43,6 @@ void CheerpWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 		{
 			//We only really have 32bit integers.
 			//We will allow anything shorter.
-			//NOTE: Only bit operations are allowed on shorter types
-			//this is enforced on a per-operation basis
 			//Print out a '0' to let the engine know this is an integer.
 			stream << '0';
 			break;
