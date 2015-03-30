@@ -36,6 +36,8 @@ static cl::opt<bool> PrettyCode("cheerp-pretty-code", cl::desc("Generate human-r
 
 static cl::opt<bool> NoRegisterize("cheerp-no-registerize", cl::desc("Disable registerize pass") );
 
+static cl::opt<bool> NoNativeJavaScriptMath("cheerp-no-native-math", cl::desc("Disable native JavaScript math functions") );
+
 extern "C" void LLVMInitializeCheerpBackendTarget() {
   // Register the target.
   RegisterTargetMachine<CheerpTargetMachine> X(TheCheerpBackendTarget);
@@ -78,7 +80,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   PA.fullResolve();
   PA.computeConstantOffsets(M);
   registerize.assignRegisters(M, PA);
-  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, PrettyCode, NoRegisterize);
+  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, PrettyCode, NoRegisterize, !NoNativeJavaScriptMath);
   writer.makeJS();
   delete sourceMapGenerator;
   return false;
