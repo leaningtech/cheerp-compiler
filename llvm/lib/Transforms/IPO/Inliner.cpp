@@ -411,6 +411,11 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       bool IsTriviallyDead = isInstructionTriviallyDead(&CB, &GetTLI(*Caller));
 
       if (!IsTriviallyDead) {
+
+        // Never inline function which may be optimized in better ways
+        LibFunc::Func Func;
+        if (TLI && TLI->getLibFunc(Callee->getName(), Func)) continue;
+      
         // If this call site was obtained by inlining another function, verify
         // that the include path for the function did not include the callee
         // itself.  If so, we'd be recursively inlining the same function,
