@@ -986,6 +986,11 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		stream << namegen.getName(p);
 		return;
 	}
+	if(isa<UndefValue>(p))
+	{
+		stream << "undefined";
+		return;
+	}
 
 	// If value has not been generated from a GEP, just compile it and ask for .d
 	compileOperand(p);
@@ -1094,6 +1099,8 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 		stream << namegen.getSecondaryName(p);
 		return;
 	}
+	else if(isa<UndefValue>(p))
+		stream << "undefined";
 	else
 	{
 		compileOperand(p);
