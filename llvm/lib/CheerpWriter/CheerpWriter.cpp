@@ -608,15 +608,124 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << ')';
 		return COMPILE_OK;
 	}
-	else
+	else if(useNativeJavaScriptMath)
 	{
-		DynamicAllocInfo da(callV);
-		
-		if (da.isValidAlloc())
+		if(ident=="fabs" || ident=="fabsf")
 		{
-			compileAllocation(da);
+			stream << "Math.abs(";
+			compileOperand(*(it));
+			stream << ')';
 			return COMPILE_OK;
 		}
+		else if(ident=="acos" || ident=="acosf")
+		{
+			stream << "Math.acos(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="asin" || ident=="asinf")
+		{
+			stream << "Math.asin(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="atan" || ident=="atanf")
+		{
+			stream << "Math.atan(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="atan2" || ident=="atan2f")
+		{
+			stream << "Math.atan2(";
+			compileOperand(*(it));
+			stream << ',';
+			compileOperand(*(it+1));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="ceil" || ident=="ceilf")
+		{
+			stream << "Math.ceil(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="cos" || ident=="cosf")
+		{
+			stream << "Math.cos(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="exp" || ident=="expf")
+		{
+			stream << "Math.exp(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="floor" || ident=="floorf")
+		{
+			stream << "Math.floor(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="log" || ident=="logf")
+		{
+			stream << "Math.log(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="pow" || ident=="powf")
+		{
+			stream << "Math.pow(";
+			compileOperand(*(it));
+			stream << ',';
+			compileOperand(*(it+1));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="round" || ident=="roundf")
+		{
+			stream << "Math.round(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="sin" || ident=="sinf")
+		{
+			stream << "Math.sin(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="sqrt" || ident=="sqrtf")
+		{
+			stream << "Math.sqrt(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+		else if(ident=="tan" || ident=="tanf")
+		{
+			stream << "Math.tan(";
+			compileOperand(*(it));
+			stream << ')';
+			return COMPILE_OK;
+		}
+	}
+
+	DynamicAllocInfo da(callV);
+	if (da.isValidAlloc())
+	{
+		compileAllocation(da);
+		return COMPILE_OK;
 	}
 
 	//If the method is implemented by the user, stop here
