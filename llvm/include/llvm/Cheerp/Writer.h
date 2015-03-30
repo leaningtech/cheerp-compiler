@@ -154,6 +154,9 @@ private:
 	SourceMapGenerator* sourceMapGenerator;
 	const NewLineHandler NewLine;
 
+	// Flag to signal if we should take advantage of native JavaScript math functions
+	bool useNativeJavaScriptMath;
+
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
 	 *
@@ -333,10 +336,10 @@ private:
 public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
-	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, bool ReadableOutput, bool NoRegisterize):
+	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, bool ReadableOutput, bool NoRegisterize, bool UseNativeJavaScriptMath):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
-		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),
+		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),useNativeJavaScriptMath(UseNativeJavaScriptMath),
 		stream(s, ReadableOutput)
 	{
 	}
