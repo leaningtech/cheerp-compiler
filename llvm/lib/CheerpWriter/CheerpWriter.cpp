@@ -427,7 +427,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 		for(uint32_t i = 0; i < numElem;i++)
 		{
-			compileType(t, LITERAL_OBJ);
+			compileType(t, LITERAL_OBJ, !isInlineable(*info.getInstruction(), PA) ? namegen.getName(info.getInstruction()) : StringRef());
 			if((i+1) < numElem)
 				stream << ',';
 		}
@@ -1557,14 +1557,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			//which will then be used for all the objects with the same structure
 			stream << "aSlot=";
 
+			StringRef varName = namegen.getName(&I);
 			if(PA.getPointerKind(ai) == REGULAR)
 			{
 				stream << "{d:[";
-				compileType(ai->getAllocatedType(), LITERAL_OBJ);
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 				stream << "],o:0}";
 			}
 			else 
-				compileType( ai->getAllocatedType(), LITERAL_OBJ);
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 
 			return COMPILE_OK;
 		}
