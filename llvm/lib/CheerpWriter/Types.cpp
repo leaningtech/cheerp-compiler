@@ -57,7 +57,7 @@ void CheerpWriter::compileSimpleType(Type* t)
 		case Type::PointerTyID:
 		{
 			if(PA.getPointerKindForStoredType(t)==COMPLETE_OBJECT)
-				stream << "nullRef";
+				stream << "null";
 			else
 				stream << "nullObj";
 			break;
@@ -160,7 +160,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			if (element->isPointerTy())
 			{
 				if (PA.getPointerKindForMemberPointer(baseAndIndex)==COMPLETE_OBJECT)
-					stream << "nullRef";
+					stream << "null";
 				else if (PA.getConstantOffsetForMember(baseAndIndex))
 					stream << "nullArray";
 				else

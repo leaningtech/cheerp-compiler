@@ -1292,7 +1292,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 	{
 		llvm::errs() << "Unsupported constant type ";
 		c->dump();
-		stream << "nullRef";
+		stream << "null";
 	}
 }
 
@@ -2821,7 +2821,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 void CheerpWriter::compileNullPtrs()
 {
-	stream << "var aSlot=null;var nullRef=null;var nullArray=[null];var nullObj={d:nullArray,o:0};" << NewLine;
+	stream << "var aSlot=null;var nullArray=[null];var nullObj={d:nullArray,o:0};" << NewLine;
 }
 
 void CheerpWriter::compileCreateClosure()
