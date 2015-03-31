@@ -86,13 +86,34 @@ void CheerpWriter::compileSimpleType(Type* t)
 	}
 }
 
-void CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style)
+uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties)
 {
 	assert(!TypeSupport::isSimpleType(t));
+	// Handle complex arrays and objects, they are all literals in JS
 	assert(t->getTypeID() == Type::StructTyID || t->getTypeID() == Type::ArrayTyID);
 
+	bool useVarName = !varName.empty();
+
+	// We only need to split large objects with the LITERAL_OBJ style
+	assert(!useVarName || style == LITERAL_OBJ);
+
+	uint32_t numElements = (t->getTypeID() == Type::StructTyID) ? cast<StructType>(t)->getNumElements() : 0;
+	bool shouldReturnElementsCount = true;
+
+	if(useVarName && (maxDepth == 0 || ((totalLiteralProperties + numElements) > V8MaxLiteralProperties)))
+	{
+		// If this struct have more than V8MaxLiteralProperties there is no point in splitting it anyway
+		if(numElements <= V8MaxLiteralProperties)
+			stream << varName << '=';
+		maxDepth = V8MaxLiteralDepth;
+		shouldReturnElementsCount = false;
+		totalLiteralProperties = 0;
+	}
+
+	uint32_t nextMaxDepth = useVarName ? maxDepth - 1 : maxDepth;
 	if (StructType* st = dyn_cast<StructType>(t))
 	{
+		numElements++;
 		assert(!TypeSupport::hasByteLayout(st));
 		bool addDowncastArray = types.hasBasesInfo(t);
 		if(style == LITERAL_OBJ)
@@ -122,7 +143,20 @@ void CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style)
 			TypeAndIndex baseAndIndex(st, i, TypeAndIndex::STRUCT_MEMBER);
 			bool useWrapperArray = types.useWrapperArrayForMember(PA, st, i);
 			if (useWrapperArray)
+			{
+				// We need to do an extra check to break deep literals here
+				if(useVarName)
+				{
+					if(nextMaxDepth == 0)
+					{
+						stream << varName << '=';
+						nextMaxDepth = V8MaxLiteralDepth;
+					}
+					else
+						nextMaxDepth--;
+				}
 				stream << '[';
+			}
 			if (element->isPointerTy())
 			{
 				if (PA.getPointerKindForMemberPointer(baseAndIndex)==COMPLETE_OBJECT)
@@ -132,8 +166,10 @@ void CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style)
 				else
 					stream << "nullObj";
 			}
+			else if(TypeSupport::isSimpleType(element))
+				compileSimpleType(element);
 			else
-				compileType(element, LITERAL_OBJ);
+				numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements);
 			if(useWrapperArray)
 				stream << ']';
 		}
@@ -160,18 +196,22 @@ void CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style)
 		{
 			if(i!=0)
 				stream << ',';
-			compileType(at->getElementType(), LITERAL_OBJ);
+			if(TypeSupport::isSimpleType(element))
+				compileSimpleType(element);
+			else
+				numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements);
 		}
 		stream << ']';
 	}
+	return shouldReturnElementsCount ? numElements : 0;
 }
 
-void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style)
+void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName)
 {
 	if(TypeSupport::isSimpleType(t))
 		compileSimpleType(t);
 	else
-		compileComplexType(t, style);
+		compileComplexType(t, style, varName, V8MaxLiteralDepth, 0);
 }
 
 uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)

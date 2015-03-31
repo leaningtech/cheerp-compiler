@@ -135,6 +135,9 @@ private:
 	int indentLevel;
 };
 
+const static int V8MaxLiteralDepth = 3;
+const static int V8MaxLiteralProperties = 8;
+
 class CheerpWriter
 {
 private:
@@ -310,8 +313,10 @@ private:
 	enum COMPILE_TYPE_STYLE { LITERAL_OBJ=0, THIS_OBJ };
 	void compileTypedArrayType(llvm::Type* t);
 	void compileSimpleType(llvm::Type* t);
-	void compileComplexType(llvm::Type* t, COMPILE_TYPE_STYLE style);
-	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style);
+	// varName is used for a fake assignment to break literals into smaller units.
+	// This is useful to avoid a huge penalty on V8 when creating large literals
+	uint32_t compileComplexType(llvm::Type* t, COMPILE_TYPE_STYLE style, llvm::StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties);
+	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style, llvm::StringRef varName = llvm::StringRef());
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
 	void compileArrayClassType(llvm::StructType* T);
