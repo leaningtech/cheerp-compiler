@@ -2421,9 +2421,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 		}
 		if(I->isTerminator())
 		{
-			//TODO: Keep support for both relooper and swicth generation
 			compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I));
-			//compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I), blocksMap);
 		}
 		else
 		{
@@ -2440,7 +2438,6 @@ void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 			}
 		}
 	}
-	//At the end of the block
 }
 
 void CheerpRenderInterface::renderBlock(const void* privateBlock)
