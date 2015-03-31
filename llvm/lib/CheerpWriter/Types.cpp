@@ -271,7 +271,7 @@ void CheerpWriter::compileArrayClassType(StructType* T)
 	stream << "(ret,start){" << NewLine;
 	stream << "for(var __i__=start;__i__<ret.length;__i__++)" << NewLine;
 	stream << "ret[__i__]=";
-	compileType(T, LITERAL_OBJ);
+	compileType(T, LITERAL_OBJ, "ret[__i__]");
 	stream << ';' << NewLine << "return ret;" << NewLine << '}' << NewLine;
 }
 
