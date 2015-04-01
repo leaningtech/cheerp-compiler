@@ -2361,7 +2361,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << ".getFloat64(";
 				compilePointerOffset(ptrOp);
 				if(!pointedType->isIntegerTy(8))
-					stream << ",true)";
+					stream << ",true";
+				stream << ')';
 			}
 			else
 			{
