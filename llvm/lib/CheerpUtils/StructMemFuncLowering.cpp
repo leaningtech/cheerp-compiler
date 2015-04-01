@@ -50,18 +50,10 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	{
 		Type* elementType = AT->getElementType();
 		indexes.push_back(NULL);
-		if (elementType->isIntegerTy() || elementType->isFloatingPointTy() && AT->getNumElements()>1)
+		for(uint32_t i=0;i<AT->getNumElements();i++)
 		{
-			indexes.back() = ConstantInt::get(indexType, 0);
-			createMemFunc(IRB, baseDst, baseSrc, DL->getTypeAllocSize(curType), indexes);
-		}
-		else
-		{
-			for(uint32_t i=0;i<AT->getNumElements();i++)
-			{
-				indexes.back() = ConstantInt::get(indexType, i);
-				recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, indexes);
-			}
+			indexes.back() = ConstantInt::get(indexType, i);
+			recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, indexes);
 		}
 		indexes.pop_back();
 	}
@@ -214,11 +206,12 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB)
 		if(mode==NONE)
 			continue;
 		Type* pointedType = F->getFunctionType()->getParamType(0)->getPointerElementType();
-		//We want to decompose everything which is not an immutable type or a byte layout structure. memset is always decomposed.
-		if(mode != MEMSET && (pointedType->isIntegerTy() || pointedType->isFloatingPointTy() ||
-			(isa<StructType>(pointedType) && cast<StructType>(pointedType)->hasByteLayout())))
+		//We want to decompose everything which is not a byte layout structure. memset is always decomposed.
+		if(mode != MEMSET)
 		{
-			continue;
+			bool isByteLayout = isa<StructType>(pointedType) && cast<StructType>(pointedType)->hasByteLayout();
+			if(isByteLayout)
+				continue;
 		}
 		//We have a typed mem func on a struct
 		//Decompose it in a loop
