@@ -51,7 +51,10 @@ bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp:
 	else if(a->isFloatingPointTy() && b->isFloatingPointTy())
 		return true;
 	else if(a->isArrayTy() && b->isArrayTy())
-		return areTypesEquivalent(types, PA, a->getArrayElementType(), b->getArrayElementType());
+	{
+		return cast<ArrayType>(a)->getNumElements()==cast<ArrayType>(b)->getNumElements() &&
+			areTypesEquivalent(types, PA, a->getArrayElementType(), b->getArrayElementType());
+	}
 	else if(a->isStructTy() && b->isStructTy())
 	{
 		// TODO: Byte layout structs with the same size are equivalent
