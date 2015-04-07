@@ -143,7 +143,8 @@ static void EmitDeclDestroy(CodeGenFunction &CGF, const VarDecl &D,
     Argument = llvm::Constant::getNullValue(CGF.Int8PtrTy);
   }
 
-  CGM.getCXXABI().registerGlobalDtor(CGF, D, Func, Argument);
+  if(CGM.getTarget().isByteAddressable())
+    CGM.getCXXABI().registerGlobalDtor(CGF, D, Func, Argument);
 }
 
 /// Emit code to cause the variable at the given address to be considered as
