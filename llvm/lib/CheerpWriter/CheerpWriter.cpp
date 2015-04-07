@@ -1275,9 +1275,8 @@ void CheerpWriter::compileConstant(const Constant* c)
 	else if(isa<ConstantInt>(c))
 	{
 		const ConstantInt* i=cast<ConstantInt>(c);
-
 		if(i->getBitWidth()==1)
-			stream << (i->isZero()?"false":"true");
+			stream << i->getZExtValue();
 		else
 			stream << i->getSExtValue();
 	}
@@ -2036,7 +2035,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				//If the source type is i1, attempt casting from Boolean
 				stream << '(';
 				compileOperand(bi.getOperand(0));
-				stream << "==false?0:1)";
+				stream << "?1:0)";
 			}
 			else
 			{
@@ -2168,7 +2167,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << '&';
+			if(I.getType()->isIntegerTy(1))
+				stream << "&&";
+			else
+				stream << '&';
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			return COMPILE_OK;
@@ -2215,7 +2217,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << '|';
+			if(I.getType()->isIntegerTy(1))
+				stream << "||";
+			else
+				stream << '|';
 			compileOperand(I.getOperand(1));
 			stream << ')';
 			return COMPILE_OK;
@@ -2226,10 +2231,19 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Xor with 1s is used to implement bitwise and logical negation
 			//TODO: Optimize the operation with 1s
 			//No need to apply the >> operator. The result is an integer by spec
+			bool isBool = I.getType()->isIntegerTy(1);
 			stream << '(';
+			if(isBool)
+				stream << '(';
 			compileOperand(I.getOperand(0));
+			if(isBool)
+				stream << "?1:0)";
 			stream << '^';
+			if(isBool)
+				stream << '(';
 			compileOperand(I.getOperand(1));
+			if(isBool)
+				stream << "?1:0)";
 			stream << ')';
 			return COMPILE_OK;
 		}
