@@ -92,6 +92,8 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			return false;
 		return true;
 	}
+	else if(I.getOpcode()==Instruction::FCmp || I.getOpcode()==Instruction::ICmp)
+		return true;
 	else if(!I.hasNUsesOrMore(2))
 	{
 		switch(I.getOpcode())
