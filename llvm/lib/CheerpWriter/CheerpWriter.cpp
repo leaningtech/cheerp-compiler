@@ -834,7 +834,7 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	}
 }
 
-void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > indices)
+void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > indices, bool compileLastWrapperArray)
 {
 	for(uint32_t i=0;i<indices.size();i++)
 	{
@@ -847,7 +847,7 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 			const APInt& index = cast<Constant>(indices[i])->getUniqueInteger();
 
 			stream << '.' << types.getPrefixCharForMember(PA, st, index.getLimitedValue()) << index;
-			if((i!=indices.size()-1) && types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
+			if((i!=indices.size()-1 || compileLastWrapperArray) && types.useWrapperArrayForMember(PA, st, index.getLimitedValue()))
 				stream << "[0]";
 
 			tp = st->getElementType(index.getZExtValue());
@@ -1737,16 +1737,16 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 		Type* basePointedType = basePointerType->getPointerElementType();
 		if (useDownCastArray)
 		{
-			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()));
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()), /*compileLastWrapperArray*/true);
 			stream << ".a";
 		}
 		else if(containerStructType)
 		{
-			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()));
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),indices.end()), /*compileLastWrapperArray*/false);
 		}
 		else
 		{
-			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())));
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())), /*compileLastWrapperArray*/true);
 		}
 	}
 }
@@ -1811,7 +1811,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
 		{
 			Type* basePointedType = basePointerType->getPointerElementType();
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
-			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()));
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true);
 			stream << ".o";
 		}
 		else
@@ -1827,7 +1827,6 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType,
 			makeArrayRef(const_cast<Value* const*>(indices.begin()),
 				     const_cast<Value* const*>(indices.end() - 1))));
-	bool useWrapperArray = false;
 	bool useDownCastArray = false;
 	if(containerStructType && indices.size() > 1)
 	{
@@ -1841,9 +1840,6 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 			if(lastOffsetConstant >= firstBase && lastOffsetConstant < (firstBase+baseCount))
 				useDownCastArray = true;
 		}
-		// We don't want to use the wrapper array if the downcast array is alredy available
-		if(!useDownCastArray)
-			useWrapperArray = types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
 	}
 
 
@@ -1851,9 +1847,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	{
 		compileCompleteObject(gep_inst->getOperand(0), indices.front());
 		compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
-		                       makeArrayRef(std::next(indices.begin()), indices.end()));
-		if(useWrapperArray)
-			stream << "[0]";
+		                       makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true);
 	}
 	else
 	{
@@ -1861,7 +1855,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		{
 			Type* basePointedType = basePointerType->getPointerElementType();
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
-			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())));
+			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())), /*compileLastWrapperArray*/false);
 			return;
 		}
 
