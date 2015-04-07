@@ -4350,6 +4350,8 @@ def cheerp_pretty_code : Flag<["-"], "cheerp-pretty-code">, Flags<[DriverOption]
   HelpText<"Generate human-readable JS">;
 def cheerp_no_lto : Flag<["-"], "cheerp-no-lto">, Flags<[DriverOption]>,
   HelpText<"Disable final optimization step at link time">;
+def cheerp_no_native_math : Flag<["-"], "cheerp-no-native-math">, Flags<[DriverOption]>,
+  HelpText<"Disable native JavaScript math functions">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options
