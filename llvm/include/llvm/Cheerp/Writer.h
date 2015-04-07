@@ -207,7 +207,7 @@ private:
 	/**
 	 * Writes an access expression (i.e. something like .a3.a1[n].a4, etc.. ) using the given indices
 	 */
-	void compileAccessToElement(llvm::Type* tp, llvm::ArrayRef< const llvm::Value* > indices);
+	void compileAccessToElement(llvm::Type* tp, llvm::ArrayRef< const llvm::Value* > indices, bool compileLastWrapperArray);
 
 	/**
 	 * Write the offset part of a GEP as a literal or numerical offset
