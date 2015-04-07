@@ -24,11 +24,11 @@ def int_cheerp_downcast  : Intrinsic<[llvm_anyptr_ty],
 
 def int_cheerp_upcast_collapsed  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
-                             [IntrNoMem]>;
+                             []>;
 
 def int_cheerp_cast_user  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
-                             [IntrNoMem]>;
+                             []>;
 
 // Type safe memory allocation
 def int_cheerp_allocate  : Intrinsic<[llvm_anyptr_ty],
