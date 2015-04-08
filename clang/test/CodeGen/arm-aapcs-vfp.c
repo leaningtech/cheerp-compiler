@@ -47,7 +47,7 @@ void test_array(struct nested_array arg) {
 }
 
 extern void complex_callee(__complex__ double);
-// CHECK: define arm_aapcs_vfpcc void @test_complex({ double, double } %{{.*}})
+// CHECK: define arm_aapcs_vfpcc void @test_complex(%complex._ZTSd %{{.*}})
 // CHECK64: define void @test_complex([2 x double] %cd.coerce)
 void test_complex(__complex__ double cd) {
   complex_callee(cd);
@@ -55,7 +55,7 @@ void test_complex(__complex__ double cd) {
 
 // Long double is the same as double on AAPCS, it should be homogeneous.
 extern void complex_long_callee(__complex__ long double);
-// CHECK: define arm_aapcs_vfpcc void @test_complex_long({ double, double } %{{.*}})
+// CHECK: define arm_aapcs_vfpcc void @test_complex_long(%complex._ZTSe %{{.*}})
 void test_complex_long(__complex__ long double cd) {
   complex_callee(cd);
 }

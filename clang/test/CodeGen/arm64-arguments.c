@@ -93,8 +93,8 @@ struct s21 f21(void) {}
 // CHECK: define i64 @f23()
 // CHECK: define i64 @f24()
 // CHECK: define [2 x i64] @f25()
-// CHECK: define { float, float } @f26()
-// CHECK: define { double, double } @f27()
+// CHECK: define %complex._ZTSf @f26()
+// CHECK: define %complex._ZTSd @f27()
 _Complex char       f22(void) {}
 _Complex short      f23(void) {}
 _Complex int        f24(void) {}

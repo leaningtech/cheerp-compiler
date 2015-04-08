@@ -37,7 +37,7 @@ void testFloat(_Atomic(float) *fp) {
 // CHECK-NEXT: ret void
 }
 
-// CHECK: define void @testComplexFloat([[CF:{ float, float }]]*
+// CHECK: define void @testComplexFloat([[CF:%complex._ZTSf]]*
 void testComplexFloat(_Atomic(_Complex float) *fp) {
 // CHECK:      [[FP:%.*]] = alloca [[CF]]*, align 4
 // CHECK-NEXT: [[X:%.*]] = alloca [[CF]], align 8

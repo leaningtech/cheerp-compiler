@@ -2132,8 +2132,7 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const APValue &Value,
                                         Value.getComplexIntImag());
 
     // FIXME: the target may want to specify that this is packed.
-    llvm::StructType *STy =
-        llvm::StructType::get(Complex[0]->getType(), Complex[1]->getType());
+    llvm::StructType *STy = cast<llvm::StructType>(CGM.getTypes().ConvertTypeForMem(DestType));
     return llvm::ConstantStruct::get(STy, Complex);
   }
   case APValue::Float: {
@@ -2155,8 +2154,7 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const APValue &Value,
                                        Value.getComplexFloatImag());
 
     // FIXME: the target may want to specify that this is packed.
-    llvm::StructType *STy =
-        llvm::StructType::get(Complex[0]->getType(), Complex[1]->getType());
+    llvm::StructType *STy = cast<llvm::StructType>(CGM.getTypes().ConvertTypeForMem(DestType));
     return llvm::ConstantStruct::get(STy, Complex);
   }
   case APValue::Vector: {
