@@ -126,6 +126,7 @@ void while_destruct(int z) {
   // CHECK: call void @_Z4getXv
   // CHECK-NEXT: call zeroext i1 @_ZN1XcvbEv
   // CHECK-NEXT: call void @_ZN1XD1Ev
+  // CHECK-NEXT: call void @llvm.lifetime.end
   // CHECK-NEXT: br
   while(getX()) { }
 
@@ -198,6 +199,7 @@ void for_destruct(int z) {
   // CHECK: call void @_Z4getXv
   // CHECK-NEXT: call zeroext i1 @_ZN1XcvbEv
   // CHECK-NEXT: call void @_ZN1XD1Ev
+  // CHECK-NEXT: call void @llvm.lifetime.end
   // CHECK-NEXT: br
   // -> %for.body10, %for.end16
 

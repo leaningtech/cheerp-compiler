@@ -271,6 +271,7 @@ namespace PR5867 {
     // CHECK: call void @_ZN6PR58671SC1Ev
     // CHECK-NEXT: call void @_ZN6PR58671fENS_1SEi
     // CHECK-NEXT: call void @_ZN6PR58671SD1Ev
+    // CHECK-NEXT: call void @"llvm.lifetime.end
     // CHECK-NEXT: ret void
     (f)(S(), 0);
   }
@@ -281,6 +282,7 @@ namespace PR5867 {
     // CHECK: call void @_ZN6PR58671SC1Ev
     // CHECK-NEXT: call void @_ZN6PR58671fENS_1SEi
     // CHECK-NEXT: call void @_ZN6PR58671SD1Ev
+    // CHECK-NEXT: call void @"llvm.lifetime.end
     // CHECK-NEXT: ret void
     (f)(S(), 0);
   }
@@ -526,6 +528,7 @@ namespace Elision {
     // CHECK-NEXT: call void @_ZNK7Elision1CcvNS_1AEEv([[A]]* sret align 8 [[T0]], [[C]]* [[X]])
     // CHECK-NEXT: call void @_ZNK7Elision1A3fooEv([[A]]* [[T0]])
     // CHECK-NEXT: call void @_ZN7Elision1AD1Ev([[A]]* [[T0]])
+    // CHECK-NEXT: call void @"llvm.lifetime.end
     // CHECK-NEXT: ret void
     A(*x).foo();
   }

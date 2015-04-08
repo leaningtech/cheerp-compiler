@@ -38,6 +38,7 @@ void test0(X x) {
   // CHECK-NEXT: call void @_ZN1AC1ERKS_([[A]]* [[TMP]], [[A]]* nonnull align {{[0-9]+}} dereferenceable({{[0-9]+}}) [[T1]])
   // CHECK-NEXT: call void @_Z12test0_helper1A([[A]]* [[TMP]])
   // CHECK-NEXT: call void @_ZN1AD1Ev([[A]]* [[TMP]])
+  // CHECK-NEXT: call void @llvm.lifetime.end
   // CHECK-NEXT: ret void
 }
 

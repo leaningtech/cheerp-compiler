@@ -39,7 +39,7 @@ void test1(void) {
 // CHECK-LABEL:    define void @test1()
 // CHECK:      [[OBJ:%.*]] = alloca i8*, align 8
 // CHECK-NEXT: [[WEAKOBJ:%.*]] = alloca i8*, align 8
-// CHECK-NEXT: [[RESULT:%.*]] = alloca { float, float }, align 4
+// CHECK-NEXT: [[RESULT:%.*]] = alloca %complex._ZTSf, align 4
 //   Various initializations.
 // CHECK:      [[T0:%.*]] = call i8* bitcast (
 // CHECK-NEXT: store i8* [[T0]], i8** [[OBJ]]
@@ -57,11 +57,11 @@ void test1(void) {
 //   Invoke and produce the return values.
 // CHECK:      [[CALL:%.*]] = invoke <2 x float> bitcast
 // CHECK-NEXT:   to label [[INVOKE_CONT:%.*]] unwind label {{%.*}}
-// CHECK:      [[T0:%.*]] = bitcast { float, float }* [[COERCE:%.*]] to <2 x float>*
+// CHECK:      [[T0:%.*]] = bitcast %complex._ZTSf* [[COERCE:%.*]] to <2 x float>*
 // CHECK-NEXT: store <2 x float> [[CALL]], <2 x float>* [[T0]],
-// CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds { float, float }, { float, float }* [[COERCE]], i32 0, i32 0
+// CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[COERCE]], i32 0, i32 0
 // CHECK-NEXT: [[REALCALL:%.*]] = load float, float* [[T0]]
-// CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds { float, float }, { float, float }* [[COERCE]], i32 0, i32 1
+// CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[COERCE]], i32 0, i32 1
 // CHECK-NEXT: [[IMAGCALL:%.*]] = load float, float* [[T0]]
 // CHECK-NEXT: br label [[CONT:%.*]]{{$}}
 //   Null path.
@@ -70,8 +70,8 @@ void test1(void) {
 //   Join point.
 // CHECK:      [[REAL:%.*]] = phi float [ [[REALCALL]], [[INVOKE_CONT]] ], [ 0.000000e+00, [[FORNULL]] ]
 // CHECK-NEXT: [[IMAG:%.*]] = phi float [ [[IMAGCALL]], [[INVOKE_CONT]] ], [ 0.000000e+00, [[FORNULL]] ]
-// CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds { float, float }, { float, float }* [[RESULT]], i32 0, i32 0
-// CHECK-NEXT: [[T1:%.*]] = getelementptr inbounds { float, float }, { float, float }* [[RESULT]], i32 0, i32 1
+// CHECK-NEXT: [[T0:%.*]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[RESULT]], i32 0, i32 0
+// CHECK-NEXT: [[T1:%.*]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[RESULT]], i32 0, i32 1
 // CHECK-NEXT: store float [[REAL]], float* [[T0]]
 // CHECK-NEXT: store float [[IMAG]], float* [[T1]]
 //   Epilogue.
