@@ -105,3 +105,10 @@ char ReplaceNopCasts::ID = 0;
 FunctionPass *createReplaceNopCastsPass() { return new ReplaceNopCasts(); }
 
 }
+
+using namespace cheerp;
+
+INITIALIZE_PASS_BEGIN(ReplaceNopCasts, "ReplaceNopCasts", "Replace type safe cast intrinsics with bitcasts when possible",
+                      false, false)
+INITIALIZE_PASS_END(ReplaceNopCasts, "ReplaceNopCasts", "Replace type safe cast intrinsics with bitcasts when possible",
+                    false, false)
