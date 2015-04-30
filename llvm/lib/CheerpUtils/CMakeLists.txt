@@ -8,6 +8,7 @@ add_llvm_library(LLVMCheerpUtils
   ResolveAliases.cpp
   Registerize.cpp
   StructMemFuncLowering.cpp
+  TypeOptimizer.cpp
   Utility.cpp
   )
 
