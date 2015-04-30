@@ -628,6 +628,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializePointerAnalyzerPass(Registry);
 	initializeRegisterizePass(Registry);
 	initializeStructMemFuncLoweringPass(Registry);
+	initializeReplaceNopCastsPass(Registry);
 }
 
 }
