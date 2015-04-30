@@ -68,8 +68,6 @@ public:
 		module(module),
 		classesWithBaseInfo(basesInfo) {}
 
-	static bool isValidTypeCast(const llvm::Value * castOp, llvm::Type * dstPtr);
-
 	static bool isDerivedStructType(llvm::StructType* derivedType, llvm::StructType* baseType);
 
 	static bool isClientGlobal(const llvm::Value * v)
