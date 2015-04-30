@@ -66,11 +66,6 @@ bool ReplaceNopCasts::processBasicBlock(BasicBlock& BB)
 
 			Changed = true;
 		}
-		else if ( isa<BitCastInst>(Inst) )
-		{
-			if ( ! TypeSupport::isValidTypeCast(Inst->getOperand(0), Inst->getType()) )
-				reportUnsafeCast( Inst );
-		}
 	}
 	
 	/**
