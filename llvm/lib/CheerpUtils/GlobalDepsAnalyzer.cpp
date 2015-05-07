@@ -302,10 +302,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				if ( ai.isValidAlloc() )
 				{
 					if ( ai.useCreateArrayFunc() )
-					{
-						assert( isa<StructType>(ai.getCastedType()->getElementType()) );
-						arraysNeeded.insert( cast<StructType>( ai.getCastedType()->getElementType() ) );
-					}
+						arraysNeeded.insert( ai.getCastedType()->getElementType() );
 					if ( ai.useCreatePointerArrayFunc() )
 						hasPointerArrays = true;
 					if ( StructType* ST = dyn_cast<StructType>(ai.getCastedType()->getElementType()) )
