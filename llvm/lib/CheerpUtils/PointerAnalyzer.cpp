@@ -26,7 +26,7 @@ using namespace llvm;
 namespace cheerp {
 
 PointerKindWrapper PointerKindWrapper::staticDefaultValue(COMPLETE_OBJECT);
-PointerConstantOffsetWrapper PointerConstantOffsetWrapper::staticDefaultValue(NULL, PointerConstantOffsetWrapper::INVALID);
+PointerConstantOffsetWrapper PointerConstantOffsetWrapper::staticDefaultValue(PointerConstantOffsetWrapper::INVALID);
 
 void IndirectPointerKindConstraint::dump() const
 {
@@ -180,6 +180,40 @@ PointerConstantOffsetWrapper& PointerConstantOffsetWrapper::operator|=(const Ind
 
 	// Merge the constraint
 	lhs.constraints.insert(rhs);
+	return lhs;
+}
+
+PointerConstantOffsetWrapper& PointerConstantOffsetWrapper::operator|=(const ConstantInt* rhs)
+{
+	PointerConstantOffsetWrapper& lhs=*this;
+
+	if(lhs.status == INVALID || rhs == NULL)
+	{
+		lhs.clearConstraints();
+		lhs.status = INVALID;
+		return lhs;
+	}
+
+	assert(rhs);
+	if(lhs.status == UNINITALIZED)
+	{
+		lhs.status = VALID;
+		lhs.offset = rhs;
+		return lhs;
+	}
+
+	// lhs is VALID or UNKNOWN
+	if(lhs.status == VALID)
+	{
+		if(rhs != lhs.offset)
+		{
+			lhs.offset = NULL;
+			lhs.status = INVALID;
+			lhs.clearConstraints();
+			return lhs;
+		}
+	}
+	lhs.offset = rhs;
 	return lhs;
 }
 
@@ -852,10 +886,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		if(TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(v))
 		{
 			if(PointerAnalyzer::hasNonLoadStoreUses(v))
-			{
-				pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, b)] |=
-								PointerConstantOffsetWrapper( NULL, PointerConstantOffsetWrapper::INVALID );
-			}
+				pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, b)] |= PointerConstantOffsetWrapper::INVALID;
 		}
 		return CacheAndReturn(ret |= getPointerOffsetFromGEP(v));
 	}
@@ -872,7 +903,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			return CacheAndReturn(ret |= pointerOffsetData.getConstraintPtr(baseAndIndexContraint));
 		}
 		else
-			return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
+			return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
 	}
 
 	if(const LoadInst* LI=dyn_cast<LoadInst>(v))
@@ -907,7 +938,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			TypeAndIndex typeAndIndex(structType, i, TypeAndIndex::STRUCT_MEMBER);
 			pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, typeAndIndex)] |= visitValue(localRet, op, false);
 		}
-		return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
+		return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
 	}
 
 	Type* Int32Ty=IntegerType::get(v->getContext(), 32);
@@ -919,7 +950,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	{
 		Function* F = CI->getCalledFunction();
 		if(!F)
-			return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
+			return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
 		if(F->getIntrinsicID()==Intrinsic::cheerp_allocate ||
 			F->getIntrinsicID()==Intrinsic::cheerp_reallocate)
 		{
@@ -927,7 +958,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		}
 	}
 
-	return CacheAndReturn(ret |= PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID));
+	return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
 }
 
 PointerConstantOffsetWrapper PointerResolverForOffsetVisitor::resolvePointerOffset(const PointerConstantOffsetWrapper& o)
@@ -944,14 +975,14 @@ PointerConstantOffsetWrapper PointerResolverForOffsetVisitor::resolvePointerOffs
 		closedset.push_back(constraint);
 		const PointerConstantOffsetWrapper& c = resolveConstraint(*constraint);
 		if(c.isInvalid())
-			return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
+			return PointerConstantOffsetWrapper::INVALID;
 		// 'c' is VALID or UNINITALIZED
 		if(c.isValid())
 		{
 			if(offset == NULL)
 				offset = c.getPointerOffset();
 			else if(offset != c.getPointerOffset())
-				return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
+				return PointerConstantOffsetWrapper::INVALID;
 		}
 		if(c.hasConstraints())
 		{
@@ -959,22 +990,22 @@ PointerConstantOffsetWrapper PointerResolverForOffsetVisitor::resolvePointerOffs
 			// No constrains allowed below here!
 			assert(!resolved.hasConstraints());
 			if(resolved.isInvalid())
-				return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
+				return PointerConstantOffsetWrapper::INVALID;
 			if(resolved.isUninitialized())
 				continue;
 			assert(resolved.isValid());
 			if(offset == NULL)
 				offset = resolved.getPointerOffset();
 			else if(offset != resolved.getPointerOffset())
-				return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::INVALID);
+				return PointerConstantOffsetWrapper::INVALID;
 		}
 	}
 	// No constrains were INVALID, so if offset is still NULL it means we should be UNINITALIZED
 	// Otherwise we found a valid value
 	if (offset == NULL)
-		return PointerConstantOffsetWrapper(NULL, PointerConstantOffsetWrapper::UNINITALIZED);
+		return PointerConstantOffsetWrapper::UNINITALIZED;
 	else
-		return PointerConstantOffsetWrapper(offset, PointerConstantOffsetWrapper::VALID);
+		return offset;
 }
 
 struct TimerGuard
