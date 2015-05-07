@@ -205,10 +205,12 @@ public:
 	PointerConstantOffsetWrapper():offset(NULL),status(UNINITALIZED)
 	{
 	}
-	PointerConstantOffsetWrapper(const llvm::ConstantInt* o, STATUS s = VALID):offset(o),status(s)
+	PointerConstantOffsetWrapper(STATUS s):offset(NULL),status(s)
 	{
-		if(o == NULL && s == VALID)
-			status = INVALID;
+	}
+	PointerConstantOffsetWrapper(const llvm::ConstantInt* o):offset(o),status(VALID)
+	{
+		assert(o);
 	}
 	PointerConstantOffsetWrapper(const IndirectPointerKindConstraint* constraint):offset(NULL),status(UNINITALIZED)
 	{
@@ -216,6 +218,7 @@ public:
 	}
 	PointerConstantOffsetWrapper& operator|=(const PointerConstantOffsetWrapper& rhs);
 	PointerConstantOffsetWrapper& operator|=(const IndirectPointerKindConstraint* rhs);
+	PointerConstantOffsetWrapper& operator|=(const llvm::ConstantInt* rhs);
 	bool isInvalid() const
 	{
 		return status == INVALID;
