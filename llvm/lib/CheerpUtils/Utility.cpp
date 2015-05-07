@@ -502,9 +502,8 @@ bool DynamicAllocInfo::sizeIsRuntime() const
 
 bool DynamicAllocInfo::useCreateArrayFunc() const
 {
-	if (getCastedType()->getElementType()->isStructTy() )
+	if( !TypeSupport::isTypedArrayType( getCastedType()->getElementType() ) )
 	{
-		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType() ) );
 		return sizeIsRuntime() || type == cheerp_reallocate;
 	}
 	return false;
