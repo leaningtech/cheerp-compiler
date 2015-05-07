@@ -258,14 +258,8 @@ void CheerpWriter::compileClassType(StructType* T)
 	stream << "return obj;}" << NewLine;
 }
 
-void CheerpWriter::compileArrayClassType(StructType* T)
+void CheerpWriter::compileArrayClassType(Type* T)
 {
-	if(!T->hasName())
-	{
-		llvm::errs() << "Expected name for struct " << *T << "\n";
-		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-		return;
-	}
 	stream << "function createArray";
 	stream << namegen.getTypeName(T);
 	stream << "(ret,start){" << NewLine;

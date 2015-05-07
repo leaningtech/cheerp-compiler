@@ -360,12 +360,9 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	}
 	else if (info.useCreateArrayFunc() )
 	{
-		assert( t->isStructTy() );
-		StructType* st = cast<StructType>(t);
+		assert( globalDeps.dynAllocArrays().count(t) );
 		
-		assert( globalDeps.dynAllocArrays().count(st) );
-		
-		stream << "createArray" << namegen.getTypeName(st) << '(';
+		stream << "createArray" << namegen.getTypeName(t) << '(';
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 			stream << "__old__,__len__)";
 		else
@@ -2891,7 +2888,7 @@ void CheerpWriter::makeJS()
 	for ( StructType * st : globalDeps.classesWithBaseInfo() )
 		compileClassType(st);
 
-	for ( StructType * st : globalDeps.dynAllocArrays() )
+	for ( Type * st : globalDeps.dynAllocArrays() )
 		compileArrayClassType(st);
 
 	if ( globalDeps.needCreatePointerArray() )
