@@ -68,7 +68,7 @@ public:
 	/**
 	 * Get a list of the arrays which are dynamically allocated with unknown size
 	 */
-	const std::unordered_set<llvm::StructType*> & dynAllocArrays() const { return arraysNeeded; }
+	const std::unordered_set<llvm::Type*> & dynAllocArrays() const { return arraysNeeded; }
 	
 	/**
 	 * Get the list of constructors (static initializers) required by the program
@@ -146,7 +146,7 @@ private:
 	FixupMap varsFixups;
 	std::unordered_set<llvm::StructType* > classesWithBaseInfoNeeded;
 	std::unordered_set<llvm::StructType* > classesNeeded;
-	std::unordered_set<llvm::StructType* > arraysNeeded;
+	std::unordered_set<llvm::Type* > arraysNeeded;
 	std::vector< const llvm::Function* > constructorsNeeded;
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;

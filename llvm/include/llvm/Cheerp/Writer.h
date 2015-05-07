@@ -320,7 +320,7 @@ private:
 	void compileType(llvm::Type* t, COMPILE_TYPE_STYLE style, llvm::StringRef varName = llvm::StringRef());
 	uint32_t compileClassTypeRecursive(const std::string& baseName, llvm::StructType* currentType, uint32_t baseCount);
 	void compileClassType(llvm::StructType* T);
-	void compileArrayClassType(llvm::StructType* T);
+	void compileArrayClassType(llvm::Type* T);
 	void compileArrayPointerType();
 
 	/**
