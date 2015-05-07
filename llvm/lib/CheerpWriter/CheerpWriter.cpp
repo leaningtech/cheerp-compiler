@@ -11,6 +11,7 @@
 
 #include "Relooper.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/InlineAsm.h"
@@ -723,6 +724,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	{
 		compileAllocation(da);
 		return COMPILE_OK;
+	}
+	else if(ident=="cheerpCreate_ZN6client6StringC2EPKc")
+	{
+		StringRef str;
+		if(llvm::getConstantStringInfo(*it, str))
+		{
+			stream << '"' << str << '"';
+			return COMPILE_OK;
+		}
 	}
 
 	//If the method is implemented by the user, stop here
