@@ -917,6 +917,9 @@ bool LoopIdiomRecognize::processLoopStridedStore(
     Value *StoredVal, Instruction *TheStore,
     SmallPtrSetImpl<Instruction *> &Stores, const SCEVAddRecExpr *Ev,
     const SCEV *BECount, bool NegStride, bool IsLoopMemset) {
+  if (!DL->isByteAddressable())
+    return false;
+
   Value *SplatValue = isBytewiseValue(StoredVal, *DL);
   Constant *PatternValue = nullptr;
 
@@ -1073,6 +1076,9 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   // header.  This allows us to insert code for it in the preheader.
   BasicBlock *Preheader = CurLoop->getLoopPreheader();
   IRBuilder<> Builder(Preheader->getTerminator());
+  if (!DL->isByteAddressable())
+    return false;
+
   SCEVExpander Expander(*SE, *DL, "loop-idiom");
 
   ExpandedValuesCleaner EVC(Expander, TLI);
