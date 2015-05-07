@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2014 Leaning Technologies
+// Copyright 2011-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -75,7 +75,24 @@ void CheerpNativeRewriter::baseSubstitutionForBuiltin(User* i, Instruction* old,
 {
 	Instruction* userInst=dyn_cast<Instruction>(i);
 	assert(userInst);
-	LoadInst* loadI=new LoadInst(source, "cheerpPtrLoad", userInst);
+	Instruction* insertPoint=userInst;
+	// We need to insert the new instruction in the right block for PHIs
+	// TODO: This is broken if the same value is used from multiple blocks
+	if(PHINode* phi=dyn_cast<PHINode>(userInst))
+	{
+		BasicBlock* BB=NULL;
+		for(uint32_t i=0;i<phi->getNumIncomingValues();i++)
+		{
+			if(phi->getIncomingValue(i)==old)
+			{
+				BB=phi->getIncomingBlock(i);
+				insertPoint=BB->getTerminator();
+				break;
+			}
+		}
+		assert(BB);
+	}
+	LoadInst* loadI=new LoadInst(source, "cheerpPtrLoad", insertPoint);
 	userInst->replaceUsesOfWith(old, loadI);
 }
 
@@ -269,10 +286,10 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	else
 		callPred = &newFunc->getEntryBlock().front();
 
-	//Add add it
+	//And add it
 	lowerConstructor->insertAfter(callPred);
 
-	//Override the returs values
+	//Override the return values
 	for(unsigned i=0;i<returns.size();i++)
 	{
 		Instruction* newInst = ReturnInst::Create(M.getContext(),lowerConstructor);
