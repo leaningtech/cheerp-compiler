@@ -268,6 +268,13 @@ bool PointerAnalyzer::runOnModule(Module& M)
 			continue;
 		if(!GV.getInitializer()->getType()->isStructTy())
 			continue;
+		for(const User* u: GV.users())
+		{
+			if(!u->getType()->isPointerTy())
+				continue;
+			getFinalPointerKindWrapper(u);
+			getFinalPointerConstantOffsetWrapper(u);
+		}
 		getFinalPointerConstantOffsetWrapper(GV.getInitializer());
 	}
 	return false;
@@ -425,7 +432,8 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			pointerKindData.constraintsMap[storedTypeConstraint] |= pointerKindData.getConstraintPtr(baseAndIndexContraint);
 		}
 
-		if(first)
+		// For constant expression we need to handle the case immediately as we won't have another chance
+		if(first || isa<ConstantExpr>(p))
 		{
 			PointerKindWrapper& k = visitAllUses(ret, p);
 			k.makeKnown();
