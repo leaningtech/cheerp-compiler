@@ -492,8 +492,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	else if(intrinsicId==Intrinsic::invariant_start)
 	{
 		//TODO: Try to optimize using this, for now just pass the second arg
-		compileOperand(*(it+1));
-		return COMPILE_OK;
+		if(!callV.getInstruction()->use_empty())
+		{
+			compileOperand(*(it+1));
+			return COMPILE_OK;
+		}
+		else
+			return COMPILE_EMPTY;
 	}
 	else if(intrinsicId==Intrinsic::invariant_end)
 		return COMPILE_EMPTY;
