@@ -499,12 +499,19 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 
 void NameGenerator::generateTypeNames(const GlobalDepsAnalyzer& gda)
 {
-	for(StructType* ST: gda.classesUsed())
+	for(Type* T: gda.classesUsed())
 	{
-		if(ST->hasName())
-			typemap.insert(std::make_pair(ST, filterLLVMName(ST->getName(), GLOBAL)));
+		if(isa<StructType>(T) && cast<StructType>(T)->hasName())
+			typemap.insert(std::make_pair(T, filterLLVMName(cast<StructType>(T)->getName(), GLOBAL)));
 		else
-			typemap.insert(std::make_pair(ST, StringRef("_literal" + std::to_string(typemap.size()))));
+			typemap.insert(std::make_pair(T, StringRef("_literal" + std::to_string(typemap.size()))));
+	}
+	for(Type* T: gda.dynAllocArrays())
+	{
+		if(isa<StructType>(T) && cast<StructType>(T)->hasName())
+			typemap.insert(std::make_pair(T, filterLLVMName(cast<StructType>(T)->getName(), GLOBAL)));
+		else
+			typemap.insert(std::make_pair(T, StringRef("_literal" + std::to_string(typemap.size()))));
 	}
 }
 
