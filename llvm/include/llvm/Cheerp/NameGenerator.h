@@ -61,12 +61,10 @@ public:
 	 * Return a JS compatible name for the StructType, potentially minimized
 	 * A name is guaranteed also for literal structs which have otherwise no name
 	 */
-	llvm::StringRef getTypeName(llvm::StructType* ST) const
+	llvm::StringRef getTypeName(llvm::Type* T) const
 	{
-		if(!typemap.count(ST))
-			ST->dump();
-		assert(typemap.count(ST));
-		return typemap.at(ST);
+		assert(typemap.count(T));
+		return typemap.at(T);
 	}
 
 	/**
@@ -104,7 +102,7 @@ private:
 	const PointerAnalyzer& PA;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > secondaryNamemap;
-	std::unordered_map<llvm::StructType*, llvm::SmallString<4> > typemap;
+	std::unordered_map<llvm::Type*, llvm::SmallString<4> > typemap;
 	struct InstOnEdge
 	{
 		const llvm::BasicBlock* fromBB;
