@@ -145,6 +145,11 @@ public:
 		kind = rhs.kind;
 		constraints = rhs.constraints;
 	}
+	void swap(PointerKindWrapper& rhs)
+	{
+		std::swap(kind, rhs.kind);
+		constraints.swap(rhs.constraints);
+	}
 	bool operator==(POINTER_KIND rhs) const
 	{
 		return kind==rhs;
@@ -192,7 +197,7 @@ public:
 class PointerConstantOffsetWrapper
 {
 public:
-	enum STATUS { UNINITALIZED = 0, VALID, INVALID };
+	enum STATUS { UNINITALIZED = 0, VALID, INVALID, UNKNOWN };
 private:
 	const llvm::ConstantInt* offset;
 	STATUS status;
@@ -216,6 +221,12 @@ public:
 	{
 		constraints.insert(constraint);
 	}
+	void swap(PointerConstantOffsetWrapper& rhs)
+	{
+		std::swap(offset, rhs.offset);
+		std::swap(status, rhs.status);
+		constraints.swap(rhs.constraints);
+	}
 	PointerConstantOffsetWrapper& operator|=(const PointerConstantOffsetWrapper& rhs);
 	PointerConstantOffsetWrapper& operator|=(const IndirectPointerKindConstraint* rhs);
 	PointerConstantOffsetWrapper& operator|=(const llvm::ConstantInt* rhs);
@@ -231,6 +242,10 @@ public:
 	{
 		return status == UNINITALIZED;
 	}
+	bool isUnknown() const
+	{
+		return status == UNKNOWN;
+	}
 	bool hasConstraints() const
 	{
 		return !constraints.empty();
@@ -239,6 +254,16 @@ public:
 	{
 		assert(status == VALID);
 		return offset;
+	}
+	void makeKnown()
+	{
+		if(status == UNKNOWN)
+		{
+			if(offset == NULL)
+				status = UNINITALIZED;
+			else
+				status = VALID;
+		}
 	}
 	void dump() const;
 
