@@ -402,6 +402,8 @@ private:
 
   Value *visitTruncateExpr(const SCEVTruncateExpr *S);
 
+  Value *visitNegPointer(const SCEVNegPointer *S);
+
   Value *visitZeroExtendExpr(const SCEVZeroExtendExpr *S);
 
   Value *visitSignExtendExpr(const SCEVSignExtendExpr *S);

@@ -508,6 +508,7 @@ public:
   /// expression.
   const SCEV *getSCEV(Value *V);
 
+  const SCEV *getNegPointer(const SCEV* Op);
   const SCEV *getConstant(ConstantInt *V);
   const SCEV *getConstant(const APInt &Val);
   const SCEV *getConstant(Type *Ty, uint64_t V, bool isSigned = false);
