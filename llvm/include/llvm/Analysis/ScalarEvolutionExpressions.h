@@ -40,7 +40,7 @@ class Type;
     // folders simpler.
     scConstant, scTruncate, scZeroExtend, scSignExtend, scAddExpr, scMulExpr,
     scUDivExpr, scAddRecExpr, scUMaxExpr, scSMaxExpr, scUMinExpr, scSMinExpr,
-    scPtrToInt, scUnknown, scCouldNotCompute
+    scPtrToInt, scUnknown, scNegPointer, scCouldNotCompute
   };
 
   /// This class represents a constant integer value.
@@ -70,6 +70,23 @@ class Type;
       Size = Size.uadd_sat(APInt(16, Arg->getExpressionSize()));
     return (unsigned short)Size.getZExtValue();
   }
+
+  /// Used to wrap negative pointers
+  class SCEVNegPointer : public SCEV {
+    friend class ScalarEvolution;
+
+    const SCEV* Op;
+    SCEVNegPointer(const FoldingSetNodeIDRef ID, const SCEV *op) :
+      SCEV(ID, scNegPointer), Op(op) {}
+  public:
+    const SCEV *getOperand() const { return Op; }
+    Type *getType() const { return Op->getType(); }
+
+    /// Methods for support type inquiry through isa, cast, and dyn_cast:
+    static inline bool classof(const SCEV *S) {
+      return S->getSCEVType() == scNegPointer;
+    }
+  };
 
   /// This is the base class for unary cast operator classes.
   class SCEVCastExpr : public SCEV {
@@ -580,6 +597,8 @@ class Type;
         return ((SC*)this)->visitConstant((const SCEVConstant*)S);
       case scPtrToInt:
         return ((SC *)this)->visitPtrToIntExpr((const SCEVPtrToIntExpr *)S);
+      case scNegPointer:
+        return ((SC*)this)->visitNegPointer((const SCEVNegPointer*)S);
       case scTruncate:
         return ((SC*)this)->visitTruncateExpr((const SCEVTruncateExpr*)S);
       case scZeroExtend:
@@ -650,6 +669,9 @@ class Type;
         case scZeroExtend:
         case scSignExtend:
           push(cast<SCEVCastExpr>(S)->getOperand());
+          continue;
+        case scNegPointer:
+          push(cast<SCEVNegPointer>(S)->getOperand());
           continue;
         case scAddExpr:
         case scMulExpr:
@@ -743,6 +765,11 @@ class Type;
       return Operand == Expr->getOperand()
                  ? Expr
                  : SE.getPtrToIntExpr(Operand, Expr->getType());
+    }
+
+    const SCEV *visitNegPointer(const SCEVNegPointer *Expr) {
+      const SCEV *Operand = ((SC*)this)->visit(Expr->getOperand());
+      return SE.getNegPointer(Operand);
     }
 
     const SCEV *visitTruncateExpr(const SCEVTruncateExpr *Expr) {
