@@ -613,6 +613,8 @@ Value *SCEVExpander::expandAddToGEP(const SCEV *const *op_begin,
       Builder.SetInsertPoint(Preheader->getTerminator());
     }
 
+    if(SE.DL && !SE.DL->isByteAddressable())
+      assert(false && "uglygep in Cheerp");
     // Emit a GEP.
     return Builder.CreateGEP(Builder.getInt8Ty(), V, Idx, "uglygep");
   }
@@ -700,6 +702,10 @@ const Loop *SCEVExpander::getRelevantLoop(const SCEV *S) {
     const Loop *Result = getRelevantLoop(C->getOperand());
     return RelevantLoops[C] = Result;
   }
+  if (const SCEVNegPointer *C = dyn_cast<SCEVNegPointer>(S)) {
+    const Loop *Result = getRelevantLoop(C->getOperand());
+    return RelevantLoops[C] = Result;
+  }
   if (const SCEVUDivExpr *D = dyn_cast<SCEVUDivExpr>(S)) {
     const Loop *Result = PickMostRelevantLoop(
         getRelevantLoop(D->getLHS()), getRelevantLoop(D->getRHS()), SE.DT);
@@ -761,18 +767,23 @@ Value *SCEVExpander::visitAddExpr(const SCEVAddExpr *S) {
   // Emit instructions to add all the operands. Hoist as much as possible
   // out of loops, and form meaningful getelementptrs where possible.
   Value *Sum = nullptr;
+  bool useGEPs = true;
   for (auto I = OpsAndLoops.begin(), E = OpsAndLoops.end(); I != E;) {
     const Loop *CurLoop = I->first;
     const SCEV *Op = I->second;
+    if(Op->getSCEVType() == scNegPointer)
+      useGEPs = false;
     if (!Sum) {
       // This is the first operand. Just expand it.
       Sum = expand(Op);
       ++I;
       continue;
     }
+    PointerType* SumPTy = dyn_cast<PointerType>(Sum->getType());
 
     assert(!Op->getType()->isPointerTy() && "Only first op can be pointer");
-    if (PointerType *PTy = dyn_cast<PointerType>(Sum->getType())) {
+    if (SumPTy && useGEPs) {
+      PointerType* PTy = SumPTy;
       // The running sum expression is a pointer. Try to form a getelementptr
       // at this level with that as the base.
       SmallVector<const SCEV *, 4> NewOps;
@@ -1661,6 +1672,15 @@ Value *SCEVExpander::visitPtrToIntExpr(const SCEVPtrToIntExpr *S) {
       expandCodeForImpl(S->getOperand(), S->getOperand()->getType());
   return ReuseOrCreateCast(V, S->getType(), CastInst::PtrToInt,
                            GetOptimalInsertionPointForCastOf(V));
+}
+
+Value *SCEVExpander::visitNegPointer(const SCEVNegPointer *S) {
+  Value *V = expandCodeFor(S->getOperand(),
+                           SE.getEffectiveSCEVType(S->getOperand()->getType()));
+  assert(!V->getType()->isPointerTy());
+  Value *I = Builder.CreateNeg(V);
+  rememberInstruction(I);
+  return I;
 }
 
 Value *SCEVExpander::visitTruncateExpr(const SCEVTruncateExpr *S) {
