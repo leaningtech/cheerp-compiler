@@ -88,12 +88,22 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 	if(typeMappingIt!=typesMapping.end())
 	{
 		if(typeMappingIt->second.elementMappingKind == TypeMappingInfo::COLLAPSING)
-			typeMappingIt->second.elementMappingKind = TypeMappingInfo::COLLAPSING_BUT_USED;
+		{
+			// When we find a COLLAPSING type, we forward the request if the contained type is a struct
+			// otherwise it will set the COLLAPSING_BUT_USED flag, in which case we need to abort the rewrite
+			// See also below how the COLLAPSING flag is used
+			if(typeMappingIt->second.mappedType->isStructTy())
+			{
+				assert(typeMappingIt->second.mappedType != t);
+				return rewriteType(typeMappingIt->second.mappedType);
+			}
+			else
+				typeMappingIt->second.elementMappingKind = TypeMappingInfo::COLLAPSING_BUT_USED;
+		}
 		return typeMappingIt->second;
 	}
 	auto CacheAndReturn = [&](Type* ret, TypeMappingInfo::MAPPING_KIND kind)
 	{
-		assert(!ret->isStructTy() || !cast<StructType>(ret)->isOpaque());
 		return typesMapping[t] = TypeMappingInfo(ret, kind);
 	};
 	if(StructType* st=dyn_cast<StructType>(t))
@@ -148,9 +158,9 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				// we need to fall through to correctly set the mapped element
 				if(!isUnsafeDowncastSource(st))
 				{
-					// We must avoid using this type as it will not exist anymore
-					// TODO: This does not solve A { B { C { A* } } } -> C { C* }
-					typesMapping[st] = TypeMappingInfo(newStruct, TypeMappingInfo::COLLAPSING);
+					// To fix the following case A { B { C { A* } } } -> C { C* }
+					// we prime the mapping to the contained element and use the COLLAPSING flag
+					typesMapping[st] = TypeMappingInfo(newTypes[0], TypeMappingInfo::COLLAPSING);
 					Type* collapsed = rewriteType(newTypes[0]);
 					if(typesMapping[st].elementMappingKind != TypeMappingInfo::COLLAPSING_BUT_USED)
 					{
