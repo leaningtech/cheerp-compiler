@@ -1430,7 +1430,11 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				if(k==REGULAR && writer.PA.getConstantOffsetForPointer(phi))
 					writer.compilePointerBase(incoming);
 				else
+				{
+					if(k==REGULAR)
+						writer.stream << "aSlot=";
 					writer.compilePointerAs(incoming, k);
+				}
 			}
 			else
 				writer.compileOperand(incoming);
@@ -1539,7 +1543,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			{
 				if(retVal->getType()->isPointerTy())
 				{
-					compilePointerAs(retVal, PA.getPointerKindForReturn(ri.getParent()->getParent()));
+					POINTER_KIND k=PA.getPointerKindForReturn(ri.getParent()->getParent());
+					if(k==REGULAR)
+						stream << "aSlot=";
+					compilePointerAs(retVal, k);
 				}
 				else
 				{
