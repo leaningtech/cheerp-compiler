@@ -816,7 +816,10 @@ void CheerpWriter::compilePredicate(CmpInst::Predicate p)
 
 void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Predicate p)
 {
-	if(CmpInst::isUnsigned(p))
+	assert(v->getType()->isIntegerTy());
+	if(CmpInst::isSigned(p))
+		compileSignedInteger(v);
+	else if(CmpInst::isUnsigned(p) || !v->getType()->isIntegerTy(32))
 		compileUnsignedInteger(v);
 	else
 		compileSignedInteger(v);
@@ -1669,8 +1672,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 
 			stream << '=';
-			if(valOp->getType()->isIntegerTy())
+			if(valOp->getType()->isIntegerTy(32))
 				compileSignedInteger(valOp);
+			else if(valOp->getType()->isIntegerTy(32))
+				compileUnsignedInteger(valOp);
 			else if(valOp->getType()->isPointerTy())
 			{
 				POINTER_KIND storedKind = PA.getPointerKind(&si);
@@ -2398,16 +2403,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			if(li.getType()->isIntegerTy())
 			{
-				uint32_t shiftAmount = 32-li.getType()->getIntegerBitWidth();
-				if(shiftAmount==0)
-				{
-					//Use simpler code
+				uint32_t width = li.getType()->getIntegerBitWidth();
+				// 32-bit integers are all loaded as signed, other integers as unsigned
+				if(width==32)
 					stream << ">>0";
-				}
 				else
-				{
-					stream << "<<" << shiftAmount << ">>" << shiftAmount;
-				}
+					stream << '&' << getMaskForBitWidth(width);
 			}
 
 			stream << ')';
@@ -2496,9 +2497,9 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 		for(int i=1;i<branchId;i++)
 			++it;
 		const BasicBlock* dest=it.getCaseSuccessor();
-		writer->compileOperand(si->getCondition());
+		writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ);
 		writer->stream << "===";
-		writer->compileConstant(it.getCaseValue());
+		writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ);
 		//We found the destination, there may be more cases for the same
 		//destination though
 		for(++it;it!=si->case_end();++it)
@@ -2507,9 +2508,9 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 			{
 				//Also add this condition
 				writer->stream << "||(";
-				writer->compileOperand(si->getCondition());
+				writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ);
 				writer->stream << "===";
-				writer->compileConstant(it.getCaseValue());
+				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ);
 				writer->stream << ')';
 			}
 		}
