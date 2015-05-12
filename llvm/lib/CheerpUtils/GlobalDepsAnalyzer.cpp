@@ -231,20 +231,10 @@ void GlobalDepsAnalyzer::visitConstant( const Constant * C, VisitedSet & visited
 		visitGlobal(GV, visited, subexpr);
 	else if(const ConstantExpr * CE = dyn_cast<const ConstantExpr>(C))
 	{
-		// Keep in sync with compileConstantExpr
-		switch(CE->getOpcode())
+		for(const Value* V: CE->operands())
 		{
-			case Instruction::GetElementPtr:
-			case Instruction::BitCast:
-			case Instruction::PtrToInt:
-				visitConstant(CE->getOperand(0), visited, subexpr );
-				break;
-			case Instruction::IntToPtr:
-			case Instruction::ICmp:
-			case Instruction::Sub:
-			default:
-				// Nothing to do
-				break;
+			const Constant* C=cast<Constant>(V);
+			visitConstant(C, visited, subexpr);
 		}
 	}
 	else if(const ConstantArray* d = dyn_cast<const ConstantArray>(C) )
