@@ -192,7 +192,6 @@ private:
 	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(llvm::ImmutableCallSite callV, const llvm::Function* f);
 
 	void compilePredicate(llvm::CmpInst::Predicate p);
-	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
 
 	/**
 	 * \addtogroup Pointers Methods to compile pointers
@@ -355,6 +354,7 @@ public:
 	void compileConstant(const llvm::Constant* c);
 	void compileOperand(const llvm::Value* v);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
+	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
 };
 
 }
