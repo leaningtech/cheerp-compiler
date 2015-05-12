@@ -1333,14 +1333,36 @@ void CheerpWriter::compileConstant(const Constant* c)
 	}
 }
 
-void CheerpWriter::compileOperand(const Value* v)
+void CheerpWriter::compileOperand(const Value* v, bool allowBooleanObjects)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
 		compileConstant(c);
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
 		if(isInlineable(*it, PA))
+		{
+			bool isBooleanObject = false;
+			if(it->getType()->isIntegerTy(1))
+			{
+				switch(it->getOpcode())
+				{
+					case Instruction::ICmp:
+					case Instruction::FCmp:
+					case Instruction::And:
+					case Instruction::Or:
+					case Instruction::Xor:
+						isBooleanObject = true;
+						break;
+					default:
+						break;
+				}
+			}
+			if(isBooleanObject && !allowBooleanObjects)
+				stream << '(';
 			compileInlineableInstruction(*cast<Instruction>(v));
+			if(isBooleanObject && !allowBooleanObjects)
+				stream << "?1:0)";
+		}
 		else
 		{
 			if(it->getType()->isIntegerTy(1))
@@ -1705,7 +1727,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			return COMPILE_OK;
 		}
 		default:
-			return compileInlineableInstruction(I);
+		{
+			COMPILE_INSTRUCTION_FEEDBACK ret=compileInlineableInstruction(I);
+			if(ret == COMPILE_OK && I.getType()->isIntegerTy(1))
+			{
+				switch(I.getOpcode())
+				{
+					case Instruction::ICmp:
+					case Instruction::FCmp:
+					case Instruction::And:
+					case Instruction::Or:
+					case Instruction::Xor:
+						stream << "?1:0";
+						break;
+					default:
+						break;
+				}
+			}
+			return ret;
+		}
 	}
 }
 
@@ -2192,12 +2232,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Integer logical and
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
-			compileOperand(I.getOperand(0));
+			compileOperand(I.getOperand(0), /*allowBooleanObjects*/ true);
 			if(I.getType()->isIntegerTy(1))
 				stream << "&&";
 			else
 				stream << '&';
-			compileOperand(I.getOperand(1));
+			compileOperand(I.getOperand(1), /*allowBooleanObjects*/ true);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -2242,12 +2282,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Integer logical or
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
-			compileOperand(I.getOperand(0));
+			compileOperand(I.getOperand(0), /*allowBooleanObjects*/ true);
 			if(I.getType()->isIntegerTy(1))
 				stream << "||";
 			else
 				stream << '|';
-			compileOperand(I.getOperand(1));
+			compileOperand(I.getOperand(1), /*allowBooleanObjects*/ true);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -2257,19 +2297,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Xor with 1s is used to implement bitwise and logical negation
 			//TODO: Optimize the operation with 1s
 			//No need to apply the >> operator. The result is an integer by spec
-			bool isBool = I.getType()->isIntegerTy(1);
 			stream << '(';
-			if(isBool)
-				stream << '(';
 			compileOperand(I.getOperand(0));
-			if(isBool)
-				stream << "?1:0)";
 			stream << '^';
-			if(isBool)
-				stream << '(';
 			compileOperand(I.getOperand(1));
-			if(isBool)
-				stream << "?1:0)";
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -2293,7 +2324,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const SelectInst& si = cast<SelectInst>(I);
 			stream << '(';
-			compileOperand(si.getCondition());
+			compileOperand(si.getCondition(), /*allowBooleanObjects*/ true);
 			stream << '?';
 
 			if(si.getType()->isPointerTy())
@@ -2502,7 +2533,7 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 		assert(bi->isConditional());
 		//The second branch is the default
 		assert(branchId==0);
-		writer->compileOperand(bi->getCondition());
+		writer->compileOperand(bi->getCondition(), /*allowBooleanObjects*/ true);
 	}
 	else if(isa<SwitchInst>(term))
 	{

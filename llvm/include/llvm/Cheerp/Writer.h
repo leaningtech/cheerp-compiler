@@ -352,7 +352,7 @@ public:
 	void makeJS();
 	void compileBB(const llvm::BasicBlock& BB, const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
 	void compileConstant(const llvm::Constant* c);
-	void compileOperand(const llvm::Value* v);
+	void compileOperand(const llvm::Value* v, bool allowBooleanObjects = false);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
 };
