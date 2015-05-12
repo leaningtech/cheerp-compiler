@@ -262,8 +262,8 @@ void CheerpWriter::compileArrayClassType(Type* T)
 {
 	stream << "function createArray";
 	stream << namegen.getTypeName(T);
-	stream << "(ret,start){" << NewLine;
-	stream << "for(var __i__=start;__i__<ret.length;__i__++)" << NewLine;
+	stream << "(ret,start,end){" << NewLine;
+	stream << "for(var __i__=start;__i__<end;__i__++)" << NewLine;
 	stream << "ret[__i__]=";
 	compileType(T, LITERAL_OBJ, "ret[__i__]");
 	stream << ';' << NewLine << "return ret;" << NewLine << '}' << NewLine;
@@ -271,7 +271,7 @@ void CheerpWriter::compileArrayClassType(Type* T)
 
 void CheerpWriter::compileArrayPointerType()
 {
-	stream << "function createPointerArray(ret, start) { for(var __i__=start;__i__<ret.length;__i__++) ret[__i__]={ d: nullArray, o: 0}; return ret; }"
+	stream << "function createPointerArray(ret,start,end) { for(var __i__=start;__i__<end;__i__++) ret[__i__]={ d: nullArray, o: 0}; return ret; }"
 		<< NewLine;
 }
 

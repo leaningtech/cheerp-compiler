@@ -365,10 +365,10 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		
 		stream << "createArray" << namegen.getTypeName(t) << '(';
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
-			stream << "__old__,__len__)";
+			stream << "__old__,__len__,__old__.length)";
 		else
 		{
-			stream << "new Array(";
+			stream << "[],0,";
 			if( info.getNumberOfElementsArg() )
 				compileOperand( info.getNumberOfElementsArg() );
 			else
@@ -376,17 +376,17 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 				compileOperand( info.getByteSizeArg() );
 				stream << '/' << typeSize;
 			}
-			stream << "),0)";
+			stream << ')';
 		}
 	}
 	else if (info.useCreatePointerArrayFunc() )
 	{
 		stream << "createPointerArray(";
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
-			stream << "__old__,__len__)";
+			stream << "__old__,__len__,__old__.length)";
 		else
 		{
-			stream << "new Array(";
+			stream << "[],0,";
 			if( info.getNumberOfElementsArg() )
 				compileOperand( info.getNumberOfElementsArg() );
 			else
@@ -394,7 +394,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 				compileOperand( info.getByteSizeArg() );
 				stream << '/' << typeSize;
 			}
-			stream << "),0)";
+			stream << ')';
 		}
 	
 		assert( globalDeps.needCreatePointerArray() );
