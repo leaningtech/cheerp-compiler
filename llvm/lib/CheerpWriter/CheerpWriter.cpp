@@ -310,29 +310,12 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	// 2) Objects and pointers are stored in a regular array and we can just resize them
 	if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 	{
-		stream << "(function(){";
-		stream << "var __old__=";
-		compilePointerBase(info.getMemoryArg());
-		stream << ';' << NewLine;
-		if (!info.useTypedArray())
+		if (info.useTypedArray())
 		{
-			stream << "var __len__=__old__.length; " << NewLine;
-			stream << "__old__.length = ";
-			if( !info.sizeIsRuntime() )
-			{
-				uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
-				uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
-				stream << numElem;
-			}
-			else
-			{
-				compileOperand( info.getByteSizeArg() );
-				stream << '/' << typeSize;
-			}
+			stream << "(function(){";
+			stream << "var __old__=";
+			compilePointerBase(info.getMemoryArg());
 			stream << ';' << NewLine;
-		}
-		else
-		{
 			//Allocated the new array (created below) in a temporary var
 			stream << "var __ret__=";
 		}
@@ -365,7 +348,24 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		
 		stream << "createArray" << namegen.getTypeName(t) << '(';
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
-			stream << "__old__,__len__,__old__.length)";
+		{
+			compilePointerBase(info.getMemoryArg());
+			stream << ',';
+			compilePointerBase(info.getMemoryArg());
+			stream << ".length,";
+			if( !info.sizeIsRuntime() )
+			{
+				uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
+				uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
+				stream << numElem;
+			}
+			else
+			{
+				compileOperand( info.getByteSizeArg() );
+				stream << '/' << typeSize;
+			}
+			stream << ')';
+		}
 		else
 		{
 			stream << "[],0,";
@@ -383,7 +383,24 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	{
 		stream << "createPointerArray(";
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
-			stream << "__old__,__len__,__old__.length)";
+		{
+			compilePointerBase(info.getMemoryArg());
+			stream << ',';
+			compilePointerBase(info.getMemoryArg());
+			stream << ".length,";
+			if( !info.sizeIsRuntime() )
+			{
+				uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
+				uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
+				stream << numElem;
+			}
+			else
+			{
+				compileOperand( info.getByteSizeArg() );
+				stream << '/' << typeSize;
+			}
+			stream << ')';
+		}
 		else
 		{
 			stream << "[],0,";
@@ -441,16 +458,14 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 	if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 	{
-		stream << ';' << NewLine;
 		if (info.useTypedArray())
 		{
+			stream << ';' << NewLine;
 			//__ret__ now contains the new array, we need to copy over the data
 			//The amount of data to copy is limited by the shortest between the old and new array
 			stream << "__ret__.set(__old__.subarray(0, Math.min(__ret__.length,__old__.length)));" << NewLine;
 			stream << "return __ret__;})()";
 		}
-		else
-			stream << "return __old__;})()";
 	}
 
 	if(needsRegular)
