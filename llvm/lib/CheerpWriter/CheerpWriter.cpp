@@ -871,7 +871,7 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 		{
 			stream << '[';
 			compileOperand(indices[i]);
-			stream << ']';
+			stream << ">>0]";
 
 			tp = at->getElementType();
 		}
@@ -945,12 +945,17 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 		compilePointerBase(p);
 		stream << '[';
 
+		if(!isOffsetConstantZero)
+			stream << '(';
 		compilePointerOffset(p);
+		if(!isOffsetConstantZero)
+			stream << ">>0)";
 
 		if(!isOffsetConstantZero)
 		{
-			stream << '+';
+			stream << "+(";
 			compileOperand(offset);
+			stream << ">>0)";
 		}
 
 		stream << ">>0]";
@@ -1337,7 +1342,13 @@ void CheerpWriter::compileOperand(const Value* v)
 		if(isInlineable(*it, PA))
 			compileInlineableInstruction(*cast<Instruction>(v));
 		else
+		{
+			if(it->getType()->isIntegerTy(1))
+				stream << '(';
 			stream << namegen.getName(it);
+			if(it->getType()->isIntegerTy(1))
+				stream << ">>0)";
+		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
@@ -1476,6 +1487,8 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		else
 		{
 			compileOperand(*cur);
+			if(tp->isIntegerTy())
+				stream << ">>0";
 		}
 
 		if(F && arg_it != F->arg_end())
@@ -1509,6 +1522,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 				else
 				{
 					compileOperand(retVal);
+					if(retVal->getType()->isIntegerTy())
+						stream << ">>0";
 				}
 			}
 
@@ -1997,9 +2012,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Integer addition
 			stream << "((";
 			compileOperand(I.getOperand(0));
-			stream << '+';
+			stream << ">>0)+(";
 			compileOperand(I.getOperand(1));
-			stream << ')';
+			stream << ">>0)";
 			if(types.isI32Type(I.getType()))
 				stream << ">>0";
 			else
