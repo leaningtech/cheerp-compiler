@@ -81,6 +81,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	//Beside a few cases, instructions with a single use may be inlined
 	//TODO: Find out a better heuristic for inlining, it seems that computing
 	//may be faster even on more than 1 use
+	bool hasMoreThan1Use = I.hasNUsesOrMore(2);
 	if(I.getOpcode()==Instruction::GetElementPtr)
 	{
 		//Special case GEPs. They should always be inline since creating the object is really slow
@@ -92,10 +93,16 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			return false;
 		return true;
 	}
-	else if(I.getOpcode()==Instruction::FCmp || I.getOpcode()==Instruction::ICmp)
-		return true;
-	else if(!I.hasNUsesOrMore(2))
+	else if((I.getOpcode()==Instruction::FCmp || I.getOpcode()==Instruction::ICmp) && hasMoreThan1Use)
 	{
+		return !I.getOperand(0)->getType()->isPointerTy();
+	}
+	else if(!hasMoreThan1Use)
+	{
+		// Do not inline the instruction if the use is in another block
+		// If this happen the instruction may have been hoisted outside a loop and we want to keep it there
+		if(!I.use_empty() && cast<Instruction>(I.use_begin()->getUser())->getParent()!=I.getParent())
+			return false;
 		switch(I.getOpcode())
 		{
 			// A few opcodes if immediately used in a store or return can be inlined
