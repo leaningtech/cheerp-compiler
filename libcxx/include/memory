@@ -3399,7 +3399,7 @@ public:
     // Otherwise we may break clients who need to compile their projects with
     // -fno-rtti and yet link against a libc++.dylib compiled
     // without -fno-rtti.
-#if !defined(_LIBCPP_NO_RTTI) || !defined(_LIBCPP_BUILD_STATIC)
+#if !defined(_LIBCPP_NO_RTTI)
     virtual const void* __get_deleter(const type_info&) const _NOEXCEPT;
 #endif
 private:
