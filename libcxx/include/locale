@@ -907,7 +907,7 @@ num_get<_CharT, _InputIterator>::__do_get_signed(iter_type __b, iter_type __e,
     string __grouping = this->__stage2_int_prep(__iob, __atoms, __thousands_sep);
 #endif
     string __buf;
-    __buf.resize(__buf.capacity());
+    __buf.resize(__buf.capacity()?__buf.capacity():1);
     char* __a = &__buf[0];
     char* __a_end = __a;
     unsigned __g[__num_get_base::__num_get_buf_sz];
@@ -964,7 +964,7 @@ num_get<_CharT, _InputIterator>::__do_get_unsigned(iter_type __b, iter_type __e,
     string __grouping = this->__stage2_int_prep(__iob, __atoms, __thousands_sep);
 #endif
     string __buf;
-    __buf.resize(__buf.capacity());
+    __buf.resize(__buf.capacity()?__buf.capacity():1);
     char* __a = &__buf[0];
     char* __a_end = __a;
     unsigned __g[__num_get_base::__num_get_buf_sz];
@@ -1016,7 +1016,7 @@ num_get<_CharT, _InputIterator>::__do_get_floating_point(iter_type __b, iter_typ
                                                   __decimal_point,
                                                   __thousands_sep);
     string __buf;
-    __buf.resize(__buf.capacity());
+    __buf.resize(__buf.capacity()?__buf.capacity():1);
     char* __a = &__buf[0];
     char* __a_end = __a;
     unsigned __g[__num_get_base::__num_get_buf_sz];
@@ -1068,7 +1068,7 @@ num_get<_CharT, _InputIterator>::do_get(iter_type __b, iter_type __e,
     use_facet<ctype<_CharT> >(__iob.getloc()).widen(__num_get_base::__src,
                                                     __num_get_base::__src + 26, __atoms);
     string __buf;
-    __buf.resize(__buf.capacity());
+    __buf.resize(__buf.capacity()?__buf.capacity():1);
     char* __a = &__buf[0];
     char* __a_end = __a;
     unsigned __g[__num_get_base::__num_get_buf_sz];
