@@ -368,6 +368,7 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
     }
   }
 
+<<<<<<< HEAD
   // Check to see if this allocation is only modified by a memcpy/memmove from
   // a constant whose alignment is equal to or exceeds that of the allocation.
   // If this is the case, we can change all users to use the constant global
@@ -379,8 +380,41 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
     Align AllocaAlign = AI.getAlign();
     Align SourceAlign = getOrEnforceKnownAlignment(
         Copy->getSource(), AllocaAlign, DL, &AI, &AC, &DT);
-    if (AllocaAlign <= SourceAlign &&
-        isDereferenceableForAllocaSize(Copy->getSource(), &AI, DL)) {
+    Value *TheSrc = Copy->getSource();
+    // Cheerp: We need to find a subobject of the global which has exactly the same type as the allca
+    if (TheSrc->getType()!=AI.getType() && !DL.isByteAddressable()) {
+      // Wee can only proceed if the source is a constant GEP
+      if(isa<ConstantExpr>(TheSrc) && cast<ConstantExpr>(TheSrc)->getOpcode()==Instruction::GetElementPtr) {
+        Type* curType = cast<ConstantExpr>(TheSrc)->getOperand(0)->getType()->getPointerElementType();
+        unsigned lastIndex = 1;
+        // Find out how many indexes we need to get the same type as the alloca
+        for(unsigned i=2;i<cast<ConstantExpr>(TheSrc)->getNumOperands() && curType!=AI.getAllocatedType();i++) {
+          if(StructType* ST=dyn_cast<StructType>(curType)) {
+            ConstantInt* op=cast<ConstantInt>(cast<ConstantExpr>(TheSrc)->getOperand(i));
+            curType = ST->getElementType(op->getZExtValue());
+          } else {
+            curType = curType->getSequentialElementType();
+          }
+          lastIndex++;
+        }
+        if (curType==AI.getAllocatedType()) {
+          // Build a new constant GEP using only a subset of the indexes
+          SmallVector<Constant*, 4> newIndexes;
+          for(unsigned i=1;i<=lastIndex;i++)
+            newIndexes.push_back(cast<Constant>(cast<ConstantExpr>(TheSrc)->getOperand(i)));
+          TheSrc = ConstantExpr::getGetElementPtr(cast<ConstantExpr>(TheSrc)->getOperand(0)->getType()->getPointerElementType(),
+      		    				cast<Constant>(cast<ConstantExpr>(TheSrc)->getOperand(0)), newIndexes);
+        } else {
+          // Even by using all indexes we could not find the same type as the alloca. Bail out.
+          TheSrc = NULL;
+        }
+      } else {
+        // Not a contant GEP. Bail out.
+        TheSrc = NULL;
+      }
+    }
+    if (AllocaAlign <= SourceAlign && TheSrc &&
+        isDereferenceableForAllocaSize(TheSrc, &AI, DL)) {
       LLVM_DEBUG(dbgs() << "Found alloca equal to global: " << AI << '\n');
       LLVM_DEBUG(dbgs() << "  memcpy = " << *Copy << '\n');
       for (unsigned i = 0, e = ToDelete.size(); i != e; ++i)
