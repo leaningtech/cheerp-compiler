@@ -300,6 +300,11 @@ char TypeSupport::getPrefixCharForMember(const PointerAnalyzer& PA, llvm::Struct
 		return 'a';
 }
 
+bool TypeSupport::isJSExportedType(StructType* st, const Module& m)
+{
+	return m.getNamedMetadata(llvm::Twine(st->getName(),"_methods"))!=NULL;
+}
+
 std::pair<StructType*, StringRef> TypeSupport::getJSExportedTypeFromMetadata(StringRef name, const Module& module)
 {
 	StringRef mangledName = name.drop_front(6).drop_back(8);
