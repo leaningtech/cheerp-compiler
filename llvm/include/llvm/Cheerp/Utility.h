@@ -154,6 +154,8 @@ public:
 
 	static bool getBasesInfo(const llvm::Module& module, const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount);
 
+	static bool isJSExportedType(llvm::StructType* st, const llvm::Module& m);
+
 	static std::pair<llvm::StructType*, llvm::StringRef> getJSExportedTypeFromMetadata(llvm::StringRef name, const llvm::Module & module);
 
 	// Returns true if the type is not considered a literal object or array in JS
