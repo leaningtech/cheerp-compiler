@@ -25,7 +25,8 @@ class TypeOptimizer: public llvm::ModulePass
 private:
 	struct TypeMappingInfo
 	{
-		enum MAPPING_KIND { IDENTICAL, COLLAPSED, COLLAPSING, COLLAPSING_BUT_USED, BYTE_LAYOUT_TO_ARRAY, POINTER_FROM_ARRAY, FLATTENED_ARRAY };
+		enum MAPPING_KIND { IDENTICAL, COLLAPSED, COLLAPSING, COLLAPSING_BUT_USED, BYTE_LAYOUT_TO_ARRAY, POINTER_FROM_ARRAY, FLATTENED_ARRAY,
+						MERGED_MEMBER_ARRAYS, MERGED_MEMBER_ARRAYS_AND_COLLAPSED };
 		llvm::Type* mappedType;
 		MAPPING_KIND elementMappingKind;
 		TypeMappingInfo():mappedType(NULL),elementMappingKind(IDENTICAL)
@@ -42,6 +43,7 @@ private:
 	llvm::Module* module;
 	const llvm::DataLayout* DL;
 	std::unordered_map<llvm::StructType*,std::set<llvm::StructType*>> downcastSourceToDestinationsMapping;
+	std::unordered_map<llvm::StructType*, std::vector<std::pair<uint32_t, uint32_t>>> membersMappingData;
 	std::unordered_map<llvm::GlobalVariable*, llvm::Constant*> globalsMapping;
 	std::unordered_map<llvm::GlobalValue*, llvm::Type*> globalTypeMapping;
 	std::unordered_map<llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
