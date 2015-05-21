@@ -226,12 +226,46 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 
 		// Forge the new element types
 		SmallVector<Type*, 4> newTypes;
+		bool hasMergedArrays=false;
+		std::vector<std::pair<uint32_t, uint32_t>> membersMapping;
 		if(st->getNumElements() > 1)
 		{
+			// We want to merge arrays of the same type in the same object
+			// So, for each element type, keep track if there is already an array
+			std::unordered_map<Type*, uint32_t> arraysFound;
+			uint32_t directBaseLimit=0;
 			for(uint32_t i=0;i<st->getNumElements();i++)
 			{
+				// We can't merge arrats across bases, so when we reach the limit of the previous direct base we
+				// reset the merging state and compute a new limit
+				if(i==directBaseLimit)
+				{
+					arraysFound.clear();
+					StructType* curBase=st;
+					while(curBase->getDirectBase() && curBase->getDirectBase()->getNumElements()>i)
+						curBase=curBase->getDirectBase();
+					directBaseLimit=curBase->getNumElements();
+				}
 				Type* elementType=st->getElementType(i);
 				Type* rewrittenType=rewriteType(elementType);
+				if(ArrayType* at=dyn_cast<ArrayType>(rewrittenType))
+				{
+					Type* arrayElementType=rewrittenType->getArrayElementType();
+					auto arraysFoundIt=arraysFound.find(arrayElementType);
+					// An array is already available for this type, just extend it
+					if(arraysFoundIt!=arraysFound.end())
+					{
+						uint32_t typeIndex = arraysFoundIt->second;
+						ArrayType* previousArrayType = cast<ArrayType>(newTypes[typeIndex]);
+						newTypes[typeIndex] = ArrayType::get(arrayElementType, previousArrayType->getNumElements() + at->getNumElements());
+						membersMapping.push_back(std::make_pair(typeIndex, previousArrayType->getNumElements()));
+						hasMergedArrays=true;
+						continue;
+					}
+					// Insert this array in the map, we will insert it in the vector just below
+					arraysFound[arrayElementType] = newTypes.size();
+				}
+				membersMapping.push_back(std::make_pair(newTypes.size(), 0));
 				// Add the new type
 				newTypes.push_back(rewrittenType);
 			}
@@ -276,6 +310,12 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		StructType* newDirectBase = st->getDirectBase() ? dyn_cast<StructType>(rewriteType(st->getDirectBase()).mappedType) : NULL;
 		newStruct->setBody(newTypes, st->isPacked(), newDirectBase);
 		pendingStructTypes.erase(t);
+		if(hasMergedArrays)
+		{
+			assert(!newTypes.empty());
+			membersMappingData.insert(std::make_pair(st, membersMapping));
+			return CacheAndReturn(newStruct, TypeMappingInfo::MERGED_MEMBER_ARRAYS);
+		}
 		return CacheAndReturn(newStruct, TypeMappingInfo::IDENTICAL);
 	}
 	if(FunctionType* ft=dyn_cast<FunctionType>(t))
@@ -421,13 +461,36 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 			Constant* element = CS->getOperand(0);
 			return rewriteConstant(element);
 		}
-		assert(newTypeInfo.elementMappingKind == TypeMappingInfo::IDENTICAL);
+		auto membersMappingIt = membersMappingData.find(CS->getType());
+		bool hasMergedArrays = newTypeInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS ||
+					newTypeInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED;
+		assert(!hasMergedArrays || membersMappingIt != membersMappingData.end());
 		SmallVector<Constant*, 4> newElements;
+		// Check if some of the contained constant arrays needs to be merged
 		for(uint32_t i=0;i<CS->getNumOperands();i++)
 		{
 			Constant* element = CS->getOperand(i);
 			Constant* newElement = rewriteConstant(element);
-			newElements.push_back(newElement);
+			if(hasMergedArrays && membersMappingIt->second[i].first != (newElements.size()))
+			{
+				// This element has been remapped to another one. It must be an array
+				SmallVector<Constant*, 4> mergedArrayElements;
+				Constant* oldMember = newElements[membersMappingIt->second[i].first];
+				assert(oldMember->getType()->getArrayElementType() == newElement->getType()->getArrayElementType());
+				// Insert all the elements of the existing member
+				pushAllArrayConstantElements(mergedArrayElements, oldMember);
+				pushAllArrayConstantElements(mergedArrayElements, newElement);
+				// Forge a new array and replace oldMember
+				ArrayType* mergedType = ArrayType::get(oldMember->getType()->getArrayElementType(), mergedArrayElements.size());
+				newElements[membersMappingIt->second[i].first] = ConstantArray::get(mergedType, mergedArrayElements);
+			}
+			else
+				newElements.push_back(newElement);
+		}
+		if(newTypeInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED)
+		{
+			assert(newElements.size() == 1);
+			return newElements[0];
 		}
 		return ConstantStruct::get(cast<StructType>(newTypeInfo.mappedType), newElements);
 	}
@@ -628,6 +691,29 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 				uint32_t numElements=oldTypeSize/elementSize;
 				AddMultipliedIndex(idxs[i], numElements);
 				addToLastIndex = true;
+				break;
+			}
+			case TypeMappingInfo::MERGED_MEMBER_ARRAYS:
+			case TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED:
+			{
+				assert(curType->isStructTy());
+				StructType* oldStruct = cast<StructType>(curType);
+				uint32_t elementIndex = cast<ConstantInt>(idxs[i])->getZExtValue();
+				assert(membersMappingData.count(oldStruct));
+				const std::pair<uint32_t, uint32_t>& mappedMember = membersMappingData[oldStruct][elementIndex];
+				if(curTypeMappingInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS)
+				{
+					// The new index is mappedMember.first
+					AddIndex(ConstantInt::get(Int32Ty, mappedMember.first));
+				}
+				else
+					assert(mappedMember.first == 0);
+				// If mappedMember.second is not zero, also add a new index that can be eventually incremented later
+				if(mappedMember.second)
+				{
+					AddIndex(ConstantInt::get(Int32Ty, mappedMember.second));
+					addToLastIndex = true;
+				}
 				break;
 			}
 			case TypeMappingInfo::COLLAPSING:
