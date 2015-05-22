@@ -1836,6 +1836,13 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 	}
 	else
 	{
+		// HACK: Accessing members of NULL is invalid, but it is used to compute an offset from the start of a structure
+		// TODO: We need to detect and block this on the clang side. In the mean time, just compile null.
+		if( isa<ConstantPointerNull>(gep_inst->getOperand(0)) )
+		{
+			stream << "null";
+			return;
+		}
 		compileCompleteObject(gep_inst->getOperand(0), indices.front());
 		Type* basePointedType = basePointerType->getPointerElementType();
 		if (useDownCastArray)
