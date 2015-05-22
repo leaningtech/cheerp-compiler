@@ -25,7 +25,7 @@ class TypeOptimizer: public llvm::ModulePass
 private:
 	struct TypeMappingInfo
 	{
-		enum MAPPING_KIND { IDENTICAL, COLLAPSED, COLLAPSING, COLLAPSING_BUT_USED, BYTE_LAYOUT_TO_ARRAY };
+		enum MAPPING_KIND { IDENTICAL, COLLAPSED, COLLAPSING, COLLAPSING_BUT_USED, BYTE_LAYOUT_TO_ARRAY, POINTER_FROM_ARRAY, FLATTENED_ARRAY };
 		llvm::Type* mappedType;
 		MAPPING_KIND elementMappingKind;
 		TypeMappingInfo():mappedType(NULL),elementMappingKind(IDENTICAL)
@@ -42,6 +42,7 @@ private:
 	llvm::Module* module;
 	const llvm::DataLayout* DL;
 	std::unordered_map<llvm::StructType*,std::set<llvm::StructType*>> downcastSourceToDestinationsMapping;
+	std::unordered_map<llvm::GlobalVariable*, llvm::Constant*> globalsMapping;
 	std::unordered_map<llvm::GlobalValue*, llvm::Type*> globalTypeMapping;
 	std::unordered_map<llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
 	std::unordered_map<llvm::Type*, TypeMappingInfo> typesMapping;
@@ -50,7 +51,7 @@ private:
 #ifndef NDEBUG
 	std::unordered_set<llvm::Type*> newStructTypes;
 #endif
-	void rewriteGlobal(llvm::GlobalVariable* GV);
+	llvm::Constant* rewriteGlobal(llvm::GlobalVariable* GV);
 	void rewriteGlobalInit(llvm::GlobalVariable* GV);
 	TypeMappingInfo rewriteType(llvm::Type* t);
 	void rewriteUses(llvm::Value* V, llvm::Value* NewV);
@@ -63,6 +64,8 @@ private:
 	bool isUnsafeDowncastSource(llvm::StructType* st);
 	void addAllBaseTypesForByteLayout(llvm::StructType* st, llvm::Type* base);
 	static void pushAllBaseConstantElements(llvm::SmallVector<llvm::Constant*, 4>& newElements, llvm::Constant* C, llvm::Type* baseType);
+	// Helper function to handle the various kind of arrays in constants
+	static void pushAllArrayConstantElements(llvm::SmallVector<llvm::Constant*, 4>& newElements, llvm::Constant* array);
 public:
 	static char ID;
 	explicit TypeOptimizer() : ModulePass(ID) { }
