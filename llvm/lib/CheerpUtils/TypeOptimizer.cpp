@@ -224,6 +224,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		// Tentatively map the type to the newStruct, it may be overridden if the type is collapsed
 		typesMapping[t] = TypeMappingInfo(newStruct, TypeMappingInfo::IDENTICAL);
 
+		// Since we can merge arrays of the same type in an struct it is possible that at the end of the process a single type will remain
+		TypeMappingInfo::MAPPING_KIND newStructKind = TypeMappingInfo::IDENTICAL;
 		// Forge the new element types
 		SmallVector<Type*, 4> newTypes;
 		bool hasMergedArrays=false;
@@ -269,6 +271,12 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				// Add the new type
 				newTypes.push_back(rewrittenType);
 			}
+			if(hasMergedArrays)
+			{
+				assert(!newTypes.empty());
+				membersMappingData.insert(std::make_pair(st, membersMapping));
+				newStructKind = TypeMappingInfo::MERGED_MEMBER_ARRAYS;
+			}
 		}
 		else if(st->getNumElements() == 1)
 		{
@@ -296,7 +304,10 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 					if(typesMapping[st].elementMappingKind != TypeMappingInfo::COLLAPSING_BUT_USED)
 					{
 						assert(typesMapping[st].elementMappingKind == TypeMappingInfo::COLLAPSING);
-						return CacheAndReturn(collapsed, TypeMappingInfo::COLLAPSED);
+						if(newStructKind != TypeMappingInfo::MERGED_MEMBER_ARRAYS)
+							return CacheAndReturn(collapsed, TypeMappingInfo::COLLAPSED);
+						else
+							return CacheAndReturn(collapsed, TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED);
 					}
 					typesMapping[st] = TypeMappingInfo(newStruct, TypeMappingInfo::IDENTICAL);
 				}
@@ -310,13 +321,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		StructType* newDirectBase = st->getDirectBase() ? dyn_cast<StructType>(rewriteType(st->getDirectBase()).mappedType) : NULL;
 		newStruct->setBody(newTypes, st->isPacked(), newDirectBase);
 		pendingStructTypes.erase(t);
-		if(hasMergedArrays)
-		{
-			assert(!newTypes.empty());
-			membersMappingData.insert(std::make_pair(st, membersMapping));
-			return CacheAndReturn(newStruct, TypeMappingInfo::MERGED_MEMBER_ARRAYS);
-		}
-		return CacheAndReturn(newStruct, TypeMappingInfo::IDENTICAL);
+		return CacheAndReturn(newStruct, newStructKind);
 	}
 	if(FunctionType* ft=dyn_cast<FunctionType>(t))
 	{
