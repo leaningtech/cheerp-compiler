@@ -541,22 +541,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::cheerp_cast_user)
 	{
-		//HACK to make client array works, we produce a regular even if we have a client object
-		// This is to emulate the old COMPLETE_ARRAY, we should actually make this cast return a pointer to array
-		if(TypeSupport::isClientArrayType(callV.getArgument(0)->getType()->getPointerElementType()) &&
-		                PA.getPointerKind(callV.getInstruction()) == REGULAR)
-		{
-			stream << "{d:";
-			compileCompleteObject(callV.getArgument(0));
-			stream << ",o:0}";
-		}
-		else
-		{
-			compilePointerAs(*it, PA.getPointerKind(callV.getInstruction()));
-		}
+		if(callV.getInstruction()->use_empty())
+			return COMPILE_EMPTY;
 
-		return COMPILE_OK;
-
+		compilePointerAs(*it, PA.getPointerKind(callV.getInstruction()));
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_base)
