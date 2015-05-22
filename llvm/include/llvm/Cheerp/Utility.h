@@ -83,14 +83,6 @@ public:
 			return false;
 	}
 
-	static bool isClientArrayType(llvm::Type* t)
-	{
-		if ( llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
-			return st->hasName() && st->getName().startswith("class._ZN6client5ArrayE");
-		else 
-			return false;
-	}
-
 	static bool isI32Type(llvm::Type* t)
 	{
 		return t->isIntegerTy(32);
