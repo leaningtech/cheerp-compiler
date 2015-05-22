@@ -25,7 +25,77 @@ const char *TypeOptimizer::getPassName() const {
 	return "TypeOptimizer";
 }
 
-void TypeOptimizer::gatherAllDowncastSourceTypes(const Module& M)
+void TypeOptimizer::addAllBaseTypesForByteLayout(StructType* st, Type* baseType)
+{
+	if(ArrayType* AT=dyn_cast<ArrayType>(baseType))
+		addAllBaseTypesForByteLayout(st, AT->getElementType());
+	else if(StructType* ST=dyn_cast<StructType>(baseType))
+	{
+		// TODO: This is broken for unions inside union. We would need to indirectly reference them.
+		for(uint32_t i=0;i<ST->getNumElements();i++)
+			addAllBaseTypesForByteLayout(st, ST->getElementType(i));
+	}
+	else
+	{
+		// If there is no base type so far, initialize it
+		auto it = baseTypesForByteLayout.find(st);
+		if(it == baseTypesForByteLayout.end())
+			baseTypesForByteLayout.insert(std::make_pair(st, baseType));
+		else if (it->second != baseType)
+		{
+			// The known base type is not the same as the passed one
+			it->second = NULL;
+		}
+	}
+}
+
+void TypeOptimizer::pushAllBaseConstantElements(SmallVector<llvm::Constant*, 4>& newElements, Constant* C, Type* baseType)
+{
+	if(C->getType()==baseType)
+		newElements.push_back(C);
+	else if(ArrayType* AT=dyn_cast<ArrayType>(C->getType()))
+	{
+		if(ConstantArray* CA=dyn_cast<ConstantArray>(C))
+		{
+			for(unsigned i=0;i<AT->getNumElements();i++)
+				pushAllBaseConstantElements(newElements, CA->getOperand(i), baseType);
+		}
+		else if(ConstantDataSequential* CDS=dyn_cast<ConstantDataSequential>(C))
+		{
+			for(unsigned i=0;i<AT->getNumElements();i++)
+				pushAllBaseConstantElements(newElements, CDS->getElementAsConstant(i), baseType);
+		}
+		else
+		{
+			assert(isa<ConstantAggregateZero>(C));
+			// TODO: Could be optimized as we know that the elements should all be of baseType
+			for(unsigned i=0;i<AT->getNumElements();i++)
+				pushAllBaseConstantElements(newElements, Constant::getNullValue(AT->getElementType()), baseType);
+		}
+	}
+	else if(StructType* ST=dyn_cast<StructType>(C->getType()))
+	{
+		if(ConstantStruct* CS=dyn_cast<ConstantStruct>(C))
+		{
+			for(unsigned i=0;i<ST->getNumElements();i++)
+				pushAllBaseConstantElements(newElements, CS->getOperand(i), baseType);
+		}
+		else
+		{
+			assert(isa<ConstantAggregateZero>(C));
+			// TODO: Could be optimized as we know that the elements should all be of baseType
+			for(unsigned i=0;i<ST->getNumElements();i++)
+				pushAllBaseConstantElements(newElements, Constant::getNullValue(ST->getElementType(i)), baseType);
+		}
+	}
+	else
+	{
+		// It's not an aggregate and not the baseType, something is wrong here
+		assert(false);
+	}
+}
+
+void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 {
 	for(const Function& F: M)
 	{
@@ -53,6 +123,14 @@ void TypeOptimizer::gatherAllDowncastSourceTypes(const Module& M)
 					if(it != downcastSourceToDestinationsMapping.end() && it->second.empty())
 						continue;
 					downcastSourceToDestinationsMapping[sourceType].insert(destType);
+				}
+				else if(const BitCastInst* BC=dyn_cast<BitCastInst>(&I))
+				{
+					// Find out all the types that bytelayout structs are casted to
+					StructType* st = dyn_cast<StructType>(BC->getSrcTy()->getPointerElementType());
+					if(!st || !st->hasByteLayout())
+						continue;
+					addAllBaseTypesForByteLayout(st, BC->getDestTy()->getPointerElementType());
 				}
 			}
 		}
@@ -111,7 +189,26 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		if(TypeSupport::isClientType(st))
 			return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
 		if(TypeSupport::hasByteLayout(st))
-			return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
+		{
+			addAllBaseTypesForByteLayout(st, st);
+			// If the data of this byte layout struct is always accessed as the same type, we can replace it with an array of that type
+			// This is useful for an idiom used by C++ graphics code to have a vector both accessible as named elements and as an array
+			// union { struct { double x,y,z; }; double elemets[3]; };
+			auto it=baseTypesForByteLayout.find(st);
+			assert(it!=baseTypesForByteLayout.end());
+			if(it->second == NULL)
+				return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
+			// Check that the struct fits exactly N values of the base type
+			uint32_t structSize = DL->getTypeAllocSize(st);
+			uint32_t elementSize = DL->getTypeAllocSize(it->second);
+			if(structSize % elementSize)
+				return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
+
+			// Replace this byte layout struct with an array
+			uint32_t numElements = structSize / elementSize;
+			Type* newType = ArrayType::get(it->second, numElements);
+			return CacheAndReturn(newType, TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY);
+		}
 
 		// Generate a new type inconditionally, it may end up being the same as the old one
 		StructType* newStruct=StructType::create(st->getContext());
@@ -238,7 +335,8 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 				Type* ptrType = getOriginalGlobalType(ptrOperand);
 				ptrOperand = rewriteConstant(ptrOperand);
 				SmallVector<Value*, 4> newIndexes;
-				rewriteGEPIndexes(newIndexes, ptrType->getPointerElementType(), ArrayRef<Use>(CE->op_begin()+1,CE->op_end()));
+				Type* targetType = rewriteType(CE->getType()->getPointerElementType());
+				rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(CE->op_begin()+1,CE->op_end()), targetType, NULL);
 				return ConstantExpr::getGetElementPtr(ptrOperand, newIndexes);
 			}
 			case Instruction::BitCast:
@@ -270,7 +368,17 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 		return UndefValue::get(newTypeInfo.mappedType);
 	else if(ConstantStruct* CS=dyn_cast<ConstantStruct>(C))
 	{
-		if(newTypeInfo.elementMappingKind == TypeMappingInfo::COLLAPSED)
+		if(newTypeInfo.elementMappingKind == TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY)
+		{
+			auto baseTypeIt = baseTypesForByteLayout.find(cast<StructType>(CS->getType()));
+			assert(baseTypeIt != baseTypesForByteLayout.end() && baseTypeIt->second);
+			// Forge a ConstantArray
+			SmallVector<Constant*, 4> newElements;
+			pushAllBaseConstantElements(newElements, CS, baseTypeIt->second);
+			ArrayType* newArrayType = ArrayType::get(baseTypeIt->second, newElements.size());
+			return ConstantArray::get(newArrayType, newElements);
+		}
+		else if(newTypeInfo.elementMappingKind == TypeMappingInfo::COLLAPSED)
 		{
 			assert(cast<StructType>(CS->getType())->getNumElements()==1);
 			Constant* element = CS->getOperand(0);
@@ -361,6 +469,13 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			newTys.insert(newTys.end(),localTys,localTys+3);
 			break;
 		}
+		case Intrinsic::memcpy:
+		case Intrinsic::memmove:
+		{
+			Type* localTys[] = { FT->getParamType(0), FT->getParamType(1), FT->getParamType(2) };
+			newTys.insert(newTys.end(),localTys,localTys+3);
+			break;
+		}
 	}
 	if(!fixDepedendentIntrinsic((Intrinsic::ID)F->getIntrinsicID(), newTys))
 	{
@@ -376,20 +491,84 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 	}
 }
 
-void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, ArrayRef<Use> idxs)
+void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, ArrayRef<Use> idxs, Type* targetType, Instruction* insertionPoint)
 {
+	// The addToLastIndex flag should be set to true if the following index should be added to the previouly pushed one
+	bool addToLastIndex = false;
+	auto AddIndex=[&](Value* V)
+	{
+		if(addToLastIndex)
+		{
+			if(insertionPoint)
+				newIndexes.back() = BinaryOperator::Create(Instruction::Add, newIndexes.back(), V, "", insertionPoint);
+			else
+			{
+				assert(isa<ConstantInt>(newIndexes.back()) && isa<ConstantInt>(V));
+				newIndexes.back() = ConstantExpr::getAdd(cast<Constant>(newIndexes.back()), cast<Constant>(V));
+			}
+		}
+		else
+			newIndexes.push_back(V);
+		addToLastIndex = false;
+	};
+	auto AddMultipliedIndex=[&](Value* V, uint32_t multiplier)
+	{
+		Constant* numElementsC = ConstantInt::get(V->getType(), multiplier);
+		if(insertionPoint)
+			AddIndex(BinaryOperator::Create(Instruction::Mul, V, numElementsC, "", insertionPoint));
+		else
+		{
+			assert(isa<Constant>(V));
+			AddIndex(ConstantExpr::getMul(cast<Constant>(V), numElementsC));
+		}
+	};
 	Type* curType = ptrType;
-	newIndexes.push_back(idxs[0]);
-	for(uint32_t i=1;i<idxs.size();i++)
+	Type* Int32Ty = IntegerType::get(curType->getContext(), 32);
+	for(uint32_t i=0;i<idxs.size();i++)
 	{
 		TypeMappingInfo curTypeMappingInfo = rewriteType(curType);
 		switch(curTypeMappingInfo.elementMappingKind)
 		{
 			case TypeMappingInfo::IDENTICAL:
-				newIndexes.push_back(idxs[i]);
+				AddIndex(idxs[i]);
 				break;
 			case TypeMappingInfo::COLLAPSED:
 				break;
+			case TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY:
+			{
+				assert(isa<StructType>(curType));
+				if(curTypeMappingInfo.mappedType == targetType)
+					return;
+				auto baseTypeIt = baseTypesForByteLayout.find(cast<StructType>(curType));
+				assert(baseTypeIt != baseTypesForByteLayout.end() && baseTypeIt->second);
+				uint32_t baseTypeSize = DL->getTypeAllocSize(baseTypeIt->second);
+				// All the indexes needs to be flattened to a byte offset and then to an array offset
+				// NOTE: We are willingly iterating over 'i' again
+				for(;i<idxs.size();i++)
+				{
+					if(StructType* ST=dyn_cast<StructType>(curType))
+					{
+						assert(isa<ConstantInt>(idxs[i]));
+						uint32_t elementIndex = cast<ConstantInt>(idxs[i])->getZExtValue();
+						uint32_t elementOffset = DL->getStructLayout(ST)->getElementOffset(elementIndex);
+						// All offsets should be multiple of the base type size
+						assert(!(elementOffset % baseTypeSize));
+						AddIndex(ConstantInt::get(Int32Ty, elementOffset / baseTypeSize));
+						curType = ST->getElementType(elementIndex);
+					}
+					else
+					{
+						uint32_t elementSize = DL->getTypeAllocSize(curType->getArrayElementType());
+						// All offsets should be multiple of the base type size
+						assert(!(elementSize % baseTypeSize));
+						AddMultipliedIndex(idxs[i], elementSize / baseTypeSize);
+						curType = curType->getSequentialElementType();
+					}
+					addToLastIndex = true;
+				}
+				// All indexes have been consumed now, we can just return
+				return;
+			}
 			case TypeMappingInfo::COLLAPSING:
 			case TypeMappingInfo::COLLAPSING_BUT_USED:
 				assert(false);
@@ -400,6 +579,7 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 		else
 			curType = curType->getSequentialElementType();
 	}
+	assert(rewriteType(curType) == targetType);
 }
 
 void TypeOptimizer::rewriteFunction(Function* F)
@@ -501,9 +681,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					Type* ptrType = getOriginalOperandType(ptrOperand);
 					if(rewriteType(ptrType) != ptrType || rewriteType(I.getType()) != I.getType())
 					{
-						Type* curType = ptrType->getPointerElementType();
 						SmallVector<Value*, 4> newIndexes;
-						rewriteGEPIndexes(newIndexes, curType, ArrayRef<Use>(I.op_begin()+1,I.op_end()));
+						Type* targetType = rewriteType(I.getType()->getPointerElementType());
+						rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(I.op_begin()+1,I.op_end()), targetType, &I);
 						GetElementPtrInst* NewInst = GetElementPtrInst::Create(getMappedOperand(ptrOperand), newIndexes);
 						NewInst->takeName(&I);
 						NewInst->setIsInBounds(cast<GetElementPtrInst>(I).isInBounds());
@@ -624,7 +804,10 @@ bool TypeOptimizer::runOnModule(Module& M)
 {
 	// Get required auxiliary data
 	module = &M;
-	gatherAllDowncastSourceTypes(M);
+	DL = &M.getDataLayout();
+	assert(DL);
+	// Do a preprocessing step to gather data that we can't get online
+	gatherAllTypesInfo(M);
 	// Update the type for all global variables
 	for(GlobalVariable& GV: M.getGlobalList())
 		rewriteGlobal(&GV);
