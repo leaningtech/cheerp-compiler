@@ -848,6 +848,22 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	if(PA.getPointerKind(lhs) == REGULAR &&
 	                PA.getPointerKind(rhs) == REGULAR)
 	{
+		if(isa<ConstantPointerNull>(lhs))
+			stream << '1';
+		else
+		{
+			compilePointerBase(lhs);
+			stream << ".length";
+		}
+		stream << compareString;
+		if(isa<ConstantPointerNull>(rhs))
+			stream << '1';
+		else
+		{
+			compilePointerBase(rhs);
+			stream << ".length";
+		}
+		stream << joinString;
 		compilePointerBase(lhs);
 		stream << compareString;
 		compilePointerBase(rhs);
@@ -1128,6 +1144,11 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 	{
 		// Check if the offset has been constantized for this pointer
 		compileConstant(CI);
+	}
+	else if(isa<ConstantPointerNull>(p))
+	{
+		stream << '0';
+		return;
 	}
 	else if(isa<Argument>(p))
 	{
