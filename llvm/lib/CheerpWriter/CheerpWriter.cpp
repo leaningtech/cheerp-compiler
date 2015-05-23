@@ -224,7 +224,7 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 {
 	Type* destType=dest->getType();
 	Type* pointedType = cast<PointerType>(destType)->getElementType();
-	if(!(types.isTypedArrayType(pointedType) || TypeSupport::hasByteLayout(pointedType)))
+	if(!(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true) || TypeSupport::hasByteLayout(pointedType)))
 		llvm::report_fatal_error("Unsupported memory intrinsic, please rebuild the code using an updated version of Cheerp", false);
 
 	uint64_t typeSize = targetData.getTypeAllocSize(pointedType);
@@ -1825,7 +1825,7 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 			compileCompleteObject(gep_inst);
 		else if (!TypeSupport::hasByteLayout(targetType) && forEscapingPointer)
 		{
-			assert(TypeSupport::isTypedArrayType(targetType));
+			assert(TypeSupport::isTypedArrayType(targetType, /* forceTypedArray*/ true));
 			// Forge an appropiate typed array
 			assert (!TypeSupport::hasByteLayout(targetType));
 			stream << "new ";
@@ -1897,7 +1897,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
 			compilePointerOffset( gep_inst );
 		else
 		{
-			assert(TypeSupport::isTypedArrayType(targetType));
+			assert(TypeSupport::isTypedArrayType(targetType, /* forceTypedArray*/ true));
 			// If this GEP or a previous one passed through an array of immutables generate a regular from
 			// the start of the array and not from the pointed element
 			const Value* lastOffset = compileByteLayoutOffset( gep_inst, BYTE_LAYOUT_OFFSET_NO_PRINT );
