@@ -352,7 +352,7 @@ bool TypeSupport::isSimpleType(Type* t)
 			ArrayType* at=static_cast<ArrayType*>(t);
 			Type* et=at->getElementType();
 			// When a single typed array object is used, we consider this array as simple
-			if(isTypedArrayType(et) && at->getNumElements()>1)
+			if(isTypedArrayType(et, /* forceTypedArray*/ false) && at->getNumElements()>1)
 				return true;
 			break;
 		}
@@ -514,7 +514,7 @@ bool DynamicAllocInfo::sizeIsRuntime() const
 
 bool DynamicAllocInfo::useCreateArrayFunc() const
 {
-	if( !TypeSupport::isTypedArrayType( getCastedType()->getElementType() ) )
+	if( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), /* forceTypedArray*/ false ) )
 	{
 		return sizeIsRuntime() || type == cheerp_reallocate;
 	}
@@ -525,7 +525,7 @@ bool DynamicAllocInfo::useCreatePointerArrayFunc() const
 {
 	if (getCastedType()->getElementType()->isPointerTy() )
 	{
-		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType() ) );
+		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), /* forceTypedArray*/ false ) );
 		return sizeIsRuntime() || type == cheerp_reallocate;
 	}
 	return false;
@@ -533,7 +533,7 @@ bool DynamicAllocInfo::useCreatePointerArrayFunc() const
 
 bool DynamicAllocInfo::useTypedArray() const
 {
-	return TypeSupport::isTypedArrayType( getCastedType()->getElementType() );
+	return TypeSupport::isTypedArrayType( getCastedType()->getElementType(), /* forceTypedArray*/ false );
 }
 
 void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, llvm::SmallVector<const PHINode*, 4>& orderedPHIs)
