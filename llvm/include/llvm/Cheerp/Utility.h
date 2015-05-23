@@ -96,10 +96,10 @@ public:
 		return t->isIntegerTy(32);
 	}
 
-	static bool isTypedArrayType(llvm::Type* t)
+	static bool isTypedArrayType(llvm::Type* t, bool forceTypedArray)
 	{
 		return t->isIntegerTy(8) || t->isIntegerTy(16) || t->isIntegerTy(32) ||
-			t->isFloatTy() || t->isDoubleTy();
+			t->isFloatTy() || (forceTypedArray && t->isDoubleTy());
 	}
 
 	static bool isImmutableType(llvm::Type* t)

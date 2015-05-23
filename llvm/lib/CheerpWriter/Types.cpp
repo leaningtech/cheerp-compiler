@@ -75,7 +75,7 @@ void CheerpWriter::compileSimpleType(Type* t)
 		{
 			ArrayType* at=cast<ArrayType>(t);
 			Type* et=at->getElementType();
-			assert(types.isTypedArrayType(et) && at->getNumElements()>1);
+			assert(types.isTypedArrayType(et, /* forceTypedArray*/ false) && at->getNumElements()>1);
 			stream << "new ";
 			compileTypedArrayType(et);
 			stream << '(' << at->getNumElements() << ')';
@@ -190,7 +190,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 		assert(style == LITERAL_OBJ);
 		ArrayType* at=cast<ArrayType>(t);
 		Type* element = at->getElementType();
-		assert(!(types.isTypedArrayType(element) && at->getNumElements()>1));
+		assert(!(types.isTypedArrayType(element, /* forceTypedArray*/ false) && at->getNumElements()>1));
 		stream << '[';
 		for(uint64_t i=0;i<at->getNumElements();i++)
 		{
