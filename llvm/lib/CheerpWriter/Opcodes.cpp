@@ -92,7 +92,7 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 		llvm::Type* elementType = dst->getPointerElementType();
 		bool isArray=isa<ArrayType>(elementType);
 		llvm::Type* pointedType = (isArray)?elementType->getSequentialElementType():elementType;
-		if(TypeSupport::isTypedArrayType(pointedType))
+		if(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true))
 		{
 			stream << "new ";
 			compileTypedArrayType(pointedType);
@@ -117,7 +117,7 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi)
 		llvm::Type* elementType = dst->getPointerElementType();
 		bool isArray=isa<ArrayType>(elementType);
 		llvm::Type* pointedType = (isArray)?elementType->getSequentialElementType():elementType;
-		if(TypeSupport::isTypedArrayType(pointedType))
+		if(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true))
 		{
 			stream << '0';
 			return;
