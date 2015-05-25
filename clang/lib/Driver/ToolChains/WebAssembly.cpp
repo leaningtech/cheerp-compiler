@@ -419,8 +419,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   ArgStringList CmdArgs;
 
   CmdArgs.push_back("-march=cheerp");
-  CmdArgs.push_back("-Oz");
-  // Inlining from -Oz may generate memcpy calls that we need to lower
+  CmdArgs.push_back("-Os");
+  // Inlining from -Os may generate memcpy calls that we need to lower
   CmdArgs.push_back("-StructMemFuncLowering");
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
