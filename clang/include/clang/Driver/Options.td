@@ -4352,6 +4352,8 @@ def cheerp_no_lto : Flag<["-"], "cheerp-no-lto">, Flags<[DriverOption]>,
   HelpText<"Disable final optimization step at link time">;
 def cheerp_no_native_math : Flag<["-"], "cheerp-no-native-math">, Flags<[DriverOption]>,
   HelpText<"Disable native JavaScript math functions">;
+def cheerp_no_type_optimizer : Flag<["-"], "cheerp-no-type-optimizer">, Flags<[DriverOption]>,
+  HelpText<"Disable optimization of data types at link time">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options
