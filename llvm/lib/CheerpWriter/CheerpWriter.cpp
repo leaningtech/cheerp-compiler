@@ -2321,6 +2321,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
 			compileOperand(I.getOperand(0), /*allowBooleanObjects*/ true);
+			//If the type is i1 we can use the boolean operator to take advantage of logic short-circuit
+			//This is possible because we know that instruction with side effects, like calls, are never inlined
 			if(I.getType()->isIntegerTy(1))
 				stream << "||";
 			else
