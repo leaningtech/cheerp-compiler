@@ -5895,6 +5895,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                     options::OPT_fno_trigraphs);
   }
 
+  // Forward cheerp-no-pointer-scev argument
+  if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev)) {
+    CmdArgs.push_back("-mllvm");
+    CheerpNoPointerSCEV->render(Args, CmdArgs);
+  }
+
   // GCC's behavior for -Wwrite-strings is a bit strange:
   //  * In C, this "warning flag" changes the types of string literals from
   //    'char[N]' to 'const char[N]', and thus triggers an unrelated warning
