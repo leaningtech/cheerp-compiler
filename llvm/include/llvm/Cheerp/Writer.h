@@ -159,6 +159,8 @@ private:
 
 	// Flag to signal if we should take advantage of native JavaScript math functions
 	bool useNativeJavaScriptMath;
+	// Flag to signal if we should take advantage of native 23-bit integer multiplication
+	bool useMathImul;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -342,11 +344,12 @@ private:
 public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
-	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, bool ReadableOutput, bool NoRegisterize, bool UseNativeJavaScriptMath):
+	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, bool ReadableOutput,
+	             bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
 		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),useNativeJavaScriptMath(UseNativeJavaScriptMath),
-		stream(s, ReadableOutput)
+		useMathImul(useMathImul),stream(s, ReadableOutput)
 	{
 	}
 	void makeJS();
