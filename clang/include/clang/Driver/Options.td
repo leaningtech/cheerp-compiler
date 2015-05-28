@@ -4356,6 +4356,8 @@ def cheerp_no_type_optimizer : Flag<["-"], "cheerp-no-type-optimizer">, Flags<[D
   HelpText<"Disable optimization of data types at link time">;
 def cheerp_no_pointer_scev : Flag<["-"], "cheerp-no-pointer-scev">, Flags<[DriverOption]>,
   HelpText<"Disable scalar evolution for pointers">;
+def cheerp_no_math_imul : Flag<["-"], "cheerp-no-math-imul">, Flags<[DriverOption]>,
+  HelpText<"Disable JavaScript Math.imul">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options
