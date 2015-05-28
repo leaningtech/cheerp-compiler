@@ -2203,12 +2203,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::Mul:
 		{
+			stream << '(';
 			//Integer signed multiplication
-			stream << "((";
-			compileOperand(I.getOperand(0));
-			stream << '*';
-			compileOperand(I.getOperand(1));
-			stream << ')';
+			if(useMathImul)
+			{
+				stream << "Math.imul(";
+				compileOperand(I.getOperand(0));
+				stream << ',';
+				compileOperand(I.getOperand(1));
+				stream << ')';
+			}
+			else
+			{
+				stream << '(';
+				compileOperand(I.getOperand(0));
+				stream << '*';
+				compileOperand(I.getOperand(1));
+				stream << ')';
+			}
 			if(types.isI32Type(I.getType()))
 				stream << ">>0";
 			else
