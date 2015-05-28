@@ -3803,11 +3803,12 @@ const SCEV *ScalarEvolution::getNegativeSCEV(const SCEV *V,
     return getConstant(
                cast<ConstantInt>(ConstantExpr::getNeg(VC->getValue())));
 
-  if(DL && !DL->isByteAddressable() && V->getType()->isPointerTy())
-    return getNegPointer(V);
-
   if(const SCEVNegPointer* NegPtr = dyn_cast<SCEVNegPointer>(V))
     return NegPtr->getOperand();
+
+  const DataLayout &DL = F.getParent()->getDataLayout();
+  if(!DL.isByteAddressable() && V->getType()->isPointerTy())
+    return getNegPointer(V);
 
   Type *Ty = V->getType();
   Ty = getEffectiveSCEVType(Ty);
@@ -5296,6 +5297,13 @@ const SCEV *ScalarEvolution::createNodeForGEP(GEPOperator *GEP) {
   // Don't attempt to analyze GEPs over unsized objects.
   if (!GEP->getSourceElementType()->isSized())
     return getUnknown(GEP);
+
+  const DataLayout &DL = F.getParent()->getDataLayout();
+  if (CheerpNoPointerSCEV && !DL.isByteAddressable())
+  {
+	  // Cheerp: Running SCEV on pointers may be fragile
+	  return getUnknown(GEP);
+  }
 
   SmallVector<const SCEV *, 4> IndexExprs;
   for (auto Index = GEP->idx_begin(); Index != GEP->idx_end(); ++Index)
