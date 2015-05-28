@@ -2166,7 +2166,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			compileUnsignedInteger(I.getOperand(0));
 			stream << '/';
 			compileUnsignedInteger(I.getOperand(1));
-			stream << ")>>>0)";
+			//Result is already unsigned
+			stream << ")>>0)";
 			return COMPILE_OK;
 		}
 		case Instruction::SRem:
@@ -2186,7 +2187,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			compileUnsignedInteger(I.getOperand(0));
 			stream << '%';
 			compileUnsignedInteger(I.getOperand(1));
-			stream << ")>>>0)";
+			//The result is necessarily unsigned
+			stream << ")>>0)";
 			return COMPILE_OK;
 		}
 		case Instruction::FDiv:
