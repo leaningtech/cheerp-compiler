@@ -4354,6 +4354,8 @@ def cheerp_no_native_math : Flag<["-"], "cheerp-no-native-math">, Flags<[DriverO
   HelpText<"Disable native JavaScript math functions">;
 def cheerp_no_type_optimizer : Flag<["-"], "cheerp-no-type-optimizer">, Flags<[DriverOption]>,
   HelpText<"Disable optimization of data types at link time">;
+def cheerp_no_pointer_scev : Flag<["-"], "cheerp-no-pointer-scev">, Flags<[DriverOption]>,
+  HelpText<"Disable scalar evolution for pointers">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options

@@ -428,6 +428,12 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   const InputInfo &II = *Inputs.begin();
   CmdArgs.push_back(II.getFilename());
 
+  // Honor -mllvm
+  Args.AddAllArgValues(CmdArgs, options::OPT_mllvm);
+  // Honot -cheerp-no-pointer-scev
+  if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev))
+    CheerpNoPointerSCEV->render(Args, CmdArgs);
+
   const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("opt")));
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
 }
