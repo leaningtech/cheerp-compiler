@@ -1785,8 +1785,14 @@ vector<_Tp, _Allocator>::insert(const_iterator __position, const_reference __x)
         {
             __move_range(__p, this->__end_, __p + 1);
             const_pointer __xr = pointer_traits<const_pointer>::pointer_to(__x);
-            if (__p <= __xr && __xr < this->__end_)
-                ++__xr;
+            for(pointer hack=__p;hack!=this->__end_;++hack)
+            {
+                if(hack==__xr)
+                {
+                    ++__xr;
+                    break;
+                }
+            }
             *__p = *__xr;
         }
     }
