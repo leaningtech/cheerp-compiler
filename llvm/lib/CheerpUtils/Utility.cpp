@@ -89,9 +89,13 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	}
 	else if(I.getOpcode()==Instruction::BitCast)
 	{
-		if(PA.getPointerKind(&I)==COMPLETE_OBJECT && PA.getPointerKind(I.getOperand(0))==REGULAR)
+		// Always inline pointers which are not CO
+		if(PA.getPointerKind(&I)!=COMPLETE_OBJECT)
+			return true;
+		// Never inline if the source is REGULAR (forces conversion to CO)
+		if(PA.getPointerKind(I.getOperand(0))==REGULAR)
 			return false;
-		return true;
+		return !hasMoreThan1Use;
 	}
 	else if((I.getOpcode()==Instruction::FCmp || I.getOpcode()==Instruction::ICmp) && hasMoreThan1Use)
 	{
