@@ -147,7 +147,7 @@ void BitcodeWriterBase::writeModuleVersion() {
   // VERSION: [version#]
   // Cheerp: Bump the version up to stop regular LLVM tools from trying to
   // read the bitcode
-  Stream.EmitRecord(bitc::MODULE_CODE_VERSION, ArrayRef<uint64_t>{10});
+  Stream.EmitRecord(bitc::MODULE_CODE_VERSION, ArrayRef<uint64_t>{11});
 }
 
 /// Base class to manage the module bitcode writing, currently subclassed for
