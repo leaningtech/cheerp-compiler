@@ -461,7 +461,7 @@ BitcodeReaderBase::parseVersionRecord(ArrayRef<uint64_t> Record) {
   if (Record.empty())
     return error("Invalid record");
   unsigned ModuleVersion = Record[0];
-  if (ModuleVersion > 2)
+  if (ModuleVersion > 11)
     return error("Invalid value");
   UseStrtab = ModuleVersion >= 2;
   return ModuleVersion;
