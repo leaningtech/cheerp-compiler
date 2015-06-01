@@ -427,9 +427,7 @@ static bool haveSameSpecialState(const Instruction *I1, const Instruction *I2,
            SI->getSyncScopeID() == cast<StoreInst>(I2)->getSyncScopeID();
   if (const CmpInst *CI = dyn_cast<CmpInst>(I1))
     return CI->getPredicate() == cast<CmpInst>(I2)->getPredicate();
-  if (const CallInst *CI = dyn_cast<CallInst>(I1)) {
-    if (CI->hasFnAttr(Attribute::IsCast))
-      return false;
+  if (const CallInst *CI = dyn_cast<CallInst>(I1))
     return CI->isTailCall() == cast<CallInst>(I2)->isTailCall() &&
            CI->getCallingConv() == cast<CallInst>(I2)->getCallingConv() &&
            CI->getAttributes() == cast<CallInst>(I2)->getAttributes() &&
