@@ -2319,6 +2319,22 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_IntegralToFloating:
   case CK_FloatingToIntegral:
   case CK_FloatingCast:
+    if (cast<BuiltinType>(CE->getType())->isHighInt()) {
+      Value *Elt = Visit(E);
+      llvm::Type *llvmTy = CGF.getTypes().ConvertTypeForMem(CE->getType());
+      llvm::AllocaInst *highint = Builder.CreateAlloca(llvmTy, NULL, "highint");
+
+      llvm::Value* highPart = llvm::ConstantInt::get(CGF.Int32Ty, 0);
+      llvm::Value* lowPart = Builder.CreateZExt(Elt, CGF.Int32Ty);
+
+      llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
+      llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
+
+      Builder.CreateStore(highPart, highLoc, /* isVolatile */ false);
+      Builder.CreateStore(lowPart, lowLoc, /* isVolatile */ false);
+
+      return highint;
+    }
     return EmitScalarConversion(Visit(E), E->getType(), DestTy,
                                 CE->getExprLoc());
   case CK_BooleanToSignedIntegral: {
