@@ -1,3 +1,9 @@
+cheerp-libcxx (1.1-1) utopic; urgency=medium
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Tue, 02 Jun 2015 23:05:01 +0200
+
 cheerp-libcxx (1.0-1) trusty; urgency=medium
 
   * New release
