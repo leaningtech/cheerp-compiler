@@ -1848,6 +1848,21 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
                                         LValueBaseInfo BaseInfo,
                                         TBAAAccessInfo TBAAInfo,
                                         bool isInit, bool isNontemporal) {
+  if (cast<BuiltinType>(Ty)->isHighInt()) {
+    llvm::Value *highLoc = Builder.CreateConstGEP2_32(Value, 0, 0);
+    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(Value, 0, 1);
+
+    llvm::Value *highPart = Builder.CreateLoad(highLoc);
+    llvm::Value *lowPart = Builder.CreateLoad(lowLoc);
+
+    highLoc = Builder.CreateConstGEP2_32(Addr, 0, 0);
+    lowLoc = Builder.CreateConstGEP2_32(Addr, 0, 1);
+
+    Builder.CreateStore(highPart, highLoc, Volatile);
+    Builder.CreateStore(lowPart, lowLoc, Volatile);
+    return;
+  }
+
   llvm::Type *SrcTy = Value->getType();
   if (const auto *ClangVecTy = Ty->getAs<VectorType>()) {
     auto *VecTy = dyn_cast<llvm::FixedVectorType>(SrcTy);
