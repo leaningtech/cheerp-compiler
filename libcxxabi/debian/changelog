@@ -1,3 +1,9 @@
+cheerp-libcxxabi (1.1-1) utopic; urgency=medium
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Wed, 03 Jun 2015 10:34:16 +0200
+
 cheerp-libcxxabi (1.0-1) trusty; urgency=medium
 
   * New release
