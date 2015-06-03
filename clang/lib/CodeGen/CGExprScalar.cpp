@@ -2319,7 +2319,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_IntegralToFloating:
   case CK_FloatingToIntegral:
   case CK_FloatingCast:
-    if (cast<BuiltinType>(CE->getType())->isHighInt()) {
+    if (cast<BuiltinType>(CE->getType().getCanonicalType())->isHighInt()) {
       Value *Elt = Visit(E);
       llvm::Type *llvmTy = CGF.getTypes().ConvertTypeForMem(CE->getType());
       llvm::AllocaInst *highint = Builder.CreateAlloca(llvmTy, NULL, "highint");
