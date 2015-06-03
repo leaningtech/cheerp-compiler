@@ -1840,7 +1840,7 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
     if (GV->isThreadLocal())
       Addr = Addr.withPointer(Builder.CreateThreadLocalAddress(GV));
 
-  if (cast<BuiltinType>(Ty)->isHighInt()) {
+  if (cast<BuiltinType>(Ty.getCanonicalType())->isHighInt()) {
     llvm::Value *highLoc = Builder.CreateConstGEP2_32(Value, 0, 0);
     llvm::Value *lowLoc = Builder.CreateConstGEP2_32(Value, 0, 1);
 
