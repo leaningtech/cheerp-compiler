@@ -4014,6 +4014,25 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
   Value *Result;
   QualType LHSTy = E->getLHS()->getType();
   QualType RHSTy = E->getRHS()->getType();
+
+  if (cast<BuiltinType>(LHSTy.getCanonicalType())->isHighInt()) {
+    Value *LHS = Visit(E->getLHS());
+    Value *RHS = Visit(E->getRHS());
+
+    llvm::Value *leftHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(LHS, 0, 0));
+    llvm::Value *leftLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(LHS, 0, 1));
+    llvm::Value *rightHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(RHS, 0, 0));
+    llvm::Value *rightLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(RHS, 0, 1));
+
+    Value *highCmp = Builder.CreateICmp((llvm::ICmpInst::Predicate)SICmpOpc,
+            leftHigh, rightHigh, "cmp");
+
+    Value *lowCmp = Builder.CreateICmp((llvm::ICmpInst::Predicate)SICmpOpc,
+            leftLow, rightLow, "cmp");
+
+    return Builder.CreateAnd(highCmp, lowCmp);
+  }
+
   if (const MemberPointerType *MPT = LHSTy->getAs<MemberPointerType>()) {
     assert(E->getOpcode() == BO_EQ ||
            E->getOpcode() == BO_NE);
