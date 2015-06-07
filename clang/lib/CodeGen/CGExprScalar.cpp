@@ -449,7 +449,23 @@ public:
 
   // Leaves.
   Value *VisitIntegerLiteral(const IntegerLiteral *E) {
-    return Builder.getInt(E->getValue());
+    if (cast<BuiltinType>(E->getType().getCanonicalType())->isHighInt()) {
+      assert(cast<BuiltinType>(E->getType())->getKind() == BuiltinType::ULongLong || cast<BuiltinType>(E->getType())->getKind() == BuiltinType::LongLong);
+      llvm::Type* t = CGF.ConvertType(E->getType());
+      llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
+
+      llvm::Value* highPart = Builder.getInt(E->getValue().getHiBits(32).trunc(32));
+      llvm::Value* lowPart = Builder.getInt(E->getValue().trunc(32));
+
+      llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
+      llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
+
+      Builder.CreateStore(highPart, highLoc, /* isVolatile */ false);
+      Builder.CreateStore(lowPart, lowLoc, /* isVolatile */ false);
+
+      return highint;
+    } else
+      return Builder.getInt(E->getValue());
   }
   Value *VisitFixedPointLiteral(const FixedPointLiteral *E) {
     return Builder.getInt(E->getValue());
