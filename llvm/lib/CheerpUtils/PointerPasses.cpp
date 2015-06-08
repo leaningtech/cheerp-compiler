@@ -390,6 +390,8 @@ bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 				continue;
 			if (! phi->getType()->isPointerTy() )
 				continue;
+			if (! phi->getNumIncomingValues() < 2 )
+				continue;
 			Changed |= PHIVisitor(phiMap).visitPHI(phi);
 		}
 	}
