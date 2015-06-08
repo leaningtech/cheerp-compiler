@@ -2875,6 +2875,21 @@ Value *ScalarExprEmitter::VisitUnaryMinus(const UnaryOperator *E) {
 Value *ScalarExprEmitter::VisitUnaryNot(const UnaryOperator *E) {
   TestAndClearIgnoreResultAssign();
   Value *Op = Visit(E->getSubExpr());
+  if (isa<BuiltinType>(E->getType().getCanonicalType())
+      && cast<BuiltinType>(E->getType().getCanonicalType())->isHighInt()) {
+    llvm::Value *lhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Op, 0, 0));
+    llvm::Value *lhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Op, 0, 1));
+    llvm::Value *high = Builder.CreateNot(lhsHigh, "not");
+    llvm::Value *low = Builder.CreateNot(lhsLow, "not");
+
+    llvm::Type* t = CGF.ConvertType(E->getType().getCanonicalType());
+    llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
+    llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
+    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
+    Builder.CreateStore(high, highLoc, /*volatile*/false);
+    Builder.CreateStore(low, lowLoc, /*volatile*/false);
+    return highint;
+  }
   return Builder.CreateNot(Op, "neg");
 }
 
