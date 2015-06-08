@@ -1707,6 +1707,11 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
                                                LValueBaseInfo BaseInfo,
                                                TBAAAccessInfo TBAAInfo,
                                                bool isNontemporal) {
+  if (isa<BuiltinType>(Ty.getCanonicalType())
+      && cast<BuiltinType>(Ty.getCanonicalType())->isHighInt()) {
+      return Addr;
+  }
+
   if (const auto *ClangVecTy = Ty->getAs<VectorType>()) {
     // Boolean vectors use `iN` as storage type.
     if (ClangVecTy->isExtVectorBoolType()) {
