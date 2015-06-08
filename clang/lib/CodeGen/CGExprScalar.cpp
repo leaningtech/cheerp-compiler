@@ -4019,9 +4019,47 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
 }
 
 Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
+  Value *RHS = Ops.RHS;
+
+  if (isa<BuiltinType>(Ops.Ty.getCanonicalType())
+      && cast<BuiltinType>(Ops.Ty.getCanonicalType())->isHighInt()) {
+    // { h, l } >> N =>
+    // { ( N >= 32) ? 0 : h >> N ,
+    //   ( N >= 32) ? h >> (N - 32) : H << (32 - N) | L >> N }
+    assert(RHS->getType()->isIntegerTy(32));
+    llvm::Value* LHS = Ops.LHS;
+
+    llvm::Value *highLoc = Builder.CreateConstGEP2_32(LHS, 0, 0);
+    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(LHS, 0, 1);
+    llvm::Value *h = Builder.CreateLoad(highLoc);
+    llvm::Value *l = Builder.CreateLoad(lowLoc);
+
+    llvm::Value* NGE32 = Builder.CreateICmpUGE(RHS, Builder.getInt32(32));
+    llvm::Value* NMinus32 = Builder.CreateSub(RHS, Builder.getInt32(32));
+    llvm::Value* _32MinusN = Builder.CreateSub(Builder.getInt32(32), RHS);
+
+    // Compute values for N >= 32, case A
+    llvm::Value* shrHForCaseA = Ops.Ty->hasUnsignedIntegerRepresentation() ? Builder.getInt32(0) : Builder.CreateAShr(h, Builder.getInt32(31));
+    llvm::Value* shrLForCaseA = Builder.CreateLShr(h, NMinus32);
+    // Compute values for N < 32, case B
+    llvm::Value* shrHForCaseB = Ops.Ty->hasUnsignedIntegerRepresentation() ? Builder.CreateLShr(h, NMinus32) : Builder.CreateAShr(h, NMinus32);
+    llvm::Value* shrLForCaseB = Builder.CreateOr(Builder.CreateShl(h, _32MinusN), Builder.CreateLShr(l, RHS));
+    // Compute final values
+    llvm::Value* shrH = Builder.CreateSelect(NGE32, shrHForCaseA, shrHForCaseB);
+    llvm::Value* shrL = Builder.CreateSelect(NGE32, shrLForCaseA, shrLForCaseB);
+
+    llvm::Type* t = CGF.ConvertType(Ops.Ty.getCanonicalType());
+    llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
+    highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
+    lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
+    Builder.CreateStore(shrH, highLoc, /*volatile*/false);
+    Builder.CreateStore(shrL, lowLoc, /*volatile*/false);
+
+    return highint;
+  }
+
   // LLVM requires the LHS and RHS to be the same type: promote or truncate the
   // RHS to the same size as the LHS.
-  Value *RHS = Ops.RHS;
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
 
