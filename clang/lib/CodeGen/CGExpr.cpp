@@ -1699,6 +1699,11 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
                                                LValueBaseInfo BaseInfo,
                                                TBAAAccessInfo TBAAInfo,
                                                bool isNontemporal) {
+  if (isa<BuiltinType>(Ty.getCanonicalType())
+      && cast<BuiltinType>(Ty.getCanonicalType())->isHighInt()) {
+      return Addr;
+  }
+
   if (!CGM.getCodeGenOpts().PreserveVec3Type) {
     // For better performance, handle vector loads differently.
     if (Ty->isVectorType()) {
