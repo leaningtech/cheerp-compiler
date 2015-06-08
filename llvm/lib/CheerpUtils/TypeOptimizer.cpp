@@ -587,6 +587,12 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			newTys.insert(newTys.end(),localTys,localTys+3);
 			break;
 		}
+		case Intrinsic::memset:
+		{
+			Type* localTys[] = { FT->getParamType(0), FT->getParamType(2) };
+			newTys.insert(newTys.end(),localTys,localTys+2);
+			break;
+		}
 	}
 	if(!fixDepedendentIntrinsic((Intrinsic::ID)F->getIntrinsicID(), newTys))
 	{
@@ -1022,7 +1028,7 @@ bool TypeOptimizer::runOnModule(Module& M)
 	while(!pendingStructTypes.empty())
 		rewriteType(*pendingStructTypes.begin());
 	assert(pendingFunctions.empty());
-	// Reuse pendingFunctions to store intrinsics that should be delete
+	// Reuse pendingFunctions to store intrinsics that should be deleted
 	for(Function& F: M)
 	{
 		if(F.getIntrinsicID() && F.use_empty())
