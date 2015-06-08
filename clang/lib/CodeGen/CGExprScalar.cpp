@@ -812,8 +812,8 @@ public:
       llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
       llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
       llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
-      Builder.CreateStore(high, highLoc, /* isVolatile */ false);
-      Builder.CreateStore(low, lowLoc, /* isVolatile */ false);
+      Builder.CreateStore(high, highLoc, /*volatile*/false);
+      Builder.CreateStore(low, lowLoc, /*volatile*/false);
       return highint;
     } else {
       return Builder.CreateAnd(Ops.LHS, Ops.RHS, "and");
@@ -823,6 +823,23 @@ public:
     return Builder.CreateXor(Ops.LHS, Ops.RHS, "xor");
   }
   Value *EmitOr (const BinOpInfo &Ops) {
+    if (isa<BuiltinType>(Ops.Ty.getCanonicalType())
+        && cast<BuiltinType>(Ops.Ty.getCanonicalType())->isHighInt()) {
+      llvm::Value *lhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.LHS, 0, 0));
+      llvm::Value *lhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.LHS, 0, 1));
+      llvm::Value *rhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.RHS, 0, 0));
+      llvm::Value *rhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.RHS, 0, 1));
+      llvm::Value *high = Builder.CreateOr(lhsHigh, rhsHigh, "or");
+      llvm::Value *low = Builder.CreateOr(lhsLow, rhsLow, "or");
+
+      llvm::Type* t = CGF.ConvertType(Ops.Ty.getCanonicalType());
+      llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
+      llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
+      llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
+      Builder.CreateStore(high, highLoc, /*volatile*/false);
+      Builder.CreateStore(low, lowLoc, /*volatile*/false);
+      return highint;
+    }
     return Builder.CreateOr(Ops.LHS, Ops.RHS, "or");
   }
 
