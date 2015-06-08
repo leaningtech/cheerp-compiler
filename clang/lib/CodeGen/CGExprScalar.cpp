@@ -4039,10 +4039,12 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
     llvm::Value* _32MinusN = Builder.CreateSub(Builder.getInt32(32), RHS);
 
     // Compute values for N >= 32, case A
-    llvm::Value* shrHForCaseA = Ops.Ty->hasUnsignedIntegerRepresentation() ? Builder.getInt32(0) : Builder.CreateAShr(h, Builder.getInt32(31));
+    // TODO: llvm::Value* shrHForCaseA = Ops.Ty->hasUnsignedIntegerRepresentation() ? Builder.getInt32(0) : Builder.CreateAShr(h, Builder.getInt32(31));
+    llvm::Value* shrHForCaseA = Builder.getInt32(0);
     llvm::Value* shrLForCaseA = Builder.CreateLShr(h, NMinus32);
     // Compute values for N < 32, case B
-    llvm::Value* shrHForCaseB = Ops.Ty->hasUnsignedIntegerRepresentation() ? Builder.CreateLShr(h, NMinus32) : Builder.CreateAShr(h, NMinus32);
+    // TODO: llvm::Value* shrHForCaseB = Ops.Ty->hasUnsignedIntegerRepresentation() ? Builder.CreateLShr(h, NMinus32) : Builder.CreateAShr(h, NMinus32);
+    llvm::Value* shrHForCaseB = Builder.CreateLShr(h, RHS);
     llvm::Value* shrLForCaseB = Builder.CreateOr(Builder.CreateShl(h, _32MinusN), Builder.CreateLShr(l, RHS));
     // Compute final values
     llvm::Value* shrH = Builder.CreateSelect(NGE32, shrHForCaseA, shrHForCaseB);
