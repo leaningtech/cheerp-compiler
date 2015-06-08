@@ -631,6 +631,11 @@ static Instruction *combineLoadToOperationType(InstCombinerImpl &IC,
     return nullptr;
 
   const DataLayout &DL = IC.getDataLayout();
+  // Cheerp: doing this would break pointer type analysis on Cheerp
+  if (!DL.isByteAddressable())
+    return nullptr;
+
+  Type *Ty = LI.getType();
 
   // Fold away bit casts of the loaded value by loading the desired type.
   // Note that we should not do this for pointer<->integer casts,
@@ -1145,7 +1150,7 @@ static Value *likeBitCastFromVector(InstCombinerImpl &IC, Value *V) {
 /// the caller must erase the store instruction. We have to let the caller erase
 /// the store instruction as otherwise there is no way to signal whether it was
 /// combined or not: IC.EraseInstFromFunction returns a null pointer.
-static bool combineStoreToValueType(InstCombinerImpl &IC, StoreInst &SI) {
+static bool combineStoreToValueType(InstCombinerImpl &IC, StoreInst &SI, const DataLayout& DL) {
   // FIXME: We could probably with some care handle both volatile and ordered
   // atomic stores here but it isn't clear that this is important.
   if (!SI.isUnordered())
@@ -1153,6 +1158,10 @@ static bool combineStoreToValueType(InstCombinerImpl &IC, StoreInst &SI) {
 
   // swifterror values can't be bitcasted.
   if (SI.getPointerOperand()->isSwiftError())
+    return false;
+
+  // Cheerp: doing this would break pointer type analysis on Cheerp
+  if (!DL.isByteAddressable())
     return false;
 
   Value *V = SI.getValueOperand();
@@ -1373,7 +1382,7 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
   Value *Ptr = SI.getOperand(1);
 
   // Try to canonicalize the stored type.
-  if (combineStoreToValueType(*this, SI))
+  if (combineStoreToValueType(*this, SI, DL))
     return eraseInstFromFunction(SI);
 
   // Attempt to improve the alignment.
