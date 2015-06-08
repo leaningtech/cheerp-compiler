@@ -1840,16 +1840,15 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
     if (GV->isThreadLocal())
       Addr = Addr.withPointer(Builder.CreateThreadLocalAddress(GV));
 
-  if (cast<BuiltinType>(Ty.getCanonicalType())->isHighInt()) {
+  if (isa<BuiltinType>(Ty.getCanonicalType())
+      && cast<BuiltinType>(Ty.getCanonicalType())->isHighInt()) {
     llvm::Value *highLoc = Builder.CreateConstGEP2_32(Value, 0, 0);
     llvm::Value *lowLoc = Builder.CreateConstGEP2_32(Value, 0, 1);
-
     llvm::Value *highPart = Builder.CreateLoad(highLoc);
     llvm::Value *lowPart = Builder.CreateLoad(lowLoc);
 
     highLoc = Builder.CreateConstGEP2_32(Addr, 0, 0);
     lowLoc = Builder.CreateConstGEP2_32(Addr, 0, 1);
-
     Builder.CreateStore(highPart, highLoc, Volatile);
     Builder.CreateStore(lowPart, lowLoc, Volatile);
     return;
