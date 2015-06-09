@@ -3878,6 +3878,30 @@ Value *ScalarExprEmitter::EmitFixedPointBinOp(const BinOpInfo &op) {
 }
 
 Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
+  if (isa<BuiltinType>(op.Ty.getCanonicalType())
+      && cast<BuiltinType>(op.Ty.getCanonicalType())->isHighInt()) {
+    llvm::Value *lhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.LHS, 0, 0));
+    llvm::Value *lhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.LHS, 0, 1));
+    llvm::Value *rhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.RHS, 0, 0));
+    llvm::Value *rhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.RHS, 0, 1));
+
+    llvm::Value *highNormal = Builder.CreateSub(lhsHigh, rhsHigh, "sub");
+    llvm::Value *low = Builder.CreateSub(lhsLow, rhsLow, "sub");
+
+    llvm::Value *one = Builder.getInt32(1);
+    llvm::Value *highMinusOne = Builder.CreateSub(highNormal, one, "sub");
+
+    llvm::Value *overflow = Builder.CreateICmpUGT(rhsLow, lhsLow);
+    llvm::Value *high = Builder.CreateSelect(overflow, highMinusOne, highNormal);
+
+    llvm::Type* t = CGF.ConvertType(op.Ty.getCanonicalType());
+    llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
+    llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
+    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
+    Builder.CreateStore(high, highLoc, /*volatile*/false);
+    Builder.CreateStore(low, lowLoc, /*volatile*/false);
+    return highint;
+  }
   // The LHS is always a pointer if either side is.
   if (!op.LHS->getType()->isPointerTy()) {
     if (op.Ty->isSignedIntegerOrEnumerationType()) {
