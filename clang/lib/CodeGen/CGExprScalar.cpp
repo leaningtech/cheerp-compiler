@@ -3663,6 +3663,34 @@ static Value* tryEmitFMulAdd(const BinOpInfo &op,
 }
 
 Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
+  if (isa<BuiltinType>(op.Ty.getCanonicalType())
+      && cast<BuiltinType>(op.Ty.getCanonicalType())->isHighInt()) {
+    llvm::Value *lhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.LHS, 0, 0));
+    llvm::Value *lhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.LHS, 0, 1));
+    llvm::Value *rhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.RHS, 0, 0));
+    llvm::Value *rhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.RHS, 0, 1));
+
+    llvm::Value *highNormal = Builder.CreateAdd(lhsHigh, rhsHigh, "add");
+    llvm::Value *low = Builder.CreateAdd(lhsLow, rhsLow, "add");
+
+    llvm::Value *one = Builder.getInt32(1);
+    llvm::Value *highPlusOne = Builder.CreateAdd(highNormal, one, "add");
+
+    // Check if the low bits of the highint will overflow
+    llvm::Value *max = Builder.getInt32(0xffffffff);
+    llvm::Value *difference = Builder.CreateSub(max, rhsLow);
+    llvm::Value *overflow = Builder.CreateICmpUGT(lhsLow, difference);
+    llvm::Value *high = Builder.CreateSelect(overflow, highPlusOne, highNormal);
+
+    llvm::Type* t = CGF.ConvertType(op.Ty.getCanonicalType());
+    llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
+    llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
+    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
+    Builder.CreateStore(high, highLoc, /*volatile*/false);
+    Builder.CreateStore(low, lowLoc, /*volatile*/false);
+    return highint;
+  }
+
   if (op.LHS->getType()->isPointerTy() ||
       op.RHS->getType()->isPointerTy())
     return emitPointerArithmetic(CGF, op, CodeGenFunction::NotSubtraction);
