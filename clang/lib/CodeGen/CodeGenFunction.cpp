@@ -311,6 +311,16 @@ static void EmitIfUsed(CodeGenFunction &CGF, llvm::BasicBlock *BB) {
   delete BB;
 }
 
+llvm::Value *CodeGenFunction::EmitHighInt(QualType Ty, llvm::Value *high, llvm::Value *low) {
+  llvm::Type* T = ConvertType(Ty);
+  llvm::AllocaInst *highint = Builder.CreateAlloca(T);
+  llvm::Value *highLoc = Builder.CreateConstGEP2_32(T, highint, 0, 0);
+  llvm::Value *lowLoc = Builder.CreateConstGEP2_32(T, highint, 0, 1);
+  Builder.CreateStore(high, highLoc, /*volatile*/false);
+  Builder.CreateStore(low, lowLoc, /*volatile*/false);
+  return highint;
+}
+
 void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   assert(BreakContinueStack.empty() &&
          "mismatched push/pop in break/continue stack!");

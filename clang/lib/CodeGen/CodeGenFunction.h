@@ -2092,6 +2092,10 @@ public:
   /// return block is is avoided.
   llvm::DebugLoc EmitReturnBlock();
 
+  /// EmitHighInt - Emit an alloca that represents the int64_t type and set the
+  // higher and lower bits to `high' and `low' respectively.
+  llvm::Value *EmitHighInt(QualType Ty, llvm::Value *high, llvm::Value *low);
+
   /// FinishFunction - Complete IR generation of the current function. It is
   /// legal to call this function even if there is no current insertion point.
   void FinishFunction(SourceLocation EndLoc=SourceLocation());
