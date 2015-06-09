@@ -2096,6 +2096,20 @@ public:
   // higher and lower bits to `high' and `low' respectively.
   llvm::Value *EmitHighInt(QualType Ty, llvm::Value *high, llvm::Value *low);
 
+  /// EmitLoadHighBitsOfHighInt - Emit a load instruction that returns the high
+  /// bits of anint64_t type.
+  llvm::Value *EmitLoadHighBitsOfHighInt(llvm::Value *highint);
+
+  /// EmitLoadLowBitsOfHighInt - Emit a load instruction that returns the low
+  /// bits of anint64_t type.
+  llvm::Value *EmitLoadLowBitsOfHighInt(llvm::Value *highint);
+
+  /// IsHighInt - Return true if the canonical type is a highint (int64_t).
+  bool IsHighInt(QualType Ty) {
+    return isa<BuiltinType>(Ty.getCanonicalType())
+        && cast<BuiltinType>(Ty.getCanonicalType())->isHighInt();
+  }
+
   /// FinishFunction - Complete IR generation of the current function. It is
   /// legal to call this function even if there is no current insertion point.
   void FinishFunction(SourceLocation EndLoc=SourceLocation());

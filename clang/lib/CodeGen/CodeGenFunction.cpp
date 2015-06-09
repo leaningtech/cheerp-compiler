@@ -321,6 +321,14 @@ llvm::Value *CodeGenFunction::EmitHighInt(QualType Ty, llvm::Value *high, llvm::
   return highint;
 }
 
+llvm::Value *CodeGenFunction::EmitLoadHighBitsOfHighInt(llvm::Value *highint) {
+    return Builder.CreateLoad(Builder.CreateConstGEP2_32(highint, 0, 0));
+}
+
+llvm::Value *CodeGenFunction::EmitLoadLowBitsOfHighInt(llvm::Value *highint) {
+    return Builder.CreateLoad(Builder.CreateConstGEP2_32(highint, 0, 1));
+}
+
 void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   assert(BreakContinueStack.empty() &&
          "mismatched push/pop in break/continue stack!");
