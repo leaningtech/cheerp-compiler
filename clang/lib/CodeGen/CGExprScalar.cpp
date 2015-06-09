@@ -2429,6 +2429,20 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
                                 CE->getExprLoc(), Opts);
   }
   case CK_IntegralToBoolean:
+    // Type cast from an highint
+    if (isa<BuiltinType>(E->getType().getCanonicalType())
+        && cast<BuiltinType>(E->getType().getCanonicalType())->isHighInt()) {
+      Value *Elt = Visit(E);
+      llvm::Value *eltHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Elt, 0, 0));
+      llvm::Value *eltLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Elt, 0, 1));
+
+      Value *Zero = Builder.getInt32(0);
+      Value *high = Builder.CreateICmp(llvm::CmpInst::ICMP_NE, eltHigh, Zero, "cmp");
+      Value *low = Builder.CreateICmp(llvm::CmpInst::ICMP_NE, eltLow, Zero, "cmp");
+      Value *result = Builder.CreateOr(high, low, "or");
+
+      return EmitIntToBoolConversion(result);
+    }
     return EmitIntToBoolConversion(Visit(E));
   case CK_PointerToBoolean:
     return EmitPointerToBoolConversion(Visit(E), E->getType());
