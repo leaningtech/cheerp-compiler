@@ -1203,7 +1203,7 @@ void DuettoWriter::compileConstant(const Constant* c)
 	else if(GlobalAlias::classof(c))
 	{
 		const GlobalAlias* a=cast<const GlobalAlias>(c);
-		compileOperand(a->getAliasee());
+		compileConstant(a->getAliasee());
 	}
 	else if(GlobalValue::classof(c))
 	{
