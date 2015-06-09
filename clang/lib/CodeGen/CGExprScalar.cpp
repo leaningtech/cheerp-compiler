@@ -450,22 +450,11 @@ public:
 
   // Leaves.
   Value *VisitIntegerLiteral(const IntegerLiteral *E) {
-    if (isa<BuiltinType>(E->getType().getCanonicalType())
-        && cast<BuiltinType>(E->getType().getCanonicalType())->isHighInt()) {
+    if (CGF.IsHighInt(E->getType())) {
       assert(cast<BuiltinType>(E->getType())->getKind() == BuiltinType::ULongLong || cast<BuiltinType>(E->getType())->getKind() == BuiltinType::LongLong);
-      llvm::Type* t = CGF.ConvertType(E->getType());
-      llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
-
-      llvm::Value* highPart = Builder.getInt(E->getValue().getHiBits(32).trunc(32));
-      llvm::Value* lowPart = Builder.getInt(E->getValue().trunc(32));
-
-      llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
-      llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
-
-      Builder.CreateStore(highPart, highLoc, /* isVolatile */ false);
-      Builder.CreateStore(lowPart, lowLoc, /* isVolatile */ false);
-
-      return highint;
+      llvm::Value *high = Builder.getInt(E->getValue().getHiBits(32).trunc(32));
+      llvm::Value *low = Builder.getInt(E->getValue().trunc(32));
+      return CGF.EmitHighInt(E->getType(), high, low);
     } else
       return Builder.getInt(E->getValue());
   }
@@ -805,62 +794,38 @@ public:
   Value *EmitShl(const BinOpInfo &Ops);
   Value *EmitShr(const BinOpInfo &Ops);
   Value *EmitAnd(const BinOpInfo &Ops) {
-    if (isa<BuiltinType>(Ops.Ty.getCanonicalType())
-        && cast<BuiltinType>(Ops.Ty.getCanonicalType())->isHighInt()) {
-      llvm::Value *lhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.LHS, 0, 0));
-      llvm::Value *lhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.LHS, 0, 1));
-      llvm::Value *rhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.RHS, 0, 0));
-      llvm::Value *rhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.RHS, 0, 1));
+    if (CGF.IsHighInt(Ops.Ty)) {
+      llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.LHS);
+      llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
+      llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
+      llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
       llvm::Value *high = Builder.CreateAnd(lhsHigh, rhsHigh, "and");
       llvm::Value *low = Builder.CreateAnd(lhsLow, rhsLow, "and");
-
-      llvm::Type* t = CGF.ConvertType(Ops.Ty.getCanonicalType());
-      llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
-      llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
-      llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
-      Builder.CreateStore(high, highLoc, /*volatile*/false);
-      Builder.CreateStore(low, lowLoc, /*volatile*/false);
-      return highint;
+      return CGF.EmitHighInt(Ops.Ty, high, low);
     }
     return Builder.CreateAnd(Ops.LHS, Ops.RHS, "and");
   }
   Value *EmitXor(const BinOpInfo &Ops) {
-    if (isa<BuiltinType>(Ops.Ty.getCanonicalType())
-        && cast<BuiltinType>(Ops.Ty.getCanonicalType())->isHighInt()) {
-      llvm::Value *lhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.LHS, 0, 0));
-      llvm::Value *lhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.LHS, 0, 1));
-      llvm::Value *rhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.RHS, 0, 0));
-      llvm::Value *rhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.RHS, 0, 1));
+    if (CGF.IsHighInt(Ops.Ty)) {
+      llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.LHS);
+      llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
+      llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
+      llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
       llvm::Value *high = Builder.CreateXor(lhsHigh, rhsHigh, "xor");
       llvm::Value *low = Builder.CreateXor(lhsLow, rhsLow, "xor");
-
-      llvm::Type* t = CGF.ConvertType(Ops.Ty.getCanonicalType());
-      llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
-      llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
-      llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
-      Builder.CreateStore(high, highLoc, /*volatile*/false);
-      Builder.CreateStore(low, lowLoc, /*volatile*/false);
-      return highint;
+      return CGF.EmitHighInt(Ops.Ty, high, low);
     }
     return Builder.CreateXor(Ops.LHS, Ops.RHS, "xor");
   }
   Value *EmitOr (const BinOpInfo &Ops) {
-    if (isa<BuiltinType>(Ops.Ty.getCanonicalType())
-        && cast<BuiltinType>(Ops.Ty.getCanonicalType())->isHighInt()) {
-      llvm::Value *lhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.LHS, 0, 0));
-      llvm::Value *lhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.LHS, 0, 1));
-      llvm::Value *rhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.RHS, 0, 0));
-      llvm::Value *rhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Ops.RHS, 0, 1));
+    if (CGF.IsHighInt(Ops.Ty)) {
+      llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.LHS);
+      llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
+      llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
+      llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
       llvm::Value *high = Builder.CreateOr(lhsHigh, rhsHigh, "or");
       llvm::Value *low = Builder.CreateOr(lhsLow, rhsLow, "or");
-
-      llvm::Type* t = CGF.ConvertType(Ops.Ty.getCanonicalType());
-      llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
-      llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
-      llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
-      Builder.CreateStore(high, highLoc, /*volatile*/false);
-      Builder.CreateStore(low, lowLoc, /*volatile*/false);
-      return highint;
+      return CGF.EmitHighInt(Ops.Ty, high, low);
     }
     return Builder.CreateOr(Ops.LHS, Ops.RHS, "or");
   }
@@ -2515,11 +2480,10 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   }
   case CK_IntegralToBoolean:
     // Type cast from an highint
-    if (isa<BuiltinType>(E->getType().getCanonicalType())
-        && cast<BuiltinType>(E->getType().getCanonicalType())->isHighInt()) {
+    if (CGF.IsHighInt(E->getType())) {
       Value *Elt = Visit(E);
-      llvm::Value *eltHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(Elt, 0, 0));
-      llvm::Value *eltLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(Elt, 0, 1));
+      llvm::Value *eltHigh = CGF.EmitLoadHighBitsOfHighInt(Elt);
+      llvm::Value *eltLow = CGF.EmitLoadLowBitsOfHighInt(Elt);
 
       Value *Zero = Builder.getInt32(0);
       Value *high = Builder.CreateICmp(llvm::CmpInst::ICMP_NE, eltHigh, Zero, "cmp");
@@ -3925,12 +3889,11 @@ static Value* tryEmitFMulAdd(const BinOpInfo &op,
 }
 
 Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
-  if (isa<BuiltinType>(op.Ty.getCanonicalType())
-      && cast<BuiltinType>(op.Ty.getCanonicalType())->isHighInt()) {
-    llvm::Value *lhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.LHS, 0, 0));
-    llvm::Value *lhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.LHS, 0, 1));
-    llvm::Value *rhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.RHS, 0, 0));
-    llvm::Value *rhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.RHS, 0, 1));
+  if (CGF.IsHighInt(op.Ty)) {
+    llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(op.LHS);
+    llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(op.LHS);
+    llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(op.RHS);
+    llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(op.RHS);
 
     llvm::Value *highNormal = Builder.CreateAdd(lhsHigh, rhsHigh, "add");
     llvm::Value *low = Builder.CreateAdd(lhsLow, rhsLow, "add");
@@ -3945,13 +3908,7 @@ Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
     llvm::Value *overflow = Builder.CreateICmpUGT(lhsLow, difference);
     llvm::Value *high = Builder.CreateSelect(overflow, highPlusOne, highNormal);
 
-    llvm::Type* t = CGF.ConvertType(op.Ty.getCanonicalType());
-    llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
-    llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
-    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
-    Builder.CreateStore(high, highLoc, /*volatile*/false);
-    Builder.CreateStore(low, lowLoc, /*volatile*/false);
-    return highint;
+    return CGF.EmitHighInt(op.Ty, high, low);
   }
 
   if (op.LHS->getType()->isPointerTy() ||
@@ -4106,12 +4063,11 @@ Value *ScalarExprEmitter::EmitFixedPointBinOp(const BinOpInfo &op) {
 }
 
 Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
-  if (isa<BuiltinType>(op.Ty.getCanonicalType())
-      && cast<BuiltinType>(op.Ty.getCanonicalType())->isHighInt()) {
-    llvm::Value *lhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.LHS, 0, 0));
-    llvm::Value *lhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.LHS, 0, 1));
-    llvm::Value *rhsHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.RHS, 0, 0));
-    llvm::Value *rhsLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(op.RHS, 0, 1));
+  if (CGF.IsHighInt(op.Ty)) {
+    llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(op.LHS);
+    llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(op.LHS);
+    llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(op.RHS);
+    llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(op.RHS);
 
     llvm::Value *highNormal = Builder.CreateSub(lhsHigh, rhsHigh, "sub");
     llvm::Value *low = Builder.CreateSub(lhsLow, rhsLow, "sub");
@@ -4122,13 +4078,7 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
     llvm::Value *overflow = Builder.CreateICmpUGT(rhsLow, lhsLow);
     llvm::Value *high = Builder.CreateSelect(overflow, highMinusOne, highNormal);
 
-    llvm::Type* t = CGF.ConvertType(op.Ty.getCanonicalType());
-    llvm::AllocaInst *highint = Builder.CreateAlloca(t, NULL, "highint");
-    llvm::Value *highLoc = Builder.CreateConstGEP2_32(highint, 0, 0);
-    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(highint, 0, 1);
-    Builder.CreateStore(high, highLoc, /*volatile*/false);
-    Builder.CreateStore(low, lowLoc, /*volatile*/false);
-    return highint;
+    return CGF.EmitHighInt(op.Ty, high, low);
   }
   // The LHS is always a pointer if either side is.
   if (!op.LHS->getType()->isPointerTy()) {
@@ -4417,15 +4367,14 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
   QualType LHSTy = E->getLHS()->getType();
   QualType RHSTy = E->getRHS()->getType();
 
-  if (isa<BuiltinType>(LHSTy.getCanonicalType())
-      && cast<BuiltinType>(LHSTy.getCanonicalType())->isHighInt()) {
+  if (CGF.IsHighInt(LHSTy)) {
     Value *LHS = Visit(E->getLHS());
     Value *RHS = Visit(E->getRHS());
 
-    llvm::Value *leftHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(LHS, 0, 0));
-    llvm::Value *leftLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(LHS, 0, 1));
-    llvm::Value *rightHigh = Builder.CreateLoad(Builder.CreateConstGEP2_32(RHS, 0, 0));
-    llvm::Value *rightLow = Builder.CreateLoad(Builder.CreateConstGEP2_32(RHS, 0, 1));
+    llvm::Value *leftHigh = CGF.EmitLoadHighBitsOfHighInt(LHS);
+    llvm::Value *leftLow = CGF.EmitLoadLowBitsOfHighInt(LHS);
+    llvm::Value *rightHigh = CGF.EmitLoadHighBitsOfHighInt(RHS);
+    llvm::Value *rightLow = CGF.EmitLoadLowBitsOfHighInt(RHS);
 
     Value *highCmp = Builder.CreateICmp((llvm::ICmpInst::Predicate)SICmpOpc,
             leftHigh, rightHigh, "cmp");
