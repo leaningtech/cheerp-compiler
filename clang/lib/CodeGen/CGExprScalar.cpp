@@ -3676,7 +3676,8 @@ Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
     llvm::Value *one = Builder.getInt32(1);
     llvm::Value *highPlusOne = Builder.CreateAdd(highNormal, one, "add");
 
-    // Check if the low bits of the highint will overflow
+    // Check if the low bits of the highint will overflow, and add one to the
+    // high bits if it does overflow.
     llvm::Value *max = Builder.getInt32(0xffffffff);
     llvm::Value *difference = Builder.CreateSub(max, rhsLow);
     llvm::Value *overflow = Builder.CreateICmpUGT(lhsLow, difference);
@@ -4156,11 +4157,11 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
 
     // Compute values for N >= 32, case A
     // TODO: llvm::Value* shrHForCaseA = Ops.Ty->hasUnsignedIntegerRepresentation() ? Builder.getInt32(0) : Builder.CreateAShr(h, Builder.getInt32(31));
-    llvm::Value* shrHForCaseA = Builder.getInt32(0);
+    llvm::Value* shrHForCaseA = Builder.CreateAShr(h, Builder.getInt32(31));
     llvm::Value* shrLForCaseA = Builder.CreateLShr(h, NMinus32);
     // Compute values for N < 32, case B
     // TODO: llvm::Value* shrHForCaseB = Ops.Ty->hasUnsignedIntegerRepresentation() ? Builder.CreateLShr(h, NMinus32) : Builder.CreateAShr(h, NMinus32);
-    llvm::Value* shrHForCaseB = Builder.CreateLShr(h, RHS);
+    llvm::Value* shrHForCaseB = Builder.CreateAShr(h, RHS);
     llvm::Value* shrLForCaseB = Builder.CreateOr(Builder.CreateShl(h, _32MinusN), Builder.CreateLShr(l, RHS));
     // Compute final values
     llvm::Value* shrH = Builder.CreateSelect(NGE32, shrHForCaseA, shrHForCaseB);
