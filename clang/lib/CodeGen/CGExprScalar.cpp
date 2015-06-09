@@ -3924,7 +3924,8 @@ Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
     llvm::Value *one = Builder.getInt32(1);
     llvm::Value *highPlusOne = Builder.CreateAdd(highNormal, one, "add");
 
-    // Check if the low bits of the highint will overflow
+    // Check if the low bits of the highint will overflow, and add one to the
+    // high bits if it does overflow.
     llvm::Value *max = Builder.getInt32(0xffffffff);
     llvm::Value *difference = Builder.CreateSub(max, rhsLow);
     llvm::Value *overflow = Builder.CreateICmpUGT(lhsLow, difference);
