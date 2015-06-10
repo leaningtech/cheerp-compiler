@@ -112,21 +112,21 @@ std::initializer_list<std::initializer_list<int>> nested = {
 // CHECK-DYNAMIC-BE: store i32 {{.*}}, i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested0_, i64 0, i64 1)
 // CHECK-DYNAMIC-BE: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested0_, i64 0, i64 0),
 // CHECK-DYNAMIC-BE:       i32** getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i64 0, i64 0, i32 0), align 8
-// CHECK-DYNAMIC-BE: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested0_, i64 1, i64 0),
+// CHECK-DYNAMIC-BE: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested0_, i64 0, i64 2),
 // CHECK-DYNAMIC-BE:       i32** getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i64 0, i64 0, i32 1), align 8
 // CHECK-DYNAMIC-BE: store i32 3, i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested1_, i64 0, i64 0)
 // CHECK-DYNAMIC-BE: store i32 {{.*}}, i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested1_, i64 0, i64 1)
 // CHECK-DYNAMIC-BE: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested1_, i64 0, i64 0),
 // CHECK-DYNAMIC-BE:       i32** getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i64 0, i64 1, i32 0), align 8
-// CHECK-DYNAMIC-BE: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested1_, i64 1, i64 0),
+// CHECK-DYNAMIC-BE: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested1_, i64 0, i64 2),
 // CHECK-DYNAMIC-BE:       i32** getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i64 0, i64 1, i32 1), align 8
 // CHECK-DYNAMIC-BE: store i32 5, i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested2_, i64 0, i64 0)
 // CHECK-DYNAMIC-BE: store i32 {{.*}}, i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested2_, i64 0, i64 1)
 // CHECK-DYNAMIC-BE: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested2_, i64 0, i64 0),
 // CHECK-DYNAMIC-BE:       i32** getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i64 0, i64 2, i32 0), align 8
-// CHECK-DYNAMIC-BE: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested2_, i64 1, i64 0),
+// CHECK-DYNAMIC-BE: store i32* getelementptr inbounds ([2 x i32], [2 x i32]* @_ZGR6nested2_, i64 0, i64 2),
 // CHECK-DYNAMIC-BE:       i32** getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i64 0, i64 2, i32 1), align 8
 // CHECK-DYNAMIC-BE: store {{.*}}* getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i64 0, i64 0),
 // CHECK-DYNAMIC-BE:       {{.*}}** getelementptr inbounds ({{.*}}, {{.*}}* @nested, i32 0, i32 0), align 8
-// CHECK-DYNAMIC-BE: store {{.*}}* getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i64 1, i64 0),
+// CHECK-DYNAMIC-BE: store {{.*}}* getelementptr inbounds ([3 x {{.*}}], [3 x {{.*}}]* @_ZGR6nested_, i64 0, i64 3),
 // CHECK-DYNAMIC-BE:       {{.*}}** getelementptr inbounds ({{.*}}, {{.*}}* @nested, i32 0, i32 1), align 8
