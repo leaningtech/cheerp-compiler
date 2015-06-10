@@ -79,7 +79,7 @@ void DuettoWriter::compileTypeImpl(Type* t, COMPILE_TYPE_STYLE style)
 					if(style==LITERAL_OBJ)
 						stream << ", ";
 					else
-						stream << ";\n";
+						stream << ';' << NewLine;
 				}
 				if(style==THIS_OBJ)
 					stream << "this.";
@@ -200,9 +200,9 @@ bool DuettoWriter::getBasesInfo(const StructType* t, uint32_t& firstBase, uint32
 
 uint32_t DuettoWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
 {
-	stream << "a[" << baseCount << "] = " << baseName << ";\n";
-	stream << baseName << ".o=" << baseCount << ";\n";
-	stream << baseName << ".a=a;\n";
+	stream << "a[" << baseCount << "] = " << baseName << ';' << NewLine;
+	stream << baseName << ".o=" << baseCount << ';' << NewLine;
+	stream << baseName << ".a=a;" << NewLine;
 	baseCount++;
 
 	uint32_t firstBase, localBaseCount;
@@ -230,13 +230,13 @@ void DuettoWriter::compileClassType(StructType* T)
 	//This function is used as a constructor using the new syntax
 	stream << "function create";
 	printLLVMName(T->getName(), GLOBAL);
-	stream << "(){\n";
+	stream << "(){" << NewLine;
 
 	//TODO: Currently base classes are initialized also during compileTypeImpl
 	//find a way to skip it. It's also necessary to initialize members that require
 	//downcast support
 	compileTypeImpl(T, THIS_OBJ);
-	stream << "\n";
+	stream << NewLine;
 
 	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(T->getName(),"_bases"));
 	if(basesNamedMeta)
@@ -244,11 +244,11 @@ void DuettoWriter::compileClassType(StructType* T)
 		MDNode* basesMeta=basesNamedMeta->getOperand(0);
 		assert(basesMeta->getNumOperands()==2);
 		uint32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
-		stream << "var a=new Array(" << baseMax << ");\n";
+		stream << "var a=new Array(" << baseMax << ");" << NewLine;
 
 		compileClassTypeRecursive("this", T, 0);
 	}
-	stream << "}\n";
+	stream << '}' << NewLine;
 }
 
 void DuettoWriter::compileArrayClassType(StructType* T)
@@ -261,15 +261,16 @@ void DuettoWriter::compileArrayClassType(StructType* T)
 	}
 	stream << "function createArray";
 	printLLVMName(T->getName(), GLOBAL);
-	stream << "(size){\n";
-	stream << "var ret=new Array(size);\nfor(var __i__=0;__i__<size;__i__++)\n";
+	stream << "(size){" << NewLine;
+	stream << "var ret=new Array(size);" << NewLine << "for(var __i__=0;__i__<size;__i__++)" << NewLine;
 	stream << "ret[__i__]=";
 	compileType(T, LITERAL_OBJ);
-	stream << ";\nreturn ret;\n}\n";
+	stream << ';' << NewLine << "return ret;" << NewLine << '}' << NewLine;
 }
 
 void DuettoWriter::compileArrayPointerType()
 {
-	stream << "function createPointerArray(size) { var ret=new Array(size); for(var __i__=0;__i__<size;__i__++) ret[__i__]={ d: null, o: 0}; return ret; }\n";
+	stream << "function createPointerArray(size) { var ret=new Array(size); for(var __i__=0;__i__<size;__i__++) ret[__i__]={ d: null, o: 0}; return ret; }"
+		<< NewLine;
 }
 

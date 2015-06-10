@@ -25,9 +25,10 @@ class DuettoRenderInterface: public RenderInterface
 {
 private:
 	DuettoWriter* writer;
+	const NewLineHandler& NewLine;
 	void renderCondition(const BasicBlock* B, int branchId);
 public:
-	DuettoRenderInterface(DuettoWriter* w):writer(w)
+	DuettoRenderInterface(DuettoWriter* w, const NewLineHandler& n):writer(w),NewLine(n)
 	{
 	}
 	void renderBlock(const void* privateBlock);
@@ -49,6 +50,12 @@ public:
 	void renderLabel(int labelId);
 	void renderIfOnLabel(int labelId, bool first);
 };
+
+raw_ostream& duetto::operator<<(raw_ostream& s, const NewLineHandler& handler)
+{
+	s << "\n";
+	return s;
+}
 
 void DuettoWriter::handleBuiltinNamespace(const char* identifier, User::const_op_iterator it,
 			User::const_op_iterator itE)
@@ -139,7 +146,7 @@ void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value
 			compileDereferencePointer(baseDest, NULL, namedOffset);
 			stream << baseName << " = ";
 			compileDereferencePointer(baseSrc, NULL, namedOffset);
-			stream << baseName << ";\n";
+			stream << baseName << ';' << NewLine;
 			break;
 		}
 		case Type::StructTyID:
@@ -148,11 +155,11 @@ void DuettoWriter::compileCopyRecursive(const std::string& baseName, const Value
 			{
 				stream << "var __tmp__=new Int8Array(";
 				compileDereferencePointer(baseDest, NULL, namedOffset);
-				stream << baseName << ");\n";
+				stream << baseName << ");" << NewLine;
 				stream << "__tmp__.set(";
 				stream << "new Int8Array(";
 				compileDereferencePointer(baseSrc, NULL, namedOffset);
-				stream << baseName << "));\n";
+				stream << baseName << "));" << NewLine;
 				break;
 			}
 			const StructType* st=static_cast<const StructType*>(currentType);
@@ -219,7 +226,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 					llvm::report_fatal_error("Unsupported values for memset", false);
 				compileOperand(resetValue);
 			}
-			stream << ";\n";
+			stream << ';' << NewLine;
 			break;
 		}
 		case Type::FloatTyID:
@@ -228,7 +235,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 			compileDereferencePointer(baseDest, NULL, namedOffset);
 			if(!Constant::classof(resetValue) || getIntFromValue(resetValue) != 0)
 				llvm::report_fatal_error("Unsupported values for memset", false);
-			stream << baseName << " = 0;\n";
+			stream << baseName << " = 0;" << NewLine;
 			break;
 		}
 		case Type::PointerTyID:
@@ -243,7 +250,7 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 				stream << "null";
 			else
 				stream << "nullObj";
-			stream << ";\n";
+			stream << ';' << NewLine;
 			break;
 		}
 		case Type::StructTyID:
@@ -252,8 +259,8 @@ void DuettoWriter::compileResetRecursive(const std::string& baseName, const Valu
 			{
 				stream << "var __tmp__=new Int8Array(";
 				compileDereferencePointer(baseDest, NULL, namedOffset);
-				stream << baseName << ");\n";
-				stream << "for(var __i__=0;__i__<__tmp__.length;__i__++) __tmp__[__i__]=0;\n";
+				stream << baseName << ");" << NewLine;
+				stream << "for(var __i__=0;__i__<__tmp__.length;__i__++) __tmp__[__i__]=0;" << NewLine;
 				break;
 			}
 			const StructType* st=static_cast<const StructType*>(currentType);
@@ -365,13 +372,13 @@ void DuettoWriter::compileMove(const Value* dest, const Value* src, const Value*
 	notFirst=compileOffsetForPointer(src,lastTypeSrc);
 	if(!notFirst)
 		stream << '0';
-	stream << "){\n";
+	stream << "){" << NewLine;
 	//Destination is after source, copy backward
 	compileMemFunc(dest, src, size, BACKWARD);
 	stream << "}else{";
 	//Destination is before source, copy forward
 	compileMemFunc(dest, src, size, FORWARD);
-	stream << "}\n";
+	stream << "}" << NewLine;
 }
 
 
@@ -417,7 +424,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		compileOperand(size);
 		stream << '/' << typeSize;
 		//Make sure to close this if below
-		stream << ";\nif(__numElem__!=0)\n{";
+		stream << ';' << NewLine << "if(__numElem__!=0)" << NewLine << '{';
 	}
 
 	//The first element is copied directly, to support complete objects
@@ -489,20 +496,20 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		bool notFirst=compileOffsetForPointer(dest,lastTypeDest);
 		if(!notFirst)
 			stream << '0';
-		stream << ");\n";
+		stream << ");" << NewLine;
 	}
 	else
 	{
 		if(copyDirection == FORWARD || copyDirection == RESET)
-			stream	<< ";__i__++){\n";
+			stream	<< ";__i__++){" << NewLine;
 		else
-			stream << "-1;__i__>0;__i__--){\n";
+			stream << "-1;__i__>0;__i__--){" << NewLine;
 
 		if(copyDirection==RESET)
 			compileResetRecursive("", dest, src, pointedType,"__i__");
 		else
 			compileCopyRecursive("", dest, src, pointedType,"__i__");
-		stream << "\n}";
+		stream << NewLine << '}';
 	}
 
 	//The first element must be copied last in the backward case
@@ -512,7 +519,7 @@ void DuettoWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	if(!ConstantInt::classof(size))
 	{
 		//Close the if for the '0' case
-		stream << "\n}";
+		stream << NewLine << '}';
 	}
 }
 
@@ -1395,7 +1402,7 @@ void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		tmps.push_back(tmpIndex);
 		POINTER_KIND k=phi->getType()->isPointerTy()? analyzer.getPointerKind(phi):UNDECIDED;
 		compileOperand(val, k);
-		stream << ";\n";
+		stream << ';' << NewLine;
 	}
 	//Phase 2, actually assign the values
 	I=to->begin();
@@ -1404,10 +1411,9 @@ void DuettoWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		const PHINode* phi=dyn_cast<const PHINode>(I);
 		if(phi==NULL)
 			continue;
-		//TODO: verify that 'var' works
 		stream << "var ";
 		printVarName(phi);
-		stream << " = tmpphi" << tmps[tmpI] << ";\n";
+		stream << " = tmpphi" << tmps[tmpI] << ';' << NewLine;
 	}
 }
 
@@ -1456,7 +1462,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 			stream << "return ";
 			if(retVal)
 				compileOperand(retVal, REGULAR);
-			stream << ";\n";
+			stream << ';' << NewLine;
 			return COMPILE_OK;
 		}
 		case Instruction::Invoke:
@@ -1473,7 +1479,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 				assert(cf!=COMPILE_EMPTY);
 				if(cf==COMPILE_OK)
 				{
-					stream << ";\n";
+					stream << ';' << NewLine;
 					//Only consider the normal successor for PHIs here
 					//For each successor output the variables for the phi nodes
 					compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
@@ -1497,7 +1503,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 			}
 
 			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands());
-			stream << ";\n";
+			stream << ';' << NewLine;
 			//Only consider the normal successor for PHIs here
 			//For each successor output the variables for the phi nodes
 			compilePHIOfBlockFromOtherBlock(ci.getNormalDest(), I.getParent());
@@ -1513,7 +1519,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 		case Instruction::Unreachable:
 			return COMPILE_OK;
 		default:
-			stream << "alert('Unsupported code');\n";
+			stream << "alert('Unsupported code');" << NewLine;
 			llvm::errs() << "\tImplement terminator inst " << I.getOpcodeName() << '\n';
 	}
 	return COMPILE_UNSUPPORTED;
@@ -1532,7 +1538,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 		{
 			//TODO: Support unwind
 			const InvokeInst& ci=static_cast<const InvokeInst&>(I);
-			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ";\n";
+			stream << "__block = " << blocksMap.find(ci.getNormalDest())->second << ';' << NewLine;
 			break;
 		}
 		case Instruction::Resume:
@@ -1548,7 +1554,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 			{
 				//Generate the PHIs
 				compilePHIOfBlockFromOtherBlock(bi.getSuccessor(0), I.getParent());
-				stream << "__block = " << blocksMap.find(bi.getSuccessor(0))->second << ";\n";
+				stream << "__block = " << blocksMap.find(bi.getSuccessor(0))->second << ';' << NewLine;
 			}
 			else
 			{
@@ -1561,7 +1567,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 					"; } else {";
 				compilePHIOfBlockFromOtherBlock(bi.getSuccessor(1), I.getParent());
 				stream << "__block = " << blocksMap.find(bi.getSuccessor(1))->second <<
-					";}\n";
+					";}" << NewLine;
 			}
 			break;
 		}
@@ -1577,16 +1583,19 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileTerminatorInstru
 			{
 				stream << "case ";
 				compileConstant(it.getCaseValue());
-				stream << ":\n__block = " << blocksMap.find(it.getCaseSuccessor())->second <<
+				stream << ':' << NewLine << "__block = " << blocksMap.find(it.getCaseSuccessor())->second <<
 					"; break;";
 			}
 			if(si.getDefaultDest())
-				stream << "default:\n__block = " << blocksMap.find(si.getDefaultDest())->second << ";";
-			stream << "}\n";
+			{
+				stream << "default:" << NewLine << "__block = " <<
+					blocksMap.find(si.getDefaultDest())->second << ';';
+			}
+			stream << '}' << NewLine;
 			break;
 		}
 		default:
-			stream << "alert('Unsupported code');\n";
+			stream << "alert('Unsupported code');" << NewLine;
 			llvm::errs() << "\tImplement terminator inst " << I.getOpcodeName() << '\n';
 			break;
 	}
@@ -1681,7 +1690,7 @@ DuettoWriter::COMPILE_INSTRUCTION_FEEDBACK DuettoWriter::compileNotInlineableIns
 			{
 				//We have to assemble the type object from scratch
 				compileType(t, LITERAL_OBJ);
-				stream << ";\n";
+				stream << ';' << NewLine;
 				//Also assign the element
 				assert(ivi.getNumIndices()==1);
 				//Find the offset to the pointed element
@@ -2495,7 +2504,7 @@ void DuettoWriter::addSelfPointer(const llvm::Value* obj)
 	printVarName(obj);
 	stream << ".s = ";
 	printVarName(obj);
-	stream << ";\n";
+	stream << ';' << NewLine;
 }
 
 void DuettoWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
@@ -2535,7 +2544,7 @@ void DuettoWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 		{
 			COMPILE_INSTRUCTION_FEEDBACK ret=compileNotInlineableInstruction(*I);
 			if(ret==COMPILE_OK || ret==COMPILE_ADD_SELF)
-				stream << ";\n";
+				stream << ';' << NewLine;
 			if(ret==COMPILE_ADD_SELF)
 				addSelfPointer(&(*I));
 			else if(ret==COMPILE_UNSUPPORTED)
@@ -2606,7 +2615,7 @@ void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, int bra
 		writer->stream << "} else ";
 	writer->stream << "if (";
 	renderCondition(bb, branchId);
-	writer->stream << ") {\n";
+	writer->stream << ") {" << NewLine;
 }
 
 void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first)
@@ -2621,17 +2630,17 @@ void DuettoRenderInterface::renderIfBlockBegin(const void* privateBlock, const s
 			writer->stream << "||";
 		renderCondition(bb, skipBranchIds[i]);
 	}
-	writer->stream << ")) {\n";
+	writer->stream << ")) {" << NewLine;
 }
 
 void DuettoRenderInterface::renderElseBlockBegin()
 {
-	writer->stream << "} else {\n";
+	writer->stream << "} else {" << NewLine;
 }
 
 void DuettoRenderInterface::renderBlockEnd()
 {
-	writer->stream << "}\n";
+	writer->stream << '}' << NewLine;
 }
 
 void DuettoRenderInterface::renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom)
@@ -2649,7 +2658,7 @@ bool DuettoRenderInterface::hasBlockPrologue(const void* privateBlockTo) const
 
 void DuettoRenderInterface::renderWhileBlockBegin()
 {
-	writer->stream << "while(1) {\n";
+	writer->stream << "while(1) {" << NewLine;
 }
 
 void DuettoRenderInterface::renderWhileBlockBegin(int blockLabel)
@@ -2660,7 +2669,7 @@ void DuettoRenderInterface::renderWhileBlockBegin(int blockLabel)
 
 void DuettoRenderInterface::renderDoBlockBegin()
 {
-	writer->stream << "do {\n";
+	writer->stream << "do {" << NewLine;
 }
 
 void DuettoRenderInterface::renderDoBlockBegin(int blockLabel)
@@ -2671,39 +2680,39 @@ void DuettoRenderInterface::renderDoBlockBegin(int blockLabel)
 
 void DuettoRenderInterface::renderDoBlockEnd()
 {
-	writer->stream << "} while(0);\n";
+	writer->stream << "} while(0);" << NewLine;
 }
 
 void DuettoRenderInterface::renderBreak()
 {
-	writer->stream << "break;\n";
+	writer->stream << "break;" << NewLine;
 }
 
 void DuettoRenderInterface::renderBreak(int labelId)
 {
-	writer->stream << "break L" << labelId << ";\n";
+	writer->stream << "break L" << labelId << ";" << NewLine;
 }
 
 void DuettoRenderInterface::renderContinue()
 {
-	writer->stream << "continue;\n";
+	writer->stream << "continue;" << NewLine;
 }
 
 void DuettoRenderInterface::renderContinue(int labelId)
 {
-	writer->stream << "continue L" << labelId << ";\n";
+	writer->stream << "continue L" << labelId << ';' << NewLine;
 }
 
 void DuettoRenderInterface::renderLabel(int labelId)
 {
-	writer->stream << "label = " << labelId << ";\n";
+	writer->stream << "label = " << labelId << ';' << NewLine;
 }
 
 void DuettoRenderInterface::renderIfOnLabel(int labelId, bool first)
 {
 	if(first==false)
 		writer->stream << "else ";
-	writer->stream << "if (label === " << labelId << ") {\n";
+	writer->stream << "if (label === " << labelId << ") {" << NewLine;
 }
 
 void DuettoWriter::compileMethod(const Function& F)
@@ -2721,13 +2730,13 @@ void DuettoWriter::compileMethod(const Function& F)
 			stream << ", ";
 		printArgName(curArg);
 	}
-	stream << ") {\n";
+	stream << ") {" << NewLine;
 	std::map<const BasicBlock*, uint32_t> blocksMap;
 	if(F.size()==1)
 		compileBB(*F.begin(), blocksMap);
 	else
 	{
-		stream << "var label = 0;\n";
+		stream << "var label = 0;" << NewLine;
 		//TODO: Support exceptions
 		Function::const_iterator B=F.begin();
 		Function::const_iterator BE=F.end();
@@ -2811,11 +2820,11 @@ void DuettoWriter::compileMethod(const Function& F)
 		}
 		rl->Calculate(relooperMap[&F.getEntryBlock()]);
 		
-		DuettoRenderInterface ri(this);
+		DuettoRenderInterface ri(this, NewLine);
 		rl->Render(&ri);
 	}
 
-	stream << "}\n";
+	stream << '}' << NewLine;
 	currentFun = NULL;
 }
 
@@ -2934,7 +2943,7 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 		if(analyzer.getPointerKind(&G)==COMPLETE_OBJECT && !analyzer.isNoSelfPointerOptimizable(&G) )
 			addSelf = true;
 	}
-	stream << ";\n";
+	stream << ';' << NewLine;
 	if(addSelf)
 		addSelfPointer(&G);
 	globalsDone.insert(&G);
@@ -2958,7 +2967,7 @@ void DuettoWriter::compileGlobal(const GlobalVariable& G)
 			stream << "[0]";
 		stream << it->second.baseName << " = ";
 		compileOperand(it->second.value, REGULAR);
-		stream << ";\n";
+		stream << ';' << NewLine;
 	}
 	if(f.first!=f.second)
 		globalsFixupMap.erase(f.first,f.second);
@@ -3001,30 +3010,30 @@ void DuettoWriter::handleConstructors(GlobalVariable* GV, CONSTRUCTOR_ACTION act
 			Constant* F=E->getAggregateElement((unsigned)1);
 			assert(Function::classof(F) && F->hasName());
 			printLLVMName(F->getName(), GLOBAL);
-			stream << "();\n";
+			stream << "();" << NewLine;
 		}
 	}
 }
 
 void DuettoWriter::compileNullPtrs()
 {
-	stream << "var nullArray = [null];\nvar nullObj = { d: nullArray, o: 0 };\n";
+	stream << "var nullArray = [null];var nullObj = { d: nullArray, o: 0 };" << NewLine;
 }
 
 void DuettoWriter::compileLambdaBridge()
 {
-	stream << "function __Z8CallbackPFvvEPv(func, obj) { return function(e) { func(obj, e); }; }\n";
+	stream << "function __Z8CallbackPFvvEPv(func, obj) { return function(e) { func(obj, e); }; }" << NewLine;
 }
 
 void DuettoWriter::compileHandleVAArg()
 {
-	stream << "function handleVAArg(ptr) { var ret=ptr.d[ptr.o]; ptr.o++; return ret; }\n";
+	stream << "function handleVAArg(ptr) { var ret=ptr.d[ptr.o]; ptr.o++; return ret; }" << NewLine;
 }
 
 void DuettoWriter::makeJS()
 {
 	// Enable strict mode first
-	stream << "\"use strict\"\n";
+	stream << "\"use strict\"" << NewLine;
 	Function* webMain=module.getFunction("_Z7webMainv");
 	if(webMain==NULL)
 	{
@@ -3109,7 +3118,7 @@ void DuettoWriter::makeJS()
 	if(constructors)
 		handleConstructors(constructors, COMPILE);
 	//Invoke the webMain function
-	stream << "__Z7webMainv();\n";
+	stream << "__Z7webMainv();" << NewLine;
 
 #ifdef DUETTO_DEBUG_POINTERS
 	analyzer.dumpAllFunctions();
