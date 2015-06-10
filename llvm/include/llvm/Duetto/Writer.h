@@ -1,4 +1,4 @@
-//===-- Duetto/Writer.h - The Duetto JavaScript generator -------------===//
+//===-- Duetto/Writer.h - The Duetto JavaScript generator -----------------===//
 //
 //                     Duetto: The C++ compiler for the Web
 //
@@ -28,6 +28,11 @@
 
 namespace duetto
 {
+
+class NewLineHandler
+{
+friend llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const NewLineHandler& handler);
+};
 
 class DuettoWriter
 {
@@ -61,6 +66,8 @@ private:
 	NameGenerator namegen;
 	DuettoPointerAnalyzer analyzer;
 	
+	const NewLineHandler NewLine;
+
 	bool printMethodNames;
 	bool printLambdaBridge;
 	bool printHandleVAArg;
@@ -151,7 +158,8 @@ private:
 public:
 	llvm::raw_ostream& stream;
 	DuettoWriter(llvm::Module& m, llvm::raw_ostream& s, llvm::AliasAnalysis& AA):
-		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ),printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
+		module(m),targetData(&m),AA(AA),currentFun(NULL),namegen(),analyzer( namegen ),
+		NewLine(),printMethodNames(false),printLambdaBridge(false),printHandleVAArg(false),
 		printCreateArrayPointer(false),stream(s)
 	{
 	}
