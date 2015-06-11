@@ -8,9 +8,9 @@ deb_version := $(shell dpkg-parsechangelog | sed -n 's/^Version: //p')
 override_dh_auto_configure:
 	dh_auto_configure -- \
 	    -DCMAKE_BUILD_TYPE=Release \
-	    -DCMAKE_INSTALL_PREFIX=/opt/duetto \
-	    -DLLVM_TARGETS_TO_BUILD="ARM;DuettoBackend;X86" \
-	    -DCLANG_VENDOR="Duetto ${deb_version}"
+	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
+	    -DLLVM_TARGETS_TO_BUILD="ARM;CheerpBackend;X86" \
+	    -DCLANG_VENDOR="Cheerp ${deb_version}"
 
 override_dh_auto_install:
 	dh_auto_install --destdir=debian/tmp

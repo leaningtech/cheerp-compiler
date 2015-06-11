@@ -178,7 +178,7 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
   if (!Callee->getReturnType()->isPointerTy())
     return None;
 
-  if (Callee->getIntrinsicID() == Intrinsic::duetto_allocate)
+  if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate)
     return &AllocationFnData[0];
 
   // Make sure that the function is available.
