@@ -425,33 +425,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
 
   // First handle the non-byte addressable case (Duetto)
   if (!getTarget().isByteAddressable())
-  {
-    //Use type safe path
-    SmallVector<llvm::Value*, 4> GEPConstantIndexes;
-
-    GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
-    llvm::SmallVector<const CXXRecordDecl*, 4> BasePath;
-    for (CastExpr::path_const_iterator I = Start; I != End; ++I) {
-      const CXXBaseSpecifier *Base = *I;
-      assert(!Base->isVirtual() && "Should not see virtual bases here!");
-
-      const CXXRecordDecl *BaseDecl = cast<CXXRecordDecl>(Base->getType()->getAs<RecordType>()->getDecl());
-
-      BasePath.push_back(BaseDecl);
-    }
-    ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes,
-                                    Derived, BasePath);
-    Value = Builder.CreateGEP(Value, GEPConstantIndexes);
-    //Duetto: Check if the type is the expected one. If not create a cast with a metadata for duetto
-    //This may happen when empty classes are found
-    if(Value->getType()!=BasePtrTy)
-    {
-       llvm::Instruction* castI=cast<llvm::Instruction>(Builder.CreateBitCast(Value, BasePtrTy));
-       llvm::MDNode* md=llvm::MDNode::get(getLLVMContext(), llvm::SmallVector<llvm::Metadata*, 1>());
-       //TODO: Convert this to a builtin
-       castI->setMetadata("duetto.upcast.collapsed", md);
-    }
-  }
+    return GenerateUpcast(Value, Derived, PathBegin, PathEnd);
   else
   {
     // Apply both offsets.
@@ -503,6 +477,44 @@ CodeGenModule::ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
     RD = BaseDecl;
   }
   return Offset;
+}
+
+llvm::Value * 
+CodeGenFunction::GenerateUpcast(llvm::Value* Value,
+                                const CXXRecordDecl *Derived,
+                                CastExpr::path_const_iterator PathBegin,
+                                CastExpr::path_const_iterator PathEnd)
+{
+  SmallVector<llvm::Value*, 4> GEPConstantIndexes;
+  GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
+  llvm::SmallVector<const CXXRecordDecl*, 4> BasePath;
+  for (CastExpr::path_const_iterator I = PathBegin; I != PathEnd; ++I) {
+    const CXXBaseSpecifier *Base = *I;
+    assert(!Base->isVirtual() && "Should not see virtual bases here!");
+
+    const CXXRecordDecl *BaseDecl = cast<CXXRecordDecl>(Base->getType()->getAs<RecordType>()->getDecl());
+
+    BasePath.push_back(BaseDecl);
+  }
+  ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes, Derived, BasePath);
+  if(GEPConstantIndexes.size()>1)
+    Value = Address(Builder.CreateGEP(Value.getElementType(), Value.getPointer(), GEPConstantIndexes), Value.getAlignment());
+
+  // Get the base pointer type.
+  llvm::Type *BasePtrTy = 
+    ConvertType((PathEnd[-1])->getType())->getPointerTo();
+
+  //Duetto: Check if the type is the expected one. If not create a cast with a metadata for duetto
+  //This may happen when empty base classes are used
+  if(Value->getType()!=BasePtrTy)
+  {
+    //This should become an intrinsic
+    llvm::Instruction* castI=cast<llvm::Instruction>(Builder.CreateBitCast(Value, BasePtrTy));
+    llvm::MDNode* md=llvm::MDNode::get(getLLVMContext(), llvm::SmallVector<llvm::Metadata*, 1>());
+    castI->setMetadata("duetto.upcast.collapsed", md);
+    Value=castI;
+  }
+  return Value;
 }
 
 llvm::Value *
@@ -2652,7 +2664,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes,
                                     Vptr.VTableClass, Vptr.Bases);
-    VTableField = Builder.CreateGEP(Value, GEPConstantIndexes);
+    VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), VTableField.getAlignment());
   } else if (!NonVirtualOffset.isZero() || VirtualOffset)
     VTableField = ApplyNonVirtualAndVirtualOffset(
         *this, VTableField, NonVirtualOffset, VirtualOffset, Vptr.VTableClass,
