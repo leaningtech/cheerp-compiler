@@ -145,7 +145,7 @@ protected:
 
 void BitcodeWriterBase::writeModuleVersion() {
   // VERSION: [version#]
-  // Duetto: Bump the version up to stop regular LLVM tools from trying to
+  // Cheerp: Bump the version up to stop regular LLVM tools from trying to
   // read the bitcode
   Stream.EmitRecord(bitc::MODULE_CODE_VERSION, ArrayRef<uint64_t>{10});
 }

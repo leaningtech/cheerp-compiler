@@ -809,7 +809,7 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
             return ConstantExpr::getNeg(CE1->getOperand(1));
           } else if (CE0 && CE0->getOpcode() == Instruction::GetElementPtr &&
                      CE1 && CE1->getOpcode() == Instruction::GetElementPtr) {
-            // Duetto: the two geps must have equal indexes up to the last.
+            // Cheerp: the two geps must have equal indexes up to the last.
             // The index difference is the result.
             if (CE0->getNumOperands() != CE1->getNumOperands())
               return 0;

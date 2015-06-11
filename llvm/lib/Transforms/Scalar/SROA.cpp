@@ -1675,7 +1675,7 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
 
   // On the off chance we were targeting i8*, guard the bitcast here.
   if (cast<PointerType>(Ptr->getType()) != TargetPtrTy) {
-    // Duetto: We don't accept a unsafe cast
+    // Cheerp: We don't accept a unsafe cast
     if(!DL.isByteAddressable())
       return NULL;
     Ptr = IRB.CreatePointerBitCastOrAddrSpaceCast(Ptr,
@@ -3746,7 +3746,7 @@ static Type *getTypePartition(const DataLayout &DL, Type *Ty, uint64_t Offset,
   if (Size == ElementSize)
     return stripAggregateTypeWrapping(DL, ElementTy);
 
-  // Duetto: Do not try to create subtypes.
+  // Cheerp: Do not try to create subtypes.
   // Memcpy/memsets works only on whole objects.
   if (!DL.isByteAddressable())
     return 0;
