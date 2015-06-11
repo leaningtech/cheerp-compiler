@@ -1,52 +1,52 @@
-duetto-llvm-clang (1.0-1) trusty; urgency=medium
+cheerp-llvm-clang (1.0-1) trusty; urgency=medium
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Wed, 21 May 2014 16:19:00 +0200
 
-duetto-llvm-clang (0.9.6-1) saucy; urgency=low
+cheerp-llvm-clang (0.9.6-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 17 Apr 2014 17:27:01 +0200
 
-duetto-llvm-clang (0.9.5-1) saucy; urgency=low
+cheerp-llvm-clang (0.9.5-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 03 Apr 2014 13:24:15 +0200
 
-duetto-llvm-clang (0.9.4-1) saucy; urgency=low
+cheerp-llvm-clang (0.9.4-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Mon, 17 Mar 2014 00:24:57 +0100
 
-duetto-llvm-clang (0.9.3-1) saucy; urgency=low
+cheerp-llvm-clang (0.9.3-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 02 Jan 2014 18:21:47 +0100
 
-duetto-llvm-clang (0.9.2-1) saucy; urgency=low
+cheerp-llvm-clang (0.9.2-1) saucy; urgency=low
 
   * New release
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Sat, 30 Nov 2013 14:27:30 +0100
 
-duetto-llvm-clang (0.9.1-1) raring; urgency=low
+cheerp-llvm-clang (0.9.1-1) raring; urgency=low
 
   * Fix naming scheme
 
  -- Alessandro Pignotti <a.pignotti@sssup.it>  Thu, 07 Nov 2013 22:49:48 +0100
 
-duetto (0.9-3) raring; urgency=low
+cheerp (0.9-3) raring; urgency=low
 
   * debian/control fixes
 
  -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 17 Oct 2013 10:57:54 +0200
 
-duetto (0.9-1) raring; urgency=low
+cheerp (0.9-1) raring; urgency=low
 
   * Initial release
 
