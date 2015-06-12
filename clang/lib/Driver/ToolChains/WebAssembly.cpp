@@ -407,12 +407,19 @@ void duetto::Link::ConstructJob(Compilation &C, const JobAction &JA,
 }
 
 void duetto::DuettoCompiler::ConstructJob(Compilation &C, const JobAction &JA,
+                                          const InputInfo &Output,
+                                          const InputInfoList &Inputs,
+                                          const ArgList &Args,
+                                          const char *LinkingOutput) const {
+  ArgStringList CmdArgs;
+
+  CmdArgs.push_back("-march=duetto");
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
   const InputInfo &II = *Inputs.begin();
   CmdArgs.push_back(II.getFilename());
 
-  const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("duetto-compiler")));
+  const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llc")));
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
 }
