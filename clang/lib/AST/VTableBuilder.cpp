@@ -1525,7 +1525,7 @@ void ItaniumVTableBuilder::AddMethods(
       {
         clang::DiagnosticsEngine &Diags = Context.getDiagnostics();
         unsigned DiagID = Diags.getCustomDiagID(
-            DiagnosticsEngine::Error, "Duetto:");
+            DiagnosticsEngine::Error, "Cheerp:");
         Diags.Report(Context.getFullLoc(MD->getLocation()), DiagID) << "Covariant returns are not supported yet";
         continue;
       }

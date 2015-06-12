@@ -5832,9 +5832,9 @@ def cl_ext_EQ : CommaJoined<["-"], "cl-ext=">,
   HelpText<"OpenCL only. Enable or disable OpenCL extensions. The argument is a comma-separated sequence of one or more extension names, each prefixed by '+' or '-'.">,
   MarshallingInfoStringVector<TargetOpts<"OpenCLExtensionsAsWritten">>;
 
-def duetto_side_EQ : Joined<["-"], "duetto-side=">, Flags<[CC1Option]>,
+def cheerp_side_EQ : Joined<["-"], "cheerp-side=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Specify which side to build [client/server]">;
-def duetto_sourcemap_EQ : Joined<["-"], "duetto-sourcemap=">, Flags<[DriverOption]>,
+def cheerp_sourcemap_EQ : Joined<["-"], "cheerp-sourcemap=">, Flags<[DriverOption]>,
   HelpText<"Write sourcemap to <file>">, MetaVarName<"<file>">;
 
 //===----------------------------------------------------------------------===//
