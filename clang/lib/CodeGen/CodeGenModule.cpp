@@ -4569,13 +4569,13 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
 
 llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy)
 {
-  if(!CE->isDuettoSafe())
-    getDiags().Report(CE->getBeginLoc(), diag::warn_duetto_unsafe_cast);
+  if(!CE->isCheerpSafe())
+    getDiags().Report(CE->getBeginLoc(), diag::warn_cheerp_unsafe_cast);
 
   llvm::Type* types[] = { getTypes().ConvertType(DestTy), getTypes().ConvertType(SrcTy) };
 
   return llvm::Intrinsic::getDeclaration(&getModule(),
-                                     llvm::Intrinsic::duetto_cast_user, types);
+                                     llvm::Intrinsic::cheerp_cast_user, types);
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {

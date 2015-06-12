@@ -6834,10 +6834,10 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   if (Record->hasAttr<JsExportAttr>())
   {
     if (Record->isDynamicClass())
-      Diag(Record->getLocation(), diag::err_duetto_jsexport_on_virtual_class);
+      Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_virtual_class);
 
     if (Record->hasNonTrivialDestructor())
-      Diag(Record->getLocation(), diag::err_duetto_jsexport_with_non_trivial_destructor);
+      Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
 
     //Mark all methods as used
     CXXRecordDecl::method_iterator it=Record->method_begin();

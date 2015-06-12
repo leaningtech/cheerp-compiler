@@ -5815,13 +5815,13 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
                                    AllArgs, CallType);
   if (Invalid)
     return true;
-  //Duetto: Mark cast as safe for some builtins
+  //Cheerp: Mark cast as safe for some builtins
   if (unsigned builtin = FDecl ? FDecl->getBuiltinID() : 0)
   {
     if (builtin == Builtin::BIfree)
     {
       if (CastExpr* CE=dyn_cast<CastExpr>(AllArgs[0]))
-        CE->setDuettoSafe(true);
+        CE->setCheerpSafe(true);
     }
   }
   unsigned TotalNumArgs = AllArgs.size();

@@ -207,7 +207,7 @@ struct CGRecordLowering {
   bool IsZeroInitializable : 1;
   bool IsZeroInitializableAsBase : 1;
   bool Packed : 1;
-  // Duetto: Fields to handle down and dynamic casting
+  // Cheerp: Fields to handle down and dynamic casting
   // The first element which is a base (e.g. not the vtable)
   unsigned firstBaseElement;
   // The total number of bases including inherited ones
@@ -479,7 +479,7 @@ CGRecordLowering::accumulateBitFields(RecordDecl::field_iterator Field,
     llvm::Type *Type = NULL;
     if (!Types.getTarget().isByteAddressable())
     {
-      //Duetto: 32 should not be hardcoded
+      //Cheerp: 32 should not be hardcoded
       assert (Tail-StartBitOffset <= 32);
       Type = llvm::Type::getInt32Ty(Types.getLLVMContext());
     }

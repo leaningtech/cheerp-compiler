@@ -719,13 +719,13 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.CPlusPlus)
     InitializeCPlusPlusFeatureTestMacros(LangOpts, Builder);
 
-  if (LangOpts.getDuettoSide()==LangOptions::DUETTO_Client)
+  if (LangOpts.getCheerpSide()==LangOptions::CHEERP_Client)
   {
-    Builder.defineMacro("__DUETTO_CLIENT__");
+    Builder.defineMacro("__CHEERP_CLIENT__");
   }
-  else if (LangOpts.getDuettoSide()==LangOptions::DUETTO_Server)
+  else if (LangOpts.getCheerpSide()==LangOptions::CHEERP_Server)
   {
-    Builder.defineMacro("__DUETTO_SERVER__");
+    Builder.defineMacro("__CHEERP_SERVER__");
   }
 
   // darwin_constant_cfstrings controls this. This is also dependent

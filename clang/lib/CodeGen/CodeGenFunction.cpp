@@ -1054,7 +1054,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     CGM.getCXXABI().EmitInstanceFunctionProlog(*this);
     const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
 
-    //Duetto: Emit metadata to know about member methods in the backend
+    //Cheerp: Emit metadata to know about member methods in the backend
     if (!CGM.getTarget().isByteAddressable() && MD->getParent()->hasAttr<JsExportAttr>() &&
         (!CXXConstructorDecl::classof(GD.getDecl()) || GD.getCtorType()==Ctor_Complete))
     {

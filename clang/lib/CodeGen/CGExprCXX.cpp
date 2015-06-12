@@ -897,7 +897,7 @@ static llvm::Value *EmitCXXNewAllocSize(CodeGenFunction &CGF,
       }
       else
       {
-        //Duetto: Ignore overflow
+        //Cheerp: Ignore overflow
         //TODO: Check if by the standard this is undefined behaviour or not
         size = CGF.Builder.CreateMul(size, tsmV);
       }
@@ -1326,7 +1326,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     llvm::Type* types[] = { CGF.ConvertType(allocPtrType) };
 
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
-                                llvm::Intrinsic::duetto_allocate, types);
+                                llvm::Intrinsic::cheerp_allocate, types);
     CGCallee Callee = CGCallee::forDirect(intrinsic, GlobalDecl(CalleeDecl));
     RV =
       CGF.EmitCall(CGF.CGM.getTypes().arrangeFreeFunctionCall(allocPtrType, Args,
@@ -1619,7 +1619,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
       if (castExpr == NULL ||
           castExpr->getSubExpr()->getType()->getPointeeType().getCanonicalType()!=allocType.getCanonicalType())
       {
-        CGM.getDiags().Report(E->getLocStart(), diag::err_duetto_invalid_plament_new) << E->getSourceRange();
+        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_invalid_plament_new) << E->getSourceRange();
       }
     }
     LValueBaseInfo BaseInfo;

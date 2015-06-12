@@ -214,7 +214,7 @@ public:
     return it->second;
   }
 
-  // Duetto: Fields to handle down and dynamic casting
+  // Cheerp: Fields to handle down and dynamic casting
   // The first element which is a base (e.g. not the vtable)
   unsigned firstBaseElement;
   // The total number of bases including inherited ones

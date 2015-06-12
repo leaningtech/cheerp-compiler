@@ -3813,7 +3813,7 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
       elementSize = CGF.getContext().getTypeSizeInChars(elementType);
 
     // Don't even emit the divide for element size of 1 or the target is not byte addressable.
-    // NOTE: Duetto stores all the objects in sequential indexes
+    // NOTE: Cheerp stores all the objects in sequential indexes
     if (elementSize.isOne() || !CGF.getTarget().isByteAddressable())
       return diffInChars;
 

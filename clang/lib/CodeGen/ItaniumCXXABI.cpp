@@ -1040,7 +1040,7 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
   if (MD->isVirtual()) {
     if (!CGM.getTarget().isByteAddressable())
     {
-      CGM.ErrorUnsupported(MD, "Duetto: pointers to virtual methods are not supported");
+      CGM.ErrorUnsupported(MD, "Cheerp: pointers to virtual methods are not supported");
       return NULL;
     }
     uint64_t Index = CGM.getItaniumVTableContext().getMethodVTableIndex(MD);
@@ -1095,7 +1095,7 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
       MemPtr[0] = llvm::ConstantExpr::getBitCast(addr, CGM.VoidPtrTy);
       if (ThisAdjustment.getQuantity())
       {
-        CGM.ErrorUnsupported(MD, "Duetto: this pointer to member function is not yet supported");
+        CGM.ErrorUnsupported(MD, "Cheerp: this pointer to member function is not yet supported");
         return NULL;
       }
     }
@@ -2057,14 +2057,14 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
                                           const CXXRecordDecl* AdjustmentTarget,
                                           const CXXRecordDecl* AdjustmentSource) {
   if (!CGF.getTarget().isByteAddressable() && VirtualAdjustment)
-    CGF.CGM.ErrorUnsupported(AdjustmentSource, "Duetto: Virtual bases on non-byte addressable targets are not supported yet");
+    CGF.CGM.ErrorUnsupported(AdjustmentSource, "Cheerp: Virtual bases on non-byte addressable targets are not supported yet");
   if (!CGF.getTarget().isByteAddressable() && IsReturnAdjustment)
   {
     CGF.CGM.ErrorUnsupported(CGF.CurGD.getDecl(),
-                    "Duetto: Covariant returns on non-byte addressable targets are not supported yet");
+                    "Cheerp: Covariant returns on non-byte addressable targets are not supported yet");
   }
 
-  // Duetto: Handle non byte addressable case before
+  // Cheerp: Handle non byte addressable case before
   if (!CGF.getTarget().isByteAddressable())
   {
     //TODO: We need to support calling a different thunk based on the type of the incoming this pointer

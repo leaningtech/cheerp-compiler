@@ -345,7 +345,7 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
   case Action::LipoJobClass:
   case Action::DsymutilJobClass:
   case Action::VerifyDebugInfoJobClass:
-  case Action::DuettoCompileJobClass:
+  case Action::CheerpCompileJobClass:
     llvm_unreachable("Invalid tool kind.");
 
   case Action::CompileJobClass:

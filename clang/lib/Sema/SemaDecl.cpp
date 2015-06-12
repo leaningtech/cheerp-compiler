@@ -9386,7 +9386,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
   }
 
-  if (NewFD->hasAttr<ServerAttr>() && getLangOpts().getDuettoSide() != LangOptions::DUETTO_Server)
+  if (NewFD->hasAttr<ServerAttr>() && getLangOpts().getCheerpSide() != LangOptions::CHEERP_Server)
   {
     QualType resultType=NewFD->getCallResultType();
     CanQualType canonicalResultType=Context.getCanonicalType(resultType);

@@ -24,7 +24,7 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
-  DuettoUtils
+  CheerpUtils
   )
 
 add_clang_library(clangCodeGen

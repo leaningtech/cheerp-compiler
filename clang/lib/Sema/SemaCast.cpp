@@ -122,7 +122,7 @@ namespace {
             // Casting a value returned from malloc it's ok
             if (builtin == Builtin::BImalloc ||
                 builtin == Builtin::BIcalloc)
-              castExpr->setDuettoSafe(true);
+              castExpr->setCheerpSafe(true);
           }
         }
       }

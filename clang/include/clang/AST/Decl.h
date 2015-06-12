@@ -2754,7 +2754,7 @@ public:
     return static_cast<FunctionDecl *>(const_cast<DeclContext*>(DC));
   }
 
-  //Duetto, pointer to the skel function for this server function
+  //Cheerp, pointer to the skel function for this server function
   FunctionDecl* skelFunction;
 };
 

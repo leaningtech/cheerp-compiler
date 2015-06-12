@@ -263,9 +263,9 @@ void WebAssembly64TargetInfo::getTargetDefines(const LangOptions &Opts,
   defineCPUMacros(Builder, "wasm64", /*Tuning=*/false);
 }
 
-const Builtin::Info DuettoTargetInfo::BuiltinInfo[] = {
+const Builtin::Info CheerpTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
 #define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
                                               ALL_LANGUAGES },
-#include "clang/Basic/BuiltinsDuetto.def"
+#include "clang/Basic/BuiltinsCheerp.def"
 };

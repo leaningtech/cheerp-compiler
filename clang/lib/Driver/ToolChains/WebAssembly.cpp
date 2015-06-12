@@ -365,7 +365,7 @@ Tool *WebAssembly::buildLinker() const {
   return new tools::wasm::Linker(*this);
 }
 
-void duetto::Link::ConstructJob(Compilation &C, const JobAction &JA,
+void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
                                 const InputInfo &Output,
                                 const InputInfoList &Inputs,
                                 const ArgList &Args,
@@ -406,19 +406,19 @@ void duetto::Link::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
 }
 
-void duetto::DuettoCompiler::ConstructJob(Compilation &C, const JobAction &JA,
+void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
                                           const InputInfo &Output,
                                           const InputInfoList &Inputs,
                                           const ArgList &Args,
                                           const char *LinkingOutput) const {
   ArgStringList CmdArgs;
 
-  CmdArgs.push_back("-march=duetto");
+  CmdArgs.push_back("-march=cheerp");
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
-  if(Arg* duettoSourceMap = Args.getLastArg(options::OPT_duetto_sourcemap_EQ))
-    duettoSourceMap->render(Args, CmdArgs);
+  if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
+    cheerpSourceMap->render(Args, CmdArgs);
 
   const InputInfo &II = *Inputs.begin();
   CmdArgs.push_back(II.getFilename());

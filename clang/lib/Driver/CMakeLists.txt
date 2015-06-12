@@ -17,7 +17,7 @@ add_clang_library(clangDriver
   Distro.cpp
   Driver.cpp
   DriverOptions.cpp
-  DuettoToolChain.cpp
+  CheerpToolChain.cpp
   Job.cpp
   Multilib.cpp
   OptionUtils.cpp

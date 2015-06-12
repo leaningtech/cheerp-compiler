@@ -3571,13 +3571,13 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
   // Add a link action if necessary.
   if (!LinkerInputs.empty()) {
-    // Duetto: We need an additional step for to generated JS
-    if (TC.getArch() == llvm::Triple::duetto)
+    // Cheerp: We need an additional step for to generated JS
+    if (TC.getArch() == llvm::Triple::cheerp)
     {
       Action* linkJob = C.MakeAction<LinkJobAction>(LinkerInputs, types::TY_LLVM_BC);
-      ActionList duettoCompilerList;
-      duettoCompilerList.push_back(linkJob);
-      Actions.push_back(C.MakeAction<DuettoCompileJobAction>(duettoCompilerList, types::TY_Image));
+      ActionList cheerpCompilerList;
+      cheerpCompilerList.push_back(linkJob);
+      Actions.push_back(C.MakeAction<CheerpCompileJobAction>(cheerpCompilerList, types::TY_Image));
     }
     else {
     if (Action *Wrapper = OffloadBuilder.makeHostLinkAction())
@@ -3764,7 +3764,7 @@ Action *Driver::ConstructPhaseAction(
           Args.hasArg(options::OPT_S) ? types::TY_LTO_IR : types::TY_LTO_BC;
       return C.MakeAction<BackendJobAction>(Input, Output);
     }
-    if (Args.hasArg(options::OPT_emit_llvm) || TC.getArch() == llvm::Triple::duetto ||
+    if (Args.hasArg(options::OPT_emit_llvm) || TC.getArch() == llvm::Triple::cheerp ||
         (TargetDeviceOffloadKind == Action::OFK_HIP &&
          Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc,
                       false))) {

@@ -579,7 +579,6 @@ public:
   }
 };
 
-<<<<<<< HEAD
 class OffloadUnbundlingJobAction final : public JobAction {
   void anchor() override;
 
