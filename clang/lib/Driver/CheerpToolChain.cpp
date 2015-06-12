@@ -1,6 +1,6 @@
-//===--- DuettoToolChain.cpp - ToolChain Implementation for duetto --------===//
+//===--- CheerpToolChain.cpp - ToolChain Implementation for cheerp --------===//
 //
-//                     Duetto: The C++ compiler for the Web
+//                     Cheerp: The C++ compiler for the Web
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
@@ -23,7 +23,7 @@ using namespace clang::driver::toolchains;
 using namespace clang;
 using namespace llvm::opt;
 
-Duetto::Duetto(const Driver &D, const llvm::Triple& Triple, const llvm::opt::ArgList &Args)
+Cheerp::Cheerp(const Driver &D, const llvm::Triple& Triple, const llvm::opt::ArgList &Args)
   : ToolChain(D, Triple, Args) {
 
   getProgramPaths().push_back(LLVM_PREFIX "/bin");
@@ -41,7 +41,7 @@ Duetto::Duetto(const Driver &D, const llvm::Triple& Triple, const llvm::opt::Arg
   }
 }
 
-void Duetto::AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
+void Cheerp::AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
                                         llvm::opt::ArgStringList &CC1Args) const {
   if (DriverArgs.hasArg(options::OPT_nostdinc))
     return;
@@ -61,43 +61,43 @@ void Duetto::AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
 		  LLVM_PREFIX "/include/client");
 }
 
-void Duetto::AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
+void Cheerp::AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
                                            llvm::opt::ArgStringList &CC1Args) const {
   if (DriverArgs.hasArg(options::OPT_nostdlibinc) ||
       DriverArgs.hasArg(options::OPT_nostdincxx))
     return;
 
-  // Use the duetto provided libc++
+  // Use the cheerp provided libc++
   addSystemInclude(DriverArgs, CC1Args,
 		   LLVM_PREFIX "/include/c++/v1");
 }
 
-bool Duetto::IsUnwindTablesDefault() const {
+bool Cheerp::IsUnwindTablesDefault() const {
   return false;
 }
 
-bool Duetto::isPICDefault() const {
+bool Cheerp::isPICDefault() const {
   return false;
 }
 
-bool Duetto::isPIEDefault() const {
+bool Cheerp::isPIEDefault() const {
   return false;
 }
 
-bool Duetto::isPICDefaultForced() const {
+bool Cheerp::isPICDefaultForced() const {
   return true;
 }
 
-Tool *Duetto::buildLinker() const {
-  return new tools::duetto::Link(*this);
+Tool *Cheerp::buildLinker() const {
+  return new tools::cheerp::Link(*this);
 }
 
-Tool *Duetto::getTool(Action::ActionClass AC) const {
+Tool *Cheerp::getTool(Action::ActionClass AC) const {
   switch (AC) {
-  case Action::DuettoCompileJobClass:
-    if (!DuettoCompiler)
-      DuettoCompiler.reset(new tools::duetto::DuettoCompiler(*this));
-    return DuettoCompiler.get();
+  case Action::CheerpCompileJobClass:
+    if (!CheerpCompiler)
+      CheerpCompiler.reset(new tools::cheerp::CheerpCompiler(*this));
+    return CheerpCompiler.get();
   default:
     return ToolChain::getTool(AC);
   }

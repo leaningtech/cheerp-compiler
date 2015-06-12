@@ -828,6 +828,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 
   bool Oversized = getContext().toBits(TInfo.Width) > MaxInlineWidthInBits;
   bool Misaligned = (Ptr.getAlignment() % TInfo.Width) != 0;
+  //Cheerp: Force using intrinsics for atomic ops. They will be lowered
   bool UseLibcall = getTarget().isByteAddressable() && (Misaligned | Oversized);
   bool ShouldCastToIntPtrTy = true;
 

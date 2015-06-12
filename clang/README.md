@@ -1,10 +1,10 @@
-Duetto: A C++ compiler for the Web
+Cheerp: A C++ compiler for the Web
 ==================================
 
 Please report bugs on launchpad:
-https://bugs.launchpad.net/duetto
+https://bugs.launchpad.net/cheerp
 
-Duetto compiler build instructions
+Cheerp compiler build instructions
 ----------------------------------
 
-See instructions for the llvm-duetto repository
+See instructions for the llvm-cheerp repository
