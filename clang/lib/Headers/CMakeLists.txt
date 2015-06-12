@@ -154,6 +154,7 @@ set(x86_files
   avxvnniintrin.h
   bmi2intrin.h
   bmiintrin.h
+  cheerpintrin.h
   cetintrin.h
   cldemoteintrin.h
   clflushoptintrin.h
@@ -161,7 +162,6 @@ set(x86_files
   clzerointrin.h
   cmpccxaddintrin.h
   crc32intrin.h
-  duettointrin.h
   emmintrin.h
   enqcmdintrin.h
   f16cintrin.h

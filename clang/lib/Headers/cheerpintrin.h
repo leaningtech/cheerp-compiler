@@ -1,4 +1,4 @@
-/*===---- duettointrin.h - Duetto intrinsics -------------------------------===
+/*===---- cheerpintrin.h - Cheerp intrinsics -------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,17 +21,17 @@
  *===-----------------------------------------------------------------------===
  */
 
-#ifndef __DUETTOINTRIN_H
-#define __DUETTOINTRIN_H
+#ifndef __CHEERPINTRIN_H
+#define __CHEERPINTRIN_H
 
-void* __builtin_duetto_pointer_base(const void* ptr);
-size_t __builtin_duetto_pointer_offset(const void* ptr);
+void* __builtin_cheerp_pointer_base(const void* ptr);
+size_t __builtin_cheerp_pointer_offset(const void* ptr);
 /* This method returns a closure. Shen it is invoked it will execute func with obj as the first argument
    and its own argument as the second one
 
    A more correct signature would be:
-void (*)(void*) __builtin_duetto_create_closure(void (*func)(), void* obj):
+void (*)(void*) __builtin_cheerp_create_closure(void (*func)(), void* obj):
 */
-const void* __builtin_duetto_create_closure(const void* func, void* obj);
+const void* __builtin_cheerp_create_closure(const void* func, void* obj);
 
-#endif /* __DUETTOINTRIN_H */
+#endif /* __CHEERPINTRIN_H */

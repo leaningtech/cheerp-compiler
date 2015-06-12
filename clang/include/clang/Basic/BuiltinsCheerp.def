@@ -1,4 +1,4 @@
-//===--- BuiltinsDuetto.def - Duetto Builtin function database --*- C++ -*-===//
+//===--- BuiltinsCheerp.def - Cheerp Builtin function database --*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,15 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the Duetto-specific builtin function database.  Users of
+// This file defines the Cheerp-specific builtin function database.  Users of
 // this file must define the BUILTIN macro to make use of this information.
 //
 //===----------------------------------------------------------------------===//
 
 // The format of this database matches clang/Basic/Builtins.def.
 
-BUILTIN(__builtin_duetto_pointer_base, "v*vC*", "")
-BUILTIN(__builtin_duetto_pointer_offset, "zvC*", "")
-BUILTIN(__builtin_duetto_create_closure, "vC*vC*v*", "")
+BUILTIN(__builtin_cheerp_pointer_base, "v*vC*", "")
+BUILTIN(__builtin_cheerp_pointer_offset, "zvC*", "")
+BUILTIN(__builtin_cheerp_create_closure, "vC*vC*v*", "")
 
 #undef BUILTIN
