@@ -32,7 +32,7 @@ public:
 
 } // end namespace wasm
 
-/// Cheerp tools: llvm-link and cheerp-compiler
+/// Cheerp tools: llvm-link and llc
 namespace cheerp {
   class LLVM_LIBRARY_VISIBILITY Link : public Tool {
   public:
