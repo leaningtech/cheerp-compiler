@@ -10908,6 +10908,8 @@ def err_duetto_invalid_plament_new : Error<
   "Duetto: Placement new is only valid on memory of the same type. If this is a custom allocator, disable it">;
 def err_duetto_void_ptr_compare : Error<
   "Duetto: Comparing void* is not supported. Please cast to the actual type of the object">;
+def err_duetto_attribute_not_on_function : Error<
+  "Duetto: This attribute can only be used on functions">;
 } // end of duetto issue category
 
 } // end of sema component.
