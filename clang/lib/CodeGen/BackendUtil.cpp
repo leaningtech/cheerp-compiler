@@ -575,11 +575,13 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
   return Options;
 }
 
-static void addDuettoNativeRewriterPass(const PassManagerBuilder &Builder,
+static void addDuettoPasses(const PassManagerBuilder &Builder,
                                    PassManagerBase &PM) {
   //Run InstCombine first, to remove load/stores for the this argument
   PM.add(createInstructionCombiningPass());
   PM.add(createDuettoNativeRewriterPass());
+  //Duetto is single threaded, convert atomic instructions to regular ones
+  PM.add(createLowerAtomicPass());
 }
 
 void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
@@ -599,7 +601,7 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
 
   if (TargetTriple.getArch() == llvm::Triple::duetto)
     PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
-                           addDuettoNativeRewriterPass);
+                           addDuettoPasses);
 
 
   // If we reached here with a non-empty index file name, then the index file
