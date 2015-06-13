@@ -2355,17 +2355,31 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     // Type cast to an highint
     if (CGF.IsHighInt(CE->getType())) {
       Value *Elt = Visit(E);
+
       // Do not type cast a highint into highint
       if (CGF.IsHighInt(E->getType())) {
         return Elt;
       }
+
       llvm::Value* high = llvm::ConstantInt::get(CGF.Int32Ty, 0);
-      llvm::Value* low = Builder.CreateZExt(Elt, CGF.Int32Ty);
+      llvm::Value* low;
+
+      // Cast float or double values to int32
+      if (CGF.ConvertType(E->getType())->isFloatingPointTy()) {
+        // TODO if (E->isSignedIntegerOrEnumerationType()) {
+          low = Builder.CreateFPToSI(Elt, CGF.Int32Ty, "conv");
+        //} else {
+        //  low = Builder.CreateFPToUI(Elt, CGF.Int32Ty, "conv");
+        //}
+      } else {
+        low = Builder.CreateZExt(Elt, CGF.Int32Ty);
+      }
+
       return CGF.EmitHighInt(CE->getType(), high, low);
     }
     // Type cast from an highint
     else if (CGF.IsHighInt(E->getType())) {
-        llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Visit(E));
+      llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Visit(E));
       return EmitScalarConversion(low, E->getType(), DestTy,
                                 CE->getExprLoc());
     } else {
