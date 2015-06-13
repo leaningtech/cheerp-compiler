@@ -793,8 +793,8 @@ public:
       llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
       llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
       llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
-      llvm::Value *high = Builder.CreateAnd(lhsHigh, rhsHigh, "and");
-      llvm::Value *low = Builder.CreateAnd(lhsLow, rhsLow, "and");
+      llvm::Value *high = Builder.CreateAnd(lhsHigh, rhsHigh, "andHigh");
+      llvm::Value *low = Builder.CreateAnd(lhsLow, rhsLow, "andLow");
       return CGF.EmitHighInt(Ops.Ty, high, low);
     }
     return Builder.CreateAnd(Ops.LHS, Ops.RHS, "and");
@@ -805,8 +805,8 @@ public:
       llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
       llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
       llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
-      llvm::Value *high = Builder.CreateXor(lhsHigh, rhsHigh, "xor");
-      llvm::Value *low = Builder.CreateXor(lhsLow, rhsLow, "xor");
+      llvm::Value *high = Builder.CreateXor(lhsHigh, rhsHigh, "xorHigh");
+      llvm::Value *low = Builder.CreateXor(lhsLow, rhsLow, "xorLow");
       return CGF.EmitHighInt(Ops.Ty, high, low);
     }
     return Builder.CreateXor(Ops.LHS, Ops.RHS, "xor");
@@ -817,8 +817,8 @@ public:
       llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
       llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
       llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
-      llvm::Value *high = Builder.CreateOr(lhsHigh, rhsHigh, "or");
-      llvm::Value *low = Builder.CreateOr(lhsLow, rhsLow, "or");
+      llvm::Value *high = Builder.CreateOr(lhsHigh, rhsHigh, "orHigh");
+      llvm::Value *low = Builder.CreateOr(lhsLow, rhsLow, "orLow");
       return CGF.EmitHighInt(Ops.Ty, high, low);
     }
     return Builder.CreateOr(Ops.LHS, Ops.RHS, "or");
@@ -3081,8 +3081,58 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
   OpInfo.Opcode = E->getOpcode();
   OpInfo.FPFeatures = E->getFPFeaturesInEffect(CGF.getLangOpts());
   OpInfo.E = E;
+
   // Load/convert the LHS.
   LValue LHSLV = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
+
+  if (CGF.IsHighInt(LHSTy)) {
+    if (!CGF.IsHighInt(E->getRHS()->getType())) {
+        llvm_unreachable("not yet implemented");
+    }
+
+    OpInfo.LHS = LHSLV.getAddress();
+    llvm::Value *highint = NULL;
+
+    switch (OpInfo.Opcode) {
+      case BO_MulAssign:
+      case BO_DivAssign:
+      case BO_RemAssign:
+      case BO_ShlAssign:
+      case BO_ShrAssign:
+        llvm_unreachable("not yet implemented compound assignment type");
+        break;
+      case BO_AddAssign:
+        highint = EmitAdd(OpInfo);
+        break;
+      case BO_SubAssign:
+        highint = EmitSub(OpInfo);
+        break;
+      case BO_AndAssign:
+        highint = EmitAnd(OpInfo);
+        break;
+      case BO_XorAssign:
+        highint = EmitXor(OpInfo);
+        break;
+      case BO_OrAssign:
+        highint = EmitOr(OpInfo);
+        break;
+      default:
+        llvm_unreachable("Invalid compound assignment type");
+    }
+
+    if (!highint)
+        return LHSLV;
+
+    llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(highint);
+    llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(highint);
+
+    llvm::Value *highLoc = Builder.CreateConstGEP2_32(OpInfo.LHS, 0, 0);
+    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(OpInfo.LHS, 0, 1);
+    Builder.CreateStore(lhsHigh, highLoc, /*volatile*/false);
+    Builder.CreateStore(lhsLow, lowLoc, /*volatile*/false);
+
+    return LHSLV;
+  }
 
   llvm::PHINode *atomicPHI = nullptr;
   if (const AtomicType *atomicTy = LHSTy->getAs<AtomicType>()) {
