@@ -4236,18 +4236,52 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
     Value *LHS = Visit(E->getLHS());
     Value *RHS = Visit(E->getRHS());
 
-    llvm::Value *leftHigh = CGF.EmitLoadHighBitsOfHighInt(LHS);
-    llvm::Value *leftLow = CGF.EmitLoadLowBitsOfHighInt(LHS);
-    llvm::Value *rightHigh = CGF.EmitLoadHighBitsOfHighInt(RHS);
-    llvm::Value *rightLow = CGF.EmitLoadLowBitsOfHighInt(RHS);
+    llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(LHS);
+    llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(LHS);
+    llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(RHS);
+    llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(RHS);
 
-    Value *highCmp = Builder.CreateICmp((llvm::ICmpInst::Predicate)SICmpOpc,
-            leftHigh, rightHigh, "cmp");
-
-    Value *lowCmp = Builder.CreateICmp((llvm::ICmpInst::Predicate)SICmpOpc,
-            leftLow, rightLow, "cmp");
-
-    return Builder.CreateAnd(highCmp, lowCmp);
+    switch (E->getOpcode()) {
+    default: llvm_unreachable("unexpected comparison type");
+    case BO_LT:
+      return Builder.CreateOr(
+        Builder.CreateICmp(llvm::ICmpInst::ICMP_SLT, lhsHigh, rhsHigh),
+        Builder.CreateAnd(
+          Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
+          Builder.CreateICmp(llvm::ICmpInst::ICMP_ULT, lhsLow, rhsLow)
+        )
+      );
+    case BO_LE:
+      return Builder.CreateOr(
+        Builder.CreateICmp(llvm::ICmpInst::ICMP_SLT, lhsHigh, rhsHigh),
+        Builder.CreateAnd(
+          Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
+          Builder.CreateICmp(llvm::ICmpInst::ICMP_ULE, lhsLow, rhsLow)
+        )
+      );
+    case BO_GT:
+      return Builder.CreateOr(
+        Builder.CreateICmp(llvm::ICmpInst::ICMP_SGT, lhsHigh, rhsHigh),
+        Builder.CreateAnd(
+          Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
+          Builder.CreateICmp(llvm::ICmpInst::ICMP_UGT, lhsLow, rhsLow)
+        )
+      );
+    case BO_GE:
+      return Builder.CreateOr(
+        Builder.CreateICmp(llvm::ICmpInst::ICMP_SGT, lhsHigh, rhsHigh),
+        Builder.CreateAnd(
+          Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
+          Builder.CreateICmp(llvm::ICmpInst::ICMP_UGE, lhsLow, rhsLow)
+        )
+      );
+    case BO_EQ: {
+      return Builder.CreateAnd(
+        Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
+        Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsLow, rhsLow)
+      );
+      }
+    }
   }
 
   if (const MemberPointerType *MPT = LHSTy->getAs<MemberPointerType>()) {
