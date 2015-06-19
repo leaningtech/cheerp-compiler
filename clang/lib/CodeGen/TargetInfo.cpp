@@ -80,7 +80,8 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
 
 static bool isAggregateTypeForABI(QualType T) {
   return !CodeGenFunction::hasScalarEvaluationKind(T) ||
-         T->isMemberFunctionPointerType();
+         T->isMemberFunctionPointerType() ||
+         CodeGenFunction::IsHighInt(T);
 }
 
 ABIArgInfo ABIInfo::getNaturalAlignIndirect(QualType Ty, bool ByVal,
