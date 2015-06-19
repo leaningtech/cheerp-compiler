@@ -3190,6 +3190,8 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
       // Do nothing; aggregrates get evaluated directly into the destination.
       break;
     case TEK_Scalar:
+      if(IsHighInt(RetTy))
+        break;
       EmitStoreOfScalar(Builder.CreateLoad(ReturnValue),
                         MakeNaturalAlignAddrLValue(&*AI, RetTy),
                         /*isInit*/ true);
