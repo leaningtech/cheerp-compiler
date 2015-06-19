@@ -998,6 +998,18 @@ Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
   assert((SrcType->isIntegerType() || isa<llvm::PointerType>(Src->getType())) &&
          "Unknown scalar type to convert");
 
+  if (CGF.IsHighInt(SrcType)) {
+    llvm::Value *srcHigh = CGF.EmitLoadHighBitsOfHighInt(Src);
+    llvm::Value *srcLow = CGF.EmitLoadLowBitsOfHighInt(Src);
+
+    Value *Zero = Builder.getInt32(0);
+    Value *high = Builder.CreateICmp(llvm::CmpInst::ICMP_NE, srcHigh, Zero, "cmp");
+    Value *low = Builder.CreateICmp(llvm::CmpInst::ICMP_NE, srcLow, Zero, "cmp");
+    Value *result = Builder.CreateOr(high, low, "or");
+
+    return EmitIntToBoolConversion(result);
+  }
+
   if (isa<llvm::IntegerType>(Src->getType()))
     return EmitIntToBoolConversion(Src);
 
