@@ -2105,7 +2105,7 @@ public:
   llvm::Value *EmitLoadLowBitsOfHighInt(llvm::Value *highint);
 
   /// IsHighInt - Return true if the canonical type is a highint (int64_t).
-  bool IsHighInt(QualType Ty) {
+  static bool IsHighInt(QualType Ty) {
     return isa<BuiltinType>(Ty.getCanonicalType())
         && cast<BuiltinType>(Ty.getCanonicalType())->isHighInt();
   }
