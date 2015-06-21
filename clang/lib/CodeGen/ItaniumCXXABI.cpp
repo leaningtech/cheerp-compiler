@@ -1920,8 +1920,15 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
                                                   llvm::Type *Ty,
                                                   SourceLocation Loc) {
   auto *MethodDecl = cast<CXXMethodDecl>(GD.getDecl());
-  llvm::Value *VTable = CGF.GetVTablePtr(
+  llvm::Value* VTable = NULL;
+  if(CGF.getTarget().isByteAddressable()) {
+    VTable = CGF.GetVTablePtr(
       This, Ty->getPointerTo()->getPointerTo(), MethodDecl->getParent());
+  } else {
+    const CXXRecordDecl *RD = MethodDecl->getParent();
+    llvm::Type* VTableType = CGM.getTypes().GetVTableType(RD)->getPointerTo();
+    VTable = CGF.GetVTablePtr(This, VTableType);
+  }
 
   uint64_t VTableIndex = CGM.getItaniumVTableContext().getMethodVTableIndex(GD);
   llvm::Value *VFunc;
@@ -1939,13 +1946,16 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
           CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
           {VTable, llvm::ConstantInt::get(CGM.Int32Ty, 4 * VTableIndex)});
       VFuncLoad = CGF.Builder.CreateBitCast(Load, Ty->getPointerTo());
-    } else {
+    } else if(CGF.getTarget().isByteAddressable()) {
       VTable =
           CGF.Builder.CreateBitCast(VTable, Ty->getPointerTo()->getPointerTo());
       llvm::Value *VTableSlotPtr =
           CGF.Builder.CreateConstInBoundsGEP1_64(VTable, VTableIndex, "vfn");
       VFuncLoad =
           CGF.Builder.CreateAlignedLoad(VTableSlotPtr, CGF.getPointerAlign());
+    } else {
+      llvm::Value* VFuncPtr = CGF.Builder.CreateConstInBoundsGEP2_32(VTable->getType()->getPointerElementType(), VTable, 0, VTableIndex, "vfn");
+      VFuncLoad = CGF.Builder.CreateLoad(VFuncPtr);
     }
 
     // Add !invariant.load md to virtual function load to indicate that
@@ -1963,7 +1973,11 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
                               llvm::ArrayRef<llvm::Metadata *>()));
       }
     }
-    VFunc = VFuncLoad;
+    if(CGF.getTarget().isByteAddressable()) {
+      VFunc = VFuncLoad;
+    } else {
+      VFunc = CGF.Builder.CreateBitCast(VFuncLoad, Ty->getPointerTo());
+    }
   }
 
   CGCallee Callee(GD, VFunc);
