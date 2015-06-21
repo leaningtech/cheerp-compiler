@@ -1382,7 +1382,12 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 }
 
 static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
+  // #ifdef __CHEERP__
+  // std::ptrdiff_t __dynamic_cast(std::ptrdiff_t sub,
+  //                      struct._ZN10__cxxabiv113__vtable_baseE* vtable,
+  // #else
   // void *__dynamic_cast(const void *sub,
+  // #endif
   //                      const abi::__class_type_info *src,
   //                      const abi::__class_type_info *dst,
   //                      std::ptrdiff_t src2dst_offset);
@@ -1391,9 +1396,15 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
   llvm::Type *PtrDiffTy =
     CGF.ConvertType(CGF.getContext().getPointerDiffType());
 
-  llvm::Type *Args[4] = { Int8PtrTy, Int8PtrTy, Int8PtrTy, PtrDiffTy };
-
-  llvm::FunctionType *FTy = llvm::FunctionType::get(Int8PtrTy, Args, false);
+  llvm::FunctionType *FTy = NULL;
+  if(!CGF.getTarget().isByteAddressable()) {
+    llvm::Type* classTypeInfoPtr = CGF.getTypes().GetClassTypeInfoType()->getPointerTo();
+    llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType()->getPointerTo(), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
+    FTy = llvm::FunctionType::get(PtrDiffTy, Args, false);
+  } else {
+    llvm::Type *Args[4] = { Int8PtrTy, Int8PtrTy, Int8PtrTy, PtrDiffTy };
+    FTy = llvm::FunctionType::get(Int8PtrTy, Args, false);
+  }
 
   // Mark the function as nounwind readonly.
   llvm::Attribute::AttrKind FuncAttrs[] = { llvm::Attribute::NoUnwind,
@@ -1530,13 +1541,52 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
       PtrDiffLTy,
       computeOffsetHint(CGF.getContext(), SrcDecl, DestDecl).getQuantity());
 
-  // Emit the call to __dynamic_cast.
   llvm::Value *Value = ThisAddr.getPointer();
-  Value = CGF.EmitCastToVoidPtr(Value);
+  llvm::Value *VTable = CGF.GetVTablePtr(Value, CGF.getTypes().GetVTableBaseType()->getPointerTo());
+  llvm::Value *DynCastObj = Value;
 
-  llvm::Value *args[] = {Value, SrcRTTI, DestRTTI, OffsetHint};
+  // Emit the call to __dynamic_cast.
+  if(!CGF.getTarget().isByteAddressable()) {
+    llvm::Type* Tys[] = { DynCastObj->getType() };
+    llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(), llvm::Intrinsic::cheerp_downcast_current, Tys);
+    Value = CGF.Builder.CreateCall(intrinsic, Value);
+  } else
+    Value = CGF.EmitCastToVoidPtr(Value);
+
+  llvm::Value *args[] = { Value, VTable, SrcRTTI, DestRTTI, OffsetHint };
   Value = CGF.EmitNounwindRuntimeCall(getItaniumDynamicCastFn(CGF), args);
-  Value = CGF.Builder.CreateBitCast(Value, DestLTy);
+  if(!CGF.getTarget().isByteAddressable()) {
+    llvm::BasicBlock *EndBB = CGF.createBasicBlock("cheerp_downcast_end");
+    llvm::BasicBlock *DynamicBB = CGF.createBasicBlock("cheerp_dynamic_downcast");
+    llvm::SwitchInst *SI = CGF.Builder.CreateSwitch(Value, DynamicBB);
+    // Default case, do a runtime downcast
+    CGF.EmitBlock(DynamicBB);
+    llvm::Type* Tys[] = { DestLTy, DynCastObj->getType() };
+    llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(), llvm::Intrinsic::cheerp_downcast, Tys);
+    llvm::Value* DynamicDowncast = CGF.Builder.CreateCall2(intrinsic, DynCastObj, Value);
+    CGF.Builder.CreateBr(EndBB);
+    // If the returned offset is zero, we can passthrough the value
+    llvm::BasicBlock *ZeroBB = CGF.createBasicBlock("cheerp_null_downcast");
+    SI->addCase(llvm::ConstantInt::get(CGF.Int32Ty, 0), ZeroBB);
+    CGF.EmitBlock(ZeroBB);
+    llvm::Value* ZeroDowncast = CGF.Builder.CreateBitCast(DynCastObj, DestLTy);
+    CGF.Builder.CreateBr(EndBB);
+    // If the value is -1 the dynamic cast failed
+    llvm::BasicBlock *FailedBB = CGF.createBasicBlock("cheerp_failed_downcast");
+    SI->addCase(llvm::ConstantInt::get(CGF.Int32Ty, -1<<31), FailedBB);
+    CGF.EmitBlock(FailedBB);
+    llvm::Value* FailedDowncast = llvm::ConstantPointerNull::get(cast<llvm::PointerType>(DestLTy));
+    CGF.Builder.CreateBr(EndBB);
+    // We need a PHI to merge the possible value
+    CGF.EmitBlock(EndBB);
+    llvm::PHINode* Result = CGF.Builder.CreatePHI(DestLTy, 2);
+    Result->addIncoming(DynamicDowncast, DynamicBB);
+    Result->addIncoming(ZeroDowncast, ZeroBB);
+    Result->addIncoming(FailedDowncast, FailedBB);
+    Value = Result;
+    CGF.Builder.CreateBr(CastEnd);
+  } else
+    Value = CGF.Builder.CreateBitCast(Value, DestLTy);
 
   /// C++ [expr.dynamic.cast]p9:
   ///   A failed cast to reference type throws std::bad_cast
