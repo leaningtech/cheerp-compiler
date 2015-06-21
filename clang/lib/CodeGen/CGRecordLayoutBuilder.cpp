@@ -526,10 +526,12 @@ void CGRecordLowering::accumulateBases() {
 }
 
 void CGRecordLowering::accumulateVPtrs() {
-  if (Layout.hasOwnVFPtr())
-    Members.push_back(MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr,
-        llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->
-            getPointerTo()->getPointerTo()));
+  if (Layout.hasOwnVFPtr()) {
+    llvm::Type* VFPtrTy = Types.getTarget().isByteAddressable() ?
+                          llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->getPointerTo()->getPointerTo() :
+                          Types.GetVTableBaseType()->getPointerTo();
+    Members.push_back(MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr, VFPtrTy));
+  }
   if (Layout.hasOwnVBPtr())
     Members.push_back(MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
         llvm::Type::getInt32PtrTy(Types.getLLVMContext())));
