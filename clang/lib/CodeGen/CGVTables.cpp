@@ -836,7 +836,7 @@ void CodeGenVTables::addVTableComponent(AggregateBuilderPublic &builder,
                                   vtableHasLocalLinkage,
                                   /*isCompleteDtor=*/false);
     else
-      return builder.add(llvm::ConstantExpr::getBitCast(rtti, elemType));
+      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.getTarget().isByteAddressable() ? CGM.Int8PtrTy : CGM.getTypes().GetClassTypeInfoType()->getPointerTo()));
 
   case VTableComponent::CK_FunctionPointer:
   case VTableComponent::CK_CompleteDtorPointer:
@@ -1481,9 +1481,16 @@ llvm::Type* CodeGenTypes::GetVTableType(uint32_t virtualMethodsCount)
 {
   llvm::SmallVector<llvm::Type*, 16> VTableTypes;
   llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
-  VTableTypes.push_back(CGM.Int8PtrTy);
+  VTableTypes.push_back(GetClassTypeInfoType()->getPointerTo());
   for(uint32_t j=0;j<virtualMethodsCount;j++)
     VTableTypes.push_back(FuncPtrTy);
   return llvm::StructType::get(getLLVMContext(), VTableTypes);
 }
 
+llvm::Type* CodeGenTypes::GetClassTypeInfoType()
+{
+  llvm::Type* ResultType = CGM.getModule().getTypeByName("class._ZN10__cxxabiv117__class_type_infoE");
+  if(!ResultType)
+    ResultType = llvm::StructType::create(CGM.getLLVMContext(),"class._ZN10__cxxabiv117__class_type_infoE");
+  return ResultType;
+}
