@@ -281,6 +281,7 @@ public:
   std::unique_ptr<CGRecordLayout> ComputeRecordLayout(const RecordDecl *D,
                                                       llvm::StructType *Ty);
 
+  void getRecordTypeName(const RecordDecl *RD, StringRef suffix, llvm::SmallString<256>& TypeName);
   /// addRecordTypeName - Compute a name from the given record decl with an
   /// optional suffix and name the given LLVM type using it.
   void addRecordTypeName(const RecordDecl *RD, llvm::StructType *Ty,
