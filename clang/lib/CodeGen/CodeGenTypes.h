@@ -157,6 +157,12 @@ public:
   /// and/or incomplete argument types, this will return the opaque type.
   llvm::Type *GetFunctionTypeForVTable(GlobalDecl GD);
 
+  llvm::Type* GetVTableBaseType();
+
+  llvm::Type* GetVTableType(const CXXRecordDecl* RD);
+
+  llvm::Type* GetVTableType(uint32_t virtualMethodsCount);
+
   const CGRecordLayout &getCGRecordLayout(const RecordDecl*);
 
   /// UpdateCompletedType - When we find the full definition for a TagDecl,

@@ -28,6 +28,7 @@ namespace CodeGen {
   class CodeGenModule;
   class ConstantArrayBuilder;
   class ConstantStructBuilder;
+  class AggregateBuilderPublic;
 
 class CodeGenVTables {
   CodeGenModule &CGM;
@@ -61,7 +62,7 @@ class CodeGenVTables {
                                  ThunkInfo ThunkAdjustments,
                                  bool ForVTable);
 
-  void addVTableComponent(ConstantArrayBuilder &builder,
+  void addVTableComponent(AggregateBuilderPublic &builder,
                           const VTableLayout &layout, unsigned componentIndex,
                           llvm::Constant *rtti, unsigned &nextVTableThunkIndex,
                           unsigned vtableAddressPoint,
@@ -69,7 +70,7 @@ class CodeGenVTables {
 
   /// Add a 32-bit offset to a component relative to the vtable when using the
   /// relative vtables ABI. The array builder points to the start of the vtable.
-  void addRelativeComponent(ConstantArrayBuilder &builder,
+  void addRelativeComponent(AggregateBuilderPublic &builder,
                             llvm::Constant *component,
                             unsigned vtableAddressPoint,
                             bool vtableHasLocalLinkage,
