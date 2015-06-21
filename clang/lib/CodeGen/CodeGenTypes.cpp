@@ -46,10 +46,9 @@ const CodeGenOptions &CodeGenTypes::getCodeGenOpts() const {
   return CGM.getCodeGenOpts();
 }
 
-void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
-                                     llvm::StructType *Ty,
-                                     StringRef suffix) {
-  SmallString<256> TypeName;
+void CodeGenTypes::getRecordTypeName(const RecordDecl *RD,
+                                     StringRef suffix,
+                                     SmallString<256>& TypeName) {
   llvm::raw_svector_ostream OS(TypeName);
   OS << RD->getKindName() << '.';
 
@@ -79,8 +78,15 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
 
   if (!suffix.empty())
     OS << suffix;
+  OS.flush();
+}
 
-  Ty->setName(OS.str());
+void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
+                                     llvm::StructType *Ty,
+                                     StringRef suffix) {
+  SmallString<256> TypeName;
+  getRecordTypeName(RD, suffix, TypeName);
+  Ty->setName(TypeName);
 }
 
 /// ConvertTypeForMem - Convert type T into a llvm::Type.  This differs from
@@ -856,6 +862,13 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
   const Type *Key = Context.getTagDeclType(RD).getTypePtr();
 
   llvm::StructType *&Entry = RecordDeclTypes[Key];
+
+  if (!Entry) {
+    // TODO: This can be partially merged with the code below
+    SmallString<256> TypeName;
+    getRecordTypeName(RD, "", TypeName);
+    Entry = CGM.getModule().getTypeByName(TypeName);
+  }
 
   // If we don't have a StructType at all yet, create the forward declaration.
   if (!Entry) {
