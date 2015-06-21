@@ -163,6 +163,8 @@ public:
 
   llvm::Type* GetVTableType(uint32_t virtualMethodsCount);
 
+  llvm::Type* GetClassTypeInfoType();
+
   const CGRecordLayout &getCGRecordLayout(const RecordDecl*);
 
   /// UpdateCompletedType - When we find the full definition for a TagDecl,
