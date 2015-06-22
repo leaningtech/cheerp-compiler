@@ -542,6 +542,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileDowncast( callV );
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::cheerp_downcast_current)
+	{
+		compileCompleteObject(*it);
+		stream << ".o";
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::cheerp_upcast_collapsed)
 	{
 		compilePointerAs(*it, PA.getPointerKind(callV.getInstruction()));
