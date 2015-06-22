@@ -236,6 +236,10 @@ public:
     return BaseOffsetFromNo[baseIndex];
   }
 
+  const llvm::SmallVector<unsigned, 4>& getBaseOffsetFromNo() const {
+    return BaseOffsetFromNo;
+  }
+
   void print(raw_ostream &OS) const;
   void dump() const;
 };
