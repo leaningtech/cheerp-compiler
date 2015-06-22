@@ -189,11 +189,11 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 
 	POINTER_KIND result_kind = PA.getPointerKind(callV.getInstruction());
 	const Value * src = callV.getArgument(0);
-	const APInt& baseOffset = cast<Constant>(callV.getArgument(1))->getUniqueInteger();
+	const Value * offset = callV.getArgument(1);
 
 	Type* t=src->getType()->getPointerElementType();
 
-	if(TypeSupport::isClientType(t) || baseOffset == 0)
+	if(TypeSupport::isClientType(t) || (isa<ConstantInt>(offset) && cast<ConstantInt>(offset)->isNullValue()))
 	{
 		compilePointerAs(src, result_kind);
 	}
@@ -206,14 +206,18 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			compileCompleteObject(src);
 			stream << ".a,o:";
 			compileCompleteObject(src);
-			stream << ".o-(" << baseOffset << ")}";
+
+			stream << ".o-(";
+			compileOperand(offset);
+			stream << ")}";
 		}
 		else
 		{
 			compileCompleteObject(src);
 			stream << ".a[";
 			compileCompleteObject(src);
-			stream << ".o-(" << baseOffset;
+			stream << ".o-(";
+			compileOperand(offset);
 			stream << ")]";
 		}
 	}

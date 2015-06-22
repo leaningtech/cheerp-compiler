@@ -41,7 +41,7 @@ bool isNopCast(const Value* val)
 			Type* t = newCall->getArgOperand(0)->getType()->getPointerElementType();
 
 			if ( TypeSupport::isClientType(t) ||
-				getIntFromValue( newCall->getArgOperand(1) ) == 0 )
+				(isa<ConstantInt>( newCall->getArgOperand(1) ) && getIntFromValue( newCall->getArgOperand(1) ) == 0 ))
 				return true;
 		}
 		
