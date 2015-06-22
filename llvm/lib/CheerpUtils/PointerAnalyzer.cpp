@@ -700,6 +700,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_deallocate:
 		case Intrinsic::cheerp_make_regular:
 		case Intrinsic::cheerp_make_complete_object:
+		case Intrinsic::cheerp_downcast_current:
 			return ret |= COMPLETE_OBJECT;
 		case Intrinsic::cheerp_downcast:
 		case Intrinsic::cheerp_upcast_collapsed:

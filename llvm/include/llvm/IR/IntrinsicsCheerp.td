@@ -22,6 +22,10 @@ def int_cheerp_downcast  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty, llvm_i32_ty],
                              [NoCapture<0>]>;
 
+def int_cheerp_downcast_current  : Intrinsic<[llvm_i32_ty],
+                             [llvm_anyptr_ty],
+                             [NoCapture<0>]>;
+
 def int_cheerp_upcast_collapsed  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
                              []>;
