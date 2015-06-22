@@ -3938,9 +3938,11 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   llvm::Type *OffsetFlagsLTy =
       CGM.getTypes().ConvertType(OffsetFlagsTy);
 
+  llvm::SmallVector<llvm::Constant*, 8> basesFields;
   for (const auto &Base : RD->bases()) {
+    llvm::SmallVector<llvm::Constant*, 8> baseFields;
     // The __base_type member points to the RTTI for the base type.
-    Fields.push_back(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(Base.getType()));
+    baseFields.push_back(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(Base.getType()));
 
     auto *BaseDecl =
         cast<CXXRecordDecl>(Base.getType()->castAs<RecordType>()->getDecl());
@@ -3957,7 +3959,12 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
         CGM.getItaniumVTableContext().getVirtualBaseOffsetOffset(RD, BaseDecl);
     else {
       const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
-      Offset = Layout.getBaseClassOffset(BaseDecl);
+      if(!CGM.getTarget().isByteAddressable() && Layout.getPrimaryBase() != BaseDecl && !BaseDecl->isEmpty()) {
+        const CGRecordLayout &CGLayout = CGM.getTypes().getCGRecordLayout(RD);
+        unsigned baseId = CGLayout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
+        Offset = CharUnits::fromQuantity(CGLayout.getTotalOffsetToBase(baseId));
+      } else
+        Offset = Layout.getBaseClassOffset(BaseDecl);
     };
 
     OffsetFlags = uint64_t(Offset.getQuantity()) << 8;
@@ -3969,8 +3976,11 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
     if (Base.getAccessSpecifier() == AS_public)
       OffsetFlags |= BCTI_Public;
 
-    Fields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, OffsetFlags));
+    baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, OffsetFlags));
+    basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields));
   }
+  llvm::ArrayType* basesArrayType = llvm::ArrayType::get(basesFields[0]->getType(), basesFields.size());
+  Fields.push_back(llvm::ConstantArray::get(basesArrayType, basesFields));
 }
 
 /// Compute the flags for a __pbase_type_info, and remove the corresponding
