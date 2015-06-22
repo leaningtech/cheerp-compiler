@@ -111,7 +111,7 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 					// If a source type is downcasted with an offset != 0 we can't collapse the type
 					// we keep track of this by setting the mapping to an empty vector
 					StructType* sourceType = cast<StructType>(II->getOperand(0)->getType()->getPointerElementType());
-					if(cast<ConstantInt>(II->getOperand(1))->getZExtValue() != 0)
+					if(!isa<ConstantInt>(II->getOperand(1)) || cast<ConstantInt>(II->getOperand(1))->getZExtValue() != 0)
 					{
 						downcastSourceToDestinationsMapping[sourceType].clear();
 						continue;
