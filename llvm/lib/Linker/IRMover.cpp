@@ -147,6 +147,8 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
     // the dest, but fill it in later. If this is the second (different) type
     // that we're trying to map onto the same opaque type then we fail.
     if (cast<StructType>(DstTy)->isOpaque()) {
+      if (!SSTy->getName().startswith(cast<StructType>(DstTy)->getName()))
+        return false;
       // We can only map one source type onto the opaque destination type.
       if (!DstResolvedOpaqueTypes.insert(cast<StructType>(DstTy)).second)
         return false;
