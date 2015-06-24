@@ -16,6 +16,13 @@
 
 namespace __cxxabiv1 {
 
+#ifdef __CHEERP__
+typedef std::ptrdiff_t obj_type;
+#else
+typedef void* obj_type;
+#endif
+
+
 class _LIBCXXABI_TYPE_VIS __shim_type_info : public std::type_info {
 public:
   _LIBCXXABI_HIDDEN virtual ~__shim_type_info();
@@ -23,35 +30,35 @@ public:
   _LIBCXXABI_HIDDEN virtual void noop1() const;
   _LIBCXXABI_HIDDEN virtual void noop2() const;
   _LIBCXXABI_HIDDEN virtual bool can_catch(const __shim_type_info *thrown_type,
-                                           void *&adjustedPtr) const = 0;
+                                           obj_type&adjustedPtr) const = 0;
 };
 
 class _LIBCXXABI_TYPE_VIS __fundamental_type_info : public __shim_type_info {
 public:
   _LIBCXXABI_HIDDEN virtual ~__fundamental_type_info();
   _LIBCXXABI_HIDDEN virtual bool can_catch(const __shim_type_info *,
-                                           void *&) const;
+                                           obj_type&) const;
 };
 
 class _LIBCXXABI_TYPE_VIS __array_type_info : public __shim_type_info {
 public:
   _LIBCXXABI_HIDDEN virtual ~__array_type_info();
   _LIBCXXABI_HIDDEN virtual bool can_catch(const __shim_type_info *,
-                                           void *&) const;
+                                           obj_type&) const;
 };
 
 class _LIBCXXABI_TYPE_VIS __function_type_info : public __shim_type_info {
 public:
   _LIBCXXABI_HIDDEN virtual ~__function_type_info();
   _LIBCXXABI_HIDDEN virtual bool can_catch(const __shim_type_info *,
-                                           void *&) const;
+                                           obj_type&) const;
 };
 
 class _LIBCXXABI_TYPE_VIS __enum_type_info : public __shim_type_info {
 public:
   _LIBCXXABI_HIDDEN virtual ~__enum_type_info();
   _LIBCXXABI_HIDDEN virtual bool can_catch(const __shim_type_info *,
-                                           void *&) const;
+                                           obj_type&) const;
 };
 
 enum
@@ -70,16 +77,25 @@ struct _LIBCXXABI_HIDDEN __dynamic_cast_info
 // const data supplied to the search:
 
     const __class_type_info* dst_type;
+#ifdef __CHEERP__
+    std::ptrdiff_t static_ptr;
+#else
     const void* static_ptr;
+#endif
     const __class_type_info* static_type;
     ptrdiff_t src2dst_offset;
 
 // Data that represents the answer:
 
+#ifdef __CHEERP__
     // pointer to a dst_type which has (static_ptr, static_type) above it
-    const void* dst_ptr_leading_to_static_ptr;
+    std::ptrdiff_t dst_ptr_leading_to_static_ptr;
     // pointer to a dst_type which does not have (static_ptr, static_type) above it
+    std::ptrdiff_t dst_ptr_not_leading_to_static_ptr;
+#else
+    const void* dst_ptr_leading_to_static_ptr;
     const void* dst_ptr_not_leading_to_static_ptr;
+#endif
 
     // The following three paths are either unknown, public_path or not_public_path.
     // access of path from dst_ptr_leading_to_static_ptr to (static_ptr, static_type)
@@ -118,21 +134,21 @@ public:
   _LIBCXXABI_HIDDEN virtual ~__class_type_info();
 
   _LIBCXXABI_HIDDEN void process_static_type_above_dst(__dynamic_cast_info *,
-                                                       const void *,
-                                                       const void *, int) const;
+                                                       const obj_type,
+                                                       const obj_type, int) const;
   _LIBCXXABI_HIDDEN void process_static_type_below_dst(__dynamic_cast_info *,
-                                                       const void *, int) const;
-  _LIBCXXABI_HIDDEN void process_found_base_class(__dynamic_cast_info *, void *,
+                                                       const obj_type, int) const;
+  _LIBCXXABI_HIDDEN void process_found_base_class(__dynamic_cast_info *, obj_type,
                                                   int) const;
   _LIBCXXABI_HIDDEN virtual void search_above_dst(__dynamic_cast_info *,
-                                                  const void *, const void *,
+                                                  const obj_type, const obj_type,
                                                   int, bool) const;
   _LIBCXXABI_HIDDEN virtual void
-  search_below_dst(__dynamic_cast_info *, const void *, int, bool) const;
+  search_below_dst(__dynamic_cast_info *, const obj_type, int, bool) const;
   _LIBCXXABI_HIDDEN virtual bool can_catch(const __shim_type_info *,
-                                           void *&) const;
+                                           obj_type&) const;
   _LIBCXXABI_HIDDEN virtual void
-  has_unambiguous_public_base(__dynamic_cast_info *, void *, int) const;
+  has_unambiguous_public_base(__dynamic_cast_info *, obj_type, int) const;
 };
 
 // Has one non-virtual public base class at offset zero
@@ -143,12 +159,12 @@ public:
   _LIBCXXABI_HIDDEN virtual ~__si_class_type_info();
 
   _LIBCXXABI_HIDDEN virtual void search_above_dst(__dynamic_cast_info *,
-                                                  const void *, const void *,
+                                                  const obj_type, const obj_type,
                                                   int, bool) const;
   _LIBCXXABI_HIDDEN virtual void
-  search_below_dst(__dynamic_cast_info *, const void *, int, bool) const;
+  search_below_dst(__dynamic_cast_info *, const obj_type, int, bool) const;
   _LIBCXXABI_HIDDEN virtual void
-  has_unambiguous_public_base(__dynamic_cast_info *, void *, int) const;
+  has_unambiguous_public_base(__dynamic_cast_info *, obj_type, int) const;
 };
 
 struct _LIBCXXABI_HIDDEN __base_class_type_info
@@ -164,9 +180,9 @@ public:
         __offset_shift = 8
     };
 
-    void search_above_dst(__dynamic_cast_info*, const void*, const void*, int, bool) const;
-    void search_below_dst(__dynamic_cast_info*, const void*, int, bool) const;
-    void has_unambiguous_public_base(__dynamic_cast_info*, void*, int) const;
+    void search_above_dst(__dynamic_cast_info*, const obj_type, const obj_type, int, bool) const;
+    void search_below_dst(__dynamic_cast_info*, const obj_type, int, bool) const;
+    void has_unambiguous_public_base(__dynamic_cast_info*, obj_type, int) const;
 };
 
 // Has one or more base classes
@@ -186,12 +202,12 @@ public:
   _LIBCXXABI_HIDDEN virtual ~__vmi_class_type_info();
 
   _LIBCXXABI_HIDDEN virtual void search_above_dst(__dynamic_cast_info *,
-                                                  const void *, const void *,
+                                                  const obj_type, const obj_type,
                                                   int, bool) const;
   _LIBCXXABI_HIDDEN virtual void
-  search_below_dst(__dynamic_cast_info *, const void *, int, bool) const;
+  search_below_dst(__dynamic_cast_info *, const obj_type, int, bool) const;
   _LIBCXXABI_HIDDEN virtual void
-  has_unambiguous_public_base(__dynamic_cast_info *, void *, int) const;
+  has_unambiguous_public_base(__dynamic_cast_info *, obj_type, int) const;
 };
 
 class _LIBCXXABI_TYPE_VIS __pbase_type_info : public __shim_type_info {
@@ -224,14 +240,14 @@ public:
 
   _LIBCXXABI_HIDDEN virtual ~__pbase_type_info();
   _LIBCXXABI_HIDDEN virtual bool can_catch(const __shim_type_info *,
-                                           void *&) const;
+                                           obj_type&) const;
 };
 
 class _LIBCXXABI_TYPE_VIS __pointer_type_info : public __pbase_type_info {
 public:
   _LIBCXXABI_HIDDEN virtual ~__pointer_type_info();
   _LIBCXXABI_HIDDEN virtual bool can_catch(const __shim_type_info *,
-                                           void *&) const;
+                                           obj_type&) const;
   _LIBCXXABI_HIDDEN bool can_catch_nested(const __shim_type_info *) const;
 };
 
@@ -242,7 +258,7 @@ public:
 
   _LIBCXXABI_HIDDEN virtual ~__pointer_to_member_type_info();
   _LIBCXXABI_HIDDEN virtual bool can_catch(const __shim_type_info *,
-                                           void *&) const;
+                                           obj_type&) const;
   _LIBCXXABI_HIDDEN bool can_catch_nested(const __shim_type_info *) const;
 };
 
