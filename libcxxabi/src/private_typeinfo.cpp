@@ -171,13 +171,13 @@ __pointer_to_member_type_info::~__pointer_to_member_type_info()
 // Handles bullet 1
 bool
 __fundamental_type_info::can_catch(const __shim_type_info* thrown_type,
-                                   void*&) const
+                                   obj_type&) const
 {
     return is_equal(this, thrown_type, false);
 }
 
 bool
-__array_type_info::can_catch(const __shim_type_info*, void*&) const
+__array_type_info::can_catch(const __shim_type_info*, obj_type&) const
 {
     // We can get here if someone tries to catch an array by reference.
     //   However if someone tries to throw an array, it immediately gets
@@ -187,7 +187,7 @@ __array_type_info::can_catch(const __shim_type_info*, void*&) const
 }
 
 bool
-__function_type_info::can_catch(const __shim_type_info*, void*&) const
+__function_type_info::can_catch(const __shim_type_info*, obj_type&) const
 {
     // We can get here if someone tries to catch a function by reference.
     //   However if someone tries to throw a function, it immediately gets
@@ -199,7 +199,7 @@ __function_type_info::can_catch(const __shim_type_info*, void*&) const
 // Handles bullet 1
 bool
 __enum_type_info::can_catch(const __shim_type_info* thrown_type,
-                            void*&) const
+                            obj_type&) const
 {
     return is_equal(this, thrown_type, false);
 }
@@ -212,7 +212,7 @@ __enum_type_info::can_catch(const __shim_type_info* thrown_type,
 // Handles bullets 1 and 2
 bool
 __class_type_info::can_catch(const __shim_type_info* thrown_type,
-                             void*& adjustedPtr) const
+                             obj_type& adjustedPtr) const
 {
     // bullet 1
     if (is_equal(this, thrown_type, false))
@@ -227,7 +227,11 @@ __class_type_info::can_catch(const __shim_type_info* thrown_type,
     thrown_class_type->has_unambiguous_public_base(&info, adjustedPtr, public_path);
     if (info.path_dst_ptr_to_static_ptr == public_path)
     {
+#ifdef __CHEERP__
+        adjustedPtr = info.dst_ptr_leading_to_static_ptr;
+#else
         adjustedPtr = const_cast<void*>(info.dst_ptr_leading_to_static_ptr);
+#endif
         return true;
     }
     return false;
@@ -239,7 +243,7 @@ __class_type_info::can_catch(const __shim_type_info* thrown_type,
 
 void
 __class_type_info::process_found_base_class(__dynamic_cast_info* info,
-                                               void* adjustedPtr,
+                                               obj_type adjustedPtr,
                                                int path_below) const
 {
     if (info->dst_ptr_leading_to_static_ptr == 0)
@@ -267,7 +271,7 @@ __class_type_info::process_found_base_class(__dynamic_cast_info* info,
 
 void
 __class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
-                                               void* adjustedPtr,
+                                               obj_type adjustedPtr,
                                                int path_below) const
 {
     if (is_equal(this, info->static_type, false))
@@ -276,7 +280,7 @@ __class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
 
 void
 __si_class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
-                                                  void* adjustedPtr,
+                                                  obj_type adjustedPtr,
                                                   int path_below) const
 {
     if (is_equal(this, info->static_type, false))
@@ -287,28 +291,40 @@ __si_class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
 
 void
 __base_class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
-                                                    void* adjustedPtr,
+                                                    obj_type adjustedPtr,
                                                     int path_below) const
 {
     ptrdiff_t offset_to_base = 0;
+#ifdef __CHEERP__
+    if (adjustedPtr != -1)
+#else
     if (adjustedPtr != nullptr)
+#endif
     {
         offset_to_base = __offset_flags >> __offset_shift;
         if (__offset_flags & __virtual_mask)
         {
+#ifdef __CHEERP__
+            // TODO: Virtual bases are not supported on Cheerp
+#else
             const char* vtable = *static_cast<const char*const*>(adjustedPtr);
             offset_to_base = *reinterpret_cast<const ptrdiff_t*>(vtable + offset_to_base);
+#endif
         }
     }
     __base_type->has_unambiguous_public_base(
             info,
+#ifdef __CHEERP__
+            adjustedPtr + offset_to_base,
+#else
             static_cast<char*>(adjustedPtr) + offset_to_base,
+#endif
             (__offset_flags & __public_mask) ? path_below : not_public_path);
 }
 
 void
 __vmi_class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
-                                                   void* adjustedPtr,
+                                                   obj_type adjustedPtr,
                                                    int path_below) const
 {
     if (is_equal(this, info->static_type, false))
@@ -334,7 +350,7 @@ __vmi_class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
 // Handles bullet 1 for both pointers and member pointers
 bool
 __pbase_type_info::can_catch(const __shim_type_info* thrown_type,
-                             void*&) const
+                             obj_type&) const
 {
     bool use_strcmp = this->__flags & (__incomplete_class_mask |
                                        __incomplete_mask);
@@ -358,8 +374,11 @@ __pbase_type_info::can_catch(const __shim_type_info* thrown_type,
 // type. Only adjust the pointer after we know it is safe to do so.
 bool
 __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
-                               void*& adjustedPtr) const
+                               obj_type& adjustedPtr) const
 {
+#ifdef __CHEERP__
+    return false;
+#else
     // bullet 4
     if (is_equal(thrown_type, &typeid(std::nullptr_t), false)) {
       adjustedPtr = nullptr;
@@ -430,6 +449,7 @@ __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
         return true;
     }
     return false;
+#endif
 }
 
 bool __pointer_type_info::can_catch_nested(
@@ -468,7 +488,10 @@ bool __pointer_type_info::can_catch_nested(
 }
 
 bool __pointer_to_member_type_info::can_catch(
-    const __shim_type_info* thrown_type, void*& adjustedPtr) const {
+    const __shim_type_info* thrown_type, obj_type& adjustedPtr) const {
+#ifdef __CHEERP__
+    return false;
+#else
     // bullet 4
     if (is_equal(thrown_type, &typeid(std::nullptr_t), false)) {
       // We assume that the pointer to member representation is the same for
@@ -506,6 +529,7 @@ bool __pointer_to_member_type_info::can_catch(
     // for Derived->Base conversions.
 
     return false;
+#endif
 }
 
 bool __pointer_to_member_type_info::can_catch_nested(
@@ -608,22 +632,46 @@ bool __pointer_to_member_type_info::can_catch_nested(
 //    (static_ptr, static_type), then return dynamic_ptr.
 // Else return nullptr.
 
-extern "C" _LIBCXXABI_FUNC_VIS void *
-__dynamic_cast(const void *static_ptr, const __class_type_info *static_type,
-               const __class_type_info *dst_type,
-               std::ptrdiff_t src2dst_offset) {
+struct __vtable_base
+{
+	const __class_type_info* rtti_info;
+};
+
+extern "C" _LIBCXXABI_FUNC_VIS
+#ifdef __CHEERP__
+std::ptrdiff_t
+__dynamic_cast(std::ptrdiff_t static_downcast_offset,
+               const __vtable_base* vtable,
+#else
+void*
+__dynamic_cast(const void *static_ptr,
+#endif
+               const __class_type_info* static_type,
+               const __class_type_info* dst_type,
+               std::ptrdiff_t src2dst_offset)
+{
     // Possible future optimization:  Take advantage of src2dst_offset
 
     // Get (dynamic_ptr, dynamic_type) from static_ptr
+#ifdef __CHEERP__
+    std::ptrdiff_t dynamic_ptr = 0;
+    std::ptrdiff_t static_ptr = static_downcast_offset;
+    const __class_type_info* dynamic_type = vtable->rtti_info;
+#else
     void **vtable = *static_cast<void ** const *>(static_ptr);
     ptrdiff_t offset_to_derived = reinterpret_cast<ptrdiff_t>(vtable[-2]);
     const void* dynamic_ptr = static_cast<const char*>(static_ptr) + offset_to_derived;
     const __class_type_info* dynamic_type = static_cast<const __class_type_info*>(vtable[-1]);
+#endif
 
     // Initialize answer to nullptr.  This will be changed from the search
     //    results if a non-null answer is found.  Regardless, this is what will
     //    be returned.
-    const void* dst_ptr = 0;
+#ifdef __CHEERP__
+    obj_type dst_ptr = -1<<31;
+#else
+    obj_type dst_ptr = 0;
+#endif
     // Initialize info struct for this search.
     __dynamic_cast_info info = {dst_type, static_ptr, static_type, src2dst_offset, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
 
@@ -703,7 +751,11 @@ __dynamic_cast(const void *static_ptr, const __class_type_info *static_type,
             break;
         }
     }
+#ifdef __CHEERP__
+    return dst_ptr==(-1<<31)?(-1<<31):static_ptr-dst_ptr;
+#else
     return const_cast<void*>(dst_ptr);
+#endif
 }
 
 #ifdef __clang__
@@ -721,8 +773,8 @@ __dynamic_cast(const void *static_ptr, const __class_type_info *static_type,
 //   then mark this dyanmic_cast as ambiguous and stop the search.
 void
 __class_type_info::process_static_type_above_dst(__dynamic_cast_info* info,
-                                                 const void* dst_ptr,
-                                                 const void* current_ptr,
+                                                 const obj_type dst_ptr,
+                                                 const obj_type current_ptr,
                                                  int path_below) const
 {
     // Record that we found a static_type
@@ -768,7 +820,7 @@ __class_type_info::process_static_type_above_dst(__dynamic_cast_info* info,
 //   multiple paths from (dynamic_ptr, dynamic_type) to here, record the "most public" one.
 void
 __class_type_info::process_static_type_below_dst(__dynamic_cast_info* info,
-                                                 const void* current_ptr,
+                                                 const obj_type current_ptr,
                                                  int path_below) const
 {
     if (current_ptr == info->static_ptr)
@@ -835,7 +887,7 @@ __class_type_info::process_static_type_below_dst(__dynamic_cast_info* info,
 // }
 void
 __vmi_class_type_info::search_below_dst(__dynamic_cast_info* info,
-                                        const void* current_ptr,
+                                        const obj_type current_ptr,
                                         int path_below,
                                         bool use_strcmp) const
 {
@@ -1008,7 +1060,7 @@ __vmi_class_type_info::search_below_dst(__dynamic_cast_info* info,
 //   simplified to the case that there is only a single base class.
 void
 __si_class_type_info::search_below_dst(__dynamic_cast_info* info,
-                                       const void* current_ptr,
+                                       const obj_type current_ptr,
                                        int path_below,
                                        bool use_strcmp) const
 {
@@ -1085,7 +1137,7 @@ __si_class_type_info::search_below_dst(__dynamic_cast_info* info,
 //   simplified to the case that there is no base class.
 void
 __class_type_info::search_below_dst(__dynamic_cast_info* info,
-                                    const void* current_ptr,
+                                    const obj_type current_ptr,
                                     int path_below,
                                     bool use_strcmp) const
 {
@@ -1154,8 +1206,8 @@ __class_type_info::search_below_dst(__dynamic_cast_info* info,
 // }
 void
 __vmi_class_type_info::search_above_dst(__dynamic_cast_info* info,
-                                        const void* dst_ptr,
-                                        const void* current_ptr,
+                                        const obj_type dst_ptr,
+                                        const obj_type current_ptr,
                                         int path_below,
                                         bool use_strcmp) const
 {
@@ -1228,8 +1280,8 @@ __vmi_class_type_info::search_above_dst(__dynamic_cast_info* info,
 //   simplified to the case that there is only a single base class.
 void
 __si_class_type_info::search_above_dst(__dynamic_cast_info* info,
-                                       const void* dst_ptr,
-                                       const void* current_ptr,
+                                       const obj_type dst_ptr,
+                                       const obj_type current_ptr,
                                        int path_below,
                                        bool use_strcmp) const
 {
@@ -1243,8 +1295,8 @@ __si_class_type_info::search_above_dst(__dynamic_cast_info* info,
 //   simplified to the case that there is no base class.
 void
 __class_type_info::search_above_dst(__dynamic_cast_info* info,
-                                    const void* dst_ptr,
-                                    const void* current_ptr,
+                                    const obj_type dst_ptr,
+                                    const obj_type current_ptr,
                                     int path_below,
                                     bool use_strcmp) const
 {
@@ -1258,19 +1310,27 @@ __class_type_info::search_above_dst(__dynamic_cast_info* info,
 
 void
 __base_class_type_info::search_above_dst(__dynamic_cast_info* info,
-                                         const void* dst_ptr,
-                                         const void* current_ptr,
+                                         const obj_type dst_ptr,
+                                         const obj_type current_ptr,
                                          int path_below,
                                          bool use_strcmp) const
 {
     ptrdiff_t offset_to_base = __offset_flags >> __offset_shift;
     if (__offset_flags & __virtual_mask)
     {
+#ifdef __CHEERP__
+        // TODO: Cheerp does not support virtual bases
+#else
         const char* vtable = *static_cast<const char*const*>(current_ptr);
         offset_to_base = *reinterpret_cast<const ptrdiff_t*>(vtable + offset_to_base);
+#endif
     }
     __base_type->search_above_dst(info, dst_ptr,
+#ifdef __CHEERP__
+                                  current_ptr + offset_to_base,
+#else
                                   static_cast<const char*>(current_ptr) + offset_to_base,
+#endif
                                   (__offset_flags & __public_mask) ?
                                       path_below :
                                       not_public_path,
@@ -1279,18 +1339,26 @@ __base_class_type_info::search_above_dst(__dynamic_cast_info* info,
 
 void
 __base_class_type_info::search_below_dst(__dynamic_cast_info* info,
-                                         const void* current_ptr,
+                                         const obj_type current_ptr,
                                          int path_below,
                                          bool use_strcmp) const
 {
     ptrdiff_t offset_to_base = __offset_flags >> __offset_shift;
     if (__offset_flags & __virtual_mask)
     {
+#ifdef __CHEERP__
+        // TODO: Cheerp does not support virtual bases
+#else
         const char* vtable = *static_cast<const char*const*>(current_ptr);
         offset_to_base = *reinterpret_cast<const ptrdiff_t*>(vtable + offset_to_base);
+#endif
     }
     __base_type->search_below_dst(info,
+#ifdef __CHEERP__
+                                  current_ptr + offset_to_base,
+#else
                                   static_cast<const char*>(current_ptr) + offset_to_base,
+#endif
                                   (__offset_flags & __public_mask) ?
                                       path_below :
                                       not_public_path,
