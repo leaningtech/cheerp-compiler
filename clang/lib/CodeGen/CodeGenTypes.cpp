@@ -63,12 +63,7 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   if (RD->getIdentifier()) {
     // FIXME: We should not have to check for a null decl context here.
     // Right now we do it because the implicit Obj-C decls don't have one.
-    if (!getTarget().isByteAddressable())
-      getCXXABI().getMangleContext().mangleName(RD, OS);
-    else if (RD->getDeclContext())
-      RD->printQualifiedName(OS, Policy);
-    else
-      RD->printName(OS);
+    getCXXABI().getMangleContext().mangleName(RD, OS);
   } else if (const TypedefNameDecl *TDD = RD->getTypedefNameForAnonDecl()) {
     // FIXME: We should not have to check for a null decl context here.
     // Right now we do it because the implicit Obj-C decls don't have one.
@@ -76,7 +71,7 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
       TDD->printQualifiedName(OS, Policy);
     else
       TDD->printName(OS);
-  } else if (!getTarget().isByteAddressable() && isa<RecordDecl>(RD))
+  } else if (isa<RecordDecl>(RD))
     getCXXABI().getMangleContext().mangleName(RD, OS);
   else
     OS << "anon";
