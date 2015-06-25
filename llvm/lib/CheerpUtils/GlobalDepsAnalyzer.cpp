@@ -116,16 +116,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			return cast<Function>( p->getAggregateElement(1) );
 		};
 		
-		auto getConstructorVariable = []( const Constant * p ) -> const llvm::GlobalValue *
-		{
-			assert( isa< ConstantStruct >(p) );
-			
-			if ( p->getAggregateElement(2) == nullptr || isa<ConstantPointerNull>(p->getAggregateElement(2)) )
-				return nullptr;
-			assert( isa< GlobalValue >(p->getAggregateElement(2) ) );
-			return cast<GlobalValue>(p->getAggregateElement(2) );
-		};
-		
 		auto constComparator = [&]( const Constant * lhs, const Constant * rhs ) -> bool
 		{
 			return std::make_pair( getConstructorPriority(lhs), lhs) < 
@@ -134,35 +124,16 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		
 		std::set< const Constant *, decltype(constComparator) > requiredConstructors( constComparator );
 	
-		bool Modified = true;
-		
-		// Do this many times, since each time we add a global we might 
-		// have added a globalvariable required by another constructor
-		while (Modified)
+		for (ConstantArray::const_op_iterator it = constructors->op_begin();
+		     it != constructors->op_end(); ++it)
 		{
-			Modified = false;
-	
-			for (ConstantArray::const_op_iterator it = constructors->op_begin();
-			     it != constructors->op_end(); ++it)
-			{
-				assert( isa<Constant>(it) );
-				const Constant * p = cast<Constant>(it);
-				
-				if (requiredConstructors.count(p) )
-					continue;
-				
-				const GlobalValue * var = getConstructorVariable(p);
+			assert( isa<Constant>(it) );
+			const Constant * p = cast<Constant>(it);
 
-				if ( nullptr == var  || reachableGlobals.count(var) )
-				{
-					requiredConstructors.insert(p);
-					SubExprVec vec;
-					visitGlobal( getConstructorFunction(p), visited, vec );
-					assert( visited.empty() );
-					
-					Modified = true;
-				}
-			}
+			requiredConstructors.insert(p);
+			SubExprVec vec;
+			visitGlobal( getConstructorFunction(p), visited, vec );
+			assert( visited.empty() );
 		}
 		
 		constructorsNeeded.reserve( requiredConstructors.size() );
