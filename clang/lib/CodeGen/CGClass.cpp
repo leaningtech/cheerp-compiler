@@ -2802,18 +2802,12 @@ void CodeGenFunction::InitializeVTablePointers(const CXXRecordDecl *RD) {
 llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
                                            llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
-  //HACK: Not really clean, it will iterate until structs are found on the first element
   SmallVector<llvm::Value*, 4> GEPIndexes;
   llvm::Type* t=This->getType();
   assert(t->isPointerTy());
-  GEPIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
-  t=cast<llvm::PointerType>(t)->getElementType();
-  while(t->isStructTy())
-  {
-    GEPIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
-    llvm::StructType* st=cast<llvm::StructType>(t);
-    t=st->getElementType(0);
-  }
+  llvm::Constant* Zero=llvm::ConstantInt::get(Int32Ty, 0);
+  GEPIndexes.push_back(Zero);
+  GEPIndexes.push_back(Zero);
   llvm::Value *VTablePtrSrc = Builder.CreateGEP(This, GEPIndexes);
   if(!VTablePtrSrc->getType()->getPointerElementType()->isPointerTy())
   {
