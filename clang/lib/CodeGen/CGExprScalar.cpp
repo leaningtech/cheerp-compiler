@@ -3819,9 +3819,8 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
     else
       elementSize = CGF.getContext().getTypeSizeInChars(elementType);
 
-    // Don't even emit the divide for element size of 1 or the target is not byte addressable.
-    // NOTE: Cheerp stores all the objects in sequential indexes
-    if (elementSize.isOne() || !CGF.getTarget().isByteAddressable())
+    // Don't even emit the divide for element size of 1.
+    if (elementSize.isOne())
       return diffInChars;
 
     divisor = CGF.CGM.getSize(elementSize);
