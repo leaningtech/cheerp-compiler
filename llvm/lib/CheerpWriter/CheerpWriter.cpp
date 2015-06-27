@@ -783,6 +783,7 @@ void CheerpWriter::compilePredicate(CmpInst::Predicate p)
 			break;
 		case CmpInst::FCMP_UNE: //The undordered case correspond to the usual JS operator
 					//See ECMA-262, Section 11.9.6
+		case CmpInst::FCMP_ONE:
 		case CmpInst::ICMP_NE:
 			stream << "!==";
 			break;
