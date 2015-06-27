@@ -4007,7 +4007,10 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
       // Try to generate the init code using CodeGenFunction emitter for scalars,
       // since it generates more type safe code.
       // TODO: We are leaking the constant
-      llvm::Value* SafeInit = CodeGenFunction(*this).EmitScalarExpr(InitExpr, false);
+      CodeGenFunction CGF(*this);
+      CGF.disableDebugInfo();
+      llvm::Value* SafeInit = CGF.EmitScalarExpr(InitExpr, false);
+      CGF.enableDebugInfo();
       llvm::Constant* Init2 = dyn_cast<llvm::Constant>(SafeInit);
       if(Init2)
         Init = Init2;
