@@ -3821,20 +3821,10 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
 
     // Don't even emit the divide for element size of 1 or the target is not byte addressable.
     // NOTE: Cheerp stores all the objects in sequential indexes
-    if (elementSize.isOne())
+    if (elementSize.isOne() || !CGF.getTarget().isByteAddressable())
       return diffInChars;
 
     divisor = CGF.CGM.getSize(elementSize);
-    if (!CGF.getTarget().isByteAddressable())
-    {
-      llvm::Type* types[] = { op.LHS->getType() };
-
-      llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
-                                  llvm::Intrinsic::cheerp_element_distance, types);
-
-      // On cheerp we want to discard this value when converting to JS
-      divisor = Builder.CreateCall(intrinsic, llvm::ConstantPointerNull::get(cast<llvm::PointerType>(op.LHS->getType())));
-    }
   }
 
   // Otherwise, do a full sdiv. This uses the "exact" form of sdiv, since
