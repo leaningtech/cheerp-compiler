@@ -11,6 +11,7 @@
 
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/TypeOptimizer.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
@@ -751,6 +752,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	bool erased = pendingFunctions.erase(F);
 	(void)erased;
 	assert(erased);
+	FunctionType* oldFuncType = cast<FunctionType>(F->getType()->getPointerElementType());
 	globalTypeMapping[F] = F->getType();
 	// Rewrite the type
 	Type* newFuncType = rewriteType(F->getType());
@@ -763,8 +765,11 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			return it->second;
 		else if(GlobalValue* GV=dyn_cast<GlobalValue>(v))
 		{
-			assert(globalTypeMapping.count(GV));
-			return globalTypeMapping[GV];
+			auto it=globalTypeMapping.find(GV);
+			if(it==globalTypeMapping.end())
+				return GV->getType();
+			else
+				return it->second;
 		}
 		else
 			return v->getType();
@@ -806,6 +811,23 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			a.mutateType(newArgType);
 		}
 	}
+	// Remove byval attribute from pointer to array arguments, see CallInst handling below
+	bool attributesChanged = false;
+	AttributeSet newAttrs=F->getAttributes();
+	for(uint32_t i=0;i<F->arg_size();i++)
+	{
+		if(!newAttrs.hasAttribute(i+1, Attribute::ByVal))
+			continue;
+		Type* argType = oldFuncType->getParamType(i);
+		assert(argType->isPointerTy());
+		Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+		if(!rewrittenArgType->isArrayTy())
+			continue;
+		newAttrs=newAttrs.removeAttribute(module->getContext(), i+1, Attribute::ByVal);
+		attributesChanged = true;
+	}
+	if(attributesChanged)
+		F->setAttributes(newAttrs);
 	if(F->empty())
 		return;
 	SmallVector<BasicBlock*, 4> blocksInDFSOrder;
@@ -886,6 +908,53 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							}
 						}
 					}
+					else if(CallInst* CI=dyn_cast<CallInst>(&I))
+					{
+						if(CI->hasByValArgument())
+						{
+							// We need to make sure that no byval attribute is applied to pointers to arrays
+							// as they will be rewritten to plain pointers and less memory will be copied
+							// Get the original type of the called function
+							FunctionType* originalFunctionType = cast<FunctionType>(
+									getOriginalOperandType(CI->getCalledValue())->getPointerElementType());
+							AttributeSet newAttrs=CI->getAttributes();
+							bool attributesChanged=false;
+							Function* calledFunction = CI->getCalledFunction();
+							for(uint32_t i=0;i<CI->getNumArgOperands();i++)
+							{
+								if(!newAttrs.hasAttribute(i+1, Attribute::ByVal))
+									continue;
+								Type* argType = originalFunctionType->getParamType(i);
+								assert(argType->isPointerTy());
+								Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+								if(!rewrittenArgType->isArrayTy())
+									continue;
+								// The pointer is to an array, we need to make an explicit copy here
+								// and remove the attribute unless the called function is known and the argument is readonly
+								if(!calledFunction || !calledFunction->onlyReadsMemory(i+1))
+								{
+									IRBuilder<> Builder(CI);
+									Value* mappedOp = getMappedOperand(CI->getOperand(i));
+									assert(mappedOp->getType()->isPointerTy() &&
+										!mappedOp->getType()->getPointerElementType()->isArrayTy());
+									// 1) Create an alloca of the right type
+									Value* byValCopy=Builder.CreateAlloca(rewrittenArgType, nullptr, "byvalcopy");
+									byValCopy=Builder.CreateConstGEP2_32(rewrittenArgType, byValCopy, 0, 0);
+									// 2) Create a mempcy
+									Builder.CreateMemCpy(byValCopy, mappedOp, DL->getTypeAllocSize(rewrittenArgType),
+												/*align*/1, /*volatile*/false, nullptr, nullptr,
+												nullptr, nullptr, /*byteLayout*/ false);
+									// 3) Replace the argument
+									CI->setOperand(i, byValCopy);
+								}
+								// 4) Remove the byval attribute from the call
+								newAttrs=newAttrs.removeAttribute(module->getContext(), i+1, Attribute::ByVal);
+								attributesChanged = true;
+							}
+							if(attributesChanged)
+								CI->setAttributes(newAttrs);
+						}
+					}
 					// Fall through to next case
 				}
 				case Instruction::Alloca:
@@ -950,8 +1019,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	}
 	for(auto it: localInstMapping)
 	{
-		// Insert new instruction
-		cast<Instruction>(it.second)->insertAfter(cast<Instruction>(it.first));
+		// Insert new instruction, if necessary
+		if(!cast<Instruction>(it.second)->getParent())
+			cast<Instruction>(it.second)->insertAfter(cast<Instruction>(it.first));
 		// Alloca are only replaced for POINTER_FROM_ARRAY, and should not be removed
 		if(isa<AllocaInst>(it.first))
 			continue;
