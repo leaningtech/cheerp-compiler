@@ -40,7 +40,25 @@ void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 {
 	stream << '(';
-	compilePointerOffset(v);
+	Type* pointedType = v->getType()->getPointerElementType();
+	// Multiplying by the size is only required for pointer subtraction, which implies that the type is sized
+	uint64_t typeSize = pointedType->isSized() ? targetData.getTypeAllocSize(pointedType) : 0;
+	if(typeSize>1)
+	{
+		if(useMathImul)
+		{
+			stream << "Math.imul(";
+			compilePointerOffset(v);
+			stream << ',' << typeSize << ')';
+		}
+		else
+		{
+			compilePointerOffset(v);
+			stream << '*' << typeSize;
+		}
+	}
+	else
+		compilePointerOffset(v);
 	stream << ')';
 }
 
