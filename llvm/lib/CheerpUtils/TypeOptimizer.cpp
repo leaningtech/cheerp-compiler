@@ -556,12 +556,6 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			newTys.insert(newTys.end(),localTys,localTys+2);
 			break;
 		}
-		case Intrinsic::cheerp_element_distance:
-		{
-			Type* localTys[] = { FT->getParamType(0) };
-			newTys.insert(newTys.end(),localTys,localTys+1);
-			break;
-		}
 		case Intrinsic::lifetime_start:
 		case Intrinsic::lifetime_end:
 		{
