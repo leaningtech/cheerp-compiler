@@ -2450,18 +2450,25 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
         return Elt;
       }
 
-      llvm::Value* high = llvm::ConstantInt::get(CGF.Int32Ty, 0);
+      llvm::Value* high;
       llvm::Value* low;
 
       // Cast float or double values to int32
       if (CGF.ConvertType(E->getType())->isFloatingPointTy()) {
-        // TODO if (E->isSignedIntegerOrEnumerationType()) {
+        if (E->getType()->isSignedIntegerOrEnumerationType()) {
+          high = llvm::ConstantInt::get(CGF.Int32Ty, 0);
           low = Builder.CreateFPToSI(Elt, CGF.Int32Ty, "conv");
-        //} else {
-        //  low = Builder.CreateFPToUI(Elt, CGF.Int32Ty, "conv");
-        //}
+        } else {
+          high = llvm::ConstantInt::get(CGF.Int32Ty, 0);
+          low = Builder.CreateFPToUI(Elt, CGF.Int32Ty, "conv");
+        }
+      } else if (E->getType()->isSignedIntegerOrEnumerationType()) {
+          high = Builder.CreateAShr(Elt, Builder.getInt32(31));
+          low = Builder.CreateSExt(Elt, CGF.Int32Ty);
+          low = Builder.CreateZExt(low, CGF.Int32Ty);
       } else {
-        low = Builder.CreateZExt(Elt, CGF.Int32Ty);
+          high = llvm::ConstantInt::get(CGF.Int32Ty, 0);
+          low = Builder.CreateZExt(Elt, CGF.Int32Ty);
       }
 
       return CGF.EmitHighInt(CE->getType(), high, low);
