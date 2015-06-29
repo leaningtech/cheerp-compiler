@@ -10466,20 +10466,6 @@ ScalarEvolution::howFarToZero(const SCEV *V, const Loop *L, bool ControlsExit,
   // will have undefined behavior due to wrapping.
   if (ControlsExit && AddRec->hasNoSelfWrap() &&
       loopHasNoAbnormalExits(AddRec->getLoop())) {
-    // Cheerp safe code path for pointers: If the distance is a not a constant we need to
-    // divide the divisor by the element size.
-    if ((!DL || !DL->isByteAddressable()) && Distance->getType()->isPointerTy() && !isa<SCEVConstant>(Distance)) {
-      const SCEVConstant *SC = dyn_cast<SCEVConstant>(Step);
-      // If the step is not constant, we need to bail out
-      unsigned elementSize = DL->getTypeAllocSize(Distance->getType()->getPointerElementType());
-      if (!SC || SC->getValue()->getZExtValue() != (CountDown ? -elementSize : elementSize)) {
-        return getCouldNotCompute();
-      }
-      // The step is constant and equal to the element size, we can compute the BECount in a safer way
-      // In Cheerp the difference between pointers is computed in the number of elements, not in bytes
-      const SCEV *Exact = CountDown ? getNegativeSCEV(Distance) : Distance;
-      return ExitLimit(Exact, Exact);
-    }
     const SCEV *Exact =
         getUDivExpr(Distance, CountDown ? getNegativeSCEV(Step) : Step);
     const SCEV *Max = getCouldNotCompute();
