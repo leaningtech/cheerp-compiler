@@ -8760,20 +8760,6 @@ ScalarEvolution::howFarToZero(const SCEV *V, const Loop *L, bool ControlsExit,
   // will have undefined behavior due to wrapping.
   if (ControlsExit && AddRec->hasNoSelfWrap() &&
       loopHasNoAbnormalExits(AddRec->getLoop())) {
-    // Cheerp safe code path for pointers: If the distance is a not a constant we need to
-    // divide the divisor by the element size.
-    if ((!DL || !DL->isByteAddressable()) && Distance->getType()->isPointerTy() && !isa<SCEVConstant>(Distance)) {
-      const SCEVConstant *SC = dyn_cast<SCEVConstant>(Step);
-      // If the step is not constant, we need to bail out
-      unsigned elementSize = DL->getTypeAllocSize(Distance->getType()->getPointerElementType());
-      if (!SC || SC->getValue()->getZExtValue() != (CountDown ? -elementSize : elementSize)) {
-        return getCouldNotCompute();
-      }
-      // The step is constant and equal to the element size, we can compute the BECount in a safer way
-      // In Cheerp the difference between pointers is computed in the number of elements, not in bytes
-      const SCEV *Exact = CountDown ? getNegativeSCEV(Distance) : Distance;
-      return ExitLimit(Exact, Exact);
-    }
     const SCEV *Exact =
         getUDivExpr(Distance, CountDown ? getNegativeSCEV(Step) : Step);
     const SCEV *Max =
@@ -10497,20 +10483,6 @@ bool ScalarEvolution::doesIVOverflowOnGT(const SCEV *RHS, const SCEV *Stride,
 const SCEV *ScalarEvolution::computeBECount(const SCEV *Delta, const SCEV *Step,
                                             bool Equality) {
   const SCEV *One = getOne(Step->getType());
-  // On Cheerp we need to be careful with pointers.
-  // Compute the value only if the step is equal to the pointed element size
-  // as in this case we can decrease the division count by 1 instead of adding step-1
-  if ((!DL || !DL->isByteAddressable()) && Delta->getType()->isPointerTy() && !isa<SCEVConstant>(Delta)) {
-    const SCEVConstant *SC = dyn_cast<SCEVConstant>(Step);
-    // If the step is not constant, we need to bail out
-    if (!SC || SC->getValue()->getZExtValue() != DL->getTypeAllocSize(Delta->getType()->getPointerElementType())) {
-        return getCouldNotCompute();
-    }
-    // The step is constant and equal to the element size, we can compute the BECount in a safer way
-    // In Cheerp the difference between pointers is computed in the number of elements, not in bytes
-    Delta = getAddExpr(Delta, Step);
-    return Equality ? Delta : getMinusSCEV(Delta, One);
-  }
   Delta = Equality ? getAddExpr(Delta, Step)
                    : getAddExpr(Delta, getMinusSCEV(Step, One));
   return getUDivExpr(Delta, Step);
