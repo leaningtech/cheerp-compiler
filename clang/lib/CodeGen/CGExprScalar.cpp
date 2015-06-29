@@ -2630,6 +2630,9 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
   bool isSubtraction = !isInc;
 
   if (const AtomicType *atomicTy = type->getAs<AtomicType>()) {
+    if (CGF.IsHighInt(type)) {
+      llvm_unreachable("int64_t does not support atomic type");
+    }
     type = atomicTy->getValueType();
     if (isInc && type->isBooleanType()) {
       llvm::Value *True = CGF.EmitToMemory(Builder.getTrue(), type);
