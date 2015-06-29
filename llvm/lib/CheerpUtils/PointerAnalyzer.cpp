@@ -642,7 +642,6 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::vaend:
 		case Intrinsic::lifetime_start:
 		case Intrinsic::lifetime_end:
-		case Intrinsic::cheerp_element_distance:
 		case Intrinsic::cheerp_deallocate:
 		case Intrinsic::cheerp_make_regular:
 		case Intrinsic::cheerp_make_complete_object:
