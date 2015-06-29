@@ -587,12 +587,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << '}';
 		return COMPILE_OK;
 	}
-	else if(intrinsicId==Intrinsic::cheerp_element_distance)
-	{
-		// TODO: Eliminate this intrinsic in a pre-processing step
-		stream << '1';
-		return COMPILE_OK;
-	}
 	else if(intrinsicId==Intrinsic::flt_rounds)
 	{
 		// Rounding mode 1: nearest
