@@ -3199,36 +3199,20 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
   LValue LHSLV = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
 
   if (CGF.IsHighInt(LHSTy)) {
-    if (!CGF.IsHighInt(E->getRHS()->getType())) {
-        llvm_unreachable("not yet implemented");
-    }
-
     OpInfo.LHS = LHSLV.getAddress();
     llvm::Value *highint = NULL;
 
     switch (OpInfo.Opcode) {
-      case BO_MulAssign:
-      case BO_DivAssign:
-      case BO_RemAssign:
-      case BO_ShlAssign:
-      case BO_ShrAssign:
-        llvm_unreachable("not yet implemented compound assignment type");
-        break;
-      case BO_AddAssign:
-        highint = EmitAdd(OpInfo);
-        break;
-      case BO_SubAssign:
-        highint = EmitSub(OpInfo);
-        break;
-      case BO_AndAssign:
-        highint = EmitAnd(OpInfo);
-        break;
-      case BO_XorAssign:
-        highint = EmitXor(OpInfo);
-        break;
-      case BO_OrAssign:
-        highint = EmitOr(OpInfo);
-        break;
+      case BO_MulAssign: highint = EmitMul(OpInfo); break;
+      case BO_DivAssign: highint = EmitDiv(OpInfo); break;
+      case BO_RemAssign: highint = EmitRem(OpInfo); break;
+      case BO_ShlAssign: highint = EmitShl(OpInfo); break;
+      case BO_ShrAssign: highint = EmitShr(OpInfo); break;
+      case BO_AddAssign: highint = EmitAdd(OpInfo); break;
+      case BO_SubAssign: highint = EmitSub(OpInfo); break;
+      case BO_AndAssign: highint = EmitAnd(OpInfo); break;
+      case BO_XorAssign: highint = EmitXor(OpInfo); break;
+      case BO_OrAssign: highint = EmitOr(OpInfo); break;
       default:
         llvm_unreachable("Invalid compound assignment type");
     }
