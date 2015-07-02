@@ -74,6 +74,11 @@ public:
 	 * Get the list of constructors (static initializers) required by the program
 	 */
 	const std::vector<const llvm::Function*> & constructors() const { return constructorsNeeded; }
+
+	/**
+	 * Get the entry point of the program, might be webMain or main
+	 */
+	const llvm::Function* getEntryPoint() const { return entryPoint; }
 	
 	/**
 	 * Determine if we need to compile a cheerpCreateClosure function
@@ -151,6 +156,8 @@ private:
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	std::vector< llvm::GlobalValue * > externals;
+
+	const llvm::Function* entryPoint;
 	
 	bool hasCreateClosureUsers;
 	bool hasVAArgs;
