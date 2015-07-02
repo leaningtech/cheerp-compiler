@@ -3019,9 +3019,9 @@ void CheerpWriter::makeJS()
 		stream << namegen.getName(F) << "();" << NewLine;
 	}
 
-	//Invoke the webMain function
-	if ( const Function * webMain = module.getFunction("_Z7webMainv") )
-		stream << namegen.getName(webMain) << "()" << NewLine;
+	//Invoke the entry point
+	if ( const Function * entryPoint = globalDeps.getEntryPoint() )
+		stream << namegen.getName(entryPoint) << "()" << NewLine;
 
 	// Link the source map if necessary
 	if(sourceMapGenerator)
