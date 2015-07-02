@@ -33,7 +33,7 @@ const char* GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID),
+GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), entryPoint(NULL),
 	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false)
 {
 }
@@ -76,19 +76,25 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		}
 	}
 	
-	Function * webMain = module.getFunction("_Z7webMainv");
-	if(!webMain)
+	llvm::Function* webMainOrMain = module.getFunction("_Z7webMainv");
+	if(!webMainOrMain)
 	{
-		llvm::report_fatal_error("No webMain entry point found", false);
+		llvm::errs() << "warning: webMain entry point not found, falling back to main\n";
+		webMainOrMain = module.getFunction("main");
+	}
+	if(!webMainOrMain)
+	{
+		llvm::report_fatal_error("No webMain/main entry point found", false);
 	}
 	else
 	{
 		// Webmain entry point
 		SubExprVec vec;
-		visitGlobal( webMain, visited, vec );
+		visitGlobal( webMainOrMain, visited, vec );
 		assert( visited.empty() );
-		externals.push_back(webMain);
+		externals.push_back(webMainOrMain);
 	}
+	entryPoint = webMainOrMain;
 	
 	//Process constructors
 	if (GlobalVariable * constructorVar = module.getGlobalVariable("llvm.global_ctors") )
