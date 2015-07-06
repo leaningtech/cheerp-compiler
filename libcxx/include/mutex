@@ -211,7 +211,7 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#ifndef _LIBCPP_HAS_NO_THREADS
+#if !defined(_LIBCPP_HAS_NO_THREADS) || defined(__CHEERP__)
 
 class _LIBCPP_TYPE_VIS recursive_mutex
 {
