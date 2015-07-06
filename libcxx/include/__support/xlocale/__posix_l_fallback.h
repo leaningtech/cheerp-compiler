@@ -15,6 +15,8 @@
 #ifndef _LIBCPP_SUPPORT_XLOCALE_POSIX_L_FALLBACK_H
 #define _LIBCPP_SUPPORT_XLOCALE_POSIX_L_FALLBACK_H
 
+#include <time.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
