@@ -138,6 +138,9 @@ private:
   // Maps base field no to base offset
   llvm::SmallVector<unsigned, 4> BaseOffsetFromNo;
 
+  // Pointer to the directBase layout if any
+  const CGRecordLayout* DirectBaseLayout;
+
   /// False if any direct or indirect subobject of this class, when
   /// considered as a complete object, requires a non-zero bitpattern
   /// when zero-initialized.
@@ -151,10 +154,12 @@ private:
 public:
   CGRecordLayout(llvm::StructType *CompleteObjectType,
                  llvm::StructType *BaseSubobjectType,
+                 const CGRecordLayout* DirectBaseLayout,
                  bool IsZeroInitializable,
                  bool IsZeroInitializableAsBase)
     : CompleteObjectType(CompleteObjectType),
       BaseSubobjectType(BaseSubobjectType),
+      DirectBaseLayout(DirectBaseLayout),
       IsZeroInitializable(IsZeroInitializable),
       IsZeroInitializableAsBase(IsZeroInitializableAsBase),
       firstBaseElement(0),
@@ -222,7 +227,10 @@ public:
 
   unsigned getTotalOffsetToBase(unsigned baseIndex) const {
     // Used in the downcast code path
-    assert(baseIndex >= firstBaseElement);
+    if(baseIndex < firstBaseElement) {
+      // This happens for bases of the direct base
+      return DirectBaseLayout->getTotalOffsetToBase(baseIndex);
+    }
     baseIndex -= firstBaseElement;
     assert(baseIndex < BaseOffsetFromNo.size());
     return BaseOffsetFromNo[baseIndex];
