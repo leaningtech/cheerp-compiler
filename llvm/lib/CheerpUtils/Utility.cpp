@@ -371,24 +371,6 @@ bool TypeSupport::isSimpleType(Type* t)
 	return false;
 }
 
-bool TypeSupport::safeCallForNewedMemory(const CallInst* ci)
-{
-	//We allow the unsafe cast to i8* only
-	//if the usage is free or delete
-	//or one of the lifetime/invariant intrinsics
-	return (ci && ci->getCalledFunction() &&
-		(ci->getCalledFunction()->getName()=="free" ||
-		ci->getCalledFunction()->getName()=="_ZdaPv" ||
-		ci->getCalledFunction()->getName()=="_ZdlPv" ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::lifetime_start ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::lifetime_end ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::invariant_start ||
-		ci->getCalledFunction()->getIntrinsicID()==Intrinsic::invariant_end ||
-		//Allow unsafe casts for a limited number of functions that accepts callback args
-		//TODO: find a nicer approach for this
-		ci->getCalledFunction()->getName()=="__cxa_atexit"));
-}
-
 DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV ) : call(callV), type( getAllocType(callV) ), castedType(nullptr)
 {
 	if ( isValidAlloc() )
