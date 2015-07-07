@@ -2496,9 +2496,31 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     }
     // Type cast from an highint
     else if (CGF.IsHighInt(E->getType())) {
-      llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Visit(E));
-      return EmitScalarConversion(low, E->getType(), DestTy,
+      Value *Elt = Visit(E);
+      llvm::Type *Ty = ConvertType(CE->getType());
+      // Convert highint to a floating point number
+      if (Ty->isFloatingPointTy()) {
+        llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Elt);
+        low = Builder.CreateUIToFP(low, Ty);
+        llvm::Value *high = CGF.EmitLoadHighBitsOfHighInt(Elt);
+
+        if (E->getType()->isSignedIntegerType()) {
+          high = Builder.CreateSIToFP(high, Ty);
+        } else {
+          high = Builder.CreateUIToFP(high, Ty);
+        }
+
+        llvm::Value *c = llvm::ConstantFP::get(Ty, (double)(1LL << 32));
+        llvm::Value *result;
+        result = Builder.CreateFMul(c, high);
+        result = Builder.CreateFAdd(result, low);
+
+        return result;
+      } else {
+        llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Elt);
+        return EmitScalarConversion(low, E->getType(), DestTy,
                                 CE->getExprLoc());
+      }
     } else {
       return EmitScalarConversion(Visit(E), E->getType(), DestTy,
                                 CE->getExprLoc());
