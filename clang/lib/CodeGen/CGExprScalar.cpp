@@ -4274,7 +4274,7 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
   if (CGF.IsHighInt(Ops.Ty)) {
     // { h, l } >> N =>
     // { ( N >= 32) ? 0 : h >> N ,
-    //   ( N >= 32) ? h >> (N - 32) : H << (32 - N) | L >> N }
+    //   ( N >= 32) ? h >> (N - 32) : h << (32 - N) | L >> N }
     assert(RHS->getType()->isIntegerTy(32));
     llvm::Value* LHS = Ops.LHS;
     llvm::Value *h = CGF.EmitLoadHighBitsOfHighInt(LHS);
@@ -4295,14 +4295,21 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
     // Compute values for N < 32, case B
     llvm::Value* shrHForCaseB;
     if (Ops.Ty->hasUnsignedIntegerRepresentation())
-        shrHForCaseB = Builder.CreateLShr(h, RHS);
+      shrHForCaseB = Builder.CreateLShr(h, RHS);
     else
-        shrHForCaseB = Builder.CreateAShr(h, RHS);
-    llvm::Value* shrLForCaseB = Builder.CreateOr(Builder.CreateShl(h, _32MinusN), Builder.CreateLShr(l, RHS));
+      shrHForCaseB = Builder.CreateAShr(h, RHS);
+    llvm::Value* shrLForCaseB = Builder.CreateOr(
+      Builder.CreateShl(h, _32MinusN),
+      Builder.CreateLShr(l, RHS)
+    );
 
     // Compute final values
     llvm::Value* shrH = Builder.CreateSelect(NGE32, shrHForCaseA, shrHForCaseB);
     llvm::Value* shrL = Builder.CreateSelect(NGE32, shrLForCaseA, shrLForCaseB);
+
+    llvm::Value* NEQ0 = Builder.CreateICmpEQ(RHS, Builder.getInt32(0));
+    shrH = Builder.CreateSelect(NEQ0, h, shrH);
+    shrL = Builder.CreateSelect(NEQ0, l, shrL);
 
     return CGF.EmitHighInt(Ops.Ty, shrH, shrL);
   }
