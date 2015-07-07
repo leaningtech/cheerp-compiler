@@ -161,8 +161,6 @@ private:
 		return m.getNamedMetadata(llvm::Twine(t->getName(),"_bases"));
 	}
 
-	static bool safeCallForNewedMemory(const llvm::CallInst* ci);
-
 	const llvm::Module & module;
 	const std::unordered_set<llvm::StructType*> & classesWithBaseInfo;
 };
