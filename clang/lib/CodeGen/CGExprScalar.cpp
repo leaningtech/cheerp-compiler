@@ -4513,11 +4513,17 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
     llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(RHS);
     llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(RHS);
 
+    llvm::ICmpInst::Predicate slt = llvm::ICmpInst::ICMP_SLT;
+    llvm::ICmpInst::Predicate ult = llvm::ICmpInst::ICMP_ULT;
+    llvm::ICmpInst::Predicate sgt = llvm::ICmpInst::ICMP_SGT;
+    llvm::ICmpInst::Predicate ugt = llvm::ICmpInst::ICMP_UGT;
+    bool isUnsigned = LHSTy->isUnsignedIntegerType();
+
     switch (E->getOpcode()) {
     default: llvm_unreachable("unexpected comparison type");
     case BO_LT:
       return Builder.CreateOr(
-        Builder.CreateICmp(llvm::ICmpInst::ICMP_SLT, lhsHigh, rhsHigh),
+        Builder.CreateICmp(isUnsigned ? ult : slt, lhsHigh, rhsHigh),
         Builder.CreateAnd(
           Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
           Builder.CreateICmp(llvm::ICmpInst::ICMP_ULT, lhsLow, rhsLow)
@@ -4525,7 +4531,7 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
       );
     case BO_LE:
       return Builder.CreateOr(
-        Builder.CreateICmp(llvm::ICmpInst::ICMP_SLT, lhsHigh, rhsHigh),
+        Builder.CreateICmp(isUnsigned ? ult : slt, lhsHigh, rhsHigh),
         Builder.CreateAnd(
           Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
           Builder.CreateICmp(llvm::ICmpInst::ICMP_ULE, lhsLow, rhsLow)
@@ -4533,7 +4539,7 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
       );
     case BO_GT:
       return Builder.CreateOr(
-        Builder.CreateICmp(llvm::ICmpInst::ICMP_SGT, lhsHigh, rhsHigh),
+        Builder.CreateICmp(isUnsigned ? ugt : sgt, lhsHigh, rhsHigh),
         Builder.CreateAnd(
           Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
           Builder.CreateICmp(llvm::ICmpInst::ICMP_UGT, lhsLow, rhsLow)
@@ -4541,7 +4547,7 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
       );
     case BO_GE:
       return Builder.CreateOr(
-        Builder.CreateICmp(llvm::ICmpInst::ICMP_SGT, lhsHigh, rhsHigh),
+        Builder.CreateICmp(isUnsigned ? ugt : sgt, lhsHigh, rhsHigh),
         Builder.CreateAnd(
           Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
           Builder.CreateICmp(llvm::ICmpInst::ICMP_UGE, lhsLow, rhsLow)
