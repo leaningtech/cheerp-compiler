@@ -1790,15 +1790,19 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 		assert(isa<ConstantInt>(indices.back()));
 		const ConstantInt* idx = cast<ConstantInt>(indices.back());
 		uint32_t lastOffsetConstant = idx->getZExtValue();
-		if(types.hasBasesInfo(containerStructType))
+		uint32_t firstBase, baseCount;
+		while(types.getBasesInfo(containerStructType, firstBase, baseCount))
 		{
-			uint32_t firstBase, baseCount;
-			types.getBasesInfo(containerStructType, firstBase, baseCount);
+			if(lastOffsetConstant < firstBase && containerStructType->getDirectBase())
+			{
+				containerStructType = containerStructType->getDirectBase();
+				continue;
+			}
 			if(lastOffsetConstant >= firstBase && lastOffsetConstant < (firstBase+baseCount))
 				useDownCastArray = true;
+			break;
 		}
 	}
-
 	bool byteLayout = PA.getPointerKind(gep_inst) == BYTE_LAYOUT;
 	if (byteLayout)
 	{
@@ -1871,12 +1875,17 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
 		assert(isa<ConstantInt>(indices.back()));
 		const ConstantInt* idx = cast<ConstantInt>(indices.back());
 		uint32_t lastOffsetConstant = idx->getZExtValue();
-		if(types.hasBasesInfo(containerStructType))
+		uint32_t firstBase, baseCount;
+		while(types.getBasesInfo(containerStructType, firstBase, baseCount))
 		{
-			uint32_t firstBase, baseCount;
-			types.getBasesInfo(containerStructType, firstBase, baseCount);
+			if(lastOffsetConstant < firstBase && containerStructType->getDirectBase())
+			{
+				containerStructType = containerStructType->getDirectBase();
+				continue;
+			}
 			if(lastOffsetConstant >= firstBase && lastOffsetConstant < (firstBase+baseCount))
 				useDownCastArray = true;
+			break;
 		}
 	}
 
@@ -1938,12 +1947,17 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		assert(isa<ConstantInt>(indices.back()));
 		const ConstantInt* idx = cast<ConstantInt>(indices.back());
 		uint32_t lastOffsetConstant = idx->getZExtValue();
-		if(types.hasBasesInfo(containerStructType))
+		uint32_t firstBase, baseCount;
+		while(types.getBasesInfo(containerStructType, firstBase, baseCount))
 		{
-			uint32_t firstBase, baseCount;
-			types.getBasesInfo(containerStructType, firstBase, baseCount);
+			if(lastOffsetConstant < firstBase && containerStructType->getDirectBase())
+			{
+				containerStructType = containerStructType->getDirectBase();
+				continue;
+			}
 			if(lastOffsetConstant >= firstBase && lastOffsetConstant < (firstBase+baseCount))
 				useDownCastArray = true;
+			break;
 		}
 	}
 

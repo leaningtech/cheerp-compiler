@@ -256,7 +256,12 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 {
 	const NamedMDNode* basesNamedMeta = getBasesMetadata(t, module);
 	if(!basesNamedMeta)
+	{
+		// Before giving up, check if the direct base has any bases
+		if(t->getDirectBase())
+			return getBasesInfo(module,t->getDirectBase(),firstBase,baseCount);
 		return false;
+	}
 
 	MDNode* basesMeta=basesNamedMeta->getOperand(0);
 	assert(basesMeta->getNumOperands()==2);
@@ -264,6 +269,20 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 	int32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue())-1;
 	baseCount=0;
 
+	StructType* curDirectBase = t->getDirectBase();
+	while(curDirectBase)
+	{
+		const NamedMDNode* basesNamedMeta = getBasesMetadata(curDirectBase, module);
+		if(basesNamedMeta)
+		{
+			MDNode* basesMeta=basesNamedMeta->getOperand(0);
+			assert(basesMeta->getNumOperands()==2);
+			int32_t directBaseBasesMax = getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue())-1;
+			baseMax-=directBaseBasesMax;
+			break;
+		}
+		curDirectBase = curDirectBase->getDirectBase();
+	}
 	StructType::element_iterator E=t->element_begin()+firstBase;
 	StructType::element_iterator EE=t->element_end();
 	for(;E!=EE;++E)
@@ -284,10 +303,11 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 
 bool TypeSupport::useWrapperArrayForMember(const PointerAnalyzer& PA, StructType* st, uint32_t memberIndex) const
 {
-	if(hasBasesInfo(st))
+	uint32_t firstBase, baseCount;
+	if(getBasesInfo(st, firstBase, baseCount))
 	{
-		uint32_t firstBase, baseCount;
-		getBasesInfo(st, firstBase, baseCount);
+		if(memberIndex < firstBase && st->getDirectBase())
+			return useWrapperArrayForMember(PA, st->getDirectBase(), memberIndex);
 		if(memberIndex >= firstBase && memberIndex < (firstBase+baseCount))
 			return false;
 	}
@@ -370,6 +390,18 @@ bool TypeSupport::isSimpleType(Type* t)
 			assert(false);
 	}
 	return false;
+}
+
+llvm::StructType* TypeSupport::needsDowncastArray(llvm::StructType* t) const
+{
+	// True if the struct or any of its direct bases is used in a downcast
+	while(t)
+	{
+		if(classesWithBaseInfo.count(t))
+			return t;
+		t=t->getDirectBase();
+	}
+	return NULL;
 }
 
 DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV ) : call(callV), type( getAllocType(callV) ), castedType(nullptr)
