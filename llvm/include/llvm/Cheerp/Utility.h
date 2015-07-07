@@ -114,19 +114,7 @@ public:
 		return getBasesMetadata(t, m) != nullptr;
 	}
 
-	bool hasBasesInfo(llvm::StructType* t) const
-	{
-		assert( !( classesWithBaseInfo.count(t) && !hasBasesInfoMetadata(t, module) ) );
-		return classesWithBaseInfo.count(t);
-	}
-
-	// Syntactic sugar for when we do not know if we have a struct type
-	bool hasBasesInfo(llvm::Type * t) const
-	{
-		if ( llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
-			return hasBasesInfo(st);
-		return false;
-	}
+	llvm::StructType* needsDowncastArray(llvm::StructType* t) const;
 
 	// Bridge to the static version
 	bool getBasesInfo(const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount) const
