@@ -605,6 +605,9 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 			assert(!(blockState.liveOut && blockState.notLiveOut));
 			assert(!(blockState.liveIn && blockState.notLiveIn));
 			BasicBlock* BB = it.first;
+			// Skip blocks which are not reachable
+			if(pred_begin(BB) == pred_end(BB) && BB!=&BB->getParent()->getEntryBlock())
+				continue;
 			assert(instIdMap.count(&(*BB->begin())));
 			assert(instIdMap.count(&(*BB->rbegin())));
 			uint32_t firstIdInBlock = instIdMap.find(&(*BB->begin()))->second;
