@@ -115,11 +115,13 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 	{
 		numElements++;
 		assert(!TypeSupport::hasByteLayout(st));
-		bool addDowncastArray = types.hasBasesInfo(t);
+		uint32_t firstBase, baseCount;
+		StructType* downcastArrayBase = types.needsDowncastArray(st);
+		bool addDowncastArray = downcastArrayBase != NULL;
 		if(style == LITERAL_OBJ)
 		{
 			if(addDowncastArray)
-				stream << "create" << namegen.getTypeName(cast<StructType>(t)) << '(';
+				stream << "create" << namegen.getTypeName(downcastArrayBase) << '(';
 			stream << '{';
 		}
 		for(uint32_t i=0;i<st->getNumElements();i++)
@@ -182,7 +184,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 		else if(addDowncastArray)
 		{
 			assert(style == THIS_OBJ);
-			stream << "create" << namegen.getTypeName(cast<StructType>(t)) << "(this)";
+			stream << "create" << namegen.getTypeName(downcastArrayBase) << "(this)";
 		}
 	}
 	else
@@ -216,10 +218,19 @@ void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varN
 
 uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
 {
-	stream << "a[" << baseCount << "]=" << baseName << ';' << NewLine;
-	stream << baseName << ".o=" << baseCount << ';' << NewLine;
-	stream << baseName << ".a=a;" << NewLine;
-	baseCount++;
+	if(currentType->getDirectBase())
+	{
+		baseCount+=compileClassTypeRecursive(baseName,currentType->getDirectBase(),baseCount);
+		if(!TypeSupport::hasBasesInfoMetadata(currentType, module))
+			return baseCount;
+	}
+	else
+	{
+		stream << "a[" << baseCount << "]=" << baseName << ';' << NewLine;
+		stream << baseName << ".o=" << baseCount << ';' << NewLine;
+		stream << baseName << ".a=a;" << NewLine;
+		baseCount++;
+	}
 
 	uint32_t firstBase, localBaseCount;
 	if(!types.getBasesInfo(currentType, firstBase, localBaseCount))
@@ -248,12 +259,7 @@ void CheerpWriter::compileClassType(StructType* T)
 	//This function is used as a constructor using the new syntax
 	stream << "function create" << namegen.filterLLVMName(T->getName(), NameGenerator::GLOBAL) << "(obj){" << NewLine;
 
-	NamedMDNode* basesNamedMeta=module.getNamedMetadata(Twine(T->getName(),"_bases"));
-	assert(basesNamedMeta);
-	MDNode* basesMeta=basesNamedMeta->getOperand(0);
-	assert(basesMeta->getNumOperands()==2);
-	uint32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
-	stream << "var a=new Array(" << baseMax << ");" << NewLine;
+	stream << "var a=[];" << NewLine;
 	compileClassTypeRecursive("obj", T, 0);
 	stream << "return obj;}" << NewLine;
 }
