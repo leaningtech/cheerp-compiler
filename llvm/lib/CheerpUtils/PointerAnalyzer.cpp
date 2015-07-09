@@ -287,7 +287,6 @@ struct PointerUsageVisitor
 
 	PointerKindWrapper& visitValue(PointerKindWrapper& ret, const Value* v, bool first);
 	PointerKindWrapper& visitUse(PointerKindWrapper& ret, const Use* U);
-	PointerKindWrapper& visitReturn(PointerKindWrapper& ret, const Function* F, bool first);
 	static bool visitByteLayoutChain ( const Value * v );
 	static POINTER_KIND getKindForType(Type*);
 
@@ -438,6 +437,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			PointerKindWrapper& k = visitAllUses(ret, p);
 			k.makeKnown();
 			// In general, keep track of the contraints on elements of structures
+			// Warning, do not add the kindForType to the members, otherwise all scalar will require a wrapper array
 			pointerKindData.baseStructAndIndexMapForMembers[baseAndIndex] |= k;
 			return CacheAndReturn(k);
 		}
@@ -461,6 +461,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	}
 
 	llvm::Type * type = p->getType()->getPointerElementType();
+	POINTER_KIND kindForType = getKindForType(type);
 
 	bool isIntrinsic = false;
 	if ( const IntrinsicInst * intrinsic = dyn_cast<IntrinsicInst>(p) )
@@ -508,8 +509,8 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		}
 	}
 
-	if(getKindForType(type) != UNKNOWN)
-		return CacheAndReturn(ret |= getKindForType(type));
+	if(kindForType != UNKNOWN)
+		return CacheAndReturn(ret |= kindForType);
 
 	if(const Argument* arg = dyn_cast<Argument>(p))
 	{
@@ -542,14 +543,18 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	{
 		if (!isIntrinsic)
 		{
-			if(cs.getCalledFunction())
-				return CacheAndReturn(ret |= pointerKindData.getConstraintPtr(
-								IndirectPointerKindConstraint(RETURN_CONSTRAINT, cs.getCalledFunction())));
+			assert(first);
+			PointerKindWrapper& k = visitAllUses(ret, p);
+			k.makeKnown();
+			if(const Function* F = cs.getCalledFunction())
+			{
+				IndirectPointerKindConstraint c(RETURN_CONSTRAINT, F);
+				pointerKindData.constraintsMap[c] |= k;
+				// We want to override the ret value, not add a constraint
+				return CacheAndReturn(ret = PointerKindWrapper(pointerKindData.getConstraintPtr(c)));
+			}
 			else
 			{
-				assert(first);
-				PointerKindWrapper& k = visitAllUses(ret, p);
-				k.makeKnown();
 				IndirectPointerKindConstraint c(RETURN_TYPE_CONSTRAINT, p->getType());
 				pointerKindData.constraintsMap[c] |= k;
 				// We want to override the ret value, not add a constraint
@@ -674,17 +679,18 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return ret |= REGULAR;
 	}
 
+	// We need to check for basic type kinds here, because visitValue may have not done it,
+	// for example when computing kinds for members
+	Type* pointedType = U->get()->getType()->getPointerElementType();
+	POINTER_KIND kindForType = getKindForType(pointedType);
+
 	if ( ImmutableCallSite cs = p )
 	{
 		if ( cs.isCallee(U) )
 			return ret |= COMPLETE_OBJECT;
 
-		Type* pointedType = U->get()->getType()->getPointerElementType();
-
-		// We need to check for basic type kinds here, because visitValue may have not done it,
-		// for example when computing kinds for members
-		if(getKindForType(pointedType) != UNKNOWN)
-			return ret |= getKindForType(pointedType);
+		if(kindForType != UNKNOWN)
+			return ret |= kindForType;
 
 		const Function * calledFunction = cs.getCalledFunction();
 		// TODO: Use function type
@@ -709,6 +715,9 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 
 	if ( const ReturnInst * retInst = dyn_cast<ReturnInst>(p) )
 	{
+		if(kindForType != UNKNOWN)
+			return ret |= kindForType;
+
 		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(RETURN_CONSTRAINT, retInst->getParent()->getParent()));
 	}
 
@@ -725,54 +734,6 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return visitValue(ret, p, /*first*/ false);
 
 	return ret |= COMPLETE_OBJECT;
-}
-
-PointerKindWrapper& PointerUsageVisitor::visitReturn(PointerKindWrapper& ret, const Function* F, bool first)
-{
-	assert(F);
-
-	/**
-	 * Note:
-	 * we can not use F as the cache key here,
-	 * since F is a pointer to function which might be used elsewhere.
-	 * Hence we store the entry basic block.
-	 */
-
-	if(pointerKindData.valueMap.count(F->begin()))
-		return ret |= pointerKindData.valueMap.find(F->begin())->second;
-
-	if(!closedset.insert(F->begin()).second)
-		return ret |= UNKNOWN;
-
-	auto CacheAndReturn = [&](PointerKindWrapper& k) -> PointerKindWrapper&
-	{
-		closedset.erase(F);
-		if(first)
-			k.makeKnown();
-
-		if (k.isKnown())
-			return pointerKindData.valueMap.insert( std::make_pair(F->begin(), k ) ).first->second;
-		return k;
-	};
-
-	Type* returnPointedType = F->getReturnType()->getPointerElementType();
-
-	if(getKindForType(returnPointedType) != UNKNOWN)
-		return CacheAndReturn(ret |= getKindForType(returnPointedType));
-
-	if(addressTakenCache.checkAddressTaken(F))
-		return CacheAndReturn(ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(RETURN_TYPE_CONSTRAINT, F->getReturnType())));
-
-	for(const Use& u : F->uses())
-	{
-		ImmutableCallSite cs = u.getUser();
-		if(cs && cs.isCallee(&u))
-			visitAllUses(ret, cs.getInstruction());
-
-		if (ret==REGULAR)
-			break;
-	}
-	return CacheAndReturn(ret);
 }
 
 POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp)
@@ -792,11 +753,6 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 {
 	switch(c.kind)
 	{
-		case RETURN_CONSTRAINT:
-		{
-			assert(pointerData.valueMap.count(c.funcPtr->begin()));
-			return pointerData.valueMap.find(c.funcPtr->begin())->second;
-		}
 		case DIRECT_ARG_CONSTRAINT:
 		{
 			// If the function has its address taken we need to do the indirect arg check
@@ -812,6 +768,7 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 				return pointerData.argsMap.find(c.argPtr)->second;
 			}
 		}
+		case RETURN_CONSTRAINT:
 		case STORED_TYPE_CONSTRAINT:
 		case RETURN_TYPE_CONSTRAINT:
 		case BASE_AND_INDEX_CONSTRAINT:
@@ -1100,8 +1057,12 @@ void PointerAnalyzer::prefetchFunc(const Function& F) const
 			}
 		}
 	}
-	if(F.getReturnType()->isPointerTy() && !F.getIntrinsicID())
-		getFinalPointerKindWrapperForReturn(&F);
+	if(addressTakenCache.checkAddressTaken(&F))
+	{
+		IndirectPointerKindConstraint returnConstraint(RETURN_CONSTRAINT, &F);
+		IndirectPointerKindConstraint returnTypeConstaint(RETURN_TYPE_CONSTRAINT, F.getReturnType());
+		pointerKindData.constraintsMap[returnConstraint] |= pointerKindData.getConstraintPtr(returnTypeConstaint);
+	}
 }
 
 const PointerKindWrapper& PointerAnalyzer::getFinalPointerKindWrapper(const Value* p) const
@@ -1125,26 +1086,6 @@ const PointerKindWrapper& PointerAnalyzer::getFinalPointerKindWrapper(const Valu
 	assert(it!=pointerKindData.valueMap.end());
 	assert(&it->second == &k);
 	assert(k.isKnown());
-#endif
-	return k;
-}
-
-const PointerKindWrapper& PointerAnalyzer::getFinalPointerKindWrapperForReturn(const Function* F) const
-{
-#ifndef NDEBUG
-	TimerGuard guard(gpkfrTimer);
-#endif //NDEBUG
-	// If the values is already cached just return it
-	auto it = pointerKindData.valueMap.find(F->begin());
-	if(it!=pointerKindData.valueMap.end())
-		return it->second;
-
-	PointerKindWrapper ret;
-	PointerKindWrapper& k = PointerUsageVisitor(pointerKindData, addressTakenCache).visitReturn(ret, F, /* first*/ true);
-#ifndef NDEBUG
-	it = pointerKindData.valueMap.find(F->begin());
-	assert(it!=pointerKindData.valueMap.end());
-	assert(&it->second == &k);
 #endif
 	return k;
 }
@@ -1186,10 +1127,16 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 
 POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 {
-#ifndef NDEBUG
-	TimerGuard guard(gpkfrTimer);
-#endif //NDEBUG
-	const PointerKindWrapper& k = getFinalPointerKindWrapperForReturn(F);
+	assert(F->getReturnType()->isPointerTy());
+	Type* pointedType = F->getReturnType()->getPointerElementType();
+	POINTER_KIND ret=PointerUsageVisitor::getKindForType(pointedType);
+	if(ret!=UNKNOWN)
+		return ret;
+
+	const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolveConstraint(
+										IndirectPointerKindConstraint(RETURN_CONSTRAINT, F));
+	assert(k!=UNKNOWN);
+
 	if (k!=INDIRECT)
 		return k.getPointerKind();
 
@@ -1382,7 +1329,6 @@ void PointerAnalyzer::invalidate(const Value * v)
 				invalidate(&arg);
 		addressTakenCache.erase(F);
 		prefetchFunc(*F);
-		//TODO: Return
 	}
 	// Constant offsets should only be computed at the end, so they should be never invalidated
 	assert( !pointerOffsetData.valueMap.count(v) );

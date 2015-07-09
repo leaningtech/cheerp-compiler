@@ -223,6 +223,7 @@ bool IndirectCallOptimizer::runOnModule(Module & m)
 			}
 			
 			assert ( !oldFun->hasAddressTaken() );
+			PA.invalidate(newFun);
 			
 			NumIndirectFun++;
 			Changed = true;
