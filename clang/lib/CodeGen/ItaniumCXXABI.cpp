@@ -2069,16 +2069,19 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
                                           const CXXRecordDecl* AdjustmentSource) {
   if (!CGF.getTarget().isByteAddressable() && VirtualAdjustment)
     CGF.CGM.ErrorUnsupported(AdjustmentSource, "Cheerp: Virtual bases on non-byte addressable targets are not supported yet");
-  if (!CGF.getTarget().isByteAddressable() && IsReturnAdjustment)
-  {
-    CGF.CGM.ErrorUnsupported(CGF.CurGD.getDecl(),
-                    "Cheerp: Covariant returns on non-byte addressable targets are not supported yet");
-  }
 
   // Cheerp: Handle non byte addressable case before
   if (!CGF.getTarget().isByteAddressable())
   {
-    //TODO: We need to support calling a different thunk based on the type of the incoming this pointer
+    if(IsReturnAdjustment)
+    {
+      // Ptr has the wrong type here, as the signature comes from the overridden function
+      QualType SourceTy = CGF.getContext().getCanonicalType(CGF.getContext().getTagDeclType(AdjustmentSource));
+      llvm::Type *SourcePtrTy = CGF.ConvertType(SourceTy)->getPointerTo();
+      Ptr = CGF.Builder.CreateBitCast(Ptr, SourcePtrTy);
+      // Do a reverse downcast with a negative offset
+      NonVirtualAdjustment = -NonVirtualAdjustment;
+    }
     return CGF.GenerateDowncast(Ptr, AdjustmentTarget, NonVirtualAdjustment);
   }
 
