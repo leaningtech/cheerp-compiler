@@ -360,7 +360,6 @@ public:
 	typedef PointerData<PointerKindWrapper> PointerKindData;
 	typedef PointerData<PointerConstantOffsetWrapper> PointerOffsetData;
 private:
-	const PointerKindWrapper& getFinalPointerKindWrapperForReturn(const llvm::Function* F) const;
 	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Value*) const;
 	mutable PointerKindData pointerKindData;
 	mutable PointerOffsetData pointerOffsetData;
