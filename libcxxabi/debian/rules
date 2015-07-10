@@ -1,13 +1,14 @@
 #!/usr/bin/make -f
 
 %:
-	dh $@
+	dh $@ -Scmake --parallel
 
 override_dh_auto_configure:
-
-override_dh_auto_build:
-	cd lib; CXX="/opt/cheerp/bin/clang -target cheerp" ./buildit
-
-override_dh_auto_install:
-	mkdir -p $(CURDIR)/debian/cheerp-libcxxabi/opt/cheerp/lib
-	cp lib/libcxxabi.bc $(CURDIR)/debian/cheerp-libcxxabi/opt/cheerp/lib
+	dh_auto_configure -- \
+	    -DCMAKE_BUILD_TYPE=Release \
+	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
+	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake \
+	    -DLIBCXXABI_ENABLE_SHARED=OFF \
+	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
+	    -DLIBCXXABI_LIBCXX_INCLUDES=$(CURDIR)/libcxx/includes/ \
+	    -DLIBCXXABI_ENABLE_THREADS=0
