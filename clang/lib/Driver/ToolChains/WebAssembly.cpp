@@ -389,7 +389,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(LLVM_PREFIX "/lib/libm.bc");
     if (C.getDriver().CCCIsCXX()) {
       CmdArgs.push_back(LLVM_PREFIX "/lib/libc++.bc");
-      CmdArgs.push_back(LLVM_PREFIX "/lib/libcxxabi.bc");
+      CmdArgs.push_back(LLVM_PREFIX "/lib/libc++abi.bc");
     }
   }
 
