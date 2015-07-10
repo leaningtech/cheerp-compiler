@@ -469,7 +469,7 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
                                     const ThunkInfo &Thunk,
                                     bool IsUnprototyped) {
   const CXXMethodDecl* OriginalMethod = getTarget().isByteAddressable() ? cast<CXXMethodDecl>(GD.getDecl()) :
-                                                                          Thunk.This.Method;
+                                                                          Thunk.Method;
   StartThunk(Fn, GD, FnInfo, IsUnprototyped, OriginalMethod);
   // Create a scope with an artificial location for the body of this function.
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
@@ -515,7 +515,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
                                                ThunkInfo TI,
                                                bool ForVTable) {
   bool byteAddressable = CGM.getTarget().isByteAddressable();
-  const CXXMethodDecl* OriginalMethod = Thunk.This.Method;
+  const CXXMethodDecl* OriginalMethod = TI.Method;
   const CXXMethodDecl *MD = cast<CXXMethodDecl>(GD.getDecl());
 
   // Override the non virtual offset in bytes with the topological offset on NBA targets
@@ -549,7 +549,6 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
 
   // Arrange a function prototype appropriate for a function definition. In some
   // cases in the MS ABI, we may need to build an unprototyped musttail thunk.
-  const CXXMethodDecl* OriginalMethod = TI.This.Method;
   const CGFunctionInfo &FnInfo =
       IsUnprototyped ? CGM.getTypes().arrangeUnprototypedMustTailThunk(MD)
                      : CGM.getTypes().arrangeGlobalDeclaration(
