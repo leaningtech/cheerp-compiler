@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Cheerp/PointerAnalyzer.h"
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -69,12 +68,12 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 	
 	/** Check f2 **/
 	{
-		EXPECT_EQ( REGULAR, PA.getPointerKindForReturn(f2) );
+		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKindForReturn(f2) );
 		
 		const Argument * obj = f2->arg_begin();
 		const Argument * b = obj->getNextNode();
 		
-		EXPECT_EQ( REGULAR, PA.getPointerKind(obj) );
+		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(obj) );
 		EXPECT_EQ( REGULAR, PA.getPointerKind(b) );
 	}
 	
@@ -129,8 +128,8 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 		ASSERT_TRUE(c);
 		ASSERT_TRUE(d1);
 
-		EXPECT_EQ( REGULAR, PA.getPointerKind(a1) );
-		EXPECT_EQ( REGULAR, PA.getPointerKind(a2) );
+		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(a1) );
+		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(a2) );
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(a3) );
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(b1) );
 		EXPECT_EQ( REGULAR, PA.getPointerKind(c) );
