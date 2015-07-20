@@ -11,4 +11,5 @@ override_dh_auto_configure:
 	    -DLIBCXXABI_ENABLE_SHARED=OFF \
 	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
 	    -DLIBCXXABI_LIBCXX_INCLUDES=$(CURDIR)/libcxx/include/ \
-	    -DLIBCXXABI_ENABLE_THREADS=0
+	    -DLIBCXXABI_ENABLE_THREADS=0 \
+	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config
