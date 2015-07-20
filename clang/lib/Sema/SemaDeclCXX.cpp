@@ -5116,6 +5116,9 @@ bool Sema::SetCtorInitializers(CXXConstructorDecl *Constructor, bool AnyErrors,
       //   initialized.
       if (F->isUnnamedBitfield())
         continue;
+            
+      if (F->hasAttr<NoInitAttr>())
+        continue;
 
       // If we're not generating the implicit copy/move constructor, then we'll
       // handle anonymous struct/union fields based on their individual
@@ -8759,6 +8762,9 @@ bool SpecialMemberDeletionInfo::shouldDeleteForSubobjectCall(
   FieldDecl *Field = Subobj.dyn_cast<FieldDecl*>();
 
   int DiagKind = -1;
+  // NoInit fields behave just like a piece of memory of the right type
+  if(Field && Field->hasAttr<NoInitAttr>())
+    return false;
 
   if (SMOR.getKind() == Sema::SpecialMemberOverloadResult::NoMemberOrDeleted)
     DiagKind = !Decl ? 0 : 1;
