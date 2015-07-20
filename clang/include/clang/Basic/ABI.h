@@ -17,6 +17,7 @@
 
 #include "llvm/Support/DataTypes.h"
 #include <cstring>
+#include "clang/AST/CXXInheritance.h"
 
 namespace clang {
 
