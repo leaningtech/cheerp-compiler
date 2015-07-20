@@ -17,6 +17,7 @@
 
 #include "llvm/Support/DataTypes.h"
 #include <cstring>
+#include "clang/AST/CXXInheritance.h"
 
 namespace clang {
 
@@ -162,20 +163,17 @@ struct ThisAdjustment {
   
   const CXXRecordDecl* AdjustmentTarget;
   const CXXRecordDecl* AdjustmentSource;
+  CXXBasePath AdjustmentPath;
 
-  ThisAdjustment(bool byteAddressable, const CXXRecordDecl* t, const CXXRecordDecl* s) :
-        NonVirtual(0), AdjustmentTarget(byteAddressable?NULL:t),
-        AdjustmentSource(byteAddressable?NULL:s) { }
+  ThisAdjustment(const CXXRecordDecl* t, const CXXRecordDecl* s) :
+        NonVirtual(0), AdjustmentTarget(t), AdjustmentSource(s) {}
 
   bool isEmpty() const { return !NonVirtual && Virtual.isEmpty(); }
 
   friend bool operator==(const ThisAdjustment &LHS,
                          const ThisAdjustment &RHS) {
     return LHS.NonVirtual == RHS.NonVirtual &&
-      LHS.Virtual.Equals(RHS.Virtual) &&
-      //Those are all NULL in the byte addressable case
-      LHS.AdjustmentSource == RHS.AdjustmentSource &&
-      LHS.AdjustmentTarget == RHS.AdjustmentTarget;
+      LHS.Virtual.Equals(RHS.Virtual);
   }
 
   friend bool operator!=(const ThisAdjustment &LHS, const ThisAdjustment &RHS) {
@@ -209,7 +207,7 @@ struct ThunkInfo {
   /// an ABI-specific comparator.
   const CXXMethodDecl *Method;
 
-  ThunkInfo() : This(false,0,0), Return(false, 0, 0), Method(nullptr) { }
+  ThunkInfo() : This(NULL, NULL), Return(false, 0, 0), Method(nullptr) { }
 
   ThunkInfo(const ThisAdjustment &This, const ReturnAdjustment &Return,
             const CXXMethodDecl *Method)
