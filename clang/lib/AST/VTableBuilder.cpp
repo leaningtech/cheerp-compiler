@@ -915,7 +915,8 @@ private:
   /// ComputeThisAdjustmentBaseOffset - Compute the base offset for adjusting
   /// the 'this' pointer from the base subobject to the derived subobject.
   BaseOffset ComputeThisAdjustmentBaseOffset(BaseSubobject Base,
-                                             BaseSubobject Derived) const;
+                                             BaseSubobject Derived,
+                                             CXXBasePath& path) const;
 
   /// ComputeThisAdjustment - Compute the 'this' pointer adjustment for the
   /// given virtual member function, its offset in the layout class and its
@@ -1227,7 +1228,7 @@ ItaniumVTableBuilder::ComputeReturnAdjustment(BaseOffset Offset) {
 }
 
 BaseOffset ItaniumVTableBuilder::ComputeThisAdjustmentBaseOffset(
-    BaseSubobject Base, BaseSubobject Derived) const {
+    BaseSubobject Base, BaseSubobject Derived, CXXBasePath& path) const {
   const CXXRecordDecl *BaseRD = Base.getBase();
   const CXXRecordDecl *DerivedRD = Derived.getBase();
 
@@ -1265,6 +1266,7 @@ BaseOffset ItaniumVTableBuilder::ComputeThisAdjustmentBaseOffset(
       // Since we're going from the base class _to_ the derived class, we'll
       // invert the non-virtual offset here.
       Offset.NonVirtualOffset = -Offset.NonVirtualOffset;
+      path = Path;
       return Offset;
     }
   }
@@ -1277,7 +1279,7 @@ ThisAdjustment ItaniumVTableBuilder::ComputeThisAdjustment(
     FinalOverriders::OverriderInfo Overrider) {
   // Ignore adjustments for pure virtual member functions.
   if (Overrider.Method->isPure())
-    return ThisAdjustment(Context.getTargetInfo().isByteAddressable(), NULL, NULL);
+    return ThisAdjustment(NULL, NULL);
   
   BaseSubobject OverriddenBaseSubobject(MD->getParent(), 
                                         BaseOffsetInLayoutClass);
@@ -1286,10 +1288,10 @@ ThisAdjustment ItaniumVTableBuilder::ComputeThisAdjustment(
                                        Overrider.Offset);
 
   // Compute the adjustment offset.
+  ThisAdjustment Adjustment(OverriderBaseSubobject.getBase(), OverriddenBaseSubobject.getBase());
   BaseOffset Offset = ComputeThisAdjustmentBaseOffset(OverriddenBaseSubobject,
-                                                      OverriderBaseSubobject);
-  ThisAdjustment Adjustment(Context.getTargetInfo().isByteAddressable(), OverriderBaseSubobject.getBase(),
-                          OverriddenBaseSubobject.getBase());
+                                                      OverriderBaseSubobject,
+                                                      Adjustment.AdjustmentPath);
 
   if (Offset.isEmpty())
     return Adjustment;
@@ -3020,7 +3022,7 @@ void VFTableBuilder::AddMethods(BaseSubobject Base, unsigned BaseDepth,
     const CXXMethodDecl *OverriddenMD =
         FindNearestOverriddenMethod(MD, VisitedBases);
 
-    ThisAdjustment ThisAdjustmentOffset(Context.getTargetInfo().isByteAddressable(), MostDerivedClass, RD);
+    ThisAdjustment ThisAdjustmentOffset(MostDerivedClass, RD);
     bool ReturnAdjustingThunk = false, ForceReturnAdjustmentMangling = false;
     CharUnits ThisOffset = ComputeThisOffset(FinalOverrider);
     ThisAdjustmentOffset.NonVirtual =
