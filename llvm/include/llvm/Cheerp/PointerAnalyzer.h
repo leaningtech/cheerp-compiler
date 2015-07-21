@@ -129,11 +129,12 @@ private:
 public:
 	// We can store pointers to constraint as they are made unique by PointerData::getConstraintPtr
 	std::unordered_set<const IndirectPointerKindConstraint*> constraints;
-	PointerKindWrapper():kind(COMPLETE_OBJECT)
+	PointerKindWrapper():kind(COMPLETE_OBJECT),regularCause(NULL)
 	{
 	}
-	PointerKindWrapper(POINTER_KIND k):kind(k)
+	PointerKindWrapper(POINTER_KIND k, const llvm::Value* regularCause = NULL):kind(k),regularCause(regularCause)
 	{
+		assert(k!=REGULAR || regularCause);
 	}
 	PointerKindWrapper(const IndirectPointerKindConstraint* constraint):kind(INDIRECT)
 	{
@@ -144,11 +145,13 @@ public:
 		assert(this != &rhs);
 		kind = rhs.kind;
 		constraints = rhs.constraints;
+		regularCause = rhs.regularCause;
 	}
 	void swap(PointerKindWrapper& rhs)
 	{
 		std::swap(kind, rhs.kind);
 		constraints.swap(rhs.constraints);
+		std::swap(regularCause, rhs.regularCause);
 	}
 	bool operator==(POINTER_KIND rhs) const
 	{
@@ -163,6 +166,7 @@ public:
 		assert(this != &rhs);
 		kind = rhs.kind;
 		constraints = rhs.constraints;
+		regularCause = rhs.regularCause;
 		return *this;
 	}
 	PointerKindWrapper& operator|=(const PointerKindWrapper& rhs);
@@ -190,6 +194,7 @@ public:
 		kind = getPointerKindForKnown();
 	}
 	void dump() const;
+	const llvm::Value* regularCause;
 
 	static PointerKindWrapper staticDefaultValue;
 };
