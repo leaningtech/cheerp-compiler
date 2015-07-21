@@ -4169,38 +4169,7 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
 
   if (CGF.IsHighInt(Ops.Ty)) {
-    // { h, l } << N =>
-    // { (N >= 32) ? l << (N - 32) : (h << (32 - N)) | (l >> (32 - N)),
-    //   (N >= 32) ? 0 : l << N }
-    assert(RHS->getType()->isIntegerTy(32));
-    llvm::Value* LHS = Ops.LHS;
-    llvm::Value *h = CGF.EmitLoadHighBitsOfHighInt(LHS);
-    llvm::Value *l = CGF.EmitLoadLowBitsOfHighInt(LHS);
-
-    llvm::Value* NGE32 = Builder.CreateICmpUGE(RHS, Builder.getInt32(32));
-    llvm::Value* NMinus32 = Builder.CreateSub(RHS, Builder.getInt32(32));
-    llvm::Value* _32MinusN = Builder.CreateSub(Builder.getInt32(32), RHS);
-
-    // Compute values for N >= 32, case A
-    llvm::Value* shlHForCaseA = Builder.CreateShl(l, NMinus32);
-    llvm::Value* shlLForCaseA = Builder.getInt32(0);
-
-    // Compute values for N < 32, case B
-    llvm::Value* shlHForCaseB = Builder.CreateOr(
-      Builder.CreateShl(h, _32MinusN),
-      Builder.CreateLShr(l, _32MinusN)
-    );
-    llvm::Value* shlLForCaseB = Builder.CreateShl(l, RHS);
-
-    // Compute final values
-    llvm::Value* shlH = Builder.CreateSelect(NGE32, shlHForCaseA, shlHForCaseB);
-    llvm::Value* shlL = Builder.CreateSelect(NGE32, shlLForCaseA, shlLForCaseB);
-
-    llvm::Value* NEQ0 = Builder.CreateICmpEQ(RHS, Builder.getInt32(0));
-    shlH = Builder.CreateSelect(NEQ0, h, shlH);
-    shlL = Builder.CreateSelect(NEQ0, l, shlL);
-
-    return CGF.EmitHighInt(Ops.Ty, shlH, shlL);
+    return CGF.EmitHighIntShl(Ops.Ty, Ops.LHS, RHS);
   }
 
   // LLVM requires the LHS and RHS to be the same type: promote or truncate the
@@ -4272,46 +4241,7 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
 
   if (CGF.IsHighInt(Ops.Ty)) {
-    // { h, l } >> N =>
-    // { ( N >= 32) ? 0 : h >> N ,
-    //   ( N >= 32) ? h >> (N - 32) : h << (32 - N) | L >> N }
-    assert(RHS->getType()->isIntegerTy(32));
-    llvm::Value* LHS = Ops.LHS;
-    llvm::Value *h = CGF.EmitLoadHighBitsOfHighInt(LHS);
-    llvm::Value *l = CGF.EmitLoadLowBitsOfHighInt(LHS);
-
-    llvm::Value* NGE32 = Builder.CreateICmpUGE(RHS, Builder.getInt32(32));
-    llvm::Value* NMinus32 = Builder.CreateSub(RHS, Builder.getInt32(32));
-    llvm::Value* _32MinusN = Builder.CreateSub(Builder.getInt32(32), RHS);
-
-    // Compute values for N >= 32, case A
-    llvm::Value* shrHForCaseA;
-    if (Ops.Ty->hasUnsignedIntegerRepresentation())
-      shrHForCaseA = Builder.getInt32(0);
-    else
-      shrHForCaseA = Builder.CreateAShr(h, Builder.getInt32(31));
-    llvm::Value* shrLForCaseA = Builder.CreateLShr(h, NMinus32);
-
-    // Compute values for N < 32, case B
-    llvm::Value* shrHForCaseB;
-    if (Ops.Ty->hasUnsignedIntegerRepresentation())
-      shrHForCaseB = Builder.CreateLShr(h, RHS);
-    else
-      shrHForCaseB = Builder.CreateAShr(h, RHS);
-    llvm::Value* shrLForCaseB = Builder.CreateOr(
-      Builder.CreateShl(h, _32MinusN),
-      Builder.CreateLShr(l, RHS)
-    );
-
-    // Compute final values
-    llvm::Value* shrH = Builder.CreateSelect(NGE32, shrHForCaseA, shrHForCaseB);
-    llvm::Value* shrL = Builder.CreateSelect(NGE32, shrLForCaseA, shrLForCaseB);
-
-    llvm::Value* NEQ0 = Builder.CreateICmpEQ(RHS, Builder.getInt32(0));
-    shrH = Builder.CreateSelect(NEQ0, h, shrH);
-    shrL = Builder.CreateSelect(NEQ0, l, shrL);
-
-    return CGF.EmitHighInt(Ops.Ty, shrH, shrL);
+    return CGF.EmitHighIntShr(Ops.Ty, Ops.LHS, RHS);
   }
 
   // LLVM requires the LHS and RHS to be the same type: promote or truncate the

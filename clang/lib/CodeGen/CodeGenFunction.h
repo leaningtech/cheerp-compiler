@@ -2104,6 +2104,14 @@ public:
   /// bits of anint64_t type.
   llvm::Value *EmitLoadLowBitsOfHighInt(llvm::Value *highint);
 
+  /// EmitHighIntShl - Shift left an highint by `RHS' bits. An int32 number
+  /// should be used as RHS.
+  llvm::Value *EmitHighIntShl(QualType Ty, llvm::Value *LHS, llvm::Value *RHS);
+
+  /// EmitHighIntShr - Shift right an highint by `RHS' bits. An int32 number
+  /// should be used as RHS.
+  llvm::Value *EmitHighIntShr(QualType Ty, llvm::Value *LHS, llvm::Value *RHS);
+
   /// IsHighInt - Return true if the canonical type is a highint (int64_t).
   static bool IsHighInt(QualType Ty) {
     return isa<BuiltinType>(Ty.getCanonicalType())
