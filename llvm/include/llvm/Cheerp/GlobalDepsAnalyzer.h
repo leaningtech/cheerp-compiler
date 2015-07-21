@@ -101,7 +101,7 @@ public:
 private:
 	typedef llvm::SmallSet<const llvm::GlobalValue*, 8> VisitedSet;
 	
-	const char* getPassName() const;
+	const char* getPassName() const override;
 
 	/**
 	 * Propagate the search across globalvalues (i.e. Functions, GlobalVariables and GlobalAliases)

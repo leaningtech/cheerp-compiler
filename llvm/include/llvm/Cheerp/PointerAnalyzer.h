@@ -286,7 +286,7 @@ public:
 	void prefetchFunc( const llvm::Function & ) const;
 	static char ID;
 
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
 
 	bool runOnModule( llvm::Module & ) override;
 

@@ -66,7 +66,7 @@ public:
 #endif
 	{ }
 	
-	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
 
 	bool runOnModule(llvm::Module& M) override;
 	
