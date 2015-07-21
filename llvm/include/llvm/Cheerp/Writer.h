@@ -310,7 +310,7 @@ private:
 	void compileConstantArrayMembers(const llvm::Constant* C);
 
 	/**
-	 * Methods implemented in types.cpp
+	 * Methods implemented in Types.cpp
 	 */
 	enum COMPILE_TYPE_STYLE { LITERAL_OBJ=0, THIS_OBJ };
 	void compileTypedArrayType(llvm::Type* t);
@@ -325,7 +325,7 @@ private:
 	void compileArrayPointerType();
 
 	/**
-	 * Methods implemented in opcodes.cpp
+	 * Methods implemented in Opcodes.cpp
 	 */
 	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p);
 	void compilePtrToInt(const llvm::Value* v);
