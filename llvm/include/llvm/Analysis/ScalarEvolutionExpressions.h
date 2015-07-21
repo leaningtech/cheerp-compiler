@@ -40,7 +40,7 @@ class Type;
     // folders simpler.
     scConstant, scTruncate, scZeroExtend, scSignExtend, scAddExpr, scMulExpr,
     scUDivExpr, scAddRecExpr, scUMaxExpr, scSMaxExpr, scUMinExpr, scSMinExpr,
-    scPtrToInt, scUnknown, scNegPointer, scCouldNotCompute
+    scPtrToInt, scNegPointer, scUnknown, scCouldNotCompute
   };
 
   /// This class represents a constant integer value.
