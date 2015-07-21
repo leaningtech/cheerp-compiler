@@ -297,7 +297,8 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 	POINTER_KIND result = PA.getPointerKind(info.getInstruction());
 	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());
-	bool needsRegular = result==REGULAR && !constantOffset;
+	bool needsDowncastArray = isa<StructType>(t) && types.needsDowncastArray(cast<StructType>(t));
+	bool needsRegular = result==REGULAR && !constantOffset && !needsDowncastArray;
 
 	if(needsRegular)
 	{
@@ -422,7 +423,6 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		// Create a plain array
 		const Value * numberOfElems = info.getNumberOfElementsArg();
 		
-		//NOTE should we use uint32_t here? Probably not, but need to fix getIntFromValue too!
 		uint32_t numElem;
 		
 		if (numberOfElems)
@@ -437,7 +437,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 		assert(REGULAR == result || numElem == 1);
 
-		if(REGULAR == result)
+		if(REGULAR == result && !needsDowncastArray)
 			stream << '[';
 
 		for(uint32_t i = 0; i < numElem;i++)
@@ -448,7 +448,12 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		}
 
 		if(REGULAR == result)
-			stream << ']';
+		{
+			if(needsDowncastArray)
+				stream << ".a";
+			else
+				stream << ']';
+		}
 	}
 	else
 	{
