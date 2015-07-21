@@ -3121,7 +3121,7 @@ Instruction *InstCombinerImpl::foldICmpBitCast(ICmpInst &Cmp) {
 
   // Test to see if the operands of the icmp are casted versions of other
   // values. If the ptr->ptr cast can be stripped off both arguments, do so.
-  if (DstType->isPointerTy() && (isa<Constant>(Op1) || isa<BitCastInst>(Op1))) {
+  if (DstType->isPointerTy() && (isa<Constant>(Op1) || isa<BitCastInst>(Op1)) && DL.isByteAddressable()) {
     // If operand #1 is a bitcast instruction, it must also be a ptr->ptr cast
     // so eliminate it as well.
     if (auto *BC2 = dyn_cast<BitCastInst>(Op1))
