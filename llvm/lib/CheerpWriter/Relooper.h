@@ -26,6 +26,8 @@ struct Shape;
 class RenderInterface
 {
 public:
+	RenderInterface() {};
+	virtual ~RenderInterface() {};
 	virtual void renderBlock(const void* privateBlock) = 0;
 	virtual void renderIfOnLabel(int labelId, bool first) = 0;
 	virtual void renderIfBlockBegin(const void* privateBlock, int branchId, bool first) = 0;
