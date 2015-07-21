@@ -1178,6 +1178,11 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
 			compileIntegerComparison(ce->getOperand(0), ce->getOperand(1), (CmpInst::Predicate)ce->getPredicate());
 			break;
 		}
+		case Instruction::Select:
+		{
+			compileSelect(ce, ce->getOperand(0), ce->getOperand(1), ce->getOperand(2));
+			break;
+		}
 		case Instruction::Sub:
 		{
 			compileSubtraction(ce->getOperand(0), ce->getOperand(1));
@@ -2396,25 +2401,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Select:
 		{
 			const SelectInst& si = cast<SelectInst>(I);
-			stream << '(';
-			compileOperand(si.getCondition(), /*allowBooleanObjects*/ true);
-			stream << '?';
-
-			if(si.getType()->isPointerTy())
-			{
-				POINTER_KIND k = PA.getPointerKind(&si);
-				compilePointerAs(si.getTrueValue(), k);
-				stream << ':';
-				compilePointerAs(si.getFalseValue(), k);
-			}
-			else
-			{
-				compileOperand(si.getTrueValue());
-				stream << ':';
-				compileOperand(si.getFalseValue());
-			}
-
-			stream << ')';
+			compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue());
 			return COMPILE_OK;
 		}
 		case Instruction::ExtractValue:
