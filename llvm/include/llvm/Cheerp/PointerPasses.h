@@ -32,8 +32,8 @@ class AllocaArrays: public FunctionPass
 public:
 	static char ID;
 	explicit AllocaArrays() : FunctionPass(ID) { }
-	bool runOnFunction(Function &F);
-	const char *getPassName() const;
+	bool runOnFunction(Function &F) override;
+	const char *getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };
@@ -65,8 +65,8 @@ class IndirectCallOptimizer: public ModulePass
 public:
 	static char ID;
 	explicit IndirectCallOptimizer() : ModulePass(ID) { }
-	bool runOnModule(Module &);
-	const char *getPassName() const;
+	bool runOnModule(Module &) override;
+	const char *getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };
@@ -88,8 +88,8 @@ class PointerArithmeticToArrayIndexing: public FunctionPass
 public:
 	static char ID;
 	explicit PointerArithmeticToArrayIndexing() : FunctionPass(ID) { }
-	bool runOnFunction(Function &F);
-	const char *getPassName() const;
+	bool runOnFunction(Function &F) override;
+	const char *getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };
@@ -110,8 +110,8 @@ private:
 public:
 	static char ID;
 	explicit PointerToImmutablePHIRemoval() : FunctionPass(ID) { }
-	bool runOnFunction(Function &F);
-	const char *getPassName() const;
+	bool runOnFunction(Function &F) override;
+	const char *getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };
@@ -132,8 +132,8 @@ private:
 public:
 	static char ID;
 	explicit FreeAndDeleteRemoval() : FunctionPass(ID) { }
-	bool runOnFunction(Function &F);
-	const char *getPassName() const;
+	bool runOnFunction(Function &F) override;
+	const char *getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };
