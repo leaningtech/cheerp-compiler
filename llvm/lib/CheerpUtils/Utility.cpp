@@ -153,6 +153,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			case Instruction::LShr:
 			case Instruction::FAdd:
 			case Instruction::FDiv:
+			case Instruction::FRem:
 			case Instruction::FSub:
 			case Instruction::FPTrunc:
 			case Instruction::FPExt:
