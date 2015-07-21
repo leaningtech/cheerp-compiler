@@ -203,15 +203,15 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			compileCompleteObject(src);
 			stream << ".a,o:";
 			compileCompleteObject(src);
-			stream << ".o-" << baseOffset << '}';
+			stream << ".o-(" << baseOffset << ")}";
 		}
 		else
 		{
 			compileCompleteObject(src);
 			stream << ".a[";
 			compileCompleteObject(src);
-			stream << ".o-" << baseOffset;
-			stream << ']';
+			stream << ".o-(" << baseOffset;
+			stream << ")]";
 		}
 	}
 }
