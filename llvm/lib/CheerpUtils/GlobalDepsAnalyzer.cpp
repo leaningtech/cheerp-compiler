@@ -292,11 +292,18 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		StructType * st = cast<StructType>(retType);
 		
 		// We only need metadata for non client objects and if there are bases
-		if (!TypeSupport::isClientType(retType) && TypeSupport::hasBasesInfoMetadata(st, *F->getParent()) )
+		if (TypeSupport::isClientType(retType))
+			return;
+		do
 		{
-			classesWithBaseInfoNeeded.insert(st);
-			classesNeeded.insert(st);
+			if (TypeSupport::hasBasesInfoMetadata(st, *F->getParent()))
+			{
+				classesWithBaseInfoNeeded.insert(st);
+				classesNeeded.insert(st);
+				break;
+			}
 		}
+		while(st=st->getDirectBase());
 	}
 	else if (F->getIntrinsicID() == Intrinsic::cheerp_create_closure)
 		hasCreateClosureUsers = true;

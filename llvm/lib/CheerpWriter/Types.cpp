@@ -220,7 +220,7 @@ uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, St
 {
 	if(currentType->getDirectBase())
 	{
-		baseCount+=compileClassTypeRecursive(baseName,currentType->getDirectBase(),baseCount);
+		baseCount=compileClassTypeRecursive(baseName,currentType->getDirectBase(),baseCount);
 		if(!TypeSupport::hasBasesInfoMetadata(currentType, module))
 			return baseCount;
 	}
