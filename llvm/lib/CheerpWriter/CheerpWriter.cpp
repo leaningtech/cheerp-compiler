@@ -2196,6 +2196,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			stream << ')';
 			return COMPILE_OK;
 		}
+		case Instruction::FRem:
+		{
+			//Double division
+			stream << '(';
+			compileOperand(I.getOperand(0));
+			stream << '%';
+			compileOperand(I.getOperand(1));
+			stream << ')';
+			return COMPILE_OK;
+		}
 		case Instruction::Mul:
 		{
 			stream << '(';
