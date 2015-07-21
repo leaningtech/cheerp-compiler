@@ -333,6 +333,7 @@ private:
 	void compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind);
 	void compileBitCastBase(const llvm::User* bi, bool forEscapingPointer);
 	void compileBitCastOffset(const llvm::User* bi);
+	void compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs);
 
 	static uint32_t getMaskForBitWidth(int width)
 	{

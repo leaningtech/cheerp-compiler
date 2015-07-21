@@ -145,3 +145,25 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi)
 	compilePointerOffset(bi->getOperand(0));
 }
 
+void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs)
+{
+	stream << '(';
+	compileOperand(cond, /*allowBooleanObjects*/ true);
+	stream << '?';
+
+	if(select->getType()->isPointerTy())
+	{
+		POINTER_KIND k = PA.getPointerKind(select);
+		compilePointerAs(lhs, k);
+		stream << ':';
+		compilePointerAs(rhs, k);
+	}
+	else
+	{
+		compileOperand(lhs);
+		stream << ':';
+		compileOperand(rhs);
+	}
+
+	stream << ')';
+}
