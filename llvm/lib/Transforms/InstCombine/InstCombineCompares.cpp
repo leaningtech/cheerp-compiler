@@ -2751,7 +2751,7 @@ Instruction *InstCombinerImpl::foldICmpSelectConstant(ICmpInst &Cmp,
 }
 
 static Instruction *foldICmpBitCast(ICmpInst &Cmp,
-                                    InstCombiner::BuilderTy &Builder) {
+                                    InstCombiner::BuilderTy &Builder, const DataLayout &DL) {
   auto *Bitcast = dyn_cast<BitCastInst>(Cmp.getOperand(0));
   if (!Bitcast)
     return nullptr;
@@ -2827,7 +2827,7 @@ static Instruction *foldICmpBitCast(ICmpInst &Cmp,
   // Test to see if the operands of the icmp are casted versions of other
   // values. If the ptr->ptr cast can be stripped off both arguments, do so.
   if (Bitcast->getType()->isPointerTy() &&
-      (isa<Constant>(Op1) || isa<BitCastInst>(Op1))) {
+      (isa<Constant>(Op1) || isa<BitCastInst>(Op1)) && DL.isByteAddressable()) {
     // If operand #1 is a bitcast instruction, it must also be a ptr->ptr cast
     // so eliminate it as well.
     if (auto *BC2 = dyn_cast<BitCastInst>(Op1))
@@ -5652,7 +5652,7 @@ Instruction *InstCombinerImpl::visitICmpInst(ICmpInst &I) {
         return New;
   }
 
-  if (Instruction *Res = foldICmpBitCast(I, Builder))
+  if (Instruction *Res = foldICmpBitCast(I, Builder, DL))
     return Res;
 
   // TODO: Hoist this above the min/max bailout.
