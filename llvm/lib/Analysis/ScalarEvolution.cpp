@@ -441,10 +441,7 @@ const SCEV *ScalarEvolution::getNegPointer(const SCEV *Op) {
     SmallVector<const SCEV *, 4> Operands;
     for(unsigned i=0;i<Add->getNumOperands();i++) {
       const SCEV* AddOp = Add->getOperand(i);
-      if (AddOp->getType()->isPointerTy())
-        Operands.push_back(getNegPointer(AddOp));
-      else
-        Operands.push_back(getNegativeSCEV(AddOp));
+      Operands.push_back(getNegativeSCEV(AddOp));
     }
     return getAddExpr(Operands);
   }
@@ -2581,8 +2578,10 @@ const SCEV *ScalarEvolution::getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
     for (unsigned i = 0, e = Ops.size(); i != e; ++i) {
       if (Ops[i] == NegPtr->getOperand()) {
         // Cancel both operands and recurse
-        Ops.erase(Ops.begin()+Idx);
-        Ops.erase(Ops.begin()+i);
+        unsigned maxIdx = std::max(Idx, i);
+        unsigned minIdx = std::min(Idx, i);
+        Ops.erase(Ops.begin()+maxIdx);
+        Ops.erase(Ops.begin()+minIdx);
         if(Ops.empty())
           return getConstant(Ty, 0);
         return getAddExpr(Ops);
