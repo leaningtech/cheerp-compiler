@@ -2114,8 +2114,7 @@ public:
 
   /// IsHighInt - Return true if the canonical type is a highint (int64_t).
   static bool IsHighInt(QualType Ty) {
-    return isa<BuiltinType>(Ty.getCanonicalType())
-        && cast<BuiltinType>(Ty.getCanonicalType())->isHighInt();
+    return CodeGenTypes::isHighInt(Ty);
   }
 
   /// FinishFunction - Complete IR generation of the current function. It is
