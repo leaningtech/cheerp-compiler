@@ -1672,6 +1672,9 @@ Value *InstCombinerImpl::OptimizePointerDifference(Value *LHS, Value *RHS,
         return 0;
       Result = *GEP1->idx_begin();
     }
+    // We need to multiply the result by the element size
+    Type* elementType = LHS->getType()->getPointerElementType();
+    Result = Builder.CreateMul(Result, Builder.getInt32(DL.getTypeAllocSize(elementType)));
   }
   else {
 
