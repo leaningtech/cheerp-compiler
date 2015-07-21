@@ -310,6 +310,11 @@ public:  // These are internal details of CGT that shouldn't be used externally.
     return RecordsBeingLaidOut.count(Ty);
   }
 
+  /// isHighInt - Return true if the canonical type is a highint (int64_t).
+  static bool isHighInt(QualType Ty) {
+    return isa<BuiltinType>(Ty.getCanonicalType())
+        && cast<BuiltinType>(Ty.getCanonicalType())->isHighInt();
+  }
 };
 
 }  // end namespace CodeGen
