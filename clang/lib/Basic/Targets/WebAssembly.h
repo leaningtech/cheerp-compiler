@@ -211,6 +211,11 @@ public:
     LongDoubleAlign = 8;
     //NOTE: We support float only for usage in typed array
     SizeType = UnsignedInt;
+
+    // Use 32-bit integers for two separated bit fields.
+    UseBitFieldTypeAlignment = false;
+    UseZeroLengthBitfieldAlignment = true;
+    ZeroLengthBitfieldBoundary = 32;
   }
 
   virtual ArrayRef<Builtin::Info> getTargetBuiltins() const {
