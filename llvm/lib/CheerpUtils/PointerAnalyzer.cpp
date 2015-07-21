@@ -72,6 +72,8 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper& rhs
 	{
 		lhs.kind = REGULAR;
 		lhs.clearConstraints();
+		if(rhs.regularCause)
+			lhs.regularCause = rhs.regularCause;
 		return lhs;
 	}
 
@@ -490,7 +492,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			return CacheAndReturn(ret |= COMPLETE_OBJECT);
 		}
 		case Intrinsic::cheerp_make_regular:
-			return CacheAndReturn(ret |= REGULAR);
+			return CacheAndReturn(ret |= PointerKindWrapper(REGULAR, p));
 		case Intrinsic::memmove:
 		case Intrinsic::memcpy:
 		case Intrinsic::memset:
@@ -510,7 +512,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	}
 
 	if(kindForType != UNKNOWN)
-		return CacheAndReturn(ret |= kindForType);
+		return CacheAndReturn(ret |= PointerKindWrapper(kindForType, p));
 
 	if(const Argument* arg = dyn_cast<Argument>(p))
 	{
@@ -601,7 +603,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 				return visitValue( ret, p, /*first*/ false );
 			return ret |= COMPLETE_OBJECT;
 		}
-		return ret |= REGULAR;
+		return ret |= PointerKindWrapper(REGULAR, p);
 	}
 
 	// Constant data in memory is considered stored
@@ -619,12 +621,12 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return visitValue(ret, p, /*first*/ false);
 
 	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
-		return ret |= REGULAR;
+		return ret |= PointerKindWrapper(REGULAR, p);
 
 	if ( const CmpInst * I = dyn_cast<CmpInst>(p) )
 	{
 		if ( !I->isEquality() )
-			return ret |= REGULAR;
+			return ret |= PointerKindWrapper(REGULAR, p);
 		else
 			return ret |= COMPLETE_OBJECT;
 	}
@@ -639,7 +641,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			if (TypeSupport::hasByteLayout(intrinsic->getOperand(0)->getType()->getPointerElementType()))
 				return ret |= COMPLETE_OBJECT;
 			else
-				return ret |= REGULAR;
+				return ret |= PointerKindWrapper(REGULAR, p);
 		}
 		case Intrinsic::invariant_start:
 		case Intrinsic::invariant_end:
@@ -660,12 +662,12 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_reallocate:
 		case Intrinsic::cheerp_pointer_base:
 		case Intrinsic::cheerp_pointer_offset:
-			return ret |= REGULAR;
+			return ret |= PointerKindWrapper(REGULAR, p);
 		case Intrinsic::cheerp_create_closure:
 			if ( U->getOperandNo() == 0)
 				return ret |= COMPLETE_OBJECT;
 			else if ( isa<Function>( p->getOperand(0) ) )
-				return ret |= REGULAR;
+				return ret |= PointerKindWrapper(REGULAR, p);
 			else
 				llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, cheerp_create_closure");
 		case Intrinsic::flt_rounds:
@@ -676,7 +678,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			str+=intrinsic->getCalledFunction()->getName();
 			llvm::report_fatal_error(StringRef(str),false);
 		}
-		return ret |= REGULAR;
+		return ret |= PointerKindWrapper(REGULAR, p);
 	}
 
 	// We need to check for basic type kinds here, because visitValue may have not done it,
@@ -690,7 +692,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			return ret |= COMPLETE_OBJECT;
 
 		if(kindForType != UNKNOWN)
-			return ret |= kindForType;
+			return ret |= PointerKindWrapper(kindForType, p);
 
 		const Function * calledFunction = cs.getCalledFunction();
 		// TODO: Use function type
@@ -705,7 +707,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		if ( argNo >= calledFunction->arg_size() )
 		{
 			// Passed as a variadic argument
-			return ret |= REGULAR;
+			return ret |= PointerKindWrapper(REGULAR, p);
 		}
 
 		Function::const_arg_iterator arg = calledFunction->arg_begin();
@@ -716,7 +718,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 	if ( const ReturnInst * retInst = dyn_cast<ReturnInst>(p) )
 	{
 		if(kindForType != UNKNOWN)
-			return ret |= kindForType;
+			return ret |= PointerKindWrapper(kindForType, p);
 
 		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(RETURN_CONSTRAINT, retInst->getParent()->getParent()));
 	}
