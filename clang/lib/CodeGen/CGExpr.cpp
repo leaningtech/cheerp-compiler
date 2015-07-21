@@ -2228,9 +2228,15 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   // Get the source value, truncated to the width of the bit-field.
   llvm::Value *SrcVal = Src.getScalarVal();
 
+  // When storing an highint value into a small bitfield we can drop the high bits
+  if (IsHighInt(Dst.getType()) && Info.StorageSize <= 32)
+    SrcVal = EmitLoadLowBitsOfHighInt(SrcVal);
+
   // Cast the source to the storage type and shift it into place.
-  SrcVal = Builder.CreateIntCast(SrcVal, Ptr.getElementType(),
+  if (!IsHighInt(Dst.getType()) || Info.StorageSize <= 32) {
+    SrcVal = Builder.CreateIntCast(SrcVal, Ptr.getElementType(),
                                  /*isSigned=*/false);
+  }
   llvm::Value *MaskedVal = SrcVal;
 
   const bool UseVolatile =
@@ -2274,11 +2280,22 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
       Builder.CreateLoad(Ptr, true, "bf.load");
   }
 
-  // Write the new value back out.
-  Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
+  bool Volatile = Dst.isVolatileQualified();
+  if (!IsHighInt(Dst.getType()) || Info.StorageSize <= 32) {
+    // Write the new value back out.
+    Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
+  } else {
+    llvm::Value *highVal = EmitLoadHighBitsOfHighInt(SrcVal);
+    llvm::Value *lowVal = EmitLoadLowBitsOfHighInt(SrcVal);
+    llvm::Value *highLoc = Builder.CreateConstGEP2_32(Ptr->getType()->getPointerElementType(), Ptr, 0, 0);
+    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(Ptr->getType()->getPointerElementType(), Ptr, 0, 1);
+    Builder.CreateStore(highVal, highLoc, Volatile);
+    Builder.CreateStore(lowVal, lowLoc, Volatile);
+  }
 
   // Return the new value of the bit-field, if requested.
   if (Result) {
+    assert(!IsHighInt(Dst.getType()) || Info.StorageSize <= 32);
     llvm::Value *ResultVal = MaskedVal;
 
     // Sign extend the value if needed.
@@ -4386,10 +4403,12 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     }
     const unsigned SS =
         UseVolatile ? Info.VolatileStorageSize : Info.StorageSize;
-    // Get the access type.
-    llvm::Type *FieldIntTy = llvm::Type::getIntNTy(getLLVMContext(), SS);
-    if (Addr.getElementType() != FieldIntTy)
-      Addr = Builder.CreateElementBitCast(Addr, FieldIntTy);
+    if (getTarget().isByteAddressable()) {
+      // Get the access type.
+      llvm::Type *FieldIntTy = llvm::Type::getIntNTy(getLLVMContext(), SS);
+      if (Addr.getElementType() != FieldIntTy)
+        Addr = Builder.CreateElementBitCast(Addr, FieldIntTy);
+    }
     if (UseVolatile) {
       const unsigned VolatileOffset = Info.VolatileStorageOffset.getQuantity();
       if (VolatileOffset)
