@@ -593,6 +593,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << '1';
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::ctlz)
+	{
+		stream << "Math.clz32(";
+		compileOperand(*it);
+		stream << ')';
+		return COMPILE_OK;
+	}
 	else if(ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate)
 	{
 		compileFree(*it);
