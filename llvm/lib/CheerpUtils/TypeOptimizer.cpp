@@ -918,7 +918,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							{
 								if(!newAttrs.hasAttribute(i+1, Attribute::ByVal))
 									continue;
-								Type* argType = originalFunctionType->getParamType(i);
+								Type* argType = getOriginalOperandType(CI->getArgOperand(i));
 								assert(argType->isPointerTy());
 								Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
 								if(!rewrittenArgType->isArrayTy())
