@@ -674,8 +674,6 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		}
 		case Intrinsic::invariant_start:
 		case Intrinsic::invariant_end:
-		case Intrinsic::vastart:
-		case Intrinsic::vaend:
 		case Intrinsic::lifetime_start:
 		case Intrinsic::lifetime_end:
 		case Intrinsic::cheerp_deallocate:
@@ -691,6 +689,8 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_reallocate:
 		case Intrinsic::cheerp_pointer_base:
 		case Intrinsic::cheerp_pointer_offset:
+		case Intrinsic::vastart:
+		case Intrinsic::vaend:
 			return ret |= PointerKindWrapper(REGULAR, p);
 		case Intrinsic::cheerp_create_closure:
 			if ( U->getOperandNo() == 0)
