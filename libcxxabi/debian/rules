@@ -12,4 +12,5 @@ override_dh_auto_configure:
 	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
 	    -DLIBCXXABI_LIBCXX_INCLUDES=$(CURDIR)/libcxx/include/ \
 	    -DLIBCXXABI_ENABLE_THREADS=0 \
-	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config
+	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config \
+	    -DCMAKE_CXX_FLAGS="-target cheerp -nostdlib"
