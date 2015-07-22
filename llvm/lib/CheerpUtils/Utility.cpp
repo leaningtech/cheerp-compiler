@@ -289,11 +289,22 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 	{
 		baseCount++;
 		StructType* baseT=cast<StructType>(*E);
-		NamedMDNode* baseNamedMeta=module.getNamedMetadata(Twine(baseT->getName(),"_bases"));
-		if(baseNamedMeta)
-			baseMax-=getIntFromValue(cast<ConstantAsMetadata>(baseNamedMeta->getOperand(0)->getOperand(1))->getValue());
-		else
-			baseMax--;
+		while(baseT)
+		{
+			NamedMDNode* baseNamedMeta=module.getNamedMetadata(Twine(baseT->getName(),"_bases"));
+			if(baseNamedMeta)
+			{
+				baseMax-=getIntFromValue(cast<ConstantAsMetadata>(baseNamedMeta->getOperand(0)->getOperand(1))->getValue());
+				break;
+			}
+			else if(baseT->getDirectBase())
+				baseT=baseT->getDirectBase();
+			else
+			{
+				baseMax--;
+				break;
+			}
+		}
 		assert(baseMax>=0);
 		if(baseMax==0)
 			break;
