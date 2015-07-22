@@ -87,6 +87,9 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 
 	bool isClientStatic = callV.getCalledFunction()->hasFnAttribute(Attribute::Static);
 
+	if(callV->getType()->isDoubleTy() || callV->getType()->isFloatTy())
+		stream << '+';
+
 	//The first arg should be the object
 	if(strncmp(funcName,"get_",4)==0 && callV.arg_size()==1)
 	{
