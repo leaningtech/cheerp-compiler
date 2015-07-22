@@ -748,7 +748,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			return visitValue( ret, p, /*first*/ false );
 	}
 
-	if(isa<SelectInst> (p) || isa <PHINode>(p))
+	if(isa<SelectInst> (p) || isa <PHINode>(p) || (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::Select) )
 		return visitValue(ret, p, /*first*/ false);
 
 	return ret |= COMPLETE_OBJECT;
