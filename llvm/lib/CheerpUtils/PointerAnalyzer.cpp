@@ -470,8 +470,6 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	{
 		assert(SI->getValueOperand()->getType()->isPointerTy());
 		Type* pointedValueType = SI->getValueOperand()->getType()->getPointerElementType();
-		if(getKindForType(pointedValueType) != UNKNOWN)
-			return CacheAndReturn(ret |= getKindForType(pointedValueType));
 		if(TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 			ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex ));
 		else
@@ -479,9 +477,6 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		// Only cache the result for SI when not recursing, otherwise we would poison the kind of SI with the other uses of valOp
 		return CacheAndReturn(ret);
 	}
-
-	llvm::Type * type = p->getType()->getPointerElementType();
-	POINTER_KIND kindForType = getKindForType(type);
 
 	bool isIntrinsic = false;
 	if ( const IntrinsicInst * intrinsic = dyn_cast<IntrinsicInst>(p) )
@@ -528,9 +523,6 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			llvm::report_fatal_error(StringRef(str),false);
 		}
 	}
-
-	if(kindForType != UNKNOWN)
-		return CacheAndReturn(ret |= PointerKindWrapper(kindForType, p));
 
 	if(const Argument* arg = dyn_cast<Argument>(p))
 	{
@@ -635,14 +627,33 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex));
 	}
 
-	if ( (isa<StoreInst>(p) && U->getOperandNo() == 0 ))
-		return visitValue(ret, p, /*first*/ false);
+	// We need to check for basic type kinds here, because visitValue may have not done it,
+	// for example when computing kinds for members
+	Type* pointedType = U->get()->getType()->getPointerElementType();
+	POINTER_KIND kindForType = getKindForType(pointedType);
+
+	bool isFromStruct = PointerAnalyzer::getBaseStructAndIndexFromGEP(U->get());
+
+	if ( isa<StoreInst>(p) )
+	{
+		// If the pointer is being stored, use the store logic in visitValue
+		if (U->getOperandNo() == 0)
+			return visitValue(ret, p, /*first*/ false);
+		// If the pointer is the memory location we need to make sure that pointer to immutables are REGULAR
+		if (!isFromStruct && kindForType != UNKNOWN)
+			return ret |= PointerKindWrapper(kindForType, p);
+	}
+
+	if ( !isFromStruct && isa<LoadInst>(p) && kindForType != UNKNOWN )
+		return ret |= PointerKindWrapper(kindForType, p);
 
 	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
 		return ret |= PointerKindWrapper(REGULAR, p);
 
 	if ( const CmpInst * I = dyn_cast<CmpInst>(p) )
 	{
+		if (kindForType != UNKNOWN)
+			return ret |= PointerKindWrapper(kindForType, p);
 		if ( !I->isEquality() )
 			return ret |= PointerKindWrapper(REGULAR, p);
 		else
@@ -699,18 +710,10 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return ret |= PointerKindWrapper(REGULAR, p);
 	}
 
-	// We need to check for basic type kinds here, because visitValue may have not done it,
-	// for example when computing kinds for members
-	Type* pointedType = U->get()->getType()->getPointerElementType();
-	POINTER_KIND kindForType = getKindForType(pointedType);
-
 	if ( ImmutableCallSite cs = p )
 	{
 		if ( cs.isCallee(U) )
 			return ret |= COMPLETE_OBJECT;
-
-		if(kindForType != UNKNOWN)
-			return ret |= PointerKindWrapper(kindForType, p);
 
 		const Function * calledFunction = cs.getCalledFunction();
 		// TODO: Use function type
@@ -734,12 +737,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 	}
 
 	if ( const ReturnInst * retInst = dyn_cast<ReturnInst>(p) )
-	{
-		if(kindForType != UNKNOWN)
-			return ret |= PointerKindWrapper(kindForType, p);
-
 		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(RETURN_CONSTRAINT, retInst->getParent()->getParent()));
-	}
 
 	// Bitcasts from byte layout types require COMPLETE_OBJECT, and generate BYTE_LAYOUT
 	if(isBitCast(p))
@@ -1148,11 +1146,6 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 {
 	assert(F->getReturnType()->isPointerTy());
-	Type* pointedType = F->getReturnType()->getPointerElementType();
-	POINTER_KIND ret=PointerUsageVisitor::getKindForType(pointedType);
-	if(ret!=UNKNOWN)
-		return ret;
-
 	const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolveConstraint(
 										IndirectPointerKindConstraint(RETURN_CONSTRAINT, F));
 	assert(k!=UNKNOWN);
@@ -1205,11 +1198,6 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeA
 
 POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex& baseAndIndex) const
 {
-	Type* elementType = cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index);
-	POINTER_KIND ret=PointerUsageVisitor::getKindForType(elementType->getPointerElementType());
-	if(ret!=UNKNOWN)
-		return ret;
-
 	auto it=pointerKindData.constraintsMap.find(IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex));
 	if(it==pointerKindData.constraintsMap.end())
 		return COMPLETE_OBJECT;
