@@ -125,6 +125,7 @@ private:
   bool presplitLoadsAndStores(AllocaInst &AI, sroa::AllocaSlices &AS);
   AllocaInst *rewritePartition(AllocaInst &AI, sroa::AllocaSlices &AS,
                                sroa::Partition &P);
+  Type* findPartitionType(AllocaInst &AI, sroa::Partition &P);
   bool splitAlloca(AllocaInst &AI, sroa::AllocaSlices &AS);
   bool runOnAlloca(AllocaInst &AI);
   void clobberUse(Use &U);
