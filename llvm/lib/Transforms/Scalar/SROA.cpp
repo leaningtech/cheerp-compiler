@@ -4334,22 +4334,11 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
   return true;
 }
 
-/// Rewrite an alloca partition's users.
-///
-/// This routine drives both of the rewriting goals of the SROA pass. It tries
-/// to rewrite uses of an alloca partition to be conducive for SSA value
-/// promotion. If the partition needs a new, more refined alloca, this will
-/// build that new alloca, preserving as much type information as possible, and
-/// rewrite the uses of the old alloca to point at the new one and have the
-/// appropriate new offsets. It also evaluates how successful the rewrite was
-/// at enabling promotion and if it was successful queues the alloca to be
-/// promoted.
-AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
-                                       Partition &P) {
-  // Try to compute a friendly type for this partition of the alloca. This
-  // won't always succeed, in which case we fall back to a legal integer type
-  // or an i8 array of an appropriate size.
-  Type *SliceTy = nullptr;
+// Try to compute a friendly type for this partition of the alloca. This
+// won't always succeed, in which case we fall back to a legal integer type
+// or an i8 array of an appropriate size.
+Type* SROAPass::findPartitionType(AllocaInst &AI, Partition &P) {
+  Type* SliceTy = nullptr;
   VectorType *SliceVecTy = nullptr;
   const DataLayout &DL = AI.getModule()->getDataLayout();
   std::pair<Type *, IntegerType *> CommonUseTy =
@@ -4366,6 +4355,9 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
                                                  P.beginOffset(), P.size()))
       SliceTy = TypePartitionTy;
 
+  // The code below is unsafe for NBA
+  if (!DL.isByteAddressable())
+    return SliceTy;
   // If still not, can we use the largest bitwidth integer type used?
   if (!SliceTy && CommonUseTy.second)
     if (DL.getTypeAllocSize(CommonUseTy.second).getFixedSize() >= P.size()) {
@@ -4390,13 +4382,26 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
     }
 
   if (!SliceTy)
-  {
-    if (!DL.isByteAddressable())
-      return false;
     SliceTy = ArrayType::get(Type::getInt8Ty(*C), P.size());
-  }
   assert(DL.getTypeAllocSize(SliceTy).getFixedSize() >= P.size());
 
+  return SliceTy;
+}
+
+/// Rewrite an alloca partition's users.
+///
+/// This routine drives both of the rewriting goals of the SROA pass. It tries
+/// to rewrite uses of an alloca partition to be conducive for SSA value
+/// promotion. If the partition needs a new, more refined alloca, this will
+/// build that new alloca, preserving as much type information as possible, and
+/// rewrite the uses of the old alloca to point at the new one and have the
+/// appropriate new offsets. It also evaluates how successful the rewrite was
+/// at enabling promotion and if it was successful queues the alloca to be
+/// promoted.
+AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
+                                   Partition &P) {
+  Type *SliceTy = findPartitionType(AI, P);
+  const DataLayout &DL = AI.getModule()->getDataLayout();
   bool IsIntegerPromotable = isIntegerWideningViable(P, SliceTy, DL);
 
   VectorType *VecTy =
@@ -4585,6 +4590,12 @@ bool SROAPass::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
 
   if (!IsSorted)
     llvm::sort(AS);
+
+  // Make sure that new types can be found for all partitions
+  for (auto &P : AS.partitions()) {
+    if(!findPartitionType(AI, P))
+      return false;
+  }
 
   /// Describes the allocas introduced by rewritePartition in order to migrate
   /// the debug info.
