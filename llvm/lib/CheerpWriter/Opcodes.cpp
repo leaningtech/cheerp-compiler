@@ -53,7 +53,9 @@ void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 		}
 		else
 		{
+			stream << '(';
 			compilePointerOffset(v);
+			stream << ')';
 			stream << '*' << typeSize;
 		}
 	}
