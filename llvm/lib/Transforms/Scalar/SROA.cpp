@@ -702,8 +702,26 @@ private:
     if (BC.use_empty())
       return markAsDead(BC);
 
-    if (!DL.isByteAddressable() && AllocaTy->isStructTy() && cast<StructType>(AllocaTy)->hasByteLayout())
-      return PI.setAborted(&BC);
+    if (!DL.isByteAddressable()) {
+      // Do not handle unions. This limitation may be removed by having a global temporary DataView
+      if(AllocaTy->isStructTy() && cast<StructType>(AllocaTy)->hasByteLayout())
+        return PI.setAborted(&BC);
+      // Do not handle unsafe bitcasts. The safe ones are only between a class and it's directbase
+      StructType* srcType = dyn_cast<StructType>(BC.getOperand(0)->getType()->getPointerElementType());
+      StructType* dstType = dyn_cast<StructType>(BC.getType()->getPointerElementType());
+      if(!srcType || !dstType) {
+        return PI.setAborted(&BC);
+      }
+      StructType* curType = srcType;
+      while(curType) {
+        if(curType == dstType)
+          break;
+        curType = curType->getDirectBase();
+      }
+      if(curType != dstType) {
+        return PI.setAborted(&BC);
+      }
+    }
     return Base::visitBitCastInst(BC);
   }
 
