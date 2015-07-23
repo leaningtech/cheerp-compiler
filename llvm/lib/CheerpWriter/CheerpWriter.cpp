@@ -139,7 +139,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			stream << '.';
 		}
 		stream << StringRef(funcName,funcNameLen);
-		compileMethodArgs(it,callV.arg_end(), callV);
+		compileMethodArgs(it,callV.arg_end(), callV, /*forceBoolean*/ true);
 	}
 }
 
@@ -775,7 +775,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		if(strncmp(typeName, "String", 6)!=0)
 			stream << "new ";
 		stream << StringRef(typeName, typeLen);
-		compileMethodArgs(it, itE, callV);
+		compileMethodArgs(it, itE, callV, /*forceBoolean*/ true);
 		return COMPILE_OK;
 	}
 	return COMPILE_UNSUPPORTED;
@@ -1484,7 +1484,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	WriterPHIHandler(*this, from, to).runOnEdge(registerize, from, to);
 }
 
-void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_iterator itE, ImmutableCallSite callV)
+void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_iterator itE, ImmutableCallSite callV, bool forceBoolean)
 {
 	assert(callV.arg_begin() <= it && it <= callV.arg_end() && "compileMethodArgs, it out of range!");
 	assert(callV.arg_begin() <= itE && itE <= callV.arg_end() && "compileMethodArgs, itE out of range!");
@@ -1548,6 +1548,11 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			}
 			else if(argKind != UNKNOWN)
 				compilePointerAs(*cur, argKind);
+		}
+		else if(tp->isIntegerTy(1) && forceBoolean)
+		{
+			stream << "!!";
+			compileOperand(*cur);
 		}
 		else
 		{
@@ -1626,7 +1631,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 				compileOperand(ci.getCalledValue());
 			}
 
-			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),&ci);
+			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),&ci, /*forceBoolean*/ false);
 			stream << ';' << NewLine;
 			//Only consider the normal successor for PHIs here
 			//For each successor output the variables for the phi nodes
@@ -2488,7 +2493,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//If we are dealing with inline asm we are done
 			if(!ci.isInlineAsm())
 			{
-				compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(), &ci);
+				compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(), &ci, /*forceBoolean*/ false);
 			}
 			return COMPILE_OK;
 		}
