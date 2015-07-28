@@ -1498,8 +1498,14 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
                                        llvm::Type *StdTypeInfoPtrTy) {
   auto *ClassDecl =
       cast<CXXRecordDecl>(SrcRecordTy->castAs<RecordType>()->getDecl());
-  llvm::Value *Value =
-      CGF.GetVTablePtr(ThisPtr, StdTypeInfoPtrTy->getPointerTo(), ClassDecl);
+
+  llvm::Value* Value = NULL;
+  if(CGF.getTarget().isByteAddressable()) {
+    Value = CGF.GetVTablePtr(ThisPtr, StdTypeInfoPtrTy->getPointerTo(), ClassDecl);
+  } else {
+    llvm::Type* VTableType = CGM.getTypes().GetVTableType(ClassDecl)->getPointerTo();
+    Value = CGF.GetVTablePtr(ThisPtr, VTableType);
+  }
 
   if (CGM.getItaniumVTableContext().isRelativeLayout()) {
     // Load the type info.
@@ -1510,6 +1516,8 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
 
     // Setup to dereference again since this is a proxy we accessed.
     Value = CGF.Builder.CreateBitCast(Value, StdTypeInfoPtrTy->getPointerTo());
+  } else if(!CGF.getTarget().isByteAddressable()) {
+    Value = CGF.Builder.CreateStructGEP(Value, 0);
   } else {
     // Load the type info.
     Value = CGF.Builder.CreateConstInBoundsGEP1_64(Value, -1ULL);
