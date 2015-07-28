@@ -473,12 +473,12 @@ public:
 
   /// Return an anonymous struct that has the specified elements.
   /// If the struct is possibly empty, then you must specify a context.
-  static Constant *getAnon(ArrayRef<Constant*> V, bool Packed = false) {
-    return get(getTypeForElements(V, Packed), V);
+  static Constant *getAnon(ArrayRef<Constant*> V, bool Packed = false, StructType* DirectBase = NULL) {
+    return get(getTypeForElements(V, Packed, DirectBase), V);
   }
   static Constant *getAnon(LLVMContext &Ctx,
-                           ArrayRef<Constant*> V, bool Packed = false) {
-    return get(getTypeForElements(Ctx, V, Packed), V);
+                           ArrayRef<Constant*> V, bool Packed = false, StructType* DirectBase = NULL) {
+    return get(getTypeForElements(Ctx, V, Packed, DirectBase), V);
   }
 
   /// Return an anonymous struct type to use for a constant with the specified

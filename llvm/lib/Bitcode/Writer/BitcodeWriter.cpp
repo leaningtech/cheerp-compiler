@@ -951,13 +951,13 @@ void ModuleBitcodeWriter::writeTypeTable() {
       // STRUCT: [ispacked, bytelayout, [hasdirectbase], eltty x N, [directbase]]
       TypeVals.push_back(ST->isPacked());
       TypeVals.push_back(ST->hasByteLayout());
-      if (Code == bitc::TYPE_CODE_STRUCT_NAMED)
+      if (Code != bitc::TYPE_CODE_OPAQUE)
         TypeVals.push_back(ST->hasDirectBase());
       // Output all of the element types.
       for (StructType::element_iterator I = ST->element_begin(),
            E = ST->element_end(); I != E; ++I)
         TypeVals.push_back(VE.getTypeID(*I));
-      if(ST->hasDirectBase() && Code == bitc::TYPE_CODE_STRUCT_NAMED)
+      if(ST->hasDirectBase() && Code != bitc::TYPE_CODE_OPAQUE)
         TypeVals.push_back(VE.getTypeID(ST->getDirectBase()));
       break;
     }
