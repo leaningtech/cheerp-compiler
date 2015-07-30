@@ -759,6 +759,12 @@ StmtResult Sema::ActOnStartOfSwitchStmt(SourceLocation SwitchLoc,
     }
   }
 
+  QualType CondType = Cond->getType().getCanonicalType();
+  if(isa<BuiltinType>(CondType) && cast<BuiltinType>(CondType)->isHighInt()) {
+    Diag(SwitchLoc, diag::err_cheerp_switch_64bit);
+    return StmtError();
+  }
+
   setFunctionHasBranchIntoScope();
 
   auto *SS = SwitchStmt::Create(Context, InitStmt, Cond.get().first, CondExpr);
