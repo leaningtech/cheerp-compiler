@@ -4169,6 +4169,9 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
 
   if (CGF.IsHighInt(Ops.Ty)) {
+    // RHS must be 32-bit wide, there is no point is using the full 64-bit value anyway
+    if (!RHS->getType()->isIntegerTy(32))
+      RHS = CGF.EmitLoadLowBitsOfHighInt(RHS);
     return CGF.EmitHighIntShl(Ops.Ty, Ops.LHS, RHS);
   }
 
@@ -4241,6 +4244,9 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
 
   if (CGF.IsHighInt(Ops.Ty)) {
+    // RHS must be 32-bit wide, there is no point is using the full 64-bit value anyway
+    if (!RHS->getType()->isIntegerTy(32))
+      RHS = CGF.EmitLoadLowBitsOfHighInt(RHS);
     return CGF.EmitHighIntShr(Ops.Ty, Ops.LHS, RHS);
   }
 
