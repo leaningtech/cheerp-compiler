@@ -3229,9 +3229,13 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
 
   // Load/convert the LHS.
   LValue LHSLV = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-
-  if (CGF.IsHighInt(LHSTy)) {
-    OpInfo.LHS = LHSLV.getAddress();
+  if (CGF.IsHighInt(E->getComputationResultType())) {
+    // Make sure both operands are high ints
+    if(!CGF.IsHighInt(E->getLHS()->getType())) {
+      OpInfo.LHS = EmitLoadOfLValue(LHSLV, E->getExprLoc());
+      OpInfo.LHS = CGF.EmitHighIntFromInt(E->getComputationResultType(), E->getLHS()->getType(), OpInfo.LHS);
+    } else
+      OpInfo.LHS = LHSLV.getAddress();
     llvm::Value *highint = NULL;
 
     switch (OpInfo.Opcode) {
@@ -3255,10 +3259,17 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
     llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(highint);
     llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(highint);
 
-    llvm::Value *highLoc = Builder.CreateConstGEP2_32(OpInfo.LHS, 0, 0);
-    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(OpInfo.LHS, 0, 1);
-    Builder.CreateStore(lhsHigh, highLoc, /*volatile*/false);
-    Builder.CreateStore(lhsLow, lowLoc, /*volatile*/false);
+    if(!CGF.IsHighInt(E->getLHS()->getType())) {
+      // We need to store only the low part into a smaller integer
+      llvm::Value* destPtr = LHSLV.getAddress();
+      llvm::Value* truncatedInt = Builder.CreateTrunc(lhsLow, destPtr->getType()->getPointerElementType());
+      Builder.CreateStore(truncatedInt, destPtr, /*volatile*/false);
+    } else {
+      llvm::Value *highLoc = Builder.CreateConstGEP2_32(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 0, 0);
+      llvm::Value *lowLoc = Builder.CreateConstGEP2_32(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 0, 1);
+      Builder.CreateStore(lhsHigh, highLoc, /*volatile*/false);
+      Builder.CreateStore(lhsLow, lowLoc, /*volatile*/false);
+    }
 
     return LHSLV;
   }
