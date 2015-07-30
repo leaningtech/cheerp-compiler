@@ -2092,6 +2092,10 @@ public:
   /// return block is is avoided.
   llvm::DebugLoc EmitReturnBlock();
 
+  /// EmitHighIntFromInt - Emit an alloca that represents the int64_t type
+  /// by sign or zero extending the argument depending on the signedness of `ValTy'
+  llvm::Value *EmitHighIntFromInt(QualType Ty, QualType ValTy, llvm::Value* v);
+
   /// EmitHighInt - Emit an alloca that represents the int64_t type and set the
   // higher and lower bits to `high' and `low' respectively.
   llvm::Value *EmitHighInt(QualType Ty, llvm::Value *high, llvm::Value *low);

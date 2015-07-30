@@ -311,6 +311,20 @@ static void EmitIfUsed(CodeGenFunction &CGF, llvm::BasicBlock *BB) {
   delete BB;
 }
 
+llvm::Value *CodeGenFunction::EmitHighIntFromInt(QualType Ty,
+                                          QualType ValTy,
+                                          llvm::Value *v) {
+  llvm::Value* low, *high;
+  if (ValTy->isSignedIntegerOrEnumerationType()) {
+    low = Builder.CreateSExt(v, Int32Ty);
+    high = Builder.CreateAShr(low, Builder.getInt32(31));
+  } else {
+    low = Builder.CreateZExt(v, Int32Ty);
+    high = llvm::ConstantInt::get(Int32Ty, 0);
+  }
+  return EmitHighInt(Ty, high, low);
+}
+
 llvm::Value *CodeGenFunction::EmitHighInt(QualType Ty,
                                           llvm::Value *high,
                                           llvm::Value *low) {
