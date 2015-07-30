@@ -1401,15 +1401,6 @@ void PointerAnalyzer::invalidate(const Value * v)
 
 void PointerAnalyzer::fullResolve()
 {
-	for(auto& it: pointerKindData.valueMap)
-	{
-		if(it.second!=INDIRECT)
-			continue;
-		bool mayCache = true;
-		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second, mayCache);
-		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR);
-		it.second=k;
-	}
 	for(auto& it: pointerKindData.argsMap)
 	{
 		if(it.second!=INDIRECT)
@@ -1436,6 +1427,15 @@ void PointerAnalyzer::fullResolve()
 		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second, mayCache);
 		// BYTE_LAYOUT is not expected for the kind of pointers to member
 		assert(k==COMPLETE_OBJECT || k==REGULAR);
+		it.second=k;
+	}
+	for(auto& it: pointerKindData.valueMap)
+	{
+		if(it.second!=INDIRECT)
+			continue;
+		bool mayCache = true;
+		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second, mayCache);
+		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR);
 		it.second=k;
 	}
 #ifndef NDEBUG
