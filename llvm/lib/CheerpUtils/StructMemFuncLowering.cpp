@@ -5,11 +5,12 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Cheerp/StructMemFuncLowering.h"
+#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/raw_ostream.h"
@@ -59,8 +60,13 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	}
 	else
 	{
-		Value* elementSrc = IRB->CreateGEP(baseSrc, indexes);
-		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
+		Value* elementSrc = baseSrc;
+		Value* elementDst = baseDst;
+		if(indexes.size() != 1 || !isa<ConstantInt>(indexes[0]) || cast<ConstantInt>(indexes[0])->getZExtValue()!=0)
+		{
+			elementSrc = IRB->CreateGEP(baseSrc, indexes);
+			elementDst = IRB->CreateGEP(baseDst, indexes);
+		}
 		Value* element = IRB->CreateLoad(elementSrc);
 		IRB->CreateStore(element, elementDst);
 	}
@@ -144,24 +150,37 @@ void StructMemFuncLowering::createForwardLoop(IRBuilder<>* IRB, BasicBlock* prev
 						Type* pointedType, Value* dst, Value* src, Value* elementsCount, MODE mode)
 {
 	Type* int32Type = IntegerType::get(previousBlock->getContext(), 32);
-	// We need an index variable
-	PHINode* index=IRB->CreatePHI(int32Type, 2);
-	// Start from 0 if coming from the previous block, later on we will add the modified index
-	index->addIncoming(ConstantInt::get(int32Type, 0), previousBlock);
-	// Now, recursively descend into the object to copy all the values
+	bool needsLoop = !isa<ConstantInt>(elementsCount) || cast<ConstantInt>(elementsCount)->getZExtValue() != 1;
+	// We need an index variable, that may be zero or a PHI
 	SmallVector<Value*, 8> indexes;
-	indexes.push_back(index);
+	PHINode* index = NULL;
+	if(needsLoop)
+	{
+		index=IRB->CreatePHI(int32Type, 2);
+		// Start from 0 if coming from the previous block, later on we will add the modified index
+		index->addIncoming(ConstantInt::get(int32Type, 0), previousBlock);
+		// Now, recursively descend into the object to copy all the values
+		indexes.push_back(index);
+	}
+	else
+		indexes.push_back(ConstantInt::get(int32Type, 0));
+
 	if (mode == MEMSET)
 		recursiveReset(IRB, dst, src, pointedType, int32Type, indexes);
 	else
 		recursiveCopy(IRB, dst, src, pointedType, int32Type, indexes);
-	// Increment the index
-	Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(int32Type, 1));
-	// Close the loop for index
-	index->addIncoming(incrementedIndex, currentBlock);
-	// Check if we have finished, if not loop again
-	Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, elementsCount, incrementedIndex);
-	IRB->CreateCondBr(finishedLooping, endBlock, currentBlock);
+	if(needsLoop)
+	{
+		// Increment the index
+		Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(int32Type, 1));
+		// Close the loop for index
+		index->addIncoming(incrementedIndex, currentBlock);
+		// Check if we have finished, if not loop again
+		Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, elementsCount, incrementedIndex);
+		IRB->CreateCondBr(finishedLooping, endBlock, currentBlock);
+	}
+	else
+		IRB->CreateBr(endBlock);
 }
 
 // Create a backward loop, the index is increment from elementsCount-1 to 0. IRB already inserts inside currentBlock.
@@ -169,21 +188,36 @@ void StructMemFuncLowering::createBackwardLoop(IRBuilder<>* IRB, BasicBlock* pre
 						Type* pointedType, Value* dst, Value* src, Value* elementsCount)
 {
 	Type* int32Type = IntegerType::get(previousBlock->getContext(), 32);
-	// We need an index variable
-	PHINode* index=IRB->CreatePHI(int32Type, 2);
-	// Start from elementsCount if coming from the previous block, later on we will add the modified index
-	index->addIncoming(elementsCount, previousBlock);
+	bool needsLoop = !isa<ConstantInt>(elementsCount) || cast<ConstantInt>(elementsCount)->getZExtValue() != 1;
+	// We need an index variable, that may be zero or a PHI
+	PHINode* indexPHI = NULL;
+	Value* index = NULL;
+	if(needsLoop)
+	{
+		indexPHI=IRB->CreatePHI(int32Type, 2);
+		// Start from elementsCount if coming from the previous block, later on we will add the modified index
+		indexPHI->addIncoming(elementsCount, previousBlock);
+		index = indexPHI;
+	}
+	else
+		index = elementsCount;
+		
 	// Immediately decrement by one, so that we are accessing a valid element
 	Value* decrementedIndex = IRB->CreateSub(index, ConstantInt::get(int32Type, 1));
 	// Now, recursively descend into the object to copy all the values
 	SmallVector<Value*, 8> indexes;
 	indexes.push_back(decrementedIndex);
 	recursiveCopy(IRB, dst, src, pointedType, int32Type, indexes);
-	// Close the loop for index
-	index->addIncoming(decrementedIndex, currentBlock);
-	// Check if we have finished, if not loop again
-	Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(int32Type, 0), decrementedIndex);
-	IRB->CreateCondBr(finishedLooping, endBlock, currentBlock);
+	if(needsLoop)
+	{
+		// Close the loop for index
+		indexPHI->addIncoming(decrementedIndex, currentBlock);
+		// Check if we have finished, if not loop again
+		Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(int32Type, 0), decrementedIndex);
+		IRB->CreateCondBr(finishedLooping, endBlock, currentBlock);
+	}
+	else
+		IRB->CreateBr(endBlock);
 }
 
 bool StructMemFuncLowering::runOnBlock(BasicBlock& BB)
