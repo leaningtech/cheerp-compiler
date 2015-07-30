@@ -831,11 +831,11 @@ void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Pr
 {
 	assert(v->getType()->isIntegerTy());
 	if(CmpInst::isSigned(p))
-		compileSignedInteger(v);
+		compileSignedInteger(v, /*forComparison*/ true);
 	else if(CmpInst::isUnsigned(p) || !v->getType()->isIntegerTy(32))
 		compileUnsignedInteger(v);
 	else
-		compileSignedInteger(v);
+		compileSignedInteger(v, /*forComparison*/ true);
 }
 
 void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
@@ -1761,7 +1761,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 
 			stream << '=';
 			if(valOp->getType()->isIntegerTy(32))
-				compileSignedInteger(valOp);
+				compileSignedInteger(valOp, /*forComparison*/ false);
 			else if(valOp->getType()->isIntegerTy())
 				compileUnsignedInteger(valOp);
 			else if(valOp->getType()->isPointerTy())
@@ -2012,21 +2012,31 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	}
 }
 
-void CheerpWriter::compileSignedInteger(const llvm::Value* v)
+void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison)
 {
-	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
-	{
-		stream << C->getSExtValue();
-		return;
-	}
 	//We anyway have to use 32 bits for sign extension to work
 	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
+	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
+	{
+		if(forComparison)
+			stream << (C->getSExtValue() << shiftAmount);
+		else
+			stream << C->getSExtValue();
+		return;
+	}
 	if(shiftAmount==0)
 	{
 		//Use simpler code
 		stream << '(';
 		compileOperand(v);
 		stream << ">>0)";
+	}
+	else if(forComparison)
+	{
+		// When comparing two signed values we can avoid the right shift
+		stream << '(';
+		compileOperand(v);
+		stream << "<<" << shiftAmount << ')';
 	}
 	else
 	{
@@ -2098,7 +2108,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const CastInst& ci = cast<CastInst>(I);
 			stream << "(+";
-			compileSignedInteger(ci.getOperand(0));
+			compileSignedInteger(ci.getOperand(0), /*forComparison*/ false);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -2197,9 +2207,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer signed division
 			stream << "((";
-			compileSignedInteger(I.getOperand(0));
+			compileSignedInteger(I.getOperand(0), /*forComparison*/ false);
 			stream << '/';
-			compileSignedInteger(I.getOperand(1));
+			compileSignedInteger(I.getOperand(1), /*forComparison*/ false);
 			stream << ")>>0)";
 			return COMPILE_OK;
 		}
@@ -2218,9 +2228,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer signed remainder
 			stream << "((";
-			compileSignedInteger(I.getOperand(0));
+			compileSignedInteger(I.getOperand(0), /*forComparison*/ false);
 			stream << '%';
-			compileSignedInteger(I.getOperand(1));
+			compileSignedInteger(I.getOperand(1), /*forComparison*/ false);
 			stream << ")>>0)";
 			return COMPILE_OK;
 		}
@@ -2366,7 +2376,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(types.isI32Type(I.getOperand(0)->getType()))
 				compileOperand(I.getOperand(0));
 			else
-				compileSignedInteger(I.getOperand(0));
+				compileSignedInteger(I.getOperand(0), /*forComparison*/ false);
 			stream << ">>";
 			compileOperand(I.getOperand(1));
 			stream << ')';
@@ -2425,7 +2435,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::SExt:
 		{
 			//We can use a couple of shift to make this work
-			compileSignedInteger(I.getOperand(0));
+			compileSignedInteger(I.getOperand(0), /*forComparison*/ false);
 			return COMPILE_OK;
 		}
 		case Instruction::Select:
