@@ -500,7 +500,7 @@ llvm::Constant *ConstantAggregateBuilder::buildFrom(
     if (DesiredSTy->isLayoutIdentical(STy))
       STy = DesiredSTy;
     else if(!CGM.getTarget().isByteAddressable())
-      CGM.Error(RD->getLocation(), "Explicit braces on subobjects are needed");
+      CGM.Error(RD->getLocation(), "Constant initializer has the wrong type");
   }
 
   return llvm::ConstantStruct::get(STy, Packed ? PackedElems : UnpackedElems);
