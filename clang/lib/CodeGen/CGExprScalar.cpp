@@ -2450,9 +2450,6 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
         return Elt;
       }
 
-      llvm::Value* high;
-      llvm::Value* low;
-
       // Cast float or double values to int64
       if (Elt->getType()->isFloatingPointTy()) {
         // 1. if number is negative: multiply by -1
@@ -2463,9 +2460,9 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
         Elt = Builder.CreateSelect(negative, EltNegated, Elt);
         // 2. div high, mod low
         llvm::Value *c = llvm::ConstantFP::get(Elt->getType(), (double)(1LL << 32));
-        high = Builder.CreateFDiv(Elt, c);
+        llvm::Value *high = Builder.CreateFDiv(Elt, c);
         high = Builder.CreateFPToUI(high, CGF.Int32Ty, "conv");
-        low = Builder.CreateFRem(Elt, c);
+        llvm::Value *low = Builder.CreateFRem(Elt, c);
         low = Builder.CreateFPToUI(low, CGF.Int32Ty, "conv");
         // 3. if number was negative: invert number
         llvm::Value *result = CGF.EmitHighInt(CE->getType(), high, low);
@@ -2483,16 +2480,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
         llvm::Value *resultInverted = EmitSub(BinOp);
         result = Builder.CreateSelect(negative, resultInverted, result);
         return result;
-      } else if (E->getType()->isSignedIntegerOrEnumerationType()) {
-        high = Builder.CreateAShr(Elt, Builder.getInt32(31));
-        low = Builder.CreateSExt(Elt, CGF.Int32Ty);
-        low = Builder.CreateZExt(low, CGF.Int32Ty);
-      } else {
-        high = llvm::ConstantInt::get(CGF.Int32Ty, 0);
-        low = Builder.CreateZExt(Elt, CGF.Int32Ty);
       }
-
-      return CGF.EmitHighInt(CE->getType(), high, low);
+      return CGF.EmitHighIntFromInt(CE->getType(), E->getType(), Elt);
     }
     // Type cast from an highint
     else if (CGF.IsHighInt(E->getType())) {
