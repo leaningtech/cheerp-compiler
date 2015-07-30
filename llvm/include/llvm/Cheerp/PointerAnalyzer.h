@@ -89,7 +89,7 @@ struct IndirectPointerKindConstraint
 		const void* ptr;
 	};
 	uint32_t i;
-	INDIRECT_POINTER_KIND_CONSTRAINT kind;
+	uint8_t kind;
 	mutable bool isBeingVisited;
 	IndirectPointerKindConstraint(INDIRECT_POINTER_KIND_CONSTRAINT k, const void* p):ptr(p),i(0xffffffff),kind(k),isBeingVisited(false)
 	{
