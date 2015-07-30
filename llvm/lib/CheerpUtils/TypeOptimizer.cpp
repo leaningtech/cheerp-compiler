@@ -205,8 +205,12 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			if(structSize % elementSize)
 				return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
 
-			// Replace this byte layout struct with an array
 			uint32_t numElements = structSize / elementSize;
+			// See if we can replace it with a single element
+			if(numElements==1)
+				return CacheAndReturn(it->second, TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY);
+
+			// Replace this byte layout struct with an array
 			Type* newType = ArrayType::get(it->second, numElements);
 			return CacheAndReturn(newType, TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY);
 		}
@@ -458,6 +462,8 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 			// Forge a ConstantArray
 			SmallVector<Constant*, 4> newElements;
 			pushAllBaseConstantElements(newElements, CS, baseTypeIt->second);
+			if(newElements.size() == 1)
+				return newElements[0];
 			ArrayType* newArrayType = ArrayType::get(baseTypeIt->second, newElements.size());
 			return ConstantArray::get(newArrayType, newElements);
 		}
@@ -653,6 +659,12 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 					return;
 				auto baseTypeIt = baseTypesForByteLayout.find(cast<StructType>(curType));
 				assert(baseTypeIt != baseTypesForByteLayout.end() && baseTypeIt->second);
+				if(!curTypeMappingInfo.mappedType->isArrayTy())
+				{
+					// If it's not an array it must be a single element and we should stop immediately
+					assert(curTypeMappingInfo.mappedType == baseTypeIt->second);
+					return;
+				}
 				uint32_t baseTypeSize = DL->getTypeAllocSize(baseTypeIt->second);
 				// All the indexes needs to be flattened to a byte offset and then to an array offset
 				// NOTE: We are willingly iterating over 'i' again
