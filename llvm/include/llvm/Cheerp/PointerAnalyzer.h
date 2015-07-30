@@ -14,6 +14,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Constants.h"
@@ -128,7 +129,7 @@ private:
 	}
 public:
 	// We can store pointers to constraint as they are made unique by PointerData::getConstraintPtr
-	std::unordered_set<const IndirectPointerKindConstraint*> constraints;
+	llvm::DenseSet<const IndirectPointerKindConstraint*> constraints;
 	PointerKindWrapper():kind(COMPLETE_OBJECT),regularCause(NULL)
 	{
 	}
