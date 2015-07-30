@@ -2097,7 +2097,7 @@ public:
   llvm::Value *EmitHighIntFromInt(QualType Ty, QualType ValTy, llvm::Value* v);
 
   /// EmitHighInt - Emit an alloca that represents the int64_t type and set the
-  // higher and lower bits to `high' and `low' respectively.
+  /// higher and lower bits to `high' and `low' respectively.
   llvm::Value *EmitHighInt(QualType Ty, llvm::Value *high, llvm::Value *low);
 
   /// EmitLoadHighBitsOfHighInt - Emit a load instruction that returns the high
