@@ -4979,6 +4979,9 @@ Value *ScalarExprEmitter::VisitVAArgExpr(VAArgExpr *VE) {
   Address ArgPtr = CGF.EmitVAArg(VE, ArgValue);
 
   llvm::Type *ArgTy = ConvertType(VE->getType());
+  // High ints are stored as pointer
+  if (CGF.IsHighInt(Ty))
+    ArgTy = ArgTy->getPointerTo();
 
   // If EmitVAArg fails, emit an error.
   if (!ArgPtr.isValid()) {
