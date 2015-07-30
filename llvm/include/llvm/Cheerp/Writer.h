@@ -296,7 +296,7 @@ private:
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I);
 	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I);
 
-	void compileSignedInteger(const llvm::Value* v);
+	void compileSignedInteger(const llvm::Value* v, bool forComparison);
 	void compileUnsignedInteger(const llvm::Value* v);
 
 	void compileMethod(const llvm::Function& F);
