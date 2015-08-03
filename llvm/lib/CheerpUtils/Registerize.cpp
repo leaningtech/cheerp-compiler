@@ -556,7 +556,7 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 				// If we find a lifetime_end intrinsic we have to close the range and start again
 				if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(I))
 				{
-					if(II->getIntrinsicID()==Intrinsic::lifetime_start)
+					if(II->getIntrinsicID()==Intrinsic::lifetime_end)
 					{
 						ranges[localRange.start] = localRange.end;
 						localRange = LiveRangeChunk(0, 0);
