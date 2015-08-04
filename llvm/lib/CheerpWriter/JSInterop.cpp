@@ -14,8 +14,9 @@
 using namespace llvm;
 using namespace cheerp;
 
-void CheerpWriter::compileClassesExportedToJs()
+std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 {
+	std::vector<StringRef> exportedClassNames;
 	//Look for metadata which ends in _methods. They are lists
 	//of exported methods for JS layout classes
 	for( Module::const_named_metadata_iterator it = module.named_metadata_begin(),
@@ -59,17 +60,19 @@ void CheerpWriter::compileClassesExportedToJs()
 		if (constructor == namedNode->op_end() )
 		{
 			llvm::report_fatal_error( Twine("Class: ", jsClassName).concat(" does not define a constructor!") );
-			return;
+			return exportedClassNames;
 		}
 
 		if ( std::find_if( std::next(constructor), namedNode->op_end(), isConstructor ) != namedNode->op_end() )
 		{
 			llvm::report_fatal_error( Twine("More than one constructor defined for class: ", jsClassName) );
-			return;
+			return exportedClassNames;
 		}
 
 		const MDNode* node = *constructor;
 		const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
+
+		exportedClassNames.push_back(jsClassName);
 
 		stream << "function " << jsClassName << '(';
 		for(uint32_t i=0;i<f->arg_size()-1;i++)
@@ -127,4 +130,5 @@ void CheerpWriter::compileClassesExportedToJs()
 			assert( globalDeps.isReachable(f) );
 		}
 	}
+	return exportedClassNames;
 }
