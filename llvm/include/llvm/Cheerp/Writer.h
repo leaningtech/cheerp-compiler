@@ -159,8 +159,10 @@ private:
 
 	// Flag to signal if we should take advantage of native JavaScript math functions
 	bool useNativeJavaScriptMath;
-	// Flag to signal if we should take advantage of native 23-bit integer multiplication
+	// Flag to signal if we should take advantage of native 32-bit integer multiplication
 	bool useMathImul;
+	// Flag to signal if we should create a closure to avoid global namespace pollution
+	bool makeModule;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -341,16 +343,16 @@ private:
 	}
 
 	//JS interoperability support
-	void compileClassesExportedToJs();
+	std::vector<llvm::StringRef> compileClassesExportedToJs();
 public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
 	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, bool ReadableOutput,
-	             bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul):
+	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, ReadableOutput),types(m),
 		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),useNativeJavaScriptMath(UseNativeJavaScriptMath),
-		useMathImul(useMathImul),stream(s, ReadableOutput)
+		useMathImul(useMathImul),makeModule(MakeModule),stream(s, ReadableOutput)
 	{
 	}
 	void makeJS();

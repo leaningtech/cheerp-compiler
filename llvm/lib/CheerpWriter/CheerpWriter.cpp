@@ -3009,12 +3009,16 @@ void CheerpWriter::compileHandleVAArg()
 
 void CheerpWriter::makeJS()
 {
-	if(sourceMapGenerator)
+	if (sourceMapGenerator)
 		sourceMapGenerator->beginFile();
-	// Enable strict mode first
-	stream << "\"use strict\"" << NewLine;
 
-	compileClassesExportedToJs();
+	if (makeModule)
+		stream << "(function(){" << NewLine;
+
+	// Enable strict mode first
+	stream << "\"use strict\";" << NewLine;
+
+	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
 	
 	for ( const Function & F : module.getFunctionList() )
@@ -3054,7 +3058,28 @@ void CheerpWriter::makeJS()
 
 	//Invoke the entry point
 	if ( const Function * entryPoint = globalDeps.getEntryPoint() )
-		stream << namegen.getName(entryPoint) << "()" << NewLine;
+		stream << namegen.getName(entryPoint) << "();" << NewLine;
+
+	if (makeModule) {
+		if (!exportedClassNames.empty()) {
+			// The following JavaScript code originates from:
+			// https://github.com/jashkenas/underscore/blob/master/underscore.js
+			// Establish the root object, `window` (`self`) in the browser, `global`
+			// on the server, or `this` in some virtual machines. We use `self`
+			// instead of `window` for `WebWorker` support.
+			stream << "var __root =" << NewLine;
+			stream << "\ttypeof self === 'object' && self.self === self && self ||" << NewLine;
+			stream << "\ttypeof global === 'object' && global.global === global && global ||" << NewLine;
+			stream << "\tthis;" << NewLine;
+		}
+
+		for (StringRef &className : exportedClassNames)
+		{
+			stream << "__root." << className << " = " << className << ";" << NewLine;
+		}
+
+		stream << "})();" << NewLine;
+	}
 
 	// Link the source map if necessary
 	if(sourceMapGenerator)
