@@ -107,7 +107,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   // into the Simple's branches.
   MultipleShape *Fused = Shape::IsMultiple(Parent->Next);
   if (Fused) {
-    PrintDebug("Fusing Multiple to Simple\n");
+    PrintDebug("Fusing Multiple to Simple\n",);
     Parent->Next = Parent->Next->Next;
     Fused->RenderLoopPrefix(renderInterface);
 
@@ -418,7 +418,7 @@ void Relooper::Calculate(Block *Entry) {
         }
       }
 
-      PrintDebug("creating loop block:\n");
+      PrintDebug("creating loop block:\n",);
       DebugDump(InnerBlocks, "  inner blocks:");
       DebugDump(Entries, "  inner entries:");
       DebugDump(Blocks, "  outer blocks:");
@@ -555,7 +555,7 @@ void Relooper::Calculate(Block *Entry) {
       }
 
 #if DEBUG
-      PrintDebug("Investigated independent groups:\n");
+      PrintDebug("Investigated independent groups:\n",);
       for (BlockBlockSetMap::iterator iter = IndependentGroups.begin(); iter != IndependentGroups.end(); iter++) {
         DebugDump(iter->second, " group: ");
       }
@@ -616,7 +616,7 @@ void Relooper::Calculate(Block *Entry) {
     //   ->Next block on them, and the blocks are what remains in Blocks (which Make* modify). In this way
     //   we avoid recursing on Next (imagine a long chain of Simples, if we recursed we could blow the stack).
     Shape *Process(BlockSet &Blocks, BlockSet& InitialEntries, Shape *Prev) {
-      PrintDebug("Process() called\n");
+      PrintDebug("Process() called\n",);
       BlockSet *Entries = &InitialEntries;
       BlockSet TempEntries[2];
       int CurrTempIndex = 0;
@@ -626,12 +626,12 @@ void Relooper::Calculate(Block *Entry) {
         Shape *Temp = call; \
         if (Prev) Prev->Next = Temp; \
         if (!Ret) Ret = Temp; \
-        if (!NextEntries->size()) { PrintDebug("Process() returning\n"); return Ret; } \
+        if (!NextEntries->size()) { PrintDebug("Process() returning\n",); return Ret; } \
         Prev = Temp; \
         Entries = NextEntries; \
         continue;
       while (1) {
-        PrintDebug("Process() running\n");
+        PrintDebug("Process() running\n",);
         DebugDump(Blocks, "  blocks : ");
         DebugDump(*Entries, "  entries: ");
 
@@ -713,7 +713,7 @@ void Relooper::Calculate(Block *Entry) {
                 if (!DeadEnd) break;
               }
               if (DeadEnd) {
-                PrintDebug("Removing nesting by not handling large group because small group is dead end\n");
+                PrintDebug("Removing nesting by not handling large group because small group is dead end\n",);
                 IndependentGroups.erase(LargeEntry);
               }
             }
@@ -847,7 +847,6 @@ void Relooper::Calculate(Block *Entry) {
             RECURSE_MULTIPLE_MANUAL(FindLabeledLoops, Fused);
           }
           for (BlockBranchMap::iterator iter = Simple->Inner->ProcessedBranchesOut.begin(); iter != Simple->Inner->ProcessedBranchesOut.end(); iter++) {
-            Block *Target = iter->first;
             Branch *Details = iter->second;
             if (Details->Type != Branch::Direct) {
               assert(LoopStack.size() > 0);
@@ -894,7 +893,7 @@ void Relooper::Calculate(Block *Entry) {
     }
   };
 
-  PrintDebug("=== Optimizing shapes ===\n");
+  PrintDebug("=== Optimizing shapes ===\n",);
 
   PostOptimizer(this).Process(Root);
 }
