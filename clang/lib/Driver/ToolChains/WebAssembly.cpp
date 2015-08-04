@@ -458,6 +458,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpSourceMapPrefix->render(Args, CmdArgs);
   if(Arg* cheerpPrettyCode = Args.getLastArg(options::OPT_cheerp_pretty_code))
     cheerpPrettyCode->render(Args, CmdArgs);
+  if(Arg* cheerpMakeModule = Args.getLastArg(options::OPT_cheerp_make_module))
+    cheerpMakeModule->render(Args, CmdArgs);
   if(Arg* cheerpNoNativeMath = Args.getLastArg(options::OPT_cheerp_no_native_math))
     cheerpNoNativeMath->render(Args, CmdArgs);
   if(Arg* cheerpNoMathImul = Args.getLastArg(options::OPT_cheerp_no_math_imul))
