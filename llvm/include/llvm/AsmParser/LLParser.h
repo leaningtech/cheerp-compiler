@@ -429,7 +429,7 @@ namespace llvm {
     bool parseStructBody(SmallVectorImpl<Type *> &Body);
     bool parseStructDefinition(SMLoc TypeLoc, StringRef Name,
                                std::pair<Type *, LocTy> &Entry,
-                               Type *&ResultTy);
+                               Type *&ResultTy, Type *&DirectBaseTy);
 
     bool parseArrayVectorType(Type *&Result, bool IsVector);
     bool parseFunctionType(Type *&Result);

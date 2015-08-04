@@ -513,18 +513,28 @@ bool LLParser::parseSourceFileName() {
 }
 
 /// parseUnnamedType:
-///   ::= LocalVarID '=' 'type' type
+///   ::= LocalVarID '=' 'type' OptionalDirectBase OptionalDirectBaseType type
 bool LLParser::parseUnnamedType() {
   LocTy TypeLoc = Lex.getLoc();
   unsigned TypeID = Lex.getUIntVal();
   Lex.Lex(); // eat LocalVarID;
 
+  bool IsDirectBase;
+  LocTy IsDirectBaseLoc;
+
   if (parseToken(lltok::equal, "expected '=' after name") ||
-      parseToken(lltok::kw_type, "expected 'type' after '='"))
+      parseToken(lltok::kw_type, "expected 'type' after '='") ||
+      parseOptionalToken(lltok::kw_directbase,
+                         IsDirectBase,
+                         &IsDirectBaseLoc))
+    return true;
+
+  Type *DirectBase = nullptr;
+  if (IsDirectBase && parseType(DirectBase, "expected directbase type"))
     return true;
 
   Type *Result = nullptr;
-  if (parseStructDefinition(TypeLoc, "", NumberedTypes[TypeID], Result))
+  if (parseStructDefinition(TypeLoc, "", NumberedTypes[TypeID], Result, DirectBase))
     return true;
 
   if (!isa<StructType>(Result)) {
@@ -539,18 +549,28 @@ bool LLParser::parseUnnamedType() {
 }
 
 /// toplevelentity
-///   ::= LocalVar '=' 'type' type
+///   ::= LocalVar '=' 'type' OptionalDirectBase OptionalDirectBaseType type
 bool LLParser::parseNamedType() {
   std::string Name = Lex.getStrVal();
   LocTy NameLoc = Lex.getLoc();
   Lex.Lex();  // eat LocalVar.
 
+  bool IsDirectBase;
+  LocTy IsDirectBaseLoc;
+
   if (parseToken(lltok::equal, "expected '=' after name") ||
-      parseToken(lltok::kw_type, "expected 'type' after name"))
+      parseToken(lltok::kw_type, "expected 'type' after name") ||
+      parseOptionalToken(lltok::kw_directbase,
+                         IsDirectBase,
+                         &IsDirectBaseLoc))
+    return true;
+
+  Type *DirectBase = nullptr;
+  if (IsDirectBase && parseType(DirectBase, "expected directbase type"))
     return true;
 
   Type *Result = nullptr;
-  if (parseStructDefinition(NameLoc, Name, NamedTypes[Name], Result))
+  if (parseStructDefinition(NameLoc, Name, NamedTypes[Name], Result, DirectBase))
     return true;
 
   if (!isa<StructType>(Result)) {
@@ -559,6 +579,7 @@ bool LLParser::parseNamedType() {
       return error(NameLoc, "non-struct types may not be recursive");
     Entry.first = Result;
     Entry.second = SMLoc();
+    assert(!IsDirectBase && "directbase is not possible on non-struct type");
   }
 
   return false;
@@ -2936,7 +2957,7 @@ bool LLParser::parseAnonStructType(Type *&Result, bool Packed) {
 /// parseStructDefinition - parse a struct in a 'type' definition.
 bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
                                      std::pair<Type *, LocTy> &Entry,
-                                     Type *&ResultTy) {
+                                     Type *&ResultTy, Type *&DirectBaseTy) {
   // If the type was already defined, diagnose the redefinition.
   if (Entry.first && !Entry.second.isValid())
     return error(TypeLoc, "redefinition of type");
@@ -2987,7 +3008,8 @@ bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
       (isPacked && parseToken(lltok::greater, "expected '>' in packed struct")))
     return true;
 
-  STy->setBody(Body, isPacked);
+  STy->setBody(Body, isPacked,
+    DirectBaseTy ? cast<StructType>(DirectBaseTy) : NULL);
   if (hasByteLayout)
     STy->setByteLayout();
   ResultTy = STy;

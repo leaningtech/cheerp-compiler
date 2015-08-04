@@ -183,6 +183,7 @@ enum Kind {
   kw_##DISPLAY_NAME,
 #include "llvm/IR/Attributes.inc"
   kw_bytelayout,
+  kw_directbase,
 
   // Memory attribute:
   kw_read,
