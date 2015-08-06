@@ -736,7 +736,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 	}
 
-	DynamicAllocInfo da(callV);
+	DynamicAllocInfo da(callV, &targetData);
 	if (da.isValidAlloc())
 	{
 		compileAllocation(da);

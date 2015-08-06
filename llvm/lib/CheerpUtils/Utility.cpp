@@ -415,10 +415,13 @@ llvm::StructType* TypeSupport::needsDowncastArray(llvm::StructType* t) const
 	return NULL;
 }
 
-DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV ) : call(callV), type( getAllocType(callV) ), castedType(nullptr)
+DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV, const DataLayout* DL ) : call(callV), type( getAllocType(callV) ), castedType(nullptr)
 {
 	if ( isValidAlloc() )
+	{
 		castedType = computeCastedType();
+		typeSize = DL->getTypeAllocSize(castedType->getPointerElementType());
+	}
 }
 
 DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( ImmutableCallSite callV )
@@ -551,7 +554,11 @@ bool DynamicAllocInfo::useCreateArrayFunc() const
 {
 	if( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), /* forceTypedArray*/ false ) )
 	{
-		return sizeIsRuntime() || type == cheerp_reallocate;
+		if( sizeIsRuntime() || type == cheerp_reallocate)
+			return true;
+		// Should also use createArray if allocating many elements
+		uint32_t byteSize = cast<ConstantInt>(getByteSizeArg())->getZExtValue();
+		return byteSize/typeSize > 8;
 	}
 	return false;
 }

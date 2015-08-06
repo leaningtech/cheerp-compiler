@@ -257,6 +257,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
+	cheerp::GlobalDepsAnalyzer & GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 	std::list<std::pair<AllocaInst*, cheerp::Registerize::LiveRange>> allocaInfos;
 	// Gather all the allocas
 	for(BasicBlock& BB: F)
@@ -322,6 +323,8 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 			registerize.invalidateLiveRangeForAllocas(F);
 		// Build new alloca
 		Type* newAllocaType = ArrayType::get(targetElementType, arraysToMerge.getNewSize());
+		// Add the new struct type to the GlobalDepsAnalyzer, it may need the createArray helper
+		GDA.visitType(newAllocaType);
 		AllocaInst* newAlloca = new AllocaInst(newAllocaType, "mergedArray", &(*F.getEntryBlock().begin()));
 		Type* indexType = IntegerType::get(newAllocaType->getContext(), 32);
 		// Change every use of every merged array with an appropiate GEP
@@ -383,6 +386,7 @@ void AllocaArraysMerging::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addPreserved<cheerp::Registerize>();
+	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 
 	llvm::FunctionPass::getAnalysisUsage(AU);
