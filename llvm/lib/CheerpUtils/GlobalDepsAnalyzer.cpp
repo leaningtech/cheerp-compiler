@@ -299,7 +299,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				break;
 			}
 		}
-		while(st=st->getDirectBase());
+		while((st=st->getDirectBase()));
 	}
 	else if (F->getIntrinsicID() == Intrinsic::cheerp_create_closure)
 		hasCreateClosureUsers = true;
