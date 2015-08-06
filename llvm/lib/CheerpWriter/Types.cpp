@@ -194,17 +194,34 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 		ArrayType* at=cast<ArrayType>(t);
 		Type* element = at->getElementType();
 		assert(!(types.isTypedArrayType(element, /* forceTypedArray*/ false) && at->getNumElements()>1));
-		stream << '[';
-		for(uint64_t i=0;i<at->getNumElements();i++)
+		// Work around V8 limits on literal array larger than 8 elements
+		if(at->getNumElements() > 8)
 		{
-			if(i!=0)
-				stream << ',';
-			if(TypeSupport::isSimpleType(element))
-				compileSimpleType(element);
+			if(element->isPointerTy())
+			{
+				assert( globalDeps.needCreatePointerArray() );
+				stream << "createPointerArray([],0," << at->getNumElements() << ')';
+			}
 			else
-				numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements);
+			{
+				assert( globalDeps.dynAllocArrays().count(element) );
+				stream << "createArray" << namegen.getTypeName(element) << "([],0," << at->getNumElements() << ')';
+			}
 		}
-		stream << ']';
+		else
+		{
+			stream << '[';
+			for(uint64_t i=0;i<at->getNumElements();i++)
+			{
+				if(i!=0)
+					stream << ',';
+				if(TypeSupport::isSimpleType(element))
+					compileSimpleType(element);
+				else
+					numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements);
+			}
+			stream << ']';
+		}
 	}
 	return shouldReturnElementsCount ? numElements : 0;
 }

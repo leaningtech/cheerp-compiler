@@ -177,7 +177,7 @@ public:
 	 * isValidAlloc will return false. In this case any other
 	 * use of this object is not permitted.
 	 */
-	DynamicAllocInfo(llvm::ImmutableCallSite);
+	DynamicAllocInfo(llvm::ImmutableCallSite, const llvm::DataLayout* DL);
 	
 	bool isValidAlloc() const { return type != not_an_alloc; }
 	
@@ -242,6 +242,7 @@ private:
 	
 	llvm::ImmutableCallSite call;
 	AllocType type;
+	uint32_t typeSize;
 	llvm::PointerType * castedType;
 };
 

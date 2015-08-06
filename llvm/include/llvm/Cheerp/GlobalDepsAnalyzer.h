@@ -98,6 +98,8 @@ public:
 	bool runOnModule( llvm::Module & ) override;
 
 	void getAnalysisUsage( llvm::AnalysisUsage& ) const override;
+
+	void visitType( llvm::Type* t );
 private:
 	typedef llvm::SmallSet<const llvm::GlobalValue*, 8> VisitedSet;
 	
@@ -156,6 +158,8 @@ private:
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	std::vector< llvm::GlobalValue * > externals;
+
+	const llvm::DataLayout* DL;
 
 	const llvm::Function* entryPoint;
 	
