@@ -33,7 +33,7 @@ const char* GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), entryPoint(NULL),
+GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), DL(NULL), entryPoint(NULL),
 	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false)
 {
 }
@@ -48,6 +48,8 @@ void GlobalDepsAnalyzer::getAnalysisUsage(AnalysisUsage& AU) const
 
 bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
+	DL = &module.getDataLayout();
+	assert(DL);
 	VisitedSet visited;
 	
 	//Compile the list of JS methods
@@ -189,10 +191,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 				SubExprVec Newsubexpr (1, &GV->getOperandUse(0));
 				visitConstant( GV->getInitializer(), visited, Newsubexpr);
 				Type* globalType = GV->getInitializer()->getType();
-				if( ArrayType* AT=dyn_cast<ArrayType>(globalType) )
-					globalType = AT->getElementType();
-				if( StructType* ST= dyn_cast<StructType>(globalType) )
-					visitStruct(ST);
+				visitType(globalType);
 			}
 			
 			varsOrder.push_back(GV);
@@ -260,14 +259,11 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			if ( const AllocaInst* AI = dyn_cast<AllocaInst>(&I) )
 			{
 				Type* allocaType = AI->getAllocatedType();
-				if( ArrayType* AT=dyn_cast<ArrayType>(allocaType) )
-					allocaType = AT->getElementType();
-				if( StructType* ST= dyn_cast<StructType>(allocaType) )
-					visitStruct(ST);
+				visitType(allocaType);
 			}
 			else if ( ImmutableCallSite(&I).isCall() || ImmutableCallSite(&I).isInvoke() )
 			{
-				DynamicAllocInfo ai (&I);
+				DynamicAllocInfo ai (&I, DL);
 				if ( ai.isValidAlloc() )
 				{
 					if ( ai.useCreateArrayFunc() )
@@ -309,19 +305,28 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		hasCreateClosureUsers = true;
 }
 
+void GlobalDepsAnalyzer::visitType( Type* t )
+{
+	if( ArrayType* AT=dyn_cast<ArrayType>(t) )
+	{
+		Type* elementType = AT->getElementType();
+		if(elementType->isPointerTy())
+			hasPointerArrays = true;
+		else if(AT->getNumElements() > 8)
+			arraysNeeded.insert(elementType);
+		visitType(elementType);
+	}
+	else if( StructType* ST=dyn_cast<StructType>(t) )
+		visitStruct(ST);
+}
+
 void GlobalDepsAnalyzer::visitStruct( StructType* ST )
 {
 	if(ST->hasByteLayout())
 		return;
 	classesNeeded.insert(ST);
 	for(uint32_t i=0;i<ST->getNumElements();i++)
-	{
-		Type* elementType = ST->getElementType(i);
-		if( ArrayType* AT=dyn_cast<ArrayType>(elementType) )
-			elementType = AT->getElementType();
-		if( StructType* ST= dyn_cast<StructType>(elementType) )
-			visitStruct(ST);
-	}
+		visitType(ST->getElementType(i));
 }
 
 int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
