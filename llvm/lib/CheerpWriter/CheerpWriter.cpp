@@ -608,6 +608,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << ')';
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::expect)
+	{
+		compileOperand(*it);
+		return COMPILE_OK;
+	}
 	else if(ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate)
 	{
 		compileFree(*it);
