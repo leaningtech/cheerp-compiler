@@ -295,7 +295,7 @@ void CheerpWriter::compileArrayClassType(Type* T)
 
 void CheerpWriter::compileArrayPointerType()
 {
-	stream << "function createPointerArray(ret,start,end) { for(var __i__=start;__i__<end;__i__++) ret[__i__]={ d: nullArray, o: 0}; return ret; }"
+	stream << "function createPointerArray(ret,start,end){for(var __i__=start;__i__<end;__i__++)ret[__i__]=nullObj;return ret;}"
 		<< NewLine;
 }
 
