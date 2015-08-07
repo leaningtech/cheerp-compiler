@@ -922,8 +922,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							// We need to make sure that no byval attribute is applied to pointers to arrays
 							// as they will be rewritten to plain pointers and less memory will be copied
 							// Get the original type of the called function
-							FunctionType* originalFunctionType = cast<FunctionType>(
-									getOriginalOperandType(CI->getCalledValue())->getPointerElementType());
 							AttributeSet newAttrs=CI->getAttributes();
 							bool attributesChanged=false;
 							Function* calledFunction = CI->getCalledFunction();
@@ -1113,6 +1111,7 @@ bool TypeOptimizer::runOnModule(Module& M)
 	}
 	for(Function* F: pendingFunctions)
 		F->eraseFromParent();
+	module = NULL;
 	return true;
 }
 
