@@ -86,7 +86,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::GlobalDepsAnalyzer & GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
-	cheerp::TypeSupport types(*F.getParent(), GDA.classesWithBaseInfo());
+	cheerp::TypeSupport types(*F.getParent());
 	AllocaInfos allocaInfos;
 	// Gather all the allocas
 	for(BasicBlock& BB: F)

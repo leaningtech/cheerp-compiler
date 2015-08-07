@@ -403,18 +403,6 @@ bool TypeSupport::isSimpleType(Type* t)
 	return false;
 }
 
-llvm::StructType* TypeSupport::needsDowncastArray(llvm::StructType* t) const
-{
-	// True if the struct or any of its direct bases is used in a downcast
-	while(t)
-	{
-		if(classesWithBaseInfo.count(t))
-			return t;
-		t=t->getDirectBase();
-	}
-	return NULL;
-}
-
 DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV, const DataLayout* DL ) : call(callV), type( getAllocType(callV) ), castedType(nullptr)
 {
 	if ( isValidAlloc() )

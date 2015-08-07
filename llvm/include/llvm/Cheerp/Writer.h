@@ -348,7 +348,7 @@ public:
 	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, bool ReadableOutput,
 	             bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
-		namegen(m, globalDeps, registerize, PA, ReadableOutput),types(m, globalDeps.classesWithBaseInfo()),
+		namegen(m, globalDeps, registerize, PA, ReadableOutput),types(m),
 		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),useNativeJavaScriptMath(UseNativeJavaScriptMath),
 		useMathImul(useMathImul),stream(s, ReadableOutput)
 	{

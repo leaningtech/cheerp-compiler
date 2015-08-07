@@ -100,6 +100,8 @@ public:
 	void getAnalysisUsage( llvm::AnalysisUsage& ) const override;
 
 	void visitType( llvm::Type* t );
+
+	llvm::StructType* needsDowncastArray(llvm::StructType* t) const;
 private:
 	typedef llvm::SmallSet<const llvm::GlobalValue*, 8> VisitedSet;
 	
