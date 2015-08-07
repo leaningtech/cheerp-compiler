@@ -116,8 +116,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 	{
 		numElements++;
 		assert(!TypeSupport::hasByteLayout(st));
-		uint32_t firstBase, baseCount;
-		StructType* downcastArrayBase = types.needsDowncastArray(st);
+		StructType* downcastArrayBase = globalDeps.needsDowncastArray(st);
 		bool addDowncastArray = downcastArrayBase != NULL;
 		if(style == LITERAL_OBJ)
 		{
