@@ -63,10 +63,8 @@ std::string valueObjectName(const llvm::Value * v);
 class TypeSupport
 {
 public:
-	TypeSupport( const llvm::Module & module,
-		     const std::unordered_set<llvm::StructType*> & basesInfo ) : 
-		module(module),
-		classesWithBaseInfo(basesInfo) {}
+	TypeSupport( const llvm::Module & module ) :
+		module(module) {}
 
 	static bool isDerivedStructType(llvm::StructType* derivedType, llvm::StructType* baseType);
 
@@ -114,8 +112,6 @@ public:
 		return getBasesMetadata(t, m) != nullptr;
 	}
 
-	llvm::StructType* needsDowncastArray(llvm::StructType* t) const;
-
 	// Bridge to the static version
 	bool getBasesInfo(const llvm::StructType* t, uint32_t& firstBase, uint32_t& baseCount) const
 	{
@@ -150,7 +146,6 @@ private:
 	}
 
 	const llvm::Module & module;
-	const std::unordered_set<llvm::StructType*> & classesWithBaseInfo;
 };
 
 /*

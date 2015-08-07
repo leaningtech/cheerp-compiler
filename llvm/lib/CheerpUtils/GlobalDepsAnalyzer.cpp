@@ -329,6 +329,18 @@ void GlobalDepsAnalyzer::visitStruct( StructType* ST )
 		visitType(ST->getElementType(i));
 }
 
+llvm::StructType* GlobalDepsAnalyzer::needsDowncastArray(llvm::StructType* t) const
+{
+	// True if the struct or any of its direct bases is used in a downcast
+	while(t)
+	{
+		if(classesWithBaseInfoNeeded.count(t))
+			return t;
+		t=t->getDirectBase();
+	}
+	return NULL;
+}
+
 int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 {
 	std::vector< llvm::GlobalValue * > eraseQueue;
