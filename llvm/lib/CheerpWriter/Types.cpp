@@ -256,6 +256,8 @@ uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, St
 
 	for(uint32_t i=firstBase;i<(firstBase+localBaseCount);i++)
 	{
+		if(!currentType->getElementType(i)->isStructTy())
+			continue;
 		SmallString<16> buf;
 		llvm::raw_svector_ostream bufStream(buf);
 		bufStream << ".a" << i;
