@@ -144,6 +144,26 @@ public:
 //
 FunctionPass *createFreeAndDeleteRemovalPass();
 
+/**
+ * This pass moves allocas as close as possible to the actual users
+ */
+class DelayAllocas: public FunctionPass
+{
+public:
+	static char ID;
+	explicit DelayAllocas() : FunctionPass(ID) { }
+	bool runOnFunction(Function &F) override;
+	const char *getPassName() const override;
+
+	virtual void getAnalysisUsage(AnalysisUsage&) const override;
+};
+
+//===----------------------------------------------------------------------===//
+//
+// DelayAllocas
+//
+FunctionPass *createDelayAllocasPass();
+
 }
 
 #endif
