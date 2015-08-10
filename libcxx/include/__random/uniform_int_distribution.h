@@ -181,7 +181,6 @@ __independent_bits_engine<_Engine, _UIntType>::__eval(true_type)
     return _Sp;
 }
 
-#ifndef __CHEERP__
 template<class _IntType = int>
 class uniform_int_distribution
 {
@@ -277,7 +276,6 @@ _LIBCPP_DISABLE_UBSAN_UNSIGNED_INTEGER_CHECK
     } while (__u >= _Rp);
     return static_cast<result_type>(__u + __p.a());
 }
-#endif
 
 template <class _CharT, class _Traits, class _IT>
 basic_ostream<_CharT, _Traits>&
