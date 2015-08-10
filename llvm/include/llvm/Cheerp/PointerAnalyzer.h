@@ -300,7 +300,6 @@ public:
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
 	POINTER_KIND getPointerKindForReturn(const llvm::Function* F) const;
 	POINTER_KIND getPointerKindForStoredType( llvm::Type * pointerType ) const;
-	POINTER_KIND getPointerKindForArgumentType( llvm::Type * pointerType ) const;
 	POINTER_KIND getPointerKindForMemberPointer( const TypeAndIndex& baseAndIndex ) const;
 	POINTER_KIND getPointerKindForMember( const TypeAndIndex& baseAndIndex ) const;
 	POINTER_KIND getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const;
