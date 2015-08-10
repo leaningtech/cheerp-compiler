@@ -1538,7 +1538,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			else if (arg_it != F->arg_end())
 				argKind = PA.getPointerKind(arg_it);
 			else
-				compilePointerAs(*cur, PA.getPointerKindForArgumentType(tp));
+				compilePointerAs(*cur, PA.getPointerKindForStoredType(tp));
 
 			if(argKind == REGULAR)
 			{
