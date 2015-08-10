@@ -28,6 +28,7 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
+#ifndef __CHEERP__
 template <class _Size>
 inline _LIBCPP_INLINE_VISIBILITY
 _Size
@@ -37,6 +38,7 @@ __loadword(const void* __p)
     _VSTD::memcpy(&__r, __p, sizeof(__r));
     return __r;
 }
+#endif
 
 // We use murmur2 when size_t is 32 bits, and cityhash64 when size_t
 // is 64 bits.  This is because cityhash64 uses 64bit x 64bit
@@ -51,6 +53,7 @@ struct __murmur2_or_cityhash<_Size, 32>
          _LIBCPP_DISABLE_UBSAN_UNSIGNED_INTEGER_CHECK;
 };
 
+#ifndef __CHEERP__
 // murmur2
 template <class _Size>
 _Size
@@ -86,6 +89,7 @@ __murmur2_or_cityhash<_Size, 32>::operator()(const void* __key, _Size __len)
     __h ^= __h >> 15;
     return __h;
 }
+#endif
 
 #ifndef __CHEERP__
 template <class _Size>
