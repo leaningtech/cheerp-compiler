@@ -597,6 +597,19 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		}
 	}
 
+	if(isa<VAArgInst>(p))
+	{
+		// This behaves like a load to memory for the specific type
+		assert(first);
+		PointerKindWrapper& k = visitAllUses(ret, p);
+		k.makeKnown();
+		// We want to override the ret value, not add a constraint
+		Type* curType = p->getType()->getPointerElementType();
+		IndirectPointerKindConstraint storedTypeConstraint(STORED_TYPE_CONSTRAINT, curType);
+		pointerKindData.constraintsMap[storedTypeConstraint] |= k;
+		return CacheAndReturn(ret = PointerKindWrapper( pointerKindData.getConstraintPtr(storedTypeConstraint) ));
+	}
+
 	return CacheAndReturn(visitAllUses(ret, p));
 }
 
@@ -727,8 +740,8 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 
 		if ( argNo >= calledFunction->arg_size() )
 		{
-			// Passed as a variadic argument
-			return ret |= PointerKindWrapper(REGULAR, p);
+			// Passed as a variadic argument, behave like it was stored in memory
+			return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( STORED_TYPE_CONSTRAINT, pointedType ));
 		}
 
 		Function::const_arg_iterator arg = calledFunction->arg_begin();
@@ -1158,10 +1171,6 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 
 POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) const
 {
-	POINTER_KIND ret=PointerUsageVisitor::getKindForType(pointerType->getPointerElementType());
-	if(ret!=UNKNOWN)
-		return ret;
-
 	auto it=pointerKindData.constraintsMap.find(IndirectPointerKindConstraint(STORED_TYPE_CONSTRAINT, pointerType->getPointerElementType()));
 	if(it==pointerKindData.constraintsMap.end())
 		return COMPLETE_OBJECT;
@@ -1172,11 +1181,6 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 		return k.getPointerKind();
 
 	return PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(k).getPointerKind();
-}
-
-POINTER_KIND PointerAnalyzer::getPointerKindForArgumentType(Type* pointerType) const
-{
-	return PointerUsageVisitor::getKindForType(pointerType->getPointerElementType());
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const
