@@ -288,7 +288,8 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 	for(;E!=EE;++E)
 	{
 		baseCount++;
-		StructType* baseT=cast<StructType>(*E);
+		// A base with a single element may have collapsed
+		StructType* baseT=dyn_cast<StructType>(*E);
 		while(baseT)
 		{
 			NamedMDNode* baseNamedMeta=module.getNamedMetadata(Twine(baseT->getName(),"_bases"));
@@ -297,14 +298,10 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 				baseMax-=getIntFromValue(cast<ConstantAsMetadata>(baseNamedMeta->getOperand(0)->getOperand(1))->getValue());
 				break;
 			}
-			else if(baseT->getDirectBase())
-				baseT=baseT->getDirectBase();
-			else
-			{
-				baseMax--;
-				break;
-			}
+			baseT=baseT->getDirectBase();
 		}
+		if(!baseT)
+			baseMax--;
 		assert(baseMax>=0);
 		if(baseMax==0)
 			break;
@@ -319,7 +316,7 @@ bool TypeSupport::useWrapperArrayForMember(const PointerAnalyzer& PA, StructType
 	{
 		if(memberIndex < firstBase && st->getDirectBase())
 			return useWrapperArrayForMember(PA, st->getDirectBase(), memberIndex);
-		if(memberIndex >= firstBase && memberIndex < (firstBase+baseCount))
+		if(memberIndex >= firstBase && memberIndex < (firstBase+baseCount) && st->getElementType(memberIndex)->isStructTy())
 			return false;
 	}
 	// We don't want to use the wrapper array if the downcast array is alredy available
