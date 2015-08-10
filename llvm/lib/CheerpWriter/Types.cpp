@@ -67,7 +67,8 @@ void CheerpWriter::compileSimpleType(Type* t)
 			assert(TypeSupport::hasByteLayout(t));
 			uint32_t typeSize = targetData.getTypeAllocSize(t);
 			stream << "new DataView(new ArrayBuffer(";
-			stream << typeSize;
+			// Round up the size to make sure that any typed array can be initialized from the buffer
+			stream << ((typeSize + 7) & (~7));
 			stream << "))";
 			break;
 		}
