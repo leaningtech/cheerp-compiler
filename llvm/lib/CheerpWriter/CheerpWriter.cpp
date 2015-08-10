@@ -1762,7 +1762,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			stream << '=';
 			if(valOp->getType()->isIntegerTy(32))
 				compileSignedInteger(valOp);
-			else if(valOp->getType()->isIntegerTy(32))
+			else if(valOp->getType()->isIntegerTy())
 				compileUnsignedInteger(valOp);
 			else if(valOp->getType()->isPointerTy())
 			{
