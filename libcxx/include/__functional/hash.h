@@ -439,6 +439,9 @@ _LIBCPP_SUPPRESS_DEPRECATED_POP
     _LIBCPP_INLINE_VISIBILITY
     size_t operator()(_Tp* __v) const _NOEXCEPT
     {
+#ifdef __CHEERP__
+        return 0;
+#else
         union
         {
             _Tp* __t;
@@ -446,6 +449,7 @@ _LIBCPP_SUPPRESS_DEPRECATED_POP
         } __u;
         __u.__t = __v;
         return __murmur2_or_cityhash<size_t>()(&__u, sizeof(__u));
+#endif
     }
 };
 
