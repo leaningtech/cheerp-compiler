@@ -253,7 +253,6 @@ _LIBCPP_DISABLE_UBSAN_UNSIGNED_INTEGER_CHECK
     } while (__u >= _Rp);
     return static_cast<result_type>(__u + __p.a());
 }
-#endif
 
 template <class _CharT, class _Traits, class _IT>
 basic_ostream<_CharT, _Traits>&
