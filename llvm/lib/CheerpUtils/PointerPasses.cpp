@@ -11,6 +11,7 @@
 
 #define DEBUG_TYPE "CheerpPointerPasses"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
@@ -19,6 +20,7 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -575,6 +577,85 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
+bool DelayAllocas::runOnFunction(Function& F)
+{
+	bool Changed = false;
+	LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+	std::map<AllocaInst*, Instruction*> movedAllocaMaps;
+	for ( BasicBlock& BB : F )
+	{
+		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
+		{
+			AllocaInst* AI=dyn_cast<AllocaInst>(it);
+			if (!AI || AI->use_empty())
+				continue;
+			// Delay the alloca as much as possible by putting it in the dominator block of all the uses
+			// Unless that block is in a loop, then put it above the loop
+			Instruction* currentInsertionPoint = NULL;
+			for(User* U: AI->users())
+			{
+				if(!currentInsertionPoint)
+					currentInsertionPoint = cast<Instruction>(U);
+				else if(DT->dominates(currentInsertionPoint, cast<Instruction>(U)))
+					;// Nothing to do
+				else if(DT->dominates(cast<Instruction>(U), currentInsertionPoint))
+					currentInsertionPoint = cast<Instruction>(U);
+				else // Find a common dominator
+				{
+					BasicBlock* common = DT->findNearestCommonDominator(currentInsertionPoint->getParent(),cast<Instruction>(U)->getParent());
+					currentInsertionPoint = common->getTerminator();
+				}
+			}
+			Loop* loop=LI->getLoopFor(currentInsertionPoint->getParent());
+			if(loop)
+			{
+				while(loop->getParentLoop())
+					loop = loop->getParentLoop();
+				BasicBlock* loopHeader = loop->getHeader();
+				// We need to put the alloca in the dominator of the loop
+				BasicBlock* loopDominator = NULL;
+				for(auto it = pred_begin(loopHeader);it != pred_end(loopHeader); ++it)
+				{
+					if(!loopDominator)
+						loopDominator = *it;
+					else if(DT->dominates(loopDominator, *it))
+						; //Nothing to do
+					else if(DT->dominates(*it, loopDominator))
+						loopDominator = *it;
+					else // Find a common dominator
+						loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
+				}
+				currentInsertionPoint = loopDominator->getTerminator();
+			}
+			movedAllocaMaps.insert(std::make_pair(AI, currentInsertionPoint));
+			Changed = true;
+		}
+	}
+	for(auto& it: movedAllocaMaps)
+		it.first->moveBefore(it.second);
+	return Changed;
+}
+
+const char* DelayAllocas::getPassName() const
+{
+	return "DelayAllocas";
+}
+
+char DelayAllocas::ID = 0;
+
+void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
+{
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addRequired<DominatorTreeWrapperPass>();
+	AU.addRequired<LoopInfoWrapperPass>();
+	AU.addPreserved<LoopInfoWrapperPass>();
+	llvm::Pass::getAnalysisUsage(AU);
+}
+
+FunctionPass *createDelayAllocasPass() { return new DelayAllocas(); }
+
 }
 
 using namespace llvm;
@@ -582,4 +663,9 @@ using namespace llvm;
 INITIALIZE_PASS_BEGIN(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR type to arrays of 1 element",
 			false, false)
 INITIALIZE_PASS_END(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR type to arrays of 1 element",
+			false, false)
+
+INITIALIZE_PASS_BEGIN(DelayAllocas, "DelayAllocas", "Moves allocas as close as possible to the actual users",
+			false, false)
+INITIALIZE_PASS_END(DelayAllocas, "DelayAllocas", "Moves allocas as close as possible to the actual users",
 			false, false)
