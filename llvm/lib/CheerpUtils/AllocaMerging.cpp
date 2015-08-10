@@ -85,7 +85,6 @@ bool AllocaMerging::runOnFunction(Function& F)
 {
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
-	cheerp::GlobalDepsAnalyzer & GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 	cheerp::TypeSupport types(*F.getParent());
 	AllocaInfos allocaInfos;
 	// Gather all the allocas
@@ -137,6 +136,9 @@ bool AllocaMerging::runOnFunction(Function& F)
 		if(!Changed)
 			registerize.invalidateLiveRangeForAllocas(F);
 
+		// Make sure that this alloca is in the entry block
+		if(targetAlloca->getParent()!=&entryBlock)
+			targetAlloca->moveBefore(entryBlock.begin());
 		// We can merge the allocas
 		for(const AllocaInfos::iterator& it: mergeSet)
 		{
@@ -154,9 +156,6 @@ bool AllocaMerging::runOnFunction(Function& F)
 			allocaInfos.erase(it);
 			NumAllocaMerged++;
 		}
-		// Make sure that this alloca is in the entry block
-		if(targetAlloca->getParent()!=&entryBlock)
-			targetAlloca->moveBefore(entryBlock.begin());
 		PA.getPointerKind(targetAlloca);
 		Changed = true;
 	}
