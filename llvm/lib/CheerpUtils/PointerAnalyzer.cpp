@@ -125,6 +125,8 @@ void PointerKindWrapper::dump() const
 		dbgs() << "Indirect kind\n";
 	else
 		dbgs() << "Wraps plain kind " << kind << "\n";
+	if(regularCause)
+		dbgs() << "Reason for REGULAR is " << *regularCause << "\n";
 
 	for(const IndirectPointerKindConstraint* c: constraints)
 		c->dump();
