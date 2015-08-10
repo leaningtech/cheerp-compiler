@@ -113,6 +113,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createResolveAliasesPass());
   PM.add(createFreeAndDeleteRemovalPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass());
+  PM.add(createDelayAllocasPass());
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(cheerp::createRegisterizePass(NoRegisterize));
