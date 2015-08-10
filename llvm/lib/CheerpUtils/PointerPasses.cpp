@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "CheerpPointerPasses"
+#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
@@ -253,7 +254,7 @@ ModulePass* createIndirectCallOptimizerPass()
 class PHIVisitor
 {
 public:
-	typedef std::map<PHINode*, PHINode*> PHIMap;
+	typedef std::map<PHINode*, Value*> PHIMap;
 	PHIVisitor(PHIMap& phiMap):mappedPHIs(phiMap)
 	{
 	}
@@ -352,6 +353,7 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 		mappedPHIs.insert(std::make_pair(phi, newPHI));
 		for (unsigned i=0;i<phi->getNumIncomingValues();i++)
 		{
+			// If incomingValue is not an instruction it must be a global pointer and the base
 			Value* incomingValue=phi->getIncomingValue(i);
 			Instruction* incomingInst=dyn_cast<Instruction>(incomingValue);
 			Value* index = incomingInst ? rewrite(incomingInst, base) : NULL;
@@ -359,9 +361,20 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 				index = ConstantInt::get(newPHI->getType(), 0);
 			newPHI->addIncoming(index, phi->getIncomingBlock(i));
 		}
-		Value* newGep=GetElementPtrInst::Create(base, newPHI, "geptoindex",phi->getParent()->getFirstInsertionPt());
+		Value* newOffset = newPHI;
+		if(Value* n= SimplifyInstruction(newPHI, I->getModule()->getDataLayout()))
+		{
+			newOffset = n;
+			newPHI->replaceAllUsesWith(n);
+			newPHI->eraseFromParent();
+		}
+		Value* newGep = NULL;
+		if(isa<ConstantInt>(newOffset) && cast<ConstantInt>(newOffset)->getZExtValue()==0)
+			newGep=base;
+		else
+			newGep=GetElementPtrInst::Create(base, newOffset, "geptoindex",phi->getParent()->getFirstInsertionPt());
 		phi->replaceAllUsesWith(newGep);
-		return newPHI;
+		return newOffset;
 	}
 	return NULL;
 }
@@ -391,8 +404,15 @@ bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 				continue;
 			if (! phi->getType()->isPointerTy() )
 				continue;
-			if ( phi->getNumIncomingValues() < 2 )
+			assert ( phi->getNumIncomingValues() != 0 );
+			if ( phi->getNumIncomingValues() == 1 )
+			{
+				// PHIs with as single elements are confusing for the backend, remove them
+				Value* newVal = phi->getIncomingValue(0);
+				phi->replaceAllUsesWith(newVal);
+				phiMap.insert(std::make_pair(phi, newVal));
 				continue;
+			}
 			Changed |= PHIVisitor(phiMap).visitPHI(phi);
 		}
 	}
