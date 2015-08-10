@@ -2014,6 +2014,11 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 
 void CheerpWriter::compileSignedInteger(const llvm::Value* v)
 {
+	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
+	{
+		stream << C->getSExtValue();
+		return;
+	}
 	//We anyway have to use 32 bits for sign extension to work
 	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
 	if(shiftAmount==0)
@@ -2033,6 +2038,11 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v)
 
 void CheerpWriter::compileUnsignedInteger(const llvm::Value* v)
 {
+	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
+	{
+		stream << C->getZExtValue();
+		return;
+	}
 	//We anyway have to use 32 bits for sign extension to work
 	uint32_t initialSize = v->getType()->getIntegerBitWidth();
 	stream << '(';
