@@ -738,9 +738,6 @@ public:
         {return __table_.__addable(__i, __n);}
 
 #endif  // _LIBCPP_DEBUG_LEVEL >= 2
-#ifdef __CHEERP__
-    static_assert(!std::is_pointer<_Value>::value, "Cheerp: std::unordered_set of pointers is not currently supported");
-#endif
 };
 
 #ifndef _LIBCPP_HAS_NO_DEDUCTION_GUIDES

@@ -1472,7 +1472,7 @@ private:
     __node_holder __construct_node_with_key(const key_type& __k);
 #endif
 #ifdef __CHEERP__
-    static_assert(!std::is_pointer<_Key>::value, "Duetto: std::map with pointers as keys is not currently supported");
+    static_assert(!std::is_pointer<_Key>::value, "Cheerp: std::map with pointers as keys is not currently supported, use std::unordered_map");
 #endif
 };
 
