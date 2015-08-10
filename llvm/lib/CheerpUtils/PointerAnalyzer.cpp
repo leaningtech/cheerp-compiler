@@ -1185,11 +1185,6 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 
 POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const
 {
-	Type* pointedType = argTypeAndIndex.type;
-	POINTER_KIND ret=PointerUsageVisitor::getKindForType(pointedType);
-	if(ret!=UNKNOWN)
-		return ret;
-
 	const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolveConstraint(
 										IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, argTypeAndIndex));
 	assert(k!=UNKNOWN);
