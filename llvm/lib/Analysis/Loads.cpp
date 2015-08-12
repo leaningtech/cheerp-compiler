@@ -323,7 +323,8 @@ bool llvm::isSafeToLoadUnconditionally(Value *V, Align Alignment, APInt &Size,
         LoadSize <= DL.getTypeStoreSize(AccessedTy))
       return true;
 
-    if (AreEquivalentAddressValues(AccessedPtr->stripPointerCastsSafe(), V) &&
+    // NOTE: Use 'true' for stripPointerCasts as we are interested in having gep V,0,0,0... and V being considered equal
+    if (AreEquivalentAddressValues(AccessedPtr->stripPointerCasts(true), V) &&
         LoadSize <= DL.getTypeStoreSize(AccessedTy))
       return true;
   }
