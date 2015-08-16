@@ -35,7 +35,7 @@ public:
 	virtual void renderElseBlockBegin() = 0;
 	virtual void renderBlockEnd() = 0;
 	virtual void renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) = 0;
-	virtual bool hasBlockPrologue(const void* privateBlockTo) const = 0;
+	virtual bool hasBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) const = 0;
 	virtual void renderWhileBlockBegin() = 0;
 	virtual void renderWhileBlockBegin(int labelId) = 0;
 	virtual void renderDoBlockBegin() = 0;
