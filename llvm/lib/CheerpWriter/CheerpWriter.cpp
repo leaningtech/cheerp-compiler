@@ -42,7 +42,7 @@ public:
 	void renderElseBlockBegin();
 	void renderBlockEnd();
 	void renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom);
-	bool hasBlockPrologue(const void* privateBlockTo) const;
+	bool hasBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) const;
 	void renderWhileBlockBegin();
 	void renderWhileBlockBegin(int labelId);
 	void renderDoBlockBegin();
@@ -1442,6 +1442,45 @@ void CheerpWriter::compileOperand(const Value* v, bool allowBooleanObjects)
 	}
 }
 
+bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
+{
+	Type* phiType=phi->getType();
+	const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
+	return
+		!incomingInst || isInlineable(*incomingInst, PA) ||
+		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst) ||
+		(phiType->isPointerTy() && PA.getPointerKind(phi)!=PA.getPointerKind(incoming)) ||
+		PA.getConstantOffsetForPointer(phi)!=PA.getConstantOffsetForPointer(incoming);
+}
+
+bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from)
+{
+	class PHIHandler: public EndOfBlockPHIHandler
+	{
+	public:
+		PHIHandler(CheerpWriter& w):EndOfBlockPHIHandler(w.PA),writer(w)
+		{
+		}
+		~PHIHandler()
+		{
+		}
+		bool needsPointerKindConversion = false;
+	private:
+		CheerpWriter& writer;
+		void handleRecursivePHIDependency(const Instruction* phi) override
+		{
+		}
+		void handlePHI(const Instruction* phi, const Value* incoming) override
+		{
+			needsPointerKindConversion |= writer.needsPointerKindConversion(phi, incoming);
+		}
+	};
+
+	auto handler = PHIHandler(*this);
+	handler.runOnEdge(registerize, from, to);
+	return handler.needsPointerKindConversion;
+}
+
 void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
 {
 	class WriterPHIHandler: public EndOfBlockPHIHandler
@@ -1466,18 +1505,12 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
-			Type* phiType=phi->getType();
-			const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
 			// We can avoid assignment from the same register if no pointer kind conversion is required
-			if(incomingInst && !isInlineable(*incomingInst, writer.PA) &&
-				writer.registerize.getRegisterId(phi)==writer.registerize.getRegisterId(incomingInst) &&
-				(!phiType->isPointerTy() || writer.PA.getPointerKind(phi)==writer.PA.getPointerKind(incoming)) &&
-				writer.PA.getConstantOffsetForPointer(phi)==writer.PA.getConstantOffsetForPointer(incoming))
-			{
+			if(!writer.needsPointerKindConversion(phi, incoming))
 				return;
-			}
 			writer.stream << "var " << writer.namegen.getName(phi) << '=';
 			writer.namegen.setEdgeContext(fromBB, toBB);
+			Type* phiType=phi->getType();
 			if(phiType->isPointerTy())
 			{
 				POINTER_KIND k=writer.PA.getPointerKind(phi);
@@ -2692,10 +2725,17 @@ void CheerpRenderInterface::renderBlockPrologue(const void* privateBlockTo, cons
 	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
 }
 
-bool CheerpRenderInterface::hasBlockPrologue(const void* privateBlockTo) const
+bool CheerpRenderInterface::hasBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) const
 {
-	const BasicBlock* bbTo=(const BasicBlock*)privateBlockTo;
-	return bbTo->getFirstNonPHI()!=&bbTo->front();
+	const BasicBlock* to=(const BasicBlock*)privateBlockTo;
+	const BasicBlock* from=(const BasicBlock*)privateBlockFrom;
+
+	if (to->getFirstNonPHI()==&to->front())
+		return false;
+
+	// We can avoid assignment from the same register if no pointer kind
+	// conversion is required
+	return writer->needsPointerKindConversionForBlocks(to, from);
 }
 
 void CheerpRenderInterface::renderWhileBlockBegin()

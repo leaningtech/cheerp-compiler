@@ -145,14 +145,14 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
     bool HasFusedContent = Fused && Fused->InnerMap.find(Target) != Fused->InnerMap.end();
     //Cheerp: We assume that the block has content, otherwise why it's even here?
     bool HasContent = SetCurrLabel || Details->Type != Branch::Direct ||
-                      HasFusedContent || renderInterface->hasBlockPrologue(Target->privateBlock);
+                      HasFusedContent || renderInterface->hasBlockPrologue(Target->privateBlock, privateBlock);
     if (iter != ProcessedBranchesOut.end()) {
       // If there is nothing to show in this branch, omit the condition
       if (HasContent) {
         renderInterface->renderIfBlockBegin(privateBlock, Details->branchId, First);
         First = false;
       } else {
-	emptyBranchesIds.push_back(Details->branchId);
+        emptyBranchesIds.push_back(Details->branchId);
       }
     } else {
       if (HasContent) {
@@ -160,7 +160,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
           renderInterface->renderIfBlockBegin(privateBlock, emptyBranchesIds, First);
           First = false;
         } else if (!First) {
-	  renderInterface->renderElseBlockBegin();
+          renderInterface->renderElseBlockBegin();
         }
       }
     }
