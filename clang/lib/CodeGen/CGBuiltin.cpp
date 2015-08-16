@@ -2645,8 +2645,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         SrcE = SrcCast->getSubExpr();
         QualType DestType = DestE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
         QualType SrcType = SrcE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
-        if (DestType != SrcType)
-          CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_same_type);
+        if (DestType != SrcType &&
+            (!SrcType->isIntegerType() || !DestType->isIntegerType() ||
+             cast<llvm::IntegerType>(ConvertType(SrcType))->getBitWidth()
+             != cast<llvm::IntegerType>(ConvertType(DestType))->getBitWidth()))
+          CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_same_type)
+            << SrcE->getType() << DestE->getType();
       }
     }
     Address Dest = EmitPointerWithAlignment(DestE);
@@ -2744,8 +2748,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         SrcE = SrcCast->getSubExpr();
         QualType DestType = DestE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
         QualType SrcType = SrcE->getType()->getPointeeType().getCanonicalType().getUnqualifiedType();
-        if (DestType != SrcType)
-          CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_same_type);
+        if (DestType != SrcType &&
+            (!SrcType->isIntegerType() || !DestType->isIntegerType() ||
+             cast<llvm::IntegerType>(ConvertType(SrcType))->getBitWidth()
+             != cast<llvm::IntegerType>(ConvertType(DestType))->getBitWidth()))
+          CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_same_type)
+            << SrcE->getType() << DestE->getType();
       }
     }
     Address Dest = EmitPointerWithAlignment(DestE);

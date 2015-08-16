@@ -10915,7 +10915,7 @@ def err_cheerp_jsexport_with_non_trivial_destructor : Error<
 def err_cheerp_memintrinsic_type_unknown : Error<
   "Cheerp: Memory operations require the actual type of the pointers. Pass the typed pointers instead of a generic void*">;
 def err_cheerp_memintrinsic_same_type : Error<
-  "Cheerp: Memory operations require source and destination pointers of the same type">;
+  "Cheerp: Memory operations require source (%0) and destination (%1) pointers of the same type">;
 def err_cheerp_bad_function_to_non_function_cast : Error<
   "Cheerp: Casting from function pointers to non-function pointers is not allowed">;
 def err_cheerp_alloc_requires_cast : Error<
