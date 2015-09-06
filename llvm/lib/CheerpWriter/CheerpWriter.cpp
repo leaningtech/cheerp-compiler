@@ -2951,13 +2951,13 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			}
 			else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
 			{
-				// We don't expect anything which is not a pointer here, as we are fixing dependencies between globals
-				assert(cs->getType()->getElementType(u->getOperandNo())->isPointerTy());
 				stream << ".a" << u->getOperandNo();
 				if (types.useWrapperArrayForMember(PA, cs->getType(), u->getOperandNo()))
 					stream << "[0]";
 				if (it == (subExpr.end()-1) && valOp->getType()->isPointerTy())
 				{
+					// We don't expect anything which is not a pointer here, as we are fixing dependencies between globals
+					assert(cs->getType()->getElementType(u->getOperandNo())->isPointerTy());
 					TypeAndIndex b(cs->getType(), u->getOperandNo(), TypeAndIndex::STRUCT_MEMBER);
 					elementPointerKind = PA.getPointerKindForMemberPointer(b);
 					hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
