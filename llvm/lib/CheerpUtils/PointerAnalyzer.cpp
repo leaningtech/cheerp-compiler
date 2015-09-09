@@ -406,8 +406,13 @@ bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 
 PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, const Value* p, bool first)
 {
-	if (p->getType()->isPointerTy() && visitByteLayoutChain(p))
-		return pointerKindData.valueMap.insert( std::make_pair(p, BYTE_LAYOUT ) ).first->second;
+	if (p->getType()->isPointerTy())
+	{
+		if (visitByteLayoutChain(p))
+			return pointerKindData.valueMap.insert( std::make_pair(p, BYTE_LAYOUT ) ).first->second;
+		else if(getKindForType(p->getType()->getPointerElementType()) == COMPLETE_OBJECT)
+			return pointerKindData.valueMap.insert( std::make_pair(p, COMPLETE_OBJECT ) ).first->second;
+	}
 
 	auto existingValueIt = pointerKindData.valueMap.find(p);
 	if(existingValueIt != pointerKindData.valueMap.end())
