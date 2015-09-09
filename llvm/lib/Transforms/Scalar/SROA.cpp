@@ -1049,6 +1049,26 @@ private:
         return PI.setAborted(UnsafeI);
     }
 
+    // Cheerp: PHIs and selects are only safe to work on if we can create GEPs from all incoming pointer
+    if (!DL.isByteAddressable()) {
+      // Check if the PHI or select can be unconditionally loaded between the first load/store in the BB
+      SmallPtrSet<User*, 4> users(I.users().begin(), I.users().end());
+      Instruction* firstUser = NULL;
+      BasicBlock::iterator NE = I.getParent()->getTerminator();
+      for(BasicBlock::iterator NI=&I; NI!=NE; ++NI) {
+        if(!users.count(NI))
+          continue;
+        if(isa<BitCastInst>(NI) || isa<GetElementPtrInst>(NI)) {
+          users.insert(NI->users().begin(), NI->users().end());
+          continue;
+        }
+        firstUser = ++NI;
+        break;
+      }
+      if(!firstUser || !isSafeToLoadUnconditionally(&I, 1, DL, firstUser))
+        return PI.setAborted(&I);
+    }
+
     // For PHI and select operands outside the alloca, we can't nuke the entire
     // phi or select -- the other side might still be relevant, so we special
     // case them here and use a separate structure to track the operands
@@ -2422,6 +2442,29 @@ private:
     llvm_unreachable("No rewrite rule for this instruction!");
   }
 
+  bool visitGetElementPtrInst(GetElementPtrInst &GEPI) {
+    // This must be a GEP V,0,0,0,0 and we must remove some of the indexes
+    assert(GEPI.hasAllZeroIndices());
+    Value* Zero = GEPI.getOperand(1);
+    SmallVector<Value*, 4> newIndexes;
+    newIndexes.push_back(Zero);
+    Type* curType = NewAI.getAllocatedType();
+    Type* destType = GEPI.getType()->getPointerElementType();
+    while (curType!=destType) {
+      if (StructType* ST=dyn_cast<StructType>(curType))
+        curType = ST->getElementType(0);
+      else
+        curType = curType->getSequentialElementType();
+      newIndexes.push_back(Zero);
+    }
+    llvm::Instruction* newGEP = GetElementPtrInst::Create(GEPI.getOperand(0), newIndexes);
+    newGEP->takeName(&GEPI);
+    newGEP->insertAfter(&GEPI);
+    GEPI.replaceAllUsesWith(newGEP);
+    Pass.DeadInsts.insert(&GEPI);
+    return true;
+  }
+
   Value *getNewAllocaSlicePtr(IRBuilderTy &IRB, Type *PointerTy) {
     // Note that the offset computation can use BeginOffset or NewBeginOffset
     // interchangeably for unsplit slices.
@@ -3235,9 +3278,38 @@ private:
       IRB.SetInsertPoint(OldPtr);
     IRB.SetCurrentDebugLocation(OldPtr->getDebugLoc());
 
+    // PHIs can't be promoted on their own, but often can be speculated. We
+    // check the speculation outside of the rewriter so that we see the
+    // fully-rewritten alloca.
+    bool inserted=PHIUsers.insert(&PN).second;
+
     Value *NewPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
-    // Replace the operands which were using the old pointer.
-    std::replace(PN.op_begin(), PN.op_end(), cast<Value>(OldPtr), NewPtr);
+    if(NewPtr) {
+      // Replace the operands which were using the old pointer.
+      std::replace(PN.op_begin(), PN.op_end(), cast<Value>(OldPtr), NewPtr);
+    } else {
+      assert(inserted);
+      // We can't get the old pointer type from the new alloca TODO
+      uint64_t Offset = NewBeginOffset - NewAllocaBeginOffset;
+      for(unsigned i=0;i<PN.getNumOperands();i++) {
+        Value* oldValue = PN.getOperand(i);
+        Instruction* oldInst = dyn_cast<Instruction>(oldValue);
+        if (!oldInst)
+          continue;
+        if (isa<PHINode>(oldInst))
+          PtrBuilder.SetInsertPoint(oldInst->getParent()->getFirstInsertionPt());
+        else
+          PtrBuilder.SetInsertPoint(++BasicBlock::iterator(oldInst));
+        Value* newValue = getAdjustedPtr(PtrBuilder, DL, oldInst, 
+                                         APInt(DL.getPointerSizeInBits(), Offset), NewAI.getType(), Twine());
+        PN.setOperand(i, newValue);
+      }
+      // TODO: Adjust all incoming pointers to the new type
+      PN.mutateType(NewAI.getType());
+      for(User* U: PN.users()) {
+        visit(cast<Instruction>(U));
+      }
+    }
 
     LLVM_DEBUG(dbgs() << "          to: " << PN << "\n");
     deleteIfTriviallyDead(OldPtr);
@@ -3245,10 +3317,6 @@ private:
     // Fix the alignment of any loads or stores using this PHI node.
     fixLoadStoreAlign(PN);
 
-    // PHIs can't be promoted on their own, but often can be speculated. We
-    // check the speculation outside of the rewriter so that we see the
-    // fully-rewritten alloca.
-    PHIUsers.insert(&PN);
     return true;
   }
 
