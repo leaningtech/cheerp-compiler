@@ -1489,8 +1489,8 @@ llvm::Type* CodeGenTypes::GetVTableType(uint32_t virtualMethodsCount)
 
 llvm::Type* CodeGenTypes::GetClassTypeInfoType()
 {
-  llvm::Type* ResultType = CGM.getModule().getTypeByName("class._ZN10__cxxabiv117__class_type_infoE");
+  llvm::Type* ResultType = CGM.getModule().getTypeByName("class._ZSt9type_info");
   if(!ResultType)
-    ResultType = llvm::StructType::create(CGM.getLLVMContext(),"class._ZN10__cxxabiv117__class_type_infoE");
+    ResultType = llvm::StructType::create(CGM.getLLVMContext(),"class._ZSt9type_info");
   return ResultType;
 }
