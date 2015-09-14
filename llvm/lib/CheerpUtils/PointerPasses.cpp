@@ -577,6 +577,34 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
+Instruction* DelayAllocas::findCommonInsertionPoint(AllocaInst* AI, DominatorTree* DT, Instruction* currentInsertionPoint, Instruction* user)
+{
+	if(!currentInsertionPoint || DT->dominates(user, currentInsertionPoint))
+	{
+		if(PHINode* phi = dyn_cast<PHINode>(user))
+		{
+			// It must dominate all incoming blocks that has the value as an incoming value
+			for(unsigned i = 0; i < phi->getNumIncomingValues(); i++)
+			{
+				if(phi->getIncomingValue(i) != AI)
+					continue;
+				BasicBlock* incomingBlock = phi->getIncomingBlock(i);
+				currentInsertionPoint = findCommonInsertionPoint(AI, DT, currentInsertionPoint, incomingBlock->getTerminator());
+			}
+			return currentInsertionPoint;
+		}
+		else
+			return user;
+	}
+	else if(DT->dominates(currentInsertionPoint, user))
+		return currentInsertionPoint;
+	else // Find a common dominator
+	{
+		BasicBlock* common = DT->findNearestCommonDominator(currentInsertionPoint->getParent(),user->getParent());
+		return common->getTerminator();
+	}
+}
+
 bool DelayAllocas::runOnFunction(Function& F)
 {
 	bool Changed = false;
@@ -595,19 +623,7 @@ bool DelayAllocas::runOnFunction(Function& F)
 			// Unless that block is in a loop, then put it above the loop
 			Instruction* currentInsertionPoint = NULL;
 			for(User* U: AI->users())
-			{
-				if(!currentInsertionPoint)
-					currentInsertionPoint = cast<Instruction>(U);
-				else if(DT->dominates(currentInsertionPoint, cast<Instruction>(U)))
-					;// Nothing to do
-				else if(DT->dominates(cast<Instruction>(U), currentInsertionPoint))
-					currentInsertionPoint = cast<Instruction>(U);
-				else // Find a common dominator
-				{
-					BasicBlock* common = DT->findNearestCommonDominator(currentInsertionPoint->getParent(),cast<Instruction>(U)->getParent());
-					currentInsertionPoint = common->getTerminator();
-				}
-			}
+				currentInsertionPoint = findCommonInsertionPoint(AI, DT, currentInsertionPoint, cast<Instruction>(U));
 			Loop* loop=LI->getLoopFor(currentInsertionPoint->getParent());
 			if(loop)
 			{
