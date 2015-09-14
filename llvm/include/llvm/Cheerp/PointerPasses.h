@@ -149,6 +149,8 @@ FunctionPass *createFreeAndDeleteRemovalPass();
  */
 class DelayAllocas: public FunctionPass
 {
+private:
+	llvm::Instruction* findCommonInsertionPoint(llvm::AllocaInst* AI, llvm::DominatorTree* DT, llvm::Instruction* currentInsertionPoint, llvm::Instruction* user);
 public:
 	static char ID;
 	explicit DelayAllocas() : FunctionPass(ID) { }
