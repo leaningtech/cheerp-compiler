@@ -91,9 +91,10 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		stream << '+';
 
 	//The first arg should be the object
-	if(strncmp(funcName,"get_",4)==0 && callV.arg_size()==1)
+	if(strncmp(funcName,"get_",4)==0)
 	{
 		//Getter
+		assert(callV.arg_size()==1);
 		if(className == NULL)
 		{
 			llvm::report_fatal_error(Twine("Unexpected getter without class: ", StringRef(identifier)), false);
@@ -103,7 +104,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		compileOperand(callV.getArgument(0));
 		stream << '.' << StringRef( funcName + 4, funcNameLen - 4 );
 	}
-	else if(strncmp(funcName,"set_",4)==0 && callV.arg_size()==2)
+	else if(strncmp(funcName,"set_",4)==0)
 	{
 		//Setter
 		if(className == NULL)
@@ -113,8 +114,30 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		}
 
 		compileOperand(callV.getArgument(0));
-		stream << '.' << StringRef( funcName + 4, funcNameLen - 4 ) <<  '=';
+		if(funcNameLen == 4)
+		{
+			// Generic setter
+			assert(callV.arg_size()==3);
+			stream << '[';
+			compileOperand(callV.getArgument(1));
+			stream << "]=";
+			compileOperand(callV.getArgument(2));
+		}
+		else
+		{
+			assert(callV.arg_size()==2);
+			stream << '.' << StringRef( funcName + 4, funcNameLen - 4 ) <<  '=';
+			compileOperand(callV.getArgument(1));
+		}
+	}
+	else if(className == NULL && strncmp(funcName,"Objectix",8)==0)
+	{
+		// operator[]
+		assert(callV.arg_size()==2);
+		compileOperand(callV.getArgument(0));
+		stream << '[';
 		compileOperand(callV.getArgument(1));
+		stream << ']';
 	}
 	else
 	{
