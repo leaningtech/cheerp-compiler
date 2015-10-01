@@ -977,6 +977,11 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			pointerOffsetData.constraintsMap[baseAndIndexContraint] |= o;
 			return CacheAndReturn(ret |= pointerOffsetData.getConstraintPtr(baseAndIndexContraint));
 		}
+		else if(isa<GlobalVariable>(SI->getPointerOperand()))
+		{
+			visitValue(ret, SI->getPointerOperand(), false);
+			return CacheAndReturn(ret);
+		}
 		else
 			return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
 	}
@@ -985,6 +990,11 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	{
 		if (TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getPointerOperand()))
 			return CacheAndReturn(ret |= pointerOffsetData.getConstraintPtr(IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex)));
+		else if(isa<GlobalVariable>(LI->getPointerOperand()))
+		{
+			visitValue(ret, LI->getPointerOperand(), false);
+			return CacheAndReturn(ret);
+		}
 	}
 
 	if(isBitCast(v))
@@ -1032,6 +1042,24 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			F->getIntrinsicID()==Intrinsic::cheerp_reallocate)
 		{
 			return CacheAndReturn(ret |= Zero);
+		}
+	}
+
+	// Handle global pointers
+	if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(v))
+	{
+		if(GV->hasInitializer() && GV->getType()->getPointerElementType()->isPointerTy())
+		{
+			visitValue(ret, GV->getInitializer(), false);
+			for(const Use& u: GV->uses())
+			{
+				const User* user = u.getUser();
+				if(isa<StoreInst>(user) && u.getOperandNo() == 1)
+					visitValue(ret, user->getOperand(0), false);
+				else if(!isa<LoadInst>(user))
+					return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
+			}
+			return CacheAndReturn(ret);
 		}
 	}
 
@@ -1443,17 +1471,20 @@ void PointerAnalyzer::computeConstantOffsets(const Module& M)
 	{
 		if(!GV.hasInitializer())
 			continue;
-		if(!GV.getInitializer()->getType()->isStructTy())
-			continue;
-		for(const User* u: GV.users())
+		if(GV.getInitializer()->getType()->isStructTy())
 		{
-			if(!u->getType()->isPointerTy())
-				continue;
-			if(!isa<Constant>(u))
-				continue;
-			globalsUsersQueue.push_back(u);
+			for(const User* u: GV.users())
+			{
+				if(!u->getType()->isPointerTy())
+					continue;
+				if(!isa<Constant>(u))
+					continue;
+				globalsUsersQueue.push_back(u);
+			}
+			getFinalPointerConstantOffsetWrapper(GV.getInitializer());
 		}
-		getFinalPointerConstantOffsetWrapper(GV.getInitializer());
+		else if(GV.getInitializer()->getType()->isPointerTy())
+			getFinalPointerConstantOffsetWrapper(&GV);
 	}
 
 	while(!globalsUsersQueue.empty())
