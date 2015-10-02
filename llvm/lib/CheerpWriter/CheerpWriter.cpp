@@ -430,7 +430,6 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 				compileOperand( info.getByteSizeArg() );
 				stream << '/' << typeSize;
 			}
-			stream << ')';
 		}
 		else
 		{
@@ -442,9 +441,13 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 				compileOperand( info.getByteSizeArg() );
 				stream << '/' << typeSize;
 			}
-			stream << ')';
 		}
-	
+		stream << ',';
+		if(PA.getPointerKindForStoredType(info.getCastedType())==COMPLETE_OBJECT)
+			stream << "null";
+		else
+			stream << "nullObj";
+		stream << ')';
 		assert( globalDeps.needCreatePointerArray() );
 	}
 	else if (!info.sizeIsRuntime() )
