@@ -199,7 +199,13 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			if(element->isPointerTy())
 			{
 				assert( globalDeps.needCreatePointerArray() );
-				stream << "createPointerArray([],0," << at->getNumElements() << ')';
+				stream << "createPointerArray([],0," << at->getNumElements();
+				stream << ',';
+				if(PA.getPointerKindForStoredType(element)==COMPLETE_OBJECT)
+					stream << "null";
+				else
+					stream << "nullObj";
+				stream << ')';
 			}
 			else
 			{
@@ -296,7 +302,7 @@ void CheerpWriter::compileArrayClassType(Type* T)
 
 void CheerpWriter::compileArrayPointerType()
 {
-	stream << "function createPointerArray(ret,start,end){for(var __i__=start;__i__<end;__i__++)ret[__i__]=nullObj;return ret;}"
+	stream << "function createPointerArray(ret,start,end,elem){for(var __i__=start;__i__<end;__i__++)ret[__i__]=elem;return ret;}"
 		<< NewLine;
 }
 
