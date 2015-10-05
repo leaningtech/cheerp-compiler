@@ -52,7 +52,7 @@ public:
 	 */
 	llvm::StringRef getSecondaryName(const llvm::Value* v) const
 	{
-		assert(namemap.count(v) );
+		assert(secondaryNamemap.count(v) );
 		assert(!secondaryNamemap.at(v).empty());
 		return secondaryNamemap.at(v);
 	}
