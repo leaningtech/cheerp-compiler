@@ -137,16 +137,13 @@ public:
 	{
 		assert(k!=REGULAR || regularCause);
 	}
-	PointerKindWrapper(const IndirectPointerKindConstraint* constraint):kind(INDIRECT)
+	PointerKindWrapper(const IndirectPointerKindConstraint* constraint):kind(INDIRECT),regularCause(NULL)
 	{
 		constraints.insert(constraint);
 	}
-	PointerKindWrapper(const PointerKindWrapper& rhs)
+	PointerKindWrapper(const PointerKindWrapper& rhs):kind(rhs.kind),constraints(rhs.constraints),regularCause(rhs.regularCause)
 	{
 		assert(this != &rhs);
-		kind = rhs.kind;
-		constraints = rhs.constraints;
-		regularCause = rhs.regularCause;
 	}
 	void swap(PointerKindWrapper& rhs)
 	{

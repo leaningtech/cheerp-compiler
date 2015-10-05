@@ -266,6 +266,10 @@ bool PointerAnalyzer::runOnModule(Module& M)
 	for(const Function & F : M)
 		prefetchFunc(F);
 
+	for(const GlobalVariable & GV : M.getGlobalList())
+		if(GV.getType()->isPointerTy())
+			getFinalPointerKindWrapper(&GV);
+
 	return false;
 }
 
