@@ -125,7 +125,7 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 				stream << "{d:this.d,o:0}";
 			for(uint32_t i=0;i<f->arg_size()-1;i++)
 				stream << ",a" << i;
-			stream << ");" << NewLine << '}' << NewLine;
+			stream << ");" << NewLine << "};" << NewLine;
 
 			assert( globalDeps.isReachable(f) );
 		}
