@@ -882,7 +882,7 @@ void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Pr
 void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
 {
 	StringRef compareString = (p == CmpInst::ICMP_NE) ? "!==" : "===";
-	StringRef joinString = (p == CmpInst::ICMP_NE) ? " || " : " && ";
+	StringRef joinString = (p == CmpInst::ICMP_NE) ? "||" : "&&";
 
 	if(PA.getPointerKind(lhs) == REGULAR &&
 	                PA.getPointerKind(rhs) == REGULAR)
