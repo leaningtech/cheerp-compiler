@@ -76,6 +76,8 @@ public:
 
 	friend ostream_proxy& operator<<( ostream_proxy & os, const NewLineHandler& handler)
 	{
+		if(!os.readableOutput)
+			return os;
 		os.stream << handler;
 		os.newLine = true;
 		return os;
