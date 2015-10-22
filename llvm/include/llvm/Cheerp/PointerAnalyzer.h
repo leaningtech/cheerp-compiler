@@ -26,6 +26,7 @@ namespace cheerp {
 
 enum POINTER_KIND {
 	COMPLETE_OBJECT,
+	SPLIT_REGULAR,
 	REGULAR,
 	BYTE_LAYOUT,
 	UNKNOWN,
@@ -135,7 +136,7 @@ public:
 	}
 	PointerKindWrapper(POINTER_KIND k, const llvm::Value* regularCause = NULL):kind(k),regularCause(regularCause)
 	{
-		assert(k!=REGULAR || regularCause);
+		assert((k!=REGULAR && k!=SPLIT_REGULAR) || regularCause);
 	}
 	PointerKindWrapper(const IndirectPointerKindConstraint* constraint):kind(INDIRECT),regularCause(NULL)
 	{

@@ -59,10 +59,11 @@ void IndirectPointerKindConstraint::dump() const
 PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper& rhs)
 {
 	// 1) REGULAR | Any = REGULAR
-	// 2) COMPLETE_OBJECT | Any = Any
-	// 3) UNKNOWN | INDIRECT = UNKNOWN with constraints
-	// 4) UNKNOWN | UNKNOWN = UNKNOWN with all constraints
-	// 5) INDIRECT | INDIRECT = INDIRECT with all constraints
+	// 2) SPLIT_REGULAR | Any = SPLIT_REGULAR
+	// 3) COMPLETE_OBJECT | Any = Any
+	// 4) UNKNOWN | INDIRECT = UNKNOWN with constraints
+	// 5) UNKNOWN | UNKNOWN = UNKNOWN with all constraints
+	// 6) INDIRECT | INDIRECT = INDIRECT with all constraints
 	PointerKindWrapper& lhs=*this;
 
 	assert(lhs!=BYTE_LAYOUT && rhs!=BYTE_LAYOUT);
@@ -78,12 +79,22 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper& rhs
 	}
 
 	// Handle 2
+	if (lhs==SPLIT_REGULAR || rhs==SPLIT_REGULAR)
+	{
+		lhs.kind = SPLIT_REGULAR;
+		lhs.clearConstraints();
+		if(rhs.regularCause)
+			lhs.regularCause = rhs.regularCause;
+		return lhs;
+	}
+
+	// Handle 3
 	if (lhs==COMPLETE_OBJECT)
 		return *this = rhs;
 	if (rhs==COMPLETE_OBJECT)
 		return *this;
 
-	// Handle 3, 4, 5
+	// Handle 4, 5, 6
 	if (lhs==UNKNOWN || rhs==UNKNOWN)
 		lhs.kind = UNKNOWN;
 
@@ -94,9 +105,10 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper& rhs
 PointerKindWrapper& PointerKindWrapper::operator|=(const IndirectPointerKindConstraint* rhs)
 {
 	// 1) REGULAR | Rhs = REGULAR
-	// 2) COMPLETE_OBJECT | Rhs = Rhs
-	// 3) UNKNOWN | Rhs = UNKNOWN with Rhs
-	// 4) INDIRECT | Rhs = INDIRECT with Rhs
+	// 2) SPLIT_REGULAR | Rhs = REGULAR
+	// 3) COMPLETE_OBJECT | Rhs = Rhs
+	// 4) UNKNOWN | Rhs = UNKNOWN with Rhs
+	// 5) INDIRECT | Rhs = INDIRECT with Rhs
 	PointerKindWrapper& lhs=*this;
 
 	assert(lhs!=BYTE_LAYOUT);
@@ -106,13 +118,17 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const IndirectPointerKindCons
 		return lhs;
 
 	// Handle 2
+	if (lhs==SPLIT_REGULAR)
+		return lhs;
+
+	// Handle 3
 	if (lhs==COMPLETE_OBJECT)
 	{
 		lhs.kind = INDIRECT;
 		assert(lhs.constraints.empty());
 	}
 
-	// Handle 3, 4
+	// Handle 4, 5
 	lhs.constraints.insert(rhs);
 	return *this;
 }
@@ -1557,6 +1573,7 @@ void PointerAnalyzer::dumpPointer(const Value* v, bool dumpOwnerFunc) const
 		{
 			case COMPLETE_OBJECT: fmt << "COMPLETE_OBJECT"; break;
 			case REGULAR: fmt << "REGULAR"; break;
+			case SPLIT_REGULAR: fmt << "SPLIT_REGULAR"; break;
 			case BYTE_LAYOUT: fmt << "BYTE_LAYOUT"; break;
 			default:
 				assert(false && "Unexpected pointer kind");
@@ -1580,6 +1597,7 @@ void dumpAllPointers(const Function & F, const PointerAnalyzer & analyzer)
 		{
 			case COMPLETE_OBJECT: llvm::errs() << "COMPLETE_OBJECT"; break;
 			case REGULAR: llvm::errs() << "REGULAR"; break;
+			case SPLIT_REGULAR: llvm::errs() << "SPLIT_REGULAR"; break;
 			case BYTE_LAYOUT: llvm::errs() << "BYTE_LAYOUT"; break;
 			default:
 				assert(false && "Unexpected pointer kind");
