@@ -133,6 +133,18 @@ llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v) const
 	return namemap.at(v);
 }
 
+llvm::StringRef NameGenerator::getSecondaryNameForEdge(const llvm::Value* v) const
+{
+	assert(!edgeContext.isNull());
+	if (const Instruction* I=dyn_cast<Instruction>(v))
+	{
+		auto it=edgeSecondaryNamemap.find(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, registerize.getRegisterId(I)));
+		if (it!=edgeSecondaryNamemap.end())
+			return it->second;
+	}
+	return secondaryNamemap.at(v);
+}
+
 SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, NAME_FILTER_MODE filterMode)
 {
 	SmallString< 4 > ans;
@@ -143,6 +155,9 @@ SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, NAME_FILTER_MODE fil
 	{
 		case GLOBAL:
 			ans.push_back( '_' );
+			break;
+		case GLOBAL_SECONDARY:
+			ans.push_back( '$' );
 			break;
 		case LOCAL:
 			ans.push_back( 'L' );
@@ -359,6 +374,12 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		{
 			// Assign this name to a global value
 			namemap.emplace( global_it->second, *name_it );
+			// We need to consume another name to assign the secondary one
+			if(needsSecondaryName(global_it->second, PA))
+			{
+				++name_it;
+				secondaryNamemap.emplace( global_it->second, *name_it );
+			}
 			++global_it;
 		}
 		else if ( !localsFinished &&
@@ -366,10 +387,11 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			(tmpPHIsFinished || local_it->first >= tmpphi_it->first))
 		{
 			// Assign this name to all the local values
+			SmallString<4> primaryName = *name_it;
+			SmallString<4> secondaryName;
 			for ( const Value * v : local_it->second )
 			{
-				namemap.emplace( v, *name_it );
-				StringRef secondaryName;
+				namemap.emplace( v, primaryName );
 				// We need to consume another name to assign the secondary one
 				if(needsSecondaryName(v, PA))
 				{
@@ -386,9 +408,17 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		}
 		else
 		{
+			SmallString<4> primaryName = *name_it;
+			++name_it;
+			SmallString<4> secondaryName = *name_it;
 			// Assign this name to all the tmpphis
 			for ( const InstOnEdge& i : tmpphi_it->second )
-				edgeNamemap.emplace( i, StringRef(*name_it));
+			{
+				edgeNamemap.emplace( i, StringRef(primaryName));
+				// TODO: Only add the secondary name if required
+				// TODO: Tmpphis should be properly managed in Registerize
+				edgeSecondaryNamemap.emplace( i, StringRef(secondaryName));
+			}
 			
 			++tmpphi_it;
 		}
@@ -417,7 +447,10 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		{
 			uint32_t regId=namegen.registerize.getRegisterId(phi);
 			namegen.edgeNamemap.emplace(InstOnEdge(fromBB, toBB, regId),
-							StringRef( "tmpphi" + std::to_string(nextIndex++)));
+							StringRef( "tmpphi" + std::to_string(nextIndex)));
+			// TODO: Only use secondary when necessary
+			namegen.edgeSecondaryNamemap.emplace(InstOnEdge(fromBB, toBB, regId),
+							StringRef( "tmpphi" + std::to_string(nextIndex++) + "o"));
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
@@ -440,19 +473,25 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 					// If the register already has a name, use it
 					// Otherwise assign one as good as possible and assign it to the register as well
 					auto regNameIt = regmap.find(registerId);
+					StringRef primaryName;
 					if(regNameIt != regmap.end())
-						namemap.emplace( &I, regNameIt->second );
+					{
+						primaryName = namemap.emplace( &I, regNameIt->second ).first->second;
+					}
 					else if ( I.hasName() )
 					{
-						auto it=namemap.emplace( &I, filterLLVMName(I.getName(), LOCAL) ).first;
-						regmap.emplace( registerId, it->second );
+						auto& name = namemap.emplace( &I, filterLLVMName(I.getName(), LOCAL) ).first->second;
+						regmap.emplace( registerId, name );
+						primaryName = name;
 					}
 					else
 					{
-						auto it=namemap.emplace( &I,
-							StringRef( "tmp" + std::to_string(registerId) ) ).first;
-						regmap.emplace( registerId, it->second );
+						auto& name = namemap.emplace( &I, StringRef( "tmp" + std::to_string(registerId) ) ).first->second;
+						regmap.emplace( registerId, name );
+						primaryName = name;
 					}
+					if(needsSecondaryName(&I, PA))
+						secondaryNamemap.emplace( &I, StringRef((primaryName+"o").str()));
 				}
 			}
 			// Handle the special names required for the edges between blocks
@@ -494,7 +533,12 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 			
 		}
 		else
+		{
 			namemap.emplace( &GV, filterLLVMName( GV.getName(), GLOBAL ) );
+			bool needsTwoNames = needsSecondaryName(&GV, PA);
+			if(needsTwoNames)
+				secondaryNamemap.emplace( &GV, filterLLVMName(GV.getName(), GLOBAL_SECONDARY) );
+		}
 }
 
 void NameGenerator::generateTypeNames(const GlobalDepsAnalyzer& gda)
@@ -522,7 +566,13 @@ bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) 
 
 bool NameGenerator::needsSecondaryName(const Value* V, const PointerAnalyzer& PA) const
 {
-	return V->getType()->isPointerTy() && isa<Argument>(V) && PA.getPointerKind(V) == REGULAR;
+	if(!V->getType()->isPointerTy())
+		return false;
+	if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
+		return true;
+	if(isa<Argument>(V) || PA.getPointerKind(V) == REGULAR)
+		return true;
+	return false;
 }
 
 }
