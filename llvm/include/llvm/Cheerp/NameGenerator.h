@@ -54,6 +54,8 @@ public:
 	{
 		assert(secondaryNamemap.count(v) );
 		assert(!secondaryNamemap.at(v).empty());
+		if(!edgeContext.isNull())
+			return getSecondaryNameForEdge(v);
 		return secondaryNamemap.at(v);
 	}
 
@@ -72,6 +74,7 @@ public:
 	 * It uses the current edge context.
 	*/
 	llvm::StringRef getNameForEdge(const llvm::Value* v) const;
+	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v) const;
 
 	void setEdgeContext(const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB)
 	{
@@ -85,7 +88,7 @@ public:
 		edgeContext.clear();
 	}
 
-	enum NAME_FILTER_MODE { GLOBAL = 0, LOCAL, LOCAL_SECONDARY };
+	enum NAME_FILTER_MODE { GLOBAL = 0, GLOBAL_SECONDARY, LOCAL, LOCAL_SECONDARY };
 	// Filter the original string so that it no longer contains invalid JS characters.
 	static llvm::SmallString<4> filterLLVMName( llvm::StringRef, NAME_FILTER_MODE filterMode );
 
@@ -127,6 +130,7 @@ private:
 	};
 	typedef std::unordered_map<InstOnEdge, llvm::SmallString<8>, InstOnEdge::Hash > EdgeNameMapTy;
 	EdgeNameMapTy edgeNamemap;
+	EdgeNameMapTy edgeSecondaryNamemap;
 	struct EdgeContext
 	{
 		const llvm::BasicBlock* fromBB;
