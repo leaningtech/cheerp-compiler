@@ -16,6 +16,7 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
@@ -77,24 +78,19 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			externals.push_back(f);
 		}
 	}
-	
+
 	llvm::Function* webMainOrMain = module.getFunction("_Z7webMainv");
-	if(!webMainOrMain)
-	{
-		llvm::errs() << "warning: webMain entry point not found, falling back to main\n";
-		webMainOrMain = module.getFunction("main");
-	}
-	if(!webMainOrMain)
-	{
-		llvm::report_fatal_error("No webMain/main entry point found", false);
-	}
-	else
+	if (webMainOrMain || (webMainOrMain = module.getFunction("main")))
 	{
 		// Webmain entry point
 		SubExprVec vec;
 		visitGlobal( webMainOrMain, visited, vec );
 		assert( visited.empty() );
 		externals.push_back(webMainOrMain);
+	}
+	else
+	{
+		llvm::errs() << "warning: webMain or main entry point not found\n";
 	}
 	entryPoint = webMainOrMain;
 	

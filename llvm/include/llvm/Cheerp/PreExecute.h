@@ -16,6 +16,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <map>
 
@@ -28,6 +29,8 @@ public:
     llvm::GlobalVariable *globalValue;
     llvm::Type *allocType;
     size_t size;
+
+    AllocData() : globalValue(nullptr), allocType(nullptr), size(0) { }
 };
 
 class PreExecute : public llvm::ModulePass
