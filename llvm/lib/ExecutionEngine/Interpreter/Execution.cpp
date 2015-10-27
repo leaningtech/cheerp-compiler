@@ -1029,14 +1029,14 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   unsigned MemToAlloc = std::max(1U, NumElements * TypeSize);
 
   // Allocate enough memory to hold the type...
-  void *Memory = safe_malloc(MemToAlloc);
+  void *Memory = MemoryAllocator.Allocate(MemToAlloc, 8);
 
   LLVM_DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize
                     << " bytes) x " << NumElements << " (Total: " << MemToAlloc
                     << ") at " << uintptr_t(Memory) << '\n');
 
   GenericValue Result = PTOGV(Memory);
-  assert(Result.PointerVal && "Null pointer returned by malloc!");
+  assert(Result.PointerVal && "Null pointer returned by allocator!");
   SetValue(&I, Result, SF);
 
   if (I.getOpcode() == Instruction::Alloca)
