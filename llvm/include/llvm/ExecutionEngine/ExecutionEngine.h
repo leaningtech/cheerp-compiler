@@ -22,6 +22,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/OrcV1Deprecation.h"
+#include "llvm/ExecutionEngine/Mmap32bitAllocator.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Object/Binary.h"
@@ -29,6 +30,7 @@
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Mutex.h"
+#include "llvm/Support/Allocator.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include <algorithm>
@@ -128,10 +130,19 @@ class ExecutionEngine {
 
   friend class EngineBuilder;  // To allow access to JITCtor and InterpCtor.
 
+public:
+  void printMemoryStats() {
+      MemoryAllocator.PrintStats();
+  }
+
 protected:
   /// The list of Modules that we are JIT'ing from.  We use a SmallVector to
   /// optimize for the case where there is only one module.
   SmallVector<std::unique_ptr<Module>, 1> Modules;
+
+  /// Allocator used for emulating the execution of code in a 32-bit
+  /// environment (e.g. JavaScript code in browsers).
+  BumpPtrMmap32bitAllocator MemoryAllocator;
 
   /// getMemoryforGV - Allocate memory for a global variable.
   virtual char *getMemoryForGV(const GlobalVariable *GV);
