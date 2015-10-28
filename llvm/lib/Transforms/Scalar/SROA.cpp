@@ -3289,13 +3289,15 @@ private:
       std::replace(PN.op_begin(), PN.op_end(), cast<Value>(OldPtr), NewPtr);
     } else {
       assert(inserted);
-      // We can't get the old pointer type from the new alloca TODO
+      // We can't get the old pointer type from the new alloca
       uint64_t Offset = NewBeginOffset - NewAllocaBeginOffset;
       for(unsigned i=0;i<PN.getNumOperands();i++) {
         Value* oldValue = PN.getOperand(i);
         Instruction* oldInst = dyn_cast<Instruction>(oldValue);
         if (!oldInst)
           continue;
+        if (oldInst == OldPtr)
+          oldInst = &NewAI;
         if (isa<PHINode>(oldInst))
           PtrBuilder.SetInsertPoint(oldInst->getParent()->getFirstInsertionPt());
         else
