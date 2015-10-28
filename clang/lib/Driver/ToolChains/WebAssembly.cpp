@@ -419,13 +419,13 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   ArgStringList CmdArgs;
 
   CmdArgs.push_back("-march=cheerp");
-  CmdArgs.push_back("-DelayAllocas");
   if(Args.hasArg(options::OPT_cheerp_preexecute))
     CmdArgs.push_back("-PreExecute");
   if(!Args.hasArg(options::OPT_cheerp_no_type_optimizer))
     CmdArgs.push_back("-TypeOptimizer");
   CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
   CmdArgs.push_back("-Os");
+  CmdArgs.push_back("-DelayAllocas");
   // Inlining from -Os may generate memcpy calls that we need to lower
   CmdArgs.push_back("-StructMemFuncLowering");
   CmdArgs.push_back("-o");
