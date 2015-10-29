@@ -2247,8 +2247,6 @@ void CodeGenFunction::emitArrayDestroy(llvm::Value *begin,
                                        Destroyer *destroyer,
                                        bool checkZeroLength,
                                        bool useEHCleanup) {
-  assert(!elementType->isArrayType());
-
   // The basic structure here is a do-while loop, because we don't
   // need to check for the zero-element case.
   llvm::BasicBlock *bodyBB = createBasicBlock("arraydestroy.body");
@@ -2273,16 +2271,20 @@ void CodeGenFunction::emitArrayDestroy(llvm::Value *begin,
   llvm::Value *element = Builder.CreateInBoundsGEP(
       llvmElementType, elementPast, negativeOne, "arraydestroy.element");
 
-  if (useEHCleanup)
-    pushRegularPartialArrayCleanup(begin, element, elementType, elementAlign,
+  if(elementType->isArrayType()) {
+    emitDestroy(Address(element, elementAlign), elementType, destroyer, useEHCleanup);
+  } else {
+    if (useEHCleanup)
+      pushRegularPartialArrayCleanup(begin, element, elementType, elementAlign,
                                    destroyer);
 
-  // Perform the actual destruction there.
-  destroyer(*this, Address(element, llvmElementType, elementAlign),
+    // Perform the actual destruction there.
+    destroyer(*this, Address(element, llvmElementType, elementAlign),
             elementType);
 
-  if (useEHCleanup)
-    PopCleanupBlock();
+    if (useEHCleanup)
+      PopCleanupBlock();
+  }
 
   // Check whether we've reached the end.
   llvm::Value *done = Builder.CreateICmpEQ(element, begin, "arraydestroy.done");
