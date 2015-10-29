@@ -1183,7 +1183,9 @@ void CodeGenFunction::EmitNewArrayInitializer(
       NumElements = Builder.CreateSub(
           NumElements,
           llvm::ConstantInt::get(NumElements->getType(), InitListElements));
-    EmitCXXAggrConstructorCall(Ctor, NumElements, CurPtr, CCE,
+    QualType type = getContext().getTypeDeclType(Ctor->getParent());
+    assert(getContext().getCanonicalType(ElementType.getUnqualifiedType()) == getContext().getCanonicalType(type.getUnqualifiedType()));
+    EmitCXXAggrConstructorCall(Ctor, type, NumElements, CurPtr, CCE,
                                /*NewPointerIsChecked*/true,
                                CCE->requiresZeroInitialization());
     return;

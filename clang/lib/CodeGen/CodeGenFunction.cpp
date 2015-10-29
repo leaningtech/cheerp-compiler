@@ -1969,19 +1969,21 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
 
     // Walk into all VLAs.  This doesn't require changes to addr,
     // which has type T* where T is the first non-VLA element type.
+    QualType elementType;
     do {
-      QualType elementType = arrayType->getElementType();
+      elementType = arrayType->getElementType();
       arrayType = getContext().getAsArrayType(elementType);
 
       // If we only have VLA components, 'addr' requires no adjustment.
       if (!arrayType) {
-        baseType = elementType;
-        return numVLAElements;
+        break;
       }
     } while (isa<VariableArrayType>(arrayType));
 
     // We get out here only if we find a constant array type
     // inside the VLA.
+    baseType = elementType;
+    return numVLAElements;
   }
 
   // We have some number of constant-length arrays, so addr should
@@ -1998,7 +2000,7 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
 
   llvm::ArrayType *llvmArrayType =
     dyn_cast<llvm::ArrayType>(addr.getElementType());
-  while (llvmArrayType) {
+  if (llvmArrayType) {
     assert(isa<ConstantArrayType>(arrayType));
     assert(cast<ConstantArrayType>(arrayType)->getSize().getZExtValue()
              == llvmArrayType->getNumElements());
@@ -2012,36 +2014,27 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
     arrayType = getContext().getAsArrayType(arrayType->getElementType());
     assert((!llvmArrayType || arrayType) &&
            "LLVM and Clang types are out-of-synch");
-  }
-
-  if (arrayType) {
-    // From this point onwards, the Clang array type has been emitted
-    // as some other type (probably a packed struct). Compute the array
-    // size, and just emit the 'begin' expression as a bitcast.
-    while (arrayType) {
-      countFromCLAs *=
-          cast<ConstantArrayType>(arrayType)->getSize().getZExtValue();
-      eltType = arrayType->getElementType();
-      arrayType = getContext().getAsArrayType(eltType);
-    }
-
-    llvm::Type *baseType = ConvertType(eltType);
-    addr = Builder.CreateElementBitCast(addr, baseType, "array.begin");
-  } else {
     // Create the actual GEP.
     addr = Address(Builder.CreateInBoundsGEP(addr.getPointer(),
                                              gepIndices, "array.begin"),
                    addr.getAlignment());
+  } else {
+    // From this point onwards, the Clang array type has been emitted
+    // as some other type (probably a packed struct). Compute the array
+    // size, and just emit the 'begin' expression as a bitcast.
+    countFromCLAs *=
+        cast<ConstantArrayType>(arrayType)->getSize().getZExtValue();
+    eltType = arrayType->getElementType();
+    arrayType = getContext().getAsArrayType(eltType);
+
+    llvm::Type *baseType = ConvertType(eltType);
+    addr = Builder.CreateElementBitCast(addr, baseType, "array.begin");
   }
 
   baseType = eltType;
 
   llvm::Value *numElements
     = llvm::ConstantInt::get(SizeTy, countFromCLAs);
-
-  // If we had any VLA dimensions, factor them in.
-  if (numVLAElements)
-    numElements = Builder.CreateNUWMul(numVLAElements, numElements);
 
   return numElements;
 }

@@ -2091,7 +2091,7 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(
   llvm::Value *numElements =
     emitArrayLength(arrayType, elementType, arrayBegin);
 
-  EmitCXXAggrConstructorCall(ctor, numElements, arrayBegin, E,
+  EmitCXXAggrConstructorCall(ctor, elementType, numElements, arrayBegin, E,
                              NewPointerIsChecked, zeroInitialize);
 }
 
@@ -2105,6 +2105,7 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(
 /// \param zeroInitialize true if each element should be
 ///   zero-initialized before it is constructed
 void CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
+                                                 QualType elementType,
                                                  llvm::Value *numElements,
                                                  Address arrayBase,
                                                  const CXXConstructExpr *E,
@@ -2146,50 +2147,54 @@ void CodeGenFunction::EmitCXXAggrConstructorCall(const CXXConstructorDecl *ctor,
   cur->addIncoming(arrayBegin, entryBB);
 
   // Inside the loop body, emit the constructor call on the array element.
-
-  // The alignment of the base, adjusted by the size of a single element,
-  // provides a conservative estimate of the alignment of every element.
-  // (This assumes we never start tracking offsetted alignments.)
-  //
-  // Note that these are complete objects and so we don't need to
-  // use the non-virtual size or alignment.
-  QualType type = getContext().getTypeDeclType(ctor->getParent());
-  CharUnits eltAlignment =
-    arrayBase.getAlignment()
+  if(const ConstantArrayType* CAT = dyn_cast_or_null<ConstantArrayType>(getContext().getAsArrayType(elementType))) {
+    EmitCXXAggrConstructorCall(ctor, CAT, Address(cur, arrayBase.getAlignment()), E, zeroInitialize);
+  } else {
+    // The alignment of the base, adjusted by the size of a single element,
+    // provides a conservative estimate of the alignment of every element.
+    // (This assumes we never start tracking offsetted alignments.)
+    // 
+    // Note that these are complete objects and so we don't need to
+    // use the non-virtual size or alignment.
+    QualType type = getContext().getTypeDeclType(ctor->getParent());
+    assert(getContext().getCanonicalType(type.getUnqualifiedType()) == getContext().getCanonicalType(elementType.getUnqualifiedType()));
+    CharUnits eltAlignment =
+      arrayBase.getAlignment()
              .alignmentOfArrayElement(getContext().getTypeSizeInChars(type));
-  Address curAddr = Address(cur, eltAlignment);
+    Address curAddr = Address(cur, eltAlignment);
 
-  // Zero initialize the storage, if requested.
-  if (zeroInitialize)
-    EmitNullInitialization(curAddr, type);
+    // Zero initialize the storage, if requested.
+    if (zeroInitialize)
+      EmitNullInitialization(curAddr, type);
 
-  // C++ [class.temporary]p4:
-  // There are two contexts in which temporaries are destroyed at a different
-  // point than the end of the full-expression. The first context is when a
-  // default constructor is called to initialize an element of an array.
-  // If the constructor has one or more default arguments, the destruction of
-  // every temporary created in a default argument expression is sequenced
-  // before the construction of the next array element, if any.
+    // C++ [class.temporary]p4:
+    // There are two contexts in which temporaries are destroyed at a different
+    // point than the end of the full-expression. The first context is when a
+    // default constructor is called to initialize an element of an array.
+    // If the constructor has one or more default arguments, the destruction of
+    // every temporary created in a default argument expression is sequenced
+    // before the construction of the next array element, if any.
 
-  {
-    RunCleanupsScope Scope(*this);
+    {
+      RunCleanupsScope Scope(*this);
 
-    // Evaluate the constructor and its arguments in a regular
-    // partial-destroy cleanup.
-    if (getLangOpts().Exceptions &&
+      // Evaluate the constructor and its arguments in a regular
+      // partial-destroy cleanup.
+      if (getLangOpts().Exceptions &&
         !ctor->getParent()->hasTrivialDestructor()) {
-      Destroyer *destroyer = destroyCXXObject;
-      pushRegularPartialArrayCleanup(arrayBegin, cur, type, eltAlignment,
+        Destroyer *destroyer = destroyCXXObject;
+        pushRegularPartialArrayCleanup(arrayBegin, cur, type, eltAlignment,
                                      *destroyer);
-    }
-    auto currAVS = AggValueSlot::forAddr(
+      }
+      auto currAVS = AggValueSlot::forAddr(
         curAddr, type.getQualifiers(), AggValueSlot::IsDestructed,
         AggValueSlot::DoesNotNeedGCBarriers, AggValueSlot::IsNotAliased,
         AggValueSlot::DoesNotOverlap, AggValueSlot::IsNotZeroed,
         NewPointerIsChecked ? AggValueSlot::IsSanitizerChecked
                             : AggValueSlot::IsNotSanitizerChecked);
-    EmitCXXConstructorCall(ctor, Ctor_Complete, /*ForVirtualBase=*/false,
+      EmitCXXConstructorCall(ctor, Ctor_Complete, /*ForVirtualBase=*/false,
                            /*Delegating=*/false, currAVS, E);
+    }
   }
 
   // Go to the next element.
