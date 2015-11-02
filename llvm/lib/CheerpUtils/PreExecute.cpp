@@ -38,6 +38,7 @@ const char* PreExecute::getPassName() const
 
 char PreExecute::ID = 0;
 
+#if defined(__linux__)
 static void StoreListener(void* Addr)
 {
     PreExecute::currentPreExecutePass->recordStore(Addr);
@@ -549,18 +550,28 @@ bool PreExecute::runOnModule(Module& m)
     if (constructorVar)
         constructorVar->eraseFromParent();
 
+    // Free the module from the ExecutionEngine
+    currentEE->removeModule(&m);
+    // TODO investigate if 'delete machine;' is required
+
     currentPreExecutePass = NULL;
     currentModule = NULL;
     currentEE = NULL;
 
     return Changed;
 }
+#else
+bool PreExecute::runOnModule(Module& m) {
+    llvm::errs() << "Warning: PreExecute is only supported on Linux\n";
+    return false;
+}
+#endif
 
 }
 
 using namespace cheerp;
 
-INITIALIZE_PASS_BEGIN(PreExecute, "PreExecute", "Execute run-time init at compile time",
-        false, false)
-INITIALIZE_PASS_END(PreExecute, "PreExecute", "Execute run-time init at compile time",
-        false, false)
+INITIALIZE_PASS_BEGIN(PreExecute, "PreExecute",
+        "Execute run-time init at compile time (linux only)", false, false)
+INITIALIZE_PASS_END(PreExecute, "PreExecute",
+        "Execute run-time init at compile time (linux only)", false, false)
