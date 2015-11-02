@@ -494,6 +494,7 @@ bool PreExecute::runOnModule(Module& m)
     assert(currentEE && "failed to create execution engine!");
     currentEE->InstallStoreListener(StoreListener);
     currentEE->InstallLazyFunctionCreator(LazyFunctionCreator);
+
     GlobalVariable * constructorVar = m.getGlobalVariable("llvm.global_ctors");
 
     if (constructorVar)
@@ -550,9 +551,10 @@ bool PreExecute::runOnModule(Module& m)
     if (constructorVar)
         constructorVar->eraseFromParent();
 
-    // Free the module from the ExecutionEngine
-    currentEE->removeModule(&m);
-    // TODO investigate if 'delete machine;' is required
+    bool removed = currentEE->removeModule(&m);
+    assert(removed && "failed to free the module from ExecutionEngine");
+
+    delete currentEE;
 
     currentPreExecutePass = NULL;
     currentModule = NULL;
