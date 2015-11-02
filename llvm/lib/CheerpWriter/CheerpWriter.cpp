@@ -1595,6 +1595,7 @@ bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Valu
 	}
 	return
 		isInlineable(*incomingInst, PA) ||
+		incomingKind == SPLIT_REGULAR || phiKind == SPLIT_REGULAR ||
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst) ||
 		phiKind!=incomingKind ||
 		PA.getConstantOffsetForPointer(phi)!=PA.getConstantOffsetForPointer(incoming);
