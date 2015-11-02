@@ -51,6 +51,7 @@ public:
     const char* getPassName() const override;
     bool runOnModule(llvm::Module& m) override;
 
+#if defined(__linux__)
     void recordStore(void* Addr);
     void recordTypedAllocation(llvm::Type *type, size_t size, char *buf) {
         AllocData data;
@@ -58,7 +59,7 @@ public:
         data.size = size;
         typedAllocations.insert(std::make_pair(buf, data));
     };
-
+private:
     llvm::Constant* findPointerFromGlobal(const llvm::DataLayout* DL,
             llvm::Type* memType, llvm::GlobalValue* GV, char* GlobalStartAddr,
             char* StoredAddr, llvm::Type* Int32Ty);
@@ -68,6 +69,7 @@ public:
 
     llvm::Constant* computeInitializerFromMemory(const llvm::DataLayout* DL,
             llvm::Type* memType, char* Addr);
+#endif
 };
 
 inline llvm::ModulePass* createPreExecutePass() {
