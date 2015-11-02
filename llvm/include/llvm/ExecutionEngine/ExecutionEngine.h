@@ -135,14 +135,14 @@ public:
       MemoryAllocator.PrintStats();
   }
 
+  /// Allocator used for emulating the execution of code in a 32-bit
+  /// environment (e.g. JavaScript code in browsers).
+  BumpPtrMmap32bitAllocator MemoryAllocator;
+
 protected:
   /// The list of Modules that we are JIT'ing from.  We use a SmallVector to
   /// optimize for the case where there is only one module.
   SmallVector<std::unique_ptr<Module>, 1> Modules;
-
-  /// Allocator used for emulating the execution of code in a 32-bit
-  /// environment (e.g. JavaScript code in browsers).
-  BumpPtrMmap32bitAllocator MemoryAllocator;
 
   /// getMemoryforGV - Allocate memory for a global variable.
   virtual char *getMemoryForGV(const GlobalVariable *GV);
