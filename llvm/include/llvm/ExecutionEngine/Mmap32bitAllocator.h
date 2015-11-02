@@ -27,8 +27,9 @@ public:
     // Pull in base class overloads.
     using AllocatorBase<Mmap32bitAllocator>::Allocate;
 
-    void Deallocate(const void *Ptr, size_t /*Size*/) {
-        munmap(const_cast<void *>(Ptr), 4096);
+    void Deallocate(const void *Ptr, size_t Size) {
+        assert(Size == MMAP_SLAB_SIZE);
+        munmap(const_cast<void *>(Ptr), Size);
     }
 
     // Pull in base class overloads.

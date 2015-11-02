@@ -46,7 +46,11 @@ static void StoreListener(void* Addr)
 static GenericValue pre_execute_malloc(FunctionType *FT,
         const std::vector<GenericValue> &Args) {
     size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
-    void* ret=malloc(size);
+    ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+    void* ret = currentEE->MemoryAllocator.Allocate(size, 8);
+#ifdef DEBUG_PRE_EXECUTE
+    llvm::errs() << "Allocating " << ret << " of size " << size << "\n";
+#endif
     return GenericValue(ret);
 }
 
@@ -63,9 +67,14 @@ static GenericValue pre_execute_element_distance(FunctionType *FT, const std::ve
 static GenericValue pre_execute_allocate(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
-  // Allocate twice the space to account for pointers, which are twice as wide
-  void* ret=malloc(size);
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  void* ret = currentEE->MemoryAllocator.Allocate(size, 8);
   memset(ret, 0, size);
+
+#ifdef DEBUG_PRE_EXECUTE
+  llvm::errs() << "Allocating " << ret << " of size " << size << " and type " << *FT->getReturnType() << "\n";
+#endif
+
   // Register this allocations in the pass
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
   PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret);
@@ -76,6 +85,12 @@ static GenericValue pre_execute_deallocate(FunctionType *FT,
                                            const std::vector<GenericValue> &Args) {
 #ifdef DEBUG_PRE_EXECUTE
     void *p = (void *)(GVTOP(Args[0]));
+#endif
+
+    // TODO: deallocate the memory
+
+#ifdef DEBUG_PRE_EXECUTE
+    llvm::errs() << "Deallocating " << p << "\n";
 #endif
 
     return GenericValue();
@@ -164,13 +179,6 @@ static GenericValue pre_execute_downcast(FunctionType *FT,
 
 static GenericValue pre_execute_upcast(FunctionType *FT,
                                        const std::vector<GenericValue> &Args) {
-    // We need to apply the offset in bytes using the bases metadata
-#ifdef DEBUG_PRE_EXECUTE
-    llvm::errs()
-        << "Upcast from " << *FT->getReturnType()->getPointerElementType()
-        << " to " << *FT->getParamType(0)->getPointerElementType()
-        << "\n";
-#endif
     uintptr_t AddrValue = reinterpret_cast<uintptr_t>(GVTOP(Args[0]));
     return GenericValue(reinterpret_cast<void*>(AddrValue));
 }
@@ -323,9 +331,6 @@ Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
     if (!success)
     {
         // TODO print warning of forced bitcast
-#ifdef DEBUG_PRE_EXECUTE
-        llvm::errs() << "Cast: " << *ConstantExpr::getBitCast(GV, memType) << "\n";
-#endif
         return ConstantExpr::getBitCast(GV, memType);
     }
     // ExecutionEngine has given us a constant global value, but we need it non-const
@@ -454,6 +459,10 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
                     StoredAddr, Int32Ty);
             return ret;
         }
+        llvm::errs() << "StoredAddr: " << (void*) StoredAddr
+            << " Addr: " << (void*) Addr
+            << " LoadBytes: " << LoadBytes
+            << "\n";
         llvm_unreachable("Could not get pointer");
     }
     return NULL;
