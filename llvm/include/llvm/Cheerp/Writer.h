@@ -385,6 +385,7 @@ public:
 	void makeJS();
 	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c);
+	void compileConstantAsBytes(const llvm::Constant* c, bool first = false);
 	void compileOperand(const llvm::Value* v, bool allowBooleanObjects = false);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from);

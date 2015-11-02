@@ -1379,6 +1379,57 @@ bool CheerpWriter::doesConstantDependOnUndefined(const Constant* C) const
 		return false;
 }
 
+void CheerpWriter::compileConstantAsBytes(const Constant* c, bool first)
+{
+	if(const ConstantDataSequential* CD = dyn_cast<ConstantDataSequential>(c))
+	{
+		for(uint32_t i=0;i<CD->getNumElements();i++)
+		{
+			compileConstantAsBytes(CD->getElementAsConstant(i), first);
+			first = false;
+		}
+	}
+	else if(isa<ConstantArray>(c) || isa<ConstantStruct>(c))
+	{
+		for(uint32_t i=0;i<c->getNumOperands();i++)
+		{
+			compileConstantAsBytes(cast<Constant>(c->getOperand(i)), first);
+			first = false;
+		}
+	}
+	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
+	{
+		const APFloat& flt = f->getValueAPF();
+		const APInt& integerRepresentation = flt.bitcastToAPInt();
+		uint64_t val = integerRepresentation.getLimitedValue();
+		uint32_t bitWidth = integerRepresentation.getBitWidth();
+		for(uint32_t i=0;i<bitWidth;i+=8)
+		{
+			if(i!=0 || !first)
+				stream << ',';
+			stream << ((val>>i)&255);
+		}
+	}
+	else if(const ConstantInt* i=dyn_cast<ConstantInt>(c))
+	{
+		const APInt& integerRepresentation = i->getValue();
+		uint64_t val = integerRepresentation.getLimitedValue();
+		uint32_t bitWidth = integerRepresentation.getBitWidth();
+		for(uint32_t i=0;i<bitWidth;i+=8)
+		{
+			if(i!=0 || !first)
+				stream << ',';
+			stream << ((val>>i)&255);
+		}
+	}
+	else
+	{
+		llvm::errs() << "Unsupported constant type for bytes ";
+		c->dump();
+		stream << "null";
+	}
+}
+
 void CheerpWriter::compileConstant(const Constant* c)
 {
 	if(!currentFun && doesConstantDependOnUndefined(c))
@@ -1412,6 +1463,14 @@ void CheerpWriter::compileConstant(const Constant* c)
 	else if(isa<ConstantStruct>(c))
 	{
 		const ConstantStruct* d=cast<ConstantStruct>(c);
+		if(cast<StructType>(c->getType())->hasByteLayout())
+		{
+			// Populate a DataView with a byte buffer
+			stream << "new DataView(new Int8Array([";
+			compileConstantAsBytes(c, true);
+			stream << "]).buffer)";
+			return;
+		}
 		stream << '{';
 		assert(d->getType()->getNumElements() == d->getNumOperands());
 
