@@ -578,8 +578,9 @@ getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
 
 static void addCheerpPasses(const PassManagerBuilder &Builder,
                             PassManagerBase &PM) {
-  //Run InstCombine first, to remove load/stores for the this argument
-  PM.add(createInstructionCombiningPass());
+  //Run mem2reg first, to remove load/stores for the this argument
+  //We need this to track this in custom constructors for DOM types, such as String::String(const char*)
+  PM.add(createPromoteMemoryToRegisterPass());
   PM.add(createCheerpNativeRewriterPass());
   //Cheerp is single threaded, convert atomic instructions to regular ones
   PM.add(createLowerAtomicPass());
