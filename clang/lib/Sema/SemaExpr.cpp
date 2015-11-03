@@ -13262,6 +13262,12 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
     DeclRefExpr *DRE = cast<DeclRefExpr>(op);
     CXXMethodDecl *MD = cast<CXXMethodDecl>(DRE->getDecl());
 
+    if (!Context.getTargetInfo().isByteAddressable() && MD->isVirtual()) {
+      Diag(OpLoc, diag::err_cheerp_pointer_to_virtual_method)
+        << OrigOp.get()->getSourceRange();
+      return QualType();
+    }
+
     // The id-expression was parenthesized.
     if (OrigOp.get() != DRE) {
       Diag(OpLoc, diag::err_parens_pointer_member_function)

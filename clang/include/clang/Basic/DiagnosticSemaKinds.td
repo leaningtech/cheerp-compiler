@@ -10924,6 +10924,8 @@ def err_cheerp_realloc_different_types : Error<
   "Cheerp: the memory returned by realloc should be casted to the same type of the memory passed as the first argument">;
 def err_cheerp_switch_64bit : Error<
   "Cheerp: Switch statements with 64-bit integer values are not supported">;
+def err_cheerp_pointer_to_virtual_method : Error<
+  "Cheerp: Pointers to virtual methods are not supported">;
 } // end of cheerp issue category
 
 } // end of sema component.
