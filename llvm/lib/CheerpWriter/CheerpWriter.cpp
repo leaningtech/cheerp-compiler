@@ -285,7 +285,7 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	if(!(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true) || TypeSupport::hasByteLayout(pointedType)))
 		llvm::report_fatal_error("Unsupported memory intrinsic, please rebuild the code using an updated version of Cheerp", false);
 
-	uint64_t typeSize = targetData.getTypeAllocSize(pointedType);
+	uint64_t typeSize = TypeSupport::hasByteLayout(pointedType) ? 1 : targetData.getTypeAllocSize(pointedType);
 
 	bool constantNumElements = false;
 	uint32_t numElem = 0;
