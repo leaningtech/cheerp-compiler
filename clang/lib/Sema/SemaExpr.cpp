@@ -6508,6 +6508,21 @@ ExprResult Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
         Diag(Fn->getExprLoc(), diag::warn_arm_interrupt_calling_convention);
     }
 
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    // Cheerp: Disable some type-unsafe C functions
+    switch (BuiltinID) {
+      case Builtin::BIbsearch:
+        return ExprError(Diag(LParenLoc, diag::err_cheerp_type_unsafe_functions)
+                         << FDecl << "std::binary_search");
+      case Builtin::BIqsort:
+      case Builtin::BIqsort_r:
+        return ExprError(Diag(LParenLoc, diag::err_cheerp_type_unsafe_functions)
+                         << FDecl << "std::sort");
+      default:
+        break;
+    }
+  }
+
   // Promote the function operand.
   // We special-case function promotion here because we only allow promoting
   // builtin functions to function pointers in the callee of a call.
