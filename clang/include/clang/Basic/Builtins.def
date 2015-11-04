@@ -1029,6 +1029,9 @@ LIBBUILTIN(strtoul, "ULicC*c**i", "f",     "stdlib.h", ALL_LANGUAGES)
 LIBBUILTIN(strtoull, "ULLicC*c**i", "f",   "stdlib.h", ALL_LANGUAGES)
 // C11 stdlib.h
 LIBBUILTIN(aligned_alloc, "v*zz", "f",     "stdlib.h", ALL_LANGUAGES)
+LIBBUILTIN(bsearch, "v.",         "fh",    "stdlib.h", ALL_LANGUAGES)
+LIBBUILTIN(qsort, "v.",           "fh",    "stdlib.h", ALL_LANGUAGES)
+LIBBUILTIN(qsort_r, "v.",         "fh",    "stdlib.h", ALL_LANGUAGES)
 // C99 string.h
 LIBBUILTIN(memcpy, "v*v*vC*z",    "fE",    "string.h", ALL_LANGUAGES)
 LIBBUILTIN(memcmp, "ivC*vC*z",    "fE",    "string.h", ALL_LANGUAGES)
