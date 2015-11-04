@@ -669,6 +669,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeReplaceNopCastsPass(Registry);
 	initializeTypeOptimizerPass(Registry);
 	initializeDelayAllocasPass(Registry);
+	initializePreExecutePass(Registry);
 }
 
 }

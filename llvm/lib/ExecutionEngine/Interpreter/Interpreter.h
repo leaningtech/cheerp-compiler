@@ -83,8 +83,15 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   // registered with the atexit() library function.
   std::vector<Function*> AtExitHandlers;
 
+  // ForPreExecute - This Interpreter is used to tentatively execute
+  // initialization code at compile time. It implies several things:
+  // 1) When an error happens, it returns cleanly
+  // 2) Stores are notified using callbacks
+  bool ForPreExecute;
+
+  bool CleanAbort;
 public:
-  explicit Interpreter(std::unique_ptr<Module> M);
+  explicit Interpreter(std::unique_ptr<Module> M, bool preExecute);
   ~Interpreter() override;
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to
@@ -99,6 +106,7 @@ public:
   /// Create an interpreter ExecutionEngine.
   ///
   static ExecutionEngine *create(std::unique_ptr<Module> M,
+                                 bool preExecute = false,
                                  std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.
@@ -111,6 +119,8 @@ public:
     // FIXME: not implemented.
     return nullptr;
   }
+
+  bool hasFailed() const override { return CleanAbort; }
 
   // Methods used to execute code:
   // Place a call on the stack

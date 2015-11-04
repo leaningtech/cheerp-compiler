@@ -148,6 +148,7 @@ protected:
       std::unique_ptr<TargetMachine> TM);
 
   static ExecutionEngine *(*InterpCtor)(std::unique_ptr<Module> M,
+                                        bool preExecute,
                                         std::string *ErrorStr);
 
   /// LazyFunctionCreator - If an unknown function is needed, this function
@@ -159,6 +160,8 @@ protected:
   std::string getMangledName(const GlobalValue *GV);
 
   std::string ErrMsg;
+
+  void (*StoreListener)(void* Addr);
 
 public:
   /// lock - This lock protects the ExecutionEngine and MCJIT classes. It must
@@ -448,6 +451,9 @@ public:
   /// Return the target machine (if available).
   virtual TargetMachine *getTargetMachine() { return nullptr; }
 
+  /// Returns if the execution is known to have failed
+  virtual bool hasFailed() const { return false; }
+
   /// DisableLazyCompilation - When lazy compilation is off (the default), the
   /// JIT will eagerly compile every function reachable from the argument to
   /// getPointerToFunction.  If lazy compilation is turned on, the JIT will only
@@ -506,12 +512,17 @@ public:
     LazyFunctionCreator = std::move(C);
   }
 
+  /// InstallStoreListener - Listener to invoke on each store
+  void InstallStoreListener(void (*P)(void* Addr)) {
+    StoreListener = P;
+  }
+
 protected:
   ExecutionEngine(DataLayout DL) : DL(std::move(DL)) {}
   explicit ExecutionEngine(DataLayout DL, std::unique_ptr<Module> M);
   explicit ExecutionEngine(std::unique_ptr<Module> M);
 
-  void emitGlobals();
+  void emitGlobals(bool AllowUnresolved);
 
   void emitGlobalVariable(const GlobalVariable *GV);
 
@@ -528,7 +539,8 @@ namespace EngineKind {
   // These are actually bitmasks that get or-ed together.
   enum Kind {
     JIT         = 0x1,
-    Interpreter = 0x2
+    Interpreter = 0x2,
+    PreExecuteInterpreter = 0x4
   };
   const static Kind Either = (Kind)(JIT | Interpreter);
 

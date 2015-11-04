@@ -32,6 +32,7 @@ extern "C" void LLVMLinkInInterpreter() { }
 /// Create a new interpreter object.
 ///
 ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M,
+                                     bool preExecute,
                                      std::string *ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
   if (Error Err = M->materializeAll()) {
@@ -45,20 +46,21 @@ ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M,
     return nullptr;
   }
 
-  return new Interpreter(std::move(M));
+  return new Interpreter(std::move(M), preExecute);
 }
 
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(std::unique_ptr<Module> M)
-    : ExecutionEngine(std::move(M)) {
+Interpreter::Interpreter(std::unique_ptr<Module> M, bool preExecute)
+    : ExecutionEngine(std::move(M)), ForPreExecute(preExecute), CleanAbort(false) {
 
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
   // Initialize the "backend"
   initializeExecutionEngine();
   initializeExternalFunctions();
-  emitGlobals();
+  // Allow unresolved globals if pre-executing
+  emitGlobals(/* AllowUnresolved */ ForPreExecute);
 
   IL = new IntrinsicLowering(getDataLayout());
 }

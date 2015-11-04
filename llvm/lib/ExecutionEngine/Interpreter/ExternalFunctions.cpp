@@ -97,7 +97,7 @@ static char getTypeID(Type *Ty) {
 // real call in general case (this is JIT job), that's why it assumes,
 // that all external functions has the same (and pretty "general") signature.
 // The typical example of such functions are "lle_X_" ones.
-static ExFunc lookupFunction(const Function *F) {
+static ExFunc lookupFunction(const Function *F, void*(*LazyFunctionCreator)(const std::string&)) {
   // Function not found, look it up... start by figuring out what the
   // composite function name should be.
   std::string ExtName = "lle_";
@@ -114,6 +114,8 @@ static ExFunc lookupFunction(const Function *F) {
   if (!FnPtr)  // Try calling a generic function... if it exists...
     FnPtr = (ExFunc)(intptr_t)sys::DynamicLibrary::SearchForAddressOfSymbol(
         ("lle_X_" + F->getName()).str());
+  if (FnPtr == nullptr && LazyFunctionCreator)
+    FnPtr = (ExFunc)LazyFunctionCreator(F->getName().str());
   if (FnPtr)
     ExportedFunctions->insert(std::make_pair(F, FnPtr));  // Cache for later
   return FnPtr;
@@ -263,7 +265,7 @@ GenericValue Interpreter::callExternalFunction(Function *F,
   // Do a lookup to see if the function is in our cache... this should just be a
   // deferred annotation!
   std::map<const Function *, ExFunc>::iterator FI = ExportedFunctions->find(F);
-  if (ExFunc Fn = (FI == ExportedFunctions->end()) ? lookupFunction(F)
+  if (ExFunc Fn = (FI == ExportedFunctions->end()) ? lookupFunction(F, LazyFunctionCreator)
                                                    : FI->second) {
     Guard.unlock();
     return Fn(F->getFunctionType(), ArgVals);
@@ -290,14 +292,17 @@ GenericValue Interpreter::callExternalFunction(Function *F,
     return Result;
 #endif // USE_LIBFFI
 
-  if (F->getName() == "__main")
+  if (F->getName() == "__main" || ForPreExecute)
     errs() << "Tried to execute an unknown external function: "
-      << *F->getType() << " __main\n";
+      << *F->getType() << F->getName() << "\n";
   else
     report_fatal_error("Tried to execute an unknown external function: " +
                        F->getName());
+  if (ForPreExecute)
+    CleanAbort = true;
 #ifndef USE_LIBFFI
-  errs() << "Recompiling LLVM with --enable-libffi might help.\n";
+  else
+    errs() << "Recompiling LLVM with --enable-libffi might help.\n";
 #endif
   return GenericValue();
 }
