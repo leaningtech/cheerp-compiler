@@ -107,6 +107,13 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   if (T.isAMDGPU())
     TLI.disableAllFunctions();
 
+  // Disable functions that we don't have natively in JS
+  if (T.getArch() == Triple::cheerp) {
+    TLI.setUnavailable(LibFunc::exp2);
+    TLI.setUnavailable(LibFunc::exp2f);
+    TLI.setUnavailable(LibFunc::exp2l);
+  }
+
   // There are no library implementations of memcpy and memset for AMD gpus and
   // these can be difficult to lower in the backend.
   if (T.isAMDGPU()) {
