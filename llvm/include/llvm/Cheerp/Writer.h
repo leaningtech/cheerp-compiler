@@ -163,6 +163,8 @@ private:
 	bool useMathImul;
 	// Flag to signal if we should create a closure to avoid global namespace pollution
 	bool makeModule;
+	// Flag to signal if we should add a credit comment line
+	bool addCredits;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -348,11 +350,11 @@ public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
 	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, bool ReadableOutput,
-	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul):
+	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, ReadableOutput),types(m),
 		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),useNativeJavaScriptMath(UseNativeJavaScriptMath),
-		useMathImul(useMathImul),makeModule(MakeModule),stream(s, ReadableOutput)
+		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),stream(s, ReadableOutput)
 	{
 	}
 	void makeJS();
