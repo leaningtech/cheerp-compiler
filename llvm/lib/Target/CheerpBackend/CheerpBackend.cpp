@@ -42,6 +42,8 @@ static cl::opt<bool> NoNativeJavaScriptMath("cheerp-no-native-math", cl::desc("D
 
 static cl::opt<bool> NoJavaScriptMathImul("cheerp-no-math-imul", cl::desc("Disable JavaScript Math.imul") );
 
+static cl::opt<bool> NoCredits("cheerp-no-credits", cl::desc("Disable Cheerp credits in JS") );
+
 extern "C" void LLVMInitializeCheerpBackendTarget() {
   // Register the target.
   RegisterTargetMachine<CheerpTargetMachine> X(TheCheerpBackendTarget);
@@ -86,7 +88,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   registerize.assignRegisters(M, PA);
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
-          !NoJavaScriptMathImul);
+          !NoJavaScriptMathImul, !NoCredits);
   writer.makeJS();
   delete sourceMapGenerator;
   return false;
