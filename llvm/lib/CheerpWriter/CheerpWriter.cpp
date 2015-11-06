@@ -3058,6 +3058,9 @@ void CheerpWriter::makeJS()
 	// Enable strict mode first
 	stream << "\"use strict\";" << NewLine;
 
+	if(addCredits)
+		stream << "/*Compiled using Cheerp (R) by Leaning Technologies Ltd*/" << NewLine;
+
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
 	
