@@ -191,6 +191,13 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   // isn't true for a target those defaults should be overridden below.
   TLI.setIntSize(T.isArch16Bit() ? 16 : 32);
 
+  // Disable functions that we don't have natively in JS
+  if (T.getArch() == Triple::cheerp) {
+    TLI.setUnavailable(LibFunc::exp2);
+    TLI.setUnavailable(LibFunc::exp2f);
+    TLI.setUnavailable(LibFunc::exp2l);
+  }
+
   // There is really no runtime library on AMDGPU, apart from
   // __kmpc_alloc/free_shared.
   if (T.isAMDGPU()) {
