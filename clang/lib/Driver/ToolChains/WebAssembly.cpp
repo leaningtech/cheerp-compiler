@@ -467,6 +467,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpNoNativeMath->render(Args, CmdArgs);
   if(Arg* cheerpNoMathImul = Args.getLastArg(options::OPT_cheerp_no_math_imul))
     cheerpNoMathImul->render(Args, CmdArgs);
+  if(Arg* cheerpNoCredits = Args.getLastArg(options::OPT_cheerp_no_credits))
+    cheerpNoCredits->render(Args, CmdArgs);
 
   const InputInfo &II = *Inputs.begin();
   CmdArgs.push_back(II.getFilename());
