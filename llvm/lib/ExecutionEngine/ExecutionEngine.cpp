@@ -1276,13 +1276,13 @@ void ExecutionEngine::emitGlobals(bool AllowUnresolved) {
 
       if (!GV.isDeclaration()) {
         addGlobalMapping(&GV, getMemoryForGV(&GV));
-      } else {
+      } else if (!AllowUnresolved) {
         // External variable reference. Try to use the dynamic loader to
         // get a pointer to it.
         if (void *SymAddr = sys::DynamicLibrary::SearchForAddressOfSymbol(
                 std::string(GV.getName())))
           addGlobalMapping(&GV, SymAddr);
-        else if (!AllowUnresolved) {
+        else {
           report_fatal_error("Could not resolve external global address: "
                             +GV.getName());
         }
