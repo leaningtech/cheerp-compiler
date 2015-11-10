@@ -1090,6 +1090,13 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		{
 			return CacheAndReturn(ret |= Zero);
 		}
+		if(F->getName() == "calloc" ||
+			F->getName() == "malloc" ||
+			F->getName() == "realloc")
+		{
+			return CacheAndReturn(ret |= Zero);
+		}
+		
 	}
 
 	// Handle global pointers
