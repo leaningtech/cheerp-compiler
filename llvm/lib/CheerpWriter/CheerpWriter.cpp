@@ -2643,7 +2643,23 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Select:
 		{
 			const SelectInst& si = cast<SelectInst>(I);
-			compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue());
+			if(si.getType()->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR)
+			{
+				compileOperand(si.getOperand(0), /*allowBooleanObjects*/ true);
+				stream << '?';
+				compilePointerBase(si.getOperand(1));
+				stream << ':';
+				compilePointerBase(si.getOperand(2));
+				stream << ';' << NewLine;
+				stream << "var " << namegen.getSecondaryName(&si) << '=';
+				compileOperand(si.getOperand(0), /*allowBooleanObjects*/ true);
+				stream << '?';
+				compilePointerOffset(si.getOperand(1));
+				stream << ':';
+				compilePointerOffset(si.getOperand(2));
+			}
+			else
+				compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue());
 			return COMPILE_OK;
 		}
 		case Instruction::ExtractValue:
