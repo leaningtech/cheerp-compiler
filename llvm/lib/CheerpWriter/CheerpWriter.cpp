@@ -1882,13 +1882,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			//as the SROA-ed object will then be materialied with a pessimized hidden type map
 			//which will then be used for all the objects with the same structure
 			stream << "aSlot=";
+			POINTER_KIND k = PA.getPointerKind(ai);
 
 			StringRef varName = namegen.getName(&I);
-			if(PA.getPointerKind(ai) == REGULAR)
+			if(k == REGULAR)
 			{
 				stream << "{d:[";
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 				stream << "],o:0}";
+			}
+			else if(k == SPLIT_REGULAR)
+			{
+				stream << '[';
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
+				stream << ']';
+				stream << ';' << NewLine;
+				stream << "var " << namegen.getSecondaryName(ai) << "=0";
 			}
 			else 
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
