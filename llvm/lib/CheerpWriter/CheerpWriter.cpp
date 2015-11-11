@@ -2110,12 +2110,14 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 			makeArrayRef(const_cast<Value* const*>(indices.begin()),
 				     const_cast<Value* const*>(indices.end() - 1))));
 	bool useDownCastArray = false;
+	bool useWrapperArray = false;
 	if(containerStructType && indices.size() > 1)
 	{
 		assert(isa<ConstantInt>(indices.back()));
 		const ConstantInt* idx = cast<ConstantInt>(indices.back());
 		uint32_t lastOffsetConstant = idx->getZExtValue();
-		useDownCastArray = !types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
+		useWrapperArray = types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
+		useDownCastArray = !useWrapperArray;
 	}
 
 
