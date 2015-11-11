@@ -1785,24 +1785,36 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			const ReturnInst& ri = cast<ReturnInst>(I);
 			assert(I.getNumSuccessors()==0);
 			Value* retVal = ri.getReturnValue();
-			stream << "return ";
 
 			if(retVal)
 			{
 				if(retVal->getType()->isPointerTy())
 				{
 					POINTER_KIND k=PA.getPointerKindForReturn(ri.getParent()->getParent());
-					if(k==REGULAR)
-						stream << "aSlot=";
-					compilePointerAs(retVal, k);
+					// For SPLIT_REGULAR we return the .d part and store the .o part into oSlot
+					if(k==SPLIT_REGULAR)
+					{
+						stream << "oSlot=";
+						compilePointerOffset(retVal);
+						stream << ';' << NewLine;
+					}
+					stream << "return ";
+					assert(k != REGULAR);
+					if(k==SPLIT_REGULAR)
+						compilePointerBase(retVal);
+					else
+						compilePointerAs(retVal, k);
 				}
 				else
 				{
+					stream << "return ";
 					compileOperand(retVal);
 					if(retVal->getType()->isIntegerTy())
 						stream << ">>0";
 				}
 			}
+			else
+				stream << "return";
 
 			stream << ';' << NewLine;
 			return COMPILE_OK;
@@ -2688,6 +2700,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(), &ci, /*forceBoolean*/ false);
 			}
+			if(ci.getType()->isPointerTy() && PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
+			{
+				assert(!isInlineable(ci, PA));
+				stream << ';' << NewLine;
+				stream << "var " << namegen.getSecondaryName(&ci) << "=oSlot";
+			}
 			return COMPILE_OK;
 		}
 		case Instruction::Load:
@@ -3230,7 +3248,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 void CheerpWriter::compileNullPtrs()
 {
-	stream << "var aSlot=null;var nullArray=[null];var nullObj={d:nullArray,o:0};" << NewLine;
+	stream << "var aSlot=null;var oSlot=0;var nullArray=[null];var nullObj={d:nullArray,o:0};" << NewLine;
 }
 
 void CheerpWriter::compileCreateClosure()
