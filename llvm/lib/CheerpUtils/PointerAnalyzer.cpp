@@ -1270,7 +1270,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 	assert(F->getReturnType()->isPointerTy());
 	const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolveConstraint(
 										IndirectPointerKindConstraint(RETURN_CONSTRAINT, F));
-	assert(k!=UNKNOWN);
+	assert(k.isKnown());
 
 	if (k!=INDIRECT)
 		return k.getPointerKind();
@@ -1286,7 +1286,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 		return COMPLETE_OBJECT;
 
 	const PointerKindWrapper& k = it->second;
-	assert(k!=UNKNOWN);
+	assert(k.isKnown());
 	if (k!=INDIRECT)
 		return k.getPointerKind();
 
@@ -1298,7 +1298,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeA
 {
 	const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolveConstraint(
 										IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, argTypeAndIndex));
-	assert(k!=UNKNOWN);
+	assert(k.isKnown());
 
 	if (k!=INDIRECT)
 		return k.getPointerKind();
@@ -1314,7 +1314,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex&
 		return COMPLETE_OBJECT;
 
 	const PointerKindWrapper& k = it->second;
-	assert(k!=UNKNOWN);
+	assert(k.isKnown());
 
 	if (k!=INDIRECT)
 		return k.getPointerKind();
