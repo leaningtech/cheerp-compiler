@@ -33,6 +33,8 @@ enum POINTER_KIND {
 	INDIRECT
 };
 
+enum REGULAR_POINTER_PREFERENCE { PREF_NONE, PREF_SPLIT_REGULAR, PREF_REGULAR };
+
 struct TypeAndIndex
 {
 	llvm::Type* type;
@@ -174,9 +176,14 @@ public:
 	{
 		return kind!=UNKNOWN;
 	}
-	POINTER_KIND getPointerKind() const
+	POINTER_KIND getPointerKind(REGULAR_POINTER_PREFERENCE p) const
 	{
-		return kind;
+		if(kind==REGULAR && p==PREF_SPLIT_REGULAR)
+			return SPLIT_REGULAR;
+		else if(kind==SPLIT_REGULAR && p==PREF_REGULAR)
+			return REGULAR;
+		else
+			return kind;
 	}
 	POINTER_KIND getPointerKindForKnown() const
 	{
@@ -187,6 +194,10 @@ public:
 			return INDIRECT;
 		else
 			return COMPLETE_OBJECT;
+	}
+	void applyRegularPreference(REGULAR_POINTER_PREFERENCE p)
+	{
+		kind = getPointerKind(p);
 	}
 	void makeKnown()
 	{
@@ -362,6 +373,8 @@ public:
 
 	typedef PointerData<PointerKindWrapper> PointerKindData;
 	typedef PointerData<PointerConstantOffsetWrapper> PointerOffsetData;
+
+	static REGULAR_POINTER_PREFERENCE getRegularPreference(const IndirectPointerKindConstraint& c, PointerKindData& pointerKindData, AddressTakenMap& addressTakenCache);
 private:
 	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Value*) const;
 	mutable PointerKindData pointerKindData;
