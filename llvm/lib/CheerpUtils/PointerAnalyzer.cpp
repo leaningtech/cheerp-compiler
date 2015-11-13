@@ -362,7 +362,6 @@ struct PointerResolverBaseVisitor
 	}
 
 	const T& resolveConstraint(const IndirectPointerKindConstraint& c);
-	void cacheResolvedConstraint(const IndirectPointerKindConstraint& c, const T& d);
 
 	PointerAnalyzer::PointerData<T>& pointerData;
 	PointerAnalyzer::AddressTakenMap& addressTakenCache;
@@ -374,6 +373,7 @@ struct PointerResolverForKindVisitor: public PointerResolverBaseVisitor<PointerK
 	PointerResolverForKindVisitor(PointerAnalyzer::PointerKindData& pointerData, PointerAnalyzer::AddressTakenMap& addressTakenCache) :
 				PointerResolverBaseVisitor<PointerKindWrapper>(pointerData, addressTakenCache){}
 	const PointerKindWrapper& resolvePointerKind(const PointerKindWrapper& k, bool& mayCache);
+	void cacheResolvedConstraint(const IndirectPointerKindConstraint& c, const PointerKindWrapper& d);
 };
 
 bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
@@ -848,8 +848,7 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 	assert(false);
 }
 
-template<class T>
-void PointerResolverBaseVisitor<T>::cacheResolvedConstraint(const IndirectPointerKindConstraint& c, const T& t)
+void PointerResolverForKindVisitor::cacheResolvedConstraint(const IndirectPointerKindConstraint& c, const PointerKindWrapper& t)
 {
 	switch(c.kind)
 	{
