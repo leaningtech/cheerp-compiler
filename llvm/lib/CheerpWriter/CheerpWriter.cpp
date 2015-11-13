@@ -218,12 +218,30 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 
 	if(TypeSupport::isClientType(t) || (isa<ConstantInt>(offset) && cast<ConstantInt>(offset)->isNullValue()))
 	{
-		compilePointerAs(src, result_kind);
+		if(result_kind == SPLIT_REGULAR)
+		{
+			compilePointerBase(src);
+			stream << ';' << NewLine;
+			stream << "var " << namegen.getSecondaryName(callV.getInstruction()) << '=';
+			compilePointerOffset(src);
+		}
+		else
+			compilePointerAs(src, result_kind);
 	}
 	else
 	{
 		//Do a runtime downcast
-		if(REGULAR == result_kind)
+		if(result_kind == SPLIT_REGULAR)
+		{
+			compileCompleteObject(src);
+			stream << ".a;" << NewLine;
+			stream << "var " << namegen.getSecondaryName(callV.getInstruction()) << '=';
+			compileCompleteObject(src);
+			stream << ".o-(";
+			compileOperand(offset);
+			stream << ')';
+		}
+		else if(result_kind == REGULAR)
 		{
 			stream << "{d:";
 			compileCompleteObject(src);
