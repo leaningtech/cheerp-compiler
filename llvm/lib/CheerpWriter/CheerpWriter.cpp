@@ -1061,6 +1061,12 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		return;
 	}
 
+	if(isa<ConstantPointerNull>(p))
+	{
+		stream << "nullArray";
+		return;
+	}
+
 	if(PA.getPointerKind(p) == COMPLETE_OBJECT)
 	{
 		llvm::errs() << "compilePointerBase with COMPLETE_OBJECT pointer:" << *p << '\n' << "In function: " << *currentFun << '\n';
@@ -1080,12 +1086,6 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 			default:
 				break;
 		}
-	}
-
-	if(isa<ConstantPointerNull>(p))
-	{
-		stream << "nullArray";
-		return;
 	}
 
 	if(isa<Argument>(p))
@@ -1110,6 +1110,12 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		stream << ':';
 		compilePointerBase(u->getOperand(2));
 		stream << ')';
+		return;
+	}
+
+	if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && PA.getPointerKind(p) == SPLIT_REGULAR)
+	{
+		stream << namegen.getName(p);
 		return;
 	}
 
@@ -1241,6 +1247,11 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 		stream << ':';
 		compilePointerOffset(u->getOperand(2));
 		stream << ')';
+		return;
+	}
+	else if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && PA.getPointerKind(p) == SPLIT_REGULAR)
+	{
+		stream << namegen.getSecondaryName(p);
 		return;
 	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
