@@ -1091,9 +1091,23 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		stream << namegen.getName(p);
 		return;
 	}
+
 	if(isa<UndefValue>(p))
 	{
 		stream << "undefined";
+		return;
+	}
+
+	if((isa<SelectInst> (p) && isInlineable(*cast<Instruction>(p), PA)) || (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::Select))
+	{
+		const User* u = cast<User>(p);
+		stream << '(';
+		compileOperand(u->getOperand(0), /*allowBooleanObjects*/ true);
+		stream << '?';
+		compilePointerBase(u->getOperand(1));
+		stream << ':';
+		compilePointerBase(u->getOperand(2));
+		stream << ')';
 		return;
 	}
 
@@ -1215,6 +1229,18 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 		stream << "undefined";
 		return;
 	}
+	else if((isa<SelectInst> (p) && isInlineable(*cast<Instruction>(p), PA)) || (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::Select))
+	{
+		const User* u = cast<User>(p);
+		stream << '(';
+		compileOperand(u->getOperand(0), /*allowBooleanObjects*/ true);
+		stream << '?';
+		compilePointerOffset(u->getOperand(1));
+		stream << ':';
+		compilePointerOffset(u->getOperand(2));
+		stream << ')';
+		return;
+	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
 	{
 		// Handle intrinsics
@@ -1229,6 +1255,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 				break;
 		}
 	}
+
 	compileOperand(p);
 	stream << ".o";
 }
