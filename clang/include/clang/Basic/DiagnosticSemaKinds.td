@@ -10900,6 +10900,8 @@ def warn_cheerp_unsafe_cast : Warning<
   "Cheerp: Using values casted to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
 def warn_cheerp_inefficient_unions : Warning<
   "Cheerp: Unions are less efficient than on native targets">;
+def warn_cheerp_deprecated_attribute : Warning<
+  "Cheerp: Unprefixed attribute %0 is deprecated. Add 'cheerp::' namespace">;
 def err_cheerp_missing_special_definition : Error<
   "Cheerp: '%0' is undeclared">;
 def err_cheerp_field_not_supported_in_union : Error<

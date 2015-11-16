@@ -6807,6 +6807,15 @@ static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
 
+static void checkCheerpUnprefixedDeprecations(Sema &S,
+                                              const AttributeList &Attr) {
+  IdentifierInfo *scope = Attr.getScopeName();
+  if (!scope || scope->getName() != "cheerp") {
+    S.Diag(Attr.getLoc(), diag::warn_cheerp_deprecated_attribute)
+        << Attr.getName();
+  }
+}
+
 /// ProcessDeclAttribute - Apply the specific attribute to the specified decl if
 /// the attribute applies to decls.  If the attribute is a type attribute, just
 /// silently ignore it if a GNU attribute.
@@ -7469,12 +7478,15 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   // Cheerp attributes
   case AttributeList::AT_Static:
+    checkCheerpUnprefixedDeprecations(S, AL);
     handleStatic(S, D, AL);
     break;
   case AttributeList::AT_NoInit:
+    checkCheerpUnprefixedDeprecations(S, AL);
     handleNoInit(S, D, AL);
     break;
   case AttributeList::AT_JsExport:
+    checkCheerpUnprefixedDeprecations(S, AL);
     handleJsExportAttr(S, D, AL);
     break;
   }

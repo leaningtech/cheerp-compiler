@@ -1851,27 +1851,27 @@ def NvWeak : IgnoredAttr {
 }
 
 def Client : InheritableAttr {
-  let Spellings = [CXX11<"", "client", 12>];
+  let Spellings = [CXX11<"", "client", 12>, CXX11<"cheerp", "client">];
   let Documentation = [Undocumented];
 }
 
 def Server : InheritableAttr {
-  let Spellings = [CXX11<"", "server", 12>];
+  let Spellings = [CXX11<"", "server", 12>, CXX11<"cheerp", "server">];
   let Documentation = [Undocumented];
 }
 
 def Static : InheritableAttr {
-  let Spellings = [CXX11<"", "static", 12>];
+  let Spellings = [CXX11<"", "static", 12>, CXX11<"cheerp", "static">];
   let Documentation = [Undocumented];
 }
 
 def NoInit : InheritableAttr {
-  let Spellings = [CXX11<"", "noinit", 12>];
+  let Spellings = [CXX11<"", "noinit", 12>, CXX11<"cheerp", "noinit">];
   let Documentation = [Undocumented];
 }
 
 def JsExport : InheritableAttr {
-  let Spellings = [CXX11<"", "jsexport", 12>];
+  let Spellings = [CXX11<"", "jsexport", 12>, CXX11<"cheerp", "jsexport">];
   let Documentation = [Undocumented];
 }
 
