@@ -1010,7 +1010,9 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 		}
 	}
 
-	if(PA.getPointerKind(p) == REGULAR)
+	POINTER_KIND kind = PA.getPointerKind(p);
+
+	if(kind == REGULAR || kind == SPLIT_REGULAR)
 	{
 		compilePointerBase(p);
 		stream << '[';
@@ -1036,7 +1038,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 
 		if(!isOffsetConstantZero)
 		{
-			llvm::errs() << "Can not access a COMPLETE_OBJECT pointer with non zero offset:" << *offset << "\n";
+			llvm::errs() << "Can not access a " << kind << " pointer with non zero offset:" << *offset << "\n";
 			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 		}
 	}
