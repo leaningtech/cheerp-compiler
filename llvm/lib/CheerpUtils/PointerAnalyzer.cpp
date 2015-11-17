@@ -479,7 +479,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			PointerKindWrapper& k = visitAllUses(ret, p);
 			k.makeKnown();
 			// In general, keep track of the contraints on elements of structures
-			// Warning, do not add the kindForType to the members, otherwise all scalar will require a wrapper array
+			// Warning, do not add the kindForType to the members, otherwise all scalars will require a wrapper array
 			pointerKindData.baseStructAndIndexMapForMembers[baseAndIndex] |= k;
 			return CacheAndReturn(k);
 		}
