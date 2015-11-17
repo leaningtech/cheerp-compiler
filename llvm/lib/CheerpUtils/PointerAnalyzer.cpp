@@ -711,11 +711,17 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_make_complete_object:
 		case Intrinsic::cheerp_downcast_current:
 			return ret |= COMPLETE_OBJECT;
-		case Intrinsic::cheerp_downcast:
 		case Intrinsic::cheerp_upcast_collapsed:
 		case Intrinsic::cheerp_cast_user:
-		{
 			return visitValue( ret, p, /*first*/ false );
+		case Intrinsic::cheerp_downcast:
+		{
+			// Behaves like a cast if the offset is constant 0
+			const Value* offset = intrinsic->getOperand(1);
+			if(isa<ConstantInt>(offset) && cast<ConstantInt>(offset)->isNullValue())
+				return visitValue( ret, p, /*first*/ false );
+			else
+				return ret |= COMPLETE_OBJECT;
 		}
 		case Intrinsic::cheerp_reallocate:
 		case Intrinsic::cheerp_pointer_base:
