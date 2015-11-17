@@ -385,11 +385,11 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   // Add standard libraries
   if (!Args.hasArg(options::OPT_nostdlib) &&
       !Args.hasArg(options::OPT_nodefaultlibs)) {
-    CmdArgs.push_back(LLVM_PREFIX "/lib/libc.bc");
-    CmdArgs.push_back(LLVM_PREFIX "/lib/libm.bc");
     if (C.getDriver().CCCIsCXX()) {
-      CmdArgs.push_back(LLVM_PREFIX "/lib/libc++.bc");
-      CmdArgs.push_back(LLVM_PREFIX "/lib/libc++abi.bc");
+      CmdArgs.push_back(LLVM_PREFIX "/lib/libstdlibs.bc");
+    } else {
+      CmdArgs.push_back(LLVM_PREFIX "/lib/libc.bc");
+      CmdArgs.push_back(LLVM_PREFIX "/lib/libm.bc");
     }
   }
 
