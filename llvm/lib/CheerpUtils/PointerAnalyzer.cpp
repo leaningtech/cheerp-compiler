@@ -892,6 +892,8 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 	assert(k==INDIRECT);
 	// If mayCache is initially false we can't cache anything
 	bool initialMayCache = mayCache;
+	// Temporary value to store a SPLIT_REGULAR kind, as we can't stop immediately like we do for REGULAR
+	const PointerKindWrapper* tmpRet = NULL;
 	for(const IndirectPointerKindConstraint* constraint: k.constraints)
 	{
 		if(constraint->isBeingVisited)
@@ -905,20 +907,26 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 		assert(retKind.isKnown());
 		if(retKind==REGULAR || retKind==BYTE_LAYOUT)
 			return retKind;
+		else if(retKind == SPLIT_REGULAR)
+			tmpRet = &retKind;
 		else if(retKind==INDIRECT)
 		{
 			bool subMayCache = initialMayCache;
 			const PointerKindWrapper& resolvedKind=resolvePointerKind(retKind, subMayCache);
 			if(subMayCache)
-			{
 				cacheResolvedConstraint(*constraint, resolvedKind);
-			}
 			else
 				mayCache = false;
+
 			if(resolvedKind==REGULAR)
 				return resolvedKind;
+			else if(resolvedKind==SPLIT_REGULAR)
+				tmpRet = &resolvedKind;
 		}
 	}
+	if(tmpRet)
+		return *tmpRet;
+
 	return PointerKindWrapper::staticDefaultValue;
 }
 
