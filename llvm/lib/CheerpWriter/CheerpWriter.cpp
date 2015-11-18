@@ -585,17 +585,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		if(callV.getInstruction()->use_empty())
 			return COMPILE_EMPTY;
 
-		compilePointerAs(*it, PA.getPointerKind(callV.getInstruction()));
+		compileBitCast(callV.getInstruction(), PA.getPointerKind(callV.getInstruction()));
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_base)
 	{
-		compilePointerBase(*it);
+		compilePointerBase(*it, true);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_offset)
 	{
-		compilePointerOffset(*it);
+		compilePointerOffset(*it, true);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_create_closure)
@@ -1062,6 +1062,21 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
 
+	// Handle intrinsics
+	if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
+	{
+		switch(II->getIntrinsicID())
+		{
+			case Intrinsic::cheerp_upcast_collapsed:
+			case Intrinsic::cheerp_cast_user:
+				return compilePointerBase(II->getOperand(0));
+			case Intrinsic::cheerp_make_regular:
+				return compileCompleteObject(II->getOperand(0));
+			default:
+				break;
+		}
+	}
+
 	if(isa<ConstantPointerNull>(p))
 	{
 		stream << "nullArray";
@@ -1167,19 +1182,20 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 	if ( byteLayout && !forEscapingPointer)
 	{
 		compileByteLayoutOffset(p, BYTE_LAYOUT_OFFSET_FULL);
+		return;
 	}
 	else if(isGEP(p) && (!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA) || forEscapingPointer))
 	{
-		compileGEPOffset(cast<User>(p));
+		return compileGEPOffset(cast<User>(p));
 	}
 	else if(isBitCast(p) && (!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA) || forEscapingPointer))
 	{
-		compileBitCastOffset(cast<User>(p));
+		return compileBitCastOffset(cast<User>(p));
 	}
 	else if (const ConstantInt* CI = PA.getConstantOffsetForPointer(p))
 	{
 		// Check if the offset has been constantized for this pointer
-		compileConstant(CI);
+		return compileConstant(CI);
 	}
 	else if(isa<ConstantPointerNull>(p))
 	{
@@ -1192,12 +1208,26 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 		return;
 	}
 	else if(isa<UndefValue>(p))
-		stream << "undefined";
-	else
 	{
-		compileOperand(p);
-		stream << ".o";
+		stream << "undefined";
+		return;
 	}
+	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
+	{
+		// Handle intrinsics
+		switch(II->getIntrinsicID())
+		{
+			case Intrinsic::cheerp_upcast_collapsed:
+			case Intrinsic::cheerp_cast_user:
+				return compilePointerOffset(II->getOperand(0));
+			case Intrinsic::cheerp_make_regular:
+				return compileOperand(II->getOperand(1));
+			default:
+				break;
+		}
+	}
+	compileOperand(p);
+	stream << ".o";
 }
 
 void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
