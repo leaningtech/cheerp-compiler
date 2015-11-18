@@ -266,9 +266,36 @@ bool PointerAnalyzer::runOnModule(Module& M)
 	for(const Function & F : M)
 		prefetchFunc(F);
 
+	llvm::SmallVector<const User*, 4> globalsUsersQueue;
 	for(const GlobalVariable & GV : M.getGlobalList())
+	{
 		if(GV.getType()->isPointerTy())
 			getFinalPointerKindWrapper(&GV);
+		if(!GV.hasInitializer())
+			continue;
+		for(const User* u: GV.users())
+		{
+			if(!u->getType()->isPointerTy())
+				continue;
+			if(!isa<Constant>(u))
+				continue;
+			globalsUsersQueue.push_back(u);
+		}
+	}
+
+	while(!globalsUsersQueue.empty())
+	{
+		const User* u = globalsUsersQueue.pop_back_val();
+		getFinalPointerKindWrapper(u);
+		for(const User* v: u->users())
+		{
+			if(!v->getType()->isPointerTy())
+				continue;
+			if(!isa<Constant>(v))
+				continue;
+			globalsUsersQueue.push_back(v);
+		}
+	}
 
 	return false;
 }
@@ -1494,7 +1521,6 @@ void PointerAnalyzer::computeConstantOffsets(const Module& M)
 	while(!globalsUsersQueue.empty())
 	{
 		const User* u = globalsUsersQueue.pop_back_val();
-		getFinalPointerKindWrapper(u);
 		getFinalPointerConstantOffsetWrapper(u);
 		for(const User* v: u->users())
 		{
