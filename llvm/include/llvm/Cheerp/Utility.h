@@ -19,6 +19,7 @@
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
@@ -43,6 +44,17 @@ inline bool isBitCast(const llvm::Value* v)
 		return true;
 	if(const llvm::ConstantExpr * ce = llvm::dyn_cast<llvm::ConstantExpr>(v) )
 		return ce->getOpcode() == llvm::Instruction::BitCast;
+	if(const llvm::IntrinsicInst* II=llvm::dyn_cast<llvm::IntrinsicInst>(v))
+	{
+		switch(II->getIntrinsicID())
+		{
+			case llvm::Intrinsic::cheerp_cast_user:
+			case llvm::Intrinsic::cheerp_upcast_collapsed:
+				return true;
+			default:
+				break;
+		}
+	}
 	return false;
 }
 
