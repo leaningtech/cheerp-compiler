@@ -97,6 +97,20 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			return false;
 		return !hasMoreThan1Use;
 	}
+	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
+	{
+		// Special handling for instrinsics
+		switch(II->getIntrinsicID())
+		{
+			case Intrinsic::cheerp_cast_user:
+			case Intrinsic::cheerp_upcast_collapsed:
+			case Intrinsic::cheerp_make_regular:
+				return true;
+			default:
+				break;
+		}
+		return false;
+	}
 	else if((I.getOpcode()==Instruction::FCmp || I.getOpcode()==Instruction::ICmp) && hasMoreThan1Use)
 	{
 		return !I.getOperand(0)->getType()->isPointerTy();
