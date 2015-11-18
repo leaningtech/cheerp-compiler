@@ -883,6 +883,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		return;
 	SmallVector<BasicBlock*, 4> blocksInDFSOrder;
 	std::unordered_set<BasicBlock*> usedBlocks;
+	usedBlocks.insert(&F->getEntryBlock());
 	blocksInDFSOrder.push_back(&F->getEntryBlock());
 	// The size of the vector will increase over time, this is by design
 	for(uint32_t i=0;i<blocksInDFSOrder.size();i++)
@@ -892,11 +893,16 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		for(uint32_t i=0;i<term->getNumSuccessors();i++)
 		{
 			BasicBlock* succ = term->getSuccessor(i);
-			if(usedBlocks.count(succ))
+			if(!usedBlocks.insert(succ).second)
 				continue;
-			usedBlocks.insert(succ);
 			blocksInDFSOrder.push_back(succ);
 		}
+	}
+	// Finally add all blocks which are not yet used
+	for(BasicBlock& BB: *F)
+	{
+		if(usedBlocks.insert(&BB).second)
+			blocksInDFSOrder.push_back(&BB);
 	}
 
 	SmallVector<PHINode*, 4> delayedPHIs;
@@ -908,8 +914,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			switch(I.getOpcode())
 			{
 				default:
-					if(I.getType()->isPointerTy())
-						llvm::errs() << "INST " << I << "\n";
 					assert(!I.getType()->isPointerTy() && "Unexpected instruction in TypeOptimizer");
 					break;
 				case Instruction::GetElementPtr:
