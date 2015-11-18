@@ -1684,7 +1684,8 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			else
 				compilePointerAs(*cur, PA.getPointerKindForStoredType(tp));
 
-			if(argKind == REGULAR)
+			assert(argKind != REGULAR);
+			if(argKind == SPLIT_REGULAR)
 			{
 				compilePointerBase(*cur, true);
 				stream << ',';
@@ -2903,7 +2904,7 @@ void CheerpWriter::compileMethod(const Function& F)
 	{
 		if(curArg!=A)
 			stream << ',';
-		if(curArg->getType()->isPointerTy() && PA.getPointerKind(curArg) == REGULAR)
+		if(curArg->getType()->isPointerTy() && PA.getPointerKind(curArg) == SPLIT_REGULAR)
 			stream << namegen.getName(curArg) << ',' << namegen.getSecondaryName(curArg);
 		else
 			stream << namegen.getName(curArg);

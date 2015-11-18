@@ -555,19 +555,14 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		pointerKindData.argsMap[arg] = k;
 
 		// Keep track of the constraint for each argument/type pair, but only if the function is indirectly used
-		if(addressTakenCache.checkAddressTaken(arg->getParent()))
+		// If the kind is COMPLETE_OBJECT it is ok to omit it from the constraints for this argument index and type
+		if(addressTakenCache.checkAddressTaken(arg->getParent()) && k != COMPLETE_OBJECT)
 		{
-			// If the kind is COMPLETE_OBJECT it is ok to omit it from the constraints for this argument index and type
-			if(k != COMPLETE_OBJECT)
-			{
-				TypeAndIndex typeAndIndex(argPointedType, arg->getArgNo(), TypeAndIndex::ARGUMENT);
-				pointerKindData.constraintsMap[IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, typeAndIndex)] |=
-						pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg ));
-			}
-			return CacheAndReturn(ret = PointerKindWrapper(pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, arg))));
+			TypeAndIndex typeAndIndex(argPointedType, arg->getArgNo(), TypeAndIndex::ARGUMENT);
+			pointerKindData.constraintsMap[IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, typeAndIndex)] |=
+					pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN, arg ));
 		}
-		else
-			return CacheAndReturn(k);
+		return CacheAndReturn(ret = PointerKindWrapper(pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, arg))));
 	}
 
 	// TODO this is not really necessary,
@@ -1471,11 +1466,15 @@ void PointerAnalyzer::fullResolve()
 	for(auto& it: pointerKindData.argsMap)
 	{
 		if(it.second!=INDIRECT)
+		{
+			it.second.applyRegularPreference(PREF_SPLIT_REGULAR);
 			continue;
+		}
 		bool mayCache = true;
 		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second, mayCache);
-		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR);
-		it.second=k;
+		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==SPLIT_REGULAR || k==REGULAR);
+		it.second = k;
+		it.second.applyRegularPreference(PREF_SPLIT_REGULAR);
 	}
 	for(auto& it: pointerKindData.baseStructAndIndexMapForMembers)
 	{
@@ -1489,12 +1488,18 @@ void PointerAnalyzer::fullResolve()
 	}
 	for(auto& it: pointerKindData.constraintsMap)
 	{
+		REGULAR_POINTER_PREFERENCE pref = getRegularPreference(it.first, pointerKindData, addressTakenCache);
+		assert(pref != PREF_NONE);
 		if(it.second!=INDIRECT)
+		{
+			it.second.applyRegularPreference(pref);
 			continue;
+		}
 		bool mayCache = true;
 		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second, mayCache);
-		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR);
-		it.second=k;
+		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR || k==SPLIT_REGULAR);
+		it.second = k;
+		it.second.applyRegularPreference(pref);
 	}
 	for(auto& it: pointerKindData.valueMap)
 	{
