@@ -148,15 +148,15 @@ public:
 
 	// Returns true if the type is not considered a literal object or array in JS
 	static bool isSimpleType(llvm::Type* t);
-private:
-	static const llvm::NamedMDNode* getBasesMetadata(const llvm::StructType * t, const llvm::Module & m)
+
+	static llvm::NamedMDNode* getBasesMetadata(const llvm::StructType * t, const llvm::Module & m)
 	{
 		if(!t->hasName())
 			return nullptr;
 
 		return m.getNamedMetadata(llvm::Twine(t->getName(),"_bases"));
 	}
-
+private:
 	const llvm::Module & module;
 };
 
