@@ -297,6 +297,7 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 		}
 		curDirectBase = curDirectBase->getDirectBase();
 	}
+	assert(firstBase < t->getNumElements());
 	StructType::element_iterator E=t->element_begin()+firstBase;
 	StructType::element_iterator EE=t->element_end();
 	for(;E!=EE;++E)

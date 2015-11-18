@@ -241,6 +241,16 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			// So, for each element type, keep track if there is already an array
 			std::unordered_map<Type*, uint32_t> arraysFound;
 			uint32_t directBaseLimit=0;
+			// We may need to update the bases metadata for this type
+			NamedMDNode* namedBasesMetadata = TypeSupport::getBasesMetadata(newStruct, *module);
+			uint32_t firstBaseBegin, firstBaseEnd, baseMax;
+			if(namedBasesMetadata)
+			{
+				MDNode* md = namedBasesMetadata->getOperand(0);
+				firstBaseBegin=getIntFromValue(cast<ConstantAsMetadata>(md->getOperand(0))->getValue());
+				firstBaseEnd=firstBaseBegin;
+				baseMax=getIntFromValue(cast<ConstantAsMetadata>(md->getOperand(1))->getValue());
+			}
 			for(uint32_t i=0;i<st->getNumElements();i++)
 			{
 				// We can't merge arrats across bases, so when we reach the limit of the previous direct base we
@@ -266,6 +276,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 						ArrayType* previousArrayType = cast<ArrayType>(newTypes[typeIndex]);
 						newTypes[typeIndex] = ArrayType::get(arrayElementType, previousArrayType->getNumElements() + at->getNumElements());
 						membersMapping.push_back(std::make_pair(typeIndex, previousArrayType->getNumElements()));
+						if(i < firstBaseBegin)
+							firstBaseEnd--;
 						hasMergedArrays=true;
 						continue;
 					}
@@ -281,6 +293,17 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				assert(!newTypes.empty());
 				membersMappingData.insert(std::make_pair(st, membersMapping));
 				newStructKind = TypeMappingInfo::MERGED_MEMBER_ARRAYS;
+				// Update bases metadata
+				if(namedBasesMetadata)
+				{
+					Type* Int32 = IntegerType::get(module->getContext(), 32);
+					Metadata* newBasesMeta[] = { ConstantAsMetadata::get(ConstantInt::get(Int32, firstBaseEnd)), ConstantAsMetadata::get(ConstantInt::get(Int32, baseMax)) };
+					MDNode* newMD = MDNode::get(module->getContext(), newBasesMeta);
+					// The bases metadata has numerous duplicated entries, so fix all of them
+					// TODO: Remove duplicated entries
+					for(uint32_t i=0;i<namedBasesMetadata->getNumOperands();i++)
+						namedBasesMetadata->setOperand(i, newMD);
+				}
 			}
 		}
 		else if(st->getNumElements() == 1)
@@ -663,7 +686,15 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 			{
 				assert(isa<StructType>(curType));
 				if(curTypeMappingInfo.mappedType == targetType)
+				{
+					if(targetType->isArrayTy())
+					{
+						// We are transforming all pointers to arrays to pointers to elements
+						Value* Zero = ConstantInt::get(Int32Ty, 0);
+						AddIndex(Zero);
+					}
 					return;
+				}
 				auto baseTypeIt = baseTypesForByteLayout.find(cast<StructType>(curType));
 				assert(baseTypeIt != baseTypesForByteLayout.end() && baseTypeIt->second);
 				if(!curTypeMappingInfo.mappedType->isArrayTy())
@@ -698,6 +729,13 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 					addToLastIndex = true;
 				}
 				// All indexes have been consumed now, we can just return
+				assert(rewriteType(curType) == targetType);
+				if(targetType->isArrayTy())
+				{
+					// We are transforming all pointers to arrays to pointers to elements
+					Value* Zero = ConstantInt::get(Int32Ty, 0);
+					AddIndex(Zero);
+				}
 				return;
 			}
 			case TypeMappingInfo::POINTER_FROM_ARRAY:
