@@ -117,8 +117,17 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 			stream << "new ";
 			compileTypedArrayType(pointedType);
 			stream << '(';
-			compileCompleteObject(bi->getOperand(0));
-			stream << ".buffer)";
+			if(isa<AllocaInst>(bi->getOperand(0)))
+				compileCompleteObject(bi->getOperand(0));
+			else
+				compilePointerBase(bi->getOperand(0));
+			stream << ".buffer";
+			if(!isa<AllocaInst>(bi->getOperand(0)))
+			{
+				stream << ',';
+				compilePointerOffset(bi->getOperand(0));
+			}
+			stream << ')';
 			return;
 		}
 	}
