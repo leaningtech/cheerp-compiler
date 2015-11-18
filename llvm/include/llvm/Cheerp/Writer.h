@@ -264,6 +264,8 @@ private:
 	void compilePointerAs(const llvm::Value* p, POINTER_KIND kind)
 	{
 		assert(p->getType()->isPointerTy());
+		assert(kind != SPLIT_REGULAR);
+		POINTER_KIND valueKind = PA.getPointerKind(p);
 
 		if(kind == COMPLETE_OBJECT)
 		{
@@ -273,7 +275,7 @@ private:
 		{
 			stream << "nullObj";
 		}
-		else if (PA.getConstantOffsetForPointer(p) || llvm::isa<llvm::Argument>(p))
+		else if (PA.getConstantOffsetForPointer(p) || valueKind == SPLIT_REGULAR)
 		{
 			stream << "{d:";
 			compilePointerBase(p, true);
@@ -283,7 +285,7 @@ private:
 		}
 		else
 		{
-			assert(PA.getPointerKind(p) == REGULAR || PA.getPointerKind(p) == BYTE_LAYOUT);
+			assert(valueKind == REGULAR || valueKind == BYTE_LAYOUT);
 			compileOperand(p);
 		}
 	}
