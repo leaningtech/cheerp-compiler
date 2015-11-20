@@ -610,7 +610,7 @@ bool DelayAllocas::runOnFunction(Function& F)
 	bool Changed = false;
 	LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
+	cheerp::Registerize * registerize = getAnalysisIfAvailable<cheerp::Registerize>();
 
 	std::map<AllocaInst*, Instruction*> movedAllocaMaps;
 	for ( BasicBlock& BB : F )
@@ -647,15 +647,15 @@ bool DelayAllocas::runOnFunction(Function& F)
 				currentInsertionPoint = loopDominator->getTerminator();
 			}
 			movedAllocaMaps.insert(std::make_pair(AI, currentInsertionPoint));
-			if(!Changed)
-				registerize.invalidateLiveRangeForAllocas(F);
+			if(!Changed && registerize)
+				registerize->invalidateLiveRangeForAllocas(F);
 			Changed = true;
 		}
 	}
 	for(auto& it: movedAllocaMaps)
 		it.first->moveBefore(it.second);
-	if(Changed)
-		registerize.computeLiveRangeForAllocas(F);
+	if(Changed && registerize)
+		registerize->computeLiveRangeForAllocas(F);
 	return Changed;
 }
 
@@ -669,7 +669,6 @@ char DelayAllocas::ID = 0;
 void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addRequired<cheerp::Registerize>();
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<DominatorTreeWrapperPass>();
