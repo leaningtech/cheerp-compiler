@@ -308,6 +308,18 @@ private:
 	void compileUnsignedInteger(const llvm::Value* v);
 
 	void compileMethod(const llvm::Function& F);
+	/**
+	 * Helper structure for compiling globals
+	 */
+	struct GlobalSubExprInfo
+	{
+		POINTER_KIND kind;
+		bool hasConstantOffset;
+	};
+	/**
+	 * Helper method for compiling globals
+	 */
+	GlobalSubExprInfo compileGlobalSubExpr(const GlobalDepsAnalyzer::SubExprVec& subExpr);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void compileNullPtrs();
 	void compileCreateClosure();
