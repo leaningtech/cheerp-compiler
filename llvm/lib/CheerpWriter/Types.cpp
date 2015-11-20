@@ -161,10 +161,27 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			}
 			if (element->isPointerTy())
 			{
-				if (PA.getPointerKindForMemberPointer(baseAndIndex)==COMPLETE_OBJECT)
-					stream << "null";
-				else if (PA.getConstantOffsetForMember(baseAndIndex))
+				POINTER_KIND memberPointerKind = PA.getPointerKindForMemberPointer(baseAndIndex);
+				bool hasConstantOffset = PA.getConstantOffsetForMember(baseAndIndex);
+				if((memberPointerKind == REGULAR || memberPointerKind == SPLIT_REGULAR) && hasConstantOffset)
 					stream << "nullArray";
+				else if (memberPointerKind == SPLIT_REGULAR)
+				{
+					stream << "nullArray";
+					if(style==THIS_OBJ)
+						stream << ';' << NewLine << "this.";
+					else
+						stream << ',';
+					stream << types.getPrefixCharForMember(PA, st, i) << i << 'o';
+					if(style==THIS_OBJ)
+						stream << '=';
+					else
+						stream << ':';
+					stream << '0';
+
+				}
+				else if (memberPointerKind == COMPLETE_OBJECT)
+					stream << "null";
 				else
 					stream << "nullObj";
 			}

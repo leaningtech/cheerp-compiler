@@ -1401,17 +1401,37 @@ void CheerpWriter::compileConstant(const Constant* c)
 			if (useWrapperArray)
 				stream << '[';
 			Type* elementType = d->getOperand(i)->getType();
-			if(!currentFun && doesConstantDependOnUndefined(d->getOperand(i)))
-				stream << "undefined";
-			else if(elementType->isPointerTy())
+			bool dependOnUndefined = !currentFun && doesConstantDependOnUndefined(d->getOperand(i));
+			if(elementType->isPointerTy())
 			{
 				TypeAndIndex baseAndIndex(d->getType(), i, TypeAndIndex::STRUCT_MEMBER);
 				POINTER_KIND k = PA.getPointerKindForMemberPointer(baseAndIndex);
-				if(k==REGULAR && PA.getConstantOffsetForMember(baseAndIndex))
-					compilePointerBase(d->getOperand(i));
+				if((k==REGULAR || k==SPLIT_REGULAR) && PA.getConstantOffsetForMember(baseAndIndex))
+				{
+					if(dependOnUndefined)
+						stream << "undefined";
+					else
+						compilePointerBase(d->getOperand(i));
+				}
+				else if(k == SPLIT_REGULAR)
+				{
+					if(dependOnUndefined)
+						stream << "undefined";
+					else
+						compilePointerBase(d->getOperand(i));
+					stream << ',';
+					stream << types.getPrefixCharForMember(PA, d->getType(), i) << i << 'o';
+					stream << ':';
+					if(dependOnUndefined)
+						stream << "undefined";
+					else
+						compilePointerOffset(d->getOperand(i));
+				}
 				else
 					compilePointerAs(d->getOperand(i), k);
 			}
+			else if(dependOnUndefined)
+				stream << "undefined";
 			else
 				compileOperand(d->getOperand(i));
 
@@ -3012,6 +3032,43 @@ void CheerpWriter::compileMethod(const Function& F)
 	currentFun = NULL;
 }
 
+CheerpWriter::GlobalSubExprInfo CheerpWriter::compileGlobalSubExpr(const GlobalDepsAnalyzer::SubExprVec& subExpr)
+{
+	for ( auto it = std::next(subExpr.begin()); it != subExpr.end(); ++it )
+	{
+		const Use * u = *it;
+
+		if ( isa<ConstantArray>( u->getUser() ) )
+		{
+			stream << '[' << u->getOperandNo() << ']';
+			if (it == (subExpr.end()-1) && (*it)->get()->getType()->isPointerTy())
+			{
+				POINTER_KIND elementPointerKind = PA.getPointerKindForStoredType((*it)->get()->getType()->getPointerElementType());
+				return GlobalSubExprInfo{elementPointerKind, false};
+			}
+		}
+		else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
+		{
+			stream << ".a" << u->getOperandNo();
+			bool useWrapperArray = types.useWrapperArrayForMember(PA, cs->getType(), u->getOperandNo());
+			if (useWrapperArray)
+				stream << "[0]";
+			if (it == (subExpr.end()-1) && (*it)->get()->getType()->isPointerTy())
+			{
+				// We don't expect anything which is not a pointer here, as we are fixing dependencies between globals
+				assert(cs->getType()->getElementType(u->getOperandNo())->isPointerTy());
+				TypeAndIndex b(cs->getType(), u->getOperandNo(), TypeAndIndex::STRUCT_MEMBER);
+				POINTER_KIND elementPointerKind = PA.getPointerKindForMemberPointer(b);
+				bool hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
+				return GlobalSubExprInfo{elementPointerKind, hasConstantOffset};
+			}
+		}
+		else
+			assert(false);
+	}
+	assert(false);
+}
+
 void CheerpWriter::compileGlobal(const GlobalVariable& G)
 {
 	assert(G.hasName());
@@ -3027,8 +3084,9 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 	{
 		stream << '=';
 		const Constant* C = G.getInitializer();
+		POINTER_KIND k = PA.getPointerKind(&G);
 
-		if(PA.getPointerKind(&G) == REGULAR)
+		if(k == REGULAR)
 		{
 			stream << "{d:[";
 			if(C->getType()->isPointerTy())
@@ -3036,6 +3094,18 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			else
 				compileOperand(C);
 			stream << "],o:0}";
+		}
+		else if(k == SPLIT_REGULAR)
+		{
+			stream << '[';
+			if(C->getType()->isPointerTy())
+				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
+			else
+				compileOperand(C);
+			stream << ']';
+			stream << ';' << NewLine;
+			stream  << "var " << namegen.getSecondaryName(&G);
+			stream << "=0";
 		}
 		else
 		{
@@ -3089,45 +3159,27 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 		compileCompleteObject(otherGV);
 
-		POINTER_KIND elementPointerKind = UNKNOWN;
-		bool hasConstantOffset = false;
 		Value* valOp = subExpr.back()->get();
-		for ( auto it = std::next(subExpr.begin()); it != subExpr.end(); ++it )
-		{
-			const Use * u = *it;
-
-			if ( isa<ConstantArray>( u->getUser() ) )
-			{
-				stream << '[' << u->getOperandNo() << ']';
-				if (it == (subExpr.end()-1) && valOp->getType()->isPointerTy())
-					elementPointerKind = PA.getPointerKindForStoredType(valOp->getType()->getPointerElementType());
-			}
-			else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
-			{
-				stream << ".a" << u->getOperandNo();
-				if (types.useWrapperArrayForMember(PA, cs->getType(), u->getOperandNo()))
-					stream << "[0]";
-				if (it == (subExpr.end()-1) && valOp->getType()->isPointerTy())
-				{
-					// We don't expect anything which is not a pointer here, as we are fixing dependencies between globals
-					assert(cs->getType()->getElementType(u->getOperandNo())->isPointerTy());
-					TypeAndIndex b(cs->getType(), u->getOperandNo(), TypeAndIndex::STRUCT_MEMBER);
-					elementPointerKind = PA.getPointerKindForMemberPointer(b);
-					hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
-				}
-			}
-			else
-				assert(false);
-		}
+		GlobalSubExprInfo subExprInfo = compileGlobalSubExpr(subExpr);
 
 		stream << '=';
 		if (valOp->getType()->isPointerTy())
 		{
-			assert(elementPointerKind != UNKNOWN);
-			if(elementPointerKind==REGULAR && hasConstantOffset)
+			assert(subExprInfo.kind != UNKNOWN);
+			if((subExprInfo.kind == REGULAR || subExprInfo.kind == SPLIT_REGULAR) && subExprInfo.hasConstantOffset)
 				compilePointerBase(valOp);
+			else if(subExprInfo.kind == SPLIT_REGULAR)
+			{
+				compilePointerBase(valOp);
+				stream << ";" << NewLine;
+				compileCompleteObject(otherGV);
+				compileGlobalSubExpr(subExpr);
+				stream << 'o';
+				stream << '=';
+				compilePointerOffset(valOp);
+			}
 			else
-				compilePointerAs(valOp, elementPointerKind);
+				compilePointerAs(valOp, subExprInfo.kind);
 		}
 		else
 			compileOperand(valOp);
