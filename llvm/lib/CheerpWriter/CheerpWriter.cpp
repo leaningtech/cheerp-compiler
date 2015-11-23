@@ -329,6 +329,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());
 	bool needsDowncastArray = isa<StructType>(t) && globalDeps.needsDowncastArray(cast<StructType>(t));
 	bool needsRegular = result==REGULAR && !constantOffset && !needsDowncastArray;
+	assert(result != SPLIT_REGULAR || constantOffset);
 
 	if(needsRegular)
 	{
@@ -468,9 +469,9 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 			numElem = (allocatedSize+typeSize-1)/typeSize;
 		}
 
-		assert(REGULAR == result || numElem == 1);
+		assert((REGULAR == result || SPLIT_REGULAR == result) || numElem == 1);
 
-		if(REGULAR == result && !needsDowncastArray)
+		if((REGULAR == result || SPLIT_REGULAR == result) && !needsDowncastArray)
 			stream << '[';
 
 		for(uint32_t i = 0; i < numElem;i++)
@@ -480,7 +481,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 				stream << ',';
 		}
 
-		if(REGULAR == result)
+		if(REGULAR == result || SPLIT_REGULAR == result)
 		{
 			if(needsDowncastArray)
 				stream << ".a";
