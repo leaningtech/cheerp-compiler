@@ -1566,10 +1566,19 @@ bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Valu
 {
 	Type* phiType=phi->getType();
 	const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
+	if(!incomingInst)
+		return true;
+	POINTER_KIND incomingKind = UNKNOWN;
+	POINTER_KIND phiKind = UNKNOWN;
+	if(phiType->isPointerTy())
+	{
+		incomingKind = PA.getPointerKind(incoming);
+		phiKind = PA.getPointerKind(phi);
+	}
 	return
-		!incomingInst || isInlineable(*incomingInst, PA) ||
+		isInlineable(*incomingInst, PA) ||
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst) ||
-		(phiType->isPointerTy() && PA.getPointerKind(phi)!=PA.getPointerKind(incoming)) ||
+		phiKind!=incomingKind ||
 		PA.getConstantOffsetForPointer(phi)!=PA.getConstantOffsetForPointer(incoming);
 }
 
@@ -1618,6 +1627,13 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		const BasicBlock* toBB;
 		void handleRecursivePHIDependency(const Instruction* phi) override
 		{
+			if(phi->getType()->isPointerTy() && writer.PA.getPointerKind(phi)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(phi))
+			{
+				writer.namegen.setEdgeContext(fromBB, toBB);
+				writer.stream << "var " << writer.namegen.getSecondaryNameForEdge(phi);
+				writer.namegen.clearEdgeContext();
+				writer.stream << '=' << writer.namegen.getSecondaryName(phi) << ';' << writer.NewLine;
+			}
 			writer.namegen.setEdgeContext(fromBB, toBB);
 			writer.stream << "var " << writer.namegen.getNameForEdge(phi);
 			writer.namegen.clearEdgeContext();
@@ -1628,23 +1644,42 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(!writer.needsPointerKindConversion(phi, incoming))
 				return;
-			writer.stream << "var " << writer.namegen.getName(phi) << '=';
-			writer.namegen.setEdgeContext(fromBB, toBB);
 			Type* phiType=phi->getType();
 			if(phiType->isPointerTy())
 			{
 				POINTER_KIND k=writer.PA.getPointerKind(phi);
-				if(k==REGULAR && writer.PA.getConstantOffsetForPointer(phi))
+				if((k==REGULAR || k==SPLIT_REGULAR) && writer.PA.getConstantOffsetForPointer(phi))
+				{
+					writer.stream << "var " << writer.namegen.getName(phi) << '=';
+					writer.namegen.setEdgeContext(fromBB, toBB);
 					writer.compilePointerBase(incoming);
+				}
+				else if(k==SPLIT_REGULAR)
+				{
+					writer.stream << "var " << writer.namegen.getSecondaryName(phi) << '=';
+					writer.namegen.setEdgeContext(fromBB, toBB);
+					writer.compilePointerOffset(incoming);
+					writer.stream << ';' << writer.NewLine;
+					writer.namegen.clearEdgeContext();
+					writer.stream << "var " << writer.namegen.getName(phi) << '=';
+					writer.namegen.setEdgeContext(fromBB, toBB);
+					writer.compilePointerBase(incoming);
+				}
 				else
 				{
+					writer.stream << "var " << writer.namegen.getName(phi) << '=';
+					writer.namegen.setEdgeContext(fromBB, toBB);
 					if(k==REGULAR)
 						writer.stream << "aSlot=";
 					writer.compilePointerAs(incoming, k);
 				}
 			}
 			else
+			{
+				writer.stream << "var " << writer.namegen.getName(phi) << '=';
+				writer.namegen.setEdgeContext(fromBB, toBB);
 				writer.compileOperand(incoming);
+			}
 			writer.stream << ';' << writer.NewLine;
 			writer.namegen.clearEdgeContext();
 		}
