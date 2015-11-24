@@ -1993,8 +1993,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			{
 				POINTER_KIND storedKind = PA.getPointerKind(&si);
 				// If regular see if we can omit the offset part
-				if(storedKind==REGULAR && PA.getConstantOffsetForPointer(&si))
+				if((storedKind==SPLIT_REGULAR || storedKind==REGULAR) && PA.getConstantOffsetForPointer(&si))
 					compilePointerBase(valOp);
+				else if(storedKind==SPLIT_REGULAR)
+				{
+					compilePointerBase(valOp);
+					stream << ';' << NewLine;
+					compileCompleteObject(ptrOp);
+					stream << "o=";
+					compilePointerOffset(valOp);
+				}
 				else
 					compilePointerAs(valOp, storedKind);
 			}
@@ -2743,10 +2751,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << ",true";
 				stream << ')';
 			}
-			else
+			else if(li.getType()->isPointerTy() && !li.use_empty() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
 			{
+				assert(!isInlineable(li, PA));
 				compileCompleteObject(ptrOp);
+				stream << ");" << NewLine;
+				stream << "var " << namegen.getSecondaryName(&li) << "=(";
+				compileCompleteObject(ptrOp);
+				stream <<'o';
 			}
+			else
+				compileCompleteObject(ptrOp);
 			if(li.getType()->isIntegerTy())
 			{
 				uint32_t width = li.getType()->getIntegerBitWidth();
