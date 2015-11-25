@@ -957,7 +957,15 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								Value* Zero = ConstantInt::get(Int32, 0);
 								Value* Indexes[] = { Zero, Zero };
 								Value* newPtrOperand = getMappedOperand(ptrOperand);
-								Instruction* newGEP = GetElementPtrInst::Create(newPtrOperand, Indexes, "gepforupcast");
+								Type* newType = GetElementPtrInst::getIndexedType(newPtrOperand->getType(), Indexes);
+								Value* newGEP = NULL;
+								if(newType->isArrayTy())
+								{
+									Value* Indexes2[] = { Zero, Zero, Zero };
+									newGEP = GetElementPtrInst::Create(newPtrOperand, Indexes2, "gepforupcast");
+								}
+								else
+									newGEP = GetElementPtrInst::Create(newPtrOperand, Indexes, "gepforupcast");
 								setMappedOperand(&I, newGEP);
 								break;
 							}
