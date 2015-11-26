@@ -570,8 +570,6 @@ bool NameGenerator::needsSecondaryName(const Value* V, const PointerAnalyzer& PA
 		return false;
 	if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
 		return true;
-	if(isa<Argument>(V) || PA.getPointerKind(V) == REGULAR)
-		return true;
 	return false;
 }
 
