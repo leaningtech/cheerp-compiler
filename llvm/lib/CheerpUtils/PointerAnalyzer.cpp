@@ -1338,7 +1338,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex&
 	return PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(k, mayCache).getPointerKind(regularPreference);
 }
 
-POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAndIndex) const
+POINTER_KIND PointerAnalyzer::getPointerKindForMemberImpl(const TypeAndIndex& baseAndIndex, PointerKindData& pointerKindData, AddressTakenMap& addressTakenCache)
 {
 	auto it=pointerKindData.baseStructAndIndexMapForMembers.find(baseAndIndex);
 	if(it==pointerKindData.baseStructAndIndexMapForMembers.end())
@@ -1352,6 +1352,11 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAn
 
 	bool mayCache = false;
 	return PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(k, mayCache).getPointerKind(PREF_REGULAR);
+}
+
+POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAndIndex) const
+{
+	return getPointerKindForMemberImpl(baseAndIndex, pointerKindData, addressTakenCache);
 }
 
 TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(const Value* p)
@@ -1397,6 +1402,13 @@ REGULAR_POINTER_PREFERENCE PointerAnalyzer::getRegularPreference(const IndirectP
 	switch(c.kind)
 	{
 		case BASE_AND_INDEX_CONSTRAINT:
+		{
+			// A pointer which requires a wrapping array can't be SPLIT_REGULAR
+			TypeAndIndex tai(c.typePtr, c.i, TypeAndIndex::STRUCT_MEMBER);
+			if(PointerAnalyzer::getPointerKindForMemberImpl(tai, pointerKindData, addressTakenCache) == REGULAR)
+				return PREF_REGULAR;
+			return PREF_SPLIT_REGULAR;
+		}
 		case DIRECT_ARG_CONSTRAINT:
 		case RETURN_CONSTRAINT:
 		case RETURN_TYPE_CONSTRAINT:
@@ -1505,12 +1517,16 @@ void PointerAnalyzer::fullResolve()
 	for(auto& it: pointerKindData.baseStructAndIndexMapForMembers)
 	{
 		if(it.second!=INDIRECT)
+		{
+			it.second.applyRegularPreference(PREF_REGULAR);
 			continue;
+		}
 		bool mayCache = true;
 		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second, mayCache);
 		// BYTE_LAYOUT is not expected for the kind of pointers to member
-		assert(k==COMPLETE_OBJECT || k==REGULAR);
-		it.second=k;
+		assert(k==COMPLETE_OBJECT || k==SPLIT_REGULAR || k==REGULAR);
+		it.second = k;
+		it.second.applyRegularPreference(PREF_REGULAR);
 	}
 	for(auto& it: pointerKindData.constraintsMap)
 	{
