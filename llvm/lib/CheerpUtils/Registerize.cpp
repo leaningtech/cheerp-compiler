@@ -330,6 +330,10 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveRanges, cheerp::PointerAnalyzer& PA,
 						uint32_t thisIndex, uint32_t codePathId)
 {
+	// SPLIT_REGULAR pointers keep alive the register until after the instruction. Calls are an exception as the offset is stored in a global.
+	if(!isa<CallInst>(I) && I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR)
+		thisIndex++;
+
 	for(Value* op: I.operands())
 	{
 		Instruction* usedI = dyn_cast<Instruction>(op);
