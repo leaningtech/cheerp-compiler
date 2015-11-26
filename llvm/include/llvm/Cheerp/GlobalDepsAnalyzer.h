@@ -99,7 +99,7 @@ public:
 
 	void getAnalysisUsage( llvm::AnalysisUsage& ) const override;
 
-	void visitType( llvm::Type* t );
+	void visitType( llvm::Type* t, bool forceTypedArray );
 
 	llvm::StructType* needsDowncastArray(llvm::StructType* t) const;
 private:
