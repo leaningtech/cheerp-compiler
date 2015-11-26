@@ -127,7 +127,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			case Instruction::Call:
 			case Instruction::Load:
 			{
-				if(I.use_empty())
+				if(I.use_empty() || (I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR))
 					return false;
 				const Instruction* nextInst=I.getNextNode();
 				assert(nextInst);
@@ -336,6 +336,7 @@ bool TypeSupport::useWrapperArrayForMember(const PointerAnalyzer& PA, StructType
 	}
 	// We don't want to use the wrapper array if the downcast array is alredy available
 	TypeAndIndex baseAndIndex(st, memberIndex, TypeAndIndex::STRUCT_MEMBER);
+	assert(PA.getPointerKindForMember(baseAndIndex)!=SPLIT_REGULAR);
 	return PA.getPointerKindForMember(baseAndIndex)==REGULAR;
 }
 
