@@ -643,7 +643,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 				return visitValue( ret, p, /*first*/ false );
 			return ret |= COMPLETE_OBJECT;
 		}
-		return ret |= PointerKindWrapper(REGULAR, p);
+		return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 	}
 
 	// Constant data in memory is considered stored
@@ -678,14 +678,14 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return ret |= PointerKindWrapper(kindForType, p);
 
 	if ( isa<PtrToIntInst>(p) || ( isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::PtrToInt) )
-		return ret |= PointerKindWrapper(REGULAR, p);
+		return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 
 	if ( const CmpInst * I = dyn_cast<CmpInst>(p) )
 	{
 		if (kindForType != UNKNOWN)
 			return ret |= PointerKindWrapper(kindForType, p);
 		if ( !I->isEquality() )
-			return ret |= PointerKindWrapper(REGULAR, p);
+			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 		else
 			return ret |= COMPLETE_OBJECT;
 	}
@@ -700,7 +700,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			if (TypeSupport::hasByteLayout(intrinsic->getOperand(0)->getType()->getPointerElementType()))
 				return ret |= COMPLETE_OBJECT;
 			else
-				return ret |= PointerKindWrapper(REGULAR, p);
+				return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 		}
 		case Intrinsic::invariant_start:
 		case Intrinsic::invariant_end:
@@ -728,12 +728,12 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_pointer_offset:
 		case Intrinsic::vastart:
 		case Intrinsic::vaend:
-			return ret |= PointerKindWrapper(REGULAR, p);
+			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 		case Intrinsic::cheerp_create_closure:
 			if ( U->getOperandNo() == 0)
 				return ret |= COMPLETE_OBJECT;
 			else if ( isa<Function>( p->getOperand(0) ) )
-				return ret |= PointerKindWrapper(REGULAR, p);
+				return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 			else
 				llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, cheerp_create_closure");
 		case Intrinsic::flt_rounds:
@@ -744,7 +744,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			str+=intrinsic->getCalledFunction()->getName();
 			llvm::report_fatal_error(StringRef(str),false);
 		}
-		return ret |= PointerKindWrapper(REGULAR, p);
+		return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 	}
 
 	if ( ImmutableCallSite cs = p )
@@ -798,7 +798,7 @@ POINTER_KIND PointerUsageVisitor::getKindForType(Type * tp)
 		return COMPLETE_OBJECT;
 
 	if ( TypeSupport::isImmutableType( tp ) )
-		return REGULAR;
+		return SPLIT_REGULAR;
 
 	return UNKNOWN;
 }
@@ -1394,7 +1394,19 @@ bool PointerAnalyzer::hasNonLoadStoreUses( const Value* v)
 
 REGULAR_POINTER_PREFERENCE PointerAnalyzer::getRegularPreference(const IndirectPointerKindConstraint& c, PointerKindData& pointerKindData, AddressTakenMap& addressTakenCache)
 {
-	return PREF_REGULAR;
+	switch(c.kind)
+	{
+		case BASE_AND_INDEX_CONSTRAINT:
+		case DIRECT_ARG_CONSTRAINT:
+		case RETURN_CONSTRAINT:
+		case RETURN_TYPE_CONSTRAINT:
+		case INDIRECT_ARG_CONSTRAINT:
+		case DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN:
+			return PREF_SPLIT_REGULAR;
+		case STORED_TYPE_CONSTRAINT:
+			return PREF_REGULAR;
+	}
+	assert(false);
 }
 
 const ConstantInt* PointerAnalyzer::getConstantOffsetForPointer(const Value * v) const
@@ -1521,8 +1533,8 @@ void PointerAnalyzer::fullResolve()
 			continue;
 		bool mayCache = true;
 		const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolvePointerKind(it.second, mayCache);
-		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR);
-		it.second=k;
+		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR || k==SPLIT_REGULAR);
+		it.second = k;
 	}
 #ifndef NDEBUG
 	fullyResolved = true;
