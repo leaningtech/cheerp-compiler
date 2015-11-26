@@ -184,7 +184,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 				SubExprVec Newsubexpr (1, &GV->getOperandUse(0));
 				visitConstant( GV->getInitializer(), visited, Newsubexpr);
 				Type* globalType = GV->getInitializer()->getType();
-				visitType(globalType);
+				visitType(globalType, /*forceTypedArray*/ true);
 			}
 			
 			varsOrder.push_back(GV);
@@ -252,7 +252,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			if ( const AllocaInst* AI = dyn_cast<AllocaInst>(&I) )
 			{
 				Type* allocaType = AI->getAllocatedType();
-				visitType(allocaType);
+				visitType(allocaType, /*forceTypedArray*/false );
 			}
 			else if ( ImmutableCallSite(&I).isCall() || ImmutableCallSite(&I).isInvoke() )
 			{
@@ -298,16 +298,16 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		hasCreateClosureUsers = true;
 }
 
-void GlobalDepsAnalyzer::visitType( Type* t )
+void GlobalDepsAnalyzer::visitType( Type* t, bool forceTypedArray )
 {
 	if( ArrayType* AT=dyn_cast<ArrayType>(t) )
 	{
 		Type* elementType = AT->getElementType();
 		if(elementType->isPointerTy())
 			hasPointerArrays = true;
-		else if(AT->getNumElements() > 8)
+		else if(!TypeSupport::isTypedArrayType(elementType, forceTypedArray) && AT->getNumElements() > 8)
 			arraysNeeded.insert(elementType);
-		visitType(elementType);
+		visitType(elementType, /*forceTypedArray*/ false);
 	}
 	else if( StructType* ST=dyn_cast<StructType>(t) )
 		visitStruct(ST);
@@ -319,7 +319,7 @@ void GlobalDepsAnalyzer::visitStruct( StructType* ST )
 		return;
 	classesNeeded.insert(ST);
 	for(uint32_t i=0;i<ST->getNumElements();i++)
-		visitType(ST->getElementType(i));
+		visitType(ST->getElementType(i), /*forceTypedArray*/ false);
 }
 
 llvm::StructType* GlobalDepsAnalyzer::needsDowncastArray(llvm::StructType* t) const
