@@ -39,6 +39,10 @@ private:
 		{
 			return mappedType;
 		}
+		static bool isCollapsedStruct(MAPPING_KIND k)
+		{
+			return k == COLLAPSED || k == MERGED_MEMBER_ARRAYS_AND_COLLAPSED;
+		}
 	};
 	llvm::Module* module;
 	const llvm::DataLayout* DL;
