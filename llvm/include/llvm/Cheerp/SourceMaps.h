@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -31,19 +31,17 @@ private:
 	uint32_t lastFile;
 	uint32_t lastLine;
 	uint32_t lastColoumn;
-	bool validInfo;
-	bool lineStart;
+	uint32_t lastOffset;
+	uint32_t lineOffset;
 	void writeBase64VLQInt(int32_t i);
 public:
 	// sourceMapName and sourceMapPrefix life spans should be longer than the one of the SourceMapGenerator
 	SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, llvm::LLVMContext& C, std::error_code& ErrorCode);
 	void setDebugLoc(const llvm::DebugLoc& debugLoc);
-	void clearDebugInfo()
-	{
-		validInfo = false;
-	}
 	void beginFile();
 	void finishLine();
+	// TODO: It's not clear if the line offset in encoded in bytes or charathers
+	void addLineOffset(uint32_t o) { lineOffset+=o; }
 	void endFile();
 	std::string getSourceMapName() const;
 };
