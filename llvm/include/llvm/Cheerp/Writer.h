@@ -32,21 +32,6 @@ namespace cheerp
 
 class NewLineHandler
 {
-private:
-	SourceMapGenerator* sourceMapGenerator;
-public:
-	NewLineHandler(SourceMapGenerator* s):sourceMapGenerator(s)
-	{
-	}
-
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const NewLineHandler& handler)
-	{
-		s << '\n';
-		if(handler.sourceMapGenerator)
-			handler.sourceMapGenerator->finishLine();
-		return s;
-	}
-
 };
 
 /**
@@ -55,8 +40,9 @@ public:
 class ostream_proxy
 {
 public:
-	ostream_proxy( llvm::raw_ostream & s, bool readableOutput = false ) :
+	ostream_proxy( llvm::raw_ostream & s, SourceMapGenerator* g, bool readableOutput = false ) :
 		stream(s),
+		sourceMapGenerator(g),
 		readableOutput(readableOutput),
 		newLine(true),
 		indentLevel(0)
@@ -64,13 +50,21 @@ public:
 
 	friend ostream_proxy& operator<<( ostream_proxy & os, char c )
 	{
+		uint64_t begin = os.stream.tell();
 		os.write_indent(c);
+		uint64_t end = os.stream.tell();
+		if(os.sourceMapGenerator)
+			os.sourceMapGenerator->addLineOffset(end-begin);
 		return os;
 	}
 
 	friend ostream_proxy& operator<<( ostream_proxy & os, llvm::StringRef s )
 	{
+		uint64_t begin = os.stream.tell();
 		os.write_indent(s);
+		uint64_t end = os.stream.tell();
+		if(os.sourceMapGenerator)
+			os.sourceMapGenerator->addLineOffset(end-begin);
 		return os;
 	}
 
@@ -78,7 +72,9 @@ public:
 	{
 		if(!os.readableOutput)
 			return os;
-		os.stream << handler;
+		if(os.sourceMapGenerator)
+			os.sourceMapGenerator->finishLine();
+		os.stream << '\n';
 		os.newLine = true;
 		return os;
 	}
@@ -88,12 +84,16 @@ public:
 		!std::is_convertible<T&&, llvm::StringRef>::value, // Use this only if T is not convertible to StringRef
 		ostream_proxy&>::type operator<<( ostream_proxy & os, T && t )
 	{
+		uint64_t begin = os.stream.tell();
 		if ( os.newLine && os.readableOutput )
 			for ( int i = 0; i < os.indentLevel; i++ )
 				os.stream << '\t';
 
 		os.stream << std::forward<T>(t);
 		os.newLine = false;
+		uint64_t end = os.stream.tell();
+		if(os.sourceMapGenerator)
+			os.sourceMapGenerator->addLineOffset(end-begin);
 		return os;
 	}
 
@@ -132,6 +132,7 @@ private:
 	}
 
 	llvm::raw_ostream & stream;
+	SourceMapGenerator* sourceMapGenerator;
 	bool readableOutput;
 	bool newLine;
 	int indentLevel;
@@ -369,8 +370,8 @@ public:
 	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, ReadableOutput),types(m),
-		sourceMapGenerator(sourceMapGenerator),NewLine(sourceMapGenerator),useNativeJavaScriptMath(UseNativeJavaScriptMath),
-		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),stream(s, ReadableOutput)
+		sourceMapGenerator(sourceMapGenerator),NewLine(),useNativeJavaScriptMath(UseNativeJavaScriptMath),
+		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),stream(s, sourceMapGenerator, ReadableOutput)
 	{
 	}
 	void makeJS();
