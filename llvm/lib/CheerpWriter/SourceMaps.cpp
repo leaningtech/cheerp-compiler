@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2015 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,7 +21,7 @@ namespace cheerp
 
 SourceMapGenerator::SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, llvm::LLVMContext& C, std::error_code& ErrorCode):
 	sourceMap(sourceMapName.c_str(), ErrorCode, sys::fs::F_None), sourceMapName(sourceMapName), sourceMapPrefix(sourceMapPrefix),
-	Ctx(C), lastFile(0), lastLine(0), lastColoumn(0), validInfo(false), lineStart(true)
+	Ctx(C), lastFile(0), lastLine(0), lastColoumn(0), lastOffset(0), lineOffset(0)
 {
 }
 
@@ -48,40 +48,34 @@ void SourceMapGenerator::writeBase64VLQInt(int i)
 
 void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
 {
-	if(!lineStart)
-	{
-		//TODO: Support multi-segment
-	}
-	else
-	{
-		// Start a new line
-		MDNode* file = debugLoc.getScope(Ctx);
-		assert(file->getNumOperands()>=2);
-		MDNode* fileNamePath = cast<MDNode>(file->getOperand(1));
-		assert(fileNamePath->getNumOperands()==2);
-		MDString* fileNameString = cast<MDString>(fileNamePath->getOperand(0));
+	MDNode* file = debugLoc.getScope(Ctx);
+	assert(file->getNumOperands()>=2);
+	MDNode* fileNamePath = cast<MDNode>(file->getOperand(1));
+	assert(fileNamePath->getNumOperands()==2);
+	MDString* fileNameString = cast<MDString>(fileNamePath->getOperand(0));
 
-		auto fileMapIt = fileMap.find(fileNameString);
-		if (fileMapIt == fileMap.end())
-			fileMapIt = fileMap.insert(std::make_pair(fileNameString, fileMap.size())).first;
-		uint32_t currentFile = fileMapIt->second;
-		uint32_t currentLine = debugLoc.getLine() - 1;
-		uint32_t currentColoumn = debugLoc.getCol();
-		// Starting coloumn in the generated code
-		writeBase64VLQInt(0);
-		// Other fields are encoded as difference from the previous one in the file
-		// We can use the last value directly because it is initialized as 0
-		// File index
-		writeBase64VLQInt(currentFile - lastFile);
-		// Line index
-		writeBase64VLQInt(currentLine - lastLine);
-		// Coloumn index
-		writeBase64VLQInt(currentColoumn - lastColoumn);
-		lastFile = currentFile;
-		lastLine = currentLine;
-		lastColoumn = currentColoumn;
-	}
-	lineStart = false;
+	auto fileMapIt = fileMap.find(fileNameString);
+	if (fileMapIt == fileMap.end())
+		fileMapIt = fileMap.insert(std::make_pair(fileNameString, fileMap.size())).first;
+	uint32_t currentFile = fileMapIt->second;
+	uint32_t currentLine = debugLoc.getLine() - 1;
+	uint32_t currentColoumn = debugLoc.getCol() - 1;
+	if(lastOffset != 0)
+		sourceMap.os() << ',';
+	// Starting coloumn in the generated code
+	writeBase64VLQInt(lineOffset - lastOffset);
+	// Other fields are encoded as difference from the previous one in the file
+	// We can use the last value directly because it is initialized as 0
+	// File index
+	writeBase64VLQInt(currentFile - lastFile);
+	// Line index
+	writeBase64VLQInt(currentLine - lastLine);
+	// Coloumn index
+	writeBase64VLQInt(currentColoumn - lastColoumn);
+	lastFile = currentFile;
+	lastLine = currentLine;
+	lastColoumn = currentColoumn;
+	lastOffset = lineOffset;
 }
 
 void SourceMapGenerator::beginFile()
@@ -95,9 +89,9 @@ void SourceMapGenerator::beginFile()
 
 void SourceMapGenerator::finishLine()
 {
-	assert(!validInfo);
 	sourceMap.os() << ";";
-	lineStart = true;
+	lastOffset = 0;
+	lineOffset = 0;
 }
 
 void SourceMapGenerator::endFile()
