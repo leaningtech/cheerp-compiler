@@ -61,8 +61,8 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 		const Argument * obj = a->getNextNode();
 		const Argument * obj2 = obj->getNextNode();
 		
-		EXPECT_EQ( REGULAR, PA.getPointerKind(a) );
-		EXPECT_EQ( REGULAR, PA.getPointerKind(obj) );
+		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(a) );
+		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(obj) );
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(obj2) );
 	}
 	
@@ -74,7 +74,7 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 		const Argument * b = obj->getNextNode();
 		
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(obj) );
-		EXPECT_EQ( REGULAR, PA.getPointerKind(b) );
+		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(b) );
 	}
 	
 	/** Check f3 **/
@@ -85,7 +85,7 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 		const Argument * b = obj->getNextNode();
 		
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(obj) );
-		EXPECT_EQ( REGULAR, PA.getPointerKind(b) );
+		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(b) );
 	}
 	
 	/** Check f4 **/
@@ -108,8 +108,8 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 		ASSERT_TRUE(d);
 		ASSERT_EQ( Intrinsic::cheerp_downcast, d->getIntrinsicID() );
 		
-		EXPECT_EQ( REGULAR, PA.getPointerKind(p) );
-		EXPECT_EQ( REGULAR, PA.getPointerKind(d) );
+		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(p) );
+		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(d) );
 	}
 	
 	/** Check webMain **/
@@ -132,7 +132,7 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(a2) );
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(a3) );
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(b1) );
-		EXPECT_EQ( REGULAR, PA.getPointerKind(c) );
+		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(c) );
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(d1) );
 	}
 	
