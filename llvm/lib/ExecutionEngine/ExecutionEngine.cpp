@@ -67,6 +67,8 @@ void JITEventListener::anchor() {}
 void ObjectCache::anchor() {}
 
 void ExecutionEngine::Init(std::unique_ptr<Module> M) {
+  LazyFunctionCreator = nullptr;
+  StoreListener = nullptr;
   CompilingLazily         = false;
   GVCompilationDisabled   = false;
   SymbolSearchingDisabled = false;
