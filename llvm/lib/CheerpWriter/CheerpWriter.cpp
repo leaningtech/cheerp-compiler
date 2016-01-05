@@ -906,8 +906,8 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	POINTER_KIND lhsKind = PA.getPointerKind(lhs);
 	POINTER_KIND rhsKind = PA.getPointerKind(rhs);
 
-	if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR) &&
-		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR))
+	if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || isGEP(lhs)) &&
+		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || isGEP(rhs)))
 	{
 		if(isa<ConstantPointerNull>(lhs))
 			stream << '1';
@@ -1219,7 +1219,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 
 void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 {
-	if ( PA.getPointerKind(p) == COMPLETE_OBJECT )
+	if ( PA.getPointerKind(p) == COMPLETE_OBJECT && !isGEP(p) )
 	{
 		// This may still happen when doing ptrtoint of a function
 		stream << '0';
