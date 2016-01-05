@@ -2764,6 +2764,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const LoadInst& li = cast<LoadInst>(I);
 			const Value* ptrOp=li.getPointerOperand();
+
+			if(li.getType()->isFloatingPointTy())
+				stream << '+';
 			stream << '(';
 
 			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
