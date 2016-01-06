@@ -102,7 +102,7 @@ namespace test3 {
     // CHECK:      call void @_ZN5test31BC1Ev([[B]]* [[RESULT]])
     // CHECK-NEXT: br label
     // CHECK:      call void @_ZN5test31BD1Ev([[B]]* [[TEMP]])
-    // CHECK-NEXT: call void @"llvm.lifetime.end
+    // CHECK-NEXT: call void @llvm.lifetime.end
     // CHECK-NEXT: ret void
     extern B test1_helper();
     return test1_helper() ?: B();
@@ -135,7 +135,7 @@ namespace test3 {
     // CHECK:      call void @_ZN5test31AC1Ev([[A]]* [[RESULT]])
     // CHECK-NEXT: br label
     // CHECK:      call void @_ZN5test31BD1Ev([[B]]* [[TEMP]])
-    // CHECK-NEXT: call void @"llvm.lifetime.end
+    // CHECK-NEXT: call void @llvm.lifetime.end
     // CHECK-NEXT: ret void
     extern B test3_helper();
     return test3_helper() ?: A();

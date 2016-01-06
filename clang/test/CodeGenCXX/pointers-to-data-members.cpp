@@ -20,7 +20,7 @@ namespace ZeroInit {
   // CHECK-GLOBAL: @_ZN8ZeroInit1bE = global i64 -1,
   int A::* b = 0;
 
-  // CHECK-GLOBAL: @_ZN8ZeroInit2saE = internal global %struct.anon { i64 -1 }
+  // CHECK-GLOBAL: @_ZN8ZeroInit2saE = internal global %"struct._ZN8ZeroInit3$_0E" { i64 -1 }
   struct {
     int A::*a;
   } sa;
@@ -33,7 +33,7 @@ namespace ZeroInit {
   } ssa[2];
   void test_ssa() { (void) ssa; }
   
-  // CHECK-GLOBAL: @_ZN8ZeroInit2ssE = internal global %struct.anon.1 { %struct.anon.2 { i64 -1 } }
+  // CHECK-GLOBAL: @_ZN8ZeroInit2ssE = internal global %"struct._ZN8ZeroInit3$_2E" { %"struct._ZN8ZeroInit3$_23$_3E" { i64 -1 } }
   struct {
     struct {
       int A::*pa;
@@ -53,7 +53,7 @@ namespace ZeroInit {
   };
 
   struct C : A, B { int j; };
-  // CHECK-GLOBAL: @_ZN8ZeroInit1cE = global {{%.*}} <{ %"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::B" { [10 x %"struct.ZeroInit::A"] [%"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::A" { i64 -1, i32 0 }, %"struct.ZeroInit::A" { i64 -1, i32 0 }], i8 0, i64 -1 }, i32 0, [4 x i8] zeroinitializer }>, align 8
+  // CHECK-GLOBAL: @_ZN8ZeroInit1cE = global {{%.*}} <{ %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1BE { [10 x %struct._ZN8ZeroInit1AE] [%struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }, %struct._ZN8ZeroInit1AE { i64 -1, i32 0 }], i8 0, i64 -1 }, i32 0, [4 x i8] zeroinitializer }>, align 8
   C c;
 }
 
@@ -136,15 +136,15 @@ struct A {
   int A::*i;
 };
 
-// CHECK-GLOBAL: @_ZN12VirtualBases1bE = global %"struct.VirtualBases::B" { i32 (...)** null, %"struct.VirtualBases::A" { i8 0, i64 -1 } }, align 8
+// CHECK-GLOBAL: @_ZN12VirtualBases1bE = global %struct._ZN12VirtualBases1BE { i32 (...)** null, %struct._ZN12VirtualBases1AE { i8 0, i64 -1 } }, align 8
 struct B : virtual A { };
 B b;
 
-// CHECK-GLOBAL: @_ZN12VirtualBases1cE = global %"struct.VirtualBases::C" { i32 (...)** null, i64 -1, %"struct.VirtualBases::A" { i8 0, i64 -1 } }, align 8
+// CHECK-GLOBAL: @_ZN12VirtualBases1cE = global %struct._ZN12VirtualBases1CE { i32 (...)** null, i64 -1, %struct._ZN12VirtualBases1AE { i8 0, i64 -1 } }, align 8
 struct C : virtual A { int A::*i; };
 C c;
 
-// CHECK-GLOBAL: @_ZN12VirtualBases1dE = global %"struct.VirtualBases::D" { %"struct.VirtualBases::C.base" { i32 (...)** null, i64 -1 }, i64 -1, %"struct.VirtualBases::A" { i8 0, i64 -1 } }, align 8
+// CHECK-GLOBAL: @_ZN12VirtualBases1dE = global %struct._ZN12VirtualBases1DE { %struct._ZN12VirtualBases1CE.base { i32 (...)** null, i64 -1 }, i64 -1, %struct._ZN12VirtualBases1AE { i8 0, i64 -1 } }, align 8
 struct D : C { int A::*i; };
 D d;
 
@@ -191,7 +191,7 @@ namespace test4 {
   struct C : virtual B { int    *C_p; };
   struct D :         C { int    *D_p; };
 
-  // CHECK-GLOBAL: @_ZN5test41dE = global %"struct.test4::D" { %"struct.test4::C.base" zeroinitializer, i32* null, %"struct.test4::B.base" { i32 (...)** null, i64 -1 }, %"struct.test4::A" zeroinitializer }, align 8
+  // CHECK-GLOBAL: @_ZN5test41dE = global %struct._ZN5test41DE { %struct._ZN5test41CE.base zeroinitializer, i32* null, %struct._ZN5test41BE.base { i32 (...)** null, i64 -1 }, %struct._ZN5test41AE zeroinitializer }, align 8
   D d;
 }
 
@@ -201,7 +201,7 @@ namespace PR11487 {
     int U::* mptr;
     char x[16];
   } x;
-  // CHECK-GLOBAL: @_ZN7PR114871xE = global %"union.PR11487::U" { i64 -1, [8 x i8] zeroinitializer }, align 8
+  // CHECK-GLOBAL: @_ZN7PR114871xE = global %union._ZN7PR114871UE { i64 -1, [8 x i8] zeroinitializer }, align 8
   
 }
 
@@ -229,7 +229,7 @@ struct A {
 struct B : A {
 };
 B b;
-// CHECK-GLOBAL: @_ZN7PR210891bE = global %"struct.PR21089::B" { %"struct.PR21089::A.base" <{ i8 0, [7 x i8] zeroinitializer, i64 -1, i8 0 }>, [7 x i8] zeroinitializer }, align 8
+// CHECK-GLOBAL: @_ZN7PR210891bE = global %struct._ZN7PR210891BE { %struct._ZN7PR210891AE.base <{ i8 0, [7 x i8] zeroinitializer, i64 -1, i8 0 }>, [7 x i8] zeroinitializer }, align 8
 }
 
 namespace PR21282 {
@@ -238,7 +238,7 @@ union U {
   long y[2];
 };
 U u;
-// CHECK-GLOBAL: @_ZN7PR212821uE = global %"union.PR21282::U" { i64 -1, [8 x i8] zeroinitializer }, align 8
+// CHECK-GLOBAL: @_ZN7PR212821uE = global %union._ZN7PR212821UE { i64 -1, [8 x i8] zeroinitializer }, align 8
 }
 
 namespace FlexibleArrayMember {

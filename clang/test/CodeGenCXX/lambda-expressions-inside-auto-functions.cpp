@@ -2,8 +2,8 @@
 // RUN: %clang_cc1 -triple x86_64-apple-darwin10.0.0 -fblocks -emit-llvm -o - %s -fexceptions -std=c++1y -fclang-abi-compat=6.0 | FileCheck --check-prefix CHECK_ABIV6 %s
 
 // CHECK-LABEL: define void @_ZN19non_inline_function3fooEv
-// CHECK-LABEL: define internal void @"_ZZN19non_inline_function3fooEvENK3$_0clEi"(%class.anon
-// CHECK-LABEL: define internal signext i8 @"_ZZZN19non_inline_function3fooEvENK3$_0clEiENKUlcE_clEc"(%class.anon
+// CHECK-LABEL: define internal void @"_ZZN19non_inline_function3fooEvENK3$_0clEi"(%"class._ZZN19non_inline_function
+// CHECK-LABEL: define internal signext i8 @"_ZZZN19non_inline_function3fooEvENK3$_0clEiENKUlcE_clEc"(%"class._ZZZN19non_inline_function
 // CHECK-LABEL: define linkonce_odr void @_ZN19non_inline_function4foo2IiEEDav()
 namespace non_inline_function {
 auto foo() {
@@ -24,9 +24,9 @@ auto foo2() {
 auto use = foo2<int>();
 
 }
-//CHECK-LABEL: define linkonce_odr void @_ZN22inline_member_function1X3fooEv(%"struct.inline_member_function::X"* %this)
-//CHECK-LABEL: define linkonce_odr void @_ZZN22inline_member_function1X3fooEvENKUliE_clEi(%class.anon
-//CHECK-LABEL: define linkonce_odr signext i8 @_ZZZN22inline_member_function1X3fooEvENKUliE_clEiENKUlcE_clEc(%class.anon
+//CHECK-LABEL: define linkonce_odr void @_ZN22inline_member_function1X3fooEv(%struct._ZN22inline_member_function1XE* %this)
+//CHECK-LABEL: define linkonce_odr void @_ZZN22inline_member_function1X3fooEvENKUliE_clEi(%class._ZZN22inline_member_function
+//CHECK-LABEL: define linkonce_odr signext i8 @_ZZZN22inline_member_function1X3fooEvENKUliE_clEiENKUlcE_clEc(%class._ZZZN22inline_member_function
 
 namespace inline_member_function {
 struct X {
@@ -64,8 +64,8 @@ int run3 = A<char>{}.func()('a');
 
 
 // CHECK-LABEL: define linkonce_odr void @_ZN15inline_function3fooEv()
-// CHECK: define linkonce_odr void @_ZZN15inline_function3fooEvENKUliE_clEi(%class.anon
-// CHECK: define linkonce_odr signext i8 @_ZZZN15inline_function3fooEvENKUliE_clEiENKUlcE_clEc(%class.anon
+// CHECK: define linkonce_odr void @_ZZN15inline_function3fooEvENKUliE_clEi(%class._ZZN15inline_function
+// CHECK: define linkonce_odr signext i8 @_ZZZN15inline_function3fooEvENKUliE_clEiENKUlcE_clEc(%class._ZZZN15inline_function
 namespace inline_function {
 inline auto foo() {
   auto L = [](int a) {

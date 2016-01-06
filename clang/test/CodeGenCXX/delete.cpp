@@ -71,7 +71,7 @@ namespace test0 {
     delete a;
   }
 
-  // CHECK-LABEL: define linkonce_odr void @_ZN5test01AD1Ev(%"struct.test0::A"* %this) unnamed_addr
+  // CHECK-LABEL: define linkonce_odr void @_ZN5test01AD1Ev(%struct._ZN5test01AE* %this) unnamed_addr
   // CHECK-LABEL: define linkonce_odr void @_ZN5test01AdlEPv
 }
 

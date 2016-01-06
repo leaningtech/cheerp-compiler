@@ -33,7 +33,7 @@ namespace test1 {
   // CHECK-LABEL:    define void @_ZN5test14testEv()
   // CHECK:      [[X:%.*]] = alloca [[A:%.*]], align 4
   // CHECK-NEXT: [[TMP:%.*]] = alloca [[A]], align 4
-  // CHECK-NEXT: call void @"llvm.lifetime.start
+  // CHECK-NEXT: call void @llvm.lifetime.start
   // CHECK-NEXT: [[T0:%.*]] = bitcast [[A]]* [[TMP]] to i8*
   // CHECK-NEXT: [[T1:%.*]] = bitcast [[A]]* [[X]] to i8*
   // CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 [[T0]], i8* align 4 [[T1]], i64 8, i1 false)

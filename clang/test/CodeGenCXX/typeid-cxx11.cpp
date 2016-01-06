@@ -23,10 +23,10 @@ extern constexpr Item items[] = {
   item<A>("A"), item<B>("B"), item<C>("C"), item<int>("int")
 };
 
-// CHECK: @_ZN5Test11xE = constant %"class.std::type_info"* bitcast ({{.*}}* @_ZTIN5Test11AE to %"class.std::type_info"*), align 8
+// CHECK: @_ZN5Test11xE = constant %class._ZSt9type_info* bitcast ({{.*}}* @_ZTIN5Test11AE to %class._ZSt9type_info*), align 8
 constexpr auto &x = items[0].ti;
 
-// CHECK: @_ZN5Test11yE = constant %"class.std::type_info"* bitcast ({{.*}}* @_ZTIN5Test11BE to %"class.std::type_info"*), align 8
+// CHECK: @_ZN5Test11yE = constant %class._ZSt9type_info* bitcast ({{.*}}* @_ZTIN5Test11BE to %class._ZSt9type_info*), align 8
 constexpr auto &y = typeid(B{});
 
 }

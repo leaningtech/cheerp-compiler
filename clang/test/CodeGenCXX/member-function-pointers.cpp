@@ -61,7 +61,7 @@ void f() {
 }
 
 void f2() {
-  // CODE-LP64: store %memberptr { i64 ptrtoint (void (%struct.A*)* @_ZN1A1fEv to i64), i64 0 }
+  // CODE-LP64: store %memberptr { i64 ptrtoint (void (%struct._Z1A*)* @_ZN1A1fEv to i64), i64 0 }
   void (A::*pa2)() = &A::f;
   
   // CODE-LP64: store %memberptr { i64 1, i64 0 }

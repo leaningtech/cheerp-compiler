@@ -107,7 +107,7 @@ extern "C" int call_deduced_return_operator() {
 // CHECK: load i32, i32* %
 // CHECK: ret i32 %
 
-// CHECK-LABEL: define internal i32* @_ZZL14deduced_returnvEN1SclEv(%struct.S* %this)
+// CHECK-LABEL: define internal i32* @_ZZL14deduced_returnvEN1SclEv(%struct._ZZL14deduced_returnvE1S* %this)
 // CHECK: ret i32* @_ZZL14deduced_returnvE1n
 
 static auto block_deduced_return() {

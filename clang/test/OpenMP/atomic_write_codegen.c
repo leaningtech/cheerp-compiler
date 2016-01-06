@@ -149,34 +149,34 @@ int main() {
 // CHECK: store atomic i128 [[LD]], i128* bitcast (x86_fp80*
 #pragma omp atomic write
   ldx = ldv;
-// CHECK: [[REAL_VAL:%.+]] = load i32, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @{{.*}}, i32 0, i32 0)
-// CHECK: [[IMG_VAL:%.+]] = load i32, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @{{.*}}, i32 0, i32 1)
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP]], i32 0, i32 1
+// CHECK: [[REAL_VAL:%.+]] = load i32, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @{{.*}}, i32 0, i32 0)
+// CHECK: [[IMG_VAL:%.+]] = load i32, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @{{.*}}, i32 0, i32 1)
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP]], i32 0, i32 1
 // CHECK: store i32 [[REAL_VAL]], i32* [[TEMP_REAL_REF]]
 // CHECK: store i32 [[IMG_VAL]], i32* [[TEMP_IMG_REF]]
-// CHECK: [[BITCAST:%.+]] = bitcast { i32, i32 }* [[TEMP]] to i8*
-// CHECK: call void @__atomic_store(i64 8, i8* bitcast ({ i32, i32 }* @{{.*}} to i8*), i8* [[BITCAST]], i32 0)
+// CHECK: [[BITCAST:%.+]] = bitcast %complex._ZTSi* [[TEMP]] to i8*
+// CHECK: call void @__atomic_store(i64 8, i8* bitcast (%complex._ZTSi* @{{.*}} to i8*), i8* [[BITCAST]], i32 0)
 #pragma omp atomic write
   cix = civ;
-// CHECK: [[REAL_VAL:%.+]] = load float, float* getelementptr inbounds ({ float, float }, { float, float }* @{{.*}}, i32 0, i32 0)
-// CHECK: [[IMG_VAL:%.+]] = load float, float* getelementptr inbounds ({ float, float }, { float, float }* @{{.*}}, i32 0, i32 1)
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { float, float }, { float, float }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { float, float }, { float, float }* [[TEMP]], i32 0, i32 1
+// CHECK: [[REAL_VAL:%.+]] = load float, float* getelementptr inbounds (%complex._ZTSf, %complex._ZTSf* @{{.*}}, i32 0, i32 0)
+// CHECK: [[IMG_VAL:%.+]] = load float, float* getelementptr inbounds (%complex._ZTSf, %complex._ZTSf* @{{.*}}, i32 0, i32 1)
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[TEMP]], i32 0, i32 1
 // CHECK: store float [[REAL_VAL]], float* [[TEMP_REAL_REF]]
 // CHECK: store float [[IMG_VAL]], float* [[TEMP_IMG_REF]]
-// CHECK: [[BITCAST:%.+]] = bitcast { float, float }* [[TEMP]] to i8*
-// CHECK: call void @__atomic_store(i64 8, i8* bitcast ({ float, float }* @{{.*}} to i8*), i8* [[BITCAST]], i32 0)
+// CHECK: [[BITCAST:%.+]] = bitcast %complex._ZTSf* [[TEMP]] to i8*
+// CHECK: call void @__atomic_store(i64 8, i8* bitcast (%complex._ZTSf* @{{.*}} to i8*), i8* [[BITCAST]], i32 0)
 #pragma omp atomic write
   cfx = cfv;
-// CHECK: [[REAL_VAL:%.+]] = load double, double* getelementptr inbounds ({ double, double }, { double, double }* @{{.*}}, i32 0, i32 0)
-// CHECK: [[IMG_VAL:%.+]] = load double, double* getelementptr inbounds ({ double, double }, { double, double }* @{{.*}}, i32 0, i32 1)
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { double, double }, { double, double }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { double, double }, { double, double }* [[TEMP]], i32 0, i32 1
+// CHECK: [[REAL_VAL:%.+]] = load double, double* getelementptr inbounds (%complex._ZTSd, %complex._ZTSd* @{{.*}}, i32 0, i32 0)
+// CHECK: [[IMG_VAL:%.+]] = load double, double* getelementptr inbounds (%complex._ZTSd, %complex._ZTSd* @{{.*}}, i32 0, i32 1)
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSd, %complex._ZTSd* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSd, %complex._ZTSd* [[TEMP]], i32 0, i32 1
 // CHECK: store double [[REAL_VAL]], double* [[TEMP_REAL_REF]]
 // CHECK: store double [[IMG_VAL]], double* [[TEMP_IMG_REF]]
-// CHECK: [[BITCAST:%.+]] = bitcast { double, double }* [[TEMP]] to i8*
-// CHECK: call void @__atomic_store(i64 16, i8* bitcast ({ double, double }* @{{.*}} to i8*), i8* [[BITCAST]], i32 5)
+// CHECK: [[BITCAST:%.+]] = bitcast %complex._ZTSd* [[TEMP]] to i8*
+// CHECK: call void @__atomic_store(i64 16, i8* bitcast (%complex._ZTSd* @{{.*}} to i8*), i8* [[BITCAST]], i32 5)
 // CHECK: call{{.*}} @__kmpc_flush(
 #pragma omp atomic seq_cst write
   cdx = cdv;
@@ -212,12 +212,12 @@ int main() {
   ix = uiv;
 // CHECK: load i64, i64*
 // CHECK: [[VAL:%.+]] = trunc i64 %{{.*}} to i32
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP]], i32 0, i32 1
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP]], i32 0, i32 1
 // CHECK: store i32 [[VAL]], i32* [[TEMP_REAL_REF]]
 // CHECK: store i32 0, i32* [[TEMP_IMG_REF]]
-// CHECK: [[BITCAST:%.+]] = bitcast { i32, i32 }* [[TEMP]] to i8*
-// CHECK: call void @__atomic_store(i64 8, i8* bitcast ({ i32, i32 }* @{{.+}} to i8*), i8* [[BITCAST]], i32 0)
+// CHECK: [[BITCAST:%.+]] = bitcast %complex._ZTSi* [[TEMP]] to i8*
+// CHECK: call void @__atomic_store(i64 8, i8* bitcast (%complex._ZTSi* @{{.+}} to i8*), i8* [[BITCAST]], i32 0)
 #pragma omp atomic write
   cix = lv;
 // CHECK: load i64, i64*
@@ -240,12 +240,12 @@ int main() {
   ldx = ullv;
 // CHECK: load float, float*
 // CHECK: [[VAL:%.+]] = fptosi float %{{.*}} to i32
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP]], i32 0, i32 1
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP]], i32 0, i32 1
 // CHECK: store i32 [[VAL]], i32* [[TEMP_REAL_REF]]
 // CHECK: store i32 0, i32* [[TEMP_IMG_REF]]
-// CHECK: [[BITCAST:%.+]] = bitcast { i32, i32 }* [[TEMP]] to i8*
-// CHECK: call void @__atomic_store(i64 8, i8* bitcast ({ i32, i32 }* @{{.+}} to i8*), i8* [[BITCAST]], i32 0)
+// CHECK: [[BITCAST:%.+]] = bitcast %complex._ZTSi* [[TEMP]] to i8*
+// CHECK: call void @__atomic_store(i64 8, i8* bitcast (%complex._ZTSi* @{{.+}} to i8*), i8* [[BITCAST]], i32 0)
 #pragma omp atomic write
   cix = fv;
 // CHECK: load double, double*
@@ -256,19 +256,19 @@ int main() {
 // CHECK: store atomic i8
 #pragma omp atomic write
   bx = ldv;
-// CHECK: load i32, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @{{.+}}, i32 0, i32 0)
-// CHECK: load i32, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @{{.+}}, i32 0, i32 1)
+// CHECK: load i32, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @{{.+}}, i32 0, i32 0)
+// CHECK: load i32, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @{{.+}}, i32 0, i32 1)
 // CHECK: icmp ne i32 %{{.+}}, 0
 // CHECK: icmp ne i32 %{{.+}}, 0
 // CHECK: or i1
 // CHECK: store atomic i8
 #pragma omp atomic write
   bx = civ;
-// CHECK: load float, float* getelementptr inbounds ({ float, float }, { float, float }* @{{.*}}, i32 0, i32 0)
+// CHECK: load float, float* getelementptr inbounds (%complex._ZTSf, %complex._ZTSf* @{{.*}}, i32 0, i32 0)
 // CHECK: store atomic i16
 #pragma omp atomic write
   usx = cfv;
-// CHECK: load double, double* getelementptr inbounds ({ double, double }, { double, double }* @{{.+}}, i32 0, i32 0)
+// CHECK: load double, double* getelementptr inbounds (%complex._ZTSd, %complex._ZTSd* @{{.+}}, i32 0, i32 0)
 // CHECK: store atomic i64
 #pragma omp atomic write
   llx = cdv;
@@ -294,7 +294,7 @@ int main() {
   int4x[sv] = bv;
 // CHECK: load x86_fp80, x86_fp80* @{{.+}}
 // CHECK: [[NEW_VAL:%.+]] = fptosi x86_fp80 %{{.+}} to i32
-// CHECK: [[PREV_VALUE:%.+]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @{{.+}} to i8*), i64 4) to i32*) monotonic
+// CHECK: [[PREV_VALUE:%.+]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct._Z9BitFields* @{{.+}} to i8*), i64 4) to i32*) monotonic
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
 // CHECK: [[OLD_BF_VALUE:%.+]] = phi i32 [ [[PREV_VALUE]], %[[EXIT]] ], [ [[FAILED_OLD_VAL:%.+]], %[[CONT]] ]
@@ -303,7 +303,7 @@ int main() {
 // CHECK: or i32 [[BF_CLEAR]], [[BF_VALUE]]
 // CHECK: store i32 %{{.+}}, i32* [[LDTEMP:%.+]]
 // CHECK: [[NEW_BF_VALUE:%.+]] = load i32, i32* [[LDTEMP]]
-// CHECK: [[RES:%.+]] = cmpxchg i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @{{.+}} to i8*), i64 4) to i32*), i32 [[OLD_BF_VALUE]], i32 [[NEW_BF_VALUE]] monotonic monotonic
+// CHECK: [[RES:%.+]] = cmpxchg i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct._Z9BitFields* @{{.+}} to i8*), i64 4) to i32*), i32 [[OLD_BF_VALUE]], i32 [[NEW_BF_VALUE]] monotonic monotonic
 // CHECK: [[FAILED_OLD_VAL]] = extractvalue { i32, i1 } [[RES]], 0
 // CHECK: [[FAIL_SUCCESS:%.+]] = extractvalue { i32, i1 } [[RES]], 1
 // CHECK: br i1 [[FAIL_SUCCESS]], label %[[EXIT:.+]], label %[[CONT]]
@@ -313,7 +313,7 @@ int main() {
 // CHECK: load x86_fp80, x86_fp80* @{{.+}}
 // CHECK: [[NEW_VAL:%.+]] = fptosi x86_fp80 %{{.+}} to i32
 // CHECK: [[BITCAST:%.+]] = bitcast i32* [[LDTEMP:%.+]] to i8*
-// CHECK: call void @__atomic_load(i64 4, i8* getelementptr (i8, i8* bitcast (%struct.BitFields_packed* @{{.+}} to i8*), i64 4), i8* [[BITCAST]], i32 0)
+// CHECK: call void @__atomic_load(i64 4, i8* getelementptr (i8, i8* bitcast (%struct._Z16BitFields_packed* @{{.+}} to i8*), i64 4), i8* [[BITCAST]], i32 0)
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
 // CHECK: [[OLD_BF_VALUE:%.+]] = load i32, i32* [[LDTEMP]],
@@ -325,14 +325,14 @@ int main() {
 // CHECK: store i32 %{{.+}}, i32* [[LDTEMP1]]
 // CHECK: [[BITCAST_TEMP_OLD_BF_ADDR:%.+]] = bitcast i32* [[LDTEMP]] to i8*
 // CHECK: [[BITCAST_TEMP_NEW_BF_ADDR:%.+]] = bitcast i32* [[LDTEMP1]] to i8*
-// CHECK: [[FAIL_SUCCESS:%.+]] = call zeroext i1 @__atomic_compare_exchange(i64 4, i8* getelementptr (i8, i8* bitcast (%struct.BitFields_packed* @{{.+}} to i8*), i64 4), i8* [[BITCAST_TEMP_OLD_BF_ADDR]], i8* [[BITCAST_TEMP_NEW_BF_ADDR]], i32 0, i32 0)
+// CHECK: [[FAIL_SUCCESS:%.+]] = call zeroext i1 @__atomic_compare_exchange(i64 4, i8* getelementptr (i8, i8* bitcast (%struct._Z16BitFields_packed* @{{.+}} to i8*), i64 4), i8* [[BITCAST_TEMP_OLD_BF_ADDR]], i8* [[BITCAST_TEMP_NEW_BF_ADDR]], i32 0, i32 0)
 // CHECK: br i1 [[FAIL_SUCCESS]], label %[[EXIT:.+]], label %[[CONT]]
 // CHECK: [[EXIT]]
 #pragma omp atomic write
   bfx_packed.a = ldv;
 // CHECK: load x86_fp80, x86_fp80* @{{.+}}
 // CHECK: [[NEW_VAL:%.+]] = fptosi x86_fp80 %{{.+}} to i32
-// CHECK: [[PREV_VALUE:%.+]] = load atomic i32, i32* getelementptr inbounds (%struct.BitFields2, %struct.BitFields2* @{{.+}}, i32 0, i32 0) monotonic
+// CHECK: [[PREV_VALUE:%.+]] = load atomic i32, i32* bitcast (%struct._Z10BitFields2* @{{.+}} to i32*) monotonic
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
 // CHECK: [[OLD_BF_VALUE:%.+]] = phi i32 [ [[PREV_VALUE]], %[[EXIT]] ], [ [[FAILED_OLD_VAL:%.+]], %[[CONT]] ]
@@ -342,7 +342,7 @@ int main() {
 // CHECK: or i32 [[BF_CLEAR]], [[BF_VALUE]]
 // CHECK: store i32 %{{.+}}, i32* [[LDTEMP:%.+]]
 // CHECK: [[NEW_BF_VALUE:%.+]] = load i32, i32* [[LDTEMP]]
-// CHECK: [[RES:%.+]] = cmpxchg i32* getelementptr inbounds (%struct.BitFields2, %struct.BitFields2* @{{.+}}, i32 0, i32 0), i32 [[OLD_BF_VALUE]], i32 [[NEW_BF_VALUE]] monotonic monotonic
+// CHECK: [[RES:%.+]] = cmpxchg i32* bitcast (%struct._Z10BitFields2* @{{.+}} to i32*), i32 [[OLD_BF_VALUE]], i32 [[NEW_BF_VALUE]] monotonic monotonic
 // CHECK: [[FAILED_OLD_VAL]] = extractvalue { i32, i1 } [[RES]], 0
 // CHECK: [[FAIL_SUCCESS:%.+]] = extractvalue { i32, i1 } [[RES]], 1
 // CHECK: br i1 [[FAIL_SUCCESS]], label %[[EXIT:.+]], label %[[CONT]]
@@ -351,7 +351,7 @@ int main() {
   bfx2.a = ldv;
 // CHECK: load x86_fp80, x86_fp80* @{{.+}}
 // CHECK: [[NEW_VAL:%.+]] = fptosi x86_fp80 %{{.+}} to i32
-// CHECK: [[PREV_VALUE:%.+]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @{{.+}} to i8*), i64 3) monotonic
+// CHECK: [[PREV_VALUE:%.+]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct._Z17BitFields2_packed* @{{.+}} to i8*), i64 3) monotonic
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
 // CHECK: [[OLD_BF_VALUE:%.+]] = phi i8 [ [[PREV_VALUE]], %[[EXIT]] ], [ [[FAILED_OLD_VAL:%.+]], %[[CONT]] ]
@@ -362,7 +362,7 @@ int main() {
 // CHECK: or i8 [[BF_CLEAR]], [[BF_VALUE]]
 // CHECK: store i8 %{{.+}}, i8* [[LDTEMP:%.+]]
 // CHECK: [[NEW_BF_VALUE:%.+]] = load i8, i8* [[LDTEMP]]
-// CHECK: [[RES:%.+]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @{{.+}} to i8*), i64 3), i8 [[OLD_BF_VALUE]], i8 [[NEW_BF_VALUE]] monotonic monotonic
+// CHECK: [[RES:%.+]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct._Z17BitFields2_packed* @{{.+}} to i8*), i64 3), i8 [[OLD_BF_VALUE]], i8 [[NEW_BF_VALUE]] monotonic monotonic
 // CHECK: [[FAILED_OLD_VAL]] = extractvalue { i8, i1 } [[RES]], 0
 // CHECK: [[FAIL_SUCCESS:%.+]] = extractvalue { i8, i1 } [[RES]], 1
 // CHECK: br i1 [[FAIL_SUCCESS]], label %[[EXIT:.+]], label %[[CONT]]
@@ -371,7 +371,7 @@ int main() {
   bfx2_packed.a = ldv;
 // CHECK: load x86_fp80, x86_fp80* @{{.+}}
 // CHECK: [[NEW_VAL:%.+]] = fptosi x86_fp80 %{{.+}} to i32
-// CHECK: [[PREV_VALUE:%.+]] = load atomic i32, i32* getelementptr inbounds (%struct.BitFields3, %struct.BitFields3* @{{.+}}, i32 0, i32 0) monotonic
+// CHECK: [[PREV_VALUE:%.+]] = load atomic i32, i32* bitcast (%struct._Z10BitFields3* @{{.+}} to i32*) monotonic
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
 // CHECK: [[OLD_BF_VALUE:%.+]] = phi i32 [ [[PREV_VALUE]], %[[EXIT]] ], [ [[FAILED_OLD_VAL:%.+]], %[[CONT]] ]
@@ -381,7 +381,7 @@ int main() {
 // CHECK: or i32 [[BF_CLEAR]], [[BF_VALUE]]
 // CHECK: store i32 %{{.+}}, i32* [[LDTEMP:%.+]]
 // CHECK: [[NEW_BF_VALUE:%.+]] = load i32, i32* [[LDTEMP]]
-// CHECK: [[RES:%.+]] = cmpxchg i32* getelementptr inbounds (%struct.BitFields3, %struct.BitFields3* @{{.+}}, i32 0, i32 0), i32 [[OLD_BF_VALUE]], i32 [[NEW_BF_VALUE]] monotonic monotonic
+// CHECK: [[RES:%.+]] = cmpxchg i32* bitcast (%struct._Z10BitFields3* @{{.+}} to i32*), i32 [[OLD_BF_VALUE]], i32 [[NEW_BF_VALUE]] monotonic monotonic
 // CHECK: [[FAILED_OLD_VAL]] = extractvalue { i32, i1 } [[RES]], 0
 // CHECK: [[FAIL_SUCCESS:%.+]] = extractvalue { i32, i1 } [[RES]], 1
 // CHECK: br i1 [[FAIL_SUCCESS]], label %[[EXIT:.+]], label %[[CONT]]
@@ -392,7 +392,7 @@ int main() {
 // CHECK: [[NEW_VAL:%.+]] = fptosi x86_fp80 %{{.+}} to i32
 // CHECK: [[LDTEMP:%.+]] = bitcast i32* %{{.+}} to i24*
 // CHECK: [[BITCAST:%.+]] = bitcast i24* %{{.+}} to i8*
-// CHECK: call void @__atomic_load(i64 3, i8* getelementptr (i8, i8* bitcast (%struct.BitFields3_packed* @{{.+}} to i8*), i64 1), i8* [[BITCAST]], i32 0)
+// CHECK: call void @__atomic_load(i64 3, i8* getelementptr (i8, i8* bitcast (%struct._Z17BitFields3_packed* @{{.+}} to i8*), i64 1), i8* [[BITCAST]], i32 0)
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
 // CHECK: [[OLD_VAL:%.+]] = load i24, i24* %{{.+}},
@@ -405,14 +405,14 @@ int main() {
 // CHECK: store i24 %{{.+}}, i24* [[TEMP]]
 // CHECK: [[BITCAST_TEMP_OLD_BF_ADDR:%.+]] = bitcast i24* [[LDTEMP]] to i8*
 // CHECK: [[BITCAST_TEMP_NEW_BF_ADDR:%.+]] = bitcast i24* [[TEMP]] to i8*
-// CHECK: [[FAIL_SUCCESS:%.+]] = call zeroext i1 @__atomic_compare_exchange(i64 3, i8* getelementptr (i8, i8* bitcast (%struct.BitFields3_packed* @{{.+}} to i8*), i64 1), i8* [[BITCAST_TEMP_OLD_BF_ADDR]], i8* [[BITCAST_TEMP_NEW_BF_ADDR]], i32 0, i32 0)
+// CHECK: [[FAIL_SUCCESS:%.+]] = call zeroext i1 @__atomic_compare_exchange(i64 3, i8* getelementptr (i8, i8* bitcast (%struct._Z17BitFields3_packed* @{{.+}} to i8*), i64 1), i8* [[BITCAST_TEMP_OLD_BF_ADDR]], i8* [[BITCAST_TEMP_NEW_BF_ADDR]], i32 0, i32 0)
 // CHECK: br i1 [[FAIL_SUCCESS]], label %[[EXIT:.+]], label %[[CONT]]
 // CHECK: [[EXIT]]
 #pragma omp atomic write
   bfx3_packed.a = ldv;
 // CHECK: load x86_fp80, x86_fp80* @{{.+}}
 // CHECK: [[NEW_VAL:%.+]] = fptosi x86_fp80 %{{.+}} to i32
-// CHECK: [[PREV_VALUE:%.+]] = load atomic i64, i64* bitcast (%struct.BitFields4* @{{.+}} to i64*) monotonic
+// CHECK: [[PREV_VALUE:%.+]] = load atomic i64, i64* bitcast (%struct._Z10BitFields4* @{{.+}} to i64*) monotonic
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
 // CHECK: [[OLD_BF_VALUE:%.+]] = phi i64 [ [[PREV_VALUE]], %[[EXIT]] ], [ [[FAILED_OLD_VAL:%.+]], %[[CONT]] ]
@@ -423,7 +423,7 @@ int main() {
 // CHECK: or i64 [[BF_CLEAR]], [[BF_VALUE]]
 // CHECK: store i64 %{{.+}}, i64* [[LDTEMP:%.+]]
 // CHECK: [[NEW_BF_VALUE:%.+]] = load i64, i64* [[LDTEMP]]
-// CHECK: [[RES:%.+]] = cmpxchg i64* bitcast (%struct.BitFields4* @{{.+}} to i64*), i64 [[OLD_BF_VALUE]], i64 [[NEW_BF_VALUE]] monotonic monotonic
+// CHECK: [[RES:%.+]] = cmpxchg i64* bitcast (%struct._Z10BitFields4* @{{.+}} to i64*), i64 [[OLD_BF_VALUE]], i64 [[NEW_BF_VALUE]] monotonic monotonic
 // CHECK: [[FAILED_OLD_VAL]] = extractvalue { i64, i1 } [[RES]], 0
 // CHECK: [[FAIL_SUCCESS:%.+]] = extractvalue { i64, i1 } [[RES]], 1
 // CHECK: br i1 [[FAIL_SUCCESS]], label %[[EXIT:.+]], label %[[CONT]]
@@ -432,7 +432,7 @@ int main() {
   bfx4.a = ldv;
 // CHECK: load x86_fp80, x86_fp80* @{{.+}}
 // CHECK: [[NEW_VAL:%.+]] = fptosi x86_fp80 %{{.+}} to i32
-// CHECK: [[PREV_VALUE:%.+]] = load atomic i8, i8* getelementptr inbounds (%struct.BitFields4_packed, %struct.BitFields4_packed* @{{.+}}, i32 0, i32 0, i64 2) monotonic
+// CHECK: [[PREV_VALUE:%.+]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct._Z17BitFields4_packed* @{{.+}} to i8*), i64 2) monotonic
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
 // CHECK: [[OLD_BF_VALUE:%.+]] = phi i8 [ [[PREV_VALUE]], %[[EXIT]] ], [ [[FAILED_OLD_VAL:%.+]], %[[CONT]] ]
@@ -442,7 +442,7 @@ int main() {
 // CHECK: or i8 [[BF_CLEAR]], [[BF_VALUE]]
 // CHECK: store i8 %{{.+}}, i8* [[LDTEMP:%.+]]
 // CHECK: [[NEW_BF_VALUE:%.+]] = load i8, i8* [[LDTEMP]]
-// CHECK: [[RES:%.+]] = cmpxchg i8* getelementptr inbounds (%struct.BitFields4_packed, %struct.BitFields4_packed* @{{.+}}, i32 0, i32 0, i64 2), i8 [[OLD_BF_VALUE]], i8 [[NEW_BF_VALUE]] monotonic monotonic
+// CHECK: [[RES:%.+]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct._Z17BitFields4_packed* @{{.+}} to i8*), i64 2), i8 [[OLD_BF_VALUE]], i8 [[NEW_BF_VALUE]] monotonic monotonic
 // CHECK: [[FAILED_OLD_VAL]] = extractvalue { i8, i1 } [[RES]], 0
 // CHECK: [[FAIL_SUCCESS:%.+]] = extractvalue { i8, i1 } [[RES]], 1
 // CHECK: br i1 [[FAIL_SUCCESS]], label %[[EXIT:.+]], label %[[CONT]]
@@ -451,7 +451,7 @@ int main() {
   bfx4_packed.a = ldv;
 // CHECK: load x86_fp80, x86_fp80* @{{.+}}
 // CHECK: [[NEW_VAL:%.+]] = fptosi x86_fp80 %{{.+}} to i64
-// CHECK: [[PREV_VALUE:%.+]] = load atomic i64, i64* bitcast (%struct.BitFields4* @{{.+}} to i64*) monotonic
+// CHECK: [[PREV_VALUE:%.+]] = load atomic i64, i64* bitcast (%struct._Z10BitFields4* @{{.+}} to i64*) monotonic
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
 // CHECK: [[OLD_BF_VALUE:%.+]] = phi i64 [ [[PREV_VALUE]], %[[EXIT]] ], [ [[FAILED_OLD_VAL:%.+]], %[[CONT]] ]
@@ -461,7 +461,7 @@ int main() {
 // CHECK: or i64 [[BF_CLEAR]], [[BF_VALUE]]
 // CHECK: store i64 %{{.+}}, i64* [[LDTEMP:%.+]]
 // CHECK: [[NEW_BF_VALUE:%.+]] = load i64, i64* [[LDTEMP]]
-// CHECK: [[RES:%.+]] = cmpxchg i64* bitcast (%struct.BitFields4* @{{.+}} to i64*), i64 [[OLD_BF_VALUE]], i64 [[NEW_BF_VALUE]] monotonic monotonic
+// CHECK: [[RES:%.+]] = cmpxchg i64* bitcast (%struct._Z10BitFields4* @{{.+}} to i64*), i64 [[OLD_BF_VALUE]], i64 [[NEW_BF_VALUE]] monotonic monotonic
 // CHECK: [[FAILED_OLD_VAL]] = extractvalue { i64, i1 } [[RES]], 0
 // CHECK: [[FAIL_SUCCESS:%.+]] = extractvalue { i64, i1 } [[RES]], 1
 // CHECK: br i1 [[FAIL_SUCCESS]], label %[[EXIT:.+]], label %[[CONT]]

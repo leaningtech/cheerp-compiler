@@ -15,4 +15,4 @@ int test2(struct X x __attribute((aligned(16)))) {
   return x.z;
 }
 // CHECK-LABEL: define i32 @test2
-// CHECK: alloca %struct.X, align 16
+// CHECK: alloca %struct._Z1X, align 16

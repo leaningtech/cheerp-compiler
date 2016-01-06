@@ -57,7 +57,7 @@ C n{};
 // CHECK: store i8 %{{.*}}, i8* getelementptr inbounds ({{.*}} @a, i32 0, i32 2)
 // CHECK: call i32 @_ZN1A1fEv({{.*}} @a)
 // CHECK: store i32 %{{.*}}, i32* getelementptr inbounds ({{.*}}, {{.*}}* @a, i32 0, i32 3)
-// CHECK: store double 1.000000e+00, double* bitcast (%union.anon* getelementptr inbounds ({{.*}}, {{.*}}* @a, i32 0, i32 4) to double*)
+// CHECK: store double 1.000000e+00, double* bitcast (%union._ZN1AUt_E* getelementptr inbounds ({{.*}}, {{.*}}* @a, i32 0, i32 4) to double*)
 
 // No dynamic initialization of 'b':
 

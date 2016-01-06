@@ -102,7 +102,7 @@ void g18(void) {
   static int *p[] = { &g19 };
 }
 
-// CHECK: @g20.l0 = internal global %struct.g20_s1 { %struct.g20_s0* null, %struct.g20_s0** getelementptr inbounds (%struct.g20_s1* @g20.l0, i32 0, i32 0) }
+// CHECK: @g20.l0 = internal global %struct._Z6g20_s1 { %struct._Z6g20_s0* null, %struct._Z6g20_s0** getelementptr inbounds (%struct._Z6g20_s1* @g20.l0, i32 0, i32 0) }
 struct g20_s0;
 struct g20_s1 {
   struct g20_s0 *f0, **f1;
@@ -179,5 +179,5 @@ void g31() {
     short z;
   } a = {23122, -12312731, -312};
 #pragma pack()
-  // CHECK: @g31.a = internal global %struct.anon.2 { i16 23122, i32 -12312731, i16 -312 }, align 4
+  // CHECK: @g31.a = internal global %"struct._ZZ3g31E3$_3" { i16 23122, i32 -12312731, i16 -312 }, align 4
 }

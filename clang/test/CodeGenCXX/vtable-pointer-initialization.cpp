@@ -44,7 +44,7 @@ void f() { B b; }
 // CHECK-LABEL: define linkonce_odr void @_ZN1BC1Ev(%struct.B* %this) unnamed_addr
 // CHECK: call void @_ZN1BC2Ev(
 
-// CHECK-LABEL: define linkonce_odr void @_ZN1BD1Ev(%struct.B* %this) unnamed_addr
+// CHECK-LABEL: define linkonce_odr void @_ZN1BD1Ev(%struct._Z1B* %this) unnamed_addr
 // CHECK: call void @_ZN1BD2Ev(
 
 // CHECK-LABEL: define linkonce_odr void @_ZN1BC2Ev(%struct.B* %this) unnamed_addr

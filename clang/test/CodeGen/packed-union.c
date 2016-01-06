@@ -5,7 +5,7 @@ typedef struct _attrs {
         unsigned char filename_length;
 } __attribute__((__packed__)) attrs;
 
-// CHECK: %union._attr_union = type <{ i32, i8 }>
+// CHECK: %union._Z11_attr_union = type <{ i32, i8 }>
 typedef union _attr_union {
   attrs file_attrs;
   unsigned owner_id;

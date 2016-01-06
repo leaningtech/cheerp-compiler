@@ -66,7 +66,7 @@ namespace PR12139 {
   // CHECK-LABEL: define i32 @_ZN7PR121394testEv
   int test() {
     // CHECK: call void @_ZN7PR121391A5makeAEv
-    // CHECK-NEXT: call %"struct.PR12139::A"* @_ZN7PR121391AC1ERKS0_i
+    // CHECK-NEXT: call %struct._ZN7PR121391AE* @_ZN7PR121391AC1ERKS0_i
     A a(A::makeA(), 3);
     // CHECK-NEXT: getelementptr inbounds
     // CHECK-NEXT: load

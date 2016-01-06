@@ -20,10 +20,10 @@ void test0(void) {
 
 // HASSTRET-LABEL: define void @test0()
 // HASSTRET: [[T0:%.*]] = call i8* (i8*, i8*, ...)* @objc_msg_lookup_stret(i8* bitcast (i64* @_OBJC_CLASS_Test0 to i8*),
-// HASSTRET-NEXT: [[T1:%.*]] = bitcast i8* (i8*, i8*, ...)* [[T0]] to void (%struct.test*, i8*, i8*)*
-// HASSTRET-NEXT: call void [[T1]](%struct.test* sret {{.*}}, i8* bitcast (i64* @_OBJC_CLASS_Test0 to i8*),
+// HASSTRET-NEXT: [[T1:%.*]] = bitcast i8* (i8*, i8*, ...)* [[T0]] to void (%struct._Z4test*, i8*, i8*)*
+// HASSTRET-NEXT: call void [[T1]](%struct._Z4test* sret {{.*}}, i8* bitcast (i64* @_OBJC_CLASS_Test0 to i8*),
 
 // NOSTRET-LABEL: define void @test0()
 // NOSTRET: [[T0:%.*]] = call i8* (i8*, i8*, ...)* @objc_msg_lookup(i8*
-// NOSTRET-NEXT: [[T1:%.*]] = bitcast i8* (i8*, i8*, ...)* [[T0]] to void (%struct.test*, i8*, i8*)*
-// NOSTRET-NEXT: call void [[T1]](%struct.test* sret {{.*}}, i8* {{.*}}, i8* bitcast ({ i8*, i8* }* getelementptr inbounds ([2 x { i8*, i8* }]*
+// NOSTRET-NEXT: [[T1:%.*]] = bitcast i8* (i8*, i8*, ...)* [[T0]] to void (%struct._Z4test*, i8*, i8*)*
+// NOSTRET-NEXT: call void [[T1]](%struct._Z4test* sret {{.*}}, i8* {{.*}}, i8* bitcast ({ i8*, i8* }* getelementptr inbounds ([2 x { i8*, i8* }]*

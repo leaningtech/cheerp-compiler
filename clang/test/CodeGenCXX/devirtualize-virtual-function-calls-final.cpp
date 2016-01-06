@@ -103,9 +103,9 @@ namespace Test5 {
     // not implemented yet.
     // CHECK: getelementptr
     // CHECK-NEXT: %[[FUNCTMP1:.*]] = load
-    // CHECK-NEXT: %[[FUNCTMP2:.*]] = bitcast i32 (...)** %[[FUNCTMP1]] to void (%"struct.Test5::A"*)**
-    // CHECK-NEXT: %[[FUNCTMP3:.*]] = getelementptr inbounds void (%"struct.Test5::A"*)** %[[FUNCTMP2]], i64 0
-    // CHECK-NEXT: %[[FUNC:.*]] = load void (%"struct.Test5::A"*)** %[[FUNCTMP3]]
+    // CHECK-NEXT: %[[FUNCTMP2:.*]] = bitcast i32 (...)** %[[FUNCTMP1]] to void (%struct._ZN5Test51AE*)**
+    // CHECK-NEXT: %[[FUNCTMP3:.*]] = getelementptr inbounds void (%struct._ZN5Test51AE*)*, void (%struct._ZN5Test51AE*)** %[[FUNCTMP2]], i64 0
+    // CHECK-NEXT: %[[FUNC:.*]] = load void (%struct._ZN5Test51AE*)*, void (%struct._ZN5Test51AE*)** %[[FUNCTMP3]]
     // CHECK-NEXT: call void %[[FUNC]]
     static_cast<A*>(d)->f();
   }
@@ -178,7 +178,7 @@ namespace Test8 {
   // CHECK-LABEL: define i32 @_ZN5Test84testEPNS_1CE
   int test(C *c) {
     // CHECK: %[[THIS:.*]] = phi
-    // CHECK-NEXT: call i32 @_ZN5Test81B3fooEv(%"struct.Test8::B"* %[[THIS]])
+    // CHECK-NEXT: call i32 @_ZN5Test81B3fooEv(%struct._ZN5Test81BE* %[[THIS]])
     return static_cast<B*>(c)->foo();
   }
 }

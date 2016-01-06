@@ -11,9 +11,9 @@ struct A {
 void test_nest_captured_stmt(int param, int size, int param_arr[size]) {
   int w;
   int arr[param][size];
-  // CHECK1: %struct.anon{{.*}} = type { [[INT:i.+]]*, [[INT]]*, [[SIZE_TYPE:i.+]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
-  // CHECK1: %struct.anon{{.*}} = type { [[INT]]*, [[INT]]*, [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
-  // CHECK1: [[T:%struct.anon.*]] = type { [[INT]]*, [[INT]]*, %struct.A*, [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
+  // CHECK1: %"struct._ZZ23test_nest_captured_stmtE3$_0" = type { [[INT:i.+]]*, [[INT]]*, [[SIZE_TYPE:i.+]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
+  // CHECK1: %"struct._ZZ23test_nest_captured_stmtE3$_1" = type { [[INT]]*, [[INT]]*, [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
+  // CHECK1: [[T:%"struct._ZZ23test_nest_captured_stmtE3\$_2"]] = type { [[INT]]*, [[INT]]*, %struct._Z1A*, [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[INT]]**, [[INT]]*, [[SIZE_TYPE]], [[SIZE_TYPE]], [[INT]]* }
   #pragma clang __debug captured
   {
     int x;
@@ -39,8 +39,8 @@ void test_nest_captured_stmt(int param, int size, int param_arr[size]) {
         // CHECK1: [[ARR_SIZE2:%.+]] = load [[SIZE_TYPE]], [[SIZE_TYPE]]* [[ARR_SIZE2_REF]]
         //
         // CHECK1: getelementptr inbounds [[T]], [[T]]* {{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 2
-        // CHECK1-NEXT: load %struct.A*, %struct.A**
-        // CHECK1-NEXT: getelementptr inbounds %struct.A, %struct.A*
+        // CHECK1-NEXT: load %struct._Z1A*, %struct._Z1A**
+        // CHECK1-NEXT: getelementptr inbounds %struct._Z1A, %struct._Z1A*
         // CHECK1-NEXT: store i{{.+}} 1
         //
         // CHECK1: getelementptr inbounds [[T]], [[T]]* {{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 1
@@ -60,13 +60,13 @@ void test_nest_captured_stmt(int param, int size, int param_arr[size]) {
         // CHECK1-NEXT: store i{{[0-9]+}}
         //
         // CHECK1: getelementptr inbounds [[T]], [[T]]* {{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 2
-        // CHECK1-NEXT: load %struct.A*, %struct.A**
-        // CHECK1-NEXT: getelementptr inbounds %struct.A, %struct.A*
+        // CHECK1-NEXT: load %struct._Z1A*, %struct._Z1A**
+        // CHECK1-NEXT: getelementptr inbounds %struct._Z1A, %struct._Z1A*
         // CHECK1-NEXT: store float
         //
         // CHECK1: getelementptr inbounds [[T]], [[T]]* {{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 2
-        // CHECK1-NEXT: load %struct.A*, %struct.A**
-        // CHECK1-NEXT: getelementptr inbounds %struct.A, %struct.A*
+        // CHECK1-NEXT: load %struct._Z1A*, %struct._Z1A**
+        // CHECK1-NEXT: getelementptr inbounds %struct._Z1A, %struct._Z1A*
         // CHECK1-NEXT: store i8 99
         //
         // CHECK1-DAG: [[SIZE_ADDR_REF:%.*]] = getelementptr inbounds [[T]], [[T]]* {{.*}}, i{{.+}} 0, i{{.+}} 7
@@ -80,8 +80,8 @@ void test_nest_captured_stmt(int param, int size, int param_arr[size]) {
         // CHECK1: store i{{.+}} 2, i{{.+}}* [[PARAM_ARR_SIZE_MINUS_1_ADDR]]
         //
         // CHECK1-DAG: [[Z_ADDR_REF:%.*]] = getelementptr inbounds [[T]], [[T]]* {{.*}}, i{{.+}} 0, i{{.+}} 2
-        // CHECK1-DAG: [[Z_ADDR:%.*]] = load %struct.A*, %struct.A** [[Z_ADDR_REF]]
-        // CHECK1-DAG: [[Z_A_ADDR:%.*]] = getelementptr inbounds %struct.A, %struct.A* [[Z_ADDR]], i{{.+}} 0, i{{.+}} 0
+        // CHECK1-DAG: [[Z_ADDR:%.*]] = load %struct._Z1A*, %struct._Z1A** [[Z_ADDR_REF]]
+        // CHECK1-DAG: [[Z_A_ADDR:%.*]] = getelementptr inbounds %struct._Z1A, %struct._Z1A* [[Z_ADDR]], i{{.+}} 0, i{{.+}} 0
         // CHECK1-DAG: [[ARR_IDX_2:%.*]] = load i{{.+}}, i{{.+}}* [[Z_A_ADDR]]
         // CHECK1-DAG: [[ARR_ADDR_REF:%.*]] = getelementptr inbounds [[T]], [[T]]* {{.*}}, i{{.+}} 0, i{{.+}} 10
         // CHECK1-DAG: [[ARR_ADDR:%.*]] = load i{{.+}}*, i{{.+}}** [[ARR_ADDR_REF]]
@@ -109,12 +109,12 @@ void test_nest_block() {
   // CHECK2: define internal {{.*}}void @{{.*}}test_nest_block_block_invoke
   //
   // CHECK2: [[Z:%[0-9a-z_]*]] = alloca i{{[0-9]+}},
-  // CHECK2: alloca %struct.anon{{.*}}
+  // CHECK2: alloca %"struct._ZZZ15test_nest_blockEUb_E3$_3"
   //
   // CHECK2: store i{{[0-9]+}}
   // CHECK2: store i{{[0-9]+}}* [[Z]]
   //
-  // CHECK2: getelementptr inbounds %struct.anon
+  // CHECK2: getelementptr inbounds %"struct._ZZZ15test_nest_blockEUb_E3$_3"
   // CHECK2-NEXT: getelementptr inbounds
   // CHECK2-NEXT: store i{{[0-9]+}}*
   //
@@ -142,7 +142,7 @@ void test_nest_block() {
   //
   // CHECK2: [[CapA:%[0-9a-z_.]*]] = getelementptr inbounds {{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 7
   //
-  // CHECK2: getelementptr inbounds %struct.anon{{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 0
+  // CHECK2: getelementptr inbounds %"struct._ZZ15test_nest_blockE3$_4"{{.*}}, i{{[0-9]+}} 0, i{{[0-9]+}} 0
   // CHECK2: load i{{[0-9]+}}*, i{{[0-9]+}}**
   // CHECK2: load i{{[0-9]+}}, i{{[0-9]+}}*
   // CHECK2: store i{{[0-9]+}} {{.*}}, i{{[0-9]+}}* [[CapA]]

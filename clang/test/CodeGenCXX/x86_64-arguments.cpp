@@ -69,7 +69,7 @@ namespace PR7742 { // Also rdar://8250764
   
   struct c2 : public s2 {};
   
-  // CHECK-LABEL: define <2 x float> @_ZN6PR77423fooEPNS_2c2E(%"struct.PR7742::c2"* %P)
+  // CHECK-LABEL: define <2 x float> @_ZN6PR77423fooEPNS_2c2E(%struct._ZN6PR77422c2E* %P)
   c2 foo(c2 *P) {
     return c2();
   }
@@ -112,9 +112,9 @@ namespace test5 {
     takeY(getX().f(), 42);
   }
   // CHECK: void @_ZN5test51gEv()
-  // CHECK: alloca %"struct.test5::Y"
-  // CHECK: alloca %"struct.test5::X"
-  // CHECK: alloca %"struct.test5::Y"
+  // CHECK: alloca %struct._ZN5test51YE
+  // CHECK: alloca %struct._ZN5test51XE
+  // CHECK: alloca %struct._ZN5test51YE
 }
 
 

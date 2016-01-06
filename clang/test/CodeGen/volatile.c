@@ -73,7 +73,7 @@ int main() {
 // CHECK: load volatile i32, i32* getelementptr {{.*}} @vF2
 // CHECK: store i32 {{.*}}, i32* [[I]]
   i=vpF2->x;
-// CHECK: [[VPF2_VAL:%[a-zA-Z0-9_.]+]] = load {{%[a-zA-Z0-9_.]+}}*, {{%[a-zA-Z0-9_.]+}}** @vpF2
+// CHECK: [[VPF2_VAL:%[a-zA-Z0-9_.]+]] = load {{%[a-zA-Z0-9_.$"\\@<>?-]+}}*, {{%[a-zA-Z0-9_.$"\\@<>?-]+}}**
 // CHECK: [[ELT:%[a-zA-Z0-9_.]+]] = getelementptr {{.*}} [[VPF2_VAL]]
 // CHECK: load volatile i32, i32* [[ELT]]
 // CHECK: store i32 {{.*}}, i32* [[I]]
@@ -149,7 +149,7 @@ int main() {
 // CHECK: store volatile i32 {{.*}}, i32* getelementptr {{.*}} @vF2
   vpF2->x=i;
 // CHECK: load i32, i32* [[I]]
-// CHECK: [[VPF2_VAL:%[a-zA-Z0-9_.]+]] = load {{%[a-zA-Z0-9._]+}}*, {{%[a-zA-Z0-9._]+}}** @vpF2
+// CHECK: [[VPF2_VAL:%[a-zA-Z0-9_.]+]] = load {{%[a-zA-Z0-9_.$"\\@<>?-]+}}*, {{%[a-zA-Z0-9_.$"\\@<>?-]+}}** @vpF2
 // CHECK: [[ELT:%[a-zA-Z0-9_.]+]] = getelementptr {{.*}} [[VPF2_VAL]]
 // CHECK: store volatile i32 {{.*}}, i32* [[ELT]]
   vF3.x.y=i;

@@ -22,7 +22,7 @@ void f() {
   // CHECK: load atomic i8, i8* bitcast (i64* @_ZGVZ1fvE1a to i8*) acquire, align 8
   // CHECK: call i32 @__cxa_guard_acquire
   // CHECK: call void @_ZN1AC1Ev
-  // CHECK: call i32 @__cxa_atexit(void (i8*)* bitcast (void (%struct.A*)* @_ZN1AD1Ev to void (i8*)*), i8* bitcast (%struct.A* @_ZZ1fvE1a to i8*), i8* @__dso_handle)
+  // CHECK: call i32 @__cxa_atexit(void (i8*)* bitcast (void (%struct._Z1A*)* @_ZN1AD1Ev to void (i8*)*), i8* bitcast (%struct._Z1A* @_ZZ1fvE1a to i8*), i8* @__dso_handle)
   // CHECK: call void @__cxa_guard_release
   static A a;
 }
@@ -74,7 +74,7 @@ unsigned char base_req_uchar[] = { "bar" };
 
 namespace union_static_local {
   // CHECK-LABEL: define internal void @_ZZN18union_static_local4testEvEN1c4mainEv
-  // CHECK: call void @_ZN18union_static_local1fEPNS_1xE(%"union.union_static_local::x"* bitcast ({ [2 x i8*] }* @_ZZN18union_static_local4testEvE3foo to %"union.union_static_local::x"*))
+  // CHECK: call void @_ZN18union_static_local1fEPNS_1xE(%union._ZN18union_static_local1xE* bitcast ({ [2 x i8*] }* @_ZZN18union_static_local4testEvE3foo to %union._ZN18union_static_local1xE*))
   union x { long double y; const char *x[2]; };
   void f(union x*);
   void test() {
