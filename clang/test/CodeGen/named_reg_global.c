@@ -44,13 +44,13 @@ int fn1() {
   return (*p4TH).word.len;
 }
 // CHECK: %[[regr:[0-9]+]] = call i[[bits]] @llvm.read_register.i[[bits]](metadata !0)
-// CHECK: inttoptr i[[bits]] %[[regr]] to %struct.p4_Thread*
+// CHECK: inttoptr i[[bits]] %[[regr]] to %struct._Z9p4_Thread*
 
 // CHECK: define {{.*}}@fn2
 void fn2(struct p4_Thread *val) {
   p4TH = val;
 }
-// CHECK: %[[regw:[0-9]+]] = ptrtoint %struct.p4_Thread* %{{.*}} to i[[bits]]
+// CHECK: %[[regw:[0-9]+]] = ptrtoint %struct._Z9p4_Thread* %{{.*}} to i[[bits]]
 // CHECK: call void @llvm.write_register.i[[bits]](metadata !0, i[[bits]] %[[regw]])
 
 // CHECK-X86-64: !llvm.named.register.rsp = !{!0}

@@ -156,7 +156,7 @@ struct Derived D = {{}, .B.A = 42};
 
 void test1(int argc, char **argv)
 {
-  // CHECK: internal global %struct.foo { i8* null, i32 1024 }
+  // CHECK: internal global %struct._Z3foo { i8* null, i32 1024 }
   static struct foo foo = {
     .b = 1024,
   };

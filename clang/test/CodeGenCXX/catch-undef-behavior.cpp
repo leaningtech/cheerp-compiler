@@ -374,9 +374,9 @@ void downcast_pointer(B *b) {
   // CHECK: [[SUB:%[.a-z0-9]*]] = getelementptr inbounds i8, i8* {{.*}}, i64 -16
   // CHECK-NEXT: [[C:%.+]] = bitcast i8* [[SUB]] to %class.C*
   // null check goes here
-  // CHECK: [[FROM_PHI:%.+]] = phi %class.C* [ [[C]], {{.*}} ], {{.*}}
+  // CHECK: [[FROM_PHI:%.+]] = phi %class._Z1C* [ [[C]], {{.*}} ], {{.*}}
   // Objectsize check goes here
-  // CHECK: [[C_INT:%.+]] = ptrtoint %class.C* [[FROM_PHI]] to i64
+  // CHECK: [[C_INT:%.+]] = ptrtoint %class._Z1C* [[FROM_PHI]] to i64
   // CHECK-NEXT: [[MASKED:%.+]] = and i64 [[C_INT]], 15
   // CHECK-NEXT: [[TEST:%.+]] = icmp eq i64 [[MASKED]], 0
   // AND the alignment test with the objectsize test.
@@ -391,7 +391,7 @@ void downcast_reference(B &b) {
   // CHECK:      [[SUB:%[.a-z0-9]*]] = getelementptr inbounds i8, i8* {{.*}}, i64 -16
   // CHECK-NEXT: [[C:%.+]] = bitcast i8* [[SUB]] to %class.C*
   // Objectsize check goes here
-  // CHECK:      [[C_INT:%.+]] = ptrtoint %class.C* [[C]] to i64
+  // CHECK:      [[C_INT:%.+]] = ptrtoint %class._Z1C* [[C]] to i64
   // CHECK-NEXT: [[MASKED:%.+]] = and i64 [[C_INT]], 15
   // CHECK-NEXT: [[TEST:%.+]] = icmp eq i64 [[MASKED]], 0
   // AND the alignment test with the objectsize test.

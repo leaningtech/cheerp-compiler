@@ -27,8 +27,8 @@ struct Foo {
   }
 };
 
-// CHECK: @_ZZN3Foo19getPageSizeFromNameERK6LengthE10legalWidth = linkonce_odr global %struct.Length zeroinitializer, align 4
-// CHECK: store float %{{.*}}, float* getelementptr inbounds (%struct.Length, %struct.Length* @_ZZN3Foo19getPageSizeFromNameERK6LengthE10legalWidth, i32 0, i32 0), align 4
+// CHECK: @_ZZN3Foo19getPageSizeFromNameERK6LengthE10legalWidth = linkonce_odr global %struct._Z6Length zeroinitializer, align 4
+// CHECK: store float %{{.*}}, float* getelementptr inbounds (%struct._Z6Length, %struct._Z6Length* @_ZZN3Foo19getPageSizeFromNameERK6LengthE10legalWidth, i32 0, i32 0), align 4
 
 bool bar(Length &b) {
   Foo f;

@@ -9,6 +9,6 @@ struct s {
 
 void func (struct s *s)
 {
-  // CHECK: load %struct.s*, %struct.s**{{.*}}align 8
+  // CHECK: load %struct._Z1s*, %struct._Z1s**{{.*}}align 8
   s->word = 0;
 }

@@ -10,7 +10,7 @@ struct Sub : virtual Base {
   char c;
 };
 
-// CHECK: %struct.Sub = type <{ i32 (...)**, i8, %struct.Base }>
+// CHECK: %struct._Z3Sub = type <{ i32 (...)**, i8, %struct._Z4Base }>
 void f(Sub*) { }
 
 static int i[sizeof(Sub) == 13 ? 1 : -1];

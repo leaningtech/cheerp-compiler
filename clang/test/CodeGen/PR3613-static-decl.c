@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -triple i386-unknown-unknown -emit-llvm -o %t %s
-// RUN: grep '@g0 = internal global %.truct.s0 { i32 3 }' %t | count 1
+// RUN: grep '@g0 = internal global %.truct._Z2s0 { i32 3 }' %t | count 1
 
 struct s0 {
   int a;
