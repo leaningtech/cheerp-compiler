@@ -12,5 +12,5 @@ static struct s a =  {
 };
 
 // CHECK-NOT: internal global
-// CHECK: @a = internal global %struct.s { i32 10 }
+// CHECK: @a = internal global %struct._Z1s { i32 10 }
 // CHECK-NOT: internal-global

@@ -11,6 +11,6 @@ List *find(List *head, int data) {
     return 0;
   if (head->data == data)
     return head;
-  // CHECK: call %struct.List* @find
+  // CHECK: call %struct._Z4List* @find
   return find(head->next, data);
 }
