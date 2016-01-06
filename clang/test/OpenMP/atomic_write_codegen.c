@@ -149,30 +149,30 @@ int main(void) {
 // CHECK: store atomic i128 [[LD]], i128* bitcast (x86_fp80* {{.*}} monotonic, align 16
 #pragma omp atomic write
   ldx = ldv;
-// CHECK: [[REAL_VAL:%.+]] = load i32, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @{{.*}}, i32 0, i32 0)
-// CHECK: [[IMG_VAL:%.+]] = load i32, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @{{.*}}, i32 0, i32 1)
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP]], i32 0, i32 1
+// CHECK: [[REAL_VAL:%.+]] = load i32, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @{{.*}}, i32 0, i32 0)
+// CHECK: [[IMG_VAL:%.+]] = load i32, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @{{.*}}, i32 0, i32 1)
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP]], i32 0, i32 1
 // CHECK: store i32 [[REAL_VAL]], i32* [[TEMP_REAL_REF]]
 // CHECK: store i32 [[IMG_VAL]], i32* [[TEMP_IMG_REF]]
 // CHECK: [[BITCAST:%.+]] = bitcast { i32, i32 }* [[TEMP]] to i8*
 // CHECK: call void @__atomic_store(i64 noundef 8, i8* noundef bitcast ({ i32, i32 }* @{{.*}} to i8*), i8* noundef [[BITCAST]], i32 noundef 0)
 #pragma omp atomic write
   cix = civ;
-// CHECK: [[REAL_VAL:%.+]] = load float, float* getelementptr inbounds ({ float, float }, { float, float }* @{{.*}}, i32 0, i32 0)
-// CHECK: [[IMG_VAL:%.+]] = load float, float* getelementptr inbounds ({ float, float }, { float, float }* @{{.*}}, i32 0, i32 1)
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { float, float }, { float, float }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { float, float }, { float, float }* [[TEMP]], i32 0, i32 1
+// CHECK: [[REAL_VAL:%.+]] = load float, float* getelementptr inbounds (%complex._ZTSf, %complex._ZTSf* @{{.*}}, i32 0, i32 0)
+// CHECK: [[IMG_VAL:%.+]] = load float, float* getelementptr inbounds (%complex._ZTSf, %complex._ZTSf* @{{.*}}, i32 0, i32 1)
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[TEMP]], i32 0, i32 1
 // CHECK: store float [[REAL_VAL]], float* [[TEMP_REAL_REF]]
 // CHECK: store float [[IMG_VAL]], float* [[TEMP_IMG_REF]]
 // CHECK: [[BITCAST:%.+]] = bitcast { float, float }* [[TEMP]] to i8*
 // CHECK: call void @__atomic_store(i64 noundef 8, i8* noundef bitcast ({ float, float }* @{{.*}} to i8*), i8* noundef [[BITCAST]], i32 noundef 0)
 #pragma omp atomic write
   cfx = cfv;
-// CHECK: [[REAL_VAL:%.+]] = load double, double* getelementptr inbounds ({ double, double }, { double, double }* @{{.*}}, i32 0, i32 0)
-// CHECK: [[IMG_VAL:%.+]] = load double, double* getelementptr inbounds ({ double, double }, { double, double }* @{{.*}}, i32 0, i32 1)
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { double, double }, { double, double }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { double, double }, { double, double }* [[TEMP]], i32 0, i32 1
+// CHECK: [[REAL_VAL:%.+]] = load double, double* getelementptr inbounds (%complex._ZTSd, %complex._ZTSd* @{{.*}}, i32 0, i32 0)
+// CHECK: [[IMG_VAL:%.+]] = load double, double* getelementptr inbounds (%complex._ZTSd, %complex._ZTSd* @{{.*}}, i32 0, i32 1)
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSd, %complex._ZTSd* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSd, %complex._ZTSd* [[TEMP]], i32 0, i32 1
 // CHECK: store double [[REAL_VAL]], double* [[TEMP_REAL_REF]]
 // CHECK: store double [[IMG_VAL]], double* [[TEMP_IMG_REF]]
 // CHECK: [[BITCAST:%.+]] = bitcast { double, double }* [[TEMP]] to i8*
@@ -212,8 +212,8 @@ int main(void) {
   ix = uiv;
 // CHECK: load i64, i64*
 // CHECK: [[VAL:%.+]] = trunc i64 %{{.*}} to i32
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP]], i32 0, i32 1
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP]], i32 0, i32 1
 // CHECK: store i32 [[VAL]], i32* [[TEMP_REAL_REF]]
 // CHECK: store i32 0, i32* [[TEMP_IMG_REF]]
 // CHECK: [[BITCAST:%.+]] = bitcast { i32, i32 }* [[TEMP]] to i8*
@@ -240,8 +240,8 @@ int main(void) {
   ldx = ullv;
 // CHECK: load float, float*
 // CHECK: [[VAL:%.+]] = fptosi float %{{.*}} to i32
-// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP:%.+]], i32 0, i32 0
-// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[TEMP]], i32 0, i32 1
+// CHECK: [[TEMP_REAL_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP:%.+]], i32 0, i32 0
+// CHECK: [[TEMP_IMG_REF:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[TEMP]], i32 0, i32 1
 // CHECK: store i32 [[VAL]], i32* [[TEMP_REAL_REF]]
 // CHECK: store i32 0, i32* [[TEMP_IMG_REF]]
 // CHECK: [[BITCAST:%.+]] = bitcast { i32, i32 }* [[TEMP]] to i8*
@@ -256,8 +256,8 @@ int main(void) {
 // CHECK: store atomic i8 {{.*}} monotonic, align 1
 #pragma omp atomic write
   bx = ldv;
-// CHECK: load i32, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @{{.+}}, i32 0, i32 0)
-// CHECK: load i32, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @{{.+}}, i32 0, i32 1)
+// CHECK: load i32, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @{{.+}}, i32 0, i32 0)
+// CHECK: load i32, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @{{.+}}, i32 0, i32 1)
 // CHECK: icmp ne i32 %{{.+}}, 0
 // CHECK: icmp ne i32 %{{.+}}, 0
 // CHECK: or i1

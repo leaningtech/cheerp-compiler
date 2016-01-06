@@ -5,8 +5,8 @@ struct s { int x; long double y; };
 int bar(struct s *, struct s *);
 long double foo(struct s x, int i, struct s y) {
 // CHECK: foo
-// CHECK: %x = alloca %struct.s, align 16
-// CHECK: %y = alloca %struct.s, align 16
+// CHECK: %x = alloca %struct._Z1s, align 16
+// CHECK: %y = alloca %struct._Z1s, align 16
 // CHECK: memcpy
 // CHECK: memcpy
 // CHECK: bar

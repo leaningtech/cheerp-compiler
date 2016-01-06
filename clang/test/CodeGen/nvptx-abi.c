@@ -14,7 +14,7 @@ float4_t my_function(void) {
 float bar(void) {
   float4_t ret;
 // CHECK-LABEL: @bar
-// CHECK: call %struct.float4_s @my_function
+// CHECK: call %struct._Z8float4_s @my_function
   ret = my_function();
   return ret.x;
 }
