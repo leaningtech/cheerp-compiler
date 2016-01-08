@@ -1,15 +1,15 @@
-//===-- ReplaceNopCasts.cpp - The Cheerp JavaScript generator ---------------===//
+//===-- ReplaceNopCastsAndByteSwaps.cpp - The Cheerp JavaScript generator -===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2016 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Cheerp/ReplaceNopCasts.h"
+#include "llvm/Cheerp/ReplaceNopCastsAndByteSwaps.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -19,8 +19,16 @@ namespace cheerp {
 
 using namespace llvm;
 
-bool ReplaceNopCasts::runOnFunction(Function & F)
+bool ReplaceNopCastsAndByteSwaps::runOnFunction(Function & F)
 {
+	// We can use the same IntrinsicLowering over and over again
+	if ( !IL )
+	{
+		const DataLayout* DL = &F.getParent()->getDataLayout();
+		assert(DL);
+		IL = new IntrinsicLowering(*DL);
+	}
+
 	if ( F.empty() )
 		return false;
 
@@ -34,12 +42,13 @@ bool ReplaceNopCasts::runOnFunction(Function & F)
 	return Changed;
 }
 
-bool ReplaceNopCasts::processBasicBlock(BasicBlock& BB)
+bool ReplaceNopCastsAndByteSwaps::processBasicBlock(BasicBlock& BB)
 {
 	bool Changed = false;
 	
 	/**
-	 * First pass: replace nopCasts with bitcasts and report warning for invalid type casts
+	 * First pass: replace nopCasts with bitcasts and bswap intrinsics with logic operations
+	
 	 */
 	for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
 	{
@@ -66,6 +75,14 @@ bool ReplaceNopCasts::processBasicBlock(BasicBlock& BB)
 
 			Changed = true;
 		}
+		else if( IntrinsicInst* II = dyn_cast<IntrinsicInst>(Inst) )
+		{
+			if(II->getIntrinsicID() == Intrinsic::bswap)
+			{
+				IL->LowerIntrinsicCall(II);
+				Changed = true;
+			}
+		}
 	}
 	
 	/**
@@ -88,27 +105,19 @@ bool ReplaceNopCasts::processBasicBlock(BasicBlock& BB)
 	return Changed;
 }
 
-void ReplaceNopCasts::reportUnsafeCast(const User* u) const
-{
-	cast<Instruction>(u)->getParent()->getParent()->dump();
-	llvm::errs() << "warning in instruction: " << *u << "\n";
-	llvm::errs() << "\t Type conversion between: \t" << *u->getOperand(0)->getType() << " and " << *u->getType() << "\n\tis not safe. ";
-	llvm::errs() << "Expect issues. And report a bug.\n\n";
+const char *ReplaceNopCastsAndByteSwaps::getPassName() const {
+	return "ReplaceNopCastsAndByteSwaps";
 }
 
-const char *ReplaceNopCasts::getPassName() const {
-	return "ReplaceNopCasts";
-}
+char ReplaceNopCastsAndByteSwaps::ID = 0;
 
-char ReplaceNopCasts::ID = 0;
-
-FunctionPass *createReplaceNopCastsPass() { return new ReplaceNopCasts(); }
+FunctionPass *createReplaceNopCastsAndByteSwapsPass() { return new ReplaceNopCastsAndByteSwaps(); }
 
 }
 
 using namespace cheerp;
 
-INITIALIZE_PASS_BEGIN(ReplaceNopCasts, "ReplaceNopCasts", "Replace type safe cast intrinsics with bitcasts when possible",
+INITIALIZE_PASS_BEGIN(ReplaceNopCastsAndByteSwaps, "ReplaceNopCasts", "Replace type safe cast intrinsics with bitcasts and bswap intrinsics with logical operations",
                       false, false)
-INITIALIZE_PASS_END(ReplaceNopCasts, "ReplaceNopCasts", "Replace type safe cast intrinsics with bitcasts when possible",
+INITIALIZE_PASS_END(ReplaceNopCastsAndByteSwaps, "ReplaceNopCastsAndByteSwaps", "Replace type safe cast intrinsics with bitcasts and bswap intrinsics with logical operations",
                     false, false)

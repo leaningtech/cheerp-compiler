@@ -2289,6 +2289,9 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
 Instruction *InstCombinerImpl::matchBSwapOrBitReverse(Instruction &I,
                                                       bool MatchBSwaps,
                                                       bool MatchBitReversals) {
+  // Cheerp: We don't have a byte swap intrinsic, so don't generate it
+  if (!DL.isByteAddressable())
+    return nullptr;
   SmallVector<Instruction *, 4> Insts;
   if (!recognizeBSwapOrBitReverseIdiom(&I, MatchBSwaps, MatchBitReversals,
                                        Insts))
