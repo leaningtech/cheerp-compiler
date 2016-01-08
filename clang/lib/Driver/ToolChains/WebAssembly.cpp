@@ -424,7 +424,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-PreExecute");
   if(!Args.hasArg(options::OPT_cheerp_no_type_optimizer))
     CmdArgs.push_back("-TypeOptimizer");
-  CmdArgs.push_back("-ReplaceNopCasts");
+  CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
   CmdArgs.push_back("-Os");
   // Inlining from -Os may generate memcpy calls that we need to lower
   CmdArgs.push_back("-StructMemFuncLowering");
