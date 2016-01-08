@@ -2035,6 +2035,9 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
 }
 
 Instruction *InstCombinerImpl::matchBSwap(BinaryOperator &Or) {
+  // Cheerp: We don't have a byte swap intrinsic, so don't generate it
+  if (!DL.isByteAddressable())
+    return nullptr;
   assert(Or.getOpcode() == Instruction::Or && "bswap requires an 'or'");
   Value *Op0 = Or.getOperand(0), *Op1 = Or.getOperand(1);
 
