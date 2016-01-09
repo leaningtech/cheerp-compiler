@@ -1786,7 +1786,7 @@ public:
         if (__n > (size_t(~0) / sizeof(_Tp)))
             __throw_length_error("allocator<T>::allocate(size_t n)"
                                  " 'n' exceeds maximum supported size");
-        return static_cast<_Tp*>(new _Tp [__n] [[noinit]]);
+        return static_cast<_Tp*>(new _Tp [__n] [[cheerp::noinit]]);
         }
 
 #if _LIBCPP_STD_VER <= 17 || defined(_LIBCPP_ENABLE_CXX20_REMOVED_ALLOCATOR_MEMBERS)
@@ -1851,7 +1851,7 @@ public:
         if (__n > (size_t(~0) / sizeof(_Tp)))
             __throw_length_error("allocator<const T>::allocate(size_t n)"
                                  " 'n' exceeds maximum supported size");
-        return static_cast<const _Tp*>(new _Tp[__n] [[noinit]]);
+        return static_cast<const _Tp*>(new _Tp[__n] [[cheerp::noinit]]);
     }
 
 #if _LIBCPP_STD_VER <= 17 || defined(_LIBCPP_ENABLE_CXX20_REMOVED_ALLOCATOR_MEMBERS)

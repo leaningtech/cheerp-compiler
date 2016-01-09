@@ -373,7 +373,7 @@ private:
     iostate         __rdstate_;
     iostate         __exceptions_;
     void*           __rdbuf_;
-    locale          __loc_ [[noinit]];
+    locale          __loc_ [[cheerp::noinit]];
     event_callback* __fn_;
     int*            __index_;
     size_t          __event_size_;

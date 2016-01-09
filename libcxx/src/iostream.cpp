@@ -18,60 +18,60 @@
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #ifndef _LIBCPP_HAS_NO_STDIN
-_ALIGNAS_TYPE (istream) _LIBCPP_FUNC_VIS istream cin [[noinit]]
+_ALIGNAS_TYPE (istream) _LIBCPP_FUNC_VIS istream cin [[cheerp::noinit]]
 #if defined(_LIBCPP_ABI_MICROSOFT) && defined(__clang__)
 __asm__("?cin@" _LIBCPP_ABI_NAMESPACE_STR "@std@@3V?$basic_istream@DU?$char_traits@D@" _LIBCPP_ABI_NAMESPACE_STR "@std@@@12@A")
 #endif
 ;
-_ALIGNAS_TYPE (__stdinbuf<char> ) static __stdinbuf<char> __cin [[noinit]];
+_ALIGNAS_TYPE (__stdinbuf<char> ) static __stdinbuf<char> __cin [[cheerp::noinit]];
 static mbstate_t mb_cin;
-_ALIGNAS_TYPE (wistream) _LIBCPP_FUNC_VIS wistream wcin [[noinit]]
+_ALIGNAS_TYPE (wistream) _LIBCPP_FUNC_VIS wistream wcin [[cheerp::noinit]]
 #if defined(_LIBCPP_ABI_MICROSOFT) && defined(__clang__)
 __asm__("?wcin@" _LIBCPP_ABI_NAMESPACE_STR "@std@@3V?$basic_istream@_WU?$char_traits@_W@" _LIBCPP_ABI_NAMESPACE_STR "@std@@@12@A")
 #endif
 ;
-_ALIGNAS_TYPE (__stdinbuf<wchar_t> ) static __stdinbuf<wchar_t> __wcin [[noinit]];
+_ALIGNAS_TYPE (__stdinbuf<wchar_t> ) static __stdinbuf<wchar_t> __wcin [[cheerp::noinit]];
 static mbstate_t mb_wcin;
 #endif
 
 #ifndef _LIBCPP_HAS_NO_STDOUT
-_ALIGNAS_TYPE (ostream) _LIBCPP_FUNC_VIS ostream cout [[noinit]]
+_ALIGNAS_TYPE (ostream) _LIBCPP_FUNC_VIS ostream cout [[cheerp::noinit]]
 #if defined(_LIBCPP_ABI_MICROSOFT) && defined(__clang__)
 __asm__("?cout@" _LIBCPP_ABI_NAMESPACE_STR "@std@@3V?$basic_ostream@DU?$char_traits@D@" _LIBCPP_ABI_NAMESPACE_STR "@std@@@12@A")
 #endif
 ;
-_ALIGNAS_TYPE (__stdoutbuf<char>) static __stdoutbuf<char> __cout [[noinit]];
+_ALIGNAS_TYPE (__stdoutbuf<char>) static __stdoutbuf<char> __cout [[cheerp::noinit]];
 static mbstate_t mb_cout;
-_ALIGNAS_TYPE (wostream) _LIBCPP_FUNC_VIS wostream wcout [[noinit]]
+_ALIGNAS_TYPE (wostream) _LIBCPP_FUNC_VIS wostream wcout [[cheerp::noinit]]
 #if defined(_LIBCPP_ABI_MICROSOFT) && defined(__clang__)
 __asm__("?wcout@" _LIBCPP_ABI_NAMESPACE_STR "@std@@3V?$basic_ostream@_WU?$char_traits@_W@" _LIBCPP_ABI_NAMESPACE_STR "@std@@@12@A")
 #endif
 ;
-_ALIGNAS_TYPE (__stdoutbuf<wchar_t>) static __stdoutbuf<wchar_t> __wcout [[noinit]];
+_ALIGNAS_TYPE (__stdoutbuf<wchar_t>) static __stdoutbuf<wchar_t> __wcout [[cheerp::noinit]];
 static mbstate_t mb_wcout;
 #endif
 
-_ALIGNAS_TYPE (ostream) _LIBCPP_FUNC_VIS ostream cerr [[noinit]]
+_ALIGNAS_TYPE (ostream) _LIBCPP_FUNC_VIS ostream cerr [[cheerp::noinit]]
 #if defined(_LIBCPP_ABI_MICROSOFT) && defined(__clang__)
 __asm__("?cerr@" _LIBCPP_ABI_NAMESPACE_STR "@std@@3V?$basic_ostream@DU?$char_traits@D@" _LIBCPP_ABI_NAMESPACE_STR "@std@@@12@A")
 #endif
 ;
-_ALIGNAS_TYPE (__stdoutbuf<char>) static __stdoutbuf<char> __cerr [[noinit]];
+_ALIGNAS_TYPE (__stdoutbuf<char>) static __stdoutbuf<char> __cerr [[cheerp::noinit]];
 static mbstate_t mb_cerr;
-_ALIGNAS_TYPE (wostream) _LIBCPP_FUNC_VIS wostream wcerr [[noinit]];
+_ALIGNAS_TYPE (wostream) _LIBCPP_FUNC_VIS wostream wcerr [[cheerp::noinit]];
 #if defined(_LIBCPP_ABI_MICROSOFT) && defined(__clang__)
 __asm__("?wcerr@" _LIBCPP_ABI_NAMESPACE_STR "@std@@3V?$basic_ostream@_WU?$char_traits@_W@" _LIBCPP_ABI_NAMESPACE_STR "@std@@@12@A")
 #endif
 ;
-_ALIGNAS_TYPE (__stdoutbuf<wchar_t>) static __stdoutbuf<wchar_t> __wcerr [[noinit]];
+_ALIGNAS_TYPE (__stdoutbuf<wchar_t>) static __stdoutbuf<wchar_t> __wcerr [[cheerp::noinit]];
 static mbstate_t mb_wcerr;
 
-_ALIGNAS_TYPE (ostream) _LIBCPP_FUNC_VIS ostream clog [[noinit]]
+_ALIGNAS_TYPE (ostream) _LIBCPP_FUNC_VIS ostream clog [[cheerp::noinit]]
 #if defined(_LIBCPP_ABI_MICROSOFT) && defined(__clang__)
 __asm__("?clog@" _LIBCPP_ABI_NAMESPACE_STR "@std@@3V?$basic_ostream@DU?$char_traits@D@" _LIBCPP_ABI_NAMESPACE_STR "@std@@@12@A")
 #endif
 ;
-_ALIGNAS_TYPE (wostream) _LIBCPP_FUNC_VIS wostream wclog [[noinit]]
+_ALIGNAS_TYPE (wostream) _LIBCPP_FUNC_VIS wostream wclog [[cheerp::noinit]]
 #if defined(_LIBCPP_ABI_MICROSOFT) && defined(__clang__)
 __asm__("?wclog@" _LIBCPP_ABI_NAMESPACE_STR "@std@@3V?$basic_ostream@_WU?$char_traits@_W@" _LIBCPP_ABI_NAMESPACE_STR "@std@@@12@A")
 #endif
