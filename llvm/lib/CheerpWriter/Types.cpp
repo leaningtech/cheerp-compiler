@@ -51,7 +51,7 @@ void CheerpWriter::compileSimpleType(Type* t)
 		case Type::FloatTyID:
 		case Type::DoubleTyID:
 		{
-			stream << '0';
+			stream << "-0";
 			break;
 		}
 		case Type::PointerTyID:
