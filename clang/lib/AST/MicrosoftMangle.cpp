@@ -501,7 +501,7 @@ void MicrosoftCXXNameMangler::mangle(const NamedDecl *D, StringRef Prefix) {
     // MSVC appears to mangle GUIDs as if they were variables of type
     // 'const struct __s_GUID'.
     Out << "3U__s_GUID@@B";
-  else
+  else if (!isa<RecordDecl>(D))
     llvm_unreachable("Tried to mangle unexpected NamedDecl!");
 }
 

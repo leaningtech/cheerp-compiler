@@ -65,6 +65,8 @@ static bool isExternC(const NamedDecl *ND) {
 
 static CCMangling getCallingConvMangling(const ASTContext &Context,
                                          const NamedDecl *ND) {
+  if(isa<RecordDecl>(ND))
+    return CCM_Other;
   const TargetInfo &TI = Context.getTargetInfo();
   const llvm::Triple &Triple = TI.getTriple();
 
