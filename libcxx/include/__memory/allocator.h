@@ -102,7 +102,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             return static_cast<_Tp*>(::operator new(__n * sizeof(_Tp)));
         } else {
-            return static_cast<_Tp*>(new _Tp [__n] [[noinit]]);
+            return static_cast<_Tp*>(new _Tp [__n] [[cheerp::noinit]]);
         }
     }
 
@@ -184,7 +184,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             return static_cast<const _Tp*>(::operator new(__n * sizeof(_Tp)));
         } else {
-            return static_cast<const _Tp*>(new _Tp[__n] [[noinit]]);
+            return static_cast<const _Tp*>(new _Tp[__n] [[cheerp::noinit]]);
         }
     }
 

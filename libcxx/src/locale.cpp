@@ -93,7 +93,7 @@ template <class T, class ...Args>
 T& make(Args ...args)
 {
 #ifdef __CHEERP__
-    static T buf [[noinit]];
+    static T buf [[cheerp::noinit]];
 #else
     static typename aligned_storage<sizeof(T)>::type buf;
 #endif
@@ -563,7 +563,7 @@ locale::__imp::make_classic()
 {
     // only one thread can get in here and it only gets in once
 #ifdef __CHEERP__
-    static locale buf [[noinit]];
+    static locale buf [[cheerp::noinit]];
 #else
     static aligned_storage<sizeof(locale)>::type buf;
 #endif
@@ -584,7 +584,7 @@ locale::__imp::make_global()
 {
     // only one thread can get in here and it only gets in once
 #ifdef __CHEERP__
-    static locale buf [[noinit]];
+    static locale buf [[cheerp::noinit]];
 #else
     static aligned_storage<sizeof(locale)>::type buf;
 #endif
