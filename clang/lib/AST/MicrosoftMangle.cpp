@@ -570,7 +570,7 @@ void MicrosoftCXXNameMangler::mangle(GlobalDecl GD, StringRef Prefix) {
   else if (isa<TemplateParamObjectDecl>(D)) {
     // Template parameter objects don't get a <type-encoding>; their type is
     // specified as part of their value.
-  } else
+  } else if (!isa<RecordDecl>(D))
     llvm_unreachable("Tried to mangle unexpected NamedDecl!");
 }
 
