@@ -611,13 +611,11 @@ void test21(unsigned n) {
 
   // Destroy.
   // CHECK-NEXT: [[T0:%.*]] = mul nuw i64 2, [[DIM]]
-  // CHECK-NEXT: [[BEGIN:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[VLA]], i32 0, i32 0
-  // CHECK-NEXT: [[T1:%.*]] = mul nuw i64 [[T0]], 3
-  // CHECK-NEXT: [[END:%.*]] = getelementptr inbounds i8*, i8** [[BEGIN]], i64 [[T1]]
-  // CHECK-NEXT: [[EMPTY:%.*]] = icmp eq i8** [[BEGIN]], [[END]]
+  // CHECK-NEXT: [[END:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* [[VLA]], i64 [[T0]]
+  // CHECK-NEXT: [[EMPTY:%.*]] = icmp eq [3 x i8*]* [[VLA]], [[END]]
   // CHECK-NEXT: br i1 [[EMPTY]]
 
-  // CHECK:      [[AFTER:%.*]] = phi i8** [ [[END]], {{%.*}} ], [ [[CUR:%.*]], {{%.*}} ]
+  // CHECK:      [[AFTER:%.*]] = phi i8** {{.*}}
   // CHECK-NEXT: [[CUR:%.*]] = getelementptr inbounds i8*, i8** [[AFTER]], i64 -1
   // CHECK-NEXT: [[T0:%.*]] = load i8*, i8** [[CUR]]
   // CHECK-NEXT: call void @llvm.objc.release(i8* [[T0]]) [[NUW]], !clang.imprecise_release
