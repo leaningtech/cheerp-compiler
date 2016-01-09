@@ -1558,11 +1558,14 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
     llvm::Type* Tys[] = { DynCastObj->getType() };
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(), llvm::Intrinsic::cheerp_downcast_current, Tys);
     Value = CGF.Builder.CreateCall(intrinsic, Value);
-  } else
+    llvm::Value *args[] = { Value, VTable, SrcRTTI, DestRTTI, OffsetHint };
+    Value = CGF.EmitNounwindRuntimeCall(getItaniumDynamicCastFn(CGF), args);
+  } else {
     Value = CGF.EmitCastToVoidPtr(Value);
+    llvm::Value *args[] = { Value, SrcRTTI, DestRTTI, OffsetHint };
+    Value = CGF.EmitNounwindRuntimeCall(getItaniumDynamicCastFn(CGF), args);
+  }
 
-  llvm::Value *args[] = { Value, VTable, SrcRTTI, DestRTTI, OffsetHint };
-  Value = CGF.EmitNounwindRuntimeCall(getItaniumDynamicCastFn(CGF), args);
   if(!CGF.getTarget().isByteAddressable()) {
     llvm::BasicBlock *EndBB = CGF.createBasicBlock("cheerp_downcast_end");
     llvm::BasicBlock *DynamicBB = CGF.createBasicBlock("cheerp_dynamic_downcast");
