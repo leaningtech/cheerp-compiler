@@ -107,8 +107,8 @@ namespace test4 {
   //   Landing pad from throw site:
   // CHECK:      landingpad
   //     - First, destroy all of array.
-  // CHECK:      [[ARRAYBEGIN:%.*]] = getelementptr inbounds [2 x [3 x i8*]], [2 x [3 x i8*]]* [[ARRAY]], i32 0, i32 0, i32 0
-  // CHECK-NEXT: [[ARRAYEND:%.*]] = getelementptr inbounds i8*, i8** [[ARRAYBEGIN]], i64 6
+  // CHECK:      [[ARRAYBEGIN:%.*]] = getelementptr inbounds [3 x i8*], [3 x i8*]* {{.*}}, i32 0, i32 0
+  // CHECK-NEXT: [[ARRAYEND:%.*]] = getelementptr inbounds i8*, i8** [[ARRAYBEGIN]], i64 3
   // CHECK-NEXT: br label
   // CHECK:      [[AFTER:%.*]] = phi i8** [ [[ARRAYEND]], {{%.*}} ], [ [[ELT:%.*]], {{%.*}} ]
   // CHECK-NEXT: [[ELT]] = getelementptr inbounds i8*, i8** [[AFTER]], i64 -1

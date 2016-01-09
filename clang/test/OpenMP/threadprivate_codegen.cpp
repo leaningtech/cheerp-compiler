@@ -305,7 +305,7 @@ S1 arr_x[2][3] = { { 1, 2, 3 }, { 4, 5, 6 } };
 // CHECK:      [[ARR_DONE:%.*]] = icmp eq ptr [[ARR_ELEMENT]], [[ARG]]
 // CHECK-NEXT: br i1 [[ARR_DONE]], label %[[ARR_EXIT:.*]], label %[[ARR_LOOP]]
 // CHECK:      {{.*}}[[ARR_EXIT]]{{.*}}
-// CHECK-NEXT: ret void
+// CHECK: ret void
 // CHECK:      }
 // CHECK:      define internal {{.*}}void [[ARR_X_INIT:@\.__omp_threadprivate_init_\..*]]()
 // CHECK:      call {{.*}}void @__kmpc_threadprivate_register(ptr [[DEFAULT_LOC]], ptr [[ARR_X]], ptr [[ARR_X_CTOR]], ptr null, ptr [[ARR_X_DTOR]])
