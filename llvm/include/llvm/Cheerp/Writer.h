@@ -23,6 +23,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/FormattedStream.h"
 #include <set>
 #include <map>
@@ -158,6 +159,7 @@ private:
 
 	// Support for source maps
 	SourceMapGenerator* sourceMapGenerator;
+	std::map<llvm::StringRef, llvm::DISubprogram> functionToDebugInfoMap;
 	const NewLineHandler NewLine;
 
 	// Flag to signal if we should take advantage of native JavaScript math functions
