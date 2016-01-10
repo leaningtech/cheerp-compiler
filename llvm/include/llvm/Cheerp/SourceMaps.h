@@ -14,6 +14,7 @@
 
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include <map>
 
@@ -27,16 +28,19 @@ private:
 	const std::string& sourceMapName;
 	const std::string& sourceMapPrefix;
 	llvm::LLVMContext& Ctx;
-	std::map<llvm::MDString*, uint32_t> fileMap;
+	std::map<llvm::StringRef, uint32_t> fileMap;
+	std::map<llvm::StringRef, uint32_t> functionNameMap;
 	uint32_t lastFile;
 	uint32_t lastLine;
-	uint32_t lastColoumn;
+	uint32_t lastColumn;
 	uint32_t lastOffset;
 	uint32_t lineOffset;
+	uint32_t lastName;
 	void writeBase64VLQInt(int32_t i);
 public:
 	// sourceMapName and sourceMapPrefix life spans should be longer than the one of the SourceMapGenerator
 	SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, llvm::LLVMContext& C, std::error_code& ErrorCode);
+	void setFunctionName(const llvm::DISubprogram &method);
 	void setDebugLoc(const llvm::DebugLoc& debugLoc);
 	void beginFile();
 	void finishLine();

@@ -21,7 +21,7 @@ namespace cheerp
 
 SourceMapGenerator::SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, llvm::LLVMContext& C, std::error_code& ErrorCode):
 	sourceMap(sourceMapName.c_str(), ErrorCode, sys::fs::F_None), sourceMapName(sourceMapName), sourceMapPrefix(sourceMapPrefix),
-	Ctx(C), lastFile(0), lastLine(0), lastColoumn(0), lastOffset(0), lineOffset(0)
+	Ctx(C), lastFile(0), lastLine(0), lastColumn(0), lastOffset(0), lineOffset(0), lastName(0)
 {
 }
 
@@ -46,23 +46,34 @@ void SourceMapGenerator::writeBase64VLQInt(int i)
 	while(i);
 }
 
-void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
-{
-	MDNode* file = debugLoc.getScope(Ctx);
-	assert(file->getNumOperands()>=2);
-	MDNode* fileNamePath = cast<MDNode>(file->getOperand(1));
-	assert(fileNamePath->getNumOperands()==2);
-	MDString* fileNameString = cast<MDString>(fileNamePath->getOperand(0));
+void SourceMapGenerator::setFunctionName(const llvm::DISubprogram &method) {
+	StringRef fileName = method.getFilename();
+	unsigned lineNumber = method.getLineNumber();
+	StringRef functionName = method.getLinkageName();
+	if (functionName.empty())
+		functionName = method.getName();
 
-	auto fileMapIt = fileMap.find(fileNameString);
-	if (fileMapIt == fileMap.end())
-		fileMapIt = fileMap.insert(std::make_pair(fileNameString, fileMap.size())).first;
+	auto fileMapIt = fileMap.find(fileName);
+	if (fileMapIt == fileMap.end()) {
+		auto pair = std::make_pair(fileName, fileMap.size());
+		fileMapIt = fileMap.insert(pair).first;
+	}
+
+	auto functionNameMapIt = functionNameMap.find(functionName);
+	if (functionNameMapIt == functionNameMap.end()) {
+		auto pair = std::make_pair(functionName, functionNameMap.size());
+		functionNameMapIt = functionNameMap.insert(pair).first;
+	}
+
 	uint32_t currentFile = fileMapIt->second;
-	uint32_t currentLine = debugLoc.getLine() - 1;
-	uint32_t currentColoumn = debugLoc.getCol() - 1;
+	uint32_t currentLine = lineNumber;
+	uint32_t currentName = functionNameMapIt->second;
+	uint32_t currentColumn = 0;
+
 	if(lastOffset != 0)
 		sourceMap.os() << ',';
-	// Starting coloumn in the generated code
+
+	// Starting column in the generated code
 	writeBase64VLQInt(lineOffset - lastOffset);
 	// Other fields are encoded as difference from the previous one in the file
 	// We can use the last value directly because it is initialized as 0
@@ -70,11 +81,46 @@ void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
 	writeBase64VLQInt(currentFile - lastFile);
 	// Line index
 	writeBase64VLQInt(currentLine - lastLine);
-	// Coloumn index
-	writeBase64VLQInt(currentColoumn - lastColoumn);
+	// Column index
+	writeBase64VLQInt(currentColumn - lastColumn);
+	// Name index
+	writeBase64VLQInt(currentName - lastName);
 	lastFile = currentFile;
 	lastLine = currentLine;
-	lastColoumn = currentColoumn;
+	lastColumn = currentColumn;
+	lastOffset = lineOffset;
+	lastName = currentName;
+}
+
+void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
+{
+	MDNode* file = debugLoc.getScope(Ctx);
+	assert(file->getNumOperands()>=2);
+	MDNode* fileNamePath = cast<MDNode>(file->getOperand(1));
+	assert(fileNamePath->getNumOperands()==2);
+	StringRef fileName = cast<MDString>(fileNamePath->getOperand(0))->getString();
+
+	auto fileMapIt = fileMap.find(fileName);
+	if (fileMapIt == fileMap.end())
+		fileMapIt = fileMap.insert(std::make_pair(fileName, fileMap.size())).first;
+	uint32_t currentFile = fileMapIt->second;
+	uint32_t currentLine = debugLoc.getLine() - 1;
+	uint32_t currentColumn = debugLoc.getCol() - 1;
+	if(lastOffset != 0)
+		sourceMap.os() << ',';
+	// Starting column in the generated code
+	writeBase64VLQInt(lineOffset - lastOffset);
+	// Other fields are encoded as difference from the previous one in the file
+	// We can use the last value directly because it is initialized as 0
+	// File index
+	writeBase64VLQInt(currentFile - lastFile);
+	// Line index
+	writeBase64VLQInt(currentLine - lastLine);
+	// Column index
+	writeBase64VLQInt(currentColumn - lastColumn);
+	lastFile = currentFile;
+	lastLine = currentLine;
+	lastColumn = currentColumn;
 	lastOffset = lineOffset;
 }
 
@@ -83,7 +129,6 @@ void SourceMapGenerator::beginFile()
 	// Output the prologue of the file
 	sourceMap.os() << "{\n";
 	sourceMap.os() << "\"version\": 3,\n";
-	sourceMap.os() << "\"names\": [],\n";
 	sourceMap.os() << "\"mappings\": \"";
 }
 
@@ -99,7 +144,7 @@ void SourceMapGenerator::endFile()
 	// Output the prologue of the file
 	sourceMap.os() << "\",\n";
 	// Output file names
-	SmallVector<MDString*, 10> files(fileMap.size(), NULL);
+	SmallVector<StringRef, 10> files(fileMap.size());
 	for(auto mapItem: fileMap)
 		files[mapItem.second] = mapItem.first;
 	sourceMap.os() << "\"sources\": [";
@@ -109,7 +154,7 @@ void SourceMapGenerator::endFile()
 			sourceMap.os() << ',';
 		// Fix slashes in the file path
 		std::string tmp;
-		StringRef string=files[i]->getString();
+		StringRef string = files[i];
 		unsigned start=0;
 		if(string.startswith(sourceMapPrefix))
 			start=sourceMapPrefix.size();
@@ -122,6 +167,20 @@ void SourceMapGenerator::endFile()
 			tmp.push_back(c);
 		}
 		sourceMap.os() << '"' << tmp << '"';
+	}
+	sourceMap.os() << "],\n";
+	// Output the symbol names
+	SmallVector<StringRef, 10> functions(functionNameMap.size());
+	for(auto mapItem: functionNameMap)
+		functions[mapItem.second] = mapItem.first;
+	sourceMap.os() << "\"names\": [";
+	for(uint32_t i=0; i < functions.size(); i++)
+	{
+		if (i != 0)
+			sourceMap.os() << ',';
+		// Add an underscore to the function name to match the generated symbol
+		// names in the JavaScript file.
+		sourceMap.os() << '"' << functions[i] << '"';
 	}
 	sourceMap.os() << "]\n";
 	sourceMap.os() << "}\n";
