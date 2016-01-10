@@ -15,8 +15,9 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -25,6 +26,9 @@ using namespace cheerp;
 
 //De-comment this to debug the pointer kind of every function
 //#define CHEERP_DEBUG_POINTERS
+
+//De-comment this to debug the source map generation
+//#define CHEERP_DEBUG_SOURCE_MAP
 
 class CheerpRenderInterface: public RenderInterface
 {
@@ -3037,6 +3041,20 @@ void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 
 void CheerpWriter::compileMethod(const Function& F)
 {
+	if (sourceMapGenerator) {
+#ifdef CHEERP_DEBUG_SOURCE_MAP
+		llvm::errs() << "compileMethod: " << F.getName() << "\n";
+#endif
+
+		auto search = functionToDebugInfoMap.find(F.getName());
+		if (search != functionToDebugInfoMap.end()) {
+#ifdef CHEERP_DEBUG_SOURCE_MAP
+			llvm::errs() << "Found on " << search->second.getFilename()
+				<< ":"  << search->second.getLineNumber() << '\n';
+#endif
+			sourceMapGenerator->setFunctionName(search->second);
+		}
+	}
 	currentFun = &F;
 	stream << "function " << namegen.getName(&F) << '(';
 	const Function::const_arg_iterator A=F.arg_begin();
@@ -3325,8 +3343,35 @@ void CheerpWriter::compileHandleVAArg()
 
 void CheerpWriter::makeJS()
 {
-	if (sourceMapGenerator)
+	if (sourceMapGenerator) {
 		sourceMapGenerator->beginFile();
+
+		NamedMDNode *cu = module.getNamedMetadata("llvm.dbg.cu");
+		if (!cu || cu->getNumOperands() == 0) {
+			llvm::errs() << "warning: no debug symbols found but source map is requested\n";
+		}
+
+		DebugInfoFinder finder;
+		finder.processModule(module);
+
+		for (const DISubprogram &method : finder.subprograms()) {
+#ifdef CHEERP_DEBUG_SOURCE_MAP
+			llvm::errs() << "Name: " << method.getName()
+				<< " LinkageName: " << method.getLinkageName()
+				<< " Line: " << method.getLineNumber()
+				<< " ScopeLine: " << method.getScopeLineNumber()
+				<< " Type: " << method.getType()
+				<< " IsLocalToUnit: " << method.isLocalToUnit()
+				<< " IsDefinition: " << method.isDefinition()
+				<< "\n";
+#endif
+
+			StringRef linkName = method.getLinkageName();
+			if (linkName.empty())
+				linkName = method.getName();
+			functionToDebugInfoMap.insert(std::make_pair(linkName, method));
+		}
+	}
 
 	if (makeModule)
 		stream << "(function(){" << NewLine;
