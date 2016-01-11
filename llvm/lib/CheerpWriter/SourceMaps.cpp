@@ -21,7 +21,7 @@ namespace cheerp
 
 SourceMapGenerator::SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, llvm::LLVMContext& C, std::error_code& ErrorCode):
 	sourceMap(sourceMapName.c_str(), ErrorCode, sys::fs::F_None), sourceMapName(sourceMapName), sourceMapPrefix(sourceMapPrefix),
-	Ctx(C), lastFile(0), lastLine(0), lastColumn(0), lastOffset(0), lineOffset(0), lastName(0)
+	Ctx(C), lastFile(0), lastLine(0), lastColumn(0), lastOffset(0), lineOffset(0), lastName(0), lineBegin(true)
 {
 }
 
@@ -70,8 +70,9 @@ void SourceMapGenerator::setFunctionName(const llvm::DISubprogram &method) {
 	uint32_t currentName = functionNameMapIt->second;
 	uint32_t currentColumn = 0;
 
-	if(lastOffset != 0)
+	if(!lineBegin)
 		sourceMap.os() << ',';
+	lineBegin = false;
 
 	// Starting column in the generated code
 	writeBase64VLQInt(lineOffset - lastOffset);
@@ -106,8 +107,9 @@ void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
 	uint32_t currentFile = fileMapIt->second;
 	uint32_t currentLine = debugLoc.getLine() - 1;
 	uint32_t currentColumn = debugLoc.getCol() - 1;
-	if(lastOffset != 0)
+	if(!lineBegin)
 		sourceMap.os() << ',';
+	lineBegin = false;
 	// Starting column in the generated code
 	writeBase64VLQInt(lineOffset - lastOffset);
 	// Other fields are encoded as difference from the previous one in the file
@@ -137,6 +139,7 @@ void SourceMapGenerator::finishLine()
 	sourceMap.os() << ";";
 	lastOffset = 0;
 	lineOffset = 0;
+	lineBegin = true;
 }
 
 void SourceMapGenerator::endFile()
