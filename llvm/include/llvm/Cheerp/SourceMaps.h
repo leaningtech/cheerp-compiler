@@ -36,6 +36,7 @@ private:
 	uint32_t lastOffset;
 	uint32_t lineOffset;
 	uint32_t lastName;
+	bool lineBegin;
 	void writeBase64VLQInt(int32_t i);
 public:
 	// sourceMapName and sourceMapPrefix life spans should be longer than the one of the SourceMapGenerator
