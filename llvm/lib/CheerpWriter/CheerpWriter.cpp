@@ -314,9 +314,9 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		//We need to get a subview of the source
 		stream << ".subarray(";
 		compilePointerOffset(src);
-		stream << ',';
+		stream << ",(";
 		compilePointerOffset(src);
-		stream << '+';
+		stream << ")+";
 
 		// Use the size
 		if(constantNumElements)
@@ -1047,7 +1047,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 			stream << '(';
 		compilePointerOffset(p);
 		if(!isOffsetConstantZero)
-			stream << ">>0)";
+			stream << ")";
 
 		if(!isOffsetConstantZero)
 		{
@@ -1226,42 +1226,34 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 	if ( PA.getPointerKind(p) == COMPLETE_OBJECT && !isGEP(p) )
 	{
 		// This may still happen when doing ptrtoint of a function
-		stream << '0';
+		stream << "0>>0";
 		return;
 	}
 	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
 	if ( byteLayout && !forEscapingPointer)
 	{
 		compileByteLayoutOffset(p, BYTE_LAYOUT_OFFSET_FULL);
-		return;
 	}
 	else if(isGEP(p) && (!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA) || forEscapingPointer))
 	{
-		return compileGEPOffset(cast<User>(p));
+		compileGEPOffset(cast<User>(p));
 	}
 	else if(isBitCast(p) && (!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA) || forEscapingPointer))
 	{
-		return compileBitCastOffset(cast<User>(p));
+		compileBitCastOffset(cast<User>(p));
 	}
 	else if (const ConstantInt* CI = PA.getConstantOffsetForPointer(p))
 	{
 		// Check if the offset has been constantized for this pointer
-		return compileConstant(CI);
+		compileConstant(CI);
 	}
-	else if(isa<ConstantPointerNull>(p))
+	else if(isa<ConstantPointerNull>(p) || isa<UndefValue>(p))
 	{
 		stream << '0';
-		return;
 	}
 	else if(isa<Argument>(p))
 	{
 		stream << namegen.getSecondaryName(p);
-		return;
-	}
-	else if(isa<UndefValue>(p))
-	{
-		stream << "undefined";
-		return;
 	}
 	else if((isa<SelectInst> (p) && isInlineable(*cast<Instruction>(p), PA)) || (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::Select))
 	{
@@ -1273,12 +1265,10 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 		stream << ':';
 		compilePointerOffset(u->getOperand(2));
 		stream << ')';
-		return;
 	}
 	else if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && PA.getPointerKind(p) == SPLIT_REGULAR)
 	{
 		stream << namegen.getSecondaryName(p);
-		return;
 	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
 	{
@@ -1287,16 +1277,21 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 		{
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_cast_user:
-				return compilePointerOffset(II->getOperand(0));
+				compilePointerOffset(II->getOperand(0));
+				return;
 			case Intrinsic::cheerp_make_regular:
-				return compileOperand(II->getOperand(1));
-			default:
+				compileOperand(II->getOperand(1));
 				break;
+			default:
+				compileOperand(p);
+				stream << ".o";
 		}
+	} else {
+		compileOperand(p);
+		stream << ".o";
 	}
 
-	compileOperand(p);
-	stream << ".o";
+	stream << ">>0";
 }
 
 void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
@@ -2170,12 +2165,15 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
 		bool isOffsetConstantZero = isa<Constant>(indices.front()) && cast<Constant>(indices.front())->isNullValue();
 
 		// Just another pointer from this one
+		if (!isOffsetConstantZero)
+			stream << '(';
 		compilePointerOffset(gep_inst->getOperand(0));
 
 		if(!isOffsetConstantZero)
 		{
-			stream << '+';
+			stream << ")+(";
 			compileOperand(indices.front());
+			stream << ">>0)";
 		}
 	}
 	else
@@ -2232,7 +2230,6 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		compilePointerBase( gep_inst, true);
 		stream << ",o:";
 		compilePointerOffset( gep_inst, true);
-		stream << ">>0";
 		stream << '}';
 	}
 }
