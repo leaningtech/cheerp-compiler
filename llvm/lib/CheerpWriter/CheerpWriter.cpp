@@ -910,8 +910,8 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	POINTER_KIND lhsKind = PA.getPointerKind(lhs);
 	POINTER_KIND rhsKind = PA.getPointerKind(rhs);
 
-	if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || isGEP(lhs)) &&
-		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || isGEP(rhs)))
+	if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
+		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || (isGEP(rhs) && cast<User>(rhs)->getNumOperands()==2)))
 	{
 		if(isa<ConstantPointerNull>(lhs))
 			stream << '1';
