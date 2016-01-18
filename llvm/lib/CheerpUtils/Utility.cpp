@@ -551,10 +551,8 @@ const Value * DynamicAllocInfo::getMemoryArg() const
 bool DynamicAllocInfo::sizeIsRuntime() const
 {
 	assert( isValidAlloc() );
-	if ( getAllocType() == calloc && isa<ConstantInt> (getNumberOfElementsArg() ) )
-	{
-		return false;
-	}
+	if ( getAllocType() == calloc && !isa<ConstantInt> (getNumberOfElementsArg() ) )
+		return true;
 	if ( isa<ConstantInt>(getByteSizeArg()) )
 		return false;
 	return true;

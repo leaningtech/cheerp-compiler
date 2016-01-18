@@ -339,13 +339,69 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		stream << NewLine << '}';
 }
 
+uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shouldPrint)
+{
+	// We assume parenthesis around this code
+	Type * t = info.getCastedType()->getElementType();
+	uint32_t typeSize = targetData.getTypeAllocSize(t);
+
+	bool closeMathImul = false;
+	uint32_t numElem = 1;
+	if(const Value* numberOfElements = info.getNumberOfElementsArg())
+	{
+		if(isa<ConstantInt>(numberOfElements))
+			numElem = getIntFromValue(numberOfElements);
+		else
+		{
+			assert(shouldPrint);
+			if(useMathImul)
+			{
+				stream << "Math.imul(";
+				closeMathImul = true;
+			}
+			compileOperand(numberOfElements);
+			if(useMathImul)
+				stream << ',';
+			else
+				stream << '*';
+		}
+	}
+	if( !info.sizeIsRuntime() )
+	{
+		uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
+		numElem *= (allocatedSize+typeSize-1);
+		if(closeMathImul)
+		{
+			assert(shouldPrint);
+			// We need to multiply before we divide
+			stream << numElem;
+			stream << ")/" << typeSize << ">>0";
+		}
+		else
+		{
+			if(shouldPrint)
+				stream << (numElem / typeSize);
+			else
+				return numElem / typeSize;
+		}
+	}
+	else
+	{
+		assert(shouldPrint);
+		compileOperand( info.getByteSizeArg() );
+		if(closeMathImul)
+			stream << ')';
+		stream << '/' << typeSize << ">>0";
+	}
+	assert(shouldPrint);
+	return -1;
+}
+
 void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 {
 	assert (info.isValidAlloc());
 
 	Type * t = info.getCastedType()->getElementType();
-
-	uint32_t typeSize = targetData.getTypeAllocSize(t);
 
 	POINTER_KIND result = PA.getPointerKind(info.getInstruction());
 	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());
@@ -374,26 +430,14 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 			stream << "var __ret__=";
 		}
 	}
+
 	
 	if (info.useTypedArray())
 	{
 		stream << "new ";
 		compileTypedArrayType(t);
 		stream << '(';
-		
-		if(info.getNumberOfElementsArg())
-			compileOperand(info.getNumberOfElementsArg());
-		else if( !info.sizeIsRuntime() )
-		{
-			uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
-			uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
-			stream << numElem;
-		}
-		else
-		{
-			compileOperand( info.getByteSizeArg() );
-			stream << '/' << typeSize;
-		}
+		compileArraySize(info, /* shouldPrint */true);
 		stream << ')';
 	}
 	else if (info.useCreateArrayFunc() )
@@ -407,29 +451,13 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 			stream << ',';
 			compilePointerBase(info.getMemoryArg());
 			stream << ".length,";
-			if( !info.sizeIsRuntime() )
-			{
-				uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
-				uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
-				stream << numElem;
-			}
-			else
-			{
-				compileOperand( info.getByteSizeArg() );
-				stream << '/' << typeSize;
-			}
+			compileArraySize(info, /* shouldPrint */true);
 			stream << ')';
 		}
 		else
 		{
 			stream << "[],0,";
-			if( info.getNumberOfElementsArg() )
-				compileOperand( info.getNumberOfElementsArg() );
-			else
-			{
-				compileOperand( info.getByteSizeArg() );
-				stream << '/' << typeSize;
-			}
+			compileArraySize(info, /* shouldPrint */true);
 			stream << ')';
 		}
 	}
@@ -442,29 +470,12 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 			stream << ',';
 			compilePointerBase(info.getMemoryArg());
 			stream << ".length,";
-			if( !info.sizeIsRuntime() )
-			{
-				uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
-				uint32_t numElem = (allocatedSize+typeSize-1)/typeSize;
-				stream << numElem;
-			}
-			else
-			{
-				compileOperand( info.getByteSizeArg() );
-				stream << '/' << typeSize;
-			}
 		}
 		else
 		{
 			stream << "[],0,";
-			if( info.getNumberOfElementsArg() )
-				compileOperand( info.getNumberOfElementsArg() );
-			else
-			{
-				compileOperand( info.getByteSizeArg() );
-				stream << '/' << typeSize;
-			}
 		}
+		compileArraySize(info, /* shouldPrint */true);
 		stream << ',';
 		if(PA.getPointerKindForStoredType(info.getCastedType())==COMPLETE_OBJECT)
 			stream << "null";
@@ -477,20 +488,9 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	{
 		assert( info.getAllocType() != DynamicAllocInfo::cheerp_reallocate );
 		// Create a plain array
-		const Value * numberOfElems = info.getNumberOfElementsArg();
 		
-		uint32_t numElem;
+		uint32_t numElem = compileArraySize(info, /* shouldPrint */false);
 		
-		if (numberOfElems)
-			numElem = getIntFromValue( numberOfElems );
-		else
-		{
-			assert( isa<ConstantInt>( info.getByteSizeArg() ) );
-			uint32_t allocatedSize = getIntFromValue( info.getByteSizeArg() );
-
-			numElem = (allocatedSize+typeSize-1)/typeSize;
-		}
-
 		assert((REGULAR == result || SPLIT_REGULAR == result) || numElem == 1);
 
 		if((REGULAR == result || SPLIT_REGULAR == result) && !needsDowncastArray)
