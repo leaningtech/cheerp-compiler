@@ -191,6 +191,7 @@ private:
 	                        const llvm::Value* baseSrc,
 	                        llvm::Type* currentType);
 
+	uint32_t compileArraySize(const DynamicAllocInfo& info, bool shouldPrint);
 	void compileAllocation(const DynamicAllocInfo& info);
 	void compileFree(const llvm::Value* obj);
 
