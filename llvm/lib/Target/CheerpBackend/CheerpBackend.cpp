@@ -43,6 +43,7 @@ static cl::opt<bool> NoNativeJavaScriptMath("cheerp-no-native-math", cl::desc("D
 static cl::opt<bool> NoJavaScriptMathImul("cheerp-no-math-imul", cl::desc("Disable JavaScript Math.imul") );
 
 static cl::opt<bool> NoCredits("cheerp-no-credits", cl::desc("Disable Cheerp credits in JS") );
+static cl::opt<bool> MeasureTimeToMain("cheerp-measure-time-to-main", cl::desc("Print time elapsed until the first line of main() is executed") );
 
 extern "C" void LLVMInitializeCheerpBackendTarget() {
   // Register the target.
@@ -88,7 +89,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   registerize.assignRegisters(M, PA);
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
-          !NoJavaScriptMathImul, !NoCredits);
+          !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain);
   writer.makeJS();
   delete sourceMapGenerator;
   return false;
