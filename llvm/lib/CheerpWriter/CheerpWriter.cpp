@@ -3066,6 +3066,10 @@ void CheerpWriter::compileMethod(const Function& F)
 			stream << namegen.getName(curArg);
 	}
 	stream << "){" << NewLine;
+	if (measureTimeToMain && F.getName() == "main")
+	{
+		stream << "__cheerp_main_time=__cheerp_now();" << NewLine;
+	}
 	std::map<const BasicBlock*, uint32_t> blocksMap;
 	if(F.size()==1)
 		compileBB(*F.begin(), blocksMap);
@@ -3379,6 +3383,13 @@ void CheerpWriter::makeJS()
 	if(addCredits)
 		stream << "/*Compiled using Cheerp (R) by Leaning Technologies Ltd*/" << NewLine;
 
+	if (measureTimeToMain)
+	{
+		stream << "var __cheerp_now = typeof dateNow!==\"undefined\"?dateNow:(typeof performance!==\"undefined\"?performance.now:function(){return new Date().getTime()});" << NewLine;
+		stream << "var __cheerp_main_time = -0;" << NewLine;
+		stream << "var __cheerp_start_time = __cheerp_now();" << NewLine;
+	}
+
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
 	
@@ -3441,6 +3452,12 @@ void CheerpWriter::makeJS()
 
 		stream << "})();" << NewLine;
 	}
+
+	if (measureTimeToMain)
+	{
+		stream << "console.log(\"main() called after\", __cheerp_main_time-__cheerp_start_time, \"ms\");" << NewLine;
+	}
+
 
 	// Link the source map if necessary
 	if(sourceMapGenerator)
