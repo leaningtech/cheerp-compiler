@@ -12,4 +12,4 @@ override_dh_auto_configure:
 	    -DLIBCXX_ENABLE_ASSERTIONS=OFF \
 	    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
 	    -DLIBCXX_CXX_ABI=libcxxabi \
-	    -DCMAKE_CXX_FLAGS="-target cheerp -nostdlib"
+	    -DCMAKE_CXX_FLAGS="-target cheerp -nostdlib -frtti"
