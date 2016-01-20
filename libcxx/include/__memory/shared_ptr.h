@@ -220,13 +220,15 @@ public:
     __shared_ptr_pointer(_Tp __p, _Dp __d, _Alloc __a)
         :  __data_(__compressed_pair<_Tp, _Dp>(__p, _VSTD::move(__d)), _VSTD::move(__a)) {}
 
+private:
+    void __on_zero_shared() _NOEXCEPT override;
+    void __on_zero_shared_weak() _NOEXCEPT override;
+
+public:
 #ifndef _LIBCPP_NO_RTTI
     const void* __get_deleter(const type_info&) const _NOEXCEPT override;
 #endif
 
-private:
-    void __on_zero_shared() _NOEXCEPT override;
-    void __on_zero_shared_weak() _NOEXCEPT override;
 };
 
 #ifndef _LIBCPP_NO_RTTI
