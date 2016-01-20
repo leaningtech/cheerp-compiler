@@ -237,13 +237,14 @@ public:
     __shared_ptr_pointer(_Tp __p, _Dp __d, _Alloc __a)
         :  __data_(__compressed_pair<_Tp, _Dp>(__p, _VSTD::move(__d)), _VSTD::move(__a)) {}
 
-#ifndef _LIBCPP_NO_RTTI
-    virtual const void* __get_deleter(const type_info&) const _NOEXCEPT;
-#endif
-
 private:
     virtual void __on_zero_shared() _NOEXCEPT;
     virtual void __on_zero_shared_weak() _NOEXCEPT;
+
+public:
+#ifndef _LIBCPP_NO_RTTI
+    virtual const void* __get_deleter(const type_info&) const _NOEXCEPT;
+#endif
 };
 
 #ifndef _LIBCPP_NO_RTTI
