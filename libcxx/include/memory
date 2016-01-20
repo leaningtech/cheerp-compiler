@@ -3395,6 +3395,10 @@ public:
     long use_count() const _NOEXCEPT {return __shared_count::use_count();}
     __shared_weak_count* lock() _NOEXCEPT;
 
+private:
+    virtual void __on_zero_shared_weak() _NOEXCEPT = 0;
+
+public:
     // Define the function out only if we build static libc++ without RTTI.
     // Otherwise we may break clients who need to compile their projects with
     // -fno-rtti and yet link against a libc++.dylib compiled
@@ -3402,8 +3406,6 @@ public:
 #if !defined(_LIBCPP_NO_RTTI)
     virtual const void* __get_deleter(const type_info&) const _NOEXCEPT;
 #endif
-private:
-    virtual void __on_zero_shared_weak() _NOEXCEPT = 0;
 };
 
 template <class _Tp, class _Dp, class _Alloc>
@@ -3416,13 +3418,15 @@ public:
     __shared_ptr_pointer(_Tp __p, _Dp __d, _Alloc __a)
         :  __data_(__compressed_pair<_Tp, _Dp>(__p, _VSTD::move(__d)), _VSTD::move(__a)) {}
 
+private:
+    virtual void __on_zero_shared() _NOEXCEPT;
+    virtual void __on_zero_shared_weak() _NOEXCEPT;
+
+public:
 #ifndef _LIBCPP_NO_RTTI
     virtual const void* __get_deleter(const type_info&) const _NOEXCEPT;
 #endif
 
-private:
-    virtual void __on_zero_shared() _NOEXCEPT;
-    virtual void __on_zero_shared_weak() _NOEXCEPT;
 };
 
 #ifndef _LIBCPP_NO_RTTI
