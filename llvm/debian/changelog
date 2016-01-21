@@ -1,3 +1,9 @@
+cheerp-llvm-clang (1.2-1) wily; urgency=medium
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Thu, 21 Jan 2016 11:25:11 +0100
+
 cheerp-llvm-clang (1.0-1) trusty; urgency=medium
 
   * New release
