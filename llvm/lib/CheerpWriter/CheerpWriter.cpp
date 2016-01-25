@@ -1605,13 +1605,13 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 	class PHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		PHIHandler(CheerpWriter& w):EndOfBlockPHIHandler(w.PA),writer(w)
+		PHIHandler(CheerpWriter& w):EndOfBlockPHIHandler(w.PA),needsPointerKindConversion(false),writer(w)
 		{
 		}
 		~PHIHandler()
 		{
 		}
-		bool needsPointerKindConversion = false;
+		bool needsPointerKindConversion;
 	private:
 		CheerpWriter& writer;
 		void handleRecursivePHIDependency(const Instruction* phi) override
@@ -3184,7 +3184,7 @@ CheerpWriter::GlobalSubExprInfo CheerpWriter::compileGlobalSubExpr(const GlobalD
 			if (it == (subExpr.end()-1) && (*it)->get()->getType()->isPointerTy())
 			{
 				POINTER_KIND elementPointerKind = PA.getPointerKindForStoredType((*it)->get()->getType()->getPointerElementType());
-				return GlobalSubExprInfo{elementPointerKind, false};
+				return GlobalSubExprInfo(elementPointerKind, false);
 			}
 		}
 		else if ( ConstantStruct* cs=dyn_cast<ConstantStruct>( u->getUser() ) )
@@ -3200,7 +3200,7 @@ CheerpWriter::GlobalSubExprInfo CheerpWriter::compileGlobalSubExpr(const GlobalD
 				TypeAndIndex b(cs->getType(), u->getOperandNo(), TypeAndIndex::STRUCT_MEMBER);
 				POINTER_KIND elementPointerKind = PA.getPointerKindForMemberPointer(b);
 				bool hasConstantOffset = PA.getConstantOffsetForMember(b) != NULL;
-				return GlobalSubExprInfo{elementPointerKind, hasConstantOffset};
+				return GlobalSubExprInfo(elementPointerKind, hasConstantOffset);
 			}
 		}
 		else
