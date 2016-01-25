@@ -107,15 +107,15 @@ private:
 	struct CompareInstructionByID
 	{
 	private:
-		const InstIdMapTy& instIdMap;
+		const InstIdMapTy* instIdMap;
 	public:
-		CompareInstructionByID(const InstIdMapTy& i):instIdMap(i)
+		CompareInstructionByID(const InstIdMapTy& i):instIdMap(&i)
 		{
 		}
 		bool operator()(llvm::Instruction* l, llvm::Instruction*r) const
 		{
-			assert(instIdMap.count(l) && instIdMap.count(r));
-			return instIdMap.find(l)->second < instIdMap.find(r)->second;
+			assert(instIdMap->count(l) && instIdMap->count(r));
+			return instIdMap->find(l)->second < instIdMap->find(r)->second;
 		}
 	};
 	// Map from instructions to their live ranges

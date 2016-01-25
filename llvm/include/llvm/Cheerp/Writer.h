@@ -321,6 +321,9 @@ private:
 	{
 		POINTER_KIND kind;
 		bool hasConstantOffset;
+		GlobalSubExprInfo(POINTER_KIND k, bool h):kind(k),hasConstantOffset(h)
+		{
+		}
 	};
 	/**
 	 * Helper method for compiling globals
