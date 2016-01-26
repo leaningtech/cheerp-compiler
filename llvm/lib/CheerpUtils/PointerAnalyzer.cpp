@@ -412,7 +412,7 @@ bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 		return false;
 	}
 
-	if ( isBitCast(p))
+	if ( isBitCast(p) || (isa<IntrinsicInst>(p) && cast<IntrinsicInst>(p)->getIntrinsicID() == Intrinsic::cheerp_cast_user))
 	{
 		const User* u = cast<User>(p);
 		if (TypeSupport::hasByteLayout(u->getOperand(0)->getType()->getPointerElementType()))
