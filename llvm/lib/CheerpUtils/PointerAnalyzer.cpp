@@ -492,7 +492,9 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	{
 		assert(SI->getValueOperand()->getType()->isPointerTy());
 		Type* pointedValueType = SI->getValueOperand()->getType()->getPointerElementType();
-		if(TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
+		if(TypeSupport::hasByteLayout(pointedValueType))
+			return CacheAndReturn(ret = BYTE_LAYOUT);
+		else if(TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 			ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex ));
 		else
 			ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( STORED_TYPE_CONSTRAINT, pointedValueType));
@@ -960,7 +962,7 @@ const ConstantInt* PointerConstantOffsetVisitor::getPointerOffsetFromGEP(const V
 		indexes.push_back(*(gep->op_begin()+i));
 	Type* containerType = GetElementPtrInst::getIndexedType(
 				(*gep->op_begin())->getType(), indexes);
-	if (containerType->isStructTy())
+	if (containerType->isStructTy() || TypeSupport::hasByteLayout(containerType))
 		return NULL;
 	return dyn_cast<ConstantInt>(*std::prev(gep->op_end()));
 }
@@ -1276,6 +1278,9 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 
 POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 {
+	if(TypeSupport::hasByteLayout(F->getReturnType()->getPointerElementType()))
+		return BYTE_LAYOUT;
+
 	assert(F->getReturnType()->isPointerTy());
 	IndirectPointerKindConstraint c(RETURN_CONSTRAINT, F);
 	const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolveConstraint(c);
@@ -1308,6 +1313,9 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 
 POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const
 {
+	if(TypeSupport::hasByteLayout(argTypeAndIndex.type))
+		return BYTE_LAYOUT;
+
 	IndirectPointerKindConstraint c(INDIRECT_ARG_CONSTRAINT, argTypeAndIndex);
 	const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolveConstraint(c);
 	assert(k.isKnown());
