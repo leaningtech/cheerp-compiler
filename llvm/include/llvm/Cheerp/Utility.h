@@ -115,6 +115,8 @@ public:
 	{
 		if ( llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
 			return st->hasByteLayout();
+		else if ( llvm::ArrayType * at = llvm::dyn_cast<llvm::ArrayType>(t) )
+			return hasByteLayout(at->getElementType());
 		else
 			return false;
 	}
