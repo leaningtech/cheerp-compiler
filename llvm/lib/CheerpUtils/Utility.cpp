@@ -408,6 +408,8 @@ bool TypeSupport::isSimpleType(Type* t)
 			// When a single typed array object is used, we consider this array as simple
 			if(isTypedArrayType(et, /* forceTypedArray*/ false) && at->getNumElements()>1)
 				return true;
+			if(TypeSupport::hasByteLayout(t))
+				return true;
 			break;
 		}
 		default:

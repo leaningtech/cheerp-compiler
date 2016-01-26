@@ -74,12 +74,23 @@ void CheerpWriter::compileSimpleType(Type* t)
 		}
 		case Type::ArrayTyID:
 		{
-			ArrayType* at=cast<ArrayType>(t);
-			Type* et=at->getElementType();
-			assert(types.isTypedArrayType(et, /* forceTypedArray*/ false) && at->getNumElements()>1);
-			stream << "new ";
-			compileTypedArrayType(et);
-			stream << '(' << at->getNumElements() << ')';
+			if(TypeSupport::hasByteLayout(t))
+			{
+				uint32_t typeSize = targetData.getTypeAllocSize(t);
+				stream << "new DataView(new ArrayBuffer(";
+				// Round up the size to make sure that any typed array can be initialized from the buffer
+				stream << ((typeSize + 7) & (~7));
+				stream << "))";
+			}
+			else
+			{
+				ArrayType* at=cast<ArrayType>(t);
+				Type* et=at->getElementType();
+				assert(types.isTypedArrayType(et, /* forceTypedArray*/ false) && at->getNumElements()>1);
+				stream << "new ";
+				compileTypedArrayType(et);
+				stream << '(' << at->getNumElements() << ')';
+			}
 			break;
 		}
 		default:
