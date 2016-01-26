@@ -187,17 +187,23 @@ void CheerpWriter::compileCopyElement(const Value* baseDest,
 			stream << ';' << NewLine;
 			break;
 		}
+		case Type::ArrayTyID:
 		case Type::StructTyID:
 		{
 			if(TypeSupport::hasByteLayout(currentType))
 			{
+				uint64_t typeSize = targetData.getTypeAllocSize(currentType);
 				stream << "var __tmp__=new Int8Array(";
-				compileCompleteObject(baseDest, nullptr);
-				stream << ".buffer);" << NewLine;
+				compilePointerBase(baseDest);
+				stream << ".buffer,";
+				compilePointerOffset(baseDest);
+				stream << ',' << typeSize << ");" << NewLine;
 				stream << "__tmp__.set(";
 				stream << "new Int8Array(";
-				compileCompleteObject(baseSrc, nullptr);
-				stream << ".buffer));" << NewLine;
+				compilePointerBase(baseSrc);
+				stream << ".buffer,";
+				compilePointerOffset(baseSrc);
+				stream << ',' << typeSize << "));" << NewLine;
 				break;
 			}
 			// Fallthrough if not byte layout
@@ -306,10 +312,19 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		stream << "if(__numElem__>1)" << NewLine << '{';
 	if(!constantNumElements || numElem>1)
 	{
+		bool byteLayout = PA.getPointerKind(dest) == BYTE_LAYOUT;
 		// The semantics of TypedArray.set is memmove-like, no need to care about direction
+		if(byteLayout)
+			stream << "(new Int8Array(";
 		compilePointerBase(dest);
+		if(byteLayout)
+			stream << ".buffer))";
 		stream << ".set(";
+		if(byteLayout)
+			stream << "(new Int8Array(";
 		compilePointerBase(src);
+		if(byteLayout)
+			stream << ".buffer))";
 
 		//We need to get a subview of the source
 		stream << ".subarray(";
@@ -339,11 +354,13 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		stream << NewLine << '}';
 }
 
-uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shouldPrint)
+uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shouldPrint, bool inBytes)
 {
 	// We assume parenthesis around this code
 	Type * t = info.getCastedType()->getElementType();
 	uint32_t typeSize = targetData.getTypeAllocSize(t);
+	if(inBytes)
+		typeSize = 1;
 
 	bool closeMathImul = false;
 	uint32_t numElem = 1;
@@ -420,7 +437,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	// 2) Objects and pointers are stored in a regular array and we can just resize them
 	if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 	{
-		if (info.useTypedArray())
+		if (info.useTypedArray() || BYTE_LAYOUT == result)
 		{
 			stream << "(function(){";
 			stream << "var __old__=";
@@ -439,6 +456,13 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		stream << '(';
 		compileArraySize(info, /* shouldPrint */true);
 		stream << ')';
+	}
+	else if(BYTE_LAYOUT == result)
+	{
+		stream << "new DataView(new ArrayBuffer(((";
+		compileArraySize(info, /* shouldPrint */true, /* inBytes */true);
+		// Round up the size to make sure that any typed array can be initialized from the buffer
+		stream << ")+ 7) & (~7)))";
 	}
 	else if (info.useCreateArrayFunc() )
 	{
@@ -491,7 +515,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		
 		uint32_t numElem = compileArraySize(info, /* shouldPrint */false);
 		
-		assert((REGULAR == result || SPLIT_REGULAR == result) || numElem == 1);
+		assert((REGULAR == result || SPLIT_REGULAR == result || BYTE_LAYOUT == result) || numElem == 1);
 
 		if((REGULAR == result || SPLIT_REGULAR == result) && !needsDowncastArray)
 			stream << '[';
@@ -519,12 +543,17 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 	if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 	{
-		if (info.useTypedArray())
+		if (info.useTypedArray() || result == BYTE_LAYOUT)
 		{
 			stream << ';' << NewLine;
 			//__ret__ now contains the new array, we need to copy over the data
-			//The amount of data to copy is limited by the shortest between the old and new array
-			stream << "__ret__.set(__old__.subarray(0, Math.min(__ret__.length,__old__.length)));" << NewLine;
+			if(result == BYTE_LAYOUT)
+				stream << "(new Int8Array(__ret__.buffer)).set((new Int8Array(__old__.buffer)).subarray(0, Math.min(__ret__.byteLength,__old__.byteLength)));" << NewLine;
+			else
+			{
+				//The amount of data to copy is limited by the shortest between the old and new array
+				stream << "__ret__.set(__old__.subarray(0, Math.min(__ret__.length,__old__.length)));" << NewLine;
+			}
 			stream << "return __ret__;})()";
 		}
 	}
@@ -970,8 +999,22 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 		stream << compareString;
 		compilePointerOffset(rhs);
 	}
+	else if(lhsKind == BYTE_LAYOUT || rhsKind == BYTE_LAYOUT)
+	{
+		assert(PA.getPointerKind(lhs) != COMPLETE_OBJECT);
+		assert(PA.getPointerKind(rhs) != COMPLETE_OBJECT);
+		compilePointerBase(lhs);
+		stream << compareString;
+		compilePointerBase(rhs);
+		stream << joinString;
+		compilePointerOffset(lhs);
+		stream << compareString;
+		compilePointerOffset(rhs);
+	}
 	else
 	{
+		assert(PA.getPointerKind(lhs) != BYTE_LAYOUT);
+		assert(PA.getPointerKind(rhs) != BYTE_LAYOUT);
 		compilePointerAs(lhs, COMPLETE_OBJECT);
 		stream << compareString;
 		compilePointerAs(rhs, COMPLETE_OBJECT);
@@ -982,11 +1025,11 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 {
 	for(uint32_t i=0;i<indices.size();i++)
 	{
+		// Stop when a byte layout type is found
+		if (TypeSupport::hasByteLayout(tp))
+			return;
 		if(StructType* st = dyn_cast<StructType>(tp))
 		{
-			// Stop when a byte layout type is found
-			if (TypeSupport::hasByteLayout(st))
-				return;
 			assert(isa<ConstantInt>(indices[i]));
 			const APInt& index = cast<Constant>(indices[i])->getUniqueInteger();
 
@@ -1147,12 +1190,6 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		}
 	}
 
-	if(isa<Argument>(p))
-	{
-		stream << namegen.getName(p);
-		return;
-	}
-
 	if(isa<UndefValue>(p))
 	{
 		stream << "undefined";
@@ -1248,10 +1285,25 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 	assert (PA.getPointerKind(p) == BYTE_LAYOUT);
 	if(offsetMode != BYTE_LAYOUT_OFFSET_NO_PRINT)
 	{
-		compileCompleteObject(p);
-		stream << ".o";
+		if(const ConstantInt* CI=PA.getConstantOffsetForPointer(p))
+		{
+			if(useMathImul)
+				stream << "Math.imul";
+			stream << '(';
+			compileConstant(CI);
+			if(useMathImul)
+				stream << ',';
+			else
+				stream << '*';
+			stream << targetData.getTypeAllocSize(p->getType()->getPointerElementType()) << ')';
+		}
+		else
+		{
+			compileCompleteObject(p);
+			stream << ".o";
+		}
 	}
-	return NULL;
+	return lastOffset;
 }
 
 void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
@@ -1263,6 +1315,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 		return;
 	}
 	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
+	// byteLayout must be handled first, otherwise we may print a constant offset without the required byte multiplier
 	if ( byteLayout && !forEscapingPointer)
 	{
 		compileByteLayoutOffset(p, BYTE_LAYOUT_OFFSET_FULL);
@@ -2009,6 +2062,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				stream << ';' << NewLine;
 				stream << "var " << namegen.getSecondaryName(ai) << "=0";
 			}
+			else if(k == BYTE_LAYOUT)
+			{
+				stream << "{d:";
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
+				stream << ",o:0}";
+			}
 			else 
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 
@@ -2103,7 +2162,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			{
 				POINTER_KIND storedKind = PA.getPointerKind(&si);
 				// If regular see if we can omit the offset part
-				if((storedKind==SPLIT_REGULAR || storedKind==REGULAR) && PA.getConstantOffsetForPointer(&si))
+				if((storedKind==SPLIT_REGULAR || storedKind==REGULAR || storedKind==BYTE_LAYOUT) && PA.getConstantOffsetForPointer(&si))
 					compilePointerBase(valOp);
 				else if(storedKind==SPLIT_REGULAR)
 				{
@@ -3325,6 +3384,15 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			else
 				compileOperand(C);
 			stream << "],o:0}";
+		}
+		else if(k == BYTE_LAYOUT)
+		{
+			stream << "{d:";
+			if(C->getType()->isPointerTy())
+				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
+			else
+				compileOperand(C);
+			stream << ",o:0}";
 		}
 		else if(k == SPLIT_REGULAR)
 		{
