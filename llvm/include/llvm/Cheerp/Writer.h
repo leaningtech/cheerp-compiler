@@ -383,7 +383,7 @@ public:
 	{
 	}
 	void makeJS();
-	void compileBB(const llvm::BasicBlock& BB, const std::map<const llvm::BasicBlock*, uint32_t>& blocksMap);
+	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c);
 	void compileOperand(const llvm::Value* v, bool allowBooleanObjects = false);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
