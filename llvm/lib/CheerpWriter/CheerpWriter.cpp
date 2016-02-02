@@ -2821,7 +2821,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 	}
 }
 
-void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlock*, uint32_t>& blocksMap)
+void CheerpWriter::compileBB(const BasicBlock& BB)
 {
 	BasicBlock::const_iterator I=BB.begin();
 	BasicBlock::const_iterator IE=BB.end();
@@ -2873,8 +2873,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB, const std::map<const BasicBlo
 void CheerpRenderInterface::renderBlock(const void* privateBlock)
 {
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
-	std::map<const BasicBlock*, uint32_t> blocksMap;
-	writer->compileBB(*bb, blocksMap);
+	writer->compileBB(*bb);
 }
 
 void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
@@ -3070,9 +3069,8 @@ void CheerpWriter::compileMethod(const Function& F)
 	{
 		stream << "__cheerp_main_time=__cheerp_now();" << NewLine;
 	}
-	std::map<const BasicBlock*, uint32_t> blocksMap;
 	if(F.size()==1)
-		compileBB(*F.begin(), blocksMap);
+		compileBB(*F.begin());
 	else
 	{
 		//TODO: Support exceptions
