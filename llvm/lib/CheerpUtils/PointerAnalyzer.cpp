@@ -142,7 +142,14 @@ void PointerKindWrapper::dump() const
 	else
 		dbgs() << "Wraps plain kind " << kind << "\n";
 	if(regularCause)
-		dbgs() << "Reason for REGULAR is " << *regularCause << "\n";
+	{
+		dbgs() << "Reason for REGULAR is " << *regularCause;
+		if(const Instruction* I = dyn_cast<Instruction>(regularCause))
+		{
+			dbgs() << " in function " << I->getParent()->getParent()->getName();
+		}
+		dbgs() << "\n";
+	}
 
 	for(const IndirectPointerKindConstraint* c: constraints)
 		c->dump();
