@@ -227,6 +227,8 @@ void TypeMapTy::linkDefinedTypeBodies() {
 void TypeMapTy::finishType(StructType *DTy, StructType *STy,
                            ArrayRef<Type *> ETypes, StructType* DirectBase) {
   DTy->setBody(ETypes, STy->isPacked(), DirectBase);
+  if(STy->hasByteLayout())
+    DTy->setByteLayout();
 
   // Steal STy's name.
   if (STy->hasName()) {
