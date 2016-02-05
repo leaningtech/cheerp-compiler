@@ -1315,8 +1315,13 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 		return;
 	}
 	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
-	// byteLayout must be handled first, otherwise we may print a constant offset without the required byte multiplier
-	if ( byteLayout && !forEscapingPointer)
+	// null must be handled first, even if it is bytelayout
+	if(isa<ConstantPointerNull>(p) || isa<UndefValue>(p))
+	{
+		stream << '0';
+	}
+	// byteLayout must be handled second, otherwise we may print a constant offset without the required byte multiplier
+	else if ( byteLayout && !forEscapingPointer)
 	{
 		compileByteLayoutOffset(p, BYTE_LAYOUT_OFFSET_FULL);
 	}
@@ -1332,10 +1337,6 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 	{
 		// Check if the offset has been constantized for this pointer
 		compileConstant(CI);
-	}
-	else if(isa<ConstantPointerNull>(p) || isa<UndefValue>(p))
-	{
-		stream << '0';
 	}
 	else if(isa<Argument>(p))
 	{
