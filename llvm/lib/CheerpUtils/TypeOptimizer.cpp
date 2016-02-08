@@ -1020,6 +1020,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::Alloca:
 				case Instruction::BitCast:
 				case Instruction::ExtractValue:
+				case Instruction::InsertValue:
 				case Instruction::IntToPtr:
 				case Instruction::Load:
 				case Instruction::PHI:
