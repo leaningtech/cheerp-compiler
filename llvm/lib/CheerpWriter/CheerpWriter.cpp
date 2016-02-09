@@ -811,7 +811,40 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		StringRef str;
 		if(llvm::getConstantStringInfo(*it, str))
 		{
-			stream << '"' << str << '"';
+			stream << '"';
+			for(uint8_t c: str)
+			{
+				if(c=='\b')
+					stream << "\\b";
+				else if(c=='\f')
+					stream << "\\f";
+				else if(c=='\n')
+					stream << "\\n";
+				else if(c=='\r')
+					stream << "\\r";
+				else if(c=='\t')
+					stream << "\\t";
+				else if(c=='\v')
+					stream << "\\v";
+				else if(c=='\'')
+					stream << "\\'";
+				else if(c=='"')
+					stream << "\\\"";
+				else if(c=='\\')
+					stream << "\\\\";
+				else if(c>=' ' && c<='~')
+				{
+					// Printable ASCII after we exscluded the previous one
+					stream << c;
+				}
+				else
+				{
+					char buf[5];
+					snprintf(buf, 5, "\\x%02x", c);
+					stream << buf;
+				}
+			}
+			stream << '"';
 			return COMPILE_OK;
 		}
 	}
