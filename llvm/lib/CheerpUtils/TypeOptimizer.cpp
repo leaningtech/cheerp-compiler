@@ -189,7 +189,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 	{
 		if(TypeSupport::isClientType(st))
 			return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
-		if(TypeSupport::hasByteLayout(st))
+		while(TypeSupport::hasByteLayout(st))
 		{
 			addAllBaseTypesForByteLayout(st, st);
 			// If the data of this byte layout struct is always accessed as the same type, we can replace it with an array of that type
@@ -198,12 +198,35 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			auto it=baseTypesForByteLayout.find(st);
 			assert(it!=baseTypesForByteLayout.end());
 			if(it->second == NULL)
-				return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
+				break;
 			// Check that the struct fits exactly N values of the base type
 			uint32_t structSize = DL->getTypeAllocSize(st);
 			uint32_t elementSize = DL->getTypeAllocSize(it->second);
 			if(structSize % elementSize)
-				return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
+				break;
+
+			bool areSubStructsConvertible = true;
+			// Every struct type inside the struct must be also convertible to array
+			for(uint32_t i=0;i<st->getNumElements();i++)
+			{
+				StructType* subSt = dyn_cast<StructType>(st->getElementType(i));
+				if(!subSt)
+					continue;
+				if(!subSt->hasByteLayout())
+				{
+					// If subSt is a struct but not bytelayout code generation is broken
+					areSubStructsConvertible = false;
+					break;
+				}
+				const TypeMappingInfo& subInfo = rewriteType(subSt);
+				if(subInfo.elementMappingKind != TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY)
+				{
+					areSubStructsConvertible = false;
+					break;
+				}
+			}
+			if(!areSubStructsConvertible)
+				break;
 
 			uint32_t numElements = structSize / elementSize;
 			// See if we can replace it with a single element
@@ -319,7 +342,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			// Empty structs are unsafe as the int8 inside is just a placeholder and will be replaced
 			// by a different type in a derived class
 			// TODO: If pointers could be collapsed we may have implicit casts between base classes and derived classes
-			if(!newTypes[0]->isIntegerTy(8) && !newTypes[0]->isPointerTy() && !TypeSupport::isJSExportedType(newStruct, *module))
+			if(!newTypes[0]->isIntegerTy(8) && !newTypes[0]->isPointerTy() && !TypeSupport::isJSExportedType(newStruct, *module) && !TypeSupport::hasByteLayout(st))
 			{
 				// If this type is an unsafe downcast source and can't be collapse
 				// we need to fall through to correctly set the mapped element
@@ -348,6 +371,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 
 		StructType* newDirectBase = st->getDirectBase() ? dyn_cast<StructType>(rewriteType(st->getDirectBase()).mappedType) : NULL;
 		newStruct->setBody(newTypes, st->isPacked(), newDirectBase);
+		if(st->hasByteLayout())
+			newStruct->setByteLayout();
 		pendingStructTypes.erase(t);
 		return CacheAndReturn(newStruct, newStructKind);
 	}
