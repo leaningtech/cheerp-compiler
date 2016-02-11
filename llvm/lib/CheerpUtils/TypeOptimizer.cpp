@@ -293,7 +293,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 					Type* arrayElementType=rewrittenType->getArrayElementType();
 					auto arraysFoundIt=arraysFound.find(arrayElementType);
 					// An array is already available for this type, just extend it
-					if(arraysFoundIt!=arraysFound.end())
+					// NOTE: byte layout structs should never change the position of fields
+					if(arraysFoundIt!=arraysFound.end() && !TypeSupport::hasByteLayout(st))
 					{
 						uint32_t typeIndex = arraysFoundIt->second;
 						ArrayType* previousArrayType = cast<ArrayType>(newTypes[typeIndex]);
