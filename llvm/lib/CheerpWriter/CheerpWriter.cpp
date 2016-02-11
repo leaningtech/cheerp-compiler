@@ -2409,6 +2409,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::FPToUI:
 		{
+			// TODO: When we will keep track of signedness to avoid useless casts we will need to fix this
 			const CastInst& ci = cast<CastInst>(I);
 			stream << '(';
 			compileOperand(ci.getOperand(0));
