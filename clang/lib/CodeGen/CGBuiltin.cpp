@@ -11104,12 +11104,13 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
   }
 
   if (BuiltinID == Cheerp::BI__builtin_cheerp_pointer_base) {
-    llvm::Type *Tys[] = { ConvertType(E->getType()) };
+    llvm::Type *Tys[] = { ConvertType(E->getType()), Ops[0]->getType() };
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_pointer_base, Tys);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_pointer_offset) {
-    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_pointer_offset);
+    llvm::Type *Tys[] = { Ops[0]->getType() };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_pointer_offset, Tys);
     return Builder.CreateCall(F, Ops);
   }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_create_closure) {
