@@ -24,9 +24,10 @@
 #ifndef __CHEERPINTRIN_H
 #define __CHEERPINTRIN_H
 
-template<class R>
-R* __builtin_cheerp_pointer_base(const void* ptr);
-size_t __builtin_cheerp_pointer_offset(const void* ptr);
+template<class R, class P>
+R* __builtin_cheerp_pointer_base(const P* ptr);
+template<class P>
+size_t __builtin_cheerp_pointer_offset(const P* ptr);
 /* This method returns a closure. When it is invoked it will execute func with obj as the first argument
    and its own argument as the second one
 */
