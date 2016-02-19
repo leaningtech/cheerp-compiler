@@ -258,6 +258,8 @@ void PointerConstantOffsetWrapper::dump() const
 {
 	if(status==INVALID)
 		dbgs() << "Invalid constant offset\n";
+	else if(status==UNINITALIZED)
+		dbgs() << "Uninitialized constant offset\n";
 	else
 	{
 		if(status==UNKNOWN)
@@ -1451,8 +1453,13 @@ const ConstantInt* PointerAnalyzer::getConstantOffsetForPointer(const Value * v)
 	}
 	assert(!it->second.isInvalid() && !it->second.isUnknown());
 	const PointerConstantOffsetWrapper& ret=PointerResolverForOffsetVisitor(pointerOffsetData, addressTakenCache).resolvePointerOffset(it->second);
-	if(ret.isInvalid() || ret.isUninitialized())
+	if(ret.isInvalid())
 		return NULL;
+	else if(ret.isUninitialized())
+	{
+		Type* Int32Ty=IntegerType::get(v->getContext(), 32);
+		return cast<ConstantInt>(ConstantInt::get(Int32Ty, 0));
+	}
 	assert(ret.isValid());
 	assert(ret.getPointerOffset());
 	return ret.getPointerOffset();
@@ -1473,8 +1480,13 @@ const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForMember( const Type
 	}
 	assert(!it->second.isInvalid() && !it->second.isUnknown());
 	const PointerConstantOffsetWrapper& ret=PointerResolverForOffsetVisitor(pointerOffsetData, addressTakenCache).resolvePointerOffset(it->second);
-	if(ret.isInvalid() || ret.isUninitialized())
+	if(ret.isInvalid())
 		return NULL;
+	else if(ret.isUninitialized())
+	{
+		Type* Int32Ty=IntegerType::get(baseAndIndex.type->getContext(), 32);
+		return cast<ConstantInt>(ConstantInt::get(Int32Ty, 0));
+	}
 	assert(ret.isValid());
 	assert(ret.getPointerOffset());
 	return ret.getPointerOffset();
