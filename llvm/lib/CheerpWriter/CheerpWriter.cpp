@@ -3363,10 +3363,9 @@ CheerpWriter::GlobalSubExprInfo CheerpWriter::compileGlobalSubExpr(const GlobalD
 void CheerpWriter::compileGlobal(const GlobalVariable& G)
 {
 	assert(G.hasName());
-	if(TypeSupport::isClientGlobal(&G) )
+	if(TypeSupport::isClientGlobal(&G) && !G.hasInitializer())
 	{
-		//Global objects in the client namespace are only
-		//placeholders for JS calls
+		// Extern globals in the client namespace are only placeholders for JS globals
 		return;
 	}
 	stream  << "var " << namegen.getName(&G);
