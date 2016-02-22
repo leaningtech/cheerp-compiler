@@ -962,3 +962,12 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
 bool CodeGenTypes::isZeroInitializable(const RecordDecl *RD) {
   return getCGRecordLayout(RD).isZeroInitializable();
 }
+
+bool CodeGenTypes::isHighInt(QualType Ty) {
+  if(const EnumType* et = dyn_cast<EnumType>(Ty.getCanonicalType())) {
+    Ty = et->getDecl()->getIntegerType();
+  }
+  if(const BuiltinType* bt = dyn_cast<BuiltinType>(Ty.getCanonicalType()))
+    return bt->isHighInt();
+  return false;
+}
