@@ -300,14 +300,14 @@ inline S as_string(P sprintf_like, S s, const typename S::value_type* fmt, V a) 
     typedef typename S::size_type size_type;
     size_type available = s.size();
     while (true) {
-        int status = sprintf_like(&s[0], available + 1, fmt, a);
+        int status = sprintf_like(&s[0], available, fmt, a);
         if (status >= 0) {
             size_type used = static_cast<size_type>(status);
             if (used <= available) {
                 s.resize(used);
                 break;
             }
-            available = used; // Assume this is advice of how much space we need.
+            available = used + 1; // Assume this is advice of how much space we need.
         }
         else
             available = available * 2 + 1;
