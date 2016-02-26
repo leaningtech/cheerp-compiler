@@ -30,7 +30,7 @@ void foo() {
     const uint32x2_t signBit = { (uint2) 0x80000000 };
 }
 
-// CHECK: %struct.fp_struct_foo = type { void ([1 x i32])* }
+// CHECK: %struct._Z13fp_struct_foo = type { void ([1 x i32])* }
 struct fp_struct_bar { int a; };
 
 struct fp_struct_foo {
