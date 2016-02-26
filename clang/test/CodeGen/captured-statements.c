@@ -89,7 +89,7 @@ void dont_capture_global() {
     e++;
   }
 
-  // CHECK-GLOBALS: %[[Capture:"struct._ZZ5test1E3\$_0"*]] = type {}
+  // CHECK-GLOBALS: %[[Capture:"struct._ZZ19dont_capture_globalE3\$_4"]] = type {}
   // CHECK-GLOBALS: call void @__captured_stmt[[HelperName:[\.0-9]+]](%[[Capture]]
 }
 
