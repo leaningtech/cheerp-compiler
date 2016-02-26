@@ -1574,6 +1574,12 @@ void CXXNameMangler::mangleUnqualifiedName(GlobalDecl GD,
       Out << "Ut";
       if (UnnamedMangle > 1)
         Out << UnnamedMangle - 2;
+      if (!getASTContext().getLangOpts().CPlusPlus && UnnamedMangle==1) {
+        // C++ specifies mangling, but C does not
+        const SourceLocation& loc = TD->getOuterLocStart();
+        FullSourceLoc fullLoc(loc, getASTContext().getSourceManager());
+        Out << fullLoc.getExpansionLineNumber() << '_' << fullLoc.getExpansionColumnNumber();
+      }
       Out << '_';
       writeAbiTags(TD, AdditionalAbiTags);
       break;
