@@ -633,6 +633,13 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		k.makeKnown();
 		// We want to override the ret value, not add a constraint
 		Type* curType = p->getType()->getPointerElementType();
+		// Collapse the type to the most base one
+		if(StructType* st = dyn_cast<StructType>(curType))
+		{
+			while(st->getDirectBase())
+				st = st->getDirectBase();
+			curType = st;
+		}
 		IndirectPointerKindConstraint storedTypeConstraint(STORED_TYPE_CONSTRAINT, curType);
 		pointerKindData.constraintsMap[storedTypeConstraint] |= k;
 		return CacheAndReturn(ret = PointerKindWrapper( pointerKindData.getConstraintPtr(storedTypeConstraint) ));
