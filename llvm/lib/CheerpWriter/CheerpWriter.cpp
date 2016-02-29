@@ -1905,7 +1905,15 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			else if (arg_it != F->arg_end())
 				argKind = PA.getPointerKind(arg_it);
 			else
+			{
+				if(StructType* st = dyn_cast<StructType>(tp->getPointerElementType()))
+				{
+					while(st->getDirectBase())
+						st = st->getDirectBase();
+					tp = st->getPointerTo();
+				}
 				compilePointerAs(*cur, PA.getPointerKindForStoredType(tp));
+			}
 
 			assert(argKind != REGULAR);
 			if(argKind == SPLIT_REGULAR)
