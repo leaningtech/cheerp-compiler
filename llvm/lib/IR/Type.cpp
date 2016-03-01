@@ -356,7 +356,7 @@ bool FunctionType::isValidArgumentType(Type *ArgTy) {
 StructType *StructType::get(LLVMContext &Context, ArrayRef<Type*> ETypes,
                             bool isPacked, StructType* directBase) {
   LLVMContextImpl *pImpl = Context.pImpl;
-  const AnonStructTypeKeyInfo::KeyTy Key(ETypes, isPacked);
+  const AnonStructTypeKeyInfo::KeyTy Key(ETypes, isPacked, directBase);
 
   StructType *ST;
   // Since we only want to allocate a fresh struct type in case none is found
