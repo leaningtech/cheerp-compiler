@@ -1484,7 +1484,7 @@ llvm::Type* CodeGenTypes::GetVTableType(uint32_t virtualMethodsCount)
   VTableTypes.push_back(GetClassTypeInfoType()->getPointerTo());
   for(uint32_t j=0;j<virtualMethodsCount;j++)
     VTableTypes.push_back(FuncPtrTy);
-  return llvm::StructType::get(getLLVMContext(), VTableTypes);
+  return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType()));
 }
 
 llvm::Type* CodeGenTypes::GetClassTypeInfoType()
