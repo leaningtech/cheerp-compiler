@@ -285,11 +285,31 @@ void PreExecute::recordStore(void* Addr)
     }
 }
 
-bool getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* Int32Ty, const DataLayout* DL,
+static bool isTypeCompatible(Type* curType, Type* endType)
+{
+	if(curType == endType)
+		return true;
+	StructType* curTypeSt = dyn_cast<StructType>(curType);
+	StructType* endTypeSt = dyn_cast<StructType>(endType);
+	if(!curTypeSt || !endTypeSt)
+		return false;
+	while(curTypeSt->getDirectBase())
+	{
+		curTypeSt = curTypeSt->getDirectBase();
+		if(curTypeSt == endTypeSt)
+			return true;
+	}
+	return false;
+}
+
+llvm::Type* getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* Int32Ty, const DataLayout* DL,
                     Type* startType, Type* endType, uint32_t Offset)
 {
     Type* curType = startType;
-    while(Offset!=0 || curType!=endType)
+    // Keep track of the state while ignoring all trailing zero indices
+    Type* typeAtLastNotZero = startType;
+    uint32_t indicesLengthAtLastNotZero = 0;
+    while(Offset!=0 || !isTypeCompatible(curType, endType))
     {
         // If the offset is not zero, we must deal with an aggregate
         if(ArrayType* AT=dyn_cast<ArrayType>(curType))
@@ -300,6 +320,11 @@ bool getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* Int32Ty,
             Indices.push_back(ConstantInt::get(Int32Ty, elementIndex));
             Offset %= elementSize;
             curType = ET;
+            if(elementIndex != 0)
+            {
+                typeAtLastNotZero = curType;
+                indicesLengthAtLastNotZero = Indices.size();
+            }
         }
         else if (StructType* ST=dyn_cast<StructType>(curType))
         {
@@ -308,13 +333,24 @@ bool getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* Int32Ty,
             Indices.push_back(ConstantInt::get(Int32Ty, elementIndex));
             Offset -= SL->getElementOffset(elementIndex);
             curType = ST->getElementType(elementIndex);
+            if(elementIndex != 0)
+            {
+                typeAtLastNotZero = curType;
+                indicesLengthAtLastNotZero = Indices.size();
+            }
         }
         else
         {
-            return false;
+            // If we have not consumed the Offset we require a pointer to the middle of an element
+            if(Offset)
+                return NULL;
+            // The Offset was valid, but we could not find the type, drop trailing zeroes from the Indices array
+            Indices.resize(indicesLengthAtLastNotZero);
+            return typeAtLastNotZero;
         }
     }
-    return true;
+    // We found the desired type or a compatible one
+    return curType;
 }
 
 Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
@@ -326,17 +362,15 @@ Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
     llvm::SmallVector<Constant*, 4> Indices;
     // This is needed to dereference global
     Indices.push_back(ConstantInt::get(Int32Ty, 0));
-    bool success = getTypeSafeGepForAddress(Indices, Int32Ty, DL,
+    llvm::Type* typeFound = getTypeSafeGepForAddress(Indices, Int32Ty, DL,
             GV->getType()->getPointerElementType(),
             memType->getPointerElementType(), Offset);
-    if (!success)
-    {
-        // TODO print warning of forced bitcast
-        return ConstantExpr::getBitCast(GV, memType);
-    }
-    // ExecutionEngine has given us a constant global value, but we need it non-const
+    if (!typeFound)
+        return NULL;
     Constant* GEP = ConstantExpr::getGetElementPtr(GV->getType()->getPointerElementType(), GV, Indices);
-    assert(GEP->getType() == memType);
+    assert(GEP->getType()->getPointerElementType() == typeFound);
+    if(GEP->getType() != memType)
+        return ConstantExpr::getBitCast(GEP, memType);
     return GEP;
 }
 
