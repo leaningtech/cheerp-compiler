@@ -337,7 +337,7 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
     auto *STy = cast<StructType>(Ty);
     bool IsPacked = STy->isPacked();
     if (IsUniqued)
-      return *Entry = StructType::get(Ty->getContext(), ElementTypes, IsPacked);
+      return *Entry = StructType::get(Ty->getContext(), ElementTypes, IsPacked, DirectBase);
 
     // If the type is opaque, we can just use it directly.
     if (STy->isOpaque()) {
