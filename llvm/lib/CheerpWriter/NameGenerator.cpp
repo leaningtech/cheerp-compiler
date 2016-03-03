@@ -33,10 +33,11 @@ struct JSSymbols
 	enum : char {first_symbol = 'a' };
 	static char next( char c )
 	{
-		return  c == '_' ? 'a' :
+		return  c == '$' ? 'a' :
 			c == 'z' ? 'A' :
 			c == 'Z' ? '0' :
 			c == '9' ? '_' :
+			c == '_' ? '$' :
 			++c;
 	}
 
