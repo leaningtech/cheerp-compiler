@@ -232,7 +232,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 		{
 			compilePointerBase(src);
 			stream << ';' << NewLine;
-			stream << "var " << namegen.getSecondaryName(callV.getInstruction()) << '=';
+			stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
 			compilePointerOffset(src);
 		}
 		else
@@ -245,7 +245,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 		{
 			compileCompleteObject(src);
 			stream << ".a;" << NewLine;
-			stream << "var " << namegen.getSecondaryName(callV.getInstruction()) << '=';
+			stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
 			compileCompleteObject(src);
 			stream << ".o-(";
 			compileOperand(offset);
@@ -1794,12 +1794,12 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			if(phi->getType()->isPointerTy() && writer.PA.getPointerKind(phi)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(phi))
 			{
 				writer.namegen.setEdgeContext(fromBB, toBB);
-				writer.stream << "var " << writer.namegen.getSecondaryNameForEdge(phi);
+				writer.stream << writer.namegen.getSecondaryNameForEdge(phi);
 				writer.namegen.clearEdgeContext();
 				writer.stream << '=' << writer.namegen.getSecondaryName(phi) << ';' << writer.NewLine;
 			}
 			writer.namegen.setEdgeContext(fromBB, toBB);
-			writer.stream << "var " << writer.namegen.getNameForEdge(phi);
+			writer.stream << writer.namegen.getNameForEdge(phi);
 			writer.namegen.clearEdgeContext();
 			writer.stream << '=' << writer.namegen.getName(phi) << ';' << writer.NewLine;
 		}
@@ -1814,24 +1814,24 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				POINTER_KIND k=writer.PA.getPointerKind(phi);
 				if((k==REGULAR || k==SPLIT_REGULAR) && writer.PA.getConstantOffsetForPointer(phi))
 				{
-					writer.stream << "var " << writer.namegen.getName(phi) << '=';
+					writer.stream << writer.namegen.getName(phi) << '=';
 					writer.namegen.setEdgeContext(fromBB, toBB);
 					writer.compilePointerBase(incoming);
 				}
 				else if(k==SPLIT_REGULAR)
 				{
-					writer.stream << "var " << writer.namegen.getSecondaryName(phi) << '=';
+					writer.stream << writer.namegen.getSecondaryName(phi) << '=';
 					writer.namegen.setEdgeContext(fromBB, toBB);
 					writer.compilePointerOffset(incoming);
 					writer.stream << ';' << writer.NewLine;
 					writer.namegen.clearEdgeContext();
-					writer.stream << "var " << writer.namegen.getName(phi) << '=';
+					writer.stream << writer.namegen.getName(phi) << '=';
 					writer.namegen.setEdgeContext(fromBB, toBB);
 					writer.compilePointerBase(incoming);
 				}
 				else
 				{
-					writer.stream << "var " << writer.namegen.getName(phi) << '=';
+					writer.stream << writer.namegen.getName(phi) << '=';
 					writer.namegen.setEdgeContext(fromBB, toBB);
 					if(k==REGULAR)
 						writer.stream << "aSlot=";
@@ -1840,7 +1840,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			}
 			else
 			{
-				writer.stream << "var " << writer.namegen.getName(phi) << '=';
+				writer.stream << writer.namegen.getName(phi) << '=';
 				writer.namegen.setEdgeContext(fromBB, toBB);
 				writer.compileOperand(incoming);
 			}
@@ -2069,7 +2069,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 				stream << ']';
 				stream << ';' << NewLine;
-				stream << "var " << namegen.getSecondaryName(ai) << "=0";
+				stream << namegen.getSecondaryName(ai) << "=0";
 			}
 			else if(k == BYTE_LAYOUT)
 			{
@@ -2832,7 +2832,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << ':';
 				compilePointerBase(si.getOperand(2));
 				stream << ';' << NewLine;
-				stream << "var " << namegen.getSecondaryName(&si) << '=';
+				stream << namegen.getSecondaryName(&si) << '=';
 				compileOperand(si.getOperand(0), /*allowBooleanObjects*/ true);
 				stream << '?';
 				compilePointerOffset(si.getOperand(1));
@@ -2918,7 +2918,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				assert(!isInlineable(ci, PA));
 				stream << ';' << NewLine;
-				stream << "var " << namegen.getSecondaryName(&ci) << "=oSlot";
+				stream << namegen.getSecondaryName(&ci) << "=oSlot";
 			}
 			return COMPILE_OK;
 		}
@@ -2956,7 +2956,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				assert(!isInlineable(li, PA));
 				compileCompleteObject(ptrOp);
 				stream << ");" << NewLine;
-				stream << "var " << namegen.getSecondaryName(&li) << "=(";
+				stream << namegen.getSecondaryName(&li) << "=(";
 				compileCompleteObject(ptrOp);
 				stream <<'o';
 			}
@@ -3008,7 +3008,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			sourceMapGenerator->setDebugLoc(I->getDebugLoc());
 		if(!I->getType()->isVoidTy() && !I->use_empty())
 		{
-			stream << "var " << namegen.getName(I) << '=';
+			stream << namegen.getName(I) << '=';
 		}
 		if(I->isTerminator())
 		{
@@ -3196,6 +3196,114 @@ void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 	writer->stream << "if(label===" << labelId << "){" << NewLine;
 }
 
+void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
+{
+	// Declare are all used locals in the beginning
+	enum LOCAL_STATE { NOT_DONE, NAME_DONE, SECONDARY_NAME_DONE };
+	std::vector<LOCAL_STATE> localsFound;
+	bool firstVar = true;
+	if(needsLabel)
+	{
+		stream << "var label=0";
+		firstVar = false;
+	}
+	for(const BasicBlock& BB: F)
+	{
+		for(const Instruction& I: BB)
+		{
+			if (!namegen.needsName(I, PA))
+				continue;
+			// Get the register
+			uint32_t regId = registerize.getRegisterId(&I);
+			if(localsFound.size() <= regId)
+				localsFound.resize(regId+1, NOT_DONE);
+			if(localsFound[regId]==SECONDARY_NAME_DONE)
+				continue;
+			bool needsSecondaryName = namegen.needsSecondaryName(&I, PA);
+			if(localsFound[regId]<NAME_DONE)
+			{
+				if(firstVar)
+					stream << "var ";
+				else
+					stream << ',';
+				stream << namegen.getName(&I) << '=';
+				Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(I.getType());
+				if(kind == Registerize::INTEGER)
+					stream << '0';
+				else if(kind == Registerize::DOUBLE)
+					stream << "-0";
+				else
+					stream << "null";
+				firstVar = false;
+				localsFound[regId]=NAME_DONE;
+			}
+			if(localsFound[regId]<SECONDARY_NAME_DONE && needsSecondaryName)
+			{
+				stream << ',';
+				stream << namegen.getSecondaryName(&I) << "=0";
+				localsFound[regId]=SECONDARY_NAME_DONE;
+			}
+		}
+		// Handle the special names required for the edges between blocks
+		class LocalsPHIHandler: public EndOfBlockPHIHandler
+		{
+		public:
+			LocalsPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t, bool& firstVar):EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t),firstVar(firstVar)
+			{
+			}
+			~LocalsPHIHandler()
+			{
+			}
+		private:
+			CheerpWriter& writer;
+			const BasicBlock* fromBB;
+			const BasicBlock* toBB;
+			bool& firstVar;
+			void handleRecursivePHIDependency(const Instruction* phi) override
+			{
+				if(phi->getType()->isPointerTy() && writer.PA.getPointerKind(phi)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(phi))
+				{
+					writer.namegen.setEdgeContext(fromBB, toBB);
+					if(firstVar)
+						writer.stream << "var";
+					else
+						writer.stream << ',';
+					writer.stream << writer.namegen.getSecondaryNameForEdge(phi);
+					writer.namegen.clearEdgeContext();
+					writer.stream << "=0";
+					firstVar = false;
+				}
+				writer.namegen.setEdgeContext(fromBB, toBB);
+				if(firstVar)
+					writer.stream << "var";
+				else
+					writer.stream << ',';
+				writer.stream << writer.namegen.getNameForEdge(phi);
+				writer.namegen.clearEdgeContext();
+				writer.stream << '=';
+				Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(phi->getType());
+				if(kind == Registerize::INTEGER)
+					writer.stream << '0';
+				else if(kind == Registerize::DOUBLE)
+					writer.stream << "-0";
+				else
+					writer.stream << "null";
+			}
+			void handlePHI(const Instruction* phi, const Value* incoming) override
+			{
+			}
+		};
+		const TerminatorInst* term=BB.getTerminator();
+		for(uint32_t i=0;i<term->getNumSuccessors();i++)
+		{
+			const BasicBlock* succBB=term->getSuccessor(i);
+			LocalsPHIHandler(*this, &BB, succBB, firstVar).runOnEdge(registerize, &BB, succBB);
+		}
+	}
+	if(!firstVar)
+		stream << ';' << NewLine;
+}
+
 void CheerpWriter::compileMethod(const Function& F)
 {
 	if (sourceMapGenerator) {
@@ -3231,7 +3339,10 @@ void CheerpWriter::compileMethod(const Function& F)
 		stream << "__cheerp_main_time=__cheerp_now();" << NewLine;
 	}
 	if(F.size()==1)
+	{
+		compileMethodLocals(F, false);
 		compileBB(*F.begin());
+	}
 	else
 	{
 		//TODO: Support exceptions
@@ -3320,10 +3431,9 @@ void CheerpWriter::compileMethod(const Function& F)
 			rl->AddBlock(relooperMap[&(*B)]);
 		}
 		rl->Calculate(relooperMap[&F.getEntryBlock()]);
-		if(rl->needsLabel())
-			stream << "var label=0;" << NewLine;
-		
+
 		CheerpRenderInterface ri(this, NewLine);
+		compileMethodLocals(F, rl->needsLabel());
 		rl->Render(&ri);
 	}
 
@@ -3411,7 +3521,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				compileOperand(C);
 			stream << ']';
 			stream << ';' << NewLine;
-			stream  << "var " << namegen.getSecondaryName(&G);
+			stream << "var " << namegen.getSecondaryName(&G);
 			stream << "=0";
 		}
 		else

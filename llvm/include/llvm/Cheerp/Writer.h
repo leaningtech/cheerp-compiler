@@ -313,6 +313,7 @@ private:
 	void compileSignedInteger(const llvm::Value* v, bool forComparison);
 	void compileUnsignedInteger(const llvm::Value* v);
 
+	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
 	void compileMethod(const llvm::Function& F);
 	/**
 	 * Helper structure for compiling globals
