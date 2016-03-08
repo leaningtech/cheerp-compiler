@@ -83,6 +83,10 @@ public:
 		assert(allocaLiveRanges.count(alloca));
 		return allocaLiveRanges.find(alloca)->second;
 	}
+
+	// Registers should have a consistent JS type
+	enum REGISTER_KIND { OBJECT=0, INTEGER, FLOAT, DOUBLE };
+	static REGISTER_KIND getRegKindFromType(llvm::Type*);
 private:
 	// Final data structures
 	std::unordered_map<const llvm::Instruction*, uint32_t> registersMap;
@@ -120,8 +124,6 @@ private:
 	};
 	// Map from instructions to their live ranges
 	typedef std::map<llvm::Instruction*, InstructionLiveRange, CompareInstructionByID> LiveRangesTy;
-	// Registers should have a consistent JS type
-	enum REGISTER_KIND { OBJECT=0, INTEGER, FLOAT, DOUBLE };
 	struct RegisterRange
 	{
 		LiveRange range;
@@ -219,7 +221,6 @@ private:
 	void handlePHI(llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA);
 	uint32_t findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
 					REGISTER_KIND kind);
-	static REGISTER_KIND getRegKindFromType(llvm::Type*);
 	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind);
 	void computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap);
 	typedef std::set<llvm::Instruction*, CompareInstructionByID> InstructionSetOrderedByID;
