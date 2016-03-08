@@ -92,15 +92,15 @@ public:
 	// Filter the original string so that it no longer contains invalid JS characters.
 	static llvm::SmallString<4> filterLLVMName( llvm::StringRef, NAME_FILTER_MODE filterMode );
 
+	// Determine if an instruction actually needs a name
+	bool needsName(const llvm::Instruction &, const PointerAnalyzer& PA) const;
+	bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA) const;
+
 private:
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
 	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
 	void generateTypeNames( const GlobalDepsAnalyzer& );
 	
-	// Determine if an instruction actually needs a name
-	bool needsName(const llvm::Instruction &, const PointerAnalyzer& PA) const;
-	bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA) const;
-
 	const Registerize& registerize;
 	const PointerAnalyzer& PA;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
