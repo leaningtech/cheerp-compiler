@@ -3196,6 +3196,17 @@ void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 	writer->stream << "if(label===" << labelId << "){" << NewLine;
 }
 
+void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND kind)
+{
+	stream << name << '=';
+	if(kind == Registerize::INTEGER)
+		stream << '0';
+	else if(kind == Registerize::DOUBLE || kind == Registerize::FLOAT)
+		stream << "-0";
+	else
+		stream << "null";
+}
+
 void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 {
 	// Declare are all used locals in the beginning
@@ -3226,21 +3237,14 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 					stream << "var ";
 				else
 					stream << ',';
-				stream << namegen.getName(&I) << '=';
-				Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(I.getType());
-				if(kind == Registerize::INTEGER)
-					stream << '0';
-				else if(kind == Registerize::DOUBLE)
-					stream << "-0";
-				else
-					stream << "null";
+				compileMethodLocal(namegen.getName(&I),Registerize::getRegKindFromType(I.getType()));
 				firstVar = false;
 				localsFound[regId]=NAME_DONE;
 			}
 			if(localsFound[regId]<SECONDARY_NAME_DONE && needsSecondaryName)
 			{
 				stream << ',';
-				stream << namegen.getSecondaryName(&I) << "=0";
+				compileMethodLocal(namegen.getSecondaryName(&I),Registerize::INTEGER);
 				localsFound[regId]=SECONDARY_NAME_DONE;
 			}
 		}
@@ -3261,33 +3265,22 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 			bool& firstVar;
 			void handleRecursivePHIDependency(const Instruction* phi) override
 			{
+				writer.namegen.setEdgeContext(fromBB, toBB);
 				if(phi->getType()->isPointerTy() && writer.PA.getPointerKind(phi)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(phi))
 				{
-					writer.namegen.setEdgeContext(fromBB, toBB);
 					if(firstVar)
 						writer.stream << "var";
 					else
 						writer.stream << ',';
-					writer.stream << writer.namegen.getSecondaryNameForEdge(phi);
-					writer.namegen.clearEdgeContext();
-					writer.stream << "=0";
+					writer.compileMethodLocal(writer.namegen.getSecondaryNameForEdge(phi), Registerize::INTEGER);
 					firstVar = false;
 				}
-				writer.namegen.setEdgeContext(fromBB, toBB);
 				if(firstVar)
 					writer.stream << "var";
 				else
 					writer.stream << ',';
-				writer.stream << writer.namegen.getNameForEdge(phi);
+				writer.compileMethodLocal(writer.namegen.getNameForEdge(phi), Registerize::getRegKindFromType(phi->getType()));
 				writer.namegen.clearEdgeContext();
-				writer.stream << '=';
-				Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(phi->getType());
-				if(kind == Registerize::INTEGER)
-					writer.stream << '0';
-				else if(kind == Registerize::DOUBLE)
-					writer.stream << "-0";
-				else
-					writer.stream << "null";
 			}
 			void handlePHI(const Instruction* phi, const Value* incoming) override
 			{
