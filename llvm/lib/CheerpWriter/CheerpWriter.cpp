@@ -1127,9 +1127,8 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 
 		if(!isOffsetConstantZero)
 		{
-			stream << "+(";
+			stream << "+";
 			compileOperand(offset);
-			stream << ">>0)";
 		}
 
 		stream << ">>0]";
@@ -2525,11 +2524,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Add:
 		{
 			//Integer addition
-			stream << "((";
+			stream << "(";
 			compileOperand(I.getOperand(0));
-			stream << ">>0)+(";
+			stream << "+";
 			compileOperand(I.getOperand(1));
-			stream << ">>0)";
 			if(types.isI32Type(I.getType()))
 				stream << ">>0";
 			else
@@ -2928,8 +2926,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const Value* ptrOp=li.getPointerOperand();
 
 			if(li.getType()->isFloatingPointTy())
+			{
 				stream << '+';
-			stream << '(';
+				stream << '(';
+			}
 
 			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
 			{
@@ -2955,8 +2955,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				assert(!isInlineable(li, PA));
 				compileCompleteObject(ptrOp);
-				stream << ");" << NewLine;
-				stream << namegen.getSecondaryName(&li) << "=(";
+				stream << ';' << NewLine;
+				stream << namegen.getSecondaryName(&li) << '=';
 				compileCompleteObject(ptrOp);
 				stream <<'o';
 			}
@@ -2972,7 +2972,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << '&' << getMaskForBitWidth(width);
 			}
 
-			stream << ')';
+			if(li.getType()->isFloatingPointTy())
+				stream << ')';
 			return COMPILE_OK;
 		}
 		default:
