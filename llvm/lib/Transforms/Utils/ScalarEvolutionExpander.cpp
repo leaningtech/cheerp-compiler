@@ -564,8 +564,6 @@ Value *SCEVExpander::expandAddToGEP(const SCEV *const *op_begin,
       Builder.SetInsertPoint(Preheader->getTerminator());
     }
 
-    if(SE.DL && !SE.DL->isByteAddressable())
-      assert(false && "uglygep in Cheerp");
     // Emit a GEP.
     return Builder.CreateGEP(Builder.getInt8Ty(), V, Idx, "uglygep");
   }
