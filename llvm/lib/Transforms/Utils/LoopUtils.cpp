@@ -1428,6 +1428,16 @@ int llvm::rewriteLoopExitValues(Loop *L, LoopInfo *LI, TargetLibraryInfo *TLI,
                       << '\n'
                       << "  LoopVal = " << *(Phi.ExpansionPoint) << "\n");
 
+    if(!SE->getDataLayout().isByteAddressable()) {
+      // On Cheerp we need to make sure this did not generate a uglygep
+      if(Instruction* bc = dyn_cast<BitCastInst>(Phi.Expansion)) {
+        if(bc->getOperand(0)->getType()->getPointerElementType()->isIntegerTy(8)) {
+          // Cast from i8* to something, it is most probably a bad idea
+          DeadInsts.push_back(Phi.Expansion);
+          continue;
+        }
+      }
+    }
 #ifndef NDEBUG
     // If we reuse an instruction from a loop which is neither L nor one of
     // its containing loops, we end up breaking LCSSA form for this loop by
