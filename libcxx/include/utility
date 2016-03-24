@@ -964,17 +964,25 @@ struct _LIBCPP_TEMPLATE_VIS unary_function
     typedef _Result result_type;
 };
 
-#ifndef __CHEERP__
-template <class _Size>
+template <class _Data, class _Size>
 inline _LIBCPP_INLINE_VISIBILITY
 _Size
-__loadword(const void* __p)
+__loadword(const _Data* __p, _Size len)
 {
-    _Size __r;
-    std::memcpy(&__r, __p, sizeof(__r));
+    _Size __r = 0;
+    // Find out how many _Data elements fits in _Size
+    int byte_length = sizeof(_Size);
+    if (byte_length > len)
+        byte_length = len;
+    int l = byte_length / sizeof(_Data);
+    for(int i = 0; i < l; i++)
+    {
+        if (i)
+            __r <<= sizeof(_Data)*8;
+        __r |= __p[i];
+    }
     return __r;
 }
-#endif
 
 // We use murmur2 when size_t is 32 bits, and cityhash64 when size_t
 // is 64 bits.  This is because cityhash64 uses 64bit x 64bit
@@ -985,47 +993,35 @@ struct __murmur2_or_cityhash;
 template <class _Size>
 struct __murmur2_or_cityhash<_Size, 32>
 {
-    inline _Size operator()(const void* __key, _Size __len)
+    template<class _Data>
+    _Size operator()(const _Data* __key, _Size __len)
          _LIBCPP_DISABLE_UBSAN_UNSIGNED_INTEGER_CHECK;
 };
 
-#ifndef __CHEERP__
 // murmur2
 template <class _Size>
+template <class _Data>
 _Size
-__murmur2_or_cityhash<_Size, 32>::operator()(const void* __key, _Size __len)
+__murmur2_or_cityhash<_Size, 32>::operator()(const _Data* __key, _Size __len) _LIBCPP_DISABLE_UBSAN_UNSIGNED_INTEGER_CHECK
 {
     const _Size __m = 0x5bd1e995;
     const _Size __r = 24;
     _Size __h = __len;
-    const unsigned char* __data = static_cast<const unsigned char*>(__key);
-    for (; __len >= 4; __data += 4, __len -= 4)
+    const _Data* __data = __key;
+    for (_Size i = 0; i < __len; __data += (4/sizeof(_Data)), i += 4)
     {
-        _Size __k = __loadword<_Size>(__data);
+       _Size __k = __loadword<_Data, _Size>(__data, __len);
         __k *= __m;
         __k ^= __k >> __r;
         __k *= __m;
         __h *= __m;
         __h ^= __k;
     }
-    switch (__len)
-    {
-    case 3:
-        __h ^= __data[2] << 16;
-        _LIBCPP_FALLTHROUGH();
-    case 2:
-        __h ^= __data[1] << 8;
-        _LIBCPP_FALLTHROUGH();
-    case 1:
-        __h ^= __data[0];
-        __h *= __m;
-    }
     __h ^= __h >> 13;
     __h *= __m;
     __h ^= __h >> 15;
     return __h;
 }
-#endif
 
 #ifndef __CHEERP__
 template <class _Size>
@@ -1155,7 +1151,6 @@ struct __murmur2_or_cityhash<_Size, 64>
     return __shift_mix(__r * __k0 + __vs) * __k2;
   }
 };
-#endif
 
 // cityhash64
 template <class _Size>
@@ -1203,6 +1198,7 @@ __murmur2_or_cityhash<_Size, 64>::operator()(const void* __key, _Size __len)
       __hash_len_16(__v.first, __w.first) + __shift_mix(__y) * __k1 + __z,
       __hash_len_16(__v.second, __w.second) + __x);
 }
+#endif
 
 template <class _Tp, size_t = sizeof(_Tp) / sizeof(size_t)>
 struct __scalar_hash;
