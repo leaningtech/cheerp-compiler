@@ -119,10 +119,15 @@ static system_clock::time_point __libcpp_system_clock_now() {
 #elif defined(CLOCK_REALTIME) && defined(_LIBCPP_USE_CLOCK_GETTIME)
 
 static system_clock::time_point __libcpp_system_clock_now() {
+#ifdef __CHEERP__
+  double val = client::Date::now();
+  return time_point(milliseconds((long long)val));
+#else
   struct timespec tp;
   if (0 != clock_gettime(CLOCK_REALTIME, &tp))
     __throw_system_error(errno, "clock_gettime(CLOCK_REALTIME) failed");
   return system_clock::time_point(seconds(tp.tv_sec) + microseconds(tp.tv_nsec / 1000));
+#endif
 }
 
 #else
@@ -290,6 +295,7 @@ static steady_clock::time_point __libcpp_steady_clock_now() {
     return steady_clock::time_point(seconds(tp.tv_sec) + nanoseconds(tp.tv_nsec));
 }
 
+#elif defined(__CHEERP__)
 #  else
 #    error "Monotonic clock not implemented on this platform"
 #  endif
