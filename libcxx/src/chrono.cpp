@@ -74,11 +74,20 @@ system_clock::now() _NOEXCEPT
                        static_cast<__int64>(ft.dwLowDateTime)};
   return time_point(duration_cast<duration>(d - nt_to_unix_epoch));
 #else
+<<<<<<< HEAD
 #if defined(CLOCK_REALTIME)
+=======
+#if defined(_LIBCPP_USE_CLOCK_GETTIME) && defined(CLOCK_REALTIME)
+#ifdef __CHEERP__
+    double val = client::Date::now();
+    return time_point(milliseconds((long long)val));
+#else
+>>>>>>> Initial support for std::chrono
   struct timespec tp;
   if (0 != clock_gettime(CLOCK_REALTIME, &tp))
     __throw_system_error(errno, "clock_gettime(CLOCK_REALTIME) failed");
   return time_point(seconds(tp.tv_sec) + microseconds(tp.tv_nsec / 1000));
+#endif
 #else
     timeval tv;
     gettimeofday(&tv, 0);
@@ -164,6 +173,7 @@ steady_clock::now() _NOEXCEPT
     return time_point(seconds(tp.tv_sec) + nanoseconds(tp.tv_nsec));
 }
 
+#elif defined(__CHEERP__)
 #else
 #  error "Monotonic clock not implemented"
 #endif
