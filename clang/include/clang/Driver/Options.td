@@ -6373,6 +6373,8 @@ def cheerp_no_math_imul : Flag<["-"], "cheerp-no-math-imul">, Flags<[DriverOptio
   HelpText<"Disable JavaScript Math.imul">;
 def cheerp_no_credits : Flag<["-"], "cheerp-no-credits">, Flags<[DriverOption]>,
   HelpText<"Disable Cheerp credits in JS">;
+def cheerp_reserved_names_EQ : Joined<["-"], "cheerp-reserved-names=">, Flags<[DriverOption]>,
+  HelpText<"A list of JS identifiers that should not be used by Cheerp">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options
