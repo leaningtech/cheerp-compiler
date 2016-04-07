@@ -32,7 +32,8 @@ public:
 	 * This initialize the namegenerator by collecting
 	 * all the global variable names
 	 */
-	explicit NameGenerator( const llvm::Module&, const GlobalDepsAnalyzer &, const Registerize &, const PointerAnalyzer& PA, bool makeReadableNames = true );
+	explicit NameGenerator( const llvm::Module&, const GlobalDepsAnalyzer &, const Registerize &, const PointerAnalyzer& PA,
+		const std::vector<std::string>& reservedNames, bool makeReadableNames = true );
 
 	/**
 	 * Return the computed name for the given variable.
@@ -149,6 +150,7 @@ private:
 		}
 	};
 	EdgeContext edgeContext;
+	const std::vector<std::string>& reservedNames;
 };
 
 }

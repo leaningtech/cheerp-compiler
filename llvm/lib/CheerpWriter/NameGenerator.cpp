@@ -41,8 +41,12 @@ struct JSSymbols
 			++c;
 	}
 
+	JSSymbols(const std::vector<std::string>& reservedNames):externallyReservedNames(reservedNames)
+	{
+	}
+
 	template< class String >
-	static bool is_valid( String & s )
+	bool is_valid( String & s )
 	{
 		// Can not be empty
 		if ( s.empty() ) return false;
@@ -85,7 +89,7 @@ struct JSSymbols
 	}
 
 	template< class String >
-	static bool is_reserved_name( String& s)
+	bool is_reserved_name( String& s)
 	{
 		const char* reserved_names[] = {
 			"byte",
@@ -108,12 +112,14 @@ struct JSSymbols
 			"void",
 			"with"
 		};
-		return std::binary_search(reserved_names, reserved_names+(sizeof(reserved_names)/sizeof(const char*)), s);
+		return std::binary_search(reserved_names, reserved_names+(sizeof(reserved_names)/sizeof(const char*)), s) ||
+			std::binary_search(externallyReservedNames.begin(), externallyReservedNames.end(), s);
 	}
+	const std::vector<std::string>& externallyReservedNames;
 };
 
 NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, const Registerize& r,
-				const PointerAnalyzer& PA, bool makeReadableNames):registerize(r), PA(PA)
+				const PointerAnalyzer& PA, const std::vector<std::string>& reservedNames, bool makeReadableNames):registerize(r), PA(PA), reservedNames(reservedNames)
 {
 	if ( makeReadableNames )
 		generateReadableNames(M, gda);
@@ -355,7 +361,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	 * This is suboptimal, since in theory we could check out for the uses
 	 * of the global inside the function.
 	 */
-	name_iterator<JSSymbols> name_it;
+	name_iterator<JSSymbols> name_it((JSSymbols(reservedNames)));
 	
 	// We need to iterate over allGlobalValues, allLocalValues and allTmpPHIs
 	// at the same time incrementing selectively only one of the iterators

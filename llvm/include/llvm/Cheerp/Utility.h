@@ -275,15 +275,15 @@ class name_iterator :
 	SymbolTraits // Empty base opt
 {
 public:
-	name_iterator(SymbolTraits st = SymbolTraits () ) : 
+	name_iterator(SymbolTraits st) : 
 		SymbolTraits( std::move(st) )
 	{
 		value_.assign(1, SymbolTraits::first_symbol );
 	}
 	
-	explicit name_iterator(llvm::StringRef s, SymbolTraits st = SymbolTraits () ) : 
+	explicit name_iterator(llvm::StringRef s, SymbolTraits st) : 
 		SymbolTraits( std::move(st) ),
-		value_(s) 
+		value_(s)
 	{}
 	
 	const llvm::SmallString<4>& operator*() const { return value_; }

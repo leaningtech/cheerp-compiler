@@ -43,7 +43,10 @@ static cl::opt<bool> NoNativeJavaScriptMath("cheerp-no-native-math", cl::desc("D
 static cl::opt<bool> NoJavaScriptMathImul("cheerp-no-math-imul", cl::desc("Disable JavaScript Math.imul") );
 
 static cl::opt<bool> NoCredits("cheerp-no-credits", cl::desc("Disable Cheerp credits in JS") );
+
 static cl::opt<bool> MeasureTimeToMain("cheerp-measure-time-to-main", cl::desc("Print time elapsed until the first line of main() is executed") );
+
+static cl::list<std::string> ReservedNames("cheerp-reserved-names", cl::value_desc("list"), cl::desc("A list of JS identifiers that should not be used by Cheerp"), cl::CommaSeparated);
 
 extern "C" void LLVMInitializeCheerpBackendTarget() {
   // Register the target.
@@ -87,7 +90,10 @@ bool CheerpWritePass::runOnModule(Module& M)
   PA.fullResolve();
   PA.computeConstantOffsets(M);
   registerize.assignRegisters(M, PA);
-  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator,
+  // Build the ordered list of reserved names
+  std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
+  std::sort(reservedNames.begin(), reservedNames.end());
+  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, reservedNames,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain);
   writer.makeJS();
