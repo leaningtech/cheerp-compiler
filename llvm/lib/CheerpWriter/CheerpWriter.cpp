@@ -3219,6 +3219,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 		stream << "var label=0";
 		firstVar = false;
 	}
+	std::set<StringRef> compiledTmpPHIs;
 	for(const BasicBlock& BB: F)
 	{
 		for(const Instruction& I: BB)
@@ -3253,34 +3254,35 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 		class LocalsPHIHandler: public EndOfBlockPHIHandler
 		{
 		public:
-			LocalsPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t, bool& firstVar):EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t),firstVar(firstVar)
+			LocalsPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t, std::set<StringRef>& c):EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t),compiledLocals(c)
 			{
 			}
 			~LocalsPHIHandler()
 			{
 			}
+			std::set<StringRef>& compiledLocals;
 		private:
 			CheerpWriter& writer;
 			const BasicBlock* fromBB;
 			const BasicBlock* toBB;
-			bool& firstVar;
 			void handleRecursivePHIDependency(const Instruction* phi) override
 			{
 				writer.namegen.setEdgeContext(fromBB, toBB);
 				if(phi->getType()->isPointerTy() && writer.PA.getPointerKind(phi)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(phi))
 				{
-					if(firstVar)
-						writer.stream << "var";
-					else
+					StringRef secondaryName = writer.namegen.getSecondaryNameForEdge(phi);
+					if(compiledLocals.insert(secondaryName).second)
+					{
 						writer.stream << ',';
-					writer.compileMethodLocal(writer.namegen.getSecondaryNameForEdge(phi), Registerize::INTEGER);
-					firstVar = false;
+						writer.compileMethodLocal(secondaryName, Registerize::INTEGER);
+					}
 				}
-				if(firstVar)
-					writer.stream << "var";
-				else
+				StringRef primaryName = writer.namegen.getNameForEdge(phi);
+				if(compiledLocals.insert(primaryName).second)
+				{
 					writer.stream << ',';
-				writer.compileMethodLocal(writer.namegen.getNameForEdge(phi), Registerize::getRegKindFromType(phi->getType()));
+					writer.compileMethodLocal(primaryName, Registerize::getRegKindFromType(phi->getType()));
+				}
 				writer.namegen.clearEdgeContext();
 			}
 			void handlePHI(const Instruction* phi, const Value* incoming) override
@@ -3291,7 +3293,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 		for(uint32_t i=0;i<term->getNumSuccessors();i++)
 		{
 			const BasicBlock* succBB=term->getSuccessor(i);
-			LocalsPHIHandler(*this, &BB, succBB, firstVar).runOnEdge(registerize, &BB, succBB);
+			LocalsPHIHandler(*this, &BB, succBB, compiledTmpPHIs).runOnEdge(registerize, &BB, succBB);
 		}
 	}
 	if(!firstVar)
