@@ -644,7 +644,9 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			if(!isInlineable(*incomingInst, PA))
 			{
 				uint32_t incomingValueId = registerize.getRegisterId(incomingInst);
-				if(incomingValueId==phiReg && (!incomingInst->getType()->isPointerTy() || PA.getPointerKind(phi) != SPLIT_REGULAR || PA.getPointerKind(incomingInst) != SPLIT_REGULAR))
+				if(incomingValueId==phiReg && (!incomingInst->getType()->isPointerTy() ||
+					PA.getPointerKind(phi) != SPLIT_REGULAR || PA.getConstantOffsetForPointer(phi) ||
+					PA.getPointerKind(incomingInst) != SPLIT_REGULAR || PA.getConstantOffsetForPointer(incomingInst)))
 					continue;
 				incomingRegisters.push_back(incomingValueId);
 			}
