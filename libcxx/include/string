@@ -1593,7 +1593,9 @@ private:
     static _LIBCPP_INLINE_VISIBILITY
     size_type __recommend(size_type __s) _NOEXCEPT
         {
+#ifndef __CHEERP__
         if (__s < __min_cap) return static_cast<size_type>(__min_cap) - 1;
+#endif
         size_type __guess = __align_it<sizeof(value_type) < __alignment ?
                      __alignment/sizeof(value_type) : 1 > (__s+1) - 1;
         if (__guess == __min_cap) ++__guess;
