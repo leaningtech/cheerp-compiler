@@ -613,6 +613,7 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			break;
 		}
 		case Intrinsic::cheerp_downcast_current:
+		case Intrinsic::cheerp_deallocate:
 		{
 			Type* localTys[] = { FT->getParamType(0) };
 			newTys.insert(newTys.end(),localTys,localTys+1);
