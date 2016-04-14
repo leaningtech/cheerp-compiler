@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2013 Leaning Technologies
+// Copyright 2013-2016 Leaning Technologies
 //
 //
 //===----------------------------------------------------------------------===//
@@ -40,7 +40,7 @@ def int_cheerp_allocate  : Intrinsic<[llvm_anyptr_ty],
 def int_cheerp_reallocate  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty,llvm_i32_ty]>;
 def int_cheerp_deallocate  : Intrinsic<[],
-                             [llvm_ptr_ty]>;
+                             [llvm_anyptr_ty]>;
 
 // Access to pointer components
 def int_cheerp_pointer_base : Intrinsic<[llvm_anyptr_ty],
