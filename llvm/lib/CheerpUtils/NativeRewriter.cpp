@@ -5,12 +5,13 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2015 Leaning Technologies
+// Copyright 2011-2016 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Cheerp/NativeRewriter.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/PassManager.h"
@@ -225,6 +226,7 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	Function::const_iterator BE=F.end();
 	ValueToValueMapTy valueMap;
 	CallInst* lowerConstructor = NULL;
+	BitCastInst* lowerCast = NULL;
 	const CallInst* oldLowerConstructor = NULL;
 	for(;B!=BE;++B)
 	{
@@ -243,7 +245,13 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 			if(!CheerpNativeRewriter::isBuiltinConstructor(f->getName().data(), startOfType, endOfType))
 				continue;
 			//Check that the constructor is for 'this'
-			if(callInst->getOperand(0)!=F.arg_begin())
+			Value* firstArg = callInst->getOperand(0);
+			while(cheerp::isBitCast(firstArg))
+			{
+				valueMap.insert(make_pair(firstArg, UndefValue::get(firstArg->getType())));
+				firstArg = cast<User>(firstArg)->getOperand(0);
+			}
+			if(firstArg!=F.arg_begin())
 				continue;
 			//If this is another constructor for the same type, change it to a
 			//returning constructor and use it as the 'this' argument
@@ -263,7 +271,14 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	newFunc->setLinkage(F.getLinkage());
 	Function::arg_iterator origArg=++F.arg_begin();
 	Function::arg_iterator newArg=newFunc->arg_begin();
-	valueMap.insert(make_pair(F.arg_begin(), lowerConstructor));
+	assert(lowerConstructor);
+	if(lowerConstructor->getType() != F.arg_begin()->getType())
+	{
+		lowerCast = new BitCastInst( lowerConstructor, F.arg_begin()->getType());
+		valueMap.insert(make_pair(F.arg_begin(), lowerCast));
+	}
+	else
+		valueMap.insert(make_pair(F.arg_begin(), lowerConstructor));
 
 	for(unsigned i=1;i<F.arg_size();i++)
 	{
@@ -288,20 +303,23 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 
 	//And add it
 	lowerConstructor->insertAfter(callPred);
+	if(lowerCast)
+		lowerCast->insertAfter(lowerConstructor);
 
 	//Override the return values
 	for(unsigned i=0;i<returns.size();i++)
 	{
-		Instruction* newInst = ReturnInst::Create(M.getContext(),lowerConstructor);
+		Instruction* newInst = ReturnInst::Create(M.getContext(), lowerCast ? (Instruction*)lowerCast : (Instruction*)lowerConstructor);
 		newInst->insertBefore(returns[i]);
 		returns[i]->removeFromParent();
 	}
 	//Recursively move all the users of the lower constructor after the call itself
-	Instruction* insertPoint = lowerConstructor->getNextNode();
-	SmallVector<Value*, 4> usersQueue(lowerConstructor->getNumUses());
+	Instruction* reorderStart = lowerCast ? (Instruction*)lowerCast : (Instruction*)lowerConstructor;
+	Instruction* insertPoint = reorderStart->getNextNode();
+	SmallVector<Value*, 4> usersQueue(reorderStart->getNumUses());
 	unsigned int i;
 	Value::use_iterator it;
-	for(i=usersQueue.size()-1,it=lowerConstructor->use_begin();it!=lowerConstructor->use_end();++it,i--)
+	for(i=usersQueue.size()-1,it=reorderStart->use_begin();it!=reorderStart->use_end();++it,i--)
 		usersQueue[i]=it->getUser();
 
 	SmallSet<Instruction*, 4> movedInstructions;
@@ -313,6 +331,9 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 		if(movedInstructions.count(cur))
 			continue;
 		movedInstructions.insert(cur);
+		// Terminators should not move from their position
+		if(isa<TerminatorInst>(cur))
+			continue;
 		cur->moveBefore(insertPoint);
 		//Add users of this instrucution as well
 		usersQueue.resize(usersQueue.size()+cur->getNumUses());
