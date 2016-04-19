@@ -156,7 +156,7 @@ void CheerpNativeRewriter::rewriteNativeAllocationUsers(Module& M, SmallVector<I
 	//Instead of allocating the type, allocate a pointer to the type
 	AllocaInst* newI=new AllocaInst(PointerType::getUnqual(t),"cheerpPtrAlloca",
 		&i->getParent()->getParent()->front().front());
-	toRemove.push_back(i);
+	bool foundConstructor = false;
 
 	Instruction::use_iterator it=i->use_begin();
 	Instruction::use_iterator itE=i->use_end();
@@ -183,7 +183,14 @@ void CheerpNativeRewriter::rewriteNativeAllocationUsers(Module& M, SmallVector<I
 									callInst->getCalledFunction(),builtinTypeName,
 									initialArgs);
 				if(ret)
+				{
+					if(!foundConstructor)
+					{
+						toRemove.push_back(i);
+						foundConstructor = true;
+					}
 					toRemove.push_back(callInst);
+				}
 				else
 					baseSubstitutionForBuiltin(callInst, i, newI);
 				break;
@@ -197,6 +204,11 @@ void CheerpNativeRewriter::rewriteNativeAllocationUsers(Module& M, SmallVector<I
 									initialArgs);
 				if(ret)
 				{
+					if(!foundConstructor)
+					{
+						toRemove.push_back(i);
+						foundConstructor = true;
+					}
 					toRemove.push_back(invokeInst);
 					//We need to add a branch to the success label of the invoke call
 					BranchInst::Create(invokeInst->getNormalDest(),invokeInst);
@@ -212,6 +224,8 @@ void CheerpNativeRewriter::rewriteNativeAllocationUsers(Module& M, SmallVector<I
 			}
 		}
 	}
+	if(!foundConstructor)
+		new StoreInst(i, newI, i->getNextNode());
 }
 
 void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function& F)
