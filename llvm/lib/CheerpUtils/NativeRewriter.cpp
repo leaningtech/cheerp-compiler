@@ -35,6 +35,15 @@ bool CheerpNativeRewriter::findMangledClassName(const char* const s, const char*
 	tmp+=nsLen;
 	classLen=strtol(tmp, &endPtr, 10);
 	className=endPtr;
+	// Hackish support for TArray, we need to skip the template part of the name
+	if(strncmp(className+classLen, "INS_", 4) == 0)
+	{
+		const char* baseClassEnd = className+classLen+4;
+		char* templateStart;
+		int templateLen = strtol(baseClassEnd, &templateStart, 10);
+		// Add +2 for the "EE" that encloses the template part
+		classLen += 4 + (templateStart - baseClassEnd) + templateLen + 2;
+	}
 
 	if(classLen==0)
 		return false;
