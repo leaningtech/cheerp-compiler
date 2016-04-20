@@ -783,6 +783,12 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		if ( argNo >= calledFunction->arg_size() )
 		{
 			// Passed as a variadic argument, behave like it was stored in memory
+			if(StructType* st = dyn_cast<StructType>(pointedType))
+			{
+				while(st->getDirectBase())
+					st = st->getDirectBase();
+				pointedType = st;
+			}
 			return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( STORED_TYPE_CONSTRAINT, pointedType ));
 		}
 
