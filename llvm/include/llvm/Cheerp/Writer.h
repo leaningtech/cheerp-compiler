@@ -144,6 +144,8 @@ const static int V8MaxLiteralProperties = 8;
 
 class CheerpWriter
 {
+public:
+	enum PARENT_PRIORITY { LOWEST = 0, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
 private:
 
 	llvm::Module& module;
@@ -307,11 +309,11 @@ private:
 	bool doesConstantDependOnUndefined(const llvm::Constant* C) const;
 	void compileMethodArgs(llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, llvm::ImmutableCallSite, bool forceBoolean);
 	COMPILE_INSTRUCTION_FEEDBACK compileTerminatorInstruction(const llvm::TerminatorInst& I);
-	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I);
-	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I);
+	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
+	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 
-	void compileSignedInteger(const llvm::Value* v, bool forComparison);
-	void compileUnsignedInteger(const llvm::Value* v);
+	void compileSignedInteger(const llvm::Value* v, bool forComparison, PARENT_PRIORITY parentPrio);
+	void compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY parentPrio);
 
 	void compileMethodLocal(llvm::StringRef name, Registerize::REGISTER_KIND kind);
 	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
@@ -358,13 +360,13 @@ private:
 	/**
 	 * Methods implemented in Opcodes.cpp
 	 */
-	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p);
+	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 	void compilePtrToInt(const llvm::Value* v);
-	void compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs);
+	void compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
 	void compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind);
 	void compileBitCastBase(const llvm::User* bi, bool forEscapingPointer);
 	void compileBitCastOffset(const llvm::User* bi);
-	void compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs);
+	void compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
 
 	static uint32_t getMaskForBitWidth(int width)
 	{
@@ -388,11 +390,11 @@ public:
 	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c);
 	void compileConstantAsBytes(const llvm::Constant* c, bool first = false);
-	void compileOperand(const llvm::Value* v, bool allowBooleanObjects = false);
+	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
-	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p);
+	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 };
 
 }

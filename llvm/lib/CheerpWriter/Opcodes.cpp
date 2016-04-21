@@ -15,25 +15,34 @@
 using namespace llvm;
 using namespace cheerp;
 
-void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
+void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p, PARENT_PRIORITY parentPrio)
 {
 	if(lhs->getType()->isPointerTy())
 	{
 		if(p==CmpInst::ICMP_EQ || p==CmpInst::ICMP_NE)
+		{
+			// LOGICAL_OR is slighly conservative
+			if(parentPrio >= LOGICAL_OR) stream << '(';
 			compileEqualPointersComparison(lhs, rhs, p);
+			if(parentPrio >= LOGICAL_OR) stream << ')';
+		}
 		else
 		{
 			//Comparison on different bases is anyway undefined, so ignore them
+			if(parentPrio >= COMPARISON) stream << '(';
 			compilePointerOffset( lhs );
 			compilePredicate(p);
 			compilePointerOffset( rhs );
+			if(parentPrio >= COMPARISON) stream << ')';
 		}
 	}
 	else
 	{
-		compileOperandForIntegerPredicate(lhs,p);
+		if(parentPrio >= COMPARISON) stream << '(';
+		compileOperandForIntegerPredicate(lhs,p,COMPARISON);
 		compilePredicate(p);
-		compileOperandForIntegerPredicate(rhs,p);
+		compileOperandForIntegerPredicate(rhs,p,COMPARISON);
+		if(parentPrio >= COMPARISON) stream << ')';
 	}
 }
 
@@ -64,20 +73,21 @@ void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 	stream << ')';
 }
 
-void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs)
+void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio)
 {
 	//Integer subtraction
 	//TODO: optimize negation
-	stream << "((";
-	compileOperand(lhs);
+	PARENT_PRIORITY subPrio = lhs->getType()->isIntegerTy(32) ? SHIFT : BIT_AND;
+	if(parentPrio > subPrio) stream << '(';
+	// Minus has higher priority than both >> and &
+	compileOperand(lhs, ADD_SUB);
 	stream << '-';
-	compileOperand(rhs);
-	stream << ')';
+	compileOperand(rhs, ADD_SUB);
 	if(types.isI32Type(lhs->getType()))
 		stream << ">>0";
 	else
 		stream << '&' << getMaskForBitWidth(lhs->getType()->getIntegerBitWidth());
-	stream << ')';
+	if(parentPrio > subPrio) stream << ')';
 }
 
 void CheerpWriter::compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind)
@@ -156,10 +166,10 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi)
 	compilePointerOffset(bi->getOperand(0));
 }
 
-void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs)
+void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio)
 {
-	stream << '(';
-	compileOperand(cond, /*allowBooleanObjects*/ true);
+	if(parentPrio >= TERNARY) stream << '(';
+	compileOperand(cond, TERNARY, /*allowBooleanObjects*/ true);
 	stream << '?';
 
 	if(select->getType()->isPointerTy())
@@ -176,5 +186,5 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 		compileOperand(rhs);
 	}
 
-	stream << ')';
+	if(parentPrio >= TERNARY) stream << ')';
 }
