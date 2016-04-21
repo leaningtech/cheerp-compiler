@@ -35,7 +35,7 @@ class CheerpRenderInterface: public RenderInterface
 private:
 	CheerpWriter* writer;
 	const NewLineHandler& NewLine;
-	void renderCondition(const BasicBlock* B, int branchId);
+	void renderCondition(const BasicBlock* B, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio);
 public:
 	CheerpRenderInterface(CheerpWriter* w, const NewLineHandler& n):writer(w),NewLine(n)
 	{
@@ -953,15 +953,15 @@ void CheerpWriter::compilePredicate(CmpInst::Predicate p)
 	}
 }
 
-void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Predicate p)
+void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Predicate p, PARENT_PRIORITY parentPrio)
 {
 	assert(v->getType()->isIntegerTy());
 	if(CmpInst::isSigned(p))
-		compileSignedInteger(v, /*forComparison*/ true);
+		compileSignedInteger(v, /*forComparison*/ true, parentPrio);
 	else if(CmpInst::isUnsigned(p) || !v->getType()->isIntegerTy(32))
-		compileUnsignedInteger(v);
+		compileUnsignedInteger(v, parentPrio);
 	else
-		compileSignedInteger(v, /*forComparison*/ true);
+		compileSignedInteger(v, /*forComparison*/ true, parentPrio);
 }
 
 void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
@@ -1199,7 +1199,7 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 	{
 		const User* u = cast<User>(p);
 		stream << '(';
-		compileOperand(u->getOperand(0), /*allowBooleanObjects*/ true);
+		compileOperand(u->getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
 		stream << '?';
 		compilePointerBase(u->getOperand(1));
 		stream << ':';
@@ -1345,7 +1345,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 	{
 		const User* u = cast<User>(p);
 		stream << '(';
-		compileOperand(u->getOperand(0), /*allowBooleanObjects*/ true);
+		compileOperand(u->getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
 		stream << '?';
 		compilePointerOffset(u->getOperand(1));
 		stream << ':';
@@ -1408,17 +1408,17 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
 		}
 		case Instruction::ICmp:
 		{
-			compileIntegerComparison(ce->getOperand(0), ce->getOperand(1), (CmpInst::Predicate)ce->getPredicate());
+			compileIntegerComparison(ce->getOperand(0), ce->getOperand(1), (CmpInst::Predicate)ce->getPredicate(), HIGHEST);
 			break;
 		}
 		case Instruction::Select:
 		{
-			compileSelect(ce, ce->getOperand(0), ce->getOperand(1), ce->getOperand(2));
+			compileSelect(ce, ce->getOperand(0), ce->getOperand(1), ce->getOperand(2), HIGHEST);
 			break;
 		}
 		case Instruction::Sub:
 		{
-			compileSubtraction(ce->getOperand(0), ce->getOperand(1));
+			compileSubtraction(ce->getOperand(0), ce->getOperand(1), HIGHEST);
 			break;
 		}
 		default:
@@ -1669,7 +1669,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 	}
 }
 
-void CheerpWriter::compileOperand(const Value* v, bool allowBooleanObjects)
+void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bool allowBooleanObjects)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
 		compileConstant(c);
@@ -1695,17 +1695,20 @@ void CheerpWriter::compileOperand(const Value* v, bool allowBooleanObjects)
 			}
 			if(isBooleanObject && !allowBooleanObjects)
 				stream << '(';
-			compileInlineableInstruction(*cast<Instruction>(v));
+			compileInlineableInstruction(*cast<Instruction>(v), parentPrio);
 			if(isBooleanObject && !allowBooleanObjects)
 				stream << "?1:0)";
 		}
 		else
 		{
 			if(it->getType()->isIntegerTy(1))
-				stream << '(';
+				if(parentPrio >= SHIFT) stream << '(';
 			stream << namegen.getName(it);
 			if(it->getType()->isIntegerTy(1))
-				stream << ">>0)";
+			{
+				stream << ">>0";
+				if(parentPrio >= SHIFT) stream << ')';
+			}
 		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
@@ -2041,7 +2044,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 	return COMPILE_UNSUPPORTED;
 }
 
-CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableInstruction(const Instruction& I)
+CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableInstruction(const Instruction& I, PARENT_PRIORITY parentPrio)
 {
 	switch(I.getOpcode())
 	{
@@ -2163,9 +2166,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 
 			stream << '=';
 			if(valOp->getType()->isIntegerTy(32))
-				compileSignedInteger(valOp, /*forComparison*/ false);
+				compileSignedInteger(valOp, /*forComparison*/ false, LOWEST);
 			else if(valOp->getType()->isIntegerTy())
-				compileUnsignedInteger(valOp);
+				compileUnsignedInteger(valOp, LOWEST);
 			else if(valOp->getType()->isPointerTy())
 			{
 				POINTER_KIND storedKind = PA.getPointerKind(&si);
@@ -2189,7 +2192,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		}
 		default:
 		{
-			COMPILE_INSTRUCTION_FEEDBACK ret=compileInlineableInstruction(I);
+			COMPILE_INSTRUCTION_FEEDBACK ret=compileInlineableInstruction(I, parentPrio);
 			if(ret == COMPILE_OK && I.getType()->isIntegerTy(1))
 			{
 				switch(I.getOpcode())
@@ -2393,7 +2396,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	}
 }
 
-void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison)
+void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison, PARENT_PRIORITY parentPrio)
 {
 	//We anyway have to use 32 bits for sign extension to work
 	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
@@ -2405,29 +2408,28 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 			stream << C->getSExtValue();
 		return;
 	}
+	if(parentPrio > SHIFT) stream << '(';
 	if(shiftAmount==0)
 	{
 		//Use simpler code
-		stream << '(';
-		compileOperand(v);
-		stream << ">>0)";
+		compileOperand(v, SHIFT);
+		stream << ">>0";
 	}
 	else if(forComparison)
 	{
 		// When comparing two signed values we can avoid the right shift
-		stream << '(';
-		compileOperand(v);
-		stream << "<<" << shiftAmount << ')';
+		compileOperand(v, SHIFT);
+		stream << "<<" << shiftAmount;
 	}
 	else
 	{
-		stream << "((";
-		compileOperand(v);
-		stream << "<<" << shiftAmount << ")>>" << shiftAmount << ')';
+		compileOperand(v, SHIFT);
+		stream << "<<" << shiftAmount << ">>" << shiftAmount;
 	}
+	if(parentPrio > SHIFT) stream << ')';
 }
 
-void CheerpWriter::compileUnsignedInteger(const llvm::Value* v)
+void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY parentPrio)
 {
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
@@ -2436,17 +2438,20 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v)
 	}
 	//We anyway have to use 32 bits for sign extension to work
 	uint32_t initialSize = v->getType()->getIntegerBitWidth();
-	stream << '(';
 	if(initialSize == 32)
 	{
+		if(parentPrio >= SHIFT) stream << '(';
 		//Use simpler code
 		compileOperand(v);
-		stream << ">>>0)";
+		stream << ">>>0";
+		if(parentPrio >= SHIFT) stream << ')';
 	}
 	else
 	{
+		if(parentPrio >= BIT_AND) stream << '(';
 		compileOperand(v);
-		stream << '&' << getMaskForBitWidth(initialSize) << ')';
+		stream << '&' << getMaskForBitWidth(initialSize);
+		if(parentPrio >= BIT_AND) stream << ')';
 	}
 }
 
@@ -2454,7 +2459,7 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v)
  * This can be used for both named instructions and inlined ones
  * NOTE: Call, Ret, Invoke are NEVER inlined
  */
-CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstruction(const Instruction& I)
+CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstruction(const Instruction& I, PARENT_PRIORITY parentPrio)
 {
 	switch(I.getOpcode())
 	{
@@ -2490,7 +2495,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const CastInst& ci = cast<CastInst>(I);
 			stream << "(+";
-			compileSignedInteger(ci.getOperand(0), /*forComparison*/ false);
+			compileSignedInteger(ci.getOperand(0), /*forComparison*/ false, HIGHEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -2499,7 +2504,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const CastInst& ci = cast<CastInst>(I);
 			//We need to cast to unsigned before
 			stream << "(+";
-			compileUnsignedInteger(ci.getOperand(0));
+			compileUnsignedInteger(ci.getOperand(0), HIGHEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -2524,15 +2529,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Add:
 		{
 			//Integer addition
-			stream << "(";
-			compileOperand(I.getOperand(0));
+			PARENT_PRIORITY addPrio = I.getType()->isIntegerTy(32) ? SHIFT : BIT_AND;
+			if(parentPrio > addPrio) stream << '(';
+			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << "+";
-			compileOperand(I.getOperand(1));
+			compileOperand(I.getOperand(1), ADD_SUB);
 			if(types.isI32Type(I.getType()))
 				stream << ">>0";
 			else
 				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			stream << ')';
+			if(parentPrio > addPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FAdd:
@@ -2547,7 +2553,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::Sub:
 		{
-			compileSubtraction(I.getOperand(0), I.getOperand(1));
+			compileSubtraction(I.getOperand(0), I.getOperand(1), parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::FSub:
@@ -2580,7 +2586,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				//Let's mask out upper bits, to make sure we get zero extension
 				//The value might have been initialized with a negative value
-				compileUnsignedInteger(I.getOperand(0));
+				compileUnsignedInteger(I.getOperand(0), HIGHEST);
 			}
 			return COMPILE_OK;
 		}
@@ -2588,9 +2594,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer signed division
 			stream << "((";
-			compileSignedInteger(I.getOperand(0), /*forComparison*/ false);
+			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, HIGHEST);
 			stream << '/';
-			compileSignedInteger(I.getOperand(1), /*forComparison*/ false);
+			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, HIGHEST);
 			stream << ")>>0)";
 			return COMPILE_OK;
 		}
@@ -2598,9 +2604,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer unsigned division
 			stream << "((";
-			compileUnsignedInteger(I.getOperand(0));
+			compileUnsignedInteger(I.getOperand(0), HIGHEST);
 			stream << '/';
-			compileUnsignedInteger(I.getOperand(1));
+			compileUnsignedInteger(I.getOperand(1), HIGHEST);
 			//Result is already unsigned
 			stream << ")>>0)";
 			return COMPILE_OK;
@@ -2609,9 +2615,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer signed remainder
 			stream << "((";
-			compileSignedInteger(I.getOperand(0), /*forComparison*/ false);
+			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, HIGHEST);
 			stream << '%';
-			compileSignedInteger(I.getOperand(1), /*forComparison*/ false);
+			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, HIGHEST);
 			stream << ")>>0)";
 			return COMPILE_OK;
 		}
@@ -2619,9 +2625,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer unsigned remainder
 			stream << "((";
-			compileUnsignedInteger(I.getOperand(0));
+			compileUnsignedInteger(I.getOperand(0), HIGHEST);
 			stream << '%';
-			compileUnsignedInteger(I.getOperand(1));
+			compileUnsignedInteger(I.getOperand(1), HIGHEST);
 			//The result is necessarily unsigned
 			stream << ")>>0)";
 			return COMPILE_OK;
@@ -2687,9 +2693,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer comparison
 			const CmpInst& ci = cast<CmpInst>(I);
-			stream << '(';
-			compileIntegerComparison(ci.getOperand(0), ci.getOperand(1), ci.getPredicate());
-			stream << ')';
+			compileIntegerComparison(ci.getOperand(0), ci.getOperand(1), ci.getPredicate(), parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::FCmp:
@@ -2728,14 +2732,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer logical and
 			//No need to apply the >> operator. The result is an integer by spec
-			stream << '(';
-			compileOperand(I.getOperand(0), /*allowBooleanObjects*/ true);
+			PARENT_PRIORITY andPrio = I.getType()->isIntegerTy(1) ? LOGICAL_AND : BIT_AND;
+			if(parentPrio >= andPrio) stream << '(';
+			compileOperand(I.getOperand(0), andPrio, /*allowBooleanObjects*/ true);
 			if(I.getType()->isIntegerTy(1))
 				stream << "&&";
 			else
 				stream << '&';
-			compileOperand(I.getOperand(1), /*allowBooleanObjects*/ true);
-			stream << ')';
+			compileOperand(I.getOperand(1), andPrio, /*allowBooleanObjects*/ true);
+			if(parentPrio >= andPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::LShr:
@@ -2757,7 +2762,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(types.isI32Type(I.getOperand(0)->getType()))
 				compileOperand(I.getOperand(0));
 			else
-				compileSignedInteger(I.getOperand(0), /*forComparison*/ false);
+				compileSignedInteger(I.getOperand(0), /*forComparison*/ false, HIGHEST);
 			stream << ">>";
 			compileOperand(I.getOperand(1));
 			stream << ')';
@@ -2779,14 +2784,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Integer logical or
 			//No need to apply the >> operator. The result is an integer by spec
 			stream << '(';
-			compileOperand(I.getOperand(0), /*allowBooleanObjects*/ true);
+			compileOperand(I.getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
 			//If the type is i1 we can use the boolean operator to take advantage of logic short-circuit
 			//This is possible because we know that instruction with side effects, like calls, are never inlined
 			if(I.getType()->isIntegerTy(1))
 				stream << "||";
 			else
 				stream << '|';
-			compileOperand(I.getOperand(1), /*allowBooleanObjects*/ true);
+			compileOperand(I.getOperand(1), HIGHEST, /*allowBooleanObjects*/ true);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -2816,7 +2821,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::SExt:
 		{
 			//We can use a couple of shift to make this work
-			compileSignedInteger(I.getOperand(0), /*forComparison*/ false);
+			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::Select:
@@ -2824,21 +2829,21 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const SelectInst& si = cast<SelectInst>(I);
 			if(si.getType()->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR)
 			{
-				compileOperand(si.getOperand(0), /*allowBooleanObjects*/ true);
+				compileOperand(si.getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
 				stream << '?';
 				compilePointerBase(si.getOperand(1));
 				stream << ':';
 				compilePointerBase(si.getOperand(2));
 				stream << ';' << NewLine;
 				stream << namegen.getSecondaryName(&si) << '=';
-				compileOperand(si.getOperand(0), /*allowBooleanObjects*/ true);
+				compileOperand(si.getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
 				stream << '?';
 				compilePointerOffset(si.getOperand(1));
 				stream << ':';
 				compilePointerOffset(si.getOperand(2));
 			}
 			else
-				compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue());
+				compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue(), parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::ExtractValue:
@@ -3017,7 +3022,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		}
 		else if(!I->use_empty() || I->mayHaveSideEffects())
 		{
-			COMPILE_INSTRUCTION_FEEDBACK ret=compileNotInlineableInstruction(*I);
+			COMPILE_INSTRUCTION_FEEDBACK ret=compileNotInlineableInstruction(*I, LOWEST);
 
 			if(ret==COMPILE_OK)
 			{
@@ -3038,7 +3043,7 @@ void CheerpRenderInterface::renderBlock(const void* privateBlock)
 	writer->compileBB(*bb);
 }
 
-void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
+void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio)
 {
 	const TerminatorInst* term=bb->getTerminator();
 
@@ -3048,7 +3053,7 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 		assert(bi->isConditional());
 		//The second branch is the default
 		assert(branchId==0);
-		writer->compileOperand(bi->getCondition(), /*allowBooleanObjects*/ true);
+		writer->compileOperand(bi->getCondition(), parentPrio, /*allowBooleanObjects*/ true);
 	}
 	else if(isa<SwitchInst>(term))
 	{
@@ -3058,9 +3063,9 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 		for(int i=1;i<branchId;i++)
 			++it;
 		const BasicBlock* dest=it.getCaseSuccessor();
-		writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ);
+		writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
 		writer->stream << "===";
-		writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ);
+		writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
 		//We found the destination, there may be more cases for the same
 		//destination though
 		for(++it;it!=si->case_end();++it)
@@ -3069,9 +3074,9 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 			{
 				//Also add this condition
 				writer->stream << "||(";
-				writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ);
+				writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
 				writer->stream << "===";
-				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ);
+				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
 				writer->stream << ')';
 			}
 		}
@@ -3089,7 +3094,7 @@ void CheerpRenderInterface::renderIfBlockBegin(const void* privateBlock, int bra
 	if(!first)
 		writer->stream << "}else ";
 	writer->stream << "if(";
-	renderCondition(bb, branchId);
+	renderCondition(bb, branchId, CheerpWriter::LOWEST);
 	writer->stream << "){" << NewLine;
 }
 
@@ -3103,7 +3108,7 @@ void CheerpRenderInterface::renderIfBlockBegin(const void* privateBlock, const s
 	{
 		if(i!=0)
 			writer->stream << "||";
-		renderCondition(bb, skipBranchIds[i]);
+		renderCondition(bb, skipBranchIds[i], CheerpWriter::LOGICAL_OR);
 	}
 	writer->stream << ")){" << NewLine;
 }
