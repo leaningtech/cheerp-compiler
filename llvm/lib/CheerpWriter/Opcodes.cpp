@@ -30,9 +30,9 @@ void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 		{
 			//Comparison on different bases is anyway undefined, so ignore them
 			if(parentPrio >= COMPARISON) stream << '(';
-			compilePointerOffset( lhs );
+			compilePointerOffset( lhs, COMPARISON );
 			compilePredicate(p);
-			compilePointerOffset( rhs );
+			compilePointerOffset( rhs, COMPARISON );
 			if(parentPrio >= COMPARISON) stream << ')';
 		}
 	}
@@ -57,19 +57,19 @@ void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 		if(useMathImul)
 		{
 			stream << "Math.imul(";
-			compilePointerOffset(v);
+			compilePointerOffset(v, LOWEST);
 			stream << ',' << typeSize << ')';
 		}
 		else
 		{
 			stream << '(';
-			compilePointerOffset(v);
+			compilePointerOffset(v, LOWEST);
 			stream << ')';
 			stream << '*' << typeSize;
 		}
 	}
 	else
-		compilePointerOffset(v);
+		compilePointerOffset(v, LOWEST);
 	stream << ')';
 }
 
@@ -105,7 +105,7 @@ void CheerpWriter::compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind)
 			stream << "{d:";
 			compilePointerBase(bc_inst, true);
 			stream << ",o:";
-			compilePointerOffset(bc_inst, true);
+			compilePointerOffset(bc_inst, LOWEST, true);
 			stream << "}";
 		}
 	}
@@ -135,7 +135,7 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 			if(!isa<AllocaInst>(bi->getOperand(0)))
 			{
 				stream << ',';
-				compilePointerOffset(bi->getOperand(0));
+				compilePointerOffset(bi->getOperand(0), LOWEST);
 			}
 			stream << ')';
 			return;
@@ -163,7 +163,7 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi)
 		}
 	}
 
-	compilePointerOffset(bi->getOperand(0));
+	compilePointerOffset(bi->getOperand(0), HIGHEST);
 }
 
 void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio)

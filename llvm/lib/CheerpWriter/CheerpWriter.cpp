@@ -196,13 +196,13 @@ void CheerpWriter::compileCopyElement(const Value* baseDest,
 				stream << "var __tmp__=new Int8Array(";
 				compilePointerBase(baseDest);
 				stream << ".buffer,";
-				compilePointerOffset(baseDest);
+				compilePointerOffset(baseDest, LOWEST);
 				stream << ',' << typeSize << ");" << NewLine;
 				stream << "__tmp__.set(";
 				stream << "new Int8Array(";
 				compilePointerBase(baseSrc);
 				stream << ".buffer,";
-				compilePointerOffset(baseSrc);
+				compilePointerOffset(baseSrc, LOWEST);
 				stream << ',' << typeSize << "));" << NewLine;
 				break;
 			}
@@ -233,7 +233,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			compilePointerBase(src);
 			stream << ';' << NewLine;
 			stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
-			compilePointerOffset(src);
+			compilePointerOffset(src, LOWEST);
 		}
 		else
 			compilePointerAs(src, result_kind);
@@ -248,7 +248,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
 			compileCompleteObject(src);
 			stream << ".o-(";
-			compileOperand(offset);
+			compileOperand(offset, LOWEST);
 			stream << ')';
 		}
 		else if(result_kind == REGULAR)
@@ -259,7 +259,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			compileCompleteObject(src);
 
 			stream << ".o-(";
-			compileOperand(offset);
+			compileOperand(offset, LOWEST);
 			stream << ")}";
 		}
 		else
@@ -268,7 +268,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			stream << ".a[";
 			compileCompleteObject(src);
 			stream << ".o-(";
-			compileOperand(offset);
+			compileOperand(offset, LOWEST);
 			stream << ")]";
 		}
 	}
@@ -328,10 +328,10 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 
 		//We need to get a subview of the source
 		stream << ".subarray(";
-		compilePointerOffset(src);
-		stream << ",(";
-		compilePointerOffset(src);
-		stream << ")+";
+		compilePointerOffset(src, LOWEST);
+		stream << ',';
+		compilePointerOffset(src, ADD_SUB);
+		stream << '+';
 
 		// Use the size
 		if(constantNumElements)
@@ -340,7 +340,7 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 			stream << "__numElem__";
 
 		stream << "),";
-		compilePointerOffset(dest);
+		compilePointerOffset(dest, LOWEST);
 		stream << ");" << NewLine;
 	}
 	// Handle the single element case, do not assume we have a typed array
@@ -650,7 +650,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_offset)
 	{
-		compilePointerOffset(*it, true);
+		compilePointerOffset(*it, LOWEST, true);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_create_closure)
@@ -710,9 +710,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	{
 		// Handle this internally, C++ does not have float mod operation
 		stream << '(';
-		compileOperand(*(it));
+		compileOperand(*(it), MUL_DIV);
 		stream << '%';
-		compileOperand(*(it+1));
+		compileOperand(*(it+1), MUL_DIV);
 		stream << ')';
 		return COMPILE_OK;
 	}
@@ -995,9 +995,9 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 		stream << compareString;
 		compilePointerBase(rhs);
 		stream << joinString;
-		compilePointerOffset(lhs);
+		compilePointerOffset(lhs, COMPARISON);
 		stream << compareString;
-		compilePointerOffset(rhs);
+		compilePointerOffset(rhs, COMPARISON);
 	}
 	else if(lhsKind == BYTE_LAYOUT || rhsKind == BYTE_LAYOUT)
 	{
@@ -1007,9 +1007,9 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 		stream << compareString;
 		compilePointerBase(rhs);
 		stream << joinString;
-		compilePointerOffset(lhs);
+		compilePointerOffset(lhs, COMPARISON);
 		stream << compareString;
-		compilePointerOffset(rhs);
+		compilePointerOffset(rhs, COMPARISON);
 	}
 	else
 	{
@@ -1119,16 +1119,12 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 		compilePointerBase(p);
 		stream << '[';
 
-		if(!isOffsetConstantZero)
-			stream << '(';
-		compilePointerOffset(p);
-		if(!isOffsetConstantZero)
-			stream << ")";
+		compilePointerOffset(p, isOffsetConstantZero ? LOWEST : ADD_SUB);
 
 		if(!isOffsetConstantZero)
 		{
 			stream << "+";
-			compileOperand(offset);
+			compileOperand(offset, ADD_SUB);
 		}
 
 		stream << ">>0]";
@@ -1199,7 +1195,7 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 	{
 		const User* u = cast<User>(p);
 		stream << '(';
-		compileOperand(u->getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
+		compileOperand(u->getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 		stream << '?';
 		compilePointerBase(u->getOperand(1));
 		stream << ':';
@@ -1305,12 +1301,14 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 	return lastOffset;
 }
 
-void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
+void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPrio, bool forEscapingPointer)
 {
+	if(parentPrio >= SHIFT) stream << '(';
 	if ( PA.getPointerKind(p) == COMPLETE_OBJECT && !isGEP(p) )
 	{
 		// This may still happen when doing ptrtoint of a function
 		stream << "0>>0";
+		if(parentPrio >= SHIFT) stream << ')';
 		return;
 	}
 	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
@@ -1345,11 +1343,11 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 	{
 		const User* u = cast<User>(p);
 		stream << '(';
-		compileOperand(u->getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
+		compileOperand(u->getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 		stream << '?';
-		compilePointerOffset(u->getOperand(1));
+		compilePointerOffset(u->getOperand(1), TERNARY);
 		stream << ':';
-		compilePointerOffset(u->getOperand(2));
+		compilePointerOffset(u->getOperand(2), TERNARY);
 		stream << ')';
 	}
 	else if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && PA.getPointerKind(p) == SPLIT_REGULAR)
@@ -1363,10 +1361,10 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 		{
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_cast_user:
-				compilePointerOffset(II->getOperand(0));
+				compilePointerOffset(II->getOperand(0), SHIFT);
 				return;
 			case Intrinsic::cheerp_make_regular:
-				compileOperand(II->getOperand(1));
+				compileOperand(II->getOperand(1), SHIFT);
 				break;
 			default:
 				compileOperand(p);
@@ -1378,6 +1376,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, bool forEscapingPointer)
 	}
 
 	stream << ">>0";
+	if(parentPrio >= SHIFT) stream << ')';
 }
 
 void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
@@ -1591,7 +1590,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 					if(dependOnUndefined)
 						stream << "undefined";
 					else
-						compilePointerOffset(d->getOperand(i));
+						compilePointerOffset(d->getOperand(i), LOWEST);
 				}
 				else
 					compilePointerAs(d->getOperand(i), k);
@@ -1824,7 +1823,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				{
 					writer.stream << writer.namegen.getSecondaryName(phi) << '=';
 					writer.namegen.setEdgeContext(fromBB, toBB);
-					writer.compilePointerOffset(incoming);
+					writer.compilePointerOffset(incoming, LOWEST);
 					writer.stream << ';' << writer.NewLine;
 					writer.namegen.clearEdgeContext();
 					writer.stream << writer.namegen.getName(phi) << '=';
@@ -1922,7 +1921,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			{
 				compilePointerBase(*cur, true);
 				stream << ',';
-				compilePointerOffset(*cur, true);
+				compilePointerOffset(*cur, LOWEST, true);
 			}
 			else if(argKind != UNKNOWN)
 				compilePointerAs(*cur, argKind);
@@ -1969,7 +1968,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 					if(k==SPLIT_REGULAR)
 					{
 						stream << "oSlot=";
-						compilePointerOffset(retVal);
+						compilePointerOffset(retVal, LOWEST);
 						stream << ';' << NewLine;
 					}
 					stream << "return ";
@@ -1982,7 +1981,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 				else
 				{
 					stream << "return ";
-					compileOperand(retVal);
+					compileOperand(retVal, LOWEST);
 					if(retVal->getType()->isIntegerTy())
 						stream << ">>0";
 				}
@@ -2149,7 +2148,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					stream << ".setFloat32(";
 				else if(pointedType->isDoubleTy())
 					stream << ".setFloat64(";
-				compilePointerOffset(ptrOp);
+				compilePointerOffset(ptrOp, LOWEST);
 				stream << ',';
 
 				//Special case compilation of operand, the default behavior use =
@@ -2181,7 +2180,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					stream << ';' << NewLine;
 					compileCompleteObject(ptrOp);
 					stream << "o=";
-					compilePointerOffset(valOp);
+					compilePointerOffset(valOp, LOWEST);
 				}
 				else
 					compilePointerAs(valOp, storedKind);
@@ -2309,7 +2308,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
 	if (byteLayout)
 	{
 		if (TypeSupport::hasByteLayout(targetType))
-			compilePointerOffset( gep_inst );
+			compilePointerOffset( gep_inst, HIGHEST );
 		else
 		{
 			assert(TypeSupport::isTypedArrayType(targetType, /* forceTypedArray*/ true));
@@ -2329,7 +2328,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
 		// Just another pointer from this one
 		if (!isOffsetConstantZero)
 			stream << '(';
-		compilePointerOffset(gep_inst->getOperand(0));
+		compilePointerOffset(gep_inst->getOperand(0), LOWEST);
 
 		if(!isOffsetConstantZero)
 		{
@@ -2391,7 +2390,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		stream << "{d:";
 		compilePointerBase( gep_inst, true);
 		stream << ",o:";
-		compilePointerOffset( gep_inst, true);
+		compilePointerOffset( gep_inst, LOWEST, true);
 		stream << '}';
 	}
 }
@@ -2472,23 +2471,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FPToSI:
 		{
 			const CastInst& ci = cast<CastInst>(I);
-			stream << '(';
-			compileOperand(ci.getOperand(0));
+			if(parentPrio > SHIFT) stream << '(';
+			compileOperand(ci.getOperand(0), SHIFT);
 			//Seems to be the fastest way
 			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
-			stream << ">>0)";
+			stream << ">>0";
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FPToUI:
 		{
 			// TODO: When we will keep track of signedness to avoid useless casts we will need to fix this
 			const CastInst& ci = cast<CastInst>(I);
-			stream << '(';
-			compileOperand(ci.getOperand(0));
+			if(parentPrio > SHIFT) stream << '(';
+			compileOperand(ci.getOperand(0), SHIFT);
 			//Cast to signed anyway
 			//ECMA-262 guarantees that (a >> 0) >>> 0
 			//is the same as (a >>> 0)
-			stream << ">>0)";
+			stream << ">>0";
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SIToFP:
@@ -2544,11 +2545,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FAdd:
 		{
 			//Double addition
-			stream << '(';
-			compileOperand(I.getOperand(0));
+			if(parentPrio > ADD_SUB) stream << '(';
+			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '+';
-			compileOperand(I.getOperand(1));
-			stream << ')';
+			compileOperand(I.getOperand(1), ADD_SUB);
+			if(parentPrio > ADD_SUB) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Sub:
@@ -2560,11 +2561,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Double subtraction
 			//TODO: optimize negation
-			stream << '(';
+			if(parentPrio > ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0));
 			stream << '-';
 			compileOperand(I.getOperand(1));
-			stream << ')';
+			if(parentPrio > ADD_SUB) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ZExt:
@@ -2578,9 +2579,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(src->isIntegerTy(1))
 			{
 				//If the source type is i1, attempt casting from Boolean
-				stream << '(';
-				compileOperand(bi.getOperand(0));
-				stream << "?1:0)";
+				if(parentPrio > TERNARY) stream << '(';
+				compileOperand(bi.getOperand(0), TERNARY);
+				stream << "?1:0";
+				if(parentPrio > TERNARY) stream << ')';
 			}
 			else
 			{
@@ -2593,100 +2595,102 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::SDiv:
 		{
 			//Integer signed division
-			stream << "((";
-			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, HIGHEST);
+			if(parentPrio > SHIFT) stream << '(';
+			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '/';
-			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, HIGHEST);
-			stream << ")>>0)";
+			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
+			stream << ">>0";
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::UDiv:
 		{
 			//Integer unsigned division
-			stream << "((";
-			compileUnsignedInteger(I.getOperand(0), HIGHEST);
+			if(parentPrio > SHIFT) stream << '(';
+			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
 			stream << '/';
-			compileUnsignedInteger(I.getOperand(1), HIGHEST);
+			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
 			//Result is already unsigned
-			stream << ")>>0)";
+			stream << ">>0";
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SRem:
 		{
 			//Integer signed remainder
-			stream << "((";
-			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, HIGHEST);
+			if(parentPrio > SHIFT) stream << '(';
+			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '%';
-			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, HIGHEST);
-			stream << ")>>0)";
+			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
+			stream << ">>0";
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::URem:
 		{
 			//Integer unsigned remainder
-			stream << "((";
-			compileUnsignedInteger(I.getOperand(0), HIGHEST);
+			if(parentPrio > SHIFT) stream << '(';
+			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
 			stream << '%';
-			compileUnsignedInteger(I.getOperand(1), HIGHEST);
-			//The result is necessarily unsigned
-			stream << ")>>0)";
+			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
+			stream << ">>0";
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FDiv:
 		{
 			//Double division
-			stream << '(';
-			compileOperand(I.getOperand(0));
+			if(parentPrio > MUL_DIV) stream << '(';
+			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '/';
-			compileOperand(I.getOperand(1));
-			stream << ')';
+			compileOperand(I.getOperand(1), MUL_DIV);
+			if(parentPrio > MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FRem:
 		{
 			//Double division
-			stream << '(';
-			compileOperand(I.getOperand(0));
+			if(parentPrio > MUL_DIV) stream << '(';
+			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '%';
-			compileOperand(I.getOperand(1));
-			stream << ')';
+			compileOperand(I.getOperand(1), MUL_DIV);
+			if(parentPrio > MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Mul:
 		{
-			stream << '(';
 			//Integer signed multiplication
+			PARENT_PRIORITY mulPrio = I.getType()->isIntegerTy(32) ? (useMathImul ? HIGHEST : SHIFT ) : BIT_AND;
+			if(parentPrio > mulPrio) stream << '(';
 			if(useMathImul)
 			{
 				stream << "Math.imul(";
-				compileOperand(I.getOperand(0));
+				compileOperand(I.getOperand(0), LOWEST);
 				stream << ',';
-				compileOperand(I.getOperand(1));
+				compileOperand(I.getOperand(1), LOWEST);
 				stream << ')';
 			}
 			else
 			{
-				stream << '(';
-				compileOperand(I.getOperand(0));
+				compileOperand(I.getOperand(0), MUL_DIV);
 				stream << '*';
-				compileOperand(I.getOperand(1));
-				stream << ')';
+				compileOperand(I.getOperand(1), MUL_DIV);
 			}
 			if(types.isI32Type(I.getType()))
 				stream << ">>0";
 			else
 				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			stream << ')';
+			if(parentPrio > mulPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FMul:
 		{
 			//Double multiplication
-			stream << '(';
+			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0));
 			stream << '*';
 			compileOperand(I.getOperand(1));
-			stream << ')';
+			if(parentPrio > MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ICmp:
@@ -2701,31 +2705,35 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Integer comparison
 			const CmpInst& ci = cast<CmpInst>(I);
 			//Check that the operation is JS safe
-			stream << '(';
 			//Special case orderedness check
 			if(ci.getPredicate()==CmpInst::FCMP_ORD)
 			{
+				if(parentPrio > LOGICAL_AND) stream << '(';
 				stream << "!isNaN(";
 				compileOperand(ci.getOperand(0));
 				stream << ")&&!isNaN(";
 				compileOperand(ci.getOperand(1));
 				stream << ')';
+				if(parentPrio > LOGICAL_AND) stream << ')';
 			}
 			else if(ci.getPredicate()==CmpInst::FCMP_UNO)
 			{
+				if(parentPrio > LOGICAL_OR) stream << '(';
 				stream << "isNaN(";
 				compileOperand(ci.getOperand(0));
 				stream << ")||isNaN(";
 				compileOperand(ci.getOperand(1));
 				stream << ')';
+				if(parentPrio > LOGICAL_OR) stream << ')';
 			}
 			else
 			{
-				compileOperand(ci.getOperand(0));
+				if(parentPrio >= COMPARISON) stream << '(';
+				compileOperand(ci.getOperand(0), COMPARISON);
 				compilePredicate(ci.getPredicate());
-				compileOperand(ci.getOperand(1));
+				compileOperand(ci.getOperand(1), COMPARISON);
+				if(parentPrio >= COMPARISON) stream << ')';
 			}
-			stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::And:
@@ -2747,52 +2755,53 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer logical shift right
 			//No need to apply the >> operator. The result is an integer by spec
-			stream << '(';
-			compileOperand(I.getOperand(0));
+			if(parentPrio > SHIFT) stream << '(';
+			compileOperand(I.getOperand(0), SHIFT);
 			stream << ">>>";
-			compileOperand(I.getOperand(1));
-			stream << ')';
+			compileOperand(I.getOperand(1), SHIFT);
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::AShr:
 		{
 			//Integer arithmetic shift right
 			//No need to apply the >> operator. The result is an integer by spec
-			stream << '(';
+			if(parentPrio > SHIFT) stream << '(';
 			if(types.isI32Type(I.getOperand(0)->getType()))
-				compileOperand(I.getOperand(0));
+				compileOperand(I.getOperand(0), SHIFT);
 			else
-				compileSignedInteger(I.getOperand(0), /*forComparison*/ false, HIGHEST);
+				compileSignedInteger(I.getOperand(0), /*forComparison*/ false, SHIFT);
 			stream << ">>";
 			compileOperand(I.getOperand(1));
-			stream << ')';
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Shl:
 		{
 			//Integer shift left
 			//No need to apply the >> operator. The result is an integer by spec
-			stream << '(';
-			compileOperand(I.getOperand(0));
+			if(parentPrio > SHIFT) stream << '(';
+			compileOperand(I.getOperand(0), SHIFT);
 			stream << "<<";
-			compileOperand(I.getOperand(1));
-			stream << ')';
+			compileOperand(I.getOperand(1), SHIFT);
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Or:
 		{
 			//Integer logical or
 			//No need to apply the >> operator. The result is an integer by spec
-			stream << '(';
-			compileOperand(I.getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
+			PARENT_PRIORITY orPrio = I.getType()->isIntegerTy(1) ? LOGICAL_OR : BIT_OR;
+			if(parentPrio >= orPrio) stream << '(';
+			compileOperand(I.getOperand(0), orPrio, /*allowBooleanObjects*/ true);
 			//If the type is i1 we can use the boolean operator to take advantage of logic short-circuit
 			//This is possible because we know that instruction with side effects, like calls, are never inlined
 			if(I.getType()->isIntegerTy(1))
 				stream << "||";
 			else
 				stream << '|';
-			compileOperand(I.getOperand(1), HIGHEST, /*allowBooleanObjects*/ true);
-			stream << ')';
+			compileOperand(I.getOperand(1), orPrio, /*allowBooleanObjects*/ true);
+			if(parentPrio >= orPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Xor:
@@ -2801,11 +2810,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Xor with 1s is used to implement bitwise and logical negation
 			//TODO: Optimize the operation with 1s
 			//No need to apply the >> operator. The result is an integer by spec
-			stream << '(';
-			compileOperand(I.getOperand(0));
+			if(parentPrio > BIT_XOR) stream << '(';
+			compileOperand(I.getOperand(0), BIT_XOR);
 			stream << '^';
-			compileOperand(I.getOperand(1));
-			stream << ')';
+			compileOperand(I.getOperand(1), BIT_XOR);
+			if(parentPrio > BIT_XOR) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Trunc:
@@ -2813,9 +2822,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Well, ideally this should not be used since, since it's a waste of bit to
 			//use integers less than 32 bit wide. Still we can support it
 			uint32_t finalSize = I.getType()->getIntegerBitWidth();
-			stream << '(';
+			if(parentPrio > BIT_AND) stream << '(';
 			compileOperand(I.getOperand(0));
-			stream << '&' << getMaskForBitWidth(finalSize) << ')';
+			stream << '&' << getMaskForBitWidth(finalSize);
+			if(parentPrio > BIT_AND) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SExt:
@@ -2829,18 +2839,18 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const SelectInst& si = cast<SelectInst>(I);
 			if(si.getType()->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR)
 			{
-				compileOperand(si.getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
+				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 				stream << '?';
 				compilePointerBase(si.getOperand(1));
 				stream << ':';
 				compilePointerBase(si.getOperand(2));
 				stream << ';' << NewLine;
 				stream << namegen.getSecondaryName(&si) << '=';
-				compileOperand(si.getOperand(0), HIGHEST, /*allowBooleanObjects*/ true);
+				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 				stream << '?';
-				compilePointerOffset(si.getOperand(1));
+				compilePointerOffset(si.getOperand(1), TERNARY);
 				stream << ':';
-				compilePointerOffset(si.getOperand(2));
+				compilePointerOffset(si.getOperand(2), TERNARY);
 			}
 			else
 				compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue(), parentPrio);
@@ -2951,7 +2961,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << ".getFloat32(";
 				else if(pointedType->isDoubleTy())
 					stream << ".getFloat64(";
-				compilePointerOffset(ptrOp);
+				compilePointerOffset(ptrOp, LOWEST);
 				if(!pointedType->isIntegerTy(8))
 					stream << ",true";
 				stream << ')';
@@ -3073,11 +3083,10 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 			if(it.getCaseSuccessor()==dest)
 			{
 				//Also add this condition
-				writer->stream << "||(";
-				writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
+				writer->stream << "||";
+				writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 				writer->stream << "===";
-				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
-				writer->stream << ')';
+				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 			}
 		}
 	}
@@ -3108,7 +3117,7 @@ void CheerpRenderInterface::renderIfBlockBegin(const void* privateBlock, const s
 	{
 		if(i!=0)
 			writer->stream << "||";
-		renderCondition(bb, skipBranchIds[i], CheerpWriter::LOGICAL_OR);
+		renderCondition(bb, skipBranchIds[i], skipBranchIds.size() == 1 ? CheerpWriter::LOWEST : CheerpWriter::LOGICAL_OR);
 	}
 	writer->stream << ")){" << NewLine;
 }
@@ -3594,7 +3603,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				compileGlobalSubExpr(subExpr);
 				stream << 'o';
 				stream << '=';
-				compilePointerOffset(valOp);
+				compilePointerOffset(valOp, LOWEST);
 			}
 			else
 				compilePointerAs(valOp, subExprInfo.kind);

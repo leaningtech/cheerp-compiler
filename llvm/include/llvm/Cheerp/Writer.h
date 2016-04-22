@@ -243,7 +243,7 @@ private:
 	/**
 	 * Compile the pointer offset.
 	 */
-	void compilePointerOffset(const llvm::Value*, bool forEscapingPointer=false);
+	void compilePointerOffset(const llvm::Value*, PARENT_PRIORITY parentPrio, bool forEscapingPointer=false);
 
 	/**
 	 * BYTE_LAYOUT_OFFSET_FULL: Compile the full offset in bytes till the element
@@ -288,7 +288,7 @@ private:
 			stream << "{d:";
 			compilePointerBase(p, true);
 			stream << ",o:";
-			compilePointerOffset(p);
+			compilePointerOffset(p, LOWEST);
 			stream << "}";
 		}
 		else
