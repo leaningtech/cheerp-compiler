@@ -2407,7 +2407,7 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 			stream << C->getSExtValue();
 		return;
 	}
-	if(parentPrio > SHIFT) stream << '(';
+	if(parentPrio >= SHIFT) stream << '(';
 	if(shiftAmount==0)
 	{
 		//Use simpler code
@@ -2425,7 +2425,7 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 		compileOperand(v, SHIFT);
 		stream << "<<" << shiftAmount << ">>" << shiftAmount;
 	}
-	if(parentPrio > SHIFT) stream << ')';
+	if(parentPrio >= SHIFT) stream << ')';
 }
 
 void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY parentPrio)
@@ -2471,25 +2471,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FPToSI:
 		{
 			const CastInst& ci = cast<CastInst>(I);
-			if(parentPrio > SHIFT) stream << '(';
+			if(parentPrio >= SHIFT) stream << '(';
 			compileOperand(ci.getOperand(0), SHIFT);
 			//Seems to be the fastest way
 			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
 			stream << ">>0";
-			if(parentPrio > SHIFT) stream << ')';
+			if(parentPrio >= SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FPToUI:
 		{
 			// TODO: When we will keep track of signedness to avoid useless casts we will need to fix this
 			const CastInst& ci = cast<CastInst>(I);
-			if(parentPrio > SHIFT) stream << '(';
+			if(parentPrio >= SHIFT) stream << '(';
 			compileOperand(ci.getOperand(0), SHIFT);
 			//Cast to signed anyway
 			//ECMA-262 guarantees that (a >> 0) >>> 0
 			//is the same as (a >>> 0)
 			stream << ">>0";
-			if(parentPrio > SHIFT) stream << ')';
+			if(parentPrio >= SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SIToFP:
@@ -2531,7 +2531,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer addition
 			PARENT_PRIORITY addPrio = I.getType()->isIntegerTy(32) ? SHIFT : BIT_AND;
-			if(parentPrio > addPrio) stream << '(';
+			if(parentPrio >= addPrio) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << "+";
 			compileOperand(I.getOperand(1), ADD_SUB);
@@ -2539,17 +2539,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << ">>0";
 			else
 				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			if(parentPrio > addPrio) stream << ')';
+			if(parentPrio >= addPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FAdd:
 		{
 			//Double addition
-			if(parentPrio > ADD_SUB) stream << '(';
+			if(parentPrio >= ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '+';
 			compileOperand(I.getOperand(1), ADD_SUB);
-			if(parentPrio > ADD_SUB) stream << ')';
+			if(parentPrio >= ADD_SUB) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Sub:
@@ -2561,11 +2561,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Double subtraction
 			//TODO: optimize negation
-			if(parentPrio > ADD_SUB) stream << '(';
+			if(parentPrio >= ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0));
 			stream << '-';
 			compileOperand(I.getOperand(1));
-			if(parentPrio > ADD_SUB) stream << ')';
+			if(parentPrio >= ADD_SUB) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ZExt:
@@ -2579,10 +2579,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(src->isIntegerTy(1))
 			{
 				//If the source type is i1, attempt casting from Boolean
-				if(parentPrio > TERNARY) stream << '(';
+				if(parentPrio >= TERNARY) stream << '(';
 				compileOperand(bi.getOperand(0), TERNARY);
 				stream << "?1:0";
-				if(parentPrio > TERNARY) stream << ')';
+				if(parentPrio >= TERNARY) stream << ')';
 			}
 			else
 			{
@@ -2595,73 +2595,73 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::SDiv:
 		{
 			//Integer signed division
-			if(parentPrio > SHIFT) stream << '(';
+			if(parentPrio >= SHIFT) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '/';
 			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
 			stream << ">>0";
-			if(parentPrio > SHIFT) stream << ')';
+			if(parentPrio >= SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::UDiv:
 		{
 			//Integer unsigned division
-			if(parentPrio > SHIFT) stream << '(';
+			if(parentPrio >= SHIFT) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
 			stream << '/';
 			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
 			//Result is already unsigned
 			stream << ">>0";
-			if(parentPrio > SHIFT) stream << ')';
+			if(parentPrio >= SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SRem:
 		{
 			//Integer signed remainder
-			if(parentPrio > SHIFT) stream << '(';
+			if(parentPrio >= SHIFT) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '%';
 			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
 			stream << ">>0";
-			if(parentPrio > SHIFT) stream << ')';
+			if(parentPrio >= SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::URem:
 		{
 			//Integer unsigned remainder
-			if(parentPrio > SHIFT) stream << '(';
+			if(parentPrio >= SHIFT) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
 			stream << '%';
 			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
 			stream << ">>0";
-			if(parentPrio > SHIFT) stream << ')';
+			if(parentPrio >= SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FDiv:
 		{
 			//Double division
-			if(parentPrio > MUL_DIV) stream << '(';
+			if(parentPrio >= MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '/';
 			compileOperand(I.getOperand(1), MUL_DIV);
-			if(parentPrio > MUL_DIV) stream << ')';
+			if(parentPrio >= MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FRem:
 		{
 			//Double division
-			if(parentPrio > MUL_DIV) stream << '(';
+			if(parentPrio >= MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '%';
 			compileOperand(I.getOperand(1), MUL_DIV);
-			if(parentPrio > MUL_DIV) stream << ')';
+			if(parentPrio >= MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Mul:
 		{
 			//Integer signed multiplication
 			PARENT_PRIORITY mulPrio = I.getType()->isIntegerTy(32) ? (useMathImul ? HIGHEST : SHIFT ) : BIT_AND;
-			if(parentPrio > mulPrio) stream << '(';
+			if(parentPrio >= mulPrio) stream << '(';
 			if(useMathImul)
 			{
 				stream << "Math.imul(";
@@ -2676,21 +2676,21 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << '*';
 				compileOperand(I.getOperand(1), MUL_DIV);
 			}
-			if(types.isI32Type(I.getType()))
-				stream << ">>0";
-			else
+			if(!types.isI32Type(I.getType()))
 				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			if(parentPrio > mulPrio) stream << ')';
+			else if(!useMathImul)
+				stream << ">>0";
+			if(parentPrio >= mulPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FMul:
 		{
 			//Double multiplication
-			if(parentPrio > MUL_DIV) stream << '(';
+			if(parentPrio >= MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0));
 			stream << '*';
 			compileOperand(I.getOperand(1));
-			if(parentPrio > MUL_DIV) stream << ')';
+			if(parentPrio >= MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ICmp:
@@ -2708,23 +2708,23 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Special case orderedness check
 			if(ci.getPredicate()==CmpInst::FCMP_ORD)
 			{
-				if(parentPrio > LOGICAL_AND) stream << '(';
+				if(parentPrio >= LOGICAL_AND) stream << '(';
 				stream << "!isNaN(";
 				compileOperand(ci.getOperand(0));
 				stream << ")&&!isNaN(";
 				compileOperand(ci.getOperand(1));
 				stream << ')';
-				if(parentPrio > LOGICAL_AND) stream << ')';
+				if(parentPrio >= LOGICAL_AND) stream << ')';
 			}
 			else if(ci.getPredicate()==CmpInst::FCMP_UNO)
 			{
-				if(parentPrio > LOGICAL_OR) stream << '(';
+				if(parentPrio >= LOGICAL_OR) stream << '(';
 				stream << "isNaN(";
 				compileOperand(ci.getOperand(0));
 				stream << ")||isNaN(";
 				compileOperand(ci.getOperand(1));
 				stream << ')';
-				if(parentPrio > LOGICAL_OR) stream << ')';
+				if(parentPrio >= LOGICAL_OR) stream << ')';
 			}
 			else
 			{
@@ -2755,36 +2755,36 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer logical shift right
 			//No need to apply the >> operator. The result is an integer by spec
-			if(parentPrio > SHIFT) stream << '(';
+			if(parentPrio >= SHIFT) stream << '(';
 			compileOperand(I.getOperand(0), SHIFT);
 			stream << ">>>";
 			compileOperand(I.getOperand(1), SHIFT);
-			if(parentPrio > SHIFT) stream << ')';
+			if(parentPrio >= SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::AShr:
 		{
 			//Integer arithmetic shift right
 			//No need to apply the >> operator. The result is an integer by spec
-			if(parentPrio > SHIFT) stream << '(';
+			if(parentPrio >= SHIFT) stream << '(';
 			if(types.isI32Type(I.getOperand(0)->getType()))
 				compileOperand(I.getOperand(0), SHIFT);
 			else
 				compileSignedInteger(I.getOperand(0), /*forComparison*/ false, SHIFT);
 			stream << ">>";
 			compileOperand(I.getOperand(1));
-			if(parentPrio > SHIFT) stream << ')';
+			if(parentPrio >= SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Shl:
 		{
 			//Integer shift left
 			//No need to apply the >> operator. The result is an integer by spec
-			if(parentPrio > SHIFT) stream << '(';
+			if(parentPrio >= SHIFT) stream << '(';
 			compileOperand(I.getOperand(0), SHIFT);
 			stream << "<<";
 			compileOperand(I.getOperand(1), SHIFT);
-			if(parentPrio > SHIFT) stream << ')';
+			if(parentPrio >= SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Or:
@@ -2810,11 +2810,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Xor with 1s is used to implement bitwise and logical negation
 			//TODO: Optimize the operation with 1s
 			//No need to apply the >> operator. The result is an integer by spec
-			if(parentPrio > BIT_XOR) stream << '(';
+			if(parentPrio >= BIT_XOR) stream << '(';
 			compileOperand(I.getOperand(0), BIT_XOR);
 			stream << '^';
 			compileOperand(I.getOperand(1), BIT_XOR);
-			if(parentPrio > BIT_XOR) stream << ')';
+			if(parentPrio >= BIT_XOR) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Trunc:
@@ -2822,10 +2822,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Well, ideally this should not be used since, since it's a waste of bit to
 			//use integers less than 32 bit wide. Still we can support it
 			uint32_t finalSize = I.getType()->getIntegerBitWidth();
-			if(parentPrio > BIT_AND) stream << '(';
+			if(parentPrio >= BIT_AND) stream << '(';
 			compileOperand(I.getOperand(0));
 			stream << '&' << getMaskForBitWidth(finalSize);
-			if(parentPrio > BIT_AND) stream << ')';
+			if(parentPrio >= BIT_AND) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SExt:
