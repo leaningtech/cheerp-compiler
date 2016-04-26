@@ -1119,15 +1119,25 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 		compilePointerBase(p);
 		stream << '[';
 
-		compilePointerOffset(p, isOffsetConstantZero ? LOWEST : ADD_SUB);
-
-		if(!isOffsetConstantZero)
+		const ConstantInt* c1 = dyn_cast_or_null<ConstantInt>(PA.getConstantOffsetForPointer(p));
+		const ConstantInt* c2 = dyn_cast_or_null<ConstantInt>(offset);
+		if(c1 && c2)
+			stream << (c1->getSExtValue() + c2->getSExtValue());
+		else if(c1 && c1->isZeroValue() && offset)
+			compileOperand(offset, LOWEST);
+		else
 		{
-			stream << "+";
-			compileOperand(offset, ADD_SUB);
+			compilePointerOffset(p, isOffsetConstantZero ? LOWEST : ADD_SUB);
+
+			if(!isOffsetConstantZero)
+			{
+				stream << "+";
+				compileOperand(offset, ADD_SUB);
+				stream << ">>0";
+			}
 		}
 
-		stream << ">>0]";
+		stream << ']';
 	}
 	else
 	{
