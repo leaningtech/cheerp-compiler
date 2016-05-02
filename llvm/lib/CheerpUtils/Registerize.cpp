@@ -331,8 +331,12 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 						uint32_t thisIndex, uint32_t codePathId)
 {
 	// SPLIT_REGULAR pointers keep alive the register until after the instruction. Calls are an exception as the offset is stored in a global.
-	if(!isa<CallInst>(I) && I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR)
-		thisIndex++;
+	if(I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR)
+	{
+		CallInst* CI = dyn_cast<CallInst>(&I);
+		if(!CI || (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID()==Intrinsic::cheerp_downcast))
+			thisIndex++;
+	}
 
 	for(Value* op: I.operands())
 	{
