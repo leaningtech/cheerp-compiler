@@ -270,7 +270,18 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB)
 		Value* elementsCount=IRB->CreateUDiv(fixedSize, ConstantInt::get(int32Type, byteSize));
 		Value* countIsZero=IRB->CreateICmp(CmpInst::ICMP_EQ, elementsCount, ConstantInt::get(int32Type, 0));
 		BasicBlock* memfuncBody=BasicBlock::Create(BB.getContext(), "memfunc.body", BB.getParent());
-		IRB->CreateCondBr(countIsZero, endLoop, memfuncBody);
+		// Handle the cases when countIsZero is a constant. This pass is the very last one in the LTO phase and inefficient code is left otherwise.
+		ConstantInt* constantCondition = dyn_cast<ConstantInt>(countIsZero);
+		if(constantCondition && !constantCondition->isZeroValue())
+		{
+			// Nothing to do
+			CI->eraseFromParent();
+			return true;
+		}
+		else if(constantCondition && constantCondition->isZeroValue())
+			IRB->CreateBr(memfuncBody);
+		else
+			IRB->CreateCondBr(countIsZero, endLoop, memfuncBody);
 		IRB->SetInsertPoint(memfuncBody);
 		if (mode == MEMMOVE)
 		{
