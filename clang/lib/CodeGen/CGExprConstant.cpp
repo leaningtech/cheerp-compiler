@@ -1280,8 +1280,12 @@ public:
     return Const.build(ValTy, HasFlexibleArray);
   }
 
-  llvm::Constant* GenerateConstantCXXInitializer(CXXConstructorDecl* D)
+  llvm::Constant* GenerateConstantCXXInitializer(const CXXConstructorDecl* D)
   {
+    const FunctionDecl* body = nullptr;
+    if(!D->hasBody(body))
+      return 0;
+    D = cast<CXXConstructorDecl>(body);
     if(!D->hasTrivialBody())
       return 0;
     //Base and dynamic classes are currently unsupported
@@ -1291,8 +1295,8 @@ public:
     {
       return 0;
     }
-    CXXConstructorDecl::init_iterator it=D->init_begin();
-    CXXConstructorDecl::init_iterator itE=D->init_end();
+    CXXConstructorDecl::init_const_iterator it=D->init_begin();
+    CXXConstructorDecl::init_const_iterator itE=D->init_end();
     const CGRecordLayout& rl = CGM.getTypes().getCGRecordLayout(D->getParent());
     //Allocate a vector to hold all the initializer
     llvm::SmallVector<llvm::Constant*, 4> initializers;
