@@ -135,7 +135,7 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 			if(!isa<AllocaInst>(bi->getOperand(0)))
 			{
 				stream << ',';
-				compilePointerOffset(bi->getOperand(0), LOWEST);
+				compilePointerOffset(bi->getOperand(0), LOWEST, forEscapingPointer);
 			}
 			stream << ')';
 			return;
@@ -163,7 +163,7 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi)
 		}
 	}
 
-	compilePointerOffset(bi->getOperand(0), HIGHEST);
+	compilePointerOffset(bi->getOperand(0), HIGHEST, true);
 }
 
 void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio)
