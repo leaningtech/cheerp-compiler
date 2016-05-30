@@ -3278,7 +3278,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 		class LocalsPHIHandler: public EndOfBlockPHIHandler
 		{
 		public:
-			LocalsPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t, std::set<StringRef>& c):EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t),compiledLocals(c)
+			LocalsPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t, std::set<StringRef>& c):EndOfBlockPHIHandler(w.PA),compiledLocals(c),writer(w),fromBB(f),toBB(t)
 			{
 			}
 			~LocalsPHIHandler()
