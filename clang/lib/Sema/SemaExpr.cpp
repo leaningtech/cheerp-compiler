@@ -16663,7 +16663,8 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
         if (Constructor->isDefaulted() && !Constructor->isDeleted()) {
           if (Constructor->isDefaultConstructor()) {
             if (Constructor->isTrivial() &&
-                !Constructor->hasAttr<DLLExportAttr>())
+                !Constructor->hasAttr<DLLExportAttr>() &&
+                !Constructor->getParent()->hasAttr<JsExportAttr>())
               return;
             DefineImplicitDefaultConstructor(Loc, Constructor);
           } else if (Constructor->isCopyConstructor()) {

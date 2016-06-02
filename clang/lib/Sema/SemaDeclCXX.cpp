@@ -6845,8 +6845,14 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     //Mark all methods as used
     CXXRecordDecl::method_iterator it=Record->method_begin();
     CXXRecordDecl::method_iterator itE=Record->method_end();
-    for(;it!=itE;++it)
-      (*it)->addAttr(::new (Context) UsedAttr(Record->getLocation(), Context, 0));
+    for(;it!=itE;++it) {
+     (*it)->addAttr(::new (Context) UsedAttr(Record->getLocation(), Context, 0));
+      MarkFunctionReferenced(Record->getLocation(), *it);
+      // Force generation of explicitly defaulted methods
+      if((*it)->isExplicitlyDefaulted()) {
+        Consumer.HandleTopLevelDecl(DeclGroupRef(*it));
+     }
+    }
     //TODO: Check for any public data or static member
   }
 }
