@@ -3702,6 +3702,12 @@ void CheerpWriter::makeJS()
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 		compileGlobal(GV);
 
+	for ( StructType * st : globalDeps.classesUsed() )
+	{
+		if ( st->getNumElements() > V8MaxLiteralProperties )
+			compileClassConstructor(st);
+	}
+
 	for ( StructType * st : globalDeps.classesWithBaseInfo() )
 		compileClassType(st);
 
