@@ -104,12 +104,26 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 	// Handle complex arrays and objects, they are all literals in JS
 	assert(t->getTypeID() == Type::StructTyID || t->getTypeID() == Type::ArrayTyID);
 
-	bool useVarName = !varName.empty();
+	bool useVarName = !varName.empty() && style == LITERAL_OBJ;
 
 	// We only need to split large objects with the LITERAL_OBJ style
-	assert(!useVarName || style == LITERAL_OBJ);
-
-	uint32_t numElements = (t->getTypeID() == Type::StructTyID) ? cast<StructType>(t)->getNumElements() : 0;
+	uint32_t numElements = 0;
+	if(StructType* ST = dyn_cast<StructType>(t))
+	{
+		numElements = ST->getNumElements();
+		if(numElements > V8MaxLiteralProperties && style!=THIS_OBJ)
+		{
+			// This is a big object, call the constructor and be done with it
+			stream << "new construct" << namegen.getTypeName(t) << "()";
+			return 0;
+		}
+	}
+	else if(ArrayType* AT = dyn_cast<ArrayType>(t))
+	{
+		// Basic elements, such as numbers and pointers (including nullObj) do not count. Structs and array do.
+		if(AT->getElementType()->isStructTy() || AT->getElementType()->isArrayTy())
+			numElements = AT->getNumElements();
+	}
 	bool shouldReturnElementsCount = true;
 
 	if(useVarName && (maxDepth == 0 || ((totalLiteralProperties + numElements) > V8MaxLiteralProperties)))
@@ -125,7 +139,6 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 	uint32_t nextMaxDepth = useVarName ? maxDepth - 1 : maxDepth;
 	if (StructType* st = dyn_cast<StructType>(t))
 	{
-		numElements++;
 		assert(!TypeSupport::hasByteLayout(st));
 		StructType* downcastArrayBase = globalDeps.needsDowncastArray(st);
 		bool addDowncastArray = downcastArrayBase != NULL;
@@ -154,6 +167,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 				stream << ':';
 			// Create a wrapper array for all members which require REGULAR pointers, if they are not already covered by the downcast array
 			TypeAndIndex baseAndIndex(st, i, TypeAndIndex::STRUCT_MEMBER);
+			bool restoreMaxDepth = false;
 			bool useWrapperArray = types.useWrapperArrayForMember(PA, st, i);
 			if (useWrapperArray)
 			{
@@ -166,7 +180,12 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 						nextMaxDepth = V8MaxLiteralDepth;
 					}
 					else
+					{
 						nextMaxDepth--;
+						restoreMaxDepth=true;
+						if(element->isStructTy())
+							numElements++;
+					}
 				}
 				stream << '[';
 			}
@@ -189,7 +208,10 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 					else
 						stream << ':';
 					stream << '0';
-
+					// FIXME: The offset member is not taken into account when deciding if the new-based constructor is required
+					// so in rare cases (when the added element makes the struct larger than 8 elements) the slow literal runtime
+					// call will be used on V8.
+					numElements++;
 				}
 				else if (memberPointerKind == COMPLETE_OBJECT)
 					stream << "null";
@@ -198,10 +220,16 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			}
 			else if(TypeSupport::isSimpleType(element))
 				compileSimpleType(element);
+			else if(style == THIS_OBJ)
+				compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, 0);
 			else
 				numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements);
 			if(useWrapperArray)
+			{
+				if(restoreMaxDepth)
+					nextMaxDepth++;
 				stream << ']';
+			}
 		}
 		if(style == LITERAL_OBJ)
 		{
@@ -209,10 +237,11 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			if(addDowncastArray)
 				stream << ')';
 		}
-		else if(addDowncastArray)
+		else if(style == THIS_OBJ)
 		{
-			assert(style == THIS_OBJ);
-			stream << "create" << namegen.getTypeName(downcastArrayBase) << "(this)";
+			stream << ';' << NewLine;
+			if(addDowncastArray)
+				stream << "create" << namegen.getTypeName(downcastArrayBase) << "(this)";
 		}
 	}
 	else
@@ -301,6 +330,14 @@ uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, St
 	return baseCount;
 }
 
+void CheerpWriter::compileClassConstructor(StructType* T)
+{
+	assert(T->getNumElements() > V8MaxLiteralProperties);
+	stream << "function construct" << namegen.getTypeName(T) << "(){" << NewLine;
+	compileComplexType(T, THIS_OBJ, "aSlot", V8MaxLiteralDepth, 0);
+	stream << '}' << NewLine;
+}
+
 void CheerpWriter::compileClassType(StructType* T)
 {
 	if(!T->hasName())
@@ -309,7 +346,6 @@ void CheerpWriter::compileClassType(StructType* T)
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 		return;
 	}
-	//This function is used as a constructor using the new syntax
 	stream << "function create" << namegen.filterLLVMName(T->getName(), NameGenerator::GLOBAL) << "(obj){" << NewLine;
 
 	stream << "var a=[];" << NewLine;
