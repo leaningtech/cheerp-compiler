@@ -706,7 +706,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileFree(*it);
 		return COMPILE_OK;
 	}
-	else if(ident=="fmod")
+	else if(ident=="fmod" || ident=="fmodf")
 	{
 		// Handle this internally, C++ does not have float mod operation
 		stream << '(';
