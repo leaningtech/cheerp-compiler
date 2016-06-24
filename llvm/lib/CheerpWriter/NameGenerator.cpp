@@ -227,9 +227,9 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		NameGenerator& namegen;
 		useInstsOnEdgeVec& allTmpPHIs;
 		uint32_t nextIndex;
-		void handleRecursivePHIDependency(const Instruction* phi) override
+		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
-			uint32_t regId=namegen.registerize.getRegisterId(phi);
+			uint32_t regId=namegen.registerize.getRegisterId(incoming);
 			// We don't know exactly how many times the tmpphi is going to be used in this edge
 			// but assume 1. We increment the usage count for the first not already used tmpphi
 			// and add the InstOnEdge to its list
@@ -450,9 +450,9 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		const BasicBlock* toBB;
 		NameGenerator& namegen;
 		uint32_t nextIndex;
-		void handleRecursivePHIDependency(const Instruction* phi) override
+		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
-			uint32_t regId=namegen.registerize.getRegisterId(phi);
+			uint32_t regId=namegen.registerize.getRegisterId(incoming);
 			namegen.edgeNamemap.emplace(InstOnEdge(fromBB, toBB, regId),
 							StringRef( "tmpphi" + std::to_string(nextIndex)));
 			// TODO: Only use secondary when necessary
