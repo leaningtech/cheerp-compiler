@@ -588,7 +588,7 @@ bool DynamicAllocInfo::useTypedArray() const
 	return TypeSupport::isTypedArrayType( getCastedType()->getElementType(), /* forceTypedArray*/ false );
 }
 
-void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, llvm::SmallVector<const PHINode*, 4>& orderedPHIs)
+void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm::Instruction* incoming, llvm::SmallVector<const PHINode*, 4>& orderedPHIs)
 {
 	auto it=phiRegs.find(regId);
 	if(it==phiRegs.end())
@@ -599,13 +599,13 @@ void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, llvm::Smal
 	else if(regData.status==PHIRegData::VISITING)
 	{
 		// Report the recursive dependency to the user
-		handleRecursivePHIDependency(regData.phiInst);
+		handleRecursivePHIDependency(incoming);
 		return;
 	}
 	// Not yet visited
 	regData.status=PHIRegData::VISITING;
-	for(uint32_t reg: regData.incomingRegs)
-		runOnPHI(phiRegs, reg, orderedPHIs);
+	for(auto& reg: regData.incomingRegs)
+		runOnPHI(phiRegs, reg.first, reg.second, orderedPHIs);
 	// Add the PHI to orderedPHIs only after eventual dependencies have been added
 	orderedPHIs.push_back(regData.phiInst);
 	regData.status=PHIRegData::VISITED;
@@ -635,7 +635,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		}
 		uint32_t phiReg = registerize.getRegisterId(phi);
 		// This instruction may depend on multiple registers
-		llvm::SmallVector<uint32_t, 2> incomingRegisters;
+		llvm::SmallVector<std::pair<uint32_t, const Instruction*>, 2> incomingRegisters;
 		llvm::SmallVector<const Instruction*, 4> instQueue;
 		instQueue.push_back(I);
 		while(!instQueue.empty())
@@ -644,11 +644,9 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			if(!isInlineable(*incomingInst, PA))
 			{
 				uint32_t incomingValueId = registerize.getRegisterId(incomingInst);
-				if(incomingValueId==phiReg && (!incomingInst->getType()->isPointerTy() ||
-					PA.getPointerKind(phi) != SPLIT_REGULAR || PA.getConstantOffsetForPointer(phi) ||
-					PA.getPointerKind(incomingInst) != SPLIT_REGULAR || PA.getConstantOffsetForPointer(incomingInst)))
+				if(incomingValueId==phiReg)
 					continue;
-				incomingRegisters.push_back(incomingValueId);
+				incomingRegisters.push_back(std::make_pair(incomingValueId, incomingInst));
 			}
 			else
 			{
@@ -664,12 +662,12 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		if(incomingRegisters.empty())
 			orderedPHIs.push_back(phi);
 		else
-			phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, incomingRegisters)));
+			phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, std::move(incomingRegisters))));
 	}
 	for(auto it: phiRegs)
 	{
 		if(it.second.status!=PHIRegData::VISITED)
-			runOnPHI(phiRegs, it.first, orderedPHIs);
+			runOnPHI(phiRegs, it.first, nullptr, orderedPHIs);
 	}
 	// Notify the user for each PHI, in the right order to avoid accidental overwriting
 	for(uint32_t i=orderedPHIs.size();i>0;i--)

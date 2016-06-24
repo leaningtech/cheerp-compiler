@@ -1751,7 +1751,7 @@ bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Valu
 	}
 	return
 		isInlineable(*incomingInst, PA) ||
-		incomingKind == SPLIT_REGULAR || phiKind == SPLIT_REGULAR ||
+		((incomingKind == SPLIT_REGULAR) != (phiKind == SPLIT_REGULAR)) ||
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst) ||
 		phiKind!=incomingKind ||
 		PA.getConstantOffsetForPointer(phi)!=PA.getConstantOffsetForPointer(incoming);
@@ -1771,7 +1771,7 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 		bool needsPointerKindConversion;
 	private:
 		CheerpWriter& writer;
-		void handleRecursivePHIDependency(const Instruction* phi) override
+		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
@@ -1800,19 +1800,22 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		CheerpWriter& writer;
 		const BasicBlock* fromBB;
 		const BasicBlock* toBB;
-		void handleRecursivePHIDependency(const Instruction* phi) override
+		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
-			if(phi->getType()->isPointerTy() && writer.PA.getPointerKind(phi)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(phi))
+			assert(incoming);
+			if(incoming->getType()->isPointerTy() && writer.PA.getPointerKind(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
 			{
 				writer.namegen.setEdgeContext(fromBB, toBB);
-				writer.stream << writer.namegen.getSecondaryNameForEdge(phi);
+				writer.stream << writer.namegen.getSecondaryNameForEdge(incoming);
 				writer.namegen.clearEdgeContext();
-				writer.stream << '=' << writer.namegen.getSecondaryName(phi) << ';' << writer.NewLine;
+				writer.stream << '=';
+				writer.compilePointerOffset(incoming, LOWEST);
+				writer.stream << ';' << writer.NewLine;
 			}
 			writer.namegen.setEdgeContext(fromBB, toBB);
-			writer.stream << writer.namegen.getNameForEdge(phi);
+			writer.stream << writer.namegen.getNameForEdge(incoming);
 			writer.namegen.clearEdgeContext();
-			writer.stream << '=' << writer.namegen.getName(phi) << ';' << writer.NewLine;
+			writer.stream << '=' << writer.namegen.getName(incoming) << ';' << writer.NewLine;
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
@@ -3289,23 +3292,23 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 			CheerpWriter& writer;
 			const BasicBlock* fromBB;
 			const BasicBlock* toBB;
-			void handleRecursivePHIDependency(const Instruction* phi) override
+			void handleRecursivePHIDependency(const Instruction* incoming) override
 			{
 				writer.namegen.setEdgeContext(fromBB, toBB);
-				if(phi->getType()->isPointerTy() && writer.PA.getPointerKind(phi)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(phi))
+				if(incoming->getType()->isPointerTy() && writer.PA.getPointerKind(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
 				{
-					StringRef secondaryName = writer.namegen.getSecondaryNameForEdge(phi);
+					StringRef secondaryName = writer.namegen.getSecondaryNameForEdge(incoming);
 					if(compiledLocals.insert(secondaryName).second)
 					{
 						writer.stream << ',';
 						writer.compileMethodLocal(secondaryName, Registerize::INTEGER);
 					}
 				}
-				StringRef primaryName = writer.namegen.getNameForEdge(phi);
+				StringRef primaryName = writer.namegen.getNameForEdge(incoming);
 				if(compiledLocals.insert(primaryName).second)
 				{
 					writer.stream << ',';
-					writer.compileMethodLocal(primaryName, Registerize::getRegKindFromType(phi->getType()));
+					writer.compileMethodLocal(primaryName, Registerize::getRegKindFromType(incoming->getType()));
 				}
 				writer.namegen.clearEdgeContext();
 			}
