@@ -474,23 +474,18 @@ private:
 	struct PHIRegData
 	{
 		const llvm::PHINode* phiInst;
-		llvm::SmallVector<uint32_t,2> incomingRegs;
+		llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2> incomingRegs;
 		enum STATUS { NOT_VISITED=0, VISITING, VISITED };
 		STATUS status;
-		PHIRegData(const llvm::PHINode* p, uint32_t r):
-			phiInst(p), status(NOT_VISITED)
-		{
-			incomingRegs.push_back(r);
-		}
-		PHIRegData(const llvm::PHINode* p, llvm::ArrayRef<uint32_t> r):
-			phiInst(p), incomingRegs(r.begin(),r.end()), status(NOT_VISITED)
+		PHIRegData(const llvm::PHINode* p, llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2>&& r):
+			phiInst(p), incomingRegs(std::move(r)), status(NOT_VISITED)
 		{
 		}
 	};
 	typedef std::map<uint32_t, PHIRegData> PHIRegs;
-	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, llvm::SmallVector<const llvm::PHINode*, 4>& orderedPHIs);
+	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, const llvm::Instruction* incoming, llvm::SmallVector<const llvm::PHINode*, 4>& orderedPHIs);
 	// Callbacks implemented by derived classes
-	virtual void handleRecursivePHIDependency(const llvm::Instruction* phi) = 0;
+	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
 	virtual void handlePHI(const llvm::Instruction* phi, const llvm::Value* incoming) = 0;
 };
 
