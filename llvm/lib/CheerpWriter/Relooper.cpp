@@ -565,7 +565,6 @@ void Relooper::Calculate(Block *Entry) {
     Shape *MakeMultiple(BlockSet &Blocks, BlockSet& Entries, BlockBlockSetMap& IndependentGroups, Shape *Prev, BlockSet &NextEntries) {
       PrintDebug("creating multiple block with %d inner groups\n", IndependentGroups.size());
       bool Fused = !!(Shape::IsSimple(Prev));
-      Parent->NeedsLabel = true;
       MultipleShape *Multiple = new MultipleShape(Parent->IdCounter++);
       Notice(Multiple);
       BlockSet CurrEntries;
@@ -596,6 +595,7 @@ void Relooper::Calculate(Block *Entry) {
         Multiple->InnerMap[CurrEntry] = Process(CurrBlocks, CurrEntries, NULL);
         // If we are not fused, then our entries will actually be checked
         if (!Fused) {
+          Parent->NeedsLabel = true;
           CurrEntry->IsCheckedMultipleEntry = true;
         }
       }
