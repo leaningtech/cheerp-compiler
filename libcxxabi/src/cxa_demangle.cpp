@@ -272,8 +272,13 @@ class BumpPointerAllocator {
 
 public:
   BumpPointerAllocator()
+#ifdef __CHEERP__
+      : BlockList(nullptr) {}
+#else
       : BlockList(new (InitialBuffer) BlockMeta{nullptr, 0}) {}
+#endif
 
+#ifndef __CHEERP__
   void* allocate(size_t N) {
     N = (N + 15u) & ~15u;
     if (N + BlockList->Current >= UsableAllocSize) {
@@ -285,6 +290,7 @@ public:
     return static_cast<void*>(reinterpret_cast<char*>(BlockList + 1) +
                               BlockList->Current - N);
   }
+#endif
 
   void reset() {
     while (BlockList) {
@@ -293,7 +299,9 @@ public:
       if (reinterpret_cast<char*>(Tmp) != InitialBuffer)
         std::free(Tmp);
     }
+#ifndef __CHEERP__
     BlockList = new (InitialBuffer) BlockMeta{nullptr, 0};
+#endif
   }
 
   ~BumpPointerAllocator() { reset(); }
@@ -306,12 +314,20 @@ public:
   void reset() { Alloc.reset(); }
 
   template<typename T, typename ...Args> T *makeNode(Args &&...args) {
+#ifdef __CHEERP__
+    return new T(std::forward<Args>(args)...);
+#else
     return new (Alloc.allocate(sizeof(T)))
         T(std::forward<Args>(args)...);
+#endif
   }
 
-  void *allocateNodeArray(size_t sz) {
+  Node** allocateNodeArray(size_t sz) {
+#ifdef __CHEERP__
+    return new Node*[sz];
+#else
     return Alloc.allocate(sizeof(Node *) * sz);
+#endif
   }
 };
 }  // unnamed namespace
