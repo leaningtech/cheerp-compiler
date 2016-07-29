@@ -2368,13 +2368,21 @@ template <typename Derived, typename Alloc> struct AbstractManglingParser {
   }
 
   template <class T, class... Args> Node *make(Args &&... args) {
+#ifdef __CHEERP__
+    return new T(std::forward<Args>(args)...);
+#else
     return ASTAllocator.template makeNode<T>(std::forward<Args>(args)...);
+#endif
   }
 
   template <class It> NodeArray makeNodeArray(It begin, It end) {
     size_t sz = static_cast<size_t>(end - begin);
+#ifdef __CHEERP__
+    Node **data = new Node *[sz];
+#else
     void *mem = ASTAllocator.allocateNodeArray(sz);
     Node **data = new (mem) Node *[sz];
+#endif
     std::copy(begin, end, data);
     return NodeArray(data, sz);
   }
