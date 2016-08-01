@@ -779,6 +779,7 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
 
     if (IsConstantOffsetFromGlobal(Op0, GV1, Offs1, DL))
       if (IsConstantOffsetFromGlobal(Op1, GV2, Offs2, DL) && GV1 == GV2) {
+        unsigned OpSize = DL->getTypeSizeInBits(Op0->getType());
         if (!DL.isByteAddressable()) {
           // Verify that the ops are ptrtoins
           ConstantExpr* COp0 = dyn_cast<ConstantExpr>(Op0);
@@ -820,11 +821,9 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
               if (*it1 != *it2)
                 return 0;
             }
-            return ConstantExpr::getSub(cast<Constant>(*it1), cast<Constant>(*it2));
+            return ConstantExpr::getMul(ConstantExpr::getSub(cast<Constant>(*it1), cast<Constant>(*it2)), ConstantInt::get(cast<IntegerType>((*it1)->getType()), OpSize/8));
           }
         } else {
-          unsigned OpSize = DL.getTypeSizeInBits(Op0->getType());
-
           // (&GV+C1) - (&GV+C2) -> C1-C2, pointer arithmetic cannot overflow.
           // PtrToInt may change the bitwidth so we have convert to the right size
           // first.
