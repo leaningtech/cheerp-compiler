@@ -376,6 +376,7 @@ private:
 
 	//JS interoperability support
 	std::vector<llvm::StringRef> compileClassesExportedToJs();
+	void addExportedFreeFunctions(std::vector<llvm::StringRef>& namesList, const llvm::NamedMDNode* namedNode);
 public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
