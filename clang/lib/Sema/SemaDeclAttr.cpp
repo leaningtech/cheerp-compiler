@@ -6797,8 +6797,8 @@ static void handleNoInit(Sema &S, Decl* D, const AttributeList &Attr)
 }
 
 static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (CXXRecordDecl *RD = dyn_cast<CXXRecordDecl>(D))
-    RD->addAttr(::new (S.Context) JsExportAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
+    D->addAttr(::new (S.Context) JsExportAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
   else
     S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
 }
