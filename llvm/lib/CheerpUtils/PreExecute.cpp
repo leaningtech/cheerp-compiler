@@ -69,7 +69,7 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-  void* ret = currentEE->MemoryAllocator.Allocate(size, 8);
+  void* ret = currentEE->MemoryAllocator.Allocate(size+4, 8);
   memset(ret, 0, size);
 
 #ifdef DEBUG_PRE_EXECUTE
@@ -234,7 +234,7 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_upcast;
     if (strncmp(funcName.c_str(), "llvm.cheerp.allocate.", strlen("llvm.cheerp.allocate."))==0)
         return (void*)(void(*)())pre_execute_allocate;
-    if (strcmp(funcName.c_str(), "llvm.cheerp.deallocate") == 0)
+    if (strncmp(funcName.c_str(), "llvm.cheerp.deallocate", strlen("llvm.cheerp.deallocate")) == 0)
         return (void*)(void(*)())pre_execute_deallocate;
     if (strncmp(funcName.c_str(), "llvm.cheerp.element.distance.", strlen("llvm.cheerp.element.distance."))==0)
         return (void*)(void(*)())pre_execute_element_distance;
@@ -397,11 +397,12 @@ GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAd
     uint32_t size = allocData.size / elementSize;
     Type* newGlobalType = ArrayType::get(allocData.allocType, size);
 
-    // Build an initializer
-    Constant* init=computeInitializerFromMemory(DL, newGlobalType, it->first);
-
     allocData.globalValue = new GlobalVariable(*currentModule, newGlobalType,
-            false, GlobalValue::InternalLinkage, init, "promotedMalloc");
+            false, GlobalValue::InternalLinkage, nullptr, "promotedMalloc");
+
+    // Build an initializer
+    allocData.globalValue->setInitializer(computeInitializerFromMemory(DL, newGlobalType, it->first));
+
     return allocData.globalValue;
 }
 
@@ -469,6 +470,13 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
         if (StoredAddr==NULL) {
             return ConstantPointerNull::get(PT);
         }
+
+	if(PT->getElementType()->isFunctionTy())
+	{
+		Value* castedVal = reinterpret_cast<llvm::Value*>(StoredAddr);
+		assert(isa<Function>(castedVal));
+		return cast<Function>(castedVal);
+	}
 
         Type* Int32Ty = IntegerType::get(currentModule->getContext(), 32);
         const GlobalValue* GV = currentEE->getGlobalValueAtAddress(StoredAddr);
