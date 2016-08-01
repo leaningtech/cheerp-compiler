@@ -14,9 +14,23 @@
 using namespace llvm;
 using namespace cheerp;
 
+void CheerpWriter::addExportedFreeFunctions(std::vector<StringRef>& namesList, const NamedMDNode* namedNode)
+{
+	for ( NamedMDNode::const_op_iterator it = namedNode->op_begin(); it != namedNode->op_end(); ++ it )
+	{
+		const MDNode * node = *it;
+		const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
+		// Currently we assign the function to the mangled name, it works better with extern "C" functions
+		stream << "var " << f->getName() << '=';
+		compileOperand(f);
+		stream << ';' << NewLine;
+		namesList.push_back(f->getName());
+	}
+}
+
 std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 {
-	std::vector<StringRef> exportedClassNames;
+	std::vector<StringRef> exportedNames;
 	//Look for metadata which ends in _methods. They are lists
 	//of exported methods for JS layout classes
 	for( Module::const_named_metadata_iterator it = module.named_metadata_begin(),
@@ -24,6 +38,12 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 	{
 		const NamedMDNode* namedNode = it;
 		StringRef name = namedNode->getName();
+
+		if(name == "jsexported_methods")
+		{
+			addExportedFreeFunctions(exportedNames, namedNode);
+			continue;
+		}
 
 		if (!name.endswith("_methods") || !name.startswith("class.") )
 			continue;
@@ -60,19 +80,19 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		if (constructor == namedNode->op_end() )
 		{
 			llvm::report_fatal_error( Twine("Class: ", jsClassName).concat(" does not define a constructor!") );
-			return exportedClassNames;
+			return exportedNames;
 		}
 
 		if ( std::find_if( std::next(constructor), namedNode->op_end(), isConstructor ) != namedNode->op_end() )
 		{
 			llvm::report_fatal_error( Twine("More than one constructor defined for class: ", jsClassName) );
-			return exportedClassNames;
+			return exportedNames;
 		}
 
 		const MDNode* node = *constructor;
 		const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
 
-		exportedClassNames.push_back(jsClassName);
+		exportedNames.push_back(jsClassName);
 
 		stream << "function " << jsClassName << '(';
 		for(uint32_t i=0;i<f->arg_size()-1;i++)
@@ -130,5 +150,5 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 			assert( globalDeps.isReachable(f) );
 		}
 	}
-	return exportedClassNames;
+	return exportedNames;
 }

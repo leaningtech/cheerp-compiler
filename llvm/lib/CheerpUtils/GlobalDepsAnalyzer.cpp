@@ -60,13 +60,13 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	{
 		StringRef name = namedNode.getName();
 
-		if(!name.endswith("_methods") ||
-		   !name.startswith("class._Z") )
+		if(name.endswith("_methods") && name.startswith("class._Z"))
+		{
+			StructType * t = TypeSupport::getJSExportedTypeFromMetadata(name, module).first;
+			visitStruct(t);
+		}
+		else if(name!="jsexported_methods")
 			continue;
-
-		StructType * t = TypeSupport::getJSExportedTypeFromMetadata(name, module).first;
-		visitStruct(t);
-
 		for (const MDNode * node : namedNode.operands() )
 		{
 			assert( isa<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue()) );
