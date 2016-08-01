@@ -2120,6 +2120,15 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
       F->addTypeMetadata(0, Id);
     }
   }
+
+  if(D->hasAttr<JsExportAttr>())
+  {
+      llvm::NamedMDNode* namedNode = getModule().getOrInsertNamedMetadata("jsexported_methods");
+      llvm::SmallVector<llvm::Metadata*,1> values;
+      values.push_back(llvm::ConstantAsMetadata::get(F));
+      llvm::MDNode* node = llvm::MDNode::get(getLLVMContext(),values);
+      namedNode->addOperand(node);
+  }
 }
 
 void CodeGenModule::setLLVMFunctionFEnvAttributes(const FunctionDecl *D,
