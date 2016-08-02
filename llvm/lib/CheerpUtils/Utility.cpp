@@ -253,6 +253,20 @@ std::string valueObjectName(const Value* v)
 	return os.str();
 }
 
+bool hasNonLoadStoreUses( const Value* v)
+{
+	for(const Use& U: v->uses())
+	{
+		const User* user = U.getUser();
+		if (isa<LoadInst>(user))
+			continue;
+		if (isa<StoreInst>(user) && U.getOperandNo()==1)
+			continue;
+		return true;
+	}
+	return false;
+}
+
 bool TypeSupport::isDerivedStructType(StructType* derivedType, StructType* baseType)
 {
 	if(derivedType->getNumElements() < baseType->getNumElements())

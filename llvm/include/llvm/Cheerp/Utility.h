@@ -72,6 +72,8 @@ uint32_t getIntFromValue(const llvm::Value* v);
 // Printable name of the llvm type - useful only for debugging
 std::string valueObjectName(const llvm::Value * v);
 
+bool hasNonLoadStoreUses(const llvm::Value* v);
+
 class TypeSupport
 {
 public:
