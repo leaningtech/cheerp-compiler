@@ -1622,7 +1622,6 @@ void CheerpWriter::compileConstant(const Constant* c)
 	{
 		const ConstantFP* f=cast<ConstantFP>(c);
 
-		//Must compare pointers for semantics, it seems
 		if(f->getValueAPF().isInfinity())
 		{
 			if(f->getValueAPF().isNegative())
@@ -1633,7 +1632,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 		else
 		{
 			SmallString<32> buf;
-			f->getValueAPF().toString(buf);
+			f->getValueAPF().toString(buf, std::numeric_limits<double>::max_digits10);
 			stream << buf;
 		}
 	}
