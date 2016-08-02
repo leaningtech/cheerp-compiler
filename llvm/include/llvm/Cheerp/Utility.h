@@ -74,6 +74,8 @@ std::string valueObjectName(const llvm::Value * v);
 
 bool hasNonLoadStoreUses(const llvm::Value* v);
 
+llvm::StructType* getGEPContainerStructType(const llvm::User* gep);
+
 class TypeSupport
 {
 public:
