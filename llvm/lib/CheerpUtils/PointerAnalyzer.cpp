@@ -473,7 +473,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		// If the pointer inside a structure has uses which are not just loads and stores
 		// we have merge the BASE_AND_INDEX_CONSTRAINT with the STORED_TYPE_CONSTRAINT
 		// We do this by making both indirectly dependent on the other
-		if(p->getType()->getPointerElementType()->isPointerTy() && PointerAnalyzer::hasNonLoadStoreUses(p))
+		if(p->getType()->getPointerElementType()->isPointerTy() && cheerp::hasNonLoadStoreUses(p))
 		{
 			Type* pointedType = cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index)->getPointerElementType();
 			IndirectPointerKindConstraint baseAndIndexContraint(BASE_AND_INDEX_CONSTRAINT, baseAndIndex);
@@ -494,7 +494,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		}
 	}
 
-	if((isa<AllocaInst>(p) || isa<GlobalVariable>(p)) && !PointerAnalyzer::hasNonLoadStoreUses(p))
+	if((isa<AllocaInst>(p) || isa<GlobalVariable>(p)) && !cheerp::hasNonLoadStoreUses(p))
 		return CacheAndReturn(ret |= COMPLETE_OBJECT);
 
 	if(const StoreInst* SI=dyn_cast<StoreInst>(p))
@@ -1038,7 +1038,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	{
 		if(TypeAndIndex b = PointerAnalyzer::getBaseStructAndIndexFromGEP(v))
 		{
-			if(PointerAnalyzer::hasNonLoadStoreUses(v))
+			if(cheerp::hasNonLoadStoreUses(v))
 				pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, b)] |= PointerConstantOffsetWrapper::INVALID;
 		}
 		return CacheAndReturn(ret |= getPointerOffsetFromGEP(v));
@@ -1411,20 +1411,6 @@ TypeAndIndex PointerAnalyzer::getBaseStructAndIndexFromGEP(const Value* p)
 		return TypeAndIndex(containerType, lastOffsetConstant, TypeAndIndex::STRUCT_MEMBER);
 	}
 	return TypeAndIndex(NULL, 0, TypeAndIndex::STRUCT_MEMBER);
-}
-
-bool PointerAnalyzer::hasNonLoadStoreUses( const Value* v)
-{
-	for(const Use& U: v->uses())
-	{
-		const User* user = U.getUser();
-		if (isa<LoadInst>(user))
-			continue;
-		if (isa<StoreInst>(user) && U.getOperandNo()==1)
-			continue;
-		return true;
-	}
-	return false;
 }
 
 REGULAR_POINTER_PREFERENCE PointerAnalyzer::getRegularPreference(const IndirectPointerKindConstraint& c, PointerKindData& pointerKindData, AddressTakenMap& addressTakenCache)
