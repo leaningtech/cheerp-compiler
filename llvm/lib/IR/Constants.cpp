@@ -3453,3 +3453,12 @@ Instruction *ConstantExpr::getAsInstruction(Instruction *InsertBefore) const {
     return BO;
   }
 }
+
+void ConstantExpr::getAllFromOpcode(SmallVector<ConstantExpr*, 4>& ret, LLVMContext& C, unsigned Opcode) {
+  LLVMContextImpl *pImpl = C.pImpl;
+  for(auto it = pImpl->ExprConstants.map_begin(); it != pImpl->ExprConstants.map_end(); ++it) {
+    ConstantExpr* CE = it->first;
+    if(CE->getOpcode() == Opcode)
+      ret.push_back(CE);
+  }
+}
