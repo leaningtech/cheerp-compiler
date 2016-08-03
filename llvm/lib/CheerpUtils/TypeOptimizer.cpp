@@ -96,6 +96,17 @@ void TypeOptimizer::pushAllBaseConstantElements(SmallVector<llvm::Constant*, 4>&
 	}
 }
 
+llvm::StructType* TypeOptimizer::isEscapingStructGEP(const User* GEP)
+{
+	if(GEP->getNumOperands()<3)
+		return nullptr;
+	// Keep track of all structure fields that "escapes" (used by more than load/stores)
+	if(!hasNonLoadStoreUses(GEP))
+		return nullptr;
+	StructType* containerStructType = cheerp::getGEPContainerStructType(GEP);
+	return containerStructType;
+}
+
 void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 {
 	for(const Function& F: M)
@@ -133,8 +144,39 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 						continue;
 					addAllBaseTypesForByteLayout(st, BC->getDestTy()->getPointerElementType());
 				}
+				else if(const GetElementPtrInst* GEP=dyn_cast<GetElementPtrInst>(&I))
+				{
+					StructType* containerStructType = isEscapingStructGEP(GEP);
+					if(!containerStructType)
+						continue;
+					uint32_t fieldIndex = cast<ConstantInt>(*std::prev(GEP->op_end()))->getZExtValue();
+					while(StructType* directBase = containerStructType->getDirectBase())
+					{
+						if(directBase->getNumElements() <= fieldIndex)
+							break;
+						containerStructType = directBase;
+					}
+					escapingFields.insert(std::make_pair(containerStructType, fieldIndex));
+				}
 			}
 		}
+	}
+	// Ugly, we need to iterate over constant GEPs, but they are per-context and not per-module
+	SmallVector<ConstantExpr*, 4> ConstantGEPs;
+	ConstantExpr::getAllFromOpcode(ConstantGEPs, M.getContext(), Instruction::GetElementPtr);
+	for(ConstantExpr* GEP: ConstantGEPs)
+	{
+		StructType* containerStructType = isEscapingStructGEP(GEP);
+		if(!containerStructType)
+			continue;
+		uint32_t fieldIndex = cast<ConstantInt>(*std::prev(GEP->op_end()))->getZExtValue();
+		while(StructType* directBase = containerStructType->getDirectBase())
+		{
+			if(directBase->getNumElements() <= fieldIndex)
+				break;
+			containerStructType = directBase;
+		}
+		escapingFields.insert(std::make_pair(containerStructType, fieldIndex));
 	}
 }
 
