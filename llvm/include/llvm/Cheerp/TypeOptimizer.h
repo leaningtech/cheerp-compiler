@@ -54,6 +54,15 @@ private:
 	std::unordered_map<llvm::Type*, TypeMappingInfo> typesMapping;
 	std::unordered_set<llvm::Function*> pendingFunctions;
 	std::unordered_set<llvm::Type*> pendingStructTypes;
+	struct EscapingFieldsHash
+	{
+		size_t operator()(const std::pair<llvm::StructType*, uint32_t>& r) const
+		{
+			return std::hash<llvm::StructType*>()(r.first) ^ std::hash<uint32_t>()(r.second);
+		}
+	};
+	// In this context a field "escapes" if it has any use which is not just a load/store
+	std::unordered_set<std::pair<llvm::StructType*, uint32_t>, EscapingFieldsHash> escapingFields;
 #ifndef NDEBUG
 	std::unordered_set<llvm::Type*> newStructTypes;
 #endif
@@ -72,6 +81,7 @@ private:
 	static void pushAllBaseConstantElements(llvm::SmallVector<llvm::Constant*, 4>& newElements, llvm::Constant* C, llvm::Type* baseType);
 	// Helper function to handle the various kind of arrays in constants
 	static void pushAllArrayConstantElements(llvm::SmallVector<llvm::Constant*, 4>& newElements, llvm::Constant* array);
+	static llvm::StructType* isEscapingStructGEP(const llvm::User* GEP);
 public:
 	static char ID;
 	explicit TypeOptimizer() : ModulePass(ID) { }
