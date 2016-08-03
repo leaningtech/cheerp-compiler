@@ -775,7 +775,7 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 			case TypeMappingInfo::FLATTENED_ARRAY:
 			{
 				// We had something like [ N x [ M x T ] ] which is now [ N*M x T ]
-				uint32_t oldTypeSize = DL->getTypeAllocSize(curType->getSequentialElementType());
+				uint32_t oldTypeSize = DL->getTypeAllocSize(rewriteType(curType->getSequentialElementType()));
 				uint32_t elementSize = DL->getTypeAllocSize(curTypeMappingInfo.mappedType->getSequentialElementType());
 				assert(!(oldTypeSize % elementSize));
 				uint32_t numElements=oldTypeSize/elementSize;
