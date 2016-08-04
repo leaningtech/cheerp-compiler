@@ -70,7 +70,7 @@ private:
 	void rewriteGlobalInit(llvm::GlobalVariable* GV);
 	TypeMappingInfo rewriteType(llvm::Type* t);
 	void rewriteUses(llvm::Value* V, llvm::Value* NewV);
-	llvm::Constant* rewriteConstant(llvm::Constant* C);
+	std::pair<llvm::Constant*, uint8_t> rewriteConstant(llvm::Constant* C);
 	void rewriteFunction(llvm::Function* F);
 	void rewriteIntrinsic(llvm::Function* F, llvm::FunctionType* FT);
 	void gatherAllTypesInfo(const llvm::Module& M);

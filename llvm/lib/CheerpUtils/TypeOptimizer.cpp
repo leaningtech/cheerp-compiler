@@ -481,16 +481,16 @@ void TypeOptimizer::pushAllArrayConstantElements(SmallVector<Constant*, 4>& newE
 	}
 }
 
-Constant* TypeOptimizer::rewriteConstant(Constant* C)
+std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 {
 	// Immediately return for globals, we should never try to map their type as they are already rewritten
 	if(GlobalVariable* GV=dyn_cast<GlobalVariable>(C))
 	{
 		assert(globalsMapping.count(GV));
-		return globalsMapping[GV];
+		return std::make_pair(globalsMapping[GV], 0);
 	}
 	else if(isa<GlobalValue>(C))
-		return C;
+		return std::make_pair(C, 0);
 	TypeMappingInfo newTypeInfo = rewriteType(C->getType());
 	if(ConstantExpr* CE=dyn_cast<ConstantExpr>(C))
 	{
@@ -511,39 +511,47 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 			{
 				Constant* ptrOperand = CE->getOperand(0);
 				Type* ptrType = getOriginalGlobalType(ptrOperand);
-				ptrOperand = rewriteConstant(ptrOperand);
+				auto rewrittenOperand = rewriteConstant(ptrOperand);
+				assert(rewrittenOperand.second==0);
+				ptrOperand = rewrittenOperand.first;
 				SmallVector<Value*, 4> newIndexes;
 				Type* targetType = rewriteType(CE->getType()->getPointerElementType());
 				rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(CE->op_begin()+1,CE->op_end()), targetType, NULL);
-				return ConstantExpr::getGetElementPtr(ptrOperand, newIndexes);
+				return std::make_pair(ConstantExpr::getGetElementPtr(ptrOperand, newIndexes), 0);
 			}
 			case Instruction::BitCast:
 			{
-				Constant* srcOperand = rewriteConstant(CE->getOperand(0));
-				return ConstantExpr::getBitCast(srcOperand, newTypeInfo.mappedType);
+				auto rewrittenOperand = rewriteConstant(CE->getOperand(0));
+				assert(rewrittenOperand.second == 0);
+				Constant* srcOperand = rewrittenOperand.first;
+				return std::make_pair(ConstantExpr::getBitCast(srcOperand, newTypeInfo.mappedType), 0);
 			}
 			case Instruction::IntToPtr:
 			{
-				return ConstantExpr::getIntToPtr(CE->getOperand(0), newTypeInfo.mappedType);
+				return std::make_pair(ConstantExpr::getIntToPtr(CE->getOperand(0), newTypeInfo.mappedType), 0);
 			}
 			default:
 			{
 				// Get a cloned CE with rewritten operands
 				std::vector<Constant*> newOperands;
 				for(Use& op: CE->operands())
-					newOperands.push_back(rewriteConstant(cast<Constant>(op)));
-				return CE->getWithOperands(newOperands);
+				{
+					auto rewrittenOperand = rewriteConstant(cast<Constant>(op));
+					assert(rewrittenOperand.second == 0);
+					newOperands.push_back(rewrittenOperand.first);
+				}
+				return std::make_pair(CE->getWithOperands(newOperands), 0);
 			}
 		}
 	}
 	else if(C->getType() == newTypeInfo.mappedType)
-		return C;
+		return std::make_pair(C, 0);
 	else if(isa<ConstantAggregateZero>(C))
-		return Constant::getNullValue(newTypeInfo.mappedType);
+		return std::make_pair(Constant::getNullValue(newTypeInfo.mappedType), 0);
 	else if(isa<ConstantPointerNull>(C))
-		return ConstantPointerNull::get(cast<PointerType>(newTypeInfo.mappedType));
+		return std::make_pair(ConstantPointerNull::get(cast<PointerType>(newTypeInfo.mappedType)), 0);
 	else if(isa<UndefValue>(C))
-		return UndefValue::get(newTypeInfo.mappedType);
+		return std::make_pair(UndefValue::get(newTypeInfo.mappedType), 0);
 	else if(ConstantStruct* CS=dyn_cast<ConstantStruct>(C))
 	{
 		if(newTypeInfo.elementMappingKind == TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY)
@@ -554,9 +562,9 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 			SmallVector<Constant*, 4> newElements;
 			pushAllBaseConstantElements(newElements, CS, baseTypeIt->second);
 			if(newElements.size() == 1)
-				return newElements[0];
+				return std::make_pair(newElements[0], 0);
 			ArrayType* newArrayType = ArrayType::get(baseTypeIt->second, newElements.size());
-			return ConstantArray::get(newArrayType, newElements);
+			return std::make_pair(ConstantArray::get(newArrayType, newElements), 0);
 		}
 		else if(newTypeInfo.elementMappingKind == TypeMappingInfo::COLLAPSED)
 		{
@@ -573,19 +581,37 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 		for(uint32_t i=0;i<CS->getNumOperands();i++)
 		{
 			Constant* element = CS->getOperand(i);
-			Constant* newElement = rewriteConstant(element);
+			auto rewrittenOperand = rewriteConstant(element);
+			assert(rewrittenOperand.second == 0);
+			Constant* newElement = rewrittenOperand.first;
 			if(hasMergedArrays && membersMappingIt->second[i].first != (newElements.size()))
 			{
 				// This element has been remapped to another one. It must be an array
 				SmallVector<Constant*, 4> mergedArrayElements;
 				Constant* oldMember = newElements[membersMappingIt->second[i].first];
-				assert(oldMember->getType()->getArrayElementType() == newElement->getType()->getArrayElementType());
-				// Insert all the elements of the existing member
-				pushAllArrayConstantElements(mergedArrayElements, oldMember);
-				pushAllArrayConstantElements(mergedArrayElements, newElement);
-				// Forge a new array and replace oldMember
-				ArrayType* mergedType = ArrayType::get(oldMember->getType()->getArrayElementType(), mergedArrayElements.size());
-				newElements[membersMappingIt->second[i].first] = ConstantArray::get(mergedType, mergedArrayElements);
+				if(isa<ArrayType>(oldMember->getType()))
+				{
+					assert(oldMember->getType()->getArrayElementType() == newElement->getType()->getArrayElementType());
+					// Insert all the elements of the existing member
+					pushAllArrayConstantElements(mergedArrayElements, oldMember);
+					pushAllArrayConstantElements(mergedArrayElements, newElement);
+					// Forge a new array and replace oldMember
+					ArrayType* mergedType = ArrayType::get(oldMember->getType()->getArrayElementType(), mergedArrayElements.size());
+					newElements[membersMappingIt->second[i].first] = ConstantArray::get(mergedType, mergedArrayElements);
+				}
+				else if(isa<IntegerType>(oldMember->getType()))
+				{
+					uint32_t oldValue = cast<ConstantInt>(oldMember)->getZExtValue();
+					uint32_t newValue = cast<ConstantInt>(newElement)->getZExtValue();
+					newValue <<= membersMappingIt->second[i].second;
+					uint32_t finalValue = oldValue | newValue;
+					Type* IntType = nullptr;
+					if(newTypeInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED)
+						IntType = newTypeInfo.mappedType;
+					else
+						IntType = cast<StructType>(newTypeInfo.mappedType)->getElementType(membersMappingIt->second[i].first);
+					newElements[membersMappingIt->second[i].first] = ConstantInt::get(IntType, finalValue);
+				}
 			}
 			else
 				newElements.push_back(newElement);
@@ -593,9 +619,9 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 		if(newTypeInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED)
 		{
 			assert(newElements.size() == 1);
-			return newElements[0];
+			return std::make_pair(newElements[0], 0);
 		}
-		return ConstantStruct::get(cast<StructType>(newTypeInfo.mappedType), newElements);
+		return std::make_pair(ConstantStruct::get(cast<StructType>(newTypeInfo.mappedType), newElements), 0);
 	}
 	else if(ConstantArray* CA=dyn_cast<ConstantArray>(C))
 	{
@@ -604,7 +630,9 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 		for(uint32_t i=0;i<CA->getNumOperands();i++)
 		{
 			Constant* element = CA->getOperand(i);
-			Constant* newElement = rewriteConstant(element);
+			auto rewrittenOperand = rewriteConstant(element);
+			assert(rewrittenOperand.second == 0);
+			Constant* newElement = rewrittenOperand.first;
 			if(newTypeInfo.elementMappingKind == TypeMappingInfo::FLATTENED_ARRAY)
 			{
 				// Put all the operands of the element in this array
@@ -613,11 +641,11 @@ Constant* TypeOptimizer::rewriteConstant(Constant* C)
 			else
 				newElements.push_back(newElement);
 		}
-		return ConstantArray::get(cast<ArrayType>(newTypeInfo.mappedType), newElements);
+		return std::make_pair(ConstantArray::get(cast<ArrayType>(newTypeInfo.mappedType), newElements), 0);
 	}
 	else
 		assert(false && "Unexpected constant in TypeOptimizer");
-	return NULL;
+	return std::make_pair((Constant*)NULL, 0);
 }
 
 void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
@@ -899,8 +927,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		localTypeMapping[v] = t;
 	};
 	// Keep track of instructions which have been remapped
-	std::unordered_map<Value*, Value*> localInstMapping;
-	auto getMappedOperand = [&](Value* v) -> Value*
+	std::unordered_map<Value*, std::pair<Value*, uint8_t>> localInstMapping;
+	auto getMappedOperand = [&](Value* v) -> std::pair<Value*, uint8_t>
 	{
 		if(Constant* C=dyn_cast<Constant>(v))
 			return rewriteConstant(C);
@@ -908,12 +936,12 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		if(it != localInstMapping.end())
 			return it->second;
 		else
-			return v;
+			return std::make_pair(v, 0);
 	};
-	auto setMappedOperand = [&](Value* v, Value* m) -> void
+	auto setMappedOperand = [&](Value* v, Value* m, uint8_t o) -> void
 	{
-		assert(v->getType()->isPointerTy() && m->getType()->isPointerTy());
-		localInstMapping[v] = m;
+		//assert(v->getType()->isPointerTy() && m->getType()->isPointerTy());
+		localInstMapping[v] = std::make_pair(m, o);
 	};
 	if(newFuncType!=F->getType())
 	{
@@ -995,11 +1023,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						SmallVector<Value*, 4> newIndexes;
 						Type* targetType = rewriteType(I.getType()->getPointerElementType());
 						rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(I.op_begin()+1,I.op_end()), targetType, &I);
-						GetElementPtrInst* NewInst = GetElementPtrInst::Create(getMappedOperand(ptrOperand), newIndexes);
+						auto rewrittenOperand = getMappedOperand(ptrOperand);
+						assert(rewrittenOperand.second == 0);
+						GetElementPtrInst* NewInst = GetElementPtrInst::Create(rewrittenOperand.first, newIndexes);
 						assert(!NewInst->getType()->getPointerElementType()->isArrayTy());
 						NewInst->takeName(&I);
 						NewInst->setIsInBounds(cast<GetElementPtrInst>(I).isInBounds());
-						setMappedOperand(&I, NewInst);
+						setMappedOperand(&I, NewInst, 0);
 						// We are done with handling this case
 						needsDefaultHandling = false;
 					}
@@ -1024,7 +1054,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								Type* Int32 = IntegerType::get(II->getContext(), 32);
 								Value* Zero = ConstantInt::get(Int32, 0);
 								Value* Indexes[] = { Zero, Zero };
-								Value* newPtrOperand = getMappedOperand(ptrOperand);
+								auto rewrittenOperand = getMappedOperand(ptrOperand);
+								assert(rewrittenOperand.second == 0);
+								Value* newPtrOperand = rewrittenOperand.first;
 								Type* newType = GetElementPtrInst::getIndexedType(newPtrOperand->getType(), Indexes);
 								Value* newGEP = NULL;
 								if(newType->isArrayTy())
@@ -1034,7 +1066,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								}
 								else
 									newGEP = GetElementPtrInst::Create(newPtrOperand, Indexes, "gepforupcast");
-								setMappedOperand(&I, newGEP);
+								setMappedOperand(&I, newGEP, 0);
 								needsDefaultHandling = false;
 							}
 						}
@@ -1064,7 +1096,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								if(!calledFunction || !calledFunction->onlyReadsMemory(i+1))
 								{
 									IRBuilder<> Builder(CI);
-									Value* mappedOp = getMappedOperand(CI->getOperand(i));
+									auto rewrittenOperand = getMappedOperand(CI->getOperand(i));
+									assert(rewrittenOperand.second==0);
+									Value* mappedOp = rewrittenOperand.first;
 									assert(mappedOp->getType()->isPointerTy() &&
 										!mappedOp->getType()->getPointerElementType()->isArrayTy());
 									// 1) Create an alloca of the right type
@@ -1118,7 +1152,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						Value* Zero = ConstantInt::get(Int32, 0);
 						Value* Indexes[] = { Zero, Zero };
 						Instruction* newGEP = GetElementPtrInst::Create(&I, Indexes, "allocadecay");
-						setMappedOperand(&I, newGEP);
+						setMappedOperand(&I, newGEP, 0);
 					}
 					else
 						I.mutateType(newInfo.mappedType);
@@ -1136,7 +1170,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			for(uint32_t i=0;i<I.getNumOperands();i++)
 			{
 				Value* op=I.getOperand(i);
-				I.setOperand(i, getMappedOperand(op));
+				auto rewrittenOperand = getMappedOperand(op);
+				I.setOperand(i, rewrittenOperand.first);
 			}
 		}
 	}
@@ -1145,14 +1180,16 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		for(uint32_t i=0;i<phi->getNumIncomingValues();i++)
 		{
 			Value* op=phi->getIncomingValue(i);
-			phi->setIncomingValue(i, getMappedOperand(op));
+			auto rewrittenOperand = getMappedOperand(op);
+			assert(rewrittenOperand.second == 0);
+			phi->setIncomingValue(i, rewrittenOperand.first);
 		}
 	}
 	for(auto it: localInstMapping)
 	{
 		// Insert new instruction, if necessary
-		if(!cast<Instruction>(it.second)->getParent())
-			cast<Instruction>(it.second)->insertAfter(cast<Instruction>(it.first));
+		if(!cast<Instruction>(it.second.first)->getParent())
+			cast<Instruction>(it.second.first)->insertAfter(cast<Instruction>(it.first));
 		// Alloca are only replaced for POINTER_FROM_ARRAY, and should not be removed
 		if(isa<AllocaInst>(it.first))
 			continue;
@@ -1195,8 +1232,9 @@ void TypeOptimizer::rewriteGlobalInit(GlobalVariable* GV)
 	if(GVType==rewrittenType)
 		return;
 	// We need to change type, so we have to forge a new initializer
-	Constant* rewrittenInit = rewriteConstant(GV->getInitializer());
-	GV->setInitializer(rewrittenInit);
+	auto rewrittenInit = rewriteConstant(GV->getInitializer());
+	assert(rewrittenInit.second==0);
+	GV->setInitializer(rewrittenInit.first);
 }
 
 bool TypeOptimizer::runOnModule(Module& M)
