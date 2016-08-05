@@ -980,6 +980,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	{
 		for(Instruction& I: *BB)
 		{
+			bool needsDefaultHandling = true;
 			switch(I.getOpcode())
 			{
 				default:
@@ -999,11 +1000,10 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						NewInst->takeName(&I);
 						NewInst->setIsInBounds(cast<GetElementPtrInst>(I).isInBounds());
 						setMappedOperand(&I, NewInst);
-						break;
+						// We are done with handling this case
+						needsDefaultHandling = false;
 					}
-					// If the operand and the result types have not changed the indexes do not need any change as well
-					// but we still need to check if the type of the GEP itself needs to be updated,
-					// so fall through to the below cases. Please note that Call must check for IntrinsicInst for this to work.
+					break;
 				}
 				case Instruction::Call:
 				{
@@ -1035,12 +1035,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								else
 									newGEP = GetElementPtrInst::Create(newPtrOperand, Indexes, "gepforupcast");
 								setMappedOperand(&I, newGEP);
-								break;
+								needsDefaultHandling = false;
 							}
 						}
 					}
-					else if(CallInst* CI=dyn_cast<CallInst>(&I))
+					else
 					{
+						CallInst* CI=cast<CallInst>(&I);
 						if(CI->hasByValArgument())
 						{
 							// We need to make sure that no byval attribute is applied to pointers to arrays
@@ -1084,7 +1085,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								CI->setAttributes(newAttrs);
 						}
 					}
-					// Fall through to next case
+					break;
 				}
 				case Instruction::Alloca:
 				case Instruction::BitCast:
@@ -1097,12 +1098,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::Select:
 				case Instruction::Store:
 				case Instruction::VAArg:
+					break;
+			}
+			if(needsDefaultHandling && !I.getType()->isVoidTy())
+			{
+				TypeMappingInfo newInfo = rewriteType(I.getType());
+				if(newInfo.mappedType!=I.getType())
 				{
-					if(I.getType()->isVoidTy())
-						break;
-					TypeMappingInfo newInfo = rewriteType(I.getType());
-					if(newInfo.mappedType==I.getType())
-						break;
 					setOriginalOperandType(&I, I.getType());
 					// Special handling for Alloca
 					if(I.getOpcode() == Instruction::Alloca && newInfo.elementMappingKind == TypeMappingInfo::POINTER_FROM_ARRAY)
@@ -1117,10 +1119,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						Value* Indexes[] = { Zero, Zero };
 						Instruction* newGEP = GetElementPtrInst::Create(&I, Indexes, "allocadecay");
 						setMappedOperand(&I, newGEP);
-						break;
 					}
-					I.mutateType(newInfo.mappedType);
-					break;
+					else
+						I.mutateType(newInfo.mappedType);
 				}
 			}
 			// We need to handle pointer PHIs later on, when all instructions are redefined
