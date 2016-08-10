@@ -305,7 +305,10 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			// We want to merge arrays of the same type in the same object
 			// So, for each element type, keep track if there is already an array
 			std::unordered_map<Type*, uint32_t> arraysFound;
+			// Keep track of currently fillable integers
+			std::vector<std::pair<uint32_t, uint8_t>> mergedInts;
 			uint32_t directBaseLimit=0;
+			StructType* directBase = nullptr;
 			// We may need to update the bases metadata for this type
 			NamedMDNode* namedBasesMetadata = TypeSupport::getBasesMetadata(newStruct, *module);
 			uint32_t firstBaseBegin, firstBaseEnd, baseMax;
@@ -323,20 +326,27 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				if(i==directBaseLimit)
 				{
 					arraysFound.clear();
+					mergedInts.clear();
 					StructType* curBase=st;
 					while(curBase->getDirectBase() && curBase->getDirectBase()->getNumElements()>i)
 						curBase=curBase->getDirectBase();
+					directBase = curBase;
 					directBaseLimit=curBase->getNumElements();
 				}
 				Type* elementType=st->getElementType(i);
 				Type* rewrittenType=rewriteType(elementType);
-				if(ArrayType* at=dyn_cast<ArrayType>(rewrittenType))
+				// NOTE: byte layout structs should never change the position of fields
+				if(st->hasByteLayout())
+				{
+					newTypes.push_back(rewrittenType);
+					continue;
+				}
+				else if(ArrayType* at=dyn_cast<ArrayType>(rewrittenType))
 				{
 					Type* arrayElementType=rewrittenType->getArrayElementType();
 					auto arraysFoundIt=arraysFound.find(arrayElementType);
 					// An array is already available for this type, just extend it
-					// NOTE: byte layout structs should never change the position of fields
-					if(arraysFoundIt!=arraysFound.end() && !TypeSupport::hasByteLayout(st))
+					if(arraysFoundIt!=arraysFound.end())
 					{
 						uint32_t typeIndex = arraysFoundIt->second;
 						ArrayType* previousArrayType = cast<ArrayType>(newTypes[typeIndex]);
@@ -350,14 +360,48 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 					// Insert this array in the map, we will insert it in the vector just below
 					arraysFound[arrayElementType] = newTypes.size();
 				}
+				else if(IntegerType* it=dyn_cast<IntegerType>(rewrittenType))
+				{
+					bool fieldEscapes = escapingFields.count(std::make_pair(directBase, i));
+					// Merge small integers together to reduce memory usage
+					if(!fieldEscapes && it->getBitWidth() < 32)
+					{
+						// Look for an integer than can be filled
+						bool mergedThisInt = false;
+						for(int m=0;m<mergedInts.size();m++)
+						{
+							auto& mergedInt = mergedInts[m];
+							if(mergedInt.second < it->getBitWidth())
+								continue;
+							// There is enough space in an integer. Promote the type and merge with this one
+							IntegerType* oldType = cast<IntegerType>(newTypes[mergedInt.first]);
+							newTypes[mergedInt.first] = IntegerType::get(module->getContext(), oldType->getBitWidth()+it->getBitWidth());
+							membersMapping.push_back(std::make_pair(mergedInt.first, 32-mergedInt.second));
+							mergedInt.second -= it->getBitWidth();
+							// Remove fully used integers
+							if(mergedInt.second == 0)
+								mergedInts.erase(mergedInts.begin()+m);
+							if(i < firstBaseBegin)
+								firstBaseEnd--;
+							hasMergedArrays=true;
+							mergedThisInt=true;
+							break;
+						}
+						if(mergedThisInt)
+							continue;
+						// Not enough space on any integer
+						mergedInts.push_back(std::make_pair(newTypes.size(), 32 - it->getBitWidth()));
+					}
+				}
 				membersMapping.push_back(std::make_pair(newTypes.size(), 0));
 				// Add the new type
 				newTypes.push_back(rewrittenType);
 			}
+			assert(membersMapping.size() == st->getNumElements() || st->hasByteLayout());
 			if(hasMergedArrays)
 			{
 				assert(!newTypes.empty());
-				membersMappingData.insert(std::make_pair(st, membersMapping));
+				membersMappingData.insert(std::make_pair(st, std::move(membersMapping)));
 				newStructKind = TypeMappingInfo::MERGED_MEMBER_ARRAYS;
 				// Update bases metadata
 				if(namedBasesMetadata)
@@ -516,8 +560,8 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 				ptrOperand = rewrittenOperand.first;
 				SmallVector<Value*, 4> newIndexes;
 				Type* targetType = rewriteType(CE->getType()->getPointerElementType());
-				rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(CE->op_begin()+1,CE->op_end()), targetType, NULL);
-				return std::make_pair(ConstantExpr::getGetElementPtr(ptrOperand, newIndexes), 0);
+				uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(CE->op_begin()+1,CE->op_end()), targetType, NULL);
+				return std::make_pair(ConstantExpr::getGetElementPtr(ptrOperand->getType()->getPointerElementType(), ptrOperand, newIndexes), mergedIntegerOffset);
 			}
 			case Instruction::BitCast:
 			{
@@ -736,7 +780,7 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 	}
 }
 
-void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, ArrayRef<Use> idxs, Type* targetType, Instruction* insertionPoint)
+uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, ArrayRef<Use> idxs, Type* targetType, Instruction* insertionPoint)
 {
 	// The addToLastIndex flag should be set to true if the following index should be added to the previouly pushed one
 	bool addToLastIndex = false;
@@ -767,6 +811,7 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 			AddIndex(ConstantExpr::getMul(cast<Constant>(V), numElementsC));
 		}
 	};
+	uint32_t integerOffset = 0;
 	Type* curType = ptrType;
 	Type* Int32Ty = IntegerType::get(curType->getContext(), 32);
 	for(uint32_t i=0;i<idxs.size();i++)
@@ -781,6 +826,7 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 				break;
 			case TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY:
 			{
+				assert(integerOffset==0);
 				assert(isa<StructType>(curType));
 				if(curTypeMappingInfo.mappedType == targetType)
 				{
@@ -790,7 +836,7 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 						Value* Zero = ConstantInt::get(Int32Ty, 0);
 						AddIndex(Zero);
 					}
-					return;
+					return 0;
 				}
 				auto baseTypeIt = baseTypesForByteLayout.find(cast<StructType>(curType));
 				assert(baseTypeIt != baseTypesForByteLayout.end() && baseTypeIt->second);
@@ -798,7 +844,7 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 				{
 					// If it's not an array it must be a single element and we should stop immediately
 					assert(curTypeMappingInfo.mappedType == baseTypeIt->second);
-					return;
+					return 0;
 				}
 				uint32_t baseTypeSize = DL->getTypeAllocSize(baseTypeIt->second);
 				// All the indexes needs to be flattened to a byte offset and then to an array offset
@@ -833,7 +879,7 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 					Value* Zero = ConstantInt::get(Int32Ty, 0);
 					AddIndex(Zero);
 				}
-				return;
+				return 0;
 			}
 			case TypeMappingInfo::POINTER_FROM_ARRAY:
 			{
@@ -868,8 +914,14 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 				}
 				else
 					assert(mappedMember.first == 0);
+				// We need to check if the mapped type for the element has become an integer
+				Type* mappedElementType = rewriteType(oldStruct->getElementType(elementIndex));
+				bool isMergedInt = mappedElementType->isIntegerTy();
 				// If mappedMember.second is not zero, also add a new index that can be eventually incremented later
-				if(mappedMember.second)
+				// For merged integers we don't add the offset here, but return it. It will need to be applied by the following loads/stores
+				if(isMergedInt)
+					integerOffset += mappedMember.second;
+				else if(mappedMember.second)
 				{
 					AddIndex(ConstantInt::get(Int32Ty, mappedMember.second));
 					addToLastIndex = true;
@@ -893,6 +945,7 @@ void TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* 
 		Value* Zero = ConstantInt::get(Int32Ty, 0);
 		AddIndex(Zero);
 	}
+	return integerOffset;
 }
 
 void TypeOptimizer::rewriteFunction(Function* F)
@@ -1006,8 +1059,11 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	// Rewrite instructions as needed
 	for(BasicBlock* BB: blocksInDFSOrder)
 	{
-		for(Instruction& I: *BB)
+		auto BBI = BB->begin();
+		while(BBI != BB->end())
 		{
+			Instruction& I = *BBI;
+			++BBI;
 			bool needsDefaultHandling = true;
 			switch(I.getOpcode())
 			{
@@ -1022,14 +1078,14 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					{
 						SmallVector<Value*, 4> newIndexes;
 						Type* targetType = rewriteType(I.getType()->getPointerElementType());
-						rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(I.op_begin()+1,I.op_end()), targetType, &I);
+						uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(I.op_begin()+1,I.op_end()), targetType, &I);
 						auto rewrittenOperand = getMappedOperand(ptrOperand);
 						assert(rewrittenOperand.second == 0);
 						GetElementPtrInst* NewInst = GetElementPtrInst::Create(rewrittenOperand.first, newIndexes);
 						assert(!NewInst->getType()->getPointerElementType()->isArrayTy());
 						NewInst->takeName(&I);
 						NewInst->setIsInBounds(cast<GetElementPtrInst>(I).isInBounds());
-						setMappedOperand(&I, NewInst, 0);
+						setMappedOperand(&I, NewInst, mergedIntegerOffset);
 						// We are done with handling this case
 						needsDefaultHandling = false;
 					}
@@ -1121,16 +1177,64 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					}
 					break;
 				}
+				case Instruction::Store:
+				{
+					if(!I.getOperand(0)->getType()->isIntegerTy())
+						break;
+					auto mappedOperand = getMappedOperand(I.getOperand(1));
+					auto rewritteValue = getMappedOperand(I.getOperand(0));
+					assert(rewritteValue.second == 0);
+					llvm::Value* mappedValue = rewritteValue.first;
+					llvm::Type* oldType = mappedValue->getType();
+					bool isMergedPointer = mappedOperand.first->getType() != I.getOperand(1)->getType();
+					if(!isMergedPointer)
+						break;
+					I.dropUnknownMetadata();
+					// We need to load, mask, insert and store
+					llvm::Instruction* load = new LoadInst(mappedOperand.first, "mergedload", &I);
+					// Compute a mask to preserve all the not-needed bits
+					uint32_t maskVal = ((1<<(cast<IntegerType>(oldType)->getBitWidth()))-1);
+					maskVal <<= mappedOperand.second;
+					maskVal = ~maskVal;
+					llvm::Instruction* mask = BinaryOperator::Create(Instruction::And, load, ConstantInt::get(cast<IntegerType>(load->getType()), maskVal), "mergedmask", &I);
+					llvm::Instruction* extend = new ZExtInst(mappedValue, load->getType(), "mergedext", &I);
+					if(mappedOperand.second)
+						extend = BinaryOperator::Create(Instruction::Shl, extend, ConstantInt::get(cast<IntegerType>(extend->getType()), mappedOperand.second), "mergedshift", &I);
+					llvm::Instruction* insert = BinaryOperator::Create(Instruction::Or, mask, extend, "mergedinsert", &I);
+					I.setOperand(0, insert);
+					needsDefaultHandling = false;
+					break;
+				}
+				case Instruction::Load:
+				{
+					if(!I.getType()->isIntegerTy())
+						break;
+					auto mappedOperand = getMappedOperand(I.getOperand(0));
+					llvm::Type* oldType = I.getType();
+					bool isMergedPointer = mappedOperand.first->getType() != I.getOperand(0)->getType();
+					if(!isMergedPointer)
+						break;
+					I.mutateType(mappedOperand.first->getType()->getPointerElementType());
+					I.dropUnknownMetadata();
+					llvm::Instruction* mergedValue = &I;
+					if(mappedOperand.second)
+					{
+						mergedValue = BinaryOperator::Create(Instruction::AShr, mergedValue,
+							ConstantInt::get(cast<IntegerType>(I.getType()), mappedOperand.second), "mergedshift", mergedValue->getNextNode());
+					}
+					llvm::Value* truncated = new TruncInst(mergedValue, oldType, "mergedtrunc", mergedValue->getNextNode());
+					setMappedOperand(&I, truncated, 0);
+					needsDefaultHandling = false;
+					break;
+				}
 				case Instruction::Alloca:
 				case Instruction::BitCast:
 				case Instruction::ExtractValue:
 				case Instruction::InsertValue:
 				case Instruction::IntToPtr:
-				case Instruction::Load:
 				case Instruction::PHI:
 				case Instruction::Ret:
 				case Instruction::Select:
-				case Instruction::Store:
 				case Instruction::VAArg:
 					break;
 			}
@@ -1161,7 +1265,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			// We need to handle pointer PHIs later on, when all instructions are redefined
 			if(PHINode* phi = dyn_cast<PHINode>(&I))
 			{
-				if(phi->getType()->isPointerTy())
+				if(phi->getType()->isPointerTy() || phi->getType()->isIntegerTy())
 				{
 					delayedPHIs.push_back(phi);
 					continue;
@@ -1191,7 +1295,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		if(!cast<Instruction>(it.second.first)->getParent())
 			cast<Instruction>(it.second.first)->insertAfter(cast<Instruction>(it.first));
 		// Alloca are only replaced for POINTER_FROM_ARRAY, and should not be removed
-		if(isa<AllocaInst>(it.first))
+		// Loads are replaced when merged integers, and should not be removed
+		if(isa<AllocaInst>(it.first) || isa<LoadInst>(it.first))
 			continue;
 		// Delete old instructions
 		cast<Instruction>(it.first)->replaceAllUsesWith(UndefValue::get(it.first->getType()));
