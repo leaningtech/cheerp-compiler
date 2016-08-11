@@ -1651,10 +1651,6 @@ void CheerpWriter::compileConstant(const Constant* c)
 		else
 			stream << "nullObj";
 	}
-	else if(isa<UndefValue>(c))
-	{
-		stream << "undefined";
-	}
 	else if(isa<GlobalAlias>(c))
 	{
 		const GlobalAlias* a=cast<GlobalAlias>(c);
@@ -1665,7 +1661,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 		assert(c->hasName());
 		stream << namegen.getName(c);
 	}
-	else if(isa<ConstantAggregateZero>(c))
+	else if(isa<ConstantAggregateZero>(c) || isa<UndefValue>(c))
 	{
 		compileType(c->getType(), LITERAL_OBJ);
 	}
