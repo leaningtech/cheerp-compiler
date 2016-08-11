@@ -160,6 +160,7 @@ private:
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	std::vector< llvm::GlobalValue * > externals;
+	std::vector< const llvm::Function* > functionsQueue;
 
 	const llvm::DataLayout* DL;
 
