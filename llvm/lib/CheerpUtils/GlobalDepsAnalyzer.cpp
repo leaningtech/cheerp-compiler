@@ -146,6 +146,13 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		reachableGlobals.insert(constructorVar);
 		varsOrder.push_back(constructorVar);
 	}
+	while (!functionsQueue.empty())
+	{
+		const Function* F = functionsQueue.back();
+		functionsQueue.pop_back();
+		visitFunction( F, visited);
+		assert( visited.empty() );
+	}
 	NumRemovedGlobals = filterModule(module);
 	return true;
 }
@@ -174,7 +181,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 			visitGlobal(cast<GlobalValue>(GA->getAliasee()), visited, vec );
 		}
 		else if (const Function * F = dyn_cast<Function>(C) )
-			visitFunction(F, visited);
+			functionsQueue.push_back(F);
 		else if (const GlobalVariable * GV = dyn_cast<GlobalVariable>(C) )
 		{
 			if (GV->hasInitializer() )
