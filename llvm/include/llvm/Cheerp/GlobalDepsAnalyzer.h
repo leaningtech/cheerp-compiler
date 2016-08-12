@@ -16,6 +16,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -163,6 +164,7 @@ private:
 	std::vector< const llvm::Function* > functionsQueue;
 
 	const llvm::DataLayout* DL;
+	const llvm::TargetLibraryInfo* TLI;
 
 	const llvm::Function* entryPoint;
 	
