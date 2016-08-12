@@ -369,8 +369,18 @@ llvm::Type* getTypeSafeGepForAddress(SmallVector<Constant*, 4>& Indices, Type* I
 {
     Type* curType = startType;
     // Keep track of the state while ignoring all trailing zero indices
-    Type* typeAtLastNotZero = startType;
-    uint32_t indicesLengthAtLastNotZero = 0;
+    assert(isa<PointerType>(curType));
+    if (PointerType* PT=dyn_cast<PointerType>(curType))
+    {
+        Type* ET = PT->getElementType();
+        uint32_t elementSize = DL->getTypeAllocSize(ET);
+        uint32_t elementOffset = Offset/elementSize;
+        Indices.push_back(ConstantInt::get(Int32Ty, elementOffset));
+        Offset %= elementSize;
+        curType = ET;
+    }
+    Type* typeAtLastNotZero = curType;
+    uint32_t indicesLengthAtLastNotZero = 1;
     while(Offset!=0 || !isTypeCompatible(curType, endType))
     {
         // If the offset is not zero, we must deal with an aggregate
@@ -423,9 +433,8 @@ Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
     uintptr_t Offset = StoredAddr - GlobalStartAddr;
     llvm::SmallVector<Constant*, 4> Indices;
     // This is needed to dereference global
-    Indices.push_back(ConstantInt::get(Int32Ty, 0));
     llvm::Type* typeFound = getTypeSafeGepForAddress(Indices, Int32Ty, DL,
-            GV->getType()->getPointerElementType(),
+            GV->getType(),
             memType->getPointerElementType(), Offset);
     if (!typeFound)
         return NULL;
@@ -453,11 +462,10 @@ GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAd
     if (allocData.globalValue)
         return allocData.globalValue;
     // We need to promote this memory to a globalvalue
-    // Make it an array
-    // TODO: Support plain objects
+    // Make it an array, if it's more than 1 element long
     uint32_t elementSize = DL->getTypeAllocSize(allocData.allocType);
     uint32_t size = allocData.size / elementSize;
-    Type* newGlobalType = ArrayType::get(allocData.allocType, size);
+    Type* newGlobalType = size > 1 ? ArrayType::get(allocData.allocType, size) : allocData.allocType;
 
     allocData.globalValue = new GlobalVariable(*currentModule, newGlobalType,
             false, GlobalValue::InternalLinkage, nullptr, "promotedMalloc");
