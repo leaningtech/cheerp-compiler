@@ -16,6 +16,7 @@
 #include "llvm/ExecutionEngine/Interpreter.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -26,6 +27,8 @@
 //#define DEBUG_PRE_EXECUTE 1
 
 using namespace llvm;
+
+static cl::opt<bool> PreExecuteMain("cheerp-preexecute-main", cl::desc("Run main/webMain in the PreExecuter step") );
 
 namespace cheerp {
 
@@ -628,11 +631,15 @@ bool PreExecute::runOnModule(Module& m)
         }
     }
 
-#if 0
-    Function* mainFunc = m.getFunction("_Z7webMainv");
-    assert(mainFunc && "unable to find function webMain in module!");
-    currentEE->runFunction(mainFunc, std::vector<GenericValue>());
-#endif
+    if (PreExecuteMain)
+    {
+        Function* mainFunc = m.getFunction("_Z7webMainv");
+        if (!mainFunc)
+            mainFunc = m.getFunction("main");
+        assert(mainFunc && "unable to find main/webMain in module!");
+        currentEE->runFunction(mainFunc, std::vector<GenericValue>());
+        mainFunc->eraseFromParent();
+    }
 
     // Compute new initializer for the modified globals
     for(auto& it: modifiedGlobals)
