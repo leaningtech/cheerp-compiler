@@ -65,6 +65,38 @@ static GenericValue pre_execute_element_distance(FunctionType *FT, const std::ve
     return GV;
 }
 
+static GenericValue pre_execute_pointer_base(FunctionType *FT,
+                                         const std::vector<GenericValue> &Args) {
+  char *p = (char *)(GVTOP(Args[0]));
+  // TODO: We currently only support malloc memory
+  auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(p);
+  assert (it != PreExecute::currentPreExecutePass->typedAllocations.begin());
+  --it;
+  // Verify that the address is in the memory block
+  assert (p >= it->first);
+  AllocData& allocData = it->second;
+  // The edge of the allocation is a valid pointer
+  assert(p <= (it->first + allocData.size));
+  return GenericValue(it->first);
+}
+
+static GenericValue pre_execute_pointer_offset(FunctionType *FT,
+                                         const std::vector<GenericValue> &Args) {
+  char *p = (char *)(GVTOP(Args[0]));
+  // TODO: We currently only support malloc memory
+  auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(p);
+  assert (it != PreExecute::currentPreExecutePass->typedAllocations.begin());
+  --it;
+  // Verify that the address is in the memory block
+  assert (p >= it->first);
+  AllocData& allocData = it->second;
+  // The edge of the allocation is a valid pointer
+  assert(p <= (it->first + allocData.size));
+  GenericValue GV;
+  GV.IntVal = APInt(32, p - it->first);
+  return GV;
+}
+
 static GenericValue pre_execute_allocate(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
@@ -74,6 +106,30 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
 
 #ifdef DEBUG_PRE_EXECUTE
   llvm::errs() << "Allocating " << ret << " of size " << size << " and type " << *FT->getReturnType() << "\n";
+#endif
+
+  // Register this allocations in the pass
+  llvm::Type *type = FT->getReturnType()->getPointerElementType();
+  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret);
+  return GenericValue(ret);
+}
+
+static GenericValue pre_execute_reallocate(FunctionType *FT,
+                                         const std::vector<GenericValue> &Args) {
+  void *p = (void *)(GVTOP(Args[0]));
+  size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  void* ret = currentEE->MemoryAllocator.Allocate(size+4, 8);
+  memset(ret, 0, size);
+  // Find out the old size
+  auto it = PreExecute::currentPreExecutePass->typedAllocations.find((char*)p);
+  assert(it != PreExecute::currentPreExecutePass->typedAllocations.end());
+  uint32_t oldSize = it->second.size;
+  // Copy the old contents in the new buffer
+  memcpy(ret, p, oldSize);
+
+#ifdef DEBUG_PRE_EXECUTE
+  llvm::errs() << "Reallocating " << ret << " of size " << size << " and type " << *FT->getReturnType() << "\n";
 #endif
 
   // Register this allocations in the pass
@@ -234,10 +290,16 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_upcast;
     if (strncmp(funcName.c_str(), "llvm.cheerp.allocate.", strlen("llvm.cheerp.allocate."))==0)
         return (void*)(void(*)())pre_execute_allocate;
+    if (strncmp(funcName.c_str(), "llvm.cheerp.reallocate.", strlen("llvm.cheerp.reallocate."))==0)
+        return (void*)(void(*)())pre_execute_reallocate;
     if (strncmp(funcName.c_str(), "llvm.cheerp.deallocate", strlen("llvm.cheerp.deallocate")) == 0)
         return (void*)(void(*)())pre_execute_deallocate;
     if (strncmp(funcName.c_str(), "llvm.cheerp.element.distance.", strlen("llvm.cheerp.element.distance."))==0)
         return (void*)(void(*)())pre_execute_element_distance;
+    if (strncmp(funcName.c_str(), "llvm.cheerp.pointer.base.", strlen("llvm.cheerp.pointer.base."))==0)
+        return (void*)(void(*)())pre_execute_pointer_base;
+    if (strncmp(funcName.c_str(), "llvm.cheerp.pointer.offset.", strlen("llvm.cheerp.pointer.offset."))==0)
+        return (void*)(void(*)())pre_execute_pointer_offset;
     if (strncmp(funcName.c_str(), "llvm.memcpy.", strlen("llvm.memcpy."))==0)
         return (void*)(void(*)())pre_execute_memcpy;
     if (strcmp(funcName.c_str(), "_Z11assertEqualIcEvRKT_S2_PKc") == 0)
