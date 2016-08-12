@@ -34,7 +34,7 @@ const char* GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), DL(NULL), entryPoint(NULL),
+GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), DL(NULL), TLI(NULL), entryPoint(NULL),
 	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false)
 {
 }
@@ -51,6 +51,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
 	DL = &module.getDataLayout();
 	assert(DL);
+	auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
+	TLI = TLIP ? &TLIP->getTLI() : nullptr;
+	assert(TLI);
 	VisitedSet visited;
 	
 	//Compile the list of JS methods
@@ -362,7 +365,12 @@ int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 	{
 		Function * f = it++;
 		if( !f->empty() )
-			f->setLinkage(GlobalValue::InternalLinkage);
+		{
+			// Never internalize functions that may have a better native implementation
+			LibFunc::Func Func;
+			if (!TLI->getLibFunc(f->getName(), Func))
+				f->setLinkage(GlobalValue::InternalLinkage);
+		}
 		
 		if ( !isReachable(f) )
 		{
