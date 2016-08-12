@@ -421,6 +421,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-march=cheerp");
   if(Args.hasArg(options::OPT_cheerp_preexecute))
     CmdArgs.push_back("-PreExecute");
+  CmdArgs.push_back("-GlobalDepsAnalyzer");
   if(!Args.hasArg(options::OPT_cheerp_no_type_optimizer))
     CmdArgs.push_back("-TypeOptimizer");
   CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
