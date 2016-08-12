@@ -4358,6 +4358,8 @@ def cheerp_no_type_optimizer : Flag<["-"], "cheerp-no-type-optimizer">, Flags<[D
   HelpText<"Disable optimization of data types at link time">;
 def cheerp_preexecute : Flag<["-"], "cheerp-preexecute">, Flags<[DriverOption]>,
   HelpText<"Enable execution of run-time init at compile time">;
+def cheerp_preexecute_main : Flag<["-"], "cheerp-preexecute-main">, Flags<[DriverOption]>,
+  HelpText<"Run main/webMain in the PreExecuter step. Needs -cheerp-preexecute.">;
 def cheerp_no_pointer_scev : Flag<["-"], "cheerp-no-pointer-scev">, Flags<[DriverOption]>,
   HelpText<"Disable scalar evolution for pointers">;
 def cheerp_no_math_imul : Flag<["-"], "cheerp-no-math-imul">, Flags<[DriverOption]>,
