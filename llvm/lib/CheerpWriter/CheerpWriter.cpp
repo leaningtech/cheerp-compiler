@@ -2141,7 +2141,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
             POINTER_KIND kind = PA.getPointerKind(ptrOp);
-            if (kind == REGULAR || kind == SPLIT_REGULAR)
+            if (boundChecks && (kind == REGULAR || kind == SPLIT_REGULAR))
             {
                 stream<<"if(";
                 compilePointerOffset(ptrOp,LOWEST);
@@ -3006,7 +3006,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 
 
             POINTER_KIND kind = PA.getPointerKind(ptrOp);
-            if (kind == REGULAR || kind == SPLIT_REGULAR)
+            if (boundChecks && (kind == REGULAR || kind == SPLIT_REGULAR))
             {
                 stream<<";if(";
                 compilePointerOffset(ptrOp,LOWEST);
