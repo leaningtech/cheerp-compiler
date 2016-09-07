@@ -2949,19 +2949,19 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const LoadInst& li = cast<LoadInst>(I);
 			const Value* ptrOp=li.getPointerOperand();
 
+			POINTER_KIND kind = PA.getPointerKind(ptrOp);
+			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
+			{
+				stream<<"(";
+				compileCheckBounds(ptrOp);
+				stream<<",";
+			}
 			if(li.getType()->isFloatingPointTy())
 			{
 				stream << '+';
 				stream << '(';
 			}
-
-			POINTER_KIND kind = PA.getPointerKind(ptrOp);
-			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
-			{
-				compileCheckBounds(ptrOp);
-				stream<<",";
-			}
-			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
+			if (kind == BYTE_LAYOUT)
 			{
 				//Optimize loads of single values from unions
 				compilePointerBase(ptrOp);
@@ -3004,6 +3004,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 
 			if(li.getType()->isFloatingPointTy())
 				stream << ')';
+			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
+				stream<<')';
 			return COMPILE_OK;
 		}
 		default:
