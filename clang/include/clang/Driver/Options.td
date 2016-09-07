@@ -4368,6 +4368,8 @@ def cheerp_no_credits : Flag<["-"], "cheerp-no-credits">, Flags<[DriverOption]>,
   HelpText<"Disable Cheerp credits in JS">;
 def cheerp_reserved_names_EQ : Joined<["-"], "cheerp-reserved-names=">, Flags<[DriverOption]>,
   HelpText<"A list of JS identifiers that should not be used by Cheerp">;
+def cheerp_bounds_check : Flag<["-"], "cheerp-bounds-check">, Flags<[DriverOption]>,
+  HelpText<"Generate debug code for bounds-checking array accesses">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options

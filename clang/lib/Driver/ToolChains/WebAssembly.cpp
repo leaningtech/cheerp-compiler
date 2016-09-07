@@ -474,6 +474,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpNoCredits->render(Args, CmdArgs);
   if(Arg* cheerpReservedNames = Args.getLastArg(options::OPT_cheerp_reserved_names_EQ))
     cheerpReservedNames->render(Args, CmdArgs);
+  if(Arg* cheerpBoundsCheck = Args.getLastArg(options::OPT_cheerp_bounds_check))
+    cheerpBoundsCheck->render(Args, CmdArgs);
 
   const InputInfo &II = *Inputs.begin();
   CmdArgs.push_back(II.getFilename());
