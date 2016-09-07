@@ -2144,6 +2144,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
             if (boundChecks && (kind == REGULAR || kind == SPLIT_REGULAR))
             {
                 compileBoundChecks(ptrOp);
+                stream<<";";
             }
 			if (kind == BYTE_LAYOUT)
 			{
@@ -2954,6 +2955,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << '(';
 			}
 
+            POINTER_KIND kind = PA.getPointerKind(ptrOp);
+            if (boundChecks && (kind == REGULAR || kind == SPLIT_REGULAR))
+            {
+                compileBoundChecks(ptrOp);
+                stream<<",";
+            }
 			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
 			{
 				//Optimize loads of single values from unions
@@ -2998,14 +3005,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(li.getType()->isFloatingPointTy())
 				stream << ')';
 
-
-            POINTER_KIND kind = PA.getPointerKind(ptrOp);
-            if (boundChecks && (kind == REGULAR || kind == SPLIT_REGULAR))
-            {
-                stream<<";";
-                compileBoundChecks(ptrOp);
-                stream<<"0";
-            }
 			return COMPILE_OK;
 		}
 		default:
@@ -3646,15 +3645,18 @@ void CheerpWriter::compileHandleVAArg()
 	stream << "function handleVAArg(ptr){var ret=ptr.d[ptr.o];ptr.o++;return ret;}" << NewLine;
 }
 
+void CheerpWriter::compileBoundChecksHelper()
+{
+	stream << "function boundChecks(arr,offs){if(offs>=arr.length || offs<=0) throw new Error('OutOfBounds');}" << NewLine;
+}
+
 void CheerpWriter::compileBoundChecks(const Value* p)
 {
-    stream<<"if(";
-    compilePointerOffset(p,LOWEST);
-    stream<<">=(";
+    stream<<"boundChecks(";
     compilePointerBase(p);
-    stream<<").length || ";
+    stream<<",";
     compilePointerOffset(p,LOWEST);
-    stream<<"<0) throw 'OutOfBound';";
+    stream<<")";
 }
 
 void CheerpWriter::makeJS()
@@ -3743,6 +3745,10 @@ void CheerpWriter::makeJS()
 	if( globalDeps.needHandleVAArg() )
 		compileHandleVAArg();
 	
+    //Compile the bound-checking function
+    if ( boundChecks )
+        compileBoundChecksHelper();
+
 	//Call constructors
 	for (const Function * F : globalDeps.constructors() )
 	{
