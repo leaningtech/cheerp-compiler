@@ -403,6 +403,10 @@ public:
 	 * Compile a bound-checking statement on REGULAR or SPLIT_REGULAR pointer
 	 */
     void compileBoundChecks(const llvm::Value* p);
+	/**
+	 * Compile a bound-checking function definition
+	 */
+    void compileBoundChecksHelper();
 };
 
 }
