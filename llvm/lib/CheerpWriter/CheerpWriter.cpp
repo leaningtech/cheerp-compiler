@@ -3646,7 +3646,7 @@ void CheerpWriter::compileHandleVAArg()
 
 void CheerpWriter::compileCheckBoundsHelper()
 {
-	stream << "function checkBounds(arr,offs){if(offs>=arr.length || offs<=0) throw new Error('OutOfBounds');}" << NewLine;
+	stream << "function checkBounds(arr,offs){if(offs>=arr.length || offs<0) throw new Error('OutOfBounds');}" << NewLine;
 }
 
 void CheerpWriter::compileCheckBounds(const Value* p)
