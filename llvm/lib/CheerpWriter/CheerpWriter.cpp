@@ -2140,8 +2140,18 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const StoreInst& si = cast<StoreInst>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
-
-			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
+            POINTER_KIND kind = PA.getPointerKind(ptrOp);
+            if (kind == REGULAR || kind == SPLIT_REGULAR)
+            {
+                stream<<"if(";
+                compilePointerOffset(ptrOp,LOWEST);
+                stream<<">=(";
+                compilePointerBase(ptrOp);
+                stream<<").length || ";
+                compilePointerOffset(ptrOp,LOWEST);
+                stream<<"<0) throw 'OutOfBound';";
+            }
+			if (kind == BYTE_LAYOUT)
 			{
 				//Optimize stores of single values from unions
 				compilePointerBase(ptrOp);
@@ -2993,6 +3003,19 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 
 			if(li.getType()->isFloatingPointTy())
 				stream << ')';
+
+
+            POINTER_KIND kind = PA.getPointerKind(ptrOp);
+            if (kind == REGULAR || kind == SPLIT_REGULAR)
+            {
+                stream<<";if(";
+                compilePointerOffset(ptrOp,LOWEST);
+                stream<<">=(";
+                compilePointerBase(ptrOp);
+                stream<<").length || ";
+                compilePointerOffset(ptrOp,LOWEST);
+                stream<<"<0) throw 'OutOfBound';0";
+            }
 			return COMPILE_OK;
 		}
 		default:
