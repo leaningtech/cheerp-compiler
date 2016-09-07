@@ -3707,6 +3707,10 @@ void CheerpWriter::makeJS()
 		stream << "var __cheerp_start_time = __cheerp_now();" << NewLine;
 	}
 
+    //Compile the bound-checking function
+    if ( boundChecks )
+        compileBoundChecksHelper();
+
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
 	
@@ -3745,10 +3749,6 @@ void CheerpWriter::makeJS()
 	if( globalDeps.needHandleVAArg() )
 		compileHandleVAArg();
 	
-    //Compile the bound-checking function
-    if ( boundChecks )
-        compileBoundChecksHelper();
-
 	//Call constructors
 	for (const Function * F : globalDeps.constructors() )
 	{
