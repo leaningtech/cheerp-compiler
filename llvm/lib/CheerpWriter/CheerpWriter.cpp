@@ -2143,13 +2143,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
             POINTER_KIND kind = PA.getPointerKind(ptrOp);
             if (boundChecks && (kind == REGULAR || kind == SPLIT_REGULAR))
             {
-                stream<<"if(";
-                compilePointerOffset(ptrOp,LOWEST);
-                stream<<">=(";
-                compilePointerBase(ptrOp);
-                stream<<").length || ";
-                compilePointerOffset(ptrOp,LOWEST);
-                stream<<"<0) throw 'OutOfBound';";
+                compileBoundChecks(ptrOp);
             }
 			if (kind == BYTE_LAYOUT)
 			{
@@ -3008,13 +3002,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
             POINTER_KIND kind = PA.getPointerKind(ptrOp);
             if (boundChecks && (kind == REGULAR || kind == SPLIT_REGULAR))
             {
-                stream<<";if(";
-                compilePointerOffset(ptrOp,LOWEST);
-                stream<<">=(";
-                compilePointerBase(ptrOp);
-                stream<<").length || ";
-                compilePointerOffset(ptrOp,LOWEST);
-                stream<<"<0) throw 'OutOfBound';0";
+                stream<<";";
+                compileBoundChecks(ptrOp);
+                stream<<"0";
             }
 			return COMPILE_OK;
 		}
@@ -3654,6 +3644,17 @@ void CheerpWriter::compileCreateClosure()
 void CheerpWriter::compileHandleVAArg()
 {
 	stream << "function handleVAArg(ptr){var ret=ptr.d[ptr.o];ptr.o++;return ret;}" << NewLine;
+}
+
+void CheerpWriter::compileBoundChecks(const Value* p)
+{
+    stream<<"if(";
+    compilePointerOffset(p,LOWEST);
+    stream<<">=(";
+    compilePointerBase(p);
+    stream<<").length || ";
+    compilePointerOffset(p,LOWEST);
+    stream<<"<0) throw 'OutOfBound';";
 }
 
 void CheerpWriter::makeJS()
