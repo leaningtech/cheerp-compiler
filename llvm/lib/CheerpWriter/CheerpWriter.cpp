@@ -2140,12 +2140,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const StoreInst& si = cast<StoreInst>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
-            POINTER_KIND kind = PA.getPointerKind(ptrOp);
-            if (boundChecks && (kind == REGULAR || kind == SPLIT_REGULAR))
-            {
-                compileBoundChecks(ptrOp);
-                stream<<";";
-            }
+			POINTER_KIND kind = PA.getPointerKind(ptrOp);
+			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
+			{
+				compileCheckBounds(ptrOp);
+				stream<<";";
+			}
 			if (kind == BYTE_LAYOUT)
 			{
 				//Optimize stores of single values from unions
@@ -2955,12 +2955,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << '(';
 			}
 
-            POINTER_KIND kind = PA.getPointerKind(ptrOp);
-            if (boundChecks && (kind == REGULAR || kind == SPLIT_REGULAR))
-            {
-                compileBoundChecks(ptrOp);
-                stream<<",";
-            }
+			POINTER_KIND kind = PA.getPointerKind(ptrOp);
+			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
+			{
+				compileCheckBounds(ptrOp);
+				stream<<",";
+			}
 			if (PA.getPointerKind(ptrOp) == BYTE_LAYOUT)
 			{
 				//Optimize loads of single values from unions
@@ -3004,7 +3004,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 
 			if(li.getType()->isFloatingPointTy())
 				stream << ')';
-
 			return COMPILE_OK;
 		}
 		default:
@@ -3645,18 +3644,18 @@ void CheerpWriter::compileHandleVAArg()
 	stream << "function handleVAArg(ptr){var ret=ptr.d[ptr.o];ptr.o++;return ret;}" << NewLine;
 }
 
-void CheerpWriter::compileBoundChecksHelper()
+void CheerpWriter::compileCheckBoundsHelper()
 {
-	stream << "function boundChecks(arr,offs){if(offs>=arr.length || offs<=0) throw new Error('OutOfBounds');}" << NewLine;
+	stream << "function checkBounds(arr,offs){if(offs>=arr.length || offs<=0) throw new Error('OutOfBounds');}" << NewLine;
 }
 
-void CheerpWriter::compileBoundChecks(const Value* p)
+void CheerpWriter::compileCheckBounds(const Value* p)
 {
-    stream<<"boundChecks(";
-    compilePointerBase(p);
-    stream<<",";
-    compilePointerOffset(p,LOWEST);
-    stream<<")";
+	stream<<"checkBounds(";
+	compilePointerBase(p);
+	stream<<",";
+	compilePointerOffset(p,LOWEST);
+	stream<<")";
 }
 
 void CheerpWriter::makeJS()
@@ -3707,9 +3706,9 @@ void CheerpWriter::makeJS()
 		stream << "var __cheerp_start_time = __cheerp_now();" << NewLine;
 	}
 
-    //Compile the bound-checking function
-    if ( boundChecks )
-        compileBoundChecksHelper();
+	//Compile the bound-checking function
+	if ( checkBounds )
+		compileCheckBoundsHelper();
 
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();

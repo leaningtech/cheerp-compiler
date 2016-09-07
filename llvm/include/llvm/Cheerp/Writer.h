@@ -174,8 +174,8 @@ private:
 	bool addCredits;
 	// Flag to signal if we should add code that measures time until main is reached
 	bool measureTimeToMain;
-	// Flag to signal if we should add bound-checking code for arrays
-	bool boundChecks;
+	// Flag to signal if we should add bounds-checking code for arrays
+	bool checkBounds;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -383,11 +383,11 @@ public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
 	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, const std::vector<std::string>& reservedNames, bool ReadableOutput,
-	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits, bool measureTimeToMain, bool BoundChecks):
+	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits, bool measureTimeToMain, bool CheckBounds):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, reservedNames, ReadableOutput),types(m),
 		sourceMapGenerator(sourceMapGenerator),NewLine(),useNativeJavaScriptMath(UseNativeJavaScriptMath),
-		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),stream(s, sourceMapGenerator, ReadableOutput), boundChecks(BoundChecks)
+		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),stream(s, sourceMapGenerator, ReadableOutput), checkBounds(CheckBounds)
 	{
 	}
 	void makeJS();
@@ -402,11 +402,11 @@ public:
 	/**
 	 * Compile a bound-checking statement on REGULAR or SPLIT_REGULAR pointer
 	 */
-    void compileBoundChecks(const llvm::Value* p);
+    void compileCheckBounds(const llvm::Value* p);
 	/**
 	 * Compile a bound-checking function definition
 	 */
-    void compileBoundChecksHelper();
+    void compileCheckBoundsHelper();
 };
 
 }
