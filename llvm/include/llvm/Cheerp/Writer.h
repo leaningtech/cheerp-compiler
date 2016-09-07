@@ -174,6 +174,8 @@ private:
 	bool addCredits;
 	// Flag to signal if we should add code that measures time until main is reached
 	bool measureTimeToMain;
+	// Flag to signal if we should add bound-checking code for arrays
+	bool boundChecks;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -381,11 +383,11 @@ public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
 	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, const std::vector<std::string>& reservedNames, bool ReadableOutput,
-	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits, bool measureTimeToMain):
+	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits, bool measureTimeToMain, bool BoundChecks):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, reservedNames, ReadableOutput),types(m),
 		sourceMapGenerator(sourceMapGenerator),NewLine(),useNativeJavaScriptMath(UseNativeJavaScriptMath),
-		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),stream(s, sourceMapGenerator, ReadableOutput)
+		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),stream(s, sourceMapGenerator, ReadableOutput), boundChecks(BoundChecks)
 	{
 	}
 	void makeJS();
