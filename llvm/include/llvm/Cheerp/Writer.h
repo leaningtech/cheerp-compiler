@@ -399,6 +399,10 @@ public:
 	bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
+	/**
+	 * Compile a bound-checking statement on REGULAR or SPLIT_REGULAR pointer
+	 */
+    void compileBoundChecks(const llvm::Value* p);
 };
 
 }
