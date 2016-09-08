@@ -49,6 +49,7 @@ static cl::opt<bool> MeasureTimeToMain("cheerp-measure-time-to-main", cl::desc("
 static cl::list<std::string> ReservedNames("cheerp-reserved-names", cl::value_desc("list"), cl::desc("A list of JS identifiers that should not be used by Cheerp"), cl::CommaSeparated);
 
 static cl::opt<bool> BoundsCheck("cheerp-bounds-check", cl::desc("Generate debug code for bounds-checking arrays") );
+static cl::opt<bool> DefinedCheck("cheerp-defined-members-check", cl::desc("Generate debug code for checking if accessed object members are defined") );
 
 extern "C" void LLVMInitializeCheerpBackendTarget() {
   // Register the target.
@@ -97,7 +98,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   std::sort(reservedNames.begin(), reservedNames.end());
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, reservedNames,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
-          !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain, BoundsCheck);
+          !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain, BoundsCheck, DefinedCheck);
   writer.makeJS();
   delete sourceMapGenerator;
   return false;
