@@ -448,7 +448,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		}
 	}
 
-
+	
 	if (info.useTypedArray())
 	{
 		stream << "new ";
@@ -467,7 +467,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	else if (info.useCreateArrayFunc() )
 	{
 		assert( globalDeps.dynAllocArrays().count(t) );
-
+		
 		stream << "createArray" << namegen.getTypeName(t) << '(';
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 		{
@@ -512,9 +512,9 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	{
 		assert( info.getAllocType() != DynamicAllocInfo::cheerp_reallocate );
 		// Create a plain array
-
+		
 		uint32_t numElem = compileArraySize(info, /* shouldPrint */false);
-
+		
 		assert((REGULAR == result || SPLIT_REGULAR == result || BYTE_LAYOUT == result) || numElem == 1);
 
 		if((REGULAR == result || SPLIT_REGULAR == result) && !needsDowncastArray)
@@ -574,11 +574,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	assert( callV.isCall() || callV.isInvoke() );
 	assert( func );
 	assert( (func == callV.getCalledFunction() ) || !(callV.getCalledFunction()) );
-
+	
 	bool userImplemented = !func->empty();
-
+	
 	ImmutableCallSite::arg_iterator it = callV.arg_begin(), itE = callV.arg_end();
-
+	
 	StringRef ident = func->getName();
 	unsigned intrinsicId = func->getIntrinsicID();
 	//First handle high priority builtins, they will be used even
@@ -664,7 +664,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << "cheerpCreateClosure(";
 		compileCompleteObject( callV.getArgument(0) );
 		stream << ',';
-		compilePointerAs( callV.getArgument(1),
+		compilePointerAs( callV.getArgument(1), 
 				  PA.getPointerKind( cast<Function>(callV.getArgument(0))->arg_begin() ) );
 		stream << ')';
 		return COMPILE_OK;
@@ -2086,7 +2086,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 				stream << ",o:0}";
 			}
-			else
+			else 
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 
 			return COMPILE_OK;
@@ -3596,7 +3596,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 	//Now we have defined a new global, check if there are fixups for previously defined globals
 	auto fixup_range = globalDeps.fixupVars().equal_range(&G);
-
+	
 	for ( auto it = fixup_range.first; it != fixup_range.second; ++it )
 	{
 		const GlobalDepsAnalyzer::SubExprVec & subExpr = it->second;
@@ -3744,7 +3744,7 @@ void CheerpWriter::makeJS()
 
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
-
+	
 	for ( const Function & F : module.getFunctionList() )
 		if (!F.empty())
 		{
@@ -3753,7 +3753,7 @@ void CheerpWriter::makeJS()
 #endif //CHEERP_DEBUG_POINTERS
 			compileMethod(F);
 		}
-
+	
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 		compileGlobal(GV);
 
@@ -3771,15 +3771,15 @@ void CheerpWriter::makeJS()
 
 	if ( globalDeps.needCreatePointerArray() )
 		compileArrayPointerType();
-
+	
 	//Compile the closure creation helper
 	if ( globalDeps.needCreateClosure() )
 		compileCreateClosure();
-
+	
 	//Compile handleVAArg if needed
 	if( globalDeps.needHandleVAArg() )
 		compileHandleVAArg();
-
+	
 	//Call constructors
 	for (const Function * F : globalDeps.constructors() )
 	{
