@@ -448,7 +448,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		}
 	}
 
-	
+
 	if (info.useTypedArray())
 	{
 		stream << "new ";
@@ -467,7 +467,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	else if (info.useCreateArrayFunc() )
 	{
 		assert( globalDeps.dynAllocArrays().count(t) );
-		
+
 		stream << "createArray" << namegen.getTypeName(t) << '(';
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 		{
@@ -512,9 +512,9 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	{
 		assert( info.getAllocType() != DynamicAllocInfo::cheerp_reallocate );
 		// Create a plain array
-		
+
 		uint32_t numElem = compileArraySize(info, /* shouldPrint */false);
-		
+
 		assert((REGULAR == result || SPLIT_REGULAR == result || BYTE_LAYOUT == result) || numElem == 1);
 
 		if((REGULAR == result || SPLIT_REGULAR == result) && !needsDowncastArray)
@@ -574,11 +574,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	assert( callV.isCall() || callV.isInvoke() );
 	assert( func );
 	assert( (func == callV.getCalledFunction() ) || !(callV.getCalledFunction()) );
-	
+
 	bool userImplemented = !func->empty();
-	
+
 	ImmutableCallSite::arg_iterator it = callV.arg_begin(), itE = callV.arg_end();
-	
+
 	StringRef ident = func->getName();
 	unsigned intrinsicId = func->getIntrinsicID();
 	//First handle high priority builtins, they will be used even
@@ -664,7 +664,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << "cheerpCreateClosure(";
 		compileCompleteObject( callV.getArgument(0) );
 		stream << ',';
-		compilePointerAs( callV.getArgument(1), 
+		compilePointerAs( callV.getArgument(1),
 				  PA.getPointerKind( cast<Function>(callV.getArgument(0))->arg_begin() ) );
 		stream << ')';
 		return COMPILE_OK;
@@ -2086,7 +2086,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 				stream << ",o:0}";
 			}
-			else 
+			else
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 
 			return COMPILE_OK;
@@ -2144,6 +2144,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 			{
 				compileCheckBounds(ptrOp);
+				stream<<";";
+			}
+			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
+			{
+				compileCheckDefined(ptrOp);
 				stream<<";";
 			}
 			if (kind == BYTE_LAYOUT)
@@ -2910,7 +2915,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			stream << "handleVAArg(";
 			compileCompleteObject(vi.getPointerOperand());
 			stream << ')';
-			
+
 			assert( globalDeps.needHandleVAArg() );
 			return COMPILE_OK;
 		}
@@ -2956,6 +2961,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				compileCheckBounds(ptrOp);
 				stream<<",";
 			}
+			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
+			{
+				stream<<"(";
+				compileCheckDefined(ptrOp);
+				stream<<",";
+			}
 			if(li.getType()->isFloatingPointTy())
 			{
 				stream << '+';
@@ -2981,15 +2992,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << ",true";
 				stream << ')';
 			}
-			else if(li.getType()->isPointerTy() && !li.use_empty() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
-			{
-				assert(!isInlineable(li, PA));
-				compileCompleteObject(ptrOp);
-				stream << ';' << NewLine;
-				stream << namegen.getSecondaryName(&li) << '=';
-				compileCompleteObject(ptrOp);
-				stream <<'o';
-			}
 			else
 				compileCompleteObject(ptrOp);
 			if(li.getType()->isIntegerTy())
@@ -3001,11 +3003,20 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				else
 					stream << '&' << getMaskForBitWidth(width);
 			}
-
-			if(li.getType()->isFloatingPointTy())
+			else if(li.getType()->isFloatingPointTy())
 				stream << ')';
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 				stream<<')';
+			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
+				stream<<')';
+			if(li.getType()->isPointerTy() && !li.use_empty() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
+			{
+				assert(!isInlineable(li, PA));
+				stream << ';' << NewLine;
+				stream << namegen.getSecondaryName(&li) << '=';
+				compileCompleteObject(ptrOp);
+				stream <<'o';
+			}
 			return COMPILE_OK;
 		}
 		default:
@@ -3585,7 +3596,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 
 	//Now we have defined a new global, check if there are fixups for previously defined globals
 	auto fixup_range = globalDeps.fixupVars().equal_range(&G);
-	
+
 	for ( auto it = fixup_range.first; it != fixup_range.second; ++it )
 	{
 		const GlobalDepsAnalyzer::SubExprVec & subExpr = it->second;
@@ -3660,6 +3671,18 @@ void CheerpWriter::compileCheckBounds(const Value* p)
 	stream<<")";
 }
 
+void CheerpWriter::compileCheckDefinedHelper()
+{
+	stream << "function checkDefined(m){if(m===undefined) throw new Error('UndefinedMemberAccess');}" << NewLine;
+}
+
+void CheerpWriter::compileCheckDefined(const Value* p)
+{
+	stream<<"checkDefined(";
+	compileGEP(cast<User>(p),COMPLETE_OBJECT);
+	stream<<")";
+}
+
 void CheerpWriter::makeJS()
 {
 	if (sourceMapGenerator) {
@@ -3710,11 +3733,18 @@ void CheerpWriter::makeJS()
 
 	//Compile the bound-checking function
 	if ( checkBounds )
+	{
 		compileCheckBoundsHelper();
+	}
+	//Compile the defined-checking function
+	if ( checkDefined )
+	{
+		compileCheckDefinedHelper();
+	}
 
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
-	
+
 	for ( const Function & F : module.getFunctionList() )
 		if (!F.empty())
 		{
@@ -3723,7 +3753,7 @@ void CheerpWriter::makeJS()
 #endif //CHEERP_DEBUG_POINTERS
 			compileMethod(F);
 		}
-	
+
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 		compileGlobal(GV);
 
@@ -3741,15 +3771,15 @@ void CheerpWriter::makeJS()
 
 	if ( globalDeps.needCreatePointerArray() )
 		compileArrayPointerType();
-	
+
 	//Compile the closure creation helper
 	if ( globalDeps.needCreateClosure() )
 		compileCreateClosure();
-	
+
 	//Compile handleVAArg if needed
 	if( globalDeps.needHandleVAArg() )
 		compileHandleVAArg();
-	
+
 	//Call constructors
 	for (const Function * F : globalDeps.constructors() )
 	{
