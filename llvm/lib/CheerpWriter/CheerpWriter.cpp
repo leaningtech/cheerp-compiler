@@ -2915,7 +2915,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			stream << "handleVAArg(";
 			compileCompleteObject(vi.getPointerOperand());
 			stream << ')';
-
+			
 			assert( globalDeps.needHandleVAArg() );
 			return COMPILE_OK;
 		}
