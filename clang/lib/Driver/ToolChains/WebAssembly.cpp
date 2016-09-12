@@ -399,8 +399,15 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
          ie = Args.filtered_end(); it != ie; ++it) {
     std::string libName("lib");
     libName += (*it)->getValue();
-    libName += ".bc";
-    const std::string& foundLib = getToolChain().GetFilePath(libName.c_str());
+    std::string bcLibName = libName + ".bc";
+    std::string foundLib = getToolChain().GetFilePath(bcLibName.c_str());
+    if (foundLib == bcLibName) {
+      // Try again using .a, the internal format is still assumed to be BC
+      std::string aLibName = libName + ".a";
+      foundLib = getToolChain().GetFilePath(aLibName.c_str());
+      if(foundLib == aLibName)
+        foundLib = bcLibName;
+    }
     if (usedLibs.count(foundLib))
       continue;
     usedLibs.insert(foundLib);
