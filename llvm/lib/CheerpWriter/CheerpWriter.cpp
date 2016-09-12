@@ -829,7 +829,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 	}
 
-	DynamicAllocInfo da(callV, &targetData);
+	DynamicAllocInfo da(callV, &targetData, forceTypedArrays);
 	if (da.isValidAlloc())
 	{
 		compileAllocation(da);

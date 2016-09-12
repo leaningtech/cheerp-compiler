@@ -46,6 +46,8 @@ static cl::opt<bool> NoCredits("cheerp-no-credits", cl::desc("Disable Cheerp cre
 
 static cl::opt<bool> MeasureTimeToMain("cheerp-measure-time-to-main", cl::desc("Print time elapsed until the first line of main() is executed") );
 
+static cl::opt<bool> ForceTypedArrays("cheerp-force-typed-arrays", cl::desc("Use typed arrays instead of normal arrays for arrays of doubles") );
+
 static cl::list<std::string> ReservedNames("cheerp-reserved-names", cl::value_desc("list"), cl::desc("A list of JS identifiers that should not be used by Cheerp"), cl::CommaSeparated);
 
 static cl::opt<bool> BoundsCheck("cheerp-bounds-check", cl::desc("Generate debug code for bounds-checking arrays") );
@@ -78,6 +80,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
   cheerp::SourceMapGenerator* sourceMapGenerator = NULL;
+  GDA.forceTypedArrays = ForceTypedArrays;
   if (!SourceMap.empty())
   {
     std::error_code ErrorCode;
@@ -98,7 +101,8 @@ bool CheerpWritePass::runOnModule(Module& M)
   std::sort(reservedNames.begin(), reservedNames.end());
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, reservedNames,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
-          !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain, BoundsCheck, DefinedCheck);
+          !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain, BoundsCheck, DefinedCheck,
+          ForceTypedArrays);
   writer.makeJS();
   delete sourceMapGenerator;
   return false;

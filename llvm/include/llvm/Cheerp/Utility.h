@@ -153,7 +153,7 @@ public:
 	static std::pair<llvm::StructType*, llvm::StringRef> getJSExportedTypeFromMetadata(llvm::StringRef name, const llvm::Module & module);
 
 	// Returns true if the type is not considered a literal object or array in JS
-	static bool isSimpleType(llvm::Type* t);
+	static bool isSimpleType(llvm::Type* t, bool forceTypedArrays);
 
 	static llvm::NamedMDNode* getBasesMetadata(const llvm::StructType * t, const llvm::Module & m)
 	{
@@ -190,7 +190,7 @@ public:
 	 * isValidAlloc will return false. In this case any other
 	 * use of this object is not permitted.
 	 */
-	DynamicAllocInfo(llvm::ImmutableCallSite, const llvm::DataLayout* DL);
+	DynamicAllocInfo(llvm::ImmutableCallSite, const llvm::DataLayout* DL, bool forceTypedArrays);
 	
 	bool isValidAlloc() const { return type != not_an_alloc; }
 	
@@ -257,6 +257,7 @@ private:
 	AllocType type;
 	uint32_t typeSize;
 	llvm::PointerType * castedType;
+	bool forceTypedArrays;
 };
 
 /**
