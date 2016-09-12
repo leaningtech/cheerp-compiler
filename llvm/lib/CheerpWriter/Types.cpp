@@ -37,7 +37,7 @@ void CheerpWriter::compileTypedArrayType(Type* t)
 
 void CheerpWriter::compileSimpleType(Type* t)
 {
-	assert(TypeSupport::isSimpleType(t));
+	assert(TypeSupport::isSimpleType(t, forceTypedArrays));
 	switch(t->getTypeID())
 	{
 		case Type::IntegerTyID:
@@ -86,7 +86,7 @@ void CheerpWriter::compileSimpleType(Type* t)
 			{
 				ArrayType* at=cast<ArrayType>(t);
 				Type* et=at->getElementType();
-				assert(types.isTypedArrayType(et, /* forceTypedArray*/ false) && at->getNumElements()>1);
+				assert(types.isTypedArrayType(et, forceTypedArrays) && at->getNumElements()>1);
 				stream << "new ";
 				compileTypedArrayType(et);
 				stream << '(' << at->getNumElements() << ')';
@@ -100,7 +100,7 @@ void CheerpWriter::compileSimpleType(Type* t)
 
 uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties)
 {
-	assert(!TypeSupport::isSimpleType(t));
+	assert(!TypeSupport::isSimpleType(t, forceTypedArrays));
 	// Handle complex arrays and objects, they are all literals in JS
 	assert(t->getTypeID() == Type::StructTyID || t->getTypeID() == Type::ArrayTyID);
 
@@ -218,7 +218,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 				else
 					stream << "nullObj";
 			}
-			else if(TypeSupport::isSimpleType(element))
+			else if(TypeSupport::isSimpleType(element, forceTypedArrays))
 				compileSimpleType(element);
 			else if(style == THIS_OBJ)
 				compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, 0);
@@ -249,7 +249,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 		assert(style == LITERAL_OBJ);
 		ArrayType* at=cast<ArrayType>(t);
 		Type* element = at->getElementType();
-		assert(!(types.isTypedArrayType(element, /* forceTypedArray*/ false) && at->getNumElements()>1));
+		assert(!(types.isTypedArrayType(element, forceTypedArrays) && at->getNumElements()>1));
 		// Work around V8 limits on literal array larger than 8 elements
 		if(at->getNumElements() > 8)
 		{
@@ -277,7 +277,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			{
 				if(i!=0)
 					stream << ',';
-				if(TypeSupport::isSimpleType(element))
+				if(TypeSupport::isSimpleType(element, forceTypedArrays))
 					compileSimpleType(element);
 				else
 					numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements);
@@ -290,7 +290,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 
 void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName)
 {
-	if(TypeSupport::isSimpleType(t))
+	if(TypeSupport::isSimpleType(t, forceTypedArrays))
 		compileSimpleType(t);
 	else
 		compileComplexType(t, style, varName, V8MaxLiteralDepth, 0);

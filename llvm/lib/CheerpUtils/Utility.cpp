@@ -409,7 +409,7 @@ std::pair<StructType*, StringRef> TypeSupport::getJSExportedTypeFromMetadata(Str
 	return std::make_pair(t, jsClassName);
 }
 
-bool TypeSupport::isSimpleType(Type* t)
+bool TypeSupport::isSimpleType(Type* t, bool forceTypedArrays)
 {
 	switch(t->getTypeID())
 	{
@@ -430,7 +430,7 @@ bool TypeSupport::isSimpleType(Type* t)
 			ArrayType* at=static_cast<ArrayType*>(t);
 			Type* et=at->getElementType();
 			// When a single typed array object is used, we consider this array as simple
-			if(isTypedArrayType(et, /* forceTypedArray*/ false) && at->getNumElements()>1)
+			if(isTypedArrayType(et, forceTypedArrays) && at->getNumElements()>1)
 				return true;
 			if(TypeSupport::hasByteLayout(t))
 				return true;
@@ -442,7 +442,7 @@ bool TypeSupport::isSimpleType(Type* t)
 	return false;
 }
 
-DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV, const DataLayout* DL ) : call(callV), type( getAllocType(callV) ), castedType(nullptr)
+DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedType(nullptr), forceTypedArrays(forceTypedArrays)
 {
 	if ( isValidAlloc() )
 	{
@@ -586,7 +586,7 @@ bool DynamicAllocInfo::sizeIsRuntime() const
 
 bool DynamicAllocInfo::useCreateArrayFunc() const
 {
-	if( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), /* forceTypedArray*/ false ) )
+	if( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), forceTypedArrays ) )
 	{
 		if( sizeIsRuntime() || type == cheerp_reallocate)
 			return true;
@@ -601,7 +601,7 @@ bool DynamicAllocInfo::useCreatePointerArrayFunc() const
 {
 	if (getCastedType()->getElementType()->isPointerTy() )
 	{
-		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), /* forceTypedArray*/ false ) );
+		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), forceTypedArrays) );
 		return sizeIsRuntime() || type == cheerp_reallocate;
 	}
 	return false;
@@ -609,7 +609,7 @@ bool DynamicAllocInfo::useCreatePointerArrayFunc() const
 
 bool DynamicAllocInfo::useTypedArray() const
 {
-	return TypeSupport::isTypedArrayType( getCastedType()->getElementType(), /* forceTypedArray*/ false );
+	return TypeSupport::isTypedArrayType( getCastedType()->getElementType(), forceTypedArrays);
 }
 
 void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm::Instruction* incoming, llvm::SmallVector<const PHINode*, 4>& orderedPHIs)
