@@ -262,11 +262,11 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			if ( const AllocaInst* AI = dyn_cast<AllocaInst>(&I) )
 			{
 				Type* allocaType = AI->getAllocatedType();
-				visitType(allocaType, /*forceTypedArray*/false );
+				visitType(allocaType, forceTypedArrays);
 			}
 			else if ( ImmutableCallSite(&I).isCall() || ImmutableCallSite(&I).isInvoke() )
 			{
-				DynamicAllocInfo ai (&I, DL);
+				DynamicAllocInfo ai (&I, DL, forceTypedArrays);
 				if ( ai.isValidAlloc() )
 				{
 					if ( ai.useCreateArrayFunc() )

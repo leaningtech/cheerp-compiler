@@ -171,6 +171,9 @@ private:
 	bool hasCreateClosureUsers;
 	bool hasVAArgs;
 	bool hasPointerArrays;
+
+public:
+	bool forceTypedArrays;
 };
 
 inline llvm::Pass * createGlobalDepsAnalyzerPass()
