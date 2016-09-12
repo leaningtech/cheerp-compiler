@@ -479,6 +479,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpNoMathImul->render(Args, CmdArgs);
   if(Arg* cheerpNoCredits = Args.getLastArg(options::OPT_cheerp_no_credits))
     cheerpNoCredits->render(Args, CmdArgs);
+  if(Arg* cheerpForceTypedArrays = Args.getLastArg(options::OPT_cheerp_force_typed_arrays))
+    cheerpForceTypedArrays->render(Args, CmdArgs);
   if(Arg* cheerpReservedNames = Args.getLastArg(options::OPT_cheerp_reserved_names_EQ))
     cheerpReservedNames->render(Args, CmdArgs);
   if(Arg* cheerpBoundsCheck = Args.getLastArg(options::OPT_cheerp_bounds_check))
