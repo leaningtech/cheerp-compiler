@@ -1329,7 +1329,7 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
   // A+B --> A|B iff A and B have no bits set in common.
   // Cheerp: Do not convert an ADD to a bitwise OR because it makes it
   // more difficult to hoist bounds checks out in SpiderMonkey.
-  if (DL->isByteAddressable() && haveNoCommonBitsSet(LHS, RHS, DL, &AC, &I, &DT))
+  if (DL.isByteAddressable() && haveNoCommonBitsSet(LHS, RHS, DL, &AC, &I, &DT))
     return BinaryOperator::CreateOr(LHS, RHS);
 
   // FIXME: We already did a check for ConstantInt RHS above this.
