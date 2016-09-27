@@ -1,3 +1,9 @@
+cheerp-libcxxabi (1.3-1) xenial; urgency=medium
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Tue, 27 Sep 2016 09:48:12 +0200
+
 cheerp-libcxxabi (1.2-1) wily; urgency=medium
 
   * New release
