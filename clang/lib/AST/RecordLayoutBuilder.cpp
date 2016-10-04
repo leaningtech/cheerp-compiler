@@ -1327,9 +1327,12 @@ bool ItaniumRecordLayoutBuilder::verifyDataOnlyUnion(const RecordDecl* RD)
       switch(bt->getKind())
       {
         case BuiltinType::Char_S:
+        case BuiltinType::SChar:
         case BuiltinType::UChar:
         case BuiltinType::WChar_S:
         case BuiltinType::WChar_U:
+        case BuiltinType::Char16:
+        case BuiltinType::Char32:
         case BuiltinType::Short:
         case BuiltinType::UShort:
         case BuiltinType::Int:
