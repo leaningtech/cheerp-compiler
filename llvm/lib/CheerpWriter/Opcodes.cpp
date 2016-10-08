@@ -116,7 +116,7 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 	Type* src=bi->getOperand(0)->getType();
 	Type* dst=bi->getType();
 	//Special case unions
-	if(TypeSupport::hasByteLayout(src->getPointerElementType()) && forEscapingPointer)
+	if(PA.getPointerKind(bi->getOperand(0)) == BYTE_LAYOUT && forEscapingPointer)
 	{
 		//Find the type
 		llvm::Type* elementType = dst->getPointerElementType();
@@ -135,7 +135,7 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 			if(!isa<AllocaInst>(bi->getOperand(0)))
 			{
 				stream << ',';
-				compilePointerOffset(bi->getOperand(0), LOWEST, forEscapingPointer);
+				compilePointerOffset(bi->getOperand(0), LOWEST, false);
 			}
 			stream << ')';
 			return;
@@ -150,7 +150,7 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi)
 	Type* src=bi->getOperand(0)->getType();
 	Type* dst=bi->getType();
 	//Special case unions
-	if(TypeSupport::hasByteLayout(src->getPointerElementType()))
+	if(PA.getPointerKind(bi->getOperand(0)) == BYTE_LAYOUT)
 	{
 		//Find the type
 		llvm::Type* elementType = dst->getPointerElementType();
