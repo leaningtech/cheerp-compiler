@@ -2967,11 +2967,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				compileCheckDefined(ptrOp);
 				stream<<",";
 			}
-			if(li.getType()->isFloatingPointTy())
-			{
-				stream << '+';
-				stream << '(';
-			}
 			if (kind == BYTE_LAYOUT)
 			{
 				//Optimize loads of single values from unions
@@ -3003,8 +2998,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				else
 					stream << '&' << getMaskForBitWidth(width);
 			}
-			else if(li.getType()->isFloatingPointTy())
-				stream << ')';
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 				stream<<')';
 			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
