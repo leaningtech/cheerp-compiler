@@ -515,7 +515,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		
 		uint32_t numElem = compileArraySize(info, /* shouldPrint */false);
 		
-		assert((REGULAR == result || SPLIT_REGULAR == result || BYTE_LAYOUT == result) || numElem == 1);
+		assert((REGULAR == result || SPLIT_REGULAR == result || BYTE_LAYOUT == result) || numElem <= 1);
 
 		if((REGULAR == result || SPLIT_REGULAR == result) && !needsDowncastArray)
 			stream << '[';
@@ -526,6 +526,9 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 			if((i+1) < numElem)
 				stream << ',';
 		}
+
+		if(numElem == 0)
+			stream << "null";
 
 		if(REGULAR == result || SPLIT_REGULAR == result)
 		{
@@ -1093,6 +1096,11 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	if(isa<ConstantPointerNull>(p))
 	{
 		stream << "null";
+		if(offset)
+		{
+			// This will trap anyway, but make sure it's valid code
+			stream << "[0]";
+		}
 		return;
 	}
 
@@ -2278,10 +2286,10 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 	else
 	{
 		// HACK: Accessing members of NULL is invalid, but it is used to compute an offset from the start of a structure
-		// TODO: We need to detect and block this on the clang side. In the mean time, just compile null.
+		// TODO: We need to detect and block this on the clang side. In the mean time, just compile an invalid null access
 		if( isa<ConstantPointerNull>(gep_inst->getOperand(0)) )
 		{
-			stream << "null";
+			stream << "null[0]";
 			return;
 		}
 		compileCompleteObject(gep_inst->getOperand(0), indices.front());
