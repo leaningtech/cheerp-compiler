@@ -2700,7 +2700,7 @@ InlineResult CallAnalyzer::analyze() {
     onBlockAnalyzed(BB);
   }
 
-  bool OnlyOneCallAndLocalLinkage = F.hasLocalLinkage() && F.hasOneLiveUse() &&
+  bool OnlyOneCallAndLocalLinkage = DL.isByteAddressable() && F.hasLocalLinkage() && F.hasOneLiveUse() &&
                                     &F == CandidateCall.getCalledFunction();
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
