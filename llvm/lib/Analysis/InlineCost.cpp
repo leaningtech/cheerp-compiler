@@ -1071,7 +1071,7 @@ public:
 // Return true if CB is the sole call to local function Callee.
 static bool isSoleCallToLocalFunction(const CallBase &CB,
                                       const Function &Callee) {
-  return Callee.hasLocalLinkage() && Callee.hasOneLiveUse() &&
+  return DL.isByteAddressable() && Callee.hasLocalLinkage() && Callee.hasOneLiveUse() &&
          &Callee == CB.getCalledFunction();
 }
 
