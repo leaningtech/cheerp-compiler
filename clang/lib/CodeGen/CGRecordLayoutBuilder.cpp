@@ -702,13 +702,20 @@ void CGRecordLowering::fillOutputFields() {
   for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),
                                                MemberEnd = Members.end();
        Member != MemberEnd; ++Member) {
-    if (!Types.getTarget().isByteAddressable() && Member->Kind == MemberInfo::Base && Member->Offset.isZero())
+    if (!Types.getTarget().isByteAddressable() && Member->Offset.isZero() &&
+		(Member->Kind == MemberInfo::Base ||
+                (Member->Kind == MemberInfo::Field && Member->FD && Member->FD->getType()->isStructureOrClassType() && !D->isUnion())))
     {
       assert(isa<llvm::StructType>(Member->Data));
       llvm::StructType* ST = cast<llvm::StructType>(Member->Data);
       FieldTypes.insert(FieldTypes.end(), ST->element_begin(), ST->element_end());
       DirectBase = ST;
-      DirectBaseLayout = &Types.getCGRecordLayout(Member->RD);
+      if (Member->Kind == MemberInfo::Base)
+        DirectBaseLayout = &Types.getCGRecordLayout(Member->RD);
+      else {
+        DirectBaseLayout = &Types.getCGRecordLayout(cast<RecordDecl>(Member->FD->getType()->getAsTagDecl()));
+        Fields[Member->FD->getCanonicalDecl()] = 0xffffffff;
+      }
       totalNumberOfBases = DirectBaseLayout->totalNumberOfBases;
       continue;
     }
@@ -881,7 +888,7 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
     // AST offset.
     if (!FD->isBitField()) {
       unsigned FieldNo = RL->getLLVMFieldNo(FD);
-      assert(AST_RL.getFieldOffset(i) == SL->getElementOffsetInBits(FieldNo) &&
+      assert(FieldNo == 0xffffffff || AST_RL.getFieldOffset(i) == SL->getElementOffsetInBits(FieldNo) &&
              "Invalid field offset!");
       continue;
     }

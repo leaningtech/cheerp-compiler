@@ -834,7 +834,13 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
     if (!EltInit)
       return false;
 
-    if (!Field->isBitField()) {
+    if (!CGM.getTarget().isByteAddressable() && Field->getFieldIndex() == 0 && Field->getType()->isStructureOrClassType() && !RD->isUnion()) {
+      const RecordDecl* RD = Field->getType()->getAsStructureType()->getDecl();
+      const CXXRecordDecl *CD = dyn_cast<CXXRecordDecl>(RD);
+      assert(Layout.getFieldOffset(FieldNo) == 0);
+      assert(Offset.getQuantity() == 0);
+      Build(FieldValue, RD, CD, Offset);
+    } else if (!Field->isBitField()) {
       // Handle non-bitfield members.
       if (!AppendField(*Field, Layout.getFieldOffset(FieldNo) + OffsetBits,
                        EltInit, AllowOverwrite))
@@ -1313,7 +1319,14 @@ public:
       if(!field)
         return 0;
       unsigned idx=rl.getLLVMFieldNo(field);
-      initializers[idx] = init;
+      if (idx == 0xffffffff)
+      {
+        // This is a structure element that has been merged with this class, we only support zero init for them
+	if(!isa<llvm::ConstantAggregateZero>(init))
+          return 0;
+      }
+      else
+        initializers[idx] = init;
     }
     //Fill NULL values with Null values as required
     for(unsigned i=0;i<initializers.size();i++)
@@ -1903,7 +1916,8 @@ private:
         break;
     }
 
-    C = llvm::ConstantExpr::getGetElementPtr(C, Indexes);
+    if (CurrentType == DestTy->getPointerElementType())
+      C = llvm::ConstantExpr::getGetElementPtr(C, Indexes);
 
     if (OffsetVal == 0)
       return C;

@@ -4450,6 +4450,9 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     if (FieldType->isReferenceType())
       addr = Builder.CreateElementBitCast(
           addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+  } else if (!CGM.getTarget().isByteAddressable() && CGM.getTypes().getCGRecordLayout(rec).getLLVMFieldNo(field) == 0xffffffff) {
+    // Cheerp: If the first member is a struct we want to collapse it into the parent, and we use upcast_collapsed to access it
+    addr = GenerateUpcastCollapsed(addr, CGM.getTypes().ConvertTypeForMem(FieldType)->getPointerTo());
   } else {
     if (!IsInPreservedAIRegion &&
         (!getDebugInfo() || !rec->hasAttr<BPFPreserveAccessIndexAttr>()))
