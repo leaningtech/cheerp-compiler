@@ -3499,7 +3499,7 @@ CheerpWriter::GlobalSubExprInfo CheerpWriter::compileGlobalSubExpr(const GlobalD
 			stream << '[' << u->getOperandNo() << ']';
 			if (it == (subExpr.end()-1) && (*it)->get()->getType()->isPointerTy())
 			{
-				POINTER_KIND elementPointerKind = PA.getPointerKindForStoredType((*it)->get()->getType()->getPointerElementType());
+				POINTER_KIND elementPointerKind = PA.getPointerKindForStoredType((*it)->get()->getType());
 				return GlobalSubExprInfo(elementPointerKind, false);
 			}
 		}
