@@ -548,6 +548,9 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
 	{
 		Value* castedVal = reinterpret_cast<llvm::Value*>(StoredAddr);
 		assert(isa<Function>(castedVal));
+		// Potentially also cast the function to the expected type
+		if(castedVal->getType() != PT)
+			return ConstantExpr::getBitCast(cast<Function>(castedVal), PT);
 		return cast<Function>(castedVal);
 	}
 
