@@ -77,14 +77,14 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 {
 	//Integer subtraction
 	//TODO: optimize negation
-	PARENT_PRIORITY subPrio = lhs->getType()->isIntegerTy(32) ? SHIFT : BIT_AND;
+	PARENT_PRIORITY subPrio = lhs->getType()->isIntegerTy(32) ? BIT_OR : BIT_AND;
 	if(parentPrio > subPrio) stream << '(';
 	// Minus has higher priority than both >> and &
 	compileOperand(lhs, ADD_SUB);
 	stream << '-';
 	compileOperand(rhs, ADD_SUB);
 	if(types.isI32Type(lhs->getType()))
-		stream << ">>0";
+		stream << "|0";
 	else
 		stream << '&' << getMaskForBitWidth(lhs->getType()->getIntegerBitWidth());
 	if(parentPrio > subPrio) stream << ')';

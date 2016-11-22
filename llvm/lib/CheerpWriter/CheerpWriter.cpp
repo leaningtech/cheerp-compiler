@@ -392,7 +392,7 @@ uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shou
 			assert(shouldPrint);
 			// We need to multiply before we divide
 			stream << numElem;
-			stream << ")/" << typeSize << ">>0";
+			stream << ")/" << typeSize << "|0";
 		}
 		else
 		{
@@ -408,7 +408,7 @@ uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shou
 		compileOperand( info.getByteSizeArg() );
 		if(closeMathImul)
 			stream << ')';
-		stream << '/' << typeSize << ">>0";
+		stream << '/' << typeSize << "|0";
 	}
 	assert(shouldPrint);
 	return -1;
@@ -1046,7 +1046,7 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 		{
 			stream << '[';
 			compileOperand(indices[i]);
-			stream << ">>0]";
+			stream << "|0]";
 
 			tp = at->getElementType();
 		}
@@ -1141,7 +1141,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 			{
 				stream << "+";
 				compileOperand(offset, ADD_SUB);
-				stream << ">>0";
+				stream << "|0";
 			}
 		}
 
@@ -1321,12 +1321,12 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 
 void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPrio, bool forEscapingPointer)
 {
-	if(parentPrio >= SHIFT) stream << '(';
+	if(parentPrio >= BIT_OR) stream << '(';
 	if ( PA.getPointerKind(p) == COMPLETE_OBJECT && !isGEP(p) )
 	{
 		// This may still happen when doing ptrtoint of a function
-		stream << "0>>0";
-		if(parentPrio >= SHIFT) stream << ')';
+		stream << "0|0";
+		if(parentPrio >= BIT_OR) stream << ')';
 		return;
 	}
 	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
@@ -1379,10 +1379,10 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 		{
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_cast_user:
-				compilePointerOffset(II->getOperand(0), SHIFT);
+				compilePointerOffset(II->getOperand(0), BIT_OR);
 				return;
 			case Intrinsic::cheerp_make_regular:
-				compileOperand(II->getOperand(1), SHIFT);
+				compileOperand(II->getOperand(1), BIT_OR);
 				break;
 			default:
 				compileOperand(p);
@@ -1393,8 +1393,8 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 		stream << ".o";
 	}
 
-	stream << ">>0";
-	if(parentPrio >= SHIFT) stream << ')';
+	stream << "|0";
+	if(parentPrio >= BIT_OR) stream << ')';
 }
 
 void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
@@ -1714,12 +1714,12 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 		else
 		{
 			if(it->getType()->isIntegerTy(1))
-				if(parentPrio >= SHIFT) stream << '(';
+				if(parentPrio >= BIT_OR) stream << '(';
 			stream << namegen.getName(it);
 			if(it->getType()->isIntegerTy(1))
 			{
-				stream << ">>0";
-				if(parentPrio >= SHIFT) stream << ')';
+				stream << "|0";
+				if(parentPrio >= BIT_OR) stream << ')';
 			}
 		}
 	}
@@ -1951,7 +1951,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		{
 			compileOperand(*cur);
 			if(tp->isIntegerTy())
-				stream << ">>0";
+				stream << "|0";
 		}
 
 		if(F && arg_it != F->arg_end())
@@ -1999,7 +1999,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 					stream << "return ";
 					compileOperand(retVal, LOWEST);
 					if(retVal->getType()->isIntegerTy())
-						stream << ">>0";
+						stream << "|0";
 				}
 			}
 			else
@@ -2356,7 +2356,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
 		{
 			stream << ")+(";
 			compileOperand(indices.front());
-			stream << ">>0)";
+			stream << "|0)";
 		}
 	}
 	else
@@ -2429,12 +2429,13 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 			stream << C->getSExtValue();
 		return;
 	}
-	if(parentPrio >= SHIFT) stream << '(';
+	PARENT_PRIORITY signedPrio = shiftAmount == 0 ? BIT_OR : SHIFT;
+	if(parentPrio >= signedPrio) stream << '(';
 	if(shiftAmount==0)
 	{
 		//Use simpler code
-		compileOperand(v, SHIFT);
-		stream << ">>0";
+		compileOperand(v, BIT_OR);
+		stream << "|0";
 	}
 	else if(forComparison)
 	{
@@ -2447,7 +2448,7 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 		compileOperand(v, SHIFT);
 		stream << "<<" << shiftAmount << ">>" << shiftAmount;
 	}
-	if(parentPrio >= SHIFT) stream << ')';
+	if(parentPrio >= signedPrio) stream << ')';
 }
 
 void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY parentPrio)
@@ -2493,25 +2494,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FPToSI:
 		{
 			const CastInst& ci = cast<CastInst>(I);
-			if(parentPrio >= SHIFT) stream << '(';
-			compileOperand(ci.getOperand(0), SHIFT);
+			if(parentPrio >= BIT_OR) stream << '(';
+			compileOperand(ci.getOperand(0), BIT_OR);
 			//Seems to be the fastest way
 			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
-			stream << ">>0";
-			if(parentPrio >= SHIFT) stream << ')';
+			stream << "|0";
+			if(parentPrio >= BIT_OR) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FPToUI:
 		{
 			// TODO: When we will keep track of signedness to avoid useless casts we will need to fix this
 			const CastInst& ci = cast<CastInst>(I);
-			if(parentPrio >= SHIFT) stream << '(';
-			compileOperand(ci.getOperand(0), SHIFT);
+			if(parentPrio >= BIT_OR) stream << '(';
+			compileOperand(ci.getOperand(0), BIT_OR);
 			//Cast to signed anyway
 			//ECMA-262 guarantees that (a >> 0) >>> 0
 			//is the same as (a >>> 0)
-			stream << ">>0";
-			if(parentPrio >= SHIFT) stream << ')';
+			stream << "|0";
+			if(parentPrio >= BIT_OR) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SIToFP:
@@ -2552,13 +2553,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Add:
 		{
 			//Integer addition
-			PARENT_PRIORITY addPrio = I.getType()->isIntegerTy(32) ? SHIFT : BIT_AND;
+			PARENT_PRIORITY addPrio = I.getType()->isIntegerTy(32) ? BIT_OR : BIT_AND;
 			if(parentPrio >= addPrio) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << "+";
 			compileOperand(I.getOperand(1), ADD_SUB);
 			if(types.isI32Type(I.getType()))
-				stream << ">>0";
+				stream << "|0";
 			else
 				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
 			if(parentPrio >= addPrio) stream << ')';
@@ -2617,46 +2618,46 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::SDiv:
 		{
 			//Integer signed division
-			if(parentPrio >= SHIFT) stream << '(';
+			if(parentPrio >= BIT_OR) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '/';
 			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
-			stream << ">>0";
-			if(parentPrio >= SHIFT) stream << ')';
+			stream << "|0";
+			if(parentPrio >= BIT_OR) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::UDiv:
 		{
 			//Integer unsigned division
-			if(parentPrio >= SHIFT) stream << '(';
+			if(parentPrio >= BIT_OR) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
 			stream << '/';
 			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
 			//Result is already unsigned
-			stream << ">>0";
-			if(parentPrio >= SHIFT) stream << ')';
+			stream << "|0";
+			if(parentPrio >= BIT_OR) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SRem:
 		{
 			//Integer signed remainder
-			if(parentPrio >= SHIFT) stream << '(';
+			if(parentPrio >= BIT_OR) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '%';
 			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
-			stream << ">>0";
-			if(parentPrio >= SHIFT) stream << ')';
+			stream << "|0";
+			if(parentPrio >= BIT_OR) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::URem:
 		{
 			//Integer unsigned remainder
-			if(parentPrio >= SHIFT) stream << '(';
+			if(parentPrio >= BIT_OR) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
 			stream << '%';
 			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
-			stream << ">>0";
-			if(parentPrio >= SHIFT) stream << ')';
+			stream << "|0";
+			if(parentPrio >= BIT_OR) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FDiv:
@@ -2682,7 +2683,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Mul:
 		{
 			//Integer signed multiplication
-			PARENT_PRIORITY mulPrio = I.getType()->isIntegerTy(32) ? (useMathImul ? HIGHEST : SHIFT ) : BIT_AND;
+			PARENT_PRIORITY mulPrio = I.getType()->isIntegerTy(32) ? (useMathImul ? HIGHEST : BIT_OR ) : BIT_AND;
 			if(parentPrio >= mulPrio) stream << '(';
 			if(useMathImul)
 			{
@@ -2701,7 +2702,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(!types.isI32Type(I.getType()))
 				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
 			else if(!useMathImul)
-				stream << ">>0";
+				stream << "|0";
 			if(parentPrio >= mulPrio) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3002,7 +3003,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				uint32_t width = li.getType()->getIntegerBitWidth();
 				// 32-bit integers are all loaded as signed, other integers as unsigned
 				if(width==32)
-					stream << ">>0";
+					stream << "|0";
 				else
 					stream << '&' << getMaskForBitWidth(width);
 			}
