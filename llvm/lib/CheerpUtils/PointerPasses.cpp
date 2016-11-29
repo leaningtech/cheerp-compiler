@@ -552,6 +552,9 @@ bool FreeAndDeleteRemoval::runOnFunction(Function& F)
 {
 	bool Changed = false;
 
+	if (F.getSection()==StringRef("asmjs"))
+		return false;
+
 	for ( BasicBlock& BB : F )
 	{
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
