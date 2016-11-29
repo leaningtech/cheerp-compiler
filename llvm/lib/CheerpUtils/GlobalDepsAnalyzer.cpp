@@ -35,7 +35,7 @@ const char* GlobalDepsAnalyzer::getPassName() const
 }
 
 GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), DL(NULL), TLI(NULL), entryPoint(NULL),
-	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false), forceTypedArrays(false)
+	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false), hasAsmJS(false), forceTypedArrays(false)
 {
 }
 
@@ -246,6 +246,9 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 {
 	VisitedSet NewvisitPath;
 
+	bool isAsmJS = F->getSection() == StringRef("asmjs");
+	if (isAsmJS)
+		hasAsmJS = true;
 	for ( const BasicBlock & bb : *F )
 		for (const Instruction & I : bb)
 		{
@@ -277,7 +280,31 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						visitStruct(ST);
 				}
 			}
-				
+			// Handle calls from asmjs module to outside and vice-versa
+			if (isa<CallInst>(I))
+			{
+				const CallInst& ci = cast<CallInst>(I);
+				const Function * calledFunc = ci.getCalledFunction();
+				// calledFunc can be null, but if the calledValue is a bitcast,
+				// this can still be a direct call
+				if (calledFunc == nullptr && isBitCast(ci.getCalledValue()))
+				{
+					const llvm::User* bc = cast<llvm::User>(ci.getCalledValue());
+					calledFunc = dyn_cast<Function>(bc->getOperand(0));
+				}
+				// Direct call
+				if (calledFunc && !calledFunc->isIntrinsic())
+				{
+					bool calleeIsAsmJS = calledFunc->getSection() == StringRef("asmjs");
+					// asm.js function called from outside
+					if (calleeIsAsmJS && !isAsmJS)
+						asmJSExportedFuncions.insert(calledFunc);
+					// normal function called from asm.js (exclude client globals for now)
+					else if (!calleeIsAsmJS && isAsmJS && !TypeSupport::isClientGlobal(calledFunc))
+						asmJSImportedFuncions.insert(calledFunc);
+				}
+				// TODO: Handle indirect calls if possible
+			}
 			if (I.getOpcode() == Instruction::VAArg)
 				hasVAArgs = true;
 		}
