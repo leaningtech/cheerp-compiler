@@ -211,33 +211,47 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	typedef std::pair<unsigned, std::vector<const Value *> > useValuesPair;
 	typedef std::vector<useValuesPair> useValuesVec;
 	typedef std::pair<unsigned, std::vector<InstOnEdge> > useInstsOnEdgePair;
-	typedef std::vector<useInstsOnEdgePair> useInstsOnEdgeVec;
+
+	// compare the pair based on the first element only
+	struct weak_compare
+	{
+		bool operator() (const useInstsOnEdgePair& r, const useInstsOnEdgePair& l)
+		{
+			return r.first > r.first;
+		}
+	};
+	typedef std::multiset<useInstsOnEdgePair,weak_compare> useInstsOnEdgeSet;
+	typedef std::map<Registerize::REGISTER_KIND,uint32_t> typedPHIIndex;
+	typedef std::map<typename typedPHIIndex::value_type, useInstsOnEdgePair> useInstsOnEdgeMap;
         
 	// Class to handle giving names to temporary variables needed for recursively dependent PHIs
 	class CompressedPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		CompressedPHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n, useInstsOnEdgeVec& a ):
-			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n), allTmpPHIs(a), nextIndex(0)
+		CompressedPHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n, useInstsOnEdgeMap& a ):
+			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n), allTypedTmpPHIs(a)
 		{
 		}
 	private:
 		const BasicBlock* fromBB;
 		const BasicBlock* toBB;
 		NameGenerator& namegen;
-		useInstsOnEdgeVec& allTmpPHIs;
-		uint32_t nextIndex;
+		useInstsOnEdgeMap& allTypedTmpPHIs;
+		typedPHIIndex nextIndex;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			uint32_t regId=namegen.registerize.getRegisterId(incoming);
+			// At the moment Registerize reuse registers for tmpphis of different kinds,
+			// so we need to explicitly assign different names to different kinds
+			Registerize::REGISTER_KIND phiKind = Registerize::getRegKindFromType(incoming->getType());
 			// We don't know exactly how many times the tmpphi is going to be used in this edge
 			// but assume 1. We increment the usage count for the first not already used tmpphi
-			// and add the InstOnEdge to its list
-			if (nextIndex >= allTmpPHIs.size())
-				allTmpPHIs.resize(nextIndex+1);
-			allTmpPHIs[nextIndex].first++;
-			allTmpPHIs[nextIndex].second.emplace_back(InstOnEdge(fromBB, toBB, regId));
-			nextIndex++;
+			// for this register kind and add the InstOnEdge to its list
+			typename typedPHIIndex::iterator phiIt;
+			std::tie(phiIt,std::ignore) = nextIndex.emplace(phiKind,0);
+			allTypedTmpPHIs[*phiIt].first++;
+			allTypedTmpPHIs[*phiIt].second.emplace_back(InstOnEdge(fromBB, toBB, regId));
+			phiIt->second++;
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
@@ -254,10 +268,10 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	 */
         
 	useValuesVec allLocalValues;
-	useInstsOnEdgeVec allTmpPHIs;
+	useInstsOnEdgeMap allTypedTmpPHIs;
         
 	/**
-	 * Sort the global values by number of uses
+	 * We use a std::set to automatically sort the global values by number of uses
 	 */
 	std::set< useValuePair, std::greater< useValuePair > > allGlobalValues;
 
@@ -306,7 +320,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			for(uint32_t i=0;i<term->getNumSuccessors();i++)
 			{
 				const BasicBlock* succBB=term->getSuccessor(i);
-				CompressedPHIHandler(&bb, succBB, *this, allTmpPHIs).runOnEdge(registerize, &bb, succBB);
+				CompressedPHIHandler(&bb, succBB, *this, allTypedTmpPHIs).runOnEdge(registerize, &bb, succBB);
 			}
 		}
 
@@ -354,6 +368,14 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		allGlobalValues.emplace( GV.getNumUses(), &GV );
 	}
 
+	// flatten the map to a multiset ordered by the number of uses
+	// we use a multiset because there can be different elements that compare equals
+	useInstsOnEdgeSet allTmpPHIs;
+	for (const auto& phi: allTypedTmpPHIs)
+	{
+		allTmpPHIs.emplace(phi.second);
+	}
+
 	/**
 	 * Now generate the names and fill the namemap.
 	 * 
@@ -368,7 +390,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	
 	std::set< useValuePair >::const_iterator global_it = allGlobalValues.begin();
 	useValuesVec::const_iterator local_it = allLocalValues.begin();
-	useInstsOnEdgeVec::const_iterator tmpphi_it = allTmpPHIs.begin();
+	useInstsOnEdgeSet::const_iterator tmpphi_it = allTmpPHIs.begin();
 
 	bool globalsFinished = global_it == allGlobalValues.end();
 	bool localsFinished = local_it == allLocalValues.end();
@@ -453,11 +475,27 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			uint32_t regId=namegen.registerize.getRegisterId(incoming);
+			// At the moment Registerize reuse registers for tmpphis of different kinds,
+			// so we need to explicitly assign different names to different kinds
+			Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(incoming->getType());
+			const char* kindStr;
+			switch (kind)
+			{
+				case Registerize::REGISTER_KIND::OBJECT:
+					kindStr = "tmpphio";
+					break;
+				case Registerize::REGISTER_KIND::INTEGER:
+					kindStr = "tmpphii";
+					break;
+				case Registerize::REGISTER_KIND::DOUBLE:
+					kindStr = "tmpphid";
+					break;
+			}
 			namegen.edgeNamemap.emplace(InstOnEdge(fromBB, toBB, regId),
-							StringRef( "tmpphi" + std::to_string(nextIndex)));
+							StringRef( kindStr + std::to_string(nextIndex)));
 			// TODO: Only use secondary when necessary
 			namegen.edgeSecondaryNamemap.emplace(InstOnEdge(fromBB, toBB, regId),
-							StringRef( "tmpphi" + std::to_string(nextIndex++) + "o"));
+							StringRef( kindStr + std::to_string(nextIndex++) + "o"));
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
