@@ -72,6 +72,16 @@ public:
 	const std::unordered_set<llvm::Type*> & dynAllocArrays() const { return arraysNeeded; }
 	
 	/**
+	 * Get a list of the asm.js functions called from outside
+	 */
+	const std::unordered_set<const llvm::Function*> & asmJSExports() const { return asmJSExportedFuncions; }
+
+	/**
+	 * Get a list of the normal functions called from asm.js
+	 */
+	const std::unordered_set<const llvm::Function*> & asmJSImports() const { return asmJSImportedFuncions; }
+
+	/**
 	 * Get the list of constructors (static initializers) required by the program
 	 */
 	const std::vector<const llvm::Function*> & constructors() const { return constructorsNeeded; }
@@ -95,6 +105,11 @@ public:
 	 * Determine if we need to compile a createPointerArrays function
 	 */
 	bool needCreatePointerArray() const { return hasPointerArrays; }
+
+	/**
+	 * Determine if we need to compile the asm.js module
+	 */
+	bool needAsmJS() const { return hasAsmJS; }
 	
 	bool runOnModule( llvm::Module & ) override;
 
@@ -157,6 +172,8 @@ private:
 	std::unordered_set<llvm::StructType* > classesWithBaseInfoNeeded;
 	std::unordered_set<llvm::StructType* > classesNeeded;
 	std::unordered_set<llvm::Type* > arraysNeeded;
+	std::unordered_set<const llvm::Function* > asmJSExportedFuncions;
+	std::unordered_set<const llvm::Function* > asmJSImportedFuncions;
 	std::vector< const llvm::Function* > constructorsNeeded;
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;
@@ -171,6 +188,7 @@ private:
 	bool hasCreateClosureUsers;
 	bool hasVAArgs;
 	bool hasPointerArrays;
+	bool hasAsmJS;
 
 public:
 	bool forceTypedArrays;
