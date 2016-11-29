@@ -542,6 +542,9 @@ static GlobalVariable *SRAGlobal(GlobalVariable *GV, const DataLayout &DL) {
         ElTy, false, GlobalVariable::InternalLinkage, In,
         GV->getName() + "." + Twine(ElementIdx), GV->getThreadLocalMode(),
         GV->getType()->getAddressSpace());
+    // CHEERP: this is needed to propagate the "asmjs" section. It is probably
+    // a good idea in general, so we will do it for any section.
+    NGV->setSection(GV->getSection());
     NGV->setExternallyInitialized(GV->isExternallyInitialized());
     NGV->copyAttributesFrom(GV);
     NewGlobals.insert(std::make_pair(ElementIdx, NGV));
@@ -1664,6 +1667,9 @@ static bool TryToShrinkGlobalToBoolean(GlobalVariable *GV, Constant *OtherVal) {
                                              GV->getType()->getAddressSpace());
   NewGV->copyAttributesFrom(GV);
   GV->getParent()->getGlobalList().insert(GV->getIterator(), NewGV);
+  // CHEERP: this is needed to propagate the "asmjs" section. It is probably
+  // a good idea in general, so we will do it for any section.
+  NewGV->setSection(GV->getSection());
 
   Constant *InitVal = GV->getInitializer();
   assert(InitVal->getType() != Type::getInt1Ty(GV->getContext()) &&
