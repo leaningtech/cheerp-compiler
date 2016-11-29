@@ -453,6 +453,10 @@ DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV, const DataLayout* D
 
 DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( ImmutableCallSite callV )
 {
+	// The alloc type is always not_an_alloc in asmjs, since we don't need
+	// thr DynamicAllocInfo functionality
+	if (callV->getParent()->getParent()->getSection() == StringRef("asmjs"))
+		return not_an_alloc;
 	if (callV.isCall() || callV.isInvoke() )
 	{
 		if (const Function * f = callV.getCalledFunction() )
