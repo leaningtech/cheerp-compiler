@@ -372,6 +372,7 @@ static bool collectSRATypes(DenseMap<uint64_t, Type *> &Types, GlobalValue *GV,
 
       // TODO: We currently require that all accesses at a given offset must
       // use the same type. This could be relaxed.
+      // CHEERP: This is important
       Type *Ty = getLoadStoreType(V);
       auto It = Types.try_emplace(Offset.getZExtValue(), Ty).first;
       if (Ty != It->second)
@@ -523,6 +524,7 @@ static GlobalVariable *SRAGlobal(GlobalVariable *GV, const DataLayout &DL) {
         Initializers[Offset], GV->getName() + "." + Twine(NameSuffix++), GV,
         GV->getThreadLocalMode(), GV->getAddressSpace());
     NGV->copyAttributesFrom(GV);
+    NGV->setSection(GV->getSection());
     NewGlobals.insert({Offset, NGV});
 
     // Calculate the known alignment of the field.  If the original aggregate
@@ -874,6 +876,9 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
       *GV->getParent(), GlobalType, false, GlobalValue::InternalLinkage,
       UndefValue::get(GlobalType), GV->getName() + ".body", nullptr,
       GV->getThreadLocalMode());
+  // CHEERP: this is needed to propagate the "asmjs" section. It is probably
+  // a good idea in general, so we will do it for any section.
+  NewGV->setSection(GV->getSection());
 
   // Initialize the global at the point of the original call.  Note that this
   // is a different point from the initialization referred to below for the
@@ -1159,6 +1164,9 @@ static bool TryToShrinkGlobalToBoolean(GlobalVariable *GV, Constant *OtherVal) {
                                              GV->getType()->getAddressSpace());
   NewGV->copyAttributesFrom(GV);
   GV->getParent()->getGlobalList().insert(GV->getIterator(), NewGV);
+  // CHEERP: this is needed to propagate the "asmjs" section. It is probably
+  // a good idea in general, so we will do it for any section.
+  NewGV->setSection(GV->getSection());
 
   Constant *InitVal = GV->getInitializer();
   assert(InitVal->getType() != Type::getInt1Ty(GV->getContext()) &&
