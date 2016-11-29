@@ -174,6 +174,8 @@ private:
 	bool addCredits;
 	// Flag to signal if we should add code that measures time until main is reached
 	bool measureTimeToMain;
+	// The asm.js module heap size
+	uint32_t heapSize;
 	// Flag to signal if we should add bounds-checking code for arrays
 	bool checkBounds;
 	// Flag to signal if we should add defined member checking code for objects
@@ -389,11 +391,13 @@ public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
 	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, const std::vector<std::string>& reservedNames, bool ReadableOutput,
-	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits, bool measureTimeToMain, bool CheckBounds, bool CheckDefined, bool forceTypedArrays):
+	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits, bool measureTimeToMain,
+	             unsigned HeapSize, bool CheckBounds, bool CheckDefined, bool forceTypedArrays):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, reservedNames, ReadableOutput),types(m),
 		sourceMapGenerator(sourceMapGenerator),NewLine(),useNativeJavaScriptMath(UseNativeJavaScriptMath),
-		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),checkBounds(CheckBounds),checkDefined(CheckDefined),forceTypedArrays(forceTypedArrays),stream(s, sourceMapGenerator, ReadableOutput)
+		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),
+	        heapSize(HeapSize),checkBounds(CheckBounds),checkDefined(CheckDefined),forceTypedArrays(forceTypedArrays),stream(s, sourceMapGenerator, ReadableOutput)
 	{
 	}
 	void makeJS();
