@@ -50,6 +50,8 @@ static cl::opt<bool> ForceTypedArrays("cheerp-force-typed-arrays", cl::desc("Use
 
 static cl::list<std::string> ReservedNames("cheerp-reserved-names", cl::value_desc("list"), cl::desc("A list of JS identifiers that should not be used by Cheerp"), cl::CommaSeparated);
 
+static cl::opt<unsigned> CheerpAsmJSHeapSize("cheerp-asmjs-heap-size", cl::init(1), cl::desc("Desired heap size for the cheerp asmjs module (in MB)") );
+
 static cl::opt<bool> BoundsCheck("cheerp-bounds-check", cl::desc("Generate debug code for bounds-checking arrays") );
 static cl::opt<bool> DefinedCheck("cheerp-defined-members-check", cl::desc("Generate debug code for checking if accessed object members are defined") );
 
@@ -101,8 +103,8 @@ bool CheerpWritePass::runOnModule(Module& M)
   std::sort(reservedNames.begin(), reservedNames.end());
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, reservedNames,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
-          !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain, BoundsCheck, DefinedCheck,
-          ForceTypedArrays);
+          !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
+          BoundsCheck, DefinedCheck, ForceTypedArrays);
   writer.makeJS();
   delete sourceMapGenerator;
   return false;
