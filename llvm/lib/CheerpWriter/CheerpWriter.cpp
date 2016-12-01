@@ -2948,6 +2948,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
 				if(cf!=COMPILE_UNSUPPORTED)
 					return cf;
+				// handle calls to asm.js functions
+				if (globalDeps.asmJSExports().count(calledFunc) == 1)
+					stream << "__asm.";
 				stream << namegen.getName(calledFunc);
 			}
 			else
@@ -3769,13 +3772,40 @@ void CheerpWriter::makeJS()
 		// compile boilerplate
 		stream << "function asmJS(stdlib, ffi, heap){" << NewLine;
 		stream << "\"use asm\";" << NewLine;
+		for (const Function* imported: globalDeps.asmJSImports())
+		{
+			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
+		}
+		for ( const Function & F : module.getFunctionList() )
+		{
+			if (!F.empty() && F.getSection() == StringRef("asmjs"))
+			{
+				compileMethod(F);
+			}
+		}
 		
 		stream << "return {" << NewLine;
+		// if entry point is in asm.js, explicitly export it
+		if ( const Function * entryPoint = globalDeps.getEntryPoint())
+		{
+			if (entryPoint->getSection() == StringRef("asmjs"))
+				stream << namegen.getName(entryPoint) << ':' << namegen.getName(entryPoint) << ',' << NewLine;
+		}
+		for (const Function* exported: globalDeps.asmJSExports())
+		{
+			StringRef name = namegen.getName(exported);
+			stream << name << ':' << name << ',' << NewLine;
+		}
 		stream << "};" << NewLine;
 		stream << "};" << NewLine;
 		stream << "var heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 		stream << "var " << heapNames[HEAP8] << "= new " << typedArrayNames[HEAP8] << "(heap);" << NewLine;
 		stream << "var ffi = {" << NewLine;
+		for (const Function* imported: globalDeps.asmJSImports())
+		{
+			StringRef name = namegen.getName(imported);
+			stream << name << ':' << name << ',' << NewLine;
+		}
 		stream << "};" << NewLine;
 		stream << "var stdlib = {"<<NewLine;
 		stream << "};" << NewLine;
@@ -3783,7 +3813,7 @@ void CheerpWriter::makeJS()
 	}
 
 	for ( const Function & F : module.getFunctionList() )
-		if (!F.empty())
+		if (!F.empty() && F.getSection() != StringRef("asmjs"))
 		{
 #ifdef CHEERP_DEBUG_POINTERS
 			dumpAllPointers(F, PA);
@@ -3825,7 +3855,11 @@ void CheerpWriter::makeJS()
 
 	//Invoke the entry point
 	if ( const Function * entryPoint = globalDeps.getEntryPoint() )
+	{
+		if (entryPoint->getSection() == StringRef("asmjs"))
+			stream << "__asm.";
 		stream << namegen.getName(entryPoint) << "();" << NewLine;
+	}
 
 	if (makeModule) {
 		if (!exportedClassNames.empty()) {
