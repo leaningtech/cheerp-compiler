@@ -67,6 +67,7 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper& rhs
 	PointerKindWrapper& lhs=*this;
 
 	assert(lhs!=BYTE_LAYOUT && rhs!=BYTE_LAYOUT);
+	assert(lhs!=RAW && rhs!=RAW);
 	
 	// Handle 1
 	if (lhs==REGULAR || rhs==REGULAR)
@@ -332,6 +333,7 @@ struct PointerUsageVisitor
 
 	PointerKindWrapper& visitValue(PointerKindWrapper& ret, const Value* v, bool first);
 	PointerKindWrapper& visitUse(PointerKindWrapper& ret, const Use* U);
+	static bool visitRawChain ( const Value * v );
 	static bool visitByteLayoutChain ( const Value * v );
 	static POINTER_KIND getKindForType(Type*);
 
@@ -385,6 +387,34 @@ struct PointerResolverForKindVisitor: public PointerResolverBaseVisitor<PointerK
 	void cacheResolvedConstraint(const IndirectPointerKindConstraint& c, const PointerKindWrapper& d);
 };
 
+bool PointerUsageVisitor::visitRawChain( const Value * p)
+{
+	// ignore geps and bitcasts
+	while ( isGEP(p) || isBitCast(p) )
+	{
+		const User* u = cast<User>(p);
+		p = u->getOperand(0);
+	}
+	const GlobalValue* top = nullptr;
+	if (isa<Instruction>(p))
+	{
+		top = cast<Instruction>(p)->getParent()->getParent();
+	}
+	else if (isa<Argument>(p) )
+	{
+		top = cast<Argument>(p)->getParent();
+	}
+	else if (isa<GlobalValue>(p))
+	{
+		top = cast<GlobalValue>(p);
+	}
+	if (top && top->getSection() == StringRef("asmjs"))
+	{
+		return true;
+	}
+	return false;
+}
+
 bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 {
 	if ( TypeSupport::hasByteLayout(p->getType()->getPointerElementType()) )
@@ -431,6 +461,12 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 {
 	if (p->getType()->isPointerTy())
 	{
+		if (visitRawChain(p))
+		{
+			if (isa<Argument>(p))
+				pointerKindData.argsMap.insert( std::make_pair(p, RAW ) );
+			return pointerKindData.valueMap.insert( std::make_pair(p, RAW ) ).first->second;
+		}
 		if (visitByteLayoutChain(p))
 			return pointerKindData.valueMap.insert( std::make_pair(p, BYTE_LAYOUT ) ).first->second;
 		else if(getKindForType(p->getType()->getPointerElementType()) == COMPLETE_OBJECT)
