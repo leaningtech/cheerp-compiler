@@ -3763,7 +3763,25 @@ void CheerpWriter::makeJS()
 
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
-	
+
+	if (globalDeps.needAsmJS())
+	{
+		// compile boilerplate
+		stream << "function asmJS(stdlib, ffi, heap){" << NewLine;
+		stream << "\"use asm\";" << NewLine;
+		
+		stream << "return {" << NewLine;
+		stream << "};" << NewLine;
+		stream << "};" << NewLine;
+		stream << "var heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
+		stream << "var " << heapNames[HEAP8] << "= new " << typedArrayNames[HEAP8] << "(heap);" << NewLine;
+		stream << "var ffi = {" << NewLine;
+		stream << "};" << NewLine;
+		stream << "var stdlib = {"<<NewLine;
+		stream << "};" << NewLine;
+		stream << "var __asm = asmJS(stdlib, ffi, heap);" << NewLine;
+	}
+
 	for ( const Function & F : module.getFunctionList() )
 		if (!F.empty())
 		{

@@ -27,6 +27,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include <set>
 #include <map>
+#include <array>
 
 namespace cheerp
 {
@@ -145,8 +146,9 @@ const static int V8MaxLiteralProperties = 8;
 class CheerpWriter
 {
 public:
-	enum PARENT_PRIORITY { LOWEST = 0, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
+	enum PARENT_PRIORITY { LOWEST = 0, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST, COERCION };
 private:
+	enum HEAP_TYPE {HEAP8=0, HEAP16, HEAP32, HEAPF32, HEAPF64};
 
 	llvm::Module& module;
 	llvm::DataLayout targetData;
@@ -158,6 +160,8 @@ private:
 	NameGenerator namegen;
 	TypeSupport types;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
+	const std::array<const char*,5> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array"}};
+	const std::array<const char*,5> heapNames = {{"HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64"}};
 
 	// Support for source maps
 	SourceMapGenerator* sourceMapGenerator;
