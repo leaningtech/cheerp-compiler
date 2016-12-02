@@ -348,6 +348,7 @@ private:
 	 */
 	GlobalSubExprInfo compileGlobalSubExpr(const GlobalDepsAnalyzer::SubExprVec& subExpr);
 	void compileGlobal(const llvm::GlobalVariable& G);
+	void compileParamTypeAnnotationsAsmJS(const llvm::Function* F);
 	void compileNullPtrs();
 	void compileCreateClosure();
 	void compileHandleVAArg();
