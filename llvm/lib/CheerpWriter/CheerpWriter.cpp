@@ -1688,6 +1688,13 @@ void CheerpWriter::compileConstant(const Constant* c)
 
 void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bool allowBooleanObjects)
 {
+	if (parentPrio == COERCION)
+	{
+		stream << '(';
+		if (v->getType()->isFloatingPointTy())
+			stream << '+';
+		stream << '(';
+	}
 	if(const Constant* c=dyn_cast<Constant>(v))
 		compileConstant(c);
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
@@ -1741,6 +1748,16 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	{
 		llvm::errs() << "No name for value ";
 		v->dump();
+	}
+	if (parentPrio == COERCION)
+	{
+		stream << ')';
+		if (v->getType()->isIntegerTy() ||
+			(v->getType()->isPointerTy() && PA.getPointerKind(v) == RAW))
+		{
+			stream << "|0";
+		}
+		stream << ')';
 	}
 }
 
