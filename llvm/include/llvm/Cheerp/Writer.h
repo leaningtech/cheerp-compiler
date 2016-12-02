@@ -418,6 +418,9 @@ public:
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 	// returns the amount of shift required for the selected heap
 	int compileHeapForType(llvm::Type* et);
+	void compileStackFrame();
+	void compileStackRet();
+	void compileAllocaAsmJS(uint32_t size, uint32_t alignment);
 	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr);
 	/**
 	 * Compile a bound-checking statement on REGULAR or SPLIT_REGULAR pointer

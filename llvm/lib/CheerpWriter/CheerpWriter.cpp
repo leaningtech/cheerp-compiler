@@ -2081,6 +2081,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
  */
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstruction(const TerminatorInst& I)
 {
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	switch(I.getOpcode())
 	{
 		case Instruction::Ret:
@@ -2089,6 +2090,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			assert(I.getNumSuccessors()==0);
 			Value* retVal = ri.getReturnValue();
 
+			if (asmjs)
+			{
+				compileStackRet();
+				// NOTE: This is needed because we are adding an extra return at the end of
+				//       the function, and the asm.js validator does not like if it is never
+				//       reachable. In this way we trick it.
+				stream << "if (1) ";
+			}
 			if(retVal)
 			{
 				if(retVal->getType()->isPointerTy())
@@ -2175,11 +2184,38 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableInstruction(const Instruction& I, PARENT_PRIORITY parentPrio)
 {
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	switch(I.getOpcode())
 	{
 		case Instruction::Alloca:
 		{
 			const AllocaInst* ai = cast<AllocaInst>(&I);
+			if (asmjs)
+			{
+				Type* allocTy = ai->getAllocatedType();
+				uint32_t size = targetData.getTypeAllocSize(allocTy);
+				uint32_t alignment;
+				// it the allocated type is an array, look at the element type
+				while (allocTy->isArrayTy())
+				{
+					allocTy = allocTy->getArrayElementType();
+				}
+				// NOTE: we could compute the real minimum alignment with a
+				//       recursive scan of the struct, but instead we just
+				//       align to 8 bytes
+				if (allocTy->isStructTy())
+				{
+					alignment = 8;
+				}
+				else
+				{
+					alignment = targetData.getTypeAllocSize(allocTy);
+				}
+
+				assert((alignment & (alignment-1)) == 0 && "alignment must be power of 2");
+				compileAllocaAsmJS(size,alignment);
+				return COMPILE_OK;
+			}
 			//V8: If the variable is passed to a call make sure that V8 does not try to SROA it
 			//This can be a problem if this function or one of the called ones is deoptimized,
 			//as the SROA-ed object will then be materialied with a pessimized hidden type map
@@ -3529,6 +3565,8 @@ void CheerpWriter::compileMethod(const Function& F)
 	if(F.size()==1)
 	{
 		compileMethodLocals(F, false);
+		if (asmjs)
+			compileStackFrame();
 		compileBB(*F.begin());
 	}
 	else
@@ -3622,6 +3660,8 @@ void CheerpWriter::compileMethod(const Function& F)
 
 		CheerpRenderInterface ri(this, NewLine);
 		compileMethodLocals(F, rl->needsLabel());
+		if (asmjs)
+			compileStackFrame();
 		rl->Render(&ri);
 	}
 
@@ -3845,6 +3885,22 @@ void CheerpWriter::compileCheckDefined(const Value* p)
 	stream<<")";
 }
 
+void CheerpWriter::compileStackFrame()
+{
+	// NOTE: the stack frame always starts with 8 byte alignment
+	stream<< "var __savedStack=0;__savedStack=__stackPtr;__stackPtr=__stackPtr&0xfffffff8;"<<NewLine;
+}
+void CheerpWriter::compileStackRet()
+{
+	stream<< "__stackPtr=__savedStack;"<<NewLine;
+}
+void CheerpWriter::compileAllocaAsmJS(uint32_t size, uint32_t alignment)
+{
+	// NOTE: the `and` operation ensures the proper alignment
+	stream << "(__stackPtr-"<<size<<")&" << uint32_t(0-alignment) << ';' <<NewLine;
+	stream << "__stackPtr=(__stackPtr-"<<size<<")&" << uint32_t(0-alignment);
+}
+
 void CheerpWriter::makeJS()
 {
 	if (sourceMapGenerator) {
@@ -3912,6 +3968,7 @@ void CheerpWriter::makeJS()
 		// compile boilerplate
 		stream << "function asmJS(stdlib, ffi, heap){" << NewLine;
 		stream << "\"use asm\";" << NewLine;
+		stream << "var __stackPtr=ffi.heapSize|0;" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
@@ -3941,6 +3998,7 @@ void CheerpWriter::makeJS()
 		stream << "var heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 		stream << "var " << heapNames[HEAP8] << "= new " << typedArrayNames[HEAP8] << "(heap);" << NewLine;
 		stream << "var ffi = {" << NewLine;
+		stream << "heapSize:heap.byteLength," << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			StringRef name = namegen.getName(imported);
