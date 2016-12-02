@@ -3366,6 +3366,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 
 void CheerpWriter::compileMethod(const Function& F)
 {
+	bool asmjs = F.getSection() == StringRef("asmjs");
 	if (sourceMapGenerator) {
 #ifdef CHEERP_DEBUG_SOURCE_MAP
 		llvm::errs() << "compileMethod: " << F.getName() << "\n";
@@ -3397,6 +3398,10 @@ void CheerpWriter::compileMethod(const Function& F)
 	if (measureTimeToMain && F.getName() == "main")
 	{
 		stream << "__cheerp_main_time=__cheerp_now();" << NewLine;
+	}
+	if (asmjs)
+	{
+		compileParamTypeAnnotationsAsmJS(&F);
 	}
 	if(F.size()==1)
 	{
@@ -3660,6 +3665,18 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		}
 		else
 			compileOperand(valOp);
+		stream << ';' << NewLine;
+	}
+}
+
+void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
+{
+	const Function::const_arg_iterator A=F->arg_begin();
+	const Function::const_arg_iterator AE=F->arg_end();
+	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
+	{
+		stream << namegen.getName(curArg) << '=';
+		compileOperand(curArg,COERCION);
 		stream << ';' << NewLine;
 	}
 }
