@@ -28,11 +28,22 @@ void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 		}
 		else
 		{
+			POINTER_KIND kind = PA.getPointerKind(lhs);
 			//Comparison on different bases is anyway undefined, so ignore them
 			if(parentPrio >= COMPARISON) stream << '(';
-			compilePointerOffset( lhs, COMPARISON );
+			if (kind == RAW)
+			{
+				// Pointers must be of the same type
+				assert(kind == PA.getPointerKind(rhs));
+				compileOperand(lhs,COERCION);
+			}
+			else
+				compilePointerOffset( lhs, COMPARISON );
 			compilePredicate(p);
-			compilePointerOffset( rhs, COMPARISON );
+			if (kind == RAW)
+				compileOperand(rhs, COERCION);
+			else
+				compilePointerOffset( rhs, COMPARISON );
 			if(parentPrio >= COMPARISON) stream << ')';
 		}
 	}
