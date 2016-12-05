@@ -3459,11 +3459,14 @@ void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 
 void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND kind)
 {
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	stream << name << '=';
 	if(kind == Registerize::INTEGER)
 		stream << '0';
 	else if(kind == Registerize::DOUBLE)
 		stream << "-0";
+	else if(asmjs)
+		stream << '0';
 	else
 		stream << "null";
 }
