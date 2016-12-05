@@ -1991,6 +1991,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 	stream << '(';
 
 	const Function* F = callV.getCalledFunction();
+	bool asmjs = callV.getCaller()->getSection() == StringRef("asmjs");
 
 	Function::const_arg_iterator arg_it;
 
@@ -2022,13 +2023,18 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 
 		if(tp->isPointerTy())
 		{
+			POINTER_KIND argKind = UNKNOWN;
+			// Raw pointers are simple, just do compileOperand
+			if (asmjs || PA.getPointerKind(*cur) == RAW)
+			{
+				compileOperand(*cur, COERCION);
+			}
 			// Calling convention:
 			// If this is a direct call and the argument is not a variadic one,
 			// we pass the kind decided by getPointerKind(arg_it).
 			// If it's variadic we use the base kind derived from the type
 			// If it's indirect we use a kind good for any argument of a given type at a given position
-			POINTER_KIND argKind = UNKNOWN;
-			if (!F)
+			else if (!F)
 			{
 				TypeAndIndex typeAndIndex(tp->getPointerElementType(), opCount, TypeAndIndex::ARGUMENT);
 				argKind = PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex);
@@ -2068,8 +2074,9 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		}
 		else
 		{
-			compileOperand(*cur);
-			if(tp->isIntegerTy())
+			PARENT_PRIORITY prio = asmjs?COERCION:LOWEST;
+			compileOperand(*cur,prio);
+			if(!asmjs && tp->isIntegerTy())
 				stream << "|0";
 		}
 
