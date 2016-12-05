@@ -2299,6 +2299,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
 			POINTER_KIND kind = PA.getPointerKind(ptrOp);
+			if (kind == RAW)
+			{
+				compileHeapAccess(ptrOp);
+				stream << '=';
+				compileOperand(valOp, COERCION);
+				return COMPILE_OK;
+			}
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 			{
 				compileCheckBounds(ptrOp);
@@ -3136,6 +3143,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const Value* ptrOp=li.getPointerOperand();
 
 			POINTER_KIND kind = PA.getPointerKind(ptrOp);
+			if (kind == RAW)
+			{
+				Type* ty = ptrOp->getType()->getPointerElementType();
+
+				stream << '(';
+				if (ty->isFloatingPointTy())
+				{
+					stream << '+';
+				}
+				compileHeapAccess(ptrOp);
+				if (ty->isIntegerTy() || ty->isPointerTy())
+				{
+					stream << "|0";
+				}
+				stream << ')';
+				return COMPILE_OK;
+			}
+			
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 			{
 				stream<<"(";
@@ -3969,6 +3994,10 @@ void CheerpWriter::makeJS()
 		stream << "function asmJS(stdlib, ffi, heap){" << NewLine;
 		stream << "\"use asm\";" << NewLine;
 		stream << "var __stackPtr=ffi.heapSize|0;" << NewLine;
+		for (int i = HEAP8; i<=HEAPF64; i++)
+		{
+			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(heap);" << NewLine;
+		}
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
@@ -4006,6 +4035,10 @@ void CheerpWriter::makeJS()
 		}
 		stream << "};" << NewLine;
 		stream << "var stdlib = {"<<NewLine;
+		for (int i = HEAP8; i<=HEAPF64; i++)
+		{
+			stream << typedArrayNames[i] << ':' << typedArrayNames[i] << ',' << NewLine;
+		}
 		stream << "};" << NewLine;
 		stream << "var __asm = asmJS(stdlib, ffi, heap);" << NewLine;
 	}
