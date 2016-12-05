@@ -1654,6 +1654,12 @@ void CheerpWriter::compileConstantAsBytes(const Constant* c, bool first)
 
 void CheerpWriter::compileConstant(const Constant* c)
 {
+	//TODO: what to do when currentFun == nullptr? for now asmjs=false
+	bool asmjs = false;
+	if (currentFun)
+	{
+		asmjs = currentFun->getSection() == StringRef("asmjs");
+	}
 	if(!currentFun && doesConstantDependOnUndefined(c))
 	{
 		// If we are compiling a constant expr using a global variable which has
@@ -1761,11 +1767,17 @@ void CheerpWriter::compileConstant(const Constant* c)
 
 			stream << "Infinity";
 		}
+		else if(f->getValueAPF().isNaN())
+		{
+			stream << "NaN";
+		}
 		else
 		{
 			SmallString<32> buf;
 			f->getValueAPF().toString(buf, std::numeric_limits<double>::max_digits10);
 			stream << buf;
+			if (asmjs && buf.find('.') == StringRef::npos)
+				stream << '.';
 		}
 	}
 	else if(isa<ConstantInt>(c))
@@ -1778,7 +1790,9 @@ void CheerpWriter::compileConstant(const Constant* c)
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
-		if(PA.getPointerKind(c) == COMPLETE_OBJECT)
+		if (asmjs)
+			stream << '0';
+		else if(PA.getPointerKind(c) == COMPLETE_OBJECT)
 			stream << "null";
 		else
 			stream << "nullObj";
