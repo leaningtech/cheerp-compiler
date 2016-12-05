@@ -423,6 +423,10 @@ public:
 	void compileAllocaAsmJS(uint32_t size, uint32_t alignment);
 	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr);
 	/**
+	 * Compile the declaration of the mathematical functions for the asm.js module
+	 */
+	void compileMathDeclAsmJS();
+	/**
 	 * Compile a bound-checking statement on REGULAR or SPLIT_REGULAR pointer
 	 */
 	void compileCheckBounds(const llvm::Value* p);
