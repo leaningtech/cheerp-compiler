@@ -1768,7 +1768,10 @@ void CheerpWriter::compileConstant(const Constant* c)
 	}
 	else if(isa<ConstantAggregateZero>(c) || isa<UndefValue>(c))
 	{
-		compileType(c->getType(), LITERAL_OBJ);
+		if (asmjs && c->getType()->isPointerTy())
+			stream << '0';
+		else
+			compileType(c->getType(), LITERAL_OBJ);
 	}
 	else
 	{
