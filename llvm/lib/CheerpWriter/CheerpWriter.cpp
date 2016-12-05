@@ -917,18 +917,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 
 void CheerpWriter::compilePredicate(CmpInst::Predicate p)
 {
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	switch(p)
 	{
 		case CmpInst::FCMP_UEQ: //TODO: fix this, if an operand is NaN LLVM expects false,
 		case CmpInst::FCMP_OEQ:
 		case CmpInst::ICMP_EQ:
-			stream << "===";
+			if (asmjs)
+				stream << "==";
+			else
+				stream << "===";
 			break;
 		case CmpInst::FCMP_UNE: //The undordered case correspond to the usual JS operator
 					//See ECMA-262, Section 11.9.6
 		case CmpInst::FCMP_ONE:
 		case CmpInst::ICMP_NE:
-			stream << "!==";
+			if (asmjs)
+				stream << "!=";
+			else
+				stream << "!==";
 			break;
 		case CmpInst::FCMP_OGT: //TODO: fix this, if an operand is NaN LLVM expects false,
 		case CmpInst::FCMP_UGT:	//but JS returns undefined. Adding ==true after the whole expression
@@ -964,6 +971,8 @@ void CheerpWriter::compilePredicate(CmpInst::Predicate p)
 void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Predicate p, PARENT_PRIORITY parentPrio)
 {
 	assert(v->getType()->isIntegerTy());
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
+	if (asmjs) parentPrio = COERCION;
 	if(CmpInst::isSigned(p))
 		compileSignedInteger(v, /*forComparison*/ true, parentPrio);
 	else if(CmpInst::isUnsigned(p) || !v->getType()->isIntegerTy(32))
@@ -974,13 +983,31 @@ void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Pr
 
 void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
 {
-	StringRef compareString = (p == CmpInst::ICMP_NE) ? "!==" : "===";
-	StringRef joinString = (p == CmpInst::ICMP_NE) ? "||" : "&&";
+	StringRef compareString;
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
+	if (asmjs)
+		compareString = (p == CmpInst::ICMP_NE) ? "!=" : "==";
+	else
+		compareString = (p == CmpInst::ICMP_NE) ? "!==" : "===";
+
+	StringRef joinString;
+	joinString = (p == CmpInst::ICMP_NE) ? "||" : "&&";
 
 	POINTER_KIND lhsKind = PA.getPointerKind(lhs);
 	POINTER_KIND rhsKind = PA.getPointerKind(rhs);
 
-	if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
+	// in asmjs mode all the pointers are RAW pointers
+	if(asmjs)
+	{
+		stream << "((";
+		compileRawPointer(lhs);
+		stream << ")|0)";
+		stream << compareString;
+		stream << "((";
+		compileRawPointer(rhs);
+		stream << ")|0)";
+	}
+	else if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
 		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || (isGEP(rhs) && cast<User>(rhs)->getNumOperands()==2)))
 	{
 		if(isa<ConstantPointerNull>(lhs))
@@ -2626,10 +2653,14 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 
 void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY parentPrio)
 {
-	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
+	if (!asmjs)
 	{
-		stream << C->getZExtValue();
-		return;
+		if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
+		{
+			stream << C->getZExtValue();
+			return;
+		}
 	}
 	//We anyway have to use 32 bits for sign extension to work
 	uint32_t initialSize = v->getType()->getIntegerBitWidth();
