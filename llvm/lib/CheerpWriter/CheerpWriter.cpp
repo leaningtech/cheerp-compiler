@@ -584,6 +584,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	
 	StringRef ident = func->getName();
 	unsigned intrinsicId = func->getIntrinsicID();
+
+	StringRef section  = currentFun->getSection();
+	bool asmjs = section == StringRef("asmjs");
+
 	//First handle high priority builtins, they will be used even
 	//if an implementation is available from the user
 	if(intrinsicId==Intrinsic::memmove ||
@@ -721,37 +725,38 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(useNativeJavaScriptMath)
 	{
+		std::string Math = asmjs?"+":"Math.";
 		if(ident=="fabs" || ident=="fabsf")
 		{
-			stream << "Math.abs(";
+			stream << Math << "abs(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="acos" || ident=="acosf")
 		{
-			stream << "Math.acos(";
+			stream << Math << "acos(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="asin" || ident=="asinf")
 		{
-			stream << "Math.asin(";
+			stream << Math << "asin(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="atan" || ident=="atanf")
 		{
-			stream << "Math.atan(";
+			stream << Math << "atan(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="atan2" || ident=="atan2f")
 		{
-			stream << "Math.atan2(";
+			stream << Math << "atan2(";
 			compileOperand(*(it));
 			stream << ',';
 			compileOperand(*(it+1));
@@ -760,42 +765,42 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="ceil" || ident=="ceilf")
 		{
-			stream << "Math.ceil(";
+			stream << Math << "ceil(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="cos" || ident=="cosf")
 		{
-			stream << "Math.cos(";
+			stream << Math << "cos(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="exp" || ident=="expf")
 		{
-			stream << "Math.exp(";
+			stream << Math << "exp(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="floor" || ident=="floorf")
 		{
-			stream << "Math.floor(";
+			stream << Math << "floor(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="log" || ident=="logf")
 		{
-			stream << "Math.log(";
+			stream << Math << "log(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="pow" || ident=="powf")
 		{
-			stream << "Math.pow(";
+			stream << Math << "pow(";
 			compileOperand(*(it));
 			stream << ',';
 			compileOperand(*(it+1));
@@ -804,28 +809,28 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="round" || ident=="roundf")
 		{
-			stream << "Math.round(";
+			stream << Math << "round(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="sin" || ident=="sinf")
 		{
-			stream << "Math.sin(";
+			stream << Math << "sin(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="sqrt" || ident=="sqrtf")
 		{
-			stream << "Math.sqrt(";
+			stream << Math << "sqrt(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="tan" || ident=="tanf")
 		{
-			stream << "Math.tan(";
+			stream << Math << "tan(";
 			compileOperand(*(it));
 			stream << ')';
 			return COMPILE_OK;
@@ -3926,6 +3931,27 @@ void CheerpWriter::compileAllocaAsmJS(uint32_t size, uint32_t alignment)
 	stream << "__stackPtr=(__stackPtr-"<<size<<")&" << uint32_t(0-alignment);
 }
 
+void CheerpWriter::compileMathDeclAsmJS()
+{
+	stream << "var imul=stdlib.Math.imul;" << NewLine;
+	stream << "var Infinity=stdlib.Infinity;" << NewLine;
+	stream << "var NaN=stdlib.NaN;" << NewLine;
+	stream << "var abs=stdlib.Math.abs;" << NewLine;
+	stream << "var acos=stdlib.Math.acos;" << NewLine;
+	stream << "var asin=stdlib.Math.asin;" << NewLine;
+	stream << "var atan=stdlib.Math.atan;" << NewLine;
+	stream << "var atan2=stdlib.Math.atan2;" << NewLine;
+	stream << "var ceil=stdlib.Math.ceil;" << NewLine;
+	stream << "var cos=stdlib.Math.cos;" << NewLine;
+	stream << "var exp=stdlib.Math.exp;" << NewLine;
+	stream << "var floor=stdlib.Math.floor;" << NewLine;
+	stream << "var log=stdlib.Math.log;" << NewLine;
+	stream << "var pow=stdlib.Math.pow;" << NewLine;
+	stream << "var sin=stdlib.Math.sin;" << NewLine;
+	stream << "var sqrt=stdlib.Math.sqrt;" << NewLine;
+	stream << "var tan=stdlib.Math.tan;" << NewLine;
+}
+
 void CheerpWriter::makeJS()
 {
 	if (sourceMapGenerator) {
@@ -3998,6 +4024,7 @@ void CheerpWriter::makeJS()
 		{
 			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(heap);" << NewLine;
 		}
+		compileMathDeclAsmJS();
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
@@ -4035,6 +4062,9 @@ void CheerpWriter::makeJS()
 		}
 		stream << "};" << NewLine;
 		stream << "var stdlib = {"<<NewLine;
+		stream << "Math:Math,"<<NewLine;
+		stream << "Infinity:Infinity,"<<NewLine;
+		stream << "NaN:NaN,"<<NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 		{
 			stream << typedArrayNames[i] << ':' << typedArrayNames[i] << ',' << NewLine;
