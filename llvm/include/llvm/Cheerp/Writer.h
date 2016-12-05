@@ -295,6 +295,10 @@ private:
 		{
 			compileCompleteObject(p);
 		}
+		else if (kind == RAW)
+		{
+			compileRawPointer(p);
+		}
 		else if (llvm::isa<llvm::ConstantPointerNull>(p))
 		{
 			stream << "nullObj";
