@@ -2829,10 +2829,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const CastInst& ci = cast<CastInst>(I);
 			if(parentPrio >= BIT_OR) stream << '(';
+			if (asmjs) stream << "~~(";
 			compileOperand(ci.getOperand(0), BIT_OR);
-			//Seems to be the fastest way
-			//http://jsperf.com/math-floor-vs-math-round-vs-parseint/33
-			stream << "|0";
+			if (asmjs) stream << ')';
+			else stream << "|0";
 			if(parentPrio >= BIT_OR) stream << ')';
 			return COMPILE_OK;
 		}
@@ -2841,11 +2841,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			// TODO: When we will keep track of signedness to avoid useless casts we will need to fix this
 			const CastInst& ci = cast<CastInst>(I);
 			if(parentPrio >= BIT_OR) stream << '(';
+			if (asmjs) stream << "~~(";
 			compileOperand(ci.getOperand(0), BIT_OR);
 			//Cast to signed anyway
 			//ECMA-262 guarantees that (a >> 0) >>> 0
 			//is the same as (a >>> 0)
-			stream << "|0";
+			if (asmjs) stream << ')';
+			else stream << "|0";
 			if(parentPrio >= BIT_OR) stream << ')';
 			return COMPILE_OK;
 		}
@@ -2853,7 +2855,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const CastInst& ci = cast<CastInst>(I);
 			stream << "(+";
-			compileSignedInteger(ci.getOperand(0), /*forComparison*/ false, HIGHEST);
+			compileSignedInteger(ci.getOperand(0), /*forComparison*/ false, asmjs ? COERCION:HIGHEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
