@@ -2742,6 +2742,10 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 		compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
 		                       makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true);
 	}
+	else if (RAW == kind)
+	{
+		compileRawPointer(gep_inst);
+	}
 	else
 	{
 		if (PA.getConstantOffsetForPointer(gep_inst))
