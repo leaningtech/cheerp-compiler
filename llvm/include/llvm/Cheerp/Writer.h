@@ -438,6 +438,10 @@ public:
 	 */
 	void compileMathDeclAsmJS();
 	/**
+	 * Compile the memmove helper function for asm.js code
+	 */
+	void compileMemmoveHelperAsmJS();
+	/**
 	 * Compile a bound-checking statement on REGULAR or SPLIT_REGULAR pointer
 	 */
 	void compileCheckBounds(const llvm::Value* p);
