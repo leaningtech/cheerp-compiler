@@ -4355,8 +4355,17 @@ void CheerpWriter::makeJS()
 			}
 		}
 		compileMemmoveHelperAsmJS();
+		stream << "function __init(){" << NewLine;
+		//Call constructors
+		for (const Function * F : globalDeps.constructors() )
+		{
+			if (F->getSection() == StringRef("asmjs"))
+				stream << namegen.getName(F) << "();" << NewLine;
+		}
+		stream << '}' << NewLine;
 		
 		stream << "return {" << NewLine;
+		stream << "init:__init," << NewLine;
 		// if entry point is in asm.js, explicitly export it
 		if ( const Function * entryPoint = globalDeps.getEntryPoint())
 		{
@@ -4398,6 +4407,7 @@ void CheerpWriter::makeJS()
 		stream << "};" << NewLine;
 		compileGlobalsInitAsmJS();
 		stream << "var __asm = asmJS(stdlib, ffi, heap);" << NewLine;
+		stream << "__asm.init();" << NewLine;
 	}
 
 	for ( const Function & F : module.getFunctionList() )
@@ -4440,7 +4450,8 @@ void CheerpWriter::makeJS()
 	//Call constructors
 	for (const Function * F : globalDeps.constructors() )
 	{
-		stream << namegen.getName(F) << "();" << NewLine;
+		if (F->getSection() != StringRef("asmjs"))
+			stream << namegen.getName(F) << "();" << NewLine;
 	}
 
 	//Invoke the entry point
