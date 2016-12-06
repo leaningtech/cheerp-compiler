@@ -4322,6 +4322,7 @@ void CheerpWriter::makeJS()
 			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(heap);" << NewLine;
 		}
 		compileMathDeclAsmJS();
+		stream << "var isNaN=ffi.isNaN;" << NewLine;
 		stream << "var __dummy=ffi.__dummy;" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
@@ -4362,6 +4363,7 @@ void CheerpWriter::makeJS()
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
+		stream << "isNaN:isNaN," << NewLine;
 		stream << "__dummy:__dummy," << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
