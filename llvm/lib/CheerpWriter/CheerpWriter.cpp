@@ -4228,6 +4228,17 @@ void CheerpWriter::compileMemmoveHelperAsmJS()
 	stream << "}"<<NewLine;
 }
 
+void CheerpWriter::compilePrintStringHelperAsmJS()
+{
+	stream << "function printString(p,n) {" << NewLine;
+	stream << "var s='';" << NewLine;
+	stream << "for(var i=0;i<n;i++){" << NewLine;
+	stream << "s+=String.fromCharCode(" << heapNames[HEAP8] << "[p+i]);" << NewLine;
+	stream << '}' << NewLine;
+	stream << "console.log(s);" << NewLine;
+	stream << "};" << NewLine;
+}
+
 void CheerpWriter::compileMathDeclAsmJS()
 {
 	stream << "var imul=stdlib.Math.imul;" << NewLine;
@@ -4323,6 +4334,7 @@ void CheerpWriter::makeJS()
 		}
 		compileMathDeclAsmJS();
 		stream << "var isNaN=ffi.isNaN;" << NewLine;
+		stream << "var printString=ffi.printString;" << NewLine;
 		stream << "var __dummy=ffi.__dummy;" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
@@ -4360,10 +4372,12 @@ void CheerpWriter::makeJS()
 		stream << "};" << NewLine;
 		stream << "var heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 		stream << "var " << heapNames[HEAP8] << "= new " << typedArrayNames[HEAP8] << "(heap);" << NewLine;
+		compilePrintStringHelperAsmJS();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
 		stream << "isNaN:isNaN," << NewLine;
+		stream << "printString:printString," << NewLine;
 		stream << "__dummy:__dummy," << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
