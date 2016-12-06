@@ -1602,21 +1602,31 @@ bool CheerpWriter::doesConstantDependOnUndefined(const Constant* C) const
 		return false;
 }
 
-void CheerpWriter::compileConstantAsBytes(const Constant* c, bool first)
+void CheerpWriter::compileConstantAsBytes(const Constant* c, bool first, bool asmjs)
 {
 	if(const ConstantDataSequential* CD = dyn_cast<ConstantDataSequential>(c))
 	{
 		for(uint32_t i=0;i<CD->getNumElements();i++)
 		{
-			compileConstantAsBytes(CD->getElementAsConstant(i), first);
+			compileConstantAsBytes(CD->getElementAsConstant(i), first, asmjs);
 			first = false;
+		}
+	}
+	else if(const UndefValue* U = dyn_cast<UndefValue>(c))
+	{
+		uint32_t size = targetData.getTypeAllocSize(U->getType());
+		for (uint32_t i = 0; i < size; i++)
+		{
+			if(i!=0 || !first)
+				stream << ',';
+			stream << '0';
 		}
 	}
 	else if(isa<ConstantArray>(c) || isa<ConstantStruct>(c))
 	{
 		for(uint32_t i=0;i<c->getNumOperands();i++)
 		{
-			compileConstantAsBytes(cast<Constant>(c->getOperand(i)), first);
+			compileConstantAsBytes(cast<Constant>(c->getOperand(i)), first, asmjs);
 			first = false;
 		}
 	}
@@ -1643,6 +1653,111 @@ void CheerpWriter::compileConstantAsBytes(const Constant* c, bool first)
 			if(i!=0 || !first)
 				stream << ',';
 			stream << ((val>>i)&255);
+		}
+	}
+	else if (asmjs)
+	{
+		if(const ConstantAggregateZero* Z = dyn_cast<ConstantAggregateZero>(c))
+		{
+			uint32_t size = targetData.getTypeAllocSize(Z->getType());
+			for (uint32_t i = 0; i < size; i++)
+			{
+				if(i!=0 || !first)
+					stream << ',';
+				stream << '0';
+			}
+		}
+		else if(dyn_cast<ConstantPointerNull>(c))
+		{
+			if(!first)
+				stream << ',';
+			stream << "0,0,0,0";
+		}
+		else if(isa<ConstantExpr>(c))
+		{
+			const ConstantExpr* ce = cast<ConstantExpr>(c);
+			switch(ce->getOpcode())
+			{
+				case Instruction::GetElementPtr:
+				{
+					assert(isa<GlobalVariable>(ce->getOperand(0)));
+					const GlobalVariable* g = cast<GlobalVariable>(ce->getOperand(0));
+					if (!gVarsAddr.count(g))
+					{
+						llvm::errs() << "global variable not found:" << namegen.getName(g) << "\n";
+						llvm::report_fatal_error("please report a bug");
+					}
+					uint32_t addr = gVarsAddr[g];
+
+					Type* curTy = g->getType();
+					SmallVector< const Value *, 8 > indices ( std::next(ce->op_begin()), ce->op_end() );
+					for (uint32_t i=0; i<indices.size(); i++)
+					{
+						uint32_t index = cast<ConstantInt>(indices[i])->getZExtValue();
+						if (StructType* ST = dyn_cast<StructType>(curTy))
+						{
+							const StructLayout* SL = targetData.getStructLayout( ST );
+							addr += SL->getElementOffset(index);
+							curTy = ST->getElementType(index);
+						}
+						else
+						{
+							addr += index*targetData.getTypeAllocSize(curTy->getSequentialElementType());
+							curTy = curTy->getSequentialElementType();
+						}
+					}
+					for(uint32_t i=0;i<32;i+=8)
+					{
+						if(i!=0 || !first)
+							stream << ',';
+						stream << ((addr>>i)&255);
+					}
+					
+					break;
+				}
+				case Instruction::IntToPtr:
+				{
+					const ConstantInt* ptr = cast<ConstantInt>(ce->getOperand(0));
+					uint32_t val = ptr->getZExtValue();
+					for(uint32_t i=0;i<32;i+=8)
+					{
+						if(i!=0 || !first)
+							stream << ',';
+						stream << ((val>>i)&255);
+					}
+					break;
+				}
+				case Instruction::BitCast:
+				{
+					compileConstantAsBytes(ce->getOperand(0),first, asmjs);
+					break;
+				}
+				default:
+					stream << "undefined";
+					llvm::errs() << "warning: Unsupported constant expr in asm.js module :" << ce->getOpcodeName() << '\n';
+			}
+		}
+		else if(isa<GlobalVariable>(c))
+		{
+			const GlobalVariable* g = cast<GlobalVariable>(c);
+			if (gVarsAddr.count(g) != 1)
+			{
+				llvm::errs() << "global variable not found:" << namegen.getName(g) << "\n";
+				llvm::report_fatal_error("please report a bug");
+			}
+			uint32_t val = gVarsAddr[g];
+			for(uint32_t i=0;i<32;i+=8)
+			{
+				if(i!=0 || !first)
+					stream << ',';
+				stream << ((val>>i)&255);
+			}
+		}
+		else
+		{
+			llvm::errs() << "Unsupported constant type for bytes in asm.js module :";
+			c->getType()->dump();
+			stream << "null";
 		}
 	}
 	else
@@ -3986,7 +4101,7 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 				continue;
 			const Constant* init = g.first->getInitializer();
 			stream  << heapNames[HEAP8] << ".set([";
-			compileConstantAsBytes(init,true);
+			compileConstantAsBytes(init,true,/* asmjs */ true);
 			stream << "]," << g.second << ");" << NewLine;
 		}
 	}
