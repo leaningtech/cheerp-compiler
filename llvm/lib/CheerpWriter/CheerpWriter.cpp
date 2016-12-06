@@ -602,8 +602,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	if(intrinsicId==Intrinsic::memmove ||
 		intrinsicId==Intrinsic::memcpy)
 	{
-		compileMemFunc(*(it), *(it+1), *(it+2));
-		return COMPILE_EMPTY;
+		if (!asmjs)
+		{
+			compileMemFunc(*(it), *(it+1), *(it+2));
+			return COMPILE_EMPTY;
+		}
+		else
+		{
+			stream << "__asmjs_memmove(";
+			compileOperand(*(it),COERCION);
+			stream << ",";
+			compileOperand(*(it+1),COERCION);
+			stream << ",";
+			compileOperand(*(it+2),COERCION);
+			stream << ")|0;" << NewLine;
+			return COMPILE_OK;
+		}
 	}
 	else if(intrinsicId==Intrinsic::memset)
 	{
@@ -4193,6 +4207,17 @@ void CheerpWriter::compileAllocaAsmJS(uint32_t size, uint32_t alignment)
 	stream << "__stackPtr=(__stackPtr-"<<size<<")&" << uint32_t(0-alignment);
 }
 
+void CheerpWriter::compileMemmoveHelperAsmJS()
+{
+	stream << "function __asmjs_memmove(src,dst,size){" << NewLine;
+	stream << "src=src|0;dst=dst|0;size=size|0;" << NewLine;
+	stream << "var i=0;var end=0;var inc=1;" << NewLine;
+	stream << "if(src>>>0<dst>>>0){i=size-1|0;end=-1;inc=-1;}else end=size;"<<NewLine;
+	stream << "while(1){if((i|0)==(end|0))break;HEAP8[dst+i|0]=HEAP8[src+i|0];i=i+inc|0;}"<<NewLine;
+	stream << "return dst|0;"<<NewLine;
+	stream << "}"<<NewLine;
+}
+
 void CheerpWriter::compileMathDeclAsmJS()
 {
 	stream << "var imul=stdlib.Math.imul;" << NewLine;
@@ -4306,6 +4331,7 @@ void CheerpWriter::makeJS()
 				compileMethod(F);
 			}
 		}
+		compileMemmoveHelperAsmJS();
 		
 		stream << "return {" << NewLine;
 		// if entry point is in asm.js, explicitly export it
