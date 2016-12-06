@@ -191,7 +191,9 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 	compileOperand(cond, TERNARY, /*allowBooleanObjects*/ true);
 	stream << '?';
 
-	if(select->getType()->isPointerTy())
+	bool asmjs = cast<Instruction>(select)->getParent()->getParent()->getSection() == StringRef("asmjs");
+	PARENT_PRIORITY prio = asmjs?COERCION:LOWEST;
+	if(!asmjs && select->getType()->isPointerTy())
 	{
 		POINTER_KIND k = PA.getPointerKind(select);
 		compilePointerAs(lhs, k);
@@ -200,9 +202,9 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 	}
 	else
 	{
-		compileOperand(lhs);
+		compileOperand(lhs, prio);
 		stream << ':';
-		compileOperand(rhs);
+		compileOperand(rhs, prio);
 	}
 
 	if(parentPrio >= TERNARY) stream << ')';
