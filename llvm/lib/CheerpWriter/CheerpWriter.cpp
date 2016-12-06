@@ -726,7 +726,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(useNativeJavaScriptMath)
 	{
-		std::string Math = asmjs?"+":"Math.";
+		const char* Math = asmjs ? "+" : "Math.";
 		if(ident=="fabs" || ident=="fabsf")
 		{
 			stream << Math << "abs(";
@@ -2891,7 +2891,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio >= mulPrio) stream << '(';
 			if(useMathImul)
 			{
-				stream << "Math.imul(";
+				const char*  Math = asmjs?"":"Math.";
+				stream << Math << "imul(";
 				compileOperand(I.getOperand(0), LOWEST);
 				stream << ',';
 				compileOperand(I.getOperand(1), LOWEST);
@@ -2936,21 +2937,40 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(ci.getPredicate()==CmpInst::FCMP_ORD)
 			{
 				if(parentPrio >= LOGICAL_AND) stream << '(';
-				stream << "!isNaN(";
+				stream << '!';
+				if (asmjs)
+					stream << '(';
+				stream << "isNaN(";
 				compileOperand(ci.getOperand(0));
-				stream << ")&&!isNaN(";
+				stream << ')';
+				if (asmjs)
+					stream << "|0)&!(";
+				else
+					stream << "&&!";
+				stream << "isNaN(";
 				compileOperand(ci.getOperand(1));
 				stream << ')';
+				if (asmjs)
+					stream << "|0)";
 				if(parentPrio >= LOGICAL_AND) stream << ')';
 			}
 			else if(ci.getPredicate()==CmpInst::FCMP_UNO)
 			{
 				if(parentPrio >= LOGICAL_OR) stream << '(';
+				if (asmjs)
+					stream << '(';
 				stream << "isNaN(";
 				compileOperand(ci.getOperand(0));
-				stream << ")||isNaN(";
+				stream << ')';
+				if (asmjs)
+					stream <<"|0)|(";
+				else
+					stream << "||";
+				stream << "isNaN(";
 				compileOperand(ci.getOperand(1));
 				stream << ')';
+				if (asmjs)
+					stream << "|0)";
 				if(parentPrio >= LOGICAL_OR) stream << ')';
 			}
 			else
@@ -2970,7 +2990,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			PARENT_PRIORITY andPrio = I.getType()->isIntegerTy(1) ? LOGICAL_AND : BIT_AND;
 			if(parentPrio >= andPrio) stream << '(';
 			compileOperand(I.getOperand(0), andPrio, /*allowBooleanObjects*/ true);
-			if(I.getType()->isIntegerTy(1))
+			if(!asmjs && I.getType()->isIntegerTy(1))
 				stream << "&&";
 			else
 				stream << '&';
@@ -3023,7 +3043,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			compileOperand(I.getOperand(0), orPrio, /*allowBooleanObjects*/ true);
 			//If the type is i1 we can use the boolean operator to take advantage of logic short-circuit
 			//This is possible because we know that instruction with side effects, like calls, are never inlined
-			if(I.getType()->isIntegerTy(1))
+			if(!asmjs && I.getType()->isIntegerTy(1))
 				stream << "||";
 			else
 				stream << '|';
