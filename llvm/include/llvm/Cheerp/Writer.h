@@ -442,6 +442,10 @@ public:
 	 */
 	void compileMemmoveHelperAsmJS();
 	/**
+	 * Compile the printString helper function for asm.js code
+	 */
+	void compilePrintStringHelperAsmJS();
+	/**
 	 * Compile a bound-checking statement on REGULAR or SPLIT_REGULAR pointer
 	 */
 	void compileCheckBounds(const llvm::Value* p);
