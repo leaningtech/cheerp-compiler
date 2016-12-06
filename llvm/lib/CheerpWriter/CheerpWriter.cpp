@@ -738,6 +738,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileOperand(*it);
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::trap && asmjs)
+	{
+		//TODO: handle correctly when not in pretty mode
+		stream << "__dummy()";
+		return COMPILE_OK;
+	}
 	else if(!asmjs && (ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate))
 	{
 		compileFree(*it);
