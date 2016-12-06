@@ -738,7 +738,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileOperand(*it);
 		return COMPILE_OK;
 	}
-	else if(ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate)
+	else if(!asmjs && (ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate))
 	{
 		compileFree(*it);
 		return COMPILE_OK;
