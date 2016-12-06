@@ -263,6 +263,14 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			compileOperand(offset, LOWEST);
 			stream << ")}";
 		}
+		else if(result_kind == RAW)
+		{
+			stream << '(';
+			compileOperand(src);
+			stream  << '-';
+			compileOperand(offset);
+			stream << "|0)";
+		}
 		else
 		{
 			compileCompleteObject(src);
@@ -634,8 +642,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::cheerp_downcast_current)
 	{
-		compileCompleteObject(*it);
-		stream << ".o";
+		if (asmjs)
+		{
+			compileOperand(*it);
+		}
+		else
+		{
+			compileCompleteObject(*it);
+			stream << ".o";
+		}
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_upcast_collapsed)
