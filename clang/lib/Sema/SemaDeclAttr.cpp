@@ -7739,6 +7739,24 @@ void Sema::ProcessPragmaWeak(Scope *S, Decl *D) {
   }
 }
 
+void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
+  // We inject the attributes only for the cheerp target
+  if (Context.getTargetInfo().isByteAddressable())
+    return;
+  // We inject the attributes only on these types of declaration
+  if (!isa<FunctionDecl>(D) && !isa<TagDecl>(D) && !isa<VarDecl>(D))
+    return;
+  // if asmjs or genericjs explicitly added, do nothing
+  if (D->hasAttr<AsmJSAttr>() || D->hasAttr<GenericJSAttr>())
+    return;
+  // Set default attr based on command line option
+  if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS) {
+      D->addAttr(AsmJSAttr::CreateImplicit(Context));
+  } else if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_GenericJS) {
+      D->addAttr(GenericJSAttr::CreateImplicit(Context));
+  }
+}
+
 /// ProcessDeclAttributes - Given a declarator (PD) with attributes indicated in
 /// it, apply them to D.  This is a bit tricky because PD can have attributes
 /// specified in many different places, and we need to find and apply them all.
@@ -7760,6 +7778,9 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
 
   // Apply additional attributes specified by '#pragma clang attribute'.
   AddPragmaAttributes(S, D);
+
+  // CHEERP: Inject asmjs/genericjs attribute if required
+  MaybeInjectCheerpModeAttr(D);
 }
 
 /// Is the given declaration allowed to use a forbidden type?
