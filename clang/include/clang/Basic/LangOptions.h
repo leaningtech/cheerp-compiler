@@ -286,6 +286,11 @@ public:
     ExtendTo64
   };
 
+  enum CheerpModeTy {
+    CHEERP_MODE_GenericJS = 0,  // -cheerp-mode=genericjs
+    CHEERP_MODE_AsmJS,          // -cheerp-mode=asmjs
+    CHEERP_MODE_Invalid
+  };
 public:
   /// The used language standard.
   LangStandard::Kind LangStd;
