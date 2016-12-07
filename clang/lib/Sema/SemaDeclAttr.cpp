@@ -8443,6 +8443,14 @@ static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
 }
 
+static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  D->addAttr(::new (S.Context) AsmJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleGenericJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  D->addAttr(::new (S.Context) GenericJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
@@ -9275,6 +9283,12 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
   case AttributeList::AT_JsExport:
     checkCheerpUnprefixedDeprecations(S, AL);
     handleJsExportAttr(S, D, AL);
+    break;
+  case AttributeList::AT_AsmJS:
+    handleAsmJSAttr(S, D, AL);
+    break;
+  case AttributeList::AT_GenericJS:
+    handleGenericJSAttr(S, D, AL);
     break;
   }
 }

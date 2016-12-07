@@ -5002,6 +5002,10 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   }
 
   setNonAliasAttributes(D, GV);
+  //cheerp: set the section to asmjs
+  if (D->hasAttr<AsmJSAttr>())
+    GV->setSection("asmjs");
+
 
   if (D->getTLSKind() && !GV->isThreadLocal()) {
     if (D->getTLSKind() == VarDecl::TLS_Dynamic)
@@ -5352,6 +5356,10 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
 
   // Set CodeGen attributes that represent floating point environment.
   setLLVMFunctionFEnvAttributes(D, Fn);
+
+  //cheerp: set the section to asmjs
+  if (D->hasAttr<AsmJSAttr>())
+    Fn->setSection("asmjs");
 
   CodeGenFunction(*this).GenerateCode(GD, Fn, FI);
 
