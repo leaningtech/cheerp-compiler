@@ -483,6 +483,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpForceTypedArrays->render(Args, CmdArgs);
   if(Arg* cheerpReservedNames = Args.getLastArg(options::OPT_cheerp_reserved_names_EQ))
     cheerpReservedNames->render(Args, CmdArgs);
+  if (Arg *cheerpAsmJSHeapSize = Args.getLastArg(options::OPT_cheerp_asmjs_heap_size))
+    cheerpAsmJSHeapSize->render(Args, CmdArgs);
   if(Arg* cheerpBoundsCheck = Args.getLastArg(options::OPT_cheerp_bounds_check))
     cheerpBoundsCheck->render(Args, CmdArgs);
   if(Arg* cheerpDefinedCheck = Args.getLastArg(options::OPT_cheerp_defined_members_check))
