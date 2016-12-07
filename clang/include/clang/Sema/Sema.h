@@ -13398,6 +13398,8 @@ private:
   bool SemaBuiltinOSLogFormat(CallExpr *TheCall);
   bool SemaValueIsRunOfOnes(CallExpr *TheCall, unsigned ArgNum);
 
+  // CHEERP: Inject asmjs/genericjs attribute if required
+  void MaybeInjectCheerpModeAttr(Decl* D);
 public:
   // Used by C++ template instantiation.
   ExprResult SemaBuiltinShuffleVector(CallExpr *TheCall);
