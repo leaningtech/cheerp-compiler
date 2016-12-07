@@ -34,6 +34,8 @@ static cl::opt<std::string> SourceMapPrefix("cheerp-sourcemap-prefix", cl::Optio
 
 static cl::opt<bool> PrettyCode("cheerp-pretty-code", cl::desc("Generate human-readable JS") );
 
+static cl::opt<bool> SymbolicGlobalsAsmJS("cheerp-asmjs-symbolic-globals", cl::desc("Compile global variables addresses as js variables in the asm.js module") );
+
 static cl::opt<bool> MakeModule("cheerp-make-module", cl::desc("Create a closure around JS to avoid global namespace pollution") );
 
 static cl::opt<bool> NoRegisterize("cheerp-no-registerize", cl::desc("Disable registerize pass") );
@@ -104,7 +106,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, reservedNames,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
-          BoundsCheck, DefinedCheck, ForceTypedArrays);
+          BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, ForceTypedArrays);
   writer.makeJS();
   delete sourceMapGenerator;
   return false;
