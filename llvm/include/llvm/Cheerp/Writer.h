@@ -196,6 +196,8 @@ private:
 	// double. Without this flag, normal arrays are used since they are
 	// currently faster on v8.
 	bool forceTypedArrays;
+	// Flag to signal if we should use js variables instead of literals for globals addresses
+	bool symbolicGlobalsAsmJS;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -413,12 +415,12 @@ public:
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
 	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, const std::vector<std::string>& reservedNames, bool ReadableOutput,
 	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits, bool measureTimeToMain,
-	             unsigned HeapSize, bool CheckBounds, bool CheckDefined, bool forceTypedArrays):
+	             unsigned HeapSize, bool CheckBounds, bool CheckDefined, bool CompileGlobalsAddrAsmJS, bool forceTypedArrays):
 		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, reservedNames, ReadableOutput),types(m),
 		sourceMapGenerator(sourceMapGenerator),NewLine(),useNativeJavaScriptMath(UseNativeJavaScriptMath),
 		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),
-	        heapSize(HeapSize),checkBounds(CheckBounds),checkDefined(CheckDefined),forceTypedArrays(forceTypedArrays),stream(s, sourceMapGenerator, ReadableOutput)
+		symbolicGlobalsAsmJS(CompileGlobalsAddrAsmJS),stream(s, sourceMapGenerator, ReadableOutput)
 	{
 	}
 	void makeJS();

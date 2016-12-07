@@ -1994,6 +1994,10 @@ void CheerpWriter::compileConstant(const Constant* c)
 			int offset = getFunctionOffsetInTableAsmJS(namegen.getName(c), cast<FunctionType>(ty));
 			stream << offset;
 		}
+		else if (asmjs && isa<GlobalVariable>(c) && gVarsAddr.count(cast<GlobalVariable>(c))==1 && !symbolicGlobalsAsmJS)
+		{
+			stream << gVarsAddr[cast<GlobalVariable>(c)];
+		}
 		else
 			stream << namegen.getName(c);
 	}
@@ -4256,14 +4260,16 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 		G.dump();
 		return;
 	}
-	stream << "var " << namegen.getName(&G) << '=';
+	if (symbolicGlobalsAsmJS)
+		stream << "var " << namegen.getName(&G) << '=';
 	Type* ty = G.getType();
 	uint32_t size = targetData.getTypeAllocSize(ty->getPointerElementType());
 	// Ensure the right alignment for the type
 	uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, ty->getPointerElementType());
 	// The following is correct if alignment is a power of 2 (which it should be)
 	heapStartAsmJS = (heapStartAsmJS + alignment - 1) & ~(alignment - 1);
-	stream << heapStartAsmJS << ';' << NewLine;
+	if (symbolicGlobalsAsmJS)
+		stream << heapStartAsmJS << ';' << NewLine;
 	gVarsAddr.emplace(&G,heapStartAsmJS);
 	heapStartAsmJS += size;
 }
