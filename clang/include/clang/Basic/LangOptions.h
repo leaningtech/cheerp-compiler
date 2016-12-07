@@ -226,6 +226,11 @@ public:
     BKey
   };
 
+  enum CheerpModeTy {
+    CHEERP_MODE_GenericJS = 0,  // -cheerp-mode=genericjs
+    CHEERP_MODE_AsmJS,          // -cheerp-mode=asmjs
+    CHEERP_MODE_Invalid
+  };
 public:
   /// Set of enabled sanitizers.
   SanitizerSet Sanitize;

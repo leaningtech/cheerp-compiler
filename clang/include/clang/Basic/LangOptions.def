@@ -315,6 +315,8 @@ ENUM_LANGOPT(SignedOverflowBehavior, SignedOverflowBehaviorTy, 2, SOB_Undefined,
              "signed integer overflow handling")
 ENUM_LANGOPT(CheerpSide, CheerpSideTy, 2, CHEERP_Client,
              "how to handle [[client]] and [[server]] tags")
+ENUM_LANGOPT(CheerpMode, CheerpModeTy, 2, CHEERP_MODE_GenericJS,
+             "which cheerp mode to use by default [genericjs/asmjs]")
 
 BENIGN_LANGOPT(ArrowDepth, 32, 256,
                "maximum number of operator->s to follow")

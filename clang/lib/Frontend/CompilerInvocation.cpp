@@ -2546,6 +2546,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Opts.CFProtectionBranch = 1;
     }
   }
+  if (const Arg *CheerpMode = Args.getLastArg(OPT_cheerp_mode_EQ))
+  {
+    LangOptions::CheerpModeTy s = llvm::StringSwitch<LangOptions::CheerpModeTy>(CheerpMode->getValue())
+    .Case("genericjs", LangOptions::CHEERP_MODE_GenericJS)
+    .Case("asmjs", LangOptions::CHEERP_MODE_AsmJS)
+    .Default(LangOptions::CHEERP_MODE_Invalid);
+
+    Opts.setCheerpMode(s);
+    if (s == LangOptions::CHEERP_MODE_Invalid)
+    {
+      Diags.Report(diag::err_drv_invalid_value)
+      << CheerpMode->getAsString(Args) << CheerpMode->getValue();
+    }
+  }
 
   // -cl-std only applies for OpenCL language standards.
   // Override the -std option in this case.
