@@ -5895,6 +5895,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                     options::OPT_fno_trigraphs);
   }
 
+  // Forward cheerp-mode argument
+  if (Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ))
+    CheerpMode->render(Args, CmdArgs);
   // Forward cheerp-no-pointer-scev argument
   if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev)) {
     CmdArgs.push_back("-mllvm");

@@ -6351,6 +6351,8 @@ def source_date_epoch : Separate<["-"], "source-date-epoch">,
 //===----------------------------------------------------------------------===//
 def cheerp_side_EQ : Joined<["-"], "cheerp-side=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Specify which side to build [client/server]">;
+def cheerp_mode_EQ : Joined<["-"], "cheerp-mode=">, Flags<[CC1Option]>,
+  Group<CompileOnly_Group>, HelpText<"Specify which mode to use by default [genericjs/asmjs]">;
 def cheerp_sourcemap_EQ : Joined<["-"], "cheerp-sourcemap=">, Flags<[DriverOption]>,
   HelpText<"Write sourcemap to <file>">, MetaVarName<"<file>">;
 def cheerp_sourcemap_prefix_EQ : Joined<["-"], "cheerp-sourcemap-prefix=">, Flags<[DriverOption]>,
