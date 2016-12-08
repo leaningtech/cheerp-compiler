@@ -2495,6 +2495,9 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
     guard->setThreadLocalMode(var->getThreadLocalMode());
     guard->setAlignment(guardAlignment.getAsAlign());
 
+    // CHEERP: if the variable is in the asmjs section, so is its guard variable
+    if (var->getSection()==StringRef("asmjs"))
+      guard->setSection("asmjs");
     // The ABI says: "It is suggested that it be emitted in the same COMDAT
     // group as the associated data object." In practice, this doesn't work for
     // non-ELF and non-Wasm object formats, so only do it for ELF and Wasm.
