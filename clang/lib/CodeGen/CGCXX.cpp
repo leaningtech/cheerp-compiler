@@ -213,6 +213,9 @@ llvm::Function *CodeGenModule::codegenCXXStructor(GlobalDecl GD) {
 
   setFunctionLinkage(GD, Fn);
 
+  if (MD->hasAttr<AsmJSAttr>())
+    Fn->setSection("asmjs");
+
   CodeGenFunction(*this).GenerateCode(GD, Fn, FnInfo);
   setNonAliasAttributes(GD, Fn);
   SetLLVMFunctionAttributesForDefinition(cast<CXXMethodDecl>(GD.getDecl()), Fn);
