@@ -1328,8 +1328,8 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   CGCallee Callee = CGCallee::forDirect(CalleePtr, GlobalDecl(CalleeDecl));
 
   RValue RV;
-  if(CalleeDecl->hasAttr<MallocAttr>() && !CGF.getTarget().isByteAddressable())
-  {
+  bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs");
+  if(!CGF.getTarget().isByteAddressable() && !asmjs) {
     // If allocType is specified this is an allocation, otherwise a free
     QualType retType;
     llvm::Function* intrinsic;
