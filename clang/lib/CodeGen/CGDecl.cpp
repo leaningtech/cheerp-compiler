@@ -1105,7 +1105,7 @@ static llvm::Constant *constWithPadding(CodeGenModule &CGM, IsPattern isPattern,
 
 Address CodeGenModule::createUnnamedGlobalFrom(const VarDecl &D,
                                                llvm::Constant *Constant,
-                                               CharUnits Align) {
+                                               CharUnits Align, llvm::Function* CurFn) {
   auto FunctionName = [&](const DeclContext *DC) -> std::string {
     if (const auto *FD = dyn_cast<FunctionDecl>(DC)) {
       if (const auto *CC = dyn_cast<CXXConstructorDecl>(FD))
@@ -1127,7 +1127,7 @@ Address CodeGenModule::createUnnamedGlobalFrom(const VarDecl &D,
   // Form a simple per-variable cache of these values in case we find we
   // want to reuse them.
   llvm::GlobalVariable *&CacheEntry = InitializerConstants[&D];
-  if (!CacheEntry || CacheEntry->getInitializer() != Constant) {
+  if (!CacheEntry || CacheEntry->getInitializer() != Constant || (CurFn && CacheEntry->getSection() != CurFn->getSection())) {
     auto *Ty = Constant->getType();
     bool isConstant = true;
     llvm::GlobalVariable *InsertBefore = nullptr;
@@ -1145,6 +1145,10 @@ Address CodeGenModule::createUnnamedGlobalFrom(const VarDecl &D,
         Constant, Name, InsertBefore, llvm::GlobalValue::NotThreadLocal, AS);
     GV->setAlignment(Align.getAsAlign());
     GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+    //CHEERP: if function is in asmjs section, also the temporary global should
+    if (CurFn && CurFn->getSection()==StringRef("asmjs"))
+      GV->setSection("asmjs");
+
     CacheEntry = GV;
   } else if (CacheEntry->getAlignment() < uint64_t(Align.getQuantity())) {
     CacheEntry->setAlignment(Align.getAsAlign());
@@ -1157,12 +1161,12 @@ static Address createUnnamedGlobalForMemcpyFrom(CodeGenModule &CGM,
                                                 const VarDecl &D,
                                                 CGBuilderTy &Builder,
                                                 llvm::Constant *Constant,
-                                                CharUnits Align) {
-  Address SrcPtr = CGM.createUnnamedGlobalFrom(D, Constant, Align);
+                                                CharUnits Align, llvm::Function* CurFn) {
+  Address SrcPtr = CGM.createUnnamedGlobalFrom(D, Constant, Align, CurFn);
   llvm::Type *BP = llvm::PointerType::getInt8PtrTy(CGM.getLLVMContext(),
                                                    SrcPtr.getAddressSpace());
-  if (constant->getType()->isArrayTy())
-    SrcPtr = Builder.CreateConstGEP2_32(GV->getType()->getPointerElementType(), SrcPtr, 0, 0);
+  if (Constant->getType()->isArrayTy())
+    SrcPtr = Builder.CreateConstArrayGEP(SrcPtr, 0);
   if (CGM.getTarget().isByteAddressable() && SrcPtr.getType() != BP)
     SrcPtr = Builder.CreateBitCast(SrcPtr, BP);
   return SrcPtr;
@@ -1171,7 +1175,7 @@ static Address createUnnamedGlobalForMemcpyFrom(CodeGenModule &CGM,
 static void emitStoresForConstant(CodeGenModule &CGM, const VarDecl &D,
                                   Address Loc, bool isVolatile,
                                   CGBuilderTy &Builder,
-                                  llvm::Constant *constant, bool IsAutoInit) {
+                                  llvm::Constant *constant, bool IsAutoInit, llvm::Function* CurFn) {
   auto *Ty = constant->getType();
   uint64_t ConstantSize = CGM.getDataLayout().getTypeAllocSize(Ty);
   if (!ConstantSize)
@@ -1256,7 +1260,7 @@ static void emitStoresForConstant(CodeGenModule &CGM, const VarDecl &D,
   auto *I =
       Builder.CreateMemCpy(Loc,
                            createUnnamedGlobalForMemcpyFrom(
-                               CGM, D, Builder, constant, Loc.getAlignment()),
+                               CGM, D, Builder, constant, Loc.getAlignment(), CurFn),
                            SizeVal, isVolatile, CGM.getTarget().isByteAddressable());
   if (IsAutoInit)
     I->addAnnotationMetadata("auto-init");
@@ -1269,7 +1273,7 @@ static void emitStoresForZeroInit(CodeGenModule &CGM, const VarDecl &D,
   llvm::Constant *constant =
       constWithPadding(CGM, IsPattern::No, llvm::Constant::getNullValue(ElTy));
   emitStoresForConstant(CGM, D, Loc, isVolatile, Builder, constant,
-                        /*IsAutoInit=*/true);
+                        /*IsAutoInit=*/true, nullptr);
 }
 
 static void emitStoresForPatternInit(CodeGenModule &CGM, const VarDecl &D,
@@ -1280,7 +1284,7 @@ static void emitStoresForPatternInit(CodeGenModule &CGM, const VarDecl &D,
       CGM, IsPattern::Yes, initializationPatternFor(CGM, ElTy));
   assert(!isa<llvm::UndefValue>(constant));
   emitStoresForConstant(CGM, D, Loc, isVolatile, Builder, constant,
-                        /*IsAutoInit=*/true);
+                        /*IsAutoInit=*/true, nullptr);
 }
 
 static bool containsUndef(llvm::Constant *constant) {
@@ -1786,7 +1790,7 @@ void CodeGenFunction::emitZeroOrPatternForAutoVarInit(QualType type,
     auto *I =
         Builder.CreateMemCpy(Address(Cur, CurAlign),
                              createUnnamedGlobalForMemcpyFrom(
-                                 CGM, D, Builder, Constant, ConstantAlign),
+                                 CGM, D, Builder, Constant, ConstantAlign, CurFn),
                              BaseSizeInChars, isVolatile);
     I->addAnnotationMetadata("auto-init");
     llvm::Value *Next =
@@ -1914,7 +1918,7 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
   llvm::Type *BP = CGM.Int8Ty->getPointerTo(Loc.getAddressSpace());
   emitStoresForConstant(
       CGM, D, (getTarget().isByteAddressable() && Loc.getType() != BP) ? Builder.CreateBitCast(Loc, BP) : Loc,
-      type.isVolatileQualified(), Builder, constant, /*IsAutoInit=*/false);
+      type.isVolatileQualified(), Builder, constant, /*IsAutoInit=*/false, CurFn);
 }
 
 /// Emit an expression as an initializer for an object (variable, field, etc.)
