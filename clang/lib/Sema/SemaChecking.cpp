@@ -1967,8 +1967,9 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     return SemaBuiltinMatrixColumnMajorStore(TheCall, TheCallResult);
   }
 
-  // Some builtins needs Special handling on Cheerp
-  if (Context.getTargetInfo().getTriple().getArch()==llvm::Triple::cheerp) {
+  bool asmjs = FDecl->hasAttr<AsmJSAttr>();
+  // Some builtins need special handling on generic Cheerp
+  if (!asmjs && Context.getTargetInfo().getTriple().getArch()==llvm::Triple::cheerp) {
     if (CheckCheerpBuiltinFunctionCall(BuiltinID, TheCall))
       return ExprError();
   }
