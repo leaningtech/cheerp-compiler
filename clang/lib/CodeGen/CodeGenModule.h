@@ -633,7 +633,7 @@ public:
   }
 
   Address createUnnamedGlobalFrom(const VarDecl &D, llvm::Constant *Constant,
-                                  CharUnits Align);
+                                  CharUnits Align, llvm::Function* CurFn);
 
   bool lookupRepresentativeDecl(StringRef MangledName,
                                 GlobalDecl &Result) const;
