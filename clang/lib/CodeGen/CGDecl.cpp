@@ -263,6 +263,9 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
   if (supportsCOMDAT() && GV->isWeakForLinker())
     GV->setComdat(TheModule.getOrInsertComdat(GV->getName()));
 
+  if (D.hasAttr<AsmJSAttr>())
+    GV->setSection("asmjs");
+
   if (D.getTLSKind())
     setTLSMode(GV, D);
 
