@@ -3016,7 +3016,14 @@ LValue CodeGenFunction::EmitUnaryOpLValue(const UnaryOperator *E) {
 }
 
 LValue CodeGenFunction::EmitStringLiteralLValue(const StringLiteral *E) {
-  return MakeAddrLValue(CGM.GetAddrOfConstantStringFromLiteral(E),
+  auto S = CGM.GetAddrOfConstantStringFromLiteral(E);
+
+  // CHEERP: if the parent function is in the asmjs section, so is the string
+  // literal
+  assert(CurFn);
+  if (CurFn->getSection() == StringRef("asmjs"))
+    S->setSection("asmjs");
+  return MakeAddrLValue(S,
                         E->getType(), AlignmentSource::Decl);
 }
 
