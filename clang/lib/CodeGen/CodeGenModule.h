@@ -686,6 +686,8 @@ public:
   bool supportsCOMDAT() const;
   void maybeSetTrivialComdat(const Decl &D, llvm::GlobalObject &GO);
 
+  const GlobalDecl* getInitializedGlobalDecl() { return &initializedGlobalDecl; }
+
   CGCXXABI &getCXXABI() const { return *ABI; }
   llvm::LLVMContext &getLLVMContext() { return VMContext; }
 

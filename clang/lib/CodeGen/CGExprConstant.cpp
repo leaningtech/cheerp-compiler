@@ -2052,7 +2052,22 @@ ConstantLValueEmitter::VisitCompoundLiteralExpr(const CompoundLiteralExpr *E) {
 
 ConstantLValue
 ConstantLValueEmitter::VisitStringLiteral(const StringLiteral *E) {
-  return CGM.GetAddrOfConstantStringFromLiteral(E);
+  ConstantAddress V =  CGM.GetAddrOfConstantStringFromLiteral(E);
+  llvm::GlobalVariable* GV = llvm::cast<llvm::GlobalVariable>(V.getPointer());
+  // CHEERP: if the current global declaration has the asmjs attribute,
+  // all the additional globals produced should be in the asmjs section too
+  if (Emitter.CGF && Emitter.CGF->CurFn) {
+    if (Emitter.CGF->CurFn->getSection() == StringRef("asmjs"))
+      GV->setSection("asmjs");
+  } else if (CGM.getInitializedGlobalDecl()->getDecl()) {
+    if (CGM.getInitializedGlobalDecl()->getDecl()->hasAttr<AsmJSAttr>())
+      GV->setSection("asmjs");
+  } else {
+    llvm::errs() << "This string literal does not come from a global nor a function: ";
+    E->dump();
+    llvm::report_fatal_error("please report a bug");
+  }
+  return V;
 }
 
 ConstantLValue
