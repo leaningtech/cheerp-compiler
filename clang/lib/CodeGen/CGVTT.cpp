@@ -123,6 +123,12 @@ llvm::GlobalVariable *CodeGenVTables::GetAddrOfVTT(const CXXRecordDecl *RD) {
   llvm::GlobalVariable *GV = CGM.CreateOrReplaceCXXRuntimeVariable(
       Name, ArrayType, llvm::GlobalValue::ExternalLinkage, Align);
   GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+
+  // CHEERP: if the record has the asmjs attibute put the VTT in the asmjs
+  // section
+  if (RD->hasAttr<AsmJSAttr>()) {
+    GV->setSection("asmjs");
+  }
   return GV;
 }
 

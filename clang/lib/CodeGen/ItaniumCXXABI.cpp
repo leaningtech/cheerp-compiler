@@ -1975,6 +1975,12 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
 
   CGM.setGVProperties(VTable, RD);
 
+  // CHEERP: if the record has the asmjs attibute put the VTable in the asmjs
+  // section
+  if (RD->hasAttr<AsmJSAttr>()) {
+    VTable->setSection("asmjs");
+  }
+
   return VTable;
 }
 
@@ -3144,6 +3150,20 @@ llvm::GlobalVariable *ItaniumRTTIBuilder::GetAddrOfTypeName(
 
   GV->setInitializer(Init);
 
+  // CHEERP: NOTE: For now the TypeInfo Name for built-in and pointer types is 
+  // either in the normal or in the asmjs section based on the -cheerp-mode option,
+  // and not on attributes like record types. Possible solution: inline namespace
+  // (see: https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
+  if (Ty->isBuiltinType() || Ty->isPointerType()) {
+    if (CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS) {
+      GV->setSection("asmjs");
+    }
+  // CHEERP: If the type declaration has the asmjs attribute, put the TypeInfo
+  //         Name in the asmjs section
+  } else if (Ty->getAsTagDecl()->hasAttr<AsmJSAttr>()) {
+    GV->setSection("asmjs");
+  }
+
   return GV;
 }
 
@@ -3813,6 +3833,20 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   llvm::GlobalVariable *GV =
       new llvm::GlobalVariable(M, Init->getType(),
                                /*isConstant=*/true, Linkage, Init, Name);
+
+  // CHEERP: NOTE: For now the TypeInfo Name for built-in and pointer types is 
+  // either in the normal or in the asmjs section based on the -cheerp-mode option,
+  // and not on attributes like record types. Possible solution: inline namespace
+  // (see: https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
+  if (Ty->isBuiltinType() || Ty->isPointerType()) {
+    if (CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS) {
+      GV->setSection("asmjs");
+    }
+  }
+  // CHEERP: If the type declaration has the asmjs attribute, put the TypeInfo
+  //         in the asmjs section
+  else if (Ty->getAsTagDecl()->hasAttr<AsmJSAttr>())
+    GV->setSection("asmjs");
 
   // If there's already an old global variable, replace it with the new one.
   if (OldGV) {

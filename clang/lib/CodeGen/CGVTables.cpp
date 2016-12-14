@@ -608,6 +608,11 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
     ThunkFn->addFnAttr("thunk");
 
   CGM.SetLLVMFunctionAttributesForDefinition(GD.getDecl(), ThunkFn);
+  // CHEERP: if the class is declared with the asmjs attribute, put the thunk
+  // in the asmjs section
+  if (GD.getDecl()->hasAttr<AsmJSAttr>()) {
+    ThunkFn->setSection("asmjs");
+  }
 
   // Thunks for variadic methods are special because in general variadic
   // arguments cannot be perfectly forwarded. In the general case, clang

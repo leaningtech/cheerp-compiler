@@ -1852,6 +1852,9 @@ DeclResult Sema::CheckClassTemplate(
     AddMsStructLayoutForRecord(NewClass);
   }
 
+  // CHEERP: Inject asmjs/genericjs attribute if required
+  MaybeInjectCheerpModeAttr(NewClass);
+
   ClassTemplateDecl *NewTemplate
     = ClassTemplateDecl::Create(Context, SemanticContext, NameLoc,
                                 DeclarationName(Name), TemplateParams,
