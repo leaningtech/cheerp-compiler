@@ -2534,6 +2534,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			POINTER_KIND kind = PA.getPointerKind(ptrOp);
 			if (kind == RAW)
 			{
+				if (checkBounds)
+				{
+					compileCheckBoundsAsmJS(ptrOp);
+					stream<<';';
+				}
 				compileHeapAccess(ptrOp);
 				stream << '=';
 				compileOperand(valOp, COERCION);
@@ -3404,8 +3409,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << "(__stackPtr=(__stackPtr-" << i*8 << ")|0)," << NewLine;
 				stream << '(';
 			}
+			if (asmjs && !calledFunc && checkBounds)
+				stream<<'(';
 			// asm.js type annotation
-			if (asmjs && retTy->isFloatingPointTy())
+			if (asmjs && retTy->isFloatingPointTy() && !(checkBounds && !calledFunc))
 				stream << '+';
 			if(calledFunc)
 			{
@@ -3427,6 +3434,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				else
 				{
 					uint32_t mask = functionTables[table].size()-1;
+					if (checkBounds)
+					{
+						compileCheckFunctionPtrAsmJS(calledValue, mask+1);
+						stream<<',';
+						// asm.js type annotation 
+						if (asmjs && retTy->isFloatingPointTy())
+							stream << '+';
+					}
 					stream << "__FUNCTION_TABLE_" <<table << '[';
 					stream << '(';
 					compileRawPointer(calledValue);
@@ -3456,6 +3471,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << ';' << NewLine;
 				stream << namegen.getSecondaryName(&ci) << "=oSlot";
 			}
+			if (asmjs && !calledFunc && checkBounds)
+			{
+				if (retTy->isVoidTy())
+					stream << ",0";
+				stream<<')';
+			}
 			// If this was a vararg function, pop the arguments from the stack
 			if (asmjs && fTy->isVarArg())
 			{
@@ -3478,6 +3499,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				Type* ty = ptrOp->getType()->getPointerElementType();
 
+				if (checkBounds)
+				{
+					stream << '(';
+					compileCheckBoundsAsmJS(ptrOp);
+					stream << ',';
+				}
 				stream << '(';
 				if (ty->isFloatingPointTy())
 				{
@@ -3489,6 +3516,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << "|0";
 				}
 				stream << ')';
+				if (checkBounds)
+					stream <<')';
 				return COMPILE_OK;
 			}
 			
@@ -4310,6 +4339,30 @@ void CheerpWriter::compileCheckDefined(const Value* p)
 	stream<<")";
 }
 
+void CheerpWriter::compileCheckBoundsAsmJSHelper()
+{
+	stream << "function checkBoundsAsmJS(addr,size){if(addr>=size) throw new Error('OutOfBoundsAsmJS: '+addr);}" << NewLine;
+}
+
+void CheerpWriter::compileCheckBoundsAsmJS(const Value* p)
+{
+	stream<<"checkBoundsAsmJS(";
+	compileOperand(p,COERCION);
+	stream<<','<<heapSize*1024*1024<<"|0)|0";
+}
+
+void CheerpWriter::compileCheckFunctionPtrAsmJSHelper()
+{
+	stream << "function checkFunctionPtrAsmJS(addr,start,size){if(addr<start || addr>=start+size) throw new Error('InvalidFunctionPtrAsmJS: '+addr);}" << NewLine;
+}
+
+void CheerpWriter::compileCheckFunctionPtrAsmJS(const Value* p, uint32_t size)
+{
+	stream<<"checkFunctionPtrAsmJS(";
+	compileOperand(p,COERCION);
+	stream<<','<<functionPtrStart<<"|0,"<<size<<"|0)|0";
+}
+
 void CheerpWriter::compileStackFrame()
 {
 	// NOTE: the stack frame always starts with 8 byte alignment
@@ -4546,6 +4599,11 @@ void CheerpWriter::makeJS()
 		stream << "var isNaN=ffi.isNaN;" << NewLine;
 		stream << "var printString=ffi.printString;" << NewLine;
 		stream << "var __dummy=ffi.__dummy;" << NewLine;
+		if (checkBounds)
+		{
+			stream << "var checkBoundsAsmJS=ffi.checkBoundsAsmJS;" << NewLine;
+			stream << "var checkFunctionPtrAsmJS=ffi.checkFunctionPtrAsmJS;" << NewLine;
+		}
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
@@ -4597,11 +4655,21 @@ void CheerpWriter::makeJS()
 		stream << "var " << heapNames[HEAP8] << "= new " << typedArrayNames[HEAP8] << "(heap);" << NewLine;
 		compilePrintStringHelperAsmJS();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
+		if (checkBounds)
+		{
+			compileCheckBoundsAsmJSHelper();
+			compileCheckFunctionPtrAsmJSHelper();
+		}
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
 		stream << "isNaN:isNaN," << NewLine;
 		stream << "printString:printString," << NewLine;
 		stream << "__dummy:__dummy," << NewLine;
+		if (checkBounds)
+		{
+			stream << "checkBoundsAsmJS:checkBoundsAsmJS," << NewLine;
+			stream << "checkFunctionPtrAsmJS:checkFunctionPtrAsmJS," << NewLine;
+		}
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			StringRef name = namegen.getName(imported);

@@ -469,6 +469,22 @@ public:
 	 */
 	void compileCheckBoundsHelper();
 	/**
+	 * Compile a bound-checking statement for heap accesses in asm.js
+	 */
+	void compileCheckBoundsAsmJS(const llvm::Value* p);
+	/**
+	 * Compile a bound-checking function definition for asm.js heap
+	 */
+	void compileCheckBoundsAsmJSHelper();
+	/**
+	 * Compile a statement for checking function pointer validity in asm.js
+	 */
+	void compileCheckFunctionPtrAsmJS(const llvm::Value* p, uint32_t size);
+	/**
+	 * Compile a function definition for checking function pointer validity in asm.js
+	 */
+	void compileCheckFunctionPtrAsmJSHelper();
+	/**
 	 * Compile a function to assure a GEP property access is defined
 	 */
 	void compileCheckDefined(const llvm::Value* p);
