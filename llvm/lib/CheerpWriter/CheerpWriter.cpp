@@ -2201,6 +2201,8 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					if(k==REGULAR)
 						writer.stream << "aSlot=";
 					writer.compilePointerAs(incoming, k);
+					if (phi->getParent()->getParent()->getSection() == StringRef("asmjs"))
+						writer.stream << "|0";
 				}
 			}
 			else
