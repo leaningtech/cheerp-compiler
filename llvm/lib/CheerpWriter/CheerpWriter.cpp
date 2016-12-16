@@ -35,9 +35,10 @@ class CheerpRenderInterface: public RenderInterface
 private:
 	CheerpWriter* writer;
 	const NewLineHandler& NewLine;
+	bool asmjs;
 	void renderCondition(const BasicBlock* B, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio);
 public:
-	CheerpRenderInterface(CheerpWriter* w, const NewLineHandler& n):writer(w),NewLine(n)
+	CheerpRenderInterface(CheerpWriter* w, const NewLineHandler& n, bool asmjs=false):writer(w),NewLine(n),asmjs(asmjs)
 	{
 	}
 	void renderBlock(const void* privateBlock);
@@ -3352,6 +3353,7 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 {
 	const TerminatorInst* term=bb->getTerminator();
 
+	bool asmjs = bb->getParent()->getSection() == StringRef("asmjs");
 	if(isa<BranchInst>(term))
 	{
 		const BranchInst* bi=cast<BranchInst>(term);
@@ -3369,7 +3371,10 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 			++it;
 		const BasicBlock* dest=it.getCaseSuccessor();
 		writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
-		writer->stream << "===";
+		if (asmjs)
+			writer->stream << "==";
+		else
+			writer->stream << "===";
 		writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
 		//We found the destination, there may be more cases for the same
 		//destination though
@@ -3378,9 +3383,15 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 			if(it.getCaseSuccessor()==dest)
 			{
 				//Also add this condition
-				writer->stream << "||";
+				if (asmjs)
+					writer->stream << '|';
+				else
+					writer->stream << "||";
 				writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
-				writer->stream << "===";
+				if (asmjs)
+					writer->stream << "==";
+				else
+					writer->stream << "===";
 				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 			}
 		}
@@ -3496,14 +3507,17 @@ void CheerpRenderInterface::renderContinue(int labelId)
 
 void CheerpRenderInterface::renderLabel(int labelId)
 {
-	writer->stream << "label=" << labelId << ';' << NewLine;
+	writer->stream << "label=" << labelId << "|0;" << NewLine;
 }
 
 void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 {
 	if(first==false)
 		writer->stream << "else ";
-	writer->stream << "if(label===" << labelId << "){" << NewLine;
+	if (asmjs)
+		writer->stream << "if(label>>>0==" << labelId << ">>>0){" << NewLine;
+	else
+		writer->stream << "if(label===" << labelId << "){" << NewLine;
 }
 
 void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND kind)
@@ -3747,7 +3761,7 @@ void CheerpWriter::compileMethod(const Function& F)
 		}
 		rl->Calculate(relooperMap[&F.getEntryBlock()]);
 
-		CheerpRenderInterface ri(this, NewLine);
+		CheerpRenderInterface ri(this, NewLine, asmjs);
 		compileMethodLocals(F, rl->needsLabel());
 		if (asmjs)
 			compileStackFrame();
