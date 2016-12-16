@@ -639,12 +639,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		return COMPILE_EMPTY;
 	else if(intrinsicId==Intrinsic::vastart)
 	{
-		compileCompleteObject(*it);
-		stream << "={d:arguments,o:" << namegen.getName(currentFun) << ".length}";
+		if (asmjs)
+		{
+			stream << heapNames[HEAP32] << '[';
+			compileRawPointer(*it);
+			stream << ">>2]=__savedStack|0";
+			stream << ';' << NewLine;
+		}
+		else
+		{
+			compileCompleteObject(*it);
+			stream << "={d:arguments,o:" << namegen.getName(currentFun) << ".length}";
+		}
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::vaend)
 	{
+		if (asmjs) return COMPILE_EMPTY;
+
 		compileCompleteObject(*it);
 		stream << "=null";
 		return COMPILE_OK;
@@ -761,7 +773,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(useNativeJavaScriptMath)
 	{
-		const char* Math = asmjs ? "+" : "Math.";
+		const char* Math = asmjs ? "" : "Math.";
 		if(ident=="fabs" || ident=="fabsf")
 		{
 			stream << Math << "abs(";
@@ -3301,11 +3313,35 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::VAArg:
 		{
 			const VAArgInst& vi=cast<VAArgInst>(I);
-			stream << "handleVAArg(";
-			compileCompleteObject(vi.getPointerOperand());
-			stream << ')';
-			
-			assert( globalDeps.needHandleVAArg() );
+			if (asmjs)
+			{
+				// floats are promoted to double as per standard
+				if (vi.getType()->isFloatingPointTy())
+					stream<< '+' << heapNames[HEAPF64];
+				// int8 and int16 are promoted to int32 as per standard
+				else if (vi.getType()->isIntegerTy() || vi.getType()->isPointerTy())
+					stream << heapNames[HEAP32];
+				stream << '[';
+				compileHeapAccess(vi.getPointerOperand());
+				if (vi.getType()->isIntegerTy() || vi.getType()->isPointerTy() || vi.getType()->isFloatTy())
+					stream << ">>2]|0";
+				else
+					stream << ">>3]";
+				stream << ';' << NewLine;
+
+				compileHeapAccess(vi.getPointerOperand());
+				stream << "=((";
+				compileHeapAccess(vi.getPointerOperand());
+				stream << "|0)+8)|0";
+			}
+			else
+			{
+				stream << "handleVAArg(";
+				compileCompleteObject(vi.getPointerOperand());
+				stream << ')';
+
+				assert( globalDeps.needHandleVAArg() );
+			}
 			return COMPILE_OK;
 		}
 		case Instruction::Call:
@@ -3313,28 +3349,44 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const CallInst& ci = cast<CallInst>(I);
 			const Function * calledFunc = ci.getCalledFunction();
 			const Value * calledValue = ci.getCalledValue();
-			const Type* retTy; // for asm.js return type annotation
-			const FunctionType* fTy = calledFunc->getFunctionType();
+			const PointerType* pTy = cast<PointerType>(calledValue->getType());
+			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+			const Type* retTy = fTy->getReturnType();
+			// Calling convention for variadic arguments in asm.js mode:
+			// arguments are pushed into the stack in the reverse order
+			// in which they appear.
+			// We use the 'comma trick' to make all the operations a
+			// single expression
+			if (fTy->isVarArg() && asmjs)
+			{
+				size_t n = ci.getNumArgOperands();
+				size_t arg_size = fTy->getNumParams();
+				size_t i = 0;
+				stream << '(';
+				for (auto op = ci.op_begin() + n - 1; op != ci.op_begin() + arg_size - 1; op--)
+				{
+					i++;
+					stream << '(';
+					uint32_t shift = compileHeapForType(op->get()->getType());
+					stream << "[(__stackPtr-"<< i*8 << ')' << ">>" << shift << "]=";
+					compileRawPointer(op->get());
+					stream << ")," << NewLine;
+				}
+				stream << "(__stackPtr=(__stackPtr-" << i*8 << ")|0)," << NewLine;
+				stream << '(';
+			}
+			// asm.js type annotation
+			if (asmjs && retTy->isFloatingPointTy())
+				stream << '+';
 			if(calledFunc)
 			{
 				//Direct call
 				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
 				if(cf!=COMPILE_UNSUPPORTED)
 					return cf;
-				if (asmjs)
-				{
-					retTy = calledFunc->getReturnType();
-					if (retTy->isFloatingPointTy())
-					{
-						stream << '+';
-					}
-				}
-				else
-				{
-					// handle calls to asm.js functions
-					if (globalDeps.asmJSExports().count(calledFunc) == 1)
-						stream << "__asm.";
-				}
+				// handle calls to asm.js functions
+				if (!asmjs && globalDeps.asmJSExports().count(calledFunc))
+					stream << "__asm.";
 				stream << namegen.getName(calledFunc);
 			}
 			else
@@ -3342,11 +3394,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				//Indirect call
 				compilePointerAs(ci.getCalledValue(), COMPLETE_OBJECT);
 			}
+
 			//If we are dealing with inline asm we are done
 			if(!ci.isInlineAsm())
 			{
-				compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(), &ci, /*forceBoolean*/ false);
+				// On asm.js mode the varargs are passed on the stack
+				size_t n = asmjs?fTy->getNumParams():ci.getNumArgOperands();
+				compileMethodArgs(ci.op_begin(),ci.op_begin()+n, &ci, /*forceBoolean*/ false);
 			}
+			// asm.js type annotation
 			if (asmjs && (retTy->isIntegerTy() || retTy->isPointerTy()))
 			{
 				stream << "|0";
@@ -3356,6 +3412,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				assert(!isInlineable(ci, PA));
 				stream << ';' << NewLine;
 				stream << namegen.getSecondaryName(&ci) << "=oSlot";
+			}
+			// If this was a vararg function, pop the arguments from the stack
+			if (asmjs && fTy->isVarArg())
+			{
+				uint32_t n = ci.getNumArgOperands() - fTy->getNumParams();
+				stream << ')';
+				if (ci.getType()->isVoidTy())
+					stream << ",0";
+				stream << ");" << NewLine << "__stackPtr=(__stackPtr+" << n*8 << ")|0";
+
 			}
 			return COMPILE_OK;
 		}
