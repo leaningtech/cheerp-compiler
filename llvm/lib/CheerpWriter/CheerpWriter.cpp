@@ -1159,6 +1159,93 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	}
 }
 
+void CheerpWriter::compileRawPointer(const Value*p)
+{
+	while ( isBitCast(p) || isGEP(p) )
+	{
+		const User * u = cast<User>(p);
+		if (isGEP(p))
+		{
+			Type* curType = u->getOperand(0)->getType();
+			SmallVector< const Value *, 8 > indices ( std::next(u->op_begin()), u->op_end() );
+			for (uint32_t i=0; i<indices.size(); i++)
+			{
+				if (StructType* ST = dyn_cast<StructType>(curType))
+				{
+					uint32_t index = cast<ConstantInt>( indices[i] )->getZExtValue();
+					const StructLayout* SL = targetData.getStructLayout( ST );
+					curType = ST->getElementType(index);
+					uint32_t offset =  SL->getElementOffset(index);
+					stream << offset;
+				}
+				else
+				{
+					stream << "imul(";
+					compileOperand( indices[i] );
+					stream << ',' << targetData.getTypeAllocSize(curType->getSequentialElementType())<<')';
+					curType = curType->getSequentialElementType();
+				}
+				stream << '+';
+			}
+		}
+		p = u->getOperand(0);
+		continue;
+	}
+	compileOperand(p);
+}
+
+int CheerpWriter::compileHeapForType(Type* et)
+{
+	uint32_t shift=0;
+	if(et->isIntegerTy(8) || et->isIntegerTy(1))
+	{
+		stream << heapNames[HEAP8];
+		shift = 0;
+	}
+	else if(et->isIntegerTy(16))
+	{
+		stream << heapNames[HEAP16];
+		shift = 1;
+	}
+	else if(et->isIntegerTy(32) || et->isPointerTy())
+	{
+		stream << heapNames[HEAP32];
+		shift = 2;
+	}
+	else if(et->isFloatTy())
+	{
+		stream << heapNames[HEAPF32];
+		shift = 2;
+	}
+	else if(et->isDoubleTy())
+	{
+		stream << heapNames[HEAPF64];
+		shift = 3;
+	}
+	else
+	{
+		llvm::errs() << "Unsupported heap access for  type " << *et << "\n";
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+	}
+	return shift;
+}
+void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
+{
+	if (!isa<PointerType>(p->getType()))
+	{
+		llvm::errs() << "not a pointer type:\n";
+		p->dump();
+		llvm::report_fatal_error("please report a bug");
+		return;
+	}
+	PointerType* pt=cast<PointerType>(p->getType());
+	Type* et = (t==nullptr) ? pt->getElementType() : t;
+	uint32_t shift = compileHeapForType(et);
+	stream << '[';
+	compileRawPointer(p);
+	stream << ">>" << shift;
+	stream << ']';
+}
 void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 {
 	// Collapse if p is a gepInst
