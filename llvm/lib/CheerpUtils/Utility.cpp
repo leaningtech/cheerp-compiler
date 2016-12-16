@@ -442,6 +442,29 @@ bool TypeSupport::isSimpleType(Type* t, bool forceTypedArrays)
 	return false;
 }
 
+uint32_t TypeSupport::getAlignmentAsmJS(const llvm::DataLayout& dl, llvm::Type* t)
+{
+	uint32_t alignment = 8;
+	// it the type is an array, look at the element type
+	while (t->isArrayTy())
+	{
+		t = t->getArrayElementType();
+	}
+	// NOTE: we could compute the real minimum alignment with a
+	//       recursive scan of the struct, but instead we just
+	//       align to 8 bytes
+	if (t->isStructTy())
+	{
+		alignment = 8;
+	}
+	else
+	{
+		alignment = dl.getTypeAllocSize(t);
+	}
+
+	return alignment;
+}
+
 DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedType(nullptr), forceTypedArrays(forceTypedArrays)
 {
 	if ( isValidAlloc() )
