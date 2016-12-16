@@ -4049,6 +4049,7 @@ void CheerpWriter::makeJS()
 			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(heap);" << NewLine;
 		}
 		compileMathDeclAsmJS();
+		stream << "var __dummy=ffi.__dummy;" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
@@ -4077,12 +4078,16 @@ void CheerpWriter::makeJS()
 		stream << "};" << NewLine;
 		stream << "var heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 		stream << "var " << heapNames[HEAP8] << "= new " << typedArrayNames[HEAP8] << "(heap);" << NewLine;
+		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
+		stream << "__dummy:__dummy," << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			StringRef name = namegen.getName(imported);
-			stream << name << ':' << name << ',' << NewLine;
+			if (imported->empty() && !TypeSupport::isClientGlobal(imported))
+				name = "__dummy";
+			stream << namegen.getName(imported) << ':' << name << ',' << NewLine;
 		}
 		stream << "};" << NewLine;
 		stream << "var stdlib = {"<<NewLine;
