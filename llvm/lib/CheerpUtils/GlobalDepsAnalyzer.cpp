@@ -34,8 +34,9 @@ const char* GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), DL(NULL), TLI(NULL), entryPoint(NULL),
-	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false), hasAsmJS(false), forceTypedArrays(false)
+GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), heapStart(nullptr), DL(NULL),
+	TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
+	hasPointerArrays(false), hasAsmJS(false), forceTypedArrays(false)
 {
 }
 
@@ -156,6 +157,11 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		visitFunction( F, visited);
 		assert( visited.empty() );
 	}
+	// Put _heapStart as the last var if present, so its address will be the
+	// beginning of the heap handled by malloc in the asm.js module
+	if (heapStart)
+		varsOrder.push_back(heapStart);
+
 	NumRemovedGlobals = filterModule(module);
 	return true;
 }
@@ -196,8 +202,12 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 				Type* globalType = GV->getInitializer()->getType();
 				visitType(globalType, /*forceTypedArray*/ true);
 			}
-			
-			varsOrder.push_back(GV);
+			// We want to put _heapStart in varsOrder as last, so its address
+			// will be the beginning of the heap handled by malloc in the asm.js module
+			if (GV->hasName() && GV->getName() == StringRef("_heapStart"))
+				heapStart = GV;
+			else
+				varsOrder.push_back(GV);
 		}
 	}
 

@@ -177,6 +177,7 @@ private:
 	std::vector< const llvm::Function* > constructorsNeeded;
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;
+	const llvm::GlobalVariable* heapStart;
 	std::vector< llvm::GlobalValue * > externals;
 	std::vector< const llvm::Function* > functionsQueue;
 
