@@ -2510,6 +2510,7 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY 
  */
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstruction(const Instruction& I, PARENT_PRIORITY parentPrio)
 {
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	switch(I.getOpcode())
 	{
 		case Instruction::BitCast:
@@ -2959,15 +2960,29 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const CallInst& ci = cast<CallInst>(I);
 			const Function * calledFunc = ci.getCalledFunction();
+			const Value * calledValue = ci.getCalledValue();
+			const Type* retTy; // for asm.js return type annotation
+			const FunctionType* fTy = calledFunc->getFunctionType();
 			if(calledFunc)
 			{
 				//Direct call
 				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
 				if(cf!=COMPILE_UNSUPPORTED)
 					return cf;
-				// handle calls to asm.js functions
-				if (globalDeps.asmJSExports().count(calledFunc) == 1)
-					stream << "__asm.";
+				if (asmjs)
+				{
+					retTy = calledFunc->getReturnType();
+					if (retTy->isFloatingPointTy())
+					{
+						stream << '+';
+					}
+				}
+				else
+				{
+					// handle calls to asm.js functions
+					if (globalDeps.asmJSExports().count(calledFunc) == 1)
+						stream << "__asm.";
+				}
 				stream << namegen.getName(calledFunc);
 			}
 			else
@@ -2979,6 +2994,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(!ci.isInlineAsm())
 			{
 				compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(), &ci, /*forceBoolean*/ false);
+			}
+			if (asmjs && (retTy->isIntegerTy() || retTy->isPointerTy()))
+			{
+				stream << "|0";
 			}
 			if(ci.getType()->isPointerTy() && PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
 			{
