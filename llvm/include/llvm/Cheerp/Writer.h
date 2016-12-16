@@ -273,6 +273,8 @@ private:
 	 */
 	const llvm::Value* compileByteLayoutOffset(const llvm::Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode);
 
+	void compileRawPointer(const llvm::Value* p);
+
 	/**
 	 * Compile a pointer from a GEP expression, with the given pointer kind
 	 */
@@ -414,6 +416,9 @@ public:
 	bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
+	// returns the amount of shift required for the selected heap
+	int compileHeapForType(llvm::Type* et);
+	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr);
 	/**
 	 * Compile a bound-checking statement on REGULAR or SPLIT_REGULAR pointer
 	 */
