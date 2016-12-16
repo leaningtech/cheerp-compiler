@@ -163,6 +163,11 @@ private:
 	const std::array<const char*,5> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array"}};
 	const std::array<const char*,5> heapNames = {{"HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64"}};
 
+	// map asmjs global variables to their address
+	std::map<const llvm::GlobalVariable*,uint32_t> gVarsAddr;
+	// The next address available to allocate global variables.
+	// The heap space will start after the last global variable allocation
+	uint32_t heapStartAsmJS{8};
 	// Support for source maps
 	SourceMapGenerator* sourceMapGenerator;
 	std::map<llvm::StringRef, llvm::DISubprogram> functionToDebugInfoMap;
@@ -355,6 +360,8 @@ private:
 	GlobalSubExprInfo compileGlobalSubExpr(const GlobalDepsAnalyzer::SubExprVec& subExpr);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void compileParamTypeAnnotationsAsmJS(const llvm::Function* F);
+	void compileGlobalAsmJS(const llvm::GlobalVariable& G);
+	void compileGlobalsInitAsmJS();
 	void compileNullPtrs();
 	void compileCreateClosure();
 	void compileHandleVAArg();

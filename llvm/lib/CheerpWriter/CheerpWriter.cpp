@@ -2252,23 +2252,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			{
 				Type* allocTy = ai->getAllocatedType();
 				uint32_t size = targetData.getTypeAllocSize(allocTy);
-				uint32_t alignment;
-				// it the allocated type is an array, look at the element type
-				while (allocTy->isArrayTy())
-				{
-					allocTy = allocTy->getArrayElementType();
-				}
-				// NOTE: we could compute the real minimum alignment with a
-				//       recursive scan of the struct, but instead we just
-				//       align to 8 bytes
-				if (allocTy->isStructTy())
-				{
-					alignment = 8;
-				}
-				else
-				{
-					alignment = targetData.getTypeAllocSize(allocTy);
-				}
+				uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, allocTy);
 
 				assert((alignment & (alignment-1)) == 0 && "alignment must be power of 2");
 				compileAllocaAsmJS(size,alignment);
@@ -3948,6 +3932,46 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 	}
 }
 
+void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
+{
+	assert(G.hasName());
+	if (TypeSupport::isClientGlobal(&G) && !G.hasInitializer())
+	{
+		// Extern globals in the client namespace are only placeholders for JS globals
+		llvm::errs() << "client namespace functions not supported in asmjs mode yet:\n";
+		G.dump();
+		return;
+	}
+	stream << "var " << namegen.getName(&G) << '=';
+	Type* ty = G.getType();
+	uint32_t size = targetData.getTypeAllocSize(ty->getPointerElementType());
+	// Ensure the right alignment for the type
+	uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, ty->getPointerElementType());
+	// The following is correct if alignment is a power of 2 (which it should be)
+	heapStartAsmJS = (heapStartAsmJS + alignment - 1) & ~(alignment - 1);
+	stream << heapStartAsmJS << ';' << NewLine;
+	gVarsAddr.emplace(&G,heapStartAsmJS);
+	heapStartAsmJS += size;
+}
+
+void CheerpWriter::compileGlobalsInitAsmJS()
+{
+	for (const auto& g : gVarsAddr)
+	{
+		if (g.first->hasInitializer())
+		{
+			Type* ty = g.first->getInitializer()->getType();
+			// If the initializer is a function, skip it
+			if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
+				continue;
+			const Constant* init = g.first->getInitializer();
+			stream  << heapNames[HEAP8] << ".set([";
+			compileConstantAsBytes(init,true);
+			stream << "]," << g.second << ");" << NewLine;
+		}
+	}
+}
+
 void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
 {
 	const Function::const_arg_iterator A=F->arg_begin();
@@ -4116,6 +4140,13 @@ void CheerpWriter::makeJS()
 		{
 			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
 		}
+
+		// Declare globals
+		for ( const GlobalVariable & GV : module.getGlobalList() )
+		{
+			if (GV.getSection() == StringRef("asmjs"))
+				compileGlobalAsmJS(GV);
+		}
 		for ( const Function & F : module.getFunctionList() )
 		{
 			if (!F.empty() && F.getSection() == StringRef("asmjs"))
@@ -4161,6 +4192,7 @@ void CheerpWriter::makeJS()
 			stream << typedArrayNames[i] << ':' << typedArrayNames[i] << ',' << NewLine;
 		}
 		stream << "};" << NewLine;
+		compileGlobalsInitAsmJS();
 		stream << "var __asm = asmJS(stdlib, ffi, heap);" << NewLine;
 	}
 
@@ -4172,9 +4204,11 @@ void CheerpWriter::makeJS()
 #endif //CHEERP_DEBUG_POINTERS
 			compileMethod(F);
 		}
-	
 	for ( const GlobalVariable & GV : module.getGlobalList() )
-		compileGlobal(GV);
+	{
+		if (GV.getSection() != StringRef("asmjs"))
+			compileGlobal(GV);
+	}
 
 	for ( StructType * st : globalDeps.classesUsed() )
 	{
