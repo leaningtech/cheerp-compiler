@@ -4352,6 +4352,8 @@ def cheerp_sourcemap_prefix_EQ : Joined<["-"], "cheerp-sourcemap-prefix=">, Flag
   HelpText<"Remove <prefix> from sourcemap paths">, MetaVarName<"<prefix>">;
 def cheerp_pretty_code : Flag<["-"], "cheerp-pretty-code">, Flags<[DriverOption]>,
   HelpText<"Generate human-readable JS">;
+def cheerp_asmjs_symbolic_globals : Flag<["-"], "cheerp-asmjs-symbolic-globals">, Flags<[DriverOption]>,
+  HelpText<"Compile global variable addresses as js variables in the asm.js module">;
 def cheerp_make_module : Flag<["-"], "cheerp-make-module">, Flags<[DriverOption]>,
   HelpText<"Create a closure around JS to avoid global namespace pollution">;
 def cheerp_no_lto : Flag<["-"], "cheerp-no-lto">, Flags<[DriverOption]>,

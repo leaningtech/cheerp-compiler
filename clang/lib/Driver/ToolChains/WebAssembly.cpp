@@ -471,6 +471,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpSourceMapPrefix->render(Args, CmdArgs);
   if(Arg* cheerpPrettyCode = Args.getLastArg(options::OPT_cheerp_pretty_code))
     cheerpPrettyCode->render(Args, CmdArgs);
+  if(Arg* cheerpAsmJSSymbolicGlobals = Args.getLastArg(options::OPT_cheerp_asmjs_symbolic_globals))
+    cheerpAsmJSSymbolicGlobals->render(Args, CmdArgs);
   if(Arg* cheerpMakeModule = Args.getLastArg(options::OPT_cheerp_make_module))
     cheerpMakeModule->render(Args, CmdArgs);
   if(Arg* cheerpNoNativeMath = Args.getLastArg(options::OPT_cheerp_no_native_math))
@@ -483,7 +485,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpForceTypedArrays->render(Args, CmdArgs);
   if(Arg* cheerpReservedNames = Args.getLastArg(options::OPT_cheerp_reserved_names_EQ))
     cheerpReservedNames->render(Args, CmdArgs);
-  if (Arg *cheerpAsmJSHeapSize = Args.getLastArg(options::OPT_cheerp_asmjs_heap_size))
+  if(Arg *cheerpAsmJSHeapSize = Args.getLastArg(options::OPT_cheerp_asmjs_heap_size))
     cheerpAsmJSHeapSize->render(Args, CmdArgs);
   if(Arg* cheerpBoundsCheck = Args.getLastArg(options::OPT_cheerp_bounds_check))
     cheerpBoundsCheck->render(Args, CmdArgs);
