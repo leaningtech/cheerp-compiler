@@ -2112,7 +2112,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			}
 			if(retVal)
 			{
-				if(retVal->getType()->isPointerTy())
+				if(!asmjs && retVal->getType()->isPointerTy())
 				{
 					POINTER_KIND k=PA.getPointerKindForReturn(ri.getParent()->getParent());
 					// For SPLIT_REGULAR we return the .d part and store the .o part into oSlot
@@ -2132,8 +2132,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 				else
 				{
 					stream << "return ";
-					compileOperand(retVal, LOWEST);
-					if(retVal->getType()->isIntegerTy())
+					PARENT_PRIORITY prio = asmjs?COERCION:LOWEST;
+					compileOperand(retVal, prio);
+					if(!asmjs && retVal->getType()->isIntegerTy())
 						stream << "|0";
 				}
 			}
@@ -3704,7 +3705,20 @@ void CheerpWriter::compileMethod(const Function& F)
 			compileStackFrame();
 		rl->Render(&ri);
 	}
-
+	if (asmjs)
+	{
+		// TODO: asm.js needs a final return statement.
+		// for now we are putting one at the end of every method, even
+		// if there is already one
+		compileStackRet();
+		stream << "return";
+		Type* ret = F.getReturnType();
+		if (ret->isIntegerTy() || ret->isPointerTy())
+			stream << " 0";
+		else if (ret->isFloatingPointTy())
+			stream << " 0.";
+		stream << ';' << NewLine;
+	}
 	stream << '}' << NewLine;
 	currentFun = NULL;
 }
