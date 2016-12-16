@@ -24,6 +24,10 @@ using namespace llvm;
 using namespace std;
 using namespace cheerp;
 
+//TODO: make this a command line parameter
+const uint32_t functionPtrStart = 0x1000000;
+
+
 //De-comment this to debug the pointer kind of every function
 //#define CHEERP_DEBUG_POINTERS
 
@@ -1720,6 +1724,21 @@ void CheerpWriter::compileConstantAsBytes(const Constant* c, bool first, bool as
 				stream << ',';
 			stream << "0,0,0,0";
 		}
+		else if(const Function* F = dyn_cast<Function>(c))
+		{
+			int offset = getFunctionOffsetInTableAsmJS(namegen.getName(F), F->getFunctionType());
+			if (offset <=0 )
+			{
+				llvm::errs() << "function not in table: "<<namegen.getName(F)<<"\n";
+				llvm::report_fatal_error("please report a bug");
+			}
+			for(uint32_t i=0;i<32;i+=8)
+			{
+				if(i!=0 || !first)
+					stream << ',';
+				stream << ((offset>>i)&255);
+			}
+		}
 		else if(isa<ConstantExpr>(c))
 		{
 			const ConstantExpr* ce = cast<ConstantExpr>(c);
@@ -1968,7 +1987,15 @@ void CheerpWriter::compileConstant(const Constant* c)
 	else if(isa<GlobalValue>(c))
 	{
 		assert(c->hasName());
-		stream << namegen.getName(c);
+
+		Type* ty = cast<PointerType>(c->getType())->getElementType();
+		if(asmjs && ty->isFunctionTy())
+		{
+			int offset = getFunctionOffsetInTableAsmJS(namegen.getName(c), cast<FunctionType>(ty));
+			stream << offset;
+		}
+		else
+			stream << namegen.getName(c);
 	}
 	else if(isa<ConstantAggregateZero>(c) || isa<UndefValue>(c))
 	{
@@ -3389,10 +3416,26 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << "__asm.";
 				stream << namegen.getName(calledFunc);
 			}
+			else if (asmjs)
+			{
+				//Indirect call, asm.js mode
+				std::string table = getFunctionTableNameAsmJS(fTy);
+				if (!functionTables.count(table))
+					stream << "__dummy";
+				else
+				{
+					uint32_t mask = functionTables[table].size()-1;
+					stream << "__FUNCTION_TABLE_" <<table << '[';
+					stream << '(';
+					compileRawPointer(calledValue);
+					stream << ")&" << mask << ']';
+				}
+
+			}
 			else
 			{
-				//Indirect call
-				compilePointerAs(ci.getCalledValue(), COMPLETE_OBJECT);
+				//Indirect call, normal mode
+				compilePointerAs(calledValue, COMPLETE_OBJECT);
 			}
 
 			//If we are dealing with inline asm we are done
@@ -3404,9 +3447,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			// asm.js type annotation
 			if (asmjs && (retTy->isIntegerTy() || retTy->isPointerTy()))
-			{
 				stream << "|0";
-			}
 			if(ci.getType()->isPointerTy() && PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
 			{
 				assert(!isInlineable(ci, PA));
@@ -4305,6 +4346,79 @@ void CheerpWriter::compilePrintStringHelperAsmJS()
 	stream << "};" << NewLine;
 }
 
+std::string CheerpWriter::getFunctionTableNameAsmJS(const FunctionType* ft)
+{
+	std::string table_name;
+	Type* ret = ft->getReturnType();
+	if (ret->isVoidTy())
+	{
+		table_name+="v";
+	}
+	else if (ret->isIntegerTy() || ret->isPointerTy())
+	{
+		table_name+="i";
+	}
+	else if (ret->isFloatingPointTy())
+	{
+		table_name+="f";
+	}
+	else
+	{
+		table_name+="?";
+		llvm::errs() << "Unsupported type for return value: " << *ret << "\n";
+		ret->dump();
+	}
+	for (const auto& param : ft->params())
+	{
+		if (param->isIntegerTy() || param->isPointerTy())
+		{
+			table_name+="i";
+		}
+		else if (param->isFloatingPointTy())
+		{
+			table_name+="f";
+		}
+	}
+	return table_name;
+}
+int CheerpWriter::getFunctionOffsetInTableAsmJS(const std::string& fname, const FunctionType* ftype)
+{
+	std::string table_name = getFunctionTableNameAsmJS(ftype);
+	if (functionTables.count(table_name) == 0)
+	{
+		llvm::errs() << "Function signature does not correspond to any table:\n";
+		ftype->dump();
+		llvm::report_fatal_error("Please report a bug",false);
+		return -1;
+	}
+
+
+	auto& functions= functionTables[table_name];
+	auto it = std::find(functions.begin(), functions.end(), fname);
+	if (it != functions.end())
+	{
+		return functionPtrStart + (it - functions.begin());
+	}
+
+	return -1;
+}
+void CheerpWriter::compileFunctionTablesAsmJS()
+{
+	for (const auto& table : functionTables)
+	{
+		stream << "var " << "__FUNCTION_TABLE_" << table.first << "=[";
+		bool first = true;
+		for (const auto N : table.second)
+		{
+			if (!first)
+				stream << ',';
+			first = false;
+			stream << N;
+		}
+		stream << "];" << NewLine;
+	}
+}
+
 void CheerpWriter::compileMathDeclAsmJS()
 {
 	stream << "var imul=stdlib.Math.imul;" << NewLine;
@@ -4324,6 +4438,34 @@ void CheerpWriter::compileMathDeclAsmJS()
 	stream << "var sin=stdlib.Math.sin;" << NewLine;
 	stream << "var sqrt=stdlib.Math.sqrt;" << NewLine;
 	stream << "var tan=stdlib.Math.tan;" << NewLine;
+}
+
+void CheerpWriter::fillFunctionTablesAsmJS()
+{
+	for ( const Function & F : module.getFunctionList() )
+	{
+		if (!F.empty() && !TypeSupport::isClientGlobal(&F) && F.getSection() == StringRef("asmjs") && F.hasAddressTaken())
+		{
+			std::string table_name = getFunctionTableNameAsmJS(F.getFunctionType());
+			if (functionTables.count(table_name) == 0)
+				functionTables[table_name] = {namegen.getName(&F)};
+			else
+				functionTables[table_name].push_back(namegen.getName(&F));
+		}
+	}
+	// since asm.js function tables need to contain 2^n elements, add dummy entries if needed
+	for (auto& table : functionTables)
+	{
+		uint32_t size = table.second.size();
+		uint32_t next_power_of_2 = 1;
+		while(next_power_of_2 < size)
+				next_power_of_2 <<= 1;
+		uint32_t extra = next_power_of_2 - size;
+		for (uint32_t i = 0; i < extra; i++)
+		{
+			table.second.push_back(table.second[0]);
+		}
+	}
 }
 
 void CheerpWriter::makeJS()
@@ -4406,6 +4548,8 @@ void CheerpWriter::makeJS()
 		{
 			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
 		}
+		// populate function tables
+		fillFunctionTablesAsmJS();
 
 		// Declare globals
 		for ( const GlobalVariable & GV : module.getGlobalList() )
@@ -4430,6 +4574,8 @@ void CheerpWriter::makeJS()
 		}
 		stream << '}' << NewLine;
 		
+		compileFunctionTablesAsmJS();
+
 		stream << "return {" << NewLine;
 		stream << "init:__init," << NewLine;
 		// if entry point is in asm.js, explicitly export it
