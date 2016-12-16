@@ -162,6 +162,11 @@ public:
 
 		return m.getNamedMetadata(llvm::Twine(t->getName(),"_bases"));
 	}
+
+	/**
+	 * Returns the required alignment for this time in the asmjs section
+	 */
+	static uint32_t getAlignmentAsmJS(const llvm::DataLayout& dl, llvm::Type* t);
 private:
 	const llvm::Module & module;
 };
