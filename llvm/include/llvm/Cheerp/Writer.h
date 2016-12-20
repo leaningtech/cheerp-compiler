@@ -435,7 +435,7 @@ public:
 
 	void compileStackFrame();
 	void compileStackRet();
-	void compileAllocaAsmJS(uint32_t size, uint32_t alignment);
+	void compileAllocaAsmJS(const llvm::Value*n, uint32_t elem_size, uint32_t alignment);
 	// returns the amount fo shift required for the selected heap
 	int compileHeapForType(llvm::Type* et);
 	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr);

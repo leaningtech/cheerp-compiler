@@ -2448,9 +2448,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				Type* allocTy = ai->getAllocatedType();
 				uint32_t size = targetData.getTypeAllocSize(allocTy);
 				uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, allocTy);
-
+				const Value* n = nullptr;
+				if (ai->isArrayAllocation())
+					n = ai->getArraySize();
 				assert((alignment & (alignment-1)) == 0 && "alignment must be power of 2");
-				compileAllocaAsmJS(size,alignment);
+				compileAllocaAsmJS(n,size,alignment);
 				return COMPILE_OK;
 			}
 			//V8: If the variable is passed to a call make sure that V8 does not try to SROA it
@@ -4372,11 +4374,14 @@ void CheerpWriter::compileStackRet()
 {
 	stream<< "__stackPtr=__savedStack;"<<NewLine;
 }
-void CheerpWriter::compileAllocaAsmJS(uint32_t size, uint32_t alignment)
+void CheerpWriter::compileAllocaAsmJS(const Value* n, uint32_t elem_size, uint32_t alignment)
 {
+	StringRef num = "1";
+	if (n != nullptr)
+		num = namegen.getName(n);
 	// NOTE: the `and` operation ensures the proper alignment
-	stream << "(__stackPtr-"<<size<<")&" << uint32_t(0-alignment) << ';' <<NewLine;
-	stream << "__stackPtr=(__stackPtr-"<<size<<")&" << uint32_t(0-alignment);
+	stream << "(__stackPtr-imul(" << elem_size << ',' << num << "))&" << uint32_t(0-alignment) << ';' <<NewLine;
+	stream << "__stackPtr=(__stackPtr-imul(" << elem_size << ',' << num << "))&" << uint32_t(0-alignment);
 }
 
 void CheerpWriter::compileMemmoveHelperAsmJS()
