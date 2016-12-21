@@ -257,7 +257,8 @@ class PHIVisitor
 {
 public:
 	typedef std::map<PHINode*, Value*> PHIMap;
-	PHIVisitor(PHIMap& phiMap):mappedPHIs(phiMap)
+	typedef std::set<Instruction*> RemoveQueue;
+	PHIVisitor(PHIMap& phiMap, RemoveQueue& r):mappedPHIs(phiMap),toRemove(r)
 	{
 	}
 	bool visitPHI(PHINode* phi);
@@ -266,6 +267,7 @@ public:
 private:
 	std::set<Value*> visited;
 	PHIMap& mappedPHIs;
+	RemoveQueue& toRemove;
 };
 
 Value* PHIVisitor::findBase(Instruction* I)
@@ -340,8 +342,12 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 			else
 			{
 				Value* newIndex=BinaryOperator::Create(BinaryOperator::Add, parentOffset, thisOffset, "geptoindex", gep);
-				Value* newGep=GetElementPtrInst::Create(base, newIndex, "geptoindex", gep);
-				gep->replaceAllUsesWith(newGep);
+				if(!gep->use_empty())
+				{
+					Value* newGep=GetElementPtrInst::Create(base, newIndex, "geptoindex", gep);
+					gep->replaceAllUsesWith(newGep);
+				}
+				toRemove.insert(gep);
 				return newIndex;
 			}
 		}
@@ -357,6 +363,7 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 		{
 			// If incomingValue is not an instruction it must be a global pointer and the base
 			Value* incomingValue=phi->getIncomingValue(i);
+			phi->setIncomingValue(i, UndefValue::get(phi->getType()));
 			Instruction* incomingInst=dyn_cast<Instruction>(incomingValue);
 			Value* index = incomingInst ? rewrite(incomingInst, base) : NULL;
 			if (index == NULL)
@@ -397,6 +404,7 @@ bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 	bool Changed = false;
 
 	PHIVisitor::PHIMap phiMap;
+	PHIVisitor::RemoveQueue toRemove;
 	for ( BasicBlock & BB : F )
 	{
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
@@ -415,11 +423,13 @@ bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 				phiMap.insert(std::make_pair(phi, newVal));
 				continue;
 			}
-			Changed |= PHIVisitor(phiMap).visitPHI(phi);
+			Changed |= PHIVisitor(phiMap, toRemove).visitPHI(phi);
 		}
 	}
 	for(auto& it: phiMap)
 		it.first->eraseFromParent();
+	for(Instruction* I: toRemove)
+		I->eraseFromParent();
 	return Changed;
 }
 
