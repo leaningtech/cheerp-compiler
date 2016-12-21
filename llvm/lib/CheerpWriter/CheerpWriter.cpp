@@ -760,6 +760,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << "__dummy()";
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::stacksave && asmjs)
+	{
+		stream << "__stackPtr";
+		return COMPILE_OK;
+	}
+	else if(intrinsicId==Intrinsic::stackrestore && asmjs)
+	{
+		stream <<"__stackPtr=";
+		compileOperand(*it);
+		return COMPILE_OK;
+	}
 	else if(!asmjs && (ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate))
 	{
 		compileFree(*it);
