@@ -85,7 +85,7 @@ public:
 	}
 
 	// Registers should have a consistent JS type
-	enum REGISTER_KIND { OBJECT=0, INTEGER, FLOAT, DOUBLE };
+	enum REGISTER_KIND { OBJECT=0, INTEGER, DOUBLE };
 	static REGISTER_KIND getRegKindFromType(llvm::Type*);
 private:
 	// Final data structures
