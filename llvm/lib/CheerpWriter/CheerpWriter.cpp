@@ -3253,7 +3253,7 @@ void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND
 	stream << name << '=';
 	if(kind == Registerize::INTEGER)
 		stream << '0';
-	else if(kind == Registerize::DOUBLE || kind == Registerize::FLOAT)
+	else if(kind == Registerize::DOUBLE)
 		stream << "-0";
 	else
 		stream << "null";

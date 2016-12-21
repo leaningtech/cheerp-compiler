@@ -453,9 +453,7 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(llvm::Type* t)
 {
 	if(t->isIntegerTy())
 		return INTEGER;
-	else if(t->isFloatTy())
-		return FLOAT;
-	else if(t->isDoubleTy())
+	else if(t->isFloatingPointTy())
 		return DOUBLE;
 	else
 		return OBJECT;
