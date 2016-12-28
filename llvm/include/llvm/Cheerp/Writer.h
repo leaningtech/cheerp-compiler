@@ -165,9 +165,6 @@ private:
 
 	// map asmjs global variables to their address
 	std::map<const llvm::GlobalVariable*,uint32_t> gVarsAddr;
-	// the keys are unique for every function signature
-	// the values are a list of the function names with that signature
-	std::map<std::string, std::vector<std::string>> functionTables;
 	// The next address available to allocate global variables.
 	// The heap space will start after the last global variable allocation
 	uint32_t heapStartAsmJS{8};
@@ -439,17 +436,10 @@ public:
 	// returns the amount fo shift required for the selected heap
 	int compileHeapForType(llvm::Type* et);
 	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr);
-	std::string getFunctionTableNameAsmJS(const llvm::FunctionType* ft);
-	// return -1 if function name not found in table
-	int getFunctionOffsetInTableAsmJS(const std::string& fname, const llvm::FunctionType* ftype);
 	/**
 	 * Compile the function tables for the asm.js module
 	 */
 	void compileFunctionTablesAsmJS();
-	/**
-	 * Fills the functionTables data structure use to handle indirect calls in asm.js code
-	 */
-	void fillFunctionTablesAsmJS();
 	/**
 	 * Compile the declaration of the mathematical functions for the asm.js module
 	 */

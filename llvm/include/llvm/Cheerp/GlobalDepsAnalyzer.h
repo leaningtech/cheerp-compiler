@@ -35,7 +35,87 @@ public:
 	static char ID;
 	typedef llvm::SmallVector<const llvm::Use *, 8> SubExprVec;
 	typedef std::unordered_multimap< const llvm::GlobalVariable *, SubExprVec > FixupMap;
-
+	/**
+	 * Used to compile asm.js indirect function calls
+	 */
+	struct FunctionTableInfo {
+		std::string name;
+		size_t mask;
+		std::vector<const llvm::Function*> functions;
+	};
+	/**
+	 * Custom hash and compare functions for the FunctionTableInfoMap
+	 * Two types are considered equal if they are both void, floating point,
+	 * or (integer or pointer). Two function types are considered equal if
+	 * they return equivalent types and they have parameters with equivalent
+	 * types in the same order
+	 */
+	struct FunctionSignatureHash
+	{
+		std::size_t operator()(const llvm::FunctionType* const& fTy) const 
+		{
+			const llvm::Type* retTy = fTy->getReturnType();
+			size_t hash = 31;
+			if (retTy->isVoidTy())
+				hash = hash*31 + std::hash<size_t>()(0);
+			else if (retTy->isPointerTy() || retTy->isIntegerTy())
+				hash = hash*31 + std::hash<size_t>()(1);
+			else if (retTy->isFloatingPointTy())
+				hash = hash*31 + std::hash<size_t>()(2);
+			for (const auto& pTy: fTy->params())
+			{
+				if (pTy->isPointerTy() || pTy->isIntegerTy())
+					hash = hash*31 + std::hash<size_t>()(1);
+				else if (pTy->isFloatingPointTy())
+					hash = hash*31 + std::hash<size_t>()(2);
+			}
+			return hash;
+		}
+	};
+	struct FunctionSignatureCmp
+	{
+		bool operator()(const llvm::FunctionType* const& lhs, const llvm::FunctionType* const& rhs) const
+		{
+			size_t r1 = 0, r2 = 0;
+			const llvm::Type* retTy = lhs->getReturnType();
+			if (retTy->isPointerTy() || retTy->isIntegerTy())
+				r1 = 1;
+			else if (retTy->isFloatingPointTy())
+				r1 = 2;
+			retTy = rhs->getReturnType();
+			if (retTy->isPointerTy() || retTy->isIntegerTy())
+				r2 = 1;
+			else if (retTy->isFloatingPointTy())
+				r2 = 2;
+			if (r1 != r2) return false;
+			if (lhs->getNumParams() != rhs->getNumParams()) return false;
+			auto lit = lhs->param_begin();
+			auto rit = rhs->param_begin();
+			for (;lit != lhs->param_end(); lit++,rit++)
+			{
+				if ((*lit)->isPointerTy() || (*lit)->isIntegerTy())
+					r1 = 1;
+				else if ((*lit)->isFloatingPointTy())
+					r1 = 2;
+				if ((*rit)->isPointerTy() || (*rit)->isIntegerTy())
+					r2 = 1;
+				else if ((*rit)->isFloatingPointTy())
+					r2 = 2;
+				if (r1 != r2) return false;
+			}
+			return true;
+		}
+	};
+	/**
+	 * Used to store the information needed to compile and use the asm.js
+	 * function tables for indirect calls
+	 */
+	typedef std::unordered_map<const llvm::FunctionType*,FunctionTableInfo,
+		  FunctionSignatureHash,FunctionSignatureCmp> FunctionTableInfoMap;
+	/**
+	 * Used to assign asm.js function pointers
+	 */
+	typedef std::unordered_map<const llvm::Function*, int32_t> FunctionAddressesMap;
 	/**
 	 * Run the filter. Notice that it does not modify the module.
 	 */
@@ -71,6 +151,16 @@ public:
 	 */
 	const std::unordered_set<llvm::Type*> & dynAllocArrays() const { return arraysNeeded; }
 	
+	/**
+	 * Get the map of the asm.js function tables
+	 */
+	const FunctionTableInfoMap & functionTables() const { return functionTableInfoMap; }
+
+	/**
+	 * Get the map of the asm.js function addresses
+	 */
+	const FunctionAddressesMap & functionAddresses() const { return functionAddressesMap; }
+
 	/**
 	 * Get a list of the asm.js functions called from outside
 	 */
@@ -166,12 +256,18 @@ private:
 	 */
 	int filterModule( llvm::Module & );
 
+	// Utility function to get the name of the asm.js function table for the
+	// given function type
+	std::string getFunctionTableName(const llvm::FunctionType* ft);
+
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
 	std::unordered_set<llvm::StructType* > classesWithBaseInfoNeeded;
 	std::unordered_set<llvm::StructType* > classesNeeded;
 	std::unordered_set<llvm::Type* > arraysNeeded;
+	FunctionTableInfoMap functionTableInfoMap;
+	FunctionAddressesMap functionAddressesMap;
 	std::unordered_set<const llvm::Function* > asmJSExportedFuncions;
 	std::unordered_set<const llvm::Function* > asmJSImportedFuncions;
 	std::vector< const llvm::Function* > constructorsNeeded;
