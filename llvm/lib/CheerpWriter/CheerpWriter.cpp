@@ -25,8 +25,7 @@ using namespace std;
 using namespace cheerp;
 
 //TODO: make this a command line parameter
-const uint32_t functionPtrStart = 0x1000000;
-
+constexpr int32_t functionAddrStart = 0x1000000;
 
 //De-comment this to debug the pointer kind of every function
 //#define CHEERP_DEBUG_POINTERS
@@ -1737,12 +1736,12 @@ void CheerpWriter::compileConstantAsBytes(const Constant* c, bool first, bool as
 		}
 		else if(const Function* F = dyn_cast<Function>(c))
 		{
-			int offset = getFunctionOffsetInTableAsmJS(namegen.getName(F), F->getFunctionType());
-			if (offset <=0 )
+			if (!globalDeps.functionAddresses().count(F))
 			{
 				llvm::errs() << "function not in table: "<<namegen.getName(F)<<"\n";
 				llvm::report_fatal_error("please report a bug");
 			}
+			int32_t offset = globalDeps.functionAddresses().at(F) + functionAddrStart;
 			for(uint32_t i=0;i<32;i+=8)
 			{
 				if(i!=0 || !first)
@@ -1999,11 +1998,14 @@ void CheerpWriter::compileConstant(const Constant* c)
 	{
 		assert(c->hasName());
 
-		Type* ty = cast<PointerType>(c->getType())->getElementType();
-		if(asmjs && ty->isFunctionTy())
+		if(asmjs && isa<Function>(c))
 		{
-			int offset = getFunctionOffsetInTableAsmJS(namegen.getName(c), cast<FunctionType>(ty));
-			stream << offset;
+			if (globalDeps.functionAddresses().count(cast<Function>(c))) {
+				int offset = globalDeps.functionAddresses().at(cast<Function>(c)) + functionAddrStart;
+				stream << offset;
+			} else {
+				stream << '0';
+			}
 		}
 		else if (asmjs && isa<GlobalVariable>(c) && gVarsAddr.count(cast<GlobalVariable>(c))==1 && !symbolicGlobalsAsmJS)
 		{
@@ -3439,24 +3441,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			else if (asmjs)
 			{
 				//Indirect call, asm.js mode
-				std::string table = getFunctionTableNameAsmJS(fTy);
-				if (!functionTables.count(table))
+				if (!globalDeps.functionTables().count(fTy))
+				{
 					stream << "__dummy";
+				}
 				else
 				{
-					uint32_t mask = functionTables[table].size()-1;
+					const auto& table = globalDeps.functionTables().at(fTy);
 					if (checkBounds)
 					{
-						compileCheckFunctionPtrAsmJS(calledValue, mask+1);
+						compileCheckFunctionPtrAsmJS(calledValue, table.mask+1);
 						stream<<',';
-						// asm.js type annotation 
+						// asm.js type annotation
 						if (asmjs && retTy->isFloatingPointTy())
 							stream << '+';
 					}
-					stream << "__FUNCTION_TABLE_" <<table << '[';
+					stream << "__FUNCTION_TABLE_" << table.name << '[';
 					stream << '(';
 					compileRawPointer(calledValue);
-					stream << ")&" << mask << ']';
+					stream << ")&" << table.mask << ']';
 				}
 
 			}
@@ -4373,7 +4376,7 @@ void CheerpWriter::compileCheckFunctionPtrAsmJS(const Value* p, uint32_t size)
 {
 	stream<<"checkFunctionPtrAsmJS(";
 	compileOperand(p,COERCION);
-	stream<<','<<functionPtrStart<<"|0,"<<size<<"|0)|0";
+	stream << ',' << functionAddrStart << "|0," << size << "|0)|0";
 }
 
 void CheerpWriter::compileStackFrame()
@@ -4417,74 +4420,24 @@ void CheerpWriter::compilePrintStringHelperAsmJS()
 	stream << "};" << NewLine;
 }
 
-std::string CheerpWriter::getFunctionTableNameAsmJS(const FunctionType* ft)
-{
-	std::string table_name;
-	Type* ret = ft->getReturnType();
-	if (ret->isVoidTy())
-	{
-		table_name+="v";
-	}
-	else if (ret->isIntegerTy() || ret->isPointerTy())
-	{
-		table_name+="i";
-	}
-	else if (ret->isFloatingPointTy())
-	{
-		table_name+="f";
-	}
-	else
-	{
-		table_name+="?";
-		llvm::errs() << "Unsupported type for return value: " << *ret << "\n";
-		ret->dump();
-	}
-	for (const auto& param : ft->params())
-	{
-		if (param->isIntegerTy() || param->isPointerTy())
-		{
-			table_name+="i";
-		}
-		else if (param->isFloatingPointTy())
-		{
-			table_name+="f";
-		}
-	}
-	return table_name;
-}
-int CheerpWriter::getFunctionOffsetInTableAsmJS(const std::string& fname, const FunctionType* ftype)
-{
-	std::string table_name = getFunctionTableNameAsmJS(ftype);
-	if (functionTables.count(table_name) == 0)
-	{
-		llvm::errs() << "Function signature does not correspond to any table:\n";
-		ftype->dump();
-		llvm::report_fatal_error("Please report a bug",false);
-		return -1;
-	}
-
-
-	auto& functions= functionTables[table_name];
-	auto it = std::find(functions.begin(), functions.end(), fname);
-	if (it != functions.end())
-	{
-		return functionPtrStart + (it - functions.begin());
-	}
-
-	return -1;
-}
 void CheerpWriter::compileFunctionTablesAsmJS()
 {
-	for (const auto& table : functionTables)
+	for (const auto& table : globalDeps.functionTables())
 	{
-		stream << "var " << "__FUNCTION_TABLE_" << table.first << "=[";
+		stream << "var " << "__FUNCTION_TABLE_" << table.second.name << "=[";
 		bool first = true;
-		for (const auto N : table.second)
+		uint32_t num = 0;
+		for (const auto F : table.second.functions)
 		{
 			if (!first)
 				stream << ',';
 			first = false;
-			stream << N;
+			stream << namegen.getName(F);
+			num++;
+		}
+		for (; num <= table.second.mask; num++)
+		{
+			stream << ',' << namegen.getName(table.second.functions[0]);
 		}
 		stream << "];" << NewLine;
 	}
@@ -4509,34 +4462,6 @@ void CheerpWriter::compileMathDeclAsmJS()
 	stream << "var sin=stdlib.Math.sin;" << NewLine;
 	stream << "var sqrt=stdlib.Math.sqrt;" << NewLine;
 	stream << "var tan=stdlib.Math.tan;" << NewLine;
-}
-
-void CheerpWriter::fillFunctionTablesAsmJS()
-{
-	for ( const Function & F : module.getFunctionList() )
-	{
-		if (!F.empty() && !TypeSupport::isClientGlobal(&F) && F.getSection() == StringRef("asmjs") && F.hasAddressTaken())
-		{
-			std::string table_name = getFunctionTableNameAsmJS(F.getFunctionType());
-			if (functionTables.count(table_name) == 0)
-				functionTables[table_name] = {namegen.getName(&F)};
-			else
-				functionTables[table_name].push_back(namegen.getName(&F));
-		}
-	}
-	// since asm.js function tables need to contain 2^n elements, add dummy entries if needed
-	for (auto& table : functionTables)
-	{
-		uint32_t size = table.second.size();
-		uint32_t next_power_of_2 = 1;
-		while(next_power_of_2 < size)
-				next_power_of_2 <<= 1;
-		uint32_t extra = next_power_of_2 - size;
-		for (uint32_t i = 0; i < extra; i++)
-		{
-			table.second.push_back(table.second[0]);
-		}
-	}
 }
 
 void CheerpWriter::makeJS()
@@ -4624,8 +4549,6 @@ void CheerpWriter::makeJS()
 		{
 			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
 		}
-		// populate function tables
-		fillFunctionTablesAsmJS();
 
 		// Declare globals
 		for ( const GlobalVariable & GV : module.getGlobalList() )
