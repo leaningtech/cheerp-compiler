@@ -1383,6 +1383,11 @@ void ItaniumRecordLayoutBuilder::InitializeLayout(const Decl *D) {
     MaxFieldAlignment = CharUnits::fromQuantity(DefaultMaxFieldAlignment);
   }
 
+  // CHEERP: generic code has 1 byte alignment
+  if (D->hasAttr<GenericJSAttr>()) {
+    MaxFieldAlignment = CharUnits::fromQuantity(1);
+    Alignment = CharUnits::fromQuantity(1);
+  }
   // mac68k alignment supersedes maximum field alignment and attribute aligned,
   // and forces all structures to have 2-byte alignment. The IBM docs on it
   // allude to additional (more complicated) semantics, especially with regard
