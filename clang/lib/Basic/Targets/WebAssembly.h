@@ -180,16 +180,16 @@ public:
                         "a:0:8-f80:8-n8:8:8-S8";
     BigEndian = false;
     ByteAddressable = false;
-    PointerAlign = 8;
-    ShortAlign = 8;
-    IntAlign = 8;
-    LongAlign = 8;
-    LongLongAlign = 8;
-    SuitableAlign = 8;
-    HalfAlign = 8;
-    FloatAlign = 8;
-    DoubleAlign = 8;
-    LongDoubleAlign = 8;
+    PointerAlign = 32;
+    ShortAlign = 16;
+    IntAlign = 32;
+    LongAlign = 32;
+    LongLongAlign = 64;
+    SuitableAlign = 64;
+    HalfAlign = 16;
+    FloatAlign = 32;
+    DoubleAlign = 64;
+    LongDoubleAlign = 64;
     //NOTE: We support float only for usage in typed array
     SizeType = UnsignedInt;
 
