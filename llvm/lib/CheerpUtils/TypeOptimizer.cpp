@@ -460,7 +460,6 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		newStruct->setBody(newTypes, st->isPacked(), newDirectBase);
 		if(st->hasByteLayout())
 			newStruct->setByteLayout();
-		pendingStructTypes.erase(t);
 		return CacheAndReturn(newStruct, newStructKind);
 	}
 	if(FunctionType* ft=dyn_cast<FunctionType>(t))
@@ -1369,9 +1368,6 @@ bool TypeOptimizer::runOnModule(Module& M)
 		Type* rewrittenType = rewriteType(GA.getType());
 		GA.mutateType(rewrittenType);
 	}
-	while(!pendingStructTypes.empty())
-		rewriteType(*pendingStructTypes.begin());
-	assert(pendingFunctions.empty());
 	// Reuse pendingFunctions to store intrinsics that should be deleted
 	for(Function& F: M)
 	{
