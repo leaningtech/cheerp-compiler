@@ -35,7 +35,7 @@ const char* GlobalDepsAnalyzer::getPassName() const
 }
 
 GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), DL(NULL), TLI(NULL), entryPoint(NULL),
-	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false)
+	hasCreateClosureUsers(false), hasVAArgs(false), hasPointerArrays(false), forceTypedArrays(false)
 {
 }
 
