@@ -242,7 +242,9 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   // 'this' must be a pointer (in some address space) to Derived.
   assert(This.getElementType() == ConvertType(Derived));
 
-  if (BaseIsVirtual && !getTarget().isByteAddressable())
+  bool asmjs = CurFn->getSection() == StringRef("asmjs");
+
+  if (BaseIsVirtual && !getTarget().isByteAddressable() && !asmjs)
     CGM.ErrorUnsupported(Derived, "Cheerp: Virtual bases on non-byte addressable targets are not supported yet");
 
   // Compute the offset of the virtual base.
@@ -254,7 +256,7 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
     Offset = Layout.getBaseClassOffset(Base);
 
   // For non byte addressable targtes use type safe path
-  if (!getTarget().isByteAddressable())
+  if (!getTarget().isByteAddressable() && !asmjs)
   {
     SmallVector<llvm::Value*, 4> GEPConstantIndexes;
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
@@ -350,7 +352,8 @@ Address CodeGenFunction::GetAddressOfBaseClass(
     ++Start;
   }
 
-  if (VBase && !getTarget().isByteAddressable())
+  bool asmjs = CurFn->getSection() == StringRef("asmjs");
+  if (VBase && !getTarget().isByteAddressable() && !asmjs)
   {
     CGM.ErrorUnsupported(Derived, "Cheerp: Virtual bases on non-byte addressable targets are not supported yet");
     return Value;
@@ -382,7 +385,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
 
   // If the static offset is zero and we don't have a virtual step,
   // just do a bitcast; null checks are unnecessary.
-  if (NonVirtualOffset.isZero() && !VBase && getTarget().isByteAddressable()) {
+  if (NonVirtualOffset.isZero() && !VBase && (getTarget().isByteAddressable() || asmjs)) {
     if (sanitizePerformTypeCheck()) {
       SanitizerSet SkippedChecks;
       SkippedChecks.set(SanitizerKind::Null, !NullCheckValue);
@@ -421,8 +424,8 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       CGM.getCXXABI().GetVirtualBaseClassOffset(*this, Value, Derived, VBase);
   }
 
-  // First handle the non-byte addressable case (Cheerp)
-  if (!getTarget().isByteAddressable())
+  // First handle the non-byte addressable case (Cheerp normal)
+  if (!getTarget().isByteAddressable() && !asmjs)
     Value = GenerateUpcast(Value, Derived, PathBegin, PathEnd);
   else
   {
