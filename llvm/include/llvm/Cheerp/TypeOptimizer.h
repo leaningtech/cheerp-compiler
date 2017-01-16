@@ -53,7 +53,6 @@ private:
 	std::unordered_map<llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
 	std::unordered_map<llvm::Type*, TypeMappingInfo> typesMapping;
 	std::unordered_set<llvm::Function*> pendingFunctions;
-	std::unordered_set<llvm::Type*> pendingStructTypes;
 	struct EscapingFieldsHash
 	{
 		size_t operator()(const std::pair<llvm::StructType*, uint32_t>& r) const
