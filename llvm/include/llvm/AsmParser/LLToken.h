@@ -259,6 +259,7 @@ enum Kind {
   kw_static,
   kw_bytelayout,
   kw_directbase,
+  kw_asmjs,
 
   kw_type,
   kw_opaque,
