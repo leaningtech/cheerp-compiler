@@ -184,6 +184,7 @@ enum Kind {
 #include "llvm/IR/Attributes.inc"
   kw_bytelayout,
   kw_directbase,
+  kw_asmjs,
 
   // Memory attribute:
   kw_read,
