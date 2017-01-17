@@ -177,7 +177,8 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
     StructType *SSTy = cast<StructType>(SrcTy);
     if (DSTy->isLiteral() != SSTy->isLiteral() ||
         DSTy->isPacked() != SSTy->isPacked() ||
-        DSTy->hasByteLayout() != SSTy->hasByteLayout())
+        DSTy->hasByteLayout() != SSTy->hasByteLayout() ||
+        DSTy->hasAsmJS() != SSTy->hasAsmJS())
       return false;
   } else if (auto *DArrTy = dyn_cast<ArrayType>(DstTy)) {
     if (DArrTy->getNumElements() != cast<ArrayType>(SrcTy)->getNumElements())
@@ -219,6 +220,8 @@ void TypeMapTy::linkDefinedTypeBodies() {
     DstStructTypesSet.switchToNonOpaque(DstSTy);
     if(SrcSTy->hasByteLayout())
       DstSTy->setByteLayout();
+    if(SrcSTy->hasAsmJS())
+      DstSTy->setAsmJS();
   }
   SrcDefinitionsToResolve.clear();
   DstResolvedOpaqueTypes.clear();
@@ -229,6 +232,8 @@ void TypeMapTy::finishType(StructType *DTy, StructType *STy,
   DTy->setBody(ETypes, STy->isPacked(), DirectBase);
   if(STy->hasByteLayout())
     DTy->setByteLayout();
+  if(STy->hasAsmJS())
+    DTy->setAsmJS();
 
   // Steal STy's name.
   if (STy->hasName()) {

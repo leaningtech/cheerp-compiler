@@ -1825,24 +1825,27 @@ Error BitcodeReader::parseTypeTableBody() {
       ResultTy = FunctionType::get(ResultTy, ArgTys, Record[0]);
       break;
     }
-    case bitc::TYPE_CODE_STRUCT_ANON: {  // STRUCT: [ispacked, bytelayout, hasdirectbase, eltty x N]
-      if (Record.size() < 3)
+    case bitc::TYPE_CODE_STRUCT_ANON: {  // STRUCT: [ispacked, bytelayout, asmjs, hasdirectbase, eltty x N]
+      if (Record.size() < 4)
         return error("Invalid record");
       bool hasByteLayout = Record[1];
-      bool hasDirectBase = Record[2];
+      bool hasAsmJS = Record[2];
+      bool hasDirectBase = Record[3];
       SmallVector<Type*, 8> EltTys;
-      for (unsigned i = 3, e = (hasDirectBase ? Record.size()-1 : Record.size()); i != e; ++i) {
+      for (unsigned i = 4, e = (hasDirectBase ? Record.size()-1 : Record.size()); i != e; ++i) {
         if (Type *T = getTypeByID(Record[i]))
           EltTys.push_back(T);
         else
           break;
       }
       StructType* directBase = hasDirectBase ? cast<StructType>(getTypeByID(Record.back())) : NULL;
-      if (EltTys.size() != (hasDirectBase ? Record.size()-4 : Record.size()-3))
+      if (EltTys.size() != (hasDirectBase ? Record.size()-5 : Record.size()-4))
         return error("Invalid type");
       StructType* Res = StructType::get(Context, EltTys, Record[0], directBase);
       if (hasByteLayout)
         Res->setByteLayout();
+      if (hasAsmJS)
+        Res->setAsmJS();
       ResultTy = Res;
       break;
     }
@@ -1851,11 +1854,12 @@ Error BitcodeReader::parseTypeTableBody() {
         return error("Invalid record");
       continue;
 
-    case bitc::TYPE_CODE_STRUCT_NAMED: { // STRUCT: [ispacked, bytelayout, hasdirectbase, eltty x N]
-      if (Record.size() < 3)
+    case bitc::TYPE_CODE_STRUCT_NAMED: { // STRUCT: [ispacked, bytelayout, asmjs, hasdirectbase, eltty x N]
+      if (Record.size() < 4)
         return error("Invalid record");
       bool hasByteLayout = Record[1];
-      bool hasDirectBase = Record[2];
+      bool hasAsmJS = Record[2];
+      bool hasDirectBase = Record[3];
 
       if (NumRecords >= TypeList.size())
         return error("Invalid TYPE table");
@@ -1870,23 +1874,25 @@ Error BitcodeReader::parseTypeTableBody() {
       TypeName.clear();
 
       SmallVector<Type*, 8> EltTys;
-      for (unsigned i = 3, e = (hasDirectBase ? Record.size()-1 : Record.size()); i != e; ++i) {
+      for (unsigned i = 4, e = (hasDirectBase ? Record.size()-1 : Record.size()); i != e; ++i) {
         if (Type *T = getTypeByID(Record[i]))
           EltTys.push_back(T);
         else
           break;
       }
       StructType* directBase = hasDirectBase ? cast<StructType>(getTypeByID(Record.back())) : NULL;
-      if (EltTys.size() != (hasDirectBase ? Record.size()-4 : Record.size()-3))
+      if (EltTys.size() != (hasDirectBase ? Record.size()-5 : Record.size()-4))
         return error("Invalid record");
       Res->setBody(EltTys, Record[0], directBase);
       if (hasByteLayout)
         Res->setByteLayout();
+      if (hasAsmJS)
+        Res->setAsmJS();
       ResultTy = Res;
       break;
     }
     case bitc::TYPE_CODE_OPAQUE: {       // OPAQUE: []
-      if (Record.size() != 2)
+      if (Record.size() != 3)
         return error("Invalid record");
 
       if (NumRecords >= TypeList.size())

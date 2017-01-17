@@ -540,6 +540,7 @@ bool StructType::isLayoutIdentical(StructType *Other) const {
   
   if (isPacked() != Other->isPacked() ||
       hasByteLayout() != Other->hasByteLayout() ||
+      hasAsmJS() != Other->hasAsmJS() ||
       getNumElements() != Other->getNumElements() ||
       getDirectBase() != Other->getDirectBase())
     return false;

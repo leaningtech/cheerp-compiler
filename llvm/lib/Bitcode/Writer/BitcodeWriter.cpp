@@ -948,9 +948,10 @@ void ModuleBitcodeWriter::writeTypeTable() {
           writeStringRecord(Stream, bitc::TYPE_CODE_STRUCT_NAME, ST->getName(),
                             StructNameAbbrev);
       }
-      // STRUCT: [ispacked, bytelayout, [hasdirectbase], eltty x N, [directbase]]
+      // STRUCT: [ispacked, bytelayout, asmjs, [hasdirectbase], eltty x N, [directbase]]
       TypeVals.push_back(ST->isPacked());
       TypeVals.push_back(ST->hasByteLayout());
+      TypeVals.push_back(ST->hasAsmJS());
       if (Code != bitc::TYPE_CODE_OPAQUE)
         TypeVals.push_back(ST->hasDirectBase());
       // Output all of the element types.
