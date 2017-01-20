@@ -231,6 +231,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 	{
 		if(TypeSupport::isClientType(st))
 			return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
+		if(st->isOpaque())
+			return CacheAndReturn(st, TypeMappingInfo::IDENTICAL);
 		while(TypeSupport::hasByteLayout(st))
 		{
 			addAllBaseTypesForByteLayout(st, st);
@@ -300,7 +302,15 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		SmallVector<Type*, 4> newTypes;
 		bool hasMergedArrays=false;
 		std::vector<std::pair<uint32_t, uint32_t>> membersMapping;
-		if(st->getNumElements() > 1)
+		if (st->hasAsmJS())
+		{
+			for(uint32_t i=0;i<st->getNumElements();i++)
+			{
+				Type* elTy = st->getElementType(i);
+				newTypes.push_back(rewriteType(elTy));
+			}
+		}
+		else if(st->getNumElements() > 1)
 		{
 			// We want to merge arrays of the same type in the same object
 			// So, for each element type, keep track if there is already an array
@@ -423,7 +433,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		}
 
 		// newTypes may have a single element because st has a single element or because all the elements collapsed into one
-		if(newTypes.size() == 1)
+		if(newTypes.size() == 1 && !st->hasAsmJS())
 		{
 			// Stop if the element is just a int8, we may be dealing with an empty struct
 			// Empty structs are unsafe as the int8 inside is just a placeholder and will be replaced
@@ -460,6 +470,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		newStruct->setBody(newTypes, st->isPacked(), newDirectBase);
 		if(st->hasByteLayout())
 			newStruct->setByteLayout();
+		else if(st->hasAsmJS())
+			newStruct->setAsmJS();
 		return CacheAndReturn(newStruct, newStructKind);
 	}
 	if(FunctionType* ft=dyn_cast<FunctionType>(t))
