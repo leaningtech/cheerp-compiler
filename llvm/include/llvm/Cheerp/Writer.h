@@ -417,7 +417,7 @@ public:
 		namegen(m, globalDeps, registerize, PA, reservedNames, ReadableOutput),types(m),
 		sourceMapGenerator(sourceMapGenerator),NewLine(),useNativeJavaScriptMath(UseNativeJavaScriptMath),
 		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),
-		symbolicGlobalsAsmJS(CompileGlobalsAddrAsmJS),stream(s, sourceMapGenerator, ReadableOutput)
+		heapSize(HeapSize),checkBounds(CheckBounds),symbolicGlobalsAsmJS(CompileGlobalsAddrAsmJS),stream(s, sourceMapGenerator, ReadableOutput)
 	{
 	}
 	void makeJS();
