@@ -3202,7 +3202,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer logical and
 			//No need to apply the >> operator. The result is an integer by spec
-			PARENT_PRIORITY andPrio = I.getType()->isIntegerTy(1) ? LOGICAL_AND : BIT_AND;
+			PARENT_PRIORITY andPrio = (I.getType()->isIntegerTy(1)&&!asmjs) ? LOGICAL_AND : BIT_AND;
 			if(parentPrio >= andPrio) stream << '(';
 			compileOperand(I.getOperand(0), andPrio, /*allowBooleanObjects*/ true);
 			if(!asmjs && I.getType()->isIntegerTy(1))
