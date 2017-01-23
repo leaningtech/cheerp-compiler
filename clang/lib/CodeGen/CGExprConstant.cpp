@@ -497,6 +497,8 @@ llvm::Constant *ConstantAggregateBuilder::buildFrom(
   if (llvm::StructType *DesiredSTy = dyn_cast<llvm::StructType>(DesiredTy)) {
     if (ValSTy->hasByteLayout())
       STy->setByteLayout();
+    if (RD->hasAttr<AsmJSAttr>())
+      STy->setAsmJS();
     if (DesiredSTy->isLayoutIdentical(STy))
       STy = DesiredSTy;
     else if(!CGM.getTarget().isByteAddressable())
