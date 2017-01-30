@@ -587,20 +587,15 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
     return NULL;
 }
 
-bool PreExecute::runOnModule(Module& m)
+bool PreExecute::runOnConstructor(const Target* target, const std::string& triple, llvm::Module& m, llvm::Function* func)
 {
     bool Changed = false;
 
     std::string error;
-    std::string triple = sys::getDefaultTargetTriple();
-    const Target *target = TargetRegistry::lookupTarget(triple, error);
     TargetMachine* machine;
     machine = target->createTargetMachine(triple, "", "", TargetOptions());
 
     std::unique_ptr<Module> uniqM(&m);
-
-    currentPreExecutePass = this;
-    currentModule = &m;
 
     EngineBuilder builder(std::move(uniqM));
     builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter);
@@ -613,35 +608,11 @@ bool PreExecute::runOnModule(Module& m)
     currentEE->InstallStoreListener(StoreListener);
     currentEE->InstallLazyFunctionCreator(LazyFunctionCreator);
 
-    GlobalVariable * constructorVar = m.getGlobalVariable("llvm.global_ctors");
-
-    if (constructorVar)
+    currentEE->runFunction(func, std::vector< GenericValue >());
+    if(currentEE->hasFailed())
     {
-        // Random things which may go boom
-        if (!constructorVar->hasInitializer() ||
-            !isa<ConstantArray>(constructorVar->getInitializer()))
-            return Changed;
-
-        const Constant *initializer = constructorVar->getInitializer();
-        const ConstantArray *constructors = cast<ConstantArray>(initializer);
-
-        for (ConstantArray::const_op_iterator it = constructors->op_begin();
-             it != constructors->op_end(); ++it)
-        {
-            Constant *elem = cast<Constant>(*it);
-            Function* func = cast<Function>(elem->getAggregateElement(1));
-            currentEE->runFunction(func, std::vector< GenericValue >());
-        }
-    }
-
-    if (PreExecuteMain)
-    {
-        Function* mainFunc = m.getFunction("_Z7webMainv");
-        if (!mainFunc)
-            mainFunc = m.getFunction("main");
-        assert(mainFunc && "unable to find main/webMain in module!");
-        currentEE->runFunction(mainFunc, std::vector<GenericValue>());
-        mainFunc->eraseFromParent();
+        // Execution could not be safely completed. Clean up.
+        modifiedGlobals.clear();
     }
 
     // Compute new initializer for the modified globals
@@ -665,22 +636,104 @@ bool PreExecute::runOnModule(Module& m)
         it.first->setInitializer(it.second);
     }
 
+    modifiedGlobals.clear();
+    typedAllocations.clear();
+
 #ifdef DEBUG_PRE_EXECUTE
     currentEE->printMemoryStats();
 #endif
-
-    // Delete global constructors and remove the main body
-    if (constructorVar)
-        constructorVar->eraseFromParent();
 
     bool removed = currentEE->removeModule(&m);
     assert(removed && "failed to free the module from ExecutionEngine");
 
     delete currentEE;
 
+    currentEE = NULL;
+    return Changed;
+}
+
+bool PreExecute::runOnModule(Module& m)
+{
+    bool Changed = false;
+
+    currentPreExecutePass = this;
+    currentModule = &m;
+
+    std::string error;
+    std::string triple = sys::getDefaultTargetTriple();
+    const Target *target = TargetRegistry::lookupTarget(triple, error);
+
+    GlobalVariable * constructorVar = m.getGlobalVariable("llvm.global_ctors");
+
+    std::vector<Constant*> newConstructors;
+
+    if (constructorVar)
+    {
+        // Random things which may go boom
+        if (!constructorVar->hasInitializer() ||
+            !isa<ConstantArray>(constructorVar->getInitializer()))
+            return Changed;
+
+        const Constant *initializer = constructorVar->getInitializer();
+        const ConstantArray *constructors = cast<ConstantArray>(initializer);
+
+        for (ConstantArray::const_op_iterator it = constructors->op_begin();
+             it != constructors->op_end(); ++it)
+        {
+            Constant *elem = cast<Constant>(*it);
+            Function* func = cast<Function>(elem->getAggregateElement(1));
+            if(runOnConstructor(target, triple, m, func))
+                Changed |= true;
+            else
+                newConstructors.push_back(elem);
+        }
+    }
+
+    if (PreExecuteMain)
+    {
+        Function* mainFunc = m.getFunction("_Z7webMainv");
+        if (!mainFunc)
+            mainFunc = m.getFunction("main");
+        assert(mainFunc && "unable to find main/webMain in module!");
+        if(runOnConstructor(target, triple, m, mainFunc))
+            Changed |= true;
+        else
+        {
+            newConstructors.push_back(mainFunc);
+            mainFunc->eraseFromParent();
+        }
+    }
+
+    // Delete global constructors and remove the main body
+    if (constructorVar)
+    {
+        // Build new constructors if neededed
+        if(newConstructors.empty())
+            constructorVar->eraseFromParent();
+        else
+        {
+            Constant* newArray = ConstantArray::get(ArrayType::get(newConstructors[0]->getType(), newConstructors.size()), newConstructors);
+            // Code borrowed from removeGlobalCtors
+            // Create the new global and insert it next to the existing list.
+            GlobalVariable *NGV = new GlobalVariable(newArray->getType(), constructorVar->isConstant(), constructorVar->getLinkage(),
+                         newArray, "", constructorVar->getThreadLocalMode());
+            constructorVar->getParent()->getGlobalList().insert(constructorVar, NGV);
+            NGV->takeName(constructorVar);
+
+            // Nuke the old list, replacing any uses with the new one.
+            if (!constructorVar->use_empty())
+            {
+                Constant *V = NGV;
+                if (V->getType() != constructorVar->getType())
+                    V = ConstantExpr::getBitCast(V, constructorVar->getType());
+                constructorVar->replaceAllUsesWith(V);
+            }
+            constructorVar->eraseFromParent();
+        }
+    }
+
     currentPreExecutePass = NULL;
     currentModule = NULL;
-    currentEE = NULL;
 
     return Changed;
 }

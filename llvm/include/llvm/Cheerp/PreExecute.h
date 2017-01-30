@@ -50,6 +50,7 @@ public:
 
     const char* getPassName() const override;
     bool runOnModule(llvm::Module& m) override;
+    bool runOnConstructor(const llvm::Target* target, const std::string& triple, llvm::Module& m, llvm::Function* c);
 
 #if defined(__linux__)
     void recordStore(void* Addr);
