@@ -4352,6 +4352,8 @@ def cheerp_make_module : Flag<["-"], "cheerp-make-module">, Flags<[DriverOption]
   HelpText<"Create a closure around JS to avoid global namespace pollution">;
 def cheerp_no_lto : Flag<["-"], "cheerp-no-lto">, Flags<[DriverOption]>,
   HelpText<"Disable final optimization step at link time">;
+def cheerp_dump_bc : Flag<["-"], "cheerp-dump-bc">, Flags<[DriverOption]>,
+  HelpText<"Output the final BC file">;
 def cheerp_no_native_math : Flag<["-"], "cheerp-no-native-math">, Flags<[DriverOption]>,
   HelpText<"Disable native JavaScript math functions">;
 def cheerp_no_type_optimizer : Flag<["-"], "cheerp-no-type-optimizer">, Flags<[DriverOption]>,

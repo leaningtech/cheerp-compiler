@@ -3588,8 +3588,14 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         Action* optJob = C.MakeAction<CheerpOptimizeJobAction>(cheerpOptimizerList, types::TY_LLVM_BC);
         cheerpCompilerList.push_back(optJob);
       }
-      // Before generating JS
-      Actions.push_back(C.MakeAction<CheerpCompileJobAction>(cheerpCompilerList, types::TY_Image));
+      // Check if we only want the final bc file
+      if (Args.hasArg(options::OPT_cheerp_dump_bc)) {
+        Actions.append(cheerpCompilerList.begin(),cheerpCompilerList.end());
+      }
+      // Otherwise generate the JS
+      else {
+        Actions.push_back(C.MakeAction<CheerpCompileJobAction>(cheerpCompilerList, types::TY_Image));
+      }
     }
     else {
     if (Action *Wrapper = OffloadBuilder.makeHostLinkAction())
