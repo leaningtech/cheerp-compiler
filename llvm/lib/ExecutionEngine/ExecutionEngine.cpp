@@ -120,7 +120,7 @@ public:
     void *RawMemory = MemoryAllocator.Allocate(
       alignTo(sizeof(GVMemoryBlock),
                          TD.getPreferredAlign(GV))
-      + GVSize,
+      + GVSize + 4,
       8);
 
     new(RawMemory) GVMemoryBlock(GV);
@@ -330,11 +330,8 @@ const GlobalValue *ExecutionEngine::getGlobalValueAtAddress(void *Addr) {
   if (I == EEState.getGlobalAddressReverseMap().begin())
       return 0;
   --I;
-  if (Addr < I->first)
+  if ((uint64_t)Addr < I->first)
     return 0;
-  if (I->first == Addr)
-    return I->second;
-
   GlobalValue* foundGlobal = nullptr;
   {
     StringRef Name = I->second;
@@ -345,10 +342,12 @@ const GlobalValue *ExecutionEngine::getGlobalValueAtAddress(void *Addr) {
       }
   }
   assert(foundGlobal);
+  if (I->first == (uint64_t)Addr)
+    return foundGlobal;
   // Check if the address is in the middle of the global
   Type *ElTy = foundGlobal->getType()->getElementType();
   size_t GVSize = (size_t)getDataLayout().getTypeAllocSize(ElTy);
-  if (uintptr_t(Addr) < (uintptr_t(I->first)+GVSize))
+  if (uintptr_t(Addr) <= (uintptr_t(I->first)+GVSize))
     return foundGlobal;
   return nullptr;
 }
