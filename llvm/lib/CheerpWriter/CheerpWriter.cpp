@@ -1611,7 +1611,12 @@ void CheerpWriter::compileConstant(const Constant* c)
 						compilePointerOffset(d->getOperand(i), LOWEST);
 				}
 				else
-					compilePointerAs(d->getOperand(i), k);
+				{
+					if(dependOnUndefined)
+						stream << "undefined";
+					else
+						compilePointerAs(d->getOperand(i), k);
+				}
 			}
 			else if(dependOnUndefined)
 				stream << "undefined";
