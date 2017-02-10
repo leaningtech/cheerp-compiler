@@ -363,7 +363,7 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
     SkippedLayout = true;
 
     // Return a placeholder type.
-    return llvm::StructType::create(getLLVMContext());
+    return llvm::FunctionType::get(CGM.Int32Ty, true);
   }
 
   // While we're converting the parameter types for a function, we don't want
@@ -371,7 +371,7 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   // structs is ok though.
   if (!RecordsBeingLaidOut.insert(Ty).second) {
     SkippedLayout = true;
-    return llvm::StructType::create(getLLVMContext());
+    return llvm::FunctionType::get(CGM.Int32Ty, true);
   }
 
   // The function type can be built; call the appropriate routines to
@@ -391,7 +391,7 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   // don't recurse into it again.
   if (FunctionsBeingProcessed.count(FI)) {
 
-    ResultType = llvm::StructType::create(getLLVMContext());
+    ResultType = llvm::FunctionType::get(CGM.Int32Ty, true);
     SkippedLayout = true;
   } else {
 
