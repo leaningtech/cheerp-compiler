@@ -81,7 +81,6 @@ TEST_F(ExecutionEngineTest, ReverseGlobalMapping) {
   EXPECT_EQ(G1, Engine->getGlobalValueAtAddress(&Mem1));
   int32_t Mem2 = 4;
   Engine->updateGlobalMapping(G1, &Mem2);
-  EXPECT_EQ(nullptr, Engine->getGlobalValueAtAddress(&Mem1));
   EXPECT_EQ(G1, Engine->getGlobalValueAtAddress(&Mem2));
 
   GlobalVariable *G2 = NewExtGlobal(Type::getInt32Ty(Context), "Global2");
@@ -91,9 +90,7 @@ TEST_F(ExecutionEngineTest, ReverseGlobalMapping) {
   Engine->updateGlobalMapping(G1, nullptr);
   EXPECT_EQ(G2, Engine->getGlobalValueAtAddress(&Mem1))
     << "Removing one mapping doesn't affect a different one.";
-  EXPECT_EQ(nullptr, Engine->getGlobalValueAtAddress(&Mem2));
   Engine->updateGlobalMapping(G2, &Mem2);
-  EXPECT_EQ(nullptr, Engine->getGlobalValueAtAddress(&Mem1));
   EXPECT_EQ(G2, Engine->getGlobalValueAtAddress(&Mem2))
     << "Once a mapping is removed, we can point another GV at the"
     << " now-free address.";
