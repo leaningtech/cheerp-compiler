@@ -3840,8 +3840,11 @@ void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND
 	stream << name << '=';
 	if(kind == Registerize::INTEGER)
 		stream << '0';
-	else if(kind == Registerize::DOUBLE)
+	else if(!asmjs && kind == Registerize::DOUBLE)
 		stream << "-0";
+	// NOTE: V8 requires the `.` to identify it as a double in asm.js
+	else if(asmjs && kind == Registerize::DOUBLE)
+		stream << "0.";
 	else if(asmjs)
 		stream << '0';
 	else
