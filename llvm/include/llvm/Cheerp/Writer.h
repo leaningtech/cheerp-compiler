@@ -146,7 +146,7 @@ const static int V8MaxLiteralProperties = 8;
 class CheerpWriter
 {
 public:
-	enum PARENT_PRIORITY { LOWEST = 0, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST, COERCION };
+	enum PARENT_PRIORITY { LOWEST = 0, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
 private:
 	enum HEAP_TYPE {HEAP8=0, HEAP16, HEAP32, HEAPF32, HEAPF64};
 
@@ -287,7 +287,7 @@ private:
 	 */
 	void compileGEP(const llvm::User* gepInst, POINTER_KIND kind);
 	void compileGEPBase(const llvm::User* gep_inst, bool forEscapingPointer);
-	void compileGEPOffset(const llvm::User* gep_inst);
+	void compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY parentPrio);
 
 	/**
 	 * Compile a pointer with the specified kind
@@ -323,6 +323,32 @@ private:
 			assert(valueKind == REGULAR || valueKind == BYTE_LAYOUT);
 			compileOperand(p);
 		}
+	}
+	
+	int needsIntCoercion(const llvm::Value* v,PARENT_PRIORITY parentPrio, PARENT_PRIORITY* myPrio = nullptr)
+	{
+		const llvm::Type* ty = v->getType();
+		if (ty->isIntegerTy() || (ty->isPointerTy() && PA.getPointerKind(v) == RAW))
+		{
+			if (parentPrio != BIT_OR && parentPrio != BIT_AND && parentPrio != SHIFT)
+			{
+				int width = ty->isPointerTy()?32:ty->getIntegerBitWidth();
+				if (myPrio != nullptr)
+				{
+					switch (width)
+					{
+						case 32:
+							*myPrio = BIT_OR;
+							break;
+						default:
+							*myPrio = BIT_AND;
+							break;
+					}
+				}
+				return width;
+			}
+		}
+		return 0;
 	}
 
 	/**
@@ -396,7 +422,7 @@ private:
 	void compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
 	void compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind);
 	void compileBitCastBase(const llvm::User* bi, bool forEscapingPointer);
-	void compileBitCastOffset(const llvm::User* bi);
+	void compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY parentPrio);
 	void compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
 
 	static uint32_t getMaskForBitWidth(int width)
