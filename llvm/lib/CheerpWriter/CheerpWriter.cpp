@@ -478,7 +478,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	{
 		assert( globalDeps.dynAllocArrays().count(t) );
 		
-		stream << "createArray" << namegen.getTypeName(t) << '(';
+		stream << namegen.getArrayName(t) << '(';
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 		{
 			compilePointerBase(info.getMemoryArg());
@@ -4201,7 +4201,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			if(st->hasName() && module.getNamedMetadata(Twine(st->getName(),"_bases")) &&
 				globalDeps.classesWithBaseInfo().count(st))
 			{
-				stream << "create" << namegen.getTypeName(st) << '(';
+				stream << namegen.getClassName(st) << '(';
 				compilePointerAs(&G, COMPLETE_OBJECT);
 				stream << ");" << NewLine;
 			}
