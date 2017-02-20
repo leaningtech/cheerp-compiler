@@ -22,38 +22,44 @@ void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 		if(p==CmpInst::ICMP_EQ || p==CmpInst::ICMP_NE)
 		{
 			// LOGICAL_OR is slighly conservative
-			if(parentPrio >= LOGICAL_OR) stream << '(';
+			if(parentPrio > LOGICAL_OR) stream << '(';
 			compileEqualPointersComparison(lhs, rhs, p);
-			if(parentPrio >= LOGICAL_OR) stream << ')';
+			if(parentPrio > LOGICAL_OR) stream << ')';
 		}
 		else
 		{
 			POINTER_KIND kind = PA.getPointerKind(lhs);
 			//Comparison on different bases is anyway undefined, so ignore them
-			if(parentPrio >= COMPARISON) stream << '(';
+			if(parentPrio > COMPARISON) stream << '(';
 			if (kind == RAW)
 			{
 				// Pointers must be of the same type
 				assert(kind == PA.getPointerKind(rhs));
-				compileOperand(lhs,COERCION);
+				stream << "(";
+				compileRawPointer(lhs);
+				stream << "|0)";
 			}
 			else
 				compilePointerOffset( lhs, COMPARISON );
 			compilePredicate(p);
 			if (kind == RAW)
-				compileOperand(rhs, COERCION);
+			{
+				stream << "(";
+				compileRawPointer(rhs);
+				stream << "|0)";
+			}
 			else
 				compilePointerOffset( rhs, COMPARISON );
-			if(parentPrio >= COMPARISON) stream << ')';
+			if(parentPrio > COMPARISON) stream << ')';
 		}
 	}
 	else
 	{
-		if(parentPrio >= COMPARISON) stream << '(';
+		if(parentPrio > COMPARISON) stream << '(';
 		compileOperandForIntegerPredicate(lhs,p,COMPARISON);
 		compilePredicate(p);
 		compileOperandForIntegerPredicate(rhs,p,COMPARISON);
-		if(parentPrio >= COMPARISON) stream << ')';
+		if(parentPrio > COMPARISON) stream << ')';
 	}
 }
 
@@ -65,7 +71,8 @@ void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 	uint64_t typeSize = pointedType->isSized() ? targetData.getTypeAllocSize(pointedType) : 0;
 	if (PA.getPointerKind(v) == RAW)
 	{
-		compileOperand(v,COERCION);
+		compileRawPointer(v);
+		stream << "|0";
 	}
 	else if(typeSize>1 && PA.getPointerKind(v) != BYTE_LAYOUT)
 	{
@@ -92,16 +99,17 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 {
 	//Integer subtraction
 	//TODO: optimize negation
-	PARENT_PRIORITY subPrio = lhs->getType()->isIntegerTy(32) ? BIT_OR : BIT_AND;
+	PARENT_PRIORITY subPrio = ADD_SUB;
+	int width = needsIntCoercion(lhs, parentPrio, &subPrio);
 	if(parentPrio > subPrio) stream << '(';
-	// Minus has higher priority than both >> and &
+	// Minus has higher priority than both | and &
 	compileOperand(lhs, ADD_SUB);
 	stream << '-';
 	compileOperand(rhs, ADD_SUB);
-	if(types.isI32Type(lhs->getType()))
-		stream << "|0";
-	else
-		stream << '&' << getMaskForBitWidth(lhs->getType()->getIntegerBitWidth());
+	if(subPrio == BIT_OR)
+			stream << "|0";
+	else if(subPrio == BIT_AND)
+		stream << '&' << getMaskForBitWidth(width);
 	if(parentPrio > subPrio) stream << ')';
 }
 
@@ -164,7 +172,7 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 	compilePointerBase(bi->getOperand(0), forEscapingPointer);
 }
 
-void CheerpWriter::compileBitCastOffset(const llvm::User* bi)
+void CheerpWriter::compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY parentPrio)
 {
 	Type* src=bi->getOperand(0)->getType();
 	Type* dst=bi->getType();
@@ -182,7 +190,7 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi)
 		}
 	}
 
-	compilePointerOffset(bi->getOperand(0), HIGHEST, true);
+	compilePointerOffset(bi->getOperand(0), parentPrio, true);
 }
 
 void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio)
@@ -191,9 +199,7 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 	compileOperand(cond, TERNARY, /*allowBooleanObjects*/ true);
 	stream << '?';
 
-	bool asmjs = cast<Instruction>(select)->getParent()->getParent()->getSection() == StringRef("asmjs");
-	PARENT_PRIORITY prio = asmjs?COERCION:LOWEST;
-	if(!asmjs && select->getType()->isPointerTy())
+	if(select->getType()->isPointerTy() && PA.getPointerKind(select) != RAW)
 	{
 		POINTER_KIND k = PA.getPointerKind(select);
 		compilePointerAs(lhs, k);
@@ -202,9 +208,16 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 	}
 	else
 	{
+		PARENT_PRIORITY prio = TERNARY;
+		if (needsIntCoercion(select, prio))
+			prio = BIT_OR;
 		compileOperand(lhs, prio);
+		if (prio == BIT_OR)
+			stream << "|0";
 		stream << ':';
 		compileOperand(rhs, prio);
+		if (prio == BIT_OR)
+			stream << "|0";
 	}
 
 	if(parentPrio >= TERNARY) stream << ')';
