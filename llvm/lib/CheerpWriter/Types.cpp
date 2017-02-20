@@ -114,8 +114,10 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 		numElements = ST->getNumElements();
 		if(numElements > V8MaxLiteralProperties && style!=THIS_OBJ)
 		{
+			assert(globalDeps.classesUsed().count(cast<StructType>(t)));
 			// This is a big object, call the constructor and be done with it
-			stream << "new construct" << namegen.getTypeName(t) << "()";
+			stream << "new ";
+			stream << namegen.getConstructorName(t) << "()";
 			return 0;
 		}
 	}
@@ -146,7 +148,9 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 		if(style == LITERAL_OBJ)
 		{
 			if(addDowncastArray)
-				stream << "create" << namegen.getTypeName(downcastArrayBase) << '(';
+			{
+				stream << namegen.getClassName(downcastArrayBase) << '(';
+			}
 			stream << '{';
 		}
 		for(uint32_t i=0;i<st->getNumElements();i++)
@@ -242,7 +246,9 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 		{
 			stream << ';' << NewLine;
 			if(addDowncastArray)
-				stream << "create" << namegen.getTypeName(downcastArrayBase) << "(this)";
+			{
+				stream << namegen.getClassName(downcastArrayBase) << "(this)";
+			}
 		}
 	}
 	else
@@ -268,7 +274,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			else
 			{
 				assert( globalDeps.dynAllocArrays().count(element) );
-				stream << "createArray" << namegen.getTypeName(element) << "([],0," << at->getNumElements() << ')';
+				stream <<  namegen.getArrayName(element) << "([],0," << at->getNumElements() << ')';
 			}
 		}
 		else
@@ -334,7 +340,8 @@ uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, St
 void CheerpWriter::compileClassConstructor(StructType* T)
 {
 	assert(T->getNumElements() > V8MaxLiteralProperties);
-	stream << "function construct" << namegen.getTypeName(T) << "(){" << NewLine;
+	stream << "function ";
+	stream << namegen.getConstructorName(T) << "(){" << NewLine;
 	compileComplexType(T, THIS_OBJ, "aSlot", V8MaxLiteralDepth, 0);
 	stream << '}' << NewLine;
 }
@@ -347,7 +354,7 @@ void CheerpWriter::compileClassType(StructType* T)
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 		return;
 	}
-	stream << "function create" << namegen.filterLLVMName(T->getName(), NameGenerator::GLOBAL) << "(obj){" << NewLine;
+	stream << "function " << namegen.getClassName(T) << "(obj){" << NewLine;
 
 	stream << "var a=[];" << NewLine;
 	compileClassTypeRecursive("obj", T, 0);
@@ -356,8 +363,8 @@ void CheerpWriter::compileClassType(StructType* T)
 
 void CheerpWriter::compileArrayClassType(Type* T)
 {
-	stream << "function createArray";
-	stream << namegen.getTypeName(T);
+	stream << "function ";
+	stream << namegen.getArrayName(T);
 	stream << "(ret,start,end){" << NewLine;
 	stream << "for(var __i__=start;__i__<end;__i__++)" << NewLine;
 	stream << "ret[__i__]=";
