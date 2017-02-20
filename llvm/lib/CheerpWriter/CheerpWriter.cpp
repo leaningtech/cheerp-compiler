@@ -1274,10 +1274,12 @@ void CheerpWriter::compileRawPointer(const Value*p)
 				}
 				else
 				{
-					stream << "imul(";
-					compileOperand( indices[i] );
+					// NOTE: V8 requires imul to be coerced to int like normal functions
+					stream << "(imul(";
+					compileOperand(indices[i] ,LOWEST);
 					stream << ',' << targetData.getTypeAllocSize(curType->getSequentialElementType())<<')';
 					curType = curType->getSequentialElementType();
+					stream << "|0)";
 				}
 				stream << '+';
 			}
