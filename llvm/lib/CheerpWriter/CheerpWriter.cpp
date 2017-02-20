@@ -4355,30 +4355,6 @@ void CheerpWriter::compileCheckDefined(const Value* p)
 	stream<<")";
 }
 
-void CheerpWriter::compileCheckBoundsAsmJSHelper()
-{
-	stream << "function checkBoundsAsmJS(addr,size){if(addr>=size) throw new Error('OutOfBoundsAsmJS: '+addr);}" << NewLine;
-}
-
-void CheerpWriter::compileCheckBoundsAsmJS(const Value* p)
-{
-	stream<<"checkBoundsAsmJS(";
-	compileOperand(p,LOWEST);
-	stream<<','<<heapSize*1024*1024<<"|0)|0";
-}
-
-void CheerpWriter::compileCheckFunctionPtrAsmJSHelper()
-{
-	stream << "function checkFunctionPtrAsmJS(addr,start,size){if(addr<start || addr>=start+size) throw new Error('InvalidFunctionPtrAsmJS: '+addr);}" << NewLine;
-}
-
-void CheerpWriter::compileCheckFunctionPtrAsmJS(const Value* p, uint32_t size)
-{
-	stream<<"checkFunctionPtrAsmJS(";
-	compileOperand(p,LOWEST);
-	stream << ',' << functionAddrStart << "|0," << size << "|0)|0";
-}
-
 void CheerpWriter::compileStackFrame()
 {
 	// NOTE: the stack frame always starts with 8 byte alignment
@@ -4594,11 +4570,6 @@ void CheerpWriter::makeJS()
 		stream << "var " << heapNames[HEAP8] << "= new " << typedArrayNames[HEAP8] << "(heap);" << NewLine;
 		compilePrintStringHelperAsmJS();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
-		if (checkBounds)
-		{
-			compileCheckBoundsAsmJSHelper();
-			compileCheckFunctionPtrAsmJSHelper();
-		}
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
 		stream << "isNaN:isNaN," << NewLine;
