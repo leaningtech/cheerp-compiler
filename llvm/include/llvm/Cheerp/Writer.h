@@ -195,6 +195,8 @@ private:
 	bool forceTypedArrays;
 	// Flag to signal if we should use js variables instead of literals for globals addresses
 	bool symbolicGlobalsAsmJS;
+	// Flag to signal if we should emit readable or compressed output
+	bool readableOutput;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -450,7 +452,8 @@ public:
 		namegen(m, globalDeps, registerize, PA, reservedNames, ReadableOutput),types(m),
 		sourceMapGenerator(sourceMapGenerator),NewLine(),useNativeJavaScriptMath(UseNativeJavaScriptMath),
 		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),
-		heapSize(HeapSize),checkBounds(CheckBounds),symbolicGlobalsAsmJS(CompileGlobalsAddrAsmJS),stream(s, sourceMapGenerator, ReadableOutput)
+		heapSize(HeapSize),checkBounds(CheckBounds),symbolicGlobalsAsmJS(CompileGlobalsAddrAsmJS),readableOutput(ReadableOutput),
+		stream(s, sourceMapGenerator, ReadableOutput)
 	{
 	}
 	void makeJS();
