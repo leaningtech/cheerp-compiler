@@ -20,6 +20,8 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 
+#include <sstream>
+
 using namespace llvm;
 using namespace std;
 using namespace cheerp;
@@ -1967,11 +1969,25 @@ void CheerpWriter::compileConstant(const Constant* c)
 		}
 		else
 		{
-			SmallString<32> buf;
-			f->getValueAPF().toString(buf, std::numeric_limits<double>::max_digits10);
-			stream << buf;
-			if (asmjs && buf.find('.') == StringRef::npos)
-				stream << '.';
+			std::stringstream buf;
+			APFloat apf = f->getValueAPF();
+			bool losesInfo = false;
+			apf.convert(APFloat::IEEEdouble,APFloat::roundingMode::rmNearestTiesToEven,&losesInfo);
+			buf << apf.convertToDouble();
+			// asm.js require the floating point literals to have a dot
+			std::string str = buf.str();
+			if (asmjs && str.find('.') == std::string::npos)
+			{
+				auto pos = str.find('e');
+				if (pos == std::string::npos)
+					pos = str.size();
+				str.insert(pos,".");
+			}
+			// If the number is in the form `0.xyz...` we can remove the leading 0
+			int start = 0;
+			if (str[0] == '0' && str.size() > 2)
+				start = 1;
+			stream << str.c_str()+start;
 		}
 	}
 	else if(isa<ConstantInt>(c))
