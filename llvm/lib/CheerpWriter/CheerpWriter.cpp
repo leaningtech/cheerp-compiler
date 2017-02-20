@@ -111,7 +111,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			return;
 		}
 
-		compileOperand(callV.getArgument(0));
+		compileOperand(callV.getArgument(0), HIGHEST);
 		stream << '.' << StringRef( funcName + 4, funcNameLen - 4 );
 	}
 	else if(strncmp(funcName,"set_",4)==0)
@@ -123,30 +123,30 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			return;
 		}
 
-		compileOperand(callV.getArgument(0));
+		compileOperand(callV.getArgument(0), HIGHEST);
 		if(funcNameLen == 4)
 		{
 			// Generic setter
 			assert(callV.arg_size()==3);
 			stream << '[';
-			compileOperand(callV.getArgument(1));
+			compileOperand(callV.getArgument(1), LOWEST);
 			stream << "]=";
-			compileOperand(callV.getArgument(2));
+			compileOperand(callV.getArgument(2), LOWEST);
 		}
 		else
 		{
 			assert(callV.arg_size()==2);
 			stream << '.' << StringRef( funcName + 4, funcNameLen - 4 ) <<  '=';
-			compileOperand(callV.getArgument(1));
+			compileOperand(callV.getArgument(1), LOWEST);
 		}
 	}
 	else if(className == NULL && strncmp(funcName,"Objectix",8)==0)
 	{
 		// operator[]
 		assert(callV.arg_size()==2);
-		compileOperand(callV.getArgument(0));
+		compileOperand(callV.getArgument(0), HIGHEST);
 		stream << '[';
-		compileOperand(callV.getArgument(1));
+		compileOperand(callV.getArgument(1), LOWEST);
 		stream << ']';
 	}
 	else
@@ -166,7 +166,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			}
 			else
 			{
-				compileOperand(*it);
+				compileOperand(*it, HIGHEST);
 				++it;
 			}
 			stream << '.';
@@ -253,9 +253,8 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			stream << ".a;" << NewLine;
 			stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
 			compileCompleteObject(src);
-			stream << ".o-(";
-			compileOperand(offset, LOWEST);
-			stream << ')';
+			stream << ".o-";
+			compileOperand(offset, ADD_SUB);
 		}
 		else if(result_kind == REGULAR)
 		{
@@ -264,16 +263,16 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			stream << ".a,o:";
 			compileCompleteObject(src);
 
-			stream << ".o-(";
-			compileOperand(offset, LOWEST);
-			stream << ")}";
+			stream << ".o-";
+			compileOperand(offset, ADD_SUB);
+			stream << '}';
 		}
 		else if(result_kind == RAW)
 		{
 			stream << '(';
-			compileOperand(src);
+			compileOperand(src, ADD_SUB);
 			stream  << '-';
-			compileOperand(offset);
+			compileOperand(offset, ADD_SUB);
 			stream << "|0)";
 		}
 		else
@@ -281,9 +280,9 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			compileCompleteObject(src);
 			stream << ".a[";
 			compileCompleteObject(src);
-			stream << ".o-(";
-			compileOperand(offset, LOWEST);
-			stream << ")]";
+			stream << ".o-";
+			compileOperand(offset, ADD_SUB);
+			stream << ']';
 		}
 	}
 }
@@ -314,7 +313,7 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 	{
 		//Compute number of elements at runtime
 		stream << "var __numElem__=";
-		compileOperand(size);
+		compileOperand(size,MUL_DIV);
 		stream << '/' << typeSize;
 		//Make sure to close this if below
 		stream << ';' << NewLine;
@@ -390,7 +389,7 @@ uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shou
 				stream << "Math.imul(";
 				closeMathImul = true;
 			}
-			compileOperand(numberOfElements);
+			compileOperand(numberOfElements, LOWEST);
 			if(useMathImul)
 				stream << ',';
 			else
@@ -419,7 +418,7 @@ uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shou
 	else
 	{
 		assert(shouldPrint);
-		compileOperand( info.getByteSizeArg() );
+		compileOperand( info.getByteSizeArg(), closeMathImul?LOWEST:MUL_DIV );
 		if(closeMathImul)
 			stream << ')';
 		stream << '/' << typeSize << "|0";
@@ -733,7 +732,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << "{d:";
 		compileCompleteObject(*it);
 		stream << ",o:";
-		compileOperand(*(it+1));
+		compileOperand(*(it+1), LOWEST);
 		stream << '}';
 		return COMPILE_OK;
 	}
@@ -746,7 +745,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	else if(intrinsicId==Intrinsic::ctlz)
 	{
 		stream << "Math.clz32(";
-		compileOperand(*it);
+		compileOperand(*it, LOWEST);
 		stream << ')';
 		return COMPILE_OK;
 	}
@@ -769,7 +768,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	else if(intrinsicId==Intrinsic::stackrestore && asmjs)
 	{
 		stream <<"__stackPtr=";
-		compileOperand(*it);
+		compileOperand(*it, LOWEST);
 		return COMPILE_OK;
 	}
 	else if(!asmjs && (ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate))
@@ -793,109 +792,109 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		if(ident=="fabs" || ident=="fabsf")
 		{
 			stream << Math << "abs(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="acos" || ident=="acosf")
 		{
 			stream << Math << "acos(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="asin" || ident=="asinf")
 		{
 			stream << Math << "asin(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="atan" || ident=="atanf")
 		{
 			stream << Math << "atan(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="atan2" || ident=="atan2f")
 		{
 			stream << Math << "atan2(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ',';
-			compileOperand(*(it+1));
+			compileOperand(*(it+1), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="ceil" || ident=="ceilf")
 		{
 			stream << Math << "ceil(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="cos" || ident=="cosf")
 		{
 			stream << Math << "cos(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="exp" || ident=="expf")
 		{
 			stream << Math << "exp(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="floor" || ident=="floorf")
 		{
 			stream << Math << "floor(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="log" || ident=="logf")
 		{
 			stream << Math << "log(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="pow" || ident=="powf")
 		{
 			stream << Math << "pow(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ',';
-			compileOperand(*(it+1));
+			compileOperand(*(it+1), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="round" || ident=="roundf")
 		{
 			stream << Math << "round(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="sin" || ident=="sinf")
 		{
 			stream << Math << "sin(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="sqrt" || ident=="sqrtf")
 		{
 			stream << Math << "sqrt(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="tan" || ident=="tanf")
 		{
 			stream << Math << "tan(";
-			compileOperand(*(it));
+			compileOperand(*(it), LOWEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -1063,13 +1062,13 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	// in asmjs mode all the pointers are RAW pointers
 	if(asmjs)
 	{
-		stream << "((";
+		stream << "(";
 		compileRawPointer(lhs);
-		stream << ")|0)";
+		stream << "|0)";
 		stream << compareString;
-		stream << "((";
+		stream << "(";
 		compileRawPointer(rhs);
-		stream << ")|0)";
+		stream << "|0)";
 	}
 	else if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
 		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || (isGEP(rhs) && cast<User>(rhs)->getNumOperands()==2)))
@@ -1141,8 +1140,8 @@ void CheerpWriter::compileAccessToElement(Type* tp, ArrayRef< const Value* > ind
 		else if(const ArrayType* at = dyn_cast<ArrayType>(tp))
 		{
 			stream << '[';
-			compileOperand(indices[i]);
-			stream << "|0]";
+			compileOperand(indices[i], LOWEST);
+			stream << ']';
 
 			tp = at->getElementType();
 		}
@@ -1289,7 +1288,7 @@ void CheerpWriter::compileRawPointer(const Value*p)
 		p = u->getOperand(0);
 		continue;
 	}
-	compileOperand(p);
+	compileOperand(p, ADD_SUB);
 }
 
 int CheerpWriter::compileHeapForType(Type* et)
@@ -1414,7 +1413,7 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 	}
 
 	// If value has not been generated from a GEP, just compile it and ask for .d
-	compileOperand(p);
+	compileOperand(p, HIGHEST);
 	if(!PA.getConstantOffsetForPointer(p))
 		stream << ".d";
 }
@@ -1459,7 +1458,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 					// This case also handles the first index
 					if (!skipUntilBytelayout && (offsetMode != BYTE_LAYOUT_OFFSET_NO_PRINT))
 					{
-						compileOperand( indices[i] );
+						compileOperand( indices[i], MUL_DIV );
 						stream << '*' << targetData.getTypeAllocSize(curType->getSequentialElementType()) << '+';
 					}
 					curType = curType->getSequentialElementType();
@@ -1641,7 +1640,7 @@ void CheerpWriter::compileConstantArrayMembers(const Constant* C)
 			if(elementType->isPointerTy())
 				compilePointerAs(CA->getOperand(i), PA.getPointerKindForStoredType(elementType));
 			else
-				compileOperand(CA->getOperand(i));
+				compileOperand(CA->getOperand(i), LOWEST);
 		}
 	}
 	else
@@ -1942,7 +1941,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 			else if(dependOnUndefined)
 				stream << "undefined";
 			else
-				compileOperand(d->getOperand(i));
+				compileOperand(d->getOperand(i), LOWEST);
 
 			if (useWrapperArray)
 				stream << ']';
@@ -2244,7 +2243,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			{
 				writer.stream << writer.namegen.getName(phi) << '=';
 				writer.namegen.setEdgeContext(fromBB, toBB);
-				writer.compileOperand(incoming);
+				writer.compileOperand(incoming, LOWEST);
 			}
 			writer.stream << ';' << writer.NewLine;
 			writer.namegen.clearEdgeContext();
@@ -2560,7 +2559,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			if(types.useWrapperArrayForMember(PA, cast<StructType>(t), offset))
 				stream << "[0]";
 			stream << '=';
-			compileOperand(ivi.getInsertedValueOperand());
+			compileOperand(ivi.getInsertedValueOperand(), LOWEST);
 			return COMPILE_OK;
 		}
 		case Instruction::Store:
@@ -3349,7 +3348,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			assert(!isa<UndefValue>(aggr));
 
-			compileOperand(aggr);
+			compileOperand(aggr, HIGHEST);
 
 			uint32_t offset=evi.getIndices()[0];
 			stream << '.' << types.getPrefixCharForMember(PA, cast<StructType>(t), offset) << offset;
@@ -3360,13 +3359,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FPExt:
 		{
 			const Value* src=I.getOperand(0);
-			compileOperand(src);
+			compileOperand(src, parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::FPTrunc:
 		{
 			const Value* src=I.getOperand(0);
-			compileOperand(src);
+			compileOperand(src, parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::PtrToInt:
@@ -3700,12 +3699,12 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 		for(int i=1;i<branchId;i++)
 			++it;
 		const BasicBlock* dest=it.getCaseSuccessor();
-		writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
+		writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 		if (asmjs)
 			writer->stream << "==";
 		else
 			writer->stream << "===";
-		writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::HIGHEST);
+		writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 		//We found the destination, there may be more cases for the same
 		//destination though
 		for(++it;it!=si->case_end();++it)
@@ -4177,7 +4176,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			if(C->getType()->isPointerTy())
 				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
 			else
-				compileOperand(C);
+				compileOperand(C, LOWEST);
 			stream << "],o:0}";
 		}
 		else if(k == BYTE_LAYOUT)
@@ -4186,7 +4185,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			if(C->getType()->isPointerTy())
 				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
 			else
-				compileOperand(C);
+				compileOperand(C, LOWEST);
 			stream << ",o:0}";
 		}
 		else if(k == SPLIT_REGULAR)
@@ -4195,7 +4194,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 			if(C->getType()->isPointerTy())
 				compilePointerAs(C, PA.getPointerKindForStoredType(C->getType()));
 			else
-				compileOperand(C);
+				compileOperand(C, LOWEST);
 			stream << ']';
 			stream << ';' << NewLine;
 			stream << "var " << namegen.getSecondaryName(&G);
@@ -4276,7 +4275,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				compilePointerAs(valOp, subExprInfo.kind);
 		}
 		else
-			compileOperand(valOp);
+			compileOperand(valOp, LOWEST);
 		stream << ';' << NewLine;
 	}
 }
