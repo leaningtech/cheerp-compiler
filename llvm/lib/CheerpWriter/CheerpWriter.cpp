@@ -2326,7 +2326,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 				argKind = PA.getPointerKind(arg_it);
 			else
 			{
-				if(isa<ConstantPointerNull>(*cur) && (cur+1)==itE)
+				if(isa<ConstantPointerNull>(*cur) && (cur+1)==itE && cur!=it)
 				{
 					// Special case for NULL which are the last variadic parameter, copy the previous type
 					tp = (*(cur-1))->getType();
