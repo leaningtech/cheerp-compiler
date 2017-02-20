@@ -51,7 +51,8 @@ void CheerpWriter::compileSimpleType(Type* t)
 		case Type::FloatTyID:
 		case Type::DoubleTyID:
 		{
-			stream << "-0";
+			// NOTE: V8 requires the `.` to identify it as a double in asm.js
+			stream << "-0.";
 			break;
 		}
 		case Type::PointerTyID:
