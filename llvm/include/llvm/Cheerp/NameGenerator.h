@@ -61,13 +61,31 @@ public:
 	}
 
 	/**
-	 * Return a JS compatible name for the StructType, potentially minimized
+	 * Return a JS compatible name for the StructType constructor, potentially minimized
 	 * A name is guaranteed also for literal structs which have otherwise no name
 	 */
-	llvm::StringRef getTypeName(llvm::Type* T) const
+	llvm::StringRef getClassName(llvm::Type* T) const
 	{
-		assert(typemap.count(T));
-		return typemap.at(T);
+		assert(classmap.count(T));
+		return classmap.at(T);
+	}
+	/**
+	 * Return a JS compatible name for the StructType class, potentially minimized
+	 * A name is guaranteed also for literal structs which have otherwise no name
+	 */
+	llvm::StringRef getConstructorName(llvm::Type* T) const
+	{
+		assert(constructormap.count(T));
+		return constructormap.at(T);
+	}
+	/**
+	 * Return a JS compatible name for the StructType array, potentially minimized
+	 * A name is guaranteed also for literal structs which have otherwise no name
+	 */
+	llvm::StringRef getArrayName(llvm::Type* T) const
+	{
+		assert(arraymap.count(T));
+		return arraymap.at(T);
 	}
 
 	/**
@@ -100,13 +118,14 @@ public:
 private:
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
 	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
-	void generateTypeNames( const GlobalDepsAnalyzer& );
 	
 	const Registerize& registerize;
 	const PointerAnalyzer& PA;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > secondaryNamemap;
-	std::unordered_map<llvm::Type*, llvm::SmallString<4> > typemap;
+	std::unordered_map<llvm::Type*, llvm::SmallString<4> > classmap;
+	std::unordered_map<llvm::Type*, llvm::SmallString<4> > constructormap;
+	std::unordered_map<llvm::Type*, llvm::SmallString<4> > arraymap;
 	struct InstOnEdge
 	{
 		const llvm::BasicBlock* fromBB;
