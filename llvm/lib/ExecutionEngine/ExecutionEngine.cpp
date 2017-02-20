@@ -1336,8 +1336,13 @@ void ExecutionEngine::emitGlobalVariable(const GlobalVariable *GV) {
   }
 
   // Don't initialize if it's thread local, let the client do it.
-  if (!GV->isThreadLocal())
+  if (!GV->isThreadLocal()) {
+    if (!GV->hasInitializer()) {
+      llvm::errs() << "error: No initializer for global " << *GV << "\n";
+      llvm::report_fatal_error("Missing global initializer", false);
+    }
     InitializeMemory(GV->getInitializer(), GA);
+  }
 
   Type *ElTy = GV->getValueType();
   size_t GVSize = (size_t)getDataLayout().getTypeAllocSize(ElTy);
