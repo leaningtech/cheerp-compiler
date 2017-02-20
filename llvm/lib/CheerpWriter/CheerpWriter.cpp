@@ -97,9 +97,6 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 
 	bool isClientStatic = callV.getCalledFunction()->hasFnAttribute(Attribute::Static);
 
-	if(callV->getType()->isDoubleTy() || callV->getType()->isFloatTy())
-		stream << '+';
-
 	//The first arg should be the object
 	if(strncmp(funcName,"get_",4)==0)
 	{
@@ -614,12 +611,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		else
 		{
 			stream << "__asmjs_memmove(";
-			compileOperand(*(it),COERCION);
+			compileOperand(*(it),LOWEST);
 			stream << ",";
-			compileOperand(*(it+1),COERCION);
+			compileOperand(*(it+1),LOWEST);
 			stream << ",";
-			compileOperand(*(it+2),COERCION);
-			stream << ")|0;" << NewLine;
+			compileOperand(*(it+2),LOWEST);
+			stream << ")|0";
 			return COMPILE_OK;
 		}
 	}
@@ -648,7 +645,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << heapNames[HEAP32] << '[';
 			compileRawPointer(*it);
 			stream << ">>2]=__savedStack|0";
-			stream << ';' << NewLine;
 		}
 		else
 		{
@@ -1034,8 +1030,6 @@ void CheerpWriter::compilePredicate(CmpInst::Predicate p)
 void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Predicate p, PARENT_PRIORITY parentPrio)
 {
 	assert(v->getType()->isIntegerTy());
-	bool asmjs = currentFun->getSection() == StringRef("asmjs");
-	if (asmjs) parentPrio = COERCION;
 	if(CmpInst::isSigned(p))
 		compileSignedInteger(v, /*forComparison*/ true, parentPrio);
 	else if(CmpInst::isUnsigned(p) || !v->getType()->isIntegerTy(32))
@@ -1505,17 +1499,14 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 
 void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPrio, bool forEscapingPointer)
 {
-	if(parentPrio >= BIT_OR) stream << '(';
+	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
 	if ( PA.getPointerKind(p) == COMPLETE_OBJECT && !isGEP(p) )
 	{
 		// This may still happen when doing ptrtoint of a function
-		stream << "0|0";
-		if(parentPrio >= BIT_OR) stream << ')';
-		return;
+		stream << '0';
 	}
-	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
 	// null must be handled first, even if it is bytelayout
-	if(isa<ConstantPointerNull>(p) || isa<UndefValue>(p))
+	else if(isa<ConstantPointerNull>(p) || isa<UndefValue>(p))
 	{
 		stream << '0';
 	}
@@ -1526,11 +1517,11 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	}
 	else if(isGEP(p) && (!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA) || forEscapingPointer))
 	{
-		compileGEPOffset(cast<User>(p));
+		compileGEPOffset(cast<User>(p), parentPrio);
 	}
 	else if(isBitCast(p) && (!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA) || forEscapingPointer))
 	{
-		compileBitCastOffset(cast<User>(p));
+		compileBitCastOffset(cast<User>(p), parentPrio);
 	}
 	else if (const ConstantInt* CI = PA.getConstantOffsetForPointer(p))
 	{
@@ -1544,13 +1535,15 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	else if((isa<SelectInst> (p) && isInlineable(*cast<Instruction>(p), PA)) || (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::Select))
 	{
 		const User* u = cast<User>(p);
-		stream << '(';
+		if(parentPrio >= TERNARY)
+			stream << '(';
 		compileOperand(u->getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 		stream << '?';
 		compilePointerOffset(u->getOperand(1), TERNARY);
 		stream << ':';
 		compilePointerOffset(u->getOperand(2), TERNARY);
-		stream << ')';
+		if(parentPrio >= TERNARY)
+			stream << ')';
 	}
 	else if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && PA.getPointerKind(p) == SPLIT_REGULAR)
 	{
@@ -1563,22 +1556,19 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 		{
 			case Intrinsic::cheerp_upcast_collapsed:
 			case Intrinsic::cheerp_cast_user:
-				compilePointerOffset(II->getOperand(0), BIT_OR);
+				compilePointerOffset(II->getOperand(0), parentPrio);
 				return;
 			case Intrinsic::cheerp_make_regular:
-				compileOperand(II->getOperand(1), BIT_OR);
+				compileOperand(II->getOperand(1), parentPrio);
 				break;
 			default:
-				compileOperand(p);
+				compileOperand(p,HIGHEST);
 				stream << ".o";
 		}
 	} else {
-		compileOperand(p);
+		compileOperand(p, HIGHEST);
 		stream << ".o";
 	}
-
-	stream << "|0";
-	if(parentPrio >= BIT_OR) stream << ')';
 }
 
 void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
@@ -2048,13 +2038,6 @@ void CheerpWriter::compileConstant(const Constant* c)
 
 void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bool allowBooleanObjects)
 {
-	if (parentPrio == COERCION)
-	{
-		stream << '(';
-		if (v->getType()->isFloatingPointTy())
-			stream << '+';
-		stream << '(';
-	}
 	if(const Constant* c=dyn_cast<Constant>(v))
 		compileConstant(c);
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
@@ -2077,22 +2060,24 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 						break;
 				}
 			}
+			PARENT_PRIORITY myPrio = parentPrio;
 			if(isBooleanObject && !allowBooleanObjects)
-				stream << '(';
-			compileInlineableInstruction(*cast<Instruction>(v), parentPrio);
+			{
+				myPrio = TERNARY;
+				if (parentPrio >= TERNARY)
+					stream << '(';
+			}
+			compileInlineableInstruction(*cast<Instruction>(v), myPrio);
 			if(isBooleanObject && !allowBooleanObjects)
-				stream << "?1:0)";
+			{
+				stream << "?1:0";
+				if(parentPrio >= TERNARY)
+					stream << ')';
+			}
 		}
 		else
 		{
-			if(it->getType()->isIntegerTy(1))
-				if(parentPrio >= BIT_OR) stream << '(';
 			stream << namegen.getName(it);
-			if(it->getType()->isIntegerTy(1))
-			{
-				stream << "|0";
-				if(parentPrio >= BIT_OR) stream << ')';
-			}
 		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
@@ -2108,16 +2093,6 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	{
 		llvm::errs() << "No name for value ";
 		v->dump();
-	}
-	if (parentPrio == COERCION)
-	{
-		stream << ')';
-		if (v->getType()->isIntegerTy() ||
-			(v->getType()->isPointerTy() && PA.getPointerKind(v) == RAW))
-		{
-			stream << "|0";
-		}
-		stream << ')';
 	}
 }
 
@@ -2291,20 +2266,30 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 
 		Type* tp = (*cur)->getType();
 
-		if(tp->isPointerTy())
+		if (asmjs)
+		{
+			const PointerType* pTy = cast<PointerType>(callV.getCalledValue()->getType());
+			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+			PARENT_PRIORITY prio = LOWEST;
+			if (tp->isPointerTy() || (tp->isIntegerTy() &&
+				((F && globalDeps.asmJSImports().count(F)) ||
+				(!F && !globalDeps.functionTables().count(fTy)))))
+			{
+				prio = BIT_OR;
+			}
+			compileOperand(*cur,prio);
+			if (prio == BIT_OR)
+				stream << "|0";
+		}
+		else if(tp->isPointerTy())
 		{
 			POINTER_KIND argKind = UNKNOWN;
-			// Raw pointers are simple, just do compileOperand
-			if (asmjs || PA.getPointerKind(*cur) == RAW)
-			{
-				compileOperand(*cur, COERCION);
-			}
 			// Calling convention:
 			// If this is a direct call and the argument is not a variadic one,
 			// we pass the kind decided by getPointerKind(arg_it).
 			// If it's variadic we use the base kind derived from the type
 			// If it's indirect we use a kind good for any argument of a given type at a given position
-			else if (!F)
+			if (!F)
 			{
 				TypeAndIndex typeAndIndex(tp->getPointerElementType(), opCount, TypeAndIndex::ARGUMENT);
 				argKind = PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex);
@@ -2340,15 +2325,10 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		else if(tp->isIntegerTy(1) && forceBoolean)
 		{
 			stream << "!!";
-			compileOperand(*cur);
+			compileOperand(*cur, HIGHEST);
 		}
 		else
-		{
-			PARENT_PRIORITY prio = asmjs?COERCION:LOWEST;
-			compileOperand(*cur,prio);
-			if(!asmjs && tp->isIntegerTy())
-				stream << "|0";
-		}
+			compileOperand(*cur,LOWEST);
 
 		if(F && arg_it != F->arg_end())
 		{
@@ -2402,10 +2382,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 				else
 				{
 					stream << "return ";
-					PARENT_PRIORITY prio = asmjs?COERCION:LOWEST;
+					PARENT_PRIORITY prio = LOWEST;
+					int width = needsIntCoercion(retVal, prio, &prio);
 					compileOperand(retVal, prio);
-					if(!asmjs && retVal->getType()->isIntegerTy())
+					if(prio == BIT_OR)
 						stream << "|0";
+					else if(prio == BIT_AND)
+						stream << "&" << getMaskForBitWidth(width);
 				}
 			}
 			else
@@ -2568,18 +2551,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
 			POINTER_KIND kind = PA.getPointerKind(ptrOp);
-			if (kind == RAW)
-			{
-				if (checkBounds)
-				{
-					compileCheckBoundsAsmJS(ptrOp);
-					stream<<';';
-				}
-				compileHeapAccess(ptrOp);
-				stream << '=';
-				compileOperand(valOp, COERCION);
-				return COMPILE_OK;
-			}
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 			{
 				compileCheckBounds(ptrOp);
@@ -2609,11 +2580,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				stream << ',';
 
 				//Special case compilation of operand, the default behavior use =
-				compileOperand(valOp);
+				compileOperand(valOp, LOWEST);
 				if(!pointedType->isIntegerTy(8))
 					stream << ",true";
 				stream << ')';
 				return COMPILE_OK;
+			}
+			else if (kind == RAW)
+			{
+				compileHeapAccess(ptrOp);
 			}
 			else
 			{
@@ -2621,11 +2596,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 
 			stream << '=';
-			if(valOp->getType()->isIntegerTy(32))
-				compileSignedInteger(valOp, /*forComparison*/ false, LOWEST);
-			else if(valOp->getType()->isIntegerTy())
-				compileUnsignedInteger(valOp, LOWEST);
-			else if(valOp->getType()->isPointerTy())
+			if(!asmjs && valOp->getType()->isPointerTy())
 			{
 				POINTER_KIND storedKind = PA.getPointerKind(&si);
 				// If regular see if we can omit the offset part
@@ -2643,13 +2614,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					compilePointerAs(valOp, storedKind);
 			}
 			else
-				compileOperand(valOp);
+				compileOperand(valOp, LOWEST);
 			return COMPILE_OK;
 		}
 		default:
 		{
-			COMPILE_INSTRUCTION_FEEDBACK ret=compileInlineableInstruction(I, parentPrio);
-			if(ret == COMPILE_OK && I.getType()->isIntegerTy(1))
+			bool convertBoolean = false;
+			if(!asmjs && I.getType()->isIntegerTy(1))
 			{
 				switch(I.getOpcode())
 				{
@@ -2658,12 +2629,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					case Instruction::And:
 					case Instruction::Or:
 					case Instruction::Xor:
-						stream << "?1:0";
+						convertBoolean = true;
 						break;
 					default:
 						break;
 				}
 			}
+			COMPILE_INSTRUCTION_FEEDBACK ret=compileInlineableInstruction(I, convertBoolean?TERNARY:parentPrio);
+			if (ret == COMPILE_OK && convertBoolean)
+				stream << "?1:0";
 			return ret;
 		}
 	}
@@ -2741,7 +2715,7 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 	}
 }
 
-void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
+void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY parentPrio)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
 	Type* basePointerType = gep_inst->getOperand(0)->getType();
@@ -2777,17 +2751,17 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst)
 	else if (indices.size() == 1)
 	{
 		bool isOffsetConstantZero = isa<Constant>(indices.front()) && cast<Constant>(indices.front())->isNullValue();
+		PARENT_PRIORITY prio = parentPrio;
 
 		// Just another pointer from this one
 		if (!isOffsetConstantZero)
-			stream << '(';
-		compilePointerOffset(gep_inst->getOperand(0), LOWEST);
+			prio = ADD_SUB;
+		compilePointerOffset(gep_inst->getOperand(0), prio);
 
 		if(!isOffsetConstantZero)
 		{
-			stream << ")+(";
-			compileOperand(indices.front());
-			stream << "|0)";
+			stream << '+';
+			compileOperand(indices.front(), prio);
 		}
 	}
 	else
@@ -2826,7 +2800,9 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	}
 	else if (RAW == kind)
 	{
+		stream << '(';
 		compileRawPointer(gep_inst);
+		stream << "|0)";
 	}
 	else
 	{
@@ -2859,7 +2835,7 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 		return;
 	}
 	PARENT_PRIORITY signedPrio = shiftAmount == 0 ? BIT_OR : SHIFT;
-	if(parentPrio >= signedPrio) stream << '(';
+	if(parentPrio > signedPrio) stream << '(';
 	if(shiftAmount==0)
 	{
 		//Use simpler code
@@ -2877,36 +2853,32 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 		compileOperand(v, SHIFT);
 		stream << "<<" << shiftAmount << ">>" << shiftAmount;
 	}
-	if(parentPrio >= signedPrio) stream << ')';
+	if(parentPrio > signedPrio) stream << ')';
 }
 
 void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY parentPrio)
 {
-	bool asmjs = currentFun->getSection() == StringRef("asmjs");
-	if (!asmjs)
+	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
-		if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
-		{
-			stream << C->getZExtValue();
-			return;
-		}
+		stream << C->getZExtValue();
+		return;
 	}
 	//We anyway have to use 32 bits for sign extension to work
 	uint32_t initialSize = v->getType()->getIntegerBitWidth();
 	if(initialSize == 32)
 	{
-		if(parentPrio >= SHIFT) stream << '(';
+		if(parentPrio > SHIFT) stream << '(';
 		//Use simpler code
-		compileOperand(v);
+		compileOperand(v, SHIFT);
 		stream << ">>>0";
-		if(parentPrio >= SHIFT) stream << ')';
+		if(parentPrio > SHIFT) stream << ')';
 	}
 	else
 	{
-		if(parentPrio >= BIT_AND) stream << '(';
-		compileOperand(v);
+		if(parentPrio > BIT_AND) stream << '(';
+		compileOperand(v, BIT_AND);
 		stream << '&' << getMaskForBitWidth(initialSize);
-		if(parentPrio >= BIT_AND) stream << ')';
+		if(parentPrio > BIT_AND) stream << ')';
 	}
 }
 
@@ -2928,34 +2900,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FPToSI:
 		{
 			const CastInst& ci = cast<CastInst>(I);
-			if(parentPrio >= BIT_OR) stream << '(';
-			if (asmjs) stream << "~~(";
-			compileOperand(ci.getOperand(0), BIT_OR);
-			if (asmjs) stream << ')';
-			else stream << "|0";
-			if(parentPrio >= BIT_OR) stream << ')';
+			stream << "~~";
+			compileOperand(ci.getOperand(0), HIGHEST);
 			return COMPILE_OK;
 		}
 		case Instruction::FPToUI:
 		{
 			// TODO: When we will keep track of signedness to avoid useless casts we will need to fix this
 			const CastInst& ci = cast<CastInst>(I);
-			if(parentPrio >= BIT_OR) stream << '(';
-			if (asmjs) stream << "~~(";
-			compileOperand(ci.getOperand(0), BIT_OR);
 			//Cast to signed anyway
-			//ECMA-262 guarantees that (a >> 0) >>> 0
-			//is the same as (a >>> 0)
-			if (asmjs) stream << ')';
-			else stream << "|0";
-			if(parentPrio >= BIT_OR) stream << ')';
+			stream << "~~";
+			compileOperand(ci.getOperand(0), HIGHEST);
 			return COMPILE_OK;
 		}
 		case Instruction::SIToFP:
 		{
 			const CastInst& ci = cast<CastInst>(I);
 			stream << "(+";
-			compileSignedInteger(ci.getOperand(0), /*forComparison*/ false, asmjs ? COERCION:HIGHEST);
+			compileSignedInteger(ci.getOperand(0), /*forComparison*/ false, HIGHEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -2978,7 +2940,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(TypeSupport::isClientType(ptrT->getElementType()))
 			{
 				//Client objects are just passed through
-				compileOperand(gep.getOperand(0));
+				compileOperand(gep.getOperand(0), parentPrio);
 			}
 			else
 			{
@@ -2989,26 +2951,27 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Add:
 		{
 			//Integer addition
-			PARENT_PRIORITY addPrio = I.getType()->isIntegerTy(32) ? BIT_OR : BIT_AND;
-			if(parentPrio >= addPrio) stream << '(';
+			PARENT_PRIORITY addPrio = ADD_SUB;
+			int width = needsIntCoercion(&I, parentPrio, &addPrio);
+			if(parentPrio > addPrio) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << "+";
 			compileOperand(I.getOperand(1), ADD_SUB);
-			if(types.isI32Type(I.getType()))
+			if(addPrio == BIT_OR)
 				stream << "|0";
-			else
-				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			if(parentPrio >= addPrio) stream << ')';
+			else if (addPrio == BIT_AND)
+				stream << '&' << getMaskForBitWidth(width);
+			if(parentPrio > addPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FAdd:
 		{
 			//Double addition
-			if(parentPrio >= ADD_SUB) stream << '(';
+			if(parentPrio > ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '+';
 			compileOperand(I.getOperand(1), ADD_SUB);
-			if(parentPrio >= ADD_SUB) stream << ')';
+			if(parentPrio > ADD_SUB) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Sub:
@@ -3020,11 +2983,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Double subtraction
 			//TODO: optimize negation
-			if(parentPrio >= ADD_SUB) stream << '(';
-			compileOperand(I.getOperand(0));
+			if(parentPrio > ADD_SUB) stream << '(';
+			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '-';
-			compileOperand(I.getOperand(1));
-			if(parentPrio >= ADD_SUB) stream << ')';
+			// TODO: to avoid `--` for now we set HIGHEST priority.
+			// Maybe add parentPrio parameter to compileConstant
+			compileOperand(I.getOperand(1), HIGHEST);
+			if(parentPrio > ADD_SUB) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ZExt:
@@ -3054,74 +3019,103 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::SDiv:
 		{
 			//Integer signed division
-			if(parentPrio >= BIT_OR) stream << '(';
+			PARENT_PRIORITY sdivPrio = MUL_DIV;
+			int width = needsIntCoercion(&I, parentPrio, &sdivPrio);
+			if(parentPrio > sdivPrio) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '/';
 			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
-			stream << "|0";
-			if(parentPrio >= BIT_OR) stream << ')';
+			if(sdivPrio == BIT_OR)
+				stream << "|0";
+			else if(sdivPrio == BIT_AND)
+				stream << "&" << getMaskForBitWidth(width);
+			if(parentPrio > sdivPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::UDiv:
 		{
 			//Integer unsigned division
-			if(parentPrio >= BIT_OR) stream << '(';
+			PARENT_PRIORITY udivPrio = MUL_DIV;
+			needsIntCoercion(&I, parentPrio, &udivPrio);
+			// The result is guaranteed to be represented with the correct
+			// number of bits, so we avoid the mask
+			if(udivPrio == BIT_AND)
+				udivPrio = BIT_OR;
+			if(parentPrio > udivPrio) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
 			stream << '/';
 			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
-			//Result is already unsigned
-			stream << "|0";
-			if(parentPrio >= BIT_OR) stream << ')';
+			if(udivPrio == BIT_OR)
+				stream << "|0";
+			if(parentPrio > udivPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SRem:
 		{
 			//Integer signed remainder
-			if(parentPrio >= BIT_OR) stream << '(';
+			PARENT_PRIORITY sremPrio = MUL_DIV;
+			int width = needsIntCoercion(&I, parentPrio, &sremPrio);
+			if(parentPrio > sremPrio) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '%';
 			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
-			stream << "|0";
-			if(parentPrio >= BIT_OR) stream << ')';
+			if(sremPrio == BIT_OR)
+				stream << "|0";
+			else if(sremPrio == BIT_AND)
+				stream << "&" << getMaskForBitWidth(width);
+			if(parentPrio > sremPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::URem:
 		{
 			//Integer unsigned remainder
-			if(parentPrio >= BIT_OR) stream << '(';
+			PARENT_PRIORITY uremPrio = MUL_DIV;
+			needsIntCoercion(&I, parentPrio, &uremPrio);
+			// The result is guaranteed to be represented with the correct
+			// number of bits, so we avoid the mask
+			if(uremPrio == BIT_AND)
+				uremPrio = BIT_OR;
+			if(parentPrio > uremPrio) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
 			stream << '%';
 			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
-			stream << "|0";
-			if(parentPrio >= BIT_OR) stream << ')';
+			if(uremPrio == BIT_OR)
+				stream << "|0";
+			if(parentPrio > uremPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FDiv:
 		{
 			//Double division
-			if(parentPrio >= MUL_DIV) stream << '(';
+			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '/';
 			compileOperand(I.getOperand(1), MUL_DIV);
-			if(parentPrio >= MUL_DIV) stream << ')';
+			if(parentPrio > MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FRem:
 		{
 			//Double division
-			if(parentPrio >= MUL_DIV) stream << '(';
+			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '%';
 			compileOperand(I.getOperand(1), MUL_DIV);
-			if(parentPrio >= MUL_DIV) stream << ')';
+			if(parentPrio > MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Mul:
 		{
 			//Integer signed multiplication
-			PARENT_PRIORITY mulPrio = I.getType()->isIntegerTy(32) ? (useMathImul ? HIGHEST : BIT_OR ) : BIT_AND;
-			if(parentPrio >= mulPrio) stream << '(';
-			if(useMathImul)
+			PARENT_PRIORITY mulPrio = MUL_DIV;
+			int width = needsIntCoercion(&I, parentPrio, &mulPrio);
+			// NOTE: V8 requires imul to be coerced to int like normal functions
+			if(asmjs)
+			{
+				mulPrio = BIT_OR;
+			}
+			if(parentPrio > mulPrio) stream << '(';
+			if(useMathImul || asmjs)
 			{
 				const char*  Math = asmjs?"":"Math.";
 				stream << Math << "imul(";
@@ -3136,21 +3130,21 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << '*';
 				compileOperand(I.getOperand(1), MUL_DIV);
 			}
-			if(!types.isI32Type(I.getType()))
-				stream << '&' << getMaskForBitWidth(I.getType()->getIntegerBitWidth());
-			else if(!useMathImul)
+			if(mulPrio == BIT_OR)
 				stream << "|0";
-			if(parentPrio >= mulPrio) stream << ')';
+			else if(mulPrio == BIT_AND)
+				stream << '&' << getMaskForBitWidth(width);
+			if(parentPrio > mulPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FMul:
 		{
 			//Double multiplication
-			if(parentPrio >= MUL_DIV) stream << '(';
-			compileOperand(I.getOperand(0));
+			if(parentPrio > MUL_DIV) stream << '(';
+			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '*';
-			compileOperand(I.getOperand(1));
-			if(parentPrio >= MUL_DIV) stream << ')';
+			compileOperand(I.getOperand(1), MUL_DIV);
+			if(parentPrio > MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ICmp:
@@ -3168,50 +3162,50 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Special case orderedness check
 			if(ci.getPredicate()==CmpInst::FCMP_ORD)
 			{
-				if(parentPrio >= LOGICAL_AND) stream << '(';
+				if(parentPrio > LOGICAL_AND) stream << '(';
 				stream << '!';
 				if (asmjs)
 					stream << '(';
 				stream << "isNaN(";
-				compileOperand(ci.getOperand(0));
+				compileOperand(ci.getOperand(0),LOWEST);
 				stream << ')';
 				if (asmjs)
 					stream << "|0)&!(";
 				else
 					stream << "&&!";
 				stream << "isNaN(";
-				compileOperand(ci.getOperand(1));
+				compileOperand(ci.getOperand(1), LOWEST);
 				stream << ')';
 				if (asmjs)
 					stream << "|0)";
-				if(parentPrio >= LOGICAL_AND) stream << ')';
+				if(parentPrio > LOGICAL_AND) stream << ')';
 			}
 			else if(ci.getPredicate()==CmpInst::FCMP_UNO)
 			{
-				if(parentPrio >= LOGICAL_OR) stream << '(';
+				if(parentPrio > LOGICAL_OR) stream << '(';
 				if (asmjs)
 					stream << '(';
 				stream << "isNaN(";
-				compileOperand(ci.getOperand(0));
+				compileOperand(ci.getOperand(0), LOWEST);
 				stream << ')';
 				if (asmjs)
 					stream <<"|0)|(";
 				else
 					stream << "||";
 				stream << "isNaN(";
-				compileOperand(ci.getOperand(1));
+				compileOperand(ci.getOperand(1), LOWEST);
 				stream << ')';
 				if (asmjs)
 					stream << "|0)";
-				if(parentPrio >= LOGICAL_OR) stream << ')';
+				if(parentPrio > LOGICAL_OR) stream << ')';
 			}
 			else
 			{
-				if(parentPrio >= COMPARISON) stream << '(';
+				if(parentPrio > COMPARISON) stream << '(';
 				compileOperand(ci.getOperand(0), COMPARISON);
 				compilePredicate(ci.getPredicate());
 				compileOperand(ci.getOperand(1), COMPARISON);
-				if(parentPrio >= COMPARISON) stream << ')';
+				if(parentPrio > COMPARISON) stream << ')';
 			}
 			return COMPILE_OK;
 		}
@@ -3220,58 +3214,58 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Integer logical and
 			//No need to apply the >> operator. The result is an integer by spec
 			PARENT_PRIORITY andPrio = (I.getType()->isIntegerTy(1)&&!asmjs) ? LOGICAL_AND : BIT_AND;
-			if(parentPrio >= andPrio) stream << '(';
+			if(parentPrio > andPrio) stream << '(';
 			compileOperand(I.getOperand(0), andPrio, /*allowBooleanObjects*/ true);
 			if(!asmjs && I.getType()->isIntegerTy(1))
 				stream << "&&";
 			else
 				stream << '&';
 			compileOperand(I.getOperand(1), andPrio, /*allowBooleanObjects*/ true);
-			if(parentPrio >= andPrio) stream << ')';
+			if(parentPrio > andPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::LShr:
 		{
 			//Integer logical shift right
 			//No need to apply the >> operator. The result is an integer by spec
-			if(parentPrio >= SHIFT) stream << '(';
+			if(parentPrio > SHIFT) stream << '(';
 			compileOperand(I.getOperand(0), SHIFT);
 			stream << ">>>";
 			compileOperand(I.getOperand(1), SHIFT);
-			if(parentPrio >= SHIFT) stream << ')';
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::AShr:
 		{
 			//Integer arithmetic shift right
 			//No need to apply the >> operator. The result is an integer by spec
-			if(parentPrio >= SHIFT) stream << '(';
+			if(parentPrio > SHIFT) stream << '(';
 			if(types.isI32Type(I.getOperand(0)->getType()))
 				compileOperand(I.getOperand(0), SHIFT);
 			else
 				compileSignedInteger(I.getOperand(0), /*forComparison*/ false, SHIFT);
 			stream << ">>";
 			compileOperand(I.getOperand(1));
-			if(parentPrio >= SHIFT) stream << ')';
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Shl:
 		{
 			//Integer shift left
 			//No need to apply the >> operator. The result is an integer by spec
-			if(parentPrio >= SHIFT) stream << '(';
+			if(parentPrio > SHIFT) stream << '(';
 			compileOperand(I.getOperand(0), SHIFT);
 			stream << "<<";
 			compileOperand(I.getOperand(1), SHIFT);
-			if(parentPrio >= SHIFT) stream << ')';
+			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Or:
 		{
 			//Integer logical or
 			//No need to apply the >> operator. The result is an integer by spec
-			PARENT_PRIORITY orPrio = I.getType()->isIntegerTy(1) ? LOGICAL_OR : BIT_OR;
-			if(parentPrio >= orPrio) stream << '(';
+			PARENT_PRIORITY orPrio = (!asmjs && I.getType()->isIntegerTy(1)) ? LOGICAL_OR : BIT_OR;
+			if(parentPrio > orPrio) stream << '(';
 			compileOperand(I.getOperand(0), orPrio, /*allowBooleanObjects*/ true);
 			//If the type is i1 we can use the boolean operator to take advantage of logic short-circuit
 			//This is possible because we know that instruction with side effects, like calls, are never inlined
@@ -3280,7 +3274,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			else
 				stream << '|';
 			compileOperand(I.getOperand(1), orPrio, /*allowBooleanObjects*/ true);
-			if(parentPrio >= orPrio) stream << ')';
+			if(parentPrio > orPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Xor:
@@ -3289,22 +3283,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//Xor with 1s is used to implement bitwise and logical negation
 			//TODO: Optimize the operation with 1s
 			//No need to apply the >> operator. The result is an integer by spec
-			if(parentPrio >= BIT_XOR) stream << '(';
+			if(parentPrio > BIT_XOR) stream << '(';
 			compileOperand(I.getOperand(0), BIT_XOR);
 			stream << '^';
 			compileOperand(I.getOperand(1), BIT_XOR);
-			if(parentPrio >= BIT_XOR) stream << ')';
+			if(parentPrio > BIT_XOR) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Trunc:
 		{
 			//Well, ideally this should not be used since, since it's a waste of bit to
 			//use integers less than 32 bit wide. Still we can support it
-			uint32_t finalSize = I.getType()->getIntegerBitWidth();
-			if(parentPrio >= BIT_AND) stream << '(';
-			compileOperand(I.getOperand(0));
-			stream << '&' << getMaskForBitWidth(finalSize);
-			if(parentPrio >= BIT_AND) stream << ')';
+			PARENT_PRIORITY truncPrio = LOWEST;
+			uint32_t width = needsIntCoercion(&I, parentPrio, &truncPrio);
+			if(parentPrio > truncPrio) stream << '(';
+			compileOperand(I.getOperand(0), truncPrio);
+			if (truncPrio == BIT_AND)
+				stream << '&' << getMaskForBitWidth(width);
+			if(parentPrio > truncPrio) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::SExt:
@@ -3430,26 +3426,34 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				for (auto op = ci.op_begin() + n - 1; op != ci.op_begin() + arg_size - 1; op--)
 				{
 					i++;
-					stream << '(';
 					uint32_t shift = compileHeapForType(op->get()->getType());
 					stream << "[(__stackPtr-"<< i*8 << ')' << ">>" << shift << "]=";
 					compileRawPointer(op->get());
-					stream << ")," << NewLine;
+					stream << ',' << NewLine;
 				}
-				stream << "(__stackPtr=(__stackPtr-" << i*8 << ")|0)," << NewLine;
-				stream << '(';
+				stream << "__stackPtr=(__stackPtr-" << i*8 << ")|0," << NewLine;
 			}
-			if (asmjs && !calledFunc && checkBounds)
+			PARENT_PRIORITY callPrio = HIGHEST;
+			needsIntCoercion(&ci, parentPrio==BIT_OR?parentPrio:callPrio, &callPrio);
+			// The cast to the appropriate int width is already done by the callee
+			if (callPrio == BIT_AND)
+				callPrio = BIT_OR;
+			// Avoid `++`
+			else if (retTy->isFloatingPointTy() && parentPrio == ADD_SUB)
+				callPrio = LOWEST;
+			if (parentPrio > callPrio)
 				stream<<'(';
-			// asm.js type annotation
-			if (asmjs && retTy->isFloatingPointTy() && !(checkBounds && !calledFunc))
+			if (retTy->isFloatingPointTy())
 				stream << '+';
 			if(calledFunc)
 			{
-				//Direct call
 				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
 				if(cf!=COMPILE_UNSUPPORTED)
+				{
+					if (parentPrio > callPrio)
+						stream << ')';
 					return cf;
+				}
 				// handle calls to asm.js functions
 				if (!asmjs && globalDeps.asmJSExports().count(calledFunc))
 					stream << "__asm.";
@@ -3465,18 +3469,20 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				else
 				{
 					const auto& table = globalDeps.functionTables().at(fTy);
-					if (checkBounds)
-					{
-						compileCheckFunctionPtrAsmJS(calledValue, table.mask+1);
-						stream<<',';
-						// asm.js type annotation
-						if (asmjs && retTy->isFloatingPointTy())
-							stream << '+';
-					}
 					stream << "__FUNCTION_TABLE_" << table.name << '[';
-					stream << '(';
-					compileRawPointer(calledValue);
-					stream << ")&" << table.mask << ']';
+					// NOTE: V8 does not like constants here, so we add a useless
+					// ternary operator to make it happy.
+					if (const Constant* c = dyn_cast<Constant>(calledValue))
+					{
+						stream << "(0!=0?0:";
+						compileConstant(c);
+						stream << ')';
+					}
+					else
+					{
+						compileRawPointer(calledValue);
+					}
+					stream << '&' << table.mask << ']';
 				}
 
 			}
@@ -3493,26 +3499,20 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				size_t n = asmjs?fTy->getNumParams():ci.getNumArgOperands();
 				compileMethodArgs(ci.op_begin(),ci.op_begin()+n, &ci, /*forceBoolean*/ false);
 			}
-			// asm.js type annotation
-			if (asmjs && (retTy->isIntegerTy() || retTy->isPointerTy()))
+			if (callPrio == BIT_OR)
 				stream << "|0";
+			if (parentPrio > callPrio)
+				stream << ')';
 			if(ci.getType()->isPointerTy() && PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
 			{
 				assert(!isInlineable(ci, PA));
 				stream << ';' << NewLine;
 				stream << namegen.getSecondaryName(&ci) << "=oSlot";
 			}
-			if (asmjs && !calledFunc && checkBounds)
-			{
-				if (retTy->isVoidTy())
-					stream << ",0";
-				stream<<')';
-			}
 			// If this was a vararg function, pop the arguments from the stack
 			if (asmjs && fTy->isVarArg())
 			{
 				uint32_t n = ci.getNumArgOperands() - fTy->getNumParams();
-				stream << ')';
 				if (ci.getType()->isVoidTy())
 					stream << ",0";
 				stream << ");" << NewLine << "__stackPtr=(__stackPtr+" << n*8 << ")|0";
@@ -3524,34 +3524,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const LoadInst& li = cast<LoadInst>(I);
 			const Value* ptrOp=li.getPointerOperand();
-
 			POINTER_KIND kind = PA.getPointerKind(ptrOp);
-			if (kind == RAW)
-			{
-				Type* ty = ptrOp->getType()->getPointerElementType();
-
-				if (checkBounds)
-				{
-					stream << '(';
-					compileCheckBoundsAsmJS(ptrOp);
-					stream << ',';
-				}
-				stream << '(';
-				if (ty->isFloatingPointTy())
-				{
-					stream << '+';
-				}
-				compileHeapAccess(ptrOp);
-				if (ty->isIntegerTy() || ty->isPointerTy())
-				{
-					stream << "|0";
-				}
-				stream << ')';
-				if (checkBounds)
-					stream <<')';
-				return COMPILE_OK;
-			}
-			
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 			{
 				stream<<"(";
@@ -3564,10 +3537,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				compileCheckDefined(ptrOp);
 				stream<<",";
 			}
-			if(li.getType()->isFloatingPointTy())
+			PARENT_PRIORITY loadPrio = HIGHEST;
+			if (li.getType()->isFloatingPointTy() && parentPrio == ADD_SUB)
+				loadPrio = LOWEST;
+			int width = needsIntCoercion(&li, parentPrio, &loadPrio);
+			if (parentPrio > loadPrio)
+				stream << '(';
+			if (li.getType()->isFloatingPointTy())
 			{
 				stream << '+';
-				stream << '(';
 			}
 			if (kind == BYTE_LAYOUT)
 			{
@@ -3589,18 +3567,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << ",true";
 				stream << ')';
 			}
+			else if (kind == RAW)
+				compileHeapAccess(ptrOp);
 			else
 				compileCompleteObject(ptrOp);
-			if(li.getType()->isIntegerTy())
-			{
-				uint32_t width = li.getType()->getIntegerBitWidth();
-				// 32-bit integers are all loaded as signed, other integers as unsigned
-				if(width==32)
-					stream << "|0";
-				else
-					stream << '&' << getMaskForBitWidth(width);
-			}
-			else if(li.getType()->isFloatingPointTy())
+			// 32-bit integers are all loaded as signed, other integers as unsigned
+			if(loadPrio == BIT_OR)
+				stream << "|0";
+			else if(loadPrio == BIT_AND)
+				stream << '&' << getMaskForBitWidth(width);
+			if(parentPrio > loadPrio)
 				stream << ')';
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 				stream<<')';
@@ -4329,7 +4305,11 @@ void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
 	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 	{
 		stream << namegen.getName(curArg) << '=';
-		compileOperand(curArg,COERCION);
+		if (curArg->getType()->isFloatingPointTy())
+			stream << "+";
+		stream<< namegen.getName(curArg);
+		if (curArg->getType()->isIntegerTy() || curArg->getType()->isPointerTy())
+			stream << "|0";
 		stream << ';' << NewLine;
 	}
 }
@@ -4383,7 +4363,7 @@ void CheerpWriter::compileCheckBoundsAsmJSHelper()
 void CheerpWriter::compileCheckBoundsAsmJS(const Value* p)
 {
 	stream<<"checkBoundsAsmJS(";
-	compileOperand(p,COERCION);
+	compileOperand(p,LOWEST);
 	stream<<','<<heapSize*1024*1024<<"|0)|0";
 }
 
@@ -4395,7 +4375,7 @@ void CheerpWriter::compileCheckFunctionPtrAsmJSHelper()
 void CheerpWriter::compileCheckFunctionPtrAsmJS(const Value* p, uint32_t size)
 {
 	stream<<"checkFunctionPtrAsmJS(";
-	compileOperand(p,COERCION);
+	compileOperand(p,LOWEST);
 	stream << ',' << functionAddrStart << "|0," << size << "|0)|0";
 }
 
@@ -4414,8 +4394,8 @@ void CheerpWriter::compileAllocaAsmJS(const Value* n, uint32_t elem_size, uint32
 	if (n != nullptr)
 		num = namegen.getName(n);
 	// NOTE: the `and` operation ensures the proper alignment
-	stream << "(__stackPtr-imul(" << elem_size << ',' << num << "))&" << uint32_t(0-alignment) << ';' <<NewLine;
-	stream << "__stackPtr=(__stackPtr-imul(" << elem_size << ',' << num << "))&" << uint32_t(0-alignment);
+	stream << "(__stackPtr-(imul(" << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment) << ';' <<NewLine;
+	stream << "__stackPtr=(__stackPtr-(imul(" << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment);
 }
 
 void CheerpWriter::compileMemmoveHelperAsmJS()
