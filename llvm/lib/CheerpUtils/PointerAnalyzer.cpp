@@ -1162,6 +1162,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		if(F->getName() == "calloc" ||
 			F->getName() == "malloc" ||
 			F->getName() == "_Znwj" ||
+			F->getName() == "_Znaj" ||
 			F->getName() == "realloc")
 		{
 			return CacheAndReturn(ret |= Zero);
