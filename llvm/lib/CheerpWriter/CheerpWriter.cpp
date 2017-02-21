@@ -3428,7 +3428,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					i++;
 					uint32_t shift = compileHeapForType(op->get()->getType());
 					stream << "[(__stackPtr-"<< i*8 << ')' << ">>" << shift << "]=";
-					compileRawPointer(op->get());
+					compileOperand(op->get());
 					stream << ',' << NewLine;
 				}
 				stream << "__stackPtr=(__stackPtr-" << i*8 << ")|0," << NewLine;
