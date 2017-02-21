@@ -325,12 +325,19 @@ private:
 		}
 	}
 	
-	int needsIntCoercion(const llvm::Value* v,PARENT_PRIORITY parentPrio, PARENT_PRIORITY* myPrio = nullptr)
+	/**
+	 * Decide if `v` needs to be coerced to its integer type, based on the value of
+	 * `coercionPrio`, and modify `myPrio` accordingly. It returns the integer width
+	 * in bits, or 0 if the coercion is not needed. If `coercionPrio` is 
+	 * `BIT_OR`,`BIT_AND`, or `SHIFT`, it means that the coercion has already been done,
+	 * and can be skipped by the caller of this function.
+	 */
+	int needsIntCoercion(const llvm::Value* v,PARENT_PRIORITY coercionPrio, PARENT_PRIORITY* myPrio = nullptr)
 	{
 		const llvm::Type* ty = v->getType();
 		if (ty->isIntegerTy() || (ty->isPointerTy() && PA.getPointerKind(v) == RAW))
 		{
-			if (parentPrio != BIT_OR && parentPrio != BIT_AND && parentPrio != SHIFT)
+			if (coercionPrio != BIT_OR && coercionPrio != BIT_AND && coercionPrio != SHIFT)
 			{
 				int width = ty->isPointerTy()?32:ty->getIntegerBitWidth();
 				if (myPrio != nullptr)
