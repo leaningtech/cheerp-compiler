@@ -1884,6 +1884,7 @@ private:
     llvm::Type* CurrentType = C->getType()->getPointerElementType();
     Indexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     llvm::Type* DestTy = CGM.getTypes().ConvertTypeForMem(DestType);
+    bool allZeroGeps = true;
     while(DestTy->isPointerTy() && (OffsetVal || CurrentType!=DestTy->getPointerElementType()))
     {
       if (llvm::StructType* ST=dyn_cast<llvm::StructType>(CurrentType))
@@ -1907,6 +1908,8 @@ private:
         }
         const llvm::StructLayout *SL = CGM.getDataLayout().getStructLayout(ST);
         unsigned Index = SL->getElementContainingOffset(OffsetVal);
+        if (Index != 0)
+          allZeroGeps = false;
         Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, Index));
         OffsetVal -= SL->getElementOffset(Index);
         CurrentType = ST->getElementType(Index);
@@ -1916,6 +1919,8 @@ private:
         llvm::Type *ElementTy = AT->getElementType();
         unsigned ElementSize = CGM.getDataLayout().getTypeAllocSize(ElementTy);
         unsigned Index = OffsetVal / ElementSize;
+        if (Index != 0)
+          allZeroGeps = false;
         Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, Index));
         OffsetVal -= Index * ElementSize;
         CurrentType = ElementTy;
@@ -1924,7 +1929,7 @@ private:
         break;
     }
 
-    if (CurrentType == DestTy->getPointerElementType())
+    if (CurrentType == DestTy->getPointerElementType() || !allZeroGeps)
       C = llvm::ConstantExpr::getGetElementPtr(C, Indexes);
 
     if (OffsetVal == 0)
