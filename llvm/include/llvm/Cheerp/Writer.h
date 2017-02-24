@@ -458,7 +458,7 @@ public:
 	}
 	void makeJS();
 	void compileBB(const llvm::BasicBlock& BB);
-	void compileConstant(const llvm::Constant* c);
+	void compileConstant(const llvm::Constant* c, PARENT_PRIORITY parentPrio = HIGHEST);
 	void compileConstantAsBytes(const llvm::Constant* c, bool first = false, bool asmjs = false);
 	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);

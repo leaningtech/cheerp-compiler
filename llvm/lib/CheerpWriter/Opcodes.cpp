@@ -105,7 +105,9 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 	// Minus has higher priority than both | and &
 	compileOperand(lhs, ADD_SUB);
 	stream << '-';
-	compileOperand(rhs, ADD_SUB);
+	// TODO: to avoid `--` for now we set HIGHEST priority, and
+	// compileConstant adds parenthesis if the constant is negative
+	compileOperand(rhs, HIGHEST);
 	if(subPrio == BIT_OR)
 			stream << "|0";
 	else if(subPrio == BIT_AND)
