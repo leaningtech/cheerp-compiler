@@ -326,7 +326,7 @@ private:
 			compileOperand(p);
 		}
 	}
-	
+
 	/**
 	 * Decide if `v` needs to be coerced to its integer type, based on the value of
 	 * `coercionPrio`, and modify `myPrio` accordingly. It returns the integer width
@@ -358,6 +358,16 @@ private:
 			}
 		}
 		return 0;
+	}
+	/**
+	 * Return the next priority higher than `prio`.
+	 * For binary operators in general the rhs must increment the priority
+	 * if there are more operators with the same priority (e.g. FMul,FDiv,FRem)
+	 */
+	PARENT_PRIORITY nextPrio(PARENT_PRIORITY prio)
+	{
+		int new_prio = prio;
+		return static_cast<PARENT_PRIORITY>(++new_prio);
 	}
 
 	/**

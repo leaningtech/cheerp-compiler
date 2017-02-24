@@ -778,7 +778,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << '(';
 		compileOperand(*(it), MUL_DIV);
 		stream << '%';
-		compileOperand(*(it+1), MUL_DIV);
+		compileOperand(*(it+1), nextPrio(MUL_DIV));
 		stream << ')';
 		return COMPILE_OK;
 	}
@@ -2978,7 +2978,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '+';
-			compileOperand(I.getOperand(1), ADD_SUB);
+			compileOperand(I.getOperand(1), nextPrio(ADD_SUB));
 			if(parentPrio > ADD_SUB) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3098,7 +3098,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '/';
-			compileOperand(I.getOperand(1), MUL_DIV);
+			compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3108,7 +3108,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '%';
-			compileOperand(I.getOperand(1), MUL_DIV);
+			compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3151,7 +3151,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '*';
-			compileOperand(I.getOperand(1), MUL_DIV);
+			compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3239,7 +3239,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > SHIFT) stream << '(';
 			compileOperand(I.getOperand(0), SHIFT);
 			stream << ">>>";
-			compileOperand(I.getOperand(1), SHIFT);
+			compileOperand(I.getOperand(1), nextPrio(SHIFT));
 			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3253,7 +3253,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			else
 				compileSignedInteger(I.getOperand(0), /*forComparison*/ false, SHIFT);
 			stream << ">>";
-			compileOperand(I.getOperand(1));
+			compileOperand(I.getOperand(1), nextPrio(SHIFT));
 			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3264,7 +3264,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > SHIFT) stream << '(';
 			compileOperand(I.getOperand(0), SHIFT);
 			stream << "<<";
-			compileOperand(I.getOperand(1), SHIFT);
+			compileOperand(I.getOperand(1), nextPrio(SHIFT));
 			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
