@@ -1837,7 +1837,7 @@ void CheerpWriter::compileConstantAsBytes(const Constant* c, bool first, bool as
 	}
 }
 
-void CheerpWriter::compileConstant(const Constant* c)
+void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio)
 {
 	//TODO: what to do when currentFun == nullptr? for now asmjs=false
 	bool asmjs = false;
@@ -1944,6 +1944,8 @@ void CheerpWriter::compileConstant(const Constant* c)
 	else if(isa<ConstantFP>(c))
 	{
 		const ConstantFP* f=cast<ConstantFP>(c);
+		if(parentPrio == HIGHEST && f->getValueAPF().isNegative())
+			stream << '(';
 
 		if(f->getValueAPF().isInfinity())
 		{
@@ -1978,14 +1980,20 @@ void CheerpWriter::compileConstant(const Constant* c)
 				start = 1;
 			stream << str.c_str()+start;
 		}
+		if(parentPrio == HIGHEST && f->getValueAPF().isNegative())
+			stream << ')';
 	}
 	else if(isa<ConstantInt>(c))
 	{
 		const ConstantInt* i=cast<ConstantInt>(c);
+		if(parentPrio == HIGHEST && i->isNegative())
+			stream << '(';
 		if(i->getBitWidth()==1)
 			stream << i->getZExtValue();
 		else
 			stream << i->getSExtValue();
+		if(parentPrio == HIGHEST && i->isNegative())
+			stream << ')';
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
@@ -2039,7 +2047,7 @@ void CheerpWriter::compileConstant(const Constant* c)
 void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bool allowBooleanObjects)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
-		compileConstant(c);
+		compileConstant(c, parentPrio);
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
 		if(isInlineable(*it, PA))
@@ -2986,8 +2994,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '-';
-			// TODO: to avoid `--` for now we set HIGHEST priority.
-			// Maybe add parentPrio parameter to compileConstant
+			// TODO: to avoid `--` for now we set HIGHEST priority, and
+			// compileConstant adds parenthesis if the constant is negative
 			compileOperand(I.getOperand(1), HIGHEST);
 			if(parentPrio > ADD_SUB) stream << ')';
 			return COMPILE_OK;
