@@ -142,7 +142,6 @@ void CheerpWriter::compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind)
 
 void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPointer)
 {
-	Type* src=bi->getOperand(0)->getType();
 	Type* dst=bi->getType();
 	//Special case unions
 	if(PA.getPointerKind(bi->getOperand(0)) == BYTE_LAYOUT && forEscapingPointer)
@@ -176,7 +175,6 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 
 void CheerpWriter::compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY parentPrio)
 {
-	Type* src=bi->getOperand(0)->getType();
 	Type* dst=bi->getType();
 	//Special case unions
 	if(PA.getPointerKind(bi->getOperand(0)) == BYTE_LAYOUT)
