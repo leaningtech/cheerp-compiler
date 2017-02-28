@@ -675,7 +675,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		else
 		{
 			compileCompleteObject(*it);
-			stream << ".o";
+			stream << ".o|0";
 		}
 		return COMPILE_OK;
 	}
