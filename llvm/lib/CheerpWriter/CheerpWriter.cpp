@@ -251,7 +251,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
 			compileCompleteObject(src);
 			stream << ".o-";
-			compileOperand(offset, ADD_SUB);
+			compileOperand(offset, HIGHEST);
 		}
 		else if(result_kind == REGULAR)
 		{
@@ -261,7 +261,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			compileCompleteObject(src);
 
 			stream << ".o-";
-			compileOperand(offset, ADD_SUB);
+			compileOperand(offset, HIGHEST);
 			stream << '}';
 		}
 		else if(result_kind == RAW)
@@ -269,7 +269,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			stream << '(';
 			compileOperand(src, ADD_SUB);
 			stream  << '-';
-			compileOperand(offset, ADD_SUB);
+			compileOperand(offset, HIGHEST);
 			stream << "|0)";
 		}
 		else
@@ -278,7 +278,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			stream << ".a[";
 			compileCompleteObject(src);
 			stream << ".o-";
-			compileOperand(offset, ADD_SUB);
+			compileOperand(offset, HIGHEST);
 			stream << ']';
 		}
 	}
