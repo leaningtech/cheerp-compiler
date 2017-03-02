@@ -12,6 +12,7 @@ LLVM.
 #include <assert.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 
 #ifdef __cplusplus
 
@@ -19,6 +20,7 @@ LLVM.
 #include <deque>
 #include <set>
 #include <vector>
+#include <list>
 
 struct Block;
 struct Shape;
@@ -30,6 +32,12 @@ public:
 	virtual ~RenderInterface() {};
 	virtual void renderBlock(const void* privateBlock) = 0;
 	virtual void renderIfOnLabel(int labelId, bool first) = 0;
+	virtual void renderLabelForSwitch(int labelId) = 0;
+	virtual void renderSwitchOnLabel() = 0;
+	virtual void renderCaseOnLabel(int labelId) = 0;
+	virtual void renderSwitchBlockBegin(const void* privateBranchVar) = 0;
+	virtual void renderCaseBlockBegin(const void* privateBlock, int branchId) = 0;
+	virtual void renderDefaultBlockBegin() = 0;
 	virtual void renderIfBlockBegin(const void* privateBlock, int branchId, bool first) = 0;
 	virtual void renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first) = 0;
 	virtual void renderElseBlockBegin() = 0;
@@ -51,9 +59,11 @@ public:
 // Info about a branching from one block to another
 struct Branch {
   enum FlowType {
-    Direct = 0, // We will directly reach the right location through other means, no need for continue or break
+    Direct = 0,   // We will directly reach the right location through other means, no need for continue or break
     Break = 1,
-    Continue = 2
+    Continue = 2,
+    Nested = 3    // This code is directly reached, but we must be careful to ensure it is nested in an if - it is not reached
+                  // unconditionally, other code paths exist alongside it that we need to make sure do not intertwine
   };
   Shape *Ancestor; // If not NULL, this shape is the relevant one for purposes of getting to the target block. We break or continue on it
   Branch::FlowType Type; // If Ancestor is not NULL, this says whether to break or continue
@@ -67,12 +77,112 @@ struct Branch {
   void Render(Block *Target, bool SetLabel, RenderInterface* renderInterface);
 };
 
-struct OrderBlocksById
+// like std::set, except that begin() -> end() iterates in the
+// order that elements were added to the set (not in the order
+// of operator<(T, T))
+template<typename T>
+struct InsertOrderedSet
 {
-	bool operator()(Block* lhs, Block* rhs) const;
+  std::map<T, typename std::list<T>::iterator>  Map;
+  std::list<T>                                  List;
+
+  typedef typename std::list<T>::iterator iterator;
+  iterator begin() { return List.begin(); }
+  iterator end() { return List.end(); }
+
+  void erase(const T& val) {
+    auto it = Map.find(val);
+    if (it != Map.end()) {
+      List.erase(it->second);
+      Map.erase(it);
+    }
+  }
+
+  void erase(iterator position) {
+    Map.erase(*position);
+    List.erase(position);
+  }
+
+  // cheating a bit, not returning the iterator
+  void insert(const T& val) {
+    auto it = Map.find(val);
+    if (it == Map.end()) {
+      List.push_back(val);
+      Map.insert(std::make_pair(val, --List.end()));
+    }
+  }
+
+  size_t size() const { return Map.size(); }
+
+  void clear() {
+    Map.clear();
+    List.clear();
+  }
+
+  size_t count(const T& val) const { return Map.count(val); }
+
+  InsertOrderedSet() {}
+  InsertOrderedSet(const InsertOrderedSet& other) {
+    for (auto i : other.List) {
+      insert(i); // inserting manually creates proper iterators
+    }
+  }
+  InsertOrderedSet& operator=(const InsertOrderedSet& other) {
+    abort(); // TODO, watch out for iterators
+  }
 };
 
-typedef std::map<Block*, Branch*, OrderBlocksById> BlockBranchMap;
+// like std::map, except that begin() -> end() iterates in the
+// order that elements were added to the map (not in the order
+// of operator<(Key, Key))
+template<typename Key, typename T>
+struct InsertOrderedMap
+{
+  std::map<Key, typename std::list<std::pair<Key,T>>::iterator> Map;
+  std::list<std::pair<Key,T>>                                   List;
+
+  T& operator[](const Key& k) {
+    auto it = Map.find(k);
+    if (it == Map.end()) {
+      List.push_back(std::make_pair(k, T()));
+      auto e = --List.end();
+      Map.insert(std::make_pair(k, e));
+      return e->second;
+    }
+    return it->second->second;
+  }
+
+  typedef typename std::list<std::pair<Key,T>>::iterator iterator;
+  iterator begin() { return List.begin(); }
+  iterator end() { return List.end(); }
+
+  void erase(const Key& k) {
+    auto it = Map.find(k);
+    if (it != Map.end()) {
+      List.erase(it->second);
+      Map.erase(it);
+    }
+  }
+
+  void erase(iterator position) {
+    erase(position->first);
+  }
+
+  size_t size() const { return Map.size(); }
+  size_t count(const Key& k) const { return Map.count(k); }
+
+  InsertOrderedMap() {}
+  InsertOrderedMap(InsertOrderedMap& other) {
+    abort(); // TODO, watch out for iterators
+  }
+  InsertOrderedMap& operator=(const InsertOrderedMap& other) {
+    abort(); // TODO, watch out for iterators
+  }
+};
+
+
+typedef InsertOrderedSet<Block*> BlockSet;
+typedef InsertOrderedMap<Block*, Branch*> BlockBranchMap;
 
 // Represents a basic block of code - some instructions that end with a
 // control flow modifier (a branch, return or throw).
@@ -83,18 +193,19 @@ struct Block {
   // processed branches.
   // Blocks own the Branch objects they use, and destroy them when done.
   BlockBranchMap BranchesOut;
-  BlockBranchMap BranchesIn; // TODO: make this just a list of Incoming, without branch info - should be just on BranchesOut
+  BlockSet BranchesIn;
   BlockBranchMap ProcessedBranchesOut;
-  BlockBranchMap ProcessedBranchesIn;
+  BlockSet ProcessedBranchesIn;
   Shape *Parent; // The shape we are directly inside
   int Id; // A unique identifier
-  const void* privateBlock; //A private value that will be passed back to the callback
+  const void* privateBlock; // A private value that will be passed back to the callback
+  const void* privateBranchVar; // A variable whose value determines where we go; if this is not NULL, emit a switch on that variable
   Block *DefaultTarget; // The block we branch to without checking the condition, if none of the other conditions held.
                         // Since each block *must* branch somewhere, this must be set
   bool IsCheckedMultipleEntry; // If true, we are a multiple entry, so reaching us requires setting the label variable
   bool IsSplittable;
 
-  Block(const void* privateBlock, bool splittable, int Id);
+  Block(const void* privateBlock, bool splittable, int Id, const void* privateBranchVar = NULL);
   ~Block();
 
   /*
@@ -106,10 +217,6 @@ struct Block {
   void Render(bool InLoop, RenderInterface* renderInterface);
 };
 
-inline bool OrderBlocksById::operator()(Block* lhs, Block* rhs) const
-{
-	return lhs->Id < rhs->Id;
-}
 // Represents a structured control flow shape, one of
 //
 //  Simple: No control flow at all, just instructions. If several
@@ -134,8 +241,9 @@ struct MultipleShape;
 struct LoopShape;
 
 struct Shape {
-  int Id; // A unique identifier. Used to identify loops, labels are Lx where x is the Id.
+  int Id; // A unique identifier. Used to identify loops, labels are Lx where x is the Id. Defined when added to relooper
   Shape *Next; // The shape that will appear in the code right after this one
+  Shape *Natural; // The shape that control flow gets to naturally (if there is Next, then this is Next)
 
   enum ShapeType {
     Simple,
@@ -159,13 +267,11 @@ struct SimpleShape : public Shape {
   Block *Inner;
 
   SimpleShape(int Id) : Shape(Simple, Id), Inner(NULL) {}
-  void Render(bool InLoop, RenderInterface* renderInterface) {
+  void Render(bool InLoop, RenderInterface* renderInterface) override {
     Inner->Render(InLoop, renderInterface);
     if (Next) Next->Render(InLoop, renderInterface);
   }
 };
-
-typedef std::map<Block*, Shape*, OrderBlocksById> BlockShapeMap;
 
 // A shape that may be implemented with a labeled loop.
 struct LabeledShape : public Shape {
@@ -174,32 +280,29 @@ struct LabeledShape : public Shape {
   LabeledShape(ShapeType TypeInit, int Id) : Shape(TypeInit, Id), Labeled(false) {}
 };
 
-struct MultipleShape : public LabeledShape {
-  BlockShapeMap InnerMap; // entry block -> shape
-  int NeedLoop; // If we have branches, we need a loop. This is a counter of loop requirements,
-                // if we optimize it to 0, the loop is unneeded
+// Blocks with the same id were split and are identical, so we just care about ids in Multiple entries
+typedef std::map<int, Shape*> IdShapeMap;
 
-  MultipleShape(int Id) : LabeledShape(Multiple, Id), NeedLoop(0) {}
+struct MultipleShape : public LabeledShape {
+  IdShapeMap InnerMap; // entry block ID -> shape
+  int Breaks; // If we have branches on us, we need a loop (or a switch). This is a counter of requirements,
+                     // if we optimize it to 0, the loop is unneeded
+  bool UseSwitch; // Whether to switch on label as opposed to an if-else chain
+
+  MultipleShape(int Id) : LabeledShape(Multiple, Id), Breaks(0), UseSwitch(false) {}
 
   void RenderLoopPrefix(RenderInterface* renderInterface);
   void RenderLoopPostfix(RenderInterface* renderInterface);
 
-  void Render(bool InLoop, RenderInterface* renderInterface);
+  void Render(bool InLoop, RenderInterface* renderInterface) override;
 };
 
 struct LoopShape : public LabeledShape {
   Shape *Inner;
 
   LoopShape(int Id) : LabeledShape(Loop, Id), Inner(NULL) {}
-  void Render(bool InLoop, RenderInterface* renderInterface);
+  void Render(bool InLoop, RenderInterface* renderInterface) override;
 };
-
-/*
-struct EmulatedShape : public Shape {
-  std::deque<Block*> Blocks;
-  void Render(bool InLoop);
-};
-*/
 
 // Implements the relooper algorithm for a function's blocks.
 //
@@ -216,6 +319,7 @@ struct Relooper {
   std::deque<Block*> Blocks;
   std::deque<Shape*> Shapes;
   Shape *Root;
+  bool MinSize;
   bool NeedsLabel;
   int IdCounter;
 
@@ -227,18 +331,21 @@ struct Relooper {
   // Calculates the shapes
   void Calculate(Block *Entry);
 
+  // Sets us to try to minimize size
+  void SetMinSize(bool MinSize_) { MinSize = MinSize_; }
+
   // Renders the result.
   void Render(RenderInterface* renderInterface);
 
   bool needsLabel() const { return NeedsLabel; }
 };
 
-typedef std::set<Block*> BlockSet;
-typedef std::map<Block*, BlockSet, OrderBlocksById> BlockBlockSetMap;
+typedef InsertOrderedMap<Block*, BlockSet> BlockBlockSetMap;
 
 #if DEBUG
 struct Debugging {
   static void Dump(BlockSet &Blocks, const char *prefix=NULL);
+  static void Dump(Shape *S, const char *prefix=NULL);
 };
 #endif
 
