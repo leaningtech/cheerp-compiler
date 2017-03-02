@@ -21,6 +21,7 @@
 #include "llvm/Support/ErrorHandling.h"
 
 #include <sstream>
+#include <algorithm>
 
 using namespace llvm;
 using namespace std;
@@ -47,6 +48,12 @@ public:
 	{
 	}
 	void renderBlock(const void* privateBlock);
+	void renderLabelForSwitch(int labelId);
+	void renderSwitchOnLabel();
+	void renderCaseOnLabel(int labelId);
+	void renderSwitchBlockBegin(const void* privateBranchVar);
+	void renderCaseBlockBegin(const void* privateBlock, int branchId);
+	void renderDefaultBlockBegin();
 	void renderIfBlockBegin(const void* privateBlock, int branchId, bool first);
 	void renderIfBlockBegin(const void* privateBlock, const vector<int>& branchId, bool first);
 	void renderElseBlockBegin();
@@ -3716,6 +3723,63 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 	}
 }
 
+void CheerpRenderInterface::renderLabelForSwitch(int labelId)
+{
+	writer->stream << 'L' << labelId << ':';
+}
+void CheerpRenderInterface::renderSwitchOnLabel()
+{
+	writer->stream << "switch(label";
+	if (asmjs)
+		writer->stream << "|0";
+	writer->stream << "){" << NewLine;
+}
+void CheerpRenderInterface::renderCaseOnLabel(int labelId)
+{
+	writer->stream << "case ";
+	writer->stream << labelId << ":{" << NewLine;
+}
+void CheerpRenderInterface::renderSwitchBlockBegin(const void* privateBranchVar)
+{
+	const Value* cond = (const Value*)privateBranchVar;
+	writer->stream << "switch(";
+	CheerpWriter::PARENT_PRIORITY myPrio = asmjs?CheerpWriter::BIT_OR:CheerpWriter::LOWEST;
+	writer->compileOperand(cond,myPrio);
+	if (asmjs)
+		writer->stream << "|0";
+	writer->stream << "){" << NewLine;
+}
+void CheerpRenderInterface::renderCaseBlockBegin(const void* privateBlock, int branchId)
+{
+	const BasicBlock* bb=(const BasicBlock*)privateBlock;
+	const TerminatorInst* term = bb->getTerminator();
+	assert(isa<SwitchInst>(term));
+	const SwitchInst* si=cast<SwitchInst>(term);
+	assert(branchId > 0);
+	SwitchInst::ConstCaseIt it=si->case_begin();
+	for(int i=1;i<branchId;i++)
+		++it;
+	writer->stream << "case ";
+	writer->compileOperand(it.getCaseValue());
+	writer->stream << ':' << NewLine;
+	//We found the destination, there may be more cases for the same
+	//destination though
+	const BasicBlock* dest=it.getCaseSuccessor();
+	for(++it;it!=si->case_end();++it)
+	{
+		if(it.getCaseSuccessor()==dest)
+		{
+			writer->stream << "case ";
+			writer->compileOperand(it.getCaseValue());
+			writer->stream << ':' << NewLine;
+		}
+	}
+	writer->stream << '{' << NewLine;
+}
+void CheerpRenderInterface::renderDefaultBlockBegin()
+{
+	writer->stream << "default:{" << NewLine;
+}
 void CheerpRenderInterface::renderIfBlockBegin(const void* privateBlock, int branchId, bool first)
 {
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
@@ -4005,7 +4069,29 @@ void CheerpWriter::compileMethod(const Function& F)
 			//Currently we just check if the block ends with a return
 			//and its small enough. This should simplify some control flows.
 			bool isSplittable = B->size()<3 && isa<ReturnInst>(B->getTerminator());
-			Block* rlBlock = new Block(&(*B), isSplittable, BlockId++);
+			//Decide if we can use a switch instead of an if/else chain for 
+			//the control flow
+			const TerminatorInst* term = B->getTerminator();
+			// If this is not null, we can use a switch
+			Value*  branchVar = nullptr;
+			if(const SwitchInst* si = dyn_cast<SwitchInst>(term))
+			{
+				//In asm.js cases values must be in the range [-2^31,2^31),
+				//and the difference between the biggest and the smaller must be < 2^31
+				bool useSwitch = true;
+				int64_t max = std::numeric_limits<int32_t>::min();
+				int64_t min = std::numeric_limits<int32_t>::max();
+				for (auto& c: si->cases())
+				{
+					max = std::max(max,c.getCaseValue()->getSExtValue());
+					min = std::max(min,c.getCaseValue()->getSExtValue());
+				}
+				if ((max-min)>=(1<<31))
+					useSwitch = false;
+				if(useSwitch)
+					branchVar = si->getCondition();
+			}
+			Block* rlBlock = new Block(&(*B), isSplittable, BlockId++, branchVar);
 			relooperMap.insert(make_pair(&(*B),rlBlock));
 		}
 
