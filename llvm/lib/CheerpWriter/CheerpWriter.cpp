@@ -20,9 +20,6 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 
-#include <sstream>
-#include <algorithm>
-
 using namespace llvm;
 using namespace std;
 using namespace cheerp;
@@ -1967,25 +1964,41 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		}
 		else
 		{
-			std::stringstream buf;
 			APFloat apf = f->getValueAPF();
+			// We want the most compact representation possible, so we first try
+			// to represent the number with a maximum of nuumeric_limits::digits10.
+			// We convert the string back to a double, and if it is not the same
+			// as the original we try again with numeric_limits::max_digits10
+			
+			// Needed by APFloat::convert, not used here
 			bool losesInfo = false;
-			apf.convert(APFloat::IEEEdouble,APFloat::roundingMode::rmNearestTiesToEven,&losesInfo);
-			buf << apf.convertToDouble();
-			// asm.js require the floating point literals to have a dot
-			std::string str = buf.str();
-			if (asmjs && str.find('.') == std::string::npos)
+			SmallString<32> buf;
+
+			apf.convert(APFloat::IEEEdouble, APFloat::roundingMode::rmNearestTiesToEven, &losesInfo);
+			assert(!losesInfo);
+			double original = apf.convertToDouble();
+			f->getValueAPF().toString(buf, std::numeric_limits<double>::digits10);
+			double converted = 0;
+			sscanf(buf.c_str(),"%lf",&converted);
+			if (converted != original)
 			{
-				auto pos = str.find('e');
-				if (pos == std::string::npos)
-					pos = str.size();
-				str.insert(pos,".");
+				buf.clear();
+				f->getValueAPF().toString(buf, std::numeric_limits<double>::max_digits10);
+			}
+			// asm.js require the floating point literals to have a dot
+			if (asmjs && buf.find('.') == StringRef::npos)
+			{
+				auto it = buf.begin();
+				// We must insert the dot before the exponent part
+				// (or at the end if there is no exponent)
+				for (;it != buf.end() && *it != 'E' && *it != 'e'; it++);
+				buf.insert(it,'.');
 			}
 			// If the number is in the form `0.xyz...` we can remove the leading 0
 			int start = 0;
-			if (str[0] == '0' && str.size() > 2)
+			if (buf[0] == '0' && buf.size() > 2)
 				start = 1;
-			stream << str.c_str()+start;
+			stream << buf.c_str()+start;
 		}
 		if(parentPrio == HIGHEST && f->getValueAPF().isNegative())
 			stream << ')';
