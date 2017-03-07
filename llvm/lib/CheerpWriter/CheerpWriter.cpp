@@ -1977,6 +1977,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			apf.convert(APFloat::IEEEdouble, APFloat::roundingMode::rmNearestTiesToEven, &losesInfo);
 			assert(!losesInfo);
 			double original = apf.convertToDouble();
+
 			f->getValueAPF().toString(buf, std::numeric_limits<double>::digits10);
 			double converted = 0;
 			sscanf(buf.c_str(),"%lf",&converted);
@@ -1984,6 +1985,28 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			{
 				buf.clear();
 				f->getValueAPF().toString(buf, std::numeric_limits<double>::max_digits10);
+			}
+
+			bool useFloat = false;
+			apf.convert(APFloat::IEEEsingle, APFloat::roundingMode::rmNearestTiesToEven, &losesInfo);
+			if (!losesInfo)
+			{
+				float original = apf.convertToFloat();
+				SmallString<32> tmpbuf;
+				f->getValueAPF().toString(tmpbuf, std::numeric_limits<float>::digits10);
+				float converted = 0;
+				sscanf(tmpbuf.c_str(),"%f",&converted);
+				if (converted != original)
+				{
+					tmpbuf.clear();
+					f->getValueAPF().toString(tmpbuf, std::numeric_limits<float>::max_digits10);
+				}
+				if (buf.size() > tmpbuf.size())
+				{
+					useFloat = true;
+					stream<<"Math.fround(";
+					buf = tmpbuf;
+				}
 			}
 			// asm.js require the floating point literals to have a dot
 			if (asmjs && buf.find('.') == StringRef::npos)
@@ -1999,6 +2022,8 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			if (buf[0] == '0' && buf.size() > 2)
 				start = 1;
 			stream << buf.c_str()+start;
+			if (useFloat)
+				stream << ')';
 		}
 		if(parentPrio == HIGHEST && f->getValueAPF().isNegative())
 			stream << ')';
