@@ -1948,6 +1948,8 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	else if(isa<ConstantFP>(c))
 	{
 		const ConstantFP* f=cast<ConstantFP>(c);
+		bool useFloat = false;
+		
 		if(parentPrio == HIGHEST && f->getValueAPF().isNegative())
 			stream << '(';
 
@@ -1978,38 +1980,53 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			assert(!losesInfo);
 			double original = apf.convertToDouble();
 
-			f->getValueAPF().toString(buf, std::numeric_limits<double>::digits10);
+			apf.toString(buf, std::numeric_limits<double>::digits10);
 			double converted = 0;
 			sscanf(buf.c_str(),"%lf",&converted);
-			if (converted != original)
+			if(converted != original)
 			{
 				buf.clear();
-				f->getValueAPF().toString(buf, std::numeric_limits<double>::max_digits10);
+				apf.toString(buf, std::numeric_limits<double>::max_digits10);
 			}
 
-			bool useFloat = false;
 			apf.convert(APFloat::IEEEsingle, APFloat::roundingMode::rmNearestTiesToEven, &losesInfo);
-			if (!losesInfo)
+			// If we don't lose information or if the actual type is a float
+			// (and thus we don't care that we are losing it), try to see if
+			// it is shorter to use a float instead of a double (using fround)
+			if(!losesInfo || f->getType()->isFloatTy())
 			{
 				float original = apf.convertToFloat();
 				SmallString<32> tmpbuf;
-				f->getValueAPF().toString(tmpbuf, std::numeric_limits<float>::digits10);
+				apf.toString(tmpbuf, std::numeric_limits<float>::digits10);
 				float converted = 0;
 				sscanf(tmpbuf.c_str(),"%f",&converted);
-				if (converted != original)
+				if(converted != original)
 				{
 					tmpbuf.clear();
-					f->getValueAPF().toString(tmpbuf, std::numeric_limits<float>::max_digits10);
+					apf.toString(tmpbuf, std::numeric_limits<float>::max_digits10);
 				}
-				if (buf.size() > tmpbuf.size())
+				// We actually use the float only if it is shorter to write,
+				// including the call to fround
+				size_t floatsize = tmpbuf.size() + namegen.getBuiltinName(NameGenerator::Builtin::FROUND).size()+2;  
+				if(buf.size() > floatsize)
 				{
 					useFloat = true;
-					stream<<"Math.fround(";
+					// In asm.js double and float are distinct types, so
+					// we cast back to double (we are never really using
+					// floats for now)
+					if(asmjs)
+					{
+						// if f is negative parenthesis are already added
+						if (parentPrio == HIGHEST && !f->isNegative())
+							stream << '(';
+						stream << '+';
+					}
+					stream<< namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 					buf = tmpbuf;
 				}
 			}
 			// asm.js require the floating point literals to have a dot
-			if (asmjs && buf.find('.') == StringRef::npos)
+			if(asmjs && buf.find('.') == StringRef::npos)
 			{
 				auto it = buf.begin();
 				// We must insert the dot before the exponent part
@@ -2025,7 +2042,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			if (useFloat)
 				stream << ')';
 		}
-		if(parentPrio == HIGHEST && f->getValueAPF().isNegative())
+		if(parentPrio == HIGHEST && (f->getValueAPF().isNegative() | (asmjs && useFloat)))
 			stream << ')';
 	}
 	else if(isa<ConstantInt>(c))
@@ -3023,7 +3040,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '+';
-			compileOperand(I.getOperand(1), nextPrio(ADD_SUB));
+			//TODO: the HIGHEST for asmjs is needed in order to avoid `++`
+			// when the operand is a call to fround but has type double
+			PARENT_PRIORITY myPrio = asmjs?HIGHEST:nextPrio(ADD_SUB);
+			compileOperand(I.getOperand(1), myPrio);
 			if(parentPrio > ADD_SUB) stream << ')';
 			return COMPILE_OK;
 		}
