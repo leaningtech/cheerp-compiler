@@ -412,6 +412,7 @@ private:
 	void compileNullPtrs();
 	void compileCreateClosure();
 	void compileHandleVAArg();
+	void compileBuiltins(bool asmjs);
 	/**
 	 * This method supports both ConstantArray and ConstantDataSequential
 	 */
