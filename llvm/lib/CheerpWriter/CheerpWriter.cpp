@@ -387,7 +387,7 @@ uint32_t CheerpWriter::compileArraySize(const DynamicAllocInfo & info, bool shou
 			assert(shouldPrint);
 			if(useMathImul)
 			{
-				stream << "Math.imul(";
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
 				closeMathImul = true;
 			}
 			compileOperand(numberOfElements, LOWEST);
@@ -1274,7 +1274,7 @@ void CheerpWriter::compileRawPointer(const Value*p)
 				else
 				{
 					// NOTE: V8 requires imul to be coerced to int like normal functions
-					stream << "(imul(";
+					stream << '(' << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
 					compileOperand(indices[i] ,LOWEST);
 					stream << ',' << targetData.getTypeAllocSize(curType->getSequentialElementType())<<')';
 					curType = curType->getSequentialElementType();
@@ -1483,7 +1483,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 		if(const ConstantInt* CI=PA.getConstantOffsetForPointer(p))
 		{
 			if(useMathImul)
-				stream << "Math.imul";
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL);
 			stream << '(';
 			compileConstant(CI);
 			if(useMathImul)
@@ -3170,8 +3170,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > mulPrio) stream << '(';
 			if(useMathImul || asmjs)
 			{
-				const char*  Math = asmjs?"":"Math.";
-				stream << Math << "imul(";
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
 				compileOperand(I.getOperand(0), LOWEST);
 				stream << ',';
 				compileOperand(I.getOperand(1), LOWEST);
@@ -4509,8 +4508,12 @@ void CheerpWriter::compileAllocaAsmJS(const Value* n, uint32_t elem_size, uint32
 	if (n != nullptr)
 		num = namegen.getName(n);
 	// NOTE: the `and` operation ensures the proper alignment
-	stream << "(__stackPtr-(imul(" << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment) << ';' <<NewLine;
-	stream << "__stackPtr=(__stackPtr-(imul(" << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment);
+	stream << "(__stackPtr-(";
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
+	stream << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment) << ';' <<NewLine;
+	stream << "__stackPtr=(__stackPtr-(";
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
+	stream << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment);
 }
 
 void CheerpWriter::compileMemmoveHelperAsmJS()
@@ -4560,7 +4563,6 @@ void CheerpWriter::compileFunctionTablesAsmJS()
 
 void CheerpWriter::compileMathDeclAsmJS()
 {
-	stream << "var imul=stdlib.Math.imul;" << NewLine;
 	stream << "var Infinity=stdlib.Infinity;" << NewLine;
 	stream << "var NaN=stdlib.NaN;" << NewLine;
 	stream << "var abs=stdlib.Math.abs;" << NewLine;
