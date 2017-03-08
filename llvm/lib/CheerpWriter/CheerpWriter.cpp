@@ -4461,6 +4461,13 @@ void CheerpWriter::compileHandleVAArg()
 	stream << "function handleVAArg(ptr){var ret=ptr.d[ptr.o];ptr.o++;return ret;}" << NewLine;
 }
 
+void CheerpWriter::compileBuiltins(bool asmjs)
+{
+	StringRef math = asmjs?"stdlib.Math.":"Math.";
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '=' << math << "imul;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '=' << math << "fround;" << NewLine;
+}
+
 void CheerpWriter::compileCheckBoundsHelper()
 {
 	stream << "function checkBounds(arr,offs){if(offs>=arr.length || offs<0) throw new Error('OutOfBounds');}" << NewLine;
@@ -4631,6 +4638,8 @@ void CheerpWriter::makeJS()
 		compileCheckDefinedHelper();
 	}
 
+	compileBuiltins(false);
+
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
 
@@ -4645,6 +4654,7 @@ void CheerpWriter::makeJS()
 			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(heap);" << NewLine;
 		}
 		compileMathDeclAsmJS();
+		compileBuiltins(true);
 		stream << "var isNaN=ffi.isNaN;" << NewLine;
 		stream << "var printString=ffi.printString;" << NewLine;
 		stream << "var __dummy=ffi.__dummy;" << NewLine;
