@@ -29,6 +29,16 @@ class NameGenerator
 {
 public:
 	/**
+	 * This enum represents the builtin functions that we directly write from
+	 * the backend
+	 */
+	enum Builtin
+	{
+		IMUL = 0,
+		FROUND,
+		END // This is used to get the number of builtins, keep it last
+	};
+	/**
 	 * This initialize the namegenerator by collecting
 	 * all the global variable names
 	 */
@@ -87,6 +97,13 @@ public:
 		assert(arraymap.count(T));
 		return arraymap.at(T);
 	}
+	/**
+	 * Return a name for the requested builtin, potentially minimized
+	 */
+	llvm::StringRef getBuiltinName(Builtin b) const
+	{
+		return builtins.at(b);
+	}
 
 	/**
 	 * Same as getName, but supports the required temporary variables in edges between blocks
@@ -126,6 +143,7 @@ private:
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > classmap;
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > constructormap;
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > arraymap;
+	std::array<llvm::SmallString<4>, Builtin::END> builtins;
 	struct InstOnEdge
 	{
 		const llvm::BasicBlock* fromBB;

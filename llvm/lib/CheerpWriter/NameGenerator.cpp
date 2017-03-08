@@ -530,6 +530,13 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		constructorTypesFinished = constructor_it == constructorTypes.end();
 		arrayTypesFinished = array_it == arrayTypes.end();
 	}
+	// We generate the builtin names last because we do not have statistics about
+	// them (for now)
+	for (unsigned i = 0; i < builtins.size(); i++)
+	{
+		builtins[i] = *name_it;
+		++name_it;
+	}
 }
 
 void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnalyzer& gda)
@@ -695,6 +702,9 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		else
 			arraymap.insert(std::make_pair(T, StringRef("createArray_literal" + std::to_string(arraymap.size()))));
 	}
+	// Builtin funcions
+	builtins[IMUL] = "__imul";
+	builtins[FROUND] = "__fround";
 }
 
 bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) const
