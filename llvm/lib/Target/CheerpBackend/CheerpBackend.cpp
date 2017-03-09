@@ -44,6 +44,8 @@ static cl::opt<bool> NoNativeJavaScriptMath("cheerp-no-native-math", cl::desc("D
 
 static cl::opt<bool> NoJavaScriptMathImul("cheerp-no-math-imul", cl::desc("Disable JavaScript Math.imul") );
 
+static cl::opt<bool> NoJavaScriptMathFround("cheerp-no-math-fround", cl::desc("Disable JavaScript Math.fround") );
+
 static cl::opt<bool> NoCredits("cheerp-no-credits", cl::desc("Disable Cheerp credits in JS") );
 
 static cl::opt<bool> MeasureTimeToMain("cheerp-measure-time-to-main", cl::desc("Print time elapsed until the first line of main() is executed") );
@@ -105,7 +107,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   std::sort(reservedNames.begin(), reservedNames.end());
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, reservedNames,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
-          !NoJavaScriptMathImul, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
+          !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
           BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, ForceTypedArrays);
   writer.makeJS();
   delete sourceMapGenerator;
