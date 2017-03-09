@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,6 +15,7 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Dominators.h"
 
 namespace llvm
 {
@@ -165,6 +166,55 @@ public:
 // DelayAllocas
 //
 FunctionPass *createDelayAllocasPass();
+
+/**
+ * This pass rewrite GEPs in a function to remove redundant object accesses
+ */
+class GEPOptimizer: public FunctionPass
+{
+private:
+	struct OrderByOperands
+	{
+		bool operator()(llvm::Instruction* r, llvm::Instruction* l) const
+		{
+			// We are interested in ordering values like symbols, so using pointers is ok
+			for(uint32_t i=0;;i++)
+			{
+				llvm::Value* rVal = NULL;
+				llvm::Value* lVal = NULL;
+				if(i < r->getNumOperands())
+					rVal = r->getOperand(i);
+				if(i < l->getNumOperands())
+					lVal = l->getOperand(i);
+				if(rVal == NULL && lVal == NULL)
+				{
+					// Both are ended without any difference
+					return false;
+				}
+				if(rVal < lVal)
+					return true;
+				if(rVal > lVal)
+					return false;
+			}
+		}
+	};
+	typedef std::set<Instruction*, OrderByOperands> OrderedGEPs;
+	void optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end, llvm::Value* base, uint32_t startIndex);
+	DominatorTree* DT;
+public:
+	static char ID;
+	explicit GEPOptimizer() : FunctionPass(ID), DT(NULL) { }
+	bool runOnFunction(Function &F) override;
+	const char *getPassName() const override;
+
+	virtual void getAnalysisUsage(AnalysisUsage&) const override;
+};
+
+//===----------------------------------------------------------------------===//
+//
+// GEPOptimizer
+//
+FunctionPass *createGEPOptimizerPass();
 
 }
 
