@@ -1254,6 +1254,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 
 void CheerpWriter::compileRawPointer(const Value*p)
 {
+	int64_t constPart = 0;
 	while ( isBitCast(p) || isGEP(p) )
 	{
 		const User * u = cast<User>(p);
@@ -1269,23 +1270,38 @@ void CheerpWriter::compileRawPointer(const Value*p)
 					const StructLayout* SL = targetData.getStructLayout( ST );
 					curType = ST->getElementType(index);
 					uint32_t offset =  SL->getElementOffset(index);
-					stream << offset;
+					constPart += offset;
 				}
 				else
 				{
-					// NOTE: V8 requires imul to be coerced to int like normal functions
-					stream << '(' << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
-					compileOperand(indices[i] ,LOWEST);
-					stream << ',' << targetData.getTypeAllocSize(curType->getSequentialElementType())<<')';
 					curType = curType->getSequentialElementType();
-					stream << "|0)";
+					uint32_t size = targetData.getTypeAllocSize(curType);
+					if (const ConstantInt* idx = dyn_cast<ConstantInt>(indices[i]))
+					{
+						constPart += idx->getSExtValue()*size;
+
+					}
+					else if (size == 1)
+					{
+						compileOperand(indices[i] ,ADD_SUB);
+						stream << '+';
+					}
+					else
+					{
+						// NOTE: V8 requires imul to be coerced to int like normal functions
+						stream << '(' << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
+						compileOperand(indices[i] ,LOWEST);
+						stream << ',' << size <<')';
+						stream << "|0)+";
+					}
 				}
-				stream << '+';
 			}
 		}
 		p = u->getOperand(0);
 		continue;
 	}
+	if (constPart != 0)
+		stream << constPart <<'+';
 	compileOperand(p, ADD_SUB);
 }
 
