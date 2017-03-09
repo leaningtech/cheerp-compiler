@@ -492,6 +492,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpNoNativeMath->render(Args, CmdArgs);
   if(Arg* cheerpNoMathImul = Args.getLastArg(options::OPT_cheerp_no_math_imul))
     cheerpNoMathImul->render(Args, CmdArgs);
+  if(Arg* cheerpNoMathFround = Args.getLastArg(options::OPT_cheerp_no_math_fround))
+    cheerpNoMathFround->render(Args, CmdArgs);
   if(Arg* cheerpNoCredits = Args.getLastArg(options::OPT_cheerp_no_credits))
     cheerpNoCredits->render(Args, CmdArgs);
   if(Arg* cheerpForceTypedArrays = Args.getLastArg(options::OPT_cheerp_force_typed_arrays))

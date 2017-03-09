@@ -4372,6 +4372,8 @@ def cheerp_no_pointer_scev : Flag<["-"], "cheerp-no-pointer-scev">, Flags<[Drive
   HelpText<"Disable scalar evolution for pointers">;
 def cheerp_no_math_imul : Flag<["-"], "cheerp-no-math-imul">, Flags<[DriverOption]>,
   HelpText<"Disable JavaScript Math.imul">;
+def cheerp_no_math_fround : Flag<["-"], "cheerp-no-math-fround">, Flags<[DriverOption]>,
+  HelpText<"Disable JavaScript Math.fround">;
 def cheerp_no_credits : Flag<["-"], "cheerp-no-credits">, Flags<[DriverOption]>,
   HelpText<"Disable Cheerp credits in JS">;
 def cheerp_force_typed_arrays : Flag<["-"], "cheerp-force-typed-arrays">, Flags<[DriverOption]>,
