@@ -1993,7 +1993,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			// If we don't lose information or if the actual type is a float
 			// (and thus we don't care that we are losing it), try to see if
 			// it is shorter to use a float instead of a double (using fround)
-			if(!losesInfo || f->getType()->isFloatTy())
+			if(useMathFround && (!losesInfo || f->getType()->isFloatTy()))
 			{
 				float original = apf.convertToFloat();
 				SmallString<32> tmpbuf;
@@ -4483,8 +4483,10 @@ void CheerpWriter::compileHandleVAArg()
 void CheerpWriter::compileBuiltins(bool asmjs)
 {
 	StringRef math = asmjs?"stdlib.Math.":"Math.";
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '=' << math << "imul;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '=' << math << "fround;" << NewLine;
+	if(useMathImul || asmjs)
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '=' << math << "imul;" << NewLine;
+	if(useMathFround || asmjs)
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '=' << math << "fround;" << NewLine;
 }
 
 void CheerpWriter::compileCheckBoundsHelper()
