@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -27,8 +27,11 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Support/raw_ostream.h"
 #include <set>
 #include <map>
+
+//#define DEBUG_GEP_OPT_VERBOSE 1
 
 STATISTIC(NumIndirectFun, "Number of indirect functions processed");
 STATISTIC(NumAllocasTransformedToArrays, "Number of allocas of values transformed to allocas of arrays");
@@ -733,6 +736,211 @@ void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createDelayAllocasPass() { return new DelayAllocas(); }
 
+void GEPOptimizer::optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end, Value* base, uint32_t startIndex)
+{
+	std::set<Instruction*> erasedInst;
+	assert(begin != end);
+	// We know that up to startIndex all indexes are equal
+	// Find out how many indexes are equal in all the range and build a GEP with them from the base
+	llvm::SmallVector<llvm::Value*, 4> newIndexes;
+	uint32_t endIndex = startIndex;
+	if(endIndex == 1)
+	{
+		// It means that we are handling the first index, add it as it is
+		// The first index is guaranteed to be the same across the range
+		newIndexes.push_back((*begin)->getOperand(1));
+		endIndex++;
+	}
+	else
+	{
+		// This is an optimized GEP, it will start from the passed base. Add a constant 0.
+		newIndexes.push_back(ConstantInt::get(llvm::Type::getInt32Ty(base->getContext()), 0));
+	}
+	bool indexesAreEqual = true;
+	while(indexesAreEqual)
+	{
+		Value* curOperand = NULL;
+		uint32_t rangeSize = 0;
+		for(OrderedGEPs::iterator it=begin;;++it)
+		{
+			if(it!=end)
+			{
+				if(rangeSize == 0)
+				{
+					if(endIndex < (*it)->getNumOperands())
+						curOperand = (*it)->getOperand(endIndex);
+					rangeSize++;
+					continue;
+				}
+				if(endIndex < (*it)->getNumOperands())
+				{
+					if(curOperand == (*it)->getOperand(endIndex))
+					{
+						rangeSize++;
+						continue;
+					}
+				}
+			}
+			// This is the first index which is different in the range.
+			indexesAreEqual = false;
+#if DEBUG_GEP_OPT_VERBOSE
+			llvm::errs() << "Index equal from " << startIndex << " to " << endIndex << ", range size: " << rangeSize << "\n";
+#endif
+			if(rangeSize == 1)
+			{
+				// If the range has size 1 and we have just started we skip this GEP entirely
+				if(startIndex != 1)
+				{
+					uint32_t oldIndexCount = newIndexes.size();
+					// Create a GEP from the base to all not used yet indexes
+					for(uint32_t i=endIndex;i<(*begin)->getNumOperands();i++)
+						newIndexes.push_back((*begin)->getOperand(i));
+					assert(!erasedInst.count(*begin));
+					Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "", *begin);
+#if DEBUG_GEP_OPT_VERBOSE
+					llvm::errs() << "New GEP " << newGEP << "\n";
+#endif
+					newGEP->takeName(*begin);
+					(*begin)->replaceAllUsesWith(newGEP);
+					erasedInst.insert(*begin);
+					(*begin)->eraseFromParent();
+					newIndexes.resize(oldIndexCount);
+				}
+				if(it==end)
+					break;
+				begin = it;
+				if(endIndex < (*it)->getNumOperands())
+					curOperand = (*it)->getOperand(endIndex);
+				else
+					curOperand = NULL;
+				continue;
+			}
+			newIndexes.push_back(curOperand);
+			// This is the first index which is different in the range. Create a GEP now.
+			Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "optgep");
+			newIndexes.pop_back();
+			Instruction* insertionPoint = NULL;
+			// Compute the insertion point to dominate all users of this GEP in the range
+			for(OrderedGEPs::iterator rangeIt = begin; rangeIt != it; ++rangeIt)
+			{
+				if(insertionPoint==NULL)
+				{
+					insertionPoint = *rangeIt;
+					continue;
+				}
+				// Check if the current GEP dominates the old insertionPoint
+				if(DT->dominates(*rangeIt, insertionPoint))
+					insertionPoint = *rangeIt;
+				else if(!DT->dominates(insertionPoint, *rangeIt))
+				{
+					// If the insertionPoint also does not dominate the current GEP
+					// we need to find a common dominator for both
+					BasicBlock* commonDominator = DT->findNearestCommonDominator(insertionPoint->getParent(), (*rangeIt)->getParent());
+					assert(commonDominator);
+					insertionPoint = commonDominator->getTerminator();
+				}
+			}
+			assert(insertionPoint);
+			newGEP->insertBefore(insertionPoint);
+#if DEBUG_GEP_OPT_VERBOSE
+			llvm::errs() << "New GEP " << newGEP << " inserted after " << *insertionPoint << "\n";
+#endif
+			if(rangeSize != 1)
+			{
+				// Proceed with the range from 'begin' to 'it'
+				optimizeGEPsRecursive(begin, it, newGEP, endIndex+1);
+			}
+			if(it==end)
+				break;
+			// Reset the state for the next range
+			begin = it;
+			curOperand = (*it)->getOperand(endIndex);
+			rangeSize = 1;
+		}
+		newIndexes.push_back(curOperand);
+		endIndex++;
+	}
+}
+
+bool GEPOptimizer::runOnFunction(Function& F)
+{
+	bool Changed = false;
+	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+	OrderedGEPs gepsFromBasePointer;
+
+	// Gather all the GEPs
+	for ( BasicBlock& BB : F )
+	{
+		for ( Instruction& I: BB )
+		{
+			if(!isa<GetElementPtrInst>(I))
+				continue;
+			if(I.getNumOperands() <= 2)
+				continue;
+			gepsFromBasePointer.insert(&I);
+		}
+	}
+
+	// Look for GEPs that have a common base pointer. They should have both the
+	// pointer and the first index equal. As the GEPs in the map are ordered we
+	// know that equal objects are close.
+	uint32_t rangeLength = 0;
+	OrderedGEPs::iterator rangeStart;
+	for(auto it=gepsFromBasePointer.begin();;++it)
+	{
+		if(it!=gepsFromBasePointer.end())
+		{
+			assert((*it)->getNumOperands() > 2);
+			// Check if we need to start a range
+			if(rangeLength == 0)
+			{
+				rangeStart = it;
+				rangeLength++;
+				continue;
+			}
+			// Check that the first two operands are the same
+			if((*rangeStart)->getOperand(0) == (*it)->getOperand(0) && (*rangeStart)->getOperand(1) == (*it)->getOperand(1))
+			{
+				rangeLength++;
+				continue;
+			}
+		}
+
+		// End the range here, if the range is longer than 1 we can optimize some GEPs
+		if(rangeLength > 1)
+		{
+#if DEBUG_GEP_OPT_VERBOSE
+			llvm::errs() << "Common GEP range:";
+			for(auto it2=rangeStart;it2!=it;++it2)
+				llvm::errs() << " " << **it2;
+			llvm::errs() << "\n";
+#endif
+			optimizeGEPsRecursive(rangeStart, it, (*rangeStart)->getOperand(0), 1);
+		}
+		rangeLength = 0;
+		if(it==gepsFromBasePointer.end())
+			break;
+	}
+	return Changed;
+}
+
+const char* GEPOptimizer::getPassName() const
+{
+	return "GEPOptimizer";
+}
+
+char GEPOptimizer::ID = 0;
+
+void GEPOptimizer::getAnalysisUsage(AnalysisUsage & AU) const
+{
+	AU.addRequired<DominatorTreeWrapperPass>();
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	llvm::Pass::getAnalysisUsage(AU);
+}
+
+FunctionPass *createGEPOptimizerPass() { return new GEPOptimizer(); }
+
 }
 
 using namespace llvm;
@@ -750,4 +958,9 @@ INITIALIZE_PASS_END(DelayAllocas, "DelayAllocas", "Moves allocas as close as pos
 INITIALIZE_PASS_BEGIN(FreeAndDeleteRemoval, "FreeAndDeleteRemoval", "Remove free and delete calls of genericjs objects",
 			false, false)
 INITIALIZE_PASS_END(FreeAndDeleteRemoval, "FreeAndDeleteRemoval", "Remove free and delete calls of genericjs objects",
+			false, false)
+
+INITIALIZE_PASS_BEGIN(GEPOptimizer, "GEPOptimizer", "Rewrite GEPs in a function to remove redundant object accesses",
+			false, false)
+INITIALIZE_PASS_END(GEPOptimizer, "GEPOptimizer", "Rewrite GEPs in a function to remove redundant object accesses",
 			false, false)
