@@ -177,6 +177,8 @@ private:
 	bool useNativeJavaScriptMath;
 	// Flag to signal if we should take advantage of native 32-bit integer multiplication
 	bool useMathImul;
+	// Flag to signal if we should take advantage of native 32-bit float numbers
+	bool useMathFround;
 	// Flag to signal if we should create a closure to avoid global namespace pollution
 	bool makeModule;
 	// Flag to signal if we should add a credit comment line
@@ -465,6 +467,7 @@ public:
 			bool noRegisterize,
 			bool useNativeJavaScriptMath,
 			bool useMathImul,
+			bool useMathFround,
 			bool addCredits,
 			bool measureTimeToMain,
 			unsigned heapSize,
@@ -484,6 +487,7 @@ public:
 		NewLine(),
 		useNativeJavaScriptMath(useNativeJavaScriptMath),
 		useMathImul(useMathImul),
+		useMathFround(useMathFround),
 		makeModule(makeModule),
 		addCredits(addCredits),
 		measureTimeToMain(measureTimeToMain),
