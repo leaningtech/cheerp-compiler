@@ -449,6 +449,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-DelayAllocas");
   // Inlining from -Os may generate memcpy calls that we need to lower
   CmdArgs.push_back("-StructMemFuncLowering");
+  // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
+  CmdArgs.push_back("-simplifycfg");
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
