@@ -2737,7 +2737,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					compilePointerAs(valOp, storedKind);
 			}
 			else
-				compileOperand(valOp, LOWEST);
+			{
+				PARENT_PRIORITY myPrio = kind==RAW?BIT_AND:LOWEST;
+				compileOperand(valOp, myPrio);
+			}
 			return COMPILE_OK;
 		}
 		default:
@@ -3666,6 +3669,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if (li.getType()->isFloatingPointTy() && parentPrio == ADD_SUB)
 				loadPrio = LOWEST;
 			int width = needsIntCoercion(&li, parentPrio, &loadPrio);
+			if (loadPrio == BIT_AND && kind == RAW)
+				loadPrio = BIT_OR;
 			if (parentPrio > loadPrio)
 				stream << '(';
 			if (li.getType()->isFloatingPointTy())
