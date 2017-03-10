@@ -455,16 +455,45 @@ private:
 	void addExportedFreeFunctions(std::vector<llvm::StringRef>& namesList, const llvm::NamedMDNode* namedNode);
 public:
 	ostream_proxy stream;
-	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA, cheerp::Registerize & registerize,
-	             cheerp::GlobalDepsAnalyzer & gda, SourceMapGenerator* sourceMapGenerator, const std::vector<std::string>& reservedNames, bool ReadableOutput,
-	             bool MakeModule, bool NoRegisterize, bool UseNativeJavaScriptMath, bool useMathImul, bool addCredits, bool measureTimeToMain,
-	             unsigned HeapSize, bool CheckBounds, bool CheckDefined, bool CompileGlobalsAddrAsmJS, bool forceTypedArrays):
-		module(m),targetData(&m),currentFun(NULL),PA(PA),registerize(registerize),globalDeps(gda),
-		namegen(m, globalDeps, registerize, PA, reservedNames, ReadableOutput),types(m),
-		sourceMapGenerator(sourceMapGenerator),NewLine(),useNativeJavaScriptMath(UseNativeJavaScriptMath),
-		useMathImul(useMathImul),makeModule(MakeModule),addCredits(addCredits),measureTimeToMain(measureTimeToMain),
-		heapSize(HeapSize),checkBounds(CheckBounds),symbolicGlobalsAsmJS(CompileGlobalsAddrAsmJS),readableOutput(ReadableOutput),
-		stream(s, sourceMapGenerator, ReadableOutput)
+	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
+			cheerp::Registerize & registerize,
+			cheerp::GlobalDepsAnalyzer & gda,
+			SourceMapGenerator* sourceMapGenerator,
+			const std::vector<std::string>& reservedNames,
+			bool readableOutput,
+			bool makeModule,
+			bool noRegisterize,
+			bool useNativeJavaScriptMath,
+			bool useMathImul,
+			bool addCredits,
+			bool measureTimeToMain,
+			unsigned heapSize,
+			bool checkBounds,
+			bool checkDefined,
+			bool compileGlobalsAddrAsmJS,
+			bool forceTypedArrays):
+		module(m),
+		targetData(&m),
+		currentFun(NULL),
+		PA(PA),
+		registerize(registerize),
+		globalDeps(gda),
+		namegen(m, globalDeps, registerize, PA, reservedNames, readableOutput),
+		types(m),
+		sourceMapGenerator(sourceMapGenerator),
+		NewLine(),
+		useNativeJavaScriptMath(useNativeJavaScriptMath),
+		useMathImul(useMathImul),
+		makeModule(makeModule),
+		addCredits(addCredits),
+		measureTimeToMain(measureTimeToMain),
+		heapSize(heapSize),
+		checkBounds(checkBounds),
+		checkDefined(checkDefined),
+		forceTypedArrays(forceTypedArrays),
+		symbolicGlobalsAsmJS(compileGlobalsAddrAsmJS),
+		readableOutput(readableOutput),
+		stream(s, sourceMapGenerator, readableOutput)
 	{
 	}
 	void makeJS();
