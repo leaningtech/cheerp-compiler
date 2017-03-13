@@ -645,7 +645,7 @@ void CheerpWastWriter::compileMethodLocals(const Function& F)
 				localsFound.resize(regId+1);
 			if(localsFound[regId].second)
 				continue;
-			localsFound[regId] = std::make_pair(Registerize::getRegKindFromType(I.getType()),true);
+			localsFound[regId] = std::make_pair(Registerize::getRegKindFromType(I.getType(), false),true);
 		}
 		// Handle the special names required for the edges between blocks
 		class LocalsPHIHandler: public EndOfBlockPHIHandler

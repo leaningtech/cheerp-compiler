@@ -788,113 +788,197 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(useNativeJavaScriptMath)
 	{
+		PARENT_PRIORITY mathPrio = LOWEST;
 		const char* Math = asmjs ? "" : "Math.";
 		if(ident=="fabs" || ident=="fabsf")
 		{
 			stream << Math << "abs(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="acos" || ident=="acosf")
 		{
 			stream << Math << "acos(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="asin" || ident=="asinf")
 		{
 			stream << Math << "asin(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="atan" || ident=="atanf")
 		{
 			stream << Math << "atan(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="atan2" || ident=="atan2f")
 		{
 			stream << Math << "atan2(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ',';
-			compileOperand(*(it+1), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				stream << '+';
+			}
+			compileOperand(*(it+1), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="ceil" || ident=="ceilf")
 		{
 			stream << Math << "ceil(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="cos" || ident=="cosf")
 		{
 			stream << Math << "cos(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="exp" || ident=="expf")
 		{
 			stream << Math << "exp(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="floor" || ident=="floorf")
 		{
 			stream << Math << "floor(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="log" || ident=="logf")
 		{
 			stream << Math << "log(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="pow" || ident=="powf")
 		{
 			stream << Math << "pow(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ',';
-			compileOperand(*(it+1), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				stream << '+';
+			}
+			compileOperand(*(it+1), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="round" || ident=="roundf")
 		{
 			stream << Math << "round(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="sin" || ident=="sinf")
 		{
 			stream << Math << "sin(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="sqrt" || ident=="sqrtf")
 		{
 			stream << Math << "sqrt(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="tan" || ident=="tanf")
 		{
 			stream << Math << "tan(";
-			compileOperand(*(it), LOWEST);
+			if(asmjs && (*it)->getType()->isFloatTy())
+			{
+				mathPrio = HIGHEST;
+				stream << '+';
+			}
+			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -1971,14 +2055,22 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 
 		if(f->getValueAPF().isInfinity())
 		{
+			if(asmjs && f->getType()->isFloatTy())
+				stream<< namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			if(f->getValueAPF().isNegative())
 				stream << '-';
 
 			stream << "Infinity";
+			if(asmjs && f->getType()->isFloatTy())
+				stream << ')';
 		}
 		else if(f->getValueAPF().isNaN())
 		{
+			if(asmjs && f->getType()->isFloatTy())
+				stream<< namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			stream << "NaN";
+			if(asmjs && f->getType()->isFloatTy())
+				stream << ')';
 		}
 		else
 		{
@@ -2024,13 +2116,12 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 				// We actually use the float only if it is shorter to write,
 				// including the call to fround
 				size_t floatsize = tmpbuf.size() + namegen.getBuiltinName(NameGenerator::Builtin::FROUND).size()+2;  
-				if(buf.size() > floatsize)
+				if(buf.size() > floatsize || (asmjs && f->getType()->isFloatTy()))
 				{
 					useFloat = true;
 					// In asm.js double and float are distinct types, so
-					// we cast back to double (we are never really using
-					// floats for now)
-					if(asmjs)
+					// we cast back to double if needed
+					if(asmjs && f->getType()->isDoubleTy())
 					{
 						// if f is negative parenthesis are already added
 						if (parentPrio == HIGHEST && !f->isNegative())
@@ -2058,7 +2149,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			if (useFloat)
 				stream << ')';
 		}
-		if(parentPrio == HIGHEST && (f->getValueAPF().isNegative() | (asmjs && useFloat)))
+		if(parentPrio == HIGHEST && (f->getValueAPF().isNegative() | (asmjs && useFloat && f->getType()->isDoubleTy())))
 			stream << ')';
 	}
 	else if(isa<ConstantInt>(c))
@@ -2448,33 +2539,40 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			}
 			if(retVal)
 			{
-				if(!asmjs && retVal->getType()->isPointerTy())
+				Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(retVal->getType(), asmjs);
+				switch(kind)
 				{
-					POINTER_KIND k=PA.getPointerKindForReturn(ri.getParent()->getParent());
-					// For SPLIT_REGULAR we return the .d part and store the .o part into oSlot
-					if(k==SPLIT_REGULAR)
-					{
-						stream << "oSlot=";
-						compilePointerOffset(retVal, LOWEST);
-						stream << ';' << NewLine;
-					}
-					stream << "return ";
-					assert(k != REGULAR);
-					if(k==SPLIT_REGULAR)
-						compilePointerBase(retVal);
-					else
-						compilePointerAs(retVal, k);
-				}
-				else
-				{
-					stream << "return ";
-					PARENT_PRIORITY prio = LOWEST;
-					int width = needsIntCoercion(retVal, prio, &prio);
-					compileOperand(retVal, prio);
-					if(prio == BIT_OR)
+					case Registerize::INTEGER:
+						stream << "return ";
+						compileOperand(retVal, BIT_OR);
 						stream << "|0";
-					else if(prio == BIT_AND)
-						stream << "&" << getMaskForBitWidth(width);
+						break;
+					case Registerize::DOUBLE:
+						stream << "return ";
+						compileOperand(retVal, LOWEST);
+						break;
+					case Registerize::FLOAT:
+						stream << "return ";
+						stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+						compileOperand(retVal, LOWEST);
+						stream << ')';
+						break;
+					case Registerize::OBJECT:
+						POINTER_KIND k=PA.getPointerKindForReturn(ri.getParent()->getParent());
+						// For SPLIT_REGULAR we return the .d part and store the .o part into oSlot
+						if(k==SPLIT_REGULAR)
+						{
+							stream << "oSlot=";
+							compilePointerOffset(retVal, LOWEST);
+							stream << ';' << NewLine;
+						}
+						stream << "return ";
+						assert(k != REGULAR);
+						if(k==SPLIT_REGULAR)
+							compilePointerBase(retVal);
+						else
+							compilePointerAs(retVal, k);
+						break;
 				}
 			}
 			else
@@ -3042,7 +3140,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::SIToFP:
 		{
 			const CastInst& ci = cast<CastInst>(I);
-			stream << "(+";
+			if (asmjs && I.getType()->isFloatTy())
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+			else
+				stream << "(+";
 			compileSignedInteger(ci.getOperand(0), /*forComparison*/ false, HIGHEST);
 			stream << ')';
 			return COMPILE_OK;
@@ -3050,8 +3151,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::UIToFP:
 		{
 			const CastInst& ci = cast<CastInst>(I);
+			if (asmjs && I.getType()->isFloatTy())
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+			else
+				stream << "(+";
 			//We need to cast to unsigned before
-			stream << "(+";
 			compileUnsignedInteger(ci.getOperand(0), HIGHEST);
 			stream << ')';
 			return COMPILE_OK;
@@ -3092,7 +3196,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::FAdd:
 		{
-			//Double addition
+			//Floating point addition
+			if (asmjs && I.getType()->isFloatTy())
+			{
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+				parentPrio = LOWEST;
+			}
 			if(parentPrio > ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '+';
@@ -3101,6 +3210,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			PARENT_PRIORITY myPrio = asmjs?HIGHEST:nextPrio(ADD_SUB);
 			compileOperand(I.getOperand(1), myPrio);
 			if(parentPrio > ADD_SUB) stream << ')';
+			if (asmjs && I.getType()->isFloatTy()) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Sub:
@@ -3110,7 +3220,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::FSub:
 		{
-			//Double subtraction
+			//Floating point subtraction
+			if (asmjs && I.getType()->isFloatTy())
+			{
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+				parentPrio = LOWEST;
+			}
 			//TODO: optimize negation
 			if(parentPrio > ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
@@ -3119,6 +3234,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			// compileConstant adds parenthesis if the constant is negative
 			compileOperand(I.getOperand(1), HIGHEST);
 			if(parentPrio > ADD_SUB) stream << ')';
+			if (asmjs && I.getType()->isFloatTy()) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ZExt:
@@ -3215,22 +3331,34 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::FDiv:
 		{
-			//Double division
+			//Floating point division
+			if (asmjs && I.getType()->isFloatTy())
+			{
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+				parentPrio = LOWEST;
+			}
 			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '/';
 			compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
+			if (asmjs && I.getType()->isFloatTy()) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FRem:
 		{
-			//Double division
+			//Floating point division remainder
+			if (asmjs && I.getType()->isFloatTy())
+			{
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+				parentPrio = LOWEST;
+			}
 			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '%';
 			compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
+			if (asmjs && I.getType()->isFloatTy()) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Mul:
@@ -3267,12 +3395,18 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::FMul:
 		{
-			//Double multiplication
+			//Floating point multiplication
+			if (asmjs && I.getType()->isFloatTy())
+			{
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+				parentPrio = LOWEST;
+			}
 			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '*';
 			compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
+			if (asmjs && I.getType()->isFloatTy()) stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ICmp:
@@ -3284,6 +3418,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::FCmp:
 		{
+			PARENT_PRIORITY fcmpPrio = LOWEST;
 			//Integer comparison
 			const CmpInst& ci = cast<CmpInst>(I);
 			//Check that the operation is JS safe
@@ -3295,14 +3430,23 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				if (asmjs)
 					stream << '(';
 				stream << "isNaN(";
-				compileOperand(ci.getOperand(0),LOWEST);
+				if(asmjs && ci.getOperand(0)->getType()->isFloatTy())
+				{
+					fcmpPrio = HIGHEST;
+					stream << '+';
+				}
+				compileOperand(ci.getOperand(0),fcmpPrio);
 				stream << ')';
 				if (asmjs)
 					stream << "|0)&!(";
 				else
 					stream << "&&!";
 				stream << "isNaN(";
-				compileOperand(ci.getOperand(1), LOWEST);
+				if(asmjs && ci.getOperand(1)->getType()->isFloatTy())
+				{
+					stream << '+';
+				}
+				compileOperand(ci.getOperand(1), fcmpPrio);
 				stream << ')';
 				if (asmjs)
 					stream << "|0)";
@@ -3314,6 +3458,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				if (asmjs)
 					stream << '(';
 				stream << "isNaN(";
+				if(asmjs && ci.getOperand(0)->getType()->isFloatTy())
+				{
+					fcmpPrio = HIGHEST;
+					stream << '+';
+				}
 				compileOperand(ci.getOperand(0), LOWEST);
 				stream << ')';
 				if (asmjs)
@@ -3321,6 +3470,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				else
 					stream << "||";
 				stream << "isNaN(";
+				if(asmjs && ci.getOperand(1)->getType()->isFloatTy())
+				{
+					stream << '+';
+				}
 				compileOperand(ci.getOperand(1), LOWEST);
 				stream << ')';
 				if (asmjs)
@@ -3483,13 +3636,27 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FPExt:
 		{
 			const Value* src=I.getOperand(0);
+			if(asmjs)
+			{
+				parentPrio = LOWEST;
+				stream << "(+(";
+			}
 			compileOperand(src, parentPrio);
+			if(asmjs)
+				stream << "))";
 			return COMPILE_OK;
 		}
 		case Instruction::FPTrunc:
 		{
 			const Value* src=I.getOperand(0);
+			if(useMathFround || asmjs)
+			{
+				parentPrio = LOWEST;
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+			}
 			compileOperand(src, parentPrio);
+			if(useMathFround)
+				stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::PtrToInt:
@@ -3540,6 +3707,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const PointerType* pTy = cast<PointerType>(calledValue->getType());
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 			const Type* retTy = fTy->getReturnType();
+			// NOTE: if the type is void, OBJECT is returned, but we explicitly
+			// check the void case later
+			Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(retTy, asmjs);
 			// Calling convention for variadic arguments in asm.js mode:
 			// arguments are pushed into the stack in the reverse order
 			// in which they appear.
@@ -3561,25 +3731,34 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				}
 				stream << "__stackPtr=(__stackPtr-" << i*8 << ")|0," << NewLine;
 			}
-			PARENT_PRIORITY callPrio = HIGHEST;
-			needsIntCoercion(&ci, parentPrio==BIT_OR?parentPrio:callPrio, &callPrio);
-			// The cast to the appropriate int width is already done by the callee
-			if (callPrio == BIT_AND)
-				callPrio = BIT_OR;
-			// Avoid `++`
-			else if (retTy->isFloatingPointTy() && parentPrio == ADD_SUB)
-				callPrio = LOWEST;
-			if (parentPrio > callPrio)
-				stream<<'(';
-			if (retTy->isFloatingPointTy())
-				stream << '+';
+			if(!retTy->isVoidTy())
+			{
+				if(kind == Registerize::DOUBLE)
+				{
+					if(parentPrio == ADD_SUB)
+						stream << '(';
+					stream << '+';
+				}
+				else if(kind == Registerize::FLOAT)
+				{
+					stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+				}
+				else if(kind == Registerize::INTEGER && parentPrio > BIT_OR)
+				{
+					stream << '(';
+				}
+			}
 			if(calledFunc)
 			{
 				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
 				if(cf!=COMPILE_UNSUPPORTED)
 				{
-					if (parentPrio > callPrio)
+					if (!retTy->isVectorTy() && ((kind == Registerize::DOUBLE && parentPrio == ADD_SUB) ||
+						(kind == Registerize::INTEGER && parentPrio > BIT_OR) ||
+						kind == Registerize::FLOAT))
+					{
 						stream << ')';
+					}
 					return cf;
 				}
 				// handle calls to asm.js functions
@@ -3627,15 +3806,31 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				size_t n = asmjs?fTy->getNumParams():ci.getNumArgOperands();
 				compileMethodArgs(ci.op_begin(),ci.op_begin()+n, &ci, /*forceBoolean*/ false);
 			}
-			if (callPrio == BIT_OR)
-				stream << "|0";
-			if (parentPrio > callPrio)
-				stream << ')';
-			if(ci.getType()->isPointerTy() && PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
+			if(!retTy->isVoidTy())
 			{
-				assert(!isInlineable(ci, PA));
-				stream << ';' << NewLine;
-				stream << namegen.getSecondaryName(&ci) << "=oSlot";
+				switch(kind)
+				{
+					case Registerize::INTEGER:
+						stream << "|0";
+						if(parentPrio > BIT_OR)
+							stream << ')';
+						break;
+					case Registerize::DOUBLE:
+						if(parentPrio == ADD_SUB)
+							stream << ')';
+						break;
+					case Registerize::FLOAT:
+						stream << ')';
+						break;
+					case Registerize::OBJECT:
+						if(PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
+						{
+							assert(!isInlineable(ci, PA));
+							stream << ';' << NewLine;
+							stream << namegen.getSecondaryName(&ci) << "=oSlot";
+						}
+						break;
+				}
 			}
 			// If this was a vararg function, pop the arguments from the stack
 			if (asmjs && fTy->isVarArg())
@@ -3644,7 +3839,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				if (ci.getType()->isVoidTy())
 					stream << ",0";
 				stream << ");" << NewLine << "__stackPtr=(__stackPtr+" << n*8 << ")|0";
-
 			}
 			return COMPILE_OK;
 		}
@@ -3665,17 +3859,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				compileCheckDefined(ptrOp);
 				stream<<",";
 			}
-			PARENT_PRIORITY loadPrio = HIGHEST;
-			if (li.getType()->isFloatingPointTy() && parentPrio == ADD_SUB)
-				loadPrio = LOWEST;
-			int width = needsIntCoercion(&li, parentPrio, &loadPrio);
-			if (loadPrio == BIT_AND && kind == RAW)
-				loadPrio = BIT_OR;
-			if (parentPrio > loadPrio)
-				stream << '(';
-			if (li.getType()->isFloatingPointTy())
+			Registerize::REGISTER_KIND regKind = Registerize::getRegKindFromType(li.getType(),asmjs);
+			if(regKind==Registerize::INTEGER)
 			{
+				PARENT_PRIORITY loadPrio = LOWEST;
+				needsIntCoercion(&li, parentPrio, &loadPrio);
+				if (loadPrio == BIT_AND && kind == RAW)
+					loadPrio = BIT_OR;
+				if (parentPrio > loadPrio)
+					stream << '(';
+			}
+			else if(regKind==Registerize::DOUBLE)
+			{
+				if(parentPrio==ADD_SUB)
+					stream << '(';
 				stream << '+';
+			}
+			else if(regKind==Registerize::FLOAT)
+			{
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			}
 			if (kind == BYTE_LAYOUT)
 			{
@@ -3707,13 +3909,29 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			else
 				compileCompleteObject(ptrOp);
-			// 32-bit integers are all loaded as signed, other integers as unsigned
-			if(loadPrio == BIT_OR)
-				stream << "|0";
-			else if(loadPrio == BIT_AND)
-				stream << '&' << getMaskForBitWidth(width);
-			if(parentPrio > loadPrio)
+			if(regKind==Registerize::INTEGER)
+			{
+				// 32-bit integers are all loaded as signed, other integers as unsigned
+				PARENT_PRIORITY loadPrio = LOWEST;
+				int width = needsIntCoercion(&li, parentPrio, &loadPrio);
+				if (loadPrio == BIT_AND && kind == RAW)
+					loadPrio = BIT_OR;
+				if(loadPrio == BIT_OR)
+					stream << "|0";
+				else if(loadPrio == BIT_AND)
+					stream << '&' << getMaskForBitWidth(width);
+				if(parentPrio > loadPrio)
+					stream << ')';
+			}
+			else if(regKind==Registerize::DOUBLE)
+			{
+				if(parentPrio==ADD_SUB)
+					stream << ')';
+			}
+			else if(regKind==Registerize::FLOAT)
+			{
 				stream << ')';
+			}
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 				stream<<')';
 			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
@@ -4024,13 +4242,16 @@ void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND
 	stream << name << '=';
 	if(kind == Registerize::INTEGER)
 		stream << '0';
-	else if(!asmjs && kind == Registerize::DOUBLE)
-		stream << "-0";
-	// NOTE: V8 requires the `.` to identify it as a double in asm.js
-	else if(asmjs && kind == Registerize::DOUBLE)
-		stream << "0.";
-	else if(asmjs)
-		stream << '0';
+	else if(kind == Registerize::DOUBLE)
+	{
+		// NOTE: V8 requires the `.` to identify it as a double in asm.js
+		if(asmjs)
+			stream << "0.";
+		else
+			stream << "-0";
+	}
+	else if(kind == Registerize::FLOAT)
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << "(0.)";
 	else
 		stream << "null";
 }
@@ -4041,6 +4262,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 	enum LOCAL_STATE { NOT_DONE, NAME_DONE, SECONDARY_NAME_DONE };
 	std::vector<LOCAL_STATE> localsFound;
 	bool firstVar = true;
+	bool asmjs = F.getSection() == StringRef("asmjs");
 	if(needsLabel)
 	{
 		stream << "var label=0";
@@ -4066,7 +4288,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 					stream << "var ";
 				else
 					stream << ',';
-				compileMethodLocal(namegen.getName(&I),Registerize::getRegKindFromType(I.getType()));
+				compileMethodLocal(namegen.getName(&I),Registerize::getRegKindFromType(I.getType(), asmjs));
 				firstVar = false;
 				localsFound[regId]=NAME_DONE;
 			}
@@ -4094,6 +4316,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 			const BasicBlock* toBB;
 			void handleRecursivePHIDependency(const Instruction* incoming) override
 			{
+				bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
 				writer.namegen.setEdgeContext(fromBB, toBB);
 				if(incoming->getType()->isPointerTy() && writer.PA.getPointerKind(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
 				{
@@ -4108,7 +4331,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 				if(compiledLocals.insert(primaryName).second)
 				{
 					writer.stream << ',';
-					writer.compileMethodLocal(primaryName, Registerize::getRegKindFromType(incoming->getType()));
+					writer.compileMethodLocal(primaryName, Registerize::getRegKindFromType(incoming->getType(), asmjs));
 				}
 				writer.namegen.clearEdgeContext();
 			}
@@ -4189,11 +4412,26 @@ void CheerpWriter::compileMethod(const Function& F)
 		// if there is already one
 		compileStackRet();
 		stream << "return";
-		Type* ret = F.getReturnType();
-		if (ret->isIntegerTy() || ret->isPointerTy())
-			stream << " 0";
-		else if (ret->isFloatingPointTy())
-			stream << " 0.";
+		if(!F.getReturnType()->isVoidTy())
+		{
+			Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(F.getReturnType(), true);
+			switch(kind)
+			{
+				case Registerize::INTEGER:
+					stream << " 0";
+					break;
+				case Registerize::FLOAT:
+					stream << " " << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << "(0.)";
+					break;
+				case Registerize::DOUBLE:
+					stream << " 0.";
+					break;
+				case Registerize::OBJECT:
+					llvm::errs() << "OBJECT register kind should not appear in asm.js functions\n";
+					llvm::report_fatal_error("please report a bug");
+					break;
+			}
+		}
 		stream << ';' << NewLine;
 	}
 	stream << '}' << NewLine;
@@ -4412,11 +4650,24 @@ void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
 	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 	{
 		stream << namegen.getName(curArg) << '=';
-		if (curArg->getType()->isFloatingPointTy())
-			stream << "+";
-		stream<< namegen.getName(curArg);
-		if (curArg->getType()->isIntegerTy() || curArg->getType()->isPointerTy())
-			stream << "|0";
+		Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(curArg->getType(), true);
+		switch(kind)
+		{
+			case Registerize::INTEGER:
+				stream << namegen.getName(curArg) << "|0";
+				break;
+			case Registerize::FLOAT:
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+				stream << namegen.getName(curArg) << ')';
+				break;
+			case Registerize::DOUBLE:
+				stream << '+' << namegen.getName(curArg);
+				break;
+			case Registerize::OBJECT:
+				llvm::errs() << "OBJECT register kind should not appear in asm.js functions\n";
+				llvm::report_fatal_error("please report a bug");
+				break;
+		}
 		stream << ';' << NewLine;
 	}
 }
