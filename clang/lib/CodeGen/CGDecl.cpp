@@ -1164,7 +1164,7 @@ static Address createUnnamedGlobalForMemcpyFrom(CodeGenModule &CGM,
                                                 llvm::Constant *Constant,
                                                 CharUnits Align, llvm::Function* CurFn) {
   Address SrcPtr = CGM.createUnnamedGlobalFrom(D, Constant, Align, CurFn);
-  if (constant->getType()->isArrayTy())
+  if (Constant->getType()->isArrayTy())
     SrcPtr = Builder.CreateConstArrayGEP(SrcPtr, 0);
   if (!CGM.getTarget().isByteAddressable())
     return SrcPtr;
