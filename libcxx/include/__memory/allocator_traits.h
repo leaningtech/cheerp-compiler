@@ -297,7 +297,7 @@ struct _LIBCPP_TEMPLATE_VIS allocator_traits
 #if _LIBCPP_STD_VER > 17
         _VSTD::construct_at(__p, _VSTD::forward<_Args>(__args)...);
 #else
-        ::new (__p) _Tp(_VSTD::forward<_Args>(__args)...);
+        ::new (const_cast<typename remove_cv<_Tp>::type*>(__p)) _Tp(_VSTD::forward<_Args>(__args)...);
 #endif
     }
 
