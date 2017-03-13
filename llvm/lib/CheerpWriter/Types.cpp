@@ -49,6 +49,13 @@ void CheerpWriter::compileSimpleType(Type* t)
 			break;
 		}
 		case Type::FloatTyID:
+		{
+			if(currentFun && currentFun->getSection()==StringRef("asmjs"))
+			{
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << "(0.)";
+				break;
+			}
+		}
 		case Type::DoubleTyID:
 		{
 			// NOTE: V8 requires the `.` to identify it as a double in asm.js

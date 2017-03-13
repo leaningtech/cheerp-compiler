@@ -85,8 +85,8 @@ public:
 	}
 
 	// Registers should have a consistent JS type
-	enum REGISTER_KIND { OBJECT=0, INTEGER, DOUBLE };
-	static REGISTER_KIND getRegKindFromType(llvm::Type*);
+	enum REGISTER_KIND { OBJECT=0, INTEGER, DOUBLE, FLOAT };
+	static REGISTER_KIND getRegKindFromType(const llvm::Type*, bool asmjs);
 private:
 	// Final data structures
 	std::unordered_map<const llvm::Instruction*, uint32_t> registersMap;
