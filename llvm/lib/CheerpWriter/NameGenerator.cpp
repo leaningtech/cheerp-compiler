@@ -241,10 +241,11 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		typedPHIIndex nextIndex;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
+			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
 			uint32_t regId=namegen.registerize.getRegisterId(incoming);
 			// At the moment Registerize reuse registers for tmpphis of different kinds,
 			// so we need to explicitly assign different names to different kinds
-			Registerize::REGISTER_KIND phiKind = Registerize::getRegKindFromType(incoming->getType());
+			Registerize::REGISTER_KIND phiKind = Registerize::getRegKindFromType(incoming->getType(), asmjs);
 			// We don't know exactly how many times the tmpphi is going to be used in this edge
 			// but assume 1. We increment the usage count for the first not already used tmpphi
 			// for this register kind and add the InstOnEdge to its list
@@ -556,10 +557,11 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		uint32_t nextIndex;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
+			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
 			uint32_t regId=namegen.registerize.getRegisterId(incoming);
 			// At the moment Registerize reuse registers for tmpphis of different kinds,
 			// so we need to explicitly assign different names to different kinds
-			Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(incoming->getType());
+			Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(incoming->getType(), asmjs);
 			const char* kindStr;
 			switch (kind)
 			{
@@ -568,6 +570,9 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 					break;
 				case Registerize::REGISTER_KIND::INTEGER:
 					kindStr = "tmpphii";
+					break;
+				case Registerize::REGISTER_KIND::FLOAT:
+					kindStr = "tmpphif";
 					break;
 				case Registerize::REGISTER_KIND::DOUBLE:
 					kindStr = "tmpphid";
