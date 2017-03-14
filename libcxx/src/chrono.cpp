@@ -296,6 +296,14 @@ static steady_clock::time_point __libcpp_steady_clock_now() {
 }
 
 #elif defined(__CHEERP__)
+
+steady_clock::time_point
+steady_clock::now() _NOEXCEPT
+{
+    double val = client::Date::now();
+    return time_point(milliseconds((long long)val));
+}
+
 #  else
 #    error "Monotonic clock not implemented on this platform"
 #  endif
