@@ -5062,17 +5062,14 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
 		{
 			//In asm.js cases values must be in the range [-2^31,2^31),
 			//and the difference between the biggest and the smaller must be < 2^31
-			bool useSwitch = true;
 			int64_t max = std::numeric_limits<int32_t>::min();
 			int64_t min = std::numeric_limits<int32_t>::max();
 			for (auto& c: si->cases())
 			{
 				max = std::max(max,c.getCaseValue()->getSExtValue());
-				min = std::max(min,c.getCaseValue()->getSExtValue());
+				min = std::min(min,c.getCaseValue()->getSExtValue());
 			}
-			if ((max-min)>=(1<<31))
-				useSwitch = false;
-			if(useSwitch)
+			if (max-min < 1L<<31)
 				branchVar = si->getCondition();
 		}
 		Block* rlBlock = new Block(&(*B), isSplittable, BlockId++, branchVar);
