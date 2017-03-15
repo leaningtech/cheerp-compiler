@@ -100,9 +100,9 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 	//Integer subtraction
 	//TODO: optimize negation
 	PARENT_PRIORITY subPrio = ADD_SUB;
-	int width = needsIntCoercion(lhs, parentPrio, &subPrio);
+	if(needsIntCoercion(Registerize::INTEGER, parentPrio))
+		subPrio = BIT_OR;
 	if(parentPrio > subPrio) stream << '(';
-	// Minus has higher priority than both | and &
 	compileOperand(lhs, ADD_SUB);
 	stream << '-';
 	// TODO: to avoid `--` for now we set HIGHEST priority, and
@@ -110,8 +110,6 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 	compileOperand(rhs, HIGHEST);
 	if(subPrio == BIT_OR)
 			stream << "|0";
-	else if(subPrio == BIT_AND)
-		stream << '&' << getMaskForBitWidth(width);
 	if(parentPrio > subPrio) stream << ')';
 }
 
@@ -209,7 +207,9 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 	else
 	{
 		PARENT_PRIORITY prio = TERNARY;
-		if (needsIntCoercion(select, prio))
+		bool asmjs = currentFun && currentFun->getSection() == StringRef("asmjs");
+		Registerize::REGISTER_KIND regKind = Registerize::getRegKindFromType(lhs->getType(),asmjs);
+		if(needsIntCoercion(regKind, parentPrio))
 			prio = BIT_OR;
 		compileOperand(lhs, prio);
 		if (prio == BIT_OR)

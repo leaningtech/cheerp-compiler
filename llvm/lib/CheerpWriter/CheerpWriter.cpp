@@ -3113,6 +3113,7 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY 
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstruction(const Instruction& I, PARENT_PRIORITY parentPrio)
 {
 	bool asmjs = currentFun->getSection() == StringRef("asmjs");
+	Registerize::REGISTER_KIND regKind = Registerize::getRegKindFromType(I.getType(), asmjs);
 	switch(I.getOpcode())
 	{
 		case Instruction::BitCast:
@@ -3182,15 +3183,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer addition
 			PARENT_PRIORITY addPrio = ADD_SUB;
-			int width = needsIntCoercion(&I, parentPrio, &addPrio);
+			if(needsIntCoercion(regKind, parentPrio))
+				addPrio = BIT_OR;
 			if(parentPrio > addPrio) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << "+";
 			compileOperand(I.getOperand(1), ADD_SUB);
 			if(addPrio == BIT_OR)
 				stream << "|0";
-			else if (addPrio == BIT_AND)
-				stream << '&' << getMaskForBitWidth(width);
 			if(parentPrio > addPrio) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3265,15 +3265,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer signed division
 			PARENT_PRIORITY sdivPrio = MUL_DIV;
-			int width = needsIntCoercion(&I, parentPrio, &sdivPrio);
+			if(needsIntCoercion(regKind, parentPrio))
+				sdivPrio = BIT_OR;
 			if(parentPrio > sdivPrio) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '/';
 			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
 			if(sdivPrio == BIT_OR)
 				stream << "|0";
-			else if(sdivPrio == BIT_AND)
-				stream << "&" << getMaskForBitWidth(width);
 			if(parentPrio > sdivPrio) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3281,10 +3280,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer unsigned division
 			PARENT_PRIORITY udivPrio = MUL_DIV;
-			needsIntCoercion(&I, parentPrio, &udivPrio);
-			// The result is guaranteed to be represented with the correct
-			// number of bits, so we avoid the mask
-			if(udivPrio == BIT_AND)
+			if(needsIntCoercion(regKind, parentPrio))
 				udivPrio = BIT_OR;
 			if(parentPrio > udivPrio) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
@@ -3299,15 +3295,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer signed remainder
 			PARENT_PRIORITY sremPrio = MUL_DIV;
-			int width = needsIntCoercion(&I, parentPrio, &sremPrio);
+			if(needsIntCoercion(regKind, parentPrio))
+				sremPrio = BIT_OR;
 			if(parentPrio > sremPrio) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '%';
 			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
 			if(sremPrio == BIT_OR)
 				stream << "|0";
-			else if(sremPrio == BIT_AND)
-				stream << "&" << getMaskForBitWidth(width);
 			if(parentPrio > sremPrio) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3315,10 +3310,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer unsigned remainder
 			PARENT_PRIORITY uremPrio = MUL_DIV;
-			needsIntCoercion(&I, parentPrio, &uremPrio);
-			// The result is guaranteed to be represented with the correct
-			// number of bits, so we avoid the mask
-			if(uremPrio == BIT_AND)
+			if(needsIntCoercion(regKind, parentPrio))
 				uremPrio = BIT_OR;
 			if(parentPrio > uremPrio) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
@@ -3365,12 +3357,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer signed multiplication
 			PARENT_PRIORITY mulPrio = MUL_DIV;
-			int width = needsIntCoercion(&I, parentPrio, &mulPrio);
-			// NOTE: V8 requires imul to be coerced to int like normal functions
-			if(asmjs)
-			{
+			// NOTE: V8 requires imul to be coerced with `|0` no matter what in asm.js
+			if(needsIntCoercion(regKind, parentPrio) || asmjs)
 				mulPrio = BIT_OR;
-			}
+			// NOTE: V8 requires imul to be coerced to int like normal functions
 			if(parentPrio > mulPrio) stream << '(';
 			if(useMathImul || asmjs)
 			{
@@ -3388,8 +3378,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			if(mulPrio == BIT_OR)
 				stream << "|0";
-			else if(mulPrio == BIT_AND)
-				stream << '&' << getMaskForBitWidth(width);
 			if(parentPrio > mulPrio) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3508,9 +3496,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::LShr:
 		{
 			//Integer logical shift right
-			//No need to apply the >> operator. The result is an integer by spec
+			PARENT_PRIORITY shiftPrio = SHIFT;
+			int width = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(parentPrio > SHIFT) stream << '(';
-			compileOperand(I.getOperand(0), SHIFT);
+			if(width != 32)
+			{
+				shiftPrio = BIT_AND;
+				stream << '(';
+			}
+			compileOperand(I.getOperand(0), shiftPrio);
+			if(width != 32)
+				stream << '&' << getMaskForBitWidth(width) << ')';
 			stream << ">>>";
 			compileOperand(I.getOperand(1), nextPrio(SHIFT));
 			if(parentPrio > SHIFT) stream << ')';
@@ -3573,15 +3569,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::Trunc:
 		{
-			//Well, ideally this should not be used since, since it's a waste of bit to
-			//use integers less than 32 bit wide. Still we can support it
-			PARENT_PRIORITY truncPrio = LOWEST;
-			uint32_t width = needsIntCoercion(&I, parentPrio, &truncPrio);
-			if(parentPrio > truncPrio) stream << '(';
-			compileOperand(I.getOperand(0), truncPrio);
-			if (truncPrio == BIT_AND)
-				stream << '&' << getMaskForBitWidth(width);
-			if(parentPrio > truncPrio) stream << ')';
+			compileOperand(I.getOperand(0), parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::SExt:
@@ -3860,13 +3848,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream<<",";
 			}
 			Registerize::REGISTER_KIND regKind = Registerize::getRegKindFromType(li.getType(),asmjs);
-			if(regKind==Registerize::INTEGER)
+			if(regKind==Registerize::INTEGER && needsIntCoercion(regKind, parentPrio))
 			{
-				PARENT_PRIORITY loadPrio = LOWEST;
-				needsIntCoercion(&li, parentPrio, &loadPrio);
-				if (loadPrio == BIT_AND && kind == RAW)
-					loadPrio = BIT_OR;
-				if (parentPrio > loadPrio)
+				if (parentPrio > BIT_OR)
 					stream << '(';
 			}
 			else if(regKind==Registerize::DOUBLE)
@@ -3909,18 +3893,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			else
 				compileCompleteObject(ptrOp);
-			if(regKind==Registerize::INTEGER)
+			if(regKind==Registerize::INTEGER && needsIntCoercion(regKind, parentPrio))
 			{
-				// 32-bit integers are all loaded as signed, other integers as unsigned
-				PARENT_PRIORITY loadPrio = LOWEST;
-				int width = needsIntCoercion(&li, parentPrio, &loadPrio);
-				if (loadPrio == BIT_AND && kind == RAW)
-					loadPrio = BIT_OR;
-				if(loadPrio == BIT_OR)
-					stream << "|0";
-				else if(loadPrio == BIT_AND)
-					stream << '&' << getMaskForBitWidth(width);
-				if(parentPrio > loadPrio)
+				stream << "|0";
+				if (parentPrio > BIT_OR)
 					stream << ')';
 			}
 			else if(regKind==Registerize::DOUBLE)
@@ -4082,10 +4058,7 @@ void CheerpRenderInterface::renderSwitchBlockBegin(const void* privateBranchVar)
 {
 	const Value* cond = (const Value*)privateBranchVar;
 	writer->stream << "switch(";
-	CheerpWriter::PARENT_PRIORITY myPrio = asmjs?CheerpWriter::BIT_OR:CheerpWriter::LOWEST;
-	writer->compileOperand(cond,myPrio);
-	if (asmjs)
-		writer->stream << "|0";
+	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 	writer->stream << "){" << NewLine;
 }
 void CheerpRenderInterface::renderCaseBlockBegin(const void* privateBlock, int branchId)
