@@ -333,35 +333,17 @@ private:
 
 	/**
 	 * Decide if `v` needs to be coerced to its integer type, based on the value of
-	 * `coercionPrio`, and modify `myPrio` accordingly. It returns the integer width
-	 * in bits, or 0 if the coercion is not needed. If `coercionPrio` is 
-	 * `BIT_OR`,`BIT_AND`, or `SHIFT`, it means that the coercion has already been done,
-	 * and can be skipped by the caller of this function.
+	 * `coercionPrio`: If `coercionPrio` is `BIT_OR`,`BIT_AND`, or `SHIFT`,
+	 * it means that the coercion has already been done, and can be skipped by
+	 * the caller of this function.
 	 */
-	int needsIntCoercion(const llvm::Value* v,PARENT_PRIORITY coercionPrio, PARENT_PRIORITY* myPrio = nullptr)
+	bool needsIntCoercion(Registerize::REGISTER_KIND kind, PARENT_PRIORITY coercionPrio)
 	{
-		const llvm::Type* ty = v->getType();
-		if (ty->isIntegerTy() || (ty->isPointerTy() && PA.getPointerKind(v) == RAW))
+		if (kind == Registerize::INTEGER)
 		{
-			if (coercionPrio != BIT_OR && coercionPrio != BIT_AND && coercionPrio != SHIFT)
-			{
-				int width = ty->isPointerTy()?32:ty->getIntegerBitWidth();
-				if (myPrio != nullptr)
-				{
-					switch (width)
-					{
-						case 32:
-							*myPrio = BIT_OR;
-							break;
-						default:
-							*myPrio = BIT_AND;
-							break;
-					}
-				}
-				return width;
-			}
+			return (coercionPrio != BIT_OR && coercionPrio != BIT_AND && coercionPrio != SHIFT);
 		}
-		return 0;
+		return false;
 	}
 	/**
 	 * Return the next priority higher than `prio`.
