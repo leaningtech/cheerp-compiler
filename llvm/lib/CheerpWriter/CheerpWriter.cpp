@@ -2838,8 +2838,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 			else
 			{
-				PARENT_PRIORITY myPrio = kind==RAW?BIT_AND:LOWEST;
-				compileOperand(valOp, myPrio);
+				compileOperand(valOp, LOWEST);
 			}
 			return COMPILE_OK;
 		}
