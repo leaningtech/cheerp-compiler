@@ -788,22 +788,21 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(useNativeJavaScriptMath)
 	{
+		// NOTE: V8 has very strict rules about mixing the double builtins with
+		// floats in asm.js, so we need an extra `+` for those
 		PARENT_PRIORITY mathPrio = LOWEST;
 		const char* Math = asmjs ? "" : "Math.";
 		if(ident=="fabs" || ident=="fabsf")
 		{
 			stream << Math << "abs(";
-			if(asmjs && (*it)->getType()->isFloatTy())
-			{
-				mathPrio = HIGHEST;
-				stream << '+';
-			}
 			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="acos" || ident=="acosf")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "acos(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
@@ -816,6 +815,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="asin" || ident=="asinf")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "asin(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
@@ -828,6 +829,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="atan" || ident=="atanf")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "atan(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
@@ -840,6 +843,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="atan2" || ident=="atan2f")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "atan2(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
@@ -859,17 +864,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		else if(ident=="ceil" || ident=="ceilf")
 		{
 			stream << Math << "ceil(";
-			if(asmjs && (*it)->getType()->isFloatTy())
-			{
-				mathPrio = HIGHEST;
-				stream << '+';
-			}
 			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="cos" || ident=="cosf")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "cos(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
@@ -882,6 +884,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="exp" || ident=="expf")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "exp(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
@@ -895,17 +899,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		else if(ident=="floor" || ident=="floorf")
 		{
 			stream << Math << "floor(";
-			if(asmjs && (*it)->getType()->isFloatTy())
-			{
-				mathPrio = HIGHEST;
-				stream << '+';
-			}
 			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="log" || ident=="logf")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "log(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
@@ -918,6 +919,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="pow" || ident=="powf")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "pow(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
@@ -948,6 +951,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="sin" || ident=="sinf")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "sin(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
@@ -961,17 +966,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		else if(ident=="sqrt" || ident=="sqrtf")
 		{
 			stream << Math << "sqrt(";
-			if(asmjs && (*it)->getType()->isFloatTy())
-			{
-				mathPrio = HIGHEST;
-				stream << '+';
-			}
 			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		else if(ident=="tan" || ident=="tanf")
 		{
+			if(asmjs && (*it)->getType()->isFloatTy())
+				stream << '+';
 			stream << Math << "tan(";
 			if(asmjs && (*it)->getType()->isFloatTy())
 			{
