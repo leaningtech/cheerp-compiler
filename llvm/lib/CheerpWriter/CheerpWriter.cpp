@@ -3246,7 +3246,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			Type* dst=bi.getDestTy();
 #endif
 			assert(src->isIntegerTy() && dst->isIntegerTy());
-			if(src->isIntegerTy(1))
+			if(src->isIntegerTy(1) && !asmjs)
 			{
 				//If the source type is i1, attempt casting from Boolean
 				if(parentPrio >= TERNARY) stream << '(';
