@@ -3258,7 +3258,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				//Let's mask out upper bits, to make sure we get zero extension
 				//The value might have been initialized with a negative value
-				compileUnsignedInteger(I.getOperand(0), HIGHEST);
+				compileUnsignedInteger(I.getOperand(0), parentPrio);
 			}
 			return COMPILE_OK;
 		}
