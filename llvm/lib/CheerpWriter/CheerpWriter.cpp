@@ -5062,15 +5062,22 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
 		{
 			//In asm.js cases values must be in the range [-2^31,2^31),
 			//and the difference between the biggest and the smaller must be < 2^31
-			int64_t max = std::numeric_limits<int32_t>::min();
-			int64_t min = std::numeric_limits<int32_t>::max();
+			int64_t max = std::numeric_limits<int64_t>::min();
+			int64_t min = std::numeric_limits<int64_t>::max();
 			for (auto& c: si->cases())
 			{
-				max = std::max(max,c.getCaseValue()->getSExtValue());
-				min = std::min(min,c.getCaseValue()->getSExtValue());
+				int64_t curr = c.getCaseValue()->getSExtValue();
+				max = std::max(max,curr);
+				min = std::min(min,curr);
 			}
-			if (max-min < 1L<<31)
+			if (min >= std::numeric_limits<int32_t>::min() &&
+				max <= std::numeric_limits<int32_t>::max() && 
+				//NOTE: this number is the maximum allowed by spidermonkey,
+				// it is not defined in the spec
+				max-min <= 0x3fffff)
+			{
 				branchVar = si->getCondition();
+			}
 		}
 		Block* rlBlock = new Block(&(*B), isSplittable, BlockId++, branchVar);
 		relooperMap.insert(make_pair(&(*B),rlBlock));
