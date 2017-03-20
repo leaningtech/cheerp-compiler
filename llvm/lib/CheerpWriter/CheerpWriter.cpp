@@ -1439,8 +1439,15 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 	Type* et = (t==nullptr) ? pt->getElementType() : t;
 	uint32_t shift = compileHeapForType(et);
 	stream << '[';
-	compileRawPointer(p);
-	stream << ">>" << shift;
+	if(!symbolicGlobalsAsmJS && isa<GlobalVariable>(p))
+	{
+		stream << (gVarsAddr[cast<GlobalVariable>(p)] >> shift);
+	}
+	else
+	{
+		compileRawPointer(p);
+		stream << ">>" << shift;
+	}
 	stream << ']';
 }
 void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
