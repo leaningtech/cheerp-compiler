@@ -3645,7 +3645,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FPTrunc:
 		{
 			const Value* src=I.getOperand(0);
-			if(useMathFround || asmjs)
+			if(useMathFround)
 			{
 				parentPrio = LOWEST;
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
