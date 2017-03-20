@@ -975,10 +975,6 @@ ItaniumCXXABI::EmitMemberPointerConversion(const CastExpr *E,
   // If the adjustment is trivial, we don't need to do anything.
   llvm::Constant *adj = getMemberPointerAdjustment(E);
   if (!adj) return src;
-  else if (!CGM.getTarget().isByteAddressable()) {
-    CGM.ErrorUnsupported(E, "Cheerp: Converting member pointers to non-primary bases is not supported");
-    return src;
-  }
 
   bool isDerivedToBase = (E->getCastKind() == CK_DerivedToBaseMemberPointer);
 
