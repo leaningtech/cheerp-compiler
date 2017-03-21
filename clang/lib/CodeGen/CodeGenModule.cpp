@@ -3377,6 +3377,7 @@ void CodeGenModule::EmitGlobalDefinition(GlobalDecl GD, llvm::GlobalValue *GV) {
          TI.Method = Method;
          TI.This.AdjustmentTarget = Method->getParent();
          getVTables().emitThunk(GlobalDecl(Method), TI, false);
+         GV->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
       } else
         EmitGlobalFunctionDefinition(GD, GV);
 
