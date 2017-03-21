@@ -244,6 +244,15 @@ llvm::Constant *CGCXXABI::getMemberPointerAdjustment(const CastExpr *E) {
   const CXXRecordDecl *derivedClass =
     derivedType->castAs<MemberPointerType>()->getClass()->getAsCXXRecordDecl();
 
+  if (!CGM.getTarget().isByteAddressable()) {
+    llvm::SmallVector<const CXXBaseSpecifier*, 4> path;
+    for (CastExpr::path_const_iterator I = E->path_begin(); I != E->path_end(); ++I)
+      path.push_back(*I);
+
+    int BaseIdOffset=CGM.ComputeBaseIdOffset(derivedClass, path);
+    return llvm::ConstantInt::get(CGM.Int32Ty, -BaseIdOffset);
+  }
+
   return CGM.GetNonVirtualBaseClassOffset(derivedClass,
                                           E->path_begin(),
                                           E->path_end());

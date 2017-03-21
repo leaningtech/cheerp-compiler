@@ -57,10 +57,12 @@ class CodeGenVTables {
   /// Cache for the deleted virtual member call function.
   llvm::Constant *DeletedVirtualFn = nullptr;
 
+public:
   /// Get the address of a thunk and emit it if necessary.
   llvm::Constant *maybeEmitThunk(GlobalDecl GD,
                                  ThunkInfo ThunkAdjustments,
                                  bool ForVTable);
+private:
 
   void addVTableComponent(AggregateBuilderPublic &builder,
                           const VTableLayout &layout, unsigned componentIndex,

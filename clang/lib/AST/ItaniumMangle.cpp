@@ -5172,6 +5172,12 @@ void ItaniumMangleContextImpl::mangleCXXName(GlobalDecl GD,
     return Mangler.mangle(GlobalDecl(DD, Type));
   }
 
+  if (isa<CXXMethodDecl>(D) && GD.isMemberPointerThunk()) {
+    ThunkInfo TI;
+    TI.Method = cast<CXXMethodDecl>(D);
+    return mangleThunk(TI.Method, TI, Out);
+  }
+
   CXXNameMangler Mangler(*this, Out, D);
   Mangler.mangle(GD);
 }

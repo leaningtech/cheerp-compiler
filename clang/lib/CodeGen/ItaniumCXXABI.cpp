@@ -655,17 +655,34 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   if (UseARMMethodPtrABI)
     Adj = Builder.CreateAShr(Adj, ptrdiff_1, "memptr.adj.shifted");
 
-  //On NBA only 0 adjustment is currently supported
-  if (CGF.getTarget().isByteAddressable())
-  {
+  if (CGF.getTarget().isByteAddressable()) {
     // Apply the adjustment and cast back to the original struct type
     // for consistency.
     llvm::Value *This = ThisAddr.getPointer();
     llvm::Value *Ptr = Builder.CreateBitCast(This, Builder.getInt8PtrTy());
     Ptr = Builder.CreateInBoundsGEP(Ptr, Adj);
     This = Builder.CreateBitCast(Ptr, This->getType(), "this.adjusted");
-    ThisPtrForCall = This;
+  } else {
+    // Check at runtime if the offset is 0, we abuse the previous created blocks for the virtual call case
+    llvm::BasicBlock* beginBlock = Builder.GetInsertBlock();
+    llvm::Value* IsNotZeroAdj = Builder.CreateIsNotNull(Adj);
+    Builder.CreateCondBr(IsNotZeroAdj, FnVirtual, FnNonVirtual);
+    // Not zero adjustment, use the downcast instrinsic
+    CGF.EmitBlock(FnVirtual);
+    // Downcast from the type to i8*. GDA will ignore these when deciding if the downcast array is required.
+    llvm::Type* types[] = { CGF.Int8PtrTy, This->getType() };
+    llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
+                                  llvm::Intrinsic::cheerp_downcast, types);
+
+    llvm::Value* ThisNotZero = Builder.CreateBitCast(Builder.CreateCall2(intrinsic, This, Adj), This->getType());
+    Builder.CreateBr(FnNonVirtual);
+    CGF.EmitBlock(FnNonVirtual);
+    llvm::PHINode* NewThis = Builder.CreatePHI(This->getType(), 2);
+    NewThis->addIncoming(ThisNotZero,  FnVirtual);
+    NewThis->addIncoming(This, beginBlock);
+    This = NewThis;
   }
+  ThisPtrForCall = This;
   
   // Load the function pointer.
   llvm::Value *FnAsInt = Builder.CreateExtractValue(MemFnPtr, 0, "memptr.ptr");
@@ -1048,6 +1065,16 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
 
   // Get the function pointer (or index if this is a virtual function).
   llvm::Constant *MemPtr[2];
+
+  if (!CGM.getTarget().isByteAddressable()) {
+    GlobalDecl GD(MD, true);
+    ThunkInfo TI;
+    TI.Method = MD;
+    llvm::Constant* Thunk = CGM.GetAddrOfThunk(GD, TI);
+    CGM.addDeferredDeclToEmit(cast<llvm::Function>(Thunk), GD);
+    MemPtr[0] = llvm::ConstantExpr::getBitCast(Thunk, llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
+  }
+
   if (MD->isVirtual()) {
     if (!CGM.getTarget().isByteAddressable())
     {
@@ -1099,17 +1126,9 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
     }
     llvm::Constant *addr = CGM.GetAddrOfFunction(MD, Ty);
 
+    // Cheerp: For NBA it is set above
     if (CGM.getTarget().isByteAddressable())
       MemPtr[0] = llvm::ConstantExpr::getPtrToInt(addr, CGM.PtrDiffTy);
-    else
-    {
-      MemPtr[0] = llvm::ConstantExpr::getBitCast(addr, llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
-      if (ThisAdjustment.getQuantity())
-      {
-        CGM.ErrorUnsupported(MD, "Cheerp: this pointer to member function is not yet supported");
-        return NULL;
-      }
-    }
     MemPtr[1] = llvm::ConstantInt::get(CGM.PtrDiffTy,
                                        (UseARMMethodPtrABI ? 2 : 1) *
                                        ThisAdjustment.getQuantity());

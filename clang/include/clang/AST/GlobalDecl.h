@@ -86,6 +86,7 @@ public:
   GlobalDecl(const OMPDeclareMapperDecl *D) { Init(D); }
   GlobalDecl(const CXXConstructorDecl *D, CXXCtorType Type) : Value(D, Type) {}
   GlobalDecl(const CXXDestructorDecl *D, CXXDtorType Type) : Value(D, Type) {}
+  GlobalDecl(const CXXMethodDecl *D, bool isMemberPointerThunk) : Value(D, isMemberPointerThunk) { }
   GlobalDecl(const VarDecl *D, DynamicInitKind StubKind)
       : Value(D, unsigned(StubKind)) {}
 
@@ -134,6 +135,11 @@ public:
     return static_cast<KernelReferenceKind>(Value.getInt());
   }
 
+  bool isMemberPointerThunk() const {
+    assert(isa<CXXMethodDecl>(getDecl()) && "Decl is not a method!");
+    return static_cast<bool>(Value.getInt());
+  }
+  
   friend bool operator==(const GlobalDecl &LHS, const GlobalDecl &RHS) {
     return LHS.Value == RHS.Value &&
            LHS.MultiVersionIndex == RHS.MultiVersionIndex;

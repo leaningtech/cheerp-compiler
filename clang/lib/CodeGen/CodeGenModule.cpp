@@ -2900,7 +2900,12 @@ void CodeGenModule::EmitGlobalDefinition(GlobalDecl GD, llvm::GlobalValue *GV) {
         ABI->emitCXXStructor(GD);
       else if (FD->isMultiVersion())
         EmitMultiVersionFunctionDefinition(GD, GV);
-      else
+      else if (GD.isMemberPointerThunk()) {
+         ThunkInfo TI;
+         TI.Method = Method;
+         TI.This.AdjustmentTarget = Method->getParent();
+         getVTables().emitThunk(GlobalDecl(Method), TI, false);
+      } else
         EmitGlobalFunctionDefinition(GD, GV);
 
       if (Method->isVirtual())
