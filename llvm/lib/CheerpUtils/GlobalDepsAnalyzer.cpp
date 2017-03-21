@@ -347,6 +347,10 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 	if (F->getIntrinsicID() == Intrinsic::cheerp_downcast)
 	{
 		Type* retType = F->getReturnType()->getPointerElementType();
+		// A downcast from a type to i8* is conventially used to support pointers to
+		// member functions and does not imply that the type needs the downcast array
+		if(retType->isIntegerTy(8))
+			return;
 		assert(retType->isStructTy());
 		
 		StructType * st = cast<StructType>(retType);
