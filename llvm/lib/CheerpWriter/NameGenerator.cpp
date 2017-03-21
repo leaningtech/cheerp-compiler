@@ -217,7 +217,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	{
 		bool operator() (const useInstsOnEdgePair& r, const useInstsOnEdgePair& l)
 		{
-			return r.first > r.first;
+			return r.first > l.first;
 		}
 	};
 	typedef std::multiset<useInstsOnEdgePair,weak_compare> useInstsOnEdgeSet;
