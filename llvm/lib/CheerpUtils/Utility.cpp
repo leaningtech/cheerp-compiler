@@ -40,8 +40,9 @@ bool isNopCast(const Value* val)
 		{
 			Type* t = newCall->getArgOperand(0)->getType()->getPointerElementType();
 
+			// Special case downcasts from a type to itself, they are used to support pointers to member functions
 			if ( TypeSupport::isClientType(t) ||
-				(isa<ConstantInt>( newCall->getArgOperand(1) ) && getIntFromValue( newCall->getArgOperand(1) ) == 0 ))
+				(isa<ConstantInt>( newCall->getArgOperand(1) ) && getIntFromValue( newCall->getArgOperand(1) ) == 0 && newCall->getArgOperand(0)->getType() != newCall->getType()))
 				return true;
 		}
 		
