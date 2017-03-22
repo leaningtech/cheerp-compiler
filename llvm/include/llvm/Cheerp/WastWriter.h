@@ -36,6 +36,8 @@
 namespace cheerp
 {
 
+const uint32_t WasmPage = 64*1024;
+
 class CheerpWastWriter
 {
 private:
@@ -46,10 +48,16 @@ private:
 	const Registerize & registerize;
 
 	GlobalDepsAnalyzer & globalDeps;
+
+	// Codegen custom globals
+	uint32_t usedGlobals;
+	uint32_t stackTopGlobal;
 	static const char* getTypeString(llvm::Type* t);
+	void compileMethodLocals(const llvm::Function& F);
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
-	void compileInstruction(const llvm::Instruction& I);
+	// Returns true if it has handled local assignent internally
+	bool compileInstruction(const llvm::Instruction& I);
 public:
 	llvm::formatted_raw_ostream& stream;
 	CheerpWastWriter(llvm::Module& m, llvm::formatted_raw_ostream& s, cheerp::PointerAnalyzer & PA,
@@ -61,6 +69,8 @@ public:
 		PA(PA),
 		registerize(registerize),
 		globalDeps(gda),
+		usedGlobals(0),
+		stackTopGlobal(0),
 		stream(s)
 	{
 	}
