@@ -1044,6 +1044,22 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     }
     llvm_unreachable("Unknown constant pointer type!");
   } break;
+  case Type::StructTyID: {
+    StructType* ST = cast<StructType>(C->getType());
+    unsigned int elemNum = ST->getNumElements();
+    Result.AggregateVal.resize(elemNum);
+    if(const ConstantStruct* CS = dyn_cast<ConstantStruct>(C)) {
+      for (unsigned int i = 0; i < elemNum; ++i) {
+        Result.AggregateVal[i] = getConstantValue(CS->getOperand(i));
+      }
+    } else {
+      assert(isa<ConstantAggregateZero>(C));
+      for (unsigned int i = 0; i < elemNum; ++i) {
+        Result.AggregateVal[i] = getConstantValue(Constant::getNullValue(ST->getElementType(i)));
+      }
+    }
+  }
+  break;
 
   default:
     SmallString<256> Msg;
@@ -1063,6 +1079,13 @@ void ExecutionEngine::StoreValueToMemory(const GenericValue &Val,
   default:
     dbgs() << "Cannot store value of type " << *Ty << "!\n";
     break;
+  case Type::StructTyID: {
+    StructType* ST = cast<StructType>(Ty);
+    const StructLayout *SL = getDataLayout().getStructLayout(ST);
+    for (unsigned i = 0; i < Val.AggregateVal.size(); ++i)
+      StoreValueToMemory(Val.AggregateVal[i], (GenericValue*)(((char*)Ptr)+SL->getElementOffset(i)), ST->getElementType(i));
+    break;
+  }
   case Type::IntegerTyID:
     StoreIntToMemory(Val.IntVal, (uint8_t*)Ptr, StoreBytes);
     break;
