@@ -4142,115 +4142,7 @@ void CheerpWriter::compileMethod(const Function& F)
 	}
 	else
 	{
-		//TODO: Support exceptions
-		Function::const_iterator B=F.begin();
-		Function::const_iterator BE=F.end();
-		//First run, create the corresponding relooper blocks
-		std::map<const BasicBlock*, /*relooper::*/Block*> relooperMap;
-		int BlockId = 0;
-		for(;B!=BE;++B)
-		{
-			if(B->isLandingPad())
-				continue;
-			//Decide if this block should be duplicated instead
-			//of actually directing the control flow to reach it
-			//Currently we just check if the block ends with a return
-			//and its small enough. This should simplify some control flows.
-			bool isSplittable = B->size()<3 && isa<ReturnInst>(B->getTerminator());
-			//Decide if we can use a switch instead of an if/else chain for 
-			//the control flow
-			const TerminatorInst* term = B->getTerminator();
-			// If this is not null, we can use a switch
-			Value*  branchVar = nullptr;
-			if(const SwitchInst* si = dyn_cast<SwitchInst>(term))
-			{
-				//In asm.js cases values must be in the range [-2^31,2^31),
-				//and the difference between the biggest and the smaller must be < 2^31
-				bool useSwitch = true;
-				int64_t max = std::numeric_limits<int32_t>::min();
-				int64_t min = std::numeric_limits<int32_t>::max();
-				for (auto& c: si->cases())
-				{
-					max = std::max(max,c.getCaseValue()->getSExtValue());
-					min = std::max(min,c.getCaseValue()->getSExtValue());
-				}
-				if ((max-min)>=(1<<31))
-					useSwitch = false;
-				if(useSwitch)
-					branchVar = si->getCondition();
-			}
-			Block* rlBlock = new Block(&(*B), isSplittable, BlockId++, branchVar);
-			relooperMap.insert(make_pair(&(*B),rlBlock));
-		}
-
-		B=F.begin();
-		BE=F.end();
-		//Second run, add the branches
-		for(;B!=BE;++B)
-		{
-			if(B->isLandingPad())
-				continue;
-			const TerminatorInst* term=B->getTerminator();
-			uint32_t defaultBranchId=-1;
-			//Find out which branch id is the default
-			if(isa<BranchInst>(term))
-			{
-				const BranchInst* bi=cast<BranchInst>(term);
-				if(bi->isUnconditional())
-					defaultBranchId = 0;
-				else
-					defaultBranchId = 1;
-			}
-			else if(isa<SwitchInst>(term))
-			{
-#ifndef NDEBUG
-				const SwitchInst* si=cast<SwitchInst>(term);
-#endif
-				assert(si->getDefaultDest()==si->getSuccessor(0));
-				defaultBranchId = 0;
-			}
-			else if(isa<InvokeInst>(term))
-			{
-#ifndef NDEBUG
-				const InvokeInst* ii=cast<InvokeInst>(term);
-#endif
-				assert(ii->getNormalDest()==ii->getSuccessor(0));
-				defaultBranchId = 0;
-			}
-			else if(term->getNumSuccessors())
-			{
-				//Only a problem if there are successors
-				term->dump();
-				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
-			}
-
-			for(uint32_t i=0;i<term->getNumSuccessors();i++)
-			{
-				if(term->getSuccessor(i)->isLandingPad())
-					continue;
-				Block* target=relooperMap[term->getSuccessor(i)];
-				//Use -1 for the default target
-				bool ret=relooperMap[&(*B)]->AddBranchTo(target, (i==defaultBranchId)?-1:i);
-
-				if(ret==false) //More than a path for a single block can only happen for switch
-				{
-					assert(isa<SwitchInst>(term));
-				}
-			}
-		}
-
-		B=F.begin();
-		BE=F.end();
-		//Third run, add the block to the relooper and run it
-		Relooper* rl=new Relooper(BlockId);
-		for(;B!=BE;++B)
-		{
-			if(B->isLandingPad())
-				continue;
-			rl->AddBlock(relooperMap[&(*B)]);
-		}
-		rl->Calculate(relooperMap[&F.getEntryBlock()]);
-
+		Relooper* rl = runRelooperOnFunction(F);
 		CheerpRenderInterface ri(this, NewLine, asmjs);
 		compileMethodLocals(F, rl->needsLabel());
 		if (asmjs)
@@ -4884,4 +4776,117 @@ void CheerpWriter::makeJS()
 		sourceMapGenerator->endFile();
 		stream << "//# sourceMappingURL=" << sourceMapGenerator->getSourceMapName();
 	}
+}
+
+Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
+{
+	//TODO: Support exceptions
+	Function::const_iterator B=F.begin();
+	Function::const_iterator BE=F.end();
+	//First run, create the corresponding relooper blocks
+	std::map<const BasicBlock*, /*relooper::*/Block*> relooperMap;
+	int BlockId = 0;
+	for(;B!=BE;++B)
+	{
+		if(B->isLandingPad())
+			continue;
+		//Decide if this block should be duplicated instead
+		//of actually directing the control flow to reach it
+		//Currently we just check if the block ends with a return
+		//and its small enough. This should simplify some control flows.
+		bool isSplittable = B->size()<3 && isa<ReturnInst>(B->getTerminator());
+		//Decide if we can use a switch instead of an if/else chain for 
+		//the control flow
+		const TerminatorInst* term = B->getTerminator();
+		// If this is not null, we can use a switch
+		Value*  branchVar = nullptr;
+		if(const SwitchInst* si = dyn_cast<SwitchInst>(term))
+		{
+			//In asm.js cases values must be in the range [-2^31,2^31),
+			//and the difference between the biggest and the smaller must be < 2^31
+			bool useSwitch = true;
+			int64_t max = std::numeric_limits<int32_t>::min();
+			int64_t min = std::numeric_limits<int32_t>::max();
+			for (auto& c: si->cases())
+			{
+				max = std::max(max,c.getCaseValue()->getSExtValue());
+				min = std::max(min,c.getCaseValue()->getSExtValue());
+			}
+			if ((max-min)>=(1<<31))
+				useSwitch = false;
+			if(useSwitch)
+				branchVar = si->getCondition();
+		}
+		Block* rlBlock = new Block(&(*B), isSplittable, BlockId++, branchVar);
+		relooperMap.insert(make_pair(&(*B),rlBlock));
+	}
+
+	B=F.begin();
+	BE=F.end();
+	//Second run, add the branches
+	for(;B!=BE;++B)
+	{
+		if(B->isLandingPad())
+			continue;
+		const TerminatorInst* term=B->getTerminator();
+		uint32_t defaultBranchId=-1;
+		//Find out which branch id is the default
+		if(isa<BranchInst>(term))
+		{
+			const BranchInst* bi=cast<BranchInst>(term);
+			if(bi->isUnconditional())
+				defaultBranchId = 0;
+			else
+				defaultBranchId = 1;
+		}
+		else if(isa<SwitchInst>(term))
+		{
+#ifndef NDEBUG
+			const SwitchInst* si=cast<SwitchInst>(term);
+#endif
+			assert(si->getDefaultDest()==si->getSuccessor(0));
+			defaultBranchId = 0;
+		}
+		else if(isa<InvokeInst>(term))
+		{
+#ifndef NDEBUG
+			const InvokeInst* ii=cast<InvokeInst>(term);
+#endif
+			assert(ii->getNormalDest()==ii->getSuccessor(0));
+			defaultBranchId = 0;
+		}
+		else if(term->getNumSuccessors())
+		{
+			//Only a problem if there are successors
+			term->dump();
+			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+		}
+
+		for(uint32_t i=0;i<term->getNumSuccessors();i++)
+		{
+			if(term->getSuccessor(i)->isLandingPad())
+				continue;
+			Block* target=relooperMap[term->getSuccessor(i)];
+			//Use -1 for the default target
+			bool ret=relooperMap[&(*B)]->AddBranchTo(target, (i==defaultBranchId)?-1:i);
+
+			if(ret==false) //More than a path for a single block can only happen for switch
+			{
+				assert(isa<SwitchInst>(term));
+			}
+		}
+	}
+
+	B=F.begin();
+	BE=F.end();
+	//Third run, add the block to the relooper and run it
+	Relooper* rl=new Relooper(BlockId);
+	for(;B!=BE;++B)
+	{
+		if(B->isLandingPad())
+			continue;
+		rl->AddBlock(relooperMap[&(*B)]);
+	}
+	rl->Calculate(relooperMap[&F.getEntryBlock()]);
+	return rl;
 }
