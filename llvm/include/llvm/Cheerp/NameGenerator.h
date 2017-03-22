@@ -18,6 +18,7 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include <unordered_map>
+#include <array>
 
 namespace cheerp {
 
