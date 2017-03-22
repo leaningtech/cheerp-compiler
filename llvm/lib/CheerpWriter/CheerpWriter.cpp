@@ -2582,37 +2582,68 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		{
 			const InsertValueInst& ivi = cast<InsertValueInst>(I);
 			const Value* aggr=ivi.getAggregateOperand();
-			Type* t=aggr->getType();
-			if(!t->isStructTy())
+			StructType* t=dyn_cast<StructType>(aggr->getType());
+			assert(ivi.getIndices().size()==1);
+			if(!t)
 			{
 				llvm::errs() << "insertvalue: Expected struct, found " << *t << "\n";
 				llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 				return COMPILE_UNSUPPORTED;
 			}
+			uint32_t offset=ivi.getIndices()[0];
 			if(isa<UndefValue>(aggr))
 			{
-				//We have to assemble the type object from scratch
-				compileType(t, LITERAL_OBJ);
-				stream << ';' << NewLine;
-				//Also assign the element
-				assert(ivi.getNumIndices()==1);
-				//Find the offset to the pointed element
-				assert(ivi.hasName());
-				stream << namegen.getName(&ivi);
+				// We have to assemble the type object from scratch
+				stream << '{';
+				for(unsigned int i=0;i<t->getNumElements();i++)
+				{
+					assert(!t->getElementType(i)->isStructTy());
+					assert(!t->getElementType(i)->isArrayTy());
+					char memberPrefix = types.getPrefixCharForMember(PA, t, i);
+					bool useWrapperArray = types.useWrapperArrayForMember(PA, t, i);
+					if(i!=0)
+						stream << ',';
+					stream << memberPrefix << i << ':';
+					if(useWrapperArray)
+						stream << '[';
+					if(offset == i)
+						compileOperand(ivi.getInsertedValueOperand(), LOWEST);
+					else
+						compileType(t->getElementType(i), LITERAL_OBJ);
+					if(useWrapperArray)
+						stream << ']';
+				}
+				stream << '}';
 			}
 			else
 			{
-				//Optimize for the assembly of the aggregate values
-				assert(aggr->hasOneUse());
-				assert(aggr->hasName());
-				stream << namegen.getName(aggr);
+				// We have to make a copy with a field of a different value
+				stream << '{';
+				for(unsigned int i=0;i<t->getNumElements();i++)
+				{
+					assert(!t->getElementType(i)->isStructTy());
+					assert(!t->getElementType(i)->isArrayTy());
+					char memberPrefix = types.getPrefixCharForMember(PA, t, i);
+					bool useWrapperArray = types.useWrapperArrayForMember(PA, t, i);
+					if(i!=0)
+						stream << ',';
+					stream << memberPrefix << i << ':';
+					if(useWrapperArray)
+						stream << '[';
+					if(offset == i)
+						compileOperand(ivi.getInsertedValueOperand(), LOWEST);
+					else
+					{
+						stream << namegen.getName(aggr);
+						stream << '.' << memberPrefix << i;
+						if(useWrapperArray)
+							stream << "[0]";
+					}
+					if(useWrapperArray)
+						stream << ']';
+				}
+				stream << '}';
 			}
-			uint32_t offset=ivi.getIndices()[0];
-			stream << '.' << types.getPrefixCharForMember(PA, cast<StructType>(t), offset) << offset;
-			if(types.useWrapperArrayForMember(PA, cast<StructType>(t), offset))
-				stream << "[0]";
-			stream << '=';
-			compileOperand(ivi.getInsertedValueOperand(), LOWEST);
 			return COMPILE_OK;
 		}
 		case Instruction::Store:
