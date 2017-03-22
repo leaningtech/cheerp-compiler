@@ -29,6 +29,8 @@
 #include <map>
 #include <array>
 
+struct Relooper;
+
 namespace cheerp
 {
 
@@ -564,6 +566,10 @@ public:
 	 * Compile a function for checking if a reference is defined
 	 */
 	void compileCheckDefinedHelper();
+	/**
+	 * Run relooper on a function, this code is here since it is also used by CheerpWastWriter
+	 */
+	static Relooper* runRelooperOnFunction(const llvm::Function& F);
 };
 
 }
