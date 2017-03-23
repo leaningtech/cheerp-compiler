@@ -2691,6 +2691,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			{
 				compileHeapAccess(ptrOp);
 			}
+			else if(valOp->getType()->isStructTy())
+			{
+				// This happens for pointers to member functions
+				compileStoreFromAggregate(valOp, ptrOp);
+				return COMPILE_OK;
+			}
 			else
 			{
 				compileCompleteObject(ptrOp);
@@ -3672,6 +3678,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			else if (kind == RAW)
 				compileHeapAccess(ptrOp);
+			else if(li.getType()->isStructTy())
+			{
+				// This happens for pointers to member functions
+				compileLoadToAggregate(ptrOp);
+				return COMPILE_OK;
+			}
 			else
 				compileCompleteObject(ptrOp);
 			// 32-bit integers are all loaded as signed, other integers as unsigned
