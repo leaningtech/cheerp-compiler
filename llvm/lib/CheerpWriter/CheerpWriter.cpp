@@ -4219,17 +4219,13 @@ void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 
 void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND kind)
 {
-	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	stream << name << '=';
 	if(kind == Registerize::INTEGER)
 		stream << '0';
 	else if(kind == Registerize::DOUBLE)
 	{
 		// NOTE: V8 requires the `.` to identify it as a double in asm.js
-		if(asmjs)
-			stream << "0.";
-		else
-			stream << "-0";
+		stream << "-0.";
 	}
 	else if(kind == Registerize::FLOAT)
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << "(0.)";
