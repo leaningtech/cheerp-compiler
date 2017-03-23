@@ -21,9 +21,11 @@ class CheerpWastRenderInterface: public RenderInterface
 {
 private:
 	CheerpWastWriter* writer;
+	enum BLOCK_TYPE { WHILE1 = 0, IF };
+	std::vector<BLOCK_TYPE> blockTypes;
 	void renderCondition(const BasicBlock* B, int branchId);
 public:
-	CheerpWastRenderInterface(CheerpWastWriter* w)
+	CheerpWastRenderInterface(CheerpWastWriter* w):writer(w)
 	{
 	}
 	void renderBlock(const void* privateBlock);
@@ -60,21 +62,20 @@ void CheerpWastRenderInterface::renderBlock(const void* privateBlock)
 
 void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
 {
-assert(false);
-#if 0
 	const TerminatorInst* term=bb->getTerminator();
 
-	bool asmjs = bb->getParent()->getSection() == StringRef("asmjs");
 	if(isa<BranchInst>(term))
 	{
 		const BranchInst* bi=cast<BranchInst>(term);
 		assert(bi->isConditional());
 		//The second branch is the default
 		assert(branchId==0);
-		writer->compileOperand(bi->getCondition(), parentPrio, /*allowBooleanObjects*/ true);
+		writer->compileOperand(bi->getCondition());
 	}
 	else if(isa<SwitchInst>(term))
 	{
+assert(false);
+#if 0
 		const SwitchInst* si=cast<SwitchInst>(term);
 		assert(branchId > 0);
 		SwitchInst::ConstCaseIt it=si->case_begin();
@@ -106,13 +107,13 @@ assert(false);
 				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 			}
 		}
+#endif
 	}
 	else
 	{
 		term->dump();
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
-#endif
 }
 
 void CheerpWastRenderInterface::renderLabelForSwitch(int labelId)
@@ -205,20 +206,30 @@ assert(false);
 
 void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first)
 {
-assert(false);
-#if 0
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
-	if(!first)
-		writer->stream << "}else ";
-	writer->stream << "if(!(";
+	// The condition goes first
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
 	{
 		if(i!=0)
+		{
+assert(false);
+#if 0
 			writer->stream << "||";
-		renderCondition(bb, skipBranchIds[i], skipBranchIds.size() == 1 ? CheerpWriter::LOWEST : CheerpWriter::LOGICAL_OR);
-	}
-	writer->stream << ")){" << NewLine;
 #endif
+		}
+		renderCondition(bb, skipBranchIds[i]);
+		writer->stream << '\n';
+	}
+	// Invert result
+	writer->stream << "i32.const 1\n";
+	writer->stream << "i32.xor\n";
+	assert(first);
+#if 0
+	if(!first)
+		writer->stream << "}else ";
+#endif
+	writer->stream << "if\n";
+	blockTypes.push_back(IF);
 }
 
 void CheerpWastRenderInterface::renderElseBlockBegin()
@@ -231,26 +242,29 @@ assert(false);
 
 void CheerpWastRenderInterface::renderBlockEnd()
 {
-assert(false);
-#if 0
-	writer->stream << '}' << NewLine;
-#endif
+	BLOCK_TYPE bt = blockTypes.back();
+	blockTypes.pop_back();
+	if(bt == WHILE1)
+	{
+		// TODO: Why do we even need to fake value
+		writer->stream << "i32.const 0\n";
+		writer->stream << "br 1\n";
+		writer->stream << "end\n";
+		writer->stream << "end\n";
+	}
+	else if(bt == IF)
+		writer->stream << "end\n";
 }
 
 void CheerpWastRenderInterface::renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom)
 {
-assert(false);
-#if 0
 	const BasicBlock* bbTo=(const BasicBlock*)privateBlockTo;
 	const BasicBlock* bbFrom=(const BasicBlock*)privateBlockFrom;
 	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
-#endif
 }
 
 bool CheerpWastRenderInterface::hasBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) const
 {
-assert(false);
-#if 0
 	const BasicBlock* to=(const BasicBlock*)privateBlockTo;
 	const BasicBlock* from=(const BasicBlock*)privateBlockFrom;
 
@@ -260,15 +274,16 @@ assert(false);
 	// We can avoid assignment from the same register if no pointer kind
 	// conversion is required
 	return writer->needsPointerKindConversionForBlocks(to, from);
-#endif
 }
 
 void CheerpWastRenderInterface::renderWhileBlockBegin()
 {
-assert(false);
-#if 0
-	writer->stream << "while(1){" << NewLine;
-#endif
+	// Wrap a block in a loop so that:
+	// br 1 -> break
+	// br 2 -> continue
+	writer->stream << "loop\n";
+	writer->stream << "block\n";
+	blockTypes.push_back(WHILE1);
 }
 
 void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
@@ -307,10 +322,8 @@ assert(false);
 
 void CheerpWastRenderInterface::renderBreak()
 {
-assert(false);
-#if 0
-	writer->stream << "break;" << NewLine;
-#endif
+	// TODO: We have to count the block types
+	writer->stream << "br 1\n";
 }
 
 void CheerpWastRenderInterface::renderBreak(int labelId)
@@ -358,6 +371,83 @@ assert(false);
 #endif
 }
 
+bool CheerpWastWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from)
+{
+	class PHIHandler: public EndOfBlockPHIHandler
+	{
+	public:
+		PHIHandler(CheerpWastWriter& w):EndOfBlockPHIHandler(w.PA),needsPointerKindConversion(false),writer(w)
+		{
+		}
+		~PHIHandler()
+		{
+		}
+		bool needsPointerKindConversion;
+	private:
+		CheerpWastWriter& writer;
+		void handleRecursivePHIDependency(const Instruction* incoming) override
+		{
+		}
+		void handlePHI(const Instruction* phi, const Value* incoming) override
+		{
+assert(false);
+#if 0
+			needsPointerKindConversion |= writer.needsPointerKindConversion(phi, incoming);
+#endif
+		}
+	};
+
+	auto handler = PHIHandler(*this);
+	handler.runOnEdge(registerize, from, to);
+	return handler.needsPointerKindConversion;
+}
+
+void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
+{
+	class WriterPHIHandler: public EndOfBlockPHIHandler
+	{
+	public:
+		WriterPHIHandler(CheerpWastWriter& w, const BasicBlock* f, const BasicBlock* t):EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t)
+		{
+		}
+		~WriterPHIHandler()
+		{
+		}
+	private:
+		CheerpWastWriter& writer;
+		const BasicBlock* fromBB;
+		const BasicBlock* toBB;
+		void handleRecursivePHIDependency(const Instruction* incoming) override
+		{
+			assert(incoming);
+assert(false);
+			writer.stream << "__RECURSIVE__\n";
+#if 0
+			writer.namegen.setEdgeContext(fromBB, toBB);
+			writer.stream << writer.namegen.getNameForEdge(incoming);
+			writer.namegen.clearEdgeContext();
+			writer.stream << '=' << writer.namegen.getName(incoming) << ';' << writer.NewLine;
+#endif
+		}
+		void handlePHI(const Instruction* phi, const Value* incoming) override
+		{
+assert(false);
+#if 0
+			// We can avoid assignment from the same register if no pointer kind conversion is required
+			if(!writer.needsPointerKindConversion(phi, incoming))
+				return;
+			Type* phiType=phi->getType();
+			writer.stream << writer.namegen.getName(phi) << '=';
+			writer.namegen.setEdgeContext(fromBB, toBB);
+			writer.compileOperand(incoming, LOWEST);
+			writer.stream << ';' << writer.NewLine;
+			writer.namegen.clearEdgeContext();
+#endif
+		}
+	};
+	WriterPHIHandler(*this, from, to).runOnEdge(registerize, from, to);
+}
+
 const char* CheerpWastWriter::getTypeString(Type* t)
 {
 	if(t->isIntegerTy(32))
@@ -388,10 +478,7 @@ void CheerpWastWriter::compileOperand(const llvm::Value* v)
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
 		if(isInlineable(*it, PA))
-		{
-			assert(false);
-			//compileInlineableInstruction(*cast<Instruction>(v), myPrio);
-		}
+			compileInstruction(*it);
 		else
 			stream << "get_local " << registerize.getRegisterId(it);
 	}
@@ -429,6 +516,51 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << "set_global " << stackTopGlobal << '\n';
 			return true;
 		}
+		case Instruction::Add:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".add";
+			break;
+		}
+		case Instruction::Br:
+			break;
+		case Instruction::Call:
+			stream << "__CALL__";
+			break;
+		case Instruction::ICmp:
+		{
+			const CmpInst& ci = cast<CmpInst>(I);
+			// TODO: Check order
+			compileOperand(ci.getOperand(0));
+			stream << '\n';
+			compileOperand(ci.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(ci.getOperand(0)->getType()) << '.';
+			switch(ci.getPredicate())
+			{
+				case CmpInst::ICMP_SLT:
+					stream << "lt_s";
+					break;
+				default:
+					llvm::errs() << "Handle predicate for " << ci << "\n";
+					break;
+			}
+			break;
+		}
+		case Instruction::Load:
+		{
+			const LoadInst& li = cast<LoadInst>(I);
+			const Value* ptrOp=li.getPointerOperand();
+			// 1) The pointer
+			compileOperand(ptrOp);
+			stream << '\n';
+			// 2) Load
+			stream << getTypeString(li.getType()) << ".load";
+			break;
+		}
 		case Instruction::Store:
 		{
 			const StoreInst& si = cast<StoreInst>(I);
@@ -440,7 +572,6 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			// 2) The value
 			compileOperand(valOp);
 			stream << '\n';
-			// 2) The value
 			// 3) Store
 			stream << getTypeString(valOp->getType()) << ".store\n";
 			break;
@@ -448,20 +579,19 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		case Instruction::Ret:
 		{
 			// TODO: Restore old stack
-			stream << "return";
 			const ReturnInst& ri = cast<ReturnInst>(I);
 			Value* retVal = ri.getReturnValue();
 			if(retVal)
 			{
-				stream << " (";
 				compileOperand(I.getOperand(0));
-				stream << ')';
+				stream << '\n';
 			}
-			stream << '\n';
+			stream << "return";
 			break;
 		}
 		default:
 		{
+			I.dump();
 			llvm::errs() << "\tImplement inst " << I.getOpcodeName() << '\n';
 		}
 	}
@@ -492,10 +622,7 @@ void CheerpWastWriter::compileBB(const BasicBlock& BB)
 		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
 		{
 			if(!compileInstruction(*I) && !I->getType()->isVoidTy() && !I->use_empty())
-			{
-				assert(false);
-	//			stream << namegen.getName(I) << '=';
-			}
+				stream << "\nset_local " << registerize.getRegisterId(I) << '\n';
 		}
 	}
 }

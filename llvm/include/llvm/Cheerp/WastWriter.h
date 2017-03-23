@@ -78,6 +78,8 @@ public:
 	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c);
 	void compileOperand(const llvm::Value* v);
+	bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
+	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 };
 
 }
