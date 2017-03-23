@@ -23,6 +23,7 @@ class StructMemFuncLowering: public FunctionPass
 private:
 	enum MODE { NONE = 0, MEMCPY, MEMMOVE, MEMSET };
 	bool runOnBlock(BasicBlock& BB);
+	void recursiveExpandStore(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* indexType, SmallVector<Value*, 8>& ptrIndexes, SmallVector<unsigned int, 8>& valueIndexes);
 	void recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* indexType, SmallVector<Value*, 8>& indexes);
 	void recursiveReset(IRBuilder<>* IRB, Value* baseDst, Value* resetVal, Type* curType, Type* indexType, SmallVector<Value*, 8>& indexes);
 	void createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, size_t size, SmallVector<Value*, 8>& indexes);
