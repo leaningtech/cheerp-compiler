@@ -222,3 +222,51 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 
 	if(parentPrio >= TERNARY) stream << ')';
 }
+
+void CheerpWriter::compileStoreFromAggregate(const llvm::Value* valOp, const llvm::Value* ptrOp)
+{
+	StructType* t = dyn_cast<StructType>(valOp->getType());
+	for(unsigned int i=0;i<t->getNumElements();i++)
+	{
+		assert(!t->getElementType(i)->isStructTy());
+		assert(!t->getElementType(i)->isArrayTy());
+		char memberPrefix = types.getPrefixCharForMember(PA, t, i);
+		bool useWrapperArray = types.useWrapperArrayForMember(PA, t, i);
+		if(i!=0)
+			stream << ';' << NewLine;
+		compileCompleteObject(ptrOp);
+		stream << '.' << memberPrefix << i;
+		if(useWrapperArray)
+			stream << "[0]";
+		stream << '=';
+		compileOperand(valOp);
+		stream << '.' << memberPrefix << i;
+		if(useWrapperArray)
+			stream << "[0]";
+	}
+}
+
+void CheerpWriter::compileLoadToAggregate(const llvm::Value* ptrOp)
+{
+	StructType* t = dyn_cast<StructType>(ptrOp->getType()->getPointerElementType());
+	stream << '{';
+	for(unsigned int i=0;i<t->getNumElements();i++)
+	{
+		assert(!t->getElementType(i)->isStructTy());
+		assert(!t->getElementType(i)->isArrayTy());
+		char memberPrefix = types.getPrefixCharForMember(PA, t, i);
+		bool useWrapperArray = types.useWrapperArrayForMember(PA, t, i);
+		if(i!=0)
+			stream << ',';
+		stream << memberPrefix << i << ':';
+		if(useWrapperArray)
+			stream << '[';
+		compileOperand(ptrOp);
+		stream << '.' << memberPrefix << i;
+		if(useWrapperArray)
+			stream << "[0]";
+		if(useWrapperArray)
+			stream << ']';
+	}
+	stream << '}';
+}
