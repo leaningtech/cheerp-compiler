@@ -215,7 +215,7 @@ struct ThunkInfo {
 
   ThunkInfo(const ThisAdjustment &This, const ReturnAdjustment &Return,
             const CXXMethodDecl *Method)
-      : This(This), Return(Return), Method(Method) {}
+      : This(This), Return(Return), Method(Method), isMemberPointerThunk(false) {}
 
   friend bool operator==(const ThunkInfo &LHS, const ThunkInfo &RHS) {
     return LHS.This == RHS.This && LHS.Return == RHS.Return &&
