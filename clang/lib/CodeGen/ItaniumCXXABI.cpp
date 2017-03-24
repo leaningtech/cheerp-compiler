@@ -1067,20 +1067,18 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
   llvm::Constant *MemPtr[2];
 
   if (!CGM.getTarget().isByteAddressable()) {
+    // We handle pointers to both virtual and not virtual members in the same way, using a thunk
     GlobalDecl GD(MD, true);
     ThunkInfo TI;
     TI.Method = MD;
     llvm::Constant* Thunk = CGM.GetAddrOfThunk(GD, TI);
     CGM.addDeferredDeclToEmit(cast<llvm::Function>(Thunk), GD);
     MemPtr[0] = llvm::ConstantExpr::getBitCast(Thunk, llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
+    MemPtr[1] = llvm::ConstantInt::get(CGM.PtrDiffTy, ThisAdjustment.getQuantity());
+    return llvm::ConstantStruct::get(GetMemberPtrTy(), MemPtr);
   }
 
   if (MD->isVirtual()) {
-    if (!CGM.getTarget().isByteAddressable())
-    {
-      CGM.ErrorUnsupported(MD, "Cheerp: pointers to virtual methods are not supported");
-      return NULL;
-    }
     uint64_t Index = CGM.getItaniumVTableContext().getMethodVTableIndex(MD);
     uint64_t VTableOffset;
     if (CGM.getItaniumVTableContext().isRelativeLayout()) {
@@ -1126,9 +1124,7 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
     }
     llvm::Constant *addr = CGM.GetAddrOfFunction(MD, Ty);
 
-    // Cheerp: For NBA it is set above
-    if (CGM.getTarget().isByteAddressable())
-      MemPtr[0] = llvm::ConstantExpr::getPtrToInt(addr, CGM.PtrDiffTy);
+    MemPtr[0] = llvm::ConstantExpr::getPtrToInt(addr, CGM.PtrDiffTy);
     MemPtr[1] = llvm::ConstantInt::get(CGM.PtrDiffTy,
                                        (UseARMMethodPtrABI ? 2 : 1) *
                                        ThisAdjustment.getQuantity());

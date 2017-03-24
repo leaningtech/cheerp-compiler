@@ -489,7 +489,11 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
   else
     Ty = CGM.getTypes().GetFunctionType(FnInfo);
 
-  llvm::Constant *Callee = CGM.GetAddrOfFunction(GD, Ty, /*ForVTable=*/true);
+  llvm::Constant *Callee = nullptr;
+  if(Thunk.isMemberPointerThunk && OriginalMethod->isVirtual())
+    Callee = CGM.getCXXABI().getVirtualFunctionPointer(*this, OriginalMethod, LoadCXXThis(), Ty, SourceLocation());
+  else
+    Callee = CGM.GetAddrOfFunction(GD, Ty, /*ForVTable=*/true);
 
   // Fix up the function type for an unprototyped musttail call.
   if (IsUnprototyped)

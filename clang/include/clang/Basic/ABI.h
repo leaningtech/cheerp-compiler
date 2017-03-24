@@ -207,7 +207,11 @@ struct ThunkInfo {
   /// an ABI-specific comparator.
   const CXXMethodDecl *Method;
 
-  ThunkInfo() : This(NULL, NULL), Return(false, 0, 0), Method(nullptr) { }
+  /// Cheerp: Encodes if this thunk is for a member function pointer.
+  /// Thunks to virtual methods should to a vtable call, not a direct call.
+  bool isMemberPointerThunk;
+
+  ThunkInfo() : This(NULL, NULL), Return(false, 0, 0), Method(nullptr), isMemberPointerThunk(false) { }
 
   ThunkInfo(const ThisAdjustment &This, const ReturnAdjustment &Return,
             const CXXMethodDecl *Method)
