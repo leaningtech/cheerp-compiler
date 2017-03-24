@@ -3251,6 +3251,7 @@ void CodeGenModule::EmitGlobalDefinition(GlobalDecl GD, llvm::GlobalValue *GV) {
          ThunkInfo TI;
          TI.Method = Method;
          TI.This.AdjustmentTarget = Method->getParent();
+         TI.isMemberPointerThunk = true;
          getVTables().emitThunk(GlobalDecl(Method), TI, false);
          GV->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
       } else
