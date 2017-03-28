@@ -37,7 +37,7 @@ protected:
 class AllocaMerging: public AllocaMergingBase
 {
 private:
-	static bool areTypesEquivalent(const TypeSupport& types, PointerAnalyzer& PA, llvm::Type* a, llvm::Type* b);
+	static bool areTypesEquivalent(const TypeSupport& types, PointerAnalyzer& PA, llvm::Type* a, llvm::Type* b, bool asmjs);
 public:
 	static char ID;
 	explicit AllocaMerging() : AllocaMergingBase(ID) { }

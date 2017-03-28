@@ -41,19 +41,25 @@ void AllocaMergingBase::analyzeBlock(const cheerp::Registerize& registerize, Bas
 	}
 }
 
-bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp::PointerAnalyzer& PA, Type* a, Type* b)
+bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp::PointerAnalyzer& PA, Type* a, Type* b, bool asmjs)
 {
 	//TODO: Integer types may be equivalent as well
 	if(a==b)
 		return true;
+	else if(asmjs && ((a->isPointerTy()||a->isIntegerTy(32))&&(b->isPointerTy()||b->isIntegerTy(32))))
+		return true;
 	else if(a->isPointerTy() && b->isPointerTy())
 		return true;
-	else if(a->isFloatingPointTy() && b->isFloatingPointTy())
+	else if(asmjs && a->isFloatTy() && b->isFloatTy())
+		return true;
+	else if(asmjs && a->isDoubleTy() && b->isDoubleTy())
+		return true;
+	else if(!asmjs && a->isFloatingPointTy() && b->isFloatingPointTy())
 		return true;
 	else if(a->isArrayTy() && b->isArrayTy())
 	{
 		return cast<ArrayType>(a)->getNumElements()==cast<ArrayType>(b)->getNumElements() &&
-			areTypesEquivalent(types, PA, a->getArrayElementType(), b->getArrayElementType());
+			areTypesEquivalent(types, PA, a->getArrayElementType(), b->getArrayElementType(), asmjs);
 	}
 	else if(a->isStructTy() && b->isStructTy())
 	{
@@ -72,7 +78,7 @@ bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp:
 			// The types needs to have consistent wrapper arrays
 			if(types.useWrapperArrayForMember(PA, stA, i) ^ types.useWrapperArrayForMember(PA, stB, i))
 				return false;
-			if(!areTypesEquivalent(types, PA, elementA, elementB))
+			if(!areTypesEquivalent(types, PA, elementA, elementB, asmjs))
 				return false;
 		}
 		return true;
@@ -86,6 +92,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::TypeSupport types(*F.getParent());
+	bool asmjs = F.getSection()==StringRef("asmjs");
 	AllocaInfos allocaInfos;
 	// Gather all the allocas
 	for(BasicBlock& BB: F)
@@ -112,7 +119,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 			AllocaInst* sourceAlloca = sourceCandidate->first;
 			Type* sourceType = sourceAlloca->getAllocatedType();
 			// Bail out for non compatible types
-			if(!areTypesEquivalent(types, PA, targetType, sourceType))
+			if(!areTypesEquivalent(types, PA, targetType, sourceType, asmjs))
 				continue;
 			const cheerp::Registerize::LiveRange& sourceRange = sourceCandidate->second;
 			// Bail out if this source candidate is not analyzable
