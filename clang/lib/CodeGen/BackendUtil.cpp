@@ -28,6 +28,7 @@
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/Cheerp/NativeRewriter.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
+#include "llvm/Cheerp/ExpandStructRegs.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -554,6 +555,7 @@ static void addPostInlineCheerpPasses(const PassManagerBuilder &Builder,
                                       PassManagerBase &PM) {
   //Memory intrinsic on structs should be decomposed
   PM.add(createStructMemFuncLowering());
+  PM.add(createExpandStructRegs());
 }
 
 static void setCommandLineOpts(const CodeGenOptions &CodeGenOpts) {
