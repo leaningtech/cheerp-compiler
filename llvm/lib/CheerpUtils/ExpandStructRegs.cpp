@@ -499,8 +499,6 @@ static bool ExpandExtractValues(Function &Func, bool Finalize) {
 }
 
 bool ExpandStructRegs::runOnFunction(Function &Func) {
-  if(Func.getSection()!=StringRef("asmjs")) return false;
-
   bool Changed = false;
   DL = &Func.getParent()->getDataLayout();
 
