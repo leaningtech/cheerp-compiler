@@ -747,6 +747,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeTypeOptimizerPass(Registry);
 	initializeDelayAllocasPass(Registry);
 	initializePreExecutePass(Registry);
+	initializeExpandStructRegsPass(Registry);
 }
 
 }
