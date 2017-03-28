@@ -11,6 +11,7 @@ add_llvm_library(LLVMCheerpUtils
   StructMemFuncLowering.cpp
   TypeOptimizer.cpp
   Utility.cpp
+  ExpandStructRegs.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)
