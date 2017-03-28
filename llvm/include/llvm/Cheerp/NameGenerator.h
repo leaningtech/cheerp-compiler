@@ -17,6 +17,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
+#include "llvm/Cheerp/Utility.h"
 #include <unordered_map>
 #include <array>
 
@@ -52,10 +53,17 @@ public:
 	 */
 	llvm::StringRef getName(const llvm::Value* v) const
 	{
-		assert(namemap.count(v) );
-		assert(! namemap.at(v).empty() );
 		if(!edgeContext.isNull())
 			return getNameForEdge(v);
+		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
+		{
+			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I));
+			assert(regNamemap.count(valData));
+			assert(!regNamemap.at(valData).empty());
+			return regNamemap.at(valData);
+		}
+		assert(namemap.count(v) );
+		assert(! namemap.at(v).empty() );
 		return namemap.at(v);
 	}
 
@@ -64,10 +72,17 @@ public:
 	 */
 	llvm::StringRef getSecondaryName(const llvm::Value* v) const
 	{
-		assert(secondaryNamemap.count(v) );
-		assert(!secondaryNamemap.at(v).empty());
 		if(!edgeContext.isNull())
 			return getSecondaryNameForEdge(v);
+		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
+		{
+			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I));
+			assert(regSecondaryNamemap.count(valData));
+			assert(!regSecondaryNamemap.at(valData).empty());
+			return regSecondaryNamemap.at(valData);
+		}
+		assert(secondaryNamemap.count(v) );
+		assert(!secondaryNamemap.at(v).empty());
 		return secondaryNamemap.at(v);
 	}
 
@@ -141,6 +156,8 @@ private:
 	const PointerAnalyzer& PA;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > secondaryNamemap;
+	std::unordered_map<std::pair<const llvm::Function*, uint32_t>, llvm::SmallString<4>, PairHash<const llvm::Function*, uint32_t> > regNamemap;
+	std::unordered_map<std::pair<const llvm::Function*, uint32_t>, llvm::SmallString<4>, PairHash<const llvm::Function*, uint32_t> > regSecondaryNamemap;
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > classmap;
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > constructormap;
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > arraymap;
