@@ -499,6 +499,15 @@ private:
 	virtual void handlePHI(const llvm::Instruction* phi, const llvm::Value* incoming) = 0;
 };
 
+template<class U, class V>
+struct PairHash
+{
+		size_t operator()(const std::pair<U, V>& r) const
+		{
+			return std::hash<U>()(r.first) ^ std::hash<V>()(r.second);
+		}
+};
+
 }
 
 #endif //_CHEERP_UTILITY_H
