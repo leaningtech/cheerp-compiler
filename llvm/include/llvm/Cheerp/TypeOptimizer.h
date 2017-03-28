@@ -53,15 +53,8 @@ private:
 	std::unordered_map<llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
 	std::unordered_map<llvm::Type*, TypeMappingInfo> typesMapping;
 	std::unordered_set<llvm::Function*> pendingFunctions;
-	struct EscapingFieldsHash
-	{
-		size_t operator()(const std::pair<llvm::StructType*, uint32_t>& r) const
-		{
-			return std::hash<llvm::StructType*>()(r.first) ^ std::hash<uint32_t>()(r.second);
-		}
-	};
 	// In this context a field "escapes" if it has any use which is not just a load/store
-	std::unordered_set<std::pair<llvm::StructType*, uint32_t>, EscapingFieldsHash> escapingFields;
+	std::unordered_set<std::pair<llvm::StructType*, uint32_t>, PairHash<llvm::StructType*, uint32_t>> escapingFields;
 #ifndef NDEBUG
 	std::unordered_set<llvm::Type*> newStructTypes;
 #endif
