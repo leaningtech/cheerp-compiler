@@ -2814,12 +2814,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			{
 				compileHeapAccess(ptrOp);
 			}
-			else if(valOp->getType()->isStructTy())
-			{
-				// This happens for pointers to member functions
-				compileStoreFromAggregate(valOp, ptrOp);
-				return COMPILE_OK;
-			}
 			else
 			{
 				compileCompleteObject(ptrOp);
@@ -3893,12 +3887,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			else if (kind == RAW)
 				compileHeapAccess(ptrOp);
-			else if(li.getType()->isStructTy())
-			{
-				// This happens for pointers to member functions
-				compileLoadToAggregate(ptrOp);
-				return COMPILE_OK;
-			}
 			else
 				compileCompleteObject(ptrOp);
 			if(regKind==Registerize::INTEGER && needsIntCoercion(regKind, parentPrio))
