@@ -135,6 +135,7 @@ llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v) const
 		auto it=edgeNamemap.find(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, registerize.getRegisterId(I)));
 		if (it!=edgeNamemap.end())
 			return it->second;
+		return regNamemap.at(std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I)));
 	}
 	return namemap.at(v);
 }
@@ -147,6 +148,7 @@ llvm::StringRef NameGenerator::getSecondaryNameForEdge(const llvm::Value* v) con
 		auto it=edgeSecondaryNamemap.find(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, registerize.getRegisterId(I)));
 		if (it!=edgeSecondaryNamemap.end())
 			return it->second;
+		return regSecondaryNamemap.at(std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I)));
 	}
 	return secondaryNamemap.at(v);
 }
@@ -206,9 +208,19 @@ SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, NAME_FILTER_MODE fil
 
 void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAnalyzer& gda)
 {
-	typedef std::pair<unsigned, const Value *> useValuePair;
-	typedef std::pair<unsigned, std::vector<const Value *> > useValuesPair;
-	typedef std::vector<useValuesPair> useValuesVec;
+	typedef std::pair<unsigned, const GlobalValue *> useGlobalPair;
+	// We either encode arguments in the Value or a pair of (Function, register id)
+	// This will be unified to the second case when we registerize args
+	struct localData
+	{
+		const llvm::Value* argOrFunc;
+		uint32_t regId;
+		bool needsSecondaryName;
+	};
+	typedef std::pair<unsigned, localData> useLocalPair;
+	typedef std::pair<unsigned, std::vector<localData>> useLocalsPair;
+	typedef std::vector<useLocalPair> useLocalVec;
+	typedef std::vector<useLocalsPair> useLocalsVec;
 	typedef std::pair<unsigned, std::vector<InstOnEdge> > useInstsOnEdgePair;
 	typedef std::pair<unsigned, Type*> useTypesPair;
 
@@ -291,13 +303,13 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	 * of all those local values.
 	 */
         
-	useValuesVec allLocalValues;
+	useLocalsVec allLocalValues;
 	useInstsOnEdgeMap allTypedTmpPHIs;
         
 	/**
 	 * We use a std::set to automatically sort the global values by number of uses
 	 */
-	std::set< useValuePair, std::greater< useValuePair > > allGlobalValues;
+	std::set< useGlobalPair, std::greater< useGlobalPair > > allGlobalValues;
 
 	for (const Function & f : M.getFunctionList() )
 	{
@@ -320,7 +332,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			continue;
 
 		// Local values are all stored in registers
-		useValuesVec thisFunctionLocals;
+		useLocalVec thisFunctionLocals;
 
 		// Insert all the instructions
 		for (const BasicBlock & bb : f)
@@ -332,11 +344,14 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 					uint32_t registerId = registerize.getRegisterId(&I);
 					if (registerId >= thisFunctionLocals.size())
 						thisFunctionLocals.resize(registerId+1);
-					useValuesPair& regData = thisFunctionLocals[registerId];
+					useLocalPair& regData = thisFunctionLocals[registerId];
 					// Add the uses for this instruction to the total count for the register
 					regData.first+=I.getNumUses();
-					// Add the instruction itself to the list of istructions
-					regData.second.push_back(&I);
+					// Set the register information if required
+					if(regData.second.argOrFunc == nullptr)
+						regData.second = localData{&f, registerId, false};
+					if(needsSecondaryName(&I, PA))
+						regData.second.needsSecondaryName = true;
 				}
 			}
 			// Handle the special names required for the edges between blocks
@@ -354,27 +369,27 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		for ( auto arg_it = f.arg_begin(); arg_it != f.arg_end(); ++arg_it, currentArgPos++ )
 		{
 			thisFunctionLocals[currentArgPos].first = f.getNumUses();
-			thisFunctionLocals[currentArgPos].second.push_back( arg_it );
+			thisFunctionLocals[currentArgPos].second = localData{arg_it, 0, needsSecondaryName(arg_it, PA)};
 		}
 
 		// Resize allLocalValues so that we have empty useValuesPair at the end of the container
 		if ( thisFunctionLocals.size() > allLocalValues.size() )
 			allLocalValues.resize( thisFunctionLocals.size() );
 
-		std::sort(thisFunctionLocals.begin(),thisFunctionLocals.end());
+		std::sort(thisFunctionLocals.begin(),thisFunctionLocals.end(), [](const useLocalPair& lhs, const useLocalPair& rhs) { return lhs.first < rhs.first; });
 		auto dst_it = allLocalValues.begin();
 
 		for (auto src_it = thisFunctionLocals.rbegin(); src_it != thisFunctionLocals.rend(); ++src_it, ++dst_it )
 		{
 			dst_it->first += src_it->first;
-			dst_it->second.insert(dst_it->second.end(), src_it->second.begin(), src_it->second.end());
+			dst_it->second.push_back(src_it->second);
 		}
 	}
         
 	assert( std::is_sorted( 
 		allLocalValues.rbegin(), 
 		allLocalValues.rend(),
-		[] (const useValuesPair & lhs, const useValuesPair & rhs) { return lhs.first < rhs.first; } 
+		[] (const useLocalsPair & lhs, const useLocalsPair & rhs) { return lhs.first < rhs.first; } 
 		) );
 
 	for ( const GlobalValue & GV : M.getGlobalList() )
@@ -412,8 +427,8 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	// We need to iterate over allGlobalValues, allLocalValues and allTmpPHIs
 	// at the same time incrementing selectively only one of the iterators
 	
-	std::set< useValuePair >::const_iterator global_it = allGlobalValues.begin();
-	useValuesVec::const_iterator local_it = allLocalValues.begin();
+	std::set< useGlobalPair >::const_iterator global_it = allGlobalValues.begin();
+	useLocalsVec::const_iterator local_it = allLocalValues.begin();
 	useInstsOnEdgeSet::const_iterator tmpphi_it = allTmpPHIs.begin();
 	useTypesSet::const_iterator class_it = classTypes.begin();
 	useTypesSet::const_iterator constructor_it = constructorTypes.begin();
@@ -454,18 +469,25 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			// Assign this name to all the local values
 			SmallString<4> primaryName = *name_it;
 			SmallString<4> secondaryName;
-			for ( const Value * v : local_it->second )
+			for ( const localData& v : local_it->second )
 			{
-				namemap.emplace( v, primaryName );
-				// We need to consume another name to assign the secondary one
-				if(needsSecondaryName(v, PA))
+				if(v.needsSecondaryName && secondaryName.empty())
 				{
-					if(secondaryName.empty())
-					{
-						++name_it;
-						secondaryName = *name_it;
-					}
-					secondaryNamemap.emplace( v, secondaryName );
+					++name_it;
+					secondaryName = *name_it;
+				}
+				if(const llvm::Function* f = dyn_cast<llvm::Function>(v.argOrFunc))
+				{
+					regNamemap.emplace( std::make_pair( f, v.regId ), primaryName);
+					if(v.needsSecondaryName)
+						regSecondaryNamemap.emplace( std::make_pair( f, v.regId ), secondaryName);
+				}
+				else
+				{
+					namemap.emplace( v.argOrFunc, primaryName );
+					// We need to consume another name to assign the secondary one
+					if(v.needsSecondaryName)
+						secondaryNamemap.emplace( v.argOrFunc, secondaryName );
 				}
 			}
 			
@@ -591,10 +613,6 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	};
 	for (const Function & f : M.getFunctionList() )
 	{
-		// Temporary mapping between registers and names
-		// NOTE: We only store references to names in the namemap
-		std::unordered_map<uint32_t, llvm::SmallString<4>& > regmap;
-
 		for (const BasicBlock & bb : f)
 		{
 			for (const Instruction & I : bb)
@@ -604,26 +622,24 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 					uint32_t registerId = registerize.getRegisterId(&I);
 					// If the register already has a name, use it
 					// Otherwise assign one as good as possible and assign it to the register as well
-					auto regNameIt = regmap.find(registerId);
+					auto regNameIt = regNamemap.find(std::make_pair(&f, registerId));
 					StringRef primaryName;
-					if(regNameIt != regmap.end())
+					if(regNameIt != regNamemap.end())
 					{
-						primaryName = namemap.emplace( &I, regNameIt->second ).first->second;
+						primaryName = regNameIt->second;
 					}
 					else if ( I.hasName() )
 					{
-						auto& name = namemap.emplace( &I, filterLLVMName(I.getName(), LOCAL) ).first->second;
-						regmap.emplace( registerId, name );
+						auto& name = regNamemap.emplace( std::make_pair(&f, registerId), filterLLVMName(I.getName(), LOCAL) ).first->second;
 						primaryName = name;
 					}
 					else
 					{
-						auto& name = namemap.emplace( &I, StringRef( "tmp" + std::to_string(registerId) ) ).first->second;
-						regmap.emplace( registerId, name );
+						auto& name = regNamemap.emplace( std::make_pair(&f, registerId), StringRef( "tmp" + std::to_string(registerId) ) ).first->second;
 						primaryName = name;
 					}
 					if(needsSecondaryName(&I, PA))
-						secondaryNamemap.emplace( &I, StringRef((primaryName+"o").str()));
+						regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((primaryName+"o").str()));
 				}
 			}
 			// Handle the special names required for the edges between blocks
