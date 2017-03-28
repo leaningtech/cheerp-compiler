@@ -21,46 +21,6 @@ const char *StructMemFuncLowering::getPassName() const {
 	return "StructMemFuncLowering";
 }
 
-void StructMemFuncLowering::recursiveExpandStore(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* indexType,
-	SmallVector<Value*, 8>& ptrIndexes, SmallVector<unsigned int, 8>& valueIndexes)
-{
-	// For aggregates we push a new index and overwrite it for each element
-	if(StructType* ST=dyn_cast<StructType>(curType))
-	{
-		assert (!ST->hasByteLayout());
-		ptrIndexes.push_back(NULL);
-		valueIndexes.push_back(0);
-		for(uint32_t i=0;i<ST->getNumElements();i++)
-		{
-			ptrIndexes.back() = ConstantInt::get(indexType, i);
-			valueIndexes.back() = i;
-			recursiveExpandStore(IRB, baseDst, baseSrc, ST->getElementType(i), indexType, ptrIndexes, valueIndexes);
-		}
-		ptrIndexes.pop_back();
-		valueIndexes.pop_back();
-	}
-	else if(ArrayType* AT=dyn_cast<ArrayType>(curType))
-	{
-		Type* elementType = AT->getElementType();
-		ptrIndexes.push_back(NULL);
-		valueIndexes.push_back(0);
-		for(uint32_t i=0;i<AT->getNumElements();i++)
-		{
-			ptrIndexes.back() = ConstantInt::get(indexType, i);
-			valueIndexes.back() = i;
-			recursiveExpandStore(IRB, baseDst, baseSrc, elementType, indexType, ptrIndexes, valueIndexes);
-		}
-		ptrIndexes.pop_back();
-		valueIndexes.pop_back();
-	}
-	else
-	{
-		Value* element = IRB->CreateExtractValue(baseSrc, valueIndexes);
-		Value* elementDst = IRB->CreateGEP(baseDst, ptrIndexes);
-		IRB->CreateStore(element, elementDst);
-	}
-}
-
 void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, size_t size,
 						SmallVector<Value*, 8>& indexes)
 {
@@ -266,23 +226,6 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB)
 	BasicBlock::iterator itE=BB.end();
 	for(;it!=itE;++it)
 	{
-		if(StoreInst* SI=dyn_cast<StoreInst>(it))
-		{
-			if(SI->getValueOperand()->getType()->isStructTy())
-			{
-				// Convert this to a sequence of stores
-				IRBuilder<>* IRB = new IRBuilder<>(it);
-				Type* int32Type = IntegerType::get(BB.getContext(), 32);
-				SmallVector<Value*, 8> ptrIndexes;
-				SmallVector<unsigned int, 8> valueIndexes;
-				ptrIndexes.push_back(ConstantInt::get(int32Type, 0));
-				recursiveExpandStore(IRB, SI->getPointerOperand(), SI->getValueOperand(), SI->getValueOperand()->getType(), int32Type, ptrIndexes, valueIndexes);
-				// Fixup the iterator
-				--it;
-				SI->eraseFromParent();
-			}
-			continue;
-		}
 		CallInst* CI=dyn_cast<CallInst>(it);
 		if(!CI || !CI->getCalledFunction())
 			continue;
