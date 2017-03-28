@@ -430,8 +430,6 @@ private:
 	void compileBitCastBase(const llvm::User* bi, bool forEscapingPointer);
 	void compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY parentPrio);
 	void compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
-	void compileStoreFromAggregate(const llvm::Value* valOp, const llvm::Value* ptrOp);
-	void compileLoadToAggregate(const llvm::Value* ptrOp);
 
 	static uint32_t getMaskForBitWidth(int width)
 	{
