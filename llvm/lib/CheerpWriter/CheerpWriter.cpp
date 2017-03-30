@@ -3860,7 +3860,7 @@ void CheerpRenderInterface::renderCaseBlockBegin(const void* privateBlock, int b
 	for(int i=1;i<branchId;i++)
 		++it;
 	writer->stream << "case ";
-	writer->compileOperand(it.getCaseValue());
+	writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 	writer->stream << ':' << NewLine;
 	//We found the destination, there may be more cases for the same
 	//destination though
