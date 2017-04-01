@@ -2351,16 +2351,12 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			assert(incoming);
 			if(incoming->getType()->isPointerTy() && writer.PA.getPointerKind(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
 			{
-				writer.namegen.setEdgeContext(fromBB, toBB);
-				writer.stream << writer.namegen.getSecondaryNameForEdge(incoming);
-				writer.namegen.clearEdgeContext();
+				writer.stream << writer.namegen.getSecondaryNameForEdge(incoming, fromBB, toBB);
 				writer.stream << '=';
 				writer.compilePointerOffset(incoming, LOWEST);
 				writer.stream << ';' << writer.NewLine;
 			}
-			writer.namegen.setEdgeContext(fromBB, toBB);
-			writer.stream << writer.namegen.getNameForEdge(incoming);
-			writer.namegen.clearEdgeContext();
+			writer.stream << writer.namegen.getNameForEdge(incoming, fromBB, toBB);
 			writer.stream << '=' << writer.namegen.getName(incoming) << ';' << writer.NewLine;
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
@@ -4233,7 +4229,6 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 		stream << "var label=0";
 		firstVar = false;
 	}
-	std::set<StringRef> compiledTmpPHIs;
 	for(const BasicBlock& BB: F)
 	{
 		for(const Instruction& I: BB)
@@ -4264,41 +4259,48 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 				localsFound[regId]=SECONDARY_NAME_DONE;
 			}
 		}
-		// Handle the special names required for the edges between blocks
+		// Handle the registers required for the edges between blocks
 		class LocalsPHIHandler: public EndOfBlockPHIHandler
 		{
 		public:
-			LocalsPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t, std::set<StringRef>& c):EndOfBlockPHIHandler(w.PA),compiledLocals(c),writer(w),fromBB(f),toBB(t)
+			LocalsPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t, std::vector<LOCAL_STATE>& l, bool& v):
+				EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t),localsFound(l),firstVar(v)
 			{
 			}
 			~LocalsPHIHandler()
 			{
 			}
-			std::set<StringRef>& compiledLocals;
 		private:
 			CheerpWriter& writer;
 			const BasicBlock* fromBB;
 			const BasicBlock* toBB;
+			std::vector<LOCAL_STATE>& localsFound;
+			bool& firstVar;
 			void handleRecursivePHIDependency(const Instruction* incoming) override
 			{
 				bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
-				writer.namegen.setEdgeContext(fromBB, toBB);
-				if(incoming->getType()->isPointerTy() && writer.PA.getPointerKind(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
+				uint32_t regId = writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
+				if(localsFound.size() <= regId)
+					localsFound.resize(regId+1, NOT_DONE);
+				if(localsFound[regId]==SECONDARY_NAME_DONE)
+					return;
+				bool needsSecondaryName = writer.namegen.needsSecondaryName(incoming, PA);
+				if(localsFound[regId]<NAME_DONE)
 				{
-					StringRef secondaryName = writer.namegen.getSecondaryNameForEdge(incoming);
-					if(compiledLocals.insert(secondaryName).second)
-					{
+					if(firstVar)
+						writer.stream << "var ";
+					else
 						writer.stream << ',';
-						writer.compileMethodLocal(secondaryName, Registerize::INTEGER);
-					}
+					writer.compileMethodLocal(writer.namegen.getNameForEdge(incoming, fromBB, toBB),Registerize::getRegKindFromType(incoming->getType(), asmjs));
+					firstVar = false;
+					localsFound[regId]=NAME_DONE;
 				}
-				StringRef primaryName = writer.namegen.getNameForEdge(incoming);
-				if(compiledLocals.insert(primaryName).second)
+				if(localsFound[regId]<SECONDARY_NAME_DONE && needsSecondaryName)
 				{
 					writer.stream << ',';
-					writer.compileMethodLocal(primaryName, Registerize::getRegKindFromType(incoming->getType(), asmjs));
+					writer.compileMethodLocal(writer.namegen.getSecondaryNameForEdge(incoming, fromBB, toBB),Registerize::INTEGER);
+					localsFound[regId]=SECONDARY_NAME_DONE;
 				}
-				writer.namegen.clearEdgeContext();
 			}
 			void handlePHI(const Instruction* phi, const Value* incoming) override
 			{
@@ -4308,7 +4310,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 		for(uint32_t i=0;i<term->getNumSuccessors();i++)
 		{
 			const BasicBlock* succBB=term->getSuccessor(i);
-			LocalsPHIHandler(*this, &BB, succBB, compiledTmpPHIs).runOnEdge(registerize, &BB, succBB);
+			LocalsPHIHandler(*this, &BB, succBB, localsFound, firstVar).runOnEdge(registerize, &BB, succBB);
 		}
 	}
 	if(!firstVar)

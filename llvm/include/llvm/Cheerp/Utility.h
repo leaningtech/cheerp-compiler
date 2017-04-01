@@ -497,6 +497,8 @@ private:
 	// Callbacks implemented by derived classes
 	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
 	virtual void handlePHI(const llvm::Instruction* phi, const llvm::Value* incoming) = 0;
+	// Called for every register which is either assigned or used by PHIs in the edge
+	virtual void setRegisterUsed(uint32_t reg) {};
 };
 
 template<class U, class V>

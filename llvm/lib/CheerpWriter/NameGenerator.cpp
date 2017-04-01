@@ -118,7 +118,7 @@ struct JSSymbols
 	const std::vector<std::string>& externallyReservedNames;
 };
 
-NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, const Registerize& r,
+NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, Registerize& r,
 				const PointerAnalyzer& PA, const std::vector<std::string>& reservedNames, bool makeReadableNames):registerize(r), PA(PA), reservedNames(reservedNames)
 {
 	if ( makeReadableNames )
@@ -127,28 +127,22 @@ NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, con
 		generateCompressedNames(M, gda);
 }
 
-llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v) const
+llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
 {
-	assert(!edgeContext.isNull());
 	if (const Instruction* I=dyn_cast<Instruction>(v))
 	{
-		auto it=edgeNamemap.find(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, registerize.getRegisterId(I)));
-		if (it!=edgeNamemap.end())
-			return it->second;
-		return regNamemap.at(std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I)));
+		uint32_t regId = registerize.getRegisterIdForEdge(I, fromBB, toBB);
+		return regNamemap.at(std::make_pair(I->getParent()->getParent(), regId));
 	}
 	return namemap.at(v);
 }
 
-llvm::StringRef NameGenerator::getSecondaryNameForEdge(const llvm::Value* v) const
+llvm::StringRef NameGenerator::getSecondaryNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
 {
-	assert(!edgeContext.isNull());
 	if (const Instruction* I=dyn_cast<Instruction>(v))
 	{
-		auto it=edgeSecondaryNamemap.find(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, registerize.getRegisterId(I)));
-		if (it!=edgeSecondaryNamemap.end())
-			return it->second;
-		return regSecondaryNamemap.at(std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I)));
+		uint32_t regId = registerize.getRegisterIdForEdge(I, fromBB, toBB);
+		return regSecondaryNamemap.at(std::make_pair(I->getParent()->getParent(), regId));
 	}
 	return secondaryNamemap.at(v);
 }
@@ -221,51 +215,36 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	typedef std::pair<unsigned, std::vector<localData>> useLocalsPair;
 	typedef std::vector<useLocalPair> useLocalVec;
 	typedef std::vector<useLocalsPair> useLocalsVec;
-	typedef std::pair<unsigned, std::vector<InstOnEdge> > useInstsOnEdgePair;
 	typedef std::pair<unsigned, Type*> useTypesPair;
 
-	// compare the pair based on the first element only
-	struct weak_compare
-	{
-		bool operator() (const useInstsOnEdgePair& r, const useInstsOnEdgePair& l)
-		{
-			return r.first > l.first;
-		}
-	};
-	typedef std::multiset<useInstsOnEdgePair,weak_compare> useInstsOnEdgeSet;
-	typedef std::map<Registerize::REGISTER_KIND,uint32_t> typedPHIIndex;
-	typedef std::map<typename typedPHIIndex::value_type, useInstsOnEdgePair> useInstsOnEdgeMap;
 	typedef std::set<useTypesPair, std::greater<useTypesPair>> useTypesSet;
         
 	// Class to handle giving names to temporary variables needed for recursively dependent PHIs
 	class CompressedPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		CompressedPHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n, useInstsOnEdgeMap& a ):
-			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n), allTypedTmpPHIs(a)
+		CompressedPHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n, useLocalVec& l):
+			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n), thisFunctionLocals(l)
 		{
 		}
 	private:
 		const BasicBlock* fromBB;
 		const BasicBlock* toBB;
 		NameGenerator& namegen;
-		useInstsOnEdgeMap& allTypedTmpPHIs;
-		typedPHIIndex nextIndex;
+		useLocalVec& thisFunctionLocals;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
-			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
-			uint32_t regId=namegen.registerize.getRegisterId(incoming);
-			// At the moment Registerize reuse registers for tmpphis of different kinds,
-			// so we need to explicitly assign different names to different kinds
-			Registerize::REGISTER_KIND phiKind = Registerize::getRegKindFromType(incoming->getType(), asmjs);
-			// We don't know exactly how many times the tmpphi is going to be used in this edge
-			// but assume 1. We increment the usage count for the first not already used tmpphi
-			// for this register kind and add the InstOnEdge to its list
-			typename typedPHIIndex::iterator phiIt;
-			std::tie(phiIt,std::ignore) = nextIndex.emplace(phiKind,0);
-			allTypedTmpPHIs[*phiIt].first++;
-			allTypedTmpPHIs[*phiIt].second.emplace_back(InstOnEdge(fromBB, toBB, regId));
-			phiIt->second++;
+			uint32_t registerId = namegen.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
+			if (registerId >= thisFunctionLocals.size())
+				thisFunctionLocals.resize(registerId+1);
+			useLocalPair& regData = thisFunctionLocals[registerId];
+			// Assume it is used once
+			regData.first++;
+			// Set the register information if required
+			if(regData.second.argOrFunc == nullptr)
+				regData.second = localData{incoming->getParent()->getParent(), registerId, false};
+			if(namegen.needsSecondaryName(incoming, namegen.PA))
+				regData.second.needsSecondaryName = true;
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
@@ -304,7 +283,6 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	 */
         
 	useLocalsVec allLocalValues;
-	useInstsOnEdgeMap allTypedTmpPHIs;
         
 	/**
 	 * We use a std::set to automatically sort the global values by number of uses
@@ -359,7 +337,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			for(uint32_t i=0;i<term->getNumSuccessors();i++)
 			{
 				const BasicBlock* succBB=term->getSuccessor(i);
-				CompressedPHIHandler(&bb, succBB, *this, allTypedTmpPHIs).runOnEdge(registerize, &bb, succBB);
+				CompressedPHIHandler(&bb, succBB, *this, thisFunctionLocals).runOnEdge(registerize, &bb, succBB);
 			}
 		}
 
@@ -407,14 +385,6 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		allGlobalValues.emplace( GV.getNumUses(), &GV );
 	}
 
-	// flatten the map to a multiset ordered by the number of uses
-	// we use a multiset because there can be different elements that compare equals
-	useInstsOnEdgeSet allTmpPHIs;
-	for (const auto& phi: allTypedTmpPHIs)
-	{
-		allTmpPHIs.emplace(phi.second);
-	}
-
 	/**
 	 * Now generate the names and fill the namemap.
 	 * 
@@ -424,27 +394,24 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	 */
 	name_iterator<JSSymbols> name_it((JSSymbols(reservedNames)));
 	
-	// We need to iterate over allGlobalValues, allLocalValues and allTmpPHIs
+	// We need to iterate over allGlobalValues and allLocalValues
 	// at the same time incrementing selectively only one of the iterators
 	
 	std::set< useGlobalPair >::const_iterator global_it = allGlobalValues.begin();
 	useLocalsVec::const_iterator local_it = allLocalValues.begin();
-	useInstsOnEdgeSet::const_iterator tmpphi_it = allTmpPHIs.begin();
 	useTypesSet::const_iterator class_it = classTypes.begin();
 	useTypesSet::const_iterator constructor_it = constructorTypes.begin();
 	useTypesSet::const_iterator array_it = arrayTypes.begin();
 
 	bool globalsFinished = global_it == allGlobalValues.end();
 	bool localsFinished = local_it == allLocalValues.end();
-	bool tmpPHIsFinished = tmpphi_it == allTmpPHIs.end();
 	bool classTypesFinished = class_it == classTypes.end();
 	bool constructorTypesFinished = constructor_it == constructorTypes.end();
 	bool arrayTypesFinished = array_it == arrayTypes.end();
-	for ( ; !globalsFinished || !localsFinished || !tmpPHIsFinished || !classTypesFinished || !constructorTypesFinished || !arrayTypesFinished; ++name_it )
+	for ( ; !globalsFinished || !localsFinished || !classTypesFinished || !constructorTypesFinished || !arrayTypesFinished; ++name_it )
 	{
 		if ( !globalsFinished &&
 			(localsFinished || global_it->first >= local_it->first) &&
-			(tmpPHIsFinished || global_it->first >= tmpphi_it->first) &&
 			(classTypesFinished || global_it->first >= class_it->first) &&
 			(constructorTypesFinished || global_it->first >= constructor_it->first) &&
 			(arrayTypesFinished || global_it->first >= array_it->first))
@@ -461,7 +428,6 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		}
 		else if ( !localsFinished &&
 			(globalsFinished || local_it->first >= global_it->first) &&
-			(tmpPHIsFinished || local_it->first >= tmpphi_it->first) &&
 			(classTypesFinished || local_it->first >= class_it->first) &&
 			(constructorTypesFinished || local_it->first >= constructor_it->first) &&
 			(arrayTypesFinished || local_it->first >= array_it->first))
@@ -493,31 +459,9 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			
 			++local_it;
 		}
-		else if ( !tmpPHIsFinished &&
-			(globalsFinished || tmpphi_it->first >= global_it->first) &&
-			(localsFinished || tmpphi_it->first >= local_it->first) &&
-			(classTypesFinished || tmpphi_it->first >= class_it->first) &&
-			(constructorTypesFinished || tmpphi_it->first >= constructor_it->first) &&
-			(arrayTypesFinished || tmpphi_it->first >= array_it->first))
-		{
-			SmallString<4> primaryName = *name_it;
-			++name_it;
-			SmallString<4> secondaryName = *name_it;
-			// Assign this name to all the tmpphis
-			for ( const InstOnEdge& i : tmpphi_it->second )
-			{
-				edgeNamemap.emplace( i, StringRef(primaryName));
-				// TODO: Only add the secondary name if required
-				// TODO: Tmpphis should be properly managed in Registerize
-				edgeSecondaryNamemap.emplace( i, StringRef(secondaryName));
-			}
-			
-			++tmpphi_it;
-		}
 		else if ( !classTypesFinished &&
 			(globalsFinished || class_it->first >= global_it->first) &&
 			(localsFinished || class_it->first >= local_it->first) &&
-			(tmpPHIsFinished || class_it->first >= tmpphi_it->first) &&
 			(constructorTypesFinished || class_it->first >= constructor_it->first) &&
 			(arrayTypesFinished || class_it->first >= array_it->first))
 		{
@@ -529,7 +473,6 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		else if ( !constructorTypesFinished &&
 			(globalsFinished || constructor_it->first >= global_it->first) &&
 			(localsFinished || constructor_it->first >= local_it->first) &&
-			(tmpPHIsFinished || constructor_it->first >= tmpphi_it->first) &&
 			(classTypesFinished || constructor_it->first >= class_it->first) &&
 			(arrayTypesFinished || constructor_it->first >= array_it->first))
 		{
@@ -548,7 +491,6 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 
 		globalsFinished = global_it == allGlobalValues.end();
 		localsFinished = local_it == allLocalValues.end();
-		tmpPHIsFinished = tmpphi_it == allTmpPHIs.end();
 		classTypesFinished = class_it == classTypes.end();
 		constructorTypesFinished = constructor_it == constructorTypes.end();
 		arrayTypesFinished = array_it == arrayTypes.end();
@@ -569,42 +511,30 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	{
 	public:
 		ReadablePHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n ):
-			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n), nextIndex(0)
+			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n)
 		{
 		}
 	private:
 		const BasicBlock* fromBB;
 		const BasicBlock* toBB;
 		NameGenerator& namegen;
-		uint32_t nextIndex;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
-			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
-			uint32_t regId=namegen.registerize.getRegisterId(incoming);
-			// At the moment Registerize reuse registers for tmpphis of different kinds,
-			// so we need to explicitly assign different names to different kinds
-			Registerize::REGISTER_KIND kind = Registerize::getRegKindFromType(incoming->getType(), asmjs);
-			const char* kindStr;
-			switch (kind)
+			uint32_t registerId=namegen.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
+			const Function& f = *incoming->getParent()->getParent();
+			auto regNameIt = namegen.regNamemap.find(std::make_pair(&f, registerId));
+			StringRef primaryName;
+			if(regNameIt != namegen.regNamemap.end())
 			{
-				case Registerize::REGISTER_KIND::OBJECT:
-					kindStr = "tmpphio";
-					break;
-				case Registerize::REGISTER_KIND::INTEGER:
-					kindStr = "tmpphii";
-					break;
-				case Registerize::REGISTER_KIND::FLOAT:
-					kindStr = "tmpphif";
-					break;
-				case Registerize::REGISTER_KIND::DOUBLE:
-					kindStr = "tmpphid";
-					break;
+				primaryName = regNameIt->second;
 			}
-			namegen.edgeNamemap.emplace(InstOnEdge(fromBB, toBB, regId),
-							StringRef( kindStr + std::to_string(nextIndex)));
-			// TODO: Only use secondary when necessary
-			namegen.edgeSecondaryNamemap.emplace(InstOnEdge(fromBB, toBB, regId),
-							StringRef( kindStr + std::to_string(nextIndex++) + "o"));
+			else
+			{
+				auto& name = namegen.regNamemap.emplace( std::make_pair(&f, registerId), StringRef( "tmpphi" + std::to_string(registerId) ) ).first->second;
+				primaryName = name;
+			}
+			if(namegen.needsSecondaryName(incoming, namegen.PA))
+				namegen.regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((primaryName+"o").str()));
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{

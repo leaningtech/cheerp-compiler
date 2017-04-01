@@ -54,6 +54,7 @@ public:
 		{
 		}
 		bool doesInterfere(const LiveRange& other) const;
+		bool doesInterfere(uint32_t id) const;
 		void merge(const LiveRange& other);
 		void dump() const;
 	};
@@ -73,6 +74,7 @@ public:
 	const char *getPassName() const override;
 
 	uint32_t getRegisterId(const llvm::Instruction* I) const;
+	uint32_t getRegisterIdForEdge(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 
 	void assignRegisters(llvm::Module& M, cheerp::PointerAnalyzer& PA);
 	void computeLiveRangeForAllocas(llvm::Function& F);
@@ -87,10 +89,65 @@ public:
 	// Registers should have a consistent JS type
 	enum REGISTER_KIND { OBJECT=0, INTEGER, DOUBLE, FLOAT };
 	static REGISTER_KIND getRegKindFromType(const llvm::Type*, bool asmjs);
+
+	// Context used to disambiguate temporary values used in PHI resolution
+	void setEdgeContext(const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB)
+	{
+		assert(edgeContext.isNull());
+		edgeContext.fromBB=fromBB;
+		edgeContext.toBB=toBB;
+	}
+
+	void clearEdgeContext()
+	{
+		edgeContext.clear();
+	}
+
 private:
 	// Final data structures
+	struct InstOnEdge
+	{
+		const llvm::BasicBlock* fromBB;
+		const llvm::BasicBlock* toBB;
+		uint32_t registerId;
+		InstOnEdge(const llvm::BasicBlock* f, const llvm::BasicBlock* t, uint32_t r):fromBB(f),toBB(t),registerId(r)
+		{
+		}
+		bool operator==(const InstOnEdge& r) const
+		{
+			return fromBB==r.fromBB && toBB==r.toBB && registerId==r.registerId;
+		}
+		struct Hash
+		{
+			size_t operator()(const InstOnEdge& i) const
+			{
+				return std::hash<const llvm::BasicBlock*>()(i.fromBB) ^
+					std::hash<const llvm::BasicBlock*>()(i.toBB) ^
+					std::hash<uint32_t>()(i.registerId);
+			}
+		};
+	};
 	std::unordered_map<const llvm::Instruction*, uint32_t> registersMap;
+	std::unordered_map<InstOnEdge, uint32_t, InstOnEdge::Hash> edgeRegistersMap;
 	std::unordered_map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
+	struct EdgeContext
+	{
+		const llvm::BasicBlock* fromBB;
+		const llvm::BasicBlock* toBB;
+		EdgeContext():fromBB(NULL), toBB(NULL)
+		{
+		}
+		bool isNull() const
+		{
+			return fromBB==NULL;
+		}
+		void clear()
+		{
+			fromBB=NULL;
+			toBB=NULL;
+		}
+	};
+	EdgeContext edgeContext;
 	bool NoRegisterize;
 #ifndef NDEBUG
 	bool RegistersAssigned;
@@ -217,7 +274,7 @@ private:
 					llvm::BasicBlock& BB, cheerp::PointerAnalyzer& PA, uint32_t nextIndex, uint32_t codePathId);
 	void extendRangeForUsedOperands(llvm::Instruction& I, LiveRangesTy& liveRanges, cheerp::PointerAnalyzer& PA,
 					uint32_t thisIndex, uint32_t codePathId);
-	uint32_t assignToRegisters(const LiveRangesTy& F, const PointerAnalyzer& PA);
+	uint32_t assignToRegisters(llvm::Function& F, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA);
 	void handlePHI(llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA);
 	uint32_t findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
 					REGISTER_KIND kind);

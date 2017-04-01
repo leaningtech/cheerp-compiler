@@ -686,6 +686,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			continue;
 		}
 		uint32_t phiReg = registerize.getRegisterId(phi);
+		setRegisterUsed(phiReg);
 		// This instruction may depend on multiple registers
 		llvm::SmallVector<std::pair<uint32_t, const Instruction*>, 2> incomingRegisters;
 		llvm::SmallVector<const Instruction*, 4> instQueue;
@@ -698,6 +699,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 				uint32_t incomingValueId = registerize.getRegisterId(incomingInst);
 				if(incomingValueId==phiReg)
 					continue;
+				setRegisterUsed(incomingValueId);
 				incomingRegisters.push_back(std::make_pair(incomingValueId, incomingInst));
 			}
 			else
