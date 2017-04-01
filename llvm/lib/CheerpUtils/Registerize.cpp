@@ -67,7 +67,24 @@ uint32_t Registerize::getRegisterId(const llvm::Instruction* I) const
 {
 	assert(RegistersAssigned);
 	assert(registersMap.count(I));
-	return registersMap.find(I)->second;
+	uint32_t regId = registersMap.find(I)->second;
+	if(!edgeContext.isNull())
+	{
+		auto it=edgeRegistersMap.find(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, regId));
+		if (it!=edgeRegistersMap.end())
+			return it->second;
+	}
+	return regId;
+}
+
+uint32_t Registerize::getRegisterIdForEdge(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
+{
+	assert(registersMap.count(I));
+	uint32_t regId = registersMap.find(I)->second;
+	auto it=edgeRegistersMap.find(InstOnEdge(fromBB, toBB, regId));
+	if (it!=edgeRegistersMap.end())
+		return it->second;
+	return regId;
 }
 
 void Registerize::InstructionLiveRange::addUse(uint32_t curCodePath, uint32_t thisIndex)
@@ -111,8 +128,7 @@ void Registerize::assignRegistersToInstructions(Function& F, cheerp::PointerAnal
 		// First, build live ranges for all instructions
 		LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap, PA);
 		// Assign each instruction to a virtual register
-		uint32_t registersCount = assignToRegisters(liveRanges, PA);
-		// Now compute live ranges for alloca memory which is not in SSA form
+		uint32_t registersCount = assignToRegisters(F, instIdMap, liveRanges, PA);
 		NumRegisters += registersCount;
 		// To debug we need to know the ranges for each instructions and the assigned register
 		DEBUG(if (registersCount) dbgs() << "Function " << F.getName() << " needs " << registersCount << " registers\n");
@@ -360,7 +376,7 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 	}
 }
 
-uint32_t Registerize::assignToRegisters(const LiveRangesTy& liveRanges, const PointerAnalyzer& PA)
+uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA)
 {
 	llvm::SmallVector<RegisterRange, 4> registers;
 	// First try to assign all PHI operands to the same register as the PHI itself
@@ -385,6 +401,82 @@ uint32_t Registerize::assignToRegisters(const LiveRangesTy& liveRanges, const Po
 		uint32_t chosenRegister=findOrCreateRegister(registers, range, getRegKindFromType(I->getType(), asmjs));
 		registersMap[I] = chosenRegister;
 	}
+	// Assign registers for temporary values required to break loops in PHIs
+	class RegisterizePHIHandler: public EndOfBlockPHIHandler
+	{
+	public:
+		RegisterizePHIHandler(const BasicBlock* f, const BasicBlock* t, Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs, const InstIdMapTy& i, const PointerAnalyzer& PA):
+			EndOfBlockPHIHandler(PA), fromBB(f), toBB(t), registerize(r), registers(rs), instIdMap(i)
+		{
+			// We can't use twice the same tmpphi in the same edge
+			// TODO: It could be possible in some cases but we need to keep track of subgroups of dependencies
+			usedRegisters.resize(registers.size(), false);
+		}
+	private:
+		const BasicBlock* fromBB;
+		const BasicBlock* toBB;
+		Registerize& registerize;
+		llvm::SmallVector<RegisterRange, 4>& registers;
+		const InstIdMapTy& instIdMap;
+		std::vector<bool> usedRegisters;
+		void handleRecursivePHIDependency(const Instruction* incoming) override
+		{
+			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
+			assert(registerize.registersMap.count(incoming));
+			uint32_t regId=registerize.registersMap.find(incoming)->second;
+			Registerize::REGISTER_KIND phiKind = Registerize::getRegKindFromType(incoming->getType(), asmjs);
+			for(unsigned i=0;i<registers.size();i++)
+			{
+				if(registers[i].regKind != phiKind)
+					continue;
+				if(usedRegisters[i])
+					continue;
+				// usedRegisters will skip all registers already assigned or used by PHIs
+				// we still need to make sure we are not interfering with registers which are
+				// alive across the whole range
+				assert(instIdMap.count(&(*toBB->begin())));
+				uint32_t beginOfToBlock = instIdMap.find(&(*toBB->begin()))->second;
+				if(registers[i].range.doesInterfere(beginOfToBlock))
+					continue;
+				// We can use this register for the tmpphi, make sure we don't use it twice
+				usedRegisters[i] = true;
+				registerize.edgeRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), i));
+				return;
+			}
+			// Create a register which will have an empty live range
+			// It is not a problem since we mark it as used in the block
+			uint32_t chosenReg = registers.size();
+			registers.push_back(RegisterRange(LiveRange(), phiKind));
+			usedRegisters.push_back(true);
+			registerize.edgeRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), chosenReg));
+		}
+		void handlePHI(const Instruction* phi, const Value* incoming) override
+		{
+			// Nothing to do here, we have already given registers to all PHIs
+		}
+		void setRegisterUsed(uint32_t regId) override
+		{
+			assert(regId < usedRegisters.size());
+			usedRegisters[regId] = true;
+		}
+	};
+#ifndef NDEBUG
+	// Temporarily set and then reset this debug flag, EndOfBlockPHIHandler uses registerize
+	// and we have actually already assigned all registers for the instructions
+	RegistersAssigned = true;
+#endif
+	for (const BasicBlock & bb : F)
+	{
+		const TerminatorInst* term=bb.getTerminator();
+		for(uint32_t i=0;i<term->getNumSuccessors();i++)
+		{
+			const BasicBlock* succBB=term->getSuccessor(i);
+			RegisterizePHIHandler(&bb, succBB, *this, registers, instIdMap, PA).runOnEdge(*this, &bb, succBB);
+		}
+	}
+#ifndef NDEBUG
+	RegistersAssigned = false;
+#endif
 	return registers.size();
 }
 
@@ -469,6 +561,16 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, 
 	// NOTE: the Void type is considered an OBJECT
 	else
 		return OBJECT;
+}
+
+bool Registerize::LiveRange::doesInterfere(uint32_t id) const
+{
+	for(const LiveRangeChunk c: *this)
+	{
+		if(c.start <= id && c.end > id)
+			return true;
+	}
+	return false;
 }
 
 bool Registerize::LiveRange::doesInterfere(const LiveRange& other) const

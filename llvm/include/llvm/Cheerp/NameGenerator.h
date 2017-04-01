@@ -44,7 +44,7 @@ public:
 	 * This initialize the namegenerator by collecting
 	 * all the global variable names
 	 */
-	explicit NameGenerator( const llvm::Module&, const GlobalDepsAnalyzer &, const Registerize &, const PointerAnalyzer& PA,
+	explicit NameGenerator( const llvm::Module&, const GlobalDepsAnalyzer &, Registerize &, const PointerAnalyzer& PA,
 		const std::vector<std::string>& reservedNames, bool makeReadableNames = true );
 
 	/**
@@ -53,8 +53,6 @@ public:
 	 */
 	llvm::StringRef getName(const llvm::Value* v) const
 	{
-		if(!edgeContext.isNull())
-			return getNameForEdge(v);
 		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
 		{
 			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I));
@@ -72,8 +70,6 @@ public:
 	 */
 	llvm::StringRef getSecondaryName(const llvm::Value* v) const
 	{
-		if(!edgeContext.isNull())
-			return getSecondaryNameForEdge(v);
 		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
 		{
 			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I));
@@ -125,19 +121,17 @@ public:
 	 * Same as getName, but supports the required temporary variables in edges between blocks
 	 * It uses the current edge context.
 	*/
-	llvm::StringRef getNameForEdge(const llvm::Value* v) const;
-	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v) const;
+	llvm::StringRef getNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
+	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 
 	void setEdgeContext(const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB)
 	{
-		assert(edgeContext.isNull());
-		edgeContext.fromBB=fromBB;
-		edgeContext.toBB=toBB;
+		registerize.setEdgeContext(fromBB, toBB);
 	}
 
 	void clearEdgeContext()
 	{
-		edgeContext.clear();
+		registerize.clearEdgeContext();
 	}
 
 	enum NAME_FILTER_MODE { GLOBAL = 0, GLOBAL_SECONDARY, LOCAL, LOCAL_SECONDARY };
@@ -152,7 +146,7 @@ private:
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
 	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
 	
-	const Registerize& registerize;
+	Registerize& registerize;
 	const PointerAnalyzer& PA;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > secondaryNamemap;
@@ -162,49 +156,6 @@ private:
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > constructormap;
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > arraymap;
 	std::array<llvm::SmallString<4>, Builtin::END> builtins;
-	struct InstOnEdge
-	{
-		const llvm::BasicBlock* fromBB;
-		const llvm::BasicBlock* toBB;
-		uint32_t registerId;
-		InstOnEdge(const llvm::BasicBlock* f, const llvm::BasicBlock* t, uint32_t r):fromBB(f),toBB(t),registerId(r)
-		{
-		}
-		bool operator==(const InstOnEdge& r) const
-		{
-			return fromBB==r.fromBB && toBB==r.toBB && registerId==r.registerId;
-		}
-		struct Hash
-		{
-			size_t operator()(const InstOnEdge& i) const
-			{
-				return std::hash<const llvm::BasicBlock*>()(i.fromBB) ^
-					std::hash<const llvm::BasicBlock*>()(i.toBB) ^
-					std::hash<uint32_t>()(i.registerId);
-			}
-		};
-	};
-	typedef std::unordered_map<InstOnEdge, llvm::SmallString<8>, InstOnEdge::Hash > EdgeNameMapTy;
-	EdgeNameMapTy edgeNamemap;
-	EdgeNameMapTy edgeSecondaryNamemap;
-	struct EdgeContext
-	{
-		const llvm::BasicBlock* fromBB;
-		const llvm::BasicBlock* toBB;
-		EdgeContext():fromBB(NULL), toBB(NULL)
-		{
-		}
-		bool isNull() const
-		{
-			return fromBB==NULL;
-		}
-		void clear()
-		{
-			fromBB=NULL;
-			toBB=NULL;
-		}
-	};
-	EdgeContext edgeContext;
 	const std::vector<std::string>& reservedNames;
 };
 
