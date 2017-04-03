@@ -67,6 +67,8 @@ inline bool isGEP(const llvm::Value* v)
 	return false;
 }
 
+bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA);
+
 uint32_t getIntFromValue(const llvm::Value* v);
 
 // Printable name of the llvm type - useful only for debugging
