@@ -424,7 +424,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
 			assert(registerize.registersMap.count(incoming));
 			uint32_t regId=registerize.registersMap.find(incoming)->second;
-			Registerize::REGISTER_KIND phiKind = Registerize::getRegKindFromType(incoming->getType(), asmjs);
+			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromType(incoming->getType(), asmjs);
 			for(unsigned i=0;i<registers.size();i++)
 			{
 				if(registers[i].regKind != phiKind)
@@ -546,12 +546,12 @@ uint32_t Registerize::findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& 
 	return registers.size()-1;
 }
 
-Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, bool asmjs)
+Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, bool asmjs) const
 {
 	if(t->isIntegerTy())
 		return INTEGER;
 	// We distinguish between FLOAT and DOUBLE only in asm.js functions
-	else if(asmjs && t->isFloatTy())
+	else if(asmjs && useFloats && t->isFloatTy())
 		return FLOAT;
 	else if(t->isFloatingPointTy())
 		return DOUBLE;
@@ -988,9 +988,9 @@ void Registerize::invalidateLiveRangeForAllocas(llvm::Function& F)
 	}
 }
 
-ModulePass* createRegisterizePass(bool NoRegisterize)
+ModulePass* createRegisterizePass(bool useFloats, bool NoRegisterize)
 {
-	return new Registerize(NoRegisterize);
+	return new Registerize(useFloats, NoRegisterize);
 }
 
 }

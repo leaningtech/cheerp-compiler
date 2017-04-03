@@ -50,7 +50,7 @@ void CheerpWriter::compileSimpleType(Type* t)
 		}
 		case Type::FloatTyID:
 		{
-			if(currentFun && currentFun->getSection()==StringRef("asmjs"))
+			if(useMathFround)
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << "(0.)";
 				break;
