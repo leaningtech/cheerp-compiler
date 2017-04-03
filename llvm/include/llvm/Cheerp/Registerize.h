@@ -88,6 +88,23 @@ public:
 
 	// Registers should have a consistent JS type
 	enum REGISTER_KIND { OBJECT=0, INTEGER, DOUBLE, FLOAT };
+
+	struct RegisterInfo
+	{
+		// Try to save bits, we may need more flags here
+		const REGISTER_KIND regKind : 2;
+		int needsSecondaryName : 1;
+		RegisterInfo(REGISTER_KIND k, bool n):regKind(k),needsSecondaryName(n)
+		{
+		}
+	};
+
+	const std::vector<RegisterInfo>& getRegistersForFunction(const llvm::Function* F) const
+	{
+		assert(registersForFunctionMap.count(F));
+		return registersForFunctionMap.find(F)->second;
+	}
+
 	REGISTER_KIND getRegKindFromType(const llvm::Type*, bool asmjs) const;
 
 	// Context used to disambiguate temporary values used in PHI resolution
@@ -130,6 +147,7 @@ private:
 	std::unordered_map<const llvm::Instruction*, uint32_t> registersMap;
 	std::unordered_map<InstOnEdge, uint32_t, InstOnEdge::Hash> edgeRegistersMap;
 	std::unordered_map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
+	std::unordered_map<const llvm::Function*, std::vector<RegisterInfo>> registersForFunctionMap;
 	struct EdgeContext
 	{
 		const llvm::BasicBlock* fromBB;
@@ -185,8 +203,8 @@ private:
 	struct RegisterRange
 	{
 		LiveRange range;
-		REGISTER_KIND regKind;
-		RegisterRange(const LiveRange& range, REGISTER_KIND k):range(range),regKind(k)
+		RegisterInfo info;
+		RegisterRange(const LiveRange& range, REGISTER_KIND k, bool n):range(range),info(k, n)
 		{
 		}
 	};
@@ -278,8 +296,8 @@ private:
 	uint32_t assignToRegisters(llvm::Function& F, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA);
 	void handlePHI(llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA);
 	uint32_t findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
-					REGISTER_KIND kind);
-	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind);
+					REGISTER_KIND kind, bool needsSecondaryName);
+	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind, bool needsSecondaryName);
 	void computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMapTy& instIdMap);
 	typedef std::set<llvm::Instruction*, CompareInstructionByID> InstructionSetOrderedByID;
 	InstructionSetOrderedByID gatherDerivedMemoryAccesses(const llvm::AllocaInst* rootI, const InstIdMapTy& instIdMap);

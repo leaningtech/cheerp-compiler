@@ -235,16 +235,14 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			uint32_t registerId = namegen.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
-			if (registerId >= thisFunctionLocals.size())
-				thisFunctionLocals.resize(registerId+1);
+			assert(registerId < thisFunctionLocals.size());
 			useLocalPair& regData = thisFunctionLocals[registerId];
 			// Assume it is used once
 			regData.first++;
 			// Set the register information if required
-			if(regData.second.argOrFunc == nullptr)
-				regData.second = localData{incoming->getParent()->getParent(), registerId, false};
-			if(namegen.needsSecondaryName(incoming, namegen.PA))
-				regData.second.needsSecondaryName = true;
+			assert(regData.second.argOrFunc);
+			if(cheerp::needsSecondaryName(incoming, namegen.PA))
+				assert(regData.second.needsSecondaryName);
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
@@ -309,8 +307,14 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		if ( f.empty() ) 
 			continue;
 
-		// Local values are all stored in registers
+		// The first part of this vector is for register based locals, after those there are arguments
 		useLocalVec thisFunctionLocals;
+		const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&f);
+		thisFunctionLocals.reserve(regsInfo.size());
+		for(unsigned regId = 0; regId < regsInfo.size(); regId++)
+		{
+			thisFunctionLocals.emplace_back(0, localData{&f, regId, bool(regsInfo[regId].needsSecondaryName)});
+		}
 
 		// Insert all the instructions
 		for (const BasicBlock & bb : f)
@@ -320,16 +324,13 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 				if ( needsName(I, PA) )
 				{
 					uint32_t registerId = registerize.getRegisterId(&I);
-					if (registerId >= thisFunctionLocals.size())
-						thisFunctionLocals.resize(registerId+1);
+					assert(registerId < thisFunctionLocals.size());
 					useLocalPair& regData = thisFunctionLocals[registerId];
 					// Add the uses for this instruction to the total count for the register
 					regData.first+=I.getNumUses();
-					// Set the register information if required
-					if(regData.second.argOrFunc == nullptr)
-						regData.second = localData{&f, registerId, false};
+					assert(regData.second.argOrFunc);
 					if(needsSecondaryName(&I, PA))
-						regData.second.needsSecondaryName = true;
+						assert(	regData.second.needsSecondaryName);
 				}
 			}
 			// Handle the special names required for the edges between blocks
@@ -506,43 +507,13 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 
 void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnalyzer& gda)
 {
-	// Class to handle giving names to temporary variables needed for recursively dependent PHIs
-	class ReadablePHIHandler: public EndOfBlockPHIHandler
-	{
-	public:
-		ReadablePHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n ):
-			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n)
-		{
-		}
-	private:
-		const BasicBlock* fromBB;
-		const BasicBlock* toBB;
-		NameGenerator& namegen;
-		void handleRecursivePHIDependency(const Instruction* incoming) override
-		{
-			uint32_t registerId=namegen.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
-			const Function& f = *incoming->getParent()->getParent();
-			auto regNameIt = namegen.regNamemap.find(std::make_pair(&f, registerId));
-			StringRef primaryName;
-			if(regNameIt != namegen.regNamemap.end())
-			{
-				primaryName = regNameIt->second;
-			}
-			else
-			{
-				auto& name = namegen.regNamemap.emplace( std::make_pair(&f, registerId), StringRef( "tmpphi" + std::to_string(registerId) ) ).first->second;
-				primaryName = name;
-			}
-			if(namegen.needsSecondaryName(incoming, namegen.PA))
-				namegen.regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((primaryName+"o").str()));
-		}
-		void handlePHI(const Instruction* phi, const Value* incoming) override
-		{
-			// Nothing to do here, we have already given names to all PHIs
-		}
-	};
 	for (const Function & f : M.getFunctionList() )
 	{
+		namemap.emplace( &f, filterLLVMName( f.getName(), GLOBAL ) );
+		if ( f.empty() )
+			continue;
+		const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&f);
+		std::vector<bool> doneRegisters(regsInfo.size(), false);
 		for (const BasicBlock & bb : f)
 		{
 			for (const Instruction & I : bb)
@@ -550,35 +521,27 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 				if ( needsName(I, PA) )
 				{
 					uint32_t registerId = registerize.getRegisterId(&I);
-					// If the register already has a name, use it
-					// Otherwise assign one as good as possible and assign it to the register as well
-					auto regNameIt = regNamemap.find(std::make_pair(&f, registerId));
-					StringRef primaryName;
-					if(regNameIt != regNamemap.end())
-					{
-						primaryName = regNameIt->second;
-					}
-					else if ( I.hasName() )
-					{
-						auto& name = regNamemap.emplace( std::make_pair(&f, registerId), filterLLVMName(I.getName(), LOCAL) ).first->second;
-						primaryName = name;
-					}
-					else
-					{
-						auto& name = regNamemap.emplace( std::make_pair(&f, registerId), StringRef( "tmp" + std::to_string(registerId) ) ).first->second;
-						primaryName = name;
-					}
-					if(needsSecondaryName(&I, PA))
-						regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((primaryName+"o").str()));
+					if(doneRegisters[registerId])
+						continue;
+					if (!I.hasName())
+						continue;
+					// If this instruction has a name, use it
+					auto& name = regNamemap.emplace( std::make_pair(&f, registerId), filterLLVMName(I.getName(), LOCAL) ).first->second;
+					if(regsInfo[registerId].needsSecondaryName)
+						regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((name+"o").str()));
+					doneRegisters[registerId] = true;
 				}
 			}
-			// Handle the special names required for the edges between blocks
-			const TerminatorInst* term=bb.getTerminator();
-			for(uint32_t i=0;i<term->getNumSuccessors();i++)
-			{
-				const BasicBlock* succBB=term->getSuccessor(i);
-				ReadablePHIHandler(&bb, succBB, *this).runOnEdge(registerize, &bb, succBB);
-			}
+		}
+
+		// Assign a name to any register which still needs one
+		for(unsigned registerId=0;registerId<regsInfo.size();registerId++)
+		{
+			if(doneRegisters[registerId])
+				continue;
+			auto& name = regNamemap.emplace( std::make_pair(&f, registerId), StringRef( "tmp" + std::to_string(registerId) ) ).first->second;
+			if(regsInfo[registerId].needsSecondaryName)
+				regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((name+"o").str()));
 		}
 
 		for ( auto arg_it = f.arg_begin(); arg_it != f.arg_end(); ++arg_it )
@@ -597,8 +560,6 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 					secondaryNamemap.emplace( arg_it, StringRef( "Marg" + std::to_string(arg_it->getArgNo()) ) );
 			}
 		}
-			
-		namemap.emplace( &f, filterLLVMName( f.getName(), GLOBAL ) );
 	}
 
 	for (const GlobalVariable & GV : M.getGlobalList() )
@@ -661,15 +622,6 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) const
 {
 	return !isInlineable(I, PA) && !I.getType()->isVoidTy() && !I.use_empty();
-}
-
-bool NameGenerator::needsSecondaryName(const Value* V, const PointerAnalyzer& PA) const
-{
-	if(!V->getType()->isPointerTy())
-		return false;
-	if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
-		return true;
-	return false;
 }
 
 }

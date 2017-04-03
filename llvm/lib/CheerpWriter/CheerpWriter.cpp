@@ -4244,7 +4244,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 				localsFound.resize(regId+1, NOT_DONE);
 			if(localsFound[regId]==SECONDARY_NAME_DONE)
 				continue;
-			bool needsSecondaryName = namegen.needsSecondaryName(&I, PA);
+			bool needsSecondaryName = cheerp::needsSecondaryName(&I, PA);
 			if(localsFound[regId]<NAME_DONE)
 			{
 				if(firstVar)
@@ -4287,7 +4287,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 					localsFound.resize(regId+1, NOT_DONE);
 				if(localsFound[regId]==SECONDARY_NAME_DONE)
 					return;
-				bool needsSecondaryName = writer.namegen.needsSecondaryName(incoming, PA);
+				bool needsSecondaryName = cheerp::needsSecondaryName(incoming, PA);
 				if(localsFound[regId]<NAME_DONE)
 				{
 					if(firstVar)
