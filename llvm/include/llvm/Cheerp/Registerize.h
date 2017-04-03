@@ -61,7 +61,7 @@ public:
 
 	static char ID;
 	
-	explicit Registerize(bool n = false) : ModulePass(ID), NoRegisterize(n)
+	explicit Registerize(bool useFloats = false, bool n = false) : ModulePass(ID), NoRegisterize(n), useFloats(useFloats)
 #ifndef NDEBUG
 			, RegistersAssigned(false)
 #endif
@@ -88,7 +88,7 @@ public:
 
 	// Registers should have a consistent JS type
 	enum REGISTER_KIND { OBJECT=0, INTEGER, DOUBLE, FLOAT };
-	static REGISTER_KIND getRegKindFromType(const llvm::Type*, bool asmjs);
+	REGISTER_KIND getRegKindFromType(const llvm::Type*, bool asmjs) const;
 
 	// Context used to disambiguate temporary values used in PHI resolution
 	void setEdgeContext(const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB)
@@ -149,6 +149,7 @@ private:
 	};
 	EdgeContext edgeContext;
 	bool NoRegisterize;
+	bool useFloats;
 #ifndef NDEBUG
 	bool RegistersAssigned;
 #endif
@@ -332,7 +333,7 @@ private:
 	void assignRegistersToInstructions(llvm::Function& F, cheerp::PointerAnalyzer& PA);
 };
 
-llvm::ModulePass *createRegisterizePass(bool NoRegisterize);
+llvm::ModulePass *createRegisterizePass(bool useFloats, bool NoRegisterize);
 
 }
 
