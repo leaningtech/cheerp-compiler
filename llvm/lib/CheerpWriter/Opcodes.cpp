@@ -208,7 +208,7 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 	{
 		PARENT_PRIORITY prio = TERNARY;
 		bool asmjs = currentFun && currentFun->getSection() == StringRef("asmjs");
-		Registerize::REGISTER_KIND regKind = Registerize::getRegKindFromType(lhs->getType(),asmjs);
+		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(lhs->getType(),asmjs);
 		if(needsIntCoercion(regKind, parentPrio))
 			prio = BIT_OR;
 		compileOperand(lhs, prio);
