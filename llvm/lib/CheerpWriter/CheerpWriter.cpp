@@ -4223,98 +4223,25 @@ void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND
 void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 {
 	// Declare are all used locals in the beginning
-	enum LOCAL_STATE { NOT_DONE, NAME_DONE, SECONDARY_NAME_DONE };
-	std::vector<LOCAL_STATE> localsFound;
 	bool firstVar = true;
-	bool asmjs = F.getSection() == StringRef("asmjs");
 	if(needsLabel)
 	{
 		stream << "var label=0";
 		firstVar = false;
 	}
-	for(const BasicBlock& BB: F)
+	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
+	for(unsigned int regId = 0; regId < regsInfo.size(); regId++)
 	{
-		for(const Instruction& I: BB)
+		if(firstVar)
+			stream << "var ";
+		else
+			stream << ',';
+		compileMethodLocal(namegen.getName(&F, regId), regsInfo[regId].regKind);
+		firstVar = false;
+		if(regsInfo[regId].needsSecondaryName)
 		{
-			if (!namegen.needsName(I, PA))
-				continue;
-			// Get the register
-			uint32_t regId = registerize.getRegisterId(&I);
-			if(localsFound.size() <= regId)
-				localsFound.resize(regId+1, NOT_DONE);
-			if(localsFound[regId]==SECONDARY_NAME_DONE)
-				continue;
-			bool needsSecondaryName = cheerp::needsSecondaryName(&I, PA);
-			if(localsFound[regId]<NAME_DONE)
-			{
-				if(firstVar)
-					stream << "var ";
-				else
-					stream << ',';
-				compileMethodLocal(namegen.getName(&I), registerize.getRegKindFromType(I.getType(), asmjs));
-				firstVar = false;
-				localsFound[regId]=NAME_DONE;
-			}
-			if(localsFound[regId]<SECONDARY_NAME_DONE && needsSecondaryName)
-			{
-				stream << ',';
-				compileMethodLocal(namegen.getSecondaryName(&I),Registerize::INTEGER);
-				localsFound[regId]=SECONDARY_NAME_DONE;
-			}
-		}
-		// Handle the registers required for the edges between blocks
-		class LocalsPHIHandler: public EndOfBlockPHIHandler
-		{
-		public:
-			LocalsPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t, std::vector<LOCAL_STATE>& l, bool& v):
-				EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t),localsFound(l),firstVar(v)
-			{
-			}
-			~LocalsPHIHandler()
-			{
-			}
-		private:
-			CheerpWriter& writer;
-			const BasicBlock* fromBB;
-			const BasicBlock* toBB;
-			std::vector<LOCAL_STATE>& localsFound;
-			bool& firstVar;
-			void handleRecursivePHIDependency(const Instruction* incoming) override
-			{
-				bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
-				uint32_t regId = writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
-				if(localsFound.size() <= regId)
-					localsFound.resize(regId+1, NOT_DONE);
-				if(localsFound[regId]==SECONDARY_NAME_DONE)
-					return;
-				bool needsSecondaryName = cheerp::needsSecondaryName(incoming, PA);
-				if(localsFound[regId]<NAME_DONE)
-				{
-					if(firstVar)
-						writer.stream << "var ";
-					else
-						writer.stream << ',';
-					writer.compileMethodLocal(writer.namegen.getNameForEdge(incoming, fromBB, toBB),
-							writer.registerize.getRegKindFromType(incoming->getType(), asmjs));
-					firstVar = false;
-					localsFound[regId]=NAME_DONE;
-				}
-				if(localsFound[regId]<SECONDARY_NAME_DONE && needsSecondaryName)
-				{
-					writer.stream << ',';
-					writer.compileMethodLocal(writer.namegen.getSecondaryNameForEdge(incoming, fromBB, toBB),Registerize::INTEGER);
-					localsFound[regId]=SECONDARY_NAME_DONE;
-				}
-			}
-			void handlePHI(const Instruction* phi, const Value* incoming) override
-			{
-			}
-		};
-		const TerminatorInst* term=BB.getTerminator();
-		for(uint32_t i=0;i<term->getNumSuccessors();i++)
-		{
-			const BasicBlock* succBB=term->getSuccessor(i);
-			LocalsPHIHandler(*this, &BB, succBB, localsFound, firstVar).runOnEdge(registerize, &BB, succBB);
+			stream << ',';
+			compileMethodLocal(namegen.getSecondaryName(&F, regId), Registerize::INTEGER);
 		}
 	}
 	if(!firstVar)
