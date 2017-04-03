@@ -398,15 +398,15 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		if(registersMap.count(I))
 			continue;
 		bool asmjs = I->getParent()->getParent()->getSection()==StringRef("asmjs");
-		uint32_t chosenRegister=findOrCreateRegister(registers, range, getRegKindFromType(I->getType(), asmjs));
+		uint32_t chosenRegister=findOrCreateRegister(registers, range, getRegKindFromType(I->getType(), asmjs), cheerp::needsSecondaryName(I, PA));
 		registersMap[I] = chosenRegister;
 	}
 	// Assign registers for temporary values required to break loops in PHIs
 	class RegisterizePHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		RegisterizePHIHandler(const BasicBlock* f, const BasicBlock* t, Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs, const InstIdMapTy& i, const PointerAnalyzer& PA):
-			EndOfBlockPHIHandler(PA), fromBB(f), toBB(t), registerize(r), registers(rs), instIdMap(i)
+		RegisterizePHIHandler(const BasicBlock* f, const BasicBlock* t, Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs, const InstIdMapTy& i, const PointerAnalyzer& _PA):
+			EndOfBlockPHIHandler(_PA), fromBB(f), toBB(t), registerize(r), PA(_PA),registers(rs),  instIdMap(i)
 		{
 			// We can't use twice the same tmpphi in the same edge
 			// TODO: It could be possible in some cases but we need to keep track of subgroups of dependencies
@@ -416,6 +416,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		const BasicBlock* fromBB;
 		const BasicBlock* toBB;
 		Registerize& registerize;
+		const PointerAnalyzer& PA;
 		llvm::SmallVector<RegisterRange, 4>& registers;
 		const InstIdMapTy& instIdMap;
 		std::vector<bool> usedRegisters;
@@ -427,7 +428,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromType(incoming->getType(), asmjs);
 			for(unsigned i=0;i<registers.size();i++)
 			{
-				if(registers[i].regKind != phiKind)
+				if(registers[i].info.regKind != phiKind)
 					continue;
 				if(usedRegisters[i])
 					continue;
@@ -440,13 +441,14 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 					continue;
 				// We can use this register for the tmpphi, make sure we don't use it twice
 				usedRegisters[i] = true;
+				registers[i].info.needsSecondaryName |= cheerp::needsSecondaryName(incoming, PA);
 				registerize.edgeRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), i));
 				return;
 			}
 			// Create a register which will have an empty live range
 			// It is not a problem since we mark it as used in the block
 			uint32_t chosenReg = registers.size();
-			registers.push_back(RegisterRange(LiveRange(), phiKind));
+			registers.push_back(RegisterRange(LiveRange(), phiKind, cheerp::needsSecondaryName(incoming, PA)));
 			usedRegisters.push_back(true);
 			registerize.edgeRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), chosenReg));
 		}
@@ -477,6 +479,11 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 #ifndef NDEBUG
 	RegistersAssigned = false;
 #endif
+	// Populate the final register list for the function
+	std::vector<RegisterInfo>& regsInfo = registersForFunctionMap[&F];
+	regsInfo.reserve(registers.size());
+	for(unsigned int i=0;i<registers.size();i++)
+		regsInfo.push_back(registers[i].info);
 	return registers.size();
 }
 
@@ -501,7 +508,8 @@ void Registerize::handlePHI(Instruction& I, const LiveRangesTy& liveRanges, llvm
 				continue;
 			uint32_t operandRegister=registersMap[usedI];
 			if(addRangeToRegisterIfPossible(registers[operandRegister], PHIrange,
-							getRegKindFromType(usedI->getType(), asmjs)))
+							getRegKindFromType(usedI->getType(), asmjs),
+							cheerp::needsSecondaryName(usedI, PA)))
 			{
 				chosenRegister=operandRegister;
 				break;
@@ -510,7 +518,7 @@ void Registerize::handlePHI(Instruction& I, const LiveRangesTy& liveRanges, llvm
 	}
 	// If a register has not been chosen yet, find or create a new one
 	if(chosenRegister==0xffffffff)
-		chosenRegister=findOrCreateRegister(registers, PHIrange, getRegKindFromType(I.getType(), asmjs));
+		chosenRegister=findOrCreateRegister(registers, PHIrange, getRegKindFromType(I.getType(), asmjs), cheerp::needsSecondaryName(&I, PA));
 	registersMap[&I]=chosenRegister;
 	// Iterate again on the operands and try to map as many as possible into the same register
 	for(Value* op: I.operands())
@@ -524,7 +532,8 @@ void Registerize::handlePHI(Instruction& I, const LiveRangesTy& liveRanges, llvm
 			continue;
 		const InstructionLiveRange& opRange=liveRanges.find(usedI)->second;
 		bool spaceFound=addRangeToRegisterIfPossible(registers[chosenRegister], opRange,
-								getRegKindFromType(usedI->getType(), asmjs));
+								getRegKindFromType(usedI->getType(), asmjs),
+								cheerp::needsSecondaryName(usedI, PA));
 		if (spaceFound)
 		{
 			// Update the mapping
@@ -534,15 +543,15 @@ void Registerize::handlePHI(Instruction& I, const LiveRangesTy& liveRanges, llvm
 }
 
 uint32_t Registerize::findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
-						REGISTER_KIND kind)
+						REGISTER_KIND kind, bool needsSecondaryName)
 {
 	for(uint32_t i=0;i<registers.size();i++)
 	{
-		if(addRangeToRegisterIfPossible(registers[i], range, kind))
+		if(addRangeToRegisterIfPossible(registers[i], range, kind, needsSecondaryName))
 			return i;
 	}
 	// Create a new register with the range of the current instruction already used
-	registers.push_back(RegisterRange(range.range, kind));
+	registers.push_back(RegisterRange(range.range, kind, needsSecondaryName));
 	return registers.size()-1;
 }
 
@@ -615,13 +624,14 @@ void Registerize::LiveRange::dump() const
 }
 
 bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange,
-						REGISTER_KIND kind)
+						REGISTER_KIND kind, bool needsSecondaryName)
 {
-	if(regRange.regKind!=kind)
+	if(regRange.info.regKind!=kind)
 		return false;
 	if(regRange.range.doesInterfere(liveRange.range))
 		return false;
 	regRange.range.merge(liveRange.range);
+	regRange.info.needsSecondaryName |= needsSecondaryName;
 	return true;
 }
 
