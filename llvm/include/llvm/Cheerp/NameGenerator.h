@@ -54,15 +54,18 @@ public:
 	llvm::StringRef getName(const llvm::Value* v) const
 	{
 		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
-		{
-			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I));
-			assert(regNamemap.count(valData));
-			assert(!regNamemap.at(valData).empty());
-			return regNamemap.at(valData);
-		}
+			return getName(I->getParent()->getParent(), registerize.getRegisterId(I));
 		assert(namemap.count(v) );
 		assert(! namemap.at(v).empty() );
 		return namemap.at(v);
+	}
+
+	llvm::StringRef getName(const llvm::Function* F, uint32_t regId) const
+	{
+		std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(F, regId);
+		assert(regNamemap.count(valData));
+		assert(!regNamemap.at(valData).empty());
+		return regNamemap.at(valData);
 	}
 
 	/**
@@ -71,15 +74,18 @@ public:
 	llvm::StringRef getSecondaryName(const llvm::Value* v) const
 	{
 		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
-		{
-			std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(I->getParent()->getParent(), registerize.getRegisterId(I));
-			assert(regSecondaryNamemap.count(valData));
-			assert(!regSecondaryNamemap.at(valData).empty());
-			return regSecondaryNamemap.at(valData);
-		}
+			return getSecondaryName(I->getParent()->getParent(), registerize.getRegisterId(I));
 		assert(secondaryNamemap.count(v) );
 		assert(!secondaryNamemap.at(v).empty());
 		return secondaryNamemap.at(v);
+	}
+
+	llvm::StringRef getSecondaryName(const llvm::Function* F, uint32_t regId) const
+	{
+		std::pair<const llvm::Function*, uint32_t> valData = std::make_pair(F, regId);
+		assert(regSecondaryNamemap.count(valData));
+		assert(!regSecondaryNamemap.at(valData).empty());
+		return regSecondaryNamemap.at(valData);
 	}
 
 	/**
