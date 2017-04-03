@@ -732,6 +732,15 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	}
 }
 
+bool needsSecondaryName(const Value* V, const PointerAnalyzer& PA)
+{
+	if(!V->getType()->isPointerTy())
+		return false;
+	if(PA.getPointerKind(V) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(V))
+		return true;
+	return false;
+}
+
 }
 
 namespace llvm

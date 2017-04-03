@@ -140,7 +140,6 @@ public:
 
 	// Determine if an instruction actually needs a name
 	bool needsName(const llvm::Instruction &, const PointerAnalyzer& PA) const;
-	bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA) const;
 
 private:
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
