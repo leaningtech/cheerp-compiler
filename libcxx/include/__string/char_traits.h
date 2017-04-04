@@ -129,7 +129,7 @@ struct _LIBCPP_DEPRECATED_("char_traits<T> for T not equal to char, wchar_t, cha
             for (; __n; --__n, ++__s1, ++__s2)
                 assign(*__s1, *__s2);
         }
-        else if (__s2 < __s1)
+        else if (__s2 <= __s1)
         {
             __s1 += __n;
             __s2 += __n;
