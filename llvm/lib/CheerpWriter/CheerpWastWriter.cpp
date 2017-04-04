@@ -123,6 +123,7 @@ assert(false);
 	writer->stream << 'L' << labelId << ':';
 #endif
 }
+
 void CheerpWastRenderInterface::renderSwitchOnLabel()
 {
 assert(false);
@@ -133,6 +134,7 @@ assert(false);
 	writer->stream << "){" << NewLine;
 #endif
 }
+
 void CheerpWastRenderInterface::renderCaseOnLabel(int labelId)
 {
 assert(false);
@@ -141,6 +143,7 @@ assert(false);
 	writer->stream << labelId << ":{" << NewLine;
 #endif
 }
+
 void CheerpWastRenderInterface::renderSwitchBlockBegin(const void* privateBranchVar)
 {
 assert(false);
@@ -154,6 +157,7 @@ assert(false);
 	writer->stream << "){" << NewLine;
 #endif
 }
+
 void CheerpWastRenderInterface::renderCaseBlockBegin(const void* privateBlock, int branchId)
 {
 assert(false);
@@ -184,6 +188,7 @@ assert(false);
 	writer->stream << '{' << NewLine;
 #endif
 }
+
 void CheerpWastRenderInterface::renderDefaultBlockBegin()
 {
 assert(false);
@@ -191,17 +196,20 @@ assert(false);
 	writer->stream << "default:{" << NewLine;
 #endif
 }
+
 void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, int branchId, bool first)
 {
-assert(false);
-#if 0
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
+	// The condition goes first
+	renderCondition(bb, branchId);
+	writer->stream << '\n';
+	assert(first);
+#if 0
 	if(!first)
 		writer->stream << "}else ";
-	writer->stream << "if(";
-	renderCondition(bb, branchId, CheerpWriter::LOWEST);
-	writer->stream << "){" << NewLine;
 #endif
+	writer->stream << "if\n";
+	blockTypes.push_back(IF);
 }
 
 void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first)
@@ -371,6 +379,16 @@ assert(false);
 #endif
 }
 
+bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
+{
+	const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
+	if(!incomingInst)
+		return true;
+	return isInlineable(*incomingInst, PA) ||
+		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst);
+}
+
+
 bool CheerpWastWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from)
 {
 	class PHIHandler: public EndOfBlockPHIHandler
@@ -390,10 +408,7 @@ bool CheerpWastWriter::needsPointerKindConversionForBlocks(const BasicBlock* to,
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
-assert(false);
-#if 0
 			needsPointerKindConversion |= writer.needsPointerKindConversion(phi, incoming);
-#endif
 		}
 	};
 
@@ -431,18 +446,15 @@ assert(false);
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
-assert(false);
-#if 0
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(!writer.needsPointerKindConversion(phi, incoming))
 				return;
-			Type* phiType=phi->getType();
-			writer.stream << writer.namegen.getName(phi) << '=';
-			writer.namegen.setEdgeContext(fromBB, toBB);
-			writer.compileOperand(incoming, LOWEST);
-			writer.stream << ';' << writer.NewLine;
-			writer.namegen.clearEdgeContext();
-#endif
+			// 1) Put the value on the stack
+			writer.registerize.setEdgeContext(fromBB, toBB);
+			writer.compileOperand(incoming);
+			writer.registerize.clearEdgeContext();
+			// 2) Save the value in the phi
+			writer.stream << "\nset_local " << (writer.currentFun->arg_size() + writer.registerize.getRegisterId(phi)) << '\n';
 		}
 	};
 	WriterPHIHandler(*this, from, to).runOnEdge(registerize, from, to);
@@ -450,7 +462,7 @@ assert(false);
 
 const char* CheerpWastWriter::getTypeString(Type* t)
 {
-	if(t->isIntegerTy(32))
+	if(t->isIntegerTy() || t->isPointerTy())
 		return "i32";
 	else
 	{
@@ -459,15 +471,74 @@ const char* CheerpWastWriter::getTypeString(Type* t)
 	}
 }
 
+void CheerpWastWriter::compileConstantExpr(const ConstantExpr* ce)
+{
+	switch(ce->getOpcode())
+	{
+		case Instruction::GetElementPtr:
+		{
+			stream << "i32.const 0";
+			//compileGEP(ce, PA.getPointerKind(ce));
+			break;
+		}
+#if 0
+		case Instruction::BitCast:
+		{
+			POINTER_KIND k = PA.getPointerKind(ce);
+			compileBitCast(ce, k);
+			break;
+		}
+		case Instruction::IntToPtr:
+		{
+			// NOTE: This is necessary for virtual inheritance. It should be made type safe.
+			compileOperand(ce->getOperand(0));
+			break;
+		}
+		case Instruction::PtrToInt:
+		{
+			compilePtrToInt(ce->getOperand(0));
+			break;
+		}
+		case Instruction::ICmp:
+		{
+			compileIntegerComparison(ce->getOperand(0), ce->getOperand(1), (CmpInst::Predicate)ce->getPredicate(), HIGHEST);
+			break;
+		}
+		case Instruction::Select:
+		{
+			compileSelect(ce, ce->getOperand(0), ce->getOperand(1), ce->getOperand(2), HIGHEST);
+			break;
+		}
+		case Instruction::Sub:
+		{
+			compileSubtraction(ce->getOperand(0), ce->getOperand(1), HIGHEST);
+			break;
+		}
+#endif
+		default:
+			stream << "undefined";
+			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
+	}
+}
+
 void CheerpWastWriter::compileConstant(const Constant* c)
 {
-	if(const ConstantInt* i=dyn_cast<ConstantInt>(c))
+	if(const ConstantExpr* CE = dyn_cast<ConstantExpr>(c))
+	{
+		compileConstantExpr(CE);
+	}
+	else if(const ConstantInt* i=dyn_cast<ConstantInt>(c))
 	{
 		stream << getTypeString(i->getType()) << ".const ";
 		if(i->getBitWidth()==32)
 			stream << i->getSExtValue();
 		else
 			stream << i->getZExtValue();
+	}
+	else
+	{
+		c->dump();
+		assert(false);
 	}
 }
 
@@ -480,7 +551,11 @@ void CheerpWastWriter::compileOperand(const llvm::Value* v)
 		if(isInlineable(*it, PA))
 			compileInstruction(*it);
 		else
-			stream << "get_local " << registerize.getRegisterId(it);
+			stream << "get_local " << (currentFun->arg_size() + registerize.getRegisterId(it));
+	}
+	else if(const Argument* arg=dyn_cast<Argument>(v))
+	{
+		stream << "get_local " << arg->getArgNo();
 	}
 	else
 	{
@@ -511,7 +586,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			// 3) Substract the size
 			stream << "i32.sub\n";
 			// 4) Write the location to the local, but preserve the value
-			stream << "tee_local " << registerize.getRegisterId(&I) << '\n';
+			stream << "tee_local " << (currentFun->arg_size() + registerize.getRegisterId(&I)) << '\n';
 			// 5) Save the new stack position
 			stream << "set_global " << stackTopGlobal << '\n';
 			return true;
@@ -528,8 +603,24 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		case Instruction::Br:
 			break;
 		case Instruction::Call:
-			stream << "__CALL__";
-			break;
+		{
+			const CallInst& ci = cast<CallInst>(I);
+			const Function * calledFunc = ci.getCalledFunction();
+			const Value * calledValue = ci.getCalledValue();
+			const PointerType* pTy = cast<PointerType>(calledValue->getType());
+			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+			assert(!ci.isInlineAsm());
+			assert(!fTy->isVarArg());
+			assert(calledFunc);
+			assert(functionIds.count(calledFunc));
+			for(unsigned i=0;i<ci.getNumArgOperands();i++)
+			{
+				compileOperand(ci.getOperand(i));
+				stream << '\n';
+			}
+			stream << "call " << functionIds[calledFunc] << '\n';
+			return true;
+		}
 		case Instruction::ICmp:
 		{
 			const CmpInst& ci = cast<CmpInst>(I);
@@ -541,6 +632,9 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << getTypeString(ci.getOperand(0)->getType()) << '.';
 			switch(ci.getPredicate())
 			{
+				case CmpInst::ICMP_EQ:
+					stream << "eq";
+					break;
 				case CmpInst::ICMP_SLT:
 					stream << "lt_s";
 					break;
@@ -576,6 +670,12 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << getTypeString(valOp->getType()) << ".store\n";
 			break;
 		}
+		case Instruction::Trunc:
+		{
+			// TODO: We need to mask the value
+			compileOperand(I.getOperand(0));
+			break;
+		}
 		case Instruction::Ret:
 		{
 			// TODO: Restore old stack
@@ -587,6 +687,12 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				stream << '\n';
 			}
 			stream << "return";
+			break;
+		}
+		case Instruction::ZExt:
+		{
+			// TODO: We may need to mask the value
+			compileOperand(I.getOperand(0));
 			break;
 		}
 		default:
@@ -622,70 +728,32 @@ void CheerpWastWriter::compileBB(const BasicBlock& BB)
 		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
 		{
 			if(!compileInstruction(*I) && !I->getType()->isVoidTy() && !I->use_empty())
-				stream << "\nset_local " << registerize.getRegisterId(I) << '\n';
+				stream << "\nset_local " << (currentFun->arg_size() + registerize.getRegisterId(I)) << '\n';
 		}
 	}
 }
 
 void CheerpWastWriter::compileMethodLocals(const Function& F)
 {
-	// Declare are all used locals in the beginning
-	enum LOCAL_STATE { NOT_DONE, NAME_DONE, SECONDARY_NAME_DONE };
-	// Keept track of already found registers
-	std::vector<std::pair<Registerize::REGISTER_KIND, bool>> localsFound;
-	for(const BasicBlock& BB: F)
-	{
-		for(const Instruction& I: BB)
-		{
-			if (isInlineable(I, PA) || I.use_empty())
-				continue;
-			// Get the register
-			uint32_t regId = registerize.getRegisterId(&I);
-			if(localsFound.size() <= regId)
-				localsFound.resize(regId+1);
-			if(localsFound[regId].second)
-				continue;
-			localsFound[regId] = std::make_pair(registerize.getRegKindFromType(I.getType(), false),true);
-		}
-		// Handle the special names required for the edges between blocks
-		class LocalsPHIHandler: public EndOfBlockPHIHandler
-		{
-		public:
-			LocalsPHIHandler(CheerpWastWriter& w):EndOfBlockPHIHandler(w.PA)
-			{
-			}
-			~LocalsPHIHandler()
-			{
-			}
-		private:
-			void handleRecursivePHIDependency(const Instruction* incoming) override
-			{
-				// TODO: Migrate tmpphis to registerize
-				assert(false);
-			}
-			void handlePHI(const Instruction* phi, const Value* incoming) override
-			{
-			}
-		};
-		const TerminatorInst* term=BB.getTerminator();
-		for(uint32_t i=0;i<term->getNumSuccessors();i++)
-		{
-			const BasicBlock* succBB=term->getSuccessor(i);
-			LocalsPHIHandler(*this).runOnEdge(registerize, &BB, succBB);
-		}
-	}
-	if(localsFound.empty())
+	uint32_t numArgs = F.arg_size();
+	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
+	uint32_t numRegs = regsInfo.size();
+	if(numArgs == 0 && numRegs == 0)
 		return;
 	stream << "(local";
-	for(auto& it: localsFound)
+	// First we emit the parameters
+	llvm::FunctionType* FTy = F.getFunctionType();
+	for(uint32_t i = 0; i < numArgs; i++)
+		stream << ' ' << getTypeString(FTy->getParamType(i));
+	// Then we emit the registers, careful as the registerize id is now offset by the number of args
+	for(const Registerize::RegisterInfo& regInfo: regsInfo)
 	{
-		assert(it.second);
 		stream << ' ';
-		switch(it.first)
+		assert(regInfo.regKind != Registerize::OBJECT);
+		assert(!regInfo.needsSecondaryName);
+		switch(regInfo.regKind)
 		{
 			case Registerize::INTEGER:
-			// TODO: This should be fixed in Registerize
-			case Registerize::OBJECT:
 				stream << "i32";
 				break;
 			default:
@@ -697,9 +765,18 @@ void CheerpWastWriter::compileMethodLocals(const Function& F)
 
 void CheerpWastWriter::compileMethod(const Function& F)
 {
+	currentFun = &F;
 	stream << "(func ";
 	// TODO: We should not export them all
 	stream << "(export \"" << F.getName() << "\")";
+	if(uint32_t numArgs = F.arg_size())
+	{
+		stream << "(param";
+		llvm::FunctionType* FTy = F.getFunctionType();
+		for(uint32_t i = 0; i < numArgs; i++)
+			stream << ' ' << getTypeString(FTy->getParamType(i));
+		stream << ')';
+	}
 	if(!F.getReturnType()->isVoidTy())
 		stream << "(result " << getTypeString(F.getReturnType()) << ')';
 	stream << '\n';
@@ -730,6 +807,16 @@ void CheerpWastWriter::makeWast()
 	// Start the stack from the end of default memory
 	stream << "(global (mut i32) (i32.const " << (minMemory*WasmPage) << "))\n";
 	
+	// First run, assing required Ids
+	for ( const Function & F : module.getFunctionList() )
+	{
+		if (!F.empty() && F.getSection() == StringRef("asmjs"))
+		{
+			functionIds.insert(std::make_pair(&F, functionIds.size()));
+		}
+	}
+
+	// Second run, actually compile the code
 	for ( const Function & F : module.getFunctionList() )
 	{
 		if (!F.empty() && F.getSection() == StringRef("asmjs"))
