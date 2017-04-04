@@ -2373,24 +2373,24 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				if((k==REGULAR || k==SPLIT_REGULAR) && writer.PA.getConstantOffsetForPointer(phi))
 				{
 					writer.stream << writer.namegen.getName(phi) << '=';
-					writer.namegen.setEdgeContext(fromBB, toBB);
+					writer.registerize.setEdgeContext(fromBB, toBB);
 					writer.compilePointerBase(incoming);
 				}
 				else if(k==SPLIT_REGULAR)
 				{
 					writer.stream << writer.namegen.getSecondaryName(phi) << '=';
-					writer.namegen.setEdgeContext(fromBB, toBB);
+					writer.registerize.setEdgeContext(fromBB, toBB);
 					writer.compilePointerOffset(incoming, LOWEST);
 					writer.stream << ';' << writer.NewLine;
-					writer.namegen.clearEdgeContext();
+					writer.registerize.clearEdgeContext();
 					writer.stream << writer.namegen.getName(phi) << '=';
-					writer.namegen.setEdgeContext(fromBB, toBB);
+					writer.registerize.setEdgeContext(fromBB, toBB);
 					writer.compilePointerBase(incoming);
 				}
 				else
 				{
 					writer.stream << writer.namegen.getName(phi) << '=';
-					writer.namegen.setEdgeContext(fromBB, toBB);
+					writer.registerize.setEdgeContext(fromBB, toBB);
 					if(k==REGULAR)
 						writer.stream << "aSlot=";
 					writer.compilePointerAs(incoming, k);
@@ -2401,11 +2401,11 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			else
 			{
 				writer.stream << writer.namegen.getName(phi) << '=';
-				writer.namegen.setEdgeContext(fromBB, toBB);
+				writer.registerize.setEdgeContext(fromBB, toBB);
 				writer.compileOperand(incoming, LOWEST);
 			}
 			writer.stream << ';' << writer.NewLine;
-			writer.namegen.clearEdgeContext();
+			writer.registerize.clearEdgeContext();
 		}
 	};
 	WriterPHIHandler(*this, from, to).runOnEdge(registerize, from, to);
