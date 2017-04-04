@@ -88,7 +88,7 @@ bool CheerpWastTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
 #endif
-  PM.add(cheerp::createRegisterizePass(false));
+  PM.add(cheerp::createRegisterizePass(true, false));
   PM.add(cheerp::createPointerAnalyzerPass());
 #if 0
   PM.add(cheerp::createAllocaMergingPass());
