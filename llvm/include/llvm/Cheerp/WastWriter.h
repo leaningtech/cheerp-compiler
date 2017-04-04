@@ -45,9 +45,10 @@ private:
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
 	const PointerAnalyzer & PA;
-	const Registerize & registerize;
+	Registerize & registerize;
 
 	GlobalDepsAnalyzer & globalDeps;
+	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 
 	// Codegen custom globals
 	uint32_t usedGlobals;
@@ -76,8 +77,10 @@ public:
 	}
 	void makeWast();
 	void compileBB(const llvm::BasicBlock& BB);
+	void compileConstantExpr(const llvm::ConstantExpr* ce);
 	void compileConstant(const llvm::Constant* c);
 	void compileOperand(const llvm::Value* v);
+	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 };
