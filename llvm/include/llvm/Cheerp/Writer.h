@@ -156,10 +156,10 @@ private:
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
 	const PointerAnalyzer & PA;
-	const Registerize & registerize;
+	Registerize & registerize;
 
 	GlobalDepsAnalyzer & globalDeps;
-	NameGenerator namegen;
+	const NameGenerator namegen;
 	TypeSupport types;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
 	const std::array<const char*,5> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array"}};
