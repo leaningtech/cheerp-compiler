@@ -130,16 +130,6 @@ public:
 	llvm::StringRef getNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 
-	void setEdgeContext(const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB)
-	{
-		registerize.setEdgeContext(fromBB, toBB);
-	}
-
-	void clearEdgeContext()
-	{
-		registerize.clearEdgeContext();
-	}
-
 	enum NAME_FILTER_MODE { GLOBAL = 0, GLOBAL_SECONDARY, LOCAL, LOCAL_SECONDARY };
 	// Filter the original string so that it no longer contains invalid JS characters.
 	static llvm::SmallString<4> filterLLVMName( llvm::StringRef, NAME_FILTER_MODE filterMode );
