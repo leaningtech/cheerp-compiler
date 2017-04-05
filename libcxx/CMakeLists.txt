@@ -433,6 +433,14 @@ if (LIBCXX_STATICALLY_LINK_ABI_IN_SHARED_LIBRARY AND LIBCXX_ENABLE_ABI_LINKER_SC
         LIBCXX_ENABLE_ABI_LINKER_SCRIPT")
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Cheerp")
+  set(CHEERP_MODE "genericjs" CACHE STRING "Cheerp mode used to build the library")
+  set_property(CACHE CHEERP_MODE PROPERTY STRINGS genericjs asmjs)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nostdlib -frtti -cheerp-mode=${CHEERP_MODE}")
+else ()
+  set(CHEERP_MODE "")
+endif ()
+
 if (LIBCXX_ABI_FORCE_ITANIUM AND LIBCXX_ABI_FORCE_MICROSOFT)
   message(FATAL_ERROR "Only one of LIBCXX_ABI_FORCE_ITANIUM and LIBCXX_ABI_FORCE_MICROSOFT can be specified.")
 endif ()
