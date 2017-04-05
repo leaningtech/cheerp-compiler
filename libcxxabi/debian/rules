@@ -4,7 +4,7 @@
 	dh $@ -Scmake --parallel
 
 override_dh_auto_configure:
-	dh_auto_configure -- \
+	dh_auto_configure -Bbuild_genericjs -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
 	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake \
@@ -13,5 +13,25 @@ override_dh_auto_configure:
 	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
 	    -DLIBCXXABI_LIBCXX_INCLUDES=$(CURDIR)/libcxx/include/ \
 	    -DLIBCXXABI_ENABLE_THREADS=0 \
-	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config \
-	    -DCMAKE_CXX_FLAGS="-target cheerp -nostdlib -frtti"
+	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config
+	dh_auto_configure -Bbuild_asmjs -- \
+	    -DCMAKE_BUILD_TYPE=Release \
+	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
+	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake \
+	    -DLIBCXXABI_ENABLE_SHARED=OFF \
+	    -DLIBCXXABI_ENABLE_ASSERTIONS=OFF \
+	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
+	    -DLIBCXXABI_LIBCXX_INCLUDES=$(CURDIR)/libcxx/include/ \
+	    -DLIBCXXABI_ENABLE_THREADS=0 \
+	    -DLLVM_CONFIG=/opt/cheerp/bin/llvm-config
+
+override_dh_auto_build:
+	dh_auto_build -Bbuild_genericjs
+	dh_auto_build -Bbuild_asmjs
+
+override_dh_auto_test:
+	
+
+override_dh_auto_install:
+	dh_auto_install -Bbuild_genericjs
+	dh_auto_install -Bbuild_asmjs
