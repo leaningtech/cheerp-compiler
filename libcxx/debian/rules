@@ -26,6 +26,9 @@ override_dh_auto_build:
 	dh_auto_build -Bbuild_genericjs
 	dh_auto_build -Bbuild_asmjs
 
+override_dh_auto_test:
+	
+
 override_dh_auto_install:
 	# This will unfortunately install the headers twice
 	dh_auto_install -Bbuild_genericjs
