@@ -387,20 +387,17 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       !Args.hasArg(options::OPT_nodefaultlibs)) {
     Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ);
     bool asmjs = CheerpMode && CheerpMode->getValue() == StringRef("asmjs");
+    StringRef libdir;
     if (asmjs) {
-      if (C.getDriver().CCCIsCXX()) {
-        CmdArgs.push_back(LLVM_PREFIX "/lib/libstdlibs-asmjs.bc");
-      } else {
-        CmdArgs.push_back(LLVM_PREFIX "/lib/libc-asmjs.bc");
-        CmdArgs.push_back(LLVM_PREFIX "/lib/libm-asmjs.bc");
-      }
+      libdir = LLVM_PREFIX "/lib/asmjs/";
     } else {
-      if (C.getDriver().CCCIsCXX()) {
-        CmdArgs.push_back(LLVM_PREFIX "/lib/libstdlibs.bc");
-      } else {
-        CmdArgs.push_back(LLVM_PREFIX "/lib/libc.bc");
-        CmdArgs.push_back(LLVM_PREFIX "/lib/libm.bc");
-      }
+      libdir = LLVM_PREFIX "/lib/genericjs/";
+    }
+    if (C.getDriver().CCCIsCXX()) {
+      CmdArgs.push_back(Args.MakeArgString(libdir + "libstdlibs.bc"));
+    } else {
+      CmdArgs.push_back(Args.MakeArgString(libdir + "libc.bc"));
+      CmdArgs.push_back(Args.MakeArgString(libdir + "libm.bc"));
     }
   }
 
