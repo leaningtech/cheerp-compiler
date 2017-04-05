@@ -140,6 +140,14 @@ set(LIBCXXABI_TEST_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/test/lit.site.cfg.in" CAC
 set(LIBCXXABI_TEST_PARAMS "" CACHE STRING
     "A list of parameters to run the Lit test suite with.")
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Cheerp")
+  set(CHEERP_MODE "genericjs" CACHE STRING "Cheerp mode used to build the library")
+  set_property(CACHE CHEERP_MODE PROPERTY STRINGS genericjs asmjs)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nostdlib -frtti -cheerp-mode=${CHEERP_MODE}")
+else ()
+  set(CHEERP_MODE "")
+endif ()
+
 #===============================================================================
 # Configure System
 #===============================================================================
