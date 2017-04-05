@@ -44,7 +44,7 @@ __uninitialized_copy(_InputIterator __ifirst, _Sentinel1 __ilast,
   try {
 #endif
     for (; __ifirst != __ilast && __idx != __olast; ++__ifirst, (void)++__idx)
-      ::new (_VSTD::__voidify(*__idx)) _ValueType(*__ifirst);
+      ::new (_VSTD::addressof(*__idx)) _ValueType(*__ifirst);
 #ifndef _LIBCPP_NO_EXCEPTIONS
   } catch (...) {
     _VSTD::__destroy(__ofirst, __idx);
@@ -75,7 +75,7 @@ __uninitialized_copy_n(_InputIterator __ifirst, _Size __n,
   try {
 #endif
     for (; __n > 0 && __idx != __olast; ++__ifirst, (void)++__idx, (void)--__n)
-      ::new (_VSTD::__voidify(*__idx)) _ValueType(*__ifirst);
+      ::new (_VSTD::addressof(*__idx)) _ValueType(*__ifirst);
 #ifndef _LIBCPP_NO_EXCEPTIONS
   } catch (...) {
     _VSTD::__destroy(__ofirst, __idx);
@@ -107,7 +107,7 @@ _ForwardIterator __uninitialized_fill(_ForwardIterator __first, _Sentinel __last
     {
 #endif
         for (; __idx != __last; ++__idx)
-            ::new (_VSTD::__voidify(*__idx)) _ValueType(__x);
+            ::new (_VSTD::addressof(*__idx)) _ValueType(__x);
 #ifndef _LIBCPP_NO_EXCEPTIONS
     }
     catch (...)
@@ -140,7 +140,7 @@ _ForwardIterator __uninitialized_fill_n(_ForwardIterator __first, _Size __n, con
     {
 #endif
         for (; __n > 0; ++__idx, (void) --__n)
-            ::new (_VSTD::__voidify(*__idx)) _ValueType(__x);
+            ::new (_VSTD::addressof(*__idx)) _ValueType(__x);
 #ifndef _LIBCPP_NO_EXCEPTIONS
     }
     catch (...)
