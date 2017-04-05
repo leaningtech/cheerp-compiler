@@ -4,12 +4,28 @@
 	dh $@ -Scmake --parallel
 
 override_dh_auto_configure:
-	dh_auto_configure -- \
+	dh_auto_configure -Bbuild_genericjs -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
 	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake \
 	    -DLIBCXX_ENABLE_SHARED=OFF \
 	    -DLIBCXX_ENABLE_ASSERTIONS=OFF \
 	    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
-	    -DLIBCXX_CXX_ABI=libcxxabi \
-	    -DCMAKE_CXX_FLAGS="-target cheerp -nostdlib -frtti"
+	    -DLIBCXX_CXX_ABI=libcxxabi
+	dh_auto_configure -Bbuild_asmjs -- \
+	    -DCMAKE_BUILD_TYPE=Release \
+	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
+	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake \
+	    -DLIBCXX_ENABLE_SHARED=OFF \
+	    -DLIBCXX_ENABLE_ASSERTIONS=OFF \
+	    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
+	    -DLIBCXX_CXX_ABI=libcxxabi
+
+override_dh_auto_build:
+	dh_auto_build -Bbuild_genericjs
+	dh_auto_build -Bbuild_asmjs
+
+override_dh_auto_install:
+	# This will unfortunately install the headers twice
+	dh_auto_install -Bbuild_genericjs
+	dh_auto_install -Bbuild_asmjs
