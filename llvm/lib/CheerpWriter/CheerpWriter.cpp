@@ -24,9 +24,6 @@ using namespace llvm;
 using namespace std;
 using namespace cheerp;
 
-//TODO: make this a command line parameter
-constexpr int32_t functionAddrStart = 0x1000000;
-
 //De-comment this to debug the pointer kind of every function
 //#define CHEERP_DEBUG_POINTERS
 
@@ -1442,7 +1439,7 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 	stream << '[';
 	if(!symbolicGlobalsAsmJS && isa<GlobalVariable>(p))
 	{
-		stream << (gVarsAddr[cast<GlobalVariable>(p)] >> shift);
+		stream << (linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(p)) >> shift);
 	}
 	else
 	{
@@ -1770,187 +1767,6 @@ bool CheerpWriter::doesConstantDependOnUndefined(const Constant* C) const
 		return false;
 }
 
-void CheerpWriter::compileConstantAsBytes(const Constant* c, bool first, bool asmjs)
-{
-	if(const ConstantDataSequential* CD = dyn_cast<ConstantDataSequential>(c))
-	{
-		for(uint32_t i=0;i<CD->getNumElements();i++)
-		{
-			compileConstantAsBytes(CD->getElementAsConstant(i), first, asmjs);
-			first = false;
-		}
-	}
-	else if(const UndefValue* U = dyn_cast<UndefValue>(c))
-	{
-		uint32_t size = targetData.getTypeAllocSize(U->getType());
-		for (uint32_t i = 0; i < size; i++)
-		{
-			if(i!=0 || !first)
-				stream << ',';
-			stream << '0';
-		}
-	}
-	else if(isa<ConstantArray>(c) || isa<ConstantStruct>(c))
-	{
-		for(uint32_t i=0;i<c->getNumOperands();i++)
-		{
-			compileConstantAsBytes(cast<Constant>(c->getOperand(i)), first, asmjs);
-			first = false;
-		}
-	}
-	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
-	{
-		const APFloat& flt = f->getValueAPF();
-		const APInt& integerRepresentation = flt.bitcastToAPInt();
-		uint64_t val = integerRepresentation.getLimitedValue();
-		uint32_t bitWidth = integerRepresentation.getBitWidth();
-		for(uint32_t i=0;i<bitWidth;i+=8)
-		{
-			if(i!=0 || !first)
-				stream << ',';
-			stream << ((val>>i)&255);
-		}
-	}
-	else if(const ConstantInt* i=dyn_cast<ConstantInt>(c))
-	{
-		const APInt& integerRepresentation = i->getValue();
-		uint64_t val = integerRepresentation.getLimitedValue();
-		uint32_t bitWidth = integerRepresentation.getBitWidth();
-		for(uint32_t i=0;i<bitWidth;i+=8)
-		{
-			if(i!=0 || !first)
-				stream << ',';
-			stream << ((val>>i)&255);
-		}
-	}
-	else if (asmjs)
-	{
-		if(const ConstantAggregateZero* Z = dyn_cast<ConstantAggregateZero>(c))
-		{
-			uint32_t size = targetData.getTypeAllocSize(Z->getType());
-			for (uint32_t i = 0; i < size; i++)
-			{
-				if(i!=0 || !first)
-					stream << ',';
-				stream << '0';
-			}
-		}
-		else if(dyn_cast<ConstantPointerNull>(c))
-		{
-			if(!first)
-				stream << ',';
-			stream << "0,0,0,0";
-		}
-		else if(const Function* F = dyn_cast<Function>(c))
-		{
-			if (!globalDeps.functionAddresses().count(F))
-			{
-				llvm::errs() << "function not in table: "<<namegen.getName(F)<<"\n";
-				llvm::report_fatal_error("please report a bug");
-			}
-			int32_t offset = globalDeps.functionAddresses().at(F) + functionAddrStart;
-			for(uint32_t i=0;i<32;i+=8)
-			{
-				if(i!=0 || !first)
-					stream << ',';
-				stream << ((offset>>i)&255);
-			}
-		}
-		else if(isa<ConstantExpr>(c))
-		{
-			const ConstantExpr* ce = cast<ConstantExpr>(c);
-			switch(ce->getOpcode())
-			{
-				case Instruction::GetElementPtr:
-				{
-					assert(isa<GlobalVariable>(ce->getOperand(0)));
-					const GlobalVariable* g = cast<GlobalVariable>(ce->getOperand(0));
-					if (!gVarsAddr.count(g))
-					{
-						llvm::errs() << "global variable not found:" << namegen.getName(g) << "\n";
-						llvm::report_fatal_error("please report a bug");
-					}
-					uint32_t addr = gVarsAddr[g];
-
-					Type* curTy = g->getType();
-					SmallVector< const Value *, 8 > indices ( std::next(ce->op_begin()), ce->op_end() );
-					for (uint32_t i=0; i<indices.size(); i++)
-					{
-						uint32_t index = cast<ConstantInt>(indices[i])->getZExtValue();
-						if (StructType* ST = dyn_cast<StructType>(curTy))
-						{
-							const StructLayout* SL = targetData.getStructLayout( ST );
-							addr += SL->getElementOffset(index);
-							curTy = ST->getElementType(index);
-						}
-						else
-						{
-							addr += index*targetData.getTypeAllocSize(curTy->getSequentialElementType());
-							curTy = curTy->getSequentialElementType();
-						}
-					}
-					for(uint32_t i=0;i<32;i+=8)
-					{
-						if(i!=0 || !first)
-							stream << ',';
-						stream << ((addr>>i)&255);
-					}
-					
-					break;
-				}
-				case Instruction::IntToPtr:
-				{
-					const ConstantInt* ptr = cast<ConstantInt>(ce->getOperand(0));
-					uint32_t val = ptr->getZExtValue();
-					for(uint32_t i=0;i<32;i+=8)
-					{
-						if(i!=0 || !first)
-							stream << ',';
-						stream << ((val>>i)&255);
-					}
-					break;
-				}
-				case Instruction::BitCast:
-				{
-					compileConstantAsBytes(ce->getOperand(0),first, asmjs);
-					break;
-				}
-				default:
-					stream << "undefined";
-					llvm::errs() << "warning: Unsupported constant expr in asm.js module :" << ce->getOpcodeName() << '\n';
-			}
-		}
-		else if(isa<GlobalVariable>(c))
-		{
-			const GlobalVariable* g = cast<GlobalVariable>(c);
-			if (gVarsAddr.count(g) != 1)
-			{
-				llvm::errs() << "global variable not found:" << namegen.getName(g) << "\n";
-				llvm::report_fatal_error("please report a bug");
-			}
-			uint32_t val = gVarsAddr[g];
-			for(uint32_t i=0;i<32;i+=8)
-			{
-				if(i!=0 || !first)
-					stream << ',';
-				stream << ((val>>i)&255);
-			}
-		}
-		else
-		{
-			llvm::errs() << "Unsupported constant type for bytes in asm.js module :";
-			c->getType()->dump();
-			stream << "null";
-		}
-	}
-	else
-	{
-		llvm::errs() << "Unsupported constant type for bytes ";
-		c->dump();
-		stream << "null";
-	}
-}
-
 void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio)
 {
 	//TODO: what to do when currentFun == nullptr? for now asmjs=false
@@ -1994,7 +1810,8 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		{
 			// Populate a DataView with a byte buffer
 			stream << "new DataView(new Int8Array([";
-			compileConstantAsBytes(c, true);
+			JSBytesWriter bytesWriter(stream);
+			linearHelper.compileConstantAsBytes(c, /*asmjs*/false, &bytesWriter);
 			stream << "]).buffer)";
 			return;
 		}
@@ -2204,7 +2021,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		}
 		else if (asmjs && isa<GlobalVariable>(c) && !symbolicGlobalsAsmJS)
 		{
-			stream << gVarsAddr[cast<GlobalVariable>(c)];
+			stream << linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(c));
 		}
 		else
 			stream << namegen.getName(c);
@@ -4511,32 +4328,28 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 	}
 	if (symbolicGlobalsAsmJS)
 		stream << "var " << namegen.getName(&G) << '=';
-	Type* ty = G.getType();
-	uint32_t size = targetData.getTypeAllocSize(ty->getPointerElementType());
-	// Ensure the right alignment for the type
-	uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, ty->getPointerElementType());
-	// The following is correct if alignment is a power of 2 (which it should be)
-	heapStartAsmJS = (heapStartAsmJS + alignment - 1) & ~(alignment - 1);
+	uint32_t globalAddr = linearHelper.addGlobalVariable(&G);
 	if (symbolicGlobalsAsmJS)
-		stream << heapStartAsmJS << ';' << NewLine;
-	gVarsAddr.emplace(&G,heapStartAsmJS);
-	heapStartAsmJS += size;
+		stream << globalAddr << ';' << NewLine;
 }
 
 void CheerpWriter::compileGlobalsInitAsmJS()
 {
-	for (const auto& g : gVarsAddr)
+	for ( const GlobalVariable & GV : module.getGlobalList() )
 	{
-		if (g.first->hasInitializer())
+		if (GV.getSection() != StringRef("asmjs"))
+			continue;
+		if (GV.hasInitializer())
 		{
-			Type* ty = g.first->getInitializer()->getType();
+			const Constant* init = GV.getInitializer();
+			Type* ty = init->getType();
 			// If the initializer is a function, skip it
 			if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
 				continue;
-			const Constant* init = g.first->getInitializer();
 			stream  << heapNames[HEAP8] << ".set([";
-			compileConstantAsBytes(init,true,/* asmjs */ true);
-			stream << "]," << g.second << ");" << NewLine;
+			JSBytesWriter bytesWriter(stream);
+			linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
+			stream << "]," << linearHelper.getGlobalVariableAddress(&GV) << ");" << NewLine;
 		}
 	}
 }
@@ -5075,4 +4888,12 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
 	}
 	rl->Calculate(relooperMap[&F.getEntryBlock()]);
 	return rl;
+}
+
+void CheerpWriter::JSBytesWriter::addByte(uint8_t byte)
+{
+	if(!first)
+		stream << ',';
+	stream << (int)byte;
+	first = false;
 }

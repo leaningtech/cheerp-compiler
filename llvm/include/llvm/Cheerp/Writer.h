@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2015 Leaning Technologies
+// Copyright 2011-2017 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,6 +14,7 @@
 
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
@@ -33,6 +34,9 @@ struct Relooper;
 
 namespace cheerp
 {
+
+//TODO: make this a command line parameter
+constexpr int32_t functionAddrStart = 0x1000000;
 
 class NewLineHandler
 {
@@ -165,11 +169,9 @@ private:
 	const std::array<const char*,5> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array"}};
 	const std::array<const char*,5> heapNames = {{"HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64"}};
 
-	// map asmjs global variables to their address
-	std::map<const llvm::GlobalVariable*,uint32_t> gVarsAddr;
-	// The next address available to allocate global variables.
-	// The heap space will start after the last global variable allocation
-	uint32_t heapStartAsmJS{8};
+	// Helper class to manage linear memory state
+	LinearMemoryHelper linearHelper;
+
 	// Support for source maps
 	SourceMapGenerator* sourceMapGenerator;
 	std::map<llvm::StringRef, llvm::DISubprogram> functionToDebugInfoMap;
@@ -439,6 +441,16 @@ private:
 	//JS interoperability support
 	std::vector<llvm::StringRef> compileClassesExportedToJs();
 	void addExportedFreeFunctions(std::vector<llvm::StringRef>& namesList, const llvm::NamedMDNode* namedNode);
+
+	struct JSBytesWriter: public LinearMemoryHelper::ByteListener
+	{
+		ostream_proxy& stream;
+		bool first;
+		JSBytesWriter(ostream_proxy& stream):stream(stream),first(true)
+		{
+		}
+		void addByte(uint8_t b) override;
+	};
 public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
@@ -467,6 +479,7 @@ public:
 		globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, reservedNames, readableOutput),
 		types(m),
+		linearHelper(targetData, globalDeps, functionAddrStart),
 		sourceMapGenerator(sourceMapGenerator),
 		NewLine(),
 		useNativeJavaScriptMath(useNativeJavaScriptMath),
@@ -487,7 +500,6 @@ public:
 	void makeJS();
 	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c, PARENT_PRIORITY parentPrio = HIGHEST);
-	void compileConstantAsBytes(const llvm::Constant* c, bool first = false, bool asmjs = false);
 	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
