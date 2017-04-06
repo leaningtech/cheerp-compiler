@@ -16,6 +16,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #endif
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #if 0
@@ -50,6 +51,9 @@ private:
 	GlobalDepsAnalyzer & globalDeps;
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 
+	// Helper class to manage linear memory state
+	LinearMemoryHelper linearHelper;
+
 	// Codegen custom globals
 	uint32_t usedGlobals;
 	uint32_t stackTopGlobal;
@@ -57,8 +61,18 @@ private:
 	void compileMethodLocals(const llvm::Function& F);
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
+	void compileDataSection();
 	// Returns true if it has handled local assignent internally
 	bool compileInstruction(const llvm::Instruction& I);
+
+	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
+	{
+		llvm::formatted_raw_ostream& stream;
+		WastBytesWriter(llvm::formatted_raw_ostream& stream):stream(stream)
+		{
+		}
+		void addByte(uint8_t b) override;
+	};
 public:
 	llvm::formatted_raw_ostream& stream;
 	CheerpWastWriter(llvm::Module& m, llvm::formatted_raw_ostream& s, cheerp::PointerAnalyzer & PA,
@@ -70,6 +84,7 @@ public:
 		PA(PA),
 		registerize(registerize),
 		globalDeps(gda),
+		linearHelper(targetData, globalDeps, /*functionAddrStart*/ 0),
 		usedGlobals(0),
 		stackTopGlobal(0),
 		stream(s)
