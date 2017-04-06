@@ -2202,7 +2202,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 				stream << '0';
 			}
 		}
-		else if (asmjs && isa<GlobalVariable>(c) && gVarsAddr.count(cast<GlobalVariable>(c))==1 && !symbolicGlobalsAsmJS)
+		else if (asmjs && isa<GlobalVariable>(c) && !symbolicGlobalsAsmJS)
 		{
 			stream << gVarsAddr[cast<GlobalVariable>(c)];
 		}
