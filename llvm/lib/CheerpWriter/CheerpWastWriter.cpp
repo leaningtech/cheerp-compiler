@@ -789,7 +789,29 @@ void CheerpWastWriter::compileMethod(const Function& F)
 		CheerpWastRenderInterface ri(this);
 		rl->Render(&ri);
 	}
-	stream << ')';
+	stream << ")\n";
+}
+
+void CheerpWastWriter::compileDataSection()
+{
+	for ( const GlobalVariable & GV : module.getGlobalList() )
+	{
+		if (GV.getSection() != StringRef("asmjs"))
+			continue;
+		if (GV.hasInitializer())
+		{
+			const Constant* init = GV.getInitializer();
+			Type* ty = init->getType();
+			// If the initializer is a function, skip it
+			if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
+				continue;
+			// The offset into memory, which is the address
+			stream << "(data (i32.const " << linearHelper.getGlobalVariableAddress(&GV) << ") \"";
+			WastBytesWriter bytesWriter(stream);
+			linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
+			stream << "\")\n";
+		}
+	}
 }
 
 void CheerpWastWriter::makeWast()
@@ -807,13 +829,20 @@ void CheerpWastWriter::makeWast()
 	// Start the stack from the end of default memory
 	stream << "(global (mut i32) (i32.const " << (minMemory*WasmPage) << "))\n";
 	
-	// First run, assing required Ids
+	// First run, assing required Ids to functions and globals
 	for ( const Function & F : module.getFunctionList() )
 	{
 		if (!F.empty() && F.getSection() == StringRef("asmjs"))
 		{
 			functionIds.insert(std::make_pair(&F, functionIds.size()));
 		}
+	}
+
+	for ( const GlobalVariable & GV : module.getGlobalList() )
+	{
+		if (GV.getSection() != StringRef("asmjs"))
+			continue;
+		uint32_t ret=linearHelper.addGlobalVariable(&GV);
 	}
 
 	// Second run, actually compile the code
@@ -824,6 +853,15 @@ void CheerpWastWriter::makeWast()
 			compileMethod(F);
 		}
 	}
+
+	compileDataSection();
 	
 	stream << ')';
+}
+
+void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
+{
+	char buf[4];
+	snprintf(buf, 4, "\\%02x", byte);
+	stream << buf;
 }
