@@ -47,6 +47,10 @@ public:
 		}
 	};
 	void compileConstantAsBytes(const llvm::Constant* c, bool asmjs, ByteListener* listener);
+	uint8_t getTotalMemory() const
+	{
+		return heapStart;
+	}
 };
 
 }
