@@ -1,4 +1,4 @@
-//===-- CheerpWriter.cpp - The Cheerp JavaScript generator -------------===//
+//===-- CheerpWastWriter.cpp - The Cheerp JavaScript generator ------------===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
@@ -842,7 +842,7 @@ void CheerpWastWriter::makeWast()
 	{
 		if (GV.getSection() != StringRef("asmjs"))
 			continue;
-		uint32_t ret=linearHelper.addGlobalVariable(&GV);
+		linearHelper.addGlobalVariable(&GV);
 	}
 
 	// Second run, actually compile the code

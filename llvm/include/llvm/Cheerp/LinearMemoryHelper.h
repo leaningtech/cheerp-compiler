@@ -47,6 +47,16 @@ public:
 		}
 	};
 	void compileConstantAsBytes(const llvm::Constant* c, bool asmjs, ByteListener* listener);
+	struct GepListener
+	{
+		virtual void addValue(const llvm::Value* v, uint32_t size) = 0;
+		virtual void addConst(uint32_t v) = 0;
+		virtual ~GepListener()
+		{
+		}
+	};
+	// Returns the base of the compiled expression
+	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener);
 	uint8_t getTotalMemory() const
 	{
 		return heapStart;
