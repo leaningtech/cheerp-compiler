@@ -64,6 +64,7 @@ private:
 	void compileDataSection();
 	// Returns true if it has handled local assignent internally
 	bool compileInstruction(const llvm::Instruction& I);
+	void compileGEP(const llvm::User* gepInst);
 
 	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
 	{
@@ -72,6 +73,16 @@ private:
 		{
 		}
 		void addByte(uint8_t b) override;
+	};
+
+	struct WastGepWriter: public LinearMemoryHelper::GepListener
+	{
+		CheerpWastWriter& writer;
+		WastGepWriter(CheerpWastWriter& writer):writer(writer)
+		{
+		}
+		void addValue(const llvm::Value* v, uint32_t size) override;
+		void addConst(uint32_t v) override;
 	};
 public:
 	llvm::formatted_raw_ostream& stream;

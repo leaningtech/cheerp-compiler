@@ -471,14 +471,20 @@ const char* CheerpWastWriter::getTypeString(Type* t)
 	}
 }
 
+void CheerpWastWriter::compileGEP(const llvm::User* gep_inst)
+{
+	WastGepWriter gepWriter(*this);
+	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
+	compileOperand(p);
+}
+
 void CheerpWastWriter::compileConstantExpr(const ConstantExpr* ce)
 {
 	switch(ce->getOpcode())
 	{
 		case Instruction::GetElementPtr:
 		{
-			stream << "i32.const 0";
-			//compileGEP(ce, PA.getPointerKind(ce));
+			compileGEP(ce);
 			break;
 		}
 #if 0
@@ -534,6 +540,10 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 			stream << i->getSExtValue();
 		else
 			stream << i->getZExtValue();
+	}
+	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
+	{
+		stream << "i32.const " << linearHelper.getGlobalVariableAddress(GV);
 	}
 	else
 	{
@@ -864,4 +874,15 @@ void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 	char buf[4];
 	snprintf(buf, 4, "\\%02x", byte);
 	stream << buf;
+}
+
+void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
+{
+	assert(false);
+}
+
+void CheerpWastWriter::WastGepWriter::addConst(uint32_t v)
+{
+	assert(v);
+	assert(false);
 }
