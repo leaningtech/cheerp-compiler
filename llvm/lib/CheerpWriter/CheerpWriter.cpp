@@ -1336,56 +1336,10 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	}
 }
 
-void CheerpWriter::compileRawPointer(const Value*p)
+void CheerpWriter::compileRawPointer(const Value* p)
 {
-	int64_t constPart = 0;
-	while ( isBitCast(p) || isGEP(p) )
-	{
-		const User * u = cast<User>(p);
-		if (isGEP(p))
-		{
-			Type* curType = u->getOperand(0)->getType();
-			SmallVector< const Value *, 8 > indices ( std::next(u->op_begin()), u->op_end() );
-			for (uint32_t i=0; i<indices.size(); i++)
-			{
-				if (StructType* ST = dyn_cast<StructType>(curType))
-				{
-					uint32_t index = cast<ConstantInt>( indices[i] )->getZExtValue();
-					const StructLayout* SL = targetData.getStructLayout( ST );
-					curType = ST->getElementType(index);
-					uint32_t offset =  SL->getElementOffset(index);
-					constPart += offset;
-				}
-				else
-				{
-					curType = curType->getSequentialElementType();
-					uint32_t size = targetData.getTypeAllocSize(curType);
-					if (const ConstantInt* idx = dyn_cast<ConstantInt>(indices[i]))
-					{
-						constPart += idx->getSExtValue()*size;
-
-					}
-					else if (size == 1)
-					{
-						compileOperand(indices[i] ,ADD_SUB);
-						stream << '+';
-					}
-					else
-					{
-						// NOTE: V8 requires imul to be coerced to int like normal functions
-						stream << '(' << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
-						compileOperand(indices[i] ,LOWEST);
-						stream << ',' << size <<')';
-						stream << "|0)+";
-					}
-				}
-			}
-		}
-		p = u->getOperand(0);
-		continue;
-	}
-	if (constPart != 0)
-		stream << constPart <<'+';
+	AsmJSGepWriter gepWriter(*this);
+	p = linearHelper.compileGEP(p, &gepWriter);
 	compileOperand(p, ADD_SUB);
 }
 
@@ -4896,4 +4850,27 @@ void CheerpWriter::JSBytesWriter::addByte(uint8_t byte)
 		stream << ',';
 	stream << (int)byte;
 	first = false;
+}
+
+void CheerpWriter::AsmJSGepWriter::addValue(const llvm::Value* v, uint32_t size)
+{
+	if (size == 1)
+	{
+		writer.compileOperand(v ,ADD_SUB);
+		writer.stream << '+';
+	}
+	else
+	{
+		// NOTE: V8 requires imul to be coerced to int like normal functions
+		writer.stream << '(' << writer.namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
+		writer.compileOperand(v ,LOWEST);
+		writer.stream << ',' << size << ')';
+		writer.stream << "|0)+";
+	}
+}
+
+void CheerpWriter::AsmJSGepWriter::addConst(uint32_t v)
+{
+	assert(v);
+	writer.stream << v << '+';
 }
