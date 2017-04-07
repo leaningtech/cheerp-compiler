@@ -269,8 +269,8 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 		{
 			stream << '(';
 			compileOperand(src, ADD_SUB);
-			stream  << '-';
-			compileOperand(offset, HIGHEST);
+			stream  << '+';
+			compileOperand(offset, ADD_SUB);
 			stream << "|0)";
 		}
 		else
