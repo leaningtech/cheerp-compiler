@@ -159,6 +159,50 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 	}
 }
 
+const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListener* listener)
+{
+	int64_t constPart = 0;
+	while ( isBitCast(p) || isGEP(p) )
+	{
+		const User * u = cast<User>(p);
+		if (isGEP(p))
+		{
+			Type* curType = u->getOperand(0)->getType();
+			SmallVector< const Value *, 8 > indices ( std::next(u->op_begin()), u->op_end() );
+			for (uint32_t i=0; i<indices.size(); i++)
+			{
+				if (StructType* ST = dyn_cast<StructType>(curType))
+				{
+					uint32_t index = cast<ConstantInt>( indices[i] )->getZExtValue();
+					const StructLayout* SL = targetData.getStructLayout( ST );
+					curType = ST->getElementType(index);
+					uint32_t offset =  SL->getElementOffset(index);
+					constPart += offset;
+				}
+				else
+				{
+					curType = curType->getSequentialElementType();
+					uint32_t size = targetData.getTypeAllocSize(curType);
+					if (const ConstantInt* idx = dyn_cast<ConstantInt>(indices[i]))
+					{
+						constPart += idx->getSExtValue()*size;
+					}
+					else
+					{
+						listener->addValue(indices[i], size);
+					}
+				}
+			}
+		}
+		p = u->getOperand(0);
+		continue;
+	}
+	if (constPart != 0)
+		listener->addConst(constPart);
+	return p;
+}
+
+
 uint32_t LinearMemoryHelper::addGlobalVariable(const GlobalVariable* G)
 {
 	Type* ty = G->getType();

@@ -451,6 +451,16 @@ private:
 		}
 		void addByte(uint8_t b) override;
 	};
+
+	struct AsmJSGepWriter: public LinearMemoryHelper::GepListener
+	{
+		CheerpWriter& writer;
+		AsmJSGepWriter(CheerpWriter& writer):writer(writer)
+		{
+		}
+		void addValue(const llvm::Value* v, uint32_t size) override;
+		void addConst(uint32_t v) override;
+	};
 public:
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
