@@ -530,7 +530,8 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   const CXXMethodDecl *MD = cast<CXXMethodDecl>(GD.getDecl());
 
   // Override the non virtual offset in bytes with the topological offset on NBA targets
-  if(!byteAddressable) {
+  bool asmjs = OriginalMethod->getParent()->hasAttr<AsmJSAttr>();
+  if(!byteAddressable && !asmjs) {
     if(!TI.This.isEmpty())
       TI.This.NonVirtual = ComputeTopologicalBaseOffset(CGM, TI.This.AdjustmentTarget, TI.This.AdjustmentPath);
     // Return adjustment will be handled with a "reverse" downcast with a negative offset
@@ -929,7 +930,8 @@ void CodeGenVTables::addVTableComponent(AggregateBuilderPublic &builder,
                layout.vtable_thunks()[nextVTableThunkIndex].first == idx) {
       auto &thunkInfo = layout.vtable_thunks()[nextVTableThunkIndex].second;
 
-      if (!CGM.getTarget().isByteAddressable()) {
+      bool asmjs = cast<CXXMethodDecl>(GD.getDecl())->getParent()->hasAttr<AsmJSAttr>();
+      if (!CGM.getTarget().isByteAddressable() && !asmjs) {
         // Override the non virtual offset in bytes with the topological offset
         // TODO: Really move topological offset logic in AST
         if(!thunkInfo.This.isEmpty())
