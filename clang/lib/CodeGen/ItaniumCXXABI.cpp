@@ -2166,7 +2166,8 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
     CGF.CGM.ErrorUnsupported(AdjustmentSource, "Cheerp: Virtual bases on non-byte addressable targets are not supported yet");
 
   // Cheerp: Handle non byte addressable case before
-  if (!CGF.getTarget().isByteAddressable())
+  bool asmjs = AdjustmentTarget->hasAttr<AsmJSAttr>();
+  if (!CGF.getTarget().isByteAddressable() && !asmjs)
   {
     if(IsReturnAdjustment)
     {
