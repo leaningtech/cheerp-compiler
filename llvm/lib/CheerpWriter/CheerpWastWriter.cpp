@@ -654,6 +654,9 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				case CmpInst::ICMP_EQ:
 					stream << "eq";
 					break;
+				case CmpInst::ICMP_NE:
+					stream << "ne";
+					break;
 				case CmpInst::ICMP_SLT:
 					stream << "lt_s";
 					break;
