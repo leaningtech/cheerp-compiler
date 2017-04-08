@@ -874,6 +874,14 @@ void CheerpWastWriter::makeWast()
 		}
 	}
 
+	// Experimental entry point for wast code
+	llvm::Function* wastStart = module.getFunction("_Z9wastStartv");
+	if(wastStart)
+	{
+		assert(functionIds.count(wastStart));
+		stream << "(start " << functionIds[wastStart] << ")\n";
+	}
+
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 	{
 		if (GV.getSection() != StringRef("asmjs"))
