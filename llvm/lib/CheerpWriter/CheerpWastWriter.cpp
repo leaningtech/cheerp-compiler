@@ -610,6 +610,15 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << getTypeString(I.getType()) << ".add";
 			break;
 		}
+		case Instruction::And:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".and";
+			break;
+		}
 		case Instruction::Br:
 			break;
 		case Instruction::Call:
