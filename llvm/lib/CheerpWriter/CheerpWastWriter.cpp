@@ -689,7 +689,18 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			compileOperand(valOp);
 			stream << '\n';
 			// 3) Store
-			stream << getTypeString(valOp->getType()) << ".store\n";
+			stream << getTypeString(valOp->getType()) << ".store";
+			// When storing values with size less than 32-bit we need to truncate them
+			if(valOp->getType()->isIntegerTy())
+			{
+				uint32_t bitWidth = valOp->getType()->getIntegerBitWidth();
+				if(bitWidth<32)
+				{
+					assert(bitWidth == 8 || bitWidth == 16);
+					stream << bitWidth;
+				}
+			}
+			stream << '\n';
 			break;
 		}
 		case Instruction::Trunc:
