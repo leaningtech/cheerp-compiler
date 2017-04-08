@@ -786,6 +786,9 @@ void CheerpWastWriter::compileMethodLocals(const Function& F)
 		assert(!regInfo.needsSecondaryName);
 		switch(regInfo.regKind)
 		{
+			case Registerize::FLOAT:
+				stream << "f32";
+				break;
 			case Registerize::INTEGER:
 				stream << "i32";
 				break;
