@@ -476,6 +476,8 @@ void CheerpWastWriter::compileGEP(const llvm::User* gep_inst)
 	WastGepWriter gepWriter(*this);
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
 	compileOperand(p);
+	if(!gepWriter.first)
+		stream << "\ni32.add";
 }
 
 void CheerpWastWriter::compileConstantExpr(const ConstantExpr* ce)
@@ -918,5 +920,8 @@ void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t si
 void CheerpWastWriter::WastGepWriter::addConst(uint32_t v)
 {
 	assert(v);
-	assert(false);
+	writer.stream << "i32.const " << v << '\n';
+	if(!first)
+		writer.stream << "i32.add\n";
+	first = false;
 }
