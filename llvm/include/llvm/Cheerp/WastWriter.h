@@ -78,7 +78,8 @@ private:
 	struct WastGepWriter: public LinearMemoryHelper::GepListener
 	{
 		CheerpWastWriter& writer;
-		WastGepWriter(CheerpWastWriter& writer):writer(writer)
+		bool first;
+		WastGepWriter(CheerpWastWriter& writer):writer(writer),first(true)
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
