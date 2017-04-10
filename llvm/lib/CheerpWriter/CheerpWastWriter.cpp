@@ -724,6 +724,12 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << "return";
 			break;
 		}
+		case Instruction::SExt:
+		{
+			// TODO: We need to shift and un-shift the value
+			compileOperand(I.getOperand(0));
+			break;
+		}
 		case Instruction::ZExt:
 		{
 			// TODO: We may need to mask the value
