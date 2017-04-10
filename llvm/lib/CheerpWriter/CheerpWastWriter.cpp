@@ -642,6 +642,11 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << "call " << functionIds[calledFunc] << '\n';
 			return true;
 		}
+		case Instruction::GetElementPtr:
+		{
+			compileGEP(&I);
+			break;
+		}
 		case Instruction::ICmp:
 		{
 			const CmpInst& ci = cast<CmpInst>(I);
@@ -930,7 +935,16 @@ void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 
 void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
 {
-	assert(false);
+	writer.compileOperand(v);
+	writer.stream << '\n';
+	if(size != 1)
+	{
+		writer.stream << "i32.const " << size << '\n';
+		writer.stream << "i32.mul\n";
+	}
+	if(!first)
+		writer.stream << "i32.add\n";
+	first = false;
 }
 
 void CheerpWastWriter::WastGepWriter::addConst(uint32_t v)
