@@ -677,6 +677,16 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << '\n';
 			// 2) Load
 			stream << getTypeString(li.getType()) << ".load";
+			if(li.getType()->isIntegerTy())
+			{
+				uint32_t bitWidth = li.getType()->getIntegerBitWidth();
+				if(bitWidth<32)
+				{
+					assert(bitWidth == 8 || bitWidth == 16);
+					// Currently assume unsigned, like Cheerp. We may optimize this be looking at a following sext or zext instruction.
+					stream << bitWidth << "_u";
+				}
+			}
 			break;
 		}
 		case Instruction::Store:
