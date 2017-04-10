@@ -242,10 +242,8 @@ assert(false);
 
 void CheerpWastRenderInterface::renderElseBlockBegin()
 {
-assert(false);
-#if 0
-	writer->stream << "}else{" << NewLine;
-#endif
+	writer->stream << "else\n";
+	blockTypes.push_back(IF);
 }
 
 void CheerpWastRenderInterface::renderBlockEnd()
