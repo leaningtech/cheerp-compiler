@@ -637,7 +637,9 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				compileOperand(ci.getOperand(i));
 				stream << '\n';
 			}
-			stream << "call " << functionIds[calledFunc] << '\n';
+			stream << "call " << functionIds[calledFunc];
+			if(ci.getType()->isVoidTy())
+				stream << '\n';
 			return true;
 		}
 		case Instruction::GetElementPtr:
@@ -734,7 +736,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				compileOperand(I.getOperand(0));
 				stream << '\n';
 			}
-			stream << "return";
+			stream << "return\n";
 			break;
 		}
 		case Instruction::SExt:
