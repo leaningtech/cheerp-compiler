@@ -1876,11 +1876,11 @@ def JsExport : InheritableAttr {
 }
 
 def AsmJS : InheritableAttr {
-  let Spellings = [CXX11<"cheerp", "asmjs">];
+  let Spellings = [CXX11<"cheerp", "asmjs">, GNU<"cheerp_asmjs">];
   let Documentation = [Undocumented];
 }
 def GenericJS : InheritableAttr {
-  let Spellings = [CXX11<"cheerp", "genericjs">];
+  let Spellings = [CXX11<"cheerp", "genericjs">, GNU<"cheerp_genericjs">];
   let Documentation = [Undocumented];
 }
 
