@@ -473,6 +473,8 @@ const char* CheerpWastWriter::getTypeString(Type* t)
 		return "i32";
 	else if(t->isFloatTy())
 		return "f32";
+	else if(t->isDoubleTy())
+		return "f64";
 	else
 	{
 		llvm::errs() << "Unsupported type " << *t << "\n";
@@ -694,6 +696,9 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				case CmpInst::FCMP_OEQ:
 					stream << "eq";
 					break;
+				case CmpInst::FCMP_OLT:
+					stream << "lt";
+					break;
 				default:
 					llvm::errs() << "Handle predicate for " << ci << "\n";
 					break;
@@ -890,6 +895,9 @@ void CheerpWastWriter::compileMethodLocals(const Function& F)
 		assert(!regInfo.needsSecondaryName);
 		switch(regInfo.regKind)
 		{
+			case Registerize::DOUBLE:
+				stream << "f64";
+				break;
 			case Registerize::FLOAT:
 				stream << "f32";
 				break;
