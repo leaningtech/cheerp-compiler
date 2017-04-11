@@ -624,6 +624,12 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << getTypeString(I.getType()) << ".and";
 			break;
 		}
+		case Instruction::BitCast:
+		{
+			assert(I.getType()->isPointerTy());
+			compileOperand(I.getOperand(0));
+			break;
+		}
 		case Instruction::Br:
 			break;
 		case Instruction::Call:
@@ -671,6 +677,9 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 					break;
 				case CmpInst::ICMP_SLT:
 					stream << "lt_s";
+					break;
+				case CmpInst::ICMP_UGE:
+					stream << "ge_u";
 					break;
 				default:
 					llvm::errs() << "Handle predicate for " << ci << "\n";
@@ -723,6 +732,15 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				}
 			}
 			stream << '\n';
+			break;
+		}
+		case Instruction::Sub:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".sub";
 			break;
 		}
 		case Instruction::Trunc:
