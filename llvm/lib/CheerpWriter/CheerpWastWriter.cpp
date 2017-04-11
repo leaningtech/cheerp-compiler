@@ -25,7 +25,8 @@ private:
 	std::vector<BLOCK_TYPE> blockTypes;
 	void renderCondition(const BasicBlock* B, int branchId);
 public:
-	CheerpWastRenderInterface(CheerpWastWriter* w):writer(w)
+	const BasicBlock* lastDepth0Block;
+	CheerpWastRenderInterface(CheerpWastWriter* w):writer(w),lastDepth0Block(nullptr)
 	{
 	}
 	void renderBlock(const void* privateBlock);
@@ -57,6 +58,10 @@ public:
 void CheerpWastRenderInterface::renderBlock(const void* privateBlock)
 {
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
+	if(blockTypes.empty())
+		lastDepth0Block = bb;
+	else
+		lastDepth0Block = nullptr;
 	writer->compileBB(*bb);
 }
 
@@ -840,13 +845,26 @@ void CheerpWastWriter::compileMethod(const Function& F)
 		stream << "(result " << getTypeString(F.getReturnType()) << ')';
 	stream << '\n';
 	compileMethodLocals(F);
+	const llvm::BasicBlock* lastDepth0Block = nullptr;
 	if(F.size() == 1)
+	{
 		compileBB(*F.begin());
+		lastDepth0Block = &(*F.begin());
+	}
 	else
 	{
 		Relooper* rl = CheerpWriter::runRelooperOnFunction(F);
 		CheerpWastRenderInterface ri(this);
 		rl->Render(&ri);
+		lastDepth0Block = ri.lastDepth0Block;
+	}
+	// A function has to terminate with a return instruction
+	if(!lastDepth0Block || !isa<ReturnInst>(lastDepth0Block->getTerminator()))
+	{
+		// Add a fake return
+		if(!F.getReturnType()->isVoidTy())
+			stream << getTypeString(F.getReturnType()) << ".const 0\n";
+		stream << "return\n";
 	}
 	stream << ")\n";
 }
