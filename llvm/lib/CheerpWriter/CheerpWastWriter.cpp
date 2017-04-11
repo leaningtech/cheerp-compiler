@@ -680,6 +680,26 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				stream << '\n';
 			return true;
 		}
+		case Instruction::FCmp:
+		{
+			const CmpInst& ci = cast<CmpInst>(I);
+			compileOperand(ci.getOperand(0));
+			stream << '\n';
+			compileOperand(ci.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(ci.getOperand(0)->getType()) << '.';
+			switch(ci.getPredicate())
+			{
+				// TODO: Handle ordered vs unordered
+				case CmpInst::FCMP_OEQ:
+					stream << "eq";
+					break;
+				default:
+					llvm::errs() << "Handle predicate for " << ci << "\n";
+					break;
+			}
+			break;
+		}
 		case Instruction::GetElementPtr:
 		{
 			compileGEP(&I);
@@ -688,7 +708,6 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		case Instruction::ICmp:
 		{
 			const CmpInst& ci = cast<CmpInst>(I);
-			// TODO: Check order
 			compileOperand(ci.getOperand(0));
 			stream << '\n';
 			compileOperand(ci.getOperand(1));
@@ -733,6 +752,15 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 					stream << bitWidth << "_u";
 				}
 			}
+			break;
+		}
+		case Instruction::Mul:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".mul";
 			break;
 		}
 		case Instruction::Store:
@@ -793,6 +821,13 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		{
 			// TODO: We need to shift and un-shift the value
 			compileOperand(I.getOperand(0));
+			break;
+		}
+		case Instruction::SIToFP:
+		{
+			assert(I.getOperand(0)->getType()->isIntegerTy(32));
+			compileOperand(I.getOperand(0));
+			stream << '\n' << getTypeString(I.getType()) << ".convert_s/" << getTypeString(I.getOperand(0)->getType());
 			break;
 		}
 		case Instruction::ZExt:
