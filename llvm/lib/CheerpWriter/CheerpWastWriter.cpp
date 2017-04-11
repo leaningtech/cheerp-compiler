@@ -847,11 +847,7 @@ void CheerpWastWriter::compileMethodLocals(const Function& F)
 	if(numArgs == 0 && numRegs == 0)
 		return;
 	stream << "(local";
-	// First we emit the parameters
-	llvm::FunctionType* FTy = F.getFunctionType();
-	for(uint32_t i = 0; i < numArgs; i++)
-		stream << ' ' << getTypeString(FTy->getParamType(i));
-	// Then we emit the registers, careful as the registerize id is now offset by the number of args
+	// Emit the registers, careful as the registerize id is offset by the number of args
 	for(const Registerize::RegisterInfo& regInfo: regsInfo)
 	{
 		stream << ' ';
