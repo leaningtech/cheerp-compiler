@@ -247,12 +247,14 @@ assert(false);
 
 void CheerpWastRenderInterface::renderElseBlockBegin()
 {
+	assert(!blockTypes.empty());
+	assert(blockTypes.back() == IF);
 	writer->stream << "else\n";
-	blockTypes.push_back(IF);
 }
 
 void CheerpWastRenderInterface::renderBlockEnd()
 {
+	assert(!blockTypes.empty());
 	BLOCK_TYPE bt = blockTypes.back();
 	blockTypes.pop_back();
 	if(bt == WHILE1)
@@ -265,6 +267,8 @@ void CheerpWastRenderInterface::renderBlockEnd()
 	}
 	else if(bt == IF)
 		writer->stream << "end\n";
+	else
+		assert(false);
 }
 
 void CheerpWastRenderInterface::renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom)
