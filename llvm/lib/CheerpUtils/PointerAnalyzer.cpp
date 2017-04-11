@@ -631,7 +631,16 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			}
 			else
 			{
-				IndirectPointerKindConstraint c(RETURN_TYPE_CONSTRAINT, p->getType());
+				// There may be implicit casts to direct bases, so collapse all types to the least derived one
+				llvm::Type* retType = p->getType();
+				if(retType->isPointerTy() && retType->getPointerElementType()->isStructTy())
+				{
+					StructType* st = cast<StructType>(retType->getPointerElementType());
+					while(st->getDirectBase())
+						st = st->getDirectBase();
+					retType = st->getPointerTo();
+				}
+				IndirectPointerKindConstraint c(RETURN_TYPE_CONSTRAINT, retType);
 				pointerKindData.constraintsMap[c] |= k;
 				// We want to override the ret value, not add a constraint
 				return CacheAndReturn(ret = PointerKindWrapper(pointerKindData.getConstraintPtr(c)));
@@ -1271,7 +1280,15 @@ void PointerAnalyzer::prefetchFunc(const Function& F) const
 	if(addressTakenCache.checkAddressTaken(&F))
 	{
 		IndirectPointerKindConstraint returnConstraint(RETURN_CONSTRAINT, &F);
-		IndirectPointerKindConstraint returnTypeConstaint(RETURN_TYPE_CONSTRAINT, F.getReturnType());
+		llvm::Type* retType = F.getReturnType();
+		if(retType->isPointerTy() && retType->getPointerElementType()->isStructTy())
+		{
+			StructType* st = cast<StructType>(retType->getPointerElementType());
+			while(st->getDirectBase())
+				st = st->getDirectBase();
+			retType = st->getPointerTo();
+		}
+		IndirectPointerKindConstraint returnTypeConstaint(RETURN_TYPE_CONSTRAINT, retType);
 		pointerKindData.constraintsMap[returnConstraint] |= pointerKindData.getConstraintPtr(returnTypeConstaint);
 	}
 }
