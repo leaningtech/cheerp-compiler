@@ -467,6 +467,8 @@ const char* CheerpWastWriter::getTypeString(Type* t)
 {
 	if(t->isIntegerTy() || t->isPointerTy())
 		return "i32";
+	else if(t->isFloatTy())
+		return "f32";
 	else
 	{
 		llvm::errs() << "Unsupported type " << *t << "\n";
@@ -545,6 +547,27 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 			stream << i->getSExtValue();
 		else
 			stream << i->getZExtValue();
+	}
+	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
+	{
+		if(f->getValueAPF().isInfinity())
+		{
+			assert(false);
+		}
+		else if(f->getValueAPF().isNaN())
+		{
+			assert(false);
+		}
+		else
+		{
+			APFloat apf = f->getValueAPF();
+			stream << getTypeString(f->getType()) << ".const ";
+			char buf[40];
+			// TODO: Figure out the right amount of hexdigits
+			unsigned charCount = apf.convertToHexString(buf, f->getType()->isFloatTy() ? 8 : 16, false, APFloat::roundingMode::rmNearestTiesToEven);
+			assert(charCount < 40);
+			stream << buf;
+		}
 	}
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
 	{
