@@ -621,7 +621,6 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, allocTy);
 			assert (!ai->isArrayAllocation());
 			assert((alignment & (alignment-1)) == 0 && "alignment must be power of 2");
-			assert((size % alignment) == 0);
 			// We grow the stack down for now
 			// 1) Push the current stack pointer
 			stream << "get_global " << stackTopGlobal << '\n';
@@ -629,6 +628,12 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << "i32.const " << size << '\n';
 			// 3) Substract the size
 			stream << "i32.sub\n";
+			// 3.1) Optionally align the stack down
+			if(size % alignment)
+			{
+				stream << "i32.const " << uint32_t(0-alignment) << '\n';
+				stream << "i32.and\n";
+			}
 			// 4) Write the location to the local, but preserve the value
 			stream << "tee_local " << (currentFun->arg_size() + registerize.getRegisterId(&I)) << '\n';
 			// 5) Save the new stack position
