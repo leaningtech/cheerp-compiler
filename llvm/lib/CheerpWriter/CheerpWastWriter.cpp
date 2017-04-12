@@ -679,8 +679,11 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			}
 			stream << "call " << functionIds[calledFunc];
 			if(ci.getType()->isVoidTy())
+			{
 				stream << '\n';
-			return true;
+				return true;
+			}
+			break;
 		}
 		case Instruction::FCmp:
 		{
