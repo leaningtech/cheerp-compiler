@@ -83,8 +83,14 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 			{
 				case Instruction::GetElementPtr:
 				{
-					assert(isa<GlobalVariable>(ce->getOperand(0)));
-					const GlobalVariable* g = cast<GlobalVariable>(ce->getOperand(0));
+					Value* op = ce->getOperand(0);
+					if(isa<ConstantExpr>(op))
+					{
+						if(cast<ConstantExpr>(op)->getOpcode() == Instruction::BitCast)
+							op = cast<ConstantExpr>(op)->getOperand(0);
+					}
+					assert(isa<GlobalVariable>(op));
+					const GlobalVariable* g = cast<GlobalVariable>(op);
 					if (!gVarsAddr.count(g))
 					{
 						llvm::errs() << "global variable not found:" << g->getName() << "\n";
