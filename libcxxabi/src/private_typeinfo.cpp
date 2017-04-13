@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 #include "private_typeinfo.h"
 
 // The flag _LIBCXXABI_FORGIVING_DYNAMIC_CAST is used to make dynamic_cast
@@ -634,6 +633,9 @@ bool __pointer_to_member_type_info::can_catch_nested(
 
 struct __vtable_base
 {
+#ifdef __ASMJS__
+	const std::ptrdiff_t offset_to_derived;
+#endif
 	const __class_type_info* rtti_info;
 };
 
@@ -654,8 +656,13 @@ __dynamic_cast(const void *static_ptr,
 
     // Get (dynamic_ptr, dynamic_type) from static_ptr
 #ifdef __CHEERP__
+#ifdef __ASMJS__
+    std::ptrdiff_t dynamic_ptr = static_downcast_offset + vtable->offset_to_derived;
+    std::ptrdiff_t static_ptr = static_downcast_offset ;
+#else
     std::ptrdiff_t dynamic_ptr = 1;
     std::ptrdiff_t static_ptr = static_downcast_offset + 1;
+#endif
     const __class_type_info* dynamic_type = vtable->rtti_info;
 #else
     void **vtable = *static_cast<void ** const *>(static_ptr);
@@ -752,7 +759,12 @@ __dynamic_cast(const void *static_ptr,
         }
     }
 #ifdef __CHEERP__
-    return dst_ptr==(-1<<31)?(-1<<31):static_ptr-dst_ptr;
+    return dst_ptr==(-1<<31)?(-1<<31):
+#ifdef __ASMJS__
+        dst_ptr-static_ptr;
+#else
+        static_ptr-dst_ptr;
+#endif
 #else
     return const_cast<void*>(dst_ptr);
 #endif
