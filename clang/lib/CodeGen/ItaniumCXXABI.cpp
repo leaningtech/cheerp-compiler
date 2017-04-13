@@ -1517,9 +1517,6 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
   llvm::Value* Value = NULL;
   if(CGF.getTarget().isByteAddressable()) {
     Value = CGF.GetVTablePtr(ThisPtr, StdTypeInfoPtrTy->getPointerTo(), ClassDecl);
-  } else {
-    llvm::Type* VTableType = CGM.getTypes().GetVTableType(ClassDecl)->getPointerTo();
-    Value = CGF.GetVTablePtr(ThisPtr, VTableType);
   }
 
   if (CGM.getItaniumVTableContext().isRelativeLayout()) {
@@ -1531,11 +1528,14 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
 
     // Setup to dereference again since this is a proxy we accessed.
     Value = CGF.Builder.CreateBitCast(Value, StdTypeInfoPtrTy->getPointerTo());
-  } else if(!CGF.getTarget().isByteAddressable()) {
-    Value = CGF.Builder.CreateStructGEP(Value, 0);
-  } else {
-    // Load the type info.
+  } else if(CGF.getTarget().isByteAddressable()) {
     Value = CGF.Builder.CreateConstInBoundsGEP1_64(Value, -1ULL);
+  } else {
+    llvm::Type* VTableType = CGM.getTypes().GetVTableType(ClassDecl)->getPointerTo();
+    Value = CGF.GetVTablePtr(ThisPtr, VTableType);
+    bool asmjs = SrcRecordTy->getAsCXXRecordDecl()->hasAttr<AsmJSAttr>(); 
+    int offset = asmjs? 1 : 0;
+    Value = CGF.Builder.CreateStructGEP(VTableType->getPointerElementType(), Value, offset);
   }
   return CGF.Builder.CreateAlignedLoad(Value, CGF.getPointerAlign());
 }
@@ -1857,7 +1857,7 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
   // Create and set the initializer.
   ConstantInitBuilder builder(CGM);
   auto components = builder.beginStruct();
-  CGVT.createVTableInitializer(components, VTLayout, RTTI,
+  CGVT.createVTableInitializer(components, RD, VTLayout, RTTI,
                                llvm::GlobalValue::isLocalLinkage(Linkage));
   components.finishAndSetAsInitializer(VTable);
 
@@ -1970,7 +1970,7 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
 
   const VTableLayout &VTLayout =
       CGM.getItaniumVTableContext().getVTableLayout(RD);
-  llvm::Type *VTableType = CGM.getVTables().getVTableType(VTLayout);
+  llvm::Type *VTableType = CGM.getVTables().getVTableType(VTLayout, RD);
 
   // Use pointer alignment for the vtable. Otherwise we would align them based
   // on the size of the initializer which doesn't make sense as only single
@@ -3564,7 +3564,13 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   }
 
   if(!CGM.getTarget().isByteAddressable()) {
-    llvm::Type* WrapperTypes[] = {CGM.getTypes().GetVTableType(8)};
+    bool asmjs = false;
+    if (Ty->isRecordType()){
+      asmjs = cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl())->hasAttr<AsmJSAttr>();
+    } else {
+      asmjs = CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS;
+    }
+    llvm::Type* WrapperTypes[] = {CGM.getTypes().GetVTableType(8, asmjs)};
     llvm::Constant *VTable = CGM.getModule().getOrInsertGlobal(VTableName, llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL));
     llvm::Constant *Zero = llvm::ConstantInt::get(CGM.Int32Ty, 0);
     llvm::SmallVector<llvm::Constant*, 2> GepIndexes;
@@ -4076,7 +4082,8 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
         CGM.getItaniumVTableContext().getVirtualBaseOffsetOffset(RD, BaseDecl);
     else {
       const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
-      if(!CGM.getTarget().isByteAddressable() && Layout.getPrimaryBase() != BaseDecl && !BaseDecl->isEmpty()) {
+	bool asmjs = RD->hasAttr<AsmJSAttr>();
+      if(!asmjs && !CGM.getTarget().isByteAddressable() && Layout.getPrimaryBase() != BaseDecl && !BaseDecl->isEmpty()) {
         const CGRecordLayout &CGLayout = CGM.getTypes().getCGRecordLayout(RD);
         unsigned baseId = CGLayout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
         Offset = CharUnits::fromQuantity(CGLayout.getTotalOffsetToBase(baseId));

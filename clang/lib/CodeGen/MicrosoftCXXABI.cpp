@@ -1705,7 +1705,7 @@ void MicrosoftCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
 
     ConstantInitBuilder builder(CGM);
     auto components = builder.beginStruct();
-    CGVT.createVTableInitializer(components, VTLayout, RTTI,
+    CGVT.createVTableInitializer(components, RD, VTLayout, RTTI,
                                  VTable->hasLocalLinkage());
     components.finishAndSetAsInitializer(VTable);
 
@@ -1833,7 +1833,7 @@ llvm::GlobalVariable *MicrosoftCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
 
   StringRef VTableName = VTableAliasIsRequred ? StringRef() : VFTableName.str();
 
-  llvm::Type *VTableType = CGM.getVTables().getVTableType(VTLayout);
+  llvm::Type *VTableType = CGM.getVTables().getVTableType(VTLayout, RD);
 
   // Create a backing variable for the contents of VTable.  The VTable may
   // or may not include space for a pointer to RTTI data.
