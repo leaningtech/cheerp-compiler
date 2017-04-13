@@ -161,7 +161,7 @@ public:
 
   llvm::Type* GetVTableType(const CXXRecordDecl* RD);
 
-  llvm::Type* GetVTableType(uint32_t virtualMethodsCount);
+  llvm::Type* GetVTableType(uint32_t virtualMethodsCount, bool withOffsetToTop);
 
   llvm::Type* GetClassTypeInfoType();
 

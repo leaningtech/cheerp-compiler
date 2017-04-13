@@ -96,6 +96,7 @@ public:
   /// Add vtable components for the given vtable layout to the given
   /// global initializer.
   void createVTableInitializer(ConstantStructBuilder &builder,
+                               const CXXRecordDecl *RD,
                                const VTableLayout &layout, llvm::Constant *rtti,
                                bool vtableHasLocalLinkage);
 
@@ -149,7 +150,7 @@ public:
   /// Returns the type of a vtable with the given layout. Normally a struct of
   /// arrays of pointers, with one struct element for each vtable in the vtable
   /// group.
-  llvm::Type *getVTableType(const VTableLayout &layout);
+  llvm::Type *getVTableType(const VTableLayout &layout, const CXXRecordDecl* LayoutClass);
 
   /// Generate a public facing alias for the vtable and make the vtable either
   /// hidden or private. The alias will have the original linkage and visibility
