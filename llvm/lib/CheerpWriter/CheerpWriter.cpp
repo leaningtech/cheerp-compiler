@@ -4477,6 +4477,46 @@ void CheerpWriter::compileMathDeclAsmJS()
 	stream << "var tan=stdlib.Math.tan;" << NewLine;
 }
 
+void CheerpWriter::compileAsmJSFfi()
+{
+	for (const Function* F: globalDeps.asmJSImports())
+	{
+		if(F->empty()) continue;
+
+		stream << "function _asm_" << namegen.getName(F) << '(';
+		const Function::const_arg_iterator A=F->arg_begin();
+		const Function::const_arg_iterator AE=F->arg_end();
+		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
+		{
+			if(curArg!=A)
+			{
+				stream << ',';
+			}
+			stream << namegen.getName(curArg);
+		}
+		stream << "){" << NewLine;
+		if (!F->getReturnType()->isVoidTy())
+			stream << "return ";
+		stream << namegen.getName(F) << '(';
+		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
+		{
+			if(curArg!=A)
+				stream << ',';
+			int shift = 0;
+			if(curArg->getType()->isPointerTy())
+			{
+				shift = compileHeapForType(cast<PointerType>(curArg->getType())->getPointerElementType());
+				stream << ',';
+			}
+			stream << namegen.getName(curArg);
+			if (shift)
+				stream << ">>" << shift;
+		}
+		stream << ");" << NewLine;
+		stream << '}' << NewLine;
+	}
+}
+
 void CheerpWriter::makeJS()
 {
 	if (sourceMapGenerator) {
@@ -4607,8 +4647,10 @@ void CheerpWriter::makeJS()
 		stream << "};" << NewLine;
 		stream << "};" << NewLine;
 		stream << "var heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
-		stream << "var " << heapNames[HEAP8] << "= new " << typedArrayNames[HEAP8] << "(heap);" << NewLine;
+		for (int i = HEAP8; i<=HEAPF64; i++)
+			stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(heap);" << NewLine;
 		compilePrintStringHelperAsmJS();
+		compileAsmJSFfi();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
@@ -4622,10 +4664,12 @@ void CheerpWriter::makeJS()
 		}
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
-			StringRef name = namegen.getName(imported);
+			std::string name;
 			if (imported->empty() && !TypeSupport::isClientGlobal(imported))
 				name = "__dummy";
-			stream << namegen.getName(imported) << ':' << name << ',' << NewLine;
+			else
+				name = ("_asm_"+namegen.getName(imported)).str();
+			stream << namegen.getName(imported) << ':' << name  << ',' << NewLine;
 		}
 		stream << "};" << NewLine;
 		stream << "var stdlib = {"<<NewLine;
