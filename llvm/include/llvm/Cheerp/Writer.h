@@ -401,6 +401,7 @@ private:
 	void compileCreateClosure();
 	void compileHandleVAArg();
 	void compileBuiltins(bool asmjs);
+	void compileAsmJSFfi();
 	/**
 	 * This method supports both ConstantArray and ConstantDataSequential
 	 */
