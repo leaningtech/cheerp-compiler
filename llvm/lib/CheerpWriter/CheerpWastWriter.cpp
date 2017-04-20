@@ -689,6 +689,15 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << getTypeString(I.getType()) << ".and";
 			break;
 		}
+		case Instruction::AShr:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".shr_s";
+			break;
+		}
 		case Instruction::BitCast:
 		{
 			assert(I.getType()->isPointerTy());
@@ -721,6 +730,15 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			}
 			break;
 		}
+		case Instruction::FAdd:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".add";
+			break;
+		}
 		case Instruction::FCmp:
 		{
 			const CmpInst& ci = cast<CmpInst>(I);
@@ -735,13 +753,49 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				case CmpInst::FCMP_OEQ:
 					stream << "eq";
 					break;
+				case CmpInst::FCMP_OGT:
+					stream << "gt";
+					break;
+				case CmpInst::FCMP_OLE:
+					stream << "le";
+					break;
 				case CmpInst::FCMP_OLT:
 					stream << "lt";
+					break;
+				case CmpInst::FCMP_UNE:
+					stream << "ne";
 					break;
 				default:
 					llvm::errs() << "Handle predicate for " << ci << "\n";
 					break;
 			}
+			break;
+		}
+		case Instruction::FDiv:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".div";
+			break;
+		}
+		case Instruction::FMul:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".mul";
+			break;
+		}
+		case Instruction::FSub:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".sub";
 			break;
 		}
 		case Instruction::GetElementPtr:
@@ -765,11 +819,20 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				case CmpInst::ICMP_NE:
 					stream << "ne";
 					break;
+				case CmpInst::ICMP_SGT:
+					stream << "gt_s";
+					break;
 				case CmpInst::ICMP_SLT:
 					stream << "lt_s";
 					break;
 				case CmpInst::ICMP_UGE:
 					stream << "ge_u";
+					break;
+				case CmpInst::ICMP_UGT:
+					stream << "gt_u";
+					break;
+				case CmpInst::ICMP_ULT:
+					stream << "lt_u";
 					break;
 				default:
 					llvm::errs() << "Handle predicate for " << ci << "\n";
@@ -798,6 +861,15 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			}
 			break;
 		}
+		case Instruction::LShr:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".shr_u";
+			break;
+		}
 		case Instruction::Mul:
 		{
 			compileOperand(I.getOperand(0));
@@ -805,6 +877,24 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			compileOperand(I.getOperand(1));
 			stream << '\n';
 			stream << getTypeString(I.getType()) << ".mul";
+			break;
+		}
+		case Instruction::Or:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".or";
+			break;
+		}
+		case Instruction::Shl:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".shl";
 			break;
 		}
 		case Instruction::Store:
@@ -863,6 +953,18 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << "return\n";
 			break;
 		}
+		case Instruction::Select:
+		{
+			const SelectInst& si = cast<SelectInst>(I);
+			compileOperand(si.getTrueValue());
+			stream << '\n';
+			compileOperand(si.getFalseValue());
+			stream << '\n';
+			compileOperand(si.getCondition());
+			stream << '\n';
+			stream << "select";
+			break;
+		}
 		case Instruction::SExt:
 		{
 			// TODO: We need to shift and un-shift the value
@@ -874,6 +976,15 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			assert(I.getOperand(0)->getType()->isIntegerTy(32));
 			compileOperand(I.getOperand(0));
 			stream << '\n' << getTypeString(I.getType()) << ".convert_s/" << getTypeString(I.getOperand(0)->getType());
+			break;
+		}
+		case Instruction::Xor:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".xor";
 			break;
 		}
 		case Instruction::ZExt:
