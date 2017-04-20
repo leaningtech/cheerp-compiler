@@ -80,20 +80,16 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 	}
 	else if(isa<SwitchInst>(term))
 	{
-assert(false);
-#if 0
 		const SwitchInst* si=cast<SwitchInst>(term);
 		assert(branchId > 0);
 		SwitchInst::ConstCaseIt it=si->case_begin();
 		for(int i=1;i<branchId;i++)
 			++it;
 		const BasicBlock* dest=it.getCaseSuccessor();
-		writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
-		if (asmjs)
-			writer->stream << "==";
-		else
-			writer->stream << "===";
-		writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
+		writer->compileOperand(si->getCondition());
+		writer->stream << '\n';
+		writer->compileOperand(it.getCaseValue());
+		writer->stream << "\ni32.eq";
 		//We found the destination, there may be more cases for the same
 		//destination though
 		for(++it;it!=si->case_end();++it)
@@ -101,19 +97,13 @@ assert(false);
 			if(it.getCaseSuccessor()==dest)
 			{
 				//Also add this condition
-				if (asmjs)
-					writer->stream << '|';
-				else
-					writer->stream << "||";
-				writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
-				if (asmjs)
-					writer->stream << "==";
-				else
-					writer->stream << "===";
-				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
+				writer->stream << '\n';
+				writer->compileOperand(si->getCondition());
+				writer->stream << '\n';
+				writer->compileOperand(it.getCaseValue());
+				writer->stream << "\ni32.eq\ni32.or";
 			}
 		}
-#endif
 	}
 	else
 	{
@@ -832,6 +822,8 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << getTypeString(I.getType()) << ".sub";
 			break;
 		}
+		case Instruction::Switch:
+			break;
 		case Instruction::Trunc:
 		{
 			// TODO: We need to mask the value
