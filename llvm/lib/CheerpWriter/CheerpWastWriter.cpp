@@ -585,18 +585,20 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
+		stream << getTypeString(f->getType()) << ".const ";
 		if(f->getValueAPF().isInfinity())
 		{
-			assert(false);
+			if(f->getValueAPF().isNegative())
+				stream << '-';
+			stream << "infinity";
 		}
 		else if(f->getValueAPF().isNaN())
 		{
-			assert(false);
+			stream << "nan";
 		}
 		else
 		{
 			APFloat apf = f->getValueAPF();
-			stream << getTypeString(f->getType()) << ".const ";
 			char buf[40];
 			// TODO: Figure out the right amount of hexdigits
 			unsigned charCount = apf.convertToHexString(buf, f->getType()->isFloatTy() ? 8 : 16, false, APFloat::roundingMode::rmNearestTiesToEven);
