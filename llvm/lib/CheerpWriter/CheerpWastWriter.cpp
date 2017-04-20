@@ -21,7 +21,8 @@ class CheerpWastRenderInterface: public RenderInterface
 {
 private:
 	CheerpWastWriter* writer;
-	enum BLOCK_TYPE { WHILE1 = 0, IF };
+	// IF must be the last one, we use values above it to count the amount of else ifs
+	enum BLOCK_TYPE { WHILE1 = 0, DO, IF };
 	std::vector<BLOCK_TYPE> blockTypes;
 	void renderCondition(const BasicBlock* B, int branchId);
 public:
@@ -205,16 +206,19 @@ assert(false);
 void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, int branchId, bool first)
 {
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
+	if(!first)
+		writer->stream << "else\n";
 	// The condition goes first
 	renderCondition(bb, branchId);
 	writer->stream << '\n';
-	assert(first);
-#if 0
-	if(!first)
-		writer->stream << "}else ";
-#endif
 	writer->stream << "if\n";
-	blockTypes.push_back(IF);
+	if(first)
+		blockTypes.push_back(IF);
+	else
+	{
+		assert(blockTypes.back()>=IF);
+		blockTypes.back() = BLOCK_TYPE(blockTypes.back() + 1);
+	}
 }
 
 void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first)
@@ -248,7 +252,7 @@ assert(false);
 void CheerpWastRenderInterface::renderElseBlockBegin()
 {
 	assert(!blockTypes.empty());
-	assert(blockTypes.back() == IF);
+	assert(blockTypes.back() >= IF);
 	writer->stream << "else\n";
 }
 
@@ -265,8 +269,11 @@ void CheerpWastRenderInterface::renderBlockEnd()
 		writer->stream << "end\n";
 		writer->stream << "end\n";
 	}
-	else if(bt == IF)
-		writer->stream << "end\n";
+	else if(bt >= IF)
+	{
+		for(uint32_t i=0;i<(bt - IF)+1;i++)
+			writer->stream << "end\n";
+	}
 	else
 		assert(false);
 }
