@@ -319,10 +319,9 @@ assert(false);
 
 void CheerpWastRenderInterface::renderDoBlockBegin()
 {
-assert(false);
-#if 0
-	writer->stream << "do{" << NewLine;
-#endif
+	indent();
+	writer->stream << "block\n";
+	blockTypes.push_back(DO);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin(int blockLabel)
@@ -336,16 +335,31 @@ assert(false);
 
 void CheerpWastRenderInterface::renderDoBlockEnd()
 {
-assert(false);
-#if 0
-	writer->stream << "}while(0);" << NewLine;
+	assert(!blockTypes.empty());
+#ifndef NDEBUG
+	BLOCK_TYPE bt = blockTypes.back();
 #endif
+	blockTypes.pop_back();
+	assert(bt == DO);
+	indent();
+	writer->stream << "end\n";
 }
 
 void CheerpWastRenderInterface::renderBreak()
 {
 	// TODO: We have to count the block types
-	writer->stream << "br 1\n";
+	int blockCount = 1;
+	for(uint32_t i=0;i<blockTypes.size();i++)
+	{
+		if(blockTypes[blockTypes.size() - i - 1] == DO ||
+			blockTypes[blockTypes.size() - i - 1] == WHILE1)
+		{
+			break;
+		}
+		else
+			blockCount++;
+	}
+	writer->stream << "br " << blockCount << '\n';
 }
 
 void CheerpWastRenderInterface::renderBreak(int labelId)
