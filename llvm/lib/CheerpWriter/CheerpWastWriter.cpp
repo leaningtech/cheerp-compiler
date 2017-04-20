@@ -26,6 +26,7 @@ private:
 	uint32_t labelLocal;
 	std::vector<BLOCK_TYPE> blockTypes;
 	void renderCondition(const BasicBlock* B, int branchId);
+	void indent();
 public:
 	const BasicBlock* lastDepth0Block;
 	CheerpWastRenderInterface(CheerpWastWriter* w, uint32_t labelLocal):writer(w),labelLocal(labelLocal),lastDepth0Block(nullptr)
@@ -65,6 +66,12 @@ void CheerpWastRenderInterface::renderBlock(const void* privateBlock)
 	else
 		lastDepth0Block = nullptr;
 	writer->compileBB(*bb);
+}
+
+void CheerpWastRenderInterface::indent()
+{
+	for(uint32_t i=0;i<blockTypes.size();i++)
+		writer->stream << "  ";
 }
 
 void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
@@ -198,10 +205,14 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, int
 {
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if(!first)
+	{
+		indent();
 		writer->stream << "else\n";
+	}
 	// The condition goes first
 	renderCondition(bb, branchId);
 	writer->stream << '\n';
+	indent();
 	writer->stream << "if\n";
 	if(first)
 		blockTypes.push_back(IF);
@@ -236,6 +247,7 @@ assert(false);
 	if(!first)
 		writer->stream << "}else ";
 #endif
+	indent();
 	writer->stream << "if\n";
 	blockTypes.push_back(IF);
 }
@@ -244,6 +256,7 @@ void CheerpWastRenderInterface::renderElseBlockBegin()
 {
 	assert(!blockTypes.empty());
 	assert(blockTypes.back() >= IF);
+	indent();
 	writer->stream << "else\n";
 }
 
@@ -263,7 +276,10 @@ void CheerpWastRenderInterface::renderBlockEnd()
 	else if(bt >= IF)
 	{
 		for(uint32_t i=0;i<(bt - IF)+1;i++)
+		{
+			indent();
 			writer->stream << "end\n";
+		}
 	}
 	else
 		assert(false);
@@ -294,7 +310,9 @@ void CheerpWastRenderInterface::renderWhileBlockBegin()
 	// Wrap a block in a loop so that:
 	// br 1 -> break
 	// br 2 -> continue
+	indent();
 	writer->stream << "loop\n";
+	indent();
 	writer->stream << "block\n";
 	blockTypes.push_back(WHILE1);
 }
