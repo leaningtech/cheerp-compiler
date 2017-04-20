@@ -23,11 +23,12 @@ private:
 	CheerpWastWriter* writer;
 	// IF must be the last one, we use values above it to count the amount of else ifs
 	enum BLOCK_TYPE { WHILE1 = 0, DO, IF };
+	uint32_t labelLocal;
 	std::vector<BLOCK_TYPE> blockTypes;
 	void renderCondition(const BasicBlock* B, int branchId);
 public:
 	const BasicBlock* lastDepth0Block;
-	CheerpWastRenderInterface(CheerpWastWriter* w):writer(w),lastDepth0Block(nullptr)
+	CheerpWastRenderInterface(CheerpWastWriter* w, uint32_t labelLocal):writer(w),labelLocal(labelLocal),lastDepth0Block(nullptr)
 	{
 	}
 	void renderBlock(const void* privateBlock);
@@ -378,23 +379,22 @@ assert(false);
 
 void CheerpWastRenderInterface::renderLabel(int labelId)
 {
-assert(false);
-#if 0
-	writer->stream << "label=" << labelId << "|0;" << NewLine;
-#endif
+	writer->stream << "i32.const " << labelId << '\n';
+	writer->stream << "set_local " << labelLocal << '\n';
 }
 
 void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
 {
-assert(false);
+	assert(first);
 #if 0
 	if(first==false)
 		writer->stream << "else ";
-	if (asmjs)
-		writer->stream << "if(label>>>0==" << labelId << ">>>0){" << NewLine;
-	else
-		writer->stream << "if(label===" << labelId << "){" << NewLine;
 #endif
+	writer->stream << "i32.const " << labelId << '\n';
+	writer->stream << "get_local " << labelLocal << '\n';
+	writer->stream << "i32.eq\n";
+	writer->stream << "if\n";
+	blockTypes.push_back(IF);
 }
 
 bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
@@ -900,7 +900,7 @@ void CheerpWastWriter::compileBB(const BasicBlock& BB)
 	}
 }
 
-void CheerpWastWriter::compileMethodLocals(const Function& F)
+void CheerpWastWriter::compileMethodLocals(const Function& F, bool needsLabel)
 {
 	uint32_t numArgs = F.arg_size();
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
@@ -929,6 +929,9 @@ void CheerpWastWriter::compileMethodLocals(const Function& F)
 				assert(false);
 		}
 	}
+	// If needed, label is the very last local
+	if(needsLabel)
+		stream << " i32";
 	stream << ")\n";
 }
 
@@ -949,17 +952,22 @@ void CheerpWastWriter::compileMethod(const Function& F)
 	if(!F.getReturnType()->isVoidTy())
 		stream << "(result " << getTypeString(F.getReturnType()) << ')';
 	stream << '\n';
-	compileMethodLocals(F);
 	const llvm::BasicBlock* lastDepth0Block = nullptr;
 	if(F.size() == 1)
 	{
+		compileMethodLocals(F, false);
 		compileBB(*F.begin());
 		lastDepth0Block = &(*F.begin());
 	}
 	else
 	{
 		Relooper* rl = CheerpWriter::runRelooperOnFunction(F);
-		CheerpWastRenderInterface ri(this);
+		compileMethodLocals(F, rl->needsLabel());
+		uint32_t numArgs = F.arg_size();
+		const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
+		uint32_t numRegs = regsInfo.size();
+		// label is the very last local
+		CheerpWastRenderInterface ri(this, numArgs+numRegs);
 		rl->Render(&ri);
 		lastDepth0Block = ri.lastDepth0Block;
 	}

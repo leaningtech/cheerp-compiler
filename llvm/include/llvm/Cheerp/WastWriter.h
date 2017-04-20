@@ -58,7 +58,7 @@ private:
 	uint32_t usedGlobals;
 	uint32_t stackTopGlobal;
 	static const char* getTypeString(llvm::Type* t);
-	void compileMethodLocals(const llvm::Function& F);
+	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void compileDataSection();
