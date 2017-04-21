@@ -433,11 +433,6 @@ private:
 	void compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY parentPrio);
 	void compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
 
-	static uint32_t getMaskForBitWidth(int width)
-	{
-		return (1 << width) - 1;
-	}
-
 	//JS interoperability support
 	std::vector<llvm::StringRef> compileClassesExportedToJs();
 	void addExportedFreeFunctions(std::vector<llvm::StringRef>& namesList, const llvm::NamedMDNode* namedNode);
