@@ -511,27 +511,30 @@ void CheerpWastWriter::compileConstantExpr(const ConstantExpr* ce)
 			compileGEP(ce);
 			break;
 		}
-#if 0
 		case Instruction::BitCast:
 		{
-			POINTER_KIND k = PA.getPointerKind(ce);
-			compileBitCast(ce, k);
+			assert(ce->getOperand(0)->getType()->isPointerTy());
+			compileOperand(ce->getOperand(0));
 			break;
 		}
 		case Instruction::IntToPtr:
 		{
-			// NOTE: This is necessary for virtual inheritance. It should be made type safe.
 			compileOperand(ce->getOperand(0));
-			break;
-		}
-		case Instruction::PtrToInt:
-		{
-			compilePtrToInt(ce->getOperand(0));
 			break;
 		}
 		case Instruction::ICmp:
 		{
-			compileIntegerComparison(ce->getOperand(0), ce->getOperand(1), (CmpInst::Predicate)ce->getPredicate(), HIGHEST);
+			compileOperand(ce->getOperand(0));
+			stream << '\n';
+			compileOperand(ce->getOperand(1));
+			stream << '\n';
+			stream << getTypeString(ce->getOperand(0)->getType()) << '.' << getIntegerPredicate((CmpInst::Predicate)ce->getPredicate());
+			break;
+		}
+#if 0
+		case Instruction::PtrToInt:
+		{
+			compilePtrToInt(ce->getOperand(0));
 			break;
 		}
 		case Instruction::Select:
@@ -591,6 +594,10 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
 	{
 		stream << "i32.const " << linearHelper.getGlobalVariableAddress(GV);
+	}
+	else if(isa<ConstantPointerNull>(c))
+	{
+		stream << "i32.const 0";
 	}
 	else
 	{
@@ -868,6 +875,11 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << getTypeString(I.getType()) << ".or";
 			break;
 		}
+		case Instruction::PtrToInt:
+		{
+			compileOperand(I.getOperand(0));
+			break;
+		}
 		case Instruction::Shl:
 		{
 			compileOperand(I.getOperand(0));
@@ -931,6 +943,15 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				stream << '\n';
 			}
 			stream << "return\n";
+			break;
+		}
+		case Instruction::SDiv:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".div_s";
 			break;
 		}
 		case Instruction::Select:
