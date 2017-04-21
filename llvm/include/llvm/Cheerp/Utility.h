@@ -71,7 +71,7 @@ bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA);
 
 uint32_t getIntFromValue(const llvm::Value* v);
 
-static uint32_t getMaskForBitWidth(int width)
+inline uint32_t getMaskForBitWidth(int width)
 {
 	return (1 << width) - 1;
 }
