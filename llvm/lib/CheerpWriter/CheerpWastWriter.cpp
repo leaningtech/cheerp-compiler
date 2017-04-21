@@ -965,8 +965,12 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		}
 		case Instruction::SExt:
 		{
-			// TODO: We need to shift and un-shift the value
+			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			compileOperand(I.getOperand(0));
+			stream << "\ni32.const " << (32-bitWidth) << '\n';
+			stream << "i32.shl\n";
+			stream << "i32.const " << (32-bitWidth) << '\n';
+			stream << "i32.shr_s";
 			break;
 		}
 		case Instruction::SIToFP:
@@ -987,8 +991,10 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		}
 		case Instruction::ZExt:
 		{
-			// TODO: We may need to mask the value
+			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			compileOperand(I.getOperand(0));
+			stream << "\ni32.const " << getMaskForBitWidth(bitWidth) << '\n';
+			stream << "i32.and";
 			break;
 		}
 		default:
