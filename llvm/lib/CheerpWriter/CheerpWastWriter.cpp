@@ -356,19 +356,7 @@ void CheerpWastRenderInterface::renderDoBlockEnd()
 
 void CheerpWastRenderInterface::renderBreak()
 {
-	// TODO: We have to count the block types
-	int blockCount = 1;
-	for(uint32_t i=0;i<blockTypes.size();i++)
-	{
-		if(blockTypes[blockTypes.size() - i - 1] == DO ||
-			blockTypes[blockTypes.size() - i - 1] == WHILE1)
-		{
-			break;
-		}
-		else
-			blockCount++;
-	}
-	writer->stream << "br " << blockCount << '\n';
+	writer->stream << "br 1\n";
 }
 
 void CheerpWastRenderInterface::renderBreak(int labelId)
