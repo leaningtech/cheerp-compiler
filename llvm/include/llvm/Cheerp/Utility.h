@@ -71,6 +71,11 @@ bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA);
 
 uint32_t getIntFromValue(const llvm::Value* v);
 
+static uint32_t getMaskForBitWidth(int width)
+{
+	return (1 << width) - 1;
+}
+
 // Printable name of the llvm type - useful only for debugging
 std::string valueObjectName(const llvm::Value * v);
 
