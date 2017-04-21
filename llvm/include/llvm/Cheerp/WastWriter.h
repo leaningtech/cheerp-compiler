@@ -65,6 +65,7 @@ private:
 	// Returns true if it has handled local assignent internally
 	bool compileInstruction(const llvm::Instruction& I);
 	void compileGEP(const llvm::User* gepInst);
+	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
 	{

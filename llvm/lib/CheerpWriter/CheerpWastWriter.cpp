@@ -639,6 +639,31 @@ v->dump();
 	}
 }
 
+const char* CheerpWastWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
+{
+	switch(p)
+	{
+		case CmpInst::ICMP_EQ:
+			return "eq";
+		case CmpInst::ICMP_NE:
+			return "ne";
+		case CmpInst::ICMP_SGT:
+			return "gt_s";
+		case CmpInst::ICMP_SLT:
+			return "lt_s";
+		case CmpInst::ICMP_UGE:
+			return "ge_u";
+		case CmpInst::ICMP_UGT:
+			return "gt_u";
+		case CmpInst::ICMP_ULT:
+			return "lt_u";
+		default:
+			llvm::errs() << "Handle predicate " << p << "\n";
+			break;
+	}
+	return "";
+}
+
 bool CheerpWastWriter::compileInstruction(const Instruction& I)
 {
 	switch(I.getOpcode())
@@ -810,34 +835,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << '\n';
 			compileOperand(ci.getOperand(1));
 			stream << '\n';
-			stream << getTypeString(ci.getOperand(0)->getType()) << '.';
-			switch(ci.getPredicate())
-			{
-				case CmpInst::ICMP_EQ:
-					stream << "eq";
-					break;
-				case CmpInst::ICMP_NE:
-					stream << "ne";
-					break;
-				case CmpInst::ICMP_SGT:
-					stream << "gt_s";
-					break;
-				case CmpInst::ICMP_SLT:
-					stream << "lt_s";
-					break;
-				case CmpInst::ICMP_UGE:
-					stream << "ge_u";
-					break;
-				case CmpInst::ICMP_UGT:
-					stream << "gt_u";
-					break;
-				case CmpInst::ICMP_ULT:
-					stream << "lt_u";
-					break;
-				default:
-					llvm::errs() << "Handle predicate for " << ci << "\n";
-					break;
-			}
+			stream << getTypeString(ci.getOperand(0)->getType()) << '.' << getIntegerPredicate(ci.getPredicate());
 			break;
 		}
 		case Instruction::Load:
