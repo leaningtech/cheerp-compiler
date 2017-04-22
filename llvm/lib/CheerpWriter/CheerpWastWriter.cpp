@@ -636,14 +636,20 @@ const char* CheerpWastWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
 			return "eq";
 		case CmpInst::ICMP_NE:
 			return "ne";
+		case CmpInst::ICMP_SGE:
+			return "ge_s";
 		case CmpInst::ICMP_SGT:
 			return "gt_s";
+		case CmpInst::ICMP_SLE:
+			return "le_s";
 		case CmpInst::ICMP_SLT:
 			return "lt_s";
 		case CmpInst::ICMP_UGE:
 			return "ge_u";
 		case CmpInst::ICMP_UGT:
 			return "gt_u";
+		case CmpInst::ICMP_ULE:
+			return "le_u";
 		case CmpInst::ICMP_ULT:
 			return "lt_u";
 		default:
