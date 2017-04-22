@@ -459,8 +459,8 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, con
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			assert(incoming);
-			writer.stream << "get_local " << (writer.currentFun->arg_size() + writer.registerize.getRegisterId(incoming)) << '\n';
-			writer.stream << "set_local " << (writer.currentFun->arg_size() + writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB)) << '\n';
+			writer.stream << "get_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(incoming)) << '\n';
+			writer.stream << "set_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB)) << '\n';
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
 		{
@@ -472,7 +472,7 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, con
 			writer.compileOperand(incoming);
 			writer.registerize.clearEdgeContext();
 			// 2) Save the value in the phi
-			writer.stream << "\nset_local " << (writer.currentFun->arg_size() + writer.registerize.getRegisterId(phi)) << '\n';
+			writer.stream << "\nset_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(phi)) << '\n';
 		}
 	};
 	WriterPHIHandler(*this, from, to).runOnEdge(registerize, from, to);
@@ -615,7 +615,7 @@ void CheerpWastWriter::compileOperand(const llvm::Value* v)
 		if(isInlineable(*it, PA))
 			compileInstruction(*it);
 		else
-			stream << "get_local " << (currentFun->arg_size() + registerize.getRegisterId(it));
+			stream << "get_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(it));
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
@@ -680,7 +680,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				stream << "i32.and\n";
 			}
 			// 4) Write the location to the local, but preserve the value
-			stream << "tee_local " << (currentFun->arg_size() + registerize.getRegisterId(&I)) << '\n';
+			stream << "tee_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(&I)) << '\n';
 			// 5) Save the new stack position
 			stream << "set_global " << stackTopGlobal << '\n';
 			return true;
@@ -934,7 +934,6 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		}
 		case Instruction::Ret:
 		{
-			// TODO: Restore old stack
 			const ReturnInst& ri = cast<ReturnInst>(I);
 			Value* retVal = ri.getReturnValue();
 			if(retVal)
@@ -942,6 +941,9 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				compileOperand(I.getOperand(0));
 				stream << '\n';
 			}
+			// Restore old stack
+			stream << "get_local " << currentFun->arg_size() << "\n";
+			stream << "set_global " << stackTopGlobal << '\n';
 			stream << "return\n";
 			break;
 		}
@@ -1045,7 +1047,8 @@ void CheerpWastWriter::compileMethodLocals(const Function& F, bool needsLabel)
 	uint32_t numRegs = regsInfo.size();
 	if(numArgs == 0 && numRegs == 0)
 		return;
-	stream << "(local";
+	// The first local after ther params stores the previous stack address
+	stream << "(local i32";
 	// Emit the registers, careful as the registerize id is offset by the number of args
 	for(const Registerize::RegisterInfo& regInfo: regsInfo)
 	{
@@ -1079,7 +1082,8 @@ void CheerpWastWriter::compileMethod(const Function& F)
 	stream << "(func ";
 	// TODO: We should not export them all
 	stream << "(export \"" << F.getName() << "\")";
-	if(uint32_t numArgs = F.arg_size())
+	uint32_t numArgs = F.arg_size();
+	if(numArgs)
 	{
 		stream << "(param";
 		llvm::FunctionType* FTy = F.getFunctionType();
@@ -1094,6 +1098,9 @@ void CheerpWastWriter::compileMethod(const Function& F)
 	if(F.size() == 1)
 	{
 		compileMethodLocals(F, false);
+		// TODO: Only save the stack address if required
+		stream << "get_global " << stackTopGlobal << '\n';
+		stream << "set_local " << numArgs << "\n";
 		compileBB(*F.begin());
 		lastDepth0Block = &(*F.begin());
 	}
@@ -1101,11 +1108,14 @@ void CheerpWastWriter::compileMethod(const Function& F)
 	{
 		Relooper* rl = CheerpWriter::runRelooperOnFunction(F);
 		compileMethodLocals(F, rl->needsLabel());
+		// TODO: Only save the stack address if required
+		stream << "get_global " << stackTopGlobal << '\n';
+		stream << "set_local " << numArgs << "\n";
 		uint32_t numArgs = F.arg_size();
 		const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 		uint32_t numRegs = regsInfo.size();
 		// label is the very last local
-		CheerpWastRenderInterface ri(this, numArgs+numRegs);
+		CheerpWastRenderInterface ri(this, 1+numArgs+numRegs);
 		rl->Render(&ri);
 		lastDepth0Block = ri.lastDepth0Block;
 	}
