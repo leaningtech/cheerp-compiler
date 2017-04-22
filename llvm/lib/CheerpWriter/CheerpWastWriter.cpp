@@ -1040,8 +1040,13 @@ void CheerpWastWriter::compileBB(const BasicBlock& BB)
 		}
 		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
 		{
-			if(!compileInstruction(*I) && !I->getType()->isVoidTy() && !I->use_empty())
-				stream << "\nset_local " << (currentFun->arg_size() + registerize.getRegisterId(I)) << '\n';
+			if(!compileInstruction(*I) && !I->getType()->isVoidTy())
+			{
+				if(I->use_empty())
+					stream << "\ndrop\n";
+				else
+					stream << "\nset_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(I)) << '\n';
+			}
 		}
 	}
 }
