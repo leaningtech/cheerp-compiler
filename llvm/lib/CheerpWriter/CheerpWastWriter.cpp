@@ -319,11 +319,14 @@ void CheerpWastRenderInterface::renderWhileBlockBegin()
 
 void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
 {
-assert(false);
-#if 0
-	writer->stream << 'L' << blockLabel << ':';
-	renderWhileBlockBegin();
-#endif
+	// Wrap a block in a loop so that:
+	// br 1 -> break
+	// br 2 -> continue
+	indent();
+	writer->stream << "loop $c" << blockLabel << "\n";
+	indent();
+	writer->stream << "block $" << blockLabel << "\n";
+	blockTypes.push_back(WHILE1);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin()
@@ -335,11 +338,9 @@ void CheerpWastRenderInterface::renderDoBlockBegin()
 
 void CheerpWastRenderInterface::renderDoBlockBegin(int blockLabel)
 {
-assert(false);
-#if 0
-	writer->stream << 'L' << blockLabel << ':';
-	renderDoBlockBegin();
-#endif
+	indent();
+	writer->stream << "block $" << blockLabel << "\n";
+	blockTypes.push_back(DO);
 }
 
 void CheerpWastRenderInterface::renderDoBlockEnd()
@@ -361,26 +362,28 @@ void CheerpWastRenderInterface::renderBreak()
 
 void CheerpWastRenderInterface::renderBreak(int labelId)
 {
-assert(false);
-#if 0
-	writer->stream << "break L" << labelId << ';' << NewLine;
-#endif
+	// DO blocks only have one label
+	// WHILE1 blocks have the "block" without a prefix
+	writer->stream << "br $" << labelId << '\n';
 }
 
 void CheerpWastRenderInterface::renderContinue()
 {
-assert(false);
-#if 0
-	writer->stream << "continue;" << NewLine;
-#endif
+	// Find the first while block
+	uint32_t breakIndex = 0;
+	for(uint32_t i=0;i<blockTypes.size();i++)
+	{
+		if(blockTypes[blockTypes.size() - i - 1] == DO)
+			breakIndex++;
+		else if(blockTypes[blockTypes.size() - i - 1] == WHILE1)
+			break;
+	}
+	writer->stream << "br " << (breakIndex+2) << "\n";
 }
 
 void CheerpWastRenderInterface::renderContinue(int labelId)
 {
-assert(false);
-#if 0
-	writer->stream << "continue L" << labelId << ';' << NewLine;
-#endif
+	writer->stream << "br $c" << labelId << '\n';
 }
 
 void CheerpWastRenderInterface::renderLabel(int labelId)
@@ -391,14 +394,11 @@ void CheerpWastRenderInterface::renderLabel(int labelId)
 
 void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
 {
-	assert(first);
-#if 0
-	if(first==false)
-		writer->stream << "else ";
-#endif
+	// TODO: Use first to optimize dispatch
 	writer->stream << "i32.const " << labelId << '\n';
 	writer->stream << "get_local " << labelLocal << '\n';
 	writer->stream << "i32.eq\n";
+	indent();
 	writer->stream << "if\n";
 	blockTypes.push_back(IF);
 }
