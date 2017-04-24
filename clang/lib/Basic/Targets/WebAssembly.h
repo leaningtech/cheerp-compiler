@@ -207,7 +207,7 @@ public:
                                 MacroBuilder &Builder) const {
     // Target identification.
     Builder.defineMacro("__CHEERP__");
-    if (Opts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS)
+    if (Opts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS || Opts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast)
         Builder.defineMacro("__ASMJS__");
 
     if (Opts.CPlusPlus)

@@ -2551,6 +2551,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     LangOptions::CheerpModeTy s = llvm::StringSwitch<LangOptions::CheerpModeTy>(CheerpMode->getValue())
     .Case("genericjs", LangOptions::CHEERP_MODE_GenericJS)
     .Case("asmjs", LangOptions::CHEERP_MODE_AsmJS)
+    .Case("wast", LangOptions::CHEERP_MODE_Wast)
     .Default(LangOptions::CHEERP_MODE_Invalid);
 
     Opts.setCheerpMode(s);
