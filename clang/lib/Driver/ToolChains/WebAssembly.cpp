@@ -456,7 +456,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Honor -mllvm
   Args.AddAllArgValues(CmdArgs, options::OPT_mllvm);
-  // Honot -cheerp-no-pointer-scev
+  // Honor -cheerp-no-pointer-scev
   if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev))
     CheerpNoPointerSCEV->render(Args, CmdArgs);
 
