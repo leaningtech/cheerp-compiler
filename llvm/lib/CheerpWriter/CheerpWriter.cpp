@@ -2256,7 +2256,9 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 				if(isa<ConstantPointerNull>(*cur) && (cur+1)==itE && cur!=it)
 				{
 					// Special case for NULL which are the last variadic parameter, copy the previous type
-					tp = (*(cur-1))->getType();
+					Type* prevType = (*(cur-1))->getType();
+					if(prevType->isPointerTy())
+						tp = prevType;
 				}
 				if(StructType* st = dyn_cast<StructType>(tp->getPointerElementType()))
 				{
