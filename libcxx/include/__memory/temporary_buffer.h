@@ -40,10 +40,10 @@ get_temporary_buffer(ptrdiff_t __n) _NOEXCEPT
             align_val_t __al =
                 align_val_t(alignment_of<_Tp>::value);
             __r.first = static_cast<_Tp*>(::operator new(
-                __n * sizeof(_Tp), __al, nothrow));
+                __n * sizeof(_Tp)));
         } else {
             __r.first = static_cast<_Tp*>(::operator new(
-                __n * sizeof(_Tp), nothrow));
+                __n * sizeof(_Tp)));
         }
 #else
     if (__is_overaligned_for_new(_LIBCPP_ALIGNOF(_Tp)))
@@ -53,7 +53,7 @@ get_temporary_buffer(ptrdiff_t __n) _NOEXCEPT
             return __r;
         }
 
-        __r.first = static_cast<_Tp*>(::operator new(__n * sizeof(_Tp), nothrow));
+        __r.first = static_cast<_Tp*>(::operator new(__n * sizeof(_Tp)));
 #endif
 
         if (__r.first)
