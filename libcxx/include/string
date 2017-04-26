@@ -2802,7 +2802,7 @@ basic_string<_CharT, _Traits, _Allocator>::insert(size_type __pos, const value_t
             size_type __n_move = __sz - __pos;
             if (__n_move != 0)
             {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
                 // Memory aliasing check, we can't use global pointer ordering
                 client::Object* destBase = __builtin_cheerp_pointer_base<client::Object>(__p);
                 const client::Object* srcBase = __builtin_cheerp_pointer_base<const client::Object>(__s);

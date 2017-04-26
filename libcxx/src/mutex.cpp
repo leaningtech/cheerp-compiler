@@ -32,7 +32,7 @@ mutex::lock()
 {
 #ifdef __CHEERP__
     if(__m_)
-      client::console.log("Cheerp: mutex::lock can't block");
+      cheerp::console_log("Cheerp: mutex::lock can't block");
     else
       __m_++;
 #else

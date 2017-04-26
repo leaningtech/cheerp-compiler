@@ -284,7 +284,7 @@ timed_mutex::try_lock_until(const chrono::time_point<_Clock, _Duration>& __t)
         no_timeout = __cv_.wait_until(__lk, __t) == cv_status::no_timeout;
 #else
     if (no_timeout && __locked_)
-        client::console.log("Cheerp: timed_mutex::try_lock_until can't block");
+        cheerp::console_log("Cheerp: timed_mutex::try_lock_until can't block");
 #endif
     if (!__locked_)
     {
