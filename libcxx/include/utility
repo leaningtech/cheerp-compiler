@@ -1010,7 +1010,7 @@ __murmur2_or_cityhash<_Size, 32>::operator()(const _Data* __key, _Size __len) _L
     const _Data* __data = __key;
     for (_Size i = 0; i < __len; __data += (4/sizeof(_Data)), i += 4)
     {
-       _Size __k = __loadword<_Data, _Size>(__data, __len);
+        _Size __k = __loadword<_Data, _Size>(__data, __len - i);
         __k *= __m;
         __k ^= __k >> __r;
         __k *= __m;
