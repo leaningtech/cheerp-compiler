@@ -4423,17 +4423,6 @@ void CheerpWriter::compileMemmoveHelperAsmJS()
 	stream << "}"<<NewLine;
 }
 
-void CheerpWriter::compilePrintStringHelperAsmJS()
-{
-	stream << "function printString(p,n) {" << NewLine;
-	stream << "var s='';" << NewLine;
-	stream << "for(var i=0;i<n;i++){" << NewLine;
-	stream << "s+=String.fromCharCode(" << heapNames[HEAP8] << "[p+i]);" << NewLine;
-	stream << '}' << NewLine;
-	stream << "console.log(s);" << NewLine;
-	stream << "};" << NewLine;
-}
-
 void CheerpWriter::compileFunctionTablesAsmJS()
 {
 	for (const auto& table : globalDeps.functionTables())
@@ -4594,7 +4583,6 @@ void CheerpWriter::makeJS()
 		compileMathDeclAsmJS();
 		compileBuiltins(true);
 		stream << "var isNaN=ffi.isNaN;" << NewLine;
-		stream << "var printString=ffi.printString;" << NewLine;
 		stream << "var __dummy=ffi.__dummy;" << NewLine;
 		if (checkBounds)
 		{
@@ -4649,13 +4637,11 @@ void CheerpWriter::makeJS()
 		stream << "var heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(heap);" << NewLine;
-		compilePrintStringHelperAsmJS();
 		compileAsmJSFfi();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
 		stream << "isNaN:isNaN," << NewLine;
-		stream << "printString:printString," << NewLine;
 		stream << "__dummy:__dummy," << NewLine;
 		if (checkBounds)
 		{
