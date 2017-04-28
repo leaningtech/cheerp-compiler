@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Relooper.h"
+#include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WastWriter.h"
 
@@ -1137,7 +1138,7 @@ void CheerpWastWriter::compileMethod(const Function& F)
 	stream << "(func ";
 	stream << " $" << F.getName();
 	// TODO: We should not export them all
-	stream << " (export \"" << F.getName() << "\")";
+	stream << " (export \"" << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << "\")";
 	uint32_t numArgs = F.arg_size();
 	compileMethodParams(F);
 	compileMethodResult(F);
@@ -1178,6 +1179,25 @@ void CheerpWastWriter::compileMethod(const Function& F)
 	stream << ")\n";
 }
 
+void CheerpWastWriter::compileImport(const Function& F)
+{
+	stream << "(func (import \"imports\" \"";
+	stream << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL);
+	stream << "\")";
+	uint32_t numArgs = F.arg_size();
+	if(numArgs)
+	{
+		stream << "(param";
+		llvm::FunctionType* FTy = F.getFunctionType();
+		for(uint32_t i = 0; i < numArgs; i++)
+			stream << ' ' << getTypeString(FTy->getParamType(i));
+		stream << ')';
+	}
+	if(!F.getReturnType()->isVoidTy())
+		stream << "(result " << getTypeString(F.getReturnType()) << ')';
+	stream << ")\n";
+}
+
 void CheerpWastWriter::compileDataSection()
 {
 	for ( const GlobalVariable & GV : module.getGlobalList() )
@@ -1202,8 +1222,27 @@ void CheerpWastWriter::compileDataSection()
 
 void CheerpWastWriter::makeWast()
 {
+	// First run, assing required Ids to functions and globals
+	for ( const Function * F : globalDeps.asmJSImports() )
+	{
+		functionIds.insert(std::make_pair(F, functionIds.size()));
+	}
+	for ( const Function & F : module.getFunctionList() )
+	{
+		if (!F.empty() && F.getSection() == StringRef("asmjs"))
+		{
+			functionIds.insert(std::make_pair(&F, functionIds.size()));
+		}
+	}
+
 	// Emit S-expressions for the module
 	stream << "(module\n";
+
+	// Second run, actually compile the code (imports needs to be before everything)
+	for ( const Function * F : globalDeps.asmJSImports() )
+	{
+		compileImport(*F);
+	}
 
 	// Define function type variables
 	for (const auto& table : globalDeps.functionTables())
@@ -1234,21 +1273,12 @@ void CheerpWastWriter::makeWast()
 	// Define the memory for the module (these should be parameter, they are min and max in WasmPage units)
 	uint32_t minMemory = 1;
 	uint32_t maxMemory = 2;
-	stream << "(memory " << minMemory << ' ' << maxMemory << ")\n";
+	stream << "(memory (export \"memory\") " << minMemory << ' ' << maxMemory << ")\n";
 
 	// Assign globals in the module, these are used for codegen they are not part of the user program
 	stackTopGlobal = usedGlobals++;
 	// Start the stack from the end of default memory
 	stream << "(global (mut i32) (i32.const " << (minMemory*WasmPage) << "))\n";
-	
-	// First run, assign required Ids to functions and globals
-	for ( const Function & F : module.getFunctionList() )
-	{
-		if (!F.empty() && F.getSection() == StringRef("asmjs"))
-		{
-			functionIds.insert(std::make_pair(&F, functionIds.size()));
-		}
-	}
 
 	// Experimental entry point for wast code
 	llvm::Function* wastStart = module.getFunction("_Z9wastStartv");

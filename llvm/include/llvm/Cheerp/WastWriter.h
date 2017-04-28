@@ -68,6 +68,7 @@ private:
 	void compileMethodParams(const llvm::Function& F);
 	void compileMethodResult(const llvm::Function& F);
 	void compileMethod(const llvm::Function& F);
+	void compileImport(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void compileDataSection();
 	// Returns true if it has handled local assignent internally
