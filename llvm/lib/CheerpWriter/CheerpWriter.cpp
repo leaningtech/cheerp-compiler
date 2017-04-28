@@ -4569,8 +4569,7 @@ void CheerpWriter::makeJS()
 
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
-
-	if (globalDeps.needAsmJS())
+	if (globalDeps.needAsmJS() && wasmFile.empty())
 	{
 		// compile boilerplate
 		stream << "function asmJS(stdlib, ffi, heap){" << NewLine;
@@ -4716,13 +4715,46 @@ void CheerpWriter::makeJS()
 			stream << namegen.getName(F) << "();" << NewLine;
 	}
 
+	//Load Wast module
+	if (!wasmFile.empty())
+	{
+		for (int i = HEAP8; i<=HEAPF64; i++)
+			stream << "var " << heapNames[i] << "=null" << NewLine;
+		compileAsmJSFfi();
+		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
+		stream << "function instantiate(bytes, imports) {" << NewLine;
+		stream << "	return WebAssembly.compile(bytes).then(m => new WebAssembly.Instance(m, imports));" << NewLine;
+		stream << "}" << NewLine;
+		stream << "var importObject = { imports: {" << NewLine;
+		for (const Function* imported: globalDeps.asmJSImports())
+		{
+			std::string name;
+			if (imported->empty() && !TypeSupport::isClientGlobal(imported))
+				name = "__dummy";
+			else
+				name = ("_asm_"+namegen.getName(imported)).str();
+			stream << NameGenerator::filterLLVMName(imported->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << ':' << name  << ',' << NewLine;
+		}
+		stream << "} };" << NewLine;
+		stream << "fetch('" << wasmFile << "').then(response => response.arrayBuffer())" << NewLine;
+		stream << ".then(bytes => instantiate(bytes, importObject))" << NewLine;
+		stream << ".then(instance => {" << NewLine;
+		for (int i = HEAP8; i<=HEAPF64; i++)
+			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
+	}
 	//Invoke the entry point
 	if ( const Function * entryPoint = globalDeps.getEntryPoint() )
 	{
-		if (entryPoint->getSection() == StringRef("asmjs"))
-			stream << "__asm.";
-		stream << namegen.getName(entryPoint) << "();" << NewLine;
+		if (!wasmFile.empty() && entryPoint->getSection() == StringRef("asmjs"))
+			stream << "instance.exports." << NameGenerator::filterLLVMName(entryPoint->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL);
+		else if (wasmFile.empty() && entryPoint->getSection() == StringRef("asmjs"))
+			stream << "__asm." << namegen.getName(entryPoint);
+		else
+			stream << namegen.getName(entryPoint); 
+		stream << "();" << NewLine;
 	}
+	if (!wasmFile.empty())
+		stream << "});" << NewLine;
 
 	if (makeModule) {
 		if (!exportedClassNames.empty()) {

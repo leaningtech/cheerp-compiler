@@ -195,6 +195,8 @@ private:
 	bool checkBounds;
 	// Flag to signal if we should add defined member checking code for objects
 	bool checkDefined;
+	// The name of the external wasm file, or empty if not present
+	const std::string& wasmFile;
 	// Flag to signal if we should generate typed arrays when element type is
 	// double. Without this flag, normal arrays are used since they are
 	// currently faster on v8.
@@ -477,6 +479,7 @@ public:
 			bool checkBounds,
 			bool checkDefined,
 			bool compileGlobalsAddrAsmJS,
+			const std::string& wasmFile,
 			bool forceTypedArrays):
 		module(m),
 		targetData(&m),
@@ -498,6 +501,7 @@ public:
 		heapSize(heapSize),
 		checkBounds(checkBounds),
 		checkDefined(checkDefined),
+		wasmFile(wasmFile),
 		forceTypedArrays(forceTypedArrays),
 		symbolicGlobalsAsmJS(compileGlobalsAddrAsmJS),
 		readableOutput(readableOutput),
