@@ -11,12 +11,15 @@
 
 #include "CheerpTargetMachine.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/PassManager.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Cheerp/Writer.h"
+#include "llvm/Cheerp/WastWriter.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
@@ -28,6 +31,9 @@ using namespace llvm;
 
 static cl::opt<std::string> SourceMap("cheerp-sourcemap", cl::Optional,
   cl::desc("If specified, the file name of the source map"), cl::value_desc("filename"));
+
+static cl::opt<std::string> WastLoader("cheerp-wast-loader", cl::Optional,
+  cl::desc("If specified, the file name of the wast loader"), cl::value_desc("filename"));
 
 static cl::opt<std::string> SourceMapPrefix("cheerp-sourcemap-prefix", cl::Optional,
   cl::desc("If specified, this prefix will be removed from source map file paths"), cl::value_desc("path"));
@@ -105,12 +111,38 @@ bool CheerpWritePass::runOnModule(Module& M)
   // Build the ordered list of reserved names
   std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
   std::sort(reservedNames.begin(), reservedNames.end());
+  std::string wasmFile = WastLoader;
+  size_t ext = wasmFile.find(".wast");
+  if (ext != std::string::npos)
+  {
+    wasmFile.replace(ext,5,".wasm");
+  }
+  else if (!WastLoader.empty())
+  {
+    wasmFile.append(".wasm");
+  }
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, reservedNames,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
           BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, ForceTypedArrays);
   writer.makeJS();
   delete sourceMapGenerator;
+
+  if (!WastLoader.empty())
+  {
+    std::error_code ErrorCode;
+    llvm::tool_output_file wastFile(WastLoader.c_str(), ErrorCode, sys::fs::F_None);
+    llvm::formatted_raw_ostream wastOut(wastFile.os());
+    cheerp::CheerpWastWriter writer(M, wastOut, PA, registerize, GDA);
+    writer.makeWast();
+    if (ErrorCode)
+    {
+       // An error occurred opening the wast loader file, bail out
+       llvm::report_fatal_error(ErrorCode.message(), false);
+       return false;
+    }
+    wastFile.keep();
+  }
   return false;
 }
 
