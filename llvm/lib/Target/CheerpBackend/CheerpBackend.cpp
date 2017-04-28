@@ -124,7 +124,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, reservedNames,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
-          BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, ForceTypedArrays);
+          BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
   writer.makeJS();
   delete sourceMapGenerator;
 
