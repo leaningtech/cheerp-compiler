@@ -479,6 +479,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
+  if(Arg* cheerpWastLoader = Args.getLastArg(options::OPT_cheerp_wast_loader_EQ))
+    cheerpWastLoader->render(Args, CmdArgs);
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);
   if(Arg* cheerpSourceMapPrefix = Args.getLastArg(options::OPT_cheerp_sourcemap_prefix_EQ))
