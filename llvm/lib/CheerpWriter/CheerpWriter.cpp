@@ -1973,7 +1973,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 				stream << '0';
 			}
 		}
-		else if (asmjs && isa<GlobalVariable>(c) && !symbolicGlobalsAsmJS)
+		else if (isa<GlobalVariable>(c) && !symbolicGlobalsAsmJS && cast<GlobalVariable>(c)->getSection()==StringRef("asmjs"))
 		{
 			stream << linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(c));
 		}
