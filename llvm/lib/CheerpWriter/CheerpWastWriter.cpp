@@ -1082,8 +1082,6 @@ void CheerpWastWriter::compileMethodLocals(const Function& F, bool needsLabel)
 	uint32_t numArgs = F.arg_size();
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	uint32_t numRegs = regsInfo.size();
-	if(numArgs == 0 && numRegs == 0)
-		return;
 	// The first local after ther params stores the previous stack address
 	stream << "(local i32";
 	// Emit the registers, careful as the registerize id is offset by the number of args
