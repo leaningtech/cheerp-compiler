@@ -20,6 +20,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WastWriter.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
@@ -111,6 +112,11 @@ bool CheerpWritePass::runOnModule(Module& M)
   // Build the ordered list of reserved names
   std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
   std::sort(reservedNames.begin(), reservedNames.end());
+
+  DataLayout targetData(&M);
+  cheerp::LinearMemoryHelper linearHelper(targetData, GDA);
+
+  // Set the name for the wasm file. TODO: do something better
   std::string wasmFile = WastLoader;
   size_t ext = wasmFile.find(".wast");
   if (ext != std::string::npos)
@@ -121,28 +127,29 @@ bool CheerpWritePass::runOnModule(Module& M)
   {
     wasmFile.append(".wasm");
   }
-  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, sourceMapGenerator, reservedNames,
-          PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
-          !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
-          BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
-  writer.makeJS();
-  delete sourceMapGenerator;
-
   if (!WastLoader.empty())
   {
     std::error_code ErrorCode;
     llvm::tool_output_file wastFile(WastLoader.c_str(), ErrorCode, sys::fs::F_None);
     llvm::formatted_raw_ostream wastOut(wastFile.os());
-    cheerp::CheerpWastWriter writer(M, wastOut, PA, registerize, GDA);
+    cheerp::CheerpWastWriter writer(M, wastOut, PA, registerize, GDA, linearHelper, M.getContext());
     writer.makeWast();
     if (ErrorCode)
     {
        // An error occurred opening the wast loader file, bail out
        llvm::report_fatal_error(ErrorCode.message(), false);
+       delete sourceMapGenerator;
        return false;
     }
     wastFile.keep();
   }
+  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, sourceMapGenerator, reservedNames,
+          PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
+          !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
+          BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
+  writer.makeJS();
+
+  delete sourceMapGenerator;
   return false;
 }
 
