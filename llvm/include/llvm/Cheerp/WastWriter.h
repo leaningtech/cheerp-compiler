@@ -58,7 +58,7 @@ private:
 	std::map<llvm::StringRef, uint32_t> functionTableOffsets;
 
 	// Helper class to manage linear memory state
-	LinearMemoryHelper linearHelper;
+	LinearMemoryHelper& linearHelper;
 
 	// Codegen custom globals
 	uint32_t usedGlobals;
@@ -104,6 +104,7 @@ public:
 	CheerpWastWriter(llvm::Module& m, llvm::formatted_raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
+			cheerp::LinearMemoryHelper & linearHelper,
 			llvm::LLVMContext& C):
 		module(m),
 		targetData(&m),
@@ -112,7 +113,7 @@ public:
 		registerize(registerize),
 		Ctx(C),
 		globalDeps(gda),
-		linearHelper(targetData, globalDeps),
+		linearHelper(linearHelper),
 		usedGlobals(0),
 		stackTopGlobal(0),
 		stream(s)

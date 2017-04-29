@@ -170,7 +170,7 @@ private:
 	const std::array<const char*,5> heapNames = {{"HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64"}};
 
 	// Helper class to manage linear memory state
-	LinearMemoryHelper linearHelper;
+	LinearMemoryHelper& linearHelper;
 
 	// Support for source maps
 	SourceMapGenerator* sourceMapGenerator;
@@ -465,6 +465,7 @@ public:
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
+			cheerp::LinearMemoryHelper & linearHelper,
 			SourceMapGenerator* sourceMapGenerator,
 			const std::vector<std::string>& reservedNames,
 			bool readableOutput,
@@ -489,7 +490,7 @@ public:
 		globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, reservedNames, readableOutput),
 		types(m),
-		linearHelper(targetData, globalDeps),
+		linearHelper(linearHelper),
 		sourceMapGenerator(sourceMapGenerator),
 		NewLine(),
 		useNativeJavaScriptMath(useNativeJavaScriptMath),
