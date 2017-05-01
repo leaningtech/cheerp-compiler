@@ -4876,6 +4876,11 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
 	return rl;
 }
 
+uint32_t CheerpWriter::JSBytesWriter::getFunctionTableOffset(const llvm::StringRef fTy)
+{
+    return functionAddrStart;
+}
+
 void CheerpWriter::JSBytesWriter::addByte(uint8_t byte)
 {
 	if(!first)

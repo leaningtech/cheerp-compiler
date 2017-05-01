@@ -72,7 +72,8 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 				llvm::errs() << "function not in table: " << F->getName() <<"\n";
 				llvm::report_fatal_error("please report a bug");
 			}
-			int32_t offset = globalDeps.functionAddresses().at(F) + functionAddrStart;
+			int32_t offset = globalDeps.functionAddresses().at(F);
+			offset += listener->getFunctionTableOffset(F->getName());
 			for(uint32_t i=0;i<32;i+=8)
 				listener->addByte((offset>>i)&255);
 		}

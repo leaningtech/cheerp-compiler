@@ -735,14 +735,25 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 			assert(!ci.isInlineAsm());
 			assert(!fTy->isVarArg());
-			assert(calledFunc);
-			assert(functionIds.count(calledFunc));
 			for(unsigned i=0;i<ci.getNumArgOperands();i++)
 			{
 				compileOperand(ci.getOperand(i));
 				stream << '\n';
 			}
-			stream << "call " << functionIds[calledFunc];
+
+			if (calledFunc)
+			{
+				assert(functionIds.count(calledFunc));
+				stream << "call " << functionIds[calledFunc];
+			}
+			else
+			{
+				const auto& table = globalDeps.functionTables().at(fTy);
+				compileOperand(calledValue);
+				stream << '\n';
+				stream << "call_indirect $vt_" << table.name;
+			}
+
 			if(ci.getType()->isVoidTy())
 			{
 				stream << '\n';
@@ -1101,12 +1112,8 @@ void CheerpWastWriter::compileMethodLocals(const Function& F, bool needsLabel)
 	stream << ")\n";
 }
 
-void CheerpWastWriter::compileMethod(const Function& F)
+void CheerpWastWriter::compileMethodParams(const Function& F)
 {
-	currentFun = &F;
-	stream << "(func ";
-	// TODO: We should not export them all
-	stream << "(export \"" << F.getName() << "\")";
 	uint32_t numArgs = F.arg_size();
 	if(numArgs)
 	{
@@ -1116,8 +1123,24 @@ void CheerpWastWriter::compileMethod(const Function& F)
 			stream << ' ' << getTypeString(FTy->getParamType(i));
 		stream << ')';
 	}
+}
+
+void CheerpWastWriter::compileMethodResult(const Function& F)
+{
 	if(!F.getReturnType()->isVoidTy())
 		stream << "(result " << getTypeString(F.getReturnType()) << ')';
+}
+
+void CheerpWastWriter::compileMethod(const Function& F)
+{
+	currentFun = &F;
+	stream << "(func ";
+	stream << " $" << F.getName();
+	// TODO: We should not export them all
+	stream << " (export \"" << F.getName() << "\")";
+	uint32_t numArgs = F.arg_size();
+	compileMethodParams(F);
+	compileMethodResult(F);
 	stream << '\n';
 	const llvm::BasicBlock* lastDepth0Block = nullptr;
 	if(F.size() == 1)
@@ -1170,7 +1193,7 @@ void CheerpWastWriter::compileDataSection()
 				continue;
 			// The offset into memory, which is the address
 			stream << "(data (i32.const " << linearHelper.getGlobalVariableAddress(&GV) << ") \"";
-			WastBytesWriter bytesWriter(stream);
+			WastBytesWriter bytesWriter(stream, functionTableOffsets);
 			linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
 			stream << "\")\n";
 		}
@@ -1182,6 +1205,32 @@ void CheerpWastWriter::makeWast()
 	// Emit S-expressions for the module
 	stream << "(module\n";
 
+	// Define function type variables
+	for (const auto& table : globalDeps.functionTables())
+	{
+		stream << "(type " << "$vt_" << table.second.name << " (func ";
+		const llvm::Function& F = *table.second.functions[0];
+		compileMethodParams(F);
+		compileMethodResult(F);
+		stream << "))\n";
+	}
+
+	// Define 'table' with functions
+	if (!globalDeps.functionTables().empty())
+		stream << "(table anyfunc (elem";
+
+	uint32_t functionTableOffset = 0;
+	for (const auto& table : globalDeps.functionTables()) {
+		for (const auto& F : table.second.functions) {
+			functionTableOffsets.insert(std::make_pair(F->getName(), functionTableOffset));
+			stream << " $" << F->getName();
+		}
+		functionTableOffset += table.second.functions.size();
+	}
+
+	if (!globalDeps.functionTables().empty())
+		stream << "))\n";
+
 	// Define the memory for the module (these should be parameter, they are min and max in WasmPage units)
 	uint32_t minMemory = 1;
 	uint32_t maxMemory = 2;
@@ -1192,7 +1241,7 @@ void CheerpWastWriter::makeWast()
 	// Start the stack from the end of default memory
 	stream << "(global (mut i32) (i32.const " << (minMemory*WasmPage) << "))\n";
 	
-	// First run, assing required Ids to functions and globals
+	// First run, assign required Ids to functions and globals
 	for ( const Function & F : module.getFunctionList() )
 	{
 		if (!F.empty() && F.getSection() == StringRef("asmjs"))
@@ -1235,6 +1284,11 @@ void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 	char buf[4];
 	snprintf(buf, 4, "\\%02x", byte);
 	stream << buf;
+}
+
+uint32_t CheerpWastWriter::WastBytesWriter::getFunctionTableOffset(llvm::StringRef funcName)
+{
+	return functionTableOffsets.at(funcName);
 }
 
 void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
