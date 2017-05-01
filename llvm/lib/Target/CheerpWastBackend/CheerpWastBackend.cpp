@@ -54,7 +54,7 @@ bool CheerpWastWritePass::runOnModule(Module& M)
   PA.fullResolve();
   PA.computeConstantOffsets(M);
   registerize.assignRegisters(M, PA);
-  cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA);
+  cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA, M.getContext());
   writer.makeWast();
   return false;
 }
