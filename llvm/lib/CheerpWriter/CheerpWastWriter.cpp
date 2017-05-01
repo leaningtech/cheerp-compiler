@@ -1038,6 +1038,20 @@ void CheerpWastWriter::compileBB(const BasicBlock& BB)
 				continue;
 			}
 		}
+
+		// Display file and line markers in WAST for debugging purposes
+		const llvm::DebugLoc& debugLoc = I->getDebugLoc();
+		if (!debugLoc.isUnknown()) {
+			MDNode* file = debugLoc.getScope(Ctx);
+			assert(file);
+			assert(file->getNumOperands()>=2);
+			MDNode* fileNamePath = cast<MDNode>(file->getOperand(1));
+			assert(fileNamePath->getNumOperands()==2);
+			StringRef fileName = cast<MDString>(fileNamePath->getOperand(0))->getString();
+			uint32_t currentLine = debugLoc.getLine();
+			stream << ";; " << fileName << ":" << currentLine << "\n";
+		}
+
 		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
 		{
 			if(!compileInstruction(*I) && !I->getType()->isVoidTy())
