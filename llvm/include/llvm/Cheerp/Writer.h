@@ -446,6 +446,7 @@ private:
 		{
 		}
 		void addByte(uint8_t b) override;
+		uint32_t getFunctionTableOffset(llvm::StringRef funcName) override;
 	};
 
 	struct AsmJSGepWriter: public LinearMemoryHelper::GepListener
@@ -485,7 +486,7 @@ public:
 		globalDeps(gda),
 		namegen(m, globalDeps, registerize, PA, reservedNames, readableOutput),
 		types(m),
-		linearHelper(targetData, globalDeps, functionAddrStart),
+		linearHelper(targetData, globalDeps),
 		sourceMapGenerator(sourceMapGenerator),
 		NewLine(),
 		useNativeJavaScriptMath(useNativeJavaScriptMath),

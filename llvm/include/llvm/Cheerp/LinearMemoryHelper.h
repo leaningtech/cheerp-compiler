@@ -25,15 +25,16 @@ class LinearMemoryHelper
 private:
 	const llvm::DataLayout& targetData;
 	const GlobalDepsAnalyzer& globalDeps;
-	const int32_t functionAddrStart;
 	// map global variables to their addresses
 	std::map<const llvm::GlobalVariable*,uint32_t> gVarsAddr;
 	// The next address available to allocate global variables.
 	// The heap space will start after the last global variable allocation
 	uint32_t heapStart{8};
 public:
-	LinearMemoryHelper(const llvm::DataLayout& targetData, const GlobalDepsAnalyzer& globalDeps, int32_t functionAddrStart):
-				targetData(targetData),globalDeps(globalDeps),functionAddrStart(functionAddrStart)
+	LinearMemoryHelper(const llvm::DataLayout& targetData,
+					   const GlobalDepsAnalyzer& globalDeps):
+		targetData(targetData),
+		globalDeps(globalDeps)
 	{
 	}
 	// Returns the newly assigned address
@@ -42,6 +43,7 @@ public:
 	struct ByteListener
 	{
 		virtual void addByte(uint8_t b) = 0;
+		virtual uint32_t getFunctionTableOffset(llvm::StringRef funcName) = 0;
 		virtual ~ByteListener()
 		{
 		}

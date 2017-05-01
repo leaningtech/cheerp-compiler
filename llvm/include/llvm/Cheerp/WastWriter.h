@@ -55,6 +55,7 @@ private:
 
 	GlobalDepsAnalyzer & globalDeps;
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
+	std::map<llvm::StringRef, uint32_t> functionTableOffsets;
 
 	// Helper class to manage linear memory state
 	LinearMemoryHelper linearHelper;
@@ -64,6 +65,8 @@ private:
 	uint32_t stackTopGlobal;
 	static const char* getTypeString(llvm::Type* t);
 	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
+	void compileMethodParams(const llvm::Function& F);
+	void compileMethodResult(const llvm::Function& F);
 	void compileMethod(const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void compileDataSection();
@@ -75,10 +78,14 @@ private:
 	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
 	{
 		llvm::formatted_raw_ostream& stream;
-		WastBytesWriter(llvm::formatted_raw_ostream& stream):stream(stream)
+		std::map<llvm::StringRef, uint32_t>& functionTableOffsets;
+		WastBytesWriter(llvm::formatted_raw_ostream& stream,
+						std::map<llvm::StringRef, uint32_t>& functionTableOffsets)
+			: stream(stream), functionTableOffsets(functionTableOffsets)
 		{
 		}
 		void addByte(uint8_t b) override;
+		uint32_t getFunctionTableOffset(llvm::StringRef funcName) override;
 	};
 
 	struct WastGepWriter: public LinearMemoryHelper::GepListener
@@ -104,7 +111,7 @@ public:
 		registerize(registerize),
 		Ctx(C),
 		globalDeps(gda),
-		linearHelper(targetData, globalDeps, /*functionAddrStart*/ 0),
+		linearHelper(targetData, globalDeps),
 		usedGlobals(0),
 		stackTopGlobal(0),
 		stream(s)
