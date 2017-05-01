@@ -27,6 +27,9 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #endif
+#include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/FormattedStream.h"
 #if 0
 #include <set>
@@ -47,6 +50,8 @@ private:
 	const llvm::Function* currentFun;
 	const PointerAnalyzer & PA;
 	Registerize & registerize;
+
+	llvm::LLVMContext& Ctx;
 
 	GlobalDepsAnalyzer & globalDeps;
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
@@ -90,12 +95,14 @@ public:
 	llvm::formatted_raw_ostream& stream;
 	CheerpWastWriter(llvm::Module& m, llvm::formatted_raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
-			cheerp::GlobalDepsAnalyzer & gda):
+			cheerp::GlobalDepsAnalyzer & gda,
+			llvm::LLVMContext& C):
 		module(m),
 		targetData(&m),
 		currentFun(NULL),
 		PA(PA),
 		registerize(registerize),
+		Ctx(C),
 		globalDeps(gda),
 		linearHelper(targetData, globalDeps, /*functionAddrStart*/ 0),
 		usedGlobals(0),
