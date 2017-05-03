@@ -4812,6 +4812,17 @@ bool llvm::isSafeToSpeculativelyExecuteWithOpcode(
     // if marked readnone nounwind.
     return Callee && Callee->isSpeculatable();
   }
+  case Instruction::GetElementPtr:
+  {
+    // Cheerp: Although they are just arithmetic normally, they access fields in NBA
+    if(const Instruction* I = dyn_cast<Instruction>(Inst)) {
+      const DataLayout &DL = I->getModule()->getDataLayout();
+      return DL.isByteAddressable();
+    } else {
+      // Be conservative, hoisting constants should not matter anyway
+      return false;
+    }
+  }
   case Instruction::VAArg:
   case Instruction::Alloca:
   case Instruction::Invoke:
