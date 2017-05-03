@@ -26,45 +26,9 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/ResolveAliases.h"
 #include "llvm/Cheerp/SourceMaps.h"
-#include "llvm/Support/CommandLine.h"
+#include "llvm/Cheerp/CommandLine.h"
 
 using namespace llvm;
-
-static cl::opt<std::string> SourceMap("cheerp-sourcemap", cl::Optional,
-  cl::desc("If specified, the file name of the source map"), cl::value_desc("filename"));
-
-static cl::opt<std::string> WastLoader("cheerp-wast-loader", cl::Optional,
-  cl::desc("If specified, the file name of the wast loader"), cl::value_desc("filename"));
-
-static cl::opt<std::string> SourceMapPrefix("cheerp-sourcemap-prefix", cl::Optional,
-  cl::desc("If specified, this prefix will be removed from source map file paths"), cl::value_desc("path"));
-
-static cl::opt<bool> PrettyCode("cheerp-pretty-code", cl::desc("Generate human-readable JS") );
-
-static cl::opt<bool> SymbolicGlobalsAsmJS("cheerp-asmjs-symbolic-globals", cl::desc("Compile global variables addresses as js variables in the asm.js module") );
-
-static cl::opt<bool> MakeModule("cheerp-make-module", cl::desc("Create a closure around JS to avoid global namespace pollution") );
-
-static cl::opt<bool> NoRegisterize("cheerp-no-registerize", cl::desc("Disable registerize pass") );
-
-static cl::opt<bool> NoNativeJavaScriptMath("cheerp-no-native-math", cl::desc("Disable native JavaScript math functions") );
-
-static cl::opt<bool> NoJavaScriptMathImul("cheerp-no-math-imul", cl::desc("Disable JavaScript Math.imul") );
-
-static cl::opt<bool> NoJavaScriptMathFround("cheerp-no-math-fround", cl::desc("Disable JavaScript Math.fround") );
-
-static cl::opt<bool> NoCredits("cheerp-no-credits", cl::desc("Disable Cheerp credits in JS") );
-
-static cl::opt<bool> MeasureTimeToMain("cheerp-measure-time-to-main", cl::desc("Print time elapsed until the first line of main() is executed") );
-
-static cl::opt<bool> ForceTypedArrays("cheerp-force-typed-arrays", cl::desc("Use typed arrays instead of normal arrays for arrays of doubles") );
-
-static cl::list<std::string> ReservedNames("cheerp-reserved-names", cl::value_desc("list"), cl::desc("A list of JS identifiers that should not be used by Cheerp"), cl::CommaSeparated);
-
-static cl::opt<unsigned> CheerpAsmJSHeapSize("cheerp-asmjs-heap-size", cl::init(1), cl::desc("Desired heap size for the cheerp asmjs module (in MB)") );
-
-static cl::opt<bool> BoundsCheck("cheerp-bounds-check", cl::desc("Generate debug code for bounds-checking arrays") );
-static cl::opt<bool> DefinedCheck("cheerp-defined-members-check", cl::desc("Generate debug code for checking if accessed object members are defined") );
 
 extern "C" void LLVMInitializeCheerpBackendTarget() {
   // Register the target.
@@ -116,37 +80,10 @@ bool CheerpWritePass::runOnModule(Module& M)
   DataLayout targetData(&M);
   cheerp::LinearMemoryHelper linearHelper(targetData, GDA);
 
-  // Set the name for the wasm file. TODO: do something better
-  std::string wasmFile = WastLoader;
-  size_t ext = wasmFile.find(".wast");
-  if (ext != std::string::npos)
-  {
-    wasmFile.replace(ext,5,".wasm");
-  }
-  else if (!WastLoader.empty())
-  {
-    wasmFile.append(".wasm");
-  }
-  if (!WastLoader.empty())
-  {
-    std::error_code ErrorCode;
-    llvm::tool_output_file wastFile(WastLoader.c_str(), ErrorCode, sys::fs::F_None);
-    llvm::formatted_raw_ostream wastOut(wastFile.os());
-    cheerp::CheerpWastWriter writer(M, wastOut, PA, registerize, GDA, linearHelper, M.getContext());
-    writer.makeWast();
-    if (ErrorCode)
-    {
-       // An error occurred opening the wast loader file, bail out
-       llvm::report_fatal_error(ErrorCode.message(), false);
-       delete sourceMapGenerator;
-       return false;
-    }
-    wastFile.keep();
-  }
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, sourceMapGenerator, reservedNames,
           PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
-          BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
+          BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
   writer.makeJS();
 
   delete sourceMapGenerator;

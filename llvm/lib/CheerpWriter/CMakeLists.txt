@@ -8,6 +8,7 @@ add_llvm_library(LLVMCheerpWriter
   Relooper.cpp
   Types.cpp
   Opcodes.cpp
+  CommandLine.cpp
   )
 
 add_dependencies(LLVMCheerpWriter intrinsics_gen)
