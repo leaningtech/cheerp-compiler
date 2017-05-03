@@ -479,8 +479,17 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
-  if(Arg* cheerpWastLoader = Args.getLastArg(options::OPT_cheerp_wast_loader_EQ))
+  if(Arg* cheerpWastLoader = Args.getLastArg(options::OPT_cheerp_wast_loader_EQ)) {
+    std::string wasmFile("-cheerp-wasm-file=");
+    wasmFile.append(Output.getFilename());
+    size_t ext = wasmFile.find(".wast");
+    if (ext == wasmFile.size()-5)
+      wasmFile[wasmFile.size()-1] = 'm';
+    else
+      wasmFile.append(".wasm");
+    CmdArgs.push_back(Args.MakeArgString(wasmFile));
     cheerpWastLoader->render(Args, CmdArgs);
+  }
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);
   if(Arg* cheerpSourceMapPrefix = Args.getLastArg(options::OPT_cheerp_sourcemap_prefix_EQ))
