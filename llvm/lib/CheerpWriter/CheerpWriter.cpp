@@ -45,7 +45,7 @@ public:
 	void renderLabelForSwitch(int labelId);
 	void renderSwitchOnLabel();
 	void renderCaseOnLabel(int labelId);
-	void renderSwitchBlockBegin(const void* privateBranchVar);
+	void renderSwitchBlockBegin(const void* privateSwitchInst);
 	void renderCaseBlockBegin(const void* privateBlock, int branchId);
 	void renderDefaultBlockBegin();
 	void renderIfBlockBegin(const void* privateBlock, int branchId, bool first);
@@ -3827,9 +3827,10 @@ void CheerpRenderInterface::renderCaseOnLabel(int labelId)
 	writer->stream << "case ";
 	writer->stream << labelId << ":{" << NewLine;
 }
-void CheerpRenderInterface::renderSwitchBlockBegin(const void* privateBranchVar)
+void CheerpRenderInterface::renderSwitchBlockBegin(const void* privateSwitchInst)
 {
-	const Value* cond = (const Value*)privateBranchVar;
+	const SwitchInst* switchInst = static_cast<const SwitchInst*>(privateSwitchInst);
+	const Value* cond = switchInst->getCondition();
 	writer->stream << "switch(";
 	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 	writer->stream << "){" << NewLine;
@@ -4828,7 +4829,7 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
 		//the control flow
 		const TerminatorInst* term = B->getTerminator();
 		// If this is not null, we can use a switch
-		Value*  branchVar = nullptr;
+		const SwitchInst* switchInst = nullptr;
 		if(const SwitchInst* si = dyn_cast<SwitchInst>(term))
 		{
 			//In asm.js cases values must be in the range [-2^31,2^31),
@@ -4847,10 +4848,10 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
 				// it is not defined in the spec
 				max-min <= 0x3fffff)
 			{
-				branchVar = si->getCondition();
+				switchInst = si;
 			}
 		}
-		Block* rlBlock = new Block(&(*B), isSplittable, BlockId++, branchVar);
+		Block* rlBlock = new Block(&(*B), isSplittable, BlockId++, switchInst);
 		relooperMap.insert(make_pair(&(*B),rlBlock));
 	}
 
