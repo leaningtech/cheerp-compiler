@@ -48,9 +48,15 @@ void Branch::Render(Block *Target, bool SetLabel, RenderInterface* renderInterfa
 
 // Block
 
-Block::Block(const void* b, bool s, int Id, const void* bv) : Parent(NULL), Id(Id), privateBlock(b),
-  privateBranchVar(bv), DefaultTarget(NULL), IsCheckedMultipleEntry(false), IsSplittable(s) {
-}
+Block::Block(const void* b, bool s, int Id, const void* si)
+  : Parent(NULL),
+    Id(Id),
+    privateBlock(b),
+    privateSwitchInst(si),
+    DefaultTarget(NULL),
+    IsCheckedMultipleEntry(false),
+    IsSplittable(s)
+{ }
 
 Block::~Block() {
   for (BlockSet::iterator iter = ProcessedBranchesIn.begin(); iter != ProcessedBranchesIn.end(); iter++) {
@@ -125,10 +131,10 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   }
   assert(DefaultTarget); // Since each block *must* branch somewhere, this must be set
 
-  bool useSwitch = privateBranchVar != NULL;
+  bool useSwitch = privateSwitchInst != NULL;
 
   if (useSwitch) {
-    renderInterface->renderSwitchBlockBegin(privateBranchVar);
+    renderInterface->renderSwitchBlockBegin(privateSwitchInst);
   }
 
   std::vector<int> emptyBranchesIds;
@@ -324,7 +330,7 @@ void Relooper::Calculate(Block *Entry) {
         // Split the node (for simplicity, we replace all the blocks, even though we could have reused the original)
         for (BlockSet::iterator iter = Original->BranchesIn.begin(); iter != Original->BranchesIn.end(); iter++) {
           Block *Prior = *iter;
-          Block *Split = new Block(Original->privateBlock, Original->IsSplittable, Parent->IdCounter++, Original->privateBranchVar);
+          Block *Split = new Block(Original->privateBlock, Original->IsSplittable, Parent->IdCounter++, Original->privateSwitchInst);
           Parent->AddBlock(Split);
           Split->BranchesIn.insert(Prior);
           Branch *Details = Prior->BranchesOut[Original];
@@ -879,10 +885,10 @@ void Relooper::Calculate(Block *Entry) {
         Root = Next;
         Next = NULL;
         SHAPE_SWITCH(Root, {
-          if (Simple->Inner->privateBranchVar) LastLoop = NULL; // a switch clears out the loop (TODO: only for breaks, not continue)
+          if (Simple->Inner->privateSwitchInst) LastLoop = NULL; // a switch clears out the loop (TODO: only for breaks, not continue)
 
           if (Simple->Next) {
-            if (!Simple->Inner->privateBranchVar && Simple->Inner->ProcessedBranchesOut.size() == 2 && Depth < 20) {
+            if (!Simple->Inner->privateSwitchInst && Simple->Inner->ProcessedBranchesOut.size() == 2 && Depth < 20) {
               // If there is a next block, we already know at Simple creation time to make direct branches,
               // and we can do nothing more in general. But, we try to optimize the case of a break and
               // a direct: This would normally be  if (break?) { break; } ..  but if we
@@ -971,7 +977,7 @@ void Relooper::Calculate(Block *Entry) {
           if (Fused && Fused->Breaks) {
             LoopStack.push(Fused);
           }
-          if (Simple->Inner->privateBranchVar) {
+          if (Simple->Inner->privateSwitchInst) {
             LoopStack.push(NULL); // a switch means breaks are now useless, push a dummy
           }
           if (Fused) {
@@ -995,7 +1001,7 @@ void Relooper::Calculate(Block *Entry) {
           if (Fused && Fused->UseSwitch) {
             LoopStack.pop();
           }
-          if (Simple->Inner->privateBranchVar) {
+          if (Simple->Inner->privateSwitchInst) {
             LoopStack.pop();
           }
           if (Fused && Fused->Breaks) {

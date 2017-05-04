@@ -199,13 +199,13 @@ struct Block {
   Shape *Parent; // The shape we are directly inside
   int Id; // A unique identifier
   const void* privateBlock; // A private value that will be passed back to the callback
-  const void* privateBranchVar; // A variable whose value determines where we go; if this is not NULL, emit a switch on that variable
+  const void* privateSwitchInst; // The switch instruction that determines where we go; if this is not NULL, emit a switch
   Block *DefaultTarget; // The block we branch to without checking the condition, if none of the other conditions held.
                         // Since each block *must* branch somewhere, this must be set
   bool IsCheckedMultipleEntry; // If true, we are a multiple entry, so reaching us requires setting the label variable
   bool IsSplittable;
 
-  Block(const void* privateBlock, bool splittable, int Id, const void* privateBranchVar = NULL);
+  Block(const void* privateBlock, bool splittable, int Id, const void* privateSwitchInst = NULL);
   ~Block();
 
   /*
