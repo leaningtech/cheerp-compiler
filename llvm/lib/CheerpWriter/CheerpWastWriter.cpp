@@ -18,21 +18,49 @@ using namespace cheerp;
 using namespace llvm;
 using namespace std;
 
+enum BLOCK_TYPE { WHILE1 = 0, DO, SWITCH, CASE, IF };
+
+class BlockType
+{
+public:
+	BLOCK_TYPE type;
+	uint32_t depth;
+
+	BlockType(BLOCK_TYPE bt, uint32_t depth = 0)
+	 :
+		type(bt),
+		depth(depth)
+	{}
+};
+
+BlockType* findSwitchBlockType(std::vector<BlockType>& blocks)
+{
+	for (size_t i = blocks.size(); i;)
+	{
+		BlockType* block = &blocks[--i];
+		if (block->type == SWITCH)
+			return block;
+	}
+
+	llvm_unreachable("switch render block not found");
+}
+
 class CheerpWastRenderInterface: public RenderInterface
 {
 private:
 	CheerpWastWriter* writer;
-	// IF must be the last one, we use values above it to count the amount of else ifs
-	enum BLOCK_TYPE { WHILE1 = 0, DO, IF };
+	std::vector<BlockType> blockTypes;
 	uint32_t labelLocal;
-	std::vector<BLOCK_TYPE> blockTypes;
 	void renderCondition(const BasicBlock* B, int branchId);
 	void indent();
 public:
 	const BasicBlock* lastDepth0Block;
-	CheerpWastRenderInterface(CheerpWastWriter* w, uint32_t labelLocal):writer(w),labelLocal(labelLocal),lastDepth0Block(nullptr)
-	{
-	}
+	CheerpWastRenderInterface(CheerpWastWriter* w, uint32_t labelLocal)
+	 :
+		writer(w),
+		labelLocal(labelLocal),
+		lastDepth0Block(nullptr)
+	{ }
 	void renderBlock(const void* privateBlock);
 	void renderLabelForSwitch(int labelId);
 	void renderSwitchOnLabel();
@@ -62,7 +90,7 @@ public:
 void CheerpWastRenderInterface::renderBlock(const void* privateBlock)
 {
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
-	if(blockTypes.empty())
+	if (blockTypes.empty())
 		lastDepth0Block = bb;
 	else
 		lastDepth0Block = nullptr;
@@ -149,57 +177,45 @@ assert(false);
 #endif
 }
 
-void CheerpWastRenderInterface::renderSwitchBlockBegin(const void* privateBranchVar)
+void CheerpWastRenderInterface::renderSwitchBlockBegin(const void* privateSwitchInst)
 {
-assert(false);
-#if 0
-	const Value* cond = (const Value*)privateBranchVar;
-	writer->stream << "switch(";
-	CheerpWriter::PARENT_PRIORITY myPrio = asmjs?CheerpWriter::BIT_OR:CheerpWriter::LOWEST;
-	writer->compileOperand(cond,myPrio);
-	if (asmjs)
-		writer->stream << "|0";
-	writer->stream << "){" << NewLine;
-#endif
+	assert(false);
+	const SwitchInst* si = static_cast<const SwitchInst*>(privateSwitchInst);
+
+	// Add one block for the default case and N blocks for the N cases.
+	writer->stream << "block\n";
+	for (uint32_t i = 0; i < si->getNumCases(); i++)
+		writer->stream << "block\n";
+
+	// Wrap the br_table instruction in its own block
+	writer->stream << "block\n";
+	writer->compileOperand(si->getCondition());
+	writer->stream << "\nbr_table";
+
+	// Print the block labels
+	for (auto it : si->cases())
+		writer->stream << " " << it.getCaseIndex();
+	writer->stream << " " << si->getNumCases() << "\n";
+
+	writer->stream << "end\n";
+
+	// Number of cases plus the default case.
+	blockTypes.emplace_back(SWITCH, si->getNumCases() + 1);
 }
 
 void CheerpWastRenderInterface::renderCaseBlockBegin(const void* privateBlock, int branchId)
 {
-assert(false);
-#if 0
-	const BasicBlock* bb=(const BasicBlock*)privateBlock;
-	const TerminatorInst* term = bb->getTerminator();
-	assert(isa<SwitchInst>(term));
-	const SwitchInst* si=cast<SwitchInst>(term);
-	assert(branchId > 0);
-	SwitchInst::ConstCaseIt it=si->case_begin();
-	for(int i=1;i<branchId;i++)
-		++it;
-	writer->stream << "case ";
-	writer->compileOperand(it.getCaseValue());
-	writer->stream << ':' << NewLine;
-	//We found the destination, there may be more cases for the same
-	//destination though
-	const BasicBlock* dest=it.getCaseSuccessor();
-	for(++it;it!=si->case_end();++it)
-	{
-		if(it.getCaseSuccessor()==dest)
-		{
-			writer->stream << "case ";
-			writer->compileOperand(it.getCaseValue());
-			writer->stream << ':' << NewLine;
-		}
-	}
-	writer->stream << '{' << NewLine;
-#endif
+	assert(false);
+	BlockType prevBlock = blockTypes.back();
+	assert(prevBlock.type == SWITCH || prevBlock.type == CASE);
+	assert(findSwitchBlockType(blockTypes)->depth > 0);
+
+	blockTypes.emplace_back(CASE);
 }
 
 void CheerpWastRenderInterface::renderDefaultBlockBegin()
 {
-assert(false);
-#if 0
-	writer->stream << "default:{" << NewLine;
-#endif
+	renderCaseBlockBegin(nullptr, 0);
 }
 
 void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, int branchId, bool first)
@@ -216,11 +232,13 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, int
 	indent();
 	writer->stream << "if\n";
 	if(first)
-		blockTypes.push_back(IF);
+	{
+		blockTypes.emplace_back(IF);
+	}
 	else
 	{
-		assert(blockTypes.back()>=IF);
-		blockTypes.back() = BLOCK_TYPE(blockTypes.back() + 1);
+		assert(blockTypes.back().type == IF);
+		blockTypes.back().depth += 1;
 	}
 }
 
@@ -250,13 +268,15 @@ assert(false);
 #endif
 	indent();
 	writer->stream << "if\n";
-	blockTypes.push_back(IF);
+
+	blockTypes.emplace_back(IF);
 }
 
 void CheerpWastRenderInterface::renderElseBlockBegin()
 {
 	assert(!blockTypes.empty());
-	assert(blockTypes.back() >= IF);
+	assert(blockTypes.back().type == IF);
+
 	indent();
 	writer->stream << "else\n";
 }
@@ -264,9 +284,10 @@ void CheerpWastRenderInterface::renderElseBlockBegin()
 void CheerpWastRenderInterface::renderBlockEnd()
 {
 	assert(!blockTypes.empty());
-	BLOCK_TYPE bt = blockTypes.back();
+	BlockType block = blockTypes.back();
 	blockTypes.pop_back();
-	if(bt == WHILE1)
+
+	if(block.type == WHILE1)
 	{
 		// TODO: Why do we even need to fake value
 		writer->stream << "i32.const 0\n";
@@ -274,16 +295,29 @@ void CheerpWastRenderInterface::renderBlockEnd()
 		writer->stream << "end\n";
 		writer->stream << "end\n";
 	}
-	else if(bt >= IF)
+	else if (block.type == CASE)
 	{
-		for(uint32_t i=0;i<(bt - IF)+1;i++)
+		writer->stream << "end\n";
+		BlockType* switchBlock = findSwitchBlockType(blockTypes);
+		assert(switchBlock->depth > 0);
+		switchBlock->depth--;
+	}
+	else if(block.type == IF)
+	{
+		for(uint32_t i = 0; i < block.depth + 1; i++)
 		{
 			indent();
 			writer->stream << "end\n";
 		}
 	}
+	else if (block.type == SWITCH)
+	{
+		assert(block.depth == 0);
+	}
 	else
+	{
 		assert(false);
+	}
 }
 
 void CheerpWastRenderInterface::renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom)
@@ -315,7 +349,7 @@ void CheerpWastRenderInterface::renderWhileBlockBegin()
 	writer->stream << "loop\n";
 	indent();
 	writer->stream << "block\n";
-	blockTypes.push_back(WHILE1);
+	blockTypes.emplace_back(WHILE1);
 }
 
 void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
@@ -327,38 +361,46 @@ void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
 	writer->stream << "loop $c" << blockLabel << "\n";
 	indent();
 	writer->stream << "block $" << blockLabel << "\n";
-	blockTypes.push_back(WHILE1);
+	blockTypes.emplace_back(WHILE1);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin()
 {
 	indent();
 	writer->stream << "block\n";
-	blockTypes.push_back(DO);
+	blockTypes.emplace_back(DO);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin(int blockLabel)
 {
 	indent();
 	writer->stream << "block $" << blockLabel << "\n";
-	blockTypes.push_back(DO);
+	blockTypes.emplace_back(DO);
 }
 
 void CheerpWastRenderInterface::renderDoBlockEnd()
 {
 	assert(!blockTypes.empty());
-#ifndef NDEBUG
-	BLOCK_TYPE bt = blockTypes.back();
-#endif
+	assert(blockTypes.back().type == DO);
 	blockTypes.pop_back();
-	assert(bt == DO);
+
 	indent();
 	writer->stream << "end\n";
 }
 
 void CheerpWastRenderInterface::renderBreak()
 {
-	writer->stream << "br 1\n";
+	BlockType block = blockTypes.back();
+	if (block.type == CASE)
+	{
+		BlockType* switchBlock = findSwitchBlockType(blockTypes);
+		assert(switchBlock->depth > 0);
+		writer->stream << "br " << (switchBlock->depth - 1) << "\n";
+	}
+	else
+	{
+		writer->stream << "br 1\n";
+	}
 }
 
 void CheerpWastRenderInterface::renderBreak(int labelId)
@@ -372,11 +414,11 @@ void CheerpWastRenderInterface::renderContinue()
 {
 	// Find the first while block
 	uint32_t breakIndex = 0;
-	for(uint32_t i=0;i<blockTypes.size();i++)
+	for (uint32_t i = 0; i < blockTypes.size(); i++)
 	{
-		if(blockTypes[blockTypes.size() - i - 1] == DO)
+		if(blockTypes[blockTypes.size() - i - 1].type == DO)
 			breakIndex++;
-		else if(blockTypes[blockTypes.size() - i - 1] == WHILE1)
+		else if(blockTypes[blockTypes.size() - i - 1].type == WHILE1)
 			break;
 	}
 	writer->stream << "br " << (breakIndex+2) << "\n";
@@ -401,7 +443,7 @@ void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
 	writer->stream << "i32.eq\n";
 	indent();
 	writer->stream << "if\n";
-	blockTypes.push_back(IF);
+	blockTypes.emplace_back(IF);
 }
 
 bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
