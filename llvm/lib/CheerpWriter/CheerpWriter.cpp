@@ -4736,8 +4736,19 @@ void CheerpWriter::makeJS()
 			stream << NameGenerator::filterLLVMName(imported->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << ':' << name  << ',' << NewLine;
 		}
 		stream << "} };" << NewLine;
-		stream << "fetch('" << wasmFile << "').then(response => response.arrayBuffer())" << NewLine;
-		stream << ".then(bytes => instantiate(bytes, importObject))" << NewLine;
+		stream << "var bytes = null;" << NewLine;
+		stream << "if (typeof window === 'undefined') {" << NewLine;
+		stream << "var fs = require('fs');" << NewLine;
+		stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
+		stream << "fs.readFile('" << wasmFile << "', function(error, data) {" << NewLine;
+		stream << "if(error) reject(error);" << NewLine;
+		stream << "else resolve(data);" << NewLine;
+		stream << "});" << NewLine;
+		stream << "});" << NewLine;
+		stream << "} else {" << NewLine;
+		stream << "	bytes = fetch('" << wasmFile << "').then(response => response.arrayBuffer());" << NewLine;
+		stream << "}" << NewLine;
+		stream << "bytes.then(bytes => instantiate(bytes, importObject))" << NewLine;
 		stream << ".then(instance => {" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
