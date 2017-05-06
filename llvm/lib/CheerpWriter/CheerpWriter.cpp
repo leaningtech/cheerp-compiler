@@ -2752,13 +2752,18 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 
 		// Just another pointer from this one
 		if (!isOffsetConstantZero)
+		{
+			if(parentPrio > BIT_OR) stream << '(';
 			prio = ADD_SUB;
+		}
 		compilePointerOffset(gep_inst->getOperand(0), prio);
 
 		if(!isOffsetConstantZero)
 		{
 			stream << '+';
 			compileOperand(indices.front(), prio);
+			stream << "|0";
+			if(parentPrio > BIT_OR) stream << ')';
 		}
 	}
 	else
