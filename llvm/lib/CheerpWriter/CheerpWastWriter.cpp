@@ -808,15 +808,38 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 
 			if (calledFunc)
 			{
-				assert(functionIds.count(calledFunc));
-				stream << "call " << functionIds[calledFunc];
+				if (calledFunc->getIntrinsicID() == Intrinsic::trap)
+				{
+					stream << "unreachable\n";
+					return true;
+				}
+
+				if (functionIds.count(calledFunc))
+				{
+					stream << "call " << functionIds[calledFunc];
+				}
+				else
+				{
+					// TODO implement ffi calls to the browser side.
+					stream << "unreachable ;; implement ffi calls\n";
+					return true;
+				}
 			}
 			else
 			{
-				const auto& table = globalDeps.functionTables().at(fTy);
-				compileOperand(calledValue);
-				stream << '\n';
-				stream << "call_indirect $vt_" << table.name;
+				if (globalDeps.functionTables().count(fTy))
+				{
+					const auto& table = globalDeps.functionTables().at(fTy);
+					compileOperand(calledValue);
+					stream << '\n';
+					stream << "call_indirect $vt_" << table.name;
+				}
+				else
+				{
+					// TODO implement ffi calls to the browser side.
+					stream << "unreachable ;; implement ffi calls\n";
+					return true;
+				}
 			}
 
 			if(ci.getType()->isVoidTy())
@@ -1093,6 +1116,11 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << "i32.and";
 			break;
 		}
+		case Instruction::Unreachable:
+		{
+			stream << "unreachable\n";
+			break;
+		}
 		default:
 		{
 			I.dump();
@@ -1206,7 +1234,7 @@ void CheerpWastWriter::compileMethodResult(const Function& F)
 void CheerpWastWriter::compileMethod(const Function& F)
 {
 	currentFun = &F;
-	stream << "(func ";
+	stream << "(func";
 	stream << " $" << F.getName();
 	// TODO: We should not export them all
 	stream << " (export \"" << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << "\")";
