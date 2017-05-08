@@ -1092,11 +1092,30 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << "i32.shr_s";
 			break;
 		}
+		case Instruction::FPToSI:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n' << getTypeString(I.getType()) << ".trunc_s/" << getTypeString(I.getOperand(0)->getType());
+			break;
+		}
+		case Instruction::FPToUI:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n' << getTypeString(I.getType()) << ".trunc_u/" << getTypeString(I.getOperand(0)->getType());
+			break;
+		}
 		case Instruction::SIToFP:
 		{
 			assert(I.getOperand(0)->getType()->isIntegerTy(32));
 			compileOperand(I.getOperand(0));
 			stream << '\n' << getTypeString(I.getType()) << ".convert_s/" << getTypeString(I.getOperand(0)->getType());
+			break;
+		}
+		case Instruction::UIToFP:
+		{
+			assert(I.getOperand(0)->getType()->isIntegerTy(32));
+			compileOperand(I.getOperand(0));
+			stream << '\n' << getTypeString(I.getType()) << ".convert_u/" << getTypeString(I.getOperand(0)->getType());
 			break;
 		}
 		case Instruction::Xor:
