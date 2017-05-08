@@ -660,6 +660,10 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 			assert(false);
 		}
 	}
+	else if (isa<UndefValue>(c))
+	{
+		stream << "i32.const 0";
+	}
 	else
 	{
 		c->dump();
