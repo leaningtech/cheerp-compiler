@@ -846,20 +846,29 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			switch(ci.getPredicate())
 			{
 				// TODO: Handle ordered vs unordered
+				case CmpInst::FCMP_UEQ:
 				case CmpInst::FCMP_OEQ:
 					stream << "eq";
 					break;
-				case CmpInst::FCMP_OGT:
-					stream << "gt";
+				case CmpInst::FCMP_UNE:
+				case CmpInst::FCMP_ONE:
+					stream << "ne";
 					break;
-				case CmpInst::FCMP_OLE:
-					stream << "le";
-					break;
+				case CmpInst::FCMP_ULT:
 				case CmpInst::FCMP_OLT:
 					stream << "lt";
 					break;
-				case CmpInst::FCMP_UNE:
-					stream << "ne";
+				case CmpInst::FCMP_OGT:
+				case CmpInst::FCMP_UGT:
+					stream << "gt";
+					break;
+				case CmpInst::FCMP_ULE:
+				case CmpInst::FCMP_OLE:
+					stream << "le";
+					break;
+				case CmpInst::FCMP_UGE:
+				case CmpInst::FCMP_OGE:
+					stream << "ge";
 					break;
 				default:
 					llvm::errs() << "Handle predicate for " << ci << "\n";
