@@ -650,6 +650,16 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 	{
 		stream << "i32.const 0";
 	}
+	else if(isa<Function>(c))
+	{
+		if (globalDeps.functionAddresses().count(cast<Function>(c))) {
+			int offset = globalDeps.functionAddresses().at(cast<Function>(c));
+			stream << "i32.const " << offset;
+		} else {
+			c->dump();
+			assert(false);
+		}
+	}
 	else
 	{
 		c->dump();
