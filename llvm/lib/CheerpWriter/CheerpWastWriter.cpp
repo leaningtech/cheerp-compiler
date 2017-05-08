@@ -1062,12 +1062,25 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			break;
 		}
 		case Instruction::SDiv:
+		case Instruction::UDiv:
 		{
 			compileOperand(I.getOperand(0));
 			stream << '\n';
 			compileOperand(I.getOperand(1));
 			stream << '\n';
-			stream << getTypeString(I.getType()) << ".div_s";
+			stream << getTypeString(I.getType()) << ".div_"
+				<< (I.getOpcode() == Instruction::SDiv ? 's' : 'u');
+			break;
+		}
+		case Instruction::SRem:
+		case Instruction::URem:
+		{
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".rem_"
+				<< (I.getOpcode() == Instruction::SRem ? 's' : 'u');
 			break;
 		}
 		case Instruction::Select:
