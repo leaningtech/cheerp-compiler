@@ -245,6 +245,11 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, int
 void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first)
 {
 	const BasicBlock* bb=(const BasicBlock*)privateBlock;
+	if(!first)
+	{
+		indent();
+		writer->stream << "else\n";
+	}
 	// The condition goes first
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
 	{
@@ -261,15 +266,18 @@ assert(false);
 	// Invert result
 	writer->stream << "i32.const 1\n";
 	writer->stream << "i32.xor\n";
-	assert(first);
-#if 0
-	if(!first)
-		writer->stream << "}else ";
-#endif
 	indent();
 	writer->stream << "if\n";
 
-	blockTypes.emplace_back(IF);
+	if(first)
+	{
+		blockTypes.emplace_back(IF);
+	}
+	else
+	{
+		assert(blockTypes.back().type == IF);
+		blockTypes.back().depth += 1;
+	}
 }
 
 void CheerpWastRenderInterface::renderElseBlockBegin()
