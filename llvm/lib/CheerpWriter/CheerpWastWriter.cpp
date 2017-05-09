@@ -1131,6 +1131,14 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << '\n' << getTypeString(I.getType()) << ".convert_u/" << getTypeString(I.getOperand(0)->getType());
 			break;
 		}
+		case Instruction::FPTrunc:
+		{
+			assert(I.getType()->isFloatTy());
+			assert(I.getOperand(0)->getType()->isDoubleTy());
+			compileOperand(I.getOperand(0));
+			stream << '\n' << getTypeString(I.getType()) << ".demote/" << getTypeString(I.getOperand(0)->getType());
+			break;
+		}
 		case Instruction::Xor:
 		{
 			compileOperand(I.getOperand(0));
