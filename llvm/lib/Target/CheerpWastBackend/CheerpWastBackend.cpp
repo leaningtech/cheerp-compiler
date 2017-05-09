@@ -61,7 +61,8 @@ bool CheerpWastWritePass::runOnModule(Module& M)
   registerize.assignRegisters(M, PA);
   DataLayout targetData(&M);
   cheerp::LinearMemoryHelper linearHelper(targetData, GDA);
-  cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA, linearHelper, M.getContext());
+  cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA, linearHelper,
+                                  M.getContext(), !WastLoader.empty());
   writer.makeWast();
   if (!WastLoader.empty())
   {

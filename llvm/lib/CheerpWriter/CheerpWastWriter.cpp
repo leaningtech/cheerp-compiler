@@ -821,7 +821,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				else
 				{
 					// TODO implement ffi calls to the browser side.
-					stream << "unreachable ;; implement ffi calls\n";
+					stream << "unreachable ;; unknown indirect call\n";
 					return true;
 				}
 			}
@@ -837,7 +837,8 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				else
 				{
 					// TODO implement ffi calls to the browser side.
-					stream << "unreachable ;; implement ffi calls\n";
+					stream << "unreachable ;; unknown call \""
+						<< calledFunc->getName() << "\"\n";
 					return true;
 				}
 			}
@@ -1320,6 +1321,7 @@ void CheerpWastWriter::compileMethod(const Function& F)
 
 void CheerpWastWriter::compileImport(const Function& F)
 {
+	assert(useWastLoader);
 	stream << "(func (import \"imports\" \"";
 	stream << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL);
 	stream << "\")";
@@ -1362,9 +1364,11 @@ void CheerpWastWriter::compileDataSection()
 void CheerpWastWriter::makeWast()
 {
 	// First run, assing required Ids to functions and globals
-	for ( const Function * F : globalDeps.asmJSImports() )
-	{
-		functionIds.insert(std::make_pair(F, functionIds.size()));
+	if (useWastLoader) {
+		for ( const Function * F : globalDeps.asmJSImports() )
+		{
+			functionIds.insert(std::make_pair(F, functionIds.size()));
+		}
 	}
 	for ( const Function & F : module.getFunctionList() )
 	{
@@ -1378,9 +1382,11 @@ void CheerpWastWriter::makeWast()
 	stream << "(module\n";
 
 	// Second run, actually compile the code (imports needs to be before everything)
-	for ( const Function * F : globalDeps.asmJSImports() )
-	{
-		compileImport(*F);
+	if (useWastLoader) {
+		for ( const Function * F : globalDeps.asmJSImports() )
+		{
+			compileImport(*F);
+		}
 	}
 
 	// Define function type variables
