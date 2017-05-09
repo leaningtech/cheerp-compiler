@@ -688,7 +688,7 @@ void CheerpWastWriter::compileOperand(const llvm::Value* v)
 	}
 	else
 	{
-v->dump();
+		v->dump();
 		assert(false);
 	}
 }
@@ -821,7 +821,8 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				else
 				{
 					// TODO implement ffi calls to the browser side.
-					stream << "unreachable ;; unknown indirect call\n";
+					stream << "unreachable ;; unknown call \""
+						<< calledFunc->getName() << "\"\n";
 					return true;
 				}
 			}
@@ -837,8 +838,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				else
 				{
 					// TODO implement ffi calls to the browser side.
-					stream << "unreachable ;; unknown call \""
-						<< calledFunc->getName() << "\"\n";
+					stream << "unreachable ;; unknown indirect call\n";
 					return true;
 				}
 			}
@@ -954,7 +954,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			if(li.getType()->isIntegerTy())
 			{
 				uint32_t bitWidth = li.getType()->getIntegerBitWidth();
-				if(bitWidth<32)
+				if(bitWidth > 1 && bitWidth<32)
 				{
 					assert(bitWidth == 8 || bitWidth == 16);
 					// Currently assume unsigned, like Cheerp. We may optimize this be looking at a following sext or zext instruction.
@@ -1021,7 +1021,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			if(valOp->getType()->isIntegerTy())
 			{
 				uint32_t bitWidth = valOp->getType()->getIntegerBitWidth();
-				if(bitWidth<32)
+				if(bitWidth > 1 && bitWidth<32)
 				{
 					assert(bitWidth == 8 || bitWidth == 16);
 					stream << bitWidth;
@@ -1363,7 +1363,7 @@ void CheerpWastWriter::compileDataSection()
 
 void CheerpWastWriter::makeWast()
 {
-	// First run, assing required Ids to functions and globals
+	// First run, assign required Ids to functions and globals
 	if (useWastLoader) {
 		for ( const Function * F : globalDeps.asmJSImports() )
 		{
