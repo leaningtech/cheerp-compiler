@@ -63,6 +63,12 @@ private:
 	// Codegen custom globals
 	uint32_t usedGlobals;
 	uint32_t stackTopGlobal;
+
+	// If true, the Wast file is loaded using a JavaScript loader. This allows
+	// FFI calls to methods outside of the Wast file. When false, write
+	// opcode 'unreachable' for calls to unknown functions.
+	bool useWastLoader;
+
 	static const char* getTypeString(llvm::Type* t);
 	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
 	void compileMethodParams(const llvm::Function& F);
@@ -105,7 +111,8 @@ public:
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			cheerp::LinearMemoryHelper & linearHelper,
-			llvm::LLVMContext& C):
+			llvm::LLVMContext& C,
+			bool useWastLoader):
 		module(m),
 		targetData(&m),
 		currentFun(NULL),
@@ -116,6 +123,7 @@ public:
 		linearHelper(linearHelper),
 		usedGlobals(0),
 		stackTopGlobal(0),
+		useWastLoader(useWastLoader),
 		stream(s)
 	{
 	}
