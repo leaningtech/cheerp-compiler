@@ -791,6 +791,27 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		}
 		case Instruction::Br:
 			break;
+		case Instruction::VAArg:
+		{
+			const VAArgInst& vi=cast<VAArgInst>(I);
+
+			// Load the current argument
+			compileOperand(vi.getPointerOperand());
+			stream << "\n";
+			stream << "i32.load\n";
+			stream << getTypeString(vi.getType()) << ".load\n";
+
+			// Move varargs pointer to next argument
+			compileOperand(vi.getPointerOperand());
+			stream << "\n";
+			compileOperand(vi.getPointerOperand());
+			stream << "\n";
+			stream << "i32.load\n";
+			stream << "i32.const 8\n";
+			stream << "i32.add\n";
+			stream << "i32.store\n";
+			break;
+		}
 		case Instruction::Call:
 		{
 			const CallInst& ci = cast<CallInst>(I);
@@ -799,21 +820,69 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			const PointerType* pTy = cast<PointerType>(calledValue->getType());
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 			assert(!ci.isInlineAsm());
-			assert(!fTy->isVarArg());
-			for(unsigned i=0;i<ci.getNumArgOperands();i++)
+
+			if (calledFunc)
 			{
-				compileOperand(ci.getOperand(i));
+				switch (calledFunc->getIntrinsicID())
+				{
+					case Intrinsic::trap:
+					{
+						stream << "unreachable ;; trap\n";
+						return true;
+					}
+					case Intrinsic::vastart:
+					{
+						compileOperand(ci.getOperand(0));
+						stream << '\n';
+						uint32_t numArgs = I.getParent()->getParent()->arg_size();
+						stream << "get_local " << numArgs << "\n";
+						stream << "i32.store\n";
+						return true;
+					}
+					case Intrinsic::vaend:
+					{
+						// Do nothing.
+						return true;
+					}
+					default:
+						// Unknown or not an intrinsic.
+					break;
+				}
+			}
+
+			// Calling convention for variadic arguments in Wast mode:
+			// arguments are pushed into the stack in the reverse order
+			// in which they appear.
+			if (fTy->isVarArg())
+			{
+				size_t n = ci.getNumArgOperands();
+				size_t arg_size = fTy->getNumParams();
+				size_t i = 0;
+				for (auto op = ci.op_begin() + n - 1;
+						op != ci.op_begin() + arg_size - 1; op--)
+				{
+					i++;
+					stream << "get_global " << stackTopGlobal << '\n';
+					stream << "i32.const 8\n";
+					stream << "i32.sub\n";
+					// TODO: use 'tee_global' when it's available?
+					stream << "set_global " << stackTopGlobal << '\n';
+					stream << "get_global " << stackTopGlobal << '\n';
+					compileOperand(op->get());
+					stream << "\n";
+					stream << getTypeString(op->get()->getType()) << ".store\n";
+				}
+			}
+
+			for (auto op = ci.op_begin();
+					op != ci.op_begin() + fTy->getNumParams(); ++op)
+			{
+				compileOperand(op->get());
 				stream << '\n';
 			}
 
 			if (calledFunc)
 			{
-				if (calledFunc->getIntrinsicID() == Intrinsic::trap)
-				{
-					stream << "unreachable\n";
-					return true;
-				}
-
 				if (functionIds.count(calledFunc))
 				{
 					stream << "call " << functionIds[calledFunc];
