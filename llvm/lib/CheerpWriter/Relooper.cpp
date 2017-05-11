@@ -246,7 +246,8 @@ void MultipleShape::Render(bool InLoop, RenderInterface* renderInterface) {
     }
   } else {
     // emit a switch
-    renderInterface->renderSwitchOnLabel();
+    uint32_t cases = InnerMap.size();
+    renderInterface->renderSwitchOnLabel(cases);
     for (IdShapeMap::iterator iter = InnerMap.begin(); iter != InnerMap.end(); iter++) {
       renderInterface->renderCaseOnLabel(iter->first);
       iter->second->Render(InLoop, renderInterface);

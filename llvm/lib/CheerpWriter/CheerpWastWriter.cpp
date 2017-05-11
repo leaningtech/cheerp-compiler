@@ -63,7 +63,7 @@ public:
 	{ }
 	void renderBlock(const void* privateBlock);
 	void renderLabelForSwitch(int labelId);
-	void renderSwitchOnLabel();
+	void renderSwitchOnLabel(uint32_t cases);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const void* privateBranchVar);
 	void renderCaseBlockBegin(const void* privateBlock, int branchId);
@@ -157,24 +157,31 @@ assert(false);
 #endif
 }
 
-void CheerpWastRenderInterface::renderSwitchOnLabel()
+void CheerpWastRenderInterface::renderSwitchOnLabel(uint32_t cases)
 {
-assert(false);
-#if 0
-	writer->stream << "switch(label";
-	if (asmjs)
-		writer->stream << "|0";
-	writer->stream << "){" << NewLine;
-#endif
+	writer->stream << "unreachable ;; switch on label\n";
+
+	for (uint32_t i = 0; i < cases; i++)
+		writer->stream << "block\n";
+
+	// Wrap the br_table instruction in its own block
+	writer->stream << "block\n";
+	writer->stream << "get_local " << labelLocal << '\n';
+	writer->stream << "\nbr_table";
+	for (uint32_t i = 0; i < cases; i++)
+		writer->stream << ' ' << i;
+	writer->stream << "\nend\n";
+
+	blockTypes.emplace_back(SWITCH, cases);
 }
 
 void CheerpWastRenderInterface::renderCaseOnLabel(int labelId)
 {
-assert(false);
-#if 0
-	writer->stream << "case ";
-	writer->stream << labelId << ":{" << NewLine;
-#endif
+	BlockType prevBlock = blockTypes.back();
+	assert(prevBlock.type == SWITCH || prevBlock.type == CASE);
+	assert(findSwitchBlockType(blockTypes)->depth > 0);
+
+	blockTypes.emplace_back(CASE);
 }
 
 void CheerpWastRenderInterface::renderSwitchBlockBegin(const void* privateSwitchInst)
