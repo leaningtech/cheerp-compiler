@@ -33,7 +33,7 @@ public:
 	virtual void renderBlock(const void* privateBlock) = 0;
 	virtual void renderIfOnLabel(int labelId, bool first) = 0;
 	virtual void renderLabelForSwitch(int labelId) = 0;
-	virtual void renderSwitchOnLabel() = 0;
+	virtual void renderSwitchOnLabel(uint32_t cases) = 0;
 	virtual void renderCaseOnLabel(int labelId) = 0;
 	virtual void renderSwitchBlockBegin(const void* privateBranchVar) = 0;
 	virtual void renderCaseBlockBegin(const void* privateBlock, int branchId) = 0;
