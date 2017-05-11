@@ -589,12 +589,12 @@ void CheerpWastWriter::compileConstantExpr(const ConstantExpr* ce)
 			stream << getTypeString(ce->getOperand(0)->getType()) << '.' << getIntegerPredicate((CmpInst::Predicate)ce->getPredicate());
 			break;
 		}
-#if 0
 		case Instruction::PtrToInt:
 		{
-			compilePtrToInt(ce->getOperand(0));
+			compileOperand(ce->getOperand(0));
 			break;
 		}
+#if 0
 		case Instruction::Select:
 		{
 			compileSelect(ce, ce->getOperand(0), ce->getOperand(1), ce->getOperand(2), HIGHEST);
