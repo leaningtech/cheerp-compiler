@@ -4512,6 +4512,29 @@ void CheerpWriter::compileAsmJSFfi()
 	}
 }
 
+void CheerpWriter::compileFetchBuffer()
+{
+	stream << "function fetchBuffer(path) {" << NewLine;
+	stream << "var bytes = null;" << NewLine;
+	stream << "if (typeof window === 'undefined' && typeof require === 'undefined') {" << NewLine;
+	stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
+	stream << "resolve(read(path,'binary'));" << NewLine;
+	stream << "});" << NewLine;
+	stream << "} else if (typeof window === 'undefined') {" << NewLine;
+	stream << "var fs = require('fs');" << NewLine;
+	stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
+	stream << "fs.readFile(path, function(error, data) {" << NewLine;
+	stream << "if(error) reject(error);" << NewLine;
+	stream << "else resolve(data);" << NewLine;
+	stream << "});" << NewLine;
+	stream << "});" << NewLine;
+	stream << "} else {" << NewLine;
+	stream << "bytes = fetch(path).then(response => response.arrayBuffer());" << NewLine;
+	stream << "}" << NewLine;
+	stream << "return bytes;" << NewLine;
+	stream << "}" << NewLine;
+}
+
 void CheerpWriter::makeJS()
 {
 	if (sourceMapGenerator) {
@@ -4575,6 +4598,11 @@ void CheerpWriter::makeJS()
 
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
+
+	// Utility function for loading files
+	if(!wasmFile.empty() || asmJSMem)
+		compileFetchBuffer();
+
 	if (globalDeps.needAsmJS() && wasmFile.empty())
 	{
 		// compile boilerplate
@@ -4728,9 +4756,6 @@ void CheerpWriter::makeJS()
 			stream << "var " << heapNames[i] << "=null" << NewLine;
 		compileAsmJSFfi();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
-		stream << "function instantiate(bytes, imports) {" << NewLine;
-		stream << "	return WebAssembly.compile(bytes).then(m => new WebAssembly.Instance(m, imports));" << NewLine;
-		stream << "}" << NewLine;
 		stream << "var importObject = { imports: {" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
@@ -4742,20 +4767,9 @@ void CheerpWriter::makeJS()
 			stream << NameGenerator::filterLLVMName(imported->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << ':' << name  << ',' << NewLine;
 		}
 		stream << "} };" << NewLine;
-		stream << "var bytes = null;" << NewLine;
-		stream << "if (typeof window === 'undefined') {" << NewLine;
-		stream << "var fs = require('fs');" << NewLine;
-		stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
-		stream << "fs.readFile('" << wasmFile << "', function(error, data) {" << NewLine;
-		stream << "if(error) reject(error);" << NewLine;
-		stream << "else resolve(data);" << NewLine;
-		stream << "});" << NewLine;
-		stream << "});" << NewLine;
-		stream << "} else {" << NewLine;
-		stream << "	bytes = fetch('" << wasmFile << "').then(response => response.arrayBuffer());" << NewLine;
-		stream << "}" << NewLine;
-		stream << "bytes.then(bytes => instantiate(bytes, importObject))" << NewLine;
-		stream << ".then(instance => {" << NewLine;
+		stream << "fetchBuffer('" << wasmFile << "').then(bytes => WebAssembly.compile(bytes)" << NewLine;
+		stream << ".then(m => new WebAssembly.Instance(m, importObject))" << NewLine;
+		stream << ").then(instance => {" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
 	}
