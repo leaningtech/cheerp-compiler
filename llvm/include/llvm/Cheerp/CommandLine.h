@@ -16,6 +16,7 @@
 
 extern llvm::cl::opt<std::string> WastLoader;
 extern llvm::cl::opt<std::string> WasmFile;
+extern llvm::cl::opt<std::string> AsmJSMemFile;
 extern llvm::cl::opt<std::string> SourceMap;
 extern llvm::cl::opt<std::string> SourceMapPrefix;
 extern llvm::cl::opt<bool> PrettyCode;

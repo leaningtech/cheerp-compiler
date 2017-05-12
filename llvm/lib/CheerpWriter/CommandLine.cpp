@@ -6,6 +6,9 @@ llvm::cl::opt<std::string> WastLoader("cheerp-wast-loader", llvm::cl::Optional,
 llvm::cl::opt<std::string> WasmFile("cheerp-wasm-file", llvm::cl::Optional,
   llvm::cl::desc("If specified, the file name of the wasm file"), llvm::cl::value_desc("filename"));
 
+llvm::cl::opt<std::string> AsmJSMemFile("cheerp-asmjs-mem-file", llvm::cl::Optional,
+  llvm::cl::desc("If specified, the file name of the asm.js module initialized memory dump"), llvm::cl::value_desc("filename"));
+
 llvm::cl::opt<std::string> SourceMap("cheerp-sourcemap", llvm::cl::Optional,
   llvm::cl::desc("If specified, the file name of the source map"), llvm::cl::value_desc("filename"));
 
