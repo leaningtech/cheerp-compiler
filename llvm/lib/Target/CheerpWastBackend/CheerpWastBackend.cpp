@@ -84,12 +84,12 @@ bool CheerpWastWritePass::runOnModule(Module& M)
     std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
     std::sort(reservedNames.begin(), reservedNames.end());
 
-      std::error_code ErrorCode;
-      llvm::tool_output_file jsFile(WastLoader.c_str(), ErrorCode, sys::fs::F_None);
-      llvm::formatted_raw_ostream jsOut(jsFile.os());
+    std::error_code ErrorCode;
+    llvm::tool_output_file jsFile(WastLoader.c_str(), ErrorCode, sys::fs::F_None);
+    llvm::formatted_raw_ostream jsOut(jsFile.os());
 
-    cheerp::CheerpWriter writer(M, jsOut, PA, registerize, GDA, linearHelper, sourceMapGenerator, reservedNames,
-            PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
+    cheerp::CheerpWriter writer(M, jsOut, PA, registerize, GDA, linearHelper, nullptr, std::string(),
+            sourceMapGenerator, reservedNames, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
             !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
             BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, WasmFile, ForceTypedArrays);
     writer.makeJS();

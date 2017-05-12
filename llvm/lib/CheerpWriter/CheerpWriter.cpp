@@ -4297,21 +4297,57 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 
 void CheerpWriter::compileGlobalsInitAsmJS()
 {
-	for ( const GlobalVariable & GV : module.getGlobalList() )
+	if (asmJSMem)
 	{
-		if (GV.getSection() != StringRef("asmjs"))
-			continue;
-		if (GV.hasInitializer())
+		ostream_proxy os(*asmJSMem, nullptr, false);
+		BinaryBytesWriter bytesWriter(os);
+		uint32_t last_address = 0;
+		uint32_t last_size = 0;
+		for ( const GlobalVariable & GV : module.getGlobalList() )
 		{
-			const Constant* init = GV.getInitializer();
-			Type* ty = init->getType();
-			// If the initializer is a function, skip it
-			if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
+			if (GV.getSection() != StringRef("asmjs"))
 				continue;
-			stream  << heapNames[HEAP8] << ".set([";
-			JSBytesWriter bytesWriter(stream);
-			linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
-			stream << "]," << linearHelper.getGlobalVariableAddress(&GV) << ");" << NewLine;
+			if (GV.hasInitializer())
+			{
+				const Constant* init = GV.getInitializer();
+				Type* ty = init->getType();
+				// If the initializer is a function, skip it
+				if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
+					continue;
+				uint32_t cur_address = linearHelper.getGlobalVariableAddress(&GV);
+				uint32_t padding = cur_address - (last_address+last_size);
+				for ( uint32_t i = 0; i < padding; i++ )
+				{
+					os << (char)0;
+				}
+				linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
+				last_size = targetData.getTypeAllocSize(ty);
+				last_address = cur_address;
+			}
+			else
+			{
+				last_size = 0;
+			}
+		}
+	}
+	else
+	{
+		for ( const GlobalVariable & GV : module.getGlobalList() )
+		{
+			if (GV.getSection() != StringRef("asmjs"))
+				continue;
+			if (GV.hasInitializer())
+			{
+				const Constant* init = GV.getInitializer();
+				Type* ty = init->getType();
+				// If the initializer is a function, skip it
+				if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
+					continue;
+				stream  << heapNames[HEAP8] << ".set([";
+				JSBytesWriter bytesWriter(stream);
+				linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
+				stream << "]," << linearHelper.getGlobalVariableAddress(&GV) << ");" << NewLine;
+			}
 		}
 	}
 }
@@ -4698,7 +4734,6 @@ void CheerpWriter::makeJS()
 		}
 		stream << "};" << NewLine;
 		compileGlobalsInitAsmJS();
-		stream << "var __asm = asmJS(stdlib, ffi, heap);" << NewLine;
 	}
 
 	for ( const Function & F : module.getFunctionList() )
@@ -4762,6 +4797,22 @@ void CheerpWriter::makeJS()
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
 	}
+	//Load asm.js module
+	if (globalDeps.needAsmJS())
+	{
+		if (asmJSMem)
+		{
+			stream << "var __asm=null;" << NewLine;
+			stream << "fetchBuffer('" << asmJSMemFile << "').then(memory => {" << NewLine;
+			stream << "var buf=new Uint8Array(memory);" << NewLine;
+			stream << "HEAP8.set(buf,0);" << NewLine;
+		}
+		else
+		{
+			stream << "var ";
+		}
+		stream << "__asm=asmJS(stdlib, ffi, heap);" << NewLine;
+	}
 
 	//Call constructors
 	for (const Function * F : globalDeps.constructors() )
@@ -4782,7 +4833,7 @@ void CheerpWriter::makeJS()
 			stream << namegen.getName(entryPoint); 
 		stream << "();" << NewLine;
 	}
-	if (!wasmFile.empty())
+	if (!wasmFile.empty() || (globalDeps.needAsmJS() && asmJSMem))
 		stream << "});" << NewLine;
 
 	if (makeModule) {

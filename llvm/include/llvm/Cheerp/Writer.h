@@ -172,6 +172,11 @@ private:
 	// Helper class to manage linear memory state
 	LinearMemoryHelper& linearHelper;
 
+	// Stream to put the initialized asmjs memory into.
+	llvm::raw_ostream* asmJSMem;
+	// Name of the initialized asmjs memory file.
+	const std::string& asmJSMemFile;
+
 	// Support for source maps
 	SourceMapGenerator* sourceMapGenerator;
 	std::map<llvm::StringRef, llvm::DISubprogram> functionToDebugInfoMap;
@@ -405,6 +410,11 @@ private:
 	void compileBuiltins(bool asmjs);
 	void compileAsmJSFfi();
 	/**
+	 * This method compiles an helper function for getting an ArrayBuffer from
+	 * a file, usable from the browser and node
+	 */
+	void compileFetchBuffer();
+	/**
 	 * This method supports both ConstantArray and ConstantDataSequential
 	 */
 	void compileConstantArrayMembers(const llvm::Constant* C);
@@ -450,6 +460,15 @@ private:
 		void addByte(uint8_t b) override;
 		uint32_t getFunctionTableOffset(llvm::StringRef funcName) override;
 	};
+	struct BinaryBytesWriter: public LinearMemoryHelper::ByteListener
+	{
+		ostream_proxy& stream;
+		BinaryBytesWriter(ostream_proxy& stream):stream(stream)
+		{
+		}
+		void addByte(uint8_t b) override {stream <<(char)b;};
+		uint32_t getFunctionTableOffset(llvm::StringRef funcName) override {return 0;};
+	};
 
 	struct AsmJSGepWriter: public LinearMemoryHelper::GepListener
 	{
@@ -466,6 +485,8 @@ public:
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			cheerp::LinearMemoryHelper & linearHelper,
+			llvm::raw_ostream* asmJSMem,
+			const std::string& asmJSMemFile,
 			SourceMapGenerator* sourceMapGenerator,
 			const std::vector<std::string>& reservedNames,
 			bool readableOutput,
@@ -491,6 +512,8 @@ public:
 		namegen(m, globalDeps, registerize, PA, reservedNames, readableOutput),
 		types(m),
 		linearHelper(linearHelper),
+		asmJSMem(asmJSMem),
+		asmJSMemFile(asmJSMemFile),
 		sourceMapGenerator(sourceMapGenerator),
 		NewLine(),
 		useNativeJavaScriptMath(useNativeJavaScriptMath),
