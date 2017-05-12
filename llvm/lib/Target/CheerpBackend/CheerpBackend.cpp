@@ -56,16 +56,15 @@ bool CheerpWritePass::runOnModule(Module& M)
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
-  cheerp::SourceMapGenerator* sourceMapGenerator = NULL;
+  std::unique_ptr<cheerp::SourceMapGenerator> sourceMapGenerator;
   GDA.forceTypedArrays = ForceTypedArrays;
   if (!SourceMap.empty())
   {
     std::error_code ErrorCode;
-    sourceMapGenerator = new cheerp::SourceMapGenerator(SourceMap, SourceMapPrefix, M.getContext(), ErrorCode);
+    sourceMapGenerator.reset(new cheerp::SourceMapGenerator(SourceMap, SourceMapPrefix, M.getContext(), ErrorCode));
     if (ErrorCode)
     {
        // An error occurred opening the source map file, bail out
-       delete sourceMapGenerator;
        llvm::report_fatal_error(ErrorCode.message(), false);
        return false;
     }
@@ -86,7 +85,6 @@ bool CheerpWritePass::runOnModule(Module& M)
           BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
   writer.makeJS();
 
-  delete sourceMapGenerator;
   return false;
 }
 
