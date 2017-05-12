@@ -79,11 +79,29 @@ bool CheerpWritePass::runOnModule(Module& M)
   DataLayout targetData(&M);
   cheerp::LinearMemoryHelper linearHelper(targetData, GDA);
 
-  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, sourceMapGenerator, reservedNames,
-          PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
+  std::error_code ErrorCode;
+  llvm::tool_output_file memFile(AsmJSMemFile, ErrorCode, sys::fs::F_None);
+  std::unique_ptr<llvm::formatted_raw_ostream> memOut;
+  if (!AsmJSMemFile.empty())
+  {
+    memOut.reset(new formatted_raw_ostream(memFile.os()));
+  }
+
+  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, memOut.get(), AsmJSMemFile,
+          sourceMapGenerator.get(), reservedNames, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
           BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
   writer.makeJS();
+  if (ErrorCode)
+  {
+    if(!AsmJSMemFile.empty())
+    {
+      // An error occurred opening the asm.js memory file, bail out
+      llvm::report_fatal_error(ErrorCode.message(), false);
+    }
+    return false;
+  }
+  memFile.keep();
 
   return false;
 }
