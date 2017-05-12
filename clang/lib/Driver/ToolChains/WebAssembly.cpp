@@ -490,6 +490,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(wasmFile));
     cheerpWastLoader->render(Args, CmdArgs);
   }
+  if(Arg* cheerpAsmJSMemFile = Args.getLastArg(options::OPT_cheerp_asmjs_mem_file_EQ))
+    cheerpAsmJSMemFile->render(Args, CmdArgs);
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);
   if(Arg* cheerpSourceMapPrefix = Args.getLastArg(options::OPT_cheerp_sourcemap_prefix_EQ))
