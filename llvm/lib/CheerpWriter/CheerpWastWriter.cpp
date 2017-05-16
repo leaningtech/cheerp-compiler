@@ -414,7 +414,17 @@ void CheerpWastRenderInterface::renderBreak()
 	}
 	else
 	{
-		writer->stream << "br 1\n";
+		// Find the last loop's block
+		uint32_t breakIndex = 0;
+		for (uint32_t i = 0; i < blockTypes.size(); i++)
+		{
+			BLOCK_TYPE bt = blockTypes[blockTypes.size() - i - 1].type;
+			if (bt == DO || bt == WHILE1)
+				break;
+
+			breakIndex += blockTypes[blockTypes.size() - i - 1].depth + 1;
+		}
+		writer->stream << "br " << breakIndex << "\n";
 	}
 }
 
@@ -427,16 +437,18 @@ void CheerpWastRenderInterface::renderBreak(int labelId)
 
 void CheerpWastRenderInterface::renderContinue()
 {
-	// Find the first while block
+	// Find the last loop's block
 	uint32_t breakIndex = 0;
 	for (uint32_t i = 0; i < blockTypes.size(); i++)
 	{
-		if(blockTypes[blockTypes.size() - i - 1].type == DO)
-			breakIndex++;
-		else if(blockTypes[blockTypes.size() - i - 1].type == WHILE1)
+		BLOCK_TYPE bt = blockTypes[blockTypes.size() - i - 1].type;
+		if (bt == DO || bt == WHILE1)
 			break;
+
+		breakIndex += blockTypes[blockTypes.size() - i - 1].depth + 1;
 	}
-	writer->stream << "br " << (breakIndex+2) << "\n";
+	breakIndex += 1;
+	writer->stream << "br " << breakIndex << "\n";
 }
 
 void CheerpWastRenderInterface::renderContinue(int labelId)
