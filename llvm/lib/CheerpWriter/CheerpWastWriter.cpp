@@ -743,6 +743,28 @@ const char* CheerpWastWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
 	return "";
 }
 
+void CheerpWastWriter::compileDowncast(ImmutableCallSite callV)
+{
+	assert(callV.arg_size() == 2);
+	assert(callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast);
+
+	const Value* src = callV.getArgument(0);
+	const Value* offset = callV.getArgument(1);
+
+	Type* t = src->getType()->getPointerElementType();
+
+	compileOperand(src);
+	stream << '\n';
+
+	if(!TypeSupport::isClientType(t) &&
+			(!isa<ConstantInt>(offset) || !cast<ConstantInt>(offset)->isNullValue()))
+	{
+		compileOperand(offset);
+		stream << '\n';
+		stream << "i32.add\n";
+	}
+}
+
 bool CheerpWastWriter::compileInstruction(const Instruction& I)
 {
 	switch(I.getOpcode())
@@ -862,6 +884,24 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 					{
 						// Do nothing.
 						return true;
+					}
+					case Intrinsic::cheerp_downcast:
+					{
+						compileDowncast(&ci);
+						return false;
+					}
+					case Intrinsic::cheerp_downcast_current:
+					{
+						compileOperand(ci.getOperand(0));
+						return false;
+					}
+					case Intrinsic::cheerp_cast_user:
+					{
+						if(ci.use_empty())
+							return true;
+
+						compileOperand(ci.getOperand(0));
+						return false;
 					}
 					default:
 						// Unknown or not an intrinsic.
