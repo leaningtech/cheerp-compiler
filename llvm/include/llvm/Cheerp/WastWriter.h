@@ -129,6 +129,7 @@ public:
 	}
 	void makeWast();
 	void compileBB(const llvm::BasicBlock& BB);
+	void compileDowncast(llvm::ImmutableCallSite callV);
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
 	void compileConstant(const llvm::Constant* c);
 	void compileOperand(const llvm::Value* v);
