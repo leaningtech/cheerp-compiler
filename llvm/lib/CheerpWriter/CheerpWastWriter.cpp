@@ -572,6 +572,58 @@ void CheerpWastWriter::compileGEP(const llvm::User* gep_inst)
 		stream << "\ni32.add";
 }
 
+void CheerpWastWriter::compileSignedInteger(const llvm::Value* v, bool forComparison)
+{
+	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
+	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
+	{
+		if(forComparison)
+			stream << "i32.const " << (C->getSExtValue() << shiftAmount) << '\n';
+		else
+			stream << "i32.const " << C->getSExtValue() << '\n';
+		return;
+	}
+
+	compileOperand(v);
+	stream << '\n';
+
+	if (shiftAmount == 0)
+		return;
+
+	if (forComparison)
+	{
+		// When comparing two signed values we can avoid the right shift
+		stream << "i32.const " << shiftAmount << '\n';
+		stream << "i32.shl\n";
+	}
+	else
+	{
+		stream << "i32.const " << shiftAmount << '\n';
+		stream << "i32.shl\n";
+		stream << "i32.const " << shiftAmount << '\n';
+		stream << "i32.shr_s\n";
+	}
+}
+
+void CheerpWastWriter::compileUnsignedInteger(const llvm::Value* v)
+{
+	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
+	{
+		stream << "i32.const " << C->getZExtValue() << '\n';
+		return;
+	}
+
+	compileOperand(v);
+	stream << '\n';
+
+	uint32_t initialSize = v->getType()->getIntegerBitWidth();
+	if(initialSize != 32)
+	{
+		stream << "i32.const " << getMaskForBitWidth(initialSize) << '\n';
+		stream << "i32.and\n";
+	}
+}
+
 void CheerpWastWriter::compileConstantExpr(const ConstantExpr* ce)
 {
 	switch(ce->getOpcode())
@@ -594,11 +646,13 @@ void CheerpWastWriter::compileConstantExpr(const ConstantExpr* ce)
 		}
 		case Instruction::ICmp:
 		{
+			CmpInst::Predicate p = (CmpInst::Predicate)ce->getPredicate();
 			compileOperand(ce->getOperand(0));
 			stream << '\n';
 			compileOperand(ce->getOperand(1));
 			stream << '\n';
-			stream << getTypeString(ce->getOperand(0)->getType()) << '.' << getIntegerPredicate((CmpInst::Predicate)ce->getPredicate());
+			stream << getTypeString(ce->getOperand(0)->getType())
+				<< '.' << getIntegerPredicate(p);
 			break;
 		}
 		case Instruction::PtrToInt:
@@ -1083,10 +1137,35 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		case Instruction::ICmp:
 		{
 			const CmpInst& ci = cast<CmpInst>(I);
-			compileOperand(ci.getOperand(0));
-			stream << '\n';
-			compileOperand(ci.getOperand(1));
-			stream << '\n';
+			CmpInst::Predicate p = (CmpInst::Predicate)ci.getPredicate();
+			if(ci.getOperand(0)->getType()->isPointerTy())
+			{
+				compileOperand(ci.getOperand(0));
+				stream << '\n';
+				compileOperand(ci.getOperand(1));
+				stream << '\n';
+			}
+			else if(CmpInst::isSigned(p))
+			{
+				compileSignedInteger(ci.getOperand(0), true);
+				stream << '\n';
+				compileSignedInteger(ci.getOperand(1), true);
+				stream << '\n';
+			}
+			else if (CmpInst::isUnsigned(p) || !I.getOperand(0)->getType()->isIntegerTy(32))
+			{
+				compileUnsignedInteger(ci.getOperand(0));
+				stream << '\n';
+				compileUnsignedInteger(ci.getOperand(1));
+				stream << '\n';
+			}
+			else
+			{
+				compileSignedInteger(ci.getOperand(0), true);
+				stream << '\n';
+				compileSignedInteger(ci.getOperand(1), true);
+				stream << '\n';
+			}
 			stream << getTypeString(ci.getOperand(0)->getType()) << '.' << getIntegerPredicate(ci.getPredicate());
 			break;
 		}
