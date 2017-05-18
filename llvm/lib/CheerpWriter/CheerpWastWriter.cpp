@@ -905,8 +905,26 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 						compileOperand(ci.getOperand(0));
 						return false;
 					}
+					case Intrinsic::flt_rounds:
+					{
+						// Rounding mode 1: nearest
+						stream << "i32.const 1\n";
+						return false;
+					}
+					case Intrinsic::ctlz:
+					{
+						compileOperand(ci.getOperand(0));
+						stream << '\n';
+						stream << "i32.clz\n";
+						return false;
+					}
 					default:
-						// Unknown or not an intrinsic.
+					{
+						unsigned intrinsic = calledFunc->getIntrinsicID();
+						if (intrinsic != Intrinsic::not_intrinsic)
+							ci.dump();
+						assert(intrinsic == Intrinsic::not_intrinsic);
+					}
 					break;
 				}
 			}
