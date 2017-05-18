@@ -133,6 +133,8 @@ public:
 	void compileConstantExpr(const llvm::ConstantExpr* ce);
 	void compileConstant(const llvm::Constant* c);
 	void compileOperand(const llvm::Value* v);
+	void compileSignedInteger(const llvm::Value* v, bool forComparison);
+	void compileUnsignedInteger(const llvm::Value* v);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
