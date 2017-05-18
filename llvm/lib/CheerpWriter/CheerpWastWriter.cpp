@@ -672,8 +672,10 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 	else if(isa<Function>(c))
 	{
 		if (globalDeps.functionAddresses().count(cast<Function>(c))) {
+			const Function* F = cast<Function>(c);
 			int offset = globalDeps.functionAddresses().at(cast<Function>(c));
-			stream << "i32.const " << offset;
+			int functionTableOffset = functionTableOffsets.at(F->getName());
+			stream << "i32.const " << functionTableOffset + offset;
 		} else {
 			c->dump();
 			assert(false);
