@@ -725,12 +725,17 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 	}
 	else if(isa<Function>(c))
 	{
-		if (globalDeps.functionAddresses().count(cast<Function>(c))) {
-			const Function* F = cast<Function>(c);
-			int offset = globalDeps.functionAddresses().at(cast<Function>(c));
-			int functionTableOffset = functionTableOffsets.at(F->getName());
+		const Function* F = cast<Function>(c);
+		if (globalDeps.functionAddresses().count(F) &&
+			globalDeps.functionTables().count(F->getFunctionType()))
+		{
+			int offset = globalDeps.functionAddresses().at(F);
+			const auto& functionTable = globalDeps.functionTables().at(F->getFunctionType());
+			int functionTableOffset = functionTableOffsets.at(functionTable.name);
 			stream << "i32.const " << functionTableOffset + offset;
-		} else {
+		}
+		else
+		{
 			c->dump();
 			assert(false);
 		}
@@ -1639,9 +1644,10 @@ void CheerpWastWriter::makeWast()
 	uint32_t functionTableOffset = 0;
 	for (const auto& table : globalDeps.functionTables()) {
 		for (const auto& F : table.second.functions) {
-			functionTableOffsets.insert(std::make_pair(F->getName(), functionTableOffset));
 			stream << " $" << F->getName();
 		}
+		functionTableOffsets.insert(std::make_pair(StringRef(table.second.name),
+												   functionTableOffset));
 		functionTableOffset += table.second.functions.size();
 	}
 
@@ -1714,9 +1720,9 @@ void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 	stream << buf;
 }
 
-uint32_t CheerpWastWriter::WastBytesWriter::getFunctionTableOffset(llvm::StringRef funcName)
+uint32_t CheerpWastWriter::WastBytesWriter::getFunctionTableOffset(llvm::StringRef tableName)
 {
-	return functionTableOffsets.at(funcName);
+	return functionTableOffsets.at(tableName);
 }
 
 void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
