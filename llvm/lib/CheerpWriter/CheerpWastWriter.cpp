@@ -1660,10 +1660,14 @@ void CheerpWastWriter::makeWast()
 
 	// Experimental entry point for wast code
 	llvm::Function* wastStart = module.getFunction("_Z9wastStartv");
-	if(wastStart)
+	if(wastStart && globalDeps.constructors().empty())
 	{
 		assert(functionIds.count(wastStart));
 		stream << "(start " << functionIds[wastStart] << ")\n";
+	}
+	else if (!globalDeps.constructors().empty())
+	{
+		stream << "(start " << functionIds.size() << ")\n";
 	}
 
 	for ( const GlobalVariable & GV : module.getGlobalList() )
@@ -1680,6 +1684,22 @@ void CheerpWastWriter::makeWast()
 		{
 			compileMethod(F);
 		}
+	}
+
+	// Construct an anonymous function that calls the global constructors.
+	if (!globalDeps.constructors().empty())
+	{
+		stream << "(func\n";
+		for (const Function* F : globalDeps.constructors())
+		{
+			if (F->getSection() == StringRef("asmjs"))
+				stream << "call " << functionIds.at(F) << "\n";
+		}
+
+		if (wastStart)
+			stream << "call " << functionIds.at(wastStart) << "\n";
+
+		stream << ")\n";
 	}
 
 	compileDataSection();
