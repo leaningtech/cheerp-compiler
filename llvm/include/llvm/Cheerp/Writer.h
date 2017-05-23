@@ -459,7 +459,7 @@ private:
 		{
 		}
 		void addByte(uint8_t b) override;
-		uint32_t getFunctionTableOffset(llvm::StringRef funcName) override;
+		uint32_t getFunctionTableOffset(llvm::StringRef tableName) override;
 	};
 	struct BinaryBytesWriter: public LinearMemoryHelper::ByteListener
 	{
