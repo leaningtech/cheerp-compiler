@@ -73,7 +73,8 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 				llvm::report_fatal_error("please report a bug");
 			}
 			int32_t offset = globalDeps.functionAddresses().at(F);
-			offset += listener->getFunctionTableOffset(F->getName());
+			const auto& functionTable = globalDeps.functionTables().at(F->getFunctionType());
+			offset += listener->getFunctionTableOffset(functionTable.name);
 			for(uint32_t i=0;i<32;i+=8)
 				listener->addByte((offset>>i)&255);
 		}
