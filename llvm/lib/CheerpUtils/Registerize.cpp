@@ -420,15 +420,11 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		llvm::SmallVector<RegisterRange, 4>& registers;
 		const InstIdMapTy& instIdMap;
 		std::vector<bool> usedRegisters;
-		void handleRecursivePHIDependency(const Instruction* incoming) override
+		uint32_t assignTempReg(uint32_t regId, Registerize::REGISTER_KIND kind, bool needsSecondaryName)
 		{
-			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
-			assert(registerize.registersMap.count(incoming));
-			uint32_t regId=registerize.registersMap.find(incoming)->second;
-			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromType(incoming->getType(), asmjs);
 			for(unsigned i=0;i<registers.size();i++)
 			{
-				if(registers[i].info.regKind != phiKind)
+				if(registers[i].info.regKind != kind)
 					continue;
 				if(usedRegisters[i])
 					continue;
@@ -441,15 +437,23 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 					continue;
 				// We can use this register for the tmpphi, make sure we don't use it twice
 				usedRegisters[i] = true;
-				registers[i].info.needsSecondaryName |= cheerp::needsSecondaryName(incoming, PA);
-				registerize.edgeRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), i));
-				return;
+				registers[i].info.needsSecondaryName |= needsSecondaryName;
+				return i;
 			}
 			// Create a register which will have an empty live range
 			// It is not a problem since we mark it as used in the block
 			uint32_t chosenReg = registers.size();
-			registers.push_back(RegisterRange(LiveRange(), phiKind, cheerp::needsSecondaryName(incoming, PA)));
+			registers.push_back(RegisterRange(LiveRange(), kind, needsSecondaryName));
 			usedRegisters.push_back(true);
+			return chosenReg;
+		}
+		void handleRecursivePHIDependency(const Instruction* incoming) override
+		{
+			bool asmjs = incoming->getParent()->getParent()->getSection() == StringRef("asmjs");
+			assert(registerize.registersMap.count(incoming));
+			uint32_t regId=registerize.registersMap.find(incoming)->second;
+			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromType(incoming->getType(), asmjs);
+			uint32_t chosenReg = assignTempReg(regId, phiKind, cheerp::needsSecondaryName(incoming, PA));
 			registerize.edgeRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), chosenReg));
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming) override
