@@ -509,7 +509,7 @@ void Registerize::handlePHI(Instruction& I, const LiveRangesTy& liveRanges, llvm
 			uint32_t operandRegister=registersMap[usedI];
 			if(addRangeToRegisterIfPossible(registers[operandRegister], PHIrange,
 							getRegKindFromType(usedI->getType(), asmjs),
-							cheerp::needsSecondaryName(usedI, PA)))
+							cheerp::needsSecondaryName(&I, PA)))
 			{
 				chosenRegister=operandRegister;
 				break;
