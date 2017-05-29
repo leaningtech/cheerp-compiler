@@ -884,14 +884,19 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
     Fn = CreateGlobalInitOrCleanUpFunction(
         FTy, llvm::Twine(InitFnName), FI, SourceLocation(), false,
         llvm::GlobalVariable::ExternalLinkage);
-  } else
+  } else if (!getTarget().isByteAddressable()) {
+    for (unsigned i = 0, e = CXXGlobalInits.size(); i != e; ++i)
+      if (CXXGlobalInits[i])
+        AddGlobalCtor(CXXGlobalInits[i]);
+  } else {
     Fn = CreateGlobalInitOrCleanUpFunction(
         FTy,
         llvm::Twine("_GLOBAL__sub_I_", getTransformedFileName(getModule())),
         FI);
 
-  CodeGenFunction(*this).GenerateCXXGlobalInitFunc(Fn, ModuleInits);
-  AddGlobalCtor(Fn);
+    CodeGenFunction(*this).GenerateCXXGlobalInitFunc(Fn, ModuleInits);
+    AddGlobalCtor(Fn);
+  }
 
   // In OpenCL global init functions must be converted to kernels in order to
   // be able to launch them from the host.
