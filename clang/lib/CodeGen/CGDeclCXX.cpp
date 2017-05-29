@@ -691,6 +691,14 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
   if (getCXXABI().useSinitAndSterm() && CXXGlobalInits.empty())
     return;
 
+  // For Wast and Wasm, it is important to have all constructors in the
+  // llvm.global_ctors list. That way, Cheerp can figure out which constructors
+  // can be called in Webassembly without relying on FFI to JavaScript.
+  if (!getLangOpts().ObjCAutoRefCount || !getLangOpts().CPlusPlus) {
+    for (unsigned i = 0, e = CXXGlobalInits.size(); i != e; ++i)
+      if (CXXGlobalInits[i])
+        AddGlobalCtor(CXXGlobalInits[i]);
+  } else {
   // Include the filename in the symbol name. Including "sub_" matches gcc
   // and makes sure these symbols appear lexicographically behind the symbols
   // with priority emitted above.
@@ -698,8 +706,9 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
       FTy, llvm::Twine("_GLOBAL__sub_I_", getTransformedFileName(getModule())),
       FI);
 
-  CodeGenFunction(*this).GenerateCXXGlobalInitFunc(Fn, CXXGlobalInits);
-  AddGlobalCtor(Fn);
+    CodeGenFunction(*this).GenerateCXXGlobalInitFunc(Fn, CXXGlobalInits);
+    AddGlobalCtor(Fn);
+  }
 
   // In OpenCL global init functions must be converted to kernels in order to
   // be able to launch them from the host.
