@@ -134,7 +134,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   bool useSwitch = privateSwitchInst != NULL;
 
   if (useSwitch) {
-    renderInterface->renderSwitchBlockBegin(privateSwitchInst);
+    renderInterface->renderSwitchBlockBegin(privateSwitchInst, ProcessedBranchesOut);
   }
 
   std::vector<int> emptyBranchesIds;
