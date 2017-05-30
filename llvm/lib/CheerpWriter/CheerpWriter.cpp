@@ -45,7 +45,7 @@ public:
 	void renderLabelForSwitch(int labelId);
 	void renderSwitchOnLabel(uint32_t cases);
 	void renderCaseOnLabel(int labelId);
-	void renderSwitchBlockBegin(const void* privateSwitchInst);
+	void renderSwitchBlockBegin(const void* privateSwitchInst, BlockBranchMap& branchesOut);
 	void renderCaseBlockBegin(const void* privateBlock, int branchId);
 	void renderDefaultBlockBegin();
 	void renderIfBlockBegin(const void* privateBlock, int branchId, bool first);
@@ -3860,7 +3860,8 @@ void CheerpRenderInterface::renderCaseOnLabel(int labelId)
 	writer->stream << "case ";
 	writer->stream << labelId << ":{" << NewLine;
 }
-void CheerpRenderInterface::renderSwitchBlockBegin(const void* privateSwitchInst)
+void CheerpRenderInterface::renderSwitchBlockBegin(const void* privateSwitchInst,
+		BlockBranchMap& branchesOut)
 {
 	const SwitchInst* switchInst = static_cast<const SwitchInst*>(privateSwitchInst);
 	const Value* cond = switchInst->getCondition();

@@ -9,6 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
+
 #include "Relooper.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/Writer.h"
@@ -65,7 +67,7 @@ public:
 	void renderLabelForSwitch(int labelId);
 	void renderSwitchOnLabel(uint32_t cases);
 	void renderCaseOnLabel(int labelId);
-	void renderSwitchBlockBegin(const void* privateBranchVar);
+	void renderSwitchBlockBegin(const void* privateBranchVar, BlockBranchMap& branchesOut);
 	void renderCaseBlockBegin(const void* privateBlock, int branchId);
 	void renderDefaultBlockBegin();
 	void renderIfBlockBegin(const void* privateBlock, int branchId, bool first);
@@ -184,35 +186,105 @@ void CheerpWastRenderInterface::renderCaseOnLabel(int labelId)
 	blockTypes.emplace_back(CASE);
 }
 
-void CheerpWastRenderInterface::renderSwitchBlockBegin(const void* privateSwitchInst)
+uint32_t findBlockInBranchesOutMap(const BasicBlock* dest, BlockBranchMap& branchesOut)
 {
-	assert(false);
+	int i = 0;
+	for (auto it = branchesOut.begin(); it != branchesOut.end(); ++it) {
+		if ((BasicBlock*)it->first->privateBlock == dest)
+			return i;
+		// Do not count the default block. The default block will be rendered
+		// at the end by relooper.
+		if (it->second->branchId == -1)
+			continue;
+		i++;
+	}
+
+	llvm_unreachable("destination not found in branches out");
+}
+
+void CheerpWastRenderInterface::renderSwitchBlockBegin(const void* privateSwitchInst, BlockBranchMap& branchesOut)
+{
 	const SwitchInst* si = static_cast<const SwitchInst*>(privateSwitchInst);
 
-	// Add one block for the default case and N blocks for the N cases.
-	writer->stream << "block\n";
-	for (uint32_t i = 0; i < si->getNumCases(); i++)
+	assert(si->getNumCases());
+
+	int64_t max = std::numeric_limits<int64_t>::min();
+	int64_t min = std::numeric_limits<int64_t>::max();
+	for (auto& c: si->cases())
+	{
+		int64_t curr = c.getCaseValue()->getSExtValue();
+		max = std::max(max, curr);
+		min = std::min(min, curr);
+	}
+
+	// There should be at least one default case and zero or more cases.
+	uint32_t depth = (max - min + 1) + 1;
+	assert(depth >= 1);
+
+	// Fill the jump table.
+	std::vector<int32_t> table;
+	table.assign(depth, -1);
+
+	std::unordered_map<const llvm::BasicBlock*, uint32_t> blockIndexMap;
+	uint32_t caseBlocks = 0;
+
+	for (auto it : si->cases())
+	{
+		const BasicBlock* dest = it.getCaseSuccessor();
+		const auto& found = blockIndexMap.find(dest);
+
+		if (found == blockIndexMap.end())
+		{
+			// Use the block index from the Relooper branches list. Otherwise,
+			// it is possible that the Relooper branches list does not match
+			// with the order of the LLVM Basic Blocks.
+			uint32_t blockIndex = findBlockInBranchesOutMap(dest, branchesOut);
+			blockIndexMap.emplace(dest, blockIndex);
+			table.at(it.getCaseValue()->getSExtValue() - min) = blockIndex;
+
+			// Add cases that have the same destination
+			auto it_next = it;
+			for (++it_next; it_next != si->case_end(); ++it_next)
+			{
+				if (it_next.getCaseSuccessor() != dest)
+					continue;
+
+				table.at(it_next.getCaseValue()->getSExtValue() - min) = blockIndex;
+			}
+
+			caseBlocks++;
+		}
+	}
+
+	// Elements that are not set, will jump to the default block.
+	std::replace(table.begin(), table.end(), -1, (int32_t)caseBlocks);
+
+	// Print the case blocks and the default block.
+	for (uint32_t i = 0; i < caseBlocks + 1; i++)
 		writer->stream << "block\n";
 
-	// Wrap the br_table instruction in its own block
+	// Wrap the br_table instruction in its own block.
 	writer->stream << "block\n";
 	writer->compileOperand(si->getCondition());
+	if (min != 0)
+	{
+		writer->stream << "\ni32.const " << min;
+		writer->stream << "\ni32.sub";
+	}
 	writer->stream << "\nbr_table";
 
-	// Print the block labels
-	for (auto it : si->cases())
-		writer->stream << " " << it.getCaseIndex();
-	writer->stream << " " << si->getNumCases() << "\n";
+	// Print the case labels and the default label.
+	for (auto label : table)
+		writer->stream << " " << label;
+	writer->stream << " " << caseBlocks << "\n";
 
 	writer->stream << "end\n";
 
-	// Number of cases plus the default case.
-	blockTypes.emplace_back(SWITCH, si->getNumCases() + 1);
+	blockTypes.emplace_back(SWITCH, caseBlocks + 1);
 }
 
 void CheerpWastRenderInterface::renderCaseBlockBegin(const void* privateBlock, int branchId)
 {
-	assert(false);
 	BlockType prevBlock = blockTypes.back();
 	assert(prevBlock.type == SWITCH || prevBlock.type == CASE);
 	assert(findSwitchBlockType(blockTypes)->depth > 0);
