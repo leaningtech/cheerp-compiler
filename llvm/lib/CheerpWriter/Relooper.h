@@ -24,6 +24,10 @@ LLVM.
 
 struct Block;
 struct Shape;
+struct Branch;
+template<typename Key, typename T>
+struct InsertOrderedMap;
+typedef InsertOrderedMap<Block*, Branch*> BlockBranchMap;
 
 class RenderInterface
 {
@@ -35,7 +39,7 @@ public:
 	virtual void renderLabelForSwitch(int labelId) = 0;
 	virtual void renderSwitchOnLabel(uint32_t cases) = 0;
 	virtual void renderCaseOnLabel(int labelId) = 0;
-	virtual void renderSwitchBlockBegin(const void* privateBranchVar) = 0;
+	virtual void renderSwitchBlockBegin(const void* privateBranchVar, BlockBranchMap& branchesOut) = 0;
 	virtual void renderCaseBlockBegin(const void* privateBlock, int branchId) = 0;
 	virtual void renderDefaultBlockBegin() = 0;
 	virtual void renderIfBlockBegin(const void* privateBlock, int branchId, bool first) = 0;
