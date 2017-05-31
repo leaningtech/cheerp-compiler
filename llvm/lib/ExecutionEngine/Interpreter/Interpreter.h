@@ -15,12 +15,14 @@
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/ExecutionEngine/FunctionProxy.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+
 namespace llvm {
 
 class IntrinsicLowering;
@@ -204,7 +206,9 @@ private:  // Helper functions
   //
   void SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF);
 
-  void *getPointerToFunction(Function *F) override { return (void*)F; }
+  void *getPointerToFunction(Function *F) override { 
+	  return FunctionProxy::getProxy(F);
+  }
 
   void initializeExecutionEngine() { }
   void initializeExternalFunctions();
