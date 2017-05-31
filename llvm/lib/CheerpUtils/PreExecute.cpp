@@ -14,6 +14,7 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
+#include "llvm/ExecutionEngine/FunctionProxy.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -546,7 +547,8 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
 
 	if(PT->getElementType()->isFunctionTy())
 	{
-		Value* castedVal = reinterpret_cast<llvm::Value*>(StoredAddr);
+		FunctionProxy* proxy = reinterpret_cast<FunctionProxy*>(StoredAddr);
+		Value* castedVal = proxy->getFunction();
 		assert(isa<Function>(castedVal));
 		// Potentially also cast the function to the expected type
 		if(castedVal->getType() != PT)

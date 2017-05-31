@@ -40,6 +40,26 @@ public:
 
 typedef BumpPtrAllocatorImpl<Mmap32bitAllocator> BumpPtrMmap32bitAllocator;
 
+template <class T>
+struct StdMmap32bitAllocator {
+	typedef T value_type;
+	StdMmap32bitAllocator() = default;
+	BumpPtrMmap32bitAllocator _alloc;
+	template <class U> StdMmap32bitAllocator(const StdMmap32bitAllocator<U>&) {}
+	T* allocate(std::size_t n)
+	{ 
+		return static_cast<T*>(_alloc.Allocate(n*sizeof(T),4));
+	}
+	void deallocate(T* p, std::size_t n)
+	{
+		_alloc.Deallocate(p,n*sizeof(T));
+	}
+};
+template <class T, class U>
+bool operator==(const StdMmap32bitAllocator<T>&, const StdMmap32bitAllocator<U>&) { return false; }
+template <class T, class U>
+bool operator!=(const StdMmap32bitAllocator<T>&, const StdMmap32bitAllocator<U>&) { return true; }
+
 } // End llvm namespace
 
 #endif
