@@ -25,6 +25,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cmath>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "interpreter"
@@ -1175,8 +1176,16 @@ void Interpreter::visitCallBase(CallBase &I) {
 
   // To handle indirect calls, we must get the pointer value from the argument
   // and treat it as a function pointer.
-  GenericValue SRC = getOperandValue(SF.Caller->getCalledOperand(), SF);
-  callFunction((Function*)GVTOP(SRC), ArgVals);
+  if (SF.Caller->getCalledFunction() == nullptr)
+  {
+    FunctionProxy* proxy = static_cast<FunctionProxy*>(GVTOP(SRC));
+    callFunction(proxy->getFunction(), ArgVals);
+  }
+  else
+  {
+    llvm::Function* func = SF.Caller->getCalledFunction();
+    callFunction(func, ArgVals);
+  }
 }
 
 // auxiliary function for shift operations
