@@ -43,7 +43,7 @@ public:
 	}
 	void renderBlock(const void* privateBlock);
 	void renderLabelForSwitch(int labelId);
-	void renderSwitchOnLabel(uint32_t cases);
+	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const void* privateSwitchInst, BlockBranchMap& branchesOut);
 	void renderCaseBlockBegin(const void* privateBlock, int branchId);
@@ -3848,7 +3848,7 @@ void CheerpRenderInterface::renderLabelForSwitch(int labelId)
 {
 	writer->stream << 'L' << labelId << ':';
 }
-void CheerpRenderInterface::renderSwitchOnLabel(uint32_t cases)
+void CheerpRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 {
 	writer->stream << "switch(label";
 	if (asmjs)
