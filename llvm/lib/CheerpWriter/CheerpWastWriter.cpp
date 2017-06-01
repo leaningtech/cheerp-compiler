@@ -65,7 +65,7 @@ public:
 	{ }
 	void renderBlock(const void* privateBlock);
 	void renderLabelForSwitch(int labelId);
-	void renderSwitchOnLabel(uint32_t cases);
+	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const void* privateBranchVar, BlockBranchMap& branchesOut);
 	void renderCaseBlockBegin(const void* privateBlock, int branchId);
@@ -159,22 +159,56 @@ assert(false);
 #endif
 }
 
-void CheerpWastRenderInterface::renderSwitchOnLabel(uint32_t cases)
+void CheerpWastRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 {
-	writer->stream << "unreachable ;; switch on label\n";
+	int64_t max = std::numeric_limits<int64_t>::min();
+	int64_t min = std::numeric_limits<int64_t>::max();
+	for (auto iter = idShapeMap.begin(); iter != idShapeMap.end(); iter++)
+	{
+		int64_t curr = iter->first;
+		max = std::max(max, curr);
+		min = std::min(min, curr);
+	}
 
-	for (uint32_t i = 0; i < cases; i++)
+	// There should be at least one case.
+	uint32_t depth = max - min + 1;
+	assert(depth >= 1);
+
+	// Fill the jump table. By default, jump to the first block. This block
+	// will do nothing.
+	std::vector<uint32_t> table;
+	table.assign(depth, 0);
+	uint32_t blockIndex = 1;
+
+	for (auto iter = idShapeMap.begin(); iter != idShapeMap.end(); iter++) {
+		table.at(iter->first - min) = blockIndex;
+		blockIndex++;
+	}
+
+	for (uint32_t i = 0; i < idShapeMap.size() + 1; i++)
 		writer->stream << "block\n";
 
 	// Wrap the br_table instruction in its own block
 	writer->stream << "block\n";
-	writer->stream << "get_local " << labelLocal << '\n';
+	writer->stream << "get_local " << labelLocal;
+	if (min != 0)
+	{
+		writer->stream << "\ni32.const " << min;
+		writer->stream << "\ni32.sub";
+	}
 	writer->stream << "\nbr_table";
-	for (uint32_t i = 0; i < cases; i++)
-		writer->stream << ' ' << i;
+
+	for (auto label : table)
+		writer->stream << " " << label;
+	writer->stream << " 0\n";
+
 	writer->stream << "\nend\n";
 
-	blockTypes.emplace_back(SWITCH, cases);
+	// The first block does not do anything, and breaks out of the switch.
+	writer->stream << "br " << idShapeMap.size() << "\n";
+	writer->stream << "\nend\n";
+
+	blockTypes.emplace_back(SWITCH, idShapeMap.size());
 }
 
 void CheerpWastRenderInterface::renderCaseOnLabel(int labelId)

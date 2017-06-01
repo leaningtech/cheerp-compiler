@@ -29,6 +29,9 @@ template<typename Key, typename T>
 struct InsertOrderedMap;
 typedef InsertOrderedMap<Block*, Branch*> BlockBranchMap;
 
+// Blocks with the same id were split and are identical, so we just care about ids in Multiple entries
+typedef std::map<int, Shape*> IdShapeMap;
+
 class RenderInterface
 {
 public:
@@ -37,7 +40,7 @@ public:
 	virtual void renderBlock(const void* privateBlock) = 0;
 	virtual void renderIfOnLabel(int labelId, bool first) = 0;
 	virtual void renderLabelForSwitch(int labelId) = 0;
-	virtual void renderSwitchOnLabel(uint32_t cases) = 0;
+	virtual void renderSwitchOnLabel(IdShapeMap& idShapeMap) = 0;
 	virtual void renderCaseOnLabel(int labelId) = 0;
 	virtual void renderSwitchBlockBegin(const void* privateBranchVar, BlockBranchMap& branchesOut) = 0;
 	virtual void renderCaseBlockBegin(const void* privateBlock, int branchId) = 0;
@@ -283,9 +286,6 @@ struct LabeledShape : public Shape {
 
   LabeledShape(ShapeType TypeInit, int Id) : Shape(TypeInit, Id), Labeled(false) {}
 };
-
-// Blocks with the same id were split and are identical, so we just care about ids in Multiple entries
-typedef std::map<int, Shape*> IdShapeMap;
 
 struct MultipleShape : public LabeledShape {
   IdShapeMap InnerMap; // entry block ID -> shape
