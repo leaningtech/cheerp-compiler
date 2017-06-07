@@ -110,11 +110,7 @@ class GVMemoryBlock final : public CallbackVH {
 public:
   /// Returns the address the GlobalVariable should be written into.  The
   /// GVMemoryBlock object prefixes that.
-#if defined(__linux__)
-  static char *Create(BumpPtrMmap32bitAllocator &MemoryAllocator,
-#else
-  static char *Create(MallocAllocator &MemoryAllocator,
-#endif
+  static char *Create(VirtualAllocator &MemoryAllocator,
           const GlobalVariable *GV, const DataLayout& TD) {
     Type *ElTy = GV->getValueType();
     size_t GVSize = (size_t)TD.getTypeAllocSize(ElTy);
@@ -136,6 +132,13 @@ public:
   }
 };
 }  // anonymous namespace
+
+GenericValue ExecutionEngine::RPTOGV(void *P) {
+  return GenericValue(MemoryAllocator.toVirtual(P));
+}
+void* ExecutionEngine::GVTORP(const GenericValue &GV) {
+  return MemoryAllocator.toReal(GV.PointerVal);
+}
 
 char *ExecutionEngine::getMemoryForGV(const GlobalVariable *GV) {
   return GVMemoryBlock::Create(MemoryAllocator, GV, getDataLayout());
@@ -384,13 +387,13 @@ void *ArgvArray::reset(LLVMContext &C, ExecutionEngine *EE,
     Dest[Size-1] = 0;
 
     // Endian safe: Array[i] = (PointerTy)Dest;
-    EE->StoreValueToMemory(PTOGV(Dest.get()),
+    EE->StoreValueToMemory(EE->RPTOGV(Dest.get()),
                            (GenericValue*)(&Array[i*PtrSize]), SBytePtr);
     Values.push_back(std::move(Dest));
   }
 
   // Null terminate it
-  EE->StoreValueToMemory(PTOGV(nullptr),
+  EE->StoreValueToMemory(EE->RPTOGV(nullptr),
                          (GenericValue*)(&Array[InputArgv.size()*PtrSize]),
                          SBytePtr);
   return Array.get();
@@ -483,15 +486,15 @@ int ExecutionEngine::runFunctionAsMain(Function *Fn,
     GVArgs.push_back(GVArgc); // Arg #0 = argc.
     if (NumArgs > 1) {
       // Arg #1 = argv.
-      GVArgs.push_back(PTOGV(CArgv.reset(Fn->getContext(), this, argv)));
-      assert(!isTargetNullPtr(this, GVTOP(GVArgs[1])) &&
+      GVArgs.push_back(RPTOGV(CArgv.reset(Fn->getContext(), this, argv)));
+      assert(!isTargetNullPtr(this, GVTORP(GVArgs[1])) &&
              "argv[0] was null after CreateArgv");
       if (NumArgs > 2) {
         std::vector<std::string> EnvVars;
         for (unsigned i = 0; envp[i]; ++i)
           EnvVars.emplace_back(envp[i]);
         // Arg #2 = envp.
-        GVArgs.push_back(PTOGV(CEnv.reset(Fn->getContext(), this, EnvVars)));
+        GVArgs.push_back(RPTOGV(CEnv.reset(Fn->getContext(), this, EnvVars)));
       }
     }
   }
@@ -681,8 +684,8 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       APInt Offset(DL.getPointerSizeInBits(), 0);
       cast<GEPOperator>(CE)->accumulateConstantOffset(DL, Offset);
 
-      char* tmp = (char*) Result.PointerVal;
-      Result = PTOGV(tmp + Offset.getSExtValue());
+      char* tmp = (char*) GVTORP(Result);
+      Result = RPTOGV(tmp + Offset.getSExtValue());
       return Result;
     }
     case Instruction::Trunc: {
@@ -945,7 +948,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     else if (const Function *F = dyn_cast<Function>(C))
       Result = PTOGV(getPointerToFunctionOrStub(const_cast<Function*>(F)));
     else if (const GlobalVariable *GV = dyn_cast<GlobalVariable>(C))
-      Result = PTOGV(getOrEmitGlobalVariable(const_cast<GlobalVariable*>(GV)));
+      Result = RPTOGV(getOrEmitGlobalVariable(const_cast<GlobalVariable*>(GV)));
     else
       llvm_unreachable("Unknown constant pointer type!");
     break;
