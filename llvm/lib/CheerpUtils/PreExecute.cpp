@@ -60,7 +60,7 @@ static GenericValue pre_execute_malloc(FunctionType *FT,
 #ifdef DEBUG_PRE_EXECUTE
     llvm::errs() << "Allocating " << ret << " of size " << size << "\n";
 #endif
-    return GenericValue(ret);
+    return currentEE->RPTOGV(ret);
 }
 
 static GenericValue pre_execute_element_distance(FunctionType *FT, const std::vector<GenericValue> &Args)
@@ -75,13 +75,13 @@ static GenericValue pre_execute_element_distance(FunctionType *FT, const std::ve
 
 static GenericValue pre_execute_pointer_base(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
-  char *p = (char *)(GVTOP(Args[0]));
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  char *p = (char *)(currentEE->GVTORP(Args[0]));
   const GlobalValue* GV = currentEE->getGlobalValueAtAddress(p);
   if (GV)
   {
 	  void* base = currentEE->getPointerToGlobalIfAvailable(GV);
-	  return GenericValue(base);
+	  return currentEE->RPTOGV(base);
   }
   auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(p);
   assert (it != PreExecute::currentPreExecutePass->typedAllocations.begin());
@@ -91,14 +91,14 @@ static GenericValue pre_execute_pointer_base(FunctionType *FT,
   AllocData& allocData = it->second;
   // The edge of the allocation is a valid pointer
   assert(p <= (it->first + allocData.size));
-  return GenericValue(it->first);
+  return currentEE->RPTOGV(it->first);
 }
 
 static GenericValue pre_execute_pointer_offset(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   GenericValue G;
-  char *p = (char *)(GVTOP(Args[0]));
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  char *p = (char *)(currentEE->GVTORP(Args[0]));
   const GlobalValue* GV = currentEE->getGlobalValueAtAddress(p);
   if (GV)
   {
@@ -132,14 +132,14 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
   // Register this allocations in the pass
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
   PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret);
-  return GenericValue(ret);
+  return currentEE->RPTOGV(ret);
 }
 
 static GenericValue pre_execute_reallocate(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
-  void *p = (void *)(GVTOP(Args[0]));
-  size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  void *p = (void *)(currentEE->GVTORP(Args[0]));
+  size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
   void* ret = currentEE->MemoryAllocator.Allocate(size+4, 8);
   memset(ret, 0, size);
   // Find out the old size
@@ -165,13 +165,14 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
   // Register this allocations in the pass
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
   PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret);
-  return GenericValue(ret);
+  return currentEE->RPTOGV(ret);
 }
 
 static GenericValue pre_execute_deallocate(FunctionType *FT,
                                            const std::vector<GenericValue> &Args) {
 #ifdef DEBUG_PRE_EXECUTE
-    void *p = (void *)(GVTOP(Args[0]));
+    ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+    void *p = (void *)(currentEE->GVTORP(Args[0]));
 #endif
 
     // TODO: deallocate the memory
@@ -190,8 +191,9 @@ static GenericValue pre_execute_cast(FunctionType *FT,
 
 static GenericValue pre_execute_memcpy(FunctionType *FT,
                                        const std::vector<GenericValue> &Args) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   // Support fully typed memcpy
-  memcpy(GVTOP(Args[0]), GVTOP(Args[1]),
+  memcpy(currentEE->GVTORP(Args[0]), currentEE->GVTORP(Args[1]),
          (size_t)(Args[2].IntVal.getLimitedValue()));
 
   GenericValue GV;
@@ -225,7 +227,8 @@ static StructType* most_derived_class(char* Addr)
 static GenericValue pre_execute_downcast_current(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
 
-  char* Addr = (char*)GVTOP(Args[0]);
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  char* Addr = (char*)currentEE->GVTORP(Args[0]);
 
   StructType* objType = most_derived_class(Addr); 
   assert(objType);
@@ -261,7 +264,8 @@ static GenericValue pre_execute_downcast_current(FunctionType *FT,
 static GenericValue pre_execute_downcast(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
     // We need to apply the offset in bytes using the bases metadata
-    char* Addr = (char*)GVTOP(Args[0]);
+    ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+    char* Addr = (char*)currentEE->GVTORP(Args[0]);
     Type* derivedType = most_derived_class(Addr); 
     assert(derivedType);
     int baseOffset = Args[1].IntVal.getSExtValue();
@@ -333,19 +337,20 @@ static GenericValue pre_execute_downcast(FunctionType *FT,
 
 static GenericValue pre_execute_upcast(FunctionType *FT,
                                        const std::vector<GenericValue> &Args) {
-    uintptr_t AddrValue = reinterpret_cast<uintptr_t>(GVTOP(Args[0]));
-    return GenericValue(reinterpret_cast<void*>(AddrValue));
+    return Args[0]; 
 }
 
 static GenericValue assertEqualImpl(FunctionType *FT,
         const std::vector<GenericValue> &Args)
 {
+    ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
     bool success = Args[0].IntVal.getZExtValue();
-    const char* msg = reinterpret_cast<char *>(GVTOP(Args[1]));
+    const char* msg = reinterpret_cast<char *>(currentEE->GVTORP(Args[1]));
     if (success) {
         llvm::errs() << msg << ": SUCCESS\n";
     } else {
         llvm::errs() << msg << ": FAILURE\n";
+	  llvm::report_fatal_error("PreExecute test failed");
     }
 
     return GenericValue(0);
@@ -610,6 +615,7 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
 		return cast<Function>(castedVal);
 	}
 
+        StoredAddr = (char*) currentEE->MemoryAllocator.toReal(StoredAddr);
         Type* Int32Ty = IntegerType::get(currentModule->getContext(), 32);
         const GlobalValue* GV = currentEE->getGlobalValueAtAddress(StoredAddr);
         if (GV)
