@@ -1648,7 +1648,7 @@ void PointerAnalyzer::computeConstantOffsets(const Module& M)
 	{
 		for(const BasicBlock & BB : F)
 		{
-			for(auto it=BB.rbegin();it != BB.rend();++it)
+			for(auto it=BB.begin();it != BB.end();++it)
 			{
 				if(it->getType()->isPointerTy() ||
 					(isa<StoreInst>(*it) && it->getOperand(0)->getType()->isPointerTy()))
