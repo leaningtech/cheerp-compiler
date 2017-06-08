@@ -1343,6 +1343,36 @@ void CheerpWriter::compileRawPointer(const Value* p)
 	compileOperand(p, ADD_SUB);
 }
 
+int CheerpWriter::getHeapShiftForType(Type* et)
+{
+	uint32_t shift=0;
+	if(et->isIntegerTy(8) || et->isIntegerTy(1))
+	{
+		shift = 0;
+	}
+	else if(et->isIntegerTy(16))
+	{
+		shift = 1;
+	}
+	else if(et->isIntegerTy(32) || et->isPointerTy())
+	{
+		shift = 2;
+	}
+	else if(et->isFloatTy())
+	{
+		shift = 2;
+	}
+	else if(et->isDoubleTy())
+	{
+		shift = 3;
+	}
+	else
+	{
+		llvm::errs() << "Unsupported heap access for  type " << *et << "\n";
+		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
+	}
+	return shift;
+}
 int CheerpWriter::compileHeapForType(Type* et)
 {
 	uint32_t shift=0;
@@ -2275,6 +2305,12 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 				compilePointerBase(*cur, true);
 				stream << ',';
 				compilePointerOffset(*cur, LOWEST, true);
+			}
+			else if(argKind == RAW && !asmjs)
+			{
+				compilePointerOffset(*cur, SHIFT, true);
+				stream << "<<";
+				stream << getHeapShiftForType(cast<PointerType>(tp)->getPointerElementType());
 			}
 			else if(argKind != UNKNOWN)
 				compilePointerAs(*cur, argKind);
@@ -3528,9 +3564,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					}
 					return cf;
 				}
-				// handle calls to asm.js functions
-				if (!asmjs && globalDeps.asmJSExports().count(calledFunc))
-					stream << "__asm.";
 				stream << namegen.getName(calledFunc);
 			}
 			else if (asmjs)
@@ -4508,7 +4541,7 @@ void CheerpWriter::compileMathDeclAsmJS()
 	stream << "var tan=stdlib.Math.tan;" << NewLine;
 }
 
-void CheerpWriter::compileAsmJSFfi()
+void CheerpWriter::compileAsmJSImports()
 {
 	for (const Function* F: globalDeps.asmJSImports())
 	{
@@ -4544,6 +4577,51 @@ void CheerpWriter::compileAsmJSFfi()
 				stream << ">>" << shift;
 		}
 		stream << ");" << NewLine;
+		stream << '}' << NewLine;
+	}
+}
+void CheerpWriter::compileAsmJSExports()
+{
+	for (const Function* F: globalDeps.asmJSExports())
+	{
+		if(F->empty()) continue;
+
+		stream << "function " << namegen.getName(F) << '(';
+		const Function::const_arg_iterator A=F->arg_begin();
+		const Function::const_arg_iterator AE=F->arg_end();
+		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
+		{
+			if(curArg!=A)
+			{
+				stream << ',';
+			}
+			stream << namegen.getName(curArg);
+		}
+		stream << "){" << NewLine;
+		if (F->getReturnType()->isPointerTy())
+		{
+			stream << "oSlot=";
+		}
+		else if (!F->getReturnType()->isVoidTy())
+			stream << "return ";
+		stream << "__asm." << namegen.getName(F) << '(';
+		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
+		{
+			if(curArg!=A)
+				stream << ',';
+			stream << namegen.getName(curArg);
+		}
+		stream << ')';
+		if (F->getReturnType()->isPointerTy())
+		{
+			int shift =  getHeapShiftForType(cast<PointerType>(F->getReturnType())->getPointerElementType());
+			if (shift != 0)
+				stream << ">>" << shift;
+			stream << ';' << NewLine;
+			stream << "return ";
+			compileHeapForType(cast<PointerType>(F->getReturnType())->getPointerElementType());
+		}
+		stream << ';' << NewLine;
 		stream << '}' << NewLine;
 	}
 }
@@ -4703,7 +4781,8 @@ void CheerpWriter::makeJS()
 		stream << "var heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(heap);" << NewLine;
-		compileAsmJSFfi();
+		compileAsmJSImports();
+		compileAsmJSExports();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
@@ -4781,7 +4860,8 @@ void CheerpWriter::makeJS()
 	{
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << "var " << heapNames[i] << "=null" << NewLine;
-		compileAsmJSFfi();
+		compileAsmJSImports();
+		compileAsmJSExports();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var importObject = { imports: {" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
