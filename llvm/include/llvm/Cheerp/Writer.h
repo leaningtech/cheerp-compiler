@@ -408,7 +408,8 @@ private:
 	void compileCreateClosure();
 	void compileHandleVAArg();
 	void compileBuiltins(bool asmjs);
-	void compileAsmJSFfi();
+	void compileAsmJSImports();
+	void compileAsmJSExports();
 	/**
 	 * This method compiles an helper function for getting an ArrayBuffer from
 	 * a file, usable from the browser and node
@@ -544,7 +545,8 @@ public:
 	void compileStackFrame();
 	void compileStackRet();
 	void compileAllocaAsmJS(const llvm::Value*n, uint32_t elem_size, uint32_t alignment);
-	// returns the amount fo shift required for the selected heap
+	// returns the amount fo shift required for accessing the corresponding heap
+	int getHeapShiftForType(llvm::Type* et);
 	int compileHeapForType(llvm::Type* et);
 	void compileHeapAccess(const llvm::Value* p, llvm::Type* t = nullptr);
 	/**
