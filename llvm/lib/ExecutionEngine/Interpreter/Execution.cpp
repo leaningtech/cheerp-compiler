@@ -1126,7 +1126,7 @@ void Interpreter::visitVAStartInst(VAStartInst &I) {
   GenericValue ArgIndex;
   ArgIndex.UIntPairVal.first = ECStack.size() - 1;
   ArgIndex.UIntPairVal.second = 0;
-  SetValue(&I, ArgIndex, SF);
+  SetValue(cast<Instruction>(I.getOperand(0))->getOperand(0), ArgIndex, SF);
 }
 
 void Interpreter::visitVAEndInst(VAEndInst &I) {
@@ -1806,6 +1806,7 @@ void Interpreter::visitVAArgInst(VAArgInst &I) {
 
   // Move the pointer to the next vararg.
   ++VAList.UIntPairVal.second;
+  SetValue(I.getOperand(0), VAList, SF);
 }
 
 void Interpreter::visitExtractElementInst(ExtractElementInst &I) {
