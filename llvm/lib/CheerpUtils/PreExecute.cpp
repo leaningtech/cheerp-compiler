@@ -178,9 +178,10 @@ static GenericValue pre_execute_downcast(FunctionType *FT,
     // We need to apply the offset in bytes using the bases metadata
     Type* derivedType = FT->getReturnType()->getPointerElementType();
     Type* baseType = FT->getParamType(0)->getPointerElementType();
-    int baseOffset = Args[1].IntVal.getLimitedValue();
+    int baseOffset = Args[1].IntVal.getSExtValue();
+    if (baseOffset < 0) std::swap(derivedType, baseType);
     uintptr_t curByteOffset=0;
-    uint32_t curBaseOffset=baseOffset;
+    uint32_t curBaseOffset= baseOffset>=0 ? baseOffset : -baseOffset;
     StructType* curType=cast<StructType>(derivedType);
     auto &currentModule = PreExecute::currentPreExecutePass->currentModule;
     auto DL = currentModule->getDataLayout();
@@ -229,6 +230,8 @@ static GenericValue pre_execute_downcast(FunctionType *FT,
 #endif
         curByteOffset += layout->getElementOffset(firstBase);
     }
+    if (baseOffset < 0)
+	    curByteOffset = - curByteOffset;
     uintptr_t AddrValue = reinterpret_cast<uintptr_t>(GVTOP(Args[0]));
 #ifdef DEBUG_PRE_EXECUTE
     llvm::errs() << "AddrValue " << AddrValue
