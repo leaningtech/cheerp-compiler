@@ -1,7 +1,10 @@
 #ifndef LLVM_EXECUTIONENGINE_FUNCTION_PROXY_H
 #define LLVM_EXECUTIONENGINE_FUNCTION_PROXY_H
 
+
+#if defined(__linux__)
 #include <llvm/ExecutionEngine/Mmap32bitAllocator.h>
+#endif
 
 #include <llvm/IR/Function.h>
 #include <map>
@@ -25,7 +28,11 @@ private:
 	{
 	}
 	typedef std::pair<llvm::Function*, FunctionProxy> elem_t;
+#if defined(__linux__)
 	typedef std::map<llvm::Function*, FunctionProxy, std::less<llvm::Function*>, llvm::StdMmap32bitAllocator<elem_t>> map_t;
+#else
+	typedef std::map<llvm::Function*, FunctionProxy, std::less<llvm::Function*>> map_t;
+#endif
 	static map_t& proxies()
 	{
 		static map_t _v;
