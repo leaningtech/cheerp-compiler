@@ -389,6 +389,7 @@ struct PointerResolverForKindVisitor: public PointerResolverBaseVisitor<PointerK
 
 bool PointerUsageVisitor::visitRawChain( const Value * p)
 {
+	const Value * origP = p;
 	// ignore geps and bitcasts
 	while ( isGEP(p) || isBitCast(p) )
 	{
@@ -396,7 +397,12 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 		p = u->getOperand(0);
 	}
 	const GlobalValue* top = nullptr;
-	if (isa<Instruction>(p))
+	if (isa<ConstantPointerNull>(p) && isa<Instruction>(origP))
+	{
+		// By following geps and bitcast we reached a null, make the kind depend on the container function
+		top = cast<Instruction>(origP)->getParent()->getParent();
+	}
+	else if (isa<Instruction>(p))
 	{
 		top = cast<Instruction>(p)->getParent()->getParent();
 	}
