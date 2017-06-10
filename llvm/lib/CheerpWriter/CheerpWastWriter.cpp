@@ -1047,6 +1047,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 						stream << "i32.store\n";
 						return true;
 					}
+					case Intrinsic::invariant_start:
 					case Intrinsic::vaend:
 					{
 						// Do nothing.
