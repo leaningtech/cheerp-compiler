@@ -4880,9 +4880,10 @@ void CheerpWriter::makeJS()
 		stream << ").then(instance => {" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
+		stream << "window['__asm']=instance.exports;" << NewLine;
 	}
 	//Load asm.js module
-	if (globalDeps.needAsmJS())
+	else if (globalDeps.needAsmJS())
 	{
 		if (asmJSMem)
 		{
