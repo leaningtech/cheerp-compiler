@@ -1293,7 +1293,9 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			if(li.getType()->isIntegerTy())
 			{
 				uint32_t bitWidth = li.getType()->getIntegerBitWidth();
-				if(bitWidth > 1 && bitWidth<32)
+				if(bitWidth == 1)
+					bitWidth = 8;
+				if(bitWidth < 32)
 				{
 					assert(bitWidth == 8 || bitWidth == 16);
 					// Currently assume unsigned, like Cheerp. We may optimize this be looking at a following sext or zext instruction.
@@ -1360,7 +1362,9 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			if(valOp->getType()->isIntegerTy())
 			{
 				uint32_t bitWidth = valOp->getType()->getIntegerBitWidth();
-				if(bitWidth > 1 && bitWidth<32)
+				if(bitWidth == 1)
+					bitWidth = 8;
+				if(bitWidth < 32)
 				{
 					assert(bitWidth == 8 || bitWidth == 16);
 					stream << bitWidth;
