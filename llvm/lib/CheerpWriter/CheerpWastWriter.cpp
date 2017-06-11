@@ -1223,6 +1223,24 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << getTypeString(I.getType()) << ".div";
 			break;
 		}
+		case Instruction::FRem:
+		{
+			// No FRem in wasm, implement manually
+			// frem x, y -> fsub (x, fmul( ftrunc ( fdiv (x, y) ), y ) )
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(0));
+			stream << '\n';
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".div\n";
+			stream << getTypeString(I.getType()) << ".trunc\n";
+			compileOperand(I.getOperand(1));
+			stream << '\n';
+			stream << getTypeString(I.getType()) << ".mul\n";
+			stream << getTypeString(I.getType()) << ".sub";
+			break;
+		}
 		case Instruction::FMul:
 		{
 			compileOperand(I.getOperand(0));
