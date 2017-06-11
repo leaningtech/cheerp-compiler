@@ -116,7 +116,7 @@ static system_clock::time_point __libcpp_system_clock_now() {
   return system_clock::time_point(duration_cast<system_clock::duration>(d - nt_to_unix_epoch));
 }
 
-#elif defined(CLOCK_REALTIME) && defined(_LIBCPP_USE_CLOCK_GETTIME)
+#elif defined(CLOCK_REALTIME)
 
 static system_clock::time_point __libcpp_system_clock_now() {
 #ifdef __CHEERP__
@@ -300,7 +300,7 @@ static steady_clock::time_point __libcpp_steady_clock_now() {
 steady_clock::time_point
 steady_clock::now() _NOEXCEPT
 {
-    double val = client::Date::now();
+    double val = cheerp::date_now();
     return time_point(milliseconds((long long)val));
 }
 
