@@ -1794,7 +1794,7 @@ void CheerpWastWriter::makeWast()
 		assert(functionIds.count(wastStart));
 		stream << "(start " << functionIds[wastStart] << ")\n";
 	}
-	else if (!globalDeps.constructors().empty())
+	else if (!globalDeps.constructors().empty() && !useWastLoader)
 	{
 		stream << "(start " << functionIds.size() << ")\n";
 	}
@@ -1816,7 +1816,7 @@ void CheerpWastWriter::makeWast()
 	}
 
 	// Construct an anonymous function that calls the global constructors.
-	if (!globalDeps.constructors().empty())
+	if (!globalDeps.constructors().empty() && !useWastLoader)
 	{
 		stream << "(func\n";
 		for (const Function* F : globalDeps.constructors())
