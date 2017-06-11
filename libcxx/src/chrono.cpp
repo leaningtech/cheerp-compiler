@@ -74,15 +74,11 @@ system_clock::now() _NOEXCEPT
                        static_cast<__int64>(ft.dwLowDateTime)};
   return time_point(duration_cast<duration>(d - nt_to_unix_epoch));
 #else
-<<<<<<< HEAD
 #if defined(CLOCK_REALTIME)
-=======
-#if defined(_LIBCPP_USE_CLOCK_GETTIME) && defined(CLOCK_REALTIME)
 #ifdef __CHEERP__
-    double val = client::Date::now();
+    double val = cheerp::date_now();
     return time_point(milliseconds((long long)val));
 #else
->>>>>>> Initial support for std::chrono
   struct timespec tp;
   if (0 != clock_gettime(CLOCK_REALTIME, &tp))
     __throw_system_error(errno, "clock_gettime(CLOCK_REALTIME) failed");
@@ -178,7 +174,7 @@ steady_clock::now() _NOEXCEPT
 steady_clock::time_point
 steady_clock::now() _NOEXCEPT
 {
-    double val = client::Date::now();
+    double val = cheerp::date_now();
     return time_point(milliseconds((long long)val));
 }
 
