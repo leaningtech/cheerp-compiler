@@ -87,6 +87,15 @@ uint32_t Registerize::getRegisterIdForEdge(const llvm::Instruction* I, const llv
 	return regId;
 }
 
+uint32_t Registerize::getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
+{
+	assert(registersMap.count(I));
+	uint32_t regId = registersMap.find(I)->second;
+	auto it = selfRefRegistersMap.find(InstOnEdge(fromBB, toBB, regId));
+	assert(it != selfRefRegistersMap.end());
+	return it->second;
+}
+
 void Registerize::InstructionLiveRange::addUse(uint32_t curCodePath, uint32_t thisIndex)
 {
 	// If we are still in the same code path we can directly extend the last range
@@ -456,9 +465,19 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			uint32_t chosenReg = assignTempReg(regId, phiKind, cheerp::needsSecondaryName(incoming, PA));
 			registerize.edgeRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), chosenReg));
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming) override
+		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
-			// Nothing to do here, we have already given registers to all PHIs
+			// Provide temporary regs for the offset part of SPLIT_REGULAR PHIs that reference themselves
+			if(!selfReferencing)
+				return;
+			assert(cheerp::needsSecondaryName(phi, PA));
+			assert(registerize.registersMap.count(phi));
+			uint32_t regId=registerize.registersMap.find(phi)->second;
+			// Check if there is already a tmp PHI for this PHI, if so it is not really self referencing
+			if(registerize.edgeRegistersMap.count(InstOnEdge(fromBB, toBB, regId)))
+				return;
+			uint32_t chosenReg = assignTempReg(regId, Registerize::INTEGER, false);
+			registerize.selfRefRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), chosenReg));
 		}
 		void setRegisterUsed(uint32_t regId) override
 		{

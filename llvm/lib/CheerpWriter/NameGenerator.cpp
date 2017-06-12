@@ -244,7 +244,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			if(cheerp::needsSecondaryName(incoming, namegen.PA))
 				assert(regData.second.needsSecondaryName);
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming) override
+		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
 			// Nothing to do here, we have already given names to all PHIs
 		}
