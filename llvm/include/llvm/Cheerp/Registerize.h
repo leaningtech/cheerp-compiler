@@ -75,6 +75,7 @@ public:
 
 	uint32_t getRegisterId(const llvm::Instruction* I) const;
 	uint32_t getRegisterIdForEdge(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
+	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 
 	void assignRegisters(llvm::Module& M, cheerp::PointerAnalyzer& PA);
 	void computeLiveRangeForAllocas(llvm::Function& F);
@@ -148,6 +149,7 @@ private:
 	std::unordered_map<InstOnEdge, uint32_t, InstOnEdge::Hash> edgeRegistersMap;
 	std::unordered_map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
 	std::unordered_map<const llvm::Function*, std::vector<RegisterInfo>> registersForFunctionMap;
+	std::unordered_map<InstOnEdge, uint32_t, InstOnEdge::Hash> selfRefRegistersMap;
 	struct EdgeContext
 	{
 		const llvm::BasicBlock* fromBB;

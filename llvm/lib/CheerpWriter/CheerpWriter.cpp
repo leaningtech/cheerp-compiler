@@ -2123,7 +2123,7 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming) override
+		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
 			needsPointerKindConversion |= writer.needsPointerKindConversion(phi, incoming);
 		}
@@ -2162,7 +2162,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			writer.stream << writer.namegen.getNameForEdge(incoming, fromBB, toBB);
 			writer.stream << '=' << writer.namegen.getName(incoming) << ';' << writer.NewLine;
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming) override
+		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(!writer.needsPointerKindConversion(phi, incoming))
@@ -2179,7 +2179,21 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				}
 				else if(k==SPLIT_REGULAR)
 				{
-					writer.stream << writer.namegen.getSecondaryName(phi) << '=';
+					// TODO: Won't have a self ref tmp if there is a tmpphi already for this PHI
+					if(selfReferencing)
+					{
+						assert(!PA.getConstantOffsetForPointer(incoming));
+						assert(PA.getPointerKind(incoming) == SPLIT_REGULAR);
+					}
+					uint32_t tmpOffsetReg = -1;
+					if(selfReferencing)
+					{
+						tmpOffsetReg = writer.registerize.getSelfRefTmpReg(phi, fromBB, toBB);
+						writer.stream << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
+					}
+					else
+						writer.stream << writer.namegen.getSecondaryName(phi);
+					writer.stream << '=';
 					writer.registerize.setEdgeContext(fromBB, toBB);
 					writer.compilePointerOffset(incoming, LOWEST);
 					writer.stream << ';' << writer.NewLine;
@@ -2187,6 +2201,12 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					writer.stream << writer.namegen.getName(phi) << '=';
 					writer.registerize.setEdgeContext(fromBB, toBB);
 					writer.compilePointerBase(incoming);
+					if(selfReferencing)
+					{
+						writer.stream << ';' << writer.NewLine;
+						writer.registerize.clearEdgeContext();
+						writer.stream << writer.namegen.getSecondaryName(phi) << '=' << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
+					}
 				}
 				else
 				{

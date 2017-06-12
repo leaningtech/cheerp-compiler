@@ -640,7 +640,7 @@ bool DynamicAllocInfo::useTypedArray() const
 	return TypeSupport::isTypedArrayType( getCastedType()->getElementType(), forceTypedArrays);
 }
 
-void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm::Instruction* incoming, llvm::SmallVector<const PHINode*, 4>& orderedPHIs)
+void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs)
 {
 	auto it=phiRegs.find(regId);
 	if(it==phiRegs.end())
@@ -659,7 +659,7 @@ void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm
 	for(auto& reg: regData.incomingRegs)
 		runOnPHI(phiRegs, reg.first, reg.second, orderedPHIs);
 	// Add the PHI to orderedPHIs only after eventual dependencies have been added
-	orderedPHIs.push_back(regData.phiInst);
+	orderedPHIs.push_back(std::make_pair(regData.phiInst, regData.selfReferencing));
 	regData.status=PHIRegData::VISITED;
 }
 
@@ -668,7 +668,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	BasicBlock::const_iterator I=toBB->begin();
 	BasicBlock::const_iterator IE=toBB->end();
 	PHIRegs phiRegs;
-	llvm::SmallVector<const PHINode*, 4> orderedPHIs;
+	llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4> orderedPHIs;
 	for(;I!=IE;++I)
 	{
 		// Gather the dependency graph between registers for PHIs and incoming values
@@ -682,41 +682,54 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		const Instruction* I=dyn_cast<Instruction>(val);
 		if(!I)
 		{
-			orderedPHIs.push_back(phi);
+			orderedPHIs.push_back(std::make_pair(phi, /*selfReferencing*/false));
 			continue;
 		}
 		uint32_t phiReg = registerize.getRegisterId(phi);
 		setRegisterUsed(phiReg);
 		// This instruction may depend on multiple registers
 		llvm::SmallVector<std::pair<uint32_t, const Instruction*>, 2> incomingRegisters;
-		llvm::SmallVector<const Instruction*, 4> instQueue;
-		instQueue.push_back(I);
+		llvm::SmallVector<std::pair<const Instruction*, /*dereferenced*/bool>, 4> instQueue;
+		instQueue.push_back(std::make_pair(I, false));
+		bool mayNeedSelfRef = phi->getType()->isPointerTy() && PA.getPointerKind(phi) == SPLIT_REGULAR;
+		bool selfReferencing = false;
 		while(!instQueue.empty())
 		{
-			const Instruction* incomingInst = instQueue.pop_back_val();
-			if(!isInlineable(*incomingInst, PA))
+			std::pair<const Instruction*, bool> incomingInst = instQueue.pop_back_val();
+			if(!isInlineable(*incomingInst.first, PA))
 			{
-				uint32_t incomingValueId = registerize.getRegisterId(incomingInst);
+				uint32_t incomingValueId = registerize.getRegisterId(incomingInst.first);
 				if(incomingValueId==phiReg)
+				{
+					if(mayNeedSelfRef &&
+						PA.getPointerKind(incomingInst.first) == SPLIT_REGULAR && // If the incoming inst is not SPLIT_REGULAR there is no collision risk
+						!PA.getConstantOffsetForPointer(incomingInst.first) && // If the offset part is constant we can reorder the operation to avoid a collision
+						incomingInst.second) // If the register is not dereferenced there is no conflict as base and offset are not used together
+					{
+						selfReferencing = true;
+					}
 					continue;
+				}
 				setRegisterUsed(incomingValueId);
-				incomingRegisters.push_back(std::make_pair(incomingValueId, incomingInst));
+				incomingRegisters.push_back(std::make_pair(incomingValueId, incomingInst.first));
 			}
 			else
 			{
-				for(const Value* op: incomingInst->operands())
+				// TODO: Loads when inlined should go here
+				bool dereferenced = incomingInst.second || (mayNeedSelfRef && isa<GetElementPtrInst>(incomingInst.first) && incomingInst.first->getNumOperands() > 2);
+				for(const Value* op: incomingInst.first->operands())
 				{
 					const Instruction* opI = dyn_cast<Instruction>(op);
 					if(!opI)
 						continue;
-					instQueue.push_back(opI);
+					instQueue.push_back(std::make_pair(opI, dereferenced));
 				}
 			}
 		}
 		if(incomingRegisters.empty())
-			orderedPHIs.push_back(phi);
+			orderedPHIs.push_back(std::make_pair(phi, selfReferencing));
 		else
-			phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, std::move(incomingRegisters))));
+			phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, std::move(incomingRegisters), selfReferencing)));
 	}
 	for(auto it: phiRegs)
 	{
@@ -726,9 +739,9 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	// Notify the user for each PHI, in the right order to avoid accidental overwriting
 	for(uint32_t i=orderedPHIs.size();i>0;i--)
 	{
-		const PHINode* phi=orderedPHIs[i-1];
+		const PHINode* phi=orderedPHIs[i-1].first;
 		const Value* val=phi->getIncomingValueForBlock(fromBB);
-		handlePHI(phi, val);
+		handlePHI(phi, val, orderedPHIs[i-1].second);
 	}
 }
 
