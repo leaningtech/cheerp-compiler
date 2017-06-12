@@ -224,7 +224,7 @@ uint32_t findBlockInBranchesOutMap(const BasicBlock* dest, BlockBranchMap& branc
 {
 	int i = 0;
 	for (auto it = branchesOut.begin(); it != branchesOut.end(); ++it) {
-		if ((BasicBlock*)it->first->privateBlock == dest)
+		if ((const BasicBlock*)it->first->privateBlock == dest)
 			return i;
 		// Do not count the default block. The default block will be rendered
 		// at the end by relooper.
