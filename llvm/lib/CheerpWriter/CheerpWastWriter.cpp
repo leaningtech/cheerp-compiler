@@ -606,7 +606,7 @@ bool CheerpWastWriter::needsPointerKindConversionForBlocks(const BasicBlock* to,
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming) override
+		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
 			needsPointerKindConversion |= writer.needsPointerKindConversion(phi, incoming);
 		}
@@ -638,7 +638,7 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, con
 			writer.stream << "get_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(incoming)) << '\n';
 			writer.stream << "set_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB)) << '\n';
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming) override
+		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(!writer.needsPointerKindConversion(phi, incoming))
