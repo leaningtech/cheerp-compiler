@@ -494,16 +494,17 @@ private:
 		llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2> incomingRegs;
 		enum STATUS { NOT_VISITED=0, VISITING, VISITED };
 		STATUS status;
-		PHIRegData(const llvm::PHINode* p, llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2>&& r):
-			phiInst(p), incomingRegs(std::move(r)), status(NOT_VISITED)
+		bool selfReferencing;
+		PHIRegData(const llvm::PHINode* p, llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2>&& r, bool selfReferencing):
+			phiInst(p), incomingRegs(std::move(r)), status(NOT_VISITED), selfReferencing(selfReferencing)
 		{
 		}
 	};
 	typedef std::map<uint32_t, PHIRegData> PHIRegs;
-	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, const llvm::Instruction* incoming, llvm::SmallVector<const llvm::PHINode*, 4>& orderedPHIs);
+	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
 	// Callbacks implemented by derived classes
 	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
-	virtual void handlePHI(const llvm::Instruction* phi, const llvm::Value* incoming) = 0;
+	virtual void handlePHI(const llvm::Instruction* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
 	// Called for every register which is either assigned or used by PHIs in the edge
 	virtual void setRegisterUsed(uint32_t reg) {};
 };
