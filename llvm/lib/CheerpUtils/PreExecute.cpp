@@ -262,6 +262,20 @@ static GenericValue assertEqual(FunctionType *FT,
 
     return GenericValue(0);
 }
+static GenericValue assertEqualStr(FunctionType *FT,
+        const std::vector<GenericValue> &Args)
+{
+    const char* value = reinterpret_cast<const char*>(GVTOP(Args[0]));
+    const char* expected = reinterpret_cast<const char*>(GVTOP(Args[1]));
+    const char* msg = reinterpret_cast<const char *>(GVTOP(Args[2]));
+    if (strcmp(value,expected) == 0) {
+        llvm::errs() << msg << ": SUCCESS\n";
+    } else {
+        llvm::errs() << msg << ": FAILURE\n";
+    }
+
+    return GenericValue(0);
+}
 
 static GenericValue assertAlmostEqual(FunctionType *FT,
                                       const std::vector<GenericValue> &Args)
@@ -329,6 +343,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())assertEqual<float>;
     if (strcmp(funcName.c_str(), "_Z11assertEqualIdEvRKT_S2_PKc") == 0)
         return (void*)(void(*)())assertEqual<double>;
+    if (strcmp(funcName.c_str(), "_Z11assertEqualPKcS0_S0_") == 0)
+        return (void*)(void(*)())assertEqualStr;
     if (strcmp(funcName.c_str(), "_Z11assertEqualdddPKc") == 0)
         return (void*)(void(*)())assertAlmostEqual;
     if (strncmp(funcName.c_str(), "_Z11assertEqualIP",
