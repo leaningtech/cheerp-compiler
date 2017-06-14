@@ -69,6 +69,7 @@ void ObjectCache::anchor() {}
 void ExecutionEngine::Init(std::unique_ptr<Module> M) {
   LazyFunctionCreator = nullptr;
   StoreListener = nullptr;
+  AllocaListener = nullptr;
   CompilingLazily         = false;
   GVCompilationDisabled   = false;
   SymbolSearchingDisabled = false;
