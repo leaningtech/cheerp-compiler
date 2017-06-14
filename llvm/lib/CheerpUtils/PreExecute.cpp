@@ -47,6 +47,10 @@ static void StoreListener(void* Addr)
 {
     PreExecute::currentPreExecutePass->recordStore(Addr);
 }
+static void AllocaListener(Type* Ty,uint32_t Size, void* Addr)
+{
+    PreExecute::currentPreExecutePass->recordTypedAllocation(Ty, Size, (char*)Addr);
+}
 
 static GenericValue pre_execute_malloc(FunctionType *FT,
         const std::vector<GenericValue> &Args) {
@@ -627,6 +631,7 @@ bool PreExecute::runOnConstructor(const Target* target, const std::string& tripl
     currentEE = builder.create(machine);
     assert(currentEE && "failed to create execution engine!");
     currentEE->InstallStoreListener(StoreListener);
+    currentEE->InstallAllocaListener(AllocaListener);
     currentEE->InstallLazyFunctionCreator(LazyFunctionCreator);
 
     currentEE->runFunction(func, std::vector< GenericValue >());
