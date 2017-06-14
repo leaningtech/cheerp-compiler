@@ -200,6 +200,43 @@ static StructType* most_derived_class(char* Addr)
   }
   return Ty;
 }
+static GenericValue pre_execute_downcast_current(FunctionType *FT,
+                                         const std::vector<GenericValue> &Args) {
+
+  char* Addr = (char*)GVTOP(Args[0]);
+
+  StructType* objType = most_derived_class(Addr); 
+  assert(objType);
+  StructType* currentType = dyn_cast<StructType>(FT->getParamType(0)->getPointerElementType());
+  StructType* currentBase = objType;
+  while (currentBase != nullptr)
+  {
+    if(currentBase == currentType)
+    {
+      GenericValue ret;
+      ret.IntVal = APInt(32, 0);
+      return ret;
+    }
+    currentBase = currentBase->getDirectBase();
+  }
+  uint32_t firstBase, baseCount;
+  auto &currentModule = PreExecute::currentPreExecutePass->currentModule;
+  bool ret = TypeSupport::getBasesInfo(*currentModule, objType,
+                firstBase, baseCount);
+  assert(ret);
+  for(uint32_t i = firstBase; i < firstBase+baseCount; i++)
+  {
+    currentBase = dyn_cast<StructType>(objType->getElementType(i));
+    if(currentBase == currentType) 
+    {
+      GenericValue ret;
+      ret.IntVal = APInt(32, i);
+      return ret;
+    }
+  }
+  exit(-1);
+
+}
 static GenericValue pre_execute_downcast(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
     // We need to apply the offset in bytes using the bases metadata
@@ -335,6 +372,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_malloc;
     if (strncmp(funcName.c_str(), "llvm.cheerp.cast.user.", strlen("llvm.cheerp.cast.user."))==0)
         return (void*)(void(*)())pre_execute_cast;
+    if (strncmp(funcName.c_str(), "llvm.cheerp.downcast.current.", strlen("llvm.cheerp.downcast.current."))==0)
+        return (void*)(void(*)())pre_execute_downcast_current;
     if (strncmp(funcName.c_str(), "llvm.cheerp.downcast.", strlen("llvm.cheerp.downcast."))==0)
         return (void*)(void(*)())pre_execute_downcast;
     if (strncmp(funcName.c_str(), "llvm.cheerp.upcast.", strlen("llvm.cheerp.upcast."))==0)
