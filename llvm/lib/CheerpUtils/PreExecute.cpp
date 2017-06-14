@@ -76,7 +76,13 @@ static GenericValue pre_execute_element_distance(FunctionType *FT, const std::ve
 static GenericValue pre_execute_pointer_base(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   char *p = (char *)(GVTOP(Args[0]));
-  // TODO: We currently only support malloc memory
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  const GlobalValue* GV = currentEE->getGlobalValueAtAddress(p);
+  if (GV)
+  {
+	  void* base = currentEE->getPointerToGlobalIfAvailable(GV);
+	  return GenericValue(base);
+  }
   auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(p);
   assert (it != PreExecute::currentPreExecutePass->typedAllocations.begin());
   --it;
@@ -90,8 +96,16 @@ static GenericValue pre_execute_pointer_base(FunctionType *FT,
 
 static GenericValue pre_execute_pointer_offset(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
+  GenericValue G;
   char *p = (char *)(GVTOP(Args[0]));
-  // TODO: We currently only support malloc memory
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  const GlobalValue* GV = currentEE->getGlobalValueAtAddress(p);
+  if (GV)
+  {
+    char* base = (char*)currentEE->getPointerToGlobalIfAvailable(GV);
+    G.IntVal = APInt(32, p - base);
+    return G;
+  }
   auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(p);
   assert (it != PreExecute::currentPreExecutePass->typedAllocations.begin());
   --it;
@@ -100,9 +114,8 @@ static GenericValue pre_execute_pointer_offset(FunctionType *FT,
   AllocData& allocData = it->second;
   // The edge of the allocation is a valid pointer
   assert(p <= (it->first + allocData.size));
-  GenericValue GV;
-  GV.IntVal = APInt(32, p - it->first);
-  return GV;
+  G.IntVal = APInt(32, p - it->first);
+  return G;
 }
 
 static GenericValue pre_execute_allocate(FunctionType *FT,
