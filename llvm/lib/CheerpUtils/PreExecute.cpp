@@ -176,11 +176,37 @@ static GenericValue pre_execute_memcpy(FunctionType *FT,
   GV.IntVal = 0;
   return GV;
 }
+static StructType* most_derived_class(char* Addr)
+{
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
 
+  const GlobalValue* GV = currentEE->getGlobalValueAtAddress(Addr);
+  StructType* Ty;
+  if (GV)
+  {
+    Ty = dyn_cast<StructType>(GV->getType()->getPointerElementType());
+  }
+  else
+  {
+    auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(Addr);
+    assert(it != PreExecute::currentPreExecutePass->typedAllocations.begin());
+    --it;
+    // Verify that the address is in the memory block
+    assert (Addr >= it->first);
+    AllocData& allocData = it->second;
+    // The edge of the allocation is a valid pointer
+    assert(Addr <= (it->first + allocData.size));
+    Ty = dyn_cast<StructType>(it->second.allocType);
+  }
+  return Ty;
+}
 static GenericValue pre_execute_downcast(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
     // We need to apply the offset in bytes using the bases metadata
-    Type* derivedType = FT->getReturnType()->getPointerElementType();
+    char* Addr = (char*)GVTOP(Args[0]);
+    Type* derivedType = most_derived_class(Addr); 
+    if (!derivedType)
+	    derivedType = FT->getReturnType()->getPointerElementType();
     Type* baseType = FT->getParamType(0)->getPointerElementType();
     int baseOffset = Args[1].IntVal.getSExtValue();
     if (baseOffset < 0) std::swap(derivedType, baseType);
