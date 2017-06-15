@@ -336,44 +336,12 @@ static GenericValue pre_execute_upcast(FunctionType *FT,
     return GenericValue(reinterpret_cast<void*>(AddrValue));
 }
 
-template<class T>
-static GenericValue assertEqual(FunctionType *FT,
+static GenericValue assertEqualImpl(FunctionType *FT,
         const std::vector<GenericValue> &Args)
 {
-    const T value = *reinterpret_cast<T*>(GVTOP(Args[0]));
-    const T expected = *reinterpret_cast<T*>(GVTOP(Args[1]));
-    const char* msg = reinterpret_cast<char *>(GVTOP(Args[2]));
-    if (value == expected) {
-        llvm::errs() << msg << ": SUCCESS\n";
-    } else {
-        llvm::errs() << msg << ": FAILURE\n";
-    }
-
-    return GenericValue(0);
-}
-static GenericValue assertEqualStr(FunctionType *FT,
-        const std::vector<GenericValue> &Args)
-{
-    const char* value = reinterpret_cast<const char*>(GVTOP(Args[0]));
-    const char* expected = reinterpret_cast<const char*>(GVTOP(Args[1]));
-    const char* msg = reinterpret_cast<const char *>(GVTOP(Args[2]));
-    if (strcmp(value,expected) == 0) {
-        llvm::errs() << msg << ": SUCCESS\n";
-    } else {
-        llvm::errs() << msg << ": FAILURE\n";
-    }
-
-    return GenericValue(0);
-}
-
-static GenericValue assertAlmostEqual(FunctionType *FT,
-                                      const std::vector<GenericValue> &Args)
-{
-    const double value = Args[0].DoubleVal;
-    const double expected = Args[1].DoubleVal;
-    const double epsilon = Args[2].DoubleVal;
-    const char* msg = reinterpret_cast<char *>(GVTOP(Args[3]));
-    if (value >= expected - epsilon && value <= expected + epsilon) {
+    bool success = Args[0].IntVal.getZExtValue();
+    const char* msg = reinterpret_cast<char *>(GVTOP(Args[1]));
+    if (success) {
         llvm::errs() << msg << ": SUCCESS\n";
     } else {
         llvm::errs() << msg << ": FAILURE\n";
@@ -415,34 +383,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_pointer_offset;
     if (strncmp(funcName.c_str(), "llvm.memcpy.", strlen("llvm.memcpy."))==0)
         return (void*)(void(*)())pre_execute_memcpy;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualIcEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<char>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualIsEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<short>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualItEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<unsigned short>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualIiEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<int>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualIjEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<unsigned int>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualIlEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<long>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualIxEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<long long>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualIbEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<bool>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualIfEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<float>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualIdEvRKT_S2_PKc") == 0)
-        return (void*)(void(*)())assertEqual<double>;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualPKcS0_S0_") == 0)
-        return (void*)(void(*)())assertEqualStr;
-    if (strcmp(funcName.c_str(), "_Z11assertEqualdddPKc") == 0)
-        return (void*)(void(*)())assertAlmostEqual;
-    if (strncmp(funcName.c_str(), "_Z11assertEqualIP",
-                strlen("_Z11assertEqualIP")) == 0)
-        return (void*)(void(*)())assertEqual<void *>;
-
+    if (strcmp(funcName.c_str(), "assertEqualImpl") == 0)
+        return (void*)(void(*)())assertEqualImpl;
     if (strcmp(funcName.c_str(), "llvm.dbg.value") == 0)
         return (void*)(void(*)())emptyFunction;
 
