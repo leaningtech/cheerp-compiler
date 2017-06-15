@@ -450,7 +450,7 @@ FunctionPass *createPointerArithmeticToArrayIndexingPass() { return new PointerA
 
 void PointerToImmutablePHIRemoval::hoistBlock(BasicBlock* targetBlock)
 {
-	SmallVector<BasicBlock*, 4> predBlocks(pred_begin(targetBlock), pred_end(targetBlock));;
+	std::unordered_set<BasicBlock*> predBlocks(pred_begin(targetBlock), pred_end(targetBlock));;
 	for(BasicBlock* curBlock: predBlocks)
 	{
 		ValueToValueMapTy valueMap;
