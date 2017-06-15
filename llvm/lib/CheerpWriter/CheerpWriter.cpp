@@ -2320,7 +2320,11 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			}
 
 			assert(argKind != REGULAR);
-			if(argKind == SPLIT_REGULAR)
+			// The second condition is for when the function is only declared
+			// And the passed pointer is BYTE_LAYOUT. We decide to compile it as
+			// SPLIT_REGULAR, since the code will crash here anyway
+			if(argKind == SPLIT_REGULAR ||
+				(argKind == COMPLETE_OBJECT && PA.getPointerKind(cur->get()) == BYTE_LAYOUT))
 			{
 				compilePointerBase(*cur, true);
 				stream << ',';
