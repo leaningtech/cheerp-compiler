@@ -762,6 +762,7 @@ bool PreExecute::runOnConstructor(const Target* target, const std::string& tripl
     assert(removed && "failed to free the module from ExecutionEngine");
 
     delete currentEE;
+    FunctionProxy::clearMap();
 
     currentEE = NULL;
     return Changed;
