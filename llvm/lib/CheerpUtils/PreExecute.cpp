@@ -404,7 +404,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_allocate;
     if (strncmp(funcName.c_str(), "llvm.cheerp.reallocate.", strlen("llvm.cheerp.reallocate."))==0)
         return (void*)(void(*)())pre_execute_reallocate;
-    if (strncmp(funcName.c_str(), "llvm.cheerp.deallocate", strlen("llvm.cheerp.deallocate")) == 0)
+    if (strncmp(funcName.c_str(), "llvm.cheerp.deallocate", strlen("llvm.cheerp.deallocate")) == 0 ||
+        strncmp(funcName.c_str(), "free", strlen("free")) == 0)
         return (void*)(void(*)())pre_execute_deallocate;
     if (strncmp(funcName.c_str(), "llvm.cheerp.element.distance.", strlen("llvm.cheerp.element.distance."))==0)
         return (void*)(void(*)())pre_execute_element_distance;
