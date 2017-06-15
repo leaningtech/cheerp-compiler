@@ -144,8 +144,17 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
   memset(ret, 0, size);
   // Find out the old size
   auto it = PreExecute::currentPreExecutePass->typedAllocations.find((char*)p);
-  assert(it != PreExecute::currentPreExecutePass->typedAllocations.end());
-  uint32_t oldSize = it->second.size;
+  uint32_t oldSize = 0;
+  if(it == PreExecute::currentPreExecutePass->typedAllocations.end())
+  {
+    // In PreExecuter context it may happen to resize a global, since it may have been from malloc before.
+    const GlobalValue* GV=currentEE->getGlobalValueAtAddress((char*)p);
+    assert(GV);
+    const DataLayout *DL = PreExecute::currentPreExecutePass->currentModule->getDataLayout();
+    oldSize = DL->getTypeAllocSize(GV->getType());
+  }
+  else
+    oldSize = it->second.size;
   // Copy the old contents in the new buffer
   memcpy(ret, p, oldSize);
 
