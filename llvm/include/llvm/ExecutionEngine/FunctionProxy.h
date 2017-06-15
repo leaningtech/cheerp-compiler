@@ -22,6 +22,11 @@ public:
 	{
 		return func;
 	}
+	static void clearMap()
+	{
+		proxies().~map_t();
+		new (&proxies()) map_t();
+	}
 private:
 	llvm::Function* func;
 	explicit FunctionProxy(llvm::Function* func): func(func)
