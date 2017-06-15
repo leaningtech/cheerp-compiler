@@ -691,7 +691,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		llvm::SmallVector<std::pair<uint32_t, const Instruction*>, 2> incomingRegisters;
 		llvm::SmallVector<std::pair<const Instruction*, /*dereferenced*/bool>, 4> instQueue;
 		instQueue.push_back(std::make_pair(I, false));
-		bool mayNeedSelfRef = phi->getType()->isPointerTy() && PA.getPointerKind(phi) == SPLIT_REGULAR;
+		bool mayNeedSelfRef = phi->getType()->isPointerTy() && PA.getPointerKind(phi) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(phi);
 		bool selfReferencing = false;
 		while(!instQueue.empty())
 		{
