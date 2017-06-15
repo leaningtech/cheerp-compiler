@@ -459,22 +459,13 @@ bool LLParser::parseUnnamedType() {
   unsigned TypeID = Lex.getUIntVal();
   Lex.Lex(); // eat LocalVarID;
 
-  bool IsDirectBase;
-  LocTy IsDirectBaseLoc;
 
   if (parseToken(lltok::equal, "expected '=' after name") ||
-      parseToken(lltok::kw_type, "expected 'type' after '='") ||
-      parseOptionalToken(lltok::kw_directbase,
-                         IsDirectBase,
-                         &IsDirectBaseLoc))
-    return true;
-
-  Type *DirectBase = nullptr;
-  if (IsDirectBase && parseType(DirectBase, "expected directbase type"))
+      parseToken(lltok::kw_type, "expected 'type' after '='"))
     return true;
 
   Type *Result = nullptr;
-  if (parseStructDefinition(TypeLoc, "", NumberedTypes[TypeID], Result, DirectBase))
+  if (parseStructDefinition(TypeLoc, "", NumberedTypes[TypeID], Result))
     return true;
 
   if (!isa<StructType>(Result)) {
@@ -499,18 +490,11 @@ bool LLParser::parseNamedType() {
   LocTy IsDirectBaseLoc;
 
   if (parseToken(lltok::equal, "expected '=' after name") ||
-      parseToken(lltok::kw_type, "expected 'type' after name") ||
-      parseOptionalToken(lltok::kw_directbase,
-                         IsDirectBase,
-                         &IsDirectBaseLoc))
-    return true;
-
-  Type *DirectBase = nullptr;
-  if (IsDirectBase && parseType(DirectBase, "expected directbase type"))
+      parseToken(lltok::kw_type, "expected 'type' after name"))
     return true;
 
   Type *Result = nullptr;
-  if (parseStructDefinition(NameLoc, Name, NamedTypes[Name], Result, DirectBase))
+  if (parseStructDefinition(NameLoc, Name, NamedTypes[Name], Result))
     return true;
 
   if (!isa<StructType>(Result)) {
@@ -2255,6 +2239,7 @@ bool LLParser::parseType(Type *&Result, const Twine &Msg, bool AllowVoid) {
     }
     break;
   case lltok::lbrace:
+  case lltok::kw_directbase:
     // Type ::= StructType
     if (parseAnonStructType(Result, false))
       return true;
@@ -2607,17 +2592,18 @@ bool LLParser::parseFunctionType(Type *&Result) {
 /// other structs.
 bool LLParser::parseAnonStructType(Type *&Result, bool Packed) {
   SmallVector<Type*, 8> Elts;
-  if (parseStructBody(Elts))
+  Type* DirectBaseTy = nullptr;
+  if (parseStructBody(Elts, DirectBaseTy))
     return true;
 
-  Result = StructType::get(Context, Elts, Packed);
+  Result = StructType::get(Context, Elts, Packed, DirectBaseTy? cast<StructType>(DirectBaseTy):nullptr);
   return false;
 }
 
 /// parseStructDefinition - parse a struct in a 'type' definition.
 bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
                                      std::pair<Type *, LocTy> &Entry,
-                                     Type *&ResultTy, Type *&DirectBaseTy) {
+                                     Type *&ResultTy) {
   // If the type was already defined, diagnose the redefinition.
   if (Entry.first && !Entry.second.isValid())
     return error(TypeLoc, "redefinition of type");
@@ -2647,7 +2633,7 @@ bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
   // If we don't have a struct, then we have a random type alias, which we
   // accept for compatibility with old files.  These types are not allowed to be
   // forward referenced and not allowed to be recursive.
-  if (Lex.getKind() != lltok::lbrace) {
+  if (Lex.getKind() != lltok::lbrace && Lex.getKind() != lltok::kw_directbase) {
     if (Entry.first)
       return error(TypeLoc, "forward references to non-struct type");
 
@@ -2667,7 +2653,8 @@ bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
   StructType *STy = cast<StructType>(Entry.first);
 
   SmallVector<Type*, 8> Body;
-  if (parseStructBody(Body) ||
+  Type* DirectBaseTy = nullptr;
+  if (parseStructBody(Body, DirectBaseTy) ||
       (isPacked && parseToken(lltok::greater, "expected '>' in packed struct")))
     return true;
 
@@ -2687,7 +2674,12 @@ bool LLParser::parseStructDefinition(SMLoc TypeLoc, StringRef Name,
 ///     ::= '{' Type (',' Type)* '}'
 ///     ::= '<' '{' '}' '>'
 ///     ::= '<' '{' Type (',' Type)* '}' '>'
-bool LLParser::parseStructBody(SmallVectorImpl<Type *> &Body) {
+bool LLParser::parseStructBody(SmallVectorImpl<Type *> &Body, Type* &DirectBaseTy) {
+  bool isDirectBase = EatIfPresent(lltok::kw_directbase);
+  DirectBaseTy = nullptr;
+  if (isDirectBase && parseType(DirectBaseTy, "expected directbase type"))
+    return true;
+
   assert(Lex.getKind() == lltok::lbrace);
   Lex.Lex(); // Consume the '{'
 
