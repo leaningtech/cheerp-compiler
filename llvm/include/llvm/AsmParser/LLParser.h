@@ -426,10 +426,10 @@ namespace llvm {
       return parseType(Result, AllowVoid);
     }
     bool parseAnonStructType(Type *&Result, bool Packed);
-    bool parseStructBody(SmallVectorImpl<Type *> &Body);
+    bool parseStructBody(SmallVectorImpl<Type *> &Body, Type* &DirectBaseTy);
     bool parseStructDefinition(SMLoc TypeLoc, StringRef Name,
                                std::pair<Type *, LocTy> &Entry,
-                               Type *&ResultTy, Type *&DirectBaseTy);
+                               Type *&ResultTy);
 
     bool parseArrayVectorType(Type *&Result, bool IsVector);
     bool parseFunctionType(Type *&Result);
