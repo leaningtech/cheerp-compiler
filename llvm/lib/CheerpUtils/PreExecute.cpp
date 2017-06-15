@@ -728,6 +728,8 @@ bool PreExecute::runOnConstructor(const Target* target, const std::string& tripl
         // Execution could not be safely completed. Clean up.
         modifiedGlobals.clear();
     }
+    else
+        Changed = true;
 
     // Compute new initializer for the modified globals
     for(auto& it: modifiedGlobals)
@@ -740,7 +742,6 @@ bool PreExecute::runOnConstructor(const Target* target, const std::string& tripl
         newInit = computeInitializerFromMemory(DL, ptrType, (char*)Addr);
         assert(newInit);
         it.second = newInit;
-        Changed = true;
     }
 
     // Set new initializers for the modified globals
