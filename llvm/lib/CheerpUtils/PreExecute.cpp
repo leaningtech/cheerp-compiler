@@ -256,19 +256,20 @@ static GenericValue pre_execute_downcast_current(FunctionType *FT,
       return ret;
     }
   }
-  exit(-1);
-
+  llvm_unreachable("Base not found");
 }
 static GenericValue pre_execute_downcast(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
     // We need to apply the offset in bytes using the bases metadata
     char* Addr = (char*)GVTOP(Args[0]);
     Type* derivedType = most_derived_class(Addr); 
-    if (!derivedType)
-	    derivedType = FT->getReturnType()->getPointerElementType();
-    Type* baseType = FT->getParamType(0)->getPointerElementType();
+    assert(derivedType);
     int baseOffset = Args[1].IntVal.getSExtValue();
-    if (baseOffset < 0) std::swap(derivedType, baseType);
+    Type* baseType;
+    if (baseOffset >= 0)
+        baseType = FT->getParamType(0)->getPointerElementType();
+    else
+        baseType = FT->getReturnType()->getPointerElementType();
     uintptr_t curByteOffset=0;
     uint32_t curBaseOffset= baseOffset>=0 ? baseOffset : -baseOffset;
     StructType* curType=cast<StructType>(derivedType);
