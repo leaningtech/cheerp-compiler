@@ -12,36 +12,26 @@
 
 class FunctionProxy {
 public:
-	static FunctionProxy* getProxy(llvm::Function* func)
+	typedef std::pair<llvm::Function*, FunctionProxy> elem_t;
+#if defined(__linux__)
+	typedef std::map<llvm::Function*, FunctionProxy, std::less<llvm::Function*>, llvm::StdMmap32bitAllocator<elem_t>> ProxyMap;
+#else
+	typedef std::map<llvm::Function*, FunctionProxy, std::less<llvm::Function*>> ProxyMap;
+#endif
+	static FunctionProxy* getProxy(ProxyMap& map, llvm::Function* func)
 	{
-		map_t::iterator it;
-		std::tie(it,std::ignore) = proxies().emplace(func,FunctionProxy(func));
+		ProxyMap::iterator it;
+		std::tie(it,std::ignore) = map.emplace(func,FunctionProxy(func));
 		return &it->second;
 	}
 	llvm::Function* getFunction()
 	{
 		return func;
 	}
-	static void clearMap()
-	{
-		proxies().~map_t();
-		new (&proxies()) map_t();
-	}
 private:
 	llvm::Function* func;
 	explicit FunctionProxy(llvm::Function* func): func(func)
 	{
-	}
-	typedef std::pair<llvm::Function*, FunctionProxy> elem_t;
-#if defined(__linux__)
-	typedef std::map<llvm::Function*, FunctionProxy, std::less<llvm::Function*>, llvm::StdMmap32bitAllocator<elem_t>> map_t;
-#else
-	typedef std::map<llvm::Function*, FunctionProxy, std::less<llvm::Function*>> map_t;
-#endif
-	static map_t& proxies()
-	{
-		static map_t _v;
-		return _v;
 	}
 };
 #endif
