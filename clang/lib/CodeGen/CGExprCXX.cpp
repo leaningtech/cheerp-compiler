@@ -1629,7 +1629,8 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
     const Expr *arg = *E->placement_arguments().begin();
 
     // On NBA targets we only accept placement new if the source memory is of the right type
-    if (!getTarget().isByteAddressable())
+    bool asmjs = CurFn->getSection() == StringRef("asmjs");
+    if (!getTarget().isByteAddressable() && !asmjs)
     {
       const CastExpr* castExpr = dyn_cast<CastExpr>(arg);
       if (castExpr == NULL ||
