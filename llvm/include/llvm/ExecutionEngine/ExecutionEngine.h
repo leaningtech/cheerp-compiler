@@ -41,6 +41,7 @@
 #include <vector>
 
 #include "llvm/ExecutionEngine/VirtualAllocator.h"
+#include "llvm/ExecutionEngine/FunctionMap.h"
 
 namespace llvm {
 
@@ -139,6 +140,9 @@ public:
   /// Allocator used for emulating the execution of code in a 32-bit
   /// environment (e.g. JavaScript code in browsers).
   VirtualAllocator MemoryAllocator;
+  // Structure that stores the mapping between functions and function pointer
+  // addresses used in the interpreter
+  FunctionMap FunctionAddresses;
 
   // These functions are similar to PTOGV and GVTOP, but also convert the emulated
   // 32 bit address in a real address in memory, and vice versa
