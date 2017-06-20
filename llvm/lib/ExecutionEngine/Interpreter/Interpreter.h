@@ -15,7 +15,7 @@
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/ExecutionEngine/FunctionProxy.h"
+#include "llvm/ExecutionEngine/FunctionMap.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstVisitor.h"
@@ -93,9 +93,6 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
   bool CleanAbort;
 
-  // Structure that stores the mapping between functions and function pointer
-  // addresses used in the interpreter
-  FunctionProxy::ProxyMap ProxyMap;
 public:
   explicit Interpreter(std::unique_ptr<Module> M, bool preExecute);
   ~Interpreter() override;
@@ -210,8 +207,8 @@ private:  // Helper functions
   //
   void SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF);
 
-  void *getPointerToFunction(Function *F) override { 
-	  return FunctionProxy::getProxy(ProxyMap, F);
+  void *getPointerToFunction(Function *F) override {
+	  return FunctionAddresses.getAddress(F);
   }
 
   void initializeExecutionEngine() { }
