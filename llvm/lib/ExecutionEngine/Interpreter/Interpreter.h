@@ -208,7 +208,7 @@ private:  // Helper functions
   void SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF);
 
   void *getPointerToFunction(Function *F) override {
-	  return FunctionAddresses.getAddress(F);
+	  return FunctionAddresses->getAddress(F);
   }
 
   void initializeExecutionEngine() { }

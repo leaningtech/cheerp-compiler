@@ -134,15 +134,15 @@ class ExecutionEngine {
 
 public:
   void printMemoryStats() {
-      MemoryAllocator.PrintStats();
+      MemoryAllocator->PrintStats();
   }
 
   /// Allocator used for emulating the execution of code in a 32-bit
   /// environment (e.g. JavaScript code in browsers).
-  VirtualAllocator MemoryAllocator;
+  std::unique_ptr<VirtualAllocatorBase> MemoryAllocator;
   // Structure that stores the mapping between functions and function pointer
   // addresses used in the interpreter
-  FunctionMap FunctionAddresses;
+  std::unique_ptr<FunctionMapBase> FunctionAddresses;
 
   // These functions are similar to PTOGV and GVTOP, but also convert the emulated
   // 32 bit address in a real address in memory, and vice versa

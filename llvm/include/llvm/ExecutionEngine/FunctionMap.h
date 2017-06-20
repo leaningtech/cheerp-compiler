@@ -5,7 +5,14 @@
 #include <map>
 #include <tuple>
 
-class FunctionMap {
+class FunctionMapBase {
+public:
+	 virtual llvm::Function* getFunction(void* addr) = 0;
+	 virtual void* getAddress(llvm::Function* f) = 0;
+	 virtual ~FunctionMapBase(){};
+};
+
+class VirtualFunctionMap: public FunctionMapBase {
 public:
 	 llvm::Function* getFunction(void* addr)
 	 {
@@ -31,5 +38,16 @@ private:
 	 std::map<uint32_t, llvm::Function*> rev_map;
 	 uint32_t next_addr = 1;
 
+};
+class DirectFunctionMap: public FunctionMapBase {
+public:
+	 llvm::Function* getFunction(void* addr)
+	 {
+		 return reinterpret_cast<llvm::Function*>(addr);
+	 }
+	 void* getAddress(llvm::Function* f)
+	 {
+		return f;
+	 }
 };
 #endif
