@@ -55,6 +55,10 @@ ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M,
 Interpreter::Interpreter(std::unique_ptr<Module> M, bool preExecute)
     : ExecutionEngine(std::move(M)), ForPreExecute(preExecute), CleanAbort(false) {
 
+  if (ForPreExecute) {
+    MemoryAllocator = std::unique_ptr<VirtualAllocatorBase>(new VirtualAllocator());
+    FunctionAddresses = std::unique_ptr<FunctionMapBase>(new VirtualFunctionMap());
+  }
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
   // Initialize the "backend"
   initializeExecutionEngine();
