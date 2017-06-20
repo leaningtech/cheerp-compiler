@@ -14,7 +14,7 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
-#include "llvm/ExecutionEngine/FunctionProxy.h"
+#include "llvm/ExecutionEngine/FunctionMap.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -42,7 +42,6 @@ const char* PreExecute::getPassName() const
 
 char PreExecute::ID = 0;
 
-#if defined(__linux__)
 static void StoreListener(void* Addr)
 {
     PreExecute::currentPreExecutePass->recordStore(Addr);
@@ -604,16 +603,15 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
             return ConstantPointerNull::get(PT);
         }
 
-	if(PT->getElementType()->isFunctionTy())
-	{
-		FunctionProxy* proxy = reinterpret_cast<FunctionProxy*>(StoredAddr);
-		Value* castedVal = proxy->getFunction();
-		assert(isa<Function>(castedVal));
-		// Potentially also cast the function to the expected type
-		if(castedVal->getType() != PT)
-			return ConstantExpr::getBitCast(cast<Function>(castedVal), PT);
-		return cast<Function>(castedVal);
-	}
+        if(PT->getElementType()->isFunctionTy())
+        {
+            Value* castedVal = currentEE->FunctionAddresses.getFunction(StoredAddr);
+            assert(isa<Function>(castedVal));
+            // Potentially also cast the function to the expected type
+            if(castedVal->getType() != PT)
+                return ConstantExpr::getBitCast(cast<Function>(castedVal), PT);
+            return cast<Function>(castedVal);
+        }
 
         StoredAddr = (char*) currentEE->MemoryAllocator.toReal(StoredAddr);
         Type* Int32Ty = IntegerType::get(currentModule->getContext(), 32);
@@ -799,12 +797,6 @@ bool PreExecute::runOnModule(Module& m)
 
     return Changed;
 }
-#else
-bool PreExecute::runOnModule(Module& m) {
-    llvm::errs() << "Warning: PreExecute is only supported on Linux\n";
-    return false;
-}
-#endif
 
 }
 
