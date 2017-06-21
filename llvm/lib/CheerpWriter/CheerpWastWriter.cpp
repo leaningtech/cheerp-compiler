@@ -1728,6 +1728,15 @@ void CheerpWastWriter::compileImport(const Function& F)
 
 void CheerpWastWriter::compileDataSection()
 {
+	GlobalVariable* heapStartVar = module.getNamedGlobal("_heapStart");
+	if (heapStartVar)
+	{
+		uint32_t heapStart = linearHelper.getTotalMemory();
+		ConstantInt* addr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapStart, false);
+		Constant* heapInit = ConstantExpr::getIntToPtr(addr, heapStartVar->getType()->getElementType(), false);
+		heapStartVar->setInitializer(heapInit);
+		heapStartVar->setSection("asmjs");
+	}
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 	{
 		if (GV.getSection() != StringRef("asmjs"))
@@ -1829,7 +1838,7 @@ void CheerpWastWriter::makeWast()
 
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 	{
-		if (GV.getSection() != StringRef("asmjs"))
+		if (GV.getSection() != StringRef("asmjs") && GV.getName() != "_heapStart")
 			continue;
 		linearHelper.addGlobalVariable(&GV);
 	}

@@ -4346,6 +4346,17 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 
 void CheerpWriter::compileGlobalsInitAsmJS()
 {
+
+	GlobalVariable* heapStartVar = module.getNamedGlobal("_heapStart");
+
+	if (heapStartVar)
+	{
+		uint32_t heapStart = linearHelper.getTotalMemory();
+		ConstantInt* addr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapStart, false);
+		Constant* heapInit = ConstantExpr::getIntToPtr(addr, heapStartVar->getType()->getElementType(), false);
+		heapStartVar->setInitializer(heapInit);
+		heapStartVar->setSection("asmjs");
+	}
 	if (asmJSMem)
 	{
 		ostream_proxy os(*asmJSMem, nullptr, false);
@@ -4761,7 +4772,7 @@ void CheerpWriter::makeJS()
 		// Declare globals
 		for ( const GlobalVariable & GV : module.getGlobalList() )
 		{
-			if (GV.getSection() == StringRef("asmjs"))
+			if (GV.getSection() == StringRef("asmjs") || GV.getName() == "_heapStart")
 				compileGlobalAsmJS(GV);
 		}
 		for ( const Function & F : module.getFunctionList() )
