@@ -40,7 +40,7 @@
 #include <string>
 #include <vector>
 
-#include "llvm/ExecutionEngine/VirtualAllocator.h"
+#include "llvm/ExecutionEngine/VirtualAddressMap.h"
 #include "llvm/ExecutionEngine/FunctionMap.h"
 
 namespace llvm {
@@ -133,13 +133,9 @@ class ExecutionEngine {
   friend class EngineBuilder;  // To allow access to JITCtor and InterpCtor.
 
 public:
-  void printMemoryStats() {
-      MemoryAllocator->PrintStats();
-  }
-
   /// Allocator used for emulating the execution of code in a 32-bit
   /// environment (e.g. JavaScript code in browsers).
-  std::unique_ptr<VirtualAllocatorBase> MemoryAllocator;
+  std::unique_ptr<AddressMapBase> ValueAddresses;
   // Structure that stores the mapping between functions and function pointer
   // addresses used in the interpreter
   std::unique_ptr<FunctionMapBase> FunctionAddresses;
