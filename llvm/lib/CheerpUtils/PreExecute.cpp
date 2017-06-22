@@ -55,7 +55,8 @@ static GenericValue pre_execute_malloc(FunctionType *FT,
         const std::vector<GenericValue> &Args) {
     size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
     ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-    void* ret = currentEE->MemoryAllocator->Allocate(size, 8);
+    void* ret = malloc(size);
+    currentEE->ValueAddresses->map(ret, size + 4);
 #ifdef DEBUG_PRE_EXECUTE
     llvm::errs() << "Allocating " << ret << " of size " << size << "\n";
 #endif
@@ -121,7 +122,8 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-  void* ret = currentEE->MemoryAllocator->Allocate(size+4, 8);
+  void* ret = malloc(size);
+  currentEE->ValueAddresses->map(ret, size + 4);
   memset(ret, 0, size);
 
 #ifdef DEBUG_PRE_EXECUTE
@@ -139,7 +141,8 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   void *p = (void *)(currentEE->GVTORP(Args[0]));
   size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
-  void* ret = currentEE->MemoryAllocator->Allocate(size+4, 8);
+  void* ret = malloc(size);
+  currentEE->ValueAddresses->map(ret, size + 4);
   memset(ret, 0, size);
   // Find out the old size
   auto it = PreExecute::currentPreExecutePass->typedAllocations.find((char*)p);
@@ -613,7 +616,7 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
             return cast<Function>(castedVal);
         }
 
-        StoredAddr = (char*) currentEE->MemoryAllocator->toReal(StoredAddr);
+        StoredAddr = (char*) currentEE->ValueAddresses->toReal(StoredAddr);
         Type* Int32Ty = IntegerType::get(currentModule->getContext(), 32);
         const GlobalValue* GV = currentEE->getGlobalValueAtAddress(StoredAddr);
         if (GV)

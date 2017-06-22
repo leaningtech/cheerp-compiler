@@ -1030,7 +1030,8 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   unsigned MemToAlloc = std::max(1U, NumElements * TypeSize);
 
   // Allocate enough memory to hold the type...
-  void *Memory = MemoryAllocator->Allocate(MemToAlloc, 8);
+  void *Memory = malloc(MemToAlloc);
+  ValueAddresses->map(Memory, MemToAlloc+4);
 
   LLVM_DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize
                     << " bytes) x " << NumElements << " (Total: " << MemToAlloc

@@ -1,5 +1,5 @@
-#ifndef LLVM_EXECUTIONENGINE_VIRTUAL_ALLOCATOR_H
-#define LLVM_EXECUTIONENGINE_VIRTUAL_ALLOCATOR_H
+#ifndef LLVM_EXECUTIONENGINE_VIRTUAL_ADDRESS_MAP_H
+#define LLVM_EXECUTIONENGINE_VIRTUAL_ADDRESS_MAP_H
 
 #include <map>
 #include <cstdint>
@@ -9,38 +9,24 @@
 
 namespace llvm {
 
-class VirtualAllocatorBase : public AllocatorBase<VirtualAllocatorBase> {
+class AddressMapBase {
 public:
 	virtual void* toReal(void* virt) = 0;
 	virtual void* toVirtual(void* real) = 0;
+	virtual void map(void* ptr, size_t size) = 0;
 
-	LLVM_ATTRIBUTE_RETURNS_NONNULL void *Allocate(size_t size,size_t align) {
-		void* ret =  malloc(size);
-		allocated(ret, size, align);
-		return ret;
-	}
-	// Pull in base class overloads.
-	using AllocatorBase<VirtualAllocatorBase>::Allocate;
-
-	void Deallocate(const void *ptr, size_t size) {
-		deallocated(ptr, size);
-		free(const_cast<void*>(ptr));
-	}
-
-	// Pull in base class overloads.
-	using AllocatorBase<VirtualAllocatorBase>::Deallocate;
-
-	void PrintStats() const {}
-
-	virtual ~VirtualAllocatorBase(){};
-protected:
-	virtual void allocated(void* ptr, size_t size, size_t align) = 0;
-	virtual void deallocated(const void *ptr, size_t size) = 0;
+	virtual ~AddressMapBase(){};
 };
 
-class VirtualAllocator : public VirtualAllocatorBase {
+class VirtualAddressMap : public AddressMapBase {
 public:
-	void* toReal(void* virt)
+	struct Page {
+		uintptr_t start;
+		uint32_t size;
+		Page(uintptr_t start, uintptr_t size):start(start),size(size){}
+	};
+
+	void* toReal(void* virt) override
 	{
 		uintptr_t virti = reinterpret_cast<uintptr_t>(virt);
 		auto it = virt_to_real.upper_bound(virti);
@@ -57,7 +43,7 @@ public:
 		ptrdiff_t offset = virti - it->first;
 		return reinterpret_cast<void*>(it->second.start+offset);
 	}
-	void* toVirtual(void* real)
+	void* toVirtual(void* real) override
 	{
 		uintptr_t reali = reinterpret_cast<uintptr_t>(real);
 		auto it = real_to_virt.upper_bound(reali);
@@ -75,46 +61,37 @@ public:
 		return reinterpret_cast<void*>(it->second.start+offset);
 	}
 
-	void allocated(void* ptr, size_t size,size_t align) {
+	void map(void* ptr, size_t size) override {
 		uintptr_t reti = reinterpret_cast<uintptr_t>(ptr);
-		uint32_t padding = (align - next_virt % align) % align;
+		uint32_t padding = (8 - next_virt % 8) % 8;
 		next_virt += padding;
 		virt_to_real.emplace(next_virt, Page(reti, size));
 		real_to_virt.emplace(reti, Page(next_virt, size));
 		next_virt += size;
 	}
-	void deallocated(const void *ptr, size_t size) {
-	}
 
-	VirtualAllocator() {
+	VirtualAddressMap() {
 		virt_to_real.emplace(0,Page(0,8));
 		real_to_virt.emplace(0,Page(0,8));
 		next_virt = 8;
 	}
 private:
-	struct Page {
-		uintptr_t start;
-		uint32_t size;
-		Page(uintptr_t start, uintptr_t size):start(start),size(size){}
-	};
 	uintptr_t next_virt;
 	std::map<uintptr_t, Page> virt_to_real;
 	std::map<uintptr_t, Page> real_to_virt;
 };
-class DirectAllocator : public VirtualAllocatorBase {
+class DirectAddressMap : public AddressMapBase {
 public:
-	void* toReal(void* virt)
+	void* toReal(void* virt) override
 	{
 		return virt;
 	}
-	void* toVirtual(void* real)
+	void* toVirtual(void* real) override
 	{
 		return real;
 	}
 
-	void allocated(void* ptr, size_t size,size_t align) {
-	}
-	void deallocated(const void *ptr, size_t size) {
+	void map(void* ptr, size_t size) override {
 	}
 };
 }
