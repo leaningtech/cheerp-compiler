@@ -477,9 +477,6 @@ bool LLParser::ParseNamedType() {
   LocTy NameLoc = Lex.getLoc();
   Lex.Lex();  // eat LocalVar.
 
-  bool IsDirectBase;
-  LocTy IsDirectBaseLoc;
-
   if (ParseToken(lltok::equal, "expected '=' after name") ||
       ParseToken(lltok::kw_type, "expected 'type' after name"))
     return true;
@@ -496,7 +493,6 @@ bool LLParser::ParseNamedType() {
       return Error(NameLoc, "non-struct types may not be recursive");
     Entry.first = Result;
     Entry.second = SMLoc();
-    assert(!IsDirectBase && "directbase is not possible on non-struct type");
   }
 
   return false;
