@@ -2508,11 +2508,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 			else if(k == SPLIT_REGULAR)
 			{
+				stream << "=0";
+				stream << ';' << NewLine;
+				stream << namegen.getName(ai) << '=';
 				stream << '[';
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 				stream << ']';
-				stream << ';' << NewLine;
-				stream << namegen.getSecondaryName(ai) << "=0";
 			}
 			else if(k == BYTE_LAYOUT)
 			{
@@ -3424,16 +3425,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 				stream << '?';
-				compilePointerBase(si.getOperand(1));
-				stream << ':';
-				compilePointerBase(si.getOperand(2));
-				stream << ';' << NewLine;
-				stream << namegen.getSecondaryName(&si) << '=';
-				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
-				stream << '?';
 				compilePointerOffset(si.getOperand(1), TERNARY);
 				stream << ':';
 				compilePointerOffset(si.getOperand(2), TERNARY);
+				stream << ';' << NewLine;
+				stream << namegen.getName(&si) << '=';
+				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
+				stream << '?';
+				compilePointerBase(si.getOperand(1));
+				stream << ':';
+				compilePointerBase(si.getOperand(2));
 			}
 			else
 				compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue(), parentPrio);
@@ -3723,6 +3724,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				compileHeapAccess(ptrOp);
 			else
 				compileCompleteObject(ptrOp);
+			if(li.getType()->isPointerTy() && !li.use_empty() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
+			{
+				assert(!isInlineable(li, PA));
+				stream <<'o';
+				stream << ';' << NewLine;
+				stream << namegen.getName(&li) << '=';
+				compileCompleteObject(ptrOp);
+			}
 			if(regKind==Registerize::INTEGER && needsIntCoercion(regKind, parentPrio))
 			{
 				stream << "|0";
@@ -3742,14 +3751,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream<<')';
 			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
 				stream<<')';
-			if(li.getType()->isPointerTy() && !li.use_empty() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
-			{
-				assert(!isInlineable(li, PA));
-				stream << ';' << NewLine;
-				stream << namegen.getSecondaryName(&li) << '=';
-				compileCompleteObject(ptrOp);
-				stream <<'o';
-			}
 			return COMPILE_OK;
 		}
 		default:
@@ -3783,9 +3784,16 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		const DebugLoc& debugLoc = I->getDebugLoc();
 		if(sourceMapGenerator && !debugLoc.isUnknown())
 			sourceMapGenerator->setDebugLoc(I->getDebugLoc());
-		if(!I->getType()->isVoidTy() && !I->use_empty())
+		if(!I->use_empty())
 		{
-			stream << namegen.getName(I) << '=';
+			if(I->getType()->isPointerTy() && I->getOpcode() != Instruction::Call && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I))
+			{
+				stream << namegen.getSecondaryName(I) << '=';
+			}
+			else if(!I->getType()->isVoidTy())
+			{
+				stream << namegen.getName(I) << '=';
+			}
 		}
 		if(I->isTerminator())
 		{
