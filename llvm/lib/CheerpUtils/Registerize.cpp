@@ -133,7 +133,7 @@ void Registerize::assignRegistersToInstructions(Function& F, cheerp::PointerAnal
 		InstIdMapTy instIdMap;
 		AllocaSetTy allocaSet;
 		// Assign sequential identifiers to all instructions
-		assignInstructionsIds(instIdMap, F, allocaSet);
+		assignInstructionsIds(instIdMap, F, allocaSet, &PA);
 		// First, build live ranges for all instructions
 		LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap, PA);
 		// Assign each instruction to a virtual register
@@ -179,7 +179,7 @@ void Registerize::computeLiveRangeForAllocas(Function& F)
 		AllocaSetTy allocaSet;
 		InstIdMapTy instIdMap;
 		// Assign sequential identifiers to all instructions
-		assignInstructionsIds(instIdMap, F, allocaSet);
+		assignInstructionsIds(instIdMap, F, allocaSet, NULL);
 		// Now compute live ranges for alloca memory which is not in SSA form
 		computeAllocaLiveRanges(allocaSet, instIdMap);
 		// Very verbose debugging below, activate if needed
@@ -260,7 +260,7 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 	}
 }
 
-void Registerize::assignInstructionsIds(InstIdMapTy& instIdMap, const Function& F, AllocaSetTy& allocaSet)
+void Registerize::assignInstructionsIds(InstIdMapTy& instIdMap, const Function& F, AllocaSetTy& allocaSet, const PointerAnalyzer* PA)
 {
 	SmallVector<const BasicBlock*, 4> bbQueue;
 	std::set<const BasicBlock*> doneBlocks;
@@ -279,6 +279,9 @@ void Registerize::assignInstructionsIds(InstIdMapTy& instIdMap, const Function& 
 			if (isa<AllocaInst>(I))
 				allocaSet.push_back(cast<AllocaInst>(&I));
 			uint32_t thisIndex = nextIndex++;
+			// SPLIT_REGULAR inst consumes 2 indexes
+			if(PA && I.getType()->isPointerTy() && PA->getPointerKind(&I) == SPLIT_REGULAR)
+				thisIndex = nextIndex++;
 			instIdMap[&I]=thisIndex;
 		}
 
@@ -307,9 +310,18 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	for (Instruction& I: BB)
 	{
 		assert(liveRanges.count(&I)==0);
-		uint32_t thisIndex = nextIndex++;
 		assert(instIdMap.count(&I));
-		assert(instIdMap.find(&I)->second==thisIndex);
+		uint32_t thisIndex = instIdMap.find(&I)->second;
+		nextIndex = thisIndex + 1;
+		bool splitRegularDest = false;
+		// SPLIT_REGULAR pointers keep alive the register until after the instruction. Calls are an exception as the offset is stored in a global.
+		if(I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR)
+		{
+			nextIndex++;
+			CallInst* CI = dyn_cast<CallInst>(&I);
+			if(!CI || (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID()==Intrinsic::cheerp_downcast))
+				splitRegularDest = true;
+		}
 		// Inlineable instructions extends the life of the not-inlineable instructions they use.
 		// This happens inside extendRangeForUsedOperands.
 		if (isInlineable(I, PA))
@@ -325,7 +337,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		// This is handled below.
 		if (isa<PHINode>(I))
 			continue;
-		extendRangeForUsedOperands(I, liveRanges, PA, thisIndex, codePathId);
+		extendRangeForUsedOperands(I, liveRanges, PA, thisIndex, codePathId, splitRegularDest);
 	}
 	// Extend the live range of live-out instrution to the end of the block
 	uint32_t endOfBlockIndex=nextIndex;
@@ -334,7 +346,10 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	{
 		// If inlineable we need to extend the life of the not-inlineable operands
 		if (isInlineable(*outLiveInst, PA))
-			extendRangeForUsedOperands(*outLiveInst, liveRanges, PA, endOfBlockIndex, codePathId);
+		{
+			// We don't care about splitRegularDest, the point is to extend to the end of the block
+			extendRangeForUsedOperands(*outLiveInst, liveRanges, PA, endOfBlockIndex, codePathId, /*splitRegularDest*/false);
+		}
 		else
 		{
 			InstructionLiveRange& range=liveRanges.find(outLiveInst)->second;
@@ -356,16 +371,8 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 }
 
 void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveRanges, cheerp::PointerAnalyzer& PA,
-						uint32_t thisIndex, uint32_t codePathId)
+						uint32_t thisIndex, uint32_t codePathId, bool splitRegularDest)
 {
-	// SPLIT_REGULAR pointers keep alive the register until after the instruction. Calls are an exception as the offset is stored in a global.
-	if(I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR)
-	{
-		CallInst* CI = dyn_cast<CallInst>(&I);
-		if(!CI || (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID()==Intrinsic::cheerp_downcast))
-			thisIndex++;
-	}
-
 	for(Value* op: I.operands())
 	{
 		Instruction* usedI = dyn_cast<Instruction>(op);
@@ -374,11 +381,13 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 			continue;
 		// Recursively traverse inlineable operands
 		if(isInlineable(*usedI, PA))
-			extendRangeForUsedOperands(*usedI, liveRanges, PA, thisIndex, codePathId);
+			extendRangeForUsedOperands(*usedI, liveRanges, PA, thisIndex, codePathId, splitRegularDest);
 		else
 		{
 			assert(liveRanges.count(usedI));
 			InstructionLiveRange& range=liveRanges.find(usedI)->second;
+			if(splitRegularDest && usedI->getType()->isPointerTy() && PA.getPointerKind(usedI) == SPLIT_REGULAR)
+				thisIndex++;
 			if(codePathId!=thisIndex)
 				range.addUse(codePathId, thisIndex);
 		}
