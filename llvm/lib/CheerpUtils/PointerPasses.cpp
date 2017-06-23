@@ -415,12 +415,22 @@ bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 			if (! phi->getType()->isPointerTy() )
 				continue;
 			assert ( phi->getNumIncomingValues() != 0 );
-			if ( phi->getNumIncomingValues() == 1 )
+			// LCSSA may create PHIs with just 1 value or all equal values, kill those
+			Value* uniqueVal = phi->getIncomingValue(0);
+			for ( unsigned i = 1; i < phi->getNumIncomingValues(); i++)
 			{
 				// PHIs with as single elements are confusing for the backend, remove them
-				Value* newVal = phi->getIncomingValue(0);
-				phi->replaceAllUsesWith(newVal);
-				phiMap.insert(std::make_pair(phi, newVal));
+				Value* newVal = phi->getIncomingValue(i);
+				if(newVal == uniqueVal)
+					continue;
+				uniqueVal = NULL;
+				break;
+			}
+			if(uniqueVal)
+			{
+				phi->replaceAllUsesWith(uniqueVal);
+				phiMap.insert(std::make_pair(phi, uniqueVal));
+				Changed |= true;
 				continue;
 			}
 			Changed |= PHIVisitor(phiMap, toRemove).visitPHI(phi);
