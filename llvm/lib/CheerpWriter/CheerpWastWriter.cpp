@@ -850,7 +850,7 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 	}
 	else if (isa<UndefValue>(c))
 	{
-		stream << "i32.const 0";
+		stream << getTypeString(c->getType()) << ".const 0";
 	}
 	else
 	{
