@@ -945,13 +945,28 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			// TODO: There is another method that includes the alignment
 			uint32_t size = targetData.getTypeAllocSize(allocTy);
 			uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, allocTy);
-			assert (!ai->isArrayAllocation());
 			assert((alignment & (alignment-1)) == 0 && "alignment must be power of 2");
+
 			// We grow the stack down for now
 			// 1) Push the current stack pointer
 			stream << "get_global " << stackTopGlobal << '\n';
 			// 2) Push the allocation size
-			stream << "i32.const " << size << '\n';
+			if (ai->isArrayAllocation()) {
+				const Value* n = ai->getArraySize();
+				if(const ConstantInt* C = dyn_cast<ConstantInt>(n))
+				{
+					stream << "i32.const " << (size * C->getSExtValue()) << '\n';
+				}
+				else
+				{
+					stream << "i32.const " << size << '\n';
+					compileOperand(n);
+					stream << "\n";
+					stream << "i32.mul\n";
+				}
+			} else {
+				stream << "i32.const " << size << '\n';
+			}
 			// 3) Substract the size
 			stream << "i32.sub\n";
 			// 3.1) Optionally align the stack down
