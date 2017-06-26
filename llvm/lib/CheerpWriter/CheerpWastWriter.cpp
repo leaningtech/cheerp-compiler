@@ -20,7 +20,7 @@ using namespace cheerp;
 using namespace llvm;
 using namespace std;
 
-enum BLOCK_TYPE { WHILE1 = 0, DO, SWITCH, CASE, IF };
+enum BLOCK_TYPE { WHILE1 = 0, DO, SWITCH, CASE, LABEL_FOR_SWITCH, IF };
 
 class BlockType
 {
@@ -153,10 +153,8 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 
 void CheerpWastRenderInterface::renderLabelForSwitch(int labelId)
 {
-assert(false);
-#if 0
-	writer->stream << 'L' << labelId << ':';
-#endif
+	writer->stream << "block $" << labelId << '\n';
+	blockTypes.emplace_back(LABEL_FOR_SWITCH, 1);
 }
 
 void CheerpWastRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
@@ -346,7 +344,7 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, int
 	writer->stream << "if\n";
 	if(first)
 	{
-		blockTypes.emplace_back(IF);
+		blockTypes.emplace_back(IF, 1);
 	}
 	else
 	{
@@ -384,7 +382,7 @@ assert(false);
 
 	if(first)
 	{
-		blockTypes.emplace_back(IF);
+		blockTypes.emplace_back(IF, 1);
 	}
 	else
 	{
@@ -425,7 +423,7 @@ void CheerpWastRenderInterface::renderBlockEnd()
 	}
 	else if(block.type == IF)
 	{
-		for(uint32_t i = 0; i < block.depth + 1; i++)
+		for(uint32_t i = 0; i < block.depth; i++)
 		{
 			indent();
 			writer->stream << "end\n";
@@ -434,6 +432,10 @@ void CheerpWastRenderInterface::renderBlockEnd()
 	else if (block.type == SWITCH)
 	{
 		assert(block.depth == 0);
+		if (!blockTypes.empty() && blockTypes.back().type == LABEL_FOR_SWITCH) {
+			blockTypes.pop_back();
+			writer->stream << "end\n";
+		}
 	}
 	else
 	{
@@ -470,7 +472,7 @@ void CheerpWastRenderInterface::renderWhileBlockBegin()
 	writer->stream << "loop\n";
 	indent();
 	writer->stream << "block\n";
-	blockTypes.emplace_back(WHILE1);
+	blockTypes.emplace_back(WHILE1, 1);
 }
 
 void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
@@ -482,21 +484,21 @@ void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
 	writer->stream << "loop $c" << blockLabel << "\n";
 	indent();
 	writer->stream << "block $" << blockLabel << "\n";
-	blockTypes.emplace_back(WHILE1);
+	blockTypes.emplace_back(WHILE1, 1);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin()
 {
 	indent();
 	writer->stream << "block\n";
-	blockTypes.emplace_back(DO);
+	blockTypes.emplace_back(DO, 1);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin(int blockLabel)
 {
 	indent();
 	writer->stream << "block $" << blockLabel << "\n";
-	blockTypes.emplace_back(DO);
+	blockTypes.emplace_back(DO, 1);
 }
 
 void CheerpWastRenderInterface::renderDoBlockEnd()
@@ -525,12 +527,12 @@ void CheerpWastRenderInterface::renderBreak()
 		for (uint32_t i = 0; i < blockTypes.size(); i++)
 		{
 			BLOCK_TYPE bt = blockTypes[blockTypes.size() - i - 1].type;
-			if (bt == DO || bt == WHILE1)
+			breakIndex += blockTypes[blockTypes.size() - i - 1].depth;
+			if (bt == DO || bt == WHILE1 || bt == SWITCH)
 				break;
-
-			breakIndex += blockTypes[blockTypes.size() - i - 1].depth + 1;
 		}
-		writer->stream << "br " << breakIndex << "\n";
+		assert(breakIndex > 1);
+		writer->stream << "br " << (breakIndex - 1) << "\n";
 	}
 }
 
@@ -551,7 +553,7 @@ void CheerpWastRenderInterface::renderContinue()
 		if (bt == DO || bt == WHILE1)
 			break;
 
-		breakIndex += blockTypes[blockTypes.size() - i - 1].depth + 1;
+		breakIndex += blockTypes[blockTypes.size() - i - 1].depth;
 	}
 	breakIndex += 1;
 	writer->stream << "br " << breakIndex << "\n";
@@ -576,7 +578,7 @@ void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
 	writer->stream << "i32.eq\n";
 	indent();
 	writer->stream << "if\n";
-	blockTypes.emplace_back(IF);
+	blockTypes.emplace_back(IF, 1);
 }
 
 bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
