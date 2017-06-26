@@ -1049,7 +1049,6 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 						stream << "i32.store\n";
 						return true;
 					}
-					case Intrinsic::invariant_start:
 					case Intrinsic::vaend:
 					{
 						// Do nothing.
@@ -1085,6 +1084,20 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 						stream << '\n';
 						stream << "i32.clz\n";
 						return false;
+					}
+					case Intrinsic::invariant_start:
+					{
+						//TODO: Try to optimize using this, for now just pass the second arg
+						if (ci.use_empty())
+							return true;
+
+						compileOperand(ci.getOperand(1));
+						return false;
+					}
+					case Intrinsic::invariant_end:
+					{
+						// Do nothing.
+						return true;
 					}
 					default:
 					{
