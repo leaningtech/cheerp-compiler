@@ -807,7 +807,7 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 		{
 			if(f->getValueAPF().isNegative())
 				stream << '-';
-			stream << "infinity";
+			stream << "inf";
 		}
 		else if(f->getValueAPF().isNaN())
 		{
