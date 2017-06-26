@@ -1185,47 +1185,72 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			stream << '\n';
 			compileOperand(I.getOperand(1));
 			stream << '\n';
-			stream << getTypeString(I.getType()) << ".add";
+			stream << getTypeString(I.getType()) << ".add\n";
 			break;
 		}
 		case Instruction::FCmp:
 		{
 			const CmpInst& ci = cast<CmpInst>(I);
-			compileOperand(ci.getOperand(0));
-			stream << '\n';
-			compileOperand(ci.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(ci.getOperand(0)->getType()) << '.';
-			switch(ci.getPredicate())
+			if (ci.getPredicate() == CmpInst::FCMP_ORD)
 			{
-				// TODO: Handle ordered vs unordered
-				case CmpInst::FCMP_UEQ:
-				case CmpInst::FCMP_OEQ:
-					stream << "eq";
-					break;
-				case CmpInst::FCMP_UNE:
-				case CmpInst::FCMP_ONE:
-					stream << "ne";
-					break;
-				case CmpInst::FCMP_ULT:
-				case CmpInst::FCMP_OLT:
-					stream << "lt";
-					break;
-				case CmpInst::FCMP_OGT:
-				case CmpInst::FCMP_UGT:
-					stream << "gt";
-					break;
-				case CmpInst::FCMP_ULE:
-				case CmpInst::FCMP_OLE:
-					stream << "le";
-					break;
-				case CmpInst::FCMP_UGE:
-				case CmpInst::FCMP_OGE:
-					stream << "ge";
-					break;
-				default:
-					llvm::errs() << "Handle predicate for " << ci << "\n";
-					break;
+				assert(ci.getOperand(0)->getType() == ci.getOperand(1)->getType());
+
+				// Check if both operands are equal to itself. A nan-value is
+				// never equal to itself. Use a logical and operator for the
+				// resulting comparison.
+				compileOperand(ci.getOperand(0));
+				stream << '\n';
+				compileOperand(ci.getOperand(0));
+				stream << '\n';
+				stream << getTypeString(ci.getOperand(0)->getType()) << ".eq\n";
+
+				compileOperand(ci.getOperand(1));
+				stream << '\n';
+				compileOperand(ci.getOperand(1));
+				stream << '\n';
+				stream << getTypeString(ci.getOperand(1)->getType()) << ".eq\n";
+
+				stream << "i32.and\n";
+			} else {
+				compileOperand(ci.getOperand(0));
+				stream << '\n';
+				compileOperand(ci.getOperand(1));
+				stream << '\n';
+				stream << getTypeString(ci.getOperand(0)->getType()) << '.';
+				switch(ci.getPredicate())
+				{
+					// TODO: Handle ordered vs unordered
+					case CmpInst::FCMP_UEQ:
+					case CmpInst::FCMP_OEQ:
+						stream << "eq\n";
+						break;
+					case CmpInst::FCMP_UNE:
+					case CmpInst::FCMP_ONE:
+						stream << "ne\n";
+						break;
+					case CmpInst::FCMP_ULT:
+					case CmpInst::FCMP_OLT:
+						stream << "lt\n";
+						break;
+					case CmpInst::FCMP_OGT:
+					case CmpInst::FCMP_UGT:
+						stream << "gt\n";
+						break;
+					case CmpInst::FCMP_ULE:
+					case CmpInst::FCMP_OLE:
+						stream << "le\n";
+						break;
+					case CmpInst::FCMP_UGE:
+					case CmpInst::FCMP_OGE:
+						stream << "ge\n";
+						break;
+					case CmpInst::FCMP_ORD:
+						llvm_unreachable("This case is handled above");
+						break;
+					default:
+						llvm::errs() << "Handle predicate for " << ci << "\n";
+						break;
+				}
 			}
 			break;
 		}
