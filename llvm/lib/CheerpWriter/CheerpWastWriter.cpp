@@ -1521,6 +1521,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		}
 		case Instruction::SIToFP:
 		{
+			assert(I.getOperand(0)->getType()->isIntegerTy());
 			compileOperand(I.getOperand(0));
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(bitWidth != 32)
@@ -1536,11 +1537,13 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		}
 		case Instruction::UIToFP:
 		{
+			assert(I.getOperand(0)->getType()->isIntegerTy());
 			compileOperand(I.getOperand(0));
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(bitWidth != 32)
 			{
 				stream << "\ni32.const " << getMaskForBitWidth(bitWidth);
+				stream << "\ni32.and";
 			}
 			stream << '\n' << getTypeString(I.getType()) << ".convert_u/" << getTypeString(I.getOperand(0)->getType());
 			break;
