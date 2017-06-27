@@ -59,7 +59,7 @@ public:
 	};
 	// Returns the base of the compiled expression
 	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener);
-	uint8_t getTotalMemory() const
+	uint32_t getTotalMemory() const
 	{
 		return heapStart;
 	}
