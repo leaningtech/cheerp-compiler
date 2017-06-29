@@ -394,7 +394,10 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       EmitTypeCheck(TCK_Upcast, Loc, Value.getPointer(),
                     DerivedTy, DerivedAlign, SkippedChecks);
     }
-    return Builder.CreateElementBitCast(Value, BaseValueTy);
+    if(getTarget().isByteAddressable())
+      return Builder.CreateElementBitCast(Value, BaseValueTy);
+    else
+      return GenerateUpcastCollapsed(Value, BasePtrTy);
   }
 
   llvm::BasicBlock *origBB = nullptr;
