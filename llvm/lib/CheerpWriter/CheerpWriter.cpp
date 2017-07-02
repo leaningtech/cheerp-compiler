@@ -5024,9 +5024,9 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
 			}
 			if (min >= std::numeric_limits<int32_t>::min() &&
 				max <= std::numeric_limits<int32_t>::max() && 
-				//NOTE: this number is the maximum allowed by spidermonkey,
+				//NOTE: this number is the maximum allowed by V8 for wasm's br_table,
 				// it is not defined in the spec
-				max-min <= 0x3fffff)
+				max-min <= 128 * 1024)
 			{
 				switchInst = si;
 			}
