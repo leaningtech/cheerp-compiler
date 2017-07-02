@@ -18,6 +18,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Transforms/Utils/SimplifyLibCalls.h"
 
 using namespace llvm;
 
@@ -56,6 +57,33 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	TLI = TLIP ? &TLIP->getTLI() : nullptr;
 	assert(TLI);
 	VisitedSet visited;
+
+	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
+	auto LibCallReplacer = [](Instruction *I, Value *With)
+	{
+		I->replaceAllUsesWith(With);
+		I->eraseFromParent();
+	};
+	LibCallSimplifier callSimplifier(*DL, TLI, LibCallReplacer);
+	for (Function& F : module.getFunctionList()) {
+		for (BasicBlock& bb : F)
+		{
+			for (Instruction& I : bb)
+			{
+				if (isa<CallInst>(I)) {
+					CallInst& ci = cast<CallInst>(I);
+					Function* calledFunc = ci.getCalledFunction();
+
+					// Skip indirect calls
+					if (calledFunc == nullptr)
+						continue;
+
+					callSimplifier.optimizeCall(&ci);
+				}
+			}
+		}
+	}
+
 	
 	//Compile the list of JS methods
 	//Look for metadata which ends in _methods. They are the have the list
