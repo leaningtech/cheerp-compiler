@@ -64,7 +64,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			indexes.back() = index;
 			recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, indexes);
 			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
-			index->addIncoming(incrementedIndex, arrayLoop);
+			index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
 			IRB->CreateCondBr(finishedLooping, afterLoop, arrayLoop);
 			IRB->SetInsertPoint(afterLoop);
@@ -124,7 +124,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			indexes.back() = index;
 			recursiveReset(IRB, baseDst, resetVal, elementType, indexType, indexes);
 			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
-			index->addIncoming(incrementedIndex, arrayLoop);
+			index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
 			IRB->CreateCondBr(finishedLooping, afterLoop, arrayLoop);
 			IRB->SetInsertPoint(afterLoop);
