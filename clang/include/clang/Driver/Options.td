@@ -4344,8 +4344,8 @@ def cheerp_side_EQ : Joined<["-"], "cheerp-side=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Specify which side to build [client/server]">;
 def cheerp_mode_EQ : Joined<["-"], "cheerp-mode=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Specify which mode to use by default [genericjs/asmjs]">;
-def cheerp_asmjs_heap_size : Joined<["-"], "cheerp-asmjs-heap-size=">, Flags<[DriverOption]>,
-  HelpText<"Set asm.js heap size (in MB, default is 1)">;
+def cheerp_linear_heap_size : Joined<["-"], "cheerp-linear-heap-size=">, Flags<[DriverOption]>,
+  HelpText<"Set wasm/asm.js heap size (in MB, default is 1)">;
 def cheerp_wast_loader_EQ : Joined<["-"], "cheerp-wast-loader=">, Flags<[DriverOption]>,
   HelpText<"Write wast loader to <file>">, MetaVarName<"<file>">;
 def cheerp_asmjs_mem_file_EQ : Joined<["-"], "cheerp-asmjs-mem-file=">, Flags<[DriverOption]>,
