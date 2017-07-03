@@ -386,7 +386,9 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasArg(options::OPT_nostdlib) &&
       !Args.hasArg(options::OPT_nodefaultlibs)) {
     Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ);
-    bool asmjs = CheerpMode && (CheerpMode->getValue() == StringRef("asmjs") || CheerpMode->getValue() == StringRef("wast"));
+    bool asmjs = CheerpMode && (CheerpMode->getValue() == StringRef("asmjs") ||
+                                CheerpMode->getValue() == StringRef("wast") ||
+                                CheerpMode->getValue() == StringRef("wasm"));
     StringRef libdir;
     if (asmjs) {
       libdir = LLVM_PREFIX "/lib/asmjs/";
@@ -472,7 +474,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   ArgStringList CmdArgs;
 
   Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ);
-  if(CheerpMode && CheerpMode->getValue() == StringRef("wast"))
+  if(CheerpMode && (CheerpMode->getValue() == StringRef("wast") || CheerpMode->getValue() == StringRef("wasm")))
     CmdArgs.push_back("-march=cheerp-wast");
   else
     CmdArgs.push_back("-march=cheerp");

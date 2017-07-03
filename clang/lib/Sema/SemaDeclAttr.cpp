@@ -7768,7 +7768,9 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
     }
   }
   // Set default attr based on command line option
-  if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS || LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast) {
+  if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
+      LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
+      LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wasm) {
       D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::GNU_cheerp_asmjs));
   } else if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_GenericJS) {
       D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::GNU_cheerp_genericjs));

@@ -230,6 +230,7 @@ public:
     CHEERP_MODE_GenericJS = 0,  // -cheerp-mode=genericjs
     CHEERP_MODE_AsmJS,          // -cheerp-mode=asmjs
     CHEERP_MODE_Wast,           // -cheerp-mode=wast
+    CHEERP_MODE_Wasm,           // -cheerp-mode=wasm
     CHEERP_MODE_Invalid
   };
 public:

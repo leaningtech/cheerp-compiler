@@ -2552,6 +2552,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     .Case("genericjs", LangOptions::CHEERP_MODE_GenericJS)
     .Case("asmjs", LangOptions::CHEERP_MODE_AsmJS)
     .Case("wast", LangOptions::CHEERP_MODE_Wast)
+    .Case("wasm", LangOptions::CHEERP_MODE_Wasm)
     .Default(LangOptions::CHEERP_MODE_Invalid);
 
     Opts.setCheerpMode(s);

@@ -207,8 +207,12 @@ public:
                                 MacroBuilder &Builder) const {
     // Target identification.
     Builder.defineMacro("__CHEERP__");
-    if (Opts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS || Opts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast)
+    if (Opts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
+        Opts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
+        Opts.getCheerpMode() == LangOptions::CHEERP_MODE_Wasm)
+    {
         Builder.defineMacro("__ASMJS__");
+    }
 
     if (Opts.CPlusPlus)
       Builder.defineMacro("_GNU_SOURCE");
