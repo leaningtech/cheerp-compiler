@@ -4741,7 +4741,8 @@ void CheerpWriter::makeJS()
 		compileCheckDefinedHelper();
 	}
 
-	compileBuiltins(false);
+	if (wasmFile.empty())
+		compileBuiltins(false);
 
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
@@ -4892,7 +4893,8 @@ void CheerpWriter::makeJS()
 	if (!wasmFile.empty())
 	{
 		for (int i = HEAP8; i<=HEAPF64; i++)
-			stream << "var " << heapNames[i] << "=null" << NewLine;
+			stream << "var " << heapNames[i] << "=null;" << NewLine;
+		stream << "var __asm=null;" << NewLine;
 		compileAsmJSImports();
 		compileAsmJSExports();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
@@ -4906,13 +4908,13 @@ void CheerpWriter::makeJS()
 				name = ("_asm_"+namegen.getName(imported)).str();
 			stream << NameGenerator::filterLLVMName(imported->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << ':' << name  << ',' << NewLine;
 		}
-		stream << "} };" << NewLine;
+		stream << "}};" << NewLine;
 		stream << "fetchBuffer('" << wasmFile << "').then(bytes => WebAssembly.compile(bytes)" << NewLine;
 		stream << ".then(m => new WebAssembly.Instance(m, importObject))" << NewLine;
 		stream << ").then(instance => {" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
-		stream << "window['__asm']=instance.exports;" << NewLine;
+		stream << "__asm=instance.exports;" << NewLine;
 	}
 	//Load asm.js module
 	else if (globalDeps.needAsmJS())
@@ -4932,11 +4934,13 @@ void CheerpWriter::makeJS()
 	}
 
 	//Call constructors
-	for (const Function * F : globalDeps.constructors() )
-	{
-		if (F->getSection() == StringRef("asmjs"))
-			stream << "__asm.";
-		stream << namegen.getName(F) << "();" << NewLine;
+	if (wasmFile.empty()) {
+		for (const Function * F : globalDeps.constructors() )
+		{
+			if (F->getSection() == StringRef("asmjs"))
+				stream << "__asm.";
+			stream << namegen.getName(F) << "();" << NewLine;
+		}
 	}
 
 	//Invoke the entry point
