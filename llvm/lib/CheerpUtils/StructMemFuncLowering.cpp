@@ -51,10 +51,31 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	{
 		Type* elementType = AT->getElementType();
 		indexes.push_back(NULL);
-		for(uint32_t i=0;i<AT->getNumElements();i++)
+		if(AT->getNumElements() > 6)
 		{
-			indexes.back() = ConstantInt::get(indexType, i);
+			// Create a loop instead of unrolling
+			llvm::BasicBlock* prevBlock=IRB->GetInsertBlock();
+			BasicBlock* arrayLoop=BasicBlock::Create(IRB->getContext(), "arrayloop", prevBlock->getParent());
+			BasicBlock* afterLoop=BasicBlock::Create(IRB->getContext(), "afterloop", prevBlock->getParent());
+			IRB->CreateBr(arrayLoop);
+			IRB->SetInsertPoint(arrayLoop);
+			llvm::PHINode* index=IRB->CreatePHI(indexType, 2);
+			index->addIncoming(ConstantInt::get(indexType, 0), prevBlock);
+			indexes.back() = index;
 			recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, indexes);
+			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
+			index->addIncoming(incrementedIndex, arrayLoop);
+			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
+			IRB->CreateCondBr(finishedLooping, afterLoop, arrayLoop);
+			IRB->SetInsertPoint(afterLoop);
+		}
+		else
+		{
+			for(uint32_t i=0;i<AT->getNumElements();i++)
+			{
+				indexes.back() = ConstantInt::get(indexType, i);
+				recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, indexes);
+			}
 		}
 		indexes.pop_back();
 	}
@@ -90,10 +111,31 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 	{
 		Type* elementType = AT->getElementType();
 		indexes.push_back(NULL);
-		for(uint32_t i=0;i<AT->getNumElements();i++)
+		if(AT->getNumElements() > 6)
 		{
-			indexes.back() = ConstantInt::get(indexType, i);
+			// Create a loop instead of unrolling
+			llvm::BasicBlock* prevBlock=IRB->GetInsertBlock();
+			BasicBlock* arrayLoop=BasicBlock::Create(IRB->getContext(), "arrayloop", prevBlock->getParent());
+			BasicBlock* afterLoop=BasicBlock::Create(IRB->getContext(), "afterloop", prevBlock->getParent());
+			IRB->CreateBr(arrayLoop);
+			IRB->SetInsertPoint(arrayLoop);
+			llvm::PHINode* index=IRB->CreatePHI(indexType, 2);
+			index->addIncoming(ConstantInt::get(indexType, 0), prevBlock);
+			indexes.back() = index;
 			recursiveReset(IRB, baseDst, resetVal, elementType, indexType, indexes);
+			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
+			index->addIncoming(incrementedIndex, arrayLoop);
+			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
+			IRB->CreateCondBr(finishedLooping, afterLoop, arrayLoop);
+			IRB->SetInsertPoint(afterLoop);
+		}
+		else
+		{
+			for(uint32_t i=0;i<AT->getNumElements();i++)
+			{
+				indexes.back() = ConstantInt::get(indexType, i);
+				recursiveReset(IRB, baseDst, resetVal, elementType, indexType, indexes);
+			}
 		}
 		indexes.pop_back();
 	}
@@ -174,7 +216,7 @@ void StructMemFuncLowering::createForwardLoop(IRBuilder<>* IRB, BasicBlock* prev
 		// Increment the index
 		Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(int32Type, 1));
 		// Close the loop for index
-		index->addIncoming(incrementedIndex, currentBlock);
+		index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 		// Check if we have finished, if not loop again
 		Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, elementsCount, incrementedIndex);
 		IRB->CreateCondBr(finishedLooping, endBlock, currentBlock);

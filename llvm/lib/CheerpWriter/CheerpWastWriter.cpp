@@ -1839,8 +1839,8 @@ void CheerpWastWriter::makeWast()
 		stream << "))\n";
 
 	// Define the memory for the module (these should be parameter, they are min and max in WasmPage units)
-	uint32_t minMemory = 1;
-	uint32_t maxMemory = 2;
+	uint32_t minMemory = 1000;
+	uint32_t maxMemory = 1000;
 	stream << "(memory (export \"memory\") " << minMemory << ' ' << maxMemory << ")\n";
 
 	// Assign globals in the module, these are used for codegen they are not part of the user program
