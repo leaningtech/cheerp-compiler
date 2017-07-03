@@ -1853,9 +1853,11 @@ void CheerpWastWriter::makeWast()
 	if (!globalDeps.functionTables().empty())
 		stream << "))\n";
 
-	// Define the memory for the module (these should be parameter, they are min and max in WasmPage units)
-	uint32_t minMemory = 1000;
-	uint32_t maxMemory = 1000;
+	// Define the memory for the module in WasmPage units. The heap size is
+	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
+	// size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
+	uint32_t minMemory = heapSize << 4;
+	uint32_t maxMemory = heapSize << 4;
 	stream << "(memory (export \"memory\") " << minMemory << ' ' << maxMemory << ")\n";
 
 	// Assign globals in the module, these are used for codegen they are not part of the user program

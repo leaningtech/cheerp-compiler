@@ -62,7 +62,7 @@ bool CheerpWastWritePass::runOnModule(Module& M)
   DataLayout targetData(&M);
   cheerp::LinearMemoryHelper linearHelper(targetData, GDA);
   cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA, linearHelper,
-                                  M.getContext(), !WastLoader.empty());
+                                  M.getContext(), CheerpHeapSize, !WastLoader.empty());
   writer.makeWast();
   if (!WastLoader.empty())
   {
@@ -90,7 +90,7 @@ bool CheerpWastWritePass::runOnModule(Module& M)
 
     cheerp::CheerpWriter writer(M, jsOut, PA, registerize, GDA, linearHelper, nullptr, std::string(),
             sourceMapGenerator, reservedNames, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
-            !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpAsmJSHeapSize,
+            !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
             BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, WasmFile, ForceTypedArrays);
     writer.makeJS();
     if (ErrorCode)
