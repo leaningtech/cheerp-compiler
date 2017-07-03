@@ -64,6 +64,9 @@ private:
 	uint32_t usedGlobals;
 	uint32_t stackTopGlobal;
 
+	// The wasm module heap size
+	uint32_t heapSize;
+
 	// If true, the Wast file is loaded using a JavaScript loader. This allows
 	// FFI calls to methods outside of the Wast file. When false, write
 	// opcode 'unreachable' for calls to unknown functions.
@@ -112,6 +115,7 @@ public:
 			cheerp::GlobalDepsAnalyzer & gda,
 			cheerp::LinearMemoryHelper & linearHelper,
 			llvm::LLVMContext& C,
+			unsigned heapSize,
 			bool useWastLoader):
 		module(m),
 		targetData(&m),
@@ -123,6 +127,7 @@ public:
 		linearHelper(linearHelper),
 		usedGlobals(0),
 		stackTopGlobal(0),
+		heapSize(heapSize),
 		useWastLoader(useWastLoader),
 		stream(s)
 	{
