@@ -14,13 +14,14 @@ LLVM.
 #include <stdarg.h>
 #include <stdlib.h>
 
-#ifdef __cplusplus
-
 #include <map>
 #include <deque>
 #include <set>
 #include <vector>
 #include <list>
+
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
 
 struct Block;
 struct Shape;
@@ -37,20 +38,20 @@ class RenderInterface
 public:
 	RenderInterface() {};
 	virtual ~RenderInterface() {};
-	virtual void renderBlock(const void* privateBlock) = 0;
+	virtual void renderBlock(const llvm::BasicBlock* llvmBlock) = 0;
 	virtual void renderIfOnLabel(int labelId, bool first) = 0;
 	virtual void renderLabelForSwitch(int labelId) = 0;
 	virtual void renderSwitchOnLabel(IdShapeMap& idShapeMap) = 0;
 	virtual void renderCaseOnLabel(int labelId) = 0;
-	virtual void renderSwitchBlockBegin(const void* privateBranchVar, BlockBranchMap& branchesOut) = 0;
-	virtual void renderCaseBlockBegin(const void* privateBlock, int branchId) = 0;
+	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, BlockBranchMap& branchesOut) = 0;
+	virtual void renderCaseBlockBegin(const llvm::BasicBlock* caseBlock, int branchId) = 0;
 	virtual void renderDefaultBlockBegin() = 0;
-	virtual void renderIfBlockBegin(const void* privateBlock, int branchId, bool first) = 0;
-	virtual void renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first) = 0;
+	virtual void renderIfBlockBegin(const llvm::BasicBlock* condBlock, int branchId, bool first) = 0;
+	virtual void renderIfBlockBegin(const llvm::BasicBlock* condBlock, const std::vector<int>& skipBranchIds, bool first) = 0;
 	virtual void renderElseBlockBegin() = 0;
 	virtual void renderBlockEnd() = 0;
-	virtual void renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) = 0;
-	virtual bool hasBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) const = 0;
+	virtual void renderBlockPrologue(const llvm::BasicBlock* blockTo, const llvm::BasicBlock* blockFrom) = 0;
+	virtual bool hasBlockPrologue(const llvm::BasicBlock* blockTo, const llvm::BasicBlock* blockFrom) const = 0;
 	virtual void renderWhileBlockBegin() = 0;
 	virtual void renderWhileBlockBegin(int labelId) = 0;
 	virtual void renderDoBlockBegin() = 0;
@@ -205,14 +206,14 @@ struct Block {
   BlockSet ProcessedBranchesIn;
   Shape *Parent; // The shape we are directly inside
   int Id; // A unique identifier
-  const void* privateBlock; // A private value that will be passed back to the callback
-  const void* privateSwitchInst; // The switch instruction that determines where we go; if this is not NULL, emit a switch
+  const llvm::BasicBlock* llvmBlock; // The corresponding llvm block
+  const llvm::SwitchInst* llvmSwitchInst; // The switch instruction that determines where we go; if this is not NULL, emit a switch
   Block *DefaultTarget; // The block we branch to without checking the condition, if none of the other conditions held.
                         // Since each block *must* branch somewhere, this must be set
   bool IsCheckedMultipleEntry; // If true, we are a multiple entry, so reaching us requires setting the label variable
   bool IsSplittable;
 
-  Block(const void* privateBlock, bool splittable, int Id, const void* privateSwitchInst = NULL);
+  Block(const llvm::BasicBlock* llvmBlock, bool splittable, int Id, const llvm::SwitchInst* llvmSwitchInst = NULL);
   ~Block();
 
   /*
@@ -352,5 +353,3 @@ struct Debugging {
   static void Dump(Shape *S, const char *prefix=NULL);
 };
 #endif
-
-#endif // __cplusplus
