@@ -264,6 +264,7 @@ struct Shape {
   virtual ~Shape() {}
 
   virtual void Render(bool InLoop, RenderInterface* renderInterface) = 0;
+  virtual Block* getFirstBlock() = 0;
 
   static SimpleShape *IsSimple(Shape *It) { return It && It->Type == Simple ? (SimpleShape*)It : NULL; }
   static MultipleShape *IsMultiple(Shape *It) { return It && It->Type == Multiple ? (MultipleShape*)It : NULL; }
@@ -278,6 +279,9 @@ struct SimpleShape : public Shape {
   void Render(bool InLoop, RenderInterface* renderInterface) override {
     Inner->Render(InLoop, renderInterface);
     if (Next) Next->Render(InLoop, renderInterface);
+  }
+  Block* getFirstBlock() override {
+    return Inner;
   }
 };
 
@@ -300,6 +304,9 @@ struct MultipleShape : public LabeledShape {
   void RenderLoopPostfix(RenderInterface* renderInterface);
 
   void Render(bool InLoop, RenderInterface* renderInterface) override;
+  Block* getFirstBlock() override {
+    return nullptr;
+  }
 };
 
 struct LoopShape : public LabeledShape {
@@ -307,6 +314,9 @@ struct LoopShape : public LabeledShape {
 
   LoopShape(int Id) : LabeledShape(Loop, Id), Inner(NULL) {}
   void Render(bool InLoop, RenderInterface* renderInterface) override;
+  Block* getFirstBlock() override {
+   return Inner->getFirstBlock();
+  }
 };
 
 // Implements the relooper algorithm for a function's blocks.
