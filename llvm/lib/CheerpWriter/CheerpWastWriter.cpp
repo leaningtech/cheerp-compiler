@@ -63,19 +63,19 @@ public:
 		labelLocal(labelLocal),
 		lastDepth0Block(nullptr)
 	{ }
-	void renderBlock(const void* privateBlock);
+	void renderBlock(const BasicBlock* BB);
 	void renderLabelForSwitch(int labelId);
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
-	void renderSwitchBlockBegin(const void* privateBranchVar, BlockBranchMap& branchesOut);
-	void renderCaseBlockBegin(const void* privateBlock, int branchId);
+	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
+	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin();
-	void renderIfBlockBegin(const void* privateBlock, int branchId, bool first);
-	void renderIfBlockBegin(const void* privateBlock, const vector<int>& branchId, bool first);
+	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
+	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first);
 	void renderElseBlockBegin();
 	void renderBlockEnd();
-	void renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom);
-	bool hasBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) const;
+	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom);
+	bool hasBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom) const;
 	void renderWhileBlockBegin();
 	void renderWhileBlockBegin(int labelId);
 	void renderDoBlockBegin();
@@ -89,9 +89,8 @@ public:
 	void renderIfOnLabel(int labelId, bool first);
 };
 
-void CheerpWastRenderInterface::renderBlock(const void* privateBlock)
+void CheerpWastRenderInterface::renderBlock(const BasicBlock* bb)
 {
-	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if (blockTypes.empty())
 		lastDepth0Block = bb;
 	else
@@ -222,7 +221,7 @@ uint32_t findBlockInBranchesOutMap(const BasicBlock* dest, BlockBranchMap& branc
 {
 	int i = 0;
 	for (auto it = branchesOut.begin(); it != branchesOut.end(); ++it) {
-		if ((const BasicBlock*)it->first->privateBlock == dest)
+		if (it->first->llvmBlock == dest)
 			return i;
 		// Do not count the default block. The default block will be rendered
 		// at the end by relooper.
@@ -234,10 +233,8 @@ uint32_t findBlockInBranchesOutMap(const BasicBlock* dest, BlockBranchMap& branc
 	llvm_unreachable("destination not found in branches out");
 }
 
-void CheerpWastRenderInterface::renderSwitchBlockBegin(const void* privateSwitchInst, BlockBranchMap& branchesOut)
+void CheerpWastRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, BlockBranchMap& branchesOut)
 {
-	const SwitchInst* si = static_cast<const SwitchInst*>(privateSwitchInst);
-
 	assert(si->getNumCases());
 
 	int64_t max = std::numeric_limits<int64_t>::min();
@@ -315,7 +312,7 @@ void CheerpWastRenderInterface::renderSwitchBlockBegin(const void* privateSwitch
 	blockTypes.emplace_back(SWITCH, caseBlocks + 1);
 }
 
-void CheerpWastRenderInterface::renderCaseBlockBegin(const void* privateBlock, int branchId)
+void CheerpWastRenderInterface::renderCaseBlockBegin(const BasicBlock*, int branchId)
 {
 	BlockType prevBlock = blockTypes.back();
 	assert(prevBlock.type == SWITCH || prevBlock.type == CASE);
@@ -329,9 +326,8 @@ void CheerpWastRenderInterface::renderDefaultBlockBegin()
 	renderCaseBlockBegin(nullptr, 0);
 }
 
-void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, int branchId, bool first)
+void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first)
 {
-	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if(!first)
 	{
 		indent();
@@ -353,9 +349,8 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, int
 	}
 }
 
-void CheerpWastRenderInterface::renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first)
+void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::vector<int>& skipBranchIds, bool first)
 {
-	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if(!first)
 	{
 		indent();
@@ -443,24 +438,19 @@ void CheerpWastRenderInterface::renderBlockEnd()
 	}
 }
 
-void CheerpWastRenderInterface::renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom)
+void CheerpWastRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom)
 {
-	const BasicBlock* bbTo=(const BasicBlock*)privateBlockTo;
-	const BasicBlock* bbFrom=(const BasicBlock*)privateBlockFrom;
 	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
 }
 
-bool CheerpWastRenderInterface::hasBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) const
+bool CheerpWastRenderInterface::hasBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom) const
 {
-	const BasicBlock* to=(const BasicBlock*)privateBlockTo;
-	const BasicBlock* from=(const BasicBlock*)privateBlockFrom;
-
-	if (to->getFirstNonPHI()==&to->front())
+	if (bbTo->getFirstNonPHI()==&bbTo->front())
 		return false;
 
 	// We can avoid assignment from the same register if no pointer kind
 	// conversion is required
-	return writer->needsPointerKindConversionForBlocks(to, from);
+	return writer->needsPointerKindConversionForBlocks(bbTo, bbFrom);
 }
 
 void CheerpWastRenderInterface::renderWhileBlockBegin()

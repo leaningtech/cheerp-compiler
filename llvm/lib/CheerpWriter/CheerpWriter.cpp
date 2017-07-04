@@ -41,19 +41,19 @@ public:
 	CheerpRenderInterface(CheerpWriter* w, const NewLineHandler& n, bool asmjs=false):writer(w),NewLine(n),asmjs(asmjs)
 	{
 	}
-	void renderBlock(const void* privateBlock);
+	void renderBlock(const BasicBlock* BB);
 	void renderLabelForSwitch(int labelId);
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
-	void renderSwitchBlockBegin(const void* privateSwitchInst, BlockBranchMap& branchesOut);
-	void renderCaseBlockBegin(const void* privateBlock, int branchId);
+	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
+	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin();
-	void renderIfBlockBegin(const void* privateBlock, int branchId, bool first);
-	void renderIfBlockBegin(const void* privateBlock, const vector<int>& branchId, bool first);
+	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
+	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first);
 	void renderElseBlockBegin();
 	void renderBlockEnd();
-	void renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom);
-	bool hasBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) const;
+	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom);
+	bool hasBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom) const;
 	void renderWhileBlockBegin();
 	void renderWhileBlockBegin(int labelId);
 	void renderDoBlockBegin();
@@ -3816,9 +3816,8 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 	}
 }
 
-void CheerpRenderInterface::renderBlock(const void* privateBlock)
+void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
 {
-	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	writer->compileBB(*bb);
 }
 
@@ -3892,18 +3891,16 @@ void CheerpRenderInterface::renderCaseOnLabel(int labelId)
 	writer->stream << "case ";
 	writer->stream << labelId << ":{" << NewLine;
 }
-void CheerpRenderInterface::renderSwitchBlockBegin(const void* privateSwitchInst,
+void CheerpRenderInterface::renderSwitchBlockBegin(const SwitchInst* switchInst,
 		BlockBranchMap& branchesOut)
 {
-	const SwitchInst* switchInst = static_cast<const SwitchInst*>(privateSwitchInst);
 	const Value* cond = switchInst->getCondition();
 	writer->stream << "switch(";
 	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 	writer->stream << "){" << NewLine;
 }
-void CheerpRenderInterface::renderCaseBlockBegin(const void* privateBlock, int branchId)
+void CheerpRenderInterface::renderCaseBlockBegin(const BasicBlock* bb, int branchId)
 {
-	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	const TerminatorInst* term = bb->getTerminator();
 	assert(isa<SwitchInst>(term));
 	const SwitchInst* si=cast<SwitchInst>(term);
@@ -3932,9 +3929,8 @@ void CheerpRenderInterface::renderDefaultBlockBegin()
 {
 	writer->stream << "default:{" << NewLine;
 }
-void CheerpRenderInterface::renderIfBlockBegin(const void* privateBlock, int branchId, bool first)
+void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first)
 {
-	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if(!first)
 		writer->stream << "}else ";
 	writer->stream << "if(";
@@ -3942,9 +3938,8 @@ void CheerpRenderInterface::renderIfBlockBegin(const void* privateBlock, int bra
 	writer->stream << "){" << NewLine;
 }
 
-void CheerpRenderInterface::renderIfBlockBegin(const void* privateBlock, const std::vector<int>& skipBranchIds, bool first)
+void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::vector<int>& skipBranchIds, bool first)
 {
-	const BasicBlock* bb=(const BasicBlock*)privateBlock;
 	if(!first)
 		writer->stream << "}else ";
 	writer->stream << "if(!(";
@@ -3967,24 +3962,19 @@ void CheerpRenderInterface::renderBlockEnd()
 	writer->stream << '}' << NewLine;
 }
 
-void CheerpRenderInterface::renderBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom)
+void CheerpRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom)
 {
-	const BasicBlock* bbTo=(const BasicBlock*)privateBlockTo;
-	const BasicBlock* bbFrom=(const BasicBlock*)privateBlockFrom;
 	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
 }
 
-bool CheerpRenderInterface::hasBlockPrologue(const void* privateBlockTo, const void* privateBlockFrom) const
+bool CheerpRenderInterface::hasBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom) const
 {
-	const BasicBlock* to=(const BasicBlock*)privateBlockTo;
-	const BasicBlock* from=(const BasicBlock*)privateBlockFrom;
-
-	if (to->getFirstNonPHI()==&to->front())
+	if (bbTo->getFirstNonPHI()==&bbTo->front())
 		return false;
 
 	// We can avoid assignment from the same register if no pointer kind
 	// conversion is required
-	return writer->needsPointerKindConversionForBlocks(to, from);
+	return writer->needsPointerKindConversionForBlocks(bbTo, bbFrom);
 }
 
 void CheerpRenderInterface::renderWhileBlockBegin()
