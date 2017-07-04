@@ -48,11 +48,11 @@ void Branch::Render(Block *Target, bool SetLabel, RenderInterface* renderInterfa
 
 // Block
 
-Block::Block(const void* b, bool s, int Id, const void* si)
+Block::Block(const llvm::BasicBlock* b, bool s, int Id, const llvm::SwitchInst* si)
   : Parent(NULL),
     Id(Id),
-    privateBlock(b),
-    privateSwitchInst(si),
+    llvmBlock(b),
+    llvmSwitchInst(si),
     DefaultTarget(NULL),
     IsCheckedMultipleEntry(false),
     IsSplittable(s)
@@ -79,7 +79,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
     renderInterface->renderLabel(0);
   }
 
-  renderInterface->renderBlock(privateBlock);
+  renderInterface->renderBlock(llvmBlock);
 
   if (!ProcessedBranchesOut.size()) return;
 
@@ -131,10 +131,10 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
   }
   assert(DefaultTarget); // Since each block *must* branch somewhere, this must be set
 
-  bool useSwitch = privateSwitchInst != NULL;
+  bool useSwitch = llvmSwitchInst != NULL;
 
   if (useSwitch) {
-    renderInterface->renderSwitchBlockBegin(privateSwitchInst, ProcessedBranchesOut);
+    renderInterface->renderSwitchBlockBegin(llvmSwitchInst, ProcessedBranchesOut);
   }
 
   std::vector<int> emptyBranchesIds;
@@ -155,14 +155,14 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
     bool HasFusedContent = Fused && contains(Fused->InnerMap, Target->Id);
     //Cheerp: We assume that the block has content, otherwise why it's even here?
     bool HasContent = SetCurrLabel || Details->Type != Branch::Direct ||
-                      HasFusedContent || renderInterface->hasBlockPrologue(Target->privateBlock, privateBlock);
+                      HasFusedContent || renderInterface->hasBlockPrologue(Target->llvmBlock, llvmBlock);
     if (iter != ProcessedBranchesOut.end()) {
       // If there is nothing to show in this branch, omit the condition
       if (useSwitch) {
-        renderInterface->renderCaseBlockBegin(privateBlock, Details->branchId);
+        renderInterface->renderCaseBlockBegin(llvmBlock, Details->branchId);
       } else {
         if (HasContent) {
-          renderInterface->renderIfBlockBegin(privateBlock, Details->branchId, First);
+          renderInterface->renderIfBlockBegin(llvmBlock, Details->branchId, First);
           First = false;
         } else {
           emptyBranchesIds.push_back(Details->branchId);
@@ -175,7 +175,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
       } else {
         if (HasContent) {
           if (!emptyBranchesIds.empty()) {
-            renderInterface->renderIfBlockBegin(privateBlock, emptyBranchesIds, First);
+            renderInterface->renderIfBlockBegin(llvmBlock, emptyBranchesIds, First);
             First = false;
           } else if (!First) {
             renderInterface->renderElseBlockBegin();
@@ -183,7 +183,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
         }
   }
     }
-    renderInterface->renderBlockPrologue(Target->privateBlock, privateBlock);
+    renderInterface->renderBlockPrologue(Target->llvmBlock, llvmBlock);
     Details->Render(Target, SetCurrLabel, renderInterface);
     if (HasFusedContent) {
       Fused->InnerMap.find(Target->Id)->second->Render(InLoop, renderInterface);
@@ -330,7 +330,7 @@ void Relooper::Calculate(Block *Entry) {
         // Split the node (for simplicity, we replace all the blocks, even though we could have reused the original)
         for (BlockSet::iterator iter = Original->BranchesIn.begin(); iter != Original->BranchesIn.end(); iter++) {
           Block *Prior = *iter;
-          Block *Split = new Block(Original->privateBlock, Original->IsSplittable, Parent->IdCounter++, Original->privateSwitchInst);
+          Block *Split = new Block(Original->llvmBlock, Original->IsSplittable, Parent->IdCounter++, Original->llvmSwitchInst);
           Parent->AddBlock(Split);
           Split->BranchesIn.insert(Prior);
           Branch *Details = Prior->BranchesOut[Original];
@@ -885,10 +885,10 @@ void Relooper::Calculate(Block *Entry) {
         Root = Next;
         Next = NULL;
         SHAPE_SWITCH(Root, {
-          if (Simple->Inner->privateSwitchInst) LastLoop = NULL; // a switch clears out the loop (TODO: only for breaks, not continue)
+          if (Simple->Inner->llvmSwitchInst) LastLoop = NULL; // a switch clears out the loop (TODO: only for breaks, not continue)
 
           if (Simple->Next) {
-            if (!Simple->Inner->privateSwitchInst && Simple->Inner->ProcessedBranchesOut.size() == 2 && Depth < 20) {
+            if (!Simple->Inner->llvmSwitchInst && Simple->Inner->ProcessedBranchesOut.size() == 2 && Depth < 20) {
               // If there is a next block, we already know at Simple creation time to make direct branches,
               // and we can do nothing more in general. But, we try to optimize the case of a break and
               // a direct: This would normally be  if (break?) { break; } ..  but if we
@@ -977,7 +977,7 @@ void Relooper::Calculate(Block *Entry) {
           if (Fused && Fused->Breaks) {
             LoopStack.push(Fused);
           }
-          if (Simple->Inner->privateSwitchInst) {
+          if (Simple->Inner->llvmSwitchInst) {
             LoopStack.push(NULL); // a switch means breaks are now useless, push a dummy
           }
           if (Fused) {
@@ -1001,7 +1001,7 @@ void Relooper::Calculate(Block *Entry) {
           if (Fused && Fused->UseSwitch) {
             LoopStack.pop();
           }
-          if (Simple->Inner->privateSwitchInst) {
+          if (Simple->Inner->llvmSwitchInst) {
             LoopStack.pop();
           }
           if (Fused && Fused->Breaks) {
