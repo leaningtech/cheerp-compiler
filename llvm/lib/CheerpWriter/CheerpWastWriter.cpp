@@ -1968,20 +1968,26 @@ void CheerpWastWriter::compileMemoryAndGlobalSection()
 		} else {
 			section << "(memory (export \"memory\") " << minMemory << ' ' << maxMemory << ")\n";
 		}
-
-		if (cheerpMode == CHEERP_MODE_WASM)
-			return;
 	}
 
 	{
+		Section section(0x06, this);
+
 		// Start the stack from the end of default memory
 		stackTopGlobal = usedGlobals++;
 		uint32_t stackTop = (minMemory * WasmPage);
 
-		Section section(0x06, this);
-
 		if (cheerpMode == CHEERP_MODE_WASM) {
-			assert(false);
+			// There is 1 global.
+			encodeULEB128(1, section);
+			// The global has type i32 (0x7f) and is mutable (0x01).
+			encodeULEB128(0x7f, section);
+			encodeULEB128(0x01, section);
+			// The global value is a 'i32.const' (0x41), followed by the
+			// literal and ends with 'end' (0x0b).
+			encodeULEB128(0x41, section);
+			encodeULEB128(stackTop, section);
+			encodeULEB128(0x0b, section);
 		} else {
 			section << "(global (mut i32) (i32.const " << stackTop << "))\n";
 		}
@@ -2070,10 +2076,10 @@ void CheerpWastWriter::compileModule()
 
 	compileTableSection();
 
+	compileMemoryAndGlobalSection();
+
 	if (cheerpMode == CHEERP_MODE_WASM)
 		return;
-
-	compileMemoryAndGlobalSection();
 
 	// TODO compileExportSection();
 
