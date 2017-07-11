@@ -745,6 +745,18 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	}
 }
 
+const ConstantArray* ModuleGlobalConstructors(Module& M)
+{
+	GlobalVariable* var = M.getGlobalVariable("llvm.global_ctors");
+	if (!var || !var->hasInitializer())
+		return nullptr;
+
+	if (!isa<ConstantArray>(var->getInitializer()))
+		return nullptr;
+
+	return cast<ConstantArray>(var->getInitializer());
+}
+
 bool needsSecondaryName(const Value* V, const PointerAnalyzer& PA)
 {
 	if(!V->getType()->isPointerTy())
