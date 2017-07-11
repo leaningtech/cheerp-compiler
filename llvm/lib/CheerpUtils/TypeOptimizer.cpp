@@ -378,7 +378,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 					{
 						// Look for an integer than can be filled
 						bool mergedThisInt = false;
-						for(int m=0;m<mergedInts.size();m++)
+						for(size_t m=0;m<mergedInts.size();m++)
 						{
 							auto& mergedInt = mergedInts[m];
 							if(mergedInt.second < it->getBitWidth())
