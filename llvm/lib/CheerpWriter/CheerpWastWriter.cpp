@@ -1777,7 +1777,8 @@ void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
 	currentFun = &F;
 	code << "(func $" << F.getName().str();
 	// TODO: We should not export them all
-	code << " (export \"" << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str() << "\")";
+	code << " (export \"" << NameGenerator::filterLLVMName(F.getName(),
+		NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str() << "\")";
 	uint32_t numArgs = F.arg_size();
 	compileMethodParams(code, F);
 	compileMethodResult(code, F);
