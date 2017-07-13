@@ -84,19 +84,24 @@ std::string string_to_hex(const std::string& input)
 	return output;
 }
 
-Section::Section(uint32_t sectionId, CheerpWastWriter* writer)
-	: std::stringstream(), writer(writer)
+Section::Section(uint32_t sectionId, const char* sectionName, CheerpWastWriter* writer)
+	: sectionId(sectionId), sectionName(sectionName), writer(writer)
 {
-	if (writer->cheerpMode == CHEERP_MODE_WASM) {
-		llvm::errs() << "section id: " << sectionId << '\n';
+	if (writer->cheerpMode == CHEERP_MODE_WASM)
 		encodeULEB128(sectionId, writer->stream);
-	}
 }
 Section::~Section()
 {
 	std::string buf = str();
 	if (writer->cheerpMode == CHEERP_MODE_WASM) {
-		llvm::errs() << "section length: " << buf.size() << '\n';
+#if WASM_DUMP_SECTIONS
+		uint64_t start = writer->stream.tell();
+		fprintf(stderr, "%10s id=0x%x start=0x%08lx end=0x%08lx size=0x%08lx\n",
+				sectionName, sectionId, start, start + buf.size(), buf.size());
+#if WASM_DUMP_SECTION_DATA
+		llvm::errs() << "section: " << string_to_hex(buf) << '\n';
+#endif
+#endif
 		encodeULEB128(buf.size(), writer->stream);
 	}
 	writer->stream << buf;
@@ -1864,7 +1869,7 @@ void CheerpWastWriter::compileTypeSection()
 	if (linearHelper.getFunctionTables().empty())
 		return;
 
-	Section section(0x01, this);
+	Section section(0x01, "Type", this);
 
 	if (cheerpMode == CHEERP_MODE_WASM)
 	{
@@ -1898,7 +1903,8 @@ void CheerpWastWriter::compileImportSection()
 	if (globalDeps.asmJSImports().empty() || !useWastLoader)
 		return;
 
-	Section section(0x02, this);
+	assert(false);
+	Section section(0x02, "Import", this);
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
 		// Encode number of entries in the import section.
@@ -1919,7 +1925,7 @@ void CheerpWastWriter::compileTableSection()
 		functionTableOffset += table.second.functions.size();
 	}
 
-	Section section(0x04, this);
+	Section section(0x04, "Table", this);
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
 		// Encode number of function tables in the table section.
@@ -1957,7 +1963,7 @@ void CheerpWastWriter::compileMemoryAndGlobalSection()
 	assert(WasmPage == 64 * 1024);
 
 	{
-		Section section(0x05, this);
+		Section section(0x05, "Memory", this);
 
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			// There is 1 memtype, and the memtype is encoded as {min,max} (= 0x01).
@@ -1972,7 +1978,7 @@ void CheerpWastWriter::compileMemoryAndGlobalSection()
 	}
 
 	{
-		Section section(0x06, this);
+		Section section(0x06, "Global", this);
 
 		// Start the stack from the end of default memory
 		stackTopGlobal = usedGlobals++;
@@ -1997,7 +2003,7 @@ void CheerpWastWriter::compileMemoryAndGlobalSection()
 
 void CheerpWastWriter::compileStartSection()
 {
-	Section section(0x08, this);
+	Section section(0x08, "Start", this);
 
 	// Experimental entry point for wast code
 	llvm::Function* wastStart = module.getFunction("_Z9wastStartv");
@@ -2014,7 +2020,7 @@ void CheerpWastWriter::compileStartSection()
 
 void CheerpWastWriter::compileCodeSection()
 {
-	Section section(0x0a, this);
+	Section section(0x0a, "Code", this);
 
 	for ( const Function & F : module.getFunctionList() )
 	{
@@ -2029,7 +2035,7 @@ void CheerpWastWriter::compileCodeSection()
 
 void CheerpWastWriter::compileDataSection()
 {
-	Section section(0x0b, this);
+	Section section(0x0b, "Data", this);
 
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 	{
