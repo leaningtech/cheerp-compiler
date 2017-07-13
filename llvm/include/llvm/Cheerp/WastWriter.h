@@ -37,9 +37,12 @@ class CheerpWastWriter;
 
 class Section : public std::stringstream {
 private:
+	uint32_t sectionId;
+	const char* sectionName;
 	CheerpWastWriter* writer;
+
 public:
-	Section(uint32_t sectionId, CheerpWastWriter* writer);
+	Section(uint32_t sectionId, const char* sectionName, CheerpWastWriter* writer);
 	~Section();
 };
 
