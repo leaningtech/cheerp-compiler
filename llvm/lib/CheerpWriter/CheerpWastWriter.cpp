@@ -13,13 +13,21 @@
 
 #include "Relooper.h"
 #include "llvm/Cheerp/NameGenerator.h"
-#include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WastWriter.h"
+#include "llvm/Cheerp/Writer.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/LEB128.h"
 
 using namespace cheerp;
 using namespace llvm;
 using namespace std;
+
+//#define WASM_DUMP_SECTIONS 1
+//#define WASM_DUMP_SECTION_DATA 1
+//#define WASM_DUMP_METHODS 1
+//#define WASM_DUMP_METHOD_DATA 1
+
+static uint32_t COMPILE_METHOD_LIMIT = 100000;
 
 enum BLOCK_TYPE { WHILE1 = 0, DO, SWITCH, CASE, LABEL_FOR_SWITCH, IF };
 
@@ -1914,6 +1922,40 @@ void CheerpWastWriter::compileImportSection()
 	for (const Function* F : globalDeps.asmJSImports())
 		compileImport(section, *F);
 }
+
+void CheerpWastWriter::compileFunctionSection()
+{
+	if (globalDeps.functionTables().empty() || cheerpMode != CHEERP_MODE_WASM)
+		return;
+
+	Section section(0x03, "Function", this);
+
+	uint32_t count = 0;
+	for (const Function& F : module.getFunctionList())
+	{
+		if (!F.empty() && F.getSection() == StringRef("asmjs"))
+			count++;
+	}
+	count = std::min(count, COMPILE_METHOD_LIMIT); // TODO
+
+	// Encode number of entries in the function section.
+	encodeULEB128(count, section);
+
+	// Define function type ids
+	size_t j = 0;
+	uint32_t i = 0;
+	for (const auto& table : globalDeps.functionTables()) {
+		for (size_t f = 0; f < table.second.functions.size(); f++) {
+			encodeULEB128(i, section);
+			if (++j == COMPILE_METHOD_LIMIT)
+				break; // TODO
+		}
+		i++;
+		if (j == COMPILE_METHOD_LIMIT)
+			break; // TODO
+	}
+}
+
 
 void CheerpWastWriter::compileTableSection()
 {
