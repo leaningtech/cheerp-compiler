@@ -134,12 +134,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	entryPoint = webMainOrMain;
 	
 	//Process constructors
-	GlobalVariable * constructorVar = module.getGlobalVariable("llvm.global_ctors");
+	const ConstantArray* constructors = ModuleGlobalConstructors(module);
 	// Random things which may go boom
-	if (constructorVar && constructorVar->hasInitializer() &&
-			isa<ConstantArray>( constructorVar->getInitializer() ) ) {
-		const ConstantArray * constructors = cast<ConstantArray>( constructorVar->getInitializer() );
-
+	if (constructors) {
 		auto getConstructorPriority = []( const Constant * p ) -> uint32_t 
 		{
 			assert( isa< ConstantStruct >(p) );
@@ -182,6 +179,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				std::back_inserter(constructorsNeeded),
 				getConstructorFunction );
 
+		auto constructorVar = module.getGlobalVariable("llvm.global_ctors");
 		reachableGlobals.insert(constructorVar);
 		varsOrder.push_back(constructorVar);
 	}
