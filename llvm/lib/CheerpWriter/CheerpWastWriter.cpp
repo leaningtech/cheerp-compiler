@@ -1785,33 +1785,91 @@ void CheerpWastWriter::compileBB(std::ostream& code, const BasicBlock& BB)
 void CheerpWastWriter::compileMethodLocals(std::ostream& code, const Function& F, bool needsLabel)
 {
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
-	// The first local after ther params stores the previous stack address
-	code << "(local i32";
-	// Emit the registers, careful as the registerize id is offset by the number of args
-	for(const Registerize::RegisterInfo& regInfo: regsInfo)
-	{
-		code << ' ';
-		assert(regInfo.regKind != Registerize::OBJECT);
-		assert(!regInfo.needsSecondaryName);
-		switch(regInfo.regKind)
+	if (cheerpMode == CHEERP_MODE_WASM) {
+		// Store the local declaration in a buffer since we need to write the
+		// vector length before the vector data.
+		std::stringstream locals;
+
+		// Local declarations are compressed into a vector whose entries
+		// consist of:
+		//
+		//   - a u32 `count',
+		//   - a `ValType',
+		//
+		// denoting `count' locals of the same `ValType'.
+		//
+		// The first local after the params stores the previous stack address
+		Registerize::REGISTER_KIND lastKind = Registerize::INTEGER;
+		uint32_t count = 1;
+		uint32_t pairs = 0;
+
+		// Emit the compressed vector of local registers.
+		for(const Registerize::RegisterInfo& regInfo: regsInfo)
 		{
-			case Registerize::DOUBLE:
-				code << "f64";
-				break;
-			case Registerize::FLOAT:
-				code << "f32";
-				break;
-			case Registerize::INTEGER:
-				code << "i32";
-				break;
-			default:
-				assert(false);
+			assert(regInfo.regKind != Registerize::OBJECT);
+			assert(!regInfo.needsSecondaryName);
+
+			if (regInfo.regKind != lastKind) {
+				encodeULEB128(count, locals);
+				encodeRegisterKind(regInfo.regKind, locals);
+				pairs++;
+
+				lastKind = regInfo.regKind;
+				count = 1;
+			} else {
+				count++;
+			}
 		}
+
+		// If needed, label is the very last local
+		if (needsLabel && lastKind == Registerize::INTEGER)
+			count++;
+
+		encodeULEB128(count, locals);
+		encodeRegisterKind(lastKind, locals);
+		pairs++;
+
+		if (needsLabel && lastKind != Registerize::INTEGER) {
+			encodeULEB128(1, locals);
+			encodeRegisterKind(Registerize::INTEGER, locals);
+			pairs++;
+		}
+
+		encodeULEB128(pairs, code);
+		code << locals.str();
+#if WASM_DUMP_METHODS
+		fprintf(stderr, "method locals (%u): ", pairs);
+		llvm::errs() << string_to_hex(locals.str()) << '\n';
+#endif
+	} else {
+		// The first local after the params stores the previous stack address
+		code << "(local i32";
+		// Emit the registers, careful as the registerize id is offset by the number of args
+		for(const Registerize::RegisterInfo& regInfo: regsInfo)
+		{
+			code << ' ';
+			assert(regInfo.regKind != Registerize::OBJECT);
+			assert(!regInfo.needsSecondaryName);
+			switch(regInfo.regKind)
+			{
+				case Registerize::DOUBLE:
+					code << "f64";
+					break;
+				case Registerize::FLOAT:
+					code << "f32";
+					break;
+				case Registerize::INTEGER:
+					code << "i32";
+					break;
+				default:
+					assert(false);
+			}
+		}
+		// If needed, label is the very last local
+		if(needsLabel)
+			code << " i32";
+		code << ")\n";
 	}
-	// If needed, label is the very last local
-	if(needsLabel)
-		code << " i32";
-	code << ")\n";
 }
 
 void CheerpWastWriter::compileMethodParams(std::ostream& code, const Function& F)
@@ -1860,48 +1918,100 @@ void CheerpWastWriter::compileMethodResult(std::ostream& code, const Function& F
 void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
 {
 	currentFun = &F;
-	code << "(func $" << F.getName().str();
-	// TODO: We should not export them all
-	code << " (export \"" << NameGenerator::filterLLVMName(F.getName(),
-		NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str() << "\")";
+
+	if (cheerpMode == CHEERP_MODE_WAST)
+	{
+		code << "(func $" << F.getName().str();
+
+		// TODO: We should not export them all
+		code << " (export \"" << NameGenerator::filterLLVMName(F.getName(),
+					NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str() << "\")";
+
+		compileMethodParams(code, F);
+		compileMethodResult(code, F);
+
+		code << '\n';
+	}
+
 	uint32_t numArgs = F.arg_size();
-	compileMethodParams(code, F);
-	compileMethodResult(code, F);
-	code << '\n';
 	const llvm::BasicBlock* lastDepth0Block = nullptr;
+
 	if(F.size() == 1)
 	{
 		compileMethodLocals(code, F, false);
-		// TODO: Only save the stack address if required
-		code << "get_global " << stackTopGlobal << '\n';
-		code << "set_local " << numArgs << "\n";
-		compileBB(code, *F.begin());
-		lastDepth0Block = &(*F.begin());
+
+		if (cheerpMode == CHEERP_MODE_WAST)
+		{
+			// TODO: Only save the stack address if required
+			code << "get_global " << stackTopGlobal << '\n';
+			code << "set_local " << numArgs << "\n";
+
+			compileBB(code, *F.begin());
+			lastDepth0Block = &(*F.begin());
+		}
 	}
 	else
 	{
 		Relooper* rl = CheerpWriter::runRelooperOnFunction(F, PA, registerize);
 		compileMethodLocals(code, F, rl->needsLabel());
-		// TODO: Only save the stack address if required
-		code << "get_global " << stackTopGlobal << '\n';
-		code << "set_local " << numArgs << "\n";
-		uint32_t numArgs = F.arg_size();
+
+		if (cheerpMode == CHEERP_MODE_WAST)
+		{
+			// TODO: Only save the stack address if required
+			code << "get_global " << stackTopGlobal << '\n';
+			code << "set_local " << numArgs << "\n";
+		}
+
 		const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 		uint32_t numRegs = regsInfo.size();
+
 		// label is the very last local
-		CheerpWastRenderInterface ri(this, code, 1+numArgs+numRegs);
-		rl->Render(&ri);
-		lastDepth0Block = ri.lastDepth0Block;
+		CheerpWastRenderInterface ri(this, code, 1 + numArgs + numRegs);
+
+		if (cheerpMode == CHEERP_MODE_WAST)
+		{
+			rl->Render(&ri);
+			lastDepth0Block = ri.lastDepth0Block;
+		}
 	}
+
 	// A function has to terminate with a return instruction
-	if(!lastDepth0Block || !isa<ReturnInst>(lastDepth0Block->getTerminator()))
+	if (!lastDepth0Block || !isa<ReturnInst>(lastDepth0Block->getTerminator()))
 	{
 		// Add a fake return
 		if(!F.getReturnType()->isVoidTy())
-			code << getTypeString(F.getReturnType()) << ".const 0\n";
-		code << "return\n";
+		{
+#if WASM_DUMP_METHODS
+			llvm::errs() << "return type: "; F.getReturnType()->dump();
+#endif
+
+			if (cheerpMode == CHEERP_MODE_WASM) {
+				// Encode a literal f64, f32 or i32 zero as the return value.
+				encodeLiteralType(F.getReturnType(), code);
+				if (F.getReturnType()->isDoubleTy()) {
+					encodeF64(0., code);
+				} else if (F.getReturnType()->isFloatTy()) {
+					encodeF32(0.f, code);
+				} else {
+					encodeSLEB128(0, code);
+				}
+			} else {
+				code << getTypeString(F.getReturnType()) << ".const 0\n";
+			}
+		}
+
+
+		if (cheerpMode == CHEERP_MODE_WAST)
+			code << "return\n";
 	}
-	code << ")\n";
+
+	if (cheerpMode == CHEERP_MODE_WASM) {
+		// Encode the end of the method.
+		encodeULEB128(0x0b, code);
+	} else {
+		assert(cheerpMode == CHEERP_MODE_WAST);
+		code << ")\n";
+	}
 }
 
 void CheerpWastWriter::compileImport(std::ostream& code, const Function& F)
