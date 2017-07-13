@@ -79,6 +79,7 @@ public:
 private:
 	void compileModule();
 	void compileTypeSection();
+	void compileFunctionSection();
 	void compileImportSection();
 	void compileTableSection();
 	void compileMemoryAndGlobalSection();
