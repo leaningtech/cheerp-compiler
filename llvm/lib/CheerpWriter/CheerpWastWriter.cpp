@@ -56,7 +56,21 @@ BlockType* findSwitchBlockType(std::vector<BlockType>& blocks)
 	llvm_unreachable("switch render block not found");
 }
 
-inline void encodeULEB128(uint64_t Value, std::ostream& OS,
+static inline void encodeSLEB128(int64_t Value, std::ostream& OS) {
+	bool More;
+	do {
+		uint8_t Byte = Value & 0x7f;
+		// NOTE: this assumes that this signed shift is an arithmetic right shift.
+		Value >>= 7;
+		More = !((((Value == 0) && ((Byte & 0x40) == 0)) ||
+					((Value == -1) && ((Byte & 0x40) != 0))));
+		if (More)
+			Byte |= 0x80; // Mark this byte to show that more bytes will follow.
+		OS << char(Byte);
+	} while (More);
+}
+
+static inline void encodeULEB128(uint64_t Value, std::ostream& OS,
 		unsigned Padding = 0) {
 	do {
 		uint8_t Byte = Value & 0x7f;
@@ -71,6 +85,64 @@ inline void encodeULEB128(uint64_t Value, std::ostream& OS,
 		for (; Padding != 1; --Padding)
 			OS << '\x80';
 		OS << '\x00';
+	}
+}
+
+static inline void encodeF32(float f, std::ostream& stream)
+{
+	stream.write(reinterpret_cast<const char*>(&f), sizeof(float));
+}
+
+static inline void encodeF64(double f, std::ostream& stream)
+{
+	stream.write(reinterpret_cast<const char*>(&f), sizeof(double));
+}
+
+static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, std::ostream& stream)
+{
+	switch(regKind)
+	{
+		case Registerize::DOUBLE:
+			encodeULEB128(0x7c, stream);
+			break;
+		case Registerize::FLOAT:
+			encodeULEB128(0x7d, stream);
+			break;
+		case Registerize::INTEGER:
+			encodeULEB128(0x7f, stream);
+			break;
+		default:
+			assert(false);
+	}
+}
+
+static void encodeValType(Type* t, std::ostream& stream)
+{
+	if (t->isIntegerTy() || t->isPointerTy())
+		encodeULEB128(0x7f, stream);
+	else if (t->isFloatTy())
+		encodeULEB128(0x7d, stream);
+	else if (t->isDoubleTy())
+		encodeULEB128(0x7c, stream);
+	else
+	{
+		llvm::errs() << "Unsupported type " << *t << "\n";
+		llvm_unreachable("Unsuppored type");
+	}
+}
+
+static void encodeLiteralType(Type* t, std::ostream& stream)
+{
+	if (t->isIntegerTy() || t->isPointerTy())
+		encodeULEB128(0x41, stream);
+	else if(t->isFloatTy())
+		encodeULEB128(0x43, stream);
+	else if(t->isDoubleTy())
+		encodeULEB128(0x44, stream);
+	else
+	{
+		llvm::errs() << "Unsupported type " << *t << "\n";
+		llvm_unreachable("Unsuppored type");
 	}
 }
 
@@ -1751,7 +1823,7 @@ void CheerpWastWriter::compileMethodParams(std::ostream& code, const Function& F
 
 		llvm::FunctionType* FTy = F.getFunctionType();
 		for(uint32_t i = 0; i < numArgs; i++)
-			encodeULEB128(getValType(FTy->getParamType(i)), code);
+			encodeValType(FTy->getParamType(i), code);
 	}
 	else if(numArgs)
 	{
@@ -1775,7 +1847,7 @@ void CheerpWastWriter::compileMethodResult(std::ostream& code, const Function& F
 		else
 		{
 			encodeULEB128(1, code);
-			encodeULEB128(getValType(F.getReturnType()), code);
+			encodeValType(F.getReturnType(), code);
 		}
 	}
 	else if(!F.getReturnType()->isVoidTy())
@@ -2032,10 +2104,10 @@ void CheerpWastWriter::compileMemoryAndGlobalSection()
 			// The global has type i32 (0x7f) and is mutable (0x01).
 			encodeULEB128(0x7f, section);
 			encodeULEB128(0x01, section);
-			// The global value is a 'i32.const' (0x41), followed by the
-			// literal and ends with 'end' (0x0b).
-			encodeULEB128(0x41, section);
-			encodeULEB128(stackTop, section);
+			// The global value is a 'i32.const' literal.
+			encodeLiteralType(Type::getInt32Ty(Ctx), section);
+			encodeSLEB128(stackTop, section);
+			// Encode the end of the instruction sequence.
 			encodeULEB128(0x0b, section);
 		} else {
 			section << "(global (mut i32) (i32.const " << stackTop << "))\n";
