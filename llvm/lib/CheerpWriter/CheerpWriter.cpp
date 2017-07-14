@@ -53,7 +53,6 @@ public:
 	void renderElseBlockBegin();
 	void renderBlockEnd();
 	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom);
-	bool hasBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom) const;
 	void renderWhileBlockBegin();
 	void renderWhileBlockBegin(int labelId);
 	void renderDoBlockBegin();
@@ -2085,7 +2084,8 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	}
 }
 
-bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
+bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming,
+                                              const PointerAnalyzer& PA, const Registerize& registerize)
 {
 	Type* phiType=phi->getType();
 	const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
@@ -2106,12 +2106,14 @@ bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Valu
 		PA.getConstantOffsetForPointer(phi)!=PA.getConstantOffsetForPointer(incoming);
 }
 
-bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from)
+bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from,
+                                                       const PointerAnalyzer& PA, const Registerize& registerize)
 {
 	class PHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		PHIHandler(CheerpWriter& w):EndOfBlockPHIHandler(w.PA),needsPointerKindConversion(false),writer(w)
+		PHIHandler(const PointerAnalyzer& PA, const Registerize& registerize):
+		           EndOfBlockPHIHandler(PA),needsPointerKindConversion(false),PA(PA),registerize(registerize)
 		{
 		}
 		~PHIHandler()
@@ -2119,17 +2121,18 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 		}
 		bool needsPointerKindConversion;
 	private:
-		CheerpWriter& writer;
+		const PointerAnalyzer& PA;
+		const Registerize& registerize;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
-			needsPointerKindConversion |= writer.needsPointerKindConversion(phi, incoming);
+			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, PA, registerize);
 		}
 	};
 
-	auto handler = PHIHandler(*this);
+	auto handler = PHIHandler(PA, registerize);
 	handler.runOnEdge(registerize, from, to);
 	return handler.needsPointerKindConversion;
 }
@@ -2165,7 +2168,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
 			// We can avoid assignment from the same register if no pointer kind conversion is required
-			if(!writer.needsPointerKindConversion(phi, incoming))
+			if(!needsPointerKindConversion(phi, incoming, writer.PA, writer.registerize))
 				return;
 			Type* phiType=phi->getType();
 			if(phiType->isPointerTy())
@@ -3967,16 +3970,6 @@ void CheerpRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, const Ba
 	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
 }
 
-bool CheerpRenderInterface::hasBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom) const
-{
-	if (bbTo->getFirstNonPHI()==&bbTo->front())
-		return false;
-
-	// We can avoid assignment from the same register if no pointer kind
-	// conversion is required
-	return writer->needsPointerKindConversionForBlocks(bbTo, bbFrom);
-}
-
 void CheerpRenderInterface::renderWhileBlockBegin()
 {
 	writer->stream << "while(1){" << NewLine;
@@ -4131,7 +4124,7 @@ void CheerpWriter::compileMethod(const Function& F)
 	}
 	else
 	{
-		Relooper* rl = runRelooperOnFunction(F);
+		Relooper* rl = runRelooperOnFunction(F, PA, registerize);
 		CheerpRenderInterface ri(this, NewLine, asmjs);
 		compileMethodLocals(F, rl->needsLabel());
 		if (asmjs)
@@ -4982,7 +4975,8 @@ void CheerpWriter::makeJS()
 	}
 }
 
-Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
+Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const PointerAnalyzer& PA,
+                                              const Registerize& registerize)
 {
 	//TODO: Support exceptions
 	Function::const_iterator B=F.begin();
@@ -5075,8 +5069,16 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F)
 			if(term->getSuccessor(i)->isLandingPad())
 				continue;
 			Block* target=relooperMap[term->getSuccessor(i)];
+			const BasicBlock* bbTo = target->llvmBlock;
+			bool hasPrologue = bbTo->getFirstNonPHI()==&bbTo->front();
+			if (!hasPrologue)
+			{
+				// We can avoid assignment from the same register if no pointer kind
+				// conversion is required
+				hasPrologue = needsPointerKindConversionForBlocks(bbTo, &(*B), PA, registerize);
+			}
 			//Use -1 for the default target
-			bool ret=relooperMap[&(*B)]->AddBranchTo(target, (i==defaultBranchId)?-1:i);
+			bool ret=relooperMap[&(*B)]->AddBranchTo(target, (i==defaultBranchId)?-1:i, hasPrologue);
 
 			if(ret==false) //More than a path for a single block can only happen for switch
 			{

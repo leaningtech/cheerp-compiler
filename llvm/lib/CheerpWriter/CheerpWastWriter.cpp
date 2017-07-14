@@ -75,7 +75,6 @@ public:
 	void renderElseBlockBegin();
 	void renderBlockEnd();
 	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom);
-	bool hasBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom) const;
 	void renderWhileBlockBegin();
 	void renderWhileBlockBegin(int labelId);
 	void renderDoBlockBegin();
@@ -443,16 +442,6 @@ void CheerpWastRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, cons
 	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
 }
 
-bool CheerpWastRenderInterface::hasBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom) const
-{
-	if (bbTo->getFirstNonPHI()==&bbTo->front())
-		return false;
-
-	// We can avoid assignment from the same register if no pointer kind
-	// conversion is required
-	return writer->needsPointerKindConversionForBlocks(bbTo, bbFrom);
-}
-
 void CheerpWastRenderInterface::renderWhileBlockBegin()
 {
 	// Wrap a block in a loop so that:
@@ -578,35 +567,6 @@ bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const 
 		return true;
 	return isInlineable(*incomingInst, PA) ||
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst);
-}
-
-
-bool CheerpWastWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from)
-{
-	class PHIHandler: public EndOfBlockPHIHandler
-	{
-	public:
-		PHIHandler(CheerpWastWriter& w):EndOfBlockPHIHandler(w.PA),needsPointerKindConversion(false),writer(w)
-		{
-		}
-		~PHIHandler()
-		{
-		}
-		bool needsPointerKindConversion;
-	private:
-		CheerpWastWriter& writer;
-		void handleRecursivePHIDependency(const Instruction* incoming) override
-		{
-		}
-		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
-		{
-			needsPointerKindConversion |= writer.needsPointerKindConversion(phi, incoming);
-		}
-	};
-
-	auto handler = PHIHandler(*this);
-	handler.runOnEdge(registerize, from, to);
-	return handler.needsPointerKindConversion;
 }
 
 void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
@@ -1722,7 +1682,7 @@ void CheerpWastWriter::compileMethod(const Function& F)
 	}
 	else
 	{
-		Relooper* rl = CheerpWriter::runRelooperOnFunction(F);
+		Relooper* rl = CheerpWriter::runRelooperOnFunction(F, PA, registerize);
 		compileMethodLocals(F, rl->needsLabel());
 		// TODO: Only save the stack address if required
 		stream << "get_global " << stackTopGlobal << '\n';
