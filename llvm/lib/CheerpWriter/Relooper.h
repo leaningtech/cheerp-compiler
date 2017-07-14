@@ -51,7 +51,6 @@ public:
 	virtual void renderElseBlockBegin() = 0;
 	virtual void renderBlockEnd() = 0;
 	virtual void renderBlockPrologue(const llvm::BasicBlock* blockTo, const llvm::BasicBlock* blockFrom) = 0;
-	virtual bool hasBlockPrologue(const llvm::BasicBlock* blockTo, const llvm::BasicBlock* blockFrom) const = 0;
 	virtual void renderWhileBlockBegin() = 0;
 	virtual void renderWhileBlockBegin(int labelId) = 0;
 	virtual void renderDoBlockBegin() = 0;
@@ -77,8 +76,9 @@ struct Branch {
   Branch::FlowType Type; // If Ancestor is not NULL, this says whether to break or continue
   bool Labeled; // If a break or continue, whether we need to use a label
   int branchId;
+  bool hasPrologue;
 
-  Branch(int bId);
+  Branch(int bId, bool hasPrologue);
   ~Branch();
 
   // Prints out the branch
@@ -219,7 +219,7 @@ struct Block {
   /*
    * Return false is a branch to the Target already exists
    */
-  bool AddBranchTo(Block *Target, int branchId);
+  bool AddBranchTo(Block *Target, int branchId, bool hasPrologue);
 
   // Prints out the instructions code and branchings
   void Render(bool InLoop, RenderInterface* renderInterface);
