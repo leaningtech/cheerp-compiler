@@ -537,8 +537,6 @@ public:
 	void compileBB(const llvm::BasicBlock& BB);
 	void compileConstant(const llvm::Constant* c, PARENT_PRIORITY parentPrio = HIGHEST);
 	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
-	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
-	bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 
@@ -596,7 +594,12 @@ public:
 	/**
 	 * Run relooper on a function, this code is here since it is also used by CheerpWastWriter
 	 */
-	static Relooper* runRelooperOnFunction(const llvm::Function& F);
+	static Relooper* runRelooperOnFunction(const llvm::Function& F, const PointerAnalyzer& PA,
+	                                       const Registerize& registerize);
+	static bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming,
+	                                       const PointerAnalyzer& PA, const Registerize& registerize);
+	static bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from,
+	                                                const PointerAnalyzer& PA, const Registerize& registerize);
 };
 
 }

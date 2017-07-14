@@ -21,7 +21,8 @@ static void PrintDebug(const char *Format, ...);
 
 // Branch
 
-Branch::Branch(int bId) : Ancestor(NULL), Labeled(true), branchId(bId) {
+Branch::Branch(int bId, bool hasPrologue) : Ancestor(NULL), Labeled(true), branchId(bId),
+                                            hasPrologue(hasPrologue) {
 }
 
 Branch::~Branch() {
@@ -67,10 +68,10 @@ Block::~Block() {
   }
 }
 
-bool Block::AddBranchTo(Block *Target, int branchId) {
+bool Block::AddBranchTo(Block *Target, int branchId, bool hasPrologue) {
   if(contains(BranchesOut, Target)) // cannot add more than one branch to the same target
     return false;
-  BranchesOut[Target] = new Branch(branchId);
+  BranchesOut[Target] = new Branch(branchId, hasPrologue);
   return true;
 }
 
@@ -155,7 +156,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
     bool HasFusedContent = Fused && contains(Fused->InnerMap, Target->Id);
     //Cheerp: We assume that the block has content, otherwise why it's even here?
     bool HasContent = SetCurrLabel || Details->Type != Branch::Direct ||
-                      HasFusedContent || renderInterface->hasBlockPrologue(Target->llvmBlock, llvmBlock);
+                      HasFusedContent || Details->hasPrologue;
     if (iter != ProcessedBranchesOut.end()) {
       // If there is nothing to show in this branch, omit the condition
       if (useSwitch) {
@@ -334,13 +335,13 @@ void Relooper::Calculate(Block *Entry) {
           Parent->AddBlock(Split);
           Split->BranchesIn.insert(Prior);
           Branch *Details = Prior->BranchesOut[Original];
-          Prior->BranchesOut[Split] = new Branch(Details->branchId);
+          Prior->BranchesOut[Split] = new Branch(Details->branchId, Details->hasPrologue);
           delete Details; // TODO: is this ok?
           Prior->BranchesOut.erase(Original);
           for (BlockBranchMap::iterator iter = Original->BranchesOut.begin(); iter != Original->BranchesOut.end(); iter++) {
             Block *Post = iter->first;
             Branch *Details = iter->second;
-            Split->BranchesOut[Post] = new Branch(Details->branchId);
+            Split->BranchesOut[Post] = new Branch(Details->branchId, Details->hasPrologue);
             Post->BranchesIn.insert(Split);
           }
           Splits.insert(Split);
