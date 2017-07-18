@@ -147,6 +147,54 @@ static void encodeLiteralType(Type* t, std::ostream& stream)
 	}
 }
 
+static void encodeOpcode(uint32_t opcode, const char* name,
+		CheerpWastWriter& writer, std::ostream& code)
+{
+	if (writer.cheerpMode == CHEERP_MODE_WASM) {
+		encodeULEB128(opcode, code);
+	} else {
+		assert(writer.cheerpMode == CHEERP_MODE_WAST);
+		code << name << '\n';
+	}
+}
+
+static void encodeS32Opcode(uint32_t opcode, const char* name,
+		int32_t immediate, CheerpWastWriter& writer, std::ostream& code)
+{
+	if (writer.cheerpMode == CHEERP_MODE_WASM) {
+		encodeULEB128(opcode, code);
+		encodeSLEB128(immediate, code);
+	} else {
+		assert(writer.cheerpMode == CHEERP_MODE_WAST);
+		code << name << ' ' << immediate << '\n';
+	}
+}
+
+static void encodeU32Opcode(uint32_t opcode, const char* name,
+		uint32_t immediate, CheerpWastWriter& writer, std::ostream& code)
+{
+	if (writer.cheerpMode == CHEERP_MODE_WASM) {
+		encodeULEB128(opcode, code);
+		encodeULEB128(immediate, code);
+	} else {
+		assert(writer.cheerpMode == CHEERP_MODE_WAST);
+		code << name << ' ' << immediate << '\n';
+	}
+}
+
+static void encodeU32U32Opcode(uint32_t opcode, const char* name,
+		uint32_t i1, uint32_t i2, CheerpWastWriter& writer, std::ostream& code)
+{
+	if (writer.cheerpMode == CHEERP_MODE_WASM) {
+		encodeULEB128(opcode, code);
+		encodeULEB128(i1, code);
+		encodeULEB128(i2, code);
+	} else {
+		assert(writer.cheerpMode == CHEERP_MODE_WAST);
+		code << name << ' ' << i1 << ' ' << i2 << '\n';
+	}
+}
+
 std::string string_to_hex(const std::string& input)
 {
 	static const char* const lut = "0123456789abcdef";
@@ -698,6 +746,147 @@ void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
 	indent();
 	code << "if\n";
 	blockTypes.emplace_back(IF, 1);
+}
+
+void CheerpWastWriter::encodeInst(uint32_t opcode, const char* name, std::ostream& code)
+{
+	encodeOpcode(opcode, name, *this, code);
+}
+
+void CheerpWastWriter::encodeBinOp(const llvm::Instruction& I, std::ostream& code)
+{
+	compileOperand(code, I.getOperand(0));
+	compileOperand(code, I.getOperand(1));
+
+	const Type* t = I.getType();
+	switch (I.getOpcode())
+	{
+#define BINOPI(Ty, name, i32, i64) \
+		case Instruction::Ty: \
+		{ \
+			assert(t->isIntegerTy() || t->isPointerTy()); \
+			encodeInst(i32, "i32."#name, code); \
+			return; \
+		}
+		BINOPI( Add,   add, 0x6a, 0x7c)
+		BINOPI( Sub,   sub, 0x6b, 0x7d)
+		BINOPI( Mul,   mul, 0x6c, 0x7e)
+		BINOPI(SDiv, div_s, 0x6d, 0x7f)
+		BINOPI(UDiv, div_u, 0x6e, 0x80)
+		BINOPI(SRem, rem_s, 0x6f, 0x81)
+		BINOPI(URem, rem_u, 0x70, 0x82)
+		BINOPI( And,   and, 0x71, 0x83)
+		BINOPI(  Or,    or, 0x72, 0x84)
+		BINOPI( Xor,   xor, 0x73, 0x85)
+		BINOPI( Shl,   shl, 0x74, 0x86)
+		BINOPI(AShr, shr_s, 0x75, 0x87)
+		BINOPI(LShr, shr_u, 0x76, 0x88)
+#undef BINOPI
+
+#define BINOPF(Ty, name, f32, f64) \
+		case Instruction::Ty: \
+		{ \
+			if (t->isFloatTy()) { \
+				encodeInst(f32, "f32."#name, code); \
+				return; \
+			} \
+			if (t->isDoubleTy()) { \
+				encodeInst(f64, "f64."#name, code); \
+				return; \
+			} \
+			break; \
+		}
+		BINOPF(FAdd,   add, 0x92, 0xa0)
+		BINOPF(FSub,   sub, 0x93, 0xa1)
+		BINOPF(FMul,   mul, 0x94, 0xa2)
+		BINOPF(FDiv,   div, 0x95, 0xa3)
+#undef BINOPF
+		default:
+		{
+			I.dump();
+			llvm_unreachable("unknown binop instruction");
+		}
+	}
+
+	I.dump();
+	llvm_unreachable("unknown type for binop instruction");
+}
+
+void CheerpWastWriter::encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, std::ostream& code)
+{
+	encodeS32Opcode(opcode, name, immediate, *this, code);
+}
+
+void CheerpWastWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, std::ostream& code)
+{
+	if (cheerpMode == CHEERP_MODE_WAST) {
+		// Do not print the immediate for some opcodes when mode is set to
+		// wast. Wast doesn't need the immediate, while wasm does.
+		switch(opcode) {
+			case 0x02: // "block"
+			case 0x03: // "loop"
+			case 0x04: // "if"
+				encodeOpcode(opcode, name, *this, code);
+				return;
+			default:
+				break;
+		}
+	}
+	encodeU32Opcode(opcode, name, immediate, *this, code);
+}
+
+void CheerpWastWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, std::ostream& code)
+{
+	if (cheerpMode == CHEERP_MODE_WAST) {
+		// Do not print the immediates for some opcodes when mode is set to
+		// wast. Wast doesn't need the immediate, while wasm does.
+		switch(opcode) {
+			case 0x28: // "i32.load"
+			case 0x2a: // "f32.load"
+			case 0x2b: // "f64.load"
+			case 0x2c: // "i32.load8_s"
+			case 0x2d: // "i32.load8_u"
+			case 0x2e: // "i32.load16_s"
+			case 0x2f: // "i32.load16_u"
+			case 0x36: // "i32.store"
+			case 0x38: // "f32.store"
+			case 0x39: // "f64.store"
+			case 0x3a: // "i32.store8"
+			case 0x3b: // "i32.store16"
+				encodeOpcode(opcode, name, *this, code);
+				return;
+			default:
+				break;
+		}
+	}
+	encodeU32U32Opcode(opcode, name, i1, i2, *this, code);
+}
+
+void CheerpWastWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, std::ostream& code)
+{
+	// TODO add i64 support.
+	assert(ty->isIntegerTy() || ty->isPointerTy());
+	switch(predicate)
+	{
+#define PREDICATE(Ty, name, opcode) \
+		case CmpInst::ICMP_##Ty: \
+			encodeInst(opcode, "i32."#name, code); \
+			break;
+		PREDICATE( EQ,   eq, 0x46);
+		PREDICATE( NE,   ne, 0x47);
+		PREDICATE(SLT, lt_s, 0x48);
+		PREDICATE(ULT, lt_u, 0x49);
+		PREDICATE(SGT, gt_s, 0x4a);
+		PREDICATE(UGT, gt_u, 0x4b);
+		PREDICATE(SLE, le_s, 0x4c);
+		PREDICATE(ULE, le_u, 0x4d);
+		PREDICATE(SGE, ge_s, 0x4e);
+		PREDICATE(UGE, ge_u, 0x4f);
+#undef PREDICATE
+		default:
+			llvm::errs() << "Handle predicate " << predicate << "\n";
+			llvm_unreachable("unknown predicate");
+	}
 }
 
 bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
