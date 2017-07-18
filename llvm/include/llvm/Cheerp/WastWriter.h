@@ -154,6 +154,12 @@ public:
 	void compileOperand(std::ostream& code, const llvm::Value* v);
 	void compileSignedInteger(std::ostream& code, const llvm::Value* v, bool forComparison);
 	void compileUnsignedInteger(std::ostream& code, const llvm::Value* v);
+	void encodeInst(uint32_t opcode, const char* name, std::ostream& code);
+	void encodeBinOp(const llvm::Instruction& I, std::ostream& code);
+	void encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, std::ostream& code);
+	void encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, std::ostream& code);
+	void encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, std::ostream& code);
+	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, std::ostream& code);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	void compilePHIOfBlockFromOtherBlock(std::ostream& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 };
