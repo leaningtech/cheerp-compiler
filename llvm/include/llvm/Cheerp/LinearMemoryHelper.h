@@ -62,14 +62,18 @@ public:
 				hash = hash*31 + std::hash<size_t>()(0);
 			else if (retTy->isPointerTy() || retTy->isIntegerTy())
 				hash = hash*31 + std::hash<size_t>()(1);
-			else if (retTy->isFloatingPointTy())
+			else if (retTy->isDoubleTy())
 				hash = hash*31 + std::hash<size_t>()(2);
+			else if (retTy->isFloatTy())
+				hash = hash*31 + std::hash<size_t>()(3);
 			for (const auto& pTy: fTy->params())
 			{
 				if (pTy->isPointerTy() || pTy->isIntegerTy())
 					hash = hash*31 + std::hash<size_t>()(1);
-				else if (pTy->isFloatingPointTy())
+				else if (pTy->isDoubleTy())
 					hash = hash*31 + std::hash<size_t>()(2);
+				else if (pTy->isFloatTy())
+					hash = hash*31 + std::hash<size_t>()(3);
 			}
 			return hash;
 		}
@@ -82,13 +86,17 @@ public:
 			const llvm::Type* retTy = lhs->getReturnType();
 			if (retTy->isPointerTy() || retTy->isIntegerTy())
 				r1 = 1;
-			else if (retTy->isFloatingPointTy())
+			else if (retTy->isDoubleTy())
 				r1 = 2;
+			else if (retTy->isFloatTy())
+				r1 = 3;
 			retTy = rhs->getReturnType();
 			if (retTy->isPointerTy() || retTy->isIntegerTy())
 				r2 = 1;
-			else if (retTy->isFloatingPointTy())
+			else if (retTy->isDoubleTy())
 				r2 = 2;
+			else if (retTy->isFloatTy())
+				r2 = 3;
 			if (r1 != r2) return false;
 			if (lhs->getNumParams() != rhs->getNumParams()) return false;
 			auto lit = lhs->param_begin();
@@ -97,12 +105,16 @@ public:
 			{
 				if ((*lit)->isPointerTy() || (*lit)->isIntegerTy())
 					r1 = 1;
-				else if ((*lit)->isFloatingPointTy())
+				else if ((*lit)->isDoubleTy())
 					r1 = 2;
+				else if ((*lit)->isFloatTy())
+					r1 = 3;
 				if ((*rit)->isPointerTy() || (*rit)->isIntegerTy())
 					r2 = 1;
-				else if ((*rit)->isFloatingPointTy())
+				else if ((*rit)->isDoubleTy())
 					r2 = 2;
+				else if ((*rit)->isFloatTy())
+					r2 = 3;
 				if (r1 != r2) return false;
 			}
 			return true;
@@ -121,7 +133,11 @@ public:
 		{
 			table_name += 'i';
 		}
-		else if (ret->isFloatingPointTy())
+		else if (ret->isDoubleTy())
+		{
+			table_name += 'd';
+		}
+		else if (ret->isFloatTy())
 		{
 			table_name += 'f';
 		}
@@ -131,7 +147,11 @@ public:
 			{
 				table_name += 'i';
 			}
-			else if (param->isFloatingPointTy())
+			else if (param->isDoubleTy())
+			{
+				table_name += 'd';
+			}
+			else if (param->isFloatTy())
 			{
 				table_name += 'f';
 			}
