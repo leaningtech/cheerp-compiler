@@ -3860,7 +3860,9 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   // and not on attributes like record types. Possible solution: inline namespace
   // (see: https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
   if (Ty->isBuiltinType() || Ty->isPointerType() || Ty->isFunctionProtoType()) {
-    if (CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS || CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wast) {
+    if (CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
+        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
+        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wasm) {
       GV->setSection("asmjs");
     }
   }
