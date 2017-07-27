@@ -180,6 +180,7 @@ protected:
 
   void (*StoreListener)(void* Addr);
   void (*AllocaListener)(Type* Ty, uint32_t Size, void* Addr);
+  void (*RetListener)(const std::vector<std::unique_ptr<char[]>>&);
 
 public:
   /// lock - This lock protects the ExecutionEngine and MCJIT classes. It must
@@ -537,6 +538,11 @@ public:
   /// InstallAllocaListener - Listener to invoke on each alloca
   void InstallAllocaListener(void (*P)(Type* Ty, uint32_t Size, void* Addr)) {
     AllocaListener = P;
+  }
+  /// InstallRetListener - Listener to invoke on each ret (the argument is the
+  //  list of allocas of the current stack frame)
+  void InstallRetListener(void (*P)(const std::vector<std::unique_ptr<char[]>>&)) {
+    RetListener = P;
   }
 
 protected:

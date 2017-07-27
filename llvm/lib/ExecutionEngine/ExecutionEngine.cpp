@@ -72,6 +72,7 @@ void ExecutionEngine::Init(std::unique_ptr<Module> M) {
   LazyFunctionCreator = nullptr;
   StoreListener = nullptr;
   AllocaListener = nullptr;
+  RetListener = nullptr;
   CompilingLazily         = false;
   GVCompilationDisabled   = false;
   SymbolSearchingDisabled = false;
@@ -130,6 +131,7 @@ public:
     // end, so don't just delete this.  I'm not sure if this is actually
     // required.
     this->~GVMemoryBlock();
+    ::operator delete(this);
   }
 };
 }  // anonymous namespace
@@ -248,6 +250,11 @@ void ExecutionEngine::addGlobalMapping(StringRef Name, uint64_t Addr) {
 void ExecutionEngine::clearAllGlobalMappings() {
   std::lock_guard<sys::Mutex> locked(lock);
 
+  for (auto i: EEState.getGlobalAddressMap()) {
+    GVMemoryBlock* gv = (GVMemoryBlock*)((char*)(i.second) - sizeof(GVMemoryBlock));
+    gv->~GVMemoryBlock();
+    ::operator delete(gv);
+  }
   EEState.getGlobalAddressMap().clear();
   EEState.getGlobalAddressReverseMap().clear();
 }

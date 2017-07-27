@@ -36,9 +36,9 @@ typedef generic_gep_type_iterator<User::const_op_iterator> gep_type_iterator;
 // stack, which causes the dtor to be run, which frees all the alloca'd memory.
 //
 class AllocaHolder {
-  std::vector<void *> Allocations;
-
 public:
+  std::vector<std::unique_ptr<char[]>> Allocations;
+
   AllocaHolder() {}
 
   // Make this type move-only.
@@ -46,11 +46,9 @@ public:
   AllocaHolder &operator=(AllocaHolder &&RHS) = default;
 
   ~AllocaHolder() {
-    // Do not call free() for each tracked allocation.
-    // TODO: call munmap() but the allocation size is required here!
   }
 
-  void add(void *Mem) { Allocations.push_back(Mem); }
+  void add(std::unique_ptr<char[]> Mem) { Allocations.push_back(std::move(Mem)); }
 };
 
 typedef std::vector<GenericValue> ValuePlaneTy;

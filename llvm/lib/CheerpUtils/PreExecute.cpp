@@ -21,6 +21,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/Allocator.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include <string.h>
 #include <algorithm>
@@ -34,6 +35,8 @@ static cl::opt<bool> PreExecuteMain("cheerp-preexecute-main", cl::desc("Run main
 namespace cheerp {
 
 PreExecute* PreExecute::currentPreExecutePass = NULL;
+
+BumpPtrAllocator PreExecute::allocator;
 
 const char* PreExecute::getPassName() const
 {
@@ -50,12 +53,19 @@ static void AllocaListener(Type* Ty,uint32_t Size, void* Addr)
 {
     PreExecute::currentPreExecutePass->recordTypedAllocation(Ty, Size, (char*)Addr);
 }
+static void RetListener(const std::vector<std::unique_ptr<char[]>>& allocas)
+{
+    for (const auto& a: allocas)
+    {
+        PreExecute::currentPreExecutePass->releaseTypedAllocation(a.get());
+    }
+}
 
 static GenericValue pre_execute_malloc(FunctionType *FT,
         const std::vector<GenericValue> &Args) {
     size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
     ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-    void* ret = malloc(size);
+    void* ret = PreExecute::allocator.Allocate(size,8);
     currentEE->ValueAddresses->map(ret, size + 4);
 #ifdef DEBUG_PRE_EXECUTE
     llvm::errs() << "Allocating " << ret << " of size " << size << "\n";
@@ -122,7 +132,7 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-  void* ret = malloc(size);
+  void* ret = PreExecute::allocator.Allocate(size,8);
   currentEE->ValueAddresses->map(ret, size + 4);
   memset(ret, 0, size);
 
@@ -141,7 +151,7 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   void *p = (void *)(currentEE->GVTORP(Args[0]));
   size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
-  void* ret = malloc(size);
+  void* ret = PreExecute::allocator.Allocate(size,8);
   currentEE->ValueAddresses->map(ret, size + 4);
   memset(ret, 0, size);
   // Find out the old size
@@ -670,6 +680,7 @@ bool PreExecute::runOnConstructor(const Target* target, const std::string& tripl
     assert(currentEE && "failed to create execution engine!");
     currentEE->InstallStoreListener(StoreListener);
     currentEE->InstallAllocaListener(AllocaListener);
+    currentEE->InstallRetListener(RetListener);
     currentEE->InstallLazyFunctionCreator(LazyFunctionCreator);
 
     currentEE->runFunction(func, std::vector< GenericValue >());
@@ -714,6 +725,9 @@ bool PreExecute::runOnConstructor(const Target* target, const std::string& tripl
     delete currentEE;
 
     currentEE = NULL;
+
+    PreExecute::allocator.Reset();
+
     return Changed;
 }
 
