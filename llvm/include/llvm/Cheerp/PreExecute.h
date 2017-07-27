@@ -38,6 +38,7 @@ class PreExecute : public llvm::ModulePass
 public:
     static PreExecute *currentPreExecutePass;
     static char ID;
+    static llvm::BumpPtrAllocator allocator;
 
     llvm::ExecutionEngine *currentEE;
     llvm::Module *currentModule;
@@ -59,6 +60,11 @@ public:
         data.size = size;
         typedAllocations.insert(std::make_pair(buf, data));
     };
+    void releaseTypedAllocation(char* buf) {
+        auto it = typedAllocations.find(buf);
+        assert(it!=typedAllocations.end() && "There is no typed allocation recorded with this address");
+        typedAllocations.erase(it);
+    }
 private:
     llvm::Constant* findPointerFromGlobal(const llvm::DataLayout* DL,
             llvm::Type* memType, llvm::GlobalValue* GV, char* GlobalStartAddr,
