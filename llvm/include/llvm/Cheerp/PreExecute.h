@@ -12,6 +12,7 @@
 #ifndef _CHEERP_PREEXECUTE_H
 #define _CHEERP_PREEXECUTE_H
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -19,6 +20,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include <map>
+#include <vector>
+#include <memory>
 
 namespace cheerp
 {
@@ -33,15 +36,43 @@ public:
     AllocData() : globalValue(nullptr), allocType(nullptr), size(0) { }
 };
 
+class Allocator
+{
+    std::vector<std::unique_ptr<char[]>> allocations;
+    llvm::AddressMapBase& mapping;
+public:
+    Allocator(llvm::AddressMapBase& mapping): mapping(mapping) {}
+    void* allocate(size_t size)
+    {
+        auto memory = llvm::make_unique<char[]>(size);
+        void* ret = memory.get();
+        mapping.map(ret, size + 4);
+        allocations.push_back(std::move(memory));
+	  return ret;
+    }
+    void deallocate()
+    {
+        for (auto& a: allocations)
+        {
+            mapping.unmap(a.get());
+        }
+	  allocations.clear();
+    }
+    ~Allocator()
+    {
+        deallocate();
+    }
+};
+
 class PreExecute : public llvm::ModulePass
 {
 public:
     static PreExecute *currentPreExecutePass;
     static char ID;
-    static llvm::BumpPtrAllocator allocator;
 
     llvm::ExecutionEngine *currentEE;
     llvm::Module *currentModule;
+    std::unique_ptr<Allocator> allocator;
 
     std::map<llvm::GlobalVariable *, llvm::Constant *>  modifiedGlobals;
     std::map<char *, AllocData> typedAllocations;
@@ -51,7 +82,7 @@ public:
 
     const char* getPassName() const override;
     bool runOnModule(llvm::Module& m) override;
-    bool runOnConstructor(const llvm::Target* target, const std::string& triple, llvm::Module& m, llvm::Function* c);
+    bool runOnConstructor(llvm::Module& m, llvm::Function* c);
 
     void recordStore(void* Addr);
     void recordTypedAllocation(llvm::Type *type, size_t size, char *buf) {
