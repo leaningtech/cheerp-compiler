@@ -36,11 +36,14 @@ class BlockType
 public:
 	BLOCK_TYPE type;
 	uint32_t depth;
+	int32_t label;
 
-	BlockType(BLOCK_TYPE bt, uint32_t depth = 0)
+	BlockType(BLOCK_TYPE bt, uint32_t depth = 0, int32_t label = 0)
 	 :
+
 		type(bt),
-		depth(depth)
+		depth(depth),
+		label(label)
 	{}
 };
 
