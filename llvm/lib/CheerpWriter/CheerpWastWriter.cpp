@@ -293,6 +293,9 @@ void CheerpWastRenderInterface::renderBlock(const BasicBlock* bb)
 
 void CheerpWastRenderInterface::indent()
 {
+	if (writer->cheerpMode == CHEERP_MODE_WASM)
+		return;
+
 	for(uint32_t i=0;i<blockTypes.size();i++)
 		code << "  ";
 }
