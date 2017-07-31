@@ -21,7 +21,6 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/Allocator.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include <string.h>
 #include <algorithm>
@@ -35,8 +34,6 @@ static cl::opt<bool> PreExecuteMain("cheerp-preexecute-main", cl::desc("Run main
 namespace cheerp {
 
 PreExecute* PreExecute::currentPreExecutePass = NULL;
-
-BumpPtrAllocator PreExecute::allocator;
 
 const char* PreExecute::getPassName() const
 {
@@ -65,8 +62,7 @@ static GenericValue pre_execute_malloc(FunctionType *FT,
         const std::vector<GenericValue> &Args) {
     size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
     ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-    void* ret = PreExecute::allocator.Allocate(size,8);
-    currentEE->ValueAddresses->map(ret, size + 4);
+    void* ret = PreExecute::currentPreExecutePass->allocator->allocate(size);
 #ifdef DEBUG_PRE_EXECUTE
     llvm::errs() << "Allocating " << ret << " of size " << size << "\n";
 #endif
@@ -132,8 +128,7 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-  void* ret = PreExecute::allocator.Allocate(size,8);
-  currentEE->ValueAddresses->map(ret, size + 4);
+  void* ret = PreExecute::currentPreExecutePass->allocator->allocate(size);
   memset(ret, 0, size);
 
 #ifdef DEBUG_PRE_EXECUTE
@@ -151,8 +146,7 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   void *p = (void *)(currentEE->GVTORP(Args[0]));
   size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
-  void* ret = PreExecute::allocator.Allocate(size,8);
-  currentEE->ValueAddresses->map(ret, size + 4);
+  void* ret = PreExecute::currentPreExecutePass->allocator->allocate(size);
   memset(ret, 0, size);
   // Find out the old size
   auto it = PreExecute::currentPreExecutePass->typedAllocations.find((char*)p);
@@ -660,29 +654,15 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
     return NULL;
 }
 
-bool PreExecute::runOnConstructor(const Target* target, const std::string& triple, llvm::Module& m, llvm::Function* func)
+bool PreExecute::runOnConstructor( llvm::Module& m, llvm::Function* func)
 {
     bool Changed = false;
 
-    std::string error;
-    TargetMachine* machine;
-    machine = target->createTargetMachine(triple, "", "", TargetOptions());
-
-    std::unique_ptr<Module> uniqM(&m);
-
-    EngineBuilder builder(std::move(uniqM));
-    builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter);
-    builder.setOptLevel(CodeGenOpt::Default);
-    builder.setErrorStr(&error);
-    builder.setVerifyModules(true);
-
-    currentEE = builder.create(machine);
-    assert(currentEE && "failed to create execution engine!");
-    currentEE->InstallStoreListener(StoreListener);
-    currentEE->InstallAllocaListener(AllocaListener);
-    currentEE->InstallRetListener(RetListener);
-    currentEE->InstallLazyFunctionCreator(LazyFunctionCreator);
-
+    for (auto& GV: m.globals())
+    {
+        if (GV.hasInitializer())
+            currentEE->EmitGlobalVariable(&GV);
+    }
     currentEE->runFunction(func, std::vector< GenericValue >());
     if(currentEE->hasFailed())
     {
@@ -719,14 +699,7 @@ bool PreExecute::runOnConstructor(const Target* target, const std::string& tripl
     currentEE->printMemoryStats();
 #endif
 
-    bool removed = currentEE->removeModule(&m);
-    assert(removed && "failed to free the module from ExecutionEngine");
-
-    delete currentEE;
-
-    currentEE = NULL;
-
-    PreExecute::allocator.Reset();
+    allocator->deallocate();
 
     return Changed;
 }
@@ -741,6 +714,26 @@ bool PreExecute::runOnModule(Module& m)
     std::string error;
     std::string triple = sys::getDefaultTargetTriple();
     const Target *target = TargetRegistry::lookupTarget(triple, error);
+
+    TargetMachine* machine;
+    machine = target->createTargetMachine(triple, "", "", TargetOptions());
+
+    std::unique_ptr<Module> uniqM(&m);
+
+    EngineBuilder builder(std::move(uniqM));
+    builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter);
+    builder.setOptLevel(CodeGenOpt::Default);
+    builder.setErrorStr(&error);
+    builder.setVerifyModules(true);
+
+    currentEE = builder.create(machine);
+    assert(currentEE && "failed to create execution engine!");
+    currentEE->InstallStoreListener(StoreListener);
+    currentEE->InstallAllocaListener(AllocaListener);
+    currentEE->InstallRetListener(RetListener);
+    currentEE->InstallLazyFunctionCreator(LazyFunctionCreator);
+
+    allocator = make_unique<Allocator>(*currentEE->ValueAddresses);
 
     GlobalVariable * constructorVar = m.getGlobalVariable("llvm.global_ctors");
 
@@ -761,7 +754,7 @@ bool PreExecute::runOnModule(Module& m)
         {
             Constant *elem = cast<Constant>(*it);
             Function* func = cast<Function>(elem->getAggregateElement(1));
-            if(runOnConstructor(target, triple, m, func))
+            if(runOnConstructor(m, func))
                 Changed |= true;
             else
                 newConstructors.push_back(elem);
@@ -774,7 +767,7 @@ bool PreExecute::runOnModule(Module& m)
         if (!mainFunc)
             mainFunc = m.getFunction("main");
         assert(mainFunc && "unable to find main/webMain in module!");
-        if(runOnConstructor(target, triple, m, mainFunc))
+        if(runOnConstructor(m, mainFunc))
         {
             Changed |= true;
             mainFunc->eraseFromParent();
@@ -809,6 +802,13 @@ bool PreExecute::runOnModule(Module& m)
         }
     }
 
+    bool removed = currentEE->removeModule(&m);
+    assert(removed && "failed to free the module from ExecutionEngine");
+
+    allocator = nullptr;
+    delete currentEE;
+
+    currentEE = NULL;
     currentPreExecutePass = NULL;
     currentModule = NULL;
 
