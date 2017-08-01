@@ -1135,11 +1135,8 @@ void CheerpWastWriter::compileConstantExpr(std::ostream& code, const ConstantExp
 		{
 			CmpInst::Predicate p = (CmpInst::Predicate)ce->getPredicate();
 			compileOperand(code, ce->getOperand(0));
-			code << '\n';
 			compileOperand(code, ce->getOperand(1));
-			code << '\n';
-			code << getTypeString(ce->getOperand(0)->getType())
-				<< '.' << getIntegerPredicate(p);
+			encodePredicate(ce->getOperand(0)->getType(), p, code);
 			break;
 		}
 		case Instruction::PtrToInt:
@@ -1147,20 +1144,8 @@ void CheerpWastWriter::compileConstantExpr(std::ostream& code, const ConstantExp
 			compileOperand(code, ce->getOperand(0));
 			break;
 		}
-#if 0
-		case Instruction::Select:
-		{
-			compileSelect(ce, ce->getOperand(0), ce->getOperand(1), ce->getOperand(2), HIGHEST);
-			break;
-		}
-		case Instruction::Sub:
-		{
-			compileSubtraction(ce->getOperand(0), ce->getOperand(1), HIGHEST);
-			break;
-		}
-#endif
 		default:
-			code << "undefined";
+			encodeInst(0x00, "unreachable", code);
 			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
 	}
 }
