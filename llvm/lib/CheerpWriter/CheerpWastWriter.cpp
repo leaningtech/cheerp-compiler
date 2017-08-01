@@ -1066,15 +1066,14 @@ void CheerpWastWriter::compileSignedInteger(std::ostream& code, const llvm::Valu
 	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
+		int32_t value = C->getSExtValue();
 		if(forComparison)
-			code << "i32.const " << (C->getSExtValue() << shiftAmount) << '\n';
-		else
-			code << "i32.const " << C->getSExtValue() << '\n';
+			value <<= shiftAmount;
+		encodeS32Inst(0x41, "i32.const", value, code);
 		return;
 	}
 
 	compileOperand(code, v);
-	code << '\n';
 
 	if (shiftAmount == 0)
 		return;
@@ -1082,15 +1081,15 @@ void CheerpWastWriter::compileSignedInteger(std::ostream& code, const llvm::Valu
 	if (forComparison)
 	{
 		// When comparing two signed values we can avoid the right shift
-		code << "i32.const " << shiftAmount << '\n';
-		code << "i32.shl\n";
+		encodeS32Inst(0x41, "i32.const", shiftAmount, code);
+		encodeInst(0x74, "i32.shl", code);
 	}
 	else
 	{
-		code << "i32.const " << shiftAmount << '\n';
-		code << "i32.shl\n";
-		code << "i32.const " << shiftAmount << '\n';
-		code << "i32.shr_s\n";
+		encodeS32Inst(0x41, "i32.const", shiftAmount, code);
+		encodeInst(0x74, "i32.shl", code);
+		encodeS32Inst(0x41, "i32.const", shiftAmount, code);
+		encodeInst(0x75, "i32.shr_s", code);
 	}
 }
 
@@ -1098,18 +1097,17 @@ void CheerpWastWriter::compileUnsignedInteger(std::ostream& code, const llvm::Va
 {
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
-		code << "i32.const " << C->getZExtValue() << '\n';
+		encodeS32Inst(0x41, "i32.const", C->getZExtValue(), code);
 		return;
 	}
 
 	compileOperand(code, v);
-	code << '\n';
 
 	uint32_t initialSize = v->getType()->getIntegerBitWidth();
 	if(initialSize != 32)
 	{
-		code << "i32.const " << getMaskForBitWidth(initialSize) << '\n';
-		code << "i32.and\n";
+		encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(initialSize), code);
+		encodeInst(0x71, "i32.and", code);
 	}
 }
 
