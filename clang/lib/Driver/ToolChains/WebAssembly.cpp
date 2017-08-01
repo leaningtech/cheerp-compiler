@@ -474,7 +474,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   ArgStringList CmdArgs;
 
   Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ);
-  if(CheerpMode && (CheerpMode->getValue() == StringRef("wast") || CheerpMode->getValue() == StringRef("wasm")))
+  if(CheerpMode && CheerpMode->getValue() == StringRef("wasm"))
+    CmdArgs.push_back("-march=cheerp-wasm");
+  else if(CheerpMode && CheerpMode->getValue() == StringRef("wast"))
     CmdArgs.push_back("-march=cheerp-wast");
   else
     CmdArgs.push_back("-march=cheerp");
