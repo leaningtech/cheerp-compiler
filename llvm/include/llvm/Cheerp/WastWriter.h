@@ -83,6 +83,7 @@ private:
 	void compileTableSection();
 	void compileMemoryAndGlobalSection();
 	void compileStartSection();
+	void compileElementSection();
 	void compileCodeSection();
 	void compileDataSection();
 
