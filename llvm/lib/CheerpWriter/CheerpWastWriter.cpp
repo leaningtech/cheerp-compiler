@@ -1603,24 +1603,28 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			const CmpInst& ci = cast<CmpInst>(I);
 			if (ci.getPredicate() == CmpInst::FCMP_ORD)
 			{
-				assert(ci.getOperand(0)->getType() == ci.getOperand(1)->getType());
+				Type* ty = ci.getOperand(0)->getType();
+				assert(ty->isDoubleTy() || ty->isFloatTy());
+				assert(ty == ci.getOperand(1)->getType());
 
 				// Check if both operands are equal to itself. A nan-value is
 				// never equal to itself. Use a logical and operator for the
 				// resulting comparison.
 				compileOperand(code, ci.getOperand(0));
-				code << '\n';
 				compileOperand(code, ci.getOperand(0));
-				code << '\n';
-				code << getTypeString(ci.getOperand(0)->getType()) << ".eq\n";
+				if (ty->isDoubleTy())
+					encodeInst(0x61, "f64.eq", code);
+				else
+					encodeInst(0x5b, "f32.eq", code);
 
 				compileOperand(code, ci.getOperand(1));
-				code << '\n';
 				compileOperand(code, ci.getOperand(1));
-				code << '\n';
-				code << getTypeString(ci.getOperand(1)->getType()) << ".eq\n";
+				if (ty->isDoubleTy())
+					encodeInst(0x61, "f64.eq", code);
+				else
+					encodeInst(0x5b, "f32.eq", code);
 
-				code << "i32.and\n";
+				encodeInst(0x71, "i32.and", code);
 			} else {
 				compileOperand(code, ci.getOperand(0));
 				compileOperand(code, ci.getOperand(1));
