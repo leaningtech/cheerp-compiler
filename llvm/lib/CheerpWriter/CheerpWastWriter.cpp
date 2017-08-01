@@ -1663,17 +1663,23 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			// No FRem in wasm, implement manually
 			// frem x, y -> fsub (x, fmul( ftrunc ( fdiv (x, y) ), y ) )
 			compileOperand(code, I.getOperand(0));
-			code << '\n';
 			compileOperand(code, I.getOperand(0));
-			code << '\n';
 			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".div\n";
-			code << getTypeString(I.getType()) << ".trunc\n";
+#define BINOPF(name, f32, f64) \
+			if (I.getType()->isFloatTy()) { \
+				encodeInst(f32, "f32."#name, code); \
+			} \
+			else if (I.getType()->isDoubleTy()) { \
+				encodeInst(f64, "f64."#name, code); \
+			} else { \
+				assert(false); \
+			}
+			BINOPF(  div, 0x95, 0xa3)
+			BINOPF(trunc, 0x8f, 0x9d)
 			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".mul\n";
-			code << getTypeString(I.getType()) << ".sub";
+			BINOPF(  mul, 0x94, 0xa2)
+			BINOPF(  sub, 0x93, 0xa1)
+#undef BINOPF
 			break;
 		}
 		case Instruction::GetElementPtr:
