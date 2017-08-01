@@ -895,6 +895,42 @@ void CheerpWastWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 	}
 }
 
+void CheerpWastWriter::encodeLoad(const llvm::Type* ty, std::ostream& code)
+{
+	if(ty->isIntegerTy())
+	{
+		uint32_t bitWidth = ty->getIntegerBitWidth();
+		if(bitWidth == 1)
+			bitWidth = 8;
+
+		// TODO add support for i64.
+		switch (bitWidth)
+		{
+			// Currently assume unsigned, like Cheerp. We may optimize
+			// this be looking at a following sext or zext instruction.
+			case 8:
+				encodeU32U32Inst(0x2d, "i32.load8_u", 0x0, 0x0, code);
+				break;
+			case 16:
+				encodeU32U32Inst(0x2f, "i32.load16_u", 0x1, 0x0, code);
+				break;
+			case 32:
+				encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
+				break;
+			default:
+				llvm::errs() << "bit width: " << bitWidth << '\n';
+				llvm_unreachable("unknown integer bit width");
+		}
+	} else {
+		if (ty->isFloatTy())
+			encodeU32U32Inst(0x2a, "f32.load", 0x2, 0x0, code);
+		else if (ty->isDoubleTy())
+			encodeU32U32Inst(0x2b, "f64.load", 0x3, 0x0, code);
+		else
+			encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
+	}
+}
+
 bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
 {
 	const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
