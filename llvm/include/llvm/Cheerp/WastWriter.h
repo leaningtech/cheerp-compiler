@@ -130,7 +130,8 @@ public:
 			const LinearMemoryHelper& linearHelper,
 			llvm::LLVMContext& C,
 			unsigned heapSize,
-			bool useWastLoader):
+			bool useWastLoader,
+			CheerpMode cheerpMode):
 		module(m),
 		targetData(&m),
 		currentFun(NULL),
@@ -143,7 +144,7 @@ public:
 		stackTopGlobal(0),
 		heapSize(heapSize),
 		useWastLoader(useWastLoader),
-		cheerpMode(CHEERP_MODE_WASM),
+		cheerpMode(cheerpMode),
 		stream(s)
 	{
 	}

@@ -39,6 +39,7 @@ static MCAsmInfo *createCheerpWastMCAsmInfo(const MCRegisterInfo &T, StringRef T
 extern "C" void LLVMInitializeCheerpWastBackendTargetMC() {
   // Register the MC asm info.
   RegisterMCAsmInfoFn A(TheCheerpWastBackendTarget, createCheerpWastMCAsmInfo);
+  RegisterMCAsmInfoFn B(TheCheerpWasmBackendTarget, createCheerpWastMCAsmInfo);
 }
 
 } // namespace llvm
