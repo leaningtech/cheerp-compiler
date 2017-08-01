@@ -1058,7 +1058,7 @@ void CheerpWastWriter::compileGEP(std::ostream& code, const llvm::User* gep_inst
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
 	compileOperand(code, p);
 	if(!gepWriter.first)
-		code << "\ni32.add";
+		encodeInst(0x6a, "i32.add", code);
 }
 
 void CheerpWastWriter::compileSignedInteger(std::ostream& code, const llvm::Value* v, bool forComparison)
@@ -2664,22 +2664,21 @@ void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
 {
 	writer.compileOperand(code, v);
-	code << '\n';
 	if(size != 1)
 	{
-		code << "i32.const " << size << '\n';
-		code << "i32.mul\n";
+		writer.encodeS32Inst(0x41, "i32.const", size, code);
+		writer.encodeInst(0x6c, "i32.mul", code);
 	}
 	if(!first)
-		code << "i32.add\n";
+		writer.encodeInst(0x6a, "i32.add", code);
 	first = false;
 }
 
 void CheerpWastWriter::WastGepWriter::addConst(uint32_t v)
 {
 	assert(v);
-	code << "i32.const " << v << '\n';
+	writer.encodeS32Inst(0x41, "i32.const", v, code);
 	if(!first)
-		code << "i32.add\n";
+		writer.encodeInst(0x6a, "i32.add", code);
 	first = false;
 }
