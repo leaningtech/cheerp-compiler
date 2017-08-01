@@ -1581,10 +1581,10 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 					const auto& table = linearHelper.getFunctionTables().at(fTy);
 					compileOperand(code, calledValue);
 					if (cheerpMode == CHEERP_MODE_WASM) {
-						assert(table.typeIndex < linearHelper.getFunctionTables().size());
 						encodeU32U32Inst(0x11, "call_indirect", table.typeIndex, 0, code);
 					} else {
-						code << "call_indirect $vt_" << table.name << '\n';
+						//code << "call_indirect $vt_" << table.name << '\n';
+						code << "call_indirect " << table.typeIndex << '\n';
 					}
 				}
 				else
@@ -1909,7 +1909,7 @@ void CheerpWastWriter::compileBB(std::ostream& code, const BasicBlock& BB)
 	{
 		if(isInlineable(*I, PA))
 			continue;
-		if(I->getOpcode()==Instruction::PHI) //Phys are manually handled
+		if(I->getOpcode()==Instruction::PHI) //Phis are manually handled
 			continue;
 		if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&(*I)))
 		{
@@ -1940,10 +1940,12 @@ void CheerpWastWriter::compileBB(std::ostream& code, const BasicBlock& BB)
 		{
 			if(!compileInstruction(code, *I) && !I->getType()->isVoidTy())
 			{
-				if(I->use_empty())
-					code << "\ndrop\n";
-				else
-					code << "\nset_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(I)) << '\n';
+				if(I->use_empty()) {
+					encodeInst(0x1a, "drop", code);
+				} else {
+					uint32_t local = 1 + currentFun->arg_size() + registerize.getRegisterId(I);
+					encodeU32Inst(0x21, "set_local", local, code);
+				}
 			}
 		}
 	}
@@ -1978,7 +1980,7 @@ void CheerpWastWriter::compileMethodLocals(std::ostream& code, const Function& F
 
 			if (regInfo.regKind != lastKind) {
 				encodeULEB128(count, locals);
-				encodeRegisterKind(regInfo.regKind, locals);
+				encodeRegisterKind(lastKind, locals);
 				pairs++;
 
 				lastKind = regInfo.regKind;
@@ -2101,43 +2103,35 @@ void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
 	uint32_t numArgs = F.arg_size();
 	const llvm::BasicBlock* lastDepth0Block = nullptr;
 
-	if(F.size() == 1)
+	Relooper* rl = nullptr;
+	bool needsLabel = false;
+
+	if (F.size() != 1) {
+		rl = CheerpWriter::runRelooperOnFunction(F, PA, registerize);
+		needsLabel = rl->needsLabel();
+	}
+
+	compileMethodLocals(code, F, needsLabel);
+
+	// TODO: Only save the stack address if required
+	encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
+	encodeU32Inst(0x21, "set_local", numArgs, code);
+
+	if (F.size() == 1)
 	{
-		compileMethodLocals(code, F, false);
-
-		if (cheerpMode == CHEERP_MODE_WAST)
-		{
-			// TODO: Only save the stack address if required
-			code << "get_global " << stackTopGlobal << '\n';
-			code << "set_local " << numArgs << "\n";
-
-			compileBB(code, *F.begin());
-			lastDepth0Block = &(*F.begin());
-		}
+		compileBB(code, *F.begin());
+		lastDepth0Block = &(*F.begin());
 	}
 	else
 	{
-		Relooper* rl = CheerpWriter::runRelooperOnFunction(F, PA, registerize);
-		compileMethodLocals(code, F, rl->needsLabel());
-
-		if (cheerpMode == CHEERP_MODE_WAST)
-		{
-			// TODO: Only save the stack address if required
-			code << "get_global " << stackTopGlobal << '\n';
-			code << "set_local " << numArgs << "\n";
-		}
-
 		const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 		uint32_t numRegs = regsInfo.size();
 
 		// label is the very last local
 		CheerpWastRenderInterface ri(this, code, 1 + numArgs + numRegs);
 
-		if (cheerpMode == CHEERP_MODE_WAST)
-		{
-			rl->Render(&ri);
-			lastDepth0Block = ri.lastDepth0Block;
-		}
+		rl->Render(&ri);
+		lastDepth0Block = ri.lastDepth0Block;
 	}
 
 	// A function has to terminate with a return instruction
@@ -2146,10 +2140,6 @@ void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
 		// Add a fake return
 		if(!F.getReturnType()->isVoidTy())
 		{
-#if WASM_DUMP_METHODS
-			llvm::errs() << "return type: "; F.getReturnType()->dump();
-#endif
-
 			if (cheerpMode == CHEERP_MODE_WASM) {
 				// Encode a literal f64, f32 or i32 zero as the return value.
 				encodeLiteralType(F.getReturnType(), code);
@@ -2420,7 +2410,7 @@ void CheerpWastWriter::compileCodeSection()
 #endif
 			compileMethod(method, F);
 			std::string buf = method.str();
-#if WASM_DUMP_METHODS
+#if WASM_DUMP_METHOD_DATA
 			llvm::errs() << "method length: " << buf.size() << '\n';
 			llvm::errs() << "method: " << string_to_hex(buf) << '\n';
 #endif
