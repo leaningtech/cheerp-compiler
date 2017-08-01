@@ -1976,7 +1976,7 @@ void CheerpWastWriter::compileBB(std::ostream& code, const BasicBlock& BB)
 
 		// Display file and line markers in WAST for debugging purposes
 		const llvm::DebugLoc& debugLoc = I->getDebugLoc();
-		if (!debugLoc.isUnknown()) {
+		if (!debugLoc.isUnknown() && cheerpMode == CHEERP_MODE_WAST) {
 			MDNode* file = debugLoc.getScope(Ctx);
 			assert(file);
 			assert(file->getNumOperands()>=2);
