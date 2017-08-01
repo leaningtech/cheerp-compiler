@@ -38,17 +38,19 @@ using namespace llvm;
 extern "C" void LLVMInitializeCheerpWastBackendTarget() {
   // Register the target.
   RegisterTargetMachine<CheerpWastTargetMachine> X(TheCheerpWastBackendTarget);
+  RegisterTargetMachine<CheerpWasmTargetMachine> Y(TheCheerpWasmBackendTarget);
 }
 
 namespace {
   class CheerpWastWritePass : public ModulePass {
   private:
     formatted_raw_ostream &Out;
+    cheerp::CheerpMode cheerpMode;
     static char ID;
     void getAnalysisUsage(AnalysisUsage& AU) const;
   public:
-    explicit CheerpWastWritePass(formatted_raw_ostream &o) :
-      ModulePass(ID), Out(o) { }
+    explicit CheerpWastWritePass(formatted_raw_ostream &o, cheerp::CheerpMode cheerpMode) :
+      ModulePass(ID), Out(o), cheerpMode(cheerpMode) { }
     bool runOnModule(Module &M);
     const char *getPassName() const {
 	return "CheerpWastWritePass";
@@ -66,7 +68,8 @@ bool CheerpWastWritePass::runOnModule(Module& M)
   PA.computeConstantOffsets(M);
   registerize.assignRegisters(M, PA);
   cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA, linearHelper,
-                                  M.getContext(), CheerpHeapSize, !WastLoader.empty());
+                                  M.getContext(), CheerpHeapSize, !WastLoader.empty(),
+                                  cheerpMode);
   writer.makeWast();
   if (!WastLoader.empty())
   {
@@ -189,7 +192,7 @@ char CallGlobalConstructorsOnStartPass::ID = 0;
 //                       External Interface declaration
 //===----------------------------------------------------------------------===//
 
-bool CheerpWastTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
+bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            formatted_raw_ostream &o,
                                            CodeGenFileType FileType,
                                            bool DisableVerify,
@@ -210,6 +213,16 @@ bool CheerpWastTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(cheerp::createAllocaArraysMergingPass());
   PM.add(createDelayAllocasPass());
   PM.add(createRemoveFwdBlocksPass());
-  PM.add(new CheerpWastWritePass(o));
+  PM.add(createCheerpWritePass(o));
   return false;
+}
+
+ModulePass* CheerpWastTargetMachine::createCheerpWritePass(formatted_raw_ostream& o)
+{
+	return new CheerpWastWritePass(o, cheerp::CHEERP_MODE_WAST);
+}
+
+ModulePass* CheerpWasmTargetMachine::createCheerpWritePass(formatted_raw_ostream& o)
+{
+	return new CheerpWastWritePass(o, cheerp::CHEERP_MODE_WASM);
 }

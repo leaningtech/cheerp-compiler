@@ -15,8 +15,11 @@
 using namespace llvm;
 
 Target llvm::TheCheerpWastBackendTarget;
+Target llvm::TheCheerpWasmBackendTarget;
 
 extern "C" void LLVMInitializeCheerpWastBackendTargetInfo() { 
   RegisterTarget<Triple::cheerp, /*HasJIT=*/false>
     X(TheCheerpWastBackendTarget, "cheerp-wast", "Cheerp wast client side backend");
+  RegisterTarget<Triple::cheerp, /*HasJIT=*/false>
+    Y(TheCheerpWasmBackendTarget, "cheerp-wasm", "Cheerp wasm client side backend");
 }
