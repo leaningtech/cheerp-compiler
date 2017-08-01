@@ -321,9 +321,8 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 			++it;
 		const BasicBlock* dest=it.getCaseSuccessor();
 		writer->compileOperand(code, si->getCondition());
-		code << '\n';
 		writer->compileOperand(code, it.getCaseValue());
-		code << "\ni32.eq";
+		writer->encodeInst(0x46, "i32.eq", code);
 		//We found the destination, there may be more cases for the same
 		//destination though
 		for(++it;it!=si->case_end();++it)
@@ -331,11 +330,10 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 			if(it.getCaseSuccessor()==dest)
 			{
 				//Also add this condition
-				code << '\n';
 				writer->compileOperand(code, si->getCondition());
-				code << '\n';
 				writer->compileOperand(code, it.getCaseValue());
-				code << "\ni32.eq\ni32.or";
+				writer->encodeInst(0x46, "i32.eq", code);
+				writer->encodeInst(0x72, "i32.or", code);
 			}
 		}
 	}
@@ -348,8 +346,11 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 
 void CheerpWastRenderInterface::renderLabelForSwitch(int labelId)
 {
-	code << "block $" << labelId << '\n';
-	blockTypes.emplace_back(LABEL_FOR_SWITCH, 1);
+	if (writer->cheerpMode == CHEERP_MODE_WASM)
+		writer->encodeU32Inst(0x02, "block", 0x40, code);
+	else
+		code << "block $" << labelId << '\n';
+	blockTypes.emplace_back(LABEL_FOR_SWITCH, 1, labelId);
 }
 
 void CheerpWastRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
@@ -379,27 +380,35 @@ void CheerpWastRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 	}
 
 	for (uint32_t i = 0; i < idShapeMap.size() + 1; i++)
-		code << "block\n";
+		writer->encodeU32Inst(0x02, "block", 0x40, code);
 
 	// Wrap the br_table instruction in its own block
-	code << "block\n";
-	code << "get_local " << labelLocal;
+	writer->encodeU32Inst(0x02, "block", 0x40, code);
+	writer->encodeU32Inst(0x20, "get_local", labelLocal, code);
 	if (min != 0)
 	{
-		code << "\ni32.const " << min;
-		code << "\ni32.sub";
+		writer->encodeS32Inst(0x41, "i32.const", min, code);
+		writer->encodeInst(0x6b, "i32.sub", code);
 	}
-	code << "\nbr_table";
 
-	for (auto label : table)
-		code << " " << label;
-	code << " 0\n";
+	if (writer->cheerpMode == CHEERP_MODE_WASM) {
+		writer->encodeInst(0x0e, "br_table", code);
+		encodeULEB128(table.size(), code);
+		for (auto label : table)
+			encodeULEB128(label, code);
+		encodeULEB128(0, code);
+	} else {
+		code << "br_table";
+		for (auto label : table)
+			code << " " << label;
+		code << " 0\n";
+	}
 
-	code << "\nend\n";
+	writer->encodeInst(0x0b, "end", code);
 
 	// The first block does not do anything, and breaks out of the switch.
-	code << "br " << idShapeMap.size() << "\n";
-	code << "\nend\n";
+	writer->encodeU32Inst(0x0c, "br", idShapeMap.size(), code);
+	writer->encodeInst(0x0b, "end", code);
 
 	blockTypes.emplace_back(SWITCH, idShapeMap.size());
 }
@@ -486,24 +495,32 @@ void CheerpWastRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 
 	// Print the case blocks and the default block.
 	for (uint32_t i = 0; i < caseBlocks + 1; i++)
-		code << "block\n";
+		writer->encodeU32Inst(0x02, "block", 0x40, code);
 
 	// Wrap the br_table instruction in its own block.
-	code << "block\n";
+	writer->encodeU32Inst(0x02, "block", 0x40, code);
 	writer->compileOperand(code, si->getCondition());
 	if (min != 0)
 	{
-		code << "\ni32.const " << min;
-		code << "\ni32.sub";
+		writer->encodeS32Inst(0x41, "i32.const", min, code);
+		writer->encodeInst(0x6b, "i32.sub", code);
 	}
-	code << "\nbr_table";
 
 	// Print the case labels and the default label.
-	for (auto label : table)
-		code << " " << label;
-	code << " " << caseBlocks << "\n";
+	if (writer->cheerpMode == CHEERP_MODE_WASM) {
+		writer->encodeInst(0x0e, "br_table", code);
+		encodeULEB128(table.size(), code);
+		for (auto label : table)
+			encodeULEB128(label, code);
+		encodeULEB128(caseBlocks, code);
+	} else {
+		code << "br_table";
+		for (auto label : table)
+			code << " " << label;
+		code << " " << caseBlocks << "\n";
+	}
 
-	code << "end\n";
+	writer->encodeInst(0x0b, "end", code);
 
 	blockTypes.emplace_back(SWITCH, caseBlocks + 1);
 }
@@ -527,13 +544,12 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int bra
 	if(!first)
 	{
 		indent();
-		code << "else\n";
+		writer->encodeInst(0x05, "else", code);
 	}
 	// The condition goes first
 	renderCondition(bb, branchId);
-	code << '\n';
 	indent();
-	code << "if\n";
+	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	if(first)
 	{
 		blockTypes.emplace_back(IF, 1);
@@ -550,7 +566,7 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const s
 	if(!first)
 	{
 		indent();
-		code << "else\n";
+		writer->encodeInst(0x05, "else", code);
 	}
 	// The condition goes first
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
@@ -560,13 +576,12 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const s
 			assert(false);
 		}
 		renderCondition(bb, skipBranchIds[i]);
-		code << '\n';
 	}
 	// Invert result
-	code << "i32.const 1\n";
-	code << "i32.xor\n";
+	writer->encodeS32Inst(0x41, "i32.const", 1, code);
+	writer->encodeInst(0x73, "i32.xor", code);
 	indent();
-	code << "if\n";
+	writer->encodeU32Inst(0x04, "if", 0x40, code);
 
 	if(first)
 	{
@@ -585,7 +600,7 @@ void CheerpWastRenderInterface::renderElseBlockBegin()
 	assert(blockTypes.back().type == IF);
 
 	indent();
-	code << "else\n";
+	writer->encodeInst(0x05, "else", code);
 }
 
 void CheerpWastRenderInterface::renderBlockEnd()
@@ -597,14 +612,14 @@ void CheerpWastRenderInterface::renderBlockEnd()
 	if(block.type == WHILE1)
 	{
 		// TODO: Why do we even need to fake value
-		code << "i32.const 0\n";
-		code << "br 1\n";
-		code << "end\n";
-		code << "end\n";
+		writer->encodeS32Inst(0x41, "i32.const", 0, code);
+		writer->encodeU32Inst(0x0c, "br", 1, code);
+		writer->encodeInst(0x0b, "end", code);
+		writer->encodeInst(0x0b, "end", code);
 	}
 	else if (block.type == CASE)
 	{
-		code << "end\n";
+		writer->encodeInst(0x0b, "end", code);
 		BlockType* switchBlock = findSwitchBlockType(blockTypes);
 		assert(switchBlock->depth > 0);
 		switchBlock->depth--;
@@ -614,7 +629,7 @@ void CheerpWastRenderInterface::renderBlockEnd()
 		for(uint32_t i = 0; i < block.depth; i++)
 		{
 			indent();
-			code << "end\n";
+			writer->encodeInst(0x0b, "end", code);
 		}
 	}
 	else if (block.type == SWITCH)
@@ -622,7 +637,7 @@ void CheerpWastRenderInterface::renderBlockEnd()
 		assert(block.depth == 0);
 		if (!blockTypes.empty() && blockTypes.back().type == LABEL_FOR_SWITCH) {
 			blockTypes.pop_back();
-			code << "end\n";
+			writer->encodeInst(0x0b, "end", code);
 		}
 	}
 	else
@@ -642,10 +657,11 @@ void CheerpWastRenderInterface::renderWhileBlockBegin()
 	// br 1 -> break
 	// br 2 -> continue
 	indent();
-	code << "loop\n";
+	writer->encodeU32Inst(0x03, "loop", 0x40, code);
 	indent();
-	code << "block\n";
-	blockTypes.emplace_back(WHILE1, 1);
+	writer->encodeU32Inst(0x02, "block", 0x40, code);
+
+	blockTypes.emplace_back(WHILE1, 2);
 }
 
 void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
@@ -654,24 +670,39 @@ void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
 	// br 1 -> break
 	// br 2 -> continue
 	indent();
-	code << "loop $c" << blockLabel << "\n";
+
+	if (writer->cheerpMode == CHEERP_MODE_WASM)
+		writer->encodeU32Inst(0x03, "loop", 0x40, code);
+	else
+		code << "loop $c" << blockLabel << "\n";
+
 	indent();
-	code << "block $" << blockLabel << "\n";
-	blockTypes.emplace_back(WHILE1, 1);
+
+	if (writer->cheerpMode == CHEERP_MODE_WASM)
+		writer->encodeU32Inst(0x02, "block", 0x40, code);
+	else
+		code << "block $" << blockLabel << "\n";
+
+	blockTypes.emplace_back(WHILE1, 2, blockLabel);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin()
 {
 	indent();
-	code << "block\n";
+	writer->encodeU32Inst(0x02, "block", 0x40, code);
 	blockTypes.emplace_back(DO, 1);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin(int blockLabel)
 {
 	indent();
-	code << "block $" << blockLabel << "\n";
-	blockTypes.emplace_back(DO, 1);
+
+	if (writer->cheerpMode == CHEERP_MODE_WASM)
+		writer->encodeU32Inst(0x02, "block", 0x40, code);
+	else
+		code << "block $" << blockLabel << "\n";
+
+	blockTypes.emplace_back(DO, 1, blockLabel);
 }
 
 void CheerpWastRenderInterface::renderDoBlockEnd()
@@ -681,7 +712,7 @@ void CheerpWastRenderInterface::renderDoBlockEnd()
 	blockTypes.pop_back();
 
 	indent();
-	code << "end\n";
+	writer->encodeInst(0x0b, "end", code);
 }
 
 void CheerpWastRenderInterface::renderBreak()
@@ -691,7 +722,7 @@ void CheerpWastRenderInterface::renderBreak()
 	{
 		BlockType* switchBlock = findSwitchBlockType(blockTypes);
 		assert(switchBlock->depth > 0);
-		code << "br " << (switchBlock->depth - 1) << "\n";
+		writer->encodeU32Inst(0x0c, "br", switchBlock->depth - 1, code);
 	}
 	else
 	{
@@ -701,19 +732,31 @@ void CheerpWastRenderInterface::renderBreak()
 		{
 			BLOCK_TYPE bt = blockTypes[blockTypes.size() - i - 1].type;
 			breakIndex += blockTypes[blockTypes.size() - i - 1].depth;
+			if (bt == WHILE1)
+				breakIndex -= 1;
 			if (bt == DO || bt == WHILE1 || bt == SWITCH)
 				break;
 		}
 		assert(breakIndex > 1);
-		code << "br " << (breakIndex - 1) << "\n";
+		writer->encodeU32Inst(0x0c, "br", breakIndex - 1, code);
 	}
 }
 
 void CheerpWastRenderInterface::renderBreak(int labelId)
 {
-	// DO blocks only have one label
-	// WHILE1 blocks have the "block" without a prefix
-	code << "br $" << labelId << '\n';
+	uint32_t breakIndex = 0;
+	uint32_t i = 0;
+	for (; i < blockTypes.size(); i++)
+	{
+		BlockType& block = blockTypes[blockTypes.size() - i - 1];
+
+		if (block.label == labelId)
+			break;
+
+		breakIndex += block.depth;
+	}
+	assert(i < blockTypes.size() && "cannot find labelId in block types");
+	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
 }
 
 void CheerpWastRenderInterface::renderContinue()
@@ -729,28 +772,41 @@ void CheerpWastRenderInterface::renderContinue()
 		breakIndex += blockTypes[blockTypes.size() - i - 1].depth;
 	}
 	breakIndex += 1;
-	code << "br " << breakIndex << "\n";
+	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
 }
 
 void CheerpWastRenderInterface::renderContinue(int labelId)
 {
-	code << "br $c" << labelId << '\n';
+	uint32_t breakIndex = 0;
+	uint32_t i = 0;
+	for (; i < blockTypes.size(); i++)
+	{
+		BlockType& block = blockTypes[blockTypes.size() - i - 1];
+
+		if (block.label == labelId)
+			break;
+
+		breakIndex += block.depth;
+	}
+	assert(i < blockTypes.size() && "cannot find labelId in block types");
+	breakIndex += 1;
+	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
 }
 
 void CheerpWastRenderInterface::renderLabel(int labelId)
 {
-	code << "i32.const " << labelId << '\n';
-	code << "set_local " << labelLocal << '\n';
+	writer->encodeS32Inst(0x41, "i32.const", labelId, code);
+	writer->encodeU32Inst(0x21, "set_local", labelLocal, code);
 }
 
 void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
 {
 	// TODO: Use first to optimize dispatch
-	code << "i32.const " << labelId << '\n';
-	code << "get_local " << labelLocal << '\n';
-	code << "i32.eq\n";
+	writer->encodeS32Inst(0x41, "i32.const", labelId, code);
+	writer->encodeU32Inst(0x20, "get_local", labelLocal, code);
+	writer->encodeInst(0x46, "i32.eq", code);
 	indent();
-	code << "if\n";
+	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	blockTypes.emplace_back(IF, 1);
 }
 
