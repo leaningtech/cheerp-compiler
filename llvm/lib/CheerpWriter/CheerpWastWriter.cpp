@@ -2366,15 +2366,52 @@ void CheerpWastWriter::compileStartSection()
 	if(!entry)
 		return;
 
-	Section section(0x08, "Start", this);
-
 	uint32_t functionId = linearHelper.getFunctionIds().at(entry);
+	if (functionId >= COMPILE_METHOD_LIMIT)
+		return;
+
+	Section section(0x08, "Start", this);
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
 		encodeULEB128(functionId, section);
 	} else {
 		section << "(start " << functionId << ")\n";
 	}
+}
+
+void CheerpWastWriter::compileElementSection()
+{
+	if (cheerpMode == CHEERP_MODE_WAST)
+		return;
+
+	Section section(0x09, "Element", this);
+
+	// There is only one element segment.
+	encodeULEB128(1, section);
+
+	// The table index is 0 in the MVP.
+	encodeULEB128(0, section);
+
+	// The offset into memory, which is the address.
+	int32_t offset = 0;
+	encodeLiteralType(Type::getInt32Ty(Ctx), section);
+	encodeSLEB128(offset, section);
+	// Encode the end of the instruction sequence.
+	encodeULEB128(0x0b, section);
+
+	// Encode the sequence of function indices.
+	std::stringstream elem;
+	size_t count = 0;
+	for (const auto& table : linearHelper.getFunctionTables()) {
+		for (const auto& F : table.second.functions) {
+			uint32_t idx = linearHelper.getFunctionIds().at(F);
+			encodeULEB128(idx, elem);
+			count++;
+		}
+	}
+	std::string buf = elem.str();
+	encodeULEB128(count, section);
+	section << buf;
 }
 
 void CheerpWastWriter::compileCodeSection()
@@ -2511,7 +2548,7 @@ void CheerpWastWriter::compileModule()
 
 	compileStartSection();
 
-	// TODO compileElementSection();
+	compileElementSection();
 
 	compileCodeSection();
 
