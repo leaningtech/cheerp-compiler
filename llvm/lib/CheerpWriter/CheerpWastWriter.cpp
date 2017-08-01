@@ -1158,42 +1158,55 @@ void CheerpWastWriter::compileConstant(std::ostream& code, const Constant* c)
 	}
 	else if(const ConstantInt* i=dyn_cast<ConstantInt>(c))
 	{
-		code << getTypeString(i->getType()) << ".const ";
-		if(i->getBitWidth()==32)
-			code << i->getSExtValue();
+		assert(i->getType()->isIntegerTy() && i->getBitWidth() <= 32);
+		if (i->getBitWidth() == 32)
+			encodeS32Inst(0x41, "i32.const", i->getSExtValue(), code);
 		else
-			code << i->getZExtValue();
+			encodeS32Inst(0x41, "i32.const", i->getZExtValue(), code);
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
-		code << getTypeString(f->getType()) << ".const ";
-		if(f->getValueAPF().isInfinity())
-		{
-			if(f->getValueAPF().isNegative())
-				code << '-';
-			code << "inf";
-		}
-		else if(f->getValueAPF().isNaN())
-		{
-			code << "nan";
-		}
-		else
-		{
-			APFloat apf = f->getValueAPF();
-			char buf[40];
-			// TODO: Figure out the right amount of hexdigits
-			unsigned charCount = apf.convertToHexString(buf, f->getType()->isFloatTy() ? 8 : 16, false, APFloat::roundingMode::rmNearestTiesToEven);
-			assert(charCount < 40);
-			code << buf;
+		if (cheerpMode == CHEERP_MODE_WASM) {
+			encodeLiteralType(c->getType(), code);
+			if (c->getType()->isDoubleTy()) {
+				encodeF64(f->getValueAPF().convertToDouble(), code);
+			} else {
+				assert(c->getType()->isFloatTy());
+				encodeF32(f->getValueAPF().convertToFloat(), code);
+			}
+		} else {
+			// TODO: use encodeInst() and friends.
+			code << getTypeString(f->getType()) << ".const ";
+			if(f->getValueAPF().isInfinity())
+			{
+				if(f->getValueAPF().isNegative())
+					code << '-';
+				code << "inf";
+			}
+			else if(f->getValueAPF().isNaN())
+			{
+				code << "nan";
+			}
+			else
+			{
+				APFloat apf = f->getValueAPF();
+				char buf[40];
+				// TODO: Figure out the right amount of hexdigits
+				unsigned charCount = apf.convertToHexString(buf, f->getType()->isFloatTy() ? 8 : 16, false, APFloat::roundingMode::rmNearestTiesToEven);
+				assert(charCount < 40);
+				code << buf;
+			}
+			code << '\n';
 		}
 	}
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
 	{
-		code << "i32.const " << linearHelper.getGlobalVariableAddress(GV);
+		uint32_t address = linearHelper.getGlobalVariableAddress(GV);
+		encodeS32Inst(0x41, "i32.const", address, code);
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
-		code << "i32.const 0";
+		encodeS32Inst(0x41, "i32.const", 0, code);
 	}
 	else if(isa<Function>(c))
 	{
@@ -1201,7 +1214,7 @@ void CheerpWastWriter::compileConstant(std::ostream& code, const Constant* c)
 		if (linearHelper.functionHasAddress(F))
 		{
 			uint32_t addr = linearHelper.getFunctionAddress(F);
-			code << "i32.const " << addr;
+			encodeS32Inst(0x41, "i32.const", addr, code);
 		}
 		else
 		{
@@ -1211,7 +1224,19 @@ void CheerpWastWriter::compileConstant(std::ostream& code, const Constant* c)
 	}
 	else if (isa<UndefValue>(c))
 	{
-		code << getTypeString(c->getType()) << ".const 0";
+		if (cheerpMode == CHEERP_MODE_WASM) {
+			// Encode a literal f64, f32 or i32 zero as the return value.
+			encodeLiteralType(c->getType(), code);
+			if (c->getType()->isDoubleTy()) {
+				encodeF64(0., code);
+			} else if (c->getType()->isFloatTy()) {
+				encodeF32(0.f, code);
+			} else {
+				encodeSLEB128(0, code);
+			}
+		} else {
+			code << getTypeString(c->getType()) << ".const 0\n";
+		}
 	}
 	else
 	{
