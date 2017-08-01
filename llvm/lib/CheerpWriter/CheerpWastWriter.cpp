@@ -2571,11 +2571,6 @@ void CheerpWastWriter::compileModule()
 
 void CheerpWastWriter::makeWast()
 {
-	if (getenv("USE_WASM"))
-		cheerpMode = CHEERP_MODE_WASM;
-	else
-		cheerpMode = CHEERP_MODE_WAST;
-
 	compileModule();
 }
 

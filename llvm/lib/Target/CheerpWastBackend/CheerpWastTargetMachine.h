@@ -20,20 +20,20 @@ namespace llvm {
 
 class formatted_raw_ostream;
 
-class CheerpWastSubtarget : public TargetSubtargetInfo {
+class CheerpBaseSubtarget : public TargetSubtargetInfo {
 private:
   const DataLayout DL;
 
 public:
-  CheerpWastSubtarget(const char* dlInit) : DL(dlInit) { }
+  CheerpBaseSubtarget(const char* dlInit) : DL(dlInit) { }
   virtual const DataLayout* getDataLayout() const
   {
     return &DL;
   }
 };
 
-struct CheerpWastTargetMachine : public TargetMachine {
-  CheerpWastTargetMachine(const Target &T, StringRef TT,
+struct CheerpBaseTargetMachine : public TargetMachine {
+  CheerpBaseTargetMachine(const Target &T, StringRef TT,
                    StringRef CPU, StringRef FS, const TargetOptions &Options,
                    Reloc::Model RM, CodeModel::Model CM,
                    CodeGenOpt::Level OL)
@@ -43,19 +43,31 @@ struct CheerpWastTargetMachine : public TargetMachine {
                         "i64:8:8-f32:8:8-f64:8:8-"
                         "a0:0:8-f80:8:8-n8:8:8-S8") { }
 private:
-  CheerpWastSubtarget Subtarget;
+  CheerpBaseSubtarget Subtarget;
 
 public:
-  const CheerpWastSubtarget *getSubtargetImpl() const override { return &Subtarget; }
+  const CheerpBaseSubtarget *getSubtargetImpl() const override { return &Subtarget; }
   virtual bool addPassesToEmitFile(PassManagerBase &PM,
                                    formatted_raw_ostream &Out,
                                    CodeGenFileType FileType,
                                    bool DisableVerify,
                                    AnalysisID StartAfter,
                                    AnalysisID StopAfter) override;
+  virtual ModulePass* createCheerpWritePass(formatted_raw_ostream &o) = 0;
+};
+
+struct CheerpWastTargetMachine : public CheerpBaseTargetMachine {
+	using CheerpBaseTargetMachine::CheerpBaseTargetMachine;
+  virtual ModulePass* createCheerpWritePass(formatted_raw_ostream &o);
+};
+
+struct CheerpWasmTargetMachine : public CheerpBaseTargetMachine {
+	using CheerpBaseTargetMachine::CheerpBaseTargetMachine;
+  virtual ModulePass* createCheerpWritePass(formatted_raw_ostream &o);
 };
 
 extern Target TheCheerpWastBackendTarget;
+extern Target TheCheerpWasmBackendTarget;
 
 } // End llvm namespace
 
