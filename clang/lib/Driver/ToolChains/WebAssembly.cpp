@@ -489,7 +489,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     size_t ext = wasmFile.find(".wast");
     if (ext == wasmFile.size()-5)
       wasmFile[wasmFile.size()-1] = 'm';
-    else
+    else if (wasmFile.find(".wasm") != wasmFile.size() - 5)
       wasmFile.append(".wasm");
     CmdArgs.push_back(Args.MakeArgString(wasmFile));
     cheerpWastLoader->render(Args, CmdArgs);
