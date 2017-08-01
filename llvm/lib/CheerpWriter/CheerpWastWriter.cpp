@@ -1016,8 +1016,8 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(std::ostream& code, const
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			assert(incoming);
-			code << "get_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(incoming)) << '\n';
-			code << "set_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB)) << '\n';
+			writer.encodeU32Inst(0x20, "get_local", 1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(incoming), code);
+			writer.encodeU32Inst(0x21, "set_local", 1 + writer.currentFun->arg_size() + writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB), code);
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
@@ -1029,7 +1029,8 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(std::ostream& code, const
 			writer.compileOperand(code, incoming);
 			writer.registerize.clearEdgeContext();
 			// 2) Save the value in the phi
-			code << "\nset_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(phi)) << '\n';
+			uint32_t local = 1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(phi);
+			writer.encodeU32Inst(0x21, "set_local", local, code);
 		}
 	};
 	WriterPHIHandler(*this, code, from, to).runOnEdge(registerize, from, to);
