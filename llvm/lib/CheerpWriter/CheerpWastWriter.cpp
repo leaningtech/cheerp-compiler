@@ -1251,14 +1251,16 @@ void CheerpWastWriter::compileOperand(std::ostream& code, const llvm::Value* v)
 		compileConstant(code, c);
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
-		if(isInlineable(*it, PA))
+		if(isInlineable(*it, PA)) {
 			compileInstruction(code, *it);
-		else
-			code << "get_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(it));
+		} else {
+			uint32_t local = 1 + currentFun->arg_size() + registerize.getRegisterId(it);
+			encodeU32Inst(0x20, "get_local", local, code);
+		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
-		code << "get_local " << arg->getArgNo();
+		encodeU32Inst(0x20, "get_local", arg->getArgNo(), code);
 	}
 	else
 	{
@@ -1309,14 +1311,12 @@ void CheerpWastWriter::compileDowncast(std::ostream& code, ImmutableCallSite cal
 	Type* t = src->getType()->getPointerElementType();
 
 	compileOperand(code, src);
-	code << '\n';
 
 	if(!TypeSupport::isClientType(t) &&
 			(!isa<ConstantInt>(offset) || !cast<ConstantInt>(offset)->isNullValue()))
 	{
 		compileOperand(code, offset);
-		code << '\n';
-		code << "i32.add\n";
+		encodeInst(0x6a, "i32.add", code);
 	}
 }
 
