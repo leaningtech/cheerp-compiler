@@ -1335,63 +1335,57 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 
 			// We grow the stack down for now
 			// 1) Push the current stack pointer
-			code << "get_global " << stackTopGlobal << '\n';
+			encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
 			// 2) Push the allocation size
 			if (ai->isArrayAllocation()) {
 				const Value* n = ai->getArraySize();
 				if(const ConstantInt* C = dyn_cast<ConstantInt>(n))
 				{
-					code << "i32.const " << (size * C->getSExtValue()) << '\n';
+					encodeS32Inst(0x41, "i32.const", size * C->getSExtValue(), code);
 				}
 				else
 				{
-					code << "i32.const " << size << '\n';
+					encodeS32Inst(0x41, "i32.const", size, code);
 					compileOperand(code, n);
-					code << "\n";
-					code << "i32.mul\n";
+					encodeInst(0x6c, "i32.mul", code);
 				}
 			} else {
-				code << "i32.const " << size << '\n';
+				encodeS32Inst(0x41, "i32.const", size, code);
 			}
 			// 3) Substract the size
-			code << "i32.sub\n";
+			encodeInst(0x6b, "i32.sub", code);
 			// 3.1) Optionally align the stack down
 			if(size % alignment)
 			{
-				code << "i32.const " << uint32_t(0-alignment) << '\n';
-				code << "i32.and\n";
+				encodeS32Inst(0x41, "i32.const", uint32_t(0-alignment), code);
+				encodeInst(0x71, "i32.and", code);
 			}
 			// 4) Write the location to the local, but preserve the value
-			code << "tee_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(&I)) << '\n';
+			uint32_t local = 1 + currentFun->arg_size() + registerize.getRegisterId(&I);
+			encodeU32Inst(0x22, "tee_local", local, code);
 			// 5) Save the new stack position
-			code << "set_global " << stackTopGlobal << '\n';
+			encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
 			return true;
 		}
 		case Instruction::Add:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".add";
-			break;
-		}
 		case Instruction::And:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".and";
-			break;
-		}
 		case Instruction::AShr:
+		case Instruction::LShr:
+		case Instruction::Mul:
+		case Instruction::Or:
+		case Instruction::Shl:
+		case Instruction::Sub:
+		case Instruction::SDiv:
+		case Instruction::UDiv:
+		case Instruction::SRem:
+		case Instruction::URem:
+		case Instruction::Xor:
+		case Instruction::FAdd:
+		case Instruction::FDiv:
+		case Instruction::FMul:
+		case Instruction::FSub:
 		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".shr_s";
+			encodeBinOp(I, code);
 			break;
 		}
 		case Instruction::BitCast:
@@ -1408,19 +1402,16 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 
 			// Load the current argument
 			compileOperand(code, vi.getPointerOperand());
-			code << "\n";
-			code << "i32.load\n";
-			code << getTypeString(vi.getType()) << ".load\n";
+			encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
+			encodeLoad(vi.getType(), code);
 
 			// Move varargs pointer to next argument
 			compileOperand(code, vi.getPointerOperand());
-			code << "\n";
 			compileOperand(code, vi.getPointerOperand());
-			code << "\n";
-			code << "i32.load\n";
-			code << "i32.const 8\n";
-			code << "i32.add\n";
-			code << "i32.store\n";
+			encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
+			encodeS32Inst(0x41, "i32.const", 8, code);
+			encodeInst(0x6a, "i32.add", code);
+			encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
 			break;
 		}
 		case Instruction::Call:
@@ -1438,16 +1429,15 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 				{
 					case Intrinsic::trap:
 					{
-						code << "unreachable ;; trap\n";
+						encodeInst(0x00, "unreachable", code);
 						return true;
 					}
 					case Intrinsic::vastart:
 					{
 						compileOperand(code, ci.getOperand(0));
-						code << '\n';
 						uint32_t numArgs = I.getParent()->getParent()->arg_size();
-						code << "get_local " << numArgs << "\n";
-						code << "i32.store\n";
+						encodeU32Inst(0x20, "get_local", numArgs, code);
+						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
 						return true;
 					}
 					case Intrinsic::vaend:
@@ -1476,14 +1466,13 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 					case Intrinsic::flt_rounds:
 					{
 						// Rounding mode 1: nearest
-						code << "i32.const 1\n";
+						encodeS32Inst(0x41, "i32.const", 1, code);
 						return false;
 					}
 					case Intrinsic::ctlz:
 					{
 						compileOperand(code, ci.getOperand(0));
-						code << '\n';
-						code << "i32.clz\n";
+						encodeInst(0x67, "i32.clz", code);
 						return false;
 					}
 					case Intrinsic::invariant_start:
@@ -1544,15 +1533,20 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 						op != ci.op_begin() + arg_size - 1; op--)
 				{
 					i++;
-					code << "get_global " << stackTopGlobal << '\n';
-					code << "i32.const 8\n";
-					code << "i32.sub\n";
+					encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
+					encodeS32Inst(0x41, "i32.const", 8, code);
+					encodeInst(0x6b, "i32.sub", code);
 					// TODO: use 'tee_global' when it's available?
-					code << "set_global " << stackTopGlobal << '\n';
-					code << "get_global " << stackTopGlobal << '\n';
+					encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
+					encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
 					compileOperand(code, op->get());
-					code << "\n";
-					code << getTypeString(op->get()->getType()) << ".store\n";
+					// TODO: is i32.store8 or i32.store16 possible here?
+					if (op->get()->getType()->isFloatTy())
+						encodeU32U32Inst(0x38, "f32.store", 0x2, 0x0, code);
+					else if (op->get()->getType()->isDoubleTy())
+						encodeU32U32Inst(0x39, "f64.store", 0x3, 0x0, code);
+					else
+						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
 				}
 			}
 
@@ -1560,20 +1554,23 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 					op != ci.op_begin() + fTy->getNumParams(); ++op)
 			{
 				compileOperand(code, op->get());
-				code << '\n';
 			}
 
 			if (calledFunc)
 			{
 				if (linearHelper.getFunctionIds().count(calledFunc))
 				{
-					code << "call " << linearHelper.getFunctionIds().at(calledFunc);
+					uint32_t functionId = linearHelper.getFunctionIds().at(calledFunc);
+					if (functionId < COMPILE_METHOD_LIMIT) {
+						encodeU32Inst(0x10, "call", functionId, code);
+					} else {
+						encodeInst(0x00, "unreachable", code);
+					}
 				}
 				else
 				{
-					// TODO implement ffi calls to the browser side.
-					code << "unreachable ;; unknown call \""
-						<< calledFunc->getName().str() << "\"\n";
+					llvm::errs() << "warning: Undefined function " << calledFunc->getName() << " called\n";
+					encodeInst(0x00, "unreachable", code);
 					return true;
 				}
 			}
@@ -1583,31 +1580,22 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 				{
 					const auto& table = linearHelper.getFunctionTables().at(fTy);
 					compileOperand(code, calledValue);
-					code << '\n';
-					code << "call_indirect $vt_" << table.name;
+					if (cheerpMode == CHEERP_MODE_WASM) {
+						assert(table.typeIndex < linearHelper.getFunctionTables().size());
+						encodeU32U32Inst(0x11, "call_indirect", table.typeIndex, 0, code);
+					} else {
+						code << "call_indirect $vt_" << table.name << '\n';
+					}
 				}
 				else
 				{
-					// TODO implement ffi calls to the browser side.
-					code << "unreachable ;; unknown indirect call\n";
+					encodeInst(0x00, "unreachable", code);
 					return true;
 				}
 			}
 
 			if(ci.getType()->isVoidTy())
-			{
-				code << '\n';
 				return true;
-			}
-			break;
-		}
-		case Instruction::FAdd:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".add\n";
 			break;
 		}
 		case Instruction::FCmp:
@@ -1635,37 +1623,27 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 				code << "i32.and\n";
 			} else {
 				compileOperand(code, ci.getOperand(0));
-				code << '\n';
 				compileOperand(code, ci.getOperand(1));
-				code << '\n';
-				code << getTypeString(ci.getOperand(0)->getType()) << '.';
+				Type* ty = ci.getOperand(0)->getType();
+				assert(ty->isDoubleTy() || ty->isFloatTy());
 				switch(ci.getPredicate())
 				{
 					// TODO: Handle ordered vs unordered
-					case CmpInst::FCMP_UEQ:
-					case CmpInst::FCMP_OEQ:
-						code << "eq\n";
+#define PREDICATE(Ty, name, f32, f64) \
+					case CmpInst::FCMP_U##Ty: \
+					case CmpInst::FCMP_O##Ty: \
+						if (ty->isDoubleTy()) \
+							encodeInst(f64, "f64."#name, code); \
+						else \
+							encodeInst(f32, "f32."#name, code); \
 						break;
-					case CmpInst::FCMP_UNE:
-					case CmpInst::FCMP_ONE:
-						code << "ne\n";
-						break;
-					case CmpInst::FCMP_ULT:
-					case CmpInst::FCMP_OLT:
-						code << "lt\n";
-						break;
-					case CmpInst::FCMP_OGT:
-					case CmpInst::FCMP_UGT:
-						code << "gt\n";
-						break;
-					case CmpInst::FCMP_ULE:
-					case CmpInst::FCMP_OLE:
-						code << "le\n";
-						break;
-					case CmpInst::FCMP_UGE:
-					case CmpInst::FCMP_OGE:
-						code << "ge\n";
-						break;
+					PREDICATE(EQ, eq, 0x5b, 0x61)
+					PREDICATE(NE, ne, 0x5c, 0x62)
+					PREDICATE(LT, lt, 0x5d, 0x63)
+					PREDICATE(GT, gt, 0x5e, 0x64)
+					PREDICATE(LE, le, 0x5f, 0x65)
+					PREDICATE(GE, ge, 0x60, 0x66)
+#undef PREDICATE
 					case CmpInst::FCMP_ORD:
 						llvm_unreachable("This case is handled above");
 						break;
@@ -1674,15 +1652,6 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 						break;
 				}
 			}
-			break;
-		}
-		case Instruction::FDiv:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".div";
 			break;
 		}
 		case Instruction::FRem:
@@ -1703,24 +1672,6 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			code << getTypeString(I.getType()) << ".sub";
 			break;
 		}
-		case Instruction::FMul:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".mul";
-			break;
-		}
-		case Instruction::FSub:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".sub";
-			break;
-		}
 		case Instruction::GetElementPtr:
 		{
 			compileGEP(code, &I);
@@ -1733,32 +1684,24 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			if(ci.getOperand(0)->getType()->isPointerTy())
 			{
 				compileOperand(code, ci.getOperand(0));
-				code << '\n';
 				compileOperand(code, ci.getOperand(1));
-				code << '\n';
 			}
 			else if(CmpInst::isSigned(p))
 			{
 				compileSignedInteger(code, ci.getOperand(0), true);
-				code << '\n';
 				compileSignedInteger(code, ci.getOperand(1), true);
-				code << '\n';
 			}
 			else if (CmpInst::isUnsigned(p) || !I.getOperand(0)->getType()->isIntegerTy(32))
 			{
 				compileUnsignedInteger(code, ci.getOperand(0));
-				code << '\n';
 				compileUnsignedInteger(code, ci.getOperand(1));
-				code << '\n';
 			}
 			else
 			{
 				compileSignedInteger(code, ci.getOperand(0), true);
-				code << '\n';
 				compileSignedInteger(code, ci.getOperand(1), true);
-				code << '\n';
 			}
-			code << getTypeString(ci.getOperand(0)->getType()) << '.' << getIntegerPredicate(ci.getPredicate());
+			encodePredicate(ci.getOperand(0)->getType(), ci.getPredicate(), code);
 			break;
 		}
 		case Instruction::Load:
@@ -1767,62 +1710,13 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			const Value* ptrOp=li.getPointerOperand();
 			// 1) The pointer
 			compileOperand(code, ptrOp);
-			code << '\n';
 			// 2) Load
-			code << getTypeString(li.getType()) << ".load";
-			if(li.getType()->isIntegerTy())
-			{
-				uint32_t bitWidth = li.getType()->getIntegerBitWidth();
-				if(bitWidth == 1)
-					bitWidth = 8;
-				if(bitWidth < 32)
-				{
-					assert(bitWidth == 8 || bitWidth == 16);
-					// Currently assume unsigned, like Cheerp. We may optimize this be looking at a following sext or zext instruction.
-					code << bitWidth << "_u";
-				}
-			}
-			break;
-		}
-		case Instruction::LShr:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".shr_u";
-			break;
-		}
-		case Instruction::Mul:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".mul";
-			break;
-		}
-		case Instruction::Or:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".or";
+			encodeLoad(li.getType(), code);
 			break;
 		}
 		case Instruction::PtrToInt:
 		{
 			compileOperand(code, I.getOperand(0));
-			break;
-		}
-		case Instruction::Shl:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".shl";
 			break;
 		}
 		case Instruction::Store:
@@ -1832,34 +1726,40 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			const Value* valOp=si.getValueOperand();
 			// 1) The pointer
 			compileOperand(code, ptrOp);
-			code << '\n';
 			// 2) The value
 			compileOperand(code, valOp);
-			code << '\n';
 			// 3) Store
-			code << getTypeString(valOp->getType()) << ".store";
 			// When storing values with size less than 32-bit we need to truncate them
 			if(valOp->getType()->isIntegerTy())
 			{
 				uint32_t bitWidth = valOp->getType()->getIntegerBitWidth();
 				if(bitWidth == 1)
 					bitWidth = 8;
-				if(bitWidth < 32)
+
+				// TODO add support for i64.
+				switch (bitWidth)
 				{
-					assert(bitWidth == 8 || bitWidth == 16);
-					code << bitWidth;
+					case 8:
+						encodeU32U32Inst(0x3a, "i32.store8", 0x0, 0x0, code);
+						break;
+					case 16:
+						encodeU32U32Inst(0x3b, "i32.store16", 0x1, 0x0, code);
+						break;
+					case 32:
+						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
+						break;
+					default:
+						llvm::errs() << "bit width: " << bitWidth << '\n';
+						llvm_unreachable("unknown integer bit width");
 				}
+			} else {
+				if (valOp->getType()->isFloatTy())
+					encodeU32U32Inst(0x38, "f32.store", 0x2, 0x0, code);
+				else if (valOp->getType()->isDoubleTy())
+					encodeU32U32Inst(0x39, "f64.store", 0x3, 0x0, code);
+				else
+					encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
 			}
-			code << '\n';
-			break;
-		}
-		case Instruction::Sub:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".sub";
 			break;
 		}
 		case Instruction::Switch:
@@ -1875,70 +1775,51 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			const ReturnInst& ri = cast<ReturnInst>(I);
 			Value* retVal = ri.getReturnValue();
 			if(retVal)
-			{
 				compileOperand(code, I.getOperand(0));
-				code << '\n';
-			}
+
 			// Restore old stack
-			code << "get_local " << currentFun->arg_size() << "\n";
-			code << "set_global " << stackTopGlobal << '\n';
-			code << "return\n";
-			break;
-		}
-		case Instruction::SDiv:
-		case Instruction::UDiv:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".div_"
-				<< (I.getOpcode() == Instruction::SDiv ? 's' : 'u');
-			break;
-		}
-		case Instruction::SRem:
-		case Instruction::URem:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".rem_"
-				<< (I.getOpcode() == Instruction::SRem ? 's' : 'u');
+			encodeU32Inst(0x20, "get_local", currentFun->arg_size(), code);
+			encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
+			encodeInst(0x0f, "return", code);
 			break;
 		}
 		case Instruction::Select:
 		{
 			const SelectInst& si = cast<SelectInst>(I);
 			compileOperand(code, si.getTrueValue());
-			code << '\n';
 			compileOperand(code, si.getFalseValue());
-			code << '\n';
 			compileOperand(code, si.getCondition());
-			code << '\n';
-			code << "select";
+			encodeInst(0x1b, "select", code);
 			break;
 		}
 		case Instruction::SExt:
 		{
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			compileOperand(code, I.getOperand(0));
-			code << "\ni32.const " << (32-bitWidth) << '\n';
-			code << "i32.shl\n";
-			code << "i32.const " << (32-bitWidth) << '\n';
-			code << "i32.shr_s";
+			encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
+			encodeInst(0x74, "i32.shl", code);
+			encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
+			encodeInst(0x75, "i32.shr_s", code);
 			break;
 		}
 		case Instruction::FPToSI:
 		{
+			// TODO: add support for i64.
 			compileOperand(code, I.getOperand(0));
-			code << '\n' << getTypeString(I.getType()) << ".trunc_s/" << getTypeString(I.getOperand(0)->getType());
+			if (I.getOperand(0)->getType()->isFloatTy())
+				encodeInst(0xa8, "i32.trunc_s/f32", code);
+			else
+				encodeInst(0xaa, "i32.trunc_s/f64", code);
 			break;
 		}
 		case Instruction::FPToUI:
 		{
+			// TODO: add support for i64.
 			compileOperand(code, I.getOperand(0));
-			code << '\n' << getTypeString(I.getType()) << ".trunc_u/" << getTypeString(I.getOperand(0)->getType());
+			if (I.getOperand(0)->getType()->isFloatTy())
+				encodeInst(0xa9, "i32.trunc_u/f32", code);
+			else
+				encodeInst(0xab, "i32.trunc_u/f64", code);
 			break;
 		}
 		case Instruction::SIToFP:
@@ -1949,12 +1830,18 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			if(bitWidth != 32)
 			{
 				// Sign extend
-				code << "\ni32.const " << (32-bitWidth) << '\n';
-				code << "i32.shl\n";
-				code << "i32.const " << (32-bitWidth) << '\n';
-				code << "i32.shr_s";
+				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
+				encodeInst(0x74, "i32.shl", code);
+				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
+				encodeInst(0x75, "i32.shr_s", code);
 			}
-			code << '\n' << getTypeString(I.getType()) << ".convert_s/" << getTypeString(I.getOperand(0)->getType());
+			// TODO: add support for i64.
+			if (I.getType()->isDoubleTy()) {
+				encodeInst(0xb7, "f64.convert_s/i32", code);
+			} else {
+				assert(I.getType()->isFloatTy());
+				encodeInst(0xb2, "f32.convert_s/i32", code);
+			}
 			break;
 		}
 		case Instruction::UIToFP:
@@ -1964,10 +1851,16 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(bitWidth != 32)
 			{
-				code << "\ni32.const " << getMaskForBitWidth(bitWidth);
-				code << "\ni32.and";
+				encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
+				encodeInst(0x71, "i32.and", code);
 			}
-			code << '\n' << getTypeString(I.getType()) << ".convert_u/" << getTypeString(I.getOperand(0)->getType());
+			// TODO: add support for i64.
+			if (I.getType()->isDoubleTy()) {
+				encodeInst(0xb8, "f64.convert_u/i32", code);
+			} else {
+				assert(I.getType()->isFloatTy());
+				encodeInst(0xb3, "f32.convert_u/i32", code);
+			}
 			break;
 		}
 		case Instruction::FPTrunc:
@@ -1975,7 +1868,7 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			assert(I.getType()->isFloatTy());
 			assert(I.getOperand(0)->getType()->isDoubleTy());
 			compileOperand(code, I.getOperand(0));
-			code << '\n' << getTypeString(I.getType()) << ".demote/" << getTypeString(I.getOperand(0)->getType());
+			encodeInst(0xb6, "f32.demote/f64", code);
 			break;
 		}
 		case Instruction::FPExt:
@@ -1983,29 +1876,20 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 			assert(I.getType()->isDoubleTy());
 			assert(I.getOperand(0)->getType()->isFloatTy());
 			compileOperand(code, I.getOperand(0));
-			code << '\n' << getTypeString(I.getType()) << ".promote/" << getTypeString(I.getOperand(0)->getType());
-			break;
-		}
-		case Instruction::Xor:
-		{
-			compileOperand(code, I.getOperand(0));
-			code << '\n';
-			compileOperand(code, I.getOperand(1));
-			code << '\n';
-			code << getTypeString(I.getType()) << ".xor";
+			encodeInst(0xbb, "f64.promote/f32", code);
 			break;
 		}
 		case Instruction::ZExt:
 		{
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			compileOperand(code, I.getOperand(0));
-			code << "\ni32.const " << getMaskForBitWidth(bitWidth) << '\n';
-			code << "i32.and";
+			encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
+			encodeInst(0x71, "i32.and", code);
 			break;
 		}
 		case Instruction::Unreachable:
 		{
-			code << "unreachable\n";
+			encodeInst(0x00, "unreachable", code);
 			break;
 		}
 		default:
