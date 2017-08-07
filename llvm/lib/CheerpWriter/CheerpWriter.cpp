@@ -3922,7 +3922,7 @@ void CheerpRenderInterface::renderCaseBlockBegin(const BasicBlock* bb, int branc
 		if(it.getCaseSuccessor()==dest)
 		{
 			writer->stream << "case ";
-			writer->compileOperand(it.getCaseValue());
+			writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 			writer->stream << ':' << NewLine;
 		}
 	}
