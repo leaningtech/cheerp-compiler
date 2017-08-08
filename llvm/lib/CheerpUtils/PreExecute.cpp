@@ -514,7 +514,8 @@ Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
     return GEP;
 }
 
-GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAddr, char*& MallocStartAddress)
+GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAddr,
+        char*& MallocStartAddress, bool asmjs)
 {
     auto it = typedAllocations.upper_bound(StoredAddr);
     if (it == typedAllocations.begin())
@@ -539,14 +540,16 @@ GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAd
     allocData.globalValue = new GlobalVariable(*currentModule, newGlobalType,
             false, GlobalValue::InternalLinkage, nullptr, "promotedMalloc");
 
+    if (asmjs)
+        allocData.globalValue->setSection("asmjs");
     // Build an initializer
-    allocData.globalValue->setInitializer(computeInitializerFromMemory(DL, newGlobalType, it->first));
+    allocData.globalValue->setInitializer(computeInitializerFromMemory(DL, newGlobalType, it->first, asmjs));
 
     return allocData.globalValue;
 }
 
 Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
-        Type* memType, char* Addr)
+        Type* memType, char* Addr, bool asmjs)
 {
     if (IntegerType* IT=dyn_cast<IntegerType>(memType))
     {
@@ -580,7 +583,7 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
         {
             char* elementAddr = Addr + SL->getElementOffset(i);
             Constant* elem = computeInitializerFromMemory(DL,
-                    ST->getElementType(i), elementAddr);
+                    ST->getElementType(i), elementAddr, asmjs);
             Elements.push_back(elem);
         }
         return ConstantStruct::get(ST, Elements);
@@ -593,7 +596,7 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
         for(uint32_t i = 0; i < AT->getNumElements(); i++) {
             char* elementAddr = Addr + i*elementSize;
             Constant* elem = computeInitializerFromMemory(DL,
-                    elementType, elementAddr);
+                    elementType, elementAddr, asmjs);
             Elements.push_back(elem);
         }
         return ConstantArray::get(AT, Elements);
@@ -634,7 +637,7 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
 
         // Look inside type safe allocated memory
         char* MallocStartAddress;
-        GV = getGlobalForMalloc(DL, StoredAddr, MallocStartAddress);
+        GV = getGlobalForMalloc(DL, StoredAddr, MallocStartAddress, asmjs);
         if (GV)
         {
 #ifdef DEBUG_PRE_EXECUTE
@@ -680,7 +683,8 @@ bool PreExecute::runOnConstructor( llvm::Module& m, llvm::Function* func)
         Constant* newInit;
         const DataLayout *DL = m.getDataLayout();
         Type *ptrType = GV->getType()->getPointerElementType();
-        newInit = computeInitializerFromMemory(DL, ptrType, (char*)Addr);
+        bool asmjs = GV->getSection() == StringRef("asmjs");
+        newInit = computeInitializerFromMemory(DL, ptrType, (char*)Addr, asmjs);
         assert(newInit);
         it.second = newInit;
     }
@@ -787,6 +791,7 @@ bool PreExecute::runOnModule(Module& m)
             // Create the new global and insert it next to the existing list.
             GlobalVariable *NGV = new GlobalVariable(newArray->getType(), constructorVar->isConstant(), constructorVar->getLinkage(),
                          newArray, "", constructorVar->getThreadLocalMode());
+            NGV->setSection(constructorVar->getSection());
             constructorVar->getParent()->getGlobalList().insert(constructorVar, NGV);
             NGV->takeName(constructorVar);
 
