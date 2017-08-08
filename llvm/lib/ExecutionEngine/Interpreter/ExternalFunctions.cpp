@@ -44,6 +44,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <cxxabi.h>
 
 #ifdef HAVE_FFI_CALL
 #ifdef HAVE_FFI_H
@@ -293,8 +294,23 @@ GenericValue Interpreter::callExternalFunction(Function *F,
 #endif // USE_LIBFFI
 
   if (F->getName() == "__main" || ForPreExecute)
+  {
     errs() << "Tried to execute an unknown external function: "
       << *F->getType() << F->getName() << "\n";
+    errs() << "Call trace:\n";
+    for (auto& s: ECStack)
+    {
+      int status = 0;
+      char* demangled = abi::__cxa_demangle(s.CurFunction->getName().str().c_str(), 0, 0, &status);
+      errs() << '\t';
+      if (status == 0)
+        errs() << demangled;
+      else
+        errs() << s.CurFunction->getName();
+	free(demangled);
+      errs() <<"\n";
+    }
+  }
   else
     report_fatal_error("Tried to execute an unknown external function: " +
                        F->getName());
