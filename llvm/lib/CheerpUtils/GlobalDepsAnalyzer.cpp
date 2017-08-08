@@ -335,6 +335,41 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					else if (!calleeIsAsmJS && isAsmJS && !TypeSupport::isClientGlobal(calledFunc))
 						asmJSImportedFuncions.insert(calledFunc);
 				}
+				// if this is an allocation intrinsic and we are in asmjs,
+				// visit the corresponding libc function
+				else if (calledFunc && isAsmJS)
+				{
+					if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate)
+					{
+						const Module* module = calledFunc->getParent();
+						Function* fmalloc = module->getFunction("malloc");
+						if (fmalloc)
+						{
+							SubExprVec vec;
+							visitGlobal(fmalloc, visited, vec );
+						}
+					}
+					else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_reallocate)
+					{
+						const Module* module = calledFunc->getParent();
+						Function* frealloc = module->getFunction("realloc");
+						if (frealloc)
+						{
+							SubExprVec vec;
+							visitGlobal(frealloc, visited, vec );
+						}
+					}
+					else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_deallocate)
+					{
+						const Module* module = calledFunc->getParent();
+						Function* ffree = module->getFunction("free");
+						if (ffree)
+						{
+							SubExprVec vec;
+							visitGlobal(ffree, visited, vec );
+						}
+					}
+				}
 				// TODO: Handle import/export of indirect calls if possible
 			}
 			if (I.getOpcode() == Instruction::VAArg)
