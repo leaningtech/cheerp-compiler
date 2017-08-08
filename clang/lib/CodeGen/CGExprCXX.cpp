@@ -1329,7 +1329,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
 
   RValue RV;
   bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs");
-  if(!CGF.getTarget().isByteAddressable() && !asmjs) {
+  if(!CGF.getTarget().isByteAddressable()) {
     // If allocType is specified this is an allocation, otherwise a free
     QualType retType;
     llvm::Function* intrinsic;
