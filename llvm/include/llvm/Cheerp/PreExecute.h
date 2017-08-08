@@ -102,10 +102,10 @@ private:
             char* StoredAddr, llvm::Type* Int32Ty);
 
     llvm::GlobalValue* getGlobalForMalloc(const llvm::DataLayout* DL,
-            char* StoredAddr, char*& MallocStartAddress);
+            char* StoredAddr, char*& MallocStartAddress, bool asmjs);
 
     llvm::Constant* computeInitializerFromMemory(const llvm::DataLayout* DL,
-            llvm::Type* memType, char* Addr);
+            llvm::Type* memType, char* Addr, bool asmjs);
 };
 
 inline llvm::ModulePass* createPreExecutePass() {
