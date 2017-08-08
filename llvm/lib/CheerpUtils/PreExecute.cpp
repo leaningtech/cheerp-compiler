@@ -223,6 +223,15 @@ static GenericValue pre_execute_downcast_current(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
 
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  assert(currentEE->getCurrentCaller());
+  bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs");
+  if (asmjs)
+  {
+    GenericValue GV;
+    GV.IntVal = APInt(32,reinterpret_cast<uintptr_t>(Args[0].PointerVal));
+    return GV;
+  }
+
   char* Addr = (char*)currentEE->GVTORP(Args[0]);
 
   StructType* objType = most_derived_class(Addr); 
@@ -260,6 +269,15 @@ static GenericValue pre_execute_downcast(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
     // We need to apply the offset in bytes using the bases metadata
     ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+    assert(currentEE->getCurrentCaller());
+    bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs");
+    if (asmjs)
+    {
+        char* Addr = (char*)Args[0].PointerVal;
+        int32_t Offset = Args[1].IntVal.getSExtValue();
+        return GenericValue(Addr + Offset);
+    }
+
     char* Addr = (char*)currentEE->GVTORP(Args[0]);
     Type* derivedType = most_derived_class(Addr); 
     assert(derivedType);
