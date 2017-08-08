@@ -58,17 +58,6 @@ static void RetListener(const std::vector<std::unique_ptr<char[]>>& allocas)
     }
 }
 
-static GenericValue pre_execute_malloc(FunctionType *FT,
-        const std::vector<GenericValue> &Args) {
-    size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
-    ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-    void* ret = PreExecute::currentPreExecutePass->allocator->allocate(size);
-#ifdef DEBUG_PRE_EXECUTE
-    llvm::errs() << "Allocating " << ret << " of size " << size << "\n";
-#endif
-    return currentEE->RPTOGV(ret);
-}
-
 static GenericValue pre_execute_element_distance(FunctionType *FT, const std::vector<GenericValue> &Args)
 {
     Type* type = FT->getParamType(0)->getPointerElementType();
@@ -370,8 +359,6 @@ static GenericValue emptyFunction(FunctionType *FT,
 
 static void* LazyFunctionCreator(const std::string& funcName)
 {
-    if (funcName=="malloc")
-        return (void*)(void(*)())pre_execute_malloc;
     if (strncmp(funcName.c_str(), "llvm.cheerp.cast.user.", strlen("llvm.cheerp.cast.user."))==0)
         return (void*)(void(*)())pre_execute_cast;
     if (strncmp(funcName.c_str(), "llvm.cheerp.downcast.current.", strlen("llvm.cheerp.downcast.current."))==0)
