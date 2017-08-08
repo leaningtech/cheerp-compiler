@@ -770,6 +770,28 @@ bool PreExecute::runOnModule(Module& m)
         }
     }
 
+    Function* fmalloc = m.getFunction("malloc");
+    Function* tmpMalloc = nullptr;
+    if (fmalloc)
+    {
+        tmpMalloc = Function::Create(fmalloc->getFunctionType(), fmalloc->getLinkage());
+        tmpMalloc->getBasicBlockList().splice(tmpMalloc->begin(), fmalloc->getBasicBlockList());
+    }
+    Function* ffree = m.getFunction("free");
+    Function* tmpFree = nullptr;
+    if (ffree)
+    {
+        tmpFree = Function::Create(ffree->getFunctionType(), ffree->getLinkage());
+        tmpFree->getBasicBlockList().splice(tmpFree->begin(), ffree->getBasicBlockList());
+    }
+    Function* frealloc = m.getFunction("realloc");
+    Function* tmpRealloc = nullptr;
+    if (frealloc)
+    {
+        tmpRealloc = Function::Create(frealloc->getFunctionType(), frealloc->getLinkage());
+        tmpRealloc->getBasicBlockList().splice(tmpRealloc->begin(), frealloc->getBasicBlockList());
+    }
+
     if (PreExecuteMain)
     {
         Function* mainFunc = m.getFunction("_Z7webMainv");
@@ -810,6 +832,21 @@ bool PreExecute::runOnModule(Module& m)
             }
             constructorVar->eraseFromParent();
         }
+    }
+    if (fmalloc)
+    {
+        fmalloc->getBasicBlockList().splice(fmalloc->begin(), tmpMalloc->getBasicBlockList());
+        delete tmpMalloc;
+    }
+    if (ffree)
+    {
+        ffree->getBasicBlockList().splice(ffree->begin(), tmpFree->getBasicBlockList());
+        delete tmpFree;
+    }
+    if (frealloc)
+    {
+        frealloc->getBasicBlockList().splice(frealloc->begin(), tmpRealloc->getBasicBlockList());
+        delete tmpRealloc;
     }
 
     bool removed = currentEE->removeModule(&m);
