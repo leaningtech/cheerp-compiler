@@ -89,7 +89,8 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 					Value* op = ce->getOperand(0);
 					if(isa<ConstantExpr>(op))
 					{
-						if(cast<ConstantExpr>(op)->getOpcode() == Instruction::BitCast)
+						if(cast<ConstantExpr>(op)->getOpcode() == Instruction::BitCast
+							||cast<ConstantExpr>(op)->getOpcode() == Instruction::GetElementPtr)
 							op = cast<ConstantExpr>(op)->getOperand(0);
 					}
 					assert(isa<GlobalVariable>(op));
