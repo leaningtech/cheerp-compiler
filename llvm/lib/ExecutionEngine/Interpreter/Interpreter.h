@@ -195,6 +195,13 @@ public:
     return &(ECStack.back ().VarArgs[0]);
   }
 
+  // Get the caller of the current function, or nullptr if this is the entry point
+  Function* getCurrentCaller() override {
+    if (ECStack.size() < 2)
+      return nullptr;
+    return ECStack[ECStack.size()-2].Caller.getCaller();
+  }
+
 private:  // Helper functions
   GenericValue executeGEPOperation(Value *Ptr, gep_type_iterator I,
                                    gep_type_iterator E, ExecutionContext &SF);
