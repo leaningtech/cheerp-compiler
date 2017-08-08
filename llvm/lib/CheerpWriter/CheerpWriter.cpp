@@ -767,9 +767,21 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileOperand(*it, LOWEST);
 		return COMPILE_OK;
 	}
-	else if(!asmjs && (ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate))
+	else if(ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate)
 	{
-		compileFree(*it);
+		if (asmjs)
+		{
+			Function* ffree = module.getFunction("free");
+			if (!ffree)
+				llvm::report_fatal_error("missing free definition");
+			stream << namegen.getName(ffree) <<'(';
+			compileOperand(*it, PARENT_PRIORITY::LOWEST);
+			stream << ")";
+		}
+		else
+		{
+			compileFree(*it);
+		}
 		return COMPILE_OK;
 	}
 	else if(ident=="fmod" || ident=="fmodf")
@@ -987,6 +999,28 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	if (da.isValidAlloc())
 	{
 		compileAllocation(da);
+		return COMPILE_OK;
+	}
+	if (asmjs && func->getIntrinsicID()==Intrinsic::cheerp_allocate)
+	{
+		Function* fmalloc = module.getFunction("malloc");
+		if (!fmalloc)
+			llvm::report_fatal_error("missing malloc definition");
+		stream << namegen.getName(fmalloc) <<'(';
+		compileOperand(*it, PARENT_PRIORITY::LOWEST);
+		stream << ")|0";
+		return COMPILE_OK;
+	}
+	else if (asmjs && func->getIntrinsicID()==Intrinsic::cheerp_reallocate)
+	{
+		Function* frealloc = module.getFunction("realloc");
+		if (!frealloc)
+			llvm::report_fatal_error("missing realloc definition");
+		stream << namegen.getName(frealloc) <<'(';
+		compileOperand(*it);
+		stream << ',';
+		compileOperand(*(it+1));
+		stream << ")|0";
 		return COMPILE_OK;
 	}
 	else if(ident=="cheerpCreate_ZN6client6StringC2EPKc")
