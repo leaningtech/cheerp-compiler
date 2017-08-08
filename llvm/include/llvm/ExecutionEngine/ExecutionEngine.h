@@ -145,6 +145,10 @@ public:
   GenericValue RPTOGV(void *P);
   void* GVTORP(const GenericValue &GV);
 
+  // Get the caller of the current function, or nullptr if this is the entry point
+  // This function is overridden by the interpreter
+  virtual Function* getCurrentCaller() { return nullptr; }
+
 protected:
   /// The list of Modules that we are JIT'ing from.  We use a SmallVector to
   /// optimize for the case where there is only one module.
