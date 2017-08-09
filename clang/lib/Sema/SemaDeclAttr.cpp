@@ -8450,6 +8450,9 @@ static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 static void handleGenericJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   D->addAttr(::new (S.Context) GenericJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
+static void handleDefaultNewAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  D->addAttr(::new (S.Context) DefaultNewAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
 
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
@@ -9289,6 +9292,9 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     break;
   case AttributeList::AT_GenericJS:
     handleGenericJSAttr(S, D, AL);
+    break;
+  case AttributeList::AT_DefaultNew:
+    handleDefaultNewAttr(S, D, Attr);
     break;
   }
 }
