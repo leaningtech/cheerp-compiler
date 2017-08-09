@@ -2054,6 +2054,10 @@ def GenericJS : InheritableAttr {
   let Spellings = [CXX11<"cheerp", "genericjs">, GNU<"cheerp_genericjs">];
   let Documentation = [Undocumented];
 }
+def DefaultNew : Attr {
+  let Spellings = [CXX11<"cheerp", "default_new">, GNU<"cheerp_default_new">];
+  let Documentation = [Undocumented];
+}
 
 def ObjCBridge : InheritableAttr {
   let Spellings = [Clang<"objc_bridge">];
