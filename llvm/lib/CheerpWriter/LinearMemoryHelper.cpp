@@ -17,27 +17,31 @@
 using namespace cheerp;
 using namespace llvm;
 
-void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, ByteListener* listener) const
+void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, ByteListener* listener, int32_t offset) const
 {
 	const auto& targetData = module.getDataLayout();
 	if(const ConstantDataSequential* CD = dyn_cast<ConstantDataSequential>(c))
 	{
+		assert(offset==0);
 		for(uint32_t i=0;i<CD->getNumElements();i++)
 			compileConstantAsBytes(CD->getElementAsConstant(i), asmjs, listener);
 	}
 	else if(const UndefValue* U = dyn_cast<UndefValue>(c))
 	{
+		assert(offset==0);
 		uint32_t size = targetData.getTypeAllocSize(U->getType());
 		for (uint32_t i = 0; i < size; i++)
 			listener->addByte(0);
 	}
 	else if(isa<ConstantArray>(c) || isa<ConstantStruct>(c))
 	{
+		assert(offset==0);
 		for(uint32_t i=0;i<c->getNumOperands();i++)
 			compileConstantAsBytes(cast<Constant>(c->getOperand(i)), asmjs, listener);
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
+		assert(offset==0);
 		const APFloat& flt = f->getValueAPF();
 		const APInt& integerRepresentation = flt.bitcastToAPInt();
 		uint64_t val = integerRepresentation.getLimitedValue();
@@ -48,7 +52,7 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 	else if(const ConstantInt* i=dyn_cast<ConstantInt>(c))
 	{
 		const APInt& integerRepresentation = i->getValue();
-		uint64_t val = integerRepresentation.getLimitedValue();
+		uint64_t val = integerRepresentation.getLimitedValue() + offset;
 		uint32_t bitWidth = integerRepresentation.getBitWidth();
 		for(uint32_t i=0;i<bitWidth;i+=8)
 			listener->addByte((val>>i)&255);
@@ -57,12 +61,14 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 	{
 		if(const ConstantAggregateZero* Z = dyn_cast<ConstantAggregateZero>(c))
 		{
+			assert(offset==0);
 			uint32_t size = targetData.getTypeAllocSize(Z->getType());
 			for (uint32_t i = 0; i < size; i++)
 				listener->addByte(0);
 		}
 		else if(dyn_cast<ConstantPointerNull>(c))
 		{
+			assert(offset==0);
 			listener->addByte(0);
 			listener->addByte(0);
 			listener->addByte(0);
@@ -70,6 +76,7 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 		}
 		else if(const Function* F = dyn_cast<Function>(c))
 		{
+			assert(offset==0);
 			if (!functionAddresses.count(F))
 			{
 				llvm::errs() << "function not in table: " << F->getName() <<"\n";
@@ -86,23 +93,7 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 			{
 				case Instruction::GetElementPtr:
 				{
-					Value* op = ce->getOperand(0);
-					if(isa<ConstantExpr>(op))
-					{
-						if(cast<ConstantExpr>(op)->getOpcode() == Instruction::BitCast
-							||cast<ConstantExpr>(op)->getOpcode() == Instruction::GetElementPtr)
-							op = cast<ConstantExpr>(op)->getOperand(0);
-					}
-					assert(isa<GlobalVariable>(op));
-					const GlobalVariable* g = cast<GlobalVariable>(op);
-					if (!globalAddresses.count(g))
-					{
-						llvm::errs() << "global variable not found:" << g->getName() << "\n";
-						llvm::report_fatal_error("please report a bug");
-					}
-					uint32_t addr = globalAddresses.at(g);
-
-					Type* curTy = g->getType();
+					Type* curTy = ce->getOperand(0)->getType();
 					SmallVector< const Value *, 8 > indices ( std::next(ce->op_begin()), ce->op_end() );
 					for (uint32_t i=0; i<indices.size(); i++)
 					{
@@ -110,31 +101,22 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 						if (StructType* ST = dyn_cast<StructType>(curTy))
 						{
 							const StructLayout* SL = targetData.getStructLayout( ST );
-							addr += SL->getElementOffset(index);
+							offset += SL->getElementOffset(index);
 							curTy = ST->getElementType(index);
 						}
 						else
 						{
-							addr += index*targetData.getTypeAllocSize(curTy->getSequentialElementType());
+							offset += index*targetData.getTypeAllocSize(curTy->getSequentialElementType());
 							curTy = curTy->getSequentialElementType();
 						}
 					}
-					for(uint32_t i=0;i<32;i+=8)
-						listener->addByte((addr>>i)&255);
-					
+					compileConstantAsBytes(ce->getOperand(0), asmjs, listener, offset);
 					break;
 				}
 				case Instruction::IntToPtr:
-				{
-					const ConstantInt* ptr = cast<ConstantInt>(ce->getOperand(0));
-					uint32_t val = ptr->getZExtValue();
-					for(uint32_t i=0;i<32;i+=8)
-						listener->addByte((val>>i)&255);
-					break;
-				}
 				case Instruction::BitCast:
 				{
-					compileConstantAsBytes(ce->getOperand(0), asmjs, listener);
+					compileConstantAsBytes(ce->getOperand(0), asmjs, listener, offset);
 					break;
 				}
 				default:
@@ -150,7 +132,7 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 				llvm::errs() << "global variable not found:" << g->getName() << "\n";
 				llvm::report_fatal_error("please report a bug");
 			}
-			uint32_t val = globalAddresses.at(g);
+			uint32_t val = globalAddresses.at(g)+offset;
 			for(uint32_t i=0;i<32;i+=8)
 				listener->addByte((val>>i)&255);
 		}
