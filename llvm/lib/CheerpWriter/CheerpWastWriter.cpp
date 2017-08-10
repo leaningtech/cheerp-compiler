@@ -1061,6 +1061,27 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 						// Do nothing.
 						return true;
 					}
+					case Intrinsic::cheerp_allocate:
+					{
+						calledFunc = module.getFunction("malloc");
+						if (!calledFunc)
+							llvm::report_fatal_error("missing malloc definition");
+						break;
+					}
+					case Intrinsic::cheerp_reallocate:
+					{
+						calledFunc = module.getFunction("realloc");
+						if (!calledFunc)
+							llvm::report_fatal_error("missing realloc definition");
+						break;
+					}
+					case Intrinsic::cheerp_deallocate:
+					{
+						calledFunc = module.getFunction("free");
+						if (!calledFunc)
+							llvm::report_fatal_error("missing free definition");
+						break;
+					}
 					default:
 					{
 						unsigned intrinsic = calledFunc->getIntrinsicID();
