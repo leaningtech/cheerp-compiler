@@ -5107,8 +5107,8 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 				continue;
 			Block* target=relooperMap[term->getSuccessor(i)];
 			const BasicBlock* bbTo = target->llvmBlock;
-			bool hasPrologue = bbTo->getFirstNonPHI()==&bbTo->front();
-			if (!hasPrologue)
+			bool hasPrologue = bbTo->getFirstNonPHI()!=&bbTo->front();
+			if (hasPrologue)
 			{
 				// We can avoid assignment from the same register if no pointer kind
 				// conversion is required
