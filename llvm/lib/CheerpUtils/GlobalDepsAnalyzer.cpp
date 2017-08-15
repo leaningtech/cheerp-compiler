@@ -60,6 +60,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	VisitedSet visited;
 
 	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
+	std::vector<llvm::CallInst*> deleteList;
 	auto LibCallReplacer = [](Instruction *I, Value *With)
 	{
 		I->replaceAllUsesWith(With);
@@ -79,13 +80,18 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					if (calledFunc == nullptr)
 						continue;
 
-					callSimplifier.optimizeCall(&ci);
+					if (Value* with = callSimplifier.optimizeCall(&ci)) {
+						ci.replaceAllUsesWith(with);
+						deleteList.push_back(&ci);
+					}
 				}
 			}
 		}
 	}
+	for (CallInst* ci : deleteList) {
+		ci->eraseFromParent();
+	}
 
-	
 	//Compile the list of JS methods
 	//Look for metadata which ends in _methods. They are the have the list
 	//of exported methods for JS layout classes
