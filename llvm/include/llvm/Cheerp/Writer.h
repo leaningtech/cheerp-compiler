@@ -467,7 +467,8 @@ private:
 	struct AsmJSGepWriter: public LinearMemoryHelper::GepListener
 	{
 		CheerpWriter& writer;
-		AsmJSGepWriter(CheerpWriter& writer):writer(writer)
+		bool offset;
+		AsmJSGepWriter(CheerpWriter& writer):writer(writer), offset(false)
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
