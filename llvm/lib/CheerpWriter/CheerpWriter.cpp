@@ -1373,7 +1373,8 @@ void CheerpWriter::compileRawPointer(const Value* p)
 {
 	AsmJSGepWriter gepWriter(*this);
 	p = linearHelper.compileGEP(p, &gepWriter);
-	compileOperand(p, ADD_SUB);
+	PARENT_PRIORITY prio = gepWriter.offset?ADD_SUB:LOWEST;
+	compileOperand(p, prio);
 }
 
 int CheerpWriter::getHeapShiftForType(Type* et)
@@ -5148,6 +5149,7 @@ void CheerpWriter::JSBytesWriter::addByte(uint8_t byte)
 
 void CheerpWriter::AsmJSGepWriter::addValue(const llvm::Value* v, uint32_t size)
 {
+	offset = true;
 	if (size == 1)
 	{
 		writer.compileOperand(v ,ADD_SUB);
