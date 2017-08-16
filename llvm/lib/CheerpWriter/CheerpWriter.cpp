@@ -3283,7 +3283,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::FCmp:
 		{
-			PARENT_PRIORITY fcmpPrio = LOWEST;
 			//Integer comparison
 			const CmpInst& ci = cast<CmpInst>(I);
 			//Check that the operation is JS safe
@@ -3292,58 +3291,47 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(ci.getPredicate()==CmpInst::FCMP_ORD)
 			{
 				if(parentPrio > LOGICAL_AND) stream << '(';
-				stream << '!';
+				compileOperand(ci.getOperand(0),PARENT_PRIORITY::COMPARISON);
 				if (asmjs)
-					stream << '(';
-				stream << "isNaN(";
-				if (regKind == Registerize::FLOAT)
-				{
-					fcmpPrio = HIGHEST;
-					stream << '+';
-				}
-				compileOperand(ci.getOperand(0),fcmpPrio);
-				stream << ')';
-				if (asmjs)
-					stream << "|0)&!(";
+					stream << "==";
 				else
-					stream << "&&!";
-				stream << "isNaN(";
-				if (regKind == Registerize::FLOAT)
-				{
-					stream << '+';
-				}
-				compileOperand(ci.getOperand(1), fcmpPrio);
-				stream << ')';
+					stream << "===";
+				compileOperand(ci.getOperand(0),PARENT_PRIORITY::COMPARISON);
 				if (asmjs)
-					stream << "|0)";
+					stream << '&';
+				else
+					stream << "&&";
+				compileOperand(ci.getOperand(1),PARENT_PRIORITY::COMPARISON);
+				if (asmjs)
+					stream << "==";
+				else
+					stream << "===";
+				compileOperand(ci.getOperand(1),PARENT_PRIORITY::COMPARISON);
 				if(parentPrio > LOGICAL_AND) stream << ')';
 			}
 			else if(ci.getPredicate()==CmpInst::FCMP_UNO)
 			{
 				if(parentPrio > LOGICAL_OR) stream << '(';
+				stream << "!(";
+				compileOperand(ci.getOperand(0),PARENT_PRIORITY::COMPARISON);
 				if (asmjs)
-					stream << '(';
-				stream << "isNaN(";
-				if (regKind == Registerize::FLOAT)
-				{
-					fcmpPrio = HIGHEST;
-					stream << '+';
-				}
-				compileOperand(ci.getOperand(0), fcmpPrio);
+					stream << "==";
+				else
+					stream << "===";
+				compileOperand(ci.getOperand(0),PARENT_PRIORITY::COMPARISON);
 				stream << ')';
 				if (asmjs)
-					stream <<"|0)|(";
+					stream << '|';
 				else
 					stream << "||";
-				stream << "isNaN(";
-				if (regKind == Registerize::FLOAT)
-				{
-					stream << '+';
-				}
-				compileOperand(ci.getOperand(1), fcmpPrio);
-				stream << ')';
+				stream << "!(";
+				compileOperand(ci.getOperand(1),PARENT_PRIORITY::COMPARISON);
 				if (asmjs)
-					stream << "|0)";
+					stream << "==";
+				else
+					stream << "===";
+				compileOperand(ci.getOperand(1),PARENT_PRIORITY::COMPARISON);
+				stream << ')';
 				if(parentPrio > LOGICAL_OR) stream << ')';
 			}
 			else
@@ -4784,7 +4772,6 @@ void CheerpWriter::makeJS()
 		}
 		compileMathDeclAsmJS();
 		compileBuiltins(true);
-		stream << "var isNaN=ffi.isNaN;" << NewLine;
 		stream << "var __dummy=ffi.__dummy;" << NewLine;
 		if (checkBounds)
 		{
@@ -4841,7 +4828,6 @@ void CheerpWriter::makeJS()
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
-		stream << "isNaN:isNaN," << NewLine;
 		stream << "__dummy:__dummy," << NewLine;
 		if (checkBounds)
 		{
