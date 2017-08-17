@@ -82,6 +82,7 @@ private:
 	void compileImportSection();
 	void compileTableSection();
 	void compileMemoryAndGlobalSection();
+	void compileExportSection();
 	void compileStartSection();
 	void compileElementSection();
 	void compileCodeSection();
