@@ -58,6 +58,7 @@ private:
 	llvm::LLVMContext& Ctx;
 
 	GlobalDepsAnalyzer & globalDeps;
+	// Helper class to manage linear memory state
 	const LinearMemoryHelper& linearHelper;
 
 	// Codegen custom globals
