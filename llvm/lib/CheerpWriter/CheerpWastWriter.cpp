@@ -2069,7 +2069,7 @@ void CheerpWastWriter::compileMethodParams(std::ostream& code, const FunctionTyp
 		for(uint32_t i = 0; i < numArgs; i++)
 			encodeValType(fTy->getParamType(i), code);
 	}
-	else if(numArgs)
+	else if(fTy->getNumParams())
 	{
 		assert(cheerpMode == CHEERP_MODE_WAST);
 		code << "(param";
@@ -2188,26 +2188,6 @@ void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
 	}
 }
 
-void CheerpWastWriter::compileImport(std::ostream& code, const Function& F)
-{
-	assert(useWastLoader);
-	code << "(func (import \"imports\" \"";
-	code << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str();
-	code << "\")";
-	uint32_t numArgs = F.arg_size();
-	if(numArgs)
-	{
-		code << "(param";
-		llvm::FunctionType* FTy = F.getFunctionType();
-		for(uint32_t i = 0; i < numArgs; i++)
-			code << ' ' << getTypeString(FTy->getParamType(i));
-		code << ')';
-	}
-	if(!F.getReturnType()->isVoidTy())
-		code << "(result " << getTypeString(F.getReturnType()) << ')';
-	code << ")\n";
-}
-
 void CheerpWastWriter::compileTypeSection()
 {
 	if (linearHelper.getFunctionTypes().empty())
@@ -2232,11 +2212,54 @@ void CheerpWastWriter::compileTypeSection()
 		for (const auto& fTy : linearHelper.getFunctionTypes())
 		{
 			section << "(type " << "$vt_" << linearHelper.getFunctionTableName(fTy) << " (func ";
-
 			compileMethodParams(section, fTy);
 			compileMethodResult(section, fTy->getReturnType());
 			section << "))\n";
 		}
+	}
+}
+
+void CheerpWastWriter::compileImport(std::ostream& code, const Function& F)
+{
+	assert(useWastLoader);
+
+	NameGenerator::NAME_FILTER_MODE mode = NameGenerator::NAME_FILTER_MODE::GLOBAL;
+	std::string fieldName = NameGenerator::filterLLVMName(F.getName(), mode).str().str();
+
+	if (cheerpMode == CHEERP_MODE_WASM) {
+		// Encode the module name.
+		std::string moduleName = "imports";
+		encodeULEB128(moduleName.size(), code);
+		code.write(moduleName.data(), moduleName.size());
+
+		// Encode the field name.
+		encodeULEB128(fieldName.size(), code);
+		code.write(fieldName.data(), fieldName.size());
+
+		// Encode kind as 'Function' (= 0).
+		encodeULEB128(0x00, code);
+
+		// Encode type index of function signature.
+		auto fTy = F.getFunctionType();
+		const auto& found = linearHelper.getFunctionTypeIndices().find(fTy);
+		assert(found != linearHelper.getFunctionTypeIndices().end());
+		encodeULEB128(found->second, code);
+	} else {
+		code << "(func (import \"imports\" \"";
+		code.write(fieldName.data(), fieldName.size());
+		code << "\")";
+		uint32_t numArgs = F.arg_size();
+		if(numArgs)
+		{
+			code << "(param";
+			llvm::FunctionType* FTy = F.getFunctionType();
+			for(uint32_t i = 0; i < numArgs; i++)
+				code << ' ' << getTypeString(FTy->getParamType(i));
+			code << ')';
+		}
+		if(!F.getReturnType()->isVoidTy())
+			code << "(result " << getTypeString(F.getReturnType()) << ')';
+		code << ")\n";
 	}
 }
 
@@ -2245,7 +2268,6 @@ void CheerpWastWriter::compileImportSection()
 	if (globalDeps.asmJSImports().empty() || !useWastLoader)
 		return;
 
-	assert(false);
 	Section section(0x02, "Import", this);
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
@@ -2301,6 +2323,7 @@ void CheerpWastWriter::compileTableSection()
 	uint32_t count = 0;
 	for (const auto& table : linearHelper.getFunctionTables())
 		count += table.second.functions.size();
+	count = std::min(count, COMPILE_METHOD_LIMIT); // TODO
 
 	Section section(0x04, "Table", this);
 
@@ -2318,10 +2341,15 @@ void CheerpWastWriter::compileTableSection()
 	} else {
 		assert(cheerpMode == CHEERP_MODE_WAST);
 		section << "(table anyfunc (elem";
+		size_t j = 0;
 		for (const auto& table : linearHelper.getFunctionTables()) {
 			for (const auto& F : table.second.functions) {
 				section << " $" << F->getName().str();
+				if (++j == COMPILE_METHOD_LIMIT)
+					break; // TODO
 			}
+			if (j == COMPILE_METHOD_LIMIT)
+				break; // TODO
 		}
 		section << "))\n";
 
