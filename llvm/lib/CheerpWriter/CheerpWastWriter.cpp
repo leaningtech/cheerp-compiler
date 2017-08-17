@@ -59,6 +59,9 @@ BlockType* findSwitchBlockType(std::vector<BlockType>& blocks)
 	llvm_unreachable("switch render block not found");
 }
 
+// The methods encodeSLEB128 and encodeULEB128 are identical to the ones in
+// llvm/Support/LEB128.h, but require a parameter of type `std::ostream&`
+// instead of the llvm output stream.
 static inline void encodeSLEB128(int64_t Value, std::ostream& OS) {
 	bool More;
 	do {
@@ -135,7 +138,7 @@ static void encodeValType(const Type* t, std::ostream& stream)
 	}
 }
 
-static void encodeLiteralType(Type* t, std::ostream& stream)
+static void encodeLiteralType(const Type* t, std::ostream& stream)
 {
 	if (t->isIntegerTy() || t->isPointerTy())
 		encodeULEB128(0x41, stream);
@@ -145,7 +148,8 @@ static void encodeLiteralType(Type* t, std::ostream& stream)
 		encodeULEB128(0x44, stream);
 	else
 	{
-		llvm::errs() << "Unsupported type " << *t << "\n";
+		llvm::errs() << "Unsupported type: ";
+		t->dump();
 		llvm_unreachable("Unsuppored type");
 	}
 }
@@ -154,7 +158,8 @@ static void encodeOpcode(uint32_t opcode, const char* name,
 		CheerpWastWriter& writer, std::ostream& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
-		encodeULEB128(opcode, code);
+		assert(opcode <= 255);
+		code << char(opcode);
 	} else {
 		assert(writer.cheerpMode == CHEERP_MODE_WAST);
 		code << name << '\n';
@@ -165,7 +170,8 @@ static void encodeS32Opcode(uint32_t opcode, const char* name,
 		int32_t immediate, CheerpWastWriter& writer, std::ostream& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
-		encodeULEB128(opcode, code);
+		assert(opcode <= 255);
+		code << char(opcode);
 		encodeSLEB128(immediate, code);
 	} else {
 		assert(writer.cheerpMode == CHEERP_MODE_WAST);
@@ -177,7 +183,8 @@ static void encodeU32Opcode(uint32_t opcode, const char* name,
 		uint32_t immediate, CheerpWastWriter& writer, std::ostream& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
-		encodeULEB128(opcode, code);
+		assert(opcode <= 255);
+		code << char(opcode);
 		encodeULEB128(immediate, code);
 	} else {
 		assert(writer.cheerpMode == CHEERP_MODE_WAST);
@@ -189,7 +196,8 @@ static void encodeU32U32Opcode(uint32_t opcode, const char* name,
 		uint32_t i1, uint32_t i2, CheerpWastWriter& writer, std::ostream& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
-		encodeULEB128(opcode, code);
+		assert(opcode <= 255);
+		code << char(opcode);
 		encodeULEB128(i1, code);
 		encodeULEB128(i2, code);
 	} else {
@@ -2094,6 +2102,7 @@ void CheerpWastWriter::compileMethodResult(std::ostream& code, const Type* ty)
 
 void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
 {
+	assert(!F.empty());
 	currentFun = &F;
 
 	if (cheerpMode == CHEERP_MODE_WAST)
@@ -2400,7 +2409,7 @@ void CheerpWastWriter::compileExportSection()
 	// Encode the function index (where '0x00' means that this export is a
 	// function).
 	encodeULEB128(0x00, section);
-	encodeULEB128(globalDeps.functionIds.find(&F)->second, section);
+	encodeULEB128(linearHelper.getFunctionIds().find(&F)->second, section);
 }
 
 void CheerpWastWriter::compileStartSection()
