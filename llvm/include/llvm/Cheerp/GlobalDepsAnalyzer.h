@@ -117,6 +117,11 @@ public:
 	void visitType( llvm::Type* t, bool forceTypedArray );
 
 	llvm::StructType* needsDowncastArray(llvm::StructType* t) const;
+
+	// Utility function to get the name of the asm.js function table for the
+	// given function type
+	std::string getFunctionTableName(const llvm::FunctionType* ft);
+
 private:
 	typedef llvm::SmallSet<const llvm::GlobalValue*, 8> VisitedSet;
 	
@@ -164,10 +169,6 @@ private:
 	 * not been modified. This function also *reorders* the variables inside the module.
 	 */
 	int filterModule( llvm::Module & );
-
-	// Utility function to get the name of the asm.js function table for the
-	// given function type
-	std::string getFunctionTableName(const llvm::FunctionType* ft);
 
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
