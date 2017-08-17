@@ -2369,6 +2369,40 @@ void CheerpWastWriter::compileMemoryAndGlobalSection()
 	}
 }
 
+void CheerpWastWriter::compileExportSection()
+{
+	if (cheerpMode == CHEERP_MODE_WAST)
+		return;
+
+	llvm::Function* entry = module.getFunction("_Z7webMainv");
+	if(!entry)
+		return;
+
+	Section section(0x07, "Export", this);
+
+	encodeULEB128(2, section);
+
+	// Encode the memory.
+	std::string name = "memory";
+	encodeULEB128(name.size(), section);
+	section.write(name.data(), name.size());
+	encodeULEB128(0x02, section);
+	encodeULEB128(0, section);
+
+	llvm::Function& F = *entry;
+
+	// Encode the method name.
+	name = NameGenerator::filterLLVMName(F.getName(),
+		NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str();
+	encodeULEB128(name.size(), section);
+	section.write(name.data(), name.size());
+
+	// Encode the function index (where '0x00' means that this export is a
+	// function).
+	encodeULEB128(0x00, section);
+	encodeULEB128(globalDeps.functionIds.find(&F)->second, section);
+}
+
 void CheerpWastWriter::compileStartSection()
 {
 	// Experimental entry point for wasm code
@@ -2554,7 +2588,7 @@ void CheerpWastWriter::compileModule()
 
 	compileMemoryAndGlobalSection();
 
-	// TODO compileExportSection();
+	compileExportSection();
 
 	compileStartSection();
 
