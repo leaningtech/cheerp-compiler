@@ -267,15 +267,15 @@ void LinearMemoryHelper::addFunctions()
 		{
 			offset = (offset+1)<<16;
 		}
-		else
-		{
-			offset += FT.second.functions.size();
-		}
 		uint32_t addr = 0;
 		for (const auto F: FT.second.functions)
 		{
 			functionAddresses.emplace(F, addr+offset);
 			addr++;
+		}
+		if (mode == FunctionAddressMode::Wasm)
+		{
+			offset += FT.second.functions.size();
 		}
 	}
 }
