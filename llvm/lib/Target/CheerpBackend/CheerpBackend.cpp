@@ -23,6 +23,7 @@
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/PointerPasses.h"
+#include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/ResolveAliases.h"
 #include "llvm/Cheerp/SourceMaps.h"
@@ -138,6 +139,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createAllocaArraysPass());
   PM.add(cheerp::createAllocaArraysMergingPass());
   PM.add(createDelayAllocasPass());
+  PM.add(createRemoveFwdBlocksPass());
   PM.add(new CheerpWritePass(o));
   return false;
 }

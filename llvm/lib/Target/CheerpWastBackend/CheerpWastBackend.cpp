@@ -21,6 +21,7 @@
 #include "llvm/Cheerp/WastWriter.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/PointerPasses.h"
+#include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/ResolveAliases.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/Registerize.h"
@@ -138,6 +139,7 @@ bool CheerpWastTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createAllocaArraysPass());
   PM.add(cheerp::createAllocaArraysMergingPass());
   PM.add(createDelayAllocasPass());
+  PM.add(createRemoveFwdBlocksPass());
   PM.add(new CheerpWastWritePass(o));
   return false;
 }
