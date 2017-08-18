@@ -5,6 +5,7 @@ add_llvm_library(LLVMCheerpUtils
   PreExecute.cpp
   PointerAnalyzer.cpp
   PointerPasses.cpp
+  CFGPasses.cpp
   ReplaceNopCastsAndByteSwaps.cpp
   ResolveAliases.cpp
   Registerize.cpp
