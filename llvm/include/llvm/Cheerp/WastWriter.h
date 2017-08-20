@@ -12,9 +12,8 @@
 #ifndef _CHEERP_WAST_WRITER_H
 #define _CHEERP_WAST_WRITER_H
 
-#if 0
-#include "llvm/Analysis/AliasAnalysis.h"
-#endif
+#include <sstream>
+
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
@@ -41,6 +40,21 @@ namespace cheerp
 {
 
 const uint32_t WasmPage = 64*1024;
+
+enum CheerpMode {
+	CHEERP_MODE_WASM = 0,
+	CHEERP_MODE_WAST = 1,
+};
+
+class CheerpWastWriter;
+
+class Section : public std::stringstream {
+private:
+	CheerpWastWriter* writer;
+public:
+	Section(uint32_t sectionId, CheerpWastWriter* writer);
+	~Section();
+};
 
 class CheerpWastWriter
 {
@@ -69,24 +83,28 @@ private:
 	// opcode 'unreachable' for calls to unknown functions.
 	bool useWastLoader;
 
+public:
+	CheerpMode cheerpMode;
+
+private:
 	static const char* getTypeString(llvm::Type* t);
-	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
-	void compileMethodParams(const llvm::Function& F);
-	void compileMethodResult(const llvm::Function& F);
-	void compileMethod(const llvm::Function& F);
-	void compileImport(const llvm::Function& F);
+	void compileMethodLocals(std::ostream& code, const llvm::Function& F, bool needsLabel);
+	void compileMethodParams(std::ostream& code, const llvm::Function& F);
+	void compileMethodResult(std::ostream& code, const llvm::Function& F);
+	void compileMethod(std::ostream& code, const llvm::Function& F);
+	void compileImport(std::ostream& code, const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	void compileDataSection();
 	// Returns true if it has handled local assignent internally
-	bool compileInstruction(const llvm::Instruction& I);
-	void compileGEP(const llvm::User* gepInst);
+	bool compileInstruction(std::ostream& code, const llvm::Instruction& I);
+	void compileGEP(std::ostream& code, const llvm::User* gepInst);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
 	{
-		llvm::formatted_raw_ostream& stream;
-		WastBytesWriter(llvm::formatted_raw_ostream& stream)
-			: stream(stream)
+		std::ostream& code;
+		WastBytesWriter(std::ostream& code)
+			: code(code)
 		{
 		}
 		void addByte(uint8_t b) override;
@@ -95,8 +113,10 @@ private:
 	struct WastGepWriter: public LinearMemoryHelper::GepListener
 	{
 		CheerpWastWriter& writer;
+		std::ostream& code;
 		bool first;
-		WastGepWriter(CheerpWastWriter& writer):writer(writer),first(true)
+		WastGepWriter(CheerpWastWriter& writer, std::ostream& code)
+			: writer(writer), code(code), first(true)
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
@@ -123,19 +143,20 @@ public:
 		stackTopGlobal(0),
 		heapSize(heapSize),
 		useWastLoader(useWastLoader),
+		cheerpMode(CHEERP_MODE_WASM),
 		stream(s)
 	{
 	}
 	void makeWast();
-	void compileBB(const llvm::BasicBlock& BB);
-	void compileDowncast(llvm::ImmutableCallSite callV);
-	void compileConstantExpr(const llvm::ConstantExpr* ce);
-	void compileConstant(const llvm::Constant* c);
-	void compileOperand(const llvm::Value* v);
-	void compileSignedInteger(const llvm::Value* v, bool forComparison);
-	void compileUnsignedInteger(const llvm::Value* v);
+	void compileBB(std::ostream& code, const llvm::BasicBlock& BB);
+	void compileDowncast(std::ostream& code, llvm::ImmutableCallSite callV);
+	void compileConstantExpr(std::ostream& code, const llvm::ConstantExpr* ce);
+	void compileConstant(std::ostream& code, const llvm::Constant* c);
+	void compileOperand(std::ostream& code, const llvm::Value* v);
+	void compileSignedInteger(std::ostream& code, const llvm::Value* v, bool forComparison);
+	void compileUnsignedInteger(std::ostream& code, const llvm::Value* v);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
-	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
+	void compilePHIOfBlockFromOtherBlock(std::ostream& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 };
 
 }
