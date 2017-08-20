@@ -15,6 +15,7 @@
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WastWriter.h"
+#include "llvm/Support/LEB128.h"
 
 using namespace cheerp;
 using namespace llvm;
@@ -47,19 +48,57 @@ BlockType* findSwitchBlockType(std::vector<BlockType>& blocks)
 	llvm_unreachable("switch render block not found");
 }
 
+inline void encodeULEB128(uint64_t Value, std::ostream& OS,
+		unsigned Padding = 0) {
+	do {
+		uint8_t Byte = Value & 0x7f;
+		Value >>= 7;
+		if (Value != 0 || Padding != 0)
+			Byte |= 0x80; // Mark this byte to show that more bytes will follow.
+		OS << char(Byte);
+	} while (Value != 0);
+
+	// Pad with 0x80 and emit a null byte at the end.
+	if (Padding != 0) {
+		for (; Padding != 1; --Padding)
+			OS << '\x80';
+		OS << '\x00';
+	}
+}
+
+Section::Section(uint32_t sectionId, CheerpWastWriter* writer)
+	: std::stringstream(), writer(writer)
+{
+	if (writer->cheerpMode == CHEERP_MODE_WASM) {
+		llvm::errs() << "section id: " << sectionId << '\n';
+		encodeULEB128(sectionId, writer->stream);
+	}
+}
+Section::~Section()
+{
+	std::string buf = str();
+	if (writer->cheerpMode == CHEERP_MODE_WASM) {
+		llvm::errs() << "section length: " << buf.size() << '\n';
+		encodeULEB128(buf.size(), writer->stream);
+	}
+	writer->stream << buf;
+}
+
 class CheerpWastRenderInterface: public RenderInterface
 {
 private:
 	CheerpWastWriter* writer;
+	std::ostream& code;
 	std::vector<BlockType> blockTypes;
 	uint32_t labelLocal;
 	void renderCondition(const BasicBlock* B, int branchId);
 	void indent();
 public:
 	const BasicBlock* lastDepth0Block;
-	CheerpWastRenderInterface(CheerpWastWriter* w, uint32_t labelLocal)
+	CheerpWastRenderInterface(CheerpWastWriter* w, std::ostream& code, uint32_t labelLocal)
 	 :
 		writer(w),
+		code(code),
 		labelLocal(labelLocal),
 		lastDepth0Block(nullptr)
 	{ }
@@ -94,13 +133,13 @@ void CheerpWastRenderInterface::renderBlock(const BasicBlock* bb)
 		lastDepth0Block = bb;
 	else
 		lastDepth0Block = nullptr;
-	writer->compileBB(*bb);
+	writer->compileBB(code, *bb);
 }
 
 void CheerpWastRenderInterface::indent()
 {
 	for(uint32_t i=0;i<blockTypes.size();i++)
-		writer->stream << "  ";
+		code << "  ";
 }
 
 void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
@@ -113,7 +152,7 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 		assert(bi->isConditional());
 		//The second branch is the default
 		assert(branchId==0);
-		writer->compileOperand(bi->getCondition());
+		writer->compileOperand(code, bi->getCondition());
 	}
 	else if(isa<SwitchInst>(term))
 	{
@@ -123,10 +162,10 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 		for(int i=1;i<branchId;i++)
 			++it;
 		const BasicBlock* dest=it.getCaseSuccessor();
-		writer->compileOperand(si->getCondition());
-		writer->stream << '\n';
-		writer->compileOperand(it.getCaseValue());
-		writer->stream << "\ni32.eq";
+		writer->compileOperand(code, si->getCondition());
+		code << '\n';
+		writer->compileOperand(code, it.getCaseValue());
+		code << "\ni32.eq";
 		//We found the destination, there may be more cases for the same
 		//destination though
 		for(++it;it!=si->case_end();++it)
@@ -134,11 +173,11 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 			if(it.getCaseSuccessor()==dest)
 			{
 				//Also add this condition
-				writer->stream << '\n';
-				writer->compileOperand(si->getCondition());
-				writer->stream << '\n';
-				writer->compileOperand(it.getCaseValue());
-				writer->stream << "\ni32.eq\ni32.or";
+				code << '\n';
+				writer->compileOperand(code, si->getCondition());
+				code << '\n';
+				writer->compileOperand(code, it.getCaseValue());
+				code << "\ni32.eq\ni32.or";
 			}
 		}
 	}
@@ -151,7 +190,7 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 
 void CheerpWastRenderInterface::renderLabelForSwitch(int labelId)
 {
-	writer->stream << "block $" << labelId << '\n';
+	code << "block $" << labelId << '\n';
 	blockTypes.emplace_back(LABEL_FOR_SWITCH, 1);
 }
 
@@ -182,27 +221,27 @@ void CheerpWastRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 	}
 
 	for (uint32_t i = 0; i < idShapeMap.size() + 1; i++)
-		writer->stream << "block\n";
+		code << "block\n";
 
 	// Wrap the br_table instruction in its own block
-	writer->stream << "block\n";
-	writer->stream << "get_local " << labelLocal;
+	code << "block\n";
+	code << "get_local " << labelLocal;
 	if (min != 0)
 	{
-		writer->stream << "\ni32.const " << min;
-		writer->stream << "\ni32.sub";
+		code << "\ni32.const " << min;
+		code << "\ni32.sub";
 	}
-	writer->stream << "\nbr_table";
+	code << "\nbr_table";
 
 	for (auto label : table)
-		writer->stream << " " << label;
-	writer->stream << " 0\n";
+		code << " " << label;
+	code << " 0\n";
 
-	writer->stream << "\nend\n";
+	code << "\nend\n";
 
 	// The first block does not do anything, and breaks out of the switch.
-	writer->stream << "br " << idShapeMap.size() << "\n";
-	writer->stream << "\nend\n";
+	code << "br " << idShapeMap.size() << "\n";
+	code << "\nend\n";
 
 	blockTypes.emplace_back(SWITCH, idShapeMap.size());
 }
@@ -289,24 +328,24 @@ void CheerpWastRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 
 	// Print the case blocks and the default block.
 	for (uint32_t i = 0; i < caseBlocks + 1; i++)
-		writer->stream << "block\n";
+		code << "block\n";
 
 	// Wrap the br_table instruction in its own block.
-	writer->stream << "block\n";
-	writer->compileOperand(si->getCondition());
+	code << "block\n";
+	writer->compileOperand(code, si->getCondition());
 	if (min != 0)
 	{
-		writer->stream << "\ni32.const " << min;
-		writer->stream << "\ni32.sub";
+		code << "\ni32.const " << min;
+		code << "\ni32.sub";
 	}
-	writer->stream << "\nbr_table";
+	code << "\nbr_table";
 
 	// Print the case labels and the default label.
 	for (auto label : table)
-		writer->stream << " " << label;
-	writer->stream << " " << caseBlocks << "\n";
+		code << " " << label;
+	code << " " << caseBlocks << "\n";
 
-	writer->stream << "end\n";
+	code << "end\n";
 
 	blockTypes.emplace_back(SWITCH, caseBlocks + 1);
 }
@@ -330,13 +369,13 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int bra
 	if(!first)
 	{
 		indent();
-		writer->stream << "else\n";
+		code << "else\n";
 	}
 	// The condition goes first
 	renderCondition(bb, branchId);
-	writer->stream << '\n';
+	code << '\n';
 	indent();
-	writer->stream << "if\n";
+	code << "if\n";
 	if(first)
 	{
 		blockTypes.emplace_back(IF, 1);
@@ -353,26 +392,23 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const s
 	if(!first)
 	{
 		indent();
-		writer->stream << "else\n";
+		code << "else\n";
 	}
 	// The condition goes first
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
 	{
 		if(i!=0)
 		{
-assert(false);
-#if 0
-			writer->stream << "||";
-#endif
+			assert(false);
 		}
 		renderCondition(bb, skipBranchIds[i]);
-		writer->stream << '\n';
+		code << '\n';
 	}
 	// Invert result
-	writer->stream << "i32.const 1\n";
-	writer->stream << "i32.xor\n";
+	code << "i32.const 1\n";
+	code << "i32.xor\n";
 	indent();
-	writer->stream << "if\n";
+	code << "if\n";
 
 	if(first)
 	{
@@ -391,7 +427,7 @@ void CheerpWastRenderInterface::renderElseBlockBegin()
 	assert(blockTypes.back().type == IF);
 
 	indent();
-	writer->stream << "else\n";
+	code << "else\n";
 }
 
 void CheerpWastRenderInterface::renderBlockEnd()
@@ -403,14 +439,14 @@ void CheerpWastRenderInterface::renderBlockEnd()
 	if(block.type == WHILE1)
 	{
 		// TODO: Why do we even need to fake value
-		writer->stream << "i32.const 0\n";
-		writer->stream << "br 1\n";
-		writer->stream << "end\n";
-		writer->stream << "end\n";
+		code << "i32.const 0\n";
+		code << "br 1\n";
+		code << "end\n";
+		code << "end\n";
 	}
 	else if (block.type == CASE)
 	{
-		writer->stream << "end\n";
+		code << "end\n";
 		BlockType* switchBlock = findSwitchBlockType(blockTypes);
 		assert(switchBlock->depth > 0);
 		switchBlock->depth--;
@@ -420,7 +456,7 @@ void CheerpWastRenderInterface::renderBlockEnd()
 		for(uint32_t i = 0; i < block.depth; i++)
 		{
 			indent();
-			writer->stream << "end\n";
+			code << "end\n";
 		}
 	}
 	else if (block.type == SWITCH)
@@ -428,7 +464,7 @@ void CheerpWastRenderInterface::renderBlockEnd()
 		assert(block.depth == 0);
 		if (!blockTypes.empty() && blockTypes.back().type == LABEL_FOR_SWITCH) {
 			blockTypes.pop_back();
-			writer->stream << "end\n";
+			code << "end\n";
 		}
 	}
 	else
@@ -439,7 +475,7 @@ void CheerpWastRenderInterface::renderBlockEnd()
 
 void CheerpWastRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom)
 {
-	writer->compilePHIOfBlockFromOtherBlock(bbTo, bbFrom);
+	writer->compilePHIOfBlockFromOtherBlock(code, bbTo, bbFrom);
 }
 
 void CheerpWastRenderInterface::renderWhileBlockBegin()
@@ -448,9 +484,9 @@ void CheerpWastRenderInterface::renderWhileBlockBegin()
 	// br 1 -> break
 	// br 2 -> continue
 	indent();
-	writer->stream << "loop\n";
+	code << "loop\n";
 	indent();
-	writer->stream << "block\n";
+	code << "block\n";
 	blockTypes.emplace_back(WHILE1, 1);
 }
 
@@ -460,23 +496,23 @@ void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
 	// br 1 -> break
 	// br 2 -> continue
 	indent();
-	writer->stream << "loop $c" << blockLabel << "\n";
+	code << "loop $c" << blockLabel << "\n";
 	indent();
-	writer->stream << "block $" << blockLabel << "\n";
+	code << "block $" << blockLabel << "\n";
 	blockTypes.emplace_back(WHILE1, 1);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin()
 {
 	indent();
-	writer->stream << "block\n";
+	code << "block\n";
 	blockTypes.emplace_back(DO, 1);
 }
 
 void CheerpWastRenderInterface::renderDoBlockBegin(int blockLabel)
 {
 	indent();
-	writer->stream << "block $" << blockLabel << "\n";
+	code << "block $" << blockLabel << "\n";
 	blockTypes.emplace_back(DO, 1);
 }
 
@@ -487,7 +523,7 @@ void CheerpWastRenderInterface::renderDoBlockEnd()
 	blockTypes.pop_back();
 
 	indent();
-	writer->stream << "end\n";
+	code << "end\n";
 }
 
 void CheerpWastRenderInterface::renderBreak()
@@ -497,7 +533,7 @@ void CheerpWastRenderInterface::renderBreak()
 	{
 		BlockType* switchBlock = findSwitchBlockType(blockTypes);
 		assert(switchBlock->depth > 0);
-		writer->stream << "br " << (switchBlock->depth - 1) << "\n";
+		code << "br " << (switchBlock->depth - 1) << "\n";
 	}
 	else
 	{
@@ -511,7 +547,7 @@ void CheerpWastRenderInterface::renderBreak()
 				break;
 		}
 		assert(breakIndex > 1);
-		writer->stream << "br " << (breakIndex - 1) << "\n";
+		code << "br " << (breakIndex - 1) << "\n";
 	}
 }
 
@@ -519,7 +555,7 @@ void CheerpWastRenderInterface::renderBreak(int labelId)
 {
 	// DO blocks only have one label
 	// WHILE1 blocks have the "block" without a prefix
-	writer->stream << "br $" << labelId << '\n';
+	code << "br $" << labelId << '\n';
 }
 
 void CheerpWastRenderInterface::renderContinue()
@@ -535,28 +571,28 @@ void CheerpWastRenderInterface::renderContinue()
 		breakIndex += blockTypes[blockTypes.size() - i - 1].depth;
 	}
 	breakIndex += 1;
-	writer->stream << "br " << breakIndex << "\n";
+	code << "br " << breakIndex << "\n";
 }
 
 void CheerpWastRenderInterface::renderContinue(int labelId)
 {
-	writer->stream << "br $c" << labelId << '\n';
+	code << "br $c" << labelId << '\n';
 }
 
 void CheerpWastRenderInterface::renderLabel(int labelId)
 {
-	writer->stream << "i32.const " << labelId << '\n';
-	writer->stream << "set_local " << labelLocal << '\n';
+	code << "i32.const " << labelId << '\n';
+	code << "set_local " << labelLocal << '\n';
 }
 
 void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
 {
 	// TODO: Use first to optimize dispatch
-	writer->stream << "i32.const " << labelId << '\n';
-	writer->stream << "get_local " << labelLocal << '\n';
-	writer->stream << "i32.eq\n";
+	code << "i32.const " << labelId << '\n';
+	code << "get_local " << labelLocal << '\n';
+	code << "i32.eq\n";
 	indent();
-	writer->stream << "if\n";
+	code << "if\n";
 	blockTypes.emplace_back(IF, 1);
 }
 
@@ -569,12 +605,13 @@ bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const 
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst);
 }
 
-void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
+void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(std::ostream& code, const BasicBlock* to, const BasicBlock* from)
 {
 	class WriterPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		WriterPHIHandler(CheerpWastWriter& w, const BasicBlock* f, const BasicBlock* t):EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t)
+		WriterPHIHandler(CheerpWastWriter& w, std::ostream& c, const BasicBlock* f, const BasicBlock* t)
+			:EndOfBlockPHIHandler(w.PA),writer(w), code(c),fromBB(f),toBB(t)
 		{
 		}
 		~WriterPHIHandler()
@@ -582,13 +619,14 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, con
 		}
 	private:
 		CheerpWastWriter& writer;
+		std::ostream& code;
 		const BasicBlock* fromBB;
 		const BasicBlock* toBB;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			assert(incoming);
-			writer.stream << "get_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(incoming)) << '\n';
-			writer.stream << "set_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB)) << '\n';
+			code << "get_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(incoming)) << '\n';
+			code << "set_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB)) << '\n';
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
@@ -597,13 +635,13 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, con
 				return;
 			// 1) Put the value on the stack
 			writer.registerize.setEdgeContext(fromBB, toBB);
-			writer.compileOperand(incoming);
+			writer.compileOperand(code, incoming);
 			writer.registerize.clearEdgeContext();
 			// 2) Save the value in the phi
-			writer.stream << "\nset_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(phi)) << '\n';
+			code << "\nset_local " << (1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(phi)) << '\n';
 		}
 	};
-	WriterPHIHandler(*this, from, to).runOnEdge(registerize, from, to);
+	WriterPHIHandler(*this, code, from, to).runOnEdge(registerize, from, to);
 }
 
 const char* CheerpWastWriter::getTypeString(Type* t)
@@ -621,29 +659,29 @@ const char* CheerpWastWriter::getTypeString(Type* t)
 	}
 }
 
-void CheerpWastWriter::compileGEP(const llvm::User* gep_inst)
+void CheerpWastWriter::compileGEP(std::ostream& code, const llvm::User* gep_inst)
 {
-	WastGepWriter gepWriter(*this);
+	WastGepWriter gepWriter(*this, code);
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
-	compileOperand(p);
+	compileOperand(code, p);
 	if(!gepWriter.first)
-		stream << "\ni32.add";
+		code << "\ni32.add";
 }
 
-void CheerpWastWriter::compileSignedInteger(const llvm::Value* v, bool forComparison)
+void CheerpWastWriter::compileSignedInteger(std::ostream& code, const llvm::Value* v, bool forComparison)
 {
 	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
 		if(forComparison)
-			stream << "i32.const " << (C->getSExtValue() << shiftAmount) << '\n';
+			code << "i32.const " << (C->getSExtValue() << shiftAmount) << '\n';
 		else
-			stream << "i32.const " << C->getSExtValue() << '\n';
+			code << "i32.const " << C->getSExtValue() << '\n';
 		return;
 	}
 
-	compileOperand(v);
-	stream << '\n';
+	compileOperand(code, v);
+	code << '\n';
 
 	if (shiftAmount == 0)
 		return;
@@ -651,71 +689,71 @@ void CheerpWastWriter::compileSignedInteger(const llvm::Value* v, bool forCompar
 	if (forComparison)
 	{
 		// When comparing two signed values we can avoid the right shift
-		stream << "i32.const " << shiftAmount << '\n';
-		stream << "i32.shl\n";
+		code << "i32.const " << shiftAmount << '\n';
+		code << "i32.shl\n";
 	}
 	else
 	{
-		stream << "i32.const " << shiftAmount << '\n';
-		stream << "i32.shl\n";
-		stream << "i32.const " << shiftAmount << '\n';
-		stream << "i32.shr_s\n";
+		code << "i32.const " << shiftAmount << '\n';
+		code << "i32.shl\n";
+		code << "i32.const " << shiftAmount << '\n';
+		code << "i32.shr_s\n";
 	}
 }
 
-void CheerpWastWriter::compileUnsignedInteger(const llvm::Value* v)
+void CheerpWastWriter::compileUnsignedInteger(std::ostream& code, const llvm::Value* v)
 {
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
-		stream << "i32.const " << C->getZExtValue() << '\n';
+		code << "i32.const " << C->getZExtValue() << '\n';
 		return;
 	}
 
-	compileOperand(v);
-	stream << '\n';
+	compileOperand(code, v);
+	code << '\n';
 
 	uint32_t initialSize = v->getType()->getIntegerBitWidth();
 	if(initialSize != 32)
 	{
-		stream << "i32.const " << getMaskForBitWidth(initialSize) << '\n';
-		stream << "i32.and\n";
+		code << "i32.const " << getMaskForBitWidth(initialSize) << '\n';
+		code << "i32.and\n";
 	}
 }
 
-void CheerpWastWriter::compileConstantExpr(const ConstantExpr* ce)
+void CheerpWastWriter::compileConstantExpr(std::ostream& code, const ConstantExpr* ce)
 {
 	switch(ce->getOpcode())
 	{
 		case Instruction::GetElementPtr:
 		{
-			compileGEP(ce);
+			compileGEP(code, ce);
 			break;
 		}
 		case Instruction::BitCast:
 		{
 			assert(ce->getOperand(0)->getType()->isPointerTy());
-			compileOperand(ce->getOperand(0));
+			compileOperand(code, ce->getOperand(0));
 			break;
 		}
 		case Instruction::IntToPtr:
 		{
-			compileOperand(ce->getOperand(0));
+			compileOperand(code, ce->getOperand(0));
 			break;
 		}
 		case Instruction::ICmp:
 		{
 			CmpInst::Predicate p = (CmpInst::Predicate)ce->getPredicate();
-			compileOperand(ce->getOperand(0));
-			stream << '\n';
-			compileOperand(ce->getOperand(1));
-			stream << '\n';
-			stream << getTypeString(ce->getOperand(0)->getType())
+			compileOperand(code, ce->getOperand(0));
+			code << '\n';
+			compileOperand(code, ce->getOperand(1));
+			code << '\n';
+			code << getTypeString(ce->getOperand(0)->getType())
 				<< '.' << getIntegerPredicate(p);
 			break;
 		}
 		case Instruction::PtrToInt:
 		{
-			compileOperand(ce->getOperand(0));
+			compileOperand(code, ce->getOperand(0));
 			break;
 		}
 #if 0
@@ -731,37 +769,37 @@ void CheerpWastWriter::compileConstantExpr(const ConstantExpr* ce)
 		}
 #endif
 		default:
-			stream << "undefined";
+			code << "undefined";
 			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
 	}
 }
 
-void CheerpWastWriter::compileConstant(const Constant* c)
+void CheerpWastWriter::compileConstant(std::ostream& code, const Constant* c)
 {
 	if(const ConstantExpr* CE = dyn_cast<ConstantExpr>(c))
 	{
-		compileConstantExpr(CE);
+		compileConstantExpr(code, CE);
 	}
 	else if(const ConstantInt* i=dyn_cast<ConstantInt>(c))
 	{
-		stream << getTypeString(i->getType()) << ".const ";
+		code << getTypeString(i->getType()) << ".const ";
 		if(i->getBitWidth()==32)
-			stream << i->getSExtValue();
+			code << i->getSExtValue();
 		else
-			stream << i->getZExtValue();
+			code << i->getZExtValue();
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
-		stream << getTypeString(f->getType()) << ".const ";
+		code << getTypeString(f->getType()) << ".const ";
 		if(f->getValueAPF().isInfinity())
 		{
 			if(f->getValueAPF().isNegative())
-				stream << '-';
-			stream << "inf";
+				code << '-';
+			code << "inf";
 		}
 		else if(f->getValueAPF().isNaN())
 		{
-			stream << "nan";
+			code << "nan";
 		}
 		else
 		{
@@ -770,16 +808,16 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 			// TODO: Figure out the right amount of hexdigits
 			unsigned charCount = apf.convertToHexString(buf, f->getType()->isFloatTy() ? 8 : 16, false, APFloat::roundingMode::rmNearestTiesToEven);
 			assert(charCount < 40);
-			stream << buf;
+			code << buf;
 		}
 	}
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
 	{
-		stream << "i32.const " << linearHelper.getGlobalVariableAddress(GV);
+		code << "i32.const " << linearHelper.getGlobalVariableAddress(GV);
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
-		stream << "i32.const 0";
+		code << "i32.const 0";
 	}
 	else if(isa<Function>(c))
 	{
@@ -787,7 +825,7 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 		if (linearHelper.functionHasAddress(F))
 		{
 			uint32_t addr = linearHelper.getFunctionAddress(F);
-			stream << "i32.const " << addr;
+			code << "i32.const " << addr;
 		}
 		else
 		{
@@ -797,7 +835,7 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 	}
 	else if (isa<UndefValue>(c))
 	{
-		stream << getTypeString(c->getType()) << ".const 0";
+		code << getTypeString(c->getType()) << ".const 0";
 	}
 	else
 	{
@@ -806,20 +844,20 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 	}
 }
 
-void CheerpWastWriter::compileOperand(const llvm::Value* v)
+void CheerpWastWriter::compileOperand(std::ostream& code, const llvm::Value* v)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
-		compileConstant(c);
+		compileConstant(code, c);
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
 		if(isInlineable(*it, PA))
-			compileInstruction(*it);
+			compileInstruction(code, *it);
 		else
-			stream << "get_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(it));
+			code << "get_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(it));
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
-		stream << "get_local " << arg->getArgNo();
+		code << "get_local " << arg->getArgNo();
 	}
 	else
 	{
@@ -859,7 +897,7 @@ const char* CheerpWastWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
 	return "";
 }
 
-void CheerpWastWriter::compileDowncast(ImmutableCallSite callV)
+void CheerpWastWriter::compileDowncast(std::ostream& code, ImmutableCallSite callV)
 {
 	assert(callV.arg_size() == 2);
 	assert(callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast);
@@ -869,19 +907,19 @@ void CheerpWastWriter::compileDowncast(ImmutableCallSite callV)
 
 	Type* t = src->getType()->getPointerElementType();
 
-	compileOperand(src);
-	stream << '\n';
+	compileOperand(code, src);
+	code << '\n';
 
 	if(!TypeSupport::isClientType(t) &&
 			(!isa<ConstantInt>(offset) || !cast<ConstantInt>(offset)->isNullValue()))
 	{
-		compileOperand(offset);
-		stream << '\n';
-		stream << "i32.add\n";
+		compileOperand(code, offset);
+		code << '\n';
+		code << "i32.add\n";
 	}
 }
 
-bool CheerpWastWriter::compileInstruction(const Instruction& I)
+bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction& I)
 {
 	switch(I.getOpcode())
 	{
@@ -896,69 +934,69 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 
 			// We grow the stack down for now
 			// 1) Push the current stack pointer
-			stream << "get_global " << stackTopGlobal << '\n';
+			code << "get_global " << stackTopGlobal << '\n';
 			// 2) Push the allocation size
 			if (ai->isArrayAllocation()) {
 				const Value* n = ai->getArraySize();
 				if(const ConstantInt* C = dyn_cast<ConstantInt>(n))
 				{
-					stream << "i32.const " << (size * C->getSExtValue()) << '\n';
+					code << "i32.const " << (size * C->getSExtValue()) << '\n';
 				}
 				else
 				{
-					stream << "i32.const " << size << '\n';
-					compileOperand(n);
-					stream << "\n";
-					stream << "i32.mul\n";
+					code << "i32.const " << size << '\n';
+					compileOperand(code, n);
+					code << "\n";
+					code << "i32.mul\n";
 				}
 			} else {
-				stream << "i32.const " << size << '\n';
+				code << "i32.const " << size << '\n';
 			}
 			// 3) Substract the size
-			stream << "i32.sub\n";
+			code << "i32.sub\n";
 			// 3.1) Optionally align the stack down
 			if(size % alignment)
 			{
-				stream << "i32.const " << uint32_t(0-alignment) << '\n';
-				stream << "i32.and\n";
+				code << "i32.const " << uint32_t(0-alignment) << '\n';
+				code << "i32.and\n";
 			}
 			// 4) Write the location to the local, but preserve the value
-			stream << "tee_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(&I)) << '\n';
+			code << "tee_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(&I)) << '\n';
 			// 5) Save the new stack position
-			stream << "set_global " << stackTopGlobal << '\n';
+			code << "set_global " << stackTopGlobal << '\n';
 			return true;
 		}
 		case Instruction::Add:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".add";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".add";
 			break;
 		}
 		case Instruction::And:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".and";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".and";
 			break;
 		}
 		case Instruction::AShr:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".shr_s";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".shr_s";
 			break;
 		}
 		case Instruction::BitCast:
 		{
 			assert(I.getType()->isPointerTy());
-			compileOperand(I.getOperand(0));
+			compileOperand(code, I.getOperand(0));
 			break;
 		}
 		case Instruction::Br:
@@ -968,20 +1006,20 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			const VAArgInst& vi=cast<VAArgInst>(I);
 
 			// Load the current argument
-			compileOperand(vi.getPointerOperand());
-			stream << "\n";
-			stream << "i32.load\n";
-			stream << getTypeString(vi.getType()) << ".load\n";
+			compileOperand(code, vi.getPointerOperand());
+			code << "\n";
+			code << "i32.load\n";
+			code << getTypeString(vi.getType()) << ".load\n";
 
 			// Move varargs pointer to next argument
-			compileOperand(vi.getPointerOperand());
-			stream << "\n";
-			compileOperand(vi.getPointerOperand());
-			stream << "\n";
-			stream << "i32.load\n";
-			stream << "i32.const 8\n";
-			stream << "i32.add\n";
-			stream << "i32.store\n";
+			compileOperand(code, vi.getPointerOperand());
+			code << "\n";
+			compileOperand(code, vi.getPointerOperand());
+			code << "\n";
+			code << "i32.load\n";
+			code << "i32.const 8\n";
+			code << "i32.add\n";
+			code << "i32.store\n";
 			break;
 		}
 		case Instruction::Call:
@@ -999,16 +1037,16 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				{
 					case Intrinsic::trap:
 					{
-						stream << "unreachable ;; trap\n";
+						code << "unreachable ;; trap\n";
 						return true;
 					}
 					case Intrinsic::vastart:
 					{
-						compileOperand(ci.getOperand(0));
-						stream << '\n';
+						compileOperand(code, ci.getOperand(0));
+						code << '\n';
 						uint32_t numArgs = I.getParent()->getParent()->arg_size();
-						stream << "get_local " << numArgs << "\n";
-						stream << "i32.store\n";
+						code << "get_local " << numArgs << "\n";
+						code << "i32.store\n";
 						return true;
 					}
 					case Intrinsic::vaend:
@@ -1018,12 +1056,12 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 					}
 					case Intrinsic::cheerp_downcast:
 					{
-						compileDowncast(&ci);
+						compileDowncast(code, &ci);
 						return false;
 					}
 					case Intrinsic::cheerp_downcast_current:
 					{
-						compileOperand(ci.getOperand(0));
+						compileOperand(code, ci.getOperand(0));
 						return false;
 					}
 					case Intrinsic::cheerp_cast_user:
@@ -1031,20 +1069,20 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 						if(ci.use_empty())
 							return true;
 
-						compileOperand(ci.getOperand(0));
+						compileOperand(code, ci.getOperand(0));
 						return false;
 					}
 					case Intrinsic::flt_rounds:
 					{
 						// Rounding mode 1: nearest
-						stream << "i32.const 1\n";
+						code << "i32.const 1\n";
 						return false;
 					}
 					case Intrinsic::ctlz:
 					{
-						compileOperand(ci.getOperand(0));
-						stream << '\n';
-						stream << "i32.clz\n";
+						compileOperand(code, ci.getOperand(0));
+						code << '\n';
+						code << "i32.clz\n";
 						return false;
 					}
 					case Intrinsic::invariant_start:
@@ -1053,7 +1091,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 						if (ci.use_empty())
 							return true;
 
-						compileOperand(ci.getOperand(1));
+						compileOperand(code, ci.getOperand(1));
 						return false;
 					}
 					case Intrinsic::invariant_end:
@@ -1105,36 +1143,36 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 						op != ci.op_begin() + arg_size - 1; op--)
 				{
 					i++;
-					stream << "get_global " << stackTopGlobal << '\n';
-					stream << "i32.const 8\n";
-					stream << "i32.sub\n";
+					code << "get_global " << stackTopGlobal << '\n';
+					code << "i32.const 8\n";
+					code << "i32.sub\n";
 					// TODO: use 'tee_global' when it's available?
-					stream << "set_global " << stackTopGlobal << '\n';
-					stream << "get_global " << stackTopGlobal << '\n';
-					compileOperand(op->get());
-					stream << "\n";
-					stream << getTypeString(op->get()->getType()) << ".store\n";
+					code << "set_global " << stackTopGlobal << '\n';
+					code << "get_global " << stackTopGlobal << '\n';
+					compileOperand(code, op->get());
+					code << "\n";
+					code << getTypeString(op->get()->getType()) << ".store\n";
 				}
 			}
 
 			for (auto op = ci.op_begin();
 					op != ci.op_begin() + fTy->getNumParams(); ++op)
 			{
-				compileOperand(op->get());
-				stream << '\n';
+				compileOperand(code, op->get());
+				code << '\n';
 			}
 
 			if (calledFunc)
 			{
 				if (functionIds.count(calledFunc))
 				{
-					stream << "call " << functionIds[calledFunc];
+					code << "call " << functionIds[calledFunc];
 				}
 				else
 				{
 					// TODO implement ffi calls to the browser side.
-					stream << "unreachable ;; unknown call \""
-						<< calledFunc->getName() << "\"\n";
+					code << "unreachable ;; unknown call \""
+						<< calledFunc->getName().str() << "\"\n";
 					return true;
 				}
 			}
@@ -1143,32 +1181,32 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				if (linearHelper.getFunctionTables().count(fTy))
 				{
 					const auto& table = linearHelper.getFunctionTables().at(fTy);
-					compileOperand(calledValue);
-					stream << '\n';
-					stream << "call_indirect $vt_" << table.name;
+					compileOperand(code, calledValue);
+					code << '\n';
+					code << "call_indirect $vt_" << table.name;
 				}
 				else
 				{
 					// TODO implement ffi calls to the browser side.
-					stream << "unreachable ;; unknown indirect call\n";
+					code << "unreachable ;; unknown indirect call\n";
 					return true;
 				}
 			}
 
 			if(ci.getType()->isVoidTy())
 			{
-				stream << '\n';
+				code << '\n';
 				return true;
 			}
 			break;
 		}
 		case Instruction::FAdd:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".add\n";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".add\n";
 			break;
 		}
 		case Instruction::FCmp:
@@ -1181,51 +1219,51 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				// Check if both operands are equal to itself. A nan-value is
 				// never equal to itself. Use a logical and operator for the
 				// resulting comparison.
-				compileOperand(ci.getOperand(0));
-				stream << '\n';
-				compileOperand(ci.getOperand(0));
-				stream << '\n';
-				stream << getTypeString(ci.getOperand(0)->getType()) << ".eq\n";
+				compileOperand(code, ci.getOperand(0));
+				code << '\n';
+				compileOperand(code, ci.getOperand(0));
+				code << '\n';
+				code << getTypeString(ci.getOperand(0)->getType()) << ".eq\n";
 
-				compileOperand(ci.getOperand(1));
-				stream << '\n';
-				compileOperand(ci.getOperand(1));
-				stream << '\n';
-				stream << getTypeString(ci.getOperand(1)->getType()) << ".eq\n";
+				compileOperand(code, ci.getOperand(1));
+				code << '\n';
+				compileOperand(code, ci.getOperand(1));
+				code << '\n';
+				code << getTypeString(ci.getOperand(1)->getType()) << ".eq\n";
 
-				stream << "i32.and\n";
+				code << "i32.and\n";
 			} else {
-				compileOperand(ci.getOperand(0));
-				stream << '\n';
-				compileOperand(ci.getOperand(1));
-				stream << '\n';
-				stream << getTypeString(ci.getOperand(0)->getType()) << '.';
+				compileOperand(code, ci.getOperand(0));
+				code << '\n';
+				compileOperand(code, ci.getOperand(1));
+				code << '\n';
+				code << getTypeString(ci.getOperand(0)->getType()) << '.';
 				switch(ci.getPredicate())
 				{
 					// TODO: Handle ordered vs unordered
 					case CmpInst::FCMP_UEQ:
 					case CmpInst::FCMP_OEQ:
-						stream << "eq\n";
+						code << "eq\n";
 						break;
 					case CmpInst::FCMP_UNE:
 					case CmpInst::FCMP_ONE:
-						stream << "ne\n";
+						code << "ne\n";
 						break;
 					case CmpInst::FCMP_ULT:
 					case CmpInst::FCMP_OLT:
-						stream << "lt\n";
+						code << "lt\n";
 						break;
 					case CmpInst::FCMP_OGT:
 					case CmpInst::FCMP_UGT:
-						stream << "gt\n";
+						code << "gt\n";
 						break;
 					case CmpInst::FCMP_ULE:
 					case CmpInst::FCMP_OLE:
-						stream << "le\n";
+						code << "le\n";
 						break;
 					case CmpInst::FCMP_UGE:
 					case CmpInst::FCMP_OGE:
-						stream << "ge\n";
+						code << "ge\n";
 						break;
 					case CmpInst::FCMP_ORD:
 						llvm_unreachable("This case is handled above");
@@ -1239,52 +1277,52 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		}
 		case Instruction::FDiv:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".div";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".div";
 			break;
 		}
 		case Instruction::FRem:
 		{
 			// No FRem in wasm, implement manually
 			// frem x, y -> fsub (x, fmul( ftrunc ( fdiv (x, y) ), y ) )
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".div\n";
-			stream << getTypeString(I.getType()) << ".trunc\n";
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".mul\n";
-			stream << getTypeString(I.getType()) << ".sub";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".div\n";
+			code << getTypeString(I.getType()) << ".trunc\n";
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".mul\n";
+			code << getTypeString(I.getType()) << ".sub";
 			break;
 		}
 		case Instruction::FMul:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".mul";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".mul";
 			break;
 		}
 		case Instruction::FSub:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".sub";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".sub";
 			break;
 		}
 		case Instruction::GetElementPtr:
 		{
-			compileGEP(&I);
+			compileGEP(code, &I);
 			break;
 		}
 		case Instruction::ICmp:
@@ -1293,33 +1331,33 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			CmpInst::Predicate p = (CmpInst::Predicate)ci.getPredicate();
 			if(ci.getOperand(0)->getType()->isPointerTy())
 			{
-				compileOperand(ci.getOperand(0));
-				stream << '\n';
-				compileOperand(ci.getOperand(1));
-				stream << '\n';
+				compileOperand(code, ci.getOperand(0));
+				code << '\n';
+				compileOperand(code, ci.getOperand(1));
+				code << '\n';
 			}
 			else if(CmpInst::isSigned(p))
 			{
-				compileSignedInteger(ci.getOperand(0), true);
-				stream << '\n';
-				compileSignedInteger(ci.getOperand(1), true);
-				stream << '\n';
+				compileSignedInteger(code, ci.getOperand(0), true);
+				code << '\n';
+				compileSignedInteger(code, ci.getOperand(1), true);
+				code << '\n';
 			}
 			else if (CmpInst::isUnsigned(p) || !I.getOperand(0)->getType()->isIntegerTy(32))
 			{
-				compileUnsignedInteger(ci.getOperand(0));
-				stream << '\n';
-				compileUnsignedInteger(ci.getOperand(1));
-				stream << '\n';
+				compileUnsignedInteger(code, ci.getOperand(0));
+				code << '\n';
+				compileUnsignedInteger(code, ci.getOperand(1));
+				code << '\n';
 			}
 			else
 			{
-				compileSignedInteger(ci.getOperand(0), true);
-				stream << '\n';
-				compileSignedInteger(ci.getOperand(1), true);
-				stream << '\n';
+				compileSignedInteger(code, ci.getOperand(0), true);
+				code << '\n';
+				compileSignedInteger(code, ci.getOperand(1), true);
+				code << '\n';
 			}
-			stream << getTypeString(ci.getOperand(0)->getType()) << '.' << getIntegerPredicate(ci.getPredicate());
+			code << getTypeString(ci.getOperand(0)->getType()) << '.' << getIntegerPredicate(ci.getPredicate());
 			break;
 		}
 		case Instruction::Load:
@@ -1327,10 +1365,10 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			const LoadInst& li = cast<LoadInst>(I);
 			const Value* ptrOp=li.getPointerOperand();
 			// 1) The pointer
-			compileOperand(ptrOp);
-			stream << '\n';
+			compileOperand(code, ptrOp);
+			code << '\n';
 			// 2) Load
-			stream << getTypeString(li.getType()) << ".load";
+			code << getTypeString(li.getType()) << ".load";
 			if(li.getType()->isIntegerTy())
 			{
 				uint32_t bitWidth = li.getType()->getIntegerBitWidth();
@@ -1340,50 +1378,50 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				{
 					assert(bitWidth == 8 || bitWidth == 16);
 					// Currently assume unsigned, like Cheerp. We may optimize this be looking at a following sext or zext instruction.
-					stream << bitWidth << "_u";
+					code << bitWidth << "_u";
 				}
 			}
 			break;
 		}
 		case Instruction::LShr:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".shr_u";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".shr_u";
 			break;
 		}
 		case Instruction::Mul:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".mul";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".mul";
 			break;
 		}
 		case Instruction::Or:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".or";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".or";
 			break;
 		}
 		case Instruction::PtrToInt:
 		{
-			compileOperand(I.getOperand(0));
+			compileOperand(code, I.getOperand(0));
 			break;
 		}
 		case Instruction::Shl:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".shl";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".shl";
 			break;
 		}
 		case Instruction::Store:
@@ -1392,13 +1430,13 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
 			// 1) The pointer
-			compileOperand(ptrOp);
-			stream << '\n';
+			compileOperand(code, ptrOp);
+			code << '\n';
 			// 2) The value
-			compileOperand(valOp);
-			stream << '\n';
+			compileOperand(code, valOp);
+			code << '\n';
 			// 3) Store
-			stream << getTypeString(valOp->getType()) << ".store";
+			code << getTypeString(valOp->getType()) << ".store";
 			// When storing values with size less than 32-bit we need to truncate them
 			if(valOp->getType()->isIntegerTy())
 			{
@@ -1408,19 +1446,19 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 				if(bitWidth < 32)
 				{
 					assert(bitWidth == 8 || bitWidth == 16);
-					stream << bitWidth;
+					code << bitWidth;
 				}
 			}
-			stream << '\n';
+			code << '\n';
 			break;
 		}
 		case Instruction::Sub:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".sub";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".sub";
 			break;
 		}
 		case Instruction::Switch:
@@ -1428,7 +1466,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 		case Instruction::Trunc:
 		{
 			// TODO: We need to mask the value
-			compileOperand(I.getOperand(0));
+			compileOperand(code, I.getOperand(0));
 			break;
 		}
 		case Instruction::Ret:
@@ -1437,136 +1475,136 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			Value* retVal = ri.getReturnValue();
 			if(retVal)
 			{
-				compileOperand(I.getOperand(0));
-				stream << '\n';
+				compileOperand(code, I.getOperand(0));
+				code << '\n';
 			}
 			// Restore old stack
-			stream << "get_local " << currentFun->arg_size() << "\n";
-			stream << "set_global " << stackTopGlobal << '\n';
-			stream << "return\n";
+			code << "get_local " << currentFun->arg_size() << "\n";
+			code << "set_global " << stackTopGlobal << '\n';
+			code << "return\n";
 			break;
 		}
 		case Instruction::SDiv:
 		case Instruction::UDiv:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".div_"
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".div_"
 				<< (I.getOpcode() == Instruction::SDiv ? 's' : 'u');
 			break;
 		}
 		case Instruction::SRem:
 		case Instruction::URem:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".rem_"
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".rem_"
 				<< (I.getOpcode() == Instruction::SRem ? 's' : 'u');
 			break;
 		}
 		case Instruction::Select:
 		{
 			const SelectInst& si = cast<SelectInst>(I);
-			compileOperand(si.getTrueValue());
-			stream << '\n';
-			compileOperand(si.getFalseValue());
-			stream << '\n';
-			compileOperand(si.getCondition());
-			stream << '\n';
-			stream << "select";
+			compileOperand(code, si.getTrueValue());
+			code << '\n';
+			compileOperand(code, si.getFalseValue());
+			code << '\n';
+			compileOperand(code, si.getCondition());
+			code << '\n';
+			code << "select";
 			break;
 		}
 		case Instruction::SExt:
 		{
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
-			compileOperand(I.getOperand(0));
-			stream << "\ni32.const " << (32-bitWidth) << '\n';
-			stream << "i32.shl\n";
-			stream << "i32.const " << (32-bitWidth) << '\n';
-			stream << "i32.shr_s";
+			compileOperand(code, I.getOperand(0));
+			code << "\ni32.const " << (32-bitWidth) << '\n';
+			code << "i32.shl\n";
+			code << "i32.const " << (32-bitWidth) << '\n';
+			code << "i32.shr_s";
 			break;
 		}
 		case Instruction::FPToSI:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n' << getTypeString(I.getType()) << ".trunc_s/" << getTypeString(I.getOperand(0)->getType());
+			compileOperand(code, I.getOperand(0));
+			code << '\n' << getTypeString(I.getType()) << ".trunc_s/" << getTypeString(I.getOperand(0)->getType());
 			break;
 		}
 		case Instruction::FPToUI:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n' << getTypeString(I.getType()) << ".trunc_u/" << getTypeString(I.getOperand(0)->getType());
+			compileOperand(code, I.getOperand(0));
+			code << '\n' << getTypeString(I.getType()) << ".trunc_u/" << getTypeString(I.getOperand(0)->getType());
 			break;
 		}
 		case Instruction::SIToFP:
 		{
 			assert(I.getOperand(0)->getType()->isIntegerTy());
-			compileOperand(I.getOperand(0));
+			compileOperand(code, I.getOperand(0));
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(bitWidth != 32)
 			{
 				// Sign extend
-				stream << "\ni32.const " << (32-bitWidth) << '\n';
-				stream << "i32.shl\n";
-				stream << "i32.const " << (32-bitWidth) << '\n';
-				stream << "i32.shr_s";
+				code << "\ni32.const " << (32-bitWidth) << '\n';
+				code << "i32.shl\n";
+				code << "i32.const " << (32-bitWidth) << '\n';
+				code << "i32.shr_s";
 			}
-			stream << '\n' << getTypeString(I.getType()) << ".convert_s/" << getTypeString(I.getOperand(0)->getType());
+			code << '\n' << getTypeString(I.getType()) << ".convert_s/" << getTypeString(I.getOperand(0)->getType());
 			break;
 		}
 		case Instruction::UIToFP:
 		{
 			assert(I.getOperand(0)->getType()->isIntegerTy());
-			compileOperand(I.getOperand(0));
+			compileOperand(code, I.getOperand(0));
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(bitWidth != 32)
 			{
-				stream << "\ni32.const " << getMaskForBitWidth(bitWidth);
-				stream << "\ni32.and";
+				code << "\ni32.const " << getMaskForBitWidth(bitWidth);
+				code << "\ni32.and";
 			}
-			stream << '\n' << getTypeString(I.getType()) << ".convert_u/" << getTypeString(I.getOperand(0)->getType());
+			code << '\n' << getTypeString(I.getType()) << ".convert_u/" << getTypeString(I.getOperand(0)->getType());
 			break;
 		}
 		case Instruction::FPTrunc:
 		{
 			assert(I.getType()->isFloatTy());
 			assert(I.getOperand(0)->getType()->isDoubleTy());
-			compileOperand(I.getOperand(0));
-			stream << '\n' << getTypeString(I.getType()) << ".demote/" << getTypeString(I.getOperand(0)->getType());
+			compileOperand(code, I.getOperand(0));
+			code << '\n' << getTypeString(I.getType()) << ".demote/" << getTypeString(I.getOperand(0)->getType());
 			break;
 		}
 		case Instruction::FPExt:
 		{
 			assert(I.getType()->isDoubleTy());
 			assert(I.getOperand(0)->getType()->isFloatTy());
-			compileOperand(I.getOperand(0));
-			stream << '\n' << getTypeString(I.getType()) << ".promote/" << getTypeString(I.getOperand(0)->getType());
+			compileOperand(code, I.getOperand(0));
+			code << '\n' << getTypeString(I.getType()) << ".promote/" << getTypeString(I.getOperand(0)->getType());
 			break;
 		}
 		case Instruction::Xor:
 		{
-			compileOperand(I.getOperand(0));
-			stream << '\n';
-			compileOperand(I.getOperand(1));
-			stream << '\n';
-			stream << getTypeString(I.getType()) << ".xor";
+			compileOperand(code, I.getOperand(0));
+			code << '\n';
+			compileOperand(code, I.getOperand(1));
+			code << '\n';
+			code << getTypeString(I.getType()) << ".xor";
 			break;
 		}
 		case Instruction::ZExt:
 		{
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
-			compileOperand(I.getOperand(0));
-			stream << "\ni32.const " << getMaskForBitWidth(bitWidth) << '\n';
-			stream << "i32.and";
+			compileOperand(code, I.getOperand(0));
+			code << "\ni32.const " << getMaskForBitWidth(bitWidth) << '\n';
+			code << "i32.and";
 			break;
 		}
 		case Instruction::Unreachable:
 		{
-			stream << "unreachable\n";
+			code << "unreachable\n";
 			break;
 		}
 		default:
@@ -1578,7 +1616,7 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 	return false;
 }
 
-void CheerpWastWriter::compileBB(const BasicBlock& BB)
+void CheerpWastWriter::compileBB(std::ostream& code, const BasicBlock& BB)
 {
 	BasicBlock::const_iterator I=BB.begin();
 	BasicBlock::const_iterator IE=BB.end();
@@ -1610,43 +1648,43 @@ void CheerpWastWriter::compileBB(const BasicBlock& BB)
 			assert(fileNamePath->getNumOperands()==2);
 			StringRef fileName = cast<MDString>(fileNamePath->getOperand(0))->getString();
 			uint32_t currentLine = debugLoc.getLine();
-			stream << ";; " << fileName << ":" << currentLine << "\n";
+			code << ";; " << fileName.str() << ":" << currentLine << "\n";
 		}
 
 		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
 		{
-			if(!compileInstruction(*I) && !I->getType()->isVoidTy())
+			if(!compileInstruction(code, *I) && !I->getType()->isVoidTy())
 			{
 				if(I->use_empty())
-					stream << "\ndrop\n";
+					code << "\ndrop\n";
 				else
-					stream << "\nset_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(I)) << '\n';
+					code << "\nset_local " << (1 + currentFun->arg_size() + registerize.getRegisterId(I)) << '\n';
 			}
 		}
 	}
 }
 
-void CheerpWastWriter::compileMethodLocals(const Function& F, bool needsLabel)
+void CheerpWastWriter::compileMethodLocals(std::ostream& code, const Function& F, bool needsLabel)
 {
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	// The first local after ther params stores the previous stack address
-	stream << "(local i32";
+	code << "(local i32";
 	// Emit the registers, careful as the registerize id is offset by the number of args
 	for(const Registerize::RegisterInfo& regInfo: regsInfo)
 	{
-		stream << ' ';
+		code << ' ';
 		assert(regInfo.regKind != Registerize::OBJECT);
 		assert(!regInfo.needsSecondaryName);
 		switch(regInfo.regKind)
 		{
 			case Registerize::DOUBLE:
-				stream << "f64";
+				code << "f64";
 				break;
 			case Registerize::FLOAT:
-				stream << "f32";
+				code << "f32";
 				break;
 			case Registerize::INTEGER:
-				stream << "i32";
+				code << "i32";
 				break;
 			default:
 				assert(false);
@@ -1654,62 +1692,61 @@ void CheerpWastWriter::compileMethodLocals(const Function& F, bool needsLabel)
 	}
 	// If needed, label is the very last local
 	if(needsLabel)
-		stream << " i32";
-	stream << ")\n";
+		code << " i32";
+	code << ")\n";
 }
 
-void CheerpWastWriter::compileMethodParams(const Function& F)
+void CheerpWastWriter::compileMethodParams(std::ostream& code, const Function& F)
 {
 	uint32_t numArgs = F.arg_size();
 	if(numArgs)
 	{
-		stream << "(param";
+		code << "(param";
 		llvm::FunctionType* FTy = F.getFunctionType();
 		for(uint32_t i = 0; i < numArgs; i++)
-			stream << ' ' << getTypeString(FTy->getParamType(i));
-		stream << ')';
+			code << ' ' << getTypeString(FTy->getParamType(i));
+		code << ')';
 	}
 }
 
-void CheerpWastWriter::compileMethodResult(const Function& F)
+void CheerpWastWriter::compileMethodResult(std::ostream& code, const Function& F)
 {
 	if(!F.getReturnType()->isVoidTy())
-		stream << "(result " << getTypeString(F.getReturnType()) << ')';
+		code << "(result " << getTypeString(F.getReturnType()) << ')';
 }
 
-void CheerpWastWriter::compileMethod(const Function& F)
+void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
 {
 	currentFun = &F;
-	stream << "(func";
-	stream << " $" << F.getName();
+	code << "(func $" << F.getName().str();
 	// TODO: We should not export them all
-	stream << " (export \"" << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << "\")";
+	code << " (export \"" << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str() << "\")";
 	uint32_t numArgs = F.arg_size();
-	compileMethodParams(F);
-	compileMethodResult(F);
-	stream << '\n';
+	compileMethodParams(code, F);
+	compileMethodResult(code, F);
+	code << '\n';
 	const llvm::BasicBlock* lastDepth0Block = nullptr;
 	if(F.size() == 1)
 	{
-		compileMethodLocals(F, false);
+		compileMethodLocals(code, F, false);
 		// TODO: Only save the stack address if required
-		stream << "get_global " << stackTopGlobal << '\n';
-		stream << "set_local " << numArgs << "\n";
-		compileBB(*F.begin());
+		code << "get_global " << stackTopGlobal << '\n';
+		code << "set_local " << numArgs << "\n";
+		compileBB(code, *F.begin());
 		lastDepth0Block = &(*F.begin());
 	}
 	else
 	{
 		Relooper* rl = CheerpWriter::runRelooperOnFunction(F, PA, registerize);
-		compileMethodLocals(F, rl->needsLabel());
+		compileMethodLocals(code, F, rl->needsLabel());
 		// TODO: Only save the stack address if required
-		stream << "get_global " << stackTopGlobal << '\n';
-		stream << "set_local " << numArgs << "\n";
+		code << "get_global " << stackTopGlobal << '\n';
+		code << "set_local " << numArgs << "\n";
 		uint32_t numArgs = F.arg_size();
 		const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 		uint32_t numRegs = regsInfo.size();
 		// label is the very last local
-		CheerpWastRenderInterface ri(this, 1+numArgs+numRegs);
+		CheerpWastRenderInterface ri(this, code, 1+numArgs+numRegs);
 		rl->Render(&ri);
 		lastDepth0Block = ri.lastDepth0Block;
 	}
@@ -1718,34 +1755,36 @@ void CheerpWastWriter::compileMethod(const Function& F)
 	{
 		// Add a fake return
 		if(!F.getReturnType()->isVoidTy())
-			stream << getTypeString(F.getReturnType()) << ".const 0\n";
-		stream << "return\n";
+			code << getTypeString(F.getReturnType()) << ".const 0\n";
+		code << "return\n";
 	}
-	stream << ")\n";
+	code << ")\n";
 }
 
-void CheerpWastWriter::compileImport(const Function& F)
+void CheerpWastWriter::compileImport(std::ostream& code, const Function& F)
 {
 	assert(useWastLoader);
-	stream << "(func (import \"imports\" \"";
-	stream << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL);
-	stream << "\")";
+	code << "(func (import \"imports\" \"";
+	code << NameGenerator::filterLLVMName(F.getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str();
+	code << "\")";
 	uint32_t numArgs = F.arg_size();
 	if(numArgs)
 	{
-		stream << "(param";
+		code << "(param";
 		llvm::FunctionType* FTy = F.getFunctionType();
 		for(uint32_t i = 0; i < numArgs; i++)
-			stream << ' ' << getTypeString(FTy->getParamType(i));
-		stream << ')';
+			code << ' ' << getTypeString(FTy->getParamType(i));
+		code << ')';
 	}
 	if(!F.getReturnType()->isVoidTy())
-		stream << "(result " << getTypeString(F.getReturnType()) << ')';
-	stream << ")\n";
+		code << "(result " << getTypeString(F.getReturnType()) << ')';
+	code << ")\n";
 }
 
 void CheerpWastWriter::compileDataSection()
 {
+	Section section(0x0b, this);
+
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 	{
 		if (GV.getSection() != StringRef("asmjs"))
@@ -1758,16 +1797,18 @@ void CheerpWastWriter::compileDataSection()
 			if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
 				continue;
 			// The offset into memory, which is the address
-			stream << "(data (i32.const " << linearHelper.getGlobalVariableAddress(&GV) << ") \"";
-			WastBytesWriter bytesWriter(stream);
+			section << "(data (i32.const " << linearHelper.getGlobalVariableAddress(&GV) << ") \"";
+			WastBytesWriter bytesWriter(section);
 			linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
-			stream << "\")\n";
+			section << "\")\n";
 		}
 	}
 }
 
 void CheerpWastWriter::makeWast()
 {
+	cheerpMode = CHEERP_MODE_WAST;
+
 	// First run, assign required Ids to functions and globals
 	if (useWastLoader) {
 		for ( const Function * F : globalDeps.asmJSImports() )
@@ -1784,55 +1825,62 @@ void CheerpWastWriter::makeWast()
 	}
 
 	// Emit S-expressions for the module
-	stream << "(module\n";
+	std::stringstream code;
+	code << "(module\n";
 
 	// Second run, actually compile the code (imports needs to be before everything)
 	if (useWastLoader) {
 		for ( const Function * F : globalDeps.asmJSImports() )
 		{
-			compileImport(*F);
+			compileImport(code, *F);
 		}
 	}
 
 	// Define function type variables
 	for (const auto& table : linearHelper.getFunctionTables())
 	{
-		stream << "(type " << "$vt_" << table.second.name << " (func ";
+		code << "(type " << "$vt_" << table.second.name << " (func ";
 		const llvm::Function& F = *table.second.functions[0];
-		compileMethodParams(F);
-		compileMethodResult(F);
-		stream << "))\n";
+		compileMethodParams(code, F);
+		compileMethodResult(code, F);
+		code << "))\n";
 	}
 
 	// Define 'table' with functions
 	if (!linearHelper.getFunctionTables().empty())
-		stream << "(table anyfunc (elem";
+		code << "(table anyfunc (elem";
+
+	for (const auto& table : linearHelper.getFunctionTables()) {
+		for (const auto& F : table.second.functions) {
+			code << " $" << F->getName().str();
+		}
+	}
 
 	if (!linearHelper.getFunctionTables().empty())
-		stream << "))\n";
+		code << "))\n";
 
 	// Define the memory for the module in WasmPage units. The heap size is
 	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
 	// size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
 	uint32_t minMemory = heapSize << 4;
 	uint32_t maxMemory = heapSize << 4;
-	stream << "(memory (export \"memory\") " << minMemory << ' ' << maxMemory << ")\n";
+	code << "(memory (export \"memory\") " << minMemory << ' ' << maxMemory << ")\n";
 
 	// Assign globals in the module, these are used for codegen they are not part of the user program
 	stackTopGlobal = usedGlobals++;
 	// Start the stack from the end of default memory
-	stream << "(global (mut i32) (i32.const " << (minMemory*WasmPage) << "))\n";
+	code << "(global (mut i32) (i32.const " << (minMemory*WasmPage) << "))\n";
 
 	// Experimental entry point for wast code
 	llvm::Function* wastStart = module.getFunction("_Z9wastStartv");
 	if(wastStart && globalDeps.constructors().empty())
 	{
 		assert(functionIds.count(wastStart));
-		stream << "(start " << functionIds[wastStart] << ")\n";
+		code << "(start " << functionIds[wastStart] << ")\n";
 	}
 	else if (!globalDeps.constructors().empty() && !useWastLoader)
 	{
-		stream << "(start " << functionIds.size() << ")\n";
+		code << "(start " << functionIds.size() << ")\n";
 	}
 
 	// Second run, actually compile the code
@@ -1840,25 +1888,27 @@ void CheerpWastWriter::makeWast()
 	{
 		if (!F.empty() && F.getSection() == StringRef("asmjs"))
 		{
-			compileMethod(F);
+			compileMethod(code, F);
 		}
 	}
 
 	// Construct an anonymous function that calls the global constructors.
 	if (!globalDeps.constructors().empty() && !useWastLoader)
 	{
-		stream << "(func\n";
+		code << "(func\n";
 		for (const Function* F : globalDeps.constructors())
 		{
 			if (F->getSection() == StringRef("asmjs"))
-				stream << "call " << functionIds.at(F) << "\n";
+				code << "call " << functionIds.at(F) << "\n";
 		}
 
 		if (wastStart)
-			stream << "call " << functionIds.at(wastStart) << "\n";
+			code << "call " << functionIds.at(wastStart) << "\n";
 
-		stream << ")\n";
+		code << ")\n";
 	}
+
+	stream << code.str();
 
 	compileDataSection();
 	
@@ -1869,28 +1919,28 @@ void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 {
 	char buf[4];
 	snprintf(buf, 4, "\\%02x", byte);
-	stream << buf;
+	code << buf;
 }
 
 void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
 {
-	writer.compileOperand(v);
-	writer.stream << '\n';
+	writer.compileOperand(code, v);
+	code << '\n';
 	if(size != 1)
 	{
-		writer.stream << "i32.const " << size << '\n';
-		writer.stream << "i32.mul\n";
+		code << "i32.const " << size << '\n';
+		code << "i32.mul\n";
 	}
 	if(!first)
-		writer.stream << "i32.add\n";
+		code << "i32.add\n";
 	first = false;
 }
 
 void CheerpWastWriter::WastGepWriter::addConst(uint32_t v)
 {
 	assert(v);
-	writer.stream << "i32.const " << v << '\n';
+	code << "i32.const " << v << '\n';
 	if(!first)
-		writer.stream << "i32.add\n";
+		code << "i32.add\n";
 	first = false;
 }
