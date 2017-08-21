@@ -294,6 +294,7 @@ struct LabeledShape : public Shape {
 
 struct MultipleShape : public LabeledShape {
   IdShapeMap InnerMap; // entry block ID -> shape
+  std::set<int> EmptyShapes;
   int Breaks; // If we have branches on us, we need a loop (or a switch). This is a counter of requirements,
                      // if we optimize it to 0, the loop is unneeded
   bool UseSwitch; // Whether to switch on label as opposed to an if-else chain
