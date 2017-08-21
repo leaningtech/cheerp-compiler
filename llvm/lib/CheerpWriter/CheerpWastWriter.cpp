@@ -66,6 +66,24 @@ inline void encodeULEB128(uint64_t Value, std::ostream& OS,
 	}
 }
 
+std::string string_to_hex(const std::string& input)
+{
+	static const char* const lut = "0123456789abcdef";
+	size_t len = input.length();
+
+	std::string output;
+	output.reserve(2 * len);
+	for (size_t i = 0; i < len; ++i)
+	{
+		const unsigned char c = input[i];
+		output.push_back(lut[c >> 4]);
+		output.push_back(lut[c & 15]);
+		if ((i & 1) == 1 && (i + 1) < len)
+			output.push_back(' ');
+	}
+	return output;
+}
+
 Section::Section(uint32_t sectionId, CheerpWastWriter* writer)
 	: std::stringstream(), writer(writer)
 {
@@ -652,6 +670,21 @@ const char* CheerpWastWriter::getTypeString(Type* t)
 		return "f32";
 	else if(t->isDoubleTy())
 		return "f64";
+	else
+	{
+		llvm::errs() << "Unsupported type " << *t << "\n";
+		llvm_unreachable("Unsuppored type");
+	}
+}
+
+char CheerpWastWriter::getValType(Type* t)
+{
+	if(t->isIntegerTy() || t->isPointerTy())
+		return 0x7f;
+	else if(t->isFloatTy())
+		return 0x7d;
+	else if(t->isDoubleTy())
+		return 0x7c;
 	else
 	{
 		llvm::errs() << "Unsupported type " << *t << "\n";
@@ -1699,8 +1732,17 @@ void CheerpWastWriter::compileMethodLocals(std::ostream& code, const Function& F
 void CheerpWastWriter::compileMethodParams(std::ostream& code, const Function& F)
 {
 	uint32_t numArgs = F.arg_size();
-	if(numArgs)
+	if (cheerpMode == CHEERP_MODE_WASM)
 	{
+		encodeULEB128(numArgs, code);
+
+		llvm::FunctionType* FTy = F.getFunctionType();
+		for(uint32_t i = 0; i < numArgs; i++)
+			encodeULEB128(getValType(FTy->getParamType(i)), code);
+	}
+	else if(numArgs)
+	{
+		assert(cheerpMode == CHEERP_MODE_WAST);
 		code << "(param";
 		llvm::FunctionType* FTy = F.getFunctionType();
 		for(uint32_t i = 0; i < numArgs; i++)
@@ -1711,8 +1753,23 @@ void CheerpWastWriter::compileMethodParams(std::ostream& code, const Function& F
 
 void CheerpWastWriter::compileMethodResult(std::ostream& code, const Function& F)
 {
-	if(!F.getReturnType()->isVoidTy())
+	if (cheerpMode == CHEERP_MODE_WASM)
+	{
+		if (F.getReturnType()->isVoidTy())
+		{
+			encodeULEB128(0, code);
+		}
+		else
+		{
+			encodeULEB128(1, code);
+			encodeULEB128(getValType(F.getReturnType()), code);
+		}
+	}
+	else if(!F.getReturnType()->isVoidTy())
+	{
+		assert(cheerpMode == CHEERP_MODE_WAST);
 		code << "(result " << getTypeString(F.getReturnType()) << ')';
+	}
 }
 
 void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
@@ -1781,6 +1838,188 @@ void CheerpWastWriter::compileImport(std::ostream& code, const Function& F)
 	code << ")\n";
 }
 
+void CheerpWastWriter::compileCallToGlobalConstructors(std::ostream& code)
+{
+	// Construct an anonymous function that calls the global constructors.
+	if (!globalDeps.constructors().empty() && !useWastLoader)
+	{
+		code << "(func\n";
+		for (const Function* F : globalDeps.constructors())
+		{
+			if (F->getSection() == StringRef("asmjs"))
+				code << "call " << functionIds.at(F) << "\n";
+		}
+
+		llvm::Function* wastStart = module.getFunction("_Z9wastStartv");
+		if (wastStart)
+			code << "call " << functionIds.at(wastStart) << "\n";
+
+		code << ")\n";
+	}
+}
+
+void CheerpWastWriter::compileTypeSection()
+{
+	if (linearHelper.getFunctionTables().empty())
+		return;
+
+	Section section(0x01, this);
+
+	if (cheerpMode == CHEERP_MODE_WASM)
+	{
+		// Encode number of entries in the type section.
+		encodeULEB128(linearHelper.getFunctionTables().size(), section);
+
+		// Define function type variables
+		for (const auto& table : linearHelper.getFunctionTables())
+		{
+			encodeULEB128(0x60, section);
+			const llvm::Function& F = *table.second.functions[0];
+			compileMethodParams(section, F);
+			compileMethodResult(section, F);
+		}
+	} else {
+		// Define function type variables
+		for (const auto& table : linearHelper.getFunctionTables())
+		{
+			section << "(type " << "$vt_" << table.second.name << " (func ";
+
+			const llvm::Function& F = *table.second.functions[0];
+			compileMethodParams(section, F);
+			compileMethodResult(section, F);
+			section << "))\n";
+		}
+	}
+}
+
+void CheerpWastWriter::compileImportSection()
+{
+	if (globalDeps.asmJSImports().empty() || !useWastLoader)
+		return;
+
+	Section section(0x02, this);
+
+	if (cheerpMode == CHEERP_MODE_WASM) {
+		// Encode number of entries in the import section.
+		encodeULEB128(globalDeps.asmJSImports().size(), section);
+	}
+
+	for (const Function* F : globalDeps.asmJSImports())
+		compileImport(section, *F);
+}
+
+void CheerpWastWriter::compileTableSection()
+{
+	if (linearHelper.getFunctionTables().empty())
+		return;
+
+	uint32_t functionTableOffset = 0;
+	for (const auto& table : linearHelper.getFunctionTables()) {
+		functionTableOffset += table.second.functions.size();
+	}
+
+	Section section(0x04, this);
+
+	if (cheerpMode == CHEERP_MODE_WASM) {
+		// Encode number of function tables in the table section.
+		encodeULEB128(1, section);
+
+		// Encode element type 'anyfunc'.
+		encodeULEB128(0x70, section);
+
+		// Encode function tables in the table section.
+		// Use a 'limit' (= 0x00) with only a maximum value.
+		encodeULEB128(0x00, section);
+		encodeULEB128(functionTableOffset, section);
+	} else {
+		assert(cheerpMode == CHEERP_MODE_WAST);
+		section << "(table anyfunc (elem";
+		for (const auto& table : linearHelper.getFunctionTables()) {
+			for (const auto& F : table.second.functions) {
+				section << " $" << F->getName().str();
+			}
+		}
+		section << "))\n";
+
+	}
+}
+
+void CheerpWastWriter::compileMemoryAndGlobalSection()
+{
+	// Define the memory for the module in WasmPage units. The heap size is
+	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
+	// size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
+	uint32_t minMemory = heapSize << 4;
+	uint32_t maxMemory = heapSize << 4;
+
+	// TODO use WasmPage variable instead of hardcoded '1>>16'.
+	assert(WasmPage == 64 * 1024);
+
+	{
+		Section section(0x05, this);
+
+		if (cheerpMode == CHEERP_MODE_WASM) {
+			// There is 1 memtype, and the memtype is encoded as {min,max} (= 0x01).
+			encodeULEB128(1, section);
+			encodeULEB128(0x01, section);
+			// Encode minimum and maximum memory parameters.
+			encodeULEB128(minMemory, section);
+			encodeULEB128(maxMemory, section);
+		} else {
+			section << "(memory (export \"memory\") " << minMemory << ' ' << maxMemory << ")\n";
+		}
+
+		if (cheerpMode == CHEERP_MODE_WASM)
+			return;
+	}
+
+	{
+		// Start the stack from the end of default memory
+		stackTopGlobal = usedGlobals++;
+		uint32_t stackTop = (minMemory * WasmPage);
+
+		Section section(0x06, this);
+
+		if (cheerpMode == CHEERP_MODE_WASM) {
+			assert(false);
+		} else {
+			section << "(global (mut i32) (i32.const " << stackTop << "))\n";
+		}
+	}
+}
+
+void CheerpWastWriter::compileStartSection()
+{
+	Section section(0x08, this);
+
+	// Experimental entry point for wast code
+	llvm::Function* wastStart = module.getFunction("_Z9wastStartv");
+	if(wastStart && globalDeps.constructors().empty())
+	{
+		assert(functionIds.count(wastStart));
+		section << "(start " << functionIds[wastStart] << ")\n";
+	}
+	else if (!globalDeps.constructors().empty() && !useWastLoader)
+	{
+		section << "(start " << functionIds.size() << ")\n";
+	}
+}
+
+void CheerpWastWriter::compileCodeSection()
+{
+	Section section(0x0a, this);
+
+	for ( const Function & F : module.getFunctionList() )
+	{
+		if (!F.empty() && F.getSection() == StringRef("asmjs"))
+		{
+			compileMethod(section, F);
+		}
+	}
+
+	compileCallToGlobalConstructors(section);
+}
+
 void CheerpWastWriter::compileDataSection()
 {
 	Section section(0x0b, this);
@@ -1805,17 +2044,74 @@ void CheerpWastWriter::compileDataSection()
 	}
 }
 
+void CheerpWastWriter::compileModule()
+{
+	if (cheerpMode == CHEERP_MODE_WAST) {
+		stream << "(module\n";
+	} else {
+		assert(cheerpMode == CHEERP_MODE_WASM);
+		// Magic number for wasm.
+		encodeULEB128(0x00, stream);
+		encodeULEB128(0x61, stream);
+		encodeULEB128(0x73, stream);
+		encodeULEB128(0x6D, stream);
+		// Version number.
+		encodeULEB128(0x01, stream);
+		encodeULEB128(0x00, stream);
+		encodeULEB128(0x00, stream);
+		encodeULEB128(0x00, stream);
+	}
+
+	compileTypeSection();
+
+	compileImportSection();
+
+	// TODO compileFunctionSection();
+
+	compileTableSection();
+
+	if (cheerpMode == CHEERP_MODE_WASM)
+		return;
+
+	compileMemoryAndGlobalSection();
+
+	// TODO compileExportSection();
+
+	compileStartSection();
+
+	// TODO compileElementSection();
+
+	// TODO move this for-loop to makeWast()?
+	for ( const GlobalVariable & GV : module.getGlobalList() )
+	{
+		if (GV.getSection() != StringRef("asmjs"))
+			continue;
+		linearHelper.addGlobalVariable(&GV);
+	}
+
+	compileCodeSection();
+
+	compileDataSection();
+	
+	if (cheerpMode == CHEERP_MODE_WAST) {
+		stream << ')';
+	}
+}
+
 void CheerpWastWriter::makeWast()
 {
-	cheerpMode = CHEERP_MODE_WAST;
+	if (getenv("USE_WASM"))
+		cheerpMode = CHEERP_MODE_WASM;
+	else
+		cheerpMode = CHEERP_MODE_WAST;
 
-	// First run, assign required Ids to functions and globals
 	if (useWastLoader) {
 		for ( const Function * F : globalDeps.asmJSImports() )
 		{
 			functionIds.insert(std::make_pair(F, functionIds.size()));
 		}
 	}
+
 	for ( const Function & F : module.getFunctionList() )
 	{
 		if (!F.empty() && F.getSection() == StringRef("asmjs"))
@@ -1824,95 +2120,7 @@ void CheerpWastWriter::makeWast()
 		}
 	}
 
-	// Emit S-expressions for the module
-	std::stringstream code;
-	code << "(module\n";
-
-	// Second run, actually compile the code (imports needs to be before everything)
-	if (useWastLoader) {
-		for ( const Function * F : globalDeps.asmJSImports() )
-		{
-			compileImport(code, *F);
-		}
-	}
-
-	// Define function type variables
-	for (const auto& table : linearHelper.getFunctionTables())
-	{
-		code << "(type " << "$vt_" << table.second.name << " (func ";
-		const llvm::Function& F = *table.second.functions[0];
-		compileMethodParams(code, F);
-		compileMethodResult(code, F);
-		code << "))\n";
-	}
-
-	// Define 'table' with functions
-	if (!linearHelper.getFunctionTables().empty())
-		code << "(table anyfunc (elem";
-
-	for (const auto& table : linearHelper.getFunctionTables()) {
-		for (const auto& F : table.second.functions) {
-			code << " $" << F->getName().str();
-		}
-	}
-
-	if (!linearHelper.getFunctionTables().empty())
-		code << "))\n";
-
-	// Define the memory for the module in WasmPage units. The heap size is
-	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
-	// size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
-	uint32_t minMemory = heapSize << 4;
-	uint32_t maxMemory = heapSize << 4;
-	code << "(memory (export \"memory\") " << minMemory << ' ' << maxMemory << ")\n";
-
-	// Assign globals in the module, these are used for codegen they are not part of the user program
-	stackTopGlobal = usedGlobals++;
-	// Start the stack from the end of default memory
-	code << "(global (mut i32) (i32.const " << (minMemory*WasmPage) << "))\n";
-
-	// Experimental entry point for wast code
-	llvm::Function* wastStart = module.getFunction("_Z9wastStartv");
-	if(wastStart && globalDeps.constructors().empty())
-	{
-		assert(functionIds.count(wastStart));
-		code << "(start " << functionIds[wastStart] << ")\n";
-	}
-	else if (!globalDeps.constructors().empty() && !useWastLoader)
-	{
-		code << "(start " << functionIds.size() << ")\n";
-	}
-
-	// Second run, actually compile the code
-	for ( const Function & F : module.getFunctionList() )
-	{
-		if (!F.empty() && F.getSection() == StringRef("asmjs"))
-		{
-			compileMethod(code, F);
-		}
-	}
-
-	// Construct an anonymous function that calls the global constructors.
-	if (!globalDeps.constructors().empty() && !useWastLoader)
-	{
-		code << "(func\n";
-		for (const Function* F : globalDeps.constructors())
-		{
-			if (F->getSection() == StringRef("asmjs"))
-				code << "call " << functionIds.at(F) << "\n";
-		}
-
-		if (wastStart)
-			code << "call " << functionIds.at(wastStart) << "\n";
-
-		code << ")\n";
-	}
-
-	stream << code.str();
-
-	compileDataSection();
-	
-	stream << ')';
+	compileModule();
 }
 
 void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
