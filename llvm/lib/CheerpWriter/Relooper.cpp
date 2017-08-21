@@ -153,7 +153,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
       Details = ProcessedBranchesOut[DefaultTarget];
     }
     bool SetCurrLabel = SetLabel && Target->IsCheckedMultipleEntry;
-    bool HasFusedContent = Fused && contains(Fused->InnerMap, Target->Id);
+    bool HasFusedContent = Fused && contains(Fused->InnerMap, Target->Id) && !Fused->EmptyShapes.count(Target->Id);
     //Cheerp: We assume that the block has content, otherwise why it's even here?
     bool HasContent = SetCurrLabel || Details->Type != Branch::Direct ||
                       HasFusedContent || Details->hasPrologue;
@@ -666,6 +666,26 @@ void Relooper::Calculate(Block *Entry) {
         Block *Entry = *iter;
         if (!contains(IndependentGroups, Entry)) {
           NextEntries.insert(Entry);
+        }
+      }
+      // Mark the empty groups as such
+      for (auto iter = Multiple->InnerMap.begin(); iter != Multiple->InnerMap.end(); iter++) {
+        SimpleShape* simple = Shape::IsSimple(iter->second);
+        if (simple && !simple->Next) {
+          const llvm::BasicBlock* BB = simple->Inner->llvmBlock;
+          if (BB->begin()->getOpcode() == llvm::Instruction::Br &&
+              BB->getTerminator()->getNumSuccessors() == 1) {
+            bool hasPrologues = false;
+            for (auto out = simple->Inner->ProcessedBranchesOut.begin(); out != simple->Inner->ProcessedBranchesOut.end(); out++) {
+              if (out->second->hasPrologue) {
+                hasPrologues = true;
+                break;
+              }
+            }
+            if (!hasPrologues) {
+              Multiple->EmptyShapes.emplace(iter->first);
+            }
+          }
         }
       }
       // The multiple has been created, we can decide how to implement it
