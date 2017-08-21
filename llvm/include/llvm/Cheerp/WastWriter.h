@@ -18,23 +18,10 @@
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
-#if 0
-#include "llvm/Cheerp/Utility.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DebugInfo.h"
-#endif
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/FormattedStream.h"
-#if 0
-#include <set>
-#include <map>
-#include <array>
-#endif
 
 namespace cheerp
 {
@@ -87,17 +74,27 @@ public:
 	CheerpMode cheerpMode;
 
 private:
+	void compileModule();
+	void compileTypeSection();
+	void compileImportSection();
+	void compileTableSection();
+	void compileMemoryAndGlobalSection();
+	void compileStartSection();
+	void compileCodeSection();
+	void compileDataSection();
+
 	static const char* getTypeString(llvm::Type* t);
+	static char getValType(llvm::Type* t);
 	void compileMethodLocals(std::ostream& code, const llvm::Function& F, bool needsLabel);
 	void compileMethodParams(std::ostream& code, const llvm::Function& F);
 	void compileMethodResult(std::ostream& code, const llvm::Function& F);
 	void compileMethod(std::ostream& code, const llvm::Function& F);
 	void compileImport(std::ostream& code, const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
-	void compileDataSection();
 	// Returns true if it has handled local assignent internally
 	bool compileInstruction(std::ostream& code, const llvm::Instruction& I);
 	void compileGEP(std::ostream& code, const llvm::User* gepInst);
+	void compileCallToGlobalConstructors(std::ostream& code);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
