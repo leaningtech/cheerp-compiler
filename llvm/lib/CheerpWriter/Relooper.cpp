@@ -171,10 +171,10 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
       }
     } else {
       // this is the default
-      if (useSwitch) {
-        renderInterface->renderDefaultBlockBegin();
-      } else {
-        if (HasContent) {
+      if (HasContent) {
+        if (useSwitch) {
+          renderInterface->renderDefaultBlockBegin();
+        } else {
           if (!emptyBranchesIds.empty()) {
             renderInterface->renderIfBlockBegin(llvmBlock, emptyBranchesIds, First);
             First = false;
@@ -182,7 +182,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
             renderInterface->renderElseBlockBegin();
           }
         }
-  }
+      }
     }
     renderInterface->renderBlockPrologue(Target->llvmBlock, llvmBlock);
     Details->Render(Target, SetCurrLabel, renderInterface);
@@ -197,7 +197,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
     if (useSwitch && iter != ProcessedBranchesOut.end()) {
       renderInterface->renderBreak();
     }
-    if (useSwitch) {
+    if (useSwitch && (HasContent || iter != ProcessedBranchesOut.end())) {
       renderInterface->renderBlockEnd();
     }
     if (iter == ProcessedBranchesOut.end()) break;
