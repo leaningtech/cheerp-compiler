@@ -713,6 +713,34 @@ bool PreExecute::runOnConstructor( llvm::Module& m, llvm::Function* func)
     return Changed;
 }
 
+// RAII wrapper for temporarily detaching functions from a module
+class FunctionDetacher {
+  public:
+    FunctionDetacher(Module& m): m(m) {}
+    bool detach(const char* fname)
+    {
+        Function* f = m.getFunction(fname);
+        if (f)
+        {
+            Function* tmp = Function::Create(f->getFunctionType(), f->getLinkage());
+            tmp->getBasicBlockList().splice(tmp->begin(), f->getBasicBlockList());
+            detached.push_back(std::make_pair(f,tmp));
+        }
+        return f != nullptr;
+    }
+    ~FunctionDetacher()
+    {
+        for (auto d: detached)
+        {
+            d.first->getBasicBlockList().splice(d.first->begin(), d.second->getBasicBlockList());
+            delete d.second;
+        }
+    }
+  private:
+    Module& m;
+    std::vector<std::pair<Function*, Function*>> detached;
+};
+
 bool PreExecute::runOnModule(Module& m)
 {
     bool Changed = false;
@@ -748,6 +776,13 @@ bool PreExecute::runOnModule(Module& m)
 
     std::vector<Constant*> newConstructors;
 
+    // Detach malloc, free, and realloc, so the interpreter will fail if it will
+    // encounter them
+    FunctionDetacher FD(m);
+    FD.detach("malloc");
+    FD.detach("free");
+    FD.detach("realloc");
+
     if (constructorVar)
     {
         // Random things which may go boom
@@ -770,27 +805,6 @@ bool PreExecute::runOnModule(Module& m)
         }
     }
 
-    Function* fmalloc = m.getFunction("malloc");
-    Function* tmpMalloc = nullptr;
-    if (fmalloc)
-    {
-        tmpMalloc = Function::Create(fmalloc->getFunctionType(), fmalloc->getLinkage());
-        tmpMalloc->getBasicBlockList().splice(tmpMalloc->begin(), fmalloc->getBasicBlockList());
-    }
-    Function* ffree = m.getFunction("free");
-    Function* tmpFree = nullptr;
-    if (ffree)
-    {
-        tmpFree = Function::Create(ffree->getFunctionType(), ffree->getLinkage());
-        tmpFree->getBasicBlockList().splice(tmpFree->begin(), ffree->getBasicBlockList());
-    }
-    Function* frealloc = m.getFunction("realloc");
-    Function* tmpRealloc = nullptr;
-    if (frealloc)
-    {
-        tmpRealloc = Function::Create(frealloc->getFunctionType(), frealloc->getLinkage());
-        tmpRealloc->getBasicBlockList().splice(tmpRealloc->begin(), frealloc->getBasicBlockList());
-    }
 
     if (PreExecuteMain)
     {
@@ -832,21 +846,6 @@ bool PreExecute::runOnModule(Module& m)
             }
             constructorVar->eraseFromParent();
         }
-    }
-    if (fmalloc)
-    {
-        fmalloc->getBasicBlockList().splice(fmalloc->begin(), tmpMalloc->getBasicBlockList());
-        delete tmpMalloc;
-    }
-    if (ffree)
-    {
-        ffree->getBasicBlockList().splice(ffree->begin(), tmpFree->getBasicBlockList());
-        delete tmpFree;
-    }
-    if (frealloc)
-    {
-        frealloc->getBasicBlockList().splice(frealloc->begin(), tmpRealloc->getBasicBlockList());
-        delete tmpRealloc;
     }
 
     bool removed = currentEE->removeModule(&m);
