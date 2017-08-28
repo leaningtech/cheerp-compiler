@@ -2412,13 +2412,22 @@ void CheerpWastWriter::compileExportSection()
 	if (cheerpMode == CHEERP_MODE_WAST)
 		return;
 
-	llvm::Function* entry = module.getFunction("_Z7webMainv");
-	if(!entry)
-		return;
-
 	Section section(0x07, "Export", this);
+	std::vector<const llvm::Function*> exports;
 
-	encodeULEB128(2, section);
+	// Export the webMain symbol, if defined.
+	llvm::Function* entry = module.getFunction("_Z7webMainv");
+	if(entry) {
+		assert(globalDeps.asmJSExports().find(entry) == globalDeps.asmJSExports().end());
+		exports.push_back(entry);
+	}
+
+	// Add the list of asmjs-exported functions.
+	exports.insert(exports.end(), globalDeps.asmJSExports().begin(),
+			globalDeps.asmJSExports().end());
+
+	// Add 1 to the count, since we always want to export the memory.
+	encodeULEB128(exports.size() + 1, section);
 
 	// Encode the memory.
 	std::string name = "memory";
@@ -2427,18 +2436,18 @@ void CheerpWastWriter::compileExportSection()
 	encodeULEB128(0x02, section);
 	encodeULEB128(0, section);
 
-	llvm::Function& F = *entry;
+	for (const llvm::Function* F : exports) {
+		// Encode the method name.
+		name = NameGenerator::filterLLVMName(F->getName(),
+			NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str();
+		encodeULEB128(name.size(), section);
+		section.write(name.data(), name.size());
 
-	// Encode the method name.
-	name = NameGenerator::filterLLVMName(F.getName(),
-		NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str();
-	encodeULEB128(name.size(), section);
-	section.write(name.data(), name.size());
-
-	// Encode the function index (where '0x00' means that this export is a
-	// function).
-	encodeULEB128(0x00, section);
-	encodeULEB128(linearHelper.getFunctionIds().find(&F)->second, section);
+		// Encode the function index (where '0x00' means that this export is a
+		// function).
+		encodeULEB128(0x00, section);
+		encodeULEB128(linearHelper.getFunctionIds().find(F)->second, section);
+	}
 }
 
 void CheerpWastWriter::compileStartSection()
