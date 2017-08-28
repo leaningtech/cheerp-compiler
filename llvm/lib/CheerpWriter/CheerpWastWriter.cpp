@@ -2474,6 +2474,8 @@ void CheerpWastWriter::compileElementSection()
 {
 	if (cheerpMode == CHEERP_MODE_WAST)
 		return;
+	if (linearHelper.getFunctionTables().empty())
+		return;
 
 	Section section(0x09, "Element", this);
 
