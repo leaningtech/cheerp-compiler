@@ -169,11 +169,6 @@ bool CallGlobalConstructorsOnStartPass::runOnModule(Module& M)
 		builder.CreateCall(F);
 	}
 
-	// Call 'wasmStart' after calling the constructors, if it exists.
-	llvm::Function* wastStart = M.getFunction("_Z9wastStartv");
-	if (wastStart)
-		builder.CreateCall(wastStart);
-
 	builder.CreateRet(nullptr);
 
 	// Mark the function as jsexport'ed.
