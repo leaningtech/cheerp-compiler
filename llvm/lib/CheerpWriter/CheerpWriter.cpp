@@ -4952,8 +4952,8 @@ void CheerpWriter::makeJS()
 		}
 		stream << "}};" << NewLine;
 		stream << "fetchBuffer('" << wasmFile << "').then(bytes => WebAssembly.compile(bytes)" << NewLine;
-		stream << ".then(m => new WebAssembly.Instance(m, importObject))" << NewLine;
-		stream << ").then(instance => {" << NewLine;
+		stream << ".then(m => new WebAssembly.Instance(m, importObject),console.log)" << NewLine;
+		stream << ",console.log).then(instance => {" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
 		stream << "__asm=instance.exports;" << NewLine;
@@ -4997,7 +4997,7 @@ void CheerpWriter::makeJS()
 		stream << "();" << NewLine;
 	}
 	if (!wasmFile.empty() || (globalDeps.needAsmJS() && asmJSMem))
-		stream << "});" << NewLine;
+		stream << "},console.log).catch(console.log);" << NewLine;
 
 	if (makeModule) {
 		if (!exportedClassNames.empty()) {
