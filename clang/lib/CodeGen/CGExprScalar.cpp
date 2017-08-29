@@ -2223,8 +2223,12 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     else if (isa<llvm::FunctionType>(SrcTy->getPointerElementType()) &&
 		!isa<llvm::FunctionType>(DstTy->getPointerElementType()))
     {
-      // On Cheerp we can't allow any function pointer to become any other pointer
-      CGF.CGM.getDiags().Report(CE->getLocStart(), diag::err_cheerp_bad_function_to_non_function_cast);
+      bool asmjs =CGF.CurFn->getSection() == StringRef("asmjs");
+      if (!asmjs)
+      {
+        // On Cheerp in generic code we can't allow any function pointer to become any other pointer
+        CGF.CGM.getDiags().Report(CE->getLocStart(), diag::err_cheerp_bad_function_to_non_function_cast);
+      }
     }
     else
     {
