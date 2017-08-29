@@ -1362,7 +1362,8 @@ bool ItaniumRecordLayoutBuilder::verifyDataOnlyUnion(const RecordDecl* RD)
 void ItaniumRecordLayoutBuilder::InitializeLayout(const Decl *D) {
   if (const RecordDecl *RD = dyn_cast<RecordDecl>(D)) {
     IsUnion = RD->isUnion();
-    if (IsUnion && !Context.getTargetInfo().isByteAddressable())
+    bool asmjs = RD->hasAttr<AsmJSAttr>();
+    if (IsUnion && !Context.getTargetInfo().isByteAddressable() && !asmjs)
     {
       //Check that the union can be supported
       //Currently only data only unions are
