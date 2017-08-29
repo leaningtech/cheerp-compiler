@@ -221,7 +221,7 @@ public:
 	struct GepListener
 	{
 		virtual void addValue(const llvm::Value* v, uint32_t size) = 0;
-		virtual void addConst(uint32_t v) = 0;
+		virtual void addConst(int64_t v) = 0;
 		virtual ~GepListener()
 		{
 		}

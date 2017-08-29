@@ -5153,7 +5153,7 @@ void CheerpWriter::AsmJSGepWriter::addValue(const llvm::Value* v, uint32_t size)
 	}
 }
 
-void CheerpWriter::AsmJSGepWriter::addConst(uint32_t v)
+void CheerpWriter::AsmJSGepWriter::addConst(int64_t v)
 {
 	assert(v);
 	writer.stream << v << '+';

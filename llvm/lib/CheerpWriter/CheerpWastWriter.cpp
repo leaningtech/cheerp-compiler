@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <algorithm>
+#include <limits>
 
 #include "Relooper.h"
 #include "llvm/Cheerp/NameGenerator.h"
@@ -2669,9 +2670,14 @@ void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t si
 	first = false;
 }
 
-void CheerpWastWriter::WastGepWriter::addConst(uint32_t v)
+void CheerpWastWriter::WastGepWriter::addConst(int64_t v)
 {
 	assert(v);
+	// Just make sure that the constant part of the offset is not too big
+	// TODO: maybe use i64.const here instead of crashing
+	assert(v>=std::numeric_limits<int32_t>::min());
+	assert(v<=std::numeric_limits<int32_t>::max());
+
 	writer.encodeS32Inst(0x41, "i32.const", v, code);
 	if(!first)
 		writer.encodeInst(0x6a, "i32.add", code);
