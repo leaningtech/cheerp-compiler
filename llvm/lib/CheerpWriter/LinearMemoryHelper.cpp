@@ -167,10 +167,10 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListe
 			{
 				if (StructType* ST = dyn_cast<StructType>(curType))
 				{
-					uint32_t index = cast<ConstantInt>( indices[i] )->getZExtValue();
+					int64_t index = cast<ConstantInt>( indices[i] )->getZExtValue();
 					const StructLayout* SL = targetData.getStructLayout( ST );
 					curType = ST->getElementType(index);
-					uint32_t offset =  SL->getElementOffset(index);
+					int64_t offset =  SL->getElementOffset(index);
 					constPart += offset;
 				}
 				else
