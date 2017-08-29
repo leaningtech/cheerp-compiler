@@ -47,11 +47,11 @@ public:
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
-	void renderDefaultBlockBegin();
+	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
 	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first);
 	void renderElseBlockBegin();
-	void renderBlockEnd();
+	void renderBlockEnd(bool empty = false);
 	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom);
 	void renderWhileBlockBegin();
 	void renderWhileBlockBegin(int labelId);
@@ -3951,9 +3951,10 @@ void CheerpRenderInterface::renderCaseBlockBegin(const BasicBlock* bb, int branc
 	}
 	writer->stream << '{' << NewLine;
 }
-void CheerpRenderInterface::renderDefaultBlockBegin()
+void CheerpRenderInterface::renderDefaultBlockBegin(bool empty)
 {
-	writer->stream << "default:{" << NewLine;
+	if (!empty)
+		writer->stream << "default:{" << NewLine;
 }
 void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first)
 {
@@ -3983,9 +3984,10 @@ void CheerpRenderInterface::renderElseBlockBegin()
 	writer->stream << "}else{" << NewLine;
 }
 
-void CheerpRenderInterface::renderBlockEnd()
+void CheerpRenderInterface::renderBlockEnd(bool empty)
 {
-	writer->stream << '}' << NewLine;
+	if (!empty)
+		writer->stream << '}' << NewLine;
 }
 
 void CheerpRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom)

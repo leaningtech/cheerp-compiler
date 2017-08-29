@@ -271,11 +271,11 @@ public:
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
-	void renderDefaultBlockBegin();
+	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
 	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first);
 	void renderElseBlockBegin();
-	void renderBlockEnd();
+	void renderBlockEnd(bool empty = false);
 	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom);
 	void renderWhileBlockBegin();
 	void renderWhileBlockBegin(int labelId);
@@ -542,7 +542,7 @@ void CheerpWastRenderInterface::renderCaseBlockBegin(const BasicBlock*, int bran
 	blockTypes.emplace_back(CASE);
 }
 
-void CheerpWastRenderInterface::renderDefaultBlockBegin()
+void CheerpWastRenderInterface::renderDefaultBlockBegin(bool)
 {
 	renderCaseBlockBegin(nullptr, 0);
 }
@@ -611,7 +611,7 @@ void CheerpWastRenderInterface::renderElseBlockBegin()
 	writer->encodeInst(0x05, "else", code);
 }
 
-void CheerpWastRenderInterface::renderBlockEnd()
+void CheerpWastRenderInterface::renderBlockEnd(bool)
 {
 	assert(!blockTypes.empty());
 	BlockType block = blockTypes.back();
