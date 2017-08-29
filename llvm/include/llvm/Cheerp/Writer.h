@@ -472,7 +472,7 @@ private:
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
-		void addConst(uint32_t v) override;
+		void addConst(int64_t v) override;
 	};
 public:
 	ostream_proxy stream;
