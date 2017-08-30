@@ -4340,53 +4340,59 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
     llvm::ICmpInst::Predicate ugt = llvm::ICmpInst::ICMP_UGT;
     bool isUnsigned = LHSTy->isUnsignedIntegerType();
 
+    Value* result = nullptr;
     switch (E->getOpcode()) {
     default: llvm_unreachable("unexpected comparison type");
     case BO_LT:
-      return Builder.CreateOr(
+      result = Builder.CreateOr(
         Builder.CreateICmp(isUnsigned ? ult : slt, lhsHigh, rhsHigh),
         Builder.CreateAnd(
           Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
           Builder.CreateICmp(llvm::ICmpInst::ICMP_ULT, lhsLow, rhsLow)
         )
       );
+      break;
     case BO_LE:
-      return Builder.CreateOr(
+      result = Builder.CreateOr(
         Builder.CreateICmp(isUnsigned ? ult : slt, lhsHigh, rhsHigh),
         Builder.CreateAnd(
           Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
           Builder.CreateICmp(llvm::ICmpInst::ICMP_ULE, lhsLow, rhsLow)
         )
       );
+      break;
     case BO_GT:
-      return Builder.CreateOr(
+      result = Builder.CreateOr(
         Builder.CreateICmp(isUnsigned ? ugt : sgt, lhsHigh, rhsHigh),
         Builder.CreateAnd(
           Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
           Builder.CreateICmp(llvm::ICmpInst::ICMP_UGT, lhsLow, rhsLow)
         )
       );
+      break;
     case BO_GE:
-      return Builder.CreateOr(
+      result = Builder.CreateOr(
         Builder.CreateICmp(isUnsigned ? ugt : sgt, lhsHigh, rhsHigh),
         Builder.CreateAnd(
           Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
           Builder.CreateICmp(llvm::ICmpInst::ICMP_UGE, lhsLow, rhsLow)
         )
       );
-    case BO_EQ: {
-      return Builder.CreateAnd(
+      break;
+    case BO_EQ:
+      result = Builder.CreateAnd(
         Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
         Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsLow, rhsLow)
       );
-      }
-    case BO_NE: {
-      return Builder.CreateOr(
+      break;
+    case BO_NE:
+      result = Builder.CreateOr(
         Builder.CreateICmp(llvm::ICmpInst::ICMP_NE, lhsHigh, rhsHigh),
         Builder.CreateICmp(llvm::ICmpInst::ICMP_NE, lhsLow, rhsLow)
       );
-      }
+      break;
     }
+    return EmitScalarConversion(result, CGF.getContext().BoolTy, E->getType(), E->getExprLoc());
   }
 
   if (const MemberPointerType *MPT = LHSTy->getAs<MemberPointerType>()) {
