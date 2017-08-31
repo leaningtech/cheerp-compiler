@@ -11184,6 +11184,10 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
   else if (BuiltinID == Builtin::BIrealloc) {
     // There must be an incoming cast, void* are not directly accepted
     const CastExpr* argCE=dyn_cast<CastExpr>(E->getArg(0));
+
+    if (asmjs && (!argCE || argCE->getSubExpr()->getType()->isVoidPointerType()))
+      return 0;
+
     // This condition is verified in Sema
     assert(argCE && !argCE->getSubExpr()->getType()->isVoidPointerType());
     //TODO: realloc can be invoked with NULL, support that
