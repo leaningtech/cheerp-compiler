@@ -661,6 +661,29 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << "=null";
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::vacopy)
+	{
+		if (asmjs)
+		{
+			stream << heapNames[HEAP32] << '[';
+			compileRawPointer(*it, PARENT_PRIORITY::SHIFT);
+			stream << ">>2]=";
+			stream << heapNames[HEAP32] << '[';
+			compileRawPointer(*(it+1), PARENT_PRIORITY::SHIFT);
+			stream << ">>2]|0";
+			return COMPILE_OK;
+		}
+		else
+		{
+			compileCompleteObject(*it);
+			stream << "={d:";
+			compileCompleteObject(*(it+1));
+			stream << ".d,o:";
+			compileCompleteObject(*(it+1));
+			stream << ".o}";
+			return COMPILE_OK;
+		}
+	}
 	else if(intrinsicId==Intrinsic::cheerp_downcast)
 	{
 		compileDowncast( callV );
