@@ -643,7 +643,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		if (asmjs)
 		{
 			stream << heapNames[HEAP32] << '[';
-			compileRawPointer(*it);
+			compileRawPointer(*it, PARENT_PRIORITY::SHIFT);
 			stream << ">>2]=__savedStack|0";
 		}
 		else
@@ -1178,11 +1178,11 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	if(asmjs)
 	{
 		stream << "(";
-		compileRawPointer(lhs);
+		compileRawPointer(lhs, PARENT_PRIORITY::LOGICAL_OR);
 		stream << "|0)";
 		stream << compareString;
 		stream << "(";
-		compileRawPointer(rhs);
+		compileRawPointer(rhs, PARENT_PRIORITY::LOGICAL_OR);
 		stream << "|0)";
 	}
 	else if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
@@ -1369,11 +1369,12 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	}
 }
 
-void CheerpWriter::compileRawPointer(const Value* p)
+void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY prio)
 {
 	AsmJSGepWriter gepWriter(*this);
 	p = linearHelper.compileGEP(p, &gepWriter);
-	PARENT_PRIORITY prio = gepWriter.offset?ADD_SUB:LOWEST;
+	PARENT_PRIORITY gepPrio = gepWriter.offset?ADD_SUB:LOWEST;
+	prio = std::max(prio, gepPrio);
 	compileOperand(p, prio);
 }
 
@@ -1461,7 +1462,7 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 	}
 	else
 	{
-		compileRawPointer(p);
+		compileRawPointer(p, PARENT_PRIORITY::SHIFT);
 		stream << ">>" << shift;
 	}
 	stream << ']';
@@ -2902,7 +2903,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	else if (RAW == kind)
 	{
 		stream << '(';
-		compileRawPointer(gep_inst);
+		compileRawPointer(gep_inst, PARENT_PRIORITY::LOGICAL_OR);
 		stream << "|0)";
 	}
 	else
@@ -3638,7 +3639,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					}
 					else
 					{
-						compileRawPointer(calledValue);
+						compileRawPointer(calledValue, PARENT_PRIORITY::LOGICAL_AND);
 					}
 					stream << '&' << linearHelper.getFunctionAddressMask(fTy) << ']';
 				}
@@ -3778,6 +3779,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
 				stream<<')';
 			return COMPILE_OK;
+		}
+		case Instruction::IntToPtr:
+		{
+			if (asmjs)
+			{
+				compileOperand(I.getOperand(0));
+				return COMPILE_OK;
+			}
+			// FALLTHROUGH if !asmjs
 		}
 		default:
 			stream << "alert('Unsupported code')";
