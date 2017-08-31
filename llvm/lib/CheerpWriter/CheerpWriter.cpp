@@ -969,7 +969,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << ')';
 			return COMPILE_OK;
 		}
-		else if(ident=="round" || ident=="roundf")
+		else if(!asmjs && (ident=="round" || ident=="roundf"))
 		{
 			stream << Math << "round(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
