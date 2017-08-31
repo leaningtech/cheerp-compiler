@@ -290,7 +290,7 @@ private:
 	 */
 	const llvm::Value* compileByteLayoutOffset(const llvm::Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode);
 
-	void compileRawPointer(const llvm::Value* p);
+	void compileRawPointer(const llvm::Value* p, PARENT_PRIORITY prio = PARENT_PRIORITY::LOWEST);
 
 	/**
 	 * Compile a pointer from a GEP expression, with the given pointer kind
