@@ -265,7 +265,7 @@ void LinearMemoryHelper::addFunctions()
 	for (const auto& FT: functionTables)
 	{
 		if (mode == FunctionAddressMode::AsmJS)
-			offset = (offset+1)<<16;
+			offset += 1<<16;
 		uint32_t addr = 0;
 		for (const auto F: FT.second.functions)
 		{
