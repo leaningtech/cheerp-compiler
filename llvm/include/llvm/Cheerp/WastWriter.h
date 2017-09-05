@@ -165,6 +165,8 @@ public:
 	void encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, std::ostream& code);
 	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, std::ostream& code);
 	void encodeLoad(const llvm::Type* ty, std::ostream& code);
+	void encodeWasmIntrinsic(std::ostream& code, const llvm::Function* F);
+	bool isWasmIntrinsic(const llvm::Function* F);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	void compilePHIOfBlockFromOtherBlock(std::ostream& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 };
