@@ -1153,7 +1153,16 @@ void Interpreter::visitVAEndInst(VAEndInst &I) {
 
 void Interpreter::visitVACopyInst(VACopyInst &I) {
   ExecutionContext &SF = ECStack.back();
-  SetValue(&I, getOperandValue(*I.arg_begin(), SF), SF);
+  Type* int32Ty = Type::getInt32Ty(F->getContext());
+  Instruction* bitcast = dyn_cast<Instruction>(I.getOperand(0));
+  assert(bitcast);
+  GenericValue GVDst = getOperandValue(bitcast->getOperand(0), SF);
+  bitcast = dyn_cast<Instruction>(I.getOperand(1));
+  assert(bitcast);
+  GenericValue VAList = getOperandValue(bitcast->getOperand(0), SF);
+  GenericValue GVSrc;
+  LoadValueFromMemory(GVSrc, (GenericValue *)GVTORP(VAList), int32Ty);
+  StoreValueToMemory(GVSrc, (GenericValue *)GVTORP(GVDst), int32Ty);
 }
 
 void Interpreter::visitIntrinsicInst(IntrinsicInst &I) {
