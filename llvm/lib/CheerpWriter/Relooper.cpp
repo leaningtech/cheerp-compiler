@@ -153,7 +153,7 @@ void Block::Render(bool InLoop, RenderInterface* renderInterface) {
       Details = ProcessedBranchesOut[DefaultTarget];
     }
     bool SetCurrLabel = SetLabel && Target->IsCheckedMultipleEntry;
-    bool HasFusedContent = Fused && contains(Fused->InnerMap, Target->Id) && !Fused->EmptyShapes.count(Target->Id);
+    bool HasFusedContent = Fused && contains(Fused->InnerMap, Target->Id) && !Fused->EmptyShapes.count(Target->Id); 
     //Cheerp: We assume that the block has content, otherwise why it's even here?
     bool HasContent = SetCurrLabel || Details->Type != Branch::Direct ||
                       HasFusedContent || Details->hasPrologue;
@@ -668,26 +668,6 @@ void Relooper::Calculate(Block *Entry) {
           NextEntries.insert(Entry);
         }
       }
-      // Mark the empty groups as such
-      for (auto iter = Multiple->InnerMap.begin(); iter != Multiple->InnerMap.end(); iter++) {
-        SimpleShape* simple = Shape::IsSimple(iter->second);
-        if (simple && !simple->Next) {
-          const llvm::BasicBlock* BB = simple->Inner->llvmBlock;
-          if (BB->begin()->getOpcode() == llvm::Instruction::Br &&
-              BB->getTerminator()->getNumSuccessors() == 1) {
-            bool hasPrologues = false;
-            for (auto out = simple->Inner->ProcessedBranchesOut.begin(); out != simple->Inner->ProcessedBranchesOut.end(); out++) {
-              if (out->second->hasPrologue) {
-                hasPrologues = true;
-                break;
-              }
-            }
-            if (!hasPrologues) {
-              Multiple->EmptyShapes.emplace(iter->first);
-            }
-          }
-        }
-      }
       // The multiple has been created, we can decide how to implement it
       if (Multiple->InnerMap.size() >= 10) {
         Multiple->UseSwitch = true;
@@ -895,6 +875,28 @@ void Relooper::Calculate(Block *Entry) {
       });
     }
 
+    // Mark the empty groups as such
+    void MarkEmptyGroups(MultipleShape* Multiple) {
+      for (auto iter = Multiple->InnerMap.begin(); iter != Multiple->InnerMap.end(); iter++) {
+        SimpleShape* simple = Shape::IsSimple(iter->second);
+        if (simple && !simple->Next) {
+          const llvm::BasicBlock* BB = simple->Inner->llvmBlock;
+          if (BB->begin()->getOpcode() == llvm::Instruction::Br &&
+              BB->getTerminator()->getNumSuccessors() == 1) {
+            bool hasPrologues = false;
+            for (auto out = simple->Inner->ProcessedBranchesOut.begin(); out != simple->Inner->ProcessedBranchesOut.end(); out++) {
+              if (out->second->hasPrologue || out->second->Type != Branch::Direct) {
+                hasPrologues = true;
+                break;
+              }
+            }
+            if (!hasPrologues) {
+              Multiple->EmptyShapes.emplace(iter->first);
+            }
+          }
+        }
+      }
+    }
     // Remove unneeded breaks and continues.
     // A flow operation is trivially unneeded if the shape we naturally get to by normal code
     // execution is the same as the flow forces us to.
@@ -970,6 +972,7 @@ void Relooper::Calculate(Block *Entry) {
         }, {
           for (IdShapeMap::iterator iter = Multiple->InnerMap.begin(); iter != Multiple->InnerMap.end(); iter++) {
             RemoveUnneededFlows(iter->second, Multiple->Next, Multiple->Breaks ? NULL : LastLoop, Depth+1);
+            MarkEmptyGroups(Multiple);
           }
           Next = Multiple->Next;
         }, {
