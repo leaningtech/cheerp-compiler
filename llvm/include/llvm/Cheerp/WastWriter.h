@@ -73,6 +73,11 @@ private:
 	// opcode 'unreachable' for calls to unknown functions.
 	bool useWastLoader;
 
+	// If true, embed a custom section called 'name' in binary wasm that maps
+	// the function ids to C++ mangled function names. If available in LLVM IR,
+	// it will also add names to local variables inside functions.
+	bool prettyCode;
+
 public:
 	CheerpMode cheerpMode;
 
@@ -88,6 +93,7 @@ private:
 	void compileElementSection();
 	void compileCodeSection();
 	void compileDataSection();
+	void compileNameSection();
 
 	static const char* getTypeString(const llvm::Type* t);
 	void compileMethodLocals(std::ostream& code, const llvm::Function& F, bool needsLabel);
@@ -133,6 +139,7 @@ public:
 			llvm::LLVMContext& C,
 			unsigned heapSize,
 			bool useWastLoader,
+			bool prettyCode,
 			CheerpMode cheerpMode):
 		module(m),
 		targetData(&m),
@@ -146,6 +153,7 @@ public:
 		stackTopGlobal(0),
 		heapSize(heapSize),
 		useWastLoader(useWastLoader),
+		prettyCode(prettyCode),
 		cheerpMode(cheerpMode),
 		stream(s)
 	{

@@ -69,7 +69,7 @@ bool CheerpWastWritePass::runOnModule(Module& M)
   registerize.assignRegisters(M, PA);
   cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA, linearHelper,
                                   M.getContext(), CheerpHeapSize, !WastLoader.empty(),
-                                  cheerpMode);
+                                  PrettyCode, cheerpMode);
   writer.makeWast();
   if (!WastLoader.empty())
   {
