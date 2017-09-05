@@ -228,8 +228,15 @@ std::string string_to_hex(const std::string& input)
 Section::Section(uint32_t sectionId, const char* sectionName, CheerpWastWriter* writer)
 	: sectionId(sectionId), sectionName(sectionName), writer(writer)
 {
-	if (writer->cheerpMode == CHEERP_MODE_WASM)
+	if (writer->cheerpMode == CHEERP_MODE_WASM) {
 		encodeULEB128(sectionId, writer->stream);
+
+		// Custom sections have a section name.
+		if (!sectionId) {
+			encodeULEB128(strlen(sectionName), *this);
+			(*this) << sectionName;
+		}
+	}
 }
 Section::~Section()
 {
@@ -2655,6 +2662,45 @@ void CheerpWastWriter::compileDataSection()
 	section.write(buf.data(), buf.size());
 }
 
+void CheerpWastWriter::compileNameSection()
+{
+	if (cheerpMode != CHEERP_MODE_WASM)
+		return;
+
+	assert(prettyCode);
+	Section section(0x00, "name", this);
+
+	// Assign names to functions
+	{
+		std::stringstream data;
+		uint32_t count = 0;
+		for (const auto& F: module.functions())
+		{
+			if (F.getSection() != StringRef("asmjs"))
+				continue;
+			count++;
+		}
+
+		encodeULEB128(count, data);
+
+		for (const auto& F: module.functions())
+		{
+			if (F.getSection() != StringRef("asmjs"))
+				continue;
+			uint32_t functionId = linearHelper.getFunctionIds().at(&F);
+			encodeULEB128(functionId, data);
+			encodeULEB128(F.getName().size(), data);
+			data << F.getName().str();
+		}
+
+		std::string buf = data.str();
+
+		encodeULEB128(0x01, section);
+		encodeULEB128(buf.size(), section);
+		section.write(buf.data(), buf.size());
+	}
+}
+
 void CheerpWastWriter::compileModule()
 {
 	if (cheerpMode == CHEERP_MODE_WAST) {
@@ -2692,6 +2738,10 @@ void CheerpWastWriter::compileModule()
 	compileCodeSection();
 
 	compileDataSection();
+
+	if (prettyCode) {
+		compileNameSection();
+	}
 	
 	if (cheerpMode == CHEERP_MODE_WAST) {
 		stream << ')';
