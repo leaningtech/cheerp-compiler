@@ -996,6 +996,48 @@ void CheerpWastWriter::encodeLoad(const llvm::Type* ty, std::ostream& code)
 	}
 }
 
+#define WASM_INTRINSIC_LIST(x) \
+	x("f32.abs", 0x8b, "fabsf") \
+	x("f32.ceil", 0x8d, "ceilf") \
+	x("f32.floor", 0x8e, "floorf") \
+	x("f32.trunc", 0x8f, "truncf") \
+	x("f32.nearest", 0x90, "roundf") \
+	x("f32.sqrt", 0x91, "sqrtf") \
+	x("f32.min", 0x96, "fminf") \
+	x("f32.max", 0x97, "fmaxf") \
+	x("f32.copysign", 0x98, "copysignf") \
+	\
+	x("f64.abs", 0x99, "fabs") \
+	x("f64.ceil", 0x9b, "ceil") \
+	x("f64.floor", 0x9c, "floor") \
+	x("f64.trunc", 0x9d, "trunc") \
+	x("f64.nearest", 0x9e, "round") \
+	x("f64.sqrt", 0x9f, "sqrt") \
+	x("f64.min", 0xa4, "fmin") \
+	x("f64.max", 0xa5, "fmax") \
+	x("f64.copysign", 0xa6, "copysign") \
+
+
+void CheerpWastWriter::encodeWasmIntrinsic(std::ostream& code, const llvm::Function* F)
+{
+	if (false) {}
+#define WASM_INTRINSIC(name, opcode, symbol) \
+	else if (F->getName() == symbol) \
+		encodeInst(opcode, name, code);
+WASM_INTRINSIC_LIST(WASM_INTRINSIC)
+#undef WASM_INTRINSIC
+}
+
+bool CheerpWastWriter::isWasmIntrinsic(const llvm::Function* F)
+{
+	return false
+#define WASM_INTRINSIC(name, opcode, symbol) \
+		|| F->getName() == symbol
+WASM_INTRINSIC_LIST(WASM_INTRINSIC)
+#undef WASM_INTRINSIC
+	;
+}
+
 bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
 {
 	const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
@@ -1567,7 +1609,11 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 
 			if (calledFunc)
 			{
-				if (linearHelper.getFunctionIds().count(calledFunc))
+				if (isWasmIntrinsic(calledFunc))
+				{
+					encodeWasmIntrinsic(code, calledFunc);
+				}
+				else if (linearHelper.getFunctionIds().count(calledFunc))
 				{
 					uint32_t functionId = linearHelper.getFunctionIds().at(calledFunc);
 					if (functionId < COMPILE_METHOD_LIMIT) {
