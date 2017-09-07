@@ -61,9 +61,9 @@ BlockType* findSwitchBlockType(std::vector<BlockType>& blocks)
 }
 
 // The methods encodeSLEB128 and encodeULEB128 are identical to the ones in
-// llvm/Support/LEB128.h, but require a parameter of type `std::ostream&`
+// llvm/Support/LEB128.h, but require a parameter of type `WasmBuffer&`
 // instead of the llvm output stream.
-static inline void encodeSLEB128(int64_t Value, std::ostream& OS) {
+static inline void encodeSLEB128(int64_t Value, WasmBuffer& OS) {
 	bool More;
 	do {
 		uint8_t Byte = Value & 0x7f;
@@ -77,7 +77,7 @@ static inline void encodeSLEB128(int64_t Value, std::ostream& OS) {
 	} while (More);
 }
 
-static inline void encodeULEB128(uint64_t Value, std::ostream& OS,
+static inline void encodeULEB128(uint64_t Value, WasmBuffer& OS,
 		unsigned Padding = 0) {
 	do {
 		uint8_t Byte = Value & 0x7f;
@@ -95,17 +95,17 @@ static inline void encodeULEB128(uint64_t Value, std::ostream& OS,
 	}
 }
 
-static inline void encodeF32(float f, std::ostream& stream)
+static inline void encodeF32(float f, WasmBuffer& stream)
 {
 	stream.write(reinterpret_cast<const char*>(&f), sizeof(float));
 }
 
-static inline void encodeF64(double f, std::ostream& stream)
+static inline void encodeF64(double f, WasmBuffer& stream)
 {
 	stream.write(reinterpret_cast<const char*>(&f), sizeof(double));
 }
 
-static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, std::ostream& stream)
+static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, WasmBuffer& stream)
 {
 	switch(regKind)
 	{
@@ -123,7 +123,7 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, std::o
 	}
 }
 
-static void encodeValType(const Type* t, std::ostream& stream)
+static void encodeValType(const Type* t, WasmBuffer& stream)
 {
 	if (t->isIntegerTy() || t->isPointerTy())
 		encodeULEB128(0x7f, stream);
@@ -139,7 +139,7 @@ static void encodeValType(const Type* t, std::ostream& stream)
 	}
 }
 
-static void encodeLiteralType(const Type* t, std::ostream& stream)
+static void encodeLiteralType(const Type* t, WasmBuffer& stream)
 {
 	if (t->isIntegerTy() || t->isPointerTy())
 		encodeULEB128(0x41, stream);
@@ -156,7 +156,7 @@ static void encodeLiteralType(const Type* t, std::ostream& stream)
 }
 
 static void encodeOpcode(uint32_t opcode, const char* name,
-		CheerpWastWriter& writer, std::ostream& code)
+		CheerpWastWriter& writer, WasmBuffer& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
 		assert(opcode <= 255);
@@ -168,7 +168,7 @@ static void encodeOpcode(uint32_t opcode, const char* name,
 }
 
 static void encodeS32Opcode(uint32_t opcode, const char* name,
-		int32_t immediate, CheerpWastWriter& writer, std::ostream& code)
+		int32_t immediate, CheerpWastWriter& writer, WasmBuffer& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
 		assert(opcode <= 255);
@@ -181,7 +181,7 @@ static void encodeS32Opcode(uint32_t opcode, const char* name,
 }
 
 static void encodeU32Opcode(uint32_t opcode, const char* name,
-		uint32_t immediate, CheerpWastWriter& writer, std::ostream& code)
+		uint32_t immediate, CheerpWastWriter& writer, WasmBuffer& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
 		assert(opcode <= 255);
@@ -194,7 +194,7 @@ static void encodeU32Opcode(uint32_t opcode, const char* name,
 }
 
 static void encodeU32U32Opcode(uint32_t opcode, const char* name,
-		uint32_t i1, uint32_t i2, CheerpWastWriter& writer, std::ostream& code)
+		uint32_t i1, uint32_t i2, CheerpWastWriter& writer, WasmBuffer& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
 		assert(opcode <= 255);
@@ -259,14 +259,14 @@ class CheerpWastRenderInterface: public RenderInterface
 {
 private:
 	CheerpWastWriter* writer;
-	std::ostream& code;
+	WasmBuffer& code;
 	std::vector<BlockType> blockTypes;
 	uint32_t labelLocal;
 	void renderCondition(const BasicBlock* B, int branchId);
 	void indent();
 public:
 	const BasicBlock* lastDepth0Block;
-	CheerpWastRenderInterface(CheerpWastWriter* w, std::ostream& code, uint32_t labelLocal)
+	CheerpWastRenderInterface(CheerpWastWriter* w, WasmBuffer& code, uint32_t labelLocal)
 	 :
 		writer(w),
 		code(code),
@@ -826,12 +826,12 @@ void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
 	blockTypes.emplace_back(IF, 1);
 }
 
-void CheerpWastWriter::encodeInst(uint32_t opcode, const char* name, std::ostream& code)
+void CheerpWastWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer& code)
 {
 	encodeOpcode(opcode, name, *this, code);
 }
 
-void CheerpWastWriter::encodeBinOp(const llvm::Instruction& I, std::ostream& code)
+void CheerpWastWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 {
 	compileOperand(code, I.getOperand(0));
 	compileOperand(code, I.getOperand(1));
@@ -890,12 +890,12 @@ void CheerpWastWriter::encodeBinOp(const llvm::Instruction& I, std::ostream& cod
 	llvm_unreachable("unknown type for binop instruction");
 }
 
-void CheerpWastWriter::encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, std::ostream& code)
+void CheerpWastWriter::encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code)
 {
 	encodeS32Opcode(opcode, name, immediate, *this, code);
 }
 
-void CheerpWastWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, std::ostream& code)
+void CheerpWastWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code)
 {
 	if (cheerpMode == CHEERP_MODE_WAST) {
 		// Do not print the immediate for some opcodes when mode is set to
@@ -913,7 +913,7 @@ void CheerpWastWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t
 	encodeU32Opcode(opcode, name, immediate, *this, code);
 }
 
-void CheerpWastWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, std::ostream& code)
+void CheerpWastWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code)
 {
 	if (cheerpMode == CHEERP_MODE_WAST) {
 		// Do not print the immediates for some opcodes when mode is set to
@@ -940,7 +940,7 @@ void CheerpWastWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint3
 	encodeU32U32Opcode(opcode, name, i1, i2, *this, code);
 }
 
-void CheerpWastWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, std::ostream& code)
+void CheerpWastWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code)
 {
 	// TODO add i64 support.
 	assert(ty->isIntegerTy() || ty->isPointerTy());
@@ -967,7 +967,7 @@ void CheerpWastWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 	}
 }
 
-void CheerpWastWriter::encodeLoad(const llvm::Type* ty, std::ostream& code)
+void CheerpWastWriter::encodeLoad(const llvm::Type* ty, WasmBuffer& code)
 {
 	if(ty->isIntegerTy())
 	{
@@ -1003,7 +1003,7 @@ void CheerpWastWriter::encodeLoad(const llvm::Type* ty, std::ostream& code)
 	}
 }
 
-void CheerpWastWriter::encodeWasmIntrinsic(std::ostream& code, const llvm::Function* F)
+void CheerpWastWriter::encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F)
 {
 	if (false) {}
 #define WASM_INTRINSIC(name, opcode, symbol) \
@@ -1022,12 +1022,12 @@ bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const 
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst);
 }
 
-void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(std::ostream& code, const BasicBlock* to, const BasicBlock* from)
+void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from)
 {
 	class WriterPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		WriterPHIHandler(CheerpWastWriter& w, std::ostream& c, const BasicBlock* f, const BasicBlock* t)
+		WriterPHIHandler(CheerpWastWriter& w, WasmBuffer& c, const BasicBlock* f, const BasicBlock* t)
 			:EndOfBlockPHIHandler(w.PA),writer(w), code(c),fromBB(f),toBB(t)
 		{
 		}
@@ -1036,7 +1036,7 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(std::ostream& code, const
 		}
 	private:
 		CheerpWastWriter& writer;
-		std::ostream& code;
+		WasmBuffer& code;
 		const BasicBlock* fromBB;
 		const BasicBlock* toBB;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
@@ -1078,7 +1078,7 @@ const char* CheerpWastWriter::getTypeString(const Type* t)
 	}
 }
 
-void CheerpWastWriter::compileGEP(std::ostream& code, const llvm::User* gep_inst)
+void CheerpWastWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst)
 {
 	WastGepWriter gepWriter(*this, code);
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
@@ -1087,7 +1087,7 @@ void CheerpWastWriter::compileGEP(std::ostream& code, const llvm::User* gep_inst
 		encodeInst(0x6a, "i32.add", code);
 }
 
-void CheerpWastWriter::compileSignedInteger(std::ostream& code, const llvm::Value* v, bool forComparison)
+void CheerpWastWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison)
 {
 	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
@@ -1119,7 +1119,7 @@ void CheerpWastWriter::compileSignedInteger(std::ostream& code, const llvm::Valu
 	}
 }
 
-void CheerpWastWriter::compileUnsignedInteger(std::ostream& code, const llvm::Value* v)
+void CheerpWastWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v)
 {
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
@@ -1137,7 +1137,7 @@ void CheerpWastWriter::compileUnsignedInteger(std::ostream& code, const llvm::Va
 	}
 }
 
-void CheerpWastWriter::compileConstantExpr(std::ostream& code, const ConstantExpr* ce)
+void CheerpWastWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr* ce)
 {
 	switch(ce->getOpcode())
 	{
@@ -1176,7 +1176,7 @@ void CheerpWastWriter::compileConstantExpr(std::ostream& code, const ConstantExp
 	}
 }
 
-void CheerpWastWriter::compileConstant(std::ostream& code, const Constant* c)
+void CheerpWastWriter::compileConstant(WasmBuffer& code, const Constant* c)
 {
 	if(const ConstantExpr* CE = dyn_cast<ConstantExpr>(c))
 	{
@@ -1271,7 +1271,7 @@ void CheerpWastWriter::compileConstant(std::ostream& code, const Constant* c)
 	}
 }
 
-void CheerpWastWriter::compileOperand(std::ostream& code, const llvm::Value* v)
+void CheerpWastWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
 		compileConstant(code, c);
@@ -1326,7 +1326,7 @@ const char* CheerpWastWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
 	return "";
 }
 
-void CheerpWastWriter::compileDowncast(std::ostream& code, ImmutableCallSite callV)
+void CheerpWastWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV)
 {
 	assert(callV.arg_size() == 2);
 	assert(callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast);
@@ -1346,7 +1346,7 @@ void CheerpWastWriter::compileDowncast(std::ostream& code, ImmutableCallSite cal
 	}
 }
 
-bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction& I)
+bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
 {
 	switch(I.getOpcode())
 	{
@@ -1949,7 +1949,7 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 	return false;
 }
 
-void CheerpWastWriter::compileBB(std::ostream& code, const BasicBlock& BB)
+void CheerpWastWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 {
 	BasicBlock::const_iterator I=BB.begin();
 	BasicBlock::const_iterator IE=BB.end();
@@ -1999,7 +1999,7 @@ void CheerpWastWriter::compileBB(std::ostream& code, const BasicBlock& BB)
 	}
 }
 
-void CheerpWastWriter::compileMethodLocals(std::ostream& code, const Function& F, bool needsLabel)
+void CheerpWastWriter::compileMethodLocals(WasmBuffer& code, const Function& F, bool needsLabel)
 {
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	if (cheerpMode == CHEERP_MODE_WASM) {
@@ -2089,7 +2089,7 @@ void CheerpWastWriter::compileMethodLocals(std::ostream& code, const Function& F
 	}
 }
 
-void CheerpWastWriter::compileMethodParams(std::ostream& code, const FunctionType* fTy)
+void CheerpWastWriter::compileMethodParams(WasmBuffer& code, const FunctionType* fTy)
 {
 	uint32_t numArgs = fTy->getNumParams();
 	if (cheerpMode == CHEERP_MODE_WASM)
@@ -2109,7 +2109,7 @@ void CheerpWastWriter::compileMethodParams(std::ostream& code, const FunctionTyp
 	}
 }
 
-void CheerpWastWriter::compileMethodResult(std::ostream& code, const Type* ty)
+void CheerpWastWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 {
 	if (cheerpMode == CHEERP_MODE_WASM)
 	{
@@ -2130,7 +2130,7 @@ void CheerpWastWriter::compileMethodResult(std::ostream& code, const Type* ty)
 	}
 }
 
-void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
+void CheerpWastWriter::compileMethod(WasmBuffer& code, const Function& F)
 {
 	assert(!F.empty());
 	currentFun = &F;
@@ -2249,7 +2249,7 @@ void CheerpWastWriter::compileTypeSection()
 	}
 }
 
-void CheerpWastWriter::compileImport(std::ostream& code, const Function& F)
+void CheerpWastWriter::compileImport(WasmBuffer& code, const Function& F)
 {
 	assert(useWastLoader);
 
