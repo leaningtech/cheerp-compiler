@@ -194,6 +194,16 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	return false;
 }
 
+bool isWasmIntrinsic(const llvm::Function* F)
+{
+	return false
+#define WASM_INTRINSIC(name, opcode, symbol) \
+		|| F->getName() == symbol
+WASM_INTRINSIC_LIST(WASM_INTRINSIC)
+#undef WASM_INTRINSIC
+	;
+}
+
 uint32_t getIntFromValue(const Value* v)
 {
 	if(!ConstantInt::classof(v))

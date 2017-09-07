@@ -239,6 +239,11 @@ void LinearMemoryHelper::addFunctions()
 		if (F.getSection() != StringRef("asmjs"))
 			continue;
 
+		if (isWasmIntrinsic(&F)) {
+			assert(!F.hasAddressTaken());
+			continue;
+		}
+
 		const FunctionType* fTy = F.getFunctionType();
 		if (F.hasAddressTaken()) {
 			auto it = functionTables.find(fTy);
