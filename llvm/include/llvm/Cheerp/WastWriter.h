@@ -35,6 +35,8 @@ enum CheerpMode {
 
 class CheerpWastWriter;
 
+typedef std::iostream WasmBuffer;
+
 class Section : public std::stringstream {
 private:
 	uint32_t sectionId;
@@ -96,22 +98,22 @@ private:
 	void compileNameSection();
 
 	static const char* getTypeString(const llvm::Type* t);
-	void compileMethodLocals(std::ostream& code, const llvm::Function& F, bool needsLabel);
-	void compileMethodParams(std::ostream& code, const llvm::FunctionType* F);
-	void compileMethodResult(std::ostream& code, const llvm::Type* F);
-	void compileMethod(std::ostream& code, const llvm::Function& F);
-	void compileImport(std::ostream& code, const llvm::Function& F);
+	void compileMethodLocals(WasmBuffer& code, const llvm::Function& F, bool needsLabel);
+	void compileMethodParams(WasmBuffer& code, const llvm::FunctionType* F);
+	void compileMethodResult(WasmBuffer& code, const llvm::Type* F);
+	void compileMethod(WasmBuffer& code, const llvm::Function& F);
+	void compileImport(WasmBuffer& code, const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	// Returns true if it has handled local assignent internally
-	bool compileInstruction(std::ostream& code, const llvm::Instruction& I);
-	void compileGEP(std::ostream& code, const llvm::User* gepInst);
+	bool compileInstruction(WasmBuffer& code, const llvm::Instruction& I);
+	void compileGEP(WasmBuffer& code, const llvm::User* gepInst);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
 	{
 		std::ostream& code;
 		const CheerpWastWriter& writer;
-		WastBytesWriter(std::ostream& code, const CheerpWastWriter& writer)
+		WastBytesWriter(WasmBuffer& code, const CheerpWastWriter& writer)
 			: code(code), writer(writer)
 		{
 		}
@@ -121,9 +123,9 @@ private:
 	struct WastGepWriter: public LinearMemoryHelper::GepListener
 	{
 		CheerpWastWriter& writer;
-		std::ostream& code;
+		WasmBuffer& code;
 		bool first;
-		WastGepWriter(CheerpWastWriter& writer, std::ostream& code)
+		WastGepWriter(CheerpWastWriter& writer, WasmBuffer& code)
 			: writer(writer), code(code), first(true)
 		{
 		}
@@ -159,23 +161,23 @@ public:
 	{
 	}
 	void makeWast();
-	void compileBB(std::ostream& code, const llvm::BasicBlock& BB);
-	void compileDowncast(std::ostream& code, llvm::ImmutableCallSite callV);
-	void compileConstantExpr(std::ostream& code, const llvm::ConstantExpr* ce);
-	void compileConstant(std::ostream& code, const llvm::Constant* c);
-	void compileOperand(std::ostream& code, const llvm::Value* v);
-	void compileSignedInteger(std::ostream& code, const llvm::Value* v, bool forComparison);
-	void compileUnsignedInteger(std::ostream& code, const llvm::Value* v);
-	void encodeInst(uint32_t opcode, const char* name, std::ostream& code);
-	void encodeBinOp(const llvm::Instruction& I, std::ostream& code);
-	void encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, std::ostream& code);
-	void encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, std::ostream& code);
-	void encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, std::ostream& code);
-	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, std::ostream& code);
-	void encodeLoad(const llvm::Type* ty, std::ostream& code);
-	void encodeWasmIntrinsic(std::ostream& code, const llvm::Function* F);
+	void compileBB(WasmBuffer& code, const llvm::BasicBlock& BB);
+	void compileDowncast(WasmBuffer& code, llvm::ImmutableCallSite callV);
+	void compileConstantExpr(WasmBuffer& code, const llvm::ConstantExpr* ce);
+	void compileConstant(WasmBuffer& code, const llvm::Constant* c);
+	void compileOperand(WasmBuffer& code, const llvm::Value* v);
+	void compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison);
+	void compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v);
+	void encodeInst(uint32_t opcode, const char* name, WasmBuffer& code);
+	void encodeBinOp(const llvm::Instruction& I, WasmBuffer& code);
+	void encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code);
+	void encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code);
+	void encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code);
+	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code);
+	void encodeLoad(const llvm::Type* ty, WasmBuffer& code);
+	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
-	void compilePHIOfBlockFromOtherBlock(std::ostream& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
+	void compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 };
 
 }
