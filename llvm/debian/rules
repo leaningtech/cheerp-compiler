@@ -9,7 +9,7 @@ override_dh_auto_configure:
 	dh_auto_configure -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
-	    -DLLVM_TARGETS_TO_BUILD="ARM;CheerpBackend;X86" \
+	    -DLLVM_TARGETS_TO_BUILD="ARM;CheerpBackend;CheerpWastBackend;X86" \
 	    -DCLANG_VENDOR="Cheerp ${deb_version}"
 
 override_dh_auto_install:
