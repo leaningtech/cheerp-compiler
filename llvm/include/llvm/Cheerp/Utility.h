@@ -67,6 +67,30 @@ inline bool isGEP(const llvm::Value* v)
 	return false;
 }
 
+#define WASM_INTRINSIC_LIST(x) \
+	x("f32.abs", 0x8b, "fabsf") \
+	x("f32.ceil", 0x8d, "ceilf") \
+	x("f32.floor", 0x8e, "floorf") \
+	x("f32.trunc", 0x8f, "truncf") \
+	x("f32.nearest", 0x90, "roundf") \
+	x("f32.sqrt", 0x91, "sqrtf") \
+	x("f32.min", 0x96, "fminf") \
+	x("f32.max", 0x97, "fmaxf") \
+	x("f32.copysign", 0x98, "copysignf") \
+	\
+	x("f64.abs", 0x99, "fabs") \
+	x("f64.ceil", 0x9b, "ceil") \
+	x("f64.floor", 0x9c, "floor") \
+	x("f64.trunc", 0x9d, "trunc") \
+	x("f64.nearest", 0x9e, "round") \
+	x("f64.sqrt", 0x9f, "sqrt") \
+	x("f64.min", 0xa4, "fmin") \
+	x("f64.max", 0xa5, "fmax") \
+	x("f64.copysign", 0xa6, "copysign") \
+
+
+bool isWasmIntrinsic(const llvm::Function* F);
+
 const llvm::ConstantArray* ModuleGlobalConstructors(llvm::Module& M);
 
 bool needsSecondaryName(const llvm::Value*, const PointerAnalyzer& PA);
