@@ -1466,6 +1466,14 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
 						return true;
 					}
+					case Intrinsic::vacopy:
+					{
+						compileOperand(code, ci.getOperand(0));
+						compileOperand(code, ci.getOperand(1));
+						encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
+						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
+						return true;
+					}
 					case Intrinsic::vaend:
 					{
 						// Do nothing.
