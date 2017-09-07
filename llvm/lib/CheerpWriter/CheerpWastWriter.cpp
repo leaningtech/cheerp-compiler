@@ -1003,28 +1003,6 @@ void CheerpWastWriter::encodeLoad(const llvm::Type* ty, std::ostream& code)
 	}
 }
 
-#define WASM_INTRINSIC_LIST(x) \
-	x("f32.abs", 0x8b, "fabsf") \
-	x("f32.ceil", 0x8d, "ceilf") \
-	x("f32.floor", 0x8e, "floorf") \
-	x("f32.trunc", 0x8f, "truncf") \
-	x("f32.nearest", 0x90, "roundf") \
-	x("f32.sqrt", 0x91, "sqrtf") \
-	x("f32.min", 0x96, "fminf") \
-	x("f32.max", 0x97, "fmaxf") \
-	x("f32.copysign", 0x98, "copysignf") \
-	\
-	x("f64.abs", 0x99, "fabs") \
-	x("f64.ceil", 0x9b, "ceil") \
-	x("f64.floor", 0x9c, "floor") \
-	x("f64.trunc", 0x9d, "trunc") \
-	x("f64.nearest", 0x9e, "round") \
-	x("f64.sqrt", 0x9f, "sqrt") \
-	x("f64.min", 0xa4, "fmin") \
-	x("f64.max", 0xa5, "fmax") \
-	x("f64.copysign", 0xa6, "copysign") \
-
-
 void CheerpWastWriter::encodeWasmIntrinsic(std::ostream& code, const llvm::Function* F)
 {
 	if (false) {}
@@ -1033,16 +1011,6 @@ void CheerpWastWriter::encodeWasmIntrinsic(std::ostream& code, const llvm::Funct
 		encodeInst(opcode, name, code);
 WASM_INTRINSIC_LIST(WASM_INTRINSIC)
 #undef WASM_INTRINSIC
-}
-
-bool CheerpWastWriter::isWasmIntrinsic(const llvm::Function* F)
-{
-	return false
-#define WASM_INTRINSIC(name, opcode, symbol) \
-		|| F->getName() == symbol
-WASM_INTRINSIC_LIST(WASM_INTRINSIC)
-#undef WASM_INTRINSIC
-	;
 }
 
 bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
@@ -2343,7 +2311,7 @@ void CheerpWastWriter::compileFunctionSection()
 	uint32_t count = 0;
 	for (const Function& F : module.functions())
 	{
-		if (!F.empty() && F.getSection() == StringRef("asmjs"))
+		if (!F.empty() && F.getSection() == StringRef("asmjs") && !isWasmIntrinsic(&F))
 			count++;
 	}
 	count = std::min(count, COMPILE_METHOD_LIMIT); // TODO
@@ -2353,8 +2321,8 @@ void CheerpWastWriter::compileFunctionSection()
 
 	// Define function type ids
 	size_t i = 0;
-	for (const Function& F : module.getFunctionList()) {
-		if (F.getSection() != StringRef("asmjs"))
+	for (const Function& F : module.functions()) {
+		if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
 			continue;
 
 		const FunctionType* fTy = F.getFunctionType();
@@ -2569,7 +2537,7 @@ void CheerpWastWriter::compileCodeSection()
 		uint32_t count = 0;
 		for (const auto& F: module.functions())
 		{
-			if (F.getSection() != StringRef("asmjs"))
+			if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
 				continue;
 			count++;
 		}
@@ -2584,7 +2552,7 @@ void CheerpWastWriter::compileCodeSection()
 
 	for (const auto& F: module.functions())
 	{
-		if (F.getSection() != StringRef("asmjs"))
+		if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
 			continue;
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			std::stringstream method;
@@ -2676,7 +2644,7 @@ void CheerpWastWriter::compileNameSection()
 		uint32_t count = 0;
 		for (const auto& F: module.functions())
 		{
-			if (F.getSection() != StringRef("asmjs"))
+			if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
 				continue;
 			count++;
 		}
@@ -2685,7 +2653,7 @@ void CheerpWastWriter::compileNameSection()
 
 		for (const auto& F: module.functions())
 		{
-			if (F.getSection() != StringRef("asmjs"))
+			if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
 				continue;
 			uint32_t functionId = linearHelper.getFunctionIds().at(&F);
 			encodeULEB128(functionId, data);
