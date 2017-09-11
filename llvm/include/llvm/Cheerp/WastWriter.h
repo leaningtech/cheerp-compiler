@@ -54,7 +54,6 @@ private:
 	llvm::Module& module;
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
-	const PointerAnalyzer & PA;
 	Registerize & registerize;
 
 	llvm::LLVMContext& Ctx;
@@ -81,6 +80,7 @@ private:
 	bool prettyCode;
 
 public:
+	const PointerAnalyzer & PA;
 	CheerpMode cheerpMode;
 
 private:
@@ -147,7 +147,6 @@ public:
 		module(m),
 		targetData(&m),
 		currentFun(NULL),
-		PA(PA),
 		registerize(registerize),
 		Ctx(C),
 		globalDeps(gda),
@@ -157,6 +156,7 @@ public:
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
+		PA(PA),
 		cheerpMode(cheerpMode),
 		stream(s)
 	{
@@ -175,6 +175,7 @@ public:
 	void encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code);
 	void encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code);
+	void compileICmp(const llvm::ICmpInst& ci, const llvm::CmpInst::Predicate p, WasmBuffer& code);
 	void encodeLoad(const llvm::Type* ty, uint32_t offset, WasmBuffer& code);
 	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
