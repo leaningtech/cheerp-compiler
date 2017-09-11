@@ -276,6 +276,11 @@ Section::~Section()
 	writer->stream << buf;
 }
 
+enum ConditionRenderMode {
+	NormalCondition = 0,
+	InvertCondition
+};
+
 class CheerpWastRenderInterface: public RenderInterface
 {
 private:
@@ -283,7 +288,8 @@ private:
 	WasmBuffer& code;
 	std::vector<BlockType> blockTypes;
 	uint32_t labelLocal;
-	void renderCondition(const BasicBlock* B, int branchId);
+	void renderCondition(const BasicBlock* B, int branchId,
+			ConditionRenderMode mode);
 	void indent();
 public:
 	const BasicBlock* lastDepth0Block;
@@ -337,7 +343,8 @@ void CheerpWastRenderInterface::indent()
 		code << "  ";
 }
 
-void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branchId)
+void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branchId,
+		ConditionRenderMode mode)
 {
 	const TerminatorInst* term=bb->getTerminator();
 
@@ -347,7 +354,27 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 		assert(bi->isConditional());
 		//The second branch is the default
 		assert(branchId==0);
-		writer->compileOperand(code, bi->getCondition());
+
+		const ICmpInst* I = dyn_cast<ICmpInst>(bi->getCondition());
+		if (mode == InvertCondition && I && isInlineable(*I, writer->PA)) {
+			const ICmpInst::Predicate p = I->getInversePredicate();
+			const ConstantInt* C;
+			// Optimize "if (a != 0)" to "if (a)".
+			if (p == CmpInst::ICMP_NE &&
+					(C = dyn_cast<ConstantInt>(I->getOperand(1))) &&
+					C->getSExtValue() == 0) {
+				writer->compileOperand(code, I->getOperand(0));
+				return;
+			}
+			writer->compileICmp(*I, p, code);
+		} else {
+			writer->compileOperand(code, bi->getCondition());
+			if (mode == InvertCondition) {
+				// Invert result
+				writer->encodeS32Inst(0x41, "i32.const", 1, code);
+				writer->encodeInst(0x73, "i32.xor", code);
+			}
+		}
 	}
 	else if(isa<SwitchInst>(term))
 	{
@@ -372,6 +399,13 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 				writer->encodeInst(0x46, "i32.eq", code);
 				writer->encodeInst(0x72, "i32.or", code);
 			}
+		}
+
+		// TODO optimize this by inverting the boolean logic above.
+		if (mode == InvertCondition) {
+			// Invert result
+			writer->encodeS32Inst(0x41, "i32.const", 1, code);
+			writer->encodeInst(0x73, "i32.xor", code);
 		}
 	}
 	else
@@ -584,7 +618,7 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int bra
 		writer->encodeInst(0x05, "else", code);
 	}
 	// The condition goes first
-	renderCondition(bb, branchId);
+	renderCondition(bb, branchId, NormalCondition);
 	indent();
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	if(first)
@@ -612,11 +646,8 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const s
 		{
 			assert(false);
 		}
-		renderCondition(bb, skipBranchIds[i]);
+		renderCondition(bb, skipBranchIds[i], InvertCondition);
 	}
-	// Invert result
-	writer->encodeS32Inst(0x41, "i32.const", 1, code);
-	writer->encodeInst(0x73, "i32.xor", code);
 	indent();
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 
@@ -1357,6 +1388,32 @@ const char* CheerpWastWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
 	return "";
 }
 
+void CheerpWastWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate p,
+		WasmBuffer& code)
+{
+	if(ci.getOperand(0)->getType()->isPointerTy())
+	{
+		compileOperand(code, ci.getOperand(0));
+		compileOperand(code, ci.getOperand(1));
+	}
+	else if(CmpInst::isSigned(p))
+	{
+		compileSignedInteger(code, ci.getOperand(0), true);
+		compileSignedInteger(code, ci.getOperand(1), true);
+	}
+	else if (CmpInst::isUnsigned(p) || !ci.getOperand(0)->getType()->isIntegerTy(32))
+	{
+		compileUnsignedInteger(code, ci.getOperand(0));
+		compileUnsignedInteger(code, ci.getOperand(1));
+	}
+	else
+	{
+		compileSignedInteger(code, ci.getOperand(0), true);
+		compileSignedInteger(code, ci.getOperand(1), true);
+	}
+	encodePredicate(ci.getOperand(0)->getType(), p, code);
+}
+
 void CheerpWastWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV)
 {
 	assert(callV.arg_size() == 2);
@@ -1766,29 +1823,9 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 		}
 		case Instruction::ICmp:
 		{
-			const CmpInst& ci = cast<CmpInst>(I);
-			CmpInst::Predicate p = (CmpInst::Predicate)ci.getPredicate();
-			if(ci.getOperand(0)->getType()->isPointerTy())
-			{
-				compileOperand(code, ci.getOperand(0));
-				compileOperand(code, ci.getOperand(1));
-			}
-			else if(CmpInst::isSigned(p))
-			{
-				compileSignedInteger(code, ci.getOperand(0), true);
-				compileSignedInteger(code, ci.getOperand(1), true);
-			}
-			else if (CmpInst::isUnsigned(p) || !I.getOperand(0)->getType()->isIntegerTy(32))
-			{
-				compileUnsignedInteger(code, ci.getOperand(0));
-				compileUnsignedInteger(code, ci.getOperand(1));
-			}
-			else
-			{
-				compileSignedInteger(code, ci.getOperand(0), true);
-				compileSignedInteger(code, ci.getOperand(1), true);
-			}
-			encodePredicate(ci.getOperand(0)->getType(), ci.getPredicate(), code);
+			const ICmpInst& ci = cast<ICmpInst>(I);
+			ICmpInst::Predicate p = ci.getPredicate();
+			compileICmp(ci, p, code);
 			break;
 		}
 		case Instruction::Load:
