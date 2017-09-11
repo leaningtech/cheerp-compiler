@@ -1392,9 +1392,17 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 				}
 				else
 				{
-					encodeS32Inst(0x41, "i32.const", size, code);
 					compileOperand(code, n);
-					encodeInst(0x6c, "i32.mul", code);
+					if (size > 1 && isPowerOf2_32(size))
+					{
+						encodeS32Inst(0x41, "i32.const", Log2_32(size), code);
+						encodeInst(0x74, "i32.shl", code);
+					}
+					else if (size > 1)
+					{
+						encodeS32Inst(0x41, "i32.const", size, code);
+						encodeInst(0x6c, "i32.mul", code);
+					}
 				}
 			} else {
 				encodeS32Inst(0x41, "i32.const", size, code);
@@ -2764,10 +2772,18 @@ void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
 {
 	writer.compileOperand(code, v);
-	if(size != 1)
+	if (size > 1)
 	{
-		writer.encodeS32Inst(0x41, "i32.const", size, code);
-		writer.encodeInst(0x6c, "i32.mul", code);
+		if (isPowerOf2_32(size))
+		{
+			writer.encodeS32Inst(0x41, "i32.const", Log2_32(size), code);
+			writer.encodeInst(0x74, "i32.shl", code);
+		}
+		else
+		{
+			writer.encodeS32Inst(0x41, "i32.const", size, code);
+			writer.encodeInst(0x6c, "i32.mul", code);
+		}
 	}
 	if(!first)
 		writer.encodeInst(0x6a, "i32.add", code);
