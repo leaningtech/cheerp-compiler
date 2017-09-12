@@ -952,7 +952,12 @@ void CheerpWastWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint3
 			case 0x39: // "f64.store"
 			case 0x3a: // "i32.store8"
 			case 0x3b: // "i32.store16"
-				encodeOpcode(opcode, name, *this, code);
+				code << name;
+				if (i2)
+					code << " offset=" << i2;
+				if (i1)
+					code << " align=" << (1 << i1);
+				code << '\n';
 				return;
 			default:
 				break;
@@ -988,7 +993,8 @@ void CheerpWastWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 	}
 }
 
-void CheerpWastWriter::encodeLoad(const llvm::Type* ty, WasmBuffer& code)
+void CheerpWastWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
+		WasmBuffer& code)
 {
 	if(ty->isIntegerTy())
 	{
@@ -1002,13 +1008,13 @@ void CheerpWastWriter::encodeLoad(const llvm::Type* ty, WasmBuffer& code)
 			// Currently assume unsigned, like Cheerp. We may optimize
 			// this be looking at a following sext or zext instruction.
 			case 8:
-				encodeU32U32Inst(0x2d, "i32.load8_u", 0x0, 0x0, code);
+				encodeU32U32Inst(0x2d, "i32.load8_u", 0x0, offset, code);
 				break;
 			case 16:
-				encodeU32U32Inst(0x2f, "i32.load16_u", 0x1, 0x0, code);
+				encodeU32U32Inst(0x2f, "i32.load16_u", 0x1, offset, code);
 				break;
 			case 32:
-				encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
+				encodeU32U32Inst(0x28, "i32.load", 0x2, offset, code);
 				break;
 			default:
 				llvm::errs() << "bit width: " << bitWidth << '\n';
@@ -1016,11 +1022,11 @@ void CheerpWastWriter::encodeLoad(const llvm::Type* ty, WasmBuffer& code)
 		}
 	} else {
 		if (ty->isFloatTy())
-			encodeU32U32Inst(0x2a, "f32.load", 0x2, 0x0, code);
+			encodeU32U32Inst(0x2a, "f32.load", 0x2, offset, code);
 		else if (ty->isDoubleTy())
-			encodeU32U32Inst(0x2b, "f64.load", 0x3, 0x0, code);
+			encodeU32U32Inst(0x2b, "f64.load", 0x3, offset, code);
 		else
-			encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
+			encodeU32U32Inst(0x28, "i32.load", 0x2, offset, code);
 	}
 }
 
@@ -1106,6 +1112,10 @@ void CheerpWastWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst)
 	compileOperand(code, p);
 	if(!gepWriter.first)
 		encodeInst(0x6a, "i32.add", code);
+	if (gepWriter.constPart) {
+		encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
+		encodeInst(0x6a, "i32.add", code);
+	}
 }
 
 void CheerpWastWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison)
@@ -1458,7 +1468,7 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 			// Load the current argument
 			compileOperand(code, vi.getPointerOperand());
 			encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
-			encodeLoad(vi.getType(), code);
+			encodeLoad(vi.getType(), 0, code);
 
 			// Move varargs pointer to next argument
 			compileOperand(code, vi.getPointerOperand());
@@ -1785,10 +1795,27 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 		{
 			const LoadInst& li = cast<LoadInst>(I);
 			const Value* ptrOp=li.getPointerOperand();
+			uint32_t offset = 0;
 			// 1) The pointer
-			compileOperand(code, ptrOp);
+			if (isGEP(ptrOp)) {
+				WastGepWriter gepWriter(*this, code);
+				auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
+				compileOperand(code, p);
+				if(!gepWriter.first)
+					encodeInst(0x6a, "i32.add", code);
+				// The immediate offset of a load instruction is an unsigned
+				// 32-bit integer. Negative immediate offsets are not supported.
+				if (gepWriter.constPart < 0) {
+					encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
+					encodeInst(0x6a, "i32.add", code);
+				} else {
+					offset = gepWriter.constPart;
+				}
+			} else {
+				compileOperand(code, ptrOp);
+			}
 			// 2) Load
-			encodeLoad(li.getType(), code);
+			encodeLoad(li.getType(), offset, code);
 			break;
 		}
 		case Instruction::PtrToInt:
@@ -1801,8 +1828,25 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 			const StoreInst& si = cast<StoreInst>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
+			uint32_t offset = 0;
 			// 1) The pointer
-			compileOperand(code, ptrOp);
+			if (isGEP(ptrOp)) {
+				WastGepWriter gepWriter(*this, code);
+				auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
+				compileOperand(code, p);
+				if(!gepWriter.first)
+					encodeInst(0x6a, "i32.add", code);
+				// The immediate offset of a store instruction is an unsigned
+				// 32-bit integer. Negative immediate offsets are not supported.
+				if (gepWriter.constPart < 0) {
+					encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
+					encodeInst(0x6a, "i32.add", code);
+				} else {
+					offset = gepWriter.constPart;
+				}
+			} else {
+				compileOperand(code, ptrOp);
+			}
 			// 2) The value
 			compileOperand(code, valOp);
 			// 3) Store
@@ -1817,13 +1861,13 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 				switch (bitWidth)
 				{
 					case 8:
-						encodeU32U32Inst(0x3a, "i32.store8", 0x0, 0x0, code);
+						encodeU32U32Inst(0x3a, "i32.store8", 0x0, offset, code);
 						break;
 					case 16:
-						encodeU32U32Inst(0x3b, "i32.store16", 0x1, 0x0, code);
+						encodeU32U32Inst(0x3b, "i32.store16", 0x1, offset, code);
 						break;
 					case 32:
-						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
+						encodeU32U32Inst(0x36, "i32.store", 0x2, offset, code);
 						break;
 					default:
 						llvm::errs() << "bit width: " << bitWidth << '\n';
@@ -1831,11 +1875,11 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 				}
 			} else {
 				if (valOp->getType()->isFloatTy())
-					encodeU32U32Inst(0x38, "f32.store", 0x2, 0x0, code);
+					encodeU32U32Inst(0x38, "f32.store", 0x2, offset, code);
 				else if (valOp->getType()->isDoubleTy())
-					encodeU32U32Inst(0x39, "f64.store", 0x3, 0x0, code);
+					encodeU32U32Inst(0x39, "f64.store", 0x3, offset, code);
 				else
-					encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
+					encodeU32U32Inst(0x36, "i32.store", 0x2, offset, code);
 			}
 			break;
 		}
@@ -2798,8 +2842,5 @@ void CheerpWastWriter::WastGepWriter::addConst(int64_t v)
 	assert(v>=std::numeric_limits<int32_t>::min());
 	assert(v<=std::numeric_limits<int32_t>::max());
 
-	writer.encodeS32Inst(0x41, "i32.const", v, code);
-	if(!first)
-		writer.encodeInst(0x6a, "i32.add", code);
-	first = false;
+	constPart = v;
 }
