@@ -125,8 +125,9 @@ private:
 		CheerpWastWriter& writer;
 		WasmBuffer& code;
 		bool first;
+		int32_t constPart;
 		WastGepWriter(CheerpWastWriter& writer, WasmBuffer& code)
-			: writer(writer), code(code), first(true)
+			: writer(writer), code(code), first(true), constPart(0)
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
@@ -174,7 +175,7 @@ public:
 	void encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code);
 	void encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code);
-	void encodeLoad(const llvm::Type* ty, WasmBuffer& code);
+	void encodeLoad(const llvm::Type* ty, uint32_t offset, WasmBuffer& code);
 	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	void compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
