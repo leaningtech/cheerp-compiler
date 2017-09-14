@@ -12,6 +12,7 @@
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Cheerp/Utility.h"
 
@@ -339,4 +340,35 @@ uint32_t LinearMemoryHelper::getFunctionAddressMask(const llvm::FunctionType* Ft
 	mask = next_power_of_2 - 1;
 	return mask;
 
+}
+
+bool LinearMemoryHelper::needsStackPtrLocal(const llvm::Function* F) const
+{
+	// The stack position needs to be saved and restored in functions that
+	// contain:
+	//   1. allocas,
+	//   2. vastart intrinsics,
+	//   3. variadic function calls.
+	for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
+	{
+		if (isa<AllocaInst>(*I))
+			return true;
+
+		if (!isa<CallInst>(*I))
+			continue;
+
+		const Function* calledFunc = cast<CallInst>(*I).getCalledFunction();
+		if (!calledFunc)
+			continue;
+
+		if (calledFunc->getIntrinsicID() == Intrinsic::vastart)
+			return true;
+
+		const Value * calledValue = cast<CallInst>(*I).getCalledValue();
+		const PointerType* pTy = cast<PointerType>(calledValue->getType());
+		const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+		if (fTy->isVarArg())
+			return true;
+	}
+	return false;
 }
