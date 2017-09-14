@@ -1898,9 +1898,12 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 			if(retVal)
 				compileOperand(code, I.getOperand(0));
 
-			// Restore old stack
-			encodeU32Inst(0x20, "get_local", currentFun->arg_size(), code);
-			encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
+			if (linearHelper.needsStackPtrLocal(currentFun))
+			{
+				// Restore old stack
+				encodeU32Inst(0x20, "get_local", currentFun->arg_size(), code);
+				encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
+			}
 			encodeInst(0x0f, "return", code);
 			break;
 		}
@@ -2235,9 +2238,12 @@ void CheerpWastWriter::compileMethod(WasmBuffer& code, const Function& F)
 
 	compileMethodLocals(code, F, needsLabel);
 
-	// TODO: Only save the stack address if required
-	encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
-	encodeU32Inst(0x21, "set_local", numArgs, code);
+	// Only save the stack address in a local if used
+	if (linearHelper.needsStackPtrLocal(currentFun))
+	{
+		encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
+		encodeU32Inst(0x21, "set_local", numArgs, code);
+	}
 
 	if (F.size() == 1)
 	{
