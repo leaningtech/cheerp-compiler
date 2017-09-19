@@ -627,6 +627,9 @@ Instruction* DelayAllocas::findCommonInsertionPoint(AllocaInst* AI, DominatorTre
 
 bool DelayAllocas::runOnFunction(Function& F)
 {
+	// We apply this pass only on genericjs functions
+	if (F.getSection()==StringRef("asmjs"))
+		return false;
 	bool Changed = false;
 	LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
