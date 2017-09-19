@@ -2679,7 +2679,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				compileCheckDefined(ptrOp);
 				stream<<";";
 			}
-			if (kind == BYTE_LAYOUT)
+			// TODO: we need this hack because PointerAnalyzer cannot correctly assign
+			// the RAW kind to null pointers
+			bool asmjs = currentFun && currentFun->getSection()==StringRef("asmjs");
+			bool asmjs_nullptr = asmjs && isa<ConstantPointerNull>(ptrOp);
+			if (RAW == kind || asmjs_nullptr)
+			{
+				compileHeapAccess(ptrOp);
+			}
+			else if (kind == BYTE_LAYOUT)
 			{
 				//Optimize stores of single values from unions
 				compilePointerBase(ptrOp);
@@ -2703,10 +2711,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					stream << ",true";
 				stream << ')';
 				return COMPILE_OK;
-			}
-			else if (kind == RAW)
-			{
-				compileHeapAccess(ptrOp);
 			}
 			else
 			{
@@ -2917,17 +2921,21 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	}
 
 
-	if(COMPLETE_OBJECT == kind)
-	{
-		compileCompleteObject(gep_inst->getOperand(0), indices.front());
-		compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
-		                       makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true);
-	}
-	else if (RAW == kind)
+	// TODO: we need this hack because PointerAnalyzer cannot correctly assign
+	// the RAW kind to null pointers
+	bool asmjs = currentFun && currentFun->getSection()==StringRef("asmjs");
+	bool asmjs_nullptr = asmjs && isa<ConstantPointerNull>(gep_inst->getOperand(0));
+	if (RAW == kind || asmjs_nullptr)
 	{
 		stream << '(';
 		compileRawPointer(gep_inst, PARENT_PRIORITY::LOGICAL_OR);
 		stream << "|0)";
+	}
+	else if(COMPLETE_OBJECT == kind)
+	{
+		compileCompleteObject(gep_inst->getOperand(0), indices.front());
+		compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
+		                       makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true);
 	}
 	else
 	{
@@ -3750,7 +3758,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			}
-			if (kind == BYTE_LAYOUT)
+			// TODO: we need this hack because PointerAnalyzer cannot correctly assign
+			// the RAW kind to null pointers
+			bool asmjs = currentFun && currentFun->getSection()==StringRef("asmjs");
+			bool asmjs_nullptr = asmjs && isa<ConstantPointerNull>(ptrOp);
+			if (RAW == kind || asmjs_nullptr)
+				compileHeapAccess(ptrOp);
+			else if (kind == BYTE_LAYOUT)
 			{
 				//Optimize loads of single values from unions
 				compilePointerBase(ptrOp);
@@ -3770,8 +3784,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << ",true";
 				stream << ')';
 			}
-			else if (kind == RAW)
-				compileHeapAccess(ptrOp);
 			else
 				compileCompleteObject(ptrOp);
 			if(li.getType()->isPointerTy() && !li.use_empty() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
