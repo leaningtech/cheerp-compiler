@@ -4943,9 +4943,11 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     }
     else
     {
+      bool asmjs = CurFn->getSection()==StringRef("asmjs");
       llvm::Function* intrinsic = CGM.GetUserCastIntrinsic(CE,
 		      getContext().getPointerType(E->getSubExpr()->getType()),
-		      CE->getTypeAsWritten());
+		      CE->getTypeAsWritten(),
+		      asmjs);
       V = Address(Builder.CreateCall(intrinsic, V.getPointer()), V.getAlignment());
     }
     return MakeAddrLValue(V, E->getType(), LV.getBaseInfo(),
