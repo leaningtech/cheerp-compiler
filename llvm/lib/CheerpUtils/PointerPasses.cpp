@@ -402,6 +402,8 @@ bool PHIVisitor::visitPHI(PHINode* phi)
 bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 {
 	bool Changed = false;
+	if (F.getSection() == StringRef("asmjs"))
+		return false;
 
 	PHIVisitor::PHIMap phiMap;
 	PHIVisitor::RemoveQueue toRemove;
