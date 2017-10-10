@@ -2272,7 +2272,7 @@ void CheerpWastWriter::compileTypeSection()
 
 void CheerpWastWriter::compileImport(WasmBuffer& code, const Function& F)
 {
-	assert(useWastLoader);
+	assert(useWasmLoader);
 
 	NameGenerator::NAME_FILTER_MODE mode = NameGenerator::NAME_FILTER_MODE::GLOBAL;
 	std::string fieldName = NameGenerator::filterLLVMName(F.getName(), mode).str().str();
@@ -2316,7 +2316,7 @@ void CheerpWastWriter::compileImport(WasmBuffer& code, const Function& F)
 
 void CheerpWastWriter::compileImportSection()
 {
-	if (globalDeps.asmJSImports().empty() || !useWastLoader)
+	if (globalDeps.asmJSImports().empty() || !useWasmLoader)
 		return;
 
 	Section section(0x02, "Import", this);
