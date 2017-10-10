@@ -70,10 +70,10 @@ private:
 	// The wasm module heap size
 	uint32_t heapSize;
 
-	// If true, the Wast file is loaded using a JavaScript loader. This allows
-	// FFI calls to methods outside of the Wast file. When false, write
+	// If true, the Wasm file is loaded using a JavaScript loader. This allows
+	// FFI calls to methods outside of the Wasm file. When false, write
 	// opcode 'unreachable' for calls to unknown functions.
-	bool useWastLoader;
+	bool useWasmLoader;
 
 	// If true, embed a custom section called 'name' in binary wasm that maps
 	// the function ids to C++ mangled function names. If available in LLVM IR,
@@ -140,7 +140,7 @@ public:
 			const LinearMemoryHelper& linearHelper,
 			llvm::LLVMContext& C,
 			unsigned heapSize,
-			bool useWastLoader,
+			bool useWasmLoader,
 			bool prettyCode,
 			CheerpMode cheerpMode):
 		module(m),
@@ -154,7 +154,7 @@ public:
 		usedGlobals(0),
 		stackTopGlobal(0),
 		heapSize(heapSize),
-		useWastLoader(useWastLoader),
+		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
 		cheerpMode(cheerpMode),
 		stream(s)

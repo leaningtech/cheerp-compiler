@@ -219,7 +219,7 @@ void LinearMemoryHelper::addFunctions()
 {
 	// Add the asm.js imports to the function type list. The non-imported
 	// asm.js functions will be added below.
-	if (!WastLoader.empty()) {
+	if (!WasmLoader.empty()) {
 		for (const Function* F : globalDeps.asmJSImports()) {
 			const FunctionType* fTy = F->getFunctionType();
 			const auto& found = functionTypeIndices.find(fTy);
