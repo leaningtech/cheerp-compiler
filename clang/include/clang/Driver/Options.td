@@ -4348,6 +4348,8 @@ def cheerp_linear_heap_size : Joined<["-"], "cheerp-linear-heap-size=">, Flags<[
   HelpText<"Set wasm/asm.js heap size (in MB, default is 1)">;
 def cheerp_wasm_loader_EQ : Joined<["-"], "cheerp-wasm-loader=">, Flags<[DriverOption]>,
   HelpText<"Write wasm loader to <file>">, MetaVarName<"<file>">;
+def cheerp_wast_loader_EQ : Joined<["-"], "cheerp-wast-loader=">,
+    Alias<cheerp_wasm_loader_EQ>;
 def cheerp_asmjs_mem_file_EQ : Joined<["-"], "cheerp-asmjs-mem-file=">, Flags<[DriverOption]>,
   HelpText<"Write asm.js initialized memory to <file>">, MetaVarName<"<file>">;
 def cheerp_sourcemap_EQ : Joined<["-"], "cheerp-sourcemap=">, Flags<[DriverOption]>,
