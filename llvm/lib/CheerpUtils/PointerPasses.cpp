@@ -509,11 +509,6 @@ bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
 			PHINode * phi = dyn_cast<PHINode>(it++);
 			if (! phi )
 				continue;
-			Type* phiType = phi->getType();
-			if (! phiType->isPointerTy() )
-				continue;
-			if (! cheerp::TypeSupport::isImmutableType(phiType->getPointerElementType()) )
-				continue;
 			BasicBlock* parentBlock = phi->getParent();
 			if ( parentBlock->getTerminator()->getNumSuccessors() != 0 )
 				continue;
