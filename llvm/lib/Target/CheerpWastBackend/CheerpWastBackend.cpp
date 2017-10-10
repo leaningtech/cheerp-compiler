@@ -68,10 +68,10 @@ bool CheerpWastWritePass::runOnModule(Module& M)
   PA.computeConstantOffsets(M);
   registerize.assignRegisters(M, PA);
   cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA, linearHelper,
-                                  M.getContext(), CheerpHeapSize, !WastLoader.empty(),
+                                  M.getContext(), CheerpHeapSize, !WasmLoader.empty(),
                                   PrettyCode, cheerpMode);
   writer.makeWast();
-  if (!WastLoader.empty())
+  if (!WasmLoader.empty())
   {
     cheerp::SourceMapGenerator* sourceMapGenerator = NULL;
     GDA.forceTypedArrays = ForceTypedArrays;
@@ -92,7 +92,7 @@ bool CheerpWastWritePass::runOnModule(Module& M)
     std::sort(reservedNames.begin(), reservedNames.end());
 
     std::error_code ErrorCode;
-    llvm::tool_output_file jsFile(WastLoader.c_str(), ErrorCode, sys::fs::F_None);
+    llvm::tool_output_file jsFile(WasmLoader.c_str(), ErrorCode, sys::fs::F_None);
     llvm::formatted_raw_ostream jsOut(jsFile.os());
 
     cheerp::CheerpWriter writer(M, jsOut, PA, registerize, GDA, linearHelper, nullptr, std::string(),
@@ -102,7 +102,7 @@ bool CheerpWastWritePass::runOnModule(Module& M)
     writer.makeJS();
     if (ErrorCode)
     {
-       // An error occurred opening the wast loader file, bail out
+       // An error occurred opening the wasm loader file, bail out
        llvm::report_fatal_error(ErrorCode.message(), false);
        delete sourceMapGenerator;
        return false;
@@ -140,7 +140,7 @@ bool CallGlobalConstructorsOnStartPass::runOnModule(Module& M)
 	// Determine if a function should be constructed that calls the global
 	// constructors on start. The function will not be constructed when the
 	// wast loader is in use, or when there are no global constructors.
-	if (!WastLoader.empty())
+	if (!WasmLoader.empty())
 		return false;
 
 	auto constructors = cheerp::ModuleGlobalConstructors(M);
