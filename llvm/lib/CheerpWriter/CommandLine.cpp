@@ -1,7 +1,7 @@
 #include "llvm/Cheerp/CommandLine.h"
 
-llvm::cl::opt<std::string> WastLoader("cheerp-wast-loader", llvm::cl::Optional,
-  llvm::cl::desc("If specified, the file name of the wast loader"), llvm::cl::value_desc("filename"));
+llvm::cl::opt<std::string> WasmLoader("cheerp-wasm-loader", llvm::cl::Optional,
+  llvm::cl::desc("If specified, the file name of the wasm loader"), llvm::cl::value_desc("filename"));
 
 llvm::cl::opt<std::string> WasmFile("cheerp-wasm-file", llvm::cl::Optional,
   llvm::cl::desc("If specified, the file name of the wasm file"), llvm::cl::value_desc("filename"));
