@@ -2483,8 +2483,9 @@ void CheerpWastWriter::compileTableSection()
 		assert(cheerpMode == CHEERP_MODE_WAST);
 		section << "(table anyfunc (elem";
 		size_t j = 0;
-		for (const auto& table : linearHelper.getFunctionTables()) {
-			for (const auto& F : table.second.functions) {
+		for (const FunctionType* fTy: linearHelper.getFunctionTableOrder()) {
+			const auto table = linearHelper.getFunctionTables().find(fTy);
+			for (const auto& F : table->second.functions) {
 				section << " $" << F->getName().str();
 				if (++j == COMPILE_METHOD_LIMIT)
 					break; // TODO
@@ -2635,8 +2636,9 @@ void CheerpWastWriter::compileElementSection()
 	// Encode the sequence of function indices.
 	std::stringstream elem;
 	size_t count = 0;
-	for (const auto& table : linearHelper.getFunctionTables()) {
-		for (const auto& F : table.second.functions) {
+	for (const FunctionType* fTy: linearHelper.getFunctionTableOrder()) {
+		const auto table = linearHelper.getFunctionTables().find(fTy);
+		for (const auto& F : table->second.functions) {
 			uint32_t idx = linearHelper.getFunctionIds().at(F);
 			encodeULEB128(idx, elem);
 			count++;
