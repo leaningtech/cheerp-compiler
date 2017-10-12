@@ -218,10 +218,21 @@ void LinearMemoryHelper::addGlobals()
 
 void LinearMemoryHelper::addFunctions()
 {
-	// Construct the list of asmjs functions.
+	// Construct the list of asmjs functions. Make sure that __wasm_nullptr is
+	// the first list entry, if defined.
+	if (mode == FunctionAddressMode::Wasm)
+	{
+		llvm::Function* wasmNullptr = module.getFunction(StringRef(wasmNullptrName));
+		if (wasmNullptr)
+			asmjsFunctions_.push_back(wasmNullptr);
+	}
 	for (auto& F: module.functions())
 	{
 		if (F.getSection() != StringRef("asmjs"))
+			continue;
+
+		// Do not add __wasm_nullptr twice.
+		if (mode == FunctionAddressMode::Wasm && F.getName() == StringRef(wasmNullptrName))
 			continue;
 
 		// WebAssembly has some builtin functions (sqrt, abs, copysign, etc.)
@@ -255,7 +266,7 @@ void LinearMemoryHelper::addFunctions()
 	for (const Function* F : asmjsFunctions_)
 	{
 		const FunctionType* fTy = F->getFunctionType();
-		if (F->hasAddressTaken()) {
+		if (F->hasAddressTaken() || F->getName() == StringRef(wasmNullptrName)) {
 			auto it = functionTables.find(fTy);
 			if (it == functionTables.end())
 			{
