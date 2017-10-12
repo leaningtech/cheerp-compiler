@@ -2432,12 +2432,7 @@ void CheerpWastWriter::compileFunctionSection()
 
 	Section section(0x03, "Function", this);
 
-	uint32_t count = 0;
-	for (const Function& F : module.functions())
-	{
-		if (!F.empty() && F.getSection() == StringRef("asmjs") && !isWasmIntrinsic(&F))
-			count++;
-	}
+	uint32_t count = linearHelper.functions().size();
 	count = std::min(count, COMPILE_METHOD_LIMIT); // TODO
 
 	// Encode number of entries in the function section.
@@ -2445,11 +2440,8 @@ void CheerpWastWriter::compileFunctionSection()
 
 	// Define function type ids
 	size_t i = 0;
-	for (const Function& F : module.functions()) {
-		if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
-			continue;
-
-		const FunctionType* fTy = F.getFunctionType();
+	for (const Function* F : linearHelper.functions()) {
+		const FunctionType* fTy = F->getFunctionType();
 		const auto& found = linearHelper.getFunctionTypeIndices().find(fTy);
 		assert(found != linearHelper.getFunctionTypeIndices().end());
 		assert(found->second < linearHelper.getFunctionTypes().size());
@@ -2658,13 +2650,7 @@ void CheerpWastWriter::compileCodeSection()
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
 		// Encode the number of methods in the code section.
-		uint32_t count = 0;
-		for (const auto& F: module.functions())
-		{
-			if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
-				continue;
-			count++;
-		}
+		uint32_t count = linearHelper.functions().size();
 		count = std::min(count, COMPILE_METHOD_LIMIT);
 		encodeULEB128(count, section);
 #if WASM_DUMP_METHODS
@@ -2674,16 +2660,14 @@ void CheerpWastWriter::compileCodeSection()
 
 	size_t i = 0;
 
-	for (const auto& F: module.functions())
+	for (const Function* F: linearHelper.functions())
 	{
-		if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
-			continue;
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			std::stringstream method;
 #if WASM_DUMP_METHODS
 			llvm::errs() << i << " method name: " << F.getName() << '\n';
 #endif
-			compileMethod(method, F);
+			compileMethod(method, *F);
 			std::string buf = method.str();
 #if WASM_DUMP_METHOD_DATA
 			llvm::errs() << "method length: " << buf.size() << '\n';
@@ -2692,7 +2676,7 @@ void CheerpWastWriter::compileCodeSection()
 			encodeULEB128(buf.size(), section);
 			section << buf;
 		} else {
-			compileMethod(section, F);
+			compileMethod(section, *F);
 		}
 		if (++i == COMPILE_METHOD_LIMIT)
 			break; // TODO
@@ -2765,24 +2749,15 @@ void CheerpWastWriter::compileNameSection()
 	// Assign names to functions
 	{
 		std::stringstream data;
-		uint32_t count = 0;
-		for (const auto& F: module.functions())
-		{
-			if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
-				continue;
-			count++;
-		}
-
+		uint32_t count = linearHelper.functions().size();
 		encodeULEB128(count, data);
 
-		for (const auto& F: module.functions())
+		for (const Function* F : linearHelper.functions())
 		{
-			if (F.empty() || F.getSection() != StringRef("asmjs") || isWasmIntrinsic(&F))
-				continue;
-			uint32_t functionId = linearHelper.getFunctionIds().at(&F);
+			uint32_t functionId = linearHelper.getFunctionIds().at(F);
 			encodeULEB128(functionId, data);
-			encodeULEB128(F.getName().size(), data);
-			data << F.getName().str();
+			encodeULEB128(F->getName().size(), data);
+			data << F->getName().str();
 		}
 
 		std::string buf = data.str();
