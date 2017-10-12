@@ -24,6 +24,8 @@
 namespace cheerp
 {
 
+extern const char* wasmNullptrName;
+
 /**
  * Determine which globals (variables and functions) need to be compiled.
  * 

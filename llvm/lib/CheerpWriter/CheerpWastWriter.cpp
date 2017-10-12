@@ -1302,6 +1302,9 @@ void CheerpWastWriter::compileConstant(WasmBuffer& code, const Constant* c)
 		if (linearHelper.functionHasAddress(F))
 		{
 			uint32_t addr = linearHelper.getFunctionAddress(F);
+			if (!addr)
+				llvm::errs() << "function name: " << c->getName() << '\n';
+			assert(addr && "function address is zero (aka nullptr conflict)");
 			encodeS32Inst(0x41, "i32.const", addr, code);
 		}
 		else
