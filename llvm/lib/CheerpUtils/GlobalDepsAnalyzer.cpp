@@ -31,6 +31,7 @@ namespace cheerp {
 using namespace std;
 
 char GlobalDepsAnalyzer::ID = 0;
+const char* wasmNullptrName = "__wasm_nullptr";
 
 const char* GlobalDepsAnalyzer::getPassName() const
 {
@@ -49,6 +50,24 @@ void GlobalDepsAnalyzer::getAnalysisUsage(AnalysisUsage& AU) const
 	AU.addPreserved<cheerp::Registerize>();
 
 	llvm::ModulePass::getAnalysisUsage(AU);
+}
+
+static void createNullptrFunction(llvm::Module& module)
+{
+	llvm::Function* wasmNullptr = module.getFunction(StringRef(wasmNullptrName));
+	if (wasmNullptr)
+		return;
+
+	// Create a dummy function that prevents nullptr conflicts, since the first
+	// function address is zero.
+	IRBuilder<> builder(module.getContext());
+	auto fTy = FunctionType::get(builder.getVoidTy(), false);
+	auto stub = Function::Create(fTy, Function::InternalLinkage, wasmNullptrName, &module);
+	stub->setSection("asmjs");
+
+	auto block = BasicBlock::Create(module.getContext(), "entry", stub);
+	builder.SetInsertPoint(block);
+	builder.CreateUnreachable();
 }
 
 bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
@@ -93,6 +112,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		ci->eraseFromParent();
 	}
 
+	// Create a dummy function that prevents nullptr conflicts.
+	createNullptrFunction(module);
+
 	//Compile the list of JS methods
 	//Look for metadata which ends in _methods. They are the have the list
 	//of exported methods for JS layout classes
@@ -117,6 +139,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			assert( visited.empty() );
 			externals.push_back(f);
 		}
+	}
+
+	// Mark the __wasm_nullptr as reachable.
+	llvm::Function* wasmNullptr = module.getFunction(StringRef(wasmNullptrName));
+	if (wasmNullptr) {
+		SubExprVec vec;
+		visitGlobal(wasmNullptr, visited, vec);
+		assert(visited.empty());
 	}
 
 	llvm::Function* webMainOrMain = module.getFunction("_Z7webMainv");
