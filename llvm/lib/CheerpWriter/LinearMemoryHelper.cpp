@@ -270,6 +270,7 @@ void LinearMemoryHelper::addFunctions()
 			auto it = functionTables.find(fTy);
 			if (it == functionTables.end())
 			{
+				functionTableOrder.push_back(fTy);
 				it = functionTables.emplace(fTy,FunctionTableInfo()).first;
 				it->second.name = getFunctionTableName(fTy);
 			}
@@ -286,20 +287,25 @@ void LinearMemoryHelper::addFunctions()
 			assert(idx < functionTypes.size());
 		}
 	}
-	// Then assign addresses
+
+	// Then assign addresses in the order that the function tables are created.
+	// Without the creation order, it is possible that __wasm_nullptr will not
+	// get the first function address (= 0), since std::unordered_map could
+	// have any traversal order.
 	uint32_t offset = 0;
-	for (const auto& FT: functionTables)
+	for (const FunctionType* fTy: functionTableOrder)
 	{
+		const auto FT = functionTables.find(fTy);
 		if (mode == FunctionAddressMode::AsmJS)
 			offset += 1<<16;
 		uint32_t addr = 0;
-		for (const auto F: FT.second.functions)
+		for (const auto F: FT->second.functions)
 		{
 			functionAddresses.emplace(F, addr+offset);
 			addr++;
 		}
 		if (mode == FunctionAddressMode::Wasm)
-			offset += FT.second.functions.size();
+			offset += FT->second.functions.size();
 	}
 
 	// Finish the function tables.
