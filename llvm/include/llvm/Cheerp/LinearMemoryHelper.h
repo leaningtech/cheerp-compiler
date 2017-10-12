@@ -165,6 +165,7 @@ public:
 	 */
 	typedef std::unordered_map<const llvm::FunctionType*,FunctionTableInfo,
 		  FunctionSignatureHash,FunctionSignatureCmp> FunctionTableInfoMap;
+	typedef std::vector<const llvm::FunctionType*> FunctionTableOrder;
 	/**
 	 * Used to assign asm.js function pointers
 	 */
@@ -192,6 +193,10 @@ public:
 	const FunctionTableInfoMap& getFunctionTables() const
 	{
 		return functionTables;
+	}
+	const FunctionTableOrder& getFunctionTableOrder() const
+	{
+		return functionTableOrder;
 	}
 
 	/**
@@ -250,6 +255,7 @@ private:
 	GlobalDepsAnalyzer& globalDeps;
 
 	FunctionTableInfoMap functionTables;
+	FunctionTableOrder functionTableOrder;
 	std::vector<const llvm::Function*> asmjsFunctions_;
 
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
