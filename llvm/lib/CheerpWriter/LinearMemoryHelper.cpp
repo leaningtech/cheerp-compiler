@@ -218,6 +218,23 @@ void LinearMemoryHelper::addGlobals()
 
 void LinearMemoryHelper::addFunctions()
 {
+	// Construct the list of asmjs functions.
+	for (auto& F: module.functions())
+	{
+		if (F.getSection() != StringRef("asmjs"))
+			continue;
+
+		// WebAssembly has some builtin functions (sqrt, abs, copysign, etc.)
+		// which should be omitted, and is therefore a subset of the asmjs
+		// function list.
+		if (mode == FunctionAddressMode::Wasm && isWasmIntrinsic(&F)) {
+			assert(!F.hasAddressTaken());
+			continue;
+		}
+
+		asmjsFunctions_.push_back(&F);
+	}
+
 	// Add the asm.js imports to the function type list. The non-imported
 	// asm.js functions will be added below.
 	if (!WasmLoader.empty()) {
@@ -235,28 +252,20 @@ void LinearMemoryHelper::addFunctions()
 	}
 
 	// Build the function tables first
-	for (const auto& F: module.functions())
+	for (const Function* F : asmjsFunctions_)
 	{
-		if (F.getSection() != StringRef("asmjs"))
-			continue;
-
-		if (isWasmIntrinsic(&F)) {
-			assert(!F.hasAddressTaken());
-			continue;
-		}
-
-		const FunctionType* fTy = F.getFunctionType();
-		if (F.hasAddressTaken()) {
+		const FunctionType* fTy = F->getFunctionType();
+		if (F->hasAddressTaken()) {
 			auto it = functionTables.find(fTy);
 			if (it == functionTables.end())
 			{
 				it = functionTables.emplace(fTy,FunctionTableInfo()).first;
 				it->second.name = getFunctionTableName(fTy);
 			}
-			it->second.functions.push_back(&F);
+			it->second.functions.push_back(F);
 		}
 
-		functionIds.insert(std::make_pair(&F, functionIds.size()));
+		functionIds.insert(std::make_pair(F, functionIds.size()));
 
 		const auto& found = functionTypeIndices.find(fTy);
 		if (found == functionTypeIndices.end()) {

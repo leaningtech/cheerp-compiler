@@ -194,6 +194,16 @@ public:
 		return functionTables;
 	}
 
+	/**
+	 * Get a list of the asm.js functions. This list excludes functions without
+	 * an "asmjs" section. This list does also exclude native WebAssembly
+	 * intrinsics (like sqrt, abs, copysign, etc.), when cheerp-mode is set to
+	 * WebAssembly.
+	 */
+	const std::vector<const llvm::Function*> & functions() const {
+		return asmjsFunctions_;
+	}
+
 	const FunctionTypeIndicesMap& getFunctionTypeIndices() const {
 		return functionTypeIndices;
 	}
@@ -240,6 +250,7 @@ private:
 	GlobalDepsAnalyzer& globalDeps;
 
 	FunctionTableInfoMap functionTables;
+	std::vector<const llvm::Function*> asmjsFunctions_;
 
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 	std::vector<const llvm::FunctionType*> functionTypes;
