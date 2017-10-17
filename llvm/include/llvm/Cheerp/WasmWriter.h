@@ -178,6 +178,7 @@ public:
 	void compileICmp(const llvm::ICmpInst& ci, const llvm::CmpInst::Predicate p, WasmBuffer& code);
 	void encodeLoad(const llvm::Type* ty, uint32_t offset, WasmBuffer& code);
 	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
+	bool encodeCompactFloat(WasmBuffer& code, const llvm::ConstantFP* f);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	void compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 };
