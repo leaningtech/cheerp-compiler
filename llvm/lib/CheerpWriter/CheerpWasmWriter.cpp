@@ -1238,6 +1238,45 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 	}
 }
 
+bool CheerpWasmWriter::encodeCompactFloat(WasmBuffer& code, const ConstantFP* f)
+{
+	APFloat apf = f->getValueAPF();
+	if (!apf.isInteger())
+		return false;
+
+	APFloat truncated = apf;
+	truncated.roundToIntegral(APFloat::rmTowardZero);
+	int64_t value;
+	if (f->getType()->isDoubleTy())
+		value = static_cast<int64_t>(truncated.convertToDouble());
+	else
+		value = static_cast<int64_t>(truncated.convertToFloat());
+
+	// Check that the integer bytes plus conversion byte is smaller than the
+	// original float/double in bytes.
+	std::stringstream tmp;
+	encodeSLEB128(value, tmp);
+	if (f->getType()->isDoubleTy() && tmp.str().size() + 1 >= 8)
+		return false;
+
+	if (f->getType()->isFloatTy() && tmp.str().size() + 1 >= 4)
+		return false;
+
+	// Verify that the value fits in the i32 range.
+	if (value < INT32_MIN || value > INT32_MAX)
+		return false;
+
+	// Encode the float/double using an integer representation.
+	encodeS32Inst(0x41, "i32.const", value, code);
+
+	if (f->getType()->isDoubleTy())
+		encodeInst(0xb7, "f64.convert_s/i32", code);
+	else
+		encodeInst(0xb2, "f32.convert_s/i32", code);
+
+	return true;
+}
+
 void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 {
 	if(const ConstantExpr* CE = dyn_cast<ConstantExpr>(c))
@@ -1254,6 +1293,10 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
+		// Try to encode the float/double using a more compact representation.
+		if (encodeCompactFloat(code, f))
+			return;
+
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			encodeLiteralType(c->getType(), code);
 			if (c->getType()->isDoubleTy()) {
