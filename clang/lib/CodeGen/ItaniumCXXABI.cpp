@@ -3571,7 +3571,9 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     if (Ty->isRecordType()){
       asmjs = cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl())->hasAttr<AsmJSAttr>();
     } else {
-      asmjs = CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS;
+      asmjs = (CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
+        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
+        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wasm);
     }
     llvm::Type* WrapperTypes[] = {CGM.getTypes().GetVTableType(8, asmjs)};
     llvm::Constant *VTable = CGM.getModule().getOrInsertGlobal(VTableName, llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL));
