@@ -1,4 +1,4 @@
-//===-- Cheerp/WastWriter.h - The Cheerp JavaScript generator -----------------===//
+//===-- Cheerp/WasmWriter.h - The Cheerp JavaScript generator -----------------===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
@@ -33,7 +33,7 @@ enum CheerpMode {
 	CHEERP_MODE_WAST = 1,
 };
 
-class CheerpWastWriter;
+class CheerpWasmWriter;
 
 typedef std::iostream WasmBuffer;
 
@@ -41,14 +41,14 @@ class Section : public std::stringstream {
 private:
 	uint32_t sectionId;
 	const char* sectionName;
-	CheerpWastWriter* writer;
+	CheerpWasmWriter* writer;
 
 public:
-	Section(uint32_t sectionId, const char* sectionName, CheerpWastWriter* writer);
+	Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer);
 	~Section();
 };
 
-class CheerpWastWriter
+class CheerpWasmWriter
 {
 private:
 	llvm::Module& module;
@@ -109,24 +109,24 @@ private:
 	void compileGEP(WasmBuffer& code, const llvm::User* gepInst);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
-	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
+	struct WasmBytesWriter: public LinearMemoryHelper::ByteListener
 	{
 		std::ostream& code;
-		const CheerpWastWriter& writer;
-		WastBytesWriter(WasmBuffer& code, const CheerpWastWriter& writer)
+		const CheerpWasmWriter& writer;
+		WasmBytesWriter(WasmBuffer& code, const CheerpWasmWriter& writer)
 			: code(code), writer(writer)
 		{
 		}
 		void addByte(uint8_t b) override;
 	};
 
-	struct WastGepWriter: public LinearMemoryHelper::GepListener
+	struct WasmGepWriter: public LinearMemoryHelper::GepListener
 	{
-		CheerpWastWriter& writer;
+		CheerpWasmWriter& writer;
 		WasmBuffer& code;
 		bool first;
 		int32_t constPart;
-		WastGepWriter(CheerpWastWriter& writer, WasmBuffer& code)
+		WasmGepWriter(CheerpWasmWriter& writer, WasmBuffer& code)
 			: writer(writer), code(code), first(true), constPart(0)
 		{
 		}
@@ -134,8 +134,8 @@ private:
 		void addConst(int64_t v) override;
 	};
 public:
-	llvm::formatted_raw_ostream& stream;
-	CheerpWastWriter(llvm::Module& m, llvm::formatted_raw_ostream& s, cheerp::PointerAnalyzer & PA,
+	llvm::raw_ostream& stream;
+	CheerpWasmWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const LinearMemoryHelper& linearHelper,
@@ -161,7 +161,7 @@ public:
 		stream(s)
 	{
 	}
-	void makeWast();
+	void makeWasm();
 	void compileBB(WasmBuffer& code, const llvm::BasicBlock& BB);
 	void compileDowncast(WasmBuffer& code, llvm::ImmutableCallSite callV);
 	void compileConstantExpr(WasmBuffer& code, const llvm::ConstantExpr* ce);

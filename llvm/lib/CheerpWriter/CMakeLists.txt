@@ -1,7 +1,7 @@
 add_llvm_library(LLVMCheerpWriter
   SourceMaps.cpp
   CheerpWriter.cpp
-  CheerpWastWriter.cpp
+  CheerpWasmWriter.cpp
   JSInterop.cpp
   LinearMemoryHelper.cpp
   NameGenerator.cpp

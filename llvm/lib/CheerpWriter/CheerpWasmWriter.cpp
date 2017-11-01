@@ -1,4 +1,4 @@
-//===-- CheerpWastWriter.cpp - The Cheerp JavaScript generator ------------===//
+//===-- CheerpWasmWriter.cpp - The Cheerp JavaScript generator ------------===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
@@ -14,7 +14,7 @@
 
 #include "Relooper.h"
 #include "llvm/Cheerp/NameGenerator.h"
-#include "llvm/Cheerp/WastWriter.h"
+#include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/LEB128.h"
@@ -156,7 +156,7 @@ static void encodeLiteralType(const Type* t, WasmBuffer& stream)
 }
 
 static void encodeOpcode(uint32_t opcode, const char* name,
-		CheerpWastWriter& writer, WasmBuffer& code)
+		CheerpWasmWriter& writer, WasmBuffer& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
 		assert(opcode <= 255);
@@ -168,7 +168,7 @@ static void encodeOpcode(uint32_t opcode, const char* name,
 }
 
 static void encodeS32Opcode(uint32_t opcode, const char* name,
-		int32_t immediate, CheerpWastWriter& writer, WasmBuffer& code)
+		int32_t immediate, CheerpWasmWriter& writer, WasmBuffer& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
 		assert(opcode <= 255);
@@ -181,7 +181,7 @@ static void encodeS32Opcode(uint32_t opcode, const char* name,
 }
 
 static void encodeU32Opcode(uint32_t opcode, const char* name,
-		uint32_t immediate, CheerpWastWriter& writer, WasmBuffer& code)
+		uint32_t immediate, CheerpWasmWriter& writer, WasmBuffer& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
 		// Rewrite:
@@ -215,7 +215,7 @@ static void encodeU32Opcode(uint32_t opcode, const char* name,
 }
 
 static void encodeU32U32Opcode(uint32_t opcode, const char* name,
-		uint32_t i1, uint32_t i2, CheerpWastWriter& writer, WasmBuffer& code)
+		uint32_t i1, uint32_t i2, CheerpWasmWriter& writer, WasmBuffer& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
 		assert(opcode <= 255);
@@ -246,7 +246,7 @@ std::string string_to_hex(const std::string& input)
 	return output;
 }
 
-Section::Section(uint32_t sectionId, const char* sectionName, CheerpWastWriter* writer)
+Section::Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer)
 	: sectionId(sectionId), sectionName(sectionName), writer(writer)
 {
 	if (writer->cheerpMode == CHEERP_MODE_WASM) {
@@ -281,10 +281,10 @@ enum ConditionRenderMode {
 	InvertCondition
 };
 
-class CheerpWastRenderInterface: public RenderInterface
+class CheerpWasmRenderInterface: public RenderInterface
 {
 private:
-	CheerpWastWriter* writer;
+	CheerpWasmWriter* writer;
 	WasmBuffer& code;
 	std::vector<BlockType> blockTypes;
 	uint32_t labelLocal;
@@ -293,7 +293,7 @@ private:
 	void indent();
 public:
 	const BasicBlock* lastDepth0Block;
-	CheerpWastRenderInterface(CheerpWastWriter* w, WasmBuffer& code, uint32_t labelLocal)
+	CheerpWasmRenderInterface(CheerpWasmWriter* w, WasmBuffer& code, uint32_t labelLocal)
 	 :
 		writer(w),
 		code(code),
@@ -325,7 +325,7 @@ public:
 	void renderIfOnLabel(int labelId, bool first);
 };
 
-void CheerpWastRenderInterface::renderBlock(const BasicBlock* bb)
+void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
 {
 	if (blockTypes.empty())
 		lastDepth0Block = bb;
@@ -334,7 +334,7 @@ void CheerpWastRenderInterface::renderBlock(const BasicBlock* bb)
 	writer->compileBB(code, *bb);
 }
 
-void CheerpWastRenderInterface::indent()
+void CheerpWasmRenderInterface::indent()
 {
 	if (writer->cheerpMode == CHEERP_MODE_WASM)
 		return;
@@ -343,7 +343,7 @@ void CheerpWastRenderInterface::indent()
 		code << "  ";
 }
 
-void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branchId,
+void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb, int branchId,
 		ConditionRenderMode mode)
 {
 	const TerminatorInst* term=bb->getTerminator();
@@ -415,7 +415,7 @@ void CheerpWastRenderInterface::renderCondition(const BasicBlock* bb, int branch
 	}
 }
 
-void CheerpWastRenderInterface::renderLabelForSwitch(int labelId)
+void CheerpWasmRenderInterface::renderLabelForSwitch(int labelId)
 {
 	if (writer->cheerpMode == CHEERP_MODE_WASM)
 		writer->encodeU32Inst(0x02, "block", 0x40, code);
@@ -424,7 +424,7 @@ void CheerpWastRenderInterface::renderLabelForSwitch(int labelId)
 	blockTypes.emplace_back(LABEL_FOR_SWITCH, 1, labelId);
 }
 
-void CheerpWastRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
+void CheerpWasmRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 {
 	int64_t max = std::numeric_limits<int64_t>::min();
 	int64_t min = std::numeric_limits<int64_t>::max();
@@ -484,7 +484,7 @@ void CheerpWastRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 	blockTypes.emplace_back(SWITCH, idShapeMap.size());
 }
 
-void CheerpWastRenderInterface::renderCaseOnLabel(int labelId)
+void CheerpWasmRenderInterface::renderCaseOnLabel(int labelId)
 {
 	BlockType prevBlock = blockTypes.back();
 	assert(prevBlock.type == SWITCH || prevBlock.type == CASE);
@@ -509,7 +509,7 @@ uint32_t findBlockInBranchesOutMap(const BasicBlock* dest, BlockBranchMap& branc
 	llvm_unreachable("destination not found in branches out");
 }
 
-void CheerpWastRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, BlockBranchMap& branchesOut)
+void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, BlockBranchMap& branchesOut)
 {
 	assert(si->getNumCases());
 
@@ -596,7 +596,7 @@ void CheerpWastRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	blockTypes.emplace_back(SWITCH, caseBlocks + 1);
 }
 
-void CheerpWastRenderInterface::renderCaseBlockBegin(const BasicBlock*, int branchId)
+void CheerpWasmRenderInterface::renderCaseBlockBegin(const BasicBlock*, int branchId)
 {
 	BlockType prevBlock = blockTypes.back();
 	assert(prevBlock.type == SWITCH || prevBlock.type == CASE);
@@ -605,12 +605,12 @@ void CheerpWastRenderInterface::renderCaseBlockBegin(const BasicBlock*, int bran
 	blockTypes.emplace_back(CASE);
 }
 
-void CheerpWastRenderInterface::renderDefaultBlockBegin(bool)
+void CheerpWasmRenderInterface::renderDefaultBlockBegin(bool)
 {
 	renderCaseBlockBegin(nullptr, 0);
 }
 
-void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first)
+void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first)
 {
 	if(!first)
 	{
@@ -632,7 +632,7 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int bra
 	}
 }
 
-void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::vector<int>& skipBranchIds, bool first)
+void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::vector<int>& skipBranchIds, bool first)
 {
 	if(!first)
 	{
@@ -662,7 +662,7 @@ void CheerpWastRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const s
 	}
 }
 
-void CheerpWastRenderInterface::renderElseBlockBegin()
+void CheerpWasmRenderInterface::renderElseBlockBegin()
 {
 	assert(!blockTypes.empty());
 	assert(blockTypes.back().type == IF);
@@ -671,7 +671,7 @@ void CheerpWastRenderInterface::renderElseBlockBegin()
 	writer->encodeInst(0x05, "else", code);
 }
 
-void CheerpWastRenderInterface::renderBlockEnd(bool)
+void CheerpWasmRenderInterface::renderBlockEnd(bool)
 {
 	assert(!blockTypes.empty());
 	BlockType block = blockTypes.back();
@@ -714,12 +714,12 @@ void CheerpWastRenderInterface::renderBlockEnd(bool)
 	}
 }
 
-void CheerpWastRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom)
+void CheerpWasmRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom)
 {
 	writer->compilePHIOfBlockFromOtherBlock(code, bbTo, bbFrom);
 }
 
-void CheerpWastRenderInterface::renderWhileBlockBegin()
+void CheerpWasmRenderInterface::renderWhileBlockBegin()
 {
 	// Wrap a block in a loop so that:
 	// br 1 -> break
@@ -732,7 +732,7 @@ void CheerpWastRenderInterface::renderWhileBlockBegin()
 	blockTypes.emplace_back(WHILE1, 2);
 }
 
-void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
+void CheerpWasmRenderInterface::renderWhileBlockBegin(int blockLabel)
 {
 	// Wrap a block in a loop so that:
 	// br 1 -> break
@@ -754,14 +754,14 @@ void CheerpWastRenderInterface::renderWhileBlockBegin(int blockLabel)
 	blockTypes.emplace_back(WHILE1, 2, blockLabel);
 }
 
-void CheerpWastRenderInterface::renderDoBlockBegin()
+void CheerpWasmRenderInterface::renderDoBlockBegin()
 {
 	indent();
 	writer->encodeU32Inst(0x02, "block", 0x40, code);
 	blockTypes.emplace_back(DO, 1);
 }
 
-void CheerpWastRenderInterface::renderDoBlockBegin(int blockLabel)
+void CheerpWasmRenderInterface::renderDoBlockBegin(int blockLabel)
 {
 	indent();
 
@@ -773,7 +773,7 @@ void CheerpWastRenderInterface::renderDoBlockBegin(int blockLabel)
 	blockTypes.emplace_back(DO, 1, blockLabel);
 }
 
-void CheerpWastRenderInterface::renderDoBlockEnd()
+void CheerpWasmRenderInterface::renderDoBlockEnd()
 {
 	assert(!blockTypes.empty());
 	assert(blockTypes.back().type == DO);
@@ -783,7 +783,7 @@ void CheerpWastRenderInterface::renderDoBlockEnd()
 	writer->encodeInst(0x0b, "end", code);
 }
 
-void CheerpWastRenderInterface::renderBreak()
+void CheerpWasmRenderInterface::renderBreak()
 {
 	BlockType block = blockTypes.back();
 	if (block.type == CASE)
@@ -810,7 +810,7 @@ void CheerpWastRenderInterface::renderBreak()
 	}
 }
 
-void CheerpWastRenderInterface::renderBreak(int labelId)
+void CheerpWasmRenderInterface::renderBreak(int labelId)
 {
 	uint32_t breakIndex = 0;
 	uint32_t i = 0;
@@ -827,7 +827,7 @@ void CheerpWastRenderInterface::renderBreak(int labelId)
 	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
 }
 
-void CheerpWastRenderInterface::renderContinue()
+void CheerpWasmRenderInterface::renderContinue()
 {
 	// Find the last loop's block
 	uint32_t breakIndex = 0;
@@ -843,7 +843,7 @@ void CheerpWastRenderInterface::renderContinue()
 	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
 }
 
-void CheerpWastRenderInterface::renderContinue(int labelId)
+void CheerpWasmRenderInterface::renderContinue(int labelId)
 {
 	uint32_t breakIndex = 0;
 	uint32_t i = 0;
@@ -861,13 +861,13 @@ void CheerpWastRenderInterface::renderContinue(int labelId)
 	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
 }
 
-void CheerpWastRenderInterface::renderLabel(int labelId)
+void CheerpWasmRenderInterface::renderLabel(int labelId)
 {
 	writer->encodeS32Inst(0x41, "i32.const", labelId, code);
 	writer->encodeU32Inst(0x21, "set_local", labelLocal, code);
 }
 
-void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
+void CheerpWasmRenderInterface::renderIfOnLabel(int labelId, bool first)
 {
 	// TODO: Use first to optimize dispatch
 	writer->encodeS32Inst(0x41, "i32.const", labelId, code);
@@ -878,12 +878,12 @@ void CheerpWastRenderInterface::renderIfOnLabel(int labelId, bool first)
 	blockTypes.emplace_back(IF, 1);
 }
 
-void CheerpWastWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer& code)
+void CheerpWasmWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer& code)
 {
 	encodeOpcode(opcode, name, *this, code);
 }
 
-void CheerpWastWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
+void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 {
 	compileOperand(code, I.getOperand(0));
 	compileOperand(code, I.getOperand(1));
@@ -942,12 +942,12 @@ void CheerpWastWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 	llvm_unreachable("unknown type for binop instruction");
 }
 
-void CheerpWastWriter::encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code)
+void CheerpWasmWriter::encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code)
 {
 	encodeS32Opcode(opcode, name, immediate, *this, code);
 }
 
-void CheerpWastWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code)
+void CheerpWasmWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code)
 {
 	if (cheerpMode == CHEERP_MODE_WAST) {
 		// Do not print the immediate for some opcodes when mode is set to
@@ -965,7 +965,7 @@ void CheerpWastWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t
 	encodeU32Opcode(opcode, name, immediate, *this, code);
 }
 
-void CheerpWastWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code)
+void CheerpWasmWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code)
 {
 	if (cheerpMode == CHEERP_MODE_WAST) {
 		// Do not print the immediates for some opcodes when mode is set to
@@ -997,7 +997,7 @@ void CheerpWastWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint3
 	encodeU32U32Opcode(opcode, name, i1, i2, *this, code);
 }
 
-void CheerpWastWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code)
+void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code)
 {
 	// TODO add i64 support.
 	assert(ty->isIntegerTy() || ty->isPointerTy());
@@ -1024,7 +1024,7 @@ void CheerpWastWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 	}
 }
 
-void CheerpWastWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
+void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 		WasmBuffer& code)
 {
 	if(ty->isIntegerTy())
@@ -1061,7 +1061,7 @@ void CheerpWastWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 	}
 }
 
-void CheerpWastWriter::encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F)
+void CheerpWasmWriter::encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F)
 {
 	if (false) {}
 #define WASM_INTRINSIC(name, opcode, symbol) \
@@ -1071,7 +1071,7 @@ WASM_INTRINSIC_LIST(WASM_INTRINSIC)
 #undef WASM_INTRINSIC
 }
 
-bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
+bool CheerpWasmWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
 {
 	const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
 	if(!incomingInst)
@@ -1080,12 +1080,12 @@ bool CheerpWastWriter::needsPointerKindConversion(const Instruction* phi, const 
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst);
 }
 
-void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from)
+void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from)
 {
 	class WriterPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		WriterPHIHandler(CheerpWastWriter& w, WasmBuffer& c, const BasicBlock* f, const BasicBlock* t)
+		WriterPHIHandler(CheerpWasmWriter& w, WasmBuffer& c, const BasicBlock* f, const BasicBlock* t)
 			:EndOfBlockPHIHandler(w.PA),writer(w), code(c),fromBB(f),toBB(t)
 		{
 		}
@@ -1093,7 +1093,7 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		{
 		}
 	private:
-		CheerpWastWriter& writer;
+		CheerpWasmWriter& writer;
 		WasmBuffer& code;
 		const BasicBlock* fromBB;
 		const BasicBlock* toBB;
@@ -1120,7 +1120,7 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 	WriterPHIHandler(*this, code, from, to).runOnEdge(registerize, from, to);
 }
 
-const char* CheerpWastWriter::getTypeString(const Type* t)
+const char* CheerpWasmWriter::getTypeString(const Type* t)
 {
 	if(t->isIntegerTy() || t->isPointerTy())
 		return "i32";
@@ -1136,9 +1136,9 @@ const char* CheerpWastWriter::getTypeString(const Type* t)
 	}
 }
 
-void CheerpWastWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst)
+void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst)
 {
-	WastGepWriter gepWriter(*this, code);
+	WasmGepWriter gepWriter(*this, code);
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
 	compileOperand(code, p);
 	if(!gepWriter.first)
@@ -1149,7 +1149,7 @@ void CheerpWastWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst)
 	}
 }
 
-void CheerpWastWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison)
+void CheerpWasmWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison)
 {
 	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
@@ -1181,7 +1181,7 @@ void CheerpWastWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value*
 	}
 }
 
-void CheerpWastWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v)
+void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v)
 {
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
@@ -1199,7 +1199,7 @@ void CheerpWastWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 	}
 }
 
-void CheerpWastWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr* ce)
+void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr* ce)
 {
 	switch(ce->getOpcode())
 	{
@@ -1238,7 +1238,7 @@ void CheerpWastWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 	}
 }
 
-void CheerpWastWriter::compileConstant(WasmBuffer& code, const Constant* c)
+void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 {
 	if(const ConstantExpr* CE = dyn_cast<ConstantExpr>(c))
 	{
@@ -1336,7 +1336,7 @@ void CheerpWastWriter::compileConstant(WasmBuffer& code, const Constant* c)
 	}
 }
 
-void CheerpWastWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
+void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
 		compileConstant(code, c);
@@ -1360,7 +1360,7 @@ void CheerpWastWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	}
 }
 
-const char* CheerpWastWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
+const char* CheerpWasmWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
 {
 	switch(p)
 	{
@@ -1391,7 +1391,7 @@ const char* CheerpWastWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
 	return "";
 }
 
-void CheerpWastWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate p,
+void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate p,
 		WasmBuffer& code)
 {
 	if(ci.getOperand(0)->getType()->isPointerTy())
@@ -1417,7 +1417,7 @@ void CheerpWastWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate 
 	encodePredicate(ci.getOperand(0)->getType(), p, code);
 }
 
-void CheerpWastWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV)
+void CheerpWasmWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV)
 {
 	assert(callV.arg_size() == 2);
 	assert(callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast);
@@ -1437,7 +1437,7 @@ void CheerpWastWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV
 	}
 }
 
-bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
+bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
 {
 	switch(I.getOpcode())
 	{
@@ -1654,7 +1654,7 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 				}
 			}
 
-			// Calling convention for variadic arguments in Wast mode:
+			// Calling convention for variadic arguments in Wasm mode:
 			// arguments are pushed into the stack in the reverse order
 			// in which they appear.
 			if (fTy->isVarArg())
@@ -1838,7 +1838,7 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 			uint32_t offset = 0;
 			// 1) The pointer
 			if (isGEP(ptrOp)) {
-				WastGepWriter gepWriter(*this, code);
+				WasmGepWriter gepWriter(*this, code);
 				auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
 				compileOperand(code, p);
 				if(!gepWriter.first)
@@ -1871,7 +1871,7 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 			uint32_t offset = 0;
 			// 1) The pointer
 			if (isGEP(ptrOp)) {
-				WastGepWriter gepWriter(*this, code);
+				WasmGepWriter gepWriter(*this, code);
 				auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
 				compileOperand(code, p);
 				if(!gepWriter.first)
@@ -2065,7 +2065,7 @@ bool CheerpWastWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 	return false;
 }
 
-void CheerpWastWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
+void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 {
 	BasicBlock::const_iterator I=BB.begin();
 	BasicBlock::const_iterator IE=BB.end();
@@ -2089,8 +2089,8 @@ void CheerpWastWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 
 		// Display file and line markers in WAST for debugging purposes
 		const llvm::DebugLoc& debugLoc = I->getDebugLoc();
-		if (!debugLoc.isUnknown() && cheerpMode == CHEERP_MODE_WAST) {
-			MDNode* file = debugLoc.getScope(Ctx);
+		if (debugLoc && cheerpMode == CHEERP_MODE_WAST) {
+			MDNode* file = debugLoc.getScope();
 			assert(file);
 			assert(file->getNumOperands()>=2);
 			MDNode* fileNamePath = cast<MDNode>(file->getOperand(1));
@@ -2115,7 +2115,7 @@ void CheerpWastWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 	}
 }
 
-void CheerpWastWriter::compileMethodLocals(WasmBuffer& code, const Function& F, bool needsLabel)
+void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, bool needsLabel)
 {
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	if (cheerpMode == CHEERP_MODE_WASM) {
@@ -2205,7 +2205,7 @@ void CheerpWastWriter::compileMethodLocals(WasmBuffer& code, const Function& F, 
 	}
 }
 
-void CheerpWastWriter::compileMethodParams(WasmBuffer& code, const FunctionType* fTy)
+void CheerpWasmWriter::compileMethodParams(WasmBuffer& code, const FunctionType* fTy)
 {
 	uint32_t numArgs = fTy->getNumParams();
 	if (cheerpMode == CHEERP_MODE_WASM)
@@ -2225,7 +2225,7 @@ void CheerpWastWriter::compileMethodParams(WasmBuffer& code, const FunctionType*
 	}
 }
 
-void CheerpWastWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
+void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 {
 	if (cheerpMode == CHEERP_MODE_WASM)
 	{
@@ -2246,7 +2246,7 @@ void CheerpWastWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 	}
 }
 
-void CheerpWastWriter::compileMethod(WasmBuffer& code, const Function& F)
+void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 {
 	assert(!F.empty());
 	currentFun = &F;
@@ -2296,7 +2296,7 @@ void CheerpWastWriter::compileMethod(WasmBuffer& code, const Function& F)
 		uint32_t numRegs = regsInfo.size();
 
 		// label is the very last local
-		CheerpWastRenderInterface ri(this, code, 1 + numArgs + numRegs);
+		CheerpWasmRenderInterface ri(this, code, 1 + numArgs + numRegs);
 
 		rl->Render(&ri);
 		lastDepth0Block = ri.lastDepth0Block;
@@ -2337,7 +2337,7 @@ void CheerpWastWriter::compileMethod(WasmBuffer& code, const Function& F)
 	}
 }
 
-void CheerpWastWriter::compileTypeSection()
+void CheerpWasmWriter::compileTypeSection()
 {
 	if (linearHelper.getFunctionTypes().empty())
 		return;
@@ -2368,7 +2368,7 @@ void CheerpWastWriter::compileTypeSection()
 	}
 }
 
-void CheerpWastWriter::compileImport(WasmBuffer& code, const Function& F)
+void CheerpWasmWriter::compileImport(WasmBuffer& code, const Function& F)
 {
 	assert(useWasmLoader);
 
@@ -2412,7 +2412,7 @@ void CheerpWastWriter::compileImport(WasmBuffer& code, const Function& F)
 	}
 }
 
-void CheerpWastWriter::compileImportSection()
+void CheerpWasmWriter::compileImportSection()
 {
 	if (globalDeps.asmJSImports().empty() || !useWasmLoader)
 		return;
@@ -2428,7 +2428,7 @@ void CheerpWastWriter::compileImportSection()
 		compileImport(section, *F);
 }
 
-void CheerpWastWriter::compileFunctionSection()
+void CheerpWasmWriter::compileFunctionSection()
 {
 	if (linearHelper.getFunctionTypes().empty() || cheerpMode != CHEERP_MODE_WASM)
 		return;
@@ -2456,7 +2456,7 @@ void CheerpWastWriter::compileFunctionSection()
 }
 
 
-void CheerpWastWriter::compileTableSection()
+void CheerpWasmWriter::compileTableSection()
 {
 	if (linearHelper.getFunctionTables().empty())
 		return;
@@ -2498,7 +2498,7 @@ void CheerpWastWriter::compileTableSection()
 	}
 }
 
-void CheerpWastWriter::compileMemoryAndGlobalSection()
+void CheerpWasmWriter::compileMemoryAndGlobalSection()
 {
 	// Define the memory for the module in WasmPage units. The heap size is
 	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
@@ -2548,7 +2548,7 @@ void CheerpWastWriter::compileMemoryAndGlobalSection()
 	}
 }
 
-void CheerpWastWriter::compileExportSection()
+void CheerpWasmWriter::compileExportSection()
 {
 	if (cheerpMode == CHEERP_MODE_WAST)
 		return;
@@ -2591,7 +2591,7 @@ void CheerpWastWriter::compileExportSection()
 	}
 }
 
-void CheerpWastWriter::compileStartSection()
+void CheerpWasmWriter::compileStartSection()
 {
 	// Experimental entry point for wasm code
 	llvm::Function* entry = module.getFunction("_start");
@@ -2611,7 +2611,7 @@ void CheerpWastWriter::compileStartSection()
 	}
 }
 
-void CheerpWastWriter::compileElementSection()
+void CheerpWasmWriter::compileElementSection()
 {
 	if (cheerpMode == CHEERP_MODE_WAST)
 		return;
@@ -2649,7 +2649,7 @@ void CheerpWastWriter::compileElementSection()
 	section << buf;
 }
 
-void CheerpWastWriter::compileCodeSection()
+void CheerpWasmWriter::compileCodeSection()
 {
 	Section section(0x0a, "Code", this);
 
@@ -2688,7 +2688,7 @@ void CheerpWastWriter::compileCodeSection()
 	}
 }
 
-void CheerpWastWriter::compileDataSection()
+void CheerpWasmWriter::compileDataSection()
 {
 	Section section(0x0b, "Data", this);
 
@@ -2723,7 +2723,7 @@ void CheerpWastWriter::compileDataSection()
 		}
 
 		std::stringstream bytes;
-		WastBytesWriter bytesWriter(bytes, *this);
+		WasmBytesWriter bytesWriter(bytes, *this);
 		linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
 
 		if (cheerpMode == CHEERP_MODE_WASM) {
@@ -2743,7 +2743,7 @@ void CheerpWastWriter::compileDataSection()
 	section.write(buf.data(), buf.size());
 }
 
-void CheerpWastWriter::compileNameSection()
+void CheerpWasmWriter::compileNameSection()
 {
 	if (cheerpMode != CHEERP_MODE_WASM)
 		return;
@@ -2773,7 +2773,7 @@ void CheerpWastWriter::compileNameSection()
 	}
 }
 
-void CheerpWastWriter::compileModule()
+void CheerpWasmWriter::compileModule()
 {
 	if (cheerpMode == CHEERP_MODE_WAST) {
 		stream << "(module\n";
@@ -2820,12 +2820,12 @@ void CheerpWastWriter::compileModule()
 	}
 }
 
-void CheerpWastWriter::makeWast()
+void CheerpWasmWriter::makeWasm()
 {
 	compileModule();
 }
 
-void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
+void CheerpWasmWriter::WasmBytesWriter::addByte(uint8_t byte)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
 		code.write(reinterpret_cast<char*>(&byte), 1);
@@ -2836,7 +2836,7 @@ void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 	}
 }
 
-void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
+void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t size)
 {
 	writer.compileOperand(code, v);
 	if (size > 1)
@@ -2857,7 +2857,7 @@ void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t si
 	first = false;
 }
 
-void CheerpWastWriter::WastGepWriter::addConst(int64_t v)
+void CheerpWasmWriter::WasmGepWriter::addConst(int64_t v)
 {
 	assert(v);
 	// Just make sure that the constant part of the offset is not too big
