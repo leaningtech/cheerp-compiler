@@ -19,7 +19,7 @@
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Cheerp/Writer.h"
-#include "llvm/Cheerp/WastWriter.h"
+#include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/PointerPasses.h"

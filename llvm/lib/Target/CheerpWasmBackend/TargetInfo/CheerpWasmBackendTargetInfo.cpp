@@ -1,4 +1,4 @@
-//===-- CheerpWastBackendTargetInfo.cpp - TargetInfo for the CheerpBackend ----===//
+//===-- CheerpWasmBackendTargetInfo.cpp - TargetInfo for the CheerpBackend ----===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CheerpWastTargetMachine.h"
+#include "CheerpWasmTargetMachine.h"
 #include "llvm/Support/TargetRegistry.h"
 
 using namespace llvm;
@@ -17,7 +17,7 @@ using namespace llvm;
 Target llvm::TheCheerpWastBackendTarget;
 Target llvm::TheCheerpWasmBackendTarget;
 
-extern "C" void LLVMInitializeCheerpWastBackendTargetInfo() { 
+extern "C" void LLVMInitializeCheerpWasmBackendTargetInfo() { 
   RegisterTarget<Triple::cheerp, /*HasJIT=*/false>
     X(TheCheerpWastBackendTarget, "cheerp-wast", "Cheerp wast client side backend");
   RegisterTarget<Triple::cheerp, /*HasJIT=*/false>
