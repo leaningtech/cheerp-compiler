@@ -1,4 +1,4 @@
-;===- ./lib/Target/CheerpBackend/LLVMBuild.txt --------------------*- Conf -*--===;
+;===- ./lib/Target/CheerpWasmBackend/LLVMBuild.txt --------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -20,12 +20,12 @@ subdirectories = TargetInfo
 
 [component_0]
 type = TargetGroup
-name = CheerpWastBackend
+name = CheerpWasmBackend
 parent = Target
 
 [component_1]
 type = Library
-name = CheerpWastBackendCodeGen
-parent = CheerpWastBackend
-required_libraries = Core CheerpWastBackendInfo Support Target CheerpWriter
-add_to_library_groups = CheerpWastBackend
+name = CheerpWasmBackendCodeGen
+parent = CheerpWasmBackend
+required_libraries = Core CheerpWasmBackendInfo Support Target CheerpWriter
+add_to_library_groups = CheerpWasmBackend
