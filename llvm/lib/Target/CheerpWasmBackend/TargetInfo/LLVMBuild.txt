@@ -17,7 +17,7 @@
 
 [component_0]
 type = Library
-name = CheerpWastBackendInfo
-parent = CheerpWastBackend
+name = CheerpWasmBackendInfo
+parent = CheerpWasmBackend
 required_libraries = MC Support Target
-add_to_library_groups = CheerpWastBackend
+add_to_library_groups = CheerpWasmBackend

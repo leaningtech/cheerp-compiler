@@ -1,4 +1,4 @@
-//===-- CheerpWastBackend.cpp - Backend wrapper for CheerpWriter---------------===//
+//===-- CheerpWasmBackend.cpp - Backend wrapper for CheerpWriter---------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CheerpWastTargetMachine.h"
+#include "CheerpWasmTargetMachine.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -20,7 +20,7 @@
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Cheerp/WastWriter.h"
+#include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/CFGPasses.h"
@@ -35,30 +35,30 @@
 
 using namespace llvm;
 
-extern "C" void LLVMInitializeCheerpWastBackendTarget() {
+extern "C" void LLVMInitializeCheerpWasmBackendTarget() {
   // Register the target.
   RegisterTargetMachine<CheerpWastTargetMachine> X(TheCheerpWastBackendTarget);
   RegisterTargetMachine<CheerpWasmTargetMachine> Y(TheCheerpWasmBackendTarget);
 }
 
 namespace {
-  class CheerpWastWritePass : public ModulePass {
+  class CheerpWasmWritePass : public ModulePass {
   private:
-    formatted_raw_ostream &Out;
+    raw_ostream &Out;
     cheerp::CheerpMode cheerpMode;
     static char ID;
     void getAnalysisUsage(AnalysisUsage& AU) const;
   public:
-    explicit CheerpWastWritePass(formatted_raw_ostream &o, cheerp::CheerpMode cheerpMode) :
+    explicit CheerpWasmWritePass(raw_ostream &o, cheerp::CheerpMode cheerpMode) :
       ModulePass(ID), Out(o), cheerpMode(cheerpMode) { }
     bool runOnModule(Module &M);
     const char *getPassName() const {
-	return "CheerpWastWritePass";
+	return "CheerpWasmWritePass";
     }
   };
 } // end anonymous namespace.
 
-bool CheerpWastWritePass::runOnModule(Module& M)
+bool CheerpWasmWritePass::runOnModule(Module& M)
 {
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
@@ -67,10 +67,10 @@ bool CheerpWastWritePass::runOnModule(Module& M)
   PA.fullResolve();
   PA.computeConstantOffsets(M);
   registerize.assignRegisters(M, PA);
-  cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA, linearHelper,
+  cheerp::CheerpWasmWriter writer(M, Out, PA, registerize, GDA, linearHelper,
                                   M.getContext(), CheerpHeapSize, !WasmLoader.empty(),
                                   PrettyCode, cheerpMode);
-  writer.makeWast();
+  writer.makeWasm();
   if (!WasmLoader.empty())
   {
     cheerp::SourceMapGenerator* sourceMapGenerator = NULL;
@@ -113,14 +113,14 @@ bool CheerpWastWritePass::runOnModule(Module& M)
   return false;
 }
 
-void CheerpWastWritePass::getAnalysisUsage(AnalysisUsage& AU) const
+void CheerpWasmWritePass::getAnalysisUsage(AnalysisUsage& AU) const
 {
   AU.addRequired<cheerp::GlobalDepsAnalyzer>();
   AU.addRequired<cheerp::PointerAnalyzer>();
   AU.addRequired<cheerp::Registerize>();
 }
 
-char CheerpWastWritePass::ID = 0;
+char CheerpWasmWritePass::ID = 0;
 
 namespace {
 class CallGlobalConstructorsOnStartPass : public ModulePass {
@@ -188,11 +188,13 @@ char CallGlobalConstructorsOnStartPass::ID = 0;
 //===----------------------------------------------------------------------===//
 
 bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
-                                           formatted_raw_ostream &o,
+                                           raw_pwrite_stream &o,
                                            CodeGenFileType FileType,
                                            bool DisableVerify,
+                                           AnalysisID StartBefore,
                                            AnalysisID StartAfter,
-                                           AnalysisID StopAfter) {
+                                           AnalysisID StopAfter,
+                                           MachineFunctionInitializer* MFInit) {
   if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
   PM.add(new CallGlobalConstructorsOnStartPass());
   PM.add(createResolveAliasesPass());
@@ -212,12 +214,12 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   return false;
 }
 
-ModulePass* CheerpWastTargetMachine::createCheerpWritePass(formatted_raw_ostream& o)
+ModulePass* CheerpWastTargetMachine::createCheerpWritePass(raw_ostream& o)
 {
-	return new CheerpWastWritePass(o, cheerp::CHEERP_MODE_WAST);
+	return new CheerpWasmWritePass(o, cheerp::CHEERP_MODE_WAST);
 }
 
-ModulePass* CheerpWasmTargetMachine::createCheerpWritePass(formatted_raw_ostream& o)
+ModulePass* CheerpWasmTargetMachine::createCheerpWritePass(raw_ostream& o)
 {
-	return new CheerpWastWritePass(o, cheerp::CHEERP_MODE_WASM);
+	return new CheerpWasmWritePass(o, cheerp::CHEERP_MODE_WASM);
 }

@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CheerpWastTargetMachine.h"
+#include "CheerpWasmTargetMachine.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -17,29 +17,28 @@
 namespace llvm {
   class Triple;
 
-  class CheerpWastMCAsmInfo : public MCAsmInfo {
+  class CheerpWasmMCAsmInfo : public MCAsmInfo {
     virtual void anchor();
   public:
-    explicit CheerpWastMCAsmInfo(const Triple &Triple);
+    explicit CheerpWasmMCAsmInfo(const Triple &Triple);
   };
 
-void CheerpWastMCAsmInfo::anchor() { }
+void CheerpWasmMCAsmInfo::anchor() { }
 
-CheerpWastMCAsmInfo::CheerpWastMCAsmInfo(const Triple &T) {
+CheerpWasmMCAsmInfo::CheerpWasmMCAsmInfo(const Triple &T) {
 
   // Debug Information
   SupportsDebugInformation = false;
 }
 
-static MCAsmInfo *createCheerpWastMCAsmInfo(const MCRegisterInfo &T, StringRef TT) {
-  Triple TheTriple(TT);
-  return new CheerpWastMCAsmInfo(TheTriple);
+static MCAsmInfo *createCheerpWasmMCAsmInfo(const MCRegisterInfo &T, const Triple& TheTriple) {
+  return new CheerpWasmMCAsmInfo(TheTriple);
 }
 
-extern "C" void LLVMInitializeCheerpWastBackendTargetMC() {
+extern "C" void LLVMInitializeCheerpWasmBackendTargetMC() {
   // Register the MC asm info.
-  RegisterMCAsmInfoFn A(TheCheerpWastBackendTarget, createCheerpWastMCAsmInfo);
-  RegisterMCAsmInfoFn B(TheCheerpWasmBackendTarget, createCheerpWastMCAsmInfo);
+  RegisterMCAsmInfoFn A(TheCheerpWastBackendTarget, createCheerpWasmMCAsmInfo);
+  RegisterMCAsmInfoFn B(TheCheerpWasmBackendTarget, createCheerpWasmMCAsmInfo);
 }
 
 } // namespace llvm
