@@ -525,6 +525,10 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   if(Arg* cheerpDefinedCheck = Args.getLastArg(options::OPT_cheerp_defined_members_check))
     cheerpDefinedCheck->render(Args, CmdArgs);
 
+  // Set output to binary mode to avoid linefeed conversion on Windows.
+  CmdArgs.push_back("-filetype");
+  CmdArgs.push_back("obj");
+
   const InputInfo &II = *Inputs.begin();
   CmdArgs.push_back(II.getFilename());
 
