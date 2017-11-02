@@ -195,7 +195,6 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            AnalysisID StartAfter,
                                            AnalysisID StopAfter,
                                            MachineFunctionInitializer* MFInit) {
-  if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
   PM.add(new CallGlobalConstructorsOnStartPass());
   PM.add(createResolveAliasesPass());
   PM.add(createFreeAndDeleteRemovalPass());
