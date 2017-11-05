@@ -17,6 +17,8 @@
 
 using namespace llvm;
 
+const unsigned INLINE_WRITE_LOOP_MAX = 128;
+
 const char *StructMemFuncLowering::getPassName() const {
 	return "StructMemFuncLowering";
 }
@@ -262,7 +264,7 @@ void StructMemFuncLowering::createBackwardLoop(IRBuilder<>* IRB, BasicBlock* pre
 		IRB->CreateBr(endBlock);
 }
 
-bool StructMemFuncLowering::runOnBlock(BasicBlock& BB)
+bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 {
 	BasicBlock::iterator it=BB.begin();
 	BasicBlock::iterator itE=BB.end();
@@ -289,6 +291,15 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB)
 			if(isByteLayout)
 				continue;
 		}
+
+		// Do not inline memory intrinsics with a large or non-constant size
+		// argument, when in linear memory mode.
+		if (asmjs) {
+			ConstantInt *sizeInt = dyn_cast<ConstantInt>(CI->getOperand(2));
+			if (!sizeInt || sizeInt->getZExtValue() > INLINE_WRITE_LOOP_MAX)
+				continue;
+		}
+
 		//We have a typed mem func on a struct
 		//Decompose it in a loop
 		Value* dst=CI->getOperand(0);
@@ -357,7 +368,7 @@ bool StructMemFuncLowering::runOnFunction(Function& F)
 	while(!basicBlocks.empty())
 	{
 		BasicBlock* BB = basicBlocks.pop_back_val();
-		runOnBlock(*BB);
+		runOnBlock(*BB, F.getSection() == StringRef("asmjs"));
 	}
 	return true;
 }
