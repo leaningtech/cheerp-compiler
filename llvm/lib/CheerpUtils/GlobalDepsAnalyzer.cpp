@@ -80,6 +80,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	VisitedSet visited;
 
 	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
+	bool foundMemset = false, foundMemcpy = false, foundMemmove = false;
 	std::vector<llvm::CallInst*> deleteList;
 	auto LibCallReplacer = [](Instruction *I, Value *With)
 	{
@@ -104,6 +105,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						ci.replaceAllUsesWith(with);
 						deleteList.push_back(&ci);
 					}
+
+					foundMemset |= calledFunc->getIntrinsicID() == Intrinsic::memset;
+					foundMemcpy |= calledFunc->getIntrinsicID() == Intrinsic::memcpy;
+					foundMemmove |= calledFunc->getIntrinsicID() == Intrinsic::memmove;
 				}
 			}
 		}
@@ -148,6 +153,19 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		visitGlobal(wasmNullptr, visited, vec);
 		assert(visited.empty());
 	}
+
+#define USE_MEMORY_FUNC(var, name) \
+	if (var) { \
+		llvm::Function* f = module.getFunction(#name); \
+		assert(f); \
+		SubExprVec vec; \
+		visitGlobal(f, visited, vec); \
+		assert(visited.empty()); \
+	}
+	USE_MEMORY_FUNC(foundMemset, memset)
+	USE_MEMORY_FUNC(foundMemcpy, memcpy)
+	USE_MEMORY_FUNC(foundMemmove, memmove)
+#undef USE_MEMORY_FUNC
 
 	llvm::Function* webMainOrMain = module.getFunction("_Z7webMainv");
 	if (webMainOrMain || (webMainOrMain = module.getFunction("main")))
