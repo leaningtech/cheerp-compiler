@@ -608,20 +608,48 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			compileMemFunc(*(it), *(it+1), *(it+2));
 			return COMPILE_EMPTY;
 		}
+		else if (intrinsicId == Intrinsic::memcpy)
+		{
+			Function* memcpy = module.getFunction("memcpy");
+			assert(memcpy);
+			stream << namegen.getName(memcpy) << '(';
+			compileOperand(*(it),LOWEST);
+			stream << "|0,";
+			compileOperand(*(it+1),LOWEST);
+			stream << "|0,";
+			compileOperand(*(it+2),LOWEST);
+			stream << "|0)|0";
+			return COMPILE_OK;
+		}
 		else
 		{
-			stream << "__asmjs_memmove(";
+			assert(intrinsicId == Intrinsic::memmove);
+			Function* memmove = module.getFunction("memmove");
+			assert(memmove);
+			stream << namegen.getName(memmove) << '(';
 			compileOperand(*(it),LOWEST);
-			stream << ",";
+			stream << "|0,";
 			compileOperand(*(it+1),LOWEST);
-			stream << ",";
+			stream << "|0,";
 			compileOperand(*(it+2),LOWEST);
-			stream << ")|0";
+			stream << "|0)|0";
 			return COMPILE_OK;
 		}
 	}
 	else if(intrinsicId==Intrinsic::memset)
 	{
+		if (asmjs) {
+			Function* memset = module.getFunction("memset");
+			assert(memset);
+			stream << namegen.getName(memset) << '(';
+			compileOperand(*(it),LOWEST);
+			stream << "|0,";
+			compileOperand(*(it+1),LOWEST);
+			stream << "|0,";
+			compileOperand(*(it+2),LOWEST);
+			stream << "|0)|0";
+			return COMPILE_OK;
+		}
 		llvm::report_fatal_error("Unsupported memory intrinsic, please rebuild the code using an updated version of Cheerp", false);
 		return COMPILE_EMPTY;
 	}
