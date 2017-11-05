@@ -1665,6 +1665,39 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 						// Do nothing.
 						return true;
 					}
+					case Intrinsic::memmove:
+					{
+						compileOperand(code, ci.op_begin()->get());
+						compileOperand(code, (ci.op_begin() + 1)->get());
+						compileOperand(code, (ci.op_begin() + 2)->get());
+						llvm::Function* f = module.getFunction("memmove");
+						uint32_t functionId = linearHelper.getFunctionIds().at(f);
+						encodeU32Inst(0x10, "call", functionId, code);
+						encodeInst(0x1a, "drop", code);
+						return true;
+					}
+					case Intrinsic::memcpy:
+					{
+						compileOperand(code, ci.op_begin()->get());
+						compileOperand(code, (ci.op_begin() + 1)->get());
+						compileOperand(code, (ci.op_begin() + 2)->get());
+						llvm::Function* f = module.getFunction("memcpy");
+						uint32_t functionId = linearHelper.getFunctionIds().at(f);
+						encodeU32Inst(0x10, "call", functionId, code);
+						encodeInst(0x1a, "drop", code);
+						return true;
+					}
+					case Intrinsic::memset:
+					{
+						compileOperand(code, ci.op_begin()->get());
+						compileOperand(code, (ci.op_begin() + 1)->get());
+						compileOperand(code, (ci.op_begin() + 2)->get());
+						llvm::Function* f = module.getFunction("memset");
+						uint32_t functionId = linearHelper.getFunctionIds().at(f);
+						encodeU32Inst(0x10, "call", functionId, code);
+						encodeInst(0x1a, "drop", code);
+						return true;
+					}
 					case Intrinsic::cheerp_allocate:
 					{
 						calledFunc = module.getFunction("malloc");
