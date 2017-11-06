@@ -332,6 +332,11 @@ void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
 	else
 		lastDepth0Block = nullptr;
 	writer->compileBB(code, *bb);
+
+	if (!lastDepth0Block && isa<ReturnInst>(bb->getTerminator()))
+	{
+		writer->encodeInst(0x0f, "return", code);
+	}
 }
 
 void CheerpWasmRenderInterface::indent()
@@ -2024,7 +2029,7 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 				encodeU32Inst(0x20, "get_local", currentFun->arg_size(), code);
 				encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
 			}
-			encodeInst(0x0f, "return", code);
+
 			break;
 		}
 		case Instruction::Select:
@@ -2382,10 +2387,10 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		lastDepth0Block = ri.lastDepth0Block;
 	}
 
-	// A function has to terminate with a return instruction
+	// A function has to terminate with a return value when the return type is
+	// not void.
 	if (!lastDepth0Block || !isa<ReturnInst>(lastDepth0Block->getTerminator()))
 	{
-		// Add a fake return
 		if(!F.getReturnType()->isVoidTy())
 		{
 			if (cheerpMode == CHEERP_MODE_WASM) {
@@ -2402,10 +2407,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 				code << getTypeString(F.getReturnType()) << ".const 0\n";
 			}
 		}
-
-
-		if (cheerpMode == CHEERP_MODE_WAST)
-			code << "return\n";
 	}
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
