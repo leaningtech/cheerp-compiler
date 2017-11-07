@@ -1285,8 +1285,12 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 	}
 	else if(const ConstantInt* i=dyn_cast<ConstantInt>(c))
 	{
-		assert(i->getType()->isIntegerTy() && i->getBitWidth() <= 32);
-		if (i->getBitWidth() == 32)
+		assert(i->getType()->isIntegerTy() && i->getBitWidth() <= 64);
+		if (i->getBitWidth() == 64) {
+			assert(i->getSExtValue() <= INT32_MAX);
+			assert(i->getSExtValue() >= INT32_MIN);
+			encodeS32Inst(0x41, "i32.const", i->getSExtValue(), code);
+		} else if (i->getBitWidth() == 32)
 			encodeS32Inst(0x41, "i32.const", i->getSExtValue(), code);
 		else
 			encodeS32Inst(0x41, "i32.const", i->getZExtValue(), code);
