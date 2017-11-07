@@ -86,7 +86,8 @@ bool CheerpWritePass::runOnModule(Module& M)
     memOut.reset(new formatted_raw_ostream(memFile.os()));
   }
 
-  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, memOut.get(), AsmJSMemFile,
+  cheerp::NameGenerator namegen(M, GDA, registerize, PA, reservedNames, PrettyCode);
+  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, namegen, memOut.get(), AsmJSMemFile,
           sourceMapGenerator.get(), reservedNames, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
           BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
