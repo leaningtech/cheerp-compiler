@@ -2751,7 +2751,7 @@ void CheerpWasmWriter::compileCodeSection()
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			std::stringstream method;
 #if WASM_DUMP_METHODS
-			llvm::errs() << i << " method name: " << F.getName() << '\n';
+			llvm::errs() << i << " method name: " << F->getName() << '\n';
 #endif
 			compileMethod(method, *F);
 			std::string buf = method.str();
