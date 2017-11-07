@@ -2660,8 +2660,8 @@ void CheerpWasmWriter::compileExportSection()
 
 	for (const llvm::Function* F : exports) {
 		// Encode the method name.
-		name = NameGenerator::filterLLVMName(F->getName(),
-			NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str();
+		name = namegen.getName(F);
+
 		encodeULEB128(name.size(), section);
 		section.write(name.data(), name.size());
 

@@ -161,7 +161,7 @@ private:
 
 	GlobalDepsAnalyzer & globalDeps;
 	const LinearMemoryHelper& linearHelper;
-	const NameGenerator namegen;
+	const NameGenerator& namegen;
 	TypeSupport types;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
 	const std::array<const char*,5> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array"}};
@@ -480,6 +480,7 @@ public:
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const cheerp::LinearMemoryHelper & linearHelper,
+			cheerp::NameGenerator& namegen,
 			llvm::raw_ostream* asmJSMem,
 			const std::string& asmJSMemFile,
 			SourceMapGenerator* sourceMapGenerator,
@@ -505,7 +506,7 @@ public:
 		registerize(registerize),
 		globalDeps(gda),
 		linearHelper(linearHelper),
-		namegen(m, globalDeps, registerize, PA, reservedNames, readableOutput),
+		namegen(namegen),
 		types(m),
 		asmJSMem(asmJSMem),
 		asmJSMemFile(asmJSMemFile),
