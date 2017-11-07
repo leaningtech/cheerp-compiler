@@ -16,6 +16,7 @@
 
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
+#include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/IR/DebugLoc.h"
@@ -61,6 +62,8 @@ private:
 	GlobalDepsAnalyzer & globalDeps;
 	// Helper class to manage linear memory state
 	const LinearMemoryHelper& linearHelper;
+
+	const NameGenerator& namegen;
 
 	// Codegen custom globals
 	uint32_t usedGlobals;
@@ -139,6 +142,7 @@ public:
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const LinearMemoryHelper& linearHelper,
+			const NameGenerator& namegen,
 			llvm::LLVMContext& C,
 			unsigned heapSize,
 			bool useWasmLoader,
@@ -151,6 +155,7 @@ public:
 		Ctx(C),
 		globalDeps(gda),
 		linearHelper(linearHelper),
+		namegen(namegen),
 		usedGlobals(0),
 		stackTopGlobal(0),
 		heapSize(heapSize),

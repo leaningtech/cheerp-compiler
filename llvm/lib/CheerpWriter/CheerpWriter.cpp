@@ -5029,12 +5029,10 @@ void CheerpWriter::makeJS()
 	if ( const Function * entryPoint = globalDeps.getEntryPoint() )
 	{
 		if (!wasmFile.empty() && entryPoint->getSection() == StringRef("asmjs"))
-			stream << "instance.exports." << NameGenerator::filterLLVMName(entryPoint->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL);
+			stream << "instance.exports.";
 		else if (wasmFile.empty() && entryPoint->getSection() == StringRef("asmjs"))
-			stream << "__asm." << namegen.getName(entryPoint);
-		else
-			stream << namegen.getName(entryPoint); 
-		stream << "();" << NewLine;
+			stream << "__asm.";
+		stream << namegen.getName(entryPoint) << "();" << NewLine;
 	}
 	if (!wasmFile.empty() || (globalDeps.needAsmJS() && asmJSMem))
 		stream << "},console.log).catch(console.log);" << NewLine;
