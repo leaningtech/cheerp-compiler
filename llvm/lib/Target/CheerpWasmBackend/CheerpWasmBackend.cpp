@@ -64,14 +64,24 @@ bool CheerpWasmWritePass::runOnModule(Module& M)
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
   cheerp::LinearMemoryHelper linearHelper(M, cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm, GDA);
+
   PA.fullResolve();
   PA.computeConstantOffsets(M);
   registerize.assignRegisters(M, PA);
-  cheerp::CheerpWasmWriter writer(M, Out, PA, registerize, GDA, linearHelper,
-                                  M.getContext(), CheerpHeapSize, !WasmLoader.empty(),
-                                  PrettyCode, cheerpMode);
-  writer.makeWasm();
-  if (!WasmLoader.empty())
+
+  // Build the ordered list of reserved names
+  std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
+  std::sort(reservedNames.begin(), reservedNames.end());
+
+  if (WasmLoader.empty())
+  {
+    cheerp::NameGenerator namegen(M, GDA, registerize, PA, reservedNames, PrettyCode);
+    cheerp::CheerpWasmWriter writer(M, Out, PA, registerize, GDA, linearHelper, namegen,
+                                    M.getContext(), CheerpHeapSize, !WasmLoader.empty(),
+                                    PrettyCode, cheerpMode);
+    writer.makeWasm();
+  }
+  else
   {
     cheerp::SourceMapGenerator* sourceMapGenerator = NULL;
     GDA.forceTypedArrays = ForceTypedArrays;
@@ -87,15 +97,18 @@ bool CheerpWasmWritePass::runOnModule(Module& M)
          return false;
       }
     }
-    // Build the ordered list of reserved names
-    std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
-    std::sort(reservedNames.begin(), reservedNames.end());
 
     std::error_code ErrorCode;
     llvm::tool_output_file jsFile(WasmLoader.c_str(), ErrorCode, sys::fs::F_None);
     llvm::formatted_raw_ostream jsOut(jsFile.os());
 
-    cheerp::CheerpWriter writer(M, jsOut, PA, registerize, GDA, linearHelper, nullptr, std::string(),
+    cheerp::NameGenerator namegen(M, GDA, registerize, PA, reservedNames, PrettyCode);
+    cheerp::CheerpWasmWriter wasmWriter(M, Out, PA, registerize, GDA, linearHelper, namegen,
+                                    M.getContext(), CheerpHeapSize, !WasmLoader.empty(),
+                                    PrettyCode, cheerpMode);
+    wasmWriter.makeWasm();
+
+    cheerp::CheerpWriter writer(M, jsOut, PA, registerize, GDA, linearHelper, namegen, nullptr, std::string(),
             sourceMapGenerator, reservedNames, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
             !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
             BoundsCheck, DefinedCheck, SymbolicGlobalsAsmJS, WasmFile, ForceTypedArrays);
