@@ -4957,9 +4957,10 @@ void CheerpWriter::makeJS()
 			stream << NameGenerator::filterLLVMName(imported->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << ':' << name  << ',' << NewLine;
 		}
 		stream << "}};" << NewLine;
-		stream << "fetchBuffer('" << wasmFile << "').then(bytes => WebAssembly.compile(bytes)" << NewLine;
-		stream << ".then(m => new WebAssembly.Instance(m, importObject),console.log)" << NewLine;
-		stream << ",console.log).then(instance => {" << NewLine;
+		stream << "fetchBuffer('" << wasmFile << "').then(bytes =>" << NewLine;
+		stream << "WebAssembly.instantiate(bytes, importObject)" << NewLine;
+		stream << ",console.log).then(result => {" << NewLine;
+		stream << "var instance = result.instance;" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
 		stream << "__asm=instance.exports;" << NewLine;
