@@ -1243,7 +1243,7 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 	}
 }
 
-bool CheerpWasmWriter::encodeCompactFloat(WasmBuffer& code, const ConstantFP* f)
+bool CheerpWasmWriter::tryEncodeFloatAsInt(WasmBuffer& code, const ConstantFP* f)
 {
 	APFloat apf = f->getValueAPF();
 	if (!apf.isInteger())
@@ -1282,6 +1282,24 @@ bool CheerpWasmWriter::encodeCompactFloat(WasmBuffer& code, const ConstantFP* f)
 	return true;
 }
 
+bool CheerpWasmWriter::tryEncodeFloat64AsFloat32(WasmBuffer& code, const ConstantFP* f)
+{
+	APFloat apf = f->getValueAPF();
+	if (f->getType()->isFloatTy())
+		return false;
+
+	double d = apf.convertToDouble();
+	float value = d;
+	if ((double)value != d)
+		return false;
+
+	encodeInst(0x43, "f32.const", code);
+	encodeF32(value, code);
+	encodeInst(0xbb, "f64.promote/f32", code);
+
+	return true;
+}
+
 void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 {
 	if(const ConstantExpr* CE = dyn_cast<ConstantExpr>(c))
@@ -1303,7 +1321,9 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
 		// Try to encode the float/double using a more compact representation.
-		if (encodeCompactFloat(code, f))
+		if (tryEncodeFloatAsInt(code, f))
+			return;
+		if (tryEncodeFloat64AsFloat32(code, f))
 			return;
 
 		if (cheerpMode == CHEERP_MODE_WASM) {
