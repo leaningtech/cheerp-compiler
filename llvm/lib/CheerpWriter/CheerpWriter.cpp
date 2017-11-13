@@ -4460,9 +4460,6 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 			{
 				const Constant* init = GV.getInitializer();
 				Type* ty = init->getType();
-				// If the initializer is a function, skip it
-				if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
-					continue;
 				uint32_t cur_address = linearHelper.getGlobalVariableAddress(&GV);
 				uint32_t padding = cur_address - (last_address+last_size);
 				for ( uint32_t i = 0; i < padding; i++ )
@@ -4488,10 +4485,6 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 			if (GV.hasInitializer())
 			{
 				const Constant* init = GV.getInitializer();
-				Type* ty = init->getType();
-				// If the initializer is a function, skip it
-				if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
-					continue;
 				stream  << heapNames[HEAP8] << ".set([";
 				JSBytesWriter bytesWriter(stream);
 				linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
