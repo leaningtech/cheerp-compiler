@@ -396,6 +396,8 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 		const User* u = cast<User>(p);
 		p = u->getOperand(0);
 	}
+	if (TypeSupport::isAsmJSPointer(p->getType()))
+		return true;
 	const GlobalValue* top = nullptr;
 	if (isa<ConstantPointerNull>(p) && isa<Instruction>(origP))
 	{
@@ -623,6 +625,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	// perform a demotion in place.
 	if(ImmutableCallSite cs = p)
 	{
+		assert(cs.getCaller()->getSection()!=StringRef("asmjs"));
 		if (!isIntrinsic)
 		{
 			assert(first);
@@ -630,10 +633,22 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			k.makeKnown();
 			if(const Function* F = cs.getCalledFunction())
 			{
-				IndirectPointerKindConstraint c(RETURN_CONSTRAINT, F);
-				pointerKindData.constraintsMap[c] |= k;
-				// We want to override the ret value, not add a constraint
-				return CacheAndReturn(ret = PointerKindWrapper(pointerKindData.getConstraintPtr(c)));
+				bool calleeAsmJS = F->getSection() == StringRef("asmjs");
+				if (calleeAsmJS)
+				{
+					if (TypeSupport::isAsmJSPointer(F->getReturnType()))
+						return CacheAndReturn(ret = PointerKindWrapper(RAW));
+					else
+						return CacheAndReturn(ret = PointerKindWrapper(SPLIT_REGULAR, F));
+					
+				}
+				else
+				{
+					IndirectPointerKindConstraint c(RETURN_CONSTRAINT, F);
+					pointerKindData.constraintsMap[c] |= k;
+					// We want to override the ret value, not add a constraint
+					return CacheAndReturn(ret = PointerKindWrapper(pointerKindData.getConstraintPtr(c)));
+				}
 			}
 			else
 			{
@@ -1085,6 +1100,11 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 			ret.swap(*oldRet);
 		return o;
 	};
+
+	if (PointerUsageVisitor::visitRawChain(v))
+	{
+		return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
+	}
 
 	if ( isGEP(v) )
 	{

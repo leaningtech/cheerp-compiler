@@ -2269,6 +2269,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				}
 				else if(k==SPLIT_REGULAR)
 				{
+					POINTER_KIND incomingKind=writer.PA.getPointerKind(incoming);
 					// TODO: Won't have a self ref tmp if there is a tmpphi already for this PHI
 					if(selfReferencing)
 					{
@@ -2285,12 +2286,23 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 						writer.stream << writer.namegen.getSecondaryName(phi);
 					writer.stream << '=';
 					writer.registerize.setEdgeContext(fromBB, toBB);
-					writer.compilePointerOffset(incoming, LOWEST);
+					if (incomingKind == RAW)
+					{
+						writer.compileRawPointer(incoming, SHIFT);
+						writer.stream << ">>" << writer.getHeapShiftForType(cast<PointerType>(phiType)->getPointerElementType());
+					}
+					else
+					{
+						writer.compilePointerOffset(incoming, LOWEST);
+					}
 					writer.stream << ';' << writer.NewLine;
 					writer.registerize.clearEdgeContext();
 					writer.stream << writer.namegen.getName(phi) << '=';
 					writer.registerize.setEdgeContext(fromBB, toBB);
-					writer.compilePointerBase(incoming);
+					if (incomingKind == RAW)
+						writer.compileHeapForType(cast<PointerType>(phiType)->getPointerElementType());
+					else
+						writer.compilePointerBase(incoming);
 					if(selfReferencing)
 					{
 						writer.stream << ';' << writer.NewLine;
@@ -2410,21 +2422,30 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			}
 
 			assert(argKind != REGULAR);
+			POINTER_KIND curKind = PA.getPointerKind(cur->get());
 			// The second condition is for when the function is only declared
 			// And the passed pointer is BYTE_LAYOUT. We decide to compile it as
 			// SPLIT_REGULAR, since the code will crash here anyway
 			if(argKind == SPLIT_REGULAR ||
-				(argKind == COMPLETE_OBJECT && PA.getPointerKind(cur->get()) == BYTE_LAYOUT))
+				(argKind == COMPLETE_OBJECT && curKind == BYTE_LAYOUT))
 			{
-				compilePointerBase(*cur, true);
-				stream << ',';
-				compilePointerOffset(*cur, LOWEST, true);
+				if(curKind == RAW)
+				{
+					int shift = compileHeapForType(cast<PointerType>(cur->get()->getType())->getPointerElementType());
+					stream << ',';
+					compileRawPointer(*cur, SHIFT);
+					stream << ">>" << shift;
+				}
+				else
+				{
+					compilePointerBase(*cur, true);
+					stream << ',';
+					compilePointerOffset(*cur, LOWEST, true);
+				}
 			}
-			else if(argKind == RAW && !asmjs)
+			else if(argKind == RAW)
 			{
-				compilePointerOffset(*cur, SHIFT, true);
-				stream << "<<";
-				stream << getHeapShiftForType(cast<PointerType>(tp)->getPointerElementType());
+				compileRawPointer(*cur, LOWEST);
 			}
 			else if(argKind != UNKNOWN)
 				compilePointerAs(*cur, argKind);
@@ -4695,6 +4716,7 @@ void CheerpWriter::compileAsmJSExports()
 	for (const Function* F: globalDeps.asmJSExports())
 	{
 		if(F->empty()) continue;
+		Type* retTy = F->getReturnType();
 
 		stream << "function " << namegen.getName(F) << '(';
 		const Function::const_arg_iterator A=F->arg_begin();
@@ -4708,7 +4730,7 @@ void CheerpWriter::compileAsmJSExports()
 			stream << namegen.getName(curArg);
 		}
 		stream << "){" << NewLine;
-		if (F->getReturnType()->isPointerTy())
+		if (retTy->isPointerTy() && !TypeSupport::isAsmJSPointer(retTy))
 		{
 			stream << "oSlot=";
 		}
@@ -4722,7 +4744,7 @@ void CheerpWriter::compileAsmJSExports()
 			stream << namegen.getName(curArg);
 		}
 		stream << ')';
-		if (F->getReturnType()->isPointerTy())
+		if (retTy->isPointerTy() && !TypeSupport::isAsmJSPointer(retTy))
 		{
 			int shift =  getHeapShiftForType(cast<PointerType>(F->getReturnType())->getPointerElementType());
 			if (shift != 0)
