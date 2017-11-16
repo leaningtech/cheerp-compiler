@@ -157,6 +157,21 @@ public:
 		else
 			return false;
 	}
+	static bool isAsmJSPointer(const llvm::Type* t)
+	{
+		if (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
+		{
+			t = pt->getPointerElementType();
+			if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
+				return st->hasAsmJS();
+			else if ( const llvm::ArrayType * at = llvm::dyn_cast<llvm::ArrayType>(t) )
+			{
+				if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(at->getElementType()) )
+					return st->hasAsmJS();
+			}
+		}
+		return false;
+	}
 
 	static bool hasBasesInfoMetadata(llvm::StructType* t, const llvm::Module & m)
 	{
