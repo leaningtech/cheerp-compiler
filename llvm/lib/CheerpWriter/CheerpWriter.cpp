@@ -3797,6 +3797,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const LoadInst& li = cast<LoadInst>(I);
 			const Value* ptrOp=li.getPointerOperand();
+			bool asmjs = currentFun->getSection()==StringRef("asmjs");
 			POINTER_KIND kind = PA.getPointerKind(ptrOp);
 			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
 			{
@@ -3826,12 +3827,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			}
-			// TODO: we need this hack because PointerAnalyzer cannot correctly assign
-			// the RAW kind to null pointers
-			bool asmjs = currentFun && currentFun->getSection()==StringRef("asmjs");
-			bool asmjs_nullptr = asmjs && isa<ConstantPointerNull>(ptrOp);
-			if (RAW == kind || asmjs_nullptr)
+
+			if (asmjs || kind == RAW)
+			{
 				compileHeapAccess(ptrOp);
+			}
 			else if (kind == BYTE_LAYOUT)
 			{
 				//Optimize loads of single values from unions
@@ -3857,10 +3857,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(li.getType()->isPointerTy() && !li.use_empty() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
 			{
 				assert(!isInlineable(li, PA));
-				stream <<'o';
+				if(kind == RAW)
+				{
+					int shift =  getHeapShiftForType(cast<PointerType>(li.getType())->getPointerElementType());
+					if (shift != 0)
+						stream << ">>" << shift;
+				}
+				else
+				{
+					stream <<'o';
+				}
 				stream << ';' << NewLine;
 				stream << namegen.getName(&li) << '=';
-				compileCompleteObject(ptrOp);
+				if(kind == RAW)
+					compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
+				else
+					compileCompleteObject(ptrOp);
 			}
 			if(regKind==Registerize::INTEGER && needsIntCoercion(regKind, parentPrio))
 			{
@@ -4779,7 +4791,7 @@ void CheerpWriter::compileAsmJSImports()
 			if(curArg!=A)
 				stream << ',';
 			int shift = 0;
-			if(curArg->getType()->isPointerTy())
+			if(curArg->getType()->isPointerTy() && !TypeSupport::isAsmJSPointer(curArg->getType()))
 			{
 				shift = compileHeapForType(cast<PointerType>(curArg->getType())->getPointerElementType());
 				stream << ',';
