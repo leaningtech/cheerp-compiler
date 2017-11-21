@@ -17,6 +17,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 
@@ -2480,12 +2481,20 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			assert(I.getNumSuccessors()==0);
 			Value* retVal = ri.getReturnValue();
 
-			if (asmjs)
+			if (needStackFrame(I.getParent()->getParent()))
 			{
 				compileStackRet();
-				// NOTE: This is needed because we are adding an extra return at the end of
-				//       the function, and the asm.js validator does not like if it is never
-				//       reachable. In this way we trick it.
+				if (!asmjs)
+				{
+					compileSetStackPtr();
+					stream << ';' << NewLine;
+				}
+			}
+			// NOTE: This is needed because we are adding an extra return at the end of
+			//       the function, and the asm.js validator does not like if it is never
+			//       reachable. In this way we trick it.
+			if (asmjs)
+			{
 				stream << "if (1) ";
 			}
 			if(retVal)
@@ -2591,7 +2600,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		case Instruction::Alloca:
 		{
 			const AllocaInst* ai = cast<AllocaInst>(&I);
-			if (asmjs)
+			POINTER_KIND k = PA.getPointerKind(ai);
+			if (k == RAW)
 			{
 				Type* allocTy = ai->getAllocatedType();
 				uint32_t size = targetData.getTypeAllocSize(allocTy);
@@ -2600,7 +2610,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				if (ai->isArrayAllocation())
 					n = ai->getArraySize();
 				assert((alignment & (alignment-1)) == 0 && "alignment must be power of 2");
-				compileAllocaAsmJS(n,size,alignment);
+				compileAllocaAsmJS(n,size,alignment, asmjs);
 				return COMPILE_OK;
 			}
 			//V8: If the variable is passed to a call make sure that V8 does not try to SROA it
@@ -2608,7 +2618,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			//as the SROA-ed object will then be materialied with a pessimized hidden type map
 			//which will then be used for all the objects with the same structure
 			stream << "aSlot=";
-			POINTER_KIND k = PA.getPointerKind(ai);
 
 			StringRef varName = namegen.getName(&I);
 			if(k == REGULAR)
@@ -4237,8 +4246,12 @@ void CheerpWriter::compileMethod(const Function& F)
 	if(F.size()==1)
 	{
 		compileMethodLocals(F, false);
-		if (asmjs)
+		if(needStackFrame(&F))
+		{
+			if(!asmjs)
+				compileDefineStackPtr();
 			compileStackFrame();
+		}
 		compileBB(*F.begin());
 	}
 	else
@@ -4246,16 +4259,21 @@ void CheerpWriter::compileMethod(const Function& F)
 		Relooper* rl = runRelooperOnFunction(F, PA, registerize);
 		CheerpRenderInterface ri(this, NewLine, asmjs);
 		compileMethodLocals(F, rl->needsLabel());
-		if (asmjs)
+		if(needStackFrame(&F))
+		{
+			if(!asmjs)
+				compileDefineStackPtr();
 			compileStackFrame();
+		}
 		rl->Render(&ri);
 	}
 	if (asmjs)
 	{
+		if(needStackFrame(&F))
+			compileStackRet();
 		// TODO: asm.js needs a final return statement.
 		// for now we are putting one at the end of every method, even
 		// if there is already one
-		compileStackRet();
 		stream << "return";
 		if(!F.getReturnType()->isVoidTy())
 		{
@@ -4594,6 +4612,16 @@ void CheerpWriter::compileCheckDefined(const Value* p)
 	stream<<")";
 }
 
+bool CheerpWriter::needStackFrame(const Function* F)
+{
+	bool asmjs = F->getSection() == StringRef("asmjs");
+	for(const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
+	{
+		if(I->getOpcode() == Instruction::Alloca && (asmjs || TypeSupport::isAsmJSPointer(I->getType())))
+			return true;
+	}
+	return false;
+}
 void CheerpWriter::compileStackFrame()
 {
 	// NOTE: the stack frame always starts with 8 byte alignment
@@ -4603,18 +4631,49 @@ void CheerpWriter::compileStackRet()
 {
 	stream<< "__stackPtr=__savedStack;"<<NewLine;
 }
-void CheerpWriter::compileAllocaAsmJS(const Value* n, uint32_t elem_size, uint32_t alignment)
+void CheerpWriter::compileAllocaAsmJS(const Value* n, uint32_t elem_size, uint32_t alignment, bool asmjs)
 {
 	StringRef num = "1";
 	if (n != nullptr)
 		num = namegen.getName(n);
+	// Get the stack pointer if we are in genericjs
+	if(!asmjs)
+	{
+		stream << '(';
+		compileGetStackPtr();
+		stream << ',';
+	}
 	// NOTE: the `and` operation ensures the proper alignment
 	stream << "(__stackPtr-(";
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
-	stream << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment) << ';' <<NewLine;
+	stream << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment);
+	// Set the stack pointer if we are in genericjs
+	if(!asmjs)
+	{
+		stream << ')';
+	}
+	stream << ';' <<NewLine;
 	stream << "__stackPtr=(__stackPtr-(";
 	stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
 	stream << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment);
+	if(!asmjs)
+	{
+		stream << ';' << NewLine;
+		compileSetStackPtr();
+	}
+}
+
+void CheerpWriter::compileDefineStackPtr()
+{
+	stream << "var __stackPtr=0|0;" << NewLine;
+}
+void CheerpWriter::compileGetStackPtr()
+{
+	stream << "__stackPtr=__asm.__getStackPtr()|0";
+}
+void CheerpWriter::compileSetStackPtr()
+{
+	stream << "__asm.__setStackPtr(__stackPtr|0)";
 }
 
 void CheerpWriter::compileMemmoveHelperAsmJS()
@@ -4626,6 +4685,18 @@ void CheerpWriter::compileMemmoveHelperAsmJS()
 	stream << "while(1){if((i|0)==(end|0))break;HEAP8[dst+i|0]=HEAP8[src+i|0];i=i+inc|0;}"<<NewLine;
 	stream << "return dst|0;"<<NewLine;
 	stream << "}"<<NewLine;
+}
+void CheerpWriter::compileStackPtrHelpersAsmJS()
+{
+	stream << "function __setStackPtr(ptr){" << NewLine;
+	stream << "ptr=ptr|0;" << NewLine;
+	stream << "__stackPtr=ptr;" << NewLine;
+	stream << "return;"<< NewLine;
+	stream << "}" << NewLine;
+
+	stream << "function __getStackPtr(){" << NewLine;
+	stream << "return __stackPtr|0;" << NewLine;
+	stream << "}" << NewLine;
 }
 
 void CheerpWriter::compileFunctionTablesAsmJS()
@@ -4887,10 +4958,15 @@ void CheerpWriter::makeJS()
 			}
 		}
 		compileMemmoveHelperAsmJS();
+
+		compileStackPtrHelpersAsmJS();
 		
 		compileFunctionTablesAsmJS();
 
 		stream << "return {" << NewLine;
+		// export the stack pointer
+		stream << "__setStackPtr:__setStackPtr,"<<NewLine;
+		stream << "__getStackPtr:__getStackPtr,"<<NewLine;
 		// export constructors
 		for (const Function * F : globalDeps.constructors() )
 		{
