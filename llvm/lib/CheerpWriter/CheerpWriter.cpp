@@ -1215,19 +1215,24 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 {
 	StringRef compareString;
 	bool asmjs = currentFun->getSection() == StringRef("asmjs");
-	if (asmjs)
-		compareString = (p == CmpInst::ICMP_NE) ? "!=" : "==";
-	else
-		compareString = (p == CmpInst::ICMP_NE) ? "!==" : "===";
-
 	StringRef joinString;
 	joinString = (p == CmpInst::ICMP_NE) ? "||" : "&&";
 
 	POINTER_KIND lhsKind = PA.getPointerKind(lhs);
 	POINTER_KIND rhsKind = PA.getPointerKind(rhs);
 
+	if(lhsKind == RAW)
+		assert(asmjs || rhsKind == RAW || dyn_cast<ConstantPointerNull>(rhs));
+	if(rhsKind == RAW)
+		assert(asmjs || lhsKind == RAW || dyn_cast<ConstantPointerNull>(lhs));
+
+	if (asmjs || lhsKind == RAW || rhsKind == RAW)
+		compareString = (p == CmpInst::ICMP_NE) ? "!=" : "==";
+	else
+		compareString = (p == CmpInst::ICMP_NE) ? "!==" : "===";
+
 	// in asmjs mode all the pointers are RAW pointers
-	if(asmjs)
+	if(asmjs || lhsKind == RAW || rhsKind == RAW)
 	{
 		stream << "(";
 		compileRawPointer(lhs, PARENT_PRIORITY::LOGICAL_OR);
@@ -1423,6 +1428,11 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 
 void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY prio)
 {
+	if (isa<ConstantPointerNull>(p))
+	{
+		stream << '0';
+		return;
+	}
 	AsmJSGepWriter gepWriter(*this);
 	p = linearHelper.compileGEP(p, &gepWriter);
 	PARENT_PRIORITY gepPrio = gepWriter.offset?ADD_SUB:LOWEST;
