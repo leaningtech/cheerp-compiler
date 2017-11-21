@@ -599,6 +599,9 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, 
 	// Pointers in asm.js are just integers
 	else if(asmjs)
 		return INTEGER;
+	// Pointers to asm.js types are just integers
+	else if(TypeSupport::isAsmJSPointer(t))
+		return INTEGER;
 	// NOTE: the Void type is considered an OBJECT
 	else
 		return OBJECT;
