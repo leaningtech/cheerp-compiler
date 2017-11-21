@@ -535,9 +535,13 @@ public:
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 
+	bool needStackFrame(const llvm::Function* F);
 	void compileStackFrame();
 	void compileStackRet();
-	void compileAllocaAsmJS(const llvm::Value*n, uint32_t elem_size, uint32_t alignment);
+	void compileAllocaAsmJS(const llvm::Value*n, uint32_t elem_size, uint32_t alignment, bool asmjs);
+	void compileDefineStackPtr();
+	void compileGetStackPtr();
+	void compileSetStackPtr();
 	// returns the amount fo shift required for accessing the corresponding heap
 	int getHeapShiftForType(llvm::Type* et);
 	int compileHeapForType(llvm::Type* et);
@@ -554,6 +558,10 @@ public:
 	 * Compile the memmove helper function for asm.js code
 	 */
 	void compileMemmoveHelperAsmJS();
+	/**
+	 * Compile the helper functions for exposing the asm.js stack pointer
+	 */
+	void compileStackPtrHelpersAsmJS();
 	/**
 	 * Compile a bound-checking statement on REGULAR or SPLIT_REGULAR pointer
 	 */
