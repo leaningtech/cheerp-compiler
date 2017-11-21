@@ -514,6 +514,8 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(p);
 	if(baseAndIndex)
 	{
+		if(TypeSupport::isAsmJSPointer(baseAndIndex.type))
+			return pointerKindData.valueMap.insert( std::make_pair(p, RAW ) ).first->second;
 		// If the pointer inside a structure has uses which are not just loads and stores
 		// we have merge the BASE_AND_INDEX_CONSTRAINT with the STORED_TYPE_CONSTRAINT
 		// We do this by making both indirectly dependent on the other
@@ -1139,7 +1141,11 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 
 	if(const LoadInst* LI=dyn_cast<LoadInst>(v))
 	{
-		if (TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getPointerOperand()))
+		if (PointerUsageVisitor::visitRawChain(LI->getPointerOperand()))
+		{
+			return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
+		}
+		else if (TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(LI->getPointerOperand()))
 			return CacheAndReturn(ret |= pointerOffsetData.getConstraintPtr(IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex)));
 		else if(isa<GlobalVariable>(LI->getPointerOperand()))
 		{
