@@ -157,7 +157,7 @@ bool CallGlobalConstructorsOnStartPass::runOnModule(Module& M)
 		return false;
 
 	auto constructors = cheerp::ModuleGlobalConstructors(M);
-	if (constructors->op_begin() == constructors->op_end())
+	if (!constructors || constructors->op_begin() == constructors->op_end())
 		return false;
 
 	// Create the function with the call instructions.
