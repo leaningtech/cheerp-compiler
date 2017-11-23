@@ -2159,6 +2159,11 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 			encodeInst(0x71, "i32.and", code);
 			break;
 		}
+		case Instruction::IntToPtr:
+		{
+			compileOperand(code, I.getOperand(0));
+			break;
+		}
 		case Instruction::Unreachable:
 		{
 			encodeInst(0x00, "unreachable", code);
