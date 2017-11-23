@@ -4875,11 +4875,11 @@ void CheerpWriter::compileFetchBuffer()
 {
 	stream << "function fetchBuffer(path) {" << NewLine;
 	stream << "var bytes = null;" << NewLine;
-	stream << "if (typeof window === 'undefined' && typeof require === 'undefined') {" << NewLine;
+	stream << "if (typeof window === 'undefined' && typeof self === 'undefined' && typeof require === 'undefined') {" << NewLine;
 	stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
 	stream << "resolve(read(path,'binary'));" << NewLine;
 	stream << "});" << NewLine;
-	stream << "} else if (typeof window === 'undefined') {" << NewLine;
+	stream << "} else if (typeof window === 'undefined' && typeof self === 'undefined') {" << NewLine;
 	stream << "var fs = require('fs');" << NewLine;
 	stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
 	stream << "fs.readFile(path, function(error, data) {" << NewLine;
