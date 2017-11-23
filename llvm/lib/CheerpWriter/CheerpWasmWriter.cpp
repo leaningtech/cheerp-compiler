@@ -2666,8 +2666,8 @@ void CheerpWasmWriter::compileExportSection()
 	std::vector<const llvm::Function*> exports;
 
 	// Export the webMain symbol, if defined.
-	llvm::Function* entry = module.getFunction("_Z7webMainv");
-	if(entry) {
+	const llvm::Function* entry = globalDeps.getEntryPoint();
+	if(entry && entry->getSection() == StringRef("asmjs")) {
 		assert(globalDeps.asmJSExports().find(entry) == globalDeps.asmJSExports().end());
 		exports.push_back(entry);
 	}
