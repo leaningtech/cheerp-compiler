@@ -1847,6 +1847,29 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 					encodeInst(0x5b, "f32.eq", code);
 
 				encodeInst(0x71, "i32.and", code);
+			} else if (ci.getPredicate() == CmpInst::FCMP_UNO) {
+				Type* ty = ci.getOperand(0)->getType();
+				assert(ty->isDoubleTy() || ty->isFloatTy());
+				assert(ty == ci.getOperand(1)->getType());
+
+				// Check if at least one operand is not equal to itself.
+				// A nan-value is never equal to itself. Use a logical
+				// or operator for the resulting comparison.
+				compileOperand(code, ci.getOperand(0));
+				compileOperand(code, ci.getOperand(0));
+				if (ty->isDoubleTy())
+					encodeInst(0x62, "f64.ne", code);
+				else
+					encodeInst(0x5c, "f32.ne", code);
+
+				compileOperand(code, ci.getOperand(1));
+				compileOperand(code, ci.getOperand(1));
+				if (ty->isDoubleTy())
+					encodeInst(0x62, "f64.ne", code);
+				else
+					encodeInst(0x5c, "f32.ne", code);
+
+				encodeInst(0x73, "i32.or", code);
 			} else {
 				compileOperand(code, ci.getOperand(0));
 				compileOperand(code, ci.getOperand(1));
