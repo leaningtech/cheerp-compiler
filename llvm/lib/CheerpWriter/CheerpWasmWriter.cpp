@@ -2810,10 +2810,6 @@ void CheerpWasmWriter::compileDataSection()
 			continue;
 
 		const Constant* init = GV.getInitializer();
-		Type* ty = init->getType();
-		// If the initializer is a function, skip it
-		if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
-			continue;
 
 		count++;
 
