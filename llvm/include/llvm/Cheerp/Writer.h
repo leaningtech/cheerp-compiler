@@ -468,7 +468,8 @@ private:
 	{
 		CheerpWriter& writer;
 		bool offset;
-		AsmJSGepWriter(CheerpWriter& writer):writer(writer), offset(false)
+		bool use_imul;
+		AsmJSGepWriter(CheerpWriter& writer, bool use_imul=true): writer(writer), offset(false), use_imul(use_imul)
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
