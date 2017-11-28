@@ -1433,7 +1433,9 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY prio)
 		stream << '0';
 		return;
 	}
-	AsmJSGepWriter gepWriter(*this);
+	bool asmjs = currentFun->getSection() == StringRef("asmjs");
+	bool use_imul = asmjs || useMathImul;
+	AsmJSGepWriter gepWriter(*this, use_imul);
 	p = linearHelper.compileGEP(p, &gepWriter);
 	PARENT_PRIORITY gepPrio = gepWriter.offset?ADD_SUB:LOWEST;
 	prio = std::max(prio, gepPrio);
@@ -4667,8 +4669,18 @@ void CheerpWriter::compileAllocaAsmJS(const Value* n, uint32_t elem_size, uint32
 	}
 	// NOTE: the `and` operation ensures the proper alignment
 	stream << "(__stackPtr-(";
-	stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
-	stream << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment);
+	bool use_imul = asmjs || useMathImul;
+	if (use_imul)
+	{
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
+		stream << elem_size << ',' << num << ')';
+	}
+	else
+	{
+		stream << elem_size << '*' << num;
+	}
+	stream << "|0))&" << uint32_t(0-alignment);
+
 	// Set the stack pointer if we are in genericjs
 	if(!asmjs)
 	{
@@ -4676,8 +4688,16 @@ void CheerpWriter::compileAllocaAsmJS(const Value* n, uint32_t elem_size, uint32
 	}
 	stream << ';' <<NewLine;
 	stream << "__stackPtr=(__stackPtr-(";
-	stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
-	stream << elem_size << ',' << num << ")|0))&" << uint32_t(0-alignment);
+	if (use_imul)
+	{
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
+		stream << elem_size << ',' << num << ')';
+	}
+	else
+	{
+		stream << elem_size << '*' << num;
+	}
+	stream << "|0))&" << uint32_t(0-alignment);
 	if(!asmjs)
 	{
 		stream << ';' << NewLine;
@@ -5327,12 +5347,20 @@ void CheerpWriter::AsmJSGepWriter::addValue(const llvm::Value* v, uint32_t size)
 		writer.compileOperand(v ,ADD_SUB);
 		writer.stream << '+';
 	}
-	else
+	else if (use_imul)
 	{
 		// NOTE: V8 requires imul to be coerced to int like normal functions
 		writer.stream << '(' << writer.namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
 		writer.compileOperand(v ,LOWEST);
 		writer.stream << ',' << size << ')';
+		writer.stream << "|0)+";
+	}
+	else
+	{
+		writer.stream << '(';
+		writer.compileOperand(v, MUL_DIV);
+		writer.stream << '*';
+		writer.stream << size;
 		writer.stream << "|0)+";
 	}
 }
