@@ -406,6 +406,14 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 	}
 	else if (isa<Instruction>(p))
 	{
+		if (const CallInst* ci = dyn_cast<CallInst>(p))
+		{
+
+			Function* callee = ci->getCalledFunction();
+			bool getStackPtrCall = callee && callee->getName() == StringRef("__getStackPtr");
+			if (getStackPtrCall)
+				return true;
+		}
 		top = cast<Instruction>(p)->getParent()->getParent();
 	}
 	else if (isa<Argument>(p) )
@@ -1392,6 +1400,14 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 		return BYTE_LAYOUT;
 
 	assert(F->getReturnType()->isPointerTy());
+	if (F->getSection() == StringRef("asmjs"))
+	{
+		if (TypeSupport::isAsmJSPointer(F->getReturnType()))
+			return RAW;
+		if (F->getName() == StringRef("__getStackPtr"))
+			return RAW;
+		return SPLIT_REGULAR;
+	}
 	IndirectPointerKindConstraint c(RETURN_CONSTRAINT, F);
 	const PointerKindWrapper& k=PointerResolverForKindVisitor(pointerKindData, addressTakenCache).resolveConstraint(c);
 	assert(k.isKnown());
