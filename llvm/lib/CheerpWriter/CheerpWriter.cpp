@@ -4830,6 +4830,8 @@ void CheerpWriter::compileAsmJSExports()
 	{
 		if(F->empty()) continue;
 		Type* retTy = F->getReturnType();
+		POINTER_KIND retKind = retTy->isPointerTy()? PA.getPointerKindForReturn(F): UNKNOWN; 
+		assert(retKind == UNKNOWN || retKind == RAW || retKind == SPLIT_REGULAR);
 
 		stream << "function " << namegen.getName(F) << '(';
 		const Function::const_arg_iterator A=F->arg_begin();
@@ -4843,7 +4845,7 @@ void CheerpWriter::compileAsmJSExports()
 			stream << namegen.getName(curArg);
 		}
 		stream << "){" << NewLine;
-		if (retTy->isPointerTy() && !TypeSupport::isAsmJSPointer(retTy))
+		if (retKind == SPLIT_REGULAR)
 		{
 			stream << "oSlot=";
 		}
@@ -4857,7 +4859,7 @@ void CheerpWriter::compileAsmJSExports()
 			stream << namegen.getName(curArg);
 		}
 		stream << ')';
-		if (retTy->isPointerTy() && !TypeSupport::isAsmJSPointer(retTy))
+		if (retKind == SPLIT_REGULAR)
 		{
 			int shift =  getHeapShiftForType(cast<PointerType>(F->getReturnType())->getPointerElementType());
 			if (shift != 0)
