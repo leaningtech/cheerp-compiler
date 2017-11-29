@@ -1,5 +1,6 @@
 add_llvm_library(LLVMCheerpUtils
   AllocaMerging.cpp
+  AllocaLowering.cpp
   GlobalDepsAnalyzer.cpp
   NativeRewriter.cpp
   PreExecute.cpp
