@@ -3666,27 +3666,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			// NOTE: if the type is void, OBJECT is returned, but we explicitly
 			// check the void case later
 			Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(retTy, asmjs);
-			// Calling convention for variadic arguments in asm.js mode:
-			// arguments are pushed into the stack in the reverse order
-			// in which they appear.
-			// We use the 'comma trick' to make all the operations a
-			// single expression
-			if (fTy->isVarArg() && asmjs)
-			{
-				size_t n = ci.getNumArgOperands();
-				size_t arg_size = fTy->getNumParams();
-				size_t i = 0;
-				stream << '(';
-				for (auto op = ci.op_begin() + n - 1; op != ci.op_begin() + arg_size - 1; op--)
-				{
-					i++;
-					uint32_t shift = compileHeapForType(op->get()->getType());
-					stream << "[(__stackPtr-"<< i*8 << ')' << ">>" << shift << "]=";
-					compileOperand(op->get());
-					stream << ',' << NewLine;
-				}
-				stream << "__stackPtr=(__stackPtr-" << i*8 << ")|0," << NewLine;
-			}
 			if(!retTy->isVoidTy())
 			{
 				if(kind == Registerize::DOUBLE)
@@ -3784,14 +3763,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 						}
 						break;
 				}
-			}
-			// If this was a vararg function, pop the arguments from the stack
-			if (asmjs && fTy->isVarArg())
-			{
-				uint32_t n = ci.getNumArgOperands() - fTy->getNumParams();
-				if (ci.getType()->isVoidTy())
-					stream << ",0";
-				stream << ");" << NewLine << "__stackPtr=(__stackPtr+" << n*8 << ")|0";
 			}
 			return COMPILE_OK;
 		}
