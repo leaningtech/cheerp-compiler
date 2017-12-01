@@ -1495,54 +1495,7 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 	{
 		case Instruction::Alloca:
 		{
-			const AllocaInst* ai = cast<AllocaInst>(&I);
-			Type* allocTy = ai->getAllocatedType();
-			// TODO: There is another method that includes the alignment
-			uint32_t size = targetData.getTypeAllocSize(allocTy);
-			uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, allocTy);
-			assert((alignment & (alignment-1)) == 0 && "alignment must be power of 2");
-
-			// We grow the stack down for now
-			// 1) Push the current stack pointer
-			encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
-			// 2) Push the allocation size
-			if (ai->isArrayAllocation()) {
-				const Value* n = ai->getArraySize();
-				if(const ConstantInt* C = dyn_cast<ConstantInt>(n))
-				{
-					encodeS32Inst(0x41, "i32.const", size * C->getSExtValue(), code);
-				}
-				else
-				{
-					compileOperand(code, n);
-					if (size > 1 && isPowerOf2_32(size))
-					{
-						encodeS32Inst(0x41, "i32.const", Log2_32(size), code);
-						encodeInst(0x74, "i32.shl", code);
-					}
-					else if (size > 1)
-					{
-						encodeS32Inst(0x41, "i32.const", size, code);
-						encodeInst(0x6c, "i32.mul", code);
-					}
-				}
-			} else {
-				encodeS32Inst(0x41, "i32.const", size, code);
-			}
-			// 3) Substract the size
-			encodeInst(0x6b, "i32.sub", code);
-			// 3.1) Optionally align the stack down
-			if(size % alignment)
-			{
-				encodeS32Inst(0x41, "i32.const", uint32_t(0-alignment), code);
-				encodeInst(0x71, "i32.and", code);
-			}
-			// 4) Write the location to the local, but preserve the value
-			uint32_t local = 1 + currentFun->arg_size() + registerize.getRegisterId(&I);
-			encodeU32Inst(0x22, "tee_local", local, code);
-			// 5) Save the new stack position
-			encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
-			return true;
+			llvm::report_fatal_error("Allocas in wasm should be removed in the AllocaLowering pass. This is a bug");
 		}
 		case Instruction::Add:
 		case Instruction::And:
@@ -1609,13 +1562,20 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 						encodeInst(0x00, "unreachable", code);
 						return true;
 					}
-					case Intrinsic::vastart:
+					case Intrinsic::stacksave:
+					{
+						encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
+						return false;
+					}
+					case Intrinsic::stackrestore:
 					{
 						compileOperand(code, ci.getOperand(0));
-						uint32_t numArgs = I.getParent()->getParent()->arg_size();
-						encodeU32Inst(0x20, "get_local", numArgs, code);
-						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
+						encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
 						return true;
+					}
+					case Intrinsic::vastart:
+					{
+						llvm::report_fatal_error("Vastart in wasm should be removed in the AllocaLowering pass. This is a bug");
 					}
 					case Intrinsic::vacopy:
 					{
@@ -1736,35 +1696,6 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 						assert(intrinsic == Intrinsic::not_intrinsic);
 					}
 					break;
-				}
-			}
-
-			// Calling convention for variadic arguments in Wasm mode:
-			// arguments are pushed into the stack in the reverse order
-			// in which they appear.
-			if (fTy->isVarArg())
-			{
-				size_t n = ci.getNumArgOperands();
-				size_t arg_size = fTy->getNumParams();
-				size_t i = 0;
-				for (auto op = ci.op_begin() + n - 1;
-						op != ci.op_begin() + arg_size - 1; op--)
-				{
-					i++;
-					encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
-					encodeS32Inst(0x41, "i32.const", 8, code);
-					encodeInst(0x6b, "i32.sub", code);
-					// TODO: use 'tee_global' when it's available?
-					encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
-					encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
-					compileOperand(code, op->get());
-					// TODO: is i32.store8 or i32.store16 possible here?
-					if (op->get()->getType()->isFloatTy())
-						encodeU32U32Inst(0x38, "f32.store", 0x2, 0x0, code);
-					else if (op->get()->getType()->isDoubleTy())
-						encodeU32U32Inst(0x39, "f64.store", 0x3, 0x0, code);
-					else
-						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
 				}
 			}
 
@@ -2045,13 +1976,6 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 			Value* retVal = ri.getReturnValue();
 			if(retVal)
 				compileOperand(code, I.getOperand(0));
-
-			if (linearHelper.needsStackPtrLocal(currentFun))
-			{
-				// Restore old stack
-				encodeU32Inst(0x20, "get_local", currentFun->arg_size(), code);
-				encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
-			}
 
 			break;
 		}
@@ -2390,13 +2314,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	}
 
 	compileMethodLocals(code, F, needsLabel);
-
-	// Only save the stack address in a local if used
-	if (linearHelper.needsStackPtrLocal(currentFun))
-	{
-		encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
-		encodeU32Inst(0x21, "set_local", numArgs, code);
-	}
 
 	if (F.size() == 1)
 	{

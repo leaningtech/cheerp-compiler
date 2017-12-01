@@ -225,8 +225,6 @@ public:
 		return functionTypes;
 	}
 
-	bool needsStackPtrLocal(const llvm::Function* F) const;
-
 	struct ByteListener
 	{
 		virtual void addByte(uint8_t b) = 0;
