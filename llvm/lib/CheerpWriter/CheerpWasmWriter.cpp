@@ -1600,6 +1600,11 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 						compileOperand(code, ci.getOperand(0));
 						return false;
 					}
+					case Intrinsic::cheerp_upcast_collapsed:
+					{
+						compileOperand(code, ci.getOperand(0));
+						return false;
+					}
 					case Intrinsic::cheerp_cast_user:
 					{
 						if(ci.use_empty())
