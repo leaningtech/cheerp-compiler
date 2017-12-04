@@ -75,6 +75,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 	SmallVector<ReturnInst*, 8> returns;
 	SmallVector<CallInst*, 8> vastarts;
 	SmallVector<CallInst*, 8> varargCalls;
+	SmallVector<CallInst*, 8> toRemove;
 
 	uint32_t nbytes = 0;
 	for ( BasicBlock & BB : F )
@@ -117,6 +118,19 @@ bool AllocaLowering::runOnFunction(Function& F)
 			else if (CallInst * ci = dyn_cast<CallInst>(it))
 			{
 				Function* calledFunc = ci->getCalledFunction();
+				// Remove stacksave and stackrestore calls in genericjs functions
+				if (!asmjs && calledFunc && calledFunc->getIntrinsicID() == Intrinsic::stacksave)
+				{
+					for (auto u : ci->users())
+					{
+						assert(isa<CallInst>(u));
+						CallInst* restore = cast<CallInst>(u);
+						assert(restore->getCalledFunction());
+						assert(restore->getCalledFunction()->getIntrinsicID() == Intrinsic::stackrestore);
+						toRemove.push_back(cast<CallInst>(u));
+					}
+					toRemove.push_back(ci);
+				}
 				// Add only `vastart`s used in asmjs functions
 				if (asmjs && calledFunc && calledFunc->getIntrinsicID() == Intrinsic::vastart)
 				{
@@ -135,7 +149,12 @@ bool AllocaLowering::runOnFunction(Function& F)
 			}
 		}
 	}
-	// Nothing to do
+	// Remove stuff
+	for (auto r: toRemove)
+	{
+		r->eraseFromParent();
+	}
+	// Nothing else to do
 	if (allocas.size() == 0 && dynAllocas.size() == 0 && varargCalls.size() == 0 && vastarts.size() == 0)
 		return false;
 	// We need to save the stack pointer if we are going to reference memory
