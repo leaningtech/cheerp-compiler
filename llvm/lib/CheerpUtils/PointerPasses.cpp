@@ -23,6 +23,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -38,11 +39,23 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai)
 {
 	const ConstantInt * ci = dyn_cast<ConstantInt>(ai->getArraySize());
 	
+	// Runtime alloca size, convert it to cheerp_allocate 
 	if (!ci)
 	{
-		// Runtime alloca size, can not do nothing here 
-		// TODO maybe we can treat this like a malloc?
-		return false;
+		Module* M = ai->getParent()->getParent()->getParent();
+		DataLayout targetData(M);
+		Type* int32Ty = IntegerType::getInt32Ty(M->getContext());
+		Function* cheerp_allocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_allocate, ai->getType());
+
+		IRBuilder<> Builder(ai);
+
+		Type* allocTy = ai->getAllocatedType();
+		uint32_t elemSize = targetData.getTypeAllocSize(allocTy);
+		Value* size = Builder.CreateMul(ai->getArraySize(), ConstantInt::get(int32Ty, elemSize, false)); 
+		Instruction* alloc = CallInst::Create(cheerp_allocate, size);
+		BasicBlock::iterator ii(ai);
+		ReplaceInstWithInst(ai->getParent()->getInstList(), ii, alloc);
+		return true;
 	}
 
 	llvm::Type * at = llvm::ArrayType::get( ai->getAllocatedType(), ci->getZExtValue() );
