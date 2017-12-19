@@ -4957,6 +4957,8 @@ void CheerpWriter::makeJS()
 			stream << NameGenerator::filterLLVMName(imported->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << ':' << name  << ',' << NewLine;
 		}
 		stream << "}};" << NewLine;
+		for (StringRef &className : exportedClassNames)
+			stream << className << ".promise=" << NewLine;
 		stream << "fetchBuffer('" << wasmFile << "').then(bytes =>" << NewLine;
 		stream << "WebAssembly.instantiate(bytes, importObject)" << NewLine;
 		stream << ",console.log).then(result => {" << NewLine;
@@ -5023,6 +5025,11 @@ void CheerpWriter::makeJS()
 
 		for (StringRef &className : exportedClassNames)
 		{
+			// Genericjs and asmjs should export a promise property as well.
+			// It will resolve immediately since there is no asynchronous
+			// module compilation required.
+			if (wasmFile.empty())
+				stream << className << ".promise=Promise.resolve();";
 			stream << "__root." << className << " = " << className << ";" << NewLine;
 		}
 
