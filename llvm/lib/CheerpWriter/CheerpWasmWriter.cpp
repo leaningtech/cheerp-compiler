@@ -902,8 +902,30 @@ void CheerpWasmWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer&
 
 void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 {
-	compileOperand(code, I.getOperand(0));
-	compileOperand(code, I.getOperand(1));
+	switch (I.getOpcode()) {
+		case Instruction::URem:
+		case Instruction::UDiv:
+			compileUnsignedInteger(code, I.getOperand(0));
+			compileUnsignedInteger(code, I.getOperand(1));
+			break;
+		case Instruction::SRem:
+		case Instruction::SDiv:
+			compileSignedInteger(code, I.getOperand(0), /*forComparison*/ false);
+			compileSignedInteger(code, I.getOperand(1), /*forComparison*/ false);
+			break;
+		case Instruction::LShr:
+			compileUnsignedInteger(code, I.getOperand(0));
+			compileOperand(code, I.getOperand(1));
+			break;
+		case Instruction::AShr:
+			compileSignedInteger(code, I.getOperand(0), /*forComparison*/ false);
+			compileOperand(code, I.getOperand(1));
+			break;
+		default:
+			compileOperand(code, I.getOperand(0));
+			compileOperand(code, I.getOperand(1));
+			break;
+	}
 
 	const Type* t = I.getType();
 	switch (I.getOpcode())
