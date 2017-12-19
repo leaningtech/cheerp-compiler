@@ -2661,6 +2661,9 @@ void CheerpWasmWriter::compileExportSection()
 		exports.push_back(entry);
 	}
 
+	if (llvm::Function* _start = module.getFunction("_start"))
+		exports.push_back(_start);
+
 	// Add the list of asmjs-exported functions.
 	exports.insert(exports.end(), globalDeps.asmJSExports().begin(),
 			globalDeps.asmJSExports().end());
@@ -2691,6 +2694,13 @@ void CheerpWasmWriter::compileExportSection()
 
 void CheerpWasmWriter::compileStartSection()
 {
+	// It's not possible to run constructors that depend on asmjs / generic js
+	// code, since the heap can only be accessed after the module has been
+	// initialised. Therefore, we disable the start section when a wasm loader
+	// is generated.
+	if (useWasmLoader)
+		return;
+
 	// Experimental entry point for wasm code
 	llvm::Function* entry = module.getFunction("_start");
 	if(!entry)
