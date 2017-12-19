@@ -136,67 +136,6 @@ void CheerpWasmWritePass::getAnalysisUsage(AnalysisUsage& AU) const
 
 char CheerpWasmWritePass::ID = 0;
 
-namespace {
-class CallGlobalConstructorsOnStartPass : public ModulePass {
-	private:
-		static char ID;
-	public:
-		CallGlobalConstructorsOnStartPass() : ModulePass(ID) { }
-		bool runOnModule(Module &M);
-		const char *getPassName() const {
-			return "CallGlobalConstructorsOnStartPass";
-		}
-};
-} // end anonymous namespace.
-
-bool CallGlobalConstructorsOnStartPass::runOnModule(Module& M)
-{
-	// Determine if a function should be constructed that calls the global
-	// constructors on start. The function will not be constructed when the
-	// wast loader is in use, or when there are no global constructors.
-	if (!WasmLoader.empty())
-		return false;
-
-	auto constructors = cheerp::ModuleGlobalConstructors(M);
-	if (!constructors || constructors->op_begin() == constructors->op_end())
-		return false;
-
-	// Create the function with the call instructions.
-	IRBuilder<> builder(M.getContext());
-	auto fTy = FunctionType::get(builder.getVoidTy(), false);
-	auto stub = Function::Create(fTy, Function::InternalLinkage, "_start", &M);
-	stub->setSection("asmjs");
-
-	auto block = BasicBlock::Create(M.getContext(), "entry", stub);
-	builder.SetInsertPoint(block);
-
-	for (auto it = constructors->op_begin(); it != constructors->op_end(); ++it)
-	{
-		assert(isa<ConstantStruct>(it));
-		ConstantStruct* cs = cast<ConstantStruct>(it);
-		assert(isa<Function>(cs->getAggregateElement(1)));
-		Function* F = cast<Function>(cs->getAggregateElement(1));
-
-		if (F->getSection() != StringRef("asmjs"))
-			continue;
-
-		builder.CreateCall(F);
-	}
-
-	builder.CreateRet(nullptr);
-
-	// Mark the function as jsexport'ed.
-	NamedMDNode* node = M.getNamedMetadata("jsexported_methods");
-	assert(node && "create jsexported_methods metadata node");
-	node->addOperand(MDNode::get(M.getContext(), {
-		ConstantAsMetadata::get(stub),
-	}));
-
-	return false;
-}
-
-char CallGlobalConstructorsOnStartPass::ID = 0;
-
 //===----------------------------------------------------------------------===//
 //                       External Interface declaration
 //===----------------------------------------------------------------------===//
@@ -209,7 +148,6 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            AnalysisID StartAfter,
                                            AnalysisID StopAfter,
                                            MachineFunctionInitializer* MFInit) {
-  PM.add(new CallGlobalConstructorsOnStartPass());
   PM.add(createAllocaLoweringPass());
   PM.add(createResolveAliasesPass());
   PM.add(createFreeAndDeleteRemovalPass());
