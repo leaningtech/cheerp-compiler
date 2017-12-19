@@ -202,6 +202,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			return cast<Function>( p->getAggregateElement(1) );
 		};
 		
+		auto getConstructorData = [](const Constant* p) -> const llvm::Constant*
+		{
+			assert(isa<ConstantStruct>(p) );
+			if (!p->getAggregateElement(2))
+				return nullptr;
+			return p->getAggregateElement(2);
+		};
+		
 		auto constComparator = [&]( const Constant * lhs, const Constant * rhs ) -> bool
 		{
 			return std::make_pair( getConstructorPriority(lhs), lhs) < 
@@ -219,6 +227,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			requiredConstructors.insert(p);
 			SubExprVec vec;
 			visitGlobal( getConstructorFunction(p), visited, vec );
+			const llvm::Constant* data = getConstructorData(p);
+			if (data)
+				visitConstant(data, visited, vec);
 			assert( visited.empty() );
 		}
 		
