@@ -115,6 +115,7 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 					compileConstantAsBytes(ce->getOperand(0), asmjs, listener, offset);
 					break;
 				}
+				case Instruction::PtrToInt:
 				case Instruction::IntToPtr:
 				case Instruction::BitCast:
 				{
