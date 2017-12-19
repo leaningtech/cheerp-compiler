@@ -1105,8 +1105,16 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			assert(incoming);
-			writer.encodeU32Inst(0x20, "get_local", 1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(incoming), code);
-			writer.encodeU32Inst(0x21, "set_local", 1 + writer.currentFun->arg_size() + writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB), code);
+			uint32_t numArgs = writer.currentFun->arg_size();
+
+			uint32_t reg = writer.registerize.getRegisterId(incoming);
+			uint32_t local = numArgs + reg;
+			writer.encodeU32Inst(0x20, "get_local", local, code);
+
+			reg = writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
+			local = numArgs + reg;
+			writer.encodeU32Inst(0x21, "set_local", local, code);
+
 		}
 		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
 		{
@@ -1118,7 +1126,9 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			writer.compileOperand(code, incoming);
 			writer.registerize.clearEdgeContext();
 			// 2) Save the value in the phi
-			uint32_t local = 1 + writer.currentFun->arg_size() + writer.registerize.getRegisterId(phi);
+			uint32_t numArgs = writer.currentFun->arg_size();
+			uint32_t reg = writer.registerize.getRegisterId(phi);
+			uint32_t local = numArgs + reg;
 			writer.encodeU32Inst(0x21, "set_local", local, code);
 		}
 	};
@@ -1417,7 +1427,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 		if(isInlineable(*it, PA)) {
 			compileInstruction(code, *it);
 		} else {
-			uint32_t local = 1 + currentFun->arg_size() + registerize.getRegisterId(it);
+			uint32_t local = currentFun->arg_size() + registerize.getRegisterId(it);
 			encodeU32Inst(0x20, "get_local", local, code);
 		}
 	}
@@ -2169,7 +2179,9 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 				if(I->use_empty()) {
 					encodeInst(0x1a, "drop", code);
 				} else {
-					uint32_t local = 1 + currentFun->arg_size() + registerize.getRegisterId(I);
+					uint32_t numArgs = currentFun->arg_size();
+					uint32_t reg = registerize.getRegisterId(I);
+					uint32_t local = numArgs + reg;
 					encodeU32Inst(0x21, "set_local", local, code);
 				}
 			}
@@ -2351,7 +2363,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		uint32_t numRegs = regsInfo.size();
 
 		// label is the very last local
-		CheerpWasmRenderInterface ri(this, code, 1 + numArgs + numRegs);
+		CheerpWasmRenderInterface ri(this, code, numArgs + numRegs);
 
 		rl->Render(&ri);
 		lastDepth0Block = ri.lastDepth0Block;
