@@ -70,6 +70,41 @@ static void createNullptrFunction(llvm::Module& module)
 	builder.CreateUnreachable();
 }
 
+static void callGlobalConstructorsOnStart(llvm::Module& M, GlobalDepsAnalyzer& GDA)
+{
+	// Determine if a function should be constructed that calls the global
+	// constructors on start. The function will not be constructed when there
+	// are no global constructors.
+	auto constructors = cheerp::ModuleGlobalConstructors(M);
+	if (!constructors || constructors->op_begin() == constructors->op_end())
+		return;
+
+	// Create the function with the call instructions.
+	IRBuilder<> builder(M.getContext());
+	auto fTy = FunctionType::get(builder.getVoidTy(), false);
+	auto stub = Function::Create(fTy, Function::InternalLinkage, "_start", &M);
+	stub->setSection("asmjs");
+
+	auto block = BasicBlock::Create(M.getContext(), "entry", stub);
+	builder.SetInsertPoint(block);
+
+	for (auto it = constructors->op_begin(); it != constructors->op_end(); ++it)
+	{
+		assert(isa<ConstantStruct>(it));
+		ConstantStruct* cs = cast<ConstantStruct>(it);
+		assert(isa<Function>(cs->getAggregateElement(1)));
+		Function* F = cast<Function>(cs->getAggregateElement(1));
+
+		if (F->getSection() != StringRef("asmjs"))
+			continue;
+
+		builder.CreateCall(F);
+	}
+
+	builder.CreateRet(nullptr);
+	return;
+}
+
 bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
 	DL = &module.getDataLayout();
@@ -252,6 +287,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	NumRemovedGlobals = filterModule(module);
+
+	callGlobalConstructorsOnStart(module, *this);
 
 	return true;
 }
