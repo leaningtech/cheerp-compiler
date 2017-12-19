@@ -2209,6 +2209,7 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, 
 		// vector length before the vector data.
 		std::stringstream locals;
 
+#if 0
 		// Local declarations are compressed into a vector whose entries
 		// consist of:
 		//
@@ -2219,7 +2220,7 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, 
 		//
 		// The first local after the params stores the previous stack address
 		Registerize::REGISTER_KIND lastKind = Registerize::INTEGER;
-		uint32_t count = 1;
+		uint32_t count = 1; // TODO
 		uint32_t pairs = 0;
 
 		// Emit the compressed vector of local registers.
@@ -2256,13 +2257,35 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, 
 
 		encodeULEB128(pairs, code);
 		code << locals.str();
+#endif
+		uint32_t pairs = 0;
+
+		// Emit the compressed vector of local registers.
+		for(const Registerize::RegisterInfo& regInfo: regsInfo)
+		{
+			assert(regInfo.regKind != Registerize::OBJECT);
+			assert(!regInfo.needsSecondaryName);
+
+			encodeULEB128(1, locals);
+			encodeRegisterKind(regInfo.regKind, locals);
+			pairs++;
+		}
+
+		// If needed, label is the very last local
+		if (needsLabel) {
+			encodeULEB128(1, locals);
+			encodeRegisterKind(Registerize::INTEGER, locals);
+			pairs++;
+		}
+
+		encodeULEB128(pairs, code);
+		code << locals.str();
 #if WASM_DUMP_METHODS
 		fprintf(stderr, "method locals (%u): ", pairs);
 		llvm::errs() << string_to_hex(locals.str()) << '\n';
 #endif
 	} else {
-		// The first local after the params stores the previous stack address
-		code << "(local i32";
+		code << "(local";
 		// Emit the registers, careful as the registerize id is offset by the number of args
 		for(const Registerize::RegisterInfo& regInfo: regsInfo)
 		{
