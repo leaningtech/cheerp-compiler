@@ -4990,6 +4990,10 @@ void CheerpWriter::makeJS()
 				stream << "__asm.";
 			stream << namegen.getName(F) << "();" << NewLine;
 		}
+	} else {
+		llvm::Function* entry = module.getFunction("_start");
+		if(entry)
+			stream << "__asm." << namegen.getName(entry) << "();" << NewLine;
 	}
 
 	//Invoke the entry point
