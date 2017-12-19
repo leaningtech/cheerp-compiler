@@ -892,7 +892,7 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
     // AST offset.
     if (!FD->isBitField()) {
       unsigned FieldNo = RL->getLLVMFieldNo(FD);
-      assert(FieldNo == 0xffffffff || AST_RL.getFieldOffset(i) == SL->getElementOffsetInBits(FieldNo) &&
+      assert((FieldNo == 0xffffffff || AST_RL.getFieldOffset(i) == SL->getElementOffsetInBits(FieldNo)) &&
              "Invalid field offset!");
       continue;
     }
