@@ -6855,6 +6855,15 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     }
     //TODO: Check for any public data or static member
   }
+  // CHEERP: If the record type is asmjs, disallow genericjs fields, including pointers
+  if (Record->hasAttr<AsmJSAttr>()) {
+    for (const auto* f: Record->fields()) {
+      if (!isAsmJSCompatible(f->getType())) {
+        Diag(f->getLocation(), diag::err_cheerp_wrong_field_section)
+          << f << f->getType() << Record;
+      }
+    }
+  }
 }
 
 /// Look up the special member function that would be called by a special
