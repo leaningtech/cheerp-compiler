@@ -489,6 +489,7 @@ void initializeFixIrreducibleControlFlowPass(PassRegistry&);
 void initializeCheerpLowerSwitchPass(PassRegistry&);
 void initializeFixFunctionCastsPass(PassRegistry&);
 void initializeByValLoweringPass(PassRegistry&);
+void initializeI64LoweringPass(PassRegistry&);
 
 } // end namespace llvm
 
