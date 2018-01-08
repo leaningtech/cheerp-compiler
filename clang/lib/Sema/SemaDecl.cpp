@@ -7457,6 +7457,11 @@ NamedDecl *Sema::ActOnVariableDeclarator(
   if (IsMemberSpecialization && !NewVD->isInvalidDecl())
     CompleteMemberSpecialization(NewVD, Previous);
 
+  // CHEERP: Disallow variables with genericjs types in the wasm section
+  if (NewVD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(NewVD->getType())) {
+      Diag(NewVD->getLocation(), diag::err_cheerp_wrong_variable_section)
+        << NewVD << NewVD->getType();
+  }
   return NewVD;
 }
 
