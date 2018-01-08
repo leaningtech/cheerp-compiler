@@ -10928,6 +10928,10 @@ def err_cheerp_switch_64bit : Error<
   "Cheerp: Switch statements with 64-bit integer values are not supported">;
 def err_cheerp_type_unsafe_functions : Error<
   "Cheerp: Function %0 is type unsafe, use %1 instead">;
+def err_cheerp_wrong_param_section : Error<
+  "Cheerp: Wasm function %0 cannot take parameter %1 of non-wasm type %2">;
+def err_cheerp_wrong_return_section : Error<
+  "Cheerp: Wasm function %0 cannot return a value of non-wasm type %1">;
 } // end of cheerp issue category
 
 } // end of sema component.
