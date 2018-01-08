@@ -13802,6 +13802,15 @@ public:
   void deepTypeCheckForSYCLDevice(SourceLocation UsedAt,
                                   llvm::DenseSet<QualType> Visited,
                                   ValueDecl *DeclToCheck);
+
+  // CHEERP: Utility function for checking if a type can be used in the asmjs section
+  static bool isAsmJSCompatible(QualType pt) {
+    pt = pt.getNonReferenceType();
+    while (pt->isAnyPointerType())
+      pt = pt->getPointeeType();
+    TagDecl* pd = pt->getAsTagDecl();
+    return !pd || pd->hasAttr<AsmJSAttr>();
+  }
 };
 
 /// RAII object that enters a new expression evaluation context.
