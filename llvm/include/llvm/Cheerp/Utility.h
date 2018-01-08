@@ -302,7 +302,7 @@ public:
 
 	static bool isTypedArrayType(llvm::Type* t, bool forceTypedArray)
 	{
-		return t->isIntegerTy(8) || t->isIntegerTy(16) || t->isIntegerTy(32) ||
+		return t->isIntegerTy(8) || t->isIntegerTy(16) || t->isIntegerTy(32) || t->isIntegerTy(64) ||
 			t->isFloatTy() || (forceTypedArray && t->isDoubleTy());
 	}
 
