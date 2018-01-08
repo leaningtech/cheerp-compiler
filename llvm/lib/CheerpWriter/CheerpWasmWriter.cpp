@@ -184,27 +184,6 @@ static void encodeU32Opcode(uint32_t opcode, const char* name,
 		uint32_t immediate, CheerpWasmWriter& writer, WasmBuffer& code)
 {
 	if (writer.cheerpMode == CHEERP_MODE_WASM) {
-		// Rewrite:
-		//   encodeU32Inst(0x21, "set_local", 5, code);
-		//   encodeU32Inst(0x20, "get_local", 5, code);
-		// into:
-		//   encodeU32Inst(0x22, "tee_local", 5, code);
-		//
-		// First, check if there at least two bytes written and that the
-		// current opcode is get_local.
-		long pos = code.tellp();
-		if (pos >= 2 && opcode == 0x20 && immediate < 0x7f) {
-			// Check that the opcode that's previously written is a set_local
-			// opcode and its immediate value matches the get_local immediate.
-			code.seekg(pos - 2);
-			if (code.get() == 0x21 && (uint32_t)code.get() == immediate) {
-				// Rewrite the opcode to tee_local, and restore the position.
-				code.seekp(pos - 2);
-				code.put(0x22);
-				code.seekp(pos);
-				return;
-			}
-		}
 		assert(opcode <= 255);
 		code << char(opcode);
 		encodeULEB128(immediate, code);
