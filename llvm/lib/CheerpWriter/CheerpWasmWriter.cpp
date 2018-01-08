@@ -1364,13 +1364,13 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
-		// Try to encode the float/double using a more compact representation.
-		if (tryEncodeFloatAsInt(code, f))
-			return;
-		if (tryEncodeFloat64AsFloat32(code, f))
-			return;
-
 		if (cheerpMode == CHEERP_MODE_WASM) {
+			// Try to encode the float/double using a more compact representation.
+			if (tryEncodeFloatAsInt(code, f))
+				return;
+			if (tryEncodeFloat64AsFloat32(code, f))
+				return;
+
 			encodeLiteralType(c->getType(), code);
 			if (c->getType()->isDoubleTy()) {
 				encodeF64(f->getValueAPF().convertToDouble(), code);
