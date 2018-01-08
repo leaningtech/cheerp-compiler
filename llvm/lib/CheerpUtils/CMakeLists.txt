@@ -23,6 +23,7 @@ add_llvm_library(LLVMCheerpUtils
   FixFunctionCasts.cpp
   ByValLowering.cpp
   FFIWrapping.cpp
+  I64Lowering.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)
