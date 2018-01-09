@@ -227,6 +227,8 @@ void LinearMemoryHelper::addFunctions()
 		if (wasmNullptr)
 			asmjsFunctions_.push_back(wasmNullptr);
 	}
+
+	std::vector<llvm::Function*> unsorted;
 	for (auto& F: module.functions())
 	{
 		if (F.getSection() != StringRef("asmjs"))
@@ -244,8 +246,18 @@ void LinearMemoryHelper::addFunctions()
 			continue;
 		}
 
-		asmjsFunctions_.push_back(&F);
+		unsorted.push_back(&F);
 	}
+
+	// Sort the list of functions by their usage.
+	std::sort(unsorted.begin(), unsorted.end(),
+		[] (Function* a, Function* b) {
+			return a->getNumUses() > b->getNumUses();
+		}
+	);
+
+	for (auto F : unsorted)
+		asmjsFunctions_.push_back(F);
 
 	// Add the asm.js imports to the function type list. The non-imported
 	// asm.js functions will be added below.
