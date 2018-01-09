@@ -1721,6 +1721,11 @@ Decl *TemplateDeclInstantiator::VisitCXXRecordDecl(CXXRecordDecl *D) {
   if (D->isLocalClass())
     SemaRef.CurrentInstantiationScope->InstantiatedLocal(D, Record);
 
+  if (D->hasAttr<AsmJSAttr>())
+      Record->addAttr(AsmJSAttr::CreateImplicit(SemaRef.Context, AsmJSAttr::GNU_cheerp_asmjs));
+  else if (D->hasAttr<GenericJSAttr>())
+      Record->addAttr(GenericJSAttr::CreateImplicit(SemaRef.Context, GenericJSAttr::GNU_cheerp_genericjs));
+
   // Forward the mangling number from the template to the instantiated decl.
   SemaRef.Context.setManglingNumber(Record,
                                     SemaRef.Context.getManglingNumber(D));
