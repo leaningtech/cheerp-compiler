@@ -2206,11 +2206,6 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, 
 {
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	if (cheerpMode == CHEERP_MODE_WASM) {
-		// Store the local declaration in a buffer since we need to write the
-		// vector length before the vector data.
-		std::stringstream locals;
-
-#if 0
 		// Local declarations are compressed into a vector whose entries
 		// consist of:
 		//
@@ -2218,73 +2213,52 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, 
 		//   - a `ValType',
 		//
 		// denoting `count' locals of the same `ValType'.
-		//
-		// The first local after the params stores the previous stack address
-		Registerize::REGISTER_KIND lastKind = Registerize::INTEGER;
-		uint32_t count = 1; // TODO
-		uint32_t pairs = 0;
+		struct LocalGroup {
+			uint32_t count;
+			Registerize::REGISTER_KIND kind;
+			LocalGroup(uint32_t count, Registerize::REGISTER_KIND kind)
+			 : count(count), kind(kind) {}
+		};
+		vector<LocalGroup> locals;
 
-		// Emit the compressed vector of local registers.
+		Registerize::REGISTER_KIND lastKind = Registerize::OBJECT;
+		uint32_t count = 0;
+
+		// Make groups of consecutive register kinds.
 		for(const Registerize::RegisterInfo& regInfo: regsInfo)
 		{
 			assert(regInfo.regKind != Registerize::OBJECT);
 			assert(!regInfo.needsSecondaryName);
 
-			if (regInfo.regKind != lastKind) {
-				encodeULEB128(count, locals);
-				encodeRegisterKind(lastKind, locals);
-				pairs++;
-
+			if (lastKind != regInfo.regKind) {
+				if (count) {
+					locals.emplace_back(count, lastKind);
+					count = 0;
+				}
 				lastKind = regInfo.regKind;
-				count = 1;
-			} else {
-				count++;
 			}
-		}
-
-		// If needed, label is the very last local
-		if (needsLabel && lastKind == Registerize::INTEGER)
 			count++;
-
-		encodeULEB128(count, locals);
-		encodeRegisterKind(lastKind, locals);
-		pairs++;
-
-		if (needsLabel && lastKind != Registerize::INTEGER) {
-			encodeULEB128(1, locals);
-			encodeRegisterKind(Registerize::INTEGER, locals);
-			pairs++;
 		}
 
-		encodeULEB128(pairs, code);
-		code << locals.str();
-#endif
-		uint32_t pairs = 0;
-
-		// Emit the compressed vector of local registers.
-		for(const Registerize::RegisterInfo& regInfo: regsInfo)
-		{
-			assert(regInfo.regKind != Registerize::OBJECT);
-			assert(!regInfo.needsSecondaryName);
-
-			encodeULEB128(1, locals);
-			encodeRegisterKind(regInfo.regKind, locals);
-			pairs++;
+		if (count) {
+			locals.emplace_back(count, lastKind);
 		}
 
 		// If needed, label is the very last local
 		if (needsLabel) {
-			encodeULEB128(1, locals);
-			encodeRegisterKind(Registerize::INTEGER, locals);
-			pairs++;
+			if (lastKind == Registerize::INTEGER) {
+				locals.back().count++;
+			} else {
+				locals.emplace_back(1, Registerize::INTEGER);
+			}
 		}
 
-		encodeULEB128(pairs, code);
-		code << locals.str();
-#if WASM_DUMP_METHODS
-		fprintf(stderr, "method locals (%u): ", pairs);
-		llvm::errs() << string_to_hex(locals.str()) << '\n';
-#endif
+		// Emit the compressed vector of local registers.
+		encodeULEB128(locals.size(), code);
+		for (auto& group : locals) {
+			encodeULEB128(group.count, code);
+			encodeRegisterKind(group.kind, code);
+		}
 	} else {
 		code << "(local";
 		// Emit the registers, careful as the registerize id is offset by the number of args
