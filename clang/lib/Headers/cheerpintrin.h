@@ -24,6 +24,8 @@
 #ifndef __CHEERPINTRIN_H
 #define __CHEERPINTRIN_H
 
+namespace [[cheerp::genericjs]] {
+
 template<class R, class P>
 R* __builtin_cheerp_pointer_base(const P* ptr);
 template<class P>
@@ -40,4 +42,5 @@ R* __builtin_cheerp_make_complete_object(T*);
 template<class R,class T>
 R* __builtin_cheerp_make_regular(T*, int);
 
+}
 #endif /* __CHEERPINTRIN_H */
