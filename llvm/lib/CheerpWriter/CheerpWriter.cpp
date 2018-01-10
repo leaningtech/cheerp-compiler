@@ -813,11 +813,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate)
 	{
-		if (asmjs)
+		if (asmjs || TypeSupport::isAsmJSPointer(func->getReturnType()))
 		{
 			Function* ffree = module.getFunction("free");
 			if (!ffree)
 				llvm::report_fatal_error("missing free definition");
+			if(!asmjs)
+				stream << "__asm.";
 			stream << namegen.getName(ffree) <<'(';
 			compileOperand(*it, PARENT_PRIORITY::LOWEST);
 			stream << ")";
@@ -1045,21 +1047,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileAllocation(da);
 		return COMPILE_OK;
 	}
-	if (asmjs && func->getIntrinsicID()==Intrinsic::cheerp_allocate)
+	if (func->getIntrinsicID()==Intrinsic::cheerp_allocate && (asmjs || TypeSupport::isAsmJSPointer(func->getReturnType())))
 	{
 		Function* fmalloc = module.getFunction("malloc");
 		if (!fmalloc)
 			llvm::report_fatal_error("missing malloc definition");
+		if(!asmjs)
+			stream << "__asm.";
 		stream << namegen.getName(fmalloc) <<'(';
 		compileOperand(*it, PARENT_PRIORITY::LOWEST);
 		stream << ")|0";
 		return COMPILE_OK;
 	}
-	else if (asmjs && func->getIntrinsicID()==Intrinsic::cheerp_reallocate)
+	else if (asmjs && func->getIntrinsicID()==Intrinsic::cheerp_reallocate && (asmjs || TypeSupport::isAsmJSPointer(func->getReturnType())))
 	{
 		Function* frealloc = module.getFunction("realloc");
 		if (!frealloc)
 			llvm::report_fatal_error("missing realloc definition");
+		if(!asmjs)
+			stream << "__asm.";
 		stream << namegen.getName(frealloc) <<'(';
 		compileOperand(*it);
 		stream << ',';
