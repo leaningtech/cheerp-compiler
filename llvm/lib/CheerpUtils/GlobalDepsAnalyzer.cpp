@@ -438,8 +438,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						asmJSImportedFuncions.insert(calledFunc);
 				}
 				// if this is an allocation intrinsic and we are in asmjs,
-				// visit the corresponding libc function
-				else if (calledFunc && isAsmJS)
+				// visit the corresponding libc function. The same applies if the allocate type is asmjs.
+				else if (calledFunc && (isAsmJS || TypeSupport::isAsmJSPointer(calledFunc->getReturnType())))
 				{
 					if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate)
 					{
@@ -449,6 +449,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						{
 							SubExprVec vec;
 							visitGlobal(fmalloc, visited, vec );
+							if(!isAsmJS)
+								asmJSExportedFuncions.insert(fmalloc);
 						}
 					}
 					else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_reallocate)
@@ -459,6 +461,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						{
 							SubExprVec vec;
 							visitGlobal(frealloc, visited, vec );
+							if(!isAsmJS)
+								asmJSExportedFuncions.insert(frealloc);
 						}
 					}
 					else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_deallocate)
@@ -469,6 +473,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						{
 							SubExprVec vec;
 							visitGlobal(ffree, visited, vec );
+							if(!isAsmJS)
+								asmJSExportedFuncions.insert(ffree);
 						}
 					}
 				}
