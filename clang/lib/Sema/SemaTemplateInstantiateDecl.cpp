@@ -1458,6 +1458,11 @@ Decl *TemplateDeclInstantiator::VisitClassTemplateDecl(ClassTemplateDecl *D) {
       Pattern->getLocation(), Pattern->getIdentifier(), PrevDecl,
       /*DelayTypeCreation=*/true);
 
+  if (Pattern->hasAttr<AsmJSAttr>())
+      RecordInst->addAttr(AsmJSAttr::CreateImplicit(SemaRef.Context, AsmJSAttr::GNU_cheerp_asmjs));
+  else if (Pattern->hasAttr<GenericJSAttr>())
+      RecordInst->addAttr(GenericJSAttr::CreateImplicit(SemaRef.Context, GenericJSAttr::GNU_cheerp_genericjs));
+
   if (QualifierLoc)
     RecordInst->setQualifierInfo(QualifierLoc);
 
