@@ -115,8 +115,17 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 					compileConstantAsBytes(ce->getOperand(0), asmjs, listener, offset);
 					break;
 				}
-				case Instruction::PtrToInt:
 				case Instruction::IntToPtr:
+				{
+					assert(isa<ConstantInt>(ce->getOperand(0)));
+					const ConstantInt* i = cast<ConstantInt>(ce->getOperand(0));
+					const APInt& integerRepresentation = i->getValue();
+					uint64_t val = integerRepresentation.getLimitedValue() + offset;
+					for(uint32_t i=0;i<32;i+=8)
+						listener->addByte((val>>i)&255);
+					break;
+				}
+				case Instruction::PtrToInt:
 				case Instruction::BitCast:
 				{
 					compileConstantAsBytes(ce->getOperand(0), asmjs, listener, offset);
