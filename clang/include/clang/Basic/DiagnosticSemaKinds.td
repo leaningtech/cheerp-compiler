@@ -10936,6 +10936,8 @@ def err_cheerp_wrong_variable_section : Error<
   "Cheerp: Variable %0 of non-wasm type %1 cannot be defined in the wasm section">;
 def err_cheerp_wrong_field_section : Error<
   "Cheerp: Field %0 of non-wasm type %1 cannot be defined in the wasm class %2">;
+def err_cheerp_wrong_this : Error<
+  "Cheerp: Method %0 of object %1 of non-wasm type %2 cannot be called in the wasm section">;
 } // end of cheerp issue category
 
 } // end of sema component.
