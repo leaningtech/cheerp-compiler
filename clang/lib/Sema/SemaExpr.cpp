@@ -2548,6 +2548,16 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
     return BuildTemplateIdExpr(SS, TemplateKWLoc, R, ADL, TemplateArgs);
   }
 
+  if (!ADL && R.isSingleResult() && !R.getAsSingle<FunctionTemplateDecl>() && S->getFnParent()) {
+    if (FunctionDecl* FD = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity())) {
+      if (VarDecl* Found = dyn_cast<VarDecl>(R.getFoundDecl())) {
+        if (FD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(Found->getType())) {
+          Diag(R.getLookupNameInfo().getLoc(), diag::err_cheerp_wrong_global_access)
+              << Found << Found->getType();
+        }
+      }
+    }
+  }
   return BuildDeclarationNameExpr(SS, R, ADL);
 }
 
