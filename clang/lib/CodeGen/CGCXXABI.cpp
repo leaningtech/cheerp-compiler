@@ -212,13 +212,18 @@ void CGCXXABI::ReadArrayCookie(CodeGenFunction &CGF, Address ptr,
     return;
   }
 
-  // Derive a char* in the same address space as the pointer.
-  ptr = CGF.Builder.CreateElementBitCast(ptr, CGF.Int8Ty);
-  cookieSize = getArrayCookieSizeImpl(eltTy);
-  Address allocAddr =
+  if (CGF.getTarget().isByteAddressable()) {
+    // Derive a char* in the same address space as the pointer.
+    ptr = CGF.Builder.CreateElementBitCast(ptr, CGF.Int8Ty);
+    cookieSize = getArrayCookieSizeImpl(eltTy);
+    Address allocAddr =
     CGF.Builder.CreateConstInBoundsByteGEP(ptr, -cookieSize);
-  allocPtr = allocAddr.getPointer();
-  numElements = readArrayCookieImpl(CGF, allocAddr, cookieSize);
+    allocPtr = allocAddr.getPointer();
+  } else {
+    allocPtr = ptr;
+    cookieSize = CharUnits::Zero();
+  }
+  numElements = readArrayCookieImpl(CGF, allocPtr, cookieSize);
 }
 
 llvm::Value *CGCXXABI::readArrayCookieImpl(CodeGenFunction &CGF,

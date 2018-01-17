@@ -2321,6 +2321,12 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
 llvm::Value *ItaniumCXXABI::readArrayCookieImpl(CodeGenFunction &CGF,
                                                 Address allocPtr,
                                                 CharUnits cookieSize) {
+  if (!CGF.getTarget().isByteAddressable()) {
+    llvm::Type* elemType = allocPtr->getType();
+    llvm::Function* GetLen = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
+        llvm::Intrinsic::cheerp_get_array_len, {elemType});
+    return CGF.Builder.CreateCall(GetLen, {allocPtr});
+  }
   // The element size is right-justified in the cookie.
   Address numElementsPtr = allocPtr;
   CharUnits numElementsOffset = cookieSize - CGF.getSizeSize();
