@@ -738,7 +738,9 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			break;
 		}
 		case Intrinsic::cheerp_downcast_current:
+		case Intrinsic::cheerp_get_array_len:
 		case Intrinsic::cheerp_deallocate:
+		case Intrinsic::cheerp_deallocate_array:
 		{
 			Type* localTys[] = { FT->getParamType(0) };
 			newTys.insert(newTys.end(),localTys,localTys+1);
@@ -752,6 +754,7 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			break;
 		}
 		case Intrinsic::cheerp_allocate:
+		case Intrinsic::cheerp_allocate_array:
 		{
 			Type* localTys[] = { FT->getReturnType() };
 			newTys.insert(newTys.end(),localTys,localTys+1);
