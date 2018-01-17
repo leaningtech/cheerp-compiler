@@ -441,7 +441,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				// visit the corresponding libc function. The same applies if the allocate type is asmjs.
 				else if (calledFunc && (isAsmJS || TypeSupport::isAsmJSPointer(calledFunc->getReturnType())))
 				{
-					if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate)
+					if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate ||
+					    calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
 					{
 						const Module* module = calledFunc->getParent();
 						Function* fmalloc = module->getFunction("malloc");
@@ -465,7 +466,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 								asmJSExportedFuncions.insert(frealloc);
 						}
 					}
-					else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_deallocate)
+					else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_deallocate ||
+					         calledFunc->getIntrinsicID() == Intrinsic::cheerp_deallocate_array)
 					{
 						const Module* module = calledFunc->getParent();
 						Function* ffree = module->getFunction("free");

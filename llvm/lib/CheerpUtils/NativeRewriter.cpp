@@ -410,7 +410,8 @@ bool CheerpNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function&
 				Function* called=i->getCalledFunction();
 				if(called==NULL)
 					continue;
-				if(called->getIntrinsicID() != Intrinsic::cheerp_allocate)
+				if(called->getIntrinsicID() != Intrinsic::cheerp_allocate &&
+				   called->getIntrinsicID() != Intrinsic::cheerp_allocate_array)
 					continue;
 				//This should be a typed new
 				Type* t=i->getType()->getPointerElementType();
