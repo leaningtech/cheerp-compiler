@@ -705,6 +705,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			return COMPILE_OK;
 		}
 	}
+	else if(intrinsicId==Intrinsic::cheerp_get_array_len)
+	{
+		compilePointerBase(*it);
+		stream << ".length";
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::cheerp_downcast)
 	{
 		compileDowncast( callV );
