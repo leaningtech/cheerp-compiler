@@ -796,6 +796,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeDelayAllocasPass(Registry);
 	initializePreExecutePass(Registry);
 	initializeExpandStructRegsPass(Registry);
+	initializeFreeAndDeleteRemovalPass(Registry);
 }
 
 }
