@@ -485,12 +485,16 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
 
   if(Arg* cheerpWasmLoader = Args.getLastArg(options::OPT_cheerp_wasm_loader_EQ)) {
     std::string wasmFile("-cheerp-wasm-file=");
-    wasmFile.append(Output.getFilename());
-    size_t ext = wasmFile.rfind(".wast");
-    if (ext == wasmFile.size()-5)
-      wasmFile[wasmFile.size()-1] = 'm';
-    else if (wasmFile.rfind(".wasm") != wasmFile.size() - 5)
-      wasmFile.append(".wasm");
+    if(Arg* cheerpWasmFile = Args.getLastArg(options::OPT_cheerp_wasm_file_EQ)) {
+      wasmFile.append(cheerpWasmFile->getValue());
+    } else {
+      wasmFile.append(Output.getFilename());
+      size_t ext = wasmFile.rfind(".wast");
+      if (ext == wasmFile.size()-5)
+        wasmFile[wasmFile.size()-1] = 'm';
+      else if (wasmFile.rfind(".wasm") != wasmFile.size() - 5)
+        wasmFile.append(".wasm");
+    }
     CmdArgs.push_back(Args.MakeArgString(wasmFile));
     cheerpWasmLoader->render(Args, CmdArgs);
   }

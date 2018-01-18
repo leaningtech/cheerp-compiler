@@ -4350,6 +4350,8 @@ def cheerp_wasm_loader_EQ : Joined<["-"], "cheerp-wasm-loader=">, Flags<[DriverO
   HelpText<"Write wasm loader to <file>">, MetaVarName<"<file>">;
 def cheerp_wast_loader_EQ : Joined<["-"], "cheerp-wast-loader=">,
     Alias<cheerp_wasm_loader_EQ>;
+def cheerp_wasm_file_EQ : Joined<["-"], "cheerp-wasm-file=">, Flags<[DriverOption]>,
+  HelpText<"Assume wasm file is <file>">, MetaVarName<"<file>">;
 def cheerp_asmjs_mem_file_EQ : Joined<["-"], "cheerp-asmjs-mem-file=">, Flags<[DriverOption]>,
   HelpText<"Write asm.js initialized memory to <file>">, MetaVarName<"<file>">;
 def cheerp_sourcemap_EQ : Joined<["-"], "cheerp-sourcemap=">, Flags<[DriverOption]>,
