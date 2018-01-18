@@ -575,6 +575,15 @@ bool FreeAndDeleteRemoval::runOnFunction(Function& F)
 	if (F.getSection()==StringRef("asmjs"))
 		return false;
 
+	bool isAllGenericJS = true;
+	for (const Function& f: *F.getParent())
+	{
+		if (f.getSection() == StringRef("asmjs"))
+		{
+			isAllGenericJS = false;
+			break;
+		}
+	}
 	for ( BasicBlock& BB : F )
 	{
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
@@ -585,17 +594,18 @@ bool FreeAndDeleteRemoval::runOnFunction(Function& F)
 			Function* F = call->getCalledFunction();
 			if(!F)
 				continue;
-			if(F->getName()=="free")
+			if(F->getName()=="free" && isAllGenericJS)
 			{
 				deleteInstructionAndUnusedOperands(call);
 				Changed = true;
 			}
-			else if(F->getIntrinsicID()==Intrinsic::cheerp_deallocate)
+			else if(F->getIntrinsicID()==Intrinsic::cheerp_deallocate ||
+			        F->getIntrinsicID()==Intrinsic::cheerp_deallocate_array)
 			{
 				Type* ty = call->getOperand(0)->getType();
 				assert(isa<PointerType>(ty));
 				Type* elemTy = cast<PointerType>(ty)->getElementType();
-				if (!cheerp::TypeSupport::isAsmJSPointer(ty) && elemTy->isAggregateType()) {
+				if (isAllGenericJS || (!cheerp::TypeSupport::isAsmJSPointer(ty) && elemTy->isAggregateType())) {
 					deleteInstructionAndUnusedOperands(call);
 					Changed = true;
 				}
@@ -736,4 +746,9 @@ INITIALIZE_PASS_END(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR 
 INITIALIZE_PASS_BEGIN(DelayAllocas, "DelayAllocas", "Moves allocas as close as possible to the actual users",
 			false, false)
 INITIALIZE_PASS_END(DelayAllocas, "DelayAllocas", "Moves allocas as close as possible to the actual users",
+			false, false)
+
+INITIALIZE_PASS_BEGIN(FreeAndDeleteRemoval, "FreeAndDeleteRemoval", "Remove free and delete calls of genericjs objects",
+			false, false)
+INITIALIZE_PASS_END(FreeAndDeleteRemoval, "FreeAndDeleteRemoval", "Remove free and delete calls of genericjs objects",
 			false, false)

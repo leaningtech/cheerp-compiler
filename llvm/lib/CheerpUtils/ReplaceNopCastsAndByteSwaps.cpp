@@ -82,17 +82,6 @@ bool ReplaceNopCastsAndByteSwaps::processBasicBlock(BasicBlock& BB)
 				IL->LowerIntrinsicCall(II);
 				Changed = true;
 			}
-			else if(II->getIntrinsicID() == Intrinsic::cheerp_deallocate)
-			{
-				CallInst* call = cast<CallInst>(II);
-				Type* ty = call->getOperand(0)->getType();
-				assert(isa<PointerType>(ty));
-				Type* elemTy = cast<PointerType>(ty)->getElementType();
-				if (!TypeSupport::isAsmJSPointer(ty) && elemTy->isAggregateType()) {
-					II->eraseFromParent();
-					Changed = true;
-				}
-			}
 		}
 	}
 	
