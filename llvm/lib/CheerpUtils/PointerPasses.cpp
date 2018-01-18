@@ -585,11 +585,20 @@ bool FreeAndDeleteRemoval::runOnFunction(Function& F)
 			Function* F = call->getCalledFunction();
 			if(!F)
 				continue;
-			if(F->getIntrinsicID()==Intrinsic::cheerp_deallocate ||
-				F->getName()=="free")
+			if(F->getName()=="free")
 			{
 				deleteInstructionAndUnusedOperands(call);
 				Changed = true;
+			}
+			else if(F->getIntrinsicID()==Intrinsic::cheerp_deallocate)
+			{
+				Type* ty = call->getOperand(0)->getType();
+				assert(isa<PointerType>(ty));
+				Type* elemTy = cast<PointerType>(ty)->getElementType();
+				if (!cheerp::TypeSupport::isAsmJSPointer(ty) && elemTy->isAggregateType()) {
+					deleteInstructionAndUnusedOperands(call);
+					Changed = true;
+				}
 			}
 		}
 	}
