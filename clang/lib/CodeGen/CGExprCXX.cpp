@@ -1322,6 +1322,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
                                 const FunctionProtoType *CalleeType,
                                 const CallArgList &Args,
                                 bool IsDelete,
+                                bool IsArray,
                                 QualType* allocType) {
   llvm::CallBase *CallOrInvoke;
   llvm::Constant *CalleePtr = CGF.CGM.GetAddrOfFunction(CalleeDecl);
@@ -1348,7 +1349,9 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     llvm::Type* types[] = { CGF.ConvertType(retType) };
 
     llvm::Constant* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
-                                llvm::Intrinsic::cheerp_allocate_array, types);
+                                IsArray? llvm::Intrinsic::cheerp_allocate_array :
+                                         llvm::Intrinsic::cheerp_allocate,
+                                types);
     llvm::Value* Arg[] = { Args[0].RV.getScalarVal() };
     CallOrInvoke = CGF.Builder.CreateCall(CalleeAddr, Arg);
     RV = RValue::get(CallOrInvoke);
@@ -1359,7 +1362,9 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     QualType argType = allocType ? CGF.getContext().getPointerType(*allocType) : CGF.getContext().VoidPtrTy;
     llvm::Type* types[] = { CGF.ConvertType(argType) };
     llvm::Constant* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
-                                llvm::Intrinsic::cheerp_deallocate_array, types);
+                                IsArray? llvm::Intrinsic::cheerp_deallocate_array :
+                                         llvm::Intrinsic::cheerp_deallocate,
+                                types);
     llvm::Value* Arg[] = { Args[0].RV.getScalarVal() };
     CallOrInvoke = CGF.Builder.CreateCall(CalleeAddr, Arg);
     RV = RValue::get(CallOrInvoke);
@@ -1400,7 +1405,7 @@ RValue CodeGenFunction::EmitBuiltinNewDeleteCall(const FunctionProtoType *Type,
   for (auto *Decl : Ctx.getTranslationUnitDecl()->lookup(Name))
     if (auto *FD = dyn_cast<FunctionDecl>(Decl))
       if (Ctx.hasSameType(FD->getType(), QualType(Type, 0)))
-        return EmitNewDeleteCall(*this, FD, Type, Args, IsDelete, NULL);
+        return EmitNewDeleteCall(*this, FD, Type, Args, IsDelete, false, NULL);
   llvm_unreachable("predeclared global operator new/delete is missing");
 }
 
@@ -1465,6 +1470,7 @@ namespace {
     ValueTy Ptr;
     ValueTy AllocSize;
     CharUnits AllocAlign;
+    bool IsArray;
 
     PlacementArg *getPlacementArgs() {
       return reinterpret_cast<PlacementArg *>(this + 1);
@@ -1478,11 +1484,11 @@ namespace {
     CallDeleteDuringNew(size_t NumPlacementArgs,
                         const FunctionDecl *OperatorDelete, ValueTy Ptr,
                         ValueTy AllocSize, bool PassAlignmentToPlacementDelete,
-                        CharUnits AllocAlign)
+                        CharUnits AllocAlign, bool IsArray)
       : NumPlacementArgs(NumPlacementArgs),
         PassAlignmentToPlacementDelete(PassAlignmentToPlacementDelete),
         OperatorDelete(OperatorDelete), Ptr(Ptr), AllocSize(AllocSize),
-        AllocAlign(AllocAlign) {}
+        AllocAlign(AllocAlign), IsArray(IsArray) {}
 
     void setPlacementArg(unsigned I, RValueTy Arg, QualType Type) {
       assert(I < NumPlacementArgs && "index out of range");
@@ -1533,7 +1539,7 @@ namespace {
       }
 
       // Call 'operator delete'.
-      EmitNewDeleteCall(CGF, OperatorDelete, FPT, DeleteArgs, /* IsDelete */ true, NULL);
+      EmitNewDeleteCall(CGF, OperatorDelete, FPT, DeleteArgs, /* IsDelete */ true, IsArray, NULL);
     }
   };
 }
@@ -1709,7 +1715,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
                  /*AC*/AbstractCallee(), /*ParamsToSkip*/ParamsToSkip);
 
     RValue RV =
-      EmitNewDeleteCall(*this, allocator, allocatorType, allocatorArgs, /* IsDelete */ false, &allocType);
+      EmitNewDeleteCall(*this, allocator, allocatorType, allocatorArgs, /* IsDelete */ false, E->isArray(), &allocType);
 
     // Set !heapallocsite metadata on the call to operator new.
     if (getDebugInfo())
@@ -1904,7 +1910,7 @@ void CodeGenFunction::EmitDeleteCall(const FunctionDecl *DeleteFD,
          "unknown parameter to usual delete function");
 
   // Emit the call to delete.
-  EmitNewDeleteCall(*this, DeleteFD, DeleteFTy, DeleteArgs, /* IsDelete */ true, &DeleteTy);
+  EmitNewDeleteCall(*this, DeleteFD, DeleteFTy, DeleteArgs, /* IsDelete */ true, /* IsArray */ false, &DeleteTy);
 
   // If call argument lowering didn't use the destroying_delete_t alloca,
   // remove it again.
