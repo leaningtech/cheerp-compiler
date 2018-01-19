@@ -824,7 +824,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate)
 	{
-		if (asmjs || TypeSupport::isAsmJSPointer(func->getReturnType()))
+		if (asmjs || TypeSupport::isAsmJSPointer((*it)->getType()))
 		{
 			Function* ffree = module.getFunction("free");
 			if (!ffree)
