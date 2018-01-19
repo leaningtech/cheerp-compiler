@@ -18,6 +18,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Cheerp/Utility.h"
 
 STATISTIC(NumAllocateArrayLowered, "Number of cheerp_allocate_array lowered");
 STATISTIC(NumDeallocateArrayLowered, "Number of cheerp_deallocate_array lowered");
@@ -34,8 +35,6 @@ bool AllocateArrayLowering::runOnFunction(Function& F)
 
 	bool asmjs = F.getSection() == StringRef("asmjs");
 	
-	Function* Malloc = M->getFunction("malloc");
-	Function* Free = M->getFunction("free");
 	bool modified = false;
 	for ( BasicBlock & BB : F )
 	{
@@ -48,9 +47,9 @@ bool AllocateArrayLowering::runOnFunction(Function& F)
 				Function* called = ci->getCalledFunction();
 				if (called && called->getIntrinsicID() == Intrinsic::cheerp_allocate_array) {
 					NumAllocateArrayLowered++;
-					if (!asmjs) {
+					Function* Allocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_allocate, {ci->getType()});
+					if (!asmjs && !cheerp::TypeSupport::isAsmJSPointer(ci->getType())) {
 						BasicBlock::iterator ii(ci);
-						Function* Allocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_allocate, {ci->getType()});
 						Instruction* repl = CallInst::Create(Allocate, {ci->getOperand(0)});
 						ReplaceInstWithInst(BB.getInstList(), ii, repl);
 						continue;
@@ -59,7 +58,7 @@ bool AllocateArrayLowering::runOnFunction(Function& F)
 					Value* origSize = ci->getOperand(0);
 					IRBuilder<> Builder(ci);
 					Value* size = Builder.CreateAdd(origSize, ConstantInt::get(int32Ty, 4));
-					Value* alloc = Builder.CreateCall(Malloc, {size});
+					Value* alloc = Builder.CreateCall(Allocate, {size});
 					uint32_t typeSize = targetData.getTypeAllocSize(cast<PointerType>(ci->getType())->getElementType());
 					Value* numElems = Builder.CreateUDiv(origSize, ConstantInt::get(int32Ty, typeSize));
 					Value* cookieAddr = Builder.CreateBitCast(alloc, int32Ty->getPointerTo());
@@ -72,10 +71,10 @@ bool AllocateArrayLowering::runOnFunction(Function& F)
 
 				} else if (called && called->getIntrinsicID() == Intrinsic::cheerp_deallocate_array) {
 					NumDeallocateArrayLowered++;
-					if (!asmjs) {
+					Function* Deallocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_deallocate, {ci->getOperand(0)->getType()});
+					if (!asmjs && !cheerp::TypeSupport::isAsmJSPointer(ci->getOperand(0)->getType())) {
 						BasicBlock::iterator ii(ci);
-						Function* Deallocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_deallocate, {ci->getType()});
-						Instruction* repl = CallInst::Create(Deallocate);
+						Instruction* repl = CallInst::Create(Deallocate, ci->getOperand(0));
 						ReplaceInstWithInst(BB.getInstList(), ii, repl);
 						continue;
 					}
@@ -84,7 +83,8 @@ bool AllocateArrayLowering::runOnFunction(Function& F)
 					Value* allocStart = ci->getOperand(0);
 					allocStart = Builder.CreateBitCast(allocStart, int8Ty->getPointerTo());
 					allocStart = Builder.CreateGEP(allocStart, ConstantInt::get(int32Ty, -4));
-					Builder.CreateCall(Free, {allocStart});
+					allocStart = Builder.CreateBitCast(allocStart, ci->getOperand(0)->getType());
+					Builder.CreateCall(Deallocate, {allocStart});
 					ci->eraseFromParent();
 				} else if (called && called->getIntrinsicID() == Intrinsic::cheerp_get_array_len) {
 					if (!asmjs) continue;
