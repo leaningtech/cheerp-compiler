@@ -320,7 +320,9 @@ private:
 		{
 			stream << "nullObj";
 		}
-		else if (PA.getConstantOffsetForPointer(p) || valueKind == SPLIT_REGULAR)
+		else if (PA.getConstantOffsetForPointer(p) ||
+			valueKind == SPLIT_REGULAR ||
+			valueKind == RAW)
 		{
 			stream << "{d:";
 			compilePointerBase(p, true);
