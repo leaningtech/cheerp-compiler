@@ -581,6 +581,11 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 void CheerpWriter::compileFree(const Value* obj)
 {
 	//TODO: Clean up class related data structures
+	stream << "__dynamic_free(";
+	compilePointerBase(obj, PARENT_PRIORITY::LOWEST);
+	stream << ",";
+	compilePointerOffset(obj, PARENT_PRIORITY::LOWEST);
+	stream << ")";
 }
 
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(ImmutableCallSite callV, const Function * func)
@@ -4744,6 +4749,21 @@ void CheerpWriter::compileFetchBuffer()
 	stream << "}" << NewLine;
 }
 
+void CheerpWriter::compileDynamicFree()
+{
+	Function* Free = module.getFunction("free");
+	stream << "function __dynamic_free(base, off){" << NewLine;
+	stream << "if(base.buffer == heap){" << NewLine;
+	stream << "__asm.";
+	if (Free)
+		stream << namegen.getName(Free) << "(off);";
+	else
+		stream << "__dummy();";
+	stream << NewLine;
+	stream << "}" << NewLine;
+	stream << "}" << NewLine;
+}
+
 void CheerpWriter::makeJS()
 {
 	if (sourceMapGenerator) {
@@ -4949,6 +4969,11 @@ void CheerpWriter::makeJS()
 	if( globalDeps.needHandleVAArg() )
 		compileHandleVAArg();
 	
+	//Compile the dynamic free for genericjs if needed
+	if(globalDeps.needAsmJS())
+	{
+		compileDynamicFree();
+	}
 	//Load Wast module
 	if (!wasmFile.empty())
 	{
