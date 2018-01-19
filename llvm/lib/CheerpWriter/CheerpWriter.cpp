@@ -1542,6 +1542,13 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 }
 void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 {
+	if(PA.getPointerKind(p) == RAW)
+	{
+		assert(isa<PointerType>(p->getType()));
+		Type* ty = llvm::cast<PointerType>(p->getType());
+		compileHeapForType(ty);
+		return;
+	}
 	// Collapse if p is a gepInst
 	if(isGEP(p))
 	{
@@ -1703,6 +1710,18 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPrio, bool forEscapingPointer)
 {
 	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
+	if ( PA.getPointerKind(p) == RAW)
+	{
+		assert(isa<PointerType>(p->getType()));
+		Type* ty = llvm::cast<PointerType>(p->getType());
+		if (parentPrio < SHIFT)
+			stream << '(';
+		compileRawPointer(p, SHIFT);
+		stream << ">>" << getHeapShiftForType(ty);
+		if (parentPrio < SHIFT)
+			stream << ')';
+		return;
+	}
 	if ( PA.getPointerKind(p) == COMPLETE_OBJECT && !isGEP(p) )
 	{
 		// This may still happen when doing ptrtoint of a function
