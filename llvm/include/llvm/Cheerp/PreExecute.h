@@ -32,8 +32,9 @@ public:
     llvm::GlobalVariable *globalValue;
     llvm::Type *allocType;
     size_t size;
+    bool hasCookie;
 
-    AllocData() : globalValue(nullptr), allocType(nullptr), size(0) { }
+    AllocData() : globalValue(nullptr), allocType(nullptr), size(0), hasCookie(false) { }
 };
 
 class Allocator
@@ -85,10 +86,11 @@ public:
     bool runOnConstructor(llvm::Module& m, llvm::Function* c);
 
     void recordStore(void* Addr);
-    void recordTypedAllocation(llvm::Type *type, size_t size, char *buf) {
+    void recordTypedAllocation(llvm::Type *type, size_t size, char *buf, bool hasCookie) {
         AllocData data;
         data.allocType = type;
         data.size = size;
+        data.hasCookie = hasCookie;
         typedAllocations.insert(std::make_pair(buf, data));
     };
     void releaseTypedAllocation(char* buf) {
