@@ -48,7 +48,7 @@ static void StoreListener(void* Addr)
 }
 static void AllocaListener(Type* Ty,uint32_t Size, void* Addr)
 {
-    PreExecute::currentPreExecutePass->recordTypedAllocation(Ty, Size, (char*)Addr);
+    PreExecute::currentPreExecutePass->recordTypedAllocation(Ty, Size, (char*)Addr, /*hasCookie*/ false);
 }
 static void RetListener(const std::vector<std::unique_ptr<char[]>>& allocas)
 {
@@ -75,8 +75,8 @@ static GenericValue pre_execute_pointer_base(FunctionType *FT,
   const GlobalValue* GV = currentEE->getGlobalValueAtAddress(p);
   if (GV)
   {
-	  void* base = currentEE->getPointerToGlobalIfAvailable(GV);
-	  return currentEE->RPTOGV(base);
+    void* base = currentEE->getPointerToGlobalIfAvailable(GV);
+    return currentEE->RPTOGV(base);
   }
   auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(p);
   assert (it != PreExecute::currentPreExecutePass->typedAllocations.begin());
@@ -113,6 +113,34 @@ static GenericValue pre_execute_pointer_offset(FunctionType *FT,
   return G;
 }
 
+static GenericValue pre_execute_allocate_array(FunctionType *FT,
+                                         const std::vector<GenericValue> &Args) {
+  size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
+
+  llvm::Type *type = FT->getReturnType()->getPointerElementType();
+  const DataLayout *DL = PreExecute::currentPreExecutePass->currentModule->getDataLayout();
+  size_t num = size / DL->getTypeAllocSize(type);
+  // Cookie
+  size_t cookieSize = cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, type);
+  size += cookieSize;
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  void* ret = PreExecute::currentPreExecutePass->allocator->allocate(size);
+  memset(ret, 0, size);
+
+#ifdef DEBUG_PRE_EXECUTE
+  llvm::errs() << "Allocating " << ret << " of size " << size << " and type " << *FT->getReturnType() << "\n";
+#endif
+
+  // Register this allocations in the pass
+  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ true);
+
+  uint32_t* cookie = (uint32_t*) ret;
+  *cookie = num;
+  ret = static_cast<char*>(ret) + cookieSize;
+
+  return currentEE->RPTOGV(ret);
+}
+
 static GenericValue pre_execute_allocate(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
@@ -126,7 +154,8 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
 
   // Register this allocations in the pass
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
-  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret);
+  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false);
+
   return currentEE->RPTOGV(ret);
 }
 
@@ -159,7 +188,7 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
 
   // Register this allocations in the pass
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
-  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret);
+  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false);
   return currentEE->RPTOGV(ret);
 }
 
@@ -177,6 +206,19 @@ static GenericValue pre_execute_deallocate(FunctionType *FT,
 #endif
 
     return GenericValue();
+}
+
+static GenericValue pre_execute_get_array_len(FunctionType *FT,
+                                           const std::vector<GenericValue> &Args) {
+    ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+    const DataLayout* DL = currentEE->getDataLayout();
+    Type* type = FT->getParamType(0)->getPointerElementType();
+    size_t cookieWords = cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, type) / sizeof(uint32_t);
+    uint32_t *cookie = static_cast<uint32_t*>(currentEE->GVTORP(Args[0])) - cookieWords;
+
+    GenericValue G;
+    G.IntVal = APInt(32, *cookie);
+    return G;
 }
 
 static GenericValue pre_execute_cast(FunctionType *FT,
@@ -338,7 +380,7 @@ static GenericValue pre_execute_downcast(FunctionType *FT,
         curByteOffset += layout->getElementOffset(firstBase);
     }
     if (baseOffset < 0)
-	    curByteOffset = - curByteOffset;
+      curByteOffset = - curByteOffset;
     uintptr_t AddrValue = reinterpret_cast<uintptr_t>(GVTOP(Args[0]));
 #ifdef DEBUG_PRE_EXECUTE
     llvm::errs() << "AddrValue " << AddrValue
@@ -363,7 +405,7 @@ static GenericValue assertEqualImpl(FunctionType *FT,
         llvm::errs() << msg << ": SUCCESS\n";
     } else {
         llvm::errs() << msg << ": FAILURE\n";
-	  llvm::report_fatal_error("PreExecute test failed");
+        llvm::report_fatal_error("PreExecute test failed");
     }
 
     return GenericValue(0);
@@ -385,6 +427,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_downcast;
     if (strncmp(funcName.c_str(), "llvm.cheerp.upcast.", strlen("llvm.cheerp.upcast."))==0)
         return (void*)(void(*)())pre_execute_upcast;
+    if (strncmp(funcName.c_str(), "llvm.cheerp.allocate.array.", strlen("llvm.cheerp.allocate.array."))==0)
+        return (void*)(void(*)())pre_execute_allocate_array;
     if (strncmp(funcName.c_str(), "llvm.cheerp.allocate.", strlen("llvm.cheerp.allocate."))==0)
         return (void*)(void(*)())pre_execute_allocate;
     if (strncmp(funcName.c_str(), "llvm.cheerp.reallocate.", strlen("llvm.cheerp.reallocate."))==0)
@@ -392,6 +436,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
     if (strncmp(funcName.c_str(), "llvm.cheerp.deallocate", strlen("llvm.cheerp.deallocate")) == 0 ||
         strncmp(funcName.c_str(), "free", strlen("free")) == 0)
         return (void*)(void(*)())pre_execute_deallocate;
+    if (strncmp(funcName.c_str(), "llvm.cheerp.get.array.len.", strlen("llvm.cheerp.get.array.len."))==0)
+        return (void*)(void(*)())pre_execute_get_array_len;
     if (strncmp(funcName.c_str(), "llvm.cheerp.element.distance.", strlen("llvm.cheerp.element.distance."))==0)
         return (void*)(void(*)())pre_execute_element_distance;
     if (strncmp(funcName.c_str(), "llvm.cheerp.pointer.base.", strlen("llvm.cheerp.pointer.base."))==0)
@@ -539,8 +585,24 @@ GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAd
     // We need to promote this memory to a globalvalue
     // Make it an array, if it's more than 1 element long
     uint32_t elementSize = DL->getTypeAllocSize(allocData.allocType);
-    uint32_t size = allocData.size / elementSize;
-    Type* newGlobalType = size > 1 ? ArrayType::get(allocData.allocType, size) : allocData.allocType;
+    Type* newGlobalType = nullptr;
+    size_t cookieSize = allocData.hasCookie ? cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, allocData.allocType) : 0;
+    uint32_t size = (allocData.size-cookieSize) / elementSize;
+    char* allocStart = it->first;
+    if (allocData.hasCookie && asmjs)
+    {
+        size_t cookieWords = cookieSize / sizeof(uint32_t);
+        Type* Int32Ty = IntegerType::get(currentModule->getContext(), 32);
+        Type* CookieTy = ArrayType::get(Int32Ty, cookieWords);
+        Type* DataTy = ArrayType::get(allocData.allocType, size);
+        Type* Tys[] = { CookieTy, DataTy };
+        newGlobalType = StructType::create(currentModule->getContext(), Tys);
+    }
+    else
+    {
+        newGlobalType = size > 1 ? ArrayType::get(allocData.allocType, size) : allocData.allocType;
+        allocStart += cookieSize;
+    }
 
     allocData.globalValue = new GlobalVariable(*currentModule, newGlobalType,
             false, GlobalValue::InternalLinkage, nullptr, "promotedMalloc");
