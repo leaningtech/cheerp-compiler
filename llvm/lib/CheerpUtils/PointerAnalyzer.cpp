@@ -797,7 +797,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 				return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 		}
 		case Intrinsic::cheerp_get_array_len:
-			return ret |= SPLIT_REGULAR;
+			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 		case Intrinsic::invariant_start:
 		case Intrinsic::invariant_end:
 		case Intrinsic::lifetime_start:
