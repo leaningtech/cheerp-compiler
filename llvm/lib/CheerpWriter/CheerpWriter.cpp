@@ -5254,6 +5254,10 @@ void CheerpWriter::AsmJSGepWriter::addValue(const llvm::Value* v, uint32_t size)
 void CheerpWriter::AsmJSGepWriter::addConst(int64_t v)
 {
 	assert(v);
+	// Just make sure that the constant part of the offset is not too big
+	assert(v>=std::numeric_limits<int32_t>::min());
+	assert(v<=std::numeric_limits<int32_t>::max());
+
 	offset = true;
 	writer.stream << v << '+';
 }
