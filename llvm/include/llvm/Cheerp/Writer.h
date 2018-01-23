@@ -413,11 +413,6 @@ private:
 	 */
 	void compileFetchBuffer();
 	/**
-	 * This method compiles an helper function for calling free() from genericjs
-	 * when the object may or may not be in the asmjs heap
-	 */
-	void compileDynamicFree();
-	/**
 	 * This method supports both ConstantArray and ConstantDataSequential
 	 */
 	void compileConstantArrayMembers(const llvm::Constant* C);
