@@ -17,6 +17,7 @@
 #include <new>
 #include <stdexcept>
 #include <type_traits>
+#include <cstdlib>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -102,7 +103,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             return static_cast<_Tp*>(::operator new(__n * sizeof(_Tp)));
         } else {
-            return static_cast<_Tp*>(new _Tp [__n] [[cheerp::noinit]]);
+            return static_cast<_Tp*>(malloc(sizeof(_Tp)*__n));
         }
     }
 
@@ -111,7 +112,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             ::operator delete(__p);
         } else {
-            delete[] ((void*)__p);
+            free(__p);
         }
     }
 
@@ -184,7 +185,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             return static_cast<const _Tp*>(::operator new(__n * sizeof(_Tp)));
         } else {
-            return static_cast<const _Tp*>(new _Tp[__n] [[cheerp::noinit]]);
+            return static_cast<const _Tp*>(malloc(sizeof(_Tp)*__n));
         }
     }
 
@@ -193,7 +194,7 @@ public:
         if (__libcpp_is_constant_evaluated()) {
             ::operator delete(const_cast<_Tp*>(__p));
         } else {
-            delete[] ((void*)__p);
+            free(__p);
         }
     }
 

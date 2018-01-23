@@ -833,6 +833,8 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
 #include <tuple>
 #include <type_traits>
 #include <typeinfo>
+#include <cstdlib>
+
 #include <version>
 
 // TODO: remove these headers
