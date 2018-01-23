@@ -215,6 +215,13 @@ public:
 	 * Returns the required alignment for this time in the asmjs section
 	 */
 	static uint32_t getAlignmentAsmJS(const llvm::DataLayout& dl, llvm::Type* t);
+	/**
+	 * Returns the cookie size for a c++ dynamic array allocation of the provided type
+	 */
+	static uint32_t getArrayCookieSizeAsmJS(const llvm::DataLayout& dl, llvm::Type* t)
+	{
+		return cheerp::TypeSupport::getAlignmentAsmJS(dl, t) > 4? 8 : 4;
+	}
 private:
 	const llvm::Module & module;
 };
