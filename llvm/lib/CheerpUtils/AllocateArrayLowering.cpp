@@ -47,7 +47,8 @@ bool AllocateArrayLowering::runOnFunction(Function& F)
 				Function* called = ci->getCalledFunction();
 				if (called && called->getIntrinsicID() == Intrinsic::cheerp_allocate_array) {
 					NumAllocateArrayLowered++;
-					Function* Allocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_allocate, {ci->getType()});
+					PointerType* allocType = cast<PointerType>(ci->getType());
+					Function* Allocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_allocate, {allocType});
 					if (!asmjs && !cheerp::TypeSupport::isAsmJSPointer(ci->getType())) {
 						BasicBlock::iterator ii(ci);
 						Instruction* repl = CallInst::Create(Allocate, {ci->getOperand(0)});
@@ -56,23 +57,26 @@ bool AllocateArrayLowering::runOnFunction(Function& F)
 					}
 
 					Value* origSize = ci->getOperand(0);
+					uint32_t typeSize = targetData.getTypeAllocSize(allocType->getPointerElementType());
+					int32_t cookieSize = cheerp::TypeSupport::getArrayCookieSizeAsmJS(targetData, allocType->getPointerElementType());
 					IRBuilder<> Builder(ci);
-					Value* size = Builder.CreateAdd(origSize, ConstantInt::get(int32Ty, 4));
+					Value* size = Builder.CreateAdd(origSize, ConstantInt::get(int32Ty, cookieSize));
 					Value* alloc = Builder.CreateCall(Allocate, {size});
-					uint32_t typeSize = targetData.getTypeAllocSize(cast<PointerType>(ci->getType())->getElementType());
 					Value* numElems = Builder.CreateUDiv(origSize, ConstantInt::get(int32Ty, typeSize));
 					Value* cookieAddr = Builder.CreateBitCast(alloc, int32Ty->getPointerTo());
 					Builder.CreateStore(numElems, cookieAddr);
-					Value* ret = Builder.CreateGEP(cookieAddr, ConstantInt::get(int32Ty, 1));
-					ret = Builder.CreateBitCast(ret, ci->getType());
+					Value* ret = Builder.CreateGEP(cookieAddr, ConstantInt::get(int32Ty, cookieSize/sizeof(int32_t)));
+					ret = Builder.CreateBitCast(ret, allocType);
 
 					BasicBlock::iterator ii(ci);
 					ReplaceInstWithValue(BB.getInstList(), ii, ret);
 
 				} else if (called && called->getIntrinsicID() == Intrinsic::cheerp_deallocate_array) {
 					NumDeallocateArrayLowered++;
-					Function* Deallocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_deallocate, {ci->getOperand(0)->getType()});
-					if (!asmjs && !cheerp::TypeSupport::isAsmJSPointer(ci->getOperand(0)->getType())) {
+					Value* allocStart = ci->getOperand(0);
+					Type* allocType = allocStart->getType();
+					Function* Deallocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_deallocate, {allocType});
+					if (!asmjs && !cheerp::TypeSupport::isAsmJSPointer(allocType)) {
 						BasicBlock::iterator ii(ci);
 						Instruction* repl = CallInst::Create(Deallocate, ci->getOperand(0));
 						ReplaceInstWithInst(BB.getInstList(), ii, repl);
@@ -80,10 +84,10 @@ bool AllocateArrayLowering::runOnFunction(Function& F)
 					}
 
 					IRBuilder<> Builder(ci);
-					Value* allocStart = ci->getOperand(0);
+					int32_t cookieSize = cheerp::TypeSupport::getArrayCookieSizeAsmJS(targetData, allocType->getPointerElementType());
 					allocStart = Builder.CreateBitCast(allocStart, int8Ty->getPointerTo());
-					allocStart = Builder.CreateGEP(allocStart, ConstantInt::get(int32Ty, -4));
-					allocStart = Builder.CreateBitCast(allocStart, ci->getOperand(0)->getType());
+					allocStart = Builder.CreateGEP(allocStart, ConstantInt::get(int32Ty, -cookieSize));
+					allocStart = Builder.CreateBitCast(allocStart, allocType);
 					Builder.CreateCall(Deallocate, {allocStart});
 					ci->eraseFromParent();
 				} else if (called && called->getIntrinsicID() == Intrinsic::cheerp_get_array_len) {
@@ -92,8 +96,10 @@ bool AllocateArrayLowering::runOnFunction(Function& F)
 					NumGetArrayLenLowered++;
 					IRBuilder<> Builder(ci);
 					Value* allocStart = ci->getOperand(0);
+					Type* allocType = allocStart->getType();
+					int32_t cookieSize = cheerp::TypeSupport::getArrayCookieSizeAsmJS(targetData, allocType->getPointerElementType());
 					allocStart = Builder.CreateBitCast(allocStart, int32Ty->getPointerTo());
-					Value* cookieLoc = Builder.CreateGEP(allocStart, ConstantInt::get(int32Ty, -1));
+					Value* cookieLoc = Builder.CreateGEP(allocStart, ConstantInt::get(int32Ty, -cookieSize/sizeof(int32_t)));
 					Value* cookie = Builder.CreateLoad(cookieLoc);
 
 					BasicBlock::iterator ii(ci);
