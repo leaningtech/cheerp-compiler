@@ -677,6 +677,8 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
 #include <tuple>
 #include <stdexcept>
 #include <cstring>
+#include <cstdlib>
+
 #if !defined(_LIBCPP_HAS_NO_ATOMIC_HEADER)
 #  include <atomic>
 #endif
@@ -1786,7 +1788,7 @@ public:
         if (__n > (size_t(~0) / sizeof(_Tp)))
             __throw_length_error("allocator<T>::allocate(size_t n)"
                                  " 'n' exceeds maximum supported size");
-        return static_cast<_Tp*>(new _Tp [__n] [[cheerp::noinit]]);
+        return static_cast<_Tp*>(malloc(sizeof(_Tp)*__n));
         }
 
 #if _LIBCPP_STD_VER <= 17 || defined(_LIBCPP_ENABLE_CXX20_REMOVED_ALLOCATOR_MEMBERS)
@@ -1795,7 +1797,7 @@ public:
 #endif
 
     _LIBCPP_INLINE_VISIBILITY void deallocate(_Tp* __p, size_t __n) _NOEXCEPT
-        {delete[] ((void*)__p);}
+        {free(__p);}
 
 #if _LIBCPP_STD_VER <= 17 || defined(_LIBCPP_ENABLE_CXX20_REMOVED_ALLOCATOR_MEMBERS)
     _LIBCPP_DEPRECATED_IN_CXX17 _LIBCPP_INLINE_VISIBILITY size_type max_size() const _NOEXCEPT
@@ -1851,7 +1853,7 @@ public:
         if (__n > (size_t(~0) / sizeof(_Tp)))
             __throw_length_error("allocator<const T>::allocate(size_t n)"
                                  " 'n' exceeds maximum supported size");
-        return static_cast<const _Tp*>(new _Tp[__n] [[cheerp::noinit]]);
+        return static_cast<const _Tp*>(malloc(sizeof(_Tp)*__n));
     }
 
 #if _LIBCPP_STD_VER <= 17 || defined(_LIBCPP_ENABLE_CXX20_REMOVED_ALLOCATOR_MEMBERS)
@@ -1860,7 +1862,7 @@ public:
 #endif
 
     _LIBCPP_INLINE_VISIBILITY void deallocate(const _Tp* __p, size_t __n)
-        {delete[] ((void*)__p);}
+        {free(__p);}
 
 #if _LIBCPP_STD_VER <= 17 || defined(_LIBCPP_ENABLE_CXX20_REMOVED_ALLOCATOR_MEMBERS)
     _LIBCPP_DEPRECATED_IN_CXX17 _LIBCPP_INLINE_VISIBILITY size_type max_size() const _NOEXCEPT
