@@ -6859,7 +6859,16 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   if (Record->hasAttr<AsmJSAttr>()) {
     for (const auto* f: Record->fields()) {
       if (!isAsmJSCompatible(f->getType())) {
-        Diag(f->getLocation(), diag::err_cheerp_wrong_field_section)
+        Diag(f->getLocation(), diag::err_cheerp_wrong_field_asmjs)
+          << f << f->getType() << Record;
+      }
+    }
+  }
+  // CHEERP: If the record type is genericjs, disallow asmjs value fields (pointers allowed)
+  else if (Record->hasAttr<GenericJSAttr>()) {
+    for (const auto* f: Record->fields()) {
+      if (isAsmJSValue(f->getType())) {
+        Diag(f->getLocation(), diag::err_cheerp_wrong_field_genericjs)
           << f << f->getType() << Record;
       }
     }

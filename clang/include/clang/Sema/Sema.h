@@ -12583,6 +12583,11 @@ public:
     TagDecl* pd = pt->getAsTagDecl();
     return !pd || pd->hasAttr<AsmJSAttr>();
   }
+  // CHEERP: Utility function for checking if a type is an asmjs value type
+  static bool isAsmJSValue(QualType pt) {
+    TagDecl* pd = pt->getAsTagDecl();
+    return pd && pd->hasAttr<AsmJSAttr>();
+  }
 };
 
 /// RAII object that enters a new expression evaluation context.
