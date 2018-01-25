@@ -3748,8 +3748,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			//If we are dealing with inline asm we are done
 			if(!ci.isInlineAsm())
 			{
-				// On asm.js mode the varargs are passed on the stack
-				size_t n = asmjs?fTy->getNumParams():ci.getNumArgOperands();
+				// In calling asmjs functions the varargs are passed on the stack
+				bool asmJSCallingConvention = asmjs || (calledFunc && calledFunc->getSection() == StringRef("asmjs"));
+				size_t n = asmJSCallingConvention ? fTy->getNumParams() : ci.getNumArgOperands();
 				compileMethodArgs(ci.op_begin(),ci.op_begin()+n, &ci, /*forceBoolean*/ false);
 			}
 			if(!retTy->isVoidTy())
