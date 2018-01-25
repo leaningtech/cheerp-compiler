@@ -2548,6 +2548,18 @@ Sema::CheckBaseSpecifier(CXXRecordDecl *Class,
         << CXXBaseDecl->getDeclName() << FA->getRange();
     return nullptr;
   }
+  // CHEERP: Derived class must have the same asmjs/genericjs attribute as the base
+  if (CXXBaseDecl->hasAttr<AsmJSAttr>() && Class->hasAttr<GenericJSAttr>()) {
+    Diag(BaseLoc, diag::err_cheerp_wrong_base_class_asmjs)
+      << CXXBaseDecl->getDeclName()
+      << Class;
+    return nullptr;
+  } else if (CXXBaseDecl->hasAttr<GenericJSAttr>() && Class->hasAttr<AsmJSAttr>()) {
+    Diag(BaseLoc, diag::err_cheerp_wrong_base_class_genericjs)
+      << CXXBaseDecl->getDeclName()
+      << Class;
+    return nullptr;
+  }
 
   if (BaseDecl->isInvalidDecl())
     Class->setInvalidDecl();

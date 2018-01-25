@@ -10944,6 +10944,10 @@ def err_cheerp_wrong_global_access : Error<
   "Cheerp: Global %0 of non-wasm type %1 cannot be used in the wasm section">;
 def err_cheerp_wrong_basic_pointer_param : Error<
   "Cheerp: Cannot call wasm function %0  from genericjs, because parameter %1 is a pointer to a basic type">;
+def err_cheerp_wrong_base_class_asmjs : Error<
+  "Cheerp: Base class %0  is in the wasm section, while derived class %1 is in the genericjs section">;
+def err_cheerp_wrong_base_class_genericjs : Error<
+  "Cheerp: Base class %0  is in the genericjs section, while derived class %1 is in the asmjs section">;
 } // end of cheerp issue category
 
 } // end of sema component.
