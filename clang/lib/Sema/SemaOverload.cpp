@@ -12874,6 +12874,22 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
     if (SemaRef.DiagnoseUseOfDecl(FDecl, ULE->getNameLoc()))
       return ExprError();
     Fn = SemaRef.FixOverloadedFunctionReference(Fn, (*Best)->FoundDecl, FDecl);
+    // CHEERP: Disallow calls to asmjs functions with pointer to basic type parameters from genericjs
+    if (S && S->getFnParent())
+    {
+      if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity())) {
+        if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
+          for(const auto p: FDecl->parameters()){
+            const Type* t = p->getOriginalType().getTypePtr();
+            if (t->hasPointerRepresentation() && t->getPointeeType()->isIntegralType(SemaRef.Context)) {
+              SemaRef.Diag(Fn->getLocStart(),
+                   diag::err_cheerp_wrong_basic_pointer_param)
+                << FDecl << p;
+            }
+          }
+        }
+      }
+    }
     return SemaRef.BuildResolvedCallExpr(Fn, FDecl, LParenLoc, Args, RParenLoc,
                                          ExecConfig, /*IsExecConfig=*/false,
                                          (*Best)->IsADLCandidate);

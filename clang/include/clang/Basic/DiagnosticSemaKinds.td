@@ -10942,6 +10942,8 @@ def err_cheerp_wrong_this : Error<
   "Cheerp: Method %0 of object %1 of non-wasm type %2 cannot be called in the wasm section">;
 def err_cheerp_wrong_global_access : Error<
   "Cheerp: Global %0 of non-wasm type %1 cannot be used in the wasm section">;
+def err_cheerp_wrong_basic_pointer_param : Error<
+  "Cheerp: Cannot call wasm function %0  from genericjs, because parameter %1 is a pointer to a basic type">;
 } // end of cheerp issue category
 
 } // end of sema component.
