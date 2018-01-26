@@ -10960,6 +10960,8 @@ def err_cheerp_wrong_virtual_method_asmjs : Error<
   "Cheerp: Wasm class %0 cannot have genericjs virtual method %1">;
 def err_cheerp_wrong_virtual_method_genericjs : Error<
   "Cheerp: Genericjs class %0 cannot have wasm virtual method %1">;
+def err_cheerp_incompatible_attributes : Error<
+  "Cheerp: Attribute %0 is incompatible with attribute %1">;
 } // end of cheerp issue category
 
 } // end of sema component.

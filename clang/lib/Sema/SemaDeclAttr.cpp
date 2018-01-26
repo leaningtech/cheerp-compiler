@@ -6797,14 +6797,22 @@ static void handleNoInit(Sema &S, Decl* D, const AttributeList &Attr)
 }
 
 static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
+  if (D->hasAttr<AsmJSAttr>() && isa<CXXRecordDecl>(D))
+    S.Diag(Attr.getLoc(), diag::err_cheerp_incompatible_attributes)
+      << Attr.getName() << D->getAttr<AsmJSAttr>();
+  else if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
     D->addAttr(::new (S.Context) JsExportAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
   else
     S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
 }
 
 static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  D->addAttr(::new (S.Context) AsmJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  if (D->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(D)) {
+    S.Diag(Attr.getLoc(), diag::err_cheerp_incompatible_attributes)
+      << Attr.getName() << D->getAttr<JsExportAttr>();
+  } else {
+    D->addAttr(::new (S.Context) AsmJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  }
 }
 
 static void handleGenericJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
@@ -7771,6 +7779,11 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
   if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
       LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
       LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wasm) {
+    if (D->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(D))
+      Diag(D->getLocStart(), diag::err_cheerp_incompatible_attributes)
+        << (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ? "'asmjs'" : "'wasm'")
+        << D->getAttr<JsExportAttr>();
+    else
       D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::GNU_cheerp_asmjs));
   } else if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_GenericJS) {
       D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::GNU_cheerp_genericjs));
