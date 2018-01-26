@@ -10948,6 +10948,10 @@ def err_cheerp_wrong_base_class_asmjs : Error<
   "Cheerp: Base class %0  is in the wasm section, while derived class %1 is in the genericjs section">;
 def err_cheerp_wrong_base_class_genericjs : Error<
   "Cheerp: Base class %0  is in the genericjs section, while derived class %1 is in the asmjs section">;
+def err_cheerp_wrong_function_addr_asmjs : Error<
+  "Cheerp: Cannot take address of asmjs function %0 from inside genericjs function %1">;
+def err_cheerp_wrong_function_addr_genericjs : Error<
+  "Cheerp: Cannot take address of genericjs function %0 from inside asmjs function %1">;
 } // end of cheerp issue category
 
 } // end of sema component.
