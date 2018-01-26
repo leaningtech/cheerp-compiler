@@ -12875,15 +12875,29 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
       return ExprError();
     Fn = SemaRef.FixOverloadedFunctionReference(Fn, (*Best)->FoundDecl, FDecl);
     // CHEERP: Disallow calls to asmjs functions with pointer to basic type parameters from genericjs
+    // and calls to functions with pointer to function parameters both ways
     if (S && S->getFnParent())
     {
       if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity())) {
         if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
           for(const auto p: FDecl->parameters()){
             const Type* t = p->getOriginalType().getTypePtr();
-            if (t->hasPointerRepresentation() && t->getPointeeType()->isIntegralType(SemaRef.Context)) {
+            if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
+              SemaRef.Diag(Fn->getLocStart(),
+                   diag::err_cheerp_wrong_func_pointer_param_asmjs)
+                << FDecl << p;
+            } else if (t->hasPointerRepresentation() && t->getPointeeType()->isIntegralType(SemaRef.Context)) {
               SemaRef.Diag(Fn->getLocStart(),
                    diag::err_cheerp_wrong_basic_pointer_param)
+                << FDecl << p;
+            }
+          }
+        } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {
+          for(const auto p: FDecl->parameters()){
+            const Type* t = p->getOriginalType().getTypePtr();
+            if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
+              SemaRef.Diag(Fn->getLocStart(),
+                   diag::err_cheerp_wrong_func_pointer_param_genericjs)
                 << FDecl << p;
             }
           }
