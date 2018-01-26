@@ -177,6 +177,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			visitGlobal( f, visited, vec );
 			assert( visited.empty() );
 			externals.push_back(f);
+			if (f->getSection() == StringRef("asmjs"))
+			{
+				asmJSExportedFuncions.insert(f);
+			}
 		}
 	}
 
