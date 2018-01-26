@@ -3469,6 +3469,20 @@ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
 
   CheckOverrideControl(Member);
 
+  // CHEERP: Disallow genericjs virtual methods in asmjs classes, and vice versa
+  if (CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(Member)) {
+    if (MD->isVirtual()) {
+      CXXRecordDecl* Class = MD->getParent();
+      if (Class->hasAttr<AsmJSAttr>() && MD->hasAttr<GenericJSAttr>()) {
+        Diag(MD->getLocation(), diag::err_cheerp_wrong_virtual_method_genericjs)
+          << Class << MD;
+      } else if (Class->hasAttr<GenericJSAttr>() && MD->hasAttr<AsmJSAttr>()) {
+        Diag(MD->getLocation(), diag::err_cheerp_wrong_virtual_method_asmjs)
+          << Class << MD;
+      }
+    }
+  }
+
   assert((Name || isInstField) && "No identifier for non-field ?");
 
   if (isInstField) {
