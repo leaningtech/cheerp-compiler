@@ -145,7 +145,7 @@ timed_mutex::lock()
     unique_lock<mutex> lk(__m_);
 #ifdef __CHEERP__
     if (__locked_)
-        client::console.log("Cheerp: timed_mutex::lock can't block");
+        cheerp::console_log("Cheerp: timed_mutex::lock can't block");
 #else
     while (__locked_)
         __cv_.wait(lk);
