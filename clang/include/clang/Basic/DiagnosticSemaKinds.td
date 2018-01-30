@@ -10932,8 +10932,12 @@ def err_cheerp_wrong_param_section : Error<
   "Cheerp: Wasm function %0 cannot take parameter %1 of non-wasm type %2">;
 def err_cheerp_wrong_return_section : Error<
   "Cheerp: Wasm function %0 cannot return a value of non-wasm type %1">;
-def err_cheerp_wrong_variable_section : Error<
-  "Cheerp: Variable %0 of non-wasm type %1 cannot be defined in the wasm section">;
+def err_cheerp_wrong_local_type_asmjs : Error<
+  "Cheerp: Variable %0 of genericjs type %1 cannot be defined in the wasm function %2">;
+def err_cheerp_wrong_global_attribute : Error<
+  "Cheerp: Global variable %0 of %1 type %2 cannot have the attribute %3">;
+def err_cheerp_wrong_local_attribute : Error<
+  "Cheerp: Explicitly putting the %0 attribute on local variables is forbidden">;
 def err_cheerp_wrong_field_asmjs : Error<
   "Cheerp: Field %0 of non-wasm type %1 cannot be defined in the wasm class %2">;
 def err_cheerp_wrong_field_genericjs : Error<

@@ -7459,21 +7459,34 @@ NamedDecl *Sema::ActOnVariableDeclarator(
   if (IsMemberSpecialization && !NewVD->isInvalidDecl())
     CompleteMemberSpecialization(NewVD, Previous);
 
-  // CHEERP: Disallow variables with genericjs types in the wasm section
-  if (NewVD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(NewVD->getType())) {
-      Diag(NewVD->getLocation(), diag::err_cheerp_wrong_variable_section)
-        << NewVD << NewVD->getType();
-  }
   // CHEERP: Disallow variables with global storage from having an attribute
   // incompatible with the attribute of their type
   if (NewVD->hasGlobalStorage()) {
     if (NewVD->hasAttr<AsmJSAttr>() && isGenericJSValue(NewVD->getType())) {
-        Diag(NewVD->getLocation(), diag::err_cheerp_wrong_variable_section)
-          << NewVD << NewVD->getType();
+      TagDecl* TD = NewVD->getType()->getAsTagDecl();
+      Diag(NewVD->getLocation(), diag::err_cheerp_wrong_global_attribute)
+        << NewVD << NewVD->getAttr<AsmJSAttr>() << NewVD->getType() << TD->getAttr<GenericJSAttr>();
     }
     else if (NewVD->hasAttr<GenericJSAttr>() && isAsmJSValue(NewVD->getType())) {
-        Diag(NewVD->getLocation(), diag::err_cheerp_wrong_variable_section)
-          << NewVD << NewVD->getType();
+      TagDecl* TD = NewVD->getType()->getAsTagDecl();
+      Diag(NewVD->getLocation(), diag::err_cheerp_wrong_global_attribute)
+        << NewVD << NewVD->getAttr<GenericJSAttr>() << NewVD->getType() << TD->getAttr<AsmJSAttr>();
+    }
+  } else {
+    // CHEERP: Disallow explicitly putting the cheerp attributes on local variables
+    if (NewVD->hasAttr<GenericJSAttr>() && !NewVD->getAttr<GenericJSAttr>()->isImplicit()) {
+      Diag(NewVD->getLocation(), diag::err_cheerp_wrong_local_attribute)
+        << NewVD->getAttr<GenericJSAttr>();
+    } else if (NewVD->hasAttr<AsmJSAttr>() && !NewVD->getAttr<AsmJSAttr>()->isImplicit()) {
+      Diag(NewVD->getLocation(), diag::err_cheerp_wrong_local_attribute)
+        << NewVD->getAttr<AsmJSAttr>();
+    }
+    // CHEERP: Disallow variables with genericjs types in asmjs functions
+    if (FunctionDecl* FD = dyn_cast<FunctionDecl>(NewVD->getDeclContext())) {
+      if (NewVD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(NewVD->getType())) {
+        Diag(NewVD->getLocation(), diag::err_cheerp_wrong_local_type_asmjs)
+          << NewVD << NewVD->getType() << FD;
+      }
     }
   }
   return NewVD;
