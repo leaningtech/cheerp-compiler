@@ -12190,6 +12190,7 @@ private:
   bool SemaBuiltinVSX(CallExpr *TheCall);
   bool SemaBuiltinOSLogFormat(CallExpr *TheCall);
 
+  void CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool newIsDefinition);
   // CHEERP: Inject asmjs/genericjs attribute if required
   void MaybeInjectCheerpModeAttr(Decl* D);
 public:
