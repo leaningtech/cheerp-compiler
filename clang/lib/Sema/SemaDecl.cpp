@@ -7464,6 +7464,18 @@ NamedDecl *Sema::ActOnVariableDeclarator(
       Diag(NewVD->getLocation(), diag::err_cheerp_wrong_variable_section)
         << NewVD << NewVD->getType();
   }
+  // CHEERP: Disallow variables with global storage from having an attribute
+  // incompatible with the attribute of their type
+  if (NewVD->hasGlobalStorage()) {
+    if (NewVD->hasAttr<AsmJSAttr>() && isGenericJSValue(NewVD->getType())) {
+        Diag(NewVD->getLocation(), diag::err_cheerp_wrong_variable_section)
+          << NewVD << NewVD->getType();
+    }
+    else if (NewVD->hasAttr<GenericJSAttr>() && isAsmJSValue(NewVD->getType())) {
+        Diag(NewVD->getLocation(), diag::err_cheerp_wrong_variable_section)
+          << NewVD << NewVD->getType();
+    }
+  }
   return NewVD;
 }
 
