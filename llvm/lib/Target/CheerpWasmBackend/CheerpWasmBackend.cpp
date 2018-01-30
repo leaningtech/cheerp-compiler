@@ -31,6 +31,7 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/ResolveAliases.h"
 #include "llvm/Cheerp/SourceMaps.h"
+#include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/Utility.h"
@@ -154,6 +155,8 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createResolveAliasesPass());
   PM.add(createFreeAndDeleteRemovalPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass());
+  if (!CheerpNoICF)
+    PM.add(cheerp::createIdenticalCodeFoldingPass());
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(cheerp::createRegisterizePass(true, false));

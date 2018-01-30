@@ -24,6 +24,7 @@
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/AllocaLowering.h"
 #include "llvm/Cheerp/AllocateArrayLowering.h"
+#include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/Registerize.h"
@@ -134,6 +135,8 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createResolveAliasesPass());
   PM.add(createFreeAndDeleteRemovalPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass());
+  if (!CheerpNoICF)
+    PM.add(cheerp::createIdenticalCodeFoldingPass());
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, NoRegisterize));
