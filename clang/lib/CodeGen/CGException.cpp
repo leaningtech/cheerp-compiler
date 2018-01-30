@@ -519,6 +519,9 @@ void CodeGenFunction::EmitStartEHSpec(const Decl *D) {
       QualType ExceptType = Ty.getNonReferenceType().getUnqualifiedType();
       llvm::Value *EHType = CGM.GetAddrOfRTTIDescriptor(ExceptType,
                                                         /*ForEH=*/true);
+
+      EHType = Builder.CreateBitCast(EHType, Int8PtrTy);
+
       Filter->setFilter(I, EHType);
     }
   } else if (Proto->canThrow() == CT_Cannot) {
