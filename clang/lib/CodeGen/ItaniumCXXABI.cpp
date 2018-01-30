@@ -1351,7 +1351,7 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
       E->getSubExpr(), Address(ExceptionPtr, CGM.Int8Ty, ExnAlign));
 
   // Now throw the exception.
-  llvm::Constant *TypeInfo = CGM.GetAddrOfRTTIDescriptor(ThrowType,
+  llvm::Value *TypeInfo = CGM.GetAddrOfRTTIDescriptor(ThrowType,
                                                          /*ForEH=*/true);
 
   // The address of the destructor.  If the exception type has a
@@ -1366,6 +1366,8 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
     }
   }
   if (!Dtor) Dtor = llvm::Constant::getNullValue(CGM.Int8PtrTy);
+
+  TypeInfo = CGF.Builder.CreateBitCast(TypeInfo, CGM.Int8PtrTy);
 
   llvm::Value *args[] = { ExceptionPtr, TypeInfo, Dtor };
   CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM), args);
