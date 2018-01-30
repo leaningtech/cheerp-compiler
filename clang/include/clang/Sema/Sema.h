@@ -13398,6 +13398,7 @@ private:
   bool SemaBuiltinOSLogFormat(CallExpr *TheCall);
   bool SemaValueIsRunOfOnes(CallExpr *TheCall, unsigned ArgNum);
 
+  void CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool newIsDefinition);
   // CHEERP: Inject asmjs/genericjs attribute if required
   void MaybeInjectCheerpModeAttr(Decl* D);
 public:
