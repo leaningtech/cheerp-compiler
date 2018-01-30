@@ -138,6 +138,14 @@ public:
 	// given function type
 	std::string getFunctionTableName(const llvm::FunctionType* ft);
 
+	// When folding identical functions, it is possible that the original
+	// function is exported while the replacement is not. This function is used
+	// to re-insert the replacement function into the exported function list.
+	void insertAsmJSExport(llvm::Function* F);
+
+	// Remove function from GDA's function list.
+	void eraseFunction(llvm::Function* F);
+
 private:
 	typedef llvm::SmallSet<const llvm::GlobalValue*, 8> VisitedSet;
 	
