@@ -39,4 +39,6 @@ llvm::cl::list<std::string> ReservedNames("cheerp-reserved-names", llvm::cl::val
 
 llvm::cl::opt<unsigned> CheerpHeapSize("cheerp-linear-heap-size", llvm::cl::init(1), llvm::cl::desc("Desired heap size for the cheerp wasm/asmjs module (in MB)") );
 
+llvm::cl::opt<bool> CheerpNoICF("cheerp-no-icf", llvm::cl::init(0), llvm::cl::desc("Disable identical code folding for wasm/asmjs") );
+
 llvm::cl::opt<bool> BoundsCheck("cheerp-bounds-check", llvm::cl::desc("Generate debug code for bounds-checking arrays") );

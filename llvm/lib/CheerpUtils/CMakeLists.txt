@@ -3,6 +3,7 @@ add_llvm_library(LLVMCheerpUtils
   AllocaLowering.cpp
   AllocateArrayLowering.cpp
   GlobalDepsAnalyzer.cpp
+  IdenticalCodeFolding.cpp
   NativeRewriter.cpp
   PreExecute.cpp
   PointerAnalyzer.cpp
