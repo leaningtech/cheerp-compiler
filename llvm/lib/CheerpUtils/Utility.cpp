@@ -751,6 +751,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeAllocaArraysPass(Registry);
 	initializeAllocaMergingPass(Registry);
 	initializeGlobalDepsAnalyzerPass(Registry);
+	initializeIdenticalCodeFoldingPass(Registry);
 	initializePointerAnalyzerPass(Registry);
 	initializeRegisterizePass(Registry);
 	initializeStructMemFuncLoweringPass(Registry);

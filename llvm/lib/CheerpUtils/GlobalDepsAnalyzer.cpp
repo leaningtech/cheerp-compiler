@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "GlobalDepsAnalyzer"
+#include <algorithm>
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
@@ -698,6 +699,22 @@ int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 		var->setLinkage(GlobalValue::ExternalLinkage);
 
 	return eraseQueue.size();
+}
+
+void GlobalDepsAnalyzer::insertAsmJSExport(llvm::Function* F) {
+	asmJSExportedFuncions.insert(F);
+}
+
+void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {
+	// TODO getEntryPoint should also be checked.
+
+	auto it = std::find(constructorsNeeded.begin(), constructorsNeeded.end(), F);
+	if (it != constructorsNeeded.end())
+		constructorsNeeded.erase(it);
+
+	asmJSExportedFuncions.erase(F);
+	asmJSImportedFuncions.erase(F);
+	reachableGlobals.erase(F);
 }
 
 }
