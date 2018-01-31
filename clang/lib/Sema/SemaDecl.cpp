@@ -12124,6 +12124,28 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init, bool DirectInit) {
     Init = Result.get();
   }
 
+  // CHEERP: Disallow assigning function pointers to globals if the attributes do not match
+  // TODO: we detect only simple expressions here, expand this check.
+  if (VDecl->hasGlobalStorage() && !VDecl->isInvalidDecl() && Init) {
+    Expr* Base = Init->IgnoreParenCasts();
+    if (UnaryOperator* U = dyn_cast<UnaryOperator>(Base)) {
+      if (U->getOpcode() == UO_AddrOf) {
+        Base = U->getSubExpr();
+      }
+    }
+    if (DeclRefExpr* Addr = dyn_cast<DeclRefExpr>(Base)) {
+      if (FunctionDecl* FD = dyn_cast_or_null<FunctionDecl>(Addr->getDecl())) {
+        if (VDecl->hasAttr<GenericJSAttr>() && FD->hasAttr<AsmJSAttr>()) {
+          Diag(Addr->getExprLoc(), diag::err_cheerp_wrong_function_addr_global)
+            << FD->getAttr<AsmJSAttr>() << FD << VDecl->getAttr<GenericJSAttr>() << VDecl;
+        } else if (VDecl->hasAttr<AsmJSAttr>() && FD->hasAttr<GenericJSAttr>()) {
+          Diag(Addr->getExprLoc(), diag::err_cheerp_wrong_function_addr_global)
+            << FD->getAttr<GenericJSAttr>() << FD << VDecl->getAttr<AsmJSAttr>() << VDecl;
+        }
+      }
+    }
+  }
+
   // Perform the initialization.
   ParenListExpr *CXXDirectInit = dyn_cast<ParenListExpr>(Init);
   if (!VDecl->isInvalidDecl()) {
