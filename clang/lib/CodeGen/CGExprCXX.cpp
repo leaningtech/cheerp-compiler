@@ -1359,8 +1359,9 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   // TODO: user defined delete?
   else if(IsDelete && cheerp)
   {
-    QualType argType = allocType ? CGF.getContext().getPointerType(*allocType) : CGF.getContext().VoidPtrTy;
-    llvm::Type* types[] = { CGF.ConvertType(argType) };
+    // NOTE: we trust the argument of delete to be of the right type. This should
+    // always be the case.
+    llvm::Type* types[] = { Args[0].RV.getScalarVal()->getType() };
     llvm::Constant* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
                                 IsArray? llvm::Intrinsic::cheerp_deallocate_array :
                                          llvm::Intrinsic::cheerp_deallocate,
