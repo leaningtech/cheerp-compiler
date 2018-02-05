@@ -233,6 +233,7 @@ public:
 		}
 	};
 	void compileConstantAsBytes(const llvm::Constant* c, bool asmjs, ByteListener* listener, int32_t offset=0) const;
+	bool isZeroInitializer(const llvm::Constant* c) const;
 	struct GepListener
 	{
 		virtual void addValue(const llvm::Value* v, uint32_t size) = 0;

@@ -4523,6 +4523,11 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 			if (GV.hasInitializer())
 			{
 				const Constant* init = GV.getInitializer();
+
+				// Skip global variables that are zero-initialised.
+				if (linearHelper.isZeroInitializer(init))
+					continue;
+
 				stream  << heapNames[HEAP8] << ".set([";
 				JSBytesWriter bytesWriter(stream);
 				linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
