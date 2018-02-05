@@ -608,6 +608,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 
 	StringRef section  = currentFun->getSection();
 	bool asmjs = section == StringRef("asmjs");
+	const char* Math = asmjs ? "" : "Math.";
 
 	//First handle high priority builtins, they will be used even
 	//if an implementation is available from the user
@@ -800,7 +801,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::ctlz)
 	{
-		stream << "Math.clz32(";
+		stream << Math << "clz32(";
 		compileOperand(*it, LOWEST);
 		stream << ')';
 		return COMPILE_OK;
@@ -861,7 +862,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		// NOTE: V8 has very strict rules about mixing the double builtins with
 		// floats in asm.js, so we need an extra `+` for those
 		PARENT_PRIORITY mathPrio = LOWEST;
-		const char* Math = asmjs ? "" : "Math.";
 		bool asmjsFloats = asmjs && useMathFround;
 		if(ident=="fabs" || ident=="fabsf")
 		{
@@ -4661,6 +4661,7 @@ void CheerpWriter::compileMathDeclAsmJS()
 	stream << "var sin=stdlib.Math.sin;" << NewLine;
 	stream << "var sqrt=stdlib.Math.sqrt;" << NewLine;
 	stream << "var tan=stdlib.Math.tan;" << NewLine;
+	stream << "var clz32=stdlib.Math.clz32;" << NewLine;
 }
 
 void CheerpWriter::compileAsmJSImports()
