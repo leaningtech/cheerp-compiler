@@ -838,8 +838,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			if(!asmjs)
 				stream << "__asm.";
 			stream << namegen.getName(ffree) <<'(';
-			compileOperand(*it, PARENT_PRIORITY::LOWEST);
-			stream << ")";
+			compileOperand(*it, PARENT_PRIORITY::BIT_OR);
+			stream << "|0)";
 		}
 		else
 		{
