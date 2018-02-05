@@ -385,21 +385,11 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   // Add standard libraries
   if (!Args.hasArg(options::OPT_nostdlib) &&
       !Args.hasArg(options::OPT_nodefaultlibs)) {
-    Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ);
-    bool asmjs = CheerpMode && (CheerpMode->getValue() == StringRef("asmjs") ||
-                                CheerpMode->getValue() == StringRef("wast") ||
-                                CheerpMode->getValue() == StringRef("wasm"));
-    StringRef libdir;
-    if (asmjs) {
-      libdir = LLVM_PREFIX "/lib/asmjs/";
-    } else {
-      libdir = LLVM_PREFIX "/lib/genericjs/";
-    }
     if (C.getDriver().CCCIsCXX()) {
-      CmdArgs.push_back(Args.MakeArgString(libdir + "libstdlibs.bc"));
+      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libstdlibs.bc")));
     } else {
-      CmdArgs.push_back(Args.MakeArgString(libdir + "libc.bc"));
-      CmdArgs.push_back(Args.MakeArgString(libdir + "libm.bc"));
+      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libc.bc")));
+      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libm.bc")));
     }
   }
 
