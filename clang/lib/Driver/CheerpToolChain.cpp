@@ -30,8 +30,19 @@ Cheerp::Cheerp(const Driver &D, const llvm::Triple& Triple, const llvm::opt::Arg
 
   path_list& filePaths = getFilePaths();
 
-  // Add default path
+  // Add default paths
+  Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
+  bool asmjs = CheerpMode && (CheerpMode->getValue() == StringRef("asmjs") ||
+                              CheerpMode->getValue() == StringRef("wast") ||
+                              CheerpMode->getValue() == StringRef("wasm"));
+  StringRef libdir;
+  if (asmjs) {
+    libdir = LLVM_PREFIX "/lib/asmjs";
+  } else {
+    libdir = LLVM_PREFIX "/lib/genericjs";
+  }
   filePaths.push_back(LLVM_PREFIX "/lib");
+  filePaths.push_back(libdir);
 
   // Add paths passed from the command line
   for (arg_iterator it = Args.filtered_begin(options::OPT_L),
