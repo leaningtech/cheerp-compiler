@@ -2423,13 +2423,16 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		{
 			const PointerType* pTy = cast<PointerType>(callV.getCalledValue()->getType());
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+			bool isImport = F && globalDeps.asmJSImports().count(F);
 			PARENT_PRIORITY prio = LOWEST;
 			if (tp->isPointerTy() || (tp->isIntegerTy() &&
-				((F && globalDeps.asmJSImports().count(F)) ||
+				(isImport ||
 				(!F && !linearHelper.getFunctionTables().count(fTy)))))
 			{
 				prio = BIT_OR;
 			}
+			else if(isImport && tp->isFloatTy())
+				stream << "+";
 			compileOperand(*cur,prio);
 			if (prio == BIT_OR)
 				stream << "|0";
