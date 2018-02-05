@@ -2785,6 +2785,10 @@ void CheerpWasmWriter::compileDataSection()
 
 		const Constant* init = GV.getInitializer();
 
+		// Skip global variables that are zero-initialised.
+		if (linearHelper.isZeroInitializer(init))
+			continue;
+
 		count++;
 
 		uint32_t address = linearHelper.getGlobalVariableAddress(&GV);

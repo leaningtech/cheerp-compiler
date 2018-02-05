@@ -163,6 +163,87 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 	}
 }
 
+bool LinearMemoryHelper::isZeroInitializer(const llvm::Constant* c) const
+{
+	if (const ConstantDataSequential* CD = dyn_cast<ConstantDataSequential>(c))
+	{
+		for (uint32_t i = 0; i < CD->getNumElements(); i++) {
+			if (!isZeroInitializer(CD->getElementAsConstant(i)))
+				return false;
+		}
+		return true;
+	}
+
+	if (isa<UndefValue>(c))
+		return true;
+
+	if (isa<ConstantArray>(c) || isa<ConstantStruct>(c))
+	{
+		for (uint32_t i = 0; i < c->getNumOperands(); i++) {
+			if (!isZeroInitializer(cast<Constant>(c->getOperand(i))))
+				return false;
+		}
+		return true;
+	}
+
+	if (const ConstantFP* f=dyn_cast<ConstantFP>(c))
+	{
+		const APFloat& flt = f->getValueAPF();
+		const APInt& integerRepresentation = flt.bitcastToAPInt();
+		uint64_t val = integerRepresentation.getLimitedValue();
+		uint32_t bitWidth = integerRepresentation.getBitWidth();
+		for (uint32_t i = 0; i < bitWidth; i += 8) {
+			if ((val>>i)&255)
+				return false;
+		}
+		return true;
+	}
+
+	if (const ConstantInt* i=dyn_cast<ConstantInt>(c))
+	{
+		const APInt& integerRepresentation = i->getValue();
+		uint64_t val = integerRepresentation.getLimitedValue();
+		uint32_t bitWidth = integerRepresentation.getBitWidth();
+		for (uint32_t i = 0; i < bitWidth; i += 8) {
+			if ((val>>i)&255)
+				return false;
+		}
+		return true;
+	}
+
+	if(isa<ConstantAggregateZero>(c) || isa<ConstantPointerNull>(c))
+		return true;
+
+	if(const Function* F = dyn_cast<Function>(c))
+	{
+		if (!functionAddresses.count(F))
+		{
+			llvm::errs() << "function not in table: " << F->getName() <<"\n";
+			llvm::report_fatal_error("please report a bug");
+		}
+		uint32_t addr = getFunctionAddress(F);
+		return addr == 0;
+	}
+
+	if(isa<ConstantExpr>(c))
+		return false;
+
+	if(isa<GlobalVariable>(c))
+	{
+		const GlobalVariable* g = cast<GlobalVariable>(c);
+		if (globalAddresses.count(g) != 1)
+		{
+			llvm::errs() << "global variable not found:" << g->getName() << "\n";
+			llvm::report_fatal_error("please report a bug");
+		}
+		uint32_t val = globalAddresses.at(g);
+		return val == 0;
+	}
+
+	c->dump();
+	llvm_unreachable("Unsupported constant type");
+}
+
 const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListener* listener) const
 {
 	const auto& targetData = module.getDataLayout();
