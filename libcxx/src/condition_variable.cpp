@@ -8,10 +8,14 @@
 
 #include "__config"
 
-#ifndef _LIBCPP_HAS_NO_THREADS
+#if !defined(_LIBCPP_HAS_NO_THREADS) || defined(__CHEERP__)
 
 #include "condition_variable"
+#ifdef __CHEERP__
+#include <cheerp/client.h>
+#else
 #include "thread"
+#endif
 #include "system_error"
 #include "__undef_macros"
 
@@ -26,13 +30,17 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 void
 condition_variable::notify_one() _NOEXCEPT
 {
+#ifndef __CHEERP__
     __libcpp_condvar_signal(&__cv_);
+#endif
 }
 
 void
 condition_variable::notify_all() _NOEXCEPT
 {
+#ifndef __CHEERP__
     __libcpp_condvar_broadcast(&__cv_);
+#endif
 }
 
 void
@@ -41,9 +49,13 @@ condition_variable::wait(unique_lock<mutex>& lk) _NOEXCEPT
     if (!lk.owns_lock())
         __throw_system_error(EPERM,
                                   "condition_variable::wait: mutex not locked");
+#ifdef __CHEERP__
+    cheerp::console_log("Cheerp: condition_variable::wait can't block");
+#else
     int ec = __libcpp_condvar_wait(&__cv_, lk.mutex()->native_handle());
     if (ec)
         __throw_system_error(ec, "condition_variable wait failed");
+#endif
 }
 
 void
@@ -71,14 +83,19 @@ condition_variable::__do_timed_wait(unique_lock<mutex>& lk,
         ts.tv_sec = ts_sec_max;
         ts.tv_nsec = giga::num - 1;
     }
+#ifdef __CHEERP__
+    cheerp::console_log("Cheerp: condition_variable::timed_wait can't block");
+#else
     int ec = __libcpp_condvar_timedwait(&__cv_, lk.mutex()->native_handle(), &ts);
     if (ec != 0 && ec != ETIMEDOUT)
         __throw_system_error(ec, "condition_variable timed_wait failed");
+#endif
 }
 
 void
 notify_all_at_thread_exit(condition_variable& cond, unique_lock<mutex> lk)
 {
+#ifndef __CHEERP__
     auto& tl_ptr = __thread_local_data();
     // If this thread was not created using std::thread then it will not have
     // previously allocated.
@@ -86,6 +103,7 @@ notify_all_at_thread_exit(condition_variable& cond, unique_lock<mutex> lk)
         tl_ptr.set_pointer(new __thread_struct);
     }
     __thread_local_data()->notify_all_at_thread_exit(&cond, lk.release());
+#endif
 }
 
 _LIBCPP_END_NAMESPACE_STD

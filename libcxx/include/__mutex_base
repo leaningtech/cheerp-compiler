@@ -281,10 +281,11 @@ _LIBCPP_DECLARE_STRONG_ENUM(cv_status)
 };
 _LIBCPP_DECLARE_STRONG_ENUM_EPILOG(cv_status)
 
-#ifndef __CHEERP__
 class _LIBCPP_TYPE_VIS condition_variable
 {
+#ifndef __CHEERP__
     __libcpp_condvar_t __cv_ = _LIBCPP_CONDVAR_INITIALIZER;
+#endif
 public:
     _LIBCPP_INLINE_VISIBILITY
     _LIBCPP_CONSTEXPR condition_variable() _NOEXCEPT = default;
@@ -332,8 +333,10 @@ public:
                  const chrono::duration<_Rep, _Period>& __d,
                  _Predicate __pred);
 
+#ifndef __CHEERP__
     typedef __libcpp_condvar_t* native_handle_type;
     _LIBCPP_INLINE_VISIBILITY native_handle_type native_handle() {return &__cv_;}
+#endif
 
 private:
     void __do_timed_wait(unique_lock<mutex>& __lk,
@@ -491,7 +494,6 @@ condition_variable::wait_for(unique_lock<mutex>& __lk,
     return wait_until(__lk, chrono::steady_clock::now() + __d,
                       _VSTD::move(__pred));
 }
-#endif
 
 #if defined(_LIBCPP_HAS_COND_CLOCKWAIT)
 inline
