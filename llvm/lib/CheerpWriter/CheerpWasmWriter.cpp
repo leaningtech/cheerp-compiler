@@ -2791,7 +2791,26 @@ void CheerpWasmWriter::compileDataSection()
 
 		count++;
 
+		std::stringstream bytes;
+		WasmBytesWriter bytesWriter(bytes, *this);
+		linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
+
+		std::string buf = bytes.str();
+
+		// Strip leading and trailing zeros.
+		size_t pos = 0, len = buf.size();
+		for (unsigned i = 0; i < buf.size() && !buf[i]; i++) {
+			pos++;
+			len--;
+		}
+		for (unsigned i = buf.size(); i > 0 && !buf[--i];)
+			len--;
+		buf = buf.substr(pos, len);
+		assert(len > 0 && "found a zero-initialised variable");
+
 		uint32_t address = linearHelper.getGlobalVariableAddress(&GV);
+		address += pos;
+
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			// In the current version of WebAssembly, at most one memory is
 			// allowed in a module. Consequently, the only valid memidx is 0.
@@ -2801,21 +2820,11 @@ void CheerpWasmWriter::compileDataSection()
 			encodeSLEB128(address, data);
 			// Encode the end of the instruction sequence.
 			encodeULEB128(0x0b, data);
-		} else {
-			data << "(data (i32.const " << address << ") \"";
-		}
-
-		std::stringstream bytes;
-		WasmBytesWriter bytesWriter(bytes, *this);
-		linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
-
-		if (cheerpMode == CHEERP_MODE_WASM) {
 			// Prefix the number of bytes to the bytes vector.
-			std::string buf = bytes.str();
 			encodeULEB128(buf.size(), data);
 			data.write(buf.data(), buf.size());
 		} else {
-			data << bytes.str() << "\")\n";
+			data << "(data (i32.const " << address << ") \"" << buf << "\")\n";
 		}
 	}
 
