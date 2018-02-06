@@ -39,7 +39,9 @@ public:
 
 condition_variable::~condition_variable()
 {
+#ifndef __CHEERP__
     __libcpp_condvar_destroy(&__cv_);
+#endif
 }
 #endif
 
