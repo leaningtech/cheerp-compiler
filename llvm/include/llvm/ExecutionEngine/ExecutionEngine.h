@@ -476,6 +476,7 @@ public:
 
   /// Returns if the execution is known to have failed
   virtual bool hasFailed() const { return false; }
+  virtual void resetFailed() { }
 
   /// DisableLazyCompilation - When lazy compilation is off (the default), the
   /// JIT will eagerly compile every function reachable from the argument to

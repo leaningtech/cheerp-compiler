@@ -728,6 +728,7 @@ bool PreExecute::runOnConstructor( llvm::Module& m, llvm::Function* func)
 {
     bool Changed = false;
 
+    currentEE->resetFailed();
     for (auto& GV: m.globals())
     {
         if (GV.hasInitializer())
@@ -738,6 +739,7 @@ bool PreExecute::runOnConstructor( llvm::Module& m, llvm::Function* func)
     {
         // Execution could not be safely completed. Clean up.
         modifiedGlobals.clear();
+        llvm::errs() << "warning: Could not pre-execute global constructor " << func->getName() << "\n";
     }
     else
         Changed = true;
