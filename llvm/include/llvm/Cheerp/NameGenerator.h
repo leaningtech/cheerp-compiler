@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2013 Leaning Technologies
+// Copyright 2011-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -38,6 +38,11 @@ public:
 	{
 		IMUL = 0,
 		FROUND,
+		HEAP8,
+		HEAP16,
+		HEAP32,
+		HEAPF32,
+		HEAPF64,
 		END // This is used to get the number of builtins, keep it last
 	};
 	/**
