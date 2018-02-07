@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -395,6 +395,13 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	 */
 	name_iterator<JSSymbols> name_it((JSSymbols(reservedNames)));
 	
+	// Generate HEAP names first to keep them short
+	builtins[HEAP8] = *name_it++;
+	builtins[HEAP16] = *name_it++;
+	builtins[HEAP32] = *name_it++;
+	builtins[HEAPF32] = *name_it++;
+	builtins[HEAPF64] = *name_it++;
+
 	// We need to iterate over allGlobalValues and allLocalValues
 	// at the same time incrementing selectively only one of the iterators
 	
@@ -496,13 +503,9 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		constructorTypesFinished = constructor_it == constructorTypes.end();
 		arrayTypesFinished = array_it == arrayTypes.end();
 	}
-	// We generate the builtin names last because we do not have statistics about
-	// them (for now)
-	for (unsigned i = 0; i < builtins.size(); i++)
-	{
-		builtins[i] = *name_it;
-		++name_it;
-	}
+	// Generate the rest of the builtins
+	builtins[IMUL] = *name_it++;
+	builtins[FROUND] = *name_it++;
 }
 
 void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnalyzer& gda)
@@ -617,6 +620,11 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	// Builtin funcions
 	builtins[IMUL] = "__imul";
 	builtins[FROUND] = "__fround";
+	builtins[HEAP8] = "HEAP8";
+	builtins[HEAP16] = "HEAP16";
+	builtins[HEAP32] = "HEAP32";
+	builtins[HEAPF32] = "HEAPF32";
+	builtins[HEAPF64] = "HEAPF64";
 }
 
 bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) const
