@@ -82,10 +82,6 @@ void sleep_for(const chrono::duration<Rep, Period>& rel_time);
 
 */
 
-#ifdef __CHEERP__
-#error Cheerp: C++ thread are not supported since they do not map to the threading model of the Web
-#else
-
 #include <__config>
 #include <iosfwd>
 #include <__functional_base>
@@ -109,7 +105,7 @@ void sleep_for(const chrono::duration<Rep, Period>& rel_time);
 _LIBCPP_PUSH_MACROS
 #include <__undef_macros>
 
-#ifdef _LIBCPP_HAS_NO_THREADS
+#if defined(_LIBCPP_HAS_NO_THREADS) && !defined(__CHEERP__)
 #error <thread> is not supported on this single threaded system
 #else // !_LIBCPP_HAS_NO_THREADS
 
@@ -139,7 +135,11 @@ public:
 template <class _Tp>
 class __thread_specific_ptr
 {
+#ifdef __CHEERP__
+    _Tp* __key_;
+#else
     __libcpp_tls_key __key_;
+#endif
 
      // Only __thread_local_data() may construct a __thread_specific_ptr
      // and only with _Tp == __thread_struct.
@@ -207,7 +207,11 @@ struct _LIBCPP_TEMPLATE_VIS hash<__thread_id>
     _LIBCPP_INLINE_VISIBILITY
     size_t operator()(__thread_id __v) const _NOEXCEPT
     {
+#ifdef __CHEERP__
+        return hash<int>()(__v.__id_);
+#else
         return hash<__libcpp_thread_id>()(__v.__id_);
+#endif
     }
 };
 
@@ -219,13 +223,21 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, __thread_id __id)
 
 class _LIBCPP_TYPE_VIS thread
 {
+#ifdef __CHEERP__
+    int __t_;
+#else
     __libcpp_thread_t __t_;
+#endif
 
     thread(const thread&);
     thread& operator=(const thread&);
 public:
     typedef __thread_id id;
+#ifdef __CHEERP__
+    typedef int native_handle_type;
+#else
     typedef __libcpp_thread_t native_handle_type;
+#endif
 
     _LIBCPP_INLINE_VISIBILITY
     thread() _NOEXCEPT : __t_(_LIBCPP_NULL_THREAD) {}
@@ -408,7 +420,11 @@ sleep_until(const chrono::time_point<chrono::steady_clock, _Duration>& __t)
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
+#ifdef __CHEERP__
+void yield() _NOEXCEPT {}
+#else
 void yield() _NOEXCEPT {__libcpp_thread_yield();}
+#endif
 
 }  // this_thread
 
@@ -419,4 +435,3 @@ _LIBCPP_END_NAMESPACE_STD
 _LIBCPP_POP_MACROS
 
 #endif  // _LIBCPP_THREAD
-#endif
