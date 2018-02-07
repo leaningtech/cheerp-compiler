@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2015 Leaning Technologies
+// Copyright 2011-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -4622,7 +4622,7 @@ void CheerpWriter::compileMemmoveHelperAsmJS()
 	stream << "src=src|0;dst=dst|0;size=size|0;" << NewLine;
 	stream << "var i=0;var end=0;var inc=1;" << NewLine;
 	stream << "if(src>>>0<dst>>>0){i=size-1|0;end=-1;inc=-1;}else end=size;"<<NewLine;
-	stream << "while(1){if((i|0)==(end|0))break;HEAP8[dst+i|0]=HEAP8[src+i|0];i=i+inc|0;}"<<NewLine;
+	stream << "while(1){if((i|0)==(end|0))break;" << heapNames[HEAP8] << "[dst+i|0]=" << heapNames[HEAP8] << "[src+i|0];i=i+inc|0;}"<<NewLine;
 	stream << "return dst|0;"<<NewLine;
 	stream << "}"<<NewLine;
 }
@@ -5026,7 +5026,7 @@ void CheerpWriter::makeJS()
 			stream << "var __asm=null;" << NewLine;
 			stream << "fetchBuffer('" << asmJSMemFile << "').then(memory => {" << NewLine;
 			stream << "var buf=new Uint8Array(memory);" << NewLine;
-			stream << "HEAP8.set(buf,0);" << NewLine;
+			stream << heapNames[HEAP8] << ".set(buf,0);" << NewLine;
 		}
 		else
 		{

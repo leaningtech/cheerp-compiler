@@ -165,7 +165,7 @@ private:
 	TypeSupport types;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
 	const std::array<const char*,5> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array"}};
-	const std::array<const char*,5> heapNames = {{"HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64"}};
+	const std::array<llvm::StringRef,5> heapNames;
 
 	// Stream to put the initialized asmjs memory into.
 	llvm::raw_ostream* asmJSMem;
@@ -511,6 +511,9 @@ public:
 		linearHelper(linearHelper),
 		namegen(namegen),
 		types(m),
+		heapNames{namegen.getBuiltinName(NameGenerator::Builtin::HEAP8), namegen.getBuiltinName(NameGenerator::Builtin::HEAP16),
+			namegen.getBuiltinName(NameGenerator::Builtin::HEAP32), namegen.getBuiltinName(NameGenerator::Builtin::HEAPF32),
+			namegen.getBuiltinName(NameGenerator::Builtin::HEAPF64)},
 		asmJSMem(asmJSMem),
 		asmJSMemFile(asmJSMemFile),
 		sourceMapGenerator(sourceMapGenerator),
