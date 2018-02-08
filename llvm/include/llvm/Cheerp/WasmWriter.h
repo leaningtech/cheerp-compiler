@@ -82,6 +82,15 @@ private:
 	// it will also add names to local variables inside functions.
 	bool prettyCode;
 
+	// If true, a set_local instruction is buffered. This mechanism is used to
+	// combine set_local followed by a get_local into a tee_local. The
+	// setLocalId field tracks the instruction's immediate.
+	bool hasSetLocal;
+
+	// The immediate of the buffered set_local instruction. If hasSetLocal is
+	// false, this value is set to `(uint32_t)-1`.
+	uint32_t setLocalId;
+
 public:
 	const PointerAnalyzer & PA;
 	CheerpMode cheerpMode;
@@ -161,6 +170,8 @@ public:
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
+		hasSetLocal(false),
+		setLocalId((uint32_t)-1),
 		PA(PA),
 		cheerpMode(cheerpMode),
 		stream(s)
@@ -175,6 +186,7 @@ public:
 	void compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison);
 	void compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v);
 	void encodeInst(uint32_t opcode, const char* name, WasmBuffer& code);
+	void encodeBufferedSetLocal(WasmBuffer& code);
 	void encodeBinOp(const llvm::Instruction& I, WasmBuffer& code);
 	void encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code);
 	void encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code);

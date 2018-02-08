@@ -876,6 +876,7 @@ void CheerpWasmRenderInterface::renderIfOnLabel(int labelId, bool first)
 
 void CheerpWasmWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer& code)
 {
+	encodeBufferedSetLocal(code);
 	encodeOpcode(opcode, name, *this, code);
 }
 
@@ -962,11 +963,35 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 
 void CheerpWasmWriter::encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code)
 {
+	encodeBufferedSetLocal(code);
 	encodeS32Opcode(opcode, name, immediate, *this, code);
 }
 
 void CheerpWasmWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code)
 {
+	// It should not be possible to have two consecutive set_local's with
+	// the same local ID.
+	assert(opcode != 0x21 || !hasSetLocal || immediate != setLocalId);
+
+	// If this is a get_local instruction and the immediate matches with the
+	// buffered set_local instruction, clear the buffered set_local and emit a
+	// tee_local.
+	if (opcode == 0x20 && hasSetLocal && setLocalId == immediate) {
+		encodeU32Opcode(0x22, "tee_local", immediate, *this, code);
+		hasSetLocal = false;
+		setLocalId = (uint32_t) -1;
+		return;
+	}
+
+	encodeBufferedSetLocal(code);
+
+	// If this is a set_local instruction, buffer the instruction.
+	if (opcode == 0x21) {
+		hasSetLocal = true;
+		setLocalId = immediate;
+		return;
+	}
+
 	if (cheerpMode == CHEERP_MODE_WAST) {
 		// Do not print the immediate for some opcodes when mode is set to
 		// wast. Wast doesn't need the immediate, while wasm does.
@@ -983,8 +1008,21 @@ void CheerpWasmWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t
 	encodeU32Opcode(opcode, name, immediate, *this, code);
 }
 
+void CheerpWasmWriter::encodeBufferedSetLocal(WasmBuffer& code)
+{
+	if (hasSetLocal) {
+		assert(setLocalId != (uint32_t) -1);
+		encodeU32Opcode(0x21, "set_local", setLocalId, *this, code);
+		setLocalId = (uint32_t) -1;
+		hasSetLocal = false;
+	} else {
+		assert(setLocalId == (uint32_t) -1);
+	}
+}
+
 void CheerpWasmWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code)
 {
+	encodeBufferedSetLocal(code);
 	if (cheerpMode == CHEERP_MODE_WAST) {
 		// Do not print the immediates for some opcodes when mode is set to
 		// wast. Wast doesn't need the immediate, while wasm does.
@@ -2202,6 +2240,8 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 			}
 		}
 	}
+
+	encodeBufferedSetLocal(code);
 }
 
 void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, bool needsLabel)
