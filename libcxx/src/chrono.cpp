@@ -33,6 +33,10 @@
 #  endif // !defined(CLOCK_REALTIME)
 #endif // defined(_LIBCPP_WIN32API)
 
+#if defined(__CHEERP__)
+#include <cheerp/client.h>
+#endif
+
 #if defined(__ELF__) && defined(_LIBCPP_LINK_RT_LIB)
 #  pragma comment(lib, "rt")
 #endif

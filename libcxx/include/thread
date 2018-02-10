@@ -279,7 +279,11 @@ public:
     void join();
     void detach();
     _LIBCPP_INLINE_VISIBILITY
+#ifdef __CHEERP__
+    id get_id() const _NOEXCEPT {return __t_;}
+#else
     id get_id() const _NOEXCEPT {return __libcpp_thread_get_id(&__t_);}
+#endif
     _LIBCPP_INLINE_VISIBILITY
     native_handle_type native_handle() _NOEXCEPT {return __t_;}
 

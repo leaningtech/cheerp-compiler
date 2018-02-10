@@ -745,7 +745,11 @@ public:
         { // don't pass id==0 to underlying routines
         if (__x.__id_ == 0) return __y.__id_ == 0;
         if (__y.__id_ == 0) return false;
+#ifdef __CHEERP__
+        return __x.__id_ == __y.__id_;
+#else
         return __libcpp_thread_id_equal(__x.__id_, __y.__id_);
+#endif
         }
     friend _LIBCPP_INLINE_VISIBILITY
         bool operator!=(__thread_id __x, __thread_id __y) _NOEXCEPT
@@ -755,7 +759,11 @@ public:
         { // id==0 is always less than any other thread_id
         if (__x.__id_ == 0) return __y.__id_ != 0;
         if (__y.__id_ == 0) return false;
+#ifdef __CHEERP__
+        return  __x.__id_ < __y.__id_;
+#else
         return  __libcpp_thread_id_less(__x.__id_, __y.__id_);
+#endif
         }
     friend _LIBCPP_INLINE_VISIBILITY
         bool operator<=(__thread_id __x, __thread_id __y) _NOEXCEPT
