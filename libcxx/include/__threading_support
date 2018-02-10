@@ -663,7 +663,11 @@ bool operator==(__thread_id __x, __thread_id __y) _NOEXCEPT {
     return __y.__id_ == 0;
   if (__y.__id_ == 0)
     return false;
+#ifdef __CHEERP__
+  return __x.__id_ == __y.__id_;
+#else
   return __libcpp_thread_id_equal(__x.__id_, __y.__id_);
+#endif
 }
 
 #if _LIBCPP_STD_VER <= 17
@@ -675,7 +679,11 @@ bool operator!=(__thread_id __x, __thread_id __y) _NOEXCEPT {
 
 inline _LIBCPP_HIDE_FROM_ABI
 bool operator<(__thread_id __x, __thread_id __y) _NOEXCEPT {
+#ifdef __CHEERP__
+  return  __x.__id_ < __y.__id_;
+#else
   return __thread_id::__lt_impl(__x.__id_, __y.__id_);
+#endif
 }
 
 inline _LIBCPP_HIDE_FROM_ABI bool operator<=(__thread_id __x, __thread_id __y) _NOEXCEPT { return !(__y < __x); }

@@ -50,6 +50,8 @@
 
 #if __has_include(<mach/mach_time.h>)
 # include <mach/mach_time.h>
+#elif defined(__CHEERP__)
+#include <cheerp/client.h>
 #endif
 
 #if defined(__ELF__) && defined(_LIBCPP_LINK_RT_LIB)
