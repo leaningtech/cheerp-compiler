@@ -167,19 +167,15 @@ steady_clock::now() _NOEXCEPT
 steady_clock::time_point
 steady_clock::now() _NOEXCEPT
 {
+#ifdef __CHEERP__
+    double val = cheerp::date_now();
+    return time_point(milliseconds((long long)val));
+#else
     struct timespec tp;
     if (0 != clock_gettime(CLOCK_MONOTONIC, &tp))
         __throw_system_error(errno, "clock_gettime(CLOCK_MONOTONIC) failed");
     return time_point(seconds(tp.tv_sec) + nanoseconds(tp.tv_nsec));
-}
-
-#elif defined(__CHEERP__)
-
-steady_clock::time_point
-steady_clock::now() _NOEXCEPT
-{
-    double val = cheerp::date_now();
-    return time_point(milliseconds((long long)val));
+#endif
 }
 
 #else
