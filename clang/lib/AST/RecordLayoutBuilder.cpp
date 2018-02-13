@@ -747,9 +747,11 @@ protected:
 
   void EnsureVTablePointerAlignment(CharUnits UnpackedBaseAlign);
 
-  /// LayoutNonVirtualBases - Determines the primary base class (if any) and
-  /// lays it out. Will then proceed to lay out all non-virtual base clasess.
-  void LayoutNonVirtualBases(const CXXRecordDecl *RD);
+  /// LayoutNonVirtualFirstBase - Determines the primary base class (if any) and
+  /// lays it out. If there was none, put the first base at offset 0, if available
+  CXXRecordDecl::base_class_const_iterator LayoutNonVirtualFirstBase(const CXXRecordDecl *RD);
+  /// LayoutNonVirtualSecondaryBase - Lays out a non-virtual non-primary base class.
+  void LayoutNonVirtualSecondaryBase(const CXXBaseSpecifier &I);
 
   /// LayoutNonVirtualBase - Lays out a single non-virtual base.
   void LayoutNonVirtualBase(const BaseSubobjectInfo *Base);
@@ -1019,14 +1021,16 @@ void ItaniumRecordLayoutBuilder::EnsureVTablePointerAlignment(
   UpdateAlignment(BaseAlign, UnpackedBaseAlign, BaseAlign);
 }
 
-void ItaniumRecordLayoutBuilder::LayoutNonVirtualBases(
+CXXRecordDecl::base_class_const_iterator
+ItaniumRecordLayoutBuilder::LayoutNonVirtualFirstBase(
     const CXXRecordDecl *RD) {
   // Then, determine the primary base class.
   DeterminePrimaryBase(RD);
 
   // Compute base subobject info.
   ComputeBaseSubobjectInfo(RD);
-
+  
+  CXXRecordDecl::base_class_const_iterator bases = RD->bases_begin();
   // If we have a primary base class, lay it out.
   if (PrimaryBase) {
     if (PrimaryBaseIsVirtual) {
@@ -1068,29 +1072,37 @@ void ItaniumRecordLayoutBuilder::LayoutNonVirtualBases(
 
     setSize(getSize() + PtrWidth);
     setDataSize(getSize());
+  // CHEERP: If the offset 0 is still available, put a secondary base here, even
+  // if it is technically not a primary base, it will be a directbase in the final
+  // layout
+  } else {
+    for (; bases !=  RD->bases_end(); bases++) {
+      if (getSize() != CharUnits::Zero())
+        break;
+      LayoutNonVirtualSecondaryBase(*bases);
+    }
   }
+  return bases;
+}
+void
+ItaniumRecordLayoutBuilder::LayoutNonVirtualSecondaryBase(const CXXBaseSpecifier& I) {
+  // Ignore virtual bases.
+  if (I.isVirtual())
+    return;
 
-  // Now lay out the non-virtual bases.
-  for (const auto &I : RD->bases()) {
+  const CXXRecordDecl *BaseDecl = I.getType()->getAsCXXRecordDecl();
 
-    // Ignore virtual bases.
-    if (I.isVirtual())
-      continue;
+  // Skip the primary base, because we've already laid it out.  The
+  // !PrimaryBaseIsVirtual check is required because we might have a
+  // non-virtual base of the same type as a primary virtual base.
+  if (BaseDecl == PrimaryBase && !PrimaryBaseIsVirtual)
+    return;
 
-    const CXXRecordDecl *BaseDecl = I.getType()->getAsCXXRecordDecl();
+  // Lay out the base.
+  BaseSubobjectInfo *BaseInfo = NonVirtualBaseInfo.lookup(BaseDecl);
+  assert(BaseInfo && "Did not find base info for non-virtual base!");
 
-    // Skip the primary base, because we've already laid it out.  The
-    // !PrimaryBaseIsVirtual check is required because we might have a
-    // non-virtual base of the same type as a primary virtual base.
-    if (BaseDecl == PrimaryBase && !PrimaryBaseIsVirtual)
-      continue;
-
-    // Lay out the base.
-    BaseSubobjectInfo *BaseInfo = NonVirtualBaseInfo.lookup(BaseDecl);
-    assert(BaseInfo && "Did not find base info for non-virtual base!");
-
-    LayoutNonVirtualBase(BaseInfo);
-  }
+  LayoutNonVirtualBase(BaseInfo);
 }
 
 void ItaniumRecordLayoutBuilder::LayoutNonVirtualBase(
@@ -1439,9 +1451,22 @@ void ItaniumRecordLayoutBuilder::Layout(const CXXRecordDecl *RD) {
   InitializeLayout(RD);
 
   // Lay out the vtable and the non-virtual bases.
-  LayoutNonVirtualBases(RD);
-
-  LayoutFields(RD);
+  auto secondary = LayoutNonVirtualFirstBase(RD);
+  // CHEERP: We want the non-virtual secondary bases to be adjacent to the virtual bases,
+  // so we put the fields after the primary base
+  if (Context.getTargetInfo().isByteAddressable()) {
+    for (auto it = secondary; it != RD->bases_end(); it++)
+    {
+      LayoutNonVirtualSecondaryBase(*it);
+    }
+    LayoutFields(RD);
+  } else {
+    LayoutFields(RD);
+    for (auto it = secondary; it != RD->bases_end(); it++)
+    {
+      LayoutNonVirtualSecondaryBase(*it);
+    }
+  }
 
   NonVirtualSize = Context.toCharUnitsFromBits(
       llvm::alignTo(getSizeInBits(), Context.getTargetInfo().getCharAlign()));
