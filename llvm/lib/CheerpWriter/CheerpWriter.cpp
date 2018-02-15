@@ -608,7 +608,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 
 	StringRef section  = currentFun->getSection();
 	bool asmjs = section == StringRef("asmjs");
-	const char* Math = asmjs ? "" : "Math.";
+	const char* Math = "Math.";
 
 	//First handle high priority builtins, they will be used even
 	//if an implementation is available from the user
@@ -801,7 +801,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::ctlz)
 	{
-		stream << Math << "clz32(";
+		if(asmjs)
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::CLZ32);
+		else
+			stream << Math << "clz32";
+		stream << "(";
 		compileOperand(*it, LOWEST);
 		stream << ')';
 		return COMPILE_OK;
@@ -865,7 +869,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		bool asmjsFloats = asmjs && useMathFround;
 		if(ident=="fabs" || ident=="fabsf")
 		{
-			stream << Math << "abs(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::ABS);
+			else
+				stream << Math << "abs";
+			stream << "(";
 			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
@@ -874,7 +882,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "acos(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::ACOS);
+			else
+				stream << Math << "acos";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -888,7 +900,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "asin(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::ASIN);
+			else
+				stream << Math << "asin";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -902,7 +918,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "atan(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::ATAN);
+			else
+				stream << Math << "atan";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -916,7 +936,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "atan2(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::ATAN2);
+			else
+				stream << Math << "atan2";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -934,7 +958,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="ceil" || ident=="ceilf")
 		{
-			stream << Math << "ceil(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::CEIL);
+			else
+				stream << Math << "ceil";
+			stream << "(";
 			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
@@ -943,7 +971,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "cos(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::COS);
+			else
+				stream << Math << "cos";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -957,7 +989,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "exp(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::EXP);
+			else
+				stream << Math << "exp";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -969,7 +1005,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="floor" || ident=="floorf")
 		{
-			stream << Math << "floor(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FLOOR);
+			else
+				stream << Math << "floor";
+			stream << "(";
 			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
@@ -978,7 +1018,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "log(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::LOG);
+			else
+				stream << Math << "log";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -992,7 +1036,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "pow(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::POW);
+			else
+				stream << Math << "pow";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -1024,7 +1072,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "sin(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::SIN);
+			else
+				stream << Math << "sin";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -1036,7 +1088,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		else if(ident=="sqrt" || ident=="sqrtf")
 		{
-			stream << Math << "sqrt(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::SQRT);
+			else
+				stream << Math << "sqrt";
+			stream << "(";
 			compileOperand(*(it), mathPrio);
 			stream << ')';
 			return COMPILE_OK;
@@ -1045,7 +1101,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
-			stream << Math << "tan(";
+			if(asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::TAN);
+			else
+				stream << Math << "tan";
+			stream << "(";
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 			{
 				mathPrio = HIGHEST;
@@ -4655,21 +4715,21 @@ void CheerpWriter::compileMathDeclAsmJS()
 {
 	stream << "var Infinity=stdlib.Infinity;" << NewLine;
 	stream << "var NaN=stdlib.NaN;" << NewLine;
-	stream << "var abs=stdlib.Math.abs;" << NewLine;
-	stream << "var acos=stdlib.Math.acos;" << NewLine;
-	stream << "var asin=stdlib.Math.asin;" << NewLine;
-	stream << "var atan=stdlib.Math.atan;" << NewLine;
-	stream << "var atan2=stdlib.Math.atan2;" << NewLine;
-	stream << "var ceil=stdlib.Math.ceil;" << NewLine;
-	stream << "var cos=stdlib.Math.cos;" << NewLine;
-	stream << "var exp=stdlib.Math.exp;" << NewLine;
-	stream << "var floor=stdlib.Math.floor;" << NewLine;
-	stream << "var log=stdlib.Math.log;" << NewLine;
-	stream << "var pow=stdlib.Math.pow;" << NewLine;
-	stream << "var sin=stdlib.Math.sin;" << NewLine;
-	stream << "var sqrt=stdlib.Math.sqrt;" << NewLine;
-	stream << "var tan=stdlib.Math.tan;" << NewLine;
-	stream << "var clz32=stdlib.Math.clz32;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ABS) << "=stdlib.Math.abs;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ACOS) << "=stdlib.Math.acos;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ASIN) << "=stdlib.Math.asin;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ATAN) << "=stdlib.Math.atan;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ATAN2) << "=stdlib.Math.atan2;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::CEIL) << "=stdlib.Math.ceil;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::COS) << "=stdlib.Math.cos;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::EXP) << "=stdlib.Math.exp;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::FLOOR) << "=stdlib.Math.floor;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::LOG) << "=stdlib.Math.log;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::POW) << "=stdlib.Math.pow;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::SIN) << "=stdlib.Math.sin;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::SQRT) << "=stdlib.Math.sqrt;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::TAN) << "=stdlib.Math.tan;" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::CLZ32) << "=stdlib.Math.clz32;" << NewLine;
 }
 
 void CheerpWriter::compileAsmJSImports()
