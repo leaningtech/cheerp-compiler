@@ -504,8 +504,8 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		arrayTypesFinished = array_it == arrayTypes.end();
 	}
 	// Generate the rest of the builtins
-	builtins[IMUL] = *name_it++;
-	builtins[FROUND] = *name_it++;
+	for(int i=IMUL;i<=CLZ32;i++)
+		builtins[i] = *name_it++;
 }
 
 void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnalyzer& gda)
@@ -620,6 +620,21 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	// Builtin funcions
 	builtins[IMUL] = "__imul";
 	builtins[FROUND] = "__fround";
+	builtins[ABS] = "abs";
+	builtins[ACOS] = "acos";
+	builtins[ASIN] = "asin";
+	builtins[ATAN] = "atan";
+	builtins[ATAN2] = "atan2";
+	builtins[CEIL] = "ceil";
+	builtins[COS] = "cos";
+	builtins[EXP] = "exp";
+	builtins[FLOOR] = "floor";
+	builtins[LOG] = "log";
+	builtins[POW] = "pow";
+	builtins[SIN] = "sin";
+	builtins[SQRT] = "sqrt";
+	builtins[TAN] = "tan";
+	builtins[CLZ32] = "clz32";
 	builtins[HEAP8] = "HEAP8";
 	builtins[HEAP16] = "HEAP16";
 	builtins[HEAP32] = "HEAP32";
