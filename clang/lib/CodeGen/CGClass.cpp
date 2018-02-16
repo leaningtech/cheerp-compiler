@@ -264,7 +264,7 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
     {
       // Get the layout.
       const CGRecordLayout &Layout = getTypes().getCGRecordLayout(Derived);
-      uint32_t index=Layout.getNonVirtualBaseLLVMFieldNo(Base);
+      uint32_t index= BaseIsVirtual ? Layout.getVirtualBaseIndex(Base) : Layout.getNonVirtualBaseLLVMFieldNo(Base);
       GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, index));
       return Builder.CreateGEP(This, GEPConstantIndexes);
     }
