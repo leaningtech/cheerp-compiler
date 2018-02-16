@@ -417,9 +417,16 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       CGM.getCXXABI().GetVirtualBaseClassOffset(*this, Value, Derived, VBase);
   }
 
+  bool asmjs = CurFn->getSection() == StringRef("asmjs");
   // First handle the non-byte addressable case (Cheerp normal)
   if (!getTarget().isByteAddressable() && !asmjs)
-    Value = GenerateUpcast(Value, Derived, PathBegin, PathEnd);
+  {
+    if (VBase) {
+      Value = GenerateVirtualcast(Value, VBase, VirtualOffset);
+      Derived = VBase;
+    }
+    Value = GenerateUpcast(Value, Derived, Start, PathEnd);
+  }
   else
   {
     // Apply both offsets.
@@ -529,6 +536,14 @@ CodeGenFunction::GenerateDowncast(llvm::Value* Value,
                                   const CXXRecordDecl *Derived,
                                   unsigned BaseIdOffset)
 {
+  llvm::Constant* baseOffset = llvm::ConstantInt::get(Int32Ty, BaseIdOffset);
+  return GenerateDowncast(Value, Derived, baseOffset);
+}
+llvm::Value *
+CodeGenFunction::GenerateDowncast(llvm::Value* Value,
+                                  const CXXRecordDecl *Derived,
+                                  llvm::Value* BaseIdOffset)
+{
   QualType DerivedTy =
     getContext().getCanonicalType(getContext().getTagDeclType(Derived));
   llvm::Type *DerivedPtrTy = ConvertType(DerivedTy)->getPointerTo();
@@ -538,8 +553,24 @@ CodeGenFunction::GenerateDowncast(llvm::Value* Value,
   llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                               llvm::Intrinsic::cheerp_downcast, types);
 
-  llvm::Constant* baseOffset = llvm::ConstantInt::get(Int32Ty, BaseIdOffset);
-  return Builder.CreateCall2(intrinsic, Value, baseOffset);
+  return Builder.CreateCall2(intrinsic, Value, BaseIdOffset);
+}
+
+llvm::Value *
+CodeGenFunction::GenerateVirtualcast(llvm::Value* Value,
+                                  const CXXRecordDecl *VBase,
+                                  llvm::Value* VirtualOffset)
+{
+  QualType VBaseTy =
+    getContext().getCanonicalType(getContext().getTagDeclType(VBase));
+  llvm::Type *VBasePtrTy = ConvertType(VBaseTy)->getPointerTo();
+
+  llvm::Type* types[] = { VBasePtrTy, Value->getType() };
+
+  llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
+                              llvm::Intrinsic::cheerp_virtualcast, types);
+
+  return Builder.CreateCall2(intrinsic, Value, VirtualOffset);
 }
 
 Address
