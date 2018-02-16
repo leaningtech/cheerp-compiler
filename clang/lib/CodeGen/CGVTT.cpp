@@ -69,7 +69,8 @@ CodeGenVTables::EmitVTTDefinition(llvm::GlobalVariable *VTT,
               i->VTableBase);
     } else {
       AddressPoint = VTableAddressPoints[i->VTableIndex].lookup(i->VTableBase);
-      assert(AddressPoint.AddressPointIndex != 0 &&
+      if (CGM.getTarget().isByteAddressable())
+        assert(AddressPoint.AddressPointIndex != 0 &&
              "Did not find ctor vtable address point!");
     }
 
