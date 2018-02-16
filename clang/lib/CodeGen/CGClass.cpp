@@ -471,6 +471,15 @@ CodeGenModule::ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
   return Offset;
 }
 
+unsigned
+CodeGenModule::ComputeVirtualBaseIdOffset(const CXXRecordDecl *Derived,
+                                   const CXXRecordDecl* VBase) {
+  // Get the layout.
+  const CGRecordLayout &Layout = getTypes().getCGRecordLayout(Derived);
+  unsigned baseId = Layout.getVirtualBaseIndex(VBase);
+  return Layout.getTotalOffsetToBase(baseId);
+}
+
 llvm::Value *
 CodeGenFunction::GenerateUpcastCollapsed(llvm::Value* Value,
                                          llvm::Type* BasePtrTy)
