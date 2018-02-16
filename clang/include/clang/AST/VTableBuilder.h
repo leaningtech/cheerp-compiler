@@ -56,8 +56,16 @@ public:
     return VTableComponent(CK_VCallOffset, Offset);
   }
 
+  static VTableComponent MakeVCall(const CXXRecordDecl *RD) {
+    return VTableComponent(CK_VCallOffset, reinterpret_cast<uintptr_t>(RD));
+  }
+
   static VTableComponent MakeVBaseOffset(CharUnits Offset) {
     return VTableComponent(CK_VBaseOffset, Offset);
+  }
+
+  static VTableComponent MakeVBase(const CXXRecordDecl *RD) {
+    return VTableComponent(CK_VBaseOffset, reinterpret_cast<uintptr_t>(RD));
   }
 
   static VTableComponent MakeOffsetToTop(CharUnits Offset) {
@@ -104,10 +112,21 @@ public:
     return getOffset();
   }
 
+  CXXRecordDecl* getVCall() const {
+    assert(getKind() == CK_VCallOffset && "Invalid component kind!");
+
+    return reinterpret_cast<CXXRecordDecl *>(getPointer());
+  }
+
   CharUnits getVBaseOffset() const {
     assert(getKind() == CK_VBaseOffset && "Invalid component kind!");
 
     return getOffset();
+  }
+  CXXRecordDecl* getVBase() const {
+    assert(getKind() == CK_VBaseOffset && "Invalid component kind!");
+
+    return reinterpret_cast<CXXRecordDecl *>(getPointer());
   }
 
   CharUnits getOffsetToTop() const {
@@ -200,7 +219,7 @@ private:
   }
 
   VTableComponent(Kind ComponentKind, uintptr_t Ptr) {
-    assert((isRTTIKind(ComponentKind) || isFunctionPointerKind(ComponentKind)) &&
+    assert((isRTTIKind(ComponentKind) || isFunctionPointerKind(ComponentKind) || ComponentKind == CK_VCallOffset || ComponentKind == CK_VBaseOffset) &&
            "Invalid component kind!");
 
     assert((Ptr & 7) == 0 && "Pointer not sufficiently aligned!");
@@ -216,7 +235,7 @@ private:
   }
 
   uintptr_t getPointer() const {
-    assert((getKind() == CK_RTTI || isFunctionPointerKind()) &&
+    assert((getKind() == CK_RTTI || getKind() == CK_VCallOffset || getKind() == CK_VBaseOffset || isFunctionPointerKind()) &&
            "Invalid component kind!");
 
     return static_cast<uintptr_t>(Value & ~7ULL);

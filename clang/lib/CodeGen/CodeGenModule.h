@@ -976,6 +976,8 @@ public:
 
   unsigned ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
                                llvm::SmallVector<const CXXBaseSpecifier*, 4>& path);
+  unsigned ComputeVirtualBaseIdOffset(const CXXRecordDecl *Derived,
+                               const CXXRecordDecl *VBase);
 
   llvm::Function* GetUserCastIntrinsic(const CastExpr* CE, QualType SrcTy, QualType DestTy, bool asmjs);
 
