@@ -163,7 +163,8 @@ public:
       IsZeroInitializable(IsZeroInitializable),
       IsZeroInitializableAsBase(IsZeroInitializableAsBase),
       firstBaseElement(0),
-      totalNumberOfBases(0) {}
+      totalNumberOfNonVirtualBases(0),
+      totalNumberOfVirtualBases(0) {}
 
   /// Return the "complete object" LLVM type associated with
   /// this record.
@@ -222,8 +223,10 @@ public:
   // Cheerp: Fields to handle down and dynamic casting
   // The first element which is a base (e.g. not the vtable)
   unsigned firstBaseElement;
-  // The total number of bases including inherited ones
-  unsigned totalNumberOfBases;
+  // The total number of non virtual bases including inherited ones
+  unsigned totalNumberOfNonVirtualBases;
+  // The total number of virtual bases including inherited ones
+  unsigned totalNumberOfVirtualBases;
 
   unsigned getTotalOffsetToBase(unsigned baseIndex) const {
     // Used in the downcast code path
