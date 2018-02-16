@@ -825,10 +825,22 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
     {
       llvm::SmallVector<llvm::Metadata*, 2> basesRange;
       basesRange.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, RL->firstBaseElement)));
-      basesRange.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, RL->totalNumberOfBases)));
+      if (Builder.Layout.getNonVirtualSize() != Builder.Layout.getSize()) {
+        basesRange.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, 1)));
+      }
       llvm::MDNode* meta = llvm::MDNode::get(getLLVMContext(), basesRange);
       llvm::NamedMDNode* basesMeta = TheModule.getOrInsertNamedMetadata((Ty->getName() + "_bases").str());
       basesMeta->addOperand(meta);
+      // Do it also for the .base type, if needed
+      if(BaseTy && BaseTy != Ty && RL->firstBaseElement < BaseTy->getNumElements())
+      {
+        llvm::SmallVector<llvm::Metadata*, 1> basesRange;
+        basesRange.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, RL->firstBaseElement)));
+        llvm::MDNode* meta = llvm::MDNode::get(getLLVMContext(), basesRange);
+        llvm::Twine basesMetaName(BaseTy->getName(),"_bases");
+        llvm::NamedMDNode* basesMeta = TheModule.getOrInsertNamedMetadata(basesMetaName.str());
+        basesMeta->addOperand(meta);
+      }
     }
   }
 
