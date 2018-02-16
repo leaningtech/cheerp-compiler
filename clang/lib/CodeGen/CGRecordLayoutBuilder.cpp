@@ -226,8 +226,10 @@ struct CGRecordLowering {
   // Cheerp: Fields to handle down and dynamic casting
   // The first element which is a base (e.g. not the vtable)
   unsigned firstBaseElement;
-  // The total number of bases including inherited ones
-  unsigned totalNumberOfBases;
+  // The total number of non virtual bases including inherited ones
+  unsigned totalNumberOfNonVirtualBases;
+  // The total number of virtual bases including inherited ones
+  unsigned totalNumberOfVirtualBases;
 
   llvm::SmallVector<unsigned, 4> BaseOffsetFromNo;
 private:
@@ -243,7 +245,7 @@ CGRecordLowering::CGRecordLowering(CodeGenTypes &Types, const RecordDecl *D,
       Layout(Types.getContext().getASTRecordLayout(D)),
       DataLayout(Types.getDataLayout()), DirectBase(NULL), DirectBaseLayout(NULL), IsZeroInitializable(true),
       IsZeroInitializableAsBase(true), Packed(Packed),
-      firstBaseElement(0xffffffff), totalNumberOfBases(1) {}
+      firstBaseElement(0xffffffff), totalNumberOfNonVirtualBases(1), totalNumberOfVirtualBases(0) {}
 
 void CGRecordLowering::setBitFieldInfo(
     const FieldDecl *FD, CharUnits StartOffset, llvm::Type *StorageType) {
@@ -858,7 +860,7 @@ void CGRecordLowering::fillOutputFields() {
         DirectBaseLayout = &Types.getCGRecordLayout(cast<RecordDecl>(Member->FD->getType()->getAsTagDecl()));
         Fields[Member->FD->getCanonicalDecl()] = 0xffffffff;
       }
-      totalNumberOfBases = DirectBaseLayout->totalNumberOfBases;
+      totalNumberOfNonVirtualBases = DirectBaseLayout->totalNumberOfNonVirtualBases;
       continue;
     }
     if (Member->Data)
@@ -873,12 +875,21 @@ void CGRecordLowering::fillOutputFields() {
       const CGRecordLayout& BaseLayout = Types.getCGRecordLayout(Member->RD);
       if (firstBaseElement==0xffffffff)
         firstBaseElement = FieldTypes.size() - 1;
-      BaseOffsetFromNo.push_back(totalNumberOfBases);
-      totalNumberOfBases += BaseLayout.totalNumberOfBases;
+      BaseOffsetFromNo.push_back(totalNumberOfNonVirtualBases);
+      totalNumberOfNonVirtualBases += BaseLayout.totalNumberOfNonVirtualBases;
       NonVirtualBases[Member->RD] = FieldTypes.size() - 1;
     }
     else if (Member->Kind == MemberInfo::VBase)
-      VirtualBases[Member->RD] = FieldTypes.size() - 1;
+    {
+      const CGRecordLayout& BaseLayout = Types.getCGRecordLayout(Member->RD);
+      if (firstBaseElement==0xffffffff)
+        firstBaseElement = FieldTypes.size() - 1;
+      if (!VirtualBases.count(Member->RD)) {
+        BaseOffsetFromNo.push_back(totalNumberOfNonVirtualBases + totalNumberOfVirtualBases);
+        totalNumberOfVirtualBases += BaseLayout.totalNumberOfNonVirtualBases;
+        VirtualBases[Member->RD] = FieldTypes.size() - 1;
+      }
+    }
   }
 }
 
@@ -959,7 +970,8 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
   if(isa<CXXRecordDecl>(D))
   {
     RL->firstBaseElement = Builder.firstBaseElement;
-    RL->totalNumberOfBases = Builder.totalNumberOfBases;
+    RL->totalNumberOfNonVirtualBases = Builder.totalNumberOfNonVirtualBases;
+    RL->totalNumberOfVirtualBases = Builder.totalNumberOfVirtualBases;
     RL->BaseOffsetFromNo.swap(Builder.BaseOffsetFromNo);
 
     // Create metadata with bases range
