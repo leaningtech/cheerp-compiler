@@ -2880,6 +2880,8 @@ void CodeGenFunction::getVTablePointers(BaseSubobject Base,
       BaseOffset = Layout.getVBaseClassOffset(BaseDecl);
       BaseOffsetFromNearestVBase = CharUnits::Zero();
       BaseDeclIsNonVirtualPrimaryBase = false;
+      if (!getTarget().isByteAddressable())
+        SubBase = GetAddressOfDirectBaseInCompleteClass(BaseGEP, RD, BaseDecl, true);
     } else {
       const ASTRecordLayout &Layout = getContext().getASTRecordLayout(RD);
 
