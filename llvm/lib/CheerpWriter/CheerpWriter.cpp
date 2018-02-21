@@ -5169,7 +5169,7 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 	Function::const_iterator BE=F.end();
 	//First run, create the corresponding relooper blocks
 	std::map<const BasicBlock*, /*relooper::*/Block*> relooperMap;
-	int BlockId = 0;
+	int BlockId = 1;
 	for(;B!=BE;++B)
 	{
 		if(B->isLandingPad())
