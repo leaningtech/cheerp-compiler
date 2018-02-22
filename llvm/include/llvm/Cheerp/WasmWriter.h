@@ -118,7 +118,8 @@ private:
 	void compileGlobal(const llvm::GlobalVariable& G);
 	// Returns true if it has handled local assignent internally
 	bool compileInstruction(WasmBuffer& code, const llvm::Instruction& I);
-	void compileGEP(WasmBuffer& code, const llvm::User* gepInst);
+	bool compileInlineInstruction(WasmBuffer& code, const llvm::Instruction& I);
+	void compileGEP(WasmBuffer& code, const llvm::User* gepInst, bool standalone = false);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	struct WasmBytesWriter: public LinearMemoryHelper::ByteListener
@@ -144,6 +145,7 @@ private:
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
 		void addConst(int64_t v) override;
+		bool isInlineable(const llvm::Value* p) override;
 	};
 public:
 	llvm::raw_ostream& stream;
