@@ -281,7 +281,9 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListe
 			}
 		}
 		p = u->getOperand(0);
-		continue;
+
+		if (!listener->isInlineable(p))
+			break;
 	}
 	if (constPart != 0)
 		listener->addConst(constPart);

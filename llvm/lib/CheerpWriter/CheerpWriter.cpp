@@ -1372,6 +1372,10 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	else if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
 		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || (isGEP(rhs) && cast<User>(rhs)->getNumOperands()==2)))
 	{
+		assert(PA.getPointerKind(lhs) != COMPLETE_OBJECT || !isa<Instruction>(lhs) ||
+				isInlineable(*cast<Instruction>(lhs), PA));
+		assert(PA.getPointerKind(rhs) != COMPLETE_OBJECT || !isa<Instruction>(rhs) ||
+				isInlineable(*cast<Instruction>(rhs), PA));
 		if(isa<ConstantPointerNull>(lhs))
 			stream << '1';
 		else
@@ -1498,6 +1502,14 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 		return;
 	}
 
+	const llvm::Instruction* I = dyn_cast<Instruction>(p);
+	if (I && !isInlineable(*I, PA) &&
+		(isGEP(I) || isBitCast(I)) && PA.getPointerKind(I) == COMPLETE_OBJECT)
+	{
+		stream << namegen.getName(I);
+		return;
+	}
+
 	bool isOffsetConstantZero = offset == nullptr || (isa<Constant>(offset) && cast<Constant>(offset)->isZeroValue());
 
 	// Direct access path:
@@ -1553,13 +1565,20 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	}
 }
 
-void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY prio)
+void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY prio, bool forceGEP)
 {
 	if (isa<ConstantPointerNull>(p))
 	{
 		stream << '0';
 		return;
 	}
+
+	const llvm::Instruction* I = dyn_cast<Instruction>(p);
+	if (I && !isInlineable(*I, PA) && !forceGEP) {
+		stream << namegen.getName(I);
+		return;
+	}
+
 	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	bool use_imul = asmjs || useMathImul;
 	AsmJSGepWriter gepWriter(*this, use_imul);
@@ -1670,7 +1689,6 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 	// Collapse if p is a gepInst
 	if(isGEP(p))
 	{
-		assert(!isa<Instruction>(p) || isInlineable(*cast<Instruction>(p), PA));
 		const User* gepInst = cast<User>(p);
 		assert(gepInst->getNumOperands() > 1);
 		return compileGEPBase(gepInst, forEscapingPointer);
@@ -3142,7 +3160,14 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	}
 	else if(COMPLETE_OBJECT == kind)
 	{
-		compileCompleteObject(gep_inst->getOperand(0), indices.front());
+		const llvm::Instruction* I = dyn_cast<Instruction>(gep_inst->getOperand(0));
+		if (I && !isInlineable(*I, PA) &&
+			(isGEP(I) || isBitCast(I)) && PA.getPointerKind(I) == COMPLETE_OBJECT)
+		{
+			stream << namegen.getName(I);
+		} else {
+			compileCompleteObject(gep_inst->getOperand(0), indices.front());
+		}
 		compileAccessToElement(gep_inst->getOperand(0)->getType()->getPointerElementType(),
 		                       makeArrayRef(std::next(indices.begin()), indices.end()), /*compileLastWrapperArray*/true);
 	}
@@ -3290,6 +3315,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				//Client objects are just passed through
 				compileOperand(gep.getOperand(0), parentPrio);
+			}
+			else if (!isInlineable(gep, PA) && PA.getPointerKind(&gep) == RAW)
+			{
+				compileRawPointer(&gep, PARENT_PRIORITY::LOGICAL_OR, /*forceGEP*/true);
+				stream << "|0";
 			}
 			else
 			{
@@ -5425,4 +5455,15 @@ void CheerpWriter::AsmJSGepWriter::addConst(int64_t v)
 
 	offset = true;
 	writer.stream << v << '+';
+}
+
+bool CheerpWriter::AsmJSGepWriter::isInlineable(const llvm::Value* p)
+{
+	if (const auto I = dyn_cast<BitCastInst>(p))
+		return ::isInlineable(*I, writer.PA);
+
+	if (const auto I = dyn_cast<GetElementPtrInst>(p))
+		return ::isInlineable(*I, writer.PA);
+
+	return true;
 }

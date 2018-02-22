@@ -1192,8 +1192,19 @@ const char* CheerpWasmWriter::getTypeString(const Type* t)
 	}
 }
 
-void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst)
+void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, bool standalone)
 {
+	const auto I = dyn_cast<Instruction>(gep_inst);
+	if (I && !isInlineable(*I, PA)) {
+		if (!standalone) {
+			uint32_t numArgs = I->getParent()->getParent()->arg_size();
+			uint32_t reg = registerize.getRegisterId(I);
+			uint32_t local = numArgs + reg;
+			encodeU32Inst(0x20, "get_local", local, code);
+			return;
+		}
+	}
+
 	WasmGepWriter gepWriter(*this, code);
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
 	compileOperand(code, p);
@@ -1493,7 +1504,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
 		if(isInlineable(*it, PA)) {
-			compileInstruction(code, *it);
+			compileInlineInstruction(code, *it);
 		} else {
 			uint32_t local = currentFun->arg_size() + registerize.getRegisterId(it);
 			encodeU32Inst(0x20, "get_local", local, code);
@@ -1589,6 +1600,21 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV
 }
 
 bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
+{
+	switch(I.getOpcode())
+	{
+		case Instruction::GetElementPtr:
+		{
+			compileGEP(code, &I, true);
+			break;
+		}
+		default:
+			return compileInlineInstruction(code, I);
+	}
+	return false;
+}
+
+bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruction& I)
 {
 	switch(I.getOpcode())
 	{
@@ -1982,18 +2008,26 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 			uint32_t offset = 0;
 			// 1) The pointer
 			if (isGEP(ptrOp)) {
-				WasmGepWriter gepWriter(*this, code);
-				auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
-				compileOperand(code, p);
-				if(!gepWriter.first)
-					encodeInst(0x6a, "i32.add", code);
-				// The immediate offset of a load instruction is an unsigned
-				// 32-bit integer. Negative immediate offsets are not supported.
-				if (gepWriter.constPart < 0) {
-					encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
-					encodeInst(0x6a, "i32.add", code);
+				const auto O = dyn_cast<Instruction>(ptrOp);
+				if (O && !isInlineable(*O, PA)) {
+					uint32_t numArgs = O->getParent()->getParent()->arg_size();
+					uint32_t reg = registerize.getRegisterId(O);
+					uint32_t local = numArgs + reg;
+					encodeU32Inst(0x20, "get_local", local, code);
 				} else {
-					offset = gepWriter.constPart;
+					WasmGepWriter gepWriter(*this, code);
+					auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
+					compileOperand(code, p);
+					if(!gepWriter.first)
+						encodeInst(0x6a, "i32.add", code);
+					// The immediate offset of a load instruction is an unsigned
+					// 32-bit integer. Negative immediate offsets are not supported.
+					if (gepWriter.constPart < 0) {
+						encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
+						encodeInst(0x6a, "i32.add", code);
+					} else {
+						offset = gepWriter.constPart;
+					}
 				}
 			} else {
 				compileOperand(code, ptrOp);
@@ -2015,18 +2049,26 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 			uint32_t offset = 0;
 			// 1) The pointer
 			if (isGEP(ptrOp)) {
-				WasmGepWriter gepWriter(*this, code);
-				auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
-				compileOperand(code, p);
-				if(!gepWriter.first)
-					encodeInst(0x6a, "i32.add", code);
-				// The immediate offset of a store instruction is an unsigned
-				// 32-bit integer. Negative immediate offsets are not supported.
-				if (gepWriter.constPart < 0) {
-					encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
-					encodeInst(0x6a, "i32.add", code);
+				const auto O = dyn_cast<Instruction>(ptrOp);
+				if (O && !isInlineable(*O, PA)) {
+					uint32_t numArgs = O->getParent()->getParent()->arg_size();
+					uint32_t reg = registerize.getRegisterId(O);
+					uint32_t local = numArgs + reg;
+					encodeU32Inst(0x20, "get_local", local, code);
 				} else {
-					offset = gepWriter.constPart;
+					WasmGepWriter gepWriter(*this, code);
+					auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
+					compileOperand(code, p);
+					if(!gepWriter.first)
+						encodeInst(0x6a, "i32.add", code);
+					// The immediate offset of a store instruction is an unsigned
+					// 32-bit integer. Negative immediate offsets are not supported.
+					if (gepWriter.constPart < 0) {
+						encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
+						encodeInst(0x6a, "i32.add", code);
+					} else {
+						offset = gepWriter.constPart;
+					}
 				}
 			} else {
 				compileOperand(code, ptrOp);
@@ -3021,4 +3063,15 @@ void CheerpWasmWriter::WasmGepWriter::addConst(int64_t v)
 	assert(v<=std::numeric_limits<int32_t>::max());
 
 	constPart = v;
+}
+
+bool CheerpWasmWriter::WasmGepWriter::isInlineable(const llvm::Value* p)
+{
+	if (const auto I = dyn_cast<BitCastInst>(p))
+		return ::isInlineable(*I, writer.PA);
+
+	if (const auto I = dyn_cast<GetElementPtrInst>(p))
+		return ::isInlineable(*I, writer.PA);
+
+	return true;
 }

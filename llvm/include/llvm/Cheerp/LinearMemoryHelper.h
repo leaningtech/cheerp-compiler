@@ -238,6 +238,7 @@ public:
 	{
 		virtual void addValue(const llvm::Value* v, uint32_t size) = 0;
 		virtual void addConst(int64_t v) = 0;
+		virtual bool isInlineable(const llvm::Value* p) = 0;
 		virtual ~GepListener()
 		{
 		}
