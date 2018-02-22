@@ -85,18 +85,47 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	bool hasMoreThan1Use = I.hasNUsesOrMore(2);
 	if(I.getOpcode()==Instruction::GetElementPtr)
 	{
-		//Special case GEPs. They should always be inline since creating the object is really slow
+		// Geps with two operands are compactly encoding in binary wasm. The
+		// constant offset is part of the load or store opcode. For generic JS
+		// and asmjs, computing the gep in a local will not result in a smaller
+		// code size due to the overhead of additional type casts.
+		//
+		// Note that geps that are used in equal pointer comparisons should
+		// always be inlined. See also the assertions in
+		// |CheerpWriter::compileEqualPointersComparison|.
+		if (I.getNumOperands() == 2)
+			return true;
+
+		if(PA.getPointerKind(&I) == RAW)
+			return !hasMoreThan1Use;
+
+		if (PA.getPointerKind(&I) == COMPLETE_OBJECT) {
+			auto type = cast<GetElementPtrInst>(I).getType()->getElementType();
+			// Always inline geps to immutable fields of a complete object.
+			if (TypeSupport::isImmutableType(type))
+				return true;
+
+			return !hasMoreThan1Use;
+		}
+
+		// Split regular, regular, and byte layout are always inlined.
 		return true;
 	}
 	else if(I.getOpcode()==Instruction::BitCast)
 	{
-		// Always inline pointers which are not CO
-		if(PA.getPointerKind(&I)!=COMPLETE_OBJECT)
-			return true;
-		// Never inline if the source is REGULAR (forces conversion to CO)
-		if(PA.getPointerKind(I.getOperand(0))==REGULAR)
-			return false;
-		return !hasMoreThan1Use;
+		if(PA.getPointerKind(&I) == RAW)
+			return !hasMoreThan1Use;
+
+		if (PA.getPointerKind(&I) == COMPLETE_OBJECT) {
+			// Never inline if the source is REGULAR (forces conversion to CO)
+			if(PA.getPointerKind(I.getOperand(0)) == REGULAR)
+				return false;
+
+			return !hasMoreThan1Use;
+		}
+
+		// Split regular, regular, and byte layout are always inlined.
+		return true;
 	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
 	{

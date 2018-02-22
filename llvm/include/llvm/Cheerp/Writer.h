@@ -288,7 +288,7 @@ private:
 	 */
 	const llvm::Value* compileByteLayoutOffset(const llvm::Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode);
 
-	void compileRawPointer(const llvm::Value* p, PARENT_PRIORITY prio = PARENT_PRIORITY::LOWEST);
+	void compileRawPointer(const llvm::Value* p, PARENT_PRIORITY prio = PARENT_PRIORITY::LOWEST, bool forceGEP = false);
 
 	/**
 	 * Compile a pointer from a GEP expression, with the given pointer kind
@@ -478,6 +478,7 @@ private:
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
 		void addConst(int64_t v) override;
+		bool isInlineable(const llvm::Value* p) override;
 	};
 public:
 	ostream_proxy stream;
