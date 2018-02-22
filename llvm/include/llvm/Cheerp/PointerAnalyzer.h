@@ -25,13 +25,13 @@
 namespace cheerp {
 
 enum POINTER_KIND {
-	COMPLETE_OBJECT,
-	SPLIT_REGULAR,
-	REGULAR,
-	BYTE_LAYOUT,
+	COMPLETE_OBJECT,  // object with aN, iN and dN fields.
+	SPLIT_REGULAR,    // two local vars "X" and "Xo".
+	REGULAR,          // pointer object {o: ..., d: ...}.
+	BYTE_LAYOUT,      // slow, and mostly used for unions.
 	UNKNOWN,
 	INDIRECT,
-	RAW	//used in asm.js mode
+	RAW               // very fast, and used in asm.js mode.
 };
 
 enum REGULAR_POINTER_PREFERENCE { PREF_NONE, PREF_SPLIT_REGULAR, PREF_REGULAR };
