@@ -460,10 +460,18 @@ CodeGenModule::ComputeBaseIdOffset(const CXXRecordDecl *DerivedClass,
 
   for (unsigned i=0;i<path.size();++i) {
     const CXXBaseSpecifier *Base = path[i];
-    assert(!Base->isVirtual() && "Should not see virtual bases here!");
 
     const CXXRecordDecl *BaseDecl =
       cast<CXXRecordDecl>(Base->getType()->getAs<RecordType>()->getDecl());
+
+    // If there is a virtual step, reset the offset. The offset always refer to the
+    // non virtual part of the path
+    if (Base->isVirtual()) {
+      RD =  BaseDecl;
+      Offset = 0;
+      continue;
+    }
+
 
     const ASTRecordLayout &ASTLayout = getContext().getASTRecordLayout(RD);
     if(!BaseDecl->isEmpty() && !ASTLayout.getBaseClassOffset(BaseDecl).isZero())
