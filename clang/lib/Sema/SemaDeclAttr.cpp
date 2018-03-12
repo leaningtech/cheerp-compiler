@@ -6847,8 +6847,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   // Ignore C++11 attributes on declarator chunks: they appertain to the type
   // instead.
   if (AL.isCXX11Attribute() && !IncludeCXX11Attributes &&
-      AL.getKind()!=AttributeList::AT_Server &&
-      AL.getKind()!=AttributeList::AT_Client &&
       AL.getKind()!=AttributeList::AT_Static)
   {
     return;

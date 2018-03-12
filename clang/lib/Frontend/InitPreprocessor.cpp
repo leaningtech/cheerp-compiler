@@ -719,15 +719,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.CPlusPlus)
     InitializeCPlusPlusFeatureTestMacros(LangOpts, Builder);
 
-  if (LangOpts.getCheerpSide()==LangOptions::CHEERP_Client)
-  {
-    Builder.defineMacro("__CHEERP_CLIENT__");
-  }
-  else if (LangOpts.getCheerpSide()==LangOptions::CHEERP_Server)
-  {
-    Builder.defineMacro("__CHEERP_SERVER__");
-  }
-
   // darwin_constant_cfstrings controls this. This is also dependent
   // on other things like the runtime I believe.  This is set even for C code.
   if (!LangOpts.NoConstantCFStrings)

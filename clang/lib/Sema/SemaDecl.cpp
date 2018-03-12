@@ -9422,19 +9422,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
   }
 
-  if (NewFD->hasAttr<ServerAttr>() && getLangOpts().getCheerpSide() != LangOptions::CHEERP_Server)
-  {
-    QualType resultType=NewFD->getCallResultType();
-    CanQualType canonicalResultType=Context.getCanonicalType(resultType);
-    //Add the types of the function argument
-    FunctionDecl::param_iterator it=NewFD->param_begin();
-    SmallVector<TemplateArgument,4> FArgsPack;
-    for(;it!=NewFD->param_end();++it)
-      FArgsPack.push_back(TemplateArgument((*it)->getOriginalType()));
-
-    EmitClientStub(*this, NewFD, FArgsPack, canonicalResultType);
-  }
-
   if (!getLangOpts().CPlusPlus) {
     // Perform semantic checking on the function declaration.
     if (!NewFD->isInvalidDecl() && NewFD->isMain())

@@ -1850,16 +1850,6 @@ def NvWeak : IgnoredAttr {
   let LangOpts = [CUDA];
 }
 
-def Client : InheritableAttr {
-  let Spellings = [CXX11<"", "client", 12>, CXX11<"cheerp", "client">];
-  let Documentation = [Undocumented];
-}
-
-def Server : InheritableAttr {
-  let Spellings = [CXX11<"", "server", 12>, CXX11<"cheerp", "server">];
-  let Documentation = [Undocumented];
-}
-
 def Static : InheritableAttr {
   let Spellings = [CXX11<"", "static", 12>, CXX11<"cheerp", "static">];
   let Documentation = [Undocumented];
