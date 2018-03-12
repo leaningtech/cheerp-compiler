@@ -153,15 +153,8 @@ Pass *llvm::createAlwaysInlinerLegacyPass(bool InsertLifetime) {
 InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallBase &CB) {
   Function *Callee = CB.getCalledFunction();
 
-  //CHEERP: Do not inline server/client methods called from the other side
-  const Function* caller=CS.getCaller();
-  if((caller->hasFnAttribute(Attribute::Client) && Callee->hasFnAttribute(Attribute::Server)) ||
-     (caller->hasFnAttribute(Attribute::Server) && Callee->hasFnAttribute(Attribute::Client)))
-  {
-    return llvm::InlineCost::getNever();
-  }
-
   //CHEERP: Do not inline normal/asmjs methods called from the other side
+  const Function* caller=CS.getCaller();
   bool callerAsmJS = caller->getSection() == StringRef("asmjs");
   bool calleeAsmJS = Callee->getSection() == StringRef("asmjs");
   if (calleeAsmJS!= callerAsmJS)

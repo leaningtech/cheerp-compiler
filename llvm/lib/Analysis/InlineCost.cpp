@@ -2343,6 +2343,7 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
     }
 
   //CHEERP: Do not inline normal/asmjs methods called from the other side
+  const Function* caller=CS.getCaller();
   bool callerAsmJS = caller->getSection() == StringRef("asmjs");
   bool calleeAsmJS = Callee->getSection() == StringRef("asmjs");
   if (calleeAsmJS!= callerAsmJS)
