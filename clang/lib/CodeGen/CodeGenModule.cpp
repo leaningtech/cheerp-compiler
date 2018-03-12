@@ -1699,7 +1699,7 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
                          /*AttrOnCallSite=*/false, IsThunk);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
-  if(D->hasAttr<StaticAttr>())
+  if(GD.getDecl() && GD.getDecl()->hasAttr<StaticAttr>())
     F->addFnAttr(llvm::Attribute::Static);
 }
 
