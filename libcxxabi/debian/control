@@ -10,6 +10,5 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, cheerp-llvm-clang (>=${binary:Version}), cheerp-utils (>=${binary:Version}), cheerp-newlib (>=${binary:Version}), cheerp-libcxx (>=${binary:Version})
 Conflicts: cheerp
 Description: A C++ compiler for the Web, C++ ABI implementation
- Cheerp is a tool to bring C++ programming to the Web,
- designed to provide a seamless experience for client/server
- development.
+ Cheerp is a tool to bring C++ programming to the Web. It can generate a seamless
+ combination of JavaScript, WebAssembly and Asm.js from a single C++ codebase.
