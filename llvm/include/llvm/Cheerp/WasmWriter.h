@@ -195,6 +195,7 @@ public:
 	void compileICmp(const llvm::ICmpInst& ci, const llvm::CmpInst::Predicate p, WasmBuffer& code);
 	void encodeLoad(const llvm::Type* ty, uint32_t offset, WasmBuffer& code);
 	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
+	void encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock);
 	bool tryEncodeFloatAsInt(WasmBuffer& code, const llvm::ConstantFP* f);
 	bool tryEncodeFloat64AsFloat32(WasmBuffer& code, const llvm::ConstantFP* f);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
