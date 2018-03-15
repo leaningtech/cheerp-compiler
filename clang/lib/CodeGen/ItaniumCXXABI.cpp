@@ -2172,6 +2172,7 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
                                           Address InitialPtr,
                                           int64_t NonVirtualAdjustment,
                                           int64_t VirtualAdjustment,
+                                          const CXXRecordDecl* VirtualBase,
                                           bool IsReturnAdjustment,
                                           const CXXRecordDecl* AdjustmentTarget,
                                           const CXXRecordDecl* AdjustmentSource) {
@@ -2188,7 +2189,16 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
       // Do a reverse downcast with a negative offset
       NonVirtualAdjustment = -NonVirtualAdjustment;
     }
-    return CGF.GenerateDowncast(Ptr, AdjustmentTarget, NonVirtualAdjustment);
+    const CXXRecordDecl* DowncastTarget = VirtualBase ? VirtualBase : AdjustmentTarget;
+    llvm::Value* v = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
+    if (VirtualAdjustment) {
+      llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(VirtualBase)->getPointerTo();
+      llvm::Value *VTablePtr = CGF.GetVTablePtr(v, VTableTy);
+      llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTablePtr, VirtualAdjustment);
+      llvm::Value* VCallOffset = CGF.Builder.CreateLoad(VCallOffsetPtr);
+      v = CGF.GenerateVirtualcast(v, AdjustmentTarget, VCallOffset);
+    }
+    return v;
   }
 
   if (!NonVirtualAdjustment && !VirtualAdjustment)
@@ -2249,6 +2259,7 @@ llvm::Value *ItaniumCXXABI::performThisAdjustment(CodeGenFunction &CGF,
                                                   const ThisAdjustment &TA) {
   return performTypeAdjustment(CGF, This, TA.NonVirtual,
                                TA.Virtual.Itanium.VCallOffsetOffset,
+                               TA.Virtual.Itanium.VirtualBase,
                                /*IsReturnAdjustment=*/false,
                                TA.AdjustmentTarget, TA.AdjustmentSource);
 }
@@ -2258,6 +2269,7 @@ ItaniumCXXABI::performReturnAdjustment(CodeGenFunction &CGF, Address Ret,
                                        const ReturnAdjustment &RA) {
   return performTypeAdjustment(CGF, Ret, RA.NonVirtual,
                                RA.Virtual.Itanium.VBaseOffsetOffset,
+                               nullptr,
                                /*IsReturnAdjustment=*/true,
                                RA.AdjustmentTarget, RA.AdjustmentSource);
 }

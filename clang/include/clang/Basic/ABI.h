@@ -129,6 +129,8 @@ struct ThisAdjustment {
       /// The offset (in bytes), relative to the address point,
       /// of the virtual call offset.
       int64_t VCallOffsetOffset;
+      /// \brief The virtual base involved in the virtual adjustment
+      const CXXRecordDecl* VirtualBase;
     } Itanium;
 
     struct {
