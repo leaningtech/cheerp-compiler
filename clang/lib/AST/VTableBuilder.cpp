@@ -542,6 +542,253 @@ CharUnits VCallOffsetMap::getVCallOffsetOffset(const CXXMethodDecl *MD) {
   llvm_unreachable("Should always find a vcall offset offset!");
 }
 
+/// VBaseOffsetBuilder - Class for building vbase offsets in non byte addressable targets.
+class VBaseOffsetBuilder {
+public:
+  typedef llvm::DenseMap<const CXXRecordDecl *, CharUnits> 
+    VBaseOffsetOffsetsMapTy;
+
+  typedef llvm::SmallPtrSet<const CXXRecordDecl *, 4> VisitedVirtualBasesSetTy;
+private:
+  /// LayoutClass - The class we're using for layout information. Will be 
+  /// different than the most derived class if we're building a construction
+  /// vtable.
+  const CXXRecordDecl *LayoutClass;
+  
+  /// Context - The ASTContext which we will use for layout information.
+  ASTContext &Context;
+
+  /// Components - vcall and vbase offset components
+  typedef SmallVector<VTableComponent, 64> VTableComponentVectorTy;
+  VTableComponentVectorTy Components;
+  
+  uint32_t StartIndex;
+
+  VisitedVirtualBasesSetTy& VisitedVirtualBases;
+  /// VBaseOffsetOffsets - Contains the offsets of the virtual base offsets,
+  /// relative to the address point.
+  VBaseOffsetOffsetsMapTy VBaseOffsetOffsets;
+
+  /// AddVBaseOffsets - Add vbase offsets for the given class.
+  void AddVBaseOffsets(const CXXRecordDecl *Base, 
+                       CharUnits OffsetInLayoutClass);
+  
+  /// getCurrentVBaseOffsetIndex - CHEERP: get the current vbase offset index
+  CharUnits getCurrentVBaseOffsetIndex() const {
+    int32_t idx = Components.size()+StartIndex;
+    return idx*CharUnits::One();
+  }
+
+public:
+  VBaseOffsetBuilder(const CXXRecordDecl *LayoutClass,
+                             const CXXRecordDecl* RD,
+                             uint32_t StartIndex,
+                             VisitedVirtualBasesSetTy& VisitedVirtualBases,
+                             CharUnits OffsetInLayoutClass)
+    : LayoutClass(LayoutClass), Context(LayoutClass->getASTContext()), StartIndex(StartIndex), VisitedVirtualBases(VisitedVirtualBases) {
+
+    AddVBaseOffsets(RD, OffsetInLayoutClass);
+  }
+  
+  /// Methods for iterating over the components.
+  typedef VTableComponentVectorTy::const_iterator const_iterator;
+  const_iterator components_begin() const { return Components.begin(); }
+  const_iterator components_end() const { return Components.end(); }
+  
+  const VBaseOffsetOffsetsMapTy &getVBaseOffsetOffsets() const {
+    return VBaseOffsetOffsets;
+  }
+};
+void VBaseOffsetBuilder::AddVBaseOffsets(const CXXRecordDecl *RD, 
+                       CharUnits OffsetInLayoutClass) {
+  // Add vbase offsets.
+  for (const auto &B : RD->bases()) {
+    const CXXRecordDecl *BaseDecl = B.getType()->getAsCXXRecordDecl();
+
+    // Check if this is a virtual base that we haven't visited before.
+    if (B.isVirtual() && VisitedVirtualBases.insert(BaseDecl).second) {
+      // Add the vbase offset offset.
+      assert(!VBaseOffsetOffsets.count(BaseDecl) &&
+             "vbase offset offset already exists!");
+
+      CharUnits VBaseOffsetOffset = getCurrentVBaseOffsetIndex();
+      VBaseOffsetOffsets.insert(
+          std::make_pair(BaseDecl, VBaseOffsetOffset));
+
+      Components.push_back(
+          VTableComponent::MakeVBase(BaseDecl));
+    }
+
+    // Check the base class looking for more vbase offsets.
+    AddVBaseOffsets(BaseDecl, OffsetInLayoutClass);
+  }
+}
+
+/// VCallOffsetBuilder - Class for building vcall offsets.
+class VCallOffsetBuilder {
+private:
+  /// MostDerivedClass - The most derived class for which we're building vcall
+  /// and vbase offsets.
+  const CXXRecordDecl *MostDerivedClass;
+  
+  /// LayoutClass - The class we're using for layout information. Will be 
+  /// different than the most derived class if we're building a construction
+  /// vtable.
+  const CXXRecordDecl *LayoutClass;
+  
+  /// Context - The ASTContext which we will use for layout information.
+  ASTContext &Context;
+
+  /// Components - vcall offset components
+  typedef SmallVector<VTableComponent, 64> VTableComponentVectorTy;
+  VTableComponentVectorTy Components;
+  
+  /// VCallOffsets - Keeps track of vcall offsets.
+  VCallOffsetMap VCallOffsets;
+
+  /// FinalOverriders - The final overriders of the most derived class.
+  /// (Can be null when we're not building a vtable of the most derived class).
+  const FinalOverriders *Overriders;
+
+  uint32_t StartIndex;
+
+  /// AddVCallOffsets - Add vcall offsets for the given base subobject.
+  void AddVCallOffsets(BaseSubobject Base, CharUnits VBaseOffset);
+
+  void Build(BaseSubobject Base, bool BaseIsVirtual, CharUnits RealBaseOffset);
+  
+  /// getCurrentVCallOffsetIndex - CHEERP: get the current vcall offset index
+  CharUnits getCurrentVCallOffsetIndex(const CXXRecordDecl* Base) const;
+
+public:
+  VCallOffsetBuilder(const CXXRecordDecl *MostDerivedClass,
+                             const CXXRecordDecl *LayoutClass,
+                             const FinalOverriders *Overriders,
+                             BaseSubobject Base, bool BaseIsVirtual,
+                             CharUnits OffsetInLayoutClass, uint32_t StartIndex)
+    : MostDerivedClass(MostDerivedClass), LayoutClass(LayoutClass), 
+    Context(MostDerivedClass->getASTContext()), Overriders(Overriders), StartIndex(StartIndex) {
+      
+    // Add vcall offsets.
+    Build(Base, BaseIsVirtual, OffsetInLayoutClass);
+  }
+  
+  /// Methods for iterating over the components.
+  typedef VTableComponentVectorTy::const_iterator const_iterator;
+  const_iterator components_begin() const { return Components.begin(); }
+  const_iterator components_end() const { return Components.end(); }
+  
+  const VCallOffsetMap &getVCallOffsets() const { return VCallOffsets; }
+};
+void 
+VCallOffsetBuilder::Build(BaseSubobject Base,
+                                    bool BaseIsVirtual,
+                                    CharUnits RealBaseOffset) {
+  const ASTRecordLayout &Layout = Context.getASTRecordLayout(Base.getBase());
+  
+  if (const CXXRecordDecl *PrimaryBase = Layout.getPrimaryBase()) {
+    bool PrimaryBaseIsVirtual = Layout.isPrimaryBaseVirtual();
+
+    CharUnits PrimaryBaseOffset;
+    
+    // Get the base offset of the primary base.
+    if (PrimaryBaseIsVirtual) {
+      assert(Layout.getVBaseClassOffset(PrimaryBase).isZero() &&
+             "Primary vbase should have a zero offset!");
+      
+      const ASTRecordLayout &MostDerivedClassLayout =
+        Context.getASTRecordLayout(MostDerivedClass);
+      
+      PrimaryBaseOffset = 
+        MostDerivedClassLayout.getVBaseClassOffset(PrimaryBase);
+    } else {
+      assert(Layout.getBaseClassOffset(PrimaryBase).isZero() &&
+             "Primary base should have a zero offset!");
+
+      PrimaryBaseOffset = Base.getBaseOffset();
+    }
+
+    Build(
+      BaseSubobject(PrimaryBase,PrimaryBaseOffset),
+      PrimaryBaseIsVirtual, RealBaseOffset);
+  }
+
+  // We only want to add vcall offsets for virtual bases.
+  if (BaseIsVirtual)
+    AddVCallOffsets(Base, RealBaseOffset);
+}
+void VCallOffsetBuilder::AddVCallOffsets(BaseSubobject Base, 
+                                                 CharUnits VBaseOffset) {
+  const CXXRecordDecl *RD = Base.getBase();
+  const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
+
+  const CXXRecordDecl *PrimaryBase = Layout.getPrimaryBase();
+
+  // Handle the primary base first.
+  // We only want to add vcall offsets if the base is non-virtual; a virtual
+  // primary base will have its vcall and vbase offsets emitted already.
+  if (PrimaryBase && !Layout.isPrimaryBaseVirtual()) {
+    // Get the base offset of the primary base.
+    assert(Layout.getBaseClassOffset(PrimaryBase).isZero() &&
+           "Primary base should have a zero offset!");
+
+    AddVCallOffsets(BaseSubobject(PrimaryBase, Base.getBaseOffset()),
+                    VBaseOffset);
+  }
+  
+  // Add the vcall offsets.
+  for (const auto *MD : RD->methods()) {
+    if (!MD->isVirtual())
+      continue;
+
+    CharUnits OffsetOffset = CharUnits::Zero();
+    OffsetOffset = getCurrentVCallOffsetIndex(RD);
+    
+    // Don't add a vcall offset if we already have one for this member function
+    // signature.
+    if (!VCallOffsets.AddVCallOffset(MD, OffsetOffset))
+      continue;
+
+    CharUnits Offset = CharUnits::Zero();
+
+    const CXXRecordDecl* VirtualBase = nullptr;
+    if (Overriders) {
+      // Get the final overrider.
+      FinalOverriders::OverriderInfo Overrider = 
+        Overriders->getOverrider(MD, Base.getBaseOffset());
+      
+      /// The vcall offset is the offset from the virtual base to the object 
+      /// where the function was overridden.
+      Offset = Overrider.Offset - VBaseOffset;
+      VirtualBase = Overrider.VirtualBase;
+    }
+    
+    Components.push_back(
+      VTableComponent::MakeVCall(VirtualBase));
+  }
+
+  // And iterate over all non-virtual bases (ignoring the primary base).
+  for (const auto &B : RD->bases()) {  
+    if (B.isVirtual())
+      continue;
+
+    const CXXRecordDecl *BaseDecl = B.getType()->getAsCXXRecordDecl();
+    if (BaseDecl == PrimaryBase)
+      continue;
+
+    // Get the base offset of this base.
+    CharUnits BaseOffset = Base.getBaseOffset() + 
+      Layout.getBaseClassOffset(BaseDecl);
+    
+    AddVCallOffsets(BaseSubobject(BaseDecl, BaseOffset), 
+                    VBaseOffset);
+  }
+}
+CharUnits VCallOffsetBuilder::getCurrentVCallOffsetIndex(const CXXRecordDecl* Base) const {
+  int32_t idx = StartIndex + Components.size();
+  return idx*CharUnits::One();
+}
+
 /// VCallAndVBaseOffsetBuilder - Class for building vcall and vbase offsets.
 class VCallAndVBaseOffsetBuilder {
 public:
