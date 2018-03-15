@@ -2757,9 +2757,13 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   if (!getTarget().isByteAddressable()) {
     SmallVector<llvm::Value*, 4> GEPConstantIndexes;
 
+    if (VirtualOffset) {
+        VTableField = GenerateVirtualcast(VTableField, Vptr.Base.getBase(), VirtualOffset);
+    }
+
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes,
-                                    Vptr.VTableClass, Vptr.Bases);
+                                    Vptr.NearestVBase ? Vptr.NearestVBase : Vptr.VTableClass, Vptr.Bases);
     VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), VTableField.getAlignment());
   } else {
     if (!NonVirtualOffset.isZero() || VirtualOffset) {
@@ -2837,6 +2841,9 @@ void CodeGenFunction::getVTablePointers(BaseSubobject Base,
     CharUnits BaseOffsetFromNearestVBase;
     bool BaseDeclIsNonVirtualPrimaryBase;
 
+    llvm::SmallVector<const CXXRecordDecl*, 4> NewBases = Bases;
+    NewBases.push_back(BaseDecl);
+
     if (I.isVirtual()) {
       // Check if we've visited this virtual base before.
       if (!VBases.insert(BaseDecl).second)
@@ -2848,8 +2855,8 @@ void CodeGenFunction::getVTablePointers(BaseSubobject Base,
       BaseOffset = Layout.getVBaseClassOffset(BaseDecl);
       BaseOffsetFromNearestVBase = CharUnits::Zero();
       BaseDeclIsNonVirtualPrimaryBase = false;
-      if (!getTarget().isByteAddressable())
-        SubBase = GetAddressOfDirectBaseInCompleteClass(BaseGEP, RD, BaseDecl, true);
+      // Reset the base path, it is relative to the nearest vbase
+      NewBases.clear();
     } else {
       const ASTRecordLayout &Layout = getContext().getASTRecordLayout(RD);
 
@@ -2858,10 +2865,6 @@ void CodeGenFunction::getVTablePointers(BaseSubobject Base,
         OffsetFromNearestVBase + Layout.getBaseClassOffset(BaseDecl);
       BaseDeclIsNonVirtualPrimaryBase = Layout.getPrimaryBase() == BaseDecl;
     }
-
-    llvm::SmallVector<const CXXRecordDecl*, 4> NewBases = Bases;
-    NewBases.push_back(BaseDecl);
-
     getVTablePointers(
         BaseSubobject(BaseDecl, BaseOffset),
         NewBases,
