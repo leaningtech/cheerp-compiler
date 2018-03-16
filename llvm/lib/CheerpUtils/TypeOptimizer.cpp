@@ -729,6 +729,7 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 		case Intrinsic::cheerp_upcast_collapsed:
 		case Intrinsic::cheerp_cast_user:
 		case Intrinsic::cheerp_downcast:
+		case Intrinsic::cheerp_virtualcast:
 		case Intrinsic::cheerp_reallocate:
 		case Intrinsic::cheerp_make_complete_object:
 		{
