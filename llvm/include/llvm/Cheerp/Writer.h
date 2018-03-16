@@ -364,6 +364,10 @@ private:
 	 * Compile a (possibly dynamic) downcast
 	 */
 	void compileDowncast(llvm::ImmutableCallSite callV);
+	/**
+	 * Compile a cast to a virtual base
+	 */
+	void compileVirtualcast(llvm::ImmutableCallSite callV);
 
 	/** @} */
 
