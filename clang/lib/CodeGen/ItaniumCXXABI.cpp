@@ -1683,7 +1683,7 @@ ItaniumCXXABI::GetVirtualBaseClassOffset(CodeGenFunction &CGF,
                                          const CXXRecordDecl *ClassDecl,
                                          const CXXRecordDecl *BaseClassDecl) {
   bool asmjs = ClassDecl->hasAttr<AsmJSAttr>();
-  if (!CGM.getTarget().isByteAddressable() && !asmjs) {
+  if (!CGM.getTarget().isByteAddressable()) {
     llvm::Type* VTableType = CGM.getTypes().GetPrimaryVTableType(ClassDecl)->getPointerTo();
     llvm::Value *VTablePtr = CGF.GetVTablePtr(This, VTableType);
     CharUnits VBaseOffsetOffset =
@@ -2176,9 +2176,9 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
                                           bool IsReturnAdjustment,
                                           const CXXRecordDecl* AdjustmentTarget,
                                           const CXXRecordDecl* AdjustmentSource) {
-  // Cheerp: Handle non byte addressable case before
   bool asmjs = AdjustmentTarget->hasAttr<AsmJSAttr>();
-  if (!CGF.getTarget().isByteAddressable() && !asmjs)
+  // Cheerp: Handle non byte addressable case first
+  if (!CGF.getTarget().isByteAddressable())
   {
     if(IsReturnAdjustment)
     {
@@ -2187,18 +2187,32 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
       llvm::Type *SourcePtrTy = CGF.ConvertType(SourceTy)->getPointerTo();
       Ptr = CGF.Builder.CreateBitCast(Ptr, SourcePtrTy);
       // Do a reverse downcast with a negative offset
-      NonVirtualAdjustment = -NonVirtualAdjustment;
+      if (!asmjs)
+        NonVirtualAdjustment = -NonVirtualAdjustment;
+      const CXXRecordDecl* DowncastTarget = AdjustmentTarget;
+
+      if (VirtualAdjustment) {
+        llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(AdjustmentSource)->getPointerTo();
+        llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy);
+        llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTableTy->getPointerElementType(), VTablePtr, VirtualAdjustment);
+        llvm::Value* VCallOffset = CGF.Builder.CreateLoad(VCallOffsetPtr);
+        Ptr = CGF.GenerateVirtualcast(Ptr, VirtualBase, VCallOffset);
+      }
+      Ptr = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
     }
-    const CXXRecordDecl* DowncastTarget = VirtualBase ? VirtualBase : AdjustmentTarget;
-    llvm::Value* v = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
-    if (VirtualAdjustment) {
-      llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(VirtualBase)->getPointerTo();
-      llvm::Value *VTablePtr = CGF.GetVTablePtr(v, VTableTy);
-      llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTablePtr, VirtualAdjustment);
-      llvm::Value* VCallOffset = CGF.Builder.CreateLoad(VCallOffsetPtr);
-      v = CGF.GenerateVirtualcast(v, AdjustmentTarget, VCallOffset);
+    else
+    {
+      const CXXRecordDecl* DowncastTarget = VirtualBase ? VirtualBase : AdjustmentTarget;
+      Ptr = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
+      if (VirtualAdjustment) {
+        llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(VirtualBase)->getPointerTo();
+        llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy);
+        llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTableTy->getPointerElementType(), VTablePtr, VirtualAdjustment);
+        llvm::Value* VCallOffset = CGF.Builder.CreateLoad(VCallOffsetPtr);
+        Ptr = CGF.GenerateVirtualcast(Ptr, AdjustmentTarget, VCallOffset);
+      }
     }
-    return v;
+    return Ptr;
   }
 
   if (!NonVirtualAdjustment && !VirtualAdjustment)
@@ -2269,7 +2283,7 @@ ItaniumCXXABI::performReturnAdjustment(CodeGenFunction &CGF, Address Ret,
                                        const ReturnAdjustment &RA) {
   return performTypeAdjustment(CGF, Ret, RA.NonVirtual,
                                RA.Virtual.Itanium.VBaseOffsetOffset,
-                               nullptr,
+                               RA.Virtual.Itanium.VirtualBase,
                                /*IsReturnAdjustment=*/true,
                                RA.AdjustmentTarget, RA.AdjustmentSource);
 }
