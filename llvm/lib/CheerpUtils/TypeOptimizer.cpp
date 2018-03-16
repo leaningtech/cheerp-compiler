@@ -321,13 +321,12 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			StructType* directBase = nullptr;
 			// We may need to update the bases metadata for this type
 			NamedMDNode* namedBasesMetadata = TypeSupport::getBasesMetadata(newStruct, *module);
-			uint32_t firstBaseBegin, firstBaseEnd, baseMax;
+			uint32_t firstBaseBegin, firstBaseEnd;
 			if(namedBasesMetadata)
 			{
 				MDNode* md = namedBasesMetadata->getOperand(0);
 				firstBaseBegin=getIntFromValue(cast<ConstantAsMetadata>(md->getOperand(0))->getValue());
 				firstBaseEnd=firstBaseBegin;
-				baseMax=getIntFromValue(cast<ConstantAsMetadata>(md->getOperand(1))->getValue());
 			}
 			for(uint32_t i=0;i<st->getNumElements();i++)
 			{
@@ -417,7 +416,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				if(namedBasesMetadata)
 				{
 					Type* Int32 = IntegerType::get(module->getContext(), 32);
-					Metadata* newBasesMeta[] = { ConstantAsMetadata::get(ConstantInt::get(Int32, firstBaseEnd)), ConstantAsMetadata::get(ConstantInt::get(Int32, baseMax)) };
+					Metadata* newBasesMeta[] = { ConstantAsMetadata::get(ConstantInt::get(Int32, firstBaseEnd))};
 					MDNode* newMD = MDNode::get(module->getContext(), newBasesMeta);
 					// The bases metadata has numerous duplicated entries, so fix all of them
 					// TODO: Remove duplicated entries
