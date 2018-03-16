@@ -29,6 +29,9 @@ def int_cheerp_downcast_current  : Intrinsic<[llvm_i32_ty],
 def int_cheerp_upcast_collapsed  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
                              []>;
+def int_cheerp_virtualcast  : Intrinsic<[llvm_anyptr_ty],
+                             [llvm_anyptr_ty, llvm_i32_ty],
+                             [NoCapture<0>]>;
 
 def int_cheerp_cast_user  : Intrinsic<[llvm_anyptr_ty],
                              [llvm_anyptr_ty],
