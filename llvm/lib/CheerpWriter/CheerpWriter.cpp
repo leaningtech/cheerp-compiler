@@ -285,6 +285,45 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 	}
 }
 
+void CheerpWriter::compileVirtualcast( ImmutableCallSite callV )
+{
+	assert( callV.arg_size() == 2 );
+	assert( callV.getCalledFunction() && callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_virtualcast);
+
+	POINTER_KIND result_kind = PA.getPointerKind(callV.getInstruction());
+	const Value * src = callV.getArgument(0);
+	const Value * offset = callV.getArgument(1);
+
+	Type* t=src->getType()->getPointerElementType();
+
+      if(result_kind == SPLIT_REGULAR)
+      {
+            compileCompleteObject(src);
+            stream << ".a;" << NewLine;
+            stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
+            compileOperand(offset, HIGHEST);
+      }
+      else if(result_kind == REGULAR)
+      {
+            stream << "{d:";
+            compileCompleteObject(src);
+            stream << ".a,o:";
+            compileOperand(offset, HIGHEST);
+            stream << '}';
+      }
+      else if(result_kind == RAW)
+      {
+            llvm::report_fatal_error("virtual cast with RAW pointers yet not supported");
+      }
+      else
+      {
+            compileCompleteObject(src);
+            stream << ".a[";
+            compileOperand(offset, HIGHEST);
+            stream << ']';
+      }
+}
+
 /* Method that handles memcpy and memmove.
  * Since only immutable types are handled in the backend and we use TypedArray.set to make the copy
  * there is not need to handle memmove in a special way
@@ -720,6 +759,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	{
 		compilePointerBase(*it);
 		stream << ".length";
+		return COMPILE_OK;
+	}
+	else if(intrinsicId==Intrinsic::cheerp_virtualcast)
+	{
+		compileVirtualcast( callV );
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_downcast)

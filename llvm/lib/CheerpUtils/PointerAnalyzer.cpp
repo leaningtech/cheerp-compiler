@@ -571,6 +571,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		isIntrinsic = true;
 		switch ( intrinsic->getIntrinsicID() )
 		{
+		case Intrinsic::cheerp_virtualcast:
 		case Intrinsic::cheerp_downcast:
 		case Intrinsic::cheerp_upcast_collapsed:
 		case Intrinsic::cheerp_cast_user:
@@ -812,6 +813,8 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_upcast_collapsed:
 		case Intrinsic::cheerp_cast_user:
 			return visitValue( ret, p, /*first*/ false );
+		case Intrinsic::cheerp_virtualcast:
+			return ret |= COMPLETE_OBJECT;
 		case Intrinsic::cheerp_downcast:
 		{
 			// Behaves like a cast if the offset is constant 0
