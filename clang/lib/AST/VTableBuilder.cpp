@@ -2346,10 +2346,8 @@ ItaniumVTableContext::getVirtualBaseOffsetOffset(const CXXRecordDecl *RD,
   if (I != VirtualBaseClassOffsetOffsets.end())
     return I->second;
 
-  VCallAndVBaseOffsetBuilder Builder(*this, RD, RD, /*Overriders=*/nullptr,
-                                     BaseSubobject(RD, CharUnits::Zero()),
-                                     /*BaseIsVirtual=*/false,
-                                     /*OffsetInLayoutClass=*/CharUnits::Zero());
+  ItaniumVTableBuilder Builder(*this, RD, CharUnits::Zero(),
+                               /*MostDerivedClassIsVirtual=*/0, RD);
 
   for (const auto &I : Builder.getVBaseOffsetOffsets()) {
     // Insert all types.
