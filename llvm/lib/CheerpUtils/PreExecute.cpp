@@ -68,25 +68,30 @@ static GenericValue pre_execute_element_distance(FunctionType *FT, const std::ve
     return GV;
 }
 
+static char* most_derived_pointer(char* Addr) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  const GlobalValue* GV = currentEE->getGlobalValueAtAddress(Addr);
+  if (GV)
+  {
+    char* p = static_cast<char*>(currentEE->getPointerToGlobalIfAvailable(GV));
+    return p;
+  }
+  auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(Addr);
+  assert (it != PreExecute::currentPreExecutePass->typedAllocations.begin());
+  --it;
+  // Verify that the address is in the memory block
+  assert (Addr >= it->first);
+  AllocData& allocData = it->second;
+  // The edge of the allocation is a valid pointer
+  assert(Addr <= (it->first + allocData.size));
+  return it->first;
+}
+
 static GenericValue pre_execute_pointer_base(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   char *p = (char *)(currentEE->GVTORP(Args[0]));
-  const GlobalValue* GV = currentEE->getGlobalValueAtAddress(p);
-  if (GV)
-  {
-    void* base = currentEE->getPointerToGlobalIfAvailable(GV);
-    return currentEE->RPTOGV(base);
-  }
-  auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(p);
-  assert (it != PreExecute::currentPreExecutePass->typedAllocations.begin());
-  --it;
-  // Verify that the address is in the memory block
-  assert (p >= it->first);
-  AllocData& allocData = it->second;
-  // The edge of the allocation is a valid pointer
-  assert(p <= (it->first + allocData.size));
-  return currentEE->RPTOGV(it->first);
+  return currentEE->RPTOGV(most_derived_pointer(p));
 }
 
 static GenericValue pre_execute_pointer_offset(FunctionType *FT,
@@ -94,22 +99,8 @@ static GenericValue pre_execute_pointer_offset(FunctionType *FT,
   GenericValue G;
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   char *p = (char *)(currentEE->GVTORP(Args[0]));
-  const GlobalValue* GV = currentEE->getGlobalValueAtAddress(p);
-  if (GV)
-  {
-    char* base = (char*)currentEE->getPointerToGlobalIfAvailable(GV);
-    G.IntVal = APInt(32, p - base);
-    return G;
-  }
-  auto it = PreExecute::currentPreExecutePass->typedAllocations.upper_bound(p);
-  assert (it != PreExecute::currentPreExecutePass->typedAllocations.begin());
-  --it;
-  // Verify that the address is in the memory block
-  assert (p >= it->first);
-  AllocData& allocData = it->second;
-  // The edge of the allocation is a valid pointer
-  assert(p <= (it->first + allocData.size));
-  G.IntVal = APInt(32, p - it->first);
+  char *derived = most_derived_pointer(p);
+  G.IntVal = APInt(32, p - derived);
   return G;
 }
 
@@ -390,6 +381,86 @@ static GenericValue pre_execute_downcast(FunctionType *FT,
     return GenericValue(reinterpret_cast<void*>(AddrValue));
 }
 
+static GenericValue pre_execute_virtualcast(FunctionType *FT,
+                                         const std::vector<GenericValue> &Args) {
+    // We need to apply the offset in bytes using the bases metadata
+    ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+    assert(currentEE->getCurrentCaller());
+    bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs");
+    if (asmjs)
+    {
+        char* Addr = (char*)Args[0].PointerVal;
+        int32_t Offset = Args[1].IntVal.getSExtValue();
+        return GenericValue(Addr + Offset);
+    }
+
+    char* Addr = (char*)currentEE->GVTORP(Args[0]);
+    Type* derivedType = most_derived_class(Addr); 
+    assert(derivedType);
+    int baseOffset = Args[1].IntVal.getSExtValue();
+    Type* baseType;
+    assert(baseOffset >= 0);
+    baseType = FT->getReturnType()->getPointerElementType();
+    uintptr_t curByteOffset=0;
+    uint32_t curBaseOffset= baseOffset;
+    StructType* curType=cast<StructType>(derivedType);
+    auto &currentModule = PreExecute::currentPreExecutePass->currentModule;
+    auto DL = currentModule->getDataLayout();
+    while(curType!=baseType)
+    {
+        if(curBaseOffset==0)
+            break;
+        //Decrease 1 for this base
+        curBaseOffset--;
+        uint32_t firstBase, baseCount;
+        bool ret = TypeSupport::getBasesInfo(*currentModule, curType,
+                firstBase, baseCount);
+        assert(ret);
+#ifdef DEBUG_PRE_EXECUTE
+        llvm::errs()
+            << "curType " << *curType
+            << " FIRST " << firstBase
+            << " COUNT " << baseCount
+            << "\n";
+#endif
+        assert(curBaseOffset < baseCount);
+        uint32_t nextBaseIndex = firstBase;
+        for(; nextBaseIndex < (firstBase + baseCount); nextBaseIndex++) {
+            uint32_t subFirstBase, subBaseCount;
+            auto element = curType->getElementType(nextBaseIndex);
+            StructType* nextType = cast<StructType>(element);
+#ifdef DEBUG_PRE_EXECUTE
+            llvm::errs() << "nextType: " << *nextType << "\n";
+#endif
+            bool ret = TypeSupport::getBasesInfo(*currentModule, nextType,
+                        subFirstBase, subBaseCount);
+            if (!ret)
+                break;
+            if (curBaseOffset < subBaseCount) {
+                curType = nextType;
+                break;
+            }
+            curBaseOffset -= subBaseCount;
+        }
+        // Skip the offset untils the first base
+        auto layout = DL->getStructLayout(curType);
+#ifdef DEBUG_PRE_EXECUTE
+        llvm::errs() << "curType: " << *curType << "\n";
+        llvm::errs() << "firstBase: " << firstBase << "\n";
+        llvm::errs() << "layout in bytes: " << layout->getSizeInBytes() << "\n";
+#endif
+        curByteOffset += layout->getElementOffset(firstBase);
+    }
+    // Get the pointer to the complete object
+    char* AddrValue = most_derived_pointer(Addr);
+#ifdef DEBUG_PRE_EXECUTE
+    llvm::errs() << "AddrValue " << AddrValue
+        << " curByteOffset " << curByteOffset << "\n";
+#endif
+    AddrValue+=curByteOffset;
+    return currentEE->RPTOGV(AddrValue);
+}
+
 static GenericValue pre_execute_upcast(FunctionType *FT,
                                        const std::vector<GenericValue> &Args) {
     return Args[0]; 
@@ -425,6 +496,8 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_downcast_current;
     if (strncmp(funcName.c_str(), "llvm.cheerp.downcast.", strlen("llvm.cheerp.downcast."))==0)
         return (void*)(void(*)())pre_execute_downcast;
+    if (strncmp(funcName.c_str(), "llvm.cheerp.virtualcast.", strlen("llvm.cheerp.virtualcast."))==0)
+        return (void*)(void(*)())pre_execute_virtualcast;
     if (strncmp(funcName.c_str(), "llvm.cheerp.upcast.", strlen("llvm.cheerp.upcast."))==0)
         return (void*)(void(*)())pre_execute_upcast;
     if (strncmp(funcName.c_str(), "llvm.cheerp.allocate.array.", strlen("llvm.cheerp.allocate.array."))==0)
