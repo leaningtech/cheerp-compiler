@@ -1481,6 +1481,7 @@ ItaniumVTableBuilder::ComputeReturnAdjustment(BaseOffset Offset) {
           VTables.getVirtualBaseOffsetOffset(Offset.DerivedClass,
                                              Offset.VirtualBase).getQuantity();
       }
+      Adjustment.Virtual.Itanium.VirtualBase = Offset.VirtualBase;
     }
 
     Adjustment.NonVirtual = Offset.NonVirtualOffset.getQuantity();
