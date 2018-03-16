@@ -116,7 +116,7 @@ public:
 
 	void getAnalysisUsage( llvm::AnalysisUsage& ) const override;
 
-	void visitType( llvm::Type* t, bool forceTypedArray );
+	void visitType( const llvm::Module& m, llvm::Type* t, bool forceTypedArray );
 
 	llvm::StructType* needsDowncastArray(llvm::StructType* t) const;
 
@@ -159,7 +159,7 @@ private:
 	/**
 	 * Visit every sub-structure inside this struct
 	 */
-	void visitStruct( llvm::StructType* ST );
+	void visitStruct( const llvm::Module& m, llvm::StructType* ST );
 	/**
 	 * Remove all the unused function/variables from a module.
 	 * 
