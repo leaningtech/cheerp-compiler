@@ -313,50 +313,36 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 	}
 
 	MDNode* basesMeta=basesNamedMeta->getOperand(0);
-	assert(basesMeta->getNumOperands()==2);
+	assert(basesMeta->getNumOperands()>=1);
 	firstBase=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue());
-	int32_t baseMax=getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue())-1;
-	baseCount=0;
+	baseCount = 0;
 
-	StructType* curDirectBase = t->getDirectBase();
-	while(curDirectBase)
-	{
-		const NamedMDNode* basesNamedMeta = getBasesMetadata(curDirectBase, module);
-		if(basesNamedMeta)
-		{
-			MDNode* basesMeta=basesNamedMeta->getOperand(0);
-			assert(basesMeta->getNumOperands()==2);
-			int32_t directBaseBasesMax = getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue())-1;
-			baseMax-=directBaseBasesMax;
-			break;
-		}
-		curDirectBase = curDirectBase->getDirectBase();
-	}
 	assert(firstBase < t->getNumElements());
-	StructType::element_iterator E=t->element_begin()+firstBase;
-	StructType::element_iterator EE=t->element_end();
-	for(;E!=EE;++E)
-	{
-		baseCount++;
-		// A base with a single element may have collapsed
-		StructType* baseT=dyn_cast<StructType>(*E);
-		while(baseT)
-		{
-			NamedMDNode* baseNamedMeta=module.getNamedMetadata(Twine(baseT->getName(),"_bases"));
-			if(baseNamedMeta)
-			{
-				baseMax-=getIntFromValue(cast<ConstantAsMetadata>(baseNamedMeta->getOperand(0)->getOperand(1))->getValue());
-				break;
-			}
-			baseT=baseT->getDirectBase();
-		}
-		if(!baseT)
-			baseMax--;
-		assert(baseMax>=0);
-		if(baseMax==0)
-			break;
-	}
+	baseCount = t->getNumElements()-firstBase;
 	return true;
+}
+
+bool TypeSupport::hasVirtualBases(const Module& module, const StructType* t)
+{
+	const NamedMDNode* basesNamedMeta = getBasesMetadata(t, module);
+	if(!basesNamedMeta)
+	{
+		// Before giving up, check if the direct base has any bases
+		if(t->getDirectBase())
+			return hasVirtualBases(module,t->getDirectBase());
+		return false;
+	}
+
+	MDNode* basesMeta=basesNamedMeta->getOperand(0);
+	if (basesMeta->getNumOperands()>=2)
+	{
+		bool isVirtual = getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
+		return isVirtual;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool TypeSupport::useWrapperArrayForMember(const PointerAnalyzer& PA, StructType* st, uint32_t memberIndex) const
@@ -364,7 +350,7 @@ bool TypeSupport::useWrapperArrayForMember(const PointerAnalyzer& PA, StructType
 	uint32_t firstBase, baseCount;
 	if(getBasesInfo(st, firstBase, baseCount))
 	{
-		if(memberIndex < firstBase && st->getDirectBase())
+		if(st->getDirectBase() && memberIndex < st->getDirectBase()->getNumElements())
 			return useWrapperArrayForMember(PA, st->getDirectBase(), memberIndex);
 		if(memberIndex >= firstBase && memberIndex < (firstBase+baseCount) && st->getElementType(memberIndex)->isStructTy())
 			return false;
