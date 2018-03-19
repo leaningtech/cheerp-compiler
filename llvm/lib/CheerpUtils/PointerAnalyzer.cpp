@@ -1294,20 +1294,6 @@ PointerConstantOffsetWrapper PointerResolverForOffsetVisitor::resolvePointerOffs
 		return offset;
 }
 
-struct TimerGuard
-{
-	TimerGuard(Timer & timer) : timer(timer)
-	{
-		timer.startTimer();
-	}
-	~TimerGuard()
-	{
-		timer.stopTimer();
-	}
-
-	Timer & timer;
-};
-
 void PointerAnalyzer::prefetchFunc(const Function& F) const
 {
 	for(const Argument & arg : F.getArgumentList())
@@ -1342,10 +1328,6 @@ void PointerAnalyzer::prefetchFunc(const Function& F) const
 
 const PointerKindWrapper& PointerAnalyzer::getFinalPointerKindWrapper(const Value* p) const
 {
-#ifndef NDEBUG
-	TimerGuard guard(gpkTimer);
-#endif //NDEBUG
-
 	// If the values is already cached just return it
 	auto it = pointerKindData.valueMap.find(p);
 	if(it!=pointerKindData.valueMap.end())
@@ -1388,9 +1370,6 @@ const PointerConstantOffsetWrapper& PointerAnalyzer::getFinalPointerConstantOffs
 
 POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 {
-#ifndef NDEBUG
-	TimerGuard guard(gpkTimer);
-#endif //NDEBUG
 	const PointerKindWrapper& k = getFinalPointerKindWrapper(p);
 
 	if (k!=INDIRECT)
