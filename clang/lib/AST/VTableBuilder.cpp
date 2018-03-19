@@ -1211,13 +1211,21 @@ private:
                        CharUnits FirstBaseOffsetInLayoutClass) const;
 
 
+  struct MethodInfoForThunk {
+    const CXXMethodDecl* MD;
+    const CXXMethodDecl* OverriddenMD;
+    FinalOverriders::OverriderInfo Overrider;
+    CharUnits BaseOffsetInLayoutClass;
+  };
+  typedef llvm::SmallVector<MethodInfoForThunk, 8> ExtraThunksTy;
   /// AddMethods - Add the methods of this base subobject and all its
   /// primary bases to the vtable components vector.
   uint32_t AddMethods(BaseSubobject Base, CharUnits BaseOffsetInLayoutClass,
                   const CXXRecordDecl *FirstBaseInPrimaryBaseChain,
                   CharUnits FirstBaseOffsetInLayoutClass,
                   PrimaryBasesSetVectorTy &PrimaryBases, uint32_t StartIndex,
-                  VisitedVirtualBasesSetTy& VisitedVirtualBases);
+                  VisitedVirtualBasesSetTy& VisitedVirtualBases,
+                  ExtraThunksTy& ExtraThunks);
 
   // LayoutVTable - Layout the vtable for the given base class, including its
   // secondary vtables and any vtables for virtual bases.
@@ -1722,7 +1730,9 @@ uint32_t ItaniumVTableBuilder::AddMethods(
     BaseSubobject Base, CharUnits BaseOffsetInLayoutClass,
     const CXXRecordDecl *FirstBaseInPrimaryBaseChain,
     CharUnits FirstBaseOffsetInLayoutClass,
-    PrimaryBasesSetVectorTy &PrimaryBases, uint32_t StartIndex, VisitedVirtualBasesSetTy& VisitedVirtualBases) {
+    PrimaryBasesSetVectorTy &PrimaryBases, uint32_t StartIndex,
+    VisitedVirtualBasesSetTy& VisitedVirtualBases,
+    ExtraThunksTy& ExtraThunks) {
   // Itanium C++ ABI 2.5.2:
   //   The order of the virtual function pointers in a virtual table is the
   //   order of declaration of the corresponding member functions in the class.
@@ -1764,7 +1774,8 @@ uint32_t ItaniumVTableBuilder::AddMethods(
 
     methodCount += AddMethods(BaseSubobject(PrimaryBase, PrimaryBaseOffset),
                PrimaryBaseOffsetInLayoutClass, FirstBaseInPrimaryBaseChain, 
-               FirstBaseOffsetInLayoutClass, PrimaryBases, StartIndex, VisitedVirtualBases);
+               FirstBaseOffsetInLayoutClass, PrimaryBases, StartIndex,
+               VisitedVirtualBases, ExtraThunks);
     
     if (!PrimaryBases.insert(PrimaryBase))
       llvm_unreachable("Found a duplicate primary base!");
@@ -1811,27 +1822,14 @@ uint32_t ItaniumVTableBuilder::AddMethods(
         // or indirect base class of a virtual base class, we need to emit a
         // thunk if we ever have a class hierarchy where the base class is not
         // a primary base in the complete object.
-        if (!isBuildingConstructorVTable() && OverriddenMD != MD) {
-          // Compute the this adjustment.
-          ThisAdjustment ThisAdjustment =
-            ComputeThisAdjustment(OverriddenMD, BaseOffsetInLayoutClass,
-                                  Overrider);
-
-          if (ThisAdjustment.Virtual.Itanium.VCallOffsetOffset &&
-              Overrider.Method->getParent() == MostDerivedClass) {
-
-            // There's no return adjustment from OverriddenMD and MD,
-            // but that doesn't mean there isn't one between MD and
-            // the final overrider.
-            BaseOffset ReturnAdjustmentOffset =
-              ComputeReturnAdjustmentBaseOffset(Context, Overrider.Method, MD);
-            ReturnAdjustment ReturnAdjustment =
-              ComputeReturnAdjustment(ReturnAdjustmentOffset);
-
-            // This is a virtual thunk for the most derived class, add it.
-            AddThunk(Overrider.Method, 
-                     ThunkInfo(ThisAdjustment, ReturnAdjustment, OverriddenMD));
-          }
+        if (!isBuildingConstructorVTable() && OverriddenMD != MD &&
+            Overrider.Method->getParent() == MostDerivedClass) {
+          MethodInfoForThunk Info;
+          Info.MD = MD;
+          Info.OverriddenMD = OverriddenMD;
+          Info.Overrider = Overrider;
+          Info.BaseOffsetInLayoutClass = BaseOffsetInLayoutClass;
+          ExtraThunks.push_back(Info);
         }
 
         continue;
@@ -1986,9 +1984,10 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
   // Now go through all virtual member functions and add them.
   PrimaryBasesSetVectorTy PrimaryBases;
   VisitedVirtualBasesSetTy VisitedVirtualBases;
+  ExtraThunksTy ExtraThunks;
   uint32_t currentMethodsCount = AddMethods(Base, OffsetInLayoutClass,
              Base.getBase(), OffsetInLayoutClass, 
-             PrimaryBases, Components.size(), VisitedVirtualBases);
+             PrimaryBases, Components.size(), VisitedVirtualBases, ExtraThunks);
 
   if(!PrimaryVirtualMethodsCount)
     PrimaryVirtualMethodsCount = currentMethodsCount;
@@ -2020,6 +2019,29 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
       
       if (VCallOffsets.empty())
         VCallOffsets = Builder.getVCallOffsets();
+    }
+  }
+
+  // Add the thunks we delayed
+  for (const auto& E: ExtraThunks) {
+    // Compute the this adjustment.
+    ThisAdjustment ThisAdjustment =
+      ComputeThisAdjustment(E.OverriddenMD, E.BaseOffsetInLayoutClass,
+                            E.Overrider);
+
+    if (ThisAdjustment.Virtual.Itanium.VCallOffsetOffset) {
+
+      // There's no return adjustment from OverriddenMD and MD,
+      // but that doesn't mean there isn't one between MD and
+      // the final overrider.
+      BaseOffset ReturnAdjustmentOffset =
+        ComputeReturnAdjustmentBaseOffset(Context, E.Overrider.Method, E.MD);
+      ReturnAdjustment ReturnAdjustment = 
+        ComputeReturnAdjustment(ReturnAdjustmentOffset);
+
+      // This is a virtual thunk for the most derived class, add it.
+      AddThunk(E.Overrider.Method, 
+               ThunkInfo(ThisAdjustment, ReturnAdjustment, E.OverriddenMD));
     }
   }
 
