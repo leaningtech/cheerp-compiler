@@ -763,6 +763,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compilePointerOffset(*it, LOWEST, true);
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::cheerp_pointer_kind)
+	{
+		stream << PA.getPointerKind(*it);
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::cheerp_create_closure)
 	{
 		assert( globalDeps.needCreateClosure() );

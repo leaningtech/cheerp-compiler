@@ -68,3 +68,8 @@ def int_cheerp_make_complete_object : Intrinsic<[llvm_anyptr_ty],
 def int_cheerp_make_regular : Intrinsic<[llvm_anyptr_ty],
                                       [llvm_anyptr_ty, llvm_i32_ty],
                                       [IntrNoMem]>;
+
+// Access to pointer information
+def int_cheerp_pointer_kind : Intrinsic<[llvm_i32_ty],
+                                [llvm_anyptr_ty],
+                                [IntrNoMem]>;
