@@ -292,10 +292,7 @@ public:
 	PointerAnalyzer() : 
 		ModulePass(ID)
 #ifndef NDEBUG
-		,fullyResolved(false),
-		timerGroup("Pointer Analyzer"),
-		gpkTimer("getPointerKind",timerGroup),
-		gpkfrTimer("getPointerKindForReturn",timerGroup)
+		,fullyResolved(false)
 #endif //NDEBUG
 	{}
 
@@ -381,11 +378,6 @@ private:
 	mutable PointerKindData pointerKindData;
 	mutable PointerOffsetData pointerOffsetData;
 	mutable AddressTakenMap addressTakenCache;
-
-#ifndef NDEBUG
-	mutable llvm::TimerGroup timerGroup;
-	mutable llvm::Timer gpkTimer, gpkfrTimer;
-#endif //NDEBUG
 };
 
 #ifndef NDEBUG
