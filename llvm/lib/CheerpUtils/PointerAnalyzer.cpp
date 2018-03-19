@@ -798,6 +798,8 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		}
 		case Intrinsic::cheerp_get_array_len:
 			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
+		case Intrinsic::cheerp_pointer_kind:
+			return ret |= COMPLETE_OBJECT;
 		case Intrinsic::invariant_start:
 		case Intrinsic::invariant_end:
 		case Intrinsic::lifetime_start:
