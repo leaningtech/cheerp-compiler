@@ -101,6 +101,12 @@ bool IdenticalCodeFolding::equivalentFunction(llvm::Function* A, llvm::Function*
 	if (!A || !B || A->isVarArg() != B->isVarArg() || A->arg_size() != B->arg_size())
 		return false;
 
+	// Do not fold functions that have inequivalent function parameter types.
+	for (auto a = A->arg_begin(), b = B->arg_begin(); a != A->arg_end(); ++a, ++b) {
+		if (!equivalentType(a->getType(), b->getType()))
+			return false;
+	}
+
 	// Do not fold wasm/asmjs with generic JS functions.
 	if (A->getSection() != StringRef(B->getSection()))
 		return false;
