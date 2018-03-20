@@ -1156,8 +1156,8 @@ private:
 
   /// ComputeThisAdjustments - Compute the 'this' pointer adjustments for the
   /// part of the vtable we're currently building.
-  void ComputeThisAdjustments();
-
+  void ComputeThisAdjustments(uint32_t VCallStartIndex);
+  
   typedef llvm::SmallPtrSet<const CXXRecordDecl *, 4> VisitedVirtualBasesSetTy;
 
   /// PrimaryVirtualBases - All known virtual bases who are a primary base of
@@ -1180,7 +1180,8 @@ private:
   ThisAdjustment
   ComputeThisAdjustment(const CXXMethodDecl *MD,
                         CharUnits BaseOffsetInLayoutClass,
-                        FinalOverriders::OverriderInfo Overrider);
+                        FinalOverriders::OverriderInfo Overrider,
+                        uint32_t StartIndex);
 
   /// AddMethod - Add a single virtual member function to the vtable
   /// components vector.
@@ -1391,7 +1392,7 @@ ComputeAllOverriddenMethods(const CXXMethodDecl *MD,
   visitAllOverriddenMethods(MD, OverriddenMethodsCollector);
 }
 
-void ItaniumVTableBuilder::ComputeThisAdjustments() {
+void ItaniumVTableBuilder::ComputeThisAdjustments(uint32_t VCallStartIndex) {
   // Now go through the method info map and see if any of the methods need
   // 'this' pointer adjustments.
   for (const auto &MI : MethodInfoMap) {
@@ -1420,7 +1421,7 @@ void ItaniumVTableBuilder::ComputeThisAdjustments() {
     }
 
     ThisAdjustment ThisAdjustment =
-      ComputeThisAdjustment(MD, MethodInfo.BaseOffsetInLayoutClass, Overrider);
+      ComputeThisAdjustment(MD, MethodInfo.BaseOffsetInLayoutClass, Overrider, VCallStartIndex);
 
     if (ThisAdjustment.isEmpty())
       continue;
@@ -1547,7 +1548,7 @@ BaseOffset ItaniumVTableBuilder::ComputeThisAdjustmentBaseOffset(
 
 ThisAdjustment ItaniumVTableBuilder::ComputeThisAdjustment(
     const CXXMethodDecl *MD, CharUnits BaseOffsetInLayoutClass,
-    FinalOverriders::OverriderInfo Overrider) {
+    FinalOverriders::OverriderInfo Overrider, uint32_t StartIndex) {
   // Ignore adjustments for pure virtual member functions.
   if (Overrider.Method->isPure())
     return ThisAdjustment(NULL, NULL);
@@ -1574,7 +1575,8 @@ ThisAdjustment ItaniumVTableBuilder::ComputeThisAdjustment(
     if (VCallOffsets.empty()) {
       // We don't have vcall offsets for this virtual base, go ahead and
       // build them.
-      VCallAndVBaseOffsetBuilder Builder(
+      if (Context.getTargetInfo().isByteAddressable()) {
+        VCallAndVBaseOffsetBuilder Builder(
           VTables, MostDerivedClass, MostDerivedClass,
           /*Overriders=*/nullptr,
           BaseSubobject(Offset.VirtualBase, CharUnits::Zero()),
@@ -1582,7 +1584,16 @@ ThisAdjustment ItaniumVTableBuilder::ComputeThisAdjustment(
           /*OffsetInLayoutClass=*/
           CharUnits::Zero());
 
-      VCallOffsets = Builder.getVCallOffsets();
+            VCallOffsets = Builder.getVCallOffsets();
+      } else {
+          VCallOffsetBuilder Builder(MostDerivedClass, MostDerivedClass, nullptr,
+                                             BaseSubobject(Offset.VirtualBase,
+                                                           CharUnits::Zero()),
+                                             /*BaseIsVirtual=*/true, 
+                                             /*OffsetInLayoutClass=*/CharUnits::Zero(),
+                                             StartIndex);
+            VCallOffsets = Builder.getVCallOffsets();
+      }
     }
     Adjustment.Virtual.Itanium.VirtualBase = Offset.VirtualBase;
     Adjustment.Virtual.Itanium.VCallOffsetOffset =
@@ -2012,11 +2023,12 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
       }
     }
   }
+  uint32_t VCallStartIndex = Components.size()-AddressPoint;
   if(!isByteAddressable)
   {
     VCallOffsetBuilder Builder(MostDerivedClass, LayoutClass, &Overriders,
                                        Base, BaseIsVirtualInLayoutClass, 
-                                       OffsetInLayoutClass, Components.size()-AddressPoint);
+                                       OffsetInLayoutClass, VCallStartIndex);
     Components.append(Builder.components_begin(), Builder.components_end());
     if (BaseIsVirtualInLayoutClass && !Builder.getVCallOffsets().empty()) {
       VCallOffsetMap &VCallOffsets = VCallOffsetsForVBases[Base.getBase()];
@@ -2031,7 +2043,7 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
     // Compute the this adjustment.
     ThisAdjustment ThisAdjustment =
       ComputeThisAdjustment(E.OverriddenMD, E.BaseOffsetInLayoutClass,
-                            E.Overrider);
+                            E.Overrider, VCallStartIndex);
 
     if (ThisAdjustment.Virtual.Itanium.VCallOffsetOffset) {
 
@@ -2050,7 +2062,7 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
   }
 
   // Compute 'this' pointer adjustments.
-  ComputeThisAdjustments();
+  ComputeThisAdjustments(VCallStartIndex);
 
   // Add all address points.
   while (true) {
