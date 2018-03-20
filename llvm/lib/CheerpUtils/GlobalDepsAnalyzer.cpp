@@ -212,7 +212,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 #undef USE_MEMORY_FUNC
 
 	llvm::Function* webMainOrMain = module.getFunction("_Z7webMainv");
-	if (webMainOrMain || (webMainOrMain = module.getFunction("main")))
+	if (webMainOrMain || (webMainOrMain = module.getFunction("webMain")) ||
+		(webMainOrMain = module.getFunction("main")))
 	{
 		// Webmain entry point
 		SubExprVec vec;
