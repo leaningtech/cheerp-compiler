@@ -5182,7 +5182,7 @@ void CheerpWriter::makeJS()
 		compileAsmJSImports();
 		compileAsmJSExports();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
-		stream << "var importObject = { imports: {" << NewLine;
+		stream << "var importObject={imports:{" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			std::string name;
@@ -5195,10 +5195,10 @@ void CheerpWriter::makeJS()
 		stream << "}};" << NewLine;
 		for (StringRef &className : exportedClassNames)
 			stream << className << ".promise=" << NewLine;
-		stream << "fetchBuffer('" << wasmFile << "').then(bytes =>" << NewLine;
-		stream << "WebAssembly.instantiate(bytes, importObject)" << NewLine;
-		stream << ",console.log).then(result => {" << NewLine;
-		stream << "var instance = result.instance;" << NewLine;
+		stream << "fetchBuffer('" << wasmFile << "').then(r=>" << NewLine;
+		stream << "WebAssembly.instantiate(r,importObject)" << NewLine;
+		stream << ",console.log).then(r=>{" << NewLine;
+		stream << "var instance=r.instance;" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
 		stream << "__asm=instance.exports;" << NewLine;
@@ -5209,9 +5209,8 @@ void CheerpWriter::makeJS()
 		if (asmJSMem)
 		{
 			stream << "var __asm=null;" << NewLine;
-			stream << "fetchBuffer('" << asmJSMemFile << "').then(memory => {" << NewLine;
-			stream << "var buf=new Uint8Array(memory);" << NewLine;
-			stream << heapNames[HEAP8] << ".set(buf,0);" << NewLine;
+			stream << "fetchBuffer('" << asmJSMemFile << "').then(r=>{" << NewLine;
+			stream << heapNames[HEAP8] << ".set(new Uint8Array(r),0);" << NewLine;
 		}
 		else
 		{
