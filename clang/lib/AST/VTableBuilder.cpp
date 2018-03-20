@@ -1186,7 +1186,7 @@ private:
 
   /// AddMethod - Add a single virtual member function to the vtable
   /// components vector.
-  void AddMethod(const CXXMethodDecl *MD, ReturnAdjustment ReturnAdjustment);
+  void AddMethod(const CXXMethodDecl *MD, const CXXMethodDecl* OriginalMD, ReturnAdjustment ReturnAdjustment);
 
   /// IsOverriderUsed - Returns whether the overrider will ever be used in this
   /// part of the vtable.
@@ -1598,6 +1598,7 @@ ThisAdjustment ItaniumVTableBuilder::ComputeThisAdjustment(
 }
 
 void ItaniumVTableBuilder::AddMethod(const CXXMethodDecl *MD,
+                                     const CXXMethodDecl *OriginalMD,
                                      ReturnAdjustment ReturnAdjustment) {
   if (const CXXDestructorDecl *DD = dyn_cast<CXXDestructorDecl>(MD)) {
     assert(ReturnAdjustment.isEmpty() &&
@@ -1609,7 +1610,10 @@ void ItaniumVTableBuilder::AddMethod(const CXXMethodDecl *MD,
   } else {
     // Add the return adjustment if necessary.
     if (!ReturnAdjustment.isEmpty())
+    {
       VTableThunks[Components.size()].Return = ReturnAdjustment;
+      VTableThunks[Components.size()].Method = OriginalMD;
+    }
 
     // Add the function.
     Components.push_back(VTableComponent::MakeFunction(MD));
@@ -1897,7 +1901,7 @@ uint32_t ItaniumVTableBuilder::AddMethods(
       ComputeReturnAdjustment(ReturnAdjustmentOffset);
     
     uint32_t componentsPrev = Components.size();
-    AddMethod(Overrider.Method, ReturnAdjustment);
+    AddMethod(Overrider.Method, MD, ReturnAdjustment);
     methodCount += Components.size() - componentsPrev;
   }
   if (!Context.getTargetInfo().isByteAddressable()) {
