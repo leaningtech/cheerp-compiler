@@ -530,7 +530,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   const CXXMethodDecl *MD = cast<CXXMethodDecl>(GD.getDecl());
 
   // Override the non virtual offset in bytes with the topological offset on NBA targets
-  bool asmjs = OriginalMethod->getParent()->hasAttr<AsmJSAttr>();
+  bool asmjs = OriginalMethod? OriginalMethod->getParent()->hasAttr<AsmJSAttr>() : false;
   if(!byteAddressable && !asmjs) {
     if(!TI.This.isEmpty())
       TI.This.NonVirtual = ComputeTopologicalBaseOffset(CGM, TI.This.AdjustmentTarget, TI.This.AdjustmentPath);
