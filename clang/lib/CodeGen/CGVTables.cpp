@@ -834,17 +834,23 @@ void CodeGenVTables::addVTableComponent(AggregateBuilderPublic &builder,
 
   switch (component.getKind()) {
   case VTableComponent::CK_VCallOffset:
-    if(!CGM.getTarget().isByteAddressable() && !asmjs) {
+    if(!CGM.getTarget().isByteAddressable()) {
       int32_t Offset = 0;
-      if (LayoutClass != component.getVCall() && component.getVCall() != nullptr)
+      if(asmjs)
+        Offset = component.getVCallOffset().getQuantity();
+      else if (LayoutClass != component.getVCall() && component.getVCall() != nullptr)
         Offset =  CGM.ComputeVirtualBaseIdOffset(LayoutClass, component.getVCall());
       return builder.addInt(CGM.PtrDiffTy, Offset);
     }
     return addOffsetConstant(CGM, builder, component.getVCallOffset());
 
   case VTableComponent::CK_VBaseOffset:
-    if(!CGM.getTarget().isByteAddressable() && !asmjs) {
-      int32_t Offset = CGM.ComputeVirtualBaseIdOffset(LayoutClass, component.getVBase());
+    if(!CGM.getTarget().isByteAddressable()) {
+      int32_t Offset;
+      if(asmjs)
+        Offset = component.getVBaseOffset().getQuantity();
+      else
+        Offset = CGM.ComputeVirtualBaseIdOffset(LayoutClass, component.getVBase());
       return builder.addInt(CGM.PtrDiffTy, Offset);
     }
     return addOffsetConstant(CGM, builder, component.getVBaseOffset());
