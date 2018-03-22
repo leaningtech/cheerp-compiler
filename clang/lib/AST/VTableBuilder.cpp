@@ -602,6 +602,7 @@ public:
 };
 void VBaseOffsetBuilder::AddVBaseOffsets(const CXXRecordDecl *RD, 
                        CharUnits OffsetInLayoutClass) {
+  bool asmjs = RD->hasAttr<AsmJSAttr>();
   // Add vbase offsets.
   for (const auto &B : RD->bases()) {
     const CXXRecordDecl *BaseDecl = B.getType()->getAsCXXRecordDecl();
@@ -616,8 +617,17 @@ void VBaseOffsetBuilder::AddVBaseOffsets(const CXXRecordDecl *RD,
       VBaseOffsetOffsets.insert(
           std::make_pair(BaseDecl, VBaseOffsetOffset));
 
-      Components.push_back(
-          VTableComponent::MakeVBase(BaseDecl));
+      if (asmjs) {
+        const ASTRecordLayout &LayoutClassLayout = 
+          Context.getASTRecordLayout(LayoutClass);
+        CharUnits Offset = 
+          LayoutClassLayout.getVBaseClassOffset(BaseDecl) - OffsetInLayoutClass;
+        Components.push_back(
+            VTableComponent::MakeVBaseOffset(Offset));
+      } else {
+        Components.push_back(
+            VTableComponent::MakeVBase(BaseDecl));
+      }
     }
 
     // Check the base class looking for more vbase offsets.
@@ -725,6 +735,8 @@ void VCallOffsetBuilder::AddVCallOffsets(BaseSubobject Base,
 
   const CXXRecordDecl *PrimaryBase = Layout.getPrimaryBase();
 
+  bool asmjs = RD->hasAttr<AsmJSAttr>();
+
   // Handle the primary base first.
   // We only want to add vcall offsets if the base is non-virtual; a virtual
   // primary base will have its vcall and vbase offsets emitted already.
@@ -764,8 +776,13 @@ void VCallOffsetBuilder::AddVCallOffsets(BaseSubobject Base,
       VirtualBase = Overrider.VirtualBase;
     }
     
-    Components.push_back(
-      VTableComponent::MakeVCall(VirtualBase));
+    if (asmjs) {
+      Components.push_back(
+        VTableComponent::MakeVCallOffset(Offset));
+    } else {
+      Components.push_back(
+        VTableComponent::MakeVCall(VirtualBase));
+    }
   }
 
   // And iterate over all non-virtual bases (ignoring the primary base).
