@@ -14,6 +14,8 @@
 #define LLVM_CLANG_LIB_CODEGEN_CODEGENTYPES_H
 
 #include "CGCall.h"
+#include "clang/AST/GlobalDecl.h"
+#include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/ABI.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "llvm/ADT/DenseMap.h"
@@ -159,9 +161,16 @@ public:
 
   llvm::Type* GetVTableBaseType();
 
-  llvm::Type* GetVTableType(const CXXRecordDecl* RD);
+  llvm::Type* GetPrimaryVTableType(const CXXRecordDecl* RD);
+  llvm::Type* GetSecondaryVTableType(const CXXRecordDecl* RD);
 
-  llvm::Type* GetVTableType(uint32_t virtualMethodsCount, bool withOffsetToTop);
+  llvm::Type* GetBasicVTableType(uint32_t virtualMethodsCount, bool withOffsetToTop);
+
+  llvm::Type* GetVTableSubObjectType(CodeGenModule& CGM,
+                                     const VTableComponent* begin,
+                                     const VTableComponent* end,
+                                     uint32_t extraOffsets,
+                                     bool asmjs);
 
   llvm::Type* GetClassTypeInfoType();
 
