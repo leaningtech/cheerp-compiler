@@ -617,7 +617,10 @@ public:
   typedef VTableComponentVectorTy::const_reverse_iterator const_iterator;
   const_iterator components_begin() const { return Components.rbegin(); }
   const_iterator components_end() const { return Components.rend(); }
-
+  typedef VTableComponentVectorTy::const_iterator const_reverse_iterator;
+  const_reverse_iterator components_rbegin() const { return Components.begin(); }
+  const_reverse_iterator components_rend() const { return Components.end(); }
+  
   const VCallOffsetMap &getVCallOffsets() const { return VCallOffsets; }
   const VBaseOffsetOffsetsMapTy &getVBaseOffsetOffsets() const {
     return VBaseOffsetOffsets;
@@ -963,10 +966,11 @@ private:
 
   /// AddMethods - Add the methods of this base subobject and all its
   /// primary bases to the vtable components vector.
-  void AddMethods(BaseSubobject Base, CharUnits BaseOffsetInLayoutClass,
+  uint32_t AddMethods(BaseSubobject Base, CharUnits BaseOffsetInLayoutClass,
                   const CXXRecordDecl *FirstBaseInPrimaryBaseChain,
                   CharUnits FirstBaseOffsetInLayoutClass,
-                  PrimaryBasesSetVectorTy &PrimaryBases);
+                  PrimaryBasesSetVectorTy &PrimaryBases, uint32_t StartIndex,
+                  VisitedVirtualBasesSetTy& VisitedVirtualBases);
 
   // LayoutVTable - Layout the vtable for the given base class, including its
   // secondary vtables and any vtables for virtual bases.
@@ -1466,11 +1470,11 @@ FindNearestOverriddenMethod(const CXXMethodDecl *MD,
   return nullptr;
 }
 
-void ItaniumVTableBuilder::AddMethods(
+uint32_t ItaniumVTableBuilder::AddMethods(
     BaseSubobject Base, CharUnits BaseOffsetInLayoutClass,
     const CXXRecordDecl *FirstBaseInPrimaryBaseChain,
     CharUnits FirstBaseOffsetInLayoutClass,
-    PrimaryBasesSetVectorTy &PrimaryBases) {
+    PrimaryBasesSetVectorTy &PrimaryBases, uint32_t StartIndex, VisitedVirtualBasesSetTy& VisitedVirtualBases) {
   // Itanium C++ ABI 2.5.2:
   //   The order of the virtual function pointers in a virtual table is the
   //   order of declaration of the corresponding member functions in the class.
@@ -1480,6 +1484,7 @@ void ItaniumVTableBuilder::AddMethods(
   //   unless it overrides a function from the primary base, and conversion
   //   between their return types does not require an adjustment.
 
+  uint32_t methodCount = 0;
   const CXXRecordDecl *RD = Base.getBase();
   const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
 
@@ -1509,10 +1514,10 @@ void ItaniumVTableBuilder::AddMethods(
       PrimaryBaseOffsetInLayoutClass = BaseOffsetInLayoutClass;
     }
 
-    AddMethods(BaseSubobject(PrimaryBase, PrimaryBaseOffset),
-               PrimaryBaseOffsetInLayoutClass, FirstBaseInPrimaryBaseChain,
-               FirstBaseOffsetInLayoutClass, PrimaryBases);
-
+    methodCount += AddMethods(BaseSubobject(PrimaryBase, PrimaryBaseOffset),
+               PrimaryBaseOffsetInLayoutClass, FirstBaseInPrimaryBaseChain, 
+               FirstBaseOffsetInLayoutClass, PrimaryBases, StartIndex, VisitedVirtualBases);
+    
     if (!PrimaryBases.insert(PrimaryBase))
       llvm_unreachable("Found a duplicate primary base!");
   }
@@ -1629,6 +1634,7 @@ void ItaniumVTableBuilder::AddMethods(
                          FirstBaseInPrimaryBaseChain,
                          FirstBaseOffsetInLayoutClass)) {
       Components.push_back(VTableComponent::MakeUnusedFunction(OverriderMD));
+      methodCount++;
       continue;
     }
 
@@ -1642,9 +1648,19 @@ void ItaniumVTableBuilder::AddMethods(
 
     ReturnAdjustment ReturnAdjustment =
       ComputeReturnAdjustment(ReturnAdjustmentOffset);
-
+    
+    uint32_t componentsPrev = Components.size();
     AddMethod(Overrider.Method, ReturnAdjustment);
+    methodCount += Components.size() - componentsPrev;
   }
+  if (!Context.getTargetInfo().isByteAddressable()) {
+    uint32_t VBaseStartIndex = Components.size() - StartIndex + 1 + RD->hasAttr<AsmJSAttr>();
+    VBaseOffsetBuilder Builder(LayoutClass, Base.getBase(), VBaseStartIndex, VisitedVirtualBases, FirstBaseOffsetInLayoutClass);
+    Components.append(Builder.components_begin(), Builder.components_end());
+    VBaseOffsetOffsets.insert(Builder.getVBaseOffsetOffsets().begin(), Builder.getVBaseOffsetOffsets().end());
+  }
+
+  return methodCount;
 }
 
 void ItaniumVTableBuilder::LayoutVTable() {
@@ -1681,10 +1697,15 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
   VCallAndVBaseOffsetBuilder Builder(
       VTables, MostDerivedClass, LayoutClass, &Overriders, Base,
       BaseIsVirtualInLayoutClass, OffsetInLayoutClass);
-  Components.append(Builder.components_begin(), Builder.components_end());
 
+  uint64_t AddressPoint = 0;
+  bool isByteAddressable = Context.getTargetInfo().isByteAddressable();
+  if(isByteAddressable) {
+    Components.append(Builder.components_begin(), Builder.components_end());
+  }
+  
   // Check if we need to add these vcall offsets.
-  if (BaseIsVirtualInLayoutClass && !Builder.getVCallOffsets().empty()) {
+  if (isByteAddressable && BaseIsVirtualInLayoutClass && !Builder.getVCallOffsets().empty()) {
     VCallOffsetMap &VCallOffsets = VCallOffsetsForVBases[Base.getBase()];
 
     if (VCallOffsets.empty())
@@ -1693,12 +1714,16 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
 
   // If we're laying out the most derived class we want to keep track of the
   // virtual base class offset offsets.
-  if (Base.getBase() == MostDerivedClass)
+  if (Base.getBase() == MostDerivedClass && isByteAddressable)
     VBaseOffsetOffsets = Builder.getVBaseOffsetOffsets();
 
   bool asmjs = Base.getBase()->hasAttr<AsmJSAttr>();
+  // On Cheerp we want the vtable pointer to start from 0 when possible
+  if(!isByteAddressable) {
+    AddressPoint = Components.size();
+  }
   // Add the offset to top.
-  if(Context.getTargetInfo().isByteAddressable() || asmjs) {
+  if(isByteAddressable || asmjs) {
     CharUnits OffsetToTop = MostDerivedClassOffset - OffsetInLayoutClass;
     Components.push_back(VTableComponent::MakeOffsetToTop(OffsetToTop));
   }
@@ -1706,23 +1731,17 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
   // Next, add the RTTI.
   Components.push_back(VTableComponent::MakeRTTI(MostDerivedClass));
 
-  uint64_t AddressPoint = Components.size();
-
-  // On Cheerp we want to start vtable pointer to start from 0 when possible
-  if(!Context.getTargetInfo().isByteAddressable())
-  {
-    AddressPoint = asmjs ? AddressPoint-2 : AddressPoint-1;
+  if(isByteAddressable) {
+    AddressPoint = Components.size();
   }
 
   // Now go through all virtual member functions and add them.
   PrimaryBasesSetVectorTy PrimaryBases;
-  uint32_t methodsStartOffset = Components.size();
-  AddMethods(Base, OffsetInLayoutClass,
-             Base.getBase(), OffsetInLayoutClass,
-             PrimaryBases);
-  uint32_t methodsEndOffset = Components.size();
+  VisitedVirtualBasesSetTy VisitedVirtualBases;
+  uint32_t currentMethodsCount = AddMethods(Base, OffsetInLayoutClass,
+             Base.getBase(), OffsetInLayoutClass, 
+             PrimaryBases, Components.size(), VisitedVirtualBases);
 
-  uint32_t currentMethodsCount = methodsEndOffset - methodsStartOffset;
   if(!PrimaryVirtualMethodsCount)
     PrimaryVirtualMethodsCount = currentMethodsCount;
 
@@ -1742,10 +1761,19 @@ void ItaniumVTableBuilder::LayoutPrimaryAndSecondaryVTables(
       }
     }
   }
-
-  // On Cheerp we want to start vtable pointer to start from 0 when possible
-  if(!Context.getTargetInfo().isByteAddressable())
-    AddressPoint = AddressPointIndex++;
+  if(!isByteAddressable)
+  {
+    VCallOffsetBuilder Builder(MostDerivedClass, LayoutClass, &Overriders,
+                                       Base, BaseIsVirtualInLayoutClass, 
+                                       OffsetInLayoutClass, Components.size()-AddressPoint);
+    Components.append(Builder.components_begin(), Builder.components_end());
+    if (BaseIsVirtualInLayoutClass && !Builder.getVCallOffsets().empty()) {
+      VCallOffsetMap &VCallOffsets = VCallOffsetsForVBases[Base.getBase()];
+      
+      if (VCallOffsets.empty())
+        VCallOffsets = Builder.getVCallOffsets();
+    }
+  }
 
   // Compute 'this' pointer adjustments.
   ComputeThisAdjustments();

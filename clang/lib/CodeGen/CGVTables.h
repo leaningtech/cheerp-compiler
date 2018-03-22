@@ -65,6 +65,7 @@ public:
 private:
 
   void addVTableComponent(AggregateBuilderPublic &builder,
+                          const CXXRecordDecl *LayoutClass,
                           const VTableLayout &layout, unsigned componentIndex,
                           llvm::Constant *rtti, unsigned &nextVTableThunkIndex,
                           unsigned vtableAddressPoint,
@@ -96,7 +97,7 @@ public:
   /// Add vtable components for the given vtable layout to the given
   /// global initializer.
   void createVTableInitializer(ConstantStructBuilder &builder,
-                               const CXXRecordDecl *RD,
+                               const CXXRecordDecl *LayoutClass,
                                const VTableLayout &layout, llvm::Constant *rtti,
                                bool vtableHasLocalLinkage);
 
