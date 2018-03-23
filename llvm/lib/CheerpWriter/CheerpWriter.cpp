@@ -2821,15 +2821,19 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
 			POINTER_KIND kind = PA.getPointerKind(ptrOp);
-			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
+			if (checkBounds)
 			{
-				compileCheckBounds(ptrOp);
-				stream<<";";
-			}
-			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
-			{
-				compileCheckDefined(ptrOp);
-				stream<<";";
+				if(kind == REGULAR || kind == SPLIT_REGULAR)
+				{
+					compileCheckBounds(ptrOp);
+					stream<<";";
+				}
+				else if(kind == COMPLETE_OBJECT && isGEP(ptrOp))
+				{
+					bool needsOffset = valOp->getType()->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
+					compileCheckDefined(ptrOp, needsOffset);
+					stream<<";";
+				}
 			}
 			// TODO: we need this hack because PointerAnalyzer cannot correctly assign
 			// the RAW kind to null pointers
@@ -3855,17 +3859,24 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const Value* ptrOp=li.getPointerOperand();
 			bool asmjs = currentFun->getSection()==StringRef("asmjs");
 			POINTER_KIND kind = PA.getPointerKind(ptrOp);
-			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
+			bool needsOffset = !li.use_empty() && li.getType()->isPointerTy() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
+			bool needsCheckBounds = false;
+			if (checkBounds)
 			{
-				stream<<"(";
-				compileCheckBounds(ptrOp);
-				stream<<",";
-			}
-			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
-			{
-				stream<<"(";
-				compileCheckDefined(ptrOp);
-				stream<<",";
+				if(kind == REGULAR || kind == SPLIT_REGULAR)
+				{
+					needsCheckBounds = true;
+					stream<<"(";
+					compileCheckBounds(ptrOp);
+					stream<<",";
+				}
+				else if(kind == COMPLETE_OBJECT && isGEP(ptrOp))
+				{
+					needsCheckBounds = true;
+					stream<<"(";
+					compileCheckDefined(ptrOp, needsOffset);
+					stream<<",";
+				}
 			}
 			Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(li.getType(),asmjs);
 			if(regKind==Registerize::INTEGER && needsIntCoercion(regKind, parentPrio))
@@ -3910,7 +3921,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			else
 				compileCompleteObject(ptrOp);
-			if(li.getType()->isPointerTy() && !li.use_empty() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li))
+			if(needsOffset)
 			{
 				assert(!isInlineable(li, PA));
 				if(kind == RAW)
@@ -3922,6 +3933,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				else
 				{
 					stream <<'o';
+				}
+				if(needsCheckBounds)
+				{
+					// Close the bounds check here
+					stream << ")";
+					needsCheckBounds = false;
 				}
 				stream << ';' << NewLine;
 				stream << namegen.getName(&li) << '=';
@@ -3945,9 +3962,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				stream << ')';
 			}
-			if (checkBounds && (kind == REGULAR || kind == SPLIT_REGULAR))
-				stream<<')';
-			if (checkDefined && kind == COMPLETE_OBJECT && isGEP(ptrOp))
+			if (needsCheckBounds)
 				stream<<')';
 			return COMPILE_OK;
 		}
@@ -4674,10 +4689,14 @@ void CheerpWriter::compileCheckDefinedHelper()
 	stream << "function checkDefined(m){if(m===undefined) throw new Error('UndefinedMemberAccess');}" << NewLine;
 }
 
-void CheerpWriter::compileCheckDefined(const Value* p)
+void CheerpWriter::compileCheckDefined(const Value* p, bool needsOffset)
 {
+	// When compiling a SPIT_REGULAR, if there is an offset, we only check that.
+	// If the offset exists the base is guaranteed to exists in the type.
 	stream<<"checkDefined(";
 	compileGEP(cast<User>(p),COMPLETE_OBJECT);
+	if(needsOffset)
+		stream << "o";
 	stream<<")";
 }
 
@@ -4900,10 +4919,6 @@ void CheerpWriter::makeJS()
 	if ( checkBounds )
 	{
 		compileCheckBoundsHelper();
-	}
-	//Compile the defined-checking function
-	if ( checkDefined )
-	{
 		compileCheckDefinedHelper();
 	}
 
