@@ -517,8 +517,6 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpHeapSize->render(Args, CmdArgs);
   if(Arg* cheerpBoundsCheck = Args.getLastArg(options::OPT_cheerp_bounds_check))
     cheerpBoundsCheck->render(Args, CmdArgs);
-  if(Arg* cheerpDefinedCheck = Args.getLastArg(options::OPT_cheerp_defined_members_check))
-    cheerpDefinedCheck->render(Args, CmdArgs);
 
   // Set output to binary mode to avoid linefeed conversion on Windows.
   CmdArgs.push_back("-filetype");
