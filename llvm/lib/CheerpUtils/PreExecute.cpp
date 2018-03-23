@@ -579,17 +579,21 @@ GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAd
     // The edge of the allocation is a valid pointer
     if (StoredAddr > (it->first + allocData.size))
         return NULL;
-    MallocStartAddress = it->first;
+    size_t cookieSize = allocData.hasCookie ? cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, allocData.allocType) : 0;
+    // We need to encode the cookie in the new global in asmjs mode, it may be needed if the memory is freed at runtime
+    bool encodeCookieInType = allocData.hasCookie && asmjs;
+    if(encodeCookieInType)
+        MallocStartAddress = it->first;
+    else
+        MallocStartAddress = it->first + cookieSize;
     if (allocData.globalValue)
         return allocData.globalValue;
     // We need to promote this memory to a globalvalue
     // Make it an array, if it's more than 1 element long
     uint32_t elementSize = DL->getTypeAllocSize(allocData.allocType);
     Type* newGlobalType = nullptr;
-    size_t cookieSize = allocData.hasCookie ? cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, allocData.allocType) : 0;
     uint32_t size = (allocData.size-cookieSize) / elementSize;
-    char* allocStart = it->first;
-    if (allocData.hasCookie && asmjs)
+    if (encodeCookieInType)
     {
         size_t cookieWords = cookieSize / sizeof(uint32_t);
         Type* Int32Ty = IntegerType::get(currentModule->getContext(), 32);
@@ -601,7 +605,6 @@ GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAd
     else
     {
         newGlobalType = size > 1 ? ArrayType::get(allocData.allocType, size) : allocData.allocType;
-        allocStart += cookieSize;
     }
 
     allocData.globalValue = new GlobalVariable(*currentModule, newGlobalType,
@@ -610,7 +613,7 @@ GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAd
     if (asmjs)
         allocData.globalValue->setSection("asmjs");
     // Build an initializer
-    allocData.globalValue->setInitializer(computeInitializerFromMemory(DL, newGlobalType, it->first, asmjs));
+    allocData.globalValue->setInitializer(computeInitializerFromMemory(DL, newGlobalType, MallocStartAddress, asmjs));
 
     return allocData.globalValue;
 }
