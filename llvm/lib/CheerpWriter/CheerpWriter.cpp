@@ -313,7 +313,11 @@ void CheerpWriter::compileVirtualcast( ImmutableCallSite callV )
       }
       else if(result_kind == RAW)
       {
-            llvm::report_fatal_error("virtual cast with RAW pointers yet not supported");
+            stream << '(';
+            compileOperand(src, ADD_SUB);
+            stream  << '+';
+            compileOperand(offset, ADD_SUB);
+            stream << "|0)";
       }
       else
       {
