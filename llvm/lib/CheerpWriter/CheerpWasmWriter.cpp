@@ -1515,7 +1515,8 @@ void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate 
 void CheerpWasmWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV)
 {
 	assert(callV.arg_size() == 2);
-	assert(callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast);
+	assert(callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast ||
+		callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_virtualcast);
 
 	const Value* src = callV.getArgument(0);
 	const Value* offset = callV.getArgument(1);
@@ -1634,6 +1635,7 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 						return true;
 					}
 					case Intrinsic::cheerp_downcast:
+					case Intrinsic::cheerp_virtualcast:
 					{
 						compileDowncast(code, &ci);
 						return false;
