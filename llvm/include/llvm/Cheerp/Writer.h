@@ -191,10 +191,8 @@ private:
 	bool measureTimeToMain;
 	// The asm.js module heap size
 	uint32_t heapSize;
-	// Flag to signal if we should add bounds-checking code for arrays
+	// Flag to signal if we should add bounds-checking code
 	bool checkBounds;
-	// Flag to signal if we should add defined member checking code for objects
-	bool checkDefined;
 	// The name of the external wasm file, or empty if not present
 	const std::string& wasmFile;
 	// Flag to signal if we should generate typed arrays when element type is
@@ -498,7 +496,6 @@ public:
 			bool measureTimeToMain,
 			unsigned heapSize,
 			bool checkBounds,
-			bool checkDefined,
 			bool compileGlobalsAddrAsmJS,
 			const std::string& wasmFile,
 			bool forceTypedArrays):
@@ -526,7 +523,6 @@ public:
 		measureTimeToMain(measureTimeToMain),
 		heapSize(heapSize),
 		checkBounds(checkBounds),
-		checkDefined(checkDefined),
 		wasmFile(wasmFile),
 		forceTypedArrays(forceTypedArrays),
 		symbolicGlobalsAsmJS(compileGlobalsAddrAsmJS),
@@ -588,7 +584,7 @@ public:
 	/**
 	 * Compile a function to assure a GEP property access is defined
 	 */
-	void compileCheckDefined(const llvm::Value* p);
+	void compileCheckDefined(const llvm::Value* p, bool needsOffset);
 	/**
 	 * Compile a function for checking if a reference is defined
 	 */
