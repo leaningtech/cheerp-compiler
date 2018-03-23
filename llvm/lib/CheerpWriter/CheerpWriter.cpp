@@ -2834,6 +2834,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					compileCheckDefined(ptrOp, needsOffset);
 					stream<<";";
 				}
+				else if(kind == RAW)
+				{
+					compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(valOp->getType())-1);
+					stream<<";";
+				}
 			}
 			// TODO: we need this hack because PointerAnalyzer cannot correctly assign
 			// the RAW kind to null pointers
@@ -3877,6 +3882,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					compileCheckDefined(ptrOp, needsOffset);
 					stream<<",";
 				}
+				else if(kind == RAW)
+				{
+					needsCheckBounds = true;
+					stream<<"(";
+					compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(li.getType())-1);
+					stream<<",";
+				}
 			}
 			Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(li.getType(),asmjs);
 			if(regKind==Registerize::INTEGER && needsIntCoercion(regKind, parentPrio))
@@ -4700,6 +4712,18 @@ void CheerpWriter::compileCheckDefined(const Value* p, bool needsOffset)
 	stream<<")";
 }
 
+void CheerpWriter::compileCheckBoundsAsmJSHelper()
+{
+	stream << "function checkBoundsAsmJS(addr,align,size){if((addr&align) || addr>=size || addr<0) throw new Error('OutOfBoundsAsmJS: '+addr);}" << NewLine;
+}
+
+void CheerpWriter::compileCheckBoundsAsmJS(const Value* p, int alignMask)
+{
+	stream<<"checkBoundsAsmJS(";
+	compileOperand(p,LOWEST);
+	stream<<','<<alignMask<<','<<heapSize*1024*1024<<"|0)|0";
+}
+
 void CheerpWriter::compileMemmoveHelperAsmJS()
 {
 	stream << "function __asmjs_memmove(src,dst,size){" << NewLine;
@@ -4948,7 +4972,6 @@ void CheerpWriter::makeJS()
 		if (checkBounds)
 		{
 			stream << "var checkBoundsAsmJS=ffi.checkBoundsAsmJS;" << NewLine;
-			stream << "var checkFunctionPtrAsmJS=ffi.checkFunctionPtrAsmJS;" << NewLine;
 		}
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
@@ -4998,13 +5021,16 @@ void CheerpWriter::makeJS()
 		compileAsmJSImports();
 		compileAsmJSExports();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
+		if (checkBounds)
+		{
+			compileCheckBoundsAsmJSHelper();
+		}
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
 		stream << "__dummy:__dummy," << NewLine;
 		if (checkBounds)
 		{
 			stream << "checkBoundsAsmJS:checkBoundsAsmJS," << NewLine;
-			stream << "checkFunctionPtrAsmJS:checkFunctionPtrAsmJS," << NewLine;
 		}
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
