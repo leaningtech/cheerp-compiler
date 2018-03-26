@@ -3201,8 +3201,6 @@ static bool ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
       Group = frontend::ExternCSystem;
     Opts.AddPath(A->getValue(), Group, false, true);
   }
-  // Also add directory which is common to both client and server
-  Opts.AddPath(LLVM_PREFIX "/include/common", frontend::System, false, true);
 
   // Add the path prefixes which are implicitly treated as being system headers.
   for (const auto *A :
