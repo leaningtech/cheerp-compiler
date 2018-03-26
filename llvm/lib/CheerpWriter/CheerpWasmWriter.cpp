@@ -2299,8 +2299,6 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 			}
 		}
 	}
-
-	encodeBufferedSetLocal(code);
 }
 
 void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, bool needsLabel)
@@ -2501,6 +2499,8 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 			}
 		}
 	}
+
+	assert(!hasSetLocal && setLocalId == (uint32_t) -1);
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
 		// Encode the end of the method.
