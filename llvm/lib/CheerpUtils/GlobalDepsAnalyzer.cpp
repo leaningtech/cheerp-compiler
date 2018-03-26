@@ -522,7 +522,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			if (TypeSupport::hasBasesInfoMetadata(st, *F->getParent()))
 			{
 				classesWithBaseInfoNeeded.insert(st);
-				classesNeeded.insert(st);
+				visitStruct(*module, st);
 				break;
 			}
 		}
