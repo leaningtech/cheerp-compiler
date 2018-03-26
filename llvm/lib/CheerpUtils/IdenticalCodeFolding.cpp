@@ -96,8 +96,16 @@ uint64_t IdenticalCodeFolding::hashFunction(llvm::Function& F)
 	return hash.getHash();
 }
 
-bool IdenticalCodeFolding::equivalentFunction(llvm::Function* A, llvm::Function* B)
+bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llvm::Function* B)
 {
+	// Do not fold wasm/asmjs with generic JS functions.
+	if (A->getSection() != StringRef("asmjs") || B->getSection() != StringRef("asmjs"))
+		return false;
+
+	// Mark the function pair as equivalent to deal with recursion. The
+	// right equivalence value is set when |equivalentFunction()| returns.
+	functionEquivalence[{A, B}] = true;
+
 	if (!A || !B || A->isVarArg() != B->isVarArg() || A->arg_size() != B->arg_size())
 		return false;
 
@@ -107,20 +115,19 @@ bool IdenticalCodeFolding::equivalentFunction(llvm::Function* A, llvm::Function*
 			return false;
 	}
 
-	// Do not fold wasm/asmjs with generic JS functions.
-	if (A->getSection() != StringRef(B->getSection()))
-		return false;
+	if (A->empty() || B->empty())
+		return A->empty() == B->empty();
 
-	SmallVector<std::pair<BasicBlock*, BasicBlock*>, 8> blocks;
-	SmallSet<BasicBlock*, 16> visited;
+	SmallVector<std::pair<const BasicBlock*, const BasicBlock*>, 8> blocks;
+	SmallSet<const BasicBlock*, 16> visited;
 
 	// Walk the blocks in the same order as hashFunction().
 	blocks.push_back({&A->getEntryBlock(), &B->getEntryBlock()});
 	visited.insert(&A->getEntryBlock());
 	while (!blocks.empty()) {
 		const auto& pair = blocks.pop_back_val();
-		BasicBlock* blockA = pair.first;
-		BasicBlock* blockB = pair.second;
+		const BasicBlock* blockA = pair.first;
+		const BasicBlock* blockB = pair.second;
 
 		if (!equivalentBlock(blockA, blockB))
 			return false;
@@ -140,7 +147,7 @@ bool IdenticalCodeFolding::equivalentFunction(llvm::Function* A, llvm::Function*
 	return true;
 }
 
-bool IdenticalCodeFolding::equivalentBlock(llvm::BasicBlock* A, llvm::BasicBlock* B)
+bool IdenticalCodeFolding::equivalentBlock(const llvm::BasicBlock* A, const llvm::BasicBlock* B)
 {
 	if (A->size() != B->size())
 		return false;
@@ -341,10 +348,21 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 
 			if (calledFunc)
 			{
-				// TODO traverse into functions when name does not match.
+				// Traverse into functions when name does not match.
 				const Function* calledFuncB = cast<CallInst>(B)->getCalledFunction();
-				if (calledFunc->getName() != calledFuncB->getName()) {
-					return false;
+				if (calledFunc != calledFuncB) {
+					auto key = make_pair(calledFunc, calledFuncB);
+					bool equivalent = false;
+					auto found = functionEquivalence.find(key);
+					if (found == functionEquivalence.end()) {
+						equivalent = equivalentFunction(calledFunc, calledFuncB);
+						functionEquivalence[key] = equivalent;
+					} else {
+						equivalent = found->second;
+					}
+
+					if (!equivalent)
+						return false;
 				}
 			}
 			else if (!equivalentOperand(calledValue, calledValueB)) {
@@ -668,7 +686,17 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 
 				visitedPhis.clear();
 
-				if (equivalentFunction(functions[i], functions[j])) {
+				auto key = make_pair(functions[i], functions[j]);
+				bool equivalent = false;
+				auto found = functionEquivalence.find(key);
+				if (found == functionEquivalence.end()) {
+					equivalent = equivalentFunction(functions[i], functions[j]);
+					functionEquivalence[key] = equivalent;
+				} else {
+					equivalent = found->second;
+				}
+
+				if (equivalent) {
 					fold.insert({functions[i], functions[j]});
 					foldOrder.push_back({functions[i], functions[j]});
 					break;
