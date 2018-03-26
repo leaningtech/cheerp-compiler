@@ -16,8 +16,19 @@
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/SmallSet.h"
 
+#include <unordered_map>
+
 namespace cheerp
 {
+
+struct function_pair_hash {
+	template <class T1, class T2>
+	std::size_t operator () (const std::pair<T1,T2> &p) const {
+		auto h1 = std::hash<T1>{}(p.first);
+		auto h2 = std::hash<T2>{}(p.second);
+		return llvm::hashing::detail::hash_16_bytes(h1, h2);
+	}
+};
 
 /**
  * Determine which globals (variables and functions) can be folded since they
@@ -38,8 +49,8 @@ private:
 	const char* getPassName() const override;
 	uint64_t hashFunction(llvm::Function& F);
 
-	bool equivalentFunction(llvm::Function* A, llvm::Function* B);
-	bool equivalentBlock(llvm::BasicBlock* A, llvm::BasicBlock* B);
+	bool equivalentFunction(const llvm::Function* A, const llvm::Function* B);
+	bool equivalentBlock(const llvm::BasicBlock* A, const llvm::BasicBlock* B);
 	bool equivalentInstruction(const llvm::Instruction* A, const llvm::Instruction* B);
 	bool equivalentOperand(const llvm::Value* A, const llvm::Value* B);
 	bool equivalentConstant(const llvm::Constant* A, const llvm::Constant* B);
@@ -51,6 +62,7 @@ private:
 	bool mergeTwoFunctions(llvm::Function* F, llvm::Function* G);
 
 	llvm::SmallSet<const llvm::PHINode*, 16> visitedPhis;
+	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, function_pair_hash> functionEquivalence;
 };
 
 inline llvm::Pass* createIdenticalCodeFoldingPass()
