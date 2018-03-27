@@ -365,6 +365,25 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 						return false;
 				}
 			}
+			else if (isStaticIndirectFunction(calledValue) && isStaticIndirectFunction(calledValueB)) {
+				calledFunc = cast<Function>(cast<ConstantExpr>(calledValue)->getOperand(0));
+				auto calledFuncB = cast<Function>(cast<ConstantExpr>(calledValueB)->getOperand(0));
+				// Traverse into functions when name does not match.
+				if (calledFunc != calledFuncB) {
+					auto key = make_pair(calledFunc, calledFuncB);
+					bool equivalent = false;
+					auto found = functionEquivalence.find(key);
+					if (found == functionEquivalence.end()) {
+						equivalent = equivalentFunction(calledFunc, calledFuncB);
+						functionEquivalence[key] = equivalent;
+					} else {
+						equivalent = found->second;
+					}
+
+					if (!equivalent)
+						return false;
+				}
+			}
 			else if (!equivalentOperand(calledValue, calledValueB)) {
 				return false;
 			}
@@ -674,6 +693,12 @@ bool IdenticalCodeFolding::ignoreInstruction(const llvm::Instruction* I)
 		}
 	}
 	return false;
+}
+
+bool IdenticalCodeFolding::isStaticIndirectFunction(const llvm::Value* A)
+{
+	auto ce = dyn_cast<ConstantExpr>(A);
+	return ce && ce->isCast() && isa<Function>(ce->getOperand(0));
 }
 
 bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
