@@ -183,6 +183,19 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			}
 		}
 	}
+	for (NamedMDNode & namedNode : module.named_metadata() )
+	{
+		StringRef name = namedNode.getName();
+		if(name.endswith("_bases"))
+		{
+			MDNode* basesMeta = namedNode.getOperand(0);
+			assert(basesMeta->getNumOperands()>=1);
+			uint32_t firstBase = cast<ConstantInt>(cast<ConstantAsMetadata>(basesMeta->getOperand(0))->getValue())->getZExtValue();
+			StructType * t = module.getTypeByName(name.drop_back(6));
+			if (t)
+				basesInfo.emplace(t, firstBase);
+		}
+	}
 
 #define USE_MEMORY_FUNC(var, name) \
 	if (var) { \
@@ -528,8 +541,52 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		}
 		while((st=st->getDirectBase()));
 	}
+	if (F->getIntrinsicID() == Intrinsic::cheerp_virtualcast)
+	{
+		StructType* base = cast<StructType>(F->getFunctionType()->getParamType(0)->getPointerElementType());
+		if (!base->hasAsmJS())
+		{
+			std::unordered_map<StructType*, bool> visitedClasses;
+			for (const auto& i: module->getIdentifiedStructTypes())
+			{
+				visitVirtualcastBases(i, base, visitedClasses);
+			}
+		}
+	}
 	else if (F->getIntrinsicID() == Intrinsic::cheerp_create_closure)
 		hasCreateClosureUsers = true;
+}
+
+void GlobalDepsAnalyzer::visitVirtualcastBases(StructType* derived, StructType* base, std::unordered_map<StructType*, bool>& visitedClasses)
+{
+	if (visitedClasses.count(derived))
+		return;
+	for (llvm::StructType *direct = derived; direct != nullptr; direct = direct->getDirectBase())
+	{
+		if (direct == base)
+		{
+			visitedClasses.emplace(derived, true);
+			classesWithBaseInfoNeeded.insert(derived);
+			return;
+		}
+	}
+	auto i = basesInfo.find(derived);
+	if (i != basesInfo.end())
+	{
+		for (auto b = derived->element_begin() + i->second; b != derived->element_end(); b++)
+		{
+			assert(isa<StructType>(*b));
+			StructType* st = cast<StructType>(*b);
+			visitVirtualcastBases(st, base, visitedClasses);
+			if (visitedClasses[st])
+			{
+				visitedClasses.emplace(derived, true);
+				classesWithBaseInfoNeeded.insert(derived);
+				return;
+			}
+		}
+	}
+	visitedClasses.emplace(derived, false);
 }
 
 void GlobalDepsAnalyzer::visitType( const llvm::Module& module, Type* t, bool forceTypedArray )
