@@ -322,29 +322,6 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 	return true;
 }
 
-bool TypeSupport::hasVirtualBases(const Module& module, const StructType* t)
-{
-	const NamedMDNode* basesNamedMeta = getBasesMetadata(t, module);
-	if(!basesNamedMeta)
-	{
-		// Before giving up, check if the direct base has any bases
-		if(t->getDirectBase())
-			return hasVirtualBases(module,t->getDirectBase());
-		return false;
-	}
-
-	MDNode* basesMeta=basesNamedMeta->getOperand(0);
-	if (basesMeta->getNumOperands()>=2)
-	{
-		bool isVirtual = getIntFromValue(cast<ConstantAsMetadata>(basesMeta->getOperand(1))->getValue());
-		return isVirtual;
-	}
-	else
-	{
-		return false;
-	}
-}
-
 bool TypeSupport::useWrapperArrayForMember(const PointerAnalyzer& PA, StructType* st, uint32_t memberIndex) const
 {
 	uint32_t firstBase, baseCount;
