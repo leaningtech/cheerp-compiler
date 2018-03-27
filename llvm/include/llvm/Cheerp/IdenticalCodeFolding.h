@@ -59,6 +59,7 @@ private:
 	bool equivalentGepOffset(const llvm::GetElementPtrInst* A, const llvm::GetElementPtrInst* B);
 	bool ignoreInstruction(const llvm::Instruction* I);
 	bool hasSameIntegerBitWidth(const llvm::Type* A, const llvm::Type* B);
+	bool isStaticIndirectFunction(const llvm::Value* A);
 
 	bool mergeTwoFunctions(llvm::Function* F, llvm::Function* G);
 
