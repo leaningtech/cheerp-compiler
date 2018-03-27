@@ -375,11 +375,11 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		{
 			const GetElementPtrInst* a = cast<GetElementPtrInst>(A);
 			const GetElementPtrInst* b = cast<GetElementPtrInst>(B);
-			const Type* aTy = a->getPointerOperandType()->getPointerElementType();
-			const Type* bTy = b->getPointerOperandType()->getPointerElementType();
-			return equivalentType(aTy, bTy) &&
-				equivalentIndices(a, b) &&
-				equivalentOperand(a->getPointerOperand(), b->getPointerOperand());
+
+			if (!equivalentOperand(a->getPointerOperand(), b->getPointerOperand()))
+				return false;
+
+			return  equivalentGepOffset(a, b);
 		}
 		case Instruction::Load:
 		{
@@ -584,14 +584,46 @@ bool IdenticalCodeFolding::equivalentType(const llvm::Type* A, const llvm::Type*
 	return false;
 }
 
-bool IdenticalCodeFolding::equivalentIndices(const llvm::GetElementPtrInst* A, const llvm::GetElementPtrInst* B)
+bool IdenticalCodeFolding::equivalentGepOffset(const llvm::GetElementPtrInst* A, const llvm::GetElementPtrInst* B)
 {
-	if (!A || !B || A->getNumIndices() != B->getNumIndices())
+	if (A->getNumIndices() != B->getNumIndices())
 		return false;
 
-	for (unsigned i = 0; i < A->getNumIndices(); i++) {
-		if (!equivalentOperand((A->idx_begin() + i)->get(), (B->idx_begin() + i)->get()))
+
+	for (gep_type_iterator aGTI = gep_type_begin(A),
+			aGTE = gep_type_end(A),
+			bGTI = gep_type_begin(A); aGTI != aGTE; ++aGTI, ++bGTI)
+	{
+		if (!equivalentOperand(aGTI.getOperand(), bGTI.getOperand()))
 			return false;
+
+		// If only one of the operands is constant, the gep offset cannot be
+		// equivalent. If none are constant, the indexed type must be an array
+		// and we'll check array element size below.
+		if (isa<ConstantInt>(aGTI.getOperand()) != isa<ConstantInt>(bGTI.getOperand()))
+			return false;
+
+		if (isa<StructType>(*aGTI) != isa<StructType>(*bGTI))
+			return false;
+
+		if (isa<ConstantInt>(aGTI.getOperand()) && isa<ConstantInt>(bGTI.getOperand()) &&
+			isa<StructType>(*aGTI) && isa<StructType>(*bGTI))
+		{
+			StructType *aSTy = cast<StructType>(*aGTI);
+			StructType *bSTy = cast<StructType>(*bGTI);
+
+			size_t aIdx = cast<ConstantInt>(aGTI.getOperand())->getZExtValue();
+			size_t bIdx = cast<ConstantInt>(bGTI.getOperand())->getZExtValue();
+
+			const StructLayout *aSL = DL->getStructLayout(aSTy);
+			const StructLayout *bSL = DL->getStructLayout(bSTy);
+			return aSL->getElementOffset(aIdx) == bSL->getElementOffset(bIdx);
+		}
+
+		// Check element size of array and vectors.
+		size_t aSize = DL->getTypeAllocSize(aGTI.getIndexedType());
+		size_t bSize = DL->getTypeAllocSize(bGTI.getIndexedType());
+		return aSize == bSize;
 	}
 
 	return true;
@@ -647,6 +679,7 @@ bool IdenticalCodeFolding::ignoreInstruction(const llvm::Instruction* I)
 bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 {
 	cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
+	DL = &module.getDataLayout();
 
 	// First, compute an hash of each function.
 	std::unordered_map<uint64_t, std::vector<Function*>> functionHashes;
