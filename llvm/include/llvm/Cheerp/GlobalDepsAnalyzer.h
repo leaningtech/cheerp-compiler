@@ -118,6 +118,20 @@ public:
 
 	void visitType( const llvm::Module& m, llvm::Type* t, bool forceTypedArray );
 
+	// Visit the `derived` struct and all its bases recursively, looking for `base`.
+	// If there is a match, add `derived` to the classesWithBasesInfoNeeded set.
+	// Memoize the result in visitedClasses, to avoid traversing multiple times.
+	// NOTE: In presence of virtual bases, the virtual base type will have a `.base`
+	// suffix, and will be different from the type represented by `base`.
+	// We are going to IGNORE this case, for the following reason:
+	// the point of this function is to generate the downcast array for the operands
+	// of virtualcasts. In order to get a pointer to a virtual base, and use it as an
+	// argument to virtualcast, we necesssarily did a virtualcast in the reverse direction
+	// first somewhere. So the `derived` class (and all classes derived from it) will
+	// be added to the set at that point, and it is fine to miss it when dealing with
+	// the `.base` type.
+	void visitVirtualcastBases(llvm::StructType* derived, llvm::StructType* base, std::unordered_map<llvm::StructType*, bool>& visitedClasses);
+
 	llvm::StructType* needsDowncastArray(llvm::StructType* t) const;
 
 	// Utility function to get the name of the asm.js function table for the
@@ -185,6 +199,8 @@ private:
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	std::vector< llvm::GlobalValue * > externals;
 	std::vector< const llvm::Function* > functionsQueue;
+
+	std::unordered_map<llvm::StructType*, uint32_t> basesInfo;
 
 	const llvm::DataLayout* DL;
 	const llvm::TargetLibraryInfo* TLI;
