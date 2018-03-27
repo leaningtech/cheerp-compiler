@@ -566,6 +566,19 @@ CodeGenFunction::GenerateDowncast(llvm::Value* Value,
 
 llvm::Value *
 CodeGenFunction::GenerateVirtualcast(llvm::Value* Value,
+                                  llvm::Type *DestTy,
+                                  llvm::Value* VirtualOffset)
+{
+  llvm::Type* types[] = { DestTy, Value->getType() };
+
+  llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
+                              llvm::Intrinsic::cheerp_virtualcast, types);
+
+  return Builder.CreateCall2(intrinsic, Value, VirtualOffset);
+}
+
+llvm::Value *
+CodeGenFunction::GenerateVirtualcast(llvm::Value* Value,
                                   const CXXRecordDecl *VBase,
                                   llvm::Value* VirtualOffset)
 {
@@ -573,12 +586,7 @@ CodeGenFunction::GenerateVirtualcast(llvm::Value* Value,
     getContext().getCanonicalType(getContext().getTagDeclType(VBase));
   llvm::Type *VBasePtrTy = ConvertType(VBaseTy)->getPointerTo();
 
-  llvm::Type* types[] = { VBasePtrTy, Value->getType() };
-
-  llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
-                              llvm::Intrinsic::cheerp_virtualcast, types);
-
-  return Builder.CreateCall2(intrinsic, Value, VirtualOffset);
+  return GenerateVirtualcast(Value, VBasePtrTy, VirtualOffset);
 }
 
 Address
