@@ -116,7 +116,7 @@ public:
 
 	void getAnalysisUsage( llvm::AnalysisUsage& ) const override;
 
-	void visitType( const llvm::Module& m, llvm::Type* t, bool forceTypedArray );
+	void visitType( llvm::Type* t, bool forceTypedArray );
 
 	// Visit the `derived` struct and all its bases recursively, looking for `base`.
 	// If there is a match, add `derived` to the classesWithBasesInfoNeeded set.
@@ -173,7 +173,7 @@ private:
 	/**
 	 * Visit every sub-structure inside this struct
 	 */
-	void visitStruct( const llvm::Module& m, llvm::StructType* ST );
+	void visitStruct( llvm::StructType* ST );
 	/**
 	 * Remove all the unused function/variables from a module.
 	 * 
