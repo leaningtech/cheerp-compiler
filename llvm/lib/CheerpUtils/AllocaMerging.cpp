@@ -330,7 +330,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 		// Build new alloca
 		Type* newAllocaType = ArrayType::get(targetElementType, arraysToMerge.getNewSize());
 		// Add the new struct type to the GlobalDepsAnalyzer, it may need the createArray helper
-		GDA.visitType(*F.getParent(), newAllocaType, /*forceTypedArray*/ false);
+		GDA.visitType(newAllocaType, /*forceTypedArray*/ false);
 		AllocaInst* newAlloca = new AllocaInst(newAllocaType, "mergedArray", &(*F.getEntryBlock().begin()));
 		Type* indexType = IntegerType::get(newAllocaType->getContext(), 32);
 		// Change every use of every merged array with an appropiate GEP
