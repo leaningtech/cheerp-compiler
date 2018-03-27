@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/ADT/Hashing.h"
@@ -55,11 +56,13 @@ private:
 	bool equivalentOperand(const llvm::Value* A, const llvm::Value* B);
 	bool equivalentConstant(const llvm::Constant* A, const llvm::Constant* B);
 	bool equivalentType(const llvm::Type* A, const llvm::Type* B);
-	bool equivalentIndices(const llvm::GetElementPtrInst* A, const llvm::GetElementPtrInst* B);
+	bool equivalentGepOffset(const llvm::GetElementPtrInst* A, const llvm::GetElementPtrInst* B);
 	bool ignoreInstruction(const llvm::Instruction* I);
 	bool hasSameIntegerBitWidth(const llvm::Type* A, const llvm::Type* B);
 
 	bool mergeTwoFunctions(llvm::Function* F, llvm::Function* G);
+
+	const llvm::DataLayout *DL;
 
 	llvm::SmallSet<const llvm::PHINode*, 16> visitedPhis;
 	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, function_pair_hash> functionEquivalence;
