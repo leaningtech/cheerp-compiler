@@ -184,8 +184,6 @@ public:
 		return getBasesInfo(module, t, firstBase, baseCount);
 	}
 
-	static bool hasVirtualBases(const llvm::Module& module, const llvm::StructType* t);
-
 	/**
 	 * Find out if a given member of a struct requires the wrapping array
 	 */

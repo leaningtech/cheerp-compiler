@@ -164,7 +164,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		if(name.endswith("_methods") && name.startswith("class._Z"))
 		{
 			StructType * t = TypeSupport::getJSExportedTypeFromMetadata(name, module).first;
-			visitStruct(module, t);
+			visitStruct(t);
 		}
 		else if(name!="jsexported_methods")
 			continue;
@@ -347,7 +347,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 				SubExprVec Newsubexpr (1, &GV->getOperandUse(0));
 				visitConstant( GV->getInitializer(), visited, Newsubexpr);
 				Type* globalType = GV->getInitializer()->getType();
-				visitType(*C->getParent(), globalType, /*forceTypedArray*/ true);
+				visitType(globalType, /*forceTypedArray*/ true);
 			}
 			varsOrder.push_back(GV);
 		}
@@ -416,7 +416,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			if ( const AllocaInst* AI = dyn_cast<AllocaInst>(&I) )
 			{
 				Type* allocaType = AI->getAllocatedType();
-				visitType(*F->getParent(), allocaType, forceTypedArrays);
+				visitType(allocaType, forceTypedArrays);
 			}
 			else if ( ImmutableCallSite(&I).isCall() || ImmutableCallSite(&I).isInvoke() )
 			{
@@ -428,7 +428,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					if ( ai.useCreatePointerArrayFunc() )
 						hasPointerArrays = true;
 					if ( StructType* ST = dyn_cast<StructType>(ai.getCastedType()->getElementType()) )
-						visitStruct(*F->getParent(), ST);
+						visitStruct(ST);
 				}
 			}
 			if (I.getOpcode() == Instruction::VAArg)
@@ -535,7 +535,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			if (TypeSupport::hasBasesInfoMetadata(st, *F->getParent()))
 			{
 				classesWithBaseInfoNeeded.insert(st);
-				visitStruct(*module, st);
+				visitStruct(st);
 				break;
 			}
 		}
@@ -589,7 +589,7 @@ void GlobalDepsAnalyzer::visitVirtualcastBases(StructType* derived, StructType* 
 	visitedClasses.emplace(derived, false);
 }
 
-void GlobalDepsAnalyzer::visitType( const llvm::Module& module, Type* t, bool forceTypedArray )
+void GlobalDepsAnalyzer::visitType( Type* t, bool forceTypedArray )
 {
 	if( ArrayType* AT=dyn_cast<ArrayType>(t) )
 	{
@@ -598,21 +598,19 @@ void GlobalDepsAnalyzer::visitType( const llvm::Module& module, Type* t, bool fo
 			hasPointerArrays = true;
 		else if(!TypeSupport::isTypedArrayType(elementType, forceTypedArray) && AT->getNumElements() > 8)
 			arraysNeeded.insert(elementType);
-		visitType(module, elementType, /*forceTypedArray*/ false);
+		visitType(elementType, /*forceTypedArray*/ false);
 	}
 	else if( StructType* ST=dyn_cast<StructType>(t) )
-		visitStruct(module, ST);
+		visitStruct(ST);
 }
 
-void GlobalDepsAnalyzer::visitStruct( const llvm::Module& module, StructType* ST )
+void GlobalDepsAnalyzer::visitStruct( StructType* ST )
 {
 	if(ST->hasByteLayout())
 		return;
 	classesNeeded.insert(ST);
-	if(TypeSupport::hasVirtualBases(module, ST))
-		classesWithBaseInfoNeeded.insert(ST);
 	for(uint32_t i=0;i<ST->getNumElements();i++)
-		visitType(module, ST->getElementType(i), /*forceTypedArray*/ false);
+		visitType(ST->getElementType(i), /*forceTypedArray*/ false);
 }
 
 llvm::StructType* GlobalDepsAnalyzer::needsDowncastArray(llvm::StructType* t) const
