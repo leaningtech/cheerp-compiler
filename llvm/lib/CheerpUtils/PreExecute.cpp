@@ -62,7 +62,7 @@ static GenericValue pre_execute_element_distance(FunctionType *FT, const std::ve
 {
     Type* type = FT->getParamType(0)->getPointerElementType();
     llvm::Module *module = PreExecute::currentPreExecutePass->currentModule;
-    uint32_t elementSize = module->getDataLayout()->getTypeAllocSize(type);
+    uint32_t elementSize = module->getDataLayout().getTypeAllocSize(type);
     GenericValue GV;
     GV.IntVal = APInt(32, elementSize);
     return GV;
@@ -109,7 +109,7 @@ static GenericValue pre_execute_allocate_array(FunctionType *FT,
   size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
 
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
-  const DataLayout *DL = PreExecute::currentPreExecutePass->currentModule->getDataLayout();
+  const DataLayout *DL = &PreExecute::currentPreExecutePass->currentModule->getDataLayout();
   size_t num = size / DL->getTypeAllocSize(type);
   // Cookie
   size_t cookieSize = cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, type);
@@ -165,7 +165,7 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
     // In PreExecuter context it may happen to resize a global, since it may have been from malloc before.
     const GlobalValue* GV=currentEE->getGlobalValueAtAddress((char*)p);
     assert(GV);
-    const DataLayout *DL = PreExecute::currentPreExecutePass->currentModule->getDataLayout();
+    const DataLayout *DL = &PreExecute::currentPreExecutePass->currentModule->getDataLayout();
     oldSize = DL->getTypeAllocSize(GV->getType());
   }
   else
@@ -298,12 +298,92 @@ static GenericValue pre_execute_downcast_current(FunctionType *FT,
   }
   llvm_unreachable("Base not found");
 }
+
+static bool get_subobject_base_offset(StructType* derivedType, char* derivedAddr, char* baseAddr, uint32_t& baseIndex) {
+    if (derivedAddr == baseAddr)
+        return true;
+
+    if (StructType* directBase =derivedType->getDirectBase())
+    {
+        bool ret = get_subobject_base_offset(directBase, derivedAddr, baseAddr, baseIndex);
+        if (ret)
+            return true;
+    }
+
+    Module* currentModule = PreExecute::currentPreExecutePass->currentModule;
+    auto DL = &currentModule->getDataLayout();
+    auto layout = DL->getStructLayout(derivedType);
+
+    uint32_t firstBase, baseCount;
+    bool ret = TypeSupport::getBasesInfo(*currentModule, derivedType,
+            firstBase, baseCount);
+    if(!ret)
+    {
+        return false;
+    }
+    for (uint32_t curBase = firstBase; curBase < firstBase + baseCount; curBase++)
+    {
+        baseIndex++;
+        bool ret = get_subobject_base_offset(cast<StructType>(derivedType->getElementType(curBase)),
+                derivedAddr + layout->getElementOffset(curBase), baseAddr, baseIndex);
+        if (ret)
+            return true;
+    }
+    return false;
+}
+
+static bool get_subobject_byte_offset(StructType* derivedType, uint32_t baseIndex, uint32_t& curIndex, uint32_t& byteOffset) {
+    if (baseIndex == curIndex)
+        return true;
+
+    if (StructType* directBase =derivedType->getDirectBase())
+    {
+        bool ret = get_subobject_byte_offset(directBase, baseIndex, curIndex, byteOffset);
+        if (ret)
+            return true;
+    }
+    Module* currentModule = PreExecute::currentPreExecutePass->currentModule;
+    auto DL = &currentModule->getDataLayout();
+    auto layout = DL->getStructLayout(derivedType);
+
+    uint32_t firstBase, baseCount;
+    bool ret = TypeSupport::getBasesInfo(*currentModule, derivedType,
+            firstBase, baseCount);
+    if(!ret)
+    {
+        return false;
+    }
+    for (uint32_t curBase = firstBase; curBase < firstBase + baseCount; curBase++)
+    {
+        uint32_t childOffset = byteOffset + layout->getElementOffset(curBase);
+        curIndex++;
+        ret = get_subobject_byte_offset(cast<StructType>(derivedType->getElementType(curBase)),
+                baseIndex, curIndex, childOffset);
+        if (ret)
+        {
+            byteOffset = childOffset;
+            return true;
+        }
+    }
+    return false;
+}
+
 static GenericValue pre_execute_downcast(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
     // We need to apply the offset in bytes using the bases metadata
     ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-    assert(currentEE->getCurrentCaller());
-    bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs");
+    char* Addr = (char*)currentEE->GVTORP(Args[0]);
+    int baseOffset = Args[1].IntVal.getSExtValue();
+    // NOTE: a downcast with offset 0 is equivalent to a bitcast, so it is a NOP
+    // in PreExecuter. We exit early because it can happen that downcasts with
+    // zero offset are performed on types not actually inside the most derived
+    // object hierarchy, so the algorithm of get_subobject_base_offset would fail
+    if (baseOffset == 0)
+        return Args[0];
+    StructType* derivedType = most_derived_class(Addr); 
+    char* derivedAddr = most_derived_pointer(Addr);
+    assert(derivedType);
+    bool asmjs = derivedType->hasAsmJS();
     if (asmjs)
     {
         char* Addr = (char*)Args[0].PointerVal;
@@ -311,82 +391,28 @@ static GenericValue pre_execute_downcast(FunctionType *FT,
         return GenericValue(Addr + Offset);
     }
 
-    char* Addr = (char*)currentEE->GVTORP(Args[0]);
-    Type* derivedType = most_derived_class(Addr); 
-    assert(derivedType);
-    int baseOffset = Args[1].IntVal.getSExtValue();
-    Type* baseType;
-    if (baseOffset >= 0)
-        baseType = FT->getParamType(0)->getPointerElementType();
-    else
-        baseType = FT->getReturnType()->getPointerElementType();
-    uintptr_t curByteOffset=0;
-    uint32_t curBaseOffset= baseOffset>=0 ? baseOffset : -baseOffset;
-    StructType* curType=cast<StructType>(derivedType);
-    auto &currentModule = PreExecute::currentPreExecutePass->currentModule;
+    uint32_t baseIndex = 0;
+    bool ret = get_subobject_base_offset(derivedType, derivedAddr, Addr, baseIndex);
+    assert(ret && "subobject not found");
+    baseIndex -= baseOffset;
+    uint32_t byteOffset = 0;
+    uint32_t curIndex = 0;
+    ret = get_subobject_byte_offset(derivedType, baseIndex, curIndex, byteOffset);
+    assert(ret);
+    Module* currentModule = PreExecute::currentPreExecutePass->currentModule;
     auto DL = currentModule->getDataLayout();
-    while(curType!=baseType)
-    {
-        if(curBaseOffset==0)
-            break;
-        //Decrease 1 for this base
-        curBaseOffset--;
-        uint32_t firstBase, baseCount;
-        bool ret = TypeSupport::getBasesInfo(*currentModule, curType,
-                firstBase, baseCount);
-        assert(ret);
-#ifdef DEBUG_PRE_EXECUTE
-        llvm::errs()
-            << "curType " << *curType
-            << " FIRST " << firstBase
-            << " COUNT " << baseCount
-            << "\n";
-#endif
-        assert(curBaseOffset < baseCount);
-        uint32_t nextBaseIndex = firstBase;
-        for(; nextBaseIndex < (firstBase + baseCount); nextBaseIndex++) {
-            uint32_t subFirstBase, subBaseCount;
-            auto element = curType->getElementType(nextBaseIndex);
-            StructType* nextType = cast<StructType>(element);
-#ifdef DEBUG_PRE_EXECUTE
-            llvm::errs() << "nextType: " << *nextType << "\n";
-#endif
-            bool ret = TypeSupport::getBasesInfo(*currentModule, nextType,
-                        subFirstBase, subBaseCount);
-            if (!ret)
-                break;
-            if (curBaseOffset < subBaseCount) {
-                curType = nextType;
-                break;
-            }
-            curBaseOffset -= subBaseCount;
-        }
-        // Skip the offset untils the first base
-        auto layout = DL->getStructLayout(curType);
-#ifdef DEBUG_PRE_EXECUTE
-        llvm::errs() << "curType: " << *curType << "\n";
-        llvm::errs() << "firstBase: " << firstBase << "\n";
-        llvm::errs() << "layout in bytes: " << layout->getSizeInBytes() << "\n";
-#endif
-        curByteOffset += layout->getElementOffset(firstBase);
-    }
-    if (baseOffset < 0)
-      curByteOffset = - curByteOffset;
-    uintptr_t AddrValue = reinterpret_cast<uintptr_t>(GVTOP(Args[0]));
-#ifdef DEBUG_PRE_EXECUTE
-    llvm::errs() << "AddrValue " << AddrValue
-        << " curByteOffset " << curByteOffset << "\n";
-#endif
-    AddrValue-=curByteOffset;
-    return GenericValue(reinterpret_cast<void*>(AddrValue));
+    return currentEE->RPTOGV(derivedAddr + byteOffset);
 }
 
 static GenericValue pre_execute_virtualcast(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
     // We need to apply the offset in bytes using the bases metadata
     ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-    assert(currentEE->getCurrentCaller());
-    bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs");
+    char* Addr = (char*)currentEE->GVTORP(Args[0]);
+    StructType* derivedType = most_derived_class(Addr); 
+    char* derivedAddr = most_derived_pointer(Addr);
+    assert(derivedType);
+    bool asmjs = derivedType->hasAsmJS();
     if (asmjs)
     {
         char* Addr = (char*)Args[0].PointerVal;
@@ -394,71 +420,12 @@ static GenericValue pre_execute_virtualcast(FunctionType *FT,
         return GenericValue(Addr + Offset);
     }
 
-    char* Addr = (char*)currentEE->GVTORP(Args[0]);
-    Type* derivedType = most_derived_class(Addr); 
-    assert(derivedType);
-    int baseOffset = Args[1].IntVal.getSExtValue();
-    Type* baseType;
-    assert(baseOffset >= 0);
-    baseType = FT->getReturnType()->getPointerElementType();
-    uintptr_t curByteOffset=0;
-    uint32_t curBaseOffset= baseOffset;
-    StructType* curType=cast<StructType>(derivedType);
-    auto &currentModule = PreExecute::currentPreExecutePass->currentModule;
-    auto DL = currentModule->getDataLayout();
-    while(curType!=baseType)
-    {
-        if(curBaseOffset==0)
-            break;
-        //Decrease 1 for this base
-        curBaseOffset--;
-        uint32_t firstBase, baseCount;
-        bool ret = TypeSupport::getBasesInfo(*currentModule, curType,
-                firstBase, baseCount);
-        assert(ret);
-#ifdef DEBUG_PRE_EXECUTE
-        llvm::errs()
-            << "curType " << *curType
-            << " FIRST " << firstBase
-            << " COUNT " << baseCount
-            << "\n";
-#endif
-        assert(curBaseOffset < baseCount);
-        uint32_t nextBaseIndex = firstBase;
-        for(; nextBaseIndex < (firstBase + baseCount); nextBaseIndex++) {
-            uint32_t subFirstBase, subBaseCount;
-            auto element = curType->getElementType(nextBaseIndex);
-            StructType* nextType = cast<StructType>(element);
-#ifdef DEBUG_PRE_EXECUTE
-            llvm::errs() << "nextType: " << *nextType << "\n";
-#endif
-            bool ret = TypeSupport::getBasesInfo(*currentModule, nextType,
-                        subFirstBase, subBaseCount);
-            if (!ret)
-                break;
-            if (curBaseOffset < subBaseCount) {
-                curType = nextType;
-                break;
-            }
-            curBaseOffset -= subBaseCount;
-        }
-        // Skip the offset untils the first base
-        auto layout = DL->getStructLayout(curType);
-#ifdef DEBUG_PRE_EXECUTE
-        llvm::errs() << "curType: " << *curType << "\n";
-        llvm::errs() << "firstBase: " << firstBase << "\n";
-        llvm::errs() << "layout in bytes: " << layout->getSizeInBytes() << "\n";
-#endif
-        curByteOffset += layout->getElementOffset(firstBase);
-    }
-    // Get the pointer to the complete object
-    char* AddrValue = most_derived_pointer(Addr);
-#ifdef DEBUG_PRE_EXECUTE
-    llvm::errs() << "AddrValue " << AddrValue
-        << " curByteOffset " << curByteOffset << "\n";
-#endif
-    AddrValue+=curByteOffset;
-    return currentEE->RPTOGV(AddrValue);
+    int baseIndex = Args[1].IntVal.getSExtValue();
+    uint32_t byteOffset = 0;
+    uint32_t curIndex = 0;
+    bool ret = get_subobject_byte_offset(derivedType, baseIndex, curIndex, byteOffset);
+    assert(ret);
+    return currentEE->RPTOGV(derivedAddr + byteOffset);
 }
 
 static GenericValue pre_execute_upcast(FunctionType *FT,
@@ -826,7 +793,7 @@ bool PreExecute::runOnConstructor( llvm::Module& m, llvm::Function* func)
         GlobalVariable* GV = it.first;
         void* Addr = currentEE->getPointerToGlobal(GV);
         Constant* newInit;
-        const DataLayout *DL = m.getDataLayout();
+        const DataLayout *DL = &m.getDataLayout();
         Type *ptrType = GV->getType()->getPointerElementType();
         bool asmjs = GV->getSection() == StringRef("asmjs");
         newInit = computeInitializerFromMemory(DL, ptrType, (char*)Addr, asmjs);
