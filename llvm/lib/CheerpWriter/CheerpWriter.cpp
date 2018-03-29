@@ -294,8 +294,6 @@ void CheerpWriter::compileVirtualcast( ImmutableCallSite callV )
 	const Value * src = callV.getArgument(0);
 	const Value * offset = callV.getArgument(1);
 
-	Type* t=src->getType()->getPointerElementType();
-
       if(result_kind == SPLIT_REGULAR)
       {
             compileCompleteObject(src);
