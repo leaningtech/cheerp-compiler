@@ -26,7 +26,9 @@ using namespace llvm::opt;
 Cheerp::Cheerp(const Driver &D, const llvm::Triple& Triple, const llvm::opt::ArgList &Args)
   : ToolChain(D, Triple, Args) {
 
-  getProgramPaths().push_back(LLVM_PREFIX "/bin");
+  // InstalledDir should be LLVM_PREFIX/bin
+  const std::string InstalledDir(getDriver().getInstalledDir());
+  getProgramPaths().push_back(InstalledDir);
 
   path_list& filePaths = getFilePaths();
 
@@ -37,12 +39,11 @@ Cheerp::Cheerp(const Driver &D, const llvm::Triple& Triple, const llvm::opt::Arg
                               CheerpMode->getValue() == StringRef("wasm"));
   StringRef libdir;
   if (asmjs) {
-    libdir = LLVM_PREFIX "/lib/asmjs";
+    filePaths.push_back(InstalledDir + "/../lib/asmjs");
   } else {
-    libdir = LLVM_PREFIX "/lib/genericjs";
+    filePaths.push_back(InstalledDir + "/../lib/genericjs");
   }
-  filePaths.push_back(LLVM_PREFIX "/lib");
-  filePaths.push_back(libdir);
+  filePaths.push_back(InstalledDir + "/../lib");
 
   // Add paths passed from the command line
   for (arg_iterator it = Args.filtered_begin(options::OPT_L),
@@ -66,10 +67,11 @@ void Cheerp::AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
   if (DriverArgs.hasArg(options::OPT_nostdlibinc))
     return;
 
+  const std::string InstalledDir(getDriver().getInstalledDir());
   addExternCSystemInclude(DriverArgs, CC1Args,
-		  LLVM_PREFIX "/include");
+		  InstalledDir + "/../include");
   addExternCSystemInclude(DriverArgs, CC1Args,
-		  LLVM_PREFIX "/include/client");
+		  InstalledDir + "/../include/client");
 }
 
 void Cheerp::AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
@@ -78,9 +80,10 @@ void Cheerp::AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
       DriverArgs.hasArg(options::OPT_nostdincxx))
     return;
 
+  const std::string InstalledDir(getDriver().getInstalledDir());
   // Use the cheerp provided libc++
   addSystemInclude(DriverArgs, CC1Args,
-		   LLVM_PREFIX "/include/c++/v1");
+		   InstalledDir + "/../include/c++/v1");
 }
 
 bool Cheerp::IsUnwindTablesDefault() const {
