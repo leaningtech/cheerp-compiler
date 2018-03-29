@@ -2394,9 +2394,6 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
     LibDirs.append(begin(SystemZLibDirs), end(SystemZLibDirs));
     TripleAliases.append(begin(SystemZTriples), end(SystemZTriples));
     break;
-  case llvm::Triple::cheerp:
-    MultiarchIncludeDirs = CheerpMultiarchIncludeDirs;
-    break;
   default:
     // By default, just rely on the standard lib directories and the original
     // triple.
