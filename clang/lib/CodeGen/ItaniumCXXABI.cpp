@@ -1700,7 +1700,6 @@ ItaniumCXXABI::GetVirtualBaseClassOffset(CodeGenFunction &CGF,
                                          Address This,
                                          const CXXRecordDecl *ClassDecl,
                                          const CXXRecordDecl *BaseClassDecl) {
-  bool asmjs = ClassDecl->hasAttr<AsmJSAttr>();
   if (!CGM.getTarget().isByteAddressable()) {
     llvm::Type* VTableType = CGM.getTypes().GetPrimaryVTableType(ClassDecl)->getPointerTo();
     llvm::Value *VTablePtr = CGF.GetVTablePtr(This, VTableType);
