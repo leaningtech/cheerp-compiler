@@ -4658,15 +4658,13 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 		BinaryBytesWriter bytesWriter(os);
 		uint32_t last_address = 0;
 		uint32_t last_size = 0;
-		for ( const GlobalVariable & GV : module.getGlobalList() )
+		for ( const GlobalVariable* GV : linearHelper.globals() )
 		{
-			if (GV.getSection() != StringRef("asmjs"))
-				continue;
-			if (GV.hasInitializer())
+			if (GV->hasInitializer())
 			{
-				const Constant* init = GV.getInitializer();
+				const Constant* init = GV->getInitializer();
 				Type* ty = init->getType();
-				uint32_t cur_address = linearHelper.getGlobalVariableAddress(&GV);
+				uint32_t cur_address = linearHelper.getGlobalVariableAddress(GV);
 				uint32_t padding = cur_address - (last_address+last_size);
 				for ( uint32_t i = 0; i < padding; i++ )
 				{
@@ -4684,13 +4682,11 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 	}
 	else
 	{
-		for ( const GlobalVariable & GV : module.getGlobalList() )
+		for ( const GlobalVariable* GV : linearHelper.globals() )
 		{
-			if (GV.getSection() != StringRef("asmjs"))
-				continue;
-			if (GV.hasInitializer())
+			if (GV->hasInitializer())
 			{
-				const Constant* init = GV.getInitializer();
+				const Constant* init = GV->getInitializer();
 
 				// Skip global variables that are zero-initialised.
 				if (linearHelper.isZeroInitializer(init))
@@ -4699,7 +4695,7 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 				stream  << heapNames[HEAP8] << ".set([";
 				JSBytesWriter bytesWriter(stream);
 				linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
-				stream << "]," << linearHelper.getGlobalVariableAddress(&GV) << ");" << NewLine;
+				stream << "]," << linearHelper.getGlobalVariableAddress(GV) << ");" << NewLine;
 			}
 		}
 	}
@@ -5060,11 +5056,9 @@ void CheerpWriter::makeJS()
 		}
 
 		// Declare globals
-		for ( const GlobalVariable & GV : module.getGlobalList() )
-		{
-			if (GV.getSection() == StringRef("asmjs"))
-				compileGlobalAsmJS(GV);
-		}
+		for ( const GlobalVariable* GV : linearHelper.globals() )
+			compileGlobalAsmJS(*GV);
+
 		for ( const Function & F : module.getFunctionList() )
 		{
 			if (!F.empty() && F.getSection() == StringRef("asmjs"))

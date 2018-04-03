@@ -230,14 +230,10 @@ bool LinearMemoryHelper::isZeroInitializer(const llvm::Constant* c) const
 
 	if(isa<GlobalVariable>(c))
 	{
-		const GlobalVariable* g = cast<GlobalVariable>(c);
-		if (globalAddresses.count(g) != 1)
-		{
-			llvm::errs() << "global variable not found:" << g->getName() << "\n";
-			llvm::report_fatal_error("please report a bug");
-		}
-		uint32_t val = globalAddresses.at(g);
-		return val == 0;
+		// Since globals do not start at offset zero (heapStart is non-zero)
+		// the address of a global variable can never be zero.
+		assert(heapStart);
+		return false;
 	}
 
 	c->dump();
@@ -290,21 +286,57 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListe
 	return p;
 }
 
+bool LinearMemoryHelper::hasNonZeroInitialiser(const GlobalVariable* G) const
+{
+	if (!G->hasInitializer())
+		return false;
+
+	const Constant* init = G->getInitializer();
+	return !isZeroInitializer(init);
+}
 
 void LinearMemoryHelper::addGlobals()
 {
 	const auto& targetData = module.getDataLayout();
+	// The global variable list has a special order:
+	// 1. Move non-initialised and zero-initialised variables to end of
+	// global variable list.
+	// 2. Sort non-zero initialised variables on alignment to reduce the number
+	// of padding bytes.
 	for (const auto& G: module.globals())
 	{
 		if (G.getSection() != StringRef("asmjs")) continue;
+		if (!hasNonZeroInitialiser(&G)) continue;
 
-		Type* ty = G.getType();
+		asmjsGlobals.push_back(&G);
+	}
+
+	std::sort(asmjsGlobals.begin(), asmjsGlobals.end(),
+		[targetData] (const GlobalVariable* a, const GlobalVariable* b) {
+			Type* aTy = a->getType()->getPointerElementType();
+			Type* bTy = b->getType()->getPointerElementType();
+			// Bigger alignment should be stored before smaller alignment.
+			return TypeSupport::getAlignmentAsmJS(targetData, aTy) >
+				TypeSupport::getAlignmentAsmJS(targetData, bTy);
+		}
+	);
+
+	for (const auto& G: module.globals())
+	{
+		if (G.getSection() != StringRef("asmjs")) continue;
+		if (hasNonZeroInitialiser(&G)) continue;
+		asmjsGlobals.push_back(&G);
+	}
+
+	// Compute the global variable addresses.
+	for (const auto G: asmjsGlobals) {
+		Type* ty = G->getType();
 		uint32_t size = targetData.getTypeAllocSize(ty->getPointerElementType());
 		// Ensure the right alignment for the type
 		uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, ty->getPointerElementType());
 		// The following is correct if alignment is a power of 2 (which it should be)
 		heapStart = (heapStart + alignment - 1) & ~(alignment - 1);
-		globalAddresses.emplace(&G, heapStart);
+		globalAddresses.emplace(G, heapStart);
 		heapStart += size;
 	}
 }
