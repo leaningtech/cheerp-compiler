@@ -2879,22 +2879,43 @@ void CheerpWasmWriter::compileDataSection()
 	std::stringstream data;
 	uint32_t count = 0;
 
-	for (const GlobalVariable& GV : module.getGlobalList())
+	auto globals = linearHelper.globals();
+	for (auto g = globals.begin(), e = globals.end(); g != e; ++g)
 	{
-		if (GV.getSection() != StringRef("asmjs") || !GV.hasInitializer())
-			continue;
-
-		const Constant* init = GV.getInitializer();
+		const GlobalVariable* GV = *g;
 
 		// Skip global variables that are zero-initialised.
-		if (linearHelper.isZeroInitializer(init))
+		if (!linearHelper.hasNonZeroInitialiser(GV))
 			continue;
+		const Constant* init = GV->getInitializer();
 
 		count++;
+		uint32_t address = linearHelper.getGlobalVariableAddress(GV);
 
+		// Concatenate global variables into one big binary blob. This
+		// optimization omits the data section item header, and that will save
+		// a minimum of 5 bytes per global variable.
 		std::stringstream bytes;
 		WasmBytesWriter bytesWriter(bytes, *this);
-		linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
+
+		for (; g != e; ++g) {
+			GV = *g;
+
+			// Do not concatenate global variables that have no initialiser or
+			// are zero-initialised.
+			if (!linearHelper.hasNonZeroInitialiser(GV))
+				break;
+			init = GV->getInitializer();
+
+			// Determine amount of padding bytes necessary for the alignment.
+			long written = bytes.tellp();
+			uint32_t nextAddress = linearHelper.getGlobalVariableAddress(GV);
+			uint32_t padding = nextAddress - (address + written);
+			for (uint32_t i = 0; i < padding; i++)
+				bytes << (char)0;
+
+			linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
+		}
 
 		std::string buf = bytes.str();
 
@@ -2909,7 +2930,6 @@ void CheerpWasmWriter::compileDataSection()
 		buf = buf.substr(pos, len);
 		assert(len > 0 && "found a zero-initialised variable");
 
-		uint32_t address = linearHelper.getGlobalVariableAddress(&GV);
 		address += pos;
 
 		if (cheerpMode == CHEERP_MODE_WASM) {
@@ -2927,6 +2947,13 @@ void CheerpWasmWriter::compileDataSection()
 		} else {
 			data << "(data (i32.const " << address << ") \"" << buf << "\")\n";
 		}
+
+		// Break the outer loop when the last global variable is concatenated.
+		// Without this check, the outer loop will increment `g` as well, which
+		// will cause the condition `g != e` to pass, resulting in an
+		// out-of-bounds access on the iterator.
+		if (g == e)
+			break;
 	}
 
 	if (cheerpMode == CHEERP_MODE_WASM)

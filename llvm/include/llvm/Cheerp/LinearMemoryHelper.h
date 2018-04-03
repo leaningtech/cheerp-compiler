@@ -225,6 +225,14 @@ public:
 		return functionTypes;
 	}
 
+	/**
+	 * Get a list of the asm.js global variables. This list excludes global
+	 * variables without an "asmjs" section.
+	 */
+	const std::vector<const llvm::GlobalVariable*> & globals() const {
+		return asmjsGlobals;
+	}
+
 	struct ByteListener
 	{
 		virtual void addByte(uint8_t b) = 0;
@@ -234,6 +242,7 @@ public:
 	};
 	void compileConstantAsBytes(const llvm::Constant* c, bool asmjs, ByteListener* listener, int32_t offset=0) const;
 	bool isZeroInitializer(const llvm::Constant* c) const;
+	bool hasNonZeroInitialiser(const llvm::GlobalVariable* G) const;
 	struct GepListener
 	{
 		virtual void addValue(const llvm::Value* v, uint32_t size) = 0;
@@ -261,6 +270,8 @@ private:
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 	std::vector<const llvm::FunctionType*> functionTypes;
 	FunctionTypeIndicesMap functionTypeIndices;
+
+	std::vector<const llvm::GlobalVariable*> asmjsGlobals;
 
 	FunctionAddressesMap functionAddresses;
 	GlobalAddressesMap globalAddresses;
