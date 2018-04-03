@@ -56,8 +56,6 @@ set(LIBCXX_SOURCES
   vector.cpp
   )
 
-# Cheerp: Remove istream/ostream users as they depend on virtual bases
-list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/strstream.cpp")
 # Cheerp: Remove pthread related stuff
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/debug.cpp")
 list(REMOVE_ITEM LIBCXX_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../src/thread.cpp")
