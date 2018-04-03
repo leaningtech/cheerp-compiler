@@ -5004,6 +5004,11 @@ void CheerpWriter::makeJS()
 	if(!wasmFile.empty() || asmJSMem)
 		compileFetchBuffer();
 
+	if (globalDeps.needAsmJS() && checkBounds)
+	{
+		compileCheckBoundsAsmJSHelper();
+	}
+
 	if (globalDeps.needAsmJS() && wasmFile.empty())
 	{
 		// compile boilerplate
@@ -5069,10 +5074,6 @@ void CheerpWriter::makeJS()
 		compileAsmJSImports();
 		compileAsmJSExports();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
-		if (checkBounds)
-		{
-			compileCheckBoundsAsmJSHelper();
-		}
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:heap.byteLength," << NewLine;
 		stream << "__dummy:__dummy," << NewLine;
