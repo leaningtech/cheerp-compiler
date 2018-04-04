@@ -252,52 +252,6 @@ static StructType* most_derived_class(char* Addr)
   }
   return Ty;
 }
-static GenericValue pre_execute_downcast_current(FunctionType *FT,
-                                         const std::vector<GenericValue> &Args) {
-
-  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-  assert(currentEE->getCurrentCaller());
-  bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs");
-  if (asmjs)
-  {
-    GenericValue GV;
-    GV.IntVal = APInt(32,reinterpret_cast<uintptr_t>(Args[0].PointerVal));
-    return GV;
-  }
-
-  char* Addr = (char*)currentEE->GVTORP(Args[0]);
-
-  StructType* objType = most_derived_class(Addr); 
-  assert(objType);
-  StructType* currentType = dyn_cast<StructType>(FT->getParamType(0)->getPointerElementType());
-  StructType* currentBase = objType;
-  while (currentBase != nullptr)
-  {
-    if(currentBase == currentType)
-    {
-      GenericValue ret;
-      ret.IntVal = APInt(32, 0);
-      return ret;
-    }
-    currentBase = currentBase->getDirectBase();
-  }
-  uint32_t firstBase, baseCount;
-  auto &currentModule = PreExecute::currentPreExecutePass->currentModule;
-  bool ret = TypeSupport::getBasesInfo(*currentModule, objType,
-                firstBase, baseCount);
-  assert(ret);
-  for(uint32_t i = firstBase; i < firstBase+baseCount; i++)
-  {
-    currentBase = dyn_cast<StructType>(objType->getElementType(i));
-    if(currentBase == currentType) 
-    {
-      GenericValue ret;
-      ret.IntVal = APInt(32, i);
-      return ret;
-    }
-  }
-  llvm_unreachable("Base not found");
-}
 
 static bool get_subobject_base_offset(StructType* derivedType, char* derivedAddr, char* baseAddr, uint32_t& baseIndex) {
     if (derivedAddr == baseAddr)
@@ -366,6 +320,34 @@ static bool get_subobject_byte_offset(StructType* derivedType, uint32_t baseInde
         }
     }
     return false;
+}
+
+static GenericValue pre_execute_downcast_current(FunctionType *FT,
+                                         const std::vector<GenericValue> &Args) {
+
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  assert(currentEE->getCurrentCaller());
+  bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs");
+  if (asmjs)
+  {
+    GenericValue GV;
+    GV.IntVal = APInt(32,reinterpret_cast<uintptr_t>(Args[0].PointerVal));
+    return GV;
+  }
+
+  char* Addr = (char*)currentEE->GVTORP(Args[0]);
+
+  StructType* derivedType = most_derived_class(Addr); 
+  char* derivedAddr = most_derived_pointer(Addr);
+
+  uint32_t baseIndex = 0;
+  bool check = get_subobject_base_offset(derivedType, derivedAddr, Addr, baseIndex);
+  assert(check && "subobject not found");
+
+  GenericValue ret;
+  ret.IntVal = APInt(32, baseIndex);
+
+  return ret;
 }
 
 static GenericValue pre_execute_downcast(FunctionType *FT,
