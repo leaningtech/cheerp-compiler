@@ -210,6 +210,15 @@ public:
     return CompleteObjectVirtualBases.lookup(base);
   }
 
+  typedef  llvm::DenseMap<const CXXRecordDecl *, unsigned>::const_iterator const_base_iterator;
+
+  const_base_iterator vbases_begin() const {
+        return CompleteObjectVirtualBases.begin();
+  }
+  const_base_iterator vbases_end() const {
+        return CompleteObjectVirtualBases.end();
+  }
+
   /// Return the BitFieldInfo that corresponds to the field FD.
   const CGBitFieldInfo &getBitFieldInfo(const FieldDecl *FD) const {
     FD = FD->getCanonicalDecl();

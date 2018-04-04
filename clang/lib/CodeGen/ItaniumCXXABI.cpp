@@ -4078,6 +4078,10 @@ static unsigned ComputeVMIClassTypeInfoFlags(const CXXRecordDecl *RD) {
 /// classes with bases that do not satisfy the abi::__si_class_type_info
 /// constraints, according ti the Itanium C++ ABI, 2.9.5p5c.
 void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
+  const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
+  const CGRecordLayout &CGLayout = CGM.getTypes().getCGRecordLayout(RD);
+  bool asmjs = RD->hasAttr<AsmJSAttr>();
+
   llvm::Type *UnsignedIntLTy =
     CGM.getTypes().ConvertType(CGM.getContext().UnsignedIntTy);
 
@@ -4092,6 +4096,14 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
   //   __base_count is a word with the number of direct proper base class
   //   descriptions that follow.
   Fields.push_back(llvm::ConstantInt::get(UnsignedIntLTy, RD->getNumBases()));
+
+  if(!CGM.getTarget().isByteAddressable()) {
+    unsigned numVBases = 0;
+    for (auto it = CGLayout.vbases_begin(); it != CGLayout.vbases_end(); ++it) {
+      numVBases++;
+    }
+    Fields.push_back(llvm::ConstantInt::get(UnsignedIntLTy, numVBases));
+  }
 
   if (!RD->getNumBases())
     return;
@@ -4146,10 +4158,7 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
       Offset =
         CGM.getItaniumVTableContext().getVirtualBaseOffsetOffset(RD, BaseDecl);
     else {
-      const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
-	bool asmjs = RD->hasAttr<AsmJSAttr>();
       if(!asmjs && !CGM.getTarget().isByteAddressable() && Layout.getPrimaryBase() != BaseDecl && !BaseDecl->isEmpty()) {
-        const CGRecordLayout &CGLayout = CGM.getTypes().getCGRecordLayout(RD);
         unsigned baseId = CGLayout.getNonVirtualBaseLLVMFieldNo(BaseDecl);
         Offset = CharUnits::fromQuantity(CGLayout.getTotalOffsetToBase(baseId));
       } else
@@ -4168,8 +4177,24 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
     baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, OffsetFlags));
     basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields));
   }
+  if(!CGM.getTarget().isByteAddressable()) {
+    for (auto it = CGLayout.vbases_begin(); it != CGLayout.vbases_end(); ++it) {
+      llvm::SmallVector<llvm::Constant*, 8> baseFields;
+      // The __base_type member points to the RTTI for the base type.
+      QualType VBaseTy = CGM.getContext().getCanonicalType(CGM.getContext().getTagDeclType(it->first));
+      baseFields.push_back(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(VBaseTy));
+      unsigned Offset = 0;
+      if (asmjs)
+        Offset = Layout.getVBaseClassOffset(it->first).getQuantity();
+      else
+        Offset = CGLayout.getTotalOffsetToBase(it->second);
+      baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, Offset));
+      basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields));
+    }
+  }
   llvm::ArrayType* basesArrayType = llvm::ArrayType::get(basesFields[0]->getType(), basesFields.size());
   Fields.push_back(llvm::ConstantArray::get(basesArrayType, basesFields));
+
 }
 
 /// Compute the flags for a __pbase_type_info, and remove the corresponding
