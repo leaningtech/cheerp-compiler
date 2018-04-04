@@ -221,7 +221,7 @@ __class_type_info::can_catch(const __shim_type_info* thrown_type,
     if (thrown_class_type == 0)
         return false;
     // bullet 2
-    __dynamic_cast_info info = {thrown_class_type, 0, this, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
+    __dynamic_cast_info info = {thrown_class_type, 0, this, 0, this, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
     info.number_of_dst_type = 1;
     thrown_class_type->has_unambiguous_public_base(&info, adjustedPtr, public_path);
     if (info.path_dst_ptr_to_static_ptr == public_path)
@@ -304,7 +304,18 @@ __base_class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
         if (__offset_flags & __virtual_mask)
         {
 #ifdef __CHEERP__
-            // TODO: Virtual bases are not supported on Cheerp
+            const __vmi_class_type_info* dynamic_type = static_cast<const __vmi_class_type_info*>(info->dynamic_type);
+            ptrdiff_t vbase_offset = 0;
+            for (unsigned i = dynamic_type->__base_count; i < dynamic_type->__base_count + dynamic_type->__vbase_count; ++i)
+            {
+                if (dynamic_type->__base_info[i].__base_type == __base_type)
+                {
+                    vbase_offset = dynamic_type->__base_info[i].__offset_flags;
+                    break;
+                }
+            }
+
+            offset_to_base = vbase_offset - info->static_ptr;
 #else
             const char* vtable = *static_cast<const char*const*>(adjustedPtr);
             offset_to_base = *reinterpret_cast<const ptrdiff_t*>(vtable + offset_to_base);
@@ -438,7 +449,7 @@ __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
         dynamic_cast<const __class_type_info*>(thrown_pointer_type->__pointee);
     if (thrown_class_type == 0)
         return false;
-    __dynamic_cast_info info = {thrown_class_type, 0, catch_class_type, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
+    __dynamic_cast_info info = {thrown_class_type, 0, catch_class_type, 0, catch_class_type, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
     info.number_of_dst_type = 1;
     thrown_class_type->has_unambiguous_public_base(&info, adjustedPtr, public_path);
     if (info.path_dst_ptr_to_static_ptr == public_path)
@@ -680,7 +691,7 @@ __dynamic_cast(const void *static_ptr,
     obj_type dst_ptr = 0;
 #endif
     // Initialize info struct for this search.
-    __dynamic_cast_info info = {dst_type, static_ptr, static_type, src2dst_offset, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
+    __dynamic_cast_info info = {dst_type, static_ptr, static_type, dynamic_ptr, dynamic_type, src2dst_offset, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
 
     // Find out if we can use a giant short cut in the search
     if (is_equal(dynamic_type, dst_type, false))
@@ -1331,7 +1342,22 @@ __base_class_type_info::search_above_dst(__dynamic_cast_info* info,
     if (__offset_flags & __virtual_mask)
     {
 #ifdef __CHEERP__
-        // TODO: Cheerp does not support virtual bases
+        const __vmi_class_type_info* dynamic_type = static_cast<const __vmi_class_type_info*>(info->dynamic_type);
+        ptrdiff_t vbase_offset = 0;
+        for (unsigned i = dynamic_type->__base_count; i < dynamic_type->__base_count + dynamic_type->__vbase_count; ++i)
+        {
+            if (dynamic_type->__base_info[i].__base_type == __base_type)
+            {
+                vbase_offset = dynamic_type->__base_info[i].__offset_flags;
+                break;
+            }
+        }
+
+#ifdef __ASMJS__
+        offset_to_base = info->dynamic_ptr + vbase_offset - current_ptr;
+#else
+        offset_to_base = vbase_offset - current_ptr + 1;
+#endif
 #else
         const char* vtable = *static_cast<const char*const*>(current_ptr);
         offset_to_base = *reinterpret_cast<const ptrdiff_t*>(vtable + offset_to_base);
@@ -1359,7 +1385,22 @@ __base_class_type_info::search_below_dst(__dynamic_cast_info* info,
     if (__offset_flags & __virtual_mask)
     {
 #ifdef __CHEERP__
-        // TODO: Cheerp does not support virtual bases
+        const __vmi_class_type_info* dynamic_type = static_cast<const __vmi_class_type_info*>(info->dynamic_type);
+        ptrdiff_t vbase_offset = 0;
+        for (unsigned i = dynamic_type->__base_count; i < dynamic_type->__base_count + dynamic_type->__vbase_count; ++i)
+        {
+            if (dynamic_type->__base_info[i].__base_type == __base_type)
+            {
+                vbase_offset = dynamic_type->__base_info[i].__offset_flags;
+                break;
+            }
+        }
+
+#ifdef __ASMJS__
+        offset_to_base = info->dynamic_ptr + vbase_offset - current_ptr;
+#else
+        offset_to_base = vbase_offset - current_ptr + 1;
+#endif
 #else
         const char* vtable = *static_cast<const char*const*>(current_ptr);
         offset_to_base = *reinterpret_cast<const ptrdiff_t*>(vtable + offset_to_base);

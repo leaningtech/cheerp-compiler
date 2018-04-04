@@ -83,6 +83,15 @@ struct _LIBCXXABI_HIDDEN __dynamic_cast_info
     const void* static_ptr;
 #endif
     const __class_type_info* static_type;
+
+#ifdef __CHEERP__
+    std::ptrdiff_t dynamic_ptr;
+#else
+    const void* dynamic_ptr;
+#endif
+
+    const __class_type_info* dynamic_type;
+
     ptrdiff_t src2dst_offset;
 
 // Data that represents the answer:
@@ -190,6 +199,7 @@ class _LIBCXXABI_TYPE_VIS __vmi_class_type_info : public __class_type_info {
 public:
   unsigned int __flags;
   unsigned int __base_count;
+  unsigned int __vbase_count;
   __base_class_type_info __base_info[1];
 
   enum __flags_masks {
