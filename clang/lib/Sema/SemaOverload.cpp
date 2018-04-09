@@ -14172,11 +14172,20 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
 
   // CHEERP: Member calls of genericjs objects are not allowed from asmjs code
   if (const FunctionDecl *Caller = dyn_cast<FunctionDecl>(CurContext)) {
+    Expr* Obj = TheCall->getImplicitObjectArgument();
     if (Caller->hasAttr<AsmJSAttr>()) {
-      Expr* Obj = TheCall->getImplicitObjectArgument();
       if (!isAsmJSCompatible(Obj->getType())) {
         Diag(MemExpr->getMemberLoc(), diag::err_cheerp_wrong_this)
           << Method << Obj << Obj->getType();
+      }
+      if (Method->isVirtual() && Method->hasAttr<GenericJSAttr>()) {
+        Diag(MemExpr->getMemberLoc(), diag::err_cheerp_wrong_virtual_call)
+          << Method->getAttr<GenericJSAttr>() << Method << Caller->getAttr<AsmJSAttr>() << Caller;
+      }
+    } else {
+      if (Method->isVirtual() && Method->hasAttr<AsmJSAttr>()) {
+        Diag(MemExpr->getMemberLoc(), diag::err_cheerp_wrong_virtual_call)
+          << Method->getAttr<AsmJSAttr>() << Method << Caller->getAttr<GenericJSAttr>() << Caller;
       }
     }
   }
