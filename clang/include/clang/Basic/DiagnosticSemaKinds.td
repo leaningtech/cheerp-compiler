@@ -10970,6 +10970,8 @@ def err_cheerp_wrong_virtual_call : Error<
   "Cheerp: Cannot call %0 virtual method %1 from %2 function %3">;
 def err_cheerp_incompatible_attributes : Error<
   "Cheerp: Attribute %0 is incompatible with attribute %1">;
+def err_cheerp_asm_in_asmjs : Error<
+  "Cheerp: Cannot use inline wasm in a %0 function">;
 } // end of cheerp issue category
 
 } // end of sema component.
