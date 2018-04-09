@@ -1146,14 +1146,12 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			assert(incoming);
-			uint32_t numArgs = writer.currentFun->arg_size();
-
 			uint32_t reg = writer.registerize.getRegisterId(incoming);
-			uint32_t local = numArgs + reg;
+			uint32_t local = writer.localMap.at(reg);
 			writer.encodeU32Inst(0x20, "get_local", local, code);
 
 			reg = writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
-			local = numArgs + reg;
+			local = writer.localMap.at(reg);
 			writer.encodeU32Inst(0x21, "set_local", local, code);
 
 		}
@@ -1167,9 +1165,8 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			writer.compileOperand(code, incoming);
 			writer.registerize.clearEdgeContext();
 			// 2) Save the value in the phi
-			uint32_t numArgs = writer.currentFun->arg_size();
 			uint32_t reg = writer.registerize.getRegisterId(phi);
-			uint32_t local = numArgs + reg;
+			uint32_t local = writer.localMap.at(reg);
 			writer.encodeU32Inst(0x21, "set_local", local, code);
 		}
 	};
@@ -1197,9 +1194,8 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	const auto I = dyn_cast<Instruction>(gep_inst);
 	if (I && !isInlineable(*I, PA)) {
 		if (!standalone) {
-			uint32_t numArgs = I->getParent()->getParent()->arg_size();
 			uint32_t reg = registerize.getRegisterId(I);
-			uint32_t local = numArgs + reg;
+			uint32_t local = localMap.at(reg);
 			encodeU32Inst(0x20, "get_local", local, code);
 			return;
 		}
@@ -1506,13 +1502,15 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 		if(isInlineable(*it, PA)) {
 			compileInlineInstruction(code, *it);
 		} else {
-			uint32_t local = currentFun->arg_size() + registerize.getRegisterId(it);
+			uint32_t idx = registerize.getRegisterId(it);
+			uint32_t local = localMap.at(idx);
 			encodeU32Inst(0x20, "get_local", local, code);
 		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
-		encodeU32Inst(0x20, "get_local", arg->getArgNo(), code);
+		uint32_t local = arg->getArgNo();
+		encodeU32Inst(0x20, "get_local", local, code);
 	}
 	else
 	{
@@ -2010,9 +2008,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			if (isGEP(ptrOp)) {
 				const auto O = dyn_cast<Instruction>(ptrOp);
 				if (O && !isInlineable(*O, PA)) {
-					uint32_t numArgs = O->getParent()->getParent()->arg_size();
 					uint32_t reg = registerize.getRegisterId(O);
-					uint32_t local = numArgs + reg;
+					uint32_t local = localMap.at(reg);
 					encodeU32Inst(0x20, "get_local", local, code);
 				} else {
 					WasmGepWriter gepWriter(*this, code);
@@ -2051,9 +2048,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			if (isGEP(ptrOp)) {
 				const auto O = dyn_cast<Instruction>(ptrOp);
 				if (O && !isInlineable(*O, PA)) {
-					uint32_t numArgs = O->getParent()->getParent()->arg_size();
 					uint32_t reg = registerize.getRegisterId(O);
-					uint32_t local = numArgs + reg;
+					uint32_t local = localMap.at(reg);
 					encodeU32Inst(0x20, "get_local", local, code);
 				} else {
 					WasmGepWriter gepWriter(*this, code);
@@ -2291,9 +2287,8 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 				if(I->use_empty()) {
 					encodeInst(0x1a, "drop", code);
 				} else {
-					uint32_t numArgs = currentFun->arg_size();
 					uint32_t reg = registerize.getRegisterId(I);
-					uint32_t local = numArgs + reg;
+					uint32_t local = localMap.at(reg);
 					encodeU32Inst(0x21, "set_local", local, code);
 				}
 			}
@@ -2301,10 +2296,13 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 	}
 }
 
-void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, bool needsLabel)
+void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& locals)
 {
-	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	if (cheerpMode == CHEERP_MODE_WASM) {
+		uint32_t groups = (uint32_t) locals.at(Registerize::INTEGER) > 0;
+		groups += (uint32_t) locals.at(Registerize::DOUBLE) > 0;
+		groups += (uint32_t) locals.at(Registerize::FLOAT) > 0;
+
 		// Local declarations are compressed into a vector whose entries
 		// consist of:
 		//
@@ -2312,78 +2310,40 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const Function& F, 
 		//   - a `ValType',
 		//
 		// denoting `count' locals of the same `ValType'.
-		struct LocalGroup {
-			uint32_t count;
-			Registerize::REGISTER_KIND kind;
-			LocalGroup(uint32_t count, Registerize::REGISTER_KIND kind)
-			 : count(count), kind(kind) {}
-		};
-		vector<LocalGroup> locals;
+		internal::encodeULEB128(groups, code);
 
-		Registerize::REGISTER_KIND lastKind = Registerize::OBJECT;
-		uint32_t count = 0;
-
-		// Make groups of consecutive register kinds.
-		for(const Registerize::RegisterInfo& regInfo: regsInfo)
-		{
-			assert(regInfo.regKind != Registerize::OBJECT);
-			assert(!regInfo.needsSecondaryName);
-
-			if (lastKind != regInfo.regKind) {
-				if (count) {
-					locals.emplace_back(count, lastKind);
-					count = 0;
-				}
-				lastKind = regInfo.regKind;
-			}
-			count++;
+		if (locals.at(Registerize::INTEGER)) {
+			internal::encodeULEB128(locals.at(Registerize::INTEGER), code);
+			internal::encodeRegisterKind(Registerize::INTEGER, code);
 		}
 
-		if (count) {
-			locals.emplace_back(count, lastKind);
+		if (locals.at(Registerize::DOUBLE)) {
+			internal::encodeULEB128(locals.at(Registerize::DOUBLE), code);
+			internal::encodeRegisterKind(Registerize::DOUBLE, code);
 		}
 
-		// If needed, label is the very last local
-		if (needsLabel) {
-			if (lastKind == Registerize::INTEGER) {
-				locals.back().count++;
-			} else {
-				locals.emplace_back(1, Registerize::INTEGER);
-			}
-		}
-
-		// Emit the compressed vector of local registers.
-		internal::encodeULEB128(locals.size(), code);
-		for (auto& group : locals) {
-			internal::encodeULEB128(group.count, code);
-			internal::encodeRegisterKind(group.kind, code);
+		if (locals.at(Registerize::FLOAT)) {
+			internal::encodeULEB128(locals.at(Registerize::FLOAT), code);
+			internal::encodeRegisterKind(Registerize::FLOAT, code);
 		}
 	} else {
 		code << "(local";
-		// Emit the registers, careful as the registerize id is offset by the number of args
-		for(const Registerize::RegisterInfo& regInfo: regsInfo)
-		{
-			code << ' ';
-			assert(regInfo.regKind != Registerize::OBJECT);
-			assert(!regInfo.needsSecondaryName);
-			switch(regInfo.regKind)
-			{
-				case Registerize::DOUBLE:
-					code << "f64";
-					break;
-				case Registerize::FLOAT:
-					code << "f32";
-					break;
-				case Registerize::INTEGER:
-					code << "i32";
-					break;
-				default:
-					assert(false);
-			}
+
+		if (locals.at(Registerize::INTEGER)) {
+			for (int i = 0; i < locals.at(Registerize::INTEGER); i++)
+				code << " i32";
 		}
-		// If needed, label is the very last local
-		if(needsLabel)
-			code << " i32";
+
+		if (locals.at(Registerize::DOUBLE)) {
+			for (int i = 0; i < locals.at(Registerize::DOUBLE); i++)
+				code << " f64";
+		}
+
+		if (locals.at(Registerize::FLOAT)) {
+			for (int i = 0; i < locals.at(Registerize::FLOAT); i++)
+				code << " f32";
+		}
+
 		code << ")\n";
 	}
 }
@@ -2459,7 +2419,54 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		needsLabel = rl->needsLabel();
 	}
 
-	compileMethodLocals(code, F, needsLabel);
+	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
+	uint32_t localCount = regsInfo.size() + (int)needsLabel;
+
+	vector<int> locals(4, 0);
+	localMap.assign(localCount, 0);
+	uint32_t reg = 0;
+
+	// Make lookup table for registers to locals.
+	for(const Registerize::RegisterInfo& regInfo: regsInfo)
+	{
+		assert(regInfo.regKind != Registerize::OBJECT);
+		assert(!regInfo.needsSecondaryName);
+
+		// Save the current local index
+		localMap.at(reg) = numArgs + locals.at((int)regInfo.regKind);
+		locals.at((int)regInfo.regKind)++;
+		reg++;
+	}
+
+	if (needsLabel) {
+		localMap.at(reg) = numArgs + locals.at((int)Registerize::INTEGER);
+		locals.at((int)Registerize::INTEGER)++;
+	}
+
+	// Add offset of other local groups to local lookup table.  Since INTEGER
+	// is the first group, the local for label does not require an offset.
+	reg = 0;
+	for(const Registerize::RegisterInfo& regInfo: regsInfo)
+	{
+		uint32_t offset = 0;
+		switch (regInfo.regKind) {
+			case Registerize::INTEGER:
+				break;
+			case Registerize::DOUBLE:
+				offset += locals.at((int)Registerize::INTEGER);
+				break;
+			case Registerize::FLOAT:
+				offset += locals.at((int)Registerize::INTEGER);
+				offset += locals.at((int)Registerize::DOUBLE);
+				break;
+			case Registerize::OBJECT:
+				assert(false);
+				break;
+		}
+		localMap[reg++] += offset;
+	}
+
+	compileMethodLocals(code, locals);
 
 	if (F.size() == 1)
 	{
@@ -2472,7 +2479,8 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		uint32_t numRegs = regsInfo.size();
 
 		// label is the very last local
-		CheerpWasmRenderInterface ri(this, code, numArgs + numRegs);
+		uint32_t labelLocal = needsLabel ? localMap[numRegs] : 0;
+		CheerpWasmRenderInterface ri(this, code, labelLocal);
 
 		rl->Render(&ri);
 		lastDepth0Block = ri.lastDepth0Block;
