@@ -315,7 +315,11 @@ __base_class_type_info::has_unambiguous_public_base(__dynamic_cast_info* info,
                 }
             }
 
-            offset_to_base = vbase_offset - info->static_ptr;
+#ifdef __ASMJS__
+            offset_to_base = info->dynamic_ptr + vbase_offset - adjustedPtr;
+#else
+            offset_to_base = vbase_offset - adjustedPtr + 1;
+#endif
 #else
             const char* vtable = *static_cast<const char*const*>(adjustedPtr);
             offset_to_base = *reinterpret_cast<const ptrdiff_t*>(vtable + offset_to_base);
