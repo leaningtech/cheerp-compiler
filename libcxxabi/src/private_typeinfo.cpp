@@ -642,13 +642,19 @@ bool __pointer_to_member_type_info::can_catch_nested(
 //    (static_ptr, static_type), then return dynamic_ptr.
 // Else return nullptr.
 
-struct __vtable_base
-{
 #ifdef __ASMJS__
+struct __vtable_base_asmjs
+{
 	const std::ptrdiff_t offset_to_derived;
-#endif
 	const __class_type_info* rtti_info;
 };
+typedef __vtable_base_asmjs __vtable_base;
+#else
+struct __vtable_base
+{
+	const __class_type_info* rtti_info;
+};
+#endif
 
 extern "C" _LIBCXXABI_FUNC_VIS
 #ifdef __CHEERP__
