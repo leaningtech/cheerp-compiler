@@ -290,6 +290,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 							equivalentOperand(A->getOperand(1), B->getOperand(1));
 					}
 					case Intrinsic::cheerp_downcast:
+					case Intrinsic::cheerp_virtualcast:
 					{
 						return equivalentType(A->getType(), B->getType()) &&
 							equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
