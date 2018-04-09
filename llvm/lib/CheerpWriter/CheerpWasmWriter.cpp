@@ -2880,6 +2880,54 @@ void CheerpWasmWriter::compileCodeSection()
 	}
 }
 
+void CheerpWasmWriter::encodeDataSectionChunk(WasmBuffer& data, uint32_t address, const std::string& buf)
+{
+	if (cheerpMode == CHEERP_MODE_WASM) {
+		// In the current version of WebAssembly, at most one memory is
+		// allowed in a module. Consequently, the only valid memidx is 0.
+		internal::encodeULEB128(0, data);
+		// The offset into memory, which is the address
+		internal::encodeLiteralType(Type::getInt32Ty(Ctx), data);
+		internal::encodeSLEB128(address, data);
+		// Encode the end of the instruction sequence.
+		internal::encodeULEB128(0x0b, data);
+		// Prefix the number of bytes to the bytes vector.
+		internal::encodeULEB128(buf.size(), data);
+		data.write(buf.data(), buf.size());
+	} else {
+		data << "(data (i32.const " << address << ") \"" << buf << "\")\n";
+	}
+}
+
+uint32_t CheerpWasmWriter::encodeDataSectionChunks(WasmBuffer& data, uint32_t address, const std::string& buf)
+{
+	// Split data section buffer into chunks based on 6 (or more) zero bytes.
+	uint32_t chunks = 0;
+	size_t cur = 0, last = 0, end = 0;
+	std::string delimiter("\0\0\0\0\0\0\0", 6);
+	while ((cur = buf.find(delimiter, last)) != std::string::npos) {
+		std::string chunk = buf.substr(last, cur - last);
+		assert(chunk.size() == cur - last);
+		assert(address + last > end);
+		encodeDataSectionChunk(data, address + last, chunk);
+		chunks++;
+
+		end = address + last + chunk.size();
+
+		// Skip the delimiter and all consecutive zero bytes.
+		last = cur + delimiter.length();
+		for (; last < buf.size() && buf[last] == 0; last++);
+	}
+
+	// If the buffer ends with zero bytes (last == buf.size()), an empty chunk
+	// will be encoded. This should not happen, and is prevented by stripping
+	// leading and trailing zeros from the buffer when this function is called.
+	assert(last < buf.size());
+	encodeDataSectionChunk(data, address + last, buf.substr(last));
+
+	return chunks + 1;
+}
+
 void CheerpWasmWriter::compileDataSection()
 {
 	Section section(0x0b, "Data", this);
@@ -2897,7 +2945,6 @@ void CheerpWasmWriter::compileDataSection()
 			continue;
 		const Constant* init = GV->getInitializer();
 
-		count++;
 		uint32_t address = linearHelper.getGlobalVariableAddress(GV);
 
 		// Concatenate global variables into one big binary blob. This
@@ -2940,21 +2987,7 @@ void CheerpWasmWriter::compileDataSection()
 
 		address += pos;
 
-		if (cheerpMode == CHEERP_MODE_WASM) {
-			// In the current version of WebAssembly, at most one memory is
-			// allowed in a module. Consequently, the only valid memidx is 0.
-			internal::encodeULEB128(0, data);
-			// The offset into memory, which is the address
-			internal::encodeLiteralType(Type::getInt32Ty(Ctx), data);
-			internal::encodeSLEB128(address, data);
-			// Encode the end of the instruction sequence.
-			internal::encodeULEB128(0x0b, data);
-			// Prefix the number of bytes to the bytes vector.
-			internal::encodeULEB128(buf.size(), data);
-			data.write(buf.data(), buf.size());
-		} else {
-			data << "(data (i32.const " << address << ") \"" << buf << "\")\n";
-		}
+		count += encodeDataSectionChunks(data, address, buf);
 
 		// Break the outer loop when the last global variable is concatenated.
 		// Without this check, the outer loop will increment `g` as well, which
