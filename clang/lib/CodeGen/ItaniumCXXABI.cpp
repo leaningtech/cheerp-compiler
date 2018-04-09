@@ -1415,8 +1415,9 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
 
   llvm::FunctionType *FTy = NULL;
   if(!CGF.getTarget().isByteAddressable()) {
+    bool asmjs = CGF.CGM.getLangOpts().getCheerpMode() != LangOptions::CHEERP_MODE_GenericJS;
     llvm::Type* classTypeInfoPtr = CGF.getTypes().GetClassTypeInfoType()->getPointerTo();
-    llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType()->getPointerTo(), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
+    llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
     FTy = llvm::FunctionType::get(PtrDiffTy, Args, false);
   } else {
     llvm::Type *Args[4] = { Int8PtrTy, Int8PtrTy, Int8PtrTy, PtrDiffTy };
@@ -1567,7 +1568,8 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
       computeOffsetHint(CGF.getContext(), SrcDecl, DestDecl).getQuantity());
 
   llvm::Value *Value = ThisAddr.getPointer();
-  llvm::Value *VTable = CGF.GetVTablePtr(Value, CGF.getTypes().GetVTableBaseType()->getPointerTo());
+  bool asmjs = SrcDecl->hasAttr<AsmJSAttr>();
+  llvm::Value *VTable = CGF.GetVTablePtr(Value, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo());
   llvm::Value *DynCastObj = Value;
 
   // Emit the call to __dynamic_cast.
@@ -3640,7 +3642,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     GepIndexes.push_back(Zero);
     GepIndexes.push_back(Zero);
     VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(VTable, GepIndexes);
-    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.getTypes().GetVTableBaseType()->getPointerTo());
+    VTable = llvm::ConstantExpr::getBitCast(VTable, CGM.getTypes().GetVTableBaseType(asmjs)->getPointerTo());
     Fields.push_back(VTable);
     return;
   }

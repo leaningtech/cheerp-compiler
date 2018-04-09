@@ -1499,11 +1499,17 @@ void CodeGenModule::EmitVTableTypeMetadata(const CXXRecordDecl *RD,
   }
 }
 
-llvm::Type* CodeGenTypes::GetVTableBaseType()
+llvm::Type* CodeGenTypes::GetVTableBaseType(bool asmjs)
 {
-  llvm::Type* ResultType = CGM.getModule().getTypeByName("struct._ZN10__cxxabiv113__vtable_baseE");
+  StringRef typeName = asmjs ? "struct._ZN10__cxxabiv119__vtable_base_asmjsE" : "struct._ZN10__cxxabiv113__vtable_baseE";
+  llvm::Type* ResultType = CGM.getModule().getTypeByName(typeName);
   if(!ResultType)
-    ResultType = llvm::StructType::create(CGM.getLLVMContext(), "struct._ZN10__cxxabiv113__vtable_baseE");
+  {
+    llvm::StructType* ty = llvm::StructType::create(CGM.getLLVMContext(), typeName);
+    if (asmjs)
+      ty->setAsmJS();
+    ResultType = ty;
+  }
   return ResultType;
 }
 
@@ -1538,7 +1544,10 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
   for (uint32_t i = 0; i < extraOffsets; i++) {
     VTableTypes.push_back(OffsetTy);
   }
-  return llvm::StructType::get(CGM.getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType()));
+  llvm::StructType* ret = llvm::StructType::get(CGM.getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)));
+  if (asmjs)
+    ret->setAsmJS();
+  return ret;
 }
 
 llvm::Type* CodeGenTypes::GetPrimaryVTableType(const CXXRecordDecl* RD) {
@@ -1561,13 +1570,13 @@ llvm::Type* CodeGenTypes::GetSecondaryVTableType(const CXXRecordDecl* RD) {
   return GetVTableSubObjectType(CGM, firstComp, lastComp, VTLayout.getPrimaryVirtualMethodsCount(), asmjs);
 }
 
-llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool withOffsetToTop)
+llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool asmjs)
 {
   llvm::SmallVector<llvm::Type*, 16> VTableTypes;
   llvm::Type* OffsetTy = CGM.getTypes().ConvertType(CGM.getContext().getPointerDiffType());
   llvm::Type* FuncPtrTy = llvm::FunctionType::get( CGM.Int32Ty, true )->getPointerTo();
 
-  if (withOffsetToTop)
+  if (asmjs)
   {
     // Offset to top
     VTableTypes.push_back(OffsetTy);
@@ -1580,7 +1589,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   for(uint32_t j=0;j<virtualMethodsCount;j++)
     VTableTypes.push_back(FuncPtrTy);
 
-  return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType()));
+  return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)));
 }
 
 llvm::Type* CodeGenTypes::GetClassTypeInfoType()

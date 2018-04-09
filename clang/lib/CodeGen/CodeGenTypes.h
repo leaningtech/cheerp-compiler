@@ -159,7 +159,7 @@ public:
   /// and/or incomplete argument types, this will return the opaque type.
   llvm::Type *GetFunctionTypeForVTable(GlobalDecl GD);
 
-  llvm::Type* GetVTableBaseType();
+  llvm::Type* GetVTableBaseType(bool asmjs);
 
   llvm::Type* GetPrimaryVTableType(const CXXRecordDecl* RD);
   llvm::Type* GetSecondaryVTableType(const CXXRecordDecl* RD);
