@@ -91,6 +91,11 @@ private:
 	// false, this value is set to `(uint32_t)-1`.
 	uint32_t setLocalId;
 
+	// Lookup map that translates register IDs to local indices. The local
+	// index includes the number of arguments that are defined before the first
+	// local variable.
+	std::vector<int> localMap;
+
 public:
 	const PointerAnalyzer & PA;
 	CheerpMode cheerpMode;
@@ -110,7 +115,7 @@ private:
 	void compileNameSection();
 
 	static const char* getTypeString(const llvm::Type* t);
-	void compileMethodLocals(WasmBuffer& code, const llvm::Function& F, bool needsLabel);
+	void compileMethodLocals(WasmBuffer& code, const std::vector<int>& locals);
 	void compileMethodParams(WasmBuffer& code, const llvm::FunctionType* F);
 	void compileMethodResult(WasmBuffer& code, const llvm::Type* F);
 	void compileMethod(WasmBuffer& code, const llvm::Function& F);
