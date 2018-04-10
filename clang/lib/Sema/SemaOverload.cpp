@@ -12886,7 +12886,7 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
               SemaRef.Diag(Fn->getLocStart(),
                    diag::err_cheerp_wrong_func_pointer_param_asmjs)
                 << FDecl << p;
-            } else if (t->hasPointerRepresentation() && t->getPointeeType()->isIntegralType(SemaRef.Context)) {
+            } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFundamentalType()) {
               SemaRef.Diag(Fn->getLocStart(),
                    diag::err_cheerp_wrong_basic_pointer_param)
                 << FDecl << p;
