@@ -285,6 +285,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					case Intrinsic::vacopy:
 					case Intrinsic::lifetime_start:
 					case Intrinsic::lifetime_end:
+					case Intrinsic::cheerp_reallocate:
 					{
 						return equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
 							equivalentOperand(A->getOperand(1), B->getOperand(1));
@@ -304,6 +305,8 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					case Intrinsic::invariant_start:
 					case Intrinsic::stackrestore:
 					case Intrinsic::bswap:
+					case Intrinsic::cheerp_allocate:
+					case Intrinsic::cheerp_deallocate:
 					{
 						return equivalentOperand(A->getOperand(0), B->getOperand(0));
 					}
@@ -314,12 +317,6 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 						return equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
 							equivalentOperand(A->getOperand(1), B->getOperand(1)) &&
 							equivalentOperand(A->getOperand(2), B->getOperand(2));
-					}
-					case Intrinsic::cheerp_allocate:
-					case Intrinsic::cheerp_reallocate:
-					case Intrinsic::cheerp_deallocate:
-					{
-						break;
 					}
 					default:
 					{
