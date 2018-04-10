@@ -709,6 +709,10 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 		if (F.isDeclaration() || F.getSection() != StringRef("asmjs"))
 			continue;
 
+		// Do not remove functions that are exported to generic JS.
+		if (GDA.asmJSExports().find(&F) != GDA.asmJSExports().end())
+			continue;
+
 		uint64_t hash = hashFunction(F);
 		const auto& found = functionHashes.find(hash);
 		if (found != functionHashes.end())
