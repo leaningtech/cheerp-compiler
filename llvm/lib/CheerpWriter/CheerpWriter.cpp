@@ -3829,6 +3829,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const Value * calledValue = ci.getCalledValue();
 			const PointerType* pTy = cast<PointerType>(calledValue->getType());
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+			// Skip over bitcasts of function
+			if(isa<ConstantExpr>(calledValue) && cast<ConstantExpr>(calledValue)->getOpcode() == Instruction::BitCast)
+			{
+				calledValue = cast<User>(calledValue)->getOperand(0);
+				calledFunc = dyn_cast<Function>(calledValue);
+			}
 			const Type* retTy = fTy->getReturnType();
 			// NOTE: if the type is void, OBJECT is returned, but we explicitly
 			// check the void case later
