@@ -396,7 +396,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 			if (!equivalentOperand(a->getPointerOperand(), b->getPointerOperand()))
 				return false;
 
-			return  equivalentGepOffset(a, b);
+			return equivalentGepOffset(a, b);
 		}
 		case Instruction::Load:
 		{
@@ -606,10 +606,9 @@ bool IdenticalCodeFolding::equivalentGepOffset(const llvm::GetElementPtrInst* A,
 	if (A->getNumIndices() != B->getNumIndices())
 		return false;
 
-
 	for (gep_type_iterator aGTI = gep_type_begin(A),
 			aGTE = gep_type_end(A),
-			bGTI = gep_type_begin(A); aGTI != aGTE; ++aGTI, ++bGTI)
+			bGTI = gep_type_begin(B); aGTI != aGTE; ++aGTI, ++bGTI)
 	{
 		if (!equivalentOperand(aGTI.getOperand(), bGTI.getOperand()))
 			return false;
