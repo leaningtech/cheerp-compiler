@@ -1891,20 +1891,27 @@ Error BitcodeReader::parseTypeTableBody() {
       ResultTy = Res;
       break;
     }
-    case bitc::TYPE_CODE_OPAQUE: {       // OPAQUE: []
+    case bitc::TYPE_CODE_OPAQUE: {       // OPAQUE: [bytelayout, asmjs]
       if (Record.size() != 3)
         return error("Invalid record");
 
       if (NumRecords >= TypeList.size())
         return error("Invalid TYPE table");
 
+      bool hasByteLayout = Record[1];
+      bool hasAsmJS = Record[2];
       // Check to see if this was forward referenced, if so fill in the temp.
       StructType *Res = cast_or_null<StructType>(TypeList[NumRecords]);
       if (Res) {
         Res->setName(TypeName);
         TypeList[NumRecords] = nullptr;
-      } else  // Otherwise, create a new struct with no body.
+      } else {  // Otherwise, create a new struct with no body.
         Res = createIdentifiedStructType(Context, TypeName);
+        if (hasByteLayout)
+          Res->setByteLayout();
+        if (hasAsmJS)
+          Res->setAsmJS();
+      }
       TypeName.clear();
       ResultTy = Res;
       break;
