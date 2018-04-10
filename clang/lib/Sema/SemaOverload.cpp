@@ -12875,7 +12875,8 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
       return ExprError();
     Fn = SemaRef.FixOverloadedFunctionReference(Fn, (*Best)->FoundDecl, FDecl);
     // CHEERP: Disallow calls to asmjs functions with pointer to basic type parameters from genericjs
-    // and calls to functions with pointer to function parameters both ways
+    // and calls to functions with pointer to function parameters both ways.
+    // Disallow passing (pointers to) genericjs types to asmjs entirely.
     if (S && S->getFnParent())
     {
       if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity())) {
@@ -12884,8 +12885,8 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
             const Type* t = p->getOriginalType().getTypePtr();
             if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
               SemaRef.Diag(Fn->getLocStart(),
-                   diag::err_cheerp_wrong_func_pointer_param_asmjs)
-                << FDecl << p;
+                   diag::err_cheerp_wrong_func_pointer_param)
+                << FDecl->getAttr<AsmJSAttr>() << FDecl << Parent->getAttr<GenericJSAttr>() << p;
             } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFundamentalType()) {
               SemaRef.Diag(Fn->getLocStart(),
                    diag::err_cheerp_wrong_basic_pointer_param)
@@ -12897,8 +12898,12 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
             const Type* t = p->getOriginalType().getTypePtr();
             if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
               SemaRef.Diag(Fn->getLocStart(),
-                   diag::err_cheerp_wrong_func_pointer_param_genericjs)
-                << FDecl << p;
+                   diag::err_cheerp_wrong_func_pointer_param)
+                << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
+            } else if (!Sema::isAsmJSCompatible(p->getOriginalType())) {
+              SemaRef.Diag(Fn->getLocStart(),
+                   diag::err_cheerp_wrong_param)
+                << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
             }
           }
         }

@@ -10948,10 +10948,10 @@ def err_cheerp_wrong_global_access : Error<
   "Cheerp: Global %0 of non-wasm type %1 cannot be used in the wasm section">;
 def err_cheerp_wrong_basic_pointer_param : Error<
   "Cheerp: Cannot call wasm function %0  from genericjs, because parameter %1 is a pointer to a basic type">;
-def err_cheerp_wrong_func_pointer_param_asmjs : Error<
-  "Cheerp: Cannot call wasm function %0  from genericjs, because parameter %1 is a function pointer">;
-def err_cheerp_wrong_func_pointer_param_genericjs : Error<
-  "Cheerp: Cannot call genericjs function %0  from wasm, because parameter %1 is a function pointer">;
+def err_cheerp_wrong_param : Error<
+  "Cheerp: Cannot call %0 function %1 from %2, because parameter %3 is %0">;
+def err_cheerp_wrong_func_pointer_param : Error<
+  "Cheerp: Cannot call %0 function %1 from %2, because parameter %3 is a function pointer">;
 def err_cheerp_wrong_base_class_asmjs : Error<
   "Cheerp: Base class %0  is in the wasm section, while derived class %1 is in the genericjs section">;
 def err_cheerp_wrong_base_class_genericjs : Error<
