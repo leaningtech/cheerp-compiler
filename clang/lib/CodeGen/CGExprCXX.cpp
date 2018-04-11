@@ -1323,7 +1323,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
                                 const CallArgList &Args,
                                 bool IsDelete,
                                 bool IsArray,
-                                QualType* allocType) {
+                                QualType allocType) {
   llvm::CallBase *CallOrInvoke;
   llvm::Constant *CalleePtr = CGF.CGM.GetAddrOfFunction(CalleeDecl);
   CGCallee Callee = CGCallee::forDirect(CalleePtr, GlobalDecl(CalleeDecl));
@@ -1334,7 +1334,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   bool user_defined_new = false;
   bool use_array = false;
   if (IsArray) {
-    if (const CXXRecordDecl* RD = (*allocType)->getAsCXXRecordDecl())
+    if (const CXXRecordDecl* RD = allocType->getAsCXXRecordDecl())
       use_array = !RD->hasTrivialDestructor();
   }
   for(auto redecl: CalleeDecl->redecls())
@@ -1346,11 +1346,10 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     }
   }
   //CHEERP TODO: warning/error when `cheerp && !asmjs && user_defined_new`
-  // If allocType is specified this is an allocation, otherwise a free
   if(!IsDelete && cheerp && !(asmjs && user_defined_new))
   {
     // Forge a call to a special type safe allocator intrinsic
-    QualType retType = CGF.getContext().getPointerType(*allocType);
+    QualType retType = CGF.getContext().getPointerType(allocType);
     llvm::Type* types[] = { CGF.ConvertType(retType) };
 
     llvm::Constant* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
@@ -1364,9 +1363,8 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
   // TODO: user defined delete?
   else if(IsDelete && cheerp)
   {
-    // NOTE: we trust the argument of delete to be of the right type. This should
-    // always be the case.
-    llvm::Type* types[] = { Args[0].RV.getScalarVal()->getType() };
+    QualType retType = CGF.getContext().getPointerType(allocType);
+    llvm::Type* types[] = { CGF.ConvertType(retType) };
     llvm::Constant* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
                                 use_array? llvm::Intrinsic::cheerp_deallocate_array :
                                          llvm::Intrinsic::cheerp_deallocate,
@@ -1410,8 +1408,10 @@ RValue CodeGenFunction::EmitBuiltinNewDeleteCall(const FunctionProtoType *Type,
 
   for (auto *Decl : Ctx.getTranslationUnitDecl()->lookup(Name))
     if (auto *FD = dyn_cast<FunctionDecl>(Decl))
-      if (Ctx.hasSameType(FD->getType(), QualType(Type, 0)))
-        return EmitNewDeleteCall(*this, FD, Type, Args, IsDelete, false, NULL);
+      if (Ctx.hasSameType(FD->getType(), QualType(Type, 0))) {
+        // CHEERP: TODO last parameter is a placeholder for now. Not sure what to put here
+        return EmitNewDeleteCall(*this, FD, Type, Args, IsDelete, false, QualType());
+      }
   llvm_unreachable("predeclared global operator new/delete is missing");
 }
 
@@ -1477,6 +1477,7 @@ namespace {
     ValueTy AllocSize;
     CharUnits AllocAlign;
     bool IsArray;
+    QualType allocType;
 
     PlacementArg *getPlacementArgs() {
       return reinterpret_cast<PlacementArg *>(this + 1);
@@ -1490,11 +1491,11 @@ namespace {
     CallDeleteDuringNew(size_t NumPlacementArgs,
                         const FunctionDecl *OperatorDelete, ValueTy Ptr,
                         ValueTy AllocSize, bool PassAlignmentToPlacementDelete,
-                        CharUnits AllocAlign, bool IsArray)
+                        CharUnits AllocAlign, bool IsArray, QualType allocType)
       : NumPlacementArgs(NumPlacementArgs),
         PassAlignmentToPlacementDelete(PassAlignmentToPlacementDelete),
         OperatorDelete(OperatorDelete), Ptr(Ptr), AllocSize(AllocSize),
-        AllocAlign(AllocAlign), IsArray(IsArray) {}
+        AllocAlign(AllocAlign), IsArray(IsArray), allocType(allocType) {}
 
     void setPlacementArg(unsigned I, RValueTy Arg, QualType Type) {
       assert(I < NumPlacementArgs && "index out of range");
@@ -1545,7 +1546,7 @@ namespace {
       }
 
       // Call 'operator delete'.
-      EmitNewDeleteCall(CGF, OperatorDelete, FPT, DeleteArgs, /* IsDelete */ true, IsArray, NULL);
+      EmitNewDeleteCall(CGF, OperatorDelete, FPT, DeleteArgs, /* IsDelete */ true, IsArray, allocType);
     }
   };
 }
@@ -1560,6 +1561,7 @@ static void EnterNewDeleteCleanup(CodeGenFunction &CGF,
                                   const CallArgList &NewArgs) {
   unsigned NumNonPlacementArgs = E->passAlignment() ? 2 : 1;
 
+  QualType allocType = CGF.getContext().getBaseElementType(E->getAllocatedType());
   // If we're not inside a conditional branch, then the cleanup will
   // dominate and we can do the easier (and more efficient) thing.
   if (!CGF.isInConditionalBranch()) {
@@ -1579,7 +1581,9 @@ static void EnterNewDeleteCleanup(CodeGenFunction &CGF,
                                            NewPtr.getPointer(),
                                            AllocSize,
                                            E->passAlignment(),
-                                           AllocAlign);
+                                           AllocAlign,
+                                           E->isArray(),
+                                           allocType);
     for (unsigned I = 0, N = E->getNumPlacementArgs(); I != N; ++I) {
       auto &Arg = NewArgs[I + NumNonPlacementArgs];
       Cleanup->setPlacementArg(I, Arg.getRValue(CGF), Arg.Ty);
@@ -1610,7 +1614,9 @@ static void EnterNewDeleteCleanup(CodeGenFunction &CGF,
                                               SavedNewPtr,
                                               SavedAllocSize,
                                               E->passAlignment(),
-                                              AllocAlign);
+                                              AllocAlign,
+                                              E->isArray(),
+                                              allocType);
   for (unsigned I = 0, N = E->getNumPlacementArgs(); I != N; ++I) {
     auto &Arg = NewArgs[I + NumNonPlacementArgs];
     Cleanup->setPlacementArg(
@@ -1721,7 +1727,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
                  /*AC*/AbstractCallee(), /*ParamsToSkip*/ParamsToSkip);
 
     RValue RV =
-      EmitNewDeleteCall(*this, allocator, allocatorType, allocatorArgs, /* IsDelete */ false, E->isArray(), &allocType);
+      EmitNewDeleteCall(*this, allocator, allocatorType, allocatorArgs, /* IsDelete */ false, E->isArray(), allocType);
 
     // Set !heapallocsite metadata on the call to operator new.
     if (getDebugInfo())
@@ -1916,7 +1922,7 @@ void CodeGenFunction::EmitDeleteCall(const FunctionDecl *DeleteFD,
          "unknown parameter to usual delete function");
 
   // Emit the call to delete.
-  EmitNewDeleteCall(*this, DeleteFD, DeleteFTy, DeleteArgs, /* IsDelete */ true, /* IsArray */ false, &DeleteTy);
+  EmitNewDeleteCall(*this, DeleteFD, DeleteFTy, DeleteArgs, /* IsDelete */ true, /* IsArray */ false, DeleteTy);
 
   // If call argument lowering didn't use the destroying_delete_t alloca,
   // remove it again.

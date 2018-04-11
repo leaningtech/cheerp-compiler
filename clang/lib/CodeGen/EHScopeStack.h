@@ -310,6 +310,11 @@ public:
     void *Buffer = pushCleanup(Kind, sizeof(T) + T::getExtraSize(N));
     return new (Buffer) T(N, a0, a1, a2, a3);
   }
+  template <class T, class A0, class A1, class A2, class A3, class A4>
+  T *pushCleanupWithExtra(CleanupKind Kind, size_t N, A0 a0, A1 a1, A2 a2, A3 a3, A4 a4) {
+    void *Buffer = pushCleanup(Kind, sizeof(T) + T::getExtraSize(N));
+    return new (Buffer) T(N, a0, a1, a2, a3, a4);
+  }
 
   void pushCopyOfCleanup(CleanupKind Kind, const void *Cleanup, size_t Size) {
     void *Buffer = pushCleanup(Kind, Size);
