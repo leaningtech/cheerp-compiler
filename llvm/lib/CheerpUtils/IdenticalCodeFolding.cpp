@@ -515,8 +515,8 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 		return A == B;
 
 	if (isa<ConstantInt>(A) || isa<ConstantInt>(B)) {
-		const ConstantInt* a = cast<ConstantInt>(A);
-		const ConstantInt* b = cast<ConstantInt>(B);
+		const ConstantInt* a = dyn_cast<ConstantInt>(A);
+		const ConstantInt* b = dyn_cast<ConstantInt>(B);
 		if (!a || !b)
 		    return false;
 		uint32_t bitsA = a->getBitWidth();
@@ -530,8 +530,8 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 	}
 
 	if (isa<ConstantFP>(A) || isa<ConstantFP>(B)) {
-		const ConstantFP* a = cast<ConstantFP>(A);
-		const ConstantFP* b = cast<ConstantFP>(B);
+		const ConstantFP* a = dyn_cast<ConstantFP>(A);
+		const ConstantFP* b = dyn_cast<ConstantFP>(B);
 		if (!a || !b)
 			return false;
 		return a->isExactlyValue(b->getValueAPF());
