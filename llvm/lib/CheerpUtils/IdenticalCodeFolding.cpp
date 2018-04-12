@@ -507,8 +507,17 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 	if (!equivalentType(A->getType(), B->getType()))
 		return false;
 
-	if (isa<ConstantExpr>(A) || isa<ConstantExpr>(B))
+	if (isa<ConstantExpr>(A) || isa<ConstantExpr>(B)) {
+		const auto CA = dyn_cast<ConstantExpr>(A);
+		const auto CB = dyn_cast<ConstantExpr>(B);
+		if (!CA || !CB)
+			return false;
+
+		if (CA->isCast() && CB->isCast())
+			return equivalentOperand(A->getOperand(0), B->getOperand(0));
+
 		return A == B;
+	}
 
 	if (isa<ConstantInt>(A) || isa<ConstantInt>(B)) {
 		const ConstantInt* a = dyn_cast<ConstantInt>(A);
@@ -533,8 +542,44 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 		return a->isExactlyValue(b->getValueAPF());
 	}
 
-	if(isa<GlobalVariable>(A) || isa<GlobalVariable>(B))
-		return A == B;
+	if(isa<GlobalVariable>(A) || isa<GlobalVariable>(B)) {
+		if (A == B)
+			return true;
+
+		const auto GA = dyn_cast<GlobalVariable>(A);
+		const auto GB = dyn_cast<GlobalVariable>(B);
+		if (!GA || !GB)
+			return false;
+
+		// Check if both are constant, since non-constant global variables
+		// cannot be folded.
+		if (!GA->isConstant() || !GB->isConstant())
+			return false;
+
+		if (!equivalentType(GA->getType()->getElementType(), GB->getType()->getElementType()))
+			return false;
+
+		// Without an initializer, the global variable is equivalent when the
+		// element type matches.
+		if (!GA->hasInitializer() || !GB->hasInitializer())
+			return !GA->hasInitializer() && !GB->hasInitializer();
+
+		const auto CDSA = dyn_cast<ConstantDataSequential>(A);
+		const auto CDSB = dyn_cast<ConstantDataSequential>(B);
+		if (CDSA || CDSB) {
+			if (!CDSA || !CDSB || CDSA->getNumElements() != CDSB->getNumElements())
+				return false;
+
+			for(uint32_t i = 0; i < CDSA->getNumElements(); i++) {
+				if (!equivalentConstant(CDSA->getElementAsConstant(i), CDSB->getElementAsConstant(i)))
+					return false;
+			}
+
+			return true;
+		}
+
+		return false;
+	}
 
 	if(isa<ConstantPointerNull>(A) || isa<ConstantPointerNull>(B))
 		return isa<ConstantPointerNull>(A) && isa<ConstantPointerNull>(B);
