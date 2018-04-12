@@ -242,6 +242,11 @@ bool LinearMemoryHelper::isZeroInitializer(const llvm::Constant* c) const
 
 const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListener* listener) const
 {
+	return compileGEP(module, p, listener);
+}
+
+const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener)
+{
 	const auto& targetData = module.getDataLayout();
 	int64_t constPart = 0;
 	while ( isBitCast(p) || isGEP(p) )
