@@ -392,11 +392,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		{
 			const GetElementPtrInst* a = cast<GetElementPtrInst>(A);
 			const GetElementPtrInst* b = cast<GetElementPtrInst>(B);
-
-			if (!equivalentOperand(a->getPointerOperand(), b->getPointerOperand()))
-				return false;
-
-			return equivalentGepOffset(a, b);
+			return equivalentGep(a, b);
 		}
 		case Instruction::Load:
 		{
@@ -601,48 +597,47 @@ bool IdenticalCodeFolding::equivalentType(const llvm::Type* A, const llvm::Type*
 	return false;
 }
 
-bool IdenticalCodeFolding::equivalentGepOffset(const llvm::GetElementPtrInst* A, const llvm::GetElementPtrInst* B)
+bool IdenticalCodeFolding::equivalentGep(const llvm::GetElementPtrInst* A, const llvm::GetElementPtrInst* B)
 {
-	if (A->getNumIndices() != B->getNumIndices())
-		return false;
-
-	for (gep_type_iterator aGTI = gep_type_begin(A),
-			aGTE = gep_type_end(A),
-			bGTI = gep_type_begin(B); aGTI != aGTE; ++aGTI, ++bGTI)
+	struct GepListener: public LinearMemoryHelper::GepListener
 	{
-		if (!equivalentOperand(aGTI.getOperand(), bGTI.getOperand()))
-			return false;
-
-		// If only one of the operands is constant, the gep offset cannot be
-		// equivalent. If none are constant, the indexed type must be an array
-		// and we'll check array element size below.
-		if (isa<ConstantInt>(aGTI.getOperand()) != isa<ConstantInt>(bGTI.getOperand()))
-			return false;
-
-		if (isa<StructType>(*aGTI) != isa<StructType>(*bGTI))
-			return false;
-
-		if (isa<ConstantInt>(aGTI.getOperand()) && isa<ConstantInt>(bGTI.getOperand()) &&
-			isa<StructType>(*aGTI) && isa<StructType>(*bGTI))
-		{
-			StructType *aSTy = cast<StructType>(*aGTI);
-			StructType *bSTy = cast<StructType>(*bGTI);
-
-			size_t aIdx = cast<ConstantInt>(aGTI.getOperand())->getZExtValue();
-			size_t bIdx = cast<ConstantInt>(bGTI.getOperand())->getZExtValue();
-
-			const StructLayout *aSL = DL->getStructLayout(aSTy);
-			const StructLayout *bSL = DL->getStructLayout(bSTy);
-			return aSL->getElementOffset(aIdx) == bSL->getElementOffset(bIdx);
+		GepListener() : offset(0) {}
+		std::vector<std::pair<const llvm::Value*, uint32_t>> values;
+		int64_t offset;
+		void addValue(const llvm::Value* v, uint32_t size) override {
+			values.emplace_back(v, size);
 		}
+		void addConst(int64_t v) override {
+			offset += v;
+		}
+		bool isInlineable(const llvm::Value* p) override {
+			return true;
+		}
+	};
 
-		// Check element size of array and vectors.
-		size_t aSize = DL->getTypeAllocSize(aGTI.getIndexedType());
-		size_t bSize = DL->getTypeAllocSize(bGTI.getIndexedType());
-		return aSize == bSize;
+	const llvm::Module& module = *A->getParent()->getParent()->getParent();
+	GepListener gepListenerA;
+	GepListener gepListenerB;
+	const auto a = LinearMemoryHelper::compileGEP(module, A, &gepListenerA);
+	const auto b = LinearMemoryHelper::compileGEP(module, B, &gepListenerB);
+
+	if (gepListenerA.offset != gepListenerB.offset ||
+		gepListenerA.values.size() != gepListenerB.values.size())
+	{
+		return false;
 	}
 
-	return true;
+	for (size_t i = 0; i < gepListenerA.values.size(); i++) {
+		const auto pairA = gepListenerA.values[i];
+		const auto pairB = gepListenerB.values[i];
+		if (!equivalentOperand(pairA.first, pairB.first) ||
+			pairA.second != pairB.second)
+		{
+			return false;
+		}
+	}
+
+	return equivalentOperand(a, b);
 }
 
 bool IdenticalCodeFolding::hasSameIntegerBitWidth(const llvm::Type* A, const llvm::Type* B)
