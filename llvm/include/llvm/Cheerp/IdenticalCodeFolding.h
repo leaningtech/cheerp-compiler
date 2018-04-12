@@ -56,7 +56,7 @@ private:
 	bool equivalentOperand(const llvm::Value* A, const llvm::Value* B);
 	bool equivalentConstant(const llvm::Constant* A, const llvm::Constant* B);
 	bool equivalentType(const llvm::Type* A, const llvm::Type* B);
-	bool equivalentGepOffset(const llvm::GetElementPtrInst* A, const llvm::GetElementPtrInst* B);
+	bool equivalentGep(const llvm::GetElementPtrInst* A, const llvm::GetElementPtrInst* B);
 	bool ignoreInstruction(const llvm::Instruction* I);
 	bool hasSameIntegerBitWidth(const llvm::Type* A, const llvm::Type* B);
 	bool isStaticIndirectFunction(const llvm::Value* A);
