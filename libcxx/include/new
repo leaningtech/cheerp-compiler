@@ -55,11 +55,16 @@ void* operator new(std::size_t size, const std::nothrow_t&) noexcept;   // repla
 void* operator new(std::size_t size, std::align_val_t alignment,
                    const std::nothrow_t&) noexcept;                     // replaceable, C++17, nodiscard in C++2a
 void  operator delete(void* ptr) noexcept;                              // replaceable
+[[cheerp::default_new]]
 void  operator delete(void* ptr, std::size_t size) noexcept;            // replaceable, C++14
+[[cheerp::default_new]]
 void  operator delete(void* ptr, std::align_val_t alignment) noexcept;  // replaceable, C++17
+[[cheerp::default_new]]
 void  operator delete(void* ptr, std::size_t size,
                       std::align_val_t alignment) noexcept;             // replaceable, C++17
+[[cheerp::default_new]]
 void  operator delete(void* ptr, const std::nothrow_t&) noexcept;       // replaceable
+[[cheerp::default_new]]
 void  operator delete(void* ptr, std:align_val_t alignment,
                       const std::nothrow_t&) noexcept;                  // replaceable, C++17
 
@@ -70,12 +75,17 @@ void* operator new[](std::size_t size, const std::nothrow_t&) noexcept; // repla
 void* operator new[](std::size_t size, std::align_val_t alignment,
                      const std::nothrow_t&) noexcept;                   // replaceable, C++17, nodiscard in C++2a
 void  operator delete[](void* ptr) noexcept;                            // replaceable
+[[cheerp::default_new]]
 void  operator delete[](void* ptr, std::size_t size) noexcept;          // replaceable, C++14
+[[cheerp::default_new]]
 void  operator delete[](void* ptr,
                         std::align_val_t alignment) noexcept;           // replaceable, C++17
+[[cheerp::default_new]]
 void  operator delete[](void* ptr, std::size_t size,
                         std::align_val_t alignment) noexcept;           // replaceable, C++17
+[[cheerp::default_new]]
 void  operator delete[](void* ptr, const std::nothrow_t&) noexcept;     // replaceable
+[[cheerp::default_new]]
 void  operator delete[](void* ptr, std::align_val_t alignment,
                         const std::nothrow_t&) noexcept;                // replaceable, C++17
 
@@ -186,10 +196,13 @@ _LIBCPP_INLINE_VAR constexpr destroying_delete_t destroying_delete{};
 [[cheerp::default_new]]
 _LIBCPP_NODISCARD_AFTER_CXX17 _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz) _THROW_BAD_ALLOC;
 [[cheerp::default_new]]
+[[cheerp::default_new]]
 _LIBCPP_NODISCARD_AFTER_CXX17 _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz, const std::nothrow_t&) _NOEXCEPT _LIBCPP_NOALIAS;
 _LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete(void* __p) _NOEXCEPT;
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete(void* __p, const std::nothrow_t&) _NOEXCEPT;
 #ifndef _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS _LIBCPP_AVAILABILITY_SIZED_NEW_DELETE void  operator delete(void* __p, std::size_t __sz) _NOEXCEPT;
 #endif
 
@@ -197,26 +210,39 @@ _LIBCPP_OVERRIDABLE_FUNC_VIS _LIBCPP_AVAILABILITY_SIZED_NEW_DELETE void  operato
 _LIBCPP_NODISCARD_AFTER_CXX17 _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new[](std::size_t __sz) _THROW_BAD_ALLOC;
 [[cheerp::default_new]]
 _LIBCPP_NODISCARD_AFTER_CXX17 _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new[](std::size_t __sz, const std::nothrow_t&) _NOEXCEPT _LIBCPP_NOALIAS;
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete[](void* __p) _NOEXCEPT;
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete[](void* __p, const std::nothrow_t&) _NOEXCEPT;
 #ifndef _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS _LIBCPP_AVAILABILITY_SIZED_NEW_DELETE void  operator delete[](void* __p, std::size_t __sz) _NOEXCEPT;
 #endif
 
 #ifndef _LIBCPP_HAS_NO_LIBRARY_ALIGNED_ALLOCATION
+[[cheerp::default_new]]
 _LIBCPP_NODISCARD_AFTER_CXX17 _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz, std::align_val_t) _THROW_BAD_ALLOC;
+[[cheerp::default_new]]
 _LIBCPP_NODISCARD_AFTER_CXX17 _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new(std::size_t __sz, std::align_val_t, const std::nothrow_t&) _NOEXCEPT _LIBCPP_NOALIAS;
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete(void* __p, std::align_val_t) _NOEXCEPT;
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete(void* __p, std::align_val_t, const std::nothrow_t&) _NOEXCEPT;
 #ifndef _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS _LIBCPP_AVAILABILITY_SIZED_NEW_DELETE void  operator delete(void* __p, std::size_t __sz, std::align_val_t) _NOEXCEPT;
 #endif
 
+[[cheerp::default_new]]
 _LIBCPP_NODISCARD_AFTER_CXX17 _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new[](std::size_t __sz, std::align_val_t) _THROW_BAD_ALLOC;
+[[cheerp::default_new]]
 _LIBCPP_NODISCARD_AFTER_CXX17 _LIBCPP_OVERRIDABLE_FUNC_VIS void* operator new[](std::size_t __sz, std::align_val_t, const std::nothrow_t&) _NOEXCEPT _LIBCPP_NOALIAS;
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete[](void* __p, std::align_val_t) _NOEXCEPT;
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS void  operator delete[](void* __p, std::align_val_t, const std::nothrow_t&) _NOEXCEPT;
 #ifndef _LIBCPP_HAS_NO_LIBRARY_SIZED_DEALLOCATION
+[[cheerp::default_new]]
 _LIBCPP_OVERRIDABLE_FUNC_VIS _LIBCPP_AVAILABILITY_SIZED_NEW_DELETE void  operator delete[](void* __p, std::size_t __sz, std::align_val_t) _NOEXCEPT;
 #endif
 #endif
