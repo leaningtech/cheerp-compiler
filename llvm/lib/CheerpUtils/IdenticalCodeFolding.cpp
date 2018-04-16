@@ -20,6 +20,8 @@
 
 #include <unordered_map>
 
+//#define DEBUG_VERBOSE 1
+
 using namespace llvm;
 
 namespace cheerp {
@@ -98,6 +100,11 @@ uint64_t IdenticalCodeFolding::hashFunction(llvm::Function& F)
 
 bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llvm::Function* B)
 {
+#if DEBUG_VERBOSE
+	llvm::errs() << "function A: " << A->getName() << '\n';
+	llvm::errs() << "function B: " << B->getName() << '\n';
+#endif
+
 	// Do not fold wasm/asmjs with generic JS functions.
 	if (A->getSection() != StringRef("asmjs") || B->getSection() != StringRef("asmjs"))
 		return false;
@@ -179,6 +186,11 @@ bool IdenticalCodeFolding::equivalentBlock(const llvm::BasicBlock* A, const llvm
 
 bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, const llvm::Instruction* B)
 {
+#if DEBUG_VERBOSE
+	llvm::errs() << "IA: "; A->dump();
+	llvm::errs() << "IB: "; B->dump();
+#endif
+
 	if (!A || !B || A->getOpcode() != B->getOpcode())
 		return false;
 
@@ -378,6 +390,9 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 						equivalent = found->second;
 					}
 
+#if DEBUG_VERBOSE
+					llvm::errs() << "function equivalent: " << equivalent << "\n";
+#endif
 					if (!equivalent)
 						return false;
 				}
@@ -471,6 +486,10 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 
 bool IdenticalCodeFolding::equivalentOperand(const llvm::Value* A, const llvm::Value* B)
 {
+#if DEBUG_VERBOSE
+	llvm::errs() << "OA: "; A->dump();
+	llvm::errs() << "OB: "; B->dump();
+#endif
 	if (!A || !B)
 		return false;
 
@@ -600,6 +619,10 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 
 bool IdenticalCodeFolding::equivalentType(const llvm::Type* A, const llvm::Type* B)
 {
+#if DEBUG_VERBOSE
+	llvm::errs() << "TA: "; A->dump();
+	llvm::errs() << "TB: "; B->dump();
+#endif
 	if (!A || !B)
 		return false;
 
@@ -794,6 +817,10 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 				} else {
 					equivalent = found->second;
 				}
+
+#if DEBUG_VERBOSE
+				llvm::errs() << "function equivalent: " << equivalent << "\n";
+#endif
 
 				if (equivalent) {
 					fold.insert({functions[i], functions[j]});
