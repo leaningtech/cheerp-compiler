@@ -2274,6 +2274,12 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
 
   if (DestType->isIntegralType(Self.Context)) {
     assert(srcIsPtr && "One type must be a pointer");
+    // CHEERP: Warn the user about converting generic-side pointers to integers. Linear memory pointers are ok.
+    if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(Self.CurContext)) {
+      if (Parent->hasAttr<GenericJSAttr>() && !Sema::isAsmJSValue(SrcType->getPointeeType())) {
+        Self.Diag(OpRange.getBegin(), diag::warn_cheerp_ptr_to_int);
+      }
+    }
     // C++ 5.2.10p4: A pointer can be explicitly converted to any integral
     //   type large enough to hold it; except in Microsoft mode, where the
     //   integral type size doesn't matter (except we don't allow bool).

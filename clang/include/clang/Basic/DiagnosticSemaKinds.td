@@ -10902,6 +10902,8 @@ def warn_cheerp_inefficient_unions : Warning<
   "Cheerp: Unions are less efficient than on native targets">;
 def warn_cheerp_deprecated_attribute : Warning<
   "Cheerp: Unprefixed attribute %0 is deprecated. Add 'cheerp::' namespace">;
+def warn_cheerp_ptr_to_int : Warning<
+  "Cheerp: Casting genericjs pointers to integers may be slow.">;
 def err_cheerp_missing_special_definition : Error<
   "Cheerp: '%0' is undeclared">;
 def err_cheerp_field_not_supported_in_union : Error<

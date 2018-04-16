@@ -42,6 +42,7 @@ CHECK-NEXT:   warn_case_empty_range
 CHECK-NEXT:   warn_char_constant_too_large
 CHECK-NEXT:   warn_cheerp_deprecated_attribute
 CHECK-NEXT:   warn_cheerp_inefficient_unions
+CHECK-NEXT:   warn_cheerp_ptr_to_int
 CHECK-NEXT:   warn_cheerp_unsafe_cast
 CHECK-NEXT:   warn_collection_expr_type
 CHECK-NEXT:   warn_conflicting_variadic
