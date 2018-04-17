@@ -61,7 +61,7 @@ private:
 	bool hasSameIntegerBitWidth(const llvm::Type* A, const llvm::Type* B);
 	bool isStaticIndirectFunction(const llvm::Value* A);
 
-	bool mergeTwoFunctions(llvm::Function* F, llvm::Function* G);
+	void mergeTwoFunctions(llvm::Function* F, llvm::Function* G);
 
 	const llvm::DataLayout *DL;
 
