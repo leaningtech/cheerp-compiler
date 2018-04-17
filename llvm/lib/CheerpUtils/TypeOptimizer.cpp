@@ -740,7 +740,6 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 		case Intrinsic::cheerp_downcast_current:
 		case Intrinsic::cheerp_get_array_len:
 		case Intrinsic::cheerp_deallocate:
-		case Intrinsic::cheerp_deallocate_array:
 		case Intrinsic::cheerp_pointer_kind:
 		{
 			Type* localTys[] = { FT->getParamType(0) };

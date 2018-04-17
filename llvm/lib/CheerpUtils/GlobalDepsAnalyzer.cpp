@@ -497,8 +497,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						}
 					}
 				}
-				else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_deallocate ||
-				         calledFunc->getIntrinsicID() == Intrinsic::cheerp_deallocate_array)
+				else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_deallocate)
 				{
 					Type* ty = ci.getOperand(0)->getType();
 					bool basicType = !ty->isAggregateType();
