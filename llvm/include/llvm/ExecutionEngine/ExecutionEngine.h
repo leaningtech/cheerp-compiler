@@ -148,6 +148,7 @@ public:
   // Get the caller of the current function, or nullptr if this is the entry point
   // This function is overridden by the interpreter
   virtual Function* getCurrentCaller() { return nullptr; }
+  virtual Function* getCurrentFunction() { return nullptr; }
 
 protected:
   /// The list of Modules that we are JIT'ing from.  We use a SmallVector to
