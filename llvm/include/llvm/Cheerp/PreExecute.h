@@ -18,6 +18,7 @@
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Cheerp/Utility.h"
 
 #include <map>
 #include <vector>
@@ -33,8 +34,9 @@ public:
     llvm::Type *allocType;
     size_t size;
     bool hasCookie;
+    bool asmjs;
 
-    AllocData() : globalValue(nullptr), allocType(nullptr), size(0), hasCookie(false) { }
+    AllocData() : globalValue(nullptr), allocType(nullptr), size(0), hasCookie(false), asmjs(false) { }
 };
 
 class Allocator
@@ -86,11 +88,12 @@ public:
     bool runOnConstructor(llvm::Module& m, llvm::Function* c);
 
     void recordStore(void* Addr);
-    void recordTypedAllocation(llvm::Type *type, size_t size, char *buf, bool hasCookie) {
+    void recordTypedAllocation(llvm::Type *type, size_t size, char *buf, bool hasCookie, bool asmjs) {
         AllocData data;
         data.allocType = type;
         data.size = size;
         data.hasCookie = hasCookie;
+        data.asmjs = asmjs;
         typedAllocations.insert(std::make_pair(buf, data));
     };
     void releaseTypedAllocation(char* buf) {
@@ -104,7 +107,7 @@ private:
             char* StoredAddr, llvm::Type* Int32Ty);
 
     llvm::GlobalValue* getGlobalForMalloc(const llvm::DataLayout* DL,
-            char* StoredAddr, char*& MallocStartAddress, bool asmjs);
+            char* StoredAddr, char*& MallocStartAddress);
 
     llvm::Constant* computeInitializerFromMemory(const llvm::DataLayout* DL,
             llvm::Type* memType, char* Addr, bool asmjs);

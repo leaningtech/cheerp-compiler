@@ -11,7 +11,6 @@
 
 #define DEBUG_TYPE "pre-execute"
 #include "llvm/Cheerp/PreExecute.h"
-#include "llvm/Cheerp/Utility.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
 #include "llvm/ExecutionEngine/FunctionMap.h"
@@ -48,7 +47,10 @@ static void StoreListener(void* Addr)
 }
 static void AllocaListener(Type* Ty,uint32_t Size, void* Addr)
 {
-    PreExecute::currentPreExecutePass->recordTypedAllocation(Ty, Size, (char*)Addr, /*hasCookie*/ false);
+    ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+    bool asmjs = currentEE->getCurrentFunction()->getSection() == StringRef("asmjs") ||
+                    TypeSupport::isAsmJSPointer(Ty);
+    PreExecute::currentPreExecutePass->recordTypedAllocation(Ty, Size, (char*)Addr, /*hasCookie*/ false, asmjs);
 }
 static void RetListener(const std::vector<std::unique_ptr<char[]>>& allocas)
 {
@@ -106,15 +108,19 @@ static GenericValue pre_execute_pointer_offset(FunctionType *FT,
 
 static GenericValue pre_execute_allocate_array(FunctionType *FT,
                                          const std::vector<GenericValue> &Args) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   size_t size=(size_t)(Args[0].IntVal.getLimitedValue());
 
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
+  bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
+                TypeSupport::isAsmJSPointer(type->getPointerTo());
   const DataLayout *DL = &PreExecute::currentPreExecutePass->currentModule->getDataLayout();
   size_t num = size / DL->getTypeAllocSize(type);
   // Cookie
-  size_t cookieSize = cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, type);
+  size_t cookieSize = 0;
+  if (!asmjs)
+    cookieSize = cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, type);
   size += cookieSize;
-  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
   void* ret = PreExecute::currentPreExecutePass->allocator->allocate(size);
   memset(ret, 0, size);
 
@@ -123,10 +129,12 @@ static GenericValue pre_execute_allocate_array(FunctionType *FT,
 #endif
 
   // Register this allocations in the pass
-  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ true);
+  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ true, asmjs);
 
-  uint32_t* cookie = (uint32_t*) ret;
-  *cookie = num;
+  if (!asmjs) {
+    uint32_t* cookie = (uint32_t*) ret;
+    *cookie = num;
+  }
   ret = static_cast<char*>(ret) + cookieSize;
 
   return currentEE->RPTOGV(ret);
@@ -145,7 +153,9 @@ static GenericValue pre_execute_allocate(FunctionType *FT,
 
   // Register this allocations in the pass
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
-  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false);
+  bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
+                TypeSupport::isAsmJSPointer(type->getPointerTo());
+  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false, asmjs);
 
   return currentEE->RPTOGV(ret);
 }
@@ -179,7 +189,9 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
 
   // Register this allocations in the pass
   llvm::Type *type = FT->getReturnType()->getPointerElementType();
-  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false);
+  bool asmjs = currentEE->getCurrentCaller()->getSection() == StringRef("asmjs") ||
+                TypeSupport::isAsmJSPointer(type);
+  PreExecute::currentPreExecutePass->recordTypedAllocation(type, size, (char*)ret, /*hasCookie*/ false, asmjs);
   return currentEE->RPTOGV(ret);
 }
 
@@ -202,9 +214,9 @@ static GenericValue pre_execute_deallocate(FunctionType *FT,
 static GenericValue pre_execute_get_array_len(FunctionType *FT,
                                            const std::vector<GenericValue> &Args) {
     ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
-    const DataLayout* DL = currentEE->getDataLayout();
+    const DataLayout& DL = currentEE->getDataLayout();
     Type* type = FT->getParamType(0)->getPointerElementType();
-    size_t cookieWords = cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, type) / sizeof(uint32_t);
+    size_t cookieWords = cheerp::TypeSupport::getArrayCookieSizeAsmJS(DL, type) / sizeof(uint32_t);
     uint32_t *cookie = static_cast<uint32_t*>(currentEE->GVTORP(Args[0])) - cookieWords;
 
     GenericValue G;
@@ -588,7 +600,7 @@ Constant* PreExecute::findPointerFromGlobal(const DataLayout* DL,
 }
 
 GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAddr,
-        char*& MallocStartAddress, bool asmjs)
+        char*& MallocStartAddress)
 {
     auto it = typedAllocations.upper_bound(StoredAddr);
     if (it == typedAllocations.begin())
@@ -603,7 +615,7 @@ GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAd
         return NULL;
     size_t cookieSize = allocData.hasCookie ? cheerp::TypeSupport::getArrayCookieSizeAsmJS(*DL, allocData.allocType) : 0;
     // We need to encode the cookie in the new global in asmjs mode, it may be needed if the memory is freed at runtime
-    bool encodeCookieInType = allocData.hasCookie && asmjs;
+    bool encodeCookieInType = allocData.hasCookie && allocData.asmjs;
     if(encodeCookieInType)
         MallocStartAddress = it->first;
     else
@@ -632,10 +644,10 @@ GlobalValue* PreExecute::getGlobalForMalloc(const DataLayout* DL, char* StoredAd
     allocData.globalValue = new GlobalVariable(*currentModule, newGlobalType,
             false, GlobalValue::InternalLinkage, nullptr, "promotedMalloc");
 
-    if (asmjs)
+    if (allocData.asmjs)
         allocData.globalValue->setSection("asmjs");
     // Build an initializer
-    allocData.globalValue->setInitializer(computeInitializerFromMemory(DL, newGlobalType, MallocStartAddress, asmjs));
+    allocData.globalValue->setInitializer(computeInitializerFromMemory(DL, newGlobalType, MallocStartAddress, allocData.asmjs));
 
     return allocData.globalValue;
 }
@@ -729,7 +741,7 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
 
         // Look inside type safe allocated memory
         char* MallocStartAddress;
-        GV = getGlobalForMalloc(DL, StoredAddr, MallocStartAddress, asmjs);
+        GV = getGlobalForMalloc(DL, StoredAddr, MallocStartAddress);
         if (GV)
         {
 #ifdef DEBUG_PRE_EXECUTE
