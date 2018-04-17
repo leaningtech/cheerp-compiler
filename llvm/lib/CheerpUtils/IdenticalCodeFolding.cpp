@@ -156,21 +156,34 @@ bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llv
 
 bool IdenticalCodeFolding::equivalentBlock(const llvm::BasicBlock* A, const llvm::BasicBlock* B)
 {
-	if (A->size() != B->size())
+	// Count the number of instructions in both blocks, without counting
+	// ignored instructions.
+	size_t countA = 0, countB = 0;
+	for (auto I = A->begin(); I != A->end(); ++I) {
+		if (ignoreInstruction(&*I))
+			continue;
+		countA++;
+	}
+	for (auto I = B->begin(); I != B->end(); ++I) {
+		if (ignoreInstruction(&*I))
+			continue;
+		countB++;
+	}
+
+	if (countA != countB)
 		return false;
 
 	BasicBlock::const_iterator IA = A->begin();
 	BasicBlock::const_iterator IB = B->begin();
-	for(; IA != A->end() && IB != B->end(); ++IA, ++IB)
+	while (IA != A->end() && IB != B->end())
 	{
 		// Skip ignoreable instructions.
 		if (ignoreInstruction(&*IA)) {
-			if (ignoreInstruction(&*IB)) {
-				continue;
-			}
-			return false;
+			++IA;
+			continue;
 		} else if (ignoreInstruction(&*IB)) {
-			return false;
+			++IB;
+			continue;
 		}
 
 		// TODO: Skip inlineable instructions. (requires PointerAnalyzer)
@@ -180,7 +193,13 @@ bool IdenticalCodeFolding::equivalentBlock(const llvm::BasicBlock* A, const llvm
 
 		if (!equivalentInstruction(&*IA, &*IB))
 			return false;
+
+		++IA;
+		++IB;
 	}
+	// If both iterators are at the end, the block is equivalent. Otherwise,
+	// one of the blocks has more non-ignored instructions.
+	assert(IA == A->end() && IB == B->end());
 	return true;
 }
 
