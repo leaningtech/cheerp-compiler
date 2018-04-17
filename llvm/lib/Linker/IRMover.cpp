@@ -340,9 +340,11 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
                                       cast<FunctionType>(Ty)->isVarArg());
   case Type::StructTyID: {
     auto *STy = cast<StructType>(Ty);
+
+    bool asmjs = STy->hasAsmJS();
     bool IsPacked = STy->isPacked();
     if (IsUniqued)
-      return *Entry = StructType::get(Ty->getContext(), ElementTypes, IsPacked, DirectBase);
+      return *Entry = StructType::get(Ty->getContext(), ElementTypes, IsPacked, DirectBase, asmjs);
 
     // If the type is opaque, we can just use it directly.
     if (STy->isOpaque()) {
