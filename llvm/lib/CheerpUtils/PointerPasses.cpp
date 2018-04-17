@@ -599,8 +599,7 @@ bool FreeAndDeleteRemoval::runOnFunction(Function& F)
 				deleteInstructionAndUnusedOperands(call);
 				Changed = true;
 			}
-			else if(F->getIntrinsicID()==Intrinsic::cheerp_deallocate ||
-			        F->getIntrinsicID()==Intrinsic::cheerp_deallocate_array)
+			else if(F->getIntrinsicID()==Intrinsic::cheerp_deallocate)
 			{
 				Type* ty = call->getOperand(0)->getType();
 				assert(isa<PointerType>(ty));
