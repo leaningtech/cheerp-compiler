@@ -483,28 +483,30 @@ DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( ImmutableCallSite ca
 	// thr DynamicAllocInfo functionality
 	if (callV->getParent()->getParent()->getSection() == StringRef("asmjs"))
 		return not_an_alloc;
-	if (TypeSupport::isAsmJSPointer(callV->getType()))
-		return not_an_alloc;
+	DynamicAllocInfo::AllocType ret = not_an_alloc;
 	if (callV.isCall() || callV.isInvoke() )
 	{
 		if (const Function * f = callV.getCalledFunction() )
 		{
 			if (f->getName() == "malloc")
-				return malloc;
+				ret = malloc;
 			else if (f->getName() == "calloc")
-				return calloc;
+				ret = calloc;
 			else if (f->getIntrinsicID() == Intrinsic::cheerp_allocate ||
 			         f->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
-				return cheerp_allocate;
+				ret =  cheerp_allocate;
 			else if (f->getIntrinsicID() == Intrinsic::cheerp_reallocate)
-				return cheerp_reallocate;
+				ret = cheerp_reallocate;
 			else if (f->getName() == "_Znwj")
-				return opnew;
+				ret = opnew;
 			else if (f->getName() == "_Znaj")
-				return opnew_array;
+				ret = opnew_array;
 		}
 	}
-	return not_an_alloc;
+	// As above, allocations of asmjs types are considered not_an_alloc
+	if (ret != not_an_alloc && TypeSupport::isAsmJSPointer(callV->getType()))
+		return not_an_alloc;
+	return ret;
 }
 
 PointerType * DynamicAllocInfo::computeCastedType() const 

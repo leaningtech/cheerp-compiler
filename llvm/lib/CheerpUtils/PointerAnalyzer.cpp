@@ -396,8 +396,6 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 		const User* u = cast<User>(p);
 		p = u->getOperand(0);
 	}
-	if (TypeSupport::isAsmJSPointer(p->getType()))
-		return true;
 	const GlobalValue* top = nullptr;
 	if (isa<ConstantPointerNull>(p) && isa<Instruction>(origP))
 	{
@@ -428,6 +426,8 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 	{
 		return true;
 	}
+	if (TypeSupport::isAsmJSPointer(p->getType()))
+		return true;
 	return false;
 }
 
@@ -645,13 +645,12 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 			k.makeKnown();
 			if(const Function* F = cs.getCalledFunction())
 			{
+				if (TypeSupport::isAsmJSPointer(F->getReturnType()))
+					return CacheAndReturn(ret = PointerKindWrapper(RAW));
 				bool calleeAsmJS = F->getSection() == StringRef("asmjs");
 				if (calleeAsmJS)
 				{
-					if (TypeSupport::isAsmJSPointer(F->getReturnType()))
-						return CacheAndReturn(ret = PointerKindWrapper(RAW));
-					else
-						return CacheAndReturn(ret = PointerKindWrapper(SPLIT_REGULAR, F));
+					return CacheAndReturn(ret = PointerKindWrapper(SPLIT_REGULAR, F));
 					
 				}
 				else
@@ -1389,10 +1388,10 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 		return BYTE_LAYOUT;
 
 	assert(F->getReturnType()->isPointerTy());
+	if (TypeSupport::isAsmJSPointer(F->getReturnType()))
+		return RAW;
 	if (F->getSection() == StringRef("asmjs"))
 	{
-		if (TypeSupport::isAsmJSPointer(F->getReturnType()))
-			return RAW;
 		if (F->getName() == StringRef("__getStackPtr"))
 			return RAW;
 		return SPLIT_REGULAR;
