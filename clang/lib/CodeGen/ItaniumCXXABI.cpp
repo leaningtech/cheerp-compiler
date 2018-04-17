@@ -29,6 +29,7 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/Type.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Instructions.h"
@@ -2321,8 +2322,12 @@ void ARMCXXABI::EmitReturnFromThunk(CodeGenFunction &CGF,
 CharUnits ItaniumCXXABI::getArrayCookieSizeImpl(QualType elementType) {
   // The array cookie is a size_t; pad that up to the element alignment.
   // The cookie is actually right-justified in that space.
-  return std::max(CharUnits::fromQuantity(CGM.SizeSizeInBytes),
-                  CGM.getContext().getTypeAlignInChars(elementType));
+  CharUnits elemAlignment;
+  if (CGM.getTarget().isByteAddressable())
+    elemAlignment = CGM.getContext().getTypeAlignInChars(elementType);
+  else
+    elemAlignment = CharUnits::fromQuantity(cheerp::TypeSupport::getAlignmentAsmJS(CGM.getTypes().getDataLayout(), CGM.getTypes().ConvertType(elementType)));
+  return std::max(CharUnits::fromQuantity(CGM.SizeSizeInBytes),elemAlignment);
 }
 
 Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
@@ -2338,12 +2343,10 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
   CharUnits SizeSize = CGF.getSizeSize();
 
   // The size of the cookie.
-  CharUnits CookieSize =
-    std::max(SizeSize, Ctx.getTypeAlignInChars(ElementType));
-  assert(CookieSize == getArrayCookieSizeImpl(ElementType));
+  CharUnits CookieSize = getArrayCookieSizeImpl(ElementType);
 
   // Compute an offset to the cookie.
-  Address CookiePtr = NewPtr;
+  llvm::Value *CookiePtr = CGF.Builder.CreateBitCast(NewPtr, CGM.Int8PtrTy);
   CharUnits CookieOffset = CookieSize - SizeSize;
   if (!CookieOffset.isZero())
     CookiePtr = CGF.Builder.CreateConstInBoundsByteGEP(CookiePtr, CookieOffset);
@@ -2368,18 +2371,18 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
 
   // Finally, compute a pointer to the actual data buffer by skipping
   // over the cookie completely.
-  return CGF.Builder.CreateConstInBoundsByteGEP(NewPtr, CookieSize);
+  if (!CGF.getTarget().isByteAddressable()) {
+      llvm::Value* ptr = CGF.Builder.CreateBitCast(NewPtr, CGM.Int8PtrTy);
+      return CGF.Builder.CreateConstInBoundsGEP1_32(CGM.Int8Ty, ptr,
+                                                CookieSize.getQuantity());
+  } else {
+      return CGF.Builder.CreateConstInBoundsByteGEP(NewPtr, CookieSize);
+  }
 }
 
 llvm::Value *ItaniumCXXABI::readArrayCookieImpl(CodeGenFunction &CGF,
                                                 Address allocPtr,
                                                 CharUnits cookieSize) {
-  if (!CGF.getTarget().isByteAddressable()) {
-    llvm::Type* elemType = allocPtr->getType();
-    llvm::Function* GetLen = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
-        llvm::Intrinsic::cheerp_get_array_len, {elemType});
-    return CGF.Builder.CreateCall(GetLen, {allocPtr});
-  }
   // The element size is right-justified in the cookie.
   Address numElementsPtr = allocPtr;
   CharUnits numElementsOffset = cookieSize - CGF.getSizeSize();
