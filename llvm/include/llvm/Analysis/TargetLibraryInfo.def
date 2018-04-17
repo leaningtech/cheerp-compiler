@@ -601,6 +601,9 @@ TLI_DEFINE_STRING_INTERNAL("ceill")
 /// Cheerp: allocation intrinsic
 TLI_DEFINE_ENUM_INTERNAL(cheerp_allocate)
 TLI_DEFINE_STRING_INTERNAL("cheerp.allocate")
+/// Cheerp: allocation intrinsic for arrays
+TLI_DEFINE_ENUM_INTERNAL(cheerp_allocate_array)
+TLI_DEFINE_STRING_INTERNAL("cheerp.allocate.array")
 /// int chmod(const char *path, mode_t mode);
 TLI_DEFINE_ENUM_INTERNAL(chmod)
 TLI_DEFINE_STRING_INTERNAL("chmod")
