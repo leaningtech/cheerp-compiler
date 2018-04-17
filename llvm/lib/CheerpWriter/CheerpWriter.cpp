@@ -1598,7 +1598,7 @@ int CheerpWriter::getHeapShiftForType(Type* et)
 	{
 		shift = 1;
 	}
-	else if(et->isIntegerTy(32) || et->isPointerTy())
+	else if(et->isIntegerTy(32) || et->isPointerTy() || et->isArrayTy())
 	{
 		shift = 2;
 	}
@@ -1630,7 +1630,7 @@ int CheerpWriter::compileHeapForType(Type* et)
 		stream << heapNames[HEAP16];
 		shift = 1;
 	}
-	else if(et->isIntegerTy(32) || et->isPointerTy())
+	else if(et->isIntegerTy(32) || et->isPointerTy() || et->isArrayTy())
 	{
 		stream << heapNames[HEAP32];
 		shift = 2;
