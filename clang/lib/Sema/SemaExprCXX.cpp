@@ -3516,8 +3516,13 @@ Sema::ActOnCXXDelete(SourceLocation StartLoc, bool UseGlobal,
       // module but is hidden.
       if (!RequireCompleteType(StartLoc, Pointee,
                                diag::warn_delete_incomplete, Ex.get())) {
-        if (const RecordType *RT = PointeeElem->getAs<RecordType>())
+        if (const RecordType *RT = PointeeElem->getAs<RecordType>()) {
           PointeeRD = cast<CXXRecordDecl>(RT->getDecl());
+          DeclContext* Owner = PointeeRD->getDeclContext();
+          if(!Context.getTargetInfo().isByteAddressable() && isa<NamespaceDecl>(Owner) && cast<NamespaceDecl>(Owner)->getDeclName().getAsString() == "client") {
+            return ExprError(Diag(StartLoc, diag::err_cheerp_delete_client) << Ex.get()->getSourceRange());
+          }
+        }
       }
     }
 

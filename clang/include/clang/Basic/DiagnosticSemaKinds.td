@@ -10974,6 +10974,8 @@ def err_cheerp_incompatible_attributes : Error<
   "Cheerp: Attribute %0 is incompatible with attribute %1">;
 def err_cheerp_asm_in_asmjs : Error<
   "Cheerp: Cannot use inline wasm in a %0 function">;
+def err_cheerp_delete_client : Error<
+  "Cheerp: Types declared in the 'client' namespace are managed by the JavaScript GC. Cannot delete.">;
 } // end of cheerp issue category
 
 } // end of sema component.
