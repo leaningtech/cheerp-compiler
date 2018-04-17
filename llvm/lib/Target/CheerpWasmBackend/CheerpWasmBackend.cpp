@@ -151,7 +151,6 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            AnalysisID StopAfter,
                                            MachineFunctionInitializer* MFInit) {
   PM.add(createAllocaLoweringPass());
-  PM.add(createAllocateArrayLoweringPass());
   PM.add(createResolveAliasesPass());
   PM.add(createFreeAndDeleteRemovalPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass());

@@ -1797,6 +1797,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						return true;
 					}
 					case Intrinsic::cheerp_allocate:
+					case Intrinsic::cheerp_allocate_array:
 					{
 						calledFunc = module.getFunction("malloc");
 						if (!calledFunc)

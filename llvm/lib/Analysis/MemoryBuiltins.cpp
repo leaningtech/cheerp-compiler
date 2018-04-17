@@ -180,7 +180,8 @@ static Optional<AllocFnsTy>
 getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
                              const TargetLibraryInfo *TLI) {
 
-  if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate)
+  if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate ||
+      Callee->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
     return &AllocationFnData[0];
 
   // Make sure that the function is available.
