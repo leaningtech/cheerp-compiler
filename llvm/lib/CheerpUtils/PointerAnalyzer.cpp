@@ -557,6 +557,8 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		Type* pointedValueType = SI->getValueOperand()->getType()->getPointerElementType();
 		if(TypeSupport::hasByteLayout(pointedValueType))
 			return CacheAndReturn(ret = BYTE_LAYOUT);
+		else if (TypeSupport::isAsmJSPointer(SI->getValueOperand()->getType()))
+			return CacheAndReturn(ret = RAW);
 		else if(TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 			ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex ));
 		else
