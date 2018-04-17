@@ -473,24 +473,28 @@ public:
 
   /// Return an anonymous struct that has the specified elements.
   /// If the struct is possibly empty, then you must specify a context.
-  static Constant *getAnon(ArrayRef<Constant*> V, bool Packed = false, StructType* DirectBase = NULL) {
-    return get(getTypeForElements(V, Packed, DirectBase), V);
+  static Constant *getAnon(ArrayRef<Constant*> V, bool Packed = false,
+                           StructType* DirectBase = NULL, bool AsmJS = false) {
+    return get(getTypeForElements(V, Packed, DirectBase, AsmJS), V);
   }
   static Constant *getAnon(LLVMContext &Ctx,
-                           ArrayRef<Constant*> V, bool Packed = false, StructType* DirectBase = NULL) {
-    return get(getTypeForElements(Ctx, V, Packed, DirectBase), V);
+                           ArrayRef<Constant*> V, bool Packed = false,
+                           StructType* DirectBase = NULL, bool AsmJS = false) {
+    return get(getTypeForElements(Ctx, V, Packed, DirectBase, AsmJS), V);
   }
 
   /// Return an anonymous struct type to use for a constant with the specified
   /// set of elements. The list must not be empty.
   static StructType *getTypeForElements(ArrayRef<Constant*> V,
                                         bool Packed = false,
-                                        StructType* DirectBase = NULL);
+                                        StructType* DirectBase = NULL,
+                                        bool AsmJS = false);
   /// This version of the method allows an empty list.
   static StructType *getTypeForElements(LLVMContext &Ctx,
                                         ArrayRef<Constant*> V,
                                         bool Packed = false,
-                                        StructType* DirectBase = NULL);
+                                        StructType* DirectBase = NULL,
+                                        bool AsmJS = false);
 
   /// Specialization - reduce amount of casting.
   inline StructType *getType() const {

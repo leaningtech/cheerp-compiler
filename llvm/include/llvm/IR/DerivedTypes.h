@@ -259,10 +259,11 @@ public:
 
   /// This static method is the primary way to create a literal StructType.
   static StructType *get(LLVMContext &Context, ArrayRef<Type*> Elements,
-                         bool isPacked = false, StructType* directBase = NULL);
+                         bool isPacked = false, StructType* directBase = NULL,
+                         bool AsmJS = false);
 
   /// Create an empty structure type.
-  static StructType *get(LLVMContext &Context, bool isPacked = false, StructType* directBase = NULL);
+  static StructType *get(LLVMContext &Context, bool isPacked = false, StructType* directBase = NULL, bool AsmJS = false);
 
   /// This static method is a convenience method for creating structure types by
   /// specifying the elements as arguments. Note that this method always returns

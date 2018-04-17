@@ -1193,22 +1193,24 @@ Constant *ConstantArray::getImpl(ArrayType *Ty, ArrayRef<Constant*> V) {
 StructType *ConstantStruct::getTypeForElements(LLVMContext &Context,
                                                ArrayRef<Constant*> V,
                                                bool Packed,
-                                               StructType* DirectBase) {
+                                               StructType* DirectBase,
+                                               bool AsmJS) {
   unsigned VecSize = V.size();
   SmallVector<Type*, 16> EltTypes(VecSize);
   for (unsigned i = 0; i != VecSize; ++i)
     EltTypes[i] = V[i]->getType();
 
-  return StructType::get(Context, EltTypes, Packed, DirectBase);
+  return StructType::get(Context, EltTypes, Packed, DirectBase, AsmJS);
 }
 
 
 StructType *ConstantStruct::getTypeForElements(ArrayRef<Constant*> V,
                                                bool Packed,
-                                               StructType* DirectBase) {
+                                               StructType* DirectBase,
+                                               bool AsmJS) {
   assert(!V.empty() &&
          "ConstantStruct::getTypeForElements cannot be called on empty list");
-  return getTypeForElements(V[0]->getContext(), V, Packed, DirectBase);
+  return getTypeForElements(V[0]->getContext(), V, Packed, DirectBase, AsmJS);
 }
 
 ConstantStruct::ConstantStruct(StructType *T, ArrayRef<Constant *> V)

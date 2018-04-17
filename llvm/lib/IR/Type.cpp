@@ -354,7 +354,7 @@ bool FunctionType::isValidArgumentType(Type *ArgTy) {
 // Primitive Constructors.
 
 StructType *StructType::get(LLVMContext &Context, ArrayRef<Type*> ETypes,
-                            bool isPacked, StructType* directBase) {
+                            bool isPacked, StructType* directBase, bool AsmJS) {
   LLVMContextImpl *pImpl = Context.pImpl;
   const AnonStructTypeKeyInfo::KeyTy Key(ETypes, isPacked, directBase);
 
@@ -376,6 +376,8 @@ StructType *StructType::get(LLVMContext &Context, ArrayRef<Type*> ETypes,
     // The struct type was found. Just return it.
     ST = *Insertion.first;
   }
+  if (AsmJS)
+    ST->setAsmJS();
 
   return ST;
 }
@@ -466,8 +468,9 @@ StructType *StructType::create(LLVMContext &Context, StringRef Name) {
   return ST;
 }
 
-StructType *StructType::get(LLVMContext &Context, bool isPacked, StructType* directBase) {
-  return get(Context, None, isPacked, directBase);
+StructType *StructType::get(LLVMContext &Context, bool isPacked, StructType* directBase,
+                            bool AsmJS) {
+  return get(Context, None, isPacked, directBase, AsmJS);
 }
 
 StructType *StructType::create(LLVMContext &Context, ArrayRef<Type*> Elements,
