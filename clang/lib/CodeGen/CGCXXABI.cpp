@@ -15,6 +15,9 @@
 #include "CGCleanup.h"
 #include "clang/AST/Attr.h"
 
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/Cheerp/Utility.h"
+
 using namespace clang;
 using namespace CodeGen;
 
@@ -212,18 +215,24 @@ void CGCXXABI::ReadArrayCookie(CodeGenFunction &CGF, Address ptr,
     return;
   }
 
-  if (CGF.getTarget().isByteAddressable()) {
+  bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs") ||
+               cheerp::TypeSupport::isAsmJSPointer(ptr.getType());
+  if (!CGF.getTarget().isByteAddressable() && !asmjs) {
+    allocPtr = ptr.getPointer();
+    cookieSize = CharUnits::Zero();
+    llvm::Type* elemType = allocPtr->getType();
+    llvm::Function* GetLen = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
+        llvm::Intrinsic::cheerp_get_array_len, {elemType});
+    numElements = CGF.Builder.CreateCall(GetLen, {allocPtr});
+  } else {
     // Derive a char* in the same address space as the pointer.
     ptr = CGF.Builder.CreateElementBitCast(ptr, CGF.Int8Ty);
     cookieSize = getArrayCookieSizeImpl(eltTy);
     Address allocAddr =
     CGF.Builder.CreateConstInBoundsByteGEP(ptr, -cookieSize);
     allocPtr = allocAddr.getPointer();
-  } else {
-    allocPtr = ptr;
-    cookieSize = CharUnits::Zero();
+    numElements = readArrayCookieImpl(CGF, allocAddr, cookieSize);
   }
-  numElements = readArrayCookieImpl(CGF, allocPtr, cookieSize);
 }
 
 llvm::Value *CGCXXABI::readArrayCookieImpl(CodeGenFunction &CGF,
