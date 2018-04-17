@@ -202,6 +202,11 @@ public:
       return nullptr;
     return ECStack[ECStack.size()-2].Caller.getCaller();
   }
+  Function* getCurrentFunction() override {
+    if (ECStack.size() < 1)
+      return nullptr;
+    return ECStack[ECStack.size()-1].CurFunction;
+  }
 
 private:  // Helper functions
   GenericValue executeGEPOperation(Value *Ptr, gep_type_iterator I,
