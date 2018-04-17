@@ -1503,9 +1503,8 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
   for (uint32_t i = 0; i < extraOffsets; i++) {
     VTableTypes.push_back(OffsetTy);
   }
-  llvm::StructType* ret = llvm::StructType::get(CGM.getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)));
-  if (asmjs)
-    ret->setAsmJS();
+  llvm::StructType* ret = llvm::StructType::get(CGM.getLLVMContext(), VTableTypes,
+                            false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)), asmjs);
   return ret;
 }
 
@@ -1548,7 +1547,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   for(uint32_t j=0;j<virtualMethodsCount;j++)
     VTableTypes.push_back(FuncPtrTy);
 
-  return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)));
+  return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)), asmjs);
 }
 
 llvm::Type* CodeGenTypes::GetClassTypeInfoType()
