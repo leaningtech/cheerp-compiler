@@ -21,6 +21,7 @@
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Sema/SemaDiagnostic.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Cheerp/Utility.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -691,7 +692,9 @@ static CharUnits CalculateCookiePadding(CodeGenFunction &CGF,
   if (E->getOperatorNew()->isReservedGlobalPlacementOperator())
     return CharUnits::Zero();
 
-  if (!CGF.getTarget().isByteAddressable())
+  llvm::Type* allocType = CGF.ConvertType(E->getAllocatedType())->getPointerTo();
+  bool asmjs = CGF.CurFn->getSection() == StringRef("asmjs") || cheerp::TypeSupport::isAsmJSPointer(allocType);
+  if (!CGF.getTarget().isByteAddressable() && !asmjs)
     return CharUnits::Zero();
 
   return CGF.CGM.getCXXABI().GetArrayCookieSize(E);
@@ -1371,6 +1374,9 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     llvm::Constant* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
                                 llvm::Intrinsic::cheerp_deallocate, types);
     llvm::Value* Arg[] = { Args[0].RV.getScalarVal() };
+    if (Arg[0]->getType() != types[0]) {
+      Arg[0] = CGF.Builder.CreateBitCast(Arg[0], types[0]);
+    }
     CallOrInvoke = CGF.Builder.CreateCall(CalleeAddr, Arg);
     RV = RValue::get(CallOrInvoke);
   }
