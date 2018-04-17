@@ -577,6 +577,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		case Intrinsic::cheerp_cast_user:
 			break;
 		case Intrinsic::cheerp_allocate:
+		case Intrinsic::cheerp_allocate_array:
 		case Intrinsic::cheerp_reallocate:
 			break;
 		case Intrinsic::cheerp_pointer_base:
@@ -840,6 +841,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 				llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, cheerp_create_closure");
 		case Intrinsic::flt_rounds:
 		case Intrinsic::cheerp_allocate:
+		case Intrinsic::cheerp_allocate_array:
 		case Intrinsic::memset:
 		default:
 			SmallString<128> str("Unreachable code in cheerp::PointerAnalyzer::visitUse, unhandled intrinsic: ");
@@ -1211,6 +1213,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 		if(!F)
 			return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
 		if(F->getIntrinsicID()==Intrinsic::cheerp_allocate ||
+			F->getIntrinsicID()==Intrinsic::cheerp_allocate_array ||
 			F->getIntrinsicID()==Intrinsic::cheerp_reallocate)
 		{
 			return CacheAndReturn(ret |= Zero);
