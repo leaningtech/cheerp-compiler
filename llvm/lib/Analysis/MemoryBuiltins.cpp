@@ -73,6 +73,7 @@ struct AllocFnsTy {
 static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
   // Keep this one as the first one
   {LibFunc_cheerp_allocate,     {CallocLike,  1, 0,  -1}},
+  {LibFunc_cheerp_allocate_array,{CallocLike,  1, 0,  -1}},
   {LibFunc_malloc,              {MallocLike,  1, 0,  -1}},
   {LibFunc_vec_malloc,          {MallocLike,  1, 0,  -1}},
   {LibFunc_valloc,              {MallocLike,  1, 0,  -1}},
@@ -143,7 +144,8 @@ static Optional<AllocFnsTy>
 getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
                              const TargetLibraryInfo *TLI) {
 
-  if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate)
+  if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate ||
+      Callee->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
     return &AllocationFnData[0];
 
   // Make sure that the function is available.

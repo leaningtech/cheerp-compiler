@@ -1174,7 +1174,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileAllocation(da);
 		return COMPILE_OK;
 	}
-	if (func->getIntrinsicID()==Intrinsic::cheerp_allocate && (asmjs || TypeSupport::isAsmJSPointer(func->getReturnType())))
+	if ((func->getIntrinsicID()==Intrinsic::cheerp_allocate || func->getIntrinsicID()==Intrinsic::cheerp_allocate_array) &&
+	    (asmjs || TypeSupport::isAsmJSPointer(func->getReturnType())))
 	{
 		Function* fmalloc = module.getFunction("malloc");
 		if (!fmalloc)

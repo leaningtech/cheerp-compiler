@@ -493,7 +493,8 @@ DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( ImmutableCallSite ca
 				return malloc;
 			else if (f->getName() == "calloc")
 				return calloc;
-			else if (f->getIntrinsicID() == Intrinsic::cheerp_allocate)
+			else if (f->getIntrinsicID() == Intrinsic::cheerp_allocate ||
+			         f->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
 				return cheerp_allocate;
 			else if (f->getIntrinsicID() == Intrinsic::cheerp_reallocate)
 				return cheerp_reallocate;
