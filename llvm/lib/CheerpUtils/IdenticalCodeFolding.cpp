@@ -638,12 +638,13 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 
 bool IdenticalCodeFolding::equivalentType(const llvm::Type* A, const llvm::Type* B)
 {
+	if (!A || !B)
+		return false;
+
 #if DEBUG_VERBOSE
 	llvm::errs() << "TA: "; A->dump();
 	llvm::errs() << "TB: "; B->dump();
 #endif
-	if (!A || !B)
-		return false;
 
 	if (A->isFloatTy() && B->isFloatTy())
 		return true;
@@ -862,8 +863,13 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 				replacement = it->second;
 			}
 
-			if (!mergeTwoFunctions(item.first, replacement))
-				continue;
+			mergeTwoFunctions(item.first, replacement);
+
+			if (!replacement->getName().endswith("_icf")) {
+				DEBUG(dbgs() << "rename " << replacement->getName() <<
+						" to " << replacement->getName() + "_icf" << '\n');
+				replacement->setName(replacement->getName() + "_icf");
+			}
 
 			if (GDA.asmJSExports().find(item.first) != GDA.asmJSExports().end())
 				GDA.insertAsmJSExport(replacement);
@@ -877,7 +883,7 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 }
 
 // Merge two equivalent functions. Upon completion, function F is deleted.
-bool IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
+void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 	DEBUG(dbgs() << "replace " << F->getName() << " with " << G->getName() << '\n');
 
 	// TODO is this necessary?
@@ -894,7 +900,6 @@ bool IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 	F->dropAllReferences();
 
 	F->removeFromParent();
-	return true;
 }
 
 }
