@@ -15869,6 +15869,12 @@ bool Sema::CompleteConstructorCall(CXXConstructorDecl *Constructor,
                                    SmallVectorImpl<Expr *> &ConvertedArgs,
                                    bool AllowExplicit,
                                    bool IsListInitialization) {
+  Scope *S = getScopeForContext(CurContext);
+  if (S && S->getFnParent())
+  {
+    if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
+      CheckCheerpFFICall(Parent, Constructor, Loc);
+  }
   // FIXME: This duplicates a lot of code from Sema::ConvertArgumentsForCall.
   unsigned NumArgs = ArgsPtr.size();
   Expr **Args = ArgsPtr.data();
