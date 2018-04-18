@@ -12594,6 +12594,9 @@ public:
     TagDecl* pd = pt->getAsTagDecl();
     return pd && pd->hasAttr<GenericJSAttr>();
   }
+  // CHEERP: Disallow calls to asmjs functions with pointer to basic type parameters from genericjs
+  // and calls to functions with pointer to function parameters both ways
+  void CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FDecl, SourceLocation Loc);
 };
 
 /// RAII object that enters a new expression evaluation context.

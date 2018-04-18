@@ -6466,6 +6466,11 @@ ExprResult Sema::BuildCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
       return ExprError();
 
     checkDirectCallValidity(*this, Fn, FD, ArgExprs);
+    if (S && S->getFnParent())
+    {
+      if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
+        CheckCheerpFFICall(Parent, FD, Fn->getLocStart());
+    }
   }
 
   return BuildResolvedCallExpr(Fn, NDecl, LParenLoc, ArgExprs, RParenLoc,
@@ -19262,4 +19267,38 @@ ExprResult Sema::CreateRecoveryExpr(SourceLocation Begin, SourceLocation End,
     // We don't know the concrete type, fallback to dependent type.
     T = Context.DependentTy;
   return RecoveryExpr::Create(Context, T, Begin, End, SubExprs);
+}
+
+// CHEERP: Disallow calls to asmjs functions with pointer to basic type parameters from genericjs
+// and calls to functions with pointer to function parameters both ways
+void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FDecl, const SourceLocation Loc) {
+  if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
+    if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
+      for(const auto p: FDecl->parameters()){
+        const Type* t = p->getOriginalType().getTypePtr();
+        if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
+          Diag(Loc,
+               diag::err_cheerp_wrong_func_pointer_param)
+            << FDecl->getAttr<AsmJSAttr>() << FDecl << Parent->getAttr<GenericJSAttr>() << p;
+        } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFundamentalType()) {
+          Diag(Loc,
+               diag::err_cheerp_wrong_basic_pointer_param)
+            << FDecl << p;
+        }
+      }
+    } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {
+      for(const auto p: FDecl->parameters()){
+        const Type* t = p->getOriginalType().getTypePtr();
+        if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
+          Diag(Loc,
+               diag::err_cheerp_wrong_func_pointer_param)
+            << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
+        } else if (!Sema::isAsmJSCompatible(p->getOriginalType())) {
+          Diag(Loc,
+               diag::err_cheerp_wrong_param)
+            << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
+        }
+      }
+    }
+  }
 }

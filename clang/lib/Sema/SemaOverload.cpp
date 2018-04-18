@@ -12874,40 +12874,10 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
     if (SemaRef.DiagnoseUseOfDecl(FDecl, ULE->getNameLoc()))
       return ExprError();
     Fn = SemaRef.FixOverloadedFunctionReference(Fn, (*Best)->FoundDecl, FDecl);
-    // CHEERP: Disallow calls to asmjs functions with pointer to basic type parameters from genericjs
-    // and calls to functions with pointer to function parameters both ways.
-    // Disallow passing (pointers to) genericjs types to asmjs entirely.
     if (S && S->getFnParent())
     {
-      if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity())) {
-        if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
-          for(const auto p: FDecl->parameters()){
-            const Type* t = p->getOriginalType().getTypePtr();
-            if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
-              SemaRef.Diag(Fn->getLocStart(),
-                   diag::err_cheerp_wrong_func_pointer_param)
-                << FDecl->getAttr<AsmJSAttr>() << FDecl << Parent->getAttr<GenericJSAttr>() << p;
-            } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFundamentalType()) {
-              SemaRef.Diag(Fn->getLocStart(),
-                   diag::err_cheerp_wrong_basic_pointer_param)
-                << FDecl << p;
-            }
-          }
-        } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {
-          for(const auto p: FDecl->parameters()){
-            const Type* t = p->getOriginalType().getTypePtr();
-            if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
-              SemaRef.Diag(Fn->getLocStart(),
-                   diag::err_cheerp_wrong_func_pointer_param)
-                << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
-            } else if (!Sema::isAsmJSCompatible(p->getOriginalType())) {
-              SemaRef.Diag(Fn->getLocStart(),
-                   diag::err_cheerp_wrong_param)
-                << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
-            }
-          }
-        }
-      }
+      if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
+        SemaRef.CheckCheerpFFICall(Parent, FDecl, Fn->getLocStart());
     }
     return SemaRef.BuildResolvedCallExpr(Fn, FDecl, LParenLoc, Args, RParenLoc,
                                          ExecConfig, /*IsExecConfig=*/false,
@@ -13464,6 +13434,12 @@ ExprResult Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
           }
         }
 
+        Scope *S = getScopeForContext(CurContext);
+        if (S && S->getFnParent())
+        {
+          if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
+            CheckCheerpFFICall(Parent, FnDecl, OpLoc);
+        }
         // Convert the arguments.
         if (CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(FnDecl)) {
           // Best->Access is only meaningful for class members.
@@ -13854,6 +13830,12 @@ Sema::CreateOverloadedArraySubscriptExpr(SourceLocation LLoc,
         // We matched an overloaded operator. Build a call to that
         // operator.
 
+        Scope *S = getScopeForContext(CurContext);
+        if (S && S->getFnParent())
+        {
+          if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
+            CheckCheerpFFICall(Parent, FnDecl, RLoc);
+        }
         CheckMemberOperatorAccess(LLoc, Args[0], Args[1], Best->FoundDecl);
 
         // Convert the arguments.
