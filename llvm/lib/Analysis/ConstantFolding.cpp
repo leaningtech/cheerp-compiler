@@ -779,7 +779,7 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
 
     if (IsConstantOffsetFromGlobal(Op0, GV1, Offs1, DL))
       if (IsConstantOffsetFromGlobal(Op1, GV2, Offs2, DL) && GV1 == GV2) {
-        if (!DL.isByteAddressable()) {
+        if (!DL.isByteAddressable() && GV1->getSection() != StringRef("asmjs")) {
           // Verify that the ops are ptrtoins
           ConstantExpr* COp0 = dyn_cast<ConstantExpr>(Op0);
           ConstantExpr* COp1 = dyn_cast<ConstantExpr>(Op1);
@@ -789,6 +789,7 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
           }
           Op0 = COp0->getOperand(0);
           Op1 = COp1->getOperand(0);
+          unsigned ElemSize = DL.getTypeSizeInBits(Op0->getType()->getPointerElementType());
           // We can handle two possibilities:
           // 1) 2 GEPs which have the same indices but for the last
           // 2) 1 GEP and 1 constant. The GEP may have a single index
@@ -800,13 +801,13 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
             // In this case it must have a single index, the result is the index itself
             if (CE0->getNumOperands() != 2)
               return 0;
-            return cast<Constant>(CE0->getOperand(1));
+            return ConstantExpr::getMul(CE0->getOperand(1), ConstantInt::get(cast<IntegerType>(CE0->getOperand(1)->getType()), ElemSize/8));
           } else if (CE1 && CE1->getOpcode() == Instruction::GetElementPtr &&
                      CE1->getOperand(0) == Op0) {
             // Like before, but negate the result
             if (CE1->getNumOperands() != 2)
               return 0;
-            return ConstantExpr::getNeg(CE1->getOperand(1));
+            return ConstantExpr::getMul(ConstantExpr::getNeg(CE1->getOperand(1)), ConstantInt::get(cast<IntegerType>(CE1->getOperand(1)->getType()), ElemSize/8));
           } else if (CE0 && CE0->getOpcode() == Instruction::GetElementPtr &&
                      CE1 && CE1->getOpcode() == Instruction::GetElementPtr) {
             // Cheerp: the two geps must have equal indexes up to the last.
@@ -820,11 +821,10 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
               if (*it1 != *it2)
                 return 0;
             }
-            unsigned ElemSize = DL->getTypeSizeInBits(Op0->getType()->getPointerElementType());
             return ConstantExpr::getMul(ConstantExpr::getSub(cast<Constant>(*it1), cast<Constant>(*it2)), ConstantInt::get(cast<IntegerType>((*it1)->getType()), ElemSize/8));
           }
         } else {
-          unsigned OpSize = DL->getTypeSizeInBits(Op0->getType());
+          unsigned OpSize = DL.getTypeSizeInBits(Op0->getType());
           // (&GV+C1) - (&GV+C2) -> C1-C2, pointer arithmetic cannot overflow.
           // PtrToInt may change the bitwidth so we have convert to the right size
           // first.
