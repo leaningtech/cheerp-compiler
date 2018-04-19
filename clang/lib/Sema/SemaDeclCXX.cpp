@@ -15249,7 +15249,7 @@ Sema::CompleteConstructorCall(CXXConstructorDecl *Constructor,
   if (S && S->getFnParent())
   {
     if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
-      CheckCheerpFFICall(Parent, Constructor, Loc);
+      CheckCheerpFFICall(Parent, Constructor, Loc, ArgsPtr);
   }
   // FIXME: This duplicates a lot of code from Sema::ConvertArgumentsForCall.
   unsigned NumArgs = ArgsPtr.size();
