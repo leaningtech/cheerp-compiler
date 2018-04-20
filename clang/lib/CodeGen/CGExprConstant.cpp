@@ -1878,13 +1878,54 @@ private:
 
     uint64_t OffsetVal = Value.getLValueOffset().getQuantity();
 
+    llvm::SmallVector<llvm::Constant*, 4> Indexes;
+    Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, 0));
+    llvm::Type* DestTy = CGM.getTypes().ConvertTypeForMem(DestType);
+    QualType CurType;
+    const APValue::LValueBase &base = Value.getLValueBase();
+    if (const ValueDecl *D = base.dyn_cast<const ValueDecl*>())
+      CurType = D->getType();
+    else if (const Expr *E = base.dyn_cast<const Expr*>())
+      CurType = E->getType();
+
+  llvm::Type* CurrentType = C->getType()->getPointerElementType();
+
+  if(Value.hasLValuePath() && CGM.getTypes().ConvertTypeForMem(CurType) == CurrentType) {
+    ArrayRef<APValue::LValuePathEntry> Path = Value.getLValuePath();
+    for (unsigned I = 0; I != Path.size(); ++I) {
+      if (const RecordType* CurClass = CurType->getAs<RecordType>()) {
+        const Decl *BaseOrMember = APValue::BaseOrMemberType::getFromOpaqueValue(Path[I].BaseOrMember).getPointer();
+        if (const CXXRecordDecl *Base = dyn_cast<CXXRecordDecl>(BaseOrMember)) {
+          CurType = CGM.getContext().getRecordType(Base);
+          const CGRecordLayout &cgLayout = CGM.getTypes().getCGRecordLayout(CurClass->getDecl());
+          const ASTRecordLayout &astLayout = CGM.getContext().getASTRecordLayout(CurClass->getDecl());
+          CharUnits Offset = astLayout.getBaseClassOffset(Base);
+          if(Base->isEmpty() || Offset.isZero())
+            continue;
+          Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, cgLayout.getNonVirtualBaseLLVMFieldNo(Base)));
+        } else {
+          const FieldDecl *FD = cast<FieldDecl>(BaseOrMember);
+          CurType = FD->getType();
+          const CGRecordLayout &cgLayout = CGM.getTypes().getCGRecordLayout(CurClass->getDecl());
+          int32_t fieldIndex = cgLayout.getLLVMFieldNo(FD);
+          if(fieldIndex == -1) {
+            // Collapsed struct
+            continue;
+          }
+          Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, fieldIndex));
+        }
+      } else {
+        Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, Path[I].ArrayIndex));
+        CurType = CGM.getContext().getAsArrayType(CurType)->getElementType();
+      }
+    }
+    if (Value.isLValueOnePastTheEnd()) {
+      Indexes.back() = llvm::ConstantInt::get(CGM.Int32Ty, cast<llvm::ConstantInt>(Indexes.back())->getZExtValue()+1);
+    }
+    OffsetVal = 0;
+  } else {
     // Try to build a naturally looking GEP from the returned expression to the
     // required type
-    llvm::SmallVector<llvm::Constant*, 4> Indexes;
-    llvm::Type* CurrentType = C->getType()->getPointerElementType();
-    Indexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
-    llvm::Type* DestTy = CGM.getTypes().ConvertTypeForMem(DestType);
-    bool allZeroGeps = true;
     while(DestTy->isPointerTy() && (OffsetVal || CurrentType!=DestTy->getPointerElementType()))
     {
       if (llvm::StructType* ST=dyn_cast<llvm::StructType>(CurrentType))
@@ -1908,8 +1949,6 @@ private:
         }
         const llvm::StructLayout *SL = CGM.getDataLayout().getStructLayout(ST);
         unsigned Index = SL->getElementContainingOffset(OffsetVal);
-        if (Index != 0)
-          allZeroGeps = false;
         Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, Index));
         OffsetVal -= SL->getElementOffset(Index);
         CurrentType = ST->getElementType(Index);
@@ -1919,8 +1958,6 @@ private:
         llvm::Type *ElementTy = AT->getElementType();
         unsigned ElementSize = CGM.getDataLayout().getTypeAllocSize(ElementTy);
         unsigned Index = OffsetVal / ElementSize;
-        if (Index != 0)
-          allZeroGeps = false;
         Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, Index));
         OffsetVal -= Index * ElementSize;
         CurrentType = ElementTy;
@@ -1928,9 +1965,9 @@ private:
       else
         break;
     }
+    }
 
-    if (CurrentType == DestTy->getPointerElementType() || !allZeroGeps)
-      C = llvm::ConstantExpr::getGetElementPtr(C, Indexes);
+    C = llvm::ConstantExpr::getGetElementPtr(C->getType()->getPointerElementType(), C, Indexes);
 
     if (OffsetVal == 0)
       return C;
