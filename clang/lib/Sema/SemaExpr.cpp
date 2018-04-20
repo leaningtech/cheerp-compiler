@@ -19272,6 +19272,11 @@ ExprResult Sema::CreateRecoveryExpr(SourceLocation Begin, SourceLocation End,
 // CHEERP: Disallow calls to asmjs functions with pointer to basic type parameters from genericjs
 // and calls to functions with pointer to function parameters both ways
 void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FDecl, const SourceLocation Loc, const llvm::ArrayRef<Expr*> Args) {
+  // Allow some builtins in any case, since they will become intrinsics
+  if (FDecl->getBuiltinID() == Builtin::BImemcpy ||
+      FDecl->getBuiltinID() == Builtin::BImemmove ||
+      FDecl->getBuiltinID() == Builtin::BImemset)
+    return;
   if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
     if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
       auto p = FDecl->parameters().begin();
