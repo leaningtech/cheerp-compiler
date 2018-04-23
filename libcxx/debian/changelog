@@ -1,3 +1,9 @@
+cheerp-libcxx (2.0-rc2-1) artful; urgency=medium
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Mon, 23 Apr 2018 15:00:23 +0200
+
 cheerp-libcxx (2.0-rc1-1) xenial; urgency=medium
 
   * New release
