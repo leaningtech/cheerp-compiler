@@ -21,7 +21,7 @@ We advise doing an out of tree build, but it's not necessary
 ```
 mkdir build
 cd build
-cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="CheerpBackend;CheerpWasmBackend" ..
+cmake -DCMAKE_INSTALL_PREFIX=/opt/cheerp -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="CheerpBackend;CheerpWasmBackend;X86" ..
 make
 make install
 ```
