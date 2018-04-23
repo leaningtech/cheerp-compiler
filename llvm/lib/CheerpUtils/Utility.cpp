@@ -159,13 +159,24 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			{
 				if(I.use_empty() || (I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR))
 					return false;
-				const Instruction* nextInst=I.getNextNode();
-				assert(nextInst);
+
+				// Skip all instructions that have no side effects.
+				const Instruction* nextInst = &I;
+				int i = 0;
+				do {
+					nextInst = nextInst->getNextNode();
+					assert(nextInst);
+					// Limit to 10 nodes to avoid increased runtime.
+					if (++i >= 10 || I.user_back()==nextInst)
+						break;
+				} while (!nextInst->mayHaveSideEffects());
+
 				if(I.user_back()!=nextInst)
 					return false;
 				// To be inlineable this should be the value operand, not the pointer operand
 				if(isa<StoreInst>(nextInst))
 					return nextInst->getOperand(0)==&I;
+
 				return isa<ReturnInst>(nextInst);
 			}
 			case Instruction::Invoke:
