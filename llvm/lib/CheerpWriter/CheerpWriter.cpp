@@ -5205,7 +5205,12 @@ void CheerpWriter::makeJS()
 			for (StringRef &className : exportedClassNames)
 				stream << className << ".promise=" << NewLine;
 		}
-		stream << "fetchBuffer('" << wasmFile << "').then(r=>" << NewLine;
+		stream << "fetchBuffer(";
+		if (makeModule == MODULE_TYPE::COMMONJS)
+			stream << "__dirname+'/";
+		else
+			stream << "'";
+		stream << wasmFile << "').then(r=>" << NewLine;
 		stream << "WebAssembly.instantiate(r,importObject)" << NewLine;
 		stream << ",console.log).then(r=>{" << NewLine;
 		stream << "var instance=r.instance;" << NewLine;
