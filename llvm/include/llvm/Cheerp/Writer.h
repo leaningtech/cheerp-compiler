@@ -152,6 +152,7 @@ public:
 	enum PARENT_PRIORITY { LOWEST = 0, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
 private:
 	enum HEAP_TYPE {HEAP8=0, HEAP16, HEAP32, HEAPF32, HEAPF64};
+	enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS };
 
 	llvm::Module& module;
 	llvm::DataLayout targetData;
@@ -183,8 +184,8 @@ private:
 	bool useMathImul;
 	// Flag to signal if we should take advantage of native 32-bit float numbers
 	bool useMathFround;
-	// Flag to signal if we should create a closure to avoid global namespace pollution
-	bool makeModule;
+	// Enum to signal if we should create a module, and which kind
+	MODULE_TYPE makeModule;
 	// Flag to signal if we should add a credit comment line
 	bool addCredits;
 	// Flag to signal if we should add code that measures time until main is reached
@@ -492,7 +493,7 @@ public:
 			SourceMapGenerator* sourceMapGenerator,
 			const std::vector<std::string>& reservedNames,
 			bool readableOutput,
-			bool makeModule,
+			llvm::StringRef makeModule,
 			bool noRegisterize,
 			bool useNativeJavaScriptMath,
 			bool useMathImul,
@@ -523,7 +524,9 @@ public:
 		useNativeJavaScriptMath(useNativeJavaScriptMath),
 		useMathImul(useMathImul),
 		useMathFround(useMathFround),
-		makeModule(makeModule),
+		makeModule(makeModule==llvm::StringRef("closure")?
+			MODULE_TYPE::CLOSURE : (makeModule==llvm::StringRef("commonjs")?
+			MODULE_TYPE::COMMONJS : MODULE_TYPE::NONE)),
 		addCredits(addCredits),
 		measureTimeToMain(measureTimeToMain),
 		heapSize(heapSize),
