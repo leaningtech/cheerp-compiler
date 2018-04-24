@@ -5006,7 +5006,7 @@ void CheerpWriter::makeJS()
 		}
 	}
 
-	if (makeModule)
+	if (makeModule==MODULE_TYPE::CLOSURE)
 		stream << "(function(){" << NewLine;
 
 	// Enable strict mode first
@@ -5248,7 +5248,7 @@ void CheerpWriter::makeJS()
 	if (!wasmFile.empty() || (globalDeps.needAsmJS() && asmJSMem))
 		stream << "},console.log).catch(console.log);" << NewLine;
 
-	if (makeModule) {
+	if (makeModule==MODULE_TYPE::CLOSURE) {
 		if (!exportedClassNames.empty()) {
 			// The following JavaScript code originates from:
 			// https://github.com/jashkenas/underscore/blob/master/underscore.js
@@ -5272,6 +5272,16 @@ void CheerpWriter::makeJS()
 		}
 
 		stream << "})();" << NewLine;
+	} else if (makeModule==MODULE_TYPE::COMMONJS) {
+		for (StringRef &className : exportedClassNames)
+		{
+			// Genericjs and asmjs should export a promise property as well.
+			// It will resolve immediately since there is no asynchronous
+			// module compilation required.
+			if (wasmFile.empty())
+				stream << className << ".promise=Promise.resolve();";
+			stream << "exports." << className << " = " << className << ";" << NewLine;
+		}
 	}
 
 	if (measureTimeToMain)

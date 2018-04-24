@@ -15,11 +15,11 @@ llvm::cl::opt<std::string> SourceMap("cheerp-sourcemap", llvm::cl::Optional,
 llvm::cl::opt<std::string> SourceMapPrefix("cheerp-sourcemap-prefix", llvm::cl::Optional,
   llvm::cl::desc("If specified, this prefix will be removed from source map file paths"), llvm::cl::value_desc("path"));
 
+llvm::cl::opt<std::string> MakeModule("cheerp-make-module", llvm::cl::Optional, llvm::cl::desc("Create a [closure/commonjs] module around the generated code.") );
+
 llvm::cl::opt<bool> PrettyCode("cheerp-pretty-code", llvm::cl::desc("Generate human-readable JS") );
 
 llvm::cl::opt<bool> SymbolicGlobalsAsmJS("cheerp-asmjs-symbolic-globals", llvm::cl::desc("Compile global variables addresses as js variables in the asm.js module") );
-
-llvm::cl::opt<bool> MakeModule("cheerp-make-module", llvm::cl::desc("Create a closure around JS to avoid global namespace pollution") );
 
 llvm::cl::opt<bool> NoRegisterize("cheerp-no-registerize", llvm::cl::desc("Disable registerize pass") );
 
