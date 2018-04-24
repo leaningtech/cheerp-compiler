@@ -462,6 +462,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
                                           const InputInfoList &Inputs,
                                           const ArgList &Args,
                                           const char *LinkingOutput) const {
+  const Driver &D = getToolChain().getDriver();
   ArgStringList CmdArgs;
 
   Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ);
@@ -489,6 +490,18 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(wasmFile));
     cheerpWasmLoader->render(Args, CmdArgs);
   }
+  if(Args.getLastArg(options::OPT_cheerp_make_module)) {
+    CmdArgs.push_back("-cheerp-make-module=closure");
+  }
+  if(Arg* cheerpMakeModuleEq = Args.getLastArg(options::OPT_cheerp_make_module_EQ)) {
+    if (cheerpMakeModuleEq->getValue() != StringRef("closure") &&
+        cheerpMakeModuleEq->getValue() != StringRef("commonjs")) {
+      D.Diag(diag::err_drv_invalid_value)
+      << cheerpMakeModuleEq->getAsString(Args) << cheerpMakeModuleEq->getValue();
+    }
+    cheerpMakeModuleEq->render(Args, CmdArgs);
+  }
+
   if(Arg* cheerpAsmJSMemFile = Args.getLastArg(options::OPT_cheerp_asmjs_mem_file_EQ))
     cheerpAsmJSMemFile->render(Args, CmdArgs);
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
@@ -499,8 +512,6 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpPrettyCode->render(Args, CmdArgs);
   if(Arg* cheerpAsmJSSymbolicGlobals = Args.getLastArg(options::OPT_cheerp_asmjs_symbolic_globals))
     cheerpAsmJSSymbolicGlobals->render(Args, CmdArgs);
-  if(Arg* cheerpMakeModule = Args.getLastArg(options::OPT_cheerp_make_module))
-    cheerpMakeModule->render(Args, CmdArgs);
   if(Arg* cheerpNoNativeMath = Args.getLastArg(options::OPT_cheerp_no_native_math))
     cheerpNoNativeMath->render(Args, CmdArgs);
   if(Arg* cheerpNoMathImul = Args.getLastArg(options::OPT_cheerp_no_math_imul))
