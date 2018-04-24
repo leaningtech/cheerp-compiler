@@ -97,7 +97,13 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			return true;
 
 		if(PA.getPointerKind(&I) == RAW)
+		{
+			// Geps with constant indices can be compactly encoded.
+			auto& gep = cast<GetElementPtrInst>(I);
+			if (gep.hasAllConstantIndices())
+				return true;
 			return !hasMoreThan1Use;
+		}
 
 		if (PA.getPointerKind(&I) == COMPLETE_OBJECT) {
 			auto type = cast<GetElementPtrInst>(I).getType()->getElementType();
