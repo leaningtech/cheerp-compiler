@@ -5196,8 +5196,15 @@ void CheerpWriter::makeJS()
 			stream << NameGenerator::filterLLVMName(imported->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << ':' << name  << ',' << NewLine;
 		}
 		stream << "}};" << NewLine;
-		for (StringRef &className : exportedClassNames)
-			stream << className << ".promise=" << NewLine;
+		if (makeModule == MODULE_TYPE::COMMONJS)
+		{
+			stream << "module.exports=";
+		}
+		else
+		{
+			for (StringRef &className : exportedClassNames)
+				stream << className << ".promise=" << NewLine;
+		}
 		stream << "fetchBuffer('" << wasmFile << "').then(r=>" << NewLine;
 		stream << "WebAssembly.instantiate(r,importObject)" << NewLine;
 		stream << ",console.log).then(r=>{" << NewLine;
@@ -5207,19 +5214,24 @@ void CheerpWriter::makeJS()
 		stream << "__asm=instance.exports;" << NewLine;
 	}
 	//Load asm.js module
-	else if (globalDeps.needAsmJS())
+	else if (globalDeps.needAsmJS() && asmJSMem)
 	{
-		if (asmJSMem)
+		stream << "var __asm=null;" << NewLine;
+		if (makeModule == MODULE_TYPE::COMMONJS)
 		{
-			stream << "var __asm=null;" << NewLine;
-			stream << "fetchBuffer('" << asmJSMemFile << "').then(r=>{" << NewLine;
-			stream << heapNames[HEAP8] << ".set(new Uint8Array(r),0);" << NewLine;
+			stream << "module.exports=";
 		}
-		else
-		{
-			stream << "var ";
-		}
+		stream << "fetchBuffer('" << asmJSMemFile << "').then(r=>{" << NewLine;
+		stream << heapNames[HEAP8] << ".set(new Uint8Array(r),0);" << NewLine;
 		stream << "__asm=asmJS(stdlib, ffi, heap);" << NewLine;
+	}
+	else
+	{
+		if (globalDeps.needAsmJS())
+			stream << "var __asm=asmJS(stdlib, ffi, heap);" << NewLine;
+
+		if (makeModule == MODULE_TYPE::COMMONJS)
+			stream << "module.exports=Promise.resolve().then(_=>{" << NewLine;
 	}
 
 	//Call constructors
@@ -5245,8 +5257,21 @@ void CheerpWriter::makeJS()
 			stream << "__asm.";
 		stream << namegen.getName(entryPoint) << "();" << NewLine;
 	}
+	if (makeModule == MODULE_TYPE::COMMONJS)
+	{
+		stream << "return{" << NewLine;
+		for (StringRef &className : exportedClassNames)
+			stream << className << ":" << className << ',' << NewLine;
+		stream << "};" << NewLine;
+	}
 	if (!wasmFile.empty() || (globalDeps.needAsmJS() && asmJSMem))
+	{
 		stream << "},console.log).catch(console.log);" << NewLine;
+	}
+	else if (makeModule == MODULE_TYPE::COMMONJS)
+	{
+		stream << "});" << NewLine;
+	}
 
 	if (makeModule==MODULE_TYPE::CLOSURE) {
 		if (!exportedClassNames.empty()) {
@@ -5272,16 +5297,6 @@ void CheerpWriter::makeJS()
 		}
 
 		stream << "})();" << NewLine;
-	} else if (makeModule==MODULE_TYPE::COMMONJS) {
-		for (StringRef &className : exportedClassNames)
-		{
-			// Genericjs and asmjs should export a promise property as well.
-			// It will resolve immediately since there is no asynchronous
-			// module compilation required.
-			if (wasmFile.empty())
-				stream << className << ".promise=Promise.resolve();";
-			stream << "exports." << className << " = " << className << ";" << NewLine;
-		}
 	}
 
 	if (measureTimeToMain)
