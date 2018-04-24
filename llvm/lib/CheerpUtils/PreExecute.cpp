@@ -393,8 +393,6 @@ static GenericValue pre_execute_downcast(FunctionType *FT,
     uint32_t curIndex = 0;
     ret = get_subobject_byte_offset(derivedType, baseIndex, curIndex, byteOffset);
     assert(ret);
-    Module* currentModule = PreExecute::currentPreExecutePass->currentModule;
-    auto DL = currentModule->getDataLayout();
     return currentEE->RPTOGV(derivedAddr + byteOffset);
 }
 
