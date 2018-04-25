@@ -1130,7 +1130,9 @@ static bool eliminateNoopStore(Instruction *Inst, BasicBlock::iterator &BBI,
 
   // Remove null stores into the calloc'ed objects
   Constant *StoredConstant = dyn_cast<Constant>(SI->getValueOperand());
-  if (StoredConstant && StoredConstant->isNullValue() && isRemovable(SI)) {
+  // Cheerp: Do not eliminate null floating point stores, the memory is initialized with -0 actually
+  if (StoredConstant && StoredConstant->isNullValue() && isRemovable(SI) &&
+       (!StoredConstant->getType()->isFloatingPointTy() || DL.isByteAddressable())) {
     Instruction *UnderlyingPointer =
         dyn_cast<Instruction>(getUnderlyingObject(SI->getPointerOperand()));
 
