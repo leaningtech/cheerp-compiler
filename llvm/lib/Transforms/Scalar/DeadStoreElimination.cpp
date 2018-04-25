@@ -1870,7 +1870,8 @@ struct DSEState {
     if (!isRemovable(DefI))
       return false;
 
-    if (StoredConstant) {
+    if (StoredConstant &&
+        (!StoredConstant->getType()->isFloatingPointTy() || DL.isByteAddressable())) {
       Constant *InitC =
           getInitialValueOfAllocation(DefUO, &TLI, StoredConstant->getType());
       // If the clobbering access is LiveOnEntry, no instructions between them
