@@ -1788,7 +1788,8 @@ struct DSEState {
     if (!isRemovable(DefI))
       return false;
 
-    if (StoredConstant && isAllocationFn(DefUO, &TLI)) {
+    if (StoredConstant && isAllocationFn(DefUO, &TLI) &&
+        (!StoredConstant->getType()->isFloatingPointTy() || DL.isByteAddressable())) {
       auto *CB = cast<CallBase>(DefUO);
       auto *InitC = getInitialValueOfAllocation(CB, &TLI,
                                                 StoredConstant->getType());
