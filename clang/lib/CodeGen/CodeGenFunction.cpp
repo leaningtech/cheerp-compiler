@@ -1171,21 +1171,25 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 
   EmitFunctionProlog(*CurFnInfo, CurFn, Args);
 
-  if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
-    CGM.getCXXABI().EmitInstanceFunctionProlog(*this);
-    const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
-
+  if (!CGM.getTarget().isByteAddressable() && D && isa<CXXMethodDecl>(D)) {
     //Cheerp: Emit metadata to know about member methods in the backend
-    if (!CGM.getTarget().isByteAddressable() && MD->getParent()->hasAttr<JsExportAttr>() &&
+    const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
+    if (MD->getParent()->hasAttr<JsExportAttr>() &&
         (!CXXConstructorDecl::classof(GD.getDecl()) || GD.getCtorType()==Ctor_Complete))
     {
       llvm::StructType *classType = cast<llvm::StructType>(ConvertType(MD->getParent()));
       llvm::NamedMDNode* namedNode = CGM.getModule().getOrInsertNamedMetadata(Twine(classType->getName(),"_methods").str());
-      llvm::SmallVector<llvm::Metadata*,1> values;
+      llvm::SmallVector<llvm::Metadata*,2> values;
       values.push_back(llvm::ConstantAsMetadata::get(CurFn));
+      values.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, MD->isStatic())));
       llvm::MDNode* node = llvm::MDNode::get(getLLVMContext(),values);
       namedNode->addOperand(node);
     }
+  }
+
+  if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
+    CGM.getCXXABI().EmitInstanceFunctionProlog(*this);
+    const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
 
     if (MD->getParent()->isLambda() &&
         MD->getOverloadedOperator() == OO_Call) {
