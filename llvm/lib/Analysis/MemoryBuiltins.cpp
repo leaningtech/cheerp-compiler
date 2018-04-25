@@ -141,8 +141,12 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
                              const TargetLibraryInfo *TLI) {
 
   if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate ||
-      Callee->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
-    return &AllocationFnData[0];
+      Callee->getIntrinsicID() == Intrinsic::cheerp_allocate_array) {
+      const AllocFnsTy *FnData = &AllocationFnData[0];
+      if ((FnData->AllocTy & AllocTy) != FnData->AllocTy)
+        return None;
+      return FnData;
+  }
 
   // Make sure that the function is available.
   StringRef FnName = Callee->getName();
