@@ -1815,7 +1815,8 @@ struct DSEState {
     if (MemSet)
       StoredConstant = dyn_cast<Constant>(MemSet->getValue());
 
-    if (StoredConstant && StoredConstant->isNullValue()) {
+    if (StoredConstant && StoredConstant->isNullValue() &&
+        (!StoredConstant->getType()->isFloatingPointTy() || DL.isByteAddressable())) {
       auto *DefUOInst = dyn_cast<Instruction>(DefUO);
       if (DefUOInst) {
         if (isCallocLikeFn(DefUOInst, &TLI)) {
