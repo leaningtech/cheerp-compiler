@@ -304,7 +304,17 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 
 void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName)
 {
-	if(TypeSupport::isSimpleType(t, forceTypedArrays))
+	if(style == LITERAL_OBJ && isa<StructType>(t) && TypeSupport::isJSExportedType(cast<StructType>(t), module))
+	{
+		StringRef mangledName = t->getStructName().drop_front(6);
+		demangler_iterator demangler( mangledName );
+		StringRef jsClassName = *demangler++;
+
+		// Special argument for only allocating the object, without calling the
+		// C++ constructor
+		stream << "new " << jsClassName << "(undefined)";
+	}
+	else if(TypeSupport::isSimpleType(t, forceTypedArrays))
 		compileSimpleType(t);
 	else
 		compileComplexType(t, style, varName, V8MaxLiteralDepth, 0);
