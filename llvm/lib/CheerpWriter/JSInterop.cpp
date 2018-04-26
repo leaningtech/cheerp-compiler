@@ -65,6 +65,12 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 			assert( dmg == demangler_iterator() );
 			return functionName;
 		};
+		auto isStaticMethod = [&](const MDNode * node) -> bool {
+			assert(node->getNumOperands() >= 2);
+			assert( isa<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue()) );
+			bool isStatic = cast<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
+			return isStatic;
+		};
 
 		//TODO many things to check.. For. ex C1/C2/C3, names collisions, template classes!
 		auto isConstructor = [&](const MDNode * node ) -> bool
@@ -123,26 +129,41 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 				continue;
 
 			StringRef methodName = getMethodName(*it);
+			bool isStatic = isStaticMethod(*it);
 
 			const MDNode * node = *it;
 			const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
 
-			stream << jsClassName << ".prototype." << methodName << "=function (";
-			for(uint32_t i=0;i<f->arg_size()-1;i++)
+			stream << jsClassName;
+			if (!isStatic)
+				stream << ".prototype";
+			stream << '.' << methodName << "=function (";
+			uint32_t firstArg = 0;
+			// If the method is not static, the first argument is the implicit `this`
+			if(!isStatic)
+				firstArg++;
+			for(uint32_t i=firstArg;i<f->arg_size();i++)
 			{
-				if(i!=0)
+				if(i!=firstArg)
 					stream << ",";
 				stream << 'a' << i;
 			}
 			stream << "){" << NewLine << "return ";
 			compileOperand(f);
 			stream << '(';
-			if(PA.getPointerKind(f->arg_begin())==COMPLETE_OBJECT)
-				stream << "this";
-			else
-				stream << "{d:this.d,o:0}";
-			for(uint32_t i=0;i<f->arg_size()-1;i++)
-				stream << ",a" << i;
+			if(!isStatic)
+			{
+				if(PA.getPointerKind(f->arg_begin())==COMPLETE_OBJECT)
+					stream << "this";
+				else
+					stream << "{d:this.d,o:0}";
+			}
+			for(uint32_t i=firstArg;i<f->arg_size();i++)
+			{
+				if(i!=0)
+					stream << ",";
+				stream << 'a' << i;
+			}
 			stream << ");" << NewLine << "};" << NewLine;
 
 			assert( globalDeps.isReachable(f) );
