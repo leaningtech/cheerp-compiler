@@ -109,6 +109,12 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		compileType(t, THIS_OBJ);
 		//We need to manually add the self pointer
 		stream << ';' << NewLine << "this.d=[this];" << NewLine;
+
+		// Special argument for only allocating the object, without calling the
+		// C++ constructor
+		stream << "if (arguments.length===1&&arguments[0]===undefined){" << NewLine
+			<< "return;" << NewLine
+			<< "}" << NewLine;
 		compileOperand(f);
 		stream << '(';
 		if(PA.getPointerKind(f->arg_begin())==COMPLETE_OBJECT)
