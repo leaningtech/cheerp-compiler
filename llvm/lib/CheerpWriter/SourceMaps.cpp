@@ -143,6 +143,9 @@ void SourceMapGenerator::finishLine()
 	lastOffset = 0;
 	lineOffset = 0;
 	lineBegin = true;
+	// Repeat the last known debugLoc, if any
+	if(currentDebugLoc)
+		setDebugLoc(currentDebugLoc);
 }
 
 void SourceMapGenerator::endFile()
