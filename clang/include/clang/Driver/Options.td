@@ -4356,6 +4356,8 @@ def cheerp_sourcemap_EQ : Joined<["-"], "cheerp-sourcemap=">, Flags<[DriverOptio
   HelpText<"Write sourcemap to <file>">, MetaVarName<"<file>">;
 def cheerp_sourcemap_prefix_EQ : Joined<["-"], "cheerp-sourcemap-prefix=">, Flags<[DriverOption]>,
   HelpText<"Remove <prefix> from sourcemap paths">, MetaVarName<"<prefix>">;
+def cheerp_sourcemap_standalone : Flag<["-"], "cheerp-sourcemap-standalone">, Flags<[DriverOption]>,
+  HelpText<"Generate a standalone sourcemap by including _all_ sources in the map file">;
 def cheerp_pretty_code : Flag<["-"], "cheerp-pretty-code">, Flags<[DriverOption]>,
   HelpText<"Generate human-readable JS">;
 def cheerp_asmjs_symbolic_globals : Flag<["-"], "cheerp-asmjs-symbolic-globals">, Flags<[DriverOption]>,

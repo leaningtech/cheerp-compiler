@@ -508,6 +508,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpSourceMap->render(Args, CmdArgs);
   if(Arg* cheerpSourceMapPrefix = Args.getLastArg(options::OPT_cheerp_sourcemap_prefix_EQ))
     cheerpSourceMapPrefix->render(Args, CmdArgs);
+  if(Arg* cheerpSourceMapStandAlone = Args.getLastArg(options::OPT_cheerp_sourcemap_standalone))
+    cheerpSourceMapStandAlone->render(Args, CmdArgs);
   if(Arg* cheerpPrettyCode = Args.getLastArg(options::OPT_cheerp_pretty_code))
     cheerpPrettyCode->render(Args, CmdArgs);
   if(Arg* cheerpAsmJSSymbolicGlobals = Args.getLastArg(options::OPT_cheerp_asmjs_symbolic_globals))
