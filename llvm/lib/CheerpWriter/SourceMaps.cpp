@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2015 Leaning Technologies
+// Copyright 2014-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,7 +21,7 @@ namespace cheerp
 
 SourceMapGenerator::SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, llvm::LLVMContext& C, std::error_code& ErrorCode):
 	sourceMap(sourceMapName.c_str(), ErrorCode, sys::fs::F_None), sourceMapName(sourceMapName), sourceMapPrefix(sourceMapPrefix),
-	Ctx(C), lastFile(0), lastLine(0), lastColumn(0), lastOffset(0), lineOffset(0), lastName(0), lineBegin(true)
+	Ctx(C), lastFile(0), lastLine(0), lastColumn(0), lastOffset(0), lineOffset(0), lastName(0), currentDebugLoc(nullptr), lineBegin(true)
 {
 }
 
@@ -66,7 +66,7 @@ void SourceMapGenerator::setFunctionName(const llvm::DISubprogram &method) {
 	}
 
 	uint32_t currentFile = fileMapIt->second;
-	uint32_t currentLine = lineNumber;
+	uint32_t currentLine = lineNumber - 1;
 	uint32_t currentName = functionNameMapIt->second;
 	uint32_t currentColumn = 0;
 
@@ -93,9 +93,12 @@ void SourceMapGenerator::setFunctionName(const llvm::DISubprogram &method) {
 	lastName = currentName;
 }
 
-void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
+void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc* debugLoc)
 {
-	MDNode* file = debugLoc.getScope(Ctx);
+	currentDebugLoc = debugLoc;
+	if(debugLoc == nullptr)
+		return;
+	MDNode* file = debugLoc->getScope();
 	assert(file->getNumOperands()>=2);
 	MDNode* fileNamePath = cast<MDNode>(file->getOperand(1));
 	assert(fileNamePath->getNumOperands()==2);
@@ -105,8 +108,8 @@ void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc& debugLoc)
 	if (fileMapIt == fileMap.end())
 		fileMapIt = fileMap.insert(std::make_pair(fileName, fileMap.size())).first;
 	uint32_t currentFile = fileMapIt->second;
-	uint32_t currentLine = debugLoc.getLine() - 1;
-	uint32_t currentColumn = debugLoc.getCol() - 1;
+	uint32_t currentLine = debugLoc->getLine() - 1;
+	uint32_t currentColumn = debugLoc->getCol() - 1;
 	if(!lineBegin)
 		sourceMap.os() << ',';
 	lineBegin = false;
