@@ -604,7 +604,7 @@ public:
 	/**
 	 * Compile a JS string while escaping special characters
 	 */
-	static void compileEscapedString(llvm::raw_ostream& stream, llvm::StringRef str);
+	static void compileEscapedString(llvm::raw_ostream& stream, llvm::StringRef str, bool forJSON);
 	/**
 	 * Run relooper on a function, this code is here since it is also used by CheerpWastWriter
 	 */
