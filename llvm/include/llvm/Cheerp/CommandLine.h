@@ -20,6 +20,7 @@ extern llvm::cl::opt<std::string> AsmJSMemFile;
 extern llvm::cl::opt<std::string> SourceMap;
 extern llvm::cl::opt<std::string> SourceMapPrefix;
 extern llvm::cl::opt<std::string> MakeModule;
+extern llvm::cl::opt<bool> SourceMapStandAlone;
 extern llvm::cl::opt<bool> PrettyCode;
 extern llvm::cl::opt<bool> SymbolicGlobalsAsmJS;
 extern llvm::cl::opt<bool> NoRegisterize;
