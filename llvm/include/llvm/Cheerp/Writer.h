@@ -102,6 +102,18 @@ public:
 		return os;
 	}
 
+	llvm::raw_ostream & getRawStream() const
+	{
+		return stream;
+	}
+
+	void syncRawStream(uint64_t beginVal)
+	{
+		uint64_t end = stream.tell();
+		if(sourceMapGenerator)
+			sourceMapGenerator->addLineOffset(end-beginVal);
+	}
+
 private:
 
 	// Return true if we are closing a curly bracket, need to unindent by 1.
@@ -589,6 +601,10 @@ public:
 	 * Compile a function for checking if a reference is defined
 	 */
 	void compileCheckDefinedHelper();
+	/**
+	 * Compile a JS string while escaping special characters
+	 */
+	static void compileEscapedString(llvm::raw_ostream& stream, llvm::StringRef str);
 	/**
 	 * Run relooper on a function, this code is here since it is also used by CheerpWastWriter
 	 */
