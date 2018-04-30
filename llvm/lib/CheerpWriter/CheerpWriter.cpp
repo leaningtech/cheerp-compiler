@@ -634,7 +634,7 @@ void CheerpWriter::compileFree(const Value* obj)
 	stream << ')';
 }
 
-void CheerpWriter::compileEscapedString(raw_ostream& stream, StringRef str)
+void CheerpWriter::compileEscapedString(raw_ostream& stream, StringRef str, bool forJSON)
 {
 	for(uint8_t c: str)
 	{
@@ -658,6 +658,12 @@ void CheerpWriter::compileEscapedString(raw_ostream& stream, StringRef str)
 		{
 			// Printable ASCII after we exscluded the previous one
 			stream << c;
+		}
+		else if(forJSON)
+		{
+			char buf[7];
+			snprintf(buf, 7, "\\u%04x", c);
+			stream << buf;
 		}
 		else
 		{
@@ -1243,7 +1249,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << '"';
 			auto& rawStream = stream.getRawStream();
 			uint64_t beginVal = rawStream.tell();
-			compileEscapedString(stream.getRawStream(), str);
+			compileEscapedString(stream.getRawStream(), str, /*forJSON*/false);
 			stream.syncRawStream(beginVal);
 			stream << '"';
 			return COMPILE_OK;
