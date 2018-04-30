@@ -2322,7 +2322,19 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 				if (parentPrio >= TERNARY)
 					stream << '(';
 			}
+			const llvm::DebugLoc* oldLoc = nullptr;
+			if(sourceMapGenerator)
+			{
+				const DebugLoc& debugLoc = it->getDebugLoc();
+				if(debugLoc)
+				{
+					oldLoc = sourceMapGenerator->getDebugLoc();
+					sourceMapGenerator->setDebugLoc(&debugLoc);
+				}
+			}
 			compileInlineableInstruction(*cast<Instruction>(v), myPrio);
+			if(sourceMapGenerator && oldLoc)
+				sourceMapGenerator->setDebugLoc(oldLoc);
 			if(isBooleanObject && !allowBooleanObjects)
 			{
 				stream << "?1:0";
@@ -4091,6 +4103,14 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			continue;
 		if(I->getOpcode()==Instruction::PHI) //Phys are manually handled
 			continue;
+		const DebugLoc& debugLoc = I->getDebugLoc();
+		if(sourceMapGenerator)
+		{
+			if(debugLoc)
+				sourceMapGenerator->setDebugLoc(&debugLoc);
+			else
+				sourceMapGenerator->setDebugLoc(nullptr);
+		}
 		if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&(*I)))
 		{
 			//Skip some kind of intrinsics
@@ -4102,9 +4122,6 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 				continue;
 			}
 		}
-		const DebugLoc& debugLoc = I->getDebugLoc();
-		if(sourceMapGenerator && !debugLoc.isUnknown())
-			sourceMapGenerator->setDebugLoc(I->getDebugLoc());
 		if(!I->use_empty())
 		{
 			if(I->getType()->isPointerTy() && I->getOpcode() != Instruction::Call && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I))
@@ -5002,7 +5019,11 @@ void CheerpWriter::makeJS()
 			StringRef linkName = method.getLinkageName();
 			if (linkName.empty())
 				linkName = method.getName();
-			functionToDebugInfoMap.insert(std::make_pair(linkName, method));
+			auto it = functionToDebugInfoMap.find(linkName);
+			if(it == functionToDebugInfoMap.end())
+				functionToDebugInfoMap.insert(std::make_pair(linkName, method));
+			else if(method.isDefinition() && !it->second.isDefinition())
+				it->second = method;
 		}
 	}
 
