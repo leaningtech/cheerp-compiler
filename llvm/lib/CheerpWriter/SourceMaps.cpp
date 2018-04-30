@@ -201,7 +201,7 @@ void SourceMapGenerator::endFile()
 			continue;
 		}
 		sourceMap.os() << '"';
-		CheerpWriter::compileEscapedString(sourceMap.os(), Buf.get()->getBuffer());
+		CheerpWriter::compileEscapedString(sourceMap.os(), Buf.get()->getBuffer(), /*forJSON*/true);
 		sourceMap.os() << '"';
 	}
 	sourceMap.os() << "],\n";
