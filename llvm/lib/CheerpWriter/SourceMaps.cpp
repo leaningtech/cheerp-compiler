@@ -10,8 +10,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Cheerp/SourceMaps.h"
+#include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 
 using namespace llvm;
@@ -176,6 +179,30 @@ void SourceMapGenerator::endFile()
 			tmp.push_back(c);
 		}
 		sourceMap.os() << '"' << tmp << '"';
+	}
+	sourceMap.os() << "],\n";
+	// Output the contents of source files, if required
+	sourceMap.os() << "\"sourcesContent\": [";
+	for(uint32_t i=0;i<files.size();i++)
+	{
+		if(i!=0)
+			sourceMap.os() << ',';
+		if(files[i][0] != '/')
+		{
+			sourceMap.os() << "null";
+			continue;
+		}
+		llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> Buf = llvm::MemoryBuffer::getFile(files[i], -1, false);
+		std::error_code EC = Buf.getError();
+		if (EC)
+		{
+			sourceMap.os() << "null";
+			llvm::errs() << "warning: Could not open source file " << files[i] << "\n";
+			continue;
+		}
+		sourceMap.os() << '"';
+		CheerpWriter::compileEscapedString(sourceMap.os(), Buf.get()->getBuffer());
+		sourceMap.os() << '"';
 	}
 	sourceMap.os() << "],\n";
 	// Output the symbol names

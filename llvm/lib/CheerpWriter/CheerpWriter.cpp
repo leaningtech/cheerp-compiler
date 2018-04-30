@@ -634,6 +634,40 @@ void CheerpWriter::compileFree(const Value* obj)
 	stream << ')';
 }
 
+void CheerpWriter::compileEscapedString(raw_ostream& stream, StringRef str)
+{
+	for(uint8_t c: str)
+	{
+		if(c=='\b')
+			stream << "\\b";
+		else if(c=='\f')
+			stream << "\\f";
+		else if(c=='\n')
+			stream << "\\n";
+		else if(c=='\r')
+			stream << "\\r";
+		else if(c=='\t')
+			stream << "\\t";
+		else if(c=='\v')
+			stream << "\\v";
+		else if(c=='"')
+			stream << "\\\"";
+		else if(c=='\\')
+			stream << "\\\\";
+		else if(c>=' ' && c<='~')
+		{
+			// Printable ASCII after we exscluded the previous one
+			stream << c;
+		}
+		else
+		{
+			char buf[5];
+			snprintf(buf, 5, "\\x%02x", c);
+			stream << buf;
+		}
+	}
+}
+
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(ImmutableCallSite callV, const Function * func)
 {
 	assert( callV.isCall() || callV.isInvoke() );
@@ -1207,38 +1241,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		if(llvm::getConstantStringInfo(*it, str))
 		{
 			stream << '"';
-			for(uint8_t c: str)
-			{
-				if(c=='\b')
-					stream << "\\b";
-				else if(c=='\f')
-					stream << "\\f";
-				else if(c=='\n')
-					stream << "\\n";
-				else if(c=='\r')
-					stream << "\\r";
-				else if(c=='\t')
-					stream << "\\t";
-				else if(c=='\v')
-					stream << "\\v";
-				else if(c=='\'')
-					stream << "\\'";
-				else if(c=='"')
-					stream << "\\\"";
-				else if(c=='\\')
-					stream << "\\\\";
-				else if(c>=' ' && c<='~')
-				{
-					// Printable ASCII after we exscluded the previous one
-					stream << c;
-				}
-				else
-				{
-					char buf[5];
-					snprintf(buf, 5, "\\x%02x", c);
-					stream << buf;
-				}
-			}
+			auto& rawStream = stream.getRawStream();
+			uint64_t beginVal = rawStream.tell();
+			compileEscapedString(stream.getRawStream(), str);
+			stream.syncRawStream(beginVal);
 			stream << '"';
 			return COMPILE_OK;
 		}
