@@ -37,11 +37,12 @@ private:
 	uint32_t lineOffset;
 	uint32_t lastName;
 	const llvm::DebugLoc* currentDebugLoc;
+	bool standAlone;
 	bool lineBegin;
 	void writeBase64VLQInt(int32_t i);
 public:
 	// sourceMapName and sourceMapPrefix life spans should be longer than the one of the SourceMapGenerator
-	SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, llvm::LLVMContext& C, std::error_code& ErrorCode);
+	SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, bool standAlone, llvm::LLVMContext& C, std::error_code& ErrorCode);
 	void setFunctionName(const llvm::DISubprogram &method);
 	void setDebugLoc(const llvm::DebugLoc* debugLoc);
 	const llvm::DebugLoc* getDebugLoc() const
