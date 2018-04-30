@@ -102,6 +102,8 @@ public:
 		return os;
 	}
 
+	// Get the underlying stream, keep in mind that if you write to it then you need to manually synchronize the state with the
+	// the 'syncRawStream' method to avoid breaking sourcemaps.
 	llvm::raw_ostream & getRawStream() const
 	{
 		return stream;
