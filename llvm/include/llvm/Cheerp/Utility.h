@@ -27,6 +27,9 @@
 namespace cheerp
 {
 
+const static int V8MaxLiteralDepth = 3;
+const static int V8MaxLiteralProperties = 8;
+
 bool isNopCast(const llvm::Value* val);
 bool isValidVoidPtrSource(const llvm::Value* val, std::set<const llvm::PHINode*>& visitedPhis);
 
