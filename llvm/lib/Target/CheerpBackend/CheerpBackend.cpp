@@ -60,6 +60,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
+  cheerp::AllocaStoresExtractor &allocaStoresExtractor = getAnalysis<cheerp::AllocaStoresExtractor>();
   cheerp::LinearMemoryHelper linearHelper(M, cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS, GDA);
   std::unique_ptr<cheerp::SourceMapGenerator> sourceMapGenerator;
   GDA.forceTypedArrays = ForceTypedArrays;
@@ -76,6 +77,8 @@ bool CheerpWritePass::runOnModule(Module& M)
   }
   PA.fullResolve();
   PA.computeConstantOffsets(M);
+  // Destroy the stores here, we need them to properly compute the pointer kinds, but we want to optimize them away before registerize
+  allocaStoresExtractor.destroyStores();
   registerize.assignRegisters(M, PA);
   // Build the ordered list of reserved names
   std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
@@ -90,7 +93,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   }
 
   cheerp::NameGenerator namegen(M, GDA, registerize, PA, reservedNames, PrettyCode);
-  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, namegen, memOut.get(), AsmJSMemFile,
+  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut.get(), AsmJSMemFile,
           sourceMapGenerator.get(), reservedNames, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
           BoundsCheck, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
@@ -114,6 +117,7 @@ void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
   AU.addRequired<cheerp::GlobalDepsAnalyzer>();
   AU.addRequired<cheerp::PointerAnalyzer>();
   AU.addRequired<cheerp::Registerize>();
+  AU.addRequired<cheerp::AllocaStoresExtractor>();
 }
 
 char CheerpWritePass::ID = 0;
@@ -147,6 +151,8 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(cheerp::createAllocaArraysMergingPass());
   PM.add(createDelayAllocasPass());
   PM.add(createRemoveFwdBlocksPass());
+  // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
+  PM.add(cheerp::createAllocaStoresExtractor());
   PM.add(new CheerpWritePass(o));
   return false;
 }

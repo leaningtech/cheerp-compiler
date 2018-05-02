@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2015 Leaning Technologies
+// Copyright 2014-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,6 +17,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Pass.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include <list>
 
 namespace cheerp {
@@ -64,6 +65,35 @@ public:
 //
 llvm::FunctionPass *createAllocaMergingPass();
 llvm::FunctionPass *createAllocaArraysMergingPass();
+
+// NOTE: This is a ModulePass only to make LLVM happy, it actually only work at the block level
+class AllocaStoresExtractor: public llvm::ModulePass
+{
+public:
+	typedef std::unordered_map<uint32_t, llvm::Value*> OffsetToValueMap;
+private:
+	const llvm::DataLayout* DL;
+	const llvm::TargetLibraryInfo* TLI;
+	std::unordered_map<const llvm::AllocaInst*, OffsetToValueMap> allocaStores;
+	std::vector<llvm::Instruction*> instsToRemove;
+	bool runOnBasicBlock(llvm::BasicBlock &BB, const llvm::Module& module);
+	static bool validType(llvm::Type* t, const llvm::Module& module);
+public:
+	static char ID;
+	explicit AllocaStoresExtractor() : llvm::ModulePass(ID), DL(nullptr), TLI(nullptr) { }
+	bool runOnModule(llvm::Module& M);
+	const char *getPassName() const;
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
+	const OffsetToValueMap* getValuesForAlloca(const llvm::AllocaInst* AI) const;
+	// Removes the extracted stores, and clean up instructions which become dead afterwards
+	void destroyStores();
+};
+
+//===----------------------------------------------------------------------===//
+//
+// AllocaStoresExtractor - This pass removes stores to just allocated memory and keeps track of the values separately
+//
+llvm::ModulePass* createAllocaStoresExtractor();
 }
 
 #endif //_CHEERP_ALLOCA_MERGING_H

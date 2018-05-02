@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2015 Leaning Technologies
+// Copyright 2014-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,6 +19,8 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 using namespace llvm;
 
@@ -402,6 +404,290 @@ char AllocaArraysMerging::ID = 0;
 
 FunctionPass *createAllocaArraysMergingPass() { return new AllocaArraysMerging(); }
 
+bool AllocaStoresExtractor::validType(llvm::Type* t, const Module& module)
+{
+	if(TypeSupport::hasByteLayout(t))
+		return false;
+	StructType* ST = dyn_cast<StructType>(t);
+	if(ST)
+	{
+		if(ST->getNumElements() > V8MaxLiteralProperties)
+			return false;
+		if(TypeSupport::isJSExportedType(ST, module))
+			return false;
+	}
+	ArrayType* AT = dyn_cast<ArrayType>(t);
+	if(!AT)
+		return true;
+	// NOTE: This is slightly conservative, we assume double typed arrays are always used
+	if(TypeSupport::isTypedArrayType(AT->getElementType(), /*forceTypedArray*/true))
+		return false;
+	if(AT->getNumElements() > V8MaxLiteralProperties)
+		return false;
+	return true;
+}
+
+bool AllocaStoresExtractor::runOnBasicBlock(BasicBlock& BB, const Module& module)
+{
+	if(!DL)
+	{
+		DL = &module.getDataLayout();
+		assert(DL);
+		auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
+		TLI = TLIP ? &TLIP->getTLI() : nullptr;
+		assert(TLI);
+	}
+	// Map between insts and the underlying allocas/offsets in bytes
+	// NOTE: A negative offset encodes that we can't analyze across this inst, but we still need to account for it to check for escapes
+	std::unordered_map<llvm::Instruction*, std::pair<llvm::AllocaInst*, int32_t>> instsToAlloca;
+	std::unordered_set<llvm::AllocaInst*> notEscapedAllocas;
+	// NOTE: Until the alloca escapes it is actually safe to analyze even across side effects
+	//       Even arbitrary code cannot touch an alloca with an unknown address
+	for(Instruction& I: BB)
+	{
+		if(AllocaInst* AI = dyn_cast<AllocaInst>(&I))
+		{
+			if(AI->isArrayAllocation())
+				continue;
+			// Only handle types which use the literal representation
+			if(!validType(AI->getAllocatedType(), module))
+				continue;
+			// Put in the same map as GEPs/bitcast to simpify lookups
+			instsToAlloca.insert(std::make_pair(AI, std::make_pair(AI, 0)));
+			notEscapedAllocas.insert(AI);
+			continue;
+		}
+		else if(GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(&I))
+		{
+			// Check if the GEP references directly or indirectly an alloca
+			Instruction* opI = dyn_cast<Instruction>(GEP->getOperand(0));
+			if(!opI)
+				continue;
+			auto it = instsToAlloca.find(opI);
+			if(it == instsToAlloca.end())
+			{
+				// Nope, nothing to do with this GEP
+				continue;
+			}
+			// If the operand is already invalid, this GEP also is
+			if(it->second.second < 0)
+			{
+				instsToAlloca.insert(std::make_pair(GEP, it->second));
+				continue;
+			}
+			// Manually traverse the GEP, while
+			// 1) Checking that all the offsets are constants
+			// 2) Accumulating the total offset
+			// 3) Verying that we don't cross a big structs, those are not trackable
+			int32_t totalOffset = 0;
+			Type* curType = opI->getType();
+			for(unsigned i=1;i<GEP->getNumOperands();i++)
+			{
+				Value* op = GEP->getOperand(i);
+				ConstantInt* CI = dyn_cast<ConstantInt>(op);
+				if(!CI)
+				{
+					totalOffset = -1;
+					break;
+				}
+				int32_t index = CI->getSExtValue();
+				if(index < 0)
+				{
+					totalOffset = -1;
+					break;
+				}
+
+				// Only handle types which use the literal representation
+				if(!validType(curType, module))
+				{
+					totalOffset = -1;
+					break;
+				}
+				if(StructType* ST = dyn_cast<StructType>(curType))
+				{
+					const StructLayout* SL = DL->getStructLayout( ST );
+					totalOffset += SL->getElementOffset(index);
+					curType = ST->getElementType(index);
+				}
+				else
+				{
+					uint32_t elementSize = DL->getTypeAllocSize(curType->getSequentialElementType());
+					totalOffset += elementSize * index;
+					curType = curType->getSequentialElementType();
+				}
+			}
+			// If totalOffset is negative we can't analyze across this GEP, but we still need to check for memory escaping it
+			if(totalOffset >= 0)
+			{
+				totalOffset += it->second.second;
+			}
+			instsToAlloca.insert(std::make_pair(GEP, std::make_pair(it->second.first, totalOffset)));
+			continue;
+		}
+		else if(BitCastInst* BI = dyn_cast<BitCastInst>(&I))
+		{
+			// Only allow type safe bitcasts, namely the ones that cast to a direct base
+			Instruction* opI = dyn_cast<Instruction>(BI->getOperand(0));
+			if(!opI)
+				continue;
+			auto it = instsToAlloca.find(opI);
+			if(it == instsToAlloca.end())
+			{
+				// Nope, nothing to do
+				continue;
+			}
+			// If the operand is already invalid, the bitcast also is
+			if(it->second.second < 0)
+			{
+				instsToAlloca.insert(std::make_pair(BI, it->second));
+				continue;
+			}
+			StructType* srcType = dyn_cast<StructType>(opI->getType());
+			StructType* dstType = dyn_cast<StructType>(BI->getType());
+			// If either are not structs fall to escaping logic
+			if(srcType && dstType)
+			{
+				bool isDirectBase = false;
+				while(StructType* directBase = srcType->getDirectBase())
+				{
+					if(directBase == dstType)
+					{
+						isDirectBase = true;
+						break;
+					}
+					srcType = directBase;
+				}
+				if(isDirectBase)
+				{
+					instsToAlloca.insert(std::make_pair(BI, it->second));
+					continue;
+				}
+				// Not a direct base cast, fall to escaping logic
+			}
+		}
+		else if(StoreInst* SI = dyn_cast<StoreInst>(&I))
+		{
+			// If we are storing to a tracked pointer we can remove this store
+			// Otherwise we fall through below to the escaping logic
+			Instruction* opI = dyn_cast<Instruction>(SI->getPointerOperand());
+			if(opI)
+			{
+				auto it = instsToAlloca.find(opI);
+				if(it != instsToAlloca.end())
+				{
+					// TODO: Improve logic to handle non-constants, we could also allow insts defined above the alloca
+					if(it->second.second < 0 || !isa<Constant>(SI->getValueOperand()))
+					{
+						// This offset/value is not trackable, but it is also not an escape
+						// use 'continue' to avoid falling in the escaping logic
+						continue;
+					}
+					// We can only handle floating point values with a fractional part, otherwise we will confuse the type system
+					if(ConstantFP* fp = dyn_cast<ConstantFP>(SI->getValueOperand()))
+					{
+						if(fp->getValueAPF().isInteger())
+						{
+							continue;
+						}
+					}
+					OffsetToValueMap& map = allocaStores[it->second.first];
+					// NOTE: We use the [] operator here, and we might override a previous store.
+					// This is fine as we don't handle Loads in this pass, the first load will cause the alloca to escape
+					// If this change we need to be more careful here!
+					map[it->second.second] = SI->getValueOperand();
+					instsToRemove.push_back(SI);
+					continue;
+				}
+			}
+		}
+		// If any of the tracked values are used by not handled instructions, the corresponding alloca escapes
+		for(Value* op: I.operands())
+		{
+			Instruction* opI = dyn_cast<Instruction>(op);
+			if(!opI)
+				continue;
+			auto it = instsToAlloca.find(opI);
+			if(it == instsToAlloca.end())
+				continue;
+			AllocaInst* escapingAlloca = it->second.first;
+			bool erased = notEscapedAllocas.erase(escapingAlloca);
+			(void)erased;
+			assert(erased);
+			// TODO: Maybe add another structure to speed this up
+			it = instsToAlloca.begin();
+			auto itE = instsToAlloca.end();
+			while(it != itE)
+			{
+				auto prevIt = it;
+				++it;
+				if(prevIt->second.first == escapingAlloca)
+					instsToAlloca.erase(prevIt);
+			}
+		}
+	}
+	return false;
+}
+
+void AllocaStoresExtractor::destroyStores()
+{
+	std::set<BasicBlock*> modifiedBlocks;
+	// Erase all queued instructions
+	for(Instruction* I: instsToRemove)
+	{
+		modifiedBlocks.insert(I->getParent());
+		I->eraseFromParent();
+	}
+	// Go over insts in the blocks backward to remove all insts without uses
+	for(BasicBlock* BB: modifiedBlocks)
+	{
+		auto it = BB->end();
+		--it;
+		do
+		{
+			Instruction* I = &(*it);
+			--it;
+			if(isInstructionTriviallyDead(I, TLI))
+				I->eraseFromParent();
+		}
+		while(it != BB->begin());
+	}
+}
+
+bool AllocaStoresExtractor::runOnModule(Module& M)
+{
+	bool Changed = false;
+	for(Function& F: M)
+	{
+		for(BasicBlock& BB: F)
+			Changed |= runOnBasicBlock(BB, M);
+	}
+	return Changed;
+}
+
+const AllocaStoresExtractor::OffsetToValueMap* AllocaStoresExtractor::getValuesForAlloca(const llvm::AllocaInst* AI) const
+{
+	auto it = allocaStores.find(AI);
+	if(it == allocaStores.end())
+		return nullptr;
+	else
+		return &it->second;
+}
+
+const char *AllocaStoresExtractor::getPassName() const {
+	return "AllocaStoresExtractor";
+}
+
+void AllocaStoresExtractor::getAnalysisUsage(AnalysisUsage & AU) const
+{
+	AU.addPreserved<cheerp::PointerAnalyzer>();
+	AU.addPreserved<cheerp::Registerize>();
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	llvm::ModulePass::getAnalysisUsage(AU);
+}
+
+char AllocaStoresExtractor::ID = 0;
+
+ModulePass *createAllocaStoresExtractor() { return new AllocaStoresExtractor(); }
 }
 
 using namespace cheerp;
@@ -409,5 +695,9 @@ using namespace cheerp;
 INITIALIZE_PASS_BEGIN(AllocaMerging, "AllocaMerging", "Merge alloca instructions used on non-overlapping ranges",
 			false, false)
 INITIALIZE_PASS_END(AllocaMerging, "AllocaMerging", "Merge alloca instructions used on non-overlapping ranges",
+			false, false)
+INITIALIZE_PASS_BEGIN(AllocaStoresExtractor, "AllocaStoresExtractor", "Removes stores to just allocated memory and keeps track of the values separately",
+			false, false)
+INITIALIZE_PASS_END(AllocaStoresExtractor, "AllocaStoresExtractor", "Removes stores to just allocated memory and keeps track of the values separately",
 			false, false)
 

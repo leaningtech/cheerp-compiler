@@ -811,6 +811,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeExpandStructRegsPass(Registry);
 	initializeFreeAndDeleteRemovalPass(Registry);
 	initializeGEPOptimizerPass(Registry);
+	initializeAllocaStoresExtractorPass(Registry);
 }
 
 }
