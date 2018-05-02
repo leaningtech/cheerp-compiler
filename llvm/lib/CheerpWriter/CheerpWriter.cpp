@@ -2797,6 +2797,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		case Instruction::Alloca:
 		{
 			const AllocaInst* ai = cast<AllocaInst>(&I);
+			const auto* allocaStores = allocaStoresExtractor.getValuesForAlloca(ai);
 			POINTER_KIND k = PA.getPointerKind(ai);
 			assert(k != RAW && "Allocas to RAW pointers are removed in the AllocaLowering pass");
 
@@ -2810,7 +2811,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			if(k == REGULAR)
 			{
 				stream << "{d:[";
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
 				stream << "],o:0}";
 			}
 			else if(k == SPLIT_REGULAR)
@@ -2819,17 +2820,18 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				stream << ';' << NewLine;
 				stream << namegen.getName(ai) << '=';
 				stream << '[';
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
 				stream << ']';
 			}
 			else if(k == BYTE_LAYOUT)
 			{
+				assert(!allocaStores);
 				stream << "{d:";
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
 				stream << ",o:0}";
 			}
 			else 
-				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName);
+				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
 
 			return COMPILE_OK;
 		}
