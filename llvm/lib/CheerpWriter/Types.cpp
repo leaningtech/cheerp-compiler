@@ -35,7 +35,7 @@ void CheerpWriter::compileTypedArrayType(Type* t)
 	}
 }
 
-void CheerpWriter::compileSimpleType(Type* t)
+void CheerpWriter::compileSimpleType(Type* t, llvm::Value* init)
 {
 	assert(TypeSupport::isSimpleType(t, forceTypedArrays));
 	switch(t->getTypeID())
@@ -44,34 +44,57 @@ void CheerpWriter::compileSimpleType(Type* t)
 		{
 			//We only really have 32bit integers.
 			//We will allow anything shorter.
-			//Print out a '0' to let the engine know this is an integer.
-			stream << '0';
+			if(init)
+				compileOperand(init);
+			else
+			{
+				//Print out a '0' to let the engine know this is an integer.
+				stream << '0';
+			}
 			break;
 		}
 		case Type::FloatTyID:
 		{
 			if(useMathFround)
 			{
-				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << "(0.)";
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << "(";
+				if(init)
+					compileOperand(init);
+				else
+					stream << "0.";
+				stream << ")";
 				break;
 			}
 		}
 		case Type::DoubleTyID:
 		{
-			// NOTE: V8 requires the `.` to identify it as a double in asm.js
-			stream << "-0.";
+			if(init)
+				compileOperand(init);
+			else
+			{
+				// NOTE: V8 requires the `.` to identify it as a double in asm.js
+				stream << "-0.";
+			}
 			break;
 		}
 		case Type::PointerTyID:
 		{
-			if(PA.getPointerKindForStoredType(t)==COMPLETE_OBJECT)
-				stream << "null";
+			if(init)
+			{
+				compilePointerAs(init, PA.getPointerKindForStoredType(t));
+			}
 			else
-				stream << "nullObj";
+			{
+				if(PA.getPointerKindForStoredType(t)==COMPLETE_OBJECT)
+					stream << "null";
+				else
+					stream << "nullObj";
+			}
 			break;
 		}
 		case Type::StructTyID:
 		{
+			assert(init == nullptr);
 			assert(TypeSupport::hasByteLayout(t));
 			uint32_t typeSize = targetData.getTypeAllocSize(t);
 			stream << "new DataView(new ArrayBuffer(";
@@ -82,6 +105,7 @@ void CheerpWriter::compileSimpleType(Type* t)
 		}
 		case Type::ArrayTyID:
 		{
+			assert(init == nullptr);
 			if(TypeSupport::hasByteLayout(t))
 			{
 				uint32_t typeSize = targetData.getTypeAllocSize(t);
@@ -106,7 +130,8 @@ void CheerpWriter::compileSimpleType(Type* t)
 	}
 }
 
-uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties)
+uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName, uint32_t maxDepth, uint32_t totalLiteralProperties,
+						const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap, uint32_t offset, uint32_t& usedValuesFromMap)
 {
 	assert(!TypeSupport::isSimpleType(t, forceTypedArrays));
 	// Handle complex arrays and objects, they are all literals in JS
@@ -160,6 +185,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			}
 			stream << '{';
 		}
+		const StructLayout* SL = targetData.getStructLayout( st );
 		for(uint32_t i=0;i<st->getNumElements();i++)
 		{
 			Type* element = st->getElementType(i);
@@ -201,15 +227,33 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 				}
 				stream << '[';
 			}
+			llvm::Value* init = nullptr;
+			uint32_t totalOffset = offset + SL->getElementOffset(i);
+			if(offsetToValueMap)
+			{
+				auto it = offsetToValueMap->find(totalOffset);
+				if(it != offsetToValueMap->end())
+					init = it->second;
+			}
 			if (element->isPointerTy())
 			{
+				if(init)
+					usedValuesFromMap++;
 				POINTER_KIND memberPointerKind = PA.getPointerKindForMemberPointer(baseAndIndex);
 				bool hasConstantOffset = PA.getConstantOffsetForMember(baseAndIndex);
 				if((memberPointerKind == REGULAR || memberPointerKind == SPLIT_REGULAR) && hasConstantOffset)
-					stream << "nullArray";
+				{
+					if(init)
+						compilePointerBase(init);
+					else
+						stream << "nullArray";
+				}
 				else if (memberPointerKind == SPLIT_REGULAR)
 				{
-					stream << "nullArray";
+					if(init)
+						compilePointerBase(init);
+					else
+						stream << "nullArray";
 					if(style==THIS_OBJ)
 						stream << ';' << NewLine << "this.";
 					else
@@ -219,23 +263,32 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 						stream << '=';
 					else
 						stream << ':';
-					stream << '0';
+					if(init)
+						compilePointerOffset(init, HIGHEST);
+					else
+						stream << '0';
 					// FIXME: The offset member is not taken into account when deciding if the new-based constructor is required
 					// so in rare cases (when the added element makes the struct larger than 8 elements) the slow literal runtime
 					// call will be used on V8.
 					numElements++;
 				}
+				else if (init)
+					compilePointerAs(init, memberPointerKind);
 				else if (memberPointerKind == COMPLETE_OBJECT)
 					stream << "null";
 				else
 					stream << "nullObj";
 			}
 			else if(TypeSupport::isSimpleType(element, forceTypedArrays))
-				compileSimpleType(element);
+			{
+				if(init)
+					usedValuesFromMap++;
+				compileSimpleType(element, init);
+			}
 			else if(style == THIS_OBJ)
-				compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, 0);
+				compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, 0, offsetToValueMap, totalOffset, usedValuesFromMap);
 			else
-				numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements);
+				numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
 			if(useWrapperArray)
 			{
 				if(restoreMaxDepth)
@@ -291,10 +344,23 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			{
 				if(i!=0)
 					stream << ',';
+				uint32_t elementSize = targetData.getTypeAllocSize(at->getElementType());
+				uint32_t totalOffset = offset + elementSize * i;
 				if(TypeSupport::isSimpleType(element, forceTypedArrays))
-					compileSimpleType(element);
+				{
+					llvm::Value* init = nullptr;
+					if(offsetToValueMap)
+					{
+						auto it = offsetToValueMap->find(totalOffset);
+						if(it != offsetToValueMap->end())
+							init = it->second;
+					}
+					if(init)
+						usedValuesFromMap++;
+					compileSimpleType(element, init);
+				}
 				else
-					numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements);
+					numElements += compileComplexType(element, LITERAL_OBJ, varName, nextMaxDepth, totalLiteralProperties + numElements, offsetToValueMap, totalOffset, usedValuesFromMap);
 			}
 			stream << ']';
 		}
@@ -302,10 +368,11 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 	return shouldReturnElementsCount ? numElements : 0;
 }
 
-void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName)
+void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varName, const AllocaStoresExtractor::OffsetToValueMap* offsetToValueMap)
 {
 	if(style == LITERAL_OBJ && isa<StructType>(t) && TypeSupport::isJSExportedType(cast<StructType>(t), module))
 	{
+		assert(offsetToValueMap == nullptr);
 		StringRef mangledName = t->getStructName().drop_front(6);
 		demangler_iterator demangler( mangledName );
 		StringRef jsClassName = *demangler++;
@@ -315,9 +382,24 @@ void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varN
 		stream << "new " << jsClassName << "(undefined)";
 	}
 	else if(TypeSupport::isSimpleType(t, forceTypedArrays))
-		compileSimpleType(t);
+	{
+		llvm::Value* init = nullptr;
+		if(offsetToValueMap)
+		{
+			assert(offsetToValueMap->size() == 1);
+			auto it = offsetToValueMap->find(0);
+			if(it != offsetToValueMap->end())
+				init = it->second;
+		}
+		compileSimpleType(t, init);
+	}
 	else
-		compileComplexType(t, style, varName, V8MaxLiteralDepth, 0);
+	{
+		uint32_t usedValuesFromMap = 0;
+		compileComplexType(t, style, varName, V8MaxLiteralDepth, 0, offsetToValueMap, 0, usedValuesFromMap);
+		if(offsetToValueMap)
+			assert(offsetToValueMap->size() == usedValuesFromMap);
+	}
 }
 
 uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, StructType* currentType, uint32_t baseCount)
@@ -359,7 +441,8 @@ void CheerpWriter::compileClassConstructor(StructType* T)
 	assert(T->getNumElements() > V8MaxLiteralProperties);
 	stream << "function ";
 	stream << namegen.getConstructorName(T) << "(){" << NewLine;
-	compileComplexType(T, THIS_OBJ, "aSlot", V8MaxLiteralDepth, 0);
+	uint32_t usedValuesFromMap;
+	compileComplexType(T, THIS_OBJ, "aSlot", V8MaxLiteralDepth, 0, nullptr, 0, usedValuesFromMap);
 	stream << '}' << NewLine;
 }
 
