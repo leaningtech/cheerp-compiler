@@ -6552,6 +6552,9 @@ ExprResult Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
       case Builtin::BIqsort_r:
         return ExprError(Diag(LParenLoc, diag::err_cheerp_type_unsafe_functions)
                          << FDecl << "std::sort");
+      case Builtin::BImemcmp:
+        return ExprError(Diag(LParenLoc, diag::err_cheerp_type_unsafe_functions)
+                         << FDecl << "cheerp::memcmp");
       default:
         break;
     }
