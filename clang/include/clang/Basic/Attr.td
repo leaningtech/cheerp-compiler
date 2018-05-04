@@ -1870,12 +1870,19 @@ def AsmJS : InheritableAttr {
                    GNU<"cheerp_asmjs">, GNU<"cheerp_wasm">];
   let Documentation = [Undocumented];
 }
+
 def GenericJS : InheritableAttr {
   let Spellings = [CXX11<"cheerp", "genericjs">, GNU<"cheerp_genericjs">];
   let Documentation = [Undocumented];
 }
+
 def DefaultNew : Attr {
   let Spellings = [CXX11<"cheerp", "default_new">, GNU<"cheerp_default_new">];
+  let Documentation = [Undocumented];
+}
+
+def SafeCast : Attr {
+  let Spellings = [CXX11<"cheerp", "safe_cast">, GNU<"cheerp_safe_cast">];
   let Documentation = [Undocumented];
 }
 
