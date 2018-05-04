@@ -1703,7 +1703,7 @@ void Parser::ProhibitCXX11Attributes(ParsedAttributes &Attrs, unsigned DiagID,
   }
 
   for (const ParsedAttr &AL : Attrs) {
-    if (!AL.isCXX11Attribute() && !AL.isC2xAttribute())
+    if ((!AL.isCXX11Attribute() && !AL.isC2xAttribute()) || AL.getKind() != ParsedAttr::AT_NoInit || AL.getKind() != ParsedAttr::AT_SafeCast)
       continue;
     if (AL.getKind() == ParsedAttr::UnknownAttribute) {
       if (WarnOnUnknownAttrs)

@@ -5838,7 +5838,7 @@ public:
   ExprResult BuildCStyleCastExpr(SourceLocation LParenLoc,
                                  TypeSourceInfo *Ty,
                                  SourceLocation RParenLoc,
-                                 Expr *Op);
+                                 Expr *Op, bool isCheerpSafe = false);
   CastKind PrepareScalarCast(ExprResult &src, QualType destType);
 
   /// Build an altivec or OpenCL literal.
@@ -6521,7 +6521,7 @@ public:
                                TypeSourceInfo *Ty,
                                Expr *E,
                                SourceRange AngleBrackets,
-                               SourceRange Parens);
+                               SourceRange Parens, bool isCheerpSafe = false);
 
   ExprResult ActOnBuiltinBitCastExpr(SourceLocation KWLoc, Declarator &Dcl,
                                      ExprResult Operand,
