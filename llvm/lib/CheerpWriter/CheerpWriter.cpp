@@ -1217,12 +1217,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	if ((func->getIntrinsicID()==Intrinsic::cheerp_allocate || func->getIntrinsicID()==Intrinsic::cheerp_allocate_array) &&
 	    (asmjs || TypeSupport::isAsmJSPointer(func->getReturnType())))
 	{
-		Function* fmalloc = module.getFunction("calloc");
+		Function* fmalloc = module.getFunction("malloc");
 		if (!fmalloc)
 			llvm::report_fatal_error("missing malloc definition");
 		if(!asmjs)
 			stream << "__asm.";
-		stream << namegen.getName(fmalloc) << "(1,";
+		stream << namegen.getName(fmalloc) << "(";
 		compileOperand(*it, PARENT_PRIORITY::LOWEST);
 		stream << ")|0";
 		return COMPILE_OK;
