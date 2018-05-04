@@ -1799,10 +1799,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_allocate:
 					case Intrinsic::cheerp_allocate_array:
 					{
-						calledFunc = module.getFunction("calloc");
+						calledFunc = module.getFunction("malloc");
 						if (!calledFunc)
-							llvm::report_fatal_error("missing calloc definition");
-						encodeS32Inst(0x41, "i32.const", 1, code);
+							llvm::report_fatal_error("missing malloc definition");
 						break;
 					}
 					case Intrinsic::cheerp_reallocate:

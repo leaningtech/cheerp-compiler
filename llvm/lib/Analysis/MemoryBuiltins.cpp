@@ -21,6 +21,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Constants.h"
@@ -157,8 +158,13 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
 };
 // clang-format on
 
+static AllocFnsTy AllocDataCheerpMalloc =
+  {MallocLike,  1, 0,  -1};
+static AllocFnsTy AllocDataCheerpCalloc =
+  {CallocLike,  1, 0,  -1};
+
 static const Function *getCalledFunction(const Value *V,
-                                         bool &IsNoBuiltin) {
+                                         bool &IsNoBuiltin, const Function *&Caller) {
   // Don't care about intrinsics in this case.
   if (isa<IntrinsicInst>(V))
     return nullptr;
@@ -169,8 +175,11 @@ static const Function *getCalledFunction(const Value *V,
 
   IsNoBuiltin = CB->isNoBuiltin();
 
-  if (const Function *Callee = CB->getCalledFunction())
+  if (const Function *Callee = CB->getCalledFunction()) {
+    if (CS.getInstruction()->getParent())
+      Caller = CS.getInstruction()->getParent()->getParent();
     return Callee;
+  }
   return nullptr;
 }
 
@@ -178,15 +187,25 @@ static const Function *getCalledFunction(const Value *V,
 /// allocation function.
 static Optional<AllocFnsTy>
 getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
-                             const TargetLibraryInfo *TLI) {
+                             const TargetLibraryInfo *TLI, const Function *Caller) {
 
-  if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate ||
-      Callee->getIntrinsicID() == Intrinsic::cheerp_allocate_array) {
-      const AllocFnsTy *FnData = &AllocationFnData[0];
-      if ((FnData->AllocTy & AllocTy) != FnData->AllocTy)
-        return None;
-      return FnData;
-  }
+  // cheerp.allocate[.array] is CallocLike if it is allocating memory in genericjs,
+  // otherwise it is MallocLike
+  bool callerIsGeneric = Caller && Caller->getSection() != StringRef("asmjs");
+  bool typeIsAsmJSPointer = cheerp::TypeSupport::isAsmJSPointer(Callee->getReturnType());
+  bool callocLike = callerIsGeneric && !typeIsAsmJSPointer;
+  const AllocFnsTy *FnData = nullptr;
+  if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate && callocLike)
+    FnData = &AllocDataCheerpCalloc;
+  else if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate && !callocLike)
+    FnData = &AllocDataCheerpMalloc;
+  else if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate_array && callocLike)
+    FnData = &AllocDataCheerpCalloc;
+  else if (Callee->getIntrinsicID() == Intrinsic::cheerp_allocate_array && !callocLike)
+    FnData = &AllocDataCheerpMalloc;
+
+  if (FnData && ((FnData->AllocTy & AllocTy) != FnData->AllocTy))
+    return *FnData;
 
   // Make sure that the function is available.
   LibFunc TLIFn;
@@ -201,7 +220,7 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
   if (Iter == std::end(AllocationFnData))
     return None;
 
-  const AllocFnsTy *FnData = &Iter->second;
+  FnData = &Iter->second;
   if ((FnData->AllocTy & AllocTy) != FnData->AllocTy)
     return None;
 
@@ -225,9 +244,10 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
 static Optional<AllocFnsTy> getAllocationData(const Value *V, AllocType AllocTy,
                                               const TargetLibraryInfo *TLI) {
   bool IsNoBuiltinCall;
-  if (const Function *Callee = getCalledFunction(V, IsNoBuiltinCall))
+  const Function *Caller = nullptr;
+  if (const Function *Callee = getCalledFunction(V, IsNoBuiltinCall, Caller))
     if (!IsNoBuiltinCall)
-      return getAllocationDataForFunction(Callee, AllocTy, TLI);
+      return getAllocationDataForFunction(Callee, AllocTy, TLI, Caller);
   return None;
 }
 
@@ -245,8 +265,9 @@ getAllocationData(const Value *V, AllocType AllocTy,
 static Optional<AllocFnsTy> getAllocationSize(const Value *V,
                                               const TargetLibraryInfo *TLI) {
   bool IsNoBuiltinCall;
+  const Function *Caller = nullptr;
   const Function *Callee =
-      getCalledFunction(V, IsNoBuiltinCall);
+      getCalledFunction(V, IsNoBuiltinCall, Caller);
   if (!Callee)
     return None;
 
@@ -254,7 +275,7 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   // accurate AllocTy.
   if (!IsNoBuiltinCall)
     if (Optional<AllocFnsTy> Data =
-            getAllocationDataForFunction(Callee, AnyAlloc, TLI))
+            getAllocationDataForFunction(Callee, AnyAlloc, TLI, Caller))
       return Data;
 
   Attribute Attr = Callee->getFnAttribute(Attribute::AllocSize);
@@ -545,7 +566,8 @@ bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
 /// isFreeCall - Returns non-null if the value is a call to the builtin free()
 const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI) {
   bool IsNoBuiltinCall;
-  const Function *Callee = getCalledFunction(I, IsNoBuiltinCall);
+  const Function *Caller = nullptr;
+  const Function *Callee = getCalledFunction(I, IsNoBuiltinCall, Caller);
   if (Callee == nullptr || IsNoBuiltinCall)
     return nullptr;
 
