@@ -4984,22 +4984,24 @@ void CheerpWriter::compileAsmJSExports()
 
 void CheerpWriter::compileFetchBuffer()
 {
-	stream << "function fetchBuffer(path) {" << NewLine;
+	stream << "function fetchBuffer(p) {" << NewLine;
 	stream << "var bytes = null;" << NewLine;
 	stream << "if (typeof window === 'undefined' && typeof self === 'undefined' && typeof require === 'undefined') {" << NewLine;
 	stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
-	stream << "resolve(read(path,'binary'));" << NewLine;
+	stream << "resolve(read(p,'binary'));" << NewLine;
 	stream << "});" << NewLine;
 	stream << "} else if (typeof window === 'undefined' && typeof self === 'undefined') {" << NewLine;
 	stream << "var fs = require('fs');" << NewLine;
+	stream << "var path = require('path');" << NewLine;
+	stream << "p = path.join(__dirname, p);" << NewLine;
 	stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
-	stream << "fs.readFile(path, function(error, data) {" << NewLine;
+	stream << "fs.readFile(p, function(error, data) {" << NewLine;
 	stream << "if(error) reject(error);" << NewLine;
 	stream << "else resolve(data);" << NewLine;
 	stream << "});" << NewLine;
 	stream << "});" << NewLine;
 	stream << "} else {" << NewLine;
-	stream << "bytes = fetch(path).then(response => response.arrayBuffer());" << NewLine;
+	stream << "bytes = fetch(p).then(response => response.arrayBuffer());" << NewLine;
 	stream << "}" << NewLine;
 	stream << "return bytes;" << NewLine;
 	stream << "}" << NewLine;
@@ -5240,12 +5242,7 @@ void CheerpWriter::makeJS()
 			for (StringRef &className : exportedClassNames)
 				stream << className << ".promise=" << NewLine;
 		}
-		stream << "fetchBuffer(";
-		if (makeModule == MODULE_TYPE::COMMONJS)
-			stream << "__dirname+'/";
-		else
-			stream << "'";
-		stream << wasmFile << "').then(r=>" << NewLine;
+		stream << "fetchBuffer('" << wasmFile << "').then(r=>" << NewLine;
 		stream << "WebAssembly.instantiate(r,importObject)" << NewLine;
 		stream << ",console.log).then(r=>{" << NewLine;
 		stream << "var instance=r.instance;" << NewLine;
