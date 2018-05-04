@@ -471,13 +471,13 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					bool basicType = !ty->isAggregateType();
 					if (hasAsmJS && (isAsmJS || basicType))
 					{
-						Function* fcalloc = module->getFunction("calloc");
-						if (fcalloc)
+						Function* fmalloc = module->getFunction("malloc");
+						if (fmalloc)
 						{
 							SubExprVec vec;
-							visitGlobal(fcalloc, visited, vec );
+							visitGlobal(fmalloc, visited, vec );
 							if(!isAsmJS)
-								asmJSExportedFuncions.insert(fcalloc);
+								asmJSExportedFuncions.insert(fmalloc);
 						}
 					}
 				}
