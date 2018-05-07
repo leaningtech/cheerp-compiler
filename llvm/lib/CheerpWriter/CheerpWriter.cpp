@@ -20,6 +20,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/Path.h"
 
 using namespace llvm;
 using namespace std;
@@ -5242,7 +5243,7 @@ void CheerpWriter::makeJS()
 			for (StringRef &className : exportedClassNames)
 				stream << className << ".promise=" << NewLine;
 		}
-		stream << "fetchBuffer('" << wasmFile << "').then(r=>" << NewLine;
+		stream << "fetchBuffer('" << sys::path::filename(wasmFile) << "').then(r=>" << NewLine;
 		stream << "WebAssembly.instantiate(r,importObject)" << NewLine;
 		stream << ",console.log).then(r=>{" << NewLine;
 		stream << "var instance=r.instance;" << NewLine;
