@@ -624,7 +624,7 @@ void CheerpWriter::compileFree(const Value* obj)
 	//TODO: Clean up class related data structures
 	stream << "if(";
 	compilePointerBase(obj);
-	stream << ".buffer==heap)__asm.";
+	stream << ".buffer==__heap)__asm.";
 	Function* Free = module.getFunction("free");
 	if (Free)
 		stream << namegen.getName(Free) << '(';
@@ -5082,8 +5082,7 @@ void CheerpWriter::makeJS()
 		compileCheckDefinedHelper();
 	}
 
-	if (wasmFile.empty())
-		compileBuiltins(false);
+	compileBuiltins(false);
 
 	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
@@ -5100,12 +5099,12 @@ void CheerpWriter::makeJS()
 	if (globalDeps.needAsmJS() && wasmFile.empty())
 	{
 		// compile boilerplate
-		stream << "function asmJS(stdlib, ffi, heap){" << NewLine;
+		stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
 		stream << "\"use asm\";" << NewLine;
 		stream << "var __stackPtr=ffi.heapSize|0;" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 		{
-			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(heap);" << NewLine;
+			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
 		}
 		compileMathDeclAsmJS();
 		compileBuiltins(true);
@@ -5154,14 +5153,14 @@ void CheerpWriter::makeJS()
 		}
 		stream << "};" << NewLine;
 		stream << "};" << NewLine;
-		stream << "var heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
+		stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
-			stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(heap);" << NewLine;
+			stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
 		compileAsmJSImports();
 		compileAsmJSExports();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var ffi = {" << NewLine;
-		stream << "heapSize:heap.byteLength," << NewLine;
+		stream << "heapSize:__heap.byteLength," << NewLine;
 		stream << "__dummy:__dummy," << NewLine;
 		if (checkBounds)
 		{
@@ -5235,6 +5234,7 @@ void CheerpWriter::makeJS()
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << "var " << heapNames[i] << "=null;" << NewLine;
 		stream << "var __asm=null;" << NewLine;
+		stream << "var __heap=null;" << NewLine;
 		compileAsmJSImports();
 		compileAsmJSExports();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
@@ -5265,6 +5265,7 @@ void CheerpWriter::makeJS()
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
 		stream << "__asm=instance.exports;" << NewLine;
+		stream << "__heap=instance.exports.memory.buffer;" << NewLine;
 	}
 	//Load asm.js module
 	else if (globalDeps.needAsmJS() && asmJSMem)
@@ -5276,12 +5277,12 @@ void CheerpWriter::makeJS()
 		}
 		stream << "fetchBuffer('" << asmJSMemFile << "').then(r=>{" << NewLine;
 		stream << heapNames[HEAP8] << ".set(new Uint8Array(r),0);" << NewLine;
-		stream << "__asm=asmJS(stdlib, ffi, heap);" << NewLine;
+		stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
 	}
 	else
 	{
 		if (globalDeps.needAsmJS())
-			stream << "var __asm=asmJS(stdlib, ffi, heap);" << NewLine;
+			stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
 
 		if (makeModule == MODULE_TYPE::COMMONJS)
 			stream << "module.exports=Promise.resolve().then(_=>{" << NewLine;
