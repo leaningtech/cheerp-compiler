@@ -284,6 +284,11 @@ public:
   explicit InlineCostAnnotationPrinterPass(raw_ostream &OS) : OS(OS) {}
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
 };
+
+/// \brief Filter to detect invalid constructs for inlining across ffi
+//  boundaries in Cheerp
+bool isInlineViableCheerp(Function &Callee, Function &Caller);
+
 } // namespace llvm
 
 #endif
