@@ -2896,14 +2896,9 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
                                      " address space");
     }
 
-  //CHEERP: Do not inline normal/asmjs methods called from the other side
-  const Function* caller=CS.getCaller();
-  bool callerAsmJS = caller->getSection() == StringRef("asmjs");
-  bool calleeAsmJS = Callee->getSection() == StringRef("asmjs");
-  if (calleeAsmJS!= callerAsmJS)
-  {
+  Function* caller=CS.getCaller();
+  if (!isInlineViableCheerp(*Callee, *caller))
     return llvm::InlineCost::getNever();
-  }
 
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
@@ -2993,6 +2988,50 @@ InlineCost llvm::getInlineCost(
   return ShouldInline.isSuccess()
              ? InlineCost::getAlways("empty function")
              : InlineCost::getNever(ShouldInline.getFailureReason());
+}
+
+bool llvm::isInlineViableCheerp(Function &F, Function &Caller) {
+  bool callerIsAsmJS = Caller.getSection() == StringRef("asmjs");
+  bool asmJS = F.getSection() == StringRef("asmjs");
+  // If no actual ffi involved, we can always inline
+  if (asmJS == callerIsAsmJS) {
+    return true;
+  }
+  // Never inline a genericjs function into an asmjs one
+  if (!asmJS && callerIsAsmJS) {
+    return false;
+  }
+  // We allow the inlining of asmjs functions into genericjs ones only in
+  // simple cases (possibly expand them)
+  for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
+    for (BasicBlock::iterator II = BI->begin(), IE = BI->end(); II != IE; ++II) {
+      // NO calls except from intrinsics whitelist (TODO relax this)
+      if (isa<CallInst>(II)) {
+        if (const IntrinsicInst* ii = dyn_cast<IntrinsicInst>(II)) {
+          if (ii->getIntrinsicID() != Intrinsic::cheerp_upcast_collapsed &&
+              ii->getIntrinsicID() != Intrinsic::cheerp_cast_user) {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+      // No allocas (TODO relax this)
+      if (isa<AllocaInst>(II))
+        return false;
+      // No stores of pointers (TODO relax this)
+      if (const StoreInst* si = dyn_cast<StoreInst>(II)) {
+        if (si->getValueOperand()->getType()->isPointerTy())
+          return false;
+      }
+      // No loads of pointers of pointers (TODO relax this)
+      if (const LoadInst* li = dyn_cast<LoadInst>(II)) {
+        if (li->getType()->isPointerTy() && li->getType()->getPointerElementType()->isPointerTy())
+          return false;
+      }
+    }
+  }
+  return true;
 }
 
 InlineResult llvm::isInlineViable(Function &F) {
