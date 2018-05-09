@@ -2434,8 +2434,15 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
             cast<llvm::PointerType>(DestAddrTy)->getAddressSpace());
         DestPtr = Builder.CreateBitCast(DestPtr, DestAddrTy);
       }
-      ArgTypes.push_back(DestAddrTy);
-      Args.push_back(DestPtr);
+      if (llvm::Type* AdjTy = getTargetHooks().adjustInlineAsmType(*this, OutputConstraint, DestAddrTy))
+        ArgTypes.push_back(AdjTy);
+      else {
+        ArgTypes.push_back(DestAddrTy);
+        CGM.getDiags().Report(S.getAsmLoc(),
+                              diag::err_asm_invalid_type_in_input)
+            << OutExpr->getType() << OutputConstraint;
+      }
+      Args.push_back(Dest.getPointer());
       Constraints += "=*";
       Constraints += OutputConstraint;
       ReadOnly = ReadNone = false;
