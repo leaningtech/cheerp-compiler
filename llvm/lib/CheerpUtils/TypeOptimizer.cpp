@@ -438,7 +438,9 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			// Empty structs are unsafe as the int8 inside is just a placeholder and will be replaced
 			// by a different type in a derived class
 			// TODO: If pointers could be collapsed we may have implicit casts between base classes and derived classes
-			if(!newTypes[0]->isIntegerTy(8) && !newTypes[0]->isPointerTy() && !TypeSupport::isJSExportedType(newStruct, *module) && !TypeSupport::hasByteLayout(st))
+			// NOTE: We allow the collapsing of client pointers
+			if((newTypes[0]->isPointerTy() && TypeSupport::isClientType(newTypes[0]->getPointerElementType())) ||
+				(!newTypes[0]->isIntegerTy(8) && !newTypes[0]->isPointerTy() && !TypeSupport::isJSExportedType(newStruct, *module) && !TypeSupport::hasByteLayout(st)))
 			{
 				// If this type is an unsafe downcast source and can't be collapse
 				// we need to fall through to correctly set the mapped element
