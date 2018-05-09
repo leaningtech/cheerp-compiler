@@ -123,20 +123,20 @@ void CheerpNativeRewriter::baseSubstitutionForBuiltin(User* i, Instruction* old,
 	assert(userInst);
 	Instruction* insertPoint=userInst;
 	// We need to insert the new instruction in the right block for PHIs
-	// TODO: This is broken if the same value is used from multiple blocks
 	if(PHINode* phi=dyn_cast<PHINode>(userInst))
 	{
-		BasicBlock* BB=NULL;
 		for(uint32_t i=0;i<phi->getNumIncomingValues();i++)
 		{
 			if(phi->getIncomingValue(i)==old)
 			{
-				BB=phi->getIncomingBlock(i);
-				insertPoint=BB->getTerminator();
-				break;
+				insertPoint=phi->getIncomingBlock(i)->getTerminator();
+				LoadInst* loadI=new LoadInst(source, "cheerpPtrLoad", insertPoint);
+				phi->setIncomingValue(i, loadI);
+				return;
 			}
 		}
-		assert(BB);
+		assert(false);
+		return;
 	}
 	LoadInst* loadI=new LoadInst(source, "cheerpPtrLoad", insertPoint);
 	userInst->replaceUsesOfWith(old, loadI);
