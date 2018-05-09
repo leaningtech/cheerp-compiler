@@ -28,6 +28,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
 #include "llvm/IR/IntrinsicsS390.h"
@@ -10199,6 +10200,34 @@ public:
 
 } // End anonymous namespace.
 
+//===----------------------------------------------------------------------===//
+// Cheerp ABI Implementation
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+class CheerpTargetCodeGenInfo : public DefaultTargetCodeGenInfo {
+public:
+  CheerpTargetCodeGenInfo(CodeGenTypes &CGT) : DefaultTargetCodeGenInfo(CGT) {}
+
+  llvm::Type* adjustInlineAsmType(CodeGen::CodeGenFunction &CGF,
+                                  StringRef Constraint,
+                                  llvm::Type* Ty) const override {
+    // Only allow register constraints
+    if(Constraint.size() != 1)
+      return nullptr;
+    if(Constraint[0] != 'r')
+      return nullptr;
+    // Only allow basic types and pointers to client objects
+    if(Ty->isIntegerTy() || Ty->isFloatingPointTy() || (Ty->isPointerTy() && cheerp::TypeSupport::isClientType(Ty->getPointerElementType())))
+      return Ty;
+    return nullptr;
+  }
+
+};
+
+} // End anonymous namespace.
+
 // TODO: this implementation is likely now redundant with the default
 // EmitVAArg.
 Address XCoreABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
@@ -12300,6 +12329,8 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
     return SetCGInfo(new LoongArchTargetCodeGenInfo(
         Types, getTarget().getPointerWidth(LangAS::Default), ABIFRLen));
   }
+  case llvm::Triple::cheerp:
+    return SetCGInfo(new CheerpTargetCodeGenInfo(Types));
   }
 }
 

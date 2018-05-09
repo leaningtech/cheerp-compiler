@@ -2501,8 +2501,14 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
       if (isa<MatrixType>(OutExpr->getType().getCanonicalType()))
         DestAddr = Builder.CreateElementBitCast(
             DestAddr, ConvertType(OutExpr->getType()));
-
-      ArgTypes.push_back(DestAddr.getType());
+      if (llvm::Type* AdjTy = getTargetHooks().adjustInlineAsmType(*this, OutputConstraint, DestAddr.getType()))
+        ArgTypes.push_back(AdjTy);
+      else {
+        ArgTypes.push_back(DestAddr.getType());
+        CGM.getDiags().Report(S.getAsmLoc(),
+                              diag::err_asm_invalid_type_in_input)
+            << OutExpr->getType() << OutputConstraint;
+      }
       ArgElemTypes.push_back(DestAddr.getElementType());
       Args.push_back(DestAddr.getPointer());
       Constraints += "=*";
