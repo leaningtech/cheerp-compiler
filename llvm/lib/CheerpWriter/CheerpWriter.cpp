@@ -14,7 +14,6 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/Writer.h"
-#include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/InstIterator.h"
@@ -2364,11 +2363,6 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	{
 		stream << namegen.getName(arg);
 	}
-	else if(const InlineAsm* a=dyn_cast<InlineAsm>(v))
-	{
-		assert(a->getConstraintString().empty());
-		stream << a->getAsmString();
-	}
 	else
 	{
 		llvm::errs() << "No name for value ";
@@ -3903,6 +3897,29 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				}
 				stream << namegen.getName(calledFunc);
 			}
+			else if (ci.isInlineAsm())
+			{
+				compileInlineAsm(ci);
+				//If we are dealing with inline asm we are done, close coercions
+				switch(kind)
+				{
+					case Registerize::INTEGER:
+						stream << "|0";
+						if(parentPrio > BIT_OR)
+							stream << ')';
+						break;
+					case Registerize::DOUBLE:
+						if(parentPrio == ADD_SUB)
+							stream << ')';
+						break;
+					case Registerize::FLOAT:
+						stream << ')';
+						break;
+					case Registerize::OBJECT:
+						break;
+				}
+				return COMPILE_OK;
+			}
 			else if (asmjs)
 			{
 				//Indirect call, asm.js mode
@@ -3936,8 +3953,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				compilePointerAs(calledValue, COMPLETE_OBJECT);
 			}
 
-			//If we are dealing with inline asm we are done
-			if(!ci.isInlineAsm())
 			{
 				// In calling asmjs functions the varargs are passed on the stack
 				bool asmJSCallingConvention = asmjs || (calledFunc && calledFunc->getSection() == StringRef("asmjs"));
