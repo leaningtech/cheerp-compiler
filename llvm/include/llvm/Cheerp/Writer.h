@@ -464,6 +464,7 @@ private:
 	//JS interoperability support
 	std::vector<llvm::StringRef> compileClassesExportedToJs();
 	void addExportedFreeFunctions(std::vector<llvm::StringRef>& namesList, const llvm::NamedMDNode* namedNode);
+	void compileInlineAsm(const llvm::CallInst& ci);
 
 	struct JSBytesWriter: public LinearMemoryHelper::ByteListener
 	{
