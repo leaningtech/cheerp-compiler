@@ -5,11 +5,12 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015 Leaning Technologies
+// Copyright 2015-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Cheerp/Writer.h"
+#include "llvm/IR/InlineAsm.h"
 
 using namespace llvm;
 using namespace cheerp;
@@ -176,4 +177,51 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		}
 	}
 	return exportedNames;
+}
+
+void CheerpWriter::compileInlineAsm(const CallInst& ci)
+{
+	const InlineAsm* a=cast<InlineAsm>(ci.getCalledValue());
+	// NOTE: We ignore the constraint string here, since the frontend ensures that only "r" is allowed
+	StringRef str = a->getAsmString();
+	bool needsParamIndex = false;
+	int paramIndex = 0;
+	for(unsigned i=0;i<str.size();i++)
+	{
+		if(needsParamIndex)
+		{
+			if(str[i] >= '0' && str[i] <= '9')
+			{
+				if(paramIndex == -1)
+					paramIndex = 0;
+				paramIndex *= 10;
+				paramIndex += str[i] - '0';
+			}
+			else if(paramIndex == -1)
+			{
+				// Not even 1 digit after the $, it's an escape
+				stream << str[i];
+				needsParamIndex = false;
+			}
+			else
+			{
+				// Parameter parsed, do not forget to output this char as well
+				compileOperand(ci.getOperand(paramIndex));
+				stream << str[i];
+				needsParamIndex = false;
+			}
+		}
+		else if(str[i] == '$')
+		{
+			needsParamIndex = true;
+			paramIndex = -1;
+		}
+		else
+			stream << str[i];
+	}
+	if(needsParamIndex)
+	{
+		// The string ends with a parameter index, do not forget it
+		compileOperand(ci.getOperand(paramIndex));
+	}
 }
