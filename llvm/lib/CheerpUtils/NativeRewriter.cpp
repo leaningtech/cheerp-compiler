@@ -35,16 +35,52 @@ bool CheerpNativeRewriter::findMangledClassName(const char* const s, const char*
 	tmp+=nsLen;
 	classLen=strtol(tmp, &endPtr, 10);
 	className=endPtr;
-	// Hackish support for TArray, we need to skip the template part of the name
-	if(strncmp(className+classLen, "INS_", 4) == 0)
+	// template parameters: I<stuff>E
+	if(className[classLen] == 'I')
 	{
-		const char* baseClassEnd = className+classLen+4;
-		char* templateStart;
-		int templateLen = strtol(baseClassEnd, &templateStart, 10);
-		// Add +2 for the "EE" that encloses the template part
-		classLen += 4 + (templateStart - baseClassEnd) + templateLen + 2;
+		classLen++;
+		int extraE = 1;
+		while (extraE != 0)
+		{
+			// end tag E
+			if(className[classLen] == 'E')
+			{
+				classLen++;
+				extraE--;
+				continue;
+			}
+			// nested template parameters: I<stuff>E
+			if(className[classLen] == 'I')
+			{
+				classLen++;
+				extraE++;
+				continue;
+			}
+			// namespaced type: N<stuff>E
+			if(className[classLen] == 'N')
+			{
+				classLen++;
+				extraE++;
+				continue;
+			}
+			// current namespace
+			if(strncmp(className+classLen, "S_", 2) == 0)
+			{
+				classLen += 2;
+				continue;
+			}
+			// struct/class type: X<X chars>
+			char* typeStart;
+			if(int typeLen = strtol(className+classLen, &typeStart, 10))
+			{
+				classLen += (typeStart - className - classLen) + typeLen;
+				continue;
+			}
+			// base type (we should actually check that it makes sense,
+			// e.g. it is one of i,d,c... )
+			classLen++;
+		}
 	}
-
 	if(classLen==0)
 		return false;
 	return true;
