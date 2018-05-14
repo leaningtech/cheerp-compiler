@@ -516,27 +516,6 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		// Round up the size to make sure that any typed array can be initialized from the buffer
 		stream << ")+ 7) & (~7)))";
 	}
-	else if (info.useCreateArrayFunc() )
-	{
-		assert( globalDeps.dynAllocArrays().count(t) );
-		
-		stream << namegen.getArrayName(t) << '(';
-		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
-		{
-			compilePointerBase(info.getMemoryArg());
-			stream << ',';
-			compilePointerBase(info.getMemoryArg());
-			stream << ".length,";
-			compileArraySize(info, /* shouldPrint */true);
-			stream << ')';
-		}
-		else
-		{
-			stream << "[],0,";
-			compileArraySize(info, /* shouldPrint */true);
-			stream << ')';
-		}
-	}
 	else if (info.useCreatePointerArrayFunc() )
 	{
 		stream << "createPointerArray(";
@@ -559,6 +538,27 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 			stream << "nullObj";
 		stream << ')';
 		assert( globalDeps.needCreatePointerArray() );
+	}
+	else if (info.useCreateArrayFunc() )
+	{
+		assert( globalDeps.dynAllocArrays().count(t) );
+
+		stream << namegen.getArrayName(t) << '(';
+		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
+		{
+			compilePointerBase(info.getMemoryArg());
+			stream << ',';
+			compilePointerBase(info.getMemoryArg());
+			stream << ".length,";
+			compileArraySize(info, /* shouldPrint */true);
+			stream << ')';
+		}
+		else
+		{
+			stream << "[],0,";
+			compileArraySize(info, /* shouldPrint */true);
+			stream << ')';
+		}
 	}
 	else if (!info.sizeIsRuntime() )
 	{
