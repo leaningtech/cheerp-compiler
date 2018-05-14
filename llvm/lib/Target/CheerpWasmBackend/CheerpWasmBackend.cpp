@@ -115,7 +115,7 @@ bool CheerpWasmWritePass::runOnModule(Module& M)
     wasmWriter.makeWasm();
 
     cheerp::CheerpWriter writer(M, jsOut, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, nullptr, std::string(),
-            sourceMapGenerator, reservedNames, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
+            sourceMapGenerator, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
             !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
             BoundsCheck, SymbolicGlobalsAsmJS, WasmFile, ForceTypedArrays);
     writer.makeJS();

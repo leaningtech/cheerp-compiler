@@ -160,6 +160,7 @@ public:
 private:
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
 	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
+	static std::vector<std::string> buildReservedNamesList(const llvm::Module& M, const std::vector<std::string>& fromOption);
 	
 	Registerize& registerize;
 	const PointerAnalyzer& PA;
@@ -171,7 +172,7 @@ private:
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > constructormap;
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > arraymap;
 	std::array<llvm::SmallString<4>, Builtin::END> builtins;
-	const std::vector<std::string>& reservedNames;
+	const std::vector<std::string> reservedNames;
 };
 
 }
