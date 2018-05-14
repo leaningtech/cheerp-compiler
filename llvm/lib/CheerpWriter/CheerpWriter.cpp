@@ -518,7 +518,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	}
 	else if (info.useCreatePointerArrayFunc() )
 	{
-		stream << "createPointerArray(";
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_POINTER_ARRAY) << "(";
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 		{
 			compilePointerBase(info.getMemoryArg());
@@ -862,7 +862,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		//keeping all local variable around. The helper
 		//method is printed on demand depending on a flag
 		assert( isa<Function>( callV.getArgument(0) ) );
-		stream << "cheerpCreateClosure(";
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE) << "(";
 		compileCompleteObject( callV.getArgument(0) );
 		stream << ',';
 		compilePointerAs( callV.getArgument(1), 
@@ -3840,7 +3840,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			else
 			{
-				stream << "handleVAArg(";
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::HANDLE_VAARG) << "(";
 				compileCompleteObject(vi.getPointerOperand());
 				stream << ')';
 
@@ -4795,12 +4795,12 @@ void CheerpWriter::compileNullPtrs()
 
 void CheerpWriter::compileCreateClosure()
 {
-	stream << "function cheerpCreateClosure(func, obj){return function(e){func(obj,e);};}" << NewLine;
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE) << "(func, obj){return function(e){func(obj,e);};}" << NewLine;
 }
 
 void CheerpWriter::compileHandleVAArg()
 {
-	stream << "function handleVAArg(ptr){var ret=ptr.d[ptr.o];ptr.o++;return ret;}" << NewLine;
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::HANDLE_VAARG) << "(ptr){var ret=ptr.d[ptr.o];ptr.o++;return ret;}" << NewLine;
 }
 
 void CheerpWriter::compileBuiltins(bool asmjs)
