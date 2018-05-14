@@ -425,10 +425,10 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				DynamicAllocInfo ai (&I, DL, forceTypedArrays);
 				if ( ai.isValidAlloc() )
 				{
-					if ( ai.useCreateArrayFunc() )
-						arraysNeeded.insert( ai.getCastedType()->getElementType() );
 					if ( ai.useCreatePointerArrayFunc() )
 						hasPointerArrays = true;
+					else if ( ai.useCreateArrayFunc() )
+						arraysNeeded.insert( ai.getCastedType()->getElementType() );
 					if ( StructType* ST = dyn_cast<StructType>(ai.getCastedType()->getElementType()) )
 						visitStruct(ST);
 				}
