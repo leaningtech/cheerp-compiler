@@ -245,6 +245,10 @@ public:
   virtual const char *getClobbers() const {
     return "";
   }
+  virtual bool isValidClobber(StringRef Name) const {
+    // Special handling for Cheerp, any name can be clobbered
+    return true;
+  }
 };
 } // namespace targets
 } // namespace clang

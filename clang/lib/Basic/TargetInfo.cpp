@@ -527,7 +527,8 @@ bool TargetInfo::isValidGCCRegisterName(StringRef Name) const {
 
 StringRef TargetInfo::getNormalizedGCCRegisterName(StringRef Name,
                                                    bool ReturnCanonical) const {
-  assert(isValidGCCRegisterName(Name) && "Invalid register passed in");
+  if(!isValidGCCRegisterName(Name))
+    return Name;
 
   // Get rid of any register prefix.
   Name = removeGCCRegisterPrefix(Name);

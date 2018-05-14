@@ -866,7 +866,7 @@ public:
   /// inline asm statement.
   ///
   /// This is used by Sema.
-  bool isValidClobber(StringRef Name) const;
+  virtual bool isValidClobber(StringRef Name) const;
 
   /// Returns whether the passed in string is a valid register name
   /// according to GCC.
