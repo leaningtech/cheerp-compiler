@@ -14,6 +14,7 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InlineAsm.h"
 #include <functional>
 #include <set>
 
@@ -119,7 +120,8 @@ struct JSSymbols
 };
 
 NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, Registerize& r,
-				const PointerAnalyzer& PA, const std::vector<std::string>& reservedNames, bool makeReadableNames):registerize(r), PA(PA), reservedNames(reservedNames)
+				const PointerAnalyzer& PA, const std::vector<std::string>& rn, bool makeReadableNames):registerize(r), PA(PA),
+																	reservedNames(std::move(buildReservedNamesList(M, rn)))
 {
 	if ( makeReadableNames )
 		generateReadableNames(M, gda);
@@ -645,6 +647,40 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) const
 {
 	return !isInlineable(I, PA) && !I.getType()->isVoidTy() && !I.use_empty();
+}
+
+std::vector<std::string> NameGenerator::buildReservedNamesList(const Module& M, const std::vector<std::string>& fromOption)
+{
+	std::set<std::string> ret(fromOption.begin(), fromOption.end());
+	// Look for clobber lists from inline asm calls
+	for(const Function& F: M)
+	{
+		for(const BasicBlock& BB: F)
+		{
+			for(const Instruction& I: BB)
+			{
+				const CallInst* CI = dyn_cast<CallInst>(&I);
+				if(!CI)
+					continue;
+				const InlineAsm* IA = dyn_cast<InlineAsm>(CI->getCalledValue());
+				if(!IA)
+					continue;
+				auto constraints = IA->ParseConstraints();
+				for(const auto& c: constraints)
+				{
+					if(c.Type != InlineAsm::isClobber)
+						continue;
+					for(const auto& s: c.Codes)
+					{
+						if(s.size() < 2 || s.front() != '{' || s.back() != '}')
+							continue;
+						ret.emplace(s.begin()+1, s.end()-1);
+					}
+				}
+			}
+		}
+	}
+	return std::vector<std::string>(ret.begin(), ret.end());
 }
 
 }
