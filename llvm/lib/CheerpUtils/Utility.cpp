@@ -654,7 +654,11 @@ bool DynamicAllocInfo::useCreatePointerArrayFunc() const
 	if (getCastedType()->getElementType()->isPointerTy() )
 	{
 		assert( !TypeSupport::isTypedArrayType( getCastedType()->getElementType(), forceTypedArrays) );
-		return sizeIsRuntime() || type == cheerp_reallocate;
+		if( sizeIsRuntime() || type == cheerp_reallocate)
+			return true;
+		// Should also use createPointerArray if allocating many elements
+		uint32_t byteSize = cast<ConstantInt>(getByteSizeArg())->getZExtValue();
+		return byteSize/typeSize > 8;
 	}
 	return false;
 }
