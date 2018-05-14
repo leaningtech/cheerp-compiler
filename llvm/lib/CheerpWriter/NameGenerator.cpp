@@ -398,11 +398,14 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	name_iterator<JSSymbols> name_it((JSSymbols(reservedNames)));
 	
 	// Generate HEAP names first to keep them short
-	builtins[HEAP8] = *name_it++;
-	builtins[HEAP16] = *name_it++;
-	builtins[HEAP32] = *name_it++;
-	builtins[HEAPF32] = *name_it++;
-	builtins[HEAPF64] = *name_it++;
+	if(gda.needAsmJS())
+	{
+		builtins[HEAP8] = *name_it++;
+		builtins[HEAP16] = *name_it++;
+		builtins[HEAP32] = *name_it++;
+		builtins[HEAPF32] = *name_it++;
+		builtins[HEAPF64] = *name_it++;
+	}
 
 	// We need to iterate over allGlobalValues and allLocalValues
 	// at the same time incrementing selectively only one of the iterators
