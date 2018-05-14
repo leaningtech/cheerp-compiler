@@ -80,9 +80,6 @@ bool CheerpWritePass::runOnModule(Module& M)
   // Destroy the stores here, we need them to properly compute the pointer kinds, but we want to optimize them away before registerize
   allocaStoresExtractor.destroyStores();
   registerize.assignRegisters(M, PA);
-  // Build the ordered list of reserved names
-  std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
-  std::sort(reservedNames.begin(), reservedNames.end());
 
   std::error_code ErrorCode;
   llvm::tool_output_file memFile(AsmJSMemFile, ErrorCode, sys::fs::F_None);
@@ -92,9 +89,9 @@ bool CheerpWritePass::runOnModule(Module& M)
     memOut.reset(new formatted_raw_ostream(memFile.os()));
   }
 
-  cheerp::NameGenerator namegen(M, GDA, registerize, PA, reservedNames, PrettyCode);
+  cheerp::NameGenerator namegen(M, GDA, registerize, PA, ReservedNames, PrettyCode);
   cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut.get(), AsmJSMemFile,
-          sourceMapGenerator.get(), reservedNames, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
+          sourceMapGenerator.get(), PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
           BoundsCheck, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
   writer.makeJS();

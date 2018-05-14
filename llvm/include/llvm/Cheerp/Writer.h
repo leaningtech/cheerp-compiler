@@ -507,7 +507,6 @@ public:
 			llvm::raw_ostream* asmJSMem,
 			const std::string& asmJSMemFile,
 			SourceMapGenerator* sourceMapGenerator,
-			const std::vector<std::string>& reservedNames,
 			bool readableOutput,
 			llvm::StringRef makeModule,
 			bool noRegisterize,
