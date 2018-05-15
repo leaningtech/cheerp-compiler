@@ -12,6 +12,8 @@
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/InlineAsm.h"
 
+#include <numeric>
+
 using namespace llvm;
 using namespace cheerp;
 
@@ -186,6 +188,18 @@ void CheerpWriter::compileInlineAsm(const CallInst& ci)
 	StringRef str = a->getAsmString();
 	bool needsParamIndex = false;
 	int paramIndex = 0;
+	auto constraints = a->ParseConstraints();
+	// TODO: support output parameters in the template string
+	int numOutputs = std::accumulate(constraints.begin(), constraints.end(),
+		0, [](int acc, const llvm::InlineAsm::ConstraintInfo& c) {
+			return acc + (c.Type == InlineAsm::isOutput);
+		});
+	auto getInputParamIndex = [&](int p) {
+		if (p - numOutputs < 0) {
+			llvm::report_fatal_error("Cheerp: Output operands in the asm template are not supported");
+		}
+		return p - numOutputs;
+	};
 	for(unsigned i=0;i<str.size();i++)
 	{
 		if(needsParamIndex)
@@ -206,7 +220,7 @@ void CheerpWriter::compileInlineAsm(const CallInst& ci)
 			else
 			{
 				// Parameter parsed, do not forget to output this char as well
-				compileOperand(ci.getOperand(paramIndex));
+				compileOperand(ci.getOperand(getInputParamIndex(paramIndex)));
 				stream << str[i];
 				needsParamIndex = false;
 			}
@@ -222,6 +236,6 @@ void CheerpWriter::compileInlineAsm(const CallInst& ci)
 	if(needsParamIndex)
 	{
 		// The string ends with a parameter index, do not forget it
-		compileOperand(ci.getOperand(paramIndex));
+		compileOperand(ci.getOperand(getInputParamIndex(paramIndex)));
 	}
 }
