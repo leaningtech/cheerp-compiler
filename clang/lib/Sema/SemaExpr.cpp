@@ -6552,9 +6552,23 @@ ExprResult Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
       case Builtin::BIqsort_r:
         return ExprError(Diag(LParenLoc, diag::err_cheerp_type_unsafe_functions)
                          << FDecl << "std::sort");
-      case Builtin::BImemcmp:
-        return ExprError(Diag(LParenLoc, diag::err_cheerp_type_unsafe_functions)
-                         << FDecl << "cheerp::memcmp");
+      case Builtin::BImemcmp: {
+        // Only allow memcmp if both sides are char/unsigned char pointers
+        auto IsValidMemcmpSource = [](Expr* e) -> bool {
+            QualType t = e->getType().getCanonicalType();
+            if(const PointerType* pt = dyn_cast<PointerType>(t)) {
+                QualType pointedType = pt->getPointeeType().getCanonicalType();
+                return pointedType->isCharType();
+            } else if(const ArrayType* at = dyn_cast<ArrayType>(t)) {
+                QualType pointedType = at->getElementType().getCanonicalType();
+                return pointedType->isCharType();
+            }
+            return false;
+        };
+        if(Args.size() != 3 || !IsValidMemcmpSource(Args[0]) || !IsValidMemcmpSource(Args[1]))
+            return ExprError(Diag(LParenLoc, diag::err_cheerp_type_unsafe_functions)
+                         << FDecl << "cheerp::memcmp or CHEERP_MEMCMP in <cheerp/memory.h>");
+      }
       default:
         break;
     }
