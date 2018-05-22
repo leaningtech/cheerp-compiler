@@ -248,11 +248,12 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 		if(result_kind == SPLIT_REGULAR)
 		{
 			compileCompleteObject(src);
-			stream << ".a;" << NewLine;
-			stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
-			compileCompleteObject(src);
 			stream << ".o-";
 			compileOperand(offset, HIGHEST);
+			stream << ";" << NewLine;
+			stream << namegen.getName(callV.getInstruction()) << '=';
+			compileCompleteObject(src);
+			stream << ".a";
 		}
 		else if(result_kind == REGULAR)
 		{
@@ -4141,6 +4142,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			else
 				sourceMapGenerator->setDebugLoc(nullptr);
 		}
+		bool isDowncast = false;
 		if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&(*I)))
 		{
 			//Skip some kind of intrinsics
@@ -4151,10 +4153,12 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			{
 				continue;
 			}
+			else if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
+				isDowncast = true;
 		}
 		if(!I->use_empty())
 		{
-			if(I->getType()->isPointerTy() && I->getOpcode() != Instruction::Call && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I))
+			if(I->getType()->isPointerTy() && (I->getOpcode() != Instruction::Call || isDowncast) && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I))
 			{
 				stream << namegen.getSecondaryName(I) << '=';
 			}
