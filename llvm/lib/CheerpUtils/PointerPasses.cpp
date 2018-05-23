@@ -597,7 +597,7 @@ bool FreeAndDeleteRemoval::runOnFunction(Function& F)
 			Function* F = call->getCalledFunction();
 			if(!F)
 				continue;
-			if(F->getName()=="free" && isAllGenericJS)
+			if(cheerp::isFreeFunctionName(F->getName()) && isAllGenericJS)
 			{
 				deleteInstructionAndUnusedOperands(call);
 				Changed = true;
