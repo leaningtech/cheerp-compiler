@@ -117,24 +117,31 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 			{
 				if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
 				{
-					if(II->getIntrinsicID()!=Intrinsic::cheerp_downcast)
-						continue;
-					// If a source type is downcasted with an offset != 0 we can't collapse the type
-					// we keep track of this by setting the mapping to an empty vector
-					StructType* sourceType = cast<StructType>(II->getOperand(0)->getType()->getPointerElementType());
-					if(!isa<ConstantInt>(II->getOperand(1)) || cast<ConstantInt>(II->getOperand(1))->getZExtValue() != 0)
+					if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
 					{
-						downcastSourceToDestinationsMapping[sourceType].clear();
-						continue;
+						// If a source type is downcasted with an offset != 0 we can't collapse the type
+						// we keep track of this by setting the mapping to an empty vector
+						StructType* sourceType = cast<StructType>(II->getOperand(0)->getType()->getPointerElementType());
+						if(!isa<ConstantInt>(II->getOperand(1)) || cast<ConstantInt>(II->getOperand(1))->getZExtValue() != 0)
+						{
+							downcastSourceToDestinationsMapping[sourceType].clear();
+							continue;
+						}
+						// If the offset is 0 we need to append the destination type to the mapping
+						// If the source type is in the map, but the vector is empty it means that we were
+						// in the case above, so we don't add the new destType
+						StructType* destType = cast<StructType>(II->getType()->getPointerElementType());
+						auto it=downcastSourceToDestinationsMapping.find(sourceType);
+						if(it != downcastSourceToDestinationsMapping.end() && it->second.empty())
+							continue;
+						downcastSourceToDestinationsMapping[sourceType].insert(destType);
 					}
-					// If the offset is 0 we need to append the destination type to the mapping
-					// If the source type is in the map, but the vector is empty it means that we were
-					// in the case above, so we don't add the new destType
-					StructType* destType = cast<StructType>(II->getType()->getPointerElementType());
-					auto it=downcastSourceToDestinationsMapping.find(sourceType);
-					if(it != downcastSourceToDestinationsMapping.end() && it->second.empty())
-						continue;
-					downcastSourceToDestinationsMapping[sourceType].insert(destType);
+					else if(II->getIntrinsicID() == Intrinsic::cheerp_virtualcast)
+					{
+						// We can't collapse the source of a virtualcast, keep track of this by setting the mapping to an empty vector
+						StructType* sourceType = cast<StructType>(II->getOperand(0)->getType()->getPointerElementType());
+						downcastSourceToDestinationsMapping[sourceType].clear();
+					}
 				}
 				else if(const BitCastInst* BC=dyn_cast<BitCastInst>(&I))
 				{
