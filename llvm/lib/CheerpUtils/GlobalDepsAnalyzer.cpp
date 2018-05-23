@@ -576,7 +576,11 @@ void GlobalDepsAnalyzer::visitVirtualcastBases(StructType* derived, StructType* 
 	{
 		for (auto b = derived->element_begin() + i->second; b != derived->element_end(); b++)
 		{
-			assert(isa<StructType>(*b));
+			if(!isa<StructType>(*b))
+			{
+				// Base has collapse to an element which is not a struct, so it cannot contain "base" in it's hierarchy
+				continue;
+			}
 			StructType* st = cast<StructType>(*b);
 			visitVirtualcastBases(st, base, visitedClasses);
 			if (visitedClasses[st])
