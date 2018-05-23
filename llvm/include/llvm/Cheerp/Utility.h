@@ -112,6 +112,11 @@ bool hasNonLoadStoreUses(const llvm::Value* v);
 
 llvm::StructType* getGEPContainerStructType(const llvm::User* gep);
 
+inline bool isFreeFunctionName(llvm::StringRef name)
+{
+	return name=="free" || name=="_ZdlPv" || name=="_ZdaPv";
+}
+
 class TypeSupport
 {
 public:
