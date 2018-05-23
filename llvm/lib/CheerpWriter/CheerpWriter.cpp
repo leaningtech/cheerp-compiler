@@ -924,7 +924,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compileOperand(*it, LOWEST);
 		return COMPILE_OK;
 	}
-	else if(ident=="free" || ident=="_ZdlPv" || ident=="_ZdaPv" || intrinsicId==Intrinsic::cheerp_deallocate)
+	else if(cheerp::isFreeFunctionName(ident) || intrinsicId==Intrinsic::cheerp_deallocate)
 	{
 		if (asmjs || TypeSupport::isAsmJSPointer((*it)->getType()))
 		{
