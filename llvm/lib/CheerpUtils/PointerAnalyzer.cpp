@@ -1446,6 +1446,9 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeA
 
 POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex& baseAndIndex) const
 {
+	if(TypeSupport::hasByteLayout(cast<StructType>(baseAndIndex.type)->getElementType(baseAndIndex.index)->getPointerElementType()))
+		return BYTE_LAYOUT;
+
 	IndirectPointerKindConstraint c(BASE_AND_INDEX_CONSTRAINT, baseAndIndex);
 	auto it=pointerKindData.constraintsMap.find(c);
 	if(it==pointerKindData.constraintsMap.end())
