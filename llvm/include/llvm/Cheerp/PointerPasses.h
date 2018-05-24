@@ -199,7 +199,9 @@ private:
 		}
 	};
 	typedef std::set<Instruction*, OrderByOperands> OrderedGEPs;
-	void optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end, llvm::Value* base, uint32_t startIndex);
+	typedef std::unordered_map<Value*, llvm::Instruction*> InsertPointLimit;
+	void optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, OrderedGEPs& orderedGeps, OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
+					llvm::Value* base, uint32_t startIndex, const InsertPointLimit* insertPointLimit);
 	DominatorTree* DT;
 public:
 	static char ID;
