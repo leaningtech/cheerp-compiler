@@ -736,9 +736,9 @@ void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createDelayAllocasPass() { return new DelayAllocas(); }
 
-void GEPOptimizer::optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end, Value* base, uint32_t startIndex)
+void GEPOptimizer::optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, OrderedGEPs& orderedGeps, OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
+						Value* base, uint32_t startIndex, const InsertPointLimit* insertPointLimit)
 {
-	std::set<Instruction*> erasedInst;
 	assert(begin != end);
 	// We know that up to startIndex all indexes are equal
 	// Find out how many indexes are equal in all the range and build a GEP with them from the base
@@ -803,7 +803,6 @@ void GEPOptimizer::optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEP
 					newGEP->takeName(*begin);
 					(*begin)->replaceAllUsesWith(newGEP);
 					erasedInst.insert(*begin);
-					(*begin)->eraseFromParent();
 					newIndexes.resize(oldIndexCount);
 				}
 				if(it==end)
@@ -821,23 +820,38 @@ void GEPOptimizer::optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEP
 			newIndexes.pop_back();
 			Instruction* insertionPoint = NULL;
 			// Compute the insertion point to dominate all users of this GEP in the range
-			for(OrderedGEPs::iterator rangeIt = begin; rangeIt != it; ++rangeIt)
+			for(OrderedGEPs::iterator rangeIt = begin; rangeIt != it;)
 			{
+				Instruction* curGEP = *rangeIt;
+				++rangeIt;
 				if(insertionPoint==NULL)
 				{
-					insertionPoint = *rangeIt;
+					insertionPoint = curGEP;
 					continue;
 				}
 				// Check if the current GEP dominates the old insertionPoint
-				if(DT->dominates(*rangeIt, insertionPoint))
-					insertionPoint = *rangeIt;
-				else if(!DT->dominates(insertionPoint, *rangeIt))
+				if(DT->dominates(curGEP, insertionPoint))
+					insertionPoint = curGEP;
+				else if(!DT->dominates(insertionPoint, curGEP))
 				{
 					// If the insertionPoint also does not dominate the current GEP
 					// we need to find a common dominator for both
-					BasicBlock* commonDominator = DT->findNearestCommonDominator(insertionPoint->getParent(), (*rangeIt)->getParent());
+					BasicBlock* commonDominator = DT->findNearestCommonDominator(insertionPoint->getParent(), curGEP->getParent());
 					assert(commonDominator);
-					insertionPoint = commonDominator->getTerminator();
+					llvm::Instruction* insertPointCandidate = commonDominator->getTerminator();
+					// Make sure that insertPointCandidate is dominated by the insertPointLimit for this base
+					llvm::Instruction* limit = insertPointLimit ? insertPointLimit->at(base) : nullptr;
+					if(limit && !DT->dominates(limit, insertPointCandidate))
+					{
+						// It is not safe to optimize this GEP, remove it from the set
+						assert(curGEP != *begin);
+						orderedGeps.erase(curGEP);
+#if DEBUG_GEP_OPT_VERBOSE
+						llvm::errs() << "Skpping GEP " << *curGEP << "\n";
+#endif
+					}
+					else
+						insertionPoint = insertPointCandidate;
 				}
 			}
 			assert(insertionPoint);
@@ -848,7 +862,8 @@ void GEPOptimizer::optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEP
 			if(rangeSize != 1)
 			{
 				// Proceed with the range from 'begin' to 'it'
-				optimizeGEPsRecursive(begin, it, newGEP, endIndex+1);
+				// NOTE: insertPointLimit is not passed to later steps, it is only needed when dealing with the base
+				optimizeGEPsRecursive(erasedInst, orderedGeps, begin, it, newGEP, endIndex+1, nullptr);
 			}
 			if(it==end)
 				break;
@@ -869,6 +884,11 @@ bool GEPOptimizer::runOnFunction(Function& F)
 
 	OrderedGEPs gepsFromBasePointer;
 
+	// This map contains the very first GEP that reference a given base
+	// It is not safe to build new GEPs for the base that are not dominated by this GEP
+	// TODO: If, for a given base, there is a GEP in every successor block, moving the GEP to the parent block would be safe
+	InsertPointLimit insertPointLimit;
+
 	// Gather all the GEPs
 	for ( BasicBlock& BB : F )
 	{
@@ -879,6 +899,8 @@ bool GEPOptimizer::runOnFunction(Function& F)
 			if(I.getNumOperands() <= 2)
 				continue;
 			gepsFromBasePointer.insert(&I);
+			if(!insertPointLimit.count(I.getOperand(0)))
+				insertPointLimit.insert(std::make_pair(I.getOperand(0), &I));
 		}
 	}
 
@@ -887,6 +909,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 	// know that equal objects are close.
 	uint32_t rangeLength = 0;
 	OrderedGEPs::iterator rangeStart;
+	std::set<Instruction*> erasedInst;
 	for(auto it=gepsFromBasePointer.begin();;++it)
 	{
 		if(it!=gepsFromBasePointer.end())
@@ -916,12 +939,14 @@ bool GEPOptimizer::runOnFunction(Function& F)
 				llvm::errs() << " " << **it2;
 			llvm::errs() << "\n";
 #endif
-			optimizeGEPsRecursive(rangeStart, it, (*rangeStart)->getOperand(0), 1);
+			optimizeGEPsRecursive(erasedInst, gepsFromBasePointer, rangeStart, it, (*rangeStart)->getOperand(0), 1, &insertPointLimit);
 		}
 		rangeLength = 0;
 		if(it==gepsFromBasePointer.end())
 			break;
 	}
+	for(Instruction* I: erasedInst)
+		I->eraseFromParent();
 	return Changed;
 }
 
