@@ -795,14 +795,17 @@ void GEPOptimizer::optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, Ord
 					// Create a GEP from the base to all not used yet indexes
 					for(uint32_t i=endIndex;i<(*begin)->getNumOperands();i++)
 						newIndexes.push_back((*begin)->getOperand(i));
-					assert(!erasedInst.count(*begin));
-					Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "", *begin);
+					if(newIndexes.size() > 1)
+					{
+						assert(!erasedInst.count(*begin));
+						Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "", *begin);
 #if DEBUG_GEP_OPT_VERBOSE
-					llvm::errs() << "New GEP " << newGEP << "\n";
+						llvm::errs() << "New GEP " << newGEP << "\n";
 #endif
-					newGEP->takeName(*begin);
-					(*begin)->replaceAllUsesWith(newGEP);
-					erasedInst.insert(*begin);
+						newGEP->takeName(*begin);
+						(*begin)->replaceAllUsesWith(newGEP);
+						erasedInst.insert(*begin);
+					}
 					newIndexes.resize(oldIndexCount);
 				}
 				if(it==end)
