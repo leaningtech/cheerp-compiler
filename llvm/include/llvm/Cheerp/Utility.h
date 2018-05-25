@@ -110,7 +110,7 @@ std::string valueObjectName(const llvm::Value * v);
 
 bool hasNonLoadStoreUses(const llvm::Value* v);
 
-llvm::StructType* getGEPContainerStructType(const llvm::User* gep);
+llvm::Type* getGEPContainerType(const llvm::User* gep);
 
 inline bool isFreeFunctionName(llvm::StringRef name)
 {

@@ -324,14 +324,14 @@ bool hasNonLoadStoreUses( const Value* v)
 	return false;
 }
 
-StructType* getGEPContainerStructType(const User* gep)
+Type* getGEPContainerType(const User* gep)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep->op_begin()), std::prev(gep->op_end()));
 	Type* basePointerType = gep->getOperand(0)->getType();
-	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType,
+	Type* containerType = GetElementPtrInst::getIndexedType(basePointerType,
 			makeArrayRef(const_cast<Value* const*>(indices.begin()),
-				     const_cast<Value* const*>(indices.end()))));
-	return containerStructType;
+				     const_cast<Value* const*>(indices.end())));
+	return containerType;
 }
 
 bool TypeSupport::isDerivedStructType(StructType* derivedType, StructType* baseType)

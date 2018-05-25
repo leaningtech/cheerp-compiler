@@ -103,7 +103,7 @@ llvm::StructType* TypeOptimizer::isEscapingStructGEP(const User* GEP)
 	// Keep track of all structure fields that "escapes" (used by more than load/stores)
 	if(!hasNonLoadStoreUses(GEP))
 		return nullptr;
-	StructType* containerStructType = cheerp::getGEPContainerStructType(GEP);
+	StructType* containerStructType = dyn_cast<StructType>(cheerp::getGEPContainerType(GEP));
 	return containerStructType;
 }
 
