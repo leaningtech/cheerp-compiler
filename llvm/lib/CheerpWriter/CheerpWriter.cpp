@@ -3025,7 +3025,7 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 	Type* basePointerType = gep_inst->getOperand(0)->getType();
 	Type* targetType = gep_inst->getType()->getPointerElementType();
 
-	StructType* containerStructType = getGEPContainerStructType(gep_inst);
+	StructType* containerStructType = dyn_cast<StructType>(getGEPContainerType(gep_inst));
 	bool useDownCastArray = false;
 	if(containerStructType && indices.size() > 1)
 	{
@@ -3097,7 +3097,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 	Type* basePointerType = gep_inst->getOperand(0)->getType();
 	Type* targetType = gep_inst->getType()->getPointerElementType();
 
-	StructType* containerStructType = getGEPContainerStructType(gep_inst);
+	StructType* containerStructType = dyn_cast<StructType>(getGEPContainerType(gep_inst));
 	bool useDownCastArray = false;
 	if(containerStructType && indices.size() > 1)
 	{
