@@ -478,3 +478,70 @@ void CheerpWriter::compileArrayPointerType()
 		<< NewLine;
 }
 
+bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const Value* v) const
+{
+	if(!v->getType()->isIntegerTy(8) && !v->getType()->isIntegerTy(16))
+		return true;
+	if(!visited.insert(v).second)
+		return false;
+	if(isa<ConstantInt>(v))
+	{
+		// Constants are compiled as zero extended
+		return false;
+	}
+	else if(const LoadInst* LI = dyn_cast<LoadInst>(v))
+	{
+		Value* ptr = LI->getOperand(0);
+		if(isGEP(ptr))
+		{
+			uint32_t numOp = cast<User>(ptr)->getNumOperands();
+			if(numOp > 2)
+			{
+				Type* containerType = getGEPContainerType(cast<User>(ptr));
+				// 1 element arrays are represented as normal JS arrays, but longer arrays are always typed arrays
+				// i8 and i16 typed arrays are unsigned, so we don't need the truncation
+				bool comesFromTypedArray = isa<ArrayType>(containerType) && cast<ArrayType>(containerType)->getNumElements() > 1;
+				return !comesFromTypedArray;
+			}
+			else
+			{
+				ConstantInt* lastOperand = dyn_cast<ConstantInt>(cast<User>(ptr)->getOperand(numOp-1));
+				return !(lastOperand && lastOperand->getSExtValue() > 0);
+			}
+		}
+	}
+	else if(const PHINode* phi = dyn_cast<PHINode>(v))
+	{
+		for(uint32_t i=0;i<phi->getNumIncomingValues();i++)
+		{
+			const Value* incoming = phi->getIncomingValue(i);
+			if(needsUnsignedTruncation(visited, incoming))
+				return true;
+		}
+		return false;
+	}
+	else if(const Instruction* I = dyn_cast<Instruction>(v))
+	{
+		if(I->getOpcode() == Instruction::And)
+		{
+			return needsUnsignedTruncation(visited, I->getOperand(0)) && needsUnsignedTruncation(visited, I->getOperand(1));
+		}
+		else if(I->getOpcode() == Instruction::Xor || I->getOpcode() == Instruction::Or)
+		{
+			return needsUnsignedTruncation(visited, I->getOperand(0)) || needsUnsignedTruncation(visited, I->getOperand(1));
+		}
+		else if(I->getOpcode() == Instruction::Select)
+		{
+			return needsUnsignedTruncation(visited, I->getOperand(1)) || needsUnsignedTruncation(visited, I->getOperand(2));
+		}
+		else if(I->getOpcode() == Instruction::ZExt || I->getOpcode() == Instruction::LShr)
+			return false;
+	}
+	return true;
+}
+
+bool CheerpWriter::needsUnsignedTruncation(const Value* v) const
+{
+	std::unordered_set<const llvm::Value*> visited;
+	return needsUnsignedTruncation(visited, v);
+}

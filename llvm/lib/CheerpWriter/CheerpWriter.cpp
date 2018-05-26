@@ -3265,6 +3265,10 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY 
 		stream << ">>>0";
 		if(parentPrio > SHIFT) stream << ')';
 	}
+	else if(!needsUnsignedTruncation(v))
+	{
+		compileOperand(v, parentPrio);
+	}
 	else
 	{
 		if(parentPrio > BIT_AND) stream << '(';
@@ -3661,13 +3665,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			PARENT_PRIORITY shiftPrio = SHIFT;
 			int width = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(parentPrio > SHIFT) stream << '(';
-			if(width != 32)
+			bool needsTruncation = width != 32 && needsUnsignedTruncation(I.getOperand(0));
+			if(needsTruncation)
 			{
 				shiftPrio = BIT_AND;
 				stream << '(';
 			}
 			compileOperand(I.getOperand(0), shiftPrio);
-			if(width != 32)
+			if(needsTruncation)
 				stream << '&' << getMaskForBitWidth(width) << ')';
 			stream << ">>>";
 			compileOperand(I.getOperand(1), nextPrio(SHIFT));
@@ -4047,9 +4052,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				compilePointerBase(ptrOp);
 				Type* pointedType=ptrOp->getType()->getPointerElementType();
 				if(pointedType->isIntegerTy(8))
-					stream << ".getInt8(";
+					stream << ".getUint8(";
 				else if(pointedType->isIntegerTy(16))
-					stream << ".getInt16(";
+					stream << ".getUint16(";
 				else if(pointedType->isIntegerTy(32))
 					stream << ".getInt32(";
 				else if(pointedType->isFloatTy())
