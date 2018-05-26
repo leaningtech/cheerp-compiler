@@ -449,6 +449,8 @@ private:
 	void compileClassConstructor(llvm::StructType* T);
 	void compileArrayClassType(llvm::Type* T);
 	void compileArrayPointerType();
+	bool needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const llvm::Value* v) const;
+	bool needsUnsignedTruncation(const llvm::Value* v) const;
 
 	/**
 	 * Methods implemented in Opcodes.cpp
