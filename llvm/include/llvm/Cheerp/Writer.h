@@ -393,7 +393,7 @@ private:
 	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 
 	void compileSignedInteger(const llvm::Value* v, bool forComparison, PARENT_PRIORITY parentPrio);
-	void compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY parentPrio);
+	void compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio);
 
 	void compileMethodLocal(llvm::StringRef name, Registerize::REGISTER_KIND kind);
 	void compileMethodLocals(const llvm::Function& F, bool needsLabel);

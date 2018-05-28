@@ -1345,7 +1345,10 @@ void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Pr
 	if(CmpInst::isSigned(p))
 		compileSignedInteger(v, /*forComparison*/ true, parentPrio);
 	else if(CmpInst::isUnsigned(p) || !v->getType()->isIntegerTy(32))
-		compileUnsignedInteger(v, parentPrio);
+	{
+		bool asmjs = currentFun->getSection() == StringRef("asmjs");
+		compileUnsignedInteger(v, /*forAsmJSComparison*/ asmjs, parentPrio);
+	}
 	else
 		compileSignedInteger(v, /*forComparison*/ true, parentPrio);
 }
@@ -3248,7 +3251,7 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 	if(parentPrio > signedPrio) stream << ')';
 }
 
-void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY parentPrio)
+void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio)
 {
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
@@ -3267,7 +3270,15 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, PARENT_PRIORITY 
 	}
 	else if(!needsUnsignedTruncation(v))
 	{
-		compileOperand(v, parentPrio);
+		if(forAsmJSComparison)
+		{
+			if(parentPrio > BIT_OR) stream << '(';
+			compileOperand(v, BIT_OR);
+			stream << "|0";
+			if(parentPrio > BIT_OR) stream << ')';
+		}
+		else
+			compileOperand(v, parentPrio);
 	}
 	else
 	{
@@ -3329,7 +3340,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			else
 				stream << "(+";
 			//We need to cast to unsigned before
-			compileUnsignedInteger(ci.getOperand(0), HIGHEST);
+			compileUnsignedInteger(ci.getOperand(0), /*forAsmJSComparison*/ false, HIGHEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -3434,7 +3445,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				//Let's mask out upper bits, to make sure we get zero extension
 				//The value might have been initialized with a negative value
-				compileUnsignedInteger(I.getOperand(0), parentPrio);
+				compileUnsignedInteger(I.getOperand(0), /*forAsmJSComparison*/ false, parentPrio);
 			}
 			return COMPILE_OK;
 		}
@@ -3460,9 +3471,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(needsIntCoercion(regKind, parentPrio))
 				udivPrio = BIT_OR;
 			if(parentPrio > udivPrio) stream << '(';
-			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
+			compileUnsignedInteger(I.getOperand(0), /*forAsmJSComparison*/ false, MUL_DIV);
 			stream << '/';
-			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
+			compileUnsignedInteger(I.getOperand(1), /*forAsmJSComparison*/ false, MUL_DIV);
 			if(udivPrio == BIT_OR)
 				stream << "|0";
 			if(parentPrio > udivPrio) stream << ')';
@@ -3490,9 +3501,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(needsIntCoercion(regKind, parentPrio))
 				uremPrio = BIT_OR;
 			if(parentPrio > uremPrio) stream << '(';
-			compileUnsignedInteger(I.getOperand(0), MUL_DIV);
+			compileUnsignedInteger(I.getOperand(0), /*forAsmJSComparison*/ false, MUL_DIV);
 			stream << '%';
-			compileUnsignedInteger(I.getOperand(1), MUL_DIV);
+			compileUnsignedInteger(I.getOperand(1), /*forAsmJSComparison*/ false, MUL_DIV);
 			if(uremPrio == BIT_OR)
 				stream << "|0";
 			if(parentPrio > uremPrio) stream << ')';
