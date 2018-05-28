@@ -292,14 +292,6 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				continue;
 		}
 
-		// Do not inline memory intrinsics with a large or non-constant size
-		// argument, when in linear memory mode.
-		if (asmjs) {
-			ConstantInt *sizeInt = dyn_cast<ConstantInt>(CI->getOperand(2));
-			if (!sizeInt || sizeInt->getZExtValue() > INLINE_WRITE_LOOP_MAX)
-				continue;
-		}
-
 		//We have a typed mem func on a struct
 		//Decompose it in a loop
 		Value* dst=CI->getOperand(0);
@@ -307,6 +299,23 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		Value* src=CI->getOperand(1);
 		assert(dst->getType() == src->getType() || mode==MEMSET);
 		Value* size=CI->getOperand(2);
+		Type* int32Type = IntegerType::get(BB.getContext(), 32);
+		// Do not inline memory intrinsics with a large or non-constant size
+		// argument, when in linear memory mode.
+		// Also, if the memcpy is nicely aligned, use 32 bit loads and stores
+		if (asmjs) {
+			ConstantInt *sizeConst = dyn_cast<ConstantInt>(size);
+			if (!sizeConst || sizeConst->getZExtValue() > INLINE_WRITE_LOOP_MAX)
+				continue;
+			uint32_t sizeInt = sizeConst->getZExtValue();
+			uint32_t alignInt = cast<ConstantInt>(CI->getOperand(3))->getZExtValue();
+			if (mode == MEMCPY && alignInt % 4 == 0 && sizeInt % 4 == 0) {
+				IRBuilder<>* IRB = new IRBuilder<>(CI);
+				dst = IRB->CreateBitCast(dst, int32Type->getPointerTo());
+				src = IRB->CreateBitCast(src, int32Type->getPointerTo());
+				pointedType = int32Type;
+			}
+		}
 		uint32_t byteSize = DL->getTypeAllocSize(pointedType);
 		//First of all split the original block
 		BasicBlock* endLoop = BB.splitBasicBlock(it);
@@ -318,7 +327,6 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		//Delete the old branch
 		oldBranch->eraseFromParent();
 		IRBuilder<>* IRB = new IRBuilder<>(&BB);
-		Type* int32Type = IntegerType::get(BB.getContext(), 32);
 		Value* fixedSize = IRB->CreateZExtOrTrunc(size, int32Type);
 		Value* elementsCount=IRB->CreateUDiv(fixedSize, ConstantInt::get(int32Type, byteSize));
 		Value* countIsZero=IRB->CreateICmp(CmpInst::ICMP_EQ, elementsCount, ConstantInt::get(int32Type, 0));
