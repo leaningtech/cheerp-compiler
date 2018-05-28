@@ -309,10 +309,13 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				continue;
 			uint32_t sizeInt = sizeConst->getZExtValue();
 			uint32_t alignInt = cast<ConstantInt>(CI->getOperand(3))->getZExtValue();
-			if (mode == MEMCPY && alignInt % 4 == 0 && sizeInt % 4 == 0) {
+			assert(alignInt != 0);
+			if (alignInt % 4 == 0 && sizeInt % 4 == 0) {
 				IRBuilder<>* IRB = new IRBuilder<>(CI);
 				dst = IRB->CreateBitCast(dst, int32Type->getPointerTo());
-				src = IRB->CreateBitCast(src, int32Type->getPointerTo());
+				// In MEMSET mode src is the i8 value to write
+				if(mode != MEMSET)
+					src = IRB->CreateBitCast(src, int32Type->getPointerTo());
 				pointedType = int32Type;
 			}
 		}
