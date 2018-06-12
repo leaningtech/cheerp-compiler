@@ -425,6 +425,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				DynamicAllocInfo ai (&I, DL, forceTypedArrays);
 				if ( ai.isValidAlloc() )
 				{
+					assert(!TypeSupport::isAsmJSPointer(ai.getCastedType()));
 					if ( ai.useCreatePointerArrayFunc() )
 						hasPointerArrays = true;
 					else if ( ai.useCreateArrayFunc() )
@@ -599,7 +600,9 @@ void GlobalDepsAnalyzer::visitType( Type* t, bool forceTypedArray )
 	if( ArrayType* AT=dyn_cast<ArrayType>(t) )
 	{
 		Type* elementType = AT->getElementType();
-		if(elementType->isPointerTy())
+		if(elementType->isStructTy() && cast<StructType>(elementType)->hasAsmJS())
+			return;
+		else if(elementType->isPointerTy())
 			hasPointerArrays = true;
 		else if(!TypeSupport::isTypedArrayType(elementType, forceTypedArray) && AT->getNumElements() > 8)
 			arraysNeeded.insert(elementType);
