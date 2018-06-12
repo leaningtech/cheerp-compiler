@@ -932,20 +932,25 @@ static llvm::Value *EmitCXXNewAllocSize(CodeGenFunction &CGF,
     if (cookieSize != 0) {
       sizeWithoutCookie = size;
 
-      llvm::Function *uadd_with_overflow
-        = CGF.CGM.getIntrinsic(llvm::Intrinsic::uadd_with_overflow, CGF.SizeTy);
-
       llvm::Value *cookieSizeV = llvm::ConstantInt::get(CGF.SizeTy, cookieSize);
-      llvm::Value *result =
-          CGF.Builder.CreateCall(uadd_with_overflow, {size, cookieSizeV});
+      if (CGF.getTarget().isByteAddressable()) {
+        llvm::Function *uadd_with_overflow
+          = CGF.CGM.getIntrinsic(llvm::Intrinsic::uadd_with_overflow, CGF.SizeTy);
 
-      llvm::Value *overflowed = CGF.Builder.CreateExtractValue(result, 1);
-      if (hasOverflow)
-        hasOverflow = CGF.Builder.CreateOr(hasOverflow, overflowed);
-      else
-        hasOverflow = overflowed;
+        llvm::Value *result =
+            CGF.Builder.CreateCall(uadd_with_overflow, {size, cookieSizeV});
 
-      size = CGF.Builder.CreateExtractValue(result, 0);
+        llvm::Value *overflowed = CGF.Builder.CreateExtractValue(result, 1);
+        if (hasOverflow)
+          hasOverflow = CGF.Builder.CreateOr(hasOverflow, overflowed);
+        else
+          hasOverflow = overflowed;
+
+        size = CGF.Builder.CreateExtractValue(result, 0);
+      } else {
+        //Cheerp: Ignore overflow
+        size = CGF.Builder.CreateAdd(size, cookieSizeV);
+      }
     }
 
     // If we had any possibility of dynamic overflow, make a select to
