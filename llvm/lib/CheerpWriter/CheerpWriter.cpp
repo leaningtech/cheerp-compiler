@@ -622,7 +622,9 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 void CheerpWriter::compileFree(const Value* obj)
 {
-	//TODO: Clean up class related data structures
+	// Only arrays of primitives can be backed by the linear heap
+	if(!TypeSupport::isTypedArrayType(obj->getType()->getPointerElementType(), /*forceTypedArray*/ true))
+		return;
 	stream << "if(";
 	compilePointerBase(obj);
 	stream << ".buffer==__heap)__asm.";
