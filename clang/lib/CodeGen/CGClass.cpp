@@ -1684,7 +1684,7 @@ void CodeGenFunction::EmitDestructorBody(FunctionArgList &Args) {
   // possible to delegate the destructor body to the complete
   // destructor.  Do so.
   if (DtorType == Dtor_Deleting) {
-    if(getTarget().isByteAddressable()) {
+    if(getTarget().isByteAddressable() || Dtor->getParent()->hasAttr<AsmJSAttr>()) {
     RunCleanupsScope DtorEpilogue(*this);
     EnterDtorCleanups(Dtor, Dtor_Deleting);
     if (HaveInsertPoint()) {
