@@ -319,6 +319,8 @@ bool PointerAnalyzer::runOnModule(Module& M)
 				continue;
 			if(!isa<Constant>(v))
 				continue;
+			if(pointerKindData.valueMap.count(v))
+				continue;
 			globalsUsersQueue.push_back(v);
 		}
 	}
