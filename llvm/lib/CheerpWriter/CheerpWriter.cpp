@@ -865,11 +865,21 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		//keeping all local variable around. The helper
 		//method is printed on demand depending on a flag
 		assert( isa<Function>( callV.getArgument(0) ) );
-		stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE) << "(";
+		POINTER_KIND argKind = PA.getPointerKind( cast<Function>(callV.getArgument(0))->arg_begin() );
+		if(argKind == SPLIT_REGULAR)
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE_SPLIT) << "(";
+		else
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE) << "(";
 		compileCompleteObject( callV.getArgument(0) );
 		stream << ',';
-		compilePointerAs( callV.getArgument(1), 
-				  PA.getPointerKind( cast<Function>(callV.getArgument(0))->arg_begin() ) );
+		if(argKind == SPLIT_REGULAR)
+		{
+			compilePointerBase( callV.getArgument(1) );
+			stream << ',';
+			compilePointerOffset( callV.getArgument(1), LOWEST );
+		}
+		else
+			compilePointerAs( callV.getArgument(1), argKind );
 		stream << ')';
 		return COMPILE_OK;
 	}
@@ -4818,6 +4828,7 @@ void CheerpWriter::compileNullPtrs()
 void CheerpWriter::compileCreateClosure()
 {
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE) << "(func, obj){return function(e){func(obj,e);};}" << NewLine;
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE_SPLIT) << "(func, obj, objo){return function(e){func(obj,objo,e);};}" << NewLine;
 }
 
 void CheerpWriter::compileHandleVAArg()
