@@ -3546,9 +3546,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				parentPrio = LOWEST;
 			}
 			if(parentPrio > MUL_DIV) stream << '(';
-			compileOperand(I.getOperand(0), MUL_DIV);
+			// NOTE: Modulo on float is not properly supported by Asm.js
+			if(regKind == Registerize::FLOAT)
+			{
+				stream << "+";
+				compileOperand(I.getOperand(0), HIGHEST);
+			}
+			else
+				compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '%';
-			compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
+			if(regKind == Registerize::FLOAT)
+			{
+				stream << "+";
+				compileOperand(I.getOperand(1), HIGHEST);
+			}
+			else
+				compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
 			if (regKind == Registerize::FLOAT) stream << ')';
 			return COMPILE_OK;
