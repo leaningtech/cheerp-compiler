@@ -509,11 +509,13 @@ ExprResult Sema::DefaultFunctionArrayConversion(Expr *E, bool Diagnose) {
           // because they require the `&` in front of them
           bool oper = Callee->isOverloadedOperator();
           if (!oper && Caller->hasAttr<GenericJSAttr>() && Callee->hasAttr<AsmJSAttr>()) {
-            Diag(E->getExprLoc(), diag::err_cheerp_wrong_function_addr_asmjs)
-              << Callee << Caller;
+            Diag(E->getExprLoc(), diag::err_cheerp_wrong_function_addr)
+              << Callee << Callee->getAttr<AsmJSAttr>()
+              << Caller << Caller->getAttr<GenericJSAttr>();
           } else if (!oper && Caller->hasAttr<AsmJSAttr>() && Callee->hasAttr<GenericJSAttr>()) {
-            Diag(E->getExprLoc(), diag::err_cheerp_wrong_function_addr_genericjs)
-              << Callee << Caller;
+            Diag(E->getExprLoc(), diag::err_cheerp_wrong_function_addr)
+              << Callee << Callee->getAttr<GenericJSAttr>()
+              << Caller << Caller->getAttr<AsmJSAttr>();
           }
         }
       }
@@ -2570,8 +2572,9 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
     if (FunctionDecl* FD = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity())) {
       if (VarDecl* Found = dyn_cast<VarDecl>(R.getFoundDecl())) {
         if (FD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(Found->getType())) {
-          Diag(R.getLookupNameInfo().getLoc(), diag::err_cheerp_wrong_global_access)
-              << Found << Found->getType();
+          Diag(R.getLookupNameInfo().getLoc(), diag::err_cheerp_incompatible_attributes)
+            << FD->getAttr<AsmJSAttr>() << "function" << FD
+            << getGenericJSAttr(Found->getType()) << "global variable" << Found;
         }
       }
     }
@@ -13301,11 +13304,13 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
         if (DeclRefExpr* DR = dyn_cast<DeclRefExpr>(op)) {
           if (FunctionDecl* Callee = dyn_cast<FunctionDecl>(DR->getFoundDecl())) {
             if (Caller->hasAttr<GenericJSAttr>() && Callee->hasAttr<AsmJSAttr>()) {
-              Diag(op->getExprLoc(), diag::err_cheerp_wrong_function_addr_asmjs)
-                << Callee << Caller;
+              Diag(op->getExprLoc(), diag::err_cheerp_wrong_function_addr)
+              << Callee << Callee->getAttr<AsmJSAttr>()
+              << Caller << Caller->getAttr<GenericJSAttr>();
             } else if (Caller->hasAttr<AsmJSAttr>() && Callee->hasAttr<GenericJSAttr>()) {
-              Diag(op->getExprLoc(), diag::err_cheerp_wrong_function_addr_genericjs)
-                << Callee << Caller;
+              Diag(op->getExprLoc(), diag::err_cheerp_wrong_function_addr)
+              << Callee << Callee->getAttr<GenericJSAttr>()
+              << Caller << Caller->getAttr<AsmJSAttr>();
             }
           }
         }
@@ -19308,35 +19313,39 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
       FDecl->getBuiltinID() == Builtin::BImemset)
     return;
   if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
-    if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
-      auto p = FDecl->parameters().begin();
-      auto pe = FDecl->parameters().end();
-      auto a = Args.begin();
-      for(; p != pe; a++, p++) {
-        const Type* t = (*p)->getOriginalType().getTypePtr();
-        const Type* ta = (*a)->getType().getTypePtr();
-        if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType() && !ta->isFunctionProtoType()) {
-          Diag(Loc,
-               diag::err_cheerp_wrong_func_pointer_param)
-            << FDecl->getAttr<AsmJSAttr>() << FDecl << Parent->getAttr<GenericJSAttr>() << *p;
-        } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFundamentalType()) {
-          Diag(Loc,
-               diag::err_cheerp_wrong_basic_pointer_param)
-            << FDecl << *p;
-        }
+    auto p = FDecl->parameters().begin();
+    auto pe = FDecl->parameters().end();
+    auto a = Args.begin();
+    for(; p != pe; a++, p++) {
+      const Type* t = (*p)->getOriginalType().getTypePtr();
+      const Type* ta = (*a)->getType().getTypePtr();
+      if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType() && !ta->isFunctionProtoType()) {
+        Diag(Loc,
+             diag::err_cheerp_wrong_func_pointer_param)
+          << FDecl << FDecl->getAttr<AsmJSAttr>()
+          << Parent << Parent->getAttr<GenericJSAttr>()
+          << *p;
+      } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFundamentalType()) {
+        Diag(Loc,
+             diag::err_cheerp_wrong_basic_pointer_param)
+          << FDecl << FDecl->getAttr<AsmJSAttr>()
+          << Parent << Parent->getAttr<GenericJSAttr>()
+          << *p;
       }
-    } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {
-      for(const auto p: FDecl->parameters()){
-        const Type* t = p->getOriginalType().getTypePtr();
-        if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
-          Diag(Loc,
-               diag::err_cheerp_wrong_func_pointer_param)
-            << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
-        } else if (!Sema::isAsmJSCompatible(p->getOriginalType())) {
-          Diag(Loc,
-               diag::err_cheerp_wrong_param)
-            << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
-        }
+    }
+  } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {
+
+    for(const auto p: FDecl->parameters()){
+      const Type* t = p->getOriginalType().getTypePtr();
+      if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
+        Diag(Loc,
+             diag::err_cheerp_wrong_func_pointer_param)
+          << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
+      } else if (!Sema::isAsmJSCompatible(p->getOriginalType())) {
+        Diag(Loc,
+             diag::err_cheerp_incompatible_attributes)
+          << Sema::getGenericJSAttr(p->getOriginalType()) << "function parameter" << p
+          << Parent->getAttr<AsmJSAttr>() << "caller" << Parent;
       }
     }
   }

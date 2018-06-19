@@ -10930,50 +10930,21 @@ def err_cheerp_switch_64bit : Error<
   "Cheerp: Switch statements with 64-bit integer values are not supported">;
 def err_cheerp_type_unsafe_functions : Error<
   "Cheerp: Function %0 is type unsafe, use %1 instead">;
-def err_cheerp_wrong_param_section : Error<
-  "Cheerp: Wasm function %0 cannot take parameter %1 of non-wasm type %2">;
-def err_cheerp_wrong_return_section : Error<
-  "Cheerp: Wasm function %0 cannot return a value of non-wasm type %1">;
-def err_cheerp_wrong_local_type_asmjs : Error<
-  "Cheerp: Variable %0 of genericjs type %1 cannot be defined in the wasm function %2">;
-def err_cheerp_wrong_global_attribute : Error<
-  "Cheerp: Global variable %0 of %1 type %2 cannot have the attribute %3">;
+
+def err_cheerp_incompatible_attributes : Error<
+  "Cheerp: Attribute %0 of %1 %2 is incompatible with attribute %3 of %4 %5">;
 def err_cheerp_wrong_local_attribute : Error<
   "Cheerp: Explicitly putting the %0 attribute on local variables is forbidden">;
-def err_cheerp_wrong_field_asmjs : Error<
-  "Cheerp: Field %0 of non-wasm type %1 cannot be defined in the wasm class %2">;
-def err_cheerp_wrong_field_genericjs : Error<
-  "Cheerp: Field %0 of wasm value type %1 cannot be defined in the genericjs class %2">;
-def err_cheerp_wrong_this : Error<
-  "Cheerp: Method %0 of object %1 of non-wasm type %2 cannot be called in the wasm section">;
-def err_cheerp_wrong_global_access : Error<
-  "Cheerp: Global %0 of non-wasm type %1 cannot be used in the wasm section">;
 def err_cheerp_wrong_basic_pointer_param : Error<
-  "Cheerp: Cannot call wasm function %0  from genericjs, because parameter %1 is a pointer to a basic type">;
-def err_cheerp_wrong_param : Error<
-  "Cheerp: Cannot call %0 function %1 from %2, because parameter %3 is %0">;
+  "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because parameter %4 is a pointer to a basic type">;
 def err_cheerp_wrong_func_pointer_param : Error<
-  "Cheerp: Cannot call %0 function %1 from %2, because parameter %3 is a function pointer">;
-def err_cheerp_wrong_base_class_asmjs : Error<
-  "Cheerp: Base class %0  is in the wasm section, while derived class %1 is in the genericjs section">;
-def err_cheerp_wrong_base_class_genericjs : Error<
-  "Cheerp: Base class %0  is in the genericjs section, while derived class %1 is in the asmjs section">;
-def err_cheerp_wrong_function_addr_asmjs : Error<
-  "Cheerp: Cannot take address of wasm function %0 from inside genericjs function %1">;
-def err_cheerp_wrong_function_addr_genericjs : Error<
-  "Cheerp: Cannot take address of genericjs function %0 from inside wasm function %1">;
+  "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because parameter %4 is a function pointer">;
+def err_cheerp_wrong_function_addr : Error<
+  "Cheerp: Cannot take address of function %0 with attribute %1 from inside function %2 with attribute %3">;
 def err_cheerp_wrong_function_addr_global : Error<
-  "Cheerp: Cannot assign address of %0 function %1 to %2 global %3">;
-def err_cheerp_wrong_virtual_method_asmjs : Error<
-  "Cheerp: Wasm class %0 cannot have genericjs virtual method %1">;
-def err_cheerp_wrong_virtual_method_genericjs : Error<
-  "Cheerp: Genericjs class %0 cannot have wasm virtual method %1">;
-def err_cheerp_wrong_virtual_call : Error<
-  "Cheerp: Cannot call %0 virtual method %1 from %2 function %3">;
-def err_cheerp_incompatible_attributes : Error<
-  "Cheerp: Attribute %0 is incompatible with attribute %1">;
+  "Cheerp: Cannot assign address of function %1 with attribute %0 to global %3 with attribute %2">;
 def err_cheerp_asm_in_asmjs : Error<
-  "Cheerp: Cannot use inline wasm in a %0 function">;
+  "Cheerp: Cannot use inline asm in a %0 function">;
 def err_cheerp_delete_client : Error<
   "Cheerp: Types declared in the 'client' namespace are managed by the JavaScript GC. Cannot delete.">;
 } // end of cheerp issue category

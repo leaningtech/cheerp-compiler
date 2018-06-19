@@ -2550,14 +2550,14 @@ Sema::CheckBaseSpecifier(CXXRecordDecl *Class,
   }
   // CHEERP: Derived class must have the same asmjs/genericjs attribute as the base
   if (CXXBaseDecl->hasAttr<AsmJSAttr>() && Class->hasAttr<GenericJSAttr>()) {
-    Diag(BaseLoc, diag::err_cheerp_wrong_base_class_asmjs)
-      << CXXBaseDecl->getDeclName()
-      << Class;
+    Diag(BaseLoc, diag::err_cheerp_incompatible_attributes)
+      << CXXBaseDecl->getAttr<AsmJSAttr>() << "base class" << CXXBaseDecl
+      << Class->getAttr<GenericJSAttr>() << "derived class" << Class;
     return nullptr;
   } else if (CXXBaseDecl->hasAttr<GenericJSAttr>() && Class->hasAttr<AsmJSAttr>()) {
-    Diag(BaseLoc, diag::err_cheerp_wrong_base_class_genericjs)
-      << CXXBaseDecl->getDeclName()
-      << Class;
+    Diag(BaseLoc, diag::err_cheerp_incompatible_attributes)
+      << CXXBaseDecl->getAttr<GenericJSAttr>() << "base class" << CXXBaseDecl
+      << Class->getAttr<AsmJSAttr>() << "derived class" << Class;
     return nullptr;
   }
 
@@ -3474,11 +3474,13 @@ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
     if (MD->isVirtual()) {
       CXXRecordDecl* Class = MD->getParent();
       if (Class->hasAttr<AsmJSAttr>() && MD->hasAttr<GenericJSAttr>()) {
-        Diag(MD->getLocation(), diag::err_cheerp_wrong_virtual_method_genericjs)
-          << Class << MD;
+        Diag(MD->getLocation(), diag::err_cheerp_incompatible_attributes)
+          << Class->getAttr<AsmJSAttr>() << "class" << Class
+          << MD->getAttr<GenericJSAttr>() << "virtual method" << MD;
       } else if (Class->hasAttr<GenericJSAttr>() && MD->hasAttr<AsmJSAttr>()) {
-        Diag(MD->getLocation(), diag::err_cheerp_wrong_virtual_method_asmjs)
-          << Class << MD;
+        Diag(MD->getLocation(), diag::err_cheerp_incompatible_attributes)
+          << Class->getAttr<GenericJSAttr>() << "class" << Class
+          << MD->getAttr<AsmJSAttr>() << "virtual method" << MD;
       }
     }
   }
@@ -6885,8 +6887,9 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   if (Record->hasAttr<AsmJSAttr>()) {
     for (const auto* f: Record->fields()) {
       if (!isAsmJSCompatible(f->getType())) {
-        Diag(f->getLocation(), diag::err_cheerp_wrong_field_asmjs)
-          << f << f->getType() << Record;
+        Diag(f->getLocation(), diag::err_cheerp_incompatible_attributes)
+          << f->getType()->getAsTagDecl()->getAttr<GenericJSAttr>() << "field" << f
+          << Record->getAttr<AsmJSAttr>() << "class" << Record;
       }
     }
   }
@@ -6894,8 +6897,9 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   else if (Record->hasAttr<GenericJSAttr>()) {
     for (const auto* f: Record->fields()) {
       if (isAsmJSValue(f->getType())) {
-        Diag(f->getLocation(), diag::err_cheerp_wrong_field_genericjs)
-          << f << f->getType() << Record;
+        Diag(f->getLocation(), diag::err_cheerp_incompatible_attributes)
+          << f->getType()->getAsTagDecl()->getAttr<AsmJSAttr>() << "field" << f
+          << Record->getAttr<GenericJSAttr>() << "class" << Record;
       }
     }
   }

@@ -7463,14 +7463,14 @@ NamedDecl *Sema::ActOnVariableDeclarator(
   // incompatible with the attribute of their type
   if (NewVD->hasGlobalStorage()) {
     if (NewVD->hasAttr<AsmJSAttr>() && isGenericJSValue(NewVD->getType())) {
-      TagDecl* TD = NewVD->getType()->getAsTagDecl();
-      Diag(NewVD->getLocation(), diag::err_cheerp_wrong_global_attribute)
-        << NewVD << NewVD->getAttr<AsmJSAttr>() << NewVD->getType() << TD->getAttr<GenericJSAttr>();
+      Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes)
+        << NewVD->getAttr<AsmJSAttr>() << "global variable" << NewVD
+        << getGenericJSAttr(NewVD->getType()) << "type" << NewVD->getType();
     }
     else if (NewVD->hasAttr<GenericJSAttr>() && isAsmJSValue(NewVD->getType())) {
-      TagDecl* TD = NewVD->getType()->getAsTagDecl();
-      Diag(NewVD->getLocation(), diag::err_cheerp_wrong_global_attribute)
-        << NewVD << NewVD->getAttr<GenericJSAttr>() << NewVD->getType() << TD->getAttr<AsmJSAttr>();
+      Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes)
+        << NewVD->getAttr<GenericJSAttr>() << "global variable" << NewVD
+        << getAsmJSAttr(NewVD->getType()) << "type" << NewVD->getType();
     }
   } else {
     // CHEERP: Disallow explicitly putting the cheerp attributes on local variables
@@ -7483,9 +7483,10 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     }
     // CHEERP: Disallow variables with genericjs types in asmjs functions
     if (FunctionDecl* FD = dyn_cast<FunctionDecl>(NewVD->getDeclContext())) {
-      if (NewVD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(NewVD->getType())) {
-        Diag(NewVD->getLocation(), diag::err_cheerp_wrong_local_type_asmjs)
-          << NewVD << NewVD->getType() << FD;
+      if (FD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(NewVD->getType())) {
+        Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes)
+          << NewVD->getAttr<AsmJSAttr>() << "local variable" << NewVD
+	    << FD->getAttr<AsmJSAttr>() << "function" << FD;
       }
     }
   }
@@ -10959,13 +10960,16 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
   if (NewFD->hasAttr<AsmJSAttr>()) {
     for (auto p: NewFD->parameters()) {
       if (!isAsmJSCompatible(p->getType())) {
-        Diag(NewFD->getLocation(), diag::err_cheerp_wrong_param_section)
-          << NewFD << p << p->getType();
+        Diag(NewFD->getLocation(), diag::err_cheerp_incompatible_attributes)
+          << NewFD->getAttr<AsmJSAttr>() << "function" << NewFD
+          << getGenericJSAttr(p->getType()) << "parameter" << p;
       }
     }
     if (!isAsmJSCompatible(NewFD->getReturnType())) {
-        Diag(NewFD->getLocation(), diag::err_cheerp_wrong_return_section)
-          << NewFD << NewFD->getReturnType();
+        Diag(NewFD->getLocation(), diag::err_cheerp_incompatible_attributes)
+          << NewFD->getAttr<AsmJSAttr>() << "function" << NewFD
+          << getGenericJSAttr(NewFD->getReturnType())
+          << "return type" << NewFD->getReturnType();
     }
   }
 
@@ -18402,12 +18406,12 @@ void Sema::CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool
 
   if (Old) {
     if (New->hasAttr<AsmJSAttr>() && Old->hasAttr<GenericJSAttr>()) {
-      Diag(New->getLocation(), diag::err_cheerp_incompatible_attributes)
+      Diag(New->getLocation(), diag::err_attributes_are_not_compatible)
           << New->getAttr<AsmJSAttr>() << Old->getAttr<GenericJSAttr>();
       Diag(Old->getLocation(), diag::note_previous_decl)
           << Old;
     } else if (New->hasAttr<GenericJSAttr>() && Old->hasAttr<AsmJSAttr>()) {
-      Diag(New->getLocation(), diag::err_cheerp_incompatible_attributes)
+      Diag(New->getLocation(), diag::err_attributes_are_not_compatible)
           << New->getAttr<GenericJSAttr>() << Old->getAttr<AsmJSAttr>();
       Diag(Old->getLocation(), diag::note_previous_decl)
           << Old;
@@ -18418,7 +18422,7 @@ void Sema::CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool
         New->getAttr<AsmJSAttr>()->isInherited() &&
         !newIsDefinition &&
         LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_GenericJS) {
-      Diag(New->getLocation(), diag::err_cheerp_incompatible_attributes)
+      Diag(New->getLocation(), diag::err_attributes_are_not_compatible)
           << "'genericjs'" << Old->getAttr<AsmJSAttr>();
       Diag(Old->getLocation(), diag::note_previous_decl)
           << Old;
@@ -18428,7 +18432,7 @@ void Sema::CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool
         (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
          LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
          LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wasm)) {
-      Diag(New->getLocation(), diag::err_cheerp_incompatible_attributes)
+      Diag(New->getLocation(), diag::err_attributes_are_not_compatible)
           << (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ? "'asmjs'" : "'wasm'") << Old->getAttr<GenericJSAttr>();
       Diag(Old->getLocation(), diag::note_previous_decl)
           << Old;

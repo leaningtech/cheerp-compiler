@@ -12584,6 +12584,24 @@ public:
     TagDecl* pd = pt->getAsTagDecl();
     return !pd || pd->hasAttr<AsmJSAttr>();
   }
+  static AsmJSAttr* getAsmJSAttr(QualType pt) {
+    pt = pt.getNonReferenceType();
+    while (pt->isAnyPointerType())
+      pt = pt->getPointeeType();
+    TagDecl* pd = pt->getAsTagDecl();
+    assert(pd && "Not a TagDecl");
+    assert(pd->hasAttr<AsmJSAttr>() && "No AsmJSAttr");
+    return pd->getAttr<AsmJSAttr>();
+  }
+  static GenericJSAttr* getGenericJSAttr(QualType pt) {
+    pt = pt.getNonReferenceType();
+    while (pt->isAnyPointerType())
+      pt = pt->getPointeeType();
+    TagDecl* pd = pt->getAsTagDecl();
+    assert(pd && "Not a TagDecl");
+    assert(pd->hasAttr<GenericJSAttr>() && "No GenericJSAttr");
+    return pd->getAttr<GenericJSAttr>();
+  }
   // CHEERP: Utility function for checking if a type is an asmjs value type
   static bool isAsmJSValue(QualType pt) {
     TagDecl* pd = pt->getAsTagDecl();

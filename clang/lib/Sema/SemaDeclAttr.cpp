@@ -6798,7 +6798,7 @@ static void handleNoInit(Sema &S, Decl* D, const AttributeList &Attr)
 
 static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (D->hasAttr<AsmJSAttr>() && isa<CXXRecordDecl>(D))
-    S.Diag(Attr.getLoc(), diag::err_cheerp_incompatible_attributes)
+    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
       << Attr.getName() << D->getAttr<AsmJSAttr>();
   else if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
     D->addAttr(::new (S.Context) JsExportAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
@@ -6808,7 +6808,7 @@ static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
 static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (D->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(D)) {
-    S.Diag(Attr.getLoc(), diag::err_cheerp_incompatible_attributes)
+    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
       << Attr.getName() << D->getAttr<JsExportAttr>();
   } else {
     D->addAttr(::new (S.Context) AsmJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
@@ -7778,7 +7778,7 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
       LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
       LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wasm) {
     if (D->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(D))
-      Diag(D->getLocStart(), diag::err_cheerp_incompatible_attributes)
+      Diag(D->getLocStart(), diag::err_attributes_are_not_compatible)
         << (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ? "'asmjs'" : "'wasm'")
         << D->getAttr<JsExportAttr>();
     else

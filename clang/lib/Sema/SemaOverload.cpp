@@ -14163,17 +14163,20 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
     Expr* Obj = TheCall->getImplicitObjectArgument();
     if (Caller->hasAttr<AsmJSAttr>()) {
       if (!isAsmJSCompatible(Obj->getType())) {
-        Diag(MemExpr->getMemberLoc(), diag::err_cheerp_wrong_this)
-          << Method << Obj << Obj->getType();
+        Diag(MemExpr->getMemberLoc(), diag::err_cheerp_incompatible_attributes)
+          << Caller->getAttr<AsmJSAttr>() << "function" << Caller
+          << getGenericJSAttr(Obj->getType()) << "'this' argument" << Obj;
       }
       if (Method->isVirtual() && Method->hasAttr<GenericJSAttr>()) {
-        Diag(MemExpr->getMemberLoc(), diag::err_cheerp_wrong_virtual_call)
-          << Method->getAttr<GenericJSAttr>() << Method << Caller->getAttr<AsmJSAttr>() << Caller;
+        Diag(MemExpr->getMemberLoc(), diag::err_cheerp_incompatible_attributes)
+          << Method->getAttr<GenericJSAttr>() << "virtual method" << Method
+          << Caller->getAttr<AsmJSAttr>() << "function" << Caller;
       }
     } else {
       if (Method->isVirtual() && Method->hasAttr<AsmJSAttr>()) {
-        Diag(MemExpr->getMemberLoc(), diag::err_cheerp_wrong_virtual_call)
-          << Method->getAttr<AsmJSAttr>() << Method << Caller->getAttr<GenericJSAttr>() << Caller;
+        Diag(MemExpr->getMemberLoc(), diag::err_cheerp_incompatible_attributes)
+          << Method->getAttr<AsmJSAttr>() << "virtual method" << Method
+          << Caller->getAttr<GenericJSAttr>() << "function" << Caller;
       }
     }
   }
