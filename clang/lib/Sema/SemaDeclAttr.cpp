@@ -7766,10 +7766,10 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
   DeclContext* ctx = D->getDeclContext();
   if (Decl* d = dyn_cast<Decl>(ctx)) {
     if (d->hasAttr<AsmJSAttr>()) {
-      D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::GNU_cheerp_asmjs));
+      D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::CXX11_cheerp_asmjs));
       return;
     } else if (d->hasAttr<GenericJSAttr>()) {
-      D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::GNU_cheerp_genericjs));
+      D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::CXX11_cheerp_genericjs));
       return;
     }
   }
@@ -7782,9 +7782,9 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
         << (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ? "'asmjs'" : "'wasm'")
         << D->getAttr<JsExportAttr>();
     else
-      D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::GNU_cheerp_asmjs));
+      D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::CXX11_cheerp_asmjs));
   } else if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_GenericJS) {
-      D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::GNU_cheerp_genericjs));
+      D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::CXX11_cheerp_genericjs));
   }
 }
 
