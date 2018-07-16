@@ -5081,6 +5081,9 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
   }
   CGM.setDSOLocal(GV);
 
+  // in asmjs mode all the string literals are in the asmjs section
+  if (CGM.getLangOpts().getCheerpMode() != LangOptions::CHEERP_MODE_GenericJS)
+    GV->setSection("asmjs");
   return GV;
 }
 
