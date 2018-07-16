@@ -19326,6 +19326,12 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           << Parent << Parent->getAttr<GenericJSAttr>()
           << *p;
       } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFundamentalType()) {
+        // string literals are allowed if we are in asmjs mode, since they are all compiled
+        // into the asmjs section
+        if (LangOpts.getCheerpMode() != LangOptions::CHEERP_MODE_GenericJS &&
+           (isa<StringLiteral>(*a) || isa<PredefinedExpr>(*a)))
+            return;
+
         Diag(Loc,
              diag::err_cheerp_wrong_basic_pointer_param)
           << FDecl << FDecl->getAttr<AsmJSAttr>()
