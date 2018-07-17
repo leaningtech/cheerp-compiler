@@ -791,7 +791,7 @@ void CheerpWasmRenderInterface::renderBreak()
 			if (bt == DO || bt == WHILE1 || bt == SWITCH)
 				break;
 		}
-		assert(breakIndex > 1);
+		assert(breakIndex > 0);
 		writer->encodeU32Inst(0x0c, "br", breakIndex - 1, code);
 	}
 }
