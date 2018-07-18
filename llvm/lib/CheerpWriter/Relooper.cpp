@@ -453,16 +453,6 @@ void Relooper::Calculate(Block *Entry) {
           for (BlockSet::iterator iter = Curr->BranchesIn.begin(); iter != Curr->BranchesIn.end(); iter++) {
             Queue.insert(*iter);
           }
-#if 0
-          // Add elements it leads to, if they are dead ends. There is no reason not to hoist dead ends
-          // into loops, as it can avoid multiple entries after the loop
-          for (BlockBranchMap::iterator iter = Curr->BranchesOut.begin(); iter != Curr->BranchesOut.end(); iter++) {
-            Block *Target = iter->first;
-            if (Target->BranchesIn.size() <= 1 && Target->BranchesOut.size() == 0) {
-              Queue.insert(Target);
-            }
-          }
-#endif
         }
       }
       assert(InnerBlocks.size() > 0);
@@ -473,6 +463,33 @@ void Relooper::Calculate(Block *Entry) {
           Block *Possible = iter->first;
           if (!contains(InnerBlocks, Possible)) {
             NextEntries.insert(Possible);
+          }
+        }
+      }
+      // We can avoid multiple next entries by hoisting them into the loop.
+      if (NextEntries.size() > 1) {
+        BlockBlockSetMap IndependentGroups;
+        FindIndependentGroups(NextEntries, IndependentGroups, &InnerBlocks);
+
+        for (BlockBlockSetMap::iterator iter = IndependentGroups.begin(); iter != IndependentGroups.end(); iter++) {
+          Block *Entry = iter->first;
+          BlockSet &Hoisted = iter->second;
+          for (BlockSet::iterator iter = Hoisted.begin(); iter != Hoisted.end(); iter++) {
+            Block *Curr = *iter;
+            for (BlockBranchMap::iterator iter = Curr->BranchesOut.begin(); iter != Curr->BranchesOut.end(); iter++) {
+              Block *Target = iter->first;
+              if (!contains(Hoisted, Target) && !contains(NextEntries, Target)) {
+                NextEntries.insert(Target);
+              }
+            }
+          }
+          // hoist this entry
+          PrintDebug("hoisting %d into loop\n", Entry->Id);
+          NextEntries.erase(Entry);
+          for (BlockSet::iterator iter = Hoisted.begin(); iter != Hoisted.end(); iter++) {
+            Block *Curr = *iter;
+            InnerBlocks.insert(Curr);
+            Blocks.erase(Curr);
           }
         }
       }
