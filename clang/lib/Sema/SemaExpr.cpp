@@ -19337,6 +19337,14 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           << FDecl << FDecl->getAttr<AsmJSAttr>()
           << Parent << Parent->getAttr<GenericJSAttr>()
           << *p;
+      } else if (auto ut = dyn_cast<BuiltinType>(t->getUnqualifiedDesugaredType())) {
+        if(ut->isHighInt()) {
+          Diag(Loc,
+               diag::err_cheerp_wrong_64bit_param)
+            << FDecl << FDecl->getAttr<AsmJSAttr>()
+            << Parent << Parent->getAttr<GenericJSAttr>()
+            << *p;
+        }
       }
     }
   } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {
@@ -19352,6 +19360,14 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
              diag::err_cheerp_incompatible_attributes)
           << Sema::getGenericJSAttr(p->getOriginalType()) << "function parameter" << p
           << Parent->getAttr<AsmJSAttr>() << "caller" << Parent;
+      } else if (auto ut = dyn_cast<BuiltinType>(t->getUnqualifiedDesugaredType())) {
+        if(ut->isHighInt()) {
+          Diag(Loc,
+               diag::err_cheerp_wrong_64bit_param)
+            << FDecl << FDecl->getAttr<AsmJSAttr>()
+            << Parent << Parent->getAttr<GenericJSAttr>()
+            << p;
+        }
       }
     }
   }
