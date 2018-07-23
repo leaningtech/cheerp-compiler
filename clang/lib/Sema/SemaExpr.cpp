@@ -19315,60 +19315,84 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
   if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
     auto p = FDecl->parameters().begin();
     auto pe = FDecl->parameters().end();
-    auto a = Args.begin();
-    for(; p != pe; a++, p++) {
-      const Type* t = (*p)->getOriginalType().getTypePtr();
-      const Type* ta = (*a)->getType().getTypePtr();
-      if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType() && !ta->isFunctionProtoType()) {
-        Diag(Loc,
+    for(auto a: Args) {
+      const Type* t = a->getType().getTypePtr();
+      Expr* aNoCast = a->IgnoreImpCasts();
+      if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType() && !aNoCast->getType()->isFunctionProtoType()) {
+        auto d = Diag(a->getLocStart(),
              diag::err_cheerp_wrong_func_pointer_param)
           << FDecl << FDecl->getAttr<AsmJSAttr>()
-          << Parent << Parent->getAttr<GenericJSAttr>()
-          << *p;
+          << Parent << Parent->getAttr<GenericJSAttr>();
+        if (p != pe)
+          d << *p;
+        else
+          d << "variadic";
       } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFundamentalType()) {
         // string literals are allowed if we are in asmjs mode, since they are all compiled
         // into the asmjs section
         if (LangOpts.getCheerpMode() != LangOptions::CHEERP_MODE_GenericJS &&
-           (isa<StringLiteral>(*a) || isa<PredefinedExpr>(*a)))
+           (isa<StringLiteral>(aNoCast) || isa<PredefinedExpr>(aNoCast)))
             return;
 
-        Diag(Loc,
+        auto d = Diag(a->getLocStart(),
              diag::err_cheerp_wrong_basic_pointer_param)
           << FDecl << FDecl->getAttr<AsmJSAttr>()
-          << Parent << Parent->getAttr<GenericJSAttr>()
-          << *p;
+          << Parent << Parent->getAttr<GenericJSAttr>();
+        if (p != pe)
+          d << *p;
+        else
+          d << "variadic";
       } else if (auto ut = dyn_cast<BuiltinType>(t->getUnqualifiedDesugaredType())) {
         if(ut->isHighInt()) {
-          Diag(Loc,
+          auto d = Diag(a->getLocStart(),
                diag::err_cheerp_wrong_64bit_param)
             << FDecl << FDecl->getAttr<AsmJSAttr>()
-            << Parent << Parent->getAttr<GenericJSAttr>()
-            << *p;
+            << Parent << Parent->getAttr<GenericJSAttr>();
+          if (p != pe)
+            d << *p;
+          else
+            d << "variadic";
         }
       }
+      if (p != pe)
+        p++;
     }
   } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {
-
-    for(const auto p: FDecl->parameters()){
-      const Type* t = p->getOriginalType().getTypePtr();
+    auto p = FDecl->parameters().begin();
+    auto pe = FDecl->parameters().end();
+    for(auto a: Args) {
+      const Type* t = a->getType().getTypePtr();
       if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
-        Diag(Loc,
+        auto d = Diag(Loc,
              diag::err_cheerp_wrong_func_pointer_param)
-          << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
-      } else if (!Sema::isAsmJSCompatible(p->getOriginalType())) {
-        Diag(Loc,
+          << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>();
+        if (p != pe)
+          d << *p;
+        else
+          d << "variadic";
+      } else if (!Sema::isAsmJSCompatible(t->getCanonicalTypeInternal())) {
+        auto d = Diag(Loc,
              diag::err_cheerp_incompatible_attributes)
-          << Sema::getGenericJSAttr(p->getOriginalType()) << "function parameter" << p
-          << Parent->getAttr<AsmJSAttr>() << "caller" << Parent;
+          << FDecl->getAttr<GenericJSAttr>() << "function parameter";
+        if (p != pe)
+          d << *p;
+        else
+          d << "variadic";
+        d  << Parent->getAttr<AsmJSAttr>() << "caller" << Parent;
       } else if (auto ut = dyn_cast<BuiltinType>(t->getUnqualifiedDesugaredType())) {
         if(ut->isHighInt()) {
-          Diag(Loc,
+          auto d = Diag(Loc,
                diag::err_cheerp_wrong_64bit_param)
-            << FDecl << FDecl->getAttr<AsmJSAttr>()
-            << Parent << Parent->getAttr<GenericJSAttr>()
-            << p;
+            << FDecl << FDecl->getAttr<GenericJSAttr>()
+            << Parent << Parent->getAttr<AsmJSAttr>();
+          if (p != pe)
+            d << *p;
+          else
+            d << "variadic";
         }
       }
+      if (p != pe)
+        p++;
     }
   }
 }

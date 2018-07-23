@@ -12874,12 +12874,6 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
     if (SemaRef.DiagnoseUseOfDecl(FDecl, ULE->getNameLoc()))
       return ExprError();
     Fn = SemaRef.FixOverloadedFunctionReference(Fn, (*Best)->FoundDecl, FDecl);
-    if (S && S->getFnParent())
-    {
-      if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity())) {
-        SemaRef.CheckCheerpFFICall(Parent, FDecl, Fn->getLocStart(), Args);
-      }
-    }
     return SemaRef.BuildResolvedCallExpr(Fn, FDecl, LParenLoc, Args, RParenLoc,
                                          ExecConfig, /*IsExecConfig=*/false,
                                          (*Best)->IsADLCandidate);
@@ -13435,12 +13429,6 @@ ExprResult Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
           }
         }
 
-        Scope *S = getScopeForContext(CurContext);
-        if (S && S->getFnParent())
-        {
-          if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
-            CheckCheerpFFICall(Parent, FnDecl, OpLoc, Args);
-        }
         // Convert the arguments.
         if (CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(FnDecl)) {
           // Best->Access is only meaningful for class members.
@@ -13501,7 +13489,7 @@ ExprResult Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
                                 FnDecl))
           return ExprError();
 
-        ArrayRef<const Expr *> ArgsArray(Args, 2);
+        ArrayRef<Expr *> ArgsArray(Args, 2);
         const Expr *ImplicitThis = nullptr;
         // Cut off the implicit 'this'.
         if (isa<CXXMethodDecl>(FnDecl)) {
@@ -13835,7 +13823,7 @@ Sema::CreateOverloadedArraySubscriptExpr(SourceLocation LLoc,
         if (S && S->getFnParent())
         {
           if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
-            CheckCheerpFFICall(Parent, FnDecl, RLoc, Args);
+            CheckCheerpFFICall(Parent, FnDecl, RLoc, ArrayRef<Expr*>(Args, 2));
         }
         CheckMemberOperatorAccess(LLoc, Args[0], Args[1], Best->FoundDecl);
 
