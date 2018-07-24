@@ -19332,7 +19332,7 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
         // into the asmjs section
         if (LangOpts.getCheerpMode() != LangOptions::CHEERP_MODE_GenericJS &&
            (isa<StringLiteral>(aNoCast) || isa<PredefinedExpr>(aNoCast)))
-            return;
+            continue;
 
         auto d = Diag(a->getLocStart(),
              diag::err_cheerp_wrong_basic_pointer_param)
