@@ -19315,11 +19315,13 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
   if (Parent->hasAttr<GenericJSAttr>() && FDecl->hasAttr<AsmJSAttr>()) {
     auto p = FDecl->parameters().begin();
     auto pe = FDecl->parameters().end();
-    for(auto a: Args) {
-      const Type* t = a->getType().getTypePtr();
-      Expr* aNoCast = a->IgnoreImpCasts();
+    auto a = Args.begin();
+    auto ae = Args.end();
+    for(;a != ae; a++, p = p==pe ? pe : p+1) {
+      const Type* t = (*a)->getType().getTypePtr();
+      Expr* aNoCast = (*a)->IgnoreImpCasts();
       if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType() && !aNoCast->getType()->isFunctionProtoType()) {
-        auto d = Diag(a->getLocStart(),
+        auto d = Diag((*a)->getLocStart(),
              diag::err_cheerp_wrong_func_pointer_param)
           << FDecl << FDecl->getAttr<AsmJSAttr>()
           << Parent << Parent->getAttr<GenericJSAttr>();
@@ -19334,7 +19336,7 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
            (isa<StringLiteral>(aNoCast) || isa<PredefinedExpr>(aNoCast)))
             continue;
 
-        auto d = Diag(a->getLocStart(),
+        auto d = Diag((*a)->getLocStart(),
              diag::err_cheerp_wrong_basic_pointer_param)
           << FDecl << FDecl->getAttr<AsmJSAttr>()
           << Parent << Parent->getAttr<GenericJSAttr>();
@@ -19344,7 +19346,7 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           d << "variadic";
       } else if (auto ut = dyn_cast<BuiltinType>(t->getUnqualifiedDesugaredType())) {
         if(ut->isHighInt()) {
-          auto d = Diag(a->getLocStart(),
+          auto d = Diag((*a)->getLocStart(),
                diag::err_cheerp_wrong_64bit_param)
             << FDecl << FDecl->getAttr<AsmJSAttr>()
             << Parent << Parent->getAttr<GenericJSAttr>();
@@ -19354,14 +19356,14 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
             d << "variadic";
         }
       }
-      if (p != pe)
-        p++;
     }
   } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {
     auto p = FDecl->parameters().begin();
     auto pe = FDecl->parameters().end();
-    for(auto a: Args) {
-      const Type* t = a->getType().getTypePtr();
+    auto a = Args.begin();
+    auto ae = Args.end();
+    for(;a != ae; a++, p = p==pe ? pe : p+1) {
+      const Type* t = (*a)->getType().getTypePtr();
       if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
         auto d = Diag(Loc,
              diag::err_cheerp_wrong_func_pointer_param)
