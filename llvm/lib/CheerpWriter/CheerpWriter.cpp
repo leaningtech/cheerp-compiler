@@ -2257,14 +2257,16 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	else if(isa<ConstantInt>(c))
 	{
 		const ConstantInt* i=cast<ConstantInt>(c);
-		if(parentPrio == HIGHEST && i->isNegative())
-			stream << '(';
-		if(i->getBitWidth()==1)
-			stream << i->getZExtValue();
-		else
+		if(i->getBitWidth()==32)
+		{
+			if(parentPrio == HIGHEST && i->isNegative())
+				stream << '(';
 			stream << i->getSExtValue();
-		if(parentPrio == HIGHEST && i->isNegative())
-			stream << ')';
+			if(parentPrio == HIGHEST && i->isNegative())
+				stream << ')';
+		}
+		else
+			stream << i->getZExtValue();
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
