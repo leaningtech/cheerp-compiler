@@ -15,6 +15,7 @@ add_llvm_library(LLVMCheerpUtils
   TypeOptimizer.cpp
   Utility.cpp
   ExpandStructRegs.cpp
+  FixIrreducibleControlFlow.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)
