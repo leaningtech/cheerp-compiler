@@ -43,9 +43,9 @@ StringRef GlobalDepsAnalyzer::getPassName() const
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass, bool wasmStart)
 	: ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	  TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
-	  hasPointerArrays(false), hasAsmJS(false),
+	  hasPointerArrays(false), hasAsmJS(false), hasAsmJSMalloc(false), mayNeedAsmJSFree(false),
 	  llcPass(llcPass), wasmStart(wasmStart), delayPrintf(true),
-	hasUndefinedSymbolErrors(false), forceTypedArrays(false)
+	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
 
@@ -442,6 +442,26 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		assert( visited.empty() );
 	}
 
+	if(mayNeedAsmJSFree)
+	{
+		Function* ffree = module.getFunction("free");
+		if (ffree)
+		{
+			if(!hasAsmJSMalloc)
+			{
+				// The symbol is still used around, so keep it but make it empty
+				ffree->setSection("");
+				ffree->deleteBody();
+			}
+			reachableGlobals.insert(ffree);
+			visitFunction( ffree, visited);
+			assert( visited.empty() );
+			if(ffree->getSection() == StringRef("asmjs"))
+				asmJSExportedFuncions.insert(ffree);
+			externals.push_back(ffree);
+		}
+	}
+
 	// Create a dummy function that prevents nullptr conflicts.
 	if(hasAsmJS)
 		createNullptrFunction(module);
@@ -545,7 +565,9 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 		return;
 	}
 	
-	if ( reachableGlobals.insert(C).second )
+	if ( C->getName() == StringRef("free") )
+		mayNeedAsmJSFree = true;
+	else if ( reachableGlobals.insert(C).second )
 	{
 
 		if(const GlobalAlias * GA = dyn_cast<GlobalAlias>(C) )
@@ -700,9 +722,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate ||
 				    calledFunc->getIntrinsicID() == Intrinsic::cheerp_allocate_array)
 				{
-					Type* ty = calledFunc->getReturnType();
-					bool basicType = !ty->isAggregateType();
-					if (hasAsmJS && (isAsmJS || basicType))
+					if (isAsmJS || TypeSupport::isAsmJSPointer(calledFunc->getReturnType()))
 					{
 						Function* fmalloc = module->getFunction("malloc");
 						if (fmalloc)
@@ -712,14 +732,13 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 							if(!isAsmJS)
 								asmJSExportedFuncions.insert(fmalloc);
 							externals.push_back(fmalloc);
+							hasAsmJSMalloc = true;
 						}
 					}
 				}
 				else if (calledFunc->getIntrinsicID() == Intrinsic::cheerp_reallocate)
 				{
-					Type* ty = calledFunc->getReturnType();
-					bool basicType = !ty->isAggregateType();
-					if (hasAsmJS && (isAsmJS || basicType))
+					if (isAsmJS || TypeSupport::isAsmJSPointer(calledFunc->getReturnType()))
 					{
 						Function* frealloc = module->getFunction("realloc");
 						if (frealloc)
@@ -729,6 +748,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 							if(!isAsmJS)
 								asmJSExportedFuncions.insert(frealloc);
 							externals.push_back(frealloc);
+							hasAsmJSMalloc = true;
 						}
 					}
 				}
@@ -738,15 +758,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					bool basicType = !ty->isAggregateType();
 					if (hasAsmJS && (isAsmJS || basicType))
 					{
-						Function* ffree = module->getFunction("free");
-						if (ffree)
-						{
-							SubExprVec vec;
-							visitGlobal(ffree, visited, vec );
-							if(!isAsmJS)
-								asmJSExportedFuncions.insert(ffree);
-							externals.push_back(ffree);
-						}
+						// Delay adding free, it will be done only if asm.js malloc is actually there
+						mayNeedAsmJSFree = true;
 					}
 				}
 			}
