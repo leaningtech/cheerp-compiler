@@ -692,19 +692,30 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileFree(const Value* obj)
 {
 	// Only arrays of primitives can be backed by the linear heap
-	if(!TypeSupport::isTypedArrayType(obj->getType()->getPointerElementType(), /*forceTypedArray*/ true))
+	bool needsLinearCheck = TypeSupport::isTypedArrayType(obj->getType()->getPointerElementType(), /*forceTypedArray*/ true) && globalDeps.usesASmJSMalloc();
+	if(const ConstantInt* CI = PA.getConstantOffsetForPointer(obj))
+	{
+		// 0 is clearly not a good address in the linear address space
+		if(CI->getZExtValue() == 0)
+			needsLinearCheck = false;
+	}
+	else if(isa<ConstantPointerNull>(obj))
+		needsLinearCheck = false;
+
+	if(!needsLinearCheck)
 		return COMPILE_EMPTY;
+
 	stream << "if(";
 	compilePointerBase(obj);
-	stream << ".buffer==__heap)__asm.";
+	stream << ".buffer==__heap){__asm.";
 	Function* Free = module.getFunction("free");
 	if (Free)
-		stream << getName(Free);
+		stream << getName(Free) << '(';
 	else
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-	stream << '(';
 	compilePointerOffset(obj, PARENT_PRIORITY::LOWEST);
-	stream << ')';
+	stream << ")}";
+
 	return COMPILE_OK;
 }
 
