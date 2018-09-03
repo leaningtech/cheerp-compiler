@@ -121,6 +121,11 @@ public:
 	 * Determine if we need to compile the asm.js module
 	 */
 	bool needAsmJS() const { return hasAsmJS; }
+	
+	/**
+	 * Determine if linear memory malloc is ever used
+	 */
+	bool usesASmJSMalloc() const { return hasAsmJSMalloc; }
 
 	bool runOnModule( llvm::Module & ) override;
 
@@ -239,6 +244,8 @@ private:
 	bool hasVAArgs;
 	bool hasPointerArrays;
 	bool hasAsmJS;
+	bool hasAsmJSMalloc;
+	bool mayNeedAsmJSFree;
 
 	bool llcPass;
 	bool wasmStart;
