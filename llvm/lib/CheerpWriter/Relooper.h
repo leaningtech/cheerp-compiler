@@ -8,6 +8,8 @@ LLVM.
 
 [1] Alon Zakai. 2011. Emscripten: an LLVM-to-JavaScript compiler. In Proceedings of the ACM international conference companion on Object oriented programming systems languages and applications companion (SPLASH '11). ACM, New York, NY, USA, 301-312. DOI=10.1145/2048147.2048224 http://doi.acm.org/10.1145/2048147.2048224
 */
+#ifndef _RELOOPER_H
+#define _RELOOPER_H
 
 #include <assert.h>
 #include <stdio.h>
@@ -363,4 +365,6 @@ struct Debugging {
   static void Dump(BlockSet &Blocks, const char *prefix=NULL);
   static void Dump(Shape *S, const char *prefix=NULL);
 };
+#endif
+
 #endif

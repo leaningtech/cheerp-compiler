@@ -9,6 +9,7 @@ add_llvm_library(LLVMCheerpWriter
   Types.cpp
   Opcodes.cpp
   CommandLine.cpp
+  CFGStackifier.cpp
   )
 
 add_dependencies(LLVMCheerpWriter intrinsics_gen)
