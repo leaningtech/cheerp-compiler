@@ -116,7 +116,7 @@ bool CheerpWasmWritePass::runOnModule(Module& M)
                                     PrettyCode, cheerpMode);
     wasmWriter.makeWasm();
 
-    cheerp::CheerpWriter writer(M, jsOut, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, nullptr, std::string(),
+    cheerp::CheerpWriter writer(M, *this, jsOut, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, nullptr, std::string(),
             sourceMapGenerator, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
             !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
             BoundsCheck, SymbolicGlobalsAsmJS, WasmFile, ForceTypedArrays);
@@ -140,6 +140,8 @@ void CheerpWasmWritePass::getAnalysisUsage(AnalysisUsage& AU) const
   AU.addRequired<cheerp::PointerAnalyzer>();
   AU.addRequired<cheerp::Registerize>();
   AU.addRequired<cheerp::AllocaStoresExtractor>();
+  AU.addRequired<DominatorTreeWrapperPass>();
+  AU.addRequired<LoopInfoWrapperPass>();
 }
 
 char CheerpWasmWritePass::ID = 0;
