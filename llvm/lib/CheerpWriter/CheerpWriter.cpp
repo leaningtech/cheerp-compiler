@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Relooper.h"
+#include "CFGStackifier.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Cheerp/Utility.h"
@@ -17,6 +18,8 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Path.h"
@@ -4530,7 +4533,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 		stream << ';' << NewLine;
 }
 
-void CheerpWriter::compileMethod(const Function& F)
+void CheerpWriter::compileMethod(Function& F)
 {
 	bool asmjs = F.getSection() == StringRef("asmjs");
 	if (sourceMapGenerator) {
@@ -4576,10 +4579,20 @@ void CheerpWriter::compileMethod(const Function& F)
 	}
 	else
 	{
+#if 0
 		Relooper* rl = runRelooperOnFunction(F, PA, registerize);
 		CheerpRenderInterface ri(this, NewLine, asmjs);
 		compileMethodLocals(F, rl->needsLabel());
 		rl->Render(&ri);
+#else
+		compileMethodLocals(F, false);
+		CheerpRenderInterface ri(this, NewLine, asmjs);
+
+		DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+		LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+		CFGStackifier C(F, LI, DT);
+		C.render(ri, asmjs);
+#endif
 	}
 	if (asmjs)
 	{
@@ -5210,7 +5223,7 @@ void CheerpWriter::makeJS()
 		for ( const GlobalVariable* GV : linearHelper.globals() )
 			compileGlobalAsmJS(*GV);
 
-		for ( const Function & F : module.getFunctionList() )
+		for ( Function & F : module.getFunctionList() )
 		{
 			if (!F.empty() && F.getSection() == StringRef("asmjs"))
 			{
@@ -5276,7 +5289,7 @@ void CheerpWriter::makeJS()
 		compileGlobalsInitAsmJS();
 	}
 
-	for ( const Function & F : module.getFunctionList() )
+	for ( Function & F : module.getFunctionList() )
 		if (!F.empty() && F.getSection() != StringRef("asmjs"))
 		{
 #ifdef CHEERP_DEBUG_POINTERS
