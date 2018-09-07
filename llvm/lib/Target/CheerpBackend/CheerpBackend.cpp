@@ -92,7 +92,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   }
 
   cheerp::NameGenerator namegen(M, GDA, registerize, PA, ReservedNames, PrettyCode);
-  cheerp::CheerpWriter writer(M, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut.get(), AsmJSMemFile,
+  cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut.get(), AsmJSMemFile,
           sourceMapGenerator.get(), PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
           BoundsCheck, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
@@ -117,6 +117,8 @@ void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
   AU.addRequired<cheerp::PointerAnalyzer>();
   AU.addRequired<cheerp::Registerize>();
   AU.addRequired<cheerp::AllocaStoresExtractor>();
+  AU.addRequired<DominatorTreeWrapperPass>();
+  AU.addRequired<LoopInfoWrapperPass>();
 }
 
 char CheerpWritePass::ID = 0;

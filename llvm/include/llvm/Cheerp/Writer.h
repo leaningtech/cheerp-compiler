@@ -167,6 +167,7 @@ private:
 	enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS };
 
 	llvm::Module& module;
+	llvm::Pass& pass;
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
 	const PointerAnalyzer & PA;
@@ -397,7 +398,7 @@ private:
 
 	void compileMethodLocal(llvm::StringRef name, Registerize::REGISTER_KIND kind);
 	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
-	void compileMethod(const llvm::Function& F);
+	void compileMethod(llvm::Function& F);
 	/**
 	 * Helper structure for compiling globals
 	 */
@@ -500,7 +501,7 @@ private:
 	};
 public:
 	ostream_proxy stream;
-	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
+	CheerpWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const cheerp::LinearMemoryHelper & linearHelper,
@@ -523,6 +524,7 @@ public:
 			const std::string& wasmFile,
 			bool forceTypedArrays):
 		module(m),
+		pass(p),
 		targetData(&m),
 		currentFun(NULL),
 		PA(PA),
