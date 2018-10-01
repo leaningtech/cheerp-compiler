@@ -844,8 +844,7 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
       {
         llvm::Metadata* basesRange[] = {llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, RL->firstBaseElement))};
         llvm::MDNode* meta = llvm::MDNode::get(getLLVMContext(), basesRange);
-        llvm::Twine basesMetaName(BaseTy->getName(),"_bases");
-        llvm::NamedMDNode* basesMeta = TheModule.getOrInsertNamedMetadata(basesMetaName.str());
+        llvm::NamedMDNode* basesMeta = TheModule.getOrInsertNamedMetadata((BaseTy->getName() + "_bases").str());
         basesMeta->addOperand(meta);
       }
     }
