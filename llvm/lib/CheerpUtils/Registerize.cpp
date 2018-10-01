@@ -250,14 +250,17 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 	if(I->getParent()==BB && isa<PHINode>(I))
 		return;
 	// Run on predecessor blocks
+	bool hasPreds = false;
 	for(::pred_iterator it=pred_begin(BB);it!=pred_end(BB);++it)
 	{
+		hasPreds = true;
 		BasicBlock* pred=*it;
 		BlockState& predBlockState=blocksState[pred];
 		if(!predBlockState.isLiveOut(I))
 			predBlockState.addLiveOut(I);
 		doUpAndMark(blocksState, pred, I);
 	}
+	assert(hasPreds);
 }
 
 void Registerize::assignInstructionsIds(InstIdMapTy& instIdMap, const Function& F, AllocaSetTy& allocaSet, const PointerAnalyzer* PA)
@@ -352,7 +355,9 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 		}
 		else
 		{
-			InstructionLiveRange& range=liveRanges.find(outLiveInst)->second;
+			auto it = liveRanges.find(outLiveInst);
+			assert(it != liveRanges.end());
+			InstructionLiveRange& range= it->second;
 			range.addUse(codePathId, endOfBlockIndex);
 		}
 	}
