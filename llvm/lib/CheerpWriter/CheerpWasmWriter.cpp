@@ -497,10 +497,13 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 {
 	assert(si->getNumCases());
 
+	llvm::BasicBlock* defaultDest = si->getDefaultDest();
 	int64_t max = std::numeric_limits<int64_t>::min();
 	int64_t min = std::numeric_limits<int64_t>::max();
 	for (auto& c: si->cases())
 	{
+		if (c.getCaseSuccessor() == defaultDest)
+			continue;
 		int64_t curr = c.getCaseValue()->getSExtValue();
 		max = std::max(max, curr);
 		min = std::min(min, curr);
@@ -520,6 +523,8 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	for (auto it : si->cases())
 	{
 		const BasicBlock* dest = it.getCaseSuccessor();
+		if (dest == defaultDest)
+			continue;
 		const auto& found = blockIndexMap.find(dest);
 
 		if (found == blockIndexMap.end())
