@@ -882,7 +882,11 @@ void ItaniumRecordLayoutBuilder::DeterminePrimaryBase(const CXXRecordDecl *RD) {
       return;
     }
   }
-
+  // CHEERP: Unlike in the true Itanium ABI, we cannot share the vtable with a
+  // virtual base because they don't have compatible layouts
+  // So virtual bases can never be primary bases.
+  if (!Context.getTargetInfo().isByteAddressable())
+    return;
   // Under the Itanium ABI, if there is no non-virtual primary base class,
   // try to compute the primary virtual base.  The primary virtual base is
   // the first nearly empty virtual base that is not an indirect primary
