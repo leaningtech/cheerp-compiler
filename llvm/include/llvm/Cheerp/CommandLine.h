@@ -34,5 +34,6 @@ extern llvm::cl::list<std::string> ReservedNames;
 extern llvm::cl::opt<unsigned> CheerpHeapSize;
 extern llvm::cl::opt<bool> CheerpNoICF;
 extern llvm::cl::opt<bool> BoundsCheck;
+extern llvm::cl::opt<bool> CfgStackifier;
 
 #endif //_CHEERP_COMMAND_LINE_H

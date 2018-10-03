@@ -13,6 +13,9 @@
 #include <limits>
 
 #include "Relooper.h"
+#include "CFGStackifier.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
@@ -2480,7 +2483,7 @@ void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 	}
 }
 
-void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
+void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 {
 	assert(!F.empty());
 	currentFun = &F;
@@ -2505,7 +2508,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	Relooper* rl = nullptr;
 	bool needsLabel = false;
 
-	if (F.size() != 1) {
+	if (F.size() != 1 && !useCfgStackifier) {
 		rl = CheerpWriter::runRelooperOnFunction(F, PA, registerize);
 		needsLabel = rl->needsLabel();
 	}
@@ -2572,8 +2575,17 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		// label is the very last local
 		uint32_t labelLocal = needsLabel ? localMap[numRegs] : 0;
 		CheerpWasmRenderInterface ri(this, code, labelLocal);
-
-		rl->Render(&ri);
+		if (useCfgStackifier)
+		{
+			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+			CFGStackifier C(F, LI, DT);
+			C.render(ri, true);
+		}
+		else
+		{
+			rl->Render(&ri);
+		}
 		lastDepth0Block = ri.lastDepth0Block;
 	}
 
@@ -2948,7 +2960,7 @@ void CheerpWasmWriter::compileCodeSection()
 
 	size_t i = 0;
 
-	for (const Function* F: linearHelper.functions())
+	for (Function* F: linearHelper.functions())
 	{
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			std::stringstream method;
