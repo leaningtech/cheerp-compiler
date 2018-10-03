@@ -205,7 +205,7 @@ public:
 	 * intrinsics (like sqrt, abs, copysign, etc.), when cheerp-mode is set to
 	 * WebAssembly.
 	 */
-	const std::vector<const llvm::Function*> & functions() const {
+	const std::vector<llvm::Function*> & functions() const {
 		return asmjsFunctions_;
 	}
 
@@ -266,7 +266,7 @@ private:
 
 	FunctionTableInfoMap functionTables;
 	FunctionTableOrder functionTableOrder;
-	std::vector<const llvm::Function*> asmjsFunctions_;
+	std::vector<llvm::Function*> asmjsFunctions_;
 
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 	std::vector<const llvm::FunctionType*> functionTypes;

@@ -4579,20 +4579,23 @@ void CheerpWriter::compileMethod(Function& F)
 	}
 	else
 	{
-#if 0
-		Relooper* rl = runRelooperOnFunction(F, PA, registerize);
-		CheerpRenderInterface ri(this, NewLine, asmjs);
-		compileMethodLocals(F, rl->needsLabel());
-		rl->Render(&ri);
-#else
-		compileMethodLocals(F, false);
-		CheerpRenderInterface ri(this, NewLine, asmjs);
+		if (useCfgStackifier)
+		{
+			compileMethodLocals(F, false);
+			CheerpRenderInterface ri(this, NewLine, asmjs);
 
-		DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-		LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-		CFGStackifier C(F, LI, DT);
-		C.render(ri, asmjs);
-#endif
+			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+			CFGStackifier C(F, LI, DT);
+			C.render(ri, asmjs);
+		}
+		else
+		{
+			Relooper* rl = runRelooperOnFunction(F, PA, registerize);
+			CheerpRenderInterface ri(this, NewLine, asmjs);
+			compileMethodLocals(F, rl->needsLabel());
+			rl->Render(&ri);
+		}
 	}
 	if (asmjs)
 	{
