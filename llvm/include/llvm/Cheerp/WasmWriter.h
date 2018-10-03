@@ -53,6 +53,7 @@ class CheerpWasmWriter
 {
 private:
 	llvm::Module& module;
+	llvm::Pass& pass;
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
 	Registerize & registerize;
@@ -81,6 +82,9 @@ private:
 	// the function ids to C++ mangled function names. If available in LLVM IR,
 	// it will also add names to local variables inside functions.
 	bool prettyCode;
+
+	// If true, use cfg stackifier instead of relooper
+	bool useCfgStackifier;
 
 	// If true, a set_local instruction is buffered. This mechanism is used to
 	// combine set_local followed by a get_local into a tee_local. The
@@ -118,7 +122,7 @@ private:
 	void compileMethodLocals(WasmBuffer& code, const std::vector<int>& locals);
 	void compileMethodParams(WasmBuffer& code, const llvm::FunctionType* F);
 	void compileMethodResult(WasmBuffer& code, const llvm::Type* F);
-	void compileMethod(WasmBuffer& code, const llvm::Function& F);
+	void compileMethod(WasmBuffer& code, llvm::Function& F);
 	void compileImport(WasmBuffer& code, const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	// Returns true if it has handled local assignent internally
@@ -154,7 +158,7 @@ private:
 	};
 public:
 	llvm::raw_ostream& stream;
-	CheerpWasmWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
+	CheerpWasmWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const LinearMemoryHelper& linearHelper,
@@ -163,8 +167,10 @@ public:
 			unsigned heapSize,
 			bool useWasmLoader,
 			bool prettyCode,
+			bool useCfgStackifier,
 			CheerpMode cheerpMode):
 		module(m),
+		pass(p),
 		targetData(&m),
 		currentFun(NULL),
 		registerize(registerize),
@@ -177,6 +183,7 @@ public:
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
+		useCfgStackifier(useCfgStackifier),
 		hasSetLocal(false),
 		setLocalId((uint32_t)-1),
 		PA(PA),
