@@ -460,6 +460,7 @@ void initializeExpandStructRegsPass(PassRegistry&);
 void initializeFreeAndDeleteRemovalPass(PassRegistry&);
 void initializeGEPOptimizerPass(PassRegistry&);
 void initializeAllocaStoresExtractorPass(PassRegistry&);
+void initializeFixIrreducibleControlFlowPass(PassRegistry&);
 
 } // end namespace llvm
 
