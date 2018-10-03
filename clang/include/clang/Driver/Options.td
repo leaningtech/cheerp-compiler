@@ -4394,6 +4394,8 @@ def cheerp_reserved_names_EQ : Joined<["-"], "cheerp-reserved-names=">, Flags<[D
   HelpText<"A list of JS identifiers that should not be used by Cheerp">;
 def cheerp_bounds_check : Flag<["-"], "cheerp-bounds-check">, Flags<[DriverOption]>,
   HelpText<"Generate debug code for bounds-checking array and object members accesses">;
+def cheerp_cfg_stackifier : Flag<["-"], "cheerp-cfg-stackifier">, Flags<[DriverOption]>,
+  HelpText<"Use the experimental cfg stackifier algorithm instead of relooper">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options
