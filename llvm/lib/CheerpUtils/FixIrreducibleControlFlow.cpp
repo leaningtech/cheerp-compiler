@@ -377,3 +377,10 @@ void FixIrreducibleControlFlow::getAnalysisUsage(AnalysisUsage & AU) const
 FunctionPass *createFixIrreducibleControlFlowPass() { return new FixIrreducibleControlFlow(); }
 
 }
+
+using namespace llvm;
+
+INITIALIZE_PASS_BEGIN(FixIrreducibleControlFlow, "FixIrreducibleControlFlow", "Transform multiple entry loops in single entry ones",
+                      false, false)
+INITIALIZE_PASS_END(FixIrreducibleControlFlow, "FixIrreducibleControlFlow", "Transform multiple entry loops in single entry ones",
+                    false, false)
