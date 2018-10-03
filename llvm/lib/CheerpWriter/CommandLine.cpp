@@ -44,3 +44,5 @@ llvm::cl::opt<unsigned> CheerpHeapSize("cheerp-linear-heap-size", llvm::cl::init
 llvm::cl::opt<bool> CheerpNoICF("cheerp-no-icf", llvm::cl::init(0), llvm::cl::desc("Disable identical code folding for wasm/asmjs") );
 
 llvm::cl::opt<bool> BoundsCheck("cheerp-bounds-check", llvm::cl::desc("Generate debug code for bounds-checking arrays") );
+
+llvm::cl::opt<bool> CfgStackifier("cheerp-cfg-stackifier", llvm::cl::desc("Use experimental cfg-stackifier algorithm instead of relooper") );
