@@ -94,8 +94,42 @@ void FixIrreducibleControlFlow::LoopVisitor::makeDispatchPHIs(const MetaBlock& M
 		}
 
 		++I;
-		BasicBlock::iterator ii(P);
-		ReplaceInstWithValue(P->getParent()->getInstList(), ii, NewP);
+		if (BB->getSinglePredecessor())
+		{
+			// The only predecessor is the dispatcher, completely remove
+			// the PHI
+			BasicBlock::iterator ii(P);
+			ReplaceInstWithValue(P->getParent()->getInstList(), ii, NewP);
+		}
+		else
+		{
+			// Update the predecessors, removing the ones not part of the
+			// metablock
+			for (size_t i = 0; i < P->getNumIncomingValues();)
+			{
+				BasicBlock* B = P->getIncomingBlock(i);
+				if (!Meta.contains(B))
+				{
+					P->removeIncomingValue(i);
+				}
+				else
+				{
+					i++;
+				}
+			}
+			// Add the dispatcher as predecessor
+			P->addIncoming(NewP, Dispatcher);
+			// Replace all uses outside of the metablock with NewP
+			auto UI = P->use_begin(), E = P->use_end();
+			for (; UI != E;) {
+				Use &U = *UI;
+				++UI;
+				auto *Usr = dyn_cast<Instruction>(U.getUser());
+				if (Usr && Meta.contains(Usr->getParent()))
+					continue;
+				U.set(NewP);
+			}
+		}
 		DispatchPHIs.emplace(NewP);
 	}
 }
