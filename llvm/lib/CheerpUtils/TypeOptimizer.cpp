@@ -607,14 +607,6 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 			}
 		}
 	}
-	else if(C->getType() == newTypeInfo.mappedType)
-		return std::make_pair(C, 0);
-	else if(isa<ConstantAggregateZero>(C))
-		return std::make_pair(Constant::getNullValue(newTypeInfo.mappedType), 0);
-	else if(isa<ConstantPointerNull>(C))
-		return std::make_pair(ConstantPointerNull::get(cast<PointerType>(newTypeInfo.mappedType)), 0);
-	else if(isa<UndefValue>(C))
-		return std::make_pair(UndefValue::get(newTypeInfo.mappedType), 0);
 	else if(ConstantStruct* CS=dyn_cast<ConstantStruct>(C))
 	{
 		if(newTypeInfo.elementMappingKind == TypeMappingInfo::BYTE_LAYOUT_TO_ARRAY)
@@ -706,6 +698,14 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 		}
 		return std::make_pair(ConstantArray::get(cast<ArrayType>(newTypeInfo.mappedType), newElements), 0);
 	}
+	else if(C->getType() == newTypeInfo.mappedType)
+		return std::make_pair(C, 0);
+	else if(isa<ConstantAggregateZero>(C))
+		return std::make_pair(Constant::getNullValue(newTypeInfo.mappedType), 0);
+	else if(isa<ConstantPointerNull>(C))
+		return std::make_pair(ConstantPointerNull::get(cast<PointerType>(newTypeInfo.mappedType)), 0);
+	else if(isa<UndefValue>(C))
+		return std::make_pair(UndefValue::get(newTypeInfo.mappedType), 0);
 	else
 		assert(false && "Unexpected constant in TypeOptimizer");
 	return std::make_pair((Constant*)NULL, 0);
