@@ -68,7 +68,8 @@ private:
 			Succs.insert(tmp.begin(), tmp.end());
 			for (pred_iterator pit = pred_begin(Entry), pet = pred_end(Entry); pit != pet; pit++)
 			{
-				Preds.insert(*pit);
+				if (!L->contains(*pit))
+					Preds.insert(*pit);
 			}
 		}
 
