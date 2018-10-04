@@ -1956,7 +1956,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	}
 }
 
-void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
+void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, bool asmjs)
 {
 	switch(ce->getOpcode())
 	{
@@ -1979,7 +1979,10 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce)
 		}
 		case Instruction::PtrToInt:
 		{
-			compilePtrToInt(ce->getOperand(0));
+			if(asmjs)
+				compileRawPointer(ce->getOperand(0));
+			else
+				compilePtrToInt(ce->getOperand(0));
 			break;
 		}
 		case Instruction::ICmp:
@@ -2057,7 +2060,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	}
 	else if(isa<ConstantExpr>(c))
 	{
-		compileConstantExpr(cast<ConstantExpr>(c));
+		compileConstantExpr(cast<ConstantExpr>(c), asmjs);
 	}
 	else if(isa<ConstantDataSequential>(c))
 	{
