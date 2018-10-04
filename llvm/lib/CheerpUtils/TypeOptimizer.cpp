@@ -1357,8 +1357,6 @@ void TypeOptimizer::rewriteGlobalInit(GlobalVariable* GV)
 		return;
 	Type* GVType = globalTypeMapping[GV]->getPointerElementType();
 	Type* rewrittenType = rewriteType(GVType);
-	if(GVType==rewrittenType)
-		return;
 	// We need to change type, so we have to forge a new initializer
 	auto rewrittenInit = rewriteConstant(GV->getInitializer());
 	assert(rewrittenInit.second==0);
