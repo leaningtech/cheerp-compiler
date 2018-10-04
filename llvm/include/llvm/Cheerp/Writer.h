@@ -385,7 +385,7 @@ private:
 
 	/** @} */
 
-	void compileConstantExpr(const llvm::ConstantExpr* ce);
+	void compileConstantExpr(const llvm::ConstantExpr* ce, bool asmjs);
 	bool doesConstantDependOnUndefined(const llvm::Constant* C) const;
 	void compileMethodArgs(llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, llvm::ImmutableCallSite, bool forceBoolean);
 	COMPILE_INSTRUCTION_FEEDBACK compileTerminatorInstruction(const llvm::TerminatorInst& I);
