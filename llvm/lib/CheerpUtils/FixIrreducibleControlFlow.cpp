@@ -94,29 +94,31 @@ void FixIrreducibleControlFlow::LoopVisitor::makeDispatchPHIs(const MetaBlock& M
 		}
 
 		++I;
-		if (BB->getSinglePredecessor())
+
+		// Update the predecessors, removing the ones not part of the
+		// metablock
+		for (size_t i = 0; i < P->getNumIncomingValues();)
+		{
+			BasicBlock* B = P->getIncomingBlock(i);
+			if (!Meta.contains(B))
+			{
+				P->removeIncomingValue(i, false);
+			}
+			else
+			{
+				i++;
+			}
+		}
+		if (P->getNumIncomingValues() == 0)
 		{
 			// The only predecessor is the dispatcher, completely remove
-			// the PHI
+			// P and replace the uses with NewP
+			assert(BB->getSinglePredecessor()==Dispatcher);
 			BasicBlock::iterator ii(P);
 			ReplaceInstWithValue(P->getParent()->getInstList(), ii, NewP);
 		}
 		else
 		{
-			// Update the predecessors, removing the ones not part of the
-			// metablock
-			for (size_t i = 0; i < P->getNumIncomingValues();)
-			{
-				BasicBlock* B = P->getIncomingBlock(i);
-				if (!Meta.contains(B))
-				{
-					P->removeIncomingValue(i);
-				}
-				else
-				{
-					i++;
-				}
-			}
 			// Add the dispatcher as predecessor
 			P->addIncoming(NewP, Dispatcher);
 			// Replace all uses outside of the metablock with NewP
@@ -124,8 +126,10 @@ void FixIrreducibleControlFlow::LoopVisitor::makeDispatchPHIs(const MetaBlock& M
 			for (; UI != E;) {
 				Use &U = *UI;
 				++UI;
-				auto *Usr = dyn_cast<Instruction>(U.getUser());
-				if (Usr && Meta.contains(Usr->getParent()))
+				auto *Usr = cast<Instruction>(U.getUser());
+				if (Meta.contains(Usr->getParent()))
+					continue;
+				if (Usr->getParent() == Dispatcher)
 					continue;
 				U.set(NewP);
 			}
