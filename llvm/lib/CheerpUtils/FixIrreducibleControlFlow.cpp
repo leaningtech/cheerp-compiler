@@ -205,14 +205,15 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 	IntegerType* Int32Ty = IntegerType::getInt32Ty(Context);
 	IRBuilder<> Builder(Dispatcher);
 	Label = Builder.CreatePHI(Int32Ty, 2, "label");
-	SwitchInst* Switch = Builder.CreateSwitch(Label, Dispatcher);
+	SwitchInst* Switch = nullptr;
 
 	// Collect all the blocks inside the loop
 	SmallVector<BasicBlock *, 4> SuccWorklist(Heads.begin(), Heads.end());
 	while (!SuccWorklist.empty())
 	{
 		BasicBlock *BB = SuccWorklist.pop_back_val();
-		unsigned Index = Switch->getNumCases();
+		// Default case does not count in getNumCases
+		int Index = Switch != nullptr ? Switch->getNumCases() : -1;
 		auto idx = Indices.insert(std::make_pair(BB, Index));
 		if (!idx.second)
 			continue;
@@ -223,7 +224,12 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 			SuccWorklist.push_back(Succ);
 		}
 		MetaBlocks.push_back(std::move(Meta));
-		Switch->addCase(ConstantInt::get(Int32Ty, Index), BB);
+		if (Switch == nullptr)
+		{
+			Switch = Builder.CreateSwitch(Label, BB);
+		}
+		else
+			Switch->addCase(ConstantInt::get(Int32Ty, Index), BB);
 	}
 	// Create the forward blocks
 	for (auto& Meta: MetaBlocks)
@@ -234,7 +240,6 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 			fixPredecessor(Meta, Pred, PredMeta);
 		}
 	}
-	Switch->setDefaultDest(Switch->getSuccessor(Switch->getNumSuccessors()-1));
 
 	// CFG is fixed from now on. Get the domination tree
 	DT.recalculate(F);
