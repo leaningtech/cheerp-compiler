@@ -203,6 +203,7 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 
 	// Collect all the blocks inside the loop
 	SmallVector<BasicBlock *, 4> SuccWorklist(Heads.begin(), Heads.end());
+	DT.recalculate(F);
 	while (!SuccWorklist.empty())
 	{
 		BasicBlock *BB = SuccWorklist.pop_back_val();
@@ -212,18 +213,29 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 		if (!idx.second)
 			continue;
 		Loop* InnerL = LI.getLoopFor(BB);
-		MetaBlock Meta = (InnerL != L && InnerL && InnerL->getHeader()==BB) ? MetaBlock(InnerL) : MetaBlock(BB);
-		for (auto *Succ : Meta.successors())
+		MetaBlock NewMeta = (InnerL != L && InnerL && InnerL->getHeader()==BB) ? MetaBlock(InnerL) : MetaBlock(BB);
+		for (auto *Succ : NewMeta.successors())
 		{
 			SuccWorklist.push_back(Succ);
 		}
-		MetaBlocks.push_back(std::move(Meta));
-		if (Switch == nullptr)
+		// Serch for an existing MetaBlock that dominates the new one
+		auto ParentMeta = std::find_if(MetaBlocks.begin(), MetaBlocks.end(), [&](const MetaBlock& M) {
+			return M.isSuccessor(NewMeta.getEntry()) && DT.dominates(M.getEntry(), NewMeta.getEntry());
+		});
+		// If there is no such MetaBlock, add the new one to the list
+		if (ParentMeta == MetaBlocks.end())
 		{
-			Switch = Builder.CreateSwitch(Label, BB);
+			MetaBlocks.push_back(std::move(NewMeta));
+			if (Switch == nullptr)
+			{
+				Switch = Builder.CreateSwitch(Label, BB);
+			}
+			else
+				Switch->addCase(ConstantInt::get(Int32Ty, Index), BB);
 		}
+		// Otherwise, merge them
 		else
-			Switch->addCase(ConstantInt::get(Int32Ty, Index), BB);
+			ParentMeta->mergeMetaBlock(NewMeta);
 	}
 	// Fix the control flow
 	for (auto& Meta: MetaBlocks)
@@ -235,7 +247,7 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 		}
 	}
 
-	// CFG is fixed from now on. Get the domination tree
+	// CFG is fixed from now on. Get the updated domination tree
 	DT.recalculate(F);
 
 	// Create all the DispatchPHIs, without fixing uses
