@@ -119,20 +119,11 @@ void FixIrreducibleControlFlow::LoopVisitor::makeDispatchPHIs(const MetaBlock& M
 		}
 		else
 		{
-			// Add the dispatcher as predecessor
+			// Add NewP as incoming from the dispatcher
 			P->addIncoming(NewP, Dispatcher);
-			// Replace all uses outside of the metablock with NewP
-			auto UI = P->use_begin(), E = P->use_end();
-			for (; UI != E;) {
-				Use &U = *UI;
-				++UI;
-				auto *Usr = cast<Instruction>(U.getUser());
-				if (Meta.contains(Usr->getParent()))
-					continue;
-				if (Usr->getParent() == Dispatcher)
-					continue;
-				U.set(NewP);
-			}
+			// Save the PHIs for the last stage of use replacement, when all the
+			// PHIs are in their final position
+			DelayedFixes.emplace(P, NewP);
 		}
 		DispatchPHIs.emplace(NewP);
 	}
@@ -231,7 +222,7 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 		else
 			Switch->addCase(ConstantInt::get(Int32Ty, Index), BB);
 	}
-	// Create the forward blocks
+	// Fix the control flow
 	for (auto& Meta: MetaBlocks)
 	{
 		for (auto *Pred: Meta.predecessors())
@@ -244,10 +235,29 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 	// CFG is fixed from now on. Get the domination tree
 	DT.recalculate(F);
 
-	// Create the DispatchPHIs
+	// Create all the DispatchPHIs, without fixing uses
 	for (const auto& Meta: MetaBlocks)
 	{
 		makeDispatchPHIs(Meta);
+	}
+	// Update the uses in the original PHIs that generated the DispatchPHIs
+	for (auto& D: DelayedFixes)
+	{
+		auto P = D.first;
+		auto NewP = D.second;
+		auto& Meta = *getParentMetaBlock(P->getParent());
+		// Replace all uses outside of the metablock and the dispatch with NewP
+		auto UI = P->use_begin(), E = P->use_end();
+		for (; UI != E;) {
+			Use &U = *UI;
+			++UI;
+			auto *Usr = cast<Instruction>(U.getUser());
+			if (Meta.contains(Usr->getParent()))
+				continue;
+			if (Usr->getParent() == Dispatcher)
+				continue;
+			U.set(NewP);
+		}
 	}
 	// Create the DomPHIs for the uses in the loop blocks
 	for (const auto& Meta: MetaBlocks)
