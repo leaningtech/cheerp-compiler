@@ -166,6 +166,9 @@ private:
 		// Instructions inside the metablocks that need a corresponding PHI in
 		// the dispatcher to fix domination issues
 		std::unordered_map<Instruction*, PHINode*> DomPHIs;
+		// Map to store the original PHIs that were not completely removed by
+		// the DispatchPHIs, and need to update the uses
+		std::unordered_map<PHINode*, PHINode*> DelayedFixes;
 	};
 };
 
