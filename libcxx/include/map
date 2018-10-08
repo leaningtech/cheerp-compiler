@@ -1471,7 +1471,7 @@ private:
 #ifdef _LIBCPP_CXX03_LANG
     __node_holder __construct_node_with_key(const key_type& __k);
 #endif
-#ifdef __CHEERP__
+#ifndef __ASMJS__
     static_assert(!std::is_pointer<_Key>::value, "Cheerp: std::map with pointers as keys is not currently supported, use std::unordered_map");
 #endif
 };
@@ -2134,7 +2134,7 @@ private:
 
     typedef __map_node_destructor<__node_allocator> _Dp;
     typedef unique_ptr<__node, _Dp> __node_holder;
-#ifdef __CHEERP__
+#ifndef __ASMJS__
     static_assert(!std::is_pointer<_Key>::value, "Cheerp: std::multimap with pointers as keys is not currently supported");
 #endif
 };
