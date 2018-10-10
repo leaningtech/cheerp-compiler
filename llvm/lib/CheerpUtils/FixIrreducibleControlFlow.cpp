@@ -208,8 +208,8 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 		auto idx = Indices.insert(std::make_pair(BB, Index));
 		if (!idx.second)
 			continue;
-		Loop* L = LI.getLoopFor(BB);
-		MetaBlock Meta = (L && L->getHeader()==BB) ? MetaBlock(L) : MetaBlock(BB);
+		Loop* InnerL = LI.getLoopFor(BB);
+		MetaBlock Meta = (InnerL != L && InnerL && InnerL->getHeader()==BB) ? MetaBlock(InnerL) : MetaBlock(BB);
 		for (auto *Succ : Meta.successors())
 		{
 			SuccWorklist.push_back(Succ);
