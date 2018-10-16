@@ -146,7 +146,10 @@ void FixIrreducibleControlFlow::LoopVisitor::fixUse(Use& U)
 			{
 				if (DefMeta->isSuccessor(*Pred))
 				{
-					p->addIncoming(Def, *Pred);
+					if (DT.dominates(Def, *Pred))
+						p->addIncoming(Def, *Pred);
+					else
+						p->addIncoming(p, *Pred);
 				}
 				else
 				{
