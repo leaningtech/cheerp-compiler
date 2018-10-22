@@ -2161,21 +2161,87 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::FPToSI:
 		{
 			// TODO: add support for i64.
-			compileOperand(code, I.getOperand(0));
+			// Wasm opcodes traps on invalid values, we need to do an explicit check
 			if (I.getOperand(0)->getType()->isFloatTy())
+			{
+				compileOperand(code, I.getOperand(0));
+				encodeInst(0x8b, "f32.abs", code);
+				encodeInst(0x43, "f32.const", code);
+				internal::encodeF32(0x80000000, code);
+				// Use LT here, we are using the first invalid positive integer as the limit value
+				encodeInst(0x5d, "f32.lt", code);
+				encodeU32Inst(0x04, "if", 0x7f, code);
+				compileOperand(code, I.getOperand(0));
 				encodeInst(0xa8, "i32.trunc_s/f32", code);
+				encodeInst(0x05, "else", code);
+				// We excluded the valid INT32_MIN in the range above, but in the undefined case we use it unconditionally
+				encodeS32Inst(0x41, "i32.const", INT32_MIN, code);
+				encodeInst(0x0b, "end", code);
+			}
 			else
+			{
+				compileOperand(code, I.getOperand(0));
+				encodeInst(0x99, "f64.abs", code);
+				encodeInst(0x43, "f32.const", code);
+				internal::encodeF32(0x80000000, code);
+				encodeInst(0xbb, "f64.promote/f32", code);
+				// Use LT here, we are using the first invalid positive integer as the limit value
+				encodeInst(0x63, "f64.lt", code);
+				encodeU32Inst(0x04, "if", 0x7f, code);
+				compileOperand(code, I.getOperand(0));
 				encodeInst(0xaa, "i32.trunc_s/f64", code);
+				encodeInst(0x05, "else", code);
+				// We excluded the valid INT32_MIN in the range above, but in the undefined case we use it unconditionally
+				encodeS32Inst(0x41, "i32.const", INT32_MIN, code);
+				encodeInst(0x0b, "end", code);
+			}
 			break;
 		}
 		case Instruction::FPToUI:
 		{
 			// TODO: add support for i64.
-			compileOperand(code, I.getOperand(0));
 			if (I.getOperand(0)->getType()->isFloatTy())
+			{
+				compileOperand(code, I.getOperand(0));
+				encodeInst(0x43, "f32.const", code);
+				internal::encodeF32(0x100000000LL, code);
+				// Use LT here, we are using the first invalid positive integer as the limit value
+				encodeInst(0x5d, "f32.lt", code);
+				// Also compare against 0
+				compileOperand(code, I.getOperand(0));
+				encodeInst(0x43, "f32.const", code);
+				internal::encodeF32(0, code);
+				encodeInst(0x60, "f32.ge", code);
+				encodeInst(0x71, "i32.and", code);
+				encodeU32Inst(0x04, "if", 0x7f, code);
+				compileOperand(code, I.getOperand(0));
 				encodeInst(0xa9, "i32.trunc_u/f32", code);
+				encodeInst(0x05, "else", code);
+				encodeS32Inst(0x41, "i32.const", 0, code);
+				encodeInst(0x0b, "end", code);
+			}
 			else
+			{
+				compileOperand(code, I.getOperand(0));
+				encodeInst(0x43, "f32.const", code);
+				internal::encodeF32(0x100000000LL, code);
+				encodeInst(0xbb, "f64.promote/f32", code);
+				// Use LT here, we are using the first invalid positive integer as the limit value
+				encodeInst(0x63, "f64.lt", code);
+				// Also compare against 0
+				compileOperand(code, I.getOperand(0));
+				encodeInst(0x43, "f32.const", code);
+				internal::encodeF32(0, code);
+				encodeInst(0xbb, "f64.promote/f32", code);
+				encodeInst(0x66, "f64.ge", code);
+				encodeInst(0x71, "i32.and", code);
+				encodeU32Inst(0x04, "if", 0x7f, code);
+				compileOperand(code, I.getOperand(0));
 				encodeInst(0xab, "i32.trunc_u/f64", code);
+				encodeInst(0x05, "else", code);
+				encodeS32Inst(0x41, "i32.const", 0, code);
+				encodeInst(0x0b, "end", code);
+			}
 			break;
 		}
 		case Instruction::SIToFP:
