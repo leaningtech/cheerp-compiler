@@ -878,6 +878,7 @@ bool PreExecute::runOnModule(Module& m)
     // Detach malloc, free, and realloc, so the interpreter will fail if it will
     // encounter them
     FunctionDetacher FD(m);
+    FD.detach("calloc");
     FD.detach("malloc");
     FD.detach("free");
     FD.detach("realloc");
