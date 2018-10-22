@@ -252,9 +252,17 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		case Instruction::FMul:
 		case Instruction::FSub:
 		case Instruction::FRem:
+		{
+			return equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
+				equivalentOperand(A->getOperand(1), B->getOperand(1));
+		}
 		case Instruction::FCmp:
 		case Instruction::ICmp:
 		{
+			const CmpInst* a = cast<CmpInst>(A);
+			const CmpInst* b = cast<CmpInst>(B);
+			if(a->getPredicate() != b->getPredicate())
+				return false;
 			return equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
 				equivalentOperand(A->getOperand(1), B->getOperand(1));
 		}
