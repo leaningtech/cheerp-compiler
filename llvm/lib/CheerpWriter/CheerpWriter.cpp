@@ -2009,6 +2009,15 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, bool asmjs)
 			compileSubtraction(ce->getOperand(0), ce->getOperand(1), HIGHEST);
 			break;
 		}
+		case Instruction::Add:
+		{
+			stream << '(';
+			compileOperand(ce->getOperand(0), ADD_SUB);
+			stream << "+";
+			compileOperand(ce->getOperand(1), ADD_SUB);
+			stream << "|0)";
+			break;
+		}
 		default:
 			stream << "undefined";
 			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
