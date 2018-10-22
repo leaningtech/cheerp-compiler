@@ -722,7 +722,10 @@ static llvm::Value *EmitCXXNewAllocSize(CodeGenFunction &CGF,
     ConstantEmitter(CGF).tryEmitAbstract(*e->getArraySize(), e->getType());
   if (!numElements)
     numElements = CGF.EmitScalarExpr(*e->getArraySize());
-  assert(isa<llvm::IntegerType>(numElements->getType()));
+  if(CodeGenTypes::isHighInt(e->getArraySize()->getType()))
+    numElements = CGF.EmitLoadLowBitsOfHighInt(numElements);
+  else
+    assert(isa<llvm::IntegerType>(numElements->getType()));
 
   // The number of elements can be have an arbitrary integer type;
   // essentially, we need to multiply it by a constant factor, add a
