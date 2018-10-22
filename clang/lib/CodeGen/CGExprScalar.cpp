@@ -2439,6 +2439,9 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     // extension.
     auto DestLLVMTy = ConvertType(DestTy);
     llvm::Type *MiddleTy = CGF.CGM.getDataLayout().getIntPtrType(DestLLVMTy);
+    if (CGF.IsHighInt(E->getType())) {
+      Src = CGF.EmitLoadLowBitsOfHighInt(Src);
+    }
     bool InputSigned = E->getType()->isSignedIntegerOrEnumerationType();
     llvm::Value* IntResult =
       Builder.CreateIntCast(Src, MiddleTy, InputSigned, "conv");
