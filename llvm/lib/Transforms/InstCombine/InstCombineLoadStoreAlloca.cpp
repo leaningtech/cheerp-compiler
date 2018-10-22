@@ -1000,12 +1000,15 @@ Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
   // separated by a few arithmetic operations.
   bool IsLoadCSE = false;
   if (Value *AvailableVal = FindAvailableLoadedValue(&LI, *AA, &IsLoadCSE)) {
+    // Cheerp: Only allow this forwarding for pointer casts
+    if ((DL.isByteAddressable()) || AvailableVal->getType() == LI.getType() || (LI.getType()->isPointerTy() && AvailableVal->getType()->isPointerTy())) {
     if (IsLoadCSE)
       combineMetadataForCSE(cast<LoadInst>(AvailableVal), &LI, false);
 
     return replaceInstUsesWith(
         LI, Builder.CreateBitOrPointerCast(AvailableVal, LI.getType(),
                                            LI.getName() + ".cast"));
+   }
   }
 
   // None of the following transforms are legal for volatile/ordered atomic
