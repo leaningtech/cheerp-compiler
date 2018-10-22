@@ -56,8 +56,6 @@ bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp:
 		return true;
 	else if(asmjs && a->isDoubleTy() && b->isDoubleTy())
 		return true;
-	else if(!asmjs && a->isFloatingPointTy() && b->isFloatingPointTy())
-		return true;
 	else if(a->isArrayTy() && b->isArrayTy())
 	{
 		return cast<ArrayType>(a)->getNumElements()==cast<ArrayType>(b)->getNumElements() &&
