@@ -955,13 +955,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 		return COMPILE_OK;
 	}
-	else if(ident=="fmod" || ident=="fmodf")
+	else if(ident=="fmod")
 	{
 		// Handle this internally, C++ does not have float mod operation
 		stream << '(';
 		compileOperand(*(it), MUL_DIV);
 		stream << '%';
 		compileOperand(*(it+1), nextPrio(MUL_DIV));
+		stream << ')';
+		return COMPILE_OK;
+	}
+	else if(ident=="fmodf")
+	{
+		stream << "(+";
+		compileOperand(*(it), HIGHEST);
+		stream << "%+";
+		compileOperand(*(it+1), HIGHEST);
 		stream << ')';
 		return COMPILE_OK;
 	}
