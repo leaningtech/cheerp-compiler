@@ -1284,6 +1284,20 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 {
 	switch(ce->getOpcode())
 	{
+		case Instruction::Add:
+		{
+			compileOperand(code, ce->getOperand(0));
+			compileOperand(code, ce->getOperand(1));
+			encodeInst(0x6a, "i32.add", code);
+			break;
+		}
+		case Instruction::Sub:
+		{
+			compileOperand(code, ce->getOperand(0));
+			compileOperand(code, ce->getOperand(1));
+			encodeInst(0x6b, "i32.sub", code);
+			break;
+		}
 		case Instruction::GetElementPtr:
 		{
 			compileGEP(code, ce);
