@@ -3268,7 +3268,7 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 	if(parentPrio > signedPrio) stream << ')';
 }
 
-void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio)
+void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio, bool forceTruncation)
 {
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
@@ -3285,7 +3285,7 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, bool forAsmJSCom
 		stream << ">>>0";
 		if(parentPrio > SHIFT) stream << ')';
 	}
-	else if(!needsUnsignedTruncation(v))
+	else if(!forceTruncation && !needsUnsignedTruncation(v))
 	{
 		if(forAsmJSComparison)
 		{
@@ -3357,7 +3357,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			else
 				stream << "(+";
 			//We need to cast to unsigned before
-			compileUnsignedInteger(ci.getOperand(0), /*forAsmJSComparison*/ false, HIGHEST);
+			compileUnsignedInteger(ci.getOperand(0), /*forAsmJSComparison*/ false, HIGHEST, /*forceTruncation*/ true);
 			stream << ')';
 			return COMPILE_OK;
 		}
