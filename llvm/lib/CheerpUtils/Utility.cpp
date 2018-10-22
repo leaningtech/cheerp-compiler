@@ -120,7 +120,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	else if(I.getOpcode()==Instruction::BitCast)
 	{
 		if(PA.getPointerKind(&I) == RAW)
-			return !hasMoreThan1Use;
+			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
 
 		if (PA.getPointerKind(&I) == COMPLETE_OBJECT) {
 			// Never inline if the source is REGULAR (forces conversion to CO)
