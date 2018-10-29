@@ -16,12 +16,12 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 
 namespace llvm
 {
@@ -53,24 +53,41 @@ private:
 		SmallPtrSet<BasicBlock *, 2> Forwards;
 		SmallPtrSet<BasicBlock *, 2> Blocks;
 
-	public:
-		explicit MetaBlock(BasicBlock *BB)
-			: Entry(BB), Preds(pred_begin(BB), pred_end(BB)),
-			Succs(succ_begin(BB), succ_end(BB))
+		void addBlocks(DomTreeNode* Node, std::unordered_set<BasicBlock*> Group)
 		{
-			Blocks.insert(BB);
-		}
-
-		explicit MetaBlock(Loop *L) : Entry(L->getHeader()), Blocks(L->block_begin(), L->block_end())
-		{
-			SmallVector<BasicBlock*, 2> tmp;
-			L->getExitBlocks(tmp);
-			Succs.insert(tmp.begin(), tmp.end());
-			for (pred_iterator pit = pred_begin(Entry), pet = pred_end(Entry); pit != pet; pit++)
+			for (auto N: make_range(df_begin(Node), df_end(Node)))
 			{
-				if (!L->contains(*pit))
-					Preds.insert(*pit);
+				if (Group.count(N->getBlock()))
+					Blocks.insert(N->getBlock());
 			}
+		}
+		void addPreds()
+		{
+			for (auto Pred: make_range(pred_begin(Entry), pred_end(Entry)))
+			{
+				if (!Blocks.count(Pred))
+				{
+					Preds.insert(Pred);
+				}
+			}
+		}
+		void addSuccs()
+		{
+			for (auto BB: Blocks)
+			{
+				for (auto Succ: make_range(succ_begin(BB), succ_end(BB)))
+				{
+					if (!Blocks.count(Succ))
+						Succs.insert(Succ);
+				}
+			}
+		}
+	public:
+		explicit MetaBlock(DomTreeNode* Node, std::unordered_set<BasicBlock*> Group): Entry(Node->getBlock())
+		{
+			addBlocks(Node, Group);
+			addPreds();
+			addSuccs();
 		}
 
 		BasicBlock *getEntry() const { return Entry; }
@@ -88,12 +105,6 @@ private:
 			return Forwards;
 		}
 
-		void mergeMetaBlock(const MetaBlock& New) {
-			bool wasSucc = Succs.erase(New.getEntry());
-			assert(wasSucc);
-			Succs.insert(New.Succs.begin(), New.Succs.end());
-			Blocks.insert(New.Blocks.begin(), New.Blocks.end());
-		}
 		void updateSuccessor(BasicBlock* Old, BasicBlock* New) {
 			Succs.erase(Old);
 			Succs.insert(New);
@@ -123,14 +134,47 @@ private:
 			llvm::errs() << "ENDMETA ---------------------\n";
 		}
 	};
+public:
+	class SubGraph;
+	struct GraphNode {
+		BasicBlock* Header;
+		std::vector<BasicBlock*> Succs;
+		SubGraph& Graph;
+		explicit GraphNode(BasicBlock* BB, SubGraph& Graph);
+	};
+	class SubGraph {
+		typedef std::unordered_set<BasicBlock*> BlockSet;
+		BasicBlock* Entry;
+		BlockSet Blocks;
+		std::unordered_map<BasicBlock*, GraphNode> Nodes;
+	public:
+		explicit SubGraph(BasicBlock* Entry, BlockSet Blocks): Entry(Entry), Blocks(std::move(Blocks))
+		{
+		}
+		BasicBlock* getEntry() { return Entry; }
+	private:
+		GraphNode* getOrCreate(BasicBlock* BB)
+		{
+			auto it = Nodes.find(BB);
+			if (it == Nodes.end())
+			{
+				it = Nodes.emplace(BB, GraphNode(BB, *this)).first;
+			}
+			return &it->second;
+		}
+		friend struct GraphTraits<SubGraph*>;
+		friend struct GraphNode;
+	};
+private:
 	/// Utility class that performs the FixIrreducibleControlFlow logic for every
 	/// loop in the function, including the nullptr loop representing the function
 	/// itself
-	class LoopVisitor {
+	class SCCVisitor {
 	public:
-		LoopVisitor(Function &F, LoopInfo &LI, Loop *L): F(F), LI(LI), L(L)
+		SCCVisitor(Function &F, const std::vector<GraphNode*>& SCC)
+			: F(F), SCC(SCC)
 		{}
-		bool VisitLoop();
+		void run(std::queue<SubGraph>& Queue);
 
 	private:
 		// True if the block is a forward block coming to the dispatcher from inside the loop
@@ -144,13 +188,12 @@ private:
 		// Fix a use that is not dominated by its definition anymore
 		void fixUse(Use& U);
 		// Main processing function
-		void processBlocks(SetVector<BasicBlock*>& Heads);
+		void processBlocks();
 
 	private:
 		Function &F;
-		LoopInfo &LI;
-		Loop *L;
 		DominatorTree DT;
+		const std::vector<GraphNode*>& SCC;
 		// The metabloks corresponding to the irreducible loop we identified
 		std::vector<MetaBlock> MetaBlocks;
 		// The new block that will become the single entry of the new loop
@@ -170,7 +213,22 @@ private:
 		// the DispatchPHIs, and need to update the uses
 		std::unordered_map<PHINode*, PHINode*> DelayedFixes;
 	};
+	bool visitSubGraph(Function& F, std::queue<SubGraph>& Queue);
 };
+
+template <> struct GraphTraits<FixIrreducibleControlFlow::SubGraph*> {
+	typedef FixIrreducibleControlFlow::GraphNode NodeType;
+	typedef mapped_iterator<std::vector<BasicBlock*>::iterator, std::function<FixIrreducibleControlFlow::GraphNode*(BasicBlock*)>> ChildIteratorType;
+
+	static NodeType *getEntryNode(FixIrreducibleControlFlow::SubGraph* G) { return G->getOrCreate(G->Entry); }
+	static inline ChildIteratorType child_begin(NodeType *N) {
+		return ChildIteratorType(N->Succs.begin(), [N](BasicBlock* BB){ return N->Graph.getOrCreate(BB);});
+	}
+	static inline ChildIteratorType child_end(NodeType *N) {
+		return ChildIteratorType(N->Succs.end(), [N](BasicBlock* BB){ return N->Graph.getOrCreate(BB);});
+	}
+};
+
 
 //===----------------------------------------------------------------------===//
 //
