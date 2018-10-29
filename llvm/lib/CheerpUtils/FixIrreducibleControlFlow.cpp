@@ -14,6 +14,7 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/SCCIterator.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
@@ -23,7 +24,7 @@
 
 namespace llvm {
 
-bool FixIrreducibleControlFlow::LoopVisitor::comingFromLoop(BasicBlock* B)
+bool FixIrreducibleControlFlow::SCCVisitor::comingFromLoop(BasicBlock* B)
 {
 	for (auto& M: MetaBlocks)
 	{
@@ -32,7 +33,7 @@ bool FixIrreducibleControlFlow::LoopVisitor::comingFromLoop(BasicBlock* B)
 	}
 	return false;
 }
-FixIrreducibleControlFlow::MetaBlock* FixIrreducibleControlFlow::LoopVisitor::getParentMetaBlock(BasicBlock* BB)
+FixIrreducibleControlFlow::MetaBlock* FixIrreducibleControlFlow::SCCVisitor::getParentMetaBlock(BasicBlock* BB)
 {
 	for (auto& M: MetaBlocks)
 	{
@@ -41,7 +42,7 @@ FixIrreducibleControlFlow::MetaBlock* FixIrreducibleControlFlow::LoopVisitor::ge
 	}
 	return nullptr;
 }
-void FixIrreducibleControlFlow::LoopVisitor::fixPredecessor(MetaBlock& Meta, BasicBlock* Pred, MetaBlock* PredMeta)
+void FixIrreducibleControlFlow::SCCVisitor::fixPredecessor(MetaBlock& Meta, BasicBlock* Pred, MetaBlock* PredMeta)
 {
 	BasicBlock* BB = Meta.getEntry();
 	Function& F = *BB->getParent();
@@ -64,7 +65,7 @@ void FixIrreducibleControlFlow::LoopVisitor::fixPredecessor(MetaBlock& Meta, Bas
 			PredMeta->updateSuccessor(BB, Fwd);
 	}
 }
-void FixIrreducibleControlFlow::LoopVisitor::makeDispatchPHIs(const MetaBlock& Meta)
+void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const MetaBlock& Meta)
 {
 
 	BasicBlock* BB = Meta.getEntry();
@@ -129,7 +130,7 @@ void FixIrreducibleControlFlow::LoopVisitor::makeDispatchPHIs(const MetaBlock& M
 	}
 }
 
-void FixIrreducibleControlFlow::LoopVisitor::fixUse(Use& U)
+void FixIrreducibleControlFlow::SCCVisitor::fixUse(Use& U)
 {
 	Instruction* Def = cast<Instruction>(U.get());
 
@@ -187,56 +188,28 @@ void FixIrreducibleControlFlow::LoopVisitor::fixUse(Use& U)
 	}
 }
 
-void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*>& Heads)
+void FixIrreducibleControlFlow::SCCVisitor::processBlocks()
 {
 	auto& Context = F.getParent()->getContext();
 	// Ok. We have irreducible control flow! Create a dispatch block which will
 	// contains a jump table to any block in the problematic set of blocks.
 	Dispatcher = BasicBlock::Create(Context, "dispatcher", &F);
-	LI.changeLoopFor(Dispatcher, L);
 
 	// Add the jump table.
 	IntegerType* Int32Ty = IntegerType::getInt32Ty(Context);
 	IRBuilder<> Builder(Dispatcher);
-	Label = Builder.CreatePHI(Int32Ty, 2, "label");
-	SwitchInst* Switch = nullptr;
-
-	// Collect all the blocks inside the loop
-	SmallVector<BasicBlock *, 4> SuccWorklist(Heads.begin(), Heads.end());
-	DT.recalculate(F);
-	while (!SuccWorklist.empty())
+	Label = Builder.CreatePHI(Int32Ty, MetaBlocks.size(), "label");
+	auto mit = MetaBlocks.begin(), me = MetaBlocks.end();
+	Indices.insert(std::make_pair(mit->getEntry(), -1));
+	SwitchInst* Switch = Builder.CreateSwitch(Label, mit->getEntry());
+	mit++;
+	int Index = 0;
+	for(auto& Meta: make_range(mit, me))
 	{
-		BasicBlock *BB = SuccWorklist.pop_back_val();
-		// Default case does not count in getNumCases
-		int Index = Switch != nullptr ? Switch->getNumCases() : -1;
-		auto idx = Indices.insert(std::make_pair(BB, Index));
-		if (!idx.second)
-			continue;
-		Loop* InnerL = LI.getLoopFor(BB);
-		MetaBlock NewMeta = (InnerL != L && InnerL && InnerL->getHeader()==BB) ? MetaBlock(InnerL) : MetaBlock(BB);
-		for (auto *Succ : NewMeta.successors())
-		{
-			SuccWorklist.push_back(Succ);
-		}
-		// Serch for an existing MetaBlock that dominates the new one
-		auto ParentMeta = std::find_if(MetaBlocks.begin(), MetaBlocks.end(), [&](const MetaBlock& M) {
-			return M.isSuccessor(NewMeta.getEntry()) && DT.dominates(M.getEntry(), NewMeta.getEntry());
-		});
-		// If there is no such MetaBlock, add the new one to the list
-		if (ParentMeta == MetaBlocks.end())
-		{
-			MetaBlocks.push_back(std::move(NewMeta));
-			if (Switch == nullptr)
-			{
-				Switch = Builder.CreateSwitch(Label, BB);
-			}
-			else
-				Switch->addCase(ConstantInt::get(Int32Ty, Index), BB);
-		}
-		// Otherwise, merge them
-		else
-			ParentMeta->mergeMetaBlock(NewMeta);
+		Indices.insert(std::make_pair(Meta.getEntry(), Index++));
+		Switch->addCase(ConstantInt::get(Int32Ty, Switch->getNumCases()), Meta.getEntry());
 	}
+
 	// Fix the control flow
 	for (auto& Meta: MetaBlocks)
 	{
@@ -316,105 +289,75 @@ void FixIrreducibleControlFlow::LoopVisitor::processBlocks(SetVector<BasicBlock*
 		}
 	}
 }
-bool FixIrreducibleControlFlow::LoopVisitor::VisitLoop()
+
+FixIrreducibleControlFlow::GraphNode::GraphNode(BasicBlock* BB, SubGraph& Graph): Header(BB), Graph(Graph)
 {
-	/// Utility class used to walk through tha cfg skipping inner loops
-	class SuccessorList final : public MetaBlock {
-		size_t Index;
-		size_t Num;
-
-	public:
-		explicit SuccessorList(BasicBlock *BB)
-			: MetaBlock(BB), Index(0), Num(successors().size()) {}
-
-		explicit SuccessorList(Loop *L)
-			: MetaBlock(L), Index(0), Num(successors().size()) {}
-
-		bool HasNext() const { return Index != Num; }
-
-		BasicBlock *Next() {
-			assert(HasNext());
-			auto it = successors().begin();
-			std::advance(it,Index++);
-			return *it;
-		}
-	};
-
-	BasicBlock *Header = L ? L->getHeader() : &*F.begin();
-	SetVector<BasicBlock *> Heads;
-
-	// DFS through L's body, looking for irreducible control flow. L is
-	// natural, and we stay in its body, and we treat any nested loops
-	// monolithically, so any cycles we encounter indicate irreducibility.
-	SmallPtrSet<BasicBlock *, 8> OnStack;
-	SmallVector<SuccessorList, 4> LoopWorklist;
-
-	SmallPtrSet<BasicBlock *, 8> Visited;
-	LoopWorklist.push_back(SuccessorList(Header));
-	OnStack.insert(Header);
-	Visited.insert(Header);
-	while (!LoopWorklist.empty())
+	for (auto Succ: make_range(succ_begin(Header), succ_end(Header)))
 	{
-		SuccessorList &Top = LoopWorklist.back();
-		if (Top.HasNext())
-		{
-			BasicBlock *Next = Top.Next();
-			// If we are back at the beginning of the llvm loop, or out of it,
-			// skip
-			if (Next == Header || (L && !L->contains(Next)))
-			{
-				continue;
-			}
-			if (LLVM_LIKELY(OnStack.insert(Next).second))
-			{
-				if (!Visited.insert(Next).second)
-				{
-					OnStack.erase(Next);
-					continue;
-				}
-				Loop *InnerLoop = LI.getLoopFor(Next);
-				if (InnerLoop != L)
-					LoopWorklist.push_back(SuccessorList(InnerLoop));
-				else
-					LoopWorklist.push_back(SuccessorList(Next));
-      		}
-			else
-			{
-				Heads.insert(Next);
-			}
+		if (!Graph.Blocks.count(Succ) || Succ == Graph.Entry)
 			continue;
-		}
-		OnStack.erase(Top.getEntry());
-		LoopWorklist.pop_back();
+		Succs.emplace_back(Succ);
 	}
+}
 
-	// Most likely, we didn't find any irreducible control flow.
-	if (LLVM_LIKELY(Heads.empty()))
-		return false;
+bool FixIrreducibleControlFlow::visitSubGraph(Function& F, std::queue<SubGraph>& Queue)
+{
+	SubGraph SG = std::move(Queue.front());
+	Queue.pop();
+	bool Irreducible = false;
+	for (auto& SCC: make_range(scc_begin(&SG), scc_end(&SG)))
+	{
+		if (SCC.size() != 1)
+		{
+			Irreducible = true;
+			SCCVisitor V(F, SCC);
+			V.run(Queue);
+		}
+	}
+	return Irreducible;
+}
 
-	processBlocks(Heads);
-	return true;
+void FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
+{
+	DT.recalculate(F);
+	std::unordered_set<BasicBlock*> Group;
+	for(auto& GN: SCC)
+	{
+		Group.insert(GN->Header);
+	}
+	for(auto& GN: SCC)
+	{
+		auto Node = DT.getNode(GN->Header);
+		auto IDom = Node->getIDom();
+		if (!Group.count(IDom->getBlock()))
+		{
+			MetaBlocks.emplace_back(Node, Group);
+		}
+	}
+	if (MetaBlocks.size() != 1)
+		processBlocks();
+	for (MetaBlock& Meta: MetaBlocks)
+	{
+		std::unordered_set<BasicBlock*> BBs(Meta.getBlocks().begin(), Meta.getBlocks().end());
+		SubGraph SG(Meta.getEntry(), std::move(BBs));
+		Queue.push(std::move(SG));
+	}
 }
 
 bool FixIrreducibleControlFlow::runOnFunction(Function& F)
 {
 	bool Changed = false;
-	auto &LI = getAnalysis<LoopInfo>();
 
+	std::unordered_set<BasicBlock*> BBs;
+	for (auto& BB: F)
+		BBs.insert(&BB);
+	std::queue<SubGraph> Queue;
+	SubGraph SG(&*F.begin(), std::move(BBs));
+	Queue.push(std::move(SG));
+	while(!Queue.empty())
 	{
-		LoopVisitor LV(F, LI, nullptr);
-		// Visit the function body, which is identified as a null loop.
-		Changed |= LV.VisitLoop();
-	}
-
-	// Visit all the loops.
-	SmallVector<Loop *, 8> Worklist(LI.begin(), LI.end());
-	while (!Worklist.empty())
-	{
-		Loop *CurLoop = Worklist.pop_back_val();
-		Worklist.append(CurLoop->begin(), CurLoop->end());
-		LoopVisitor LV(F, LI, CurLoop);
-		Changed |= LV.VisitLoop();
+		if (visitSubGraph(F, Queue))
+			Changed = true;
 	}
 #ifndef  NDEBUG
 	bool v = verifyFunction(F, &llvm::errs());
@@ -436,8 +379,6 @@ char FixIrreducibleControlFlow::ID = 0;
 
 void FixIrreducibleControlFlow::getAnalysisUsage(AnalysisUsage & AU) const
 {
-	AU.addRequired<LoopInfo>();
-	AU.addPreserved<LoopInfo>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
