@@ -5475,7 +5475,9 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 				max <= std::numeric_limits<int32_t>::max() && 
 				//NOTE: this number is the maximum allowed by V8 for wasm's br_table,
 				// it is not defined in the spec
-				max-min <= 128 * 1024)
+				max-min <= 32 * 1024 &&
+				// Avoid extremely big and extremely sparse tables, require at least 3% fill rate
+				(max-min <= 100 || si->getNumCases() * 100 >= 3 * (max-min)))
 			{
 				switchInst = si;
 			}
