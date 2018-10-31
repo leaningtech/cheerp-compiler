@@ -2503,6 +2503,9 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(!needsPointerKindConversion(phi, incoming, writer.PA, writer.registerize))
 				return;
+			// We can leave undefined values undefined
+			if (isa<UndefValue>(incoming))
+				return;
 			Type* phiType=phi->getType();
 			if(phiType->isPointerTy())
 			{
