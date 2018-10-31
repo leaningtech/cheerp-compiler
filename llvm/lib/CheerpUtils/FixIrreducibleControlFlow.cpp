@@ -73,7 +73,7 @@ void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const MetaBlock& Me
 		PHINode* P = dyn_cast<PHINode>(I);
 		if (P == nullptr)
 			break;
-		PHINode* NewP = PHINode::Create(P->getType(), P->getNumIncomingValues(), {P->getName(),".dispatch"}, Dispatcher->getFirstInsertionPt());
+		PHINode* NewP = PHINode::Create(P->getType(), Label->getNumIncomingValues(), {P->getName(),".dispatch"}, Dispatcher->getFirstInsertionPt());
 		for (auto F: Meta.forwards())
 		{
 			BasicBlock* Pred = F->getUniquePredecessor();
@@ -85,9 +85,9 @@ void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const MetaBlock& Me
 		{
 			if (NewP->getBasicBlockIndex(*Pred) == -1)
 			{
-				if (Meta.isSuccessor(*Pred))
+				if (DT.dominates(P, *Pred))
 					NewP->addIncoming(P, *Pred);
-				else if (comingFromLoop(*Pred))
+				else if (DT.dominates(NewP, *Pred))
 					NewP->addIncoming(NewP, *Pred);
 				else
 					NewP->addIncoming(UndefValue::get(NewP->getType()), *Pred);
@@ -132,55 +132,30 @@ void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const MetaBlock& Me
 
 void FixIrreducibleControlFlow::SCCVisitor::fixUse(Use& U)
 {
-	Instruction* Def = cast<Instruction>(U.get());
-
+	Instruction* Def = dyn_cast<Instruction>(U.get());
+	if (!Def)
+		return;
+	Instruction* User = cast<Instruction>(U.getUser());
+	if (Def->getParent() == User->getParent() || DT.dominates(Def, U))
+		return;
 	auto pit = DomPHIs.find(Def);
 	if (pit == DomPHIs.end())
 	{
 		PHINode* p = nullptr;
 		IRBuilder<> Builder(Dispatcher->getFirstInsertionPt());
-		const MetaBlock* DefMeta = getParentMetaBlock(Def->getParent());
-		if (DefMeta)
+
+		p = Builder.CreatePHI(Def->getType(), Label->getNumIncomingValues(), {Def->getName(),".domphi"});
+		for (auto Pred: make_range(pred_begin(Dispatcher), pred_end(Dispatcher)))
 		{
-			p = Builder.CreatePHI(Def->getType(), 2, {Def->getName(),".indomphi"});
-			for (auto Pred = pred_begin(Dispatcher), PredE = pred_end(Dispatcher); Pred != PredE; Pred++)
-			{
-				if (DefMeta->isSuccessor(*Pred))
-				{
-					if (DT.dominates(Def, *Pred))
-						p->addIncoming(Def, *Pred);
-					else
-						p->addIncoming(p, *Pred);
-				}
-				else
-				{
-					if (comingFromLoop(*Pred))
-						p->addIncoming(p, *Pred);
-					else
-						p->addIncoming(UndefValue::get(p->getType()), *Pred);
-				}
-			}
+			if (DT.dominates(Def, Pred))
+				p->addIncoming(Def, Pred);
+			else if (DT.dominates(p, Pred))
+				p->addIncoming(p, Pred);
+			else
+				p->addIncoming(UndefValue::get(p->getType()), Pred);
 		}
-		else
-		{
-			p = Builder.CreatePHI(Def->getType(), 2, {Def->getName(),".outdomphi"});
-			for (auto Pred = pred_begin(Dispatcher), PredE = pred_end(Dispatcher); Pred != PredE; Pred++)
-			{
-				if (comingFromLoop(*Pred))
-				{
-					p->addIncoming(p, *Pred);
-				}
-				else
-				{
-					if (DT.dominates(Def, *Pred))
-						p->addIncoming(Def, *Pred);
-					else
-						p->addIncoming(UndefValue::get(p->getType()), *Pred);
-				}
-			}
-		}
-		U.set(p);
 		DomPHIs.emplace(Def, p);
+		U.set(p);
 	}
 	else
 	{
@@ -233,16 +208,15 @@ void FixIrreducibleControlFlow::SCCVisitor::processBlocks()
 	{
 		auto P = D.first;
 		auto NewP = D.second;
-		auto& Meta = *getParentMetaBlock(P->getParent());
 		// Replace all uses outside of the metablock and the dispatch with NewP
 		auto UI = P->use_begin(), E = P->use_end();
 		for (; UI != E;) {
 			Use &U = *UI;
 			++UI;
 			auto *Usr = cast<Instruction>(U.getUser());
-			if (Meta.contains(Usr->getParent()))
-				continue;
 			if (Usr->getParent() == Dispatcher)
+				continue;
+			if (P->getParent() == Usr->getParent() || DT.dominates(P, Usr->getParent()))
 				continue;
 			U.set(NewP);
 		}
@@ -255,15 +229,16 @@ void FixIrreducibleControlFlow::SCCVisitor::processBlocks()
 			IRBuilder<> Builder(Dispatcher->getFirstInsertionPt());
 			for (BasicBlock::iterator I = BB->begin(), IE = BB->end(); I != IE; ++I)
 			{
-				for (Use& U: I->operands())
+				for (auto UI = I->op_begin(), UE = I->op_end(); UI != UE;)
 				{
-					Instruction* Def = dyn_cast<Instruction>(U.get());
-					if (Def == nullptr)
-						continue;
-					if (Meta.contains(Def->getParent()))
-						continue;
-					if (Def->getParent() == Dispatcher)
-						continue;
+					Use& U = *UI;
+					UI++;
+					fixUse(U);
+				}
+				for (auto UI = I->use_begin(), UE = I->use_end(); UI != UE;)
+				{
+					Use& U = *UI;
+					UI++;
 					fixUse(U);
 				}
 			}
@@ -272,19 +247,10 @@ void FixIrreducibleControlFlow::SCCVisitor::processBlocks()
 	// Create the DomPHIs for the uses in the DispatchPHIs
 	for (auto& DP: DispatchPHIs)
 	{
-		for (Use& U: DP->operands())
+		for (auto UI = DP->op_begin(), UE = DP->op_end(); UI != UE;)
 		{
-			Instruction* Def = dyn_cast<Instruction>(U.get());
-			if (Def == nullptr)
-				continue;
-			if (Def == DP)
-				continue;
-			BasicBlock* Pred = DP->getIncomingBlock(U);
-			const MetaBlock* DefMeta = getParentMetaBlock(Def->getParent());
-			if (!DefMeta && DT.dominates(Def, U))
-				continue;
-			if (DefMeta && DefMeta->isSuccessor(Pred))
-				continue;
+			Use& U = *UI;
+			UI++;
 			fixUse(U);
 		}
 	}
