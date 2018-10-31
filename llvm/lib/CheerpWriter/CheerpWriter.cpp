@@ -839,7 +839,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		if(callV.getInstruction()->use_empty())
 			return COMPILE_EMPTY;
 
-		compileBitCast(callV.getInstruction(), PA.getPointerKind(callV.getInstruction()));
+		compileBitCast(callV.getInstruction(), PA.getPointerKind(callV.getInstruction()), HIGHEST);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_base)
@@ -849,7 +849,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_offset)
 	{
-		compilePointerOffset(*it, LOWEST, true);
+		compilePointerOffset(*it, HIGHEST, true);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_kind)
@@ -1398,11 +1398,11 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	if(asmjs || lhsKind == RAW || rhsKind == RAW)
 	{
 		stream << "(";
-		compileRawPointer(lhs, PARENT_PRIORITY::LOGICAL_OR);
+		compileRawPointer(lhs, PARENT_PRIORITY::BIT_OR);
 		stream << "|0)";
 		stream << compareString;
 		stream << "(";
-		compileRawPointer(rhs, PARENT_PRIORITY::LOGICAL_OR);
+		compileRawPointer(rhs, PARENT_PRIORITY::BIT_OR);
 		stream << "|0)";
 	}
 	else if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
@@ -1601,7 +1601,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	}
 }
 
-void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY prio, bool forceGEP)
+void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio, bool forceGEP)
 {
 	if (isa<ConstantPointerNull>(p))
 	{
@@ -1617,11 +1617,20 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY prio, bool 
 
 	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	bool use_imul = asmjs || useMathImul;
+	bool needsCoercion = needsIntCoercion(Registerize::INTEGER, parentPrio);
+	PARENT_PRIORITY basePrio = ADD_SUB;
+	if(needsCoercion)
+		basePrio = BIT_OR;
+	if(parentPrio > basePrio)
+		stream << "(";
 	AsmJSGepWriter gepWriter(*this, use_imul);
 	p = linearHelper.compileGEP(p, &gepWriter);
-	PARENT_PRIORITY gepPrio = gepWriter.offset?ADD_SUB:LOWEST;
-	prio = std::max(prio, gepPrio);
-	compileOperand(p, prio);
+	PARENT_PRIORITY gepPrio = gepWriter.offset?ADD_SUB:basePrio;
+	compileOperand(p, gepPrio);
+	if(needsCoercion)
+		stream << "|0";
+	if(parentPrio > basePrio)
+		stream << ")";
 }
 
 int CheerpWriter::getHeapShiftForType(Type* et)
@@ -1965,7 +1974,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	}
 }
 
-void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, bool asmjs)
+void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, PARENT_PRIORITY parentPrio, bool asmjs)
 {
 	switch(ce->getOpcode())
 	{
@@ -1977,36 +1986,35 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, bool asmjs)
 		case Instruction::BitCast:
 		{
 			POINTER_KIND k = PA.getPointerKind(ce);
-			compileBitCast(ce, k);
+			compileBitCast(ce, k, parentPrio);
 			break;
 		}
 		case Instruction::IntToPtr:
 		{
-			// NOTE: This is necessary for virtual inheritance. It should be made type safe.
-			compileOperand(ce->getOperand(0));
+			compileOperand(ce->getOperand(0), parentPrio);
 			break;
 		}
 		case Instruction::PtrToInt:
 		{
 			if(asmjs)
-				compileRawPointer(ce->getOperand(0));
+				compileRawPointer(ce->getOperand(0), parentPrio);
 			else
 				compilePtrToInt(ce->getOperand(0));
 			break;
 		}
 		case Instruction::ICmp:
 		{
-			compileIntegerComparison(ce->getOperand(0), ce->getOperand(1), (CmpInst::Predicate)ce->getPredicate(), HIGHEST);
+			compileIntegerComparison(ce->getOperand(0), ce->getOperand(1), (CmpInst::Predicate)ce->getPredicate(), parentPrio);
 			break;
 		}
 		case Instruction::Select:
 		{
-			compileSelect(ce, ce->getOperand(0), ce->getOperand(1), ce->getOperand(2), HIGHEST);
+			compileSelect(ce, ce->getOperand(0), ce->getOperand(1), ce->getOperand(2), parentPrio);
 			break;
 		}
 		case Instruction::Sub:
 		{
-			compileSubtraction(ce->getOperand(0), ce->getOperand(1), HIGHEST);
+			compileSubtraction(ce->getOperand(0), ce->getOperand(1), parentPrio);
 			break;
 		}
 		case Instruction::Add:
@@ -2078,7 +2086,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	}
 	else if(isa<ConstantExpr>(c))
 	{
-		compileConstantExpr(cast<ConstantExpr>(c), asmjs);
+		compileConstantExpr(cast<ConstantExpr>(c), parentPrio, asmjs);
 	}
 	else if(isa<ConstantDataSequential>(c))
 	{
@@ -2548,6 +2556,12 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 						writer.stream << writer.namegen.getSecondaryName(phi) << '=' << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
 					}
 				}
+				else if(k==RAW)
+				{
+					writer.stream << writer.namegen.getName(phi) << '=';
+					writer.registerize.setEdgeContext(fromBB, toBB);
+					writer.compileRawPointer(incoming, LOWEST);
+				}
 				else
 				{
 					writer.stream << writer.namegen.getName(phi) << '=';
@@ -2555,8 +2569,6 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					if(k==REGULAR)
 						writer.stream << "aSlot=";
 					writer.compilePointerAs(incoming, k);
-					if (phi->getParent()->getParent()->getSection() == StringRef("asmjs"))
-						writer.stream << "|0";
 				}
 			}
 			else
@@ -3217,9 +3229,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	bool asmjs_nullptr = asmjs && isa<ConstantPointerNull>(gep_inst->getOperand(0));
 	if (RAW == kind || asmjs_nullptr)
 	{
-		stream << '(';
-		compileRawPointer(gep_inst, PARENT_PRIORITY::LOGICAL_OR);
-		stream << "|0)";
+		compileRawPointer(gep_inst);
 	}
 	else if(COMPLETE_OBJECT == kind)
 	{
@@ -3337,7 +3347,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::BitCast:
 		{
 			POINTER_KIND k=PA.getPointerKind(&I);
-			compileBitCast(&I, k);
+			compileBitCast(&I, k, parentPrio);
 			return COMPILE_OK;
 		}
 		case Instruction::FPToSI:
@@ -3393,8 +3403,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			else if (!isInlineable(gep, PA) && PA.getPointerKind(&gep) == RAW)
 			{
-				compileRawPointer(&gep, PARENT_PRIORITY::LOGICAL_OR, /*forceGEP*/true);
-				stream << "|0";
+				compileRawPointer(&gep, parentPrio, /*forceGEP*/true);
 			}
 			else
 			{
@@ -3823,7 +3832,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				compilePointerBase(si.getOperand(2));
 			}
 			else
-				compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue(), parentPrio);
+			{
+				// We need to protect the outside RHS from being absorbed by the rightmost part of the select
+				if(parentPrio != LOWEST)
+					stream << "(";
+				compileSelect(&si, si.getCondition(), si.getTrueValue(), si.getFalseValue(), LOWEST);
+				if(parentPrio != LOWEST)
+					stream << ")";
+			}
 			return COMPILE_OK;
 		}
 		case Instruction::ExtractValue:
@@ -4006,7 +4022,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					}
 					else
 					{
-						compileRawPointer(calledValue, PARENT_PRIORITY::LOGICAL_AND);
+						compileRawPointer(calledValue, PARENT_PRIORITY::BIT_AND);
 					}
 					stream << '&' << linearHelper.getFunctionAddressMask(fTy) << ']';
 				}
