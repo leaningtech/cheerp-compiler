@@ -113,13 +113,10 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 	if(parentPrio > subPrio) stream << ')';
 }
 
-void CheerpWriter::compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind)
+void CheerpWriter::compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind, PARENT_PRIORITY parentPrio)
 {
 	if (kind == RAW)
-	{
-		compileOperand(bc_inst->getOperand(0));
-		stream << "|0";
-	}
+		compileRawPointer(bc_inst->getOperand(0), parentPrio);
 	else if(kind==COMPLETE_OBJECT)
 		compileCompleteObject(bc_inst->getOperand(0));
 	else
