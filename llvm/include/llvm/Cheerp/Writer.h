@@ -302,7 +302,7 @@ private:
 	 */
 	const llvm::Value* compileByteLayoutOffset(const llvm::Value* p, BYTE_LAYOUT_OFFSET_MODE offsetMode);
 
-	void compileRawPointer(const llvm::Value* p, PARENT_PRIORITY prio = PARENT_PRIORITY::LOWEST, bool forceGEP = false);
+	void compileRawPointer(const llvm::Value* p, PARENT_PRIORITY prio = PARENT_PRIORITY::HIGHEST, bool forceGEP = false);
 
 	/**
 	 * Compile a pointer from a GEP expression, with the given pointer kind
@@ -385,7 +385,7 @@ private:
 
 	/** @} */
 
-	void compileConstantExpr(const llvm::ConstantExpr* ce, bool asmjs);
+	void compileConstantExpr(const llvm::ConstantExpr* ce, PARENT_PRIORITY parentPrio, bool asmjs);
 	bool doesConstantDependOnUndefined(const llvm::Constant* C) const;
 	void compileMethodArgs(llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, llvm::ImmutableCallSite, bool forceBoolean);
 	COMPILE_INSTRUCTION_FEEDBACK compileTerminatorInstruction(const llvm::TerminatorInst& I);
@@ -458,7 +458,7 @@ private:
 	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 	void compilePtrToInt(const llvm::Value* v);
 	void compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
-	void compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind);
+	void compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind, PARENT_PRIORITY parentPrio);
 	void compileBitCastBase(const llvm::User* bi, bool forEscapingPointer);
 	void compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY parentPrio);
 	void compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
