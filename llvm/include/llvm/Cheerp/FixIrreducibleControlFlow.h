@@ -109,16 +109,15 @@ public:
 	class SubGraph;
 	struct GraphNode {
 		BasicBlock* Header;
-		std::vector<BasicBlock*> Succs;
+		SmallVector<BasicBlock*, 2> Succs;
 		SubGraph& Graph;
 		explicit GraphNode(BasicBlock* BB, SubGraph& Graph);
 	};
 	class SubGraph {
-		typedef std::unordered_set<BasicBlock*> BlockSet;
-		BasicBlock* Entry;
-		BlockSet Blocks;
-		std::unordered_map<BasicBlock*, GraphNode> Nodes;
 	public:
+		typedef SmallPtrSet<BasicBlock*, 8> BlockSet;
+		typedef std::unordered_map<BasicBlock*, GraphNode> NodeMap;
+
 		explicit SubGraph(BasicBlock* Entry, BlockSet Blocks): Entry(Entry), Blocks(std::move(Blocks))
 		{
 		}
@@ -135,11 +134,14 @@ public:
 		}
 		friend struct GraphTraits<SubGraph*>;
 		friend struct GraphNode;
+
+		BasicBlock* Entry;
+		BlockSet Blocks;
+		NodeMap Nodes;
 	};
 private:
-	/// Utility class that performs the FixIrreducibleControlFlow logic for every
-	/// loop in the function, including the nullptr loop representing the function
-	/// itself
+	/// Utility class that performs the FixIrreducibleControlFlow logic on the
+	// provided SCC
 	class SCCVisitor {
 	public:
 		SCCVisitor(Function &F, const std::vector<GraphNode*>& SCC)
@@ -185,7 +187,7 @@ private:
 
 template <> struct GraphTraits<FixIrreducibleControlFlow::SubGraph*> {
 	typedef FixIrreducibleControlFlow::GraphNode NodeType;
-	typedef mapped_iterator<std::vector<BasicBlock*>::iterator, std::function<FixIrreducibleControlFlow::GraphNode*(BasicBlock*)>> ChildIteratorType;
+	typedef mapped_iterator<SmallVectorImpl<BasicBlock*>::iterator, std::function<FixIrreducibleControlFlow::GraphNode*(BasicBlock*)>> ChildIteratorType;
 
 	static NodeType *getEntryNode(FixIrreducibleControlFlow::SubGraph* G) { return G->getOrCreate(G->Entry); }
 	static inline ChildIteratorType child_begin(NodeType *N) {

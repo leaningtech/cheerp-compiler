@@ -241,7 +241,7 @@ FixIrreducibleControlFlow::GraphNode::GraphNode(BasicBlock* BB, SubGraph& Graph)
 	{
 		if (!Graph.Blocks.count(Succ) || Succ == Graph.Entry)
 			continue;
-		Succs.emplace_back(Succ);
+		Succs.push_back(Succ);
 	}
 }
 
@@ -283,7 +283,7 @@ void FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 		processBlocks();
 	for (MetaBlock& Meta: MetaBlocks)
 	{
-		std::unordered_set<BasicBlock*> BBs(Meta.getBlocks().begin(), Meta.getBlocks().end());
+		SubGraph::BlockSet BBs(Meta.getBlocks().begin(), Meta.getBlocks().end());
 		SubGraph SG(Meta.getEntry(), std::move(BBs));
 		Queue.push(std::move(SG));
 	}
@@ -293,7 +293,7 @@ bool FixIrreducibleControlFlow::runOnFunction(Function& F)
 {
 	bool Changed = false;
 
-	std::unordered_set<BasicBlock*> BBs;
+	SubGraph::BlockSet BBs;
 	for (auto& BB: F)
 		BBs.insert(&BB);
 	std::queue<SubGraph> Queue;
