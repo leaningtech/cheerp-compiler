@@ -46,11 +46,9 @@ private:
 		// The original predecessors of this metablock. The actual predecessor will
 		// eventually be the dispatch block
 		SmallPtrSet<BasicBlock *, 2> Preds;
-		// The actual successors of this metablock. They will be the original successors
-		// at the beginning, and the forward blocks in a second phase
-		SmallPtrSet<BasicBlock *, 2> Succs;
 		// The forward blocks that logically lead TOWARDS this metablock
 		SmallPtrSet<BasicBlock *, 2> Forwards;
+		// The blocks included in this metablock
 		SmallPtrSet<BasicBlock *, 2> Blocks;
 
 		void addBlocks(DomTreeNode* Node, std::unordered_set<BasicBlock*> Group)
@@ -71,23 +69,11 @@ private:
 				}
 			}
 		}
-		void addSuccs()
-		{
-			for (auto BB: Blocks)
-			{
-				for (auto Succ: make_range(succ_begin(BB), succ_end(BB)))
-				{
-					if (!Blocks.count(Succ))
-						Succs.insert(Succ);
-				}
-			}
-		}
 	public:
 		explicit MetaBlock(DomTreeNode* Node, std::unordered_set<BasicBlock*> Group): Entry(Node->getBlock())
 		{
 			addBlocks(Node, Group);
 			addPreds();
-			addSuccs();
 		}
 
 		BasicBlock *getEntry() const { return Entry; }
@@ -98,31 +84,16 @@ private:
 		const SmallPtrSetImpl<BasicBlock *> &predecessors() const {
 			return Preds;
 		}
-		const SmallPtrSetImpl<BasicBlock *> &successors() const {
-			return Succs;
-		}
 		const SmallPtrSetImpl<BasicBlock *> &forwards() const {
 			return Forwards;
 		}
 
-		void updateSuccessor(BasicBlock* Old, BasicBlock* New) {
-			Succs.erase(Old);
-			Succs.insert(New);
-		}
 		void addForwardBlock(BasicBlock* Fwd) {
 			Forwards.insert(Fwd);
 		}
 		bool contains(const BasicBlock* Target) const {
 			return Blocks.count(const_cast<BasicBlock*>(Target)) != 0;
 		}
-		bool isSuccessor(BasicBlock* S) const {
-			return Succs.count(S) != 0;
-		}
-
-		bool operator==(const BasicBlock* BB) const { return Entry == BB; }
-		bool operator==(const MetaBlock &MBB) const { return Entry == MBB.Entry; }
-		bool operator!=(const MetaBlock &MBB) const { return Entry != MBB.Entry; }
-		bool operator<(const MetaBlock &MBB) const { return Entry < MBB.Entry; }
 
 		void dump() const
 		{
@@ -177,12 +148,8 @@ private:
 		void run(std::queue<SubGraph>& Queue);
 
 	private:
-		// True if the block is a forward block coming to the dispatcher from inside the loop
-		bool comingFromLoop(BasicBlock* B);
-		// Get the metablock this block belongs to, or nullptr
-		MetaBlock* getParentMetaBlock(BasicBlock* BB);
 		// Create the forward blocks and wire them to the dispatcher
-		void fixPredecessor(MetaBlock& Meta, BasicBlock* Pred, MetaBlock* PredMeta);
+		void fixPredecessor(MetaBlock& Meta, BasicBlock* Pred);
 		// Move the PHIs at the entry of a metablock into the dispatcher
 		void makeDispatchPHIs(const MetaBlock& Meta);
 		// Fix a use that is not dominated by its definition anymore
