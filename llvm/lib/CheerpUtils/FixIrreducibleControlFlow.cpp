@@ -24,25 +24,7 @@
 
 namespace llvm {
 
-bool FixIrreducibleControlFlow::SCCVisitor::comingFromLoop(BasicBlock* B)
-{
-	for (auto& M: MetaBlocks)
-	{
-		if (M.isSuccessor(B))
-			return true;
-	}
-	return false;
-}
-FixIrreducibleControlFlow::MetaBlock* FixIrreducibleControlFlow::SCCVisitor::getParentMetaBlock(BasicBlock* BB)
-{
-	for (auto& M: MetaBlocks)
-	{
-		if (M.contains(BB))
-			return &M;
-	}
-	return nullptr;
-}
-void FixIrreducibleControlFlow::SCCVisitor::fixPredecessor(MetaBlock& Meta, BasicBlock* Pred, MetaBlock* PredMeta)
+void FixIrreducibleControlFlow::SCCVisitor::fixPredecessor(MetaBlock& Meta, BasicBlock* Pred)
 {
 	BasicBlock* BB = Meta.getEntry();
 	Function& F = *BB->getParent();
@@ -61,8 +43,6 @@ void FixIrreducibleControlFlow::SCCVisitor::fixPredecessor(MetaBlock& Meta, Basi
 			Label->addIncoming(ConstantInt::get(Int32Ty,Indices[BB]), Fwd);
 		}
 		Term->setSuccessor(i, Fwd);
-		if (PredMeta)
-			PredMeta->updateSuccessor(BB, Fwd);
 	}
 }
 void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const MetaBlock& Meta)
@@ -190,8 +170,7 @@ void FixIrreducibleControlFlow::SCCVisitor::processBlocks()
 	{
 		for (auto *Pred: Meta.predecessors())
 		{
-			MetaBlock* PredMeta = getParentMetaBlock(Pred);
-			fixPredecessor(Meta, Pred, PredMeta);
+			fixPredecessor(Meta, Pred);
 		}
 	}
 
