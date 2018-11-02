@@ -738,6 +738,7 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
   // Second check: make sure that all callers are direct callers.  We can't
   // transform functions that have indirect callers.  Also see if the function
   // is self-recursive.
+  const DataLayout &DL = F->getParent()->getDataLayout();
   for (Use &U : F->uses()) {
     CallBase *CB = dyn_cast<CallBase>(U.getUser());
     // Must be a direct call.
@@ -747,6 +748,9 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
 
     // Can't change signature of musttail callee
     if (CB->isMustTailCall())
+      return nullptr;
+
+    if (!DL.isByteAddressable() && CB->getCaller()->getSection() != F->getSection())
       return nullptr;
 
     if (CB->getFunction() == F)
@@ -759,7 +763,6 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
     if (BB.getTerminatingMustTailCall())
       return nullptr;
 
-  const DataLayout &DL = F->getParent()->getDataLayout();
   auto &AAR = FAM.getResult<AAManager>(*F);
   const auto &TTI = FAM.getResult<TargetIRAnalysis>(*F);
 
