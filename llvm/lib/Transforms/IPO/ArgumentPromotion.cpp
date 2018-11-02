@@ -894,6 +894,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   // transform functions that have indirect callers.  Also see if the function
   // is self-recursive and check that target features are compatible.
   bool isSelfRecursive = false;
+  const DataLayout &DL = F->getParent()->getDataLayout();
   for (Use &U : F->uses()) {
     CallBase *CB = dyn_cast<CallBase>(U.getUser());
     // Must be a direct call.
@@ -902,6 +903,9 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
     // Can't change signature of musttail callee
     if (CB->isMustTailCall())
+      return nullptr;
+
+    if (!DL.isByteAddressable() && CB->getCaller()->getSection() != F->getSection())
       return nullptr;
 
     if (CB->getParent()->getParent() == F)
@@ -913,8 +917,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   for (BasicBlock &BB : *F)
     if (BB.getTerminatingMustTailCall())
       return nullptr;
-
-  const DataLayout &DL = F->getParent()->getDataLayout();
 
   AAResults &AAR = AARGetter(*F);
 
