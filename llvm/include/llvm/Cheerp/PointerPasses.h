@@ -17,6 +17,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
 
+#include <functional>
+#include <unordered_map>
+
 namespace llvm
 {
 
@@ -172,7 +175,276 @@ FunctionPass *createDelayAllocasPass();
  */
 class GEPOptimizer: public FunctionPass
 {
+public:
+	/// This struct represents a subset of a GEP, from operand 0 to operand
+	/// `size - 1`
+	struct GEPRange {
+		GetElementPtrInst* GEP;
+		size_t size;
+		GEPRange(GetElementPtrInst* GEP, size_t size): GEP(GEP), size(size)
+		{}
+		GEPRange(GetElementPtrInst* GEP): GEP(GEP), size(GEP->getNumOperands())
+		{}
+		bool operator==(const GEPRange& Other) const
+		{
+			if (size != Other.size)
+				return false;
+			for (size_t i = 0; i < size; ++i)
+			{
+				if (GEP->getOperand(i) != Other.GEP->getOperand(i))
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+		bool subsetOf(const GEPRange& Other) const
+		{
+			if (size > Other.size)
+				return false;
+			return *this == GEPRange(Other.GEP, size);
+		}
+		void dump()
+		{
+			llvm::errs()<<"GEPRange [ ";
+			GEP->getOperand(0)->printAsOperand(llvm::errs(), false);
+			for (size_t i = 1; i < size; ++i)
+			{
+				llvm::errs()<<", ";
+				GEP->getOperand(i)->printAsOperand(llvm::errs(), false);
+			}
+			llvm::errs()<<" ]\n";
+		}
+	};
+	/// This class represents a modified CFG of the function, in which all blocks
+	/// where a GEP whoose Range is a subset is used have a special virtual node
+	/// as the only successor.
+	/// In combination with a PostDominatorTree, this is used to find all the blocks
+	/// in which it is valid to materialize the GEP represented by Range
+	class ValidGEPGraph {
+		using GEPRange = GEPOptimizer::GEPRange;
+	public:
+		explicit ValidGEPGraph(Function* F, DominatorTree* DT, GEPRange Range)
+			: F(F), Range(Range)
+		{
+			for (auto DI = df_begin(DT), DE = df_end(DT); DI != DE;)
+			{
+				Node* N = getOrCreate(DI->getBlock());
+				if (N->isValidForGEP())
+				{
+					ValidNodes.push_back(N);
+					DI.skipChildren();
+				}
+				else
+				{
+					++DI;
+				}
+			}
+			for (auto& BB: *F)
+			{
+				Node* N = getOrCreate(&BB);
+				if (N->isValidForGEP())
+					ValidNodes.push_back(N);
+			}
+			getOrCreate(nullptr);
+		}
+		struct Node {
+			BasicBlock* BB;
+			ValidGEPGraph& G;
+			explicit Node(BasicBlock* BB, ValidGEPGraph& G): BB(BB), G(G)
+			{}
+			bool isValidForGEP()
+			{
+				for (auto& I: *BB)
+				{
+					if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(&I))
+					{
+						if (G.Range.subsetOf(GEP))
+						{
+							return true;
+						}
+					}
+				}
+				return false;
+			}
+			void printAsOperand(llvm::raw_ostream& o, bool b)
+			{
+				if (BB)
+					BB->printAsOperand(o, b);
+				else
+					o<<"null";
+			}
+		};
+		Node* getOrCreate(BasicBlock* BB)
+		{
+			auto it = Nodes.find(BB);
+			if (it == Nodes.end())
+			{
+				it = Nodes.emplace(BB, Node(BB, *this)).first;
+			}
+			return &it->second;
+		}
+		Node* getEntryNode() { return getOrCreate(&F->getEntryBlock()); }
+		class SuccIterator
+			: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node, Node> {
+		public:
+			explicit SuccIterator(Node* N): N(N)
+			{
+				if (N->BB == nullptr)
+				{
+					Idx = 0;
+					return;
+				}
+				Idx = N->isValidForGEP() ? -1 : 0;
+			}
+			explicit SuccIterator(Node* N, bool): N(N)
+			{
+				if (N->BB && !N->isValidForGEP())
+					Idx = N->BB->getTerminator()->getNumSuccessors();
+				else
+					Idx = 0;
+			}
+			Node* operator*() const
+			{
+				if (Idx == -1)
+					return N->G.getOrCreate(nullptr);
+				BasicBlock* BB = N->BB->getTerminator()->getSuccessor(Idx);
+				return N->G.getOrCreate(BB);
+			}
+			SuccIterator& operator++()
+			{
+				++Idx;
+				return *this;
+			}
+			SuccIterator operator++(int)
+			{
+				SuccIterator tmp = *this; ++*this; return tmp;
+			}
+			bool operator==(const SuccIterator& I) const
+			{
+				return std::make_tuple(N, Idx) == std::make_tuple(I.N, I.Idx);
+			}
+		private:
+			Node* N;
+			int Idx;
+
+		};
+		class PredIterator : public std::iterator<std::forward_iterator_tag, Node, ptrdiff_t, Node*, Node*> {
+			typedef std::iterator<std::forward_iterator_tag, Node, ptrdiff_t, Node*, Node*> super;
+			typedef PredIterator Self;
+
+			pred_iterator It;
+			std::vector<Node*>::iterator VirtIt;
+			bool VirtualNode;
+			Node* N;
+
+			void skipValidPreds()
+			{
+				if (VirtualNode == false)
+				{
+					while(It != pred_end(N->BB))
+					{
+						if (this->operator*()->isValidForGEP())
+							It++;
+						else
+							return;
+					}
+				}
+			}
+		public:
+			typedef typename super::pointer pointer;
+			typedef typename super::reference reference;
+
+			PredIterator() {}
+			explicit PredIterator(Node* N): N(N)
+			{
+				if (N->BB)
+				{
+					VirtualNode = false;
+					It = pred_begin(N->BB);
+					skipValidPreds();
+				}
+				else
+				{
+					VirtualNode = true;
+					VirtIt = N->G.ValidNodes.begin();
+				}
+			}
+			PredIterator(Node* N, bool): N(N)
+			{
+				if (N->BB)
+				{
+					VirtualNode = false;
+					It = pred_end(N->BB);
+					skipValidPreds();
+				}
+				else
+				{
+					VirtualNode = true;
+					VirtIt = N->G.ValidNodes.end();
+				}
+			}
+			bool operator==(const Self& x) const
+			{
+				if (VirtualNode)
+					return VirtIt == x.VirtIt;
+				return It == x.It;
+			}
+			bool operator!=(const Self& x) const
+			{
+				if (VirtualNode)
+					return VirtIt != x.VirtIt;
+				return It != x.It;
+			}
+			reference operator*() const
+			{
+				if (VirtualNode)
+				{
+					return *VirtIt;
+				}
+				else
+				{
+					return N->G.getOrCreate(*It);
+				}
+			}
+			Self& operator++()
+			{
+				if (VirtualNode)
+				{
+					++VirtIt;
+				}
+				else
+				{
+					++It;
+					skipValidPreds();
+				}
+				return *this;
+			}
+			Self operator++(int)
+			{
+				Self tmp = *this; ++*this; return tmp;
+			}
+		};
+
+		typedef std::unordered_map<BasicBlock*, Node> NodeMap;
+		friend struct GraphTraits<ValidGEPGraph*>;
+	private:
+		Function* F;
+		GEPRange Range;
+		NodeMap Nodes;
+		std::vector<Node*> ValidNodes;
+	};
 private:
+	template<typename S, typename T>
+	struct GEPRangeHasher
+	{
+		inline size_t operator()(const GEPRange& g) const
+		{
+			size_t seed = reinterpret_cast<size_t>(g.GEP->getOperand(0));
+			seed ^= g.size + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			return seed;
+		}
+	};
 	struct OrderByOperands
 	{
 		bool operator()(llvm::Instruction* r, llvm::Instruction* l) const
@@ -199,9 +471,10 @@ private:
 		}
 	};
 	typedef std::set<Instruction*, OrderByOperands> OrderedGEPs;
-	typedef std::unordered_map<Value*, llvm::Instruction*> InsertPointLimit;
-	void optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, OrderedGEPs& orderedGeps, OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
-					llvm::Value* base, uint32_t startIndex, const InsertPointLimit* insertPointLimit);
+	typedef SmallPtrSet<BasicBlock*, 4> BlockSet;
+	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher<Value, Value>> ValidGEPMap;
+	void optimizeGEPsRecursive(std::set<std::pair<Instruction*, Instruction*>>& erasedInst, OrderedGEPs& orderedGeps, OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
+					llvm::Value* base, uint32_t startIndex, const ValidGEPMap& validGEPMap);
 	DominatorTree* DT;
 public:
 	static char ID;
