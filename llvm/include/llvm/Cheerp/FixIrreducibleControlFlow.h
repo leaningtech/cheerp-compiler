@@ -194,7 +194,7 @@ template <> struct GraphTraits<FixIrreducibleControlFlow::SubGraph*> {
 		return ChildIteratorType(N->Succs.begin(), [N](BasicBlock* BB){ return N->Graph.getOrCreate(BB);});
 	}
 	static inline ChildIteratorType child_end(NodeType *N) {
-		return ChildIteratorType(N->Succs.end(), [N](BasicBlock* BB){ return N->Graph.getOrCreate(BB);});
+		return ChildIteratorType(N->Succs.end(), [](BasicBlock* BB){ llvm_unreachable("dereferencing past-the-end iterator");return nullptr;});
 	}
 };
 
