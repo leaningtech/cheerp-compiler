@@ -27,6 +27,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
 #include <set>
 #include <map>
@@ -736,9 +737,10 @@ void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createDelayAllocasPass() { return new DelayAllocas(); }
 
-void GEPOptimizer::optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, OrderedGEPs& orderedGeps, OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
-						Value* base, uint32_t startIndex, const InsertPointLimit* insertPointLimit)
+void GEPOptimizer::optimizeGEPsRecursive(std::set<std::pair<Instruction*, Instruction*>>& erasedInst, OrderedGEPs& orderedGeps, OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
+						Value* base, uint32_t startIndex, const ValidGEPMap& validGEPMap)
 {
+	//TODO: Avoid to optimize GEPs with only 2 operands
 	assert(begin != end);
 	// We know that up to startIndex all indexes are equal
 	// Find out how many indexes are equal in all the range and build a GEP with them from the base
@@ -797,14 +799,11 @@ void GEPOptimizer::optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, Ord
 						newIndexes.push_back((*begin)->getOperand(i));
 					if(newIndexes.size() > 1)
 					{
-						assert(!erasedInst.count(*begin));
 						Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "", *begin);
 #if DEBUG_GEP_OPT_VERBOSE
 						llvm::errs() << "New GEP " << newGEP << "\n";
 #endif
-						newGEP->takeName(*begin);
-						(*begin)->replaceAllUsesWith(newGEP);
-						erasedInst.insert(*begin);
+						erasedInst.insert(std::make_pair(*begin, newGEP));
 					}
 					newIndexes.resize(oldIndexCount);
 				}
@@ -817,10 +816,6 @@ void GEPOptimizer::optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, Ord
 					curOperand = NULL;
 				continue;
 			}
-			newIndexes.push_back(curOperand);
-			// This is the first index which is different in the range. Create a GEP now.
-			Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "optgep");
-			newIndexes.pop_back();
 			Instruction* insertionPoint = NULL;
 			// Compute the insertion point to dominate all users of this GEP in the range
 			for(OrderedGEPs::iterator rangeIt = begin; rangeIt != it;)
@@ -842,9 +837,25 @@ void GEPOptimizer::optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, Ord
 					BasicBlock* commonDominator = DT->findNearestCommonDominator(insertionPoint->getParent(), curGEP->getParent());
 					assert(commonDominator);
 					llvm::Instruction* insertPointCandidate = commonDominator->getTerminator();
-					// Make sure that insertPointCandidate is dominated by the insertPointLimit for this base
-					llvm::Instruction* limit = insertPointLimit ? insertPointLimit->at(base) : nullptr;
-					if(limit && !DT->dominates(limit, insertPointCandidate))
+					// Make sure that insertPointCandidate is in a valid block for this GEP
+					bool valid = false;
+					const BlockSet& validSet = validGEPMap.at(GEPRange(cast<GetElementPtrInst>(curGEP),endIndex+1));
+					if(!validSet.count(commonDominator))
+					{
+						for (auto BB: validSet)
+						{
+							if (DT->dominates(BB, commonDominator))
+							{
+								valid = true;
+								break;
+							}
+						}
+					}
+					else
+					{
+						valid = true;
+					}
+					if (!valid)
 					{
 						// It is not safe to optimize this GEP, remove it from the set
 						assert(curGEP != *begin);
@@ -854,11 +865,18 @@ void GEPOptimizer::optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, Ord
 #endif
 					}
 					else
+					{
 						insertionPoint = insertPointCandidate;
+					}
 				}
 			}
-			assert(insertionPoint);
+			newIndexes.push_back(curOperand);
+			// This is the first index which is different in the range. Create a GEP now.
+			Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, base->getName()+".optgep");
+			newIndexes.pop_back();
 			newGEP->insertBefore(insertionPoint);
+
+			assert(insertionPoint);
 #if DEBUG_GEP_OPT_VERBOSE
 			llvm::errs() << "New GEP " << newGEP << " inserted after " << *insertionPoint << "\n";
 #endif
@@ -866,7 +884,7 @@ void GEPOptimizer::optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, Ord
 			{
 				// Proceed with the range from 'begin' to 'it'
 				// NOTE: insertPointLimit is not passed to later steps, it is only needed when dealing with the base
-				optimizeGEPsRecursive(erasedInst, orderedGeps, begin, it, newGEP, endIndex+1, nullptr);
+				optimizeGEPsRecursive(erasedInst, orderedGeps, begin, it, newGEP, endIndex+1, validGEPMap);
 			}
 			if(it==end)
 				break;
@@ -880,6 +898,58 @@ void GEPOptimizer::optimizeGEPsRecursive(std::set<Instruction*>& erasedInst, Ord
 	}
 }
 
+template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph::Node*> {
+	typedef GEPOptimizer::ValidGEPGraph::Node NodeType;
+	typedef GEPOptimizer::ValidGEPGraph::SuccIterator ChildIteratorType;
+
+	static NodeType *getEntryNode(NodeType* N) { return N; }
+	static inline ChildIteratorType child_begin(NodeType *N) {
+		return ChildIteratorType(N);
+	}
+	static inline ChildIteratorType child_end(NodeType *N) {
+		return ChildIteratorType(N, true);
+	}
+};
+template <> struct GraphTraits<Inverse<GEPOptimizer::ValidGEPGraph::Node*>> {
+	typedef GEPOptimizer::ValidGEPGraph::Node NodeType;
+	typedef GEPOptimizer::ValidGEPGraph::PredIterator ChildIteratorType;
+
+	static NodeType *getEntryNode(NodeType* N) { return N; }
+	static inline ChildIteratorType child_begin(NodeType *N) {
+		return ChildIteratorType(N);
+	}
+	static inline ChildIteratorType child_end(NodeType *N) {
+		return ChildIteratorType(N, true);
+	}
+};
+template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph*> : public GraphTraits<GEPOptimizer::ValidGEPGraph::Node*> {
+	static NodeType *getEntryNode(GEPOptimizer::ValidGEPGraph *G) { return G->getEntryNode(); }
+
+	typedef mapped_iterator<
+		GEPOptimizer::ValidGEPGraph::NodeMap::iterator,
+		std::function<GEPOptimizer::ValidGEPGraph::Node*(GEPOptimizer::ValidGEPGraph::NodeMap::iterator::reference)>
+	> mapped_iterator;
+	struct deref_mapped_iterator: public mapped_iterator {
+		using mapped_iterator::mapped_iterator;
+		operator NodeType*()
+		{
+			return **this;
+		}
+	};
+	static NodeType* get_second_ptr(GEPOptimizer::ValidGEPGraph::NodeMap::iterator::reference pair)
+	{
+		return &pair.second;
+	}
+	 // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
+	typedef deref_mapped_iterator nodes_iterator;
+	static nodes_iterator nodes_begin(GEPOptimizer::ValidGEPGraph* G) { return nodes_iterator(G->Nodes.begin(), get_second_ptr); }
+	static nodes_iterator nodes_end  (GEPOptimizer::ValidGEPGraph* G) { return nodes_iterator(G->Nodes.end(), get_second_ptr); }
+	static size_t         size       (GEPOptimizer::ValidGEPGraph* G) { return G->Nodes.size(); }
+};
+template <> struct GraphTraits<Inverse<GEPOptimizer::ValidGEPGraph*>> : public GraphTraits<Inverse<GEPOptimizer::ValidGEPGraph::Node*>> {
+	static NodeType *getEntryNode(Inverse<GEPOptimizer::ValidGEPGraph*> G) { return G.Graph->getEntryNode(); }
+};
+
 bool GEPOptimizer::runOnFunction(Function& F)
 {
 	bool Changed = false;
@@ -890,7 +960,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 	// This map contains the very first GEP that reference a given base
 	// It is not safe to build new GEPs for the base that are not dominated by this GEP
 	// TODO: If, for a given base, there is a GEP in every successor block, moving the GEP to the parent block would be safe
-	InsertPointLimit insertPointLimit;
+	ValidGEPMap validGEPMap;
 
 	// Gather all the GEPs
 	for ( BasicBlock& BB : F )
@@ -899,11 +969,33 @@ bool GEPOptimizer::runOnFunction(Function& F)
 		{
 			if(!isa<GetElementPtrInst>(I))
 				continue;
-			if(I.getNumOperands() <= 2)
+			// Only consider GEPs with at least  two indexes
+			if(I.getNumOperands() < 3)
 				continue;
 			gepsFromBasePointer.insert(&I);
-			if(!insertPointLimit.count(I.getOperand(0)))
-				insertPointLimit.insert(std::make_pair(I.getOperand(0), &I));
+			GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
+			// NOTE: `i` is a size, so the end condition needs <=
+			for (size_t i = 2; i <= GEP->getNumOperands(); ++i)
+			{
+				GEPRange Range(GEP, i);
+				if(!validGEPMap.count(Range))
+				{
+					ValidGEPGraph VG(&F, DT, Range);
+					DominatorTreeBase<ValidGEPGraph::Node> PDT(true);
+					PDT.recalculate(VG);
+					SmallVector<ValidGEPGraph::Node*, 8> ValidNodes;
+					BlockSet ValidBlocks;
+					PDT.getDescendants(VG.getOrCreate(nullptr), ValidNodes);
+					for (auto V: ValidNodes)
+					{
+						if (V->BB)
+						{
+							ValidBlocks.insert(V->BB);
+						}
+					}
+					validGEPMap.emplace(Range, std::move(ValidBlocks));
+				}
+			}
 		}
 	}
 
@@ -912,7 +1004,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 	// know that equal objects are close.
 	uint32_t rangeLength = 0;
 	OrderedGEPs::iterator rangeStart;
-	std::set<Instruction*> erasedInst;
+	std::set<std::pair<Instruction*, Instruction*>> erasedInst;
 	for(auto it=gepsFromBasePointer.begin();;++it)
 	{
 		if(it!=gepsFromBasePointer.end())
@@ -942,14 +1034,19 @@ bool GEPOptimizer::runOnFunction(Function& F)
 				llvm::errs() << " " << **it2;
 			llvm::errs() << "\n";
 #endif
-			optimizeGEPsRecursive(erasedInst, gepsFromBasePointer, rangeStart, it, (*rangeStart)->getOperand(0), 1, &insertPointLimit);
+			optimizeGEPsRecursive(erasedInst, gepsFromBasePointer, rangeStart, it, (*rangeStart)->getOperand(0), 1, validGEPMap);
 		}
 		rangeLength = 0;
 		if(it==gepsFromBasePointer.end())
 			break;
 	}
-	for(Instruction* I: erasedInst)
-		I->eraseFromParent();
+	for(auto p: erasedInst)
+	{
+
+		p.second->takeName(p.first);
+		p.first->replaceAllUsesWith(p.second);
+		p.first->eraseFromParent();
+	}
 	return Changed;
 }
 
