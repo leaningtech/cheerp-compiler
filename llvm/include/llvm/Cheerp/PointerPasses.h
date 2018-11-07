@@ -175,6 +175,7 @@ FunctionPass *createDelayAllocasPass();
  */
 class GEPOptimizer: public FunctionPass
 {
+	typedef SmallPtrSet<BasicBlock*, 4> BlockSet;
 public:
 	/// This struct represents a subset of a GEP, from operand 0 to operand
 	/// `size - 1`
@@ -224,7 +225,7 @@ public:
 	class ValidGEPGraph {
 		using GEPRange = GEPOptimizer::GEPRange;
 	public:
-		explicit ValidGEPGraph(Function* F, DominatorTree* DT, GEPRange Range)
+		explicit ValidGEPGraph(Function* F, DominatorTree* DT, GEPRange Range, const BlockSet& Subset)
 			: F(F), Range(Range)
 		{
 			for (auto DI = df_begin(DT), DE = df_end(DT); DI != DE;)
@@ -240,11 +241,9 @@ public:
 					++DI;
 				}
 			}
-			for (auto& BB: *F)
+			for (auto* BB: Subset)
 			{
-				Node* N = getOrCreate(&BB);
-				if (N->isValidForGEP())
-					ValidNodes.push_back(N);
+				getOrCreate(BB);
 			}
 			getOrCreate(nullptr);
 		}
@@ -285,6 +284,7 @@ public:
 			return &it->second;
 		}
 		Node* getEntryNode() { return getOrCreate(&F->getEntryBlock()); }
+		void getValidBlocks(BlockSet& ValidBlocks);
 		class SuccIterator
 			: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node, Node> {
 		public:
@@ -296,6 +296,7 @@ public:
 					return;
 				}
 				Idx = N->isValidForGEP() ? -1 : 0;
+				skipOutOfSubset();
 			}
 			explicit SuccIterator(Node* N, bool): N(N)
 			{
@@ -314,6 +315,7 @@ public:
 			SuccIterator& operator++()
 			{
 				++Idx;
+				skipOutOfSubset();
 				return *this;
 			}
 			SuccIterator operator++(int)
@@ -322,9 +324,26 @@ public:
 			}
 			bool operator==(const SuccIterator& I) const
 			{
-				return std::make_tuple(N, Idx) == std::make_tuple(I.N, I.Idx);
+				return std::tie(N, Idx) == std::tie(I.N, I.Idx);
 			}
 		private:
+			void skipOutOfSubset()
+			{
+				if (Idx == -1)
+					return;
+				auto end = SuccIterator(N, true);
+				while (*this != end)
+				{
+					if (!N->G.Nodes.count(N->BB->getTerminator()->getSuccessor(Idx)))
+					{
+						Idx++;
+					}
+					else
+					{
+						return;
+					}
+				}
+			}
 			Node* N;
 			int Idx;
 
@@ -338,13 +357,14 @@ public:
 			bool VirtualNode;
 			Node* N;
 
-			void skipValidPreds()
+			void skipValidPredsAndOutOfSubset()
 			{
 				if (VirtualNode == false)
 				{
 					while(It != pred_end(N->BB))
 					{
-						if (this->operator*()->isValidForGEP())
+						Node* N = this->operator*();
+						if (N->isValidForGEP() || !N->G.Nodes.count(N->BB))
 							It++;
 						else
 							return;
@@ -362,7 +382,7 @@ public:
 				{
 					VirtualNode = false;
 					It = pred_begin(N->BB);
-					skipValidPreds();
+					skipValidPredsAndOutOfSubset();
 				}
 				else
 				{
@@ -376,7 +396,7 @@ public:
 				{
 					VirtualNode = false;
 					It = pred_end(N->BB);
-					skipValidPreds();
+					skipValidPredsAndOutOfSubset();
 				}
 				else
 				{
@@ -416,7 +436,7 @@ public:
 				else
 				{
 					++It;
-					skipValidPreds();
+					skipValidPredsAndOutOfSubset();
 				}
 				return *this;
 			}
@@ -471,7 +491,6 @@ private:
 		}
 	};
 	typedef std::set<Instruction*, OrderByOperands> OrderedGEPs;
-	typedef SmallPtrSet<BasicBlock*, 4> BlockSet;
 	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher<Value, Value>> ValidGEPMap;
 	void optimizeGEPsRecursive(std::set<std::pair<Instruction*, Instruction*>>& erasedInst, OrderedGEPs& orderedGeps, OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
 					llvm::Value* base, uint32_t startIndex, const ValidGEPMap& validGEPMap);
