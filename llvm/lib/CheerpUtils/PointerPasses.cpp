@@ -928,9 +928,9 @@ template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph*> : public GraphTrait
 	typedef mapped_iterator<
 		GEPOptimizer::ValidGEPGraph::NodeMap::iterator,
 		std::function<GEPOptimizer::ValidGEPGraph::Node*(GEPOptimizer::ValidGEPGraph::NodeMap::iterator::reference)>
-	> mapped_iterator;
-	struct deref_mapped_iterator: public mapped_iterator {
-		using mapped_iterator::mapped_iterator;
+	> mapped_iterator_type;
+	struct deref_mapped_iterator: public mapped_iterator_type {
+		using mapped_iterator_type::mapped_iterator;
 		operator NodeType*()
 		{
 			return **this;
