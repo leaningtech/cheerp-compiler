@@ -946,9 +946,21 @@ template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph*> : public GraphTrait
 	static nodes_iterator nodes_end  (GEPOptimizer::ValidGEPGraph* G) { return nodes_iterator(G->Nodes.end(), get_second_ptr); }
 	static size_t         size       (GEPOptimizer::ValidGEPGraph* G) { return G->Nodes.size(); }
 };
-template <> struct GraphTraits<Inverse<GEPOptimizer::ValidGEPGraph*>> : public GraphTraits<Inverse<GEPOptimizer::ValidGEPGraph::Node*>> {
-	static NodeType *getEntryNode(Inverse<GEPOptimizer::ValidGEPGraph*> G) { return G.Graph->getEntryNode(); }
-};
+
+void GEPOptimizer::ValidGEPGraph::getValidBlocks(BlockSet& ValidBlocks)
+{
+	DominatorTreeBase<Node> PDT(true);
+	PDT.recalculate(*this);
+	SmallVector<ValidGEPGraph::Node*, 8> ValidNodes;
+	PDT.getDescendants(getOrCreate(nullptr), ValidNodes);
+	for (auto V: ValidNodes)
+	{
+		if (V->BB)
+		{
+			ValidBlocks.insert(V->BB);
+		}
+	}
+}
 
 bool GEPOptimizer::runOnFunction(Function& F)
 {
@@ -963,6 +975,11 @@ bool GEPOptimizer::runOnFunction(Function& F)
 	ValidGEPMap validGEPMap;
 
 	// Gather all the GEPs
+	BlockSet AllBlocks;
+	for (auto& BB: F)
+	{
+		AllBlocks.insert(&BB);
+	}
 	for ( BasicBlock& BB : F )
 	{
 		for ( Instruction& I: BB )
@@ -974,27 +991,20 @@ bool GEPOptimizer::runOnFunction(Function& F)
 				continue;
 			gepsFromBasePointer.insert(&I);
 			GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
+			BlockSet* CurBlocks = &AllBlocks;
 			// NOTE: `i` is a size, so the end condition needs <=
 			for (size_t i = 2; i <= GEP->getNumOperands(); ++i)
 			{
 				GEPRange Range(GEP, i);
-				if(!validGEPMap.count(Range))
+				auto it = validGEPMap.find(Range);
+				if(it == validGEPMap.end())
 				{
-					ValidGEPGraph VG(&F, DT, Range);
-					DominatorTreeBase<ValidGEPGraph::Node> PDT(true);
-					PDT.recalculate(VG);
-					SmallVector<ValidGEPGraph::Node*, 8> ValidNodes;
 					BlockSet ValidBlocks;
-					PDT.getDescendants(VG.getOrCreate(nullptr), ValidNodes);
-					for (auto V: ValidNodes)
-					{
-						if (V->BB)
-						{
-							ValidBlocks.insert(V->BB);
-						}
-					}
-					validGEPMap.emplace(Range, std::move(ValidBlocks));
+					ValidGEPGraph VG(&F, DT, Range, *CurBlocks);
+					VG.getValidBlocks(ValidBlocks);
+					it = validGEPMap.emplace(Range, std::move(ValidBlocks)).first;
 				}
+				CurBlocks = &it->second;
 			}
 		}
 	}
