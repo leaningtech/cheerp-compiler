@@ -18,6 +18,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
