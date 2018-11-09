@@ -116,7 +116,7 @@ private:
 		SCCVisitor(Function &F, const std::vector<GraphNode*>& SCC)
 			: F(F), SCC(SCC)
 		{}
-		void run(std::queue<SubGraph>& Queue);
+		bool run(std::queue<SubGraph>& Queue);
 
 	private:
 		// Create the forward blocks and wire them to the dispatcher

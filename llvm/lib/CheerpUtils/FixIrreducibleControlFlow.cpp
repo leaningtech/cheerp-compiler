@@ -167,16 +167,16 @@ bool FixIrreducibleControlFlow::visitSubGraph(Function& F, std::queue<SubGraph>&
 	{
 		if (SCC.size() != 1)
 		{
-			Irreducible = true;
 			SCCVisitor V(F, SCC);
-			V.run(Queue);
+			Irreducible |= V.run(Queue);
 		}
 	}
 	return Irreducible;
 }
 
-void FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
+bool FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 {
+	bool Irreducible = false;
 	DT.recalculate(F);
 	std::unordered_set<BasicBlock*> Group;
 	for(auto& GN: SCC)
@@ -193,7 +193,10 @@ void FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 		}
 	}
 	if (MetaBlocks.size() != 1)
+	{
+		Irreducible = true;
 		processBlocks();
+	}
 	for (MetaBlock& Meta: MetaBlocks)
 	{
 		SubGraph::BlockSet BBs;
@@ -206,6 +209,7 @@ void FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 		SubGraph SG(Meta.getEntry(), std::move(BBs));
 		Queue.push(std::move(SG));
 	}
+	return Irreducible;
 }
 
 bool FixIrreducibleControlFlow::runOnFunction(Function& F)
