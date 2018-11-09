@@ -39,7 +39,7 @@ public:
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 private:
-	/// A generalization of a basic block, containing either a single block, a loop,
+	/// A generalization of a basic block, containing either a single block
 	/// or a set of metablocks dominated by the Entry
 	class MetaBlock {
 		BasicBlock *Entry;
@@ -48,39 +48,21 @@ private:
 		SmallPtrSet<BasicBlock *, 2> Preds;
 		// The forward blocks that logically lead TOWARDS this metablock
 		SmallPtrSet<BasicBlock *, 2> Forwards;
-		// The blocks included in this metablock
-		SmallPtrSet<BasicBlock *, 2> Blocks;
-
-		void addBlocks(DomTreeNode* Node, std::unordered_set<BasicBlock*> Group)
-		{
-			for (auto N: make_range(df_begin(Node), df_end(Node)))
-			{
-				if (Group.count(N->getBlock()))
-					Blocks.insert(N->getBlock());
-			}
-		}
-		void addPreds()
+	public:
+		explicit MetaBlock(BasicBlock* Entry, DominatorTree& DT): Entry(Entry)
 		{
 			for (auto Pred: make_range(pred_begin(Entry), pred_end(Entry)))
 			{
-				if (!Blocks.count(Pred))
+				// Do not include loops internal to the metablock
+				if (!DT.dominates(Entry, Pred))
 				{
 					Preds.insert(Pred);
 				}
 			}
 		}
-	public:
-		explicit MetaBlock(DomTreeNode* Node, std::unordered_set<BasicBlock*> Group): Entry(Node->getBlock())
-		{
-			addBlocks(Node, Group);
-			addPreds();
-		}
 
 		BasicBlock *getEntry() const { return Entry; }
 
-		const SmallPtrSetImpl<BasicBlock*>& getBlocks() const {
-			return Blocks;
-		}
 		const SmallPtrSetImpl<BasicBlock *> &predecessors() const {
 			return Preds;
 		}
@@ -90,19 +72,6 @@ private:
 
 		void addForwardBlock(BasicBlock* Fwd) {
 			Forwards.insert(Fwd);
-		}
-		bool contains(const BasicBlock* Target) const {
-			return Blocks.count(const_cast<BasicBlock*>(Target)) != 0;
-		}
-
-		void dump() const
-		{
-			llvm::errs() << "META ---------------------\n";
-			for (const auto& BB: Blocks)
-			{
-				BB->dump();
-			}
-			llvm::errs() << "ENDMETA ---------------------\n";
 		}
 	};
 public:
@@ -154,8 +123,6 @@ private:
 		void fixPredecessor(MetaBlock& Meta, BasicBlock* Pred);
 		// Move the PHIs at the entry of a metablock into the dispatcher
 		void makeDispatchPHIs(const MetaBlock& Meta);
-		// Fix a use that is not dominated by its definition anymore
-		void fixUse(Use& U);
 		// Main processing function
 		void processBlocks();
 
@@ -172,15 +139,6 @@ private:
 		// Map that associate the entries of the metablocks with their index in the
 		// switch instruction in the dispatcher
 		DenseMap<BasicBlock*, unsigned> Indices;
-		// PHIs that were in the entry block of a metablock, and are now lifted
-		// in the dispatcher
-		std::unordered_set<PHINode*> DispatchPHIs;
-		// Instructions inside the metablocks that need a corresponding PHI in
-		// the dispatcher to fix domination issues
-		std::unordered_map<Instruction*, PHINode*> DomPHIs;
-		// Map to store the original PHIs that were not completely removed by
-		// the DispatchPHIs, and need to update the uses
-		std::unordered_map<PHINode*, PHINode*> DelayedFixes;
 	};
 	bool visitSubGraph(Function& F, std::queue<SubGraph>& Queue);
 };
