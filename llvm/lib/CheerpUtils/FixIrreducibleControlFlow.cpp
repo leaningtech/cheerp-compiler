@@ -80,8 +80,8 @@ void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const MetaBlock& Me
 		// metablock
 		for (size_t i = 0; i < P->getNumIncomingValues();)
 		{
-			BasicBlock* B = P->getIncomingBlock(i);
-			if (!Meta.contains(B))
+			BasicBlock* Incoming = P->getIncomingBlock(i);
+			if (!DT.dominates(BB, Incoming))
 			{
 				P->removeIncomingValue(i, false);
 			}
@@ -102,46 +102,10 @@ void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const MetaBlock& Me
 		{
 			// Add NewP as incoming from the dispatcher
 			P->addIncoming(NewP, Dispatcher);
-			// Save the PHIs for the last stage of use replacement, when all the
-			// PHIs are in their final position
-			DelayedFixes.emplace(P, NewP);
 		}
-		DispatchPHIs.emplace(NewP);
 	}
 }
 
-void FixIrreducibleControlFlow::SCCVisitor::fixUse(Use& U)
-{
-	Instruction* Def = dyn_cast<Instruction>(U.get());
-	if (!Def)
-		return;
-	Instruction* User = cast<Instruction>(U.getUser());
-	if (Def->getParent() == User->getParent() || DT.dominates(Def, U))
-		return;
-	auto pit = DomPHIs.find(Def);
-	if (pit == DomPHIs.end())
-	{
-		PHINode* p = nullptr;
-		IRBuilder<> Builder(Dispatcher->getFirstInsertionPt());
-
-		p = Builder.CreatePHI(Def->getType(), Label->getNumIncomingValues(), {Def->getName(),".domphi"});
-		for (auto Pred: make_range(pred_begin(Dispatcher), pred_end(Dispatcher)))
-		{
-			if (DT.dominates(Def, Pred))
-				p->addIncoming(Def, Pred);
-			else if (DT.dominates(p, Pred))
-				p->addIncoming(p, Pred);
-			else
-				p->addIncoming(UndefValue::get(p->getType()), Pred);
-		}
-		DomPHIs.emplace(Def, p);
-		U.set(p);
-	}
-	else
-	{
-		U.set(pit->second);
-	}
-}
 
 void FixIrreducibleControlFlow::SCCVisitor::processBlocks()
 {
@@ -181,57 +145,6 @@ void FixIrreducibleControlFlow::SCCVisitor::processBlocks()
 	for (const auto& Meta: MetaBlocks)
 	{
 		makeDispatchPHIs(Meta);
-	}
-	// Update the uses in the original PHIs that generated the DispatchPHIs
-	for (auto& D: DelayedFixes)
-	{
-		auto P = D.first;
-		auto NewP = D.second;
-		// Replace all uses outside of the metablock and the dispatch with NewP
-		auto UI = P->use_begin(), E = P->use_end();
-		for (; UI != E;) {
-			Use &U = *UI;
-			++UI;
-			auto *Usr = cast<Instruction>(U.getUser());
-			if (Usr->getParent() == Dispatcher)
-				continue;
-			if (P->getParent() == Usr->getParent() || DT.dominates(P, Usr->getParent()))
-				continue;
-			U.set(NewP);
-		}
-	}
-	// Create the DomPHIs for the uses in the loop blocks
-	for (const auto& Meta: MetaBlocks)
-	{
-		for (BasicBlock* BB: Meta.getBlocks())
-		{
-			IRBuilder<> Builder(Dispatcher->getFirstInsertionPt());
-			for (BasicBlock::iterator I = BB->begin(), IE = BB->end(); I != IE; ++I)
-			{
-				for (auto UI = I->op_begin(), UE = I->op_end(); UI != UE;)
-				{
-					Use& U = *UI;
-					UI++;
-					fixUse(U);
-				}
-				for (auto UI = I->use_begin(), UE = I->use_end(); UI != UE;)
-				{
-					Use& U = *UI;
-					UI++;
-					fixUse(U);
-				}
-			}
-		}
-	}
-	// Create the DomPHIs for the uses in the DispatchPHIs
-	for (auto& DP: DispatchPHIs)
-	{
-		for (auto UI = DP->op_begin(), UE = DP->op_end(); UI != UE;)
-		{
-			Use& U = *UI;
-			UI++;
-			fixUse(U);
-		}
 	}
 }
 
@@ -276,14 +189,20 @@ void FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 		auto IDom = Node->getIDom();
 		if (!Group.count(IDom->getBlock()))
 		{
-			MetaBlocks.emplace_back(Node, Group);
+			MetaBlocks.emplace_back(GN->Header, DT);
 		}
 	}
 	if (MetaBlocks.size() != 1)
 		processBlocks();
 	for (MetaBlock& Meta: MetaBlocks)
 	{
-		SubGraph::BlockSet BBs(Meta.getBlocks().begin(), Meta.getBlocks().end());
+		SubGraph::BlockSet BBs;
+		auto Node = DT.getNode(Meta.getEntry());
+		for (auto N: make_range(df_begin(Node), df_end(Node)))
+		{
+			if (Group.count(N->getBlock()))
+				BBs.insert(N->getBlock());
+		}
 		SubGraph SG(Meta.getEntry(), std::move(BBs));
 		Queue.push(std::move(SG));
 	}
