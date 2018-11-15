@@ -1306,18 +1306,19 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	if(userImplemented)
 		return COMPILE_UNSUPPORTED;
 
-	if(ident.startswith("_ZN6client"))
+	if(ident.startswith("_ZN6client") && !asmjs)
 	{
 		handleBuiltinNamespace(ident.data()+10,callV);
 		return COMPILE_OK;
 	}
-	else if(ident.startswith("_ZNK6client"))
+	else if(ident.startswith("_ZNK6client") && !asmjs)
 	{
 		handleBuiltinNamespace(ident.data()+11,callV);
 		return COMPILE_OK;
 	}
 	else if(ident.startswith("cheerpCreate_ZN6client"))
 	{
+		assert(!asmjs && "Unsupported client function for asmjs");
 		//Default handling of builtin constructors
 		char* typeName;
 		int typeLen=strtol(ident.data()+22,&typeName,10);
@@ -5294,7 +5295,14 @@ void CheerpWriter::makeJS()
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			std::string name;
-			if (imported->empty() && !TypeSupport::isClientGlobal(imported))
+			if (imported->empty() && TypeSupport::isClientGlobal(imported))
+			{
+				assert(imported->hasFnAttribute(Attribute::Static) && "Only static client functions can be imported");
+				StringRef className, funcName;
+				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data()+10);
+				name = (className + "." + funcName).str();
+			}
+			else if (imported->empty() && !TypeSupport::isClientGlobal(imported))
 				name = "__dummy";
 			else
 				name = ("_asm_"+namegen.getName(imported)).str();
@@ -5367,7 +5375,14 @@ void CheerpWriter::makeJS()
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			std::string name;
-			if (imported->empty() && !TypeSupport::isClientGlobal(imported))
+			if (imported->empty() && TypeSupport::isClientGlobal(imported))
+			{
+				assert(imported->hasFnAttribute(Attribute::Static) && "Only static client functions can be imported");
+				StringRef className, funcName;
+				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data()+10);
+				name = (className + "." + funcName).str();
+			}
+			else if (imported->empty() && !TypeSupport::isClientGlobal(imported))
 				name = "__dummy";
 			else
 				name = ("_asm_"+namegen.getName(imported)).str();
