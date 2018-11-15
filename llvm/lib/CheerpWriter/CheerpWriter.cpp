@@ -70,62 +70,78 @@ public:
 	void renderIfOnLabel(int labelId, bool first);
 };
 
+std::pair<StringRef, StringRef> CheerpWriter::getBuiltinClassAndFunc(const char* identifier)
+{
+	char* ident;
+	//Read the class name
+	int classNameLen = strtol(identifier, &ident, 10);
+	if(classNameLen == 0)
+	{
+		llvm::report_fatal_error(Twine("Unexpected C++ mangled name: ", StringRef(identifier)), false);
+	}
+	StringRef className(ident, classNameLen);
+	ident += classNameLen;
+
+	//Read the function name
+	int funcNameLen = strtol(ident, &ident, 10);
+	StringRef funcName;
+	if(funcNameLen == 0 )
+	{
+		if (StringRef(ident).startswith("ix"))
+		{
+			//operator[]
+			funcName = StringRef("[]");
+		}
+		else
+		{
+			//This means that we are parsing a fuction which is not in a class
+			//and we already parsed the function name
+			funcName = className;
+			className = StringRef();
+		}
+	}
+	else
+	{
+		funcName = StringRef(ident, funcNameLen);
+	}
+	//This condition is necessarily true
+	assert(!funcName.empty());
+	return std::make_pair(className, funcName);
+}
 void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV)
 {
 	assert(callV.getCalledFunction());
-	const char* ident = identifier;
-	//Read the class name
-	char* className;
-	int classLen = strtol(ident,&className,10);
-	if(classLen == 0)
-	{
-		llvm::report_fatal_error(Twine("Unexpected C++ mangled name: ", StringRef(identifier)), false);
-		return;
-	}
-	ident = className + classLen;
-
-	//Read the function name
-	char* funcName;
-	int funcNameLen=strtol(ident,&funcName,10);
-	if(funcNameLen==0)
-	{
-		//This means that we are parsing a fuction which is not in a class
-		//and we already parsed the function name
-		funcName = className;
-		funcNameLen = classLen;
-		className = NULL;
-		classLen = 0;
-	}
-	//This condition is necessarily true
-	assert(funcNameLen!=0);
+	StringRef className;
+	StringRef funcName;
+	std::tie(className, funcName) = getBuiltinClassAndFunc(identifier);
 
 	bool isClientStatic = callV.getCalledFunction()->hasFnAttribute(Attribute::Static);
 
 	//The first arg should be the object
-	if(strncmp(funcName,"get_",4)==0)
+	if(funcName.startswith("get_"))
 	{
 		//Getter
 		assert(callV.arg_size()==1);
-		if(className == NULL)
+		if(className.empty())
 		{
 			llvm::report_fatal_error(Twine("Unexpected getter without class: ", StringRef(identifier)), false);
 			return;
 		}
 
 		compileOperand(callV.getArgument(0), HIGHEST);
-		stream << '.' << StringRef( funcName + 4, funcNameLen - 4 );
+		stream << '.' << funcName.drop_front(4);
 	}
-	else if(strncmp(funcName,"set_",4)==0)
+	else if(funcName.startswith("set_"))
 	{
 		//Setter
-		if(className == NULL)
+		if(className.empty())
 		{
 			llvm::report_fatal_error(Twine("Unexpected setter without class: ", StringRef(identifier)), false);
 			return;
 		}
 
 		compileOperand(callV.getArgument(0), HIGHEST);
-		if(funcNameLen == 4)
+		if(funcName.size() == 4)
 		{
 			// Generic setter
 			assert(callV.arg_size()==3);
@@ -137,13 +153,18 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		else
 		{
 			assert(callV.arg_size()==2);
-			stream << '.' << StringRef( funcName + 4, funcNameLen - 4 ) <<  '=';
+			stream << '.' << funcName.drop_front(4) <<  '=';
 			compileOperand(callV.getArgument(1), LOWEST);
 		}
 	}
-	else if(className == NULL && strncmp(funcName,"Objectix",8)==0)
+	else if(funcName.startswith("[]"))
 	{
 		// operator[]
+		if(className.empty())
+		{
+			llvm::report_fatal_error(Twine("Unexpected operator[] without class: ", StringRef(identifier)), false);
+			return;
+		}
 		assert(callV.arg_size()==2);
 		compileOperand(callV.getArgument(0), HIGHEST);
 		stream << '[';
@@ -155,10 +176,10 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		User::const_op_iterator it = callV.arg_begin();
 
 		//Regular call
-		if(className)
+		if(!className.empty())
 		{
 			if(isClientStatic)
-				stream << StringRef(className,classLen);
+				stream << className;
 			else if(callV.arg_empty())
 			{
 				llvm::report_fatal_error(Twine("At least 'this' parameter was expected: ",
@@ -172,7 +193,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			}
 			stream << '.';
 		}
-		stream << StringRef(funcName,funcNameLen);
+		stream << funcName;
 		compileMethodArgs(it,callV.arg_end(), callV, /*forceBoolean*/ true);
 	}
 }

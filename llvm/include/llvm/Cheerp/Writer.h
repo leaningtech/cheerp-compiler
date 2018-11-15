@@ -250,6 +250,7 @@ private:
 	// COMPILE_EMPTY is returned if there is no need to add a ;\n to end the line
 	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_EMPTY };
 
+	std::pair<llvm::StringRef, llvm::StringRef> getBuiltinClassAndFunc(const char* identifier);
 	void handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV);
 	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(llvm::ImmutableCallSite callV, const llvm::Function* f);
 
