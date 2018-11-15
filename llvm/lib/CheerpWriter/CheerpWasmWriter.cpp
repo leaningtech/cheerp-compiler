@@ -358,7 +358,10 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb, int branch
 			if (p == CmpInst::ICMP_NE &&
 					(C = dyn_cast<ConstantInt>(I->getOperand(1))) &&
 					C->getSExtValue() == 0) {
-				writer->compileOperand(code, I->getOperand(0));
+				if(I->getOperand(0)->getType()->isIntegerTy(32))
+					writer->compileSignedInteger(code, I->getOperand(0), /*forComparison*/true);
+				else
+					writer->compileUnsignedInteger(code, I->getOperand(0));
 				return;
 			}
 			writer->compileICmp(*I, p, code);
