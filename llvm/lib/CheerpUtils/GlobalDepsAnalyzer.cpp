@@ -459,8 +459,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 					// asm.js function called from outside
 					if (calleeIsAsmJS && !isAsmJS)
 						asmJSExportedFuncions.insert(calledFunc);
-					// normal function called from asm.js (exclude client globals for now)
-					else if (!calleeIsAsmJS && isAsmJS && !TypeSupport::isClientGlobal(calledFunc))
+					// normal function called from asm.js
+					else if (!calleeIsAsmJS && isAsmJS)
 						asmJSImportedFuncions.insert(calledFunc);
 				}
 				// if this is an allocation intrinsic and we are in asmjs,
