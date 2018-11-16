@@ -10945,6 +10945,8 @@ def err_cheerp_wrong_function_addr : Error<
   "Cheerp: Cannot take address of function %0 with attribute %1 from inside function %2 with attribute %3">;
 def err_cheerp_wrong_function_addr_global : Error<
   "Cheerp: Cannot assign address of function %1 with attribute %0 to global %3 with attribute %2">;
+def err_cheerp_wrong_lvalue_ptr : Error<
+  "Cheerp: Cannot use non-%0 pointer field %3 of %0 struct '%1' in a %2 function as lvalue">;
 def err_cheerp_asm_in_asmjs : Error<
   "Cheerp: Cannot use inline asm in a %0 function">;
 def err_cheerp_delete_client : Error<

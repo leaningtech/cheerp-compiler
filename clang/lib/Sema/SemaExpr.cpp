@@ -12664,7 +12664,35 @@ static bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) {
   if (IsLV == Expr::MLV_ClassTemporary && IsReadonlyMessage(E, S))
     IsLV = Expr::MLV_InvalidMessageExpression;
   if (IsLV == Expr::MLV_Valid)
+  {
+    // CHEERP: using as lvalue a pointer field which does not point to an asmjs type
+    // is forbidden in genericjs, because it could allow to assign a genericjs basic
+    // pointer value to an asmjs pointer variable.
+    FunctionDecl* FD = S.getCurFunctionDecl();
+    if (FD && FD->hasAttr<GenericJSAttr>()
+        && isa<MemberExpr>(E)
+        && E->getType()->isPointerType()
+        && E->getType()->getPointeeType()->isFundamentalType())
+    {
+      MemberExpr* ME = cast<MemberExpr>(E);
+      const Type* BaseTy = ME->getBase()->getType().getTypePtr()->getUnqualifiedDesugaredType();
+      if (BaseTy->isPointerType())
+        BaseTy = BaseTy->getPointeeType().getTypePtr()->getUnqualifiedDesugaredType();
+      if (const TagType* TTy = dyn_cast<TagType>(BaseTy))
+      {
+        if (TTy->getDecl()->hasAttr<AsmJSAttr>())
+        {
+          S.Diag(Loc, diag::err_cheerp_wrong_lvalue_ptr)
+            << TTy->getDecl()->getAttr<AsmJSAttr>()
+            << ME->getBase()
+            << FD->getAttr<GenericJSAttr>()
+            << ME->getMemberDecl();
+          return true;
+        }
+      }
+    }
     return false;
+  }
 
   unsigned DiagID = 0;
   bool NeedType = false;
