@@ -19319,6 +19319,7 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
     auto ae = Args.end();
     for(;a != ae; a++, p = p==pe ? pe : p+1) {
       const Type* t = (*a)->getType().getTypePtr();
+      const Type* pt = p != pe ? (*p)->getType().getTypePtr() : nullptr;
       Expr* aNoCast = (*a)->IgnoreImpCasts();
       if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType() && !aNoCast->getType()->isFunctionProtoType()) {
         auto d = Diag((*a)->getLocStart(),
@@ -19339,11 +19340,18 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
         auto d = Diag((*a)->getLocStart(),
              diag::err_cheerp_wrong_basic_pointer_param)
           << FDecl << FDecl->getAttr<AsmJSAttr>()
-          << Parent << Parent->getAttr<GenericJSAttr>();
+          << Parent << Parent->getAttr<GenericJSAttr>()
+          << "pointer";
         if (p != pe)
           d << *p;
         else
           d << "variadic";
+      } else if (pt && pt->isReferenceType() && pt->getPointeeType()->isFundamentalType()) {
+        Diag((*a)->getLocStart(), diag::err_cheerp_wrong_basic_pointer_param)
+          << FDecl << FDecl->getAttr<AsmJSAttr>()
+          << Parent << Parent->getAttr<GenericJSAttr>()
+          << *p
+          << "reference";
       } else if (auto ut = dyn_cast<BuiltinType>(t->getUnqualifiedDesugaredType())) {
         if(ut->isHighInt()) {
           auto d = Diag((*a)->getLocStart(),

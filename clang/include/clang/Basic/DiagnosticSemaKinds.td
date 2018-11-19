@@ -10936,7 +10936,7 @@ def err_cheerp_incompatible_attributes : Error<
 def err_cheerp_wrong_local_attribute : Error<
   "Cheerp: Explicitly putting the %0 attribute on local variables is forbidden">;
 def err_cheerp_wrong_basic_pointer_param : Error<
-  "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because parameter %4 is a pointer to a basic type">;
+  "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because parameter %4 is a %5 to a basic type">;
 def err_cheerp_wrong_func_pointer_param : Error<
   "Cheerp: Cannot call function %0  with attribute %1 from function %2 with attribute %3, because parameter %4 is a function pointer">;
 def err_cheerp_wrong_64bit_param : Error<
