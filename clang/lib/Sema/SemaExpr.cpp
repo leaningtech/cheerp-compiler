@@ -14620,6 +14620,24 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
     } else if (!isa<FunctionDecl, NonTypeTemplateParmDecl, BindingDecl,
                     MSGuidDecl, UnnamedGlobalConstantDecl>(dcl))
       llvm_unreachable("Unknown/unexpected decl type");
+
+    // CHEERP: forbid taking the address of pointer fields in asmjs structs from
+    // genericjs
+    if (FunctionDecl* FD = getCurFunctionDecl()) {
+      TagDecl* dclTyD = dcl->getType()->getUnqualifiedDesugaredType()->getAsTagDecl();
+      if (FD->hasAttr<GenericJSAttr>()
+          && dclTyD && dclTyD->hasAttr<AsmJSAttr>()
+          && isa<MemberExpr>(op)
+          && op->getType()->hasPointerRepresentation()) {
+        Diag(OpLoc,
+             diag::err_cheerp_wrong_addrof_ptr_field)
+          << cast<MemberExpr>(op)->getMemberDecl()
+          << dclTyD->getAttr<AsmJSAttr>()
+          << dclTyD
+          << FD->getAttr<GenericJSAttr>();
+        return QualType();
+      }
+    }
   }
 
   if (AddressOfError != AO_No_Error) {
