@@ -1015,7 +1015,8 @@ bool GEPOptimizer::runOnFunction(Function& F)
 	uint32_t rangeLength = 0;
 	OrderedGEPs::iterator rangeStart;
 	std::set<std::pair<Instruction*, Instruction*>> erasedInst;
-	for(auto it=gepsFromBasePointer.begin();;++it)
+	auto it=gepsFromBasePointer.begin();
+	while (true)
 	{
 		if(it!=gepsFromBasePointer.end())
 		{
@@ -1025,12 +1026,14 @@ bool GEPOptimizer::runOnFunction(Function& F)
 			{
 				rangeStart = it;
 				rangeLength++;
+				++it;
 				continue;
 			}
 			// Check that the first two operands are the same
 			if((*rangeStart)->getOperand(0) == (*it)->getOperand(0) && (*rangeStart)->getOperand(1) == (*it)->getOperand(1))
 			{
 				rangeLength++;
+				++it;
 				continue;
 			}
 		}
@@ -1041,7 +1044,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 #if DEBUG_GEP_OPT_VERBOSE
 			llvm::errs() << "Common GEP range:";
 			for(auto it2=rangeStart;it2!=it;++it2)
-				llvm::errs() << " " << **it2;
+				llvm::errs() << **it2 << "\n";
 			llvm::errs() << "\n";
 #endif
 			optimizeGEPsRecursive(erasedInst, gepsFromBasePointer, rangeStart, it, (*rangeStart)->getOperand(0), 1, validGEPMap);
