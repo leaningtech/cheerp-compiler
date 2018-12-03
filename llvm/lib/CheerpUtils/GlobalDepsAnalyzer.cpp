@@ -39,9 +39,9 @@ const char* GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer() : ModulePass(ID), DL(NULL),
+GlobalDepsAnalyzer::GlobalDepsAnalyzer(bool resolveAliases) : ModulePass(ID), DL(NULL),
 	TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
-	hasPointerArrays(false), hasAsmJS(false), forceTypedArrays(false)
+	hasPointerArrays(false), hasAsmJS(false), resolveAliases(resolveAliases), forceTypedArrays(false)
 {
 }
 
@@ -673,11 +673,15 @@ int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 	{
 		GlobalAlias * GA = it++;
 		
-		if ( !isReachable(GA) )
+		if ( isReachable(GA) )
 		{
-			eraseQueue.push_back(GA);
-			GA->removeFromParent();
+			if (!resolveAliases)
+				continue;
+			// Replace the alias with the actual value
+			GA->replaceAllUsesWith( GA->getAliasee() );
 		}
+		GA->removeFromParent();
+		eraseQueue.push_back(GA);
 	}
 
 	// Put back all the global variables, in the right order

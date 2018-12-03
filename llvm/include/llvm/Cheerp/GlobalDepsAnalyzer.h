@@ -40,7 +40,7 @@ public:
 	/**
 	 * Run the filter. Notice that it does not modify the module.
 	 */
-	GlobalDepsAnalyzer();
+	GlobalDepsAnalyzer(bool resolveAliases = false);
 	
 	/**
 	 * Determine if a given global value is reachable
@@ -220,13 +220,14 @@ private:
 	bool hasPointerArrays;
 	bool hasAsmJS;
 
+	bool resolveAliases;
 public:
 	bool forceTypedArrays;
 };
 
-inline llvm::Pass * createGlobalDepsAnalyzerPass()
+inline llvm::Pass * createGlobalDepsAnalyzerPass(bool resolveAliases)
 {
-	return new GlobalDepsAnalyzer;
+	return new GlobalDepsAnalyzer(resolveAliases);
 }
 
 }
