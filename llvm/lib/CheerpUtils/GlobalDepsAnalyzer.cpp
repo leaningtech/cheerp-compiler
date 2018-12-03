@@ -41,7 +41,7 @@ const char* GlobalDepsAnalyzer::getPassName() const
 
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(bool resolveAliases) : ModulePass(ID), DL(NULL),
 	TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
-	hasPointerArrays(false), hasAsmJS(false), resolveAliases(resolveAliases), forceTypedArrays(false)
+	hasPointerArrays(false), hasAsmJS(false), resolveAliases(resolveAliases), delayPrintf(true), forceTypedArrays(false)
 {
 }
 
@@ -295,6 +295,43 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		visitFunction( F, visited);
 		assert( visited.empty() );
 	}
+	// Detect if the code actually uses printf_float
+	delayPrintf = false;
+	bool usesFloatPrintf = false;
+	for (const GlobalValue* v: printfLikeQueue)
+	{
+		StringRef n = v->getName();
+		if(!usesFloatPrintf && (n == "asnprintf" || n == "asprintf" || n == "dprintf" || n == "fprintf" ||
+			n == "vfprintf" || n == "printf" || n == "snprintf" || n == "sprintf" ||
+			n == "vasnprintf" || n == "vasprintf" || n == "vdprintf" || n == "vprintf" ||
+			n == "vsnprintf" || n == "vsprintf"))
+		{
+			// In this list only keep non-wide and non-i-prefixed printf functions
+			// NOTE: Wide char versions do not have a separate printf_float method
+			usesFloatPrintf = true;
+		}
+		SubExprVec vec;
+		visitGlobal(v, visited, vec);
+		assert(visited.empty());
+	}
+	// Erase printf_float body if it is not used
+	if(!usesFloatPrintf)
+	{
+		llvm::Function* printfFloat = module.getFunction("_printf_float");
+		if(printfFloat)
+		{
+			printfFloat->deleteBody();
+			printfFloat->replaceAllUsesWith(UndefValue::get(printfFloat->getType()));
+		}
+	}
+	// Flush out all functions
+	while (!functionsQueue.empty())
+	{
+		const Function* F = functionsQueue.back();
+		functionsQueue.pop_back();
+		visitFunction( F, visited);
+		assert( visited.empty() );
+	}
 
 	// Create a dummy function that prevents nullptr conflicts.
 	if(hasAsmJS)
@@ -317,6 +354,13 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visited, const SubExprVec & subexpr )
 {
+	// Delay visiting all printf-like globals, we need to dectect if printf_float is actually used
+	if ( delayPrintf && C->hasName() && C->getName().endswith("printf") )
+	{
+		printfLikeQueue.insert(C);
+		return;
+	}
+
 	// Cycle detector
 	if ( !visited.insert(C).second )
 	{
