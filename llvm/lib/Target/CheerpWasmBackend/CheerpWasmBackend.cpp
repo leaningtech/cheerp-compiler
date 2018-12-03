@@ -25,12 +25,10 @@
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/CFGPasses.h"
-#include "llvm/Cheerp/ResolveAliases.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/AllocaLowering.h"
 #include "llvm/Cheerp/AllocateArrayLowering.h"
 #include "llvm/Cheerp/Registerize.h"
-#include "llvm/Cheerp/ResolveAliases.h"
 #include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/FixIrreducibleControlFlow.h"
@@ -159,9 +157,8 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            AnalysisID StopAfter,
                                            MachineFunctionInitializer* MFInit) {
   PM.add(createAllocaLoweringPass());
-  PM.add(createResolveAliasesPass());
   PM.add(createFreeAndDeleteRemovalPass());
-  PM.add(cheerp::createGlobalDepsAnalyzerPass());
+  PM.add(cheerp::createGlobalDepsAnalyzerPass(/*resolveAliases*/true));
   PM.add(createFixIrreducibleControlFlowPass());
   if (!CheerpNoICF)
     PM.add(cheerp::createIdenticalCodeFoldingPass());
