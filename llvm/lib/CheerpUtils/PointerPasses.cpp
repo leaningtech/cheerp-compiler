@@ -759,145 +759,151 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 		newIndexes.push_back(ConstantInt::get(llvm::Type::getInt32Ty(base->getContext()), 0));
 	}
 
-	bool indexesAreEqual = true;
-	while(indexesAreEqual)
+	Value* referenceOperand;
+	uint32_t rangeSize = 0;
+	for(OrderedGEPs::iterator it=begin; it!=end; )
 	{
-		Value* curOperand = NULL;
-		uint32_t rangeSize = 0;
-		for(OrderedGEPs::iterator it=begin;;++it)
+		if (rangeSize == 0)
 		{
-			if(it!=end)
-			{
-				if(rangeSize == 0)
-				{
-					if(endIndex < (*it)->getNumOperands())
-						curOperand = (*it)->getOperand(endIndex);
-					rangeSize++;
-					continue;
-				}
-				if(endIndex < (*it)->getNumOperands())
-				{
-					if(curOperand == (*it)->getOperand(endIndex))
-					{
-						rangeSize++;
-						continue;
-					}
-				}
-			}
-			// This is the first index which is different in the range.
-			indexesAreEqual = false;
-#if DEBUG_GEP_OPT_VERBOSE
-			llvm::errs() << "Index equal from " << startIndex << " to " << endIndex << ", range size: " << rangeSize << "\n";
-#endif
-			if(rangeSize == 1)
-			{
-				// If the range has size 1 and we have just started we skip this GEP entirely
-				if(startIndex != 1)
-				{
-					uint32_t oldIndexCount = newIndexes.size();
-					// Create a GEP from the base to all not used yet indexes
-					for(uint32_t i=endIndex;i<(*begin)->getNumOperands();i++)
-						newIndexes.push_back((*begin)->getOperand(i));
-					if(newIndexes.size() > 1)
-					{
-						Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "", *begin);
-#if DEBUG_GEP_OPT_VERBOSE
-						llvm::errs() << "New GEP " << newGEP << "\n";
-#endif
-						erasedInst.insert(std::make_pair(*begin, newGEP));
-					}
-					newIndexes.resize(oldIndexCount);
-				}
-				if(it==end)
-					break;
-				begin = it;
-				if(endIndex < (*it)->getNumOperands())
-					curOperand = (*it)->getOperand(endIndex);
-				else
-					curOperand = NULL;
-				continue;
-			}
-			Instruction* insertionPoint = NULL;
-			// Compute the insertion point to dominate all users of this GEP in the range
-			for(OrderedGEPs::iterator rangeIt = begin; rangeIt != it;)
-			{
-				Instruction* curGEP = *rangeIt;
-				++rangeIt;
-				if(insertionPoint==NULL)
-				{
-					insertionPoint = curGEP;
-					continue;
-				}
-				// Check if the current GEP dominates the old insertionPoint
-				if(DT->dominates(curGEP, insertionPoint))
-					insertionPoint = curGEP;
-				else if(!DT->dominates(insertionPoint, curGEP))
-				{
-					// If the insertionPoint also does not dominate the current GEP
-					// we need to find a common dominator for both
-					BasicBlock* commonDominator = DT->findNearestCommonDominator(insertionPoint->getParent(), curGEP->getParent());
-					assert(commonDominator);
-					llvm::Instruction* insertPointCandidate = commonDominator->getTerminator();
-					// Make sure that insertPointCandidate is in a valid block for this GEP
-					bool valid = false;
-					const BlockSet& validSet = validGEPMap.at(GEPRange(cast<GetElementPtrInst>(curGEP),endIndex+1));
-					if(!validSet.count(commonDominator))
-					{
-						for (auto BB: validSet)
-						{
-							if (DT->dominates(BB, commonDominator))
-							{
-								valid = true;
-								break;
-							}
-						}
-					}
-					else
-					{
-						valid = true;
-					}
-					if (!valid)
-					{
-						// It is not safe to optimize this GEP, remove it from the set
-						assert(curGEP != *begin);
-						orderedGeps.erase(curGEP);
-#if DEBUG_GEP_OPT_VERBOSE
-						llvm::errs() << "Skpping GEP " << *curGEP << "\n";
-#endif
-					}
-					else
-					{
-						insertionPoint = insertPointCandidate;
-					}
-				}
-			}
-			newIndexes.push_back(curOperand);
-			// This is the first index which is different in the range. Create a GEP now.
-			Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, base->getName()+".optgep");
-			newIndexes.pop_back();
-			newGEP->insertBefore(insertionPoint);
-
-			assert(insertionPoint);
-#if DEBUG_GEP_OPT_VERBOSE
-			llvm::errs() << "New GEP " << newGEP << " inserted after " << *insertionPoint << "\n";
-#endif
-			if(rangeSize != 1)
-			{
-				// Proceed with the range from 'begin' to 'it'
-				// NOTE: insertPointLimit is not passed to later steps, it is only needed when dealing with the base
-				optimizeGEPsRecursive(begin, it, newGEP, endIndex+1);
-			}
-			if(it==end)
-				break;
-			// Reset the state for the next range
-			begin = it;
-			curOperand = (*it)->getOperand(endIndex);
+			//Initialize range
+			if(endIndex < (*it)->getNumOperands())
+				referenceOperand = (*it)->getOperand(endIndex);
+			else
+				referenceOperand = NULL;
 			rangeSize = 1;
 		}
-		newIndexes.push_back(curOperand);
-		endIndex++;
+
+		it++;
+
+		if(it!=end)
+		{
+			Value* curOperand;
+			if(endIndex < (*it)->getNumOperands())
+				curOperand = (*it)->getOperand(endIndex);
+			else
+				curOperand = NULL;
+			
+			if(curOperand == referenceOperand)
+			{
+				rangeSize++;
+				continue;
+			}
+		}
+		// This is the first index which is different in the range.
+#if DEBUG_GEP_OPT_VERBOSE
+		llvm::errs() << "Index equal from " << startIndex << " to " << endIndex << ", range size: " << rangeSize << "\n";
+#endif
+		if(rangeSize == 1)
+		{
+			// If the range has size 1 and we have just started we skip this GEP entirely
+			if(startIndex != 1)
+			{
+				uint32_t oldIndexCount = newIndexes.size();
+				// Create a GEP from the base to all not used yet indexes
+				for(uint32_t i=endIndex;i<(*begin)->getNumOperands();i++)
+					newIndexes.push_back((*begin)->getOperand(i));
+				if(newIndexes.size() > 1)
+				{
+					Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "", *begin);
+#if DEBUG_GEP_OPT_VERBOSE
+					llvm::errs() << "New GEP " << newGEP << "\n";
+#endif
+					erasedInst.insert(std::make_pair(*begin, newGEP));
+				}
+				newIndexes.resize(oldIndexCount);
+			}
+			// Reset the state for the next range
+			begin = it;
+			rangeSize = 0;
+			continue;
+		}
+		// Compute the insertion point to dominate all users of this GEP in the range
+		Instruction* insertionPoint = findInsertionPoint(begin, it, endIndex);
+
+		newIndexes.push_back(referenceOperand);
+		// This is the first index which is different in the range. Create a GEP now.
+		Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, base->getName()+".optgep");
+		newIndexes.pop_back();
+		newGEP->insertBefore(insertionPoint);
+
+		assert(insertionPoint);
+#if DEBUG_GEP_OPT_VERBOSE
+		llvm::errs() << "New GEP " << newGEP << " inserted after " << *insertionPoint << "\n";
+#endif
+		if(rangeSize != 1)
+		{
+			// Proceed with the range from 'begin' to 'it'
+			// NOTE: insertPointLimit is not passed to later steps, it is only needed when dealing with the base
+			optimizeGEPsRecursive(begin, it, newGEP, endIndex+1);
+		}
+		// Reset the state for the next range
+		begin = it;
+		rangeSize = 0;
 	}
 }
+
+Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(OrderedGEPs::iterator begin, OrderedGEPs::iterator end, uint32_t endIndex)
+{
+	Instruction* insertionPoint = NULL;
+
+	for(OrderedGEPs::iterator it = begin; it != end;)
+	{
+		//We need to hold an iterator both to the current and the next item
+		//to be able to delete the current item without invalidating iterators
+		OrderedGEPs::iterator currIt = it;
+		Instruction* curGEP = *it;
+		++it;
+		if(insertionPoint==NULL)
+		{
+			insertionPoint = curGEP;
+			continue;
+		}
+		// Check if the current GEP dominates the old insertionPoint
+		if(DT->dominates(curGEP, insertionPoint))
+			insertionPoint = curGEP;
+		else if(!DT->dominates(insertionPoint, curGEP))
+		{
+			// If the insertionPoint also does not dominate the current GEP
+			// we need to find a common dominator for both
+			BasicBlock* commonDominator = DT->findNearestCommonDominator(insertionPoint->getParent(), curGEP->getParent());
+			assert(commonDominator);
+			llvm::Instruction* insertPointCandidate = commonDominator->getTerminator();
+			// Make sure that insertPointCandidate is in a valid block for this GEP
+			bool valid = false;
+			const BlockSet& validSet = validGEPMap.at(GEPRange(cast<GetElementPtrInst>(curGEP),endIndex+1));
+			if(!validSet.count(commonDominator))
+			{
+				for (auto BB: validSet)
+				{
+					if (DT->dominates(BB, commonDominator))
+					{
+						valid = true;
+						break;
+					}
+				}
+			}
+			else
+			{
+				valid = true;
+			}
+			if (!valid)
+			{
+				// It is not safe to optimize this GEP, remove it from the set
+				assert(curGEP != *begin);
+				orderedGeps.erase(currIt);
+#if DEBUG_GEP_OPT_VERBOSE
+				llvm::errs() << "Skpping GEP " << *curGEP << "\n";
+#endif
+			}
+			else
+			{
+				insertionPoint = insertPointCandidate;
+			}
+		}
+	}
+	return insertionPoint;
+}
+
 
 template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph::Node*> {
 	typedef GEPOptimizer::ValidGEPGraph::Node NodeType;
