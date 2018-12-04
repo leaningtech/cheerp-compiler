@@ -2761,13 +2761,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			assert(I.getNumSuccessors()==0);
 			Value* retVal = ri.getReturnValue();
 
-			// NOTE: This is needed because we are adding an extra return at the end of
-			//       the function, and the asm.js validator does not like if it is never
-			//       reachable. In this way we trick it.
-			if (asmjs)
-			{
-				stream << "if (1) ";
-			}
 			if(retVal)
 			{
 				Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(retVal->getType(), asmjs);
@@ -4299,6 +4292,10 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
 {
 	writer->compileBB(*bb);
+	if(writer->blockDepth == 0)
+		writer->lastDepth0Block = bb;
+	else
+		writer->lastDepth0Block = nullptr;
 }
 
 void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio)
@@ -4365,11 +4362,13 @@ void CheerpRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 	if (asmjs)
 		writer->stream << "|0";
 	writer->stream << "){" << NewLine;
+	writer->blockDepth++;
 }
 void CheerpRenderInterface::renderCaseOnLabel(int labelId)
 {
 	writer->stream << "case ";
 	writer->stream << labelId << ":{" << NewLine;
+	writer->blockDepth++;
 }
 void CheerpRenderInterface::renderSwitchBlockBegin(const SwitchInst* switchInst,
 		BlockBranchMap& branchesOut)
@@ -4378,6 +4377,7 @@ void CheerpRenderInterface::renderSwitchBlockBegin(const SwitchInst* switchInst,
 	writer->stream << "switch(";
 	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 	writer->stream << "){" << NewLine;
+	writer->blockDepth++;
 }
 void CheerpRenderInterface::renderCaseBlockBegin(const BasicBlock* bb, int branchId)
 {
@@ -4404,16 +4404,22 @@ void CheerpRenderInterface::renderCaseBlockBegin(const BasicBlock* bb, int branc
 		}
 	}
 	writer->stream << '{' << NewLine;
+	writer->blockDepth++;
 }
 void CheerpRenderInterface::renderDefaultBlockBegin(bool empty)
 {
 	if (!empty)
+	{
 		writer->stream << "default:{" << NewLine;
+		writer->blockDepth++;
+	}
 }
 void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first)
 {
 	if(!first)
 		writer->stream << "}else ";
+	else
+		writer->blockDepth++;
 	writer->stream << "if(";
 	renderCondition(bb, branchId, CheerpWriter::LOWEST);
 	writer->stream << "){" << NewLine;
@@ -4423,6 +4429,8 @@ void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::
 {
 	if(!first)
 		writer->stream << "}else ";
+	else
+		writer->blockDepth++;
 	writer->stream << "if(!(";
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
 	{
@@ -4441,7 +4449,10 @@ void CheerpRenderInterface::renderElseBlockBegin()
 void CheerpRenderInterface::renderBlockEnd(bool empty)
 {
 	if (!empty)
+	{
 		writer->stream << '}' << NewLine;
+		writer->blockDepth--;
+	}
 }
 
 void CheerpRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, const BasicBlock* bbFrom)
@@ -4452,6 +4463,7 @@ void CheerpRenderInterface::renderBlockPrologue(const BasicBlock* bbTo, const Ba
 void CheerpRenderInterface::renderWhileBlockBegin()
 {
 	writer->stream << "while(1){" << NewLine;
+	writer->blockDepth++;
 }
 
 void CheerpRenderInterface::renderWhileBlockBegin(int blockLabel)
@@ -4463,6 +4475,7 @@ void CheerpRenderInterface::renderWhileBlockBegin(int blockLabel)
 void CheerpRenderInterface::renderDoBlockBegin()
 {
 	writer->stream << "do{" << NewLine;
+	writer->blockDepth++;
 }
 
 void CheerpRenderInterface::renderDoBlockBegin(int blockLabel)
@@ -4474,6 +4487,7 @@ void CheerpRenderInterface::renderDoBlockBegin(int blockLabel)
 void CheerpRenderInterface::renderDoBlockEnd()
 {
 	writer->stream << "}while(0);" << NewLine;
+	writer->blockDepth--;
 }
 
 void CheerpRenderInterface::renderBreak()
@@ -4509,6 +4523,7 @@ void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 		writer->stream << "if(label>>>0==" << labelId << ">>>0){" << NewLine;
 	else
 		writer->stream << "if(label===" << labelId << "){" << NewLine;
+	writer->blockDepth++;
 }
 
 void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND kind)
@@ -4594,10 +4609,12 @@ void CheerpWriter::compileMethod(Function& F)
 	{
 		compileParamTypeAnnotationsAsmJS(&F);
 	}
+	lastDepth0Block = nullptr;
 	if(F.size()==1)
 	{
 		compileMethodLocals(F, false);
 		compileBB(*F.begin());
+		lastDepth0Block = F.begin();
 	}
 	else
 	{
@@ -4619,11 +4636,10 @@ void CheerpWriter::compileMethod(Function& F)
 			rl->Render(&ri);
 		}
 	}
-	if (asmjs)
+	assert(blockDepth == 0);
+	if (asmjs && (!lastDepth0Block || !isa<ReturnInst>(lastDepth0Block->getTerminator())))
 	{
-		// TODO: asm.js needs a final return statement.
-		// for now we are putting one at the end of every method, even
-		// if there is already one
+		// asm.js needs a final return statement.
 		stream << "return";
 		if(!F.getReturnType()->isVoidTy())
 		{
