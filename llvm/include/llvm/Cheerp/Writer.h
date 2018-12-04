@@ -503,6 +503,9 @@ private:
 		bool isInlineable(const llvm::Value* p) override;
 	};
 public:
+	// Data to optimize asm.js rendering of return statements
+	uint32_t blockDepth;
+	const llvm::BasicBlock* lastDepth0Block;
 	ostream_proxy stream;
 	CheerpWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
@@ -560,6 +563,8 @@ public:
 		forceTypedArrays(forceTypedArrays),
 		symbolicGlobalsAsmJS(compileGlobalsAddrAsmJS),
 		readableOutput(readableOutput),
+		blockDepth(0),
+		lastDepth0Block(nullptr),
 		stream(s, sourceMapGenerator, readableOutput)
 	{
 	}
