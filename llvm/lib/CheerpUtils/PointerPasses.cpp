@@ -893,6 +893,7 @@ Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(OrderedGEPs::ite
 			{
 				// It is not safe to optimize this GEP, remove it from the set
 				assert(curGEP != *begin);
+				skippedGeps.insert(curGEP);
 				orderedGeps.erase(currIt);
 #if DEBUG_GEP_OPT_VERBOSE
 				llvm::errs() << "Skipping GEP " << *curGEP << "\n";
@@ -974,7 +975,6 @@ void GEPOptimizer::ValidGEPGraph::getValidBlocks(BlockSet& ValidBlocks)
 
 bool GEPOptimizer::runOnFunction(Function& F)
 {
-	bool Changed = false;
 	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
 	OrderedGEPs gepsFromBasePointer;
@@ -1022,7 +1022,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 
 	data.startRecursion();
 	data.applyOptGEP();
-	return Changed;
+	return data.anyChange();
 }
 
 // Look for GEPs that have a common base pointer. They should have both the
@@ -1058,6 +1058,13 @@ void GEPOptimizer::GEPRecursionData::startRecursion()
 		}
 		rangeLength = 0;
 		rangeStart = it;
+	}
+
+	if (!skippedGeps.empty())
+	{
+		swap(skippedGeps, orderedGeps);
+		skippedGeps.clear();
+		startRecursion();
 	}
 }
 
