@@ -4980,17 +4980,6 @@ void CheerpWriter::compileCheckBoundsAsmJS(const Value* p, int alignMask)
 	stream<<','<<alignMask<<','<<heapSize*1024*1024<<"|0)|0";
 }
 
-void CheerpWriter::compileMemmoveHelperAsmJS()
-{
-	stream << "function __asmjs_memmove(src,dst,size){" << NewLine;
-	stream << "src=src|0;dst=dst|0;size=size|0;" << NewLine;
-	stream << "var i=0;var end=0;var inc=1;" << NewLine;
-	stream << "if(src>>>0<dst>>>0){i=size-1|0;end=-1;inc=-1;}else end=size;"<<NewLine;
-	stream << "while(1){if((i|0)==(end|0))break;" << heapNames[HEAP8] << "[dst+i|0]=" << heapNames[HEAP8] << "[src+i|0];i=i+inc|0;}"<<NewLine;
-	stream << "return dst|0;"<<NewLine;
-	stream << "}"<<NewLine;
-}
-
 void CheerpWriter::compileFunctionTablesAsmJS()
 {
 	for (const auto& table : linearHelper.getFunctionTables())
@@ -5255,7 +5244,6 @@ void CheerpWriter::makeJS()
 				compileMethod(F);
 			}
 		}
-		compileMemmoveHelperAsmJS();
 
 		compileFunctionTablesAsmJS();
 
