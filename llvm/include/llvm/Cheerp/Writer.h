@@ -583,10 +583,6 @@ public:
 	 */
 	void compileMathDeclAsmJS();
 	/**
-	 * Compile the memmove helper function for asm.js code
-	 */
-	void compileMemmoveHelperAsmJS();
-	/**
 	 * Compile the helper functions for exposing the asm.js stack pointer
 	 */
 	void compileStackPtrHelpersAsmJS();
