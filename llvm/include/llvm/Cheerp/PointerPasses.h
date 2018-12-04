@@ -500,10 +500,11 @@ private:
 			: orderedGeps(gepsFromBasePointer), validGEPMap(validGEPMap), DT(DT)
 			{}
 		void startRecursion();
-		void optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
-			llvm::Value* base, uint32_t startIndex);
 		void applyOptGEP();
 	private:
+		void optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
+			llvm::Value* base, uint32_t startIndex);
+		Instruction* findInsertionPoint(OrderedGEPs::iterator begin, OrderedGEPs::iterator end, uint32_t endIndex);
 		OrderedGEPs orderedGeps;
 		const ValidGEPMap& validGEPMap;
 		DominatorTree* DT;
