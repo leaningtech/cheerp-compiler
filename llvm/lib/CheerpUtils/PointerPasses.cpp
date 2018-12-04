@@ -737,6 +737,16 @@ void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createDelayAllocasPass() { return new DelayAllocas(); }
 
+Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(OrderedGEPs::iterator it, uint32_t index) const
+{
+	if (index + 1 == (*it)->getNumOperands())
+		return NULL;
+	else if (index < (*it)->getNumOperands())
+		return (*it)->getOperand(index);
+	assert(false);
+	return NULL;
+}
+
 void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
 		Value* base, uint32_t startIndex)
 {
@@ -766,23 +776,15 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 		if (rangeSize == 0)
 		{
 			//Initialize range
-			if(endIndex < (*it)->getNumOperands())
-				referenceOperand = (*it)->getOperand(endIndex);
-			else
-				referenceOperand = NULL;
+			referenceOperand = getValueNthOperator(it, endIndex);
 			rangeSize = 1;
 		}
-
 		it++;
 
-		if(it!=end)
+		if(it!=end && referenceOperand != NULL)
 		{
-			Value* curOperand;
-			if(endIndex < (*it)->getNumOperands())
-				curOperand = (*it)->getOperand(endIndex);
-			else
-				curOperand = NULL;
-			
+			Value* curOperand = getValueNthOperator(it, endIndex);
+
 			if(curOperand == referenceOperand)
 			{
 				rangeSize++;
@@ -811,6 +813,7 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 					erasedInst.insert(std::make_pair(*begin, newGEP));
 				}
 				newIndexes.resize(oldIndexCount);
+
 			}
 			// Reset the state for the next range
 			begin = it;
@@ -892,7 +895,7 @@ Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(OrderedGEPs::ite
 				assert(curGEP != *begin);
 				orderedGeps.erase(currIt);
 #if DEBUG_GEP_OPT_VERBOSE
-				llvm::errs() << "Skpping GEP " << *curGEP << "\n";
+				llvm::errs() << "Skipping GEP " << *curGEP << "\n";
 #endif
 			}
 			else
@@ -1015,7 +1018,6 @@ bool GEPOptimizer::runOnFunction(Function& F)
 			}
 		}
 	}
-
 	GEPRecursionData data(gepsFromBasePointer, validGEPMap, DT);
 
 	data.startRecursion();
@@ -1026,6 +1028,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 // Look for GEPs that have a common base pointer. They should have both the
 // pointer and the first index equal. As the GEPs in the map are ordered we
 // know that equal objects are close.
+
 void GEPOptimizer::GEPRecursionData::startRecursion()
 {
 	uint32_t rangeLength = 0;
