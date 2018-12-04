@@ -492,9 +492,24 @@ private:
 	};
 	typedef std::set<Instruction*, OrderByOperands> OrderedGEPs;
 	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher<Value, Value>> ValidGEPMap;
-	void optimizeGEPsRecursive(std::set<std::pair<Instruction*, Instruction*>>& erasedInst, OrderedGEPs& orderedGeps, OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
-					llvm::Value* base, uint32_t startIndex, const ValidGEPMap& validGEPMap);
 	DominatorTree* DT;
+	class GEPRecursionData
+	{
+	public:
+		GEPRecursionData(const OrderedGEPs& gepsFromBasePointer, const ValidGEPMap& validGEPMap, DominatorTree* DT)
+			: orderedGeps(gepsFromBasePointer), validGEPMap(validGEPMap), DT(DT)
+			{}
+		void startRecursion();
+		void optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
+			llvm::Value* base, uint32_t startIndex);
+		void applyOptGEP();
+	private:
+		OrderedGEPs orderedGeps;
+		const ValidGEPMap& validGEPMap;
+		DominatorTree* DT;
+		std::set<std::pair<Instruction*, Instruction*>> erasedInst;
+	};
+
 public:
 	static char ID;
 	explicit GEPOptimizer() : FunctionPass(ID), DT(NULL) { }
