@@ -490,7 +490,7 @@ private:
 			}
 		}
 	};
-	typedef std::set<Instruction*, OrderByOperands> OrderedGEPs;
+	typedef std::multiset<Instruction*, OrderByOperands> OrderedGEPs;
 	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher<Value, Value>> ValidGEPMap;
 	DominatorTree* DT;
 	class GEPRecursionData
@@ -502,6 +502,7 @@ private:
 		void startRecursion();
 		void applyOptGEP();
 	private:
+		Value* getValueNthOperator(OrderedGEPs::iterator it, uint32_t index) const;
 		void optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
 			llvm::Value* base, uint32_t startIndex);
 		Instruction* findInsertionPoint(OrderedGEPs::iterator begin, OrderedGEPs::iterator end, uint32_t endIndex);
