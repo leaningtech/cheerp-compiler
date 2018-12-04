@@ -737,8 +737,8 @@ void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createDelayAllocasPass() { return new DelayAllocas(); }
 
-void GEPOptimizer::optimizeGEPsRecursive(std::set<std::pair<Instruction*, Instruction*>>& erasedInst, OrderedGEPs& orderedGeps, OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
-						Value* base, uint32_t startIndex, const ValidGEPMap& validGEPMap)
+void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
+		Value* base, uint32_t startIndex)
 {
 	//TODO: Avoid to optimize GEPs with only 2 operands
 	assert(begin != end);
@@ -758,6 +758,7 @@ void GEPOptimizer::optimizeGEPsRecursive(std::set<std::pair<Instruction*, Instru
 		// This is an optimized GEP, it will start from the passed base. Add a constant 0.
 		newIndexes.push_back(ConstantInt::get(llvm::Type::getInt32Ty(base->getContext()), 0));
 	}
+
 	bool indexesAreEqual = true;
 	while(indexesAreEqual)
 	{
@@ -884,7 +885,7 @@ void GEPOptimizer::optimizeGEPsRecursive(std::set<std::pair<Instruction*, Instru
 			{
 				// Proceed with the range from 'begin' to 'it'
 				// NOTE: insertPointLimit is not passed to later steps, it is only needed when dealing with the base
-				optimizeGEPsRecursive(erasedInst, orderedGeps, begin, it, newGEP, endIndex+1, validGEPMap);
+				optimizeGEPsRecursive(begin, it, newGEP, endIndex+1);
 			}
 			if(it==end)
 				break;
@@ -1009,33 +1010,30 @@ bool GEPOptimizer::runOnFunction(Function& F)
 		}
 	}
 
-	// Look for GEPs that have a common base pointer. They should have both the
-	// pointer and the first index equal. As the GEPs in the map are ordered we
-	// know that equal objects are close.
+	GEPRecursionData data(gepsFromBasePointer, validGEPMap, DT);
+
+	data.startRecursion();
+	data.applyOptGEP();
+	return Changed;
+}
+
+// Look for GEPs that have a common base pointer. They should have both the
+// pointer and the first index equal. As the GEPs in the map are ordered we
+// know that equal objects are close.
+void GEPOptimizer::GEPRecursionData::startRecursion()
+{
 	uint32_t rangeLength = 0;
-	OrderedGEPs::iterator rangeStart;
-	std::set<std::pair<Instruction*, Instruction*>> erasedInst;
-	auto it=gepsFromBasePointer.begin();
-	while (true)
+	auto it=orderedGeps.begin();
+	OrderedGEPs::iterator rangeStart = it;
+	while (it != orderedGeps.end())
 	{
-		if(it!=gepsFromBasePointer.end())
+		// Check that the first two operands are the same
+		while (it != orderedGeps.end() &&
+			(*rangeStart)->getOperand(0) == (*it)->getOperand(0) &&
+			(*rangeStart)->getOperand(1) == (*it)->getOperand(1))
 		{
-			assert((*it)->getNumOperands() > 2);
-			// Check if we need to start a range
-			if(rangeLength == 0)
-			{
-				rangeStart = it;
-				rangeLength++;
-				++it;
-				continue;
-			}
-			// Check that the first two operands are the same
-			if((*rangeStart)->getOperand(0) == (*it)->getOperand(0) && (*rangeStart)->getOperand(1) == (*it)->getOperand(1))
-			{
-				rangeLength++;
-				++it;
-				continue;
-			}
+			rangeLength++;
+			++it;
 		}
 
 		// End the range here, if the range is longer than 1 we can optimize some GEPs
@@ -1047,20 +1045,21 @@ bool GEPOptimizer::runOnFunction(Function& F)
 				llvm::errs() << **it2 << "\n";
 			llvm::errs() << "\n";
 #endif
-			optimizeGEPsRecursive(erasedInst, gepsFromBasePointer, rangeStart, it, (*rangeStart)->getOperand(0), 1, validGEPMap);
+			optimizeGEPsRecursive(rangeStart, it, (*rangeStart)->getOperand(0), 1);
 		}
 		rangeLength = 0;
-		if(it==gepsFromBasePointer.end())
-			break;
+		rangeStart = it;
 	}
+}
+
+void GEPOptimizer::GEPRecursionData::applyOptGEP()
+{
 	for(auto p: erasedInst)
 	{
-
 		p.second->takeName(p.first);
 		p.first->replaceAllUsesWith(p.second);
 		p.first->eraseFromParent();
 	}
-	return Changed;
 }
 
 const char* GEPOptimizer::getPassName() const
