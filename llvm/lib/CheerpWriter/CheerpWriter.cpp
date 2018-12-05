@@ -952,12 +952,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::stacksave && asmjs)
 	{
-		stream << "__stackPtr";
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::stackrestore && asmjs)
 	{
-		stream <<"__stackPtr=";
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=";
 		compileOperand(*it, LOWEST);
 		return COMPILE_OK;
 	}
@@ -5234,7 +5234,7 @@ void CheerpWriter::makeJS()
 		// compile boilerplate
 		stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
 		stream << "\"use asm\";" << NewLine;
-		stream << "var __stackPtr=ffi.heapSize|0;" << NewLine;
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.heapSize|0;" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 		{
 			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
