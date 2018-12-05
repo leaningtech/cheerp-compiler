@@ -414,7 +414,6 @@ void LinearMemoryHelper::addFunctions()
 			{
 				functionTableOrder.push_back(fTy);
 				it = functionTables.emplace(fTy,FunctionTableInfo()).first;
-				it->second.name = getFunctionTableName(fTy);
 			}
 			it->second.functions.push_back(F);
 		}

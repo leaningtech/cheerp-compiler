@@ -81,7 +81,7 @@ bool CheerpWasmWritePass::runOnModule(Module& M)
 
   if (WasmLoader.empty())
   {
-    cheerp::NameGenerator namegen(M, GDA, registerize, PA, reservedNames, PrettyCode);
+    cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, reservedNames, PrettyCode);
     cheerp::CheerpWasmWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmLoader.empty(),
                                     PrettyCode, CfgStackifier, cheerpMode);
@@ -108,7 +108,7 @@ bool CheerpWasmWritePass::runOnModule(Module& M)
     llvm::tool_output_file jsFile(WasmLoader.c_str(), ErrorCode, sys::fs::F_None);
     llvm::formatted_raw_ostream jsOut(jsFile.os());
 
-    cheerp::NameGenerator namegen(M, GDA, registerize, PA, reservedNames, PrettyCode);
+    cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, reservedNames, PrettyCode);
     cheerp::CheerpWasmWriter wasmWriter(M, *this, Out, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmLoader.empty(),
                                     PrettyCode, CfgStackifier, cheerpMode);

@@ -15,6 +15,8 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
+#include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Utility.h"
@@ -68,7 +70,7 @@ public:
 	 * This initialize the namegenerator by collecting
 	 * all the global variable names
 	 */
-	explicit NameGenerator( const llvm::Module&, const GlobalDepsAnalyzer &, Registerize &, const PointerAnalyzer& PA,
+	explicit NameGenerator( const llvm::Module&, const GlobalDepsAnalyzer &, Registerize &, const PointerAnalyzer& PA, LinearMemoryHelper& linearHelper,
 		const std::vector<std::string>& reservedNames, bool makeReadableNames = true );
 
 	/**
@@ -162,8 +164,8 @@ public:
 	bool needsName(const llvm::Instruction &, const PointerAnalyzer& PA) const;
 
 private:
-	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
-	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer & );
+	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper);
+	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper );
 	static std::vector<std::string> buildReservedNamesList(const llvm::Module& M, const std::vector<std::string>& fromOption);
 	
 	Registerize& registerize;

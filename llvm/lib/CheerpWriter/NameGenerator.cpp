@@ -120,13 +120,13 @@ struct JSSymbols
 };
 
 NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, Registerize& r,
-				const PointerAnalyzer& PA, const std::vector<std::string>& rn, bool makeReadableNames):registerize(r), PA(PA),
-																	reservedNames(std::move(buildReservedNamesList(M, rn)))
+				const PointerAnalyzer& PA,  LinearMemoryHelper& linearHelper,
+				const std::vector<std::string>& rn, bool makeReadableNames):registerize(r), PA(PA), reservedNames(std::move(buildReservedNamesList(M, rn)))
 {
 	if ( makeReadableNames )
-		generateReadableNames(M, gda);
+		generateReadableNames(M, gda, linearHelper);
 	else
-		generateCompressedNames(M, gda);
+		generateCompressedNames(M, gda, linearHelper);
 }
 
 llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
@@ -202,7 +202,7 @@ SmallString< 4 > NameGenerator::filterLLVMName(StringRef s, NAME_FILTER_MODE fil
 	return ans;
 }
 
-void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAnalyzer& gda)
+void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAnalyzer& gda, LinearMemoryHelper& linearHelper)
 {
 	typedef std::pair<unsigned, const GlobalValue *> useGlobalPair;
 	// We either encode arguments in the Value or a pair of (Function, register id)
@@ -508,12 +508,16 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		constructorTypesFinished = constructor_it == constructorTypes.end();
 		arrayTypesFinished = array_it == arrayTypes.end();
 	}
+	for(auto& tableIt: linearHelper.getFunctionTables())
+	{
+		tableIt.second.name = *name_it++;
+	}
 	// Generate the rest of the builtins
 	for(int i=IMUL;i<=HANDLE_VAARG;i++)
 		builtins[i] = *name_it++;
 }
 
-void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnalyzer& gda)
+void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnalyzer& gda, LinearMemoryHelper& linearHelper)
 {
 	for (const Function & f : M.getFunctionList() )
 	{
@@ -621,6 +625,10 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		}
 		else
 			arraymap.insert(std::make_pair(T, StringRef("createArray_literal" + std::to_string(arraymap.size()))));
+	}
+	for(auto& tableIt: linearHelper.getFunctionTables())
+	{
+		tableIt.second.name = "__FUNCTION_TABLE_" + LinearMemoryHelper::getFunctionTableName(tableIt.first);
 	}
 	// Builtin funcions
 	builtins[IMUL] = "__imul";
