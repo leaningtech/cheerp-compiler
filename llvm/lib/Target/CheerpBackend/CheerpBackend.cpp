@@ -90,7 +90,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     memOut.reset(new formatted_raw_ostream(memFile.os()));
   }
 
-  cheerp::NameGenerator namegen(M, GDA, registerize, PA, ReservedNames, PrettyCode);
+  cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, ReservedNames, PrettyCode);
   cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut.get(), AsmJSMemFile,
           sourceMapGenerator.get(), PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
