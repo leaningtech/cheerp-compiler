@@ -653,6 +653,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[CREATE_POINTER_ARRAY] = "createPointerArray";
 	builtins[HANDLE_VAARG] = "handleVAArg";
 	builtins[LABEL] = "label";
+	builtins[STACKPTR] = "__stackPtr";
 	builtins[HEAP8] = "HEAP8";
 	builtins[HEAP16] = "HEAP16";
 	builtins[HEAP32] = "HEAP32";
