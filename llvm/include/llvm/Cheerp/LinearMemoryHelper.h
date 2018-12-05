@@ -40,7 +40,7 @@ public:
 	 * Used to compile asm.js indirect function calls
 	 */
 	struct FunctionTableInfo {
-		std::string name;
+		llvm::SmallString<4> name;
 		std::vector<const llvm::Function*> functions;
 		size_t offset;
 		size_t typeIndex;
@@ -190,6 +190,10 @@ public:
 	uint32_t getFunctionAddress(const llvm::Function* F) const;
 	bool functionHasAddress(const llvm::Function* F) const;
 	uint32_t getFunctionAddressMask(const llvm::FunctionType* Fty) const;
+	FunctionTableInfoMap& getFunctionTables()
+	{
+		return functionTables;
+	}
 	const FunctionTableInfoMap& getFunctionTables() const
 	{
 		return functionTables;
