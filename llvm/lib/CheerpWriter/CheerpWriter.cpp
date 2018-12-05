@@ -4032,7 +4032,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				else
 				{
 					const auto& table = linearHelper.getFunctionTables().at(fTy);
-					stream << "__FUNCTION_TABLE_" << table.name << '[';
+					stream << table.name << '[';
 					// NOTE: V8 does not like constants here, so we add a useless
 					// ternary operator to make it happy.
 					if (const Constant* c = dyn_cast<Constant>(calledValue))
@@ -5000,7 +5000,7 @@ void CheerpWriter::compileFunctionTablesAsmJS()
 {
 	for (const auto& table : linearHelper.getFunctionTables())
 	{
-		stream << "var " << "__FUNCTION_TABLE_" << table.second.name << "=[";
+		stream << "var " << table.second.name << "=[";
 		bool first = true;
 		uint32_t num = 0;
 		for (const auto F : table.second.functions)
