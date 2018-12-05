@@ -38,11 +38,12 @@ class CheerpRenderInterface: public RenderInterface
 {
 private:
 	CheerpWriter* writer;
+	StringRef labelName;
 	const NewLineHandler& NewLine;
 	bool asmjs;
 	void renderCondition(const BasicBlock* B, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio);
 public:
-	CheerpRenderInterface(CheerpWriter* w, const NewLineHandler& n, bool asmjs=false):writer(w),NewLine(n),asmjs(asmjs)
+	CheerpRenderInterface(CheerpWriter* w, StringRef labelName, const NewLineHandler& n, bool asmjs=false):writer(w),labelName(labelName),NewLine(n),asmjs(asmjs)
 	{
 	}
 	void renderBlock(const BasicBlock* BB);
@@ -4358,7 +4359,7 @@ void CheerpRenderInterface::renderLabelForSwitch(int labelId)
 }
 void CheerpRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 {
-	writer->stream << "switch(label";
+	writer->stream << "switch(" << labelName;
 	if (asmjs)
 		writer->stream << "|0";
 	writer->stream << "){" << NewLine;
@@ -4512,17 +4513,18 @@ void CheerpRenderInterface::renderContinue(int labelId)
 
 void CheerpRenderInterface::renderLabel(int labelId)
 {
-	writer->stream << "label=" << labelId << "|0;" << NewLine;
+	writer->stream << labelName << "=" << labelId << "|0;" << NewLine;
 }
 
 void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 {
 	if(first==false)
 		writer->stream << "else ";
+	writer->stream << "if(" << labelName;
 	if (asmjs)
-		writer->stream << "if(label>>>0==" << labelId << ">>>0){" << NewLine;
+		writer->stream << ">>>0==" << labelId << ">>>0){" << NewLine;
 	else
-		writer->stream << "if(label===" << labelId << "){" << NewLine;
+		writer->stream << "===" << labelId << "){" << NewLine;
 	writer->blockDepth++;
 }
 
@@ -4548,7 +4550,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 	bool firstVar = true;
 	if(needsLabel)
 	{
-		stream << "var label=0";
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::LABEL) << "=0";
 		firstVar = false;
 	}
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
@@ -4621,7 +4623,7 @@ void CheerpWriter::compileMethod(Function& F)
 		if (useCfgStackifier)
 		{
 			compileMethodLocals(F, false);
-			CheerpRenderInterface ri(this, NewLine, asmjs);
+			CheerpRenderInterface ri(this, namegen.getBuiltinName(NameGenerator::Builtin::LABEL), NewLine, asmjs);
 
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
@@ -4631,7 +4633,7 @@ void CheerpWriter::compileMethod(Function& F)
 		else
 		{
 			Relooper* rl = runRelooperOnFunction(F, PA, registerize);
-			CheerpRenderInterface ri(this, NewLine, asmjs);
+			CheerpRenderInterface ri(this, namegen.getBuiltinName(NameGenerator::Builtin::LABEL), NewLine, asmjs);
 			compileMethodLocals(F, rl->needsLabel());
 			rl->Render(&ri);
 		}
