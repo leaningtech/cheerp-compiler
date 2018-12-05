@@ -854,6 +854,14 @@ bool PreExecute::runOnModule(Module& m)
     TargetMachine* machine;
     machine = target->createTargetMachine(triple, "", "", TargetOptions());
 
+    GlobalVariable * constructorVar = m.getGlobalVariable("llvm.global_ctors");
+    if(constructorVar)
+    {
+        // Random things which may go boom
+        if (!constructorVar->hasInitializer() || !isa<ConstantArray>(constructorVar->getInitializer()))
+            return false;
+    }
+
     std::unique_ptr<Module> uniqM(&m);
 
     EngineBuilder builder(std::move(uniqM));
@@ -871,8 +879,6 @@ bool PreExecute::runOnModule(Module& m)
 
     allocator = make_unique<Allocator>(*currentEE->ValueAddresses);
 
-    GlobalVariable * constructorVar = m.getGlobalVariable("llvm.global_ctors");
-
     std::vector<Constant*> newConstructors;
 
     // Detach malloc, free, and realloc, so the interpreter will fail if it will
@@ -885,11 +891,6 @@ bool PreExecute::runOnModule(Module& m)
 
     if (constructorVar)
     {
-        // Random things which may go boom
-        if (!constructorVar->hasInitializer() ||
-            !isa<ConstantArray>(constructorVar->getInitializer()))
-            return Changed;
-
         const Constant *initializer = constructorVar->getInitializer();
         const ConstantArray *constructors = cast<ConstantArray>(initializer);
 
