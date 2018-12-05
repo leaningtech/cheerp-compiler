@@ -2800,6 +2800,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 						break;
 				}
 			}
+			else if(blockDepth == 0)
+			{
+				// A return statement at depth 0 means the function is finished
+				// This is a void return at the end of the function, just skip it
+				return COMPILE_OK;
+			}
 			else
 				stream << "return";
 
@@ -4641,10 +4647,10 @@ void CheerpWriter::compileMethod(Function& F)
 	assert(blockDepth == 0);
 	if (asmjs && (!lastDepth0Block || !isa<ReturnInst>(lastDepth0Block->getTerminator())))
 	{
-		// asm.js needs a final return statement.
-		stream << "return";
 		if(!F.getReturnType()->isVoidTy())
 		{
+			// asm.js needs a final return statement for not-void functions
+			stream << "return";
 			Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(F.getReturnType(), true);
 			switch(kind)
 			{
@@ -4662,8 +4668,8 @@ void CheerpWriter::compileMethod(Function& F)
 					llvm::report_fatal_error("please report a bug");
 					break;
 			}
+			stream << ';' << NewLine;
 		}
-		stream << ';' << NewLine;
 	}
 	stream << '}' << NewLine;
 	currentFun = NULL;
