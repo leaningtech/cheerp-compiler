@@ -41,7 +41,7 @@ private:
 	StringRef labelName;
 	const NewLineHandler& NewLine;
 	bool asmjs;
-	void renderCondition(const BasicBlock* B, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio);
+	void renderCondition(const BasicBlock* B, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio, bool booleanInvert);
 public:
 	CheerpRenderInterface(CheerpWriter* w, StringRef labelName, const NewLineHandler& n, bool asmjs=false):writer(w),labelName(labelName),NewLine(n),asmjs(asmjs)
 	{
@@ -4249,7 +4249,7 @@ void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
 		writer->lastDepth0Block = nullptr;
 }
 
-void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio)
+void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio, bool booleanInvert)
 {
 	const TerminatorInst* term=bb->getTerminator();
 
@@ -4260,7 +4260,11 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 		assert(bi->isConditional());
 		//The second branch is the default
 		assert(branchId==0);
+		if(booleanInvert)
+			writer->stream << "!(";
 		writer->compileOperand(bi->getCondition(), parentPrio, /*allowBooleanObjects*/ true);
+		if(booleanInvert)
+			writer->stream << ")";
 	}
 	else if(isa<SwitchInst>(term))
 	{
@@ -4269,12 +4273,37 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 		SwitchInst::ConstCaseIt it=si->case_begin();
 		for(int i=1;i<branchId;i++)
 			++it;
+		StringRef compareString;
+		StringRef joinString;
+		if(booleanInvert)
+		{
+			if(asmjs)
+			{
+				compareString = "!=";
+				joinString = "&";
+			}
+			else
+			{
+				compareString = "!==";
+				joinString = "&&";
+			}
+		}
+		else
+		{
+			if(asmjs)
+			{
+				compareString = "==";
+				joinString = "|";
+			}
+			else
+			{
+				compareString = "===";
+				joinString = "||";
+			}
+		}
 		const BasicBlock* dest=it.getCaseSuccessor();
 		writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
-		if (asmjs)
-			writer->stream << "==";
-		else
-			writer->stream << "===";
+		writer->stream << compareString;
 		writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 		//We found the destination, there may be more cases for the same
 		//destination though
@@ -4283,15 +4312,9 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 			if(it.getCaseSuccessor()==dest)
 			{
 				//Also add this condition
-				if (asmjs)
-					writer->stream << '|';
-				else
-					writer->stream << "||";
+				writer->stream << joinString;
 				writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
-				if (asmjs)
-					writer->stream << "==";
-				else
-					writer->stream << "===";
+				writer->stream << compareString;
 				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 			}
 		}
@@ -4372,7 +4395,7 @@ void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchI
 	else
 		writer->blockDepth++;
 	writer->stream << "if(";
-	renderCondition(bb, branchId, CheerpWriter::LOWEST);
+	renderCondition(bb, branchId, CheerpWriter::LOWEST, /*booleanInvert*/false);
 	writer->stream << "){" << NewLine;
 }
 
@@ -4382,14 +4405,14 @@ void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::
 		writer->stream << "}else ";
 	else
 		writer->blockDepth++;
-	writer->stream << "if(!(";
+	writer->stream << "if(";
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
 	{
 		if(i!=0)
-			writer->stream << "||";
-		renderCondition(bb, skipBranchIds[i], skipBranchIds.size() == 1 ? CheerpWriter::LOWEST : CheerpWriter::LOGICAL_OR);
+			writer->stream << "&&";
+		renderCondition(bb, skipBranchIds[i], skipBranchIds.size() == 1 ? CheerpWriter::LOWEST : CheerpWriter::LOGICAL_AND, /*booleanInvert*/true);
 	}
-	writer->stream << ")){" << NewLine;
+	writer->stream << "){" << NewLine;
 }
 
 void CheerpRenderInterface::renderElseBlockBegin()
