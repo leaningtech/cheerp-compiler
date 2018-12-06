@@ -311,7 +311,7 @@ private:
 	/**
 	 * Compile a pointer from a GEP expression, with the given pointer kind
 	 */
-	void compileGEP(const llvm::User* gepInst, POINTER_KIND kind);
+	void compileGEP(const llvm::User* gepInst, POINTER_KIND kind, PARENT_PRIORITY parentPrio);
 	void compileGEPBase(const llvm::User* gep_inst, bool forEscapingPointer);
 	void compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY parentPrio);
 

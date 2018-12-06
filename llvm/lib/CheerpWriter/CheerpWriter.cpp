@@ -1583,7 +1583,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	{
 		if(isGEP(p))
 		{
-			compileGEP(cast<User>(p), COMPLETE_OBJECT);
+			compileGEP(cast<User>(p), COMPLETE_OBJECT, HIGHEST);
 			return;
 		}
 	}
@@ -2006,7 +2006,7 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, PARENT_PRIORITY p
 	{
 		case Instruction::GetElementPtr:
 		{
-			compileGEP(ce, PA.getPointerKind(ce));
+			compileGEP(ce, PA.getPointerKind(ce), parentPrio);
 			break;
 		}
 		case Instruction::BitCast:
@@ -3251,7 +3251,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 	}
 }
 
-void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
+void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PARENT_PRIORITY parentPrio)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
 	Type* basePointerType = gep_inst->getOperand(0)->getType();
@@ -3271,7 +3271,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind)
 	bool asmjs_nullptr = asmjs && isa<ConstantPointerNull>(gep_inst->getOperand(0));
 	if (RAW == kind || asmjs_nullptr)
 	{
-		compileRawPointer(gep_inst);
+		compileRawPointer(gep_inst, parentPrio);
 	}
 	else if(COMPLETE_OBJECT == kind)
 	{
@@ -3449,7 +3449,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			else
 			{
-				compileGEP(&gep, PA.getPointerKind(&gep));
+				compileGEP(&gep, PA.getPointerKind(&gep), parentPrio);
 			}
 			return COMPILE_OK;
 		}
@@ -5006,7 +5006,7 @@ void CheerpWriter::compileCheckDefined(const Value* p, bool needsOffset)
 	// When compiling a SPIT_REGULAR, if there is an offset, we only check that.
 	// If the offset exists the base is guaranteed to exists in the type.
 	stream<<"checkDefined(";
-	compileGEP(cast<User>(p),COMPLETE_OBJECT);
+	compileGEP(cast<User>(p),COMPLETE_OBJECT, HIGHEST);
 	if(needsOffset)
 		stream << "o";
 	stream<<")";
