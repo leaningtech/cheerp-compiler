@@ -4260,11 +4260,31 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 		assert(bi->isConditional());
 		//The second branch is the default
 		assert(branchId==0);
-		if(booleanInvert)
-			writer->stream << "!(";
-		writer->compileOperand(bi->getCondition(), parentPrio, /*allowBooleanObjects*/ true);
-		if(booleanInvert)
-			writer->stream << ")";
+		const Value* cond = bi->getCondition();
+		if(isa<ICmpInst>(cond))
+		{
+			const CmpInst* ci = cast<CmpInst>(cond);
+			CmpInst::Predicate p = ci->getPredicate();
+			if(booleanInvert)
+				p = CmpInst::getInversePredicate(p);
+			writer->compileIntegerComparison(ci->getOperand(0), ci->getOperand(1), p, parentPrio);
+		}
+		else if(isa<FCmpInst>(cond))
+		{
+			const CmpInst* ci = cast<CmpInst>(cond);
+			CmpInst::Predicate p = ci->getPredicate();
+			if(booleanInvert)
+				p = CmpInst::getInversePredicate(p);
+			writer->compileFloatComparison(ci->getOperand(0), ci->getOperand(1), p, parentPrio, asmjs);
+		}
+		else
+		{
+			if(booleanInvert)
+				writer->stream << "!(";
+			writer->compileOperand(cond, parentPrio, /*allowBooleanObjects*/ true);
+			if(booleanInvert)
+				writer->stream << ")";
+		}
 	}
 	else if(isa<SwitchInst>(term))
 	{
