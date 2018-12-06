@@ -586,6 +586,7 @@ public:
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
 	void compileFloatComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio, bool asmjs);
+	bool isInlineableInstruction(const llvm::Value* v) const;
 
 	// returns the amount fo shift required for accessing the corresponding heap
 	int getHeapShiftForType(llvm::Type* et);
