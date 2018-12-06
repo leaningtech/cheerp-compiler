@@ -161,7 +161,7 @@ private:
 class CheerpWriter
 {
 public:
-	enum PARENT_PRIORITY { LOWEST = 0, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
+	enum PARENT_PRIORITY { LOWEST = 0, FROUND, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
 private:
 	enum HEAP_TYPE {HEAP8=0, HEAP16, HEAP32, HEAPF32, HEAPF64};
 	enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS };
@@ -364,6 +364,17 @@ private:
 		if (kind == Registerize::INTEGER)
 		{
 			return (coercionPrio != BIT_OR && coercionPrio != BIT_AND && coercionPrio != SHIFT);
+		}
+		return false;
+	}
+	/**
+	 * Decide if 'v' needs to be coerced to float.
+	 */
+	bool needsFloatCoercion(Registerize::REGISTER_KIND kind, PARENT_PRIORITY coercionPrio)
+	{
+		if(kind == Registerize::FLOAT)
+		{
+			return coercionPrio != FROUND;
 		}
 		return false;
 	}
