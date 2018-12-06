@@ -3679,65 +3679,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::FCmp:
 		{
-			//Integer comparison
+			//Float comparison
 			const CmpInst& ci = cast<CmpInst>(I);
-			//Check that the operation is JS safe
-			//Special case orderedness check
-			regKind = registerize.getRegKindFromType(ci.getOperand(0)->getType(), asmjs);
-			if(ci.getPredicate()==CmpInst::FCMP_ORD)
-			{
-				if(parentPrio > LOGICAL_AND) stream << '(';
-				compileOperand(ci.getOperand(0),PARENT_PRIORITY::COMPARISON);
-				if (asmjs)
-					stream << "==";
-				else
-					stream << "===";
-				compileOperand(ci.getOperand(0),PARENT_PRIORITY::COMPARISON);
-				if (asmjs)
-					stream << '&';
-				else
-					stream << "&&";
-				compileOperand(ci.getOperand(1),PARENT_PRIORITY::COMPARISON);
-				if (asmjs)
-					stream << "==";
-				else
-					stream << "===";
-				compileOperand(ci.getOperand(1),PARENT_PRIORITY::COMPARISON);
-				if(parentPrio > LOGICAL_AND) stream << ')';
-			}
-			else if(ci.getPredicate()==CmpInst::FCMP_UNO)
-			{
-				if(parentPrio > LOGICAL_OR) stream << '(';
-				stream << "!(";
-				compileOperand(ci.getOperand(0),PARENT_PRIORITY::COMPARISON);
-				if (asmjs)
-					stream << "==";
-				else
-					stream << "===";
-				compileOperand(ci.getOperand(0),PARENT_PRIORITY::COMPARISON);
-				stream << ')';
-				if (asmjs)
-					stream << '|';
-				else
-					stream << "||";
-				stream << "!(";
-				compileOperand(ci.getOperand(1),PARENT_PRIORITY::COMPARISON);
-				if (asmjs)
-					stream << "==";
-				else
-					stream << "===";
-				compileOperand(ci.getOperand(1),PARENT_PRIORITY::COMPARISON);
-				stream << ')';
-				if(parentPrio > LOGICAL_OR) stream << ')';
-			}
-			else
-			{
-				if(parentPrio > COMPARISON) stream << '(';
-				compileOperand(ci.getOperand(0), COMPARISON);
-				compilePredicate(ci.getPredicate());
-				compileOperand(ci.getOperand(1), COMPARISON);
-				if(parentPrio > COMPARISON) stream << ')';
-			}
+			compileFloatComparison(ci.getOperand(0), ci.getOperand(1), ci.getPredicate(), parentPrio, asmjs);
 			return COMPILE_OK;
 		}
 		case Instruction::And:
