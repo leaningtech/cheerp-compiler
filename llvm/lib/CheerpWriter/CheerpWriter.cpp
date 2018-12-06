@@ -4264,6 +4264,14 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 	}
 }
 
+bool CheerpWriter::isInlineableInstruction(const Value* v) const
+{
+	if(const Instruction* I = dyn_cast<Instruction>(v))
+		return isInlineable(*I, PA);
+	else
+		return false;
+}
+
 void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
 {
 	writer->compileBB(*bb);
@@ -4285,7 +4293,8 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 		//The second branch is the default
 		assert(branchId==0);
 		const Value* cond = bi->getCondition();
-		if(isa<ICmpInst>(cond))
+		bool canInvertCond = writer->isInlineableInstruction(cond);
+		if(canInvertCond && isa<ICmpInst>(cond))
 		{
 			const CmpInst* ci = cast<CmpInst>(cond);
 			CmpInst::Predicate p = ci->getPredicate();
@@ -4293,7 +4302,7 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 				p = CmpInst::getInversePredicate(p);
 			writer->compileIntegerComparison(ci->getOperand(0), ci->getOperand(1), p, parentPrio);
 		}
-		else if(isa<FCmpInst>(cond))
+		else if(canInvertCond && isa<FCmpInst>(cond))
 		{
 			const CmpInst* ci = cast<CmpInst>(cond);
 			CmpInst::Predicate p = ci->getPredicate();
