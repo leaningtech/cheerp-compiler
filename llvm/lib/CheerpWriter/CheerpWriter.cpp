@@ -2285,7 +2285,8 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 							stream << '(';
 						stream << '+';
 					}
-					stream<< namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+					if(parentPrio != FROUND)
+						stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 					buf = tmpbuf;
 				}
 			}
@@ -2303,7 +2304,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			if (buf[0] == '0' && buf.size() > 2)
 				start = 1;
 			stream << buf.c_str()+start;
-			if (useFloat)
+			if (useFloat && parentPrio != FROUND)
 				stream << ')';
 		}
 		if(parentPrio == HIGHEST && (f->getValueAPF().isNegative() | (asmjs && useFloat && f->getType()->isDoubleTy())))
@@ -4107,7 +4108,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					stream << '(';
 				stream << '+';
 			}
-			else if(regKind==Registerize::FLOAT)
+			else if(needsFloatCoercion(regKind, parentPrio))
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			}
@@ -4175,7 +4176,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				if(parentPrio==ADD_SUB)
 					stream << ')';
 			}
-			else if(regKind==Registerize::FLOAT)
+			else if(needsFloatCoercion(regKind, parentPrio))
 			{
 				stream << ')';
 			}
