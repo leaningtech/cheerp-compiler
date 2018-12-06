@@ -63,6 +63,66 @@ void CheerpWriter::compileIntegerComparison(const llvm::Value* lhs, const llvm::
 	}
 }
 
+void CheerpWriter::compileFloatComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p, PARENT_PRIORITY parentPrio, bool asmjs)
+{
+	//Check that the operation is JS safe
+	//Special case orderedness check
+	if(p==CmpInst::FCMP_ORD)
+	{
+		if(parentPrio > LOGICAL_AND) stream << '(';
+		compileOperand(lhs,PARENT_PRIORITY::COMPARISON);
+		if (asmjs)
+			stream << "==";
+		else
+			stream << "===";
+		compileOperand(lhs,PARENT_PRIORITY::COMPARISON);
+		if (asmjs)
+			stream << '&';
+		else
+			stream << "&&";
+		compileOperand(rhs,PARENT_PRIORITY::COMPARISON);
+		if (asmjs)
+			stream << "==";
+		else
+			stream << "===";
+		compileOperand(rhs,PARENT_PRIORITY::COMPARISON);
+		if(parentPrio > LOGICAL_AND) stream << ')';
+	}
+	else if(p==CmpInst::FCMP_UNO)
+	{
+		if(parentPrio > LOGICAL_OR) stream << '(';
+		stream << "!(";
+		compileOperand(lhs,PARENT_PRIORITY::COMPARISON);
+		if (asmjs)
+			stream << "==";
+		else
+			stream << "===";
+		compileOperand(lhs,PARENT_PRIORITY::COMPARISON);
+		stream << ')';
+		if (asmjs)
+			stream << '|';
+		else
+			stream << "||";
+		stream << "!(";
+		compileOperand(rhs,PARENT_PRIORITY::COMPARISON);
+		if (asmjs)
+			stream << "==";
+		else
+			stream << "===";
+		compileOperand(rhs,PARENT_PRIORITY::COMPARISON);
+		stream << ')';
+		if(parentPrio > LOGICAL_OR) stream << ')';
+	}
+	else
+	{
+		if(parentPrio > COMPARISON) stream << '(';
+		compileOperand(lhs, COMPARISON);
+		compilePredicate(p);
+		compileOperand(rhs, COMPARISON);
+		if(parentPrio > COMPARISON) stream << ')';
+	}
+}
+
 void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 {
 	stream << '(';
