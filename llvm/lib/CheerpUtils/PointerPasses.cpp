@@ -747,21 +747,19 @@ Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(OrderedGEPs::iterator
 	return NULL;
 }
 
-void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
-		Value* base, uint32_t startIndex)
+void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
+		Value* base, const uint32_t endIndex)
 {
 	//TODO: Avoid to optimize GEPs with only 2 operands
 	assert(begin != end);
 	// We know that up to startIndex all indexes are equal
 	// Find out how many indexes are equal in all the range and build a GEP with them from the base
 	llvm::SmallVector<llvm::Value*, 4> newIndexes;
-	uint32_t endIndex = startIndex;
-	if(endIndex == 1)
+	if(endIndex == 2)
 	{
 		// It means that we are handling the first index, add it as it is
 		// The first index is guaranteed to be the same across the range
 		newIndexes.push_back((*begin)->getOperand(1));
-		endIndex++;
 	}
 	else
 	{
@@ -769,36 +767,30 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 		newIndexes.push_back(ConstantInt::get(llvm::Type::getInt32Ty(base->getContext()), 0));
 	}
 
-	Value* referenceOperand;
-	uint32_t rangeSize = 0;
-	for(OrderedGEPs::iterator it=begin; it!=end; )
+	while (begin != end)
 	{
-		if (rangeSize == 0)
-		{
-			//Initialize range
-			referenceOperand = getValueNthOperator(it, endIndex);
-			rangeSize = 1;
-		}
+		//Initialize range
+		OrderedGEPs::iterator it = begin;
+		Value* referenceOperand = getValueNthOperator(it, endIndex);
+		uint32_t rangeSize = 1;
 		it++;
 
-		if(it!=end && referenceOperand != NULL)
+		if (referenceOperand != NULL)
 		{
-			Value* curOperand = getValueNthOperator(it, endIndex);
-
-			if(curOperand == referenceOperand)
+			while(it!=end && referenceOperand == getValueNthOperator(it, endIndex))
 			{
 				rangeSize++;
-				continue;
+				it++;
 			}
 		}
 		// This is the first index which is different in the range.
 #if DEBUG_GEP_OPT_VERBOSE
-		llvm::errs() << "Index equal from " << startIndex << " to " << endIndex << ", range size: " << rangeSize << "\n";
+		llvm::errs() << "Index equal until " << endIndex << ", range size: " << rangeSize << "\n";
 #endif
 		if(rangeSize == 1)
 		{
 			// If the range has size 1 and we have just started we skip this GEP entirely
-			if(startIndex != 1)
+			if(endIndex > 2)
 			{
 				uint32_t oldIndexCount = newIndexes.size();
 				// Create a GEP from the base to all not used yet indexes
@@ -817,7 +809,6 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 			}
 			// Reset the state for the next range
 			begin = it;
-			rangeSize = 0;
 			continue;
 		}
 		// Compute the insertion point to dominate all users of this GEP in the range
@@ -841,11 +832,10 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 		}
 		// Reset the state for the next range
 		begin = it;
-		rangeSize = 0;
 	}
 }
 
-Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(OrderedGEPs::iterator begin, OrderedGEPs::iterator end, uint32_t endIndex)
+Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEPs::iterator begin, const OrderedGEPs::iterator end, const uint32_t endIndex)
 {
 	Instruction* insertionPoint = NULL;
 
@@ -1054,7 +1044,7 @@ void GEPOptimizer::GEPRecursionData::startRecursion()
 				llvm::errs() << **it2 << "\n";
 			llvm::errs() << "\n";
 #endif
-			optimizeGEPsRecursive(rangeStart, it, (*rangeStart)->getOperand(0), 1);
+			optimizeGEPsRecursive(rangeStart, it, (*rangeStart)->getOperand(0), 2);
 		}
 		rangeLength = 0;
 		rangeStart = it;
