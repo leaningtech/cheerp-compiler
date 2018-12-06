@@ -2212,21 +2212,21 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 
 		if(f->getValueAPF().isInfinity())
 		{
-			if (regKind == Registerize::FLOAT)
+			if (needsFloatCoercion(regKind, parentPrio))
 				stream<< namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			if(f->getValueAPF().isNegative())
 				stream << '-';
 
 			stream << "Infinity";
-			if (regKind == Registerize::FLOAT)
+			if (needsFloatCoercion(regKind, parentPrio))
 				stream << ')';
 		}
 		else if(f->getValueAPF().isNaN())
 		{
-			if (regKind == Registerize::FLOAT)
+			if (needsFloatCoercion(regKind, parentPrio))
 				stream<< namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			stream << "NaN";
-			if (regKind == Registerize::FLOAT)
+			if (needsFloatCoercion(regKind, parentPrio))
 				stream << ')';
 		}
 		else
@@ -2779,7 +2779,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 					case Registerize::FLOAT:
 						stream << "return ";
 						stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-						compileOperand(retVal, LOWEST);
+						compileOperand(retVal, FROUND);
 						stream << ')';
 						break;
 					case Registerize::OBJECT:
@@ -3076,6 +3076,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(valOp->getType(), asmjs);
 					if(regKind == Registerize::INTEGER)
 						storePrio = BIT_OR;
+					// The same applies for fround
+					else if(regKind == Registerize::FLOAT)
+						storePrio = FROUND;
 				}
 				compileOperand(valOp, storePrio);
 			}
@@ -3407,7 +3410,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::SIToFP:
 		{
 			const CastInst& ci = cast<CastInst>(I);
-			if (regKind == Registerize::FLOAT)
+			if (needsFloatCoercion(regKind, parentPrio))
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			else
 				stream << "(+";
@@ -3418,7 +3421,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::UIToFP:
 		{
 			const CastInst& ci = cast<CastInst>(I);
-			if (regKind == Registerize::FLOAT)
+			if (needsFloatCoercion(regKind, parentPrio))
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			else
 				stream << "(+";
@@ -3467,10 +3470,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FAdd:
 		{
 			//Floating point addition
-			if (regKind == Registerize::FLOAT)
+			bool needsFround = needsFloatCoercion(regKind, parentPrio);
+			if(needsFround)
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-				parentPrio = LOWEST;
+				parentPrio = FROUND;
 			}
 			if(parentPrio > ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
@@ -3480,7 +3484,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			PARENT_PRIORITY myPrio = asmjs?HIGHEST:nextPrio(ADD_SUB);
 			compileOperand(I.getOperand(1), myPrio);
 			if(parentPrio > ADD_SUB) stream << ')';
-			if (regKind == Registerize::FLOAT) stream << ')';
+			if(needsFround)
+				stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Sub:
@@ -3491,10 +3496,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FSub:
 		{
 			//Floating point subtraction
-			if (regKind == Registerize::FLOAT)
+			bool needsFround = needsFloatCoercion(regKind, parentPrio);
+			if(needsFround)
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-				parentPrio = LOWEST;
+				parentPrio = FROUND;
 			}
 			//TODO: optimize negation
 			if(parentPrio > ADD_SUB) stream << '(';
@@ -3504,7 +3510,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			// compileConstant adds parenthesis if the constant is negative
 			compileOperand(I.getOperand(1), HIGHEST);
 			if(parentPrio > ADD_SUB) stream << ')';
-			if (regKind == Registerize::FLOAT) stream << ')';
+			if(needsFround)
+				stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ZExt:
@@ -3594,26 +3601,29 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FDiv:
 		{
 			//Floating point division
-			if (regKind == Registerize::FLOAT)
+			bool needsFround = needsFloatCoercion(regKind, parentPrio);
+			if(needsFround)
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-				parentPrio = LOWEST;
+				parentPrio = FROUND;
 			}
 			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '/';
 			compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
-			if (regKind == Registerize::FLOAT) stream << ')';
+			if(needsFround)
+				stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::FRem:
 		{
 			//Floating point division remainder
-			if (regKind == Registerize::FLOAT)
+			bool needsFround = needsFloatCoercion(regKind, parentPrio);
+			if(needsFround)
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-				parentPrio = LOWEST;
+				parentPrio = FROUND;
 			}
 			if(parentPrio > MUL_DIV) stream << '(';
 			// NOTE: Modulo on float is not properly supported by Asm.js
@@ -3633,7 +3643,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			else
 				compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
-			if (regKind == Registerize::FLOAT) stream << ')';
+			if(needsFround)
+				stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::Mul:
@@ -3667,17 +3678,19 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::FMul:
 		{
 			//Floating point multiplication
-			if (regKind == Registerize::FLOAT)
+			bool needsFround = needsFloatCoercion(regKind, parentPrio);
+			if(needsFround)
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-				parentPrio = LOWEST;
+				parentPrio = FROUND;
 			}
 			if(parentPrio > MUL_DIV) stream << '(';
 			compileOperand(I.getOperand(0), MUL_DIV);
 			stream << '*';
 			compileOperand(I.getOperand(1), nextPrio(MUL_DIV));
 			if(parentPrio > MUL_DIV) stream << ')';
-			if (regKind == Registerize::FLOAT) stream << ')';
+			if(needsFround)
+				stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::ICmp:
@@ -3863,8 +3876,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const Value* src=I.getOperand(0);
 			if(useMathFround)
 			{
-				parentPrio = LOWEST;
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+				parentPrio = FROUND;
 			}
 			compileOperand(src, parentPrio);
 			if(useMathFround)
