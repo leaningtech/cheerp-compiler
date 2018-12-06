@@ -455,13 +455,15 @@ public:
 		std::vector<Node*> ValidNodes;
 	};
 private:
-	template<typename S, typename T>
 	struct GEPRangeHasher
 	{
 		inline size_t operator()(const GEPRange& g) const
 		{
-			size_t seed = reinterpret_cast<size_t>(g.GEP->getOperand(0));
-			seed ^= g.size + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			size_t seed = 0;
+			for (size_t i = 0; i<g.size; i++)
+			{
+				seed ^=  reinterpret_cast<size_t>(g.GEP->getOperand(i)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			}
 			return seed;
 		}
 	};
@@ -491,7 +493,7 @@ private:
 		}
 	};
 	typedef std::multiset<Instruction*, OrderByOperands> OrderedGEPs;
-	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher<Value, Value>> ValidGEPMap;
+	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher> ValidGEPMap;
 	DominatorTree* DT;
 	class GEPRecursionData
 	{
