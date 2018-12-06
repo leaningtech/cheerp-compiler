@@ -5683,6 +5683,14 @@ void CheerpWriter::AsmJSGepWriter::addValue(const llvm::Value* v, uint32_t size)
 		writer.compileOperand(v ,ADD_SUB);
 		writer.stream << '+';
 	}
+	else if (isPowerOf2_32(size))
+	{
+		writer.stream << '(';
+		writer.compileOperand(v, SHIFT);
+		writer.stream << "<<";
+		writer.stream << Log2_32(size);
+		writer.stream << ")+";
+	}
 	else if (use_imul)
 	{
 		// NOTE: V8 requires imul to be coerced to int like normal functions
