@@ -459,8 +459,6 @@ private:
 	/**
 	 * Methods implemented in Opcodes.cpp
 	 */
-	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
-	void compileFloatComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio, bool asmjs);
 	void compilePtrToInt(const llvm::Value* v);
 	void compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
 	void compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind, PARENT_PRIORITY parentPrio);
@@ -575,6 +573,8 @@ public:
 	void compileOperand(const llvm::Value* v, PARENT_PRIORITY parentPrio = HIGHEST, bool allowBooleanObjects = false);
 	void compilePHIOfBlockFromOtherBlock(const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	void compileOperandForIntegerPredicate(const llvm::Value* v, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
+	void compileIntegerComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio);
+	void compileFloatComparison(const llvm::Value* lhs, const llvm::Value* rhs, llvm::CmpInst::Predicate p, PARENT_PRIORITY parentPrio, bool asmjs);
 
 	// returns the amount fo shift required for accessing the corresponding heap
 	int getHeapShiftForType(llvm::Type* et);
