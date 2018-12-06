@@ -3067,7 +3067,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 			else
 			{
-				compileOperand(valOp, LOWEST);
+				PARENT_PRIORITY storePrio = LOWEST;
+				if(asmjs)
+				{
+					// On asm.js we can pretend the store will add a |0
+					// This is not necessarily true in genericjs
+					// As we might be storing in an object member or a plain array
+					Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(valOp->getType(), asmjs);
+					if(regKind == Registerize::INTEGER)
+						storePrio = BIT_OR;
+				}
+				compileOperand(valOp, storePrio);
 			}
 			return COMPILE_OK;
 		}
