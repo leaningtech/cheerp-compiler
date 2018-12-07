@@ -116,9 +116,18 @@ void CheerpWriter::compileFloatComparison(const llvm::Value* lhs, const llvm::Va
 	else
 	{
 		if(parentPrio > COMPARISON) stream << '(';
+		// It is much more efficient to invert the predicate if we need to check for unorderedness
+		bool invertForUnordered = CmpInst::isUnordered(p);
+		if(invertForUnordered)
+		{
+			p = CmpInst::getInversePredicate(p);
+			stream << "!(";
+		}
 		compileOperand(lhs, COMPARISON);
 		compilePredicate(p);
 		compileOperand(rhs, COMPARISON);
+		if(invertForUnordered)
+			stream << ')';
 		if(parentPrio > COMPARISON) stream << ')';
 	}
 }
