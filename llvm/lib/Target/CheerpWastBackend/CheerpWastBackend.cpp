@@ -26,6 +26,7 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/ResolveAliases.h"
 #include "llvm/Cheerp/SourceMaps.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Cheerp/CommandLine.h"
 
 using namespace llvm;
@@ -56,11 +57,10 @@ bool CheerpWastWritePass::runOnModule(Module& M)
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
+  cheerp::LinearMemoryHelper linearHelper(M, cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm);
   PA.fullResolve();
   PA.computeConstantOffsets(M);
   registerize.assignRegisters(M, PA);
-  DataLayout targetData(&M);
-  cheerp::LinearMemoryHelper linearHelper(targetData, GDA);
   cheerp::CheerpWastWriter writer(M, Out, PA, registerize, GDA, linearHelper,
                                   M.getContext(), CheerpHeapSize, !WastLoader.empty());
   writer.makeWast();

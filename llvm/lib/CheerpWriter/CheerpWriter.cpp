@@ -1995,9 +1995,9 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 
 		if(asmjs && isa<Function>(c))
 		{
-			if (globalDeps.functionAddresses().count(cast<Function>(c))) {
-				int offset = globalDeps.functionAddresses().at(cast<Function>(c)) + functionAddrStart;
-				stream << offset;
+			if (linearHelper.functionHasAddress(cast<Function>(c))) {
+				int addr = linearHelper.getFunctionAddress(cast<Function>(c));
+				stream << addr;
 			} else {
 				stream << '0';
 			}
@@ -2281,7 +2281,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			PARENT_PRIORITY prio = LOWEST;
 			if (tp->isPointerTy() || (tp->isIntegerTy() &&
 				((F && globalDeps.asmJSImports().count(F)) ||
-				(!F && !globalDeps.functionTables().count(fTy)))))
+				(!F && !linearHelper.getFunctionTables().count(fTy)))))
 			{
 				prio = BIT_OR;
 			}
@@ -3597,13 +3597,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			else if (asmjs)
 			{
 				//Indirect call, asm.js mode
-				if (!globalDeps.functionTables().count(fTy))
+				if (!linearHelper.getFunctionTables().count(fTy))
 				{
 					stream << "__dummy";
 				}
 				else
 				{
-					const auto& table = globalDeps.functionTables().at(fTy);
+					const auto& table = linearHelper.getFunctionTables().at(fTy);
 					stream << "__FUNCTION_TABLE_" << table.name << '[';
 					// NOTE: V8 does not like constants here, so we add a useless
 					// ternary operator to make it happy.
@@ -3617,7 +3617,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					{
 						compileRawPointer(calledValue);
 					}
-					stream << '&' << table.mask << ']';
+					stream << '&' << linearHelper.getFunctionAddressMask(fTy) << ']';
 				}
 
 			}
@@ -4338,25 +4338,16 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 		return;
 	}
 	if (symbolicGlobalsAsmJS)
+	{
 		stream << "var " << namegen.getName(&G) << '=';
-	uint32_t globalAddr = linearHelper.addGlobalVariable(&G);
-	if (symbolicGlobalsAsmJS)
+		uint32_t globalAddr = linearHelper.getGlobalVariableAddress(&G);
 		stream << globalAddr << ';' << NewLine;
+	}
 }
 
 void CheerpWriter::compileGlobalsInitAsmJS()
 {
 
-	GlobalVariable* heapStartVar = module.getNamedGlobal("_heapStart");
-
-	if (heapStartVar)
-	{
-		uint32_t heapStart = linearHelper.getTotalMemory();
-		ConstantInt* addr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapStart, false);
-		Constant* heapInit = ConstantExpr::getIntToPtr(addr, heapStartVar->getType()->getElementType(), false);
-		heapStartVar->setInitializer(heapInit);
-		heapStartVar->setSection("asmjs");
-	}
 	if (asmJSMem)
 	{
 		ostream_proxy os(*asmJSMem, nullptr, false);
@@ -4527,7 +4518,7 @@ void CheerpWriter::compileMemmoveHelperAsmJS()
 
 void CheerpWriter::compileFunctionTablesAsmJS()
 {
-	for (const auto& table : globalDeps.functionTables())
+	for (const auto& table : linearHelper.getFunctionTables())
 	{
 		stream << "var " << "__FUNCTION_TABLE_" << table.second.name << "=[";
 		bool first = true;
@@ -4540,7 +4531,8 @@ void CheerpWriter::compileFunctionTablesAsmJS()
 			stream << namegen.getName(F);
 			num++;
 		}
-		for (; num <= table.second.mask; num++)
+		uint32_t mask = linearHelper.getFunctionAddressMask(table.second.functions[0]->getFunctionType());
+		for (; num <= mask; num++)
 		{
 			stream << ',' << namegen.getName(table.second.functions[0]);
 		}
@@ -4772,7 +4764,7 @@ void CheerpWriter::makeJS()
 		// Declare globals
 		for ( const GlobalVariable & GV : module.getGlobalList() )
 		{
-			if (GV.getSection() == StringRef("asmjs") || GV.getName() == "_heapStart")
+			if (GV.getSection() == StringRef("asmjs"))
 				compileGlobalAsmJS(GV);
 		}
 		for ( const Function & F : module.getFunctionList() )
@@ -5110,11 +5102,6 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 	}
 	rl->Calculate(relooperMap[&F.getEntryBlock()]);
 	return rl;
-}
-
-uint32_t CheerpWriter::JSBytesWriter::getFunctionTableOffset(llvm::StringRef tableName)
-{
-    return functionAddrStart;
 }
 
 void CheerpWriter::JSBytesWriter::addByte(uint8_t byte)

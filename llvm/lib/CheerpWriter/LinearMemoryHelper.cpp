@@ -11,12 +11,15 @@
 
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Cheerp/Utility.h"
 
 using namespace cheerp;
 using namespace llvm;
 
-void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, ByteListener* listener)
+void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, ByteListener* listener) const
 {
+	const auto& targetData = module.getDataLayout();
 	if(const ConstantDataSequential* CD = dyn_cast<ConstantDataSequential>(c))
 	{
 		for(uint32_t i=0;i<CD->getNumElements();i++)
@@ -67,16 +70,14 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 		}
 		else if(const Function* F = dyn_cast<Function>(c))
 		{
-			if (!globalDeps.functionAddresses().count(F))
+			if (!functionAddresses.count(F))
 			{
 				llvm::errs() << "function not in table: " << F->getName() <<"\n";
 				llvm::report_fatal_error("please report a bug");
 			}
-			int32_t offset = globalDeps.functionAddresses().at(F);
-			const auto& functionTable = globalDeps.functionTables().at(F->getFunctionType());
-			offset += listener->getFunctionTableOffset(functionTable.name);
+			uint32_t addr = getFunctionAddress(F);
 			for(uint32_t i=0;i<32;i+=8)
-				listener->addByte((offset>>i)&255);
+				listener->addByte((addr>>i)&255);
 		}
 		else if(isa<ConstantExpr>(c))
 		{
@@ -93,12 +94,12 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 					}
 					assert(isa<GlobalVariable>(op));
 					const GlobalVariable* g = cast<GlobalVariable>(op);
-					if (!gVarsAddr.count(g))
+					if (!globalAddresses.count(g))
 					{
 						llvm::errs() << "global variable not found:" << g->getName() << "\n";
 						llvm::report_fatal_error("please report a bug");
 					}
-					uint32_t addr = gVarsAddr[g];
+					uint32_t addr = globalAddresses.at(g);
 
 					Type* curTy = g->getType();
 					SmallVector< const Value *, 8 > indices ( std::next(ce->op_begin()), ce->op_end() );
@@ -143,12 +144,12 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 		else if(isa<GlobalVariable>(c))
 		{
 			const GlobalVariable* g = cast<GlobalVariable>(c);
-			if (gVarsAddr.count(g) != 1)
+			if (globalAddresses.count(g) != 1)
 			{
 				llvm::errs() << "global variable not found:" << g->getName() << "\n";
 				llvm::report_fatal_error("please report a bug");
 			}
-			uint32_t val = gVarsAddr[g];
+			uint32_t val = globalAddresses.at(g);
 			for(uint32_t i=0;i<32;i+=8)
 				listener->addByte((val>>i)&255);
 		}
@@ -167,8 +168,9 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 	}
 }
 
-const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListener* listener)
+const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListener* listener) const
 {
+	const auto& targetData = module.getDataLayout();
 	int64_t constPart = 0;
 	while ( isBitCast(p) || isGEP(p) )
 	{
@@ -211,21 +213,128 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListe
 }
 
 
-uint32_t LinearMemoryHelper::addGlobalVariable(const GlobalVariable* G)
+void LinearMemoryHelper::addGlobals()
 {
-	Type* ty = G->getType();
-	uint32_t size = targetData.getTypeAllocSize(ty->getPointerElementType());
-	// Ensure the right alignment for the type
-	uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, ty->getPointerElementType());
-	// The following is correct if alignment is a power of 2 (which it should be)
-	uint32_t ret = heapStart = (heapStart + alignment - 1) & ~(alignment - 1);
-	gVarsAddr.emplace(G,heapStart);
-	heapStart += size;
-	return ret;
+	const auto& targetData = module.getDataLayout();
+	for (const auto& G: module.globals())
+	{
+		if (G.getSection() != StringRef("asmjs")) continue;
+
+		Type* ty = G.getType();
+		uint32_t size = targetData.getTypeAllocSize(ty->getPointerElementType());
+		// Ensure the right alignment for the type
+		uint32_t alignment = TypeSupport::getAlignmentAsmJS(targetData, ty->getPointerElementType());
+		// The following is correct if alignment is a power of 2 (which it should be)
+		heapStart = (heapStart + alignment - 1) & ~(alignment - 1);
+		globalAddresses.emplace(&G, heapStart);
+		heapStart += size;
+	}
+}
+
+static std::string getFunctionTableName(const FunctionType* ft)
+{
+	std::string table_name;
+	Type* ret = ft->getReturnType();
+	if (ret->isVoidTy())
+	{
+		table_name += 'v';
+	}
+	else if (ret->isIntegerTy() || ret->isPointerTy())
+	{
+		table_name += 'i';
+	}
+	else if (ret->isFloatingPointTy())
+	{
+		table_name += 'f';
+	}
+	for (const auto& param : ft->params())
+	{
+		if (param->isIntegerTy() || param->isPointerTy())
+		{
+			table_name += 'i';
+		}
+		else if (param->isFloatingPointTy())
+		{
+			table_name += 'f';
+		}
+	}
+	return table_name;
+}
+void LinearMemoryHelper::addFunctions()
+{
+	// Build the function tables first
+	for (const auto& F: module.functions())
+	{
+		if (F.getSection() != StringRef("asmjs") || !F.hasAddressTaken())
+			continue;
+		const FunctionType* fTy = F.getFunctionType();
+		auto it = functionTables.find(fTy);
+		if (it == functionTables.end())
+		{
+			it = functionTables.emplace(fTy,FunctionTableInfo()).first;
+			it->second.name = getFunctionTableName(fTy);
+		}
+		it->second.functions.push_back(&F);
+	}
+	// Then assign addresses
+	uint32_t offset = 0;
+	for (const auto& FT: functionTables)
+	{
+		if (mode == FunctionAddressMode::AsmJS)
+		{
+			offset = (offset+1)<<16;
+		}
+		else
+		{
+			offset += FT.second.functions.size();
+		}
+		uint32_t addr = 0;
+		for (const auto F: FT.second.functions)
+		{
+			functionAddresses.emplace(F, addr+offset);
+			addr++;
+		}
+	}
+}
+
+void LinearMemoryHelper::addHeapStart()
+{
+	GlobalVariable* heapStartVar = module.getNamedGlobal("_heapStart");
+
+	if (heapStartVar)
+	{
+		// Align to 8 bytes
+		heapStart = (heapStart + 7) & ~7;
+		ConstantInt* addr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapStart, false);
+		Constant* heapInit = ConstantExpr::getIntToPtr(addr, heapStartVar->getType()->getElementType(), false);
+		heapStartVar->setInitializer(heapInit);
+		heapStartVar->setSection("asmjs");
+	}
 }
 
 uint32_t LinearMemoryHelper::getGlobalVariableAddress(const GlobalVariable* G) const
 {
-	assert(gVarsAddr.count(G));
-	return gVarsAddr.find(G)->second;
+	assert(globalAddresses.count(G));
+	return globalAddresses.find(G)->second;
+}
+uint32_t LinearMemoryHelper::getFunctionAddress(const llvm::Function* F) const
+{
+	assert(functionAddresses.count(F));
+	return functionAddresses.find(F)->second;
+}
+bool LinearMemoryHelper::functionHasAddress(const llvm::Function* F) const
+{
+	return functionAddresses.count(F);
+}
+uint32_t LinearMemoryHelper::getFunctionAddressMask(const llvm::FunctionType* Fty) const
+{
+	auto t = functionTables.find(Fty);
+	assert (t != functionTables.end());
+	uint32_t mask = t->second.functions.size();
+	uint32_t next_power_of_2 = 1;
+	while(next_power_of_2 < mask)
+		next_power_of_2 <<= 1;
+	mask = next_power_of_2 - 1;
+	return mask;
+
 }
