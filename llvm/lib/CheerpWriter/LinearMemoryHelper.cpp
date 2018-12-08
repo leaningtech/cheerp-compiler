@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Module.h"
@@ -214,59 +215,57 @@ void LinearMemoryHelper::addGlobals()
 	}
 }
 
-static std::string getFunctionTableName(const FunctionType* ft)
-{
-	std::string table_name;
-	Type* ret = ft->getReturnType();
-	if (ret->isVoidTy())
-	{
-		table_name += 'v';
-	}
-	else if (ret->isIntegerTy() || ret->isPointerTy())
-	{
-		table_name += 'i';
-	}
-	else if (ret->isFloatingPointTy())
-	{
-		table_name += 'f';
-	}
-	for (const auto& param : ft->params())
-	{
-		if (param->isIntegerTy() || param->isPointerTy())
-		{
-			table_name += 'i';
-		}
-		else if (param->isFloatingPointTy())
-		{
-			table_name += 'f';
-		}
-	}
-	return table_name;
-}
 void LinearMemoryHelper::addFunctions()
 {
+	// Add the asm.js imports to the function type list. The non-imported
+	// asm.js functions will be added below.
+	if (!WastLoader.empty()) {
+		for (const Function* F : globalDeps.asmJSImports()) {
+			const FunctionType* fTy = F->getFunctionType();
+			const auto& found = functionTypeIndices.find(fTy);
+			if (found == functionTypeIndices.end()) {
+				uint32_t idx = functionTypeIndices.size();
+				functionTypeIndices[fTy] = idx;
+				functionTypes.push_back(fTy);
+				assert(idx < functionTypes.size());
+			}
+			functionIds.insert(std::make_pair(F, functionIds.size()));
+		}
+	}
+
 	// Build the function tables first
 	for (const auto& F: module.functions())
 	{
-		if (F.getSection() != StringRef("asmjs") || !F.hasAddressTaken())
+		if (F.getSection() != StringRef("asmjs"))
 			continue;
+
 		const FunctionType* fTy = F.getFunctionType();
-		auto it = functionTables.find(fTy);
-		if (it == functionTables.end())
-		{
-			it = functionTables.emplace(fTy,FunctionTableInfo()).first;
-			it->second.name = getFunctionTableName(fTy);
+		if (F.hasAddressTaken()) {
+			auto it = functionTables.find(fTy);
+			if (it == functionTables.end())
+			{
+				it = functionTables.emplace(fTy,FunctionTableInfo()).first;
+				it->second.name = getFunctionTableName(fTy);
+			}
+			it->second.functions.push_back(&F);
 		}
-		it->second.functions.push_back(&F);
+
+		functionIds.insert(std::make_pair(&F, functionIds.size()));
+
+		const auto& found = functionTypeIndices.find(fTy);
+		if (found == functionTypeIndices.end()) {
+			uint32_t idx = functionTypeIndices.size();
+			functionTypeIndices[fTy] = idx;
+			functionTypes.push_back(fTy);
+			assert(idx < functionTypes.size());
+		}
 	}
 	// Then assign addresses
 	uint32_t offset = 0;
 	for (const auto& FT: functionTables)
 	{
 		if (mode == FunctionAddressMode::AsmJS)
-		{
 			offset = (offset+1)<<16;
-		}
 		uint32_t addr = 0;
 		for (const auto F: FT.second.functions)
 		{
@@ -274,9 +273,24 @@ void LinearMemoryHelper::addFunctions()
 			addr++;
 		}
 		if (mode == FunctionAddressMode::Wasm)
-		{
 			offset += FT.second.functions.size();
+	}
+
+	// Finish the function tables.
+	offset = 0;
+	for (auto& t: functionTables)
+	{
+		t.second.offset = offset;
+		offset += t.second.functions.size();
+		
+		size_t typeIndex = 0;
+		for (auto& fTy : functionTypes) {
+			if (FunctionSignatureCmp()(t.first, fTy))
+				break;
+			typeIndex++;
 		}
+		t.second.typeIndex = typeIndex;
+		assert(typeIndex < functionTypes.size());
 	}
 }
 
