@@ -784,13 +784,10 @@ void CheerpWastWriter::compileConstant(const Constant* c)
 	else if(isa<Function>(c))
 	{
 		const Function* F = cast<Function>(c);
-		if (globalDeps.functionAddresses().count(F) &&
-			globalDeps.functionTables().count(F->getFunctionType()))
+		if (linearHelper.functionHasAddress(F))
 		{
-			int offset = globalDeps.functionAddresses().at(F);
-			const auto& functionTable = globalDeps.functionTables().at(F->getFunctionType());
-			int functionTableOffset = functionTableOffsets.at(functionTable.name);
-			stream << "i32.const " << functionTableOffset + offset;
+			uint32_t addr = linearHelper.getFunctionAddress(F);
+			stream << "i32.const " << addr;
 		}
 		else
 		{
@@ -1122,9 +1119,9 @@ bool CheerpWastWriter::compileInstruction(const Instruction& I)
 			}
 			else
 			{
-				if (globalDeps.functionTables().count(fTy))
+				if (linearHelper.getFunctionTables().count(fTy))
 				{
-					const auto& table = globalDeps.functionTables().at(fTy);
+					const auto& table = linearHelper.getFunctionTables().at(fTy);
 					compileOperand(calledValue);
 					stream << '\n';
 					stream << "call_indirect $vt_" << table.name;
@@ -1728,15 +1725,6 @@ void CheerpWastWriter::compileImport(const Function& F)
 
 void CheerpWastWriter::compileDataSection()
 {
-	GlobalVariable* heapStartVar = module.getNamedGlobal("_heapStart");
-	if (heapStartVar)
-	{
-		uint32_t heapStart = linearHelper.getTotalMemory();
-		ConstantInt* addr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapStart, false);
-		Constant* heapInit = ConstantExpr::getIntToPtr(addr, heapStartVar->getType()->getElementType(), false);
-		heapStartVar->setInitializer(heapInit);
-		heapStartVar->setSection("asmjs");
-	}
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 	{
 		if (GV.getSection() != StringRef("asmjs"))
@@ -1750,7 +1738,7 @@ void CheerpWastWriter::compileDataSection()
 				continue;
 			// The offset into memory, which is the address
 			stream << "(data (i32.const " << linearHelper.getGlobalVariableAddress(&GV) << ") \"";
-			WastBytesWriter bytesWriter(stream, functionTableOffsets);
+			WastBytesWriter bytesWriter(stream);
 			linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
 			stream << "\")\n";
 		}
@@ -1786,7 +1774,7 @@ void CheerpWastWriter::makeWast()
 	}
 
 	// Define function type variables
-	for (const auto& table : globalDeps.functionTables())
+	for (const auto& table : linearHelper.getFunctionTables())
 	{
 		stream << "(type " << "$vt_" << table.second.name << " (func ";
 		const llvm::Function& F = *table.second.functions[0];
@@ -1796,20 +1784,10 @@ void CheerpWastWriter::makeWast()
 	}
 
 	// Define 'table' with functions
-	if (!globalDeps.functionTables().empty())
+	if (!linearHelper.getFunctionTables().empty())
 		stream << "(table anyfunc (elem";
 
-	uint32_t functionTableOffset = 0;
-	for (const auto& table : globalDeps.functionTables()) {
-		for (const auto& F : table.second.functions) {
-			stream << " $" << F->getName();
-		}
-		functionTableOffsets.insert(std::make_pair(StringRef(table.second.name),
-												   functionTableOffset));
-		functionTableOffset += table.second.functions.size();
-	}
-
-	if (!globalDeps.functionTables().empty())
+	if (!linearHelper.getFunctionTables().empty())
 		stream << "))\n";
 
 	// Define the memory for the module in WasmPage units. The heap size is
@@ -1834,13 +1812,6 @@ void CheerpWastWriter::makeWast()
 	else if (!globalDeps.constructors().empty() && !useWastLoader)
 	{
 		stream << "(start " << functionIds.size() << ")\n";
-	}
-
-	for ( const GlobalVariable & GV : module.getGlobalList() )
-	{
-		if (GV.getSection() != StringRef("asmjs") && GV.getName() != "_heapStart")
-			continue;
-		linearHelper.addGlobalVariable(&GV);
 	}
 
 	// Second run, actually compile the code
@@ -1878,11 +1849,6 @@ void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 	char buf[4];
 	snprintf(buf, 4, "\\%02x", byte);
 	stream << buf;
-}
-
-uint32_t CheerpWastWriter::WastBytesWriter::getFunctionTableOffset(llvm::StringRef tableName)
-{
-	return functionTableOffsets.at(tableName);
 }
 
 void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
