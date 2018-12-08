@@ -14,6 +14,7 @@
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include <map>
 #include <unordered_map>
 
@@ -41,6 +42,8 @@ public:
 	struct FunctionTableInfo {
 		std::string name;
 		std::vector<const llvm::Function*> functions;
+		size_t offset;
+		size_t typeIndex;
 	};
 	/**
 	 * Custom hash and compare functions for the FunctionTableInfoMap
@@ -105,6 +108,37 @@ public:
 			return true;
 		}
 	};
+
+	static std::string getFunctionTableName(const llvm::FunctionType* ft)
+	{
+		std::string table_name;
+		llvm::Type* ret = ft->getReturnType();
+		if (ret->isVoidTy())
+		{
+			table_name += 'v';
+		}
+		else if (ret->isIntegerTy() || ret->isPointerTy())
+		{
+			table_name += 'i';
+		}
+		else if (ret->isFloatingPointTy())
+		{
+			table_name += 'f';
+		}
+		for (const auto& param : ft->params())
+		{
+			if (param->isIntegerTy() || param->isPointerTy())
+			{
+				table_name += 'i';
+			}
+			else if (param->isFloatingPointTy())
+			{
+				table_name += 'f';
+			}
+		}
+		return table_name;
+	}
+
 	/**
 	 * Used to store the information needed to compile and use the asm.js
 	 * function tables for indirect calls
@@ -120,8 +154,11 @@ public:
 	 */
 	typedef std::unordered_map<const llvm::GlobalVariable*, int32_t> GlobalAddressesMap;
 
-	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode):
-		module(module), mode(mode)
+	typedef std::unordered_map<const llvm::FunctionType*, size_t,
+		FunctionSignatureHash,FunctionSignatureCmp> FunctionTypeIndicesMap;
+
+	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA):
+		module(module), mode(mode), globalDeps(GDA)
 	{
 		addFunctions();
 		addGlobals();
@@ -135,6 +172,22 @@ public:
 	const FunctionTableInfoMap& getFunctionTables() const
 	{
 		return functionTables;
+	}
+
+	const FunctionTypeIndicesMap& getFunctionTypeIndices() const {
+		return functionTypeIndices;
+	}
+
+	const std::unordered_map<const llvm::Function*, uint32_t>& getFunctionIds() const {
+		return functionIds;
+	}
+
+	/**
+	 * Vector of distinct function types that corresponds to the function list,
+	 * and are ordered by the appearence in that list.
+	 */
+	const std::vector<const llvm::FunctionType*> getFunctionTypes() const {
+		return functionTypes;
 	}
 
 	struct ByteListener
@@ -162,8 +215,14 @@ private:
 
 	llvm::Module& module;
 	FunctionAddressMode mode;
+	GlobalDepsAnalyzer& globalDeps;
 
 	FunctionTableInfoMap functionTables;
+
+	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
+	std::vector<const llvm::FunctionType*> functionTypes;
+	FunctionTypeIndicesMap functionTypeIndices;
+
 	FunctionAddressesMap functionAddresses;
 	GlobalAddressesMap globalAddresses;
 	// The next address available to allocate global variables.

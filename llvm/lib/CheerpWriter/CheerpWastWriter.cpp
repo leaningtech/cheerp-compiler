@@ -116,7 +116,7 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, std::o
 	}
 }
 
-static void encodeValType(Type* t, std::ostream& stream)
+static void encodeValType(const Type* t, std::ostream& stream)
 {
 	if (t->isIntegerTy() || t->isPointerTy())
 		encodeULEB128(0x7f, stream);
@@ -126,7 +126,8 @@ static void encodeValType(Type* t, std::ostream& stream)
 		encodeULEB128(0x7c, stream);
 	else
 	{
-		llvm::errs() << "Unsupported type " << *t << "\n";
+		llvm::errs() << "Unsupported type ";
+		t->dump();
 		llvm_unreachable("Unsuppored type");
 	}
 }
@@ -747,7 +748,7 @@ void CheerpWastWriter::compilePHIOfBlockFromOtherBlock(std::ostream& code, const
 	WriterPHIHandler(*this, code, from, to).runOnEdge(registerize, from, to);
 }
 
-const char* CheerpWastWriter::getTypeString(Type* t)
+const char* CheerpWastWriter::getTypeString(const Type* t)
 {
 	if(t->isIntegerTy() || t->isPointerTy())
 		return "i32";
@@ -757,22 +758,8 @@ const char* CheerpWastWriter::getTypeString(Type* t)
 		return "f64";
 	else
 	{
-		llvm::errs() << "Unsupported type " << *t << "\n";
-		llvm_unreachable("Unsuppored type");
-	}
-}
-
-char CheerpWastWriter::getValType(Type* t)
-{
-	if(t->isIntegerTy() || t->isPointerTy())
-		return 0x7f;
-	else if(t->isFloatTy())
-		return 0x7d;
-	else if(t->isDoubleTy())
-		return 0x7c;
-	else
-	{
-		llvm::errs() << "Unsupported type " << *t << "\n";
+		llvm::errs() << "Unsupported type ";
+		t->dump();
 		llvm_unreachable("Unsuppored type");
 	}
 }
@@ -1282,9 +1269,9 @@ bool CheerpWastWriter::compileInstruction(std::ostream& code, const Instruction&
 
 			if (calledFunc)
 			{
-				if (functionIds.count(calledFunc))
+				if (linearHelper.getFunctionIds().count(calledFunc))
 				{
-					code << "call " << functionIds[calledFunc];
+					code << "call " << linearHelper.getFunctionIds().at(calledFunc);
 				}
 				else
 				{
@@ -1872,46 +1859,44 @@ void CheerpWastWriter::compileMethodLocals(std::ostream& code, const Function& F
 	}
 }
 
-void CheerpWastWriter::compileMethodParams(std::ostream& code, const Function& F)
+void CheerpWastWriter::compileMethodParams(std::ostream& code, const FunctionType* fTy)
 {
-	uint32_t numArgs = F.arg_size();
+	uint32_t numArgs = fTy->getNumParams();
 	if (cheerpMode == CHEERP_MODE_WASM)
 	{
 		encodeULEB128(numArgs, code);
 
-		llvm::FunctionType* FTy = F.getFunctionType();
 		for(uint32_t i = 0; i < numArgs; i++)
-			encodeValType(FTy->getParamType(i), code);
+			encodeValType(fTy->getParamType(i), code);
 	}
 	else if(numArgs)
 	{
 		assert(cheerpMode == CHEERP_MODE_WAST);
 		code << "(param";
-		llvm::FunctionType* FTy = F.getFunctionType();
 		for(uint32_t i = 0; i < numArgs; i++)
-			code << ' ' << getTypeString(FTy->getParamType(i));
+			code << ' ' << getTypeString(fTy->getParamType(i));
 		code << ')';
 	}
 }
 
-void CheerpWastWriter::compileMethodResult(std::ostream& code, const Function& F)
+void CheerpWastWriter::compileMethodResult(std::ostream& code, const Type* ty)
 {
 	if (cheerpMode == CHEERP_MODE_WASM)
 	{
-		if (F.getReturnType()->isVoidTy())
+		if (ty->isVoidTy())
 		{
 			encodeULEB128(0, code);
 		}
 		else
 		{
 			encodeULEB128(1, code);
-			encodeValType(F.getReturnType(), code);
+			encodeValType(ty, code);
 		}
 	}
-	else if(!F.getReturnType()->isVoidTy())
+	else if(!ty->isVoidTy())
 	{
 		assert(cheerpMode == CHEERP_MODE_WAST);
-		code << "(result " << getTypeString(F.getReturnType()) << ')';
+		code << "(result " << getTypeString(ty) << ')';
 	}
 }
 
@@ -1927,8 +1912,8 @@ void CheerpWastWriter::compileMethod(std::ostream& code, const Function& F)
 		code << " (export \"" << NameGenerator::filterLLVMName(F.getName(),
 					NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str() << "\")";
 
-		compileMethodParams(code, F);
-		compileMethodResult(code, F);
+		compileMethodParams(code, F.getFunctionType());
+		compileMethodResult(code, F.getReturnType());
 
 		code << '\n';
 	}
@@ -2034,29 +2019,9 @@ void CheerpWastWriter::compileImport(std::ostream& code, const Function& F)
 	code << ")\n";
 }
 
-void CheerpWastWriter::compileCallToGlobalConstructors(std::ostream& code)
-{
-	// Construct an anonymous function that calls the global constructors.
-	if (!globalDeps.constructors().empty() && !useWastLoader)
-	{
-		code << "(func\n";
-		for (const Function* F : globalDeps.constructors())
-		{
-			if (F->getSection() == StringRef("asmjs"))
-				code << "call " << functionIds.at(F) << "\n";
-		}
-
-		llvm::Function* wastStart = module.getFunction("_Z9wastStartv");
-		if (wastStart)
-			code << "call " << functionIds.at(wastStart) << "\n";
-
-		code << ")\n";
-	}
-}
-
 void CheerpWastWriter::compileTypeSection()
 {
-	if (linearHelper.getFunctionTables().empty())
+	if (linearHelper.getFunctionTypes().empty())
 		return;
 
 	Section section(0x01, "Type", this);
@@ -2064,25 +2029,23 @@ void CheerpWastWriter::compileTypeSection()
 	if (cheerpMode == CHEERP_MODE_WASM)
 	{
 		// Encode number of entries in the type section.
-		encodeULEB128(linearHelper.getFunctionTables().size(), section);
+		encodeULEB128(linearHelper.getFunctionTypes().size(), section);
 
 		// Define function type variables
-		for (const auto& table : linearHelper.getFunctionTables())
+		for (const auto& fTy : linearHelper.getFunctionTypes())
 		{
 			encodeULEB128(0x60, section);
-			const llvm::Function& F = *table.second.functions[0];
-			compileMethodParams(section, F);
-			compileMethodResult(section, F);
+			compileMethodParams(section, fTy);
+			compileMethodResult(section, fTy->getReturnType());
 		}
 	} else {
 		// Define function type variables
-		for (const auto& table : linearHelper.getFunctionTables())
+		for (const auto& fTy : linearHelper.getFunctionTypes())
 		{
-			section << "(type " << "$vt_" << table.second.name << " (func ";
+			section << "(type " << "$vt_" << linearHelper.getFunctionTableName(fTy) << " (func ";
 
-			const llvm::Function& F = *table.second.functions[0];
-			compileMethodParams(section, F);
-			compileMethodResult(section, F);
+			compileMethodParams(section, fTy);
+			compileMethodResult(section, fTy->getReturnType());
 			section << "))\n";
 		}
 	}
@@ -2107,13 +2070,13 @@ void CheerpWastWriter::compileImportSection()
 
 void CheerpWastWriter::compileFunctionSection()
 {
-	if (globalDeps.functionTables().empty() || cheerpMode != CHEERP_MODE_WASM)
+	if (linearHelper.getFunctionTypes().empty() || cheerpMode != CHEERP_MODE_WASM)
 		return;
 
 	Section section(0x03, "Function", this);
 
 	uint32_t count = 0;
-	for (const Function& F : module.getFunctionList())
+	for (const Function& F : module.functions())
 	{
 		if (!F.empty() && F.getSection() == StringRef("asmjs"))
 			count++;
@@ -2124,16 +2087,18 @@ void CheerpWastWriter::compileFunctionSection()
 	encodeULEB128(count, section);
 
 	// Define function type ids
-	size_t j = 0;
-	uint32_t i = 0;
-	for (const auto& table : globalDeps.functionTables()) {
-		for (size_t f = 0; f < table.second.functions.size(); f++) {
-			encodeULEB128(i, section);
-			if (++j == COMPILE_METHOD_LIMIT)
-				break; // TODO
-		}
-		i++;
-		if (j == COMPILE_METHOD_LIMIT)
+	size_t i = 0;
+	for (const Function& F : module.getFunctionList()) {
+		if (F.getSection() != StringRef("asmjs"))
+			continue;
+
+		const FunctionType* fTy = F.getFunctionType();
+		const auto& found = linearHelper.getFunctionTypeIndices().find(fTy);
+		assert(found != linearHelper.getFunctionTypeIndices().end());
+		assert(found->second < linearHelper.getFunctionTypes().size());
+		encodeULEB128(found->second, section);
+
+		if (++i >= COMPILE_METHOD_LIMIT)
 			break; // TODO
 	}
 }
@@ -2144,10 +2109,9 @@ void CheerpWastWriter::compileTableSection()
 	if (linearHelper.getFunctionTables().empty())
 		return;
 
-	uint32_t functionTableOffset = 0;
-	for (const auto& table : linearHelper.getFunctionTables()) {
-		functionTableOffset += table.second.functions.size();
-	}
+	uint32_t count = 0;
+	for (const auto& table : linearHelper.getFunctionTables())
+		count += table.second.functions.size();
 
 	Section section(0x04, "Table", this);
 
@@ -2161,7 +2125,7 @@ void CheerpWastWriter::compileTableSection()
 		// Encode function tables in the table section.
 		// Use a 'limit' (= 0x00) with only a maximum value.
 		encodeULEB128(0x00, section);
-		encodeULEB128(functionTableOffset, section);
+		encodeULEB128(count, section);
 	} else {
 		assert(cheerpMode == CHEERP_MODE_WAST);
 		section << "(table anyfunc (elem";
@@ -2227,18 +2191,19 @@ void CheerpWastWriter::compileMemoryAndGlobalSection()
 
 void CheerpWastWriter::compileStartSection()
 {
+	// Experimental entry point for wasm code
+	llvm::Function* entry = module.getFunction("_start");
+	if(!entry)
+		return;
+
 	Section section(0x08, "Start", this);
 
-	// Experimental entry point for wast code
-	llvm::Function* wastStart = module.getFunction("_Z9wastStartv");
-	if(wastStart && globalDeps.constructors().empty())
-	{
-		assert(functionIds.count(wastStart));
-		section << "(start " << functionIds[wastStart] << ")\n";
-	}
-	else if (!globalDeps.constructors().empty() && !useWastLoader)
-	{
-		section << "(start " << functionIds.size() << ")\n";
+	uint32_t functionId = linearHelper.getFunctionIds().at(entry);
+
+	if (cheerpMode == CHEERP_MODE_WASM) {
+		encodeULEB128(functionId, section);
+	} else {
+		section << "(start " << functionId << ")\n";
 	}
 }
 
@@ -2246,39 +2211,102 @@ void CheerpWastWriter::compileCodeSection()
 {
 	Section section(0x0a, "Code", this);
 
-	for ( const Function & F : module.getFunctionList() )
-	{
-		if (!F.empty() && F.getSection() == StringRef("asmjs"))
+	if (cheerpMode == CHEERP_MODE_WASM) {
+		// Encode the number of methods in the code section.
+		uint32_t count = 0;
+		for (const auto& F: module.functions())
 		{
-			compileMethod(section, F);
+			if (F.getSection() != StringRef("asmjs"))
+				continue;
+			count++;
 		}
+		count = std::min(count, COMPILE_METHOD_LIMIT);
+		encodeULEB128(count, section);
+#if WASM_DUMP_METHODS
+		llvm::errs() << "method count: " << count << '\n';
+#endif
 	}
 
-	compileCallToGlobalConstructors(section);
+	size_t i = 0;
+
+	for (const auto& F: module.functions())
+	{
+		if (F.getSection() != StringRef("asmjs"))
+			continue;
+		if (cheerpMode == CHEERP_MODE_WASM) {
+			std::stringstream method;
+#if WASM_DUMP_METHODS
+			llvm::errs() << i << " method name: " << F.getName() << '\n';
+#endif
+			compileMethod(method, F);
+			std::string buf = method.str();
+#if WASM_DUMP_METHODS
+			llvm::errs() << "method length: " << buf.size() << '\n';
+			llvm::errs() << "method: " << string_to_hex(buf) << '\n';
+#endif
+			encodeULEB128(buf.size(), section);
+			section << buf;
+		} else {
+			compileMethod(section, F);
+		}
+		if (++i == COMPILE_METHOD_LIMIT)
+			break; // TODO
+	}
 }
 
 void CheerpWastWriter::compileDataSection()
 {
 	Section section(0x0b, "Data", this);
 
-	for ( const GlobalVariable & GV : module.getGlobalList() )
+	std::stringstream data;
+	uint32_t count = 0;
+
+	for (const GlobalVariable& GV : module.getGlobalList())
 	{
-		if (GV.getSection() != StringRef("asmjs"))
+		if (GV.getSection() != StringRef("asmjs") || !GV.hasInitializer())
 			continue;
-		if (GV.hasInitializer())
-		{
-			const Constant* init = GV.getInitializer();
-			Type* ty = init->getType();
-			// If the initializer is a function, skip it
-			if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
-				continue;
+
+		const Constant* init = GV.getInitializer();
+		Type* ty = init->getType();
+		// If the initializer is a function, skip it
+		if (ty->isPointerTy() && ty->getPointerElementType()->isFunctionTy())
+			continue;
+
+		count++;
+
+		uint32_t address = linearHelper.getGlobalVariableAddress(&GV);
+		if (cheerpMode == CHEERP_MODE_WASM) {
+			// In the current version of WebAssembly, at most one memory is
+			// allowed in a module. Consequently, the only valid memidx is 0.
+			encodeULEB128(0, data);
 			// The offset into memory, which is the address
-			section << "(data (i32.const " << linearHelper.getGlobalVariableAddress(&GV) << ") \"";
-			WastBytesWriter bytesWriter(section);
-			linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
-			section << "\")\n";
+			encodeLiteralType(Type::getInt32Ty(Ctx), data);
+			encodeSLEB128(address, data);
+			// Encode the end of the instruction sequence.
+			encodeULEB128(0x0b, data);
+		} else {
+			data << "(data (i32.const " << address << ") \"";
+		}
+
+		std::stringstream bytes;
+		WastBytesWriter bytesWriter(bytes, *this);
+		linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
+
+		if (cheerpMode == CHEERP_MODE_WASM) {
+			// Prefix the number of bytes to the bytes vector.
+			std::string buf = bytes.str();
+			encodeULEB128(buf.size(), data);
+			data.write(buf.data(), buf.size());
+		} else {
+			data << bytes.str() << "\")\n";
 		}
 	}
+
+	if (cheerpMode == CHEERP_MODE_WASM)
+		encodeULEB128(count, section);
+
+	std::string buf = data.str();
+	section.write(buf.data(), buf.size());
 }
 
 void CheerpWastWriter::compileModule()
@@ -2303,28 +2331,17 @@ void CheerpWastWriter::compileModule()
 
 	compileImportSection();
 
-	// TODO compileFunctionSection();
+	compileFunctionSection();
 
 	compileTableSection();
 
 	compileMemoryAndGlobalSection();
-
-	if (cheerpMode == CHEERP_MODE_WASM)
-		return;
 
 	// TODO compileExportSection();
 
 	compileStartSection();
 
 	// TODO compileElementSection();
-
-	// TODO move this for-loop to makeWast()?
-	for ( const GlobalVariable & GV : module.getGlobalList() )
-	{
-		if (GV.getSection() != StringRef("asmjs"))
-			continue;
-		linearHelper.addGlobalVariable(&GV);
-	}
 
 	compileCodeSection();
 
@@ -2342,29 +2359,18 @@ void CheerpWastWriter::makeWast()
 	else
 		cheerpMode = CHEERP_MODE_WAST;
 
-	if (useWastLoader) {
-		for ( const Function * F : globalDeps.asmJSImports() )
-		{
-			functionIds.insert(std::make_pair(F, functionIds.size()));
-		}
-	}
-
-	for ( const Function & F : module.getFunctionList() )
-	{
-		if (!F.empty() && F.getSection() == StringRef("asmjs"))
-		{
-			functionIds.insert(std::make_pair(&F, functionIds.size()));
-		}
-	}
-
 	compileModule();
 }
 
 void CheerpWastWriter::WastBytesWriter::addByte(uint8_t byte)
 {
-	char buf[4];
-	snprintf(buf, 4, "\\%02x", byte);
-	code << buf;
+	if (writer.cheerpMode == CHEERP_MODE_WASM) {
+		code.write(reinterpret_cast<char*>(&byte), 1);
+	} else {
+		char buf[4];
+		snprintf(buf, 4, "\\%02x", byte);
+		code << buf;
+	}
 }
 
 void CheerpWastWriter::WastGepWriter::addValue(const llvm::Value* v, uint32_t size)
