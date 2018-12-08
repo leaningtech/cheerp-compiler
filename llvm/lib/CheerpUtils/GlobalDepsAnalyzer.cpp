@@ -14,6 +14,7 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/ValueSymbolTable.h"
@@ -188,28 +189,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	NumRemovedGlobals = filterModule(module);
 
-	// If a function is used in indirect calls in asm.js code, put it in the
-	// FunctionTableInfoMap and assign an address to it
-	for (const Function& F : module.getFunctionList()) {
-		bool asmjs = F.getSection() == StringRef("asmjs");
-		if (asmjs && F.hasAddressTaken())
-		{
-			const FunctionType* fTy = F.getFunctionType();
-			FunctionTableInfo& info = functionTableInfoMap[fTy];
-			functionAddressesMap[&F] = info.functions.size();
-			info.functions.push_back(&F);
-		}
-	}
-	// Complete the FunctionTableInfo
-	for (auto& t: functionTableInfoMap)
-	{
-		t.second.name = getFunctionTableName(t.first);
-		t.second.mask = t.second.functions.size();
-		uint32_t next_power_of_2 = 1;
-		while(next_power_of_2 < t.second.mask)
-				next_power_of_2 <<= 1;
-		t.second.mask = next_power_of_2 - 1;
-	}
 	return true;
 }
 
@@ -503,35 +482,6 @@ int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 	return eraseQueue.size();
 }
 
-std::string GlobalDepsAnalyzer::getFunctionTableName(const FunctionType* ft)
-{
-	std::string table_name;
-	Type* ret = ft->getReturnType();
-	if (ret->isVoidTy())
-	{
-		table_name += 'v';
-	}
-	else if (ret->isIntegerTy() || ret->isPointerTy())
-	{
-		table_name += 'i';
-	}
-	else if (ret->isFloatingPointTy())
-	{
-		table_name += 'f';
-	}
-	for (const auto& param : ft->params())
-	{
-		if (param->isIntegerTy() || param->isPointerTy())
-		{
-			table_name += 'i';
-		}
-		else if (param->isFloatingPointTy())
-		{
-			table_name += 'f';
-		}
-	}
-	return table_name;
-}
 }
 
 using namespace cheerp;

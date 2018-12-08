@@ -56,6 +56,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
+  cheerp::LinearMemoryHelper linearHelper(M, cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS);
   std::unique_ptr<cheerp::SourceMapGenerator> sourceMapGenerator;
   GDA.forceTypedArrays = ForceTypedArrays;
   if (!SourceMap.empty())
@@ -75,9 +76,6 @@ bool CheerpWritePass::runOnModule(Module& M)
   // Build the ordered list of reserved names
   std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
   std::sort(reservedNames.begin(), reservedNames.end());
-
-  DataLayout targetData(&M);
-  cheerp::LinearMemoryHelper linearHelper(targetData, GDA);
 
   std::error_code ErrorCode;
   llvm::tool_output_file memFile(AsmJSMemFile, ErrorCode, sys::fs::F_None);
