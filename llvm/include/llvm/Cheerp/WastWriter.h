@@ -54,11 +54,8 @@ private:
 	llvm::LLVMContext& Ctx;
 
 	GlobalDepsAnalyzer & globalDeps;
+	const LinearMemoryHelper& linearHelper;
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
-	std::map<llvm::StringRef, uint32_t> functionTableOffsets;
-
-	// Helper class to manage linear memory state
-	LinearMemoryHelper& linearHelper;
 
 	// Codegen custom globals
 	uint32_t usedGlobals;
@@ -88,14 +85,11 @@ private:
 	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
 	{
 		llvm::formatted_raw_ostream& stream;
-		std::map<llvm::StringRef, uint32_t>& functionTableOffsets;
-		WastBytesWriter(llvm::formatted_raw_ostream& stream,
-						std::map<llvm::StringRef, uint32_t>& functionTableOffsets)
-			: stream(stream), functionTableOffsets(functionTableOffsets)
+		WastBytesWriter(llvm::formatted_raw_ostream& stream)
+			: stream(stream)
 		{
 		}
 		void addByte(uint8_t b) override;
-		uint32_t getFunctionTableOffset(llvm::StringRef tableName) override;
 	};
 
 	struct WastGepWriter: public LinearMemoryHelper::GepListener
@@ -113,7 +107,7 @@ public:
 	CheerpWastWriter(llvm::Module& m, llvm::formatted_raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
-			cheerp::LinearMemoryHelper & linearHelper,
+			const LinearMemoryHelper& linearHelper,
 			llvm::LLVMContext& C,
 			unsigned heapSize,
 			bool useWastLoader):

@@ -35,9 +35,6 @@ struct Relooper;
 namespace cheerp
 {
 
-//TODO: make this a command line parameter
-constexpr int32_t functionAddrStart = 0x1000000;
-
 class NewLineHandler
 {
 };
@@ -163,14 +160,12 @@ private:
 	Registerize & registerize;
 
 	GlobalDepsAnalyzer & globalDeps;
+	const LinearMemoryHelper& linearHelper;
 	const NameGenerator namegen;
 	TypeSupport types;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
 	const std::array<const char*,5> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array"}};
 	const std::array<const char*,5> heapNames = {{"HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64"}};
-
-	// Helper class to manage linear memory state
-	LinearMemoryHelper& linearHelper;
 
 	// Stream to put the initialized asmjs memory into.
 	llvm::raw_ostream* asmJSMem;
@@ -459,7 +454,6 @@ private:
 		{
 		}
 		void addByte(uint8_t b) override;
-		uint32_t getFunctionTableOffset(llvm::StringRef tableName) override;
 	};
 	struct BinaryBytesWriter: public LinearMemoryHelper::ByteListener
 	{
@@ -468,7 +462,6 @@ private:
 		{
 		}
 		void addByte(uint8_t b) override {stream <<(char)b;};
-		uint32_t getFunctionTableOffset(llvm::StringRef funcName) override {return 0;};
 	};
 
 	struct AsmJSGepWriter: public LinearMemoryHelper::GepListener
@@ -485,7 +478,7 @@ public:
 	CheerpWriter(llvm::Module& m, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
-			cheerp::LinearMemoryHelper & linearHelper,
+			const cheerp::LinearMemoryHelper & linearHelper,
 			llvm::raw_ostream* asmJSMem,
 			const std::string& asmJSMemFile,
 			SourceMapGenerator* sourceMapGenerator,
@@ -510,9 +503,9 @@ public:
 		PA(PA),
 		registerize(registerize),
 		globalDeps(gda),
+		linearHelper(linearHelper),
 		namegen(m, globalDeps, registerize, PA, reservedNames, readableOutput),
 		types(m),
-		linearHelper(linearHelper),
 		asmJSMem(asmJSMem),
 		asmJSMemFile(asmJSMemFile),
 		sourceMapGenerator(sourceMapGenerator),
