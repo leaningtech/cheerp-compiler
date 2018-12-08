@@ -16,7 +16,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Cheerp/Utility.h"
-#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include <string>
 #include <unordered_map>

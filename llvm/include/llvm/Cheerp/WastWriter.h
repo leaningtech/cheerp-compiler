@@ -59,7 +59,6 @@ private:
 
 	GlobalDepsAnalyzer & globalDeps;
 	const LinearMemoryHelper& linearHelper;
-	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
 
 	// Codegen custom globals
 	uint32_t usedGlobals;
@@ -87,25 +86,24 @@ private:
 	void compileCodeSection();
 	void compileDataSection();
 
-	static const char* getTypeString(llvm::Type* t);
-	static char getValType(llvm::Type* t);
+	static const char* getTypeString(const llvm::Type* t);
 	void compileMethodLocals(std::ostream& code, const llvm::Function& F, bool needsLabel);
-	void compileMethodParams(std::ostream& code, const llvm::Function& F);
-	void compileMethodResult(std::ostream& code, const llvm::Function& F);
+	void compileMethodParams(std::ostream& code, const llvm::FunctionType* F);
+	void compileMethodResult(std::ostream& code, const llvm::Type* F);
 	void compileMethod(std::ostream& code, const llvm::Function& F);
 	void compileImport(std::ostream& code, const llvm::Function& F);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	// Returns true if it has handled local assignent internally
 	bool compileInstruction(std::ostream& code, const llvm::Instruction& I);
 	void compileGEP(std::ostream& code, const llvm::User* gepInst);
-	void compileCallToGlobalConstructors(std::ostream& code);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	struct WastBytesWriter: public LinearMemoryHelper::ByteListener
 	{
 		std::ostream& code;
-		WastBytesWriter(std::ostream& code)
-			: code(code)
+		const CheerpWastWriter& writer;
+		WastBytesWriter(std::ostream& code, const CheerpWastWriter& writer)
+			: code(code), writer(writer)
 		{
 		}
 		void addByte(uint8_t b) override;
