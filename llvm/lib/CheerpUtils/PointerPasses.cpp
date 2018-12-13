@@ -976,7 +976,7 @@ Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEP
 			llvm::Instruction* insertPointCandidate = commonDominator->getTerminator();
 			// Make sure that insertPointCandidate is in a valid block for this GEP
 			bool valid = false;
-			const BlockSet& validSet = validGEPMap.at(GEPRange(cast<GetElementPtrInst>(curGEP),endIndex+1));
+			const BlockSet& validSet = validGEPMap.at(GEPRange::createGEPRange(cast<const GetElementPtrInst>(curGEP),endIndex+1));
 			if(!validSet.count(commonDominator))
 			{
 				for (auto BB: validSet)
@@ -1103,12 +1103,12 @@ bool GEPOptimizer::runOnFunction(Function& F)
 			if(I.getNumOperands() < 3)
 				continue;
 			gepsFromBasePointer.insert(&I);
-			GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
+			const GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
 			BlockSet* CurBlocks = &AllBlocks;
 			// NOTE: `i` is a size, so the end condition needs <=
 			for (size_t i = 2; i <= GEP->getNumOperands(); ++i)
 			{
-				GEPRange Range(GEP, i);
+				GEPRange Range = GEPRange::createGEPRange(GEP, i);
 				auto it = validGEPMap.find(Range);
 				if(it == validGEPMap.end())
 				{
