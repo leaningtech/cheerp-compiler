@@ -191,12 +191,24 @@ public:
 	/// This struct represents a subset of a GEP, from operand 0 to operand
 	/// `size - 1`
 	struct GEPRange {
-		GetElementPtrInst* GEP;
-		size_t size;
-		GEPRange(GetElementPtrInst* GEP, size_t size): GEP(GEP), size(size)
+		const GetElementPtrInst* GEP;
+		const size_t size;
+	private:
+		GEPRange(const GetElementPtrInst* GEP, const size_t size_): GEP(GEP), size(size_)
 		{}
-		GEPRange(GetElementPtrInst* GEP): GEP(GEP), size(GEP->getNumOperands())
-		{}
+	public:
+		static GEPRange createGEPRange(const GetElementPtrInst* GEP, size_t size)
+		{
+			while (size > 2 && isa<llvm::ConstantInt>(GEP->getOperand(size-1)))
+			{
+				--size;
+			}
+			return GEPRange(GEP, size);
+		}
+		static GEPRange createGEPRange(const GetElementPtrInst* GEP)
+		{
+			return createGEPRange(GEP, GEP->getNumOperands());
+		}
 		bool operator==(const GEPRange& Other) const
 		{
 			if (size != Other.size)
@@ -216,7 +228,7 @@ public:
 				return false;
 			return *this == GEPRange(Other.GEP, size);
 		}
-		void dump()
+		void dump() const
 		{
 			llvm::errs()<<"GEPRange [ ";
 			GEP->getOperand(0)->printAsOperand(llvm::errs(), false);
@@ -229,7 +241,7 @@ public:
 		}
 	};
 	/// This class represents a modified CFG of the function, in which all blocks
-	/// where a GEP whoose Range is a subset is used have a special virtual node
+	/// where a GEP whose Range is a subset is used have a special virtual node
 	/// as the only successor.
 	/// In combination with a PostDominatorTree, this is used to find all the blocks
 	/// in which it is valid to materialize the GEP represented by Range
@@ -267,9 +279,9 @@ public:
 			{
 				for (auto& I: *BB)
 				{
-					if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(&I))
+					if (const GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(&I))
 					{
-						if (G.Range.subsetOf(GEP))
+						if (G.Range.subsetOf(GEPRange::createGEPRange(GEP)))
 						{
 							return true;
 						}
