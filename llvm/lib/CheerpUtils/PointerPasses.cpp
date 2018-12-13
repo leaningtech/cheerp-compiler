@@ -850,7 +850,7 @@ void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createDelayInstsPass() { return new DelayInsts(); }
 
-Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(OrderedGEPs::iterator it, uint32_t index) const
+Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index) const
 {
 	if (index + 1 == (*it)->getNumOperands())
 		return NULL;
@@ -1076,16 +1076,16 @@ void GEPOptimizer::ValidGEPGraph::getValidBlocks(BlockSet& ValidBlocks)
 	}
 }
 
-bool GEPOptimizer::runOnFunction(Function& F)
+GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT) :
+		order(),
+		orderedGeps(OrderByOperands(&order)),
+		skippedGeps(OrderByOperands(&order)),
+		DT(DT)
 {
-	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-
-	OrderedGEPs gepsFromBasePointer;
-
-	// This map contains the very first GEP that reference a given base
-	// It is not safe to build new GEPs for the base that are not dominated by this GEP
-	// TODO: If, for a given base, there is a GEP in every successor block, moving the GEP to the parent block would be safe
-	ValidGEPMap validGEPMap;
+	//order will be used to compare two Instruction. Inserting NULL here means
+	//shorter subset will appear first (like in a dictionary, CAT < CATS)
+	//This is required by GEPRecursionData::optimizeGEPsRecursive
+	order.insert({NULL, 0});
 
 	// Gather all the GEPs
 	BlockSet AllBlocks;
@@ -1102,10 +1102,16 @@ bool GEPOptimizer::runOnFunction(Function& F)
 			// Only consider GEPs with at least  two indexes
 			if(I.getNumOperands() < 3)
 				continue;
-			gepsFromBasePointer.insert(&I);
 			const GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
-			BlockSet* CurBlocks = &AllBlocks;
 			// NOTE: `i` is a size, so the end condition needs <=
+			for (size_t i = 0; i < GEP->getNumOperands(); ++i)
+			{
+				order.insert({GEP->getOperand(i), order.size()});
+			}
+
+			orderedGeps.insert(&I);
+			BlockSet* CurBlocks = &AllBlocks;
+
 			for (size_t i = 2; i <= GEP->getNumOperands(); ++i)
 			{
 				GEPRange Range = GEPRange::createGEPRange(GEP, i);
@@ -1121,7 +1127,14 @@ bool GEPOptimizer::runOnFunction(Function& F)
 			}
 		}
 	}
-	GEPRecursionData data(gepsFromBasePointer, validGEPMap, DT);
+}
+
+
+bool GEPOptimizer::runOnFunction(Function& F)
+{
+	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
+	GEPRecursionData data(F, DT);
 
 	data.startRecursion();
 	data.applyOptGEP();
