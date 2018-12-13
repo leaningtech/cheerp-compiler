@@ -494,11 +494,19 @@ private:
 			return seed;
 		}
 	};
+	typedef std::map<Value*, size_t> OrderOfAppearence;
 	struct OrderByOperands
 	{
+		//We build at the same time the multiset of GEPs and the map(Value* -> index)
+		//and we pass this structure to the multiset to determine the order it should have
+		//The order is passed by pointer since we want to be able to call multiset::swap
+		OrderByOperands(const OrderOfAppearence* ord) : orderOfAppearence(ord)
+		{
+		}
 		bool operator()(llvm::Instruction* r, llvm::Instruction* l) const
 		{
-			// We are interested in ordering values like symbols, so using pointers is ok
+			//We are ordering Values by order of appearence (somehow arbitrary, but fixed for a given function)
+			//so it could be that constant value 3 is smaller than constant value 0
 			for(uint32_t i=0;;i++)
 			{
 				llvm::Value* rVal = NULL;
@@ -507,17 +515,22 @@ private:
 					rVal = r->getOperand(i);
 				if(i < l->getNumOperands())
 					lVal = l->getOperand(i);
-				if(rVal == NULL && lVal == NULL)
+				if (lVal == NULL)
 				{
-					// Both are ended without any difference
+					//Either they are both ended, so they are equal -> the first is not smaller
+					//Or the second is done, so it is the "smaller"
 					return false;
 				}
-				if(rVal < lVal)
-					return true;
-				if(rVal > lVal)
-					return false;
+				if (rVal == lVal)
+				{
+					//They are not ended (otherwise the case before would have been triggered),
+					//thus go to the next pair of values
+					continue;
+				}
+				return orderOfAppearence->at(rVal) < orderOfAppearence->at(lVal);
 			}
 		}
+		const OrderOfAppearence* orderOfAppearence;
 	};
 	typedef std::multiset<Instruction*, OrderByOperands> OrderedGEPs;
 	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher> ValidGEPMap;
@@ -525,27 +538,30 @@ private:
 	class GEPRecursionData
 	{
 	public:
-		GEPRecursionData(const OrderedGEPs& gepsFromBasePointer, const ValidGEPMap& validGEPMap, DominatorTree* DT)
-			: orderedGeps(gepsFromBasePointer), validGEPMap(validGEPMap), DT(DT)
-			{}
 		void startRecursion();
 		void applyOptGEP();
 		bool anyChange() const
 		{
 			return !erasedInst.empty();
 		}
+		GEPRecursionData(Function &F, DominatorTree* DT);
 	private:
-		Value* getValueNthOperator(OrderedGEPs::iterator it, uint32_t index) const;
-		void optimizeGEPsRecursive(OrderedGEPs::iterator begin, OrderedGEPs::iterator end,
-			llvm::Value* base, uint32_t startIndex);
-		Instruction* findInsertionPoint(OrderedGEPs::iterator begin, OrderedGEPs::iterator end, uint32_t endIndex);
+		Value* getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index) const;
+		void optimizeGEPsRecursive(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
+			llvm::Value* base, const uint32_t startIndex);
+		Instruction* findInsertionPoint(const OrderedGEPs::iterator begin, const OrderedGEPs::iterator end, const uint32_t endIndex);
+		OrderOfAppearence order;
 		OrderedGEPs orderedGeps;
 		OrderedGEPs skippedGeps;
-		const ValidGEPMap& validGEPMap;
+
+	// This map contains the very first GEP that reference a given base
+	// It is not safe to build new GEPs for the base that are not dominated by this GEP
+	// TODO: If, for a given base, there is a GEP in every successor block, moving the GEP to the parent block would be safe
+		ValidGEPMap validGEPMap;
+
 		DominatorTree* DT;
 		std::set<std::pair<Instruction*, Instruction*>> erasedInst;
 	};
-
 public:
 	static char ID;
 	explicit GEPOptimizer() : FunctionPass(ID), DT(NULL) { }
