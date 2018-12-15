@@ -632,47 +632,6 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
-Instruction* DelayAllocas::findCommonInsertionPoint(Instruction* I, DominatorTree* DT, Instruction* currentInsertionPoint, Instruction* user)
-{
-	if(PHINode* phi = dyn_cast<PHINode>(user))
-	{
-		// It must dominate all incoming blocks that has the value as an incoming value
-		for(unsigned i = 0; i < phi->getNumIncomingValues(); i++)
-		{
-			if(phi->getIncomingValue(i) != I)
-				continue;
-			BasicBlock* incomingBlock = phi->getIncomingBlock(i);
-			currentInsertionPoint = findCommonInsertionPoint(I, DT, currentInsertionPoint, incomingBlock->getTerminator());
-		}
-		return currentInsertionPoint;
-	}
-	if(!currentInsertionPoint || DT->dominates(user, currentInsertionPoint))
-		return user;
-	else if(DT->dominates(currentInsertionPoint, user))
-		return currentInsertionPoint;
-	else if(currentInsertionPoint->getParent() == user->getParent())
-	{
-		// Check relative order, find it currentInsertionPoint is above user
-		Instruction* it = currentInsertionPoint;
-		while(it)
-		{
-			if(it == user)
-			{
-				// user is after currentInsertionPoint
-				return currentInsertionPoint;
-			}
-			it = it->getNextNode();
-		}
-		// user is above currentInsertionPoint
-		return user;
-	}
-	else // Find a common dominator
-	{
-		BasicBlock* common = DT->findNearestCommonDominator(currentInsertionPoint->getParent(),user->getParent());
-		return common->getTerminator();
-	}
-}
-
 bool DelayAllocas::runOnFunction(Function& F)
 {
 	// We apply this pass only on genericjs functions
@@ -695,7 +654,7 @@ bool DelayAllocas::runOnFunction(Function& F)
 			// Unless that block is in a loop, then put it above the loop
 			Instruction* currentInsertionPoint = NULL;
 			for(User* U: AI->users())
-				currentInsertionPoint = findCommonInsertionPoint(AI, DT, currentInsertionPoint, cast<Instruction>(U));
+				currentInsertionPoint = cheerp::findCommonInsertionPoint(AI, DT, currentInsertionPoint, cast<Instruction>(U));
 			Loop* loop=LI->getLoopFor(currentInsertionPoint->getParent());
 			if(loop)
 			{
