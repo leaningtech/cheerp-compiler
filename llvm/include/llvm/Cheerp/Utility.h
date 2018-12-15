@@ -18,6 +18,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
@@ -116,6 +117,14 @@ inline bool isFreeFunctionName(llvm::StringRef name)
 {
 	return name=="free" || name=="_ZdlPv" || name=="_ZdaPv";
 }
+
+/**
+ * Find out the lowest insertion point for an instruction which is used in multiple places
+ *
+ * currentInsertionPoint can be NULL, this is useful to start the process
+ * I can be NULL as far as user is not a PHI
+ */
+llvm::Instruction* findCommonInsertionPoint(llvm::Instruction* I, llvm::DominatorTree* DT, llvm::Instruction* currentInsertionPoint, llvm::Instruction* user);
 
 class TypeSupport
 {
