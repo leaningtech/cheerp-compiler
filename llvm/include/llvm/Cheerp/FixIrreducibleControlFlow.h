@@ -27,7 +27,7 @@ namespace llvm
 {
 
 /**
- * Remove allocas to asmjs types and add stack manipulation intrinsics
+ * Transform multiple entry loops in single entry ones
  */
 class FixIrreducibleControlFlow: public FunctionPass
 {
