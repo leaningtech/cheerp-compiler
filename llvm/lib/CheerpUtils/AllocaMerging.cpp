@@ -262,6 +262,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 	};
 
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
+	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::GlobalDepsAnalyzer & GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
 	std::list<std::pair<AllocaInst*, cheerp::Registerize::LiveRange>> allocaInfos;
@@ -331,7 +332,11 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 		Type* newAllocaType = ArrayType::get(targetElementType, arraysToMerge.getNewSize());
 		// Add the new struct type to the GlobalDepsAnalyzer, it may need the createArray helper
 		GDA.visitType(newAllocaType, /*forceTypedArray*/ false);
-		AllocaInst* newAlloca = new AllocaInst(newAllocaType, "mergedArray", &(*F.getEntryBlock().begin()));
+		// Find out the insertion point
+		Instruction* insertionPoint = nullptr;
+		for(auto it: arraysToMerge)
+			insertionPoint = cheerp::findCommonInsertionPoint(nullptr, DT, insertionPoint, it.first);
+		AllocaInst* newAlloca = new AllocaInst(newAllocaType, "mergedArray", insertionPoint);
 		Type* indexType = IntegerType::get(newAllocaType->getContext(), 32);
 		// Change every use of every merged array with an appropiate GEP
 		for(auto it: arraysToMerge)
@@ -394,6 +399,8 @@ void AllocaArraysMerging::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addRequired<DominatorTreeWrapperPass>();
+	AU.addPreserved<DominatorTreeWrapperPass>();
 
 	llvm::FunctionPass::getAnalysisUsage(AU);
 }
