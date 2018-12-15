@@ -640,52 +640,61 @@ bool DelayAllocas::runOnFunction(Function& F)
 	bool Changed = false;
 	LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	cheerp::Registerize * registerize = getAnalysisIfAvailable<cheerp::Registerize>();
 
-	std::map<AllocaInst*, Instruction*> movedAllocaMaps;
+	std::vector<std::pair<Instruction*, Instruction*>> movedAllocaMaps;
 	for ( BasicBlock& BB : F )
 	{
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
 		{
-			AllocaInst* AI=dyn_cast<AllocaInst>(it);
-			if (!AI || AI->use_empty())
+			Instruction* I = it;
+			if (I->getOpcode() != Instruction::Alloca || I->use_empty())
 				continue;
 			// Delay the alloca as much as possible by putting it in the dominator block of all the uses
 			// Unless that block is in a loop, then put it above the loop
 			Instruction* currentInsertionPoint = NULL;
-			for(User* U: AI->users())
-				currentInsertionPoint = cheerp::findCommonInsertionPoint(AI, DT, currentInsertionPoint, cast<Instruction>(U));
-			Loop* loop=LI->getLoopFor(currentInsertionPoint->getParent());
-			if(loop)
+			for(User* U: I->users())
+				currentInsertionPoint = cheerp::findCommonInsertionPoint(I, DT, currentInsertionPoint, cast<Instruction>(U));
+			// Never sink an instruction in an inner loop
+			// Special case Allocas, we really want to put them outside of loops
+			Loop* initialLoop = I->getOpcode() == Instruction::Alloca ? nullptr : LI->getLoopFor(I->getParent());
+			Loop* loop = LI->getLoopFor(currentInsertionPoint->getParent());
+			// If loop is now NULL we managed to move the instruction outside of any loop. Good.
+			if(loop && loop != initialLoop)
 			{
-				while(loop->getParentLoop())
-					loop = loop->getParentLoop();
-				BasicBlock* loopHeader = loop->getHeader();
-				// We need to put the alloca in the dominator of the loop
-				BasicBlock* loopDominator = NULL;
-				for(auto it = pred_begin(loopHeader);it != pred_end(loopHeader); ++it)
+				// The new insert point is in a loop, but not in the previous one
+				// Check if the new loop is an inner loop
+				while(loop)
 				{
-					if(!loopDominator)
-						loopDominator = *it;
-					else if(DT->dominates(loopDominator, *it))
-						; //Nothing to do
-					else if(DT->dominates(*it, loopDominator))
-						loopDominator = *it;
-					else // Find a common dominator
-						loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
+					Loop* parentLoop = loop->getParentLoop();
+					if(parentLoop == initialLoop)
+						break;
+					loop = parentLoop;
 				}
-				currentInsertionPoint = loopDominator->getTerminator();
+				if(loop)
+				{
+					BasicBlock* loopHeader = loop->getHeader();
+					// We need to put the instruction in the dominator of the loop, not in the loop header itself
+					BasicBlock* loopDominator = NULL;
+					for(auto it = pred_begin(loopHeader);it != pred_end(loopHeader); ++it)
+					{
+						if(!loopDominator)
+							loopDominator = *it;
+						else if(DT->dominates(loopDominator, *it))
+							; //Nothing to do
+						else if(DT->dominates(*it, loopDominator))
+							loopDominator = *it;
+						else // Find a common dominator
+							loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
+					}
+					currentInsertionPoint = loopDominator->getTerminator();
+				}
 			}
-			movedAllocaMaps.insert(std::make_pair(AI, currentInsertionPoint));
-			if(!Changed && registerize)
-				registerize->invalidateLiveRangeForAllocas(F);
+			movedAllocaMaps.emplace_back(I, currentInsertionPoint);
 			Changed = true;
 		}
 	}
 	for(auto& it: movedAllocaMaps)
 		it.first->moveBefore(it.second);
-	if(Changed && registerize)
-		registerize->computeLiveRangeForAllocas(F);
 	return Changed;
 }
 
@@ -699,7 +708,6 @@ char DelayAllocas::ID = 0;
 void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addPreserved<cheerp::PointerAnalyzer>();
-	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<DominatorTreeWrapperPass>();
 	AU.addRequired<LoopInfoWrapperPass>();
