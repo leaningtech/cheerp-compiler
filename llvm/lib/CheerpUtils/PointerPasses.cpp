@@ -632,27 +632,40 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
-Instruction* DelayAllocas::findCommonInsertionPoint(AllocaInst* AI, DominatorTree* DT, Instruction* currentInsertionPoint, Instruction* user)
+Instruction* DelayAllocas::findCommonInsertionPoint(Instruction* I, DominatorTree* DT, Instruction* currentInsertionPoint, Instruction* user)
 {
-	if(!currentInsertionPoint || DT->dominates(user, currentInsertionPoint))
+	if(PHINode* phi = dyn_cast<PHINode>(user))
 	{
-		if(PHINode* phi = dyn_cast<PHINode>(user))
+		// It must dominate all incoming blocks that has the value as an incoming value
+		for(unsigned i = 0; i < phi->getNumIncomingValues(); i++)
 		{
-			// It must dominate all incoming blocks that has the value as an incoming value
-			for(unsigned i = 0; i < phi->getNumIncomingValues(); i++)
-			{
-				if(phi->getIncomingValue(i) != AI)
-					continue;
-				BasicBlock* incomingBlock = phi->getIncomingBlock(i);
-				currentInsertionPoint = findCommonInsertionPoint(AI, DT, currentInsertionPoint, incomingBlock->getTerminator());
-			}
-			return currentInsertionPoint;
+			if(phi->getIncomingValue(i) != I)
+				continue;
+			BasicBlock* incomingBlock = phi->getIncomingBlock(i);
+			currentInsertionPoint = findCommonInsertionPoint(I, DT, currentInsertionPoint, incomingBlock->getTerminator());
 		}
-		else
-			return user;
+		return currentInsertionPoint;
 	}
+	if(!currentInsertionPoint || DT->dominates(user, currentInsertionPoint))
+		return user;
 	else if(DT->dominates(currentInsertionPoint, user))
 		return currentInsertionPoint;
+	else if(currentInsertionPoint->getParent() == user->getParent())
+	{
+		// Check relative order, find it currentInsertionPoint is above user
+		Instruction* it = currentInsertionPoint;
+		while(it)
+		{
+			if(it == user)
+			{
+				// user is after currentInsertionPoint
+				return currentInsertionPoint;
+			}
+			it = it->getNextNode();
+		}
+		// user is above currentInsertionPoint
+		return user;
+	}
 	else // Find a common dominator
 	{
 		BasicBlock* common = DT->findNearestCommonDominator(currentInsertionPoint->getParent(),user->getParent());
