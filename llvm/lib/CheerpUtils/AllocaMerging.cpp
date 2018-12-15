@@ -90,6 +90,7 @@ bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp:
 bool AllocaMerging::runOnFunction(Function& F)
 {
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
+	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::TypeSupport types(*F.getParent());
 	bool asmjs = F.getSection()==StringRef("asmjs");
@@ -100,7 +101,6 @@ bool AllocaMerging::runOnFunction(Function& F)
 	if (allocaInfos.size() < 2)
 		return false;
 	bool Changed = false;
-	BasicBlock& entryBlock=F.getEntryBlock();
 	// Look if we can merge allocas of the same type
 	for(auto targetCandidate=allocaInfos.begin();targetCandidate!=allocaInfos.end();++targetCandidate)
 	{
@@ -143,9 +143,11 @@ bool AllocaMerging::runOnFunction(Function& F)
 		if(!Changed)
 			registerize.invalidateLiveRangeForAllocas(F);
 
-		// Make sure that this alloca is in the entry block
-		if(targetAlloca->getParent()!=&entryBlock)
-			targetAlloca->moveBefore(entryBlock.begin());
+		// Find out the insertion point
+		Instruction* insertionPoint = targetAlloca->getNextNode();
+		for(const AllocaInfos::iterator& it: mergeSet)
+			insertionPoint = cheerp::findCommonInsertionPoint(nullptr, DT, insertionPoint, it->first);
+		targetAlloca->moveBefore(insertionPoint);
 		// We can merge the allocas
 		for(const AllocaInfos::iterator& it: mergeSet)
 		{
@@ -183,6 +185,8 @@ void AllocaMerging::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addRequired<DominatorTreeWrapperPass>();
+	AU.addPreserved<DominatorTreeWrapperPass>();
 
 	llvm::FunctionPass::getAnalysisUsage(AU);
 }
