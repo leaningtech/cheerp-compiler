@@ -149,7 +149,7 @@ public:
 FunctionPass *createFreeAndDeleteRemovalPass();
 
 /**
- * This pass moves allocas as close as possible to the actual users
+ * This pass moves instructions as close as possible to the actual users
  */
 class DelayAllocas: public FunctionPass
 {

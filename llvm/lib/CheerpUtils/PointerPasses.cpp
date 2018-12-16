@@ -634,9 +634,8 @@ FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval
 
 bool DelayAllocas::runOnFunction(Function& F)
 {
-	// We apply this pass only on genericjs functions
-	if (F.getSection()==StringRef("asmjs"))
-		return false;
+	// Only move allocas on genericjs
+	bool moveAllocas = F.getSection()==StringRef("");
 	bool Changed = false;
 	LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -647,7 +646,15 @@ bool DelayAllocas::runOnFunction(Function& F)
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
 		{
 			Instruction* I = it;
-			if (I->getOpcode() != Instruction::Alloca || I->use_empty())
+			// Do not move problematic instructions
+			// TODO: Call/Invoke may be moved in some conditions
+			if(I->mayReadOrWriteMemory() || I->getOpcode() == Instruction::PHI ||
+				I->getOpcode() == Instruction::Call || I->getOpcode() == Instruction::Invoke ||
+				I->use_empty())
+			{
+				continue;
+			}
+			else if(I->getOpcode() == Instruction::Alloca && !moveAllocas)
 				continue;
 			// Delay the alloca as much as possible by putting it in the dominator block of all the uses
 			// Unless that block is in a loop, then put it above the loop
@@ -1073,9 +1080,9 @@ INITIALIZE_PASS_BEGIN(AllocaArrays, "AllocaArrays", "Transform allocas of REGULA
 INITIALIZE_PASS_END(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR type to arrays of 1 element",
 			false, false)
 
-INITIALIZE_PASS_BEGIN(DelayAllocas, "DelayAllocas", "Moves allocas as close as possible to the actual users",
+INITIALIZE_PASS_BEGIN(DelayAllocas, "DelayAllocas", "Moves instructions as close as possible to the actual users",
 			false, false)
-INITIALIZE_PASS_END(DelayAllocas, "DelayAllocas", "Moves allocas as close as possible to the actual users",
+INITIALIZE_PASS_END(DelayAllocas, "DelayAllocas", "Moves instrucitions as close as possible to the actual users",
 			false, false)
 
 INITIALIZE_PASS_BEGIN(FreeAndDeleteRemoval, "FreeAndDeleteRemoval", "Remove free and delete calls of genericjs objects",
