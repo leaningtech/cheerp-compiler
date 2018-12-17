@@ -436,7 +436,6 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
   CmdArgs.push_back("-FreeAndDeleteRemoval");
   CmdArgs.push_back("-Os");
-  CmdArgs.push_back("-DelayAllocas");
   // Inlining from -Os may generate memcpy calls that we need to lower
   CmdArgs.push_back("-StructMemFuncLowering");
   // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
