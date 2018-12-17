@@ -632,6 +632,17 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
+uint32_t DelayAllocas::countInputInstructions(Instruction* I)
+{
+	uint32_t ret = 0;
+	for(Value* Op: I->operands())
+	{
+		if(isa<Instruction>(Op))
+			ret++;
+	}
+	return ret;
+}
+
 DelayAllocas::InsertPoint DelayAllocas::delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps,
 					LoopInfo* LI, DominatorTree* DT, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
 {
@@ -651,6 +662,17 @@ DelayAllocas::InsertPoint DelayAllocas::delayInst(Instruction* I, std::vector<st
 		// Already delayed
 		return it->second;
 	}
+	// Do not delay instructions that depend on more than 1 input instruction
+	// Delyaing those may increase the amount of live variables
+	// TODO: This is simplistic, we should use isInline to know how many actual registers
+	//       are used by this instructions. We need to rework caching in PA otherwise it is too slow.
+	if(countInputInstructions(I) > 1)
+	{
+		InsertPoint ret(I);
+		visited.insert(std::make_pair(I, ret));
+		return ret;
+	}
+
 	// Delay the alloca as much as possible by putting it in the dominator block of all the uses
 	// Unless that block is in a loop, then put it above the loop
 	// Instead of the actual user we use to insertion point after it is delayed
