@@ -153,6 +153,9 @@ FunctionPass *createFreeAndDeleteRemovalPass();
  */
 class DelayAllocas: public FunctionPass
 {
+private:
+	llvm::Instruction* delayInst(Instruction* I, std::vector<std::pair<Instruction*, Instruction*>>& movedAllocaMaps, LoopInfo* LI, DominatorTree* DT,
+					std::unordered_map<Instruction*, Instruction*>& visited, bool moveAllocas);
 public:
 	static char ID;
 	explicit DelayAllocas() : FunctionPass(ID) { }
