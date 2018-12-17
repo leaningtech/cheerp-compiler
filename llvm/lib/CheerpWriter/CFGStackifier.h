@@ -20,8 +20,8 @@
 
 #include <unordered_map>
 #include <vector>
-
-#define DEBUG_CFGSTACKIFIER 0
+#include <list>
+#include <unordered_set>
 
 namespace cheerp
 {
@@ -29,33 +29,43 @@ namespace cheerp
 class CFGStackifier
 {
 public:
-
 	class Block {
 	public:
 		enum Marker {
 			LOOP,
 			LOOP_END,
 			BLOCK,
-			BLOCK_END
+			BLOCK_END,
+			BRANCH,
+			BRANCH_END
 		};
 		struct Scope {
 			Marker kind;
-			size_t start;
-			size_t end;
+			int start;
+			int end;
+		};
+		struct BranchState {
+			bool IsBranchRoot{false};
+			enum RenderBranchCase {
+				ONLY_FORWARDS,
+				DEFAULT_FORWARD,
+				DEFAULT_NESTED,
+			};
+			RenderBranchCase Case{ONLY_FORWARDS};
 		};
 
-		explicit Block(llvm::BasicBlock *BB, size_t id) : BB(BB), id(id)
+		explicit Block(llvm::BasicBlock *BB, int id) : BB(BB), id(id)
 		{
 		}
 		llvm::BasicBlock* getBB() const
 		{
 			return BB;
 		}
-		std::vector<Scope>& getScopes()
+		std::list<Scope>& getScopes()
 		{
 			return scopes;
 		}
-		const std::vector<Scope>& getScopes() const
+		const std::list<Scope>& getScopes() const
 		{
 			return scopes;
 		}
@@ -68,6 +78,7 @@ public:
 				{
 					case LOOP_END:
 					case BLOCK_END:
+					case BRANCH_END:
 						if (!ret || s.start < ret->start)
 							ret = &s;
 						break;
@@ -77,33 +88,60 @@ public:
 			}
 			return ret;
 		}
-		size_t getId() const {
+		int getId() const {
 			return id;
 		}
-		void insertScope(Scope s);
+		Scope* insertScope(Scope s);
+		Scope* getBranchStart()
+		{
+			auto it = std::find_if(scopes.begin(), scopes.end(), [](const Scope& s) {
+				return s.kind == BRANCH;
+			});
+			if (it != scopes.end())
+				return &*it;
+			return nullptr;
+		}
+		const Scope* getBranchStart() const {
+			return const_cast<Block*>(this)->getBranchStart();
+		}
+		void addNaturalPred(int id)
+		{
+			naturalPreds.insert(id);
+		}
+		bool isNaturalPred(int id) const
+		{
+			return naturalPreds.count(id);
+		}
+		void setBranchState(BranchState::RenderBranchCase RBC)
+		{
+			BS.IsBranchRoot = true;
+			BS.Case = RBC;
+		}
+		bool isBranchRoot() const
+		{
+			return BS.IsBranchRoot;
+		}
+		BranchState::RenderBranchCase getBranchCase() const
+		{
+			return BS.Case;
+		}
 		bool operator==(const llvm::BasicBlock* Other) const { return BB == Other; }
 #ifdef DEBUG_CFGSTACKIFIER
 		void dump() const;
 #endif
 	private:
 		llvm::BasicBlock *BB;
-		std::vector<Scope> scopes;
-		size_t id;
+		int id;
+		std::list<Scope> scopes;
+		std::unordered_set<int> naturalPreds;
+		BranchState BS;
 	};
 
-	explicit CFGStackifier(const llvm::Function &F, llvm::LoopInfo& LI, llvm::DominatorTree& DT);
+	CFGStackifier(const llvm::Function &F, llvm::LoopInfo& LI, llvm::DominatorTree& DT);
 	void render(RenderInterface& ri, bool asmjs);
-
-	const std::vector<Block>& getBlockList() const { return BlockList; };
-	const std::unordered_map<llvm::BasicBlock*, size_t>& getBlockIdMap() const { return BlockIdMap; };
 private:
 	std::vector<Block> BlockList;
-	std::unordered_map<llvm::BasicBlock*, size_t> BlockIdMap;
-
-	void orderBlocks(llvm::Function& F, llvm::LoopInfo& LI, llvm::DominatorTree& DT);
-	void addLoopMarkers(Block& B, llvm::LoopInfo& LI);
-	void addBlockMarkers(Block& B, llvm::DominatorTree& DT);
-	size_t findLoopEnd(llvm::Loop* L, size_t start);
+	std::unordered_map<llvm::BasicBlock*, int> BlockIdMap;
 };
 
 
