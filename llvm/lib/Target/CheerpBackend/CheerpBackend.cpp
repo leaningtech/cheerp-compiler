@@ -143,9 +143,9 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(createGEPOptimizerPass());
-  PM.add(createDelayAllocasPass());
   PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, NoRegisterize));
   PM.add(cheerp::createPointerAnalyzerPass());
+  PM.add(createDelayAllocasPass());
   PM.add(cheerp::createAllocaMergingPass());
   PM.add(createIndirectCallOptimizerPass());
   PM.add(createAllocaArraysPass());

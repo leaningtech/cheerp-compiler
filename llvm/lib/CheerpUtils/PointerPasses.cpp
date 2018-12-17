@@ -705,8 +705,10 @@ bool DelayAllocas::runOnFunction(Function& F)
 	// Only move allocas on genericjs
 	bool moveAllocas = F.getSection()==StringRef("");
 	bool Changed = false;
+	bool allocaInvalidated = false;
 	LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+	cheerp::Registerize& registerize = getAnalysis<cheerp::Registerize>();
 
 	std::unordered_map<Instruction*, Instruction*> visited;
 	std::vector<std::pair<Instruction*, Instruction*>> movedAllocaMaps;
@@ -716,11 +718,18 @@ bool DelayAllocas::runOnFunction(Function& F)
 		{
 			Instruction* I = it;
 			delayInst(I, movedAllocaMaps, LI, DT, visited, moveAllocas);
+			if(moveAllocas && !allocaInvalidated && I->getOpcode() == Instruction::Alloca)
+			{
+				registerize.invalidateLiveRangeForAllocas(F);
+				allocaInvalidated = true;
+			}
 			Changed = true;
 		}
 	}
 	for(auto it = movedAllocaMaps.rbegin(); it != movedAllocaMaps.rend(); ++it)
 		it->first->moveBefore(it->second);
+	if(allocaInvalidated)
+		registerize.computeLiveRangeForAllocas(F);
 	return Changed;
 }
 
@@ -734,8 +743,10 @@ char DelayAllocas::ID = 0;
 void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addPreserved<cheerp::PointerAnalyzer>();
+	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<DominatorTreeWrapperPass>();
+	AU.addRequired<cheerp::Registerize>();
 	AU.addRequired<LoopInfoWrapperPass>();
 	AU.addPreserved<LoopInfoWrapperPass>();
 	llvm::Pass::getAnalysisUsage(AU);
