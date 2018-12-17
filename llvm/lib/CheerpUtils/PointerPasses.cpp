@@ -632,8 +632,8 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
-Instruction* DelayAllocas::delayInst(Instruction* I, std::vector<std::pair<Instruction*, Instruction*>>& movedAllocaMaps, LoopInfo* LI, DominatorTree* DT,
-					std::unordered_map<Instruction*, Instruction*>& visited, bool moveAllocas)
+DelayAllocas::InsertPoint DelayAllocas::delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps,
+					LoopInfo* LI, DominatorTree* DT, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
 {
 	// Do not move problematic instructions
 	// TODO: Call/Invoke may be moved in some conditions
@@ -641,10 +641,10 @@ Instruction* DelayAllocas::delayInst(Instruction* I, std::vector<std::pair<Instr
 		I->getOpcode() == Instruction::Call || I->getOpcode() == Instruction::Invoke ||
 		I->use_empty())
 	{
-		return I;
+		return InsertPoint(I);
 	}
 	else if(I->getOpcode() == Instruction::Alloca && !moveAllocas)
-		return I;
+		return InsertPoint(I);
 	auto it = visited.find(I);
 	if(it != visited.end())
 	{
@@ -654,16 +654,31 @@ Instruction* DelayAllocas::delayInst(Instruction* I, std::vector<std::pair<Instr
 	// Delay the alloca as much as possible by putting it in the dominator block of all the uses
 	// Unless that block is in a loop, then put it above the loop
 	// Instead of the actual user we use to insertion point after it is delayed
-	Instruction* currentInsertionPoint = NULL;
+	InsertPoint finalInsertPoint(nullptr, nullptr, nullptr);
+	bool firstUser = true;
 	for(User* U: I->users())
 	{
-		Instruction* userInserPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, visited, moveAllocas);
-		currentInsertionPoint = cheerp::findCommonInsertionPoint(I, DT, currentInsertionPoint, userInserPoint);
+		InsertPoint insertPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, visited, moveAllocas);
+		// Deal with potential forward block terminators
+		// It is safe to use them on the first user or if it is always the same
+		finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
+		if(firstUser)
+		{
+			finalInsertPoint.source = insertPoint.source;
+			finalInsertPoint.target = insertPoint.target;
+			firstUser = false;
+		}
+		else if(finalInsertPoint.source != insertPoint.source ||
+			finalInsertPoint.target != insertPoint.target)
+		{
+			finalInsertPoint.source = nullptr;
+			finalInsertPoint.target = nullptr;
+		}
 	}
 	// Never sink an instruction in an inner loop
 	// Special case Allocas, we really want to put them outside of loops
 	Loop* initialLoop = I->getOpcode() == Instruction::Alloca ? nullptr : LI->getLoopFor(I->getParent());
-	Loop* loop = LI->getLoopFor(currentInsertionPoint->getParent());
+	Loop* loop = LI->getLoopFor(finalInsertPoint.insertInst->getParent());
 	// If loop is now NULL we managed to move the instruction outside of any loop. Good.
 	if(loop && loop != initialLoop)
 	{
@@ -681,23 +696,40 @@ Instruction* DelayAllocas::delayInst(Instruction* I, std::vector<std::pair<Instr
 			BasicBlock* loopHeader = loop->getHeader();
 			// We need to put the instruction in the dominator of the loop, not in the loop header itself
 			BasicBlock* loopDominator = NULL;
+			// It may be convenient to put the instruction into a new loop pre-header
+			// Do that if there is only 1 forward edge and it has a conditional branch
+			bool createForwardBlock = true;
 			for(auto it = pred_begin(loopHeader);it != pred_end(loopHeader); ++it)
 			{
+				// Skip all backedges
+				if(loopHeader == *it || DT->dominates(loopHeader, *it))
+					continue;
 				if(!loopDominator)
 					loopDominator = *it;
 				else if(DT->dominates(loopDominator, *it))
-					; //Nothing to do
+					createForwardBlock = false;
 				else if(DT->dominates(*it, loopDominator))
+				{
+					createForwardBlock = false;
 					loopDominator = *it;
+				}
 				else // Find a common dominator
+				{
+					createForwardBlock = false;
 					loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
+				}
 			}
-			currentInsertionPoint = loopDominator->getTerminator();
+			if(createForwardBlock && loopDominator->getTerminator()->getNumSuccessors()>1)
+			{
+				finalInsertPoint.source = loopDominator;
+				finalInsertPoint.target = loopHeader;
+			}
+			finalInsertPoint.insertInst = loopDominator->getTerminator();
 		}
 	}
-	movedAllocaMaps.emplace_back(I, currentInsertionPoint);
-	visited.insert(std::make_pair(I, currentInsertionPoint));
-	return currentInsertionPoint;
+	movedAllocaMaps.emplace_back(I, finalInsertPoint);
+	visited.insert(std::make_pair(I, finalInsertPoint));
+	return finalInsertPoint;
 }
 
 bool DelayAllocas::runOnFunction(Function& F)
@@ -710,8 +742,8 @@ bool DelayAllocas::runOnFunction(Function& F)
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	cheerp::Registerize& registerize = getAnalysis<cheerp::Registerize>();
 
-	std::unordered_map<Instruction*, Instruction*> visited;
-	std::vector<std::pair<Instruction*, Instruction*>> movedAllocaMaps;
+	std::unordered_map<Instruction*, InsertPoint> visited;
+	std::vector<std::pair<Instruction*, InsertPoint>> movedAllocaMaps;
 	for ( BasicBlock& BB : F )
 	{
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
@@ -726,8 +758,44 @@ bool DelayAllocas::runOnFunction(Function& F)
 			Changed = true;
 		}
 	}
+	// Create forward blocks as required, unique them based on the source/target
+	std::map<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>, llvm::BasicBlock*> forwardBlocks;
 	for(auto it = movedAllocaMaps.rbegin(); it != movedAllocaMaps.rend(); ++it)
-		it->first->moveBefore(it->second);
+	{
+		if(it->second.source)
+		{
+			BasicBlock* source = it->second.source;
+			BasicBlock* target = it->second.target;
+			assert(target);
+			auto fwd = forwardBlocks.find(std::make_pair(source, target));
+			if(fwd == forwardBlocks.end())
+			{
+				BasicBlock* newB = BasicBlock::Create(F.getContext(), "delayFwd", &F);
+				BranchInst::Create(target, newB);
+				TerminatorInst* sourceTerm = source->getTerminator();
+				for(unsigned i=0;i<sourceTerm->getNumSuccessors();i++)
+				{
+					if(sourceTerm->getSuccessor(i) == target)
+						sourceTerm->setSuccessor(i, newB);
+				}
+				for(Instruction& targetI: *target)
+				{
+					PHINode* phi = dyn_cast<PHINode>(&targetI);
+					if(!phi)
+						break;
+					for(unsigned i=0;i<phi->getNumIncomingValues();i++)
+					{
+						if(phi->getIncomingBlock(i) == source)
+							phi->setIncomingBlock(i, newB);
+					}
+				}
+				fwd = forwardBlocks.insert(std::make_pair(std::make_pair(source, target), newB)).first;
+			}
+			it->first->moveBefore(fwd->second->getTerminator());
+		}
+		else
+			it->first->moveBefore(it->second.insertInst);
+	}
 	if(allocaInvalidated)
 		registerize.computeLiveRangeForAllocas(F);
 	return Changed;
