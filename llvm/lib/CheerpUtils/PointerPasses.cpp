@@ -632,6 +632,74 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
+Instruction* DelayAllocas::delayInst(Instruction* I, std::vector<std::pair<Instruction*, Instruction*>>& movedAllocaMaps, LoopInfo* LI, DominatorTree* DT,
+					std::unordered_map<Instruction*, Instruction*>& visited, bool moveAllocas)
+{
+	// Do not move problematic instructions
+	// TODO: Call/Invoke may be moved in some conditions
+	if(I->mayReadOrWriteMemory() || I->getOpcode() == Instruction::PHI ||
+		I->getOpcode() == Instruction::Call || I->getOpcode() == Instruction::Invoke ||
+		I->use_empty())
+	{
+		return I;
+	}
+	else if(I->getOpcode() == Instruction::Alloca && !moveAllocas)
+		return I;
+	auto it = visited.find(I);
+	if(it != visited.end())
+	{
+		// Already delayed
+		return it->second;
+	}
+	// Delay the alloca as much as possible by putting it in the dominator block of all the uses
+	// Unless that block is in a loop, then put it above the loop
+	// Instead of the actual user we use to insertion point after it is delayed
+	Instruction* currentInsertionPoint = NULL;
+	for(User* U: I->users())
+	{
+		Instruction* userInserPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, visited, moveAllocas);
+		currentInsertionPoint = cheerp::findCommonInsertionPoint(I, DT, currentInsertionPoint, userInserPoint);
+	}
+	// Never sink an instruction in an inner loop
+	// Special case Allocas, we really want to put them outside of loops
+	Loop* initialLoop = I->getOpcode() == Instruction::Alloca ? nullptr : LI->getLoopFor(I->getParent());
+	Loop* loop = LI->getLoopFor(currentInsertionPoint->getParent());
+	// If loop is now NULL we managed to move the instruction outside of any loop. Good.
+	if(loop && loop != initialLoop)
+	{
+		// The new insert point is in a loop, but not in the previous one
+		// Check if the new loop is an inner loop
+		while(loop)
+		{
+			Loop* parentLoop = loop->getParentLoop();
+			if(parentLoop == initialLoop)
+				break;
+			loop = parentLoop;
+		}
+		if(loop)
+		{
+			BasicBlock* loopHeader = loop->getHeader();
+			// We need to put the instruction in the dominator of the loop, not in the loop header itself
+			BasicBlock* loopDominator = NULL;
+			for(auto it = pred_begin(loopHeader);it != pred_end(loopHeader); ++it)
+			{
+				if(!loopDominator)
+					loopDominator = *it;
+				else if(DT->dominates(loopDominator, *it))
+					; //Nothing to do
+				else if(DT->dominates(*it, loopDominator))
+					loopDominator = *it;
+				else // Find a common dominator
+					loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
+			}
+			currentInsertionPoint = loopDominator->getTerminator();
+		}
+	}
+	movedAllocaMaps.emplace_back(I, currentInsertionPoint);
+	visited.insert(std::make_pair(I, currentInsertionPoint));
+	return currentInsertionPoint;
+}
+
 bool DelayAllocas::runOnFunction(Function& F)
 {
 	// Only move allocas on genericjs
@@ -640,68 +708,19 @@ bool DelayAllocas::runOnFunction(Function& F)
 	LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
+	std::unordered_map<Instruction*, Instruction*> visited;
 	std::vector<std::pair<Instruction*, Instruction*>> movedAllocaMaps;
 	for ( BasicBlock& BB : F )
 	{
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
 		{
 			Instruction* I = it;
-			// Do not move problematic instructions
-			// TODO: Call/Invoke may be moved in some conditions
-			if(I->mayReadOrWriteMemory() || I->getOpcode() == Instruction::PHI ||
-				I->getOpcode() == Instruction::Call || I->getOpcode() == Instruction::Invoke ||
-				I->use_empty())
-			{
-				continue;
-			}
-			else if(I->getOpcode() == Instruction::Alloca && !moveAllocas)
-				continue;
-			// Delay the alloca as much as possible by putting it in the dominator block of all the uses
-			// Unless that block is in a loop, then put it above the loop
-			Instruction* currentInsertionPoint = NULL;
-			for(User* U: I->users())
-				currentInsertionPoint = cheerp::findCommonInsertionPoint(I, DT, currentInsertionPoint, cast<Instruction>(U));
-			// Never sink an instruction in an inner loop
-			// Special case Allocas, we really want to put them outside of loops
-			Loop* initialLoop = I->getOpcode() == Instruction::Alloca ? nullptr : LI->getLoopFor(I->getParent());
-			Loop* loop = LI->getLoopFor(currentInsertionPoint->getParent());
-			// If loop is now NULL we managed to move the instruction outside of any loop. Good.
-			if(loop && loop != initialLoop)
-			{
-				// The new insert point is in a loop, but not in the previous one
-				// Check if the new loop is an inner loop
-				while(loop)
-				{
-					Loop* parentLoop = loop->getParentLoop();
-					if(parentLoop == initialLoop)
-						break;
-					loop = parentLoop;
-				}
-				if(loop)
-				{
-					BasicBlock* loopHeader = loop->getHeader();
-					// We need to put the instruction in the dominator of the loop, not in the loop header itself
-					BasicBlock* loopDominator = NULL;
-					for(auto it = pred_begin(loopHeader);it != pred_end(loopHeader); ++it)
-					{
-						if(!loopDominator)
-							loopDominator = *it;
-						else if(DT->dominates(loopDominator, *it))
-							; //Nothing to do
-						else if(DT->dominates(*it, loopDominator))
-							loopDominator = *it;
-						else // Find a common dominator
-							loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
-					}
-					currentInsertionPoint = loopDominator->getTerminator();
-				}
-			}
-			movedAllocaMaps.emplace_back(I, currentInsertionPoint);
+			delayInst(I, movedAllocaMaps, LI, DT, visited, moveAllocas);
 			Changed = true;
 		}
 	}
-	for(auto& it: movedAllocaMaps)
-		it.first->moveBefore(it.second);
+	for(auto it = movedAllocaMaps.rbegin(); it != movedAllocaMaps.rend(); ++it)
+		it->first->moveBefore(it->second);
 	return Changed;
 }
 
