@@ -154,8 +154,17 @@ FunctionPass *createFreeAndDeleteRemovalPass();
 class DelayAllocas: public FunctionPass
 {
 private:
-	llvm::Instruction* delayInst(Instruction* I, std::vector<std::pair<Instruction*, Instruction*>>& movedAllocaMaps, LoopInfo* LI, DominatorTree* DT,
-					std::unordered_map<Instruction*, Instruction*>& visited, bool moveAllocas);
+	struct InsertPoint
+	{
+		llvm::Instruction* insertInst;
+		llvm::BasicBlock* source;
+		llvm::BasicBlock* target;
+		InsertPoint(llvm::Instruction* i, BasicBlock* s = nullptr, BasicBlock* t = nullptr):insertInst(i),source(s),target(t)
+		{
+		}
+	};
+	InsertPoint delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps, LoopInfo* LI,
+					DominatorTree* DT, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas);
 public:
 	static char ID;
 	explicit DelayAllocas() : FunctionPass(ID) { }
