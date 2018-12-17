@@ -165,6 +165,7 @@ private:
 	};
 	InsertPoint delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps, LoopInfo* LI,
 					DominatorTree* DT, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas);
+	static uint32_t countInputInstructions(Instruction* I);
 public:
 	static char ID;
 	explicit DelayAllocas() : FunctionPass(ID) { }
