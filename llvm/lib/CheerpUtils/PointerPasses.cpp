@@ -749,7 +749,11 @@ bool DelayAllocas::runOnFunction(Function& F)
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
 		{
 			Instruction* I = it;
-			delayInst(I, movedAllocaMaps, LI, DT, visited, moveAllocas);
+			InsertPoint insertPoint = delayInst(I, movedAllocaMaps, LI, DT, visited, moveAllocas);
+			if(insertPoint.insertInst == I)
+				continue;
+			else if(insertPoint.source == nullptr && insertPoint.insertInst == I->getNextNode())
+				continue;
 			if(moveAllocas && !allocaInvalidated && I->getOpcode() == Instruction::Alloca)
 			{
 				registerize.invalidateLiveRangeForAllocas(F);
@@ -758,6 +762,8 @@ bool DelayAllocas::runOnFunction(Function& F)
 			Changed = true;
 		}
 	}
+	if(!Changed)
+		return false;
 	// Create forward blocks as required, unique them based on the source/target
 	std::map<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>, llvm::BasicBlock*> forwardBlocks;
 	for(auto it = movedAllocaMaps.rbegin(); it != movedAllocaMaps.rend(); ++it)
