@@ -36,5 +36,6 @@ extern llvm::cl::opt<bool> CheerpNoICF;
 extern llvm::cl::opt<bool> BoundsCheck;
 extern llvm::cl::opt<bool> CfgStackifier;
 extern llvm::cl::opt<bool> AvoidWasmTraps;
+extern llvm::cl::opt<bool> AggressiveGepOptimizer;
 
 #endif //_CHEERP_COMMAND_LINE_H
