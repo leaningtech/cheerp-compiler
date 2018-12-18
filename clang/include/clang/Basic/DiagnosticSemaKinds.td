@@ -10953,6 +10953,8 @@ def err_cheerp_asm_in_asmjs : Error<
   "Cheerp: Cannot use inline asm in a %0 function">;
 def err_cheerp_delete_client : Error<
   "Cheerp: Types declared in the 'client' namespace are managed by the JavaScript GC. Cannot delete.">;
+def err_cheerp_client_value : Error<
+  "Cheerp: Objects of types declared in the 'client' namespace cannot be used as values">;
 } // end of cheerp issue category
 
 } // end of sema component.
