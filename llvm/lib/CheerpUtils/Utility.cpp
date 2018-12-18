@@ -851,7 +851,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeStructMemFuncLoweringPass(Registry);
 	initializeReplaceNopCastsAndByteSwapsPass(Registry);
 	initializeTypeOptimizerPass(Registry);
-	initializeDelayAllocasPass(Registry);
+	initializeDelayInstsPass(Registry);
 	initializePreExecutePass(Registry);
 	initializeExpandStructRegsPass(Registry);
 	initializeFreeAndDeleteRemovalPass(Registry);
