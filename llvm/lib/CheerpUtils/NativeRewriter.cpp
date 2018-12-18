@@ -14,7 +14,6 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/PassManager.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
