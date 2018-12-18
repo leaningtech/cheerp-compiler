@@ -632,7 +632,7 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
-uint32_t DelayAllocas::countInputInstructions(Instruction* I)
+uint32_t DelayInsts::countInputInstructions(Instruction* I)
 {
 	uint32_t ret = 0;
 	for(Value* Op: I->operands())
@@ -643,7 +643,7 @@ uint32_t DelayAllocas::countInputInstructions(Instruction* I)
 	return ret;
 }
 
-DelayAllocas::InsertPoint DelayAllocas::delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps,
+DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps,
 					LoopInfo* LI, DominatorTree* DT, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
 {
 	// Do not move problematic instructions
@@ -754,7 +754,7 @@ DelayAllocas::InsertPoint DelayAllocas::delayInst(Instruction* I, std::vector<st
 	return finalInsertPoint;
 }
 
-bool DelayAllocas::runOnFunction(Function& F)
+bool DelayInsts::runOnFunction(Function& F)
 {
 	// Only move allocas on genericjs
 	bool moveAllocas = F.getSection()==StringRef("");
@@ -829,14 +829,14 @@ bool DelayAllocas::runOnFunction(Function& F)
 	return Changed;
 }
 
-const char* DelayAllocas::getPassName() const
+const char* DelayInsts::getPassName() const
 {
-	return "DelayAllocas";
+	return "DelayInsts";
 }
 
-char DelayAllocas::ID = 0;
+char DelayInsts::ID = 0;
 
-void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
+void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::Registerize>();
@@ -848,7 +848,7 @@ void DelayAllocas::getAnalysisUsage(AnalysisUsage & AU) const
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
-FunctionPass *createDelayAllocasPass() { return new DelayAllocas(); }
+FunctionPass *createDelayInstsPass() { return new DelayInsts(); }
 
 Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(OrderedGEPs::iterator it, uint32_t index) const
 {
@@ -1206,9 +1206,9 @@ INITIALIZE_PASS_BEGIN(AllocaArrays, "AllocaArrays", "Transform allocas of REGULA
 INITIALIZE_PASS_END(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR type to arrays of 1 element",
 			false, false)
 
-INITIALIZE_PASS_BEGIN(DelayAllocas, "DelayAllocas", "Moves instructions as close as possible to the actual users",
+INITIALIZE_PASS_BEGIN(DelayInsts, "DelayInsts", "Moves instructions as close as possible to the actual users",
 			false, false)
-INITIALIZE_PASS_END(DelayAllocas, "DelayAllocas", "Moves instrucitions as close as possible to the actual users",
+INITIALIZE_PASS_END(DelayInsts, "DelayInsts", "Moves instrucitions as close as possible to the actual users",
 			false, false)
 
 INITIALIZE_PASS_BEGIN(FreeAndDeleteRemoval, "FreeAndDeleteRemoval", "Remove free and delete calls of genericjs objects",

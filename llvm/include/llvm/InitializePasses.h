@@ -454,7 +454,7 @@ void initializeStructMemFuncLoweringPass(PassRegistry&);
 void initializeAllocaArraysPass(PassRegistry&);
 void initializeReplaceNopCastsAndByteSwapsPass(PassRegistry&);
 void initializeTypeOptimizerPass(PassRegistry&);
-void initializeDelayAllocasPass(PassRegistry&);
+void initializeDelayInstsPass(PassRegistry&);
 void initializePreExecutePass(PassRegistry&);
 void initializeExpandStructRegsPass(PassRegistry&);
 void initializeFreeAndDeleteRemovalPass(PassRegistry&);

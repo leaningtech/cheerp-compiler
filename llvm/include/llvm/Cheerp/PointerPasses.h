@@ -151,7 +151,7 @@ FunctionPass *createFreeAndDeleteRemovalPass();
 /**
  * This pass moves instructions as close as possible to the actual users
  */
-class DelayAllocas: public FunctionPass
+class DelayInsts: public FunctionPass
 {
 private:
 	struct InsertPoint
@@ -168,7 +168,7 @@ private:
 	static uint32_t countInputInstructions(Instruction* I);
 public:
 	static char ID;
-	explicit DelayAllocas() : FunctionPass(ID) { }
+	explicit DelayInsts() : FunctionPass(ID) { }
 	bool runOnFunction(Function &F) override;
 	const char *getPassName() const override;
 
@@ -177,9 +177,9 @@ public:
 
 //===----------------------------------------------------------------------===//
 //
-// DelayAllocas
+// DelayInsts
 //
-FunctionPass *createDelayAllocasPass();
+FunctionPass *createDelayInstsPass();
 
 /**
  * This pass rewrite GEPs in a function to remove redundant object accesses
