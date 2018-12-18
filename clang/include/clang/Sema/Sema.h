@@ -12582,7 +12582,7 @@ public:
     while (pt->isAnyPointerType())
       pt = pt->getPointeeType();
     TagDecl* pd = pt->getAsTagDecl();
-    return !pd || pd->hasAttr<AsmJSAttr>();
+    return !pd || pd->isEnum() || pd->hasAttr<AsmJSAttr>();
   }
   static AsmJSAttr* getAsmJSAttr(QualType pt) {
     pt = pt.getNonReferenceType();
