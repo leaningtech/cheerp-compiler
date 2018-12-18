@@ -16,6 +16,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/Cheerp/CommandLine.h"
 
 #include <functional>
 #include <unordered_map>
@@ -199,9 +200,12 @@ public:
 	public:
 		static GEPRange createGEPRange(const GetElementPtrInst* GEP, size_t size)
 		{
-			while (size > 2 && isa<llvm::ConstantInt>(GEP->getOperand(size-1)))
+			if (AggressiveGepOptimizer)
 			{
-				--size;
+				while (size > 2 && isa<llvm::ConstantInt>(GEP->getOperand(size-1)))
+				{
+					--size;
+				}
 			}
 			return GEPRange(GEP, size);
 		}
