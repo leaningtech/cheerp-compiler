@@ -3515,9 +3515,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 				parentPrio = FROUND;
 			}
-			//TODO: optimize negation
 			if(parentPrio > ADD_SUB) stream << '(';
-			compileOperand(I.getOperand(0), ADD_SUB);
+			// Optimize negation
+			if(!(isa<ConstantFP>(I.getOperand(0)) && cast<ConstantFP>(I.getOperand(0))->isZero()))
+				compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '-';
 			// TODO: to avoid `--` for now we set HIGHEST priority, and
 			// compileConstant adds parenthesis if the constant is negative
