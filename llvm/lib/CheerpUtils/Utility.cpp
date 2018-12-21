@@ -163,27 +163,75 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			case Instruction::Call:
 			case Instruction::Load:
 			{
-				if(I.use_empty() || (I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR))
+				if(I.use_empty() || I.mayHaveSideEffects())
 					return false;
+				// We can only inline COMPLETE_OBJECT and RAW pointers, other kinds may actually require multiple accesses while rendering
+				// NOTE: When RAW pointers are converted to REGULAR/SPLIT_REGULAR only one access (the offset part) is used, the base is a constant HEAP*
+				if(I.getType()->isPointerTy())
+				{
+					POINTER_KIND k = PA.getPointerKind(&I);
+					if(k != COMPLETE_OBJECT && k != RAW)
+						return false;
+				}
 
-				// Skip all instructions that have no side effects.
+				// Skip up to N instructions, looking for the final not-inlineable user of this load/call
+				// If we find no side-effectfull instructions along the way it is safe to inline
+				uint32_t maxSkip = 10;
+				const Instruction* curInst = &I;
 				const Instruction* nextInst = &I;
-				int i = 0;
-				do {
+				while(1)
+				{
 					nextInst = nextInst->getNextNode();
-					assert(nextInst);
-					// Limit to 10 nodes to avoid increased runtime.
-					if (++i >= 10 || I.user_back()==nextInst)
+					if(nextInst == nullptr)
+					{
+						// We have reached the end of the block without finding the final user, can't inline
 						break;
-				} while (!nextInst->mayHaveSideEffects());
-
-				if(I.user_back()!=nextInst)
-					return false;
-				// To be inlineable this should be the value operand, not the pointer operand
-				if(isa<StoreInst>(nextInst))
-					return nextInst->getOperand(0)==&I;
-
-				return isa<ReturnInst>(nextInst);
+					}
+					else if(curInst->user_back() == nextInst)
+					{
+						// Reached the direct user
+						if(nextInst->getOpcode() == Instruction::BitCast)
+						{
+							// Avoid interacting with the bitcast logic for now
+							break;
+						}
+						else if(isa<IntrinsicInst>(nextInst))
+						{
+							// Avoid interacting with intrinsics logic for now
+							break;
+						}
+						else if(!isInlineable(*nextInst, PA))
+						{
+							// Not inlineable, it is safe to inline
+							return true;
+						}
+						else if(nextInst->getOpcode() == Instruction::Call || nextInst->getOpcode() == Instruction::Load)
+						{
+							// Inlineable and this logic has already been done
+							return true;
+						}
+						else if(!nextInst->hasOneUse())
+						{
+							break;
+						}
+						else
+						{
+							// It is inlineable, if it has only one user we can keep going
+							curInst = nextInst;
+						}
+					}
+					else if(nextInst->mayHaveSideEffects())
+					{
+						// This instruction is not the user and has side effects, give up
+						break;
+					}
+					else if(--maxSkip == 0)
+					{
+						// Can't skip anymore
+						break;
+					}
+				}
+				return false;
 			}
 			case Instruction::Invoke:
 			case Instruction::Ret:
