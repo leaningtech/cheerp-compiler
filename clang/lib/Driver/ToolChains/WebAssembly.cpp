@@ -527,6 +527,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpReservedNames->render(Args, CmdArgs);
   if(Arg *cheerpHeapSize = Args.getLastArg(options::OPT_cheerp_linear_heap_size))
     cheerpHeapSize->render(Args, CmdArgs);
+  if(Arg *cheerpStackSize = Args.getLastArg(options::OPT_cheerp_linear_stack_size))
+    cheerpStackSize->render(Args, CmdArgs);
   if(Arg* cheerpNoICF = Args.getLastArg(options::OPT_cheerp_no_icf))
     cheerpNoICF->render(Args, CmdArgs);
   if(Arg* cheerpBoundsCheck = Args.getLastArg(options::OPT_cheerp_bounds_check))
