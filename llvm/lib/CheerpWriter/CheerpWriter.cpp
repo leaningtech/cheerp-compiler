@@ -5050,6 +5050,19 @@ void CheerpWriter::compileFunctionTablesAsmJS()
 	}
 }
 
+void CheerpWriter::compileGrowHeap()
+{
+	stream << "function __cheerpGrowHeap(pages){" << NewLine;
+	stream << "var growRes=-1;" << NewLine;
+	stream << "try{" << NewLine;
+	stream << "growRes=__wasm.exports.memory.grow(pages);" << NewLine;
+	for (int i = HEAP8; i<=HEAPF64; i++)
+		stream << heapNames[i] << "=new " << typedArrayNames[i] << "(__wasm.exports.memory.buffer);" << NewLine;
+	stream << "}catch(e){}" << NewLine;
+	stream << "return growRes;" << NewLine;
+	stream << "}" << NewLine;
+}
+
 void CheerpWriter::compileMathDeclAsmJS()
 {
 	stream << "var Infinity=stdlib.Infinity;" << NewLine;
@@ -5277,7 +5290,7 @@ void CheerpWriter::makeJS()
 		// compile boilerplate
 		stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
 		stream << "\"use asm\";" << NewLine;
-		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.heapSize|0;" << NewLine;
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.stackStart|0;" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 		{
 			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
@@ -5336,6 +5349,7 @@ void CheerpWriter::makeJS()
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:__heap.byteLength," << NewLine;
+		stream << "stackStart:" << linearHelper.getStackStart() << ',' << NewLine;
 		stream << "__dummy:__dummy," << NewLine;
 		if (checkBounds)
 		{
@@ -5417,8 +5431,10 @@ void CheerpWriter::makeJS()
 			stream << "var " << heapNames[i] << "=null;" << NewLine;
 		stream << "var __asm=null;" << NewLine;
 		stream << "var __heap=null;" << NewLine;
+		stream << "var __wasm=null;" << NewLine;
 		compileAsmJSImports();
 		compileAsmJSExports();
+		compileGrowHeap();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var importObject={imports:{" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
@@ -5475,6 +5491,7 @@ void CheerpWriter::makeJS()
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
 		stream << "__asm=instance.exports;" << NewLine;
 		stream << "__heap=instance.exports.memory.buffer;" << NewLine;
+		stream << "__wasm=instance;" << NewLine;
 	}
 	//Load asm.js module
 	else if (globalDeps.needAsmJS() && asmJSMem)
