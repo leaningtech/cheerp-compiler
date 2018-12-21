@@ -39,7 +39,7 @@ llvm::cl::opt<bool> ForceTypedArrays("cheerp-force-typed-arrays", llvm::cl::desc
 
 llvm::cl::list<std::string> ReservedNames("cheerp-reserved-names", llvm::cl::value_desc("list"), llvm::cl::desc("A list of JS identifiers that should not be used by Cheerp"), llvm::cl::CommaSeparated);
 
-llvm::cl::opt<unsigned> CheerpHeapSize("cheerp-linear-heap-size", llvm::cl::init(1), llvm::cl::desc("Desired heap size for the cheerp wasm/asmjs module (in MB)") );
+llvm::cl::opt<unsigned> CheerpHeapSize("cheerp-linear-heap-size", llvm::cl::init(8), llvm::cl::desc("Desired heap size for the cheerp wasm/asmjs module (in MB)") );
 
 llvm::cl::opt<bool> CheerpNoICF("cheerp-no-icf", llvm::cl::init(0), llvm::cl::desc("Disable identical code folding for wasm/asmjs") );
 
