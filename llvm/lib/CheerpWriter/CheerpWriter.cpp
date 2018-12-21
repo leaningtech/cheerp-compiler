@@ -2207,15 +2207,16 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		const ConstantFP* f=cast<ConstantFP>(c);
 		bool useFloat = false;
 		
-		if(parentPrio == HIGHEST && f->getValueAPF().isNegative())
-			stream << '(';
-
 		if(f->getValueAPF().isInfinity())
 		{
 			if (needsFloatCoercion(regKind, parentPrio))
 				stream<< namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			if(f->getValueAPF().isNegative())
+			{
+				if(parentPrio > LOWEST)
+					stream << ' ';
 				stream << '-';
+			}
 
 			stream << "Infinity";
 			if (needsFloatCoercion(regKind, parentPrio))
@@ -2280,15 +2281,16 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 					// we cast back to double if needed
 					if(asmjs && f->getType()->isDoubleTy())
 					{
-						// if f is negative parenthesis are already added
-						if (parentPrio == HIGHEST && !f->isNegative())
-							stream << '(';
+						if (parentPrio > LOWEST)
+							stream << ' ';
 						stream << '+';
 					}
 					if(parentPrio != FROUND)
 						stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 					buf = tmpbuf;
 				}
+				else if(parentPrio > LOWEST && f->getValueAPF().isNegative())
+					stream << ' ';
 			}
 			// asm.js require the floating point literals to have a dot
 			if(asmjs && buf.find('.') == StringRef::npos)
@@ -2307,19 +2309,15 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			if (useFloat && parentPrio != FROUND)
 				stream << ')';
 		}
-		if(parentPrio == HIGHEST && (f->getValueAPF().isNegative() | (asmjs && useFloat && f->getType()->isDoubleTy())))
-			stream << ')';
 	}
 	else if(isa<ConstantInt>(c))
 	{
 		const ConstantInt* i=cast<ConstantInt>(c);
 		if(i->getBitWidth()==32)
 		{
-			if(parentPrio == HIGHEST && i->isNegative())
-				stream << '(';
+			if(parentPrio > LOWEST && i->isNegative())
+				stream << ' ';
 			stream << i->getSExtValue();
-			if(parentPrio == HIGHEST && i->isNegative())
-				stream << ')';
 		}
 		else
 			stream << i->getZExtValue();
@@ -3492,10 +3490,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > ADD_SUB) stream << '(';
 			compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '+';
-			//TODO: the HIGHEST for asmjs is needed in order to avoid `++`
-			// when the operand is a call to fround but has type double
-			PARENT_PRIORITY myPrio = asmjs?HIGHEST:nextPrio(ADD_SUB);
-			compileOperand(I.getOperand(1), myPrio);
+			compileOperand(I.getOperand(1), nextPrio(ADD_SUB));
 			if(parentPrio > ADD_SUB) stream << ')';
 			if(needsFround)
 				stream << ')';
@@ -3520,9 +3515,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(!(isa<ConstantFP>(I.getOperand(0)) && cast<ConstantFP>(I.getOperand(0))->isZero()))
 				compileOperand(I.getOperand(0), ADD_SUB);
 			stream << '-';
-			// TODO: to avoid `--` for now we set HIGHEST priority, and
-			// compileConstant adds parenthesis if the constant is negative
-			compileOperand(I.getOperand(1), HIGHEST);
+			compileOperand(I.getOperand(1), nextPrio(ADD_SUB));
 			if(parentPrio > ADD_SUB) stream << ')';
 			if(needsFround)
 				stream << ')';
@@ -3561,7 +3554,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > sdivPrio) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '/';
-			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
+			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, nextPrio(MUL_DIV));
 			if(sdivPrio == BIT_OR)
 				stream << "|0";
 			if(parentPrio > sdivPrio) stream << ')';
@@ -3576,7 +3569,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > udivPrio) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), /*forAsmJSComparison*/ false, MUL_DIV);
 			stream << '/';
-			compileUnsignedInteger(I.getOperand(1), /*forAsmJSComparison*/ false, MUL_DIV);
+			compileUnsignedInteger(I.getOperand(1), /*forAsmJSComparison*/ false, nextPrio(MUL_DIV));
 			if(udivPrio == BIT_OR)
 				stream << "|0";
 			if(parentPrio > udivPrio) stream << ')';
@@ -3591,7 +3584,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > sremPrio) stream << '(';
 			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
 			stream << '%';
-			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, MUL_DIV);
+			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, nextPrio(MUL_DIV));
 			if(sremPrio == BIT_OR)
 				stream << "|0";
 			if(parentPrio > sremPrio) stream << ')';
@@ -3606,7 +3599,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if(parentPrio > uremPrio) stream << '(';
 			compileUnsignedInteger(I.getOperand(0), /*forAsmJSComparison*/ false, MUL_DIV);
 			stream << '%';
-			compileUnsignedInteger(I.getOperand(1), /*forAsmJSComparison*/ false, MUL_DIV);
+			compileUnsignedInteger(I.getOperand(1), /*forAsmJSComparison*/ false, nextPrio(MUL_DIV));
 			if(uremPrio == BIT_OR)
 				stream << "|0";
 			if(parentPrio > uremPrio) stream << ')';
@@ -3959,8 +3952,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				if(kind == Registerize::DOUBLE)
 				{
-					if(parentPrio == ADD_SUB)
-						stream << '(';
+					if(parentPrio > LOWEST)
+						stream << ' ';
 					stream << '+';
 				}
 				else if(kind == Registerize::FLOAT)
@@ -3977,7 +3970,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
 				if(cf!=COMPILE_UNSUPPORTED)
 				{
-					if (!retTy->isVectorTy() && ((kind == Registerize::DOUBLE && parentPrio == ADD_SUB) ||
+					if (!retTy->isVectorTy() && (
 						(kind == Registerize::INTEGER && parentPrio > BIT_OR) ||
 						kind == Registerize::FLOAT))
 					{
@@ -3999,8 +3992,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 							stream << ')';
 						break;
 					case Registerize::DOUBLE:
-						if(parentPrio == ADD_SUB)
-							stream << ')';
 						break;
 					case Registerize::FLOAT:
 						stream << ')';
@@ -4059,8 +4050,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 							stream << ')';
 						break;
 					case Registerize::DOUBLE:
-						if(parentPrio == ADD_SUB)
-							stream << ')';
 						break;
 					case Registerize::FLOAT:
 						stream << ')';
@@ -4117,8 +4106,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			else if(regKind==Registerize::DOUBLE)
 			{
-				if(parentPrio==ADD_SUB)
-					stream << '(';
+				if (parentPrio > LOWEST)
+					stream << ' ';
 				stream << '+';
 			}
 			else if(needsFloatCoercion(regKind, parentPrio))
@@ -4182,11 +4171,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				stream << "|0";
 				if (parentPrio > BIT_OR)
-					stream << ')';
-			}
-			else if(regKind==Registerize::DOUBLE)
-			{
-				if(parentPrio==ADD_SUB)
 					stream << ')';
 			}
 			else if(needsFloatCoercion(regKind, parentPrio))
