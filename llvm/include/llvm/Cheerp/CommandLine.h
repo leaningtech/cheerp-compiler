@@ -32,6 +32,7 @@ extern llvm::cl::opt<bool> MeasureTimeToMain;
 extern llvm::cl::opt<bool> ForceTypedArrays;
 extern llvm::cl::list<std::string> ReservedNames;
 extern llvm::cl::opt<unsigned> CheerpHeapSize;
+extern llvm::cl::opt<unsigned> CheerpStackSize;
 extern llvm::cl::opt<bool> CheerpNoICF;
 extern llvm::cl::opt<bool> BoundsCheck;
 extern llvm::cl::opt<bool> CfgStackifier;
