@@ -3459,10 +3459,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			PARENT_PRIORITY addPrio = ADD_SUB;
 			if(needsIntCoercion(regKind, parentPrio))
 				addPrio = BIT_OR;
+			Value* lhs = I.getOperand(0);
+			Value* rhs = I.getOperand(1);
+			// TODO: Move negative constants on RHS
 			if(parentPrio > addPrio) stream << '(';
-			compileOperand(I.getOperand(0), ADD_SUB);
-			stream << "+";
-			compileOperand(I.getOperand(1), ADD_SUB);
+			compileOperand(lhs, ADD_SUB);
+			if(I.getType()->isIntegerTy(32) && isa<ConstantInt>(rhs) && cast<ConstantInt>(rhs)->isNegative())
+			{
+				// Special case negative constants, print them directly without adding an operator
+				// NOTE: i8/i16 constants are always zero extended
+				compileConstant(cast<ConstantInt>(rhs), LOWEST);
+			}
+			else
+			{
+				stream << "+";
+				compileOperand(rhs, ADD_SUB);
+			}
 			if(addPrio == BIT_OR)
 				stream << "|0";
 			if(parentPrio > addPrio) stream << ')';
