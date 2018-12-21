@@ -178,12 +178,16 @@ public:
 	typedef std::unordered_map<const llvm::FunctionType*, size_t,
 		FunctionSignatureHash,FunctionSignatureCmp> FunctionTypeIndicesMap;
 
-	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA):
-		module(module), mode(mode), globalDeps(GDA), builtinIds{{0}}, maxFunctionId(0)
+	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA,
+		uint32_t memorySize, uint32_t stackSize):
+		module(module), mode(mode), globalDeps(GDA), builtinIds{{0}}, maxFunctionId(0),
+		memorySize(memorySize*1024*1024), stackSize(1024*1024)
 	{
 		addFunctions();
+		addStack();
 		addGlobals();
-		addHeapStart();
+		checkMemorySize();
+		addHeapStartAndEnd();
 	}
 
 	uint32_t getGlobalVariableAddress(const llvm::GlobalVariable* G) const;
@@ -219,6 +223,13 @@ public:
 
 	const std::unordered_map<const llvm::Function*, uint32_t>& getFunctionIds() const {
 		return functionIds;
+	}
+
+	uint32_t getStackStart() const {
+		return stackStart;
+	}
+	uint32_t getHeapStart() const {
+		return heapStart;
 	}
 
 	/**
@@ -266,7 +277,9 @@ public:
 private:
 	void addGlobals();
 	void addFunctions();
-	void addHeapStart();
+	void addStack();
+	void addHeapStartAndEnd();
+	void checkMemorySize();
 
 	llvm::Module& module;
 	FunctionAddressMode mode;
@@ -289,6 +302,12 @@ private:
 	// The next address available to allocate global variables.
 	// The heap space will start after the last global variable allocation
 	uint32_t heapStart{8};
+	// Total memory size
+	uint32_t memorySize;
+	// Stack size
+	uint32_t stackSize;
+	// Stack start (it grows downwards)
+	uint32_t stackStart;
 };
 
 }

@@ -2973,9 +2973,9 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 {
 	// Define the memory for the module in WasmPage units. The heap size is
 	// defined in MiB and the wasm page size is 64 KiB. Thus, the wasm heap
-	// size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
-	uint32_t minMemory = heapSize << 4;
+	// max size parameter is defined as: heapSize << 20 >> 16 = heapSize << 4.
 	uint32_t maxMemory = heapSize << 4;
+	uint32_t minMemory = (linearHelper.getHeapStart() + 65535) >> 16;
 
 	// TODO use WasmPage variable instead of hardcoded '1>>16'.
 	assert(WasmPage == 64 * 1024);
@@ -3000,7 +3000,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 
 		// Start the stack from the end of default memory
 		stackTopGlobal = usedGlobals++;
-		uint32_t stackTop = (minMemory * WasmPage);
+		uint32_t stackTop = linearHelper.getStackStart();
 
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			// There is 1 global.

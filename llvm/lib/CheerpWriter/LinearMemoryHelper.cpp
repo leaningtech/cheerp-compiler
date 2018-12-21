@@ -501,18 +501,39 @@ if (!functionTypeIndices.count(fTy)) { \
 	}
 }
 
-void LinearMemoryHelper::addHeapStart()
+void LinearMemoryHelper::addStack()
+{
+	heapStart += stackSize;
+	stackStart = heapStart - 8;
+}
+
+void LinearMemoryHelper::checkMemorySize()
+{
+	if (heapStart < memorySize)
+		return;
+	// Not enough memory, error
+	report_fatal_error("Cheerp: Not enough linear memory. Try to increase it with -cheerp-linear-heap-size");
+}
+void LinearMemoryHelper::addHeapStartAndEnd()
 {
 	GlobalVariable* heapStartVar = module.getNamedGlobal("_heapStart");
+	GlobalVariable* heapEndVar = module.getNamedGlobal("_heapEnd");
 
 	if (heapStartVar)
 	{
+		assert(heapEndVar && "No _heapEnd global variable found");
 		// Align to 8 bytes
 		heapStart = (heapStart + 7) & ~7;
-		ConstantInt* addr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapStart, false);
-		Constant* heapInit = ConstantExpr::getIntToPtr(addr, heapStartVar->getType()->getElementType(), false);
-		heapStartVar->setInitializer(heapInit);
+		ConstantInt* startAddr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapStart, false);
+		Constant* startInit = ConstantExpr::getIntToPtr(startAddr, heapStartVar->getType()->getElementType(), false);
+		heapStartVar->setInitializer(startInit);
 		heapStartVar->setSection("asmjs");
+
+		uint32_t heapEnd = mode == FunctionAddressMode::Wasm ? heapStart : memorySize;
+		ConstantInt* endAddr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapEnd, false);
+		Constant* endInit = ConstantExpr::getIntToPtr(endAddr, heapEndVar->getType()->getElementType(), false);
+		heapEndVar->setInitializer(endInit);
+		heapEndVar->setSection("asmjs");
 	}
 }
 
