@@ -167,12 +167,13 @@ void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio)
 {
 	//Integer subtraction
-	//TODO: optimize negation
 	PARENT_PRIORITY subPrio = ADD_SUB;
 	if(needsIntCoercion(Registerize::INTEGER, parentPrio))
 		subPrio = BIT_OR;
 	if(parentPrio > subPrio) stream << '(';
-	compileOperand(lhs, ADD_SUB);
+	// Optimize negation
+	if(!(isa<ConstantInt>(lhs) && cast<ConstantInt>(lhs)->isZero()))
+		compileOperand(lhs, ADD_SUB);
 	stream << '-';
 	// TODO: to avoid `--` for now we set HIGHEST priority, and
 	// compileConstant adds parenthesis if the constant is negative
