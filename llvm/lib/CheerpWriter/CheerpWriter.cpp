@@ -5430,7 +5430,7 @@ void CheerpWriter::makeJS()
 				name = "__dummy";
 			else
 				name = ("_asm_"+namegen.getName(imported)).str();
-			stream << NameGenerator::filterLLVMName(imported->getName(),NameGenerator::NAME_FILTER_MODE::GLOBAL) << ':' << name  << ',' << NewLine;
+			stream << namegen.getName(imported) << ':' << name  << ',' << NewLine;
 		}
 		stream << "}};" << NewLine;
 		if (makeModule == MODULE_TYPE::COMMONJS)
