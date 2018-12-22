@@ -8,8 +8,6 @@ RUN: not llvm-dis -disable-output %p/Inputs/invalid-unexpected-eof.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=UNEXPECTED-EOF %s
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-bad-abbrev-number.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=BAD-ABBREV-NUMBER %s
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-type-table-forward-ref.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=BAD-TYPE-TABLE-FORWARD-REF %s
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-bitwidth.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=BAD-BITWIDTH %s
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-align.bc  2>&1 | \
@@ -24,10 +22,6 @@ RUN: not llvm-dis -disable-output %p/Inputs/invalid-call-mismatched-explicit-typ
 RUN:   FileCheck --check-prefix=MISMATCHED-EXPLICIT-CALL %s
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-call-non-function-explicit-type.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=NON-FUNCTION-EXPLICIT-CALL %s
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-invoke-mismatched-explicit-type.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=MISMATCHED-EXPLICIT-INVOKE %s
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-invoke-non-function-explicit-type.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=NON-FUNCTION-EXPLICIT-INVOKE %s
 
 INVALID-EMPTY: error: file too small to contain bitcode header
 INVALID-ENCODING: Invalid encoding
@@ -42,21 +36,7 @@ MISMATCHED-EXPLICIT-LOAD: Explicit load/store type does not match pointee type o
 MISMATCHED-EXPLICIT-GEP-OPERATOR: Explicit gep operator type does not match pointee type of pointer operand
 MISMATCHED-EXPLICIT-CALL: Explicit call type does not match pointee type of callee operand
 NON-FUNCTION-EXPLICIT-CALL: Explicit call type is not a function type
-MISMATCHED-EXPLICIT-INVOKE: Explicit invoke type does not match pointee type of callee operand
-NON-FUNCTION-EXPLICIT-INVOKE: Explicit invoke type is not a function type
 
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-extractval-array-idx.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=EXTRACT-ARRAY %s
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-extractval-struct-idx.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=EXTRACT-STRUCT %s
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-extractval-too-many-idxs.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=EXTRACT-IDXS %s
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-insertval-array-idx.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=INSERT-ARRAY %s
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-insertval-struct-idx.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=INSERT-STRUCT %s
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-insertval-too-many-idxs.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=INSERT-IDXS %s
 
 
 EXTRACT-ARRAY: EXTRACTVAL: Invalid array index
@@ -96,11 +76,6 @@ RUN: not llvm-dis -disable-output %p/Inputs/invalid-fwdref-type-mismatch.bc 2>&1
 RUN:   FileCheck --check-prefix=FWDREF-TYPE %s
 
 FWDREF-TYPE: Invalid record
-
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-fwdref-type-mismatch-2.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=FWDREF-TYPE-MISMATCH %s
-
-FWDREF-TYPE-MISMATCH: Malformed block
 
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-array-element-type.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=ELEMENT-TYPE %s
@@ -160,16 +135,6 @@ RUN: not llvm-dis -disable-output %p/Inputs/invalid-code-len-width.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=INVALID-CODELENWIDTH %s
 
 INVALID-CODELENWIDTH: error: can't skip to bit
-
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-function-argument-type.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=INVALID-ARGUMENT-TYPE %s
-
-INVALID-ARGUMENT-TYPE: Invalid function argument type
-
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-function-comdat-id.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=INVALID-FCOMDAT-ID %s
-
-INVALID-FCOMDAT-ID: Malformed block
 
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-global-var-comdat-id.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=INVALID-GVCOMDAT-ID %s
