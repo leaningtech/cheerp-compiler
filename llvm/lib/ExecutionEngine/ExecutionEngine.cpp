@@ -137,10 +137,10 @@ public:
 }  // anonymous namespace
 
 GenericValue ExecutionEngine::RPTOGV(void *P) {
-  return GenericValue(ValueAddresses->toVirtual(P));
+  return GenericValue(ValueAddresses ? ValueAddresses->toVirtual(P) : P);
 }
 void* ExecutionEngine::GVTORP(const GenericValue &GV) {
-  return ValueAddresses->toReal(GV.PointerVal);
+  return ValueAddresses ? ValueAddresses->toReal(GV.PointerVal) : GV.PointerVal;
 }
 
 char *ExecutionEngine::getMemoryForGV(const GlobalVariable *GV) {
