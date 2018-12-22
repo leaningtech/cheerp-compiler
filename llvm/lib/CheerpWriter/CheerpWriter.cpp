@@ -999,13 +999,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << ')';
 		return COMPILE_OK;
 	}
-	else if(useNativeJavaScriptMath)
+	else if(useNativeJavaScriptMath || intrinsicId)
 	{
 		// NOTE: V8 has very strict rules about mixing the double builtins with
 		// floats in asm.js, so we need an extra `+` for those
 		PARENT_PRIORITY mathPrio = LOWEST;
 		bool asmjsFloats = asmjs && useMathFround;
-		if(ident=="fabs" || ident=="fabsf")
+		if(ident=="fabs" || ident=="fabsf" || intrinsicId==Intrinsic::fabs)
 		{
 			if(asmjs)
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::ABS);
@@ -1094,7 +1094,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << ')';
 			return COMPILE_OK;
 		}
-		else if(ident=="ceil" || ident=="ceilf")
+		else if(ident=="ceil" || ident=="ceilf" || intrinsicId==Intrinsic::ceil)
 		{
 			if(asmjs)
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::CEIL);
@@ -1105,7 +1105,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << ')';
 			return COMPILE_OK;
 		}
-		else if(ident=="cos" || ident=="cosf")
+		else if(ident=="cos" || ident=="cosf" || intrinsicId==Intrinsic::cos)
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
@@ -1123,7 +1123,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << ')';
 			return COMPILE_OK;
 		}
-		else if(ident=="exp" || ident=="expf")
+		else if(ident=="exp" || ident=="expf" || intrinsicId==Intrinsic::exp)
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
@@ -1141,7 +1141,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << ')';
 			return COMPILE_OK;
 		}
-		else if(ident=="floor" || ident=="floorf")
+		else if(ident=="floor" || ident=="floorf" || intrinsicId==Intrinsic::floor)
 		{
 			if(asmjs)
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FLOOR);
@@ -1152,7 +1152,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << ')';
 			return COMPILE_OK;
 		}
-		else if(ident=="log" || ident=="logf")
+		else if(ident=="log" || ident=="logf" || intrinsicId==Intrinsic::log)
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
@@ -1170,7 +1170,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << ')';
 			return COMPILE_OK;
 		}
-		else if(ident=="pow" || ident=="powf")
+		else if(ident=="pow" || ident=="powf" || intrinsicId==Intrinsic::pow)
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
@@ -1206,7 +1206,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << ')';
 			return COMPILE_OK;
 		}
-		else if(ident=="sin" || ident=="sinf")
+		else if(ident=="sin" || ident=="sinf" || intrinsicId==Intrinsic::sin)
 		{
 			if(asmjsFloats && (*it)->getType()->isFloatTy())
 				stream << '+';
@@ -1224,7 +1224,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << ')';
 			return COMPILE_OK;
 		}
-		else if(ident=="sqrt" || ident=="sqrtf")
+		else if(ident=="sqrt" || ident=="sqrtf" || intrinsicId==Intrinsic::sqrt)
 		{
 			if(asmjs)
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::SQRT);
