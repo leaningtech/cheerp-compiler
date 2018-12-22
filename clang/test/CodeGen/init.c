@@ -240,7 +240,7 @@ void test13(int x) {
 void PR20473(void) {
   // CHECK: memcpy{{.*}}getelementptr inbounds ([2 x i8], [2 x i8]* @
   bar((char[2]) {""});
-  // CHECK: memcpy{{.*}}getelementptr inbounds ([3 x i8], [3 x i8]* @
+  // CHECK: memcpy{{.*}}bitcast ([3 x i8]* @
   bar((char[3]) {""});
 }
 
