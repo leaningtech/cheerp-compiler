@@ -39,7 +39,7 @@ const char* GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer(bool resolveAliases) : ModulePass(ID), DL(NULL),
+GlobalDepsAnalyzer::GlobalDepsAnalyzer(bool resolveAliases) : ModulePass(ID), hasMathBuiltin{{false}}, DL(NULL),
 	TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	hasPointerArrays(false), hasAsmJS(false), resolveAliases(resolveAliases), delayPrintf(true), forceTypedArrays(false)
 {
@@ -153,6 +153,27 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 	for (CallInst* ci : deleteList) {
 		ci->eraseFromParent();
+	}
+
+	// Drop the code for math functions that will be replaced by builtins
+	if (!NoNativeJavaScriptMath)
+	{
+#define DROP_MATH_FUNC(x) if(Function* F = module.getFunction(x)) { F->deleteBody(); }
+		DROP_MATH_FUNC("fabs"); DROP_MATH_FUNC("fabsf");
+		DROP_MATH_FUNC("acos"); DROP_MATH_FUNC("acosf");
+		DROP_MATH_FUNC("asin"); DROP_MATH_FUNC("asinf");
+		DROP_MATH_FUNC("atan"); DROP_MATH_FUNC("atanf");
+		DROP_MATH_FUNC("atan2"); DROP_MATH_FUNC("atan2f");
+		DROP_MATH_FUNC("ceil"); DROP_MATH_FUNC("ceilf");
+		DROP_MATH_FUNC("cos"); DROP_MATH_FUNC("cosf");
+		DROP_MATH_FUNC("exp"); DROP_MATH_FUNC("expf");
+		DROP_MATH_FUNC("floor"); DROP_MATH_FUNC("floorf");
+		DROP_MATH_FUNC("log"); DROP_MATH_FUNC("logf");
+		DROP_MATH_FUNC("pow"); DROP_MATH_FUNC("powf");
+		DROP_MATH_FUNC("sin"); DROP_MATH_FUNC("sinf");
+		DROP_MATH_FUNC("sqrt"); DROP_MATH_FUNC("sqrtf");
+		DROP_MATH_FUNC("tan"); DROP_MATH_FUNC("tanf");
+#undef DROP_MATH_FUNC
 	}
 
 	//Compile the list of JS methods
@@ -346,6 +367,56 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	NumRemovedGlobals = filterModule(module);
+
+	// Detect all used math builtins
+	if (!NoNativeJavaScriptMath)
+	{
+		// We have already dropped all unused functions, so we can simply check if these exists
+#define CHECK_MATH_FUNC(x, d, f) { hasMathBuiltin[x ## _F64] = module.getFunction(f) || module.getFunction(d); }
+		CHECK_MATH_FUNC(ABS, "fabs", "fabsf");
+		CHECK_MATH_FUNC(ACOS, "acos", "acosf");
+		CHECK_MATH_FUNC(ASIN, "asin", "asinf");
+		CHECK_MATH_FUNC(ATAN, "atan", "atanf");
+		CHECK_MATH_FUNC(ATAN2, "atan2", "atan2f");
+		CHECK_MATH_FUNC(CEIL, "ceil", "ceilf");
+		CHECK_MATH_FUNC(COS, "cos", "cosf");
+		CHECK_MATH_FUNC(EXP, "exp", "expf");
+		CHECK_MATH_FUNC(FLOOR, "floor", "floorf");
+		CHECK_MATH_FUNC(LOG, "log", "logf");
+		CHECK_MATH_FUNC(POW, "pow", "powf");
+		CHECK_MATH_FUNC(SIN, "sin", "sinf");
+		CHECK_MATH_FUNC(SQRT, "sqrt", "sqrtf");
+		CHECK_MATH_FUNC(TAN, "tan", "tanf");
+#undef CHECK_MATH_FUNC
+
+		// Also look for intrinsics
+		for(const Function& F: module)
+		{
+			uint32_t II = F.getIntrinsicID();
+			if(!II)
+				continue;
+			if(II == Intrinsic::fabs)
+				hasMathBuiltin[ABS_F64] = true;
+			else if(II == Intrinsic::ceil)
+				hasMathBuiltin[CEIL_F64] = true;
+			else if(II == Intrinsic::cos)
+				hasMathBuiltin[COS_F64] = true;
+			else if(II == Intrinsic::exp)
+				hasMathBuiltin[EXP_F64] = true;
+			else if(II == Intrinsic::floor)
+				hasMathBuiltin[FLOOR_F64] = true;
+			else if(II == Intrinsic::log)
+				hasMathBuiltin[LOG_F64] = true;
+			else if(II == Intrinsic::pow)
+				hasMathBuiltin[POW_F64] = true;
+			else if(II == Intrinsic::sin)
+				hasMathBuiltin[SIN_F64] = true;
+			else if(II == Intrinsic::sqrt)
+				hasMathBuiltin[SQRT_F64] = true;
+			else if(II == Intrinsic::ctlz)
+				hasMathBuiltin[CLZ32] = true;
+		}
+	}
 
 	callGlobalConstructorsOnStart(module, *this);
 

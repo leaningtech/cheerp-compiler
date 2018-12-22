@@ -34,6 +34,8 @@ extern const char* wasmNullptrName;
 class GlobalDepsAnalyzer : public llvm::ModulePass
 {
 public:
+	enum MATH_BUILTIN { ABS_F64, ACOS_F64, ASIN_F64, ATAN_F64, ATAN2_F64, CEIL_F64, COS_F64, EXP_F64, FLOOR_F64, LOG_F64, POW_F64, SIN_F64, SQRT_F64, TAN_F64,
+				CLZ32, MAX_BUILTIN };
 	static char ID;
 	typedef llvm::SmallVector<const llvm::Use *, 8> SubExprVec;
 	typedef std::unordered_multimap< const llvm::GlobalVariable *, SubExprVec > FixupMap;
@@ -211,6 +213,8 @@ private:
 
 	std::unordered_map<llvm::StructType*, uint32_t> basesInfo;
 
+	std::array<bool, MAX_BUILTIN> hasMathBuiltin;
+
 	const llvm::DataLayout* DL;
 	const llvm::TargetLibraryInfo* TLI;
 
@@ -225,6 +229,10 @@ private:
 	bool delayPrintf;
 public:
 	bool forceTypedArrays;
+	bool needsMathBuiltin(MATH_BUILTIN b)
+	{
+		return hasMathBuiltin[b];
+	}
 };
 
 inline llvm::Pass * createGlobalDepsAnalyzerPass(bool resolveAliases)

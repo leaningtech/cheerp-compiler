@@ -5049,21 +5049,36 @@ void CheerpWriter::compileMathDeclAsmJS()
 {
 	stream << "var Infinity=stdlib.Infinity;" << NewLine;
 	stream << "var NaN=stdlib.NaN;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ABS) << "=stdlib.Math.abs;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ACOS) << "=stdlib.Math.acos;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ASIN) << "=stdlib.Math.asin;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ATAN) << "=stdlib.Math.atan;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ATAN2) << "=stdlib.Math.atan2;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::CEIL) << "=stdlib.Math.ceil;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::COS) << "=stdlib.Math.cos;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::EXP) << "=stdlib.Math.exp;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::FLOOR) << "=stdlib.Math.floor;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::LOG) << "=stdlib.Math.log;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::POW) << "=stdlib.Math.pow;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::SIN) << "=stdlib.Math.sin;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::SQRT) << "=stdlib.Math.sqrt;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::TAN) << "=stdlib.Math.tan;" << NewLine;
-	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::CLZ32) << "=stdlib.Math.clz32;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ABS_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ABS) << "=stdlib.Math.abs;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ACOS_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ACOS) << "=stdlib.Math.acos;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ASIN_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ASIN) << "=stdlib.Math.asin;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ATAN_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ATAN) << "=stdlib.Math.atan;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ATAN2_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ATAN2) << "=stdlib.Math.atan2;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::CEIL_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::CEIL) << "=stdlib.Math.ceil;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::COS_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::COS) << "=stdlib.Math.cos;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::EXP_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::EXP) << "=stdlib.Math.exp;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::FLOOR_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::FLOOR) << "=stdlib.Math.floor;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::LOG_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::LOG) << "=stdlib.Math.log;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::POW_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::POW) << "=stdlib.Math.pow;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::SIN_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::SIN) << "=stdlib.Math.sin;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::SQRT_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::SQRT) << "=stdlib.Math.sqrt;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::TAN_F64))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::TAN) << "=stdlib.Math.tan;" << NewLine;
+	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::CLZ32))
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::CLZ32) << "=stdlib.Math.clz32;" << NewLine;
 }
 
 void CheerpWriter::compileAsmJSImports()
