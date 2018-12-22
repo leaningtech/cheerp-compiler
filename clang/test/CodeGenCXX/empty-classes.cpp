@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 %s -I%S -triple=x86_64-apple-darwin10 -emit-llvm -O3 -o - | FileCheck %s
 
-// CHECK: %"struct.rdar20621065::B" = type { float, float }
+// CHECK: %struct._ZN12rdar206210651BE = type { float, float }
 
 struct Empty { };
 
