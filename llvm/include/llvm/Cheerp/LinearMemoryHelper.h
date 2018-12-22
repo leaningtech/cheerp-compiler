@@ -179,7 +179,7 @@ public:
 		FunctionSignatureHash,FunctionSignatureCmp> FunctionTypeIndicesMap;
 
 	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA):
-		module(module), mode(mode), globalDeps(GDA)
+		module(module), mode(mode), globalDeps(GDA), builtinIds{{0}}, maxFunctionId(0)
 	{
 		addFunctions();
 		addGlobals();
@@ -259,6 +259,10 @@ public:
 	// Returns the base of the compiled expression
 	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener) const;
 	static const llvm::Value* compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener);
+	uint32_t getBuiltinId(GlobalDepsAnalyzer::MATH_BUILTIN b) const
+	{
+		return builtinIds[b];
+	}
 private:
 	void addGlobals();
 	void addFunctions();
@@ -273,6 +277,8 @@ private:
 	std::vector<llvm::Function*> asmjsFunctions_;
 
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
+	std::array<uint32_t, GlobalDepsAnalyzer::MAX_BUILTIN> builtinIds;
+	uint32_t maxFunctionId;
 	std::vector<const llvm::FunctionType*> functionTypes;
 	FunctionTypeIndicesMap functionTypeIndices;
 
