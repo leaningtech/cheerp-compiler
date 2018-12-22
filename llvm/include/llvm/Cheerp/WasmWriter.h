@@ -123,7 +123,7 @@ private:
 	void compileMethodParams(WasmBuffer& code, const llvm::FunctionType* F);
 	void compileMethodResult(WasmBuffer& code, const llvm::Type* F);
 	void compileMethod(WasmBuffer& code, llvm::Function& F);
-	void compileImport(WasmBuffer& code, const llvm::Function& F);
+	void compileImport(WasmBuffer& code, llvm::StringRef funcName, llvm::FunctionType* FTy);
 	void compileGlobal(const llvm::GlobalVariable& G);
 	// Returns true if it has handled local assignent internally
 	bool compileInstruction(WasmBuffer& code, const llvm::Instruction& I);
