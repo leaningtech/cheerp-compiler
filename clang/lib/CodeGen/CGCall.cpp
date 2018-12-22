@@ -2907,12 +2907,7 @@ static llvm::StoreInst *findDominatingStoreToReturnValue(CodeGenFunction &CGF) {
       if (llvm::IntrinsicInst *Intrinsic =
               dyn_cast<llvm::IntrinsicInst>(&*II)) {
         if (Intrinsic->getIntrinsicID() == llvm::Intrinsic::lifetime_end) {
-          const llvm::Value *CastAddr = Intrinsic->getArgOperand(1);
-          ++II;
-          if (II == IE)
-            break;
-          if (isa<llvm::BitCastInst>(&*II) && (CastAddr == &*II))
-            continue;
+              continue;
         }
       }
       I = &*II;
