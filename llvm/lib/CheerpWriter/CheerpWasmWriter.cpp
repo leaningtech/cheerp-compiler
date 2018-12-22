@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -2653,12 +2653,12 @@ void CheerpWasmWriter::compileTypeSection()
 	}
 }
 
-void CheerpWasmWriter::compileImport(WasmBuffer& code, const Function& F)
+void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, FunctionType* fTy)
 {
 	assert(useWasmLoader);
 
 	NameGenerator::NAME_FILTER_MODE mode = NameGenerator::NAME_FILTER_MODE::GLOBAL;
-	std::string fieldName = NameGenerator::filterLLVMName(F.getName(), mode).str().str();
+	std::string fieldName = funcName;
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
 		// Encode the module name.
@@ -2674,7 +2674,6 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, const Function& F)
 		internal::encodeULEB128(0x00, code);
 
 		// Encode type index of function signature.
-		auto fTy = F.getFunctionType();
 		const auto& found = linearHelper.getFunctionTypeIndices().find(fTy);
 		assert(found != linearHelper.getFunctionTypeIndices().end());
 		internal::encodeULEB128(found->second, code);
@@ -2682,17 +2681,16 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, const Function& F)
 		code << "(func (import \"imports\" \"";
 		code.write(fieldName.data(), fieldName.size());
 		code << "\")";
-		uint32_t numArgs = F.arg_size();
+		uint32_t numArgs = fTy->getNumParams();
 		if(numArgs)
 		{
 			code << "(param";
-			llvm::FunctionType* FTy = F.getFunctionType();
 			for(uint32_t i = 0; i < numArgs; i++)
-				code << ' ' << getTypeString(FTy->getParamType(i));
+				code << ' ' << getTypeString(fTy->getParamType(i));
 			code << ')';
 		}
-		if(!F.getReturnType()->isVoidTy())
-			code << "(result " << getTypeString(F.getReturnType()) << ')';
+		if(!fTy->getReturnType()->isVoidTy())
+			code << "(result " << getTypeString(fTy->getReturnType()) << ')';
 		code << ")\n";
 	}
 }
@@ -2710,7 +2708,7 @@ void CheerpWasmWriter::compileImportSection()
 	}
 
 	for (const Function* F : globalDeps.asmJSImports())
-		compileImport(section, *F);
+		compileImport(section, namegen.getName(F), F->getFunctionType());
 }
 
 void CheerpWasmWriter::compileFunctionSection()
