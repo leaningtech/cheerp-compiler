@@ -367,6 +367,10 @@ void LinearMemoryHelper::addFunctions()
 		if (mode == FunctionAddressMode::Wasm && F.getName() == StringRef(wasmNullptrName))
 			continue;
 
+		// Adding empty functions here will only cause a crash later
+		if (F.empty())
+			continue;
+
 		// WebAssembly has some builtin functions (sqrt, abs, copysign, etc.)
 		// which should be omitted, and is therefore a subset of the asmjs
 		// function list.
@@ -391,16 +395,46 @@ void LinearMemoryHelper::addFunctions()
 	// Add the asm.js imports to the function type list. The non-imported
 	// asm.js functions will be added below.
 	if (!WasmLoader.empty()) {
+#define ADD_FUNCTION_TYPE(fTy) \
+if (!functionTypeIndices.count(fTy)) { \
+	uint32_t idx = functionTypeIndices.size(); \
+	functionTypeIndices[fTy] = idx; \
+	functionTypes.push_back(fTy); \
+	assert(idx < functionTypes.size()); \
+}
+
 		for (const Function* F : globalDeps.asmJSImports()) {
 			const FunctionType* fTy = F->getFunctionType();
-			const auto& found = functionTypeIndices.find(fTy);
-			if (found == functionTypeIndices.end()) {
-				uint32_t idx = functionTypeIndices.size();
-				functionTypeIndices[fTy] = idx;
-				functionTypes.push_back(fTy);
-				assert(idx < functionTypes.size());
-			}
-			functionIds.insert(std::make_pair(F, functionIds.size()));
+			ADD_FUNCTION_TYPE(fTy);
+			functionIds.insert(std::make_pair(F, maxFunctionId++));
+		}
+		if(!NoNativeJavaScriptMath && mode == FunctionAddressMode::Wasm)
+		{
+			// Synthetize the function type for float/double builtins
+			Type* f64 = Type::getDoubleTy(module.getContext());
+			Type* f64_1[] = { f64 };
+			Type* f64_2[] = { f64, f64 };
+			FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
+			FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
+			bool needs_f64_f64_1 = false;
+			bool needs_f64_f64_2 = false;
+#define ADD_MATH_BUILTIN(x, sig) if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::x)) { needs_ ## sig = true; builtinIds[GlobalDepsAnalyzer::x] = maxFunctionId++; }
+			ADD_MATH_BUILTIN(ACOS_F64, f64_f64_1);
+			ADD_MATH_BUILTIN(ASIN_F64, f64_f64_1);
+			ADD_MATH_BUILTIN(ATAN_F64, f64_f64_1);
+			ADD_MATH_BUILTIN(ATAN2_F64, f64_f64_2);
+			ADD_MATH_BUILTIN(COS_F64, f64_f64_1);
+			ADD_MATH_BUILTIN(EXP_F64, f64_f64_1);
+			ADD_MATH_BUILTIN(LOG_F64, f64_f64_1);
+			ADD_MATH_BUILTIN(POW_F64, f64_f64_2);
+			ADD_MATH_BUILTIN(SIN_F64, f64_f64_1);
+			ADD_MATH_BUILTIN(TAN_F64, f64_f64_1);
+#undef ADD_MATH_BUILTIN
+			if(needs_f64_f64_1)
+				ADD_FUNCTION_TYPE(f64_f64_1);
+			if(needs_f64_f64_2)
+				ADD_FUNCTION_TYPE(f64_f64_2);
+#undef ADD_FUNCTION_TYPE
 		}
 	}
 
@@ -418,7 +452,7 @@ void LinearMemoryHelper::addFunctions()
 			it->second.functions.push_back(F);
 		}
 
-		functionIds.insert(std::make_pair(F, functionIds.size()));
+		functionIds.insert(std::make_pair(F, maxFunctionId++));
 
 		const auto& found = functionTypeIndices.find(fTy);
 		if (found == functionTypeIndices.end()) {

@@ -16,6 +16,7 @@
 #include "CFGStackifier.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
@@ -1703,7 +1704,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 
 			if (calledFunc)
 			{
-				switch (calledFunc->getIntrinsicID())
+				unsigned intrinsicId = calledFunc->getIntrinsicID();
+				switch (intrinsicId)
 				{
 					case Intrinsic::trap:
 					{
@@ -1843,6 +1845,15 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							llvm::report_fatal_error("missing free definition");
 						break;
 					}
+					case Intrinsic::cos:
+					case Intrinsic::exp:
+					case Intrinsic::log:
+					case Intrinsic::pow:
+					case Intrinsic::sin:
+					{
+						// Handled below
+						break;
+					}
 					default:
 					{
 						unsigned intrinsic = calledFunc->getIntrinsicID();
@@ -1852,6 +1863,81 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					break;
 				}
+				if(!NoNativeJavaScriptMath || intrinsicId)
+				{
+					StringRef ident = calledFunc->getName();
+					bool builtinFound = false;
+					GlobalDepsAnalyzer::MATH_BUILTIN b;
+					if(ident=="acos" || ident=="acosf")
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::ACOS_F64;
+					}
+					else if(ident=="asin" || ident=="asinf")
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::ASIN_F64;
+					}
+					else if(ident=="atan" || ident=="atanf")
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::ATAN_F64;
+					}
+					else if(ident=="atan2" || ident=="atan2f")
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::ATAN2_F64;
+					}
+					else if(ident=="cos" || ident=="cosf" || intrinsicId==Intrinsic::cos)
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::COS_F64;
+					}
+					else if(ident=="exp" || ident=="expf" || intrinsicId==Intrinsic::exp)
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::EXP_F64;
+					}
+					else if(ident=="log" || ident=="logf" || intrinsicId==Intrinsic::log)
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::LOG_F64;
+					}
+					else if(ident=="pow" || ident=="powf" || intrinsicId==Intrinsic::pow)
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::POW_F64;
+					}
+					else if(ident=="sin" || ident=="sinf" || intrinsicId==Intrinsic::sin)
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::SIN_F64;
+					}
+					else if(ident=="tan" || ident=="tanf")
+					{
+						builtinFound = true;
+						b = GlobalDepsAnalyzer::TAN_F64;
+					}
+
+					if(builtinFound)
+					{
+						// We will use a builtin, do float conversion if needed
+						bool floatType = calledFunc->getReturnType()->isFloatTy();
+						for (auto op = ci.op_begin(); op != ci.op_begin() + fTy->getNumParams(); ++op)
+						{
+							compileOperand(code, op->get());
+							if(floatType)
+								encodeInst(0xbb, "f64.promote/f32", code);
+						}
+						uint32_t importedId = linearHelper.getBuiltinId(b);
+						assert(importedId);
+						encodeU32Inst(0x10, "call", importedId, code);
+						if(floatType)
+							encodeInst(0xb6, "f32.demote/f64", code);
+						return false;
+					}
+				}
+
 			}
 
 			for (auto op = ci.op_begin();
@@ -2697,18 +2783,54 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, Funct
 
 void CheerpWasmWriter::compileImportSection()
 {
-	if (globalDeps.asmJSImports().empty() || !useWasmLoader)
+	// Count imported builtins
+	uint32_t importedBuiltins = 0;
+	for(uint32_t i=0;i<GlobalDepsAnalyzer::MAX_BUILTIN;i++)
+	{
+		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::MATH_BUILTIN(i)))
+			importedBuiltins++;
+	}
+
+	uint32_t importedTotal = importedBuiltins + globalDeps.asmJSImports().size();
+
+	if (importedTotal == 0 || !useWasmLoader)
 		return;
 
 	Section section(0x02, "Import", this);
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
 		// Encode number of entries in the import section.
-		internal::encodeULEB128(globalDeps.asmJSImports().size(), section);
+		internal::encodeULEB128(importedTotal, section);
 	}
 
 	for (const Function* F : globalDeps.asmJSImports())
 		compileImport(section, namegen.getName(F), F->getFunctionType());
+
+	Type* f64 = Type::getDoubleTy(module.getContext());
+	Type* f64_1[] = { f64 };
+	Type* f64_2[] = { f64, f64 };
+	FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
+	FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ACOS_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::ACOS), f64_f64_1);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ASIN_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::ASIN), f64_f64_1);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ATAN_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::ATAN), f64_f64_1);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ATAN2_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::ATAN2), f64_f64_2);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::COS_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::COS), f64_f64_1);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::EXP_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::EXP), f64_f64_1);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::LOG_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::LOG), f64_f64_1);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::POW_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::POW), f64_f64_2);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::SIN_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::SIN), f64_f64_1);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::TAN_F64))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::TAN), f64_f64_1);
 }
 
 void CheerpWasmWriter::compileFunctionSection()
