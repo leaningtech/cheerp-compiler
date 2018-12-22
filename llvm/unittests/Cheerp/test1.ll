@@ -13,11 +13,11 @@ target triple = "cheerp--webbrowser"
 ; Function Attrs: nounwind
 define void @f1(i32* nocapture readonly %a, %struct._Z1A* nocapture %obj, %struct._ZN6client1BE* nocapture readonly %obj2) #0 {
 entry:
-  %0 = load i32* %a, align 1, !tbaa !2
-  %a1 = getelementptr inbounds %struct._ZN6client1BE* %obj2, i32 0, i32 0
-  %1 = load i32* %a1, align 1, !tbaa !6
+  %0 = load i32, i32* %a, align 1, !tbaa !2
+  %a1 = getelementptr inbounds %struct._ZN6client1BE, %struct._ZN6client1BE* %obj2, i32 0, i32 0
+  %1 = load i32, i32* %a1, align 1, !tbaa !6
   %add = add nsw i32 %1, %0
-  %b = getelementptr inbounds %struct._Z1A* %obj, i32 1, i32 1
+  %b = getelementptr inbounds %struct._Z1A, %struct._Z1A* %obj, i32 1, i32 1
   store i32 %add, i32* %b, align 1, !tbaa !8
   ret void
 }
@@ -25,8 +25,8 @@ entry:
 ; Function Attrs: nounwind
 define %struct._Z1A* @f2(%struct._Z1A* %obj, i32* nocapture readonly %b) #0 {
 entry:
-  %0 = load i32* %b, align 1, !tbaa !2
-  %b1 = getelementptr inbounds %struct._Z1A* %obj, i32 0, i32 1
+  %0 = load i32, i32* %b, align 1, !tbaa !2
+  %b1 = getelementptr inbounds %struct._Z1A, %struct._Z1A* %obj, i32 0, i32 1
   store i32 %0, i32* %b1, align 1, !tbaa !8
   ret %struct._Z1A* %obj
 }
@@ -34,8 +34,8 @@ entry:
 ; Function Attrs: nounwind
 define %struct._Z1A* @f3(%struct._Z1A* %obj, i32* nocapture readonly %b) #0 {
 entry:
-  %0 = load i32* %b, align 1, !tbaa !2
-  %b1 = getelementptr inbounds %struct._Z1A* %obj, i32 0, i32 1
+  %0 = load i32, i32* %b, align 1, !tbaa !2
+  %b1 = getelementptr inbounds %struct._Z1A, %struct._Z1A* %obj, i32 0, i32 1
   store i32 %0, i32* %b1, align 1, !tbaa !8
   ret %struct._Z1A* %obj
 }
@@ -44,7 +44,7 @@ entry:
 define void @f4(%struct._Z4Base* nocapture %p) #0 {
 entry:
   %0 = tail call %struct._Z7Derived* @llvm.cheerp.downcast.p0struct._Z7Derived.p0struct._Z4Base(%struct._Z4Base* %p, i32 1)
-  %c = getelementptr inbounds %struct._Z7Derived* %0, i32 0, i32 2
+  %c = getelementptr inbounds %struct._Z7Derived, %struct._Z7Derived* %0, i32 0, i32 2
   store i32 18, i32* %c, align 1, !tbaa !10
   ret void
 }
@@ -56,7 +56,7 @@ declare %struct._Z7Derived* @llvm.cheerp.downcast.p0struct._Z7Derived.p0struct._
 define void @f5(%struct._Z4Base* nocapture %p) #0 {
 entry:
   %0 = tail call %struct._Z7Derived* @llvm.cheerp.downcast.p0struct._Z7Derived.p0struct._Z4Base(%struct._Z4Base* %p, i32 1)
-  %c = getelementptr inbounds %struct._Z7Derived* %0, i32 5, i32 2
+  %c = getelementptr inbounds %struct._Z7Derived, %struct._Z7Derived* %0, i32 5, i32 2
   store i32 32, i32* %c, align 1, !tbaa !10
   ret void
 }
@@ -75,27 +75,27 @@ entry:
   call void @f1(i32* %c, %struct._Z1A* %call, %struct._ZN6client1BE* %b1)
   %call1 = call %struct._Z1A* @f2(%struct._Z1A* %a2, i32* %c)
   %call2 = call %struct._Z1A* @f3(%struct._Z1A* %a3, i32* %c)
-  %array.begin = getelementptr inbounds [10 x %struct._Z7Derived]* %d1, i32 0, i32 0
-  %arrayctor.end = getelementptr inbounds [10 x %struct._Z7Derived]* %d1, i32 0, i32 10
+  %array.begin = getelementptr inbounds [10 x %struct._Z7Derived], [10 x %struct._Z7Derived]* %d1, i32 0, i32 0
+  %arrayctor.end = getelementptr inbounds [10 x %struct._Z7Derived], [10 x %struct._Z7Derived]* %d1, i32 0, i32 10
   br label %arrayctor.loop
 
 arrayctor.loop:                                   ; preds = %arrayctor.loop, %entry
   %arrayctor.cur = phi %struct._Z7Derived* [ %array.begin, %entry ], [ %arrayctor.next, %arrayctor.loop ]
   call void @_ZN7DerivedC2Ev(%struct._Z7Derived* %arrayctor.cur) #1
-  %arrayctor.next = getelementptr inbounds %struct._Z7Derived* %arrayctor.cur, i32 1
+  %arrayctor.next = getelementptr inbounds %struct._Z7Derived, %struct._Z7Derived* %arrayctor.cur, i32 1
   %arrayctor.done = icmp eq %struct._Z7Derived* %arrayctor.next, %arrayctor.end
   br i1 %arrayctor.done, label %cast.notnull, label %arrayctor.loop
 
 cast.notnull:                                     ; preds = %arrayctor.loop
-  %0 = getelementptr [10 x %struct._Z7Derived]* %d1, i32 0, i32 4, i32 1
+  %0 = getelementptr [10 x %struct._Z7Derived], [10 x %struct._Z7Derived]* %d1, i32 0, i32 4, i32 1
   call void @f4(%struct._Z4Base* %0)
-  %1 = getelementptr [10 x %struct._Z7Derived]* %d1, i32 0, i32 2, i32 1
+  %1 = getelementptr [10 x %struct._Z7Derived], [10 x %struct._Z7Derived]* %d1, i32 0, i32 2, i32 1
   call void @f5(%struct._Z4Base* %1)
   br label %arraydestroy.body
 
 arraydestroy.body:                                ; preds = %arraydestroy.body, %cast.notnull
   %arraydestroy.elementPast = phi %struct._Z7Derived* [ %arrayctor.end, %cast.notnull ], [ %arraydestroy.element, %arraydestroy.body ]
-  %arraydestroy.element = getelementptr inbounds %struct._Z7Derived* %arraydestroy.elementPast, i32 -1
+  %arraydestroy.element = getelementptr inbounds %struct._Z7Derived, %struct._Z7Derived* %arraydestroy.elementPast, i32 -1
   %arraydestroy.done = icmp eq %struct._Z7Derived* %arraydestroy.element, %array.begin
   br i1 %arraydestroy.done, label %arraydestroy.done8, label %arraydestroy.body
 
@@ -109,12 +109,12 @@ declare void @llvm.lifetime.start(i64, i8* nocapture) #1
 ; Function Attrs: inlinehint nounwind
 define linkonce_odr void @_ZN7DerivedC2Ev(%struct._Z7Derived* nocapture %this) unnamed_addr #2 align 2 {
 entry:
-  %0 = getelementptr %struct._Z7Derived* %this, i32 0, i32 1
+  %0 = getelementptr %struct._Z7Derived, %struct._Z7Derived* %this, i32 0, i32 1
   tail call void @_ZN4BaseC2Ev(%struct._Z4Base* %0) #1
-  %1 = getelementptr inbounds %struct._Z7Derived* %this, i32 0, i32 0
-  store i32 (...)** getelementptr inbounds ([8 x i32 (...)*]* @_ZTV7Derived, i32 0, i32 2), i32 (...)*** %1, align 1, !tbaa !12
-  %2 = getelementptr %struct._Z7Derived* %this, i32 0, i32 1, i32 0
-  store i32 (...)** getelementptr inbounds ([8 x i32 (...)*]* @_ZTV7Derived, i32 0, i32 6), i32 (...)*** %2, align 1, !tbaa !12
+  %1 = getelementptr inbounds %struct._Z7Derived, %struct._Z7Derived* %this, i32 0, i32 0
+  store i32 (...)** getelementptr inbounds ([8 x i32 (...)*], [8 x i32 (...)*]* @_ZTV7Derived, i32 0, i32 2), i32 (...)*** %1, align 1, !tbaa !12
+  %2 = getelementptr %struct._Z7Derived, %struct._Z7Derived* %this, i32 0, i32 1, i32 0
+  store i32 (...)** getelementptr inbounds ([8 x i32 (...)*], [8 x i32 (...)*]* @_ZTV7Derived, i32 0, i32 6), i32 (...)*** %2, align 1, !tbaa !12
   ret void
 }
 
@@ -137,8 +137,8 @@ entry:
 ; Function Attrs: inlinehint nounwind
 define linkonce_odr void @_ZN4BaseC2Ev(%struct._Z4Base* nocapture %this) unnamed_addr #2 align 2 {
 entry:
-  %0 = getelementptr inbounds %struct._Z4Base* %this, i32 0, i32 0
-  store i32 (...)** getelementptr inbounds ([4 x i32 (...)*]* @_ZTV4Base, i32 0, i32 2), i32 (...)*** %0, align 1, !tbaa !12
+  %0 = getelementptr inbounds %struct._Z4Base, %struct._Z4Base* %this, i32 0, i32 0
+  store i32 (...)** getelementptr inbounds ([4 x i32 (...)*], [4 x i32 (...)*]* @_ZTV4Base, i32 0, i32 2), i32 (...)*** %0, align 1, !tbaa !12
   ret void
 }
 
