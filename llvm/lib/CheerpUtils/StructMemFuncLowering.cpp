@@ -328,12 +328,10 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		//Instead we need to check if we need to enter the loop
 		Instruction* oldBranch = BB.getTerminator();
 		//Delete the old branch
-		oldBranch->eraseFromParent();
 		IRBuilder<>* IRB = new IRBuilder<>(&BB);
 		Value* fixedSize = IRB->CreateZExtOrTrunc(size, int32Type);
 		Value* elementsCount=IRB->CreateUDiv(fixedSize, ConstantInt::get(int32Type, byteSize));
 		Value* countIsZero=IRB->CreateICmp(CmpInst::ICMP_EQ, elementsCount, ConstantInt::get(int32Type, 0));
-		BasicBlock* memfuncBody=BasicBlock::Create(BB.getContext(), "memfunc.body", BB.getParent());
 		// Handle the cases when countIsZero is a constant. This pass is the very last one in the LTO phase and inefficient code is left otherwise.
 		ConstantInt* constantCondition = dyn_cast<ConstantInt>(countIsZero);
 		if(constantCondition && !constantCondition->isZeroValue())
@@ -342,7 +340,9 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			CI->eraseFromParent();
 			return true;
 		}
-		else if(constantCondition && constantCondition->isZeroValue())
+		oldBranch->eraseFromParent();
+		BasicBlock* memfuncBody=BasicBlock::Create(BB.getContext(), "memfunc.body", BB.getParent());
+		if(constantCondition && constantCondition->isZeroValue())
 			IRB->CreateBr(memfuncBody);
 		else
 			IRB->CreateCondBr(countIsZero, endLoop, memfuncBody);
