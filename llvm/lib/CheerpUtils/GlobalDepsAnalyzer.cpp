@@ -5,14 +5,13 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2015 Leaning Technologies
+// Copyright 2011-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "GlobalDepsAnalyzer"
 #include <algorithm>
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
@@ -39,7 +38,7 @@ const char* GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer(bool resolveAliases) : ModulePass(ID), hasMathBuiltin{{false}}, DL(NULL),
+GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool resolveAliases) : ModulePass(ID), hasMathBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	hasPointerArrays(false), hasAsmJS(false), resolveAliases(resolveAliases), delayPrintf(true), forceTypedArrays(false)
 {
@@ -142,9 +141,25 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						deleteList.push_back(&ci);
 					}
 
-					foundMemset |= calledFunc->getIntrinsicID() == Intrinsic::memset;
-					foundMemcpy |= calledFunc->getIntrinsicID() == Intrinsic::memcpy;
-					foundMemmove |= calledFunc->getIntrinsicID() == Intrinsic::memmove;
+					unsigned II = calledFunc->getIntrinsicID();
+					foundMemset |= II == Intrinsic::memset;
+					foundMemcpy |= II == Intrinsic::memcpy;
+					foundMemmove |= II == Intrinsic::memmove;
+					// Replace math intrinsics with C library calls if necessary
+					if(mathMode == NO_BUILTINS)
+					{
+#define REPLACE_MATH_FUNC(ii, f, d) if(II == ii) { Function* F = module.getFunction(calledFunc->getReturnType()->isFloatTy() ? f : d); assert(F); ci.setCalledFunction(F); }
+						REPLACE_MATH_FUNC(Intrinsic::fabs, "fabsf", "fabs");
+						REPLACE_MATH_FUNC(Intrinsic::ceil, "ceilf", "ceil");
+						REPLACE_MATH_FUNC(Intrinsic::cos, "cosf", "cos");
+						REPLACE_MATH_FUNC(Intrinsic::exp, "expf", "exp");
+						REPLACE_MATH_FUNC(Intrinsic::floor, "floorf", "floor");
+						REPLACE_MATH_FUNC(Intrinsic::log, "logf", "log");
+						REPLACE_MATH_FUNC(Intrinsic::pow, "powf", "pow");
+						REPLACE_MATH_FUNC(Intrinsic::sin, "sinf", "sin");
+						REPLACE_MATH_FUNC(Intrinsic::sqrt, "sqrtf", "sqrt");
+#undef REPLACE_MATH_FUNC
+					}
 				}
 			}
 		}
@@ -156,7 +171,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	// Drop the code for math functions that will be replaced by builtins
-	if (!NoNativeJavaScriptMath)
+	if (mathMode == USE_BUILTINS)
 	{
 #define DROP_MATH_FUNC(x) if(Function* F = module.getFunction(x)) { F->deleteBody(); }
 		DROP_MATH_FUNC("fabs"); DROP_MATH_FUNC("fabsf");
@@ -369,7 +384,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	NumRemovedGlobals = filterModule(module);
 
 	// Detect all used math builtins
-	if (!NoNativeJavaScriptMath)
+	if (mathMode == USE_BUILTINS)
 	{
 		// We have already dropped all unused functions, so we can simply check if these exists
 #define CHECK_MATH_FUNC(x, d, f) { hasMathBuiltin[x ## _F64] = module.getFunction(f) || module.getFunction(d); }

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -160,7 +160,7 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createStructMemFuncLowering());
   PM.add(createAllocaLoweringPass());
   PM.add(createFreeAndDeleteRemovalPass());
-  PM.add(cheerp::createGlobalDepsAnalyzerPass(/*resolveAliases*/true));
+  PM.add(cheerp::createGlobalDepsAnalyzerPass(cheerp::GlobalDepsAnalyzer::NO_BUILTINS, /*resolveAliases*/true));
   PM.add(createFixIrreducibleControlFlowPass());
   if (!CheerpNoICF)
     PM.add(cheerp::createIdenticalCodeFoldingPass());
