@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2015 Leaning Technologies
+// Copyright 2011-2018 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -36,13 +36,17 @@ class GlobalDepsAnalyzer : public llvm::ModulePass
 public:
 	enum MATH_BUILTIN { ABS_F64, ACOS_F64, ASIN_F64, ATAN_F64, ATAN2_F64, CEIL_F64, COS_F64, EXP_F64, FLOOR_F64, LOG_F64, POW_F64, SIN_F64, SQRT_F64, TAN_F64,
 				CLZ32, MAX_BUILTIN };
+	/**
+	 * Select how to deal with math functions which are provided natively by JS
+	 */
+	enum MATH_MODE { NO_BUILTINS = 0, USE_BUILTINS };
 	static char ID;
 	typedef llvm::SmallVector<const llvm::Use *, 8> SubExprVec;
 	typedef std::unordered_multimap< const llvm::GlobalVariable *, SubExprVec > FixupMap;
 	/**
 	 * Run the filter. Notice that it does not modify the module.
 	 */
-	GlobalDepsAnalyzer(bool resolveAliases = false);
+	GlobalDepsAnalyzer(MATH_MODE mathMode = NO_BUILTINS, bool resolveAliases = false);
 	
 	/**
 	 * Determine if a given global value is reachable
@@ -215,6 +219,8 @@ private:
 
 	std::array<bool, MAX_BUILTIN> hasMathBuiltin;
 
+	MATH_MODE mathMode;
+
 	const llvm::DataLayout* DL;
 	const llvm::TargetLibraryInfo* TLI;
 
@@ -235,9 +241,9 @@ public:
 	}
 };
 
-inline llvm::Pass * createGlobalDepsAnalyzerPass(bool resolveAliases)
+inline llvm::Pass * createGlobalDepsAnalyzerPass(GlobalDepsAnalyzer::MATH_MODE mathMode, bool resolveAliases)
 {
-	return new GlobalDepsAnalyzer(resolveAliases);
+	return new GlobalDepsAnalyzer(mathMode, resolveAliases);
 }
 
 }
