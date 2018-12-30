@@ -31,6 +31,9 @@ using namespace std;
 //#define WASM_DUMP_METHODS 1
 //#define WASM_DUMP_METHOD_DATA 1
 
+// Calling math builtins is very expensive on SpiderMonkey at this time
+//#define USE_MATH_BUILTINS 1
+
 static uint32_t COMPILE_METHOD_LIMIT = 100000;
 
 enum BLOCK_TYPE { WHILE1 = 0, DO, SWITCH, CASE, LABEL_FOR_SWITCH, IF };
@@ -1845,6 +1848,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							llvm::report_fatal_error("missing free definition");
 						break;
 					}
+#ifdef USE_MATH_BUILTINS
 					case Intrinsic::cos:
 					case Intrinsic::exp:
 					case Intrinsic::log:
@@ -1854,6 +1858,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						// Handled below
 						break;
 					}
+#endif
 					default:
 					{
 						unsigned intrinsic = calledFunc->getIntrinsicID();
@@ -1863,6 +1868,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					break;
 				}
+#ifdef USE_MATH_BUILTINS
 				if(!NoNativeJavaScriptMath || intrinsicId)
 				{
 					StringRef ident = calledFunc->getName();
@@ -1937,7 +1943,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						return false;
 					}
 				}
-
+#endif
 			}
 
 			for (auto op = ci.op_begin();
