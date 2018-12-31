@@ -194,7 +194,7 @@ static bool SplitUpStore(StoreInst *Store, const DataLayout *DL) {
     Indexes.push_back(ConstantInt::get(Store->getContext(), APInt(32, 0)));
     Indexes.push_back(ConstantInt::get(Store->getContext(), APInt(32, Index)));
     Value *GEP =
-        CopyDebug(GetElementPtrInst::Create(
+        CopyDebug(GetElementPtrInst::Create(STy,
                       Store->getPointerOperand(), Indexes,
                       Store->getPointerOperand()->getName() + ".index", Store),
                   Store);
@@ -224,7 +224,7 @@ static bool SplitUpLoad(LoadInst *Load, const DataLayout *DL) {
     Indexes.push_back(ConstantInt::get(Load->getContext(), APInt(32, 0)));
     Indexes.push_back(ConstantInt::get(Load->getContext(), APInt(32, Index)));
     Value *GEP =
-        CopyDebug(GetElementPtrInst::Create(Load->getPointerOperand(), Indexes,
+        CopyDebug(GetElementPtrInst::Create(STy, Load->getPointerOperand(), Indexes,
                                             Load->getName() + ".index", Load),
                   Load);
     LoadInst *NewLoad = new LoadInst(GEP, Load->getName() + ".field", Load);
@@ -256,7 +256,7 @@ static bool SplitUpArrayStore(StoreInst *Store, const DataLayout *DL) {
     Indexes.push_back(ConstantInt::get(Store->getContext(), APInt(32, 0)));
     Indexes.push_back(ConstantInt::get(Store->getContext(), APInt(32, Index)));
     Value *GEP =
-        CopyDebug(GetElementPtrInst::Create(
+        CopyDebug(GetElementPtrInst::Create(ATy,
                       Store->getPointerOperand(), Indexes,
                       Store->getPointerOperand()->getName() + ".index", Store),
                   Store);
@@ -286,7 +286,7 @@ static bool SplitUpArrayLoad(LoadInst *Load, const DataLayout *DL) {
     Indexes.push_back(ConstantInt::get(Load->getContext(), APInt(32, 0)));
     Indexes.push_back(ConstantInt::get(Load->getContext(), APInt(32, Index)));
     Value *GEP =
-        CopyDebug(GetElementPtrInst::Create(Load->getPointerOperand(), Indexes,
+        CopyDebug(GetElementPtrInst::Create(ATy, Load->getPointerOperand(), Indexes,
                                             Load->getName() + ".index", Load),
                   Load);
     LoadInst *NewLoad = new LoadInst(GEP, Load->getName() + ".field", Load);

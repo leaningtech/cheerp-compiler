@@ -1097,14 +1097,15 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				{
 					Value* ptrOperand = I.getOperand(0);
 					Type* ptrType = getOriginalOperandType(ptrOperand);
-					if(rewriteType(ptrType) != ptrType || rewriteType(I.getType()) != I.getType())
+					Type* newPtrType = rewriteType(ptrType);
+					if(newPtrType != ptrType || rewriteType(I.getType()) != I.getType())
 					{
 						SmallVector<Value*, 4> newIndexes;
 						Type* targetType = rewriteType(I.getType()->getPointerElementType());
 						uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(I.op_begin()+1,I.op_end()), targetType, &I);
 						auto rewrittenOperand = getMappedOperand(ptrOperand);
 						assert(rewrittenOperand.second == 0);
-						GetElementPtrInst* NewInst = GetElementPtrInst::Create(rewrittenOperand.first, newIndexes);
+						GetElementPtrInst* NewInst = GetElementPtrInst::Create(newPtrType->getPointerElementType(), rewrittenOperand.first, newIndexes);
 						assert(!NewInst->getType()->getPointerElementType()->isArrayTy());
 						NewInst->takeName(&I);
 						NewInst->setIsInBounds(cast<GetElementPtrInst>(I).isInBounds());
@@ -1141,10 +1142,10 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								if(newType->isArrayTy())
 								{
 									Value* Indexes2[] = { Zero, Zero, Zero };
-									newGEP = GetElementPtrInst::Create(newPtrOperand, Indexes2, "gepforupcast");
+									newGEP = GetElementPtrInst::Create(newOpInfo.mappedType, newPtrOperand, Indexes2, "gepforupcast");
 								}
 								else
-									newGEP = GetElementPtrInst::Create(newPtrOperand, Indexes, "gepforupcast");
+									newGEP = GetElementPtrInst::Create(newOpInfo.mappedType, newPtrOperand, Indexes, "gepforupcast");
 								setMappedOperand(&I, newGEP, 0);
 								needsDefaultHandling = false;
 							}
@@ -1278,7 +1279,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						Type* Int32 = IntegerType::get(I.getType()->getContext(), 32);
 						Value* Zero = ConstantInt::get(Int32, 0);
 						Value* Indexes[] = { Zero, Zero };
-						Instruction* newGEP = GetElementPtrInst::Create(&I, Indexes, "allocadecay");
+						Instruction* newGEP = GetElementPtrInst::Create(newAllocatedType, &I, Indexes, "allocadecay");
 						setMappedOperand(&I, newGEP, 0);
 					}
 					else
