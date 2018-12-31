@@ -2264,8 +2264,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::FPToSI:
 		{
 			// TODO: add support for i64.
-			// Wasm opcodes traps on invalid values, we need to do an explicit check
-			if (I.getOperand(0)->getType()->isFloatTy())
+			// Wasm opcodes traps on invalid values, we need to do an explicit check if requested
+			if(!AvoidWasmTraps)
+			{
+				compileOperand(code, I.getOperand(0));
+				if(I.getOperand(0)->getType()->isFloatTy())
+					encodeInst(0xa8, "i32.trunc_s/f32", code);
+				else
+					encodeInst(0xaa, "i32.trunc_s/f64", code);
+			}
+			else if (I.getOperand(0)->getType()->isFloatTy())
 			{
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x8b, "f32.abs", code);
@@ -2303,7 +2311,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::FPToUI:
 		{
 			// TODO: add support for i64.
-			if (I.getOperand(0)->getType()->isFloatTy())
+			// Wasm opcodes traps on invalid values, we need to do an explicit check if requested
+			if(!AvoidWasmTraps)
+			{
+				compileOperand(code, I.getOperand(0));
+				if(I.getOperand(0)->getType()->isFloatTy())
+					encodeInst(0xa9, "i32.trunc_u/f32", code);
+				else
+					encodeInst(0xab, "i32.trunc_u/f64", code);
+			}
+			else if (I.getOperand(0)->getType()->isFloatTy())
 			{
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x43, "f32.const", code);

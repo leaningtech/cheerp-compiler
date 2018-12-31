@@ -35,5 +35,6 @@ extern llvm::cl::opt<unsigned> CheerpHeapSize;
 extern llvm::cl::opt<bool> CheerpNoICF;
 extern llvm::cl::opt<bool> BoundsCheck;
 extern llvm::cl::opt<bool> CfgStackifier;
+extern llvm::cl::opt<bool> AvoidWasmTraps;
 
 #endif //_CHEERP_COMMAND_LINE_H
