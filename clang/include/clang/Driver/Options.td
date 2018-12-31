@@ -4396,6 +4396,8 @@ def cheerp_bounds_check : Flag<["-"], "cheerp-bounds-check">, Flags<[DriverOptio
   HelpText<"Generate debug code for bounds-checking array and object members accesses">;
 def cheerp_cfg_stackifier : Flag<["-"], "cheerp-cfg-stackifier">, Flags<[DriverOption]>,
   HelpText<"Use the experimental cfg stackifier algorithm instead of relooper">;
+def cheerp_avoid_wasm_traps : Flag<["-"], "cheerp-avoid-wasm-traps">, Flags<[DriverOption]>,
+  HelpText<"Avoid traps from WebAssembly by generating more verbose code">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options

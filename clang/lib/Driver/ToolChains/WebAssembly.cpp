@@ -533,6 +533,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpBoundsCheck->render(Args, CmdArgs);
   if(Arg* cheerpCfgStackifier = Args.getLastArg(options::OPT_cheerp_cfg_stackifier))
     cheerpCfgStackifier->render(Args, CmdArgs);
+  if(Arg* cheerpAvoidWasmTraps = Args.getLastArg(options::OPT_cheerp_avoid_wasm_traps))
+    cheerpAvoidWasmTraps->render(Args, CmdArgs);
 
   // Set output to binary mode to avoid linefeed conversion on Windows.
   CmdArgs.push_back("-filetype");
