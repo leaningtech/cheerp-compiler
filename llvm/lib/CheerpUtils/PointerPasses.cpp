@@ -84,7 +84,7 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai)
 			
 			std::copy(gep->idx_begin(), gep->idx_end(), std::back_inserter(vals) );
 			
-			GetElementPtrInst * newGep = GetElementPtrInst::Create(newAi, vals);
+			GetElementPtrInst * newGep = GetElementPtrInst::Create(at, newAi, vals);
 			ReplaceInstWithInst(gep, newGep);
 			newGep->takeName( gep );
 		}
@@ -94,7 +94,7 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai)
 			{
 				SmallVector< Value *, 8 > vals ( 2, ConstantInt::getNullValue( llvm::Type::getInt32Ty( u->getContext() ) ) );
 
-				gepZero = GetElementPtrInst::Create(newAi, vals, "");
+				gepZero = GetElementPtrInst::Create(at, newAi, vals, "");
 				gepZero->insertAfter(newAi);
 			}
 			
@@ -357,7 +357,7 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 				Value* newIndex=BinaryOperator::Create(BinaryOperator::Add, parentOffset, thisOffset, "geptoindex", gep);
 				if(!gep->use_empty())
 				{
-					Value* newGep=GetElementPtrInst::Create(base, newIndex, "geptoindex", gep);
+					Value* newGep=GetElementPtrInst::Create(gep->getSourceElementType(), base, newIndex, "geptoindex", gep);
 					gep->replaceAllUsesWith(newGep);
 				}
 				toRemove.insert(gep);
@@ -394,7 +394,7 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 		if(isa<ConstantInt>(newOffset) && cast<ConstantInt>(newOffset)->getZExtValue()==0)
 			newGep=base;
 		else
-			newGep=GetElementPtrInst::Create(base, newOffset, "geptoindex",phi->getParent()->getFirstInsertionPt());
+			newGep=GetElementPtrInst::Create(base->getType()->getPointerElementType(), base, newOffset, "geptoindex",phi->getParent()->getFirstInsertionPt());
 		phi->replaceAllUsesWith(newGep);
 		return newOffset;
 	}
