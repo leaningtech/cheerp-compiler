@@ -2749,7 +2749,6 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, Funct
 {
 	assert(useWasmLoader);
 
-	NameGenerator::NAME_FILTER_MODE mode = NameGenerator::NAME_FILTER_MODE::GLOBAL;
 	std::string fieldName = funcName;
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
