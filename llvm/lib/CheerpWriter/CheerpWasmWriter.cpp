@@ -134,20 +134,25 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, WasmBu
 	}
 }
 
-static void encodeValType(const Type* t, WasmBuffer& stream)
+static uint32_t getValType(const Type* t)
 {
 	if (t->isIntegerTy() || t->isPointerTy())
-		encodeULEB128(0x7f, stream);
+		return 0x7f;
 	else if (t->isFloatTy())
-		encodeULEB128(0x7d, stream);
+		return 0x7d;
 	else if (t->isDoubleTy())
-		encodeULEB128(0x7c, stream);
+		return 0x7c;
 	else
 	{
 		llvm::errs() << "Unsupported type ";
 		t->dump();
 		llvm_unreachable("Unsuppored type");
 	}
+}
+
+static void encodeValType(const Type* t, WasmBuffer& stream)
+{
+	encodeULEB128(getValType(t), stream);
 }
 
 static void encodeLiteralType(const Type* t, WasmBuffer& stream)
@@ -2272,10 +2277,12 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::Select:
 		{
 			const SelectInst& si = cast<SelectInst>(I);
-			compileOperand(code, si.getTrueValue());
-			compileOperand(code, si.getFalseValue());
 			compileOperand(code, si.getCondition());
-			encodeInst(0x1b, "select", code);
+			encodeU32Inst(0x04, "if", internal::getValType(si.getType()), code);
+			compileOperand(code, si.getTrueValue());
+			encodeInst(0x05, "else", code);
+			compileOperand(code, si.getFalseValue());
+			encodeInst(0x0b, "end", code);
 			break;
 		}
 		case Instruction::SExt:
