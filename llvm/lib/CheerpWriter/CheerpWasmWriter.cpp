@@ -1605,6 +1605,85 @@ void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate 
 	encodePredicate(ci.getOperand(0)->getType(), p, code);
 }
 
+void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, const CmpInst::Predicate p, WasmBuffer& code)
+{
+	if (p == CmpInst::FCMP_ORD)
+	{
+		Type* ty = lhs->getType();
+		assert(ty->isDoubleTy() || ty->isFloatTy());
+		assert(ty == rhs->getType());
+
+		// Check if both operands are equal to itself. A nan-value is
+		// never equal to itself. Use a logical and operator for the
+		// resulting comparison.
+		compileOperand(code, lhs);
+		compileOperand(code, lhs);
+		if (ty->isDoubleTy())
+			encodeInst(0x61, "f64.eq", code);
+		else
+			encodeInst(0x5b, "f32.eq", code);
+
+		compileOperand(code, rhs);
+		compileOperand(code, rhs);
+		if (ty->isDoubleTy())
+			encodeInst(0x61, "f64.eq", code);
+		else
+			encodeInst(0x5b, "f32.eq", code);
+
+		encodeInst(0x71, "i32.and", code);
+	} else if (p == CmpInst::FCMP_UNO) {
+		Type* ty = lhs->getType();
+		assert(ty->isDoubleTy() || ty->isFloatTy());
+		assert(ty == rhs->getType());
+
+		// Check if at least one operand is not equal to itself.
+		// A nan-value is never equal to itself. Use a logical
+		// or operator for the resulting comparison.
+		compileOperand(code, lhs);
+		compileOperand(code, lhs);
+		if (ty->isDoubleTy())
+			encodeInst(0x62, "f64.ne", code);
+		else
+			encodeInst(0x5c, "f32.ne", code);
+
+		compileOperand(code, rhs);
+		compileOperand(code, rhs);
+		if (ty->isDoubleTy())
+			encodeInst(0x62, "f64.ne", code);
+		else
+			encodeInst(0x5c, "f32.ne", code);
+
+		encodeInst(0x73, "i32.or", code);
+	} else {
+		compileOperand(code, lhs);
+		compileOperand(code, rhs);
+		Type* ty = lhs->getType();
+		assert(ty->isDoubleTy() || ty->isFloatTy());
+		switch(p)
+		{
+			// TODO: Handle ordered vs unordered
+#define PREDICATE(Ty, name, f32, f64) \
+			case CmpInst::FCMP_U##Ty: \
+			case CmpInst::FCMP_O##Ty: \
+				if (ty->isDoubleTy()) \
+					encodeInst(f64, "f64."#name, code); \
+				else \
+					encodeInst(f32, "f32."#name, code); \
+				break;
+			PREDICATE(EQ, eq, 0x5b, 0x61)
+			PREDICATE(NE, ne, 0x5c, 0x62)
+			PREDICATE(LT, lt, 0x5d, 0x63)
+			PREDICATE(GT, gt, 0x5e, 0x64)
+			PREDICATE(LE, le, 0x5f, 0x65)
+			PREDICATE(GE, ge, 0x60, 0x66)
+#undef PREDICATE
+			default:
+				llvm::errs() << "Handle predicate " << p << "\n";
+				break;
+		}
+	}
+}
+
 void CheerpWasmWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV)
 {
 	assert(callV.arg_size() == 2);
@@ -2001,84 +2080,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::FCmp:
 		{
 			const CmpInst& ci = cast<CmpInst>(I);
-			if (ci.getPredicate() == CmpInst::FCMP_ORD)
-			{
-				Type* ty = ci.getOperand(0)->getType();
-				assert(ty->isDoubleTy() || ty->isFloatTy());
-				assert(ty == ci.getOperand(1)->getType());
-
-				// Check if both operands are equal to itself. A nan-value is
-				// never equal to itself. Use a logical and operator for the
-				// resulting comparison.
-				compileOperand(code, ci.getOperand(0));
-				compileOperand(code, ci.getOperand(0));
-				if (ty->isDoubleTy())
-					encodeInst(0x61, "f64.eq", code);
-				else
-					encodeInst(0x5b, "f32.eq", code);
-
-				compileOperand(code, ci.getOperand(1));
-				compileOperand(code, ci.getOperand(1));
-				if (ty->isDoubleTy())
-					encodeInst(0x61, "f64.eq", code);
-				else
-					encodeInst(0x5b, "f32.eq", code);
-
-				encodeInst(0x71, "i32.and", code);
-			} else if (ci.getPredicate() == CmpInst::FCMP_UNO) {
-				Type* ty = ci.getOperand(0)->getType();
-				assert(ty->isDoubleTy() || ty->isFloatTy());
-				assert(ty == ci.getOperand(1)->getType());
-
-				// Check if at least one operand is not equal to itself.
-				// A nan-value is never equal to itself. Use a logical
-				// or operator for the resulting comparison.
-				compileOperand(code, ci.getOperand(0));
-				compileOperand(code, ci.getOperand(0));
-				if (ty->isDoubleTy())
-					encodeInst(0x62, "f64.ne", code);
-				else
-					encodeInst(0x5c, "f32.ne", code);
-
-				compileOperand(code, ci.getOperand(1));
-				compileOperand(code, ci.getOperand(1));
-				if (ty->isDoubleTy())
-					encodeInst(0x62, "f64.ne", code);
-				else
-					encodeInst(0x5c, "f32.ne", code);
-
-				encodeInst(0x73, "i32.or", code);
-			} else {
-				compileOperand(code, ci.getOperand(0));
-				compileOperand(code, ci.getOperand(1));
-				Type* ty = ci.getOperand(0)->getType();
-				assert(ty->isDoubleTy() || ty->isFloatTy());
-				switch(ci.getPredicate())
-				{
-					// TODO: Handle ordered vs unordered
-#define PREDICATE(Ty, name, f32, f64) \
-					case CmpInst::FCMP_U##Ty: \
-					case CmpInst::FCMP_O##Ty: \
-						if (ty->isDoubleTy()) \
-							encodeInst(f64, "f64."#name, code); \
-						else \
-							encodeInst(f32, "f32."#name, code); \
-						break;
-					PREDICATE(EQ, eq, 0x5b, 0x61)
-					PREDICATE(NE, ne, 0x5c, 0x62)
-					PREDICATE(LT, lt, 0x5d, 0x63)
-					PREDICATE(GT, gt, 0x5e, 0x64)
-					PREDICATE(LE, le, 0x5f, 0x65)
-					PREDICATE(GE, ge, 0x60, 0x66)
-#undef PREDICATE
-					case CmpInst::FCMP_ORD:
-						llvm_unreachable("This case is handled above");
-						break;
-					default:
-						llvm::errs() << "Handle predicate for " << ci << "\n";
-						break;
-				}
-			}
+			compileFCmp(ci.getOperand(0), ci.getOperand(1), ci.getPredicate(), code);
 			break;
 		}
 		case Instruction::FRem:
