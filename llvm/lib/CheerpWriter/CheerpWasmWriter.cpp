@@ -1605,7 +1605,7 @@ void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate 
 	encodePredicate(ci.getOperand(0)->getType(), p, code);
 }
 
-void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, const CmpInst::Predicate p, WasmBuffer& code)
+void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::Predicate p, WasmBuffer& code)
 {
 	if (p == CmpInst::FCMP_ORD)
 	{
@@ -1659,11 +1659,14 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, const Cmp
 		compileOperand(code, rhs);
 		Type* ty = lhs->getType();
 		assert(ty->isDoubleTy() || ty->isFloatTy());
+		// It is much more efficient to invert the predicate if we need to check for unorderedness
+		bool invertForUnordered = CmpInst::isUnordered(p);
+		if(invertForUnordered)
+			p = CmpInst::getInversePredicate(p);
+		assert(!CmpInst::isUnordered(p));
 		switch(p)
 		{
-			// TODO: Handle ordered vs unordered
 #define PREDICATE(Ty, name, f32, f64) \
-			case CmpInst::FCMP_U##Ty: \
 			case CmpInst::FCMP_O##Ty: \
 				if (ty->isDoubleTy()) \
 					encodeInst(f64, "f64."#name, code); \
@@ -1680,6 +1683,12 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, const Cmp
 			default:
 				llvm::errs() << "Handle predicate " << p << "\n";
 				break;
+		}
+		if(invertForUnordered)
+		{
+			// Invert result
+			encodeS32Inst(0x41, "i32.const", 1, code);
+			encodeInst(0x73, "i32.xor", code);
 		}
 	}
 }
