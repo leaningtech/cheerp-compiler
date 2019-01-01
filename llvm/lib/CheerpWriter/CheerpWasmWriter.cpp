@@ -357,22 +357,38 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb, int branch
 		//The second branch is the default
 		assert(branchId==0);
 
-		const ICmpInst* I = dyn_cast<ICmpInst>(bi->getCondition());
-		if (mode == InvertCondition && I && isInlineable(*I, writer->PA)) {
-			const ICmpInst::Predicate p = I->getInversePredicate();
+		const Value* cond = bi->getCondition();
+		bool canInvertCond = isa<Instruction>(cond) && isInlineable(*cast<Instruction>(cond), writer->PA);
+
+		if(canInvertCond && isa<ICmpInst>(cond))
+		{
+			const ICmpInst* ci = cast<ICmpInst>(cond);
+			CmpInst::Predicate p = ci->getPredicate();
+			if(mode == InvertCondition)
+				p = CmpInst::getInversePredicate(p);
 			const ConstantInt* C;
 			// Optimize "if (a != 0)" to "if (a)".
 			if (p == CmpInst::ICMP_NE &&
-					(C = dyn_cast<ConstantInt>(I->getOperand(1))) &&
+					(C = dyn_cast<ConstantInt>(ci->getOperand(1))) &&
 					C->getSExtValue() == 0) {
-				if(I->getOperand(0)->getType()->isIntegerTy(32))
-					writer->compileSignedInteger(code, I->getOperand(0), /*forComparison*/true);
+				if(ci->getOperand(0)->getType()->isIntegerTy(32))
+					writer->compileSignedInteger(code, ci->getOperand(0), /*forComparison*/true);
 				else
-					writer->compileUnsignedInteger(code, I->getOperand(0));
+					writer->compileUnsignedInteger(code, ci->getOperand(0));
 				return;
 			}
-			writer->compileICmp(*I, p, code);
-		} else {
+			writer->compileICmp(*ci, p, code);
+		}
+		else if(canInvertCond && isa<FCmpInst>(cond))
+		{
+			const CmpInst* ci = cast<CmpInst>(cond);
+			CmpInst::Predicate p = ci->getPredicate();
+			if(mode == InvertCondition)
+				p = CmpInst::getInversePredicate(p);
+			writer->compileFCmp(ci->getOperand(0), ci->getOperand(1), p, code);
+		}
+		else
+		{
 			writer->compileOperand(code, bi->getCondition());
 			if (mode == InvertCondition) {
 				// Invert result
