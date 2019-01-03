@@ -491,8 +491,8 @@ class BlockListRenderer {
 	using Scope = Block::Scope;
 
 public:
-	BlockListRenderer(const std::vector<Block>& BlockList, const std::unordered_map<BasicBlock*, int> BlockIdMap, RenderInterface& ri, bool asmjs)
-		: BlockList(BlockList), BlockIdMap(BlockIdMap), ri(ri), asmjs(asmjs)
+	BlockListRenderer(const std::vector<Block>& BlockList, const std::unordered_map<BasicBlock*, int> BlockIdMap, RenderInterface& ri, const Registerize& R, const PointerAnalyzer& PA, bool asmjs)
+		: BlockList(BlockList), BlockIdMap(BlockIdMap), ri(ri), R(R), PA(PA), asmjs(asmjs)
 	{
 		render();
 	}
@@ -500,6 +500,7 @@ private:
 	enum RenderBranchCase {
 		JUMP,
 		NESTED,
+		EMPTY,
 		DIRECT,
 	};
 	struct BranchesState {
@@ -510,10 +511,12 @@ private:
 
 	void renderJump(const Block& From, const Block& To);
 	void renderJumpBranch(const Block& From, const Block& To, int BrId, bool First);
-	void renderDefaultJumpBranch(const Block& From, const Block& To, bool First);
+	void renderDefaultJumpBranch(const Block& From, const Block& To, const std::vector<int>& EmptyIds, bool First);
 	void renderDirectBranch(const Block& From, const Block& To);
-	void renderJumpBranches(const Block& B);
+	std::vector<int> renderJumpBranches(const Block& B);
 	void render();
+
+	bool isEmptyPrologue(BasicBlock* From, BasicBlock* To);
 
 	const Block& getBlock(int id) const
 	{
@@ -539,9 +542,22 @@ private:
 	const std::unordered_map<BasicBlock*, int> BlockIdMap;
 
 	RenderInterface& ri;
+	const Registerize& R;
+	const PointerAnalyzer& PA;
 	bool asmjs;
 };
 
+bool BlockListRenderer::isEmptyPrologue(BasicBlock* From, BasicBlock* To)
+{
+	bool hasPrologue = To->getFirstNonPHI()!=&To->front();
+	if (hasPrologue)
+	{
+		// We can avoid assignment from the same register if no pointer kind
+		// conversion is required
+		hasPrologue = CheerpWriter::needsPointerKindConversionForBlocks(To, From, PA, R);
+	}
+	return !hasPrologue;
+}
 void BlockListRenderer::renderJump(const Block& From, const Block& To)
 {
 	size_t depth = 0;
@@ -568,9 +584,12 @@ void BlockListRenderer::renderJumpBranch(const Block& From, const Block& To, int
 	if (!To.isNaturalPred(From.getId()))
 		renderJump(From, To);
 }
-void BlockListRenderer::renderDefaultJumpBranch(const Block& From, const Block& To, bool First)
+void BlockListRenderer::renderDefaultJumpBranch(const Block& From, const Block& To, const std::vector<int>& EmptyIds, bool First)
 {
-	ri.renderElseBlockBegin();
+	if (EmptyIds.size() == 0)
+		ri.renderElseBlockBegin();
+	else
+		ri.renderIfBlockBegin(From.getBB(), EmptyIds, First);
 	ri.renderBlockPrologue(To.getBB(), From.getBB());
 	if (!To.isNaturalPred(From.getId()))
 		renderJump(From, To);
@@ -582,7 +601,7 @@ void BlockListRenderer::renderDirectBranch(const Block& From, const Block& To)
 	if (!To.isNaturalPred(From.getId()))
 		renderJump(From, To);
 }
-void BlockListRenderer::renderJumpBranches(const Block& B)
+std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B)
 {
 	int DefaultIdx = getDefaultBranchIdx(B.getBB());
 	BasicBlock* Default = DefaultIdx != -1 ? B.getBB()->getTerminator()->getSuccessor(DefaultIdx) : nullptr;
@@ -590,6 +609,7 @@ void BlockListRenderer::renderJumpBranches(const Block& B)
 	bool Delayed = BS && BS->start == B.getId();
 	bool First = !Delayed || getBlock(B.getId()+1).getBB() == Default;
 	int BrIdx = 0;
+	std::vector<int> EmptyIds;
 	for (auto S = succ_begin(B.getBB()), SE = succ_end(B.getBB()); S != SE; ++S, ++BrIdx)
 	{
 		if (BrIdx==DefaultIdx)
@@ -608,8 +628,12 @@ void BlockListRenderer::renderJumpBranches(const Block& B)
 				break;
 			case RenderBranchCase::NESTED:
 				break;
+			case RenderBranchCase::EMPTY:
+				EmptyIds.push_back(BrIdx);
+				break;
 		}
-		First = false;
+		if (BC != RenderBranchCase::EMPTY)
+			First = false;
 	}
 	if (Default)
 	{
@@ -617,15 +641,19 @@ void BlockListRenderer::renderJumpBranches(const Block& B)
 		switch (BranchesStates.at(B.getBB()).DefaultCase)
 		{
 			case RenderBranchCase::JUMP:
-				renderDefaultJumpBranch(B, DefaultB, First);
+				renderDefaultJumpBranch(B, DefaultB, EmptyIds, First);
 				break;
 			case RenderBranchCase::DIRECT:
 				renderDirectBranch(B, DefaultB);
 				break;
 			case RenderBranchCase::NESTED:
 				break;
+			case RenderBranchCase::EMPTY:
+				ri.renderBlockEnd();
+				break;
 		}
 	}
+	return EmptyIds;
 }
 void BlockListRenderer::render()
 {
@@ -666,8 +694,11 @@ void BlockListRenderer::render()
 
 				if (BrId == -1)
 				{
-					renderJumpBranches(From);
-					ri.renderElseBlockBegin();
+					auto EmptyIds = renderJumpBranches(From);
+					if (EmptyIds.size() == 0)
+						ri.renderElseBlockBegin();
+					else
+						ri.renderIfBlockBegin(From.getBB(), EmptyIds, EmptyIds.size() == From.getBB()->getTerminator()->getNumSuccessors()-1);
 				}
 				else
 				{
@@ -712,6 +743,8 @@ void BlockListRenderer::render()
 			auto* SuccScope = SuccB.getBranchStart();
 			if (SuccScope && SuccScope->start == B.getId())
 				BS.Cases.emplace(Succ, RenderBranchCase::NESTED);
+			else if (isEmptyPrologue(BB, Succ) && SuccB.isNaturalPred(B.getId()))
+				BS.Cases.emplace(Succ, RenderBranchCase::EMPTY);
 			else
 				BS.Cases.emplace(Succ, RenderBranchCase::JUMP);
 		}
@@ -723,6 +756,8 @@ void BlockListRenderer::render()
 				BS.DefaultCase = RenderBranchCase::DIRECT;
 			else if (SuccScope && SuccScope->start == B.getId())
 				BS.DefaultCase = RenderBranchCase::NESTED;
+			else if (isEmptyPrologue(BB, DefaultB.getBB()) && DefaultB.isNaturalPred(B.getId()))
+				BS.DefaultCase = RenderBranchCase::EMPTY;
 			else
 				BS.DefaultCase = RenderBranchCase::JUMP;
 		}
@@ -733,9 +768,9 @@ void BlockListRenderer::render()
 		}
 	}
 }
-void CFGStackifier::render(RenderInterface& ri, bool asmjs)
+void CFGStackifier::render(RenderInterface& ri, const Registerize& R, const PointerAnalyzer& PA, bool asmjs)
 {
-	BlockListRenderer BR(BlockList, BlockIdMap, ri, asmjs);
+	BlockListRenderer BR(BlockList, BlockIdMap, ri, R, PA, asmjs);
 }
 
 }

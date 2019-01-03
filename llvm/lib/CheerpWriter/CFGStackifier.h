@@ -118,7 +118,7 @@ public:
 	};
 
 	CFGStackifier(const llvm::Function &F, llvm::LoopInfo& LI, llvm::DominatorTree& DT);
-	void render(RenderInterface& ri, bool asmjs);
+	void render(RenderInterface& ri, const Registerize& R, const PointerAnalyzer& PA, bool asmjs);
 private:
 	const Block& getBlock(int id) const
 	{

@@ -4651,7 +4651,7 @@ void CheerpWriter::compileMethod(Function& F)
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 			CFGStackifier C(F, LI, DT);
-			C.render(ri, asmjs);
+			C.render(ri, registerize, PA, asmjs);
 		}
 		else
 		{
