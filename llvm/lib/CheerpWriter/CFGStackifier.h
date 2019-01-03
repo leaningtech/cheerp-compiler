@@ -18,6 +18,9 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 
+#include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/PointerAnalyzer.h"
+
 #include <unordered_map>
 #include <vector>
 #include <list>
@@ -44,16 +47,6 @@ public:
 			int start;
 			int end;
 		};
-		struct BranchState {
-			bool IsBranchRoot{false};
-			enum RenderBranchCase {
-				ONLY_FORWARDS,
-				DEFAULT_FORWARD,
-				DEFAULT_NESTED,
-			};
-			RenderBranchCase Case{ONLY_FORWARDS};
-		};
-
 		explicit Block(llvm::BasicBlock *BB, int id) : BB(BB), id(id)
 		{
 		}
@@ -88,7 +81,8 @@ public:
 			}
 			return ret;
 		}
-		int getId() const {
+		int getId() const
+		{
 			return id;
 		}
 		Scope* insertScope(Scope s);
@@ -112,19 +106,6 @@ public:
 		{
 			return naturalPreds.count(id);
 		}
-		void setBranchState(BranchState::RenderBranchCase RBC)
-		{
-			BS.IsBranchRoot = true;
-			BS.Case = RBC;
-		}
-		bool isBranchRoot() const
-		{
-			return BS.IsBranchRoot;
-		}
-		BranchState::RenderBranchCase getBranchCase() const
-		{
-			return BS.Case;
-		}
 		bool operator==(const llvm::BasicBlock* Other) const { return BB == Other; }
 #ifdef DEBUG_CFGSTACKIFIER
 		void dump() const;
@@ -134,12 +115,25 @@ public:
 		int id;
 		std::list<Scope> scopes;
 		std::unordered_set<int> naturalPreds;
-		BranchState BS;
 	};
 
 	CFGStackifier(const llvm::Function &F, llvm::LoopInfo& LI, llvm::DominatorTree& DT);
 	void render(RenderInterface& ri, bool asmjs);
 private:
+	const Block& getBlock(int id) const
+	{
+		assert(id >= 0 && id < (int)BlockList.size());
+		return BlockList[id];
+	}
+	const Block& getBlock(llvm::BasicBlock* BB) const
+	{
+		auto it = BlockIdMap.find(BB);
+		assert(it != BlockIdMap.end());
+		const Block& B =  getBlock(it->second);
+		assert(B.getBB() == BB);
+		return B;
+	}
+
 	std::vector<Block> BlockList;
 	std::unordered_map<llvm::BasicBlock*, int> BlockIdMap;
 };
