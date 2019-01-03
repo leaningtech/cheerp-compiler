@@ -290,7 +290,7 @@ private:
 	WasmBuffer& code;
 	std::vector<BlockType> blockTypes;
 	uint32_t labelLocal;
-	void renderCondition(const BasicBlock* B, int branchId,
+	void renderCondition(const BasicBlock* B, const std::vector<int>& branchIds,
 			ConditionRenderMode mode);
 	void indent();
 public:
@@ -350,13 +350,17 @@ void CheerpWasmRenderInterface::indent()
 		code << "  ";
 }
 
-void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb, int branchId,
+void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
+		const std::vector<int>& branchIds,
 		ConditionRenderMode mode)
 {
+	assert(!branchIds.empty());
 	const TerminatorInst* term=bb->getTerminator();
 
 	if(isa<BranchInst>(term))
 	{
+		assert(branchIds.size() == 1);
+		int branchId = branchIds[0];
 		const BranchInst* bi=cast<BranchInst>(term);
 		assert(bi->isConditional());
 		//The second branch is the default
@@ -404,26 +408,34 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb, int branch
 	else if(isa<SwitchInst>(term))
 	{
 		const SwitchInst* si=cast<SwitchInst>(term);
-		assert(branchId > 0);
-		SwitchInst::ConstCaseIt it=si->case_begin();
-		for(int i=1;i<branchId;i++)
-			++it;
-		const BasicBlock* dest=it.getCaseSuccessor();
-		writer->compileOperand(code, si->getCondition());
-		writer->compileOperand(code, it.getCaseValue());
-		writer->encodeInst(0x46, "i32.eq", code);
-		//We found the destination, there may be more cases for the same
-		//destination though
-		for(++it;it!=si->case_end();++it)
+		bool first = true;
+		for (int branchId: branchIds)
 		{
-			if(it.getCaseSuccessor()==dest)
+			SwitchInst::ConstCaseIt it=si->case_begin();
+			for(int i=1;i<branchId;i++)
+				++it;
+			const BasicBlock* dest=it.getCaseSuccessor();
+			writer->compileOperand(code, si->getCondition());
+			writer->compileOperand(code, it.getCaseValue());
+			writer->encodeInst(0x46, "i32.eq", code);
+			//We found the destination, there may be more cases for the same
+			//destination though
+			for(++it;it!=si->case_end();++it)
 			{
-				//Also add this condition
-				writer->compileOperand(code, si->getCondition());
-				writer->compileOperand(code, it.getCaseValue());
-				writer->encodeInst(0x46, "i32.eq", code);
+				if(it.getCaseSuccessor()==dest)
+				{
+					//Also add this condition
+					writer->compileOperand(code, si->getCondition());
+					writer->compileOperand(code, it.getCaseValue());
+					writer->encodeInst(0x46, "i32.eq", code);
+					writer->encodeInst(0x72, "i32.or", code);
+				}
+			}
+			if (!first)
+			{
 				writer->encodeInst(0x72, "i32.or", code);
 			}
+			first = false;
 		}
 
 		// TODO optimize this by inverting the boolean logic above.
@@ -639,7 +651,7 @@ void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int bra
 		writer->encodeInst(0x05, "else", code);
 	}
 	// The condition goes first
-	renderCondition(bb, branchId, NormalCondition);
+	renderCondition(bb, {branchId}, NormalCondition);
 	indent();
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	if(first)
@@ -661,14 +673,7 @@ void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const s
 		writer->encodeInst(0x05, "else", code);
 	}
 	// The condition goes first
-	for(uint32_t i=0;i<skipBranchIds.size();i++)
-	{
-		if(i!=0)
-		{
-			assert(false);
-		}
-		renderCondition(bb, skipBranchIds[i], InvertCondition);
-	}
+	renderCondition(bb, skipBranchIds, InvertCondition);
 	indent();
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 
