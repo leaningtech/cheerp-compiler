@@ -15,6 +15,8 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/CFG.h"
 
+#include "llvm/Cheerp/Writer.h"
+
 #include <unordered_set>
 #include <list>
 
@@ -239,7 +241,8 @@ public:
 		std::vector<Block>& BlockList,
 		std::unordered_map<BasicBlock*, int>& BlockIdMap,
 		LoopInfo& LI, DominatorTree& DT)
-		: F(const_cast<Function&>(F)), BlockList(BlockList), BlockIdMap(BlockIdMap), LI(LI), DT(DT)
+		: F(const_cast<Function&>(F)), BlockList(BlockList), BlockIdMap(BlockIdMap)
+		, LI(LI), DT(DT)
 	{
 		build();
 	}
@@ -249,7 +252,7 @@ private:
 	void processBlock(BasicBlock* CurBB, bool Delayed);
 	void addLoopMarkers(Block& B);
 	void addBlockMarkers(Block& B);
-	int findLoopEnd(llvm::Loop* L, const Block& B);
+	int findLoopEnd(Loop* L, const Block& B);
 	void build();
 
 	Function& F;
@@ -333,7 +336,8 @@ void BlockListBuilder::processBlock(BasicBlock* CurBB, bool Delayed)
 	// enqueue the default case first (so it will be handled last)
 	if (DefaultIdx != -1)
 	{
-		DefaultIsNested = enqueueSucc(CurBB, CurBB->getTerminator()->getSuccessor(DefaultIdx));
+		BasicBlock* Default = CurBB->getTerminator()->getSuccessor(DefaultIdx);
+		DefaultIsNested = enqueueSucc(CurBB, Default);
 		HasNestedSuccs |= DefaultIsNested;
 	}
 	int Idx = 0;
@@ -341,24 +345,16 @@ void BlockListBuilder::processBlock(BasicBlock* CurBB, bool Delayed)
 	{
 		if (DefaultIdx == Idx++)
 			continue;
-		HasNestedSuccs |= enqueueSucc(CurBB, Succ);
+		bool Nested = enqueueSucc(CurBB, Succ);
+		HasNestedSuccs |= Nested;
 	}
 	bool IsBranchRoot = Idx > 1 && HasNestedSuccs;
 	if (IsBranchRoot)
 	{
-		if (DefaultIsNested)
-		{
-			CurB.setBranchState(Block::BranchState::RenderBranchCase::DEFAULT_NESTED);
-		}
-		else
-		{
-			CurB.setBranchState(Block::BranchState::RenderBranchCase::DEFAULT_FORWARD);
-		}
 		DomTreeNode* CurDN = DT.getNode(CurBB);
 		auto it = Branches.emplace(CurDN, BranchChain(BlockList.back())).first;
 		BranchChainScopes.push_back(&it->second);
 	}
-
 }
 
 void BlockListBuilder::build()
@@ -445,7 +441,7 @@ void BlockListBuilder::addBlockMarkers(Block& B)
 		if (BlockIdMap.at(*pit) < B.getId())
 		{
 			Header = Header ? DT.findNearestCommonDominator(Header, *pit) : *pit;
-			if (!B.isNaturalPred(BlockIdMap[*pit]))
+			if (!B.isNaturalPred(BlockIdMap.at(*pit)))
 			{
 				Natural = false;
 			}
@@ -490,84 +486,152 @@ CFGStackifier::CFGStackifier(const Function& F, LoopInfo& LI, DominatorTree& DT)
 #endif
 }
 
-void CFGStackifier::render(RenderInterface& ri, bool asmjs)
-{
+class BlockListRenderer {
+	using Block = CFGStackifier::Block;
 	using Scope = Block::Scope;
+
+public:
+	BlockListRenderer(const std::vector<Block>& BlockList, const std::unordered_map<BasicBlock*, int> BlockIdMap, RenderInterface& ri, bool asmjs)
+		: BlockList(BlockList), BlockIdMap(BlockIdMap), ri(ri), asmjs(asmjs)
+	{
+		render();
+	}
+private:
+	enum RenderBranchCase {
+		JUMP,
+		NESTED,
+		DIRECT,
+	};
+	struct BranchesState {
+		bool IsBranchRoot{false};
+		std::unordered_map<llvm::BasicBlock*, RenderBranchCase> Cases;
+		RenderBranchCase DefaultCase{JUMP};
+	};
+
+	void renderJump(const Block& From, const Block& To);
+	void renderJumpBranch(const Block& From, const Block& To, int BrId, bool First);
+	void renderDefaultJumpBranch(const Block& From, const Block& To, bool First);
+	void renderDirectBranch(const Block& From, const Block& To);
+	void renderJumpBranches(const Block& B);
+	void render();
+
+	const Block& getBlock(int id) const
+	{
+		assert(id >= 0 && id < (int)BlockList.size());
+		return BlockList[id];
+	}
+	const Block& getBlock(llvm::BasicBlock* BB) const
+	{
+		auto it = BlockIdMap.find(BB);
+		assert(it != BlockIdMap.end());
+		const Block& B =  getBlock(it->second);
+		assert(B.getBB() == BB);
+		return B;
+	}
+
 	std::vector<const Scope*> ScopeStack;
 	std::unordered_map<const Block*, std::vector<const Scope*>> ScopeMap;
 	std::unordered_map<const Scope*, size_t> labels;
+	std::unordered_map<const BasicBlock*, BranchesState> BranchesStates;
 	size_t next_label = 1;
-	auto renderForwardBranch = [&](const Block& From, const Block& To, int BrId, bool First)
-	{
-		bool unconditional = BrId == -1 && First;
-		if (!unconditional)
-		{
-			if (BrId == -1)
-				ri.renderElseBlockBegin();
-			else
-				ri.renderIfBlockBegin(From.getBB(), BrId, First);
-		}
-		ri.renderBlockPrologue(To.getBB(), From.getBB());
 
-		if (!To.isNaturalPred(From.getId()))
-			[&]() {
-				size_t depth = 0;
-				const std::vector<const Scope*>& Scopes = ScopeMap.at(&From);
-				for (auto s=Scopes.rbegin(), se=Scopes.rend(); s!=se; ++s, ++depth)
-				{
-					if ((*s)->kind == Block::BLOCK && To.getId() == (*s)->end)
-					{
-						ri.renderBreak(labels.at(*s));
-						return;
-					}
-					else if ((*s)->kind == Block::LOOP && To.getId() == (*s)->start)
-					{
-						ri.renderContinue(labels.at(*s));
-						return;
-					}
-				}
-				report_fatal_error("No scope for branching");
-			}();
-		if (BrId == -1 && !First)
-		{
-			ri.renderBlockEnd();
-		}
-	};
-	auto renderForwardBranches = [&](const Block& B)
+	const std::vector<Block> BlockList;
+	const std::unordered_map<BasicBlock*, int> BlockIdMap;
+
+	RenderInterface& ri;
+	bool asmjs;
+};
+
+void BlockListRenderer::renderJump(const Block& From, const Block& To)
+{
+	size_t depth = 0;
+	const std::vector<const Scope*>& Scopes = ScopeMap.at(&From);
+	for (auto s=Scopes.rbegin(), se=Scopes.rend(); s!=se; ++s, ++depth)
 	{
-		int DefaultId = getDefaultBranchIdx(B.getBB());
-		BasicBlock* Default = DefaultId != -1 ? B.getBB()->getTerminator()->getSuccessor(DefaultId) : nullptr;
-		Block::Scope* BS = BlockList[B.getId()+1].getBranchStart();
-		bool Delayed = BS && BS->start == B.getId();
-		bool First = !Delayed || BlockList[B.getId()+1].getBB() == Default;
-		int BrId = 0;
-		for (auto S = succ_begin(B.getBB()), SE = succ_end(B.getBB()); S != SE; ++S, ++BrId)
+		if ((*s)->kind == Block::BLOCK && To.getId() == (*s)->end)
 		{
-			if (BrId==DefaultId)
-			{
-				continue;
-			}
-			const Block& To = BlockList[BlockIdMap[*S]];
-			const Scope* Branch = To.getBranchStart();
-			if (!Branch || Branch->start != B.getId())
-			{
-				renderForwardBranch(B, To, BrId, First);
-			}
-			First = false;
+			ri.renderBreak(labels.at(*s));
+			return;
 		}
-		if (Default)
+		else if ((*s)->kind == Block::LOOP && To.getId() == (*s)->start)
 		{
-			const Block& DefaultB = BlockList[BlockIdMap[Default]];
-			const Block::Scope* DBS = DefaultB.getBranchStart();
-			if (!DBS || DBS->start != B.getId())
-			{
-				renderForwardBranch(B, DefaultB, -1, First);
-			}
+			ri.renderContinue(labels.at(*s));
+			return;
 		}
-	};
+	}
+	report_fatal_error("No scope for branching");
+}
+void BlockListRenderer::renderJumpBranch(const Block& From, const Block& To, int BrId, bool First)
+{
+	ri.renderIfBlockBegin(From.getBB(), BrId, First);
+	ri.renderBlockPrologue(To.getBB(), From.getBB());
+	if (!To.isNaturalPred(From.getId()))
+		renderJump(From, To);
+}
+void BlockListRenderer::renderDefaultJumpBranch(const Block& From, const Block& To, bool First)
+{
+	ri.renderElseBlockBegin();
+	ri.renderBlockPrologue(To.getBB(), From.getBB());
+	if (!To.isNaturalPred(From.getId()))
+		renderJump(From, To);
+	ri.renderBlockEnd();
+}
+void BlockListRenderer::renderDirectBranch(const Block& From, const Block& To)
+{
+	ri.renderBlockPrologue(To.getBB(), From.getBB());
+	if (!To.isNaturalPred(From.getId()))
+		renderJump(From, To);
+}
+void BlockListRenderer::renderJumpBranches(const Block& B)
+{
+	int DefaultIdx = getDefaultBranchIdx(B.getBB());
+	BasicBlock* Default = DefaultIdx != -1 ? B.getBB()->getTerminator()->getSuccessor(DefaultIdx) : nullptr;
+	const Block::Scope* BS = getBlock(B.getId()+1).getBranchStart();
+	bool Delayed = BS && BS->start == B.getId();
+	bool First = !Delayed || getBlock(B.getId()+1).getBB() == Default;
+	int BrIdx = 0;
+	for (auto S = succ_begin(B.getBB()), SE = succ_end(B.getBB()); S != SE; ++S, ++BrIdx)
+	{
+		if (BrIdx==DefaultIdx)
+		{
+			continue;
+		}
+		const Block& To = getBlock(*S);
+		RenderBranchCase BC = BranchesStates.at(B.getBB()).Cases.at(*S);
+		switch (BC)
+		{
+			case RenderBranchCase::JUMP:
+				renderJumpBranch(B, To, BrIdx, First);
+				break;
+			case RenderBranchCase::DIRECT:
+				report_fatal_error("A direct branch must also be the default. This is a bug");
+				break;
+			case RenderBranchCase::NESTED:
+				break;
+		}
+		First = false;
+	}
+	if (Default)
+	{
+		const Block& DefaultB = getBlock(Default);
+		switch (BranchesStates.at(B.getBB()).DefaultCase)
+		{
+			case RenderBranchCase::JUMP:
+				renderDefaultJumpBranch(B, DefaultB, First);
+				break;
+			case RenderBranchCase::DIRECT:
+				renderDirectBranch(B, DefaultB);
+				break;
+			case RenderBranchCase::NESTED:
+				break;
+		}
+	}
+}
+void BlockListRenderer::render()
+{
 	for (int id = 0; id <(int) BlockList.size(); ++id)
 	{
-		const Block& B = BlockList[id];
+		const Block& B = getBlock(id);
 		BasicBlock* BB = B.getBB();
 		for (const auto& scope: B.getScopes())
 		switch (scope.kind)
@@ -596,13 +660,13 @@ void CFGStackifier::render(RenderInterface& ri, bool asmjs)
 			case Block::BRANCH:
 			{
 				int FromId = scope.start;
-				const Block& From = BlockList[FromId];
+				const Block& From = getBlock(FromId);
 				int BrId = getBranchIdx(From.getBB(), BB);
 				bool First = FromId == id - 1;
 
 				if (BrId == -1)
 				{
-					renderForwardBranches(From);
+					renderJumpBranches(From);
 					ri.renderElseBlockBegin();
 				}
 				else
@@ -615,10 +679,11 @@ void CFGStackifier::render(RenderInterface& ri, bool asmjs)
 			case Block::BRANCH_END:
 			{
 				int FromId = scope.start;
-				const Block& From = BlockList[FromId];
-				if (From.getBranchCase() == Block::BranchState::RenderBranchCase::DEFAULT_FORWARD)
+				const Block& From = getBlock(FromId);
+				auto& BS = BranchesStates.at(From.getBB());
+				if (BS.IsBranchRoot && BS.DefaultCase != RenderBranchCase::NESTED)
 				{
-					renderForwardBranches(From);
+					renderJumpBranches(From);
 				}
 				else
 				{
@@ -633,11 +698,44 @@ void CFGStackifier::render(RenderInterface& ri, bool asmjs)
 			break;
 		ri.renderBlock(BB);
 
-		if (B.getBranchCase() == Block::BranchState::RenderBranchCase::ONLY_FORWARDS)
+		auto* Scope = BlockList[B.getId()+1].getBranchStart();
+		auto& BS = BranchesStates[BB];
+		BS.IsBranchRoot = Scope && Scope->start == B.getId();
+
+		int DefaultIdx = getDefaultBranchIdx(BB);
+		int Idx = 0;
+		for (auto Succ: make_range(succ_begin(BB), succ_end(BB)))
 		{
-			renderForwardBranches(B);
+			if (DefaultIdx == Idx++)
+				continue;
+			const auto& SuccB = getBlock(Succ);
+			auto* SuccScope = SuccB.getBranchStart();
+			if (SuccScope && SuccScope->start == B.getId())
+				BS.Cases.emplace(Succ, RenderBranchCase::NESTED);
+			else
+				BS.Cases.emplace(Succ, RenderBranchCase::JUMP);
+		}
+		if (DefaultIdx != -1)
+		{
+			const auto& DefaultB = getBlock(BB->getTerminator()->getSuccessor(DefaultIdx));
+			auto* SuccScope = DefaultB.getBranchStart();
+			if (Idx == 1)
+				BS.DefaultCase = RenderBranchCase::DIRECT;
+			else if (SuccScope && SuccScope->start == B.getId())
+				BS.DefaultCase = RenderBranchCase::NESTED;
+			else
+				BS.DefaultCase = RenderBranchCase::JUMP;
+		}
+
+		if (!BS.IsBranchRoot)
+		{
+			renderJumpBranches(B);
 		}
 	}
+}
+void CFGStackifier::render(RenderInterface& ri, bool asmjs)
+{
+	BlockListRenderer BR(BlockList, BlockIdMap, ri, asmjs);
 }
 
 }
