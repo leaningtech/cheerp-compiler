@@ -22,9 +22,9 @@ using namespace llvm;
 namespace cheerp
 {
 
-SourceMapGenerator::SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, bool standAlone, llvm::LLVMContext& C, std::error_code& ErrorCode):
+SourceMapGenerator::SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, bool standAlone, std::error_code& ErrorCode):
 	sourceMap(sourceMapName.c_str(), ErrorCode, sys::fs::F_None), sourceMapName(sourceMapName), sourceMapPrefix(sourceMapPrefix),
-	Ctx(C), lastFile(0), lastLine(0), lastColumn(0), lastOffset(0), lineOffset(0), lastName(0), currentDebugLoc(nullptr), standAlone(standAlone), lineBegin(true)
+	lastFile(0), lastLine(0), lastColumn(0), lastOffset(0), lineOffset(0), lastName(0), currentDebugLoc(nullptr), standAlone(standAlone), lineBegin(true)
 {
 }
 
