@@ -68,7 +68,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   if (!SourceMap.empty())
   {
     std::error_code ErrorCode;
-    sourceMapGenerator.reset(new cheerp::SourceMapGenerator(SourceMap, SourceMapPrefix, SourceMapStandAlone, M.getContext(), ErrorCode));
+    sourceMapGenerator.reset(new cheerp::SourceMapGenerator(SourceMap, SourceMapPrefix, SourceMapStandAlone, ErrorCode));
     if (ErrorCode)
     {
        // An error occurred opening the source map file, bail out
