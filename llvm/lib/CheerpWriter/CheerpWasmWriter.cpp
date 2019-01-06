@@ -2275,12 +2275,22 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::Select:
 		{
 			const SelectInst& si = cast<SelectInst>(I);
-			compileOperand(code, si.getCondition());
-			encodeU32Inst(0x04, "if", internal::getValType(si.getType()), code);
-			compileOperand(code, si.getTrueValue());
-			encodeInst(0x05, "else", code);
-			compileOperand(code, si.getFalseValue());
-			encodeInst(0x0b, "end", code);
+			if(si.getType()->isIntegerTy() || si.getType()->isPointerTy())
+			{
+				compileOperand(code, si.getTrueValue());
+				compileOperand(code, si.getFalseValue());
+				compileOperand(code, si.getCondition());
+				encodeInst(0x1b, "select", code);
+			}
+			else
+			{
+				compileOperand(code, si.getCondition());
+				encodeU32Inst(0x04, "if", internal::getValType(si.getType()), code);
+				compileOperand(code, si.getTrueValue());
+				encodeInst(0x05, "else", code);
+				compileOperand(code, si.getFalseValue());
+				encodeInst(0x0b, "end", code);
+			}
 			break;
 		}
 		case Instruction::SExt:
