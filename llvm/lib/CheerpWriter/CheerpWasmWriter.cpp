@@ -592,7 +592,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	writer->encodeU32Inst(0x02, "block", 0x40, code);
 	writer->compileOperand(code, si->getCondition());
 	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
-	if (bitWidth != 32)
+	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
 	{
 		assert(bitWidth < 32);
 		writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
@@ -1308,7 +1308,7 @@ void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 	compileOperand(code, v);
 
 	uint32_t initialSize = v->getType()->getIntegerBitWidth();
-	if(initialSize != 32)
+	if(initialSize != 32 && CheerpWriter::needsUnsignedTruncation(v, /*asmjs*/true))
 	{
 		encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(initialSize), code);
 		encodeInst(0x71, "i32.and", code);
@@ -2455,10 +2455,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::ZExt:
 		{
-			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
-			compileOperand(code, I.getOperand(0));
-			encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
-			encodeInst(0x71, "i32.and", code);
+			compileUnsignedInteger(code, I.getOperand(0));
 			break;
 		}
 		case Instruction::IntToPtr:
