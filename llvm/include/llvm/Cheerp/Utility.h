@@ -88,6 +88,7 @@ inline bool isGEP(const llvm::Value* v)
 	x("f64.trunc", 0x9d, "trunc") \
 	x("f64.nearest", 0x9e, "round") \
 	x("f64.sqrt", 0x9f, "sqrt") \
+	x("f64.sqrt", 0x9f, "__ieee754_sqrt") \
 	x("f64.min", 0xa4, "fmin") \
 	x("f64.max", 0xa5, "fmax") \
 	x("f64.copysign", 0xa6, "copysign") \
