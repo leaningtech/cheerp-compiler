@@ -464,8 +464,7 @@ private:
 	void compileClassConstructor(llvm::StructType* T);
 	void compileArrayClassType(llvm::Type* T);
 	void compileArrayPointerType();
-	bool needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const llvm::Value* v) const;
-	bool needsUnsignedTruncation(const llvm::Value* v) const;
+	static bool needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const llvm::Value* v, bool asmjs);
 
 	/**
 	 * Methods implemented in Opcodes.cpp
@@ -641,6 +640,7 @@ public:
 	                                       const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from,
 	                                                const PointerAnalyzer& PA, const Registerize& registerize);
+	static bool needsUnsignedTruncation(const llvm::Value* v, bool asmjs);
 };
 
 }
