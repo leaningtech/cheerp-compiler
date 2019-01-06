@@ -397,8 +397,7 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb, int branch
 			writer->compileOperand(code, bi->getCondition());
 			if (mode == InvertCondition) {
 				// Invert result
-				writer->encodeS32Inst(0x41, "i32.const", 1, code);
-				writer->encodeInst(0x73, "i32.xor", code);
+				writer->encodeInst(0x45, "i32.eqz", code);
 			}
 		}
 	}
@@ -1708,8 +1707,7 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 		if(invertForUnordered)
 		{
 			// Invert result
-			encodeS32Inst(0x41, "i32.const", 1, code);
-			encodeInst(0x73, "i32.xor", code);
+			encodeInst(0x45, "i32.eqz", code);
 		}
 	}
 }
