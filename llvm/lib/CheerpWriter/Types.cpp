@@ -478,7 +478,7 @@ void CheerpWriter::compileArrayPointerType()
 		<< NewLine;
 }
 
-bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const Value* v) const
+bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const Value* v, bool asmjs)
 {
 	if(!v->getType()->isIntegerTy(8) && !v->getType()->isIntegerTy(16))
 		return true;
@@ -491,6 +491,9 @@ bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*
 	}
 	else if(const LoadInst* LI = dyn_cast<LoadInst>(v))
 	{
+		// In linear memory mode loads are unconditionally truncated
+		if(asmjs)
+			return false;
 		Value* ptr = LI->getOperand(0);
 		if(isGEP(ptr))
 		{
@@ -515,7 +518,7 @@ bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*
 		for(uint32_t i=0;i<phi->getNumIncomingValues();i++)
 		{
 			const Value* incoming = phi->getIncomingValue(i);
-			if(needsUnsignedTruncation(visited, incoming))
+			if(needsUnsignedTruncation(visited, incoming, asmjs))
 				return true;
 		}
 		return false;
@@ -524,15 +527,15 @@ bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*
 	{
 		if(I->getOpcode() == Instruction::And)
 		{
-			return needsUnsignedTruncation(visited, I->getOperand(0)) && needsUnsignedTruncation(visited, I->getOperand(1));
+			return needsUnsignedTruncation(visited, I->getOperand(0), asmjs) && needsUnsignedTruncation(visited, I->getOperand(1), asmjs);
 		}
 		else if(I->getOpcode() == Instruction::Xor || I->getOpcode() == Instruction::Or)
 		{
-			return needsUnsignedTruncation(visited, I->getOperand(0)) || needsUnsignedTruncation(visited, I->getOperand(1));
+			return needsUnsignedTruncation(visited, I->getOperand(0), asmjs) || needsUnsignedTruncation(visited, I->getOperand(1), asmjs);
 		}
 		else if(I->getOpcode() == Instruction::Select)
 		{
-			return needsUnsignedTruncation(visited, I->getOperand(1)) || needsUnsignedTruncation(visited, I->getOperand(2));
+			return needsUnsignedTruncation(visited, I->getOperand(1), asmjs) || needsUnsignedTruncation(visited, I->getOperand(2), asmjs);
 		}
 		else if(I->getOpcode() == Instruction::ZExt || I->getOpcode() == Instruction::LShr)
 			return false;
@@ -540,8 +543,8 @@ bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*
 	return true;
 }
 
-bool CheerpWriter::needsUnsignedTruncation(const Value* v) const
+bool CheerpWriter::needsUnsignedTruncation(const Value* v, bool asmjs)
 {
 	std::unordered_set<const llvm::Value*> visited;
-	return needsUnsignedTruncation(visited, v);
+	return needsUnsignedTruncation(visited, v, asmjs);
 }

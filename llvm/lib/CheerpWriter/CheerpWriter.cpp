@@ -3353,7 +3353,7 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, bool forAsmJSCom
 		stream << ">>>0";
 		if(parentPrio > SHIFT) stream << ')';
 	}
-	else if(!forceTruncation && !needsUnsignedTruncation(v))
+	else if(!forceTruncation && !needsUnsignedTruncation(v, /*asmjs, not fully accurate*/forAsmJSComparison))
 	{
 		if(forAsmJSComparison)
 		{
@@ -3735,7 +3735,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			PARENT_PRIORITY shiftPrio = SHIFT;
 			int width = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(parentPrio > SHIFT) stream << '(';
-			bool needsTruncation = width != 32 && needsUnsignedTruncation(I.getOperand(0));
+			bool needsTruncation = width != 32 && needsUnsignedTruncation(I.getOperand(0), asmjs);
 			if(needsTruncation)
 			{
 				shiftPrio = BIT_AND;
