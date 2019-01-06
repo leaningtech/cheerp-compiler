@@ -2872,7 +2872,11 @@ llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
   llvm::Constant* Zero=llvm::ConstantInt::get(Int32Ty, 0);
   GEPIndexes.push_back(Zero);
   GEPIndexes.push_back(Zero);
-  llvm::Value *VTablePtrSrc = Builder.CreateGEP(This, GEPIndexes);
+  llvm::Value *VTablePtrSrc = nullptr;
+  if(This->getType()->getPointerElementType()->isStructTy())
+    VTablePtrSrc = Builder.CreateGEP(This, GEPIndexes);
+  else
+    VTablePtrSrc = This;
   if(!VTablePtrSrc->getType()->getPointerElementType()->isPointerTy())
   {
     // We did not find a pointer, use the type unsafe code path
