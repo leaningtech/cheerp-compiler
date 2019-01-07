@@ -929,9 +929,11 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 
 		newIndexes.push_back(referenceOperand);
 		// This is the first index which is different in the range. Create a GEP now.
-		Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, base->getName()+".optgep");
+		GetElementPtrInst* newGEP = GetElementPtrInst::Create(base, newIndexes, base->getName()+".optgep");
 		newIndexes.pop_back();
 		newGEP->insertBefore(insertionPoint);
+		// Will be later examined, checking wheter it should be merged to its single use (or kept if there are multiple uses)
+		nonTerminalGeps.push_back(newGEP);
 
 		assert(insertionPoint);
 #if DEBUG_GEP_OPT_VERBOSE
@@ -1138,6 +1140,8 @@ bool GEPOptimizer::runOnFunction(Function& F)
 
 	data.startRecursion();
 	data.applyOptGEP();
+	data.mergeSingleUserGEPs();
+
 	return data.anyChange();
 }
 
@@ -1191,6 +1195,52 @@ void GEPOptimizer::GEPRecursionData::applyOptGEP()
 		p.second->takeName(p.first);
 		p.first->replaceAllUsesWith(p.second);
 		p.first->eraseFromParent();
+	}
+}
+
+void GEPOptimizer::GEPRecursionData::mergeSingleUserGEPs()
+{
+	//nonTerminalGeps holds inner nodes in the GEP tree
+	//A child node always appear after its parent (by construction)
+	//nonTerminalGeps is consumed backward, since otherwise we may modify the children of
+	//the current node, and we need to avoid invalidating values still inside the vector
+	while (!nonTerminalGeps.empty())
+	{
+		GetElementPtrInst* a = nonTerminalGeps.back();
+		//Delete the current value, it may be invalidated
+		nonTerminalGeps.pop_back();
+
+		//Check whether it has only 1 user
+		if (!a->hasOneUse())
+			continue;
+
+		//Check whether that user is a GEP
+		GetElementPtrInst* b = cast<GetElementPtrInst>(*a->user_begin());
+
+		llvm::SmallVector<llvm::Value*, 4> indexes;
+		auto iter = a->idx_begin();
+		while (iter != a->idx_end())
+		{
+			indexes.push_back(*iter);
+			++iter;
+		}
+		iter = b->idx_begin();
+
+		//The first index of a gep with depth > 0 has to be 0
+		assert(cast<ConstantInt>(*iter)->equalsInt(0));
+
+		++iter;
+		while (iter != b->idx_end())
+		{
+			indexes.push_back(*iter);
+			++iter;
+		}
+
+		GetElementPtrInst* newGEP = GetElementPtrInst::Create(a->getPointerOperand(), indexes, b->getName()+".optgepsqueezed");
+		newGEP->insertBefore(b);
+		b->replaceAllUsesWith(newGEP);
+		b->eraseFromParent();
+		a->eraseFromParent();
 	}
 }
 
