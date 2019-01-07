@@ -540,6 +540,7 @@ private:
 	public:
 		void startRecursion();
 		void applyOptGEP();
+		void mergeSingleUserGEPs();
 		bool anyChange() const
 		{
 			return !erasedInst.empty();
@@ -561,6 +562,7 @@ private:
 
 		DominatorTree* DT;
 		std::set<std::pair<Instruction*, Instruction*>> erasedInst;
+		std::vector<GetElementPtrInst*> nonTerminalGeps;
 	};
 public:
 	static char ID;
