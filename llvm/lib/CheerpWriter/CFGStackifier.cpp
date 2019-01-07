@@ -404,11 +404,25 @@ void BlockListBuilder::build()
 
 int BlockListBuilder::findLoopEnd(Loop* L, const Block& B)
 {
-	int EndId = B.getId() + 1;
-	for (; EndId < (int)BlockList.size()-1; ++EndId)
+	size_t N = L->getNumBlocks();
+	int EndId = B.getId();
+	Block::Scope* LastScope = nullptr;
+	for (; N > 0; ++EndId)
 	{
-		if (!DT.dominates(L->getHeader(), BlockList[EndId].getBB()))
-			break;
+		if (EndId == (int)BlockList.size())
+			return EndId;
+		if (L->contains(BlockList[EndId].getBB()))
+			N--;
+		Block::Scope* CurScope = BlockList[EndId+1].getBranchStart();
+		if (CurScope && CurScope->start == EndId)
+		{
+			if (!LastScope || CurScope->end > LastScope->end)
+				LastScope = CurScope;
+		}
+	}
+	if (LastScope && LastScope->end > EndId)
+	{
+		return  LastScope->end;
 	}
 	return EndId;
 }
