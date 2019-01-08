@@ -240,6 +240,32 @@ static GenericValue pre_execute_memcpy(FunctionType *FT,
   GV.IntVal = 0;
   return GV;
 }
+
+static GenericValue pre_execute_memmove(FunctionType *FT,
+                                       const std::vector<GenericValue> &Args) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  // Support fully typed memmove
+  memmove(currentEE->GVTORP(Args[0]), currentEE->GVTORP(Args[1]),
+         (size_t)(Args[2].IntVal.getLimitedValue()));
+
+  GenericValue GV;
+  GV.IntVal = 0;
+  return GV;
+}
+
+static GenericValue pre_execute_memset(FunctionType *FT,
+                                       const std::vector<GenericValue> &Args) {
+  ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
+  // Support fully typed memset
+  memset(currentEE->GVTORP(Args[0]),
+         (size_t)(Args[1].IntVal.getLimitedValue()),
+         (size_t)(Args[2].IntVal.getLimitedValue()));
+
+  GenericValue GV;
+  GV.IntVal = 0;
+  return GV;
+}
+
 static StructType* most_derived_class(char* Addr)
 {
   ExecutionEngine *currentEE = PreExecute::currentPreExecutePass->currentEE;
@@ -478,6 +504,10 @@ static void* LazyFunctionCreator(const std::string& funcName)
         return (void*)(void(*)())pre_execute_pointer_offset;
     if (strncmp(funcName.c_str(), "llvm.memcpy.", strlen("llvm.memcpy."))==0)
         return (void*)(void(*)())pre_execute_memcpy;
+    if (strncmp(funcName.c_str(), "llvm.memmove.", strlen("llvm.memmove."))==0)
+        return (void*)(void(*)())pre_execute_memmove;
+    if (strncmp(funcName.c_str(), "llvm.memset.", strlen("llvm.memset."))==0)
+        return (void*)(void(*)())pre_execute_memset;
     if (strcmp(funcName.c_str(), "assertEqualImpl") == 0)
         return (void*)(void(*)())assertEqualImpl;
     if (strcmp(funcName.c_str(), "llvm.dbg.value") == 0)
