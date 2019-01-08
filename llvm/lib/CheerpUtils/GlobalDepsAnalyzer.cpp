@@ -587,7 +587,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				{
 					bool calleeIsAsmJS = calledFunc->getSection() == StringRef("asmjs");
 					// asm.js function called from outside
-					if (calleeIsAsmJS && !isAsmJS)
+					if (calleeIsAsmJS && !isAsmJS && !calledFunc->empty())
 						asmJSExportedFuncions.insert(calledFunc);
 					// normal function called from asm.js
 					else if (!calleeIsAsmJS && isAsmJS)
