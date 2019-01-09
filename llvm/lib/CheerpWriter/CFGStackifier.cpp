@@ -199,7 +199,7 @@ public:
 	struct BranchChain {
 		Block& Root;
 		bool Finished;
-		std::vector<Block::Scope*> Branches;
+		std::vector<std::pair<Block*, Block::ScopeIter>> Branches;
 		std::vector<int> Exits;
 		BranchChain(Block& Root): Root(Root), Finished(false) {}
 		Block& getRoot()
@@ -209,7 +209,7 @@ public:
 		void addBranch(Block& B)
 		{
 			auto S = B.insertScope(Block::Scope{Block::BRANCH, Root.getId(), -1});
-			Branches.push_back(S);
+			Branches.push_back(std::make_pair(&B, S));
 		}
 		void addExit(Block& B)
 		{
@@ -218,9 +218,11 @@ public:
 		void setEnd(Block& B)
 		{
 			assert(Finished);
+			if (Branches.empty())
+				return;
 			for (auto S: Branches)
 			{
-				S->end = B.getId();
+				S.second->end = B.getId();
 			}
 			B.insertScope(Block::Scope{Block::BRANCH_END, Root.getId(), B.getId()});
 			for (int E: Exits)
@@ -253,6 +255,9 @@ public:
 	}
 private:
 	void endBranchScopes(Block& B);
+	// If no branch is jumping ahead of the last nested one, it is possible to
+	// unnest it without causing the need for an extra BLOCK scope
+	bool removeLastNested(BranchChain& BC);
 	bool enqueueSucc(BasicBlock* CurBB, BasicBlock* Succ);
 	void processBlock(BasicBlock* CurBB, bool Delayed);
 	void addLoopMarkers(Block& B);
@@ -284,10 +289,50 @@ void BlockListBuilder::endBranchScopes(Block& B)
 			break;
 		}
 
-		BC.addExit(BlockList[B.getId()-1]);
-		BC.setEnd(BlockList.back());
+		if (!removeLastNested(BC))
+		{
+			BC.addExit(BlockList[B.getId()-1]);
+			BC.setEnd(BlockList.back());
+		}
 		BranchChainScopes.pop_back();
 	}
+}
+
+bool BlockListBuilder::removeLastNested(BranchChain& BC)
+{
+	auto si = BC.Branches.back();
+	for (BasicBlock* Succ: make_range(succ_begin(BC.Root.getBB()), succ_end(BC.Root.getBB())))
+	{
+		if (Succ == si.first->getBB())
+			continue;
+		auto it = BlockIdMap.find(Succ);
+		if (it == BlockIdMap.end())
+			return false;
+		Block& SuccB = BlockList[it->second];
+		auto* Br = SuccB.getBranchStart();
+		if (Br && Br->start == BC.Root.getId())
+		{
+			for (int E: BC.Exits)
+			{
+				Block& EB = BlockList[E];
+				if (EB.getId() == BC.Root.getId())
+					continue;
+				for (BasicBlock* ExitSucc: make_range(succ_begin(EB.getBB()), succ_end(EB.getBB())))
+				{
+					auto it = BlockIdMap.find(ExitSucc);
+					if (it == BlockIdMap.end() || it->second > si.first->getId())
+						return false;
+				}
+
+			}
+		}
+		else if (SuccB.getId() > BC.Root.getId())
+			return false;
+	}
+	si.first->removeScope(si.second);
+	BC.Branches.pop_back();
+	BC.setEnd(*si.first);
+	return true;
 }
 
 bool BlockListBuilder::enqueueSucc(BasicBlock* CurBB, BasicBlock* Succ)
