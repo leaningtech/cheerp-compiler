@@ -139,7 +139,7 @@ void CFGStackifier::Block::dump() const
 }
 #endif
 
-CFGStackifier::Block::Scope* CFGStackifier::Block::insertScope(CFGStackifier::Block::Scope s)
+CFGStackifier::Block::ScopeIter CFGStackifier::Block::insertScope(CFGStackifier::Block::Scope s)
 {
 	switch (s.kind)
 	{
@@ -156,7 +156,7 @@ CFGStackifier::Block::Scope* CFGStackifier::Block::insertScope(CFGStackifier::Bl
 					return true;
 				return false;
 			});
-			return &*scopes.insert(insertPoint, s);
+			return scopes.insert(insertPoint, s);
 		}
 		case BLOCK:
 		case LOOP:
@@ -171,10 +171,15 @@ CFGStackifier::Block::Scope* CFGStackifier::Block::insertScope(CFGStackifier::Bl
 					return false;
 				return true;
 			});
-			return &*scopes.insert(insertPoint, s);
+			return scopes.insert(insertPoint, s);
 		}
 	}
 }
+void CFGStackifier::Block::removeScope(CFGStackifier::Block::ScopeIter s)
+{
+	scopes.erase(s);
+}
+
 class BlockListBuilder {
 public:
 	using Block = CFGStackifier::Block;
