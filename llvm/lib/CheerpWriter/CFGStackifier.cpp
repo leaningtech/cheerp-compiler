@@ -580,12 +580,18 @@ void BlockListRenderer::renderJump(const Block& From, const Block& To)
 	{
 		if ((*s)->kind == Block::BLOCK && To.getId() == (*s)->end)
 		{
-			ri.renderBreak(labels.at(*s));
+			if (s == Scopes.rbegin())
+				ri.renderBreak();
+			else
+				ri.renderBreak(labels.at(*s));
 			return;
 		}
 		else if ((*s)->kind == Block::LOOP && To.getId() == (*s)->start)
 		{
-			ri.renderContinue(labels.at(*s));
+			if (s == Scopes.rbegin())
+				ri.renderContinue();
+			else
+				ri.renderContinue(labels.at(*s));
 			return;
 		}
 	}
