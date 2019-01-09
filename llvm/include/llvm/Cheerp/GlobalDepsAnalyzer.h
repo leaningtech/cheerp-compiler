@@ -17,6 +17,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include <array>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
