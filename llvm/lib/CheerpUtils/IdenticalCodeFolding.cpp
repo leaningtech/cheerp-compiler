@@ -210,8 +210,17 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 	llvm::errs() << "IB: "; B->dump();
 #endif
 
+	auto it = equivalenceCache.find(std::make_pair(A, B));
+	if(it != equivalenceCache.end())
+		return it->second;
+
+	auto CacheAndReturn = [this,A,B](bool ret) {
+		equivalenceCache.insert(std::make_pair(std::make_pair(A,B), ret));
+		return ret;
+	};
+
 	if (!A || !B || A->getOpcode() != B->getOpcode())
-		return false;
+		return CacheAndReturn(false);
 
 	switch(A->getOpcode())
 	{
@@ -221,7 +230,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		}
 		case Instruction::Unreachable:
 		{
-			return true;
+			return CacheAndReturn(true);
 		}
 		case Instruction::PtrToInt:
 		case Instruction::IntToPtr:
@@ -232,7 +241,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		case Instruction::FPTrunc:
 		case Instruction::FPExt:
 		{
-			return equivalentOperand(A->getOperand(0), B->getOperand(0));
+			return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)));
 		}
 		case Instruction::Add:
 		case Instruction::And:
@@ -253,8 +262,8 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		case Instruction::FSub:
 		case Instruction::FRem:
 		{
-			return equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
-				equivalentOperand(A->getOperand(1), B->getOperand(1));
+			return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
+				equivalentOperand(A->getOperand(1), B->getOperand(1)));
 		}
 		case Instruction::FCmp:
 		case Instruction::ICmp:
@@ -262,32 +271,32 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 			const CmpInst* a = cast<CmpInst>(A);
 			const CmpInst* b = cast<CmpInst>(B);
 			if(a->getPredicate() != b->getPredicate())
-				return false;
-			return equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
-				equivalentOperand(A->getOperand(1), B->getOperand(1));
+				return CacheAndReturn(false);
+			return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
+				equivalentOperand(A->getOperand(1), B->getOperand(1)));
 		}
 		case Instruction::Br:
 		{
 			const BranchInst* a = cast<BranchInst>(A);
 			const BranchInst* b = cast<BranchInst>(B);
 			if (a->isConditional() != b->isConditional())
-				return false;
+				return CacheAndReturn(false);
 
-			return !a->isConditional() ||
-				equivalentOperand(a->getCondition(), b->getCondition());
+			return CacheAndReturn(!a->isConditional() ||
+				equivalentOperand(a->getCondition(), b->getCondition()));
 		}
 		case Instruction::Switch:
 		{
 			const SwitchInst* a = cast<SwitchInst>(A);
 			const SwitchInst* b = cast<SwitchInst>(B);
-			return equivalentOperand(a->getCondition(), b->getCondition());
+			return CacheAndReturn(equivalentOperand(a->getCondition(), b->getCondition()));
 		}
 		case Instruction::VAArg:
 		{
 			const VAArgInst* a = cast<VAArgInst>(A);
 			const VAArgInst* b = cast<VAArgInst>(B);
-			return equivalentType(a->getType(), b->getType()) &&
-				equivalentOperand(a->getPointerOperand(), b->getPointerOperand());
+			return CacheAndReturn(equivalentType(a->getType(), b->getType()) &&
+				equivalentOperand(a->getPointerOperand(), b->getPointerOperand()));
 		}
 		case Instruction::Call:
 		{
@@ -305,7 +314,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 				if (!cast<CallInst>(B)->getCalledFunction() ||
 					cast<CallInst>(B)->getCalledFunction()->getIntrinsicID() != intrinsic)
 				{
-					return false;
+					return CacheAndReturn(false);
 				}
 
 				switch (calledFunc->getIntrinsicID())
@@ -315,7 +324,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					case Intrinsic::trap:
 					case Intrinsic::stacksave:
 					{
-						return true;
+						return CacheAndReturn(true);
 					}
 					case Intrinsic::vastart:
 					{
@@ -326,15 +335,15 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					case Intrinsic::lifetime_end:
 					case Intrinsic::cheerp_reallocate:
 					{
-						return equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
-							equivalentOperand(A->getOperand(1), B->getOperand(1));
+						return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
+							equivalentOperand(A->getOperand(1), B->getOperand(1)));
 					}
 					case Intrinsic::cheerp_downcast:
 					case Intrinsic::cheerp_virtualcast:
 					{
-						return equivalentType(A->getType(), B->getType()) &&
+						return CacheAndReturn(equivalentType(A->getType(), B->getType()) &&
 							equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
-							equivalentOperand(A->getOperand(1), B->getOperand(1));
+							equivalentOperand(A->getOperand(1), B->getOperand(1)));
 					}
 					case Intrinsic::cheerp_downcast_current:
 					case Intrinsic::cheerp_upcast_collapsed:
@@ -347,15 +356,15 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					case Intrinsic::cheerp_allocate:
 					case Intrinsic::cheerp_deallocate:
 					{
-						return equivalentOperand(A->getOperand(0), B->getOperand(0));
+						return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)));
 					}
 					case Intrinsic::memmove:
 					case Intrinsic::memcpy:
 					case Intrinsic::memset:
 					{
-						return equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
+						return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
 							equivalentOperand(A->getOperand(1), B->getOperand(1)) &&
-							equivalentOperand(A->getOperand(2), B->getOperand(2));
+							equivalentOperand(A->getOperand(2), B->getOperand(2)));
 					}
 					default:
 					{
@@ -374,13 +383,13 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 			const FunctionType* fTyB = cast<FunctionType>(pTyB->getElementType());
 
 			if (fTy->getNumParams() != fTyB->getNumParams())
-				return false;
+				return CacheAndReturn(false);
 
 			for (auto opA = ci->op_begin(), opB = cast<CallInst>(B)->op_begin();
 					opA != ci->op_begin() + fTy->getNumParams(); ++opA, ++opB)
 			{
 				if (!equivalentOperand(opA->get(), opB->get()))
-					return false;
+					return CacheAndReturn(false);
 			}
 
 			if (calledFunc)
@@ -399,7 +408,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					}
 
 					if (!equivalent)
-						return false;
+						return CacheAndReturn(false);
 				}
 			}
 			else if (isStaticIndirectFunction(calledValue) && isStaticIndirectFunction(calledValueB)) {
@@ -421,27 +430,27 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					llvm::errs() << "function equivalent: " << equivalent << "\n";
 #endif
 					if (!equivalent)
-						return false;
+						return CacheAndReturn(false);
 				}
 			}
 			else if (!equivalentOperand(calledValue, calledValueB)) {
-				return false;
+				return CacheAndReturn(false);
 			}
 
-			return ci->getType()->isVoidTy() == cast<CallInst>(B)->getType()->isVoidTy();
+			return CacheAndReturn(ci->getType()->isVoidTy() == cast<CallInst>(B)->getType()->isVoidTy());
 		}
 		case Instruction::GetElementPtr:
 		{
 			const GetElementPtrInst* a = cast<GetElementPtrInst>(A);
 			const GetElementPtrInst* b = cast<GetElementPtrInst>(B);
-			return equivalentGep(a, b);
+			return CacheAndReturn(equivalentGep(a, b));
 		}
 		case Instruction::Load:
 		{
 			const Value* ptrOpA = cast<LoadInst>(A)->getPointerOperand();
 			const Value* ptrOpB = cast<LoadInst>(B)->getPointerOperand();
-			return equivalentType(A->getType(), B->getType()) &&
-				equivalentOperand(ptrOpA, ptrOpB);
+			return CacheAndReturn(equivalentType(A->getType(), B->getType()) &&
+				equivalentOperand(ptrOpA, ptrOpB));
 		}
 		case Instruction::Store:
 		{
@@ -450,26 +459,26 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 			const Value* ptrOpB = cast<StoreInst>(B)->getPointerOperand();
 			const Value* valOpB = cast<StoreInst>(B)->getValueOperand();
 
-			return equivalentOperand(ptrOpA, ptrOpB) &&
+			return CacheAndReturn(equivalentOperand(ptrOpA, ptrOpB) &&
 				equivalentOperand(valOpA, valOpB) &&
 				// When storing values with size less than 32-bit, truncate them.
-				hasSameIntegerBitWidth(valOpA->getType(), valOpB->getType());
+				hasSameIntegerBitWidth(valOpA->getType(), valOpB->getType()));
 		}
 		case Instruction::Ret:
 		{
 			const Value* retValA = cast<ReturnInst>(A)->getReturnValue();
 			const Value* retValB = cast<ReturnInst>(B)->getReturnValue();
 			if(retValA && retValB)
-				return equivalentOperand(retValA, retValB);
-			return !retValA && !retValB;
+				return CacheAndReturn(equivalentOperand(retValA, retValB));
+			return CacheAndReturn(!retValA && !retValB);
 		}
 		case Instruction::Select:
 		{
 			const SelectInst* siA = cast<SelectInst>(A);
 			const SelectInst* siB = cast<SelectInst>(B);
-			return equivalentOperand(siA->getTrueValue(), siB->getTrueValue()) ||
+			return CacheAndReturn(equivalentOperand(siA->getTrueValue(), siB->getTrueValue()) ||
 				equivalentOperand(siA->getFalseValue(), siB->getFalseValue()) ||
-				equivalentOperand(siA->getCondition(), siB->getCondition());
+				equivalentOperand(siA->getCondition(), siB->getCondition()));
 		}
 		case Instruction::SIToFP:
 		case Instruction::UIToFP:
@@ -478,8 +487,8 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		{
 			uint32_t bitsA = A->getOperand(0)->getType()->getIntegerBitWidth();
 			uint32_t bitsB = B->getOperand(0)->getType()->getIntegerBitWidth();
-			return bitsA == bitsB &&
-				equivalentOperand(A->getOperand(0), B->getOperand(0));
+			return CacheAndReturn(bitsA == bitsB &&
+				equivalentOperand(A->getOperand(0), B->getOperand(0)));
 		}
 		case Instruction::PHI:
 		{
@@ -488,18 +497,18 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 
 			// Avoid recursion by marking the PHIs.
 			if (!visitedPhis.insert(a).second)
-				return true;
+				return CacheAndReturn(true);
 			if (visitedPhis.count(b))
-				return false;
+				return CacheAndReturn(false);
 			visitedPhis.insert(b);
 
 			if (a->getNumIncomingValues() != b->getNumIncomingValues())
-				return false;
+				return CacheAndReturn(false);
 			for (unsigned i = 0; i < a->getNumIncomingValues(); i++) {
 				if (!equivalentOperand(a->getIncomingValue(i), b->getIncomingValue(i)))
-					return false;
+					return CacheAndReturn(false);
 			}
-			return true;
+			return CacheAndReturn(true);
 		}
 		default:
 		{
@@ -508,7 +517,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		}
 	}
 
-	return true;
+	return CacheAndReturn(true);
 }
 
 bool IdenticalCodeFolding::equivalentOperand(const llvm::Value* A, const llvm::Value* B)
