@@ -297,7 +297,6 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		Value* dst=CI->getOperand(0);
 		//In MEMSET mode src is the value to be written
 		Value* src=CI->getOperand(1);
-		assert(dst->getType() == src->getType() || mode==MEMSET);
 		Value* size=CI->getOperand(2);
 		Type* int32Type = IntegerType::get(BB.getContext(), 32);
 		// Do not inline memory intrinsics with a large or non-constant size
@@ -319,6 +318,7 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				pointedType = int32Type;
 			}
 		}
+		assert(dst->getType() == src->getType() || mode==MEMSET);
 		uint32_t byteSize = DL->getTypeAllocSize(pointedType);
 		//First of all split the original block
 		BasicBlock* endLoop = BB.splitBasicBlock(it);
