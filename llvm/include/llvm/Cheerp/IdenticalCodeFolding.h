@@ -22,7 +22,7 @@
 namespace cheerp
 {
 
-struct function_pair_hash {
+struct pair_hash {
 	template <class T1, class T2>
 	std::size_t operator () (const std::pair<T1,T2> &p) const {
 		auto h1 = std::hash<T1>{}(p.first);
@@ -47,6 +47,7 @@ public:
 	void getAnalysisUsage(llvm::AnalysisUsage& ) const override;
 
 private:
+	std::unordered_map<std::pair<const llvm::Instruction*, const llvm::Instruction*>, bool, pair_hash> equivalenceCache;
 	const char* getPassName() const override;
 	uint64_t hashFunction(llvm::Function& F);
 
@@ -66,7 +67,7 @@ private:
 	const llvm::DataLayout *DL;
 
 	llvm::SmallSet<const llvm::PHINode*, 16> visitedPhis;
-	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, function_pair_hash> functionEquivalence;
+	std::unordered_map<std::pair<const llvm::Function*, const llvm::Function*>, bool, pair_hash> functionEquivalence;
 };
 
 inline llvm::Pass* createIdenticalCodeFoldingPass()
