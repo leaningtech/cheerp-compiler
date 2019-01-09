@@ -47,6 +47,7 @@ public:
 			int start;
 			int end;
 		};
+		using ScopeIter = std::list<Scope>::iterator;
 		explicit Block(llvm::BasicBlock *BB, int id) : BB(BB), id(id)
 		{
 		}
@@ -85,7 +86,8 @@ public:
 		{
 			return id;
 		}
-		Scope* insertScope(Scope s);
+		ScopeIter insertScope(Scope s);
+		void removeScope(ScopeIter si);
 		Scope* getBranchStart()
 		{
 			auto it = std::find_if(scopes.begin(), scopes.end(), [](const Scope& s) {
