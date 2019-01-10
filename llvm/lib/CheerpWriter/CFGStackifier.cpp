@@ -597,7 +597,6 @@ private:
 	}
 
 	std::vector<const Scope*> ScopeStack;
-	std::unordered_map<const Block*, std::vector<const Scope*>> ScopeMap;
 	std::unordered_map<const Scope*, size_t> labels;
 	std::unordered_map<const BasicBlock*, BranchesState> BranchesStates;
 	size_t next_label = 1;
@@ -624,13 +623,11 @@ bool BlockListRenderer::isEmptyPrologue(BasicBlock* From, BasicBlock* To)
 }
 void BlockListRenderer::renderJump(const Block& From, const Block& To)
 {
-	size_t depth = 0;
-	const std::vector<const Scope*>& Scopes = ScopeMap.at(&From);
-	for (auto s=Scopes.rbegin(), se=Scopes.rend(); s!=se; ++s, ++depth)
+	for (auto s=ScopeStack.rbegin(), se=ScopeStack.rend(); s!=se; ++s)
 	{
 		if ((*s)->kind == Block::BLOCK && To.getId() == (*s)->end)
 		{
-			if (s == Scopes.rbegin())
+			if (s == ScopeStack.rbegin())
 				ri.renderBreak();
 			else
 				ri.renderBreak(labels.at(*s));
@@ -638,7 +635,7 @@ void BlockListRenderer::renderJump(const Block& From, const Block& To)
 		}
 		else if ((*s)->kind == Block::LOOP && To.getId() == (*s)->start)
 		{
-			if (s == Scopes.rbegin())
+			if (s == ScopeStack.rbegin())
 				ri.renderContinue();
 			else
 				ri.renderContinue(labels.at(*s));
@@ -793,7 +790,6 @@ void BlockListRenderer::render()
 				break;
 			}
 		}
-		ScopeMap[&B] = ScopeStack;
 		// Fake block is at the end
 		if (!BB)
 			break;
@@ -837,6 +833,7 @@ void BlockListRenderer::render()
 			renderJumpBranches(B);
 		}
 	}
+	assert(ScopeStack.empty());
 }
 void CFGStackifier::render(RenderInterface& ri, const Registerize& R, const PointerAnalyzer& PA, bool asmjs)
 {
