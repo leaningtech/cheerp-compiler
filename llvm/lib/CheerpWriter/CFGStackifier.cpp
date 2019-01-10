@@ -208,7 +208,7 @@ public:
 		}
 		void addBranch(Block& B)
 		{
-			auto S = B.insertScope(Block::Scope{Block::BRANCH, Root.getId(), -1});
+			auto S = B.insertScope(Block::Scope{Block::BRANCH, Root.getId(), -1, false});
 			Branches.push_back(std::make_pair(&B, S));
 		}
 		void addExit(Block& B)
@@ -224,7 +224,7 @@ public:
 			{
 				S.second->end = B.getId();
 			}
-			B.insertScope(Block::Scope{Block::BRANCH_END, Root.getId(), B.getId()});
+			B.insertScope(Block::Scope{Block::BRANCH_END, Root.getId(), B.getId(), false});
 			for (int E: Exits)
 			{
 				B.addNaturalPred(E);
@@ -262,6 +262,7 @@ private:
 	void processBlock(BasicBlock* CurBB, bool Delayed);
 	void addLoopMarkers(Block& B);
 	void addBlockMarkers(Block& B);
+	void removeExtraLabels();
 	int findLoopEnd(Loop* L, const Block& B);
 	void build();
 
@@ -450,6 +451,70 @@ void BlockListBuilder::build()
 		addLoopMarkers(B);
 		addBlockMarkers(B);
 	}
+	removeExtraLabels();
+}
+
+void BlockListBuilder::removeExtraLabels()
+{
+	struct ScopeState {
+		Block::Scope* Scope;
+		bool LabelNeeded;
+	};
+	std::vector<ScopeState> ScopeStack;
+	for (int id = 0; id <(int) BlockList.size(); ++id)
+	{
+		Block& B = BlockList[id];
+		for (auto& scope: B.getScopes())
+		switch (scope.kind)
+		{
+			case Block::LOOP:
+			case Block::BLOCK:
+				ScopeStack.push_back({&scope, false});
+				break;
+			case Block::LOOP_END:
+			case Block::BLOCK_END:
+				ScopeStack.back().Scope->label = ScopeStack.back().LabelNeeded;
+				ScopeStack.pop_back();
+				break;
+			case Block::BRANCH:
+			case Block::BRANCH_END:
+				break;
+		}
+
+		BasicBlock* BB = B.getBB();
+		if (BB == nullptr)
+			break;
+
+		auto* BranchScope = BlockList[id+1].getBranchStart();
+		BranchScope = (BranchScope && BranchScope->start == B.getId()) ? BranchScope : nullptr;
+
+		for (auto Succ: make_range(succ_begin(BB), succ_end(BB)))
+		{
+			const auto& SuccB = BlockList[BlockIdMap[Succ]];
+			if (SuccB.isNaturalPred(B.getId()))
+				continue;
+			assert(!ScopeStack.empty());
+			auto TargetScope = ScopeStack.rend();
+			if (SuccB.getId() <= B.getId())
+			{
+				TargetScope = std::find_if(ScopeStack.rbegin(), ScopeStack.rend(), [&SuccB](const ScopeState& SS) {
+					return SS.Scope->kind == Block::LOOP && SS.Scope->start == SuccB.getId();
+				});
+			}
+			else
+			{
+				TargetScope = std::find_if(ScopeStack.rbegin(), ScopeStack.rend(), [&SuccB](const ScopeState& SS) {
+					return SS.Scope->kind == Block::BLOCK && SS.Scope->end == SuccB.getId();
+				});
+			}
+			assert(TargetScope != ScopeStack.rend());
+			if (TargetScope->Scope != ScopeStack.back().Scope)
+			{
+				TargetScope->LabelNeeded = true;
+			}
+		}
+	}
+	assert(ScopeStack.empty());
 }
 
 int BlockListBuilder::findLoopEnd(Loop* L, const Block& B)
@@ -488,8 +553,8 @@ void BlockListBuilder::addLoopMarkers(Block& B)
 		B.getBB()->getParent()->viewCFGOnly();
 		report_fatal_error("noo");
 	}
-	B.insertScope(Block::Scope{Block::LOOP, B.getId(), endId});
-	BlockList[endId].insertScope(Block::Scope{Block::LOOP_END, B.getId(), endId});
+	B.insertScope(Block::Scope{Block::LOOP, B.getId(), endId, true});
+	BlockList[endId].insertScope(Block::Scope{Block::LOOP_END, B.getId(), endId, false});
 }
 
 void BlockListBuilder::addBlockMarkers(Block& B)
@@ -533,8 +598,8 @@ void BlockListBuilder::addBlockMarkers(Block& B)
 			PredId = s->start;
 		}
 	}
-	BlockList[PredId].insertScope(Block::Scope{Block::BLOCK, PredId, B.getId()});
-	B.insertScope(Block::Scope{Block::BLOCK_END, PredId, B.getId()});
+	BlockList[PredId].insertScope(Block::Scope{Block::BLOCK, PredId, B.getId(), true});
+	B.insertScope(Block::Scope{Block::BLOCK_END, PredId, B.getId(), false});
 }
 
 CFGStackifier::CFGStackifier(const Function& F, LoopInfo& LI, DominatorTree& DT)
@@ -732,14 +797,22 @@ void BlockListRenderer::render()
 		switch (scope.kind)
 		{
 			case Block::LOOP:
-				ri.renderWhileBlockBegin(next_label);
+				if (scope.label)
+					ri.renderWhileBlockBegin(next_label);
+				else
+					ri.renderWhileBlockBegin();
 				ScopeStack.push_back(&scope);
-				labels.emplace(&scope, next_label++);
+				if (scope.label)
+					labels.emplace(&scope, next_label++);
 				break;
 			case Block::BLOCK:
-				ri.renderDoBlockBegin(next_label);
+				if (scope.label)
+					ri.renderDoBlockBegin(next_label);
+				else
+					ri.renderDoBlockBegin();
 				ScopeStack.push_back(&scope);
-				labels.emplace(&scope, next_label++);
+				if (scope.label)
+					labels.emplace(&scope, next_label++);
 				break;
 			case Block::LOOP_END:
 				ri.renderBreak();
