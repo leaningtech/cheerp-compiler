@@ -6867,6 +6867,9 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     if (Record->isDynamicClass())
       Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_virtual_class);
 
+    if (!Record->hasUserDeclaredConstructor())
+      Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
+
     if (Record->hasNonTrivialDestructor())
       Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
 
