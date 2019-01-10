@@ -46,6 +46,7 @@ public:
 			Marker kind;
 			int start;
 			int end;
+			bool label;
 		};
 		using ScopeIter = std::list<Scope>::iterator;
 		explicit Block(llvm::BasicBlock *BB, int id) : BB(BB), id(id)
