@@ -4459,7 +4459,12 @@ void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
 	{
 		if(i!=0)
-			writer->stream << "&&";
+		{
+			if (asmjs)
+				writer->stream << "&&";
+			else
+				writer->stream << "&";
+		}
 		renderCondition(bb, skipBranchIds[i], skipBranchIds.size() == 1 ? CheerpWriter::LOWEST : CheerpWriter::LOGICAL_AND, /*booleanInvert*/true);
 	}
 	writer->stream << "){" << NewLine;
