@@ -17,6 +17,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Cheerp/CommandLine.h"
+#include "llvm/Cheerp/PointerAnalyzer.h"
 
 #include <functional>
 #include <unordered_map>
@@ -166,8 +167,11 @@ private:
 		}
 	};
 	InsertPoint delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps, LoopInfo* LI,
-					DominatorTree* DT, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas);
-	static uint32_t countInputInstructions(Instruction* I);
+					DominatorTree* DT, const cheerp::PointerAnalyzer& PA, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas);
+	/**
+	 * Return the count of registers used, capped at 2 for speed
+	 */
+	static uint32_t countInputRegisters(Instruction* I, const cheerp::PointerAnalyzer& PA);
 public:
 	static char ID;
 	explicit DelayInsts() : FunctionPass(ID) { }

@@ -14,7 +14,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
-#include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
@@ -632,19 +631,26 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
-uint32_t DelayInsts::countInputInstructions(Instruction* I)
+uint32_t DelayInsts::countInputRegisters(Instruction* I, const cheerp::PointerAnalyzer& PA)
 {
-	uint32_t ret = 0;
+	uint32_t count = 0;
 	for(Value* Op: I->operands())
 	{
-		if(isa<Instruction>(Op))
-			ret++;
+		Instruction* opI = dyn_cast<Instruction>(Op);
+		if(!opI)
+			continue;
+		if(isInlineable(*opI, PA))
+			count += countInputRegisters(opI, PA);
+		else
+			count += 1;
+		if(count >= 2)
+			break;
 	}
-	return ret;
+	return count;
 }
 
 DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps,
-					LoopInfo* LI, DominatorTree* DT, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
+					LoopInfo* LI, DominatorTree* DT, const cheerp::PointerAnalyzer& PA, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
 {
 	// Do not move problematic instructions
 	// TODO: Call/Invoke may be moved in some conditions
@@ -662,11 +668,9 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 		// Already delayed
 		return it->second;
 	}
-	// Do not delay instructions that depend on more than 1 input instruction
-	// Delyaing those may increase the amount of live variables
-	// TODO: This is simplistic, we should use isInline to know how many actual registers
-	//       are used by this instructions. We need to rework caching in PA otherwise it is too slow.
-	if(countInputInstructions(I) > 1)
+	// Do not delay instructions that depend on more than 1 input register
+	// Delaying those may increase the amount of live variables
+	if(countInputRegisters(I, PA) >= 2)
 	{
 		InsertPoint ret(I);
 		visited.insert(std::make_pair(I, ret));
@@ -680,7 +684,7 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 	bool firstUser = true;
 	for(User* U: I->users())
 	{
-		InsertPoint insertPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, visited, moveAllocas);
+		InsertPoint insertPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, PA, visited, moveAllocas);
 		// Deal with potential forward block terminators
 		// It is safe to use them on the first user or if it is always the same
 		finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
@@ -763,6 +767,7 @@ bool DelayInsts::runOnFunction(Function& F)
 	LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	cheerp::Registerize& registerize = getAnalysis<cheerp::Registerize>();
+	cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
 
 	std::unordered_map<Instruction*, InsertPoint> visited;
 	std::vector<std::pair<Instruction*, InsertPoint>> movedAllocaMaps;
@@ -771,7 +776,7 @@ bool DelayInsts::runOnFunction(Function& F)
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
 		{
 			Instruction* I = it;
-			InsertPoint insertPoint = delayInst(I, movedAllocaMaps, LI, DT, visited, moveAllocas);
+			InsertPoint insertPoint = delayInst(I, movedAllocaMaps, LI, DT, PA, visited, moveAllocas);
 			if(insertPoint.insertInst == I)
 				continue;
 			else if(insertPoint.source == nullptr && insertPoint.insertInst == I->getNextNode())
@@ -842,6 +847,7 @@ void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<DominatorTreeWrapperPass>();
+	AU.addRequired<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addRequired<LoopInfoWrapperPass>();
 	AU.addPreserved<LoopInfoWrapperPass>();
