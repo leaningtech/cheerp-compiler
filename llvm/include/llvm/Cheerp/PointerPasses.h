@@ -273,8 +273,6 @@ public:
 	};
 	/// This struct represents a subset of a GEP, from operand 0 to operand
 	/// `size - 1
-
-
 	struct GEPRange {
 		const GetElementPtrInst* GEP;
 		const size_t size;
@@ -619,9 +617,11 @@ private:
 	typedef std::multiset<Instruction*, OrderByOperands> OrderedGEPs;
 	typedef std::unordered_map<GEPRange, ValidGEPLocations, GEPRangeHasher> ValidGEPMap;
 	DominatorTree* DT;
+	ValidGEPMap validGEPMap;
 	class GEPRecursionData
 	{
 	public:
+		GEPRecursionData(Function& F, GEPOptimizer* data);
 		void startRecursion();
 		void applyOptGEP();
 		void mergeSingleUserGEPs();
@@ -629,7 +629,6 @@ private:
 		{
 			return !erasedInst.empty();
 		}
-		GEPRecursionData(Function &F, DominatorTree* DT);
 	private:
 		Value* getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index) const;
 		void optimizeGEPsRecursive(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
@@ -640,12 +639,9 @@ private:
 		OrderedGEPs skippedGeps;
 
 		void keepOnlyDominated(ValidGEPLocations& blocks, const Value* value);
-	// This map contains the very first GEP that reference a given base
-	// It is not safe to build new GEPs for the base that are not dominated by this GEP
-	// TODO: If, for a given base, there is a GEP in every successor block, moving the GEP to the parent block would be safe
-		ValidGEPMap validGEPMap;
 
-		DominatorTree* DT;
+		GEPOptimizer* passData;
+
 		std::set<std::pair<Instruction*, Instruction*>> erasedInst;
 		std::vector<GetElementPtrInst*> nonTerminalGeps;
 	};
