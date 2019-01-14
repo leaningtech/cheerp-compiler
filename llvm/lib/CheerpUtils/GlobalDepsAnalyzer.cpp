@@ -38,9 +38,10 @@ const char* GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool resolveAliases) : ModulePass(ID), hasMathBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
+GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool resolveAliases) : ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
-	hasPointerArrays(false), hasAsmJS(false), resolveAliases(resolveAliases), delayPrintf(true), forceTypedArrays(false)
+	hasPointerArrays(false), hasAsmJS(false),
+	resolveAliases(resolveAliases), delayPrintf(true), forceTypedArrays(false)
 {
 }
 
@@ -387,7 +388,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	if (mathMode == USE_BUILTINS)
 	{
 		// We have already dropped all unused functions, so we can simply check if these exists
-#define CHECK_MATH_FUNC(x, d, f) { hasMathBuiltin[x ## _F64] = module.getFunction(f) || module.getFunction(d); }
+#define CHECK_MATH_FUNC(x, d, f) { hasBuiltin[x ## _F64] = module.getFunction(f) || module.getFunction(d); }
 		CHECK_MATH_FUNC(ABS, "fabs", "fabsf");
 		CHECK_MATH_FUNC(ACOS, "acos", "acosf");
 		CHECK_MATH_FUNC(ASIN, "asin", "asinf");
@@ -411,25 +412,33 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			if(!II)
 				continue;
 			if(II == Intrinsic::fabs)
-				hasMathBuiltin[ABS_F64] = true;
+				hasBuiltin[ABS_F64] = true;
 			else if(II == Intrinsic::ceil)
-				hasMathBuiltin[CEIL_F64] = true;
+				hasBuiltin[CEIL_F64] = true;
 			else if(II == Intrinsic::cos)
-				hasMathBuiltin[COS_F64] = true;
+				hasBuiltin[COS_F64] = true;
 			else if(II == Intrinsic::exp)
-				hasMathBuiltin[EXP_F64] = true;
+				hasBuiltin[EXP_F64] = true;
 			else if(II == Intrinsic::floor)
-				hasMathBuiltin[FLOOR_F64] = true;
+				hasBuiltin[FLOOR_F64] = true;
 			else if(II == Intrinsic::log)
-				hasMathBuiltin[LOG_F64] = true;
+				hasBuiltin[LOG_F64] = true;
 			else if(II == Intrinsic::pow)
-				hasMathBuiltin[POW_F64] = true;
+				hasBuiltin[POW_F64] = true;
 			else if(II == Intrinsic::sin)
-				hasMathBuiltin[SIN_F64] = true;
+				hasBuiltin[SIN_F64] = true;
 			else if(II == Intrinsic::sqrt)
-				hasMathBuiltin[SQRT_F64] = true;
+				hasBuiltin[SQRT_F64] = true;
 			else if(II == Intrinsic::ctlz)
-				hasMathBuiltin[CLZ32] = true;
+				hasBuiltin[CLZ32] = true;
+		}
+	}
+	// Detect all used non-math builtins
+	for(const Function& F: module)
+	{
+		if(F.getIntrinsicID() == Intrinsic::cheerp_grow_memory)
+		{
+			hasBuiltin[GROW_MEM] = true;
 		}
 	}
 
