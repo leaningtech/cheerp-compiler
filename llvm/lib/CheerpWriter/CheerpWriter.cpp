@@ -2454,9 +2454,10 @@ bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Valu
                                               const PointerAnalyzer& PA, const Registerize& registerize)
 {
 	Type* phiType=phi->getType();
-	const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
+	const Instruction* incomingInst=getUniqueIncomingInst(incoming, PA);
 	if(!incomingInst)
 		return true;
+	assert(!isInlineable(*incomingInst, PA));
 	POINTER_KIND incomingKind = UNKNOWN;
 	POINTER_KIND phiKind = UNKNOWN;
 	if(phiType->isPointerTy())
@@ -2465,7 +2466,6 @@ bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Valu
 		phiKind = PA.getPointerKind(phi);
 	}
 	return
-		isInlineable(*incomingInst, PA) ||
 		((incomingKind == SPLIT_REGULAR) != (phiKind == SPLIT_REGULAR)) ||
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst) ||
 		phiKind!=incomingKind ||
