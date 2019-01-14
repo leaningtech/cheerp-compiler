@@ -1062,6 +1062,16 @@ void GEPOptimizer::ValidGEPGraph::getValidBlocks(ValidGEPLocations& validGEPLoca
 	}
 }
 
+void GEPOptimizer::GEPRecursionData::keepOnlyDominated(ValidGEPLocations& blocks, const Value* value)
+{
+	if (const Instruction* I = dyn_cast<const Instruction> (value))
+	{
+		blocks.keepOnlyDominated(I->getParent());
+	}
+}
+
+
+
 GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT) :
 		order(),
 		orderedGeps(OrderByOperands(&order)),
@@ -1087,32 +1097,48 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT)
 			if(I.getNumOperands() < 3)
 				continue;
 			const GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
-			// NOTE: `i` is a size, so the end condition needs <=
 			for (size_t i = 0; i < GEP->getNumOperands(); ++i)
 			{
 				order.insert({GEP->getOperand(i), order.size()});
 			}
 
 			orderedGeps.insert(&I);
-			ValidGEPLocations* CurBlocks = &AllBlocks;
+			ValidGEPLocations validBlocks = AllBlocks;
 
+			// NOTE: `i` is a size, so the end condition needs <=
 			for (size_t i = 2; i <= GEP->getNumOperands(); ++i)
 			{
 				GEPRange Range = GEPRange::createGEPRange(GEP, i);
 				auto it = validGEPMap.find(Range);
 				if(it == validGEPMap.end())
 				{
-					ValidGEPGraph VG(&F, DT, Range, *CurBlocks);
-					ValidGEPLocations validGEPLocations;
-					VG.getValidBlocks(validGEPLocations);
-					validGEPLocations.setDominatorTree(DT);
-					validGEPLocations.simplify();
-					it = validGEPMap.emplace(Range, std::move(validGEPLocations)).first;
+					ValidGEPGraph VG(&F, DT, Range, validBlocks);
+					//ValidBlocks contains all the blocks that:
+					//1- either leads from every possibly path to a node using a GEP
+					//2- or thery are a child to such a node (in the DT)
+					//They are represented as a forest (a set of (sub-)trees) in the dominator tree
+					//Since property 2 guarantees that the children of a valid nodes are still valid,
+					//we can keep only nodes that are roots to a sub-tree in the dominator tree
+					validBlocks.clear();
+					VG.getValidBlocks(validBlocks);
+					validBlocks.simplify();
+					//Here we introduce the additional constraint that valid blocks have to be
+					//dominated by every instruction used inside the GEP
+					//Since basically we are doing set intersection between the original forest and a new
+					//(sub-)tree in the DT, the result will still be a forest of subtree after every
+					//application of keepOnlyDominated
+					//TODO: find how it is possible to avoid the O(GEP->length ^ 2) iterations (do DFS starting from the various roots instead of the whole tree)
+					for (size_t j = 0; j < i; j++)
+					{
+						keepOnlyDominated(validBlocks, GEP->getOperand(j));
+					}
+					it = validGEPMap.emplace(Range, std::move(validBlocks)).first;
 				}
-				CurBlocks = &it->second;
+				validBlocks = it->second;
 			}
 		}
 	}
+
 }
 
 
