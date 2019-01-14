@@ -402,6 +402,7 @@ if (!functionTypeIndices.count(fTy)) { \
 	functionTypes.push_back(fTy); \
 	assert(idx < functionTypes.size()); \
 }
+#define ADD_BUILTIN(x, sig) if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::x)) { needs_ ## sig = true; builtinIds[GlobalDepsAnalyzer::x] = maxFunctionId++; }
 
 		for (const Function* F : globalDeps.asmJSImports()) {
 			const FunctionType* fTy = F->getFunctionType();
@@ -418,24 +419,30 @@ if (!functionTypeIndices.count(fTy)) { \
 			FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
 			bool needs_f64_f64_1 = false;
 			bool needs_f64_f64_2 = false;
-#define ADD_MATH_BUILTIN(x, sig) if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::x)) { needs_ ## sig = true; builtinIds[GlobalDepsAnalyzer::x] = maxFunctionId++; }
-			ADD_MATH_BUILTIN(ACOS_F64, f64_f64_1);
-			ADD_MATH_BUILTIN(ASIN_F64, f64_f64_1);
-			ADD_MATH_BUILTIN(ATAN_F64, f64_f64_1);
-			ADD_MATH_BUILTIN(ATAN2_F64, f64_f64_2);
-			ADD_MATH_BUILTIN(COS_F64, f64_f64_1);
-			ADD_MATH_BUILTIN(EXP_F64, f64_f64_1);
-			ADD_MATH_BUILTIN(LOG_F64, f64_f64_1);
-			ADD_MATH_BUILTIN(POW_F64, f64_f64_2);
-			ADD_MATH_BUILTIN(SIN_F64, f64_f64_1);
-			ADD_MATH_BUILTIN(TAN_F64, f64_f64_1);
-#undef ADD_MATH_BUILTIN
+			ADD_BUILTIN(ACOS_F64, f64_f64_1);
+			ADD_BUILTIN(ASIN_F64, f64_f64_1);
+			ADD_BUILTIN(ATAN_F64, f64_f64_1);
+			ADD_BUILTIN(ATAN2_F64, f64_f64_2);
+			ADD_BUILTIN(COS_F64, f64_f64_1);
+			ADD_BUILTIN(EXP_F64, f64_f64_1);
+			ADD_BUILTIN(LOG_F64, f64_f64_1);
+			ADD_BUILTIN(POW_F64, f64_f64_2);
+			ADD_BUILTIN(SIN_F64, f64_f64_1);
+			ADD_BUILTIN(TAN_F64, f64_f64_1);
 			if(needs_f64_f64_1)
 				ADD_FUNCTION_TYPE(f64_f64_1);
 			if(needs_f64_f64_2)
 				ADD_FUNCTION_TYPE(f64_f64_2);
-#undef ADD_FUNCTION_TYPE
 		}
+		Type* i32 = Type::getInt32Ty(module.getContext());
+		Type* i32_1[] = { i32 };
+		FunctionType* i32_i32_1 = FunctionType::get(i32, i32_1, false);
+		bool needs_i32_i32_1 = false;
+		ADD_BUILTIN(GROW_MEM, i32_i32_1);
+		if(needs_i32_i32_1)
+			ADD_FUNCTION_TYPE(i32_i32_1);
+#undef ADD_BUILTIN
+#undef ADD_FUNCTION_TYPE
 	}
 
 	// Build the function tables first
