@@ -953,6 +953,7 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEPs::iterator begin, const OrderedGEPs::iterator end, const uint32_t endIndex)
 {
 	Instruction* insertionPoint = NULL;
+	DominatorTree* DT = passData->DT;
 
 	for(OrderedGEPs::iterator it = begin; it != end;)
 	{
@@ -977,7 +978,7 @@ Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEP
 			assert(commonDominator);
 			llvm::Instruction* insertPointCandidate = commonDominator->getTerminator();
 			// Make sure that insertPointCandidate is in a valid block for this GEP
-			const ValidGEPLocations& validGEPLocations = validGEPMap.at(GEPRange::createGEPRange(cast<const GetElementPtrInst>(curGEP),endIndex+1));
+			const ValidGEPLocations& validGEPLocations = passData->validGEPMap.at(GEPRange::createGEPRange(cast<const GetElementPtrInst>(curGEP),endIndex+1));
 			if (!validGEPLocations.count(commonDominator))
 			{
 				// It is not safe to optimize this GEP, remove it from the set
@@ -1072,11 +1073,11 @@ void GEPOptimizer::GEPRecursionData::keepOnlyDominated(ValidGEPLocations& blocks
 
 
 
-GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT) :
+GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data) :
 		order(),
 		orderedGeps(OrderByOperands(&order)),
 		skippedGeps(OrderByOperands(&order)),
-		DT(DT)
+		passData(data)
 {
 	//order will be used to compare two Instruction. Inserting NULL here means
 	//shorter subset will appear first (like in a dictionary, CAT < CATS)
@@ -1086,7 +1087,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT)
 	// Gather all the GEPs
 	ValidGEPLocations AllBlocks;
 	AllBlocks.insert(&F.getEntryBlock());
-	AllBlocks.setDominatorTree(DT);
+	AllBlocks.setDominatorTree(passData->DT);
 	for ( BasicBlock& BB : F )
 	{
 		for ( Instruction& I: BB )
@@ -1109,10 +1110,10 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT)
 			for (size_t i = 2; i <= GEP->getNumOperands(); ++i)
 			{
 				GEPRange Range = GEPRange::createGEPRange(GEP, i);
-				auto it = validGEPMap.find(Range);
-				if(it == validGEPMap.end())
+				auto it = passData->validGEPMap.find(Range);
+				if(it == passData->validGEPMap.end())
 				{
-					ValidGEPGraph VG(&F, DT, Range, validBlocks);
+					ValidGEPGraph VG(&F, passData->DT, Range, validBlocks);
 					//ValidBlocks contains all the blocks that:
 					//1- either leads from every possibly path to a node using a GEP
 					//2- or thery are a child to such a node (in the DT)
@@ -1132,7 +1133,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT)
 					{
 						keepOnlyDominated(validBlocks, GEP->getOperand(j));
 					}
-					it = validGEPMap.emplace(Range, std::move(validBlocks)).first;
+					it = passData->validGEPMap.emplace(Range, std::move(validBlocks)).first;
 				}
 				validBlocks = it->second;
 			}
@@ -1146,7 +1147,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 {
 	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
-	GEPRecursionData data(F, DT);
+	GEPRecursionData data(F, this);
 
 	data.startRecursion();
 	data.applyOptGEP();
