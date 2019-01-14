@@ -911,7 +911,10 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 					newIndexes.push_back((*begin)->getOperand(i));
 				if(newIndexes.size() > 1)
 				{
-					Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "", *begin);
+					Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "");
+					//Hoist the GEP as high as possible, will be put on the right spot by DelayInsts later
+					//Here we are using the full GEPRange, since here we are creating a terminal gep (in the GEP tree)
+					newGEP->insertBefore(passData->hoistGEP(*begin, GEPRange::createGEPRange(cast<llvm::GetElementPtrInst>(*begin))));
 #if DEBUG_GEP_OPT_VERBOSE
 					llvm::errs() << "New GEP " << newGEP << "\n";
 #endif
@@ -926,6 +929,10 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 		}
 		// Compute the insertion point to dominate all users of this GEP in the range
 		Instruction* insertionPoint = findInsertionPoint(begin, it, endIndex);
+
+		//Hoist the GEP as high as possible, will be put on the right spot by DelayInsts later
+		//Here we are using a restricted GEPRange, since here we are creating an internal gep (internal in the GEP tree)
+		insertionPoint = passData->hoistGEP(insertionPoint, GEPRange::createGEPRange(cast<llvm::GetElementPtrInst>(*begin), endIndex+1));
 
 		newIndexes.push_back(referenceOperand);
 		// This is the first index which is different in the range. Create a GEP now.
@@ -1063,6 +1070,34 @@ void GEPOptimizer::ValidGEPGraph::getValidBlocks(ValidGEPLocations& validGEPLoca
 	}
 }
 
+Instruction* GEPOptimizer::hoistGEP(Instruction* I, const GEPRange& R)
+{
+	BasicBlock* B = I->getParent();
+
+	//We loop over B, moving it every times to his immediate dominator
+	while (1)
+	{
+		BasicBlock* iDominator = immediateDominator(B, DT);
+
+		//Either there is no immediateDominator
+		if (!iDominator)
+			break;
+
+		//Or because the current block is non valid for this GEPRange
+		if (validGEPMap[R].count(iDominator) == 0)
+			break;
+
+		//Move to the immediate dominator
+		B = iDominator;
+
+		//I needs to be updated inside the loop
+		//in the future it may be called on something that isn't a terminator on his original block
+		I = B->getTerminator();
+	}
+
+	return I;
+}
+
 void GEPOptimizer::GEPRecursionData::keepOnlyDominated(ValidGEPLocations& blocks, const Value* value)
 {
 	if (const Instruction* I = dyn_cast<const Instruction> (value))
@@ -1139,9 +1174,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 			}
 		}
 	}
-
 }
-
 
 bool GEPOptimizer::runOnFunction(Function& F)
 {
@@ -1152,6 +1185,8 @@ bool GEPOptimizer::runOnFunction(Function& F)
 	data.startRecursion();
 	data.applyOptGEP();
 	data.mergeSingleUserGEPs();
+
+	validGEPMap.clear();
 
 	return data.anyChange();
 }

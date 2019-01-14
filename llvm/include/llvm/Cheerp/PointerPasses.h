@@ -618,6 +618,8 @@ private:
 	typedef std::unordered_map<GEPRange, ValidGEPLocations, GEPRangeHasher> ValidGEPMap;
 	DominatorTree* DT;
 	ValidGEPMap validGEPMap;
+	Instruction* hoistGEP(Instruction* I, const GEPRange& R);
+
 	class GEPRecursionData
 	{
 	public:
