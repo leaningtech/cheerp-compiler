@@ -188,7 +188,7 @@ FunctionPass *createDelayInstsPass();
  */
 class GEPOptimizer: public FunctionPass
 {
-	typedef SmallPtrSet<BasicBlock*, 4> BlockSet;
+	typedef std::set<BasicBlock*> BlockSet;
 public:
 	static BasicBlock* immediateDominator(BasicBlock* BB, DominatorTree* DT)
 	{
@@ -221,7 +221,11 @@ public:
 		{
 			roots.insert(block);
 		}
-		void keepOnlyDominated(BasicBlock* block)
+		void clear()
+		{
+			roots.clear();
+		}
+		void keepOnlyDominated(const BasicBlock* block)
 		{
 			assert(DT);
 
@@ -235,7 +239,7 @@ public:
 				if (block == BB || DT->dominates(block, BB))
 					next.insert(BB);
 				else if (DT->dominates(BB, block))
-					next.insert(block);
+					next.insert(const_cast<BasicBlock*>(block));
 			}
 			swap (roots, next);
 		}
@@ -243,13 +247,9 @@ public:
 		{
 			DT = DT_;
 		}
-		BlockSet::iterator begin() const
+		const BlockSet& getRoots() const
 		{
-			return roots.begin();
-		}
-		BlockSet::iterator end() const
-		{
-			return roots.end();
+			return roots;
 		}
 		void simplify()
 		{
@@ -272,7 +272,9 @@ public:
 		BlockSet roots;
 	};
 	/// This struct represents a subset of a GEP, from operand 0 to operand
-	/// `size - 1`
+	/// `size - 1
+
+
 	struct GEPRange {
 		const GetElementPtrInst* GEP;
 		const size_t size;
@@ -350,7 +352,7 @@ public:
 					++DI;
 				}
 			}
-			for (auto* BB: Subset)
+			for (auto* BB: Subset.getRoots())
 			{
 				getOrCreate(BB);
 			}
@@ -615,7 +617,6 @@ private:
 		const OrderOfAppearence* orderOfAppearence;
 	};
 	typedef std::multiset<Instruction*, OrderByOperands> OrderedGEPs;
-//	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher> ValidGEPMap;
 	typedef std::unordered_map<GEPRange, ValidGEPLocations, GEPRangeHasher> ValidGEPMap;
 	DominatorTree* DT;
 	class GEPRecursionData
@@ -638,6 +639,7 @@ private:
 		OrderedGEPs orderedGeps;
 		OrderedGEPs skippedGeps;
 
+		void keepOnlyDominated(ValidGEPLocations& blocks, const Value* value);
 	// This map contains the very first GEP that reference a given base
 	// It is not safe to build new GEPs for the base that are not dominated by this GEP
 	// TODO: If, for a given base, there is a GEP in every successor block, moving the GEP to the parent block would be safe
