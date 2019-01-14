@@ -883,6 +883,21 @@ Instruction* findCommonInsertionPoint(Instruction* I, DominatorTree* DT, Instruc
 	}
 }
 
+const Instruction* getUniqueIncomingInst(const Value* v, const PointerAnalyzer& PA)
+{
+	while(const Instruction* I = dyn_cast<Instruction>(v))
+	{
+		// TODO: Support some bitcasts here
+		if(!isInlineable(*I, PA))
+			return I;
+		else if(I->getOpcode() == Instruction::Trunc)
+			v = I->getOperand(0);
+		else
+			break;
+	}
+	return nullptr;
+}
+
 }
 
 namespace llvm
