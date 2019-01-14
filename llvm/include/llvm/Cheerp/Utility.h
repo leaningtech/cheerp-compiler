@@ -127,6 +127,13 @@ inline bool isFreeFunctionName(llvm::StringRef name)
  */
 llvm::Instruction* findCommonInsertionPoint(llvm::Instruction* I, llvm::DominatorTree* DT, llvm::Instruction* currentInsertionPoint, llvm::Instruction* user);
 
+/**
+ * Returns the incoming not-inlineable instruction for v
+ *
+ * Traverses pure-forward intructions such as BitCast and Trunc
+ */
+const llvm::Instruction* getUniqueIncomingInst(const llvm::Value* v, const PointerAnalyzer& PA);
+
 class TypeSupport
 {
 public:
