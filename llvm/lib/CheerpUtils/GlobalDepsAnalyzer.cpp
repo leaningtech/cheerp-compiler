@@ -466,7 +466,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			}
 			else if ( ImmutableCallSite(&I).isCall() || ImmutableCallSite(&I).isInvoke() )
 			{
-				DynamicAllocInfo ai (&I, DL, forceTypedArrays);
+				DynamicAllocInfo ai (ImmutableCallSite(&I), DL, forceTypedArrays);
 				if ( ai.isValidAlloc() )
 				{
 					assert(!TypeSupport::isAsmJSPointer(ai.getCastedType()));
