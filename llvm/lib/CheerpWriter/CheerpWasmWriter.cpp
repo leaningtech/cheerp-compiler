@@ -32,7 +32,7 @@ using namespace std;
 //#define WASM_DUMP_METHOD_DATA 1
 
 // Calling math builtins is very expensive on SpiderMonkey at this time
-//#define USE_MATH_BUILTINS 1
+//#define USE_BUILTINS 1
 
 static uint32_t COMPILE_METHOD_LIMIT = 100000;
 
@@ -1879,6 +1879,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(0));
 						return false;
 					}
+					case Intrinsic::cheerp_grow_memory:
+					{
+						uint32_t importedId = linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM);
+						assert(importedId);
+						compileOperand(code, ci.getOperand(0));
+						encodeU32Inst(0x10, "call", importedId, code);
+						return false;
+					}
 					case Intrinsic::flt_rounds:
 					{
 						// Rounding mode 1: nearest
@@ -1960,7 +1968,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							llvm::report_fatal_error("missing free definition");
 						break;
 					}
-#ifdef USE_MATH_BUILTINS
+#ifdef USE_BUILTINS
 					case Intrinsic::cos:
 					case Intrinsic::exp:
 					case Intrinsic::log:
@@ -1980,12 +1988,12 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					break;
 				}
-#ifdef USE_MATH_BUILTINS
+#ifdef USE_BUILTINS
 				if(!NoNativeJavaScriptMath || intrinsicId)
 				{
 					StringRef ident = calledFunc->getName();
 					bool builtinFound = false;
-					GlobalDepsAnalyzer::MATH_BUILTIN b;
+					GlobalDepsAnalyzer::BUILTIN b;
 					if(ident=="acos" || ident=="acosf")
 					{
 						builtinFound = true;
@@ -2853,7 +2861,7 @@ void CheerpWasmWriter::compileImportSection()
 	uint32_t importedBuiltins = 0;
 	for(uint32_t i=0;i<GlobalDepsAnalyzer::MAX_BUILTIN;i++)
 	{
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::MATH_BUILTIN(i)))
+		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::BUILTIN(i)))
 			importedBuiltins++;
 	}
 
@@ -2873,10 +2881,13 @@ void CheerpWasmWriter::compileImportSection()
 		compileImport(section, namegen.getName(F), F->getFunctionType());
 
 	Type* f64 = Type::getDoubleTy(module.getContext());
+	Type* i32 = Type::getInt32Ty(module.getContext());
 	Type* f64_1[] = { f64 };
 	Type* f64_2[] = { f64, f64 };
+	Type* i32_1[] = { i32 };
 	FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
 	FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
+	FunctionType* i32_i32_1 = FunctionType::get(i32, i32_1, false);
 	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ACOS_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ACOS), f64_f64_1);
 	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ASIN_F64))
@@ -2897,6 +2908,8 @@ void CheerpWasmWriter::compileImportSection()
 		compileImport(section, namegen.getBuiltinName(NameGenerator::SIN), f64_f64_1);
 	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::TAN_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::TAN), f64_f64_1);
+	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM))
+		compileImport(section, namegen.getBuiltinName(NameGenerator::GROW_MEM), i32_i32_1);
 }
 
 void CheerpWasmWriter::compileFunctionSection()

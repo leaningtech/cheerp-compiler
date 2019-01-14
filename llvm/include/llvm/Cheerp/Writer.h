@@ -600,9 +600,9 @@ public:
 	 */
 	void compileMathDeclAsmJS();
 	/**
-	 * Compile the function for growing the wasm heap
+	 * Compile the function for growing the wasm linear memory
 	 */
-	void compileGrowHeap();
+	void compileGrowMem();
 	/**
 	 * Compile the helper functions for exposing the asm.js stack pointer
 	 */

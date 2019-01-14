@@ -922,6 +922,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		stream << '}';
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::cheerp_grow_memory)
+	{
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM) << '(';
+		compileOperand(*it, BIT_OR);
+		stream << "|0)|0";
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::flt_rounds)
 	{
 		// Rounding mode 1: nearest
@@ -5050,16 +5057,18 @@ void CheerpWriter::compileFunctionTablesAsmJS()
 	}
 }
 
-void CheerpWriter::compileGrowHeap()
+void CheerpWriter::compileGrowMem()
 {
-	stream << "function __cheerpGrowHeap(pages){" << NewLine;
-	stream << "var growRes=-1;" << NewLine;
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM) << "(bytes){" << NewLine;
+	stream << "var pages=(bytes+65535)>>16;" << NewLine;
 	stream << "try{" << NewLine;
-	stream << "growRes=__wasm.exports.memory.grow(pages);" << NewLine;
+	stream << "__asm.memory.grow(pages);" << NewLine;
 	for (int i = HEAP8; i<=HEAPF64; i++)
-		stream << heapNames[i] << "=new " << typedArrayNames[i] << "(__wasm.exports.memory.buffer);" << NewLine;
-	stream << "}catch(e){}" << NewLine;
-	stream << "return growRes;" << NewLine;
+		stream << heapNames[i] << "=new " << typedArrayNames[i] << "(__asm.memory.buffer);" << NewLine;
+	stream << "return pages<<16;" << NewLine;
+	stream << "}catch(e){" << NewLine;
+	stream << "return -1;" << NewLine;
+	stream << '}' << NewLine;
 	stream << "}" << NewLine;
 }
 
@@ -5067,35 +5076,35 @@ void CheerpWriter::compileMathDeclAsmJS()
 {
 	stream << "var Infinity=stdlib.Infinity;" << NewLine;
 	stream << "var NaN=stdlib.NaN;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ABS_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ABS_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ABS) << "=stdlib.Math.abs;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ACOS_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ACOS_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ACOS) << "=stdlib.Math.acos;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ASIN_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ASIN_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ASIN) << "=stdlib.Math.asin;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ATAN_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ATAN) << "=stdlib.Math.atan;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::ATAN2_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN2_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::ATAN2) << "=stdlib.Math.atan2;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::CEIL_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::CEIL_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::CEIL) << "=stdlib.Math.ceil;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::COS_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::COS_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::COS) << "=stdlib.Math.cos;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::EXP_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::EXP_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::EXP) << "=stdlib.Math.exp;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::FLOOR_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::FLOOR_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::FLOOR) << "=stdlib.Math.floor;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::LOG_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::LOG_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::LOG) << "=stdlib.Math.log;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::POW_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::POW_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::POW) << "=stdlib.Math.pow;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::SIN_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::SIN_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::SIN) << "=stdlib.Math.sin;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::SQRT_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::SQRT_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::SQRT) << "=stdlib.Math.sqrt;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::TAN_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::TAN_F64))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::TAN) << "=stdlib.Math.tan;" << NewLine;
-	if(globalDeps.needsMathBuiltin(GlobalDepsAnalyzer::CLZ32))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::CLZ32))
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::CLZ32) << "=stdlib.Math.clz32;" << NewLine;
 }
 
@@ -5306,6 +5315,14 @@ void CheerpWriter::makeJS()
 		{
 			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
 		}
+		if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
+		{
+
+			stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+			stream << "=ffi.";
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+			stream << ';' << NewLine;
+		}
 
 		// Declare globals
 		for ( const GlobalVariable* GV : linearHelper.globals() )
@@ -5371,6 +5388,14 @@ void CheerpWriter::makeJS()
 				name = ("_asm_"+namegen.getName(imported)).str();
 			stream << namegen.getName(imported) << ':' << name  << ',' << NewLine;
 		}
+		if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
+		{
+
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+			stream << ':';
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+			stream << ',' << NewLine;
+		}
 		stream << "};" << NewLine;
 		stream << "var stdlib = {"<<NewLine;
 		stream << "Math:Math,"<<NewLine;
@@ -5423,6 +5448,10 @@ void CheerpWriter::makeJS()
 	//Compile handleVAArg if needed
 	if( globalDeps.needHandleVAArg() )
 		compileHandleVAArg();
+
+	//Compile growLinearMemory if needed
+	if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
+		compileGrowMem();
 	
 	//Load Wast module
 	if (!wasmFile.empty())
@@ -5431,10 +5460,8 @@ void CheerpWriter::makeJS()
 			stream << "var " << heapNames[i] << "=null;" << NewLine;
 		stream << "var __asm=null;" << NewLine;
 		stream << "var __heap=null;" << NewLine;
-		stream << "var __wasm=null;" << NewLine;
 		compileAsmJSImports();
 		compileAsmJSExports();
-		compileGrowHeap();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
 		stream << "var importObject={imports:{" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
@@ -5473,6 +5500,13 @@ void CheerpWriter::makeJS()
 			stream << namegen.getBuiltinName(NameGenerator::SIN) << ":Math.sin," << NewLine;
 		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::TAN_F64))
 			stream << namegen.getBuiltinName(NameGenerator::TAN) << ":Math.tan," << NewLine;
+		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM))
+		{
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+			stream << ':';
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+			stream << ',' << NewLine;
+		}
 		stream << "}};" << NewLine;
 		if (makeModule == MODULE_TYPE::COMMONJS)
 		{
@@ -5491,7 +5525,6 @@ void CheerpWriter::makeJS()
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
 		stream << "__asm=instance.exports;" << NewLine;
 		stream << "__heap=instance.exports.memory.buffer;" << NewLine;
-		stream << "__wasm=instance;" << NewLine;
 	}
 	//Load asm.js module
 	else if (globalDeps.needAsmJS() && asmJSMem)
