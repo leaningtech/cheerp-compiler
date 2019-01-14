@@ -11141,6 +11141,10 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_pointer_kind, Tys);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_grow_memory) {
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_grow_memory);
+    return Builder.CreateCall(F, Ops);
+  }
   else if (BuiltinID == Builtin::BImalloc) {
     const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
     assert(FD);
