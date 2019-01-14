@@ -133,6 +133,10 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 		// Split regular, regular, and byte layout are always inlined.
 		return true;
 	}
+	else if(I.getOpcode()==Instruction::Trunc)
+	{
+		return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
+	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
 	{
 		// Special handling for instrinsics
@@ -190,9 +194,10 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 					else if(curInst->user_back() == nextInst)
 					{
 						// Reached the direct user
-						if(nextInst->getOpcode() == Instruction::BitCast)
+						if(nextInst->getOpcode() == Instruction::BitCast ||
+							nextInst->getOpcode() == Instruction::Trunc)
 						{
-							// Avoid interacting with the bitcast logic for now
+							// Avoid interacting with the bitcast/trunc logic for now
 							break;
 						}
 						else if(isa<IntrinsicInst>(nextInst))
