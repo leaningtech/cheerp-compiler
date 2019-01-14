@@ -46,5 +46,6 @@ R* __builtin_cheerp_make_regular(T*, int);
 template<class P>
 size_t __builtin_cheerp_pointer_kind(const P* ptr);
 
+int __builtin_cheerp_grow_memory(int bytes);
 }
 #endif /* __CHEERPINTRIN_H */
