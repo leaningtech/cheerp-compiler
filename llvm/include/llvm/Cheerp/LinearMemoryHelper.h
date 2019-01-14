@@ -270,7 +270,7 @@ public:
 	// Returns the base of the compiled expression
 	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener) const;
 	static const llvm::Value* compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener);
-	uint32_t getBuiltinId(GlobalDepsAnalyzer::MATH_BUILTIN b) const
+	uint32_t getBuiltinId(GlobalDepsAnalyzer::BUILTIN b) const
 	{
 		return builtinIds[b];
 	}
