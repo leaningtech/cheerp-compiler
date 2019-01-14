@@ -418,8 +418,6 @@ bool PHIVisitor::visitPHI(PHINode* phi)
 bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 {
 	bool Changed = false;
-	if (F.getSection() == StringRef("asmjs"))
-		return false;
 
 	PHIVisitor::PHIMap phiMap;
 	PHIVisitor::RemoveQueue toRemove;
@@ -429,8 +427,6 @@ bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 		{
 			PHINode * phi = dyn_cast<PHINode>(it++);
 			if (! phi )
-				continue;
-			if (! phi->getType()->isPointerTy() )
 				continue;
 			assert ( phi->getNumIncomingValues() != 0 );
 			// LCSSA may create PHIs with just 1 value or all equal values, kill those
@@ -451,6 +447,10 @@ bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 				Changed |= true;
 				continue;
 			}
+			else if (! phi->getType()->isPointerTy() )
+				continue;
+			else if (F.getSection() == StringRef("asmjs"))
+				continue;
 			Changed |= PHIVisitor(phiMap, toRemove).visitPHI(phi);
 		}
 	}
