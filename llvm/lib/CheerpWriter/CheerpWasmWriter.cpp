@@ -1246,11 +1246,11 @@ WASM_INTRINSIC_LIST(WASM_INTRINSIC)
 
 bool CheerpWasmWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
 {
-	const Instruction* incomingInst=dyn_cast<Instruction>(incoming);
+	const Instruction* incomingInst=getUniqueIncomingInst(incoming, PA);
 	if(!incomingInst)
 		return true;
-	return isInlineable(*incomingInst, PA) ||
-		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst);
+	assert(!isInlineable(*incomingInst, PA));
+	return registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst);
 }
 
 void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from)
