@@ -639,7 +639,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	// TODO this is not really necessary,
 	// but we need to modify the writer so that CallInst and InvokeInst
 	// perform a demotion in place.
-	if(ImmutableCallSite cs = p)
+	if(auto cs = ImmutableCallSite(p))
 	{
 		assert(cs.getCaller()->getSection()!=StringRef("asmjs"));
 		if (!isIntrinsic)
@@ -854,7 +854,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 	}
 
-	if ( ImmutableCallSite cs = p )
+	if ( auto cs = ImmutableCallSite(p) )
 	{
 		if ( cs.isCallee(U) )
 			return ret |= COMPLETE_OBJECT;

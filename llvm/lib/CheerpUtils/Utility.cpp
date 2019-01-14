@@ -52,7 +52,7 @@ bool isNopCast(const Value* val)
 
 bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhis)
 {
-	if (DynamicAllocInfo::getAllocType(val) != DynamicAllocInfo::not_an_alloc )
+	if (DynamicAllocInfo::getAllocType(ImmutableCallSite(val)) != DynamicAllocInfo::not_an_alloc )
 		return true;
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
 	if(newPHI)
