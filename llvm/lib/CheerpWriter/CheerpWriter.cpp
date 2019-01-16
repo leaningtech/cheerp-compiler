@@ -5207,13 +5207,13 @@ void CheerpWriter::makeJS()
 				<< "\n";
 #endif
 
-			StringRef linkName = method.getLinkageName();
+			StringRef linkName = method->getLinkageName();
 			if (linkName.empty())
-				linkName = method.getName();
+				linkName = method->getName();
 			auto it = functionToDebugInfoMap.find(linkName);
 			if(it == functionToDebugInfoMap.end())
 				functionToDebugInfoMap.insert(std::make_pair(linkName, method));
-			else if(method.isDefinition() && !it->second.isDefinition())
+			else if(method->isDefinition() && !it->second->isDefinition())
 				it->second = method;
 		}
 	}
