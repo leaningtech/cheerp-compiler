@@ -86,6 +86,31 @@ static int getBranchIdx(BasicBlock* From, BasicBlock* To)
 
 namespace cheerp {
 
+// Returns the scope and whether it is the innermost one or not.
+template<class Scope>
+static std::pair<Scope*, bool> getJumpScope(
+	const std::vector<Scope*>& Scopes,
+	const CFGStackifier::Block& From, const CFGStackifier::Block& To)
+{
+	using Block = CFGStackifier::Block;
+	auto it = Scopes.rend();
+	if (To.getId() <= From.getId())
+	{
+		it = std::find_if(Scopes.rbegin(), Scopes.rend(), [&](const Block::Scope* S) {
+			return S->kind == Block::LOOP && S->start == To.getId();
+		});
+	}
+	else
+	{
+		it = std::find_if(Scopes.rbegin(), Scopes.rend(), [&](const Block::Scope* S) {
+			return S->kind == Block::BLOCK && S->end == To.getId();
+		});
+	}
+	assert(it != Scopes.rend() && "No scope for branching");
+	return std::make_pair(*it, it == Scopes.rbegin());
+}
+
+
 #ifdef DEBUG_CFGSTACKIFIER
 void CFGStackifier::Block::dump() const
 {
@@ -456,11 +481,7 @@ void BlockListBuilder::build()
 
 void BlockListBuilder::removeExtraLabels()
 {
-	struct ScopeState {
-		Block::Scope* Scope;
-		bool LabelNeeded;
-	};
-	std::vector<ScopeState> ScopeStack;
+	std::vector<Block::Scope*> ScopeStack;
 	for (int id = 0; id <(int) BlockList.size(); ++id)
 	{
 		Block& B = BlockList[id];
@@ -469,11 +490,11 @@ void BlockListBuilder::removeExtraLabels()
 		{
 			case Block::LOOP:
 			case Block::BLOCK:
-				ScopeStack.push_back({&scope, false});
+				scope.label = false;
+				ScopeStack.push_back(&scope);
 				break;
 			case Block::LOOP_END:
 			case Block::BLOCK_END:
-				ScopeStack.back().Scope->label = ScopeStack.back().LabelNeeded;
 				ScopeStack.pop_back();
 				break;
 			case Block::BRANCH:
@@ -493,24 +514,10 @@ void BlockListBuilder::removeExtraLabels()
 			const auto& SuccB = BlockList[BlockIdMap[Succ]];
 			if (SuccB.isNaturalPred(B.getId()))
 				continue;
-			assert(!ScopeStack.empty());
-			auto TargetScope = ScopeStack.rend();
-			if (SuccB.getId() <= B.getId())
+			auto TargetScope = getJumpScope(ScopeStack, B, SuccB);
+			if (!TargetScope.second)
 			{
-				TargetScope = std::find_if(ScopeStack.rbegin(), ScopeStack.rend(), [&SuccB](const ScopeState& SS) {
-					return SS.Scope->kind == Block::LOOP && SS.Scope->start == SuccB.getId();
-				});
-			}
-			else
-			{
-				TargetScope = std::find_if(ScopeStack.rbegin(), ScopeStack.rend(), [&SuccB](const ScopeState& SS) {
-					return SS.Scope->kind == Block::BLOCK && SS.Scope->end == SuccB.getId();
-				});
-			}
-			assert(TargetScope != ScopeStack.rend());
-			if (TargetScope->Scope != ScopeStack.back().Scope)
-			{
-				TargetScope->LabelNeeded = true;
+				TargetScope.first->label = true;
 			}
 		}
 	}
@@ -662,7 +669,7 @@ private:
 	}
 
 	std::vector<const Scope*> ScopeStack;
-	std::unordered_map<const Scope*, size_t> labels;
+	std::unordered_map<const Scope*, int> labels;
 	std::unordered_map<const BasicBlock*, BranchesState> BranchesStates;
 	size_t next_label = 1;
 
@@ -688,26 +695,21 @@ bool BlockListRenderer::isEmptyPrologue(BasicBlock* From, BasicBlock* To)
 }
 void BlockListRenderer::renderJump(const Block& From, const Block& To)
 {
-	for (auto s=ScopeStack.rbegin(), se=ScopeStack.rend(); s!=se; ++s)
+	auto s = getJumpScope(ScopeStack, From, To);
+	if (To.getId() <= From.getId())
 	{
-		if ((*s)->kind == Block::BLOCK && To.getId() == (*s)->end)
-		{
-			if (s == ScopeStack.rbegin())
-				ri.renderBreak();
-			else
-				ri.renderBreak(labels.at(*s));
-			return;
-		}
-		else if ((*s)->kind == Block::LOOP && To.getId() == (*s)->start)
-		{
-			if (s == ScopeStack.rbegin())
-				ri.renderContinue();
-			else
-				ri.renderContinue(labels.at(*s));
-			return;
-		}
+		if (s.second)
+			ri.renderContinue();
+		else
+			ri.renderContinue(labels.at(s.first));
 	}
-	report_fatal_error("No scope for branching");
+	else
+	{
+		if (s.second)
+			ri.renderBreak();
+		else
+			ri.renderBreak(labels.at(s.first));
+	}
 }
 void BlockListRenderer::renderJumpBranch(const Block& From, const Block& To, int BrId, bool First)
 {
