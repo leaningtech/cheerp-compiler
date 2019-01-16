@@ -50,11 +50,11 @@ void SourceMapGenerator::writeBase64VLQInt(int i)
 }
 
 void SourceMapGenerator::setFunctionName(const llvm::DISubprogram &method) {
-	StringRef fileName = method.getFilename();
-	unsigned lineNumber = method.getLineNumber();
-	StringRef functionName = method.getLinkageName();
+	StringRef fileName = method->getFilename();
+	unsigned lineNumber = method->getLine();
+	StringRef functionName = method->getLinkageName();
 	if (functionName.empty())
-		functionName = method.getName();
+		functionName = method->getName();
 
 	auto fileMapIt = fileMap.find(fileName);
 	if (fileMapIt == fileMap.end()) {
