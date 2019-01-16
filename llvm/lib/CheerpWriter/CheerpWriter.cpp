@@ -4468,9 +4468,9 @@ void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::
 		if(i!=0)
 		{
 			if (asmjs)
-				writer->stream << "&&";
-			else
 				writer->stream << "&";
+			else
+				writer->stream << "&&";
 		}
 		renderCondition(bb, skipBranchIds[i], skipBranchIds.size() == 1 ? CheerpWriter::LOWEST : CheerpWriter::LOGICAL_AND, /*booleanInvert*/true);
 	}
