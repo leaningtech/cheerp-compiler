@@ -351,7 +351,7 @@ bool BlockListBuilder::enqueueSucc(BasicBlock* CurBB, BasicBlock* Succ)
 		VisitStack.push_back(Succ);
 		return true;
 	}
-	// Otherwise, dd it to to the delayed list
+	// Otherwise, add it to to the delayed list
 	DomTreeNode* SuccDN = DT.getNode(Succ)->getIDom();
 	Queues[SuccDN].insert(Queues[SuccDN].end(), Succ);
 	return false;
@@ -742,6 +742,7 @@ std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B)
 	bool First = !Delayed || getBlock(B.getId()+1).getBB() == Default;
 	int BrIdx = 0;
 	std::vector<int> EmptyIds;
+	SmallPtrSet<BasicBlock*, 2> Visited;
 	for (auto S = succ_begin(B.getBB()), SE = succ_end(B.getBB()); S != SE; ++S, ++BrIdx)
 	{
 		if (BrIdx==DefaultIdx)
@@ -750,6 +751,15 @@ std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B)
 		}
 		const Block& To = getBlock(*S);
 		RenderBranchCase BC = BranchesStates.at(B.getBB()).Cases.at(*S);
+		// If multiple branches have the same destination, process only the first one.
+		// The RenderInterface will take care of rendering a compound condition
+		if (!Visited.insert(*S).second)
+		{
+			// Still need to collect all the empty branches indexes
+			if (BC == RenderBranchCase::EMPTY)
+				EmptyIds.push_back(BrIdx);
+			continue;
+		}
 		switch (BC)
 		{
 			case RenderBranchCase::JUMP:
