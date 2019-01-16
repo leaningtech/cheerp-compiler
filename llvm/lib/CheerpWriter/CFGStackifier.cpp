@@ -30,7 +30,7 @@ static BasicBlock* getUniqueForwardPredecessor(BasicBlock* BB, LoopInfo& LI)
 	{
 		if (L && L->contains(Pred))
 			continue;
-		if (UniquePred)
+		if (UniquePred && UniquePred != Pred)
 			return nullptr;
 		UniquePred = Pred;
 	}
@@ -341,17 +341,17 @@ bool BlockListBuilder::enqueueSucc(BasicBlock* CurBB, BasicBlock* Succ)
 	// Ignore backedges
 	if (isBackedge(CurBB, Succ, LI))
 		return false;
+	// Check if it is ready to visit
+	int SuccForwardPreds = getNumForwardPreds(Succ, LI);
+	if (++Visited[Succ] != SuccForwardPreds)
+		return false;
 	// If Succ is a branch, add it to the visit stack
 	if (getUniqueForwardPredecessor(Succ, LI))
 	{
 		VisitStack.push_back(Succ);
 		return true;
 	}
-	// Otherwise, check if it is visitable
-	int SuccForwardPreds = getNumForwardPreds(Succ, LI);
-	if (++Visited[Succ] != SuccForwardPreds)
-		return false;
-	// Add it to to the delayed list
+	// Otherwise, dd it to to the delayed list
 	DomTreeNode* SuccDN = DT.getNode(Succ)->getIDom();
 	Queues[SuccDN].insert(Queues[SuccDN].end(), Succ);
 	return false;
