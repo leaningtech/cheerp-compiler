@@ -16,7 +16,7 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-subdirectories = TargetInfo
+subdirectories = TargetInfo MC
 
 [component_0]
 type = TargetGroup
@@ -27,5 +27,5 @@ parent = Target
 type = Library
 name = CheerpWasmBackendCodeGen
 parent = CheerpWasmBackend
-required_libraries = Core CheerpWasmBackendInfo Support Target CheerpWriter
+required_libraries = Core CheerpWasmBackendInfo CheerpWasmBackendDesc Support Target CheerpWriter
 add_to_library_groups = CheerpWasmBackend

@@ -1,4 +1,4 @@
-##===- lib/Target/CheerpBackend/Makefile --- ---------------*- Makefile -*-===##
+##===- lib/Target/CheerpBackend/MC/Makefile --- ------------*- Makefile -*-===##
 #
 #                     The LLVM Compiler Infrastructure
 #
@@ -8,7 +8,6 @@
 ##===----------------------------------------------------------------------===##
 
 LEVEL = ../../..
-LIBRARYNAME = LLVMCheerpBackendCodeGen
-DIRS = TargetInfo MC
+LIBRARYNAME = LLVMCheerpBackendDesc
 
 include $(LEVEL)/Makefile.common

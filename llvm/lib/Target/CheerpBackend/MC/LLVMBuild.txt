@@ -1,4 +1,4 @@
-;===- ./lib/Target/CheerpBackend/LLVMBuild.txt --------------------*- Conf -*--===;
+;===- ./lib/Target/CheerpBackend/MC/LLVMBuild.txt --------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -15,17 +15,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-[common]
-subdirectories = TargetInfo MC
-
 [component_0]
-type = TargetGroup
-name = CheerpBackend
-parent = Target
-
-[component_1]
 type = Library
-name = CheerpBackendCodeGen
+name = CheerpBackendDesc
 parent = CheerpBackend
-required_libraries = Core CheerpBackendInfo CheerpBackendDesc Support Target CheerpWriter
+required_libraries = MC CheerpBackendInfo Support
 add_to_library_groups = CheerpBackend
