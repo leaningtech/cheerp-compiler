@@ -194,14 +194,14 @@ private:
 		CompareInstructionByID(const InstIdMapTy& i):instIdMap(&i)
 		{
 		}
-		bool operator()(llvm::Instruction* l, llvm::Instruction*r) const
+		bool operator()(const llvm::Instruction* l, const llvm::Instruction*r) const
 		{
 			assert(instIdMap->count(l) && instIdMap->count(r));
 			return instIdMap->find(l)->second < instIdMap->find(r)->second;
 		}
 	};
 	// Map from instructions to their live ranges
-	typedef std::map<llvm::Instruction*, InstructionLiveRange, CompareInstructionByID> LiveRangesTy;
+	typedef std::map<const llvm::Instruction*, InstructionLiveRange, CompareInstructionByID> LiveRangesTy;
 	struct RegisterRange
 	{
 		LiveRange range;
@@ -296,7 +296,7 @@ private:
 	void extendRangeForUsedOperands(llvm::Instruction& I, LiveRangesTy& liveRanges, cheerp::PointerAnalyzer& PA,
 					uint32_t thisIndex, uint32_t codePathId, bool splitRegularDest);
 	uint32_t assignToRegisters(llvm::Function& F, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA);
-	void handlePHI(llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA);
+	void handlePHI(const llvm::Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA);
 	uint32_t findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& registers, const InstructionLiveRange& range,
 					REGISTER_KIND kind, bool needsSecondaryName);
 	bool addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange, REGISTER_KIND kind, bool needsSecondaryName);

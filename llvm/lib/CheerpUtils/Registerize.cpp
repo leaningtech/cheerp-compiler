@@ -405,7 +405,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	// First try to assign all PHI operands to the same register as the PHI itself
 	for(auto it: liveRanges)
 	{
-		Instruction* I=it.first;
+		const Instruction* I=it.first;
 		if(!isa<PHINode>(I))
 			continue;
 		handlePHI(*I, liveRanges, registers, PA);
@@ -413,7 +413,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	// Assign a register to the remaining instructions
 	for(auto it: liveRanges)
 	{
-		Instruction* I=it.first;
+		const Instruction* I=it.first;
 		if(isa<PHINode>(I))
 			continue;
 		InstructionLiveRange& range=it.second;
@@ -524,7 +524,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	return registers.size();
 }
 
-void Registerize::handlePHI(Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA)
+void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA)
 {
 	bool asmjs = I.getParent()->getParent()->getSection()==StringRef("asmjs");
 	uint32_t chosenRegister=0xffffffff;
