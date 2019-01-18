@@ -537,9 +537,10 @@ void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges
 		// If one of the operands already has a register allocated try to use that register again
 		for(Value* op: I.operands())
 		{
-			Instruction* usedI=dyn_cast<Instruction>(op);
-			if(!usedI || isInlineable(*usedI, PA))
+			const Instruction* usedI=getUniqueIncomingInst(op, PA);
+			if(!usedI)
 				continue;
+			assert(!isInlineable(*usedI, PA));
 			assert(liveRanges.count(usedI));
 			if(registersMap.count(usedI)==0)
 				continue;
@@ -560,9 +561,10 @@ void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges
 	// Iterate again on the operands and try to map as many as possible into the same register
 	for(Value* op: I.operands())
 	{
-		Instruction* usedI=dyn_cast<Instruction>(op);
-		if(!usedI || isInlineable(*usedI, PA))
+		const Instruction* usedI=getUniqueIncomingInst(op, PA);
+		if(!usedI)
 			continue;
+		assert(!isInlineable(*usedI, PA));
 		assert(liveRanges.count(usedI));
 		// Skip already assigned operands
 		if(registersMap.count(usedI))
