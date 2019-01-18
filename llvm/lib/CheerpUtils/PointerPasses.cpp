@@ -977,24 +977,8 @@ Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEP
 			assert(commonDominator);
 			llvm::Instruction* insertPointCandidate = commonDominator->getTerminator();
 			// Make sure that insertPointCandidate is in a valid block for this GEP
-			bool valid = false;
-			const BlockSet& validSet = validGEPMap.at(GEPRange::createGEPRange(cast<const GetElementPtrInst>(curGEP),endIndex+1));
-			if(!validSet.count(commonDominator))
-			{
-				for (auto BB: validSet)
-				{
-					if (DT->dominates(BB, commonDominator))
-					{
-						valid = true;
-						break;
-					}
-				}
-			}
-			else
-			{
-				valid = true;
-			}
-			if (!valid)
+			const ValidGEPLocations& validGEPLocations = validGEPMap.at(GEPRange::createGEPRange(cast<const GetElementPtrInst>(curGEP),endIndex+1));
+			if (!validGEPLocations.count(commonDominator))
 			{
 				// It is not safe to optimize this GEP, remove it from the set
 				assert(curGEP != *begin);
@@ -1063,7 +1047,7 @@ template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph*> : public GraphTrait
 	static size_t         size       (GEPOptimizer::ValidGEPGraph* G) { return G->Nodes.size(); }
 };
 
-void GEPOptimizer::ValidGEPGraph::getValidBlocks(BlockSet& ValidBlocks)
+void GEPOptimizer::ValidGEPGraph::getValidBlocks(ValidGEPLocations& validGEPLocations)
 {
 	DominatorTreeBase<Node> PDT(true);
 	PDT.recalculate(*this);
@@ -1073,7 +1057,7 @@ void GEPOptimizer::ValidGEPGraph::getValidBlocks(BlockSet& ValidBlocks)
 	{
 		if (V->BB)
 		{
-			ValidBlocks.insert(V->BB);
+			validGEPLocations.insert(V->BB);
 		}
 	}
 }
@@ -1090,11 +1074,9 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT)
 	order.insert({NULL, 0});
 
 	// Gather all the GEPs
-	BlockSet AllBlocks;
-	for (auto& BB: F)
-	{
-		AllBlocks.insert(&BB);
-	}
+	ValidGEPLocations AllBlocks;
+	AllBlocks.insert(&F.getEntryBlock());
+	AllBlocks.setDominatorTree(DT);
 	for ( BasicBlock& BB : F )
 	{
 		for ( Instruction& I: BB )
@@ -1112,7 +1094,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT)
 			}
 
 			orderedGeps.insert(&I);
-			BlockSet* CurBlocks = &AllBlocks;
+			ValidGEPLocations* CurBlocks = &AllBlocks;
 
 			for (size_t i = 2; i <= GEP->getNumOperands(); ++i)
 			{
@@ -1120,10 +1102,12 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, DominatorTree* DT)
 				auto it = validGEPMap.find(Range);
 				if(it == validGEPMap.end())
 				{
-					BlockSet ValidBlocks;
 					ValidGEPGraph VG(&F, DT, Range, *CurBlocks);
-					VG.getValidBlocks(ValidBlocks);
-					it = validGEPMap.emplace(Range, std::move(ValidBlocks)).first;
+					ValidGEPLocations validGEPLocations;
+					VG.getValidBlocks(validGEPLocations);
+					validGEPLocations.setDominatorTree(DT);
+					validGEPLocations.simplify();
+					it = validGEPMap.emplace(Range, std::move(validGEPLocations)).first;
 				}
 				CurBlocks = &it->second;
 			}
