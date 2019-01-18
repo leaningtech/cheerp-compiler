@@ -1039,6 +1039,19 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 			compileOperand(code, I.getOperand(1));
 			break;
 		default:
+			if(I.isCommutative())
+			{
+				bool isLHSRegister = isa<Instruction>(I.getOperand(0)) && !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
+				bool isRHSRegister = isa<Instruction>(I.getOperand(1)) && !isInlineable(*cast<Instruction>(I.getOperand(1)), PA);
+				if(!isLHSRegister && isRHSRegister)
+				{
+					compileOperand(code, I.getOperand(1));
+					compileOperand(code, I.getOperand(0));
+					// Go out of the switch
+					break;
+				}
+				// Fallthrough
+			}
 			compileOperand(code, I.getOperand(0));
 			compileOperand(code, I.getOperand(1));
 			break;
