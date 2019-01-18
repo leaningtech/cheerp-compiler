@@ -49,7 +49,7 @@ void SourceMapGenerator::writeBase64VLQInt(int i)
 	while(i);
 }
 
-void SourceMapGenerator::setFunctionName(const llvm::DISubprogram &method) {
+void SourceMapGenerator::setFunctionName(const llvm::DISubprogram *method) {
 	StringRef fileName = method->getFilename();
 	unsigned lineNumber = method->getLine();
 	StringRef functionName = method->getLinkageName();

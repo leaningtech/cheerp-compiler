@@ -42,7 +42,7 @@ private:
 public:
 	// sourceMapName and sourceMapPrefix life spans should be longer than the one of the SourceMapGenerator
 	SourceMapGenerator(const std::string& sourceMapName, const std::string& sourceMapPrefix, bool standAlone, std::error_code& ErrorCode);
-	void setFunctionName(const llvm::DISubprogram &method);
+	void setFunctionName(const llvm::DISubprogram *method);
 	void setDebugLoc(const llvm::DebugLoc* debugLoc);
 	const llvm::DebugLoc* getDebugLoc() const
 	{
