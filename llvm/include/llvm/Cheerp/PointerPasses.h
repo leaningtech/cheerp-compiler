@@ -189,6 +189,57 @@ class GEPOptimizer: public FunctionPass
 {
 	typedef SmallPtrSet<BasicBlock*, 4> BlockSet;
 public:
+	class ValidGEPLocations
+	{
+	public:
+		ValidGEPLocations() : DT(NULL), roots()
+		{
+		}
+		uint32_t count(BasicBlock* block) const
+		{
+			assert(DT);
+
+			if (roots.count(block))
+				return 1;
+			for (auto BB : roots)
+			{
+				if (DT->dominates(BB, block))
+					return 1;
+			}
+			return 0;
+		}
+		void insert(BasicBlock* block)
+		{
+			roots.insert(block);
+		}
+		void keepOnlyDominated(BasicBlock* block)
+		{
+			assert(DT);
+
+			//build queue with every roots
+			//go over the queue, dominates go back to roots, otherwise add the children to the queue and skip
+		}
+		void setDominatorTree(DominatorTree* DT_)
+		{
+			DT = DT_;
+		}
+		BlockSet::iterator begin() const
+		{
+			return roots.begin();
+		}
+		BlockSet::iterator end() const
+		{
+			return roots.end();
+		}
+		void simplify()
+		{
+			//loop over roots, inserting the good one in another blockset
+			//swap the two
+		}
+	private:
+		DominatorTree* DT;
+		BlockSet roots;
+	};
 	/// This struct represents a subset of a GEP, from operand 0 to operand
 	/// `size - 1`
 	struct GEPRange {
@@ -252,7 +303,7 @@ public:
 	class ValidGEPGraph {
 		using GEPRange = GEPOptimizer::GEPRange;
 	public:
-		explicit ValidGEPGraph(Function* F, DominatorTree* DT, GEPRange Range, const BlockSet& Subset)
+		explicit ValidGEPGraph(Function* F, DominatorTree* DT, GEPRange Range, const ValidGEPLocations& Subset)
 			: F(F), Range(Range)
 		{
 			for (auto DI = df_begin(DT), DE = df_end(DT); DI != DE;)
@@ -311,7 +362,7 @@ public:
 			return &it->second;
 		}
 		Node* getEntryNode() { return getOrCreate(&F->getEntryBlock()); }
-		void getValidBlocks(BlockSet& ValidBlocks);
+		void getValidBlocks(ValidGEPLocations& validGEPLocations);
 		class SuccIterator
 			: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node, Node> {
 		public:
@@ -533,7 +584,8 @@ private:
 		const OrderOfAppearence* orderOfAppearence;
 	};
 	typedef std::multiset<Instruction*, OrderByOperands> OrderedGEPs;
-	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher> ValidGEPMap;
+//	typedef std::unordered_map<GEPRange, BlockSet, GEPRangeHasher> ValidGEPMap;
+	typedef std::unordered_map<GEPRange, ValidGEPLocations, GEPRangeHasher> ValidGEPMap;
 	DominatorTree* DT;
 	class GEPRecursionData
 	{
