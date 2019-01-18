@@ -2357,10 +2357,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			break;
 		case Instruction::Trunc:
 		{
-			uint32_t bitWidth = I.getType()->getIntegerBitWidth();
 			compileOperand(code, I.getOperand(0));
-			encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
-			encodeInst(0x71, "i32.and", code);
 			break;
 		}
 		case Instruction::Ret:
