@@ -129,6 +129,7 @@ private:
 	bool compileInstruction(WasmBuffer& code, const llvm::Instruction& I);
 	bool compileInlineInstruction(WasmBuffer& code, const llvm::Instruction& I);
 	void compileGEP(WasmBuffer& code, const llvm::User* gepInst, bool standalone = false);
+	void compileLoad(WasmBuffer& code, const llvm::LoadInst& I, bool signExtend);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	struct WasmBytesWriter: public LinearMemoryHelper::ByteListener
@@ -208,7 +209,7 @@ public:
 	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code);
 	void compileICmp(const llvm::ICmpInst& ci, const llvm::CmpInst::Predicate p, WasmBuffer& code);
 	void compileFCmp(const llvm::Value* lhs, const llvm::Value* rhs, const llvm::CmpInst::Predicate p, WasmBuffer& code);
-	void encodeLoad(const llvm::Type* ty, uint32_t offset, WasmBuffer& code);
+	void encodeLoad(const llvm::Type* ty, uint32_t offset, WasmBuffer& code, bool signExtend);
 	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
 	void encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock);
 	void encodeDataSectionChunk(WasmBuffer& data, uint32_t address, const std::string& buf);
