@@ -5195,7 +5195,7 @@ void CheerpWriter::makeJS()
 		DebugInfoFinder finder;
 		finder.processModule(module);
 
-		for (const DISubprogram &method : finder.subprograms()) {
+		for (const DISubprogram *method : finder.subprograms()) {
 #ifdef CHEERP_DEBUG_SOURCE_MAP
 			llvm::errs() << "Name: " << method.getName()
 				<< " LinkageName: " << method.getLinkageName()

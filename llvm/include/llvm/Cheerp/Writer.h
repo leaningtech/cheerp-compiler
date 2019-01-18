@@ -189,7 +189,7 @@ private:
 
 	// Support for source maps
 	SourceMapGenerator* sourceMapGenerator;
-	std::map<llvm::StringRef, llvm::DISubprogram> functionToDebugInfoMap;
+	std::map<llvm::StringRef, const llvm::DISubprogram*> functionToDebugInfoMap;
 	const NewLineHandler NewLine;
 
 	// Flag to signal if we should take advantage of native JavaScript math functions
