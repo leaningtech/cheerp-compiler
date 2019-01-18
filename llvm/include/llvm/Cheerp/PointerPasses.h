@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <unordered_map>
+#include <queue>
 
 namespace llvm
 {
@@ -189,6 +190,14 @@ class GEPOptimizer: public FunctionPass
 {
 	typedef SmallPtrSet<BasicBlock*, 4> BlockSet;
 public:
+	static BasicBlock* immediateDominator(BasicBlock* BB, DominatorTree* DT)
+	{
+		auto X = DT->getNode(BB)->getIDom();
+		if (!X)
+			return NULL;
+		else
+			return X->getBlock();
+	}
 	class ValidGEPLocations
 	{
 	public:
@@ -216,8 +225,19 @@ public:
 		{
 			assert(DT);
 
-			//build queue with every roots
-			//go over the queue, dominates go back to roots, otherwise add the children to the queue and skip
+			BlockSet next;
+			for (auto BB : roots)
+			{
+				//DT is a tree, so there are only 3 possibility, either:
+				// A dominates B -> the intersection is B
+				// B dominates A -> the intersection is A
+				// neither dominates -> no intersection
+				if (block == BB || DT->dominates(block, BB))
+					next.insert(BB);
+				else if (DT->dominates(BB, block))
+					next.insert(block);
+			}
+			swap (roots, next);
 		}
 		void setDominatorTree(DominatorTree* DT_)
 		{
@@ -233,8 +253,19 @@ public:
 		}
 		void simplify()
 		{
-			//loop over roots, inserting the good one in another blockset
-			//swap the two
+			//Loop over the roots, nodes that already have their immediate dominator in roots will get skipped
+			//It is necessary to have the next, since we may otherwise delete someone else immediate dominator
+			//think of mom, child, granma, if you process them in this order mom will get out of the set
+			//(it has her own mother), and child will remain in the structure
+			BlockSet next;
+			for (auto x : roots)
+			{
+				if (roots.count(immediateDominator(x, DT)))
+					continue;
+				next.insert(x);
+			}
+
+			std::swap(next, roots);
 		}
 	private:
 		DominatorTree* DT;
