@@ -1231,7 +1231,7 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 }
 
 void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
-		WasmBuffer& code)
+		WasmBuffer& code, bool signExtend)
 {
 	if(ty->isIntegerTy())
 	{
@@ -1245,10 +1245,10 @@ void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 			// Currently assume unsigned, like Cheerp. We may optimize
 			// this be looking at a following sext or zext instruction.
 			case 8:
-				encodeU32U32Inst(0x2d, "i32.load8_u", 0x0, offset, code);
+				encodeU32U32Inst(signExtend ? 0x2c : 0x2d, signExtend ? "i32.load8_s" : "i32.load8_u", 0x0, offset, code);
 				break;
 			case 16:
-				encodeU32U32Inst(0x2f, "i32.load16_u", 0x1, offset, code);
+				encodeU32U32Inst(signExtend ? 0x2e : 0x2f, signExtend ? "i32.load16_s" : "i32.load16_u", 0x1, offset, code);
 				break;
 			case 32:
 				encodeU32U32Inst(0x28, "i32.load", 0x2, offset, code);
@@ -1858,6 +1858,39 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV
 	}
 }
 
+void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool signExtend)
+{
+	const Value* ptrOp=li.getPointerOperand();
+	uint32_t offset = 0;
+	// 1) The pointer
+	if (isGEP(ptrOp)) {
+		const auto O = dyn_cast<Instruction>(ptrOp);
+		if (O && !isInlineable(*O, PA)) {
+			uint32_t reg = registerize.getRegisterId(O);
+			uint32_t local = localMap.at(reg);
+			encodeU32Inst(0x20, "get_local", local, code);
+		} else {
+			WasmGepWriter gepWriter(*this, code);
+			auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
+			compileOperand(code, p);
+			if(!gepWriter.first)
+				encodeInst(0x6a, "i32.add", code);
+			// The immediate offset of a load instruction is an unsigned
+			// 32-bit integer. Negative immediate offsets are not supported.
+			if (gepWriter.constPart < 0) {
+				encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
+				encodeInst(0x6a, "i32.add", code);
+			} else {
+				offset = gepWriter.constPart;
+			}
+		}
+	} else {
+		compileOperand(code, ptrOp);
+	}
+	// 2) Load
+	encodeLoad(li.getType(), offset, code, signExtend);
+}
+
 bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
 {
 	switch(I.getOpcode())
@@ -1917,7 +1950,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			// Load the current argument
 			compileOperand(code, vi.getPointerOperand());
 			encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
-			encodeLoad(vi.getType(), 0, code);
+			encodeLoad(vi.getType(), 0, code, /*signExtend*/false);
 
 			// Move varargs pointer to next argument
 			compileOperand(code, vi.getPointerOperand());
@@ -2283,35 +2316,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::Load:
 		{
 			const LoadInst& li = cast<LoadInst>(I);
-			const Value* ptrOp=li.getPointerOperand();
-			uint32_t offset = 0;
-			// 1) The pointer
-			if (isGEP(ptrOp)) {
-				const auto O = dyn_cast<Instruction>(ptrOp);
-				if (O && !isInlineable(*O, PA)) {
-					uint32_t reg = registerize.getRegisterId(O);
-					uint32_t local = localMap.at(reg);
-					encodeU32Inst(0x20, "get_local", local, code);
-				} else {
-					WasmGepWriter gepWriter(*this, code);
-					auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
-					compileOperand(code, p);
-					if(!gepWriter.first)
-						encodeInst(0x6a, "i32.add", code);
-					// The immediate offset of a load instruction is an unsigned
-					// 32-bit integer. Negative immediate offsets are not supported.
-					if (gepWriter.constPart < 0) {
-						encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
-						encodeInst(0x6a, "i32.add", code);
-					} else {
-						offset = gepWriter.constPart;
-					}
-				}
-			} else {
-				compileOperand(code, ptrOp);
-			}
-			// 2) Load
-			encodeLoad(li.getType(), offset, code);
+			compileLoad(code, li, /*signExtend*/false);
 			break;
 		}
 		case Instruction::PtrToInt:
@@ -2425,12 +2430,20 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::SExt:
 		{
-			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
-			compileOperand(code, I.getOperand(0));
-			encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
-			encodeInst(0x74, "i32.shl", code);
-			encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
-			encodeInst(0x75, "i32.shr_s", code);
+			const Value* op = I.getOperand(0);
+			if(isa<LoadInst>(op) && isInlineable(*cast<Instruction>(op), PA))
+			{
+				compileLoad(code, *cast<LoadInst>(op), /*signExtend*/true);
+			}
+			else
+			{
+				uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
+				compileOperand(code, I.getOperand(0));
+				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
+				encodeInst(0x74, "i32.shl", code);
+				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
+				encodeInst(0x75, "i32.shr_s", code);
+			}
 			break;
 		}
 		case Instruction::FPToSI:
