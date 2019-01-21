@@ -435,7 +435,7 @@ _LIBCPP_SUPPRESS_DEPRECATED_POP
     _LIBCPP_INLINE_VISIBILITY
     size_t operator()(_Tp* __v) const _NOEXCEPT
     {
-#ifdef __CHEERP__
+#if defined(__CHEERP__) && !defined(__ASMJS__)
         return 0;
 #else
         union
@@ -444,7 +444,7 @@ _LIBCPP_SUPPRESS_DEPRECATED_POP
             size_t __a;
         } __u;
         __u.__t = __v;
-        return __murmur2_or_cityhash<size_t>()(&__u, sizeof(__u));
+        return __murmur2_or_cityhash<size_t>()(&__u.__a, sizeof(size_t));
 #endif
     }
 };
