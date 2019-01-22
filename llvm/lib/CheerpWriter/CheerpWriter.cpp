@@ -5648,30 +5648,7 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 		//the control flow
 		const TerminatorInst* term = B->getTerminator();
 		// If this is not null, we can use a switch
-		const SwitchInst* switchInst = nullptr;
-		if(const SwitchInst* si = dyn_cast<SwitchInst>(term))
-		{
-			//In asm.js cases values must be in the range [-2^31,2^31),
-			//and the difference between the biggest and the smaller must be < 2^31
-			int64_t max = std::numeric_limits<int64_t>::min();
-			int64_t min = std::numeric_limits<int64_t>::max();
-			for (auto& c: si->cases())
-			{
-				int64_t curr = c.getCaseValue()->getSExtValue();
-				max = std::max(max,curr);
-				min = std::min(min,curr);
-			}
-			if (min >= std::numeric_limits<int32_t>::min() &&
-				max <= std::numeric_limits<int32_t>::max() && 
-				//NOTE: this number is the maximum allowed by V8 for wasm's br_table,
-				// it is not defined in the spec
-				max-min <= 32 * 1024 &&
-				// Avoid extremely big and extremely sparse tables, require at least 3% fill rate
-				(max-min <= 100 || si->getNumCases() * 100 >= 3 * (max-min)))
-			{
-				switchInst = si;
-			}
-		}
+		const SwitchInst* switchInst = useSwitch(term) ? cast<SwitchInst>(term) : nullptr;
 		Block* rlBlock = new Block(&(*B), isSplittable, BlockId++, switchInst);
 		relooperMap.insert(make_pair(&(*B),rlBlock));
 	}
@@ -5752,6 +5729,37 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 	}
 	rl->Calculate(relooperMap[&F.getEntryBlock()]);
 	return rl;
+}
+bool CheerpWriter::useSwitch(const TerminatorInst* term)
+{
+	// Consider only switch instructions
+	if (!isa<SwitchInst>(term))
+		return false;
+	const SwitchInst* si = cast<SwitchInst>(term);
+	// At least 3 successors
+	if (si->getNumSuccessors() < 3)
+		return false;
+	//In asm.js cases values must be in the range [-2^31,2^31),
+	//and the difference between the biggest and the smaller must be < 2^31
+	int64_t max = std::numeric_limits<int64_t>::min();
+	int64_t min = std::numeric_limits<int64_t>::max();
+	for (auto& c: si->cases())
+	{
+		int64_t curr = c.getCaseValue()->getSExtValue();
+		max = std::max(max,curr);
+		min = std::min(min,curr);
+	}
+	if (min >= std::numeric_limits<int32_t>::min() &&
+		max <= std::numeric_limits<int32_t>::max() && 
+		//NOTE: this number is the maximum allowed by V8 for wasm's br_table,
+		// it is not defined in the spec
+		max-min <= 32 * 1024 &&
+		// Avoid extremely big and extremely sparse tables, require at least 3% fill rate
+		(max-min <= 100 || si->getNumCases() * 100 >= 3 * (max-min)))
+	{
+		return true;
+	}
+	return false;
 }
 
 void CheerpWriter::JSBytesWriter::addByte(uint8_t byte)
