@@ -1107,7 +1107,9 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 			if(!isa<GetElementPtrInst>(I))
 				continue;
 			// Only consider GEPs with at least  two indexes
-			if(I.getNumOperands() < 3)
+			if(I.getNumOperands() < 2)
+				continue;
+			if(I.getNumOperands() == 2 && isConstantZero(I.getOperand(1)))
 				continue;
 			const GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
 			for (size_t i = 0; i < GEP->getNumOperands(); ++i)
@@ -1161,7 +1163,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 
 	data.startRecursion();
 	data.applyOptGEP();
-	data.compressGEPTree(ShortGEPPolicy::NOT_ALLOWED);
+	data.compressGEPTree(ShortGEPPolicy::ALLOWED);
 
 	validGEPMap.clear();
 
@@ -1264,14 +1266,21 @@ void GEPOptimizer::GEPRecursionData::compressGEPTree(const ShortGEPPolicy shortG
 		//Delete the current value, it may be invalidated
 		nonTerminalGeps.pop_back();
 
-		if ((shortGEPPolicy == ShortGEPPolicy::NOT_ALLOWED && a->getNumOperands()==2) || a->hasOneUse())
+		//If it is already used by someone, do not merge it
+		if (erasedInst.count(a))
+			continue;
+
+		//If either it has only one use or it is a short GEP, merge them
+		if ( (shortGEPPolicy == ShortGEPPolicy::NOT_ALLOWED && a->getNumOperands()==2)
+				|| (a->getNumOperands() == 2 && isConstantZero(a->getOperand(1)))
+				|| a->hasOneUse() )
 		{
 			//We will change a->users(), so the iteration have to be done with care
 			for (auto b = a->users().begin(); b != a->users().end(); )
 			{
 				auto next = b;
 				++next;
-			//Check whether that user is a GEP
+				//Check whether that user is a GEP
 				GetElementPtrInst* bGEP = cast<GetElementPtrInst>(*b);
 				mergeGEPs(a, bGEP);
 				b = next;
