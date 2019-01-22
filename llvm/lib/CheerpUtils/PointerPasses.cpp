@@ -852,108 +852,85 @@ FunctionPass *createDelayInstsPass() { return new DelayInsts(); }
 
 Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index) const
 {
-	if (index + 1 == (*it)->getNumOperands())
+	if (index >= (*it)->getNumOperands())
 		return NULL;
-	else if (index < (*it)->getNumOperands())
+	else
 		return (*it)->getOperand(index);
-	assert(false);
-	return NULL;
 }
 
 void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
-		Value* base, const uint32_t endIndex)
+		Value* base, uint32_t endIndex)
 {
-	//TODO: Avoid to optimize GEPs with only 2 operands
 	assert(begin != end);
-	// We know that up to startIndex all indexes are equal
-	// Find out how many indexes are equal in all the range and build a GEP with them from the base
 	llvm::SmallVector<llvm::Value*, 4> newIndexes;
-	if(endIndex == 2)
-	{
-		// It means that we are handling the first index, add it as it is
-		// The first index is guaranteed to be the same across the range
-		newIndexes.push_back((*begin)->getOperand(1));
-	}
-	else
+
+	if(endIndex > 1)
 	{
 		// This is an optimized GEP, it will start from the passed base. Add a constant 0.
 		newIndexes.push_back(ConstantInt::get(llvm::Type::getInt32Ty(base->getContext()), 0));
 	}
-
 	while (begin != end)
 	{
 		//Initialize range
 		OrderedGEPs::iterator it = begin;
-		Value* referenceOperand = getValueNthOperator(it, endIndex);
+		const Value* referenceOperand = getValueNthOperator(it, endIndex);
 		uint32_t rangeSize = 1;
 		it++;
 
-		if (referenceOperand != NULL)
+		while(it!=end &&  referenceOperand == getValueNthOperator(it, endIndex))
 		{
-			while(it!=end && referenceOperand == getValueNthOperator(it, endIndex))
-			{
-				rangeSize++;
-				it++;
-			}
+			rangeSize++;
+			it++;
 		}
 		// This is the first index which is different in the range.
 #if DEBUG_GEP_OPT_VERBOSE
 		llvm::errs() << "Index equal until " << endIndex << ", range size: " << rangeSize << "\n";
 #endif
-		if(rangeSize == 1)
-		{
-			// If the range has size 1 and we have just started we skip this GEP entirely
-			if(endIndex > 2)
-			{
-				uint32_t oldIndexCount = newIndexes.size();
-				// Create a GEP from the base to all not used yet indexes
-				for(uint32_t i=endIndex;i<(*begin)->getNumOperands();i++)
-					newIndexes.push_back((*begin)->getOperand(i));
-				if(newIndexes.size() > 1)
-				{
-					Instruction* newGEP = GetElementPtrInst::Create(base, newIndexes, "");
-					//Hoist the GEP as high as possible, will be put on the right spot by DelayInsts later
-					//Here we are using the full GEPRange, since here we are creating a terminal gep (in the GEP tree)
-					newGEP->insertBefore(passData->hoistGEP(*begin, GEPRange::createGEPRange(cast<llvm::GetElementPtrInst>(*begin))));
-#if DEBUG_GEP_OPT_VERBOSE
-					llvm::errs() << "New GEP " << newGEP << "\n";
-#endif
-					erasedInst.insert(std::make_pair(*begin, newGEP));
-				}
-				newIndexes.resize(oldIndexCount);
 
-			}
-			// Reset the state for the next range
-			begin = it;
-			continue;
-		}
 		// Compute the insertion point to dominate all users of this GEP in the range
+		// (possibly moving some GEP to skippedGeps, so finding the iterators has to be done afterwards)
 		Instruction* insertionPoint = findInsertionPoint(begin, it, endIndex);
 
-		//Hoist the GEP as high as possible, will be put on the right spot by DelayInsts later
-		//Here we are using a restricted GEPRange, since here we are creating an internal gep (internal in the GEP tree)
-		insertionPoint = passData->hoistGEP(insertionPoint, GEPRange::createGEPRange(cast<llvm::GetElementPtrInst>(*begin), endIndex+1));
-
-		newIndexes.push_back(referenceOperand);
-		// This is the first index which is different in the range. Create a GEP now.
-		GetElementPtrInst* newGEP = GetElementPtrInst::Create(base, newIndexes, base->getName()+".optgep");
-		newIndexes.pop_back();
-		newGEP->insertBefore(insertionPoint);
-		// Will be later examined, checking wheter it should be merged to its single use (or kept if there are multiple uses)
-		nonTerminalGeps.push_back(newGEP);
-
-		assert(insertionPoint);
-#if DEBUG_GEP_OPT_VERBOSE
-		llvm::errs() << "New GEP " << newGEP << " inserted after " << *insertionPoint << "\n";
-#endif
-		if(rangeSize != 1)
+		OrderedGEPs::iterator endEquals = begin;
+		while (endEquals != it && getValueNthOperator(endEquals, endIndex+1) == NULL)
 		{
-			// Proceed with the range from 'begin' to 'it'
-			// NOTE: insertPointLimit is not passed to later steps, it is only needed when dealing with the base
-			optimizeGEPsRecursive(begin, it, newGEP, endIndex+1);
+			++endEquals;
+		}
+		OrderedGEPs::iterator endRange = endEquals;
+		while (endRange != it)
+		{
+			++endRange;
+		}
+		const GEPRange range = GEPRange::createGEPRange(cast<llvm::GetElementPtrInst>(*begin), endIndex+1);
+
+		//Hoist the GEP as high as possible, will be put on the right spot by DelayInsts later
+		insertionPoint = passData->hoistGEP(insertionPoint, range);
+		assert(insertionPoint);
+
+		newIndexes.push_back((*begin)->getOperand(endIndex));
+		GetElementPtrInst* newGEP = GetElementPtrInst::Create(base, newIndexes, base->getName()+".optgep");
+		newGEP->insertBefore(insertionPoint);
+		newIndexes.pop_back();
+#if DEBUG_GEP_OPT_VERBOSE
+		llvm::errs() << "New GEP " << newGEP << "\n";
+#endif
+
+		if (begin != endEquals)
+		{
+			//Take care of the GEP ending here
+			erasedInst.insert(std::make_pair(newGEP, std::vector<Instruction*>(begin, endEquals)));
+		}
+
+		// Will be later examined, checking wheter it should be merged to its single use (or kept if there are multiple uses)
+
+		if (endEquals != endRange)
+		{
+			nonTerminalGeps.push_back(newGEP);
+			//Take care of a nonTerminalGeps (= has children nodes in the GEP tree)
+			optimizeGEPsRecursive(endEquals, endRange, newGEP, endIndex + 1);
 		}
 		// Reset the state for the next range
-		begin = it;
+		begin = endRange;
 	}
 }
 
@@ -1184,7 +1161,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 
 	data.startRecursion();
 	data.applyOptGEP();
-	data.mergeSingleUserGEPs();
+	data.compressGEPTree(ShortGEPPolicy::NOT_ALLOWED);
 
 	validGEPMap.clear();
 
@@ -1215,12 +1192,12 @@ void GEPOptimizer::GEPRecursionData::startRecursion()
 		if(rangeLength > 1)
 		{
 #if DEBUG_GEP_OPT_VERBOSE
-			llvm::errs() << "Common GEP range:";
+			llvm::errs() << "Common GEP range:\n";
 			for(auto it2=rangeStart;it2!=it;++it2)
 				llvm::errs() << **it2 << "\n";
 			llvm::errs() << "\n";
 #endif
-			optimizeGEPsRecursive(rangeStart, it, (*rangeStart)->getOperand(0), 2);
+			optimizeGEPsRecursive(rangeStart, it, (*rangeStart)->getOperand(0), 1);
 		}
 		rangeLength = 0;
 		rangeStart = it;
@@ -1238,13 +1215,44 @@ void GEPOptimizer::GEPRecursionData::applyOptGEP()
 {
 	for(auto p: erasedInst)
 	{
-		p.second->takeName(p.first);
-		p.first->replaceAllUsesWith(p.second);
-		p.first->eraseFromParent();
+		p.first->takeName(p.second.front());
+		for (auto I : p.second)
+		{
+			I -> replaceAllUsesWith(p.first);
+			I -> eraseFromParent();
+		}
 	}
 }
 
-void GEPOptimizer::GEPRecursionData::mergeSingleUserGEPs()
+void GEPOptimizer::GEPRecursionData::mergeGEPs(GetElementPtrInst* a, GetElementPtrInst* b)
+{
+	llvm::SmallVector<llvm::Value*, 4> indexes;
+	auto iter = a->idx_begin();
+	while (iter != a->idx_end())
+	{
+		indexes.push_back(*iter);
+		++iter;
+	}
+
+	iter = b->idx_begin();
+
+	//The first index of a gep with depth > 0 has to be 0
+	assert(cast<ConstantInt>(*iter)->equalsInt(0));
+
+	++iter;
+	while (iter != b->idx_end())
+	{
+		indexes.push_back(*iter);
+		++iter;
+	}
+
+	GetElementPtrInst* newGEP = GetElementPtrInst::Create(a->getPointerOperand(), indexes, b->getName()+".optgepsqueezed");
+	newGEP->insertBefore(b);
+	b->replaceAllUsesWith(newGEP);
+	b->eraseFromParent();
+}
+
+void GEPOptimizer::GEPRecursionData::compressGEPTree(const ShortGEPPolicy shortGEPPolicy)
 {
 	//nonTerminalGeps holds inner nodes in the GEP tree
 	//A child node always appear after its parent (by construction)
@@ -1256,37 +1264,20 @@ void GEPOptimizer::GEPRecursionData::mergeSingleUserGEPs()
 		//Delete the current value, it may be invalidated
 		nonTerminalGeps.pop_back();
 
-		//Check whether it has only 1 user
-		if (!a->hasOneUse())
-			continue;
-
-		//Check whether that user is a GEP
-		GetElementPtrInst* b = cast<GetElementPtrInst>(*a->user_begin());
-
-		llvm::SmallVector<llvm::Value*, 4> indexes;
-		auto iter = a->idx_begin();
-		while (iter != a->idx_end())
+		if ((shortGEPPolicy == ShortGEPPolicy::NOT_ALLOWED && a->getNumOperands()==2) || a->hasOneUse())
 		{
-			indexes.push_back(*iter);
-			++iter;
+			//We will change a->users(), so the iteration have to be done with care
+			for (auto b = a->users().begin(); b != a->users().end(); )
+			{
+				auto next = b;
+				++next;
+			//Check whether that user is a GEP
+				GetElementPtrInst* bGEP = cast<GetElementPtrInst>(*b);
+				mergeGEPs(a, bGEP);
+				b = next;
+			}
+			a->eraseFromParent();
 		}
-		iter = b->idx_begin();
-
-		//The first index of a gep with depth > 0 has to be 0
-		assert(cast<ConstantInt>(*iter)->equalsInt(0));
-
-		++iter;
-		while (iter != b->idx_end())
-		{
-			indexes.push_back(*iter);
-			++iter;
-		}
-
-		GetElementPtrInst* newGEP = GetElementPtrInst::Create(a->getPointerOperand(), indexes, b->getName()+".optgepsqueezed");
-		newGEP->insertBefore(b);
-		b->replaceAllUsesWith(newGEP);
-		b->eraseFromParent();
-		a->eraseFromParent();
 	}
 }
 
