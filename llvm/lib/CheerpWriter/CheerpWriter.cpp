@@ -51,6 +51,7 @@ public:
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
+	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<JumpCase>& jumpCases, const std::vector<int>& nestedCases);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
@@ -4274,6 +4275,42 @@ bool CheerpWriter::isInlineableInstruction(const Value* v) const
 		return isInlineable(*I, PA);
 	else
 		return false;
+}
+
+void CheerpRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* si,
+	const std::vector<JumpCase>& jumpCases, const std::vector<int>&)
+{
+	const Value* cond = si->getCondition();
+	writer->stream << "switch(";
+	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
+	writer->stream << "){" << NewLine;
+	writer->blockDepth++;
+	for (auto& c: jumpCases)
+	{
+		SwitchInst::ConstCaseIt it = si->case_default();
+		if (c.idx != -1)
+		{
+			it = si->case_begin();
+			for(int i=1;i<c.idx;i++)
+				++it;
+			renderCaseBlockBegin(si->getParent(), c.idx);
+		}
+		else
+		{
+			renderDefaultBlockBegin(false);
+		}
+
+		renderBlockPrologue(it.getCaseSuccessor(), si->getParent());
+
+		if (c.kind == JumpCase::BREAK)
+			renderBreak(c.label);
+		else if (c.kind == JumpCase::CONTINUE)
+			renderContinue(c.label);
+		else
+			renderBreak();
+
+		renderBlockEnd(false);
+	}
 }
 
 void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
