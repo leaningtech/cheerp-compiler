@@ -620,6 +620,14 @@ private:
 	ValidGEPMap validGEPMap;
 	Instruction* hoistGEP(Instruction* I, const GEPRange& R);
 
+	static bool isConstantZero(const Value* value)
+	{
+		if (const ConstantInt* x = dyn_cast<const ConstantInt> (value))
+			if (x->isZero())
+				return true;
+		return false;
+	}
+
 	enum class ShortGEPPolicy { ALLOWED, NOT_ALLOWED };
 
 	class GEPRecursionData
@@ -647,7 +655,7 @@ private:
 
 		GEPOptimizer* passData;
 
-		std::set<std::pair<GetElementPtrInst*, std::vector<Instruction*>>> erasedInst;
+		std::map<GetElementPtrInst*, std::vector<Instruction*>> erasedInst;
 		std::vector<GetElementPtrInst*> nonTerminalGeps;
 	};
 public:
