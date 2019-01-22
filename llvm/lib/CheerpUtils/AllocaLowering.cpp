@@ -209,8 +209,15 @@ bool AllocaLowering::runOnFunction(Function& F)
 		BasicBlock::iterator ii(a.first);
 
 		IRBuilder<> Builder(a.first);
-		Constant* typeSize = ConstantInt::get(int32Ty,targetData.getTypeAllocSize(a.first->getAllocatedType()),false);
-		Value* size = Builder.CreateMul(a.second,typeSize);
+		uint32_t typeSizeVal = targetData.getTypeAllocSize(a.first->getAllocatedType());
+		Value* size = nullptr;
+		if(typeSizeVal == 1)
+			size = a.second;
+		else
+		{
+			Constant* typeSize = ConstantInt::get(int32Ty,typeSizeVal,false);
+			size = Builder.CreateMul(a.second,typeSize);
+		}
 		// Make sure the size of the alloca is aligned
 		Constant* seven = ConstantInt::get(int32Ty, 7, true);
 		Value* aligned = Builder.CreateAdd(size, seven);
