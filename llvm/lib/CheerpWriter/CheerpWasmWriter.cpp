@@ -307,6 +307,7 @@ public:
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
+	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<JumpCase>& jumpCases, const std::vector<int>& nestedCases);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
@@ -326,6 +327,120 @@ public:
 	void renderLabel(int labelId);
 	void renderIfOnLabel(int labelId, bool first);
 };
+
+void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* si,
+	const std::vector<JumpCase>& jumpCases,
+	const std::vector<int>& nestedCases)
+{
+	const Value* cond = si->getCondition();
+
+	assert(si->getNumCases());
+
+	llvm::BasicBlock* defaultDest = si->getDefaultDest();
+	int64_t max = std::numeric_limits<int64_t>::min();
+	int64_t min = std::numeric_limits<int64_t>::max();
+	for (auto& c: si->cases())
+	{
+		if (c.getCaseSuccessor() == defaultDest)
+			continue;
+		int64_t curr = c.getCaseValue()->getSExtValue();
+		max = std::max(max, curr);
+		min = std::min(min, curr);
+	}
+
+	// There should be at least one default case and zero or more cases.
+	uint32_t depth = (max - min + 1) + 1;
+	assert(depth >= 1);
+
+	// Fill the jump table.
+	std::vector<uint32_t> table;
+	table.assign(depth, numeric_limits<uint32_t>::max());
+	uint32_t defaultLabel = numeric_limits<uint32_t>::max();
+
+	uint32_t caseBlocks = 0;
+	std::unordered_map<BasicBlock*, uint32_t> blockLabelMap;
+	auto handleCase = [&](int i)
+	{
+		BasicBlock* dest = i == -1 ? si->getSuccessor(0) : si->getSuccessor(i);
+		auto it = blockLabelMap.find(dest);
+		if (it == blockLabelMap.end())
+		{
+			it = blockLabelMap.emplace(dest, caseBlocks++).first;
+		}
+		if (i == -1)
+			defaultLabel = it->second;
+		else
+		{
+			// The value to match for case `i` has index `2*i`
+			auto cv = cast<ConstantInt>(si->getOperand(2*i));
+			table.at(cv->getSExtValue() - min) = it->second;
+		}
+	};
+	for (auto& c: jumpCases)
+	{
+		handleCase(c.idx);
+	}
+	for (int i: nestedCases)
+	{
+		handleCase(i);
+	}
+
+	// Elements that are not set, will jump to the default block.
+	std::replace(table.begin(), table.end(), numeric_limits<uint32_t>::max(), defaultLabel);
+
+	// Print the case blocks.
+	for (uint32_t i = 0; i < caseBlocks; i++)
+		writer->encodeU32Inst(0x02, "block", 0x40, code);
+
+	// Wrap the br_table in its own block
+	writer->encodeU32Inst(0x02, "block", 0x40, code);
+
+	// Print the condition
+	writer->compileOperand(code, si->getCondition());
+	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
+	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
+	{
+		assert(bitWidth < 32);
+		writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
+		writer->encodeInst(0x71, "i32.and", code);
+	}
+	if (min != 0)
+	{
+		writer->encodeS32Inst(0x41, "i32.const", min, code);
+		writer->encodeInst(0x6b, "i32.sub", code);
+		if (bitWidth != 32)
+		{
+			writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
+			writer->encodeInst(0x71, "i32.and", code);
+		}
+	}
+
+	// Print the case labels and the default label.
+	writer->encodeBranchTable(code, table, defaultLabel);
+
+	writer->encodeInst(0x0b, "end", code);
+
+	blockTypes.emplace_back(SWITCH, caseBlocks);
+
+	// Print the jump cases
+	SmallPtrSet<BasicBlock*, 4> visited;
+	for (auto& c: jumpCases)
+	{
+		BasicBlock* cb = c.idx == -1 ? defaultDest : si->getSuccessor(c.idx);
+		if (!visited.insert(cb).second)
+			continue;
+		renderCaseBlockBegin(nullptr, 0);
+		renderBlockPrologue(cb, si->getParent());
+		if (c.kind == JumpCase::BREAK)
+			renderBreak(c.label);
+		else if (c.kind == JumpCase::CONTINUE)
+			renderContinue(c.label);
+		else
+			renderBreak();
+		renderBlockEnd(false);
+	}
+
+}
 
 void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
 {
