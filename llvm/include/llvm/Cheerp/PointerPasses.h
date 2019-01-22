@@ -620,13 +620,16 @@ private:
 	ValidGEPMap validGEPMap;
 	Instruction* hoistGEP(Instruction* I, const GEPRange& R);
 
+	enum class ShortGEPPolicy { ALLOWED, NOT_ALLOWED };
+
 	class GEPRecursionData
 	{
 	public:
 		GEPRecursionData(Function& F, GEPOptimizer* data);
 		void startRecursion();
 		void applyOptGEP();
-		void mergeSingleUserGEPs();
+		void mergeGEPs(GetElementPtrInst* a, GetElementPtrInst* b);
+		void compressGEPTree(const ShortGEPPolicy shortGEPPolicy);
 		bool anyChange() const
 		{
 			return !erasedInst.empty();
@@ -644,7 +647,7 @@ private:
 
 		GEPOptimizer* passData;
 
-		std::set<std::pair<Instruction*, Instruction*>> erasedInst;
+		std::set<std::pair<GetElementPtrInst*, std::vector<Instruction*>>> erasedInst;
 		std::vector<GetElementPtrInst*> nonTerminalGeps;
 	};
 public:
