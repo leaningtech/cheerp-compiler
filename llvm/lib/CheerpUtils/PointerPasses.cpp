@@ -1091,6 +1091,36 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 		skippedGeps(OrderByOperands(&order)),
 		passData(data)
 {
+	//First we do a pass to collect in which blocks a GepRange is used, this data will be later used by ValidGEPGraph::Node::isValidForGEP()
+	ValidGEPLocations NoBlocks;
+	NoBlocks.setDominatorTree(passData->DT);
+	for ( BasicBlock& BB : F )
+	{
+		for ( Instruction& I: BB )
+		{
+			if(!isa<GetElementPtrInst>(I))
+				continue;
+			// Only consider GEPs with at least  two indexes
+			if(I.getNumOperands() < 2)
+				continue;
+			const GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
+
+			// NOTE: `i` is a size, so the end condition needs <=
+			for (size_t i = 2; i <= GEP->getNumOperands(); ++i)
+			{
+				GEPRange Range = GEPRange::createGEPRange(GEP, i);
+				auto it = passData->subsetGEPMap.find(Range);
+				if(it == passData->subsetGEPMap.end())
+					it = passData->subsetGEPMap.emplace(Range, NoBlocks).first;
+				it->second.insert(&BB);
+			}
+		}
+	}
+	for (auto x : passData->subsetGEPMap)
+	{
+		x.second.simplify();
+	}
+	//Then we do a second pass, to collect order (used to compare Instruction), the actual GEP list (in orderedGeps) and fill validGEPMap
 	//order will be used to compare two Instruction. Inserting NULL here means
 	//shorter subset will appear first (like in a dictionary, CAT < CATS)
 	//This is required by GEPRecursionData::optimizeGEPsRecursive
@@ -1127,7 +1157,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 				auto it = passData->validGEPMap.find(Range);
 				if(it == passData->validGEPMap.end())
 				{
-					ValidGEPGraph VG(&F, passData->DT, Range, validBlocks);
+					ValidGEPGraph VG(&F, passData->DT, Range, validBlocks, passData->subsetGEPMap.find(Range)->second);
 					//ValidBlocks contains all the blocks that:
 					//1- either leads from every possibly path to a node using a GEP
 					//2- or thery are a child to such a node (in the DT)
@@ -1166,6 +1196,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 	data.compressGEPTree(ShortGEPPolicy::ALLOWED);
 
 	validGEPMap.clear();
+	subsetGEPMap.clear();
 
 	return data.anyChange();
 }

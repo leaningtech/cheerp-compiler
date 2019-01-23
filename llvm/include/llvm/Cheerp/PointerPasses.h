@@ -334,8 +334,8 @@ public:
 	class ValidGEPGraph {
 		using GEPRange = GEPOptimizer::GEPRange;
 	public:
-		explicit ValidGEPGraph(Function* F, DominatorTree* DT, GEPRange Range, const ValidGEPLocations& Subset)
-			: F(F), Range(Range)
+		explicit ValidGEPGraph(Function* F, DominatorTree* DT, GEPRange Range, const ValidGEPLocations& Subset, const ValidGEPLocations& isRangeValid)
+			: F(F), Range(Range), isRangeValid(isRangeValid)
 		{
 			for (auto DI = df_begin(DT), DE = df_end(DT); DI != DE;)
 			{
@@ -363,17 +363,7 @@ public:
 			{}
 			bool isValidForGEP()
 			{
-				for (auto& I: *BB)
-				{
-					if (const GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(&I))
-					{
-						if (G.Range.subsetOf(GEPRange::createGEPRange(GEP)))
-						{
-							return true;
-						}
-					}
-				}
-				return false;
+				return G.isRangeValid.count(BB);
 			}
 			void printAsOperand(llvm::raw_ostream& o, bool b)
 			{
@@ -560,6 +550,7 @@ public:
 	private:
 		Function* F;
 		GEPRange Range;
+		const ValidGEPLocations& isRangeValid;
 		NodeMap Nodes;
 		std::vector<Node*> ValidNodes;
 	};
@@ -618,6 +609,7 @@ private:
 	typedef std::unordered_map<GEPRange, ValidGEPLocations, GEPRangeHasher> ValidGEPMap;
 	DominatorTree* DT;
 	ValidGEPMap validGEPMap;
+	ValidGEPMap subsetGEPMap;
 	Instruction* hoistGEP(Instruction* I, const GEPRange& R);
 
 	static bool isConstantZero(const Value* value)
