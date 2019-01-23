@@ -1024,16 +1024,14 @@ void BlockListRenderer::render()
 
 		if (BS.UseSwitch)
 		{
-			// The nested blocks in the block list are in reverse order
-			// of the successor order
-			std::reverse(Nested.begin(), Nested.end());
+			// The sort the nested blocks by their order in the block list
 			assert(isa<SwitchInst>(BB->getTerminator()));
 			auto sw = cast<SwitchInst>(BB->getTerminator());
-			assert(std::is_sorted(Nested.begin(), Nested.end(), [&](int i1, int i2) {
+			std::sort(Nested.begin(), Nested.end(), [&](int i1, int i2) {
 				BasicBlock* b1 = i1 == -1 ? sw->getDefaultDest() : sw->getSuccessor(i1);
 				BasicBlock* b2 = i2 == -1 ? sw->getDefaultDest() : sw->getSuccessor(i2);
 				return BlockIdMap.at(b1) < BlockIdMap.at(b2);
-			}));
+			});
 			ri.renderSwitchBlockBegin(sw, Jumps, Nested);
 		}
 		if (!BS.IsBranchRoot)
