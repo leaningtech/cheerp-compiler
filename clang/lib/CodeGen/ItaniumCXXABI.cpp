@@ -675,7 +675,7 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                                   llvm::Intrinsic::cheerp_downcast, types);
 
-    llvm::Value* ThisNotZero = Builder.CreateBitCast(Builder.CreateCall2(intrinsic, This, Adj), This->getType());
+    llvm::Value* ThisNotZero = Builder.CreateBitCast(Builder.CreateCall(intrinsic, {This, Adj}), This->getType());
     Builder.CreateBr(FnNonVirtual);
     CGF.EmitBlock(FnNonVirtual);
     llvm::PHINode* NewThis = Builder.CreatePHI(This->getType(), 2);
@@ -1594,7 +1594,7 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
     CGF.EmitBlock(DynamicBB);
     llvm::Type* Tys[] = { DestLTy, DynCastObj->getType() };
     llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(), llvm::Intrinsic::cheerp_downcast, Tys);
-    llvm::Value* DynamicDowncast = CGF.Builder.CreateCall2(intrinsic, DynCastObj, Value);
+    llvm::Value* DynamicDowncast = CGF.Builder.CreateCall(intrinsic, {DynCastObj, Value});
     CGF.Builder.CreateBr(EndBB);
     // If the returned offset is zero, we can passthrough the value
     llvm::BasicBlock *ZeroBB = CGF.createBasicBlock("cheerp_null_downcast");
