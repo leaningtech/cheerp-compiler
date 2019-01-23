@@ -99,7 +99,7 @@ static void callGlobalConstructorsOnStart(llvm::Module& M, GlobalDepsAnalyzer& G
 		if (F->getSection() != StringRef("asmjs"))
 			continue;
 
-		builder.CreateCall(F);
+		builder.CreateCall(F, {});
 	}
 
 	builder.CreateRet(nullptr);

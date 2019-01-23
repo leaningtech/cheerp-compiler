@@ -36,7 +36,7 @@ static Function* getOrCreateGetStackWrapper(Module* M)
 	BasicBlock* entry = BasicBlock::Create(M->getContext(),"entry", wrapper);
 	IRBuilder<> Builder(entry);
 	Function* getStackIntr = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
-	Value* ret = Builder.CreateCall(getStackIntr, "savedStack");
+	Value* ret = Builder.CreateCall(getStackIntr, {}, "savedStack");
 	Builder.CreateRet(ret);
 
 	wrapper->setSection("asmjs");
@@ -185,7 +185,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 	Value* savedStack = nullptr;
 	if (needFrame)
 	{
-		savedStack = Builder.CreateCall(getStack, "savedStack");
+		savedStack = Builder.CreateCall(getStack, {}, "savedStack");
 		Value* newStack = Builder.CreateGEP(savedStack, ConstantInt::get(int32Ty, -nbytes, true));
 		Builder.CreateCall(setStack, newStack);
 	}
@@ -218,7 +218,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 		aligned = Builder.CreateAnd(aligned, mask);
 
 		Value* offset = Builder.CreateSub(ConstantInt::get(int32Ty, 0, true), aligned);
-		Value* stackPtr = Builder.CreateCall(getStack);
+		Value* stackPtr = Builder.CreateCall(getStack, {});
 		Value* gep = Builder.CreateGEP(stackPtr, offset);
 		Builder.CreateCall(setStack, gep);
 		gep  = Builder.CreateBitCast(gep, a.first->getType());
@@ -259,7 +259,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 		size_t varargParamNum = totalParamNum - fixedParamsNum;
 
 		IRBuilder<> Builder(ci);
-		Value* stackPtr = Builder.CreateCall(getStack);
+		Value* stackPtr = Builder.CreateCall(getStack, {});
 		// Each argument pushed is 8 bytes in size
 		Constant* pushOffset = ConstantInt::get(int32Ty, -varargParamNum*8, false);
 		Value* pushedStackPtr = Builder.CreateGEP(stackPtr, pushOffset);
