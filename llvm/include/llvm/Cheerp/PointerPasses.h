@@ -337,22 +337,24 @@ public:
 		explicit ValidGEPGraph(Function* F, DominatorTree* DT, GEPRange Range, const ValidGEPLocations& Subset, const ValidGEPLocations& isRangeValid)
 			: F(F), Range(Range), isRangeValid(isRangeValid)
 		{
+			for (auto BB : isRangeValid.getRoots())
+			{
+				ValidNodes.push_back(getOrCreate(BB));
+			}
+			// Here we create explicitly nodes that is it worth visiting
+			// (skipping all the nodes dominated by a valid node, since they are already valid, and there is no need to double check them)
+			// Nodes have to be created here, since the iterators currently require them to be already created
 			for (auto DI = df_begin(DT), DE = df_end(DT); DI != DE;)
 			{
 				Node* N = getOrCreate(DI->getBlock());
-				if (N->isValidForGEP())
+				if (isRangeValid.getRoots().count(DI->getBlock()))
 				{
-					ValidNodes.push_back(N);
 					DI.skipChildren();
 				}
 				else
 				{
 					++DI;
 				}
-			}
-			for (auto* BB: Subset.getRoots())
-			{
-				getOrCreate(BB);
 			}
 			getOrCreate(nullptr);
 		}
@@ -361,9 +363,18 @@ public:
 			ValidGEPGraph& G;
 			explicit Node(BasicBlock* BB, ValidGEPGraph& G): BB(BB), G(G)
 			{}
+			//General version
 			bool isValidForGEP()
 			{
 				return G.isRangeValid.count(BB);
+			}
+			//Specialized version
+			// If we are looking only at successors, it suffice to check that the BasicBlock is one
+			// of the roots of the forest (in the DT tree). It is never possible to "skip" a root and
+			// visit a successor of the root without visiting the root first
+			bool isValidForGEPSuccessor()
+			{
+				return G.isRangeValid.getRoots().count(BB);
 			}
 			void printAsOperand(llvm::raw_ostream& o, bool b)
 			{
@@ -394,12 +405,11 @@ public:
 					Idx = 0;
 					return;
 				}
-				Idx = N->isValidForGEP() ? -1 : 0;
-				skipOutOfSubset();
+				Idx = N->isValidForGEPSuccessor() ? -1 : 0;
 			}
 			explicit SuccIterator(Node* N, bool): N(N)
 			{
-				if (N->BB && !N->isValidForGEP())
+				if (N->BB && !N->isValidForGEPSuccessor())
 					Idx = N->BB->getTerminator()->getNumSuccessors();
 				else
 					Idx = 0;
@@ -414,7 +424,6 @@ public:
 			SuccIterator& operator++()
 			{
 				++Idx;
-				skipOutOfSubset();
 				return *this;
 			}
 			SuccIterator operator++(int)
@@ -426,23 +435,6 @@ public:
 				return std::tie(N, Idx) == std::tie(I.N, I.Idx);
 			}
 		private:
-			void skipOutOfSubset()
-			{
-				if (Idx == -1)
-					return;
-				auto end = SuccIterator(N, true);
-				while (*this != end)
-				{
-					if (!N->G.Nodes.count(N->BB->getTerminator()->getSuccessor(Idx)))
-					{
-						Idx++;
-					}
-					else
-					{
-						return;
-					}
-				}
-			}
 			Node* N;
 			int Idx;
 
@@ -463,8 +455,10 @@ public:
 					while(It != pred_end(N->BB))
 					{
 						Node* N = this->operator*();
-						if (N->isValidForGEP() || !N->G.Nodes.count(N->BB))
+						if (N->isValidForGEP())
+						{
 							It++;
+						}
 						else
 							return;
 					}
@@ -505,15 +499,15 @@ public:
 			}
 			bool operator==(const Self& x) const
 			{
+				if (VirtualNode != x.VirtualNode)
+					return false;
 				if (VirtualNode)
 					return VirtIt == x.VirtIt;
 				return It == x.It;
 			}
 			bool operator!=(const Self& x) const
 			{
-				if (VirtualNode)
-					return VirtIt != x.VirtIt;
-				return It != x.It;
+				return !(this->operator==(x));
 			}
 			reference operator*() const
 			{
@@ -545,7 +539,7 @@ public:
 			}
 		};
 
-		typedef std::unordered_map<BasicBlock*, Node> NodeMap;
+		typedef std::map<BasicBlock*, Node> NodeMap;
 		friend struct GraphTraits<ValidGEPGraph*>;
 	private:
 		Function* F;
