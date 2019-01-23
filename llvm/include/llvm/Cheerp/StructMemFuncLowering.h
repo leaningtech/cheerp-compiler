@@ -30,6 +30,7 @@ private:
 				Type* pointedType, Value* dst, Value* src, Value* elementsCount);
 	void createForwardLoop(IRBuilder<>* IRB, BasicBlock* BB, BasicBlock* endLoop, BasicBlock* memfuncBody,
 				Type* pointedType, Value* dst, Value* src, Value* elementsCount, MODE);
+	static bool isDoubleAggregate(llvm::Type* t);
 	SmallVector<BasicBlock*, 10> basicBlocks;
 	const DataLayout* DL;
 public:

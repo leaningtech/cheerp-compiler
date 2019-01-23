@@ -264,6 +264,27 @@ void StructMemFuncLowering::createBackwardLoop(IRBuilder<>* IRB, BasicBlock* pre
 		IRB->CreateBr(endBlock);
 }
 
+bool StructMemFuncLowering::isDoubleAggregate(llvm::Type* t)
+{
+	if(StructType* ST = dyn_cast<StructType>(t))
+	{
+		for(uint32_t i=0;i<ST->getNumElements();i++)
+		{
+			if(!isDoubleAggregate(ST->getElementType(i)))
+				return false;
+		}
+		return true;
+	}
+	else if(ArrayType* AT = dyn_cast<ArrayType>(t))
+	{
+		return isDoubleAggregate(AT->getElementType());
+	}
+	else if(t->isDoubleTy())
+		return true;
+	else
+		return false;
+}
+
 bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 {
 	BasicBlock::iterator it=BB.begin();
@@ -309,7 +330,18 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			uint32_t sizeInt = sizeConst->getZExtValue();
 			uint32_t alignInt = cast<ConstantInt>(CI->getOperand(3))->getZExtValue();
 			assert(alignInt != 0);
-			if (alignInt % 4 == 0 && sizeInt % 4 == 0) {
+			// Take advantage of double moves when available
+			if (alignInt % 8 == 0 && sizeInt % 8 == 0 &&
+					isDoubleAggregate(dst->getType()->getPointerElementType()) &&
+					(mode==MEMSET || isDoubleAggregate(src->getType()->getPointerElementType()))) {
+				Type* doubleType = Type::getDoubleTy(BB.getContext());
+				IRBuilder<>* IRB = new IRBuilder<>(CI);
+				dst = IRB->CreateBitCast(dst, doubleType->getPointerTo());
+				// In MEMSET mode src is the i8 value to write
+				if(mode != MEMSET)
+					src = IRB->CreateBitCast(src, doubleType->getPointerTo());
+				pointedType = doubleType;
+			} else if (alignInt % 4 == 0 && sizeInt % 4 == 0) {
 				IRBuilder<>* IRB = new IRBuilder<>(CI);
 				dst = IRB->CreateBitCast(dst, int32Type->getPointerTo());
 				// In MEMSET mode src is the i8 value to write
