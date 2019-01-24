@@ -915,11 +915,15 @@ const Instruction* getUniqueIncomingInst(const Value* v, const PointerAnalyzer& 
 {
 	while(const Instruction* I = dyn_cast<Instruction>(v))
 	{
-		// TODO: Support some bitcasts here
 		if(!isInlineable(*I, PA))
 			return I;
 		else if(I->getOpcode() == Instruction::Trunc)
 			v = I->getOperand(0);
+		else if(I->getOpcode() == Instruction::BitCast && PA.getPointerKind(I) == RAW)
+		{
+			// TODO: Expand this logic to support other cases where a bitcast is a nop (when no kind conversion is required?)
+			v = I->getOperand(0);
+		}
 		else
 			break;
 	}
