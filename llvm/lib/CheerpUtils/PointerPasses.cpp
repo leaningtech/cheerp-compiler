@@ -522,6 +522,23 @@ bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
 		blocks.push_back(&BB);
 	for ( BasicBlock* BB : blocks )
 	{
+		// TODO: This should be another pass
+		if(BranchInst* BI = dyn_cast<BranchInst>(BB->getTerminator()))
+		{
+			if(BI->isConditional())
+			{
+				if(FCmpInst* FC = dyn_cast<FCmpInst>(BI->getCondition()))
+				{
+					if(CmpInst::isUnordered(FC->getPredicate()) && FC->getNumUses() == 1)
+					{
+						// Invert the condition and swap the targets
+						FC->setPredicate(FC->getInversePredicate());
+						BI->swapSuccessors();
+						Changed = true;
+					}
+				}
+			}
+		}
 		for ( BasicBlock::iterator it = BB->begin(); it != BB->end(); )
 		{
 			PHINode * phi = dyn_cast<PHINode>(it++);
