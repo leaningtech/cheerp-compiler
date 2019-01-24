@@ -2431,6 +2431,22 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			} else {
 				compileOperand(code, ptrOp);
 			}
+			// Special case writing 0 to floats/double
+			if(valOp->getType()->isFloatingPointTy() && isa<Constant>(valOp) && cast<Constant>(valOp)->isNullValue())
+			{
+				if(valOp->getType()->isFloatTy())
+				{
+					encodeS32Inst(0x41, "i32.const", 0, code);
+					encodeU32U32Inst(0x36, "i32.store", 0x2, offset, code);
+				}
+				else
+				{
+					assert(valOp->getType()->isDoubleTy());
+					encodeS32Inst(0x42, "i64.const", 0, code);
+					encodeU32U32Inst(0x37, "i64.store", 0x3, offset, code);
+				}
+				break;
+			}
 			// 2) The value
 			compileOperand(code, valOp);
 			// 3) Store
