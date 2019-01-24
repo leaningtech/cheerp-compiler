@@ -307,7 +307,7 @@ public:
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
-	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<JumpCase>& jumpCases, const std::vector<int>& nestedCases);
+	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
@@ -329,8 +329,7 @@ public:
 };
 
 void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* si,
-	const std::vector<JumpCase>& jumpCases,
-	const std::vector<int>& nestedCases)
+	const std::vector<int>& cases)
 {
 	const Value* cond = si->getCondition();
 
@@ -359,7 +358,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 
 	uint32_t caseBlocks = 0;
 	std::unordered_map<BasicBlock*, uint32_t> blockLabelMap;
-	auto handleCase = [&](int i)
+	for (int i: cases)
 	{
 		BasicBlock* dest = i == -1 ? si->getSuccessor(0) : si->getSuccessor(i);
 		auto it = blockLabelMap.find(dest);
@@ -375,14 +374,6 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 			auto cv = cast<ConstantInt>(si->getOperand(2*i));
 			table.at(cv->getSExtValue() - min) = it->second;
 		}
-	};
-	for (auto& c: jumpCases)
-	{
-		handleCase(c.idx);
-	}
-	for (int i: nestedCases)
-	{
-		handleCase(i);
 	}
 
 	// Elements that are not set, will jump to the default block.
@@ -421,25 +412,6 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 	writer->encodeInst(0x0b, "end", code);
 
 	blockTypes.emplace_back(SWITCH, caseBlocks);
-
-	// Print the jump cases
-	SmallPtrSet<BasicBlock*, 4> visited;
-	for (auto& c: jumpCases)
-	{
-		BasicBlock* cb = c.idx == -1 ? defaultDest : si->getSuccessor(c.idx);
-		if (!visited.insert(cb).second)
-			continue;
-		renderCaseBlockBegin(nullptr, 0);
-		renderBlockPrologue(cb, si->getParent());
-		if (c.kind == JumpCase::BREAK)
-			renderBreak(c.label);
-		else if (c.kind == JumpCase::CONTINUE)
-			renderContinue(c.label);
-		else
-			renderBreak();
-		renderBlockEnd(false);
-	}
-
 }
 
 void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
