@@ -670,6 +670,7 @@ private:
 	void renderDefaultJumpBranch(const Block& From, const Block& To, const std::vector<int>& EmptyIds, bool First);
 	void renderDirectBranch(const Block& From, const Block& To);
 	std::vector<int> renderJumpBranches(const Block& B);
+	void renderSwitchJumpBranches(const Block& B);
 	void render();
 
 	bool isEmptyPrologue(BasicBlock* From, BasicBlock* To);
@@ -819,10 +820,71 @@ std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B)
 	}
 	return EmptyIds;
 }
+void BlockListRenderer::renderSwitchJumpBranches(const Block& B)
+{
+	int DefaultIdx = getDefaultBranchIdx(B.getBB());
+	BasicBlock* Default = DefaultIdx != -1 ? B.getBB()->getTerminator()->getSuccessor(DefaultIdx) : nullptr;
+	int BrIdx = 0;
+	SmallPtrSet<BasicBlock*, 2> Visited;
+	for (auto S = succ_begin(B.getBB()), SE = succ_end(B.getBB()); S != SE; ++S, ++BrIdx)
+	{
+		if (BrIdx==DefaultIdx)
+		{
+			continue;
+		}
+		const Block& To = getBlock(*S);
+		RenderBranchCase BC = BranchesStates.at(B.getBB()).Cases.at(*S);
+		// If multiple branches have the same destination, process only the first one.
+		// The RenderInterface will take care of rendering a compound condition
+		if (!Visited.insert(*S).second)
+		{
+			continue;
+		}
+		switch (BC)
+		{
+			case RenderBranchCase::EMPTY:
+			case RenderBranchCase::JUMP:
+				ri.renderCaseBlockBegin(B.getBB(), BrIdx);
+				ri.renderBlockPrologue(To.getBB(), B.getBB());
+				if (!To.isNaturalPred(B.getId()))
+					renderJump(B, To);
+				else
+					ri.renderBreak();
+				ri.renderBlockEnd();
+				break;
+			case RenderBranchCase::DIRECT:
+				report_fatal_error("A direct branch can never be a part of a switch");
+				break;
+			case RenderBranchCase::NESTED:
+				break;
+		}
+	}
+	if (Default)
+	{
+		const Block& DefaultB = getBlock(Default);
+		switch (BranchesStates.at(B.getBB()).DefaultCase)
+		{
+			case RenderBranchCase::EMPTY:
+			case RenderBranchCase::JUMP:
+				ri.renderDefaultBlockBegin(false);
+				ri.renderBlockPrologue(Default, B.getBB());
+				if (!DefaultB.isNaturalPred(B.getId()))
+					renderJump(B, DefaultB);
+				else
+					ri.renderBreak();
+				ri.renderBlockEnd();
+				break;
+			case RenderBranchCase::DIRECT:
+				report_fatal_error("A direct branch can never be a part of a switch");
+				break;
+			case RenderBranchCase::NESTED:
+				break;
+		}
+	}
+}
 
 void BlockListRenderer::render()
 {
-	using JumpCase = RenderInterface::JumpCase;
 	for (int id = 0; id <(int) BlockList.size(); ++id)
 	{
 		const Block& B = getBlock(id);
@@ -879,7 +941,10 @@ void BlockListRenderer::render()
 					else
 						ScopeStack.push_back(&scope);
 					if (BrId == -1)
+					{
+						renderSwitchJumpBranches(From);
 						ri.renderDefaultBlockBegin(false);
+					}
 					else
 						ri.renderCaseBlockBegin(From.getBB(), BrId);
 				}
@@ -908,17 +973,22 @@ void BlockListRenderer::render()
 				auto it = BranchesStates.find(From.getBB());
 				assert(it != BranchesStates.end());
 				auto& BS = it->second;
+				bool DoRenderJumpBranches = BS.IsBranchRoot && BS.DefaultCase != RenderBranchCase::NESTED;
 				if (BS.UseSwitch)
 				{
 					ri.renderBreak();
 					ri.renderBlockEnd();
+					if (DoRenderJumpBranches)
+					{
+						renderSwitchJumpBranches(From);
+					}
 					ri.renderBlockEnd();
 					assert(ScopeStack.back()->kind == Block::BRANCH);
 					ScopeStack.pop_back();
 				}
 				else
 				{
-					if (BS.IsBranchRoot && BS.DefaultCase != RenderBranchCase::NESTED)
+					if (DoRenderJumpBranches)
 					{
 						renderJumpBranches(From);
 					}
@@ -939,7 +1009,7 @@ void BlockListRenderer::render()
 		auto& BS = BranchesStates[BB];
 		BS.IsBranchRoot = Scope && Scope->start == B.getId();
 		BS.UseSwitch = CheerpWriter::useSwitch(BB->getTerminator());
-		std::vector<JumpCase> Jumps;
+		std::vector<int> Jumps;
 		std::vector<int> Nested;
 
 		int DefaultIdx = getDefaultBranchIdx(BB);
@@ -961,26 +1031,12 @@ void BlockListRenderer::render()
 			else if (isEmptyPrologue(BB, Succ) && SuccB.isNaturalPred(B.getId()))
 			{
 				BS.Cases.emplace(Succ, RenderBranchCase::EMPTY);
-				Jumps.push_back({Idx, -1, SuccB.getId() <= B.getId()? JumpCase::CONTINUE : JumpCase::NATURAL});
+				Jumps.push_back(Idx);
 			}
 			else
 			{
 				BS.Cases.emplace(Succ, RenderBranchCase::JUMP);
-				if (SuccB.isNaturalPred(B.getId()))
-				{
-					Jumps.push_back({Idx, -1, JumpCase::NATURAL});
-				}
-				else
-				{
-					auto S = getJumpScope(ScopeStack, B, SuccB);
-					auto it = labels.find(S.first);
-					int l = it == labels.end() ? -1 : it->second;
-					if (l==-1)
-					{
-						assert(!BS.UseSwitch);
-					}
-					Jumps.push_back({Idx, l, SuccB.getId() <= B.getId()? JumpCase::CONTINUE : JumpCase::BREAK});
-				}
+				Jumps.push_back(Idx);
 			}
 			Idx++;
 		}
@@ -993,32 +1049,14 @@ void BlockListRenderer::render()
 			else if (SuccScope && SuccScope->start == B.getId())
 			{
 				BS.DefaultCase = RenderBranchCase::NESTED;
-				// The default is first in successor order
-				Nested.insert(Nested.begin(), -1);
 			}
 			else if (isEmptyPrologue(BB, DefaultB.getBB()) && DefaultB.isNaturalPred(B.getId()))
 			{
 				BS.DefaultCase = RenderBranchCase::EMPTY;
-				Jumps.push_back({-1, -1, DefaultB.getId() <= B.getId()? JumpCase::CONTINUE : JumpCase::NATURAL});
 			}
 			else
 			{
 				BS.DefaultCase = RenderBranchCase::JUMP;
-				if (DefaultB.isNaturalPred(B.getId()))
-				{
-					Jumps.push_back({-1, -1, JumpCase::NATURAL});
-				}
-				else
-				{
-					auto S = getJumpScope(ScopeStack, B, DefaultB);
-					auto it = labels.find(S.first);
-					int l = it == labels.end() ? -1 : it->second;
-					if (l==-1)
-					{
-						assert(!BS.UseSwitch);
-					}
-					Jumps.push_back({-1, l, DefaultB.getId() <= B.getId()? JumpCase::CONTINUE : JumpCase::BREAK});
-				}
 			}
 		}
 
@@ -1032,12 +1070,21 @@ void BlockListRenderer::render()
 				BasicBlock* b2 = i2 == -1 ? sw->getDefaultDest() : sw->getSuccessor(i2);
 				return BlockIdMap.at(b1) < BlockIdMap.at(b2);
 			});
-			ri.renderSwitchBlockBegin(sw, Jumps, Nested);
+			Jumps.insert(Jumps.begin(), Nested.begin(), Nested.end());
+			// The default is always last
+			Jumps.push_back(-1);
+			ri.renderSwitchBlockBegin(sw, Jumps);
 		}
 		if (!BS.IsBranchRoot)
 		{
 			if (BS.UseSwitch)
+			{
+				Block::Scope SwitchScope {Block::BRANCH, B.getId(), B.getId(), false};
+				ScopeStack.push_back(&SwitchScope);
+				renderSwitchJumpBranches(B);
+				ScopeStack.pop_back();
 				ri.renderBlockEnd();
+			}
 			else
 				renderJumpBranches(B);
 		}
