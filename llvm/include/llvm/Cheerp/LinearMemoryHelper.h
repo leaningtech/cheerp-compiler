@@ -181,7 +181,7 @@ public:
 	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA,
 		uint32_t memorySize, uint32_t stackSize):
 		module(module), mode(mode), globalDeps(GDA), builtinIds{{0}}, maxFunctionId(0),
-		memorySize(memorySize*1024*1024), stackSize(1024*1024)
+		memorySize(memorySize*1024*1024), stackSize(stackSize*1024*1024)
 	{
 		addFunctions();
 		addStack();
