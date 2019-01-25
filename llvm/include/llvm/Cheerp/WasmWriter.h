@@ -138,6 +138,8 @@ private:
 	// Returns true if, by potentially inverting commutative instructions, there is a way
 	// to use the last written register as the first operand
 	bool mayHaveLastWrittenRegAsFirstOperand(const llvm::Value* v) const;
+	// Returns the constant unsigned offset to use in the load/store
+	uint32_t compileLoadStorePointer(WasmBuffer& code, const llvm::Value* ptrOp);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	struct WasmBytesWriter: public LinearMemoryHelper::ByteListener
