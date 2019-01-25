@@ -5620,11 +5620,11 @@ void CheerpWriter::makeJS()
 		}
 		stream << "}})" << NewLine;
 		stream << ",console.log).then(r=>{" << NewLine;
-		stream << "var instance=r.instance;" << NewLine;
+		stream << "var i=r.instance;" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
-			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
-		stream << "__asm=instance.exports;" << NewLine;
-		stream << "__heap=instance.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
+			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
+		stream << "__asm=i.exports;" << NewLine;
+		stream << "__heap=i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
 	}
 	//Load asm.js module
 	else if (globalDeps.needAsmJS() && asmJSMem)
@@ -5666,7 +5666,7 @@ void CheerpWriter::makeJS()
 	if ( const Function * entryPoint = globalDeps.getEntryPoint() )
 	{
 		if (!wasmFile.empty() && entryPoint->getSection() == StringRef("asmjs"))
-			stream << "instance.exports.";
+			stream << "i.exports.";
 		else if (wasmFile.empty() && entryPoint->getSection() == StringRef("asmjs"))
 			stream << "__asm.";
 		stream << namegen.getName(entryPoint) << "();" << NewLine;
