@@ -307,7 +307,7 @@ public:
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
-	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases);
+	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int label);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
@@ -329,7 +329,7 @@ public:
 };
 
 void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* si,
-	const std::vector<int>& cases)
+	const std::vector<int>& cases, int label)
 {
 	const Value* cond = si->getCondition();
 
@@ -411,7 +411,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 
 	writer->encodeInst(0x0b, "end", code);
 
-	blockTypes.emplace_back(SWITCH, caseBlocks);
+	blockTypes.emplace_back(SWITCH, caseBlocks, label);
 }
 
 void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
