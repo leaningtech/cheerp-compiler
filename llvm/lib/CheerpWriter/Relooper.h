@@ -46,7 +46,7 @@ public:
 	virtual void renderSwitchOnLabel(IdShapeMap& idShapeMap) = 0;
 	virtual void renderCaseOnLabel(int labelId) = 0;
 	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, BlockBranchMap& branchesOut) = 0;
-	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases) = 0;
+	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int label) = 0;
 	virtual void renderCaseBlockBegin(const llvm::BasicBlock* caseBlock, int branchId) = 0;
 	virtual void renderDefaultBlockBegin(bool empty = false) = 0;
 	virtual void renderIfBlockBegin(const llvm::BasicBlock* condBlock, int branchId, bool first) = 0;
