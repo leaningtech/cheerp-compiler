@@ -652,6 +652,8 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[CREATE_CLOSURE_SPLIT] = "cheerpCreateClosureSplit";
 	builtins[CREATE_POINTER_ARRAY] = "createPointerArray";
 	builtins[GROW_MEM] = "growLinearMemory";
+	builtins[DUMMY] = "__dummy";
+	builtins[MEMORY] = "memory";
 	builtins[HANDLE_VAARG] = "handleVAArg";
 	builtins[LABEL] = "label";
 	builtins[STACKPTR] = "__stackPtr";

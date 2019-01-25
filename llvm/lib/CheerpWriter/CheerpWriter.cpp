@@ -702,9 +702,10 @@ void CheerpWriter::compileFree(const Value* obj)
 	stream << ".buffer==__heap)__asm.";
 	Function* Free = module.getFunction("free");
 	if (Free)
-		stream << namegen.getName(Free) << '(';
+		stream << namegen.getName(Free);
 	else
-		stream << "__dummy(";
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
+	stream << '(';
 	compilePointerOffset(obj, PARENT_PRIORITY::LOWEST);
 	stream << ')';
 }
@@ -1000,8 +1001,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::trap && asmjs)
 	{
-		//TODO: handle correctly when not in pretty mode
-		stream << "__dummy()";
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "()";
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::stacksave && asmjs)
@@ -4052,7 +4052,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				//Indirect call, asm.js mode
 				if (!linearHelper.getFunctionTables().count(fTy))
 				{
-					stream << "__dummy";
+					stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 				}
 				else
 				{
@@ -5158,9 +5158,9 @@ void CheerpWriter::compileGrowMem()
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM) << "(bytes){" << NewLine;
 	stream << "var pages=(bytes+65535)>>16;" << NewLine;
 	stream << "try{" << NewLine;
-	stream << "__asm.memory.grow(pages);" << NewLine;
+	stream << "__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".grow(pages);" << NewLine;
 	for (int i = HEAP8; i<=HEAPF64; i++)
-		stream << heapNames[i] << "=new " << typedArrayNames[i] << "(__asm.memory.buffer);" << NewLine;
+		stream << heapNames[i] << "=new " << typedArrayNames[i] << "(__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
 	stream << "return pages<<16;" << NewLine;
 	stream << "}catch(e){" << NewLine;
 	stream << "return -1;" << NewLine;
@@ -5402,7 +5402,7 @@ void CheerpWriter::makeJS()
 		}
 		compileMathDeclAsmJS();
 		compileBuiltins(true);
-		stream << "var __dummy=ffi.__dummy;" << NewLine;
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "=ffi." << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ";" << NewLine;
 		if (checkBounds)
 		{
 			stream << "var checkBoundsAsmJS=ffi.checkBoundsAsmJS;" << NewLine;
@@ -5459,11 +5459,11 @@ void CheerpWriter::makeJS()
 			stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
 		compileAsmJSImports();
 		compileAsmJSExports();
-		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
+		stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
 		stream << "var ffi = {" << NewLine;
 		stream << "heapSize:__heap.byteLength," << NewLine;
 		stream << "stackStart:" << linearHelper.getStackStart() << ',' << NewLine;
-		stream << "__dummy:__dummy," << NewLine;
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ":" << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "," << NewLine;
 		if (checkBounds)
 		{
 			stream << "checkBoundsAsmJS:checkBoundsAsmJS," << NewLine;
@@ -5479,7 +5479,7 @@ void CheerpWriter::makeJS()
 				name = (className + "." + funcName).str();
 			}
 			else if (imported->empty() && !TypeSupport::isClientGlobal(imported))
-				name = "__dummy";
+				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 			else if (imported->arg_size() == 0)
 				name = namegen.getName(imported);
 			else
@@ -5560,7 +5560,7 @@ void CheerpWriter::makeJS()
 		stream << "var __heap=null;" << NewLine;
 		compileAsmJSImports();
 		compileAsmJSExports();
-		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
+		stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
 		if (makeModule == MODULE_TYPE::COMMONJS)
 		{
 			stream << "module.exports=";
@@ -5572,7 +5572,7 @@ void CheerpWriter::makeJS()
 		}
 		stream << "fetchBuffer('" << sys::path::filename(wasmFile) << "').then(r=>" << NewLine;
 		stream << "WebAssembly.instantiate(r," << NewLine;
-		stream << "{imports:{" << NewLine;
+		stream << "{i:{" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			std::string name;
@@ -5584,7 +5584,7 @@ void CheerpWriter::makeJS()
 				name = (className + "." + funcName).str();
 			}
 			else if (imported->empty() && !TypeSupport::isClientGlobal(imported))
-				name = "__dummy";
+				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 			else if (imported->arg_size() == 0)
 				name = namegen.getName(imported);
 			else
@@ -5622,9 +5622,9 @@ void CheerpWriter::makeJS()
 		stream << ",console.log).then(r=>{" << NewLine;
 		stream << "var instance=r.instance;" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
-			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports.memory.buffer);" << NewLine;
+			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(instance.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
 		stream << "__asm=instance.exports;" << NewLine;
-		stream << "__heap=instance.exports.memory.buffer;" << NewLine;
+		stream << "__heap=instance.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
 	}
 	//Load asm.js module
 	else if (globalDeps.needAsmJS() && asmJSMem)
@@ -5680,7 +5680,7 @@ void CheerpWriter::makeJS()
 	}
 	if (!wasmFile.empty() || (globalDeps.needAsmJS() && asmJSMem))
 	{
-		stream << "},console.log).catch(console.log);" << NewLine;
+		stream << "},console.log,console.log);" << NewLine;
 	}
 	else if (makeModule == MODULE_TYPE::COMMONJS)
 	{

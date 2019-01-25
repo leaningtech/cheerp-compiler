@@ -3045,7 +3045,7 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, Funct
 
 	if (cheerpMode == CHEERP_MODE_WASM) {
 		// Encode the module name.
-		std::string moduleName = "imports";
+		std::string moduleName = "i";
 		internal::encodeULEB128(moduleName.size(), code);
 		code.write(moduleName.data(), moduleName.size());
 
@@ -3061,7 +3061,7 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, Funct
 		assert(found != linearHelper.getFunctionTypeIndices().end());
 		internal::encodeULEB128(found->second, code);
 	} else {
-		code << "(func (import \"imports\" \"";
+		code << "(func (import \"i\" \"";
 		code.write(fieldName.data(), fieldName.size());
 		code << "\")";
 		uint32_t numArgs = fTy->getNumParams();
@@ -3227,7 +3227,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			internal::encodeULEB128(minMemory, section);
 			internal::encodeULEB128(maxMemory, section);
 		} else {
-			section << "(memory (export \"memory\") " << minMemory << ' ' << maxMemory << ")\n";
+			section << "(memory (export \"" << namegen.getBuiltinName(NameGenerator::MEMORY).str() << "\") " << minMemory << ' ' << maxMemory << ")\n";
 		}
 	}
 
@@ -3281,7 +3281,7 @@ void CheerpWasmWriter::compileExportSection()
 	internal::encodeULEB128(exports.size() + 1, section);
 
 	// Encode the memory.
-	std::string name = "memory";
+	std::string name = namegen.getBuiltinName(NameGenerator::MEMORY);
 	internal::encodeULEB128(name.size(), section);
 	section.write(name.data(), name.size());
 	internal::encodeULEB128(0x02, section);

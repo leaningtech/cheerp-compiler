@@ -61,6 +61,8 @@ public:
 		LABEL,
 		STACKPTR,
 		GROW_MEM,
+		DUMMY,
+		MEMORY,
 		HANDLE_VAARG,
 		HEAP8,
 		HEAP16,
