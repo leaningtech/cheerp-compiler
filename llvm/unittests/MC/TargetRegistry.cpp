@@ -33,7 +33,7 @@ TEST(TargetRegistry, TargetHasArchType) {
     // We can't ask the predicate "Are you a function that always returns
     // false?"
     // So given that the cpp backend truly has no target arch, it is skipped.
-    if (Name != "cpp") {
+    if (Name != "cpp" && !Name.startswith("cheerp")) {
       Triple::ArchType Arch = Triple::getArchTypeForLLVMName(Name);
       EXPECT_NE(Arch, Triple::UnknownArch);
       ++Count;
