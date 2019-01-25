@@ -103,7 +103,7 @@ static std::pair<Scope*, bool> getJumpScope(
 	else
 	{
 		it = std::find_if(Scopes.rbegin(), Scopes.rend(), [&](const Block::Scope* S) {
-			return S->kind == Block::BLOCK && S->end == To.getId();
+			return (S->kind == Block::BLOCK || S->kind == Block::BRANCH) && S->end == To.getId();
 		});
 	}
 	assert(it != Scopes.rend() && "No scope for branching");
@@ -233,7 +233,7 @@ public:
 		}
 		void addBranch(Block& B)
 		{
-			auto S = B.insertScope(Block::Scope{Block::BRANCH, Root.getId(), -1, false});
+			auto S = B.insertScope(Block::Scope{Block::BRANCH, Root.getId(), -1, true});
 			Branches.push_back(std::make_pair(&B, S));
 		}
 		void addExit(Block& B)
@@ -500,6 +500,7 @@ void BlockListBuilder::removeExtraLabels()
 				ScopeStack.pop_back();
 				break;
 			case Block::BRANCH:
+				scope.label = false;
 				break;
 			case Block::BRANCH_END:
 			{
@@ -519,14 +520,17 @@ void BlockListBuilder::removeExtraLabels()
 		if (BB == nullptr)
 			break;
 
-		auto* BranchScope = BlockList[id+1].getBranchStart();
-		BranchScope = (BranchScope && BranchScope->start == B.getId()) ? BranchScope : nullptr;
-
 		// Switches are considered scopes for labeling purposes
 		bool UseSwitch = CheerpWriter::useSwitch(BB->getTerminator());
-		if (UseSwitch && BranchScope)
+		// In case of a switch, we need to push the BRANCH tag to the scope stack
+		auto* BranchScope = BlockList[id+1].getBranchStart();
+		BranchScope = (BranchScope && BranchScope->start == B.getId()) ? BranchScope : nullptr;
+		// If there is no BRANCH tag (no nested blocks), make one up anyway
+		auto SwitchScope = Block::Scope{Block::BRANCH, B.getId(), B.getId()+1, false};
+
+		if (UseSwitch)
 		{
-			ScopeStack.push_back(BranchScope);
+			ScopeStack.push_back(BranchScope ? BranchScope : &SwitchScope);
 		}
 		for (auto Succ: make_range(succ_begin(BB), succ_end(BB)))
 		{
@@ -534,11 +538,13 @@ void BlockListBuilder::removeExtraLabels()
 			if (SuccB.isNaturalPred(B.getId()))
 				continue;
 			auto TargetScope = getJumpScope(ScopeStack, B, SuccB);
-			if (!TargetScope.second | UseSwitch)
+			if (!TargetScope.second)
 			{
 				TargetScope.first->label = true;
 			}
 		}
+		if (UseSwitch && !BranchScope)
+			ScopeStack.pop_back();
 	}
 	assert(ScopeStack.empty());
 }
@@ -624,7 +630,18 @@ void BlockListBuilder::addBlockMarkers(Block& B)
 			PredId = s->start;
 		}
 	}
-	BlockList[PredId].insertScope(Block::Scope{Block::BLOCK, PredId, B.getId(), true});
+	Block& PredB = BlockList[PredId];
+
+	// If the new BLOCK scope would be equal to an already present switch, don't
+	// add it
+	auto S = BlockList[PredId+1].getBranchStart();
+	S = S && S->start == PredId ? S : nullptr;
+	if (S && S->end == B.getId() && CheerpWriter::useSwitch(PredB.getBB()->getTerminator()))
+	{
+		return;
+	}
+
+	PredB.insertScope(Block::Scope{Block::BLOCK, PredId, B.getId(), true});
 	B.insertScope(Block::Scope{Block::BLOCK_END, PredId, B.getId(), false});
 }
 
@@ -854,10 +871,7 @@ void BlockListRenderer::renderSwitchJumpBranches(const Block& B)
 			case RenderBranchCase::JUMP:
 				ri.renderCaseBlockBegin(B.getBB(), BrIdx);
 				ri.renderBlockPrologue(To.getBB(), B.getBB());
-				if (!To.isNaturalPred(B.getId()))
-					renderJump(B, To);
-				else
-					ri.renderBreak();
+				renderJump(B, To);
 				ri.renderBlockEnd();
 				break;
 			case RenderBranchCase::DIRECT:
@@ -876,10 +890,7 @@ void BlockListRenderer::renderSwitchJumpBranches(const Block& B)
 			case RenderBranchCase::JUMP:
 				ri.renderDefaultBlockBegin(false);
 				ri.renderBlockPrologue(Default, B.getBB());
-				if (!DefaultB.isNaturalPred(B.getId()))
-					renderJump(B, DefaultB);
-				else
-					ri.renderBreak();
+				renderJump(B, DefaultB);
 				ri.renderBlockEnd();
 				break;
 			case RenderBranchCase::DIRECT:
@@ -1081,13 +1092,19 @@ void BlockListRenderer::render()
 			Jumps.insert(Jumps.begin(), Nested.begin(), Nested.end());
 			// The default is always last
 			Jumps.push_back(-1);
-			ri.renderSwitchBlockBegin(sw, Jumps);
+			int label = 0;
+			if (BS.IsBranchRoot && Scope->label)
+			{
+				labels.emplace(Scope, next_label);
+				label = next_label++;
+			}
+			ri.renderSwitchBlockBegin(sw, Jumps, label);
 		}
 		if (!BS.IsBranchRoot)
 		{
 			if (BS.UseSwitch)
 			{
-				Block::Scope SwitchScope {Block::BRANCH, B.getId(), B.getId(), false};
+				Block::Scope SwitchScope {Block::BRANCH, B.getId(), B.getId()+1, false};
 				ScopeStack.push_back(&SwitchScope);
 				renderSwitchJumpBranches(B);
 				ScopeStack.pop_back();
