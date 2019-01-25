@@ -51,7 +51,7 @@ public:
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
-	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases);
+	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int label);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
@@ -4278,9 +4278,11 @@ bool CheerpWriter::isInlineableInstruction(const Value* v) const
 }
 
 void CheerpRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* si,
-	const std::vector<int>&)
+	const std::vector<int>&, int label)
 {
 	const Value* cond = si->getCondition();
+	if (label > 0)
+		writer->stream << 'L' << label << ':';
 	writer->stream << "switch(";
 	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 	writer->stream << "){" << NewLine;
