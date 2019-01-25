@@ -348,7 +348,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 	}
 
 	// There should be at least one default case and zero or more cases.
-	uint32_t depth = (max - min + 1) + 1;
+	uint32_t depth = max - min + 1;
 	assert(depth >= 1);
 
 	// Fill the jump table.
@@ -639,7 +639,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	}
 
 	// There should be at least one default case and zero or more cases.
-	uint32_t depth = (max - min + 1) + 1;
+	uint32_t depth = max - min + 1;
 	assert(depth >= 1);
 
 	// Fill the jump table.
