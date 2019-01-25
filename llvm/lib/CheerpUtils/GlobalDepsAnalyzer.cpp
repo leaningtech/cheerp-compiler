@@ -488,7 +488,8 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 				SubExprVec Newsubexpr (1, &GV->getOperandUse(0));
 				visitConstant( GV->getInitializer(), visited, Newsubexpr);
 				Type* globalType = GV->getInitializer()->getType();
-				visitType(globalType, /*forceTypedArray*/ true);
+				if(GV->getSection() != StringRef("asmjs"))
+					visitType(globalType, /*forceTypedArray*/ true);
 			}
 			varsOrder.push_back(GV);
 		}
@@ -557,12 +558,13 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 			if ( const AllocaInst* AI = dyn_cast<AllocaInst>(&I) )
 			{
 				Type* allocaType = AI->getAllocatedType();
-				visitType(allocaType, forceTypedArrays);
+				if(!isAsmJS)
+					visitType(allocaType, forceTypedArrays);
 			}
 			else if ( ImmutableCallSite(&I).isCall() || ImmutableCallSite(&I).isInvoke() )
 			{
 				DynamicAllocInfo ai (ImmutableCallSite(&I), DL, forceTypedArrays);
-				if ( ai.isValidAlloc() )
+				if ( !isAsmJS && ai.isValidAlloc() )
 				{
 					assert(!TypeSupport::isAsmJSPointer(ai.getCastedType()));
 					if ( ai.useCreatePointerArrayFunc() )
@@ -573,7 +575,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						visitStruct(ST);
 				}
 			}
-			if (I.getOpcode() == Instruction::VAArg)
+			if (!isAsmJS && I.getOpcode() == Instruction::VAArg)
 				hasVAArgs = true;
 			// Handle calls from asmjs module to outside and vice-versa
 			// and fill the info for the function tables
