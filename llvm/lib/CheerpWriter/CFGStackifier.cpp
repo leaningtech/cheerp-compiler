@@ -722,14 +722,22 @@ void BlockListRenderer::renderJump(const Block& From, const Block& To)
 		if (s.second)
 			ri.renderContinue();
 		else
-			ri.renderContinue(labels.at(s.first));
+		{
+			auto l = labels.find(s.first);
+			assert(l != labels.end() && "no label for continue");
+			ri.renderContinue(l->second);
+		}
 	}
 	else
 	{
 		if (s.second)
 			ri.renderBreak();
 		else
-			ri.renderBreak(labels.at(s.first));
+		{
+			auto l = labels.find(s.first);
+			assert(l != labels.end() && "no label for break");
+			ri.renderBreak(l->second);
+		}
 	}
 }
 void BlockListRenderer::renderJumpBranch(const Block& From, const Block& To, int BrId, bool First)
