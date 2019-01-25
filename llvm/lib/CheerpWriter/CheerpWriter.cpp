@@ -5208,7 +5208,7 @@ void CheerpWriter::compileAsmJSImports()
 {
 	for (const Function* F: globalDeps.asmJSImports())
 	{
-		if(F->empty()) continue;
+		if(F->empty() || F->arg_size() == 0) continue;
 
 		stream << "function _asm_" << namegen.getName(F) << '(';
 		const Function::const_arg_iterator A=F->arg_begin();
@@ -5480,6 +5480,8 @@ void CheerpWriter::makeJS()
 			}
 			else if (imported->empty() && !TypeSupport::isClientGlobal(imported))
 				name = "__dummy";
+			else if (imported->arg_size() == 0)
+				name = namegen.getName(imported);
 			else
 				name = ("_asm_"+namegen.getName(imported)).str();
 			stream << namegen.getName(imported) << ':' << name  << ',' << NewLine;
@@ -5572,6 +5574,8 @@ void CheerpWriter::makeJS()
 			}
 			else if (imported->empty() && !TypeSupport::isClientGlobal(imported))
 				name = "__dummy";
+			else if (imported->arg_size() == 0)
+				name = namegen.getName(imported);
 			else
 				name = ("_asm_"+namegen.getName(imported)).str();
 			stream << namegen.getName(imported) << ':' << name  << ',' << NewLine;
