@@ -5561,7 +5561,18 @@ void CheerpWriter::makeJS()
 		compileAsmJSImports();
 		compileAsmJSExports();
 		stream << "function __dummy() { throw new Error('this should be unreachable'); };" << NewLine;
-		stream << "var importObject={imports:{" << NewLine;
+		if (makeModule == MODULE_TYPE::COMMONJS)
+		{
+			stream << "module.exports=";
+		}
+		else
+		{
+			for (StringRef &className : exportedClassNames)
+				stream << className << ".promise=" << NewLine;
+		}
+		stream << "fetchBuffer('" << sys::path::filename(wasmFile) << "').then(r=>" << NewLine;
+		stream << "WebAssembly.instantiate(r," << NewLine;
+		stream << "{imports:{" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			std::string name;
@@ -5607,18 +5618,7 @@ void CheerpWriter::makeJS()
 			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
 			stream << ',' << NewLine;
 		}
-		stream << "}};" << NewLine;
-		if (makeModule == MODULE_TYPE::COMMONJS)
-		{
-			stream << "module.exports=";
-		}
-		else
-		{
-			for (StringRef &className : exportedClassNames)
-				stream << className << ".promise=" << NewLine;
-		}
-		stream << "fetchBuffer('" << sys::path::filename(wasmFile) << "').then(r=>" << NewLine;
-		stream << "WebAssembly.instantiate(r,importObject)" << NewLine;
+		stream << "}})" << NewLine;
 		stream << ",console.log).then(r=>{" << NewLine;
 		stream << "var instance=r.instance;" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
