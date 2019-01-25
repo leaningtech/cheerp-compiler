@@ -1946,29 +1946,50 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV
 	}
 }
 
-void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool signExtend)
+uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value* ptrOp)
 {
-	const Value* ptrOp=li.getPointerOperand();
 	uint32_t offset = 0;
-	// 1) The pointer
 	if(isa<Instruction>(ptrOp) && isInlineable(*cast<Instruction>(ptrOp), PA)) {
 		// Calling compileGEP is safe on any instruction
 		WasmGepWriter gepWriter(*this, code);
 		auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
-		compileOperand(code, p);
-		if(!gepWriter.first)
-			encodeInst(0x6a, "i32.add", code);
+		bool firstOperand = gepWriter.first;
+		if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
+		{
+			uint32_t address = linearHelper.getGlobalVariableAddress(GV);
+			offset += address;
+		}
+		else
+		{
+			compileOperand(code, p);
+			if(firstOperand)
+				firstOperand = false;
+			else
+				encodeInst(0x6a, "i32.add", code);
+		}
 		// The immediate offset of a load instruction is an unsigned
 		// 32-bit integer. Negative immediate offsets are not supported.
 		if (gepWriter.constPart < 0) {
 			encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
-			encodeInst(0x6a, "i32.add", code);
+			if(!firstOperand)
+				encodeInst(0x6a, "i32.add", code);
 		} else {
-			offset = gepWriter.constPart;
+			// There must be something on the stack
+			if (firstOperand)
+				encodeS32Inst(0x41, "i32.const", 0, code);
+			offset += gepWriter.constPart;
 		}
 	} else {
 		compileOperand(code, ptrOp);
 	}
+	return offset;
+}
+
+void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool signExtend)
+{
+	const Value* ptrOp=li.getPointerOperand();
+	// 1) The pointer
+	uint32_t offset = compileLoadStorePointer(code, ptrOp);
 	// 2) Load
 	encodeLoad(li.getType(), offset, code, signExtend);
 }
@@ -2411,26 +2432,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const StoreInst& si = cast<StoreInst>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
-			uint32_t offset = 0;
 			// 1) The pointer
-			if(isa<Instruction>(ptrOp) && isInlineable(*cast<Instruction>(ptrOp), PA)) {
-				// Calling compileGEP is safe on any instruction
-				WasmGepWriter gepWriter(*this, code);
-				auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
-				compileOperand(code, p);
-				if(!gepWriter.first)
-					encodeInst(0x6a, "i32.add", code);
-				// The immediate offset of a store instruction is an unsigned
-				// 32-bit integer. Negative immediate offsets are not supported.
-				if (gepWriter.constPart < 0) {
-					encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
-					encodeInst(0x6a, "i32.add", code);
-				} else {
-					offset = gepWriter.constPart;
-				}
-			} else {
-				compileOperand(code, ptrOp);
-			}
+			uint32_t offset = compileLoadStorePointer(code, ptrOp);
 			// Special case writing 0 to floats/double
 			if(valOp->getType()->isFloatingPointTy() && isa<Constant>(valOp) && cast<Constant>(valOp)->isNullValue())
 			{
