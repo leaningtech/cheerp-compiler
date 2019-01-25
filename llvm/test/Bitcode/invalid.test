@@ -72,11 +72,6 @@ RUN:   FileCheck --check-prefix=INVALID-TYPE %s
 
 INVALID-TYPE: Invalid type for value
 
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-fwdref-type-mismatch.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=FWDREF-TYPE %s
-
-FWDREF-TYPE: Invalid record
-
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-array-element-type.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=ELEMENT-TYPE %s
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-vector-element-type.bc 2>&1 | \
@@ -145,16 +140,6 @@ RUN: not --crash llvm-dis -disable-output %p/Inputs/invalid-abbrev-no-operands.b
 RUN:   FileCheck --check-prefix=ABBREV-NO-OPS %s
 
 ABBREV-NO-OPS: Abbrev record with no operands
-
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-array-operand-encoding.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=ARRAY-OP-ENC %s
-
-ARRAY-OP-ENC: Malformed block
-
-RUN: not llvm-dis -disable-output %p/Inputs/invalid-metadata-not-followed-named-node.bc 2>&1 | \
-RUN:   FileCheck --check-prefix=META-NOT-FOLLOWED-BY-NAMED-META %s
-
-META-NOT-FOLLOWED-BY-NAMED-META: Malformed block
 
 RUN: not llvm-dis -disable-output %p/Inputs/invalid-vector-length.bc 2>&1 | \
 RUN:   FileCheck --check-prefix=VECTOR-LENGTH %s
