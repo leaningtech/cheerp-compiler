@@ -1419,13 +1419,23 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	}
 
 	WasmGepWriter gepWriter(*this, code);
+	uint32_t base = 0;
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
-	compileOperand(code, p);
-	if(!gepWriter.first)
-		encodeInst(0x6a, "i32.add", code);
-	if (gepWriter.constPart) {
-		encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
-		encodeInst(0x6a, "i32.add", code);
+	bool firstOperand = gepWriter.first;
+	if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
+		base = linearHelper.getGlobalVariableAddress(GV);
+	else
+	{
+		compileOperand(code, p);
+		if(firstOperand)
+			firstOperand = false;
+		else
+			encodeInst(0x6a, "i32.add", code);
+	}
+	if (gepWriter.constPart + base) {
+		encodeS32Inst(0x41, "i32.const", gepWriter.constPart + base, code);
+		if(!firstOperand)
+			encodeInst(0x6a, "i32.add", code);
 	}
 }
 
