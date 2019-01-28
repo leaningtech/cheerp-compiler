@@ -83,27 +83,33 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	//TODO: Find out a better heuristic for inlining, it seems that computing
 	//may be faster even on more than 1 use
 	bool hasMoreThan1Use = I.hasNUsesOrMore(2);
+	// Do not inline the instruction if the use is in another block
+	// If this happen the instruction may have been hoisted outside a loop and we want to keep it there
+	auto isUserInOtherBlock = [](const Instruction& I)
+	{
+		return !I.use_empty() && cast<Instruction>(I.use_begin()->getUser())->getParent()!=I.getParent();
+	};
 	if(I.getOpcode()==Instruction::GetElementPtr)
 	{
-		// Geps with two operands are compactly encoding in binary wasm. The
-		// constant offset is part of the load or store opcode. For generic JS
-		// and asmjs, computing the gep in a local will not result in a smaller
-		// code size due to the overhead of additional type casts.
-		//
-		// Note that geps that are used in equal pointer comparisons should
-		// always be inlined. See also the assertions in
-		// |CheerpWriter::compileEqualPointersComparison|.
-		if (I.getNumOperands() == 2)
-			return true;
-
 		if(PA.getPointerKind(&I) == RAW)
 		{
 			// Geps with constant indices can be compactly encoded.
 			auto& gep = cast<GetElementPtrInst>(I);
 			if (gep.hasAllConstantIndices())
 				return true;
-			return !hasMoreThan1Use;
+			if (hasMoreThan1Use || isUserInOtherBlock(I))
+				return false;
+			return true;
 		}
+
+		// For generic JS, computing the gep in a local will not result
+		// in smaller code due to the overhead of additional type casts.
+		//
+		// Note that geps that are used in equal pointer comparisons should
+		// always be inlined. See also the assertions in
+		// |CheerpWriter::compileEqualPointersComparison|.
+		if (I.getNumOperands() == 2)
+			return true;
 
 		if (PA.getPointerKind(&I) == COMPLETE_OBJECT) {
 			auto type = cast<GetElementPtrInst>(I).getType()->getElementType();
@@ -157,9 +163,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	}
 	else if(!hasMoreThan1Use)
 	{
-		// Do not inline the instruction if the use is in another block
-		// If this happen the instruction may have been hoisted outside a loop and we want to keep it there
-		if(!I.use_empty() && cast<Instruction>(I.use_begin()->getUser())->getParent()!=I.getParent())
+		if(isUserInOtherBlock(I))
 			return false;
 		switch(I.getOpcode())
 		{
