@@ -3372,8 +3372,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			}
 		}
 	}
-	// Remove single use constants and assign global ids
-	uint32_t firstGlobalConstant = 1;
+	// Remove single use constants and decide encoding
 	auto it = globalizedConstants.begin();
 	auto itEnd = globalizedConstants.end();
 	while (it != itEnd)
@@ -3383,10 +3382,32 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			it = globalizedConstants.erase(it);
 		else
 		{
-			it->second.first = firstGlobalConstant++;
 			it->second.second = encoding;
 			++it;
 		}
+	}
+	// We need to order the constants by use count
+	struct GlobalConstant
+	{
+		const Constant* C;
+		uint32_t useCount;
+		GLOBAL_CONSTANT_ENCODING encoding;
+		bool operator<(const GlobalConstant& rhs) const
+		{
+			// TODO: We need to fully order these to keep the output consistent
+			return useCount < rhs.useCount;
+		}
+	};
+	std::vector<GlobalConstant> orderedConstants;
+	for(auto &it: globalizedConstants)
+		orderedConstants.push_back(GlobalConstant{it.first, it.second.first, it.second.second});
+
+	std::sort(orderedConstants.begin(), orderedConstants.end());
+
+	for(uint32_t i=0;i<orderedConstants.size();i++)
+	{
+		// Assign global id in the map, in reverse order
+		globalizedConstants[orderedConstants[orderedConstants.size() - i - 1].C].first = i+1;
 	}
 
 	{
@@ -3407,13 +3428,14 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			internal::encodeSLEB128(stackTop, section);
 			// Encode the end of the instruction sequence.
 			internal::encodeULEB128(0x0b, section);
-			for(auto& it: globalizedConstants)
+			// Render globals in reverse order
+			for(auto it = orderedConstants.rbegin(); it != orderedConstants.rend(); ++it)
 			{
-				const Constant* C = it.first;
-				assert(it.second.second != NONE);
+				const Constant* C = it->C;
+				assert(it->encoding != NONE);
 				// Constant type
 				uint32_t valType = 0;
-				switch(it.second.second)
+				switch(it->encoding)
 				{
 					case FULL:
 						valType = internal::getValType(C->getType());
@@ -3430,7 +3452,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 				internal::encodeULEB128(valType, section);
 				// Immutable -> 0
 				internal::encodeULEB128(0x00, section);
-				switch(it.second.second)
+				switch(it->encoding)
 				{
 					case FULL:
 					{
@@ -3439,7 +3461,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 					}
 					case INT:
 					{
-						const ConstantFP* CF = cast<ConstantFP>(it.first);
+						const ConstantFP* CF = cast<ConstantFP>(C);
 						int32_t intValue = 0;
 						bool ret = tryEncodeFloatAsInt(CF, intValue);
 						(void)ret;
@@ -3449,7 +3471,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 					}
 					case FLOAT32:
 					{
-						const ConstantFP* CF = cast<ConstantFP>(it.first);
+						const ConstantFP* CF = cast<ConstantFP>(C);
 						float floatValue = 0;
 						bool ret = tryEncodeFloat64AsFloat32(CF, floatValue);
 						(void)ret;
@@ -3465,12 +3487,12 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			}
 		} else {
 			section << "(global (mut i32) (i32.const " << stackTop << "))\n";
-			for(auto& it: globalizedConstants)
+			for(auto it = orderedConstants.rbegin(); it != orderedConstants.rend(); ++it)
 			{
-				const Constant* C = it.first;
-				assert(it.second.second != NONE);
+				const Constant* C = it->C;
+				assert(it->encoding != NONE);
 				const char* strType = nullptr;
-				switch(it.second.second)
+				switch(it->encoding)
 				{
 					case FULL:
 						strType = getTypeString(C->getType());
@@ -3486,7 +3508,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 				}
 				stream << "(global " << strType << " (";
 				// Compile the constant expression
-				switch(it.second.second)
+				switch(it->encoding)
 				{
 					case FULL:
 					{
@@ -3495,7 +3517,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 					}
 					case INT:
 					{
-						const ConstantFP* CF = cast<ConstantFP>(it.first);
+						const ConstantFP* CF = cast<ConstantFP>(C);
 						int32_t intValue = 0;
 						bool ret = tryEncodeFloatAsInt(CF, intValue);
 						(void)ret;
@@ -3505,7 +3527,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 					}
 					case FLOAT32:
 					{
-						const ConstantFP* CF = cast<ConstantFP>(it.first);
+						const ConstantFP* CF = cast<ConstantFP>(C);
 						float floatValue = 0;
 						bool ret = tryEncodeFloat64AsFloat32(CF, floatValue);
 						(void)ret;
