@@ -397,21 +397,16 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 
 	// Print the condition
 	writer->compileOperand(code, si->getCondition());
+	if (min != 0)
+	{
+		writer->encodeS32Inst(0x41, "i32.const", min, code);
+		writer->encodeInst(0x6b, "i32.sub", code);
+	}
 	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
 	{
 		assert(bitWidth < 32);
 		writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
 		writer->encodeInst(0x71, "i32.and", code);
-	}
-	if (min != 0)
-	{
-		writer->encodeS32Inst(0x41, "i32.const", min, code);
-		writer->encodeInst(0x6b, "i32.sub", code);
-		if (bitWidth != 32)
-		{
-			writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
-			writer->encodeInst(0x71, "i32.and", code);
-		}
 	}
 
 	// Print the case labels and the default label.
@@ -715,21 +710,16 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	// Wrap the br_table instruction in its own block.
 	writer->encodeU32Inst(0x02, "block", 0x40, code);
 	writer->compileOperand(code, si->getCondition());
+	if (min != 0)
+	{
+		writer->encodeS32Inst(0x41, "i32.const", min, code);
+		writer->encodeInst(0x6b, "i32.sub", code);
+	}
 	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
 	{
 		assert(bitWidth < 32);
 		writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
 		writer->encodeInst(0x71, "i32.and", code);
-	}
-	if (min != 0)
-	{
-		writer->encodeS32Inst(0x41, "i32.const", min, code);
-		writer->encodeInst(0x6b, "i32.sub", code);
-		if (bitWidth != 32)
-		{
-			writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
-			writer->encodeInst(0x71, "i32.and", code);
-		}
 	}
 
 	// Print the case labels and the default label.
