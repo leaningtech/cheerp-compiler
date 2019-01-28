@@ -89,13 +89,25 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	{
 		return !I.use_empty() && cast<Instruction>(I.use_begin()->getUser())->getParent()!=I.getParent();
 	};
+	// On wasm it is efficient to inline constant geps, but only if the offset is positve
+	// NOTE: This only checks the first index as an approximation, we would need DataLayout
+	//       to compute the full offset exactly
+	auto isPositiveOffsetGep = [](const GetElementPtrInst& gep)
+	{
+		if (!gep.hasAllConstantIndices())
+			return false;
+		ConstantInt* firstOffset = dyn_cast<ConstantInt>(gep.getOperand(1));
+		if (!firstOffset)
+			return false;
+		return firstOffset->getSExtValue() >= 0;
+	};
 	if(I.getOpcode()==Instruction::GetElementPtr)
 	{
 		if(PA.getPointerKind(&I) == RAW)
 		{
 			// Geps with constant indices can be compactly encoded.
 			auto& gep = cast<GetElementPtrInst>(I);
-			if (gep.hasAllConstantIndices())
+			if (isPositiveOffsetGep(gep))
 				return true;
 			if (hasMoreThan1Use || isUserInOtherBlock(I))
 				return false;
@@ -126,7 +138,14 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	else if(I.getOpcode()==Instruction::BitCast)
 	{
 		if(PA.getPointerKind(&I) == RAW)
+		{
+			if(GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(I.getOperand(0)))
+			{
+				if (isPositiveOffsetGep(*gep))
+					return true;
+			}
 			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
+		}
 
 		if (PA.getPointerKind(&I) == COMPLETE_OBJECT) {
 			// Never inline if the source is REGULAR (forces conversion to CO)
