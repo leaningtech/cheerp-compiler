@@ -511,7 +511,10 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 			const BasicBlock* dest=it.getCaseSuccessor();
 			writer->compileOperand(code, si->getCondition());
 			writer->compileOperand(code, it.getCaseValue());
-			writer->encodeInst(0x46, "i32.eq", code);
+			if(mode == InvertCondition)
+				writer->encodeInst(0x47, "i32.ne", code);
+			else
+				writer->encodeInst(0x46, "i32.eq", code);
 			//We found the destination, there may be more cases for the same
 			//destination though
 			for(++it;it!=si->case_end();++it)
@@ -521,22 +524,26 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 					//Also add this condition
 					writer->compileOperand(code, si->getCondition());
 					writer->compileOperand(code, it.getCaseValue());
-					writer->encodeInst(0x46, "i32.eq", code);
-					writer->encodeInst(0x72, "i32.or", code);
+					if(mode == InvertCondition)
+					{
+						writer->encodeInst(0x47, "i32.ne", code);
+						writer->encodeInst(0x71, "i32.and", code);
+					}
+					else
+					{
+						writer->encodeInst(0x46, "i32.eq", code);
+						writer->encodeInst(0x72, "i32.or", code);
+					}
 				}
 			}
 			if (!first)
 			{
-				writer->encodeInst(0x72, "i32.or", code);
+				if(mode == InvertCondition)
+					writer->encodeInst(0x71, "i32.and", code);
+				else
+					writer->encodeInst(0x72, "i32.or", code);
 			}
 			first = false;
-		}
-
-		// TODO optimize this by inverting the boolean logic above.
-		if (mode == InvertCondition) {
-			// Invert result
-			writer->encodeS32Inst(0x41, "i32.const", 1, code);
-			writer->encodeInst(0x73, "i32.xor", code);
 		}
 	}
 	else
