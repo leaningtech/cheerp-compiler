@@ -1902,26 +1902,20 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 	const Value* ptrOp=li.getPointerOperand();
 	uint32_t offset = 0;
 	// 1) The pointer
-	if (isGEP(ptrOp)) {
-		const auto O = dyn_cast<Instruction>(ptrOp);
-		if (O && !isInlineable(*O, PA)) {
-			uint32_t reg = registerize.getRegisterId(O);
-			uint32_t local = localMap.at(reg);
-			encodeU32Inst(0x20, "get_local", local, code);
+	if(isa<Instruction>(ptrOp) && isInlineable(*cast<Instruction>(ptrOp), PA)) {
+		// Calling compileGEP is safe on any instruction
+		WasmGepWriter gepWriter(*this, code);
+		auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
+		compileOperand(code, p);
+		if(!gepWriter.first)
+			encodeInst(0x6a, "i32.add", code);
+		// The immediate offset of a load instruction is an unsigned
+		// 32-bit integer. Negative immediate offsets are not supported.
+		if (gepWriter.constPart < 0) {
+			encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
+			encodeInst(0x6a, "i32.add", code);
 		} else {
-			WasmGepWriter gepWriter(*this, code);
-			auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
-			compileOperand(code, p);
-			if(!gepWriter.first)
-				encodeInst(0x6a, "i32.add", code);
-			// The immediate offset of a load instruction is an unsigned
-			// 32-bit integer. Negative immediate offsets are not supported.
-			if (gepWriter.constPart < 0) {
-				encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
-				encodeInst(0x6a, "i32.add", code);
-			} else {
-				offset = gepWriter.constPart;
-			}
+			offset = gepWriter.constPart;
 		}
 	} else {
 		compileOperand(code, ptrOp);
@@ -2370,26 +2364,20 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const Value* valOp=si.getValueOperand();
 			uint32_t offset = 0;
 			// 1) The pointer
-			if (isGEP(ptrOp)) {
-				const auto O = dyn_cast<Instruction>(ptrOp);
-				if (O && !isInlineable(*O, PA)) {
-					uint32_t reg = registerize.getRegisterId(O);
-					uint32_t local = localMap.at(reg);
-					encodeU32Inst(0x20, "get_local", local, code);
+			if(isa<Instruction>(ptrOp) && isInlineable(*cast<Instruction>(ptrOp), PA)) {
+				// Calling compileGEP is safe on any instruction
+				WasmGepWriter gepWriter(*this, code);
+				auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
+				compileOperand(code, p);
+				if(!gepWriter.first)
+					encodeInst(0x6a, "i32.add", code);
+				// The immediate offset of a store instruction is an unsigned
+				// 32-bit integer. Negative immediate offsets are not supported.
+				if (gepWriter.constPart < 0) {
+					encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
+					encodeInst(0x6a, "i32.add", code);
 				} else {
-					WasmGepWriter gepWriter(*this, code);
-					auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
-					compileOperand(code, p);
-					if(!gepWriter.first)
-						encodeInst(0x6a, "i32.add", code);
-					// The immediate offset of a store instruction is an unsigned
-					// 32-bit integer. Negative immediate offsets are not supported.
-					if (gepWriter.constPart < 0) {
-						encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
-						encodeInst(0x6a, "i32.add", code);
-					} else {
-						offset = gepWriter.constPart;
-					}
+					offset = gepWriter.constPart;
 				}
 			} else {
 				compileOperand(code, ptrOp);
