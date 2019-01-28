@@ -3393,6 +3393,14 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 		{
 			for(Instruction& I: BB)
 			{
+				// Heuristic: Avoid globalizing values which will be anyway encoded as a load/store offset
+				// Fully constant GEPs will be a ConstantExpr, so when we see a GEP there are 2 possibilities
+				// 1) A constant base pointer and at least a variable index: On a load/store the indexes will
+				//    be computed on the stack, while the base pointer will be the offset
+				// 2) A variable base pointer: Indexes will be accumulated in a total value, no reason for globalization
+				// NOTE: We skip all GEP instructionsa here, assuming a load/store follows. This may not be necessarily the case.
+				if(I.getOpcode() == Instruction::GetElementPtr)
+					continue;
 				for(Value* V: I.operands())
 				{
 					Constant* C = dyn_cast<Constant>(V);
