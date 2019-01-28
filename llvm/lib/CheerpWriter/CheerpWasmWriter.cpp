@@ -465,12 +465,14 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 			CmpInst::Predicate p = ci->getPredicate();
 			if(mode == InvertCondition)
 				p = CmpInst::getInversePredicate(p);
-			const ConstantInt* C;
 			// Optimize "if (a != 0)" to "if (a)" and "if (a == 0)" to "if (!a)".
 			if ((p == CmpInst::ICMP_NE || p == CmpInst::ICMP_EQ) &&
-					(C = dyn_cast<ConstantInt>(ci->getOperand(1))) &&
-					C->getSExtValue() == 0) {
-				if(ci->getOperand(0)->getType()->isIntegerTy(32))
+					isa<Constant>(ci->getOperand(1)) &&
+					cast<Constant>(ci->getOperand(1))->isNullValue())
+			{
+				if(ci->getOperand(0)->getType()->isPointerTy())
+					writer->compileOperand(code, ci->getOperand(0));
+				else if(ci->getOperand(0)->getType()->isIntegerTy(32))
 					writer->compileSignedInteger(code, ci->getOperand(0), /*forComparison*/true);
 				else
 					writer->compileUnsignedInteger(code, ci->getOperand(0));
