@@ -183,10 +183,11 @@ bool AllocaLowering::runOnFunction(Function& F)
 	Type* int32Ty = IntegerType::getInt32Ty(M->getContext());
 	IRBuilder<> Builder(&F.getEntryBlock().front());
 	Value* savedStack = nullptr;
+	Value* newStack = nullptr;
 	if (needFrame)
 	{
 		savedStack = Builder.CreateCall(getStack, {}, "savedStack");
-		Value* newStack = Builder.CreateGEP(savedStack, ConstantInt::get(int32Ty, -nbytes, true));
+		newStack = Builder.CreateGEP(savedStack, ConstantInt::get(int32Ty, -nbytes, true));
 		Builder.CreateCall(setStack, newStack);
 	}
 
@@ -195,9 +196,9 @@ bool AllocaLowering::runOnFunction(Function& F)
 	{
 		BasicBlock::iterator ii(a.first);
 
-		Constant* offset = ConstantInt::get(int32Ty, a.second, true);
+		Constant* offset = ConstantInt::get(int32Ty, nbytes + a.second, true);
 		IRBuilder<> Builder(a.first);
-		Value* gep = Builder.CreateGEP(savedStack, offset);
+		Value* gep = Builder.CreateGEP(newStack, offset);
 		gep  = Builder.CreateBitCast(gep, a.first->getType());
 		ReplaceInstWithValue(a.first->getParent()->getInstList(), ii, gep);
 
