@@ -3273,12 +3273,9 @@ CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstan
 		return NONE;
 }
 
-CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstantAsGlobal(const Constant* C, uint32_t useCount)
+CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstantAsGlobal(const Constant* C, uint32_t useCount, uint32_t getGlobalCost)
 {
-	if(useCount == 1)
-		return NONE;
-	// NOTE: 2 bytes is an aproximation here, we assume that we won't have more than 127 globals
-	const uint32_t getGlobalCost = 2;
+	assert(useCount > 1);
 	if(const ConstantFP* CF = dyn_cast<ConstantFP>(C))
 	{
 		const uint32_t costAsLiteral = C->getType()->isDoubleTy() ? 9 : 5;
@@ -3408,42 +3405,64 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			}
 		}
 	}
-	// Remove single use constants and decide encoding
-	auto it = globalizedConstants.begin();
-	auto itEnd = globalizedConstants.end();
-	while (it != itEnd)
-	{
-		GLOBAL_CONSTANT_ENCODING encoding = shouldEncodeConstantAsGlobal(it->first, it->second.first);
-		if(encoding == NONE)
-			it = globalizedConstants.erase(it);
-		else
-		{
-			it->second.second = encoding;
-			++it;
-		}
-	}
 	// We need to order the constants by use count
 	struct GlobalConstant
 	{
 		const Constant* C;
 		uint32_t useCount;
 		GLOBAL_CONSTANT_ENCODING encoding;
+		// NOTE: We want to have the high use counts first
 		bool operator<(const GlobalConstant& rhs) const
 		{
 			// TODO: We need to fully order these to keep the output consistent
-			return useCount < rhs.useCount;
+			return useCount > rhs.useCount;
 		}
 	};
 	std::vector<GlobalConstant> orderedConstants;
-	for(auto &it: globalizedConstants)
-		orderedConstants.push_back(GlobalConstant{it.first, it.second.first, it.second.second});
+	// Remove single use constants right away
+	auto it = globalizedConstants.begin();
+	auto itEnd = globalizedConstants.end();
+	while (it != itEnd)
+	{
+		if(it->second.first == 1)
+			it = globalizedConstants.erase(it);
+		else
+		{
+			orderedConstants.push_back(GlobalConstant{it->first, it->second.first, it->second.second});
+			++it;
+		}
+	}
 
 	std::sort(orderedConstants.begin(), orderedConstants.end());
 
+	// Assign global ids
+	uint32_t globalId = 1;
 	for(uint32_t i=0;i<orderedConstants.size();i++)
 	{
-		// Assign global id in the map, in reverse order
-		globalizedConstants[orderedConstants[orderedConstants.size() - i - 1].C].first = i+1;
+		GlobalConstant& GC = orderedConstants[i];
+		// TODO: We need al helper function for this
+		// NOTE: It is not the same as getIntEncodingLength since the global id is unsigned
+		uint32_t getGlobalCost = 0;
+		if(globalId < (1<<7))
+			getGlobalCost = 2;
+		else if(globalId < (1<<14))
+			getGlobalCost = 3;
+		else
+			getGlobalCost = 4;
+		GLOBAL_CONSTANT_ENCODING encoding = shouldEncodeConstantAsGlobal(GC.C, GC.useCount, getGlobalCost);
+		GC.encoding = encoding;
+		auto it = globalizedConstants.find(GC.C);
+		if(encoding == NONE)
+		{
+			// Remove this constant from the map
+			// Leave it in the vector, but skip it later
+			globalizedConstants.erase(it);
+		}
+		else
+		{
+			it->second.first = globalId++;
+			it->second.second = encoding;
+		}
 	}
 
 	{
@@ -3454,7 +3473,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 		uint32_t stackTop = linearHelper.getStackStart();
 
 		if (cheerpMode == CHEERP_MODE_WASM) {
-			// There is 1 global.
+			// There is the stack and the globalized constants
 			internal::encodeULEB128(1 + globalizedConstants.size(), section);
 			// The global has type i32 (0x7f) and is mutable (0x01).
 			internal::encodeULEB128(0x7f, section);
@@ -3465,10 +3484,11 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			// Encode the end of the instruction sequence.
 			internal::encodeULEB128(0x0b, section);
 			// Render globals in reverse order
-			for(auto it = orderedConstants.rbegin(); it != orderedConstants.rend(); ++it)
+			for(auto it = orderedConstants.begin(); it != orderedConstants.end(); ++it)
 			{
 				const Constant* C = it->C;
-				assert(it->encoding != NONE);
+				if(it->encoding == NONE)
+					continue;
 				// Constant type
 				uint32_t valType = 0;
 				switch(it->encoding)
@@ -3523,10 +3543,11 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			}
 		} else {
 			section << "(global (mut i32) (i32.const " << stackTop << "))\n";
-			for(auto it = orderedConstants.rbegin(); it != orderedConstants.rend(); ++it)
+			for(auto it = orderedConstants.begin(); it != orderedConstants.end(); ++it)
 			{
 				const Constant* C = it->C;
-				assert(it->encoding != NONE);
+				if(it->encoding == NONE)
+					continue;
 				const char* strType = nullptr;
 				switch(it->encoding)
 				{

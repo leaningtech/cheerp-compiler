@@ -231,7 +231,7 @@ public:
 	bool tryEncodeFloat64AsFloat32(const llvm::ConstantFP* f, float& value);
 	uint32_t getIntEncodingLength(int32_t val) const;
 	void compileFloatToText(WasmBuffer& code, const llvm::APFloat& f, uint32_t precision);
-	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantAsGlobal(const llvm::Constant* C, uint32_t useCount);
+	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantAsGlobal(const llvm::Constant* C, uint32_t useCount, uint32_t getGlobalCost);
 	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantIntAsGlobal(int32_t val, uint32_t useCount, uint32_t getGlobalCost);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	void compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
