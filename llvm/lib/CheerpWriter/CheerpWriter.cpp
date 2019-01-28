@@ -1761,7 +1761,7 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 	if(PA.getPointerKind(p) == RAW)
 	{
 		assert(isa<PointerType>(p->getType()));
-		Type* ty = llvm::cast<PointerType>(p->getType());
+		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
 		compileHeapForType(ty);
 		return;
 	}
@@ -1928,7 +1928,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	if ( PA.getPointerKind(p) == RAW)
 	{
 		assert(isa<PointerType>(p->getType()));
-		Type* ty = llvm::cast<PointerType>(p->getType());
+		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
 		if (parentPrio < SHIFT)
 			stream << '(';
 		compileRawPointer(p, SHIFT);
