@@ -224,12 +224,11 @@ bool AllocaLowering::runOnFunction(Function& F)
 		Constant* mask = ConstantInt::get(int32Ty, -8, true);
 		aligned = Builder.CreateAnd(aligned, mask);
 
-		Value* offset = Builder.CreateSub(ConstantInt::get(int32Ty, 0, true), aligned);
 		Value* stackPtr = Builder.CreateCall(getStack, {});
-		Value* gep = Builder.CreateGEP(stackPtr, offset);
-		Builder.CreateCall(setStack, gep);
-		gep  = Builder.CreateBitCast(gep, a.first->getType());
-		ReplaceInstWithValue(a.first->getParent()->getInstList(), ii, gep);
+		Value* addr = Builder.CreateIntToPtr(Builder.CreateSub(Builder.CreatePtrToInt(stackPtr, int32Ty), aligned), stackPtr->getType());
+		Builder.CreateCall(setStack, addr);
+		addr = Builder.CreateBitCast(addr, a.first->getType());
+		ReplaceInstWithValue(a.first->getParent()->getInstList(), ii, addr);
 
 		NumAllocasTransformedToGEPs++;
 	}
