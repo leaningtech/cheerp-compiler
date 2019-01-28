@@ -807,8 +807,6 @@ void CheerpWasmRenderInterface::renderBlockEnd(bool)
 
 	if(block.type == WHILE1)
 	{
-		// TODO: Why do we even need to fake value
-		writer->encodeS32Inst(0x41, "i32.const", 0, code);
 		writer->encodeU32Inst(0x0c, "br", 1, code);
 		writer->encodeInst(0x0b, "end", code);
 		writer->encodeInst(0x0b, "end", code);
