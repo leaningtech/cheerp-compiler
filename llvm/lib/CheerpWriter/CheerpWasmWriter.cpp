@@ -1735,6 +1735,24 @@ const char* CheerpWasmWriter::getIntegerPredicate(llvm::CmpInst::Predicate p)
 	return "";
 }
 
+bool CheerpWasmWriter::isSignedLoad(const Value* V) const
+{
+	const LoadInst* LI = dyn_cast<LoadInst>(V);
+	if(!LI)
+		return false;
+	for(const User* U: LI->users())
+	{
+		const Instruction* userI = cast<Instruction>(U);
+		if(userI->getOpcode() == Instruction::SExt)
+			continue;
+		else if(userI->getOpcode() == Instruction::ICmp && cast<ICmpInst>(userI)->isSigned())
+			continue;
+		else
+			return false;
+	}
+	return true;
+}
+
 void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate p,
 		WasmBuffer& code)
 {
@@ -1745,8 +1763,18 @@ void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate 
 	}
 	else if(CmpInst::isSigned(p))
 	{
-		compileSignedInteger(code, ci.getOperand(0), true);
-		compileSignedInteger(code, ci.getOperand(1), true);
+		bool isOp0Signed = isSignedLoad(ci.getOperand(0));
+		bool isOp1Signed = isSignedLoad(ci.getOperand(1));
+		// Only use the "forComparison" trick if neither operands are signed loads
+		bool useForComparison = !isOp0Signed && !isOp1Signed;
+		if(isOp0Signed)
+			compileOperand(code, ci.getOperand(0));
+		else
+			compileSignedInteger(code, ci.getOperand(0), useForComparison);
+		if(isOp1Signed)
+			compileOperand(code, ci.getOperand(1));
+		else
+			compileSignedInteger(code, ci.getOperand(1), useForComparison);
 	}
 	else if (CmpInst::isUnsigned(p) || !ci.getOperand(0)->getType()->isIntegerTy(32))
 	{
@@ -2327,7 +2355,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::Load:
 		{
 			const LoadInst& li = cast<LoadInst>(I);
-			compileLoad(code, li, /*signExtend*/false);
+			compileLoad(code, li, /*signExtend*/isSignedLoad(&li));
 			break;
 		}
 		case Instruction::PtrToInt:
@@ -2442,14 +2470,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::SExt:
 		{
 			const Value* op = I.getOperand(0);
-			if(isa<LoadInst>(op) && isInlineable(*cast<Instruction>(op), PA))
-			{
-				compileLoad(code, *cast<LoadInst>(op), /*signExtend*/true);
-			}
-			else
+			compileOperand(code, op);
+			if(!isSignedLoad(op))
 			{
 				uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
-				compileOperand(code, I.getOperand(0));
 				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
 				encodeInst(0x74, "i32.shl", code);
 				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
