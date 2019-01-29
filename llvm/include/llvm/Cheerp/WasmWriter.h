@@ -56,6 +56,7 @@ private:
 	llvm::Pass& pass;
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
+	uint32_t lastWrittenReg;
 	Registerize & registerize;
 
 	llvm::LLVMContext& Ctx;
@@ -134,6 +135,9 @@ private:
 	// NOTE: Careful, this is not in sync with needsUnsignedTruncation!
 	//       All the users listed here must _not_ call needsUnsignedTruncation!
 	bool isSignedLoad(const llvm::Value* V) const;
+	// Returns true if, by potentially inverting commutative instructions, there is a way
+	// to use the last written register as the first operand
+	bool mayHaveLastWrittenRegAsFirstOperand(const llvm::Value* v) const;
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	struct WasmBytesWriter: public LinearMemoryHelper::ByteListener
@@ -178,6 +182,7 @@ public:
 		pass(p),
 		targetData(&m),
 		currentFun(NULL),
+		lastWrittenReg(0xffffffff),
 		registerize(registerize),
 		Ctx(C),
 		globalDeps(gda),

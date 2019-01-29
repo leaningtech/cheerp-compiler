@@ -1028,6 +1028,32 @@ void CheerpWasmWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer&
 	internal::encodeOpcode(opcode, name, *this, code);
 }
 
+bool CheerpWasmWriter::mayHaveLastWrittenRegAsFirstOperand(const Value* v) const
+{
+	// Must be an instruction
+	const Instruction* I = dyn_cast<Instruction>(v);
+	if(!I)
+		return false;
+	if(isInlineable(*I, PA))
+	{
+		if(I->getNumOperands() < 1)
+			return false;
+		if(mayHaveLastWrittenRegAsFirstOperand(I->getOperand(0)))
+			return true;
+		if(!I->isCommutative())
+			return false;
+		assert(I->getNumOperands() == 2);
+		if(mayHaveLastWrittenRegAsFirstOperand(I->getOperand(1)))
+			return true;
+		return false;
+	}
+	else
+	{
+		uint32_t reg = registerize.getRegisterId(I);
+		return reg == lastWrittenReg;
+	}
+}
+
 void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 {
 	switch (I.getOpcode()) {
@@ -1052,9 +1078,11 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 		default:
 			if(I.isCommutative())
 			{
-				bool isLHSRegister = isa<Instruction>(I.getOperand(0)) && !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
-				bool isRHSRegister = isa<Instruction>(I.getOperand(1)) && !isInlineable(*cast<Instruction>(I.getOperand(1)), PA);
-				if(!isLHSRegister && isRHSRegister)
+				bool isOp0Register = isa<Instruction>(I.getOperand(0)) && !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
+				bool isOp1Register = isa<Instruction>(I.getOperand(1)) && !isInlineable(*cast<Instruction>(I.getOperand(1)), PA);
+				// Favor tee_local if possible, otherwise favor any local
+				if((hasSetLocal && mayHaveLastWrittenRegAsFirstOperand(I.getOperand(1))) ||
+					(!isOp0Register && isOp1Register))
 				{
 					compileOperand(code, I.getOperand(1));
 					compileOperand(code, I.getOperand(0));
@@ -2699,6 +2727,7 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 					encodeInst(0x1a, "drop", code);
 				} else {
 					uint32_t reg = registerize.getRegisterId(I);
+					lastWrittenReg = reg;
 					uint32_t local = localMap.at(reg);
 					encodeU32Inst(0x21, "set_local", local, code);
 				}
@@ -2804,6 +2833,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 {
 	assert(!F.empty());
 	currentFun = &F;
+	lastWrittenReg = 0xffffffff;
 
 	if (cheerpMode == CHEERP_MODE_WAST)
 	{
