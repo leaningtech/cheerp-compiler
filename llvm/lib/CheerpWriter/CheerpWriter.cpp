@@ -54,9 +54,10 @@ public:
 	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int label);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
-	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
-	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first);
+	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first, int labelId = 0);
+	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first, int labelId = 0);
 	void renderElseBlockBegin();
+	void renderIfBlockEnd(bool labelled = false);
 	void renderBlockEnd(bool empty = false);
 	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom);
 	void renderWhileBlockBegin();
@@ -4458,23 +4459,39 @@ void CheerpRenderInterface::renderDefaultBlockBegin(bool empty)
 		writer->blockDepth++;
 	}
 }
-void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first)
+void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first, int labelId)
 {
 	if(!first)
 		writer->stream << "}else ";
 	else
+	{
+		if (labelId > 0)
+		{
+			writer->stream << 'L' << labelId << ':';
+			if (asmjs)
+				writer->stream << '{';
+		}
 		writer->blockDepth++;
+	}
 	writer->stream << "if(";
 	renderCondition(bb, branchId, CheerpWriter::LOWEST, /*booleanInvert*/false);
 	writer->stream << "){" << NewLine;
 }
 
-void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::vector<int>& skipBranchIds, bool first)
+void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::vector<int>& skipBranchIds, bool first, int labelId)
 {
 	if(!first)
 		writer->stream << "}else ";
 	else
+	{
+		if (labelId > 0)
+		{
+			writer->stream << 'L' << labelId << ':';
+			if (asmjs)
+				writer->stream << '{';
+		}
 		writer->blockDepth++;
+	}
 	writer->stream << "if(";
 	for(uint32_t i=0;i<skipBranchIds.size();i++)
 	{
@@ -4493,6 +4510,15 @@ void CheerpRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::
 void CheerpRenderInterface::renderElseBlockBegin()
 {
 	writer->stream << "}else{" << NewLine;
+}
+
+void CheerpRenderInterface::renderIfBlockEnd(bool labelled)
+{
+	writer->stream << '}';
+	if (labelled && asmjs)
+		writer->stream << '}';
+	writer->stream << NewLine;
+	writer->blockDepth--;
 }
 
 void CheerpRenderInterface::renderBlockEnd(bool empty)

@@ -83,13 +83,26 @@ static int getBranchIdx(BasicBlock* From, BasicBlock* To)
 	report_fatal_error("No switch or branch between blocks From and To");
 }
 
-
 namespace cheerp {
 
-// Returns the scope and whether it is the innermost one or not.
 template<class Scope>
-static std::pair<Scope*, bool> getJumpScope(
-	const std::vector<Scope*>& Scopes,
+static bool needsLabelledJump(const std::vector<Scope*>& Scopes,
+	typename std::vector<Scope*>::const_reverse_iterator TargetScope,
+	const CFGStackifier::Block& From)
+{
+	bool UseSwitch = CheerpWriter::useSwitch(From.getBB()->getTerminator());
+	auto FirstSwitchOrLoop = std::find_if(Scopes.rbegin(), TargetScope, [&](Scope* s) {
+		return (s->kind == CFGStackifier::Block::BRANCH && UseSwitch)
+			|| s->kind == CFGStackifier::Block::LOOP;
+	});
+	return TargetScope != FirstSwitchOrLoop
+		|| (*TargetScope)->kind == CFGStackifier::Block::BLOCK
+		|| ((*TargetScope)->kind == CFGStackifier::Block::BRANCH && !UseSwitch);
+}
+
+// returns the scope corresponding to the jump, and whether a label is needed or not
+template<class Scope>
+static std::pair<Scope*, bool> getJumpScope(const std::vector<Scope*>& Scopes,
 	const CFGStackifier::Block& From, const CFGStackifier::Block& To)
 {
 	using Block = CFGStackifier::Block;
@@ -107,8 +120,10 @@ static std::pair<Scope*, bool> getJumpScope(
 		});
 	}
 	assert(it != Scopes.rend() && "No scope for branching");
-	return std::make_pair(*it, it == Scopes.rbegin());
+	return std::make_pair(*it, needsLabelledJump(Scopes, it, From));
 }
+
+
 
 
 #ifdef DEBUG_CFGSTACKIFIER
@@ -233,7 +248,7 @@ public:
 		}
 		void addBranch(Block& B)
 		{
-			auto S = B.insertScope(Block::Scope{Block::BRANCH, Root.getId(), -1, true});
+			auto S = B.insertScope(Block::Scope{Block::BRANCH, Root.getId(), -1, false});
 			Branches.push_back(std::make_pair(&B, S));
 		}
 		void addExit(Block& B)
@@ -287,7 +302,7 @@ private:
 	void processBlock(BasicBlock* CurBB, bool Delayed);
 	void addLoopMarkers(Block& B);
 	void addBlockMarkers(Block& B);
-	void removeExtraLabels();
+	void setLabels();
 	int findLoopEnd(Loop* L, const Block& B);
 	void build();
 
@@ -478,10 +493,10 @@ void BlockListBuilder::build()
 		addLoopMarkers(B);
 		addBlockMarkers(B);
 	}
-	removeExtraLabels();
+	setLabels();
 }
 
-void BlockListBuilder::removeExtraLabels()
+void BlockListBuilder::setLabels()
 {
 	std::vector<Block::Scope*> ScopeStack;
 	for (int id = 0; id <(int) BlockList.size(); ++id)
@@ -492,58 +507,43 @@ void BlockListBuilder::removeExtraLabels()
 		{
 			case Block::LOOP:
 			case Block::BLOCK:
-				scope.label = false;
 				ScopeStack.push_back(&scope);
 				break;
-			case Block::LOOP_END:
-			case Block::BLOCK_END:
-				ScopeStack.pop_back();
-				break;
 			case Block::BRANCH:
-				scope.label = false;
-				break;
-			case Block::BRANCH_END:
 			{
-				// We may need to pop a BRANCH representing a switch
-				auto Top = ScopeStack.rbegin();
-				if (Top != ScopeStack.rend() &&
-					(*Top)->kind == Block::BRANCH &&
-					(*Top)->end == scope.end)
-				{
-					ScopeStack.pop_back();
-				}
+				bool First = scope.start == id - 1;
+				if (First)
+					ScopeStack.push_back(&scope);
 				break;
 			}
+			case Block::LOOP_END:
+			case Block::BLOCK_END:
+			case Block::BRANCH_END:
+				ScopeStack.pop_back();
+				break;
 		}
 
 		BasicBlock* BB = B.getBB();
 		if (BB == nullptr)
 			break;
 
-		// Switches are considered scopes for labeling purposes
 		bool UseSwitch = CheerpWriter::useSwitch(BB->getTerminator());
-		// In case of a switch, we need to push the BRANCH tag to the scope stack
-		auto* BranchScope = BlockList[id+1].getBranchStart();
-		BranchScope = (BranchScope && BranchScope->start == B.getId()) ? BranchScope : nullptr;
-		// If there is no BRANCH tag (no nested blocks), make one up anyway
 		auto SwitchScope = Block::Scope{Block::BRANCH, B.getId(), B.getId()+1, false};
 
+		// Push a virtual scope for the switch jump cases
 		if (UseSwitch)
-		{
-			ScopeStack.push_back(BranchScope ? BranchScope : &SwitchScope);
-		}
+			ScopeStack.push_back(&SwitchScope);
+
 		for (auto Succ: make_range(succ_begin(BB), succ_end(BB)))
 		{
 			const auto& SuccB = BlockList[BlockIdMap[Succ]];
 			if (SuccB.isNaturalPred(B.getId()))
 				continue;
 			auto TargetScope = getJumpScope(ScopeStack, B, SuccB);
-			if (!TargetScope.second)
-			{
-				TargetScope.first->label = true;
-			}
+			TargetScope.first->label |= TargetScope.second;
 		}
-		if (UseSwitch && !BranchScope)
+		// If we pushed the scope, remove it
+		if (UseSwitch)
 			ScopeStack.pop_back();
 	}
 	assert(ScopeStack.empty());
@@ -585,7 +585,7 @@ void BlockListBuilder::addLoopMarkers(Block& B)
 		B.getBB()->getParent()->viewCFGOnly();
 		report_fatal_error("noo");
 	}
-	B.insertScope(Block::Scope{Block::LOOP, B.getId(), endId, true});
+	B.insertScope(Block::Scope{Block::LOOP, B.getId(), endId, false});
 	BlockList[endId].insertScope(Block::Scope{Block::LOOP_END, B.getId(), endId, false});
 }
 
@@ -632,16 +632,14 @@ void BlockListBuilder::addBlockMarkers(Block& B)
 	}
 	Block& PredB = BlockList[PredId];
 
-	// If the new BLOCK scope would be equal to an already present switch, don't
-	// add it
+	// If the new BLOCK scope would perfectly overlap a BRANCH scope, don't add it
 	auto S = BlockList[PredId+1].getBranchStart();
-	S = S && S->start == PredId ? S : nullptr;
-	if (S && S->end == B.getId() && CheerpWriter::useSwitch(PredB.getBB()->getTerminator()))
+	if(S && S->start == PredId && S->end == B.getId())
 	{
 		return;
 	}
 
-	PredB.insertScope(Block::Scope{Block::BLOCK, PredId, B.getId(), true});
+	PredB.insertScope(Block::Scope{Block::BLOCK, PredId, B.getId(), false});
 	B.insertScope(Block::Scope{Block::BLOCK_END, PredId, B.getId(), false});
 }
 
@@ -683,10 +681,11 @@ private:
 	};
 
 	void renderJump(const Block& From, const Block& To);
-	void renderJumpBranch(const Block& From, const Block& To, int BrId, bool First);
-	void renderDefaultJumpBranch(const Block& From, const Block& To, const std::vector<int>& EmptyIds, bool First);
+	void renderJumpBranch(const Block& From, const Block& To, int BrId, bool First, int label);
+	void renderDefaultJumpBranch(const Block& From, const Block& To,
+		const std::vector<int>& EmptyIds, bool First, int label);
 	void renderDirectBranch(const Block& From, const Block& To);
-	std::vector<int> renderJumpBranches(const Block& B);
+	std::vector<int> renderJumpBranches(const Block& B, int label=0);
 	void renderSwitchJumpBranches(const Block& B);
 	void render();
 
@@ -734,9 +733,10 @@ bool BlockListRenderer::isEmptyPrologue(BasicBlock* From, BasicBlock* To)
 void BlockListRenderer::renderJump(const Block& From, const Block& To)
 {
 	auto s = getJumpScope(ScopeStack, From, To);
+
 	if (To.getId() <= From.getId())
 	{
-		if (s.second)
+		if (!s.second)
 			ri.renderContinue();
 		else
 		{
@@ -747,7 +747,7 @@ void BlockListRenderer::renderJump(const Block& From, const Block& To)
 	}
 	else
 	{
-		if (s.second)
+		if (!s.second)
 			ri.renderBreak();
 		else
 		{
@@ -757,23 +757,24 @@ void BlockListRenderer::renderJump(const Block& From, const Block& To)
 		}
 	}
 }
-void BlockListRenderer::renderJumpBranch(const Block& From, const Block& To, int BrId, bool First)
+void BlockListRenderer::renderJumpBranch(const Block& From, const Block& To, int BrId, bool First, int label)
 {
-	ri.renderIfBlockBegin(From.getBB(), BrId, First);
+	ri.renderIfBlockBegin(From.getBB(), BrId, First, label);
 	ri.renderBlockPrologue(To.getBB(), From.getBB());
 	if (!To.isNaturalPred(From.getId()))
 		renderJump(From, To);
 }
-void BlockListRenderer::renderDefaultJumpBranch(const Block& From, const Block& To, const std::vector<int>& EmptyIds, bool First)
+void BlockListRenderer::renderDefaultJumpBranch(const Block& From, const Block& To,
+	const std::vector<int>& EmptyIds, bool First, int label)
 {
 	if (EmptyIds.size() == 0)
 		ri.renderElseBlockBegin();
 	else
-		ri.renderIfBlockBegin(From.getBB(), EmptyIds, First);
+		ri.renderIfBlockBegin(From.getBB(), EmptyIds, First, label);
 	ri.renderBlockPrologue(To.getBB(), From.getBB());
 	if (!To.isNaturalPred(From.getId()))
 		renderJump(From, To);
-	ri.renderBlockEnd();
+	ri.renderIfBlockEnd(label > 0);
 }
 void BlockListRenderer::renderDirectBranch(const Block& From, const Block& To)
 {
@@ -781,7 +782,7 @@ void BlockListRenderer::renderDirectBranch(const Block& From, const Block& To)
 	if (!To.isNaturalPred(From.getId()))
 		renderJump(From, To);
 }
-std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B)
+std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B, int label)
 {
 	int DefaultIdx = getDefaultBranchIdx(B.getBB());
 	BasicBlock* Default = DefaultIdx != -1 ? B.getBB()->getTerminator()->getSuccessor(DefaultIdx) : nullptr;
@@ -811,7 +812,7 @@ std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B)
 		switch (BC)
 		{
 			case RenderBranchCase::JUMP:
-				renderJumpBranch(B, To, BrIdx, First);
+				renderJumpBranch(B, To, BrIdx, First, label);
 				break;
 			case RenderBranchCase::DIRECT:
 				report_fatal_error("A direct branch must also be the default. This is a bug");
@@ -831,7 +832,7 @@ std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B)
 		switch (BranchesStates.at(B.getBB()).DefaultCase)
 		{
 			case RenderBranchCase::JUMP:
-				renderDefaultJumpBranch(B, DefaultB, EmptyIds, First);
+				renderDefaultJumpBranch(B, DefaultB, EmptyIds, First, label);
 				break;
 			case RenderBranchCase::DIRECT:
 				renderDirectBranch(B, DefaultB);
@@ -839,7 +840,7 @@ std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B)
 			case RenderBranchCase::NESTED:
 				break;
 			case RenderBranchCase::EMPTY:
-				ri.renderBlockEnd();
+				ri.renderIfBlockEnd(label > 0);
 				break;
 		}
 	}
@@ -946,6 +947,9 @@ void BlockListRenderer::render()
 				const Block& From = getBlock(FromId);
 				int BrId = getBranchIdx(From.getBB(), BB);
 				bool First = FromId == id - 1;
+				if (First)
+					ScopeStack.push_back(&scope);
+				int label = scope.label ? labels.at(&scope) : 0;
 
 				auto it = BranchesStates.find(From.getBB());
 				assert(it != BranchesStates.end());
@@ -957,8 +961,6 @@ void BlockListRenderer::render()
 						ri.renderBreak();
 						ri.renderBlockEnd();
 					}
-					else
-						ScopeStack.push_back(&scope);
 					if (BrId == -1)
 					{
 						renderSwitchJumpBranches(From);
@@ -971,15 +973,15 @@ void BlockListRenderer::render()
 				{
 					if (BrId == -1)
 					{
-						auto EmptyIds = renderJumpBranches(From);
+						auto EmptyIds = renderJumpBranches(From, label);
 						if (EmptyIds.size() == 0)
 							ri.renderElseBlockBegin();
 						else
-							ri.renderIfBlockBegin(From.getBB(), EmptyIds, EmptyIds.size() == From.getBB()->getTerminator()->getNumSuccessors()-1);
+							ri.renderIfBlockBegin(From.getBB(), EmptyIds, EmptyIds.size() == From.getBB()->getTerminator()->getNumSuccessors()-1, label);
 					}
 					else
 					{
-						ri.renderIfBlockBegin(From.getBB(), BrId, First);
+						ri.renderIfBlockBegin(From.getBB(), BrId, First, label);
 					}
 				}
 				ri.renderBlockPrologue(BB, From.getBB());
@@ -987,6 +989,8 @@ void BlockListRenderer::render()
 			}
 			case Block::BRANCH_END:
 			{
+				assert(!ScopeStack.empty());
+				assert(ScopeStack.back()->kind == Block::BRANCH);
 				int FromId = scope.start;
 				const Block& From = getBlock(FromId);
 				auto it = BranchesStates.find(From.getBB());
@@ -1002,20 +1006,20 @@ void BlockListRenderer::render()
 						renderSwitchJumpBranches(From);
 					}
 					ri.renderBlockEnd();
-					assert(ScopeStack.back()->kind == Block::BRANCH);
-					ScopeStack.pop_back();
 				}
 				else
 				{
 					if (DoRenderJumpBranches)
 					{
-						renderJumpBranches(From);
+						int label = ScopeStack.back()->label ? labels.at(ScopeStack.back()) : 0;
+						renderJumpBranches(From, label);
 					}
 					else
 					{
-						ri.renderBlockEnd();
+						ri.renderIfBlockEnd(ScopeStack.back()->label);
 					}
 				}
+				ScopeStack.pop_back();
 				break;
 			}
 		}
@@ -1079,6 +1083,13 @@ void BlockListRenderer::render()
 			}
 		}
 
+		int label = 0;
+		if (BS.IsBranchRoot && Scope->label)
+		{
+			labels.emplace(Scope, next_label);
+			label = next_label++;
+		}
+
 		if (BS.UseSwitch)
 		{
 			// The sort the nested blocks by their order in the block list
@@ -1092,14 +1103,10 @@ void BlockListRenderer::render()
 			Jumps.insert(Jumps.begin(), Nested.begin(), Nested.end());
 			// The default is always last
 			Jumps.push_back(-1);
-			int label = 0;
-			if (BS.IsBranchRoot && Scope->label)
-			{
-				labels.emplace(Scope, next_label);
-				label = next_label++;
-			}
+
 			ri.renderSwitchBlockBegin(sw, Jumps, label);
 		}
+
 		if (!BS.IsBranchRoot)
 		{
 			if (BS.UseSwitch)
@@ -1107,8 +1114,8 @@ void BlockListRenderer::render()
 				Block::Scope SwitchScope {Block::BRANCH, B.getId(), B.getId()+1, false};
 				ScopeStack.push_back(&SwitchScope);
 				renderSwitchJumpBranches(B);
-				ScopeStack.pop_back();
 				ri.renderBlockEnd();
+				ScopeStack.pop_back();
 			}
 			else
 				renderJumpBranches(B);
