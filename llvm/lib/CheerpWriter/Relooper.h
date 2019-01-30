@@ -46,13 +46,14 @@ public:
 	virtual void renderSwitchOnLabel(IdShapeMap& idShapeMap) = 0;
 	virtual void renderCaseOnLabel(int labelId) = 0;
 	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, BlockBranchMap& branchesOut) = 0;
-	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int label) = 0;
+	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int labelId = 0) = 0;
 	virtual void renderCaseBlockBegin(const llvm::BasicBlock* caseBlock, int branchId) = 0;
 	virtual void renderDefaultBlockBegin(bool empty = false) = 0;
-	virtual void renderIfBlockBegin(const llvm::BasicBlock* condBlock, int branchId, bool first) = 0;
-	virtual void renderIfBlockBegin(const llvm::BasicBlock* condBlock, const std::vector<int>& skipBranchIds, bool first) = 0;
+	virtual void renderIfBlockBegin(const llvm::BasicBlock* condBlock, int branchId, bool first, int labelId = 0) = 0;
+	virtual void renderIfBlockBegin(const llvm::BasicBlock* condBlock, const std::vector<int>& skipBranchIds, bool first, int labelId = 0) = 0;
 	virtual void renderElseBlockBegin() = 0;
 	virtual void renderBlockEnd(bool empty = false) = 0;
+	virtual void renderIfBlockEnd(bool labelled = false) = 0;
 	virtual void renderBlockPrologue(const llvm::BasicBlock* blockTo, const llvm::BasicBlock* blockFrom) = 0;
 	virtual void renderWhileBlockBegin() = 0;
 	virtual void renderWhileBlockBegin(int labelId) = 0;
