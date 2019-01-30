@@ -411,7 +411,8 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 
 	writer->encodeInst(0x0b, "end", code);
 
-	blockTypes.emplace_back(SWITCH, caseBlocks, label);
+	blockTypes.emplace_back(SWITCH, 0, label);
+	blockTypes.emplace_back(CASE, caseBlocks);
 }
 
 void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
@@ -594,16 +595,14 @@ void CheerpWasmRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 	writer->encodeU32Inst(0x0c, "br", idShapeMap.size(), code);
 	writer->encodeInst(0x0b, "end", code);
 
-	blockTypes.emplace_back(SWITCH, idShapeMap.size());
+	blockTypes.emplace_back(SWITCH, 0);
+	blockTypes.emplace_back(CASE, idShapeMap.size());
 }
 
-void CheerpWasmRenderInterface::renderCaseOnLabel(int labelId)
+void CheerpWasmRenderInterface::renderCaseOnLabel(int)
 {
 	BlockType prevBlock = blockTypes.back();
-	assert(prevBlock.type == SWITCH || prevBlock.type == CASE);
-	assert(findSwitchBlockType(blockTypes)->depth > 0);
-
-	blockTypes.emplace_back(CASE);
+	assert(prevBlock.type == CASE && prevBlock.depth > 0);
 }
 
 uint32_t findBlockInBranchesOutMap(const BasicBlock* dest, BlockBranchMap& branchesOut)
@@ -713,16 +712,14 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 
 	writer->encodeInst(0x0b, "end", code);
 
-	blockTypes.emplace_back(SWITCH, caseBlocks + 1);
+	blockTypes.emplace_back(SWITCH, 0);
+	blockTypes.emplace_back(CASE, caseBlocks + 1);
 }
 
 void CheerpWasmRenderInterface::renderCaseBlockBegin(const BasicBlock*, int branchId)
 {
 	BlockType prevBlock = blockTypes.back();
-	assert(prevBlock.type == SWITCH || prevBlock.type == CASE);
-	assert(findSwitchBlockType(blockTypes)->depth > 0);
-
-	blockTypes.emplace_back(CASE);
+	assert(prevBlock.type == CASE && prevBlock.depth > 0);
 }
 
 void CheerpWasmRenderInterface::renderDefaultBlockBegin(bool)
@@ -800,10 +797,9 @@ void CheerpWasmRenderInterface::renderBlockEnd(bool)
 	}
 	else if (block.type == CASE)
 	{
+		if (--block.depth > 0)
+			blockTypes.push_back(block);
 		writer->encodeInst(0x0b, "end", code);
-		BlockType* switchBlock = findSwitchBlockType(blockTypes);
-		assert(switchBlock->depth > 0);
-		switchBlock->depth--;
 	}
 	else if(block.type == IF)
 	{
@@ -901,9 +897,8 @@ void CheerpWasmRenderInterface::renderBreak()
 	BlockType block = blockTypes.back();
 	if (block.type == CASE)
 	{
-		BlockType* switchBlock = findSwitchBlockType(blockTypes);
-		assert(switchBlock->depth > 0);
-		writer->encodeU32Inst(0x0c, "br", switchBlock->depth - 1, code);
+		assert(block.depth > 0);
+		writer->encodeU32Inst(0x0c, "br", block.depth - 1, code);
 	}
 	else
 	{
@@ -927,17 +922,22 @@ void CheerpWasmRenderInterface::renderBreak(int labelId)
 {
 	uint32_t breakIndex = 0;
 	uint32_t i = 0;
+	BLOCK_TYPE bt;
+	assert(!blockTypes.empty());
 	for (; i < blockTypes.size(); i++)
 	{
 		BlockType& block = blockTypes[blockTypes.size() - i - 1];
+		bt = block.type;
+
+		breakIndex += block.depth;
 
 		if (block.label == labelId)
 			break;
-
-		breakIndex += block.depth;
 	}
+	if (bt == WHILE1)
+		breakIndex -= 1;
 	assert(i < blockTypes.size() && "cannot find labelId in block types");
-	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
+	writer->encodeU32Inst(0x0c, "br", breakIndex - 1, code);
 }
 
 void CheerpWasmRenderInterface::renderContinue()
@@ -947,13 +947,13 @@ void CheerpWasmRenderInterface::renderContinue()
 	for (uint32_t i = 0; i < blockTypes.size(); i++)
 	{
 		BLOCK_TYPE bt = blockTypes[blockTypes.size() - i - 1].type;
-		if (bt == DO || bt == WHILE1)
-			break;
 
 		breakIndex += blockTypes[blockTypes.size() - i - 1].depth;
+
+		if (bt == DO || bt == WHILE1)
+			break;
 	}
-	breakIndex += 1;
-	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
+	writer->encodeU32Inst(0x0c, "br", breakIndex - 1, code);
 }
 
 void CheerpWasmRenderInterface::renderContinue(int labelId)
@@ -964,14 +964,13 @@ void CheerpWasmRenderInterface::renderContinue(int labelId)
 	{
 		BlockType& block = blockTypes[blockTypes.size() - i - 1];
 
+		breakIndex += block.depth;
+
 		if (block.label == labelId)
 			break;
-
-		breakIndex += block.depth;
 	}
 	assert(i < blockTypes.size() && "cannot find labelId in block types");
-	breakIndex += 1;
-	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
+	writer->encodeU32Inst(0x0c, "br", breakIndex - 1, code);
 }
 
 void CheerpWasmRenderInterface::renderLabel(int labelId)
