@@ -307,12 +307,13 @@ public:
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
-	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int label);
+	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int labelId = 0);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
-	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first);
-	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first);
+	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first, int labelId = 0);
+	void renderIfBlockBegin(const BasicBlock* condBlock, const vector<int>& branchId, bool first, int labelId = 0);
 	void renderElseBlockBegin();
+	void renderIfBlockEnd(bool labelled = false);
 	void renderBlockEnd(bool empty = false);
 	void renderBlockPrologue(const BasicBlock* blockTo, const BasicBlock* blockFrom);
 	void renderWhileBlockBegin();
@@ -727,7 +728,7 @@ void CheerpWasmRenderInterface::renderDefaultBlockBegin(bool)
 	renderCaseBlockBegin(nullptr, 0);
 }
 
-void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first)
+void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int branchId, bool first, int labelId)
 {
 	if(!first)
 	{
@@ -740,7 +741,7 @@ void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int bra
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	if(first)
 	{
-		blockTypes.emplace_back(IF, 1);
+		blockTypes.emplace_back(IF, 1, labelId);
 	}
 	else
 	{
@@ -749,7 +750,7 @@ void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int bra
 	}
 }
 
-void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::vector<int>& skipBranchIds, bool first)
+void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const std::vector<int>& skipBranchIds, bool first, int labelId)
 {
 	if(!first)
 	{
@@ -763,7 +764,7 @@ void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const s
 
 	if(first)
 	{
-		blockTypes.emplace_back(IF, 1);
+		blockTypes.emplace_back(IF, 1, labelId);
 	}
 	else
 	{
@@ -779,6 +780,20 @@ void CheerpWasmRenderInterface::renderElseBlockBegin()
 
 	indent();
 	writer->encodeInst(0x05, "else", code);
+}
+
+void CheerpWasmRenderInterface::renderIfBlockEnd(bool)
+{
+	assert(!blockTypes.empty());
+	BlockType block = blockTypes.back();
+	blockTypes.pop_back();
+	assert(block.type == IF);
+
+	for(uint32_t i = 0; i < block.depth; i++)
+	{
+		indent();
+		writer->encodeInst(0x0b, "end", code);
+	}
 }
 
 void CheerpWasmRenderInterface::renderBlockEnd(bool)
@@ -950,7 +965,7 @@ void CheerpWasmRenderInterface::renderContinue()
 
 		breakIndex += blockTypes[blockTypes.size() - i - 1].depth;
 
-		if (bt == DO || bt == WHILE1)
+		if (bt == WHILE1)
 			break;
 	}
 	writer->encodeU32Inst(0x0c, "br", breakIndex - 1, code);
