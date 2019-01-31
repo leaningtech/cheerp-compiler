@@ -321,6 +321,7 @@ public:
 	void renderDoBlockBegin();
 	void renderDoBlockBegin(int labelId);
 	void renderDoBlockEnd();
+	void renderBlockBegin(int labelId);
 	void renderBreak();
 	void renderBreak(int labelId);
 	void renderContinue();
@@ -816,7 +817,7 @@ void CheerpWasmRenderInterface::renderBlockEnd(bool)
 			blockTypes.push_back(block);
 		writer->encodeInst(0x0b, "end", code);
 	}
-	else if(block.type == IF)
+	else if(block.type == IF || block.type == DO)
 	{
 		for(uint32_t i = 0; i < block.depth; i++)
 		{
@@ -905,6 +906,11 @@ void CheerpWasmRenderInterface::renderDoBlockEnd()
 
 	indent();
 	writer->encodeInst(0x0b, "end", code);
+}
+
+void CheerpWasmRenderInterface::renderBlockBegin(int labelId)
+{
+	renderDoBlockBegin(labelId);
 }
 
 void CheerpWasmRenderInterface::renderBreak()
