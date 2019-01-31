@@ -60,6 +60,7 @@ public:
 	virtual void renderDoBlockBegin() = 0;
 	virtual void renderDoBlockBegin(int labelId) = 0;
 	virtual void renderDoBlockEnd() = 0;
+	virtual void renderBlockBegin(int labelId) = 0;
 	virtual void renderBreak() = 0;
 	virtual void renderBreak(int labelId) = 0;
 	virtual void renderContinue() = 0;

@@ -922,13 +922,10 @@ void BlockListRenderer::render()
 					labels.emplace(&scope, next_label++);
 				break;
 			case Block::BLOCK:
-				if (scope.label)
-					ri.renderDoBlockBegin(next_label);
-				else
-					ri.renderDoBlockBegin();
+				assert(scope.label);
+				ri.renderBlockBegin(next_label);
 				ScopeStack.push_back(&scope);
-				if (scope.label)
-					labels.emplace(&scope, next_label++);
+				labels.emplace(&scope, next_label++);
 				break;
 			case Block::LOOP_END:
 				ri.renderBreak();
@@ -937,7 +934,7 @@ void BlockListRenderer::render()
 				ScopeStack.pop_back();
 				break;
 			case Block::BLOCK_END:
-				ri.renderDoBlockEnd();
+				ri.renderBlockEnd();
 				assert(ScopeStack.back()->kind == Block::BLOCK);
 				ScopeStack.pop_back();
 				break;
