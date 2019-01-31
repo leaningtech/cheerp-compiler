@@ -65,6 +65,7 @@ public:
 	void renderDoBlockBegin();
 	void renderDoBlockBegin(int labelId);
 	void renderDoBlockEnd();
+	void renderBlockBegin(int labelId);
 	void renderBreak();
 	void renderBreak(int labelId);
 	void renderContinue();
@@ -4563,6 +4564,12 @@ void CheerpRenderInterface::renderDoBlockEnd()
 {
 	writer->stream << "}while(0);" << NewLine;
 	writer->blockDepth--;
+}
+
+void CheerpRenderInterface::renderBlockBegin(int blockLabel)
+{
+	writer->stream << 'L' << blockLabel << ":{";
+	writer->blockDepth++;
 }
 
 void CheerpRenderInterface::renderBreak()
