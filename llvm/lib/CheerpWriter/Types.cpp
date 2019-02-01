@@ -465,16 +465,16 @@ void CheerpWriter::compileArrayClassType(Type* T)
 {
 	stream << "function ";
 	stream << namegen.getArrayName(T);
-	stream << "(ret,start,end){" << NewLine;
-	stream << "for(var __i__=start;__i__<end;__i__++)" << NewLine;
-	stream << "ret[__i__]=";
-	compileType(T, LITERAL_OBJ, "ret[__i__]");
-	stream << ';' << NewLine << "return ret;" << NewLine << '}' << NewLine;
+	stream << "(r,s,e){" << NewLine;
+	stream << "for(var i=s;i<e;i++)" << NewLine;
+	stream << "r[i]=";
+	compileType(T, LITERAL_OBJ, "r[i]");
+	stream << ';' << NewLine << "return r;" << NewLine << '}' << NewLine;
 }
 
 void CheerpWriter::compileArrayPointerType()
 {
-	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_POINTER_ARRAY) << "(ret,start,end,elem){for(var __i__=start;__i__<end;__i__++)ret[__i__]=elem;return ret;}"
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_POINTER_ARRAY) << "(r,s,e,v){for(var i=s;i<e;i++)r[i]=v;return r;}"
 		<< NewLine;
 }
 
