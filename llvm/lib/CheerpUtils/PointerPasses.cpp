@@ -856,7 +856,7 @@ void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createDelayInstsPass() { return new DelayInsts(); }
 
-Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index) const
+Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index)
 {
 	if (index >= (*it)->getNumOperands())
 		return NULL;
@@ -1040,9 +1040,11 @@ void GEPOptimizer::ValidGEPGraph::getValidBlocks(ValidGEPLocations& validGEPLoca
 	}
 }
 
-Instruction* GEPOptimizer::hoistGEP(Instruction* I, const GEPRange& R)
+Instruction* GEPOptimizer::hoistGEP(Instruction* I, const GEPRange& R) const
 {
 	BasicBlock* B = I->getParent();
+
+	auto GEPMap = validGEPMap.at(R);
 
 	//We loop over B, moving it every times to his immediate dominator
 	while (1)
@@ -1054,7 +1056,7 @@ Instruction* GEPOptimizer::hoistGEP(Instruction* I, const GEPRange& R)
 			break;
 
 		//Or because the current block is non valid for this GEPRange
-		if (validGEPMap[R].count(iDominator) == 0)
+		if (GEPMap.count(iDominator) == 0)
 			break;
 
 		//Move to the immediate dominator
