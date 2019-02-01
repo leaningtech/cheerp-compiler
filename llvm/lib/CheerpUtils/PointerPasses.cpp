@@ -952,37 +952,24 @@ Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEP
 		OrderedGEPs::iterator currIt = it;
 		Instruction* curGEP = *it;
 		++it;
-		if(insertionPoint==NULL)
+
+		Instruction* insertPointCandidate = cheerp::findCommonInsertionPoint(NULL, DT, insertionPoint, curGEP);
+
+		// Make sure that insertPointCandidate is in a valid block for this GEP
+		const ValidGEPLocations& validGEPLocations = passData->validGEPMap.at(GEPRange::createGEPRange(cast<const GetElementPtrInst>(curGEP),endIndex+1));
+		if (!validGEPLocations.count(insertPointCandidate->getParent()))
 		{
-			insertionPoint = curGEP;
-			continue;
-		}
-		// Check if the current GEP dominates the old insertionPoint
-		if(DT->dominates(curGEP, insertionPoint))
-			insertionPoint = curGEP;
-		else if(!DT->dominates(insertionPoint, curGEP))
-		{
-			// If the insertionPoint also does not dominate the current GEP
-			// we need to find a common dominator for both
-			BasicBlock* commonDominator = DT->findNearestCommonDominator(insertionPoint->getParent(), curGEP->getParent());
-			assert(commonDominator);
-			llvm::Instruction* insertPointCandidate = commonDominator->getTerminator();
-			// Make sure that insertPointCandidate is in a valid block for this GEP
-			const ValidGEPLocations& validGEPLocations = passData->validGEPMap.at(GEPRange::createGEPRange(cast<const GetElementPtrInst>(curGEP),endIndex+1));
-			if (!validGEPLocations.count(commonDominator))
-			{
-				// It is not safe to optimize this GEP, remove it from the set
-				assert(curGEP != *begin);
-				skippedGeps.insert(curGEP);
-				orderedGeps.erase(currIt);
+			// It is not safe to optimize this GEP, remove it from the set
+			assert(curGEP != *begin);
+			skippedGeps.insert(curGEP);
+			orderedGeps.erase(currIt);
 #if DEBUG_GEP_OPT_VERBOSE
-				llvm::errs() << "Skipping GEP " << *curGEP << "\n";
+			llvm::errs() << "Skipping GEP " << *curGEP << "\n";
 #endif
-			}
-			else
-			{
-				insertionPoint = insertPointCandidate;
-			}
+		}
+		else
+		{
+			insertionPoint = insertPointCandidate;
 		}
 	}
 	return insertionPoint;
