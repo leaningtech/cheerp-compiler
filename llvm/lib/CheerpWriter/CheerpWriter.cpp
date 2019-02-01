@@ -4568,7 +4568,7 @@ void CheerpRenderInterface::renderDoBlockEnd()
 
 void CheerpRenderInterface::renderBlockBegin(int blockLabel)
 {
-	writer->stream << 'L' << blockLabel << ":{";
+	writer->stream << 'L' << blockLabel << ":{" << NewLine;
 	writer->blockDepth++;
 }
 
