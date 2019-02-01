@@ -924,7 +924,7 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 		if (begin != endEquals)
 		{
 			//Take care of the GEP ending here
-			erasedInst.insert(std::make_pair(newGEP, std::vector<Instruction*>(begin, endEquals)));
+			erasedInst.insert(std::make_pair(newGEP, std::vector<GetElementPtrInst*>(begin, endEquals)));
 		}
 
 		// Will be later examined, checking wheter it should be merged to its single use (or kept if there are multiple uses)
@@ -950,7 +950,7 @@ Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEP
 		//We need to hold an iterator both to the current and the next item
 		//to be able to delete the current item without invalidating iterators
 		OrderedGEPs::iterator currIt = it;
-		Instruction* curGEP = *it;
+		GetElementPtrInst* curGEP = *it;
 		++it;
 
 		Instruction* insertPointCandidate = cheerp::findCommonInsertionPoint(NULL, DT, insertionPoint, curGEP);
@@ -1134,13 +1134,13 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 				continue;
 			if(I.getNumOperands() == 2 && isConstantZero(I.getOperand(1)))
 				continue;
-			const GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
+			GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
 			for (size_t i = 0; i < GEP->getNumOperands(); ++i)
 			{
 				order.insert({GEP->getOperand(i), order.size()});
 			}
 
-			orderedGeps.insert(&I);
+			orderedGeps.insert(GEP);
 			ValidGEPLocations validBlocks = AllBlocks;
 
 			// NOTE: `i` is a size, so the end condition needs <=
