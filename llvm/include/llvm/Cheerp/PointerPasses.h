@@ -574,7 +574,7 @@ private:
 		OrderByOperands(const OrderOfAppearence* ord) : orderOfAppearence(ord)
 		{
 		}
-		bool operator()(llvm::Instruction* r, llvm::Instruction* l) const
+		bool operator()(const llvm::Instruction* r, const llvm::Instruction* l) const
 		{
 			//We are ordering Values by order of appearence (somehow arbitrary, but fixed for a given function)
 			//so it could be that constant value 3 is smaller than constant value 0
@@ -603,7 +603,7 @@ private:
 		}
 		const OrderOfAppearence* orderOfAppearence;
 	};
-	typedef std::multiset<Instruction*, OrderByOperands> OrderedGEPs;
+	typedef std::multiset<GetElementPtrInst*, OrderByOperands> OrderedGEPs;
 	typedef std::unordered_map<GEPRange, ValidGEPLocations, GEPRangeHasher> ValidGEPMap;
 	DominatorTree* DT;
 	ValidGEPMap validGEPMap;
@@ -645,7 +645,7 @@ private:
 
 		GEPOptimizer* passData;
 
-		std::map<GetElementPtrInst*, std::vector<Instruction*>> erasedInst;
+		std::map<GetElementPtrInst*, std::vector<GetElementPtrInst*>> erasedInst;
 		std::vector<GetElementPtrInst*> nonTerminalGeps;
 	};
 public:
