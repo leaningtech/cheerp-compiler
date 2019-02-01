@@ -869,6 +869,10 @@ void BlockListRenderer::renderSwitchJumpBranches(const Block& B)
 		switch (BC)
 		{
 			case RenderBranchCase::EMPTY:
+				ri.renderCaseBlockBegin(B.getBB(), BrIdx);
+				ri.renderBreak();
+				ri.renderBlockEnd();
+				break;
 			case RenderBranchCase::JUMP:
 				ri.renderCaseBlockBegin(B.getBB(), BrIdx);
 				ri.renderBlockPrologue(To.getBB(), B.getBB());
@@ -888,6 +892,9 @@ void BlockListRenderer::renderSwitchJumpBranches(const Block& B)
 		switch (BranchesStates.at(B.getBB()).DefaultCase)
 		{
 			case RenderBranchCase::EMPTY:
+				ri.renderDefaultBlockBegin(false);
+				ri.renderBlockEnd();
+				break;
 			case RenderBranchCase::JUMP:
 				ri.renderDefaultBlockBegin(false);
 				ri.renderBlockPrologue(Default, B.getBB());
