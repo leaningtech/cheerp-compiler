@@ -608,7 +608,7 @@ private:
 	DominatorTree* DT;
 	ValidGEPMap validGEPMap;
 	ValidGEPMap subsetGEPMap;
-	Instruction* hoistGEP(Instruction* I, const GEPRange& R);
+	Instruction* hoistGEP(Instruction* I, const GEPRange& R) const;
 
 	static bool isConstantZero(const Value* value)
 	{
@@ -626,14 +626,14 @@ private:
 		GEPRecursionData(Function& F, GEPOptimizer* data);
 		void startRecursion();
 		void applyOptGEP();
-		void mergeGEPs(GetElementPtrInst* a, GetElementPtrInst* b);
+		static void mergeGEPs(GetElementPtrInst* a, GetElementPtrInst* b);
 		void compressGEPTree(const ShortGEPPolicy shortGEPPolicy);
 		bool anyChange() const
 		{
 			return !erasedInst.empty();
 		}
 	private:
-		Value* getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index) const;
+		static Value* getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index);
 		void optimizeGEPsRecursive(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
 			llvm::Value* base, const uint32_t startIndex);
 		Instruction* findInsertionPoint(const OrderedGEPs::iterator begin, const OrderedGEPs::iterator end, const uint32_t endIndex);
