@@ -102,6 +102,7 @@ private:
 	std::vector<int> localMap;
 
 public:
+	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL };
 	const PointerAnalyzer & PA;
 	CheerpMode cheerpMode;
 
@@ -167,6 +168,7 @@ private:
 		void addConst(int64_t v) override;
 		bool isInlineable(const llvm::Value* p) override;
 	};
+	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstants;
 public:
 	llvm::raw_ostream& stream;
 	CheerpWasmWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
@@ -207,7 +209,7 @@ public:
 	void compileBB(WasmBuffer& code, const llvm::BasicBlock& BB);
 	void compileDowncast(WasmBuffer& code, llvm::ImmutableCallSite callV);
 	void compileConstantExpr(WasmBuffer& code, const llvm::ConstantExpr* ce);
-	void compileConstant(WasmBuffer& code, const llvm::Constant* c);
+	void compileConstant(WasmBuffer& code, const llvm::Constant* c, bool forGlobalInit);
 	void compileOperand(WasmBuffer& code, const llvm::Value* v);
 	void compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison);
 	void compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v);
@@ -227,6 +229,7 @@ public:
 	uint32_t encodeDataSectionChunks(WasmBuffer& data, uint32_t address, const std::string& buf);
 	bool tryEncodeFloatAsInt(WasmBuffer& code, const llvm::ConstantFP* f);
 	bool tryEncodeFloat64AsFloat32(WasmBuffer& code, const llvm::ConstantFP* f);
+	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantAsGlobal(const llvm::Constant* C, uint32_t useCount);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	void compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 };
