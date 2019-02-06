@@ -1056,7 +1056,11 @@ void BlockListRenderer::render()
 		// Fake block is at the end
 		if (!BB)
 			break;
+
 		ri.renderBlock(BB);
+
+		if (BB->getTerminator()->getNumSuccessors() == 0)
+			continue;
 
 		auto* Scope = BlockList[B.getId()+1].getBranchStart();
 		auto& BS = BranchesStates[BB];
