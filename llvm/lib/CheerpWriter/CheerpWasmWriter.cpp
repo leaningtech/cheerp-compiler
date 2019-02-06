@@ -337,6 +337,13 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 
 	assert(si->getNumCases());
 
+	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
+
+	auto getCaseValue = [](const ConstantInt* c, uint32_t bitWidth) -> int64_t
+	{
+		return bitWidth == 32 ? c->getSExtValue() : c->getZExtValue();
+	};
+
 	llvm::BasicBlock* defaultDest = si->getDefaultDest();
 	int64_t max = std::numeric_limits<int64_t>::min();
 	int64_t min = std::numeric_limits<int64_t>::max();
@@ -344,7 +351,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 	{
 		if (c.getCaseSuccessor() == defaultDest)
 			continue;
-		int64_t curr = c.getCaseValue()->getSExtValue();
+		int64_t curr = getCaseValue(c.getCaseValue(), bitWidth);
 		max = std::max(max, curr);
 		min = std::min(min, curr);
 	}
@@ -374,7 +381,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 		{
 			// The value to match for case `i` has index `2*i`
 			auto cv = cast<ConstantInt>(si->getOperand(2*i));
-			table.at(cv->getSExtValue() - min) = it->second;
+			table.at(getCaseValue(cv, bitWidth) - min) = it->second;
 		}
 	}
 
@@ -390,7 +397,6 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 
 	// Print the condition
 	writer->compileOperand(code, si->getCondition());
-	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
 	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
 	{
 		assert(bitWidth < 32);
@@ -638,6 +644,13 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 {
 	assert(si->getNumCases());
 
+	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
+
+	auto getCaseValue = [](SwitchInst::ConstCaseIt& c, uint32_t bitWidth) -> int64_t
+	{
+		return bitWidth == 32 ? c.getCaseValue()->getSExtValue() : c.getCaseValue()->getZExtValue();
+	};
+
 	llvm::BasicBlock* defaultDest = si->getDefaultDest();
 	int64_t max = std::numeric_limits<int64_t>::min();
 	int64_t min = std::numeric_limits<int64_t>::max();
@@ -645,7 +658,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	{
 		if (c.getCaseSuccessor() == defaultDest)
 			continue;
-		int64_t curr = c.getCaseValue()->getSExtValue();
+		int64_t curr = getCaseValue(c, bitWidth);
 		max = std::max(max, curr);
 		min = std::min(min, curr);
 	}
@@ -675,7 +688,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 			// with the order of the LLVM Basic Blocks.
 			uint32_t blockIndex = findBlockInBranchesOutMap(dest, branchesOut);
 			blockIndexMap.emplace(dest, blockIndex);
-			table.at(it.getCaseValue()->getSExtValue() - min) = blockIndex;
+			table.at(getCaseValue(it, bitWidth) - min) = blockIndex;
 			assert(blockIndex != numeric_limits<uint32_t>::max());
 
 			// Add cases that have the same destination
@@ -685,7 +698,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 				if (it_next.getCaseSuccessor() != dest)
 					continue;
 
-				table.at(it_next.getCaseValue()->getSExtValue() - min) = blockIndex;
+				table.at(getCaseValue(it_next, bitWidth) - min) = blockIndex;
 			}
 
 			caseBlocks++;
@@ -702,7 +715,6 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	// Wrap the br_table instruction in its own block.
 	writer->encodeU32Inst(0x02, "block", 0x40, code);
 	writer->compileOperand(code, si->getCondition());
-	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
 	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
 	{
 		assert(bitWidth < 32);
