@@ -1618,7 +1618,7 @@ bool CheerpWasmWriter::tryEncodeFloat64AsFloat32(WasmBuffer& code, const Constan
 	return true;
 }
 
-void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
+void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool forGlobalInit)
 {
 	if(const ConstantExpr* CE = dyn_cast<ConstantExpr>(c))
 	{
@@ -1643,11 +1643,15 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 		encodeBufferedSetLocal(code);
 
 		if (cheerpMode == CHEERP_MODE_WASM) {
-			// Try to encode the float/double using a more compact representation.
-			if (tryEncodeFloatAsInt(code, f))
-				return;
-			if (tryEncodeFloat64AsFloat32(code, f))
-				return;
+			// When initializing global we can only use pure constants, not expressions
+			if(!forGlobalInit)
+			{
+				// Try to encode the float/double using a more compact representation.
+				if (tryEncodeFloatAsInt(code, f))
+					return;
+				if (tryEncodeFloat64AsFloat32(code, f))
+					return;
+			}
 
 			internal::encodeLiteralType(c->getType(), code);
 			if (c->getType()->isDoubleTy()) {
@@ -1740,7 +1744,16 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 {
 	if(const Constant* c=dyn_cast<Constant>(v))
-		compileConstant(code, c);
+	{
+		auto it = globalizedConstants.find(c);
+		if(it != globalizedConstants.end())
+		{
+			assert(it->second.second == FULL);
+			encodeU32Inst(0x23, "get_global", it->second.first, code);
+		}
+		else
+			compileConstant(code, c, /*forGlobalInit*/false);
+	}
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
 		if(isInlineable(*it, PA)) {
@@ -3215,6 +3228,27 @@ void CheerpWasmWriter::compileTableSection()
 	}
 }
 
+CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstantAsGlobal(const Constant* C, uint32_t useCount)
+{
+	if(useCount == 1)
+		return NONE;
+	// NOTE: 2 bytes is an aproximation here, we assume that we won't have more than 127 globals
+	const uint32_t getGlobalCost = 2;
+	if(const ConstantFP* CF = dyn_cast<ConstantFP>(C))
+	{
+		const uint32_t costAsLiteral = C->getType()->isDoubleTy() ? 9 : 5;
+		// 1 (type) + costAsLiteral + 1 (end byte)
+		const uint32_t globalInitCost = 2 + costAsLiteral;
+		const uint32_t globalUsesCost = globalInitCost + getGlobalCost * useCount;
+		uint32_t directUsesCost = costAsLiteral * useCount;
+		if(globalUsesCost < directUsesCost)
+			return FULL;
+		else
+			return NONE;
+	}
+		return NONE;
+}
+
 void CheerpWasmWriter::compileMemoryAndGlobalSection()
 {
 	// Define the memory for the module in WasmPage units. The heap size is
@@ -3241,6 +3275,42 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 		}
 	}
 
+	// Gather all constants used multiple times, we want to encode those in the global section
+	for (Function* F: linearHelper.functions())
+	{
+		for(BasicBlock& BB: *F)
+		{
+			for(Instruction& I: BB)
+			{
+				for(Value* V: I.operands())
+				{
+					Constant* C = dyn_cast<Constant>(V);
+					if(!C)
+						continue;
+					if(isa<Function>(C) || isa<ConstantPointerNull>(C))
+						continue;
+					globalizedConstants[C].first++;
+				}
+			}
+		}
+	}
+	// Remove single use constants and assign global ids
+	uint32_t firstGlobalConstant = 1;
+	auto it = globalizedConstants.begin();
+	auto itEnd = globalizedConstants.end();
+	while (it != itEnd)
+	{
+		GLOBAL_CONSTANT_ENCODING encoding = shouldEncodeConstantAsGlobal(it->first, it->second.first);
+		if(encoding == NONE)
+			it = globalizedConstants.erase(it);
+		else
+		{
+			it->second.first = firstGlobalConstant++;
+			it->second.second = encoding;
+			++it;
+		}
+	}
+
 	{
 		Section section(0x06, "Global", this);
 
@@ -3250,7 +3320,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			// There is 1 global.
-			internal::encodeULEB128(1, section);
+			internal::encodeULEB128(1 + globalizedConstants.size(), section);
 			// The global has type i32 (0x7f) and is mutable (0x01).
 			internal::encodeULEB128(0x7f, section);
 			internal::encodeULEB128(0x01, section);
@@ -3259,8 +3329,64 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			internal::encodeSLEB128(stackTop, section);
 			// Encode the end of the instruction sequence.
 			internal::encodeULEB128(0x0b, section);
+			for(auto& it: globalizedConstants)
+			{
+				const Constant* C = it.first;
+				assert(it.second.second != NONE);
+				// Constant type
+				uint32_t valType = 0;
+				switch(it.second.second)
+				{
+					case FULL:
+						valType = internal::getValType(C->getType());
+						break;
+					default:
+						assert(false);
+				}
+				internal::encodeULEB128(valType, section);
+				// Immutable -> 0
+				internal::encodeULEB128(0x00, section);
+				switch(it.second.second)
+				{
+					case FULL:
+					{
+						compileConstant(section, C, /*forGlobalInit*/true);
+						break;
+					}
+					default:
+						assert(false);
+				}
+				internal::encodeULEB128(0x0b, section);
+			}
 		} else {
 			section << "(global (mut i32) (i32.const " << stackTop << "))\n";
+			for(auto& it: globalizedConstants)
+			{
+				const Constant* C = it.first;
+				assert(it.second.second != NONE);
+				const char* strType = nullptr;
+				switch(it.second.second)
+				{
+					case FULL:
+						strType = getTypeString(C->getType());
+						break;
+					default:
+						assert(false);
+				}
+				stream << "(global " << strType << " (";
+				// Compile the constant expression
+				switch(it.second.second)
+				{
+					case FULL:
+					{
+						compileConstant(section, C, /*forGlobalInit*/true);
+						break;
+					}
+					default:
+						assert(false);
+				}
+				stream << "))\n";
+			}
 		}
 	}
 }
