@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cxxabi.h>
 #include "Relooper.h"
 #include "CFGStackifier.h"
 #include "llvm/ADT/StringExtras.h"
@@ -74,50 +75,91 @@ public:
 	void renderIfOnLabel(int labelId, bool first);
 };
 
-std::pair<StringRef, StringRef> CheerpWriter::getBuiltinClassAndFunc(const char* identifier)
+std::pair<std::string, std::string> CheerpWriter::getBuiltinClassAndFunc(const char* identifier)
 {
-	char* ident;
-	//Read the class name
-	int classNameLen = strtol(identifier, &ident, 10);
-	if(classNameLen == 0)
-	{
-		llvm::report_fatal_error(Twine("Unexpected C++ mangled name: ", StringRef(identifier)), false);
-	}
-	StringRef className(ident, classNameLen);
-	ident += classNameLen;
+	int status =0;
+	char* const demangledName = abi::__cxa_demangle(identifier, NULL, NULL, &status);
+	// Find the opening parenthesis
+	char* parenOpen = demangledName;
+	while(*parenOpen != '(')
+		parenOpen++;
 
-	//Read the function name
-	int funcNameLen = strtol(ident, &ident, 10);
-	StringRef funcName;
-	if(funcNameLen == 0 )
+	// Remove the template data
+	auto skipTemplates = [](char* nameEnd) -> char*
 	{
-		if (StringRef(ident).startswith("ix"))
+		nameEnd--;
+		if(*nameEnd != '>')
+			return nameEnd+1;
+		uint32_t templateCount = 1;
+		do
 		{
-			//operator[]
-			funcName = StringRef("[]");
+			nameEnd--;
+			if(*nameEnd == '>')
+				templateCount++;
+			else if(*nameEnd == '<')
+				templateCount--;
 		}
-		else
+		while(templateCount);
+		return nameEnd;
+	};
+
+	// We will have something like "{retType ,}client::(type{<>,}::)+"
+	std::vector<std::string> scopes;
+	char* cur = parenOpen;
+	bool lastScope = false;
+	while(!lastScope)
+	{
+		char* nameEnd = skipTemplates(cur);
+		char* nameStart = nameEnd - 1;
+		while(1)
 		{
-			//This means that we are parsing a fuction which is not in a class
-			//and we already parsed the function name
-			funcName = className;
-			className = StringRef();
+			if(nameStart == demangledName)
+			{
+				scopes.emplace_back(nameStart, nameEnd);
+				lastScope = true;
+				break;
+			}
+			else if(*nameStart == ' ')
+			{
+				scopes.emplace_back(nameStart+1, nameEnd);
+				lastScope = true;
+				break;
+			}
+			else if(*nameStart == ':')
+			{
+				scopes.emplace_back(nameStart+1, nameEnd);
+				nameStart--;
+				assert(*nameStart == ':');
+				break;
+			}
+			nameStart--;
 		}
+		cur = nameStart;
+	}
+
+	free(demangledName);
+
+	assert(scopes.back() == "client");
+	assert(scopes.size() == 2 || scopes.size() == 3);
+
+	if(scopes.size() == 2 || scopes[0] == scopes[1])
+	{
+		// No class is present
+		return std::make_pair(std::string(), std::move(scopes[0]));
 	}
 	else
 	{
-		funcName = StringRef(ident, funcNameLen);
+		return std::make_pair(std::move(scopes[1]), std::move(scopes[0]));
 	}
-	//This condition is necessarily true
-	assert(!funcName.empty());
-	return std::make_pair(className, funcName);
 }
 void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV)
 {
 	assert(callV.getCalledFunction());
-	StringRef className;
-	StringRef funcName;
-	std::tie(className, funcName) = getBuiltinClassAndFunc(identifier);
+	std::string classNameStr;
+	std::string funcNameStr;
+	std::tie(classNameStr, funcNameStr) = getBuiltinClassAndFunc(identifier);
+	StringRef className(classNameStr);
+	StringRef funcName(funcNameStr);
 
 	bool isClientStatic = callV.getCalledFunction()->hasFnAttribute(Attribute::Static);
 
@@ -161,7 +203,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			compileOperand(callV.getArgument(1), LOWEST);
 		}
 	}
-	else if(funcName.startswith("[]"))
+	else if(funcName == StringRef("operator[]"))
 	{
 		// operator[]
 		if(className.empty())
@@ -1317,14 +1359,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	if(userImplemented)
 		return COMPILE_UNSUPPORTED;
 
-	if(ident.startswith("_ZN6client") && !asmjs)
+	if((ident.startswith("_ZN6client") || ident.startswith("_ZNK6client")) && !asmjs)
 	{
-		handleBuiltinNamespace(ident.data()+10,callV);
-		return COMPILE_OK;
-	}
-	else if(ident.startswith("_ZNK6client") && !asmjs)
-	{
-		handleBuiltinNamespace(ident.data()+11,callV);
+		handleBuiltinNamespace(ident.data(),callV);
 		return COMPILE_OK;
 	}
 	else if(ident.startswith("cheerpCreate_ZN6client"))
