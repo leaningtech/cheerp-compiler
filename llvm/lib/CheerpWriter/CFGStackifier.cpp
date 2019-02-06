@@ -116,7 +116,8 @@ static std::pair<Scope*, bool> getJumpScope(const std::vector<Scope*>& Scopes,
 	else
 	{
 		it = std::find_if(Scopes.rbegin(), Scopes.rend(), [&](const Block::Scope* S) {
-			return (S->kind == Block::BLOCK || S->kind == Block::BRANCH) && S->end == To.getId();
+			return (S->kind == Block::BLOCK || (S->kind == Block::BRANCH && S->label))
+				&& S->end == To.getId();
 		});
 	}
 	assert(it != Scopes.rend() && "No scope for branching");
@@ -632,10 +633,31 @@ void BlockListBuilder::addBlockMarkers(Block& B)
 	}
 	Block& PredB = BlockList[PredId];
 
-	// If the new BLOCK scope would perfectly overlap a BRANCH scope, don't add it
-	auto S = BlockList[PredId+1].getBranchStart();
-	if(S && S->start == PredId && S->end == B.getId())
+	// Look for BRANCH scopes we could use to jump to B instead of creating a new
+	// BLOCK
+	for (Block::Scope& S: B.getScopes())
 	{
+		// The scope needs to be a BRANCH ending at B
+		if (S.kind != Block::BRANCH_END)
+			continue;
+		// The scope needs to start at least at PredB
+		if (S.start > PredB.getId())
+			continue;
+		// The scope needs to be a switch, or to consist only of NESTED blocks
+		// (TODO remove this limitation)
+		Block& StartB = BlockList.at(S.start);
+		DomTreeNode* DN = DT.getNode(StartB.getBB());
+		auto it = Branches.find(DN);
+		assert(it != Branches.end() && "No BranchChain info for this scope");
+		BranchChain& BC = it->second;
+		TerminatorInst* Term = StartB.getBB()->getTerminator();
+		if (CheerpWriter::useSwitch(Term) || BC.Branches.size() != Term->getNumSuccessors())
+			continue;
+
+		// The scope qualifies as a target for this jump
+		auto* StartS = BlockList.at(S.start+1).getBranchStart();
+		assert(StartS);
+		StartS->label = true;
 		return;
 	}
 
