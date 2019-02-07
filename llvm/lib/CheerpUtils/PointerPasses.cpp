@@ -1130,7 +1130,11 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 	}
 	for (auto x : passData->subsetGEPMap)
 	{
-		x.second.simplify();
+		auto blocks = x.second;
+		blocks.simplify();
+//		blocks.expandUpwards();
+	// Either cancel it, activate it, or activate in slightly less powerfull way (eg first loop on V, then on S)
+	// Find out what it the better version
 	}
 	//Then we do a second pass, to collect order (used to compare Instruction), the actual GEP list (in orderedGeps) and fill validGEPMap
 	//order will be used to compare two Instruction. Inserting NULL here means
