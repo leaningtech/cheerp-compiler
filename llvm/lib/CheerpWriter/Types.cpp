@@ -442,7 +442,7 @@ void CheerpWriter::compileClassConstructor(StructType* T)
 	stream << "function ";
 	stream << namegen.getConstructorName(T) << "(){" << NewLine;
 	uint32_t usedValuesFromMap;
-	compileComplexType(T, THIS_OBJ, "aSlot", V8MaxLiteralDepth, 0, nullptr, 0, usedValuesFromMap);
+	compileComplexType(T, THIS_OBJ, "", V8MaxLiteralDepth, 0, nullptr, 0, usedValuesFromMap);
 	stream << '}' << NewLine;
 }
 
