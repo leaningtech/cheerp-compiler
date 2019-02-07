@@ -192,9 +192,10 @@ FunctionPass *createDelayInstsPass();
  */
 class GEPOptimizer: public FunctionPass
 {
+	//TODO: move this to std::set<const BasicBlock*> when getNode(const BB) will be supported by llvm
 	typedef std::set<BasicBlock*> BlockSet;
 public:
-	static BasicBlock* immediateDominator(BasicBlock* BB, DominatorTree* DT)
+	static BasicBlock* immediateDominator(BasicBlock* BB, const DominatorTree* DT)
 	{
 		auto X = DT->getNode(BB)->getIDom();
 		if (!X)
@@ -208,13 +209,27 @@ public:
 		ValidGEPLocations() : DT(NULL), roots()
 		{
 		}
+		ValidGEPLocations(const ValidGEPLocations& other) : DT(other.DT), roots(other.roots)
+		{
+		}
+		bool properlyDominated(BasicBlock* block) const
+		{
+			if (roots.count(block))
+				return false;
+			if (count(block))
+				return true;
+			return false;
+		}
 		uint32_t count(BasicBlock* block) const
 		{
 			assert(DT);
+			assert(block);
 
-			if (roots.count(block))
+			//TODO: Now it is O(number of roots), it could become O(log(number of roots)) + precomputation, by storing the range as interval of in-order/post-order visit
+
+			if (getRoots().count(block))
 				return 1;
-			for (auto BB : roots)
+			for (auto BB : getRoots())
 			{
 				if (DT->dominates(BB, block))
 					return 1;
@@ -247,6 +262,38 @@ public:
 			}
 			swap (roots, next);
 		}
+		ValidGEPLocations keepOnlyDominated(const ValidGEPLocations& dominant) const
+		{
+			assert(DT);
+
+			ValidGEPLocations V;
+			V.setDominatorTree(DT);
+
+			std::vector<BasicBlock*> toBeProcessed(getRoots().begin(), getRoots().end());
+
+			while (!toBeProcessed.empty())
+			{
+				auto BB = toBeProcessed.back();
+				toBeProcessed.pop_back();
+
+				//If a node is dominated, keep it
+				if (dominant.count(BB))
+					V.insert(BB);
+				//Otherwise skip it and process the children (in the DT)
+				else
+				{
+					auto NN = DT->getNode(BB);
+
+					for (auto X : make_range(NN->begin(), NN->end()))
+					{
+						toBeProcessed.push_back(X->getBlock());
+					}
+				}
+			}
+			V.simplify();
+			return V;
+		}
+		void keepOnlyDominatedByOperand(const Value* value);
 		void setDominatorTree(DominatorTree* DT_)
 		{
 			DT = DT_;
@@ -300,6 +347,7 @@ public:
 		}
 		void simplify()
 		{
+			assert(DT);
 			//Loop over the roots, nodes that already have their immediate dominator in roots will get skipped
 			//It is necessary to have the next, since we may otherwise delete someone else immediate dominator
 			//think of mom, child, granma, if you process them in this order mom will get out of the set
@@ -307,12 +355,26 @@ public:
 			BlockSet next;
 			for (auto x : roots)
 			{
-				if (roots.count(immediateDominator(x, DT)))
+				auto X = immediateDominator(x, DT);
+				if (X && roots.count(X))
 					continue;
 				next.insert(x);
 			}
 
 			std::swap(next, roots);
+		}
+		void dump() const
+		{
+			llvm::errs()<< "{ ";
+			bool is_first = true;
+			for (auto x : getRoots())
+			{
+				if (!is_first)
+					llvm::errs() << ",\t";
+				is_first = false;
+				x->printAsOperand(llvm::errs(), false);
+			}
+			llvm::errs() << " }\n";
 		}
 	private:
 		DominatorTree* DT;
@@ -381,96 +443,201 @@ public:
 	class ValidGEPGraph {
 		using GEPRange = GEPOptimizer::GEPRange;
 	public:
-		explicit ValidGEPGraph(Function* F, DominatorTree* DT, GEPRange Range, const ValidGEPLocations& Subset, const ValidGEPLocations& isRangeValid)
-			: F(F), Range(Range), isRangeValid(isRangeValid)
+		explicit ValidGEPGraph(Function* F, const DominatorTree* DT, const GEPRange& Range, const ValidGEPLocations& knownPostdominatedByGEP, const ValidGEPLocations& possiblyValid)
+			: F(F), DT(DT), Range(Range), knownValid(knownPostdominatedByGEP.keepOnlyDominated(possiblyValid)), possiblyValid(possiblyValid)
 		{
-			for (auto BB : isRangeValid.getRoots())
+			//Blocks in the CFG could be of three kinds;
+			// -knownValid: blocks already classified as valid (they leads to visit a GEP and are dominated by the definitions of operands)
+			// -possiblyValid: blocks dominated by all definitions of the GEP operands
+			// -invalid: all nodes known to be invalid
+
+			//The objective of this class is classifying all nodes in possiblyValid but not in knownValid
+
+			//TODO: Create the graph just once, and only update values in it (possibly using the trick of In-order Post-order numbering on the GEP tree)
+			std::vector<BasicBlock*> toBeProcessed(possiblyValid.getRoots().begin(), possiblyValid.getRoots().end());
+			while (!toBeProcessed.empty())
 			{
-				ValidNodes.push_back(getOrCreate(BB));
+				auto BB = toBeProcessed.back();
+				toBeProcessed.pop_back();
+
+				//Node that are already known to be valid could avoid to be processed
+				if (knownValid.count(BB))
+					continue;
+
+				Node* N = getOrCreate(BB, true);
+				if (N->kind == Kind::ConnectedToGood)
+					GoodPred.push_back(N);
+				else if (N->kind == Kind::ConnectedToBad)
+					BadPred.push_back(N);
+				//A node could be either connected to Good or Bad, since node connected to both
+				//are only connected to Bad (since they will never be postdominated by Good, we could avoid the processing)
+
+				auto NN = DT->getNode(BB);
+
+				for (auto X : make_range(NN->begin(), NN->end()))
+				{
+					toBeProcessed.push_back(X->getBlock());
+				}
 			}
-			// Here we create explicitly nodes that is it worth visiting
-			// (skipping all the nodes dominated by a valid node, since they are already valid, and there is no need to double check them)
-			// Nodes have to be created here, since the iterators currently require them to be already created
-			for (auto DI = df_begin(DT), DE = df_end(DT); DI != DE;)
+			getOrCreate(Kind::Good, true);
+			getOrCreate(Kind::Bad, true);
+		}
+		void dump() const
+		{
+			for (auto x : Nodes)
 			{
-				Node* N = getOrCreate(DI->getBlock());
-				if (isRangeValid.getRoots().count(DI->getBlock()))
-				{
-					DI.skipChildren();
-				}
-				else
-				{
-					++DI;
-				}
+				x.second.printAsOperand(llvm::errs(), false);
+				llvm::errs() << "\t";
 			}
-			getOrCreate(nullptr);
+			llvm::errs() << "\n";
+		}
+		enum class Kind
+		{
+			//There are 5 kinds of nodes:
+			//2 virtual sink nodes (Good and Bad)
+			//2 set of predecessors of Good (ConnectedToGood) or Bad (ConnectedToBad)
+			//and all other nodes (Regular)
+
+			//Good and Bad have no successors, and as predecessors only ConnectedToGood or ConnectedToBad nodes
+			//Regular nodes have all they normal predecessor and successors, as long as they exist in the subgraph
+			//ConnectedToGood and ConnectedToBad have all they regular predecessors and successors + Good/Bad as additional successor
+			Good, Bad, ConnectedToGood, ConnectedToBad, Regular
+		};
+		Kind determineKind(BasicBlock* BB) const
+		{
+			assert(BB);
+			Kind kind = Kind::Regular;
+			for (auto x : make_range(succ_begin(BB), succ_end(BB)))
+			{
+				if (!possiblyValid.count(x))
+				{
+					return Kind::ConnectedToBad;
+				}
+				if (knownValid.count(x))
+					kind = Kind::ConnectedToGood;
+			}
+			return kind;
 		}
 		struct Node {
 			BasicBlock* BB;
+			Kind kind;
 			ValidGEPGraph& G;
-			explicit Node(BasicBlock* BB, ValidGEPGraph& G): BB(BB), G(G)
+			explicit Node(BasicBlock* BB, ValidGEPGraph& G): BB(BB), kind(G.determineKind(BB)), G(G)
+			{
+				assert(BB);
+			}
+			explicit Node(Kind kind, ValidGEPGraph& G): BB(nullptr), kind(kind), G(G)
 			{}
-			//General version
-			bool isValidForGEP()
-			{
-				return G.isRangeValid.count(BB);
-			}
-			//Specialized version
-			// If we are looking only at successors, it suffice to check that the BasicBlock is one
-			// of the roots of the forest (in the DT tree). It is never possible to "skip" a root and
-			// visit a successor of the root without visiting the root first
-			bool isValidForGEPSuccessor()
-			{
-				return G.isRangeValid.getRoots().count(BB);
-			}
-			void printAsOperand(llvm::raw_ostream& o, bool b)
+			void printAsOperand(llvm::raw_ostream& o, bool b) const
 			{
 				if (BB)
 					BB->printAsOperand(o, b);
+				llvm::errs() << " ";
+				if (kind == Kind::Good)
+					llvm::errs() << "Good";
+				else if (kind == Kind::ConnectedToGood)
+					llvm::errs() << "ConnectedToGood";
+				else if (kind == Kind::Regular)
+					llvm::errs() << "Regular";
+				else if (kind == Kind::ConnectedToBad)
+					llvm::errs() << "ConnectedToBad";
 				else
-					o<<"null";
+					llvm::errs() << "Bad";
+				llvm::errs() << " ; ";
+			}
+			void dump() const
+			{
+				printAsOperand(llvm::errs(), false);
+				llvm::errs() << "\n";
 			}
 		};
-		Node* getOrCreate(BasicBlock* BB)
+		Node* getOrCreate(BasicBlock* BB, bool create = false)
 		{
-			auto it = Nodes.find(BB);
+			auto it = Nodes.find(std::make_pair(BB, Kind::Regular));
 			if (it == Nodes.end())
 			{
-				it = Nodes.emplace(BB, Node(BB, *this)).first;
+				assert(create);
+				it = Nodes.emplace(std::make_pair(BB, Kind::Regular), Node(BB, *this)).first;
 			}
 			return &it->second;
 		}
+		Node* getOrCreate(Kind kind, bool create = false)
+		{
+			assert(kind != Kind::Regular);
+			assert(kind != Kind::ConnectedToBad);
+			assert(kind != Kind::ConnectedToGood);
+			BasicBlock* BB = nullptr;
+			auto it = Nodes.find(std::make_pair(BB, kind));
+			if (it == Nodes.end())
+			{
+				assert(create);
+				it = Nodes.emplace(std::make_pair(BB, kind), Node(kind, *this)).first;
+			}
+			return &it->second;
+		}
+		bool nodeExist(BasicBlock* BB) const
+		{
+			assert(BB);
+			auto it = Nodes.find(std::make_pair(BB, Kind::Regular));
+			return (it != Nodes.end());
+		}
 		Node* getEntryNode() { return getOrCreate(&F->getEntryBlock()); }
-		void getValidBlocks(ValidGEPLocations& validGEPLocations);
+		ValidGEPLocations getValidBlocks(); 
 		class SuccIterator
 			: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node, Node> {
+			void skipNonExistentSuccessors()
+			{
+				assert(N->BB);
+				while (Idx < N->BB->getTerminator()->getNumSuccessors() &&
+						N->G.nodeExist(N->BB->getTerminator()->getSuccessor(Idx)) == false)
+				{
+					++Idx;
+				}
+			}
 		public:
 			explicit SuccIterator(Node* N): N(N)
 			{
 				if (N->BB == nullptr)
 				{
-					Idx = 0;
-					return;
+					Idx = -3;
 				}
-				Idx = N->isValidForGEPSuccessor() ? -1 : 0;
+				else if (N->kind == Kind::ConnectedToBad)
+					Idx = -2;
+				else if (N->kind == Kind::ConnectedToGood)
+					Idx = -1;
+				else
+				{
+					Idx = 0;
+					skipNonExistentSuccessors();
+				}
 			}
 			explicit SuccIterator(Node* N, bool): N(N)
 			{
-				if (N->BB && !N->isValidForGEPSuccessor())
-					Idx = N->BB->getTerminator()->getNumSuccessors();
+				if (N->BB == nullptr)
+				{
+					Idx = -3;
+				}
 				else
-					Idx = 0;
+					Idx = N->BB->getTerminator()->getNumSuccessors();
 			}
 			Node* operator*() const
 			{
+				assert(Idx > -3);
+				if (Idx == -2)
+					return N->G.getOrCreate(Kind::Bad);
 				if (Idx == -1)
-					return N->G.getOrCreate(nullptr);
+					return N->G.getOrCreate(Kind::Good);
+				assert(Idx >= 0);
 				BasicBlock* BB = N->BB->getTerminator()->getSuccessor(Idx);
 				return N->G.getOrCreate(BB);
 			}
 			SuccIterator& operator++()
 			{
+				if (Idx == -2)
+					Idx = -1;
 				++Idx;
+				assert(Idx >= 0);
+				skipNonExistentSuccessors();
 				return *this;
 			}
 			SuccIterator operator++(int)
@@ -482,7 +649,7 @@ public:
 				return std::tie(N, Idx) == std::tie(I.N, I.Idx);
 			}
 		private:
-			Node* N;
+			const Node* N;
 			int Idx;
 
 		};
@@ -493,22 +660,14 @@ public:
 			pred_iterator It;
 			std::vector<Node*>::iterator VirtIt;
 			bool VirtualNode;
-			Node* N;
+			const Node* N;
 
-			void skipValidPredsAndOutOfSubset()
+			void skipNonExistantPredecessors()
 			{
-				if (VirtualNode == false)
+				assert(N->BB);
+				while(It != pred_end(N->BB) && N->G.nodeExist(*It) == false)
 				{
-					while(It != pred_end(N->BB))
-					{
-						Node* N = this->operator*();
-						if (N->isValidForGEP())
-						{
-							It++;
-						}
-						else
-							return;
-					}
+					++It;
 				}
 			}
 		public:
@@ -522,12 +681,15 @@ public:
 				{
 					VirtualNode = false;
 					It = pred_begin(N->BB);
-					skipValidPredsAndOutOfSubset();
+					skipNonExistantPredecessors();
 				}
 				else
 				{
 					VirtualNode = true;
-					VirtIt = N->G.ValidNodes.begin();
+					if (N->kind == Kind::Good)
+						VirtIt = N->G.GoodPred.begin();
+					else
+						VirtIt = N->G.BadPred.begin();
 				}
 			}
 			PredIterator(Node* N, bool): N(N)
@@ -536,17 +698,19 @@ public:
 				{
 					VirtualNode = false;
 					It = pred_end(N->BB);
-					skipValidPredsAndOutOfSubset();
 				}
 				else
 				{
 					VirtualNode = true;
-					VirtIt = N->G.ValidNodes.end();
+					if (N->kind == Kind::Good)
+						VirtIt = N->G.GoodPred.end();
+					else
+						VirtIt = N->G.BadPred.end();
 				}
 			}
 			bool operator==(const Self& x) const
 			{
-				if (VirtualNode != x.VirtualNode)
+				if (N->kind != x.N->kind)
 					return false;
 				if (VirtualNode)
 					return VirtIt == x.VirtIt;
@@ -576,7 +740,7 @@ public:
 				else
 				{
 					++It;
-					skipValidPredsAndOutOfSubset();
+					skipNonExistantPredecessors();
 				}
 				return *this;
 			}
@@ -586,14 +750,17 @@ public:
 			}
 		};
 
-		typedef std::map<BasicBlock*, Node> NodeMap;
+		typedef std::map<std::pair<BasicBlock*, Kind>, Node> NodeMap;
 		friend struct GraphTraits<ValidGEPGraph*>;
 	private:
 		Function* F;
-		GEPRange Range;
-		const ValidGEPLocations& isRangeValid;
+		const DominatorTree* DT;
+		const GEPRange& Range;
+		const ValidGEPLocations knownValid;
+		const ValidGEPLocations& possiblyValid;
 		NodeMap Nodes;
-		std::vector<Node*> ValidNodes;
+		std::vector<Node*> GoodPred;
+		std::vector<Node*> BadPred;
 	};
 private:
 	struct GEPRangeHasher
@@ -683,8 +850,6 @@ private:
 		OrderOfAppearence order;
 		OrderedGEPs orderedGeps;
 		OrderedGEPs skippedGeps;
-
-		void keepOnlyDominated(ValidGEPLocations& blocks, const Value* value);
 
 		GEPOptimizer* passData;
 
