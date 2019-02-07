@@ -969,7 +969,6 @@ Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEP
 		OrderedGEPs::iterator currIt = it;
 		GetElementPtrInst* curGEP = *it;
 		++it;
-
 		Instruction* insertPointCandidate = cheerp::findCommonInsertionPoint(NULL, DT, insertionPoint, curGEP);
 
 		// Make sure that insertPointCandidate is in a valid block for this GEP
@@ -1042,19 +1041,27 @@ template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph*> : public GraphTrait
 	static size_t         size       (GEPOptimizer::ValidGEPGraph* G) { return G->Nodes.size(); }
 };
 
-void GEPOptimizer::ValidGEPGraph::getValidBlocks(ValidGEPLocations& validGEPLocations)
+GEPOptimizer::ValidGEPLocations GEPOptimizer::ValidGEPGraph::getValidBlocks()
 {
+	//This function takes the direct graph defined in ValidGEPGraph, compute the post dominator tree, and build the result
 	DominatorTreeBase<Node> PDT(true);
 	PDT.recalculate(*this);
 	SmallVector<ValidGEPGraph::Node*, 8> ValidNodes;
-	PDT.getDescendants(getOrCreate(nullptr), ValidNodes);
+	PDT.getDescendants(getOrCreate(Kind::Good), ValidNodes);
+
+	//The valid nodes are all nodes that we knew where valid (knownValid)
+	ValidGEPLocations ret(knownValid);
+
+	//and all nodes postdominates by "Good"
 	for (auto V: ValidNodes)
 	{
 		if (V->BB)
 		{
-			validGEPLocations.insert(V->BB);
+			ret.insert(V->BB);
 		}
 	}
+	ret.simplify();
+	return ret;
 }
 
 Instruction* GEPOptimizer::hoistGEP(Instruction* I, const GEPRange& R) const
@@ -1087,11 +1094,11 @@ Instruction* GEPOptimizer::hoistGEP(Instruction* I, const GEPRange& R) const
 	return I;
 }
 
-void GEPOptimizer::GEPRecursionData::keepOnlyDominated(ValidGEPLocations& blocks, const Value* value)
+void GEPOptimizer::ValidGEPLocations::keepOnlyDominatedByOperand(const Value* value)
 {
 	if (const Instruction* I = dyn_cast<const Instruction> (value))
 	{
-		blocks.keepOnlyDominated(I->getParent());
+		keepOnlyDominated(I->getParent());
 	}
 }
 
@@ -1128,13 +1135,11 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 			}
 		}
 	}
-	for (auto x : passData->subsetGEPMap)
+	for (auto& x : passData->subsetGEPMap)
 	{
-		auto blocks = x.second;
+		auto& blocks = x.second;
 		blocks.simplify();
-//		blocks.expandUpwards();
-	// Either cancel it, activate it, or activate in slightly less powerfull way (eg first loop on V, then on S)
-	// Find out what it the better version
+		blocks.expandUpwards();
 	}
 	//Then we do a second pass, to collect order (used to compare Instruction), the actual GEP list (in orderedGeps) and fill validGEPMap
 	//order will be used to compare two Instruction. Inserting NULL here means
@@ -1164,7 +1169,12 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 			}
 
 			orderedGeps.insert(GEP);
-			ValidGEPLocations validBlocks = AllBlocks;
+			ValidGEPLocations possiblyValidBlocks = AllBlocks;
+			//possiblyValidBlocks contains all blocks where a GEP could still be possibly placed
+			//(meaning, the only blocks excluded are the ones the could never possibly host one)
+			//It starts being equal to all the blocks, then filtered by the operand of the GEP
+
+			possiblyValidBlocks.keepOnlyDominatedByOperand(GEP->getOperand(0));
 
 			// NOTE: `i` is a size, so the end condition needs <=
 			for (size_t i = 2; i <= GEP->getNumOperands(); ++i)
@@ -1173,29 +1183,30 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 				auto it = passData->validGEPMap.find(Range);
 				if(it == passData->validGEPMap.end())
 				{
-					ValidGEPGraph VG(&F, passData->DT, Range, validBlocks, passData->subsetGEPMap.find(Range)->second);
+					//Here we introduce the additional constraint that valid blocks have to be
+					//dominated by every instruction used inside the GEP
+					//Since basically we are doing set intersection between the original forest and a new
+					//(sub-)tree in the DT, the result will still be a forest of subtree after every
+					//application of keepOnlyDominated
+					possiblyValidBlocks.keepOnlyDominatedByOperand(GEP->getOperand(i-1));
+
+					//passData->subsetGEPMap.find(Range)->second contains all blocks where we are already certain a GEP could be placed
+					//(this is a subset of possiblyValidBlocks)
+
+					ValidGEPGraph VG(&F, passData->DT, Range, passData->subsetGEPMap.find(Range)->second, possiblyValidBlocks);
+
+					ValidGEPLocations validPlacements = VG.getValidBlocks();
 					//ValidBlocks contains all the blocks that:
 					//1- either leads from every possibly path to a node using a GEP
 					//2- or thery are a child to such a node (in the DT)
 					//They are represented as a forest (a set of (sub-)trees) in the dominator tree
 					//Since property 2 guarantees that the children of a valid nodes are still valid,
 					//we can keep only nodes that are roots to a sub-tree in the dominator tree
-					validBlocks.clear();
-					VG.getValidBlocks(validBlocks);
-					validBlocks.simplify();
-					//Here we introduce the additional constraint that valid blocks have to be
-					//dominated by every instruction used inside the GEP
-					//Since basically we are doing set intersection between the original forest and a new
-					//(sub-)tree in the DT, the result will still be a forest of subtree after every
-					//application of keepOnlyDominated
-					//TODO: find how it is possible to avoid the O(GEP->length ^ 2) iterations (do DFS starting from the various roots instead of the whole tree)
-					for (size_t j = 0; j < i; j++)
-					{
-						keepOnlyDominated(validBlocks, GEP->getOperand(j));
-					}
-					it = passData->validGEPMap.emplace(Range, std::move(validBlocks)).first;
+
+					it = passData->validGEPMap.emplace(Range, std::move(validPlacements)).first;
 				}
-				validBlocks = it->second;
+				//For the next round, all blocks already excluded could be excluded for certain
+				possiblyValidBlocks = it->second;
 			}
 		}
 	}
@@ -1206,7 +1217,6 @@ bool GEPOptimizer::runOnFunction(Function& F)
 	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
 	GEPRecursionData data(F, this);
-
 	data.startRecursion();
 	data.applyOptGEP();
 	data.compressGEPTree(ShortGEPPolicy::ALLOWED);
