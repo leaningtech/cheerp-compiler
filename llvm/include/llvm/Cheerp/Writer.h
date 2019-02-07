@@ -208,8 +208,8 @@ private:
 	uint32_t heapSize;
 	// Flag to signal if we should add bounds-checking code
 	bool checkBounds;
-	// Flag to signal if we should use cfg-stackifier or relooper
-	bool useCfgStackifier;
+	// Flag to signal if we should use relooper instead of stackifier
+	bool useCfgLegacy;
 	// The name of the external wasm file, or empty if not present
 	const std::string& wasmFile;
 	// Flag to signal if we should generate typed arrays when element type is
@@ -535,7 +535,7 @@ public:
 			bool measureTimeToMain,
 			unsigned heapSize,
 			bool checkBounds,
-			bool useCfgStackifier,
+			bool useCfgLegacy,
 			bool compileGlobalsAddrAsmJS,
 			const std::string& wasmFile,
 			bool forceTypedArrays):
@@ -567,7 +567,7 @@ public:
 		measureTimeToMain(measureTimeToMain),
 		heapSize(heapSize),
 		checkBounds(checkBounds),
-		useCfgStackifier(useCfgStackifier),
+		useCfgLegacy(useCfgLegacy),
 		wasmFile(wasmFile),
 		forceTypedArrays(forceTypedArrays),
 		symbolicGlobalsAsmJS(compileGlobalsAddrAsmJS),
