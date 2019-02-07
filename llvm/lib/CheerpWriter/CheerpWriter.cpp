@@ -4730,7 +4730,14 @@ void CheerpWriter::compileMethod(Function& F)
 	}
 	else
 	{
-		if (useCfgStackifier)
+		if (useCfgLegacy)
+		{
+			Relooper* rl = runRelooperOnFunction(F, PA, registerize);
+			CheerpRenderInterface ri(this, namegen.getBuiltinName(NameGenerator::Builtin::LABEL), NewLine, asmjs);
+			compileMethodLocals(F, rl->needsLabel());
+			rl->Render(&ri);
+		}
+		else
 		{
 			compileMethodLocals(F, false);
 			CheerpRenderInterface ri(this, namegen.getBuiltinName(NameGenerator::Builtin::LABEL), NewLine, asmjs);
@@ -4739,13 +4746,6 @@ void CheerpWriter::compileMethod(Function& F)
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 			CFGStackifier C(F, LI, DT);
 			C.render(ri, registerize, PA, asmjs);
-		}
-		else
-		{
-			Relooper* rl = runRelooperOnFunction(F, PA, registerize);
-			CheerpRenderInterface ri(this, namegen.getBuiltinName(NameGenerator::Builtin::LABEL), NewLine, asmjs);
-			compileMethodLocals(F, rl->needsLabel());
-			rl->Render(&ri);
 		}
 	}
 	assert(blockDepth == 0);

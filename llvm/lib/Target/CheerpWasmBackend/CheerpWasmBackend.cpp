@@ -85,7 +85,7 @@ bool CheerpWasmWritePass::runOnModule(Module& M)
     cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, reservedNames, PrettyCode);
     cheerp::CheerpWasmWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmLoader.empty(),
-                                    PrettyCode, CfgStackifier, cheerpMode);
+                                    PrettyCode, CfgLegacy, cheerpMode);
     writer.makeWasm();
   }
   else
@@ -112,13 +112,13 @@ bool CheerpWasmWritePass::runOnModule(Module& M)
     cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, reservedNames, PrettyCode);
     cheerp::CheerpWasmWriter wasmWriter(M, *this, Out, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmLoader.empty(),
-                                    PrettyCode, CfgStackifier, cheerpMode);
+                                    PrettyCode, CfgLegacy, cheerpMode);
     wasmWriter.makeWasm();
 
     cheerp::CheerpWriter writer(M, *this, jsOut, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, nullptr, std::string(),
             sourceMapGenerator, PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
             !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
-            BoundsCheck, CfgStackifier, SymbolicGlobalsAsmJS, WasmFile, ForceTypedArrays);
+            BoundsCheck, CfgLegacy, SymbolicGlobalsAsmJS, WasmFile, ForceTypedArrays);
     writer.makeJS();
     if (ErrorCode)
     {
