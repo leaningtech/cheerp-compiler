@@ -5609,7 +5609,7 @@ void CheerpWriter::makeJS()
 		{
 			stream << "module.exports=";
 		}
-		stream << "fetchBuffer('" << asmJSMemFile << "').then(r=>{" << NewLine;
+		stream << "fetchBuffer('" << sys::path::filename(asmJSMemFile) << "').then(r=>{" << NewLine;
 		stream << heapNames[HEAP8] << ".set(new Uint8Array(r),0);" << NewLine;
 		stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
 	}
