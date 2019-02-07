@@ -66,6 +66,8 @@ public:
 	virtual void renderContinue() = 0;
 	virtual void renderContinue(int labelId) = 0;
 	virtual void renderLabel(int labelId) = 0;
+	virtual void renderLoopBlockBegin(int labelId) = 0;
+	virtual void renderLoopBlockEnd() = 0;
 };
 
 // Info about a branching from one block to another

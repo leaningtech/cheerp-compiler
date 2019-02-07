@@ -73,6 +73,8 @@ public:
 	void renderContinue(int labelId);
 	void renderLabel(int labelId);
 	void renderIfOnLabel(int labelId, bool first);
+	void renderLoopBlockBegin(int labelId);
+	void renderLoopBlockEnd();
 };
 
 std::pair<std::string, std::string> CheerpWriter::getBuiltinClassAndFunc(const char* identifier)
@@ -4636,6 +4638,20 @@ void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 	else
 		writer->stream << "===" << labelId << "){" << NewLine;
 	writer->blockDepth++;
+}
+
+void CheerpRenderInterface::renderLoopBlockBegin(int labelId)
+{
+	if (labelId > 0)
+		renderWhileBlockBegin(labelId);
+	else
+		renderWhileBlockBegin();
+}
+
+void CheerpRenderInterface::renderLoopBlockEnd()
+{
+	renderBreak();
+	renderBlockEnd();
 }
 
 void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND kind)

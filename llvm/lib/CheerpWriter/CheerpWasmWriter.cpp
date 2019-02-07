@@ -36,7 +36,7 @@ using namespace std;
 
 static uint32_t COMPILE_METHOD_LIMIT = 100000;
 
-enum BLOCK_TYPE { WHILE1 = 0, DO, SWITCH, CASE, LABEL_FOR_SWITCH, IF };
+enum BLOCK_TYPE { WHILE1 = 0, DO, SWITCH, CASE, LABEL_FOR_SWITCH, IF, LOOP };
 
 class BlockType
 {
@@ -328,6 +328,8 @@ public:
 	void renderContinue(int labelId);
 	void renderLabel(int labelId);
 	void renderIfOnLabel(int labelId, bool first);
+	void renderLoopBlockBegin(int labelId);
+	void renderLoopBlockEnd();
 };
 
 void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* si,
@@ -942,7 +944,7 @@ void CheerpWasmRenderInterface::renderBreak()
 			breakIndex += blockTypes[blockTypes.size() - i - 1].depth;
 			if (bt == WHILE1)
 				breakIndex -= 1;
-			if (bt == DO || bt == WHILE1 || bt == SWITCH)
+			if (bt == DO || bt == WHILE1 || bt == SWITCH || bt == LOOP)
 				break;
 		}
 		assert(breakIndex > 0);
@@ -982,7 +984,7 @@ void CheerpWasmRenderInterface::renderContinue()
 
 		breakIndex += blockTypes[blockTypes.size() - i - 1].depth;
 
-		if (bt == WHILE1)
+		if (bt == WHILE1 || bt == LOOP)
 			break;
 	}
 	writer->encodeU32Inst(0x0c, "br", breakIndex - 1, code);
@@ -1020,6 +1022,22 @@ void CheerpWasmRenderInterface::renderIfOnLabel(int labelId, bool first)
 	indent();
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	blockTypes.emplace_back(IF, 1);
+}
+
+void CheerpWasmRenderInterface::renderLoopBlockBegin(int labelId)
+{
+	indent();
+	writer->encodeU32Inst(0x03, "loop", 0x40, code);
+	blockTypes.emplace_back(LOOP, 1, labelId);
+}
+
+void CheerpWasmRenderInterface::renderLoopBlockEnd()
+{
+	assert(!blockTypes.empty());
+	BlockType block = blockTypes.back();
+	assert(block.type == LOOP);
+	blockTypes.pop_back();
+	writer->encodeInst(0x0b, "end", code);
 }
 
 void CheerpWasmWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer& code)
