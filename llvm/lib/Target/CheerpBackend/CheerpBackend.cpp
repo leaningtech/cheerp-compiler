@@ -95,7 +95,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut.get(), AsmJSMemFile,
           sourceMapGenerator.get(), PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
-          BoundsCheck, CfgStackifier, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
+          BoundsCheck, CfgLegacy, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
   writer.makeJS();
   if (ErrorCode)
   {

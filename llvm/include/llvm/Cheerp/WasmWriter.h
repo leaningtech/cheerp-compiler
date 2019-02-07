@@ -83,8 +83,8 @@ private:
 	// it will also add names to local variables inside functions.
 	bool prettyCode;
 
-	// If true, use cfg stackifier instead of relooper
-	bool useCfgStackifier;
+	// If true, use relooper instead of stackifier
+	bool useCfgLegacy;
 
 	// If true, a set_local instruction is buffered. This mechanism is used to
 	// combine set_local followed by a get_local into a tee_local. The
@@ -172,7 +172,7 @@ public:
 			unsigned heapSize,
 			bool useWasmLoader,
 			bool prettyCode,
-			bool useCfgStackifier,
+			bool useCfgLegacy,
 			CheerpMode cheerpMode):
 		module(m),
 		pass(p),
@@ -188,7 +188,7 @@ public:
 		heapSize(heapSize),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
-		useCfgStackifier(useCfgStackifier),
+		useCfgLegacy(useCfgLegacy),
 		hasSetLocal(false),
 		setLocalId((uint32_t)-1),
 		PA(PA),
