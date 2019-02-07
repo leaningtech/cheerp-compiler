@@ -533,8 +533,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpNoICF->render(Args, CmdArgs);
   if(Arg* cheerpBoundsCheck = Args.getLastArg(options::OPT_cheerp_bounds_check))
     cheerpBoundsCheck->render(Args, CmdArgs);
-  if(Arg* cheerpCfgStackifier = Args.getLastArg(options::OPT_cheerp_cfg_stackifier))
-    cheerpCfgStackifier->render(Args, CmdArgs);
+  if(Arg* cheerpCfgLegacy = Args.getLastArg(options::OPT_cheerp_cfg_legacy))
+    cheerpCfgLegacy->render(Args, CmdArgs);
   if(Arg* cheerpAvoidWasmTraps = Args.getLastArg(options::OPT_cheerp_avoid_wasm_traps))
     cheerpAvoidWasmTraps->render(Args, CmdArgs);
 
