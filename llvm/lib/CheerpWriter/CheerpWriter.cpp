@@ -4967,7 +4967,7 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 	{
 		ostream_proxy os(*asmJSMem, nullptr, false);
 		BinaryBytesWriter bytesWriter(os);
-		uint32_t last_address = 0;
+		uint32_t last_address = linearHelper.getStackStart();
 		uint32_t last_size = 0;
 		for ( const GlobalVariable* GV : linearHelper.globals() )
 		{
@@ -5610,7 +5610,8 @@ void CheerpWriter::makeJS()
 			stream << "module.exports=";
 		}
 		stream << "fetchBuffer('" << sys::path::filename(asmJSMemFile) << "').then(r=>{" << NewLine;
-		stream << heapNames[HEAP8] << ".set(new Uint8Array(r),0);" << NewLine;
+		stream << heapNames[HEAP8] << ".set(new Uint8Array(r),";
+		stream << linearHelper.getStackStart() << ");" << NewLine;
 		stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
 	}
 	else
