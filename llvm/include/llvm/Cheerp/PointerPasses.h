@@ -255,6 +255,49 @@ public:
 		{
 			return roots;
 		}
+		bool areAllChildrenValid(BasicBlock* BB) const
+		{
+			bool hasProperSuccessors = false;
+			for (auto it = succ_begin(BB), end = succ_end(BB); it != end; ++it)
+			{
+				if (*it == BB)
+					continue;
+				hasProperSuccessors = true;
+				if (!roots.count(*it))
+					return false;
+			}
+			assert(hasProperSuccessors);
+			return true;
+		}
+		void expandUpwards()
+		{
+			std::vector<BasicBlock*> V(roots.begin(), roots.end());
+			std::set<BasicBlock*> S;
+			while (!V.empty() || !S.empty())
+			{
+				if (!V.empty())
+				{
+					auto K = V.back();
+					V.pop_back();
+					for (auto X : make_range(pred_begin(K), pred_end(K)))
+					{
+						assert(X);
+						S.insert(X);
+					}
+				}
+				else
+				{
+					auto X = *(S.begin());
+					S.erase(X);
+					if (!roots.count(X) && areAllChildrenValid(X))
+					{
+						V.push_back(X);
+						roots.insert(X);
+					}
+				}
+			}
+			simplify();
+		}
 		void simplify()
 		{
 			//Loop over the roots, nodes that already have their immediate dominator in roots will get skipped
