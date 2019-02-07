@@ -2825,7 +2825,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 	Relooper* rl = nullptr;
 	bool needsLabel = false;
 
-	if (F.size() != 1 && !useCfgStackifier) {
+	if (F.size() != 1 && useCfgLegacy) {
 		rl = CheerpWriter::runRelooperOnFunction(F, PA, registerize);
 		needsLabel = rl->needsLabel();
 	}
@@ -2892,16 +2892,16 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 		// label is the very last local
 		uint32_t labelLocal = needsLabel ? localMap[numRegs] : 0;
 		CheerpWasmRenderInterface ri(this, code, labelLocal);
-		if (useCfgStackifier)
+		if (useCfgLegacy)
+		{
+			rl->Render(&ri);
+		}
+		else
 		{
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 			CFGStackifier C(F, LI, DT);
 			C.render(ri, registerize, PA, true);
-		}
-		else
-		{
-			rl->Render(&ri);
 		}
 		lastDepth0Block = ri.lastDepth0Block;
 	}
