@@ -1647,8 +1647,11 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c)
 		}
 		else
 		{
-			c->dump();
-			assert(false);
+			// When dealing with indirectly used undefined functions forward them to the null function
+			// TODO: This improve the robustness of the compiler, but it might generate unexpected behavor
+			//       if the address is ever explicitly compared to 0
+			assert(F->empty());
+			encodeS32Inst(0x41, "i32.const", 0, code);
 		}
 	}
 	else if (isa<UndefValue>(c))
