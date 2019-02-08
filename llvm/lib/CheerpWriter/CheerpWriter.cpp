@@ -2507,7 +2507,6 @@ bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Valu
 		phiKind = PA.getPointerKind(phi);
 	}
 	return
-		((incomingKind == SPLIT_REGULAR) != (phiKind == SPLIT_REGULAR)) ||
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst) ||
 		phiKind!=incomingKind ||
 		PA.getConstantOffsetForPointer(phi)!=PA.getConstantOffsetForPointer(incoming);
