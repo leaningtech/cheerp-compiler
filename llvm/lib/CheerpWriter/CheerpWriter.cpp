@@ -2501,15 +2501,21 @@ bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Valu
 	assert(!isInlineable(*incomingInst, PA));
 	POINTER_KIND incomingKind = UNKNOWN;
 	POINTER_KIND phiKind = UNKNOWN;
+	const llvm::ConstantInt* incomingOffset = nullptr;
+	const llvm::ConstantInt* phiOffset = nullptr;
 	if(phiType->isPointerTy())
 	{
-		incomingKind = PA.getPointerKind(incoming);
+		incomingKind = PA.getPointerKind(incomingInst);
 		phiKind = PA.getPointerKind(phi);
+		if(incomingKind == SPLIT_REGULAR || incomingKind == REGULAR || incomingKind == BYTE_LAYOUT)
+			incomingOffset = PA.getConstantOffsetForPointer(incomingInst);
+		if(phiKind == SPLIT_REGULAR || phiKind == REGULAR || phiKind == BYTE_LAYOUT)
+			phiOffset = PA.getConstantOffsetForPointer(phi);
 	}
 	return
 		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst) ||
 		phiKind!=incomingKind ||
-		PA.getConstantOffsetForPointer(phi)!=PA.getConstantOffsetForPointer(incoming);
+		phiOffset!=incomingOffset;
 }
 
 bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from,
