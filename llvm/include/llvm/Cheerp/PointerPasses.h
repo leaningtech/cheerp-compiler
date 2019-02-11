@@ -553,6 +553,7 @@ public:
 		};
 		Node* getOrCreate(BasicBlock* BB, bool create = false)
 		{
+			// Non-virtual nodes are stored as Regular (as to avoid computing the kind here)
 			auto it = Nodes.find(std::make_pair(BB, Kind::Regular));
 			if (it == Nodes.end())
 			{
@@ -581,7 +582,13 @@ public:
 			auto it = Nodes.find(std::make_pair(BB, Kind::Regular));
 			return (it != Nodes.end());
 		}
-		Node* getEntryNode() { return getOrCreate(&F->getEntryBlock()); }
+		Node* getEntryNode()
+		{
+			//This function has to be defined, and "Good" is guaranteed to exist
+			//But this graph hasn't really a entryNode (as in a function), so if this function is called probably something is wrong
+			assert(false);
+			return getOrCreate(Kind::Good);
+		}
 		ValidGEPLocations getValidBlocks(); 
 		class SuccIterator
 			: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node, Node> {
@@ -749,8 +756,18 @@ public:
 				Self tmp = *this; ++*this; return tmp;
 			}
 		};
+		struct NodeHasher
+		{
+			inline size_t operator()(const std::pair<BasicBlock*, Kind>& p) const
+			{
+				size_t seed = 0x9e3779b9;
+				if (p.second == Kind::Good) seed = 0x2e6739b1;
+				seed ^=  reinterpret_cast<size_t>(p.first) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+				return seed;
+			}
+		};
 
-		typedef std::map<std::pair<BasicBlock*, Kind>, Node> NodeMap;
+		typedef std::unordered_map<std::pair<BasicBlock*, Kind>, Node, NodeHasher> NodeMap;
 		friend struct GraphTraits<ValidGEPGraph*>;
 	private:
 		Function* F;
