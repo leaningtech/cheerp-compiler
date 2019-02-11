@@ -70,11 +70,8 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 		}
 		else if(dyn_cast<ConstantPointerNull>(c))
 		{
-			assert(offset==0);
-			listener->addByte(0);
-			listener->addByte(0);
-			listener->addByte(0);
-			listener->addByte(0);
+			for(uint32_t i=0;i<32;i+=8)
+				listener->addByte((offset>>i)&255);
 		}
 		else if(const Function* F = dyn_cast<Function>(c))
 		{
