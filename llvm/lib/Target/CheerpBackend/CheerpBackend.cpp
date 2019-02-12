@@ -28,6 +28,7 @@
 #include "llvm/Cheerp/FixIrreducibleControlFlow.h"
 #include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/PointerPasses.h"
+#include "llvm/Cheerp/GEPOptimizer.h"
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/SourceMaps.h"
