@@ -10,26 +10,14 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "CheerpGEPOptimizer"
-#include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/ADT/Statistic.h"
+
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/GEPOptimizer.h"
-#include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
-#include "llvm/IR/CallSite.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
-#include <set>
-#include <map>
 
 //#define DEBUG_GEP_OPT_VERBOSE 1
 
