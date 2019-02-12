@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -104,7 +104,7 @@ void Registerize::InstructionLiveRange::addUse(uint32_t curCodePath, uint32_t th
 		range.back().end=thisIndex;
 	else
 	{
-		range.push_back(LiveRangeChunk(curCodePath, thisIndex));
+		range.extendOrPush(LiveRangeChunk(curCodePath, thisIndex));
 		codePathId=curCodePath;
 	}
 	assert(!range.back().empty());
@@ -614,6 +614,17 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, 
 		return OBJECT;
 }
 
+bool Registerize::LiveRange::invariantsHold() const
+{
+	assert(std::is_sorted(begin(), end()));
+	for (LiveRange::const_iterator it=begin(); it!=end(); ++it)
+	{
+		if (it->end == 0)
+			return false;
+	}
+	return true;
+}
+
 bool Registerize::LiveRange::doesInterfere(uint32_t id) const
 {
 	for(const LiveRangeChunk c: *this)
@@ -654,15 +665,47 @@ bool Registerize::LiveRange::doesInterfere(const LiveRange& other) const
 
 void Registerize::LiveRange::merge(const LiveRange& other)
 {
+	assert(invariantsHold());
+	assert(other.invariantsHold());
+
 	insert(end(), other.begin(), other.end());
-	std::sort(begin(), end());
-	//TODO: Merge adjacent ranges
+	std::inplace_merge(begin(), end() - other.size(), end());
+	for (LiveRange::iterator a = begin(), b = begin(); b < end(); )
+	{
+		if (a >= b || b->end == 0)
+		{
+			++b;
+		}
+		else if (a->end == 0)
+		{
+			++a;
+		}
+		else if (a->end == b->start)
+		{
+			//Merge contiguous ranges into a
+			a->end = b->end;
+			b->end = 0;
+			b++;
+		}
+		else
+		{
+			a++;
+		}
+	}
+	erase(std::remove_if(begin(), end(), [](const LiveRangeChunk& c) -> bool
+			{
+				return (c.end == 0);
+			}
+			), end());
+
+	assert(invariantsHold());
 }
 
 void Registerize::LiveRange::dump() const
 {
 	for(const Registerize::LiveRangeChunk& chunk: *this)
 		dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
+	dbgs() << "\n";
 }
 
 bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange,
@@ -816,11 +859,7 @@ void Registerize::computeAllocaLiveRanges(AllocaSetTy& allocaSet, const InstIdMa
 		LiveRange& allocaRanges=allocaLiveRanges[alloca];
 		for(auto& it: ranges)
 		{
-			// Extend the previous range if possible
-			if(!allocaRanges.empty() && allocaRanges.back().end==it.first)
-				allocaRanges.back().end=it.second;
-			else
-				allocaRanges.push_back(LiveRangeChunk(it.first,it.second));
+			allocaRanges.extendOrPush(LiveRangeChunk(it.first, it.second));
 		}
 	}
 }
