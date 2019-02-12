@@ -24,6 +24,7 @@
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/PointerPasses.h"
+#include "llvm/Cheerp/GEPOptimizer.h"
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/AllocaMerging.h"
 #include "llvm/Cheerp/AllocaLowering.h"

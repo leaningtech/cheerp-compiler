@@ -12,6 +12,7 @@
 #include <sstream>
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/GEPOptimizer.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalAlias.h"
