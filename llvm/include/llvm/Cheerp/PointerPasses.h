@@ -16,12 +16,10 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 
 #include <functional>
 #include <unordered_map>
-#include <queue>
 
 namespace llvm
 {
