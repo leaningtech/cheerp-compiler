@@ -57,6 +57,18 @@ public:
 		bool doesInterfere(uint32_t id) const;
 		void merge(const LiveRange& other);
 		void dump() const;
+		bool invariantsHold() const;
+		uint32_t peekLast() const
+		{
+			return back().end;
+		}
+		void extendOrPush(const LiveRangeChunk& chunk)
+		{
+			if (empty() || peekLast() != chunk.start)
+				push_back(chunk);
+			else
+				back().end = chunk.end;
+		}
 	};
 
 	static char ID;
