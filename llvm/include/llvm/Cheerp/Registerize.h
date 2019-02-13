@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014 Leaning Technologies
+// Copyright 2014-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,12 +15,21 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
+#include "llvm/Cheerp/Utility.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/ADT/BitVector.h"
 #include <set>
 #include <unordered_map>
+#include <vector>
+#include <deque>
+
+
+//#define REGISTERIZE_DEBUG
+//#define REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
 
 namespace cheerp
 {
-
 /**
  * Registerize - Map not-inlineable instructions to the minimal number of local variables
  */
@@ -133,6 +142,50 @@ public:
 		edgeContext.clear();
 	}
 
+	llvm::LoopInfo* LI;
+public:
+	template <typename T>
+	class Indexer
+	{
+		static_assert(std::is_pointer<T>::value, "Indexer currently index only pointer types");
+	public:
+		void insert(T t)
+		{
+			if (count(t))
+				return;
+			map[t] = size();
+			vec.push_back(t);
+		}
+		uint32_t count(const T t) const
+		{
+			return map.count(t);
+		}
+		uint32_t size() const
+		{
+			return vec.size();
+		}
+		uint32_t id(const T t) const
+		{
+			assert(count(t));
+			return map.at(t);
+		}
+		T at(const uint32_t i) const
+		{
+			assert(i < size());
+			return vec[i];
+		}
+		typename std::vector<T>::iterator begin()
+		{
+			return vec.begin();
+		}
+		typename std::vector<T>::iterator end()
+		{
+			return vec.end();
+		}
+	private:
+		std::vector<T> vec;
+		std::unordered_map<T, uint32_t> map;
+	};
 private:
 	// Final data structures
 	struct InstOnEdge
@@ -221,6 +274,728 @@ private:
 		RegisterRange(const LiveRange& range, REGISTER_KIND k, bool n):range(range),info(k, n)
 		{
 		}
+	};
+	static bool couldBeMerged(const RegisterRange& a, const RegisterRange& b);
+	static void mergeRegisterInPlace(RegisterRange& a, const RegisterRange& b);
+	static RegisterRange mergeRegister(const RegisterRange& a, const RegisterRange& b);
+	struct Result
+	{
+		Result() : registersNeeded(-1)
+		{}
+		std::vector<int> parents;
+		int registersNeeded;
+		int phiUseBroken;
+		int phiEdgeBroken;
+		bool operator<(const Result& other)const
+		{
+			if (registersNeeded == -1)
+				return false;
+			if (other.registersNeeded == -1)
+				return true;
+			return score() < other.score();
+		}
+		uint32_t score() const
+		{
+			//TODO: fix weights
+			//TODO: reintroduce phiEdgeBroken
+			return phiUseBroken + 6 * registersNeeded + 0*phiEdgeBroken;
+		}
+	};
+	class FrequencyInfo
+	{
+	public:
+		FrequencyInfo(llvm::Function& F, llvm::LoopInfo* LI)
+			: LI(LI)
+		{
+			//TODO: possibly store the computed values to avoid recalculations
+		}
+		uint32_t getWeight(const llvm::BasicBlock* A, const llvm::BasicBlock* B) const
+		{
+			//Takes a phi_edge as input, return his weight
+
+			//TODO: change this to find the common loop between the two edges (or it is already like this?)
+			const uint32_t depth = std::min(LI->getLoopDepth(A), LI->getLoopDepth(B));
+			uint32_t res = 1;
+			for (uint32_t i=0; i<depth && res < 100000; i++)
+			{
+				res *= 10;
+			}
+			return res;
+		}
+	private:
+		llvm::LoopInfo* LI;
+	};
+	typedef std::vector<std::pair<uint32_t, std::pair<uint32_t, uint32_t>>> Friendships;
+
+	class RegisterAllocatorInst
+	{
+	public:
+		RegisterAllocatorInst(llvm::Function& F_, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA, Registerize* registerize);
+		uint32_t getSumPointsAvailable() const
+		{
+			uint32_t res = 0;
+			for (uint32_t i=0; i<numInst(); i++)
+			{
+				assert(isAlive(i));
+				for (const auto& f : friends[i])
+				{
+					const uint32_t j = f.first;
+
+					//avoid double counting
+					if (j <= i)
+						continue;
+
+					if (!bitsetConstraint[i][j])
+						res += f.second;
+				}
+			}
+			return res;
+		}
+		Friendships getFriendships() const
+		{
+			Friendships friendships;
+			for (uint32_t i=0; i<numInst(); i++)
+			{
+				assert(isAlive(i));
+				std::map<uint32_t, uint32_t> weight;
+				for (const auto& x : friends[i])
+				{
+					weight[x.first] += x.second;
+				}
+				for (uint32_t j=i+1; j<numInst(); j++)
+				{
+					assert(isAlive(j));
+					if (!bitsetConstraint[i][j])
+					{
+						friendships.push_back({weight[j], {i, j}});
+					}
+				}
+			}
+			return friendships;
+		}
+		class RegisterizeSubSolution
+		{
+		public:
+			RegisterizeSubSolution(const uint32_t N)
+				: N(N), parent(N), constraints(N, llvm::BitVector(N, true))
+			{
+				for (uint32_t i=0; i<N; i++)
+				{
+					parent[i] = i;
+					constraints[i].reset(i);
+				}
+			}
+			void dump()
+			{
+				for (uint32_t i=0; i<N; i++)
+				{
+					for (uint32_t j=0; j<N; j++)
+					{
+						llvm::errs() << constraints[i][j];
+					}
+					llvm::errs() << "\n";
+				}
+				llvm::errs () << friendships.size() << "\n";
+			}
+			typedef std::pair<uint32_t, std::vector<uint32_t>> Solution;
+			class IterationsCounter
+			{
+			public:
+				IterationsCounter(const uint32_t maximal)
+					: maxNumber(maximal), currNumber(0)
+				{
+				}
+				void consumeIteration()
+				{
+					++currNumber;
+				}
+				void consumeIterations(const uint32_t X)
+				{
+					currNumber += X;
+				}
+				uint32_t evaluationsDone() const
+				{
+					assert(currNumber <= maxNumber);
+					return currNumber;
+				}
+				uint32_t remaining() const
+				{
+					assert(currNumber <= maxNumber);
+					return maxNumber - currNumber;
+				}
+			private:
+				const uint32_t maxNumber;
+				uint32_t currNumber;
+			};
+			struct SearchState
+			{
+				SearchState(Solution& best, uint32_t& minimalNumberOfColors, uint32_t nodesToEvaluate, const uint32_t targetDepth, const uint32_t alreadyProcessedDepth)
+					: currentBest(best), minimalNumberOfColors(minimalNumberOfColors),
+					iterationsCounter(nodesToEvaluate),
+					targetDepth(targetDepth), processedDepth(alreadyProcessedDepth)
+				{
+					processedFriendships = 0;
+					leafs = 0;
+					choicesMade = llvm::BitVector(0);
+					currentScore = 0;
+				}
+				Solution& currentBest;
+				IterationsCounter iterationsCounter;
+				uint32_t minimalNumberOfColors;
+				const uint32_t targetDepth;
+				const uint32_t processedDepth;
+				uint32_t processedFriendships;
+				uint32_t leafs;
+				uint32_t currentScore;
+				llvm::BitVector choicesMade;
+#ifdef REGISTERIZE_DEBUG
+				std::array<uint32_t, 4> debugStats{};
+#endif
+				bool improveScore(const Solution& local)
+				{
+					uint32_t numberColors = computeNumberOfColors(local.second);
+					if (minimalNumberOfColors > numberColors)
+						minimalNumberOfColors = numberColors;
+					if (couldImproveScore(local.first))
+					{
+						currentBest = local;
+						return true;
+					}
+					return false;
+				}
+				bool couldImproveScore(const uint32_t score) const
+				{
+					return currentBest.second.size() == 0 || score < currentBest.first;
+				}
+				bool couldCurrentImproveScore(const uint32_t score) const
+				{
+					return currentBest.second.size() == 0 || currentScore + score + 6*minimalNumberOfColors < currentBest.first;
+				}
+				bool shouldBeEvaluated() const
+				{
+					return processedFriendships == targetDepth;
+				}
+				bool isEvaluationAlreadyDone() const
+				{
+					if (choicesMade.empty())
+						return false;
+					assert(targetDepth > 0);
+					assert(targetDepth == choicesMade.size());
+					for (uint32_t k = targetDepth; ; )
+					{
+						k--;
+						if (!choicesMade[k])
+							return false;
+						if (k == processedDepth)
+							break;
+					}
+					return true;
+				}
+				int leafsEvaluated() const
+				{
+					return leafs;
+				}
+				void printChoicesMade() const
+				{
+					for (uint32_t i=0; i<choicesMade.size(); i++)
+					{
+						llvm::errs() << (choicesMade[i]?"1":"0");
+					}
+				}
+			};
+			std::vector<uint32_t> keepMerging(SearchState& state);
+			void DFSwithLimitedDepth(SearchState& state);
+			bool areMergeable(const uint32_t a, const uint32_t b) const
+			{
+				return !constraints[a][b];
+			}
+			void doContraction(const uint32_t a, const uint32_t b)
+			{
+				assert(isAlive(a) && isAlive(b));
+				assert(constraints[a][b] == constraints[b][a] && !constraints[a][b]);
+				constraints.push_back(constraints[b]);
+				constraints.push_back(constraints[a]);
+#ifdef REGISTERIZE_DEBUG
+				debugStats[CONTRACTIONS]++;
+#endif
+				constraints[a] |= constraints[b];
+				for (uint32_t i = 0; i<N; i++) constraints[i][a] = constraints[a][i];
+				constraints[b] = llvm::BitVector(N);
+				for (uint32_t i = 0; i<N; i++) constraints[i][b] = constraints[b][i];
+				assert(parent[b] == b);
+				parent[b] =a;
+			}
+			void undoContraction(const uint32_t a, const uint32_t b)
+			{
+				parent[b] = b;
+
+				constraints[a] = constraints.back();
+				constraints.pop_back();
+				for (uint32_t i = 0; i<N; i++) constraints[i][a] = constraints[a][i];
+
+				constraints[b] = constraints.back();
+				constraints.pop_back();
+				for (uint32_t i = 0; i<N; i++) constraints[i][b] = constraints[b][i];
+			}
+			void setAdditionalConstraint(const uint32_t a, const uint32_t b, bool direct)
+			{
+#ifdef REGISTERIZE_DEBUG
+				if (direct)
+					debugStats[SEPARATIONS]++;
+#endif
+				assert(constraints[a][b] == constraints[b][a] && constraints[b][a] != direct);
+				constraints[a].flip(b);
+				constraints[b].flip(a);
+			}
+			std::vector<uint32_t> iterativeDeepening(IterationsCounter& counter);
+			std::vector<uint32_t> solve(const uint32_t iterations);
+			std::vector<uint32_t> assignGreedily() const;
+			static uint32_t computeNumberOfColors(const std::vector<uint32_t>& coloring)
+			{
+				if (coloring.empty())
+					return 0;
+				uint32_t res = 0;
+				for (uint32_t c : coloring)
+				{
+					if (res < c)
+						res = c;
+				}
+				return res+1;
+			}
+			uint32_t computeScore(const std::vector<uint32_t>& coloring) const
+			{
+				assert(coloring.size() == N);
+				uint32_t res = computeNumberOfColors(coloring) * 6;
+				for (const auto& p : friendships)
+				{
+					if (coloring[p.second.first] != coloring[p.second.second])
+						res += p.first;
+				}
+				return res;
+			}
+			std::vector<uint32_t> getColors(const std::vector<uint32_t>& P) const
+			{
+				std::vector<uint32_t> colors(N, N);
+				uint32_t firstUnused = 0;
+				for (uint32_t i=0; i<N; i++)
+				{
+					if (P[i] == i)
+						colors[i] = firstUnused++;
+				}
+				for (uint32_t i=0; i<N; i++)
+				{
+					if (colors[i] < N)
+						continue;
+					std::vector<uint32_t> V;
+					uint32_t x = i;
+					while (P[x] != x)
+					{
+						V.push_back(x);
+						x = P[x];
+					}
+					for (auto v : V)
+					{
+						colors[v] = colors[x];
+					}
+				}
+				return colors;
+			}
+			void addFriendship(uint32_t weight, uint32_t a, uint32_t b)
+			{
+				//TODO: sort again Friendship after they have been added
+				assert(a < N && b < N);
+				friendships.push_back({weight, {a, b}});
+				constraints[a].reset(b);
+				constraints[b].reset(a);
+			}
+		private:
+			uint32_t findParent(const uint32_t index) const
+			{
+				//TODO possibly implement shortening
+				if (parent[index] == index)
+					return index;
+				else
+					return findParent(parent[index]);
+			}
+			bool isAlive(const uint32_t index) const
+			{
+				assert(index < N);
+				return parent[index] == index;
+			}
+			const uint32_t N;
+			std::vector<uint32_t> parent;
+			std::vector<llvm::BitVector> constraints;
+			std::vector<std::pair<uint32_t, std::pair<uint32_t, uint32_t>>> friendships;
+		public:
+#ifdef REGISTERIZE_DEBUG
+			enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
+			std::array<uint32_t, 4> debugStats{};
+#endif
+		};
+
+		void solve();
+
+		bool existFriendship(const uint32_t a, const uint32_t b) const
+		{
+			for (const auto& x : friends[a])
+			{
+				if (x.first == b)
+					return true;
+			}
+			return false;
+		}
+		void computeBitsetConstraints()
+		{
+			bitsetConstraint.clear();
+			for (uint32_t i = 0; i<numInst(); i++)
+			{
+				bitsetConstraint.push_back(llvm::BitVector(numInst()));
+				if (!isAlive(i))
+					continue;
+				for (uint32_t j = 0; j < numInst(); j++)
+				{
+					if (i != j && isAlive(j))
+						bitsetConstraint[i][j] = !couldBeMerged(i, j);
+				}
+			}
+		}
+		void removeUnsatisfayableFriends()
+		{
+			//TODO: improve logic
+			assert(friends.size() == numInst());
+			for (uint32_t i = 0; i<numInst(); i++)
+			{
+				if (!isAlive(i))
+					continue;
+
+				std::vector<std::pair<uint32_t,uint32_t>> V;
+				for (auto x : friends[i])
+				{
+					if (isAlive(x.first) && !bitsetConstraint[i][x.first])
+					{
+						V.push_back(x);
+					}
+				}
+				sort(V.begin(), V.end());
+				for (uint32_t i = 1; i< V.size(); i++)
+				{
+					if (V[i-1].first == V[i].first)
+					{
+						V[i].second += V[i-1].second;
+						V[i-1].second = 0;
+					}
+				}
+				for (uint32_t i = 0; i < V.size();)
+				{
+					if (V[i].second == 0)
+					{
+						std::swap(V[i], V.back());
+						V.pop_back();
+					}
+					else
+						++i;
+				}
+				sort(V.begin(), V.end());
+				friends[i] = V;
+			}
+		}
+		void buildEdgesData(llvm::Function& F);
+		void buildFriendsSingle(const uint32_t phi, const PointerAnalyzer& PA);
+		void buildFriends(const PointerAnalyzer& PA)
+		{
+			friends.resize(numInst());
+			for (uint32_t i = 0; i< numInst(); i++)
+			{
+				if (isAlive(i))
+					buildFriendsSingle(i, PA);
+			}
+			//TODO: add here support for inlineable instructions, like a = a + b -> a += b
+			//TODO: add variable cost (instead of fixed 1, since there can be multiple links and one may want to experiment with different weight links)
+
+			//TODO: sort and compress
+			//TODO: eliminate friends that are unsatisfayable
+
+
+			for (uint32_t i = 0; i<numInst(); i++)
+			{
+				for (auto x : friends[i])
+				{
+					if (i < x.first)
+						friendsEdges.push_back({x.second, {i, x.first}});
+				}
+			}
+			sort(friendsEdges.begin(), friendsEdges.end(),
+				[](const std::pair<uint32_t, std::pair<uint32_t,uint32_t>>& a, const std::pair<uint32_t, std::pair<uint32_t,uint32_t>>& b)->bool
+				{
+					return a.first > b.first;
+				});
+		}
+		bool isSubset(const llvm::BitVector& A, const llvm::BitVector& B)
+		{
+			assert(A.size() == B.size());
+			for (uint32_t i = 0; i<A.size(); i++)
+			{
+				if (A[i] && B[i] == false)
+					return false;
+			}
+			return true;
+		}
+		bool mergeSubsets(bool friendsShouldBePreserved)
+		{
+			computeBitsetConstraints();
+			removeUnsatisfayableFriends();
+			uint32_t res = 0;
+			for (uint32_t i = 0; i< numInst(); i++)
+			{
+				if (!isAlive(i))
+					continue;
+				for (uint32_t j = 0; j<numInst(); j++)
+				{
+					if (i != j && isAlive(j) && !bitsetConstraint[i][j] && isSubset(bitsetConstraint[j], bitsetConstraint[i]) )
+					{
+						if (!friendsShouldBePreserved || friends[j].size() == 0 || (friends[j].size() == 1 && friends[j].front().first == i))
+						{
+							mergeInPlace(i, j);
+							++res;
+							break;
+						}
+					}
+				}
+			}
+			return res > 0;
+		}
+		bool eliminateFull()
+		{
+			computeBitsetConstraints();
+			uint32_t res = 0;
+			uint32_t dim = registersNeeded() -1;
+			for (uint32_t i = 0; i< numInst(); i++)
+			{
+				if (!isAlive(i))
+					continue;
+				if (bitsetConstraint[i].count() == dim)
+				{
+					moveToEnd(i);
+					res++;
+				}
+			}
+			return res > 0;
+		}
+		void moveToEnd(const uint32_t a)
+		{
+			shouldBeDoneAtEnding[a] = true;
+			endingMoves.push_back(a);
+		}
+		void processEnd()
+		{
+			while (!endingMoves.empty())
+			{
+				uint32_t top = endingMoves.back();
+				endingMoves.pop_back();
+				shouldBeDoneAtEnding[top] = false;
+				mergeWithMaterialized(top);
+			}
+		}
+		void addFriendship(const uint32_t a, const uint32_t b, const uint32_t weight)
+		{
+			assert(a<numInst() && b<numInst());
+			if (a==b || bitsetConstraint[a][b])
+				return;
+			friends[a].push_back({b, weight});
+			friends[b].push_back({a, weight});
+		}
+		uint32_t computeWeightBrokenEdges()
+		{
+			uint32_t res = 0;
+			for (const auto& V : edges)
+			{
+				for (const auto& p : V)
+				{
+					if (findParent(p.first) != findParent(p.second))
+					{
+						++res;
+						break;
+					}
+				}
+			}
+			return res;
+		}
+		uint32_t computeWeigthBrokenNeighbours()
+		{
+			uint32_t res = 0;
+			for (uint32_t i = 0; i < numInst(); ++i)
+			{
+				for (const auto& p : friends[i])
+				{
+					if (findParent(i) != findParent(p.first))
+						res += p.second;
+				}
+			}
+			return res/2;
+		}
+		void dump()
+		{
+			if (emptyFunction)
+				return;
+			for (uint32_t i = 0; i<size(); i++)
+				llvm::dbgs() << directRegisterIndex[findParent(i)] << "\t";
+			llvm::dbgs() << "\n\n";
+		}
+		void materializeRegisters(llvm::SmallVector<RegisterRange, 4>& registers)
+		{
+			if (emptyFunction)
+				return;
+			std::vector<uint32_t> indexMaterializedRegisters(size());
+			//Materialize virtual registers and set the proper index
+			for (uint32_t i = 0; i<size(); i++)
+			{
+				if (!isAlive(i))
+					continue;
+				indexMaterializedRegisters[i] = registers.size();
+				registers.push_back(virtualRegisters[i]);
+			}
+			//Assign every instruction to his own materialized register
+			for (uint32_t i = 0; i<indexer.size(); i++)
+			{
+				registerize->registersMap[indexer.at(i)] = indexMaterializedRegisters[findParent(i)];
+			}
+		}
+		bool couldBeMerged(const uint32_t a, const uint32_t b) const
+		{
+			assert(a < size() && b < size());
+			//Only unmerged registers could be merged
+			assert(isAlive(a));
+			assert(isAlive(b));
+			if (a == b)
+				return false;
+			return Registerize::couldBeMerged(virtualRegisters[a], virtualRegisters[b]);
+		}
+		void mergeInPlace(const uint32_t a, const uint32_t b)
+		{
+			assert(couldBeMerged(a, b));
+			mergeRegisterInPlace(virtualRegisters[a], virtualRegisters[b]);
+			parentRegister[b] = a;
+		}
+		void mergeVirtual(const uint32_t a, const uint32_t b)
+		{
+			assert(couldBeMerged(a, b));
+			const uint32_t index = size();
+			virtualRegisters.push_back(mergeRegister(virtualRegisters[a], virtualRegisters[b]));
+			parentRegister[a] = index;
+			parentRegister[b] = index;
+			parentRegister.push_back(index);
+			int numberOriginals = 0;
+			if (a < numInst())
+				++numberOriginals;
+			if (b < numInst())
+				++numberOriginals;
+			numberOfMaterializedRegisters += numberOriginals - 1;
+
+			uint32_t bucket;
+			if (numberOriginals == 2)
+			{
+				bucket = firstUnassigned++;
+				inverseRegisterIndex.push_back(index);
+			}
+			else if (numberOriginals == 0)
+			{
+				//skipping a bucket in the process, but they will remain ordered
+				bucket = std::min(directRegisterIndex[a], directRegisterIndex[b]);
+				inverseRegisterIndex[bucket] = index;
+			}
+			else
+			{
+				bucket = directRegisterIndex[std::max(a, b)];
+				inverseRegisterIndex[bucket] = index;
+			}
+			directRegisterIndex.push_back(bucket);
+			shouldBeDoneAtEnding.push_back(false);
+		}
+		uint32_t findParent(uint32_t x) const
+		{
+			//Path compression on the parents tree
+			if (x != parentRegister[x])
+			{
+				parentRegister[x] = findParent(parentRegister[x]);
+			}
+			return parentRegister[x];
+		}
+		bool isAlive(uint32_t x) const
+		{
+			return x < size() && findParent(x) == x && !shouldBeDoneAtEnding[x];
+		}
+		void mergeWithMaterialized(const uint32_t a)
+		{
+			assert(a < size());
+			if (!isAlive(a))
+				return;
+			for (uint32_t i = 0; i<inverseRegisterIndex.size(); ++i)
+			{
+				uint32_t index = inverseRegisterIndex[i];
+				assert(index < size());
+				//Index was already merged with something else
+				if (!isAlive(index))
+					continue;
+				if (couldBeMerged(a, index))
+				{
+					mergeVirtual(a, index);
+					return;
+				}
+			}
+			uint32_t bucket = firstUnassigned++;
+			inverseRegisterIndex.push_back(a);
+			directRegisterIndex[a] = bucket;
+		}
+		uint32_t registersNeeded()
+		{
+			uint32_t res = 0;
+			for (uint32_t i = 0; i<size(); i++)
+			{
+				if (isAlive(i))
+					res++;
+			}
+			return res;
+		}
+		Result getResult()
+		{
+			Result res;
+			res.parents.resize(numInst());
+			for (uint32_t i = 0; i<numInst(); i++)
+			{
+				res.parents[i] = findParent(i);
+			}
+			res.registersNeeded = registersNeeded();
+			res.phiUseBroken = computeWeigthBrokenNeighbours();
+			res.phiEdgeBroken = computeWeightBrokenEdges();
+			return res;
+		}
+	private:
+		uint32_t numInst() const
+		{
+			return indexer.size();
+		}
+		uint32_t size() const
+		{
+			return virtualRegisters.size();
+		}
+		llvm::Function& F;
+		Registerize* registerize;
+		Indexer<const llvm::Instruction*> indexer;
+		llvm::SmallVector<RegisterRange, 4> virtualRegisters;
+		std::vector<llvm::BitVector> bitsetConstraint;
+		std::vector<std::vector<std::pair<uint32_t,uint32_t>>> friends;
+		std::vector<std::pair<uint32_t,std::pair<uint32_t,uint32_t>>> friendsEdges;
+		std::vector<std::vector<std::pair<uint32_t,uint32_t>>> edges;
+		mutable std::vector<uint32_t> parentRegister;
+		uint32_t numberOfMaterializedRegisters;
+		std::vector<uint32_t> directRegisterIndex;
+		std::vector<uint32_t> inverseRegisterIndex;
+		std::vector<bool> shouldBeDoneAtEnding;
+		uint32_t firstUnassigned;
+		bool emptyFunction;
+		const FrequencyInfo frequencyInfo;
+		std::vector<uint32_t> endingMoves;
+		//TODO: possibly implement iterators over materialized buckets
 	};
 	// Temporary data structures used while exploring the CFG
 	struct BlockState
