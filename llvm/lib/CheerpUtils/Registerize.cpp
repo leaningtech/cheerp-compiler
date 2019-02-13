@@ -34,6 +34,7 @@ char Registerize::ID = 0;
 
 void Registerize::getAnalysisUsage(AnalysisUsage & AU) const
 {
+	AU.addRequired<LoopInfoWrapperPass>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
@@ -401,29 +402,18 @@ void Registerize::extendRangeForUsedOperands(Instruction& I, LiveRangesTy& liveR
 
 uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA)
 {
+	LI = &(getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo());
+
+	RegisterAllocatorInst R(F, instIdMap, liveRanges, PA, this);
+	R.solve();
+	R.processEnd();
+
 	llvm::SmallVector<RegisterRange, 4> registers;
-	// First try to assign all PHI operands to the same register as the PHI itself
-	for(auto it: liveRanges)
-	{
-		const Instruction* I=it.first;
-		if(!isa<PHINode>(I))
-			continue;
-		handlePHI(*I, liveRanges, registers, PA);
-	}
-	// Assign a register to the remaining instructions
-	for(auto it: liveRanges)
-	{
-		const Instruction* I=it.first;
-		if(isa<PHINode>(I))
-			continue;
-		InstructionLiveRange& range=it.second;
-		// Move on if a register is already assigned
-		if(registersMap.count(I))
-			continue;
-		bool asmjs = I->getParent()->getParent()->getSection()==StringRef("asmjs");
-		uint32_t chosenRegister=findOrCreateRegister(registers, range, getRegKindFromType(I->getType(), asmjs), cheerp::needsSecondaryName(I, PA));
-		registersMap[I] = chosenRegister;
-	}
+	R.materializeRegisters(registers);
+	Result res = R.getResult();
+
+	uint32_t originalRegistersSize = registers.size();
+
 	// Assign registers for temporary values required to break loops in PHIs
 	class RegisterizePHIHandler: public EndOfBlockPHIHandler
 	{
@@ -509,6 +499,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		const TerminatorInst* term=bb.getTerminator();
 		for(uint32_t i=0;i<term->getNumSuccessors();i++)
 		{
+			//TODO : WHAT IS THIS ???
 			const BasicBlock* succBB=term->getSuccessor(i);
 			RegisterizePHIHandler(&bb, succBB, *this, registers, instIdMap, PA).runOnEdge(*this, &bb, succBB);
 		}
@@ -516,12 +507,380 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 #ifndef NDEBUG
 	RegistersAssigned = false;
 #endif
+	if (originalRegistersSize != registers.size())
+		dbgs() << originalRegistersSize << "\t different than " << registers.size() << "\n";
+//	dbgs() << ".....................\n\n";
 	// Populate the final register list for the function
 	std::vector<RegisterInfo>& regsInfo = registersForFunctionMap[&F];
 	regsInfo.reserve(registers.size());
 	for(unsigned int i=0;i<registers.size();i++)
 		regsInfo.push_back(registers[i].info);
 	return registers.size();
+}
+
+Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA, Registerize* registerize)
+	: F(F_), registerize(registerize), emptyFunction(false), frequencyInfo(F, registerize->LI)
+{
+	using namespace llvm;
+
+	//Do a first pass to collect instructions (and count them implicitly)
+	for(const auto& it: liveRanges)
+	{
+		const Instruction* I=it.first;
+		assert(registerize->registersMap.count(I) == 0);
+		indexer.insert(I);
+	}
+	if (indexer.size() == 0)
+	{
+		emptyFunction = true;
+		return;
+	}
+	const int maxSize = indexer.size() * 2 - 1;
+	virtualRegisters.reserve(maxSize);
+	parentRegister.reserve(maxSize);
+	inverseRegisterIndex.resize(numInst());
+	directRegisterIndex.resize(numInst());
+	shouldBeDoneAtEnding.resize(numInst(), false);
+	const bool asmjs = F.getSection()==StringRef("asmjs");
+	//Do a second pass to set virtualRegisters environment
+	for(const auto& it: liveRanges)
+	{
+		const Instruction* I=it.first;
+		const InstructionLiveRange& range=it.second;
+		assert(registerize->registersMap.count(I) == 0);
+		parentRegister.push_back(size());
+		virtualRegisters.push_back(RegisterRange(
+					range.range,
+					registerize->getRegKindFromType(I->getType(), asmjs),
+					cheerp::needsSecondaryName(I, PA)
+					));
+	}
+	numberOfMaterializedRegisters = 0;
+	firstUnassigned = 0;
+	computeBitsetConstraints();
+	buildFriends(PA);
+	buildEdgesData(F);
+}
+
+std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::keepMerging(SearchState& state)
+{
+	//Build a decent solution given some (possibly none) already made choices
+	const uint32_t index = state.processedFriendships;
+	if (index == friendships.size() || friendships[index].first == 0)
+	{
+		//There are no more positive weight friendship to be decided: assign the colors greedily according to "least neightbours goes last" euristics
+		return assignGreedily();
+	}
+
+	//F is a positive weight friendship (and the one with higher weight, since they are ordered)
+	const std::pair<uint32_t, std::pair<uint32_t, uint32_t>>& F = friendships[state.processedFriendships];
+	const uint32_t a = findParent(F.second.first);
+	const uint32_t b = findParent(F.second.second);
+
+	state.processedFriendships++;
+
+	std::vector<uint32_t> solution;
+
+	if (a!=b && areMergeable(a, b))
+	{
+		//either force A and B to have the same color contracting the edge between them, then recurse
+		doContraction(a, b);
+		solution = keepMerging(state);
+		undoContraction(a, b);
+	}
+	else
+	{
+		//or calling directly the recursion, this happens in 2 cases:
+		//1. A and B are already merged, so nothing to be done
+		//2. A and B are already conflicting, so nothing to be done
+		solution = keepMerging(state);
+	}
+
+	state.processedFriendships--;
+
+	return solution;
+}
+
+void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::DFSwithLimitedDepth(SearchState& state)
+{
+	//Do a DFS with a limited search depth, and store inside state the best found solution
+	if (state.iterationsCounter.remaining() == 0)
+		return;
+#ifdef REGISTERIZE_DEBUG
+	state.debugStats[NODE_VISITED]++;
+#endif
+	if (state.shouldBeEvaluated())
+	{
+		//We reached the depth limit
+		if (!state.isEvaluationAlreadyDone())
+		{
+			//Evaluate the current node with keepMerging(): merge friends in order, then greedily assign colors
+#ifdef REGISTERIZE_DEBUG
+			state.debugStats[GREEDY_EVALUATIONS]++;
+#endif
+			const std::vector<uint32_t> colors = getColors(keepMerging(state));
+			const Solution localSolution = {computeScore(colors), colors};
+
+			bool print = state.improveScore(localSolution);
+
+#ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
+			if (print && state.targetDepth)
+				llvm::errs() << "eee";
+			if (print)
+			{
+				llvm:: errs() << "\t"<< computeNumberOfColors(colors) <<"\t"<<state.minimalNumberOfColors<< "\t" << localSolution.first <<"\t";
+				state.printChoicesMade();
+				llvm::errs () << "\n";
+			}
+#endif
+			state.iterationsCounter.consumeIteration();
+		}
+		state.leafs++;
+		return;
+	}
+
+	const std::pair<uint32_t, std::pair<uint32_t, uint32_t>>& F = friendships[state.processedFriendships];
+	const uint32_t a = findParent(F.second.first);
+	const uint32_t b = findParent(F.second.second);
+
+	const uint32_t oldSize = state.choicesMade.size();
+	state.choicesMade.resize(oldSize + 1);
+	state.processedFriendships++;
+	//When should we try to add two nodes: always
+	{
+		state.choicesMade.set(oldSize);
+		if (a == b)
+		{
+			//A and B are already merged, go one deeper
+			DFSwithLimitedDepth(state);
+		}
+		else if (areMergeable(a, b))
+		{
+			//Contract the edge AB, and search one level deeper
+			//do/undo contraction modify the state to keep it consistent with the current choice
+			doContraction(a, b);
+			DFSwithLimitedDepth(state);
+			undoContraction(a, b);
+		}
+	}
+
+	//When should we try to keep 2 nodes separated: when they are not already merged, and we could still improve the current best
+	if (a != b && state.iterationsCounter.remaining() && state.couldCurrentImproveScore(F.first) )
+	{
+		state.choicesMade.reset(oldSize);
+		state.currentScore += F.first;
+
+		const bool toBeDone = areMergeable(a, b);
+		if (areMergeable(a, b))
+		{
+			//set as unmergiable, and recurse
+			setAdditionalConstraint(a, b, true);
+			DFSwithLimitedDepth(state);
+			setAdditionalConstraint(a, b, false);
+		}
+		else
+		{
+			//Are already unmergiable, so no need to change anythings
+			DFSwithLimitedDepth(state);
+		}
+
+		state.currentScore -= F.first;
+	}
+	state.processedFriendships--;
+	state.choicesMade.resize(oldSize);
+}
+
+std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::iterativeDeepening(IterationsCounter& counter)
+{
+	//TODO: try to split it in multiple solutions first
+	//TODO: run again with 1 less color
+	Solution best;
+	best.second = getColors(assignGreedily());
+	best.first = computeScore(best.second);
+	uint32_t minimalColors = computeNumberOfColors(best.second);
+
+	assert(counter.remaining() > 0);
+	uint32_t depth = 0;
+	uint32_t previousDepth = 0;
+	while (counter.remaining()>0 && depth <= friendships.size())
+	{
+#ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
+		llvm::errs() << "--------------------- starting at "<<previousDepth<<" up to reaching " <<depth<<"\n";
+#endif
+		SearchState state(best, minimalColors, counter.remaining(), depth, previousDepth);
+		DFSwithLimitedDepth(state);
+		counter.consumeIterations(state.iterationsCounter.evaluationsDone());
+#ifdef REGISTERIZE_DEBUG
+		for (uint32_t i = 0; i<4; i++)
+		{
+			debugStats[i] += state.debugStats[i];
+		}
+#endif
+		previousDepth = depth;
+		uint32_t maxIterations = state.leafsEvaluated();
+		do {
+			depth++;
+			maxIterations*=2;
+		} while (maxIterations *2<= counter.remaining() && depth < friendships.size());
+	}
+	return best.second;
+}
+
+std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::assignGreedily() const
+{
+	std::vector<uint32_t> res = parent;
+	std::vector<uint32_t> V(N);
+	for (uint32_t i=0; i<N; i++)
+	{
+		V[i] = constraints[i].count();
+	}
+
+	llvm::BitVector processed(N);
+	std::vector<uint32_t> stack;
+	for (uint32_t i=0; i<N; i++)
+	{
+		uint32_t b=N;
+		for (uint32_t j=0; j<N; j++)
+		{
+			if (res[j] == j && processed[j]==false)
+			{
+				if (b==N || V[j] < V[b])
+					b = j;
+			}
+		}
+		if (b == N)
+			break;
+		processed[b] = true;
+		stack.push_back(b);
+		for (uint32_t j=0; j<N; j++)
+		{
+			if (constraints[b][j])
+				V[j] --;
+		}
+	}
+
+	std::vector<std::pair<uint32_t, llvm::BitVector>> P;
+	while (!stack.empty())
+	{
+		uint32_t i = stack.back();
+		stack.pop_back();
+
+		bool done = false;
+		for (std::pair<uint32_t, llvm::BitVector>& pair : P)
+		{
+			if (!pair.second[i])
+			{
+				//TODO: check me!!
+				done = true;
+				res[i] = pair.first;
+				pair.second |= constraints[i];
+				break;
+			}
+		}
+		if (!done)
+		{
+			P.push_back({i, constraints[i]});
+		}
+	}
+	return res;
+}
+
+void Registerize::RegisterAllocatorInst::buildEdgesData(Function& F)
+{
+	for (const BasicBlock & fromBB : F)
+	{
+		const TerminatorInst* term=fromBB.getTerminator();
+		for(uint32_t i=0;i<term->getNumSuccessors();i++)
+		{
+			const BasicBlock* toBB=term->getSuccessor(i);
+			edges.resize(edges.size() + 1);
+			BasicBlock::const_iterator I=toBB->begin();
+			BasicBlock::const_iterator IE=toBB->end();
+			for(;I!=IE;++I)
+			{
+				const PHINode* phi=dyn_cast<PHINode>(I);
+				if(!phi)
+					break;
+				if(phi->use_empty())
+					continue;
+				const Value* val=phi->getIncomingValueForBlock(&fromBB);
+				const Instruction* pre=dyn_cast<Instruction>(val);
+				if(pre && indexer.count(pre))
+				{
+					edges.back().push_back(std::make_pair(indexer.id(phi), indexer.id(pre)));
+				}
+			}
+			if (edges.back().empty())
+				edges.pop_back();
+		}
+	}
+}
+
+void Registerize::RegisterAllocatorInst::buildFriendsSingle(const uint32_t phi, const PointerAnalyzer& PA)
+{
+	const PHINode* I = dyn_cast<PHINode>(indexer.at(phi));
+	if (!I)
+		return;
+	uint32_t n = I->getNumIncomingValues();
+	for(uint32_t i = 0; i<n; i++)
+	{
+		const Instruction* usedI=getUniqueIncomingInst(I->getIncomingValue(i), PA);
+		if(!usedI)
+			continue;
+		assert(!isInlineable(*usedI, PA));
+		addFriendship(phi, indexer.id(usedI), frequencyInfo.getWeight(I->getIncomingBlock(i), I->getParent()));
+	}
+}
+
+std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve(const uint32_t iterations)
+{
+	//TODO: try to split the problem first
+
+	IterationsCounter counter(iterations);
+	std::vector <uint32_t> colors = iterativeDeepening(counter);
+#ifdef REGISTERIZE_DEBUG
+	llvm::errs() << computeScore(colors) <<"\t" << computeNumberOfColors(colors)<<"\t\t"<< colors.size() << "\t" ;
+	for (uint32_t i=0; i<4; i++)
+	{
+		llvm::errs () << debugStats[i] << "\t";
+	}
+	if (counter.remaining() == 0)
+		llvm::errs() << "\tsearch not exausted";
+	llvm::errs() << "\n";
+#endif
+
+	return colors;
+}
+
+void Registerize::RegisterAllocatorInst::solve()
+{
+	computeBitsetConstraints();
+	RegisterizeSubSolution RSS(numInst());
+	auto KK = getFriendships();
+	sort(KK.begin(), KK.end());
+	reverse(KK.begin(), KK.end());
+	for (auto x : KK)
+	{
+		RSS.addFriendship(x.first, x.second.first, x.second.second);
+	}
+	const uint32_t initial = 100;
+	uint32_t times = initial;
+	auto K = RSS.solve(times);
+
+
+	for (uint32_t i = 0; i<K.size(); i++) for (uint32_t j=i+1; j<K.size(); j++)
+	{
+		if (K[i] == K[j] && false)
+		{
+			assert(isAlive(findParent(i)));
+			assert(isAlive(findParent(j)));
+			assert(couldBeMerged(findParent(i), findParent(j)));
+		}
+		if (K[i] == K[j] && isAlive(findParent(i)) && isAlive(findParent(j)) && couldBeMerged(findParent(i), findParent(j)))
+		{
+			mergeVirtual(findParent(i), findParent(j));
+		}
+	}
 }
 
 void Registerize::handlePHI(const Instruction& I, const LiveRangesTy& liveRanges, llvm::SmallVector<RegisterRange, 4>& registers, const PointerAnalyzer& PA)
@@ -706,6 +1065,26 @@ void Registerize::LiveRange::dump() const
 	for(const Registerize::LiveRangeChunk& chunk: *this)
 		dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
 	dbgs() << "\n";
+}
+
+bool Registerize::couldBeMerged(const RegisterRange& a, const RegisterRange& b)
+{
+	if(a.info.regKind!=b.info.regKind)
+		return false;
+	return !a.range.doesInterfere(b.range);
+}
+
+void Registerize::mergeRegisterInPlace(RegisterRange& a, const RegisterRange& b)
+{
+	a.range.merge(b.range);
+	a.info.needsSecondaryName |= b.info.needsSecondaryName;
+}
+
+Registerize::RegisterRange Registerize::mergeRegister(const RegisterRange& a, const RegisterRange& b)
+{
+	RegisterRange tmp(a);
+	mergeRegisterInPlace(tmp, b);
+	return tmp;
 }
 
 bool Registerize::addRangeToRegisterIfPossible(RegisterRange& regRange, const InstructionLiveRange& liveRange,
