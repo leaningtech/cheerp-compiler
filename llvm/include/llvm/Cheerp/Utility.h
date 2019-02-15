@@ -577,7 +577,7 @@ private:
 	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
 	// Callbacks implemented by derived classes
 	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
-	virtual void handlePHI(const llvm::Instruction* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
+	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
 	// Called for every register which is either assigned or used by PHIs in the edge
 	virtual void setRegisterUsed(uint32_t reg) {};
 };
