@@ -644,7 +644,7 @@ public:
 	 * Returns if a switch/br_table is appropriate to render this terminator
 	 */
 	static bool useSwitch(const llvm::TerminatorInst* term);
-	static bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming,
+	static bool needsPointerKindConversion(const llvm::PHINode* phi, const llvm::Value* incoming,
 	                                       const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from,
 	                                                const PointerAnalyzer& PA, const Registerize& registerize);
