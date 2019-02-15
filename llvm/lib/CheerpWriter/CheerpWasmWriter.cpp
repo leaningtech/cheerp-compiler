@@ -1372,7 +1372,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			writer.encodeU32Inst(0x21, "set_local", local, code);
 
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
+		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(!writer.needsPointerKindConversion(phi, incoming))

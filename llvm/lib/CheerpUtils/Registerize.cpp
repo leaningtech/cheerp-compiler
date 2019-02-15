@@ -479,7 +479,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			uint32_t chosenReg = assignTempReg(regId, phiKind, cheerp::needsSecondaryName(incoming, PA));
 			registerize.edgeRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), chosenReg));
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
+		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
 			// Provide temporary regs for the offset part of SPLIT_REGULAR PHIs that reference themselves
 			if(!selfReferencing)

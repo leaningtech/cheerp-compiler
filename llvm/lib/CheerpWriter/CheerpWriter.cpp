@@ -2491,7 +2491,7 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	}
 }
 
-bool CheerpWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming,
+bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* incoming,
                                               const PointerAnalyzer& PA, const Registerize& registerize)
 {
 	Type* phiType=phi->getType();
@@ -2538,7 +2538,7 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
+		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
 			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, PA, registerize);
 		}
@@ -2577,7 +2577,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			writer.stream << writer.namegen.getNameForEdge(incoming, fromBB, toBB);
 			writer.stream << '=' << writer.namegen.getName(incoming) << ';' << writer.NewLine;
 		}
-		void handlePHI(const Instruction* phi, const Value* incoming, bool selfReferencing) override
+		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(!needsPointerKindConversion(phi, incoming, writer.PA, writer.registerize))
