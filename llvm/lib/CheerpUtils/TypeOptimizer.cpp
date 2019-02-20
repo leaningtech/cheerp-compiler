@@ -475,11 +475,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		}
 
 		StructType* newDirectBase = st->getDirectBase() ? dyn_cast<StructType>(rewriteType(st->getDirectBase()).mappedType) : NULL;
-		newStruct->setBody(newTypes, st->isPacked(), newDirectBase);
-		if(st->hasByteLayout())
-			newStruct->setByteLayout();
-		else if(st->hasAsmJS())
-			newStruct->setAsmJS();
+		newStruct->setBody(newTypes, st->isPacked(), newDirectBase, st->hasByteLayout(), st->hasAsmJS());
 		return CacheAndReturn(newStruct, newStructKind);
 	}
 	if(FunctionType* ft=dyn_cast<FunctionType>(t))
