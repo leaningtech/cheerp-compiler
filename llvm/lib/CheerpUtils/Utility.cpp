@@ -405,7 +405,7 @@ Type* getGEPContainerType(const User* gep)
 {
 	SmallVector< const Value*, 8 > indices(std::next(gep->op_begin()), std::prev(gep->op_end()));
 	Type* basePointerType = gep->getOperand(0)->getType();
-	Type* containerType = GetElementPtrInst::getIndexedType(basePointerType,
+	Type* containerType = GetElementPtrInst::getIndexedType(basePointerType->getPointerElementType(),
 			makeArrayRef(const_cast<Value* const*>(indices.begin()),
 				     const_cast<Value* const*>(indices.end())));
 	return containerType;
