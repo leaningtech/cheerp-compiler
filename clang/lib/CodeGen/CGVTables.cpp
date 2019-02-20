@@ -1506,8 +1506,6 @@ llvm::Type* CodeGenTypes::GetVTableBaseType(bool asmjs)
   if(!ResultType)
   {
     llvm::StructType* ty = llvm::StructType::create(CGM.getLLVMContext(), typeName);
-    if (asmjs)
-      ty->setAsmJS();
     ResultType = ty;
   }
   return ResultType;
@@ -1545,7 +1543,7 @@ llvm::Type* CodeGenTypes::GetVTableSubObjectType(CodeGenModule& CGM,
     VTableTypes.push_back(OffsetTy);
   }
   llvm::StructType* ret = llvm::StructType::get(CGM.getLLVMContext(), VTableTypes,
-                            false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)), asmjs);
+                            false, cast<llvm::StructType>(CGM.getTypes().GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
   return ret;
 }
 
@@ -1588,7 +1586,7 @@ llvm::Type* CodeGenTypes::GetBasicVTableType(uint32_t virtualMethodsCount, bool 
   for(uint32_t j=0;j<virtualMethodsCount;j++)
     VTableTypes.push_back(FuncPtrTy);
 
-  return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)), asmjs);
+  return llvm::StructType::get(getLLVMContext(), VTableTypes, false, cast<llvm::StructType>(GetVTableBaseType(asmjs)), /*isByteLayout*/false, asmjs);
 }
 
 llvm::Type* CodeGenTypes::GetClassTypeInfoType()

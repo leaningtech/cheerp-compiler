@@ -813,10 +813,16 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
     }
   }
 
+  // Unions and anonymous structures inside unions use bytelayout on Cheerp
+  bool isByteLayout = !getTarget().isByteAddressable() && D->isByteLayout();
+
+  // Cheerp: set this type as asmjs based on attribute
+  bool isAsmJS = D->hasAttr<AsmJSAttr>();
+
   // Fill in the struct *after* computing the base type.  Filling in the body
   // signifies that the type is no longer opaque and record layout is complete,
   // but we may need to recursively layout D while laying D out as a base type.
-  Ty->setBody(Builder.FieldTypes, Builder.Packed, Builder.DirectBase);
+  Ty->setBody(Builder.FieldTypes, Builder.Packed, Builder.DirectBase, isByteLayout, isAsmJS);
 
   auto RL = std::make_unique<CGRecordLayout>(
       Ty, BaseTy, Builder.DirectBaseLayout, (bool)Builder.IsZeroInitializable,
@@ -849,14 +855,6 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
       }
     }
   }
-
-  // Unions and anonymous structures inside unions use bytelayout on Cheerp
-  if (!getTarget().isByteAddressable() && D->isByteLayout())
-      Ty->setByteLayout();
-
-  // Cheerp: set this type as asmjs based on attribute
-  if (D->hasAttr<AsmJSAttr>())
-      Ty->setAsmJS();
 
   // Add all the field numbers.
   RL->FieldInfo.swap(Builder.Fields);

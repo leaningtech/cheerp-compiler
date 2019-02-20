@@ -490,15 +490,11 @@ llvm::Constant *ConstantAggregateBuilder::buildFrom(
   }
 
   llvm::StructType *STy = llvm::ConstantStruct::getTypeForElements(
-      CGM.getLLVMContext(), Packed ? PackedElems : UnpackedElems, Packed);
+      CGM.getLLVMContext(), Packed ? PackedElems : UnpackedElems, Packed, DirectBaseTy, isByteLayout, RD->hasAttr<AsmJSAttr>());
 
   // Pick the type to use.  If the type is layout identical to the desired
   // type then use it, otherwise use whatever the builder produced for us.
   if (llvm::StructType *DesiredSTy = dyn_cast<llvm::StructType>(DesiredTy)) {
-    if (ValSTy->hasByteLayout())
-      STy->setByteLayout();
-    if (RD->hasAttr<AsmJSAttr>())
-      STy->setAsmJS();
     if (DesiredSTy->isLayoutIdentical(STy))
       STy = DesiredSTy;
     else if(!CGM.getTarget().isByteAddressable() && !RD->hasAttr<AsmJSAttr>())

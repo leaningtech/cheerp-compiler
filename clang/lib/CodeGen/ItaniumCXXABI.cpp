@@ -3638,7 +3638,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
         CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wasm);
     }
     llvm::Type* WrapperTypes[] = {CGM.getTypes().GetBasicVTableType(8, asmjs)};
-    llvm::Type* VTableType = llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL, asmjs);
+    llvm::Type* VTableType = llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL, /*bytelayout*/false, asmjs);
     llvm::Constant *VTable = CGM.getModule().getOrInsertGlobal(VTableName, VTableType);
     llvm::Constant *Zero = llvm::ConstantInt::get(CGM.Int32Ty, 0);
     llvm::SmallVector<llvm::Constant*, 2> GepIndexes;
