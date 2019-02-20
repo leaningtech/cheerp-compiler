@@ -216,12 +216,8 @@ void TypeMapTy::linkDefinedTypeBodies() {
     if (DirectBase)
       DirectBase = cast<StructType>(get(DirectBase));
 
-    DstSTy->setBody(Elements, SrcSTy->isPacked(), DirectBase);
+    DstSTy->setBody(Elements, SrcSTy->isPacked(), DirectBase, SrcSTy->hasByteLayout(), SrcSTy->hasAsmJS());
     DstStructTypesSet.switchToNonOpaque(DstSTy);
-    if(SrcSTy->hasByteLayout())
-      DstSTy->setByteLayout();
-    if(SrcSTy->hasAsmJS())
-      DstSTy->setAsmJS();
   }
   SrcDefinitionsToResolve.clear();
   DstResolvedOpaqueTypes.clear();
@@ -229,11 +225,7 @@ void TypeMapTy::linkDefinedTypeBodies() {
 
 void TypeMapTy::finishType(StructType *DTy, StructType *STy,
                            ArrayRef<Type *> ETypes, StructType* DirectBase) {
-  DTy->setBody(ETypes, STy->isPacked(), DirectBase);
-  if(STy->hasByteLayout())
-    DTy->setByteLayout();
-  if(STy->hasAsmJS())
-    DTy->setAsmJS();
+  DTy->setBody(ETypes, STy->isPacked(), DirectBase, STy->hasByteLayout(), STy->hasAsmJS());
 
   // Steal STy's name.
   if (STy->hasName()) {
@@ -344,7 +336,7 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
     bool asmjs = STy->hasAsmJS();
     bool IsPacked = STy->isPacked();
     if (IsUniqued)
-      return *Entry = StructType::get(Ty->getContext(), ElementTypes, IsPacked, DirectBase, asmjs);
+      return *Entry = StructType::get(Ty->getContext(), ElementTypes, IsPacked, DirectBase, /*ByteLayout*/false, asmjs);
 
     // If the type is opaque, we can just use it directly.
     if (STy->isOpaque()) {

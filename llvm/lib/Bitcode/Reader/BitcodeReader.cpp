@@ -1841,11 +1841,7 @@ Error BitcodeReader::parseTypeTableBody() {
       StructType* directBase = hasDirectBase ? cast<StructType>(getTypeByID(Record.back())) : NULL;
       if (EltTys.size() != (hasDirectBase ? Record.size()-5 : Record.size()-4))
         return error("Invalid type");
-      StructType* Res = StructType::get(Context, EltTys, Record[0], directBase);
-      if (hasByteLayout)
-        Res->setByteLayout();
-      if (hasAsmJS)
-        Res->setAsmJS();
+      StructType* Res = StructType::get(Context, EltTys, Record[0], directBase, hasByteLayout, hasAsmJS);
       ResultTy = Res;
       break;
     }
@@ -1883,11 +1879,7 @@ Error BitcodeReader::parseTypeTableBody() {
       StructType* directBase = hasDirectBase ? cast<StructType>(getTypeByID(Record.back())) : NULL;
       if (EltTys.size() != (hasDirectBase ? Record.size()-5 : Record.size()-4))
         return error("Invalid record");
-      Res->setBody(EltTys, Record[0], directBase);
-      if (hasByteLayout)
-        Res->setByteLayout();
-      if (hasAsmJS)
-        Res->setAsmJS();
+      Res->setBody(EltTys, Record[0], directBase, hasByteLayout, hasAsmJS);
       ResultTy = Res;
       break;
     }
@@ -1898,6 +1890,7 @@ Error BitcodeReader::parseTypeTableBody() {
       if (NumRecords >= TypeList.size())
         return error("Invalid TYPE table");
 
+      // TODO: These are not required
       bool hasByteLayout = Record[1];
       bool hasAsmJS = Record[2];
       // Check to see if this was forward referenced, if so fill in the temp.
@@ -1907,10 +1900,6 @@ Error BitcodeReader::parseTypeTableBody() {
         TypeList[NumRecords] = nullptr;
       } else {  // Otherwise, create a new struct with no body.
         Res = createIdentifiedStructType(Context, TypeName);
-        if (hasByteLayout)
-          Res->setByteLayout();
-        if (hasAsmJS)
-          Res->setAsmJS();
       }
       TypeName.clear();
       ResultTy = Res;

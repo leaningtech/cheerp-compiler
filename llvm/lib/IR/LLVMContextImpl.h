@@ -95,17 +95,23 @@ struct DenseMapAPFloatKeyInfo {
 struct AnonStructTypeKeyInfo {
   struct KeyTy {
     ArrayRef<Type*> ETypes;
-    bool isPacked;
     StructType* directBase;
+    bool isPacked;
+    bool isByteLayout;
+    bool isAsmJS;
 
-    KeyTy(const ArrayRef<Type*>& E, bool P, StructType* b) :
-      ETypes(E), isPacked(P), directBase(b) {}
+    KeyTy(const ArrayRef<Type*>& E, StructType* b, bool P, bool B, bool A) :
+      ETypes(E), directBase(b), isPacked(P), isByteLayout(B), isAsmJS(A) {}
 
     KeyTy(const StructType *ST)
-        : ETypes(ST->elements()), isPacked(ST->isPacked()), directBase(ST->getDirectBase()) {}
+        : ETypes(ST->elements()), directBase(ST->getDirectBase()), isPacked(ST->isPacked()), isByteLayout(ST->hasByteLayout()), isAsmJS(ST->hasAsmJS()) {}
 
     bool operator==(const KeyTy& that) const {
       if (isPacked != that.isPacked)
+        return false;
+      if (isByteLayout != that.isByteLayout)
+        return false;
+      if (isAsmJS != that.isAsmJS)
         return false;
       if (ETypes != that.ETypes)
         return false;
@@ -129,7 +135,7 @@ struct AnonStructTypeKeyInfo {
   static unsigned getHashValue(const KeyTy& Key) {
     return hash_combine(hash_combine_range(Key.ETypes.begin(),
                                            Key.ETypes.end()),
-                        Key.isPacked, Key.directBase);
+                        Key.directBase, Key.isPacked, Key.isByteLayout, Key.isAsmJS);
   }
 
   static unsigned getHashValue(const StructType *ST) {
