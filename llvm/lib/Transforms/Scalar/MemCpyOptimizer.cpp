@@ -486,7 +486,7 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
     StartPtr = Range.StartPtr;
 
     AMemSet = Builder.CreateMemSet(StartPtr, ByteVal, Range.End - Range.Start,
-                                   MaybeAlign(Range.Alignment));
+                                   MaybeAlign(Range.Alignment), false, NULL, NULL, NULL, DL.isByteAddressable());
     LLVM_DEBUG(dbgs() << "Replace stores:\n"; for (Instruction *SI
                                                    : Range.TheStores) dbgs()
                                               << *SI << '\n';
@@ -1184,12 +1184,14 @@ bool MemCpyOptPass::processMemSetMemCpyDependence(MemCpyInst *MemCpy,
   Value *MemsetLen = Builder.CreateSelect(
       Ule, ConstantInt::getNullValue(DestSize->getType()), SizeDiff);
   unsigned DestAS = Dest->getType()->getPointerAddressSpace();
+  const DataLayout &DL = MemCpy->getModule()->getDataLayout();
   Instruction *NewMemSet = Builder.CreateMemSet(
       Builder.CreateGEP(Builder.getInt8Ty(),
                         Builder.CreatePointerCast(Dest,
                                                   Builder.getInt8PtrTy(DestAS)),
                         SrcSize),
-      MemSet->getOperand(1), MemsetLen, MaybeAlign(Align));
+      MemSet->getOperand(1), MemsetLen, MaybeAlign(Align),
+                       false, NULL, NULL, NULL, DL.isByteAddressable());
 
   assert(isa<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(MemCpy)) &&
          "MemCpy must be a MemoryDef");
@@ -1297,9 +1299,11 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
   }
 
   IRBuilder<> Builder(MemCpy);
+  const DataLayout &DL = MemCpy->getModule()->getDataLayout();
   Instruction *NewM =
       Builder.CreateMemSet(MemCpy->getRawDest(), MemSet->getOperand(1),
-                           CopySize, MaybeAlign(MemCpy->getDestAlignment()));
+                           CopySize, MaybeAlign(MemCpy->getDestAlignment()),
+                           false, NULL, NULL, NULL, DL.isByteAddressable());
   auto *LastDef =
       cast<MemoryDef>(MSSAU->getMemorySSA()->getMemoryAccess(MemCpy));
   auto *NewAccess = MSSAU->createMemoryAccessAfter(NewM, LastDef, LastDef);
