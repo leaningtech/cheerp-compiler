@@ -254,10 +254,10 @@ public:
   /// This static method is the primary way to create a literal StructType.
   static StructType *get(LLVMContext &Context, ArrayRef<Type*> Elements,
                          bool isPacked = false, StructType* directBase = NULL,
-                         bool AsmJS = false);
+                         bool isByteLayout = false, bool AsmJS = false);
 
   /// Create an empty structure type.
-  static StructType *get(LLVMContext &Context, bool isPacked = false, StructType* directBase = NULL, bool AsmJS = false);
+  static StructType *get(LLVMContext &Context, bool isPacked = false, StructType* directBase = NULL, bool isByteLayout = false, bool AsmJS = false);
 
   /// This static method is a convenience method for creating structure types by
   /// specifying the elements as arguments. Note that this method always returns
@@ -290,7 +290,6 @@ public:
   /// hasByteLayout - Return true if this type should be handled mapped to bytes
   //// instead of objects on NBA
   bool hasByteLayout() const { return getSubclassData() & SCDB_ByteLayout; }
-  void setByteLayout() { setSubclassData(getSubclassData() | SCDB_ByteLayout); }
 
   /// Returns true if this struct contains a scalable vector.
   bool containsScalableVectorType() const;
@@ -298,7 +297,6 @@ public:
   /// hasAsmJS - Return true if this type should be used in the asm.js module
   //// in Cheerp
   bool hasAsmJS() const { return getSubclassData() & SCDB_AsmJS; }
-  void setAsmJS() { setSubclassData(getSubclassData() | SCDB_AsmJS); }
 
   bool hasDirectBase() const { return getSubclassData() & SCDB_DirectBase; }
   StructType* getDirectBase() const { return hasDirectBase()?cast<StructType>(ContainedTys[NumContainedTys-1]):NULL; }
@@ -316,7 +314,7 @@ public:
   void setName(StringRef Name);
 
   /// Specify a body for an opaque identified type.
-  void setBody(ArrayRef<Type*> Elements, bool isPacked = false, StructType* directBase=NULL);
+  void setBody(ArrayRef<Type*> Elements, bool isPacked = false, StructType* directBase = NULL, bool isByteLayout = false, bool isAsmJS = false);
 
   template <typename... Tys>
   std::enable_if_t<are_base_of<Type, Tys...>::value, void>
