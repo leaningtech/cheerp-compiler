@@ -125,6 +125,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	};
 	LibCallSimplifier callSimplifier(*DL, TLI, LibCallReplacer);
 	for (Function& F : module.getFunctionList()) {
+		F.setPersonalityFn(nullptr);
 		for (BasicBlock& bb : F)
 		{
 			for (Instruction& I : bb)
