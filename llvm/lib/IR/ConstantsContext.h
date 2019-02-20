@@ -483,7 +483,8 @@ public:
   bool operator==(const ConstantExprKeyType &X) const {
     return Opcode == X.Opcode && SubclassData == X.SubclassData &&
            SubclassOptionalData == X.SubclassOptionalData && Ops == X.Ops &&
-           ShuffleMask == X.ShuffleMask && ExplicitTy == X.ExplicitTy;
+           ShuffleMask == X.ShuffleMask &&
+           (!ExplicitTy || !X.ExplicitTy || ExplicitTy == X.ExplicitTy);
   }
 
   bool operator==(const ConstantExpr *CE) const {
@@ -501,6 +502,8 @@ public:
     if (ShuffleMask != getShuffleMaskIfValid(CE))
       return false;
     if (ExplicitTy != getSourceElementTypeIfValid(CE))
+      return false;
+    if (ExplicitTy && ExplicitTy != cast<GetElementPtrConstantExpr>(CE)->getSourceElementType())
       return false;
     return true;
   }

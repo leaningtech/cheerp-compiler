@@ -1017,8 +1017,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	};
 	if(newFuncType!=F->getType())
 	{
+		FunctionType* newFT = cast<FunctionType>(newFuncType->getPointerElementType());
 		if(F->getIntrinsicID())
-			rewriteIntrinsic(F, cast<FunctionType>(newFuncType->getPointerElementType()));
+			rewriteIntrinsic(F, newFT);
 		else
 			F->mutateType(newFuncType);
 		// Change the types of the arguments
@@ -1030,6 +1031,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			setOriginalOperandType(&a, a.getType());
 			a.mutateType(newArgType);
 		}
+		F->mutateFunctionType(newFT);
 	}
 	// Remove byval attribute from pointer to array arguments, see CallInst handling below
 	bool attributesChanged = false;
@@ -1113,6 +1115,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				}
 				case Instruction::Call:
 				{
+					CallInst* CI=cast<CallInst>(&I);
 					// We need to handle special intrinsics here
 					if(IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
 					{
@@ -1149,7 +1152,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					}
 					else
 					{
-						CallInst* CI=cast<CallInst>(&I);
 						if(CI->hasByValArgument())
 						{
 							// We need to make sure that no byval attribute is applied to pointers to arrays
@@ -1195,6 +1197,12 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								CI->setAttributes(newAttrs);
 						}
 					}
+					Type* oldType = CI->getType();
+					Type* rewrittenFuncType = rewriteType(CI->getFunctionType());
+					CI->mutateFunctionType(cast<FunctionType>(rewrittenFuncType));
+					if(CI->getType() != oldType)
+						setOriginalOperandType(&I, oldType);
+					needsDefaultHandling = false;
 					break;
 				}
 				case Instruction::Store:
@@ -1248,6 +1256,33 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					break;
 				}
 				case Instruction::Alloca:
+				{
+					AllocaInst* AI = cast<AllocaInst>(&I);
+					TypeMappingInfo newInfo = rewriteType(I.getType());
+					if(newInfo.mappedType!=I.getType())
+					{
+						Type* newAllocatedType = rewriteType(I.getType()->getPointerElementType());
+						AI->setAllocatedType(newAllocatedType);
+						setOriginalOperandType(&I, I.getType());
+						// Special handling for Alloca
+						if(newInfo.elementMappingKind == TypeMappingInfo::POINTER_FROM_ARRAY)
+						{
+							// In this case we need to rewrite the allocated type and use that directly
+							// Moreover, we need to generate a GEP that will be used instead of this alloca
+							Type* newPtrType = PointerType::get(newAllocatedType, 0);
+							I.mutateType(newPtrType);
+							Type* Int32 = IntegerType::get(I.getType()->getContext(), 32);
+							Value* Zero = ConstantInt::get(Int32, 0);
+							Value* Indexes[] = { Zero, Zero };
+							Instruction* newGEP = GetElementPtrInst::Create(newAllocatedType, &I, Indexes, "allocadecay");
+							setMappedOperand(&I, newGEP, 0);
+						}
+						else
+							I.mutateType(newInfo.mappedType);
+					}
+					needsDefaultHandling = false;
+					break;
+				}
 				case Instruction::BitCast:
 				case Instruction::ExtractValue:
 				case Instruction::InsertValue:
@@ -1264,22 +1299,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				if(newInfo.mappedType!=I.getType())
 				{
 					setOriginalOperandType(&I, I.getType());
-					// Special handling for Alloca
-					if(I.getOpcode() == Instruction::Alloca && newInfo.elementMappingKind == TypeMappingInfo::POINTER_FROM_ARRAY)
-					{
-						// In this case we need to rewrite the allocated type and use that directly
-						// Moreover, we need to generate a GEP that will be used instead of this alloca
-						Type* newAllocatedType = rewriteType(I.getType()->getPointerElementType());
-						Type* newPtrType = PointerType::get(newAllocatedType, 0);
-						I.mutateType(newPtrType);
-						Type* Int32 = IntegerType::get(I.getType()->getContext(), 32);
-						Value* Zero = ConstantInt::get(Int32, 0);
-						Value* Indexes[] = { Zero, Zero };
-						Instruction* newGEP = GetElementPtrInst::Create(newAllocatedType, &I, Indexes, "allocadecay");
-						setMappedOperand(&I, newGEP, 0);
-					}
-					else
-						I.mutateType(newInfo.mappedType);
+					I.mutateType(newInfo.mappedType);
 				}
 			}
 			// We need to handle pointer PHIs later on, when all instructions are redefined
