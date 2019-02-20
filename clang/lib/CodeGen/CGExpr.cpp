@@ -405,6 +405,8 @@ static Address createReferenceTemporary(CodeGenFunction &CGF,
               CGF.getContext().getTargetAddressSpace(AS));
           CharUnits alignment = CGF.getContext().getTypeAlignInChars(Ty);
           GV->setAlignment(alignment.getAsAlign());
+          if(CGF.CurFn->getSection() == StringRef("asmjs"))
+            GV->setSection("asmjs");
           llvm::Constant *C = GV;
           if (AS != LangAS::Default)
             C = TCG.performAddrSpaceCast(
