@@ -569,7 +569,7 @@ public:
     return Opcode == X.Opcode && SubclassData == X.SubclassData &&
            SubclassOptionalData == X.SubclassOptionalData && Ops == X.Ops &&
            Indexes == X.Indexes && ShuffleMask == X.ShuffleMask &&
-           ExplicitTy == X.ExplicitTy;
+           (!ExplicitTy || !X.ExplicitTy || ExplicitTy == X.ExplicitTy);
   }
 
   bool operator==(const ConstantExpr *CE) const {
@@ -589,6 +589,8 @@ public:
     if (ShuffleMask != getShuffleMaskIfValid(CE))
       return false;
     if (ExplicitTy != getSourceElementTypeIfValid(CE))
+      return false;
+    if (ExplicitTy && ExplicitTy != cast<GetElementPtrConstantExpr>(CE)->getSourceElementType())
       return false;
     return true;
   }

@@ -168,6 +168,9 @@ public:
 
   /// Returns the type of the ret val.
   Type *getReturnType() const { return getFunctionType()->getReturnType(); }
+  void mutateFunctionType(FunctionType *FTy) {
+    this->Ty = FTy;
+  }
 
   /// getContext - Return a reference to the LLVMContext associated with this
   /// function.
