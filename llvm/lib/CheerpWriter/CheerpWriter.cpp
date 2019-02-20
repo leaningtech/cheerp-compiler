@@ -1574,7 +1574,7 @@ void CheerpWriter::compileOffsetForGEP(Type* pointerOperandType, ArrayRef< const
 	 * Type * tp = GetElementPtrInst::getIndexedType( pointerOperandType, indices.slice(0, indices.size() - 1 ) );
 	 */
 
-	Type* tp = GetElementPtrInst::getIndexedType(pointerOperandType,
+	Type* tp = GetElementPtrInst::getIndexedType(pointerOperandType->getPointerElementType(),
 	                makeArrayRef(const_cast<Value* const*>(indices.begin()),
 	                             const_cast<Value* const*>(indices.end() - 1)));
 
@@ -3377,7 +3377,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PAR
 	SmallVector< const Value*, 8 > indices(std::next(gep_inst->op_begin()), gep_inst->op_end());
 	Type* basePointerType = gep_inst->getOperand(0)->getType();
 
-	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType,
+	StructType* containerStructType = dyn_cast<StructType>(GetElementPtrInst::getIndexedType(basePointerType->getPointerElementType(),
 			makeArrayRef(const_cast<Value* const*>(indices.begin()),
 				     const_cast<Value* const*>(indices.end() - 1))));
 	if(containerStructType && indices.size() > 1)
