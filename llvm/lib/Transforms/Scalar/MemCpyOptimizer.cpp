@@ -388,7 +388,7 @@ Instruction *MemCpyOptPass::tryMergingIntoMemset(Instruction *StartInst,
     StartPtr = Range.StartPtr;
 
     AMemSet = Builder.CreateMemSet(StartPtr, ByteVal, Range.End - Range.Start,
-                                   MaybeAlign(Range.Alignment));
+                                   MaybeAlign(Range.Alignment), false, NULL, NULL, NULL, DL.isByteAddressable());
     LLVM_DEBUG(dbgs() << "Replace stores:\n"; for (Instruction *SI
                                                    : Range.TheStores) dbgs()
                                               << *SI << '\n';
@@ -1018,10 +1018,12 @@ bool MemCpyOptPass::processMemSetMemCpyDependence(MemCpyInst *MemCpy,
   Value *SizeDiff = Builder.CreateSub(DestSize, SrcSize);
   Value *MemsetLen = Builder.CreateSelect(
       Ule, ConstantInt::getNullValue(DestSize->getType()), SizeDiff);
+  const DataLayout &DL = MemCpy->getModule()->getDataLayout();
   Builder.CreateMemSet(
       Builder.CreateGEP(Dest->getType()->getPointerElementType(), Dest,
                         SrcSize),
-      MemSet->getOperand(1), MemsetLen, MaybeAlign(Align));
+      MemSet->getOperand(1), MemsetLen, MaybeAlign(Align),
+                       false, NULL, NULL, NULL, DL.isByteAddressable());
 
   MD->removeInstruction(MemSet);
   MemSet->eraseFromParent();
@@ -1089,8 +1091,10 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
   }
 
   IRBuilder<> Builder(MemCpy);
+  const DataLayout &DL = MemCpy->getModule()->getDataLayout();
   Builder.CreateMemSet(MemCpy->getRawDest(), MemSet->getOperand(1), CopySize,
-                       MaybeAlign(MemCpy->getDestAlignment()));
+                       MaybeAlign(MemCpy->getDestAlignment()),
+                       false, NULL, NULL, NULL, DL.isByteAddressable());
   return true;
 }
 
