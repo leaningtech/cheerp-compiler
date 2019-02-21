@@ -191,7 +191,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			case Instruction::Call:
 			case Instruction::Load:
 			{
-				if(I.use_empty() || I.mayHaveSideEffects())
+				if(I.use_empty())
 					return false;
 				// We can only inline COMPLETE_OBJECT and RAW pointers, other kinds may actually require multiple accesses while rendering
 				// NOTE: When RAW pointers are converted to REGULAR/SPLIT_REGULAR only one access (the offset part) is used, the base is a constant HEAP*
@@ -202,8 +202,11 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 						return false;
 				}
 
+				const bool hasSideEffects = I.mayHaveSideEffects();
 				// Skip up to N instructions, looking for the final not-inlineable user of this load/call
-				// If we find no side-effectfull instructions along the way it is safe to inline
+				// If we find no interfering instructions along the way it is safe to inline
+				// TODO: Currently we assume that crossing an instruction implies reordering, but in reality this actually depends on rendering
+				//       for example call(a, b) in JS guarantees that all the expression for 'a' in evaluated before 'b'
 				uint32_t maxSkip = 10;
 				const Instruction* curInst = &I;
 				const Instruction* nextInst = &I;
@@ -248,6 +251,11 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 							// It is inlineable, if it has only one user we can keep going
 							curInst = nextInst;
 						}
+					}
+					else if(hasSideEffects && nextInst->mayReadOrWriteMemory())
+					{
+						// Do not reorder side-effectfull calls over anything which may read memory
+						break;
 					}
 					else if(nextInst->mayHaveSideEffects())
 					{
