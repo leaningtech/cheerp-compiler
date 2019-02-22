@@ -98,7 +98,7 @@ static char getTypeID(Type *Ty) {
 // real call in general case (this is JIT job), that's why it assumes,
 // that all external functions has the same (and pretty "general") signature.
 // The typical example of such functions are "lle_X_" ones.
-static ExFunc lookupFunction(const Function *F, void*(*LazyFunctionCreator)(const std::string&)) {
+static ExFunc lookupFunction(const Function *F, const std::function<void*(const std::string&)>& LazyFunctionCreator) {
   // Function not found, look it up... start by figuring out what the
   // composite function name should be.
   std::string ExtName = "lle_";
