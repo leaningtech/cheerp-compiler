@@ -420,7 +420,7 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llvm-link")));
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
 
 void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
@@ -458,7 +458,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CheerpNoPointerSCEV->render(Args, CmdArgs);
 
   const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("opt")));
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
 
 void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
@@ -549,5 +549,5 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgValues(CmdArgs, options::OPT_mllvm);
 
   const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("llc")));
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs));
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
