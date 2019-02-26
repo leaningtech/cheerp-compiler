@@ -60,14 +60,14 @@ struct YBitfield gbitfield;
 
 unsigned test7() {
   // CHECK: @test7
-  // CHECK: load i32, i32* getelementptr inbounds (%struct._Z9YBitfield, %struct._Z9YBitfield* @gbitfield, i32 0, i32 1, i32 0), align 1
+  // CHECK: load i32, i32* bitcast (%struct._Z9XBitfield* getelementptr inbounds (%struct._Z9YBitfield, %struct._Z9YBitfield* @gbitfield, i32 0, i32 1) to i32*), align 1
   return gbitfield.y.b2;
 }
 
 void test8(unsigned x) {
   // CHECK: @test8
-  // CHECK: load i32, i32* getelementptr inbounds (%struct.YBitfield, %struct.YBitfield* @gbitfield, i32 0, i32 1, i32 0), align 1
-  // CHECK: store i32 {{.*}}, i32* getelementptr inbounds (%struct.YBitfield, %struct.YBitfield* @gbitfield, i32 0, i32 1, i32 0), align 1
+  // CHECK: load i32, i32* bitcast (%struct._Z9XBitfield* getelementptr inbounds (%struct._Z9YBitfield, %struct._Z9YBitfield* @gbitfield, i32 0, i32 1) to i32*), align 1
+  // CHECK: store i32 {{.*}}, i32* bitcast (%struct._Z9XBitfield* getelementptr inbounds (%struct._Z9YBitfield, %struct._Z9YBitfield* @gbitfield, i32 0, i32 1) to i32*), align 1
   gbitfield.y.b2 = x;
 }
 
@@ -81,14 +81,14 @@ struct TBitfield tbitfield;
 
 unsigned test9() {
   // CHECK: @test9
-  // CHECK: load i16, i16* getelementptr inbounds (%struct.TBitfield, %struct.TBitfield* @tbitfield, i32 0, i32 2), align 1
+  // CHECK: load i16, i16* getelementptr inbounds (%struct._Z9TBitfield, %struct._Z9TBitfield* @tbitfield, i32 0, i32 2), align 1
   return tbitfield.c;
 }
 
 void test10(unsigned x) {
   // CHECK: @test10
-  // CHECK: load i16, i16* getelementptr inbounds (%struct.TBitfield, %struct.TBitfield* @tbitfield, i32 0, i32 2), align 1
-  // CHECK: store i16 {{.*}}, i16* getelementptr inbounds (%struct.TBitfield, %struct.TBitfield* @tbitfield, i32 0, i32 2), align 1
+  // CHECK: load i16, i16* getelementptr inbounds (%struct._Z9TBitfield, %struct._Z9TBitfield* @tbitfield, i32 0, i32 2), align 1
+  // CHECK: store i16 {{.*}}, i16* getelementptr inbounds (%struct._Z9TBitfield, %struct._Z9TBitfield* @tbitfield, i32 0, i32 2), align 1
   tbitfield.c = x;
 }
 
