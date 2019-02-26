@@ -38,7 +38,7 @@ void test1() {
   // CHECK-1:   alloca %struct._ZZN9TestClass10MemberFuncEvEUt_
   // CHECK-1:   getelementptr inbounds %[[Capture]], %[[Capture]]* %{{[^,]*}}, i32 0, i32 0
   // CHECK-1:   getelementptr inbounds %[[Capture]], %[[Capture]]* %{{[^,]*}}, i32 0, i32 1
-  // CHECK-1:   store %struct.Foo* %f, %struct.Foo**
+  // CHECK-1:   store %struct._Z3Foo* %f, %struct._Z3Foo**
   // CHECK-1:   call void @[[HelperName:[\.A-Za-z0-9_]+]](%[[Capture]]*
   // CHECK-1:   call {{.*}}FooD1Ev
   // CHECK-1:   ret
@@ -49,7 +49,7 @@ void test1() {
 // CHECK-1:   call {{.*}}i32 @__cxa_guard_acquire(
 // CHECK-1:   store double %{{.+}}, double* [[INNER]],
 // CHECK-1:   call {{.*}}void @__cxa_guard_release(
-// CHECK-1:   getelementptr inbounds %struct.TestClass, %struct.TestClass* {{[^,]*}}, i32 0, i32 0
+// CHECK-1:   getelementptr inbounds %struct._Z9TestClass, %struct._Z9TestClass* {{[^,]*}}, i32 0, i32 0
 // CHECK-1:   getelementptr inbounds %[[Capture]], %[[Capture]]* {{[^,]*}}, i32 0, i32 1
 
 void test2(int x) {
