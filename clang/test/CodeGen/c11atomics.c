@@ -17,12 +17,12 @@ struct elem;
 struct ptr {
     struct elem *ptr;
 };
-// CHECK-DAG: %struct.ptr = type { %struct.elem* }
+// CHECK-DAG: %struct._Z3ptr = type { %struct._Z4elem* }
 
 struct elem {
     _Atomic(struct ptr) link;
 };
-// CHECK-DAG: %struct.elem = type { %struct.ptr }
+// CHECK-DAG: %struct._Z4elem = type { %struct._Z3ptr }
 
 struct ptr object;
 // CHECK-DAG: @object = global %struct.ptr zeroinitializer

@@ -246,7 +246,7 @@ struct S {
   int S::*x[];
 };
 S s;
-// CHECK-GLOBAL: @_ZN19FlexibleArrayMember1sE = global %"struct.FlexibleArrayMember::S" zeroinitializer, align 8
+// CHECK-GLOBAL: @_ZN19FlexibleArrayMember1sE = global %struct._ZN19FlexibleArrayMember1SE zeroinitializer, align 8
 }
 
 namespace IndirectPDM {
@@ -256,5 +256,5 @@ union U {
   };
 };
 U u;
-// CHECK-GLOBAL: @_ZN11IndirectPDM1uE = global %"union.IndirectPDM::U" { %union.anon { i64 -1 } }, align 8
+// CHECK-GLOBAL: @_ZN11IndirectPDM1uE = global %union._ZN11IndirectPDM1UE { %union._ZN11IndirectPDM1UUt_E { i64 -1 } }, align 8
 }

@@ -103,7 +103,7 @@ namespace test6 {
 // PR7127
 namespace test7 {
 // CHECK-LABEL:      define i32 @_ZN5test73fooEv() 
-// CHECK-SAME:  personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*)
+// CHECK-SAME:  personality i8* bitcast (void ()* @__gxx_personality_v0 to i8*)
   int foo() {
 // CHECK:      [[CAUGHTEXNVAR:%.*]] = alloca i8*
 // CHECK-NEXT: [[SELECTORVAR:%.*]] = alloca i32
