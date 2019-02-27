@@ -477,6 +477,7 @@ private:
 	void compileSelect(const llvm::User* select, const llvm::Value* cond, const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
 
 	//JS interoperability support
+	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
 	std::vector<llvm::StringRef> compileClassesExportedToJs();
 	void addExportedFreeFunctions(std::vector<llvm::StringRef>& namesList, const llvm::NamedMDNode* namedNode);
 	void compileInlineAsm(const llvm::CallInst& ci);
