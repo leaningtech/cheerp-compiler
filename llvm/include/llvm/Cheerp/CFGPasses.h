@@ -39,6 +39,11 @@ public:
 // RemoveFwdBlocks
 //
 FunctionPass *createRemoveFwdBlocksPass();
+//===----------------------------------------------------------------------===//
+//
+// CheerpLowerSwitch
+//
+FunctionPass* createCheerpLowerSwitchPass();
 
 }
 
