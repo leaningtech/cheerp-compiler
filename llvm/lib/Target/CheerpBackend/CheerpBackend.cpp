@@ -136,6 +136,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            AnalysisID StartAfter,
                                            AnalysisID StopAfter,
                                            MachineFunctionInitializer* MFInit) {
+  PM.add(createCheerpLowerSwitchPass());
   PM.add(createStructMemFuncLowering());
   PM.add(createAllocaLoweringPass());
   PM.add(createFreeAndDeleteRemovalPass());
