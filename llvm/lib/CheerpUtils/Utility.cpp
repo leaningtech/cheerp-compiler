@@ -982,6 +982,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeGEPOptimizerPass(Registry);
 	initializeAllocaStoresExtractorPass(Registry);
 	initializeFixIrreducibleControlFlowPass(Registry);
+	initializeCheerpLowerSwitchPass(Registry);
 }
 
 }
