@@ -29,6 +29,27 @@ void CheerpWriter::addExportedFreeFunctions(std::vector<StringRef>& namesList, c
 	}
 }
 
+uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic) const
+{
+	uint32_t ret = 0;
+	auto it = F->arg_begin();
+	auto itE = F->arg_end();
+	if(!isStatic)
+	{
+		// The this parameter is implicit
+		++it;
+	}
+	while(it != itE)
+	{
+		if(it->getType()->isPointerTy() && PA.getPointerKind(&(*it)) == SPLIT_REGULAR)
+			ret+=2;
+		else
+			ret+=1;
+		++it;
+	}
+	return ret;
+}
+
 std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 {
 	std::vector<StringRef> exportedNames;
@@ -102,7 +123,8 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		exportedNames.push_back(jsClassName);
 
 		stream << "function " << jsClassName << '(';
-		for(uint32_t i=0;i<f->arg_size()-1;i++)
+		uint32_t fwdArgsCount = countJsParameters(f, /*isStatic*/false);
+		for(uint32_t i=0;i<fwdArgsCount;i++)
 		{
 			if(i!=0)
 				stream << ",";
@@ -125,7 +147,7 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		else
 			stream << "{d:this.d,o:0}";
 
-		for(uint32_t i=0;i<f->arg_size()-1;i++)
+		for(uint32_t i=0;i<fwdArgsCount;i++)
 			stream << ",a" << i;
 		stream << ");" << NewLine << "}" << NewLine;
 
@@ -147,27 +169,27 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 			if (!isStatic)
 				stream << ".prototype";
 			stream << '.' << methodName << "=function (";
-			uint32_t firstArg = 0;
-			// If the method is not static, the first argument is the implicit `this`
-			if(!isStatic)
-				firstArg++;
-			for(uint32_t i=firstArg;i<f->arg_size();i++)
+			uint32_t fwdArgsCount = countJsParameters(f, isStatic);
+			for(uint32_t i=0;i<fwdArgsCount;i++)
 			{
-				if(i!=firstArg)
+				if(i!=0)
 					stream << ",";
 				stream << 'a' << i;
 			}
 			stream << "){" << NewLine << "return ";
 			compileOperand(f);
 			stream << '(';
+			// If the method is not static, the first argument is the implicit `this`
 			if(!isStatic)
 			{
 				if(PA.getPointerKind(f->arg_begin())==COMPLETE_OBJECT)
 					stream << "this";
 				else
 					stream << "{d:this.d,o:0}";
+				if(fwdArgsCount)
+					stream << ",";
 			}
-			for(uint32_t i=firstArg;i<f->arg_size();i++)
+			for(uint32_t i=0;i<fwdArgsCount;i++)
 			{
 				if(i!=0)
 					stream << ",";
