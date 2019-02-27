@@ -17,6 +17,9 @@
 
 #include "llvm/IR/PassManager.h"
 
+void ProcessSwitchInst(SwitchInst *SI,
+                           SmallPtrSetImpl<BasicBlock *> &DeleteList,
+                           AssumptionCache *AC, LazyValueInfo *LVI);
 namespace llvm {
 struct LowerSwitchPass : public PassInfoMixin<LowerSwitchPass> {
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);

@@ -38,6 +38,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/LowerSwitch.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -49,13 +50,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "lower-switch"
 
-namespace {
-
-  struct IntRange {
-    int64_t Low, High;
-  };
-
-} // end anonymous namespace
+using namespace llvm;
+using IntRange = LowerSwitch::IntRange;
 
 namespace {
 // Return true iff R is covered by Ranges.
@@ -92,6 +88,8 @@ struct CaseCmp {
   }
 };
 
+namespace llvm {
+
 /// Used for debugging purposes.
 LLVM_ATTRIBUTE_USED
 raw_ostream &operator<<(raw_ostream &O, const CaseVector &C) {
@@ -104,6 +102,7 @@ raw_ostream &operator<<(raw_ostream &O, const CaseVector &C) {
   }
 
   return O << "]";
+}
 }
 
 /// Update the first occurrence of the "switch statement" BB in the PHI
