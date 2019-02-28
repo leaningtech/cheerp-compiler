@@ -13,7 +13,6 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
@@ -35,7 +34,7 @@ STATISTIC(NumAllocasTransformedToArrays, "Number of allocas of values transforme
 
 namespace llvm {
 
-bool AllocaArrays::replaceAlloca(AllocaInst* ai)
+bool AllocaArrays::replaceAlloca(AllocaInst* ai, cheerp::GlobalDepsAnalyzer& gda)
 {
 	const ConstantInt * ci = dyn_cast<ConstantInt>(ai->getArraySize());
 	
@@ -45,11 +44,12 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai)
 		Module* M = ai->getParent()->getParent()->getParent();
 		DataLayout targetData(M);
 		Type* int32Ty = IntegerType::getInt32Ty(M->getContext());
+		Type* allocTy = ai->getAllocatedType();
+		gda.visitDynSizedAlloca(allocTy);
 		Function* cheerp_allocate = Intrinsic::getDeclaration(M, Intrinsic::cheerp_allocate, ai->getType());
 
 		IRBuilder<> Builder(ai);
 
-		Type* allocTy = ai->getAllocatedType();
 		uint32_t elemSize = targetData.getTypeAllocSize(allocTy);
 		Value* size = Builder.CreateMul(ai->getArraySize(), ConstantInt::get(int32Ty, elemSize, false)); 
 		Instruction* alloc = CallInst::Create(cheerp_allocate, size);
@@ -118,6 +118,7 @@ bool AllocaArrays::runOnFunction(Function& F)
 	bool Changed = false;
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
+	cheerp::GlobalDepsAnalyzer & globalDeps= getAnalysis<cheerp::GlobalDepsAnalyzer>();
 
 	for ( BasicBlock & BB : F )
 	{
@@ -137,7 +138,7 @@ bool AllocaArrays::runOnFunction(Function& F)
 			PA.invalidate(ai);
 			// Careful, registerize must be invalidated before changing the function
 			registerize.invalidateLiveRangeForAllocas(F);
-			Changed |= replaceAlloca( ai );
+			Changed |= replaceAlloca( ai, globalDeps );
 		}
 	}
 	
@@ -159,6 +160,7 @@ void AllocaArrays::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addPreserved<cheerp::Registerize>();
+	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
