@@ -16,6 +16,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 
 #include <functional>
@@ -33,7 +34,7 @@ namespace llvm
 // generated pointer would be CO instead of regular
 class AllocaArrays: public FunctionPass
 {
-	bool replaceAlloca( AllocaInst * ai );
+	bool replaceAlloca( AllocaInst * ai, cheerp::GlobalDepsAnalyzer& gda );
 public:
 	static char ID;
 	explicit AllocaArrays() : FunctionPass(ID) { }
