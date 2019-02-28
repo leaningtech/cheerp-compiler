@@ -233,6 +233,9 @@ bool AllocaArraysMerging::checkUsesForArrayMerging(AllocaInst* alloca)
 
 bool AllocaArraysMerging::runOnFunction(Function& F)
 {
+	if (F.getSection()==StringRef("asmjs"))
+		return false;
+
 	class ArraysToMerge
 	{
 	private:
