@@ -112,6 +112,9 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai)
 
 bool AllocaArrays::runOnFunction(Function& F)
 {
+	if (F.getSection()==StringRef("asmjs"))
+		return false;
+
 	bool Changed = false;
 	cheerp::PointerAnalyzer & PA = getAnalysis<cheerp::PointerAnalyzer>();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
