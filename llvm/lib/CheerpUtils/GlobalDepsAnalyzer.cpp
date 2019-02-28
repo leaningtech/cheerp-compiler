@@ -537,6 +537,16 @@ void GlobalDepsAnalyzer::visitConstant( const Constant * C, VisitedSet & visited
 	}
 }
 
+void GlobalDepsAnalyzer::visitDynSizedAlloca( llvm::Type* pointedType )
+{
+	if(TypeSupport::isTypedArrayType(pointedType, forceTypedArrays))
+		return;
+	else if(pointedType->isPointerTy())
+		hasPointerArrays = true;
+	else
+		arraysNeeded.insert( pointedType );
+}
+
 void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 {
 	VisitedSet NewvisitPath;
