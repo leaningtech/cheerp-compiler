@@ -2592,6 +2592,24 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI_alloca:
   case Builtin::BI__builtin_alloca: {
     Value *Size = EmitScalarExpr(E->getArg(0));
+    if (!asmjs && !getTarget().isByteAddressable()) {
+      const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
+      assert(FD);
+      ParentMap PM(FD->getBody());
+      const Stmt* parent=PM.getParent(E);
+      // We need an explicit cast after the call, void* can't be used
+      llvm::Type *Tys[] = { VoidPtrTy };
+      const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
+      if (!retCE || retCE->getType()->isVoidPointerType())
+        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_alloc_requires_cast);
+      else
+      {
+          QualType returnType=retCE->getType();
+          Tys[0] = ConvertType(returnType);
+      }
+      Function *F = CGM.getIntrinsic(Intrinsic::cheerp_allocate, Tys);
+      return RValue::get(Builder.CreateCall(F, Size));
+    }
     const TargetInfo &TI = getContext().getTargetInfo();
     // The alignment of the alloca should correspond to __BIGGEST_ALIGNMENT__.
     const Align SuitableAlignmentInBytes =
