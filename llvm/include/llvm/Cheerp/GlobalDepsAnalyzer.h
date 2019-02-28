@@ -240,6 +240,11 @@ public:
 	{
 		return hasBuiltin[b];
 	}
+
+	/**
+	 * Visit dynamic-sized allocation
+	 */
+	void visitDynSizedAlloca( llvm::Type* pointedType );
 };
 
 inline llvm::Pass * createGlobalDepsAnalyzerPass(GlobalDepsAnalyzer::MATH_MODE mathMode, bool resolveAliases)
