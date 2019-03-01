@@ -88,6 +88,101 @@ private:
 	std::vector<StackElem> VisitStack;
 };
 
+class TokenListVerifier {
+public:
+	TokenListVerifier(const TokenList& Tokens): Tokens(Tokens) {}
+	bool verify();
+private:
+	const TokenList& Tokens;
+};
+
+bool TokenListVerifier::verify()
+{
+	std::vector<const Token*> ScopeStack;
+	DenseSet<const Token*> ActiveScopes;
+	for (const Token& T: Tokens)
+	{
+		switch (T.getKind())
+		{
+			case Token::TK_BasicBlock:
+				break;
+			case Token::TK_Loop:
+			case Token::TK_Block:
+			case Token::TK_If:
+			case Token::TK_IfNot:
+			case Token::TK_Switch:
+				ScopeStack.push_back(&T);
+				ActiveScopes.insert(&T);
+				break;
+			case Token::TK_Else:
+			{
+				if (ScopeStack.empty())
+				{
+					llvm::errs() << "Error: Scope stack empty but ELSE Token found\n";
+					return false;
+				}
+				if (T.getMatch()->getKind() != Token::TK_End)
+				{
+					llvm::errs() << "Error: Match for ELSE Token is not a END Token\n";
+					return false;
+				}
+				if (T.getMatch()->getMatch()->getKind() != Token::TK_If)
+				{
+					llvm::errs() << "Error: Match for END after ELSE Token is not a IF Token\n";
+					return false;
+				}
+				const Token* Match = ScopeStack.back();
+				if (Match->getMatch() != &T)
+				{
+					llvm::errs() << "Error: ELSE Token is not the match of the current Token in the stack\n";
+					return false;
+				}
+				break;
+			}
+			case Token::TK_End:
+			{
+				if (ScopeStack.empty())
+				{
+					llvm::errs() << "Error: Scope stack empty but END Token found\n";
+					return false;
+				}
+				const Token* Match = ScopeStack.back();
+				if (Match != T.getMatch())
+				{
+					llvm::errs() << "Error: Top Token in the stack is not the match for current END Token:\n";
+					llvm::errs() << "Current: ";T.dump();
+					llvm::errs() << "Top: ";Match->dump();
+					return false;
+				}
+				ScopeStack.pop_back();
+				ActiveScopes.erase(Match);
+				break;
+			}
+			case Token::TK_Branch:
+			{
+				const Token* Match = T.getMatch()->getKind() == Token::TK_End
+					? T.getMatch()->getMatch()
+					: T.getMatch();
+				if (!ActiveScopes.count(Match))
+				{
+					llvm::errs() << "Error: BRANCH Token is jumping to a non-active scope\n";
+					return false;
+				}
+				break;
+			}
+			case Token::TK_Prologue:
+				break;
+			case Token::TK_Case:
+				break;
+			case Token::TK_Invalid:
+				llvm::errs()<<"Error: INVALID Token found\n";
+				return false;
+				break;
+		}
+	}
+	return true;
+}
+
 static const BasicBlock* getUniqueForwardPredecessor(const BasicBlock* BB, const LoopInfo& LI)
 {
 	Loop* L = LI.isLoopHeader(const_cast<BasicBlock*>(BB)) ? LI.getLoopFor(BB) : nullptr;
@@ -682,6 +777,12 @@ CFGStackifier::CFGStackifier(const llvm::Function &F, const llvm::LoopInfo& LI,
 	const llvm::DominatorTree& DT, const Registerize& R, const PointerAnalyzer& PA)
 {
 	TokenListBuilder Builder(F, Tokens, LI, DT);
+#ifndef NDEBUG
+	{
+		TokenListVerifier Verifier(Tokens);
+		assert(Verifier.verify());
+	}
+#endif
 }
 void CFGStackifier::render(RenderInterface& ri)
 {
