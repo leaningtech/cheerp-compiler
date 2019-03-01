@@ -293,6 +293,7 @@ private:
 	void renderCondition(const BasicBlock* B, const std::vector<int>& branchIds,
 			ConditionRenderMode mode);
 	void indent();
+	int findIndexFromLabel(int labelId);
 public:
 	const BasicBlock* lastDepth0Block;
 	CheerpWasmRenderInterface(CheerpWasmWriter* w, WasmBuffer& code, uint32_t labelLocal)
@@ -308,6 +309,8 @@ public:
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
 	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int labelId = 0);
+	void renderBrTable(const llvm::SwitchInst* switchInst,
+		const std::vector<std::pair<int, int>>& cases, int labelId = 0);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first, int labelId = 0);
@@ -377,7 +380,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 		{
 			it = blockLabelMap.emplace(dest, caseBlocks++).first;
 		}
-		if (i == -1)
+		if (i <= 0)
 			defaultLabel = it->second;
 		else
 		{
@@ -418,6 +421,72 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* s
 
 	blockTypes.emplace_back(SWITCH, 0, label);
 	blockTypes.emplace_back(CASE, caseBlocks);
+}
+
+void CheerpWasmRenderInterface::renderBrTable(const llvm::SwitchInst* si,
+	const std::vector<std::pair<int, int>>& cases, int)
+{
+	assert(si->getNumCases());
+
+	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
+
+	auto getCaseValue = [](const ConstantInt* c, uint32_t bitWidth) -> int64_t
+	{
+		return bitWidth == 32 ? c->getSExtValue() : c->getZExtValue();
+	};
+
+	llvm::BasicBlock* defaultDest = si->getDefaultDest();
+	int64_t max = std::numeric_limits<int64_t>::min();
+	int64_t min = std::numeric_limits<int64_t>::max();
+	for (auto& c: si->cases())
+	{
+		if (c.getCaseSuccessor() == defaultDest)
+			continue;
+		int64_t curr = getCaseValue(c.getCaseValue(), bitWidth);
+		max = std::max(max, curr);
+		min = std::min(min, curr);
+	}
+
+	// There should be at least one default case and zero or more cases.
+	uint32_t depth = max - min + 1;
+	assert(depth >= 1);
+
+	// Fill the jump table.
+	std::vector<uint32_t> table;
+	table.assign(depth, numeric_limits<uint32_t>::max());
+	uint32_t defaultLabel = numeric_limits<uint32_t>::max();
+
+	for (auto c: cases)
+	{
+		if (c.first == 0)
+			defaultLabel = findIndexFromLabel(c.second);
+		else
+		{
+			// The value to match for case `i` has index `2*i`
+			auto cv = cast<ConstantInt>(si->getOperand(2*c.first));
+			table.at(getCaseValue(cv, bitWidth) - min) = findIndexFromLabel(c.second);
+		}
+	}
+
+	// Elements that are not set, will jump to the default block.
+	std::replace(table.begin(), table.end(), numeric_limits<uint32_t>::max(), defaultLabel);
+
+	// Print the condition
+	writer->compileOperand(code, si->getCondition());
+	if (min != 0)
+	{
+		writer->encodeS32Inst(0x41, "i32.const", min, code);
+		writer->encodeInst(0x6b, "i32.sub", code);
+	}
+	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
+	{
+		assert(bitWidth < 32);
+		writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
+		writer->encodeInst(0x71, "i32.and", code);
+	}
+
+	// Print the case labels and the default label.
+	writer->encodeBranchTable(code, table, defaultLabel);
 }
 
 void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
@@ -952,7 +1021,7 @@ void CheerpWasmRenderInterface::renderBreak()
 	}
 }
 
-void CheerpWasmRenderInterface::renderBreak(int labelId)
+int CheerpWasmRenderInterface::findIndexFromLabel(int labelId)
 {
 	uint32_t breakIndex = 0;
 	uint32_t i = 0;
@@ -971,7 +1040,13 @@ void CheerpWasmRenderInterface::renderBreak(int labelId)
 	if (bt == WHILE1)
 		breakIndex -= 1;
 	assert(i < blockTypes.size() && "cannot find labelId in block types");
-	writer->encodeU32Inst(0x0c, "br", breakIndex - 1, code);
+	return breakIndex -1;
+}
+
+void CheerpWasmRenderInterface::renderBreak(int labelId)
+{
+	int breakIndex = findIndexFromLabel(labelId);
+	writer->encodeU32Inst(0x0c, "br", breakIndex, code);
 }
 
 void CheerpWasmRenderInterface::renderContinue()

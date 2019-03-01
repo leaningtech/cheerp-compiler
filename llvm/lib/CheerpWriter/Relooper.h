@@ -47,6 +47,8 @@ public:
 	virtual void renderCaseOnLabel(int labelId) = 0;
 	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, BlockBranchMap& branchesOut) = 0;
 	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int labelId = 0) = 0;
+	virtual void renderBrTable(const llvm::SwitchInst* switchInst,
+		const std::vector<std::pair<int, int>>& cases, int labelId = 0) = 0;
 	virtual void renderCaseBlockBegin(const llvm::BasicBlock* caseBlock, int branchId) = 0;
 	virtual void renderDefaultBlockBegin(bool empty = false) = 0;
 	virtual void renderIfBlockBegin(const llvm::BasicBlock* condBlock, int branchId, bool first, int labelId = 0) = 0;
