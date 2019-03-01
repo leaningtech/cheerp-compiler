@@ -3097,8 +3097,8 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 		{
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-			CFGStackifier C(F, LI, DT);
-			C.render(ri, registerize, PA, true);
+			CFGStackifier CN(F, LI, DT, registerize, PA);
+			CN.render(ri);
 		}
 		lastDepth0Block = ri.lastDepth0Block;
 	}
