@@ -53,6 +53,8 @@ public:
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
 	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int label);
+	void renderBrTable(const llvm::SwitchInst* switchInst,
+		const std::vector<std::pair<int, int>>& cases, int label);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first, int labelId = 0);
@@ -4405,6 +4407,32 @@ void CheerpRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* si,
 	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 	writer->stream << "){" << NewLine;
 	writer->blockDepth++;
+}
+
+void CheerpRenderInterface::renderBrTable(const llvm::SwitchInst* si,
+	const std::vector<std::pair<int, int>>& cases, int label)
+{
+	const Value* cond = si->getCondition();
+	if (label > 0)
+		writer->stream << 'L' << label << ':';
+	writer->stream << "switch(";
+	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
+	writer->stream << "){" << NewLine;
+	DenseSet<int> Visited;
+	
+	for (auto c: cases)
+	{
+		if (Visited.insert(c.second).second)
+		{
+			if (c.first == 0)
+				renderDefaultBlockBegin();
+			else
+				renderCaseBlockBegin(si->getParent(), c.first);
+			renderBreak(c.second);
+			renderBlockEnd();
+		}
+	}
+	writer->stream << '}' << NewLine;
 }
 
 void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
