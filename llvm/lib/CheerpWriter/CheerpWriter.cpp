@@ -5650,7 +5650,7 @@ void CheerpWriter::makeJS()
 			for (StringRef &className : exportedClassNames)
 				stream << className << ".promise=" << NewLine;
 		}
-		stream << "fetchBuffer('" << sys::path::filename(wasmFile) << "').then(r=>" << NewLine;
+		stream << "fetchBuffer('" << wasmFile << "').then(r=>" << NewLine;
 		stream << "WebAssembly.instantiate(r," << NewLine;
 		stream << "{i:{" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
