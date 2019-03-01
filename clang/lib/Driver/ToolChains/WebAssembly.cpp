@@ -484,7 +484,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     if(Arg* cheerpWasmFile = Args.getLastArg(options::OPT_cheerp_wasm_file_EQ)) {
       wasmFile.append(cheerpWasmFile->getValue());
     } else {
-      wasmFile.append(Output.getFilename());
+      wasmFile.append(llvm::sys::path::filename(Output.getFilename()));
     }
     CmdArgs.push_back(Args.MakeArgString(wasmFile));
     cheerpWasmLoader->render(Args, CmdArgs);
