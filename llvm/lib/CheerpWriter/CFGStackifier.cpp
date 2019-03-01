@@ -9,23 +9,89 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "TokenList.h"
 #include "CFGStackifier.h"
-
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/CFG.h"
-
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Cheerp/Writer.h"
 
-#include <unordered_set>
-#include <list>
-
 using namespace llvm;
+using namespace cheerp;
 
-static BasicBlock* getUniqueForwardPredecessor(BasicBlock* BB, LoopInfo& LI)
+class TokenListBuilder {
+public:
+	struct StackElem {
+		enum Kind {
+			BLOCK,
+			DOM
+		};
+		union {
+			const llvm::BasicBlock* BB;
+			const llvm::DomTreeNode* DN;
+		};
+		Kind kind;
+		StackElem(const llvm::BasicBlock* BB): BB(BB), kind(Kind::BLOCK) {}
+		StackElem(const llvm::DomTreeNode* DN): DN(DN), kind(Kind::DOM) {}
+	};
+	TokenListBuilder(const Function &F,
+		TokenList& Tokens,
+		const LoopInfo& LI, const DominatorTree& DT)
+		: F(const_cast<Function&>(F)), Tokens(Tokens)
+		, InsertPt(Tokens.begin())
+		, NextId(0)
+		, LI(LI), DT(DT)
+	{
+		build();
+	}
+private:
+	struct Scope {
+		enum Kind {
+			Loop,
+			If,
+			Case,
+			Direct,
+		};
+		Kind Kind;
+		const DomTreeNode* Dom;
+		TokenList::iterator EndPt;
+		bool Nested;
+	};
+
+	bool enqueueSucc(const BasicBlock* CurBB, const BasicBlock* Succ);
+	void processBlock(const BasicBlock* CurBB, bool Delayed);
+	void processBlockTerminator(Token* BBT, const DomTreeNode* CurNode);
+	void processLoopScopes(const BasicBlock* CurBB);
+	void processBlockScopes(const std::vector<Token*>& Branches);
+	void popScopes(const DomTreeNode* CurNode);
+	TokenList::iterator findBlockBegin(TokenList::iterator Target,
+		TokenList::iterator Candidate);
+	void build();
+
+	const Function& F;
+	TokenList& Tokens;
+	TokenList::iterator InsertPt;
+	int NextId;
+	const LoopInfo& LI;
+	const DominatorTree& DT;
+
+	DenseMap<const BasicBlock*, int> Visited;
+	DenseMap<const DomTreeNode*, std::vector<const BasicBlock*>> Queues;
+	DenseMap<const BasicBlock*, Token*> BlockTokenMap;
+	DenseMap<const Loop*, int> LoopCounts;
+	DenseMap<const BasicBlock*, Token*> LoopHeaders;
+	DenseMap<const BasicBlock*, std::vector<Token*>> BlockScopes;
+	std::vector<Scope> Scopes;
+	std::vector<StackElem> VisitStack;
+};
+
+static const BasicBlock* getUniqueForwardPredecessor(const BasicBlock* BB, const LoopInfo& LI)
 {
-	Loop* L = LI.isLoopHeader(BB) ? LI.getLoopFor(BB) : nullptr;
-	BasicBlock* UniquePred = nullptr;
+	Loop* L = LI.isLoopHeader(const_cast<BasicBlock*>(BB)) ? LI.getLoopFor(BB) : nullptr;
+	const BasicBlock* UniquePred = nullptr;
 	for (auto Pred: make_range(pred_begin(BB), pred_end(BB)))
 	{
 		if (L && L->contains(Pred))
@@ -37,26 +103,13 @@ static BasicBlock* getUniqueForwardPredecessor(BasicBlock* BB, LoopInfo& LI)
 	return UniquePred;
 }
 
-static int getDefaultBranchIdx(BasicBlock* From)
+static bool isBackedge(const BasicBlock* From, const BasicBlock* To, const LoopInfo& LI)
 {
-	TerminatorInst* term = From->getTerminator();
-	if (BranchInst* br = dyn_cast<BranchInst>(term))
-	{
-		return br->isConditional() ? 1 : 0;
-	}
-	else if (isa<SwitchInst>(term))
-	{
-		return 0;
-	}
-	return -1;
+	auto CTo = const_cast<BasicBlock*>(To);
+	return LI.isLoopHeader(CTo) && LI.getLoopFor(CTo)->contains(From);
 }
 
-static bool isBackedge(BasicBlock* From, BasicBlock* To, LoopInfo& LI)
-{
-	return LI.isLoopHeader(To) && LI.getLoopFor(To)->contains(From);
-}
-
-static int getNumForwardPreds(BasicBlock* BB, LoopInfo& LI)
+static int getNumForwardPreds(const BasicBlock* BB, const LoopInfo& LI)
 {
 	int ForwardPreds = 0;
 	for (auto P: make_range(pred_begin(BB), pred_end(BB)))
@@ -68,318 +121,7 @@ static int getNumForwardPreds(BasicBlock* BB, LoopInfo& LI)
 	return ForwardPreds;
 }
 
-static int getBranchIdx(BasicBlock* From, BasicBlock* To)
-{
-	int DefaultIdx = getDefaultBranchIdx(From);
-	assert(DefaultIdx != -1 && "Not a conditional branch");
-	int BrIdx = 0;
-	for (auto S = succ_begin(From), SE = succ_end(From); S != SE; ++S, ++BrIdx)
-	{
-		if (*S == To)
-		{
-			return BrIdx == DefaultIdx ? -1 : BrIdx;
-		}
-	}
-	report_fatal_error("No switch or branch between blocks From and To");
-}
-
-namespace cheerp {
-
-template<class Scope>
-static bool needsLabelledJump(const std::vector<Scope*>& Scopes,
-	typename std::vector<Scope*>::const_reverse_iterator TargetScope,
-	const CFGStackifier::Block& From)
-{
-	bool UseSwitch = CheerpWriter::useSwitch(From.getBB()->getTerminator());
-	auto FirstSwitchOrLoop = std::find_if(Scopes.rbegin(), TargetScope, [&](Scope* s) {
-		return (s->kind == CFGStackifier::Block::BRANCH && UseSwitch)
-			|| s->kind == CFGStackifier::Block::LOOP;
-	});
-	return TargetScope != FirstSwitchOrLoop
-		|| (*TargetScope)->kind == CFGStackifier::Block::BLOCK
-		|| ((*TargetScope)->kind == CFGStackifier::Block::BRANCH && !UseSwitch);
-}
-
-// returns the scope corresponding to the jump, and whether a label is needed or not
-template<class Scope>
-static std::pair<Scope*, bool> getJumpScope(const std::vector<Scope*>& Scopes,
-	const CFGStackifier::Block& From, const CFGStackifier::Block& To)
-{
-	using Block = CFGStackifier::Block;
-	auto it = Scopes.rend();
-	if (To.getId() <= From.getId())
-	{
-		it = std::find_if(Scopes.rbegin(), Scopes.rend(), [&](const Block::Scope* S) {
-			return S->kind == Block::LOOP && S->start == To.getId();
-		});
-	}
-	else
-	{
-		it = std::find_if(Scopes.rbegin(), Scopes.rend(), [&](const Block::Scope* S) {
-			return (S->kind == Block::BLOCK || (S->kind == Block::BRANCH && S->label))
-				&& S->end == To.getId();
-		});
-	}
-	assert(it != Scopes.rend() && "No scope for branching");
-	return std::make_pair(*it, needsLabelledJump(Scopes, it, From));
-}
-
-
-
-
-#ifdef DEBUG_CFGSTACKIFIER
-void CFGStackifier::Block::dump() const
-{
-	llvm::errs()<<id;
-	llvm::errs()<<":\n";
-	for (auto s: scopes)
-	{
-		switch(s.kind)
-		{
-			case LOOP:
-				llvm::errs()<<"LOOP ";
-				break;
-			case LOOP_END:
-				llvm::errs()<<"LOOP_END ";
-				break;
-			case BLOCK:
-				llvm::errs()<<"BLOCK ";
-				break;
-			case BLOCK_END:
-				llvm::errs()<<"BLOCK_END ";
-				break;
-			case BRANCH:
-				llvm::errs()<<"BRANCH ";
-				break;
-			case BRANCH_END:
-				llvm::errs()<<"BRANCH_END ";
-				break;
-		}
-		llvm::errs()<< s.start << " " << s.end << "\n";
-	}
-	for (auto p: naturalPreds)
-	{
-		llvm::errs()<<"NATURAL PRED " << p << "\n";
-	}
-	if (BB)
-	{
-		llvm::errs()<<"BB ";
-		BB->printAsOperand(llvm::errs(), false);
-		llvm::errs()<<"\n";
-		for (auto Succ: make_range(succ_begin(BB), succ_end(BB)))
-		{
-			llvm::errs() << "\t-> ";
-			Succ->printAsOperand(llvm::errs(), false);
-			llvm::errs()<<"\n";
-		}
-	}
-	else
-	{
-		llvm::errs()<<"END\n";
-	}
-}
-#endif
-
-CFGStackifier::Block::ScopeIter CFGStackifier::Block::insertScope(CFGStackifier::Block::Scope s)
-{
-	switch (s.kind)
-	{
-		case BLOCK_END:
-		case LOOP_END:
-		case BRANCH_END:
-		{
-			auto insertPoint = std::find_if(scopes.begin(), scopes.end(), [&s](Scope& ss) {
-				if (ss.kind == LOOP || ss.kind == BLOCK || ss.kind == BRANCH)
-					return true;
-				if (ss.start < s.start)
-					return true;
-				if (ss.end == s.end && ss.kind == BRANCH)
-					return true;
-				return false;
-			});
-			return scopes.insert(insertPoint, s);
-		}
-		case BLOCK:
-		case LOOP:
-		case BRANCH:
-		{
-			auto insertPoint = std::find_if(scopes.begin(), scopes.end(), [&s](Scope& ss) {
-				if (ss.kind == LOOP_END || ss.kind == BLOCK_END || ss.kind == BRANCH_END)
-					return false;
-				if (ss.end > s.end)
-					return false;
-				if (ss.end == s.end && ss.kind == BRANCH)
-					return false;
-				return true;
-			});
-			return scopes.insert(insertPoint, s);
-		}
-	}
-}
-void CFGStackifier::Block::removeScope(CFGStackifier::Block::ScopeIter s)
-{
-	scopes.erase(s);
-}
-
-class BlockListBuilder {
-public:
-	using Block = CFGStackifier::Block;
-	struct StackElem {
-		enum Kind {
-			BLOCK,
-			DOM
-		};
-		union {
-			llvm::BasicBlock* BB;
-			llvm::DomTreeNode* DN;
-		};
-		Kind kind;
-		StackElem(llvm::BasicBlock* BB): BB(BB), kind(Kind::BLOCK) {}
-		StackElem(llvm::DomTreeNode* DN): DN(DN), kind(Kind::DOM) {}
-	};
-	struct BranchChain {
-		Block& Root;
-		bool Finished;
-		std::vector<std::pair<Block*, Block::ScopeIter>> Branches;
-		std::vector<int> Exits;
-		BranchChain(Block& Root): Root(Root), Finished(false) {}
-		Block& getRoot()
-		{
-			return Root;
-		}
-		void addBranch(Block& B)
-		{
-			auto S = B.insertScope(Block::Scope{Block::BRANCH, Root.getId(), -1, false});
-			Branches.push_back(std::make_pair(&B, S));
-		}
-		void addExit(Block& B)
-		{
-			Exits.push_back(B.getId());
-		}
-		void setEnd(Block& B)
-		{
-			assert(Finished);
-			if (Branches.empty())
-				return;
-			for (auto S: Branches)
-			{
-				S.second->end = B.getId();
-			}
-			B.insertScope(Block::Scope{Block::BRANCH_END, Root.getId(), B.getId(), false});
-			for (int E: Exits)
-			{
-				B.addNaturalPred(E);
-			}
-		}
-		void merge(BranchChain& Other)
-		{
-			Exits.insert(Exits.end(), Other.Exits.begin(), Other.Exits.end());
-		}
-		void finish()
-		{
-			Finished = true;
-		}
-		bool isFinished()
-		{
-			return Finished;
-		}
-	};
-
-	BlockListBuilder(const Function &F,
-		std::vector<Block>& BlockList,
-		std::unordered_map<BasicBlock*, int>& BlockIdMap,
-		LoopInfo& LI, DominatorTree& DT)
-		: F(const_cast<Function&>(F)), BlockList(BlockList), BlockIdMap(BlockIdMap)
-		, LI(LI), DT(DT)
-	{
-		build();
-	}
-private:
-	void endBranchScopes(Block& B);
-	// If no branch is jumping ahead of the last nested one, it is possible to
-	// unnest it without causing the need for an extra BLOCK scope
-	bool removeLastNested(BranchChain& BC);
-	bool enqueueSucc(BasicBlock* CurBB, BasicBlock* Succ);
-	void processBlock(BasicBlock* CurBB, bool Delayed);
-	void addLoopMarkers(Block& B);
-	void addBlockMarkers(Block& B);
-	void setLabels();
-	int findLoopEnd(Loop* L, const Block& B);
-	void build();
-
-	Function& F;
-	std::vector<Block>& BlockList;
-	std::unordered_map<BasicBlock*, int>& BlockIdMap;
-	LoopInfo& LI;
-	DominatorTree& DT;
-	DenseMap<BasicBlock*, int> Visited;
-	std::unordered_map<DomTreeNode*, std::vector<BasicBlock*>> Queues;
-	std::unordered_map<DomTreeNode*, BranchChain> Branches;
-	std::vector<BranchChain*> BranchChainScopes;
-	std::vector<StackElem> VisitStack;
-};
-
-void BlockListBuilder::endBranchScopes(Block& B)
-{
-	while (!BranchChainScopes.empty())
-	{
-		BranchChain& BC = *BranchChainScopes.back();
-		if (!DT.dominates(BC.getRoot().getBB(), B.getBB()))
-			BC.finish();
-		if (!BC.isFinished())
-		{
-			break;
-		}
-
-		if (!removeLastNested(BC))
-		{
-			BC.addExit(BlockList[B.getId()-1]);
-			BC.setEnd(BlockList.back());
-		}
-		BranchChainScopes.pop_back();
-	}
-}
-
-bool BlockListBuilder::removeLastNested(BranchChain& BC)
-{
-	auto si = BC.Branches.back();
-	if (CheerpWriter::useSwitch(BC.Root.getBB()->getTerminator()))
-		return false;
-	for (BasicBlock* Succ: make_range(succ_begin(BC.Root.getBB()), succ_end(BC.Root.getBB())))
-	{
-		if (Succ == si.first->getBB())
-			continue;
-		auto it = BlockIdMap.find(Succ);
-		if (it == BlockIdMap.end())
-			return false;
-		Block& SuccB = BlockList[it->second];
-		auto* Br = SuccB.getBranchStart();
-		if (Br && Br->start == BC.Root.getId())
-		{
-			for (int E: BC.Exits)
-			{
-				Block& EB = BlockList[E];
-				if (EB.getId() == BC.Root.getId())
-					continue;
-				for (BasicBlock* ExitSucc: make_range(succ_begin(EB.getBB()), succ_end(EB.getBB())))
-				{
-					auto it = BlockIdMap.find(ExitSucc);
-					if (it == BlockIdMap.end() || it->second > si.first->getId())
-						return false;
-				}
-
-			}
-		}
-		else if (SuccB.getId() > BC.Root.getId())
-			return false;
-	}
-	si.first->removeScope(si.second);
-	BC.Branches.pop_back();
-	BC.setEnd(*si.first);
-	return true;
-}
-
-bool BlockListBuilder::enqueueSucc(BasicBlock* CurBB, BasicBlock* Succ)
+bool TokenListBuilder::enqueueSucc(const BasicBlock* CurBB, const BasicBlock* Succ)
 {
 	// Ignore backedges
 	if (isBackedge(CurBB, Succ, LI))
@@ -395,83 +137,303 @@ bool BlockListBuilder::enqueueSucc(BasicBlock* CurBB, BasicBlock* Succ)
 		return true;
 	}
 	// Otherwise, add it to to the delayed list
-	DomTreeNode* SuccDN = DT.getNode(Succ)->getIDom();
+	const DomTreeNode* SuccDN = DT.getNode(const_cast<BasicBlock*>(Succ))->getIDom();
 	Queues[SuccDN].insert(Queues[SuccDN].end(), Succ);
 	return false;
 }
 
-void BlockListBuilder::processBlock(BasicBlock* CurBB, bool Delayed)
+// Iterate all successors and call the given closure. The default case is iterated
+// last
+template<typename F>
+static void for_each_succ(const BasicBlock* BB, F f)
 {
-	// Immediately add the block to its final position
-	int Id = BlockList.size();
-	BlockList.emplace_back(CurBB, Id);
-	BlockIdMap.emplace(CurBB, Id);
-	Block& CurB = BlockList.back();
-
-	// Place BRANCH and BRANCH_END marks
-	endBranchScopes(BlockList.back());
-	BasicBlock* P = getUniqueForwardPredecessor(CurBB, LI);
-	if (P && P->getTerminator()->getNumSuccessors() > 1)
+	const TerminatorInst* Term = BB->getTerminator();
+	size_t DefaultIdx = isa<SwitchInst>(Term) ? 0 : Term->getNumSuccessors()-1;
+	DenseMap<const BasicBlock*, SmallVector<int, 2>> Destinations;
+	for (size_t i = 0; i < Term->getNumSuccessors(); ++i)
 	{
-		assert(!BranchChainScopes.empty());
-		BranchChainScopes.back()->addBranch(CurB);
-		BranchChainScopes.back()->addExit(BlockList[CurB.getId()-1]);
+		Destinations[Term->getSuccessor(i)].push_back(i);
 	}
-	if (P)
+	for (size_t i = 0; i < Term->getNumSuccessors(); ++i)
 	{
-		CurB.addNaturalPred(BlockIdMap.at(P));
-	}
-
-	VisitStack.emplace_back(DT.getNode(CurBB));
-
-	bool HasNestedSuccs = false;
-	bool DefaultIsNested = false;
-	int DefaultIdx = getDefaultBranchIdx(CurBB);
-	// enqueue the default case first (so it will be handled last)
-	if (DefaultIdx != -1)
-	{
-		BasicBlock* Default = CurBB->getTerminator()->getSuccessor(DefaultIdx);
-		DefaultIsNested = enqueueSucc(CurBB, Default);
-		HasNestedSuccs |= DefaultIsNested;
-	}
-	int Idx = 0;
-	for (auto Succ: make_range(succ_begin(CurBB), succ_end(CurBB)))
-	{
-		if (DefaultIdx == Idx++)
+		if (i == DefaultIdx)
 			continue;
-		bool Nested = enqueueSucc(CurBB, Succ);
-		HasNestedSuccs |= Nested;
+		auto it = Destinations.find(Term->getSuccessor(i));
+		if (it == Destinations.end())
+			continue;
+		f(it->first, it->second);
+		Destinations.erase(it);
 	}
-	bool IsBranchRoot = Idx > 1 && HasNestedSuccs;
-	if (IsBranchRoot)
+	auto it = Destinations.find(Term->getSuccessor(DefaultIdx));
+	assert(it != Destinations.end());
+	f(it->first, it->second);
+}
+
+void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* CurNode)
+{
+	assert(BBT->getKind() == Token::TK_BasicBlock);
+	if (const BranchInst* BrInst = dyn_cast<BranchInst>(BBT->getBB()->getTerminator()))
 	{
-		DomTreeNode* CurDN = DT.getNode(CurBB);
-		auto it = Branches.emplace(CurDN, BranchChain(BlockList.back())).first;
-		BranchChainScopes.push_back(&it->second);
+		if (BrInst->isUnconditional())
+		{
+			Token* Prologue = Token::createPrologue(BBT->getBB(), 0);
+			InsertPt = Tokens.insertAfter(InsertPt, Prologue);
+			const DomTreeNode* Dom = DT.getNode(BrInst->getSuccessor(0));
+			bool Nested = CurNode->getBlock() == getUniqueForwardPredecessor(Dom->getBlock(), LI);
+			Scope DirectScope { Scope::Direct, Dom, Tokens.end(), Nested};
+			Scopes.push_back(DirectScope);
+		}
+		else
+		{
+			Token* If = Token::createIf(BBT->getBB());
+			auto IfPt = Tokens.insertAfter(InsertPt, If);
+			Token* IfPrologue = Token::createPrologue(BBT->getBB(), 0);
+			IfPt = Tokens.insertAfter(IfPt, IfPrologue);
+
+			Token* Else = Token::createElse(If);
+			auto ElsePt = Tokens.insertAfter(IfPt, Else);
+			Token* ElsePrologue = Token::createPrologue(BBT->getBB(), 1);
+			ElsePt = Tokens.insertAfter(ElsePt, ElsePrologue);
+
+			Token* End = Token::createIfEnd(If, Else);
+			auto EndPt = Tokens.insertAfter(ElsePt, End);
+
+			const DomTreeNode* IfDom = DT.getNode(BrInst->getSuccessor(0));
+			const DomTreeNode* ElseDom = DT.getNode(BrInst->getSuccessor(1));
+			bool IfNested = CurNode->getBlock() == getUniqueForwardPredecessor(IfDom->getBlock(), LI);
+			bool ElseNested = CurNode->getBlock() == getUniqueForwardPredecessor(ElseDom->getBlock(), LI);
+			InsertPt = IfPt;
+			Scope IfScope { Scope::If, IfDom, ElsePt, IfNested };
+			Scope ElseScope { Scope::If, ElseDom, EndPt, ElseNested };
+			Scopes.emplace_back(ElseScope);
+			Scopes.emplace_back(IfScope);
+		}
+	}
+	else if (const SwitchInst* SwInst = dyn_cast<SwitchInst>(BBT->getBB()->getTerminator()))
+	{
+		Token* Switch = Token::createSwitch(BBT->getBB());
+		InsertPt = Tokens.insertAfter(InsertPt, Switch);
+		Token* Prev = Switch;
+		std::vector<Token*> Branches;
+		for_each_succ(BBT->getBB(), [&](const BasicBlock* Succ, const SmallVectorImpl<int>& Indexes)
+		{
+			for (int idx: Indexes)
+			{
+				Token* Case = Token::createCase(BBT->getBB(), idx, Prev);
+				Prev = Case;
+				InsertPt = Tokens.insertAfter(InsertPt, Case);
+			}
+			Token* Br = Token::createBranch(nullptr);
+			InsertPt = Tokens.insertAfter(InsertPt, Br);
+			Branches.push_back(Br);
+		});
+		Token* End = Token::createSwitchEnd(Switch, Prev);
+		InsertPt = Tokens.insertAfter(InsertPt, End);
+		std::vector<Scope> SwitchScopes;
+		Scopes.reserve(SwInst->getNumSuccessors());
+		int i = 0;
+		auto FirstPt = Tokens.end();
+		for_each_succ(BBT->getBB(), [&](const BasicBlock* Succ, const SmallVectorImpl<int>& Ids)
+		{
+			processBlockScopes({Branches[i]});
+			Token* Prologue = Token::createPrologue(BBT->getBB(), Ids.front());
+			InsertPt = Tokens.insertAfter(InsertPt, Prologue);
+
+			const DomTreeNode* Dom = DT.getNode(const_cast<BasicBlock*>(Succ));
+			bool Nested = CurNode->getBlock() == getUniqueForwardPredecessor(Succ, LI);
+			if (SwitchScopes.empty())
+			{
+				FirstPt = InsertPt;
+			}
+			else
+			{
+				SwitchScopes.back().EndPt = InsertPt;
+			}
+			Scope S { Scope::Case, Dom, Tokens.end(), Nested};
+			SwitchScopes.push_back(S);
+			i++;
+		});
+		InsertPt = FirstPt;
+		Scopes.insert(Scopes.end(), SwitchScopes.rbegin(), SwitchScopes.rend());
+
+	}
+	else if (isa<ReturnInst>(BBT->getBB()->getTerminator()))
+	{
+		// Nothing to do
+	}
+	else if (isa<UnreachableInst>(BBT->getBB()->getTerminator()))
+	{
+		// Nothing to do
+	}
+	else
+	{
+		BBT->getBB()->getTerminator()->dump();
+		report_fatal_error("Unsupported terminator");
+	}
+}
+void TokenListBuilder::popScopes(const DomTreeNode* CurNode)
+{
+	// Check if we need to close some scopes
+	while (!Scopes.empty())
+	{
+		auto& CurScope = Scopes.back();
+		switch (CurScope.Kind)
+		{
+			case Scope::Case:
+			case Scope::If:
+			case Scope::Direct:
+			{
+				if (CurScope.Nested && DT.dominates(CurScope.Dom, CurNode))
+					return;
+				// If the scope is not nested, add the branch token
+				if (!CurScope.Nested)
+				{
+					auto LoopHeaderIt = LoopHeaders.find(CurScope.Dom->getBlock());
+					Token* Br = LoopHeaderIt == LoopHeaders.end()
+						? Token::createBranch(nullptr)
+						: Token::createBranch(LoopHeaderIt->getSecond());
+					BlockScopes[CurScope.Dom->getBlock()].push_back(Br);
+					InsertPt = Tokens.insertAfter(InsertPt, Br);
+				}
+				break;
+			}
+			case Scope::Loop:
+			{
+				const Loop* CurL = LI.getLoopFor(CurScope.Dom->getBlock());
+				auto LoopIt = LoopCounts.find(CurL);
+				assert(LoopIt != LoopCounts.end());
+				int& Count = LoopIt->getSecond();
+				if (Count > 0)
+					return;
+				break;
+			}
+		}
+		if (CurScope.EndPt != Tokens.end())
+			InsertPt = CurScope.EndPt;
+		Scopes.pop_back();
+	}
+}
+void TokenListBuilder::processLoopScopes(const BasicBlock* CurBB)
+{
+	const Loop* CurL = LI.getLoopFor(CurBB);
+	if (!CurL)
+		return;
+	// Open a new loop
+	if (CurL->getHeader() == CurBB)
+	{
+		Token* Loop = Token::createLoop();
+		Token* End = Token::createLoopEnd(Loop);
+
+		auto LoopPt = Tokens.insertAfter(InsertPt, Loop);
+		auto EndPt = Tokens.insertAfter(LoopPt, End);
+		InsertPt = LoopPt;
+
+		Scope LoopScope { Scope::Loop, DT.getNode(const_cast<BasicBlock*>(CurBB)), EndPt, true };
+		Scopes.push_back(LoopScope);
+
+		LoopCounts.insert(std::make_pair(CurL, CurL->getNumBlocks()));
+
+		LoopHeaders.insert(std::make_pair(CurBB, LoopPt));
+	}
+	// Decrement the loop count, and if necessary update outer loops too
+	auto LoopCountIt = LoopCounts.find(CurL);
+	assert(LoopCountIt != LoopCounts.end());
+	LoopCountIt->getSecond()--;
+	while(LoopCountIt->getSecond() == 0)
+	{
+		int N = LoopCountIt->getFirst()->getNumBlocks();
+		LoopCountIt = LoopCounts.find(LoopCountIt->getFirst()->getParentLoop());
+		if (LoopCountIt == LoopCounts.end())
+			break;
+		LoopCountIt->getSecond() -= N;
 	}
 }
 
-void BlockListBuilder::build()
+void TokenListBuilder::processBlockScopes(const std::vector<Token*>& Branches)
 {
-	BlockList.reserve(F.size()+1);
+	// We will insert all the ends at this point
+	auto EndPt = InsertPt;
+	assert(EndPt != Tokens.end());
+	// We will resume the normal insertion after all the end blocks
+	InsertPt++;
+	for (Token* Branch: Branches)
+	{
+		assert(Branch->getKind() == Token::TK_Branch);
 
+		Token* Block = Token::createBlock();
+		Token* End = Token::createBlockEnd(Block);
+		Branch->setMatch(End);
+
+		auto TargetPt = Tokens.insertAfter(EndPt, End);
+		auto BlockPt = findBlockBegin(TargetPt, Branch);
+		Tokens.insertAfter(BlockPt, Block);
+	}
+	InsertPt--;
+}
+
+void TokenListBuilder::processBlock(const BasicBlock* CurBB, bool Delayed)
+{
+	const DomTreeNode* CurNode = DT.getNode(const_cast<BasicBlock*>(CurBB));
+
+	// Check if we need to close some loop and/or if/else scopes
+	popScopes(CurNode);
+
+	// If CurBB is the target of one or more breaks, instantiate the blocks now
+	auto BlockScopeIt = BlockScopes.find(CurBB);
+	if (BlockScopeIt != BlockScopes.end())
+	{
+		const auto& Branches = BlockScopeIt->getSecond();
+		processBlockScopes(Branches);
+		BlockScopes.erase(CurBB);
+	}
+
+	// Update the loop information and start a new one if needed
+	processLoopScopes(CurBB);
+
+	// Create the token for this basic block and add it to the list
+	Token* BBT = Token::createBasicBlock(CurBB, NextId++);
+	InsertPt = Tokens.insertAfter(InsertPt, BBT);
+	BlockTokenMap.insert(std::make_pair(CurBB, BBT));
+
+	// Process the successors of this block
+	// First, add the dom node to the visit stack
+	VisitStack.emplace_back(CurNode);
+	// Then, create the successor tokens for the block (direct branch, an if/else/end chain,
+	// or TODO a switch)
+	processBlockTerminator(BBT, CurNode);
+	// Enqueue successors on the visit stack
+	// (in reverse order so they are popped in the correct order)
+	const TerminatorInst* Term = CurBB->getTerminator();
+	int ie = 0;
+	if (isa<SwitchInst>(Term))
+	{
+		enqueueSucc(CurBB, Term->getSuccessor(0));
+		ie = 1;
+	}
+	for (int i = Term->getNumSuccessors()-1; i >= ie; --i)
+	{
+		enqueueSucc(CurBB, Term->getSuccessor(i));
+	}
+}
+
+void TokenListBuilder::build()
+{
 	Visited[&F.getEntryBlock()] = 0;
-	VisitStack.push_back(DT.getNode(&F.getEntryBlock()));
+	const DomTreeNode* EntryDom = DT.getNode(const_cast<BasicBlock*>(&F.getEntryBlock()));
+	VisitStack.push_back(EntryDom);
 	VisitStack.push_back(&F.getEntryBlock());
 	while(!VisitStack.empty())
 	{
 		StackElem CurE = VisitStack.back();
 		if (CurE.kind == StackElem::DOM) {
-			auto it = Branches.find(CurE.DN);
-			if (it != Branches.end())
-				it->second.finish();
-			std::vector<BasicBlock*>& Delayed = Queues[CurE.DN];
+			// Handle the delayed blocks
+			std::vector<const BasicBlock*>& Delayed = Queues[CurE.DN];
 			if (Delayed.empty())
 			{
 				VisitStack.pop_back();
 				continue;
 			}
-			BasicBlock* DB = Delayed.back();
+			const BasicBlock* DB = Delayed.back();
 			Delayed.pop_back();
 			processBlock(DB, true);
 			continue;
@@ -479,686 +441,249 @@ void BlockListBuilder::build()
 		VisitStack.pop_back();
 		processBlock(CurE.BB, false);
 	}
-
-	// Fake block to collect the end markers
-	BlockList.emplace_back(nullptr, F.size());
-	BlockIdMap.emplace(nullptr, -1);
-	endBranchScopes(BlockList.back());
-
-
-	for (Block& B: BlockList)
-	{
-		// The fake block is the last one
-		if (B.getBB() == nullptr)
-			break;
-		addLoopMarkers(B);
-		addBlockMarkers(B);
-	}
-	setLabels();
+	popScopes(EntryDom);
+	assert(Scopes.empty());
 }
 
-void BlockListBuilder::setLabels()
+TokenList::iterator TokenListBuilder::findBlockBegin(TokenList::iterator Target,
+	TokenList::iterator Candidate)
 {
-	std::vector<Block::Scope*> ScopeStack;
-	for (int id = 0; id <(int) BlockList.size(); ++id)
+	// First, walk from the Candidate to the Target, and keep
+	// track of the last closed scope we don't see opened
+	Token* LastUnmatchedScope = nullptr;
+	auto it = Candidate;
+	for (; it != Target; ++it)
 	{
-		Block& B = BlockList[id];
-		for (auto& scope: B.getScopes())
-		switch (scope.kind)
+		assert(it!=Tokens.end());
+		switch (it->getKind())
 		{
-			case Block::LOOP:
-			case Block::BLOCK:
-				ScopeStack.push_back(&scope);
+			case Token::TK_End:
+				LastUnmatchedScope = it->getMatch();
 				break;
-			case Block::BRANCH:
-			{
-				bool First = scope.start == id - 1;
-				if (First)
-					ScopeStack.push_back(&scope);
+			case Token::TK_Else:
+				LastUnmatchedScope = it->getMatch()->getMatch();
+				it = it->getMatch();
 				break;
-			}
-			case Block::LOOP_END:
-			case Block::BLOCK_END:
-			case Block::BRANCH_END:
-				ScopeStack.pop_back();
+			case Token::TK_If:
+				it = it->getMatch()->getMatch();
+				break;
+			case Token::TK_Loop:
+			case Token::TK_Block:
+			case Token::TK_Switch:
+				it = it->getMatch();
+				break;
+			case Token::TK_Case:
+				it = it->getMatch();
+				it--;
+				break;
+			default:
 				break;
 		}
-
-		BasicBlock* BB = B.getBB();
-		if (BB == nullptr)
-			break;
-
-		bool UseSwitch = CheerpWriter::useSwitch(BB->getTerminator());
-		auto SwitchScope = Block::Scope{Block::BRANCH, B.getId(), B.getId()+1, false};
-
-		// Push a virtual scope for the switch jump cases
-		if (UseSwitch)
-			ScopeStack.push_back(&SwitchScope);
-
-		for (auto Succ: make_range(succ_begin(BB), succ_end(BB)))
-		{
-			const auto& SuccB = BlockList[BlockIdMap[Succ]];
-			if (SuccB.isNaturalPred(B.getId()))
-				continue;
-			auto TargetScope = getJumpScope(ScopeStack, B, SuccB);
-			TargetScope.first->label |= TargetScope.second;
-		}
-		// If we pushed the scope, remove it
-		if (UseSwitch)
-			ScopeStack.pop_back();
 	}
-	assert(ScopeStack.empty());
+	// If we have an unopened scope, move the candidate to it
+	if (LastUnmatchedScope)
+		Candidate = LastUnmatchedScope;
+	// Return the node before the final candidate. We will insert after it
+	return Candidate->getPrevNode();
 }
 
-int BlockListBuilder::findLoopEnd(Loop* L, const Block& B)
-{
-	size_t N = L->getNumBlocks();
-	int EndId = B.getId();
-	Block::Scope* LastScope = nullptr;
-	for (; N > 0; ++EndId)
-	{
-		if (EndId == (int)BlockList.size())
-			return EndId;
-		if (L->contains(BlockList[EndId].getBB()))
-			N--;
-		Block::Scope* CurScope = BlockList[EndId+1].getBranchStart();
-		if (CurScope && CurScope->start == EndId)
-		{
-			if (!LastScope || CurScope->end > LastScope->end)
-				LastScope = CurScope;
-		}
-	}
-	if (LastScope && LastScope->end > EndId)
-	{
-		return  LastScope->end;
-	}
-	return EndId;
-}
-
-void BlockListBuilder::addLoopMarkers(Block& B)
-{
-	Loop *L = LI.getLoopFor(B.getBB());
-	if (!L || L->getHeader() != B.getBB())
-		return;
-	int endId = findLoopEnd(L, B);
-	if (endId == -1)
-	{
-		B.getBB()->getParent()->viewCFGOnly();
-		report_fatal_error("noo");
-	}
-	B.insertScope(Block::Scope{Block::LOOP, B.getId(), endId, false});
-	BlockList[endId].insertScope(Block::Scope{Block::LOOP_END, B.getId(), endId, false});
-}
-
-void BlockListBuilder::addBlockMarkers(Block& B)
-{
-	BasicBlock* BB = B.getBB();
-	// First compute the nearest common dominator of all forward non-fallthrough
-	// predecessors so that we minimize the time that the BLOCK is on the stack,
-	// which reduces overall stack height.
-	BasicBlock* Header = nullptr;
-	bool Natural = true;
-	for (pred_iterator pit = pred_begin(BB), pet = pred_end(BB); pit != pet; ++pit)
-	{
-		if (BlockIdMap.at(*pit) < B.getId())
-		{
-			Header = Header ? DT.findNearestCommonDominator(Header, *pit) : *pit;
-			if (!B.isNaturalPred(BlockIdMap.at(*pit)))
-			{
-				Natural = false;
-			}
-		}
-	}
-	// No forward predecessors
-	if (Header == nullptr)
-		return;
-
-	// Natural predecessors
-	if (Natural)
-		return;
-
-	int PredId = BlockIdMap.at(Header);
-	assert(PredId < B.getId());
-
-	// If the nearest common dominator is inside a more deeply nested context,
-	// walk out to the nearest scope which isn't more deeply nested.
-	for (auto it = BlockList.begin()+B.getId()-1, e = BlockList.begin()+PredId; it != e; --it)
-	{
-		const Block::Scope* s = it->getTopEndScope();
-		// walk out of this scope
-		if (s && s->start < PredId)
-		{
-			PredId = s->start;
-		}
-	}
-	Block& PredB = BlockList[PredId];
-
-	// Look for BRANCH scopes we could use to jump to B instead of creating a new
-	// BLOCK
-	for (Block::Scope& S: B.getScopes())
-	{
-		// The scope needs to be a BRANCH ending at B
-		if (S.kind != Block::BRANCH_END)
-			continue;
-		// The scope needs to start at least at PredB
-		if (S.start > PredB.getId())
-			continue;
-		// The scope needs to be a switch, or to consist only of NESTED blocks
-		// (TODO remove this limitation)
-		Block& StartB = BlockList.at(S.start);
-		DomTreeNode* DN = DT.getNode(StartB.getBB());
-		auto it = Branches.find(DN);
-		assert(it != Branches.end() && "No BranchChain info for this scope");
-		BranchChain& BC = it->second;
-		TerminatorInst* Term = StartB.getBB()->getTerminator();
-		if (CheerpWriter::useSwitch(Term) || BC.Branches.size() != Term->getNumSuccessors())
-			continue;
-
-		// The scope qualifies as a target for this jump
-		auto* StartS = BlockList.at(S.start+1).getBranchStart();
-		assert(StartS);
-		StartS->label = true;
-		return;
-	}
-
-	PredB.insertScope(Block::Scope{Block::BLOCK, PredId, B.getId(), false});
-	B.insertScope(Block::Scope{Block::BLOCK_END, PredId, B.getId(), false});
-}
-
-CFGStackifier::CFGStackifier(const Function& F, LoopInfo& LI, DominatorTree& DT)
-{
-	BlockListBuilder BL(F, BlockList, BlockIdMap, LI, DT);
-
-#if DEBUG_CFGSTACKIFIER
-	llvm::errs()<<"CFG Stack of function "<<F.getName()<<":\n";
-	for (const auto& B: BlockList)
-	{
-		B.dump();
-	}
-#endif
-}
-
-class BlockListRenderer {
-	using Block = CFGStackifier::Block;
-	using Scope = Block::Scope;
-
+class TokenListRenderer {
+	const TokenList& Tokens;
+	RenderInterface& ri;
+	DenseSet<const Token*> LabeledTokens;
 public:
-	BlockListRenderer(const std::vector<Block>& BlockList, const std::unordered_map<BasicBlock*, int> BlockIdMap, RenderInterface& ri, const Registerize& R, const PointerAnalyzer& PA, bool asmjs)
-		: BlockList(BlockList), BlockIdMap(BlockIdMap), ri(ri), R(R), PA(PA), asmjs(asmjs)
+	TokenListRenderer(const TokenList& Tokens, RenderInterface& ri)
+		: Tokens(Tokens), ri(ri)
 	{
+		setLabels();
 		render();
 	}
 private:
-	enum RenderBranchCase {
-		JUMP,
-		NESTED,
-		EMPTY,
-		DIRECT,
-	};
-	struct BranchesState {
-		bool IsBranchRoot{false};
-		bool UseSwitch{false};
-		std::unordered_map<llvm::BasicBlock*, RenderBranchCase> Cases;
-		RenderBranchCase DefaultCase{JUMP};
-	};
-
-	void renderJump(const Block& From, const Block& To);
-	void renderJumpBranch(const Block& From, const Block& To, int BrId, bool First, int label);
-	void renderDefaultJumpBranch(const Block& From, const Block& To,
-		const std::vector<int>& EmptyIds, bool First, int label);
-	void renderDirectBranch(const Block& From, const Block& To);
-	std::vector<int> renderJumpBranches(const Block& B, int label=0);
-	void renderSwitchJumpBranches(const Block& B);
+	void setLabels();
 	void render();
-
-	bool isEmptyPrologue(BasicBlock* From, BasicBlock* To);
-
-	const Block& getBlock(int id) const
-	{
-		assert(id >= 0 && id < (int)BlockList.size());
-		return BlockList[id];
-	}
-	const Block& getBlock(llvm::BasicBlock* BB) const
-	{
-		auto it = BlockIdMap.find(BB);
-		assert(it != BlockIdMap.end());
-		const Block& B =  getBlock(it->second);
-		assert(B.getBB() == BB);
-		return B;
-	}
-
-	std::vector<const Scope*> ScopeStack;
-	std::unordered_map<const Scope*, int> labels;
-	std::unordered_map<const BasicBlock*, BranchesState> BranchesStates;
-	size_t next_label = 1;
-
-	const std::vector<Block> BlockList;
-	const std::unordered_map<BasicBlock*, int> BlockIdMap;
-
-	RenderInterface& ri;
-	const Registerize& R;
-	const PointerAnalyzer& PA;
-	bool asmjs;
 };
 
-bool BlockListRenderer::isEmptyPrologue(BasicBlock* From, BasicBlock* To)
+void TokenListRenderer::setLabels()
 {
-	bool hasPrologue = To->getFirstNonPHI()!=&To->front();
-	if (hasPrologue)
+	std::vector<const Token*> ScopeStack;
+	for (const Token& T: Tokens)
 	{
-		// We can avoid assignment from the same register if no pointer kind
-		// conversion is required
-		hasPrologue = CheerpWriter::needsPointerKindConversionForBlocks(To, From, PA, R);
-	}
-	return !hasPrologue;
-}
-void BlockListRenderer::renderJump(const Block& From, const Block& To)
-{
-	auto s = getJumpScope(ScopeStack, From, To);
-
-	if (To.getId() <= From.getId())
-	{
-		if (!s.second)
-			ri.renderContinue();
-		else
+		switch (T.getKind())
 		{
-			auto l = labels.find(s.first);
-			assert(l != labels.end() && "no label for continue");
-			ri.renderContinue(l->second);
-		}
-	}
-	else
-	{
-		if (!s.second)
-			ri.renderBreak();
-		else
-		{
-			auto l = labels.find(s.first);
-			assert(l != labels.end() && "no label for break");
-			ri.renderBreak(l->second);
-		}
-	}
-}
-void BlockListRenderer::renderJumpBranch(const Block& From, const Block& To, int BrId, bool First, int label)
-{
-	ri.renderIfBlockBegin(From.getBB(), BrId, First, label);
-	ri.renderBlockPrologue(To.getBB(), From.getBB());
-	if (!To.isNaturalPred(From.getId()))
-		renderJump(From, To);
-}
-void BlockListRenderer::renderDefaultJumpBranch(const Block& From, const Block& To,
-	const std::vector<int>& EmptyIds, bool First, int label)
-{
-	if (EmptyIds.size() == 0)
-		ri.renderElseBlockBegin();
-	else
-		ri.renderIfBlockBegin(From.getBB(), EmptyIds, First, label);
-	ri.renderBlockPrologue(To.getBB(), From.getBB());
-	if (!To.isNaturalPred(From.getId()))
-		renderJump(From, To);
-	ri.renderIfBlockEnd(label > 0);
-}
-void BlockListRenderer::renderDirectBranch(const Block& From, const Block& To)
-{
-	ri.renderBlockPrologue(To.getBB(), From.getBB());
-	if (!To.isNaturalPred(From.getId()))
-		renderJump(From, To);
-}
-std::vector<int> BlockListRenderer::renderJumpBranches(const Block& B, int label)
-{
-	int DefaultIdx = getDefaultBranchIdx(B.getBB());
-	BasicBlock* Default = DefaultIdx != -1 ? B.getBB()->getTerminator()->getSuccessor(DefaultIdx) : nullptr;
-	const Block::Scope* BS = getBlock(B.getId()+1).getBranchStart();
-	bool Delayed = BS && BS->start == B.getId();
-	bool First = !Delayed || getBlock(B.getId()+1).getBB() == Default;
-	int BrIdx = 0;
-	std::vector<int> EmptyIds;
-	SmallPtrSet<BasicBlock*, 2> Visited;
-	for (auto S = succ_begin(B.getBB()), SE = succ_end(B.getBB()); S != SE; ++S, ++BrIdx)
-	{
-		if (BrIdx==DefaultIdx)
-		{
-			continue;
-		}
-		const Block& To = getBlock(*S);
-		RenderBranchCase BC = BranchesStates.at(B.getBB()).Cases.at(*S);
-		// If multiple branches have the same destination, process only the first one.
-		// The RenderInterface will take care of rendering a compound condition
-		if (!Visited.insert(*S).second)
-		{
-			// Still need to collect all the empty branches indexes
-			if (BC == RenderBranchCase::EMPTY)
-				EmptyIds.push_back(BrIdx);
-			continue;
-		}
-		switch (BC)
-		{
-			case RenderBranchCase::JUMP:
-				renderJumpBranch(B, To, BrIdx, First, label);
+			case Token::TK_BasicBlock:
+			case Token::TK_Case:
+			case Token::TK_If:
+			case Token::TK_IfNot:
+			case Token::TK_Else:
+			case Token::TK_Prologue:
 				break;
-			case RenderBranchCase::DIRECT:
-				report_fatal_error("A direct branch must also be the default. This is a bug");
+			case Token::TK_Loop:
+			case Token::TK_Block:
+			case Token::TK_Switch:
+				ScopeStack.push_back(&T);
 				break;
-			case RenderBranchCase::NESTED:
+			case Token::TK_Branch:
+			{
+				const Token* Target = T.getMatch();
+				if (Target->getKind() == Token::TK_End)
+					Target = Target->getMatch();
+				assert(!ScopeStack.empty());
+				if (Target->getKind() == Token::TK_Block || Target != ScopeStack.back())
+					LabeledTokens.insert(Target);
 				break;
-			case RenderBranchCase::EMPTY:
-				EmptyIds.push_back(BrIdx);
+			}
+			case Token::TK_End:
+				if (T.getMatch()->getKind() == Token::TK_Block
+					|| T.getMatch()->getKind() == Token::TK_Loop
+					|| T.getMatch()->getKind() == Token::TK_Switch)
+				{
+					ScopeStack.pop_back();
+				}
 				break;
-		}
-		if (BC != RenderBranchCase::EMPTY)
-			First = false;
-	}
-	if (Default)
-	{
-		const Block& DefaultB = getBlock(Default);
-		switch (BranchesStates.at(B.getBB()).DefaultCase)
-		{
-			case RenderBranchCase::JUMP:
-				renderDefaultJumpBranch(B, DefaultB, EmptyIds, First, label);
-				break;
-			case RenderBranchCase::DIRECT:
-				renderDirectBranch(B, DefaultB);
-				break;
-			case RenderBranchCase::NESTED:
-				break;
-			case RenderBranchCase::EMPTY:
-				ri.renderIfBlockEnd(label > 0);
-				break;
-		}
-	}
-	return EmptyIds;
-}
-void BlockListRenderer::renderSwitchJumpBranches(const Block& B)
-{
-	int DefaultIdx = getDefaultBranchIdx(B.getBB());
-	BasicBlock* Default = DefaultIdx != -1 ? B.getBB()->getTerminator()->getSuccessor(DefaultIdx) : nullptr;
-	int BrIdx = 0;
-	SmallPtrSet<BasicBlock*, 2> Visited;
-	for (auto S = succ_begin(B.getBB()), SE = succ_end(B.getBB()); S != SE; ++S, ++BrIdx)
-	{
-		if (BrIdx==DefaultIdx)
-		{
-			continue;
-		}
-		const Block& To = getBlock(*S);
-		RenderBranchCase BC = BranchesStates.at(B.getBB()).Cases.at(*S);
-		// If multiple branches have the same destination, process only the first one.
-		// The RenderInterface will take care of rendering a compound condition
-		if (!Visited.insert(*S).second)
-		{
-			continue;
-		}
-		switch (BC)
-		{
-			case RenderBranchCase::EMPTY:
-				ri.renderCaseBlockBegin(B.getBB(), BrIdx);
-				ri.renderBreak();
-				ri.renderBlockEnd();
-				break;
-			case RenderBranchCase::JUMP:
-				ri.renderCaseBlockBegin(B.getBB(), BrIdx);
-				ri.renderBlockPrologue(To.getBB(), B.getBB());
-				if (!To.isNaturalPred(B.getId()))
-					renderJump(B, To);
-				else
-					ri.renderBreak();
-				ri.renderBlockEnd();
-				break;
-			case RenderBranchCase::DIRECT:
-				report_fatal_error("A direct branch can never be a part of a switch");
-				break;
-			case RenderBranchCase::NESTED:
-				break;
-		}
-	}
-	if (Default)
-	{
-		const Block& DefaultB = getBlock(Default);
-		switch (BranchesStates.at(B.getBB()).DefaultCase)
-		{
-			case RenderBranchCase::EMPTY:
-				ri.renderDefaultBlockBegin(false);
-				ri.renderBlockEnd();
-				break;
-			case RenderBranchCase::JUMP:
-				ri.renderDefaultBlockBegin(false);
-				ri.renderBlockPrologue(Default, B.getBB());
-				if (!DefaultB.isNaturalPred(B.getId()))
-					renderJump(B, DefaultB);
-				ri.renderBlockEnd();
-				break;
-			case RenderBranchCase::DIRECT:
-				report_fatal_error("A direct branch can never be a part of a switch");
-				break;
-			case RenderBranchCase::NESTED:
+			case Token::TK_Invalid:
+				report_fatal_error("Invalid token found");
 				break;
 		}
 	}
 }
 
-void BlockListRenderer::render()
+void TokenListRenderer::render()
 {
-	for (int id = 0; id <(int) BlockList.size(); ++id)
+	DenseMap<const Token*, int> Labels;
+	int NextLabel = 1;
+	for (auto it = Tokens.begin(), ie = Tokens.end(); it != ie; ++it)
 	{
-		const Block& B = getBlock(id);
-		BasicBlock* BB = B.getBB();
-		for (const auto& scope: B.getScopes())
-		switch (scope.kind)
+		const Token& T = *it;
+		switch (T.getKind())
 		{
-			case Block::LOOP:
-				if (scope.label)
-					ri.renderLoopBlockBegin(next_label);
+			case Token::TK_BasicBlock:
+				ri.renderBlock(T.getBB());
+				break;
+			case Token::TK_Loop:
+			{
+				if (LabeledTokens.count(&T))
+				{
+					Labels.insert(std::make_pair(&T, NextLabel));
+					ri.renderLoopBlockBegin(NextLabel++);
+				}
 				else
 					ri.renderLoopBlockBegin(0);
-				ScopeStack.push_back(&scope);
-				if (scope.label)
-					labels.emplace(&scope, next_label++);
 				break;
-			case Block::BLOCK:
-				assert(scope.label);
-				ri.renderBlockBegin(next_label);
-				ScopeStack.push_back(&scope);
-				labels.emplace(&scope, next_label++);
-				break;
-			case Block::LOOP_END:
-				ri.renderLoopBlockEnd();
-				assert(ScopeStack.back()->kind == Block::LOOP);
-				ScopeStack.pop_back();
-				break;
-			case Block::BLOCK_END:
-				ri.renderBlockEnd();
-				assert(ScopeStack.back()->kind == Block::BLOCK);
-				ScopeStack.pop_back();
-				break;
-			case Block::BRANCH:
+			}
+			case Token::TK_Block:
 			{
-				int FromId = scope.start;
-				const Block& From = getBlock(FromId);
-				int BrId = getBranchIdx(From.getBB(), BB);
-				bool First = FromId == id - 1;
-				if (First)
-					ScopeStack.push_back(&scope);
-				int label = scope.label ? labels.at(&scope) : 0;
-
-				auto it = BranchesStates.find(From.getBB());
-				assert(it != BranchesStates.end());
-				auto& BS = it->second;
-				if (BS.UseSwitch)
+				if (LabeledTokens.count(&T))
 				{
-					if (!First)
-					{
+					Labels.insert(std::make_pair(&T, NextLabel));
+					ri.renderBlockBegin(NextLabel++);
+				}
+				else
+					ri.renderBlockBegin(0);
+				break;
+			}
+			case Token::TK_If:
+				ri.renderIfBlockBegin(T.getBB(), 0, true);
+				break;
+			case Token::TK_IfNot:
+				ri.renderIfBlockBegin(T.getBB(), std::vector<int>{0}, true);
+				break;
+			case Token::TK_Else:
+				ri.renderElseBlockBegin();
+				break;
+			case Token::TK_Branch:
+				if (T.getMatch()->getKind() == Token::TK_Loop)
+				{
+					auto LabelIt = Labels.find(T.getMatch());
+					if (LabelIt == Labels.end())
+						ri.renderContinue();
+					else
+						ri.renderContinue(LabelIt->getSecond());
+				}
+				else
+				{
+					assert(T.getMatch()->getKind() == Token::TK_End);
+					const Token* Block = T.getMatch()->getMatch();
+					assert(Block->getKind() == Token::TK_Block);
+					auto LabelIt = Labels.find(Block);
+					if (LabelIt == Labels.end())
 						ri.renderBreak();
-						ri.renderBlockEnd();
-					}
-					if (BrId == -1)
-					{
-						renderSwitchJumpBranches(From);
-						ri.renderDefaultBlockBegin(false);
-					}
 					else
-						ri.renderCaseBlockBegin(From.getBB(), BrId);
+						ri.renderBreak(LabelIt->getSecond());
+				}
+				break;
+			case Token::TK_End:
+				if (Labels.count(T.getMatch()))
+					NextLabel--;
+				if(T.getMatch()->getKind() == Token::TK_Loop)
+				{
+					ri.renderLoopBlockEnd();
+				}
+				else if(T.getMatch()->getKind() == Token::TK_Switch)
+				{
+					report_fatal_error("The end of a switch token should be handled with the switch itself");
 				}
 				else
 				{
-					if (BrId == -1)
+					ri.renderBlockEnd();
+				}
+				break;
+			case Token::TK_Prologue:
+				ri.renderBlockPrologue(T.getBB()->getTerminator()->getSuccessor(T.getId()), T.getBB());
+				break;
+			case Token::TK_Switch:
+			{
+				std::vector<std::pair<int, int>> Cases;
+				const SwitchInst* si = cast<SwitchInst>(T.getBB()->getTerminator());
+				it++;
+				while(it->getKind() != Token::TK_End)
+				{
+					assert(it->getKind()==Token::TK_Case);
+					int label = -1;
+					std::vector<int> ids;
+					while(it->getKind() == Token::TK_Case)
 					{
-						auto EmptyIds = renderJumpBranches(From, label);
-						if (EmptyIds.size() == 0)
-							ri.renderElseBlockBegin();
-						else
-							ri.renderIfBlockBegin(From.getBB(), EmptyIds, EmptyIds.size() == From.getBB()->getTerminator()->getNumSuccessors()-1, label);
+						ids.push_back(it->getId());
+						it++;
+					}
+					assert(it->getKind() == Token::TK_Branch);
+					if (it->getMatch()->getKind() == Token::TK_Loop)
+					{
+						auto LabelIt = Labels.find(it->getMatch());
+						assert(LabelIt != Labels.end());
+						label = LabelIt->getSecond();
 					}
 					else
 					{
-						ri.renderIfBlockBegin(From.getBB(), BrId, First, label);
+						assert(it->getMatch()->getKind() == Token::TK_End);
+						const Token* Block = it->getMatch()->getMatch();
+						assert(Block->getKind() == Token::TK_Block);
+						auto LabelIt = Labels.find(Block);
+						assert(LabelIt != Labels.end());
+						label = LabelIt->getSecond();
 					}
+					for (int id: ids)
+						Cases.push_back(std::make_pair(id, label));
+					it++;
 				}
-				ri.renderBlockPrologue(BB, From.getBB());
+				ri.renderBrTable(si, Cases);
 				break;
 			}
-			case Block::BRANCH_END:
-			{
-				assert(!ScopeStack.empty());
-				assert(ScopeStack.back()->kind == Block::BRANCH);
-				int FromId = scope.start;
-				const Block& From = getBlock(FromId);
-				auto it = BranchesStates.find(From.getBB());
-				assert(it != BranchesStates.end());
-				auto& BS = it->second;
-				bool DoRenderJumpBranches = BS.IsBranchRoot && BS.DefaultCase != RenderBranchCase::NESTED;
-				if (BS.UseSwitch)
-				{
-					ri.renderBreak();
-					ri.renderBlockEnd();
-					if (DoRenderJumpBranches)
-					{
-						renderSwitchJumpBranches(From);
-					}
-					ri.renderBlockEnd();
-				}
-				else
-				{
-					if (DoRenderJumpBranches)
-					{
-						int label = ScopeStack.back()->label ? labels.at(ScopeStack.back()) : 0;
-						renderJumpBranches(From, label);
-					}
-					else
-					{
-						ri.renderIfBlockEnd(ScopeStack.back()->label);
-					}
-				}
-				ScopeStack.pop_back();
+			case Token::TK_Case:
+				report_fatal_error("Case token found outside of switch block");
 				break;
-			}
-		}
-		// Fake block is at the end
-		if (!BB)
-			break;
-
-		ri.renderBlock(BB);
-
-		if (BB->getTerminator()->getNumSuccessors() == 0)
-			continue;
-
-		auto* Scope = BlockList[B.getId()+1].getBranchStart();
-		auto& BS = BranchesStates[BB];
-		BS.IsBranchRoot = Scope && Scope->start == B.getId();
-		BS.UseSwitch = CheerpWriter::useSwitch(BB->getTerminator());
-		std::vector<int> Jumps;
-		std::vector<int> Nested;
-
-		int DefaultIdx = getDefaultBranchIdx(BB);
-		int Idx = 0;
-		for (auto Succ: make_range(succ_begin(BB), succ_end(BB)))
-		{
-			if (DefaultIdx == Idx)
-			{
-				Idx++;
-				continue;
-			}
-			const auto& SuccB = getBlock(Succ);
-			auto* SuccScope = SuccB.getBranchStart();
-			if (SuccScope && SuccScope->start == B.getId())
-			{
-				BS.Cases.emplace(Succ, RenderBranchCase::NESTED);
-				Nested.push_back(Idx);
-			}
-			else if (isEmptyPrologue(BB, Succ) && SuccB.isNaturalPred(B.getId()))
-			{
-				BS.Cases.emplace(Succ, RenderBranchCase::EMPTY);
-				Jumps.push_back(Idx);
-			}
-			else
-			{
-				BS.Cases.emplace(Succ, RenderBranchCase::JUMP);
-				Jumps.push_back(Idx);
-			}
-			Idx++;
-		}
-		if (DefaultIdx != -1)
-		{
-			const auto& DefaultB = getBlock(BB->getTerminator()->getSuccessor(DefaultIdx));
-			auto* SuccScope = DefaultB.getBranchStart();
-			if (Idx == 1)
-				BS.DefaultCase = RenderBranchCase::DIRECT;
-			else if (SuccScope && SuccScope->start == B.getId())
-			{
-				BS.DefaultCase = RenderBranchCase::NESTED;
-			}
-			else if (isEmptyPrologue(BB, DefaultB.getBB()) && DefaultB.isNaturalPred(B.getId()))
-			{
-				BS.DefaultCase = RenderBranchCase::EMPTY;
-			}
-			else
-			{
-				BS.DefaultCase = RenderBranchCase::JUMP;
-			}
-		}
-
-		int label = 0;
-		if (BS.IsBranchRoot && Scope->label)
-		{
-			labels.emplace(Scope, next_label);
-			label = next_label++;
-		}
-
-		if (BS.UseSwitch)
-		{
-			// The sort the nested blocks by their order in the block list
-			assert(isa<SwitchInst>(BB->getTerminator()));
-			auto sw = cast<SwitchInst>(BB->getTerminator());
-			std::sort(Nested.begin(), Nested.end(), [&](int i1, int i2) {
-				BasicBlock* b1 = i1 == -1 ? sw->getDefaultDest() : sw->getSuccessor(i1);
-				BasicBlock* b2 = i2 == -1 ? sw->getDefaultDest() : sw->getSuccessor(i2);
-				return BlockIdMap.at(b1) < BlockIdMap.at(b2);
-			});
-			Jumps.insert(Jumps.begin(), Nested.begin(), Nested.end());
-			// The default is always last
-			Jumps.push_back(-1);
-
-			ri.renderSwitchBlockBegin(sw, Jumps, label);
-		}
-
-		if (!BS.IsBranchRoot)
-		{
-			if (BS.UseSwitch)
-			{
-				Block::Scope SwitchScope {Block::BRANCH, B.getId(), B.getId()+1, false};
-				ScopeStack.push_back(&SwitchScope);
-				renderSwitchJumpBranches(B);
-				ri.renderBlockEnd();
-				ScopeStack.pop_back();
-			}
-			else
-				renderJumpBranches(B);
+			case Token::TK_Invalid:
+				report_fatal_error("Invalid token found");
+				break;
 		}
 	}
-	assert(ScopeStack.empty());
-}
-void CFGStackifier::render(RenderInterface& ri, const Registerize& R, const PointerAnalyzer& PA, bool asmjs)
-{
-	BlockListRenderer BR(BlockList, BlockIdMap, ri, R, PA, asmjs);
 }
 
+CFGStackifier::CFGStackifier(const llvm::Function &F, const llvm::LoopInfo& LI,
+	const llvm::DominatorTree& DT, const Registerize& R, const PointerAnalyzer& PA)
+{
+	TokenListBuilder Builder(F, Tokens, LI, DT);
+}
+void CFGStackifier::render(RenderInterface& ri)
+{
+	TokenListRenderer Renderer(Tokens, ri);
 }
