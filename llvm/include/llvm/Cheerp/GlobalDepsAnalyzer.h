@@ -158,6 +158,8 @@ private:
 	
 	const char* getPassName() const override;
 
+	void logUndefinedSymbol(const llvm::GlobalValue* GV);
+
 	/**
 	 * Propagate the search across globalvalues (i.e. Functions, GlobalVariables and GlobalAliases)
 	 * 
@@ -199,7 +201,7 @@ private:
 	 * \warning Even if this returns 0, it does *not* mean that the module has 
 	 * not been modified. This function also *reorders* the variables inside the module.
 	 */
-	int filterModule( llvm::Module & );
+	int filterModule( const llvm::DenseSet<const llvm::Function*>&, llvm::Module & );
 
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
@@ -234,6 +236,7 @@ private:
 
 	bool resolveAliases;
 	bool delayPrintf;
+	bool hasUndefinedSymbolErrors;
 public:
 	bool forceTypedArrays;
 	bool needsBuiltin(BUILTIN b)

@@ -38,5 +38,6 @@ extern llvm::cl::opt<bool> BoundsCheck;
 extern llvm::cl::opt<bool> CfgLegacy;
 extern llvm::cl::opt<bool> AvoidWasmTraps;
 extern llvm::cl::opt<bool> AggressiveGepOptimizer;
+extern llvm::cl::opt<std::string> StrictLinking;
 
 #endif //_CHEERP_COMMAND_LINE_H
