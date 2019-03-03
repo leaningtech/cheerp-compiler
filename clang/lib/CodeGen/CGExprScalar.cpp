@@ -1409,6 +1409,70 @@ Value *ScalarExprEmitter::EmitScalarConversion(Value *Src, QualType SrcType,
     return Src;
   }
 
+  // Type cast to an highint
+  if (CGF.IsHighInt(DstType)) {
+    // Do not type cast a highint into highint
+    if (CGF.IsHighInt(SrcType)) {
+      return Src;
+    }
+
+    // Cast float or double values to int64
+    if (Src->getType()->isFloatingPointTy()) {
+      // 1. if number is negative: multiply by -1
+      llvm::Value *negative = Builder.CreateFCmp(llvm::CmpInst::FCMP_OLT,
+              Src, llvm::ConstantFP::get(Src->getType(), (double) 0), "cmp");
+      llvm::Value *minusOne = llvm::ConstantFP::get(Src->getType(), (double) -1);
+      llvm::Value *SrcNegated = Builder.CreateFMul(Src, minusOne);
+      Src = Builder.CreateSelect(negative, SrcNegated, Src);
+      // 2. div high, mod low
+      llvm::Value *c = llvm::ConstantFP::get(Src->getType(), (double)(1LL << 32));
+      llvm::Value *high = Builder.CreateFDiv(Src, c);
+      high = Builder.CreateFPToUI(high, CGF.Int32Ty, "conv");
+      llvm::Value *low = Builder.CreateFRem(Src, c);
+      low = Builder.CreateFPToUI(low, CGF.Int32Ty, "conv");
+      // 3. if number was negative: invert number
+      llvm::Value *result = CGF.EmitHighInt(DstType, high, low);
+
+      // Emit unary minus with EmitSub so we handle overflow cases etc.
+      BinOpInfo BinOp;
+      BinOp.RHS = result;
+      llvm::Value *zero = Builder.getInt32(0);
+      BinOp.LHS = CGF.EmitHighInt(DstType, zero, zero);
+      BinOp.Ty = DstType;
+      BinOp.Opcode = BO_Sub;
+      BinOp.FPContractable = false;
+
+      llvm::Value *resultInverted = EmitSub(BinOp);
+      result = Builder.CreateSelect(negative, resultInverted, result);
+      return result;
+    }
+    return CGF.EmitHighIntFromInt(DstType, SrcType, Src);
+  }
+  // Type cast from an highint
+  else if (CGF.IsHighInt(SrcType)) {
+    // Convert highint to a floating point number
+    if (DstTy->isFloatingPointTy()) {
+      llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Src);
+      low = Builder.CreateUIToFP(low, DstTy);
+      llvm::Value *high = CGF.EmitLoadHighBitsOfHighInt(Src);
+
+      if (SrcType->isSignedIntegerType()) {
+        high = Builder.CreateSIToFP(high, DstTy);
+      } else {
+        high = Builder.CreateUIToFP(high, DstTy);
+      }
+
+      llvm::Value *c = llvm::ConstantFP::get(DstTy, (double)(1LL << 32));
+      llvm::Value *result;
+      result = Builder.CreateFMul(c, high);
+      result = Builder.CreateFAdd(result, low);
+
+      return result;
+    } else {
+      Src = CGF.EmitLoadLowBitsOfHighInt(Src);
+      SrcTy = CGF.Int32Ty;
+    }
+  }
   // Handle pointer conversions next: pointers can only be converted to/from
   // other pointers and integers. Check for pointer types in terms of LLVM, as
   // some native types (like Obj-C id) may map to a pointer type.
@@ -2451,79 +2515,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_IntegralToFloating:
   case CK_FloatingToIntegral:
   case CK_FloatingCast:
-    // Type cast to an highint
-    if (CGF.IsHighInt(CE->getType())) {
-      Value *Elt = Visit(E);
-
-      // Do not type cast a highint into highint
-      if (CGF.IsHighInt(E->getType())) {
-        return Elt;
-      }
-
-      // Cast float or double values to int64
-      if (Elt->getType()->isFloatingPointTy()) {
-        // 1. if number is negative: multiply by -1
-        llvm::Value *negative = Builder.CreateFCmp(llvm::CmpInst::FCMP_OLT,
-                Elt, llvm::ConstantFP::get(Elt->getType(), (double) 0), "cmp");
-        llvm::Value *minusOne = llvm::ConstantFP::get(Elt->getType(), (double) -1);
-        llvm::Value *EltNegated = Builder.CreateFMul(Elt, minusOne);
-        Elt = Builder.CreateSelect(negative, EltNegated, Elt);
-        // 2. div high, mod low
-        llvm::Value *c = llvm::ConstantFP::get(Elt->getType(), (double)(1LL << 32));
-        llvm::Value *high = Builder.CreateFDiv(Elt, c);
-        high = Builder.CreateFPToUI(high, CGF.Int32Ty, "conv");
-        llvm::Value *low = Builder.CreateFRem(Elt, c);
-        low = Builder.CreateFPToUI(low, CGF.Int32Ty, "conv");
-        // 3. if number was negative: invert number
-        llvm::Value *result = CGF.EmitHighInt(CE->getType(), high, low);
-
-        // Emit unary minus with EmitSub so we handle overflow cases etc.
-        BinOpInfo BinOp;
-        BinOp.RHS = result;
-        llvm::Value *zero = Builder.getInt32(0);
-        BinOp.LHS = CGF.EmitHighInt(CE->getType(), zero, zero);
-        BinOp.Ty = CE->getType();
-        BinOp.Opcode = BO_Sub;
-        BinOp.FPContractable = false;
-        BinOp.E = E;
-
-        llvm::Value *resultInverted = EmitSub(BinOp);
-        result = Builder.CreateSelect(negative, resultInverted, result);
-        return result;
-      }
-      return CGF.EmitHighIntFromInt(CE->getType(), E->getType(), Elt);
-    }
-    // Type cast from an highint
-    else if (CGF.IsHighInt(E->getType())) {
-      Value *Elt = Visit(E);
-      llvm::Type *Ty = ConvertType(CE->getType());
-      // Convert highint to a floating point number
-      if (Ty->isFloatingPointTy()) {
-        llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Elt);
-        low = Builder.CreateUIToFP(low, Ty);
-        llvm::Value *high = CGF.EmitLoadHighBitsOfHighInt(Elt);
-
-        if (E->getType()->isSignedIntegerType()) {
-          high = Builder.CreateSIToFP(high, Ty);
-        } else {
-          high = Builder.CreateUIToFP(high, Ty);
-        }
-
-        llvm::Value *c = llvm::ConstantFP::get(Ty, (double)(1LL << 32));
-        llvm::Value *result;
-        result = Builder.CreateFMul(c, high);
-        result = Builder.CreateFAdd(result, low);
-
-        return result;
-      } else {
-        llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Elt);
-        return EmitScalarConversion(low, E->getType(), DestTy,
-                                CE->getExprLoc());
-      }
-    } else {
       return EmitScalarConversion(Visit(E), E->getType(), DestTy,
                                 CE->getExprLoc());
-    }
   case CK_BooleanToSignedIntegral: {
     ScalarConversionOpts Opts;
     Opts.TreatBooleanAsSigned = true;
