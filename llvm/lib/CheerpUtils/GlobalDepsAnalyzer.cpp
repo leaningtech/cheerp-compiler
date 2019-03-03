@@ -12,6 +12,7 @@
 #define DEBUG_TYPE "GlobalDepsAnalyzer"
 #include <algorithm>
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
@@ -41,7 +42,8 @@ const char* GlobalDepsAnalyzer::getPassName() const
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool resolveAliases) : ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	hasPointerArrays(false), hasAsmJS(false),
-	resolveAliases(resolveAliases), delayPrintf(true), forceTypedArrays(false)
+	resolveAliases(resolveAliases), delayPrintf(true),
+	hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
 
@@ -172,10 +174,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		ci->eraseFromParent();
 	}
 
+	DenseSet<const Function*> droppedMathBuiltins;
+
 	// Drop the code for math functions that will be replaced by builtins
 	if (mathMode == USE_BUILTINS)
 	{
-#define DROP_MATH_FUNC(x) if(Function* F = module.getFunction(x)) { F->deleteBody(); }
+#define DROP_MATH_FUNC(x) if(Function* F = module.getFunction(x)) { F->deleteBody(); droppedMathBuiltins.insert(F); }
 		DROP_MATH_FUNC("fabs"); DROP_MATH_FUNC("fabsf");
 		DROP_MATH_FUNC("acos"); DROP_MATH_FUNC("acosf");
 		DROP_MATH_FUNC("asin"); DROP_MATH_FUNC("asinf");
@@ -383,7 +387,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		assert(visited.empty());
 	}
 
-	NumRemovedGlobals = filterModule(module);
+	NumRemovedGlobals = filterModule(droppedMathBuiltins, module);
+
+	if(hasUndefinedSymbolErrors)
+		llvm::report_fatal_error("String linking enabled and undefined symbols found");
 
 	// Detect all used math builtins
 	if (mathMode == USE_BUILTINS)
@@ -785,7 +792,21 @@ llvm::StructType* GlobalDepsAnalyzer::needsDowncastArray(llvm::StructType* t) co
 	return NULL;
 }
 
-int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
+void GlobalDepsAnalyzer::logUndefinedSymbol(const GlobalValue* GV)
+{
+	// Only emit errors during the final compilation step
+	if(!resolveAliases)
+		return;
+	if(StrictLinking == "warning")
+		llvm::errs() << "warning: symbol not defined " << GV->getName() << "\n";
+	else if(StrictLinking == "error")
+	{
+		llvm::errs() << "error: symbol not defined " << GV->getName() << "\n";
+		hasUndefinedSymbolErrors = true;
+	}
+}
+
+int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMathBuiltins, Module & module )
 {
 	std::vector< llvm::GlobalValue * > eraseQueue;
 	
@@ -794,29 +815,39 @@ int GlobalDepsAnalyzer::filterModule( llvm::Module & module )
 	{
 		GlobalVariable * var = it++;
 		var->removeFromParent();
-		if( var->hasInitializer() && var->getName()!="llvm.global_ctors")
-			var->setLinkage(GlobalValue::InternalLinkage);
-		
 		if ( ! isReachable(var) )
 			eraseQueue.push_back(var);
+		else if( var->hasInitializer() )
+		{
+			if( var->getName()!="llvm.global_ctors" )
+				var->setLinkage(GlobalValue::InternalLinkage);
+		}
+		else if( !TypeSupport::isClientGlobal(var) )
+			logUndefinedSymbol(var);
 	}
 	
 	// Detach all the functions, and put the unused ones in the eraseQueue
 	for (Module::iterator it = module.begin(); it != module.end(); )
 	{
 		Function * f = it++;
-		if( !f->empty() )
+		if ( !isReachable(f) )
+		{
+			eraseQueue.push_back(f);
+			f->removeFromParent();
+		}
+		else if( !f->empty() )
 		{
 			// Never internalize functions that may have a better native implementation
 			LibFunc::Func Func;
 			if (!TLI->getLibFunc(f->getName(), Func))
 				f->setLinkage(GlobalValue::InternalLinkage);
 		}
-		
-		if ( !isReachable(f) )
+		else if(!droppedMathBuiltins.count(f) && f->getIntrinsicID()==0 &&
+			!TypeSupport::isClientFunc(f) && !TypeSupport::isClientConstructorName(f->getName()) &&
+			// Special case "free" here, it might be used in genericjs code and lowered by the backend
+			f->getName() != "free")
 		{
-			eraseQueue.push_back(f);
-			f->removeFromParent();
+			logUndefinedSymbol(f);
 		}
 	}
 
