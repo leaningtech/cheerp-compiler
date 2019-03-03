@@ -501,6 +501,15 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpMakeModuleEq->render(Args, CmdArgs);
   }
 
+  if(Arg* cheerpStrictLinkingEq = Args.getLastArg(options::OPT_cheerp_strict_linking_EQ)) {
+    if (cheerpStrictLinkingEq->getValue() != StringRef("warning") &&
+        cheerpStrictLinkingEq->getValue() != StringRef("error")) {
+      D.Diag(diag::err_drv_invalid_value)
+      << cheerpStrictLinkingEq->getAsString(Args) << cheerpStrictLinkingEq->getValue();
+    }
+    cheerpStrictLinkingEq->render(Args, CmdArgs);
+  }
+
   if(Arg* cheerpAsmJSMemFile = Args.getLastArg(options::OPT_cheerp_asmjs_mem_file_EQ))
     cheerpAsmJSMemFile->render(Args, CmdArgs);
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))

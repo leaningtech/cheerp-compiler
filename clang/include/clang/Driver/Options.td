@@ -4400,6 +4400,8 @@ def cheerp_cfg_legacy : Flag<["-"], "cheerp-cfg-legacy">, Flags<[DriverOption]>,
   HelpText<"Use the legacy relooper algorithm to render the cfg">;
 def cheerp_avoid_wasm_traps : Flag<["-"], "cheerp-avoid-wasm-traps">, Flags<[DriverOption]>,
   HelpText<"Avoid traps from WebAssembly by generating more verbose code">;
+def cheerp_strict_linking_EQ : Joined<["-"], "cheerp-strict-linking=">, Flags<[DriverOption]>,
+  HelpText<"Enable link time checks for undefined symbols [warning/error]">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options
