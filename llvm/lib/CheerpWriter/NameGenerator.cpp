@@ -375,7 +375,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 
 	for ( const GlobalValue & GV : M.getGlobalList() )
 	{
-		if ( isa<GlobalVariable>(GV) && TypeSupport::isClientGlobal(&GV) )
+		if ( isa<GlobalVariable>(GV) && TypeSupport::isClientGlobal(cast<GlobalVariable>(&GV)) )
 		{
 			demangler_iterator dmg( GV.getName() );
 			assert(*dmg == "client");
