@@ -1498,6 +1498,70 @@ Value *ScalarExprEmitter::EmitScalarConversion(Value *Src, QualType SrcType,
     return Src;
   }
 
+  // Type cast to an highint
+  if (CGF.IsHighInt(DstType)) {
+    // Do not type cast a highint into highint
+    if (CGF.IsHighInt(SrcType)) {
+      return Src;
+    }
+
+    // Cast float or double values to int64
+    if (Src->getType()->isFloatingPointTy()) {
+      // 1. if number is negative: multiply by -1
+      llvm::Value *negative = Builder.CreateFCmp(llvm::CmpInst::FCMP_OLT,
+              Src, llvm::ConstantFP::get(Src->getType(), (double) 0), "cmp");
+      llvm::Value *minusOne = llvm::ConstantFP::get(Src->getType(), (double) -1);
+      llvm::Value *SrcNegated = Builder.CreateFMul(Src, minusOne);
+      Src = Builder.CreateSelect(negative, SrcNegated, Src);
+      // 2. div high, mod low
+      llvm::Value *c = llvm::ConstantFP::get(Src->getType(), (double)(1LL << 32));
+      llvm::Value *high = Builder.CreateFDiv(Src, c);
+      high = Builder.CreateFPToUI(high, CGF.Int32Ty, "conv");
+      llvm::Value *low = Builder.CreateFRem(Src, c);
+      low = Builder.CreateFPToUI(low, CGF.Int32Ty, "conv");
+      // 3. if number was negative: invert number
+      llvm::Value *result = CGF.EmitHighInt(DstType, high, low);
+
+      // Emit unary minus with EmitSub so we handle overflow cases etc.
+      BinOpInfo BinOp;
+      BinOp.RHS = result;
+      llvm::Value *zero = Builder.getInt32(0);
+      BinOp.LHS = CGF.EmitHighInt(DstType, zero, zero);
+      BinOp.Ty = DstType;
+      BinOp.Opcode = BO_Sub;
+      BinOp.FPContractable = false;
+
+      llvm::Value *resultInverted = EmitSub(BinOp);
+      result = Builder.CreateSelect(negative, resultInverted, result);
+      return result;
+    }
+    return CGF.EmitHighIntFromInt(DstType, SrcType, Src);
+  }
+  // Type cast from an highint
+  else if (CGF.IsHighInt(SrcType)) {
+    // Convert highint to a floating point number
+    if (DstTy->isFloatingPointTy()) {
+      llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Src);
+      low = Builder.CreateUIToFP(low, DstTy);
+      llvm::Value *high = CGF.EmitLoadHighBitsOfHighInt(Src);
+
+      if (SrcType->isSignedIntegerType()) {
+        high = Builder.CreateSIToFP(high, DstTy);
+      } else {
+        high = Builder.CreateUIToFP(high, DstTy);
+      }
+
+      llvm::Value *c = llvm::ConstantFP::get(DstTy, (double)(1LL << 32));
+      llvm::Value *result;
+      result = Builder.CreateFMul(c, high);
+      result = Builder.CreateFAdd(result, low);
+
+      return result;
+    } else {
+      Src = CGF.EmitLoadLowBitsOfHighInt(Src);
+      SrcTy = CGF.Int32Ty;
+    }
+  }
   // Handle pointer conversions next: pointers can only be converted to/from
   // other pointers and integers. Check for pointer types in terms of LLVM, as
   // some native types (like Obj-C id) may map to a pointer type.
