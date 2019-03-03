@@ -201,6 +201,7 @@ public:
     // We don't have multiple asm variants, and we want to be able to use
     // '{' and '}' in the asm code
     NoAsmVariants = true;
+    UserLabelPrefix = "";
   }
 
   virtual ArrayRef<Builtin::Info> getTargetBuiltins() const {
