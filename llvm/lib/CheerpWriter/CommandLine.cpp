@@ -52,3 +52,5 @@ llvm::cl::opt<bool> CfgLegacy("cheerp-cfg-legacy", llvm::cl::desc("Use the legac
 llvm::cl::opt<bool> AvoidWasmTraps("cheerp-avoid-wasm-traps", llvm::cl::desc("Avoid traps from WebAssembly by generating more verbose code") );
 
 llvm::cl::opt<bool> AggressiveGepOptimizer("cheerp-aggressive-gep-optimizer", llvm::cl::desc("Speculatively hoist part of GEPs when possible") );
+
+llvm::cl::opt<std::string> StrictLinking("cheerp-strict-linking", llvm::cl::Optional, llvm::cl::desc("Emit warnings/errors on missing symbols"), llvm::cl::value_desc("warning/error") );
