@@ -1361,12 +1361,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	if(userImplemented)
 		return COMPILE_UNSUPPORTED;
 
-	if((ident.startswith("_ZN6client") || ident.startswith("_ZNK6client")) && !asmjs)
+	if(TypeSupport::isClientFuncName(ident) && !asmjs)
 	{
 		handleBuiltinNamespace(ident.data(),callV);
 		return COMPILE_OK;
 	}
-	else if(ident.startswith("cheerpCreate_ZN6client"))
+	else if(TypeSupport::isClientConstructorName(ident))
 	{
 		assert(!asmjs && "Unsupported client function for asmjs");
 		//Default handling of builtin constructors
@@ -5551,14 +5551,14 @@ void CheerpWriter::makeJS()
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			std::string name;
-			if (imported->empty() && TypeSupport::isClientGlobal(imported))
+			if (imported->empty() && TypeSupport::isClientFunc(imported))
 			{
 				assert(imported->hasFnAttribute(Attribute::Static) && "Only static client functions can be imported");
 				StringRef className, funcName;
 				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data()+10);
 				name = (className + "." + funcName).str();
 			}
-			else if (imported->empty() && !TypeSupport::isClientGlobal(imported))
+			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
 				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 			else if (imported->arg_size() == 0)
 				name = namegen.getName(imported);
@@ -5656,14 +5656,14 @@ void CheerpWriter::makeJS()
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
 			std::string name;
-			if (imported->empty() && TypeSupport::isClientGlobal(imported))
+			if (imported->empty() && TypeSupport::isClientFunc(imported))
 			{
 				assert(imported->hasFnAttribute(Attribute::Static) && "Only static client functions can be imported");
 				StringRef className, funcName;
 				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data()+10);
 				name = (className + "." + funcName).str();
 			}
-			else if (imported->empty() && !TypeSupport::isClientGlobal(imported))
+			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
 				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 			else if (imported->arg_size() == 0)
 				name = namegen.getName(imported);

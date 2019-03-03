@@ -142,9 +142,24 @@ public:
 
 	static bool isDerivedStructType(llvm::StructType* derivedType, llvm::StructType* baseType);
 
-	static bool isClientGlobal(const llvm::Value * v)
+	static bool isClientGlobal(const llvm::GlobalVariable * v)
 	{
 		return v->getName().startswith("_ZN6client");
+	}
+
+	static bool isClientFuncName(llvm::StringRef ident)
+	{
+		return ident.startswith("_ZN6client") || ident.startswith("_ZNK6client");
+	}
+
+	static bool isClientFunc(const llvm::Function * v)
+	{
+		return isClientFuncName(v->getName());
+	}
+
+	static bool isClientConstructorName(llvm::StringRef ident)
+	{
+		return ident.startswith("cheerpCreate_ZN6client");
 	}
 
 	static bool isClientType(llvm::Type* t)
