@@ -319,6 +319,13 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 				++sourceCandidate;
 				continue;
 			}
+			BasicBlock* sourceBlock = sourceAlloca->getParent();
+			BasicBlock* targetBlock = targetAlloca->getParent();
+			if(sourceBlock != targetBlock && !DT->dominates(sourceBlock, targetBlock) && !DT->dominates(targetBlock, sourceBlock))
+			{
+				++sourceCandidate;
+				continue;
+			}
 			// We can merge the source and the target
 			// If the set is empty add the target as well
 			if(arraysToMerge.empty())
