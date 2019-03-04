@@ -896,7 +896,7 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 	{
 		Instruction* userI=cast<Instruction>(U->getUser());
 		// Skip instruction which only touch the pointer and not the actual memory
-		if(isa<BitCastInst>(userI) || isa<GetElementPtrInst>(userI))
+		if(isa<BitCastInst>(userI) || isa<GetElementPtrInst>(userI) || isa<IntrinsicInst>(userI))
 			continue;
 		ret.insert(userI);
 	}
