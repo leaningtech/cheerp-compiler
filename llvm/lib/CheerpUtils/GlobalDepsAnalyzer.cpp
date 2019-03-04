@@ -39,10 +39,10 @@ const char* GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool resolveAliases) : ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
+GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass) : ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	hasPointerArrays(false), hasAsmJS(false),
-	resolveAliases(resolveAliases), delayPrintf(true),
+	llcPass(llcPass), delayPrintf(true),
 	hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
@@ -795,7 +795,7 @@ llvm::StructType* GlobalDepsAnalyzer::needsDowncastArray(llvm::StructType* t) co
 void GlobalDepsAnalyzer::logUndefinedSymbol(const GlobalValue* GV)
 {
 	// Only emit errors during the final compilation step
-	if(!resolveAliases)
+	if(!llcPass)
 		return;
 	if(StrictLinking == "warning")
 		llvm::errs() << "warning: symbol not defined " << GV->getName() << "\n";
@@ -858,7 +858,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		
 		if ( isReachable(GA) )
 		{
-			if (!resolveAliases)
+			if (!llcPass)
 				continue;
 			// Replace the alias with the actual value
 			GA->replaceAllUsesWith( GA->getAliasee() );
