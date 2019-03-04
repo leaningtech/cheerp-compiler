@@ -1141,7 +1141,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	if(const StoreInst* SI=dyn_cast<StoreInst>(v))
 	{
 		assert(SI->getValueOperand()->getType()->isPointerTy());
-		PointerConstantOffsetWrapper& o = visitValue(ret, SI->getValueOperand(), false);
+		PointerConstantOffsetWrapper& o = visitValue(ret, SI->getValueOperand(), true);
 
 		if (TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 		{
