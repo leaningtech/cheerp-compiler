@@ -44,10 +44,8 @@ public:
 	static char ID;
 	typedef llvm::SmallVector<const llvm::Use *, 8> SubExprVec;
 	typedef std::unordered_multimap< const llvm::GlobalVariable *, SubExprVec > FixupMap;
-	/**
-	 * Run the filter. Notice that it does not modify the module.
-	 */
-	GlobalDepsAnalyzer(MATH_MODE mathMode = NO_BUILTINS, bool resolveAliases = false);
+
+	GlobalDepsAnalyzer(MATH_MODE mathMode = NO_BUILTINS, bool llcPass = false);
 	
 	/**
 	 * Determine if a given global value is reachable
@@ -234,7 +232,7 @@ private:
 	bool hasPointerArrays;
 	bool hasAsmJS;
 
-	bool resolveAliases;
+	bool llcPass;
 	bool delayPrintf;
 	bool hasUndefinedSymbolErrors;
 public:
@@ -250,9 +248,9 @@ public:
 	void visitDynSizedAlloca( llvm::Type* pointedType );
 };
 
-inline llvm::Pass * createGlobalDepsAnalyzerPass(GlobalDepsAnalyzer::MATH_MODE mathMode, bool resolveAliases)
+inline llvm::Pass * createGlobalDepsAnalyzerPass(GlobalDepsAnalyzer::MATH_MODE mathMode, bool llcPass)
 {
-	return new GlobalDepsAnalyzer(mathMode, resolveAliases);
+	return new GlobalDepsAnalyzer(mathMode, llcPass);
 }
 
 }
