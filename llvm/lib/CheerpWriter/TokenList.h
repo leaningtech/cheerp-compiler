@@ -32,18 +32,18 @@ public:
 	friend class TokenList;
 
 	enum TokenKind {
-		TK_BasicBlock,
-		TK_Loop,
-		TK_Block,
-		TK_If,
-		TK_IfNot,
-		TK_Else,
-		TK_Switch,
-		TK_Case,
-		TK_Branch,
-		TK_End,
-		TK_Prologue,
-		TK_Invalid,
+		TK_Invalid = 0,
+		TK_BasicBlock = 1,
+		TK_Loop = 2,
+		TK_Block = 4,
+		TK_If = 8,
+		TK_IfNot = 16,
+		TK_Else = 32,
+		TK_Switch = 64,
+		TK_Case = 128,
+		TK_Branch = 256,
+		TK_End = 512,
+		TK_Prologue = 1024,
 	};
 private:
 	TokenKind Kind;
