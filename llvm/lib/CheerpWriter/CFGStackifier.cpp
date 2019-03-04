@@ -738,10 +738,17 @@ void TokenListOptimizer::removeEmptyBasicBlocks()
 {
 	for_each_kind<Token::TK_BasicBlock>([&](Token* BBT, Token*)
 	{
-		const BasicBlock* BB = BBT->getBB();
-
-		const Instruction* FirstNonPHI = BB->getFirstNonPHI();
-		if (isa<BranchInst>(FirstNonPHI) || isa<SwitchInst>(FirstNonPHI))
+		// If there are only PHIs and a branch or switch as terminator, the block
+		// is empty
+		BasicBlock::const_iterator It = BBT->getBB()->begin();
+		while(const PHINode* PHI = dyn_cast<PHINode>(It))
+		{
+			// Delayed PHIs are rendered in their parent block
+			if (CheerpWriter::canDelayPHI(PHI, PA, R))
+				return;
+			It++;
+		}
+		if (isa<BranchInst>(It) || isa<SwitchInst>(It))
 		{
 			Tokens.erase(BBT);
 		}
