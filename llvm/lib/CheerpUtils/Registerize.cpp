@@ -896,8 +896,13 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 	{
 		Instruction* userI=cast<Instruction>(U->getUser());
 		// Skip instruction which only touch the pointer and not the actual memory
-		if(isa<BitCastInst>(userI) || isa<GetElementPtrInst>(userI) || isa<IntrinsicInst>(userI))
+		if(isa<BitCastInst>(userI) || isa<GetElementPtrInst>(userI))
 			continue;
+		if(IntrinsicInst* II = dyn_cast<IntrinsicInst>(userI))
+		{
+			if(II->getIntrinsicID() == Intrinsic::lifetime_start || II->getIntrinsicID() == Intrinsic::lifetime_end)
+				continue;
+		}
 		ret.insert(userI);
 	}
 	return ret;

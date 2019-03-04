@@ -88,7 +88,22 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	// If this happen the instruction may have been hoisted outside a loop and we want to keep it there
 	auto isUserInOtherBlock = [](const Instruction& I)
 	{
-		return !I.use_empty() && cast<Instruction>(I.use_begin()->getUser())->getParent()!=I.getParent();
+		// We should get here only if there is just 1 user
+		if(I.use_empty())
+			return false;
+		// Easy case, is the user is in the same block as I?
+		const Instruction* userInst = cast<Instruction>(I.use_begin()->getUser());
+		const BasicBlock* userBlock = userInst->getParent();
+		if(userBlock==I.getParent())
+			return false;
+		// Also allow PHIs in immediately following blocks
+		if(const PHINode* phi = dyn_cast<PHINode>(userInst))
+		{
+			const BasicBlock* incomingBlock = phi->getIncomingBlock(*I.use_begin());
+			if(incomingBlock==I.getParent())
+				return false;
+		}
+		return true;
 	};
 	// On wasm it is efficient to inline constant geps, but only if the offset is positve
 	// NOTE: This only checks the first index as an approximation, we would need DataLayout
