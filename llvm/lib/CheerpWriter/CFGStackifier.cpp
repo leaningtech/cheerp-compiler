@@ -967,11 +967,33 @@ void TokenListRenderer::render()
 				break;
 			}
 			case Token::TK_If:
-				ri.renderIfBlockBegin(T.getBB(), 0, true);
-				break;
 			case Token::TK_IfNot:
-				ri.renderIfBlockBegin(T.getBB(), std::vector<int>{0}, true);
+			{
+				bool IfNot = T.getKind() == Token::TK_IfNot;
+				const Token* Branch = T.getNextNode();
+				const Token* End = Branch->getNextNode();
+				if (Branch->getKind() == Token::TK_Branch
+					&& T.getMatch() == End)
+				{
+					const Token* LabelToken = Branch->getMatch();
+					bool isBreak = false;
+					if (LabelToken->getKind() == Token::TK_End)
+					{
+						LabelToken = LabelToken->getMatch();
+						isBreak = true;
+					}
+					auto LabelIt = Labels.find(LabelToken);
+					int label = LabelIt != Labels.end() ? LabelIt->second : 0;
+					ri.renderBrIf(T.getBB(), IfNot, isBreak, label);
+					it++;
+					it++;
+				}
+				else if (IfNot)
+					ri.renderIfBlockBegin(T.getBB(), std::vector<int>{0}, true);
+				else
+					ri.renderIfBlockBegin(T.getBB(), 0, true);
 				break;
+			}
 			case Token::TK_Else:
 				ri.renderElseBlockBegin();
 				break;

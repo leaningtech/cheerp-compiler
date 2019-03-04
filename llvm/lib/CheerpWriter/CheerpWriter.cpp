@@ -55,6 +55,8 @@ public:
 	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int label);
 	void renderBrTable(const llvm::SwitchInst* switchInst,
 		const std::vector<std::pair<int, int>>& cases, int label);
+	void renderBrIf(const llvm::BasicBlock* condBlock, bool invertCond,
+		bool isBreak, int labelId = 0);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first, int labelId = 0);
@@ -4435,6 +4437,27 @@ void CheerpRenderInterface::renderBrTable(const llvm::SwitchInst* si,
 	writer->stream << '}' << NewLine;
 }
 
+void CheerpRenderInterface::renderBrIf(const llvm::BasicBlock* condBlock,
+	bool invertCond, bool isBreak, int labelId)
+{
+	writer->stream << "if(";
+	renderCondition(condBlock, 0, CheerpWriter::LOWEST, invertCond);
+	writer->stream << ")";
+	if (isBreak)
+	{
+		if (labelId <= 0 )
+			renderBreak();
+		else
+			renderBreak(labelId);
+	}
+	else
+	{
+		if (labelId <= 0 )
+			renderContinue();
+		else
+			renderContinue(labelId);
+	}
+}
 void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
 {
 	writer->compileBB(*bb);
