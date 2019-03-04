@@ -834,10 +834,12 @@ void Registerize::RegisterAllocatorInst::buildFriendsSingle(const uint32_t phi, 
 
 std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve(const uint32_t iterations)
 {
-	//TODO: try to split the problem first
+	if (splitDominated())
+		return retColors;
+	//TODO: find other splits
 
 	IterationsCounter counter(iterations);
-	std::vector <uint32_t> colors = iterativeDeepening(counter);
+	const std::vector <uint32_t> colors = iterativeDeepening(counter);
 #ifdef REGISTERIZE_DEBUG
 	llvm::errs() << computeScore(colors) <<"\t" << computeNumberOfColors(colors)<<"\t\t"<< colors.size() << "\t" ;
 	for (uint32_t i=0; i<4; i++)

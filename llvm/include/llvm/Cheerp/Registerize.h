@@ -377,7 +377,7 @@ private:
 		{
 		public:
 			RegisterizeSubSolution(const uint32_t N)
-				: N(N), parent(N), constraints(N, llvm::BitVector(N, true))
+				: N(N), parent(N), constraints(N, llvm::BitVector(N, true)), friends(N)
 			{
 				for (uint32_t i=0; i<N; i++)
 				{
@@ -385,6 +385,7 @@ private:
 					constraints[i].reset(i);
 				}
 			}
+			bool splitDominated();
 			void dump()
 			{
 				for (uint32_t i=0; i<N; i++)
@@ -602,11 +603,18 @@ private:
 			}
 			void addFriendship(uint32_t weight, uint32_t a, uint32_t b)
 			{
+				if (a == b)
+					return;
 				//TODO: sort again Friendship after they have been added
 				assert(a < N && b < N);
 				friendships.push_back({weight, {a, b}});
 				constraints[a].reset(b);
 				constraints[b].reset(a);
+				if (weight > 0)
+				{
+					friends[a].push_back({b, weight});
+					friends[b].push_back({a, weight});
+				}
 			}
 		private:
 			uint32_t findParent(const uint32_t index) const
@@ -624,8 +632,10 @@ private:
 			}
 			const uint32_t N;
 			std::vector<uint32_t> parent;
+			std::vector<uint32_t> retColors;
 			std::vector<llvm::BitVector> constraints;
 			std::vector<std::pair<uint32_t, std::pair<uint32_t, uint32_t>>> friendships;
+			std::vector<std::vector<std::pair<uint32_t, uint32_t>>> friends;
 		public:
 #ifdef REGISTERIZE_DEBUG
 			enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
@@ -730,7 +740,7 @@ private:
 					return a.first > b.first;
 				});
 		}
-		bool isSubset(const llvm::BitVector& A, const llvm::BitVector& B)
+		static bool isSubset(const llvm::BitVector& A, const llvm::BitVector& B)
 		{
 			assert(A.size() == B.size());
 			for (uint32_t i = 0; i<A.size(); i++)
