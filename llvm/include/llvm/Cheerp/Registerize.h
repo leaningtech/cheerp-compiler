@@ -386,30 +386,6 @@ private:
 				}
 				times = 100;
 			}
-		private:
-			struct HopcroftTarjanData
-			{
-				HopcroftTarjanData(const RegisterizeSubSolution& subsolution)
-					: sol(subsolution), visited(sol.N, false), depth(sol.N, 0), low(sol.N, 0), articulationPoints(0), parent(sol.N, sol.N)
-				{
-				}
-				const RegisterizeSubSolution& sol;
-				std::vector<bool> visited;
-				std::vector<uint32_t> depth;
-				std::vector<uint32_t> low;
-				std::vector<uint32_t> articulationPoints;
-				std::vector<uint32_t> parent;
-				void visit(const uint32_t i, const uint32_t d);
-			};
-			std::vector<uint32_t> getArticulationPoints() const;
-			void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint = -1) const;
-			bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
-			bool removeDominatedRows();
-			bool splitBetweenArticulationPoints();
-			bool splitConflicting(const bool conflicting);
-			void unifyFriendships();
-			bool friendshipsInvariantsHolds() const;
-			bool friendInvariantsHolds() const;
 		public:
 			void dump()
 			{
@@ -590,6 +566,7 @@ private:
 			}
 			std::vector<uint32_t> iterativeDeepening(IterationsCounter& counter);
 			std::vector<uint32_t> solve();
+		private:
 			std::vector<uint32_t> assignGreedily() const;
 			static uint32_t computeNumberOfColors(const std::vector<uint32_t>& coloring)
 			{
@@ -641,6 +618,7 @@ private:
 				}
 				return colors;
 			}
+		public:
 			void addFriendship(uint32_t weight, uint32_t a, uint32_t b)
 			{
 				if (a == b)
@@ -657,6 +635,31 @@ private:
 				}
 			}
 		private:
+			struct HopcroftTarjanData
+			{
+				HopcroftTarjanData(const RegisterizeSubSolution& subsolution)
+					: sol(subsolution), visited(sol.N, false), depth(sol.N, 0), low(sol.N, 0), articulationPoints(0), parent(sol.N, sol.N)
+				{
+				}
+				const RegisterizeSubSolution& sol;
+				std::vector<bool> visited;
+				std::vector<uint32_t> depth;
+				std::vector<uint32_t> low;
+				std::vector<uint32_t> articulationPoints;
+				std::vector<uint32_t> parent;
+				void visit(const uint32_t i, const uint32_t d);
+			};
+			std::vector<uint32_t> getArticulationPoints() const;
+			void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint = -1) const;
+			bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
+			bool removeDominatedRows();
+			bool removeRowsWithFewConstraints();
+			uint32_t lowerBoundOnNumberOfColor() const;
+			bool splitBetweenArticulationPoints();
+			bool splitConflicting(const bool conflicting);
+			void unifyFriendships();
+			bool friendshipsInvariantsHolds() const;
+			bool friendInvariantsHolds() const;
 			uint32_t findParent(const uint32_t index) const
 			{
 				//TODO possibly implement shortening
