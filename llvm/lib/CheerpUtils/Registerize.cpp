@@ -930,7 +930,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 	return true;
 }
 
-void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting) const
+void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint) const
 {
 	assert(regions[start] == start);
 
@@ -948,8 +948,11 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::floodFill(std::
 			{
 				if (conflicting != constraints[x][i])
 				{
-					regions[i] = start;
-					toProcess.push_back(i);
+					if (i != articulationPoint)
+					{
+						regions[i] = start;
+						toProcess.push_back(i);
+					}
 				}
 			}
 		}
@@ -960,14 +963,196 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::floodFill(std::
 				uint32_t i = f.first;
 				assert(i != x);
 				assert(regions[i] == i || regions[i] == start);
-				if (i != x && regions[i] == i)
+				assert(!constraints[x][i]);
+				if (regions[i] == i)
 				{
-					regions[i] = start;
-					toProcess.push_back(i);
+					if (i != articulationPoint)
+					{
+						regions[i] = start;
+						toProcess.push_back(i);
+					}
 				}
 			}
 		}
 	}
+}
+
+void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::HopcroftTarjanData::visit(const uint32_t i, const uint32_t d)
+{
+	//Tarjan-Hopcroft linear algorithm, see for example https://en.wikipedia.org/wiki/Biconnected_component
+	assert(!visited[i]);
+	visited[i] = true;
+	depth[i] = d;
+	low[i] = d;
+	bool isArticulation = false;
+
+	std::vector<uint32_t> children;
+
+	for (uint32_t j=0; j<sol.N; j++)
+	{
+		if (j!=i && sol.constraints[i][j])
+		{
+			children.push_back(j);
+		}
+	}
+	for (const std::pair<uint32_t, uint32_t>& f : sol.friends[i])
+	{
+		assert(f.first != i);
+		assert(f.first < sol.N);
+		children.push_back(f.first);
+	}
+
+	for (uint32_t j : children)
+	{
+		if (!visited[j])
+		{
+			parent[j] = i;
+			visit(j, d+1);
+			if (low[j] >= depth[i])
+				isArticulation = true;
+			low[i] = std::min(low[i], low[j]);
+		}
+		else if (j != parent[i])
+		{
+			low[i] = std::min(low[i], depth[j]);
+		}
+	}
+	if ((parent[i] < sol.N && isArticulation) || (parent[i] == sol.N && children.size() > 1))
+		articulationPoints.push_back(i);
+}
+
+std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::getArticulationPoints() const
+{
+	//Tarjan-Hopcroft linear algorithm, see for example https://en.wikipedia.org/wiki/Biconnected_component
+	HopcroftTarjanData data(*this);
+
+	data.visit(0, 0);
+
+	return data.articulationPoints;
+}
+
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArticulationPoints()
+{
+	std::vector<uint32_t> articulations = getArticulationPoints();
+
+	if (articulations.empty())
+		return false;
+
+	for (uint32_t i=0; i<N; i++)
+	{
+		assert(isAlive(i));
+	}
+
+	uint32_t splitNode = N;
+	std::vector<uint32_t> seeds;
+	std::vector<uint32_t> A, B, C;
+
+	for (uint32_t split : articulations)
+	{
+		std::vector<uint32_t> regions = parent;
+		uint32_t firstUnused = 0;
+		A = std::vector<uint32_t> (N);
+		B = std::vector<uint32_t> (N, 0);
+		C = std::vector<uint32_t> (N, 0);
+
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (regions[i] == i && i != split)
+			{
+				floodFill(regions, i, false, split);
+				A[i] = firstUnused++;
+			}
+		}
+
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (i == split)
+				continue;
+			A[i] = A[regions[i]];
+			B[i] = ++C[regions[i]];
+		}
+
+		seeds.clear();
+
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (C[i] > 0 && C[i]< N)
+			{
+				seeds.push_back(i);
+			}
+		}
+
+		if (seeds.size() <= 1)
+			continue;
+		splitNode = split;
+		break;
+	}
+
+	if (splitNode == N || seeds.size() < 2)
+		return false;
+
+#ifdef REGISTERIZE_DEBUG_MINIMAL
+	llvm::errs() << "Split on node " << splitNode << ":\t";
+	for (auto s : seeds)
+	{
+		llvm::errs() << C[s]+1 << " ";
+	}
+	llvm::errs() << "\n";
+#endif
+
+	std::vector<RegisterizeSubSolution> subproblems;
+	subproblems.reserve(seeds.size());
+
+	for (auto s : seeds)
+	{
+		subproblems.push_back(RegisterizeSubSolution(C[s]+1));
+	}
+
+	for (auto F : friendships)
+	{
+		const uint32_t a = F.second.first;
+		const uint32_t b = F.second.second;
+		if (a == splitNode || b == splitNode)
+		{
+			const uint32_t other = a + b - splitNode;
+			subproblems[A[other]].addFriendship(F.first, B[other], 0);
+		}
+		else
+		{
+			assert(F.first == 0 || A[a] == A[b]);
+			if (A[a] == A[b])
+				subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
+		}
+	}
+
+	std::vector<std::vector<uint32_t>> solutions;
+	for (RegisterizeSubSolution& sub : subproblems)
+	{
+		uint32_t times = 100;
+		std::vector<uint32_t> subcolors = sub.solve(times);
+
+		const uint32_t K = subcolors[0];
+
+		for (uint32_t& c : subcolors)
+		{
+			if (c == 0)
+				c = K;
+			else if (c == K)
+				c = 0;
+		}
+
+		solutions.push_back(subcolors);
+	}
+
+	retColors.resize(N, 0);
+	for (uint32_t i = 0; i<N; i++)
+	{
+		if (i == splitNode)
+			continue;
+		retColors[i] = solutions[A[i]][B[i]];
+	}
+
+	return true;
 }
 
 bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflicting(const bool conflicting)
@@ -1064,6 +1249,9 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 
 std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve(const uint32_t iterations)
 {
+	if (N == 0)
+		return std::vector<uint32_t>();
+
 	if (splitConflicting(true))
 		return retColors;
 
@@ -1073,6 +1261,12 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	if (removeDominatedRows())
 		return retColors;
 
+	if (splitBetweenArticulationPoints())
+		return retColors;
+
+	getArticulationPoints();
+	//TODO: find what was the 4th reduction
+	//TODO: introduce state as not redo unnecessary computations (eg after splitConflicting(true), there is no need to run it again, only certain optimizations require to re-run on the whole)
 
 	IterationsCounter counter(iterations);
 	const std::vector <uint32_t> colors = iterativeDeepening(counter);
