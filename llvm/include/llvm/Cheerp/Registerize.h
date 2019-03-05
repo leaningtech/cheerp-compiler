@@ -387,6 +387,7 @@ private:
 			}
 		private:
 			void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting) const;
+			bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
 			bool removeDominatedRows();
 			bool splitConflicting(const bool conflicting);
 		public:

@@ -832,6 +832,36 @@ void Registerize::RegisterAllocatorInst::buildFriendsSingle(const uint32_t phi, 
 	}
 }
 
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::isDominatingFriend(const uint32_t a, const uint32_t b) const
+{
+	std::vector<std::pair<uint32_t, uint32_t>> F = friends[a];
+	if (F.size() == 0)
+		return true;
+	uint32_t index = F.size();
+	uint32_t sum = 0;
+	for (uint32_t i=0; i<F.size(); i++)
+	{
+		if (F[i].first == b)
+			index = i;
+		sum += F[i].second;
+	}
+	if (index == F.size())
+		return false;
+	if (F.size() == 1)
+		return true;
+	if (F.size() == 2 && F[index].second *2 >= sum)
+		return true;
+
+	sort(F.begin(), F.end(), [](const std::pair<uint32_t, uint32_t>& first, const std::pair<uint32_t, uint32_t>& second) -> bool
+			{
+				return first.second > second.second;
+			}
+			);
+	if (F[0].first != b)
+		return false;
+	return F[0].second*2 >= sum;
+}
+
 bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominatedRows()
 {
 	uint32_t currentMod;
@@ -845,8 +875,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 			{
 				if (i != j && isAlive(j) && !constraints[i][j] && isSubset(constraints[j], constraints[i]) )
 				{
-					if (friends[j].size() == 0 ||
-						(friends[j].size() == 1 && friends[j].front().first == i))
+					if (isDominatingFriend(i, j))
 					{
 						parent[j] = i;
 						++currentMod;
