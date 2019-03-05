@@ -406,7 +406,6 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 
 	RegisterAllocatorInst R(F, instIdMap, liveRanges, PA, this);
 	R.solve();
-	R.processEnd();
 
 	llvm::SmallVector<RegisterRange, 4> registers;
 	R.materializeRegisters(registers);
@@ -913,8 +912,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 		subsolution.addFriendship(F.first, index[a], index[b]);
 	}
 
-	uint32_t times = 100;
-	std::vector<uint32_t> subcolors = subsolution.solve(times);
+	std::vector<uint32_t> subcolors = subsolution.solve();
 
 	retColors.resize(N);
 	for (uint32_t i = 0; i<alive.size(); i++)
@@ -1128,8 +1126,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArt
 	std::vector<std::vector<uint32_t>> solutions;
 	for (RegisterizeSubSolution& sub : subproblems)
 	{
-		uint32_t times = 100;
-		std::vector<uint32_t> subcolors = sub.solve(times);
+		std::vector<uint32_t> subcolors = sub.solve();
 
 		const uint32_t K = subcolors[0];
 
@@ -1230,8 +1227,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 	std::vector<uint32_t> toAdd(1, 0);
 	for (RegisterizeSubSolution& sub : subproblems)
 	{
-		uint32_t times = 100;
-		std::vector<uint32_t> subcolors = sub.solve(times);
+		std::vector<uint32_t> subcolors = sub.solve();
 		solutions.push_back(subcolors);
 		toAdd.push_back(toAdd.back());
 		if (conflicting)
@@ -1247,7 +1243,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 	return true;
 }
 
-std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve(const uint32_t iterations)
+std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve()
 {
 	if (N == 0)
 		return std::vector<uint32_t>();
@@ -1264,21 +1260,22 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	if (splitBetweenArticulationPoints())
 		return retColors;
 
-	getArticulationPoints();
-	//TODO: find what was the 4th reduction
+	//TODO: there are other possible reductions? (at some point I remember having found one)
 	//TODO: introduce state as not redo unnecessary computations (eg after splitConflicting(true), there is no need to run it again, only certain optimizations require to re-run on the whole)
 
-	IterationsCounter counter(iterations);
+	IterationsCounter counter(times);
 	const std::vector <uint32_t> colors = iterativeDeepening(counter);
 #ifdef REGISTERIZE_DEBUG
-	llvm::errs() << computeScore(colors) <<"\t" << computeNumberOfColors(colors)<<"\t\t"<< colors.size() << "\t" ;
-	for (uint32_t i=0; i<4; i++)
+	if (colors.size() > 1)
 	{
-		llvm::errs () << debugStats[i] << "\t";
+		llvm::errs() << "Solving subproblem of size\t" << colors.size() << ":\t(score/colors/iterations)\t"; 
+		llvm::errs() << computeScore(colors) <<"\t" << computeNumberOfColors(colors)<<"\t\t";
+		for (uint32_t i=0; i<debugStats.size(); i++)
+			llvm::errs () << debugStats[i] << "\t";
+		if (counters.remaining() == 0)
+			llvm::errs() << "\tsearch not exausted";
+		llvm::errs() << "\n";
 	}
-	if (counter.remaining() == 0)
-		llvm::errs() << "\tsearch not exausted";
-	llvm::errs() << "\n";
 #endif
 
 	return colors;
@@ -1286,7 +1283,9 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 
 void Registerize::RegisterAllocatorInst::solve()
 {
-	llvm::errs () << "\n\n";
+#ifdef REGISTERIZE_DEBUG_MINIMAL
+	llvm::errs () << "\n\nSolving function of size " << numInst() << "\n";
+#endif
 	computeBitsetConstraints();
 	RegisterizeSubSolution RSS(numInst());
 	auto KK = getFriendships();
@@ -1296,9 +1295,8 @@ void Registerize::RegisterAllocatorInst::solve()
 	{
 		RSS.addFriendship(x.first, x.second.first, x.second.second);
 	}
-	const uint32_t initial = 100;
-	uint32_t times = initial;
-	auto K = RSS.solve(times);
+
+	auto K = RSS.solve();
 
 
 	for (uint32_t i = 0; i<K.size(); i++) for (uint32_t j=i+1; j<K.size(); j++)

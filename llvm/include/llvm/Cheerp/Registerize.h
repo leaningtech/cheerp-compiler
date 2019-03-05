@@ -384,6 +384,7 @@ private:
 					parent[i] = i;
 					constraints[i].reset(i);
 				}
+				times = 100;
 			}
 		private:
 			struct HopcroftTarjanData
@@ -570,7 +571,7 @@ private:
 				constraints[b].flip(a);
 			}
 			std::vector<uint32_t> iterativeDeepening(IterationsCounter& counter);
-			std::vector<uint32_t> solve(const uint32_t iterations);
+			std::vector<uint32_t> solve();
 			std::vector<uint32_t> assignGreedily() const;
 			static uint32_t computeNumberOfColors(const std::vector<uint32_t>& coloring)
 			{
@@ -662,6 +663,7 @@ private:
 			enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
 			std::array<uint32_t, 4> debugStats{};
 #endif
+			uint32_t times;
 		};
 
 		void solve();
@@ -794,38 +796,6 @@ private:
 				}
 			}
 			return res > 0;
-		}
-		bool eliminateFull()
-		{
-			computeBitsetConstraints();
-			uint32_t res = 0;
-			uint32_t dim = registersNeeded() -1;
-			for (uint32_t i = 0; i< numInst(); i++)
-			{
-				if (!isAlive(i))
-					continue;
-				if (bitsetConstraint[i].count() == dim)
-				{
-					moveToEnd(i);
-					res++;
-				}
-			}
-			return res > 0;
-		}
-		void moveToEnd(const uint32_t a)
-		{
-			shouldBeDoneAtEnding[a] = true;
-			endingMoves.push_back(a);
-		}
-		void processEnd()
-		{
-			while (!endingMoves.empty())
-			{
-				uint32_t top = endingMoves.back();
-				endingMoves.pop_back();
-				shouldBeDoneAtEnding[top] = false;
-				mergeWithMaterialized(top);
-			}
 		}
 		void addFriendship(const uint32_t a, const uint32_t b, const uint32_t weight)
 		{
