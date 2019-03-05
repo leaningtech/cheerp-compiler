@@ -912,6 +912,9 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 		subsolution.addFriendship(F.first, index[a], index[b]);
 	}
 
+	//Merging dominated nodes may generate a double friendship between the same nodes
+	subsolution.unifyFriendships();
+
 	std::vector<uint32_t> subcolors = subsolution.solve();
 
 	retColors.resize(N);
@@ -1126,6 +1129,9 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArt
 	std::vector<std::vector<uint32_t>> solutions;
 	for (RegisterizeSubSolution& sub : subproblems)
 	{
+		//Friends of splitNode could get merged, so run standardization function:
+		sub.unifyFriendships();
+
 		std::vector<uint32_t> subcolors = sub.solve();
 
 		const uint32_t K = subcolors[0];
@@ -1227,6 +1233,9 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 	std::vector<uint32_t> toAdd(1, 0);
 	for (RegisterizeSubSolution& sub : subproblems)
 	{
+		//In the non-conflicting case, friendship have to be possibly unificated
+		if (!conflicting)
+			sub.unifyFriendships();
 		std::vector<uint32_t> subcolors = sub.solve();
 		solutions.push_back(subcolors);
 		toAdd.push_back(toAdd.back());
@@ -1243,10 +1252,131 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 	return true;
 }
 
+void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::unifyFriendships()
+{
+	typedef std::pair<uint32_t, std::pair<uint32_t, uint32_t>> Member;
+
+	sort(friendships.begin(), friendships.end(), [](const Member& a, const Member& b) -> bool
+			{
+				if (a.second.first != b.second.first)
+					return a.second.first < b.second.first;
+				return a.second.second < b.second.second;
+			});
+	uint32_t i = 0, j=0;
+	while (j < friendships.size())
+	{
+		if (i == j)
+			j++;
+		else if (friendships[i].second == friendships[j].second)
+		{
+			friendships[i].first += friendships[j].first;
+			friendships[j].first = -1;
+			j++;
+		}
+		else
+			i=j;
+	}
+	sort(friendships.begin(), friendships.end());
+
+	while (!friendships.empty())
+	{
+		if (friendships.back().first == -1)
+			friendships.pop_back();
+		else
+			break;
+	}
+
+	sort(friendships.rbegin(), friendships.rend());
+
+	typedef std::pair<uint32_t, uint32_t> Pair;
+	for (std::vector<std::pair<uint32_t, uint32_t>> & F : friends)
+	{
+		sort(F.begin(), F.end());
+
+		i = 0;
+		j = 0;
+
+		while (j < F.size())
+		{
+			if (i == j)
+				++j;
+			else if (F[i].first == F[j].first)
+			{
+				F[i].second += F[j].second;
+				F[j].second = 0;
+				++j;
+			}
+			else
+				i=j;
+		}
+
+		sort(F.begin(), F.end(), [](const Pair& a, const Pair& b) -> bool
+			{
+				return a.second > b.second;
+			});
+
+		while (!F.empty())
+		{
+			if (F.back().second == 0)
+				F.pop_back();
+			else
+				break;
+		}
+	}
+}
+
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::friendshipsInvariantsHolds() const
+{
+	for (uint32_t i=1; i<friendships.size(); i++)
+	{
+		if (friendships[i-1].first < friendships[i].first)
+			return false;
+	}
+	std::vector<std::pair<uint32_t, uint32_t>> V;
+	for (auto F : friendships)
+	{
+		V.push_back(F.second);
+	}
+	sort(V.begin(), V.end());
+	for (uint32_t i=1; i<V.size(); i++)
+	{
+		if (V[i-1] == V[i])
+			return false;
+	}
+	return true;
+}
+
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::friendInvariantsHolds() const
+{
+	for (auto F : friends)
+	{
+		for (uint32_t i=1; i<F.size(); i++)
+		{
+			if (F[i-1].second < F[i].second)
+				return false;
+		}
+		std::vector<uint32_t> V;
+		for (auto f : F)
+		{
+			V.push_back(f.first);
+		}
+		sort(V.begin(), V.end());
+		for (uint32_t i=1; i<V.size(); i++)
+		{
+			if (V[i-1] == V[i])
+				return false;
+		}
+	}
+	return true;
+}
+
 std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve()
 {
 	if (N == 0)
 		return std::vector<uint32_t>();
+
+	assert(friendshipsInvariantsHolds());
+	assert(friendInvariantsHolds());
 
 	if (splitConflicting(true))
 		return retColors;
@@ -1260,7 +1390,7 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	if (splitBetweenArticulationPoints())
 		return retColors;
 
-	//TODO: there are other possible reductions? (at some point I remember having found one)
+	//TODO: there are other possible reductions? YES: whether a row has X conflicts and no friendships, and you already know you will need at least X+1 colors, the row can be skipped
 	//TODO: introduce state as not redo unnecessary computations (eg after splitConflicting(true), there is no need to run it again, only certain optimizations require to re-run on the whole)
 
 	IterationsCounter counter(times);
@@ -1275,6 +1405,7 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 		if (counters.remaining() == 0)
 			llvm::errs() << "\tsearch not exausted";
 		llvm::errs() << "\n";
+		dump();
 	}
 #endif
 
@@ -1283,9 +1414,6 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 
 void Registerize::RegisterAllocatorInst::solve()
 {
-#ifdef REGISTERIZE_DEBUG_MINIMAL
-	llvm::errs () << "\n\nSolving function of size " << numInst() << "\n";
-#endif
 	computeBitsetConstraints();
 	RegisterizeSubSolution RSS(numInst());
 	auto KK = getFriendships();
@@ -1295,9 +1423,11 @@ void Registerize::RegisterAllocatorInst::solve()
 	{
 		RSS.addFriendship(x.first, x.second.first, x.second.second);
 	}
+#ifdef REGISTERIZE_DEBUG_MINIMAL
+	llvm::errs () << "\n\nSolving function of size " << numInst() << "\n";
+#endif
 
 	auto K = RSS.solve();
-
 
 	for (uint32_t i = 0; i<K.size(); i++) for (uint32_t j=i+1; j<K.size(); j++)
 	{
