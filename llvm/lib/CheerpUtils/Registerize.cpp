@@ -506,9 +506,12 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 #ifndef NDEBUG
 	RegistersAssigned = false;
 #endif
+
+#ifdef REGISTERIZE_DEBUG_MINIMAL
 	if (originalRegistersSize != registers.size())
 		dbgs() << originalRegistersSize << "\t different than " << registers.size() << "\n";
-//	dbgs() << ".....................\n\n";
+#endif
+
 	// Populate the final register list for the function
 	std::vector<RegisterInfo>& regsInfo = registersForFunctionMap[&F];
 	regsInfo.reserve(registers.size());
@@ -931,6 +934,105 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 	return true;
 }
 
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithFewConstraints()
+{
+	uint32_t cutoff = lowerBoundOnNumberOfColor() - 1;
+
+	std::vector<bool> toBePostProcessed(N, false);
+
+	for (uint32_t i = 0; i<N; i++)
+	{
+		if (!isAlive(i))
+			continue;
+		if (constraints[i].count() < cutoff && friends[i].size() == 0)
+			toBePostProcessed[i] = true;
+	}
+
+	std::vector<uint32_t> alive;
+	std::vector<uint32_t> index(N);
+	uint32_t firstUnused = 0;
+	for (uint32_t i=0; i<N; i++)
+	{
+		if (!toBePostProcessed[i])
+		{
+			alive.push_back(i);
+			index[i] = firstUnused++;
+		}
+	}
+
+	if (alive.size() == N)
+		return false;
+
+#ifdef REGISTERIZE_DEBUG_MINIMAL
+	llvm::errs() << "Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
+#endif
+
+	RegisterizeSubSolution subsolution(alive.size());
+	for (auto F : friendships)
+	{
+		const uint32_t a = F.second.first;
+		const uint32_t b = F.second.second;
+		if (!toBePostProcessed[a] && !toBePostProcessed[b])
+			subsolution.addFriendship(F.first, index[a], index[b]);
+	}
+
+	subsolution.unifyFriendships();
+	std::vector<uint32_t> subcolors = subsolution.solve();
+
+	retColors = std::vector<uint32_t> (N, N);
+	for (uint32_t i = 0; i<alive.size(); i++)
+	{
+		retColors[alive[i]] = subcolors[i];
+	}
+	for (uint32_t i = 0; i<N; i++)
+	{
+		if (toBePostProcessed[i])
+		{
+			std::vector<bool> conflicting(N+1, false);
+			for (uint32_t j=0; j<N; j++)
+			{
+				if (constraints[i][j])
+					conflicting[retColors[j]] = true;
+			}
+			uint32_t& color = retColors[i];
+			color = 0;
+			while (conflicting[color])
+			{
+				color++;
+			}
+		}
+	}
+
+	return true;
+}
+
+uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::lowerBoundOnNumberOfColor() const
+{
+	uint32_t lowerBound = 1;
+	for (uint32_t i=0, j=0; j<N; )
+	{
+		bool allConflicting = true;
+		for (uint32_t k = i; k<j; k++)
+		{
+			if (!constraints[j][k])
+			{
+				allConflicting = false;
+				break;
+			}
+		}
+
+		lowerBound = std::max(lowerBound, j-i);
+		++j;
+
+		if (!allConflicting)
+		{
+			i++;
+			j=i;
+		}
+	}
+	return lowerBound;
+}
+
 void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint) const
 {
 	assert(regions[start] == start);
@@ -1234,8 +1336,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 	for (RegisterizeSubSolution& sub : subproblems)
 	{
 		//In the non-conflicting case, friendship have to be possibly unificated
-		if (!conflicting)
-			sub.unifyFriendships();
+		sub.unifyFriendships();
 		std::vector<uint32_t> subcolors = sub.solve();
 		solutions.push_back(subcolors);
 		toAdd.push_back(toAdd.back());
@@ -1388,6 +1489,9 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 		return retColors;
 
 	if (splitBetweenArticulationPoints())
+		return retColors;
+
+	if (removeRowsWithFewConstraints())
 		return retColors;
 
 	//TODO: there are other possible reductions? YES: whether a row has X conflicts and no friendships, and you already know you will need at least X+1 colors, the row can be skipped
