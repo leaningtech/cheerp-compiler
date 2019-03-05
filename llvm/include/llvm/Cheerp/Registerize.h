@@ -386,9 +386,25 @@ private:
 				}
 			}
 		private:
-			void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting) const;
+			struct HopcroftTarjanData
+			{
+				HopcroftTarjanData(const RegisterizeSubSolution& subsolution)
+					: sol(subsolution), visited(sol.N, false), depth(sol.N, 0), low(sol.N, 0), articulationPoints(0), parent(sol.N, sol.N)
+				{
+				}
+				const RegisterizeSubSolution& sol;
+				std::vector<bool> visited;
+				std::vector<uint32_t> depth;
+				std::vector<uint32_t> low;
+				std::vector<uint32_t> articulationPoints;
+				std::vector<uint32_t> parent;
+				void visit(const uint32_t i, const uint32_t d);
+			};
+			std::vector<uint32_t> getArticulationPoints() const;
+			void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint = -1) const;
 			bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
 			bool removeDominatedRows();
+			bool splitBetweenArticulationPoints();
 			bool splitConflicting(const bool conflicting);
 		public:
 			void dump()
