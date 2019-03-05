@@ -385,7 +385,11 @@ private:
 					constraints[i].reset(i);
 				}
 			}
-			bool splitDominated();
+		private:
+			void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting) const;
+			bool removeDominatedRows();
+			bool splitConflicting(const bool conflicting);
+		public:
 			void dump()
 			{
 				for (uint32_t i=0; i<N; i++)

@@ -832,11 +832,218 @@ void Registerize::RegisterAllocatorInst::buildFriendsSingle(const uint32_t phi, 
 	}
 }
 
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominatedRows()
+{
+	uint32_t currentMod;
+	do {
+		currentMod = 0;
+		for (uint32_t i = 0; i<N; i++)
+		{
+			if (!isAlive(i))
+				continue;
+			for (uint32_t j = 0; j<N; j++)
+			{
+				if (i != j && isAlive(j) && !constraints[i][j] && isSubset(constraints[j], constraints[i]) )
+				{
+					if (friends[j].size() == 0 ||
+						(friends[j].size() == 1 && friends[j].front().first == i))
+					{
+						parent[j] = i;
+						++currentMod;
+						break;
+					}
+				}
+			}
+		}
+	} while (currentMod > 0);
+
+	std::vector<uint32_t> alive;
+	std::vector<uint32_t> index(N);
+	uint32_t firstUnused = 0;
+	for (uint32_t i=0; i<N; i++)
+	{
+		if (isAlive(i))
+		{
+			alive.push_back(i);
+			index[i] = firstUnused++;
+		}
+	}
+
+	if (alive.size() == N)
+		return false;
+
+#ifdef REGISTERIZE_DEBUG_MINIMAL
+	llvm::errs() << "Remove dominated rows:\t"<< N << " -> " << alive.size() << "\n";
+#endif
+
+	RegisterizeSubSolution subsolution(alive.size());
+	for (auto F : friendships)
+	{
+		const uint32_t a = findParent(F.second.first);
+		const uint32_t b = findParent(F.second.second);
+		subsolution.addFriendship(F.first, index[a], index[b]);
+	}
+
+	uint32_t times = 100;
+	std::vector<uint32_t> subcolors = subsolution.solve(times);
+
+	retColors.resize(N);
+	for (uint32_t i = 0; i<alive.size(); i++)
+	{
+		retColors[alive[i]] = subcolors[i];
+	}
+	for (uint32_t i = 0; i<N; i++)
+	{
+		if (!isAlive(i))
+			retColors[i] = retColors[findParent(i)];
+	}
+
+	return true;
+}
+
+void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting) const
+{
+	assert(regions[start] == start);
+
+	std::vector<uint32_t> toProcess;
+	toProcess.push_back(start);
+
+	while (!toProcess.empty())
+	{
+		uint32_t x = toProcess.back();
+		toProcess.pop_back();
+
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (i != x && regions[i] == i)
+			{
+				if (conflicting != constraints[x][i])
+				{
+					regions[i] = start;
+					toProcess.push_back(i);
+				}
+			}
+		}
+		if (!conflicting)
+		{
+			for (auto f : friends[x])
+			{
+				uint32_t i = f.first;
+				assert(i != x);
+				assert(regions[i] == i || regions[i] == start);
+				if (i != x && regions[i] == i)
+				{
+					regions[i] = start;
+					toProcess.push_back(i);
+				}
+			}
+		}
+	}
+}
+
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflicting(const bool conflicting)
+{
+	for (uint32_t i=0; i<N; i++)
+	{
+		assert(isAlive(i));
+	}
+
+	std::vector<uint32_t> regions = parent;
+	std::vector<uint32_t> A(N), B(N);
+	uint32_t firstUnused = 0;
+
+
+	for (uint32_t i=0; i<N; i++)
+	{
+		if (regions[i] == i)
+		{
+			floodFill(regions, i, conflicting);
+			A[i] = firstUnused++;
+		}
+	}
+
+	std::vector<uint32_t> C(N, 0);
+	for (uint32_t i=0; i<N; i++)
+	{
+		A[i] = A[regions[i]];
+		B[i] = C[regions[i]]++;
+	}
+
+	std::vector<uint32_t> seeds;
+
+	for (uint32_t i=0; i<N; i++)
+	{
+		if (C[i] > 0 && C[i]<N)
+		{
+			seeds.push_back(i);
+		}
+	}
+
+	if (seeds.size() == 0)
+		return false;
+
+#ifdef REGISTERIZE_DEBUG_MINIMAL
+	if (conflicting)
+		llvm::errs() << "Split conflicting:\t";
+	else
+		llvm::errs() << "Split unconnected:\t";
+	for (auto s : seeds)
+	{
+		llvm::errs() << C[s] << " ";
+	}
+	llvm::errs() << "\n";
+#endif
+
+
+	std::vector<RegisterizeSubSolution> subproblems;
+	subproblems.reserve(seeds.size());
+
+	for (auto s : seeds)
+	{
+		subproblems.push_back(RegisterizeSubSolution(C[s]));
+	}
+
+	for (auto F : friendships)
+	{
+		const uint32_t a = F.second.first;
+		const uint32_t b = F.second.second;
+		assert(F.first == 0 || A[a] == A[b]);
+		if (A[a] == A[b])
+			subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
+	}
+
+	std::vector<std::vector<uint32_t>> solutions;
+	std::vector<uint32_t> toAdd(1, 0);
+	for (RegisterizeSubSolution& sub : subproblems)
+	{
+		uint32_t times = 100;
+		std::vector<uint32_t> subcolors = sub.solve(times);
+		solutions.push_back(subcolors);
+		toAdd.push_back(toAdd.back());
+		if (conflicting)
+			toAdd.back() += computeNumberOfColors(subcolors);
+	}
+
+	retColors.resize(N);
+	for (uint32_t i = 0; i<N; i++)
+	{
+		retColors[i] = solutions[A[i]][B[i]] + toAdd[A[i]];
+	}
+
+	return true;
+}
+
 std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve(const uint32_t iterations)
 {
-	if (splitDominated())
+	if (splitConflicting(true))
 		return retColors;
-	//TODO: find other splits
+
+	if (splitConflicting(false))
+		return retColors;
+
+	if (removeDominatedRows())
+		return retColors;
+
 
 	IterationsCounter counter(iterations);
 	const std::vector <uint32_t> colors = iterativeDeepening(counter);
@@ -856,6 +1063,7 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 
 void Registerize::RegisterAllocatorInst::solve()
 {
+	llvm::errs () << "\n\n";
 	computeBitsetConstraints();
 	RegisterizeSubSolution RSS(numInst());
 	auto KK = getFriendships();
