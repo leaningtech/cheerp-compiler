@@ -407,6 +407,9 @@ private:
 			bool removeDominatedRows();
 			bool splitBetweenArticulationPoints();
 			bool splitConflicting(const bool conflicting);
+			void unifyFriendships();
+			bool friendshipsInvariantsHolds() const;
+			bool friendInvariantsHolds() const;
 		public:
 			void dump()
 			{
@@ -414,11 +417,26 @@ private:
 				{
 					for (uint32_t j=0; j<N; j++)
 					{
-						llvm::errs() << constraints[i][j];
+						bool isFriend = false;
+						uint32_t C = 0;
+						for (auto f : friends[i])
+						{
+							if (f.first == j)
+							{
+								isFriend = true;
+								C++;
+							}
+						}
+						assert(C<2);
+						if (isFriend)
+							llvm::errs() << "x";
+						else if (constraints[i][j])
+							llvm::errs() << "1";
+						else
+							llvm::errs() << ".";
 					}
 					llvm::errs() << "\n";
 				}
-				llvm::errs () << friendships.size() << "\n";
 			}
 			typedef std::pair<uint32_t, std::vector<uint32_t>> Solution;
 			class IterationsCounter
