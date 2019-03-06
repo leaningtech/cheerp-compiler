@@ -13,7 +13,7 @@
 #define _CHEERP_CFG_STACKIFIER_NEW_H
 
 #include "Relooper.h"
-#include "TokenList.h"
+#include "llvm/Cheerp/TokenList.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -30,7 +30,6 @@ class CFGStackifier
 public:
 	CFGStackifier(const llvm::Function &F, const llvm::LoopInfo& LI,
 		const llvm::DominatorTree& DT, const Registerize& R, const PointerAnalyzer& PA);
-	void render(RenderInterface& ri);
 
 	TokenList Tokens;
 };

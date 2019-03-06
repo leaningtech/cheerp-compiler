@@ -46,11 +46,6 @@ public:
 	virtual void renderSwitchOnLabel(IdShapeMap& idShapeMap) = 0;
 	virtual void renderCaseOnLabel(int labelId) = 0;
 	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, BlockBranchMap& branchesOut) = 0;
-	virtual void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int labelId = 0) = 0;
-	virtual void renderBrTable(const llvm::SwitchInst* switchInst,
-		const std::vector<std::pair<int, int>>& cases, int labelId = 0) = 0;
-	virtual void renderBrIf(const llvm::BasicBlock* condBlock, bool reverseCond,
-		bool isBreak, int labelId = 0) = 0;
 	virtual void renderCaseBlockBegin(const llvm::BasicBlock* caseBlock, int branchId) = 0;
 	virtual void renderDefaultBlockBegin(bool empty = false) = 0;
 	virtual void renderIfBlockBegin(const llvm::BasicBlock* condBlock, int branchId, bool first, int labelId = 0) = 0;
@@ -70,8 +65,6 @@ public:
 	virtual void renderContinue() = 0;
 	virtual void renderContinue(int labelId) = 0;
 	virtual void renderLabel(int labelId) = 0;
-	virtual void renderLoopBlockBegin(int labelId) = 0;
-	virtual void renderLoopBlockEnd() = 0;
 };
 
 // Info about a branching from one block to another
