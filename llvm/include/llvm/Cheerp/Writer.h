@@ -21,6 +21,7 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/TokenList.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
@@ -412,6 +413,8 @@ private:
 
 	void compileMethodLocal(llvm::StringRef name, Registerize::REGISTER_KIND kind);
 	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
+	void compileCondition(const llvm::BasicBlock* BB, bool booleanInvert);
+	void compileTokens(const TokenList& Tokens);
 	void compileMethod(llvm::Function& F);
 	/**
 	 * Helper structure for compiling globals
