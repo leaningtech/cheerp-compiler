@@ -411,7 +411,7 @@ private:
 						else
 							llvm::errs() << ".";
 					}
-					llvm::errs() << "\n";
+					llvm::errs()<<"\t\t"<<constraints[i].count() << "\t"<<friends[i].size() << "\n";
 				}
 			}
 			typedef std::pair<uint32_t, std::vector<uint32_t>> Solution;
@@ -654,6 +654,8 @@ private:
 			bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
 			bool removeDominatedRows();
 			bool removeRowsWithFewConstraints();
+			bool canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const;
+			void addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const;
 			uint32_t lowerBoundOnNumberOfColor() const;
 			bool splitBetweenArticulationPoints();
 			bool splitConflicting(const bool conflicting);
