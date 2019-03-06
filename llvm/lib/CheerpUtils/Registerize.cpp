@@ -700,7 +700,7 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	best.second = getColors(assignGreedily());
 	best.first = computeScore(best.second);
 	uint32_t minimalColors = computeNumberOfColors(best.second);
-
+	minimalColors = lowerBoundOnNumberOfColor();
 	assert(counter.remaining() > 0);
 	uint32_t depth = 0;
 	uint32_t previousDepth = 0;
@@ -944,7 +944,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 	{
 		if (!isAlive(i))
 			continue;
-		if (constraints[i].count() < cutoff && friends[i].size() == 0)
+		if (constraints[i].count() <= cutoff && friends[i].size() == 0)
 			toBePostProcessed[i] = true;
 	}
 
@@ -1006,28 +1006,52 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 	return true;
 }
 
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const
+{
+	if (!unionConstraint[index])
+		return false;
+	llvm::BitVector local = constraints[index];
+	local &= used;
+
+	return local == used;
+}
+void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const
+{
+	assert(canBeAddedToClique(index, unionConstraint, used));
+
+	unionConstraint &= constraints[index];
+	unionConstraint.set(index);
+
+	used.set(index);
+}
+
 uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::lowerBoundOnNumberOfColor() const
 {
 	uint32_t lowerBound = 1;
-	for (uint32_t i=0, j=0; j<N; )
+
+	llvm::BitVector unionConstraint(N, true);
+	llvm::BitVector used(N, false);
+	for (uint32_t i=0, j=0; j<=N; )
 	{
-		bool allConflicting = true;
-		for (uint32_t k = i; k<j; k++)
+		if (j<N && canBeAddedToClique(j, unionConstraint, used))
 		{
-			if (!constraints[j][k])
-			{
-				allConflicting = false;
-				break;
-			}
+			addToClique(j, unionConstraint, used);
+			lowerBound = std::max(lowerBound, used.count());
+			j++;
 		}
-
-		lowerBound = std::max(lowerBound, j-i);
-		++j;
-
-		if (!allConflicting)
+		else
 		{
+			for (uint32_t k=0; k<N; k++)
+			{
+				if (!used[k] && canBeAddedToClique(k, unionConstraint, used))
+					addToClique(k, unionConstraint, used);
+			}
+
+			lowerBound = std::max(lowerBound, used.count());
+			unionConstraint = llvm::BitVector(N, true);
+			used = llvm::BitVector(N, false);
 			i++;
-			j=i;
+			j = i;
 		}
 	}
 	return lowerBound;
@@ -1475,6 +1499,8 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 {
 	if (N == 0)
 		return std::vector<uint32_t>();
+	if (N == 1)
+		return std::vector<uint32_t>(1, 0);
 
 	assert(friendshipsInvariantsHolds());
 	assert(friendInvariantsHolds());
@@ -1503,7 +1529,7 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	if (colors.size() > 1)
 	{
 		llvm::errs() << "Solving subproblem of size\t" << colors.size() << ":\t(score/colors/iterations)\t"; 
-		llvm::errs() << computeScore(colors) <<"\t" << computeNumberOfColors(colors)<<"\t\t";
+		llvm::errs() << computeScore(colors) <<"\t" << lowerBoundOnNumberOfColor() << "/"<<computeNumberOfColors(colors)<<"\t\t";
 		for (uint32_t i=0; i<debugStats.size(); i++)
 			llvm::errs () << debugStats[i] << "\t";
 		if (counters.remaining() == 0)
