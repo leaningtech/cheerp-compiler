@@ -19,6 +19,7 @@
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/TokenList.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/DebugInfo.h"
@@ -124,6 +125,11 @@ private:
 	void compileMethodLocals(WasmBuffer& code, const std::vector<int>& locals);
 	void compileMethodParams(WasmBuffer& code, const llvm::FunctionType* F);
 	void compileMethodResult(WasmBuffer& code, const llvm::Type* F);
+
+	void compileBranchTable(WasmBuffer& code, const llvm::SwitchInst* si,
+		const std::vector<std::pair<int, int>>& cases);
+	void compileCondition(WasmBuffer& code, const llvm::BasicBlock* BB, bool booleanInvert);
+	const llvm::BasicBlock* compileTokens(WasmBuffer& code, const TokenList& Tokens);
 	void compileMethod(WasmBuffer& code, llvm::Function& F);
 	void compileImport(WasmBuffer& code, llvm::StringRef funcName, llvm::FunctionType* FTy);
 	void compileGlobal(const llvm::GlobalVariable& G);
