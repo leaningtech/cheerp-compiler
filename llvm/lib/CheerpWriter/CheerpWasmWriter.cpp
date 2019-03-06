@@ -309,11 +309,6 @@ public:
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
-	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int labelId = 0);
-	void renderBrTable(const llvm::SwitchInst* switchInst,
-		const std::vector<std::pair<int, int>>& cases, int labelId = 0);
-	void renderBrIf(const llvm::BasicBlock* condBlock, bool invertCond,
-		bool isBreak, int labelId = 0);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first, int labelId = 0);
@@ -334,171 +329,7 @@ public:
 	void renderContinue(int labelId);
 	void renderLabel(int labelId);
 	void renderIfOnLabel(int labelId, bool first);
-	void renderLoopBlockBegin(int labelId);
-	void renderLoopBlockEnd();
 };
-
-void CheerpWasmRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* si,
-	const std::vector<int>& cases, int label)
-{
-	const Value* cond = si->getCondition();
-
-	assert(si->getNumCases());
-
-	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
-
-	auto getCaseValue = [](const ConstantInt* c, uint32_t bitWidth) -> int64_t
-	{
-		return bitWidth == 32 ? c->getSExtValue() : c->getZExtValue();
-	};
-
-	llvm::BasicBlock* defaultDest = si->getDefaultDest();
-	int64_t max = std::numeric_limits<int64_t>::min();
-	int64_t min = std::numeric_limits<int64_t>::max();
-	for (auto& c: si->cases())
-	{
-		if (c.getCaseSuccessor() == defaultDest)
-			continue;
-		int64_t curr = getCaseValue(c.getCaseValue(), bitWidth);
-		max = std::max(max, curr);
-		min = std::min(min, curr);
-	}
-
-	// There should be at least one default case and zero or more cases.
-	uint32_t depth = max - min + 1;
-	assert(depth >= 1);
-
-	// Fill the jump table.
-	std::vector<uint32_t> table;
-	table.assign(depth, numeric_limits<uint32_t>::max());
-	uint32_t defaultLabel = numeric_limits<uint32_t>::max();
-
-	uint32_t caseBlocks = 0;
-	std::unordered_map<BasicBlock*, uint32_t> blockLabelMap;
-	for (int i: cases)
-	{
-		BasicBlock* dest = i == -1 ? si->getSuccessor(0) : si->getSuccessor(i);
-		auto it = blockLabelMap.find(dest);
-		if (it == blockLabelMap.end())
-		{
-			it = blockLabelMap.emplace(dest, caseBlocks++).first;
-		}
-		if (i <= 0)
-			defaultLabel = it->second;
-		else
-		{
-			// The value to match for case `i` has index `2*i`
-			auto cv = cast<ConstantInt>(si->getOperand(2*i));
-			table.at(getCaseValue(cv, bitWidth) - min) = it->second;
-		}
-	}
-
-	// Elements that are not set, will jump to the default block.
-	std::replace(table.begin(), table.end(), numeric_limits<uint32_t>::max(), defaultLabel);
-
-	// Print the case blocks.
-	for (uint32_t i = 0; i < caseBlocks; i++)
-		writer->encodeU32Inst(0x02, "block", 0x40, code);
-
-	// Wrap the br_table in its own block
-	writer->encodeU32Inst(0x02, "block", 0x40, code);
-
-	// Print the condition
-	writer->compileOperand(code, si->getCondition());
-	if (min != 0)
-	{
-		writer->encodeS32Inst(0x41, "i32.const", min, code);
-		writer->encodeInst(0x6b, "i32.sub", code);
-	}
-	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
-	{
-		assert(bitWidth < 32);
-		writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
-		writer->encodeInst(0x71, "i32.and", code);
-	}
-
-	// Print the case labels and the default label.
-	writer->encodeBranchTable(code, table, defaultLabel);
-
-	writer->encodeInst(0x0b, "end", code);
-
-	blockTypes.emplace_back(SWITCH, 0, label);
-	blockTypes.emplace_back(CASE, caseBlocks);
-}
-
-void CheerpWasmRenderInterface::renderBrTable(const llvm::SwitchInst* si,
-	const std::vector<std::pair<int, int>>& cases, int)
-{
-	assert(si->getNumCases());
-
-	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
-
-	auto getCaseValue = [](const ConstantInt* c, uint32_t bitWidth) -> int64_t
-	{
-		return bitWidth == 32 ? c->getSExtValue() : c->getZExtValue();
-	};
-
-	llvm::BasicBlock* defaultDest = si->getDefaultDest();
-	int64_t max = std::numeric_limits<int64_t>::min();
-	int64_t min = std::numeric_limits<int64_t>::max();
-	for (auto& c: si->cases())
-	{
-		if (c.getCaseSuccessor() == defaultDest)
-			continue;
-		int64_t curr = getCaseValue(c.getCaseValue(), bitWidth);
-		max = std::max(max, curr);
-		min = std::min(min, curr);
-	}
-
-	// There should be at least one default case and zero or more cases.
-	uint32_t depth = max - min + 1;
-	assert(depth >= 1);
-
-	// Fill the jump table.
-	std::vector<uint32_t> table;
-	table.assign(depth, numeric_limits<uint32_t>::max());
-	uint32_t defaultLabel = numeric_limits<uint32_t>::max();
-
-	for (auto c: cases)
-	{
-		if (c.first == 0)
-			defaultLabel = findIndexFromLabel(c.second);
-		else
-		{
-			// The value to match for case `i` has index `2*i`
-			auto cv = cast<ConstantInt>(si->getOperand(2*c.first));
-			table.at(getCaseValue(cv, bitWidth) - min) = findIndexFromLabel(c.second);
-		}
-	}
-
-	// Elements that are not set, will jump to the default block.
-	std::replace(table.begin(), table.end(), numeric_limits<uint32_t>::max(), defaultLabel);
-
-	// Print the condition
-	writer->compileOperand(code, si->getCondition());
-	if (min != 0)
-	{
-		writer->encodeS32Inst(0x41, "i32.const", min, code);
-		writer->encodeInst(0x6b, "i32.sub", code);
-	}
-	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
-	{
-		assert(bitWidth < 32);
-		writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
-		writer->encodeInst(0x71, "i32.and", code);
-	}
-
-	// Print the case labels and the default label.
-	writer->encodeBranchTable(code, table, defaultLabel);
-}
-
-void CheerpWasmRenderInterface::renderBrIf(const llvm::BasicBlock* condBlock,
-	bool invertCond, bool, int labelId)
-{
-	renderCondition(condBlock, {0}, invertCond ? InvertCondition : NormalCondition);
-	int breakIndex = labelId <= 0 ? findClosestBlockIndex() : findIndexFromLabel(labelId);
-	writer->encodeU32Inst(0x0d, "br_if", breakIndex, code);
-}
 
 void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
 {
@@ -1112,22 +943,6 @@ void CheerpWasmRenderInterface::renderIfOnLabel(int labelId, bool first)
 	indent();
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	blockTypes.emplace_back(IF, 1);
-}
-
-void CheerpWasmRenderInterface::renderLoopBlockBegin(int labelId)
-{
-	indent();
-	writer->encodeU32Inst(0x03, "loop", 0x40, code);
-	blockTypes.emplace_back(LOOP, 1, labelId);
-}
-
-void CheerpWasmRenderInterface::renderLoopBlockEnd()
-{
-	assert(!blockTypes.empty());
-	BlockType block = blockTypes.back();
-	assert(block.type == LOOP);
-	blockTypes.pop_back();
-	writer->encodeInst(0x0b, "end", code);
 }
 
 void CheerpWasmWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer& code)
@@ -3011,6 +2826,256 @@ void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 	}
 }
 
+void CheerpWasmWriter::compileCondition(WasmBuffer& code, const BasicBlock* BB, bool booleanInvert)
+{
+	const TerminatorInst* term = BB->getTerminator();
+	assert(isa<BranchInst>(term));
+	const BranchInst* bi=cast<BranchInst>(term);
+	assert(bi->isConditional());
+
+	const Value* cond = bi->getCondition();
+	bool canInvertCond = isa<Instruction>(cond) && isInlineable(*cast<Instruction>(cond), PA);
+
+	if(canInvertCond && isa<ICmpInst>(cond))
+	{
+		const ICmpInst* ci = cast<ICmpInst>(cond);
+		CmpInst::Predicate p = ci->getPredicate();
+		if(booleanInvert)
+			p = CmpInst::getInversePredicate(p);
+		// Optimize "if (a != 0)" to "if (a)" and "if (a == 0)" to "if (!a)".
+		if ((p == CmpInst::ICMP_NE || p == CmpInst::ICMP_EQ) &&
+				isa<Constant>(ci->getOperand(1)) &&
+				cast<Constant>(ci->getOperand(1))->isNullValue())
+		{
+			if(ci->getOperand(0)->getType()->isPointerTy())
+				compileOperand(code, ci->getOperand(0));
+			else if(ci->getOperand(0)->getType()->isIntegerTy(32))
+				compileSignedInteger(code, ci->getOperand(0), /*forComparison*/true);
+			else
+				compileUnsignedInteger(code, ci->getOperand(0));
+			if(p == CmpInst::ICMP_EQ)
+				encodeInst(0x45, "i32.eqz", code);
+			return;
+		}
+		compileICmp(*ci, p, code);
+	}
+	else if(canInvertCond && isa<FCmpInst>(cond))
+	{
+		const CmpInst* ci = cast<CmpInst>(cond);
+		CmpInst::Predicate p = ci->getPredicate();
+		if(booleanInvert)
+			p = CmpInst::getInversePredicate(p);
+		compileFCmp(ci->getOperand(0), ci->getOperand(1), p, code);
+	}
+	else
+	{
+		compileOperand(code, bi->getCondition());
+		if (booleanInvert) {
+			// Invert result
+			encodeInst(0x45, "i32.eqz", code);
+		}
+	}
+}
+
+void CheerpWasmWriter::compileBranchTable(WasmBuffer& code, const llvm::SwitchInst* si,
+	const std::vector<std::pair<int, int>>& cases)
+{
+	assert(si->getNumCases());
+
+	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
+
+	auto getCaseValue = [](const ConstantInt* c, uint32_t bitWidth) -> int64_t
+	{
+		return bitWidth == 32 ? c->getSExtValue() : c->getZExtValue();
+	};
+
+	llvm::BasicBlock* defaultDest = si->getDefaultDest();
+	int64_t max = std::numeric_limits<int64_t>::min();
+	int64_t min = std::numeric_limits<int64_t>::max();
+	for (auto& c: si->cases())
+	{
+		if (c.getCaseSuccessor() == defaultDest)
+			continue;
+		int64_t curr = getCaseValue(c.getCaseValue(), bitWidth);
+		max = std::max(max, curr);
+		min = std::min(min, curr);
+	}
+
+	// There should be at least one default case and zero or more cases.
+	uint32_t depth = max - min + 1;
+	assert(depth >= 1);
+
+	// Fill the jump table.
+	std::vector<uint32_t> table;
+	table.assign(depth, numeric_limits<uint32_t>::max());
+	uint32_t defaultIdx = numeric_limits<uint32_t>::max();
+
+	for (auto c: cases)
+	{
+		if (c.first == 0)
+			defaultIdx = c.second;
+		else
+		{
+			// The value to match for case `i` has index `2*i`
+			auto cv = cast<ConstantInt>(si->getOperand(2*c.first));
+			table.at(getCaseValue(cv, bitWidth) - min) = c.second;
+		}
+	}
+
+	// Elements that are not set, will jump to the default block.
+	std::replace(table.begin(), table.end(), numeric_limits<uint32_t>::max(),
+		defaultIdx);
+
+	// Print the condition
+	compileOperand(code, si->getCondition());
+	if (min != 0)
+	{
+		encodeS32Inst(0x41, "i32.const", min, code);
+		encodeInst(0x6b, "i32.sub", code);
+	}
+	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
+	{
+		assert(bitWidth < 32);
+		encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
+		encodeInst(0x71, "i32.and", code);
+	}
+
+	// Print the case labels and the default label.
+	encodeBranchTable(code, table, defaultIdx);
+}
+
+const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
+	const TokenList& Tokens)
+{
+	std::vector<const Token*> ScopeStack;
+	const BasicBlock* lastDepth0Block = nullptr;
+	auto indent = [&]()
+	{
+		if (cheerpMode == CHEERP_MODE_WASM)
+			return;
+
+		for(uint32_t i=0;i<ScopeStack.size();i++)
+			code << "  ";
+	};
+	auto getDepth = [&](const Token* Scope)
+	{
+		Scope = Scope->getKind() == Token::TK_Loop ? Scope : Scope->getMatch();
+		auto it = std::find(ScopeStack.rbegin(), ScopeStack.rend(), Scope);
+		assert(it != ScopeStack.rend());
+		return std::distance(ScopeStack.rbegin(), it);
+	};
+	for (TokenList::const_iterator it = Tokens.begin(), ie = Tokens.end(); it != ie; ++it)
+	{
+		const Token& T = *it;
+		switch (T.getKind())
+		{
+			case Token::TK_BasicBlock:
+			{
+				if (ScopeStack.empty())
+					lastDepth0Block = T.getBB();
+				else
+					lastDepth0Block = nullptr;
+				compileBB(code, *T.getBB());
+				if (!lastDepth0Block && isa<ReturnInst>(T.getBB()->getTerminator()))
+				{
+					encodeInst(0x0f, "return", code);
+				}
+				break;
+			}
+			case Token::TK_Loop:
+			{
+				indent();
+				encodeU32Inst(0x03, "loop", 0x40, code);
+				ScopeStack.push_back(&T);
+				break;
+			}
+			case Token::TK_Block:
+			{
+				indent();
+				encodeU32Inst(0x02, "block", 0x40, code);
+				ScopeStack.emplace_back(&T);
+				break;
+			}
+			case Token::TK_If:
+			case Token::TK_IfNot:
+			{
+				bool IfNot = T.getKind() == Token::TK_IfNot;
+				// The condition goes first
+				compileCondition(code, T.getBB(), IfNot);
+				const Token* Branch = T.getNextNode();
+				const Token* End = Branch->getNextNode();
+				if (Branch->getKind() == Token::TK_Branch && End == T.getMatch())
+				{
+					std::advance(it, 2);
+					int Depth = getDepth(Branch->getMatch());
+					encodeU32Inst(0x0d, "br_if", Depth, code);
+				}
+				else
+				{
+					indent();
+					encodeU32Inst(0x04, "if", 0x40, code);
+					ScopeStack.push_back(&T);
+				}
+				break;
+			}
+			case Token::TK_Else:
+			{
+				indent();
+				encodeInst(0x05, "else", code);
+				break;
+			}
+			case Token::TK_Branch:
+			{
+				int Depth = getDepth(T.getMatch());
+				encodeU32Inst(0x0c, "br", Depth, code);
+				break;
+			}
+			case Token::TK_End:
+			{
+				ScopeStack.pop_back();
+				indent();
+				encodeInst(0x0b, "end", code);
+				break;
+			}
+			case Token::TK_Prologue:
+			{
+				const BasicBlock* To = T.getBB()->getTerminator()->getSuccessor(T.getId());
+				compilePHIOfBlockFromOtherBlock(code, To, T.getBB());
+				break;
+			}
+			case Token::TK_Switch:
+			{
+				std::vector<std::pair<int, int>> Cases;
+				const SwitchInst* si = cast<SwitchInst>(T.getBB()->getTerminator());
+				it++;
+				while(it->getKind() != Token::TK_End)
+				{
+					assert(it->getKind()==Token::TK_Case);
+					std::vector<int> ids;
+					while(it->getKind() == Token::TK_Case)
+					{
+						ids.push_back(it->getId());
+						it++;
+					}
+					assert(it->getKind() == Token::TK_Branch);
+					int Depth = getDepth(it->getMatch());
+					for (int id: ids)
+						Cases.push_back(std::make_pair(id, Depth));
+					it++;
+				}
+				compileBranchTable(code, si, Cases);
+				break;
+			}
+			case Token::TK_Case:
+				report_fatal_error("Case token found outside of switch block");
+				break;
+			case Token::TK_Invalid:
+				report_fatal_error("Invalid token found");
+				break;
+		}
+	}
+	return lastDepth0Block;
+}
 void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 {
 	assert(!F.empty());
@@ -3107,15 +3172,15 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 		if (useCfgLegacy)
 		{
 			rl->Render(&ri);
+			lastDepth0Block = ri.lastDepth0Block;
 		}
 		else
 		{
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 			CFGStackifier CN(F, LI, DT, registerize, PA);
-			CN.render(ri);
+			lastDepth0Block = compileTokens(code, CN.Tokens);
 		}
-		lastDepth0Block = ri.lastDepth0Block;
 	}
 
 	// A function has to terminate with a return value when the return type is

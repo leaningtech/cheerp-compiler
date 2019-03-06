@@ -52,11 +52,6 @@ public:
 	void renderSwitchOnLabel(IdShapeMap& idShapeMap);
 	void renderCaseOnLabel(int labelId);
 	void renderSwitchBlockBegin(const SwitchInst* switchInst, BlockBranchMap& branchesOut);
-	void renderSwitchBlockBegin(const llvm::SwitchInst* switchInst, const std::vector<int>& cases, int label);
-	void renderBrTable(const llvm::SwitchInst* switchInst,
-		const std::vector<std::pair<int, int>>& cases, int label);
-	void renderBrIf(const llvm::BasicBlock* condBlock, bool invertCond,
-		bool isBreak, int labelId = 0);
 	void renderCaseBlockBegin(const BasicBlock* caseBlock, int branchId);
 	void renderDefaultBlockBegin(bool empty = false);
 	void renderIfBlockBegin(const BasicBlock* condBlock, int branchId, bool first, int labelId = 0);
@@ -77,8 +72,6 @@ public:
 	void renderContinue(int labelId);
 	void renderLabel(int labelId);
 	void renderIfOnLabel(int labelId, bool first);
-	void renderLoopBlockBegin(int labelId);
-	void renderLoopBlockEnd();
 };
 
 std::pair<std::string, std::string> CheerpWriter::getBuiltinClassAndFunc(const char* identifier)
@@ -4399,65 +4392,6 @@ bool CheerpWriter::isInlineableInstruction(const Value* v) const
 		return false;
 }
 
-void CheerpRenderInterface::renderSwitchBlockBegin(const llvm::SwitchInst* si,
-	const std::vector<int>&, int label)
-{
-	const Value* cond = si->getCondition();
-	if (label > 0)
-		writer->stream << 'L' << label << ':';
-	writer->stream << "switch(";
-	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
-	writer->stream << "){" << NewLine;
-	writer->blockDepth++;
-}
-
-void CheerpRenderInterface::renderBrTable(const llvm::SwitchInst* si,
-	const std::vector<std::pair<int, int>>& cases, int label)
-{
-	const Value* cond = si->getCondition();
-	if (label > 0)
-		writer->stream << 'L' << label << ':';
-	writer->stream << "switch(";
-	writer->compileOperandForIntegerPredicate(cond, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
-	writer->stream << "){" << NewLine;
-	DenseSet<int> Visited;
-	
-	for (auto c: cases)
-	{
-		if (Visited.insert(c.second).second)
-		{
-			if (c.first == 0)
-				renderDefaultBlockBegin();
-			else
-				renderCaseBlockBegin(si->getParent(), c.first);
-			renderBreak(c.second);
-			renderBlockEnd();
-		}
-	}
-	writer->stream << '}' << NewLine;
-}
-
-void CheerpRenderInterface::renderBrIf(const llvm::BasicBlock* condBlock,
-	bool invertCond, bool isBreak, int labelId)
-{
-	writer->stream << "if(";
-	renderCondition(condBlock, 0, CheerpWriter::LOWEST, invertCond);
-	writer->stream << ")";
-	if (isBreak)
-	{
-		if (labelId <= 0 )
-			renderBreak();
-		else
-			renderBreak(labelId);
-	}
-	else
-	{
-		if (labelId <= 0 )
-			renderContinue();
-		else
-			renderContinue(labelId);
-	}
-}
 void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
 {
 	writer->compileBB(*bb);
@@ -4776,20 +4710,6 @@ void CheerpRenderInterface::renderIfOnLabel(int labelId, bool first)
 	writer->blockDepth++;
 }
 
-void CheerpRenderInterface::renderLoopBlockBegin(int labelId)
-{
-	if (labelId > 0)
-		renderWhileBlockBegin(labelId);
-	else
-		renderWhileBlockBegin();
-}
-
-void CheerpRenderInterface::renderLoopBlockEnd()
-{
-	renderBreak();
-	renderBlockEnd();
-}
-
 void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND kind)
 {
 	stream << name << '=';
@@ -4834,6 +4754,210 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 		stream << ';' << NewLine;
 }
 
+void CheerpWriter::compileCondition(const BasicBlock* BB, bool booleanInvert)
+{
+	const TerminatorInst* term=BB->getTerminator();
+	bool asmjs = BB->getParent()->getSection() == StringRef("asmjs");
+	assert(isa<BranchInst>(term));
+	const BranchInst* bi=cast<BranchInst>(term);
+	assert(bi->isConditional());
+	const Value* cond = bi->getCondition();
+	bool canInvertCond = isInlineableInstruction(cond);
+	if(canInvertCond && isa<ICmpInst>(cond))
+	{
+		const CmpInst* ci = cast<CmpInst>(cond);
+		CmpInst::Predicate p = ci->getPredicate();
+		if(booleanInvert)
+			p = CmpInst::getInversePredicate(p);
+		compileIntegerComparison(ci->getOperand(0), ci->getOperand(1), p, PARENT_PRIORITY::LOWEST);
+	}
+	else if(canInvertCond && isa<FCmpInst>(cond))
+	{
+		const CmpInst* ci = cast<CmpInst>(cond);
+		CmpInst::Predicate p = ci->getPredicate();
+		if(booleanInvert)
+			p = CmpInst::getInversePredicate(p);
+		compileFloatComparison(ci->getOperand(0), ci->getOperand(1), p, PARENT_PRIORITY::LOWEST, asmjs);
+	}
+	else
+	{
+		if(booleanInvert)
+			stream << "!(";
+		compileOperand(cond, PARENT_PRIORITY::LOWEST, /*allowBooleanObjects*/ true);
+		if(booleanInvert)
+			stream << ")";
+	}
+}
+
+void CheerpWriter::compileTokens(const TokenList& Tokens)
+{
+	std::vector<const Token*> ScopeStack;
+	// First, compute which Tokens need a label
+	DenseSet<const Token*> LabeledTokens;
+	for (const Token& T: Tokens)
+	{
+		switch (T.getKind())
+		{
+			case Token::TK_BasicBlock:
+			case Token::TK_Case:
+			case Token::TK_If:
+			case Token::TK_IfNot:
+			case Token::TK_Else:
+			case Token::TK_Prologue:
+				break;
+			case Token::TK_Loop:
+			case Token::TK_Block:
+			case Token::TK_Switch:
+				ScopeStack.push_back(&T);
+				break;
+			case Token::TK_Branch:
+			{
+				const Token* Target = T.getMatch();
+				if (Target->getKind() == Token::TK_End)
+					Target = Target->getMatch();
+				assert(!ScopeStack.empty());
+				if (Target->getKind() == Token::TK_Block || Target != ScopeStack.back())
+					LabeledTokens.insert(Target);
+				break;
+			}
+			case Token::TK_End:
+				if (T.getMatch()->getKind() == Token::TK_Block
+					|| T.getMatch()->getKind() == Token::TK_Loop
+					|| T.getMatch()->getKind() == Token::TK_Switch)
+				{
+					ScopeStack.pop_back();
+				}
+				break;
+			case Token::TK_Invalid:
+				report_fatal_error("Invalid token found");
+				break;
+		}
+	}
+	assert(ScopeStack.empty());
+
+	// Then, render the Tokens
+	DenseMap<const Token*, int> Labels;
+	int NextLabel = 1;
+	for (auto it = Tokens.begin(), ie = Tokens.end(); it != ie; ++it)
+	{
+		const Token& T = *it;
+		switch (T.getKind())
+		{
+			case Token::TK_BasicBlock:
+			{
+				compileBB(*T.getBB());
+				if(blockDepth == 0)
+					lastDepth0Block = T.getBB();
+				else
+					lastDepth0Block = nullptr;
+				break;
+			}
+			case Token::TK_Loop:
+			{
+				if (LabeledTokens.count(&T))
+				{
+					Labels.insert(std::make_pair(&T, NextLabel));
+					stream << 'L' << NextLabel++ << ':';
+				}
+				stream << "while(1){" << NewLine;
+				blockDepth++;
+				break;
+			}
+			case Token::TK_Block:
+			{
+				if (LabeledTokens.count(&T))
+				{
+					Labels.insert(std::make_pair(&T, NextLabel));
+					stream << 'L' << NextLabel++ << ':';
+				}
+				stream << '{' << NewLine;
+				blockDepth++;
+				break;
+			}
+			case Token::TK_If:
+			case Token::TK_IfNot:
+			{
+				bool IfNot = T.getKind() == Token::TK_IfNot;
+				stream << "if(";
+				compileCondition(T.getBB(), IfNot);
+				stream << "){" << NewLine;
+				blockDepth++;
+				break;
+			}
+			case Token::TK_Else:
+				stream << "}else{" << NewLine;
+				break;
+			case Token::TK_Branch:
+			{
+				const Token* Match = T.getMatch()->getKind() == Token::TK_Loop
+					? T.getMatch()
+					: T.getMatch()->getMatch();
+				if (Match->getKind() == Token::TK_Block)
+					stream << "break";
+				else
+					stream << "continue";
+				auto LabelIt = Labels.find(Match);
+				if (LabelIt != Labels.end())
+				{
+					stream << " L" << LabelIt->getSecond();
+				}
+				stream << ';' << NewLine;
+				break;
+			}
+			case Token::TK_End:
+				if (Labels.count(T.getMatch()))
+					NextLabel--;
+				if (T.getMatch()->getKind() == Token::TK_Switch)
+					stream << '}' << NewLine;
+				else if (T.getMatch()->getKind() == Token::TK_Loop
+					&& T.getPrevNode()->getKind() != Token::TK_Branch
+					&& !(T.getPrevNode()->getKind() == Token::TK_BasicBlock
+						&& isa<ReturnInst>(T.getPrevNode()->getBB()->getTerminator())))
+				{
+					stream << "break;" << NewLine;
+				}
+				stream << '}' << NewLine;
+				blockDepth--;
+				break;
+			case Token::TK_Prologue:
+			{
+				const BasicBlock* To = T.getBB()->getTerminator()->getSuccessor(T.getId());
+				compilePHIOfBlockFromOtherBlock(To, T.getBB());
+				break;
+			}
+			case Token::TK_Switch:
+			{
+				const SwitchInst* si = cast<SwitchInst>(T.getBB()->getTerminator());
+				stream << "switch(";
+				compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
+				stream << "){" << NewLine;
+				blockDepth++;
+				break;
+			}
+			case Token::TK_Case:
+			{
+				const SwitchInst* si = cast<SwitchInst>(T.getBB()->getTerminator());
+				if (T.getPrevNode()->getKind() != Token::TK_Switch)
+					stream << '}' << NewLine;
+				int id = T.getId();
+				if (id == 0)
+					stream << "default:" << NewLine << '{' << NewLine;
+				else
+				{
+					// The value to match for case `i` has index `2*i`
+					auto cv = cast<ConstantInt>(si->getOperand(2*id));
+					stream << "case ";
+					compileOperandForIntegerPredicate(cv, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
+					stream << ':' << NewLine << '{' << NewLine;
+				}
+				break;
+			}
+			case Token::TK_Invalid:
+				report_fatal_error("Invalid token found");
+				break;
+		}
+	}
+}
 void CheerpWriter::compileMethod(Function& F)
 {
 	bool asmjs = F.getSection() == StringRef("asmjs");
@@ -4897,7 +5021,9 @@ void CheerpWriter::compileMethod(Function& F)
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 			CFGStackifier CN(F, LI, DT, registerize, PA);
-			CN.render(ri);
+			compileTokens(CN.Tokens);
+			//stream<<"/*ORIGINAL*/"<<NewLine;
+			//CN.render(ri);
 		}
 	}
 	assert(blockDepth == 0);
