@@ -48,8 +48,12 @@ public:
 		uintptr_t reti = reinterpret_cast<uintptr_t>(ptr);
 		uint32_t padding = (8 - next_virt % 8) % 8;
 		next_virt += padding;
-		virt_to_real.emplace(next_virt, Page(reti, size));
-		real_to_virt.emplace(reti, Page(next_virt, size));
+		bool virt_added = virt_to_real.emplace(next_virt, Page(reti, size)).second;
+		(void)virt_added;
+		assert(virt_added);
+		bool real_added = real_to_virt.emplace(reti, Page(next_virt, size)).second;
+		(void)real_added;
+		assert(real_added);
 		next_virt += size;
 	}
 
