@@ -375,6 +375,7 @@ private:
 		}
 		class RegisterizeSubSolution
 		{
+			typedef std::vector<uint32_t> Coloring;
 		public:
 			RegisterizeSubSolution(const uint32_t N)
 				: N(N), parent(N), constraints(N, llvm::BitVector(N, true)), friends(N)
@@ -416,7 +417,6 @@ private:
 					llvm::errs()<<"\t\t"<<constraints[i].count() << "\t"<<friends[i].size() << "\n";
 				}
 			}
-			typedef std::pair<uint32_t, std::vector<uint32_t>> Solution;
 			class IterationsCounter
 			{
 			public:
@@ -446,6 +446,7 @@ private:
 				const uint32_t maxNumber;
 				uint32_t currNumber;
 			};
+			typedef std::pair<uint32_t, Coloring> Solution;
 			struct SearchState
 			{
 				SearchState(Solution& best, uint32_t minimalNumberOfColors, uint32_t nodesToEvaluate, const uint32_t targetDepth, const uint32_t alreadyProcessedDepth)
@@ -563,11 +564,11 @@ private:
 				constraints[a].flip(b);
 				constraints[b].flip(a);
 			}
-			std::vector<uint32_t> iterativeDeepening(IterationsCounter& counter);
-			std::vector<uint32_t> solve();
+			Coloring iterativeDeepening(IterationsCounter& counter);
+			Coloring solve();
 		private:
 			std::vector<uint32_t> assignGreedily() const;
-			static uint32_t computeNumberOfColors(const std::vector<uint32_t>& coloring)
+			static uint32_t computeNumberOfColors(const Coloring& coloring)
 			{
 				if (coloring.empty())
 					return 0;
@@ -579,7 +580,7 @@ private:
 				}
 				return res+1;
 			}
-			uint32_t computeScore(const std::vector<uint32_t>& coloring, const uint32_t lowerBound) const
+			uint32_t computeScore(const Coloring& coloring, const uint32_t lowerBound) const
 			{
 				assert(coloring.size() == N);
 				uint32_t res = std::max(computeNumberOfColors(coloring), lowerBound) * 6;
@@ -590,9 +591,9 @@ private:
 				}
 				return res;
 			}
-			std::vector<uint32_t> getColors(const std::vector<uint32_t>& P) const
+			Coloring getColors(const std::vector<uint32_t>& P) const
 			{
-				std::vector<uint32_t> colors(N, N);
+				Coloring colors(N, N);
 				uint32_t firstUnused = 0;
 				for (uint32_t i=0; i<N; i++)
 				{
@@ -680,7 +681,7 @@ private:
 			}
 			const uint32_t N;
 			std::vector<uint32_t> parent;
-			std::vector<uint32_t> retColors;
+			Coloring retColors;
 			std::vector<llvm::BitVector> constraints;
 			std::vector<std::pair<uint32_t, std::pair<uint32_t, uint32_t>>> friendships;
 			std::vector<std::vector<std::pair<uint32_t, uint32_t>>> friends;
@@ -768,14 +769,13 @@ private:
 			for (uint32_t i = 0; i< numInst(); i++)
 			{
 				if (isAlive(i))
+				{
 					buildFriendsSingle(i, PA);
+				}
 			}
 			//TODO: add here support for inlineable instructions, like a = a + b -> a += b
-			//TODO: add variable cost (instead of fixed 1, since there can be multiple links and one may want to experiment with different weight links)
 
-			//TODO: sort and compress
-			//TODO: eliminate friends that are unsatisfayable
-
+			removeUnsatisfayableFriends();
 
 			for (uint32_t i = 0; i<numInst(); i++)
 			{
@@ -800,30 +800,6 @@ private:
 					return false;
 			}
 			return true;
-		}
-		bool mergeSubsets(bool friendsShouldBePreserved)
-		{
-			computeBitsetConstraints();
-			removeUnsatisfayableFriends();
-			uint32_t res = 0;
-			for (uint32_t i = 0; i< numInst(); i++)
-			{
-				if (!isAlive(i))
-					continue;
-				for (uint32_t j = 0; j<numInst(); j++)
-				{
-					if (i != j && isAlive(j) && !bitsetConstraint[i][j] && isSubset(bitsetConstraint[j], bitsetConstraint[i]) )
-					{
-						if (!friendsShouldBePreserved || friends[j].size() == 0 || (friends[j].size() == 1 && friends[j].front().first == i))
-						{
-							mergeInPlace(i, j);
-							++res;
-							break;
-						}
-					}
-				}
-			}
-			return res > 0;
 		}
 		void addFriendship(const uint32_t a, const uint32_t b, const uint32_t weight)
 		{
