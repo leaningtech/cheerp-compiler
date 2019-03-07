@@ -789,16 +789,30 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
     return NULL;
 }
 
-bool PreExecute::runOnConstructor( llvm::Module& m, llvm::Function* func)
+
+bool PreExecute::runOnConstructor( const llvm::Target* target, const std::string& triple, llvm::Module& m, llvm::Function* func)
 {
     bool Changed = false;
 
-    currentEE->resetFailed();
-    for (auto& GV: m.globals())
-    {
-        if (GV.hasInitializer())
-            currentEE->EmitGlobalVariable(&GV);
-    }
+    std::string error;
+    std::unique_ptr<Module> uniqM(&m);
+    TargetMachine* machine = target->createTargetMachine(triple, "", "", TargetOptions());
+
+    EngineBuilder builder(std::move(uniqM));
+    builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter);
+    builder.setOptLevel(CodeGenOpt::Default);
+    builder.setErrorStr(&error);
+    builder.setVerifyModules(true);
+
+    currentEE = builder.create(machine);
+    assert(currentEE && "failed to create execution engine!");
+    currentEE->InstallStoreListener(StoreListener);
+    currentEE->InstallAllocaListener(AllocaListener);
+    currentEE->InstallRetListener(RetListener);
+    currentEE->InstallLazyFunctionCreator(LazyFunctionCreator);
+
+    allocator = make_unique<Allocator>(*currentEE->ValueAddresses);
+
     currentEE->runFunction(func, std::vector< GenericValue >());
     if(currentEE->hasFailed())
     {
@@ -837,7 +851,13 @@ bool PreExecute::runOnConstructor( llvm::Module& m, llvm::Function* func)
     currentEE->printMemoryStats();
 #endif
 
-    allocator->deallocate();
+    bool removed = currentEE->removeModule(&m);
+    assert(removed && "failed to free the module from ExecutionEngine");
+
+    allocator = nullptr;
+    delete currentEE;
+
+    currentEE = NULL;
 
     return Changed;
 }
@@ -881,9 +901,6 @@ bool PreExecute::runOnModule(Module& m)
     std::string triple = sys::getDefaultTargetTriple();
     const Target *target = TargetRegistry::lookupTarget(triple, error);
 
-    TargetMachine* machine;
-    machine = target->createTargetMachine(triple, "", "", TargetOptions());
-
     GlobalVariable * constructorVar = m.getGlobalVariable("llvm.global_ctors");
     if(constructorVar)
     {
@@ -891,23 +908,6 @@ bool PreExecute::runOnModule(Module& m)
         if (!constructorVar->hasInitializer() || !isa<ConstantArray>(constructorVar->getInitializer()))
             return false;
     }
-
-    std::unique_ptr<Module> uniqM(&m);
-
-    EngineBuilder builder(std::move(uniqM));
-    builder.setEngineKind(llvm::EngineKind::PreExecuteInterpreter);
-    builder.setOptLevel(CodeGenOpt::Default);
-    builder.setErrorStr(&error);
-    builder.setVerifyModules(true);
-
-    currentEE = builder.create(machine);
-    assert(currentEE && "failed to create execution engine!");
-    currentEE->InstallStoreListener(StoreListener);
-    currentEE->InstallAllocaListener(AllocaListener);
-    currentEE->InstallRetListener(RetListener);
-    currentEE->InstallLazyFunctionCreator(LazyFunctionCreator);
-
-    allocator = make_unique<Allocator>(*currentEE->ValueAddresses);
 
     std::vector<Constant*> newConstructors;
 
@@ -929,7 +929,7 @@ bool PreExecute::runOnModule(Module& m)
         {
             Constant *elem = cast<Constant>(*it);
             Function* func = cast<Function>(elem->getAggregateElement(1));
-            if(runOnConstructor(m, func))
+            if(runOnConstructor(target, triple, m, func))
                 Changed |= true;
             else
                 newConstructors.push_back(elem);
@@ -943,7 +943,7 @@ bool PreExecute::runOnModule(Module& m)
         if (!mainFunc)
             mainFunc = m.getFunction("main");
         assert(mainFunc && "unable to find main/webMain in module!");
-        if(runOnConstructor(m, mainFunc))
+        if(runOnConstructor(target, triple, m, mainFunc))
         {
             Changed |= true;
             mainFunc->eraseFromParent();
@@ -979,13 +979,6 @@ bool PreExecute::runOnModule(Module& m)
         }
     }
 
-    bool removed = currentEE->removeModule(&m);
-    assert(removed && "failed to free the module from ExecutionEngine");
-
-    allocator = nullptr;
-    delete currentEE;
-
-    currentEE = NULL;
     currentPreExecutePass = NULL;
     currentModule = NULL;
 

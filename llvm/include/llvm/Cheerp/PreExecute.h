@@ -85,7 +85,7 @@ public:
 
     const char* getPassName() const override;
     bool runOnModule(llvm::Module& m) override;
-    bool runOnConstructor(llvm::Module& m, llvm::Function* c);
+    bool runOnConstructor(const llvm::Target* target, const std::string& triple, llvm::Module& m, llvm::Function* c);
 
     void recordStore(void* Addr);
     void recordTypedAllocation(llvm::Type *type, size_t size, char *buf, bool hasCookie, bool asmjs) {
