@@ -620,8 +620,8 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::DFSwithLimitedD
 #ifdef REGISTERIZE_DEBUG
 			state.debugStats[GREEDY_EVALUATIONS]++;
 #endif
-			const std::vector<uint32_t> colors = getColors(keepMerging(state));
-			const Solution localSolution = {computeScore(colors), colors};
+			const std::vector<uint32_t> colors = getColors(keepMergin(state));
+			const Solution localSolution = {computeScore(colors, lowerBoundOnNumberOfColors()), colors};
 
 			bool print = state.improveScore(localSolution);
 
@@ -692,33 +692,47 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::DFSwithLimitedD
 	state.choicesMade.resize(oldSize);
 }
 
+uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const
+{
+	RegisterizeSubSolution noFriendships(N);
+	for (const auto& F : friendships)
+	{
+		noFriendships.addFriendship(0, F.second.first, F.second.second);
+	}
+	noFriendships.unifyFriendships();
+	noFriendships.improveLowerBound(lowerBound);
+	std::vector<uint32_t> col = noFriendships.solve();
+	assert(noFriendships.checkConstraintsAreRespected(col));
+#ifdef REGISTERIZE_DEBUG
+	llvm::errs() << "Computing lower bound on graph with no friendships: " << lowerBound << "/" << minimalColors << " to " << computeNumberOfColors(col) << "\n";
+#endif
+	return computeNumberOfColors(col);
+}
+
 std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::iterativeDeepening(IterationsCounter& counter)
 {
 	//TODO: try to split it in multiple solutions first
 	//TODO: run again with 1 less color
 	Solution best;
 	best.second = getColors(assignGreedily());
-	best.first = computeScore(best.second);
+	best.first = computeScore(best.second, lowerBoundOnNumberOfColors());
 	uint32_t minimalColors = computeNumberOfColors(best.second);
-	uint32_t lowerBound = lowerBoundOnNumberOfColor();
+	uint32_t lowerBound = lowerBoundOnNumberOfColors();
+
 	if (lowerBound < minimalColors && friendships.size() > 0 && friendships.front().first > 0)
 	{
 		//if the lower bound, based on the maximal clique found, happens not to be tight enough, recompute it an a simplified problem
-		RegisterizeSubSolution noFriendships(N);
-		for (auto F : friendships)
-		{
-			noFriendships.addFriendship(0, F.second.first, F.second.second);
-		}
-		noFriendships.unifyFriendships();
-		std::vector<uint32_t> col = noFriendships.solve();
-		assert(noFriendships.checkConstraintsAreRespected(col));
-#ifdef REGISTERIZE_DEBUG_MINIMAL
-		llvm::errs() << "Computing lower bound on graph with no friendships: " << lowerBound << "/" << minimalColors << " to " << computeNumberOfColors(col) << "\n";
-#endif
-		assert(computeNumberOfColors(col) >= lowerBound);
-		lowerBound = computeNumberOfColors(col);
-	}
+		uint32_t estimate = chromaticNumberWithNoFriends(lowerBound, minimalColors);
 
+		improveLowerBound(estimate);
+		howManyWaysHasLowerBoundBeenEvaluated++;
+
+		if (estimate > lowerBound && removeRowsWithFewConstraints())
+		{
+			return retColors;
+		}
+		lowerBound = lowerBoundOnNumberOfColors();
+	}
 	assert(counter.remaining() > 0);
 	uint32_t depth = 0;
 	uint32_t previousDepth = 0;
@@ -727,7 +741,7 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 #ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
 		llvm::errs() << "--------------------- starting at "<<previousDepth<<" up to reaching " <<depth<<"\n";
 #endif
-		SearchState state(best, minimalColors, counter.remaining(), depth, previousDepth);
+		SearchState state(best, lowerBound, counter.remaining(), depth, previousDepth);
 		DFSwithLimitedDepth(state);
 		counter.consumeIterations(state.iterationsCounter.evaluationsDone());
 #ifdef REGISTERIZE_DEBUG
@@ -939,9 +953,10 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 	subsolution.unifyFriendships();
 
 	//Merging dominated nodes may generate a double friendship between the same nodes
-
+	subsolution.improveLowerBound(lowerBoundOnNumberOfColors());
 	std::vector<uint32_t> subcolors = subsolution.solve();
 	assert(subsolution.checkConstraintsAreRespected(subcolors));
+	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
 
 	retColors.resize(N);
 	for (uint32_t i = 0; i<alive.size(); i++)
@@ -961,9 +976,11 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 
 bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithFewConstraints()
 {
-	uint32_t cutoff = lowerBoundOnNumberOfColor() - 1;
+	uint32_t cutoff = lowerBoundOnNumberOfColors() - 1;
 
 	std::vector<bool> toBePostProcessed(N, false);
+
+	uint32_t howManyOnCutoff = 0;
 
 	for (uint32_t i = 0; i<N; i++)
 	{
@@ -972,6 +989,8 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 		if (constraints[i].count() <= cutoff && friends[i].size() == 0)
 		{
 			toBePostProcessed[i] = true;
+			if (constraints[i].count() == cutoff)
+				howManyOnCutoff++;
 		}
 	}
 
@@ -1003,9 +1022,13 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 			subsolution.addFriendship(F.first, index[a], index[b]);
 	}
 
+	uint32_t lowerBound = std::max(lowerBoundOnNumberOfColors(), howManyOnCutoff) - howManyOnCutoff;
+
 	subsolution.unifyFriendships();
+	subsolution.improveLowerBound(lowerBound);
 	std::vector<uint32_t> subcolors = subsolution.solve();
-assert(subsolution.checkConstraintsAreRespected(subcolors));
+	assert(subsolution.checkConstraintsAreRespected(subcolors));
+	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
 
 	retColors = std::vector<uint32_t> (N, N);
 	for (uint32_t i = 0; i<alive.size(); i++)
@@ -1054,9 +1077,14 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::addToClique(con
 	used.set(index);
 }
 
-uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::lowerBoundOnNumberOfColor() const
+uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::maximalGeneratedClique() const
 {
-	uint32_t lowerBound = 1;
+	//Try to generate a clique as big as possible (this serves as lower bound on chromatic number)
+	//Take advantage than most instance are already sort of block diagonal, so identify a block and try to expand it
+
+	if (N == 0)
+		return 0;
+	uint32_t low = 1;
 
 	llvm::BitVector unionConstraint(N, true);
 	llvm::BitVector used(N, false);
@@ -1074,14 +1102,29 @@ uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::lowerBoundO
 				if (!used[k] && canBeAddedToClique(k, unionConstraint, used))
 					addToClique(k, unionConstraint, used);
 			}
-			lowerBound = std::max(lowerBound, used.count());
+			low = std::max(low, used.count());
 			unionConstraint = llvm::BitVector(N, true);
 			used = llvm::BitVector(N, false);
 			i++;
 			j = i;
 		}
 	}
-	return lowerBound;
+	return low;
+}
+
+void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::improveLowerBound(const uint32_t x)
+{
+	lowerBoundChromaticNumber = std::max(lowerBoundChromaticNumber, x);
+}
+
+uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::lowerBoundOnNumberOfColors()
+{
+	if (howManyWaysHasLowerBoundBeenEvaluated == 0)
+	{
+		howManyWaysHasLowerBoundBeenEvaluated++;
+		improveLowerBound(maximalGeneratedClique());
+	}
+	return lowerBoundChromaticNumber;
 }
 
 void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint) const
@@ -1285,8 +1328,10 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArt
 		//Friends of splitNode could get merged, so run standardization function:
 		sub.unifyFriendships();
 
+		sub.improveLowerBound(lowerBoundOnNumberOfColors());
 		std::vector<uint32_t> subcolors = sub.solve();
-assert(sub.checkConstraintsAreRespected(subcolors));
+		improveLowerBound(sub.lowerBoundOnNumberOfColors());
+		assert(sub.checkConstraintsAreRespected(subcolors));
 
 		const uint32_t K = subcolors[0];
 
@@ -1385,17 +1430,28 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 
 	std::vector<std::vector<uint32_t>> solutions;
 	std::vector<uint32_t> toAdd(1, 0);
+
+	uint32_t sum_colors = 0;
+
 	for (RegisterizeSubSolution& sub : subproblems)
 	{
 		//In the non-conflicting case, friendship have to be possibly unificated
 		sub.unifyFriendships();
+		if (!conflicting)
+			sub.improveLowerBound(lowerBoundOnNumberOfColors());
 		std::vector<uint32_t> subcolors = sub.solve();
-assert(sub.checkConstraintsAreRespected(subcolors));
+		sum_colors += sub.lowerBoundOnNumberOfColors();
+		if (!conflicting)
+			improveLowerBound(sub.lowerBoundOnNumberOfColors());
+
+		assert(sub.checkConstraintsAreRespected(subcolors));
 		solutions.push_back(subcolors);
 		toAdd.push_back(toAdd.back());
 		if (conflicting)
 			toAdd.back() += computeNumberOfColors(subcolors);
 	}
+	if (conflicting)
+		improveLowerBound(sum_colors);
 
 	retColors.resize(N);
 	for (uint32_t i = 0; i<N; i++)
@@ -1574,9 +1630,12 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	if (colors.size() > 1)
 	{
 		llvm::errs() << "Solving subproblem of size\t" << colors.size() << ":\t(score/colors/iterations)\t"; 
+		llvm::errs() << computeScore(colors, lowerBoundOnNumberOfColors()) <<"\t" << lowerBoundOnNumberOfColors() << "/"<<computeNumberOfColors(colors)<<"\t\t";
 		llvm::errs() << computeScore(colors) <<"\t" << lowerBoundOnNumberOfColor() << "/"<<computeNumberOfColors(colors)<<"\t\t";
 		for (uint32_t i=0; i<debugStats.size(); i++)
+		{
 			llvm::errs () << debugStats[i] << "\t";
+		}
 		if (counters.remaining() == 0)
 			llvm::errs() << "\tsearch not exausted";
 		llvm::errs() << "\n";
