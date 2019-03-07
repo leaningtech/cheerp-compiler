@@ -104,34 +104,19 @@ ExecutionEngine::~ExecutionEngine() {
 }
 
 namespace {
-/// Helper class which uses a value handler to automatically deletes the
-/// memory block when the GlobalVariable is destroyed.
-class GVMemoryBlock final : public CallbackVH {
-  GVMemoryBlock(const GlobalVariable *GV)
-    : CallbackVH(const_cast<GlobalVariable*>(GV)) {}
-
+class GVMemoryBlock {
 public:
-  /// Returns the address the GlobalVariable should be written into.  The
-  /// GVMemoryBlock object prefixes that.
+  /// Returns the address the GlobalVariable should be written into
   static char *Create(AddressMapBase& ValueAddresses, const GlobalVariable *GV, const DataLayout& TD) {
     Type *ElTy = GV->getValueType();
     size_t GVSize = (size_t)TD.getTypeAllocSize(ElTy);
-    void *RawMemory = ::operator new(
-      alignTo(sizeof(GVMemoryBlock),
-                         TD.getPreferredAlign(GV))
-      + GVSize);
-    new(RawMemory) GVMemoryBlock(GV);
-    char* addr = static_cast<char*>(RawMemory) + sizeof(GVMemoryBlock);
+    char* addr = static_cast<char*>(::operator new(GVSize));
     ValueAddresses.map(addr, GVSize + 4);
     return addr;
   }
 
-  void deleted() override {
-    // We allocated with operator new and with some extra memory hanging off the
-    // end, so don't just delete this.  I'm not sure if this is actually
-    // required.
-    this->~GVMemoryBlock();
-    ::operator delete(this);
+  static void Delete(char* addr) {
+    ::operator delete(addr);
   }
 };
 }  // anonymous namespace
@@ -202,6 +187,7 @@ uint64_t ExecutionEngineState::RemoveMapping(StringRef Name) {
   else {
     GlobalAddressReverseMap.erase(I->second);
     OldVal = I->second;
+    GVMemoryBlock::Delete((char*)OldVal);
     GlobalAddressMap.erase(I);
   }
 
@@ -249,6 +235,11 @@ void ExecutionEngine::addGlobalMapping(StringRef Name, uint64_t Addr) {
 
 void ExecutionEngine::clearAllGlobalMappings() {
   std::lock_guard<sys::Mutex> locked(lock);
+
+  // Clear all GV memory
+  for(auto& it: EEState.getGlobalAddressMap()) {
+    GVMemoryBlock::Delete( (char*)it.second);
+  }
 
   EEState.getGlobalAddressMap().clear();
   EEState.getGlobalAddressReverseMap().clear();
