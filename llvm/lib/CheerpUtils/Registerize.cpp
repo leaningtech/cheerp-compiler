@@ -848,7 +848,7 @@ void Registerize::RegisterAllocatorInst::buildEdgesData(Function& F)
 	}
 }
 
-void Registerize::RegisterAllocatorInst::buildFriendsSingle(const uint32_t phi, const PointerAnalyzer& PA)
+void Registerize::RegisterAllocatorInst::buildFriendsSinglePhi(const uint32_t phi, const PointerAnalyzer& PA)
 {
 	const PHINode* I = dyn_cast<PHINode>(indexer.at(phi));
 	if (!I)
@@ -862,6 +862,47 @@ void Registerize::RegisterAllocatorInst::buildFriendsSingle(const uint32_t phi, 
 		assert(!isInlineable(*usedI, PA));
 		addFriendship(phi, indexer.id(usedI), frequencyInfo.getWeight(I->getIncomingBlock(i), I->getParent()));
 	}
+}
+
+void Registerize::RegisterAllocatorInst::createSingleFriendship(const uint32_t i, const Value* operand)
+{
+	//Introduce a friendships of weight 1
+	const Instruction* I = dyn_cast<Instruction>(operand);
+	if (I && indexer.count(I))
+		addFriendship(1, i, indexer.id(I));
+}
+
+void Registerize::RegisterAllocatorInst::buildFriendsSingleCompressibleInstr(const uint32_t i)
+{
+	//TODO: implement the writer, and check the list of operations
+
+	//Try to force the first operand of a sum/difference/multiplication/... to be the same of the result
+	const Instruction* I = indexer.at(i);
+	assert (!!I);
+
+	switch (I->getOpcode())
+	{
+		//Commutative operations
+		case Instruction::FAdd:
+		case Instruction::FMul:
+		case Instruction::Or:
+		case Instruction::And:
+		case Instruction::Xor:
+			assert(I->getNumOperands() == 2);
+			createSingleFriendship(i, I->getOperand(1));
+			//Fall through!
+		//Non-commutative operations
+		case Instruction::FSub:
+		case Instruction::FDiv:
+		case Instruction::FRem:
+		case Instruction::LShr:
+		case Instruction::AShr:
+		case Instruction::Shl:
+			assert(I->getNumOperands() == 2);
+			createSingleFriendship(i, I->getOperand(0));
+			break;
+	}
+	return;
 }
 
 bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::isDominatingFriend(const uint32_t a, const uint32_t b) const
