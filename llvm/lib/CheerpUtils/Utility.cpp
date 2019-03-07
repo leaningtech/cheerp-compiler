@@ -242,6 +242,11 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 							// Avoid interacting with the bitcast/trunc logic for now
 							break;
 						}
+						else if(hasSideEffects && nextInst->getOpcode() == Instruction::Select)
+						{
+							// Do not inline side effects in selects, they don't evaluate both sides
+							break;
+						}
 						else if(isa<IntrinsicInst>(nextInst))
 						{
 							// Avoid interacting with intrinsics logic for now
