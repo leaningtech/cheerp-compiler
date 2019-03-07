@@ -700,7 +700,25 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	best.second = getColors(assignGreedily());
 	best.first = computeScore(best.second);
 	uint32_t minimalColors = computeNumberOfColors(best.second);
-	minimalColors = lowerBoundOnNumberOfColor();
+	uint32_t lowerBound = lowerBoundOnNumberOfColor();
+	if (lowerBound < minimalColors && friendships.size() > 0 && friendships.front().first > 0)
+	{
+		//if the lower bound, based on the maximal clique found, happens not to be tight enough, recompute it an a simplified problem
+		RegisterizeSubSolution noFriendships(N);
+		for (auto F : friendships)
+		{
+			noFriendships.addFriendship(0, F.second.first, F.second.second);
+		}
+		noFriendships.unifyFriendships();
+		std::vector<uint32_t> col = noFriendships.solve();
+		assert(noFriendships.checkConstraintsAreRespected(col));
+#ifdef REGISTERIZE_DEBUG_MINIMAL
+		llvm::errs() << "Computing lower bound on graph with no friendships: " << lowerBound << "/" << minimalColors << " to " << computeNumberOfColors(col) << "\n";
+#endif
+		assert(computeNumberOfColors(col) >= lowerBound);
+		lowerBound = computeNumberOfColors(col);
+	}
+
 	assert(counter.remaining() > 0);
 	uint32_t depth = 0;
 	uint32_t previousDepth = 0;
@@ -877,7 +895,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 			{
 				if (i != j && isAlive(j) && !constraints[i][j] && isSubset(constraints[j], constraints[i]) )
 				{
-					if (isDominatingFriend(i, j))
+					if (isDominatingFriend(j, i))
 					{
 						parent[j] = i;
 						++currentMod;
@@ -908,17 +926,22 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 #endif
 
 	RegisterizeSubSolution subsolution(alive.size());
+
+	//Add frienships (if they do not clash with constraints)
 	for (auto F : friendships)
 	{
 		const uint32_t a = findParent(F.second.first);
 		const uint32_t b = findParent(F.second.second);
-		subsolution.addFriendship(F.first, index[a], index[b]);
+		if (!constraints[a][b])
+			subsolution.addFriendship(F.first, index[a], index[b]);
 	}
 
-	//Merging dominated nodes may generate a double friendship between the same nodes
 	subsolution.unifyFriendships();
 
+	//Merging dominated nodes may generate a double friendship between the same nodes
+
 	std::vector<uint32_t> subcolors = subsolution.solve();
+	assert(subsolution.checkConstraintsAreRespected(subcolors));
 
 	retColors.resize(N);
 	for (uint32_t i = 0; i<alive.size(); i++)
@@ -927,9 +950,11 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 	}
 	for (uint32_t i = 0; i<N; i++)
 	{
+		assert(isAlive(findParent(i)));
 		if (!isAlive(i))
 			retColors[i] = retColors[findParent(i)];
 	}
+	assert(checkConstraintsAreRespected(retColors));
 
 	return true;
 }
@@ -945,7 +970,9 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 		if (!isAlive(i))
 			continue;
 		if (constraints[i].count() <= cutoff && friends[i].size() == 0)
+		{
 			toBePostProcessed[i] = true;
+		}
 	}
 
 	std::vector<uint32_t> alive;
@@ -978,6 +1005,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 
 	subsolution.unifyFriendships();
 	std::vector<uint32_t> subcolors = subsolution.solve();
+assert(subsolution.checkConstraintsAreRespected(subcolors));
 
 	retColors = std::vector<uint32_t> (N, N);
 	for (uint32_t i = 0; i<alive.size(); i++)
@@ -1017,6 +1045,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::canBeAddedToCli
 }
 void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const
 {
+	assert(!used[index]);
 	assert(canBeAddedToClique(index, unionConstraint, used));
 
 	unionConstraint &= constraints[index];
@@ -1036,7 +1065,6 @@ uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::lowerBoundO
 		if (j<N && canBeAddedToClique(j, unionConstraint, used))
 		{
 			addToClique(j, unionConstraint, used);
-			lowerBound = std::max(lowerBound, used.count());
 			j++;
 		}
 		else
@@ -1046,7 +1074,6 @@ uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::lowerBoundO
 				if (!used[k] && canBeAddedToClique(k, unionConstraint, used))
 					addToClique(k, unionConstraint, used);
 			}
-
 			lowerBound = std::max(lowerBound, used.count());
 			unionConstraint = llvm::BitVector(N, true);
 			used = llvm::BitVector(N, false);
@@ -1259,6 +1286,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArt
 		sub.unifyFriendships();
 
 		std::vector<uint32_t> subcolors = sub.solve();
+assert(sub.checkConstraintsAreRespected(subcolors));
 
 		const uint32_t K = subcolors[0];
 
@@ -1362,6 +1390,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 		//In the non-conflicting case, friendship have to be possibly unificated
 		sub.unifyFriendships();
 		std::vector<uint32_t> subcolors = sub.solve();
+assert(sub.checkConstraintsAreRespected(subcolors));
 		solutions.push_back(subcolors);
 		toAdd.push_back(toAdd.back());
 		if (conflicting)
@@ -1495,6 +1524,19 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::friendInvariant
 	return true;
 }
 
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::checkConstraintsAreRespected(const std::vector<uint32_t>& colors) const
+{
+	for (uint32_t i = 0; i<N; i++)
+	{
+		for (uint32_t j = 0; j<N; j++)
+		{
+			if (constraints[i][j] && colors[i] == colors[j])
+				return false;
+		}
+	}
+	return true;
+}
+
 std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve()
 {
 	if (N == 0)
@@ -1520,7 +1562,10 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	if (removeRowsWithFewConstraints())
 		return retColors;
 
-	//TODO: there are other possible reductions? YES: whether a row has X conflicts and no friendships, and you already know you will need at least X+1 colors, the row can be skipped
+	//TODO: whenever there are only 2 friends (or multiple but with increasing payoffs), put the on the right place and remove line
+	//TODO: whenever there are 2 clique, and the only additional constraints/friends are between them, they can be solved independenty from the rest
+	//TODO: a clique could be an articulation point! split there
+
 	//TODO: introduce state as not redo unnecessary computations (eg after splitConflicting(true), there is no need to run it again, only certain optimizations require to re-run on the whole)
 
 	IterationsCounter counter(times);

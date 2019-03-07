@@ -660,6 +660,7 @@ private:
 			bool splitBetweenArticulationPoints();
 			bool splitConflicting(const bool conflicting);
 			void unifyFriendships();
+			bool checkConstraintsAreRespected(const std::vector<uint32_t>& colors) const;
 			bool friendshipsInvariantsHolds() const;
 			bool friendInvariantsHolds() const;
 			uint32_t findParent(const uint32_t index) const
@@ -791,7 +792,7 @@ private:
 			assert(A.size() == B.size());
 			for (uint32_t i = 0; i<A.size(); i++)
 			{
-				if (A[i] && B[i] == false)
+				if (A[i] && !B[i])
 					return false;
 			}
 			return true;
