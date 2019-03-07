@@ -385,6 +385,8 @@ private:
 					constraints[i].reset(i);
 				}
 				times = 100;
+				lowerBoundChromaticNumber = ((N==0)?0:1);
+				howManyWaysHasLowerBoundBeenEvaluated = 0;
 			}
 		public:
 			void dump()
@@ -446,7 +448,7 @@ private:
 			};
 			struct SearchState
 			{
-				SearchState(Solution& best, uint32_t& minimalNumberOfColors, uint32_t nodesToEvaluate, const uint32_t targetDepth, const uint32_t alreadyProcessedDepth)
+				SearchState(Solution& best, uint32_t minimalNumberOfColors, uint32_t nodesToEvaluate, const uint32_t targetDepth, const uint32_t alreadyProcessedDepth)
 					: currentBest(best), minimalNumberOfColors(minimalNumberOfColors),
 					iterationsCounter(nodesToEvaluate),
 					targetDepth(targetDepth), processedDepth(alreadyProcessedDepth)
@@ -470,9 +472,6 @@ private:
 #endif
 				bool improveScore(const Solution& local)
 				{
-					uint32_t numberColors = computeNumberOfColors(local.second);
-					if (minimalNumberOfColors > numberColors)
-						minimalNumberOfColors = numberColors;
 					if (couldImproveScore(local.first))
 					{
 						currentBest = local;
@@ -580,10 +579,10 @@ private:
 				}
 				return res+1;
 			}
-			uint32_t computeScore(const std::vector<uint32_t>& coloring) const
+			uint32_t computeScore(const std::vector<uint32_t>& coloring, const uint32_t lowerBound) const
 			{
 				assert(coloring.size() == N);
-				uint32_t res = computeNumberOfColors(coloring) * 6;
+				uint32_t res = std::max(computeNumberOfColors(coloring), lowerBound) * 6;
 				for (const auto& p : friendships)
 				{
 					if (coloring[p.second.first] != coloring[p.second.second])
@@ -656,7 +655,10 @@ private:
 			bool removeRowsWithFewConstraints();
 			bool canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const;
 			void addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const;
-			uint32_t lowerBoundOnNumberOfColor() const;
+			void improveLowerBound(const uint32_t x);
+			uint32_t chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const;
+			uint32_t maximalGeneratedClique() const;
+			uint32_t lowerBoundOnNumberOfColors();
 			bool splitBetweenArticulationPoints();
 			bool splitConflicting(const bool conflicting);
 			void unifyFriendships();
@@ -682,6 +684,8 @@ private:
 			std::vector<llvm::BitVector> constraints;
 			std::vector<std::pair<uint32_t, std::pair<uint32_t, uint32_t>>> friendships;
 			std::vector<std::vector<std::pair<uint32_t, uint32_t>>> friends;
+			uint32_t lowerBoundChromaticNumber;
+			uint32_t howManyWaysHasLowerBoundBeenEvaluated;
 		public:
 #ifdef REGISTERIZE_DEBUG
 			enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
