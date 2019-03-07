@@ -762,7 +762,9 @@ private:
 			}
 		}
 		void buildEdgesData(llvm::Function& F);
-		void buildFriendsSingle(const uint32_t phi, const PointerAnalyzer& PA);
+		void buildFriendsSinglePhi(const uint32_t phi, const PointerAnalyzer& PA);
+		void createSingleFriendship(const uint32_t i, const llvm::Value* operand);
+		void buildFriendsSingleCompressibleInstr(const uint32_t i);
 		void buildFriends(const PointerAnalyzer& PA)
 		{
 			friends.resize(numInst());
@@ -770,10 +772,10 @@ private:
 			{
 				if (isAlive(i))
 				{
-					buildFriendsSingle(i, PA);
+					buildFriendsSinglePhi(i, PA);
+					buildFriendsSingleCompressibleInstr(i);
 				}
 			}
-			//TODO: add here support for inlineable instructions, like a = a + b -> a += b
 
 			removeUnsatisfayableFriends();
 
