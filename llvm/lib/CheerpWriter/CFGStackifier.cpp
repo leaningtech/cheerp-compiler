@@ -596,6 +596,7 @@ public:
 	void removeEmptyIfs();
 	void mergeBlocks();
 	void removeUnnededNesting();
+	void adjustLoopEnds();
 private:
 	// Helper function for iterating on one or more kinds of tokens
 	// The second parameter passed to `f` is a reference to the next iterator to
@@ -632,6 +633,7 @@ void TokenListOptimizer::runAll()
 	removeEmptyIfs();
 	mergeBlocks();
 	removeUnnededNesting();
+	adjustLoopEnds();
 }
 
 static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
@@ -867,6 +869,39 @@ void TokenListOptimizer::removeUnnededNesting()
 			Tokens.erase(If);
 			Tokens.erase(Else);
 			Next = std::next(IfNot->getIter());
+		}
+	});
+}
+
+void TokenListOptimizer::adjustLoopEnds()
+{
+	for_each_kind<Token::TK_Loop>([&](TokenList::iterator Loop, Token*)
+	{
+		TokenList::iterator End = Loop->getMatch();
+		TokenList::iterator Cur = std::prev(End);
+		Token* LastDepth0 = nullptr;
+		int Depth = 0;
+		while (Cur != Loop)
+		{
+			if (Cur->getKind() & (Token::TK_If|Token::TK_IfNot|Token::TK_Loop|Token::TK_Block))
+			{
+				Depth--;
+			}
+			else if (Cur->getKind() == Token::TK_End)
+			{
+				if (Depth == 0)
+					LastDepth0 = Cur;
+				Depth++;
+			}
+			else if (Cur->getKind() == Token::TK_Branch && Cur->getMatch() == Loop)
+			{
+				break;
+			}
+			Cur--;
+		}
+		if (LastDepth0 != nullptr && LastDepth0 != std::prev(End))
+		{
+			Tokens.moveAfter(LastDepth0, End, std::next(End));
 		}
 	});
 }
