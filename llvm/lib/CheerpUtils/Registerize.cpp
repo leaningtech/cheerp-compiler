@@ -620,7 +620,7 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::DFSwithLimitedD
 #ifdef REGISTERIZE_DEBUG
 			state.debugStats[GREEDY_EVALUATIONS]++;
 #endif
-			const std::vector<uint32_t> colors = getColors(keepMergin(state));
+			const Coloring colors = getColors(keepMerging(state));
 			const Solution localSolution = {computeScore(colors, lowerBoundOnNumberOfColors()), colors};
 
 			bool print = state.improveScore(localSolution);
@@ -672,7 +672,6 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::DFSwithLimitedD
 		state.choicesMade.reset(oldSize);
 		state.currentScore += F.first;
 
-		const bool toBeDone = areMergeable(a, b);
 		if (areMergeable(a, b))
 		{
 			//set as unmergiable, and recurse
@@ -701,7 +700,7 @@ uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::chromaticNu
 	}
 	noFriendships.unifyFriendships();
 	noFriendships.improveLowerBound(lowerBound);
-	std::vector<uint32_t> col = noFriendships.solve();
+	const Coloring col = noFriendships.solve();
 	assert(noFriendships.checkConstraintsAreRespected(col));
 #ifdef REGISTERIZE_DEBUG
 	llvm::errs() << "Computing lower bound on graph with no friendships: " << lowerBound << "/" << minimalColors << " to " << computeNumberOfColors(col) << "\n";
@@ -709,10 +708,9 @@ uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::chromaticNu
 	return computeNumberOfColors(col);
 }
 
-std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::iterativeDeepening(IterationsCounter& counter)
+Registerize::RegisterAllocatorInst::RegisterizeSubSolution::Coloring Registerize::RegisterAllocatorInst::RegisterizeSubSolution::iterativeDeepening(IterationsCounter& counter)
 {
 	//TODO: try to split it in multiple solutions first
-	//TODO: run again with 1 less color
 	Solution best;
 	best.second = getColors(assignGreedily());
 	best.first = computeScore(best.second, lowerBoundOnNumberOfColors());
@@ -954,7 +952,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 
 	//Merging dominated nodes may generate a double friendship between the same nodes
 	subsolution.improveLowerBound(lowerBoundOnNumberOfColors());
-	std::vector<uint32_t> subcolors = subsolution.solve();
+	const Coloring subcolors = subsolution.solve();
 	assert(subsolution.checkConstraintsAreRespected(subcolors));
 	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
 
@@ -1026,11 +1024,11 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 
 	subsolution.unifyFriendships();
 	subsolution.improveLowerBound(lowerBound);
-	std::vector<uint32_t> subcolors = subsolution.solve();
+	const Coloring subcolors = subsolution.solve();
 	assert(subsolution.checkConstraintsAreRespected(subcolors));
 	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
 
-	retColors = std::vector<uint32_t> (N, N);
+	retColors = Coloring(N, N);
 	for (uint32_t i = 0; i<alive.size(); i++)
 	{
 		retColors[alive[i]] = subcolors[i];
@@ -1322,14 +1320,14 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArt
 		}
 	}
 
-	std::vector<std::vector<uint32_t>> solutions;
+	std::vector<Coloring> solutions;
 	for (RegisterizeSubSolution& sub : subproblems)
 	{
 		//Friends of splitNode could get merged, so run standardization function:
 		sub.unifyFriendships();
 
 		sub.improveLowerBound(lowerBoundOnNumberOfColors());
-		std::vector<uint32_t> subcolors = sub.solve();
+		Coloring subcolors = sub.solve();
 		improveLowerBound(sub.lowerBoundOnNumberOfColors());
 		assert(sub.checkConstraintsAreRespected(subcolors));
 
@@ -1428,7 +1426,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 			subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
 	}
 
-	std::vector<std::vector<uint32_t>> solutions;
+	std::vector<Coloring> solutions;
 	std::vector<uint32_t> toAdd(1, 0);
 
 	uint32_t sum_colors = 0;
@@ -1490,7 +1488,7 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::unifyFriendship
 
 	while (!friendships.empty())
 	{
-		if (friendships.back().first == -1)
+		if (friendships.back().first == (uint32_t)-1)
 			friendships.pop_back();
 		else
 			break;
@@ -1580,7 +1578,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::friendInvariant
 	return true;
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::checkConstraintsAreRespected(const std::vector<uint32_t>& colors) const
+bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::checkConstraintsAreRespected(const Coloring& colors) const
 {
 	for (uint32_t i = 0; i<N; i++)
 	{
@@ -1593,12 +1591,10 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::checkConstraint
 	return true;
 }
 
-std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve()
+Registerize::RegisterAllocatorInst::RegisterizeSubSolution::Coloring Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve()
 {
-	if (N == 0)
-		return std::vector<uint32_t>();
-	if (N == 1)
-		return std::vector<uint32_t>(1, 0);
+	if (N <= 1)
+		return Coloring(N, 0);
 
 	assert(friendshipsInvariantsHolds());
 	assert(friendInvariantsHolds());
@@ -1618,14 +1614,13 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	if (removeRowsWithFewConstraints())
 		return retColors;
 
-	//TODO: whenever there are only 2 friends (or multiple but with increasing payoffs), put the on the right place and remove line
 	//TODO: whenever there are 2 clique, and the only additional constraints/friends are between them, they can be solved independenty from the rest
 	//TODO: a clique could be an articulation point! split there
 
 	//TODO: introduce state as not redo unnecessary computations (eg after splitConflicting(true), there is no need to run it again, only certain optimizations require to re-run on the whole)
 
 	IterationsCounter counter(times);
-	const std::vector <uint32_t> colors = iterativeDeepening(counter);
+	const Coloring colors = iterativeDeepening(counter);
 #ifdef REGISTERIZE_DEBUG
 	if (colors.size() > 1)
 	{
