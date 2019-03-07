@@ -63,8 +63,6 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, bool preExecute)
   // Initialize the "backend"
   initializeExecutionEngine();
   initializeExternalFunctions();
-  // Allow unresolved globals if pre-executing
-  emitGlobals(/* AllowUnresolved */ ForPreExecute);
 
   IL = new IntrinsicLowering(getDataLayout());
 }
