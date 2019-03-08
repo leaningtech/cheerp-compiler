@@ -564,7 +564,7 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 	buildEdgesData(F);
 }
 
-std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::keepMerging(SearchState& state)
+std::vector<uint32_t> VertexColorer::keepMerging(SearchState& state)
 {
 	//Build a decent solution given some (possibly none) already made choices
 	const uint32_t index = state.processedFriendships;
@@ -575,7 +575,7 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	}
 
 	//F is a positive weight friendship (and the one with higher weight, since they are ordered)
-	const std::pair<uint32_t, std::pair<uint32_t, uint32_t>>& F = friendships[state.processedFriendships];
+	const Friendship& F = friendships[state.processedFriendships];
 	const uint32_t a = findParent(F.second.first);
 	const uint32_t b = findParent(F.second.second);
 
@@ -603,7 +603,7 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	return solution;
 }
 
-void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::DFSwithLimitedDepth(SearchState& state)
+void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 {
 	//Do a DFS with a limited search depth, and store inside state the best found solution
 	if (state.iterationsCounter.remaining() == 0)
@@ -641,7 +641,7 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::DFSwithLimitedD
 		return;
 	}
 
-	const std::pair<uint32_t, std::pair<uint32_t, uint32_t>>& F = friendships[state.processedFriendships];
+	const Friendship& F = friendships[state.processedFriendships];
 	const uint32_t a = findParent(F.second.first);
 	const uint32_t b = findParent(F.second.second);
 
@@ -691,24 +691,29 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::DFSwithLimitedD
 	state.choicesMade.resize(oldSize);
 }
 
-uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const
+uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const
 {
-	RegisterizeSubSolution noFriendships(N);
+	//If we discard all friends, and minimize score, and we find an optimal solution, we have the chromatic number (and so also a lower bound on it)
+	VertexColorer noFriendships(N);
 	for (const auto& F : friendships)
 	{
 		noFriendships.addFriendship(0, F.second.first, F.second.second);
 	}
-	noFriendships.unifyFriendships();
+
 	noFriendships.improveLowerBound(lowerBound);
 	const Coloring col = noFriendships.solve();
-	assert(noFriendships.checkConstraintsAreRespected(col));
+
+	//If we do not have the guarantee for the solution to be optimal, this work only as upper bound but not as lower bound
+	if (!noFriendships.isSolutionOptimal())
+		return lowerBound;
+
 #ifdef REGISTERIZE_DEBUG
 	llvm::errs() << "Computing lower bound on graph with no friendships: " << lowerBound << "/" << minimalColors << " to " << computeNumberOfColors(col) << "\n";
 #endif
 	return computeNumberOfColors(col);
 }
 
-Registerize::RegisterAllocatorInst::RegisterizeSubSolution::Coloring Registerize::RegisterAllocatorInst::RegisterizeSubSolution::iterativeDeepening(IterationsCounter& counter)
+VertexColorer::Coloring VertexColorer::iterativeDeepening(IterationsCounter& counter)
 {
 	//TODO: try to split it in multiple solutions first
 	Solution best;
@@ -727,6 +732,7 @@ Registerize::RegisterAllocatorInst::RegisterizeSubSolution::Coloring Registerize
 
 		if (estimate > lowerBound && removeRowsWithFewConstraints())
 		{
+			//lowerBound has increased, so we needs to check again rows with few constraints
 			return retColors;
 		}
 		lowerBound = lowerBoundOnNumberOfColors();
@@ -758,8 +764,9 @@ Registerize::RegisterAllocatorInst::RegisterizeSubSolution::Coloring Registerize
 	return best.second;
 }
 
-std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::assignGreedily() const
+std::vector<uint32_t> VertexColorer::assignGreedily() const
 {
+	//Here it returns the parent vector, not a coloring
 	std::vector<uint32_t> res = parent;
 	std::vector<uint32_t> V(N);
 	for (uint32_t i=0; i<N; i++)
@@ -905,9 +912,9 @@ void Registerize::RegisterAllocatorInst::buildFriendsSingleCompressibleInstr(con
 	return;
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::isDominatingFriend(const uint32_t a, const uint32_t b) const
+bool VertexColorer::isDominatingFriend(const uint32_t a, const uint32_t b) const
 {
-	std::vector<std::pair<uint32_t, uint32_t>> F = friends[a];
+	std::vector<Friend> F = friends[a];
 	if (F.size() == 0)
 		return true;
 	uint32_t index = F.size();
@@ -925,7 +932,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::isDominatingFri
 	if (F.size() == 2 && F[index].second *2 >= sum)
 		return true;
 
-	sort(F.begin(), F.end(), [](const std::pair<uint32_t, uint32_t>& first, const std::pair<uint32_t, uint32_t>& second) -> bool
+	sort(F.begin(), F.end(), [](const Friend& first, const Friend& second) -> bool
 			{
 				return first.second > second.second;
 			}
@@ -935,29 +942,30 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::isDominatingFri
 	return F[0].second*2 >= sum;
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominatedRows()
+bool VertexColorer::removeDominatedRows()
 {
-	uint32_t currentMod;
-	do {
-		currentMod = 0;
-		for (uint32_t i = 0; i<N; i++)
+	//Try to find rows that are dominated by another. In this case, they can get the same colors of the dominating vertex and the solutions remain optimal
+	//One vertex dominated AND can become parent of another if:
+	//-the constraint of the dominated are a (possibly non proper) subset of the constraint of the dominating
+	//-there are no constraint between them (otherwise it could be dominating, but it could not be merged)
+	//-either the dominated has no friends, or has the dominating as only friend, or in any case the dominating is a dominating friend
+	//			(this means that it's the friend that weights 50%+ of the total of the dominating friendships)
+	for (uint32_t i = 0; i<N; i++)
+	{
+		if (!isAlive(i))
+			continue;
+		for (uint32_t j = 0; j<N; j++)
 		{
-			if (!isAlive(i))
-				continue;
-			for (uint32_t j = 0; j<N; j++)
+			if (i != j && isAlive(j) && !constraints[i][j] && isSubset(constraints[j], constraints[i]) )
 			{
-				if (i != j && isAlive(j) && !constraints[i][j] && isSubset(constraints[j], constraints[i]) )
+				if (isDominatingFriend(j, i))
 				{
-					if (isDominatingFriend(j, i))
-					{
-						parent[j] = i;
-						++currentMod;
-						break;
-					}
+					parent[j] = i;
+					break;
 				}
 			}
 		}
-	} while (currentMod > 0);
+	}
 
 	std::vector<uint32_t> alive;
 	std::vector<uint32_t> index(N);
@@ -978,7 +986,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 	llvm::errs() << "Remove dominated rows:\t"<< N << " -> " << alive.size() << "\n";
 #endif
 
-	RegisterizeSubSolution subsolution(alive.size());
+	VertexColorer subsolution(alive.size());
 
 	//Add frienships (if they do not clash with constraints)
 	for (auto F : friendships)
@@ -989,12 +997,9 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 			subsolution.addFriendship(F.first, index[a], index[b]);
 	}
 
-	subsolution.unifyFriendships();
-
-	//Merging dominated nodes may generate a double friendship between the same nodes
+	//Merging dominated nodes may generate a double friendship between the same nodes, so the generic function is required
 	subsolution.improveLowerBound(lowerBoundOnNumberOfColors());
 	const Coloring subcolors = subsolution.solve();
-	assert(subsolution.checkConstraintsAreRespected(subcolors));
 	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
 
 	retColors.resize(N);
@@ -1008,13 +1013,15 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeDominated
 		if (!isAlive(i))
 			retColors[i] = retColors[findParent(i)];
 	}
-	assert(checkConstraintsAreRespected(retColors));
 
 	return true;
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithFewConstraints()
+bool VertexColorer::removeRowsWithFewConstraints()
 {
+	//Vertex with no positive-weight friends and "few" constraints can be removed and assigned a color at the end
+	//The idea is that someone has less than N-1 constraint, for the pigeon hole there is a color <=N than is valid, and this color can be assigned at the end
+
 	uint32_t cutoff = lowerBoundOnNumberOfColors() - 1;
 
 	std::vector<bool> toBePostProcessed(N, false);
@@ -1052,7 +1059,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 	llvm::errs() << "Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
 #endif
 
-	RegisterizeSubSolution subsolution(alive.size());
+	VertexColorer subsolution(alive.size());
 	for (auto F : friendships)
 	{
 		const uint32_t a = F.second.first;
@@ -1061,12 +1068,11 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 			subsolution.addFriendship(F.first, index[a], index[b]);
 	}
 
+	//Needed as not run into under-flow on unsigned ints
 	uint32_t lowerBound = std::max(lowerBoundOnNumberOfColors(), howManyOnCutoff) - howManyOnCutoff;
 
-	subsolution.unifyFriendships();
 	subsolution.improveLowerBound(lowerBound);
 	const Coloring subcolors = subsolution.solve();
-	assert(subsolution.checkConstraintsAreRespected(subcolors));
 	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
 
 	retColors = Coloring(N, N);
@@ -1096,7 +1102,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::removeRowsWithF
 	return true;
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const
+bool VertexColorer::canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const
 {
 	if (!unionConstraint[index])
 		return false;
@@ -1105,7 +1111,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::canBeAddedToCli
 
 	return local == used;
 }
-void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const
+void VertexColorer::addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const
 {
 	assert(!used[index]);
 	assert(canBeAddedToClique(index, unionConstraint, used));
@@ -1116,7 +1122,7 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::addToClique(con
 	used.set(index);
 }
 
-uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::maximalGeneratedClique() const
+uint32_t VertexColorer::maximalGeneratedClique() const
 {
 	//Try to generate a clique as big as possible (this serves as lower bound on chromatic number)
 	//Take advantage than most instance are already sort of block diagonal, so identify a block and try to expand it
@@ -1151,12 +1157,12 @@ uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::maximalGene
 	return low;
 }
 
-void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::improveLowerBound(const uint32_t x)
+void VertexColorer::improveLowerBound(const uint32_t x)
 {
 	lowerBoundChromaticNumber = std::max(lowerBoundChromaticNumber, x);
 }
 
-uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::lowerBoundOnNumberOfColors()
+uint32_t VertexColorer::lowerBoundOnNumberOfColors()
 {
 	if (howManyWaysHasLowerBoundBeenEvaluated == 0)
 	{
@@ -1166,8 +1172,13 @@ uint32_t Registerize::RegisterAllocatorInst::RegisterizeSubSolution::lowerBoundO
 	return lowerBoundChromaticNumber;
 }
 
-void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint) const
+void VertexColorer::floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint) const
 {
+	//Assign every node connected to start to the region labelled start
+	//What connected means depends:
+	//conflicting == false		there is either a positive-weight friendship or they are adjacent (so there is a constraint)
+	//conflicting == true		the node are not adjacent (or there is no constraint)
+	//articulationPoint != -1	as above, but it do not count if the vertex is equal to articulationPoint (as to disconnect regions on that point)
 	assert(regions[start] == start);
 
 	std::vector<uint32_t> toProcess;
@@ -1213,9 +1224,9 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::floodFill(std::
 	}
 }
 
-void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::HopcroftTarjanData::visit(const uint32_t i, const uint32_t d)
+void VertexColorer::HopcroftTarjanData::visit(const uint32_t i, const uint32_t d)
 {
-	//Tarjan-Hopcroft linear algorithm, see for example https://en.wikipedia.org/wiki/Biconnected_component
+	//Tarjan-Hopcroft linear algorithm to discover articulation points, see for example https://en.wikipedia.org/wiki/Biconnected_component
 	assert(!visited[i]);
 	visited[i] = true;
 	depth[i] = d;
@@ -1257,7 +1268,7 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::HopcroftTarjanD
 		articulationPoints.push_back(i);
 }
 
-std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution::getArticulationPoints() const
+std::vector<uint32_t> VertexColorer::getArticulationPoints() const
 {
 	//Tarjan-Hopcroft linear algorithm, see for example https://en.wikipedia.org/wiki/Biconnected_component
 	HopcroftTarjanData data(*this);
@@ -1267,17 +1278,16 @@ std::vector<uint32_t> Registerize::RegisterAllocatorInst::RegisterizeSubSolution
 	return data.articulationPoints;
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArticulationPoints()
+bool VertexColorer::splitOnArticulationPoint()
 {
+	//Find the articulation points for the graph
+	//If there is one that actually split the graph in more than 1 part, split the graph there and then recombine it
 	std::vector<uint32_t> articulations = getArticulationPoints();
 
 	if (articulations.empty())
 		return false;
 
-	for (uint32_t i=0; i<N; i++)
-	{
-		assert(isAlive(i));
-	}
+	assert(areAllAlive());
 
 	uint32_t splitNode = N;
 	std::vector<uint32_t> seeds;
@@ -1336,12 +1346,12 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArt
 	llvm::errs() << "\n";
 #endif
 
-	std::vector<RegisterizeSubSolution> subproblems;
+	std::vector<VertexColorer> subproblems;
 	subproblems.reserve(seeds.size());
 
 	for (auto s : seeds)
 	{
-		subproblems.push_back(RegisterizeSubSolution(C[s]+1));
+		subproblems.push_back(VertexColorer(C[s]+1));
 	}
 
 	for (auto F : friendships)
@@ -1362,15 +1372,13 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArt
 	}
 
 	std::vector<Coloring> solutions;
-	for (RegisterizeSubSolution& sub : subproblems)
+	for (VertexColorer& sub : subproblems)
 	{
-		//Friends of splitNode could get merged, so run standardization function:
-		sub.unifyFriendships();
+		//Friends of splitNode could get merged, so call standard solver
 
 		sub.improveLowerBound(lowerBoundOnNumberOfColors());
 		Coloring subcolors = sub.solve();
 		improveLowerBound(sub.lowerBoundOnNumberOfColors());
-		assert(sub.checkConstraintsAreRespected(subcolors));
 
 		const uint32_t K = subcolors[0];
 
@@ -1396,12 +1404,25 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitBetweenArt
 	return true;
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflicting(const bool conflicting)
+bool VertexColorer::areAllAlive() const
 {
 	for (uint32_t i=0; i<N; i++)
 	{
-		assert(isAlive(i));
+		if (!isAlive(i))
+			return false;
 	}
+	return true;
+}
+
+bool VertexColorer::splitConflicting(const bool conflicting)
+{
+	//If the graph can be divided in unconnected areas, do so and recombine the partial solutions
+	//There are two kind of connectedness:
+	//-two node are connected if there is no constraint between them
+	//	in this case when combining the subsolutions, colors should be keept separated between sub-solutions (since it is guaranteed they conflict)
+	//-two node are connected if there is a constraint or a non-zero friendship between them
+	//	in this case the same colors can be reused, since there are no possible conflicts
+	assert(areAllAlive());
 
 	std::vector<uint32_t> regions = parent;
 	std::vector<uint32_t> A(N), B(N);
@@ -1450,12 +1471,12 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 #endif
 
 
-	std::vector<RegisterizeSubSolution> subproblems;
+	std::vector<VertexColorer> subproblems;
 	subproblems.reserve(seeds.size());
 
 	for (auto s : seeds)
 	{
-		subproblems.push_back(RegisterizeSubSolution(C[s]));
+		subproblems.push_back(VertexColorer(C[s]));
 	}
 
 	for (auto F : friendships)
@@ -1472,18 +1493,19 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 
 	uint32_t sum_colors = 0;
 
-	for (RegisterizeSubSolution& sub : subproblems)
+	for (VertexColorer& sub : subproblems)
 	{
-		//In the non-conflicting case, friendship have to be possibly unificated
-		sub.unifyFriendships();
 		if (!conflicting)
+		{
 			sub.improveLowerBound(lowerBoundOnNumberOfColors());
-		std::vector<uint32_t> subcolors = sub.solve();
+			//In the non-conflicting case, friendship have to be possibly unificated
+			sub.establishInvariants();
+		}
+		const std::vector<uint32_t> subcolors = sub.solve();
 		sum_colors += sub.lowerBoundOnNumberOfColors();
 		if (!conflicting)
 			improveLowerBound(sub.lowerBoundOnNumberOfColors());
 
-		assert(sub.checkConstraintsAreRespected(subcolors));
 		solutions.push_back(subcolors);
 		toAdd.push_back(toAdd.back());
 		if (conflicting)
@@ -1501,11 +1523,20 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::splitConflictin
 	return true;
 }
 
-void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::unifyFriendships()
+void VertexColorer::establishInvariants()
 {
-	typedef std::pair<uint32_t, std::pair<uint32_t, uint32_t>> Member;
+	//Standardize the edge representation
+	for (Friendship& a : friendships)
+	{
+		if (a.second.first > a.second.second)
+		{
+			std::swap(a.second.first, a.second.second);
+		}
+		assert(a.second.first != a.second.second);
+	}
 
-	sort(friendships.begin(), friendships.end(), [](const Member& a, const Member& b) -> bool
+	//Merge equivalents
+	sort(friendships.begin(), friendships.end(), [](const Friendship& a, const Friendship& b) -> bool
 			{
 				if (a.second.first != b.second.first)
 					return a.second.first < b.second.first;
@@ -1535,16 +1566,20 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::unifyFriendship
 			break;
 	}
 
-	sort(friendships.rbegin(), friendships.rend());
+	//Sort in inverse weight order
+	sort(friendships.begin(), friendships.end(), [](const Friendship& a, const Friendship& b)->bool
+			{
+				return a.first > b.first;
+			});
 
-	typedef std::pair<uint32_t, uint32_t> Pair;
-	for (std::vector<std::pair<uint32_t, uint32_t>> & F : friends)
+	for (std::vector<Friend> & F : friends)
 	{
 		sort(F.begin(), F.end());
 
 		i = 0;
 		j = 0;
 
+		//Merge equivalent friends
 		while (j < F.size())
 		{
 			if (i == j)
@@ -1559,7 +1594,7 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::unifyFriendship
 				i=j;
 		}
 
-		sort(F.begin(), F.end(), [](const Pair& a, const Pair& b) -> bool
+		sort(F.begin(), F.end(), [](const Friend& a, const Friend& b) -> bool
 			{
 				return a.second > b.second;
 			});
@@ -1574,28 +1609,29 @@ void Registerize::RegisterAllocatorInst::RegisterizeSubSolution::unifyFriendship
 	}
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::friendshipsInvariantsHolds() const
+bool VertexColorer::friendshipsInvariantsHolds() const
 {
+	//friendships have to be sorted in decreasing weight
 	for (uint32_t i=1; i<friendships.size(); i++)
 	{
 		if (friendships[i-1].first < friendships[i].first)
 			return false;
 	}
-	std::vector<std::pair<uint32_t, uint32_t>> V;
+	std::vector<std::pair<uint32_t, uint32_t>> edges;
 	for (auto F : friendships)
 	{
-		V.push_back(F.second);
+		edges.push_back(F.second);
 	}
-	sort(V.begin(), V.end());
-	for (uint32_t i=1; i<V.size(); i++)
+	sort(edges.begin(), edges.end());
+	for (uint32_t i=1; i<edges.size(); i++)
 	{
-		if (V[i-1] == V[i])
+		if (edges[i-1] == edges[i])
 			return false;
 	}
 	return true;
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::friendInvariantsHolds() const
+bool VertexColorer::friendInvariantsHolds() const
 {
 	for (auto F : friends)
 	{
@@ -1619,7 +1655,7 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::friendInvariant
 	return true;
 }
 
-bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::checkConstraintsAreRespected(const Coloring& colors) const
+bool VertexColorer::checkConstraintsAreRespected(const Coloring& colors) const
 {
 	for (uint32_t i = 0; i<N; i++)
 	{
@@ -1632,26 +1668,40 @@ bool Registerize::RegisterAllocatorInst::RegisterizeSubSolution::checkConstraint
 	return true;
 }
 
-Registerize::RegisterAllocatorInst::RegisterizeSubSolution::Coloring Registerize::RegisterAllocatorInst::RegisterizeSubSolution::solve()
+VertexColorer::Coloring VertexColorer::solve()
 {
+	establishInvariants();
+	const Coloring res = solveInvariantsAlreadySet();
+	assert(checkConstraintsAreRespected(res));
+	return res;
+}
+
+VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
+{
+	//Small cases have obvious solutions
 	if (N <= 1)
 		return Coloring(N, 0);
 
 	assert(friendshipsInvariantsHolds());
 	assert(friendInvariantsHolds());
 
+	//If the inverese connection graph is unconnected, split!
 	if (splitConflicting(true))
 		return retColors;
 
+	//If the connection graph is unconnected, split!
 	if (splitConflicting(false))
 		return retColors;
 
+	//If there are rows dominated by others, remove them
 	if (removeDominatedRows())
 		return retColors;
 
-	if (splitBetweenArticulationPoints())
+	//If there are articulation points, split on one of them
+	if (splitOnArticulationPoint())
 		return retColors;
 
+	//If there are rows with no weighted friends and less than lowerBound constraints, remove them
 	if (removeRowsWithFewConstraints())
 		return retColors;
 
@@ -1662,6 +1712,9 @@ Registerize::RegisterAllocatorInst::RegisterizeSubSolution::Coloring Registerize
 
 	IterationsCounter counter(times);
 	const Coloring colors = iterativeDeepening(counter);
+
+	if (counter.remaining() == 0)
+		isOptimal = false;
 #ifdef REGISTERIZE_DEBUG
 	if (colors.size() > 1)
 	{
@@ -1685,31 +1738,26 @@ Registerize::RegisterAllocatorInst::RegisterizeSubSolution::Coloring Registerize
 void Registerize::RegisterAllocatorInst::solve()
 {
 	computeBitsetConstraints();
-	RegisterizeSubSolution RSS(numInst());
-	auto KK = getFriendships();
-	sort(KK.begin(), KK.end());
-	reverse(KK.begin(), KK.end());
-	for (auto x : KK)
+	VertexColorer colorer(numInst());
+
+	for (const Friendship x : getFriendships())
 	{
-		RSS.addFriendship(x.first, x.second.first, x.second.second);
+		colorer.addWeightedFriendship(x.second.first, x.second.second, x.first);
 	}
 #ifdef REGISTERIZE_DEBUG_MINIMAL
 	llvm::errs () << "\n\nSolving function of size " << numInst() << "\n";
 #endif
 
-	auto K = RSS.solve();
+	const auto color = colorer.solve();
 
-	for (uint32_t i = 0; i<K.size(); i++) for (uint32_t j=i+1; j<K.size(); j++)
+	for (uint32_t i = 0; i<color.size(); i++)
 	{
-		if (K[i] == K[j] && false)
+		for (uint32_t j=i+1; j<color.size(); j++)
 		{
-			assert(isAlive(findParent(i)));
-			assert(isAlive(findParent(j)));
-			assert(couldBeMerged(findParent(i), findParent(j)));
-		}
-		if (K[i] == K[j] && isAlive(findParent(i)) && isAlive(findParent(j)) && couldBeMerged(findParent(i), findParent(j)))
-		{
-			mergeVirtual(findParent(i), findParent(j));
+			if (color[i] == color[j] && isAlive(findParent(i)) && isAlive(findParent(j)) && couldBeMerged(findParent(i), findParent(j)))
+			{
+				mergeVirtual(findParent(i), findParent(j));
+			}
 		}
 	}
 }
