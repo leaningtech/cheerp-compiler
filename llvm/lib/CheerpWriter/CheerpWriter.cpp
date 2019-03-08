@@ -2907,7 +2907,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			{
 				// A return statement at depth 0 means the function is finished
 				// This is a void return at the end of the function, just skip it
-				return COMPILE_OK;
+				return COMPILE_EMPTY;
 			}
 			else
 				stream << "return";
@@ -2958,7 +2958,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 		case Instruction::Br:
 		case Instruction::Switch:
 		case Instruction::Unreachable:
-			return COMPILE_OK;
+			return COMPILE_EMPTY;
 		default:
 			stream << "alert('Unsupported code');" << NewLine;
 			llvm::errs() << "\tImplement terminator inst " << I.getOpcodeName() << '\n';
