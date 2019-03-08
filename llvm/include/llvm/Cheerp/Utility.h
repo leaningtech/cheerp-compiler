@@ -24,6 +24,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
+#include "llvm/Cheerp/Registerize.h"
 
 namespace cheerp
 {
@@ -42,6 +43,11 @@ inline bool isValidVoidPtrSource(const llvm::Value* val)
 
 bool isInlineable(const llvm::Instruction& I, const PointerAnalyzer& PA);
 
+/**
+* Returns true if this PHI will render identically for all incoming
+* NOTE: If the PHI would completely disappear this returns false
+*/
+bool canDelayPHI(const llvm::PHINode* phi, const PointerAnalyzer& PA, const Registerize& registerize);
 inline bool isBitCast(const llvm::Value* v)
 {
 	if( llvm::isa< llvm::BitCastInst>(v) )
