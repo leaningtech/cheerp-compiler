@@ -1257,6 +1257,10 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
       return nullptr;
   }
 
+  // Cheerp: Do not add new PHIs of pointers
+  if (!DL.isByteAddressable() && I.getType()->isPointerTy())
+    return nullptr;
+
   // Okay, we can do the transformation: create the new PHI node.
   PHINode *NewPN = PHINode::Create(I.getType(), PN->getNumIncomingValues());
   InsertNewInstBefore(NewPN, *PN);
