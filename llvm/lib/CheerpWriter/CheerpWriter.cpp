@@ -3039,18 +3039,18 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				if(kind == REGULAR || kind == SPLIT_REGULAR)
 				{
 					compileCheckBounds(ptrOp);
-					stream<<";";
+					stream<<",";
 				}
 				else if(kind == COMPLETE_OBJECT && isGEP(ptrOp))
 				{
 					bool needsOffset = valOp->getType()->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
 					compileCheckDefined(ptrOp, needsOffset);
-					stream<<";";
+					stream<<",";
 				}
 				else if(kind == RAW)
 				{
 					compileCheckBoundsAsmJS(ptrOp, targetData.getTypeAllocSize(valOp->getType())-1);
-					stream<<";";
+					stream<<",";
 				}
 			}
 			// TODO: we need this hack because PointerAnalyzer cannot correctly assign
