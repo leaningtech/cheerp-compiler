@@ -4268,6 +4268,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 {
 	BasicBlock::const_iterator I=BB.begin();
 	BasicBlock::const_iterator IE=BB.end();
+	bool emptyBlock = true;
 	for(;I!=IE;++I)
 	{
 		if(isInlineable(*I, PA))
@@ -4312,7 +4313,9 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		}
 		if(I->isTerminator())
 		{
-			compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I));
+			auto ret = compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I));
+			if (ret == COMPILE_OK)
+				emptyBlock = false;
 		}
 		else if(!I->use_empty() || I->mayHaveSideEffects())
 		{
@@ -4321,6 +4324,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			if(ret==COMPILE_OK)
 			{
 				stream << ';' << NewLine;
+				emptyBlock = false;
 			}
 			else if(ret==COMPILE_UNSUPPORTED)
 			{
@@ -4328,6 +4332,10 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 				return;
 			}
 		}
+	}
+	if (emptyBlock && !isNumStatementsLessThan<1>(&BB, PA, registerize) && lastDepth0Block != &BB)
+	{
+		stream << ';' << NewLine;
 	}
 }
 
@@ -4785,6 +4793,49 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 	// Then, render the Tokens
 	DenseMap<const Token*, int> Labels;
 	int NextLabel = 1;
+	auto omitBraces = [this](const Token& T)
+	{
+		assert(T.getKind()&(Token::TK_If|Token::TK_IfNot|Token::TK_Else));
+		const Token* Inner = T.getNextNode();
+		const Token* End = T.getMatch();
+		switch (Inner->getKind())
+		{
+			case Token::TK_Prologue:
+			{
+				return false;
+			}
+			case Token::TK_BasicBlock:
+			{
+				if (Inner->getNextNode() != End)
+					return false;
+				return isNumStatementsLessThan<2>(Inner->getBB(), PA, registerize);
+			}
+			case Token::TK_Block:
+			case Token::TK_Loop:
+			case Token::TK_Switch:
+			{
+				return Inner->getMatch()->getNextNode() == End;
+			}
+			case Token::TK_If:
+			case Token::TK_IfNot:
+			{
+				if (End->getKind() == Token::TK_Else)
+					return false;
+				else if (Inner->getMatch()->getKind() == Token::TK_Else)
+					return Inner->getMatch()->getMatch()->getNextNode() == End;
+				else
+					return Inner->getMatch()->getNextNode() == End;
+			}
+			case Token::TK_Branch:
+			{
+				return Inner->getNextNode() == End;
+			}
+			default:
+			{
+				llvm_unreachable("Unexpected Token");
+			}
+		} 
+	};
 	for (auto it = Tokens.begin(), ie = Tokens.end(); it != ie; ++it)
 	{
 		const Token& T = *it;
@@ -4827,13 +4878,23 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				bool IfNot = T.getKind() == Token::TK_IfNot;
 				stream << "if(";
 				compileCondition(T.getBB(), IfNot);
-				stream << "){" << NewLine;
+				stream << ")";
+				if (!omitBraces(T))
+					stream << '{' << NewLine;
 				blockDepth++;
 				break;
 			}
 			case Token::TK_Else:
-				stream << "}else{" << NewLine;
+			{
+				if (!omitBraces(*T.getMatch()->getMatch()))
+					stream << '}';
+				stream << "else";
+				if (!omitBraces(T))
+					stream << '{' << NewLine;
+				else 
+					stream << ' ';
 				break;
+			}
 			case Token::TK_Branch:
 			{
 				const Token* Match = T.getMatch()->getKind() == Token::TK_Loop
@@ -4852,20 +4913,29 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				break;
 			}
 			case Token::TK_End:
+			{
 				if (Labels.count(T.getMatch()))
 					NextLabel--;
-				if (T.getMatch()->getKind() == Token::TK_Switch)
-					stream << '}' << NewLine;
-				else if (T.getMatch()->getKind() == Token::TK_Loop
+				if (T.getMatch()->getKind() == Token::TK_Loop
 					&& T.getPrevNode()->getKind() != Token::TK_Branch
 					&& !(T.getPrevNode()->getKind() == Token::TK_BasicBlock
 						&& isa<ReturnInst>(T.getPrevNode()->getBB()->getTerminator())))
 				{
 					stream << "break;" << NewLine;
 				}
-				stream << '}' << NewLine;
+				if (T.getMatch()->getKind() & (Token::TK_If|Token::TK_IfNot))
+				{
+					const Token* Prev = T.getMatch();
+					if (Prev->getMatch() != &T)
+						Prev = Prev->getMatch();
+					if (!omitBraces(*Prev))
+						stream << '}' << NewLine;
+				}
+				else
+					stream << '}' << NewLine;
 				blockDepth--;
 				break;
+			}
 			case Token::TK_Prologue:
 			{
 				const BasicBlock* To = T.getBB()->getTerminator()->getSuccessor(T.getId());
@@ -4884,19 +4954,17 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			case Token::TK_Case:
 			{
 				const SwitchInst* si = cast<SwitchInst>(T.getBB()->getTerminator());
-				if (T.getPrevNode()->getKind() != Token::TK_Switch)
-					stream << '}' << NewLine;
 				int id = T.getId();
 				if (id == 0)
-					stream << "default:" << NewLine << '{' << NewLine;
+					stream << "default";
 				else
 				{
 					// The value to match for case `i` has index `2*i`
 					auto cv = cast<ConstantInt>(si->getOperand(2*id));
 					stream << "case ";
 					compileOperandForIntegerPredicate(cv, CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
-					stream << ':' << NewLine << '{' << NewLine;
 				}
+				stream << ':' << NewLine;
 				break;
 			}
 			case Token::TK_Invalid:
