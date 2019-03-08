@@ -89,9 +89,9 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 			Count++;
 		if (auto Store = llvm::dyn_cast<llvm::StoreInst>(It))
 		{
-			const llvm::Value* PointerOp = Store->getPointerOperand();
-			if (PointerOp->getType()->isPointerTy()
-				&& PA.getPointerKindForStoredType(PointerOp->getType()))
+			const llvm::Value* ValueOp = Store->getValueOperand();
+			if (ValueOp->getType()->isPointerTy()
+				&& PA.getPointerKind(Store) == SPLIT_REGULAR)
 			{
 				Count++;
 			}
