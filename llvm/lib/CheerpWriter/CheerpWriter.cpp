@@ -4394,11 +4394,11 @@ bool CheerpWriter::isInlineableInstruction(const Value* v) const
 
 void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
 {
-	writer->compileBB(*bb);
 	if(writer->blockDepth == 0)
 		writer->lastDepth0Block = bb;
 	else
 		writer->lastDepth0Block = nullptr;
+	writer->compileBB(*bb);
 }
 
 void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio, bool booleanInvert)
@@ -4845,11 +4845,11 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 		{
 			case Token::TK_BasicBlock:
 			{
-				compileBB(*T.getBB());
 				if(blockDepth == 0)
 					lastDepth0Block = T.getBB();
 				else
 					lastDepth0Block = nullptr;
+				compileBB(*T.getBB());
 				break;
 			}
 			case Token::TK_Loop:
@@ -5001,8 +5001,8 @@ void CheerpWriter::compileMethod(Function& F)
 	if(F.size()==1)
 	{
 		compileMethodLocals(F, false);
-		compileBB(*F.begin());
 		lastDepth0Block = F.begin();
+		compileBB(*F.begin());
 	}
 	else
 	{
