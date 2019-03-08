@@ -648,11 +648,6 @@ public:
 	 * Returns if a switch/br_table is appropriate to render this terminator
 	 */
 	static bool useSwitch(const llvm::TerminatorInst* term);
-	/**
-	 * Returns true if this PHI will render identically for all incoming
-	 * NOTE: If the PHI would completely disappear this returns false
-	 */
-	static bool canDelayPHI(const llvm::PHINode* phi, const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsPointerKindConversion(const llvm::PHINode* phi, const llvm::Value* incoming,
 	                                       const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from,
