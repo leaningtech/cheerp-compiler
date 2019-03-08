@@ -31,6 +31,357 @@
 namespace cheerp
 {
 /**
+ * VertexColorer - Given an undirect graph, color the vertex in a (close to) optimal way as to have neighbours always of different color
+ * Optimal means a combinations of 2 metrics: using the smaller number of colors as possible, and breaking as few "soft" constraints as possible
+ */
+class VertexColorer
+{
+	typedef std::vector<uint32_t> Coloring;
+	typedef std::pair<uint32_t, std::pair<uint32_t, uint32_t>> Friendship;
+	typedef std::pair<uint32_t, uint32_t> Friend;
+public:
+	VertexColorer(const uint32_t N)
+		: N(N), parent(N), constraints(N, llvm::BitVector(N, true)), friends(N)
+	{
+		for (uint32_t i=0; i<N; i++)
+		{
+			parent[i] = i;
+			constraints[i].reset(i);
+		}
+		times = 100;
+		lowerBoundChromaticNumber = ((N==0)?0:1);
+		howManyWaysHasLowerBoundBeenEvaluated = 0;
+		isOptimal = true;
+	}
+	void dump()
+	{
+		for (uint32_t i=0; i<N; i++)
+		{
+			for (uint32_t j=0; j<N; j++)
+			{
+				bool isFriend = false;
+				uint32_t C = 0;
+				for (auto f : friends[i])
+				{
+					if (f.first == j)
+					{
+						isFriend = true;
+						C++;
+					}
+				}
+				assert(C<2);
+				if (isFriend)
+					llvm::errs() << "x";
+				else if (constraints[i][j])
+					llvm::errs() << "1";
+				else
+					llvm::errs() << ".";
+			}
+			llvm::errs()<<"\t\t"<<constraints[i].count() << "\t"<<friends[i].size() << "\n";
+		}
+	}
+	Coloring solve();
+	void addWeightedFriendship(const uint32_t a, const uint32_t b, const uint32_t weight)
+	{
+		addFriendship(weight, a, b);
+	}
+	void addAllowed(const uint32_t a, const uint32_t b)
+	{
+		addFriendship(0, a, b);
+	}
+	class IterationsCounter
+	{
+	public:
+		IterationsCounter(const uint32_t maximal)
+			: maxNumber(maximal), currNumber(0)
+		{
+		}
+		void consumeIteration()
+		{
+			++currNumber;
+		}
+		void consumeIterations(const uint32_t X)
+		{
+			currNumber += X;
+		}
+		uint32_t evaluationsDone() const
+		{
+			assert(currNumber <= maxNumber);
+			return currNumber;
+		}
+		uint32_t remaining() const
+		{
+			assert(currNumber <= maxNumber);
+			return maxNumber - currNumber;
+		}
+	private:
+		const uint32_t maxNumber;
+		uint32_t currNumber;
+	};
+private:
+	Coloring solveInvariantsAlreadySet();
+	void establishInvariants();
+	void addFriendship(const uint32_t weight, const uint32_t a, const uint32_t b)
+	{
+		assert(a < N && b < N);
+		if (a == b)
+			return;
+		friendships.push_back({weight, {a, b}});
+		constraints[a].reset(b);
+		constraints[b].reset(a);
+		if (weight > 0)
+		{
+			friends[a].push_back({b, weight});
+			friends[b].push_back({a, weight});
+		}
+	}
+	Coloring iterativeDeepening(uint32_t& iterations);
+	typedef std::pair<uint32_t, Coloring> Solution;
+	struct SearchState
+	{
+		SearchState(Solution& best, uint32_t minimalNumberOfColors, uint32_t nodesToEvaluate, const uint32_t targetDepth, const uint32_t alreadyProcessedDepth)
+			: currentBest(best), minimalNumberOfColors(minimalNumberOfColors),
+			iterationsCounter(nodesToEvaluate),
+			targetDepth(targetDepth), processedDepth(alreadyProcessedDepth)
+		{
+			processedFriendships = 0;
+			leafs = 0;
+			choicesMade = llvm::BitVector(0);
+			currentScore = 0;
+		}
+		Solution& currentBest;
+		uint32_t minimalNumberOfColors;
+		IterationsCounter iterationsCounter;
+		const uint32_t targetDepth;
+		const uint32_t processedDepth;
+		uint32_t processedFriendships;
+		uint32_t leafs;
+		uint32_t currentScore;
+		llvm::BitVector choicesMade;
+#ifdef REGISTERIZE_DEBUG
+		std::array<uint32_t, 4> debugStats{};
+#endif
+		bool improveScore(const Solution& local)
+		{
+			if (couldImproveScore(local.first))
+			{
+				currentBest = local;
+				return true;
+			}
+			return false;
+		}
+		bool couldImproveScore(const uint32_t score) const
+		{
+			return currentBest.second.size() == 0 || score < currentBest.first;
+		}
+		bool couldCurrentImproveScore(const uint32_t score) const
+		{
+			return currentBest.second.size() == 0 || currentScore + score + 6*minimalNumberOfColors < currentBest.first;
+		}
+		bool shouldBeEvaluated() const
+		{
+			return processedFriendships == targetDepth;
+		}
+		bool isEvaluationAlreadyDone() const
+		{
+			if (choicesMade.empty())
+				return false;
+			assert(targetDepth > 0);
+			assert(targetDepth == choicesMade.size());
+			for (uint32_t k = targetDepth; ; )
+			{
+				k--;
+				if (!choicesMade[k])
+					return false;
+				if (k == processedDepth)
+					break;
+			}
+			return true;
+		}
+		int leafsEvaluated() const
+		{
+			return leafs;
+		}
+		void printChoicesMade() const
+		{
+			for (uint32_t i=0; i<choicesMade.size(); i++)
+			{
+				llvm::errs() << (choicesMade[i]?"1":"0");
+			}
+		}
+	};
+	std::vector<uint32_t> keepMerging(SearchState& state);
+	void DFSwithLimitedDepth(SearchState& state);
+	bool areMergeable(const uint32_t a, const uint32_t b) const
+	{
+		return !constraints[a][b];
+	}
+	void doContraction(const uint32_t a, const uint32_t b)
+	{
+		assert(isAlive(a) && isAlive(b));
+		assert(constraints[a][b] == constraints[b][a] && !constraints[a][b]);
+		constraints.push_back(constraints[b]);
+		constraints.push_back(constraints[a]);
+#ifdef REGISTERIZE_DEBUG
+		debugStats[CONTRACTIONS]++;
+#endif
+		constraints[a] |= constraints[b];
+		for (uint32_t i = 0; i<N; i++) constraints[i][a] = constraints[a][i];
+		constraints[b] = llvm::BitVector(N);
+		for (uint32_t i = 0; i<N; i++) constraints[i][b] = constraints[b][i];
+		assert(parent[b] == b);
+		parent[b] =a;
+	}
+	void undoContraction(const uint32_t a, const uint32_t b)
+	{
+		parent[b] = b;
+
+		constraints[a] = constraints.back();
+		constraints.pop_back();
+		for (uint32_t i = 0; i<N; i++) constraints[i][a] = constraints[a][i];
+
+		constraints[b] = constraints.back();
+		constraints.pop_back();
+		for (uint32_t i = 0; i<N; i++) constraints[i][b] = constraints[b][i];
+	}
+	void setAdditionalConstraint(const uint32_t a, const uint32_t b, bool direct)
+	{
+#ifdef REGISTERIZE_DEBUG
+		if (direct)
+			debugStats[SEPARATIONS]++;
+#endif
+		assert(constraints[a][b] == constraints[b][a] && constraints[b][a] != direct);
+		constraints[a].flip(b);
+		constraints[b].flip(a);
+	}
+	Coloring iterativeDeepening(IterationsCounter& counter);
+	std::vector<uint32_t> assignGreedily() const;
+	static uint32_t computeNumberOfColors(const Coloring& coloring)
+	{
+		if (coloring.empty())
+			return 0;
+		uint32_t res = 0;
+		for (uint32_t c : coloring)
+		{
+			if (res < c)
+				res = c;
+		}
+		return res+1;
+	}
+	static bool isSubset(const llvm::BitVector& A, const llvm::BitVector& B)
+	{
+		assert(A.size() == B.size());
+		for (uint32_t i = 0; i<A.size(); i++)
+		{
+			if (A[i] && !B[i])
+				return false;
+		}
+		return true;
+	}
+	uint32_t computeScore(const Coloring& coloring, const uint32_t lowerBound) const
+	{
+		assert(coloring.size() == N);
+		uint32_t res = std::max(computeNumberOfColors(coloring), lowerBound) * 6;
+		for (const auto& p : friendships)
+		{
+			if (coloring[p.second.first] != coloring[p.second.second])
+				res += p.first;
+		}
+		return res;
+	}
+	Coloring getColors(const std::vector<uint32_t>& P) const
+	{
+		Coloring colors(N, N);
+		uint32_t firstUnused = 0;
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (P[i] == i)
+				colors[i] = firstUnused++;
+		}
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (colors[i] < N)
+				continue;
+			std::vector<uint32_t> V;
+			uint32_t x = i;
+			while (P[x] != x)
+			{
+				V.push_back(x);
+				x = P[x];
+			}
+			for (auto v : V)
+			{
+				colors[v] = colors[x];
+			}
+		}
+		return colors;
+	}
+	struct HopcroftTarjanData
+	{
+		HopcroftTarjanData(const VertexColorer& subsolution)
+			: sol(subsolution), visited(sol.N, false), depth(sol.N, 0), low(sol.N, 0), articulationPoints(0), parent(sol.N, sol.N)
+		{
+		}
+		const VertexColorer& sol;
+		std::vector<bool> visited;
+		std::vector<uint32_t> depth;
+		std::vector<uint32_t> low;
+		std::vector<uint32_t> articulationPoints;
+		std::vector<uint32_t> parent;
+		void visit(const uint32_t i, const uint32_t d);
+	};
+	std::vector<uint32_t> getArticulationPoints() const;
+	void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint = -1) const;
+	bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
+	bool removeDominatedRows();
+	bool removeRowsWithFewConstraints();
+	bool canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const;
+	void addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const;
+	void improveLowerBound(const uint32_t x);
+	uint32_t chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const;
+	uint32_t maximalGeneratedClique() const;
+	uint32_t lowerBoundOnNumberOfColors();
+	bool splitOnArticulationPoint();
+	bool splitConflicting(const bool conflicting);
+	bool checkConstraintsAreRespected(const Coloring& colors) const;
+	bool friendshipsInvariantsHolds() const;
+	bool friendInvariantsHolds() const;
+	uint32_t findParent(const uint32_t index) const
+	{
+		//TODO possibly implement shortening (while it could invalidate parent, so it should be done on other data)
+		if (parent[index] == index)
+			return index;
+		else
+			return findParent(parent[index]);
+	}
+	bool areAllAlive() const;
+	bool isAlive(const uint32_t index) const
+	{
+		assert(index < N);
+		return parent[index] == index;
+	}
+	bool isSolutionOptimal() const
+	{
+		return isOptimal;
+	}
+	const uint32_t N;
+	std::vector<uint32_t> parent;
+	Coloring retColors;
+	std::vector<llvm::BitVector> constraints;
+	std::vector<Friendship> friendships;
+	std::vector<std::vector<Friend>> friends;
+	uint32_t lowerBoundChromaticNumber;
+	uint32_t howManyWaysHasLowerBoundBeenEvaluated;
+	bool isOptimal;
+public:
+#ifdef REGISTERIZE_DEBUG
+	enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
+	std::array<uint32_t, 4> debugStats{};
+#endif
+	uint32_t times;
+};
+
+/**
  * Registerize - Map not-inlineable instructions to the minimal number of local variables
  */
 class Registerize : public llvm::ModulePass
@@ -325,7 +676,9 @@ private:
 	private:
 		llvm::LoopInfo* LI;
 	};
-	typedef std::vector<std::pair<uint32_t, std::pair<uint32_t, uint32_t>>> Friendships;
+	typedef std::pair<uint32_t, uint32_t> Friend;
+	typedef std::pair<uint32_t, std::pair<uint32_t, uint32_t>> Friendship;
+	typedef std::vector<Friendship> Friendships;
 
 	class RegisterAllocatorInst
 	{
@@ -373,327 +726,6 @@ private:
 			}
 			return friendships;
 		}
-		class RegisterizeSubSolution
-		{
-			typedef std::vector<uint32_t> Coloring;
-		public:
-			RegisterizeSubSolution(const uint32_t N)
-				: N(N), parent(N), constraints(N, llvm::BitVector(N, true)), friends(N)
-			{
-				for (uint32_t i=0; i<N; i++)
-				{
-					parent[i] = i;
-					constraints[i].reset(i);
-				}
-				times = 100;
-				lowerBoundChromaticNumber = ((N==0)?0:1);
-				howManyWaysHasLowerBoundBeenEvaluated = 0;
-			}
-		public:
-			void dump()
-			{
-				for (uint32_t i=0; i<N; i++)
-				{
-					for (uint32_t j=0; j<N; j++)
-					{
-						bool isFriend = false;
-						uint32_t C = 0;
-						for (auto f : friends[i])
-						{
-							if (f.first == j)
-							{
-								isFriend = true;
-								C++;
-							}
-						}
-						assert(C<2);
-						if (isFriend)
-							llvm::errs() << "x";
-						else if (constraints[i][j])
-							llvm::errs() << "1";
-						else
-							llvm::errs() << ".";
-					}
-					llvm::errs()<<"\t\t"<<constraints[i].count() << "\t"<<friends[i].size() << "\n";
-				}
-			}
-			class IterationsCounter
-			{
-			public:
-				IterationsCounter(const uint32_t maximal)
-					: maxNumber(maximal), currNumber(0)
-				{
-				}
-				void consumeIteration()
-				{
-					++currNumber;
-				}
-				void consumeIterations(const uint32_t X)
-				{
-					currNumber += X;
-				}
-				uint32_t evaluationsDone() const
-				{
-					assert(currNumber <= maxNumber);
-					return currNumber;
-				}
-				uint32_t remaining() const
-				{
-					assert(currNumber <= maxNumber);
-					return maxNumber - currNumber;
-				}
-			private:
-				const uint32_t maxNumber;
-				uint32_t currNumber;
-			};
-			typedef std::pair<uint32_t, Coloring> Solution;
-			struct SearchState
-			{
-				SearchState(Solution& best, uint32_t minimalNumberOfColors, uint32_t nodesToEvaluate, const uint32_t targetDepth, const uint32_t alreadyProcessedDepth)
-					: currentBest(best), minimalNumberOfColors(minimalNumberOfColors),
-					iterationsCounter(nodesToEvaluate),
-					targetDepth(targetDepth), processedDepth(alreadyProcessedDepth)
-				{
-					processedFriendships = 0;
-					leafs = 0;
-					choicesMade = llvm::BitVector(0);
-					currentScore = 0;
-				}
-				Solution& currentBest;
-				IterationsCounter iterationsCounter;
-				uint32_t minimalNumberOfColors;
-				const uint32_t targetDepth;
-				const uint32_t processedDepth;
-				uint32_t processedFriendships;
-				uint32_t leafs;
-				uint32_t currentScore;
-				llvm::BitVector choicesMade;
-#ifdef REGISTERIZE_DEBUG
-				std::array<uint32_t, 4> debugStats{};
-#endif
-				bool improveScore(const Solution& local)
-				{
-					if (couldImproveScore(local.first))
-					{
-						currentBest = local;
-						return true;
-					}
-					return false;
-				}
-				bool couldImproveScore(const uint32_t score) const
-				{
-					return currentBest.second.size() == 0 || score < currentBest.first;
-				}
-				bool couldCurrentImproveScore(const uint32_t score) const
-				{
-					return currentBest.second.size() == 0 || currentScore + score + 6*minimalNumberOfColors < currentBest.first;
-				}
-				bool shouldBeEvaluated() const
-				{
-					return processedFriendships == targetDepth;
-				}
-				bool isEvaluationAlreadyDone() const
-				{
-					if (choicesMade.empty())
-						return false;
-					assert(targetDepth > 0);
-					assert(targetDepth == choicesMade.size());
-					for (uint32_t k = targetDepth; ; )
-					{
-						k--;
-						if (!choicesMade[k])
-							return false;
-						if (k == processedDepth)
-							break;
-					}
-					return true;
-				}
-				int leafsEvaluated() const
-				{
-					return leafs;
-				}
-				void printChoicesMade() const
-				{
-					for (uint32_t i=0; i<choicesMade.size(); i++)
-					{
-						llvm::errs() << (choicesMade[i]?"1":"0");
-					}
-				}
-			};
-			std::vector<uint32_t> keepMerging(SearchState& state);
-			void DFSwithLimitedDepth(SearchState& state);
-			bool areMergeable(const uint32_t a, const uint32_t b) const
-			{
-				return !constraints[a][b];
-			}
-			void doContraction(const uint32_t a, const uint32_t b)
-			{
-				assert(isAlive(a) && isAlive(b));
-				assert(constraints[a][b] == constraints[b][a] && !constraints[a][b]);
-				constraints.push_back(constraints[b]);
-				constraints.push_back(constraints[a]);
-#ifdef REGISTERIZE_DEBUG
-				debugStats[CONTRACTIONS]++;
-#endif
-				constraints[a] |= constraints[b];
-				for (uint32_t i = 0; i<N; i++) constraints[i][a] = constraints[a][i];
-				constraints[b] = llvm::BitVector(N);
-				for (uint32_t i = 0; i<N; i++) constraints[i][b] = constraints[b][i];
-				assert(parent[b] == b);
-				parent[b] =a;
-			}
-			void undoContraction(const uint32_t a, const uint32_t b)
-			{
-				parent[b] = b;
-
-				constraints[a] = constraints.back();
-				constraints.pop_back();
-				for (uint32_t i = 0; i<N; i++) constraints[i][a] = constraints[a][i];
-
-				constraints[b] = constraints.back();
-				constraints.pop_back();
-				for (uint32_t i = 0; i<N; i++) constraints[i][b] = constraints[b][i];
-			}
-			void setAdditionalConstraint(const uint32_t a, const uint32_t b, bool direct)
-			{
-#ifdef REGISTERIZE_DEBUG
-				if (direct)
-					debugStats[SEPARATIONS]++;
-#endif
-				assert(constraints[a][b] == constraints[b][a] && constraints[b][a] != direct);
-				constraints[a].flip(b);
-				constraints[b].flip(a);
-			}
-			Coloring iterativeDeepening(IterationsCounter& counter);
-			Coloring solve();
-		private:
-			std::vector<uint32_t> assignGreedily() const;
-			static uint32_t computeNumberOfColors(const Coloring& coloring)
-			{
-				if (coloring.empty())
-					return 0;
-				uint32_t res = 0;
-				for (uint32_t c : coloring)
-				{
-					if (res < c)
-						res = c;
-				}
-				return res+1;
-			}
-			uint32_t computeScore(const Coloring& coloring, const uint32_t lowerBound) const
-			{
-				assert(coloring.size() == N);
-				uint32_t res = std::max(computeNumberOfColors(coloring), lowerBound) * 6;
-				for (const auto& p : friendships)
-				{
-					if (coloring[p.second.first] != coloring[p.second.second])
-						res += p.first;
-				}
-				return res;
-			}
-			Coloring getColors(const std::vector<uint32_t>& P) const
-			{
-				Coloring colors(N, N);
-				uint32_t firstUnused = 0;
-				for (uint32_t i=0; i<N; i++)
-				{
-					if (P[i] == i)
-						colors[i] = firstUnused++;
-				}
-				for (uint32_t i=0; i<N; i++)
-				{
-					if (colors[i] < N)
-						continue;
-					std::vector<uint32_t> V;
-					uint32_t x = i;
-					while (P[x] != x)
-					{
-						V.push_back(x);
-						x = P[x];
-					}
-					for (auto v : V)
-					{
-						colors[v] = colors[x];
-					}
-				}
-				return colors;
-			}
-		public:
-			void addFriendship(uint32_t weight, uint32_t a, uint32_t b)
-			{
-				if (a == b)
-					return;
-				//TODO: sort again Friendship after they have been added
-				assert(a < N && b < N);
-				friendships.push_back({weight, {a, b}});
-				constraints[a].reset(b);
-				constraints[b].reset(a);
-				if (weight > 0)
-				{
-					friends[a].push_back({b, weight});
-					friends[b].push_back({a, weight});
-				}
-			}
-		private:
-			struct HopcroftTarjanData
-			{
-				HopcroftTarjanData(const RegisterizeSubSolution& subsolution)
-					: sol(subsolution), visited(sol.N, false), depth(sol.N, 0), low(sol.N, 0), articulationPoints(0), parent(sol.N, sol.N)
-				{
-				}
-				const RegisterizeSubSolution& sol;
-				std::vector<bool> visited;
-				std::vector<uint32_t> depth;
-				std::vector<uint32_t> low;
-				std::vector<uint32_t> articulationPoints;
-				std::vector<uint32_t> parent;
-				void visit(const uint32_t i, const uint32_t d);
-			};
-			std::vector<uint32_t> getArticulationPoints() const;
-			void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint = -1) const;
-			bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
-			bool removeDominatedRows();
-			bool removeRowsWithFewConstraints();
-			bool canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const;
-			void addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const;
-			void improveLowerBound(const uint32_t x);
-			uint32_t chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const;
-			uint32_t maximalGeneratedClique() const;
-			uint32_t lowerBoundOnNumberOfColors();
-			bool splitBetweenArticulationPoints();
-			bool splitConflicting(const bool conflicting);
-			void unifyFriendships();
-			bool checkConstraintsAreRespected(const std::vector<uint32_t>& colors) const;
-			bool friendshipsInvariantsHolds() const;
-			bool friendInvariantsHolds() const;
-			uint32_t findParent(const uint32_t index) const
-			{
-				//TODO possibly implement shortening
-				if (parent[index] == index)
-					return index;
-				else
-					return findParent(parent[index]);
-			}
-			bool isAlive(const uint32_t index) const
-			{
-				assert(index < N);
-				return parent[index] == index;
-			}
-			const uint32_t N;
-			std::vector<uint32_t> parent;
-			Coloring retColors;
-			std::vector<llvm::BitVector> constraints;
-			std::vector<std::pair<uint32_t, std::pair<uint32_t, uint32_t>>> friendships;
-			std::vector<std::vector<std::pair<uint32_t, uint32_t>>> friends;
-			uint32_t lowerBoundChromaticNumber;
-			uint32_t howManyWaysHasLowerBoundBeenEvaluated;
-		public:
-#ifdef REGISTERIZE_DEBUG
-			enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
-			std::array<uint32_t, 4> debugStats{};
-#endif
-			uint32_t times;
-		};
 
 		void solve();
 
@@ -730,7 +762,7 @@ private:
 				if (!isAlive(i))
 					continue;
 
-				std::vector<std::pair<uint32_t,uint32_t>> V;
+				std::vector<Friend> V;
 				for (auto x : friends[i])
 				{
 					if (isAlive(x.first) && !bitsetConstraint[i][x.first])
@@ -788,7 +820,7 @@ private:
 				}
 			}
 			sort(friendsEdges.begin(), friendsEdges.end(),
-				[](const std::pair<uint32_t, std::pair<uint32_t,uint32_t>>& a, const std::pair<uint32_t, std::pair<uint32_t,uint32_t>>& b)->bool
+				[](const Friendship& a, const Friendship& b)->bool
 				{
 					return a.first > b.first;
 				});
@@ -931,28 +963,6 @@ private:
 		{
 			return x < size() && findParent(x) == x && !shouldBeDoneAtEnding[x];
 		}
-		void mergeWithMaterialized(const uint32_t a)
-		{
-			assert(a < size());
-			if (!isAlive(a))
-				return;
-			for (uint32_t i = 0; i<inverseRegisterIndex.size(); ++i)
-			{
-				uint32_t index = inverseRegisterIndex[i];
-				assert(index < size());
-				//Index was already merged with something else
-				if (!isAlive(index))
-					continue;
-				if (couldBeMerged(a, index))
-				{
-					mergeVirtual(a, index);
-					return;
-				}
-			}
-			uint32_t bucket = firstUnassigned++;
-			inverseRegisterIndex.push_back(a);
-			directRegisterIndex[a] = bucket;
-		}
 		uint32_t registersNeeded()
 		{
 			uint32_t res = 0;
@@ -990,8 +1000,8 @@ private:
 		Indexer<const llvm::Instruction*> indexer;
 		llvm::SmallVector<RegisterRange, 4> virtualRegisters;
 		std::vector<llvm::BitVector> bitsetConstraint;
-		std::vector<std::vector<std::pair<uint32_t,uint32_t>>> friends;
-		std::vector<std::pair<uint32_t,std::pair<uint32_t,uint32_t>>> friendsEdges;
+		std::vector<std::vector<Friend>> friends;
+		std::vector<Friendship> friendsEdges;
 		std::vector<std::vector<std::pair<uint32_t,uint32_t>>> edges;
 		mutable std::vector<uint32_t> parentRegister;
 		uint32_t numberOfMaterializedRegisters;
