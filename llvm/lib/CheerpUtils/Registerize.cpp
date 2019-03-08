@@ -404,12 +404,13 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 {
 	LI = &(getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo());
 
-	RegisterAllocatorInst R(F, instIdMap, liveRanges, PA, this);
-	R.solve();
+	RegisterAllocatorInst registerAllocatorInst(F, instIdMap, liveRanges, PA, this);
+	registerAllocatorInst.solve();
 
 	llvm::SmallVector<RegisterRange, 4> registers;
-	R.materializeRegisters(registers);
-	Result res = R.getResult();
+
+	registerAllocatorInst.materializeRegisters(registers);
+	Result res = registerAllocatorInst.getResult();
 
 	uint32_t originalRegistersSize = registers.size();
 
@@ -537,12 +538,10 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 		emptyFunction = true;
 		return;
 	}
+	//There are indexer.size() initial register, and they are merged pair-wise, since every merge requires an additional register, it makes at most indexer.size()-1 extra, so 2*N-1
 	const int maxSize = indexer.size() * 2 - 1;
 	virtualRegisters.reserve(maxSize);
 	parentRegister.reserve(maxSize);
-	inverseRegisterIndex.resize(numInst());
-	directRegisterIndex.resize(numInst());
-	shouldBeDoneAtEnding.resize(numInst(), false);
 	const bool asmjs = F.getSection()==StringRef("asmjs");
 	//Do a second pass to set virtualRegisters environment
 	for(const auto& it: liveRanges)
@@ -557,8 +556,6 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 					cheerp::needsSecondaryName(I, PA)
 					));
 	}
-	numberOfMaterializedRegisters = 0;
-	firstUnassigned = 0;
 	computeBitsetConstraints();
 	buildFriends(PA);
 	buildEdgesData(F);
@@ -694,7 +691,7 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const
 {
 	//If we discard all friends, and minimize score, and we find an optimal solution, we have the chromatic number (and so also a lower bound on it)
-	VertexColorer noFriendships(N);
+	VertexColorer noFriendships(N, *this);
 	for (const auto& F : friendships)
 	{
 		noFriendships.addFriendship(0, F.second.first, F.second.second);
@@ -745,7 +742,7 @@ VertexColorer::Coloring VertexColorer::iterativeDeepening(IterationsCounter& cou
 #ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
 		llvm::errs() << "--------------------- starting at "<<previousDepth<<" up to reaching " <<depth<<"\n";
 #endif
-		SearchState state(best, lowerBound, counter.remaining(), depth, previousDepth);
+		SearchState state(best, lowerBound, counter.remaining(), depth, previousDepth, costPerColor);
 		DFSwithLimitedDepth(state);
 		counter.consumeIterations(state.iterationsCounter.evaluationsDone());
 #ifdef REGISTERIZE_DEBUG
@@ -876,7 +873,7 @@ void Registerize::RegisterAllocatorInst::createSingleFriendship(const uint32_t i
 	//Introduce a friendships of weight 1
 	const Instruction* I = dyn_cast<Instruction>(operand);
 	if (I && indexer.count(I))
-		addFriendship(1, i, indexer.id(I));
+		addFriendship(i, indexer.id(I), 1);
 }
 
 void Registerize::RegisterAllocatorInst::buildFriendsSingleCompressibleInstr(const uint32_t i)
@@ -986,7 +983,7 @@ bool VertexColorer::removeDominatedRows()
 	llvm::errs() << "Remove dominated rows:\t"<< N << " -> " << alive.size() << "\n";
 #endif
 
-	VertexColorer subsolution(alive.size());
+	VertexColorer subsolution(alive.size(), *this);
 
 	//Add frienships (if they do not clash with constraints)
 	for (auto F : friendships)
@@ -1059,7 +1056,7 @@ bool VertexColorer::removeRowsWithFewConstraints()
 	llvm::errs() << "Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
 #endif
 
-	VertexColorer subsolution(alive.size());
+	VertexColorer subsolution(alive.size(), *this);
 	for (auto F : friendships)
 	{
 		const uint32_t a = F.second.first;
@@ -1351,7 +1348,7 @@ bool VertexColorer::splitOnArticulationPoint()
 
 	for (auto s : seeds)
 	{
-		subproblems.push_back(VertexColorer(C[s]+1));
+		subproblems.push_back(VertexColorer(C[s]+1, *this));
 	}
 
 	for (auto F : friendships)
@@ -1476,7 +1473,7 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 
 	for (auto s : seeds)
 	{
-		subproblems.push_back(VertexColorer(C[s]));
+		subproblems.push_back(VertexColorer(C[s], *this));
 	}
 
 	for (auto F : friendships)
@@ -1737,13 +1734,15 @@ VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
 
 void Registerize::RegisterAllocatorInst::solve()
 {
-	computeBitsetConstraints();
-	VertexColorer colorer(numInst());
+	VertexColorer colorer(numInst(), /*cost of using an extra color*/6, /*maximal number of iterations*/100);
+	//TODO: fine tune the paramethers
 
+	computeBitsetConstraints();
 	for (const Friendship x : getFriendships())
 	{
 		colorer.addWeightedFriendship(x.second.first, x.second.second, x.first);
 	}
+
 #ifdef REGISTERIZE_DEBUG_MINIMAL
 	llvm::errs () << "\n\nSolving function of size " << numInst() << "\n";
 #endif
