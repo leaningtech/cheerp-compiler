@@ -17,6 +17,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Cheerp/Writer.h"
+#include "llvm/Cheerp/Utility.h"
 
 using namespace llvm;
 using namespace cheerp;
@@ -739,20 +740,8 @@ void TokenListOptimizer::removeEmptyBasicBlocks()
 {
 	for_each_kind<Token::TK_BasicBlock>([&](Token* BBT, Token*)
 	{
-		// If there are only PHIs and a branch or switch as terminator, the block
-		// is empty
-		BasicBlock::const_iterator It = BBT->getBB()->begin();
-		while(const PHINode* PHI = dyn_cast<PHINode>(It))
-		{
-			// Delayed PHIs are rendered in their parent block
-			if (CheerpWriter::canDelayPHI(PHI, PA, R))
-				return;
-			It++;
-		}
-		if (isa<BranchInst>(It) || isa<SwitchInst>(It))
-		{
+		if (isNumStatementsLessThan<1>(BBT->getBB(), PA, R))
 			Tokens.erase(BBT);
-		}
 	});
 }
 

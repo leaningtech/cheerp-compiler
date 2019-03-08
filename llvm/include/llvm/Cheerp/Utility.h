@@ -48,6 +48,71 @@ bool isInlineable(const llvm::Instruction& I, const PointerAnalyzer& PA);
 * NOTE: If the PHI would completely disappear this returns false
 */
 bool canDelayPHI(const llvm::PHINode* phi, const PointerAnalyzer& PA, const Registerize& registerize);
+
+template<uint32_t N>
+bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
+	const PointerAnalyzer& PA, const Registerize& registerize)
+{
+	uint32_t Count = 0;
+	llvm::BasicBlock::const_iterator It = BB->begin();
+	while(auto PHI = llvm::dyn_cast<llvm::PHINode>(It))
+	{
+		// Delayed PHIs are rendered in their parent block
+		if (canDelayPHI(PHI, PA, registerize))
+		{
+			if (PHI->getType()->isPointerTy() && PA.getPointerKind(PHI) == SPLIT_REGULAR)
+				Count++;
+			Count++;
+		}
+		if (Count >= N)
+			return false;
+		It++;
+	}
+	for(; It != BB->end(); ++It)
+	{
+		if (llvm::isa<llvm::TerminatorInst>(It))
+			break;
+		if (isInlineable(*It, PA))
+			continue;
+		if (auto II = llvm::dyn_cast<llvm::IntrinsicInst>(It))
+		{
+			//Skip some kind of intrinsics
+			if(II->getIntrinsicID()==llvm::Intrinsic::lifetime_start ||
+				II->getIntrinsicID()==llvm::Intrinsic::lifetime_end ||
+				II->getIntrinsicID()==llvm::Intrinsic::dbg_declare ||
+				II->getIntrinsicID()==llvm::Intrinsic::dbg_value)
+			{
+				continue;
+			}
+		}
+		if (It->getType()->isPointerTy() && PA.getPointerKind(It) == SPLIT_REGULAR)
+			Count++;
+		if (auto Store = llvm::dyn_cast<llvm::StoreInst>(It))
+		{
+			const llvm::Value* PointerOp = Store->getPointerOperand();
+			if (PointerOp->getType()->isPointerTy()
+				&& PA.getPointerKindForStoredType(PointerOp->getType()))
+			{
+				Count++;
+			}
+		}
+		Count++;
+		if (Count >= N)
+			return false;
+	}
+	if (llvm::isa<llvm::ReturnInst>(It))
+	{
+		const llvm::Function* F = BB->getParent();
+		if (F->getReturnType()->isPointerTy()
+			&& PA.getPointerKindForReturn(F) == SPLIT_REGULAR)
+		{
+			Count++;
+		}
+		Count++;
+	}
+	return Count < N;
+}
+
 inline bool isBitCast(const llvm::Value* v)
 {
 	if( llvm::isa< llvm::BitCastInst>(v) )
