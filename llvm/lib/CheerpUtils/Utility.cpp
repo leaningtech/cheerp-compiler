@@ -345,6 +345,59 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	return false;
 }
 
+bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registerize& registerize)
+{
+	// If for all incoming we have
+	// 1) A not-inlineable instruction
+	// 2) The same register as the PHI
+	// 3) The same pointer kind
+	// 4) The same constant offset
+	//
+	// Then we can compile this PHI only once in the destination block
+	// NOTE: We require the same register as the PHI to make sure that it
+	// is not overwritten by any other PHI
+
+	// We only care about pointers, for other types if the incoming register and the PHI register
+	// are the same then the PHI is removed completely
+	if(phi->use_empty() || !phi->getType()->isPointerTy())
+		return false;
+	uint32_t phiReg = registerize.getRegisterId(phi);
+	POINTER_KIND phiKind = PA.getPointerKind(phi);
+	const ConstantInt* phiOffset = PA.getConstantOffsetForPointer(phi);
+	// Get expected values from incoming 0
+	const Instruction* incomingInst0 = getUniqueIncomingInst(phi->getIncomingValue(0), PA);
+	if(!incomingInst0)
+		return false;
+	assert(!isInlineable(*incomingInst0, PA));
+	uint32_t incomingReg0 = registerize.getRegisterId(incomingInst0);
+	if(incomingReg0 != phiReg)
+		return false;
+	POINTER_KIND incomingKind0 = PA.getPointerKind(incomingInst0);
+	const ConstantInt* incomingOffset0 = PA.getConstantOffsetForPointer(incomingInst0);
+	if(incomingKind0 == phiKind && incomingOffset0 == phiOffset)
+	{
+		// Same register, same kind and same offset. This PHI will just disapper
+		return false;
+	}
+	for(uint32_t i=1;i<phi->getNumIncomingValues();i++)
+	{
+		const Instruction* incomingInst = getUniqueIncomingInst(phi->getIncomingValue(i), PA);
+		if(!incomingInst)
+			return false;
+		assert(!isInlineable(*incomingInst, PA));
+		uint32_t incomingReg = registerize.getRegisterId(incomingInst);
+		POINTER_KIND incomingKind = PA.getPointerKind(incomingInst);
+		const ConstantInt* incomingOffset = PA.getConstantOffsetForPointer(incomingInst);
+		if(incomingReg != incomingReg0 ||
+			incomingKind != incomingKind0 ||
+			incomingOffset != incomingOffset0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 bool isWasmIntrinsic(const llvm::Function* F)
 {
 	return false
