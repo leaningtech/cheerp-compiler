@@ -472,36 +472,3 @@ static int localTestFunc() {
   return 42;
 }
 
-TEST_F(MCJITCAPITest, addGlobalMapping) {
-  SKIP_UNSUPPORTED_PLATFORM;
-
-  Module = LLVMModuleCreateWithName("testModule");
-  LLVMSetTarget(Module, HostTriple.c_str());
-  LLVMTypeRef FunctionType = LLVMFunctionType(LLVMInt32Type(), nullptr, 0, 0);
-  LLVMValueRef MappedFn = LLVMAddFunction(Module, "mapped_fn", FunctionType);
-
-  Function = LLVMAddFunction(Module, "test_fn", FunctionType);
-  LLVMBasicBlockRef Entry = LLVMAppendBasicBlock(Function, "");
-  LLVMBuilderRef Builder = LLVMCreateBuilder();
-  LLVMPositionBuilderAtEnd(Builder, Entry);
-  LLVMValueRef RetVal = LLVMBuildCall(Builder, MappedFn, nullptr, 0, "");
-  LLVMBuildRet(Builder, RetVal);
-  LLVMDisposeBuilder(Builder);
-
-  LLVMVerifyModule(Module, LLVMAbortProcessAction, &Error);
-  LLVMDisposeMessage(Error);
-
-  buildMCJITOptions();
-  buildMCJITEngine();
-
-  LLVMAddGlobalMapping(
-      Engine, MappedFn,
-      reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(&localTestFunc)));
-
-  buildAndRunPasses();
-
-  uint64_t raw = LLVMGetFunctionAddress(Engine, "test_fn");
-  int (*usable)() = (int (*)()) raw;
-
-  EXPECT_EQ(42, usable());
-}

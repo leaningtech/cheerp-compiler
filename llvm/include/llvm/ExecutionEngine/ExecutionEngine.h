@@ -68,7 +68,7 @@ class ObjectFile;
 /// table.  Access to this class should be serialized under a mutex.
 class ExecutionEngineState {
 public:
-  using GlobalAddressMapTy = StringMap<uint64_t>;
+  using GlobalAddressMapTy = StringMap<std::pair<uint64_t, bool>>;
 
 private:
   /// GlobalAddressMap - A mapping between LLVM global symbol names values and
