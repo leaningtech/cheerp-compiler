@@ -484,7 +484,7 @@ public:
     return Opcode == X.Opcode && SubclassData == X.SubclassData &&
            SubclassOptionalData == X.SubclassOptionalData && Ops == X.Ops &&
            ShuffleMask == X.ShuffleMask &&
-           (!ExplicitTy || !X.ExplicitTy || ExplicitTy == X.ExplicitTy);
+           ExplicitTy == X.ExplicitTy;
   }
 
   bool operator==(const ConstantExpr *CE) const {
