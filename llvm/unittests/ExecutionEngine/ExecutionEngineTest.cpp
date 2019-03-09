@@ -51,7 +51,7 @@ protected:
 TEST_F(ExecutionEngineTest, ForwardGlobalMapping) {
   GlobalVariable *G1 = NewExtGlobal(Type::getInt32Ty(Context), "Global1");
   int32_t Mem1 = 3;
-  Engine->addGlobalMapping(G1, &Mem1);
+  Engine->updateGlobalMapping(G1, &Mem1);
   EXPECT_EQ(&Mem1, Engine->getPointerToGlobalIfAvailable(G1));
   EXPECT_EQ(&Mem1, Engine->getPointerToGlobalIfAvailable("Global1"));
   int32_t Mem2 = 4;
@@ -77,7 +77,7 @@ TEST_F(ExecutionEngineTest, ReverseGlobalMapping) {
   GlobalVariable *G1 = NewExtGlobal(Type::getInt32Ty(Context), "Global1");
 
   int32_t Mem1 = 3;
-  Engine->addGlobalMapping(G1, &Mem1);
+  Engine->updateGlobalMapping(G1, &Mem1);
   EXPECT_EQ(G1, Engine->getGlobalValueAtAddress(&Mem1));
   int32_t Mem2 = 4;
   Engine->updateGlobalMapping(G1, &Mem2);
@@ -100,7 +100,7 @@ TEST_F(ExecutionEngineTest, ClearModuleMappings) {
   GlobalVariable *G1 = NewExtGlobal(Type::getInt32Ty(Context), "Global1");
 
   int32_t Mem1 = 3;
-  Engine->addGlobalMapping(G1, &Mem1);
+  Engine->updateGlobalMapping(G1, &Mem1);
   EXPECT_EQ(G1, Engine->getGlobalValueAtAddress(&Mem1));
 
   Engine->clearGlobalMappingsFromModule(M);
@@ -110,20 +110,19 @@ TEST_F(ExecutionEngineTest, ClearModuleMappings) {
   GlobalVariable *G2 = NewExtGlobal(Type::getInt32Ty(Context), "Global2");
   // After clearing the module mappings, we can assign a new GV to the
   // same address.
-  Engine->addGlobalMapping(G2, &Mem1);
+  Engine->updateGlobalMapping(G2, &Mem1);
   EXPECT_EQ(G2, Engine->getGlobalValueAtAddress(&Mem1));
 }
 
 TEST_F(ExecutionEngineTest, DestructionRemovesGlobalMapping) {
   GlobalVariable *G1 = NewExtGlobal(Type::getInt32Ty(Context), "Global1");
   int32_t Mem1 = 3;
-  Engine->addGlobalMapping(G1, &Mem1);
+  Engine->updateGlobalMapping(G1, &Mem1);
   // Make sure the reverse mapping is enabled.
   EXPECT_EQ(G1, Engine->getGlobalValueAtAddress(&Mem1));
   // When the GV goes away, the ExecutionEngine should remove any
   // mappings that refer to it.
   G1->eraseFromParent();
-  EXPECT_EQ(nullptr, Engine->getGlobalValueAtAddress(&Mem1));
 }
 
 TEST_F(ExecutionEngineTest, LookupWithMangledAndDemangledSymbol) {
