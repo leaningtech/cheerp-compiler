@@ -53,6 +53,7 @@ template<uint32_t N>
 bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 	const PointerAnalyzer& PA, const Registerize& registerize)
 {
+	bool asmjs = BB->getParent()->getSection() == llvm::StringRef("asmjs");
 	uint32_t Count = 0;
 	llvm::BasicBlock::const_iterator It = BB->begin();
 	while(auto PHI = llvm::dyn_cast<llvm::PHINode>(It))
@@ -95,6 +96,10 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 			{
 				Count++;
 			}
+		}
+		else if (auto VAArg = llvm::dyn_cast<llvm::VAArgInst>(It))
+		{
+			Count+= asmjs;
 		}
 		Count++;
 		if (Count >= N)
