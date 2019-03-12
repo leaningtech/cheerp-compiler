@@ -19,6 +19,7 @@
 #include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
@@ -128,6 +129,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	LibCallSimplifier callSimplifier(*DL, TLI, LibCallReplacer);
 	for (Function& F : module.getFunctionList()) {
 		F.setPersonalityFn(nullptr);
+		bool asmjs = F.getSection() == StringRef("asmjs");
 		for (BasicBlock& bb : F)
 		{
 			for (Instruction& I : bb)
@@ -144,11 +146,59 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						ci.replaceAllUsesWith(with);
 						deleteList.push_back(&ci);
 					}
-
 					unsigned II = calledFunc->getIntrinsicID();
-					foundMemset |= II == Intrinsic::memset;
-					foundMemcpy |= II == Intrinsic::memcpy;
-					foundMemmove |= II == Intrinsic::memmove;
+
+					if(asmjs)
+					{
+						if(II == Intrinsic::cheerp_allocate)
+						{
+							Function* F = module.getFunction("malloc");
+							assert(F);
+							ci.setCalledFunction(F);
+							Type* oldType = ci.getType();
+							if(oldType != F->getReturnType())
+							{
+								Instruction* newCast = new BitCastInst(UndefValue::get(F->getReturnType()), oldType, "", ci.getNextNode());
+								ci.replaceAllUsesWith(newCast);
+								ci.mutateType(F->getReturnType());
+								newCast->setOperand(0, &ci);
+							}
+						}
+						else if(II == Intrinsic::cheerp_reallocate)
+						{
+							Function* F = module.getFunction("realloc");
+							assert(F);
+							ci.setCalledFunction(F);
+							Type* oldType = ci.getType();
+							if(oldType != F->getReturnType())
+							{
+								Instruction* newParamCast = new BitCastInst(ci.getOperand(0), F->getReturnType(), "", &ci);
+								ci.setOperand(0, newParamCast);
+								Instruction* newCast = new BitCastInst(UndefValue::get(F->getReturnType()), oldType, "", ci.getNextNode());
+								ci.replaceAllUsesWith(newCast);
+								ci.mutateType(F->getReturnType());
+								newCast->setOperand(0, &ci);
+							}
+						}
+						else if(II == Intrinsic::cheerp_deallocate)
+						{
+							Function* F = module.getFunction("free");
+							assert(F);
+							ci.setCalledFunction(F);
+							Type* oldType = ci.getOperand(0)->getType();
+							Type* newType = F->arg_begin()->getType();
+							if(oldType != newType)
+							{
+								Instruction* newCast = new BitCastInst(ci.getOperand(0), newType, "", &ci);
+								ci.setOperand(0, newCast);
+							}
+						}
+
+						foundMemset |= II == Intrinsic::memset;
+						foundMemcpy |= II == Intrinsic::memcpy;
+						foundMemmove |= II == Intrinsic::memmove;
+					}
+
 					// Replace math intrinsics with C library calls if necessary
 					if(mathMode == NO_BUILTINS)
 					{
@@ -167,7 +217,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				}
 			}
 		}
-		if (F.getSection() == StringRef("asmjs"))
+		if (asmjs)
 			hasAsmJS = true;
 	}
 	for (CallInst* ci : deleteList) {
@@ -839,7 +889,17 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		{
 			// Never internalize functions that may have a better native implementation
 			LibFunc::Func Func;
-			if (!TLI->getLibFunc(f->getName(), Func))
+			if (TLI->getLibFunc(f->getName(), Func))
+			{
+				if(isWasmIntrinsic(f))
+				{
+					// Avoid inlining of functions which can be implemented by a single wasm opcode
+					f->setLinkage(GlobalValue::WeakAnyLinkage);
+				}
+				else
+					f->setLinkage(GlobalValue::ExternalLinkage);
+			}
+			else
 				f->setLinkage(GlobalValue::InternalLinkage);
 		}
 		else if(!droppedMathBuiltins.count(f) && f->getIntrinsicID()==0 &&
