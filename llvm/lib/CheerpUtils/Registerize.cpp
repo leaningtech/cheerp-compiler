@@ -696,6 +696,10 @@ uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32
 	{
 		noFriendships.addFriendship(0, F.second.first, F.second.second);
 	}
+	for (const auto& X : getZeroFriendships())
+	{
+		noFriendships.addAllowed(X.first, X.second);
+	}
 
 	noFriendships.improveLowerBound(lowerBound);
 	const Coloring col = noFriendships.solve();
@@ -984,7 +988,7 @@ bool VertexColorer::removeDominatedRows()
 #endif
 
 	VertexColorer subsolution(alive.size(), *this);
-
+	addZeroFriendships();
 	//Add frienships (if they do not clash with constraints)
 	for (const auto& F : friendships)
 	{
@@ -1055,7 +1059,7 @@ bool VertexColorer::removeRowsWithFewConstraints()
 #ifdef REGISTERIZE_DEBUG_MINIMAL
 	llvm::errs() << "Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
 #endif
-
+	addZeroFriendships();
 	VertexColorer subsolution(alive.size(), *this);
 	for (const auto& F : friendships)
 	{
@@ -1350,7 +1354,7 @@ bool VertexColorer::splitOnArticulationPoint()
 	{
 		subproblems.push_back(VertexColorer(C[s]+1, *this));
 	}
-
+	addZeroFriendships();
 	for (const Friendship& F : friendships)
 	{
 		const uint32_t a = F.second.first;
@@ -1475,7 +1479,7 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 	{
 		subproblems.push_back(VertexColorer(C[s], *this));
 	}
-
+addZeroFriendships();
 	for (const Friendship& F : friendships)
 	{
 		const uint32_t a = F.second.first;
@@ -1611,6 +1615,7 @@ void VertexColorer::establishInvariantsFriend(std::vector<Friend>& F)
 		else
 			break;
 	}
+	sort(F.begin(), F.end());
 }
 
 bool VertexColorer::friendshipsInvariantsHolds() const
@@ -1641,18 +1646,7 @@ bool VertexColorer::friendInvariantsHolds() const
 	{
 		for (uint32_t i=1; i<F.size(); i++)
 		{
-			if (F[i-1].second < F[i].second)
-				return false;
-		}
-		std::vector<uint32_t> V;
-		for (const Friend& f : F)
-		{
-			V.push_back(f.first);
-		}
-		sort(V.begin(), V.end());
-		for (uint32_t i=1; i<V.size(); i++)
-		{
-			if (V[i-1] == V[i])
+			if (F[i-1].first >= F[i].first)
 				return false;
 		}
 	}
@@ -1720,6 +1714,9 @@ VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
 
 	//TODO: introduce state as not redo unnecessary computations (eg after splitConflicting(true), there is no need to run it again, only certain optimizations require to re-run on the whole)
 
+	addZeroFriendships();
+	establishInvariants();
+
 	IterationsCounter counter(times);
 	const Coloring colors = iterativeDeepening(counter);
 
@@ -1751,9 +1748,18 @@ void Registerize::RegisterAllocatorInst::solve()
 	//TODO: fine tune the paramethers
 
 	computeBitsetConstraints();
-	for (const Friendship x : getFriendships())
+	for (uint32_t i=0; i<numInst(); i++)
 	{
-		colorer.addWeightedFriendship(x.second.first, x.second.second, x.first);
+		const auto& F = friends[i];
+		for (const auto& x : F)
+		{
+			colorer.addWeightedFriendship(i, x.first, x.second);
+		}
+		for (uint32_t j=i+1; j<numInst(); j++)
+		{
+			if (!bitsetConstraint[i][j])
+				colorer.addAllowed(i, j);
+		}
 	}
 
 #ifdef REGISTERIZE_DEBUG_MINIMAL

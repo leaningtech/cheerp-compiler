@@ -143,19 +143,65 @@ private:
 		return res+1;
 	}
 	void establishInvariants();
+	void establishInvariantsFriendships();
+	void establishInvariantsFriends();
+	static void establishInvariantsFriend(std::vector<Friend>& singleRowFriends);
 	void addFriendship(const uint32_t weight, const uint32_t a, const uint32_t b)
 	{
 		assert(a < N && b < N);
 		if (a == b)
 			return;
-		friendships.push_back({weight, {a, b}});
 		constraints[a].reset(b);
 		constraints[b].reset(a);
 		if (weight > 0)
 		{
+			friendships.push_back({weight, {a, b}});
 			friends[a].push_back({b, weight});
 			friends[b].push_back({a, weight});
 		}
+	}
+	void addZeroFriendships()
+	{
+		if (!friendships.empty() && friendships.back().first == 0)
+			return;
+		for (uint32_t i=0; i<N; i++)
+		{
+			const std::vector<Friend>& F = friends[i];
+			uint32_t k=0;
+			for (uint32_t j=0; j<N; ++j)
+			{
+				if (k<F.size() && F[k].first == j)
+				{
+					++k;
+					continue;
+				}
+				if (!constraints[i][j] && i!=j)
+					friendships.push_back({0, {i, j}});
+			}
+		}
+	}
+	std::vector<std::pair<uint32_t, uint32_t>> getZeroFriendships() const
+	{
+		std::vector<std::pair<uint32_t, uint32_t>> V;
+		if (!friendships.empty() && friendships.back().first == 0)
+			return V;
+		for (uint32_t i=0; i<N; i++)
+		{
+			const std::vector<Friend>& F = friends[i];
+			uint32_t k=0;
+			for (uint32_t j=i+1; j<N; ++j)
+			{
+				while (k<F.size() && F[k].first < j)
+				{
+					++k;
+				}
+				if (k < F.size() && F[k].first == j)
+					continue;
+				if (!constraints[i][j])
+					V.push_back({i, j});
+			}
+		}
+		return V;
 	}
 	Coloring iterativeDeepening(uint32_t& iterations);
 	typedef std::pair<uint32_t, Coloring> Solution;
