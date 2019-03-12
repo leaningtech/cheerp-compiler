@@ -983,10 +983,12 @@ bool VertexColorer::removeDominatedRows()
 		}
 	}
 
+	//TODO: iterates multiple times
 	for (uint32_t i = 0; i<N; i++)
 	{
 		if (!isAlive(i))
 			continue;
+		//TODO: having a default constructed identity vector
 		for (uint32_t j : whoIsDominatingFriend(i))
 		{
 			if (i != j && isAlive(j) && !constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(constraints[i], constraints[j]) )
@@ -1017,14 +1019,27 @@ bool VertexColorer::removeDominatedRows()
 #endif
 
 	VertexColorer subsolution(alive.size(), *this);
-	addZeroFriendships();
-	//Add frienships (if they do not clash with constraints)
+	//Add friendships (if they do not clash with constraints)
 	for (const auto& F : friendships)
 	{
 		const uint32_t a = findParent(F.second.first);
 		const uint32_t b = findParent(F.second.second);
-		if (!constraints[a][b])
-			subsolution.addFriendship(F.first, index[a], index[b]);
+		assert(!constraints[a][b]);
+		subsolution.addFriendship(F.first, index[a], index[b]);
+	}
+
+	//Add zero-weight friendships
+	for (uint32_t i=0; i<N; ++i)
+	{
+		if (!isAlive(i))
+			continue;
+		for (uint32_t j=i+1; j<N; ++j)
+		{
+			if (!isAlive(j))
+				continue;
+			if (!constraints[i][j])
+				subsolution.addAllowed(index[i], index[j]);
+		}
 	}
 
 	//Merging dominated nodes may generate a double friendship between the same nodes, so the generic function is required
