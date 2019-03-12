@@ -1679,8 +1679,8 @@ VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
 	if (N <= 1)
 		return Coloring(N, 0);
 
-	assert(friendshipsInvariantsHolds());
-	assert(friendInvariantsHolds());
+//	assert(friendshipsInvariantsHolds());
+//	assert(friendInvariantsHolds());
 
 	//If the inverese connection graph is unconnected, split!
 	if (splitConflicting(true))
@@ -1690,12 +1690,12 @@ VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
 	if (splitConflicting(false))
 		return retColors;
 
-	//If there are rows dominated by others, remove them
-	if (removeDominatedRows())
-		return retColors;
-
 	//If there are articulation points, split on one of them
 	if (splitOnArticulationPoint())
+		return retColors;
+
+	//If there are rows dominated by others, remove them
+	if (removeDominatedRows())
 		return retColors;
 
 	//If there are rows with no weighted friends and less than lowerBound constraints, remove them
