@@ -1749,7 +1749,6 @@ void Registerize::RegisterAllocatorInst::solve()
 	VertexColorer colorer(numInst(), /*cost of using an extra color*/6, /*maximal number of iterations*/100);
 	//TODO: fine tune the paramethers
 
-	computeBitsetConstraints();
 	for (uint32_t i=0; i<numInst(); i++)
 	{
 		const auto& F = friends[i];
