@@ -918,7 +918,7 @@ void Registerize::RegisterAllocatorInst::buildFriendsSingleCompressibleInstr(con
 
 bool VertexColorer::isDominatingFriend(const uint32_t a, const uint32_t b) const
 {
-	std::vector<Friend> F = friends[a];
+	const std::vector<Friend>& F = friends[a];
 	if (F.size() == 0)
 		return true;
 	uint32_t index = F.size();
@@ -931,19 +931,33 @@ bool VertexColorer::isDominatingFriend(const uint32_t a, const uint32_t b) const
 	}
 	if (index == F.size())
 		return false;
-	if (F.size() == 1)
-		return true;
-	if (F.size() == 2 && F[index].second *2 >= sum)
-		return true;
+	return F[index].second *2 >= sum;
+}
 
-	sort(F.begin(), F.end(), [](const Friend& first, const Friend& second) -> bool
-			{
-				return first.second > second.second;
-			}
-			);
-	if (F[0].first != b)
-		return false;
-	return F[0].second*2 >= sum;
+std::vector<uint32_t> VertexColorer::whoIsDominatingFriend(const uint32_t a) const
+{
+	std::vector<uint32_t> res;
+	const std::vector<Friend>& F = friends[a];
+	uint32_t sum = 0;
+	for (uint32_t i=0; i<F.size(); i++)
+	{
+		sum += F[i].second;
+		assert(F[i].second > 0);
+	}
+	for (uint32_t i=0; i<F.size(); i++)
+	{
+		if (F[i].second * 2 >= sum)
+			res.push_back(F[i].first);
+	}
+	if (F.empty())
+	{
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (i != a)
+				res.push_back(i);
+		}
+	}
+	return res;
 }
 
 bool VertexColorer::removeDominatedRows()
@@ -958,15 +972,12 @@ bool VertexColorer::removeDominatedRows()
 	{
 		if (!isAlive(i))
 			continue;
-		for (uint32_t j = 0; j<N; j++)
+		for (uint32_t j : whoIsDominatingFriend(i))
 		{
-			if (i != j && isAlive(j) && !constraints[i][j] && isSubset(constraints[j], constraints[i]) )
+			if (i != j && isAlive(j) && !constraints[i][j] && isSubset(constraints[i], constraints[j]) )
 			{
-				if (isDominatingFriend(j, i))
-				{
-					parent[j] = i;
-					break;
-				}
+				parent[i] = j;
+				break;
 			}
 		}
 	}

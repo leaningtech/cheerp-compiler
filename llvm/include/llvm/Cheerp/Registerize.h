@@ -390,6 +390,7 @@ private:
 	std::vector<uint32_t> getArticulationPoints() const;
 	void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint = -1) const;
 	bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
+	std::vector<uint32_t> whoIsDominatingFriend(const uint32_t a) const;
 	bool removeDominatedRows();
 	bool removeRowsWithFewConstraints();
 	bool canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const;
