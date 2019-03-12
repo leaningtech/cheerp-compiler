@@ -1520,7 +1520,7 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 	return true;
 }
 
-void VertexColorer::establishInvariants()
+void VertexColorer::establishInvariantsFriendships()
 {
 	//Standardize the edge representation
 	for (Friendship& a : friendships)
@@ -1568,41 +1568,48 @@ void VertexColorer::establishInvariants()
 			{
 				return a.first > b.first;
 			});
+}
 
+void VertexColorer::establishInvariantsFriends()
+{
 	for (std::vector<Friend> & F : friends)
 	{
-		sort(F.begin(), F.end());
+		establishInvariantsFriend(F);
+	}
+}
 
-		i = 0;
-		j = 0;
+void VertexColorer::establishInvariantsFriend(std::vector<Friend>& F)
+{
+	sort(F.begin(), F.end());
 
-		//Merge equivalent friends
-		while (j < F.size())
+	uint32_t i = 0, j = 0;
+
+	//Merge equivalent friends
+	while (j < F.size())
+	{
+		if (i == j)
+			++j;
+		else if (F[i].first == F[j].first)
 		{
-			if (i == j)
-				++j;
-			else if (F[i].first == F[j].first)
-			{
-				F[i].second += F[j].second;
-				F[j].second = 0;
-				++j;
-			}
-			else
-				i=j;
+			F[i].second += F[j].second;
+			F[j].second = 0;
+			++j;
 		}
+		else
+			i=j;
+	}
 
-		sort(F.begin(), F.end(), [](const Friend& a, const Friend& b) -> bool
-			{
-				return a.second > b.second;
-			});
-
-		while (!F.empty())
+	sort(F.begin(), F.end(), [](const Friend& a, const Friend& b) -> bool
 		{
-			if (F.back().second == 0)
-				F.pop_back();
-			else
-				break;
-		}
+			return a.second > b.second;
+		});
+
+	while (!F.empty())
+	{
+		if (F.back().second == 0)
+			F.pop_back();
+		else
+			break;
 	}
 }
 
@@ -1665,6 +1672,12 @@ bool VertexColorer::checkConstraintsAreRespected(const Coloring& colors) const
 	return true;
 }
 
+void VertexColorer::establishInvariants()
+{
+	establishInvariantsFriends();
+	establishInvariantsFriendships();
+}
+
 VertexColorer::Coloring VertexColorer::solve()
 {
 	establishInvariants();
@@ -1679,8 +1692,8 @@ VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
 	if (N <= 1)
 		return Coloring(N, 0);
 
-//	assert(friendshipsInvariantsHolds());
-//	assert(friendInvariantsHolds());
+	assert(friendshipsInvariantsHolds());
+	assert(friendInvariantsHolds());
 
 	//If the inverese connection graph is unconnected, split!
 	if (splitConflicting(true))
