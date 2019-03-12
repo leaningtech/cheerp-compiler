@@ -397,7 +397,7 @@ private:
 	void improveLowerBound(const uint32_t x);
 	uint32_t chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const;
 	uint32_t maximalGeneratedClique() const;
-	uint32_t lowerBoundOnNumberOfColors();
+	uint32_t lowerBoundOnNumberOfColors(const bool forceEvaluation = false);
 	bool splitOnArticulationPoint();
 	bool splitConflicting(const bool conflicting);
 	bool checkConstraintsAreRespected(const Coloring& colors) const;
