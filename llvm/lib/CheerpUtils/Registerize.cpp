@@ -1077,7 +1077,7 @@ bool VertexColorer::removeRowsWithFewConstraints()
 	{
 		if (!isAlive(i))
 			continue;
-		if (constraints[i].count() <= cutoff && friends[i].size() == 0)
+		if (friends[i].empty() && constraints[i].count() <= cutoff)
 		{
 			toBePostProcessed[i] = true;
 			if (constraints[i].count() == cutoff)
