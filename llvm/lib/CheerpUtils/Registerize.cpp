@@ -968,13 +968,28 @@ bool VertexColorer::removeDominatedRows()
 	//-there are no constraint between them (otherwise it could be dominating, but it could not be merged)
 	//-either the dominated has no friends, or has the dominating as only friend, or in any case the dominating is a dominating friend
 	//			(this means that it's the friend that weights 50%+ of the total of the dominating friendships)
+	std::vector<uint64_t> samples;
+
+	if (N >= 128)
+	{
+		//Computing whether a row is a subset of another takes O(N) (possibly every index has to be checked)
+		//When N is big enough, we precompute a sample 64 arbitrary columns, and store only this in samples
+		//This way first we first could test whether samples[x] is a subset of samples[y], and only whenever this is true we move to the more expensive check
+		//In the worst case this still requires O(N), but a lot of cases could be solved in O(1), so while the algorithm complexity remains the same
+		//(at least in degenerate cases), there is a practical speed-up
+		for (uint32_t i=0; i<N; ++i)
+		{
+			samples.push_back(computeSample(constraints[i]));
+		}
+	}
+
 	for (uint32_t i = 0; i<N; i++)
 	{
 		if (!isAlive(i))
 			continue;
 		for (uint32_t j : whoIsDominatingFriend(i))
 		{
-			if (i != j && isAlive(j) && !constraints[i][j] && isSubset(constraints[i], constraints[j]) )
+			if (i != j && isAlive(j) && !constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(constraints[i], constraints[j]) )
 			{
 				parent[i] = j;
 				break;

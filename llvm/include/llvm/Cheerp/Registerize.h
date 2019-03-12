@@ -325,6 +325,20 @@ private:
 	}
 	Coloring iterativeDeepening(IterationsCounter& counter);
 	std::vector<uint32_t> assignGreedily() const;
+	static uint64_t computeSample(const llvm::BitVector&A)
+	{
+		uint64_t res = 0;
+		assert(A.size() >= 64);
+		for (uint32_t i=0; i<64; i++)
+		{
+			res = 2*res + (A[(i*i)%A.size()]?1:0);
+		}
+		return res;
+	}
+	static bool isSubset(const uint64_t A, const uint64_t B)
+	{
+		return A == (A&B);
+	}
 	static bool isSubset(const llvm::BitVector& A, const llvm::BitVector& B)
 	{
 		assert(A.size() == B.size());
