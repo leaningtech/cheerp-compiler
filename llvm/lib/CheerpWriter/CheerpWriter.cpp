@@ -4798,6 +4798,9 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 		assert(T.getKind()&(Token::TK_If|Token::TK_IfNot|Token::TK_Else));
 		const Token* Inner = T.getNextNode();
 		const Token* End = T.getMatch();
+		// Empty if. Ideally it should have been removed by now...
+		if (End == Inner)
+			return true;
 		switch (Inner->getKind())
 		{
 			case Token::TK_Prologue:
@@ -4880,7 +4883,14 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				compileCondition(T.getBB(), IfNot);
 				stream << ")";
 				if (!omitBraces(T))
+				{
 					stream << '{' << NewLine;
+				}
+				else if (T.getNextNode() == T.getMatch())
+				{
+					// Empty if. Ideally it should have been removed by now...
+					stream << ';' << NewLine;
+				}
 				blockDepth++;
 				break;
 			}
@@ -4890,9 +4900,18 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 					stream << '}';
 				stream << "else";
 				if (!omitBraces(T))
+				{
 					stream << '{' << NewLine;
+				}
+				else if (T.getNextNode() == T.getMatch())
+				{
+					// Empty else. Ideally it should have been removed by now...
+					stream << ';' << NewLine;
+				}
 				else 
+				{
 					stream << ' ';
+				}
 				break;
 			}
 			case Token::TK_Branch:
