@@ -618,7 +618,7 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 			state.debugStats[GREEDY_EVALUATIONS]++;
 #endif
 			const Coloring colors = getColors(keepMerging(state));
-			const Solution localSolution = {computeScore(colors, lowerBoundOnNumberOfColors()), colors};
+			const Solution localSolution = {computeScore(colors, lowerBoundOnNumberOfColors(/*forceEvaluation*/true)), colors};
 
 			bool print = state.improveScore(localSolution);
 
@@ -690,6 +690,8 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 
 uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const
 {
+	if (howManyWaysHasLowerBoundBeenEvaluated >= 2)
+		return lowerBoundChromaticNumber;
 	//If we discard all friends, and minimize score, and we find an optimal solution, we have the chromatic number (and so also a lower bound on it)
 	VertexColorer noFriendships(N, *this);
 	for (const auto& F : friendships)
@@ -719,9 +721,9 @@ VertexColorer::Coloring VertexColorer::iterativeDeepening(IterationsCounter& cou
 	//TODO: try to split it in multiple solutions first
 	Solution best;
 	best.second = getColors(assignGreedily());
-	best.first = computeScore(best.second, lowerBoundOnNumberOfColors());
+	best.first = computeScore(best.second, lowerBoundOnNumberOfColors(/*forceEvaluation*/true));
 	uint32_t minimalColors = computeNumberOfColors(best.second);
-	uint32_t lowerBound = lowerBoundOnNumberOfColors();
+	uint32_t lowerBound = lowerBoundOnNumberOfColors(/*forceEvaluation*/true);
 
 	if (lowerBound < minimalColors && friendships.size() > 0 && friendships.front().first > 0)
 	{
@@ -729,14 +731,15 @@ VertexColorer::Coloring VertexColorer::iterativeDeepening(IterationsCounter& cou
 		uint32_t estimate = chromaticNumberWithNoFriends(lowerBound, minimalColors);
 
 		improveLowerBound(estimate);
-		howManyWaysHasLowerBoundBeenEvaluated++;
+		howManyWaysHasLowerBoundBeenEvaluated=2;
 
 		if (estimate > lowerBound && removeRowsWithFewConstraints())
 		{
 			//lowerBound has increased, so we needs to check again rows with few constraints
 			return retColors;
 		}
-		lowerBound = lowerBoundOnNumberOfColors();
+
+		lowerBound = lowerBoundOnNumberOfColors(/*forceEvaluation*/true);
 	}
 	assert(counter.remaining() > 0);
 	uint32_t depth = 0;
@@ -1023,7 +1026,7 @@ bool VertexColorer::removeRowsWithFewConstraints()
 	//Vertex with no positive-weight friends and "few" constraints can be removed and assigned a color at the end
 	//The idea is that someone has less than N-1 constraint, for the pigeon hole there is a color <=N than is valid, and this color can be assigned at the end
 
-	uint32_t cutoff = lowerBoundOnNumberOfColors() - 1;
+	uint32_t cutoff = lowerBoundOnNumberOfColors(true) - 1;
 
 	std::vector<bool> toBePostProcessed(N, false);
 
@@ -1163,9 +1166,9 @@ void VertexColorer::improveLowerBound(const uint32_t x)
 	lowerBoundChromaticNumber = std::max(lowerBoundChromaticNumber, x);
 }
 
-uint32_t VertexColorer::lowerBoundOnNumberOfColors()
+uint32_t VertexColorer::lowerBoundOnNumberOfColors(const bool forceEvaluation)
 {
-	if (howManyWaysHasLowerBoundBeenEvaluated == 0)
+	if (howManyWaysHasLowerBoundBeenEvaluated == 0 && forceEvaluation)
 	{
 		howManyWaysHasLowerBoundBeenEvaluated++;
 		improveLowerBound(maximalGeneratedClique());
@@ -1726,8 +1729,7 @@ VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
 	if (colors.size() > 1)
 	{
 		llvm::errs() << "Solving subproblem of size\t" << colors.size() << ":\t(score/colors/iterations)\t"; 
-		llvm::errs() << computeScore(colors, lowerBoundOnNumberOfColors()) <<"\t" << lowerBoundOnNumberOfColors() << "/"<<computeNumberOfColors(colors)<<"\t\t";
-		llvm::errs() << computeScore(colors) <<"\t" << lowerBoundOnNumberOfColor() << "/"<<computeNumberOfColors(colors)<<"\t\t";
+		llvm::errs() << computeScore(colors, lowerBoundOnNumberOfColors(/*forceEvaluation*/true)) <<"\t" << lowerBoundOnNumberOfColors(/*forceEvaluation*/true) << "/"<<computeNumberOfColors(colors)<<"\t\t";
 		for (uint32_t i=0; i<debugStats.size(); i++)
 		{
 			llvm::errs () << debugStats[i] << "\t";
