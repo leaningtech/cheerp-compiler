@@ -1523,14 +1523,26 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 	{
 		subproblems.push_back(VertexColorer(C[s], *this));
 	}
-addZeroFriendships();
+
 	for (const Friendship& F : friendships)
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
-		assert(F.first == 0 || A[a] == A[b]);
+		assert(F.first == 0 && A[a] == A[b]);
 		if (A[a] == A[b])
 			subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
+	}
+
+	for (uint32_t i=0; i<N; ++i)
+	{
+		const uint32_t color = A[i];
+		for (uint32_t j=i+1; j<N; ++j)
+		{
+			if (color != A[j])
+				continue;
+			if (!constraints[i][j])
+				subproblems[color].addAllowed(B[i], B[j]);
+		}
 	}
 
 	std::vector<Coloring> solutions;
