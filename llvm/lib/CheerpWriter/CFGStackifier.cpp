@@ -762,26 +762,37 @@ void TokenListOptimizer::removeEmptyBasicBlocks()
 
 void TokenListOptimizer::removeEmptyIfs()
 {
-	for_each_kind<Token::TK_If | Token::TK_Else>([&](TokenList::iterator T)
+	for_each_kind<Token::TK_End | Token::TK_Else>([&](TokenList::iterator T)
 	{
-		if (T->getMatch() == T->getNextNode())
+		Token* Prev = T->getPrevNode();
+		if (Prev->getKind() & (Token::TK_If | Token::TK_Else | Token::TK_IfNot)
+			&& Prev->getMatch() == T)
 		{
-			if (T->getKind() == Token::TK_If)
+			if (Prev->getKind() & (Token::TK_If | Token::TK_IfNot))
 			{
-				Token* EmptyIf = T;
-				Token* Else = EmptyIf->getMatch();
-				Token* End = Else->getMatch();
-				Token* IfNot = Token::createIfNot(EmptyIf->getBB());
-				IfNot->setMatch(End);
-				End->setMatch(IfNot);
-				Tokens.insertAfter(EmptyIf, IfNot);
-				erase(EmptyIf);
-				erase(Else);
+				Token* EmptyIf = Prev;
+				if (T->getKind() == Token::TK_Else)
+				{
+					Token* Else = T;
+					Token* End = Else->getMatch();
+					Token* IfNot = Token::createIfNot(EmptyIf->getBB());
+					IfNot->setMatch(End);
+					End->setMatch(IfNot);
+					Tokens.insertAfter(EmptyIf, IfNot);
+					erase(EmptyIf);
+					erase(Else);
+				}
+				else
+				{
+					erase(EmptyIf);
+					erase(T);
+				}
 			}
 			else
 			{
-				Token* EmptyElse = T;
-				Token* End = EmptyElse->getMatch();
+				assert(Prev->getKind() == Token::TK_Else);
+				Token* EmptyElse = Prev;
+				Token* End = T;
 				Token* If = End->getMatch();
 				If->setMatch(End);
 				erase(EmptyElse);
