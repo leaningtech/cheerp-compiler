@@ -801,28 +801,6 @@ private:
 			return res;
 		}
 	private:
-		Friendships getFriendships() const
-		{
-			Friendships friendships;
-			for (uint32_t i=0; i<numInst(); i++)
-			{
-				assert(isAlive(i));
-				std::map<uint32_t, uint32_t> weight;
-				for (const auto& x : friends[i])
-				{
-					weight[x.first] += x.second;
-				}
-				for (uint32_t j=i+1; j<numInst(); j++)
-				{
-					assert(isAlive(j));
-					if (!bitsetConstraint[i][j])
-					{
-						friendships.push_back({weight[j], {i, j}});
-					}
-				}
-			}
-			return friendships;
-		}
 		void computeBitsetConstraints()
 		{
 			bitsetConstraint.clear();
