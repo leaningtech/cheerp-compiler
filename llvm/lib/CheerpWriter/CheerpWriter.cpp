@@ -4969,8 +4969,6 @@ void CheerpWriter::compileMethod(Function& F)
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 			CFGStackifier CN(F, LI, DT, registerize, PA);
 			compileTokens(CN.Tokens);
-			//stream<<"/*ORIGINAL*/"<<NewLine;
-			//CN.render(ri);
 		}
 	}
 	assert(blockDepth == 0);
