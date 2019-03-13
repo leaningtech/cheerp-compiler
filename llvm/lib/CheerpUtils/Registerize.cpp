@@ -989,12 +989,26 @@ bool VertexColorer::removeDominatedRows()
 		if (!isAlive(i))
 			continue;
 		//TODO: having a default constructed identity vector
-		for (uint32_t j : whoIsDominatingFriend(i))
+		if (friends[i].empty())
 		{
-			if (i != j && isAlive(j) && !constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(constraints[i], constraints[j]) )
+			for (uint32_t j=0; j<N; j++)
 			{
-				parent[i] = j;
-				break;
+				if (i != j && isAlive(j) && !constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(constraints[i], constraints[j]) )
+				{
+					parent[i] = j;
+					break;
+				}
+			}
+		}
+		else
+		{
+			for (uint32_t j : whoIsDominatingFriend(i))
+			{
+				if (i != j && isAlive(j) && !constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(constraints[i], constraints[j]) )
+				{
+					parent[i] = j;
+					break;
+				}
 			}
 		}
 	}
