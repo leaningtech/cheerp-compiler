@@ -78,7 +78,6 @@ void CodeGenTypes::getRecordTypeName(const RecordDecl *RD,
 
   if (!suffix.empty())
     OS << suffix;
-  OS.flush();
 }
 
 void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
