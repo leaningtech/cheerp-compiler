@@ -1627,21 +1627,18 @@ void VertexColorer::establishInvariantsFriendships()
 		else
 			i=j;
 	}
-	sort(friendships.begin(), friendships.end());
-
-	while (!friendships.empty())
-	{
-		if (friendships.back().first == (uint32_t)-1)
-			friendships.pop_back();
-		else
-			break;
-	}
 
 	//Sort in inverse weight order
 	sort(friendships.begin(), friendships.end(), [](const Friendship& a, const Friendship& b)->bool
 			{
 				return a.first > b.first;
 			});
+
+	friendships.erase(std::remove_if(friendships.begin(), friendships.end(), [](const Friendship& a) -> bool
+			{
+				return a.first == (uint32_t)-1;
+			}
+			), friendships.end());
 }
 
 void VertexColorer::establishInvariantsFriends()
@@ -1673,19 +1670,11 @@ void VertexColorer::establishInvariantsFriend(std::vector<Friend>& F)
 			i=j;
 	}
 
-	sort(F.begin(), F.end(), [](const Friend& a, const Friend& b) -> bool
-		{
-			return a.second > b.second;
-		});
-
-	while (!F.empty())
-	{
-		if (F.back().second == 0)
-			F.pop_back();
-		else
-			break;
-	}
-	sort(F.begin(), F.end());
+	F.erase(std::remove_if(F.begin(), F.end(), [](const Friend& a) -> bool
+			{
+				return a.second == 0;
+			}
+			), F.end());
 }
 
 bool VertexColorer::friendshipsInvariantsHolds() const
@@ -1712,8 +1701,15 @@ bool VertexColorer::friendshipsInvariantsHolds() const
 
 bool VertexColorer::friendInvariantsHolds() const
 {
-	for (const auto& F : friends)
+	for (uint32_t j=0; j<friends.size(); ++j)
 	{
+		const std::vector<Friend>& F = friends[j];
+
+		for (uint32_t i=0; i<F.size(); i++)
+		{
+			if (F[i].second == 0 || F[i].first == j)
+				return false;
+		}
 		for (uint32_t i=1; i<F.size(); i++)
 		{
 			if (F[i-1].first >= F[i].first)
