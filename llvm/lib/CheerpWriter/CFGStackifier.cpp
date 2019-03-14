@@ -564,12 +564,11 @@ TokenList::iterator TokenListBuilder::findBlockBegin(TokenList::iterator Target,
 				break;
 			case Token::TK_Loop:
 			case Token::TK_Block:
-			case Token::TK_Switch:
 				it = it->getMatch();
 				break;
-			case Token::TK_Case:
-				it = it->getMatch();
-				it--;
+			case Token::TK_Switch:
+				while(it->getMatch()->getKind() != Token::TK_End)
+					it = it->getMatch();
 				break;
 			default:
 				break;
