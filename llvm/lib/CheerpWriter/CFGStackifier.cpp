@@ -39,11 +39,13 @@ public:
 	};
 	TokenListBuilder(const Function &F,
 		TokenList& Tokens,
-		const LoopInfo& LI, const DominatorTree& DT)
+		const LoopInfo& LI, const DominatorTree& DT,
+		bool NestSwitches)
 		: F(const_cast<Function&>(F)), Tokens(Tokens)
 		, InsertPt(Tokens.begin())
 		, NextId(0)
 		, LI(LI), DT(DT)
+		, NestSwitches(NestSwitches)
 	{
 		build();
 	}
@@ -77,6 +79,7 @@ private:
 	int NextId;
 	const LoopInfo& LI;
 	const DominatorTree& DT;
+	bool NestSwitches;
 
 	DenseMap<const BasicBlock*, int> Visited;
 	DenseMap<const DomTreeNode*, std::vector<const BasicBlock*>> Queues;
@@ -267,7 +270,8 @@ static void for_each_succ(const BasicBlock* BB, F f)
 void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* CurNode)
 {
 	assert(BBT->getKind() == Token::TK_BasicBlock);
-	if (const BranchInst* BrInst = dyn_cast<BranchInst>(BBT->getBB()->getTerminator()))
+	const TerminatorInst* Term = BBT->getBB()->getTerminator();
+	if (const BranchInst* BrInst = dyn_cast<BranchInst>(Term))
 	{
 		if (BrInst->isUnconditional())
 		{
@@ -304,8 +308,9 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 			Scopes.emplace_back(IfScope);
 		}
 	}
-	else if (const SwitchInst* SwInst = dyn_cast<SwitchInst>(BBT->getBB()->getTerminator()))
+	else if (isa<SwitchInst>(Term) && !NestSwitches)
 	{
+		const SwitchInst* SwInst = cast<SwitchInst>(Term);
 		Token* Switch = Token::createSwitch(BBT->getBB());
 		InsertPt = Tokens.insertAfter(InsertPt, Switch);
 		Token* Prev = Switch;
@@ -351,6 +356,44 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 		InsertPt = FirstPt;
 		Scopes.insert(Scopes.end(), SwitchScopes.rbegin(), SwitchScopes.rend());
 
+	}
+	else if (isa<SwitchInst>(Term) && NestSwitches)
+	{
+		const SwitchInst* SwInst = cast<SwitchInst>(Term);
+		Token* Switch = Token::createSwitch(BBT->getBB());
+		InsertPt = Tokens.insertAfter(InsertPt, Switch);
+		Token* Prev = Switch;
+		TokenList::iterator FirstPt = Tokens.end();
+		std::vector<Scope> SwitchScopes;
+		Scopes.reserve(SwInst->getNumSuccessors());
+		for_each_succ(BBT->getBB(), [&](const BasicBlock* Succ, const SmallVectorImpl<int>& Indexes)
+		{
+			for (int idx: Indexes)
+			{
+				Token* Case = Token::createCase(BBT->getBB(), idx, Prev);
+				Prev = Case;
+				InsertPt = Tokens.insertAfter(InsertPt, Case);
+			}
+			Token* Prologue = Token::createPrologue(BBT->getBB(), Indexes.front());
+			InsertPt = Tokens.insertAfter(InsertPt, Prologue);
+			if (!SwitchScopes.empty())
+			{
+				SwitchScopes.back().EndPt = InsertPt;
+			}
+			else
+			{
+				FirstPt = InsertPt;
+			}
+			const DomTreeNode* Dom = DT.getNode(const_cast<BasicBlock*>(Succ));
+			bool Nested = CurNode->getBlock() == getUniqueForwardPredecessor(Succ, LI);
+			Scope S { Scope::Case, Dom, Tokens.end(), Nested};
+			SwitchScopes.push_back(S);
+		});
+		Token* End = Token::createSwitchEnd(Switch, Prev);
+		InsertPt = Tokens.insertAfter(InsertPt, End);
+		SwitchScopes.back().EndPt = InsertPt; 
+		Scopes.insert(Scopes.end(), SwitchScopes.rbegin(), SwitchScopes.rend());
+		InsertPt = FirstPt;
 	}
 	else if (isa<ReturnInst>(BBT->getBB()->getTerminator()))
 	{
@@ -560,14 +603,10 @@ TokenList::iterator TokenListBuilder::findBlockBegin(TokenList::iterator Target,
 				it = it->getMatch();
 				break;
 			case Token::TK_If:
-				it = it->getMatch()->getMatch();
-				break;
 			case Token::TK_Loop:
 			case Token::TK_Block:
-				it = it->getMatch();
-				break;
 			case Token::TK_Switch:
-				while(it->getMatch()->getKind() != Token::TK_End)
+				while(it->getKind() != Token::TK_End)
 					it = it->getMatch();
 				break;
 			default:
@@ -918,9 +957,10 @@ void TokenListOptimizer::adjustLoopEnds()
 }
 
 CFGStackifier::CFGStackifier(const llvm::Function &F, const llvm::LoopInfo& LI,
-	const llvm::DominatorTree& DT, const Registerize& R, const PointerAnalyzer& PA)
+	const llvm::DominatorTree& DT, const Registerize& R, const PointerAnalyzer& PA,
+	Mode M)
 {
-	TokenListBuilder Builder(F, Tokens, LI, DT);
+	TokenListBuilder Builder(F, Tokens, LI, DT, M != Mode::Wasm);
 #ifndef NDEBUG
 	{
 		TokenListVerifier Verifier(Tokens);

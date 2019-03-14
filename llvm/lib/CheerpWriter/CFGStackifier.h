@@ -28,8 +28,14 @@ namespace cheerp
 class CFGStackifier
 {
 public:
+	enum Mode {
+		GenericJS,
+		AsmJS,
+		Wasm,
+	};
 	CFGStackifier(const llvm::Function &F, const llvm::LoopInfo& LI,
-		const llvm::DominatorTree& DT, const Registerize& R, const PointerAnalyzer& PA);
+		const llvm::DominatorTree& DT, const Registerize& R,
+		const PointerAnalyzer& PA, Mode M);
 
 	TokenList Tokens;
 };
