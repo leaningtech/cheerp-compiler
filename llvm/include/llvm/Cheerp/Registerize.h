@@ -25,7 +25,7 @@
 #include <deque>
 
 
-//#define REGISTERIZE_DEBUG
+#define REGISTERIZE_DEBUG
 //#define REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
 
 namespace cheerp
@@ -80,7 +80,11 @@ public:
 			llvm::errs()<<"\t\t"<<constraints[i].count() << "\t"<<friends[i].size() << "\n";
 		}
 	}
-	Coloring solve();
+	const Coloring& getSolution() const
+	{
+		return retColors;
+	}
+	void solve();
 	void addWeightedFriendship(const uint32_t a, const uint32_t b, const uint32_t weight)
 	{
 		addFriendship(weight, a, b);
@@ -88,6 +92,14 @@ public:
 	void addAllowed(const uint32_t a, const uint32_t b)
 	{
 		addFriendship(0, a, b);
+	}
+	void addConstraint(const uint32_t a, const uint32_t b)
+	{
+		assert(a < N && b < N);
+		if (a == b)
+			return;
+		constraints[a].set(b);
+		constraints[b].set(a);
 	}
 	class IterationsCounter
 	{
@@ -124,12 +136,27 @@ public:
 			return false;
 		return computeNumberOfColors(coloring) != coloring.size();
 	}
+	void setAll(const bool color)
+	{
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (color)
+				constraints[i].set();
+			else
+				constraints[i].reset();
+		}
+		for (uint32_t i=0; i<N; i++)
+		{
+			constraints[i].reset(i);
+		}
+	}
 private:
 	VertexColorer(const uint32_t N, const VertexColorer& parent)
 		: VertexColorer(N, parent.costPerColor, parent.times)
 	{
 	}
-	Coloring solveInvariantsAlreadySet();
+	std::vector<uint32_t> findAlreadyDiagonalized() const;
+	void solveInvariantsAlreadySet();
 	static uint32_t computeNumberOfColors(const Coloring& coloring)
 	{
 		if (coloring.empty())
@@ -203,7 +230,6 @@ private:
 		}
 		return V;
 	}
-	Coloring iterativeDeepening(uint32_t& iterations);
 	typedef std::pair<uint32_t, Coloring> Solution;
 	struct SearchState
 	{
@@ -323,7 +349,7 @@ private:
 		constraints[a].flip(b);
 		constraints[b].flip(a);
 	}
-	Coloring iterativeDeepening(IterationsCounter& counter);
+	void iterativeDeepening(IterationsCounter& counter);
 	std::vector<uint32_t> assignGreedily() const;
 	static uint64_t computeSample(const llvm::BitVector&A)
 	{
@@ -414,6 +440,7 @@ private:
 	uint32_t maximalGeneratedClique() const;
 	uint32_t lowerBoundOnNumberOfColors(const bool forceEvaluation = false);
 	bool splitOnArticulationPoint();
+	bool splitOnArticulationClique();
 	bool splitConflicting(const bool conflicting);
 	bool checkConstraintsAreRespected(const Coloring& colors) const;
 	bool friendshipsInvariantsHolds() const;
