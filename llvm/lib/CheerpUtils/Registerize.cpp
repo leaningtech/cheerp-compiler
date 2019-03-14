@@ -508,7 +508,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	RegistersAssigned = false;
 #endif
 
-#ifdef REGISTERIZE_DEBUG_MINIMAL
+#ifdef REGISTERIZE_DEBUG
 	if (originalRegistersSize != registers.size())
 		dbgs() << originalRegistersSize << "\t different than " << registers.size() << "\n";
 #endif
@@ -704,7 +704,8 @@ uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32
 	}
 
 	noFriendships.improveLowerBound(lowerBound);
-	const Coloring col = noFriendships.solve();
+	noFriendships.solve();
+	const Coloring& col = noFriendships.getSolution();
 
 	//If we do not have the guarantee for the solution to be optimal, this work only as upper bound but not as lower bound
 	if (!noFriendships.isSolutionOptimal())
@@ -716,7 +717,7 @@ uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32
 	return computeNumberOfColors(col);
 }
 
-VertexColorer::Coloring VertexColorer::iterativeDeepening(IterationsCounter& counter)
+void VertexColorer::iterativeDeepening(IterationsCounter& counter)
 {
 	//TODO: try to split it in multiple solutions first
 	Solution best;
@@ -736,7 +737,8 @@ VertexColorer::Coloring VertexColorer::iterativeDeepening(IterationsCounter& cou
 		if (estimate > lowerBound && removeRowsWithFewConstraints())
 		{
 			//lowerBound has increased, so we needs to check again rows with few constraints
-			return retColors;
+			//removeRowsWithFewConstraints will set retColors to the solution
+			return;
 		}
 
 		lowerBound = lowerBoundOnNumberOfColors(/*forceEvaluation*/true);
@@ -765,7 +767,7 @@ VertexColorer::Coloring VertexColorer::iterativeDeepening(IterationsCounter& cou
 			maxIterations*=2;
 		} while (maxIterations *2<= counter.remaining() && depth < friendships.size());
 	}
-	return best.second;
+	retColors = best.second;
 }
 
 std::vector<uint32_t> VertexColorer::assignGreedily() const
@@ -1028,7 +1030,7 @@ bool VertexColorer::removeDominatedRows()
 	if (alive.size() == N)
 		return false;
 
-#ifdef REGISTERIZE_DEBUG_MINIMAL
+#ifdef REGISTERIZE_DEBUG
 	llvm::errs() << "Remove dominated rows:\t"<< N << " -> " << alive.size() << "\n";
 #endif
 
@@ -1058,7 +1060,8 @@ bool VertexColorer::removeDominatedRows()
 
 	//Merging dominated nodes may generate a double friendship between the same nodes, so the generic function is required
 	subsolution.improveLowerBound(lowerBoundOnNumberOfColors());
-	const Coloring subcolors = subsolution.solve();
+	subsolution.solve();
+	const Coloring& subcolors = subsolution.getSolution();
 	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
 
 	retColors.resize(N);
@@ -1114,7 +1117,7 @@ bool VertexColorer::removeRowsWithFewConstraints()
 	if (alive.size() == N)
 		return false;
 
-#ifdef REGISTERIZE_DEBUG_MINIMAL
+#ifdef REGISTERIZE_DEBUG
 	llvm::errs() << "Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
 #endif
 	addZeroFriendships();
@@ -1131,7 +1134,8 @@ bool VertexColorer::removeRowsWithFewConstraints()
 	uint32_t lowerBound = std::max(lowerBoundOnNumberOfColors(), howManyOnCutoff) - howManyOnCutoff;
 
 	subsolution.improveLowerBound(lowerBound);
-	const Coloring subcolors = subsolution.solve();
+	subsolution.solve();
+	const Coloring& subcolors = subsolution.getSolution();
 	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
 
 	retColors = Coloring(N, N);
@@ -1396,7 +1400,7 @@ bool VertexColorer::splitOnArticulationPoint()
 	if (splitNode == N || seeds.size() < 2)
 		return false;
 
-#ifdef REGISTERIZE_DEBUG_MINIMAL
+#ifdef REGISTERIZE_DEBUG
 	llvm::errs() << "Split on node " << splitNode << ":\t";
 	for (uint32_t s : seeds)
 	{
@@ -1436,7 +1440,8 @@ bool VertexColorer::splitOnArticulationPoint()
 		//Friends of splitNode could get merged, so call standard solver
 
 		sub.improveLowerBound(lowerBoundOnNumberOfColors());
-		Coloring subcolors = sub.solve();
+		sub.solve();
+		Coloring subcolors = sub.getSolution();
 		improveLowerBound(sub.lowerBoundOnNumberOfColors());
 
 		const uint32_t K = subcolors[0];
@@ -1462,6 +1467,195 @@ bool VertexColorer::splitOnArticulationPoint()
 
 	return true;
 }
+
+std::vector<uint32_t> VertexColorer::findAlreadyDiagonalized() const
+{
+	assert(areAllAlive());
+	std::vector<uint32_t> res = parent;
+
+	uint32_t i=0;
+	uint32_t firstUnused = 0;
+	for (uint32_t j=0; j<N; j++)
+	{
+		bool good = true;
+		for (uint32_t k=i; k<j; k++)
+		{
+			if (!constraints[j][k])
+			{
+				good = false;
+				break;
+			}
+		}
+		if (!good)
+		{
+			i = j;
+			firstUnused++;
+		}
+		res[j] = firstUnused;
+	}
+	return res;
+}
+
+bool VertexColorer::splitOnArticulationClique()
+{
+	std::vector<uint32_t> blockNumber = findAlreadyDiagonalized();
+	std::vector<uint32_t> D(N, 0);
+	for (uint32_t i=0; i<N; i++)
+	{
+		D[blockNumber[i]]++;
+	}
+
+	assert(N > 1);
+
+	VertexColorer blocks(blockNumber.back() + 1, *this);
+	blocks.setAll(false);
+
+	for (uint32_t i=0; i<N; i++)
+	{
+		const uint32_t num = blockNumber[i];
+		for (uint32_t j=0; j<N; j++)
+		{
+			if (num == blockNumber[j])
+				continue;
+			if (constraints[i][j])
+				blocks.addConstraint(blockNumber[j], num);
+		}
+		for (const Friend& f : friends[i])
+		{
+			if (num == blockNumber[f.first])
+				continue;
+			blocks.addConstraint(blockNumber[f.first], num);
+		}
+	}
+
+	//Find the articulation points for the reduced block graph
+	//If there is one that actually split the graph in more than 1 part, split the graph there and then recombine it
+	std::vector<uint32_t> articulations = blocks.getArticulationPoints();
+
+	if (articulations.empty())
+		return false;
+
+	assert(blocks.areAllAlive());
+
+	uint32_t splitNode = blocks.N;
+	uint32_t toMaximize = 0;
+	std::vector<uint32_t> seeds;
+	std::vector<uint32_t> A, B, C, S;
+
+	for (uint32_t split : articulations)
+	{
+		std::vector<uint32_t> regions = blocks.parent;
+		uint32_t firstUnused = 0;
+		A = std::vector<uint32_t> (blocks.N);
+		B = std::vector<uint32_t> (blocks.N, 0);
+		C = std::vector<uint32_t> (blocks.N, 0);
+		S = std::vector<uint32_t> (blocks.N, 0);
+
+		for (uint32_t i=0; i<blocks.N; i++)
+		{
+			if (regions[i] == i && i != split)
+			{
+				blocks.floodFill(regions, i, false, split);
+				A[i] = firstUnused++;
+			}
+		}
+
+		for (uint32_t i=0; i<blocks.N; i++)
+		{
+			if (i == split)
+				continue;
+			A[i] = A[regions[i]];
+			B[i] = ++C[regions[i]];
+			S[regions[i]] += D[i];
+		}
+
+		seeds.clear();
+
+		for (uint32_t i=0; i<blocks.N; i++)
+		{
+			if (C[i] > 0 && C[i]<blocks.N)
+			{
+				seeds.push_back(i);
+			}
+		}
+
+		if (seeds.size() <= 1)
+			continue;
+		splitNode = split;
+		break;
+	}
+
+	if (splitNode == blocks.N || seeds.size() < 2)
+		return false;
+
+#ifdef REGISTERIZE_DEBUG
+	llvm::errs() << "Split on CLIQUE number " << splitNode << " of size " << D[splitNode] << ":\t";
+	for (uint32_t s : seeds)
+	{
+		llvm::errs() << S[s]+D[splitNode] << " ";
+	}
+	llvm::errs() << "\n";
+#endif
+	return false;
+/*
+	std::vector<VertexColorer> subproblems;
+	subproblems.reserve(seeds.size());
+
+	for (uint32_t s : seeds)
+	{
+		subproblems.push_back(VertexColorer(S[s]+D[splitNode], *this));
+	}
+	addZeroFriendships();
+	for (const Friendship& F : friendships)
+	{
+		const uint32_t a = F.second.first;
+		const uint32_t b = F.second.second;
+		if (a == splitNode || b == splitNode)
+		{
+			const uint32_t other = a + b - splitNode;
+			subproblems[A[other]].addFriendship(F.first, B[other], 0);
+		}
+		else
+		{
+			assert(F.first == 0 || A[a] == A[b]);
+			if (A[a] == A[b])
+				subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
+		}
+	}
+
+	std::vector<Coloring> solutions;
+	for (VertexColorer& sub : subproblems)
+	{
+		//Friends of splitNode could get merged, so call standard solver
+
+		sub.improveLowerBound(lowerBoundOnNumberOfColors());
+		sub.solve();
+		Coloring subcolors = sub.getSolution();
+		improveLowerBound(sub.lowerBoundOnNumberOfColors());
+
+		const uint32_t K = subcolors[0];
+
+		for (uint32_t& c : subcolors)
+		{
+			if (c == 0)
+				c = K;
+			else if (c == K)
+				c = 0;
+		}
+
+		solutions.push_back(subcolors);
+	}
+
+	retColors.resize(N, 0);
+	for (uint32_t i = 0; i<N; i++)
+	{
+		if (i == splitNode)
+			continue;
+		retColors[i] = solutions[A[i]][B[i]];
+	}
+
+	return true;
+*/}
 
 bool VertexColorer::areAllAlive() const
 {
@@ -1517,7 +1711,7 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 	if (seeds.size() == 0)
 		return false;
 
-#ifdef REGISTERIZE_DEBUG_MINIMAL
+#ifdef REGISTERIZE_DEBUG
 	if (conflicting)
 		llvm::errs() << "Split conflicting:\t";
 	else
@@ -1572,7 +1766,8 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 			//In the non-conflicting case, friendship have to be possibly unificated
 			sub.establishInvariants();
 		}
-		const std::vector<uint32_t> subcolors = sub.solve();
+		sub.solve();
+		const std::vector<uint32_t>& subcolors = sub.getSolution();
 		sum_colors += sub.lowerBoundOnNumberOfColors();
 		if (!conflicting)
 			improveLowerBound(sub.lowerBoundOnNumberOfColors());
@@ -1738,42 +1933,47 @@ void VertexColorer::establishInvariants()
 	establishInvariantsFriendships();
 }
 
-VertexColorer::Coloring VertexColorer::solve()
+void VertexColorer::solve()
 {
 	establishInvariants();
-	const Coloring res = solveInvariantsAlreadySet();
-	assert(checkConstraintsAreRespected(res));
-	return res;
+	solveInvariantsAlreadySet();
+	assert(checkConstraintsAreRespected(retColors));
 }
 
-VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
+void VertexColorer::solveInvariantsAlreadySet()
 {
 	//Small cases have obvious solutions
 	if (N <= 1)
-		return Coloring(N, 0);
+	{
+		retColors = Coloring(N, 0);
+		return;
+	}
 
 	assert(friendshipsInvariantsHolds());
 	assert(friendInvariantsHolds());
 
 	//If the inverese connection graph is unconnected, split!
 	if (splitConflicting(true))
-		return retColors;
+		return;
 
 	//If the connection graph is unconnected, split!
 	if (splitConflicting(false))
-		return retColors;
+		return;
 
 	//If there are articulation points, split on one of them
 	if (splitOnArticulationPoint())
-		return retColors;
+		return;
 
 	//If there are rows dominated by others, remove them
 	if (removeDominatedRows())
-		return retColors;
+		return;
 
 	//If there are rows with no weighted friends and less than lowerBound constraints, remove them
 	if (removeRowsWithFewConstraints())
-		return retColors;
+		return;
+
+	if (splitOnArticulationClique())
+		return;
 
 	//TODO: whenever there are 2 clique, and the only additional constraints/friends are between them, they can be solved independenty from the rest
 	//TODO: a clique could be an articulation point! split there
@@ -1784,7 +1984,10 @@ VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
 	establishInvariants();
 
 	IterationsCounter counter(times);
-	const Coloring colors = iterativeDeepening(counter);
+	//iterativeDeepening takes care of exploring as much of the Zykov tree as possible given the resources
+	//Zykov tree: the tree generated by either merging two registers or setting a constraint between them
+	iterativeDeepening(counter);
+	const Coloring& colors = retColors;
 
 	if (counter.remaining() == 0)
 		isOptimal = false;
@@ -1797,14 +2000,12 @@ VertexColorer::Coloring VertexColorer::solveInvariantsAlreadySet()
 		{
 			llvm::errs () << debugStats[i] << "\t";
 		}
-		if (counters.remaining() == 0)
+		if (counter.remaining() == 0)
 			llvm::errs() << "\tsearch not exausted";
 		llvm::errs() << "\n";
 		dump();
 	}
 #endif
-
-	return colors;
 }
 
 void Registerize::RegisterAllocatorInst::solve()
@@ -1826,11 +2027,12 @@ void Registerize::RegisterAllocatorInst::solve()
 		}
 	}
 
-#ifdef REGISTERIZE_DEBUG_MINIMAL
+#ifdef REGISTERIZE_DEBUG
 	llvm::errs () << "\n\nSolving function of size " << numInst() << "\n";
 #endif
 
-	const std::vector<uint32_t> color = colorer.solve();
+	colorer.solve();
+	const std::vector<uint32_t>& color = colorer.getSolution();
 
 	for (uint32_t i = 0; i<color.size(); i++)
 	{
