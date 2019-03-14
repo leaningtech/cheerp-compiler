@@ -3178,7 +3178,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 		{
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-			CFGStackifier CN(F, LI, DT, registerize, PA);
+			CFGStackifier CN(F, LI, DT, registerize, PA, CFGStackifier::Wasm);
 			lastDepth0Block = compileTokens(code, CN.Tokens);
 		}
 	}
