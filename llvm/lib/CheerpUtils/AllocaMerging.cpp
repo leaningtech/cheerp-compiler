@@ -141,7 +141,8 @@ bool AllocaMerging::runOnFunction(Function& F)
 	}
 
 	//Solve the vertex coloring equivalent problem
-	const std::vector<uint32_t> col = colorer.solve();
+	colorer.solve();
+	const std::vector<uint32_t> col = colorer.getSolution();
 
 	if (VertexColorer::hasAnythingBeenMerged(col) == false)
 		return false;
