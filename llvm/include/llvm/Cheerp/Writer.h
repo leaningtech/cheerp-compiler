@@ -530,7 +530,6 @@ public:
 			SourceMapGenerator* sourceMapGenerator,
 			bool readableOutput,
 			llvm::StringRef makeModule,
-			bool noRegisterize,
 			bool useNativeJavaScriptMath,
 			bool useMathImul,
 			bool useMathFround,

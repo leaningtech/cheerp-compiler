@@ -19,6 +19,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/Cheerp/CommandLine.h"
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -533,7 +534,7 @@ public:
 
 	static char ID;
 	
-	explicit Registerize(bool useFloats = false, bool n = false) : ModulePass(ID), NoRegisterize(n), useFloats(useFloats)
+	explicit Registerize(bool useFloats = false) : ModulePass(ID), useFloats(useFloats)
 #ifndef NDEBUG
 			, RegistersAssigned(false)
 #endif
@@ -685,7 +686,6 @@ private:
 		}
 	};
 	EdgeContext edgeContext;
-	bool NoRegisterize;
 	bool useFloats;
 #ifndef NDEBUG
 	bool RegistersAssigned;
@@ -1120,7 +1120,7 @@ private:
 	void assignRegistersToInstructions(llvm::Function& F, cheerp::PointerAnalyzer& PA);
 };
 
-llvm::ModulePass *createRegisterizePass(bool useFloats, bool NoRegisterize);
+llvm::ModulePass *createRegisterizePass(bool useFloats);
 
 }
 

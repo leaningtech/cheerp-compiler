@@ -43,6 +43,7 @@ private:
 public:
 	static char ID;
 	explicit AllocaMerging() : AllocaMergingBase(ID) { }
+	bool runOnFunctionLegacy(llvm::Function &F);
 	bool runOnFunction(llvm::Function &F);
 	const char *getPassName() const;
 	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
