@@ -118,6 +118,18 @@ public:
 		const uint32_t maxNumber;
 		uint32_t currNumber;
 	};
+	static bool hasAnythingBeenMerged(const Coloring& coloring)
+	{
+		if (coloring.empty())
+			return false;
+		return computeNumberOfColors(coloring) != coloring.size();
+	}
+private:
+	VertexColorer(const uint32_t N, const VertexColorer& parent)
+		: VertexColorer(N, parent.costPerColor, parent.times)
+	{
+	}
+	Coloring solveInvariantsAlreadySet();
 	static uint32_t computeNumberOfColors(const Coloring& coloring)
 	{
 		if (coloring.empty())
@@ -130,12 +142,6 @@ public:
 		}
 		return res+1;
 	}
-private:
-	VertexColorer(const uint32_t N, const VertexColorer& parent)
-		: VertexColorer(N, parent.costPerColor, parent.times)
-	{
-	}
-	Coloring solveInvariantsAlreadySet();
 	void establishInvariants();
 	void addFriendship(const uint32_t weight, const uint32_t a, const uint32_t b)
 	{
