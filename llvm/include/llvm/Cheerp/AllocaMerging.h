@@ -28,9 +28,10 @@ protected:
 	AllocaMergingBase(char& ID):FunctionPass(ID)
 	{
 	}
-	typedef std::list<std::pair<llvm::AllocaInst*, Registerize::LiveRange>> AllocaInfos;
+	typedef std::pair<llvm::AllocaInst*, Registerize::LiveRange> AllocaInfo;
+	template<typename Container>
 	void analyzeBlock(const Registerize& registerize, llvm::BasicBlock& BB,
-				AllocaInfos& allocaInfos);
+				Container& allocaInfos);
 };
 
 // This class is resposible for recycling allocas. We can use lifetime intrinsics to know
