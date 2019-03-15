@@ -23,7 +23,7 @@ llvm::cl::opt<bool> PrettyCode("cheerp-pretty-code", llvm::cl::desc("Generate hu
 
 llvm::cl::opt<bool> SymbolicGlobalsAsmJS("cheerp-asmjs-symbolic-globals", llvm::cl::desc("Compile global variables addresses as js variables in the asm.js module") );
 
-llvm::cl::opt<bool> NoRegisterize("cheerp-no-registerize", llvm::cl::desc("Disable registerize pass") );
+llvm::cl::opt<bool> RegisterizeLegacy("cheerp-registerize-legacy", llvm::cl::desc("Use the legacy algorithm to assign registers") );
 
 llvm::cl::opt<bool> NoNativeJavaScriptMath("cheerp-no-native-math", llvm::cl::desc("Disable native JavaScript math functions") );
 

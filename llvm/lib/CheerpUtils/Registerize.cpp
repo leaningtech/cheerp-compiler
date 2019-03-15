@@ -115,47 +115,30 @@ void Registerize::assignRegistersToInstructions(Function& F, cheerp::PointerAnal
 {
 	if (F.empty())
 		return;
-	if (NoRegisterize)
-	{
-		// Do a fake run and assign every instruction to a different register
-		uint32_t nextRegister=0;
-		for(BasicBlock& BB: F)
-		{
-			for(Instruction& I: BB)
-			{
-				if (isInlineable(I, PA) || I.getType()->isVoidTy() || I.use_empty())
-					continue;
-				registersMap[&I]=nextRegister++;
-			}
-		}
-	}
-	else
-	{
-		InstIdMapTy instIdMap;
-		AllocaSetTy allocaSet;
-		// Assign sequential identifiers to all instructions
-		assignInstructionsIds(instIdMap, F, allocaSet, &PA);
-		// First, build live ranges for all instructions
-		LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap, PA);
-		// Assign each instruction to a virtual register
-		uint32_t registersCount = assignToRegisters(F, instIdMap, liveRanges, PA);
-		NumRegisters += registersCount;
-		// To debug we need to know the ranges for each instructions and the assigned register
-		DEBUG(if (registersCount) dbgs() << "Function " << F.getName() << " needs " << registersCount << " registers\n");
-		// Very verbose debugging below, activate if needed
+	InstIdMapTy instIdMap;
+	AllocaSetTy allocaSet;
+	// Assign sequential identifiers to all instructions
+	assignInstructionsIds(instIdMap, F, allocaSet, &PA);
+	// First, build live ranges for all instructions
+	LiveRangesTy liveRanges=computeLiveRanges(F, instIdMap, PA);
+	// Assign each instruction to a virtual register
+	uint32_t registersCount = assignToRegisters(F, instIdMap, liveRanges, PA);
+	NumRegisters += registersCount;
+	// To debug we need to know the ranges for each instructions and the assigned register
+	DEBUG(if (registersCount) dbgs() << "Function " << F.getName() << " needs " << registersCount << " registers\n");
+	// Very verbose debugging below, activate if needed
 #ifdef VERBOSEDEBUG
-		for(auto it: liveRanges)
-		{
-			if(it.first->getParent()->getParent() != &F)
-				continue;
-			dbgs() << "Instruction " << *it.first << " alive in ranges ";
-			for(const Registerize::LiveRangeChunk& chunk: it.second.range)
-				dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
-			dbgs() << "\n";
-			dbgs() << "\tMapped to register " << registersMap[it.first] << "\n";
-		}
-#endif
+	for(auto it: liveRanges)
+	{
+		if(it.first->getParent()->getParent() != &F)
+			continue;
+		dbgs() << "Instruction " << *it.first << " alive in ranges ";
+		for(const Registerize::LiveRangeChunk& chunk: it.second.range)
+			dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
+		dbgs() << "\n";
+		dbgs() << "\tMapped to register " << registersMap[it.first] << "\n";
 	}
+#endif
 }
 
 void Registerize::computeLiveRangeForAllocas(Function& F)
@@ -163,39 +146,24 @@ void Registerize::computeLiveRangeForAllocas(Function& F)
 	assert(!RegistersAssigned);
 	if (F.empty())
 		return;
-	if (NoRegisterize)
-	{
-		for(BasicBlock& BB: F)
-		{
-			for(Instruction& I: BB)
-			{
-				// Initialize an empty live range, which means that the alloca escapes analysis
-				if(AllocaInst* AI=dyn_cast<AllocaInst>(&I))
-					allocaLiveRanges[AI];
-			}
-		}
-	}
-	else
-	{
-		AllocaSetTy allocaSet;
-		InstIdMapTy instIdMap;
-		// Assign sequential identifiers to all instructions
-		assignInstructionsIds(instIdMap, F, allocaSet, NULL);
-		// Now compute live ranges for alloca memory which is not in SSA form
-		computeAllocaLiveRanges(allocaSet, instIdMap);
-		// Very verbose debugging below, activate if needed
+	AllocaSetTy allocaSet;
+	InstIdMapTy instIdMap;
+	// Assign sequential identifiers to all instructions
+	assignInstructionsIds(instIdMap, F, allocaSet, NULL);
+	// Now compute live ranges for alloca memory which is not in SSA form
+	computeAllocaLiveRanges(allocaSet, instIdMap);
+	// Very verbose debugging below, activate if needed
 #ifdef VERBOSEDEBUG
-		for(auto it: allocaLiveRanges)
-		{
-			if(it.first->getParent()->getParent() != &F)
-				continue;
-			dbgs() << "Alloca " << *it.first << " alive in ranges ";
-			for(const Registerize::LiveRangeChunk& chunk: it.second)
-				dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
-			dbgs() << "\n";
-		}
-#endif
+	for(auto it: allocaLiveRanges)
+	{
+		if(it.first->getParent()->getParent() != &F)
+			continue;
+		dbgs() << "Alloca " << *it.first << " alive in ranges ";
+		for(const Registerize::LiveRangeChunk& chunk: it.second)
+			dbgs() << '[' << chunk.start << ',' << chunk.end << ')';
+		dbgs() << "\n";
 	}
+#endif
 }
 
 Registerize::LiveRangesTy Registerize::computeLiveRanges(Function& F, const InstIdMapTy& instIdMap, cheerp::PointerAnalyzer & PA)
@@ -404,15 +372,40 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 {
 	LI = &(getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo());
 
-	RegisterAllocatorInst registerAllocatorInst(F, instIdMap, liveRanges, PA, this);
-	registerAllocatorInst.solve();
-
 	llvm::SmallVector<RegisterRange, 4> registers;
 
-	registerAllocatorInst.materializeRegisters(registers);
-	Result res = registerAllocatorInst.getResult();
+	if (RegisterizeLegacy)
+	{
+		// First try to assign all PHI operands to the same register as the PHI itself
+		for(auto it: liveRanges)
+		{
+			const Instruction* I=it.first;
+			if(!isa<PHINode>(I))
+				continue;
+			handlePHI(*I, liveRanges, registers, PA);
+		}
+		const bool asmjs = F.getSection()==StringRef("asmjs");
+		// Assign a register to the remaining instructions
+		for(auto it: liveRanges)
+		{
+			const Instruction* I=it.first;
+			if(isa<PHINode>(I))
+				continue;
+			InstructionLiveRange& range=it.second;
+			// Move on if a register is already assigned
+			if(registersMap.count(I))
+				continue;
+			uint32_t chosenRegister=findOrCreateRegister(registers, range, getRegKindFromType(I->getType(), asmjs), cheerp::needsSecondaryName(I, PA));
+			registersMap[I] = chosenRegister;
+		}
+	}
+	else
+	{
+		RegisterAllocatorInst registerAllocatorInst(F, instIdMap, liveRanges, PA, this);
+		registerAllocatorInst.solve();
 
-	uint32_t originalRegistersSize = registers.size();
+		registerAllocatorInst.materializeRegisters(registers);
+	}
 
 	// Assign registers for temporary values required to break loops in PHIs
 	class RegisterizePHIHandler: public EndOfBlockPHIHandler
@@ -494,12 +487,14 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	// and we have actually already assigned all registers for the instructions
 	RegistersAssigned = true;
 #endif
+	const uint32_t originalRegistersSize = registers.size();
+
 	for (const BasicBlock & bb : F)
 	{
 		const TerminatorInst* term=bb.getTerminator();
 		for(uint32_t i=0;i<term->getNumSuccessors();i++)
 		{
-			//TODO : WHAT IS THIS ???
+			//TODO: improve how thet are assigned
 			const BasicBlock* succBB=term->getSuccessor(i);
 			RegisterizePHIHandler(&bb, succBB, *this, registers, instIdMap, PA).runOnEdge(*this, &bb, succBB);
 		}
@@ -2626,9 +2621,9 @@ void Registerize::invalidateLiveRangeForAllocas(llvm::Function& F)
 	}
 }
 
-ModulePass* createRegisterizePass(bool useFloats, bool NoRegisterize)
+ModulePass* createRegisterizePass(bool useFloats)
 {
-	return new Registerize(useFloats, NoRegisterize);
+	return new Registerize(useFloats);
 }
 
 }
