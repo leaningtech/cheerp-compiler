@@ -94,7 +94,7 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, ReservedNames, PrettyCode);
   cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut.get(), AsmJSMemFile,
-          sourceMapGenerator.get(), PrettyCode, MakeModule, NoRegisterize, !NoNativeJavaScriptMath,
+          sourceMapGenerator.get(), PrettyCode, MakeModule, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
           BoundsCheck, CfgLegacy, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
   writer.makeJS();
@@ -147,7 +147,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(createGEPOptimizerPass());
-  PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, NoRegisterize));
+  PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround));
   PM.add(cheerp::createPointerAnalyzerPass());
   PM.add(createDelayInstsPass());
   PM.add(cheerp::createAllocaMergingPass());

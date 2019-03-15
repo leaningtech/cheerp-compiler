@@ -23,7 +23,7 @@ extern llvm::cl::opt<std::string> MakeModule;
 extern llvm::cl::opt<bool> SourceMapStandAlone;
 extern llvm::cl::opt<bool> PrettyCode;
 extern llvm::cl::opt<bool> SymbolicGlobalsAsmJS;
-extern llvm::cl::opt<bool> NoRegisterize;
+extern llvm::cl::opt<bool> RegisterizeLegacy;
 extern llvm::cl::opt<bool> NoNativeJavaScriptMath;
 extern llvm::cl::opt<bool> NoJavaScriptMathImul;
 extern llvm::cl::opt<bool> NoJavaScriptMathFround;
