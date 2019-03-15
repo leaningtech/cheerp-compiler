@@ -1282,6 +1282,61 @@ void VertexColorer::floodFill(std::vector<uint32_t>& regions, const uint32_t sta
 	}
 }
 
+void VertexColorer::floodFillOnBits(llvm::BitVector& region, const uint32_t start, const bool conflicting) const
+{
+	floodFillOnBitsWithArticulationPoints(region, start, conflicting, llvm::BitVector(N, false));
+}
+
+void VertexColorer::floodFillOnBitsWithArticulationPoints(llvm::BitVector& region, const uint32_t start, const bool conflicting, const llvm::BitVector& isArticulationPoint) const
+{
+	//Assign every node connected to start to the region labelled start
+	//What connected means depends:
+	//conflicting == false		there is either a positive-weight friendship or they are adjacent (so there is a constraint)
+	//conflicting == true		the node are not adjacent (or there is no constraint)
+	//articulationPoint != -1	as above, but it do not count if the vertex is equal to articulationPoint (as to disconnect regions on that point)
+	region = llvm::BitVector(N, false);
+	region.set(start);
+
+	std::vector<uint32_t> toProcess;
+	toProcess.push_back(start);
+
+	while (!toProcess.empty())
+	{
+		const uint32_t x = toProcess.back();
+		toProcess.pop_back();
+
+		//Articulations point are splitting point between regions, so they do not have to be processed
+		if (isArticulationPoint[x])
+			continue;
+
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (i != x && !region[i])
+			{
+				if (conflicting != constraints[x][i])
+				{
+					region.set(i);
+					toProcess.push_back(i);
+				}
+			}
+		}
+		if (!conflicting)
+		{
+			for (const Friend& f : friends[x])
+			{
+				uint32_t i = f.first;
+				assert(i != x);
+				assert(!constraints[x][i]);
+				if (!region[i])
+				{
+					region.set(i);
+					toProcess.push_back(i);
+				}
+			}
+		}
+	}
+}
+
 void VertexColorer::HopcroftTarjanData::visit(const uint32_t i, const uint32_t d)
 {
 	//Tarjan-Hopcroft linear algorithm to discover articulation points, see for example https://en.wikipedia.org/wiki/Biconnected_component
@@ -1682,35 +1737,32 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 	//	in this case the same colors can be reused, since there are no possible conflicts
 	assert(areAllAlive());
 
-	std::vector<uint32_t> regions = parent;
-	std::vector<uint32_t> A(N), B(N);
+	llvm::BitVector region(N, false);
+	llvm::BitVector processed(N, false);
+	std::vector<uint32_t> A(N), B(N), C(N, 0);
 	uint32_t firstUnused = 0;
-
-
-	for (uint32_t i=0; i<N; i++)
-	{
-		if (regions[i] == i)
-		{
-			floodFill(regions, i, conflicting);
-			A[i] = firstUnused++;
-		}
-	}
-
-	std::vector<uint32_t> C(N, 0);
-	for (uint32_t i=0; i<N; i++)
-	{
-		A[i] = A[regions[i]];
-		B[i] = C[regions[i]]++;
-	}
-
 	std::vector<uint32_t> seeds;
 
 	for (uint32_t i=0; i<N; i++)
 	{
-		if (C[i] > 0 && C[i]<N)
+		if (processed[i])
+			continue;
+
+		floodFillOnBits(region, i, conflicting);
+		processed |= region;
+		for (uint32_t j=0; j<N; j++)
+		{
+			if (!region[j])
+				continue;
+			A[j] = firstUnused;
+			B[j] = C[i]++;
+		}
+		assert(C[i] > 0);
+		if (C[i] < N)
 		{
 			seeds.push_back(i);
 		}
+		++firstUnused;
 	}
 
 	if (seeds.size() == 0)
@@ -1727,7 +1779,6 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 	}
 	llvm::errs() << "\n";
 #endif
-
 
 	std::vector<VertexColorer> subproblems;
 	subproblems.reserve(seeds.size());
