@@ -166,6 +166,8 @@ public:
 private:
 	enum HEAP_TYPE {HEAP8=0, HEAP16, HEAP32, HEAPF32, HEAPF64};
 	enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS };
+	// COMPILE_EMPTY is returned if there is no need to add a ;\n to end the line
+	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_EMPTY };
 
 	llvm::Module& module;
 	llvm::Pass& pass;
@@ -244,12 +246,9 @@ private:
 
 	uint32_t compileArraySize(const DynamicAllocInfo& info, bool shouldPrint, bool isBytes = false);
 	void compileAllocation(const DynamicAllocInfo& info);
-	void compileFree(const llvm::Value* obj);
+	COMPILE_INSTRUCTION_FEEDBACK compileFree(const llvm::Value* obj);
 
 	/** @} */
-
-	// COMPILE_EMPTY is returned if there is no need to add a ;\n to end the line
-	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_EMPTY };
 
 	std::pair<std::string, std::string> getBuiltinClassAndFunc(const char* identifier);
 	void handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV);
