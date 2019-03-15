@@ -43,6 +43,9 @@ inline bool isValidVoidPtrSource(const llvm::Value* val)
 
 bool isInlineable(const llvm::Instruction& I, const PointerAnalyzer& PA);
 
+// Forward define the Registerize class
+class Registerize;
+
 /**
 * Returns true if this PHI will render identically for all incoming
 * NOTE: If the PHI would completely disappear this returns false
@@ -641,9 +644,6 @@ private:
 	bool isNested;
 	bool hasFailed;
 };
-
-// Forward define the Registerize class
-class Registerize;
 
 class EndOfBlockPHIHandler
 {
