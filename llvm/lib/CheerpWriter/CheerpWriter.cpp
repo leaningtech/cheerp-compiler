@@ -689,11 +689,11 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	}
 }
 
-void CheerpWriter::compileFree(const Value* obj)
+CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileFree(const Value* obj)
 {
 	// Only arrays of primitives can be backed by the linear heap
 	if(!TypeSupport::isTypedArrayType(obj->getType()->getPointerElementType(), /*forceTypedArray*/ true))
-		return;
+		return COMPILE_EMPTY;
 	stream << "if(";
 	compilePointerBase(obj);
 	stream << ".buffer==__heap)__asm.";
@@ -705,6 +705,7 @@ void CheerpWriter::compileFree(const Value* obj)
 	stream << '(';
 	compilePointerOffset(obj, PARENT_PRIORITY::LOWEST);
 	stream << ')';
+	return COMPILE_OK;
 }
 
 void CheerpWriter::compileEscapedString(raw_ostream& stream, StringRef str, bool forJSON)
@@ -1024,12 +1025,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			stream << namegen.getName(ffree) <<'(';
 			compileOperand(*it, PARENT_PRIORITY::BIT_OR);
 			stream << "|0)";
+			return COMPILE_OK;
 		}
 		else
 		{
-			compileFree(*it);
+			return compileFree(*it);
 		}
-		return COMPILE_OK;
 	}
 	else if(ident=="fmod")
 	{
