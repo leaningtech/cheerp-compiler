@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2018 Leaning Technologies
+// Copyright 2014-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,8 +28,9 @@ STATISTIC(NumAllocaMerged, "Number of alloca which are merged");
 
 namespace cheerp {
 
+template<typename Container>
 void AllocaMergingBase::analyzeBlock(const cheerp::Registerize& registerize, BasicBlock& BB,
-				AllocaInfos& allocaInfos)
+				Container& allocaInfos)
 {
 	for(Instruction& I: BB)
 	{
@@ -94,65 +95,109 @@ bool AllocaMerging::runOnFunction(Function& F)
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::TypeSupport types(*F.getParent());
 	bool asmjs = F.getSection()==StringRef("asmjs");
-	AllocaInfos allocaInfos;
+	std::vector<AllocaInfo> allocaInfos;
 	// Gather all the allocas
 	for(BasicBlock& BB: F)
+	{
 		analyzeBlock(registerize, BB, allocaInfos);
+	}
 	if (allocaInfos.size() < 2)
 		return false;
-	bool Changed = false;
-	// Look if we can merge allocas of the same type
-	for(auto targetCandidate=allocaInfos.begin();targetCandidate!=allocaInfos.end();++targetCandidate)
+
+	VertexColorer colorer(allocaInfos.size(),
+			/*weight extra color, 1 since there are no other weights*/1,
+			/*maximum number of iterations, most likely never reached*/100);
+
+	//Iterate over every pair (i, j) to check edge validity
+	for(uint32_t i=0; i<allocaInfos.size(); ++i)
 	{
-		AllocaInst* targetAlloca = targetCandidate->first;
+		auto& targetCandidate = allocaInfos[i];
+		AllocaInst* targetAlloca = targetCandidate.first;
 		Type* targetType = targetAlloca->getAllocatedType();
-		// The range storing the sum of all ranges merged into target
-		cheerp::Registerize::LiveRange targetRange(targetCandidate->second);
+		const cheerp::Registerize::LiveRange targetRange(targetCandidate.second);
 		// If the range is empty, we have an alloca that we can't analyze
 		if (targetRange.empty())
 			continue;
-		std::vector<AllocaInfos::iterator> mergeSet;
-		auto sourceCandidate=targetCandidate;
-		++sourceCandidate;
-		for(;sourceCandidate!=allocaInfos.end();++sourceCandidate)
+		for (uint32_t j=i+1; j<allocaInfos.size(); ++j)
 		{
-			AllocaInst* sourceAlloca = sourceCandidate->first;
+			auto& sourceCandidate = allocaInfos[j];
+
+			AllocaInst* sourceAlloca = sourceCandidate.first;
 			Type* sourceType = sourceAlloca->getAllocatedType();
 			// Bail out for non compatible types
 			if(!areTypesEquivalent(types, PA, targetType, sourceType, asmjs))
 				continue;
-			const cheerp::Registerize::LiveRange& sourceRange = sourceCandidate->second;
+			const cheerp::Registerize::LiveRange& sourceRange = sourceCandidate.second;
 			// Bail out if this source candidate is not analyzable
 			if(sourceRange.empty())
 				continue;
 			// Bail out if the allocas interfere
 			if(targetRange.doesInterfere(sourceRange))
 				continue;
-			// Add the range to the target range and the source alloca to the mergeSet
-			mergeSet.push_back(sourceCandidate);
-			PA.invalidate(sourceAlloca);
-			targetRange.merge(sourceRange);
+
+			// If the rest worked, we can finally set i,j as a valid connection
+			colorer.addAllowed(i, j);
+		}
+	}
+
+	//Solve the vertex coloring equivalent problem
+	const std::vector<uint32_t> col = colorer.solve();
+
+	if (VertexColorer::hasAnythingBeenMerged(col) == false)
+		return false;
+
+	//Merge the alloca with the same colors, and do some cleaning/updating
+	registerize.invalidateLiveRangeForAllocas(F);
+
+	typedef std::pair<uint32_t, llvm::AllocaInst*> ColorInstPair;
+	std::vector<ColorInstPair> orderedByColor;
+
+	for (uint32_t i=0; i<col.size(); i++)
+	{
+		orderedByColor.push_back({col[i], allocaInfos[i].first});
+	}
+
+	sort(orderedByColor.begin(), orderedByColor.end(), [](const ColorInstPair& a, const ColorInstPair& b)
+			{
+				//Stable sort on the colors
+				return a.first < b.first;
+			});
+
+	for (uint32_t i=0, j=0; i<orderedByColor.size(); i=j)
+	{
+		const uint32_t currentColor = orderedByColor[i].first;
+		//Take the first item of a certain color, and merge all the other alloca with the same color to it
+		while (j < orderedByColor.size() && orderedByColor[j].first == currentColor)
+		{
+			++j;
 		}
 
-		// If the merge set is empty try another target
-		if(mergeSet.empty())
+		if (j-i == 1)
+		{
+			//There is only a single alloca, so nothing to do
 			continue;
+		}
 
+		AllocaInst* targetAlloca = orderedByColor[i].second;
+		Instruction* insertionPoint = targetAlloca->getNextNode();
 		PA.invalidate(targetAlloca);
 
-		if(!Changed)
-			registerize.invalidateLiveRangeForAllocas(F);
-
-		// Find out the insertion point
-		Instruction* insertionPoint = targetAlloca->getNextNode();
-		for(const AllocaInfos::iterator& it: mergeSet)
-			insertionPoint = cheerp::findCommonInsertionPoint(nullptr, DT, insertionPoint, it->first);
-		targetAlloca->moveBefore(insertionPoint);
-		// We can merge the allocas
-		for(const AllocaInfos::iterator& it: mergeSet)
+		//Calculate the cumulative insertionPoint
+		for (uint32_t k = i+1; k<j; k++)
 		{
-			AllocaInst* allocaToMerge = it->first;
+			insertionPoint = cheerp::findCommonInsertionPoint(nullptr, DT, insertionPoint, orderedByColor[k].second);
+		}
+
+		targetAlloca->moveBefore(insertionPoint);
+
+		//Do the actual merging and related bookkeeping
+		for (uint32_t k = i+1; k<j; k++)
+		{
+			AllocaInst* allocaToMerge = orderedByColor[k].second;
+			PA.invalidate(allocaToMerge);
+
 			Instruction* targetVal=targetAlloca;
+			//TODO: check why this is needed
 			if(targetVal->getType()!=allocaToMerge->getType())
 			{
 				targetVal=new BitCastInst(targetVal, allocaToMerge->getType());
@@ -162,15 +207,16 @@ bool AllocaMerging::runOnFunction(Function& F)
 			allocaToMerge->eraseFromParent();
 			if(targetVal != targetAlloca)
 				PA.getPointerKind(targetVal);
-			allocaInfos.erase(it);
+
 			NumAllocaMerged++;
 		}
+
 		PA.getPointerKind(targetAlloca);
-		Changed = true;
 	}
-	if(Changed)
-		registerize.computeLiveRangeForAllocas(F);
-	return Changed;
+
+	registerize.computeLiveRangeForAllocas(F);
+
+	return true;
 }
 
 const char *AllocaMerging::getPassName() const {
@@ -272,7 +318,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	cheerp::Registerize & registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::GlobalDepsAnalyzer & GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
-	std::list<std::pair<AllocaInst*, cheerp::Registerize::LiveRange>> allocaInfos;
+	std::list<AllocaInfo> allocaInfos;
 	// Gather all the allocas
 	for(BasicBlock& BB: F)
 		analyzeBlock(registerize, BB, allocaInfos);
