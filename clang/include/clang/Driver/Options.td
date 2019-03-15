@@ -4398,6 +4398,8 @@ def cheerp_bounds_check : Flag<["-"], "cheerp-bounds-check">, Flags<[DriverOptio
   HelpText<"Generate debug code for bounds-checking array and object members accesses">;
 def cheerp_cfg_legacy : Flag<["-"], "cheerp-cfg-legacy">, Flags<[DriverOption]>,
   HelpText<"Use the legacy relooper algorithm to render the cfg">;
+def cheerp_registerize_legacy : Flag<["-"], "cheerp-registerize-legacy">, Flags<[DriverOption]>,
+  HelpText<"Use the legacy algorithm for assigning registers">;
 def cheerp_avoid_wasm_traps : Flag<["-"], "cheerp-avoid-wasm-traps">, Flags<[DriverOption]>,
   HelpText<"Avoid traps from WebAssembly by generating more verbose code">;
 def cheerp_strict_linking_EQ : Joined<["-"], "cheerp-strict-linking=">, Flags<[DriverOption]>,
