@@ -85,6 +85,12 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 			{
 				continue;
 			}
+			else if(II->getIntrinsicID()==llvm::Intrinsic::memcpy ||
+				II->getIntrinsicID()==llvm::Intrinsic::memmove)
+			{
+				// In genericjs this compiles to multiple statements
+				Count+=!asmjs;
+			}
 		}
 		if (It->getType()->isPointerTy() && PA.getPointerKind(It) == SPLIT_REGULAR)
 			Count++;
