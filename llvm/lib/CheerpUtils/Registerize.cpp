@@ -986,7 +986,7 @@ bool VertexColorer::removeDominatedRows()
 	VertexColorer subsolution(alive.size(), *this);
 
 	//Add frienships (if they do not clash with constraints)
-	for (auto F : friendships)
+	for (const auto& F : friendships)
 	{
 		const uint32_t a = findParent(F.second.first);
 		const uint32_t b = findParent(F.second.second);
@@ -1057,7 +1057,7 @@ bool VertexColorer::removeRowsWithFewConstraints()
 #endif
 
 	VertexColorer subsolution(alive.size(), *this);
-	for (auto F : friendships)
+	for (const auto& F : friendships)
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
@@ -1202,7 +1202,7 @@ void VertexColorer::floodFill(std::vector<uint32_t>& regions, const uint32_t sta
 		}
 		if (!conflicting)
 		{
-			for (auto f : friends[x])
+			for (const Friend& f : friends[x])
 			{
 				uint32_t i = f.first;
 				assert(i != x);
@@ -1239,14 +1239,14 @@ void VertexColorer::HopcroftTarjanData::visit(const uint32_t i, const uint32_t d
 			children.push_back(j);
 		}
 	}
-	for (const std::pair<uint32_t, uint32_t>& f : sol.friends[i])
+	for (const Friend& f : sol.friends[i])
 	{
 		assert(f.first != i);
 		assert(f.first < sol.N);
 		children.push_back(f.first);
 	}
 
-	for (uint32_t j : children)
+	for (const uint32_t j : children)
 	{
 		if (!visited[j])
 		{
@@ -1336,7 +1336,7 @@ bool VertexColorer::splitOnArticulationPoint()
 
 #ifdef REGISTERIZE_DEBUG_MINIMAL
 	llvm::errs() << "Split on node " << splitNode << ":\t";
-	for (auto s : seeds)
+	for (uint32_t s : seeds)
 	{
 		llvm::errs() << C[s]+1 << " ";
 	}
@@ -1346,12 +1346,12 @@ bool VertexColorer::splitOnArticulationPoint()
 	std::vector<VertexColorer> subproblems;
 	subproblems.reserve(seeds.size());
 
-	for (auto s : seeds)
+	for (uint32_t s : seeds)
 	{
 		subproblems.push_back(VertexColorer(C[s]+1, *this));
 	}
 
-	for (auto F : friendships)
+	for (const Friendship& F : friendships)
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
@@ -1460,7 +1460,7 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 		llvm::errs() << "Split conflicting:\t";
 	else
 		llvm::errs() << "Split unconnected:\t";
-	for (auto s : seeds)
+	for (const uint32_t s : seeds)
 	{
 		llvm::errs() << C[s] << " ";
 	}
@@ -1471,12 +1471,12 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 	std::vector<VertexColorer> subproblems;
 	subproblems.reserve(seeds.size());
 
-	for (auto s : seeds)
+	for (const uint32_t s : seeds)
 	{
 		subproblems.push_back(VertexColorer(C[s], *this));
 	}
 
-	for (auto F : friendships)
+	for (const Friendship& F : friendships)
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
@@ -1615,7 +1615,7 @@ bool VertexColorer::friendshipsInvariantsHolds() const
 			return false;
 	}
 	std::vector<std::pair<uint32_t, uint32_t>> edges;
-	for (auto F : friendships)
+	for (const Friendship& F : friendships)
 	{
 		edges.push_back(F.second);
 	}
@@ -1630,7 +1630,7 @@ bool VertexColorer::friendshipsInvariantsHolds() const
 
 bool VertexColorer::friendInvariantsHolds() const
 {
-	for (auto F : friends)
+	for (const auto& F : friends)
 	{
 		for (uint32_t i=1; i<F.size(); i++)
 		{
@@ -1638,7 +1638,7 @@ bool VertexColorer::friendInvariantsHolds() const
 				return false;
 		}
 		std::vector<uint32_t> V;
-		for (auto f : F)
+		for (const Friend& f : F)
 		{
 			V.push_back(f.first);
 		}
@@ -1747,7 +1747,7 @@ void Registerize::RegisterAllocatorInst::solve()
 	llvm::errs () << "\n\nSolving function of size " << numInst() << "\n";
 #endif
 
-	const auto color = colorer.solve();
+	const std::vector<uint32_t> color = colorer.solve();
 
 	for (uint32_t i = 0; i<color.size(); i++)
 	{
