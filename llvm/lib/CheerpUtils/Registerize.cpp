@@ -1055,6 +1055,7 @@ bool VertexColorer::removeDominatedRows()
 
 	//Merging dominated nodes may generate a double friendship between the same nodes, so the generic function is required
 	subsolution.improveLowerBound(lowerBoundOnNumberOfColors());
+	subsolution.avoidPass[SPLIT_UNCONNECTED]=true;
 	subsolution.solve();
 	const Coloring& subcolors = subsolution.getSolution();
 	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
@@ -1500,6 +1501,7 @@ bool VertexColorer::splitOnArticulationPoint()
 		//Friends of splitNode could get merged, so call standard solver
 
 		sub.improveLowerBound(lowerBoundOnNumberOfColors());
+		sub.avoidPass[SPLIT_UNCONNECTED]=true;
 		sub.solve();
 		Coloring subcolors = sub.getSolution();
 		improveLowerBound(sub.lowerBoundOnNumberOfColors());
@@ -1729,6 +1731,11 @@ bool VertexColorer::areAllAlive() const
 
 bool VertexColorer::splitConflicting(const bool conflicting)
 {
+	if (conflicting && avoidPass[SPLIT_CONFLICTING])
+		return false;
+	if (!conflicting && avoidPass[SPLIT_UNCONNECTED])
+		return false;
+
 	//If the graph can be divided in unconnected areas, do so and recombine the partial solutions
 	//There are two kind of connectedness:
 	//-two node are connected if there is no constraint between them
@@ -1822,6 +1829,10 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 			//In the non-conflicting case, friendship have to be possibly unificated
 			sub.establishInvariants();
 		}
+		if (conflicting)
+			sub.avoidPass[SPLIT_CONFLICTING]=true;
+		else
+			sub.avoidPass[SPLIT_UNCONNECTED]=true;
 		sub.solve();
 		const std::vector<uint32_t>& subcolors = sub.getSolution();
 		sum_colors += sub.lowerBoundOnNumberOfColors();
