@@ -62,7 +62,7 @@ public:
 			{
 				bool isFriend = false;
 				uint32_t C = 0;
-				for (auto f : friends[i])
+				for (const Friend& f : friends[i])
 				{
 					if (f.first == j)
 					{
@@ -163,7 +163,7 @@ private:
 		if (coloring.empty())
 			return 0;
 		uint32_t res = 0;
-		for (auto c : coloring)
+		for (uint32_t c : coloring)
 		{
 			if (res < c)
 				res = c;
@@ -407,7 +407,7 @@ private:
 				V.push_back(x);
 				x = P[x];
 			}
-			for (auto v : V)
+			for (uint32_t v : V)
 			{
 				colors[v] = colors[x];
 			}
@@ -864,7 +864,7 @@ private:
 
 			for (uint32_t i = 0; i<numInst(); i++)
 			{
-				for (auto x : friends[i])
+				for (const Friend& x : friends[i])
 				{
 					if (i < x.first)
 						friendsEdges.push_back({x.second, {i, x.first}});
