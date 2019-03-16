@@ -477,6 +477,8 @@ private:
 	uint32_t lowerBoundChromaticNumber;
 	uint32_t howManyWaysHasLowerBoundBeenEvaluated;
 	bool isOptimal;
+	enum ReductionPasses{SPLIT_CONFLICTING, SPLIT_UNCONNECTED, SPLIT_ARTICULATION, REMOVE_DOMINATED, REMOVE_SMALL};
+	std::array<bool, 5> avoidPass{};
 public:
 #ifdef REGISTERIZE_DEBUG
 	enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
