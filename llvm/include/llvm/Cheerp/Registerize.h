@@ -417,16 +417,17 @@ private:
 	struct HopcroftTarjanData
 	{
 		HopcroftTarjanData(const VertexColorer& subsolution)
-			: sol(subsolution), visited(sol.N, false), depth(sol.N, 0), low(sol.N, 0), articulationPoints(0), parent(sol.N, sol.N)
+			: sol(subsolution), visited(sol.N, false), depth(sol.N, 0), low(sol.N, 0), isArticulation(sol.N, false), parent(sol.N, sol.N)
 		{
 		}
 		const VertexColorer& sol;
-		std::vector<bool> visited;
+		llvm::BitVector visited;
 		std::vector<uint32_t> depth;
 		std::vector<uint32_t> low;
-		std::vector<uint32_t> articulationPoints;
+		llvm::BitVector isArticulation;
 		std::vector<uint32_t> parent;
 		void visit(const uint32_t i, const uint32_t d);
+		void processChildren(const uint32_t i, const uint32_t j, const uint32_t d);
 	};
 	std::vector<uint32_t> getArticulationPoints() const;
 	void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint = -1) const;

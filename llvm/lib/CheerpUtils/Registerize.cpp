@@ -1286,44 +1286,47 @@ void VertexColorer::HopcroftTarjanData::visit(const uint32_t i, const uint32_t d
 {
 	//Tarjan-Hopcroft linear algorithm to discover articulation points, see for example https://en.wikipedia.org/wiki/Biconnected_component
 	assert(!visited[i]);
-	visited[i] = true;
+	visited.set(i);
 	depth[i] = d;
 	low[i] = d;
-	bool isArticulation = false;
 
 	std::vector<uint32_t> children;
 
 	for (uint32_t j=0; j<sol.N; j++)
 	{
-		if (j!=i && sol.constraints[i][j])
+		if (sol.constraints[i][j])
 		{
-			children.push_back(j);
+			assert(i != j);
+			processChildren(i, j, d);
 		}
 	}
 	for (const Friend& f : sol.friends[i])
 	{
 		assert(f.first != i);
 		assert(f.first < sol.N);
-		children.push_back(f.first);
+		processChildren(i, f.first, d);
 	}
 
-	for (const uint32_t j : children)
+	if ((parent[i] < sol.N && isArticulation[i]) || (parent[i] == sol.N && children.size() > 1))
+		isArticulation.set(i);
+	else
+		isArticulation.reset(i);
+}
+
+void VertexColorer::HopcroftTarjanData::processChildren(const uint32_t i, const uint32_t j, const uint32_t d)
+{
+	if (!visited[j])
 	{
-		if (!visited[j])
-		{
-			parent[j] = i;
-			visit(j, d+1);
-			if (low[j] >= depth[i])
-				isArticulation = true;
-			low[i] = std::min(low[i], low[j]);
-		}
-		else if (j != parent[i])
-		{
-			low[i] = std::min(low[i], depth[j]);
-		}
+		parent[j] = i;
+		visit(j, d+1);
+		if (low[j] >= depth[i])
+			isArticulation.set(i);
+		low[i] = std::min(low[i], low[j]);
 	}
-	if ((parent[i] < sol.N && isArticulation) || (parent[i] == sol.N && children.size() > 1))
-		articulationPoints.push_back(i);
+	else if (j != parent[i])
+	{
+		low[i] = std::min(low[i], depth[j]);
+	}
 }
 
 std::vector<uint32_t> VertexColorer::getArticulationPoints() const
@@ -1333,7 +1336,14 @@ std::vector<uint32_t> VertexColorer::getArticulationPoints() const
 
 	data.visit(0, 0);
 
-	return data.articulationPoints;
+	std::vector<uint32_t> res;
+	for (uint32_t i=0; i<N; i++)
+	{
+		if (data.isArticulation[i])
+			res.push_back(i);
+	}
+
+	return res;
 }
 
 bool VertexColorer::splitOnArticulationPoint()
