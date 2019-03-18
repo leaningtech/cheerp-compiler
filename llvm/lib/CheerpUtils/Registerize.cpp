@@ -1557,16 +1557,33 @@ std::vector<uint32_t> VertexColorer::findAlreadyDiagonalized() const
 
 bool VertexColorer::splitOnArticulationClique()
 {
+	//This pass assign each node to a clique, in particular working with the hypothesys that the connection matrix it's already sort in a block form
+	//Now it assumes that clique are continguous (eg nodes i, i+1, i+2, .... i+k) but could be generalized
+	//Then:
+	//-it builds a graph where each clique gets substituted with single node (and this macro nodes are connected iff the original clique were connected)
+	//-find (if any) the articulation points of the simplified graph
+	//-split the original graph into subproblems
+	//-combine optimally the subsolutions into a solution for the bigger problem
+
 	std::vector<uint32_t> blockNumber = findAlreadyDiagonalized();
-	std::vector<uint32_t> D(N, 0);
+	const uint32_t M = blockNumber.back() + 1;
+
+	std::vector<uint32_t> start(M, N), end(M, 0);
 	for (uint32_t i=0; i<N; i++)
 	{
-		D[blockNumber[i]]++;
+		const uint32_t num = blockNumber[i];
+		start[num] = std::min(start[num], i);
+		end[num] = std::max(end[num], i);
+		if (start[num] != i)
+		{
+			//Assert the current assumption that the blocks are contiguous
+			assert(blockNumber[i] == blockNumber[i-1]);
+		}
 	}
 
 	assert(N > 1);
 
-	VertexColorer blocks(blockNumber.back() + 1, *this);
+	VertexColorer blocks(M, *this);
 	blocks.setAll(false);
 
 	for (uint32_t i=0; i<N; i++)
@@ -1597,42 +1614,52 @@ bool VertexColorer::splitOnArticulationClique()
 	assert(blocks.areAllAlive());
 
 	uint32_t splitNode = blocks.N;
-	uint32_t toMaximize = 0;
 	std::vector<uint32_t> seeds;
-	std::vector<uint32_t> A, B, C, S;
+	std::vector<uint32_t> A(N, N), B(N), C(M, 0);
 
 	for (uint32_t split : articulations)
 	{
 		std::vector<uint32_t> regions = blocks.parent;
-		uint32_t firstUnused = 0;
-		A = std::vector<uint32_t> (blocks.N);
-		B = std::vector<uint32_t> (blocks.N, 0);
-		C = std::vector<uint32_t> (blocks.N, 0);
-		S = std::vector<uint32_t> (blocks.N, 0);
+		uint32_t firstUnused = 1;
 
-		for (uint32_t i=0; i<blocks.N; i++)
+		for (uint32_t i=0; i<M; i++)
 		{
 			if (regions[i] == i && i != split)
 			{
 				blocks.floodFill(regions, i, false, split);
-				A[i] = firstUnused++;
+				A[start[i]] = firstUnused++;
 			}
 		}
 
-		for (uint32_t i=0; i<blocks.N; i++)
+		for (uint32_t i=start[split]; i<=end[split]; i++)
 		{
-			if (i == split)
+			A[i] = 0;
+			B[i] = C[split]++;
+		}
+
+		for (uint32_t m=0; m<M; m++)
+		{
+			if (m == split)
 				continue;
-			A[i] = A[regions[i]];
-			B[i] = ++C[regions[i]];
-			S[regions[i]] += D[i];
+			C[m] = C[split];
+		}
+
+		for (uint32_t m=0; m<M; m++)
+		{
+			if (m == split)
+				continue;
+			for (uint32_t i=start[m]; i<=end[m]; ++i)
+			{
+				A[i] = A[start[regions[m]]];
+				B[i] = C[regions[m]]++;
+			}
 		}
 
 		seeds.clear();
 
-		for (uint32_t i=0; i<blocks.N; i++)
+		for (uint32_t i=0; i<M; i++)
 		{
-			if (C[i] > 0 && C[i]<blocks.N)
+			if (C[i] > C[split] && C[i]<N)
 			{
 				seeds.push_back(i);
 			}
@@ -1644,38 +1671,45 @@ bool VertexColorer::splitOnArticulationClique()
 	}
 
 #ifdef REGISTERIZE_DEBUG
-	llvm::errs() << "Split on CLIQUE number " << splitNode << " of size " << D[splitNode] << ":\t";
+	llvm::errs() << "Split on clique number " << splitNode << " of size " << C[splitNode] << ":\t";
 	for (uint32_t s : seeds)
 	{
-		llvm::errs() << S[s]+D[splitNode] << " ";
+		llvm::errs() << C[s] << " ";
 	}
 	llvm::errs() << "\n";
 #endif
-	return false;
-/*
+
 	std::vector<VertexColorer> subproblems;
 	subproblems.reserve(seeds.size());
 
 	for (uint32_t s : seeds)
 	{
-		subproblems.push_back(VertexColorer(S[s]+D[splitNode], *this));
+		subproblems.push_back(VertexColorer(C[s], *this));
 	}
 	addZeroFriendships();
 	for (const Friendship& F : friendships)
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
-		if (a == splitNode || b == splitNode)
+		if (A[a] == 0 && A[b] == 0)
 		{
-			const uint32_t other = a + b - splitNode;
-			subproblems[A[other]].addFriendship(F.first, B[other], 0);
+			//It's a clique by construction, so there should be no frienships in a well formed situation
+			assert(false);
+		}
+		else if (A[a] == 0)
+		{
+			subproblems[A[b]-1].addFriendship(F.first, B[b], B[a]);
+		}
+		else if (A[b] == 0)
+		{
+			subproblems[A[a]-1].addFriendship(F.first, B[a], B[b]);
 		}
 		else
 		{
 			//TODO: switch to reverse, add only the constraints
 			assert(F.first == 0 || A[a] == A[b]);
 			if (A[a] == A[b])
-				subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
+				subproblems[A[a]-1].addFriendship(F.first, B[a], B[b]);
 		}
 	}
 
@@ -1689,14 +1723,17 @@ bool VertexColorer::splitOnArticulationClique()
 		Coloring subcolors = sub.getSolution();
 		improveLowerBound(sub.lowerBoundOnNumberOfColors());
 
-		const uint32_t K = subcolors[0];
-
-		for (uint32_t& c : subcolors)
+		//TODO: improve to O(M) istead of O(M * C[splitNode])
+		for (uint32_t i=0; i<C[splitNode]; i++)
 		{
-			if (c == 0)
-				c = K;
-			else if (c == K)
-				c = 0;
+			const uint32_t K = subcolors[i];
+			for (uint32_t& c : subcolors)
+			{
+				if (c == i)
+					c = K;
+				else if (c == K)
+					c = i;
+			}
 		}
 
 		solutions.push_back(subcolors);
@@ -1705,13 +1742,14 @@ bool VertexColorer::splitOnArticulationClique()
 	retColors.resize(N, 0);
 	for (uint32_t i = 0; i<N; i++)
 	{
-		if (i == splitNode)
-			continue;
-		retColors[i] = solutions[A[i]][B[i]];
+		if (blockNumber[i] == splitNode)
+			retColors[i] = i - start[splitNode];
+		else
+			retColors[i] = solutions[A[i]-1][B[i]];
 	}
 
 	return true;
-*/}
+}
 
 bool VertexColorer::areAllAlive() const
 {
@@ -2021,7 +2059,12 @@ void VertexColorer::solveInvariantsAlreadySet()
 	if (splitConflicting(false))
 		return;
 
-	//If there are articulation points, split on one of them
+	//If there is clique that splits the graph (sort of an articulation point), do it
+	if (splitOnArticulationClique())
+		return;
+
+	//Single node articulation point are mostly treated in the previous case,
+	//but there are some cases in which is the clique that should be splitted that are not treated, so we do it here
 	if (splitOnArticulationPoint())
 		return;
 
@@ -2031,9 +2074,6 @@ void VertexColorer::solveInvariantsAlreadySet()
 
 	//If there are rows with no weighted friends and less than lowerBound constraints, remove them
 	if (removeRowsWithFewConstraints())
-		return;
-
-	if (splitOnArticulationClique())
 		return;
 
 	//TODO: whenever there are 2 clique, and the only additional constraints/friends are between them, they can be solved independenty from the rest
