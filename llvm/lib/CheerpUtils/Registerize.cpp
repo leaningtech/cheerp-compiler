@@ -1402,131 +1402,6 @@ std::vector<uint32_t> VertexColorer::getArticulationPoints() const
 	return res;
 }
 
-bool VertexColorer::splitOnArticulationPoint()
-{
-	//Find the articulation points for the graph
-	//If there is one that actually split the graph in more than 1 part, split the graph there and then recombine it
-	std::vector<uint32_t> articulations = getArticulationPoints();
-
-	if (articulations.empty())
-		return false;
-
-	assert(areAllAlive());
-
-	uint32_t splitNode = N;
-	std::vector<uint32_t> seeds;
-	std::vector<uint32_t> A, B, C;
-
-	for (uint32_t split : articulations)
-	{
-		std::vector<uint32_t> regions = parent;
-		uint32_t firstUnused = 0;
-		A = std::vector<uint32_t> (N);
-		B = std::vector<uint32_t> (N, 0);
-		C = std::vector<uint32_t> (N, 0);
-
-		for (uint32_t i=0; i<N; i++)
-		{
-			if (regions[i] == i && i != split)
-			{
-				floodFill(regions, i, false, split);
-				A[i] = firstUnused++;
-			}
-		}
-
-		for (uint32_t i=0; i<N; i++)
-		{
-			if (i == split)
-				continue;
-			A[i] = A[regions[i]];
-			B[i] = ++C[regions[i]];
-		}
-
-		seeds.clear();
-
-		for (uint32_t i=0; i<N; i++)
-		{
-			if (C[i] > 0 && C[i]< N)
-			{
-				seeds.push_back(i);
-			}
-		}
-
-		assert(seeds.size() > 1);
-		splitNode = split;
-		break;
-		//TODO: split on every node at the same time
-	}
-
-#ifdef REGISTERIZE_DEBUG
-	llvm::errs() << "Split on node " << splitNode << ":\t";
-	for (uint32_t s : seeds)
-	{
-		llvm::errs() << C[s]+1 << " ";
-	}
-	llvm::errs() << "\n";
-#endif
-
-	std::vector<VertexColorer> subproblems;
-	subproblems.reserve(seeds.size());
-
-	for (uint32_t s : seeds)
-	{
-		subproblems.push_back(VertexColorer(C[s]+1, *this));
-	}
-	addZeroFriendships();
-	for (const Friendship& F : friendships)
-	{
-		const uint32_t a = F.second.first;
-		const uint32_t b = F.second.second;
-		if (a == splitNode || b == splitNode)
-		{
-			const uint32_t other = a + b - splitNode;
-			subproblems[A[other]].addFriendship(F.first, B[other], 0);
-		}
-		else
-		{
-			assert(F.first == 0 || A[a] == A[b]);
-			if (A[a] == A[b])
-				subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
-		}
-	}
-
-	std::vector<Coloring> solutions;
-	for (VertexColorer& sub : subproblems)
-	{
-		//Friends of splitNode could get merged, so call standard solver
-
-		sub.improveLowerBound(lowerBoundOnNumberOfColors());
-		sub.avoidPass[SPLIT_UNCONNECTED]=true;
-		sub.solve();
-		Coloring subcolors = sub.getSolution();
-		improveLowerBound(sub.lowerBoundOnNumberOfColors());
-
-		const uint32_t K = subcolors[0];
-
-		for (uint32_t& c : subcolors)
-		{
-			if (c == 0)
-				c = K;
-			else if (c == K)
-				c = 0;
-		}
-
-		solutions.push_back(subcolors);
-	}
-
-	retColors.resize(N, 0);
-	for (uint32_t i = 0; i<N; i++)
-	{
-		if (i == splitNode)
-			continue;
-		retColors[i] = solutions[A[i]][B[i]];
-	}
-
-	return true;
-}
-
 std::vector<uint32_t> VertexColorer::findAlreadyDiagonalized() const
 {
 	assert(areAllAlive());
@@ -1555,7 +1430,7 @@ std::vector<uint32_t> VertexColorer::findAlreadyDiagonalized() const
 	return res;
 }
 
-bool VertexColorer::splitOnArticulationClique()
+bool VertexColorer::splitOnArticulationClique(const bool keepSingleNodes)
 {
 	//This pass assign each node to a clique, in particular working with the hypothesys that the connection matrix it's already sort in a block form
 	//Now it assumes that clique are continguous (eg nodes i, i+1, i+2, .... i+k) but could be generalized
@@ -1565,7 +1440,9 @@ bool VertexColorer::splitOnArticulationClique()
 	//-split the original graph into subproblems
 	//-combine optimally the subsolutions into a solution for the bigger problem
 
-	std::vector<uint32_t> blockNumber = findAlreadyDiagonalized();
+	const std::vector<uint32_t> blockNumber = keepSingleNodes ?
+							parent :				//Using parent when we require nodes to remain separated
+							findAlreadyDiagonalized();		//Otherwise build connecting cliques
 	const uint32_t M = blockNumber.back() + 1;
 
 	std::vector<uint32_t> start(M, N), end(M, 0);
@@ -1719,6 +1596,7 @@ bool VertexColorer::splitOnArticulationClique()
 		//Friends of splitNode could get merged, so call standard solver
 
 		sub.improveLowerBound(lowerBoundOnNumberOfColors());
+		sub.avoidPass[SPLIT_UNCONNECTED]=true;
 		sub.solve();
 		Coloring subcolors = sub.getSolution();
 		improveLowerBound(sub.lowerBoundOnNumberOfColors());
@@ -2064,8 +1942,8 @@ void VertexColorer::solveInvariantsAlreadySet()
 		return;
 
 	//Single node articulation point are mostly treated in the previous case,
-	//but there are some cases in which is the clique that should be splitted that are not treated, so we do it here
-	if (splitOnArticulationPoint())
+	//but there are some cases in which is the clique that should be splitted that are not treated, so we do another pass keeping the nodes from forming a clique
+	if (splitOnArticulationClique(/*keepSingleNodes*/true))
 		return;
 
 	//If there are rows dominated by others, remove them
