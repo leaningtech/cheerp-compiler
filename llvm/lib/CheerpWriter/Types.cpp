@@ -430,7 +430,6 @@ uint32_t CheerpWriter::compileClassTypeRecursive(const std::string& baseName, St
 		SmallString<16> buf;
 		llvm::raw_svector_ostream bufStream(buf);
 		bufStream << ".a" << i;
-		bufStream.flush();
 		baseCount=compileClassTypeRecursive(baseName+buf.c_str(), cast<StructType>(currentType->getElementType(i)), baseCount);
 	}
 	return baseCount;
