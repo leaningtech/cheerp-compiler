@@ -1080,7 +1080,7 @@ bool VertexColorer::removeRowsWithFewConstraints()
 	//Vertex with no positive-weight friends and "few" constraints can be removed and assigned a color at the end
 	//The idea is that someone has less than N-1 constraint, for the pigeon hole there is a color <=N than is valid, and this color can be assigned at the end
 
-	uint32_t cutoff = lowerBoundOnNumberOfColors(true) - 1;
+	uint32_t cutoff = lowerBoundOnNumberOfColors(/*forceEvaluation*/true) - 1;
 
 	std::vector<bool> toBePostProcessed(N, false);
 
@@ -1930,11 +1930,11 @@ void VertexColorer::solveInvariantsAlreadySet()
 	assert(friendInvariantsHolds());
 
 	//If the inverese connection graph is unconnected, split!
-	if (splitConflicting(true))
+	if (splitConflicting(/*conflicting*/true))
 		return;
 
 	//If the connection graph is unconnected, split!
-	if (splitConflicting(false))
+	if (splitConflicting(/*conflicting*/false))
 		return;
 
 	//If there is clique that splits the graph (sort of an articulation point), do it
@@ -1955,7 +1955,6 @@ void VertexColorer::solveInvariantsAlreadySet()
 		return;
 
 	//TODO: whenever there are 2 clique, and the only additional constraints/friends are between them, they can be solved independenty from the rest
-	//TODO: a clique could be an articulation point! split there
 
 	//TODO: introduce state as not redo unnecessary computations (eg after splitConflicting(true), there is no need to run it again, only certain optimizations require to re-run on the whole)
 
