@@ -1355,6 +1355,8 @@ bool ItaniumRecordLayoutBuilder::verifyDataOnlyUnion(const RecordDecl* RD)
         case BuiltinType::UInt:
         case BuiltinType::Long:
         case BuiltinType::ULong:
+        case BuiltinType::LongLong:
+        case BuiltinType::ULongLong:
         case BuiltinType::Float:
         case BuiltinType::Double:
         case BuiltinType::LongDouble:
