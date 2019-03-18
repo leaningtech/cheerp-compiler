@@ -628,7 +628,7 @@ public:
 	TokenListOptimizer(TokenList& Tokens, const Registerize& R, const PointerAnalyzer& PA)
 		: Tokens(Tokens), R(R), PA(PA), ItPt(Tokens.end()), RemovedItPt(false) {}
 	void runAll();
-	void removeRedundantBlocks();
+	void removeRedundantBranches();
 	void removeEmptyBasicBlocks();
 	void removeEmptyPrologues();
 	void removeRedundantLoops();
@@ -685,7 +685,7 @@ private:
 };
 void TokenListOptimizer::runAll()
 {
-	removeRedundantBlocks();
+	removeRedundantBranches();
 	removeEmptyPrologues();
 	removeEmptyBasicBlocks();
 	removeRedundantLoops();
@@ -716,7 +716,7 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
 	}
 	return true;
 }
-void TokenListOptimizer::removeRedundantBlocks()
+void TokenListOptimizer::removeRedundantBranches()
 {
 	for_each_kind<Token::TK_Branch>([&](TokenList::iterator Branch)
 	{
