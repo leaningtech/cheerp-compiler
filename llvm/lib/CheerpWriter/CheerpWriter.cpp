@@ -1916,8 +1916,13 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 					// This case also handles the first index
 					if (!skipUntilBytelayout && (offsetMode != BYTE_LAYOUT_OFFSET_NO_PRINT))
 					{
-						compileOperand( indices[i], MUL_DIV );
-						stream << '*' << targetData.getTypeAllocSize(curType->getSequentialElementType()) << '+';
+						bool isOffsetConstantZero = isa<Constant>(indices[i])
+							&& cast<Constant>(indices[i])->isNullValue();
+						if (!isOffsetConstantZero)
+						{
+							compileOperand( indices[i], MUL_DIV );
+							stream << '*' << targetData.getTypeAllocSize(curType->getSequentialElementType()) << '+';
+						}
 					}
 					curType = curType->getSequentialElementType();
 				}
