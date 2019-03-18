@@ -356,9 +356,12 @@ private:
 	{
 		uint64_t res = 0;
 		assert(A.size() >= 64);
+
+		uint32_t spacing = A.size() / 64;
+
 		for (uint32_t i=0; i<64; i++)
 		{
-			res = 2*res + (A[(i*i)%A.size()]?1:0);
+			res = 2*res + (A[i*spacing]?1:0);
 		}
 		return res;
 	}
