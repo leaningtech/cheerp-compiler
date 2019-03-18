@@ -865,52 +865,56 @@ void TokenListOptimizer::mergeBlocks()
 	});
 }
 
-static bool isReachable(TokenList::iterator FromIt, TokenList::iterator ToIt)
+static bool canFallThrough(Token* T)
 {
-	for (auto It = FromIt; It != ToIt; ++It)
+	assert(T->getKind() & (Token::TK_If|Token::TK_Else));
+	Token* End = T->getMatch();
+	Token* Last = End->getPrevNode();
+	// If the if is empty, it does not matter that it technically falls through
+	if (Last == T)
+		return false;
+	switch(Last->getKind())
 	{
-		switch(It->getKind())
-		{
-			case Token::TK_BasicBlock:
-				if (It->getBB()->getTerminator()->getNumSuccessors() == 0)
-					return false;
-				break;
-			case Token::TK_Branch:
-				return false;
-				break;
-			case Token::TK_Prologue:
-			case Token::TK_Block:
-			case Token::TK_End:
-				break;
-			case Token::TK_If:
-			case Token::TK_IfNot:
-			case Token::TK_Else:
-			case Token::TK_Switch:
-			case Token::TK_Case:
-			case Token::TK_Loop:
-				return true;
-			case Token::TK_Invalid:
-				llvm_unreachable("Invalid token");
-		}
+		case Token::TK_BasicBlock:
+			return Last->getBB()->getTerminator()->getNumSuccessors() != 0;
+		case Token::TK_Branch:
+			return false;
+		case Token::TK_Prologue:
+		case Token::TK_End:
+			return true;
+		case Token::TK_If:
+		case Token::TK_IfNot:
+		case Token::TK_Else:
+		case Token::TK_Switch:
+		case Token::TK_Case:
+		case Token::TK_Loop:
+		case Token::TK_Block:
+			report_fatal_error("Unexpected token");
+		case Token::TK_Invalid:
+			llvm_unreachable("Invalid token");
 	}
-	return true;
 }
 void TokenListOptimizer::removeUnnededNesting()
 {
-	for_each_kind<Token::TK_If>([&](TokenList::iterator If)
+	// Iterate the End Tokens, so we handle the innermost Ifs first
+	for_each_kind<Token::TK_End>([&](TokenList::iterator End)
 	{
-		if (If->getMatch()->getKind() != Token::TK_Else)
+		TokenList::iterator If = End->getMatch();
+		if (If->getKind() != Token::TK_If)
 			return;
 		TokenList::iterator Else = If->getMatch();
-		TokenList::iterator End = Else->getMatch();
-		if (!isReachable(std::next(If), std::next(End)))
+		if (Else->getKind() != Token::TK_Else)
+			return;
+		// TODO: if both the If and the Else cannot fall through, decide which 
+		// one is s better to remove. Right now, we always remove the Else
+		if (!canFallThrough(If))
 		{
 			Token* NewEnd = Token::createIfEnd(If, nullptr);
 			Tokens.insert(Else, NewEnd);
 			erase(Else);
 			erase(End);
 		}
-		else if (!isReachable(std::next(Else), std::next(End)))
+		else if (!canFallThrough(Else))
 		{
 			Tokens.moveAfter(End, std::next(If), Else);
 			Token* IfNot = Token::createIfNot(If->getBB());
