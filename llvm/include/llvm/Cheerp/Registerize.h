@@ -446,8 +446,7 @@ private:
 	uint32_t chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const;
 	uint32_t maximalGeneratedClique() const;
 	uint32_t lowerBoundOnNumberOfColors(const bool forceEvaluation = false);
-	bool splitOnArticulationPoint();
-	bool splitOnArticulationClique();
+	bool splitOnArticulationClique(const bool keepSingleNodes = false);
 	bool splitConflicting(const bool conflicting);
 	bool checkConstraintsAreRespected(const Coloring& colors) const;
 	bool friendshipsInvariantsHolds() const;
