@@ -1035,8 +1035,8 @@ bool VertexColorer::removeDominatedRows()
 	{
 		const uint32_t a = findParent(F.second.first);
 		const uint32_t b = findParent(F.second.second);
-		assert(!constraints[a][b]);
-		subsolution.addFriendship(F.first, index[a], index[b]);
+		if (!constraints[a][b])
+			subsolution.addFriendship(F.first, index[a], index[b]);
 	}
 
 	//Add zero-weight friendships
@@ -1452,14 +1452,11 @@ bool VertexColorer::splitOnArticulationPoint()
 			}
 		}
 
-		if (seeds.size() <= 1)
-			continue;
+		assert(seeds.size() > 1);
 		splitNode = split;
 		break;
+		//TODO: split on every node at the same time
 	}
-
-	if (splitNode == N || seeds.size() < 2)
-		return false;
 
 #ifdef REGISTERIZE_DEBUG
 	llvm::errs() << "Split on node " << splitNode << ":\t";
@@ -1641,14 +1638,10 @@ bool VertexColorer::splitOnArticulationClique()
 			}
 		}
 
-		if (seeds.size() <= 1)
-			continue;
+		assert (seeds.size() > 1);
 		splitNode = split;
 		break;
 	}
-
-	if (splitNode == blocks.N || seeds.size() < 2)
-		return false;
 
 #ifdef REGISTERIZE_DEBUG
 	llvm::errs() << "Split on CLIQUE number " << splitNode << " of size " << D[splitNode] << ":\t";
@@ -1679,6 +1672,7 @@ bool VertexColorer::splitOnArticulationClique()
 		}
 		else
 		{
+			//TODO: switch to reverse, add only the constraints
 			assert(F.first == 0 || A[a] == A[b]);
 			if (A[a] == A[b])
 				subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
@@ -1799,7 +1793,7 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
-		assert(F.first == 0 && A[a] == A[b]);
+		assert(F.first == 0 || A[a] == A[b]);
 		if (A[a] == A[b])
 			subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
 	}
