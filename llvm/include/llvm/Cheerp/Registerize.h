@@ -60,7 +60,7 @@ public:
 		howManyWaysHasLowerBoundBeenEvaluated = 0;
 		isOptimal = true;
 	}
-	void dump()
+	void dump() const
 	{
 		for (uint32_t i=0; i<N; i++)
 		{
