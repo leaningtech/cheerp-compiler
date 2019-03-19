@@ -166,12 +166,12 @@ private:
 	class ConstFriendIterator
 	{
 	public:
-		ConstFriendIterator(const VertexColorer& instance_, bool start = true, uint32_t startingIndex = 0)
+		ConstFriendIterator(const VertexColorer& instance_, bool isBegin = true, uint32_t startingIndex = 0)
 			: instance(instance_)
 		{
 			static_assert(constraints || zeroWeight || positiveWeight, "You should iterate over something");
 			assert(singleRow || startingIndex == 0);
-			if (!start)
+			if (!isBegin)
 			{
 				i = instance.N;
 			}
@@ -341,7 +341,7 @@ private:
 	template <bool constraints, bool zeroWeight, bool positiveWeight>
 	class ConstGenericFriendshipIterator
 	{
-		typedef ConstFriendIterator<constraints, zeroWeight, positiveWeight, false> Iterator;
+		typedef ConstFriendIterator<constraints, zeroWeight, positiveWeight, /*singleRow*/false> Iterator;
 	public:
 		ConstGenericFriendshipIterator(const VertexColorer& instance_)
 			: instance(instance_)
@@ -349,18 +349,40 @@ private:
 		}
 		Iterator begin() const
 		{
-			return Iterator(instance, true);
+			return Iterator(instance, /*isBegin*/true);
 		}
 		Iterator end() const
 		{
-			return Iterator (instance, false);
+			return Iterator(instance, /*isBegin*/false);
 		}
 	private:
 		const VertexColorer& instance;
 	};
-	//TODO: move to taking an array of bool (with enums for the names?) instead of multiple bool
+	template <bool constraints, bool zeroWeight, bool positiveWeight>
+	class ConstGenericFriendsIterator
+	{
+		typedef ConstFriendIterator<constraints, zeroWeight, positiveWeight, /*singleRow*/true> Iterator;
+	public:
+		ConstGenericFriendsIterator(const VertexColorer& instance_, uint32_t row)
+			: instance(instance_), row(row)
+		{
+		}
+		Iterator begin() const
+		{
+			return Iterator(instance, /*isBegin*/true, row);
+		}
+		Iterator end() const
+		{
+			return Iterator(instance, /*isBegin*/false, row);
+		}
+	private:
+		const VertexColorer& instance;
+		const uint32_t row;
+	};
 	//TODO: possibly take a filter, and return only unfiltered couples
-	ConstGenericFriendshipIterator<false,false,true> positiveWeightFriendshipIterable() const
+
+	//Friendships Iterable
+	ConstGenericFriendshipIterator</*constraints*/false,false,true> positiveWeightFriendshipIterable() const
 	{
 		return ConstGenericFriendshipIterator<false,false,true>(*this);
 	}
@@ -375,6 +397,24 @@ private:
 	ConstGenericFriendshipIterator<false,true,true> allFriendshipIterable() const
 	{
 		return ConstGenericFriendshipIterator<false,true,true>(*this);
+	}
+
+	//Friends Iterable
+	ConstGenericFriendsIterator<false,false,true> positiveWeightFriendsIterable(const uint32_t row) const
+	{
+		return ConstGenericFriendsIterator<false,false,true>(*this, row);
+	}
+	ConstGenericFriendsIterator<false,true,false> zeroWeightFriendsIterable(const uint32_t row) const
+	{
+		return ConstGenericFriendsIterator<false,true,false>(*this, row);
+	}
+	ConstGenericFriendsIterator<true,false,true> constraintOrFriendsIterable(const uint32_t row) const
+	{
+		return ConstGenericFriendsIterator<true,false,true>(*this, row);
+	}
+	ConstGenericFriendsIterator<false,true,true> allFriendsIterable(const uint32_t row) const
+	{
+		return ConstGenericFriendsIterator<false,true,true>(*this, row);
 	}
 	std::vector<uint32_t> findAlreadyDiagonalized() const;
 	void solveInvariantsAlreadySet();
