@@ -1217,7 +1217,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					bool isMergedPointer = mappedOperand.first->getType() != I.getOperand(1)->getType();
 					if(!isMergedPointer)
 						break;
-					I.dropUnknownMetadata();
+					I.dropUnknownNonDebugMetadata();
 					// We need to load, mask, insert and store
 					llvm::Instruction* load = new LoadInst(mappedOperand.first, "mergedload", &I);
 					// Compute a mask to preserve all the not-needed bits
@@ -1243,7 +1243,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					if(!isMergedPointer)
 						break;
 					I.mutateType(mappedOperand.first->getType()->getPointerElementType());
-					I.dropUnknownMetadata();
+					I.dropUnknownNonDebugMetadata();
 					llvm::Instruction* mergedValue = &I;
 					if(mappedOperand.second)
 					{
