@@ -967,29 +967,6 @@ private:
 	static bool couldBeMerged(const RegisterRange& a, const RegisterRange& b);
 	static void mergeRegisterInPlace(RegisterRange& a, const RegisterRange& b);
 	static RegisterRange mergeRegister(const RegisterRange& a, const RegisterRange& b);
-	struct Result
-	{
-		Result() : registersNeeded(-1)
-		{}
-		std::vector<int> parents;
-		int registersNeeded;
-		int phiUseBroken;
-		int phiEdgeBroken;
-		bool operator<(const Result& other)const
-		{
-			if (registersNeeded == -1)
-				return false;
-			if (other.registersNeeded == -1)
-				return true;
-			return score() < other.score();
-		}
-		uint32_t score() const
-		{
-			//TODO: fix weights
-			//TODO: reintroduce phiEdgeBroken
-			return phiUseBroken + 6 * registersNeeded + 0*phiEdgeBroken;
-		}
-	};
 	class FrequencyInfo
 	{
 	public:
@@ -1050,19 +1027,6 @@ private:
 			{
 				registerize->registersMap[indexer.at(i)] = indexMaterializedRegisters[findParent(i)];
 			}
-		}
-		Result getResult()
-		{
-			Result res;
-			res.parents.resize(numInst());
-			for (uint32_t i = 0; i<numInst(); i++)
-			{
-				res.parents[i] = findParent(i);
-			}
-			res.registersNeeded = registersNeeded();
-			res.phiUseBroken = computeWeigthBrokenNeighbours();
-			res.phiEdgeBroken = computeWeightBrokenEdges();
-			return res;
 		}
 	private:
 		void computeBitsetConstraints()
