@@ -382,39 +382,43 @@ private:
 	//TODO: possibly take a filter, and return only unfiltered couples
 
 	//Friendships Iterable
-	ConstGenericFriendshipIterator</*constraints*/false,false,true> positiveWeightFriendshipIterable() const
+	ConstGenericFriendshipIterator</*constraints*/false,/*zeroWeight*/false,/*positiveWeight*/true> positiveWeightFriendshipIterable() const
 	{
-		return ConstGenericFriendshipIterator<false,false,true>(*this);
+		return ConstGenericFriendshipIterator</*constraints*/false,/*zeroWeight*/false,/*positiveWeight*/true>(*this);
 	}
-	ConstGenericFriendshipIterator<false,true,false> zeroWeightFriendshipIterable() const
+	ConstGenericFriendshipIterator</*constraints*/false,/*zeroWeight*/true,/*positiveWeight*/false> zeroWeightFriendshipIterable() const
 	{
-		return ConstGenericFriendshipIterator<false,true,false>(*this);
+		return ConstGenericFriendshipIterator</*constraints*/false,/*zeroWeight*/true,/*positiveWeight*/false>(*this);
 	}
-	ConstGenericFriendshipIterator<true,false,true> constraintOrFriendshipIterable() const
+	ConstGenericFriendshipIterator</*constraints*/true,/*zeroWeight*/false,/*positiveWeight*/true> constraintOrFriendshipIterable() const
 	{
-		return ConstGenericFriendshipIterator<true,false,true>(*this);
+		return ConstGenericFriendshipIterator</*constraints*/true,/*zeroWeight*/false,/*positiveWeight*/true>(*this);
 	}
-	ConstGenericFriendshipIterator<false,true,true> allFriendshipIterable() const
+	ConstGenericFriendshipIterator</*constraints*/true,/*zeroWeight*/false,/*positiveWeight*/false> constraintIterable() const
 	{
-		return ConstGenericFriendshipIterator<false,true,true>(*this);
+		return ConstGenericFriendshipIterator</*constraints*/true,/*zeroWeight*/false,/*positiveWeight*/false>(*this);
+	}
+	ConstGenericFriendshipIterator</*constraints*/false,/*zeroWeight*/true,/*positiveWeight*/true> allFriendshipIterable() const
+	{
+		return ConstGenericFriendshipIterator</*constraints*/false,/*zeroWeight*/true,/*positiveWeight*/true>(*this);
 	}
 
 	//Friends Iterable
-	ConstGenericFriendsIterator<false,false,true> positiveWeightFriendsIterable(const uint32_t row) const
+	ConstGenericFriendsIterator</*constraints*/false,/*zeroWeight*/false,/*positiveWeight*/true> positiveWeightFriendsIterable(const uint32_t row) const
 	{
-		return ConstGenericFriendsIterator<false,false,true>(*this, row);
+		return ConstGenericFriendsIterator</*constraints*/false,/*zeroWeight*/false,/*positiveWeight*/true>(*this, row);
 	}
-	ConstGenericFriendsIterator<false,true,false> zeroWeightFriendsIterable(const uint32_t row) const
+	ConstGenericFriendsIterator</*constraints*/false,/*zeroWeight*/true,/*positiveWeight*/false> zeroWeightFriendsIterable(const uint32_t row) const
 	{
-		return ConstGenericFriendsIterator<false,true,false>(*this, row);
+		return ConstGenericFriendsIterator</*constraints*/false,/*zeroWeight*/true,/*positiveWeight*/false>(*this, row);
 	}
-	ConstGenericFriendsIterator<true,false,true> constraintOrFriendsIterable(const uint32_t row) const
+	ConstGenericFriendsIterator</*constraints*/true,/*zeroWeight*/false,/*positiveWeight*/true> constraintOrFriendsIterable(const uint32_t row) const
 	{
-		return ConstGenericFriendsIterator<true,false,true>(*this, row);
+		return ConstGenericFriendsIterator</*constraints*/true,/*zeroWeight*/false,/*positiveWeight*/true>(*this, row);
 	}
-	ConstGenericFriendsIterator<false,true,true> allFriendsIterable(const uint32_t row) const
+	ConstGenericFriendsIterator</*constraints*/false,/*zeroWeight*/true,/*positiveWeight*/true> allFriendsIterable(const uint32_t row) const
 	{
-		return ConstGenericFriendsIterator<false,true,true>(*this, row);
+		return ConstGenericFriendsIterator</*constraints*/false,/*zeroWeight*/true,/*positiveWeight*/true>(*this, row);
 	}
 	std::vector<uint32_t> findAlreadyDiagonalized() const;
 	void solveInvariantsAlreadySet();
