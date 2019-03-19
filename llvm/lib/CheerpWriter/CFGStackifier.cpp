@@ -624,9 +624,12 @@ class TokenListOptimizer {
 	TokenList& Tokens;
 	const Registerize& R;
 	const PointerAnalyzer& PA;
+	CFGStackifier::Mode Mode;
 public:
-	TokenListOptimizer(TokenList& Tokens, const Registerize& R, const PointerAnalyzer& PA)
-		: Tokens(Tokens), R(R), PA(PA), ItPt(Tokens.end()), RemovedItPt(false) {}
+	TokenListOptimizer(TokenList& Tokens, const Registerize& R, const PointerAnalyzer& PA,
+		CFGStackifier::Mode Mode)
+		: Tokens(Tokens), R(R), PA(PA), Mode(Mode)
+		, ItPt(Tokens.end()), RemovedItPt(false) {}
 	void runAll();
 	void removeRedundantBranches();
 	void removeEmptyBasicBlocks();
@@ -636,6 +639,7 @@ public:
 	void mergeBlocks();
 	void removeUnnededNesting();
 	void adjustLoopEnds();
+	void removeRedundantBlocks();
 private:
 	// Helper function for iterating on one or more kinds of tokens
 	// The closure `f` must use the `erase` function defined below if it needs
@@ -693,6 +697,7 @@ void TokenListOptimizer::runAll()
 	mergeBlocks();
 	removeUnnededNesting();
 	adjustLoopEnds();
+	removeRedundantBlocks();
 }
 
 static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
@@ -960,6 +965,50 @@ void TokenListOptimizer::adjustLoopEnds()
 	});
 }
 
+void TokenListOptimizer::removeRedundantBlocks()
+{
+	// We can branch out of some tokens like they were Block tokens.
+	// Which ones depends on the actual target
+	uint32_t BlockLikeTokens = 0;
+	switch (Mode)
+	{
+		case CFGStackifier::GenericJS:
+			BlockLikeTokens = Token::TK_If|Token::TK_IfNot|Token::TK_Switch|Token::TK_Loop;
+			break;
+		case CFGStackifier::AsmJS:
+			// TODO: there should be also TK_If|TK_IfNot and TK_Loop here,
+			// but there are 2 bugs in V8 that prevent it.
+			BlockLikeTokens = Token::TK_Switch;
+			break;
+		case CFGStackifier::Wasm:
+			BlockLikeTokens = Token::TK_If|Token::TK_IfNot;
+			break;
+	}
+	for_each_kind<Token::TK_End>([&](TokenList::iterator End)
+	{
+		Token* Block = End->getMatch();
+		if (Block->getKind() != Token::TK_Block)
+			return;
+		Token* Inner = Block->getNextNode();
+		assert(Inner->getKind() != Token::TK_End);
+		if (!(Inner->getKind() & BlockLikeTokens))
+			return;
+		Token* InnerEnd = Inner->getMatch();
+		while(InnerEnd->getKind() != Token::TK_End)
+			InnerEnd = InnerEnd->getMatch();
+		if (InnerEnd->getNextNode() != End)
+			return;
+
+		for_each_kind<Token::TK_Branch>(Block, End, [&](TokenList::iterator Branch)
+		{
+			if (Branch->getMatch() == End)
+				Branch->setMatch(InnerEnd);
+		});
+		erase(Block);
+		erase(End);
+	});
+}
+
 CFGStackifier::CFGStackifier(const llvm::Function &F, const llvm::LoopInfo& LI,
 	const llvm::DominatorTree& DT, const Registerize& R, const PointerAnalyzer& PA,
 	Mode M)
@@ -971,7 +1020,7 @@ CFGStackifier::CFGStackifier(const llvm::Function &F, const llvm::LoopInfo& LI,
 		assert(Verifier.verify());
 	}
 #endif
-	TokenListOptimizer Opt(Tokens, R, PA);
+	TokenListOptimizer Opt(Tokens, R, PA, M);
 	Opt.runAll();
 #ifndef NDEBUG
 	{
