@@ -157,6 +157,204 @@ private:
 		: VertexColorer(N, parent.costPerColor, parent.times)
 	{
 	}
+	template <bool constraints, bool zeroWeight, bool positiveWeight, bool singleRow>
+	class ConstFriendIterator
+	{
+	public:
+		ConstFriendIterator(const VertexColorer& instance_, bool start = true, uint32_t startingIndex = 0)
+			: instance(instance_)
+		{
+			assert(constraints || zeroWeight || positiveWeight);
+			assert(singleRow || startingIndex == 0);
+			if (!start)
+			{
+				i = instance.N;
+			}
+			else
+			{
+				i = startingIndex;
+				while (!isTheEnd())
+				{
+					setToStartOfRow();
+					setToFirstValidInRow();
+					if (!isTheEndLocal())
+						break;
+					goToNextRow();
+				}
+			}
+		}
+		const Friendship operator*() const
+		{
+			assert(!isTheEnd());
+			assert(!isTheEndLocal());
+			if (!positiveWeight)
+				return std::make_pair(0, std::make_pair(j, i));
+			else if (onlyPositive() || (!isTheEndPositive() && j>=it->first))
+				return std::make_pair(it->second, std::make_pair(it->first, i));
+			else
+				return std::make_pair(0, std::make_pair(j, i));
+		}
+		void dump() const
+		{
+			llvm::errs() << i << "/" << instance.N << "\t";
+			if (!isTheEnd())
+			{
+				if (positiveWeight)
+				{
+					if (isTheEndPositive())
+						llvm::errs() << "end";
+					else
+						llvm::errs() << it->first;
+					llvm::errs() << "-" << instance.friends[i].size()<<"\t";
+				}
+				else
+					llvm::errs() << "\t\t";
+				if (zeroWeight)
+					llvm::errs() << j;
+				llvm::errs() << "\t";
+			}
+			llvm::errs() << "\n";
+		}
+		ConstFriendIterator& operator++()
+		{
+			assert(!isTheEnd());
+			assert(!isTheEndLocal());
+			if (onlyPositive())
+				++it;
+			else
+			{
+				if (positiveWeight && !isTheEndPositive() && j >= it->first)
+					++it;
+				++j;
+				setToFirstValidInRow();
+			}
+			while (isTheEndLocal())
+			{
+				goToNextRow();
+				if (isTheEnd())
+					break;
+				setToStartOfRow();
+				setToFirstValidInRow();
+			}
+			return *this;
+		}
+		bool operator!=(const ConstFriendIterator& other) const
+		{
+			if (isTheEnd() && other.isTheEnd())
+				return false;
+			if (isTheEnd() || other.isTheEnd())
+				return true;
+			if (positiveWeight && it != other.it)
+				return false;
+			if (onlyPositive())
+				return true;
+			return j != other.j;
+		}
+	private:
+		void goToNextRow()
+		{
+			if (singleRow)
+				i = instance.N;
+			else
+				++i;
+		}
+		constexpr bool onlyPositive()
+		{
+			return positiveWeight && !constraints && !zeroWeight;
+		}
+		void setToStartOfRow()
+		{
+			if (positiveWeight)
+				it = instance.friends[i].begin();
+			if (!onlyPositive())
+				j = 0;
+		}
+		uint32_t hardLimitOnJ() const
+		{
+			if (singleRow)
+				return instance.N;
+			else
+				return i;
+		}
+		uint32_t limitOnJ() const
+		{
+			if (positiveWeight && !isTheEndPositive())
+				return std::min(hardLimitOnJ(), it->first);
+			else
+				return hardLimitOnJ();
+		}
+		bool isTheEndPositive() const
+		{
+			assert(positiveWeight);
+			if (it == instance.friends[i].end())
+				return true;
+			return it->first >= i;
+		}
+		void setToFirstValidInRow()
+		{
+			if (onlyPositive())
+				return;
+			const uint32_t limit = limitOnJ();
+			while (j < limit)
+			{
+				if (instance.constraints[i][j] && constraints)
+					break;
+				if (!instance.constraints[i][j] && zeroWeight)
+					break;
+				++j;
+				//TODO: possible use BitVector::goToFirst(un)set to speed up
+			}
+		}
+		bool isTheEnd() const
+		{
+			return i >= instance.friends.size();
+		}
+		bool isTheEndLocal() const
+		{
+			assert(!isTheEnd());
+			if (onlyPositive())
+				return isTheEndPositive();
+			return j >= hardLimitOnJ();
+		}
+		uint32_t i;
+		uint32_t j;
+		std::vector<Friend>::const_iterator it;
+		const VertexColorer& instance;
+	};
+	template <bool constraints, bool zeroWeight, bool positiveWeight>
+	class ConstGenericFriendshipIterator
+	{
+		typedef ConstFriendIterator<constraints, zeroWeight, positiveWeight, false> Iterator;
+	public:
+		ConstGenericFriendshipIterator(const VertexColorer& instance_)
+			: instance(instance_)
+		{
+		}
+		Iterator begin() const
+		{
+			return Iterator(instance, true);
+		}
+		Iterator end() const
+		{
+			return Iterator (instance, false);
+		}
+	private:
+		const VertexColorer& instance;
+	};
+	//TODO: move to taking an array of bool (with enums for the names?) instead of multiple bool
+	//TODO: possibly take a filter, and return only unfiltered couples
+	ConstGenericFriendshipIterator<false,false,true> positiveWeightFriendshipIterable() const
+	{
+		return ConstGenericFriendshipIterator<false,false,true>(*this);
+	}
+	ConstGenericFriendshipIterator<false,true,false> zeroWeightFriendshipIterable() const
+	{
+		return ConstGenericFriendshipIterator<false,true,false>(*this);
+	}
+	ConstGenericFriendshipIterator<false,true,true> allFriendshipIterable() const
+	{
+		return ConstGenericFriendshipIterator<false,true,true>(*this);
+	}
 	std::vector<uint32_t> findAlreadyDiagonalized() const;
 	void solveInvariantsAlreadySet();
 	static uint32_t computeNumberOfColors(const Coloring& coloring)
