@@ -20,6 +20,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Cheerp/CommandLine.h"
+#include <array>
 #include <set>
 #include <unordered_map>
 #include <vector>
