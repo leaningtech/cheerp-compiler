@@ -1343,25 +1343,16 @@ void VertexColorer::HopcroftTarjanData::visit(const uint32_t i, const uint32_t d
 	visited.set(i);
 	depth[i] = d;
 	low[i] = d;
+	uint32_t numChildren = 0;
 
-	std::vector<uint32_t> children;
-
-	for (uint32_t j=0; j<sol.N; j++)
+	for (const Link& link : sol.constraintOrFriendsIterable(i))
 	{
-		if (sol.constraints[i][j])
-		{
-			assert(i != j);
-			processChildren(i, j, d);
-		}
-	}
-	for (const Friend& f : sol.friends[i])
-	{
-		assert(f.first != i);
-		assert(f.first < sol.N);
-		processChildren(i, f.first, d);
+		assert(i != link.first);
+		processChildren(i, link.first, d);
+//		++numChildren;
 	}
 
-	if ((parent[i] < sol.N && isArticulation[i]) || (parent[i] == sol.N && children.size() > 1))
+	if ((parent[i] < sol.N && isArticulation[i]) || (parent[i] == sol.N && numChildren > 1))
 		isArticulation.set(i);
 	else
 		isArticulation.reset(i);
