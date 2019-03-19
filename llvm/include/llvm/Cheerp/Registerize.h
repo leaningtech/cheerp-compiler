@@ -645,11 +645,12 @@ private:
 	struct HopcroftTarjanData
 	{
 		HopcroftTarjanData(const VertexColorer& subsolution)
-			: sol(subsolution), visited(sol.N, false), depth(sol.N, 0), low(sol.N, 0), isArticulation(sol.N, false), parent(sol.N, sol.N)
+			: sol(subsolution), visited(sol.N, false), numChildren(sol.N, 0), depth(sol.N, 0), low(sol.N, 0), isArticulation(sol.N, false), parent(sol.N, sol.N)
 		{
 		}
 		const VertexColorer& sol;
 		llvm::BitVector visited;
+		std::vector<uint32_t> numChildren;
 		std::vector<uint32_t> depth;
 		std::vector<uint32_t> low;
 		llvm::BitVector isArticulation;
