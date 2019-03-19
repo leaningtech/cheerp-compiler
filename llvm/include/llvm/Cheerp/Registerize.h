@@ -368,6 +368,10 @@ private:
 	{
 		return ConstGenericFriendshipIterator<false,true,false>(*this);
 	}
+	ConstGenericFriendshipIterator<true,false,true> constraintOrFriendshipIterable() const
+	{
+		return ConstGenericFriendshipIterator<true,false,true>(*this);
+	}
 	ConstGenericFriendshipIterator<false,true,true> allFriendshipIterable() const
 	{
 		return ConstGenericFriendshipIterator<false,true,true>(*this);
