@@ -690,13 +690,9 @@ uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32
 		return lowerBoundChromaticNumber;
 	//If we discard all friends, and minimize score, and we find an optimal solution, we have the chromatic number (and so also a lower bound on it)
 	VertexColorer noFriendships(N, *this);
-	for (const Friendship& F : positiveWeightFriendshipIterable())
+	for (const Friendship& F : allFriendshipIterable())
 	{
 		noFriendships.addFriendship(0, F.second.first, F.second.second);
-	}
-	for (const auto& X : getZeroFriendships())
-	{
-		noFriendships.addAllowed(X.first, X.second);
 	}
 
 	noFriendships.improveLowerBound(lowerBound);
@@ -1119,9 +1115,8 @@ bool VertexColorer::removeRowsWithFewConstraints()
 #ifdef REGISTERIZE_DEBUG
 	llvm::errs() << "Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
 #endif
-	addZeroFriendships();
 	VertexColorer subsolution(alive.size(), *this);
-	for (const auto& F : friendships)
+	for (const auto& F : allFriendshipIterable())
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
@@ -1566,8 +1561,8 @@ bool VertexColorer::splitOnArticulationClique(const bool keepSingleNodes)
 	{
 		subproblems.push_back(VertexColorer(C[s], *this));
 	}
-	addZeroFriendships();
-	for (const Friendship& F : friendships)
+
+	for (const Friendship& F : allFriendshipIterable())
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
@@ -1708,25 +1703,13 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 		subproblems.push_back(VertexColorer(C[s], *this));
 	}
 
-	for (const Friendship& F : positiveWeightFriendshipIterable())
+	for (const Friendship& F : allFriendshipIterable())
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
 		assert(F.first == 0 || A[a] == A[b]);
 		if (A[a] == A[b])
 			subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
-	}
-
-	for (uint32_t i=0; i<N; ++i)
-	{
-		const uint32_t color = A[i];
-		for (uint32_t j=i+1; j<N; ++j)
-		{
-			if (color != A[j])
-				continue;
-			if (!constraints[i][j])
-				subproblems[color].addAllowed(B[i], B[j]);
-		}
 	}
 
 	std::vector<Coloring> solutions;
@@ -1928,8 +1911,7 @@ void VertexColorer::solveInvariantsAlreadySet()
 		retColors = Coloring(N, 0);
 		return;
 	}
-
-	assert(friendshipsInvariantsHolds());
+	assert(friendships.empty());
 	assert(friendInvariantsHolds());
 
 	//If the inverese connection graph is unconnected, split!
@@ -1961,8 +1943,9 @@ void VertexColorer::solveInvariantsAlreadySet()
 
 	//TODO: introduce state as not redo unnecessary computations (eg after splitConflicting(true), there is no need to run it again, only certain optimizations require to re-run on the whole)
 
-	addZeroFriendships();
+	buildFriendships();
 	establishInvariants();
+	assert(friendshipsInvariantsHolds());
 
 	IterationsCounter counter(times);
 	//iterativeDeepening takes care of exploring as much of the Zykov tree as possible given the resources
