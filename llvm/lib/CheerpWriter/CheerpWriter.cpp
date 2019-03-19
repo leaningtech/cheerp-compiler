@@ -4761,6 +4761,7 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 		switch (T.getKind())
 		{
 			case Token::TK_BasicBlock:
+			case Token::TK_Block:
 			case Token::TK_Case:
 			case Token::TK_If:
 			case Token::TK_IfNot:
@@ -4768,7 +4769,6 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			case Token::TK_Prologue:
 				break;
 			case Token::TK_Loop:
-			case Token::TK_Block:
 			case Token::TK_Switch:
 				ScopeStack.push_back(&T);
 				break;
@@ -4777,14 +4777,13 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				const Token* Target = T.getMatch();
 				if (Target->getKind() == Token::TK_End)
 					Target = Target->getMatch();
-				assert(!ScopeStack.empty());
-				if (Target->getKind() == Token::TK_Block || Target != ScopeStack.back())
+				if ((Target->getKind() & (Token::TK_Block|Token::TK_If|Token::TK_IfNot))
+					|| Target != ScopeStack.back())
 					LabeledTokens.insert(Target);
 				break;
 			}
 			case Token::TK_End:
-				if (T.getMatch()->getKind() == Token::TK_Block
-					|| T.getMatch()->getKind() == Token::TK_Loop
+				if (T.getMatch()->getKind() == Token::TK_Loop
 					|| T.getMatch()->getKind() == Token::TK_Switch)
 				{
 					ScopeStack.pop_back();
@@ -4849,6 +4848,12 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 	for (auto it = Tokens.begin(), ie = Tokens.end(); it != ie; ++it)
 	{
 		const Token& T = *it;
+		bool Labeled = LabeledTokens.count(&T);
+		if (Labeled)
+		{
+			Labels.insert(std::make_pair(&T, NextLabel));
+			stream << 'L' << NextLabel++ << ':';
+		}
 		switch (T.getKind())
 		{
 			case Token::TK_BasicBlock:
@@ -4862,22 +4867,12 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			}
 			case Token::TK_Loop:
 			{
-				if (LabeledTokens.count(&T))
-				{
-					Labels.insert(std::make_pair(&T, NextLabel));
-					stream << 'L' << NextLabel++ << ':';
-				}
 				stream << "while(1){" << NewLine;
 				blockDepth++;
 				break;
 			}
 			case Token::TK_Block:
 			{
-				if (LabeledTokens.count(&T))
-				{
-					Labels.insert(std::make_pair(&T, NextLabel));
-					stream << 'L' << NextLabel++ << ':';
-				}
 				stream << '{' << NewLine;
 				blockDepth++;
 				break;
@@ -4923,14 +4918,14 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			}
 			case Token::TK_Branch:
 			{
-				const Token* Match = T.getMatch()->getKind() == Token::TK_Loop
+				if (T.getMatch()->getKind() == Token::TK_Loop)
+					stream << "continue";
+				else
+					stream << "break";
+				const Token* Scope = T.getMatch()->getKind() == Token::TK_Loop
 					? T.getMatch()
 					: T.getMatch()->getMatch();
-				if (Match->getKind() == Token::TK_Block)
-					stream << "break";
-				else
-					stream << "continue";
-				auto LabelIt = Labels.find(Match);
+				auto LabelIt = Labels.find(Scope);
 				if (LabelIt != Labels.end())
 				{
 					stream << " L" << LabelIt->getSecond();
