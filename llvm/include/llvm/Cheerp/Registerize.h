@@ -26,7 +26,6 @@
 #include <vector>
 #include <deque>
 
-
 //#define REGISTERIZE_DEBUG
 //#define REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
 
@@ -40,6 +39,12 @@ class VertexColorer
 {
 	typedef std::vector<uint32_t> Coloring;
 	typedef std::pair<uint32_t, std::pair<uint32_t, uint32_t>> Friendship;
+	struct Link
+	{
+		uint32_t weight;
+		uint32_t first;
+		uint32_t second;
+	};
 	typedef std::pair<uint32_t, uint32_t> Friend;
 public:
 	VertexColorer(const uint32_t N, const uint32_t costPerColor, const uint32_t maximalNumberExploredLeafs)
@@ -164,7 +169,7 @@ private:
 		ConstFriendIterator(const VertexColorer& instance_, bool start = true, uint32_t startingIndex = 0)
 			: instance(instance_)
 		{
-			assert(constraints || zeroWeight || positiveWeight);
+			static_assert(constraints || zeroWeight || positiveWeight, "You should iterate over something");
 			assert(singleRow || startingIndex == 0);
 			if (!start)
 			{
@@ -183,16 +188,24 @@ private:
 				}
 			}
 		}
-		const Friendship operator*() const
+		const Link& operator*()
 		{
 			assert(!isTheEnd());
 			assert(!isTheEndLocal());
 			if (!positiveWeight)
-				return std::make_pair(0, std::make_pair(j, i));
+				setWeight();
 			else if (onlyPositive() || (!isTheEndPositive() && j>=it->first))
-				return std::make_pair(it->second, std::make_pair(it->first, i));
+			{
+				if (onlyPositive())
+				{
+					j = it->first;
+				}
+				assert(j == it->first);
+				setWeight(it->second);
+			}
 			else
-				return std::make_pair(0, std::make_pair(j, i));
+				setWeight();
+			return currentLink;
 		}
 		void dump() const
 		{
@@ -251,6 +264,10 @@ private:
 			return j != other.j;
 		}
 	private:
+		void setWeight(uint32_t w = 0)
+		{
+			currentLink.weight = w;
+		}
 		void goToNextRow()
 		{
 			if (singleRow)
@@ -285,7 +302,6 @@ private:
 		}
 		bool isTheEndPositive() const
 		{
-			assert(positiveWeight);
 			if (it == instance.friends[i].end())
 				return true;
 			return it->first >= i;
@@ -316,10 +332,11 @@ private:
 				return isTheEndPositive();
 			return j >= hardLimitOnJ();
 		}
-		uint32_t i;
-		uint32_t j;
+		uint32_t& i = currentLink.second;
+		uint32_t& j = currentLink.first;
 		std::vector<Friend>::const_iterator it;
 		const VertexColorer& instance;
+		Link currentLink;
 	};
 	template <bool constraints, bool zeroWeight, bool positiveWeight>
 	class ConstGenericFriendshipIterator
@@ -382,53 +399,18 @@ private:
 		constraints[b].reset(a);
 		if (weight > 0)
 		{
-			friendships.push_back({weight, {a, b}});
 			friends[a].push_back({b, weight});
 			friends[b].push_back({a, weight});
 		}
 	}
-	void addZeroFriendships()
+	void buildFriendships()
 	{
-		if (!friendships.empty() && friendships.back().first == 0)
+		if (!friendships.empty())
 			return;
-		for (uint32_t i=0; i<N; i++)
+		for (const Link& link : allFriendshipIterable())
 		{
-			const std::vector<Friend>& F = friends[i];
-			uint32_t k=0;
-			for (uint32_t j=0; j<N; ++j)
-			{
-				if (k<F.size() && F[k].first == j)
-				{
-					++k;
-					continue;
-				}
-				if (!constraints[i][j] && i!=j)
-					friendships.push_back({0, {i, j}});
-			}
+			friendships.push_back(std::make_pair(link.weight, std::make_pair(link.first, link.second)));
 		}
-	}
-	std::vector<std::pair<uint32_t, uint32_t>> getZeroFriendships() const
-	{
-		std::vector<std::pair<uint32_t, uint32_t>> V;
-		if (!friendships.empty() && friendships.back().first == 0)
-			return V;
-		for (uint32_t i=0; i<N; i++)
-		{
-			const std::vector<Friend>& F = friends[i];
-			uint32_t k=0;
-			for (uint32_t j=i+1; j<N; ++j)
-			{
-				while (k<F.size() && F[k].first < j)
-				{
-					++k;
-				}
-				if (k < F.size() && F[k].first == j)
-					continue;
-				if (!constraints[i][j])
-					V.push_back({i, j});
-			}
-		}
-		return V;
 	}
 	typedef std::pair<uint32_t, Coloring> Solution;
 	struct SearchState
