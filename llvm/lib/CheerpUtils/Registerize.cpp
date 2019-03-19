@@ -690,9 +690,9 @@ uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32
 		return lowerBoundChromaticNumber;
 	//If we discard all friends, and minimize score, and we find an optimal solution, we have the chromatic number (and so also a lower bound on it)
 	VertexColorer noFriendships(N, *this);
-	for (const Friendship& F : allFriendshipIterable())
+	for (const Link& link : allFriendshipIterable())
 	{
-		noFriendships.addFriendship(0, F.second.first, F.second.second);
+		noFriendships.addFriendship(0, link.first, link.second);
 	}
 
 	noFriendships.improveLowerBound(lowerBound);
@@ -1028,14 +1028,14 @@ bool VertexColorer::removeDominatedRows()
 
 	VertexColorer subsolution(alive.size(), *this);
 	//Add friendships (if they do not clash with constraints)
-	for (const auto& F : positiveWeightFriendshipIterable())
+	for (const Link& link : positiveWeightFriendshipIterable())
 	{
-		assert(F.first > 0);
-		const uint32_t a = findParent(F.second.first);
-		const uint32_t b = findParent(F.second.second);
+		assert(link.weight > 0);
+		const uint32_t a = findParent(link.first);
+		const uint32_t b = findParent(link.second);
 		assert(constraints[a][b] == constraints[b][a]);
 		if (!constraints[a][b])
-			subsolution.addFriendship(F.first, index[a], index[b]);
+			subsolution.addFriendship(link.weight, index[a], index[b]);
 	}
 
 	//Add zero-weight friendships
@@ -1116,12 +1116,12 @@ bool VertexColorer::removeRowsWithFewConstraints()
 	llvm::errs() << "Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
 #endif
 	VertexColorer subsolution(alive.size(), *this);
-	for (const auto& F : allFriendshipIterable())
+	for (const Link& link : allFriendshipIterable())
 	{
-		const uint32_t a = F.second.first;
-		const uint32_t b = F.second.second;
+		const uint32_t a = link.first;
+		const uint32_t b = link.second;
 		if (!toBePostProcessed[a] && !toBePostProcessed[b])
-			subsolution.addFriendship(F.first, index[a], index[b]);
+			subsolution.addFriendship(link.weight, index[a], index[b]);
 	}
 
 	//Needed as not run into under-flow on unsigned ints
@@ -1562,29 +1562,28 @@ bool VertexColorer::splitOnArticulationClique(const bool keepSingleNodes)
 		subproblems.push_back(VertexColorer(C[s], *this));
 	}
 
-	for (const Friendship& F : allFriendshipIterable())
+	for (const Link& link : allFriendshipIterable())
 	{
-		const uint32_t a = F.second.first;
-		const uint32_t b = F.second.second;
-		if (A[a] == 0 && A[b] == 0)
+		const uint32_t a = link.first;
+		const uint32_t b = link.second;
+		if (A[a] == 0)
 		{
-			//It's a clique by construction, so there should be no frienships in a well formed situation
-			assert(false);
-		}
-		else if (A[a] == 0)
-		{
-			subproblems[A[b]-1].addFriendship(F.first, B[b], B[a]);
+			assert(A[b] != 0); //It's a clique by construction, so there should be no frienships in a well formed situation
+			subproblems[A[b]-1].addFriendship(link.weight, B[b], B[a]);
 		}
 		else if (A[b] == 0)
 		{
-			subproblems[A[a]-1].addFriendship(F.first, B[a], B[b]);
+			subproblems[A[a]-1].addFriendship(link.weight, B[a], B[b]);
+		}
+		else if (A[a] == A[b])
+		{
+			//TODO: switch to reverse, add only the constraints
+			if (A[a] == A[b])
+				subproblems[A[a]-1].addFriendship(link.weight, B[a], B[b]);
 		}
 		else
 		{
-			//TODO: switch to reverse, add only the constraints
-			assert(F.first == 0 || A[a] == A[b]);
-			if (A[a] == A[b])
-				subproblems[A[a]-1].addFriendship(F.first, B[a], B[b]);
+			assert(link.weight == 0);
 		}
 	}
 
@@ -1703,13 +1702,13 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 		subproblems.push_back(VertexColorer(C[s], *this));
 	}
 
-	for (const Friendship& F : allFriendshipIterable())
+	for (const Link& link : allFriendshipIterable())
 	{
-		const uint32_t a = F.second.first;
-		const uint32_t b = F.second.second;
-		assert(F.first == 0 || A[a] == A[b]);
+		const uint32_t a = link.first;
+		const uint32_t b = link.second;
+		assert(link.weight == 0 || A[a] == A[b]);
 		if (A[a] == A[b])
-			subproblems[A[a]].addFriendship(F.first, B[a], B[b]);
+			subproblems[A[a]].addFriendship(link.weight, B[a], B[b]);
 	}
 
 	std::vector<Coloring> solutions;
