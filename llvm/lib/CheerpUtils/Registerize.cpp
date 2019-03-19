@@ -1438,6 +1438,8 @@ bool VertexColorer::splitOnArticulationClique(const bool keepSingleNodes)
 	//-split the original graph into subproblems
 	//-combine optimally the subsolutions into a solution for the bigger problem
 
+	//This pass currently sort of assumes that the graph is connected (or not?)
+
 	const std::vector<uint32_t> blockNumber = keepSingleNodes ?
 							parent :				//Using parent when we require nodes to remain separated
 							findAlreadyDiagonalized();		//Otherwise build connecting cliques
@@ -1461,22 +1463,9 @@ bool VertexColorer::splitOnArticulationClique(const bool keepSingleNodes)
 	VertexColorer blocks(M, *this);
 	blocks.setAll(false);
 
-	for (uint32_t i=0; i<N; i++)
+	for (const Link& link : constraintOrFriendshipIterable())
 	{
-		const uint32_t num = blockNumber[i];
-		for (uint32_t j=0; j<N; j++)
-		{
-			if (num == blockNumber[j])
-				continue;
-			if (constraints[i][j])
-				blocks.addConstraint(blockNumber[j], num);
-		}
-		for (const Friend& f : friends[i])
-		{
-			if (num == blockNumber[f.first])
-				continue;
-			blocks.addConstraint(blockNumber[f.first], num);
-		}
+		blocks.addConstraint(blockNumber[link.first], blockNumber[link.second]);
 	}
 
 	//Find the articulation points for the reduced block graph
