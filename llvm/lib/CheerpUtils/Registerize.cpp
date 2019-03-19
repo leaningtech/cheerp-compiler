@@ -690,7 +690,7 @@ uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32
 		return lowerBoundChromaticNumber;
 	//If we discard all friends, and minimize score, and we find an optimal solution, we have the chromatic number (and so also a lower bound on it)
 	VertexColorer noFriendships(N, *this);
-	for (const auto& F : friendships)
+	for (const Friendship& F : positiveWeightFriendshipIterable())
 	{
 		noFriendships.addFriendship(0, F.second.first, F.second.second);
 	}
@@ -1032,10 +1032,12 @@ bool VertexColorer::removeDominatedRows()
 
 	VertexColorer subsolution(alive.size(), *this);
 	//Add friendships (if they do not clash with constraints)
-	for (const auto& F : friendships)
+	for (const auto& F : positiveWeightFriendshipIterable())
 	{
+		assert(F.first > 0);
 		const uint32_t a = findParent(F.second.first);
 		const uint32_t b = findParent(F.second.second);
+		assert(constraints[a][b] == constraints[b][a]);
 		if (!constraints[a][b])
 			subsolution.addFriendship(F.first, index[a], index[b]);
 	}
@@ -1706,7 +1708,7 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 		subproblems.push_back(VertexColorer(C[s], *this));
 	}
 
-	for (const Friendship& F : friendships)
+	for (const Friendship& F : positiveWeightFriendshipIterable())
 	{
 		const uint32_t a = F.second.first;
 		const uint32_t b = F.second.second;
