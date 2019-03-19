@@ -668,9 +668,9 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 		if (areMergeable(a, b))
 		{
 			//set as unmergiable, and recurse
-			setAdditionalConstraint(a, b, true);
+			setAdditionalConstraint(a, b, /*direct*/true);
 			DFSwithLimitedDepth(state);
-			setAdditionalConstraint(a, b, false);
+			setAdditionalConstraint(a, b, /*direct*/false);
 		}
 		else
 		{
@@ -1027,6 +1027,7 @@ bool VertexColorer::removeDominatedRows()
 #endif
 
 	VertexColorer subsolution(alive.size(), *this);
+	subsolution.setAll(/*conflicting*/false);
 	//Add friendships (if they do not clash with constraints)
 	for (const Link& link : positiveWeightFriendshipIterable())
 	{
@@ -1038,17 +1039,13 @@ bool VertexColorer::removeDominatedRows()
 			subsolution.addFriendship(link.weight, index[a], index[b]);
 	}
 
-	//Add zero-weight friendships
-	for (uint32_t i=0; i<N; ++i)
+	for (const Link& link : constraintIterable())
 	{
-		if (!isAlive(i))
-			continue;
-		for (uint32_t j=i+1; j<N; ++j)
+		const uint32_t i=link.first;
+		const uint32_t j=link.second;
+		if (isAlive(i) && isAlive(j))
 		{
-			if (!isAlive(j))
-				continue;
-			if (!constraints[i][j])
-				subsolution.addAllowed(index[i], index[j]);
+			subsolution.addConstraint(index[i], index[j]);
 		}
 	}
 
