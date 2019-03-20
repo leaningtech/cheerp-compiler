@@ -2997,6 +2997,16 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				ScopeStack.emplace_back(&T);
 				break;
 			}
+			case Token::TK_BrIf:
+			case Token::TK_BrIfNot:
+			{
+				bool IfNot = T.getKind() == Token::TK_BrIfNot;
+				// The condition goes first
+				compileCondition(code, T.getBB(), IfNot);
+				int Depth = getDepth(T.getMatch());
+				encodeU32Inst(0x0d, "br_if", Depth, code);
+				break;
+			}
 			case Token::TK_If:
 			case Token::TK_IfNot:
 			{
