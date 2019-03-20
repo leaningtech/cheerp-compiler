@@ -143,11 +143,11 @@ public:
 			return false;
 		return computeNumberOfColors(coloring) != coloring.size();
 	}
-	void setAll(const bool color)
+	void setAll(const bool conflicting)
 	{
 		for (uint32_t i=0; i<N; i++)
 		{
-			if (color)
+			if (conflicting)
 				constraints[i].set();
 			else
 				constraints[i].reset();
