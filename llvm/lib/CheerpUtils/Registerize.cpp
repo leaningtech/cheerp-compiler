@@ -1904,12 +1904,12 @@ void VertexColorer::solveInvariantsAlreadySet()
 	if (splitOnArticulationClique(/*keepSingleNodes*/true))
 		return;
 
-	//If there are rows dominated by others, remove them
-	if (removeDominatedRows())
-		return;
-
 	//If there are rows with no weighted friends and less than lowerBound constraints, remove them
 	if (removeRowsWithFewConstraints())
+		return;
+
+	//If there are rows dominated by others, remove them
+	if (removeDominatedRows())
 		return;
 
 	//TODO: whenever there are 2 clique, and the only additional constraints/friends are between them, they can be solved independenty from the rest
