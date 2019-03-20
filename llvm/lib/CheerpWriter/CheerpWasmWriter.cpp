@@ -2997,6 +2997,11 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				ScopeStack.emplace_back(&T);
 				break;
 			}
+			case Token::TK_Condition:
+			{
+				compileCondition(code, T.getBB(), false);
+				break;
+			}
 			case Token::TK_BrIf:
 			case Token::TK_BrIfNot:
 			{
@@ -3013,20 +3018,9 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				bool IfNot = T.getKind() == Token::TK_IfNot;
 				// The condition goes first
 				compileCondition(code, T.getBB(), IfNot);
-				const Token* Branch = T.getNextNode();
-				const Token* End = Branch->getNextNode();
-				if (Branch->getKind() == Token::TK_Branch && End == T.getMatch())
-				{
-					std::advance(it, 2);
-					int Depth = getDepth(Branch->getMatch());
-					encodeU32Inst(0x0d, "br_if", Depth, code);
-				}
-				else
-				{
-					indent();
-					encodeU32Inst(0x04, "if", 0x40, code);
-					ScopeStack.push_back(&T);
-				}
+				indent();
+				encodeU32Inst(0x04, "if", 0x40, code);
+				ScopeStack.push_back(&T);
 				break;
 			}
 			case Token::TK_Else:
