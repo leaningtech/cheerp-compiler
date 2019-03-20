@@ -4767,6 +4767,7 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			case Token::TK_IfNot:
 			case Token::TK_Else:
 			case Token::TK_Prologue:
+			case Token::TK_Condition:
 			case Token::TK_BrIf:
 			case Token::TK_BrIfNot:
 				break;
@@ -4877,6 +4878,12 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			{
 				stream << '{' << NewLine;
 				blockDepth++;
+				break;
+			}
+			case Token::TK_Condition:
+			{
+				compileCondition(T.getBB(), false);
+				stream << ';' << NewLine;
 				break;
 			}
 			case Token::TK_If:
