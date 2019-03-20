@@ -46,6 +46,7 @@ public:
 		TK_Prologue = 1<<10,
 		TK_BrIf = 1<<11,
 		TK_BrIfNot = 1<<12,
+		TK_Condition = 1<<13,
 	};
 private:
 	TokenKind Kind;
@@ -168,6 +169,9 @@ public:
 	static Token* createBrIfNot(const llvm::BasicBlock* CondBlock, Token* Dest) {
 		return new Token(TK_BrIfNot, CondBlock, Dest);
 	}
+	static Token* createCondition(const llvm::BasicBlock* CondBlock) {
+		return new Token(TK_Condition, CondBlock, nullptr);
+	}
 #ifdef DEBUG_TOKENLIST
 	void dump() const
 	{
@@ -206,6 +210,9 @@ public:
 				break;
 			case TK_Prologue:
 				llvm::errs()<<"PROLOGUE From "<<BB->getName()<<" To "<<BB->getTerminator()->getSuccessor(Id)->getName()<<"\n";
+				break;
+			case TK_Condition:
+				llvm::errs()<<"CONDITION\n";
 				break;
 			case TK_BrIf:
 				llvm::errs()<<"BR_IF " << Match << "\n";

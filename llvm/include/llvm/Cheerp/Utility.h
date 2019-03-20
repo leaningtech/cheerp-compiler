@@ -43,6 +43,8 @@ inline bool isValidVoidPtrSource(const llvm::Value* val)
 
 bool isInlineable(const llvm::Instruction& I, const PointerAnalyzer& PA);
 
+bool mayContainSideEffects(const llvm::Value* V, const PointerAnalyzer& PA);
+
 // Forward define the Registerize class
 class Registerize;
 

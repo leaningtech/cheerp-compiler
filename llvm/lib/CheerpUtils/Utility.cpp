@@ -1012,6 +1012,23 @@ const Instruction* getUniqueIncomingInst(const Value* v, const PointerAnalyzer& 
 	return nullptr;
 }
 
+bool mayContainSideEffects(const Value* V, const PointerAnalyzer& PA)
+{
+	if (!isa<Instruction>(V))
+		return false;
+	const Instruction* I = cast<Instruction>(V);
+	if (!isInlineable(*I, PA))
+		return false;
+	if (I->mayHaveSideEffects())
+		return true;
+	for (Value* Op: I->operands())
+	{
+		if(mayContainSideEffects(Op, PA))
+			return true;
+	}
+	return false;
+}
+
 }
 
 namespace llvm

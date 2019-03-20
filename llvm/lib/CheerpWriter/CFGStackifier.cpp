@@ -177,7 +177,7 @@ bool TokenListVerifier::verify()
 				break;
 			}
 			case Token::TK_Prologue:
-				break;
+			case Token::TK_Condition:
 			case Token::TK_Case:
 				break;
 			case Token::TK_Invalid:
@@ -834,6 +834,14 @@ void TokenListOptimizer::removeEmptyIfs()
 				}
 				else
 				{
+					const TerminatorInst* Term = EmptyIf->getBB()->getTerminator();
+					assert(isa<BranchInst>(Term));
+					const Value* Cond = cast<BranchInst>(Term)->getCondition();
+					if (mayContainSideEffects(Cond, PA))
+					{
+						Token* CondT = Token::createCondition(EmptyIf->getBB());
+						Tokens.insert(EmptyIf, CondT);
+					}
 					erase(EmptyIf);
 					erase(T);
 				}
@@ -913,6 +921,7 @@ static bool canFallThrough(Token* T)
 			return false;
 		case Token::TK_Prologue:
 		case Token::TK_End:
+		case Token::TK_Condition:
 		case Token::TK_BrIf:
 		case Token::TK_BrIfNot:
 			return true;
