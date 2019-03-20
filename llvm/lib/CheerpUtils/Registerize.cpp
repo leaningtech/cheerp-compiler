@@ -690,9 +690,10 @@ uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32
 		return lowerBoundChromaticNumber;
 	//If we discard all friends, and minimize score, and we find an optimal solution, we have the chromatic number (and so also a lower bound on it)
 	VertexColorer noFriendships(N, *this);
-	for (const Link& link : allFriendshipIterable())
+	noFriendships.setAll(/*conflicting*/false);
+	for (const Link& link : constraintIterable())
 	{
-		noFriendships.addFriendship(0, link.first, link.second);
+		noFriendships.addConstraint(link.first, link.second);
 	}
 
 	noFriendships.improveLowerBound(lowerBound);
@@ -1854,13 +1855,10 @@ bool VertexColorer::friendInvariantsHolds() const
 
 bool VertexColorer::checkConstraintsAreRespected(const Coloring& colors) const
 {
-	for (uint32_t i = 0; i<N; i++)
+	for (const Link& link : constraintIterable())
 	{
-		for (uint32_t j = 0; j<N; j++)
-		{
-			if (constraints[i][j] && colors[i] == colors[j])
-				return false;
-		}
+		if (colors[link.first] == colors[link.second])
+			return false;
 	}
 	return true;
 }
