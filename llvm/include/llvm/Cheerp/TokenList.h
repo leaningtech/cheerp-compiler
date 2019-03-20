@@ -33,17 +33,19 @@ public:
 
 	enum TokenKind {
 		TK_Invalid = 0,
-		TK_BasicBlock = 1,
-		TK_Loop = 2,
-		TK_Block = 4,
-		TK_If = 8,
-		TK_IfNot = 16,
-		TK_Else = 32,
-		TK_Switch = 64,
-		TK_Case = 128,
-		TK_Branch = 256,
-		TK_End = 512,
-		TK_Prologue = 1024,
+		TK_BasicBlock = 1<<0,
+		TK_Loop = 1<<1,
+		TK_Block = 1<<2,
+		TK_If = 1<<3,
+		TK_IfNot = 1<<4,
+		TK_Else = 1<<5,
+		TK_Switch = 1<<6,
+		TK_Case = 1<<7,
+		TK_Branch = 1<<8,
+		TK_End = 1<<9,
+		TK_Prologue = 1<<10,
+		TK_BrIf = 1<<11,
+		TK_BrIfNot = 1<<12,
 	};
 private:
 	TokenKind Kind;
@@ -160,6 +162,12 @@ public:
 		Ret->Id = ToId;
 		return Ret;
 	}
+	static Token* createBrIf(const llvm::BasicBlock* CondBlock, Token* Dest) {
+		return new Token(TK_BrIf, CondBlock, Dest);
+	}
+	static Token* createBrIfNot(const llvm::BasicBlock* CondBlock, Token* Dest) {
+		return new Token(TK_BrIfNot, CondBlock, Dest);
+	}
 #ifdef DEBUG_TOKENLIST
 	void dump() const
 	{
@@ -198,6 +206,12 @@ public:
 				break;
 			case TK_Prologue:
 				llvm::errs()<<"PROLOGUE From "<<BB->getName()<<" To "<<BB->getTerminator()->getSuccessor(Id)->getName()<<"\n";
+				break;
+			case TK_BrIf:
+				llvm::errs()<<"BR_IF " << Match << "\n";
+				break;
+			case TK_BrIfNot:
+				llvm::errs()<<"BR_IF_NOT " << Match << "\n";
 				break;
 			case TK_Invalid:
 				llvm::errs()<<"INVALID TOKEN\n";
