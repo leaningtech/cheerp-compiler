@@ -162,13 +162,16 @@ bool TokenListVerifier::verify()
 				break;
 			}
 			case Token::TK_Branch:
+			case Token::TK_BrIf:
+			case Token::TK_BrIfNot:
 			{
 				const Token* Match = T.getMatch()->getKind() == Token::TK_End
 					? T.getMatch()->getMatch()
 					: T.getMatch();
 				if (!ActiveScopes.count(Match))
 				{
-					llvm::errs() << "Error: BRANCH Token is jumping to a non-active scope\n";
+					auto TokenStr = T.getKind() == Token::TK_Branch ? "BRANCH" : "BR_IF";
+					llvm::errs() << "Error: " << TokenStr << " Token is jumping to a non-active scope\n";
 					return false;
 				}
 				break;
@@ -636,6 +639,7 @@ public:
 	void removeEmptyPrologues();
 	void removeRedundantLoops();
 	void removeEmptyIfs();
+	void createBrIfs();
 	void mergeBlocks();
 	void removeUnnededNesting();
 	void adjustLoopEnds();
@@ -698,6 +702,8 @@ void TokenListOptimizer::runAll()
 	removeUnnededNesting();
 	adjustLoopEnds();
 	removeRedundantBlocks();
+	if (Mode == CFGStackifier::Wasm)
+		createBrIfs();
 }
 
 static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
@@ -845,6 +851,27 @@ void TokenListOptimizer::removeEmptyIfs()
 	});
 }
 
+void TokenListOptimizer::createBrIfs()
+{
+	for_each_kind<Token::TK_If | Token::TK_IfNot>([&](TokenList::iterator T)
+	{
+		Token* End = T->getMatch();
+		if (End->getKind() != Token::TK_End)
+			return;
+		Token* Branch = T->getNextNode();
+		if (Branch->getKind() != Token::TK_Branch || Branch->getNextNode() != End)
+			return;
+		bool IsIfNot = T->getKind() == Token::TK_IfNot;
+		Token* BrIf = IsIfNot
+			? Token::createBrIfNot(T->getBB(), Branch->getMatch())
+			: Token::createBrIf(T->getBB(), Branch->getMatch());
+		Tokens.insert(T, BrIf);
+		erase(T);
+		erase(Branch);
+		erase(End); 
+	});
+}
+
 void TokenListOptimizer::mergeBlocks()
 {
 	for_each_kind<Token::TK_Branch>([&](TokenList::iterator Br)
@@ -886,6 +913,8 @@ static bool canFallThrough(Token* T)
 			return false;
 		case Token::TK_Prologue:
 		case Token::TK_End:
+		case Token::TK_BrIf:
+		case Token::TK_BrIfNot:
 			return true;
 		case Token::TK_If:
 		case Token::TK_IfNot:
@@ -910,16 +939,14 @@ void TokenListOptimizer::removeUnnededNesting()
 		TokenList::iterator Else = If->getMatch();
 		if (Else->getKind() != Token::TK_Else)
 			return;
-		// TODO: if both the If and the Else cannot fall through, decide which 
-		// one is s better to remove. Right now, we always remove the Else
-		if (!canFallThrough(If))
+		auto removeElse = [&]()
 		{
 			Token* NewEnd = Token::createIfEnd(If, nullptr);
 			Tokens.insert(Else, NewEnd);
 			erase(Else);
 			erase(End);
-		}
-		else if (!canFallThrough(Else))
+		};
+		auto removeIf = [&]()
 		{
 			Tokens.moveAfter(End, std::next(If), Else);
 			Token* IfNot = Token::createIfNot(If->getBB());
@@ -928,6 +955,36 @@ void TokenListOptimizer::removeUnnededNesting()
 			Tokens.insert(Else, IfNot);
 			erase(If);
 			erase(Else);
+		};
+		auto IsBrIf = [](Token* T)
+		{
+			Token* Match = T->getMatch();
+			Token* Inner = T->getNextNode();
+			return Inner->getKind() == Token::TK_Branch
+				&& Inner->getNextNode() == Match;
+		};
+		// Candidates for removing
+		bool ElseIsCandidate = !canFallThrough(If);
+		bool IfIsCandidate = !canFallThrough(Else);
+		if (IfIsCandidate && ElseIsCandidate)
+		{
+			// TODO: if both the If and the Else cannot fall through, decide which 
+			// one is s better to remove. Right now, we only look if one of the two
+			// is a BrIf candidate, and remove the other one
+			if (IsBrIf(If))
+				removeElse();
+			else if(IsBrIf(Else))
+				removeIf();
+			else
+				removeElse();
+		}
+		else if (IfIsCandidate)
+		{
+			removeIf();
+		}
+		else if (ElseIsCandidate)
+		{
+			removeElse();
 		}
 	});
 }
@@ -952,7 +1009,8 @@ void TokenListOptimizer::adjustLoopEnds()
 					LastDepth0 = Cur;
 				Depth++;
 			}
-			else if (Cur->getKind() == Token::TK_Branch && Cur->getMatch() == Loop)
+			else if (Cur->getKind() & (Token::TK_Branch|Token::TK_BrIf|Token::TK_BrIfNot)
+				&& Cur->getMatch() == Loop)
 			{
 				break;
 			}
@@ -999,7 +1057,7 @@ void TokenListOptimizer::removeRedundantBlocks()
 		if (InnerEnd->getNextNode() != End)
 			return;
 
-		for_each_kind<Token::TK_Branch>(Block, End, [&](TokenList::iterator Branch)
+		for_each_kind<Token::TK_Branch|Token::TK_BrIf|Token::TK_BrIfNot>(Block, End, [&](TokenList::iterator Branch)
 		{
 			if (Branch->getMatch() == End)
 				Branch->setMatch(InnerEnd);

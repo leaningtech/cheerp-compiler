@@ -4767,6 +4767,8 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			case Token::TK_IfNot:
 			case Token::TK_Else:
 			case Token::TK_Prologue:
+			case Token::TK_BrIf:
+			case Token::TK_BrIfNot:
 				break;
 			case Token::TK_Loop:
 			case Token::TK_Switch:
@@ -4988,9 +4990,15 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				stream << ':' << NewLine;
 				break;
 			}
+			case Token::TK_BrIf:
+			case Token::TK_BrIfNot:
+			{
+				report_fatal_error("Unexpected BR_IF token found");
+			}
 			case Token::TK_Invalid:
+			{
 				report_fatal_error("Invalid token found");
-				break;
+			}
 		}
 	}
 }
