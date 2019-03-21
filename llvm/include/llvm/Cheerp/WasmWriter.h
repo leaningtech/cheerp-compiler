@@ -41,8 +41,6 @@ typedef std::iostream WasmBuffer;
 
 class Section : public std::stringstream {
 private:
-	uint32_t sectionId;
-	const char* sectionName;
 	CheerpWasmWriter* writer;
 
 public:

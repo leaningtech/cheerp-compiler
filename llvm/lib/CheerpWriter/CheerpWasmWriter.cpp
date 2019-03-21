@@ -244,7 +244,7 @@ std::string string_to_hex(const std::string& input)
 }
 
 Section::Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer)
-	: sectionId(sectionId), sectionName(sectionName), writer(writer)
+	: writer(writer)
 {
 	if (writer->cheerpMode == CHEERP_MODE_WASM) {
 		std::stringstream header;

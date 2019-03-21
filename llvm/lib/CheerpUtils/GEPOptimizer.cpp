@@ -343,7 +343,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 					//passData->subsetGEPMap.find(Range)->second contains all blocks where we are already certain a GEP could be placed
 					//(this is a subset of possiblyValidBlocks)
 
-					ValidGEPGraph VG(&F, passData->DT, Range, passData->subsetGEPMap.find(Range)->second, possiblyValidBlocks);
+					ValidGEPGraph VG(passData->DT, passData->subsetGEPMap.find(Range)->second, possiblyValidBlocks);
 
 					ValidGEPLocations validPlacements = VG.getValidBlocks();
 					//ValidBlocks contains all the blocks that:

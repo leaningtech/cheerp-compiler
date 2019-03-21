@@ -279,8 +279,8 @@ public:
 	class ValidGEPGraph {
 		using GEPRange = GEPOptimizer::GEPRange;
 	public:
-		explicit ValidGEPGraph(Function* F, const DominatorTree* DT, const GEPRange& Range, const ValidGEPLocations& knownPostdominatedByGEP, const ValidGEPLocations& possiblyValid)
-			: F(F), DT(DT), Range(Range), knownValid(knownPostdominatedByGEP.keepOnlyDominated(possiblyValid)), possiblyValid(possiblyValid)
+		explicit ValidGEPGraph(const DominatorTree* DT, const ValidGEPLocations& knownPostdominatedByGEP, const ValidGEPLocations& possiblyValid)
+			: knownValid(knownPostdominatedByGEP.keepOnlyDominated(possiblyValid)), possiblyValid(possiblyValid)
 		{
 			//Blocks in the CFG could be of three kinds;
 			// -knownValid: blocks already classified as valid (they leads to visit a GEP and are dominated by the definitions of operands)
@@ -431,7 +431,7 @@ public:
 			void skipNonExistentSuccessors()
 			{
 				assert(N->BB);
-				while (Idx < N->BB->getTerminator()->getNumSuccessors() &&
+				while (Idx < (int)N->BB->getTerminator()->getNumSuccessors() &&
 						N->G.nodeExist(N->BB->getTerminator()->getSuccessor(Idx)) == false)
 				{
 					++Idx;
@@ -606,9 +606,6 @@ public:
 		typedef std::unordered_map<std::pair<BasicBlock*, Kind>, Node, NodeHasher> NodeMap;
 		friend struct GraphTraits<ValidGEPGraph*>;
 	private:
-		Function* F;
-		const DominatorTree* DT;
-		const GEPRange& Range;
 		const ValidGEPLocations knownValid;
 		const ValidGEPLocations& possiblyValid;
 		NodeMap Nodes;
