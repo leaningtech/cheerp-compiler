@@ -1181,6 +1181,7 @@ bool VertexColorer::canBeAddedToClique(const uint32_t index, const llvm::BitVect
 
 	return local == used;
 }
+
 void VertexColorer::addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const
 {
 	assert(!used[index]);
@@ -1201,28 +1202,28 @@ uint32_t VertexColorer::maximalGeneratedClique() const
 		return 0;
 	uint32_t low = 1;
 
+	std::vector<uint32_t> blocks = findAlreadyDiagonalized();
+
 	llvm::BitVector unionConstraint(N, true);
 	llvm::BitVector used(N, false);
-	for (uint32_t i=0, j=0; j<=N; )
+	for (uint32_t i=0; i<N; )
 	{
-		if (j<N && canBeAddedToClique(j, unionConstraint, used))
+		uint32_t j = i;
+		while (j < N && blocks[j] == blocks[i])
 		{
 			addToClique(j, unionConstraint, used);
 			j++;
 		}
-		else
+
+		for (uint32_t k=0; k<N; k++)
 		{
-			for (uint32_t k=0; k<N; k++)
-			{
-				if (!used[k] && canBeAddedToClique(k, unionConstraint, used))
-					addToClique(k, unionConstraint, used);
-			}
-			low = std::max(low, used.count());
-			unionConstraint = llvm::BitVector(N, true);
-			used = llvm::BitVector(N, false);
-			i++;
-			j = i;
+			if (!used[k] && canBeAddedToClique(k, unionConstraint, used))
+				addToClique(k, unionConstraint, used);
 		}
+		low = std::max(low, used.count());
+		unionConstraint.set();
+		used.reset();
+		i = j;
 	}
 	return low;
 }
