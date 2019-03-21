@@ -737,6 +737,13 @@ void VertexColorer::iterativeDeepening(IterationsCounter& counter)
 		lowerBound = lowerBoundOnNumberOfColors(/*forceEvaluation*/true);
 	}
 	assert(counter.remaining() > 0);
+
+	uint32_t positiveFriendships = 0;
+	while (positiveFriendships < friendships.size() && friendships[positiveFriendships].first > 0)
+	{
+		++positiveFriendships;
+	}
+
 	uint32_t depth = 0;
 	uint32_t previousDepth = 0;
 	while (counter.remaining()>0 && depth <= friendships.size())
@@ -744,7 +751,7 @@ void VertexColorer::iterativeDeepening(IterationsCounter& counter)
 #ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
 		llvm::errs() << "--------------------- starting at "<<previousDepth<<" up to reaching " <<depth<<"\n";
 #endif
-		SearchState state(best, lowerBound, counter.remaining(), depth, previousDepth, costPerColor);
+		SearchState state(best, lowerBound, counter.remaining(), depth, previousDepth, positiveFriendships, costPerColor);
 		DFSwithLimitedDepth(state);
 		counter.consumeIterations(state.iterationsCounter.evaluationsDone());
 #ifdef REGISTERIZE_DEBUG
@@ -1949,6 +1956,7 @@ void VertexColorer::solveInvariantsAlreadySet()
 	{
 		llvm::errs() << "Solving subproblem of size\t" << colors.size() << ":\t(score/colors/iterations)\t"; 
 		llvm::errs() << computeScore(colors, lowerBoundOnNumberOfColors(/*forceEvaluation*/true)) <<"\t" << lowerBoundOnNumberOfColors(/*forceEvaluation*/true) << "/"<<computeNumberOfColors(colors)<<"\t\t";
+		if (false)
 		for (uint32_t i=0; i<debugStats.size(); i++)
 		{
 			llvm::errs () << debugStats[i] << "\t";
