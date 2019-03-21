@@ -4849,16 +4849,25 @@ static bool omitBraces(const Token& T, const PointerAnalyzer& PA, const Register
 void CheerpWriter::compileTokens(const TokenList& Tokens)
 {
 	auto LabeledTokens = getLabeledTokens(Tokens);
-	DenseMap<const Token*, int> Labels;
-	int NextLabel = 1;
+	DenseMap<const Token*, SmallString<4>> Labels;
+	std::vector<name_iterator<JSSymbols>> NextLabels;
 	for (auto it = Tokens.begin(), ie = Tokens.end(); it != ie; ++it)
 	{
 		const Token& T = *it;
 		bool Labeled = LabeledTokens.count(&T);
 		if (Labeled)
 		{
-			Labels.insert(std::make_pair(&T, NextLabel));
-			stream << 'L' << NextLabel++ << ':';
+			if (NextLabels.empty())
+			{
+				NextLabels.emplace_back(JSSymbols({}));
+			}
+			else
+			{
+				NextLabels.push_back(NextLabels.back());
+			}
+			auto Label = *(NextLabels.back()++);
+			stream << Label << ':';
+			Labels.insert(std::make_pair(&T, std::move(Label)));
 		}
 		switch (T.getKind())
 		{
@@ -4940,7 +4949,7 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				auto LabelIt = Labels.find(Scope);
 				if (LabelIt != Labels.end())
 				{
-					stream << " L" << LabelIt->getSecond();
+					stream << ' ' << LabelIt->getSecond();
 				}
 				stream << ';' << NewLine;
 				break;
@@ -4948,7 +4957,7 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			case Token::TK_End:
 			{
 				if (Labels.count(T.getMatch()))
-					NextLabel--;
+					NextLabels.pop_back();
 				if (T.getMatch()->getKind() == Token::TK_Loop
 					&& T.getPrevNode()->getKind() != Token::TK_Branch
 					&& !(T.getPrevNode()->getKind() == Token::TK_BasicBlock
