@@ -4751,7 +4751,7 @@ void CheerpWriter::compileCondition(const BasicBlock* BB, bool booleanInvert)
 	}
 }
 
-void CheerpWriter::compileTokens(const TokenList& Tokens)
+static DenseSet<const Token*> getLabeledTokens(const TokenList& Tokens)
 {
 	std::vector<const Token*> ScopeStack;
 	// First, compute which Tokens need a label
@@ -4798,56 +4798,59 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 		}
 	}
 	assert(ScopeStack.empty());
-
-	// Then, render the Tokens
+	return LabeledTokens;
+}
+static bool omitBraces(const Token& T, const PointerAnalyzer& PA, const Registerize& registerize)
+{
+	assert(T.getKind()&(Token::TK_If|Token::TK_IfNot|Token::TK_Else));
+	const Token* Inner = T.getNextNode();
+	const Token* End = T.getMatch();
+	// Empty if. Ideally it should have been removed by now...
+	if (End == Inner)
+		return true;
+	switch (Inner->getKind())
+	{
+		case Token::TK_Prologue:
+		{
+			return false;
+		}
+		case Token::TK_BasicBlock:
+		{
+			if (Inner->getNextNode() != End)
+				return false;
+			return isNumStatementsLessThan<2>(Inner->getBB(), PA, registerize);
+		}
+		case Token::TK_Block:
+		case Token::TK_Loop:
+		case Token::TK_Switch:
+		{
+			return Inner->getMatch()->getNextNode() == End;
+		}
+		case Token::TK_If:
+		case Token::TK_IfNot:
+		{
+			if (End->getKind() == Token::TK_Else)
+				return false;
+			else if (Inner->getMatch()->getKind() == Token::TK_Else)
+				return Inner->getMatch()->getMatch()->getNextNode() == End;
+			else
+				return Inner->getMatch()->getNextNode() == End;
+		}
+		case Token::TK_Branch:
+		{
+			return Inner->getNextNode() == End;
+		}
+		default:
+		{
+			llvm_unreachable("Unexpected Token");
+		}
+	} 
+}
+void CheerpWriter::compileTokens(const TokenList& Tokens)
+{
+	auto LabeledTokens = getLabeledTokens(Tokens);
 	DenseMap<const Token*, int> Labels;
 	int NextLabel = 1;
-	auto omitBraces = [this](const Token& T)
-	{
-		assert(T.getKind()&(Token::TK_If|Token::TK_IfNot|Token::TK_Else));
-		const Token* Inner = T.getNextNode();
-		const Token* End = T.getMatch();
-		// Empty if. Ideally it should have been removed by now...
-		if (End == Inner)
-			return true;
-		switch (Inner->getKind())
-		{
-			case Token::TK_Prologue:
-			{
-				return false;
-			}
-			case Token::TK_BasicBlock:
-			{
-				if (Inner->getNextNode() != End)
-					return false;
-				return isNumStatementsLessThan<2>(Inner->getBB(), PA, registerize);
-			}
-			case Token::TK_Block:
-			case Token::TK_Loop:
-			case Token::TK_Switch:
-			{
-				return Inner->getMatch()->getNextNode() == End;
-			}
-			case Token::TK_If:
-			case Token::TK_IfNot:
-			{
-				if (End->getKind() == Token::TK_Else)
-					return false;
-				else if (Inner->getMatch()->getKind() == Token::TK_Else)
-					return Inner->getMatch()->getMatch()->getNextNode() == End;
-				else
-					return Inner->getMatch()->getNextNode() == End;
-			}
-			case Token::TK_Branch:
-			{
-				return Inner->getNextNode() == End;
-			}
-			default:
-			{
-				llvm_unreachable("Unexpected Token");
-			}
-		} 
-	};
 	for (auto it = Tokens.begin(), ie = Tokens.end(); it != ie; ++it)
 	{
 		const Token& T = *it;
@@ -4893,7 +4896,7 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				stream << "if(";
 				compileCondition(T.getBB(), IfNot);
 				stream << ")";
-				if (!omitBraces(T))
+				if (!omitBraces(T, PA, registerize))
 				{
 					stream << '{' << NewLine;
 				}
@@ -4907,10 +4910,10 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 			}
 			case Token::TK_Else:
 			{
-				if (!omitBraces(*T.getMatch()->getMatch()))
+				if (!omitBraces(*T.getMatch()->getMatch(), PA, registerize))
 					stream << '}';
 				stream << "else";
-				if (!omitBraces(T))
+				if (!omitBraces(T, PA, registerize))
 				{
 					stream << '{' << NewLine;
 				}
@@ -4958,7 +4961,7 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 					const Token* Prev = T.getMatch();
 					if (Prev->getMatch() != &T)
 						Prev = Prev->getMatch();
-					if (!omitBraces(*Prev))
+					if (!omitBraces(*Prev, PA, registerize))
 						stream << '}' << NewLine;
 				}
 				else
