@@ -492,10 +492,11 @@ private:
 	typedef std::pair<uint32_t, Coloring> Solution;
 	struct SearchState
 	{
-		SearchState(Solution& best, uint32_t minimalNumberOfColors, uint32_t nodesToEvaluate, const uint32_t targetDepth, const uint32_t alreadyProcessedDepth, const uint32_t costPerColor)
+		SearchState(Solution& best, uint32_t minimalNumberOfColors, uint32_t nodesToEvaluate, const uint32_t targetDepth,
+				const uint32_t alreadyProcessedDepth, const uint32_t numWeightedFriendships, const uint32_t costPerColor)
 			: currentBest(best), minimalNumberOfColors(minimalNumberOfColors),
 			iterationsCounter(nodesToEvaluate),
-			targetDepth(targetDepth), processedDepth(alreadyProcessedDepth), costPerColor(costPerColor)
+			targetDepth(targetDepth), processedDepth(alreadyProcessedDepth), numWeightedFriendships(numWeightedFriendships), costPerColor(costPerColor)
 		{
 			processedFriendships = 0;
 			leafs = 0;
@@ -507,6 +508,7 @@ private:
 		IterationsCounter iterationsCounter;
 		const uint32_t targetDepth;
 		const uint32_t processedDepth;
+		const uint32_t numWeightedFriendships;
 		uint32_t processedFriendships;
 		uint32_t leafs;
 		uint32_t currentScore;
@@ -542,6 +544,12 @@ private:
 				return false;
 			assert(targetDepth > 0);
 			assert(targetDepth == choicesMade.size());
+
+			if (targetDepth >= numWeightedFriendships)
+				return false;
+
+			//Here we use the fact that if all previous choices (up to processedDepth) are "merge two registers",
+			//we already have tried this path (while evaluating at processedDepth) and we can now skip it
 			for (uint32_t k = targetDepth; ; )
 			{
 				k--;
