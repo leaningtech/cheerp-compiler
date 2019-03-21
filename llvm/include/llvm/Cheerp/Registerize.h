@@ -34,6 +34,35 @@ namespace cheerp
 /**
  * VertexColorer - Given an undirect graph, color the vertex in a (close to) optimal way as to have neighbours always of different color
  * Optimal means a combinations of 2 metrics: using the smaller number of colors as possible, and breaking as few "soft" constraints as possible
+ *
+ * There are two main ways in which the problem is solved, either reducing the problem to a smaller/simpler one or do a search of the solution space, looking for the best solution.
+ *
+ *	1. Given a problem, try to find a redution to a subproblem or to multiple simpler subproblems
+ *		1a. If the problem is unconnected, solve every connected component separately
+ *		1b. If the problem have many constraints, such that the inverted graph becomes disconnected, solve the components separately
+ *		1c. If the problem has an articulation point, split the problem there
+ *		1d. Same thing as 1c, but with a clique
+ *		1e. If there are nodes with few constraints, they can be removed and post-processed
+ *		1f. If there are dominated nodes, they can be merged to their dominator
+ *		1g. If the problem is represented by two cliques, split it and assign friendships optimally
+ *
+ *        //all this redunctions guarantee optimality, so they can be safely applied withoud losing any information
+ *
+ *	2. Search for a good solution
+ *		Do a DFS with iterative deepening while pruning as soon as possible.
+ *		For pruning, we check that we will not be able to beat the current best solution,
+ *			comparing it against lower bound on chromatic number * C + sum weighted friendships already broken
+ *		If you happen to visit all leaf nodes, it's guaranteed you have found a optimal solution,
+ *		otherwise there may be better solution to be found (teoretically, but in practice you have already a close to optimal solution).
+ *		For generating the current solutions (needed both for pruning and for having something to show for when the tree is too deep to be fully visited)
+ *		a greedy strategy is used:
+ *		- as long as there are positive weight friendships: pick the heavier satisfayable friendships and satisfy it
+ *		- then, group greedily the remaining colors, trying to use as fewer as possible
+ *
+ *	The computational complexity for most calls in this class is O(N^2), basically checking constraints matrix. Exeptions:
+ *		-maximalGeneratedClique() that is O(N^2 * number of blocks)
+ *		-removeDominatedRows that is O(N^3), but it's called as few times as possible and there is a sort of hashing mechanism to speed up the computations
+ *	As a consequence, determining a full solution is O(N^3) in degenerated cases, but closer to O(N^2) in usual cases.
  */
 class VertexColorer
 {
