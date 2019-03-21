@@ -17,6 +17,7 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/GEPOptimizer.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
@@ -334,7 +335,7 @@ char AllocaMerging::ID = 0;
 
 FunctionPass *createAllocaMergingPass() { return new AllocaMerging(); }
 
-bool AllocaArraysMerging::checkUsesForArrayMerging(AllocaInst* alloca)
+bool AllocaArraysMerging::checkUsesForArrayMerging(AllocaInst* alloca) const
 {
 	for(User* user: alloca->users())
 	{
@@ -370,6 +371,59 @@ bool AllocaArraysMerging::checkUsesForArrayMerging(AllocaInst* alloca)
 	return true;
 }
 
+llvm::Type* AllocaArraysMerging::collectUniformAlloca(std::vector<AllocaInst*>& uniformAllocaArrays, std::list<AllocaInfo>& allocaInfos) const
+{
+	//Modify allocaInfos, moving a group of uniform alloca (uniform means that they are possibly mergeable toghether) into uniformAllocaArrays
+
+	auto targetCandidate = allocaInfos.begin();
+	AllocaInst* targetAlloca = targetCandidate->first;
+	if(!targetAlloca->getAllocatedType()->isArrayTy() ||
+		// Check target uses
+		!checkUsesForArrayMerging(targetAlloca))
+	{
+			allocaInfos.erase(targetCandidate);
+			return NULL;
+	}
+
+	Type* elementType = targetAlloca->getAllocatedType()->getSequentialElementType();
+	auto sourceCandidate=targetCandidate;
+	++sourceCandidate;
+	// Now that we have computed the sourceCandidate we can invalidate the targetCandidate
+	allocaInfos.erase(targetCandidate);
+	while(sourceCandidate!=allocaInfos.end())
+	{
+		AllocaInst* sourceAlloca = sourceCandidate->first;
+		// Check that allocas are arrays of the same type
+		if(!sourceAlloca->getAllocatedType()->isArrayTy())
+		{
+			++sourceCandidate;
+			continue;
+		}
+		// Both are arrays, check the types
+		if(elementType != sourceAlloca->getAllocatedType()->getSequentialElementType())
+		{
+			++sourceCandidate;
+			continue;
+		}
+		// Verify that the source candidate has supported uses
+		if(!checkUsesForArrayMerging(sourceAlloca))
+		{
+			++sourceCandidate;
+			continue;
+		}
+		// We can merge the source and the target
+		// If the set is empty add the target as well
+		if(uniformAllocaArrays.empty())
+			uniformAllocaArrays.push_back(targetAlloca);
+		uniformAllocaArrays.push_back(sourceAlloca);
+		auto oldCandidate = sourceCandidate;
+		++sourceCandidate;
+		// Now that we have moved to the next candidate, we can invalidate the old one
+		allocaInfos.erase(oldCandidate);
+	}
+	return elementType;
+}
+
 bool AllocaArraysMerging::runOnFunction(Function& F)
 {
 	if (F.getSection()==StringRef("asmjs"))
@@ -401,6 +455,10 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 			arraysToMerge.insert(std::make_pair(a, currentOffset));
 			currentOffset+=cast<ArrayType>(a->getAllocatedType())->getNumElements();
 		}
+		uint32_t numberOfSubArrays() const
+		{
+			return arraysToMerge.size();
+		}
 		uint32_t getNewSize() const
 		{
 			return currentOffset;
@@ -418,123 +476,114 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 	if (allocaInfos.size() < 2)
 		return false;
 	bool Changed = false;
+
 	// We can also try to merge arrays of the same type, if only pointers to values are passed around
 	while(!allocaInfos.empty())
 	{
-		// Build a map of array to be merged and their offseet into the new array
-		ArraysToMerge arraysToMerge;
-		auto targetCandidate = allocaInfos.begin();
-		AllocaInst* targetAlloca = targetCandidate->first;
-		if(!targetAlloca->getAllocatedType()->isArrayTy() ||
-			// Check target uses
-			!checkUsesForArrayMerging(targetAlloca))
-		{
-				allocaInfos.erase(targetCandidate);
-				continue;
-		}
-		Type* targetElementType = targetAlloca->getAllocatedType()->getSequentialElementType();
-		auto sourceCandidate=targetCandidate;
-		++sourceCandidate;
-		// Now that we have computed the sourceCandidate we can invalidate the targetCandidate
-		allocaInfos.erase(targetCandidate);
-		while(sourceCandidate!=allocaInfos.end())
-		{
-			AllocaInst* sourceAlloca = sourceCandidate->first;
-			// Check that allocas are arrays of the same type
-			if(!sourceAlloca->getAllocatedType()->isArrayTy())
-			{
-				++sourceCandidate;
-				continue;
-			}
-			// Both are arrays, check the types
-			if(targetElementType != sourceAlloca->getAllocatedType()->getSequentialElementType())
-			{
-				++sourceCandidate;
-				continue;
-			}
-			// Verify that the source candidate has supported uses
-			if(!checkUsesForArrayMerging(sourceAlloca))
-			{
-				++sourceCandidate;
-				continue;
-			}
-			BasicBlock* sourceBlock = sourceAlloca->getParent();
-			BasicBlock* targetBlock = targetAlloca->getParent();
-			if(sourceBlock != targetBlock && !DT->dominates(sourceBlock, targetBlock) && !DT->dominates(targetBlock, sourceBlock))
-			{
-				++sourceCandidate;
-				continue;
-			}
-			// We can merge the source and the target
-			// If the set is empty add the target as well
-			if(arraysToMerge.empty())
-				arraysToMerge.add(targetAlloca);
-			arraysToMerge.add(sourceAlloca);
-			auto oldCandidate = sourceCandidate;
-			++sourceCandidate;
-			// Now that we have moved to the next candidate, we can invalidate the old one
-			allocaInfos.erase(oldCandidate);
-		}
-		// If we have a non-empty set of alloca merge them
-		if (arraysToMerge.empty())
+		std::vector<AllocaInst*> uniformAlloca;
+
+		//Move Alloca from allocaInfos to uniformAlloca
+		//After this call, at least the first element of allocaInfos would have been processed
+		//and moved away (either into uniformAlloca, or nowhere since it was not mergeable)
+		//uniformAlloca will store all AllocaArrays of a certain kind
+		Type* elementType = collectUniformAlloca(uniformAlloca, allocaInfos);
+		//By construction uniformAlloca would be either empty or with multiple elements
+		assert(uniformAlloca.size() != 1);
+
+		if (uniformAlloca.empty())
 			continue;
 
-		if(!Changed)
-			registerize.invalidateLiveRangeForAllocas(F);
-		// Build new alloca
-		Type* newAllocaType = ArrayType::get(targetElementType, arraysToMerge.getNewSize());
-		// Add the new struct type to the GlobalDepsAnalyzer, it may need the createArray helper
-		GDA.visitType(newAllocaType, /*forceTypedArray*/ false);
-		// Find out the insertion point
-		Instruction* insertionPoint = nullptr;
-		for(auto it: arraysToMerge)
-			insertionPoint = cheerp::findCommonInsertionPoint(nullptr, DT, insertionPoint, it.first);
-		AllocaInst* newAlloca = new AllocaInst(newAllocaType, "mergedArray", insertionPoint);
-		Type* indexType = IntegerType::get(newAllocaType->getContext(), 32);
-		// Change every use of every merged array with an appropiate GEP
-		for(auto it: arraysToMerge)
+		std::vector<BasicBlock*> blocks;
+		blocks.reserve(uniformAlloca.size());
+		for (AllocaInst* x : uniformAlloca)
 		{
-			AllocaInst* allocaToMerge = it.first;
-			uint32_t baseOffset = it.second;
-			SmallVector<User*, 4> users(allocaToMerge->users());
-			for(User* u: users)
+			blocks.push_back(x->getParent());
+		}
+
+		const std::vector<BasicBlock*> representative = findRepresentingBasicBlock(DT, blocks);
+
+		llvm::BitVector done(uniformAlloca.size(), false);
+		for (uint32_t firstToBeDone = 0; firstToBeDone < uniformAlloca.size(); ++firstToBeDone)
+		{
+			if (done[firstToBeDone])
+				continue;
+
+			// Build a map of array to be merged and their offset into the new array
+			ArraysToMerge arraysToMerge;
+			for (uint32_t i=firstToBeDone; i<uniformAlloca.size(); i++)
 			{
-				if(GetElementPtrInst* oldGep = dyn_cast<GetElementPtrInst>(u))
-				{
-					// Build 2 GEPs, one to reach the first element in the merged array
-					// and the other for the rest of the offsets
-					SmallVector<Value*, 4> indices;
-					// Dereference array
-					indices.push_back(ConstantInt::get(indexType, 0));
-					// Reach offset
-					indices.push_back(ConstantInt::get(indexType, baseOffset));
-					Value* gep1 = GetElementPtrInst::Create(newAllocaType, newAlloca, indices, "", oldGep);
-					// Apply all the old offsets but the first one using a new GEP
-					indices.clear();
-					indices.insert(indices.begin(), oldGep->idx_begin()+1, oldGep->idx_end());
-					Value* gep2 = GetElementPtrInst::Create(gep1->getType()->getPointerElementType(), gep1, indices, "", oldGep);
-					// Replace all uses with gep2
-					oldGep->replaceAllUsesWith(gep2);
-					PA.invalidate(oldGep);
-					oldGep->eraseFromParent();
-				}
-				else if(BitCastInst* BI=dyn_cast<BitCastInst>(u))
-				{
-					//Only used for lifetime intrinsics
-					Value* newBitCast=new BitCastInst(newAlloca, BI->getType(), "", BI);
-					BI->replaceAllUsesWith(newBitCast);
-					PA.invalidate(BI);
-					BI->eraseFromParent();
-				}
-				else
-					assert(false && "Unexpected use while merging arrays");
+				if (done[i])
+					continue;
+				//Skip arrays that do not have the same representative as firstToBeDone
+				//It means that they are in separate regions, and regions are separated if there are codepath that do not end using an array of the good kind
+				if (representative[i] != representative[firstToBeDone])
+					continue;
+				done[i] = true;
+				arraysToMerge.add(uniformAlloca[i]);
 			}
-			// Kill the alloca itself now
-			PA.invalidate(allocaToMerge);
-			allocaToMerge->eraseFromParent();
-			Changed = true;
+
+			// If we have more that 1 arrays, we have something to merge
+			if (arraysToMerge.numberOfSubArrays() <= 1)
+				continue;
+
+			if(!Changed)
+				registerize.invalidateLiveRangeForAllocas(F);
+			// Build new alloca
+			Type* newAllocaType = ArrayType::get(elementType, arraysToMerge.getNewSize());
+			// Add the new struct type to the GlobalDepsAnalyzer, it may need the createArray helper
+			GDA.visitType(newAllocaType, /*forceTypedArray*/ false);
+			// Find out the insertion point
+			Instruction* insertionPoint = nullptr;
+			for(auto it: arraysToMerge)
+				insertionPoint = cheerp::findCommonInsertionPoint(nullptr, DT, insertionPoint, it.first);
+			AllocaInst* newAlloca = new AllocaInst(newAllocaType, "mergedArray", insertionPoint);
+			Type* indexType = IntegerType::get(newAllocaType->getContext(), 32);
+			// Change every use of every merged array with an appropiate GEP
+			for(auto it: arraysToMerge)
+			{
+				AllocaInst* allocaToMerge = it.first;
+				uint32_t baseOffset = it.second;
+				SmallVector<User*, 4> users(allocaToMerge->users());
+				for(User* u: users)
+				{
+					if(GetElementPtrInst* oldGep = dyn_cast<GetElementPtrInst>(u))
+					{
+						// Build 2 GEPs, one to reach the first element in the merged array
+						// and the other for the rest of the offsets
+						SmallVector<Value*, 4> indices;
+						// Dereference array
+						indices.push_back(ConstantInt::get(indexType, 0));
+						// Reach offset
+						indices.push_back(ConstantInt::get(indexType, baseOffset));
+						Value* gep1 = GetElementPtrInst::Create(newAllocaType, newAlloca, indices, "", oldGep);
+						// Apply all the old offsets but the first one using a new GEP
+						indices.clear();
+						indices.insert(indices.begin(), oldGep->idx_begin()+1, oldGep->idx_end());
+						Value* gep2 = GetElementPtrInst::Create(gep1->getType()->getPointerElementType(), gep1, indices, "", oldGep);
+						// Replace all uses with gep2
+						oldGep->replaceAllUsesWith(gep2);
+						PA.invalidate(oldGep);
+						oldGep->eraseFromParent();
+					}
+					else if(BitCastInst* BI=dyn_cast<BitCastInst>(u))
+					{
+						//Only used for lifetime intrinsics
+						Value* newBitCast=new BitCastInst(newAlloca, BI->getType(), "", BI);
+						BI->replaceAllUsesWith(newBitCast);
+						PA.invalidate(BI);
+						BI->eraseFromParent();
+					}
+					else
+						assert(false && "Unexpected use while merging arrays");
+				}
+				// Kill the alloca itself now
+				PA.invalidate(allocaToMerge);
+				allocaToMerge->eraseFromParent();
+				Changed = true;
+			}
 		}
 	}
+
 	if(Changed)
 		registerize.computeLiveRangeForAllocas(F);
 	return Changed;
