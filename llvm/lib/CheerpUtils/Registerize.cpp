@@ -1046,7 +1046,7 @@ bool VertexColorer::removeDominatedRows()
 		return false;
 
 #ifdef REGISTERIZE_DEBUG
-	llvm::errs() << "Remove dominated rows:\t"<< N << " -> " << alive.size() << "\n";
+	llvm::errs() <<std::string(depthRecursion, ' ') << "Remove dominated rows:\t"<< N << " -> " << alive.size() << "\n";
 #endif
 
 	VertexColorer subsolution(alive.size(), *this);
@@ -1133,7 +1133,7 @@ bool VertexColorer::removeRowsWithFewConstraints()
 		return false;
 
 #ifdef REGISTERIZE_DEBUG
-	llvm::errs() << "Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
+	llvm::errs() << std::string(depthRecursion, ' ') <<"Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
 #endif
 	VertexColorer subsolution(alive.size(), *this);
 	for (const Link& link : allFriendshipIterable())
@@ -1546,7 +1546,7 @@ bool VertexColorer::splitOnArticulationClique(const bool keepSingleNodes)
 	}
 
 #ifdef REGISTERIZE_DEBUG
-	llvm::errs() << "Split on clique number " << splitNode << " of size " << C[splitNode] << ":\t";
+	llvm::errs() <<std::string(depthRecursion, ' ') << "Split on clique number " << splitNode << " of size " << C[splitNode] << ":\t";
 	for (uint32_t s : seeds)
 	{
 		llvm::errs() << C[s] << " ";
@@ -1683,6 +1683,7 @@ bool VertexColorer::splitConflicting(const bool conflicting)
 		return false;
 
 #ifdef REGISTERIZE_DEBUG
+	llvm::errs() << std::string(depthRecursion, ' ');
 	if (conflicting)
 		llvm::errs() << "Split conflicting:\t";
 	else
@@ -1954,7 +1955,7 @@ void VertexColorer::solveInvariantsAlreadySet()
 	const Coloring& colors = retColors;
 	if (colors.size() > 1)
 	{
-		llvm::errs() << "Solving subproblem of size\t" << colors.size() << ":\t(score/colors/iterations)\t"; 
+		llvm::errs() << std::string(depthRecursion, ' ') << "Solving subproblem of size\t" << colors.size() << ":\t(score/colors/iterations)\t"; 
 		llvm::errs() << computeScore(colors, lowerBoundOnNumberOfColors(/*forceEvaluation*/true)) <<"\t" << lowerBoundOnNumberOfColors(/*forceEvaluation*/true) << "/"<<computeNumberOfColors(colors)<<"\t\t";
 		if (false)
 		for (uint32_t i=0; i<debugStats.size(); i++)
