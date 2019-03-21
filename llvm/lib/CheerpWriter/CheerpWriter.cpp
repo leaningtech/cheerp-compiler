@@ -4846,28 +4846,53 @@ static bool omitBraces(const Token& T, const PointerAnalyzer& PA, const Register
 		}
 	} 
 }
+class LabelNameGenerator
+{
+	DenseMap<const Token*, uint32_t> Labels;
+	std::vector<SmallString<2>> LabelList;
+	uint32_t NextLabel{0};
+	std::vector<std::string> External;
+	name_iterator<JSSymbols, 2> NameIt{JSSymbols(External)};
+public:
+	using iterator = std::vector<SmallString<2>>::iterator;
+	iterator end()
+	{
+		return LabelList.end();
+	}
+	const SmallString<2>& allocate(const Token* T)
+	{
+		if (NextLabel == LabelList.size())
+		{
+			LabelList.push_back(*NameIt);
+			++NameIt;
+		}
+		Labels.insert(std::make_pair(T, NextLabel));
+		return LabelList[NextLabel++];
+	}
+	void deallocate()
+	{
+		NextLabel--;
+	}
+	iterator get(const Token* T)
+	{
+		auto it = Labels.find(T);
+		if (it == Labels.end())
+			return end();
+		return LabelList.begin()+it->second;
+	}
+};
 void CheerpWriter::compileTokens(const TokenList& Tokens)
 {
 	auto LabeledTokens = getLabeledTokens(Tokens);
-	DenseMap<const Token*, SmallString<4>> Labels;
-	std::vector<name_iterator<JSSymbols>> NextLabels;
+	LabelNameGenerator LabelGen;
 	for (auto it = Tokens.begin(), ie = Tokens.end(); it != ie; ++it)
 	{
 		const Token& T = *it;
 		bool Labeled = LabeledTokens.count(&T);
 		if (Labeled)
 		{
-			if (NextLabels.empty())
-			{
-				NextLabels.emplace_back(JSSymbols({}));
-			}
-			else
-			{
-				NextLabels.push_back(NextLabels.back());
-			}
-			auto Label = *(NextLabels.back()++);
+			auto Label = LabelGen.allocate(&T);
 			stream << Label << ':';
-			Labels.insert(std::make_pair(&T, std::move(Label)));
 		}
 		switch (T.getKind())
 		{
@@ -4946,18 +4971,18 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 				const Token* Scope = T.getMatch()->getKind() == Token::TK_Loop
 					? T.getMatch()
 					: T.getMatch()->getMatch();
-				auto LabelIt = Labels.find(Scope);
-				if (LabelIt != Labels.end())
+				auto LabelIt = LabelGen.get(Scope);
+				if (LabelIt != LabelGen.end())
 				{
-					stream << ' ' << LabelIt->getSecond();
+					stream << ' ' << *LabelIt;
 				}
 				stream << ';' << NewLine;
 				break;
 			}
 			case Token::TK_End:
 			{
-				if (Labels.count(T.getMatch()))
-					NextLabels.pop_back();
+				if (LabelGen.get(T.getMatch()) != LabelGen.end())
+					LabelGen.deallocate();
 				if (T.getMatch()->getKind() == Token::TK_Loop
 					&& T.getPrevNode()->getKind() != Token::TK_Branch
 					&& !(T.getPrevNode()->getKind() == Token::TK_BasicBlock
