@@ -548,10 +548,6 @@ struct JSSymbols
 			return false;
 		}
 		
-		// Can not be made only of '_';
-		if ( std::all_of( s.begin(), s.end(), [](char c) { return c == '_'; }) )
-			return false;
-		
 		// Check for reserved keywords
 		if ( is_reserved_name(s) )
 			return false;
