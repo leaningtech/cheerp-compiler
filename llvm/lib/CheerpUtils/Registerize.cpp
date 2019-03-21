@@ -765,12 +765,26 @@ void VertexColorer::iterativeDeepening(IterationsCounter& counter)
 
 std::vector<uint32_t> VertexColorer::assignGreedily() const
 {
+/*
+	This function treats only the constraint part of the problem: it try to minimize the number of colors without trying to satisfy friendships.
+	This semplified problem has a known greedy strategy that works reasonably:
+	-pick the node with the least number of neighbours (as in the number of constrains he has)
+	-remove it from the problem, solve the remaining subproblem
+	-insert it back with the lowest possible color. A node with N constraints require at maximum color N+1
+	(if no constraints have the same color, and they already occupy every label in 1...N)
+
+	Since the node was chosen for having few neighbours, a low number of colors will be used.
+
+	It's implemented by first counting the number of constraint for each vertex, then building a stack of low-neighbours count nodes (and keeping the node count correct)
+	and only then choosing the label/color for each node
+*/
+
 	//Here it returns the parent vector, not a coloring
 	std::vector<uint32_t> res = parent;
-	std::vector<uint32_t> V(N);
+	std::vector<uint32_t> neighboursCount(N);
 	for (uint32_t i=0; i<N; i++)
 	{
-		V[i] = constraints[i].count();
+		neighboursCount[i] = constraints[i].count();
 	}
 
 	llvm::BitVector processed(N);
@@ -782,7 +796,7 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 		{
 			if (res[j] == j && processed[j]==false)
 			{
-				if (b==N || V[j] < V[b])
+				if (b==N || neighboursCount[j] < neighboursCount[b])
 					b = j;
 			}
 		}
@@ -793,22 +807,22 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 		for (uint32_t j=0; j<N; j++)
 		{
 			if (constraints[b][j])
-				V[j] --;
+				neighboursCount[j] --;
 		}
 	}
 
-	std::vector<std::pair<uint32_t, llvm::BitVector>> P;
+	std::vector<std::pair<uint32_t, llvm::BitVector>> assignedColors;
 	while (!stack.empty())
 	{
 		uint32_t i = stack.back();
 		stack.pop_back();
 
 		bool done = false;
-		for (std::pair<uint32_t, llvm::BitVector>& pair : P)
+		for (std::pair<uint32_t, llvm::BitVector>& pair : assignedColors)
 		{
 			if (!pair.second[i])
 			{
-				//TODO: check me!!
+				//Check all assigned colors, looking whether there is clash with any constraints (and so the or between them)
 				done = true;
 				res[i] = pair.first;
 				pair.second |= constraints[i];
@@ -817,7 +831,8 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 		}
 		if (!done)
 		{
-			P.push_back({i, constraints[i]});
+			//Otherwise create a new color, and initialize with the constraints of i
+			assignedColors.push_back({i, constraints[i]});
 		}
 	}
 	return res;
