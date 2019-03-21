@@ -318,7 +318,7 @@ private:
 				if (!instance.constraints[i][j] && zeroWeight)
 					break;
 				++j;
-				//TODO: possible use BitVector::goToFirst(un)set to speed up
+				//TODO: it's possible to use BitVector::find_next_(un)set to speed up
 			}
 		}
 		bool isTheEnd() const
