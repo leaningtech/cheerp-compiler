@@ -15,8 +15,8 @@ template <class T, class U> static bool contains(const T& container, const U& co
 static void PrintDebug(const char *Format, ...);
 #define DebugDump(x, ...) Debugging::Dump(x, __VA_ARGS__)
 #else
-#define PrintDebug(x, ...)
-#define DebugDump(x, ...)
+#define PrintDebug(...)
+#define DebugDump(...)
 #endif
 
 // Branch
