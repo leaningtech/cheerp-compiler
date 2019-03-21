@@ -784,6 +784,10 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			newTys.insert(newTys.end(),localTys,localTys+2);
 			break;
 		}
+		default:
+		{
+			break;
+		}
 	}
 	if(!fixDepedendentIntrinsic((Intrinsic::ID)F->getIntrinsicID(), newTys))
 	{
@@ -1373,8 +1377,6 @@ void TypeOptimizer::rewriteGlobalInit(GlobalVariable* GV)
 {
 	if(!GV->hasInitializer())
 		return;
-	Type* GVType = globalTypeMapping[GV]->getPointerElementType();
-	Type* rewrittenType = rewriteType(GVType);
 	// We need to change type, so we have to forge a new initializer
 	auto rewrittenInit = rewriteConstant(GV->getInitializer());
 	assert(rewrittenInit.second==0);
