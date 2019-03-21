@@ -52,7 +52,8 @@ public:
 class AllocaArraysMerging: public AllocaMergingBase
 {
 private:
-	bool checkUsesForArrayMerging(llvm::AllocaInst* alloca);
+	bool checkUsesForArrayMerging(llvm::AllocaInst* alloca) const;
+	llvm::Type* collectUniformAlloca(std::vector<llvm::AllocaInst*>& uniformAllocaArrays, std::list<AllocaInfo>& allocaInfos) const;
 public:
 	static char ID;
 	explicit AllocaArraysMerging() : AllocaMergingBase(ID) { }
