@@ -77,7 +77,7 @@ class VertexColorer
 	typedef std::pair<uint32_t, uint32_t> Friend;
 public:
 	VertexColorer(const uint32_t N, const uint32_t costPerColor, const uint32_t maximalNumberExploredLeafs)
-		: N(N), costPerColor(costPerColor), parent(N), constraints(N, llvm::BitVector(N, true)), friends(N)
+		: N(N), costPerColor(costPerColor), parent(N), constraints(N, llvm::BitVector(N, true)), friends(N), depthRecursion(0)
 	{
 		for (uint32_t i=0; i<N; i++)
 		{
@@ -91,6 +91,7 @@ public:
 	}
 	void dump() const
 	{
+		llvm::errs() << std::string(N, ' ') << "\t\t\tnum(1)\t\tnum(x)\n";
 		for (uint32_t i=0; i<N; i++)
 		{
 			for (uint32_t j=0; j<N; j++)
@@ -113,9 +114,9 @@ public:
 				else
 					llvm::errs() << ".";
 			}
-			llvm::errs()<<"\t\tnum(1)="<<constraints[i].count() << "\tnum(x)="<<friends[i].size() << "\n";
+			llvm::errs()<<"\t\t\t"<<constraints[i].count() << "\t\t"<<friends[i].size() << "\n";
 		}
-		llvm::errs() << "1 = constraints |  x = friendships | . = nothing\n";
+		llvm::errs() << "1 = constraints |  x = friendships | . = nothing\n\n";
 	}
 	const Coloring& getSolution() const
 	{
@@ -191,6 +192,7 @@ private:
 	VertexColorer(const uint32_t N, const VertexColorer& parent)
 		: VertexColorer(N, parent.costPerColor, parent.times)
 	{
+		depthRecursion = parent.depthRecursion + 1;
 	}
 	template <bool constraints, bool zeroWeight, bool positiveWeight, bool singleRow>
 	class ConstFriendIterator
@@ -749,6 +751,7 @@ private:
 	bool isOptimal;
 	enum ReductionPasses{SPLIT_CONFLICTING, SPLIT_UNCONNECTED, SPLIT_ARTICULATION, REMOVE_DOMINATED, REMOVE_SMALL};
 	std::array<bool, 5> avoidPass{};
+	uint32_t depthRecursion;
 public:
 #ifdef REGISTERIZE_DEBUG
 	enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
