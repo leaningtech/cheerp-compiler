@@ -24,7 +24,8 @@ namespace cheerp {
 
 NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, Registerize& r,
 				const PointerAnalyzer& PA,  LinearMemoryHelper& linearHelper,
-				const std::vector<std::string>& rn, bool makeReadableNames):registerize(r), PA(PA), reservedNames(std::move(buildReservedNamesList(M, rn)))
+				const std::vector<std::string>& rn, bool makeReadableNames):
+				registerize(r), PA(PA), reservedNames(buildReservedNamesList(M, rn))
 {
 	if ( makeReadableNames )
 		generateReadableNames(M, gda, linearHelper);
