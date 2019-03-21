@@ -113,8 +113,9 @@ public:
 				else
 					llvm::errs() << ".";
 			}
-			llvm::errs()<<"\t\t"<<constraints[i].count() << "\t"<<friends[i].size() << "\n";
+			llvm::errs()<<"\t\tnum(1)="<<constraints[i].count() << "\tnum(x)="<<friends[i].size() << "\n";
 		}
+		llvm::errs() << "1 = constraints |  x = friendships | . = nothing\n";
 	}
 	const Coloring& getSolution() const
 	{
