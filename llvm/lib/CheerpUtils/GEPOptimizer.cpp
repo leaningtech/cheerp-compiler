@@ -214,6 +214,47 @@ BasicBlockForest ValidBasicBlockForestGraph::getValidBlocks()
 	return ret;
 }
 
+std::vector<BasicBlock*> findRepresentingBasicBlock(Function& F, const DominatorTree* DT, const std::vector<BasicBlock*> blocks)
+{
+	//Given a vector of BasicBlocks, we return for each one of which region he is a member.
+	//Each region is represented by the root of the BasicBlockForest
+
+	//TODO: allBlocks could be removed when there will be a new constructor for ValidGEPGraph (or how it will be called)
+	BasicBlockForest allBlocks;
+	allBlocks.insert(&F.getEntryBlock());
+	allBlocks.setDominatorTree(DT);
+
+	//Insert the good nodes
+	BasicBlockForest goodNodes;
+	for (BasicBlock* BB : blocks)
+	{
+		goodNodes.insert(BB);
+	}
+	goodNodes.setDominatorTree(DT);
+	goodNodes.simplify();
+	goodNodes.expandUpwards();
+
+	ValidBasicBlockForestGraph VG(DT, goodNodes, allBlocks);
+
+	BasicBlockForest validPlacements = VG.getValidBlocks();
+	validPlacements.expandUpwards();
+
+	std::vector<BasicBlock*> result(blocks.size(), NULL);
+	for (uint32_t i=0; i<blocks.size(); i++)
+	{
+		const BasicBlock* input = blocks[i];
+		for (BasicBlock* BB : validPlacements.getRoots())
+		{
+			if (BB == input || DT->dominates(BB, input))
+			{
+				result[i] = BB;
+			}
+		}
+		assert(result[i]);
+	}
+	return result;
+}
+
 Instruction* GEPOptimizer::hoistGEP(Instruction* I, const GEPRange& R) const
 {
 	BasicBlock* B = I->getParent();
