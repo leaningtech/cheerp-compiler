@@ -214,7 +214,10 @@ private:
 	}
 	const DominatorTree* DT;
 	BlockSet roots;
+	friend std::vector<BasicBlock*> findRepresentingBasicBlock(Function& F, const DominatorTree* DT, const std::vector<BasicBlock*> blocks);
 };
+
+std::vector<BasicBlock*> findRepresentingBasicBlock(Function& F, const DominatorTree* DT, const std::vector<BasicBlock*> blocks);
 
 //	This class takes two BasicBlockForest in input, one comprising the basic blocks known to be valid and one representing all BB to be classified.
 //	The BB to be classified will be classified according to the answer to this question:
