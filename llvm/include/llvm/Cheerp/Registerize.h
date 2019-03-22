@@ -96,6 +96,8 @@ public:
 		lowerBoundChromaticNumber = ((N==0)?0:1);
 		howManyWaysHasLowerBoundBeenEvaluated = 0;
 		isOptimal = true;
+		areGroupedStillGood.resize(N);
+		areGroupedStillGood.set();
 	}
 	void dump() const
 	{
@@ -139,14 +141,14 @@ public:
 	{
 		addFriendship(0, a, b);
 	}
-	void addOnEdge(const uint32_t a, const uint32_t b, const bool sameEdgeAsLastOne)
+	void addNewEdge()
 	{
-		addAllowed(a, b);
-		if (!sameEdgeAsLastOne)
-			groupedLinks.push_back(std::vector<Link>);
-		assert(!groupedLinks.empty());
-		if (a != b)
-			groupedLinks.back().push_back(Link(a, b));
+		groupedLinks.push_back(std::vector<Link>());
+	}
+	void addOnEdge(const uint32_t a, const uint32_t b)
+	{
+		if (a != b && !constraints[a][b])
+			groupedLinks.back().push_back(Link(3, a, b));
 	}
 	void addConstraint(const uint32_t a, const uint32_t b)
 	{
@@ -216,7 +218,7 @@ private:
 	{
 	public:
 		ConstFriendIterator(const VertexColorer& instance_, bool isBegin = true, uint32_t startingIndex = 0)
-			: instance(instance_)
+			: instance(instance_), currentLink(instance.N, instance.N)
 		{
 			static_assert(constraints || zeroWeight || positiveWeight, "You should iterate over something");
 			assert(singleRow || startingIndex == 0);
@@ -493,6 +495,11 @@ private:
 	{
 		for (std::vector<Link> & V : groupedLinks)
 		{
+			for (Link& link : V)
+			{
+				if (link.first > link.second)
+					std::swap(link.first, link.second);
+			}
 			sort(V.begin(), V.end(), [](const Link& a, const Link& b) -> bool
 					{
 						if (a.first != b.first)
@@ -500,8 +507,14 @@ private:
 						return a.second < b.second;
 					}
 					);
-			for (uint32_t i=0; i<V.size(); i++)
+			for (uint32_t i=0; i<V.size();)
 			{
+				if (constraints[V[i].first][V[i].second])
+				{
+					V[i].weight = 0;
+					++i;
+					continue;
+				}
 				uint32_t j=i+1;
 				while (j<V.size() && V[j].first == V[i].first  && V[j].second == V[i].second)
 				{
@@ -517,10 +530,10 @@ private:
 					}
 					), V.end());
 		}
-		groupedLinks.erase(std::remove_if(groupedLinks.begin(), groupedLinks.end(), [](const std::vector<Link>& linkVector) -> bool
+		groupedLinks.erase(std::remove_if(groupedLinks.begin(), groupedLinks.end(), [&](const std::vector<Link>& linkVector) -> bool
 				{
 					if (linkVector.size() == 1)
-						addFriendship(linkVector.front());
+						addFriendship(linkVector.front().weight, linkVector.front().first, linkVector.front().second);
 					return linkVector.size() <= 1;
 				}
 				), groupedLinks.end());
@@ -774,6 +787,7 @@ private:
 	Coloring retColors;
 	std::vector<llvm::BitVector> constraints;
 	std::vector<std::vector<Link>> groupedLinks;
+	llvm::BitVector areGroupedStillGood;
 	std::vector<Friendship> friendships;
 	std::vector<std::vector<Friend>> friends;
 	uint32_t lowerBoundChromaticNumber;
