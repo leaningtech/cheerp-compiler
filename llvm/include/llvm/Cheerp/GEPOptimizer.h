@@ -177,7 +177,7 @@ public:
 		for (auto x : roots)
 		{
 			auto X = immediateDominator(x, DT);
-			if (X && roots.count(X))
+			if (X && count(X))
 				continue;
 			next.insert(x);
 		}
