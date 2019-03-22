@@ -70,6 +70,14 @@ class VertexColorer
 	typedef std::pair<uint32_t, std::pair<uint32_t, uint32_t>> Friendship;
 	struct Link
 	{
+		Link(const uint32_t a, const uint32_t b)
+			: Link(0, a, b)
+		{
+		}
+		Link(const uint32_t weight, const uint32_t a, const uint32_t b)
+			: weight(weight), first(a), second(b)
+		{
+		}
 		uint32_t weight;
 		uint32_t first;
 		uint32_t second;
@@ -130,6 +138,15 @@ public:
 	void addAllowed(const uint32_t a, const uint32_t b)
 	{
 		addFriendship(0, a, b);
+	}
+	void addOnEdge(const uint32_t a, const uint32_t b, const bool sameEdgeAsLastOne)
+	{
+		addAllowed(a, b);
+		if (!sameEdgeAsLastOne)
+			groupedLinks.push_back(std::vector<Link>);
+		assert(!groupedLinks.empty());
+		if (a != b)
+			groupedLinks.back().push_back(Link(a, b));
 	}
 	void addConstraint(const uint32_t a, const uint32_t b)
 	{
@@ -472,6 +489,42 @@ private:
 		}
 		return res+1;
 	}
+	void establishInvariantsGroupedLinks()
+	{
+		for (std::vector<Link> & V : groupedLinks)
+		{
+			sort(V.begin(), V.end(), [](const Link& a, const Link& b) -> bool
+					{
+						if (a.first != b.first)
+							return (a.first < b.first);
+						return a.second < b.second;
+					}
+					);
+			for (uint32_t i=0; i<V.size(); i++)
+			{
+				uint32_t j=i+1;
+				while (j<V.size() && V[j].first == V[i].first  && V[j].second == V[i].second)
+				{
+					V[i].weight += V[j].weight;
+					V[j].weight = 0;
+					j++;
+				}
+				i = j;
+			}
+			V.erase(std::remove_if(V.begin(), V.end(), [](const Link& link) -> bool
+					{
+						return link.weight == 0;
+					}
+					), V.end());
+		}
+		groupedLinks.erase(std::remove_if(groupedLinks.begin(), groupedLinks.end(), [](const std::vector<Link>& linkVector) -> bool
+				{
+					if (linkVector.size() == 1)
+						addFriendship(linkVector.front());
+					return linkVector.size() <= 1;
+				}
+				), groupedLinks.end());
+	}
 	void establishInvariants();
 	void establishInvariantsFriendships();
 	void establishInvariantsFriends();
@@ -720,6 +773,7 @@ private:
 	std::vector<uint32_t> parent;
 	Coloring retColors;
 	std::vector<llvm::BitVector> constraints;
+	std::vector<std::vector<Link>> groupedLinks;
 	std::vector<Friendship> friendships;
 	std::vector<std::vector<Friend>> friends;
 	uint32_t lowerBoundChromaticNumber;

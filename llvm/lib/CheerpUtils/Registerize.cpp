@@ -2128,6 +2128,7 @@ bool VertexColorer::checkConstraintsAreRespected(const Coloring& colors) const
 
 void VertexColorer::establishInvariants()
 {
+	establishInvariantsGroupedLinks();
 	establishInvariantsFriends();
 	establishInvariantsFriendships();
 }
