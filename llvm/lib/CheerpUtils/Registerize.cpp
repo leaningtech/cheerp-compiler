@@ -2252,6 +2252,15 @@ void Registerize::RegisterAllocatorInst::solve()
 				colorer.addAllowed(i, j);
 		}
 	}
+	for (const auto& E : edges)
+	{
+		bool isFirst = true;
+		for (const auto&e : E)
+		{
+			addOnEdge(e.first, e.second, isFirst);
+			isFirst = false;
+		}
+	}
 
 #ifdef REGISTERIZE_DEBUG
 	llvm::errs () << "\n\nSolving function of size " << numInst() << "\n";
