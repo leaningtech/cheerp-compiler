@@ -4751,7 +4751,7 @@ void CheerpWriter::compileCondition(const BasicBlock* BB, bool booleanInvert)
 	}
 }
 
-static DenseSet<const Token*> getLabeledTokens(const TokenList& Tokens)
+DenseSet<const Token*> CheerpWriter::getLabeledTokens(const TokenList& Tokens)
 {
 	std::vector<const Token*> ScopeStack;
 	// First, compute which Tokens need a label
@@ -4800,7 +4800,8 @@ static DenseSet<const Token*> getLabeledTokens(const TokenList& Tokens)
 	assert(ScopeStack.empty());
 	return LabeledTokens;
 }
-static bool omitBraces(const Token& T, const PointerAnalyzer& PA, const Registerize& registerize)
+
+bool CheerpWriter::omitBraces(const Token& T, const PointerAnalyzer& PA, const Registerize& registerize)
 {
 	assert(T.getKind()&(Token::TK_If|Token::TK_IfNot|Token::TK_Else));
 	const Token* Inner = T.getNextNode();
