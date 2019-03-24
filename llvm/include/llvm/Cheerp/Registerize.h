@@ -307,7 +307,7 @@ private:
 			else
 				++i;
 		}
-		constexpr bool onlyPositive()
+		constexpr bool onlyPositive() const
 		{
 			return positiveWeight && !constraints && !zeroWeight;
 		}
