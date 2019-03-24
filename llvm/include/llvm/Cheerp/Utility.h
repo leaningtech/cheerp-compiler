@@ -512,8 +512,6 @@ private:
 };
 
 /**
- * Note: this describes the valid *C++* identifiers.
- * 
  * Iterate over all the valid JS identifier is much more complicated , because JS uses unicode.
  * Reference for valid JS identifiers:
 *  http://stackoverflow.com/questions/1661197/valid-characters-for-javascript-variable-names
@@ -648,45 +646,42 @@ struct demangler_iterator : std::iterator<
 
 		advance();
 	}
-	
+
 	llvm::StringRef operator*() const {
 		assert( tokenSize <= input.size());
 		return llvm::StringRef( input.begin(), tokenSize );
 	}
-	
-	// TODO find a way to safely implement this
-// 	const char * operator->() const;
-	
+
 	bool operator==(const demangler_iterator & other) const
 	{
 		return input == other.input;
 	}
-	
+
 	bool operator!=(const demangler_iterator & other) const
 	{
 		return !operator==(other);
 	}
-	
+
 	demangler_iterator& operator++() {
 		advance();
 		return *this;
 	}
-	
+
 	demangler_iterator operator++(int) {
 		demangler_iterator cpy(*this);
 		advance();
 		return cpy;
 	}
-	
+
 	bool error() const { return hasFailed; }
-	
+
 private:
-	
+
 	void advance()
 	{
 		// Advance by tokenSize;
 		input = input.drop_front(tokenSize);
-		
+
 		if ( input.empty() )
 		{
 			// End of input
@@ -694,7 +689,7 @@ private:
 			input = llvm::StringRef();
 			return;
 		}
-		
+
 		// We can not use strtol since StringRef is not guaranteed to be null-terminated!
 		const char * FirstValid = std::find_if_not( 
 			input.begin(),
@@ -733,7 +728,7 @@ private:
 			}
 		}
 	}
-	
+
 	llvm::StringRef input;
 	std::size_t tokenSize;
 	bool isNested;
