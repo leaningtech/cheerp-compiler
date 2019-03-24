@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2018 Leaning Technologies
+// Copyright 2011-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -4846,6 +4846,7 @@ static bool omitBraces(const Token& T, const PointerAnalyzer& PA, const Register
 		}
 	} 
 }
+
 class LabelNameGenerator
 {
 	DenseMap<const Token*, uint32_t> Labels;
@@ -4881,6 +4882,7 @@ public:
 		return LabelList.begin()+it->second;
 	}
 };
+
 void CheerpWriter::compileTokens(const TokenList& Tokens)
 {
 	auto LabeledTokens = getLabeledTokens(Tokens);
