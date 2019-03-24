@@ -413,6 +413,8 @@ private:
 	void compileMethodLocal(llvm::StringRef name, Registerize::REGISTER_KIND kind);
 	void compileMethodLocals(const llvm::Function& F, bool needsLabel);
 	void compileCondition(const llvm::BasicBlock* BB, bool booleanInvert);
+	static llvm::DenseSet<const Token*> getLabeledTokens(const TokenList& Tokens);
+	static bool omitBraces(const Token& T, const PointerAnalyzer& PA, const Registerize& registerize);
 	void compileTokens(const TokenList& Tokens);
 	void compileMethod(llvm::Function& F);
 	/**
