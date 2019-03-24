@@ -46,7 +46,7 @@ namespace cheerp
  *		1f. If there are dominated nodes, they can be merged to their dominator
  *		1g. If the problem is represented by two cliques, split it and assign friendships optimally
  *
- *        //all this redunctions guarantee optimality, so they can be safely applied withoud losing any information
+ *      All this redunctions guarantee optimality, so they can be safely applied withoud losing any information
  *
  *	2. Search for a good solution
  *		Do a DFS with iterative deepening while pruning as soon as possible.

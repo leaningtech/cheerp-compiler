@@ -1957,7 +1957,6 @@ void VertexColorer::solveInvariantsAlreadySet()
 	{
 		llvm::errs() << std::string(depthRecursion, ' ') << "Solving subproblem of size\t" << colors.size() << ":\t(score/colors/iterations)\t"; 
 		llvm::errs() << computeScore(colors, lowerBoundOnNumberOfColors(/*forceEvaluation*/true)) <<"\t" << lowerBoundOnNumberOfColors(/*forceEvaluation*/true) << "/"<<computeNumberOfColors(colors)<<"\t\t";
-		if (false)
 		for (uint32_t i=0; i<debugStats.size(); i++)
 		{
 			llvm::errs () << debugStats[i] << "\t";
