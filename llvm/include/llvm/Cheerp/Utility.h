@@ -108,7 +108,7 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 				Count++;
 			}
 		}
-		else if (auto VAArg = llvm::dyn_cast<llvm::VAArgInst>(It))
+		else if (llvm::isa<llvm::VAArgInst>(It))
 		{
 			Count+= asmjs;
 		}
