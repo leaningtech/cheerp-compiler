@@ -744,6 +744,7 @@ private:
 	{
 		return isOptimal;
 	}
+	static void permuteFirstElements(Coloring& coloring, const uint32_t N);
 	const uint32_t N;
 	const uint32_t costPerColor;
 	std::vector<uint32_t> parent;
