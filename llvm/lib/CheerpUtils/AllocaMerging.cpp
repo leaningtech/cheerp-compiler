@@ -200,6 +200,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 	VertexColorer colorer(allocaInfos.size(),
 			/*weight extra color, 1 since there are no other weights*/1,
 			/*maximum number of iterations, most likely never reached*/100);
+	colorer.setAll(/*conflicting*/true);
 
 	//Iterate over every pair (i, j) to check edge validity
 	for(uint32_t i=0; i<allocaInfos.size(); ++i)
