@@ -627,33 +627,6 @@ private:
 	}
 	void iterativeDeepening(IterationsCounter& counter);
 	std::vector<uint32_t> assignGreedily() const;
-	static uint64_t computeSample(const llvm::BitVector&A)
-	{
-		uint64_t res = 0;
-		assert(A.size() >= 64);
-
-		uint32_t spacing = A.size() / 64;
-
-		for (uint32_t i=0; i<64; i++)
-		{
-			res = 2*res + (A[i*spacing]?1:0);
-		}
-		return res;
-	}
-	static bool isSubset(const uint64_t A, const uint64_t B)
-	{
-		return A == (A&B);
-	}
-	static bool isSubset(const llvm::BitVector& A, const llvm::BitVector& B)
-	{
-		assert(A.size() == B.size());
-		for (uint32_t i = 0; i<A.size(); i++)
-		{
-			if (A[i] && !B[i])
-				return false;
-		}
-		return true;
-	}
 	uint32_t computeScore(const Coloring& coloring, const uint32_t lowerBound) const
 	{
 		assert(coloring.size() == N);
@@ -713,7 +686,6 @@ private:
 	void floodFillOnBitsWithArticulationPoints(llvm::BitVector& region, const uint32_t start, const bool conflicting, const llvm::BitVector& isArticulationPoint) const;
 	void floodFillOnBits(llvm::BitVector& region, const uint32_t start, const bool conflicting) const;
 	bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
-	std::vector<uint32_t> whoIsDominatingFriend(const uint32_t a) const;
 	bool removeDominatedRows();
 	bool removeRowsWithFewConstraints();
 	bool canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const;
@@ -759,6 +731,7 @@ private:
 	std::array<bool, 5> avoidPass{};
 	uint32_t depthRecursion;
 	friend class Reduction;
+	friend class RemoveDominated;
 	friend class SplitArticulation;
 	friend class SplitConflictingBase;
 	friend class SplitUnconnected;
@@ -785,17 +758,62 @@ public:
 	virtual std::string reductionName() const = 0;
 	virtual void relabelNodes() = 0;
 	virtual void buildSubproblems() = 0;
-	void perform()
-	{
-		relabelNodes();
-#ifdef REGISTERIZE_DEBUG
-		dumpDescription();
-#endif
-		buildSubproblems();
-		reduce();
-	}
+	void perform();
 	virtual void dumpDescription() const = 0;
 	VertexColorer& instance;
+};
+class RemoveDominated : public Reduction
+{
+public:
+	RemoveDominated(VertexColorer& instance)
+		: Reduction(instance), newIndex(instance.N, 0)
+	{}
+	bool couldBePerformed();
+	void relabelNodes();
+	void reduce();
+	void dumpSubproblems() const;
+	void dumpDescription() const;
+	std::string reductionName() const;
+	void preprocessing(VertexColorer& subsolution) const;
+	void postprocessing(VertexColorer& subsolution);
+	void buildSubproblems();
+	bool couldBeAvoided() const;
+private:
+	static uint64_t computeSample(const llvm::BitVector&A)
+	{
+		uint64_t res = 0;
+		assert(A.size() >= 64);
+
+		uint32_t spacing = A.size() / 64;
+
+		for (uint32_t i=0; i<64; i++)
+		{
+			res = 2*res + (A[i*spacing]?1:0);
+		}
+		return res;
+	}
+	static bool isSubset(const llvm::BitVector& A, const llvm::BitVector& B)
+	{
+		assert(A.size() == B.size());
+		for (uint32_t i = 0; i<A.size(); i++)
+		{
+			if (A[i] && !B[i])
+				return false;
+		}
+		return true;
+	}
+	static bool isSubset(const uint64_t A, const uint64_t B)
+	{
+		return A == (A&B);
+	}
+	std::vector<uint32_t> whoIsDominatingFriend(const uint32_t a) const;
+	bool isAlive(const uint32_t i) const;
+	uint32_t findAncestor(const uint32_t i);
+	std::vector<uint32_t> parent;
+	std::vector<uint32_t> ancestor;
+	std::vector<uint32_t> newIndex;
+	std::vector<uint32_t> alive;
+	std::vector<VertexColorer> subproblems;
 };
 class SplitArticulation : public Reduction
 {
@@ -1227,16 +1245,6 @@ private:
 						friendsEdges.push_back({x.second, {i, x.first}});
 				}
 			}
-		}
-		static bool isSubset(const llvm::BitVector& A, const llvm::BitVector& B)
-		{
-			assert(A.size() == B.size());
-			for (uint32_t i = 0; i<A.size(); i++)
-			{
-				if (A[i] && !B[i])
-					return false;
-			}
-			return true;
 		}
 		void addFriendship(const uint32_t a, const uint32_t b, const uint32_t weight)
 		{
