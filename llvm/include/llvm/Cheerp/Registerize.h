@@ -686,7 +686,6 @@ private:
 	void floodFillOnBitsWithArticulationPoints(llvm::BitVector& region, const uint32_t start, const bool conflicting, const llvm::BitVector& isArticulationPoint) const;
 	void floodFillOnBits(llvm::BitVector& region, const uint32_t start, const bool conflicting) const;
 	bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
-	bool removeDominatedRows();
 	bool removeRowsWithFewConstraints();
 	bool canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const;
 	void addToClique(const uint32_t index, llvm::BitVector& unionConstraint, llvm::BitVector& used) const;
@@ -694,7 +693,6 @@ private:
 	uint32_t chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const;
 	uint32_t maximalGeneratedClique() const;
 	uint32_t lowerBoundOnNumberOfColors(const bool forceEvaluation = false);
-	bool splitOnArticulationClique(const bool keepSingleNodes = false);
 	bool checkConstraintsAreRespected(const Coloring& colors) const;
 	bool friendshipsInvariantsHolds() const;
 	bool friendInvariantsHolds() const;
@@ -731,6 +729,7 @@ private:
 	std::array<bool, 5> avoidPass{};
 	uint32_t depthRecursion;
 	friend class Reduction;
+	friend class RemoveFewConstraints;
 	friend class RemoveDominated;
 	friend class SplitArticulation;
 	friend class SplitConflictingBase;
@@ -762,16 +761,42 @@ public:
 	virtual void dumpDescription() const = 0;
 	VertexColorer& instance;
 };
-class RemoveDominated : public Reduction
+
+class RemoveFewConstraints : public Reduction
 {
 public:
-	RemoveDominated(VertexColorer& instance)
-		: Reduction(instance), newIndex(instance.N, 0)
+	RemoveFewConstraints(VertexColorer& instance)
+		: Reduction(instance), toBePostProcessed(instance.N, false), parent(instance.N), newIndex(instance.N, 0)
 	{}
 	bool couldBePerformed();
 	void relabelNodes();
 	void reduce();
-	void dumpSubproblems() const;
+	void dumpDescription() const;
+	std::string reductionName() const;
+	void preprocessing(VertexColorer& subsolution) const;
+	void postprocessing(VertexColorer& subsolution);
+	void buildSubproblems();
+	bool couldBeAvoided() const;
+private:
+	uint32_t howManyOnCutoff;
+	bool isAlive(const uint32_t i) const;
+	uint32_t findAncestor(const uint32_t i);
+	std::vector<bool> toBePostProcessed;
+	std::vector<uint32_t> parent;
+	std::vector<uint32_t> alive;
+	std::vector<uint32_t> newIndex;
+	std::vector<VertexColorer> subproblems;
+};
+
+class RemoveDominated : public Reduction
+{
+public:
+	RemoveDominated(VertexColorer& instance)
+		: Reduction(instance), parent(instance.N), newIndex(instance.N, 0)
+	{}
+	bool couldBePerformed();
+	void relabelNodes();
+	void reduce();
 	void dumpDescription() const;
 	std::string reductionName() const;
 	void preprocessing(VertexColorer& subsolution) const;
@@ -815,6 +840,7 @@ private:
 	std::vector<uint32_t> alive;
 	std::vector<VertexColorer> subproblems;
 };
+
 class SplitArticulation : public Reduction
 {
 public:
@@ -847,6 +873,7 @@ private:
 	std::vector<uint32_t> seeds;
 	std::vector<VertexColorer> subproblems;
 };
+
 class SplitConflictingBase : public Reduction
 {
 public:
@@ -871,6 +898,7 @@ private:
 	std::vector<uint32_t> seeds;
 	std::vector<VertexColorer> subproblems;
 };
+
 class SplitUnconnected : public SplitConflictingBase
 {
 public:
@@ -884,6 +912,7 @@ public:
 private:
 	uint32_t sumColors;
 };
+
 class SplitInverseUnconnected : public SplitConflictingBase
 {
 public:
