@@ -950,10 +950,10 @@ bool VertexColorer::isDominatingFriend(const uint32_t a, const uint32_t b) const
 	return F[index].second *2 >= sum;
 }
 
-std::vector<uint32_t> VertexColorer::whoIsDominatingFriend(const uint32_t a) const
+std::vector<uint32_t> RemoveDominated::whoIsDominatingFriend(const uint32_t a) const
 {
 	std::vector<uint32_t> res;
-	const std::vector<Friend>& F = friends[a];
+	const std::vector<VertexColorer::Friend>& F = instance.friends[a];
 	uint32_t sum = 0;
 	for (uint32_t i=0; i<F.size(); i++)
 	{
@@ -967,130 +967,13 @@ std::vector<uint32_t> VertexColorer::whoIsDominatingFriend(const uint32_t a) con
 	}
 	if (F.empty())
 	{
-		for (uint32_t i=0; i<N; i++)
+		for (uint32_t i=0; i<instance.N; i++)
 		{
 			if (i != a)
 				res.push_back(i);
 		}
 	}
 	return res;
-}
-
-bool VertexColorer::removeDominatedRows()
-{
-	//Try to find rows that are dominated by another. In this case, they can get the same colors of the dominating vertex and the solutions remain optimal
-	//One vertex dominated AND can become parent of another if:
-	//-the constraint of the dominated are a (possibly non proper) subset of the constraint of the dominating
-	//-there are no constraint between them (otherwise it could be dominating, but it could not be merged)
-	//-either the dominated has no friends, or has the dominating as only friend, or in any case the dominating is a dominating friend
-	//			(this means that it's the friend that weights 50%+ of the total of the dominating friendships)
-	std::vector<uint64_t> samples;
-
-	if (N >= 128)
-	{
-		//Computing whether a row is a subset of another takes O(N) (possibly every index has to be checked)
-		//When N is big enough, we precompute a sample 64 arbitrary columns, and store only this in samples
-		//This way first we first could test whether samples[x] is a subset of samples[y], and only whenever this is true we move to the more expensive check
-		//In the worst case this still requires O(N), but a lot of cases could be solved in O(1), so while the algorithm complexity remains the same
-		//(at least in degenerate cases), there is a practical speed-up
-		for (uint32_t i=0; i<N; ++i)
-		{
-			samples.push_back(computeSample(constraints[i]));
-		}
-	}
-
-	//TODO: iterates multiple times
-	for (uint32_t i = 0; i<N; i++)
-	{
-		if (!isAlive(i))
-			continue;
-		//TODO: having a default constructed identity vector
-		if (friends[i].empty())
-		{
-			for (uint32_t j=0; j<N; j++)
-			{
-				if (i != j && isAlive(j) && !constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(constraints[i], constraints[j]) )
-				{
-					parent[i] = j;
-					break;
-				}
-			}
-		}
-		else
-		{
-			for (uint32_t j : whoIsDominatingFriend(i))
-			{
-				if (i != j && isAlive(j) && !constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(constraints[i], constraints[j]) )
-				{
-					parent[i] = j;
-					break;
-				}
-			}
-		}
-	}
-
-	std::vector<uint32_t> alive;
-	std::vector<uint32_t> index(N);
-	uint32_t firstUnused = 0;
-	for (uint32_t i=0; i<N; i++)
-	{
-		if (isAlive(i))
-		{
-			alive.push_back(i);
-			index[i] = firstUnused++;
-		}
-	}
-
-	if (alive.size() == N)
-		return false;
-
-#ifdef REGISTERIZE_DEBUG
-	llvm::errs() <<std::string(depthRecursion, ' ') << "Remove dominated rows:\t"<< N << " -> " << alive.size() << "\n";
-#endif
-
-	VertexColorer subsolution(alive.size(), *this);
-	subsolution.setAll(/*conflicting*/false);
-	//Add friendships (if they do not clash with constraints)
-	for (const Link& link : positiveWeightFriendshipIterable())
-	{
-		assert(link.weight > 0);
-		const uint32_t a = findParent(link.first);
-		const uint32_t b = findParent(link.second);
-		assert(constraints[a][b] == constraints[b][a]);
-		if (!constraints[a][b])
-			subsolution.addFriendship(link.weight, index[a], index[b]);
-	}
-
-	for (const Link& link : constraintIterable())
-	{
-		const uint32_t i=link.first;
-		const uint32_t j=link.second;
-		if (isAlive(i) && isAlive(j))
-		{
-			subsolution.addConstraint(index[i], index[j]);
-		}
-	}
-
-	//Merging dominated nodes may generate a double friendship between the same nodes, so the generic function is required
-	subsolution.improveLowerBound(lowerBoundOnNumberOfColors());
-	subsolution.avoidPass[SPLIT_UNCONNECTED]=true;
-	subsolution.solve();
-	const Coloring& subcolors = subsolution.getSolution();
-	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
-
-	retColors.resize(N);
-	for (uint32_t i = 0; i<alive.size(); i++)
-	{
-		retColors[alive[i]] = subcolors[i];
-	}
-	for (uint32_t i = 0; i<N; i++)
-	{
-		assert(isAlive(findParent(i)));
-		if (!isAlive(i))
-			retColors[i] = retColors[findParent(i)];
-	}
-
-	return true;
 }
 
 bool VertexColorer::removeRowsWithFewConstraints()
@@ -1487,6 +1370,177 @@ void VertexColorer::permuteFirstElements(Coloring& coloring, const uint32_t N)
 	}
 }
 
+void Reduction::perform()
+{
+	//Find relabeling that split the problem into subproblem(s)
+	relabelNodes();
+
+#ifdef REGISTERIZE_DEBUG
+	//Dump informations
+	dumpDescription();
+#endif
+	//TODO: add here external loop for phi_edge links
+	//Build the connection matrix and the friend list for the subproblem(s)
+	buildSubproblems();
+	//Solve them
+	reduce();
+}
+
+bool RemoveDominated::couldBePerformed()
+{
+	if (couldBeAvoided())
+		return false;
+	//Try to find rows that are dominated by another. In this case, they can get the same colors of the dominating vertex and the solutions remain optimal
+	//One vertex dominated AND can become parent of another if:
+	//-the constraint of the dominated are a (possibly non proper) subset of the constraint of the dominating
+	//-there are no constraint between them (otherwise it could be dominating, but it could not be merged)
+	//-either the dominated has no friends, or has the dominating as only friend, or in any case the dominating is a dominating friend
+	//			(this means that it's the friend that weights 50%+ of the total of the dominating friendships)
+	std::vector<uint64_t> samples;
+
+	if (instance.N >= 128)
+	{
+		//Computing whether a row is a subset of another takes O(N) (possibly every index has to be checked)
+		//When N is big enough, we precompute a sample 64 arbitrary columns, and store only this in samples
+		//This way first we first could test whether samples[x] is a subset of samples[y], and only whenever this is true we move to the more expensive check
+		//In the worst case this still requires O(N), but a lot of cases could be solved in O(1), so while the algorithm complexity remains the same
+		//(at least in degenerate cases), there is a practical speed-up
+		for (uint32_t i=0; i<instance.N; ++i)
+		{
+			samples.push_back(computeSample(instance.constraints[i]));
+		}
+	}
+
+	parent.resize(instance.N);
+	for (uint32_t i=0; i<instance.N; ++i)
+		parent[i] = i;
+
+	//TODO: iterates multiple times
+	for (uint32_t i = 0; i<instance.N; i++)
+	{
+		if (!isAlive(i))
+			continue;
+		//TODO: having a default constructed identity vector
+		if (instance.friends[i].empty())
+		{
+			for (uint32_t j=0; j<instance.N; j++)
+			{
+				if (i != j && isAlive(j) && !instance.constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(instance.constraints[i], instance.constraints[j]) )
+				{
+					parent[i] = j;
+					break;
+				}
+			}
+		}
+		else
+		{
+			for (uint32_t j : whoIsDominatingFriend(i))
+			{
+				if (i != j && isAlive(j) && !instance.constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(instance.constraints[i], instance.constraints[j]) )
+				{
+					parent[i] = j;
+					break;
+				}
+			}
+		}
+	}
+
+	for (uint32_t i=0; i<instance.N; i++)
+	{
+		if (!isAlive(i))
+			continue;
+		alive.push_back(i);
+	}
+
+	return alive.size() < instance.N;
+}
+
+void RemoveDominated::dumpDescription() const
+{
+	llvm::errs() << reductionName() << ":\t"<< instance.N << " -> " << alive.size() << "\n";
+}
+
+std::string RemoveDominated::reductionName() const
+{
+	return "Remove dominated rows";
+}
+
+void RemoveDominated::buildSubproblems()
+{
+	subproblems.push_back(VertexColorer(alive.size(), instance));
+	VertexColorer& subproblem = subproblems.front();
+	ancestor = parent;
+
+	subproblem.setAll(/*conflicting*/false);
+	//Add friendships (if they do not clash with constraints)
+	for (const VertexColorer::Link& link : instance.positiveWeightFriendshipIterable())
+	{
+		assert(link.weight > 0);
+		const uint32_t a = findAncestor(link.first);
+		const uint32_t b = findAncestor(link.second);
+		assert(instance.constraints[a][b] == instance.constraints[b][a]);
+		if (!instance.constraints[a][b])
+			subproblem.addFriendship(link.weight, newIndex[a], newIndex[b]);
+	}
+
+	for (const VertexColorer::Link& link : instance.constraintIterable())
+	{
+		const uint32_t i=link.first;
+		const uint32_t j=link.second;
+		if (isAlive(i) && isAlive(j))
+		{
+			subproblem.addConstraint(newIndex[i], newIndex[j]);
+		}
+	}
+}
+
+void RemoveDominated::preprocessing(VertexColorer& subproblem) const
+{
+	subproblem.improveLowerBound(instance.lowerBoundOnNumberOfColors());
+	subproblem.avoidPass[VertexColorer::SPLIT_UNCONNECTED]=true;
+}
+
+void RemoveDominated::postprocessing(VertexColorer& subproblem)
+{
+	instance.improveLowerBound(subproblem.lowerBoundOnNumberOfColors());
+}
+
+bool RemoveDominated::isAlive(const uint32_t i) const
+{
+	return parent[i] == i;
+}
+
+uint32_t RemoveDominated::findAncestor(const uint32_t i)
+{
+	//We do at most O(N) lazily executed preprocessing + O(1) per call, that averages to O(1) since we do roughly 2*N calls
+	if (!isAlive(i))
+		ancestor[i] = findAncestor(ancestor[i]);
+	return ancestor[i];
+}
+
+void RemoveDominated::reduce()
+{
+	VertexColorer& subproblem = subproblems.front();
+
+	preprocessing(subproblem);
+	subproblem.solve();
+	postprocessing(subproblem);
+
+	const VertexColorer::Coloring& subcolors = subproblem.getSolution();
+
+	instance.retColors.resize(instance.N);
+	for (uint32_t i = 0; i<alive.size(); i++)
+	{
+		instance.retColors[alive[i]] = subcolors[i];
+	}
+	for (uint32_t i = 0; i<instance.N; i++)
+	{
+		assert(isAlive(findAncestor(i)));
+		if (!instance.isAlive(i))
+			instance.retColors[i] = instance.retColors[findParent(i)];
+	}
+}
+
 bool SplitArticulation::couldBePerformed()
 {
 	if (couldBeAvoided())
@@ -1780,7 +1834,6 @@ void SplitArticulation::reduce()
 	std::vector<VertexColorer::Coloring> solutions;
 	for (VertexColorer& sub : subproblems)
 	{
-		//Friends of splitNode could get merged, so call standard solver
 		preprocessing(sub);
 		sub.solve();
 		postprocessing(sub);
