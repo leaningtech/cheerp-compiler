@@ -77,7 +77,7 @@ class VertexColorer
 	typedef std::pair<uint32_t, uint32_t> Friend;
 public:
 	VertexColorer(const uint32_t N, const uint32_t costPerColor, const uint32_t maximalNumberExploredLeafs)
-		: N(N), costPerColor(costPerColor), parent(N), constraints(N, llvm::BitVector(N, true)), friends(N), depthRecursion(0)
+		: N(N), costPerColor(costPerColor), parent(N), constraints(N, llvm::BitVector(N)), friends(N), depthRecursion(0)
 	{
 		for (uint32_t i=0; i<N; i++)
 		{
