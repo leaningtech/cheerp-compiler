@@ -1449,6 +1449,44 @@ bool VertexColorer::areAllAlive() const
 	return true;
 }
 
+void VertexColorer::permuteFirstElements(Coloring& coloring, const uint32_t N)
+{
+	const uint32_t M = computeNumberOfColors(coloring);
+
+	//We keep 2 permutation, one the inverse of the other, so at each moment inveresePermutation[directPermutation[i]] == i
+	std::vector<uint32_t> directPermutation(M);
+	std::vector<uint32_t> inversePermutation(M);
+	for (uint32_t i=0; i<M; i++)
+	{
+		directPermutation[i] = i;
+		inversePermutation[i] = i;
+		assert(inversePermutation[directPermutation[i]] == i);
+	}
+
+	for (uint32_t i=0; i<N; ++i)
+	{
+		//We find the element k were our current element should end up i, do both the inverse and direct permuation
+		const uint32_t k = coloring[i];
+		const uint32_t z = inversePermutation[i];
+		std::swap(inversePermutation[directPermutation[z]], inversePermutation[directPermutation[k]]);
+		std::swap(directPermutation[z], directPermutation[k]);
+		//And check everything went ok, and the invariant is kept for the next loop
+		assert(inversePermutation[directPermutation[k]] == k);
+		assert(inversePermutation[directPermutation[z]] == z);
+	}
+
+	//Apply the directPermutation
+	for (uint32_t& c : coloring)
+	{
+		c = directPermutation[c];
+	}
+
+	for (uint32_t i=0; i<N; ++i)
+	{
+		assert(coloring[i] == i);
+	}
+}
+
 bool SplitArticulation::couldBePerformed()
 {
 	if (couldBeAvoided())
@@ -1748,18 +1786,7 @@ void SplitArticulation::reduce()
 		postprocessing(sub);
 		solutions.push_back(sub.getSolution());
 
-		//TODO: improve to O(M) istead of O(M * C[splitNode])
-		for (uint32_t i=0; i<numerositySubproblem[splitNode]; i++)
-		{
-			const uint32_t K = solutions.back()[i];
-			for (uint32_t& c : solutions.back())
-			{
-				if (c == i)
-					c = K;
-				else if (c == K)
-					c = i;
-			}
-		}
+		VertexColorer::permuteFirstElements(solutions.back(), numerositySubproblem[splitNode]);
 	}
 
 	instance.retColors.resize(instance.N, 0);
