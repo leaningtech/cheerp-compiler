@@ -342,11 +342,17 @@ private:
 		{
 			if (onlyPositive())
 				return;
+			if (constraints && zeroWeight)
+				return;
 			const uint32_t limit = limitOnJ();
+			if (constraints)
+			{
+				if (!instance.constraints[i][j])
+					j = std::min(limit, (uint32_t)(instance.constraints[i].find_next(j)));
+				return;
+			}
 			while (j < limit)
 			{
-				if (instance.constraints[i][j] && constraints)
-					break;
 				if (!instance.constraints[i][j] && zeroWeight)
 					break;
 				++j;
