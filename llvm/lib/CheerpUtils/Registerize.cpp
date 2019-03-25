@@ -617,17 +617,15 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 			const Coloring colors = getColors(keepMerging(state));
 			const Solution localSolution = {computeScore(colors, lowerBoundOnNumberOfColors(/*forceEvaluation*/true)), colors};
 
-#ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
-			bool print = state.improveScore(localSolution);
-			if (print && state.targetDepth)
-				llvm::errs() << "eee";
-			if (print)
+			//This condition has sides effects (it modify the best score stored into state
+			if (state.improveScore(localSolution))
 			{
+#ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
 				llvm:: errs() << "\t"<< computeNumberOfColors(colors) <<"\t"<<state.minimalNumberOfColors<< "\t" << localSolution.first <<"\t";
 				state.printChoicesMade();
 				llvm::errs () << "\n";
-			}
 #endif
+			}
 			state.iterationsCounter.consumeIteration();
 		}
 		state.leafs++;
