@@ -1371,7 +1371,14 @@ void RemoveFewConstraints::buildSubproblems()
 
 	VertexColorer& subproblem = subproblems.front();
 
-	for (const VertexColorer::Link& link : instance.allFriendshipIterable())
+	for (const VertexColorer::Link& link : instance.constraintIterable())
+	{
+		const uint32_t a = link.first;
+		const uint32_t b = link.second;
+		if (!toBePostProcessed[a] && !toBePostProcessed[b])
+			subproblem.addConstraint(newIndex[a], newIndex[b]);
+	}
+	for (const VertexColorer::Link& link : instance.positiveWeightFriendshipIterable())
 	{
 		const uint32_t a = link.first;
 		const uint32_t b = link.second;
@@ -1523,7 +1530,16 @@ void RemoveDominated::buildSubproblems()
 	VertexColorer& subproblem = subproblems.front();
 	ancestor = parent;
 
-	subproblem.setAll(/*conflicting*/false);
+	for (const VertexColorer::Link& link : instance.constraintIterable())
+	{
+		const uint32_t i=link.first;
+		const uint32_t j=link.second;
+		if (isAlive(i) && isAlive(j))
+		{
+			subproblem.addConstraint(newIndex[i], newIndex[j]);
+		}
+	}
+
 	//Add friendships (if they do not clash with constraints)
 	for (const VertexColorer::Link& link : instance.positiveWeightFriendshipIterable())
 	{
@@ -1535,15 +1551,6 @@ void RemoveDominated::buildSubproblems()
 			subproblem.addFriendship(link.weight, newIndex[a], newIndex[b]);
 	}
 
-	for (const VertexColorer::Link& link : instance.constraintIterable())
-	{
-		const uint32_t i=link.first;
-		const uint32_t j=link.second;
-		if (isAlive(i) && isAlive(j))
-		{
-			subproblem.addConstraint(newIndex[i], newIndex[j]);
-		}
-	}
 }
 
 void RemoveDominated::preprocessing(VertexColorer& subproblem) const
@@ -1868,7 +1875,32 @@ void SplitArticulation::buildSubproblems()
 		subproblems.push_back(VertexColorer(numerositySubproblem[s], instance));
 	}
 
-	for (const VertexColorer::Link& link : instance.allFriendshipIterable())
+	for (const VertexColorer::Link& link : instance.constraintIterable())
+	{
+		uint32_t a = link.first;
+		uint32_t b = link.second;
+
+		if (whichSubproblem[a] > whichSubproblem[b])
+			std::swap(a, b);
+
+		if (whichSubproblem[b] == 0)
+		{
+			//This is part of the articulation clique, so it should be added to each subproblem
+			for (VertexColorer& s : subproblems)
+			{
+				s.addConstraint(newIndex[a], newIndex[b]);
+			}
+		}
+		else if (whichSubproblem[a] == whichSubproblem[b] || whichSubproblem[a] == 0)
+		{
+			subproblems[whichSubproblem[b]-1].addConstraint(newIndex[b], newIndex[a]);
+		}
+		else
+		{
+			llvm_unreachable("There should be no links between subproblems (other than the clique)");
+		}
+	}
+	for (const VertexColorer::Link& link : instance.positiveWeightFriendshipIterable())
 	{
 		uint32_t a = link.first;
 		uint32_t b = link.second;
@@ -1884,7 +1916,7 @@ void SplitArticulation::buildSubproblems()
 		}
 		else
 		{
-			assert(link.weight == 0);
+			llvm_unreachable("There should be no links between subproblems (other than the clique)");
 		}
 	}
 }
@@ -1923,13 +1955,19 @@ void SplitConflictingBase::buildSubproblems()
 		subproblems.push_back(VertexColorer(numerositySubproblem[s], instance));
 	}
 
-	for (const VertexColorer::Link& link : instance.allFriendshipIterable())
+	for (const VertexColorer::Link& link : instance.constraintIterable())
 	{
 		const uint32_t a = link.first;
 		const uint32_t b = link.second;
-		assert(link.weight == 0 || whichSubproblem[a] == whichSubproblem[b]);
 		if (whichSubproblem[a] == whichSubproblem[b])
-			subproblems[whichSubproblem[a]].addFriendship(link.weight, newIndex[a], newIndex[b]);
+			subproblems[whichSubproblem[a]].addConstraint(newIndex[a], newIndex[b]);
+	}
+	for (const VertexColorer::Link& link : instance.positiveWeightFriendshipIterable())
+	{
+		const uint32_t a = link.first;
+		const uint32_t b = link.second;
+		assert(whichSubproblem[a] == whichSubproblem[b]);
+		subproblems[whichSubproblem[a]].addFriendship(link.weight, newIndex[a], newIndex[b]);
 	}
 }
 
@@ -2206,6 +2244,7 @@ void VertexColorer::solveInvariantsAlreadySet()
 void Registerize::RegisterAllocatorInst::solve()
 {
 	VertexColorer colorer(numInst(), /*cost of using an extra color*/6, /*maximal number of iterations*/100);
+	colorer.setAll(/*conflict*/true);
 	//TODO: fine tune the paramethers
 
 	for (uint32_t i=0; i<numInst(); i++)
