@@ -976,91 +976,6 @@ std::vector<uint32_t> RemoveDominated::whoIsDominatingFriend(const uint32_t a) c
 	return res;
 }
 
-bool VertexColorer::removeRowsWithFewConstraints()
-{
-	//Vertex with no positive-weight friends and "few" constraints can be removed and assigned a color at the end
-	//The idea is that someone has less than N-1 constraint, for the pigeon hole there is a color <=N than is valid, and this color can be assigned at the end
-
-	uint32_t cutoff = lowerBoundOnNumberOfColors(/*forceEvaluation*/true) - 1;
-
-	std::vector<bool> toBePostProcessed(N, false);
-
-	uint32_t howManyOnCutoff = 0;
-
-	for (uint32_t i = 0; i<N; i++)
-	{
-		if (!isAlive(i))
-			continue;
-		if (friends[i].empty() && constraints[i].count() <= cutoff)
-		{
-			toBePostProcessed[i] = true;
-			if (constraints[i].count() == cutoff)
-				howManyOnCutoff++;
-		}
-	}
-
-	std::vector<uint32_t> alive;
-	std::vector<uint32_t> index(N);
-	uint32_t firstUnused = 0;
-	for (uint32_t i=0; i<N; i++)
-	{
-		if (!toBePostProcessed[i])
-		{
-			alive.push_back(i);
-			index[i] = firstUnused++;
-		}
-	}
-
-	if (alive.size() == N)
-		return false;
-
-#ifdef REGISTERIZE_DEBUG
-	llvm::errs() << std::string(depthRecursion, ' ') <<"Remove rows with few constraints:\t"<< N << " -> " << alive.size() << "\n";
-#endif
-	VertexColorer subsolution(alive.size(), *this);
-	for (const Link& link : allFriendshipIterable())
-	{
-		const uint32_t a = link.first;
-		const uint32_t b = link.second;
-		if (!toBePostProcessed[a] && !toBePostProcessed[b])
-			subsolution.addFriendship(link.weight, index[a], index[b]);
-	}
-
-	//Needed as not run into under-flow on unsigned ints
-	uint32_t lowerBound = std::max(lowerBoundOnNumberOfColors(), howManyOnCutoff) - howManyOnCutoff;
-
-	subsolution.improveLowerBound(lowerBound);
-	subsolution.solve();
-	const Coloring& subcolors = subsolution.getSolution();
-	improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
-
-	retColors = Coloring(N, N);
-	for (uint32_t i = 0; i<alive.size(); i++)
-	{
-		retColors[alive[i]] = subcolors[i];
-	}
-	for (uint32_t i = 0; i<N; i++)
-	{
-		if (toBePostProcessed[i])
-		{
-			std::vector<bool> conflicting(N+1, false);
-			for (uint32_t j=0; j<N; j++)
-			{
-				if (constraints[i][j])
-					conflicting[retColors[j]] = true;
-			}
-			uint32_t& color = retColors[i];
-			color = 0;
-			while (conflicting[color])
-			{
-				color++;
-			}
-		}
-	}
-
-	return true;
-}
-
 bool VertexColorer::canBeAddedToClique(const uint32_t index, const llvm::BitVector& unionConstraint, const llvm::BitVector& used) const
 {
 	if (!unionConstraint[index])
@@ -1386,6 +1301,133 @@ void Reduction::perform()
 	reduce();
 }
 
+bool VertexColorer::removeRowsWithFewConstraints()
+{
+	//Vertex with no positive-weight friends and "few" constraints can be removed and assigned a color at the end
+	//The idea is that someone has less than N-1 constraint, for the pigeon hole there is a color <=N than is valid, and this color can be assigned at the end
+
+	RemoveFewConstraints reduction(*this);
+
+	if (!reduction.couldBePerformed())
+		return false;
+
+	reduction.perform();
+	return true;
+}
+
+bool RemoveFewConstraints::couldBePerformed()
+{
+	//Vertex with no positive-weight friends and "few" constraints can be removed and assigned a color at the end
+	//The idea is that someone has less than N-1 constraint, for the pigeon hole there is a color <=N than is valid, and this color can be assigned at the end
+
+	uint32_t cutoff = instance.lowerBoundOnNumberOfColors(/*forceEvaluation*/true) - 1;
+
+	bool anyToBePostProcessed = false;
+
+	howManyOnCutoff = 0;
+
+	for (uint32_t i = 0; i<instance.N; i++)
+	{
+		if (!isAlive(i))
+			continue;
+		if (instance.friends[i].empty() && instance.constraints[i].count() <= cutoff)
+		{
+			toBePostProcessed[i] = true;
+			anyToBePostProcessed = true;
+			if (instance.constraints[i].count() == cutoff)
+				howManyOnCutoff++;
+		}
+	}
+
+	return anyToBePostProcessed;
+}
+
+void RemoveFewConstraints::relabelNodes()
+{
+	uint32_t firstUnused = 0;
+	for (uint32_t i=0; i<instance.N; i++)
+	{
+		if (!toBePostProcessed[i])
+		{
+			alive.push_back(i);
+			newIndex[i] = firstUnused++;
+		}
+	}
+}
+
+void RemoveFewConstraints::dumpDescription() const
+{
+	llvm::errs() << std::string(instance.depthRecursion, ' ') << reductionName() <<":\t"<< instance.N << " -> " << alive.size() << "\n";
+}
+
+std::string RemoveFewConstraints::reductionName() const
+{
+	return "Remove rows with few constraints";
+}
+
+void RemoveFewConstraints::buildSubproblems()
+{
+	subproblems.push_back(VertexColorer(alive.size(), instance));
+
+	VertexColorer& subproblem = subproblems.front();
+
+	for (const VertexColorer::Link& link : instance.allFriendshipIterable())
+	{
+		const uint32_t a = link.first;
+		const uint32_t b = link.second;
+		if (!toBePostProcessed[a] && !toBePostProcessed[b])
+			subproblem.addFriendship(link.weight, newIndex[a], newIndex[b]);
+	}
+}
+
+void RemoveFewConstraints::preprocessing(VertexColorer& subproblem) const
+{
+	//Needed as not run into under-flow on unsigned ints
+	const uint32_t lowerBound = std::max(instance.lowerBoundOnNumberOfColors(), howManyOnCutoff) - howManyOnCutoff;
+
+	subproblem.improveLowerBound(lowerBound);
+}
+
+void RemoveFewConstraints::postprocessing(VertexColorer& subproblem)
+{
+	instance.improveLowerBound(subproblem.lowerBoundOnNumberOfColors());
+}
+
+void RemoveFewConstraints::reduce()
+{
+	VertexColorer& subproblem = subproblems.front();
+
+	preprocessing(subproblem);
+	subproblem.solve();
+	postprocessing(subproblem);
+
+	const VertexColorer::Coloring& subcolors = subproblem.getSolution();
+
+	instance.retColors = VertexColorer::Coloring(instance.N, instance.N);
+	for (uint32_t i = 0; i<alive.size(); i++)
+	{
+		instance.retColors[alive[i]] = subcolors[i];
+	}
+	for (uint32_t i = 0; i<instance.N; i++)
+	{
+		if (toBePostProcessed[i])
+		{
+			std::vector<bool> conflicting(instance.N+1, false);
+			for (uint32_t j=0; j<instance.N; j++)
+			{
+				if (instance.constraints[i][j])
+					conflicting[instance.retColors[j]] = true;
+			}
+			uint32_t& color = instance.retColors[i];
+			color = 0;
+			while (conflicting[color])
+			{
+				color++;
+			}
+		}
+	}
+}
+
 bool RemoveDominated::couldBePerformed()
 {
 	if (couldBeAvoided())
@@ -1411,7 +1453,6 @@ bool RemoveDominated::couldBePerformed()
 		}
 	}
 
-	parent.resize(instance.N);
 	for (uint32_t i=0; i<instance.N; ++i)
 		parent[i] = i;
 
@@ -1453,6 +1494,17 @@ bool RemoveDominated::couldBePerformed()
 	}
 
 	return alive.size() < instance.N;
+}
+
+void RemoveDominated::relabelNodes()
+{
+	uint32_t firstUnused = 0;
+	for (uint32_t i=0; i<instance.N; i++)
+	{
+		if (!isAlive(i))
+			continue;
+		newIndex[i] = firstUnused++;
+	}
 }
 
 void RemoveDominated::dumpDescription() const
@@ -1505,6 +1557,11 @@ void RemoveDominated::postprocessing(VertexColorer& subproblem)
 	instance.improveLowerBound(subproblem.lowerBoundOnNumberOfColors());
 }
 
+bool RemoveFewConstraints::isAlive(const uint32_t i) const
+{
+	return parent[i] == i;
+}
+
 bool RemoveDominated::isAlive(const uint32_t i) const
 {
 	return parent[i] == i;
@@ -1537,7 +1594,7 @@ void RemoveDominated::reduce()
 	{
 		assert(isAlive(findAncestor(i)));
 		if (!instance.isAlive(i))
-			instance.retColors[i] = instance.retColors[findParent(i)];
+			instance.retColors[i] = instance.retColors[findAncestor(i)];
 	}
 }
 
@@ -1680,6 +1737,11 @@ void SplitArticulation::dumpSubproblems() const
 	{
 		llvm::errs() << numerositySubproblem[s] << " ";
 	}
+}
+
+bool RemoveDominated::couldBeAvoided() const
+{
+	return instance.avoidPass[VertexColorer::REMOVE_DOMINATED];
 }
 
 bool SplitArticulation::couldBeAvoided() const
@@ -2093,12 +2155,20 @@ void VertexColorer::solveInvariantsAlreadySet()
 	}
 
 	//If there are rows with no weighted friends and less than lowerBound constraints, remove them
-	if (removeRowsWithFewConstraints())
+	RemoveFewConstraints removeFewConstraints(*this);
+	if (removeFewConstraints.couldBePerformed())
+	{
+		removeFewConstraints.perform();
 		return;
+	}
 
 	//If there are rows dominated by others, remove them
-	if (removeDominatedRows())
+	RemoveDominated removeDominated(*this);
+	if (removeDominated.couldBePerformed())
+	{
+		removeDominated.perform();
 		return;
+	}
 
 	//TODO: whenever there are 2 clique, and the only additional constraints/friends are between them, they can be solved independenty from the rest
 
