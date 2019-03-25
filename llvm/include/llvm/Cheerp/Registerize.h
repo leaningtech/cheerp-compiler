@@ -723,7 +723,6 @@ private:
 	uint32_t maximalGeneratedClique() const;
 	uint32_t lowerBoundOnNumberOfColors(const bool forceEvaluation = false);
 	bool splitOnArticulationClique(const bool keepSingleNodes = false);
-	bool splitConflicting(const bool conflicting);
 	bool checkConstraintsAreRespected(const Coloring& colors) const;
 	bool friendshipsInvariantsHolds() const;
 	bool friendInvariantsHolds() const;
@@ -758,12 +757,124 @@ private:
 	enum ReductionPasses{SPLIT_CONFLICTING, SPLIT_UNCONNECTED, SPLIT_ARTICULATION, REMOVE_DOMINATED, REMOVE_SMALL};
 	std::array<bool, 5> avoidPass{};
 	uint32_t depthRecursion;
+	friend class Reduction;
+	friend class SplitArticulation;
+	friend class SplitConflictingBase;
+	friend class SplitUnconnected;
+	friend class SplitInverseUnconnected;
 public:
 #ifdef REGISTERIZE_DEBUG
 	enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
 	std::array<uint32_t, 4> debugStats{};
 #endif
 	uint32_t times;
+};
+
+class Reduction
+{
+public:
+	//TODO: should be made private/accessible only through friendship
+	Reduction(VertexColorer& instance)
+		: instance(instance)
+	{}
+	virtual ~Reduction()
+	{}
+	virtual bool couldBePerformed() = 0;
+	virtual void reduce() = 0;
+	virtual std::string reductionName() const = 0;
+	virtual void relabelNodes() = 0;
+	virtual void buildSubproblems() = 0;
+	void perform()
+	{
+		relabelNodes();
+#ifdef REGISTERIZE_DEBUG
+		dumpDescription();
+#endif
+		buildSubproblems();
+		reduce();
+	}
+	virtual void dumpDescription() const = 0;
+	VertexColorer& instance;
+};
+class SplitArticulation : public Reduction
+{
+public:
+	SplitArticulation(VertexColorer& instance, const bool limitSize)
+		: Reduction(instance), limitSize(limitSize), blockNumber(limitSize ?
+										instance.parent :
+										instance.findAlreadyDiagonalized()),
+		blocks(blockNumber.size() + 1, instance),
+		newIndex(instance.N, 0), whichSubproblem(instance.N, 0), numerositySubproblem(instance.N, 0)
+	{}
+	const bool limitSize;
+	bool couldBePerformed();
+	void relabelNodes();
+	void reduce();
+	void dumpSubproblems() const;
+	void dumpDescription() const;
+	std::string reductionName() const;
+	void preprocessing(VertexColorer& subsolution) const;
+	void postprocessing(VertexColorer& subsolution);
+	void buildSubproblems();
+	bool couldBeAvoided() const;
+private:
+	const std::vector<uint32_t> blockNumber;
+	VertexColorer blocks;
+	std::vector<uint32_t> start, end;
+	std::vector<uint32_t> newIndex;
+	std::vector<uint32_t> whichSubproblem;
+	std::vector<uint32_t> numerositySubproblem;
+	std::vector<uint32_t> articulations;
+	std::vector<uint32_t> seeds;
+	std::vector<VertexColorer> subproblems;
+};
+class SplitConflictingBase : public Reduction
+{
+public:
+	SplitConflictingBase(VertexColorer& instance, const bool conflicting)
+		: Reduction(instance), conflicting(conflicting), newIndex(instance.N, 0), whichSubproblem(instance.N, 0), numerositySubproblem(instance.N, 0)
+	{}
+	bool couldBePerformed();
+	void reduce();
+	void relabelNodes();
+	void dumpSubproblems() const;
+	void dumpDescription() const;
+	void buildSubproblems();
+	virtual std::string reductionName() const = 0;
+	virtual void preprocessing(VertexColorer& subsolution) const = 0;
+	virtual void postprocessing(VertexColorer& subsolution) = 0;
+	virtual bool couldBeAvoided() const = 0;
+private:
+	const bool conflicting;
+	std::vector<uint32_t> newIndex;
+	std::vector<uint32_t> whichSubproblem;
+	std::vector<uint32_t> numerositySubproblem;
+	std::vector<uint32_t> seeds;
+	std::vector<VertexColorer> subproblems;
+};
+class SplitUnconnected : public SplitConflictingBase
+{
+public:
+	SplitUnconnected(VertexColorer& instance)
+		: SplitConflictingBase(instance, /*conflicting*/false)
+	{}
+	std::string reductionName() const;
+	void preprocessing(VertexColorer& subsolution) const;
+	void postprocessing(VertexColorer& subsolution);
+	bool couldBeAvoided() const;
+private:
+	uint32_t sumColors;
+};
+class SplitInverseUnconnected : public SplitConflictingBase
+{
+public:
+	SplitInverseUnconnected(VertexColorer& instance)
+		: SplitConflictingBase(instance, /*conflicting*/true)
+	{}
+	std::string reductionName() const;
+	void preprocessing(VertexColorer& subsolution) const;
+	void postprocessing(VertexColorer& subsolution);
+	bool couldBeAvoided() const;
 };
 
 /**
