@@ -664,6 +664,19 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 		state.choicesMade.reset(oldSize);
 		state.currentScore += F.first;
 
+		while (state.processedLinks < orderedLinks.size() &&
+				orderedLinks[state.processedLinks].first.first == F.second.first &&
+				orderedLinks[state.processedLinks].first.second == F.second.second)
+		{
+			const uint32_t x = orderedLinks[state.processedLinks].second;
+			if (areGroupedStillGood[x] == 0)
+			{
+				state.currentScore += 3;
+			}
+			areGroupedStillGood[x]++;
+			++state.processedLinks;
+		}
+
 		if (areMergeable(a, b))
 		{
 			//set as unmergiable, and recurse
@@ -677,10 +690,26 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 			DFSwithLimitedDepth(state);
 		}
 
+		while (state.processedLinks > 0 &&
+				orderedLinks[state.processedLinks-1].first.first == F.second.first &&
+				orderedLinks[state.processedLinks-1].first.second == F.second.second)
+		{
+			--state.processedLinks;
+			const uint32_t x = orderedLinks[state.processedLinks].second;
+			areGroupedStillGood[x]--;
+			if (areGroupedStillGood[x] == 0)
+			{
+				state.currentScore -= 3;
+			}
+		}
+
 		state.currentScore -= F.first;
 	}
 	state.processedFriendships--;
 	state.choicesMade.resize(oldSize);
+
+	if (state.processedFriendships == 0)
+		assert(state.currentScore == 0);
 }
 
 uint32_t VertexColorer::chromaticNumberWithNoFriends(uint32_t lowerBound, uint32_t minimalColors) const
@@ -1584,7 +1613,7 @@ void RemoveDominated::relabelNodes()
 
 void RemoveDominated::dumpDescription() const
 {
-	llvm::errs() << reductionName() << ":\t"<< instance.N << " -> " << alive.size() << "\n";
+	llvm::errs() <<std::string(instance.depthRecursion, ' ')<< reductionName() << ":\t"<< instance.N << " -> " << alive.size() << "\n";
 }
 
 std::string RemoveDominated::reductionName() const
@@ -2342,6 +2371,70 @@ bool VertexColorer::checkConstraintsAreRespected(const Coloring& colors) const
 	return true;
 }
 
+void VertexColorer::buildOrderedLinks()
+{
+	typedef std::pair<std::pair<uint32_t,uint32_t>, uint32_t> FrienshipWithOrder;
+	std::vector<std::pair<std::pair<uint32_t,uint32_t>, uint32_t>> orderedFriendships;
+	for (uint32_t i=0; i<friendships.size(); i++)
+	{
+		orderedFriendships.push_back({friendships[i].second, i});
+	}
+	for (uint32_t i=0; i<groupedLinks.size(); i++)
+	{
+		const auto& V = groupedLinks[i];
+		for (const Link& link : V)
+		{
+			orderedLinks.push_back({link, i});
+		}
+	}
+
+	//Lexicographical order work in this case
+	sort(orderedFriendships.begin(), orderedFriendships.end());
+
+	sort(orderedLinks.begin(), orderedLinks.end(), [](const std::pair<Link, uint32_t>& a, const std::pair<Link,uint32_t>& b) -> bool
+			{
+				if (a.first.first != b.first.first)
+					return a.first.first < b.first.first;
+				return a.first.second < b.first.second;
+			});
+
+	uint32_t i=0, j=0;
+
+	while (i<orderedFriendships.size() && j<orderedLinks.size())
+	{
+		if (orderedFriendships[i].first.first != orderedLinks[j].first.first)
+		{
+			if (orderedFriendships[i].first.first < orderedLinks[j].first.first)
+				++i;
+			else
+			{
+				assert(false);
+				++j;
+			}
+			continue;
+		}
+		if (orderedFriendships[i].first.second != orderedLinks[j].first.second)
+		{
+			if (orderedFriendships[i].first.second < orderedLinks[j].first.second)
+				++i;
+			else
+			{
+				assert(false);
+				++j;
+			}
+			continue;
+		}
+		//If we are here, it means they are equal
+		orderedLinks[j].first.weight = orderedFriendships[i].second;
+		++j;
+	}
+
+	sort(orderedLinks.begin(), orderedLinks.end(), [](const std::pair<Link, uint32_t>& a, const std::pair<Link,uint32_t>& b) -> bool
+			{
+				return a.first.weight < b.first.weight;
+			});
+}
+
 void VertexColorer::establishInvariants()
 {
 	establishInvariantsGroupedLinks();
@@ -2415,6 +2508,7 @@ void VertexColorer::solveInvariantsAlreadySet()
 	buildFriendships();
 	establishInvariants();
 	assert(friendshipsInvariantsHolds());
+	buildOrderedLinks();
 
 	IterationsCounter counter(times);
 	//iterativeDeepening takes care of exploring as much of the Zykov tree as possible given the resources
