@@ -1247,6 +1247,16 @@ bool VertexColorer::areAllAlive() const
 	return true;
 }
 
+uint32_t findRepresentative(std::vector<uint32_t>& parent, uint32_t index)
+{
+	assert(index < parent.size());
+	while (parent[index] != index)
+	{
+		index = parent[index];
+	}
+	return parent[index];
+}
+
 void VertexColorer::permuteFirstElements(Coloring& coloring, const uint32_t N)
 {
 	const uint32_t M = computeNumberOfColors(coloring);
@@ -1285,10 +1295,16 @@ void VertexColorer::permuteFirstElements(Coloring& coloring, const uint32_t N)
 	}
 }
 
-void Reduction::perform()
+bool Reduction::perform()
 {
+	if (!couldBePerformed())
+		return false;
+
 	//Find relabeling that split the problem into subproblem(s)
 	relabelNodes();
+
+	if (!couldBePerformedPhiEdges())
+		return false;
 
 #ifdef REGISTERIZE_DEBUG
 	//Dump informations
@@ -1299,7 +1315,10 @@ void Reduction::perform()
 	buildSubproblems();
 	//Solve them
 	reduce();
+
 	instance.checkConstraintsAreRespected(instance.retColors);
+
+	return true;
 }
 
 bool VertexColorer::removeRowsWithFewConstraints()
@@ -1309,11 +1328,7 @@ bool VertexColorer::removeRowsWithFewConstraints()
 
 	RemoveFewConstraints reduction(*this);
 
-	if (!reduction.couldBePerformed())
-		return false;
-
-	reduction.perform();
-	return true;
+	return reduction.perform();
 }
 
 bool RemoveFewConstraints::couldBePerformed()
@@ -1339,6 +1354,13 @@ bool RemoveFewConstraints::couldBePerformed()
 	}
 
 	return anyToBePostProcessed;
+}
+
+bool RemoveFewConstraints::couldBePerformedPhiEdges()
+{
+	//TODO: assert me
+	//Since only nodes without friendships are removed, it's always valid to perform this transformation
+	return true;
 }
 
 void RemoveFewConstraints::relabelNodes()
@@ -1381,8 +1403,8 @@ void RemoveFewConstraints::buildSubproblems()
 	{
 		const uint32_t a = link.first;
 		const uint32_t b = link.second;
-		if (!toBePostProcessed[a] && !toBePostProcessed[b])
-			subproblem.addFriendship(link.weight, newIndex[a], newIndex[b]);
+		assert(!toBePostProcessed[a] && !toBePostProcessed[b]);
+		subproblem.addFriendship(link.weight, newIndex[a], newIndex[b]);
 	}
 	for (const std::vector<VertexColorer::Link>& edge : instance.groupedLinks)
 	{
@@ -1392,9 +1414,8 @@ void RemoveFewConstraints::buildSubproblems()
 			const uint32_t a = link.first;
 			const uint32_t b = link.second;
 			//TODO: reintroduce this, maybe
-			//assert(toBePostProcessed[a] && toBePostProcessed[b]);	//This is guaranteed since no friendships are allowed in this reduction
-			if (!toBePostProcessed[a] && !toBePostProcessed[b])
-				subproblem.addOnEdge(newIndex[a], newIndex[b]);
+			assert(!toBePostProcessed[a] && !toBePostProcessed[b]);	//This is guaranteed since no friendships are allowed in this reduction
+			subproblem.addOnEdge(newIndex[a], newIndex[b]);
 		}
 	}
 }
@@ -1403,7 +1424,6 @@ void RemoveFewConstraints::preprocessing(VertexColorer& subproblem) const
 {
 	//Needed as not run into under-flow on unsigned ints
 	const uint32_t lowerBound = std::max(instance.lowerBoundOnNumberOfColors(), howManyOnCutoff) - howManyOnCutoff;
-
 	subproblem.improveLowerBound(lowerBound);
 }
 
@@ -1515,6 +1535,42 @@ bool RemoveDominated::couldBePerformed()
 	return alive.size() < instance.N;
 }
 
+bool RemoveDominated::couldBePerformedPhiEdges()
+{
+	for (const auto& E : instance.groupedLinks)
+	{
+		for (const VertexColorer::Link& link : E)
+		{
+			const uint32_t a = link.first;
+			const uint32_t b = link.second;
+			uint32_t Pa = a;
+			uint32_t Pb = b;
+			//TODO: create findParentNoShortening
+			while (parent[Pa] != Pa)
+			{
+				Pa = parent[Pa];
+			}
+			while (parent[Pb] != Pb)
+			{
+				Pb = parent[Pb];
+			}
+			//If they end up with the same ancestor, it's good
+			if (Pa == Pb)
+				continue;
+			//Otherwise, do not remove nodes that have a phi edge
+			if (!isAlive(a))
+			{
+				return false;
+			}
+			if (!isAlive(b))
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 void RemoveDominated::relabelNodes()
 {
 	uint32_t firstUnused = 0;
@@ -1569,6 +1625,11 @@ void RemoveDominated::buildSubproblems()
 			assert(instance.constraints[a][b] == instance.constraints[b][a]);
 			if (!instance.constraints[a][b])
 				subproblem.addOnEdge(newIndex[a], newIndex[b]);
+			else
+			{
+				subproblem.popLastEdge();
+				break;
+			}
 		}
 	}
 }
@@ -1711,6 +1772,93 @@ bool SplitConflictingBase::couldBePerformed()
 	return (seeds.size() > 1);
 }
 
+bool SplitArticulation::couldBePerformedPhiEdges()
+{
+	for (const auto& E : instance.groupedLinks)
+	{
+		uint32_t subproblem = instance.N;
+		for (const VertexColorer::Link& link : E)
+		{
+			uint32_t a = link.first;
+			uint32_t b = link.second;
+			if (whichSubproblem[a] > whichSubproblem[b])
+				std::swap(a, b);
+			assert(whichSubproblem[b] > 0);
+			if (subproblem == instance.N)
+				subproblem = whichSubproblem[b];
+			if (subproblem != whichSubproblem[b])
+				return false;
+			if (whichSubproblem[a] != 0 && whichSubproblem[a] != subproblem)
+				return false;
+		}
+	}
+	return true;
+}
+
+bool SplitConflictingBase::couldBePerformedPhiEdges()
+{
+	std::vector<uint32_t> parentRegion(seeds.size());
+	for (uint32_t i=0; i<parentRegion.size(); i++)
+	{
+		parentRegion[i] = i;
+	}
+
+	for (const auto& E : instance.groupedLinks)
+	{
+		uint32_t subproblem = instance.N;
+		for (const VertexColorer::Link& link : E)
+		{
+			uint32_t a = findRepresentative(parentRegion, whichSubproblem[link.first]);
+			uint32_t b = findRepresentative(parentRegion, whichSubproblem[link.second]);
+			assert(parentRegion[a] == a);
+			assert(parentRegion[b] == b);
+			if (subproblem == instance.N)
+				subproblem = a;
+			if (a != subproblem)
+				parentRegion[a] = subproblem;
+			if (b != subproblem)
+				parentRegion[b] = subproblem;
+		}
+	}
+
+	std::vector<uint32_t> representative(parentRegion.size());
+	std::set<uint32_t> set;
+	for (uint32_t i=0; i<parentRegion.size(); i++)
+	{
+		representative[i] = findRepresentative(parentRegion, i);
+		set.insert(representative[i]);
+	}
+	if (set.size() < 2)
+		return false;
+
+
+	numerositySubproblem = std::vector<uint32_t> (instance.N, 0);
+	newIndex = std::vector<uint32_t> (instance.N, instance.N);
+	std::vector<uint32_t> oldSubproblem = whichSubproblem;
+	whichSubproblem = std::vector<uint32_t> (instance.N, instance.N);
+	uint32_t firstUnused = 0;
+	std::vector<uint32_t> newSeeds;
+	for (uint32_t R : set)
+	{
+		newSeeds.push_back(seeds[R]);
+		for (uint32_t i=0; i<instance.N; i++)
+		{
+			if (representative[oldSubproblem[i]] != R)
+				continue;
+			whichSubproblem[i] = firstUnused;
+			newIndex[i] = numerositySubproblem[seeds[R]]++;
+		}
+		firstUnused++;
+	}
+	for (uint32_t i=0; i<instance.N; i++)
+	{
+		assert(whichSubproblem[i] < instance.N);
+		assert(newIndex[i] < instance.N);
+	}
+	seeds = newSeeds;
+	return true;
+}
+
 void SplitConflictingBase::dumpDescription() const
 {
 	llvm::errs() <<std::string(instance.depthRecursion, ' ') << reductionName()<<"\t";
@@ -1723,9 +1871,9 @@ void SplitArticulation::dumpDescription() const
 	llvm::errs() <<std::string(instance.depthRecursion, ' ') << reductionName();
 	if (!limitSize)
 	{
-		llvm::errs() << " clique of size " << numerositySubproblem[0];
+		llvm::errs() << " clique of size " << numerositySubproblem[articulations.front()];
 	}
-	llvm::errs() << "\t";
+	llvm::errs() << ":\t";
 	SplitArticulation::dumpSubproblems();
 	llvm::errs() << "\n";
 }
@@ -1954,6 +2102,10 @@ void SplitArticulation::buildSubproblems()
 			{
 				subproblems[whichSubproblem[b]-1].addOnEdge(newIndex[b], newIndex[a]);
 			}
+			else
+			{
+				llvm_unreachable("By construction");
+			}
 		}
 	}
 }
@@ -2164,6 +2316,8 @@ bool VertexColorer::friendInvariantsHolds() const
 
 		for (uint32_t i=0; i<F.size(); i++)
 		{
+			if (constraints[F[i].first][j])
+				return false;
 			if (F[i].second == 0 || F[i].first == j)
 				return false;
 		}
@@ -2181,6 +2335,7 @@ bool VertexColorer::checkConstraintsAreRespected(const Coloring& colors) const
 	assert(colors.size() == N);
 	for (const Link& link : constraintIterable())
 	{
+		assert(link.first != link.second);
 		if (colors[link.first] == colors[link.second])
 			return false;
 	}
@@ -2198,6 +2353,10 @@ void VertexColorer::solve()
 {
 	establishInvariants();
 	solveInvariantsAlreadySet();
+//	dump();
+//	for (uint32_t x : retColors)
+//	llvm::errs() << x << " ";
+//	llvm::errs() << "\n\n\n";
 	assert(checkConstraintsAreRespected(retColors));
 }
 
@@ -2212,53 +2371,41 @@ void VertexColorer::solveInvariantsAlreadySet()
 	assert(friendships.empty());
 	assert(friendInvariantsHolds());
 
-	//If the inverese connection graph is unconnected, split!
-	SplitInverseUnconnected splitInverseUnconnected(*this);
-	if (splitInverseUnconnected.couldBePerformed())
-	{
-		splitInverseUnconnected.perform();
-		return;
+	{	//If the inverese connection graph is unconnected, split!
+		SplitInverseUnconnected reduction(*this);
+		if (reduction.perform())
+			return;
 	}
 
-	//If the connection graph is unconnected, split!
-	SplitUnconnected splitUnconnected(*this);
-	if (splitUnconnected.couldBePerformed())
-	{
-		splitUnconnected.perform();
-		return;
+	{	//If the connection graph is unconnected, split!
+		SplitUnconnected reduction(*this);
+		if (reduction.perform())
+			return;
 	}
 
-	//If there is clique that splits the graph (sort of an articulation point), do it
-	SplitArticulation splitArticulationClique(*this, /*limitSize*/false);
-	if (splitArticulationClique.couldBePerformed())
-	{
-		splitArticulationClique.perform();
-		return;
+	{	//If there is clique that splits the graph (sort of an articulation point), do it
+		SplitArticulation reduction(*this, /*limitSize*/false);
+		if (reduction.perform())
+			return;
 	}
 
-	//Single node articulation point are mostly treated in the previous case,
-	//but there are some cases in which is the clique that should be splitted that are not treated, so we do another pass keeping the nodes from forming a clique
-	SplitArticulation splitArticulationVertex(*this, /*limitSize*/true);
-	if (splitArticulationVertex.couldBePerformed())
-	{
-		splitArticulationVertex.perform();
-		return;
+	{	//Single node articulation point are mostly treated in the previous case,
+		//but there are some cases in which is the clique that should be splitted that are not treated, so we do another pass keeping the nodes from forming a clique
+		SplitArticulation reduction(*this, /*limitSize*/true);
+		if (reduction.perform())
+			return;
 	}
 
-	//If there are rows with no weighted friends and less than lowerBound constraints, remove them
-	RemoveFewConstraints removeFewConstraints(*this);
-	if (removeFewConstraints.couldBePerformed())
-	{
-		removeFewConstraints.perform();
-		return;
+	{	//If there are rows with no weighted friends and less than lowerBound constraints, remove them
+		RemoveFewConstraints reduction(*this);
+		if (reduction.perform())
+			return;
 	}
 
-	//If there are rows dominated by others, remove them
-	RemoveDominated removeDominated(*this);
-	if (removeDominated.couldBePerformed())
-	{
-		removeDominated.perform();
-		return;
+	{	//If there are rows dominated by others, remove them
+		RemoveDominated reduction(*this);
+		if (reduction.perform())
+			return;
 	}
 
 	//TODO: whenever there are 2 clique, and the only additional constraints/friends are between them, they can be solved independenty from the rest
@@ -2315,10 +2462,22 @@ void Registerize::RegisterAllocatorInst::solve()
 	}
 	for (const auto& E : edges)
 	{
-		colorer.addNewEdge();
+		bool allPossiblySatisfyable = true;
 		for (const auto&e : E)
 		{
-			colorer.addOnEdge(e.first, e.second);
+			if (e.first != e.second && bitsetConstraint[e.first][e.second])
+			{
+				allPossiblySatisfyable = false;
+				break;
+			}
+		}
+		if (allPossiblySatisfyable)
+		{
+			colorer.addNewEdge();
+			for (const auto&e : E)
+			{
+				colorer.addOnEdge(e.first, e.second);
+			}
 		}
 	}
 
