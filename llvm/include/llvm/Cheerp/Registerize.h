@@ -145,6 +145,10 @@ public:
 	{
 		groupedLinks.push_back(std::vector<Link>());
 	}
+	void popLastEdge()
+	{
+		groupedLinks.pop_back();
+	}
 	void addOnEdge(const uint32_t a, const uint32_t b)
 	{
 		if (a != b && !constraints[a][b])
@@ -511,6 +515,7 @@ private:
 			{
 				if (constraints[V[i].first][V[i].second])
 				{
+					assert(false);
 					V[i].weight = 0;
 					++i;
 					continue;
@@ -518,7 +523,6 @@ private:
 				uint32_t j=i+1;
 				while (j<V.size() && V[j].first == V[i].first  && V[j].second == V[i].second)
 				{
-					V[i].weight += V[j].weight;
 					V[j].weight = 0;
 					j++;
 				}
@@ -704,16 +708,14 @@ private:
 		}
 		for (const auto& edge : groupedLinks)
 		{
-			bool broken = false;
 			for (const auto& E : edge)
 			{
 				if (coloring[E.first] != coloring[E.second])
 				{
-					broken = true;
+					res += 3;
 					break;
 				}
 			}
-			if (broken) res += 3;
 		}
 		return res;
 	}
@@ -834,11 +836,12 @@ public:
 	virtual ~Reduction()
 	{}
 	virtual bool couldBePerformed() = 0;
+	virtual bool couldBePerformedPhiEdges() = 0;
 	virtual void reduce() = 0;
 	virtual std::string reductionName() const = 0;
 	virtual void relabelNodes() = 0;
 	virtual void buildSubproblems() = 0;
-	void perform();
+	bool perform();
 	virtual void dumpDescription() const = 0;
 	VertexColorer& instance;
 };
@@ -850,6 +853,7 @@ public:
 		: Reduction(instance), toBePostProcessed(instance.N, false), newIndex(instance.N, 0)
 	{}
 	bool couldBePerformed();
+	bool couldBePerformedPhiEdges();
 	void relabelNodes();
 	void reduce();
 	void dumpDescription() const;
@@ -873,6 +877,7 @@ public:
 		: Reduction(instance), parent(instance.N), newIndex(instance.N, 0)
 	{}
 	bool couldBePerformed();
+	bool couldBePerformedPhiEdges();
 	void relabelNodes();
 	void reduce();
 	void dumpDescription() const;
@@ -931,6 +936,7 @@ public:
 	{}
 	const bool limitSize;
 	bool couldBePerformed();
+	bool couldBePerformedPhiEdges();
 	void relabelNodes();
 	void reduce();
 	void dumpSubproblems() const;
@@ -959,6 +965,7 @@ public:
 		: Reduction(instance), conflicting(conflicting), newIndex(instance.N, 0), whichSubproblem(instance.N, 0), numerositySubproblem(instance.N, 0)
 	{}
 	bool couldBePerformed();
+	bool couldBePerformedPhiEdges();
 	void reduce();
 	void relabelNodes();
 	void dumpSubproblems() const;
@@ -981,7 +988,7 @@ class SplitUnconnected : public SplitConflictingBase
 {
 public:
 	SplitUnconnected(VertexColorer& instance)
-		: SplitConflictingBase(instance, /*conflicting*/false)
+		: SplitConflictingBase(instance, /*conflicting*/false), sumColors(0)
 	{}
 	std::string reductionName() const;
 	void preprocessing(VertexColorer& subsolution) const;
