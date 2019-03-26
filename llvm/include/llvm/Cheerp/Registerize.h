@@ -702,6 +702,19 @@ private:
 			if (coloring[p.second.first] != coloring[p.second.second])
 				res += p.first;
 		}
+		for (const auto& edge : groupedLinks)
+		{
+			bool broken = false;
+			for (const auto& E : edge)
+			{
+				if (coloring[E.first] != coloring[E.second])
+				{
+					broken = true;
+					break;
+				}
+			}
+			if (broken) res += 3;
+		}
 		return res;
 	}
 	Coloring getColors(const std::vector<uint32_t>& P) const
