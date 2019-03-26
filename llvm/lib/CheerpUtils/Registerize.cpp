@@ -1299,6 +1299,7 @@ void Reduction::perform()
 	buildSubproblems();
 	//Solve them
 	reduce();
+	instance.checkConstraintsAreRespected(instance.retColors);
 }
 
 bool VertexColorer::removeRowsWithFewConstraints()
@@ -1328,8 +1329,6 @@ bool RemoveFewConstraints::couldBePerformed()
 
 	for (uint32_t i = 0; i<instance.N; i++)
 	{
-		if (!isAlive(i))
-			continue;
 		if (instance.friends[i].empty() && instance.constraints[i].count() <= cutoff)
 		{
 			toBePostProcessed[i] = true;
@@ -1532,12 +1531,9 @@ void RemoveDominated::buildSubproblems()
 
 	for (const VertexColorer::Link& link : instance.constraintIterable())
 	{
-		const uint32_t i=link.first;
-		const uint32_t j=link.second;
-		if (isAlive(i) && isAlive(j))
-		{
-			subproblem.addConstraint(newIndex[i], newIndex[j]);
-		}
+		const uint32_t i=findAncestor(link.first);
+		const uint32_t j=findAncestor(link.second);
+		subproblem.addConstraint(newIndex[i], newIndex[j]);
 	}
 
 	//Add friendships (if they do not clash with constraints)
@@ -1550,7 +1546,6 @@ void RemoveDominated::buildSubproblems()
 		if (!instance.constraints[a][b])
 			subproblem.addFriendship(link.weight, newIndex[a], newIndex[b]);
 	}
-
 }
 
 void RemoveDominated::preprocessing(VertexColorer& subproblem) const
@@ -1562,11 +1557,6 @@ void RemoveDominated::preprocessing(VertexColorer& subproblem) const
 void RemoveDominated::postprocessing(VertexColorer& subproblem)
 {
 	instance.improveLowerBound(subproblem.lowerBoundOnNumberOfColors());
-}
-
-bool RemoveFewConstraints::isAlive(const uint32_t i) const
-{
-	return parent[i] == i;
 }
 
 bool RemoveDominated::isAlive(const uint32_t i) const
@@ -1600,7 +1590,7 @@ void RemoveDominated::reduce()
 	for (uint32_t i = 0; i<instance.N; i++)
 	{
 		assert(isAlive(findAncestor(i)));
-		if (!instance.isAlive(i))
+		if (!isAlive(i))
 			instance.retColors[i] = instance.retColors[findAncestor(i)];
 	}
 }
@@ -2127,6 +2117,7 @@ bool VertexColorer::friendInvariantsHolds() const
 
 bool VertexColorer::checkConstraintsAreRespected(const Coloring& colors) const
 {
+	assert(colors.size() == N);
 	for (const Link& link : constraintIterable())
 	{
 		if (colors[link.first] == colors[link.second])
@@ -2272,7 +2263,7 @@ void Registerize::RegisterAllocatorInst::solve()
 	{
 		for (uint32_t j=i+1; j<color.size(); j++)
 		{
-			if (color[i] == color[j] && isAlive(findParent(i)) && isAlive(findParent(j)) && couldBeMerged(findParent(i), findParent(j)))
+			if (color[i] == color[j] && isAlive(findParent(i)) && isAlive(findParent(j)) && findParent(i)!=findParent(j))
 			{
 				mergeVirtual(findParent(i), findParent(j));
 			}
