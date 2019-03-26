@@ -766,7 +766,7 @@ class RemoveFewConstraints : public Reduction
 {
 public:
 	RemoveFewConstraints(VertexColorer& instance)
-		: Reduction(instance), toBePostProcessed(instance.N, false), parent(instance.N), newIndex(instance.N, 0)
+		: Reduction(instance), toBePostProcessed(instance.N, false), newIndex(instance.N, 0)
 	{}
 	bool couldBePerformed();
 	void relabelNodes();
@@ -779,10 +779,7 @@ public:
 	bool couldBeAvoided() const;
 private:
 	uint32_t howManyOnCutoff;
-	bool isAlive(const uint32_t i) const;
-	uint32_t findAncestor(const uint32_t i);
 	std::vector<bool> toBePostProcessed;
-	std::vector<uint32_t> parent;
 	std::vector<uint32_t> alive;
 	std::vector<uint32_t> newIndex;
 	std::vector<VertexColorer> subproblems;
