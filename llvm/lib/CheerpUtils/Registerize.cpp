@@ -1384,6 +1384,19 @@ void RemoveFewConstraints::buildSubproblems()
 		if (!toBePostProcessed[a] && !toBePostProcessed[b])
 			subproblem.addFriendship(link.weight, newIndex[a], newIndex[b]);
 	}
+	for (const std::vector<VertexColorer::Link>& edge : instance.groupedLinks)
+	{
+		subproblem.addNewEdge();
+		for (const VertexColorer::Link& link : edge)
+		{
+			const uint32_t a = link.first;
+			const uint32_t b = link.second;
+			//TODO: reintroduce this, maybe
+			//assert(toBePostProcessed[a] && toBePostProcessed[b]);	//This is guaranteed since no friendships are allowed in this reduction
+			if (!toBePostProcessed[a] && !toBePostProcessed[b])
+				subproblem.addOnEdge(newIndex[a], newIndex[b]);
+		}
+	}
 }
 
 void RemoveFewConstraints::preprocessing(VertexColorer& subproblem) const
@@ -1545,6 +1558,18 @@ void RemoveDominated::buildSubproblems()
 		assert(instance.constraints[a][b] == instance.constraints[b][a]);
 		if (!instance.constraints[a][b])
 			subproblem.addFriendship(link.weight, newIndex[a], newIndex[b]);
+	}
+	for (const std::vector<VertexColorer::Link>& edge : instance.groupedLinks)
+	{
+		subproblem.addNewEdge();
+		for (const VertexColorer::Link& link : edge)
+		{
+			const uint32_t a = findAncestor(link.first);
+			const uint32_t b = findAncestor(link.second);
+			assert(instance.constraints[a][b] == instance.constraints[b][a]);
+			if (!instance.constraints[a][b])
+				subproblem.addOnEdge(newIndex[a], newIndex[b]);
+		}
 	}
 }
 
@@ -1909,6 +1934,28 @@ void SplitArticulation::buildSubproblems()
 			llvm_unreachable("There should be no links between subproblems (other than the clique)");
 		}
 	}
+	for (const std::vector<VertexColorer::Link>& edge : instance.groupedLinks)
+	{
+		for (VertexColorer& sub : subproblems)
+		{
+			sub.addNewEdge();
+		}
+		for (const VertexColorer::Link& link : edge)
+		{
+			uint32_t a = link.first;
+			uint32_t b = link.second;
+
+			if (whichSubproblem[a] > whichSubproblem[b])
+				std::swap(a, b);
+
+			assert(whichSubproblem[b] != 0); //It's a clique by construction, so there should be no friendships in a well formed situation between 0 and 0
+
+			if (whichSubproblem[a] == whichSubproblem[b] || whichSubproblem[a] == 0)
+			{
+				subproblems[whichSubproblem[b]-1].addOnEdge(newIndex[b], newIndex[a]);
+			}
+		}
+	}
 }
 
 void SplitArticulation::reduce()
@@ -1958,6 +2005,20 @@ void SplitConflictingBase::buildSubproblems()
 		const uint32_t b = link.second;
 		assert(whichSubproblem[a] == whichSubproblem[b]);
 		subproblems[whichSubproblem[a]].addFriendship(link.weight, newIndex[a], newIndex[b]);
+	}
+	for (const std::vector<VertexColorer::Link>& edge : instance.groupedLinks)
+	{
+		for (VertexColorer& sub : subproblems)
+		{
+			sub.addNewEdge();
+		}
+		for (const VertexColorer::Link& link : edge)
+		{
+			const uint32_t a = link.first;
+			const uint32_t b = link.second;
+			assert(whichSubproblem[a] == whichSubproblem[b]);
+			subproblems[whichSubproblem[a]].addOnEdge(newIndex[a], newIndex[b]);
+		}
 	}
 }
 
@@ -2254,11 +2315,10 @@ void Registerize::RegisterAllocatorInst::solve()
 	}
 	for (const auto& E : edges)
 	{
-		bool isFirst = true;
+		colorer.addNewEdge();
 		for (const auto&e : E)
 		{
-			addOnEdge(e.first, e.second, isFirst);
-			isFirst = false;
+			colorer.addOnEdge(e.first, e.second);
 		}
 	}
 
