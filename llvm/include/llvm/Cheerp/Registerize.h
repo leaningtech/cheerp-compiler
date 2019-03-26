@@ -96,8 +96,6 @@ public:
 		lowerBoundChromaticNumber = ((N==0)?0:1);
 		howManyWaysHasLowerBoundBeenEvaluated = 0;
 		isOptimal = true;
-		areGroupedStillGood.resize(N);
-		areGroupedStillGood.set();
 	}
 	void dump() const
 	{
@@ -541,6 +539,8 @@ private:
 					return linkVector.size() <= 1;
 				}
 				), groupedLinks.end());
+
+		areGroupedStillGood.resize(groupedLinks.size(), 0);
 	}
 	void establishInvariants();
 	void establishInvariantsFriendships();
@@ -559,6 +559,7 @@ private:
 			friends[b].push_back({a, weight});
 		}
 	}
+	void buildOrderedLinks();
 	void buildFriendships()
 	{
 		if (!friendships.empty())
@@ -578,6 +579,7 @@ private:
 			targetDepth(targetDepth), processedDepth(alreadyProcessedDepth), numWeightedFriendships(numWeightedFriendships), costPerColor(costPerColor)
 		{
 			processedFriendships = 0;
+			processedLinks = 0;
 			leafs = 0;
 			choicesMade = llvm::BitVector(0);
 			currentScore = 0;
@@ -589,6 +591,7 @@ private:
 		const uint32_t processedDepth;
 		const uint32_t numWeightedFriendships;
 		uint32_t processedFriendships;
+		uint32_t processedLinks;
 		uint32_t leafs;
 		uint32_t currentScore;
 		llvm::BitVector choicesMade;
@@ -802,7 +805,8 @@ private:
 	Coloring retColors;
 	std::vector<llvm::BitVector> constraints;
 	std::vector<std::vector<Link>> groupedLinks;
-	llvm::BitVector areGroupedStillGood;
+	std::vector<uint32_t> areGroupedStillGood;
+	std::vector<std::pair<Link,uint32_t>> orderedLinks;
 	std::vector<Friendship> friendships;
 	std::vector<std::vector<Friend>> friends;
 	uint32_t lowerBoundChromaticNumber;
