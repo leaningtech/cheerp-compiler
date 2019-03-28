@@ -2373,7 +2373,6 @@ bool VertexColorer::checkConstraintsAreRespected(const Coloring& colors) const
 
 void VertexColorer::buildOrderedLinks()
 {
-	typedef std::pair<std::pair<uint32_t,uint32_t>, uint32_t> FrienshipWithOrder;
 	std::vector<std::pair<std::pair<uint32_t,uint32_t>, uint32_t>> orderedFriendships;
 	for (uint32_t i=0; i<friendships.size(); i++)
 	{
@@ -2535,6 +2534,16 @@ void VertexColorer::solveInvariantsAlreadySet()
 #endif
 }
 
+uint32_t findRepresentative(std::vector<uint32_t>& parent, uint32_t index)
+{
+	assert(index < parent.size());
+	while (parent[index] != index)
+	{
+		index = parent[index];
+	}
+	return parent[index];
+}
+
 void Registerize::RegisterAllocatorInst::solve()
 {
 	VertexColorer colorer(numInst(), /*cost of using an extra color*/6, /*maximal number of iterations*/100);
@@ -2554,6 +2563,8 @@ void Registerize::RegisterAllocatorInst::solve()
 				colorer.addAllowed(i, j);
 		}
 	}
+	uint32_t phiEdgesAdded = 0;
+	uint32_t unsatisfayable = 0;
 	for (const auto& E : edges)
 	{
 		bool allPossiblySatisfyable = true;
@@ -2565,18 +2576,59 @@ void Registerize::RegisterAllocatorInst::solve()
 				break;
 			}
 		}
+		if (!allPossiblySatisfyable)
+			continue;
+		std::vector<uint32_t> region(numInst());
+		for (uint32_t i=0; i<numInst(); i++)
+		{
+			region[i] = i;
+		}
+		for (const auto&e : E)
+		{
+			const uint32_t parentFirst = findRepresentative(region, e.first);
+			const uint32_t parentSecond = findRepresentative(region, e.second);
+			region[parentFirst] = parentSecond;
+		}
+		std::vector<std::pair<uint32_t, uint32_t>> V;
+		for (uint32_t i=0; i<numInst(); i++)
+		{
+			V.push_back({findRepresentative(region, i), i});
+		}
+		sort(V.begin(), V.end());
+		for (uint32_t i=0; i<V.size(); i++)
+		{
+			for (uint32_t j=i+1; j<V.size() && V[i].first == V[j].first; j++)
+			{
+				if (bitsetConstraint[V[i].second][V[j].second])
+				{
+					allPossiblySatisfyable = false;
+					i = V.size();
+					break;
+				}
+			}
+		}
 		if (allPossiblySatisfyable)
 		{
+			++phiEdgesAdded;
 			colorer.addNewEdge();
 			for (const auto&e : E)
 			{
+				if (e.first == e.second)
+					continue;
 				colorer.addOnEdge(e.first, e.second);
 			}
+		}
+		else
+		{
+			++unsatisfayable;
 		}
 	}
 
 #ifdef REGISTERIZE_DEBUG
-	llvm::errs () << "\n\nSolving function of size " << numInst() << "\n";
+	llvm::errs () << "\n\nSolving function of size " << numInst() << " with " << phiEdgesAdded << " phi edges";
+	if (unsatisfayable>0)
+		llvm::errs() << "("<<unsatisfayable<< " already elimined)";
+	llvm::errs() << "\n";
 #endif
 
 	colorer.solve();
