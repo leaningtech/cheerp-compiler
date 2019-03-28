@@ -1519,8 +1519,9 @@ bool RemoveDominated::couldBePerformed()
 	//-either the dominated has no friends, or has the dominating as only friend, or in any case the dominating is a dominating friend
 	//			(this means that it's the friend that weights 50%+ of the total of the dominating friendships)
 	std::vector<uint64_t> samples;
+	std::vector<std::pair<uint64_t, std::vector<uint32_t>>> bucketsSameSample;
 
-	if (instance.N >= 128)
+	if (instance.N >= 64)
 	{
 		//Computing whether a row is a subset of another takes O(N) (possibly every index has to be checked)
 		//When N is big enough, we precompute a sample 64 arbitrary columns, and store only this in samples
@@ -1531,10 +1532,28 @@ bool RemoveDominated::couldBePerformed()
 		{
 			samples.push_back(computeSample(instance.constraints[i]));
 		}
+
+		std::vector<std::pair<uint64_t, uint32_t>> sampleIndexPairs;
+		for (uint32_t i=0; i<instance.N; i++)
+		{
+			sampleIndexPairs.push_back({samples[i], i});
+		}
+
+		sort(sampleIndexPairs.begin(), sampleIndexPairs.end());
+
+		for (const auto& pair : sampleIndexPairs)
+		{
+			if (bucketsSameSample.empty() || bucketsSameSample.back().first != pair.first)
+			{
+				bucketsSameSample.push_back({pair.first, std::vector<uint32_t>()});
+			}
+			bucketsSameSample.back().second.push_back(pair.second);
+		}
 	}
 
 	for (uint32_t i=0; i<instance.N; ++i)
 		parent[i] = i;
+
 
 	//TODO: iterates multiple times
 	for (uint32_t i = 0; i<instance.N; i++)
@@ -1544,12 +1563,36 @@ bool RemoveDominated::couldBePerformed()
 		//TODO: having a default constructed identity vector
 		if (instance.friends[i].empty())
 		{
-			for (uint32_t j=0; j<instance.N; j++)
+			if (!samples.empty())
 			{
-				if (i != j && isAlive(j) && !instance.constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(instance.constraints[i], instance.constraints[j]) )
+				for (const std::pair<uint64_t, std::vector<uint32_t>>& pairSampleIndexes : bucketsSameSample)
 				{
-					parent[i] = j;
-					break;
+					if (!isSubset(samples[i], pairSampleIndexes.first))
+						continue;
+					bool exitLoop = false;
+					for (uint32_t j : pairSampleIndexes.second)
+					{
+						if (i != j && isAlive(j) && !instance.constraints[i][j] && isSubset(instance.constraints[i], instance.constraints[j]) )
+						{
+							assert(isSubset(samples[i], samples[j]));
+							parent[i] = j;
+							exitLoop=true;
+							break;
+						}
+					}
+					if (exitLoop)
+						break;
+				}
+			}
+			else
+			{
+				for (uint32_t j=0; j<instance.N; j++)
+				{
+					if (i != j && isAlive(j) && !instance.constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(instance.constraints[i], instance.constraints[j]) )
+					{
+						parent[i] = j;
+						break;
+					}
 				}
 			}
 		}
