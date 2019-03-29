@@ -701,7 +701,7 @@ private:
 	}
 	void iterativeDeepening(IterationsCounter& counter);
 	std::vector<uint32_t> assignGreedily() const;
-	uint32_t computeScore(const Coloring& coloring, const uint32_t lowerBound) const
+	uint32_t computeScore(const Coloring& coloring, const uint32_t lowerBound = 0) const
 	{
 		assert(coloring.size() == N);
 		uint32_t res = std::max(computeNumberOfColors(coloring), lowerBound) * costPerColor;
@@ -817,6 +817,7 @@ private:
 	std::array<bool, 5> avoidPass{};
 	uint32_t depthRecursion;
 	friend class Reduction;
+	friend class EnumerateAllPhiEdges;
 	friend class RemoveFewConstraints;
 	friend class RemoveDominated;
 	friend class SplitArticulation;
@@ -851,6 +852,29 @@ public:
 	VertexColorer& instance;
 	std::vector<uint32_t> computeLeaders(llvm::IntEqClasses& eqClasses) const;
 	void assignIndexes(const std::vector<uint32_t>& whichSubproblems, std::vector<uint32_t>& numerositySubproblem, std::vector<uint32_t>& newIndexes, const uint32_t startingFrom=0);
+};
+
+class EnumerateAllPhiEdges : public Reduction
+{
+public:
+	EnumerateAllPhiEdges(VertexColorer& instance)
+		: Reduction(instance)
+	{}
+	bool couldBePerformed();
+	bool couldBePerformedPhiEdges();
+	void relabelNodes();
+	void reduce();
+	void dumpDescription() const;
+	std::string reductionName() const;
+	void preprocessing(VertexColorer& subsolution) const;
+	void postprocessing(VertexColorer& subsolution);
+	void buildSubproblems();
+	bool couldBeAvoided() const;
+private:
+	std::vector<uint32_t> newIndex;
+	std::vector<VertexColorer> subproblems;
+	std::vector<uint32_t> parent;
+	bool goodIsValid;
 };
 
 class RemoveFewConstraints : public Reduction
