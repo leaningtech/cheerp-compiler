@@ -1156,6 +1156,7 @@ void VertexColorer::floodFillOnBitsWithArticulationPoints(llvm::BitVector& regio
 	region.set(start);
 
 	std::vector<uint32_t> toProcess;
+	toProcess.reserve(N);
 	toProcess.push_back(start);
 
 	while (!toProcess.empty())
@@ -1357,7 +1358,7 @@ bool Reduction::perform()
 	//Solve them
 	reduce();
 
-	instance.checkConstraintsAreRespected(instance.retColors);
+	assert(instance.checkConstraintsAreRespected(instance.retColors));
 
 	return true;
 }
@@ -1539,6 +1540,87 @@ void RemoveFewConstraints::reduce()
 			}
 		}
 	}
+}
+
+bool EnumerateAllPhiEdges::couldBePerformed()
+{
+	return instance.groupedLinks.size() > 0 && instance.groupedLinks.size() < 50;
+}
+
+bool EnumerateAllPhiEdges::couldBePerformedPhiEdges()
+{
+	return true;
+}
+
+void EnumerateAllPhiEdges::relabelNodes()
+{
+	parent.resize(instance.N);
+	for (uint32_t i=0; i<instance.N; i++)
+	{
+		parent[i] = i;
+	}
+
+	const auto& edge = instance.groupedLinks.back();
+	for (const VertexColorer::Link& link : edge)
+	{
+		parent[findRepresentative(parent, link.first)] = findRepresentative(parent, link.second);
+	}
+
+	newIndex = std::vector<uint32_t> (instance.N);
+	uint32_t firstUnused = 0;
+
+	for (uint32_t i=0; i<instance.N; i++)
+	{
+		parent[i] = findRepresentative(parent, i);
+
+		if (parent[i] == i)
+		{
+			newIndex[i] = firstUnused++;
+		}
+	}
+	for (uint32_t i=0; i<instance.N; i++)
+	{
+		if (parent[i] != i)
+		{
+			newIndex[i] = newIndex[parent[i]];
+		}
+	}
+}
+
+void EnumerateAllPhiEdges::reduce()
+{
+	VertexColorer& good = subproblems.front();
+	VertexColorer& bad = subproblems.back();
+
+	bad.solve();
+	VertexColorer::Coloring badSolution = bad.getSolution();
+	instance.retColors = badSolution;
+
+	if (goodIsValid)
+	{
+		//Give good informations over bad solution: it has to be beaten
+		good.solve();
+		VertexColorer::Coloring goodSolution = good.getSolution();
+
+		if (good.computeScore(goodSolution) < bad.computeScore(badSolution) + 3)
+		{
+			instance.retColors.resize(instance.N);
+			for (uint32_t i=0; i<instance.N; i++)
+			{
+				instance.retColors[i] = goodSolution[newIndex[i]];
+			}
+		}
+	}
+}
+
+void EnumerateAllPhiEdges::dumpDescription() const
+{
+	llvm::errs() << reductionName() << " with " <<instance.groupedLinks.size() << " phi edges\n";
+}
+
+std::string EnumerateAllPhiEdges::reductionName() const
+{
+	return "Enumerate over all phi edges";
 }
 
 bool RemoveDominated::couldBePerformed()
@@ -1747,6 +1829,83 @@ void RemoveDominated::buildSubproblems()
 				subproblem.popLastEdge();
 				break;
 			}
+		}
+	}
+}
+
+void EnumerateAllPhiEdges::buildSubproblems()
+{
+	uint32_t indexGroupedLink = 0;
+	for (uint32_t i=1; i<instance.groupedLinks.size(); i++)
+	{
+		if (instance.groupedLinks[i].size() > instance.groupedLinks[indexGroupedLink].size())
+			indexGroupedLink = i;
+	}
+	std::swap(instance.groupedLinks[indexGroupedLink], instance.groupedLinks.back());
+	uint32_t goodDimension = 0;
+	for (uint32_t i=0; i<instance.N; i++)
+	{
+		if (parent[i] == i)
+			++goodDimension;
+	}
+	for (uint32_t i=0; i<instance.N; ++i)
+	{
+		assert(goodDimension > newIndex[i]);
+	}
+	subproblems.push_back(VertexColorer(goodDimension, instance));
+	subproblems.push_back(VertexColorer(instance.N, instance));
+
+	VertexColorer& good = subproblems.front();
+	VertexColorer& bad = subproblems.back();
+	goodIsValid = true;
+
+	for (const VertexColorer::Link& link : instance.constraintIterable())
+	{
+		const uint32_t i=link.first;
+		const uint32_t j=link.second;
+		if (newIndex[i] == newIndex[j])
+			goodIsValid = false;
+		good.addConstraint(newIndex[i], newIndex[j]);
+		bad.addConstraint(i, j);
+	}
+
+	//Add friendships (if they do not clash with constraints)
+	for (const VertexColorer::Link& link : instance.positiveWeightFriendshipIterable())
+	{
+		assert(link.weight > 0);
+		const uint32_t a = newIndex[link.first];
+		const uint32_t b = newIndex[link.second];
+		assert(good.constraints[a][b] == good.constraints[b][a]);
+		if (!good.constraints[a][b])
+			good.addFriendship(link.weight, a, b);
+		assert(!bad.constraints[link.first][link.second]);
+		bad.addFriendship(link.weight, link.first, link.second);
+	}
+	for (uint32_t i=0; i+1<instance.groupedLinks.size(); i++)
+	{
+		const std::vector<VertexColorer::Link>& edge = instance.groupedLinks[i];
+		good.addNewEdge();
+		for (const VertexColorer::Link& link : edge)
+		{
+			const uint32_t a = newIndex[link.first];
+			const uint32_t b = newIndex[link.second];
+			assert(good.constraints[a][b] == good.constraints[b][a]);
+			if (!good.constraints[a][b])
+				good.addOnEdge(a, b);
+			else
+			{
+				good.popLastEdge();
+				break;
+			}
+		}
+		bad.addNewEdge();
+		for (const VertexColorer::Link& link : edge)
+		{
+			const uint32_t a = link.first;
+			const uint32_t b = link.second;
+			assert(instance.constraints[a][b] == instance.constraints[b][a]);
+			assert(!instance.constraints[a][b]);
+			bad.addOnEdge(a, b);
 		}
 	}
 }
@@ -2479,10 +2638,6 @@ void VertexColorer::solve()
 {
 	establishInvariants();
 	solveInvariantsAlreadySet();
-//	dump();
-//	for (uint32_t x : retColors)
-//	llvm::errs() << x << " ";
-//	llvm::errs() << "\n\n\n";
 	assert(checkConstraintsAreRespected(retColors));
 }
 
@@ -2530,6 +2685,12 @@ void VertexColorer::solveInvariantsAlreadySet()
 
 	{	//If there are rows dominated by others, remove them
 		RemoveDominated reduction(*this);
+		if (reduction.perform())
+			return;
+	}
+
+	{	//...
+		EnumerateAllPhiEdges reduction(*this);
 		if (reduction.perform())
 			return;
 	}
