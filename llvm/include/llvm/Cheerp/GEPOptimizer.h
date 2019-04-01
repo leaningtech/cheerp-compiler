@@ -294,23 +294,18 @@ public:
 	Kind determineKind(BasicBlock* BB) const
 	{
 		assert(BB);
-		//Every node start as regular
-		Kind kind = Kind::Regular;
-		for (auto x : make_range(succ_begin(BB), succ_end(BB)))
+		if (!toBeClassified.count(BB))
 		{
-			if (!toBeClassified.count(x))
-			{
-				//TODO: modify this, it has to be moved before the for cycle
-				//If they are not part of toBeClassified, they should already marked as bad
-				return Kind::ConnectedToBad;
-			}
-			if (knownValid.count(x))
-			{
-				//TODO: also this as to be possibly moved in front
-				kind = Kind::ConnectedToGood;
-			}
+			//If they are not part of toBeClassified, they should be marked as bad
+			return Kind::ConnectedToBad;
 		}
-		return kind;
+		if (knownValid.count(BB))
+		{
+			//If they are part of knowValid, they are connected to "Good" (a special sink node)
+			return Kind::ConnectedToGood;
+		}
+		//Otherwise they are just regular nodes
+		return Kind::Regular;
 	}
 	struct Node {
 		BasicBlock* BB;
