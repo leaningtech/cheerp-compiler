@@ -40,7 +40,7 @@ class BasicBlockForest
 {
 	typedef std::set<BasicBlock*> BlockSet;
 public:
-	BasicBlockForest() : DT(NULL), roots()
+	BasicBlockForest(const DominatorTree* DT) : DT(DT), roots()
 	{
 	}
 	BasicBlockForest(const BasicBlockForest& other) : DT(other.DT), roots(other.roots)
@@ -55,14 +55,6 @@ public:
 		ret.clear();
 		ret.insert(&BB->getParent()->getEntryBlock());
 		return ret;
-	}
-	bool properlyDominated(BasicBlock* block) const
-	{
-		if (roots.count(block))
-			return false;
-		if (count(block))
-			return true;
-		return false;
 	}
 	uint32_t count(BasicBlock* block) const
 	{
@@ -111,8 +103,7 @@ public:
 		assert(DT);
 		assert(DT == dominant.DT);
 
-		BasicBlockForest V;
-		V.setDominatorTree(DT);
+		BasicBlockForest V(DT);
 
 		std::vector<BasicBlock*> toBeProcessed(getRoots().begin(), getRoots().end());
 
@@ -139,10 +130,6 @@ public:
 		return V;
 	}
 	void keepOnlyDominatedByOperand(const Value* value);
-	void setDominatorTree(const DominatorTree* DT_)
-	{
-		DT = DT_;
-	}
 	const BlockSet& getRoots() const
 	{
 		return roots;
@@ -212,6 +199,14 @@ public:
 		return DT;
 	}
 private:
+	bool properlyDominated(BasicBlock* block) const
+	{
+		if (roots.count(block))
+			return false;
+		if (count(block))
+			return true;
+		return false;
+	}
 	bool areAllChildrenValid(BasicBlock* BB) const
 	{
 		bool hasProperSuccessors = false;
@@ -307,6 +302,8 @@ public:
 		}
 		llvm::errs() << "\n";
 	}
+	BasicBlockForest getValidBlocks();
+private:
 	enum class Kind
 	{
 		//There are 5 kinds of nodes:
@@ -406,7 +403,6 @@ public:
 		assert(false);
 		return getOrCreate(Kind::Good);
 	}
-	BasicBlockForest getValidBlocks();
 	class SuccIterator
 		: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node, Node> {
 		void skipNonExistentSuccessors()
@@ -586,7 +582,8 @@ public:
 
 	typedef std::unordered_map<std::pair<BasicBlock*, Kind>, Node, NodeHasher> NodeMap;
 	friend struct GraphTraits<ValidBasicBlockForestGraph*>;
-private:
+	friend struct GraphTraits<ValidBasicBlockForestGraph::Node*>;
+	friend struct GraphTraits<Inverse<ValidBasicBlockForestGraph::Node*>>;
 	const BasicBlockForest knownValid;
 	const BasicBlockForest& toBeClassified;
 	NodeMap Nodes;
