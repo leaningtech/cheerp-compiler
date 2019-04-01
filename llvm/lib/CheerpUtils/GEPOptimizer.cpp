@@ -218,7 +218,7 @@ Instruction* GEPOptimizer::hoistGEP(Instruction* I, const GEPRange& R) const
 {
 	BasicBlock* B = I->getParent();
 
-	auto GEPMap = validGEPMap.at(R);
+	const auto& GEPMap = validGEPMap.at(R);
 
 	//We loop over B, moving it every times to his immediate dominator
 	while (1)
