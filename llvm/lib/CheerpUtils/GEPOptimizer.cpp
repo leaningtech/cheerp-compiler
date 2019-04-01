@@ -231,8 +231,7 @@ std::vector<BasicBlock*> findRepresentingBasicBlock(const DominatorTree* DT, con
 	}
 
 	//Insert the good nodes
-	BasicBlockForest goodNodes;
-	goodNodes.setDominatorTree(DT);
+	BasicBlockForest goodNodes(DT);
 	for (BasicBlock* BB : blocks)
 	{
 		goodNodes.insert(BB);
@@ -308,8 +307,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 		passData(data)
 {
 	//First we do a pass to collect in which blocks a GepRange is used, this data will be later used by ValidGEPGraph::Node::isValidForGEP()
-	ValidGEPLocations NoBlocks;
-	NoBlocks.setDominatorTree(passData->DT);
+	ValidGEPLocations NoBlocks(passData->DT);
 	for ( BasicBlock& BB : F )
 	{
 		for ( Instruction& I: BB )
@@ -345,9 +343,8 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 	order.insert({NULL, 0});
 
 	// Gather all the GEPs
-	ValidGEPLocations AllBlocks;
+	ValidGEPLocations AllBlocks(passData->DT);
 	AllBlocks.insert(&F.getEntryBlock());
-	AllBlocks.setDominatorTree(passData->DT);
 	for ( BasicBlock& BB : F )
 	{
 		for ( Instruction& I: BB )
