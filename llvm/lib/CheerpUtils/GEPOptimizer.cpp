@@ -203,7 +203,7 @@ BasicBlockForest ValidBasicBlockForestGraph::getValidBlocks()
 	BasicBlockForest ret(knownValid);
 
 	//and all nodes postdominates by "Good"
-	for (auto V: ValidNodes)
+	for (const auto& V: ValidNodes)
 	{
 		if (V->BB)
 		{
@@ -211,30 +211,36 @@ BasicBlockForest ValidBasicBlockForestGraph::getValidBlocks()
 		}
 	}
 	ret.simplify();
+	for (const auto& x : ret.getRoots())
+	{
+		assert(toBeClassified.count(x));
+	}
 	return ret;
 }
 
-std::vector<BasicBlock*> findRepresentingBasicBlock(Function& F, const DominatorTree* DT, const std::vector<BasicBlock*> blocks)
+std::vector<BasicBlock*> findRepresentingBasicBlock(const DominatorTree* DT, const std::vector<BasicBlock*> blocks)
 {
 	//Given a vector of BasicBlocks, we return for each one of which region he is a member.
 	//Each region is represented by the root of the BasicBlockForest
 
-	//TODO: allBlocks could be removed when there will be a new constructor for ValidGEPGraph (or how it will be called)
-	BasicBlockForest allBlocks;
-	allBlocks.insert(&F.getEntryBlock());
-	allBlocks.setDominatorTree(DT);
+	if (blocks.empty())
+	{
+		//In the costructor for ValidBasicBlockForestGraph we calculate the Function as blocks().begin()->getParent(), this implies that blocks is non-empty
+		//This is not a problem, since a empty set of blocks has an empty set of representatives
+		return std::vector<BasicBlock*>();
+	}
 
 	//Insert the good nodes
 	BasicBlockForest goodNodes;
+	goodNodes.setDominatorTree(DT);
 	for (BasicBlock* BB : blocks)
 	{
 		goodNodes.insert(BB);
 	}
-	goodNodes.setDominatorTree(DT);
 	goodNodes.simplify();
 	goodNodes.expandUpwards();
 
-	ValidBasicBlockForestGraph VG(DT, goodNodes, allBlocks);
+	ValidBasicBlockForestGraph VG(goodNodes);
 
 	BasicBlockForest validPlacements = VG.getValidBlocks();
 	validPlacements.expandUpwards();
@@ -361,6 +367,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 
 			orderedGeps.insert(GEP);
 			ValidGEPLocations possiblyValidBlocks = AllBlocks;
+			assert(possiblyValidBlocks.getDominatorTree() == passData->DT);
 			//possiblyValidBlocks contains all blocks where a GEP could still be possibly placed
 			//(meaning, the only blocks excluded are the ones the could never possibly host one)
 			//It starts being equal to all the blocks, then filtered by the operand of the GEP
@@ -384,7 +391,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 					//passData->subsetGEPMap.find(Range)->second contains all blocks where we are already certain a GEP could be placed
 					//(this is a subset of possiblyValidBlocks)
 
-					ValidBasicBlockForestGraph VG(passData->DT, passData->subsetGEPMap.find(Range)->second, possiblyValidBlocks);
+					ValidBasicBlockForestGraph VG(passData->subsetGEPMap.find(Range)->second, possiblyValidBlocks);
 
 					ValidGEPLocations validPlacements = VG.getValidBlocks();
 					//ValidBlocks contains all the blocks that:
