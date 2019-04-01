@@ -142,9 +142,9 @@ Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEP
 }
 
 
-template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph::Node*> {
-	typedef GEPOptimizer::ValidGEPGraph::Node NodeType;
-	typedef GEPOptimizer::ValidGEPGraph::SuccIterator ChildIteratorType;
+template <> struct GraphTraits<ValidBasicBlockForestGraph::Node*> {
+	typedef ValidBasicBlockForestGraph::Node NodeType;
+	typedef ValidBasicBlockForestGraph::SuccIterator ChildIteratorType;
 
 	static NodeType *getEntryNode(NodeType* N) { return N; }
 	static inline ChildIteratorType child_begin(NodeType *N) {
@@ -154,9 +154,9 @@ template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph::Node*> {
 		return ChildIteratorType(N, true);
 	}
 };
-template <> struct GraphTraits<Inverse<GEPOptimizer::ValidGEPGraph::Node*>> {
-	typedef GEPOptimizer::ValidGEPGraph::Node NodeType;
-	typedef GEPOptimizer::ValidGEPGraph::PredIterator ChildIteratorType;
+template <> struct GraphTraits<Inverse<ValidBasicBlockForestGraph::Node*>> {
+	typedef ValidBasicBlockForestGraph::Node NodeType;
+	typedef ValidBasicBlockForestGraph::PredIterator ChildIteratorType;
 
 	static NodeType *getEntryNode(NodeType* N) { return N; }
 	static inline ChildIteratorType child_begin(NodeType *N) {
@@ -166,12 +166,12 @@ template <> struct GraphTraits<Inverse<GEPOptimizer::ValidGEPGraph::Node*>> {
 		return ChildIteratorType(N, true);
 	}
 };
-template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph*> : public GraphTraits<GEPOptimizer::ValidGEPGraph::Node*> {
-	static NodeType *getEntryNode(GEPOptimizer::ValidGEPGraph *G) { return G->getEntryNode(); }
+template <> struct GraphTraits<ValidBasicBlockForestGraph*> : public GraphTraits<ValidBasicBlockForestGraph::Node*> {
+	static NodeType *getEntryNode(ValidBasicBlockForestGraph *G) { return G->getEntryNode(); }
 
 	typedef mapped_iterator<
-		GEPOptimizer::ValidGEPGraph::NodeMap::iterator,
-		std::function<GEPOptimizer::ValidGEPGraph::Node*(GEPOptimizer::ValidGEPGraph::NodeMap::iterator::reference)>
+		ValidBasicBlockForestGraph::NodeMap::iterator,
+		std::function<ValidBasicBlockForestGraph::Node*(ValidBasicBlockForestGraph::NodeMap::iterator::reference)>
 	> mapped_iterator_type;
 	struct deref_mapped_iterator: public mapped_iterator_type {
 		using mapped_iterator_type::mapped_iterator;
@@ -180,27 +180,27 @@ template <> struct GraphTraits<GEPOptimizer::ValidGEPGraph*> : public GraphTrait
 			return **this;
 		}
 	};
-	static NodeType* get_second_ptr(GEPOptimizer::ValidGEPGraph::NodeMap::iterator::reference pair)
+	static NodeType* get_second_ptr(ValidBasicBlockForestGraph::NodeMap::iterator::reference pair)
 	{
 		return &pair.second;
 	}
 	 // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
 	typedef deref_mapped_iterator nodes_iterator;
-	static nodes_iterator nodes_begin(GEPOptimizer::ValidGEPGraph* G) { return nodes_iterator(G->Nodes.begin(), get_second_ptr); }
-	static nodes_iterator nodes_end  (GEPOptimizer::ValidGEPGraph* G) { return nodes_iterator(G->Nodes.end(), get_second_ptr); }
-	static size_t         size       (GEPOptimizer::ValidGEPGraph* G) { return G->Nodes.size(); }
+	static nodes_iterator nodes_begin(ValidBasicBlockForestGraph* G) { return nodes_iterator(G->Nodes.begin(), get_second_ptr); }
+	static nodes_iterator nodes_end  (ValidBasicBlockForestGraph* G) { return nodes_iterator(G->Nodes.end(), get_second_ptr); }
+	static size_t         size       (ValidBasicBlockForestGraph* G) { return G->Nodes.size(); }
 };
 
-GEPOptimizer::ValidGEPLocations GEPOptimizer::ValidGEPGraph::getValidBlocks()
+BasicBlockForest ValidBasicBlockForestGraph::getValidBlocks()
 {
-	//This function takes the direct graph defined in ValidGEPGraph, compute the post dominator tree, and build the result
+	//This function takes the direct graph defined in ValidBasicBlockForestGraph, compute the post dominator tree, and build the result
 	DominatorTreeBase<Node> PDT(true);
 	PDT.recalculate(*this);
-	SmallVector<ValidGEPGraph::Node*, 8> ValidNodes;
+	SmallVector<ValidBasicBlockForestGraph::Node*, 8> ValidNodes;
 	PDT.getDescendants(getOrCreate(Kind::Good), ValidNodes);
 
 	//The valid nodes are all nodes that we knew where valid (knownValid)
-	ValidGEPLocations ret(knownValid);
+	BasicBlockForest ret(knownValid);
 
 	//and all nodes postdominates by "Good"
 	for (auto V: ValidNodes)
@@ -244,7 +244,7 @@ Instruction* GEPOptimizer::hoistGEP(Instruction* I, const GEPRange& R) const
 	return I;
 }
 
-void GEPOptimizer::ValidGEPLocations::keepOnlyDominatedByOperand(const Value* value)
+void BasicBlockForest::keepOnlyDominatedByOperand(const Value* value)
 {
 	if (const Instruction* I = dyn_cast<const Instruction> (value))
 	{
@@ -343,7 +343,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 					//passData->subsetGEPMap.find(Range)->second contains all blocks where we are already certain a GEP could be placed
 					//(this is a subset of possiblyValidBlocks)
 
-					ValidGEPGraph VG(passData->DT, passData->subsetGEPMap.find(Range)->second, possiblyValidBlocks);
+					ValidBasicBlockForestGraph VG(passData->DT, passData->subsetGEPMap.find(Range)->second, possiblyValidBlocks);
 
 					ValidGEPLocations validPlacements = VG.getValidBlocks();
 					//ValidBlocks contains all the blocks that:
