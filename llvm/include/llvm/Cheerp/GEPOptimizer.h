@@ -46,6 +46,16 @@ public:
 	BasicBlockForest(const BasicBlockForest& other) : DT(other.DT), roots(other.roots)
 	{
 	}
+	static BasicBlockForest expandToTheWholeFunction(const BasicBlockForest& other)
+	{
+		BasicBlockForest ret(other);
+		if (ret.getRoots().empty())
+			return ret;
+		BasicBlock* BB = *(ret.getRoots().begin());
+		ret.clear();
+		ret.insert(&BB->getParent()->getEntryBlock());
+		return ret;
+	}
 	bool properlyDominated(BasicBlock* block) const
 	{
 		if (roots.count(block))
@@ -197,6 +207,10 @@ public:
 		}
 		llvm::errs() << " }\n";
 	}
+	const DominatorTree* getDominatorTree() const
+	{
+		return DT;
+	}
 private:
 	bool areAllChildrenValid(BasicBlock* BB) const
 	{
@@ -214,10 +228,10 @@ private:
 	}
 	const DominatorTree* DT;
 	BlockSet roots;
-	friend std::vector<BasicBlock*> findRepresentingBasicBlock(Function& F, const DominatorTree* DT, const std::vector<BasicBlock*> blocks);
+	friend std::vector<BasicBlock*> findRepresentingBasicBlock(const DominatorTree* DT, const std::vector<BasicBlock*> blocks);
 };
 
-std::vector<BasicBlock*> findRepresentingBasicBlock(Function& F, const DominatorTree* DT, const std::vector<BasicBlock*> blocks);
+std::vector<BasicBlock*> findRepresentingBasicBlock(const DominatorTree* DT, const std::vector<BasicBlock*> blocks);
 
 //	This class takes two BasicBlockForest in input, one comprising the basic blocks known to be valid and one representing all BB to be classified.
 //	The BB to be classified will be classified according to the answer to this question:
@@ -234,9 +248,10 @@ std::vector<BasicBlock*> findRepresentingBasicBlock(Function& F, const Dominator
 //	Example of use of this class is calculating valid location where to place GEPs.
 class ValidBasicBlockForestGraph{
 public:
-	explicit ValidBasicBlockForestGraph(const DominatorTree* DT, const BasicBlockForest& knownPostdominated, const BasicBlockForest& toBeClassified)
+	explicit ValidBasicBlockForestGraph(const BasicBlockForest& knownPostdominated, const BasicBlockForest& toBeClassified)
 		: knownValid(knownPostdominated.keepOnlyDominated(toBeClassified)), toBeClassified(toBeClassified)
 	{
+		const DominatorTree* DT = getDominatorTree();
 		//Blocks in the CFG could be of three kinds;
 		// -knownValid: blocks already classified as valid (it's known they lead to visit a valid BasicBlock and are a subset of toBeClassified-forest)
 		// -toBeClassified: blocks we are interested in classifying
@@ -272,6 +287,16 @@ public:
 		}
 		getOrCreate(Kind::Good, true);
 		getOrCreate(Kind::Bad, true);
+	}
+	explicit ValidBasicBlockForestGraph(const BasicBlockForest& knownPostdominated)
+		: ValidBasicBlockForestGraph(knownPostdominated, BasicBlockForest::expandToTheWholeFunction(knownPostdominated))
+	{
+	}
+	const DominatorTree* getDominatorTree() const
+	{
+		assert(knownValid.getDominatorTree() == toBeClassified.getDominatorTree());
+		assert(knownValid.getDominatorTree());
+		return knownValid.getDominatorTree();
 	}
 	void dump() const
 	{
