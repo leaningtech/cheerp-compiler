@@ -1289,16 +1289,6 @@ bool VertexColorer::areAllAlive() const
 	return true;
 }
 
-uint32_t findRepresentative(std::vector<uint32_t>& parent, uint32_t index)
-{
-	assert(index < parent.size());
-	while (parent[index] != index)
-	{
-		index = parent[index];
-	}
-	return parent[index];
-}
-
 void VertexColorer::permuteFirstElements(Coloring& coloring, const uint32_t N)
 {
 	const uint32_t M = computeNumberOfColors(coloring);
@@ -1644,9 +1634,7 @@ bool RemoveDominated::couldBePerformed()
 		}
 	}
 
-	for (uint32_t i=0; i<instance.N; ++i)
-		parent[i] = i;
-
+	eqClasses.grow(instance.N);
 
 	//TODO: iterates multiple times
 	for (uint32_t i = 0; i<instance.N; i++)
@@ -1668,7 +1656,8 @@ bool RemoveDominated::couldBePerformed()
 						if (i != j && isAlive(j) && !instance.constraints[i][j] && isSubset(instance.constraints[i], instance.constraints[j]) )
 						{
 							assert(isSubset(samples[i], samples[j]));
-							parent[i] = j;
+							isNodeAlive.reset(i);
+							eqClasses.join(i, j);
 							exitLoop=true;
 							break;
 						}
@@ -1683,7 +1672,8 @@ bool RemoveDominated::couldBePerformed()
 				{
 					if (i != j && isAlive(j) && !instance.constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(instance.constraints[i], instance.constraints[j]) )
 					{
-						parent[i] = j;
+						isNodeAlive.reset(i);
+						eqClasses.join(i, j);
 						break;
 					}
 				}
@@ -1695,7 +1685,8 @@ bool RemoveDominated::couldBePerformed()
 			{
 				if (i != j && isAlive(j) && !instance.constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(instance.constraints[i], instance.constraints[j]) )
 				{
-					parent[i] = j;
+					isNodeAlive.reset(i);
+					eqClasses.join(i, j);
 					break;
 				}
 			}
@@ -1705,11 +1696,10 @@ bool RemoveDominated::couldBePerformed()
 	for (uint32_t i=0; i<instance.N; i++)
 	{
 		if (!isAlive(i))
-			continue;
-		alive.push_back(i);
+			return true;
 	}
 
-	return alive.size() < instance.N;
+	return false;
 }
 
 bool RemoveDominated::couldBePerformedPhiEdges()
@@ -1720,19 +1710,8 @@ bool RemoveDominated::couldBePerformedPhiEdges()
 		{
 			const uint32_t a = link.first;
 			const uint32_t b = link.second;
-			uint32_t Pa = a;
-			uint32_t Pb = b;
-			//TODO: create findParentNoShortening
-			while (parent[Pa] != Pa)
-			{
-				Pa = parent[Pa];
-			}
-			while (parent[Pb] != Pb)
-			{
-				Pb = parent[Pb];
-			}
 			//If they end up with the same ancestor, it's good
-			if (Pa == Pb)
+			if (eqClasses[a] == eqClasses[b])
 				continue;
 			//Otherwise, do not remove nodes that have a phi edge
 			if (!isAlive(a))
@@ -1745,23 +1724,18 @@ bool RemoveDominated::couldBePerformedPhiEdges()
 			}
 		}
 	}
+	relabelNodes();
 	return true;
 }
 
 void RemoveDominated::relabelNodes()
 {
-	uint32_t firstUnused = 0;
-	for (uint32_t i=0; i<instance.N; i++)
-	{
-		if (!isAlive(i))
-			continue;
-		newIndex[i] = firstUnused++;
-	}
+	newIndex = computeLeaders(eqClasses);
 }
 
 void RemoveDominated::dumpDescription() const
 {
-	llvm::errs() <<std::string(instance.depthRecursion, ' ')<< reductionName() << ":\t"<< instance.N << " -> " << alive.size() << "\n";
+	llvm::errs() <<std::string(instance.depthRecursion, ' ')<< reductionName() << ":\t"<< instance.N << " -> " << isNodeAlive.count() << "\n";
 }
 
 std::string RemoveDominated::reductionName() const
@@ -1771,37 +1745,34 @@ std::string RemoveDominated::reductionName() const
 
 void RemoveDominated::buildSubproblems()
 {
-	subproblems.push_back(VertexColorer(alive.size(), instance));
+	subproblems.push_back(VertexColorer(eqClasses.getNumClasses(), instance));
 	VertexColorer& subproblem = subproblems.front();
-	ancestor = parent;
 
 	for (const VertexColorer::Link& link : instance.constraintIterable())
 	{
-		const uint32_t i=findAncestor(link.first);
-		const uint32_t j=findAncestor(link.second);
-		subproblem.addConstraint(newIndex[i], newIndex[j]);
+		subproblem.addConstraint(newIndex[link.first], newIndex[link.second]);
 	}
 
 	//Add friendships (if they do not clash with constraints)
 	for (const VertexColorer::Link& link : instance.positiveWeightFriendshipIterable())
 	{
 		assert(link.weight > 0);
-		const uint32_t a = findAncestor(link.first);
-		const uint32_t b = findAncestor(link.second);
-		assert(instance.constraints[a][b] == instance.constraints[b][a]);
-		if (!instance.constraints[a][b])
-			subproblem.addFriendship(link.weight, newIndex[a], newIndex[b]);
+		const uint32_t a = newIndex[link.first];
+		const uint32_t b = newIndex[link.second];
+		assert(subproblem.constraints[a][b] == subproblem.constraints[b][a]);
+		if (!subproblem.constraints[a][b])
+			subproblem.addFriendship(link.weight, a, b);
 	}
 	for (const std::vector<VertexColorer::Link>& edge : instance.groupedLinks)
 	{
 		subproblem.addNewEdge();
 		for (const VertexColorer::Link& link : edge)
 		{
-			const uint32_t a = findAncestor(link.first);
-			const uint32_t b = findAncestor(link.second);
-			assert(instance.constraints[a][b] == instance.constraints[b][a]);
-			if (!instance.constraints[a][b])
-				subproblem.addOnEdge(newIndex[a], newIndex[b]);
+			const uint32_t a = newIndex[link.first];
+			const uint32_t b = newIndex[link.second];
+			assert(subproblem.constraints[a][b] == subproblem.constraints[b][a]);
+			if (!subproblem.constraints[a][b])
+				subproblem.addOnEdge(a, b);
 			else
 			{
 				subproblem.popLastEdge();
@@ -1893,15 +1864,7 @@ void RemoveDominated::postprocessing(VertexColorer& subproblem)
 
 bool RemoveDominated::isAlive(const uint32_t i) const
 {
-	return parent[i] == i;
-}
-
-uint32_t RemoveDominated::findAncestor(const uint32_t i)
-{
-	//We do at most O(N) lazily executed preprocessing + O(1) per call, that averages to O(1) since we do roughly 2*N calls
-	if (!isAlive(i))
-		ancestor[i] = findAncestor(ancestor[i]);
-	return ancestor[i];
+	return isNodeAlive[i];
 }
 
 void RemoveDominated::reduce()
@@ -1915,15 +1878,9 @@ void RemoveDominated::reduce()
 	const VertexColorer::Coloring& subcolors = subproblem.getSolution();
 
 	instance.retColors.resize(instance.N);
-	for (uint32_t i = 0; i<alive.size(); i++)
-	{
-		instance.retColors[alive[i]] = subcolors[i];
-	}
 	for (uint32_t i = 0; i<instance.N; i++)
 	{
-		assert(isAlive(findAncestor(i)));
-		if (!isAlive(i))
-			instance.retColors[i] = instance.retColors[findAncestor(i)];
+		instance.retColors[i] = subcolors[eqClasses[i]];
 	}
 }
 
@@ -2107,7 +2064,7 @@ void SplitConflictingBase::dumpSubproblems() const
 
 void SplitArticulation::dumpSubproblems() const
 {
-	for (uint32_t i=0; i<numerositySubproblem.size(); ++i)
+	for (uint32_t i=1; i<numerositySubproblem.size(); ++i)
 	{
 		llvm::errs() << numerositySubproblem[i] << " ";
 	}
