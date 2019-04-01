@@ -906,7 +906,7 @@ class RemoveDominated : public Reduction
 {
 public:
 	RemoveDominated(VertexColorer& instance)
-		: Reduction(instance), parent(instance.N), newIndex(instance.N, 0)
+		: Reduction(instance), isNodeAlive(instance.N, true), newIndex(instance.N, 0)
 	{}
 	bool couldBePerformed();
 	bool couldBePerformedPhiEdges();
@@ -946,13 +946,11 @@ private:
 	{
 		return A == (A&B);
 	}
+	bool isAlive(const uint32_t a) const;
 	std::vector<uint32_t> whoIsDominatingFriend(const uint32_t a) const;
-	bool isAlive(const uint32_t i) const;
-	uint32_t findAncestor(const uint32_t i);
-	std::vector<uint32_t> parent;
-	std::vector<uint32_t> ancestor;
+	llvm::IntEqClasses eqClasses;
+	llvm::BitVector isNodeAlive;
 	std::vector<uint32_t> newIndex;
-	std::vector<uint32_t> alive;
 	std::vector<VertexColorer> subproblems;
 };
 
