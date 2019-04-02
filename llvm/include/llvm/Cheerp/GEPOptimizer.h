@@ -17,7 +17,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Cheerp/CommandLine.h"
-
 #include <unordered_map>
 
 namespace llvm
@@ -71,6 +70,20 @@ public:
 				return 1;
 		}
 		return 0;
+	}
+	BasicBlock* getRepresentingRoot(BasicBlock* block) const
+	{
+		assert(DT);
+		assert(block);
+
+		//TODO: Now it is O(number of roots), it could become O(log(number of roots)) + precomputation, by storing the range as interval of in-order/post-order visit
+
+		for (auto BB : getRoots())
+		{
+			if (BB == block || DT->dominates(BB, block))
+				return BB;
+		}
+		return NULL;
 	}
 	void insert(BasicBlock* block)
 	{
@@ -607,7 +620,9 @@ public:
 		const size_t size;
 	private:
 		GEPRange(const GetElementPtrInst* GEP, const size_t size_): GEP(GEP), size(size_)
-		{}
+		{
+			assert(GEP->getNumOperands() >= size);
+		}
 	public:
 		static GEPRange createGEPRange(const GetElementPtrInst* GEP, size_t size)
 		{
@@ -643,6 +658,12 @@ public:
 				return false;
 			return *this == GEPRange(Other.GEP, size);
 		}
+		bool properSubsetOf(const GEPRange& Other) const
+		{
+			if (size >= Other.size)
+				return false;
+			return *this == GEPRange(Other.GEP, size);
+		}
 		void dump() const
 		{
 			llvm::errs()<<"GEPRange [ ";
@@ -668,13 +689,14 @@ private:
 			return seed;
 		}
 	};
+	//TODO: OrderOfAppearence should become a proper class
 	typedef std::map<Value*, size_t> OrderOfAppearence;
 	struct OrderByOperands
 	{
 		//We build at the same time the multiset of GEPs and the map(Value* -> index)
 		//and we pass this structure to the multiset to determine the order it should have
 		//The order is passed by pointer since we want to be able to call multiset::swap
-		OrderByOperands(const OrderOfAppearence* ord) : orderOfAppearence(ord)
+		OrderByOperands(const OrderOfAppearence& ord) : orderOfAppearence(ord)
 		{
 		}
 		bool operator()(const llvm::Instruction* r, const llvm::Instruction* l) const
@@ -689,6 +711,8 @@ private:
 					rVal = r->getOperand(i);
 				if(i < l->getNumOperands())
 					lVal = l->getOperand(i);
+				assert(orderOfAppearence.count(rVal));
+				assert(orderOfAppearence.count(lVal));
 				if (lVal == NULL)
 				{
 					//Either they are both ended, so they are equal -> the first is not smaller
@@ -701,12 +725,12 @@ private:
 					//thus go to the next pair of values
 					continue;
 				}
-				return orderOfAppearence->at(rVal) < orderOfAppearence->at(lVal);
+				return orderOfAppearence.at(rVal) < orderOfAppearence.at(lVal);
 			}
 		}
-		const OrderOfAppearence* orderOfAppearence;
+		const OrderOfAppearence& orderOfAppearence;
 	};
-	typedef std::multiset<GetElementPtrInst*, OrderByOperands> OrderedGEPs;
+	typedef std::vector<GetElementPtrInst*> OrderedGEPs;
 	typedef std::unordered_map<GEPRange, ValidGEPLocations, GEPRangeHasher> ValidGEPMap;
 	DominatorTree* DT;
 	ValidGEPMap validGEPMap;
@@ -727,7 +751,8 @@ private:
 	{
 	public:
 		GEPRecursionData(Function& F, GEPOptimizer* data);
-		void startRecursion();
+		void sortGEPs();
+		void buildGEPTree();
 		void applyOptGEP();
 		static void mergeGEPs(GetElementPtrInst* a, GetElementPtrInst* b);
 		void compressGEPTree(const ShortGEPPolicy shortGEPPolicy);
@@ -736,13 +761,38 @@ private:
 			return !erasedInst.empty();
 		}
 	private:
-		static Value* getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index);
-		void optimizeGEPsRecursive(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
+		struct PairRepresentativeOrderedGEPs
+		{
+			llvm::BasicBlock* representative;
+			OrderedGEPs GEPs;
+			PairRepresentativeOrderedGEPs(BasicBlock* rep)
+				: representative(rep)
+			{}
+		};
+		static Value* getValueNthOperator(const GetElementPtrInst* it, const uint32_t index);
+		std::vector<PairRepresentativeOrderedGEPs> splitIntoSubproblems (const OrderedGEPs::iterator begin, const OrderedGEPs::iterator end, const uint32_t endIndex) const;
+		void buildNodesOfGEPTree(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
 			llvm::Value* base, const uint32_t startIndex);
-		Instruction* findInsertionPoint(const OrderedGEPs::iterator begin, const OrderedGEPs::iterator end, const uint32_t endIndex);
+		bool checkInvariantsOnOrderedGEPs(const OrderedGEPs& orderedGEPs)
+		{
+			OrderByOperands orderByOperands(order);
+			for (uint32_t i=1; i<orderedGEPs.size(); i++)
+			{
+				const GetElementPtrInst* A = orderedGEPs[i-1];
+				const GetElementPtrInst* B = orderedGEPs[i];
+				GEPRange rangeA = GEPRange::createGEPRange(A);
+				GEPRange rangeB = GEPRange::createGEPRange(B);
+				if (rangeB.properSubsetOf(rangeA))
+					return false;
+				if (orderByOperands(B, A))
+					return false;
+
+			}
+			return true;
+		}
+		Instruction* findInsertionPoint(const OrderedGEPs& GEPs);
 		OrderOfAppearence order;
 		OrderedGEPs orderedGeps;
-		OrderedGEPs skippedGeps;
 
 		GEPOptimizer* passData;
 

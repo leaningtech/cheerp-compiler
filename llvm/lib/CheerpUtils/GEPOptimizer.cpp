@@ -23,17 +23,19 @@
 
 namespace llvm {
 
-Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(const OrderedGEPs::iterator it, const uint32_t index)
+Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(const GetElementPtrInst* gep, const uint32_t index)
 {
-	if (index >= (*it)->getNumOperands())
+	if (index >= gep->getNumOperands())
 		return NULL;
 	else
-		return (*it)->getOperand(index);
+		return gep->getOperand(index);
 }
 
-void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
+void GEPOptimizer::GEPRecursionData::buildNodesOfGEPTree(OrderedGEPs::iterator begin, const OrderedGEPs::iterator end,
 		Value* base, uint32_t endIndex)
 {
+	//This function takes a range (begin, end) of GEPs, build all the GEPs of level endIndex in the GEPTree, and then call itself again as to build nodes on levels > endIndex
+
 	assert(begin != end);
 	llvm::SmallVector<llvm::Value*, 4> newIndexes;
 
@@ -45,101 +47,121 @@ void GEPOptimizer::GEPRecursionData::optimizeGEPsRecursive(OrderedGEPs::iterator
 	while (begin != end)
 	{
 		//Initialize range
-		OrderedGEPs::iterator it = begin;
-		const Value* referenceOperand = getValueNthOperator(it, endIndex);
-		uint32_t rangeSize = 1;
-		it++;
+		const Value* referenceOperand = getValueNthOperator(*begin, endIndex);
 
-		while(it!=end &&  referenceOperand == getValueNthOperator(it, endIndex))
-		{
-			rangeSize++;
-			it++;
-		}
-		// This is the first index which is different in the range.
+		const OrderedGEPs::iterator endSubRange = find_if_not(begin, end, [endIndex, referenceOperand](GetElementPtrInst* gep)
+				{
+					return referenceOperand == getValueNthOperator(gep, endIndex);
+				});
+
 #if DEBUG_GEP_OPT_VERBOSE
-		llvm::errs() << "Index equal until " << endIndex << ", range size: " << rangeSize << "\n";
+		llvm::errs() << "Index equal until " << endIndex << ", range size: " << std::distance(begin, endSubRange) << "\n";
 #endif
-
-		// Compute the insertion point to dominate all users of this GEP in the range
-		// (possibly moving some GEP to skippedGeps, so finding the iterators has to be done afterwards)
-		Instruction* insertionPoint = findInsertionPoint(begin, it, endIndex);
-
-		OrderedGEPs::iterator endEquals = begin;
-		while (endEquals != it && getValueNthOperator(endEquals, endIndex+1) == NULL)
+		for (auto& subproblem : splitIntoSubproblems(begin, endSubRange, endIndex+1))
 		{
-			++endEquals;
-		}
-		OrderedGEPs::iterator endRange = endEquals;
-		while (endRange != it)
-		{
-			++endRange;
-		}
-		const GEPRange range = GEPRange::createGEPRange(cast<llvm::GetElementPtrInst>(*begin), endIndex+1);
+			assert(checkInvariantsOnOrderedGEPs(subproblem.GEPs));
 
-		//Hoist the GEP as high as possible, will be put on the right spot by DelayInsts later
-		insertionPoint = passData->hoistGEP(insertionPoint, range);
-		assert(insertionPoint);
+			// Compute the insertion point to dominate all users of this GEP in the range
+			Instruction* insertionPoint = findInsertionPoint(subproblem.GEPs);
 
-		newIndexes.push_back((*begin)->getOperand(endIndex));
-		GetElementPtrInst* newGEP = GetElementPtrInst::Create(base->getType()->getPointerElementType(), base, newIndexes, base->getName()+".optgep");
-		newGEP->insertBefore(insertionPoint);
-		newIndexes.pop_back();
+			OrderedGEPs::iterator endEquals = find_if_not(subproblem.GEPs.begin(), subproblem.GEPs.end(), [endIndex](GetElementPtrInst* gep)
+					{
+						return getValueNthOperator(gep, endIndex+1) == NULL;
+					});
+
+			//Hoist the GEP as high as possible, will be put on the right spot by DelayInsts later
+			//If the instruction is already in the highest possible block, leave it there (since it may be already higher than the terminator)
+			//Otherwise move the insertion point to the terminator of the highest possible block
+			if (insertionPoint->getParent() != subproblem.representative)
+				insertionPoint = subproblem.representative->getTerminator();
+
+			newIndexes.push_back((*(subproblem.GEPs.begin()))->getOperand(endIndex));
+			GetElementPtrInst* newGEP = GetElementPtrInst::Create(base->getType()->getPointerElementType(), base, newIndexes, base->getName()+".optgep");
+			newGEP->insertBefore(insertionPoint);
+			newIndexes.pop_back();
 #if DEBUG_GEP_OPT_VERBOSE
-		llvm::errs() << "New GEP " << newGEP << "\n";
+			llvm::errs() << "New GEP " << *newGEP << "\n";
 #endif
+			OrderedGEPs endingHere(subproblem.GEPs.begin(), endEquals);
+			OrderedGEPs longerGEPs(endEquals, subproblem.GEPs.end());
 
-		if (begin != endEquals)
-		{
-			//Take care of the GEP ending here
-			erasedInst.insert(std::make_pair(newGEP, std::vector<GetElementPtrInst*>(begin, endEquals)));
+			if (!endingHere.empty())
+			{
+				//Take care of the GEP ending here
+				erasedInst.insert({newGEP, endingHere});
+				// Will be later examined, checking wheter it should be merged to its single children (or kept if there are multiple ones)
+			}
+
+
+			if (!longerGEPs.empty())
+			{
+				nonTerminalGeps.push_back(newGEP);
+				//Take care of a nonTerminalGeps (= has children nodes in the GEP tree)
+				buildNodesOfGEPTree(longerGEPs.begin(), longerGEPs.end(), newGEP, endIndex + 1);
+			}
 		}
 
-		// Will be later examined, checking wheter it should be merged to its single use (or kept if there are multiple uses)
-
-		if (endEquals != endRange)
-		{
-			nonTerminalGeps.push_back(newGEP);
-			//Take care of a nonTerminalGeps (= has children nodes in the GEP tree)
-			optimizeGEPsRecursive(endEquals, endRange, newGEP, endIndex + 1);
-		}
 		// Reset the state for the next range
-		begin = endRange;
+		begin = endSubRange;
 	}
 }
 
-Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEPs::iterator begin, const OrderedGEPs::iterator end, const uint32_t endIndex)
+Instruction* GEPOptimizer::GEPRecursionData::findInsertionPoint(const OrderedGEPs& GEPs)
 {
 	Instruction* insertionPoint = NULL;
 	DominatorTree* DT = passData->DT;
 
-	for(OrderedGEPs::iterator it = begin; it != end;)
+	for(GetElementPtrInst* curGEP : GEPs)
 	{
-		//We need to hold an iterator both to the current and the next item
-		//to be able to delete the current item without invalidating iterators
-		OrderedGEPs::iterator currIt = it;
-		GetElementPtrInst* curGEP = *it;
-		++it;
-		Instruction* insertPointCandidate = cheerp::findCommonInsertionPoint(NULL, DT, insertionPoint, curGEP);
-
-		// Make sure that insertPointCandidate is in a valid block for this GEP
-		const ValidGEPLocations& validGEPLocations = passData->validGEPMap.at(GEPRange::createGEPRange(cast<const GetElementPtrInst>(curGEP),endIndex+1));
-		if (!validGEPLocations.count(insertPointCandidate->getParent()))
-		{
-			// It is not safe to optimize this GEP, remove it from the set
-			assert(curGEP != *begin);
-			skippedGeps.insert(curGEP);
-			orderedGeps.erase(currIt);
-#if DEBUG_GEP_OPT_VERBOSE
-			llvm::errs() << "Skipping GEP " << *curGEP << "\n";
-#endif
-		}
-		else
-		{
-			insertionPoint = insertPointCandidate;
-		}
+		insertionPoint = cheerp::findCommonInsertionPoint(NULL, DT, insertionPoint, curGEP);
 	}
 	return insertionPoint;
 }
+
+std::vector<GEPOptimizer::GEPRecursionData::PairRepresentativeOrderedGEPs> GEPOptimizer::GEPRecursionData::splitIntoSubproblems(const GEPOptimizer::OrderedGEPs::iterator begin, const GEPOptimizer::OrderedGEPs::iterator end, const uint32_t endIndex) const
+{
+	//Take a ordered range of GEPs, assign every one of them to each representative root of the appropriate BasicBlockForest
+	//and split them accordingly (keeping the GEPs in the same relative order as before)
+
+	const GEPRange range = GEPRange::createGEPRange(cast<llvm::GetElementPtrInst>(*begin), endIndex);
+	const BasicBlockForest& forest = passData->validGEPMap.at(range);
+
+	struct PairRepresentativeGEP
+	{
+		PairRepresentativeGEP(GetElementPtrInst* GEP, const BasicBlockForest& forest)
+			: representative(forest.getRepresentingRoot(GEP->getParent())), GEP(GEP)
+		{}
+		bool operator<(const PairRepresentativeGEP& other) const
+		{
+			//The comparison is only based on the BB
+			//And a stable sort is needed to keep the GEPs with the same representative ordered (since they start out as ordered)
+			return representative < other.representative;
+		}
+		llvm::BasicBlock* representative;
+		llvm::GetElementPtrInst* GEP;
+	};
+
+	std::vector<PairRepresentativeGEP> auxiliaryVector;
+
+	std::transform(begin, end, std::back_inserter(auxiliaryVector),
+			[&forest](GetElementPtrInst* gep) -> PairRepresentativeGEP { return PairRepresentativeGEP(gep, forest); });
+
+	//The sort has to be stable, otherwise we lost the proprety that smaller geps should come first
+	stable_sort(auxiliaryVector.begin(), auxiliaryVector.end());
+
+	std::vector<PairRepresentativeOrderedGEPs> splitProblems;
+
+	for (const auto& elem : auxiliaryVector)
+	{
+		if (splitProblems.empty() || splitProblems.back().representative != elem.representative)
+			splitProblems.push_back(PairRepresentativeOrderedGEPs(elem.representative));
+
+		splitProblems.back().GEPs.push_back(elem.GEP);
+	}
+
+	return splitProblems;
+}
+
 
 
 template <> struct GraphTraits<ValidBasicBlockForestGraph::Node*> {
@@ -247,14 +269,7 @@ std::vector<BasicBlock*> findRepresentingBasicBlock(const DominatorTree* DT, con
 	std::vector<BasicBlock*> result(blocks.size(), NULL);
 	for (uint32_t i=0; i<blocks.size(); i++)
 	{
-		const BasicBlock* input = blocks[i];
-		for (BasicBlock* BB : validPlacements.getRoots())
-		{
-			if (BB == input || DT->dominates(BB, input))
-			{
-				result[i] = BB;
-			}
-		}
+		result[i] = validPlacements.getRepresentingRoot(blocks[i]);
 		assert(result[i]);
 	}
 	return result;
@@ -302,8 +317,7 @@ void BasicBlockForest::keepOnlyDominatedByOperand(const Value* value)
 
 GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data) :
 		order(),
-		orderedGeps(OrderByOperands(&order)),
-		skippedGeps(OrderByOperands(&order)),
+		orderedGeps(),
 		passData(data)
 {
 	//First we do a pass to collect in which blocks a GepRange is used, this data will be later used by ValidGEPGraph::Node::isValidForGEP()
@@ -359,10 +373,11 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 			GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
 			for (size_t i = 0; i < GEP->getNumOperands(); ++i)
 			{
-				order.insert({GEP->getOperand(i), order.size()});
+				if (order.count(GEP->getOperand(i)) == 0)
+					order.insert({GEP->getOperand(i), order.size()});
 			}
 
-			orderedGeps.insert(GEP);
+			orderedGeps.push_back(GEP);
 			ValidGEPLocations possiblyValidBlocks = AllBlocks;
 			assert(possiblyValidBlocks.getDominatorTree() == passData->DT);
 			//possiblyValidBlocks contains all blocks where a GEP could still be possibly placed
@@ -407,15 +422,29 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 	}
 }
 
+void GEPOptimizer::GEPRecursionData::sortGEPs()
+{
+	//Sort the GEPs lexicographically
+	//(it is not important the actual order, only two property matters:
+	//-GEP with a common prefix should be close to each other
+	//-a GEP that is a subset of another GEP should come earlier
+	sort(orderedGeps.begin(), orderedGeps.end(), OrderByOperands(order));
+
+	assert(checkInvariantsOnOrderedGEPs(orderedGeps));
+}
+
 bool GEPOptimizer::runOnFunction(Function& F)
 {
 	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
-	//Collect all the data (where GEP are located, and sort them) and do some precomputations (which blocks are valid for a certain GEPRange)
+	//Collect all the data (where GEP are located) and do some precomputations (which blocks are valid for a certain GEPRange)
 	GEPRecursionData data(F, this);
 
+	//Sort the GEPs lexicographically
+	data.sortGEPs();
+
 	//Walk the GEPtree, building a GEP for every node (both leaf and non-leaf)
-	data.startRecursion();
+	data.buildGEPTree();
 
 	//Substitute the created GEPs in the function
 	data.applyOptGEP();
@@ -434,7 +463,7 @@ bool GEPOptimizer::runOnFunction(Function& F)
 // pointer and the first index equal. As the GEPs in the map are ordered we
 // know that equal objects are close.
 
-void GEPOptimizer::GEPRecursionData::startRecursion()
+void GEPOptimizer::GEPRecursionData::buildGEPTree()
 {
 	uint32_t rangeLength = 0;
 	auto it=orderedGeps.begin();
@@ -459,17 +488,10 @@ void GEPOptimizer::GEPRecursionData::startRecursion()
 				llvm::errs() << **it2 << "\n";
 			llvm::errs() << "\n";
 #endif
-			optimizeGEPsRecursive(rangeStart, it, (*rangeStart)->getOperand(0), 1);
+			buildNodesOfGEPTree(rangeStart, it, (*rangeStart)->getOperand(0), 1);
 		}
 		rangeLength = 0;
 		rangeStart = it;
-	}
-
-	if (!skippedGeps.empty())
-	{
-		swap(skippedGeps, orderedGeps);
-		skippedGeps.clear();
-		startRecursion();
 	}
 }
 
