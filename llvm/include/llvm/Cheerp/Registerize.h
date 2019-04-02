@@ -957,11 +957,11 @@ private:
 	const std::vector<uint32_t> blockNumber;
 	VertexColorer blocks;
 	std::vector<uint32_t> start, end;
+	llvm::IntEqClasses eqClasses;
 	std::vector<uint32_t> newIndex;
 	std::vector<uint32_t> whichSubproblem;
 	std::vector<uint32_t> numerositySubproblem;
 	std::vector<uint32_t> articulations;
-	std::vector<uint32_t> seeds;
 	std::vector<VertexColorer> subproblems;
 };
 
