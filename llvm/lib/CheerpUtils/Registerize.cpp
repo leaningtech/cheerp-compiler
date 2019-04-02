@@ -1884,6 +1884,7 @@ bool SplitConflictingBase::couldBePerformed()
 
 bool SplitArticulation::couldBePerformedPhiEdges()
 {
+	//TODO: improve it -> certain cases are still mergeable
 	for (const auto& E : instance.groupedLinks)
 	{
 		uint32_t subproblem = instance.N;
@@ -1945,7 +1946,7 @@ void SplitArticulation::dumpDescription() const
 	llvm::errs() <<std::string(instance.depthRecursion, ' ') << reductionName();
 	if (!limitSize)
 	{
-		llvm::errs() << " clique of size " << numerositySubproblem[articulations.front()];
+		llvm::errs() << " clique of size " << numerositySubproblem.front();
 	}
 	llvm::errs() << ":\t";
 	SplitArticulation::dumpSubproblems();
@@ -1977,9 +1978,9 @@ void SplitConflictingBase::dumpSubproblems() const
 
 void SplitArticulation::dumpSubproblems() const
 {
-	for (const uint32_t s : seeds)
+	for (uint32_t i=0; i<numerositySubproblem.size(); ++i)
 	{
-		llvm::errs() << numerositySubproblem[s] << " ";
+		llvm::errs() << numerositySubproblem[i] << " ";
 	}
 }
 
@@ -2072,10 +2073,7 @@ void SplitArticulation::relabelNodes()
 		for (uint32_t i=start[split]; i<=end[split]; i++)
 		{
 			whichSubproblem[i] = 0;
-			newIndex[i] = numerositySubproblem[split]++;
 		}
-
-		numerositySubproblem = std::vector<uint32_t> (M, numerositySubproblem[split]);
 
 		for (uint32_t m=0; m<M; m++)
 		{
@@ -2084,33 +2082,23 @@ void SplitArticulation::relabelNodes()
 			for (uint32_t i=start[m]; i<=end[m]; ++i)
 			{
 				whichSubproblem[i] = whichSubproblem[start[regions[m]]];
-				newIndex[i] = numerositySubproblem[regions[m]]++;
 			}
 		}
 
-		seeds.clear();
+		assignIndexes(whichSubproblem, numerositySubproblem, newIndex, end[split] + 1 - start[split]);
 
-		for (uint32_t i=0; i<M; i++)
-		{
-			if (numerositySubproblem[i] > numerositySubproblem[split] && numerositySubproblem[i]<instance.N)
-			{
-				seeds.push_back(i);
-			}
-		}
-
-		assert (seeds.size() > 1);
-	//TODO: this means it splits only on the first articulation point, but could be generalized to split on all at the same time
+		//TODO: this means it splits only on the first articulation point, but could be generalized to split on all at the same time
 		break;
 	}
 }
 
 void SplitArticulation::buildSubproblems()
 {
-	subproblems.reserve(seeds.size());
+	subproblems.reserve(numerositySubproblem.size() - 1);
 
-	for (uint32_t s : seeds)
+	for (uint32_t i=1; i<numerositySubproblem.size(); i++)
 	{
-		subproblems.push_back(VertexColorer(numerositySubproblem[s], instance));
+		subproblems.push_back(VertexColorer(numerositySubproblem[i], instance));
 	}
 
 	for (const VertexColorer::Link& link : instance.constraintIterable())
@@ -2197,7 +2185,7 @@ void SplitArticulation::reduce()
 		postprocessing(sub);
 		solutions.push_back(sub.getSolution());
 
-		VertexColorer::permuteFirstElements(solutions.back(), numerositySubproblem[splitNode]);
+		VertexColorer::permuteFirstElements(solutions.back(), numerositySubproblem.front());
 	}
 
 	instance.retColors.resize(instance.N, 0);
