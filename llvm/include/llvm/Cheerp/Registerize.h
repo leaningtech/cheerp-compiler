@@ -1324,6 +1324,7 @@ private:
 			}
 		}
 	private:
+		bool couldAvoidToBeMaterialized(const llvm::BasicBlock& BB) const;
 		void computeBitsetConstraints()
 		{
 			bitsetConstraint.clear();
@@ -1453,6 +1454,7 @@ private:
 		}
 		llvm::Function& F;
 		Registerize* registerize;
+		const PointerAnalyzer& PA;
 		Indexer<const llvm::Instruction*> indexer;
 		llvm::SmallVector<RegisterRange, 4> virtualRegisters;
 		std::vector<llvm::BitVector> bitsetConstraint;
