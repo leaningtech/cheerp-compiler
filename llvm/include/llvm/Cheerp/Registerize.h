@@ -984,10 +984,10 @@ public:
 	virtual bool couldBeAvoided() const = 0;
 private:
 	const bool conflicting;
+	llvm::IntEqClasses eqClasses;
 	std::vector<uint32_t> newIndex;
 	std::vector<uint32_t> whichSubproblem;
 	std::vector<uint32_t> numerositySubproblem;
-	std::vector<uint32_t> seeds;
 	std::vector<VertexColorer> subproblems;
 };
 
