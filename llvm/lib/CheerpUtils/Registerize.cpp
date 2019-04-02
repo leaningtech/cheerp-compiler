@@ -1544,7 +1544,7 @@ void RemoveFewConstraints::reduce()
 
 bool EnumerateAllPhiEdges::couldBePerformed()
 {
-	return instance.groupedLinks.size() > 0 && instance.groupedLinks.size() < 50;
+	return instance.groupedLinks.size() > 0 && instance.groupedLinks.size() < 5;
 }
 
 bool EnumerateAllPhiEdges::couldBePerformedPhiEdges()
@@ -1554,37 +1554,15 @@ bool EnumerateAllPhiEdges::couldBePerformedPhiEdges()
 
 void EnumerateAllPhiEdges::relabelNodes()
 {
-	parent.resize(instance.N);
-	for (uint32_t i=0; i<instance.N; i++)
-	{
-		parent[i] = i;
-	}
+	eqClasses.grow(instance.N);
 
 	const auto& edge = instance.groupedLinks.back();
 	for (const VertexColorer::Link& link : edge)
 	{
-		parent[findRepresentative(parent, link.first)] = findRepresentative(parent, link.second);
+		eqClasses.join(link.first, link.second);
 	}
 
-	newIndex = std::vector<uint32_t> (instance.N);
-	uint32_t firstUnused = 0;
-
-	for (uint32_t i=0; i<instance.N; i++)
-	{
-		parent[i] = findRepresentative(parent, i);
-
-		if (parent[i] == i)
-		{
-			newIndex[i] = firstUnused++;
-		}
-	}
-	for (uint32_t i=0; i<instance.N; i++)
-	{
-		if (parent[i] != i)
-		{
-			newIndex[i] = newIndex[parent[i]];
-		}
-	}
+	newIndex = computeLeaders(eqClasses);
 }
 
 void EnumerateAllPhiEdges::reduce()
@@ -1835,6 +1813,7 @@ void RemoveDominated::buildSubproblems()
 
 void EnumerateAllPhiEdges::buildSubproblems()
 {
+	//We process the more numerous grouped link
 	uint32_t indexGroupedLink = 0;
 	for (uint32_t i=1; i<instance.groupedLinks.size(); i++)
 	{
@@ -1842,17 +1821,8 @@ void EnumerateAllPhiEdges::buildSubproblems()
 			indexGroupedLink = i;
 	}
 	std::swap(instance.groupedLinks[indexGroupedLink], instance.groupedLinks.back());
-	uint32_t goodDimension = 0;
-	for (uint32_t i=0; i<instance.N; i++)
-	{
-		if (parent[i] == i)
-			++goodDimension;
-	}
-	for (uint32_t i=0; i<instance.N; ++i)
-	{
-		assert(goodDimension > newIndex[i]);
-	}
-	subproblems.push_back(VertexColorer(goodDimension, instance));
+
+	subproblems.push_back(VertexColorer(eqClasses.getNumClasses(), instance));
 	subproblems.push_back(VertexColorer(instance.N, instance));
 
 	VertexColorer& good = subproblems.front();

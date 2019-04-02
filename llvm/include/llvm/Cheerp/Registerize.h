@@ -874,7 +874,7 @@ public:
 private:
 	std::vector<uint32_t> newIndex;
 	std::vector<VertexColorer> subproblems;
-	std::vector<uint32_t> parent;
+	llvm::IntEqClasses eqClasses;
 	bool goodIsValid;
 };
 
