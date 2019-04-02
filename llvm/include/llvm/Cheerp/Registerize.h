@@ -19,6 +19,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/IntEqClasses.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include <array>
 #include <set>
@@ -848,6 +849,8 @@ public:
 	bool perform();
 	virtual void dumpDescription() const = 0;
 	VertexColorer& instance;
+	std::vector<uint32_t> computeLeaders(llvm::IntEqClasses& eqClasses) const;
+	void assignIndexes(const std::vector<uint32_t>& whichSubproblems, std::vector<uint32_t>& numerositySubproblem, std::vector<uint32_t>& newIndexes, const uint32_t startingFrom=0);
 };
 
 class RemoveFewConstraints : public Reduction
