@@ -520,7 +520,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 }
 
 Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA, Registerize* registerize)
-	: F(F_), registerize(registerize), emptyFunction(false), frequencyInfo(F, registerize->LI)
+	: F(F_), registerize(registerize), PA(PA), emptyFunction(false), frequencyInfo(F, registerize->LI)
 {
 	using namespace llvm;
 
@@ -873,10 +873,22 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 	return res;
 }
 
+bool Registerize::RegisterAllocatorInst::couldAvoidToBeMaterialized(const BasicBlock& BB) const
+{
+	//Only blocks containing only phi and exactly 1 successor can avoid to be materialized
+	if (!isNumStatementsLessThan<1>(&BB, PA, *registerize, /*skipPhi*/true))
+		return false;
+	const TerminatorInst* term=BB.getTerminator();
+	return (term->getNumSuccessors() == 1);
+}
+
 void Registerize::RegisterAllocatorInst::buildEdgesData(Function& F)
 {
 	for (const BasicBlock & fromBB : F)
 	{
+		if (!couldAvoidToBeMaterialized(fromBB))
+			continue;
+
 		const TerminatorInst* term=fromBB.getTerminator();
 		for(uint32_t i=0;i<term->getNumSuccessors();i++)
 		{

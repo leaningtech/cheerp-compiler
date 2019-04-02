@@ -56,7 +56,7 @@ bool canDelayPHI(const llvm::PHINode* phi, const PointerAnalyzer& PA, const Regi
 
 template<uint32_t N>
 bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
-	const PointerAnalyzer& PA, const Registerize& registerize)
+	const PointerAnalyzer& PA, const Registerize& registerize, const bool skipPhi = false)
 {
 	bool asmjs = BB->getParent()->getSection() == llvm::StringRef("asmjs");
 	uint32_t Count = 0;
@@ -64,7 +64,7 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 	while(auto PHI = llvm::dyn_cast<llvm::PHINode>(It))
 	{
 		// Delayed PHIs are rendered in their parent block
-		if (canDelayPHI(PHI, PA, registerize))
+		if (!skipPhi && canDelayPHI(PHI, PA, registerize))
 		{
 			if (PHI->getType()->isPointerTy() && PA.getPointerKind(PHI) == SPLIT_REGULAR)
 				Count++;
