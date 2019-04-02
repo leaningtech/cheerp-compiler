@@ -922,13 +922,12 @@ private:
 	static uint64_t computeSample(const llvm::BitVector&A)
 	{
 		uint64_t res = 0;
-		assert(A.size() >= 64);
 
-		uint32_t spacing = A.size() / 64;
+		uint32_t spacing = std::max(A.size() / 64, uint32_t(1));
 
-		for (uint32_t i=0; i<64; i++)
+		for (uint32_t i=0; i<A.size(); i+=spacing)
 		{
-			res = 2*res + (A[i*spacing]?1:0);
+			res = 2*res + (A[i]?1:0);
 		}
 		return res;
 	}
@@ -947,7 +946,14 @@ private:
 		return A == (A&B);
 	}
 	bool isAlive(const uint32_t a) const;
+	bool mergeIfDominated(const uint32_t dominator, const uint32_t dominated);
 	std::vector<uint32_t> whoIsDominatingFriend(const uint32_t a) const;
+	struct SamplesData
+	{
+		std::vector<uint64_t> samples;
+		std::vector<std::pair<uint64_t, std::vector<uint32_t>>> bucketsSameSample;
+	};
+	SamplesData precomputeSamples() const;
 	llvm::IntEqClasses eqClasses;
 	llvm::BitVector isNodeAlive;
 	std::vector<uint32_t> newIndex;
