@@ -1858,9 +1858,9 @@ bool SplitConflictingBase::couldBePerformed()
 	//	in this case the same colors can be reused, since there are no possible conflicts
 	assert(instance.areAllAlive());
 
+	eqClasses.grow(instance.N);
 	llvm::BitVector region(instance.N, false);
 	llvm::BitVector processed(instance.N, false);
-	uint32_t firstUnused = 0;
 
 	for (uint32_t i=0; i<instance.N; i++)
 	{
@@ -1873,20 +1873,13 @@ bool SplitConflictingBase::couldBePerformed()
 		{
 			if (!region[j])
 				continue;
-			whichSubproblem[j] = firstUnused;
-			newIndex[j] = numerositySubproblem[i]++;
+			eqClasses.join(i, j);
 		}
-		assert(numerositySubproblem[i] > 0);
-		if (numerositySubproblem[i] < instance.N)
-		{
-			seeds.push_back(i);
-		}
-		++firstUnused;
 	}
 
-	assert(seeds.size() != 1);
+	eqClasses.compress();
 
-	return (seeds.size() > 1);
+	return (eqClasses.getNumClasses() > 1);
 }
 
 bool SplitArticulation::couldBePerformedPhiEdges()
@@ -1914,65 +1907,29 @@ bool SplitArticulation::couldBePerformedPhiEdges()
 
 bool SplitConflictingBase::couldBePerformedPhiEdges()
 {
-	std::vector<uint32_t> parentRegion(seeds.size());
-	for (uint32_t i=0; i<parentRegion.size(); i++)
-	{
-		parentRegion[i] = i;
-	}
+	eqClasses.uncompress();
 
 	for (const auto& E : instance.groupedLinks)
 	{
-		uint32_t subproblem = instance.N;
+		uint32_t edgeLeader = instance.N;
 		for (const VertexColorer::Link& link : E)
 		{
-			uint32_t a = findRepresentative(parentRegion, whichSubproblem[link.first]);
-			uint32_t b = findRepresentative(parentRegion, whichSubproblem[link.second]);
-			assert(parentRegion[a] == a);
-			assert(parentRegion[b] == b);
-			if (subproblem == instance.N)
-				subproblem = a;
-			if (a != subproblem)
-				parentRegion[a] = subproblem;
-			if (b != subproblem)
-				parentRegion[b] = subproblem;
+			const uint32_t a = link.first;
+			const uint32_t b = link.second;
+			if (edgeLeader == instance.N)
+				edgeLeader = eqClasses.findLeader(a);
+			eqClasses.join(edgeLeader, a);
+			eqClasses.join(edgeLeader, b);
 		}
 	}
 
-	std::vector<uint32_t> representative(parentRegion.size());
-	std::set<uint32_t> set;
-	for (uint32_t i=0; i<parentRegion.size(); i++)
-	{
-		representative[i] = findRepresentative(parentRegion, i);
-		set.insert(representative[i]);
-	}
-	if (set.size() < 2)
+	eqClasses.compress();
+
+	if (eqClasses.getNumClasses() < 2)
 		return false;
 
+	relabelNodes();
 
-	numerositySubproblem = std::vector<uint32_t> (instance.N, 0);
-	newIndex = std::vector<uint32_t> (instance.N, instance.N);
-	std::vector<uint32_t> oldSubproblem = whichSubproblem;
-	whichSubproblem = std::vector<uint32_t> (instance.N, instance.N);
-	uint32_t firstUnused = 0;
-	std::vector<uint32_t> newSeeds;
-	for (uint32_t R : set)
-	{
-		newSeeds.push_back(seeds[R]);
-		for (uint32_t i=0; i<instance.N; i++)
-		{
-			if (representative[oldSubproblem[i]] != R)
-				continue;
-			whichSubproblem[i] = firstUnused;
-			newIndex[i] = numerositySubproblem[seeds[R]]++;
-		}
-		firstUnused++;
-	}
-	for (uint32_t i=0; i<instance.N; i++)
-	{
-		assert(whichSubproblem[i] < instance.N);
-		assert(newIndex[i] < instance.N);
-	}
-	seeds = newSeeds;
 	return true;
 }
 
@@ -2012,9 +1969,9 @@ std::string SplitUnconnected::reductionName() const
 
 void SplitConflictingBase::dumpSubproblems() const
 {
-	for (const uint32_t s : seeds)
+	for (const uint32_t n : numerositySubproblem)
 	{
-		llvm::errs() << numerositySubproblem[s] << " ";
+		llvm::errs() << n << " ";
 	}
 }
 
@@ -2086,7 +2043,8 @@ void SplitInverseUnconnected::postprocessing(VertexColorer& subsolution)
 
 void SplitConflictingBase::relabelNodes()
 {
-	//Already performed by couldBePerformed()
+	whichSubproblem = computeLeaders(eqClasses);
+	assignIndexes(whichSubproblem, numerositySubproblem, newIndex);
 }
 
 void SplitArticulation::relabelNodes()
@@ -2254,11 +2212,11 @@ void SplitArticulation::reduce()
 
 void SplitConflictingBase::buildSubproblems()
 {
-	subproblems.reserve(seeds.size());
+	subproblems.reserve(eqClasses.getNumClasses());
 
-	for (const uint32_t s : seeds)
+	for (const uint32_t dim : numerositySubproblem)
 	{
-		subproblems.push_back(VertexColorer(numerositySubproblem[s], instance));
+		subproblems.push_back(VertexColorer(dim, instance));
 	}
 
 	for (const VertexColorer::Link& link : instance.constraintIterable())
