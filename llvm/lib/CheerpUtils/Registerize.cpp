@@ -1591,6 +1591,59 @@ std::string EnumerateAllPhiEdges::reductionName() const
 	return "Enumerate over all phi edges";
 }
 
+bool RemoveDominated::mergeIfDominated(const uint32_t dominator, const uint32_t dominated)
+{
+	const uint32_t& i = dominated;
+	const uint32_t& j = dominator;
+
+	if (i != j &&								//They should be different
+		isAlive(j) &&							//Both alive (i is already checked in the outer cycle)
+		!instance.constraints[i][j] &&					//There should be no constraints between them
+		isSubset(instance.constraints[i], instance.constraints[j]) )	//and i's constraints should be a subset of j's constraints
+	{
+		isNodeAlive.reset(i);
+		eqClasses.join(i, j);
+		return true;
+	}
+	return false;
+}
+
+RemoveDominated::SamplesData RemoveDominated::precomputeSamples() const
+{
+	//Computing whether a row is a subset of another takes O(N) (possibly every index has to be checked)
+	//We precompute a sample 64 arbitrary columns, and store only this in samples
+	//This way first we first could test whether samples[x] is a subset of samples[y], and only whenever this is true we move to the more expensive check
+	//In the worst case this still requires O(N), but a lot of cases could be solved in O(1), so while the algorithm complexity remains the same
+	//(at least in degenerate cases), there is a practical speed-up
+
+	SamplesData data;
+	auto& samples = data.samples;
+	auto& bucketsSameSample = data.bucketsSameSample;
+
+	for (uint32_t i=0; i<instance.N; ++i)
+	{
+		samples.push_back(computeSample(instance.constraints[i]));
+	}
+
+	std::vector<std::pair<uint64_t, uint32_t>> sampleIndexPairs;
+	for (uint32_t i=0; i<instance.N; i++)
+	{
+		sampleIndexPairs.push_back({samples[i], i});
+	}
+	sort(sampleIndexPairs.begin(), sampleIndexPairs.end());
+
+	for (const auto& pair : sampleIndexPairs)
+	{
+		if (bucketsSameSample.empty() || bucketsSameSample.back().first != pair.first)
+		{
+			bucketsSameSample.push_back({pair.first, std::vector<uint32_t>()});
+		}
+		bucketsSameSample.back().second.push_back(pair.second);
+	}
+
+	return data;
+}
+
 bool RemoveDominated::couldBePerformed()
 {
 	if (couldBeAvoided())
@@ -1601,94 +1654,42 @@ bool RemoveDominated::couldBePerformed()
 	//-there are no constraint between them (otherwise it could be dominating, but it could not be merged)
 	//-either the dominated has no friends, or has the dominating as only friend, or in any case the dominating is a dominating friend
 	//			(this means that it's the friend that weights 50%+ of the total of the dominating friendships)
-	std::vector<uint64_t> samples;
-	std::vector<std::pair<uint64_t, std::vector<uint32_t>>> bucketsSameSample;
-
-	if (instance.N >= 64)
-	{
-		//Computing whether a row is a subset of another takes O(N) (possibly every index has to be checked)
-		//When N is big enough, we precompute a sample 64 arbitrary columns, and store only this in samples
-		//This way first we first could test whether samples[x] is a subset of samples[y], and only whenever this is true we move to the more expensive check
-		//In the worst case this still requires O(N), but a lot of cases could be solved in O(1), so while the algorithm complexity remains the same
-		//(at least in degenerate cases), there is a practical speed-up
-		for (uint32_t i=0; i<instance.N; ++i)
-		{
-			samples.push_back(computeSample(instance.constraints[i]));
-		}
-
-		std::vector<std::pair<uint64_t, uint32_t>> sampleIndexPairs;
-		for (uint32_t i=0; i<instance.N; i++)
-		{
-			sampleIndexPairs.push_back({samples[i], i});
-		}
-
-		sort(sampleIndexPairs.begin(), sampleIndexPairs.end());
-
-		for (const auto& pair : sampleIndexPairs)
-		{
-			if (bucketsSameSample.empty() || bucketsSameSample.back().first != pair.first)
-			{
-				bucketsSameSample.push_back({pair.first, std::vector<uint32_t>()});
-			}
-			bucketsSameSample.back().second.push_back(pair.second);
-		}
-	}
 
 	eqClasses.grow(instance.N);
+
+	SamplesData data = precomputeSamples();
 
 	//TODO: iterates multiple times
 	for (uint32_t i = 0; i<instance.N; i++)
 	{
 		if (!isAlive(i))
 			continue;
-		//TODO: having a default constructed identity vector
 		if (instance.friends[i].empty())
 		{
-			if (!samples.empty())
+			//Nodes whitout friends accept every node as possible dominator.
+			//We restrict the choice by first checking if a certain bucket is valid, and only then iterating inside the bucket
+			for (const std::pair<uint64_t, std::vector<uint32_t>>& pairSampleIndexes : data.bucketsSameSample)
 			{
-				for (const std::pair<uint64_t, std::vector<uint32_t>>& pairSampleIndexes : bucketsSameSample)
+				if (!isSubset(data.samples[i], pairSampleIndexes.first))
+					continue;
+				for (uint32_t j : pairSampleIndexes.second)
 				{
-					if (!isSubset(samples[i], pairSampleIndexes.first))
-						continue;
-					bool exitLoop = false;
-					for (uint32_t j : pairSampleIndexes.second)
-					{
-						if (i != j && isAlive(j) && !instance.constraints[i][j] && isSubset(instance.constraints[i], instance.constraints[j]) )
-						{
-							assert(isSubset(samples[i], samples[j]));
-							isNodeAlive.reset(i);
-							eqClasses.join(i, j);
-							exitLoop=true;
-							break;
-						}
-					}
-					if (exitLoop)
+					if (mergeIfDominated(j, i))
 						break;
 				}
-			}
-			else
-			{
-				for (uint32_t j=0; j<instance.N; j++)
-				{
-					if (i != j && isAlive(j) && !instance.constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(instance.constraints[i], instance.constraints[j]) )
-					{
-						isNodeAlive.reset(i);
-						eqClasses.join(i, j);
-						break;
-					}
-				}
+				if (!isAlive(i))
+					break;
 			}
 		}
 		else
 		{
+			//Nodes with friends accept as dominator only dominating friends, or friends that are connected by a majority weight link
 			for (uint32_t j : whoIsDominatingFriend(i))
 			{
-				if (i != j && isAlive(j) && !instance.constraints[i][j] && (samples.empty() || isSubset(samples[i], samples[j])) && isSubset(instance.constraints[i], instance.constraints[j]) )
-				{
-					isNodeAlive.reset(i);
-					eqClasses.join(i, j);
+				if (!isSubset(data.samples[i], data.samples[j]))
+					continue;
+				if (mergeIfDominated(j, i))
 					break;
-				}
 			}
 		}
 	}
