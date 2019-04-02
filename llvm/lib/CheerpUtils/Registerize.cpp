@@ -1362,6 +1362,39 @@ bool Reduction::perform()
 	return true;
 }
 
+std::vector<uint32_t> Reduction::computeLeaders (llvm::IntEqClasses& eqClasses) const
+{
+	eqClasses.compress();
+
+	const uint32_t N = instance.N;
+
+	std::vector<uint32_t> whichSubproblem(N);
+
+	for (uint32_t i=0; i<N; i++)
+	{
+		whichSubproblem[i] = eqClasses[i];
+	}
+
+	return whichSubproblem;
+}
+
+void Reduction::assignIndexes(const std::vector<uint32_t>& whichSubproblems, std::vector<uint32_t>& numerositySubproblem, std::vector<uint32_t>& newIndexes, const uint32_t startingFrom)
+{
+	const uint32_t N = whichSubproblems.size();
+	const uint32_t M = *std::max_element(whichSubproblems.begin(), whichSubproblems.end()) + 1;
+
+	numerositySubproblem = std::vector<uint32_t>(M, startingFrom);
+	numerositySubproblem.front() = 0;
+	newIndexes = std::vector<uint32_t>(N);
+
+	for (uint32_t i=0; i<N; ++i)
+	{
+		const uint32_t m = whichSubproblems[i];
+
+		newIndexes[i] = numerositySubproblem[m]++;
+	}
+}
+
 bool VertexColorer::removeRowsWithFewConstraints()
 {
 	//Vertex with no positive-weight friends and "few" constraints can be removed and assigned a color at the end
@@ -2633,21 +2666,15 @@ void Registerize::RegisterAllocatorInst::solve()
 		}
 		if (!allPossiblySatisfyable)
 			continue;
-		std::vector<uint32_t> region(numInst());
-		for (uint32_t i=0; i<numInst(); i++)
-		{
-			region[i] = i;
-		}
+		llvm::IntEqClasses eqClasses(numInst());
 		for (const auto&e : E)
 		{
-			const uint32_t parentFirst = findRepresentative(region, e.first);
-			const uint32_t parentSecond = findRepresentative(region, e.second);
-			region[parentFirst] = parentSecond;
+			eqClasses.join(e.first, e.second);
 		}
 		std::vector<std::pair<uint32_t, uint32_t>> V;
 		for (uint32_t i=0; i<numInst(); i++)
 		{
-			V.push_back({findRepresentative(region, i), i});
+			V.push_back({eqClasses.findLeader(i), i});
 		}
 		sort(V.begin(), V.end());
 		for (uint32_t i=0; i<V.size(); i++)
