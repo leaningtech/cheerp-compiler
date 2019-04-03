@@ -39,29 +39,28 @@ public:
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 private:
-	/// A generalization of a basic block, containing either a single block
-	/// or a set of metablocks dominated by the Entry
-	class MetaBlock {
-		BasicBlock *Entry;
-		// The original predecessors of this metablock. The actual predecessor will
+	/// An header of a (possibly) multi-header loop
+	class Header {
+		BasicBlock *BB;
+		// The original predecessors of this header. The actual predecessor will
 		// eventually be the dispatch block
 		SmallPtrSet<BasicBlock *, 2> Preds;
-		// The forward blocks that logically lead TOWARDS this metablock
+		// The forward blocks that logically lead TOWARDS this header
 		SmallPtrSet<BasicBlock *, 2> Forwards;
 	public:
-		explicit MetaBlock(BasicBlock* Entry, DominatorTree& DT): Entry(Entry)
+		explicit Header(BasicBlock* BB, DominatorTree& DT): BB(BB)
 		{
-			for (auto Pred: make_range(pred_begin(Entry), pred_end(Entry)))
+			for (auto Pred: llvm::predecessors(BB))
 			{
-				// Do not include loops internal to the metablock
-				if (!DT.dominates(Entry, Pred))
+				// Do not consider backedges of inner loops dominated by the header
+				if (!DT.dominates(BB, Pred))
 				{
 					Preds.insert(Pred);
 				}
 			}
 		}
 
-		BasicBlock *getEntry() const { return Entry; }
+		BasicBlock *getBB() const { return BB; }
 
 		const SmallPtrSetImpl<BasicBlock *> &predecessors() const {
 			return Preds;
@@ -77,7 +76,7 @@ private:
 public:
 	class SubGraph;
 	struct GraphNode {
-		BasicBlock* Header;
+		BasicBlock* BB;
 		SmallVector<BasicBlock*, 2> Succs;
 		SubGraph& Graph;
 		explicit GraphNode(BasicBlock* BB, SubGraph& Graph);
@@ -120,9 +119,9 @@ private:
 
 	private:
 		// Create the forward blocks and wire them to the dispatcher
-		void fixPredecessor(MetaBlock& Meta, BasicBlock* Pred);
-		// Move the PHIs at the entry of a metablock into the dispatcher
-		void makeDispatchPHIs(const MetaBlock& Meta);
+		void fixPredecessor(Header& H, BasicBlock* Pred);
+		// Move the PHIs in the header into the dispatcher
+		void makeDispatchPHIs(const Header& H);
 		// Main processing function
 		void processBlocks();
 
@@ -130,13 +129,13 @@ private:
 		Function &F;
 		DominatorTree DT;
 		const std::vector<GraphNode*>& SCC;
-		// The metabloks corresponding to the irreducible loop we identified
-		std::vector<MetaBlock> MetaBlocks;
+		// The headers of the irreducible loop we identified
+		std::vector<Header> Headers;
 		// The new block that will become the single entry of the new loop
 		BasicBlock* Dispatcher;
-		// The value used by the dispatcher for forwarding to the next metablock
+		// The value used by the dispatcher for forwarding to the next header
 		PHINode* Label;
-		// Map that associate the entries of the metablocks with their index in the
+		// Map that associates the headers with their index in the
 		// switch instruction in the dispatcher
 		DenseMap<BasicBlock*, unsigned> Indices;
 	};
