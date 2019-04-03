@@ -194,7 +194,7 @@ Action(cl::desc("Action to perform:"),
 static const Target *GetTarget(const char *ProgName) {
   // Figure out the target triple.
   if (TripleName.empty())
-    TripleName = sys::getDefaultTargetTriple();
+    TripleName = sys::getProcessTriple();
   Triple TheTriple(Triple::normalize(TripleName));
 
   // Get the target specific parser.
