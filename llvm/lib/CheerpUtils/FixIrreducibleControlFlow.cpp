@@ -159,23 +159,7 @@ FixIrreducibleControlFlow::GraphNode::GraphNode(BasicBlock* BB, SubGraph& Graph)
 	}
 }
 
-bool FixIrreducibleControlFlow::visitSubGraph(Function& F, std::queue<SubGraph>& Queue)
-{
-	SubGraph SG = std::move(Queue.front());
-	Queue.pop();
-	bool Irreducible = false;
-	for (auto& SCC: make_range(scc_begin(&SG), scc_end(&SG)))
-	{
-		if (SCC.size() != 1)
-		{
-			SCCVisitor V(F, SCC);
-			Irreducible |= V.run(Queue);
-		}
-	}
-	return Irreducible;
-}
-
-bool FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
+std::pair<FixIrreducibleControlFlow::SubGraph, bool> FixIrreducibleControlFlow::SCCVisitor::run()
 {
 	bool Irreducible = false;
 	DT.recalculate(F);
@@ -208,9 +192,8 @@ bool FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 	}
 	Group.insert(Entry);
 	SubGraph SG(Entry, std::move(Group));
-	Queue.push(std::move(SG));
 
-	return Irreducible;
+	return std::make_pair(std::move(SG), Irreducible);
 }
 
 bool FixIrreducibleControlFlow::runOnFunction(Function& F)
@@ -223,11 +206,23 @@ bool FixIrreducibleControlFlow::runOnFunction(Function& F)
 	std::queue<SubGraph> Queue;
 	SubGraph SG(&*F.begin(), std::move(BBs));
 	Queue.push(std::move(SG));
+
 	while(!Queue.empty())
 	{
-		if (visitSubGraph(F, Queue))
-			Changed = true;
+		SubGraph SG = std::move(Queue.front());
+		Queue.pop();
+		for (auto& SCC: make_range(scc_begin(&SG), scc_end(&SG)))
+		{
+			if (SCC.size() != 1)
+			{
+				SCCVisitor V(F, SCC);
+				auto res = V.run();
+				Queue.push(std::move(res.first));
+				Changed |= res.second;
+			}
+		}
 	}
+
 #ifndef  NDEBUG
 	bool v = verifyFunction(F, &llvm::errs());
 	if (v)
@@ -236,6 +231,7 @@ bool FixIrreducibleControlFlow::runOnFunction(Function& F)
 		report_fatal_error("failed verification");
 	}
 #endif
+
 	return Changed;
 }
 
