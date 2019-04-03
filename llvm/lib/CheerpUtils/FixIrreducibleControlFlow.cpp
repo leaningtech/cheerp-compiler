@@ -24,9 +24,9 @@
 
 namespace llvm {
 
-void FixIrreducibleControlFlow::SCCVisitor::fixPredecessor(MetaBlock& Meta, BasicBlock* Pred)
+void FixIrreducibleControlFlow::SCCVisitor::fixPredecessor(Header& H, BasicBlock* Pred)
 {
-	BasicBlock* BB = Meta.getEntry();
+	BasicBlock* BB = H.getBB();
 	Function& F = *BB->getParent();
 	auto& Context = F.getParent()->getContext();
 	IntegerType* Int32Ty = IntegerType::getInt32Ty(Context);
@@ -38,23 +38,23 @@ void FixIrreducibleControlFlow::SCCVisitor::fixPredecessor(MetaBlock& Meta, Basi
 		if (Fwd == nullptr)
 		{
 			Fwd = BasicBlock::Create(Context,Twine(Pred->getName()) + "." + BB->getName() + ".forward", &F);
-			Meta.addForwardBlock(Fwd);
+			H.addForwardBlock(Fwd);
 			BranchInst::Create(Dispatcher, Fwd);
 			Label->addIncoming(ConstantInt::get(Int32Ty,Indices[BB]), Fwd);
 		}
 		Term->setSuccessor(i, Fwd);
 	}
 }
-void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const MetaBlock& Meta)
+void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const Header& H)
 {
 
-	BasicBlock* BB = Meta.getEntry();
+	BasicBlock* BB = H.getBB();
 	for (BasicBlock::iterator I = BB->begin(), IE = BB->end(); I != IE;) {
 		PHINode* P = dyn_cast<PHINode>(I);
 		if (P == nullptr)
 			break;
 		PHINode* NewP = PHINode::Create(P->getType(), Label->getNumIncomingValues(), {P->getName(),".dispatch"}, Dispatcher->getFirstInsertionPt());
-		for (auto F: Meta.forwards())
+		for (auto F: H.forwards())
 		{
 			BasicBlock* Pred = F->getUniquePredecessor();
 			assert(Pred);
@@ -117,41 +117,42 @@ void FixIrreducibleControlFlow::SCCVisitor::processBlocks()
 	// Add the jump table.
 	IntegerType* Int32Ty = IntegerType::getInt32Ty(Context);
 	IRBuilder<> Builder(Dispatcher);
-	Label = Builder.CreatePHI(Int32Ty, MetaBlocks.size(), "label");
-	auto mit = MetaBlocks.begin(), me = MetaBlocks.end();
-	Indices.insert(std::make_pair(mit->getEntry(), -1));
-	SwitchInst* Switch = Builder.CreateSwitch(Label, mit->getEntry());
-	mit++;
+	Label = Builder.CreatePHI(Int32Ty, Headers.size(), "label");
+	auto hit = Headers.begin(), he = Headers.end();
+	Indices.insert(std::make_pair(hit->getBB(), -1));
+	SwitchInst* Switch = Builder.CreateSwitch(Label, hit->getBB());
+	hit++;
 	int Index = 0;
-	for(auto& Meta: make_range(mit, me))
+	for(auto& H: make_range(hit, he))
 	{
-		Indices.insert(std::make_pair(Meta.getEntry(), Index++));
-		Switch->addCase(ConstantInt::get(Int32Ty, Switch->getNumCases()), Meta.getEntry());
+		Indices.insert(std::make_pair(H.getBB(), Index++));
+		Switch->addCase(ConstantInt::get(Int32Ty, Switch->getNumCases()), H.getBB());
 	}
 
 	// Fix the control flow
-	for (auto& Meta: MetaBlocks)
+	for (auto& H: Headers)
 	{
-		for (auto *Pred: Meta.predecessors())
+		for (auto *Pred: H.predecessors())
 		{
-			fixPredecessor(Meta, Pred);
+			fixPredecessor(H, Pred);
 		}
 	}
 
 	// CFG is fixed from now on. Get the updated domination tree
 	DT.recalculate(F);
 
-	// Create all the DispatchPHIs, without fixing uses
-	for (const auto& Meta: MetaBlocks)
+	// Create all the DispatchPHIs and replace uses where appropriate
+	for (const auto& H: Headers)
 	{
-		makeDispatchPHIs(Meta);
+		makeDispatchPHIs(H);
 	}
 }
 
-FixIrreducibleControlFlow::GraphNode::GraphNode(BasicBlock* BB, SubGraph& Graph): Header(BB), Graph(Graph)
+FixIrreducibleControlFlow::GraphNode::GraphNode(BasicBlock* BB, SubGraph& Graph): BB(BB), Graph(Graph)
 {
-	for (auto Succ: make_range(succ_begin(Header), succ_end(Header)))
+	for (auto Succ: successors(BB))
 	{
+		// Skip edges that go outside of the SubGraph, or that loop back to the entry
 		if (!Graph.Blocks.count(Succ) || Succ == Graph.Entry)
 			continue;
 		Succs.push_back(Succ);
@@ -181,7 +182,7 @@ bool FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 	SubGraph::BlockSet Group;
 	for(auto& GN: SCC)
 	{
-		Group.insert(GN->Header);
+		Group.insert(GN->BB);
 	}
 	for(auto BB: Group)
 	{
@@ -189,13 +190,13 @@ bool FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 		{
 			if (!Group.count(Pred))
 			{
-				MetaBlocks.emplace_back(BB, DT);
+				Headers.emplace_back(BB, DT);
 				break;
 			}
 		}
 	}
 	BasicBlock* Entry = nullptr;
-	if (MetaBlocks.size() != 1)
+	if (Headers.size() != 1)
 	{
 		Irreducible = true;
 		processBlocks();
@@ -203,7 +204,7 @@ bool FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 	}
 	else
 	{
-		Entry = MetaBlocks.front().getEntry();
+		Entry = Headers.front().getBB();
 	}
 	Group.insert(Entry);
 	SubGraph SG(Entry, std::move(Group));
