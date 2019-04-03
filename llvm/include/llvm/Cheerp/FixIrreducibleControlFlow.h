@@ -115,7 +115,7 @@ private:
 		SCCVisitor(Function &F, const std::vector<GraphNode*>& SCC)
 			: F(F), SCC(SCC)
 		{}
-		bool run(std::queue<SubGraph>& Queue);
+		std::pair<SubGraph, bool> run();
 
 	private:
 		// Create the forward blocks and wire them to the dispatcher
@@ -139,7 +139,6 @@ private:
 		// switch instruction in the dispatcher
 		DenseMap<BasicBlock*, unsigned> Indices;
 	};
-	bool visitSubGraph(Function& F, std::queue<SubGraph>& Queue);
 };
 
 template <> struct GraphTraits<FixIrreducibleControlFlow::SubGraph*> {
