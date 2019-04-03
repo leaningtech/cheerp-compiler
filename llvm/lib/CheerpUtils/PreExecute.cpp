@@ -898,7 +898,7 @@ bool PreExecute::runOnModule(Module& m)
     currentModule = &m;
 
     std::string error;
-    std::string triple = sys::getDefaultTargetTriple();
+    std::string triple = sys::getProcessTriple();
     const Target *target = TargetRegistry::lookupTarget(triple, error);
 
     GlobalVariable * constructorVar = m.getGlobalVariable("llvm.global_ctors");
