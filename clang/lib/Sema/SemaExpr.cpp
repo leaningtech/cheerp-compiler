@@ -19367,7 +19367,7 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
       const Type* t = (*a)->getType().getTypePtr();
       const Type* pt = p != pe ? (*p)->getType().getTypePtr() : nullptr;
       Expr* aNoCast = (*a)->IgnoreImpCasts();
-      if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType() && !aNoCast->getType()->isFunctionProtoType()) {
+      if (t->hasPointerRepresentation() && !t->getPointeeType().isNull() && t->getPointeeType()->isFunctionType() && !aNoCast->getType()->isFunctionProtoType()) {
         auto d = Diag((*a)->getLocStart(),
              diag::err_cheerp_wrong_func_pointer_param)
           << FDecl << FDecl->getAttr<AsmJSAttr>()
@@ -19376,7 +19376,7 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           d << *p;
         else
           d << "variadic";
-      } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFundamentalType()) {
+      } else if (t->hasPointerRepresentation() && !t->getPointeeType().isNull() && t->getPointeeType()->isFundamentalType()) {
         // string literals are allowed if we are in asmjs mode, since they are all compiled
         // into the asmjs section
         if (LangOpts.getCheerpMode() != LangOptions::CHEERP_MODE_GenericJS &&
