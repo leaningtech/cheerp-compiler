@@ -178,37 +178,37 @@ bool FixIrreducibleControlFlow::SCCVisitor::run(std::queue<SubGraph>& Queue)
 {
 	bool Irreducible = false;
 	DT.recalculate(F);
-	std::unordered_set<BasicBlock*> Group;
+	SubGraph::BlockSet Group;
 	for(auto& GN: SCC)
 	{
 		Group.insert(GN->Header);
 	}
-	for(auto& GN: SCC)
+	for(auto BB: Group)
 	{
-		auto Node = DT.getNode(GN->Header);
-		auto IDom = Node->getIDom();
-		if (!Group.count(IDom->getBlock()))
+		for (auto Pred: predecessors(BB))
 		{
-			MetaBlocks.emplace_back(GN->Header, DT);
+			if (!Group.count(Pred))
+			{
+				MetaBlocks.emplace_back(BB, DT);
+				break;
+			}
 		}
 	}
+	BasicBlock* Entry = nullptr;
 	if (MetaBlocks.size() != 1)
 	{
 		Irreducible = true;
 		processBlocks();
+		Entry = Dispatcher;
 	}
-	for (MetaBlock& Meta: MetaBlocks)
+	else
 	{
-		SubGraph::BlockSet BBs;
-		auto Node = DT.getNode(Meta.getEntry());
-		for (auto N: make_range(df_begin(Node), df_end(Node)))
-		{
-			if (Group.count(N->getBlock()))
-				BBs.insert(N->getBlock());
-		}
-		SubGraph SG(Meta.getEntry(), std::move(BBs));
-		Queue.push(std::move(SG));
+		Entry = MetaBlocks.front().getEntry();
 	}
+	Group.insert(Entry);
+	SubGraph SG(Entry, std::move(Group));
+	Queue.push(std::move(SG));
+
 	return Irreducible;
 }
 
