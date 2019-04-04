@@ -220,10 +220,14 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 	if(I->getParent()==BB && isa<PHINode>(I))
 		return;
 	// Run on predecessor blocks
+#ifndef NDEBUG
 	bool hasPreds = false;
+#endif
 	for(::pred_iterator it=pred_begin(BB);it!=pred_end(BB);++it)
 	{
+#ifndef NDEBUG
 		hasPreds = true;
+#endif
 		BasicBlock* pred=*it;
 		BlockState& predBlockState=blocksState[pred];
 		if(!predBlockState.isLiveOut(I))
@@ -2643,7 +2647,7 @@ void VertexColorer::solveInvariantsAlreadySet()
 			return;
 	}
 
-	{	//...
+	{	//Take the most complex phi-edges, either apply it or skip it
 		EnumerateAllPhiEdges reduction(*this);
 		if (reduction.perform())
 			return;
@@ -2713,7 +2717,9 @@ void Registerize::RegisterAllocatorInst::solve()
 		}
 	}
 	uint32_t phiEdgesAdded = 0;
+#ifdef REGISTERIZE_DEBUG
 	uint32_t unsatisfayable = 0;
+#endif
 	for (const auto& E : edges)
 	{
 		bool allPossiblySatisfyable = true;
@@ -2761,10 +2767,12 @@ void Registerize::RegisterAllocatorInst::solve()
 				colorer.addOnEdge(e.first, e.second);
 			}
 		}
+#ifdef REGISTERIZE_DEBUG
 		else
 		{
 			++unsatisfayable;
 		}
+#endif
 	}
 
 #ifdef REGISTERIZE_DEBUG
