@@ -146,8 +146,20 @@ std::vector<GEPOptimizer::GEPRecursionData::PairRepresentativeOrderedGEPs> GEPOp
 	std::transform(begin, end, std::back_inserter(auxiliaryVector),
 			[&forest](GetElementPtrInst* gep) -> PairRepresentativeGEP { return PairRepresentativeGEP(gep, forest); });
 
+	PointerToUniqueIdentifier<BasicBlock*> BBToIdentifier;
+	//Popolate BBToIdentifier
+	for (const auto& x : auxiliaryVector)
+	{
+		BBToIdentifier.insert(x.representative);
+	}
+
 	//The sort has to be stable, otherwise we lost the proprety that smaller geps should come first
-	stable_sort(auxiliaryVector.begin(), auxiliaryVector.end());
+	//and the sort should only based on the representative part (a BasicBlock* basically)
+	stable_sort(auxiliaryVector.begin(), auxiliaryVector.end(),
+			[&BBToIdentifier](const PairRepresentativeGEP& a, const PairRepresentativeGEP&b) -> bool
+			{
+				return BBToIdentifier.at(a.representative) < BBToIdentifier.at(b.representative);
+			});
 
 	std::vector<PairRepresentativeOrderedGEPs> splitProblems;
 
@@ -316,8 +328,6 @@ void BasicBlockForest::keepOnlyDominatedByOperand(const Value* value)
 
 
 GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data) :
-		order(),
-		orderedGeps(),
 		passData(data)
 {
 	//First we do a pass to collect in which blocks a GepRange is used, this data will be later used by ValidGEPGraph::Node::isValidForGEP()
@@ -354,7 +364,8 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 	//order will be used to compare two Instruction. Inserting NULL here means
 	//shorter subset will appear first (like in a dictionary, CAT < CATS)
 	//This is required by GEPRecursionData::optimizeGEPsRecursive
-	order.insert({NULL, 0});
+	order.insert(NULL);
+	assert(order.at(NULL) == 0);
 
 	// Gather all the GEPs
 	ValidGEPLocations AllBlocks(passData->DT);
@@ -373,8 +384,7 @@ GEPOptimizer::GEPRecursionData::GEPRecursionData(Function &F, GEPOptimizer* data
 			GetElementPtrInst* GEP = cast<GetElementPtrInst>(&I);
 			for (size_t i = 0; i < GEP->getNumOperands(); ++i)
 			{
-				if (order.count(GEP->getOperand(i)) == 0)
-					order.insert({GEP->getOperand(i), order.size()});
+				order.insert(GEP->getOperand(i));
 			}
 
 			orderedGeps.push_back(GEP);
