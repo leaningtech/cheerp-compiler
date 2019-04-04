@@ -946,6 +946,7 @@ private:
 		return A == (A&B);
 	}
 	bool isAlive(const uint32_t a) const;
+	bool phiEdgesWouldBeBroken(const uint32_t dominator, const uint32_t dominated);
 	bool mergeIfDominated(const uint32_t dominator, const uint32_t dominated);
 	std::vector<uint32_t> whoIsDominatingFriend(const uint32_t a) const;
 	struct SamplesData
