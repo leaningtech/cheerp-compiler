@@ -252,7 +252,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 		orderedByColor.push_back({col[i], allocaInfos[i].first});
 	}
 
-	sort(orderedByColor.begin(), orderedByColor.end(), [](const ColorInstPair& a, const ColorInstPair& b)
+	stable_sort(orderedByColor.begin(), orderedByColor.end(), [](const ColorInstPair& a, const ColorInstPair& b)
 			{
 				//Stable sort on the colors
 				return a.first < b.first;
