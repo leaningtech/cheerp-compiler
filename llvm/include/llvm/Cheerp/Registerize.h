@@ -664,30 +664,33 @@ private:
 	void doContraction(const uint32_t a, const uint32_t b)
 	{
 		assert(isAlive(a) && isAlive(b));
+		parent[b] =a;
 		assert(constraints[a][b] == constraints[b][a] && !constraints[a][b]);
-		constraints.push_back(constraints[b]);
 		constraints.push_back(constraints[a]);
 #ifdef REGISTERIZE_DEBUG
 		debugStats[CONTRACTIONS]++;
 #endif
 		constraints[a] |= constraints[b];
-		for (uint32_t i = 0; i<N; i++) constraints[i][a] = constraints[a][i];
-		constraints[b] = llvm::BitVector(N);
-		for (uint32_t i = 0; i<N; i++) constraints[i][b] = constraints[b][i];
-		assert(parent[b] == b);
-		parent[b] =a;
+		for (uint32_t i = 0; i<N; i++)
+		{
+			if (!isAlive(i))
+				continue;
+			constraints[i][a] = constraints[a][i];
+			constraints[i].reset(b);
+		}
 	}
 	void undoContraction(const uint32_t a, const uint32_t b)
 	{
-		parent[b] = b;
-
 		constraints[a] = constraints.back();
 		constraints.pop_back();
-		for (uint32_t i = 0; i<N; i++) constraints[i][a] = constraints[a][i];
-
-		constraints[b] = constraints.back();
-		constraints.pop_back();
-		for (uint32_t i = 0; i<N; i++) constraints[i][b] = constraints[b][i];
+		for (uint32_t i = 0; i<N; i++)
+		{
+			if (!isAlive(i))
+				continue;
+			constraints[i][a] = constraints[a][i];
+			constraints[i][b] = constraints[b][i];
+		}
+		parent[b] = b;
 	}
 	void setAdditionalConstraint(const uint32_t a, const uint32_t b, bool direct)
 	{
