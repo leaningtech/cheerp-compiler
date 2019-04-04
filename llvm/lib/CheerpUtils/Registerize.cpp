@@ -1686,7 +1686,9 @@ bool RemoveDominated::couldBePerformed()
 			//Nodes with friends accept as dominator only dominating friends, or friends that are connected by a majority weight link
 			for (uint32_t j : whoIsDominatingFriend(i))
 			{
-				if (!isSubset(data.samples[i], data.samples[j]))
+				if (!isSubset(data.samples[i], data.samples[j]) || !isAlive(j))
+					continue;
+				if (phiEdgesWouldBeBroken(i, j))
 					continue;
 				if (mergeIfDominated(j, i))
 					break;
@@ -1700,6 +1702,30 @@ bool RemoveDominated::couldBePerformed()
 			return true;
 	}
 
+	return false;
+}
+
+bool RemoveDominated::phiEdgesWouldBeBroken(const uint32_t dominated, const uint32_t dominator)
+{
+	const uint32_t I = eqClasses.findLeader(dominated);
+	const uint32_t J = eqClasses.findLeader(dominator);
+	assert(I != J);
+	for (const auto& E : instance.groupedLinks)
+	{
+		for (const VertexColorer::Link& link : E)
+		{
+			const uint32_t A = eqClasses.findLeader(link.first);
+			const uint32_t B = eqClasses.findLeader(link.second);
+
+			//If they end up with the same ancestor, it's good
+			if (A == B)
+				continue;
+			if ((A == I && B != J) || (B == I && A != J))
+			{
+				return true;
+			}
+		}
+	}
 	return false;
 }
 
