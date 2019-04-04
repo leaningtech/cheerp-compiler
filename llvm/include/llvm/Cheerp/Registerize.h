@@ -378,7 +378,6 @@ private:
 				if (!instance.constraints[i][j] && zeroWeight)
 					break;
 				++j;
-				//TODO: it's possible to use BitVector::find_next_(un)set to speed up
 			}
 		}
 		bool isTheEnd() const
@@ -439,7 +438,6 @@ private:
 		const VertexColorer& instance;
 		const uint32_t row;
 	};
-	//TODO: possibly take a filter, and return only unfiltered couples
 
 	//Friendships Iterable
 	ConstGenericFriendshipIterator</*constraints*/false,/*zeroWeight*/false,/*positiveWeight*/true> positiveWeightFriendshipIterable() const
@@ -839,7 +837,6 @@ public:
 class Reduction
 {
 public:
-	//TODO: should be made private/accessible only through friendship
 	Reduction(VertexColorer& instance)
 		: instance(instance)
 	{}
