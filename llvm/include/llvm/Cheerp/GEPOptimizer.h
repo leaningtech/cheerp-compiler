@@ -604,6 +604,43 @@ private:
 	std::vector<Node*> BadPred;
 };
 
+/*
+	This class takes care of giving a deterministic id to each pointer
+*/
+template <typename T>
+class PointerToUniqueIdentifier
+{
+	//Every times it's queried, return a unique identifier for each pointer
+	//(possibly assigning it in that moment)
+	static_assert(std::is_pointer<T>::value, "The class is intended to be used only with pointers");
+public:
+	PointerToUniqueIdentifier()
+		: firstUnused(0)
+	{}
+	uint32_t id(const T t)
+	{
+		insert(t);
+		return map.at(t);
+	}
+	uint32_t at(const T t) const
+	{
+		return map.at(t);
+	}
+	void insert(const T t)
+	{
+		if (map.count(t))
+			return;
+		map.insert({t, firstUnused++});
+	}
+	uint32_t count(const T t)
+	{
+		return map.count(t);
+	}
+private:
+	std::unordered_map<T, uint32_t> map;
+	uint32_t firstUnused;
+};
+
 /**
  * This pass rewrite GEPs in a function to remove redundant object accesses
  */
@@ -689,17 +726,14 @@ private:
 			return seed;
 		}
 	};
-	//TODO: OrderOfAppearence should become a proper class
-	typedef std::map<Value*, size_t> OrderOfAppearence;
+	typedef PointerToUniqueIdentifier<llvm::Value*> OrderOfAppearence;
 	struct OrderByOperands
 	{
-		//We build at the same time the multiset of GEPs and the map(Value* -> index)
-		//and we pass this structure to the multiset to determine the order it should have
-		//The order is passed by pointer since we want to be able to call multiset::swap
-		OrderByOperands(const OrderOfAppearence& ord) : orderOfAppearence(ord)
+		OrderByOperands(const OrderOfAppearence& orderOfAppearence)
+			: orderOfAppearence(orderOfAppearence)
 		{
 		}
-		bool operator()(const llvm::Instruction* r, const llvm::Instruction* l) const
+		bool operator()(const llvm::Instruction* r, const llvm::Instruction* l)
 		{
 			//We are ordering Values by order of appearence (somehow arbitrary, but fixed for a given function)
 			//so it could be that constant value 3 is smaller than constant value 0
@@ -711,8 +745,6 @@ private:
 					rVal = r->getOperand(i);
 				if(i < l->getNumOperands())
 					lVal = l->getOperand(i);
-				assert(orderOfAppearence.count(rVal));
-				assert(orderOfAppearence.count(lVal));
 				if (lVal == NULL)
 				{
 					//Either they are both ended, so they are equal -> the first is not smaller
