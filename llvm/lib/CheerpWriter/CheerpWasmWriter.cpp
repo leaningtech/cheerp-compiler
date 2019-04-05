@@ -3546,6 +3546,9 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 		}
 	}
 
+	// Temporary map for the globalized constants. We update the global one at the end, to avoid
+	// global constants referencing each other
+	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstantsTmp;
 	// Gather all constants used multiple times, we want to encode those in the global section
 	for (Function* F: linearHelper.functions())
 	{
@@ -3568,7 +3571,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 						continue;
 					if(isa<Function>(C) || isa<ConstantPointerNull>(C))
 						continue;
-					globalizedConstants[C].first++;
+					globalizedConstantsTmp[C].first++;
 				}
 			}
 		}
@@ -3588,12 +3591,12 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 	};
 	std::vector<GlobalConstant> orderedConstants;
 	// Remove single use constants right away
-	auto it = globalizedConstants.begin();
-	auto itEnd = globalizedConstants.end();
+	auto it = globalizedConstantsTmp.begin();
+	auto itEnd = globalizedConstantsTmp.end();
 	while (it != itEnd)
 	{
 		if(it->second.first == 1)
-			it = globalizedConstants.erase(it);
+			it = globalizedConstantsTmp.erase(it);
 		else
 		{
 			orderedConstants.push_back(GlobalConstant{it->first, it->second.first, it->second.second});
@@ -3619,12 +3622,12 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			getGlobalCost = 4;
 		GLOBAL_CONSTANT_ENCODING encoding = shouldEncodeConstantAsGlobal(GC.C, GC.useCount, getGlobalCost);
 		GC.encoding = encoding;
-		auto it = globalizedConstants.find(GC.C);
+		auto it = globalizedConstantsTmp.find(GC.C);
 		if(encoding == NONE)
 		{
 			// Remove this constant from the map
 			// Leave it in the vector, but skip it later
-			globalizedConstants.erase(it);
+			globalizedConstantsTmp.erase(it);
 		}
 		else
 		{
@@ -3642,7 +3645,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 
 		if (cheerpMode == CHEERP_MODE_WASM) {
 			// There is the stack and the globalized constants
-			internal::encodeULEB128(1 + globalizedConstants.size(), section);
+			internal::encodeULEB128(1 + globalizedConstantsTmp.size(), section);
 			// The global has type i32 (0x7f) and is mutable (0x01).
 			internal::encodeULEB128(0x7f, section);
 			internal::encodeULEB128(0x01, section);
@@ -3768,6 +3771,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			}
 		}
 	}
+	globalizedConstants = std::move(globalizedConstantsTmp);
 }
 
 void CheerpWasmWriter::compileExportSection()
