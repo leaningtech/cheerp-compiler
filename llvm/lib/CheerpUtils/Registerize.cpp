@@ -1333,6 +1333,8 @@ void VertexColorer::permuteFirstElements(Coloring& coloring, const uint32_t N)
 
 bool Reduction::perform()
 {
+	if (couldBeAvoided())
+		return false;
 	if (!couldBePerformed())
 		return false;
 
@@ -1445,14 +1447,9 @@ void RemoveFewConstraints::relabelNodes()
 	}
 }
 
-void RemoveFewConstraints::dumpDescription() const
+void RemoveFewConstraints::dumpSpecificDescription() const
 {
-	llvm::errs() << std::string(instance.depthRecursion, ' ') << reductionName() <<":\t"<< instance.N << " -> " << alive.size() << "\n";
-}
-
-std::string RemoveFewConstraints::reductionName() const
-{
-	return "Remove rows with few constraints";
+	llvm::errs() << instance.N << " -> " << alive.size();
 }
 
 void RemoveFewConstraints::buildSubproblems()
@@ -1585,14 +1582,9 @@ void EnumerateAllPhiEdges::reduce()
 	}
 }
 
-void EnumerateAllPhiEdges::dumpDescription() const
+void EnumerateAllPhiEdges::dumpSpecificDescription() const
 {
-	llvm::errs() << reductionName() << " with " <<instance.groupedLinks.size() << " phi edges\n";
-}
-
-std::string EnumerateAllPhiEdges::reductionName() const
-{
-	return "Enumerate over all phi edges";
+	llvm::errs() <<"with " <<instance.groupedLinks.size() << " phi edges";
 }
 
 bool RemoveDominated::mergeIfDominated(const uint32_t dominator, const uint32_t dominated)
@@ -1764,14 +1756,9 @@ void RemoveDominated::relabelNodes()
 	newIndex = computeLeaders(eqClasses);
 }
 
-void RemoveDominated::dumpDescription() const
+void RemoveDominated::dumpSpecificDescription() const
 {
-	llvm::errs() <<std::string(instance.depthRecursion, ' ')<< reductionName() << ":\t"<< instance.N << " -> " << isNodeAlive.count() << "\n";
-}
-
-std::string RemoveDominated::reductionName() const
-{
-	return "Remove dominated rows";
+	llvm::errs() << instance.N << " -> " << isNodeAlive.count();
 }
 
 void RemoveDominated::buildSubproblems()
@@ -2051,38 +2038,15 @@ bool SplitConflictingBase::couldBePerformedPhiEdges()
 	return true;
 }
 
-void SplitConflictingBase::dumpDescription() const
+void SplitConflictingBase::dumpSpecificDescription() const
 {
-	llvm::errs() <<std::string(instance.depthRecursion, ' ') << reductionName()<<"\t";
 	SplitConflictingBase::dumpSubproblems();
-	llvm::errs() << "\n";
 }
 
-void SplitArticulation::dumpDescription() const
+void SplitArticulation::dumpSpecificDescription() const
 {
-	llvm::errs() <<std::string(instance.depthRecursion, ' ') << reductionName();
-	if (!limitSize)
-	{
-		llvm::errs() << " clique of size " << numerositySubproblem.front();
-	}
-	llvm::errs() << ":\t";
+	llvm::errs() << "clique of size " << numerositySubproblem.front()<<": ";
 	SplitArticulation::dumpSubproblems();
-	llvm::errs() << "\n";
-}
-
-std::string SplitArticulation::reductionName() const
-{
-	return "Split on articulation";
-}
-
-std::string SplitInverseUnconnected::reductionName() const
-{
-	return "Split conflicting";
-}
-
-std::string SplitUnconnected::reductionName() const
-{
-	return "Split unconnected";
 }
 
 void SplitConflictingBase::dumpSubproblems() const
@@ -2100,27 +2064,6 @@ void SplitArticulation::dumpSubproblems() const
 		llvm::errs() << numerositySubproblem[i] << " ";
 	}
 }
-
-bool RemoveDominated::couldBeAvoided() const
-{
-	return instance.avoidPass[VertexColorer::REMOVE_DOMINATED];
-}
-
-bool SplitArticulation::couldBeAvoided() const
-{
-	return instance.avoidPass[VertexColorer::SPLIT_ARTICULATION];
-}
-
-bool SplitUnconnected::couldBeAvoided() const
-{
-	return instance.avoidPass[VertexColorer::SPLIT_UNCONNECTED];
-}
-
-bool SplitInverseUnconnected::couldBeAvoided() const
-{
-	return instance.avoidPass[VertexColorer::SPLIT_CONFLICTING];
-}
-
 
 void SplitArticulation::preprocessing(VertexColorer& subsolution) const
 {
