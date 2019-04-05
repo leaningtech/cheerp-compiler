@@ -1394,6 +1394,7 @@ private:
 		}
 	};
 	static bool couldBeMerged(const RegisterRange& a, const RegisterRange& b);
+	static bool couldBeMerged(const std::pair<const RegisterRange&, uint32_t>& a, const std::pair<const RegisterRange&, uint32_t>& b);
 	static void mergeRegisterInPlace(RegisterRange& a, const RegisterRange& b);
 	static RegisterRange mergeRegister(const RegisterRange& a, const RegisterRange& b);
 	class FrequencyInfo
@@ -1544,6 +1545,8 @@ private:
 			assert(isAlive(b));
 			if (a == b)
 				return false;
+			if (std::max(a, b) < numInst())
+				return Registerize::couldBeMerged({virtualRegisters[a], instructionLocations[a]}, {virtualRegisters[b], instructionLocations[b]});
 			return Registerize::couldBeMerged(virtualRegisters[a], virtualRegisters[b]);
 		}
 		void mergeVirtual(const uint32_t a, const uint32_t b)
@@ -1591,6 +1594,7 @@ private:
 		const PointerAnalyzer& PA;
 		Indexer<const llvm::Instruction*> indexer;
 		llvm::SmallVector<RegisterRange, 4> virtualRegisters;
+		llvm::SmallVector<uint32_t, 4> instructionLocations;
 		std::vector<llvm::BitVector> bitsetConstraint;
 		std::vector<std::vector<Friend>> friends;
 		std::vector<Friendship> friendsEdges;

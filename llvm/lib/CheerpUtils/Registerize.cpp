@@ -543,6 +543,7 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 	//There are indexer.size() initial register, and they are merged pair-wise, since every merge requires an additional register, it makes at most indexer.size()-1 extra, so 2*N-1
 	const int maxSize = indexer.size() * 2 - 1;
 	virtualRegisters.reserve(maxSize);
+	instructionLocations.reserve(indexer.size());
 	parentRegister.reserve(maxSize);
 	const bool asmjs = F.getSection()==StringRef("asmjs");
 	//Do a second pass to set virtualRegisters environment
@@ -557,6 +558,7 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 					registerize->getRegKindFromType(I->getType(), asmjs),
 					cheerp::needsSecondaryName(I, PA)
 					));
+		instructionLocations.push_back(instIdMap.at(I));
 	}
 	computeBitsetConstraints();
 	buildFriends(PA);
@@ -2998,6 +3000,27 @@ bool Registerize::couldBeMerged(const RegisterRange& a, const RegisterRange& b)
 	if(a.info.regKind!=b.info.regKind)
 		return false;
 	return !a.range.doesInterfere(b.range);
+}
+
+bool Registerize::couldBeMerged(const std::pair<const RegisterRange&, uint32_t>& a, const std::pair<const RegisterRange&, uint32_t>& b)
+{
+	//If a LiveRange represent an SSA instruction, his definition dominates all the uses
+	//This means that we only need to check the definitions location against the live range of the other
+	//This make sense thinking of it in the dominator tree:
+	//Either one instruction dominates the other, and then the only problem we may have is if that the uppermost collides with the definition of the lower one
+	//Or they are in two separate sub-trees, but then they can never interfere
+	//TODO: a function numbering accoring to a visit of the DT could simplify this code
+
+	//The ideas comes from here: "Revisiting Out-of-SSA Translation for Correctness, Code Quality, and Efficiency"
+	//				https://hal.inria.fr/inria-00349925v1/document
+
+	if(a.first.info.regKind!=b.first.info.regKind)
+		return false;
+	if (a.first.range.doesInterfere(b.second))
+		return false;
+	if (b.first.range.doesInterfere(a.second))
+		return false;
+	return true;
 }
 
 void Registerize::mergeRegisterInPlace(RegisterRange& a, const RegisterRange& b)
