@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2018 Leaning Technologies
+// Copyright 2017-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -76,6 +76,9 @@ bool CheerpWasmWritePass::runOnModule(Module& M)
   // Destroy the stores here, we need them to properly compute the pointer kinds, but we want to optimize them away before registerize
   allocaStoresExtractor.destroyStores();
   registerize.assignRegisters(M, PA);
+#ifdef REGISTERIZE_STATS
+  cheerp::reportRegisterizeStatistics();
+#endif
 
   // Build the ordered list of reserved names
   std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
