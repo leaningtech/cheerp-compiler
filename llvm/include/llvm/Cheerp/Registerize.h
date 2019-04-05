@@ -815,7 +815,29 @@ private:
 	uint32_t lowerBoundChromaticNumber;
 	uint32_t howManyWaysHasLowerBoundBeenEvaluated;
 	bool isOptimal;
-	enum ReductionPasses{SPLIT_CONFLICTING, SPLIT_UNCONNECTED, SPLIT_ARTICULATION, REMOVE_DOMINATED, REMOVE_SMALL};
+public:
+	enum ReductionPasses{SPLIT_CONFLICTING, SPLIT_UNCONNECTED, SPLIT_ARTICULATION, REMOVE_DOMINATED, REMOVE_SMALL, ENUMERATE_PHI_EDGES,
+		REDUCTIONPASSES_FINAL_ELEMENT};
+	static std::string reductionPassesNames(const uint32_t i)
+	{
+		switch (i) {
+		case SPLIT_CONFLICTING:
+			return "Split conflicting              ";
+		case SPLIT_UNCONNECTED:
+			return "Split unconnected              ";
+		case SPLIT_ARTICULATION:
+			return "Split articulation             ";
+		case REMOVE_DOMINATED:
+			return "Remove nodes dominated         ";
+		case REMOVE_SMALL:
+			return "Remove nodes with few conflicts";
+		case ENUMERATE_PHI_EDGES:
+			return "Enumerate phi edges            ";
+		default:
+			return "Unknown reduction              ";
+		};
+	}
+private:
 	std::array<bool, 5> avoidPass{};
 	uint32_t depthRecursion;
 	friend class Reduction;
@@ -845,11 +867,25 @@ public:
 	virtual bool couldBePerformed() = 0;
 	virtual bool couldBePerformedPhiEdges() = 0;
 	virtual void reduce() = 0;
-	virtual std::string reductionName() const = 0;
+	std::string reductionName() const
+	{
+		return VertexColorer::reductionPassesNames(id());
+	}
 	virtual void relabelNodes() = 0;
 	virtual void buildSubproblems() = 0;
+	virtual uint32_t id() const= 0;
+	bool couldBeAvoided() const
+	{
+		return instance.avoidPass[id()];
+	}
 	bool perform();
-	virtual void dumpDescription() const = 0;
+	void dumpDescription() const
+	{
+		llvm::errs() <<std::string(instance.depthRecursion, ' ')<< reductionName() << "   ";
+		dumpSpecificDescription();
+		llvm::errs() << "\n";
+	}
+	virtual void dumpSpecificDescription() const = 0;
 	VertexColorer& instance;
 	std::vector<uint32_t> computeLeaders(llvm::IntEqClasses& eqClasses) const;
 	void assignIndexes(const std::vector<uint32_t>& whichSubproblems, std::vector<uint32_t>& numerositySubproblem, std::vector<uint32_t>& newIndexes, const uint32_t startingFrom=0);
@@ -865,12 +901,14 @@ public:
 	bool couldBePerformedPhiEdges();
 	void relabelNodes();
 	void reduce();
-	void dumpDescription() const;
-	std::string reductionName() const;
+	void dumpSpecificDescription() const;
 	void preprocessing(VertexColorer& subsolution) const;
 	void postprocessing(VertexColorer& subsolution);
 	void buildSubproblems();
-	bool couldBeAvoided() const;
+	uint32_t id() const
+	{
+		return VertexColorer::ENUMERATE_PHI_EDGES;
+	}
 private:
 	std::vector<uint32_t> newIndex;
 	std::vector<VertexColorer> subproblems;
@@ -888,12 +926,14 @@ public:
 	bool couldBePerformedPhiEdges();
 	void relabelNodes();
 	void reduce();
-	void dumpDescription() const;
-	std::string reductionName() const;
+	void dumpSpecificDescription() const;
 	void preprocessing(VertexColorer& subsolution) const;
 	void postprocessing(VertexColorer& subsolution);
 	void buildSubproblems();
-	bool couldBeAvoided() const;
+	uint32_t id() const
+	{
+		return VertexColorer::REMOVE_SMALL;
+	}
 private:
 	uint32_t howManyOnCutoff;
 	std::vector<bool> toBePostProcessed;
@@ -912,12 +952,14 @@ public:
 	bool couldBePerformedPhiEdges();
 	void relabelNodes();
 	void reduce();
-	void dumpDescription() const;
-	std::string reductionName() const;
+	void dumpSpecificDescription() const;
 	void preprocessing(VertexColorer& subsolution) const;
 	void postprocessing(VertexColorer& subsolution);
 	void buildSubproblems();
-	bool couldBeAvoided() const;
+	uint32_t id() const
+	{
+		return VertexColorer::REMOVE_DOMINATED;
+	}
 private:
 	static uint64_t computeSample(const llvm::BitVector&A)
 	{
@@ -977,12 +1019,14 @@ public:
 	void relabelNodes();
 	void reduce();
 	void dumpSubproblems() const;
-	void dumpDescription() const;
-	std::string reductionName() const;
+	void dumpSpecificDescription() const;
 	void preprocessing(VertexColorer& subsolution) const;
 	void postprocessing(VertexColorer& subsolution);
 	void buildSubproblems();
-	bool couldBeAvoided() const;
+	uint32_t id() const
+	{
+		return VertexColorer::SPLIT_ARTICULATION;
+	}
 private:
 	const std::vector<uint32_t> blockNumber;
 	VertexColorer blocks;
@@ -1006,12 +1050,11 @@ public:
 	void reduce();
 	void relabelNodes();
 	void dumpSubproblems() const;
-	void dumpDescription() const;
+	void dumpSpecificDescription() const;
 	void buildSubproblems();
-	virtual std::string reductionName() const = 0;
 	virtual void preprocessing(VertexColorer& subsolution) const = 0;
 	virtual void postprocessing(VertexColorer& subsolution) = 0;
-	virtual bool couldBeAvoided() const = 0;
+	virtual uint32_t id() const = 0;
 private:
 	const bool conflicting;
 	llvm::IntEqClasses eqClasses;
@@ -1027,10 +1070,12 @@ public:
 	SplitUnconnected(VertexColorer& instance)
 		: SplitConflictingBase(instance, /*conflicting*/false), sumColors(0)
 	{}
-	std::string reductionName() const;
 	void preprocessing(VertexColorer& subsolution) const;
 	void postprocessing(VertexColorer& subsolution);
-	bool couldBeAvoided() const;
+	uint32_t id() const
+	{
+		return VertexColorer::SPLIT_UNCONNECTED;
+	}
 private:
 	uint32_t sumColors;
 };
@@ -1041,7 +1086,6 @@ public:
 	SplitInverseUnconnected(VertexColorer& instance)
 		: SplitConflictingBase(instance, /*conflicting*/true)
 	{}
-	std::string reductionName() const;
 	void preprocessing(VertexColorer& subsolution) const;
 	void postprocessing(VertexColorer& subsolution);
 	bool couldBeAvoided() const;
