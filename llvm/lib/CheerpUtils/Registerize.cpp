@@ -2889,11 +2889,34 @@ bool Registerize::LiveRange::invariantsHold() const
 
 bool Registerize::LiveRange::doesInterfere(uint32_t id) const
 {
-	for(const LiveRangeChunk c: *this)
+	//The range are sosted by construction and never interfere, so we can do a binary search
+#ifndef NDEBUG
+	bool solution = false;
+	for (const LiveRangeChunk& c: *this)
 	{
-		if(c.start <= id && c.end > id)
-			return true;
+		if (c.start <= id && c.end > id)
+		{
+			solution = true;
+		}
 	}
+#endif
+	uint32_t low = 0;
+	uint32_t high = size();
+	while (low < high)
+	{
+		const uint32_t med = (low + high)/2;
+		const LiveRangeChunk& middle = operator[](med);
+		if (middle.start <= id && middle.end > id)
+		{
+			assert(solution);
+			return true;
+		}
+		if (id < middle.start)
+			high = med;
+		else
+			low = med + 1;
+	}
+	assert(!solution);
 	return false;
 }
 
