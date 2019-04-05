@@ -27,6 +27,7 @@
 #include <vector>
 #include <deque>
 
+//#define REGISTERIZE_STATS
 //#define REGISTERIZE_DEBUG
 //#define REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
 
@@ -1088,8 +1089,64 @@ public:
 	{}
 	void preprocessing(VertexColorer& subsolution) const;
 	void postprocessing(VertexColorer& subsolution);
-	bool couldBeAvoided() const;
+	uint32_t id() const
+	{
+		return VertexColorer::SPLIT_CONFLICTING;
+	}
 };
+
+#ifdef REGISTERIZE_STATS
+template<uint32_t N>
+class StatisticCollector
+{
+public:
+	void add(const uint32_t n)
+	{
+		totalNumber++;
+		if (n > biggest)
+			biggest = n;
+		uint32_t log = 0;
+		uint32_t high = 1;
+		while (n >= high)
+		{
+			++log;
+			high *= 2;
+		}
+		assert(log < N);
+		data[log]++;
+	}
+	void report(const std::string& name) const
+	{
+		if (totalNumber == 0)
+			return;
+		llvm::errs() << "-----   " << name << "   -----";
+		llvm::errs() << totalNumber << " samples collected with " << biggest << " as the biggest\nBreakdown in buckets: ";
+		bool isFirst = true;
+		uint32_t low = 0;
+		uint32_t high = 1;
+		for (uint32_t i=0; i<N; i++)
+		{
+			if (data[i])
+			{
+				if (!isFirst)
+					llvm::errs() << ", ";
+				if (low < high -1)
+					llvm::errs() << low << "-";
+				llvm::errs() <<high-1 << ":" << data[i];
+				isFirst = false;
+			}
+			low = high;
+			high *= 2;
+		}
+		llvm::errs() << "\n\n";
+	}
+private:
+	std::array<uint32_t, N> data;
+	uint32_t totalNumber;
+	uint32_t biggest;
+};
+void reportRegisterizeStatistics();
+#endif
 
 /**
  * Registerize - Map not-inlineable instructions to the minimal number of local variables
