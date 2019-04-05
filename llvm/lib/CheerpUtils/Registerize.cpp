@@ -2867,9 +2867,21 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, 
 bool Registerize::LiveRange::invariantsHold() const
 {
 	assert(std::is_sorted(begin(), end()));
+	LiveRange::const_iterator it = begin();
+	if (it == end())
+		return true;
+	LiveRange::const_iterator next = begin();
+	++next;
+	while (next != end())
+	{
+		if (it->end >= next->start)
+			return false;
+		it = next;
+		++next;
+	}
 	for (LiveRange::const_iterator it=begin(); it!=end(); ++it)
 	{
-		if (it->end == 0)
+		if (it->end < it->start || it->end == 0)
 			return false;
 	}
 	return true;
