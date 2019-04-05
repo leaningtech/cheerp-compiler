@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2018 Leaning Technologies
+// Copyright 2011-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -83,6 +83,9 @@ bool CheerpWritePass::runOnModule(Module& M)
   // Destroy the stores here, we need them to properly compute the pointer kinds, but we want to optimize them away before registerize
   allocaStoresExtractor.destroyStores();
   registerize.assignRegisters(M, PA);
+#ifdef REGISTERIZE_STATS
+  cheerp::reportRegisterizeStatistics();
+#endif
 
   std::error_code ErrorCode;
   llvm::tool_output_file memFile(AsmJSMemFile, ErrorCode, sys::fs::F_None);
