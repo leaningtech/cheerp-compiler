@@ -671,7 +671,7 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 			const uint32_t x = orderedLinks[state.processedLinks].second;
 			if (areGroupedStillGood[x] == 0)
 			{
-				state.currentScore += 3;
+				state.currentScore += costPerPhiEdge;
 			}
 			areGroupedStillGood[x]++;
 			++state.processedLinks;
@@ -699,7 +699,7 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 			areGroupedStillGood[x]--;
 			if (areGroupedStillGood[x] == 0)
 			{
-				state.currentScore -= 3;
+				state.currentScore -= costPerPhiEdge;
 			}
 		}
 
@@ -1602,7 +1602,7 @@ void EnumerateAllPhiEdges::reduce()
 		good.solve();
 		VertexColorer::Coloring goodSolution = good.getSolution();
 
-		if (good.computeScore(goodSolution) < bad.computeScore(badSolution) + 3)
+		if (good.computeScore(goodSolution) < bad.computeScore(badSolution) + bad.costPerPhiEdge)
 		{
 			instance.retColors.resize(instance.N);
 			for (uint32_t i=0; i<instance.N; i++)

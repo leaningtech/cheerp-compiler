@@ -85,8 +85,8 @@ class VertexColorer
 	};
 	typedef std::pair<uint32_t, uint32_t> Friend;
 public:
-	VertexColorer(const uint32_t N, const uint32_t costPerColor, const uint32_t maximalNumberExploredLeafs)
-		: N(N), costPerColor(costPerColor), parent(N), constraints(N, llvm::BitVector(N)), friends(N), depthRecursion(0)
+	VertexColorer(const uint32_t N, const uint32_t costPerColor, const uint32_t maximalNumberExploredLeafs, const uint32_t costPerPhiEdge = 3)
+		: N(N), costPerColor(costPerColor), costPerPhiEdge(costPerPhiEdge), parent(N), constraints(N, llvm::BitVector(N)), friends(N), depthRecursion(0)
 	{
 		for (uint32_t i=0; i<N; i++)
 		{
@@ -212,7 +212,7 @@ public:
 	}
 private:
 	VertexColorer(const uint32_t N, const VertexColorer& parent)
-		: VertexColorer(N, parent.costPerColor, parent.times)
+		: VertexColorer(N, parent.costPerColor, parent.times, parent.costPerPhiEdge)
 	{
 		depthRecursion = parent.depthRecursion + 1;
 	}
@@ -716,7 +716,7 @@ private:
 			{
 				if (coloring[E.first] != coloring[E.second])
 				{
-					res += 3;
+					res += costPerPhiEdge;
 					break;
 				}
 			}
@@ -802,6 +802,7 @@ private:
 	static void permuteFirstElements(Coloring& coloring, const uint32_t N);
 	const uint32_t N;
 	const uint32_t costPerColor;
+	const uint32_t costPerPhiEdge;
 	std::vector<uint32_t> parent;
 	Coloring retColors;
 	std::vector<llvm::BitVector> constraints;
