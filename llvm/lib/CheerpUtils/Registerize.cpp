@@ -1384,20 +1384,23 @@ bool Reduction::perform()
 	return true;
 }
 
-std::vector<uint32_t> Reduction::computeLeaders (llvm::IntEqClasses& eqClasses) const
+std::vector<uint32_t> Reduction::computeLeaders (llvm::IntEqClasses& eqClasses, const uint32_t N) const
 {
 	eqClasses.compress();
 
-	const uint32_t N = instance.N;
-
-	std::vector<uint32_t> whichSubproblem(N);
+	std::vector<uint32_t> toWhichSubproblem(N);
 
 	for (uint32_t i=0; i<N; i++)
 	{
-		whichSubproblem[i] = eqClasses[i];
+		toWhichSubproblem[i] = eqClasses[i];
 	}
 
-	return whichSubproblem;
+	return toWhichSubproblem;
+}
+
+std::vector<uint32_t> Reduction::computeLeaders (llvm::IntEqClasses& eqClasses) const
+{
+	return computeLeaders(eqClasses, instance.N);
 }
 
 void Reduction::assignIndexes(const std::vector<uint32_t>& whichSubproblems, std::vector<uint32_t>& numerositySubproblem, std::vector<uint32_t>& newIndexes, const uint32_t startingFrom)
@@ -2013,7 +2016,10 @@ bool SplitConflictingBase::couldBePerformed()
 
 bool SplitArticulation::couldBePerformedPhiEdges()
 {
-	//TODO: improve it -> certain cases are still mergeable
+	if (whichSubproblem.front() == instance.N)
+		return false;
+	return true;
+/*	//TODO: improve it -> certain cases are still mergeable
 	for (const auto& E : instance.groupedLinks)
 	{
 		uint32_t subproblem = instance.N;
@@ -2033,6 +2039,7 @@ bool SplitArticulation::couldBePerformedPhiEdges()
 		}
 	}
 	return true;
+*/
 }
 
 bool SplitConflictingBase::couldBePerformedPhiEdges()
@@ -2135,46 +2142,98 @@ void SplitConflictingBase::relabelNodes()
 
 void SplitArticulation::relabelNodes()
 {
+	//There are multiple possible articulation points,
+	//We try each one of them, checking how many subproblem that would produce
+	//Whenever we compute a succesfull spitting, we exit the function
+
 	const uint32_t M = blockNumber.back() + 1;
 
 	assert(blocks.areAllAlive());
-
 	whichSubproblem = std::vector<uint32_t> (instance.N, instance.N);
 
+	uint32_t finalSplit = instance.N;
 	for (const uint32_t split : articulations)
 	{
-		std::vector<uint32_t> regions = blocks.parent;
-		uint32_t firstUnused = 1;
+		llvm::IntEqClasses eqClasses;
+		eqClasses.grow(blocks.N);
+		llvm::BitVector processed(M, false);
+		llvm::BitVector region(M, false);
+		llvm::BitVector articulation(M);
+		articulation.set(split);
+		processed.set(split);
 
 		for (uint32_t i=0; i<M; i++)
 		{
-			if (regions[i] == i && i != split)
-			{
-				blocks.floodFill(regions, i, false, split);
-				whichSubproblem[start[i]] = firstUnused++;
-			}
-		}
-
-		for (uint32_t i=start[split]; i<=end[split]; i++)
-		{
-			whichSubproblem[i] = 0;
-		}
-
-		for (uint32_t m=0; m<M; m++)
-		{
-			if (m == split)
+			if (processed[i])
 				continue;
-			for (uint32_t i=start[m]; i<=end[m]; ++i)
+
+			blocks.floodFillOnBitsWithArticulationPoints(region, i, /*conflicting*/false, articulation);
+			processed |= region;
+			for (uint32_t j=0; j<M; j++)
 			{
-				whichSubproblem[i] = whichSubproblem[start[regions[m]]];
+				if (!region[j])
+					continue;
+				if (j == split)
+					continue;
+				assert(i != split && j!= split);
+				eqClasses.join(i, j);
 			}
 		}
 
-		assignIndexes(whichSubproblem, numerositySubproblem, newIndex, end[split] + 1 - start[split]);
+		//Check the phi-edges
+		for (const auto& E : instance.groupedLinks)
+		{
+			uint32_t edgeLeader = M;
+			for (const VertexColorer::Link& link : E)
+			{
+				const uint32_t a = blockNumber[link.first];
+				const uint32_t b = blockNumber[link.second];
+				if (a == split || b == split)
+					continue;
+				if (edgeLeader == M)
+				{
+					edgeLeader = a;
+				}
+				assert(a != split && b!= split);
+				eqClasses.join(edgeLeader, a);
+				eqClasses.join(edgeLeader, b);
+			}
+		}
 
-		//TODO: this means it splits only on the first articulation point, but could be generalized to split on all at the same time
-		break;
+		eqClasses.compress();
+
+		if (eqClasses.getNumClasses() > 2)
+		{
+			//Success! Assign each vertex to a subproblem, and break out of the loop
+			std::vector<uint32_t> smallWhichSubproblem = computeLeaders(eqClasses, M);
+			const uint32_t toBeSwitched = smallWhichSubproblem[split];
+			for (auto& x : smallWhichSubproblem)
+			{
+				if (x == toBeSwitched)
+					x = 0;
+				else if (x == 0)
+					x = toBeSwitched;
+			}
+
+			for (uint32_t m=0; m<M; m++)
+			{
+				if (m == split)
+					continue;
+				for (uint32_t i=start[m]; i<=end[m]; ++i)
+				{
+					whichSubproblem[i] = smallWhichSubproblem[m];
+				}
+			}
+			for (uint32_t i=start[split]; i<=end[split]; i++)
+			{
+				whichSubproblem[i] = 0;
+			}
+			finalSplit = split;
+			break;
+		}
 	}
+	if (finalSplit != instance.N)
+		assignIndexes(whichSubproblem, numerositySubproblem, newIndex, end[finalSplit] + 1 - start[finalSplit]);
 }
 
 void SplitArticulation::buildSubproblems()
