@@ -888,6 +888,7 @@ public:
 	}
 	virtual void dumpSpecificDescription() const = 0;
 	VertexColorer& instance;
+	std::vector<uint32_t> computeLeaders(llvm::IntEqClasses& eqClasses, const uint32_t N) const;
 	std::vector<uint32_t> computeLeaders(llvm::IntEqClasses& eqClasses) const;
 	void assignIndexes(const std::vector<uint32_t>& whichSubproblems, std::vector<uint32_t>& numerositySubproblem, std::vector<uint32_t>& newIndexes, const uint32_t startingFrom=0);
 };
