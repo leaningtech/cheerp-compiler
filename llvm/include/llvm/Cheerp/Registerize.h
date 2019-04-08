@@ -769,7 +769,6 @@ private:
 		void processChildren(const uint32_t i, const uint32_t j, const uint32_t d);
 	};
 	std::vector<uint32_t> getArticulationPoints() const;
-	void floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint = -1) const;
 	void floodFillOnBitsWithArticulationPoints(llvm::BitVector& region, const uint32_t start, const bool conflicting, const llvm::BitVector& isArticulationPoint) const;
 	void floodFillOnBits(llvm::BitVector& region, const uint32_t start, const bool conflicting) const;
 	bool isDominatingFriend(const uint32_t a, const uint32_t b) const;
