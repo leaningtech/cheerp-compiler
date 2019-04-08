@@ -1114,58 +1114,6 @@ uint32_t VertexColorer::lowerBoundOnNumberOfColors(const bool forceEvaluation)
 	return lowerBoundChromaticNumber;
 }
 
-void VertexColorer::floodFill(std::vector<uint32_t>& regions, const uint32_t start, const bool conflicting, const uint32_t articulationPoint) const
-{
-	//Assign every node connected to start to the region labelled start
-	//What connected means depends:
-	//conflicting == false		there is either a positive-weight friendship or they are adjacent (so there is a constraint)
-	//conflicting == true		the node are not adjacent (or there is no constraint)
-	//articulationPoint != -1	as above, but it do not count if the vertex is equal to articulationPoint (as to disconnect regions on that point)
-	assert(regions[start] == start);
-
-	std::vector<uint32_t> toProcess;
-	toProcess.push_back(start);
-
-	while (!toProcess.empty())
-	{
-		uint32_t x = toProcess.back();
-		toProcess.pop_back();
-
-		for (uint32_t i=0; i<N; i++)
-		{
-			if (i != x && regions[i] == i)
-			{
-				if (conflicting != constraints[x][i])
-				{
-					if (i != articulationPoint)
-					{
-						regions[i] = start;
-						toProcess.push_back(i);
-					}
-				}
-			}
-		}
-		if (!conflicting)
-		{
-			for (const Friend& f : friends[x])
-			{
-				uint32_t i = f.first;
-				assert(i != x);
-				assert(regions[i] == i || regions[i] == start);
-				assert(!constraints[x][i]);
-				if (regions[i] == i)
-				{
-					if (i != articulationPoint)
-					{
-						regions[i] = start;
-						toProcess.push_back(i);
-					}
-				}
-			}
-		}
-	}
-}
-
 void VertexColorer::floodFillOnBits(llvm::BitVector& region, const uint32_t start, const bool conflicting) const
 {
 	floodFillOnBitsWithArticulationPoints(region, start, conflicting, llvm::BitVector(N, false));
