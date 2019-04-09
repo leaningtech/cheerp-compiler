@@ -855,7 +855,9 @@ void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm
 	// Not yet visited
 	regData.status=PHIRegData::VISITING;
 	for(auto& reg: regData.incomingRegs)
+	{
 		runOnPHI(phiRegs, reg.first, reg.second, orderedPHIs);
+	}
 	// Add the PHI to orderedPHIs only after eventual dependencies have been added
 	orderedPHIs.push_back(std::make_pair(regData.phiInst, regData.selfReferencing));
 	regData.status=PHIRegData::VISITED;
