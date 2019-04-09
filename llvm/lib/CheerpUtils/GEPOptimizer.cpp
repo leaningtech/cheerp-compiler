@@ -245,10 +245,7 @@ BasicBlockForest ValidBasicBlockForestGraph::getValidBlocks()
 		}
 	}
 	ret.simplify();
-	for (const auto& x : ret.getRoots())
-	{
-		assert(toBeClassified.count(x));
-	}
+	assert(all_of(ret.getRoots().begin(), ret.getRoots().end(), [this](BasicBlock* bb) -> bool { return toBeClassified.count(bb); } ));
 	return ret;
 }
 
