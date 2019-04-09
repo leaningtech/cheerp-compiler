@@ -825,7 +825,15 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 	std::vector<uint32_t> neighboursCount(N);
 	for (uint32_t i=0; i<N; i++)
 	{
-		neighboursCount[i] = constraints[i].count();
+		if (!isAlive(i))
+			continue;
+		for (uint32_t j=0; j<N; j++)
+		{
+			if (!isAlive(j))
+				continue;
+			if (constraints[i][j])
+				++neighboursCount[i];
+		}
 	}
 
 	llvm::BitVector processed(N);
@@ -835,7 +843,7 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 		uint32_t b=N;
 		for (uint32_t j=0; j<N; j++)
 		{
-			if (res[j] == j && processed[j]==false)
+			if (isAlive(j) && processed[j]==false)
 			{
 				if (b==N || neighboursCount[j] < neighboursCount[b])
 					b = j;
@@ -847,6 +855,8 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 		stack.push_back(b);
 		for (uint32_t j=0; j<N; j++)
 		{
+			if (!isAlive(j))
+				continue;
 			if (constraints[b][j])
 				neighboursCount[j] --;
 		}
