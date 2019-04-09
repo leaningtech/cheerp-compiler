@@ -404,14 +404,14 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	// Assign registers for temporary values required to break loops in PHIs
 	class RegisterizePHIHandler: public EndOfBlockPHIHandler
 	{
+		enum REGISTER_STATUS{FREE, TEMPORARILY_USED, USED};
 	public:
 		RegisterizePHIHandler(const BasicBlock* f, const BasicBlock* t, Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs,
 				const InstIdMapTy& i, const PointerAnalyzer& _PA, EdgeContext& edgeContext):
 			EndOfBlockPHIHandler(_PA, edgeContext), fromBB(f), toBB(t), registerize(r), PA(_PA),registers(rs),  instIdMap(i)
 		{
-			// We can't use twice the same tmpphi in the same edge
-			// TODO: It could be possible in some cases but we need to keep track of subgroups of dependencies
-			usedRegisters.resize(registers.size(), false);
+			// We should be carefull when using again the same tmpphi in the same edge
+			statusRegisters.resize(registers.size(), REGISTER_STATUS::FREE);
 		}
 	private:
 		const BasicBlock* fromBB;
@@ -420,24 +420,41 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		const PointerAnalyzer& PA;
 		llvm::SmallVector<RegisterRange, 4>& registers;
 		const InstIdMapTy& instIdMap;
-		std::vector<bool> usedRegisters;
+
+		std::vector<int> statusRegisters;
+		void resetRegistersState()
+		{
+			//The legacy algorithm do not enforce the right invariants on the orders on which phi are considered
+			assert(!RegisterizeLegacy);
+
+			//Reserved registers should be kept untouched, while used one could be used multiple times (eg. to store a temporary)
+			for (auto & state : statusRegisters)
+			{
+				if (state == REGISTER_STATUS::TEMPORARILY_USED)
+					state = REGISTER_STATUS::FREE;
+			}
+		}
 		uint32_t assignTempReg(uint32_t regId, Registerize::REGISTER_KIND kind, bool needsSecondaryName)
 		{
 			for(unsigned i=0;i<registers.size();i++)
 			{
 				if(registers[i].info.regKind != kind)
 					continue;
-				if(usedRegisters[i])
+				//registers currently not free could not be used
+				if(statusRegisters[i] != REGISTER_STATUS::FREE)
 					continue;
-				// usedRegisters will skip all registers already assigned or used by PHIs
+				// The check on statusRegisters will skip all registers already assigned or used by PHIs
 				// we still need to make sure we are not interfering with registers which are
 				// alive across the whole range
 				assert(instIdMap.count(&(*toBB->begin())));
 				uint32_t beginOfToBlock = instIdMap.find(&(*toBB->begin()))->second;
 				if(registers[i].range.doesInterfere(beginOfToBlock))
+				{
+					statusRegisters[i] = REGISTER_STATUS::USED;
 					continue;
+				}
 				// We can use this register for the tmpphi, make sure we don't use it twice
-				usedRegisters[i] = true;
+				statusRegisters[i] = REGISTER_STATUS::TEMPORARILY_USED;
 				registers[i].info.needsSecondaryName |= needsSecondaryName;
 				return i;
 			}
@@ -445,7 +462,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			// It is not a problem since we mark it as used in the block
 			uint32_t chosenReg = registers.size();
 			registers.push_back(RegisterRange(LiveRange(), kind, needsSecondaryName));
-			usedRegisters.push_back(true);
+			statusRegisters.push_back(REGISTER_STATUS::TEMPORARILY_USED);
 			return chosenReg;
 		}
 		void handleRecursivePHIDependency(const Instruction* incoming) override
@@ -473,8 +490,8 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		}
 		void setRegisterUsed(uint32_t regId) override
 		{
-			assert(regId < usedRegisters.size());
-			usedRegisters[regId] = true;
+			assert(regId < statusRegisters.size());
+			statusRegisters[regId] = REGISTER_STATUS::USED;
 		}
 	};
 #ifndef NDEBUG
