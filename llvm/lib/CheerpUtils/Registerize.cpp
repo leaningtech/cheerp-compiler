@@ -780,6 +780,7 @@ void VertexColorer::iterativeDeepening(IterationsCounter& counter)
 
 	uint32_t depth = 0;
 	uint32_t previousDepth = 0;
+	constraints.reserve(N * 2);
 	while (counter.remaining()>0 && depth <= friendships.size())
 	{
 #ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
@@ -837,13 +838,17 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 	}
 
 	llvm::BitVector processed(N);
+	for (uint32_t i=0; i<N; i++)
+	{
+		processed[i] = !isAlive(i);
+	}
 	std::vector<uint32_t> stack;
 	for (uint32_t i=0; i<N; i++)
 	{
 		uint32_t b=N;
 		for (uint32_t j=0; j<N; j++)
 		{
-			if (isAlive(j) && processed[j]==false)
+			if (processed[j]==false)
 			{
 				if (b==N || neighboursCount[j] < neighboursCount[b])
 					b = j;
@@ -851,7 +856,7 @@ std::vector<uint32_t> VertexColorer::assignGreedily() const
 		}
 		if (b == N)
 			break;
-		processed[b] = true;
+		processed.set(b);
 		stack.push_back(b);
 		for (uint32_t j=0; j<N; j++)
 		{
