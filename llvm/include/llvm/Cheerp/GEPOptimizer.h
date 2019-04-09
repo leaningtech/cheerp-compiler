@@ -222,12 +222,16 @@ private:
 	}
 	bool areAllChildrenValid(BasicBlock* BB) const
 	{
+#ifndef NDEBUG
 		bool hasProperSuccessors = false;
+#endif
 		for (auto it = succ_begin(BB), end = succ_end(BB); it != end; ++it)
 		{
 			if (*it == BB)
 				continue;
+#ifndef NDEBUG
 			hasProperSuccessors = true;
+#endif
 			if (!roots.count(*it))
 				return false;
 		}
