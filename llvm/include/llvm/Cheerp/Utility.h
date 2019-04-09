@@ -759,6 +759,13 @@ private:
 		PHIRegData(const llvm::PHINode* p, llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2>&& r, bool selfReferencing):
 			phiInst(p), incomingRegs(std::move(r)), status(NOT_VISITED), selfReferencing(selfReferencing)
 		{
+			sort(incomingRegs.begin(), incomingRegs.end());
+			incomingRegs.erase(std::unique(incomingRegs.begin(), incomingRegs.end()), incomingRegs.end());
+			for (uint32_t i=1; i<incomingRegs.size(); i++)
+			{
+				assert(incomingRegs[i-1].first != incomingRegs[i].first);
+				assert(incomingRegs[i-1].second != incomingRegs[i].second);
+			}
 		}
 	};
 	typedef std::map<uint32_t, PHIRegData> PHIRegs;
