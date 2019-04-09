@@ -675,7 +675,6 @@ private:
 			if (!isAlive(i))
 				continue;
 			constraints[i][a] = constraints[a][i];
-			constraints[i].reset(b);
 		}
 	}
 	void undoContraction(const uint32_t a, const uint32_t b)
@@ -687,7 +686,6 @@ private:
 			if (!isAlive(i))
 				continue;
 			constraints[i][a] = constraints[a][i];
-			constraints[i][b] = constraints[b][i];
 		}
 		parent[b] = b;
 	}
