@@ -17,6 +17,7 @@
 #include <unordered_set>
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
@@ -775,6 +776,69 @@ private:
 	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
 	// Called for every register which is either assigned or used by PHIs in the edge
 	virtual void setRegisterUsed(uint32_t reg) {};
+
+public:
+	class DependencyGraph;
+	struct GraphNode {
+		uint32_t registerId;
+		llvm::SmallVector<uint32_t, 2> Succs;
+		DependencyGraph& Graph;
+		explicit GraphNode(const uint32_t id, DependencyGraph& Graph)
+			: registerId(id), Graph(Graph)
+		{
+			if (registerId == Graph.getEntry())
+			{
+				//The entry node its connected to every other node
+				for (const auto& x : Graph.PHIData)
+				{
+					Succs.push_back(x.first);
+				}
+			}
+			else
+			{
+				//The other nodes to their dependencies
+				for (const auto& x : Graph.PHIData.at(registerId).incomingRegs)
+				{
+					if (Graph.shouldBeRepresented(x.first))
+						Succs.push_back(x.first);
+				}
+			}
+			//Normalize successors
+			std::sort(Succs.begin(), Succs.end());
+			Succs.erase(std::unique(Succs.begin(), Succs.end()), Succs.end());
+		}
+	};
+	class DependencyGraph {
+	public:
+		typedef std::unordered_map<uint32_t, GraphNode> NodeMap;
+
+		explicit DependencyGraph(const PHIRegs& PHIData): PHIData(PHIData)
+		{
+		}
+		uint32_t getEntry() const
+		{
+			return -1;
+		}
+		bool shouldBeRepresented(const uint32_t id) const
+		{
+			return PHIData.count(id);
+		}
+	private:
+		GraphNode* getOrCreate(uint32_t id)
+		{
+			auto it = Nodes.find(id);
+			if (it == Nodes.end())
+			{
+				it = Nodes.emplace(id, GraphNode(id, *this)).first;
+			}
+			return &it->second;
+		}
+		friend struct llvm::GraphTraits<DependencyGraph*>;
+		friend struct GraphNode;
+
+		const PHIRegs& PHIData;
+		NodeMap Nodes;
+	};
 };
 
 template<class U, class V>
@@ -786,6 +850,21 @@ struct PairHash
 		}
 };
 
+}
+namespace llvm
+{
+template <> struct GraphTraits<cheerp::EndOfBlockPHIHandler::DependencyGraph*> {
+	typedef cheerp::EndOfBlockPHIHandler::GraphNode NodeType;
+	typedef llvm::mapped_iterator<SmallVectorImpl<uint32_t>::iterator, std::function<cheerp::EndOfBlockPHIHandler::GraphNode*(uint32_t)>> ChildIteratorType;
+
+	static NodeType *getEntryNode(cheerp::EndOfBlockPHIHandler::DependencyGraph* G) { return G->getOrCreate(G->getEntry()); }
+	static inline ChildIteratorType child_begin(NodeType *N) {
+		return ChildIteratorType(N->Succs.begin(), [N](uint32_t id){ return N->Graph.getOrCreate(id);});
+	}
+	static inline ChildIteratorType child_end(NodeType *N) {
+		return ChildIteratorType(N->Succs.end(), [](uint32_t id){ llvm_unreachable("dereferencing past-the-end iterator");return nullptr;});
+	}
+};
 }
 
 #endif //_CHEERP_UTILITY_H
