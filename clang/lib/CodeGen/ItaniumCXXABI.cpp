@@ -614,10 +614,10 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   if (UseARMMethodPtrABI)
     Adj = Builder.CreateAShr(Adj, ptrdiff_1, "memptr.adj.shifted");
 
+  llvm::Value *This = ThisAddr.getPointer();
   if (CGF.getTarget().isByteAddressable()) {
     // Apply the adjustment and cast back to the original struct type
     // for consistency.
-    llvm::Value *This = ThisAddr.getPointer();
     llvm::Value *Ptr = Builder.CreateBitCast(This, Builder.getInt8PtrTy());
     Ptr = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), Ptr, Adj);
     This = Builder.CreateBitCast(Ptr, This->getType(), "this.adjusted");
@@ -1508,7 +1508,7 @@ llvm::Value *ItaniumCXXABI::EmitTypeid(CodeGenFunction &CGF,
         CGF.Builder.CreateConstInBoundsGEP1_64(StdTypeInfoPtrTy, Value, -1ULL);
   } else {
     llvm::Type* VTableType = CGM.getTypes().GetPrimaryVTableType(ClassDecl)->getPointerTo();
-    Value = CGF.GetVTablePtr(ThisPtr, VTableType);
+    Value = CGF.GetVTablePtr(ThisPtr, VTableType, ClassDecl);
     bool asmjs = SrcRecordTy->getAsCXXRecordDecl()->hasAttr<AsmJSAttr>(); 
     int offset = asmjs? 1 : 0;
     Value = CGF.Builder.CreateStructGEP(VTableType->getPointerElementType(), Value, offset);
@@ -1543,7 +1543,7 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastCall(
 
   llvm::Value *Value = ThisAddr.getPointer();
   bool asmjs = SrcDecl->hasAttr<AsmJSAttr>();
-  llvm::Value *VTable = CGF.GetVTablePtr(Value, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo());
+  llvm::Value *VTable = CGF.GetVTablePtr(ThisAddr, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), SrcDecl);
   llvm::Value *DynCastObj = Value;
 
   // Emit the call to __dynamic_cast.
@@ -1616,17 +1616,17 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastToVoid(CodeGenFunction &CGF,
       cast<CXXRecordDecl>(SrcRecordTy->castAs<RecordType>()->getDecl());
   if (!CGM.getTarget().isByteAddressable()) {
     CXXRecordDecl* SrcDecl = ClassDecl;
-    llvm::Type* VTableType = CGM.getTypes().GetSecondaryVTableType(SrcDecl)->getPointerTo();
-    llvm::Value *VTable = CGF.GetVTablePtr(Value, VTableType);
     bool asmjs = SrcDecl->hasAttr<AsmJSAttr>();
     llvm::Value* OffsetToTop = nullptr;
     if (asmjs) {
-      OffsetToTop = CGF.Builder.CreateStructGEP(VTableType->getPointerElementType(), VTable, 0);
-      OffsetToTop = CGF.Builder.CreateLoad(OffsetToTop, "offset.to.top");
+      llvm::Type* VTableType = CGM.getTypes().GetSecondaryVTableType(SrcDecl)->getPointerTo();
+      Address VTable = Address(CGF.GetVTablePtr(ThisAddr, VTableType, ClassDecl), ThisAddr.getAlignment());
+      Address Tmp = CGF.Builder.CreateStructGEP(VTable, 0, CharUnits());
+      OffsetToTop = CGF.Builder.CreateLoad(Tmp, "offset.to.top");
     } else {
       OffsetToTop = llvm::ConstantInt::get(CGM.Int32Ty, 0);
     }
-    llvm::Value *Ret = CGF.GenerateVirtualcast(Value, CGM.VoidPtrTy, OffsetToTop);
+    llvm::Value *Ret = CGF.GenerateVirtualcast(ThisAddr.getPointer(), CGM.VoidPtrTy, OffsetToTop);
     return Ret;
   }
 
@@ -1677,7 +1677,7 @@ ItaniumCXXABI::GetVirtualBaseClassOffset(CodeGenFunction &CGF,
                                          const CXXRecordDecl *BaseClassDecl) {
   if (!CGM.getTarget().isByteAddressable()) {
     llvm::Type* VTableType = CGM.getTypes().GetPrimaryVTableType(ClassDecl)->getPointerTo();
-    llvm::Value *VTablePtr = CGF.GetVTablePtr(This, VTableType);
+    llvm::Value *VTablePtr = CGF.GetVTablePtr(This, VTableType, ClassDecl);
     CharUnits VBaseOffsetOffset =
         CGM.getItaniumVTableContext().getVirtualBaseOffsetOffset(ClassDecl,
                                                                  BaseClassDecl);
@@ -2076,7 +2076,7 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
   } else {
     const CXXRecordDecl *RD = MethodDecl->getParent();
     llvm::Type* VTableType = CGM.getTypes().GetPrimaryVTableType(RD)->getPointerTo();
-    VTable = CGF.GetVTablePtr(This, VTableType);
+    VTable = CGF.GetVTablePtr(This, VTableType, MethodDecl->getParent());
   }
 
   uint64_t VTableIndex = CGM.getItaniumVTableContext().getMethodVTableIndex(GD);
@@ -2107,7 +2107,7 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
                                         CGF.getPointerAlign());
     } else {
       llvm::Value* VFuncPtr = CGF.Builder.CreateConstInBoundsGEP2_32(VTable->getType()->getPointerElementType(), VTable, 0, VTableIndex, "vfn");
-      VFuncLoad = CGF.Builder.CreateLoad(VFuncPtr->getType()->getPointerElementType(), VFuncPtr);
+      VFuncLoad = CGF.Builder.CreateAlignedLoad(VFuncPtr->getType()->getPointerElementType(), VFuncPtr, CGF.getPointerAlign());
     }
 
     // Add !invariant.load md to virtual function load to indicate that
@@ -2241,6 +2241,7 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
   // Cheerp: Handle non byte addressable case first
   if (!CGF.getTarget().isByteAddressable())
   {
+    Address Ptr = InitialPtr;
     if(IsReturnAdjustment)
     {
       // Ptr has the wrong type here, as the signature comes from the overridden function
@@ -2254,9 +2255,9 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
 
       if (VirtualAdjustment) {
         llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(AdjustmentSource)->getPointerTo();
-        llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy);
+        llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy, AdjustmentSource);
         llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTableTy->getPointerElementType(), VTablePtr, VirtualAdjustment);
-        llvm::Value* VCallOffset = CGF.Builder.CreateLoad(VCallOffsetPtr);
+        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(VCallOffsetPtr, CGF.getPointerAlign());
         Ptr = CGF.GenerateVirtualcast(Ptr, VirtualBase, VCallOffset);
       }
       Ptr = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
@@ -2267,13 +2268,13 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
       Ptr = CGF.GenerateDowncast(Ptr, DowncastTarget, NonVirtualAdjustment);
       if (VirtualAdjustment) {
         llvm::Type* VTableTy = CGF.CGM.getTypes().GetSecondaryVTableType(VirtualBase)->getPointerTo();
-        llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy);
+        llvm::Value *VTablePtr = CGF.GetVTablePtr(Ptr, VTableTy, VirtualBase);
         llvm::Value* VCallOffsetPtr = CGF.Builder.CreateStructGEP(VTableTy->getPointerElementType(), VTablePtr, VirtualAdjustment);
-        llvm::Value* VCallOffset = CGF.Builder.CreateLoad(VCallOffsetPtr);
+        llvm::Value* VCallOffset = CGF.Builder.CreateAlignedLoad(VCallOffsetPtr, CGF.getPointerAlign());
         Ptr = CGF.GenerateVirtualcast(Ptr, AdjustmentTarget, VCallOffset);
       }
     }
-    return Ptr;
+    return Ptr.getPointer();
   }
 
   Address V = CGF.Builder.CreateElementBitCast(InitialPtr, CGF.Int8Ty);
@@ -2389,7 +2390,7 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
   CharUnits CookieSize = getArrayCookieSizeImpl(ElementType);
 
   // Compute an offset to the cookie.
-  llvm::Value *CookiePtr = CGF.Builder.CreateBitCast(NewPtr, CGM.Int8PtrTy);
+  Address CookiePtr = CGF.Builder.CreateBitCast(NewPtr, CGM.Int8PtrTy);
   CharUnits CookieOffset = CookieSize - SizeSize;
   if (!CookieOffset.isZero())
     CookiePtr = CGF.Builder.CreateConstInBoundsByteGEP(CookiePtr, CookieOffset);
@@ -2415,9 +2416,8 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
   // Finally, compute a pointer to the actual data buffer by skipping
   // over the cookie completely.
   if (!CGF.getTarget().isByteAddressable()) {
-      llvm::Value* ptr = CGF.Builder.CreateBitCast(NewPtr, CGM.Int8PtrTy);
-      return CGF.Builder.CreateConstInBoundsGEP1_32(CGM.Int8Ty, ptr,
-                                                CookieSize.getQuantity());
+      Address ptr = CGF.Builder.CreateBitCast(NewPtr, CGM.Int8PtrTy);
+      return CGF.Builder.CreateConstInBoundsByteGEP(ptr, CookieSize);
   } else {
       return CGF.Builder.CreateConstInBoundsByteGEP(NewPtr, CookieSize);
   }

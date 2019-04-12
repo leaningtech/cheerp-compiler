@@ -1695,7 +1695,7 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
       Addr = Addr.withPointer(Builder.CreateThreadLocalAddress(GV));
 
   if (IsHighInt(Ty)) {
-    return Addr;
+    return Addr.getPointer();
   }
 
   if (const auto *ClangVecTy = Ty->getAs<VectorType>()) {
@@ -1849,8 +1849,8 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
   if (IsHighInt(Ty)) {
     llvm::Value *high = EmitLoadHighBitsOfHighInt(Value);
     llvm::Value *low = EmitLoadLowBitsOfHighInt(Value);
-    llvm::Value *highLoc = Builder.CreateConstGEP2_32(Addr->getType()->getPointerElementType(), Addr, 0, 0);
-    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(Addr->getType()->getPointerElementType(), Addr, 0, 1);
+    Address highLoc = Builder.CreateStructGEP(Addr, 0, CharUnits());
+    Address lowLoc = Builder.CreateStructGEP(Addr, 1, CharUnits());
     Builder.CreateStore(high, highLoc, Volatile);
     Builder.CreateStore(low, lowLoc, Volatile);
     return;
@@ -2289,8 +2289,8 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   } else {
     llvm::Value *highVal = EmitLoadHighBitsOfHighInt(SrcVal);
     llvm::Value *lowVal = EmitLoadLowBitsOfHighInt(SrcVal);
-    llvm::Value *highLoc = Builder.CreateConstGEP2_32(Ptr->getType()->getPointerElementType(), Ptr, 0, 0);
-    llvm::Value *lowLoc = Builder.CreateConstGEP2_32(Ptr->getType()->getPointerElementType(), Ptr, 0, 1);
+    Address highLoc = Builder.CreateStructGEP(Ptr, 0, CharUnits());
+    Address lowLoc = Builder.CreateStructGEP(Ptr, 1, CharUnits());
     Builder.CreateStore(highVal, highLoc, Volatile);
     Builder.CreateStore(lowVal, lowLoc, Volatile);
   }
@@ -4847,11 +4847,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
 
   case CK_ArrayToPointerDecay: {
     LValue LV = EmitLValue(E->getSubExpr());
-    llvm::SmallVector<llvm::Value*, 2> Idxs;
-    llvm::Constant* Zero = llvm::ConstantInt::get(Int32Ty, 0);
-    Idxs.push_back(Zero);
-    Idxs.push_back(Zero);
-    llvm::Value *V = Builder.CreateGEP(LV.getAddress(), Idxs);
+    Address V = Builder.CreateConstArrayGEP(LV.getAddress(), 0, CharUnits());
     return MakeAddrLValue(V, E->getType());
   }
   case CK_ConstructorConversion:
