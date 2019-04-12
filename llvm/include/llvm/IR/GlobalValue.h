@@ -271,6 +271,7 @@ public:
   PointerType *getType() const { return cast<PointerType>(User::getType()); }
 
   Type *getValueType() const { return ValueType; }
+  void setValueType(Type* T) { ValueType = T; }
 
   bool isImplicitDSOLocal() const {
     return hasLocalLinkage() ||
