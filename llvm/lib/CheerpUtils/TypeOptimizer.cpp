@@ -1326,7 +1326,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			Value* op=phi->getIncomingValue(i);
 			auto rewrittenOperand = getMappedOperand(op);
 			assert(rewrittenOperand.second == 0);
-			phi->setIncomingValue(i, rewrittenOperand.first);
+			// Work around setIncomingValue assertion by using setOperand directly
+			phi->setOperand(i, rewrittenOperand.first);
 		}
 	}
 	for(auto it: localInstMapping)
