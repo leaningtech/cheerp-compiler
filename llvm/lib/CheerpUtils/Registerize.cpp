@@ -70,6 +70,14 @@ uint32_t Registerize::getRegisterId(const llvm::Instruction* I) const
 	assert(RegistersAssigned);
 	assert(registersMap.count(I));
 	uint32_t regId = registersMap.find(I)->second;
+	return regId;
+}
+
+uint32_t Registerize::getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const
+{
+	assert(RegistersAssigned);
+	assert(registersMap.count(I));
+	uint32_t regId = registersMap.find(I)->second;
 	if(!edgeContext.isNull())
 	{
 		auto it=edgeRegistersMap.find(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, regId));
@@ -412,12 +420,14 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		registerAllocatorInst.materializeRegisters(registers);
 	}
 
+	EdgeContext edgeContext;
 	// Assign registers for temporary values required to break loops in PHIs
 	class RegisterizePHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		RegisterizePHIHandler(const BasicBlock* f, const BasicBlock* t, Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs, const InstIdMapTy& i, const PointerAnalyzer& _PA):
-			EndOfBlockPHIHandler(_PA), fromBB(f), toBB(t), registerize(r), PA(_PA),registers(rs),  instIdMap(i)
+		RegisterizePHIHandler(const BasicBlock* f, const BasicBlock* t, Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs,
+				const InstIdMapTy& i, const PointerAnalyzer& _PA, EdgeContext& edgeContext):
+			EndOfBlockPHIHandler(_PA, edgeContext), fromBB(f), toBB(t), registerize(r), PA(_PA),registers(rs),  instIdMap(i)
 		{
 			// We can't use twice the same tmpphi in the same edge
 			// TODO: It could be possible in some cases but we need to keep track of subgroups of dependencies
@@ -503,7 +513,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		{
 			//TODO: improve how thet are assigned
 			const BasicBlock* succBB=term->getSuccessor(i);
-			RegisterizePHIHandler(&bb, succBB, *this, registers, instIdMap, PA).runOnEdge(*this, &bb, succBB);
+			RegisterizePHIHandler(&bb, succBB, *this, registers, instIdMap, PA, edgeContext).runOnEdge(*this, &bb, succBB);
 		}
 	}
 #ifndef NDEBUG

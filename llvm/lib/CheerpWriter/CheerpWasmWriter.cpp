@@ -972,7 +972,7 @@ bool CheerpWasmWriter::mayHaveLastWrittenRegAsFirstOperand(const Value* v) const
 	}
 	else
 	{
-		uint32_t reg = registerize.getRegisterId(I);
+		uint32_t reg = registerize.getRegisterId(I, edgeContext);
 		return reg == lastWrittenReg;
 	}
 }
@@ -1245,7 +1245,7 @@ bool CheerpWasmWriter::needsPointerKindConversion(const Instruction* phi, const 
 	if(!incomingInst)
 		return true;
 	assert(!isInlineable(*incomingInst, PA));
-	return registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst);
+	return registerize.getRegisterId(phi, EdgeContext::emptyContext())!=registerize.getRegisterId(incomingInst, edgeContext);
 }
 
 void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from)
@@ -1253,8 +1253,8 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 	class WriterPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		WriterPHIHandler(CheerpWasmWriter& w, WasmBuffer& c, const BasicBlock* f, const BasicBlock* t)
-			:EndOfBlockPHIHandler(w.PA),writer(w), code(c),fromBB(f),toBB(t)
+		WriterPHIHandler(CheerpWasmWriter& w, WasmBuffer& c)
+			:EndOfBlockPHIHandler(w.PA, w.edgeContext),writer(w), code(c)
 		{
 		}
 		~WriterPHIHandler()
@@ -1263,16 +1263,14 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 	private:
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
-		const BasicBlock* fromBB;
-		const BasicBlock* toBB;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			assert(incoming);
-			uint32_t reg = writer.registerize.getRegisterId(incoming);
+			uint32_t reg = writer.registerize.getRegisterId(incoming, EdgeContext::emptyContext());
 			uint32_t local = writer.localMap.at(reg);
 			writer.encodeU32Inst(0x20, "get_local", local, code);
 
-			reg = writer.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
+			reg = writer.registerize.getRegisterId(incoming, edgeContext);
 			local = writer.localMap.at(reg);
 			writer.encodeU32Inst(0x21, "set_local", local, code);
 
@@ -1283,16 +1281,14 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			if(!writer.needsPointerKindConversion(phi, incoming))
 				return;
 			// 1) Put the value on the stack
-			writer.registerize.setEdgeContext(fromBB, toBB);
 			writer.compileOperand(code, incoming);
-			writer.registerize.clearEdgeContext();
 			// 2) Save the value in the phi
-			uint32_t reg = writer.registerize.getRegisterId(phi);
+			uint32_t reg = writer.registerize.getRegisterId(phi, EdgeContext::emptyContext());
 			uint32_t local = writer.localMap.at(reg);
 			writer.encodeU32Inst(0x21, "set_local", local, code);
 		}
 	};
-	WriterPHIHandler(*this, code, from, to).runOnEdge(registerize, from, to);
+	WriterPHIHandler(*this, code).runOnEdge(registerize, from, to);
 }
 
 const char* CheerpWasmWriter::getTypeString(const Type* t)
@@ -1316,7 +1312,7 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	const auto I = dyn_cast<Instruction>(gep_inst);
 	if (I && !isInlineable(*I, PA)) {
 		if (!standalone) {
-			uint32_t reg = registerize.getRegisterId(I);
+			uint32_t reg = registerize.getRegisterId(I, edgeContext);
 			uint32_t local = localMap.at(reg);
 			encodeU32Inst(0x20, "get_local", local, code);
 			return;
@@ -1696,7 +1692,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 		if(isInlineable(*it, PA)) {
 			compileInlineInstruction(code, *it);
 		} else {
-			uint32_t idx = registerize.getRegisterId(it);
+			uint32_t idx = registerize.getRegisterId(it, edgeContext);
 			uint32_t local = localMap.at(idx);
 			encodeU32Inst(0x20, "get_local", local, code);
 		}
@@ -2724,7 +2720,7 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 				if(I->use_empty()) {
 					encodeInst(0x1a, "drop", code);
 				} else {
-					uint32_t reg = registerize.getRegisterId(I);
+					uint32_t reg = registerize.getRegisterId(&*I, edgeContext);
 					lastWrittenReg = reg;
 					uint32_t local = localMap.at(reg);
 					encodeU32Inst(0x21, "set_local", local, code);

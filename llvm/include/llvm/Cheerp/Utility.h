@@ -24,6 +24,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
+#include "llvm/Cheerp/EdgeContext.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 
@@ -53,7 +54,7 @@ class Registerize;
 * Returns true if this PHI will render identically for all incoming
 * NOTE: If the PHI would completely disappear this returns false
 */
-bool canDelayPHI(const llvm::PHINode* phi, const PointerAnalyzer& PA, const Registerize& registerize);
+bool canDelayPHI(const llvm::PHINode* phi, const PointerAnalyzer& PA, const Registerize& registerize, const EdgeContext& edgeContext = EdgeContext::emptyContext());
 
 template<uint32_t N>
 bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
@@ -741,15 +742,12 @@ private:
 class EndOfBlockPHIHandler
 {
 public:
-	EndOfBlockPHIHandler(const PointerAnalyzer& PA):PA(PA)
-	{
-	}
+	EndOfBlockPHIHandler(const PointerAnalyzer& PA, EdgeContext& edgeContext);
 	void runOnEdge(const Registerize& registerize, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB);
 protected:
 	const PointerAnalyzer& PA;
-	virtual ~EndOfBlockPHIHandler()
-	{
-	}
+	EdgeContext& edgeContext;
+	virtual ~EndOfBlockPHIHandler();
 private:
 	struct PHIRegData
 	{

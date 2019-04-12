@@ -2496,7 +2496,7 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 }
 
 bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* incoming,
-                                              const PointerAnalyzer& PA, const Registerize& registerize)
+                                              const PointerAnalyzer& PA, const Registerize& registerize, const EdgeContext& edgeContext)
 {
 	if(canDelayPHI(phi, PA, registerize))
 		return false;
@@ -2530,8 +2530,8 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 	class PHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		PHIHandler(const PointerAnalyzer& PA, const Registerize& registerize):
-		           EndOfBlockPHIHandler(PA),needsPointerKindConversion(false),PA(PA),registerize(registerize)
+		PHIHandler(const PointerAnalyzer& PA, EdgeContext& edgeContext, const Registerize& registerize):
+		           EndOfBlockPHIHandler(PA, edgeContext),needsPointerKindConversion(false),PA(PA),registerize(registerize)
 		{
 		}
 		~PHIHandler()
@@ -2546,11 +2546,12 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
-			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, PA, registerize);
+			needsPointerKindConversion |= CheerpWriter::needsPointerKindConversion(phi, incoming, PA, registerize, edgeContext);
 		}
 	};
 
-	auto handler = PHIHandler(PA, registerize);
+	EdgeContext localEdgeContext;
+	auto handler = PHIHandler(PA, localEdgeContext, registerize);
 	handler.runOnEdge(registerize, from, to);
 	return handler.needsPointerKindConversion;
 }
@@ -2560,7 +2561,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	class WriterPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		WriterPHIHandler(CheerpWriter& w, const BasicBlock* f, const BasicBlock* t):EndOfBlockPHIHandler(w.PA),writer(w),fromBB(f),toBB(t)
+		WriterPHIHandler(CheerpWriter& w):EndOfBlockPHIHandler(w.PA, w.edgeContext),writer(w)
 		{
 		}
 		~WriterPHIHandler()
@@ -2568,25 +2569,23 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		}
 	private:
 		CheerpWriter& writer;
-		const BasicBlock* fromBB;
-		const BasicBlock* toBB;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			assert(incoming);
 			if(incoming->getType()->isPointerTy() && writer.PA.getPointerKind(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
 			{
-				writer.stream << writer.namegen.getSecondaryNameForEdge(incoming, fromBB, toBB);
+				writer.stream << writer.namegen.getSecondaryNameForEdge(incoming, edgeContext);
 				writer.stream << '=';
 				writer.compilePointerOffset(incoming, LOWEST);
 				writer.stream << ';' << writer.NewLine;
 			}
-			writer.stream << writer.namegen.getNameForEdge(incoming, fromBB, toBB);
+			writer.stream << writer.namegen.getName(incoming);
 			writer.stream << '=' << writer.namegen.getName(incoming) << ';' << writer.NewLine;
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
 			// We can avoid assignment from the same register if no pointer kind conversion is required
-			if(!needsPointerKindConversion(phi, incoming, writer.PA, writer.registerize))
+			if(!needsPointerKindConversion(phi, incoming, writer.PA, writer.registerize, edgeContext))
 				return;
 			// We can leave undefined values undefined
 			if (isa<UndefValue>(incoming))
@@ -2598,7 +2597,6 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				if((k==REGULAR || k==SPLIT_REGULAR || k==BYTE_LAYOUT) && writer.PA.getConstantOffsetForPointer(phi))
 				{
 					writer.stream << writer.namegen.getName(phi) << '=';
-					writer.registerize.setEdgeContext(fromBB, toBB);
 					writer.compilePointerBase(incoming);
 				}
 				else if(k==SPLIT_REGULAR)
@@ -2613,13 +2611,12 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					uint32_t tmpOffsetReg = -1;
 					if(selfReferencing)
 					{
-						tmpOffsetReg = writer.registerize.getSelfRefTmpReg(phi, fromBB, toBB);
+						tmpOffsetReg = writer.registerize.getSelfRefTmpReg(phi, edgeContext.fromBB, edgeContext.toBB);
 						writer.stream << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
 					}
 					else
 						writer.stream << writer.namegen.getSecondaryName(phi);
 					writer.stream << '=';
-					writer.registerize.setEdgeContext(fromBB, toBB);
 					if (incomingKind == RAW)
 					{
 						writer.compileRawPointer(incoming, SHIFT);
@@ -2630,9 +2627,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 						writer.compilePointerOffset(incoming, LOWEST);
 					}
 					writer.stream << ';' << writer.NewLine;
-					writer.registerize.clearEdgeContext();
 					writer.stream << writer.namegen.getName(phi) << '=';
-					writer.registerize.setEdgeContext(fromBB, toBB);
 					if (incomingKind == RAW)
 						writer.compileHeapForType(cast<PointerType>(phiType)->getPointerElementType());
 					else
@@ -2640,34 +2635,29 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					if(selfReferencing)
 					{
 						writer.stream << ';' << writer.NewLine;
-						writer.registerize.clearEdgeContext();
 						writer.stream << writer.namegen.getSecondaryName(phi) << '=' << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
 					}
 				}
 				else if(k==RAW)
 				{
 					writer.stream << writer.namegen.getName(phi) << '=';
-					writer.registerize.setEdgeContext(fromBB, toBB);
 					writer.compileRawPointer(incoming, LOWEST);
 				}
 				else
 				{
 					writer.stream << writer.namegen.getName(phi) << '=';
-					writer.registerize.setEdgeContext(fromBB, toBB);
 					writer.compilePointerAs(incoming, k);
 				}
 			}
 			else
 			{
 				writer.stream << writer.namegen.getName(phi) << '=';
-				writer.registerize.setEdgeContext(fromBB, toBB);
 				writer.compileOperand(incoming, LOWEST);
 			}
 			writer.stream << ';' << writer.NewLine;
-			writer.registerize.clearEdgeContext();
 		}
 	};
-	WriterPHIHandler(*this, from, to).runOnEdge(registerize, from, to);
+	WriterPHIHandler(*this).runOnEdge(registerize, from, to);
 }
 
 void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_iterator itE, ImmutableCallSite callV, bool forceBoolean)
