@@ -228,12 +228,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 				while(1)
 				{
 					nextInst = nextInst->getNextNode();
-					if(nextInst == nullptr)
-					{
-						// We have reached the end of the block without finding the final user, can't inline
-						break;
-					}
-					else if(curInst->user_back() == nextInst)
+					if(curInst->user_back() == nextInst)
 					{
 						// Reached the direct user
 						if(nextInst->getOpcode() == Instruction::BitCast ||
@@ -285,6 +280,11 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 					else if(--maxSkip == 0)
 					{
 						// Can't skip anymore
+						break;
+					}
+					else if(isa<TerminatorInst>(nextInst))
+					{
+						// We have reached the end of the block without finding the final user, can't inline
 						break;
 					}
 				}
