@@ -176,6 +176,7 @@ private:
 	const PointerAnalyzer & PA;
 	Registerize & registerize;
 
+	EdgeContext edgeContext;
 	GlobalDepsAnalyzer & globalDeps;
 	const LinearMemoryHelper& linearHelper;
 	const NameGenerator& namegen;
@@ -550,6 +551,7 @@ public:
 		currentFun(NULL),
 		PA(PA),
 		registerize(registerize),
+		edgeContext(),
 		globalDeps(gda),
 		linearHelper(linearHelper),
 		namegen(namegen),
@@ -650,7 +652,7 @@ public:
 	 */
 	static bool useSwitch(const llvm::TerminatorInst* term);
 	static bool needsPointerKindConversion(const llvm::PHINode* phi, const llvm::Value* incoming,
-	                                       const PointerAnalyzer& PA, const Registerize& registerize);
+	                                       const PointerAnalyzer& PA, const Registerize& registerize, const EdgeContext& edgeContext);
 	static bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from,
 	                                                const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsUnsignedTruncation(const llvm::Value* v, bool asmjs);

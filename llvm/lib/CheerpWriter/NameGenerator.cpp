@@ -33,21 +33,21 @@ NameGenerator::NameGenerator(const Module& M, const GlobalDepsAnalyzer& gda, Reg
 		generateCompressedNames(M, gda, linearHelper);
 }
 
-llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
+llvm::StringRef NameGenerator::getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const
 {
 	if (const Instruction* I=dyn_cast<Instruction>(v))
 	{
-		uint32_t regId = registerize.getRegisterIdForEdge(I, fromBB, toBB);
+		uint32_t regId = registerize.getRegisterId(I, edgeContext);
 		return regNamemap.at(std::make_pair(I->getParent()->getParent(), regId));
 	}
 	return namemap.at(v);
 }
 
-llvm::StringRef NameGenerator::getSecondaryNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
+llvm::StringRef NameGenerator::getSecondaryNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const
 {
 	if (const Instruction* I=dyn_cast<Instruction>(v))
 	{
-		uint32_t regId = registerize.getRegisterIdForEdge(I, fromBB, toBB);
+		uint32_t regId = registerize.getRegisterId(I, edgeContext);
 		return regSecondaryNamemap.at(std::make_pair(I->getParent()->getParent(), regId));
 	}
 	return secondaryNamemap.at(v);
@@ -129,18 +129,17 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	class CompressedPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		CompressedPHIHandler(const BasicBlock* f, const BasicBlock* t, NameGenerator& n, useLocalVec& l):
-			EndOfBlockPHIHandler(n.PA), fromBB(f), toBB(t), namegen(n), thisFunctionLocals(l)
+		CompressedPHIHandler(NameGenerator& n, EdgeContext& edgeContext, useLocalVec& l):
+			EndOfBlockPHIHandler(n.PA, edgeContext), namegen(n), thisFunctionLocals(l)
 		{
 		}
 	private:
-		const BasicBlock* fromBB;
-		const BasicBlock* toBB;
 		NameGenerator& namegen;
 		useLocalVec& thisFunctionLocals;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
-			uint32_t registerId = namegen.registerize.getRegisterIdForEdge(incoming, fromBB, toBB);
+			assert(edgeContext.isNull() == false);
+			uint32_t registerId = namegen.registerize.getRegisterId(incoming, edgeContext);
 			assert(registerId < thisFunctionLocals.size());
 			useLocalPair& regData = thisFunctionLocals[registerId];
 			// Assume it is used once
@@ -243,8 +242,9 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			const TerminatorInst* term=bb.getTerminator();
 			for(uint32_t i=0;i<term->getNumSuccessors();i++)
 			{
+				EdgeContext localEdgeContext;
 				const BasicBlock* succBB=term->getSuccessor(i);
-				CompressedPHIHandler(&bb, succBB, *this, thisFunctionLocals).runOnEdge(registerize, &bb, succBB);
+				CompressedPHIHandler(*this, localEdgeContext, thisFunctionLocals).runOnEdge(registerize, &bb, succBB);
 			}
 		}
 
