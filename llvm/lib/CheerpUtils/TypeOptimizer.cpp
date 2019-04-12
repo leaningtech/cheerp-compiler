@@ -1401,11 +1401,15 @@ bool TypeOptimizer::runOnModule(Module& M)
 		rewriteFunction(*pendingFunctions.begin());
 	// Now that all functions are fixes, update the global initializer
 	for(GlobalVariable& GV: M.getGlobalList())
+	{
 		rewriteGlobalInit(&GV);
+		GV.setValueType(rewriteType(GV.getValueType()));
+	}
 	for(GlobalAlias& GA: M.getAliasList())
 	{
 		Type* rewrittenType = rewriteType(GA.getType());
 		GA.mutateType(rewrittenType);
+		GA.setValueType(rewriteType(GA.getValueType()));
 	}
 	// Reuse pendingFunctions to store intrinsics that should be deleted
 	for(Function& F: M)
