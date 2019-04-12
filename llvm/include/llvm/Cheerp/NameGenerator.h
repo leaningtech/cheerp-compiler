@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2018 Leaning Technologies
+// Copyright 2011-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,7 +16,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
-#include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/EdgeContext.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Utility.h"
@@ -158,8 +158,8 @@ public:
 	 * Same as getName, but supports the required temporary variables in edges between blocks
 	 * It uses the current edge context.
 	*/
-	llvm::StringRef getNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
-	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
+	llvm::StringRef getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
+	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
 
 	enum NAME_FILTER_MODE { GLOBAL = 0, GLOBAL_SECONDARY, LOCAL, LOCAL_SECONDARY };
 	// Filter the original string so that it no longer contains invalid JS characters.

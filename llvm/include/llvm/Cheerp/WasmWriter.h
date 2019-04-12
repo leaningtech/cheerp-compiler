@@ -60,6 +60,7 @@ private:
 
 	llvm::LLVMContext& Ctx;
 
+	EdgeContext edgeContext;
 	GlobalDepsAnalyzer & globalDeps;
 	// Helper class to manage linear memory state
 	const LinearMemoryHelper& linearHelper;
@@ -193,6 +194,7 @@ public:
 		lastWrittenReg(0xffffffff),
 		registerize(registerize),
 		Ctx(C),
+		edgeContext(),
 		globalDeps(gda),
 		linearHelper(linearHelper),
 		namegen(namegen),
