@@ -2203,11 +2203,10 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_LValueBitCast:
   case CK_ObjCObjectLValueCast: {
     Address Addr = EmitLValue(E).getAddress(CGF);
-    Value LV;
-    if (CGF.getTarget().isByteAddressable() || DestType==V->getType())
+    llvm::Type* DestType = ConvertType(CGF.getContext().getPointerType(DestTy));
+    if (CGF.getTarget().isByteAddressable() || DestType==Addr.getType())
     {
       Addr = Builder.CreateElementBitCast(Addr, CGF.ConvertTypeForMem(DestTy));
-      LV = CGF.MakeAddrLValue(Addr, DestTy);
     }
     else
     {
@@ -2217,8 +2216,9 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
 		      CGF.getContext().getPointerType(E->getType()),
 		      CGF.getContext().getPointerType(DestTy),
 		      asmjs);
-      V = Builder.CreateCall(intrinsic, V);
+      Addr = Address(Builder.CreateCall(intrinsic, Addr.getPointer()), Addr.getAlignment());
     }
+    LValue LV = CGF.MakeAddrLValue(Addr, DestTy);
     return EmitLoadOfLValue(LV, CE->getExprLoc());
   }
 
@@ -3238,7 +3238,7 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
       OpInfo.LHS = EmitLoadOfLValue(LHSLV, E->getExprLoc());
       OpInfo.LHS = CGF.EmitHighIntFromInt(E->getComputationResultType(), E->getLHS()->getType(), OpInfo.LHS);
     } else
-      OpInfo.LHS = LHSLV.getAddress();
+      OpInfo.LHS = LHSLV.getAddress().getPointer();
     llvm::Value *highint = NULL;
 
     switch (OpInfo.Opcode) {
@@ -3265,14 +3265,14 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
 
     if(!CGF.IsHighInt(E->getLHS()->getType())) {
       // We need to store only the low part into a smaller integer
-      llvm::Value* destPtr = LHSLV.getAddress();
-      llvm::Value* truncatedInt = Builder.CreateTrunc(lhsLow, destPtr->getType()->getPointerElementType());
+      Address destPtr = LHSLV.getAddress();
+      llvm::Value* truncatedInt = Builder.CreateTrunc(lhsLow, destPtr.getElementType());
       Builder.CreateStore(truncatedInt, destPtr, /*volatile*/false);
     } else {
-      llvm::Value *highLoc = Builder.CreateConstGEP2_32(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 0, 0);
-      llvm::Value *lowLoc = Builder.CreateConstGEP2_32(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 0, 1);
-      Builder.CreateStore(lhsHigh, highLoc, /*volatile*/false);
-      Builder.CreateStore(lhsLow, lowLoc, /*volatile*/false);
+      llvm::Value* highLoc = Builder.CreateStructGEP(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 0);
+      llvm::Value* lowLoc = Builder.CreateStructGEP(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 1);
+      Builder.CreateAlignedStore(lhsHigh, highLoc, CharUnits::fromQuantity(4), /*volatile*/false);
+      Builder.CreateAlignedStore(lhsLow, lowLoc, CharUnits::fromQuantity(4), /*volatile*/false);
     }
 
     return LHSLV;
@@ -3504,10 +3504,10 @@ Value *ScalarExprEmitter::EmitRem(const BinOpInfo &Ops) {
     llvm::Type *argTypes[] = { HighInt64PtrTy, HighInt64PtrTy, HighInt64PtrTy };
     llvm::FunctionType *runtimeFuncTy = llvm::FunctionType::get(CGF.VoidTy, argTypes, false);
     llvm::Value *runtimeFunc = CGF.CGM.CreateRuntimeFunction(runtimeFuncTy, Ops.Ty->hasUnsignedIntegerRepresentation() ? "__umodti3" : "__modti3");
-    llvm::Value* result = CGF.CreateMemTemp(Ops.Ty, "mod.result");
-    llvm::Value *runtimeArgs[] = { result, Ops.LHS, Ops.RHS };
+    Address result = CGF.CreateMemTemp(Ops.Ty, "mod.result");
+    llvm::Value *runtimeArgs[] = { result.getPointer(), Ops.LHS, Ops.RHS };
     CGF.EmitNounwindRuntimeCall(runtimeFunc, runtimeArgs);
-    return result;
+    return result.getPointer();
   }
   if (Ops.Ty->hasUnsignedIntegerRepresentation())
     return Builder.CreateURem(Ops.LHS, Ops.RHS, "rem");

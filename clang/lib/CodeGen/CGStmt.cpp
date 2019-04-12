@@ -1158,8 +1158,8 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
       if(IsHighInt(RV->getType())) {
         llvm::Value* high = EmitLoadHighBitsOfHighInt(Ret);
         llvm::Value* low = EmitLoadLowBitsOfHighInt(Ret);
-        llvm::Value *highLoc = Builder.CreateConstGEP2_32(ReturnValue->getType()->getPointerElementType(), ReturnValue, 0, 0);
-        llvm::Value *lowLoc = Builder.CreateConstGEP2_32(ReturnValue->getType()->getPointerElementType(), ReturnValue, 0, 1);
+        Address highLoc = Builder.CreateStructGEP(ReturnValue, 0, CharUnits());
+        Address lowLoc = Builder.CreateStructGEP(ReturnValue, 1, CharUnits());
         Builder.CreateStore(high, highLoc, /*volatile*/false);
         Builder.CreateStore(low, lowLoc, /*volatile*/false);
       } else
@@ -2149,7 +2149,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     } else {
       if (llvm::Type* AdjTy =
             getTargetHooks().adjustInlineAsmType(*this, OutputConstraint,
-                                                 Dest.getAddress(*this)->getType()))
+                                                 Dest.getAddress(*this).getType()))
         ArgTypes.push_back(AdjTy);
       else {
         ArgTypes.push_back(Dest.getAddress(*this).getType());

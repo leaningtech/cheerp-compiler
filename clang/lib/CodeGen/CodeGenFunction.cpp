@@ -332,17 +332,17 @@ llvm::Value *CodeGenFunction::EmitHighInt(QualType Ty,
   llvm::AllocaInst *highint = new llvm::AllocaInst(T, nullptr, "", AllocaInsertPt);
   llvm::Value *highLoc = Builder.CreateConstGEP2_32(T, highint, 0, 0);
   llvm::Value *lowLoc = Builder.CreateConstGEP2_32(T, highint, 0, 1);
-  Builder.CreateStore(high, highLoc, /*volatile*/false);
-  Builder.CreateStore(low, lowLoc, /*volatile*/false);
+  Builder.CreateAlignedStore(high, highLoc, CharUnits::fromQuantity(4), /*volatile*/false);
+  Builder.CreateAlignedStore(low, lowLoc, CharUnits::fromQuantity(4), /*volatile*/false);
   return highint;
 }
 
 llvm::Value *CodeGenFunction::EmitLoadHighBitsOfHighInt(llvm::Value *highint) {
-  return Builder.CreateLoad(Builder.CreateConstGEP2_32(highint->getType()->getPointerElementType(), highint, 0, 0));
+  return Builder.CreateAlignedLoad(Builder.CreateStructGEP(highint->getType()->getPointerElementType(), highint, 0), CharUnits::fromQuantity(4));
 }
 
 llvm::Value *CodeGenFunction::EmitLoadLowBitsOfHighInt(llvm::Value *highint) {
-  return Builder.CreateLoad(Builder.CreateConstGEP2_32(highint->getType()->getPointerElementType(), highint, 0, 1));
+  return Builder.CreateAlignedLoad(Builder.CreateStructGEP(highint->getType()->getPointerElementType(), highint, 1), CharUnits::fromQuantity(4));
 }
 
 

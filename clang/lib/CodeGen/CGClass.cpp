@@ -255,8 +255,6 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   // For non byte addressable targtes use type safe path
   if (!getTarget().isByteAddressable() && !asmjs)
   {
-    SmallVector<llvm::Value*, 4> GEPConstantIndexes;
-    GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     // Cheerp: if the base class has no members create a bitcast with cheerp specific intrinsic
     if(Base->isEmpty() || Offset.isZero())
        return GenerateUpcastCollapsed(This, ConvertType(Base)->getPointerTo());
@@ -264,9 +262,8 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
     {
       // Get the layout.
       const CGRecordLayout &Layout = getTypes().getCGRecordLayout(Derived);
-      uint32_t index= BaseIsVirtual ? Layout.getVirtualBaseIndex(Base) : Layout.getNonVirtualBaseLLVMFieldNo(Base);
-      GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, index));
-      return Builder.CreateGEP(This, GEPConstantIndexes);
+      uint32_t index = BaseIsVirtual ? Layout.getVirtualBaseIndex(Base) : Layout.getNonVirtualBaseLLVMFieldNo(Base);
+      return Builder.CreateStructGEP(This, index, CharUnits());
     }
   }
 
@@ -495,20 +492,20 @@ CodeGenModule::ComputeVirtualBaseIdOffset(const CXXRecordDecl *Derived,
   return Layout.getTotalOffsetToBase(baseId);
 }
 
-llvm::Value *
-CodeGenFunction::GenerateUpcastCollapsed(llvm::Value* Value,
+Address
+CodeGenFunction::GenerateUpcastCollapsed(Address Value,
                                          llvm::Type* BasePtrTy)
 {
-  llvm::Type* types[] = { BasePtrTy, Value->getType() };
+  llvm::Type* types[] = { BasePtrTy, Value.getType() };
 
   llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                               llvm::Intrinsic::cheerp_upcast_collapsed, types);
 
-  return Builder.CreateCall(intrinsic, Value);
+  return Address(Builder.CreateCall(intrinsic, Value.getPointer()), Value.getAlignment());
 }
 
-llvm::Value * 
-CodeGenFunction::GenerateUpcast(llvm::Value* Value,
+Address
+CodeGenFunction::GenerateUpcast(Address Value,
                                 const CXXRecordDecl *Derived,
                                 CastExpr::path_const_iterator PathBegin,
                                 CastExpr::path_const_iterator PathEnd)
@@ -534,21 +531,22 @@ CodeGenFunction::GenerateUpcast(llvm::Value* Value,
 
   //Cheerp: Check if the type is the expected one. If not create a builtin to handle this.
   //This may happen when empty base classes are used
-  if(Value->getType()!=BasePtrTy)
+  if(Value.getType()!=BasePtrTy)
     Value = GenerateUpcastCollapsed(Value, BasePtrTy);
   return Value;
 }
 
-llvm::Value *
-CodeGenFunction::GenerateDowncast(llvm::Value* Value,
+Address
+CodeGenFunction::GenerateDowncast(Address Value,
                                   const CXXRecordDecl *Derived,
                                   unsigned BaseIdOffset)
 {
   llvm::Constant* baseOffset = llvm::ConstantInt::get(Int32Ty, BaseIdOffset);
   return GenerateDowncast(Value, Derived, baseOffset);
 }
-llvm::Value *
-CodeGenFunction::GenerateDowncast(llvm::Value* Value,
+
+Address
+CodeGenFunction::GenerateDowncast(Address Value,
                                   const CXXRecordDecl *Derived,
                                   llvm::Value* BaseIdOffset)
 {
@@ -556,12 +554,12 @@ CodeGenFunction::GenerateDowncast(llvm::Value* Value,
     getContext().getCanonicalType(getContext().getTagDeclType(Derived));
   llvm::Type *DerivedPtrTy = ConvertType(DerivedTy)->getPointerTo();
 
-  llvm::Type* types[] = { DerivedPtrTy, Value->getType() };
+  llvm::Type* types[] = { DerivedPtrTy, Value.getType() };
 
   llvm::Function* intrinsic = llvm::Intrinsic::getDeclaration(&CGM.getModule(),
                               llvm::Intrinsic::cheerp_downcast, types);
 
-  return Builder.CreateCall(intrinsic, {Value, BaseIdOffset});
+  return Address(Builder.CreateCall(intrinsic, {Value.getPointer(), BaseIdOffset}), Value.getAlignment());
 }
 
 llvm::Value *
@@ -577,8 +575,8 @@ CodeGenFunction::GenerateVirtualcast(llvm::Value* Value,
   return Builder.CreateCall(intrinsic, {Value, VirtualOffset});
 }
 
-llvm::Value *
-CodeGenFunction::GenerateVirtualcast(llvm::Value* Value,
+Address
+CodeGenFunction::GenerateVirtualcast(Address Value,
                                   const CXXRecordDecl *VBase,
                                   llvm::Value* VirtualOffset)
 {
@@ -586,7 +584,7 @@ CodeGenFunction::GenerateVirtualcast(llvm::Value* Value,
     getContext().getCanonicalType(getContext().getTagDeclType(VBase));
   llvm::Type *VBasePtrTy = ConvertType(VBaseTy)->getPointerTo();
 
-  return GenerateVirtualcast(Value, VBasePtrTy, VirtualOffset);
+  return Address(GenerateVirtualcast(Value.getPointer(), VBasePtrTy, VirtualOffset), Value.getAlignment());
 }
 
 Address
@@ -612,7 +610,7 @@ CodeGenFunction::GetAddressOfDerivedClass(Address BaseAddr,
     if(getTarget().isByteAddressable() || asmjs) {
       return Builder.CreateBitCast(BaseAddr, DerivedPtrTy);
     } else {
-      return GenerateDowncast(Value, Derived, 0u);
+      return GenerateDowncast(BaseAddr, Derived, 0u);
     }
   }
 
@@ -629,6 +627,7 @@ CodeGenFunction::GetAddressOfDerivedClass(Address BaseAddr,
     Builder.CreateCondBr(IsNull, CastNull, CastNotNull);
     EmitBlock(CastNotNull);
   }
+  llvm::Value *Value = nullptr;
   if (!asmjs && !getTarget().isByteAddressable())
   {
     llvm::SmallVector<const CXXBaseSpecifier*, 4> path;
@@ -636,12 +635,12 @@ CodeGenFunction::GetAddressOfDerivedClass(Address BaseAddr,
       path.push_back(*I);
 
     unsigned BaseIdOffset=CGM.ComputeBaseIdOffset(Derived, path);
-    Value = GenerateDowncast(Value, Derived, BaseIdOffset);
+    Value = GenerateDowncast(BaseAddr, Derived, BaseIdOffset).getPointer();
   }
   else
   {
     // Apply the offset.
-    llvm::Value *Value = Builder.CreateBitCast(BaseAddr.getPointer(), Int8PtrTy);
+    Value = Builder.CreateBitCast(BaseAddr.getPointer(), Int8PtrTy);
     Value = Builder.CreateInBoundsGEP(Value, Builder.CreateNeg(NonVirtualOffset),
                                     "sub.ptr");
 
@@ -2722,7 +2721,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   llvm::Value *VirtualOffset = nullptr;
   CharUnits NonVirtualOffset = CharUnits::Zero();
 
-  if (CGM.getCXXABI().isVirtualOffsetNeededForVTableField(*this, Vptr)) {
+  if (CGM.getCXXABI().isVirtualOffsetNeededForVTableField(*this, Vptr) || (Vptr.NearestVBase && !getTarget().isByteAddressable())) {
     // We need to use the virtual base offset offset because the virtual base
     // might have a different offset in the most derived class.
 
@@ -2741,13 +2740,16 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
     SmallVector<llvm::Value*, 4> GEPConstantIndexes;
 
     if (VirtualOffset) {
-        VTableField = GenerateVirtualcast(VTableField, Vptr.Base.getBase(), VirtualOffset);
+        VTableField = GenerateVirtualcast(VTableField, Vptr.NearestVBase, VirtualOffset);
     }
 
     GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     ComputeNonVirtualBaseClassGepPath(CGM, GEPConstantIndexes,
                                     Vptr.NearestVBase ? Vptr.NearestVBase : Vptr.VTableClass, Vptr.Bases);
+    GEPConstantIndexes.push_back(llvm::ConstantInt::get(Int32Ty, 0));
     VTableField = Address(Builder.CreateGEP(VTableField.getElementType(), VTableField.getPointer(), GEPConstantIndexes), VTableField.getAlignment());
+    llvm::Type *VTablePtrTy = VTableField.getElementType();
+    VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
   } else {
     if (!NonVirtualOffset.isZero() || VirtualOffset) {
       VTableField = ApplyNonVirtualAndVirtualOffset(
@@ -2866,18 +2868,13 @@ void CodeGenFunction::InitializeVTablePointers(const CXXRecordDecl *RD) {
 llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
                                            llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
-  SmallVector<llvm::Value*, 4> GEPIndexes;
-  llvm::Type* t=This->getType();
-  assert(t->isPointerTy());
-  llvm::Constant* Zero=llvm::ConstantInt::get(Int32Ty, 0);
-  GEPIndexes.push_back(Zero);
-  GEPIndexes.push_back(Zero);
-  llvm::Value *VTablePtrSrc = nullptr;
-  if(This->getType()->getPointerElementType()->isStructTy())
-    VTablePtrSrc = Builder.CreateGEP(This, GEPIndexes);
+  assert(This.getType()->isPointerTy());
+  Address VTablePtrSrc = Address::invalid();
+  if(This.getType()->getPointerElementType()->isStructTy())
+    VTablePtrSrc = Builder.CreateStructGEP(This, 0, CharUnits());
   else
     VTablePtrSrc = This;
-  if(!VTablePtrSrc->getType()->getPointerElementType()->isPointerTy())
+  if(!VTablePtrSrc.getType()->getPointerElementType()->isPointerTy())
   {
     // We did not find a pointer, use the type unsafe code path
     VTablePtrSrc = Builder.CreateElementBitCast(This, VTableTy);

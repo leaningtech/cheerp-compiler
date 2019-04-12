@@ -2725,22 +2725,22 @@ public:
                                 CastExpr::path_const_iterator PathEnd,
                                 bool NullCheckValue, SourceLocation Loc);
 
-  llvm::Value * GenerateUpcastCollapsed(llvm::Value* Value,
+  Address GenerateUpcastCollapsed(Address Value,
                                llvm::Type *BasePtrTy);
-  llvm::Value * GenerateUpcast(llvm::Value* Value,
+  Address GenerateUpcast(Address Value,
                                const CXXRecordDecl *Derived,
                                CastExpr::path_const_iterator PathBegin,
                                CastExpr::path_const_iterator PathEnd);
-  llvm::Value * GenerateDowncast(llvm::Value* Value,
+  Address GenerateDowncast(Address Value,
                                  const CXXRecordDecl *Derived,
                                  unsigned BaseIdOffset);
-  llvm::Value * GenerateDowncast(llvm::Value* Value,
+  Address GenerateDowncast(Address Value,
                                  const CXXRecordDecl *Derived,
                                  llvm::Value* BaseIdOffset);
   llvm::Value * GenerateVirtualcast(llvm::Value* Value,
                                  llvm::Type *DestTy,
                                  llvm::Value* VirtualOffset);
-  llvm::Value * GenerateVirtualcast(llvm::Value* Value,
+  Address GenerateVirtualcast(Address Value,
                                  const CXXRecordDecl *VBase,
                                  llvm::Value* VirtualOffset);
 

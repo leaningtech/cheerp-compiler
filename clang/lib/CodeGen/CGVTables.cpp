@@ -491,7 +491,7 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
 
   llvm::Constant *Callee = nullptr;
   if(Thunk.isMemberPointerThunk && OriginalMethod->isVirtual())
-    Callee = CGM.getCXXABI().getVirtualFunctionPointer(*this, OriginalMethod, LoadCXXThis(), Ty, SourceLocation());
+    Callee = CGM.getCXXABI().getVirtualFunctionPointer(*this, OriginalMethod, LoadCXXThisAddress(), Ty, SourceLocation());
   else
     Callee = CGM.GetAddrOfFunction(GD, Ty, /*ForVTable=*/true);
 

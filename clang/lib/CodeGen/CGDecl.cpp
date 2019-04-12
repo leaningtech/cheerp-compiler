@@ -1877,7 +1877,7 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
 
   if (D.getType()->isArrayType())
   {
-    Loc = Builder.CreateConstGEP2_32(Loc->getType()->getPointerElementType(), Loc, 0, 0);
+    Loc = Builder.CreateConstArrayGEP(Loc, 0, CharUnits());
   }
 
   llvm::Type *BP = CGM.Int8Ty->getPointerTo(Loc.getAddressSpace());
