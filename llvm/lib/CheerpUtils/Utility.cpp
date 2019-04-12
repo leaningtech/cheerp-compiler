@@ -1,15 +1,16 @@
-//===-- Utility.cpp - The Cheerp JavaScript generator --------------------===//
+//===-- Utility.cpp - Cheerp utility functions --------------------===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2015 Leaning Technologies
+// Copyright 2011-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #include <sstream>
+#include "llvm/Cheerp/EdgeContext.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/GEPOptimizer.h"
@@ -345,7 +346,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	return false;
 }
 
-bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registerize& registerize)
+bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registerize& registerize, const EdgeContext& edgeContext)
 {
 	// If for all incoming we have
 	// 1) A not-inlineable instruction
@@ -361,7 +362,7 @@ bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registeriz
 	// are the same then the PHI is removed completely
 	if(phi->use_empty() || !phi->getType()->isPointerTy())
 		return false;
-	uint32_t phiReg = registerize.getRegisterId(phi);
+	uint32_t phiReg = registerize.getRegisterId(phi, EdgeContext::emptyContext());
 	POINTER_KIND phiKind = PA.getPointerKind(phi);
 	const ConstantInt* phiOffset = PA.getConstantOffsetForPointer(phi);
 	// Get expected values from incoming 0
@@ -369,7 +370,7 @@ bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registeriz
 	if(!incomingInst0)
 		return false;
 	assert(!isInlineable(*incomingInst0, PA));
-	uint32_t incomingReg0 = registerize.getRegisterId(incomingInst0);
+	uint32_t incomingReg0 = registerize.getRegisterId(incomingInst0, edgeContext);
 	if(incomingReg0 != phiReg)
 		return false;
 	POINTER_KIND incomingKind0 = PA.getPointerKind(incomingInst0);
@@ -385,7 +386,7 @@ bool canDelayPHI(const PHINode* phi, const PointerAnalyzer& PA, const Registeriz
 		if(!incomingInst)
 			return false;
 		assert(!isInlineable(*incomingInst, PA));
-		uint32_t incomingReg = registerize.getRegisterId(incomingInst);
+		uint32_t incomingReg = registerize.getRegisterId(incomingInst, edgeContext);
 		POINTER_KIND incomingKind = PA.getPointerKind(incomingInst);
 		const ConstantInt* incomingOffset = PA.getConstantOffsetForPointer(incomingInst);
 		if(incomingReg != incomingReg0 ||
@@ -826,6 +827,16 @@ bool DynamicAllocInfo::useTypedArray() const
 	return TypeSupport::isTypedArrayType( getCastedType()->getElementType(), forceTypedArrays);
 }
 
+EndOfBlockPHIHandler::EndOfBlockPHIHandler(const PointerAnalyzer& PA, EdgeContext& edgeContext)
+	: PA(PA), edgeContext(edgeContext)
+{
+}
+
+EndOfBlockPHIHandler::~EndOfBlockPHIHandler()
+{
+	assert(edgeContext.isNull());
+}
+
 void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs)
 {
 	auto it=phiRegs.find(regId);
@@ -851,6 +862,7 @@ void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm
 
 void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const BasicBlock* fromBB, const BasicBlock* toBB)
 {
+	edgeContext.setEdgeContext(fromBB, toBB);
 	BasicBlock::const_iterator I=toBB->begin();
 	BasicBlock::const_iterator IE=toBB->end();
 	PHIRegs phiRegs;
@@ -929,6 +941,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		const Value* val=phi->getIncomingValueForBlock(fromBB);
 		handlePHI(phi, val, orderedPHIs[i-1].second);
 	}
+	edgeContext.clear();
 }
 
 const ConstantArray* ModuleGlobalConstructors(Module& M)

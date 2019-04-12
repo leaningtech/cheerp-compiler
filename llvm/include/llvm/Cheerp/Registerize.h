@@ -21,6 +21,7 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/IntEqClasses.h"
 #include "llvm/Cheerp/CommandLine.h"
+#include "llvm/Cheerp/EdgeContext.h"
 #include <array>
 #include <set>
 #include <unordered_map>
@@ -1231,6 +1232,7 @@ public:
 	
 	const char *getPassName() const override;
 
+	uint32_t getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
 	uint32_t getRegisterId(const llvm::Instruction* I) const;
 	uint32_t getRegisterIdForEdge(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
@@ -1265,19 +1267,6 @@ public:
 	}
 
 	REGISTER_KIND getRegKindFromType(const llvm::Type*, bool asmjs) const;
-
-	// Context used to disambiguate temporary values used in PHI resolution
-	void setEdgeContext(const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB)
-	{
-		assert(edgeContext.isNull());
-		edgeContext.fromBB=fromBB;
-		edgeContext.toBB=toBB;
-	}
-
-	void clearEdgeContext()
-	{
-		edgeContext.clear();
-	}
 
 	llvm::LoopInfo* LI;
 public:
@@ -1353,24 +1342,6 @@ private:
 	std::unordered_map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
 	std::unordered_map<const llvm::Function*, std::vector<RegisterInfo>> registersForFunctionMap;
 	std::unordered_map<InstOnEdge, uint32_t, InstOnEdge::Hash> selfRefRegistersMap;
-	struct EdgeContext
-	{
-		const llvm::BasicBlock* fromBB;
-		const llvm::BasicBlock* toBB;
-		EdgeContext():fromBB(NULL), toBB(NULL)
-		{
-		}
-		bool isNull() const
-		{
-			return fromBB==NULL;
-		}
-		void clear()
-		{
-			fromBB=NULL;
-			toBB=NULL;
-		}
-	};
-	EdgeContext edgeContext;
 	bool useFloats;
 #ifndef NDEBUG
 	bool RegistersAssigned;
