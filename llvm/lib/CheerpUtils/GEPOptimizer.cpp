@@ -205,21 +205,14 @@ template <> struct GraphTraits<ValidBasicBlockForestGraph*> : public GraphTraits
 
 	typedef mapped_iterator<
 		ValidBasicBlockForestGraph::NodeMap::iterator,
-		std::function<ValidBasicBlockForestGraph::Node*(ValidBasicBlockForestGraph::NodeMap::iterator::reference)>
+		std::function<ValidBasicBlockForestGraph::Node&(ValidBasicBlockForestGraph::NodeMap::iterator::reference)>
 	> mapped_iterator_type;
-	struct deref_mapped_iterator: public mapped_iterator_type {
-		using mapped_iterator_type::mapped_iterator;
-		operator NodeType*()
-		{
-			return **this;
-		}
-	};
-	static NodeType* get_second_ptr(ValidBasicBlockForestGraph::NodeMap::iterator::reference pair)
+	static NodeType& get_second_ptr(ValidBasicBlockForestGraph::NodeMap::iterator::reference pair)
 	{
-		return &pair.second;
+		return pair.second;
 	}
 	 // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
-	typedef deref_mapped_iterator nodes_iterator;
+	typedef mapped_iterator_type nodes_iterator;
 	static nodes_iterator nodes_begin(ValidBasicBlockForestGraph* G) { return nodes_iterator(G->Nodes.begin(), get_second_ptr); }
 	static nodes_iterator nodes_end  (ValidBasicBlockForestGraph* G) { return nodes_iterator(G->Nodes.end(), get_second_ptr); }
 	static size_t         size       (ValidBasicBlockForestGraph* G) { return G->Nodes.size(); }
