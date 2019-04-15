@@ -232,6 +232,22 @@ private:
 	 */
 
 	/**
+	  * Forward to the appropriate function of the NameGenerator
+	  */
+	llvm::StringRef getName(const llvm::Value* v, const bool doNotConsiderEdgeContext = false) const
+	{
+		if (doNotConsiderEdgeContext || edgeContext.isNull())
+			return namegen.getName(v);
+		return namegen.getNameForEdge(v, edgeContext);
+	}
+	llvm::StringRef getSecondaryName(const llvm::Value* v, const bool doNotConsiderEdgeContext = false) const
+	{
+		if (doNotConsiderEdgeContext || edgeContext.isNull())
+			return namegen.getSecondaryName(v);
+		return namegen.getSecondaryNameForEdge(v, edgeContext);
+	}
+
+	/**
 	 * Compile memcpy and memmove
 	 */
 	void compileMemFunc(const llvm::Value* dest,
