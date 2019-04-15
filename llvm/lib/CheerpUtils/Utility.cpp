@@ -888,7 +888,8 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			continue;
 		}
 		uint32_t phiReg = registerize.getRegisterId(phi, EdgeContext::emptyContext());
-		setRegisterUsed(phiReg);
+		if (RegisterizeLegacy)
+			setRegisterUsed(phiReg);
 		// This instruction may depend on multiple registers
 		llvm::SmallVector<std::pair<uint32_t, const Instruction*>, 2> incomingRegisters;
 		llvm::SmallVector<std::pair<const Instruction*, /*dereferenced*/bool>, 4> instQueue;
@@ -901,6 +902,8 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			if(!isInlineable(*incomingInst.first, PA))
 			{
 				uint32_t incomingValueId = registerize.getRegisterId(incomingInst.first, EdgeContext::emptyContext());
+				if (RegisterizeLegacy)
+					setRegisterUsed(incomingValueId);
 				if(incomingValueId==phiReg)
 				{
 					if(mayNeedSelfRef &&
@@ -912,7 +915,6 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 					}
 					continue;
 				}
-				setRegisterUsed(incomingValueId);
 				incomingRegisters.push_back(std::make_pair(incomingValueId, incomingInst.first));
 			}
 			else
@@ -977,20 +979,28 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			}
 		}
 
-
 		reverse(regions.begin(), regions.end());
+
+		for (const std::vector<uint32_t>& registerIds : regions)
+		{
+			for (auto id : registerIds)
+			{
+				for (const auto& pair : phiRegs.at(id).incomingRegs)
+				{
+					addRegisterUse(pair.first);
+				}
+			}
+		}
+
 		for (const std::vector<uint32_t>& registerIds : regions)
 		{
 			//Reset the registers only used as temporary
 			resetRegistersState();
 
-			//Set the incoming registers as used (not to be overwritten)
 			for (auto id : registerIds)
 			{
-				for (const auto& pair : phiRegs.at(id).incomingRegs)
-				{
-					setRegisterUsed(pair.first);
-				}
+				//Set the outgoing registers as used (not to be overwritten)
+				setRegisterUsed(id);
 			}
 			//TODO: better greedy strategy (better ordering, could help in certain cases for example A->B, B->A, B->C, C->B.
 			//Here starting from B leads to 2 temp while starting from A or C leads to only 1)
@@ -1008,6 +1018,15 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 				handlePHI(phi, val, orderedPHIs.back().second);
 				orderedPHIs.pop_back();
 				edgeContext.processAssigment();
+			}
+
+			//Decrease the number of uses for a given register, it may become free and reused again
+			for (auto id : registerIds)
+			{
+				for (const auto& pair : phiRegs.at(id).incomingRegs)
+				{
+					removeRegisterUse(pair.first);
+				}
 			}
 		}
 	}
