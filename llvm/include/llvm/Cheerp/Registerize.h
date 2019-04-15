@@ -1336,7 +1336,86 @@ private:
 		};
 	};
 	std::unordered_map<const llvm::Instruction*, uint32_t> registersMap;
-	std::unordered_map<InstOnEdge, uint32_t, InstOnEdge::Hash> edgeRegistersMap;
+
+	//Class that keeps track for a single instruction which register it occupies at any given point
+	class RegisterUpdates
+	{
+	public:
+		RegisterUpdates(uint32_t incomingRegister)
+		{
+			//Fall back option: the value of the incomingRegister
+			updates.push_back({0u, incomingRegister});
+		}
+		void update(uint32_t assigmentIndex, uint32_t registerId)
+		{
+			if (updates.back().second == registerId)
+				return;
+			updates.push_back({assigmentIndex, registerId});
+		}
+		uint32_t findId(const uint32_t index) const
+		{
+			uint32_t i=0;
+			//TODO: possibly logarithmic, but number should in any case be small
+			while (i+1 < updates.size() && updates[i+1].first <= index)
+			{
+				i++;
+			}
+			return updates[i].second;
+		}
+		void dump() const
+		{
+			for (auto& pair : updates)
+			{
+				llvm::errs() << pair.first << "->" << pair.second <<"\t";
+			}
+			llvm::errs() << "\n";
+		}
+	private:
+		std::vector<std::pair<uint32_t,uint32_t>> updates;
+	};
+
+	//Class that keeps track for all Istructions which registers they occupy at any given point (in phi-edges, temporary registers may be required)
+	class EdgeRegistersMap
+	{
+	public:
+		uint32_t findCurrentRegisterId(uint32_t originalId, const EdgeContext& edgeContext) const
+		{
+			auto it=edgeRegistersMap.find(buildInstOnEdge(edgeContext, originalId));
+			if (it!=edgeRegistersMap.end())
+				return it->second.findId(edgeContext.assigmentIndex);
+			return originalId;
+		}
+		void insertUpdate(uint32_t originalId, uint32_t nextId, const EdgeContext& edgeContext)
+		{
+			auto it=edgeRegistersMap.insert({buildInstOnEdge(edgeContext, originalId), originalId}).first;
+			it->second.update(edgeContext.assigmentIndex, nextId);
+		}
+		uint32_t count(uint32_t originalId, const EdgeContext& edgeContext) const
+		{
+			return edgeRegistersMap.count(buildInstOnEdge(edgeContext, originalId));
+		}
+		void dump() const
+		{
+			for (auto& X : edgeRegistersMap)
+			{
+				llvm::errs() << "Register ID: "<< (X.first.registerId) << " with registers with this history :\t";
+				X.second.dump();
+				llvm::errs() << "\nOf edge between ";
+				X.first.fromBB->printAsOperand(llvm::errs(), false);
+				llvm::errs() << " and ";
+				X.first.toBB->printAsOperand(llvm::errs(), false);
+				llvm::errs() << "\n";
+			}
+		}
+	private:
+		static InstOnEdge buildInstOnEdge(const EdgeContext& edgeContext, uint32_t regId)
+		{
+			return InstOnEdge(edgeContext.fromBB, edgeContext.toBB, regId);
+		}
+		std::unordered_map<InstOnEdge, RegisterUpdates, InstOnEdge::Hash> edgeRegistersMap;
+	};
+	EdgeRegistersMap edgeRegistersMap;
+
 	std::unordered_map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
 	std::unordered_map<const llvm::Function*, std::vector<RegisterInfo>> registersForFunctionMap;
 	std::unordered_map<InstOnEdge, uint32_t, InstOnEdge::Hash> selfRefRegistersMap;
