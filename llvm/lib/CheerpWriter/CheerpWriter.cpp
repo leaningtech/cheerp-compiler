@@ -2519,7 +2519,7 @@ bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* i
 			phiOffset = PA.getConstantOffsetForPointer(phi);
 	}
 	return
-		registerize.getRegisterId(phi)!=registerize.getRegisterId(incomingInst) ||
+		registerize.getRegisterId(phi, EdgeContext::emptyContext())!=registerize.getRegisterId(incomingInst, edgeContext) ||
 		phiKind!=incomingKind ||
 		phiOffset!=incomingOffset;
 }
@@ -4263,6 +4263,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 
 bool CheerpWriter::compileCompoundStatement(const Instruction* I, uint32_t regId)
 {
+	assert(edgeContext.isNull());
 	StringRef oper;
 	bool checkOp0 = false;
 	bool checkOp1 = false;
@@ -4327,7 +4328,7 @@ bool CheerpWriter::compileCompoundStatement(const Instruction* I, uint32_t regId
 			return false;
 		if(isInlineable(*opI, PA))
 			return false;
-		if(regId != registerize.getRegisterId(opI))
+		if(regId != registerize.getRegisterId(opI, edgeContext))
 			return false;
 		return true;
 	};

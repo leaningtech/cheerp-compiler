@@ -85,7 +85,7 @@ public:
 	llvm::StringRef getName(const llvm::Value* v) const
 	{
 		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
-			return getName(I->getParent()->getParent(), registerize.getRegisterId(I));
+			return getName(I->getParent()->getParent(), registerize.getRegisterId(I, EdgeContext::emptyContext()));
 		assert(namemap.count(v) );
 		assert(! namemap.at(v).empty() );
 		return namemap.at(v);
@@ -105,7 +105,7 @@ public:
 	llvm::StringRef getSecondaryName(const llvm::Value* v) const
 	{
 		if(const llvm::Instruction* I = llvm::dyn_cast<llvm::Instruction>(v))
-			return getSecondaryName(I->getParent()->getParent(), registerize.getRegisterId(I));
+			return getSecondaryName(I->getParent()->getParent(), registerize.getRegisterId(I, EdgeContext::emptyContext()));
 		assert(secondaryNamemap.count(v) );
 		assert(!secondaryNamemap.at(v).empty());
 		return secondaryNamemap.at(v);
