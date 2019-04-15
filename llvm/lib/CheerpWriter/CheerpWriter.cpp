@@ -305,7 +305,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 		{
 			compilePointerBase(src);
 			stream << ';' << NewLine;
-			stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
+			stream << getSecondaryName(callV.getInstruction()) << '=';
 			compilePointerOffset(src, LOWEST);
 		}
 		else
@@ -320,7 +320,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			stream << ".o-";
 			compileOperand(offset, HIGHEST);
 			stream << ";" << NewLine;
-			stream << namegen.getName(callV.getInstruction()) << '=';
+			stream << getName(callV.getInstruction()) << '=';
 			compileCompleteObject(src);
 			stream << ".a";
 		}
@@ -368,7 +368,7 @@ void CheerpWriter::compileVirtualcast( ImmutableCallSite callV )
       {
             compileCompleteObject(src);
             stream << ".a;" << NewLine;
-            stream << namegen.getSecondaryName(callV.getInstruction()) << '=';
+            stream << getSecondaryName(callV.getInstruction()) << '=';
             compileOperand(offset, HIGHEST);
       }
       else if(result_kind == REGULAR)
@@ -644,7 +644,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 		for(uint32_t i = 0; i < numElem;i++)
 		{
-			compileType(t, LITERAL_OBJ, isInlineable(*info.getInstruction(), PA) || info.getInstruction()->use_empty() ? StringRef() : namegen.getName(info.getInstruction()));
+			compileType(t, LITERAL_OBJ, isInlineable(*info.getInstruction(), PA) || info.getInstruction()->use_empty() ? StringRef() : getName(info.getInstruction()));
 			if((i+1) < numElem)
 				stream << ',';
 		}
@@ -699,7 +699,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileFree(const Value
 	stream << ".buffer==__heap)__asm.";
 	Function* Free = module.getFunction("free");
 	if (Free)
-		stream << namegen.getName(Free);
+		stream << getName(Free);
 	else
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 	stream << '(';
@@ -779,7 +779,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		{
 			Function* memcpy = module.getFunction("memcpy");
 			assert(memcpy);
-			stream << namegen.getName(memcpy) << '(';
+			stream << getName(memcpy) << '(';
 			compileOperand(*(it),LOWEST);
 			stream << "|0,";
 			compileOperand(*(it+1),LOWEST);
@@ -793,7 +793,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			assert(intrinsicId == Intrinsic::memmove);
 			Function* memmove = module.getFunction("memmove");
 			assert(memmove);
-			stream << namegen.getName(memmove) << '(';
+			stream << getName(memmove) << '(';
 			compileOperand(*(it),LOWEST);
 			stream << "|0,";
 			compileOperand(*(it+1),LOWEST);
@@ -808,7 +808,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		if (asmjs) {
 			Function* memset = module.getFunction("memset");
 			assert(memset);
-			stream << namegen.getName(memset) << '(';
+			stream << getName(memset) << '(';
 			compileOperand(*(it),LOWEST);
 			stream << "|0,";
 			compileOperand(*(it+1),LOWEST);
@@ -837,7 +837,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	{
 		assert(!asmjs && "vastart instructions in asmjs functions are removed in the AllocaLowering pass");
 		compileCompleteObject(*it);
-		stream << "={d:arguments,o:" << namegen.getName(currentFun) << ".length}";
+		stream << "={d:arguments,o:" << getName(currentFun) << ".length}";
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::vaend)
@@ -1022,7 +1022,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 				llvm::report_fatal_error("missing free definition");
 			if(!asmjs)
 				stream << "__asm.";
-			stream << namegen.getName(ffree) <<'(';
+			stream << getName(ffree) <<'(';
 			compileOperand(*it, PARENT_PRIORITY::BIT_OR);
 			stream << "|0)";
 			return COMPILE_OK;
@@ -1321,7 +1321,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			llvm::report_fatal_error("missing malloc definition");
 		if(!asmjs)
 			stream << "__asm.";
-		stream << namegen.getName(fmalloc) << "(";
+		stream << getName(fmalloc) << "(";
 		compileOperand(*it, PARENT_PRIORITY::LOWEST);
 		stream << ")|0";
 		return COMPILE_OK;
@@ -1333,7 +1333,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			llvm::report_fatal_error("missing realloc definition");
 		if(!asmjs)
 			stream << "__asm.";
-		stream << namegen.getName(frealloc) <<'(';
+		stream << getName(frealloc) <<'(';
 		compileOperand(*it);
 		stream << ',';
 		compileOperand(*(it+1));
@@ -1615,7 +1615,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 	if (I && !isInlineable(*I, PA) &&
 		(isGEP(I) || isBitCast(I)) && PA.getPointerKind(I) == COMPLETE_OBJECT)
 	{
-		stream << namegen.getName(I);
+		stream << getName(I);
 		return;
 	}
 
@@ -1684,7 +1684,7 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 
 	const llvm::Instruction* I = dyn_cast<Instruction>(p);
 	if (I && !isInlineable(*I, PA) && !forceGEP) {
-		stream << namegen.getName(I);
+		stream << getName(I);
 		return;
 	}
 
@@ -1866,7 +1866,7 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 
 	if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && PA.getPointerKind(p) == SPLIT_REGULAR)
 	{
-		stream << namegen.getName(p);
+		stream << getName(p);
 		return;
 	}
 
@@ -2011,7 +2011,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	}
 	else if(isa<Argument>(p))
 	{
-		stream << namegen.getSecondaryName(p);
+		stream << getSecondaryName(p);
 	}
 	else if((isa<SelectInst> (p) && isInlineable(*cast<Instruction>(p), PA)) || (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::Select))
 	{
@@ -2028,7 +2028,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 	}
 	else if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && PA.getPointerKind(p) == SPLIT_REGULAR)
 	{
-		stream << namegen.getSecondaryName(p);
+		stream << getSecondaryName(p);
 	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(p))
 	{
@@ -2411,7 +2411,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			stream << linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(c));
 		}
 		else
-			stream << namegen.getName(c);
+			stream << getName(c);
 	}
 	else if(isa<ConstantAggregateZero>(c) || isa<UndefValue>(c))
 	{
@@ -2481,12 +2481,12 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 		}
 		else
 		{
-			stream << namegen.getName(it);
+			stream << getName(it);
 		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
-		stream << namegen.getName(arg);
+		stream << getName(arg);
 	}
 	else
 	{
@@ -2574,12 +2574,12 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			assert(incoming);
 			if(incoming->getType()->isPointerTy() && writer.PA.getPointerKind(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
 			{
-				writer.stream << writer.namegen.getSecondaryNameForEdge(incoming, edgeContext);
+				writer.stream << writer.getSecondaryName(incoming);
 				writer.stream << '=';
 				writer.compilePointerOffset(incoming, LOWEST);
 				writer.stream << ';' << writer.NewLine;
 			}
-			writer.stream << writer.namegen.getName(incoming);
+			writer.stream << writer.getName(incoming);
 			writer.stream << '=' << writer.namegen.getName(incoming) << ';' << writer.NewLine;
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
@@ -2591,12 +2591,13 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			if (isa<UndefValue>(incoming))
 				return;
 			Type* phiType=phi->getType();
+
 			if(phiType->isPointerTy())
 			{
 				POINTER_KIND k=writer.PA.getPointerKind(phi);
 				if((k==REGULAR || k==SPLIT_REGULAR || k==BYTE_LAYOUT) && writer.PA.getConstantOffsetForPointer(phi))
 				{
-					writer.stream << writer.namegen.getName(phi) << '=';
+					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerBase(incoming);
 				}
 				else if(k==SPLIT_REGULAR)
@@ -2615,7 +2616,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 						writer.stream << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
 					}
 					else
-						writer.stream << writer.namegen.getSecondaryName(phi);
+						writer.stream << writer.getSecondaryName(phi, /*doNotConsiderEdgeContext*/true);
 					writer.stream << '=';
 					if (incomingKind == RAW)
 					{
@@ -2627,7 +2628,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 						writer.compilePointerOffset(incoming, LOWEST);
 					}
 					writer.stream << ';' << writer.NewLine;
-					writer.stream << writer.namegen.getName(phi) << '=';
+					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
 					if (incomingKind == RAW)
 						writer.compileHeapForType(cast<PointerType>(phiType)->getPointerElementType());
 					else
@@ -2635,23 +2636,23 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					if(selfReferencing)
 					{
 						writer.stream << ';' << writer.NewLine;
-						writer.stream << writer.namegen.getSecondaryName(phi) << '=' << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
+						writer.stream << writer.getSecondaryName(phi, /*doNotConsiderEdgeContext*/true) << '=' << writer.namegen.getName(phi->getParent()->getParent(), tmpOffsetReg);
 					}
 				}
 				else if(k==RAW)
 				{
-					writer.stream << writer.namegen.getName(phi) << '=';
+					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compileRawPointer(incoming, LOWEST);
 				}
 				else
 				{
-					writer.stream << writer.namegen.getName(phi) << '=';
+					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
 					writer.compilePointerAs(incoming, k);
 				}
 			}
 			else
 			{
-				writer.stream << writer.namegen.getName(phi) << '=';
+				writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
 				writer.compileOperand(incoming, LOWEST);
 			}
 			writer.stream << ';' << writer.NewLine;
@@ -2879,7 +2880,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 					return COMPILE_OK;
 				}
 				else
-					stream << namegen.getName(ci.getCalledFunction());
+					stream << getName(ci.getCalledFunction());
 			}
 			else
 			{
@@ -2922,7 +2923,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			POINTER_KIND k = PA.getPointerKind(ai);
 			assert(k != RAW && "Allocas to RAW pointers are removed in the AllocaLowering pass");
 
-			StringRef varName = namegen.getName(&I);
+			StringRef varName = getName(&I);
 			if(k == REGULAR)
 			{
 				stream << "{d:[";
@@ -2933,7 +2934,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			{
 				stream << "=0";
 				stream << ';' << NewLine;
-				stream << namegen.getName(ai) << '=';
+				stream << getName(ai) << '=';
 				stream << '[';
 				compileType(ai->getAllocatedType(), LITERAL_OBJ, varName, allocaStores);
 				stream << ']';
@@ -3013,7 +3014,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 						compileOperand(ivi.getInsertedValueOperand(), LOWEST);
 					else
 					{
-						stream << namegen.getName(aggr);
+						stream << getName(aggr);
 						stream << '.' << memberPrefix << i;
 						if(useWrapperArray)
 							stream << "[0]";
@@ -3139,7 +3140,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				{
 					compilePointerOffset(incoming, LOWEST);
 					stream << ';' << NewLine;
-					stream << namegen.getName(phi) << '=';
+					stream << getName(phi) << '=';
 				}
 				compilePointerBase(incoming);
 			}
@@ -3341,7 +3342,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PAR
 		if (I && !isInlineable(*I, PA) &&
 			(isGEP(I) || isBitCast(I)) && PA.getPointerKind(I) == COMPLETE_OBJECT)
 		{
-			stream << namegen.getName(I);
+			stream << getName(I);
 		} else {
 			compileCompleteObject(gep_inst->getOperand(0), indices.front());
 		}
@@ -3890,7 +3891,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << ':';
 				compilePointerOffset(si.getOperand(2), TERNARY);
 				stream << ';' << NewLine;
-				stream << namegen.getName(&si) << '=';
+				stream << getName(&si) << '=';
 				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 				stream << '?';
 				compilePointerBase(si.getOperand(1));
@@ -4042,7 +4043,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					}
 					return cf;
 				}
-				stream << namegen.getName(calledFunc);
+				stream << getName(calledFunc);
 			}
 			else if (ci.isInlineAsm())
 			{
@@ -4123,7 +4124,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 						{
 							assert(!isInlineable(ci, PA));
 							stream << ';' << NewLine;
-							stream << namegen.getSecondaryName(&ci) << "=oSlot";
+							stream << getSecondaryName(&ci) << "=oSlot";
 						}
 						break;
 				}
@@ -4225,7 +4226,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 					needsCheckBounds = false;
 				}
 				stream << ';' << NewLine;
-				stream << namegen.getName(&li) << '=';
+				stream << getName(&li) << '=';
 				if(kind == RAW)
 					compileHeapForType(cast<PointerType>(li.getType())->getPointerElementType());
 				else
@@ -4390,13 +4391,14 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		{
 			if(I->getType()->isPointerTy() && (I->getOpcode() != Instruction::Call || isDowncast) && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I))
 			{
-				stream << namegen.getSecondaryName(I) << '=';
+				stream << getSecondaryName(&*I) << '=';
 			}
 			else if(!I->getType()->isVoidTy())
 			{
-				uint32_t regId = registerize.getRegisterId(I);
+				uint32_t regId = registerize.getRegisterId(&*I, edgeContext);
+				assert(namegen.getName(BB.getParent(), regId) == getName(&*I));
 				stream << namegen.getName(BB.getParent(), regId);
-				if(!asmjs && compileCompoundStatement(I, regId))
+				if(!asmjs && compileCompoundStatement(&*I, regId))
 				{
 					stream << ';' << NewLine;
 					emptyBlock = false;
@@ -5155,17 +5157,17 @@ void CheerpWriter::compileMethod(Function& F)
 		}
 	}
 	currentFun = &F;
-	stream << "function " << namegen.getName(&F) << '(';
+	stream << "function " << getName(&F) << '(';
 	const Function::const_arg_iterator A=F.arg_begin();
 	const Function::const_arg_iterator AE=F.arg_end();
 	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 	{
 		if(curArg!=A)
 			stream << ',';
-		if(curArg->getType()->isPointerTy() && PA.getPointerKind(curArg) == SPLIT_REGULAR)
-			stream << namegen.getName(curArg) << ',' << namegen.getSecondaryName(curArg);
+		if(curArg->getType()->isPointerTy() && PA.getPointerKind(&*curArg) == SPLIT_REGULAR)
+			stream << getName(&*curArg) << ',' << getSecondaryName(&*curArg);
 		else
-			stream << namegen.getName(curArg);
+			stream << getName(&*curArg);
 	}
 	stream << "){" << NewLine;
 	if (measureTimeToMain && F.getName() == "main")
@@ -5280,7 +5282,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		// Extern globals in the client namespace are only placeholders for JS globals
 		return;
 	}
-	stream  << "var " << namegen.getName(&G);
+	stream  << "var " << getName(&G);
 
 	if(G.hasInitializer())
 	{
@@ -5315,7 +5317,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 				compileOperand(C, LOWEST);
 			stream << ']';
 			stream << ';' << NewLine;
-			stream << "var " << namegen.getSecondaryName(&G);
+			stream << "var " << getSecondaryName(&G);
 			stream << "=0";
 		}
 		else
@@ -5410,7 +5412,7 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 	}
 	if (symbolicGlobalsAsmJS)
 	{
-		stream << "var " << namegen.getName(&G) << '=';
+		stream << "var " << getName(&G) << '=';
 		uint32_t globalAddr = linearHelper.getGlobalVariableAddress(&G);
 		stream << globalAddr << ';' << NewLine;
 	}
@@ -5474,19 +5476,19 @@ void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
 	const Function::const_arg_iterator AE=F->arg_end();
 	for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 	{
-		stream << namegen.getName(curArg) << '=';
+		stream << getName(&*curArg) << '=';
 		Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(curArg->getType(), true);
 		switch(kind)
 		{
 			case Registerize::INTEGER:
-				stream << namegen.getName(curArg) << "|0";
+				stream << getName(&*curArg) << "|0";
 				break;
 			case Registerize::FLOAT:
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
-				stream << namegen.getName(curArg) << ')';
+				stream << getName(&*curArg) << ')';
 				break;
 			case Registerize::DOUBLE:
-				stream << '+' << namegen.getName(curArg);
+				stream << '+' << getName(&*curArg);
 				break;
 			case Registerize::OBJECT:
 				llvm::errs() << "OBJECT register kind should not appear in asm.js functions\n";
@@ -5576,13 +5578,13 @@ void CheerpWriter::compileFunctionTablesAsmJS()
 			if (!first)
 				stream << ',';
 			first = false;
-			stream << namegen.getName(F);
+			stream << getName(F);
 			num++;
 		}
 		uint32_t mask = linearHelper.getFunctionAddressMask(table.second.functions[0]->getFunctionType());
 		for (; num <= mask; num++)
 		{
-			stream << ',' << namegen.getName(table.second.functions[0]);
+			stream << ',' << getName(table.second.functions[0]);
 		}
 		stream << "];" << NewLine;
 	}
@@ -5645,7 +5647,7 @@ void CheerpWriter::compileAsmJSImports()
 	{
 		if(F->empty() || F->arg_size() == 0) continue;
 
-		stream << "function _asm_" << namegen.getName(F) << '(';
+		stream << "function _asm_" << getName(F) << '(';
 		const Function::const_arg_iterator A=F->arg_begin();
 		const Function::const_arg_iterator AE=F->arg_end();
 		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
@@ -5654,12 +5656,12 @@ void CheerpWriter::compileAsmJSImports()
 			{
 				stream << ',';
 			}
-			stream << namegen.getName(curArg);
+			stream << getName(&*curArg);
 		}
 		stream << "){" << NewLine;
 		if (!F->getReturnType()->isVoidTy())
 			stream << "return ";
-		stream << namegen.getName(F) << '(';
+		stream << getName(F) << '(';
 		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 		{
 			if(curArg!=A)
@@ -5670,7 +5672,7 @@ void CheerpWriter::compileAsmJSImports()
 				shift = compileHeapForType(cast<PointerType>(curArg->getType())->getPointerElementType());
 				stream << ',';
 			}
-			stream << namegen.getName(curArg);
+			stream << getName(&*curArg);
 			if (shift)
 				stream << ">>" << shift;
 		}
@@ -5687,7 +5689,7 @@ void CheerpWriter::compileAsmJSExports()
 		POINTER_KIND retKind = retTy->isPointerTy()? PA.getPointerKindForReturn(F): UNKNOWN; 
 		assert(retKind == UNKNOWN || retKind == RAW || retKind == SPLIT_REGULAR);
 
-		stream << "function " << namegen.getName(F) << '(';
+		stream << "function " << getName(F) << '(';
 		const Function::const_arg_iterator A=F->arg_begin();
 		const Function::const_arg_iterator AE=F->arg_end();
 		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
@@ -5696,7 +5698,7 @@ void CheerpWriter::compileAsmJSExports()
 			{
 				stream << ',';
 			}
-			stream << namegen.getName(curArg);
+			stream << getName(&*curArg);
 		}
 		stream << "){" << NewLine;
 		if (retKind == SPLIT_REGULAR)
@@ -5705,12 +5707,12 @@ void CheerpWriter::compileAsmJSExports()
 		}
 		else if (!F->getReturnType()->isVoidTy())
 			stream << "return ";
-		stream << "__asm." << namegen.getName(F) << '(';
+		stream << "__asm." << getName(F) << '(';
 		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
 		{
 			if(curArg!=A)
 				stream << ',';
-			stream << namegen.getName(curArg);
+			stream << getName(&*curArg);
 		}
 		stream << ')';
 		if (retKind == SPLIT_REGULAR)
@@ -5844,7 +5846,7 @@ void CheerpWriter::makeJS()
 		}
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
-			stream << "var " << namegen.getName(imported) << "=ffi." << namegen.getName(imported) << ';' << NewLine;
+			stream << "var " << getName(imported) << "=ffi." << getName(imported) << ';' << NewLine;
 		}
 		if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
 		{
@@ -5874,17 +5876,17 @@ void CheerpWriter::makeJS()
 		for (const Function * F : globalDeps.constructors() )
 		{
 			if (F->getSection() == StringRef("asmjs"))
-				stream << namegen.getName(F) << ':' << namegen.getName(F) << ',' << NewLine;
+				stream << getName(F) << ':' << getName(F) << ',' << NewLine;
 		}
 		// if entry point is in asm.js, explicitly export it
 		if ( const Function * entryPoint = globalDeps.getEntryPoint())
 		{
 			if (entryPoint->getSection() == StringRef("asmjs"))
-				stream << namegen.getName(entryPoint) << ':' << namegen.getName(entryPoint) << ',' << NewLine;
+				stream << getName(entryPoint) << ':' << getName(entryPoint) << ',' << NewLine;
 		}
 		for (const Function* exported: globalDeps.asmJSExports())
 		{
-			StringRef name = namegen.getName(exported);
+			StringRef name = getName(exported);
 			stream << name << ':' << name << ',' << NewLine;
 		}
 		stream << "};" << NewLine;
@@ -5916,10 +5918,10 @@ void CheerpWriter::makeJS()
 			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
 				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 			else if (imported->arg_size() == 0)
-				name = namegen.getName(imported);
+				name = getName(imported);
 			else
-				name = ("_asm_"+namegen.getName(imported)).str();
-			stream << namegen.getName(imported) << ':' << name  << ',' << NewLine;
+				name = ("_asm_"+getName(imported)).str();
+			stream << getName(imported) << ':' << name  << ',' << NewLine;
 		}
 		if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
 		{
@@ -6021,10 +6023,10 @@ void CheerpWriter::makeJS()
 			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
 				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 			else if (imported->arg_size() == 0)
-				name = namegen.getName(imported);
+				name = getName(imported);
 			else
-				name = ("_asm_"+namegen.getName(imported)).str();
-			stream << namegen.getName(imported) << ':' << name  << ',' << NewLine;
+				name = ("_asm_"+getName(imported)).str();
+			stream << getName(imported) << ':' << name  << ',' << NewLine;
 		}
 		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ACOS_F64))
 			stream << namegen.getBuiltinName(NameGenerator::ACOS) << ":Math.acos," << NewLine;
@@ -6099,7 +6101,7 @@ void CheerpWriter::makeJS()
 			stream << "i.exports.";
 		else if (wasmFile.empty() && entryPoint->getSection() == StringRef("asmjs"))
 			stream << "__asm.";
-		stream << namegen.getName(entryPoint) << "();" << NewLine;
+		stream << getName(entryPoint) << "();" << NewLine;
 	}
 	if (makeModule == MODULE_TYPE::COMMONJS)
 	{
