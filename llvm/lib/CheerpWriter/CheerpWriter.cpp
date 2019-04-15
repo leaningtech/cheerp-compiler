@@ -2580,7 +2580,13 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				writer.stream << ';' << writer.NewLine;
 			}
 			writer.stream << writer.getName(incoming);
-			writer.stream << '=' << writer.namegen.getName(incoming) << ';' << writer.NewLine;
+
+			//We walk back a step in "time"
+			edgeContext.undoAssigment();
+			//Find what name the instruction had previously
+			writer.stream << '=' << writer.getName(incoming) << ';' << writer.NewLine;
+			//And undo the undo, back to the original situatuion
+			edgeContext.processAssigment();
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
