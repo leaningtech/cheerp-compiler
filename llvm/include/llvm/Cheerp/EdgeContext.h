@@ -21,7 +21,9 @@ struct EdgeContext
 {
 	const llvm::BasicBlock* fromBB;
 	const llvm::BasicBlock* toBB;
-	constexpr EdgeContext():fromBB(NULL), toBB(NULL)
+	uint32_t assigmentIndex;
+	constexpr EdgeContext()
+		: fromBB(NULL), toBB(NULL), assigmentIndex(-1u)
 	{
 	}
 	bool isNull() const
@@ -32,12 +34,22 @@ struct EdgeContext
 	{
 		fromBB=NULL;
 		toBB=NULL;
+		assigmentIndex=-1u;
 	}
 	void setEdgeContext(const llvm::BasicBlock* fromBB_, const llvm::BasicBlock* toBB_)
 	{
 		assert(isNull());
 		fromBB=fromBB_;
 		toBB=toBB_;
+		assigmentIndex=1;
+	}
+	void processAssigment()
+	{
+		++assigmentIndex;
+	}
+	void undoAssigment()
+	{
+		--assigmentIndex;
 	}
 	constexpr static EdgeContext emptyContext()
 	{
