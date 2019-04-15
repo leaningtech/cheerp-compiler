@@ -847,8 +847,9 @@ void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm
 		return;
 	else if(regData.status==PHIRegData::VISITING)
 	{
-		// Report the recursive dependency to the user
+		// Call specialized function to process the copy to temporary
 		handleRecursivePHIDependency(incoming);
+		edgeContext.processAssigment();
 		return;
 	}
 	// Not yet visited
@@ -939,7 +940,9 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	{
 		const PHINode* phi=orderedPHIs[i-1].first;
 		const Value* val=phi->getIncomingValueForBlock(fromBB);
+		// Call specialized function to process the actual assignment to the PHI
 		handlePHI(phi, val, orderedPHIs[i-1].second);
+		edgeContext.processAssigment();
 	}
 	edgeContext.clear();
 }
