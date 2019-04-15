@@ -228,7 +228,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			{
 				if ( needsName(I, PA) )
 				{
-					uint32_t registerId = registerize.getRegisterId(&I);
+					uint32_t registerId = registerize.getRegisterId(&I, EdgeContext::emptyContext());
 					assert(registerId < thisFunctionLocals.size());
 					useLocalPair& regData = thisFunctionLocals[registerId];
 					// Add the uses for this instruction to the total count for the register
@@ -436,7 +436,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 			{
 				if ( needsName(I, PA) )
 				{
-					uint32_t registerId = registerize.getRegisterId(&I);
+					uint32_t registerId = registerize.getRegisterId(&I, EdgeContext::emptyContext());
 					if(doneRegisters[registerId])
 						continue;
 					if (!I.hasName())

@@ -1233,8 +1233,6 @@ public:
 	const char *getPassName() const override;
 
 	uint32_t getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
-	uint32_t getRegisterId(const llvm::Instruction* I) const;
-	uint32_t getRegisterIdForEdge(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 
 	void assignRegisters(llvm::Module& M, cheerp::PointerAnalyzer& PA);

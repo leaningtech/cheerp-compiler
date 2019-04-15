@@ -883,7 +883,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			orderedPHIs.push_back(std::make_pair(phi, /*selfReferencing*/false));
 			continue;
 		}
-		uint32_t phiReg = registerize.getRegisterId(phi);
+		uint32_t phiReg = registerize.getRegisterId(phi, EdgeContext::emptyContext());
 		setRegisterUsed(phiReg);
 		// This instruction may depend on multiple registers
 		llvm::SmallVector<std::pair<uint32_t, const Instruction*>, 2> incomingRegisters;
@@ -896,7 +896,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			std::pair<const Instruction*, bool> incomingInst = instQueue.pop_back_val();
 			if(!isInlineable(*incomingInst.first, PA))
 			{
-				uint32_t incomingValueId = registerize.getRegisterId(incomingInst.first);
+				uint32_t incomingValueId = registerize.getRegisterId(incomingInst.first, EdgeContext::emptyContext());
 				if(incomingValueId==phiReg)
 				{
 					if(mayNeedSelfRef &&
