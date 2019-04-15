@@ -72,9 +72,7 @@ uint32_t Registerize::getRegisterId(const llvm::Instruction* I, const EdgeContex
 	uint32_t regId = registersMap.find(I)->second;
 	if(!edgeContext.isNull())
 	{
-		auto it=edgeRegistersMap.find(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, regId));
-		if (it!=edgeRegistersMap.end())
-			return it->second;
+		return edgeRegistersMap.findCurrentRegisterId(regId, edgeContext);
 	}
 	return regId;
 }
@@ -457,7 +455,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			uint32_t regId=registerize.registersMap.find(incoming)->second;
 			Registerize::REGISTER_KIND phiKind = registerize.getRegKindFromType(incoming->getType(), asmjs);
 			uint32_t chosenReg = assignTempReg(regId, phiKind, cheerp::needsSecondaryName(incoming, PA));
-			registerize.edgeRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), chosenReg));
+			registerize.edgeRegistersMap.insertUpdate(regId, chosenReg, edgeContext);
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
@@ -468,7 +466,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			assert(registerize.registersMap.count(phi));
 			uint32_t regId=registerize.registersMap.find(phi)->second;
 			// Check if there is already a tmp PHI for this PHI, if so it is not really self referencing
-			if(registerize.edgeRegistersMap.count(InstOnEdge(fromBB, toBB, regId)))
+			if(registerize.edgeRegistersMap.count(regId, edgeContext))
 				return;
 			uint32_t chosenReg = assignTempReg(regId, Registerize::INTEGER, false);
 			registerize.selfRefRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), chosenReg));
