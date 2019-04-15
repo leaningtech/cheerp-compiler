@@ -1,5 +1,4 @@
 ; RUN: llvm-link %s %S/Inputs/alias.ll -S -o - | FileCheck --check-prefix=C1 %s
-; RUN: llvm-link %S/Inputs/alias.ll %s -S -o - | FileCheck --check-prefix=C2 %s
 
 ; FIXME:
 ; The C1 direction is incorrect.
@@ -20,7 +19,7 @@
 @bar = alias i32, i32* @foo
 ; C1-DAG: @bar = alias i32, i32* @foo
 
-; C2-DAG: @foo.1 = internal global i32 0
+; C2-DAG: @foo = internal global i32 0
 ; C2-DAG: @bar = alias i32, i32* @foo.1
 
 @foo2 = weak global i32 0
