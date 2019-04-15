@@ -65,14 +65,6 @@ const char* Registerize::getPassName() const
 	return "CheerpRegisterize";
 }
 
-uint32_t Registerize::getRegisterId(const llvm::Instruction* I) const
-{
-	assert(RegistersAssigned);
-	assert(registersMap.count(I));
-	uint32_t regId = registersMap.find(I)->second;
-	return regId;
-}
-
 uint32_t Registerize::getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const
 {
 	assert(RegistersAssigned);
@@ -84,16 +76,6 @@ uint32_t Registerize::getRegisterId(const llvm::Instruction* I, const EdgeContex
 		if (it!=edgeRegistersMap.end())
 			return it->second;
 	}
-	return regId;
-}
-
-uint32_t Registerize::getRegisterIdForEdge(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const
-{
-	assert(registersMap.count(I));
-	uint32_t regId = registersMap.find(I)->second;
-	auto it=edgeRegistersMap.find(InstOnEdge(fromBB, toBB, regId));
-	if (it!=edgeRegistersMap.end())
-		return it->second;
 	return regId;
 }
 
