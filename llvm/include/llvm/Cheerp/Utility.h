@@ -776,6 +776,8 @@ private:
 	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
 	// Called for every register which is either assigned or used by PHIs in the edge
 	virtual void setRegisterUsed(uint32_t reg) {};
+	virtual void addRegisterUse(uint32_t reg) {};
+	virtual void removeRegisterUse(uint32_t reg) {};
 	virtual void resetRegistersState() {};
 
 public:
@@ -806,7 +808,6 @@ public:
 			}
 			//Normalize successors
 			std::sort(Succs.begin(), Succs.end());
-			Succs.erase(std::unique(Succs.begin(), Succs.end()), Succs.end());
 		}
 	};
 	class DependencyGraph {

@@ -404,7 +404,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	// Assign registers for temporary values required to break loops in PHIs
 	class RegisterizePHIHandler: public EndOfBlockPHIHandler
 	{
-		enum REGISTER_STATUS{FREE, TEMPORARILY_USED, USED};
+		enum REGISTER_STATUS{FREE=0, TEMPORARILY_USED=10000, USED=1000000};
 	public:
 		RegisterizePHIHandler(const BasicBlock* f, const BasicBlock* t, Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs,
 				const InstIdMapTy& i, const PointerAnalyzer& _PA, EdgeContext& edgeContext):
@@ -430,8 +430,8 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			//Reserved registers should be kept untouched, while used one could be used multiple times (eg. to store a temporary)
 			for (auto & state : statusRegisters)
 			{
-				if (state == REGISTER_STATUS::TEMPORARILY_USED)
-					state = REGISTER_STATUS::FREE;
+				if (state >= REGISTER_STATUS::TEMPORARILY_USED && state <= REGISTER_STATUS::USED/2)
+					state -= REGISTER_STATUS::TEMPORARILY_USED;
 			}
 		}
 		uint32_t assignTempReg(uint32_t regId, Registerize::REGISTER_KIND kind, bool needsSecondaryName)
@@ -492,6 +492,16 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		{
 			assert(regId < statusRegisters.size());
 			statusRegisters[regId] = REGISTER_STATUS::USED;
+		}
+		void addRegisterUse(uint32_t regId) override
+		{
+			assert(regId < statusRegisters.size());
+			++statusRegisters[regId];
+		}
+		void removeRegisterUse(uint32_t regId) override
+		{
+			assert(regId < statusRegisters.size());
+			--statusRegisters[regId];
 		}
 	};
 #ifndef NDEBUG
