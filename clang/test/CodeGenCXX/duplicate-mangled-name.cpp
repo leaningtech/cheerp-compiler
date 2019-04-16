@@ -38,9 +38,9 @@ namespace nm {
 
 float foo() {
   _ZN1TD1Ev();
-// CHECK: call void bitcast ({{.*}} (%struct.T*)* @_ZN1TD1Ev to void ()*)()
+// CHECK: call void bitcast ({{.*}} (%struct._Z1T*)* @_ZN1TD1Ev to void ()*)()
   T t;
-// CHECK: call {{.*}} @_ZN1TD1Ev(%struct.T* %t)
+// CHECK: call {{.*}} @_ZN1TD1Ev(%struct._Z1T* %t)
   return _ZN2nm3abcE + nm::abc;
 }
 
