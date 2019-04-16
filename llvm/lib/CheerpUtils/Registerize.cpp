@@ -1337,7 +1337,6 @@ bool Reduction::perform()
 #ifdef REGISTERIZE_STATS
 	REGISTERIZE_STATISTICS_ON_REDUCTIONS[id()].add(instance.N);
 #endif
-	//TODO: add here external loop for phi_edge links
 	//Build the connection matrix and the friend list for the subproblem(s)
 	buildSubproblems();
 	//Solve them
@@ -1527,7 +1526,10 @@ void RemoveFewConstraints::reduce()
 
 bool EnumerateAllPhiEdges::couldBePerformed()
 {
-	return instance.groupedLinks.size() > 0 && instance.groupedLinks.size() < 5;
+	//This reduction make sense only if there are groupedLinks and and there are not too many of them
+	//Exploring every grouped links multiply the cost roughly by 2 so it's natural to be bound by the logarithm
+	return instance.groupedLinks.size() > 0 &&
+		(1u<<instance.groupedLinks.size() <= instance.times);
 }
 
 bool EnumerateAllPhiEdges::couldBePerformedPhiEdges()
@@ -1552,6 +1554,15 @@ void EnumerateAllPhiEdges::reduce()
 {
 	VertexColorer& good = subproblems.front();
 	VertexColorer& bad = subproblems.back();
+
+	if (goodIsValid)
+	{
+		//Since we explore 2 problems parallely, we limit the exploration to only half the nodes on each
+		good.times = instance.times/2;
+		bad.times = instance.times/2;
+	}
+	else
+		bad.times = instance.times;
 
 	bad.solve();
 	VertexColorer::Coloring badSolution = bad.getSolution();
@@ -1980,30 +1991,7 @@ bool SplitConflictingBase::couldBePerformed()
 
 bool SplitArticulation::couldBePerformedPhiEdges()
 {
-	if (whichSubproblem.front() == instance.N)
-		return false;
-	return true;
-/*	//TODO: improve it -> certain cases are still mergeable
-	for (const auto& E : instance.groupedLinks)
-	{
-		uint32_t subproblem = instance.N;
-		for (const VertexColorer::Link& link : E)
-		{
-			uint32_t a = link.first;
-			uint32_t b = link.second;
-			if (whichSubproblem[a] > whichSubproblem[b])
-				std::swap(a, b);
-			assert(whichSubproblem[b] > 0);
-			if (subproblem == instance.N)
-				subproblem = whichSubproblem[b];
-			if (subproblem != whichSubproblem[b])
-				return false;
-			if (whichSubproblem[a] != 0 && whichSubproblem[a] != subproblem)
-				return false;
-		}
-	}
-	return true;
-*/
+	return whichSubproblem.front() != instance.N;
 }
 
 bool SplitConflictingBase::couldBePerformedPhiEdges()
@@ -2055,6 +2043,7 @@ void SplitConflictingBase::dumpSubproblems() const
 
 void SplitArticulation::dumpSubproblems() const
 {
+	//On SplitArticulation the 0 index subproblem serve to represent the nodes in the clique we are splitting on, so they are effectively part of all other subproblems as well
 	for (uint32_t i=1; i<numerositySubproblem.size(); ++i)
 	{
 		llvm::errs() << numerositySubproblem[i] << " ";
@@ -2701,7 +2690,7 @@ void Registerize::RegisterAllocatorInst::solve()
 #ifdef REGISTERIZE_STATS
 	REGISTERIZE_STATISTICS_ON_INPUT_PROBLEMS.add(numInst());
 #endif
-	VertexColorer colorer(numInst(), /*cost of using an extra color*/6, /*maximal number of iterations*/100);
+	VertexColorer colorer(numInst(), /*cost of using an extra color*/6, MAXIMAL_NUMBER_OF_ITERATIONS_VERTEX_COLORER);
 	colorer.setAll(/*conflict*/true);
 	//TODO: fine tune the paramethers
 
