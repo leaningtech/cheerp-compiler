@@ -4270,10 +4270,97 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 	}
 }
 
+bool CheerpWriter::compileCompoundStatement(const Instruction* I, uint32_t regId)
+{
+	StringRef oper;
+	bool checkOp0 = false;
+	bool checkOp1 = false;
+	switch(I->getOpcode())
+	{
+		//Commutative operations
+		case Instruction::FAdd:
+			checkOp0 = true;
+			checkOp1 = true;
+			oper = "+=";
+			break;
+		case Instruction::FMul:
+			checkOp0 = true;
+			checkOp1 = true;
+			oper = "*=";
+			break;
+		case Instruction::Or:
+			checkOp0 = true;
+			checkOp1 = true;
+			oper = "|=";
+			break;
+		case Instruction::And:
+			checkOp0 = true;
+			checkOp1 = true;
+			oper = "&=";
+			break;
+		case Instruction::Xor:
+			checkOp0 = true;
+			checkOp1 = true;
+			oper = "^=";
+			break;
+		//Non-commutative operations
+		case Instruction::FSub:
+			checkOp0 = true;
+			oper = "-=";
+			break;
+		case Instruction::FDiv:
+			checkOp0 = true;
+			oper = "/=";
+			break;
+		case Instruction::FRem:
+			checkOp0 = true;
+			oper = "%=";
+			break;
+		case Instruction::LShr:
+			checkOp0 = true;
+			oper = ">>>=";
+			break;
+		case Instruction::AShr:
+			checkOp0 = true;
+			oper = ">>=";
+			break;
+		case Instruction::Shl:
+			checkOp0 = true;
+			oper = "<<=";
+			break;
+	}
+	auto DoCompount = [this](Value* op, uint32_t regId) -> bool
+	{
+		Instruction* opI = dyn_cast<Instruction>(op);
+		if(!opI)
+			return false;
+		if(isInlineable(*opI, PA))
+			return false;
+		if(regId != registerize.getRegisterId(opI))
+			return false;
+		return true;
+	};
+	if(checkOp0 && DoCompount(I->getOperand(0), regId))
+	{
+		stream << oper;
+		compileOperand(I->getOperand(1));
+		return true;
+	}
+	else if(checkOp1 && DoCompount(I->getOperand(1), regId))
+	{
+		stream << oper;
+		compileOperand(I->getOperand(0));
+		return true;
+	}
+	else
+		return false;
+}
+
 void CheerpWriter::compileBB(const BasicBlock& BB)
 {
 	BasicBlock::const_iterator I=BB.begin();
 	BasicBlock::const_iterator IE=BB.end();
+	bool asmjs = BB.getParent()->getSection() == StringRef("asmjs");
 	bool emptyBlock = true;
 	for(;I!=IE;++I)
 	{
@@ -4315,7 +4402,16 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			}
 			else if(!I->getType()->isVoidTy())
 			{
-				stream << namegen.getName(I) << '=';
+				uint32_t regId = registerize.getRegisterId(I);
+				stream << namegen.getName(BB.getParent(), regId);
+				if(!asmjs && compileCompoundStatement(I, regId))
+				{
+					stream << ';' << NewLine;
+					emptyBlock = false;
+					continue;
+				}
+				else
+					stream << "=";
 			}
 		}
 		if(I->isTerminator())

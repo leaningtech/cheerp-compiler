@@ -963,11 +963,12 @@ void Registerize::RegisterAllocatorInst::createSingleFriendship(const uint32_t i
 
 void Registerize::RegisterAllocatorInst::buildFriendsSingleCompressibleInstr(const uint32_t i)
 {
-	//TODO: implement the writer, and check the list of operations
-
 	//Try to force the first operand of a sum/difference/multiplication/... to be the same of the result
 	const Instruction* I = indexer.at(i);
 	assert (!!I);
+	// Compount operator cannot be used in asm.js and do not exists in wasm
+	if(I->getParent()->getParent()->getSection() == StringRef("asmjs"))
+		return;
 
 	switch (I->getOpcode())
 	{
