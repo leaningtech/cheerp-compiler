@@ -76,12 +76,11 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 		else if(const Function* F = dyn_cast<Function>(c))
 		{
 			assert(offset==0);
-			if (!functionAddresses.count(F))
+			uint32_t addr = 0;
+			if (functionAddresses.count(F))
 			{
-				llvm::errs() << "function not in table: " << F->getName() <<"\n";
-				llvm::report_fatal_error("please report a bug");
+				addr = getFunctionAddress(F);
 			}
-			uint32_t addr = getFunctionAddress(F);
 			for(uint32_t i=0;i<32;i+=8)
 				listener->addByte((addr>>i)&255);
 		}
@@ -215,8 +214,7 @@ bool LinearMemoryHelper::isZeroInitializer(const llvm::Constant* c) const
 	{
 		if (!functionAddresses.count(F))
 		{
-			llvm::errs() << "function not in table: " << F->getName() <<"\n";
-			llvm::report_fatal_error("please report a bug");
+			return true;
 		}
 		uint32_t addr = getFunctionAddress(F);
 		return addr == 0;
