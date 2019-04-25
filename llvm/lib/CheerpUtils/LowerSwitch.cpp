@@ -21,9 +21,11 @@ public:
 	const char *getPassName() const override {
 		return "CheerpLowerSwitch";
 	}
-	bool runOnFunction(Function &F) override;
 	static char ID;
 private:
+        void processSwitchInst(SwitchInst *SI,
+                           SmallPtrSetImpl<BasicBlock *> &DeleteList,
+                           AssumptionCache *AC, LazyValueInfo *LVI) override;
 	bool keepSwitch(const SwitchInst* si);
 };
 
@@ -63,29 +65,11 @@ bool CheerpLowerSwitch::keepSwitch(const SwitchInst* si)
 	return false;
 }
 
-bool CheerpLowerSwitch::runOnFunction(Function& F)
+void CheerpLowerSwitch::processSwitchInst(SwitchInst *SI, SmallPtrSetImpl<BasicBlock*> &DeleteList, AssumptionCache *AC, LazyValueInfo *LVI)
 {
-	bool Changed = false;
-
-	SmallPtrSet<BasicBlock*, 8> DeleteList;
-	for (Function::iterator I = F.begin(), E = F.end(); I != E; )
-	{
-		BasicBlock *Cur = I++; // Advance over block so we don't traverse new blocks
-
-		if (SwitchInst *SI = dyn_cast<SwitchInst>(Cur->getTerminator()))
-		{
-			if (!keepSwitch(SI))
-			{
-				Changed = true;
-				processSwitchInst(SI, DeleteList);
-			}
-		}
-	}
-
-	for (BasicBlock* BB: DeleteList)
-		DeleteDeadBlock(BB);
-
-	return Changed;
+	if(keepSwitch(SI))
+		return;
+	LowerSwitch::processSwitchInst(SI, DeleteList, AC, LVI);
 }
 
 char CheerpLowerSwitch::ID = 0;
