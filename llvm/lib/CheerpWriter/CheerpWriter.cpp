@@ -2390,6 +2390,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	}
 	else if(isa<GlobalValue>(c))
 	{
+		bool funcIsAsmJS = asmjs;
 		if (!asmjs)
 		{
 			asmjs = cast<GlobalValue>(c)->getSection() == StringRef("asmjs");
@@ -2405,7 +2406,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 				stream << '0';
 			}
 		}
-		else if (isa<GlobalVariable>(c) && !symbolicGlobalsAsmJS && asmjs)
+		else if (isa<GlobalVariable>(c) && (!symbolicGlobalsAsmJS || !funcIsAsmJS) && asmjs)
 		{
 			stream << linearHelper.getGlobalVariableAddress(cast<GlobalVariable>(c));
 		}
