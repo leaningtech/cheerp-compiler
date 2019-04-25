@@ -18,6 +18,11 @@ private:
 
 }
 
+static int64_t getCaseValue(const ConstantInt* c, uint32_t bitWidth)
+{
+	return bitWidth == 32 ? c->getSExtValue() : c->getZExtValue();
+};
+
 bool CheerpLowerSwitch::keepSwitch(const SwitchInst* si)
 {
 	// At least 3 successors
@@ -27,9 +32,10 @@ bool CheerpLowerSwitch::keepSwitch(const SwitchInst* si)
 	//and the difference between the biggest and the smaller must be < 2^31
 	int64_t max = std::numeric_limits<int64_t>::min();
 	int64_t min = std::numeric_limits<int64_t>::max();
+	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
 	for (auto& c: si->cases())
 	{
-		int64_t curr = c.getCaseValue()->getSExtValue();
+		int64_t curr = getCaseValue(c.getCaseValue(), bitWidth);
 		max = std::max(max,curr);
 		min = std::min(min,curr);
 	}
