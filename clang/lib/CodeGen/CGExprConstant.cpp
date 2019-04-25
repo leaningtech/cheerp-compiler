@@ -2411,6 +2411,22 @@ static llvm::Constant *EmitNullConstant(CodeGenModule &CGM,
               .isZero())
         continue;
 
+    if (!CGM.getTarget().isByteAddressable()) {
+      const ASTRecordLayout &ASTLayout = CGM.getContext().getASTRecordLayout(record);
+      if(ASTLayout.getBaseClassOffset(base).isZero()) {
+        // Support direct bases, generate the constant for the base and copy the elements over
+        llvm::StructType *directBaseType = structure->getDirectBase();
+        llvm::Constant *directBaseInit = EmitNullConstantForBase(CGM, directBaseType, base);
+        // If the initialization is null, nothing to do, the code below will add null initializers
+        if(!directBaseInit->isZeroValue()) {
+          // Not null, copy the initializers over
+          for(unsigned i=0;i<directBaseType->getNumElements();i++) {
+            elements[i] = cast<llvm::Constant>(directBaseInit->getOperand(i));
+          }
+        }
+        continue;
+      }
+    }
       unsigned fieldIndex = layout.getNonVirtualBaseLLVMFieldNo(base);
       llvm::Type *baseType = structure->getElementType(fieldIndex);
       elements[fieldIndex] = EmitNullConstantForBase(CGM, baseType, base);
