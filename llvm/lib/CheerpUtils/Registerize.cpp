@@ -1330,37 +1330,41 @@ void VertexColorer::permuteFirstElements(Coloring& coloring, const uint32_t N)
 	}
 }
 
-bool Reduction::perform()
+template<typename Derived>
+bool Reduction<Derived>::perform()
 {
-	if (couldBeAvoided())
+	Derived& derived = *getDerived();
+
+	if (derived.couldBeAvoided())
 		return false;
-	if (!couldBePerformed())
+	if (!derived.couldBePerformed())
 		return false;
 
 	//Find relabeling that split the problem into subproblem(s)
-	relabelNodes();
+	derived.relabelNodes();
 
-	if (!couldBePerformedPhiEdges())
+	if (!derived.couldBePerformedPhiEdges())
 		return false;
 
 #ifdef REGISTERIZE_DEBUG
 	//Dump informations
-	dumpDescription();
+	derived.dumpDescription();
 #endif
 #ifdef REGISTERIZE_STATS
-	REGISTERIZE_STATISTICS_ON_REDUCTIONS[id()].add(instance.N);
+	REGISTERIZE_STATISTICS_ON_REDUCTIONS[derived.id()].add(instance.N);
 #endif
 	//Build the connection matrix and the friend list for the subproblem(s)
-	buildSubproblems();
+	derived.buildSubproblems();
 	//Solve them
-	reduce();
+	derived.reduce();
 
 	assert(instance.checkConstraintsAreRespected(instance.retColors));
 
 	return true;
 }
 
-std::vector<uint32_t> Reduction::computeLeaders (llvm::IntEqClasses& eqClasses, const uint32_t N) const
+template<typename Derived>
+std::vector<uint32_t> Reduction<Derived>::computeLeaders (llvm::IntEqClasses& eqClasses, const uint32_t N) const
 {
 	eqClasses.compress();
 
@@ -1374,12 +1378,14 @@ std::vector<uint32_t> Reduction::computeLeaders (llvm::IntEqClasses& eqClasses, 
 	return toWhichSubproblem;
 }
 
-std::vector<uint32_t> Reduction::computeLeaders (llvm::IntEqClasses& eqClasses) const
+template<typename Derived>
+std::vector<uint32_t> Reduction<Derived>::computeLeaders (llvm::IntEqClasses& eqClasses) const
 {
 	return computeLeaders(eqClasses, instance.N);
 }
 
-void Reduction::assignIndexes(const std::vector<uint32_t>& whichSubproblems, std::vector<uint32_t>& numerositySubproblem, std::vector<uint32_t>& newIndexes, const uint32_t startingFrom)
+template<typename Derived>
+void Reduction<Derived>::assignIndexes(const std::vector<uint32_t>& whichSubproblems, std::vector<uint32_t>& numerositySubproblem, std::vector<uint32_t>& newIndexes, const uint32_t startingFrom)
 {
 	const uint32_t N = whichSubproblems.size();
 	const uint32_t M = *std::max_element(whichSubproblems.begin(), whichSubproblems.end()) + 1;
@@ -1658,8 +1664,6 @@ RemoveDominated::SamplesData RemoveDominated::precomputeSamples() const
 
 bool RemoveDominated::couldBePerformed()
 {
-	if (couldBeAvoided())
-		return false;
 	//Try to find rows that are dominated by another. In this case, they can get the same colors of the dominating vertex and the solutions remain optimal
 	//One vertex dominated AND can become parent of another if:
 	//-the constraint of the dominated are a (possibly non proper) subset of the constraint of the dominating
@@ -1920,8 +1924,6 @@ void RemoveDominated::reduce()
 
 bool SplitArticulation::couldBePerformed()
 {
-	if (couldBeAvoided())
-		return false;
 	//This pass assign each node to a clique, in particular working with the hypothesys that the connection matrix it's already sort in a block form
 	//Now it assumes that clique are continguous (eg nodes i, i+1, i+2, .... i+k) but could be generalized
 	//Then:
@@ -1967,8 +1969,6 @@ bool SplitArticulation::couldBePerformed()
 
 bool SplitConflictingBase::couldBePerformed()
 {
-	if (couldBeAvoided())
-		return false;
 
 	//If the graph can be divided in unconnected areas, do so and recombine the partial solutions
 	//There are two kind of connectedness:
