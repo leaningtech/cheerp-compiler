@@ -4402,6 +4402,8 @@ def cheerp_registerize_legacy : Flag<["-"], "cheerp-registerize-legacy">, Flags<
   HelpText<"Use the legacy algorithm for assigning registers">;
 def cheerp_avoid_wasm_traps : Flag<["-"], "cheerp-avoid-wasm-traps">, Flags<[DriverOption]>,
   HelpText<"Avoid traps from WebAssembly by generating more verbose code">;
+def cheerp_fix_wrong_func_casts : Flag<["-"], "cheerp-fix-wrong-func-casts">, Flags<[DriverOption]>,
+  HelpText<"Generate wrappers for functions casted to types with more arguments">;
 def cheerp_strict_linking_EQ : Joined<["-"], "cheerp-strict-linking=">, Flags<[DriverOption]>,
   HelpText<"Enable link time checks for undefined symbols [warning/error]">;
 

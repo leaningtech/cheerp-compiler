@@ -548,6 +548,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpRegisterizeLegacy->render(Args, CmdArgs);
   if(Arg* cheerpAvoidWasmTraps = Args.getLastArg(options::OPT_cheerp_avoid_wasm_traps))
     cheerpAvoidWasmTraps->render(Args, CmdArgs);
+  if(Arg* cheerpFixFuncCasts = Args.getLastArg(options::OPT_cheerp_fix_wrong_func_casts))
+    cheerpFixFuncCasts->render(Args, CmdArgs);
 
   // Set output to binary mode to avoid linefeed conversion on Windows.
   CmdArgs.push_back("-filetype");
