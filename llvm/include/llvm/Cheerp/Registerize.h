@@ -840,7 +840,7 @@ public:
 private:
 	std::array<bool, 5> avoidPass{};
 	uint32_t depthRecursion;
-	friend class Reduction;
+	template <typename T> friend class Reduction;
 	friend class EnumerateAllPhiEdges;
 	friend class RemoveFewConstraints;
 	friend class RemoveDominated;
@@ -856,43 +856,47 @@ public:
 	uint32_t times;
 };
 
+//Base class accordingly to Curiously Recurring Template Paramether pattern
+template<typename Derived>
 class Reduction
 {
 public:
-	Reduction(VertexColorer& instance)
-		: instance(instance)
-	{}
-	virtual ~Reduction()
-	{}
-	virtual bool couldBePerformed() = 0;
-	virtual bool couldBePerformedPhiEdges() = 0;
-	virtual void reduce() = 0;
 	std::string reductionName() const
 	{
-		return VertexColorer::reductionPassesNames(id());
+		return VertexColorer::reductionPassesNames(getDerived()->id());
 	}
-	virtual void relabelNodes() = 0;
-	virtual void buildSubproblems() = 0;
-	virtual uint32_t id() const= 0;
 	bool couldBeAvoided() const
 	{
-		return instance.avoidPass[id()];
+		return instance.avoidPass[getDerived()->id()];
 	}
 	bool perform();
 	void dumpDescription() const
 	{
 		llvm::errs() <<std::string(instance.depthRecursion, ' ')<< reductionName() << "   ";
-		dumpSpecificDescription();
+		getDerived()->dumpSpecificDescription();
 		llvm::errs() << "\n";
 	}
-	virtual void dumpSpecificDescription() const = 0;
 	VertexColorer& instance;
 	std::vector<uint32_t> computeLeaders(llvm::IntEqClasses& eqClasses, const uint32_t N) const;
 	std::vector<uint32_t> computeLeaders(llvm::IntEqClasses& eqClasses) const;
 	void assignIndexes(const std::vector<uint32_t>& whichSubproblems, std::vector<uint32_t>& numerositySubproblem, std::vector<uint32_t>& newIndexes, const uint32_t startingFrom=0);
+	//Constructor is private, and only accessible from the Derived class
+	friend Derived;
+private:
+	Reduction(VertexColorer& instance)
+		: instance(instance)
+	{}
+	Derived* getDerived()
+	{
+		return static_cast<Derived*>(this);
+	}
+	const Derived* getDerived() const
+	{
+		return static_cast<const Derived*>(this);
+	}
 };
 
-class EnumerateAllPhiEdges : public Reduction
+class EnumerateAllPhiEdges : public Reduction<EnumerateAllPhiEdges>
 {
 public:
 	EnumerateAllPhiEdges(VertexColorer& instance)
@@ -917,7 +921,7 @@ private:
 	bool goodIsValid;
 };
 
-class RemoveFewConstraints : public Reduction
+class RemoveFewConstraints : public Reduction<RemoveFewConstraints>
 {
 public:
 	RemoveFewConstraints(VertexColorer& instance)
@@ -943,7 +947,7 @@ private:
 	std::vector<VertexColorer> subproblems;
 };
 
-class RemoveDominated : public Reduction
+class RemoveDominated : public Reduction<RemoveDominated>
 {
 public:
 	RemoveDominated(VertexColorer& instance)
@@ -1004,7 +1008,7 @@ private:
 	std::vector<VertexColorer> subproblems;
 };
 
-class SplitArticulation : public Reduction
+class SplitArticulation : public Reduction<SplitArticulation>
 {
 public:
 	SplitArticulation(VertexColorer& instance, const bool limitSize)
@@ -1040,11 +1044,13 @@ private:
 	std::vector<VertexColorer> subproblems;
 };
 
-class SplitConflictingBase : public Reduction
+class SplitConflictingBase : public Reduction<SplitConflictingBase>
 {
 public:
 	SplitConflictingBase(VertexColorer& instance, const bool conflicting)
 		: Reduction(instance), conflicting(conflicting), newIndex(instance.N, 0), whichSubproblem(instance.N, 0), numerositySubproblem(instance.N, 0)
+	{}
+	virtual ~SplitConflictingBase()
 	{}
 	bool couldBePerformed();
 	bool couldBePerformedPhiEdges();
