@@ -14,6 +14,7 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/GEPOptimizer.h"
+#include "llvm/ADT/SCCIterator.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalAlias.h"
@@ -932,10 +933,83 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		else
 			phiRegs.insert(std::make_pair(phiReg, PHIRegData(phi, std::move(incomingRegisters), selfReferencing)));
 	}
-	for(auto it: phiRegs)
+
+	if (RegisterizeLegacy)
 	{
-		if(it.second.status!=PHIRegData::VISITED)
+		//Legacy algorithm:
+		//1. Assign trivially assignable phi(eg. has a constant as incoming)
+		//2. Process the other phi in a standard order
+		//3. Use a greedy strategy to minimize the number of temporary needed inside a given SCC
+		for(auto it: phiRegs)
+		{
+			if(it.second.status==PHIRegData::VISITED)
+				continue;
 			runOnPHI(phiRegs, it.first, nullptr, orderedPHIs);
+		}
+	}
+	else
+	{
+		//1. Assign trivially assignable phi(eg. has a constant as incoming)
+		//2. Build the dependency graph (phi with register X uses information stored into register Y to compute its value)
+		//3. Find the Strongly Connected Components, and process in a standard order each SCC
+		//4. Use a greedy strategy to minimize the number of temporary needed inside a given SCC
+		// Note that since we process SCC in order, we are free to recycle temporary registers eventually created
+
+		const uint32_t orderedPHIsDIM = orderedPHIs.size();
+
+
+		DependencyGraph dependencyGraph(phiRegs);
+
+		std::vector<std::vector<uint32_t>> regions;
+
+		for (auto& SCC: make_range(scc_begin(&dependencyGraph), scc_end(&dependencyGraph)))
+		{
+			regions.push_back(std::vector<uint32_t>());
+			//TODO: currently the order is the one found by the scc_iterator. It could be possible to investigate whether better choices leads to even less copyies
+			//Collect register ids in the current Strongly Connected Components
+			for (auto & node : SCC)
+			{
+				if (node->registerId == dependencyGraph.getEntry())
+				{
+					continue;
+				}
+				regions.back().push_back(node->registerId);
+			}
+		}
+
+
+		reverse(regions.begin(), regions.end());
+		for (const std::vector<uint32_t>& registerIds : regions)
+		{
+			//Reset the registers only used as temporary
+			resetRegistersState();
+
+			//Set the incoming registers as used (not to be overwritten)
+			for (auto id : registerIds)
+			{
+				for (const auto& pair : phiRegs.at(id).incomingRegs)
+				{
+					setRegisterUsed(pair.first);
+				}
+			}
+			//TODO: better greedy strategy (better ordering, could help in certain cases for example A->B, B->A, B->C, C->B.
+			//Here starting from B leads to 2 temp while starting from A or C leads to only 1)
+
+			//Greedily look for an assigment of temporary
+			for (auto id : registerIds)
+			{
+				runOnPHI(phiRegs, id, nullptr, orderedPHIs);
+			}
+			while (orderedPHIs.size() > orderedPHIsDIM)
+			{
+				const PHINode* phi=orderedPHIs.back().first;
+				const Value* val=phi->getIncomingValueForBlock(fromBB);
+				// Call specialized function to process the actual assignment to the PHI
+				handlePHI(phi, val, orderedPHIs.back().second);
+				orderedPHIs.pop_back();
+				edgeContext.processAssigment();
+			}
+		}
 	}
 	// Notify the user for each PHI, in the right order to avoid accidental overwriting
 	for(uint32_t i=orderedPHIs.size();i>0;i--)
