@@ -53,4 +53,7 @@ llvm::cl::opt<bool> AvoidWasmTraps("cheerp-avoid-wasm-traps", llvm::cl::desc("Av
 
 llvm::cl::opt<bool> AggressiveGepOptimizer("cheerp-aggressive-gep-optimizer", llvm::cl::desc("Speculatively hoist part of GEPs when possible") );
 
+llvm::cl::opt<bool> FixWrongFuncCasts("cheerp-fix-wrong-func-casts", llvm::cl::Optional, llvm::cl::desc("Generate wrappers for functions casted to types with more arguments") );
+
 llvm::cl::opt<std::string> StrictLinking("cheerp-strict-linking", llvm::cl::Optional, llvm::cl::desc("Emit warnings/errors on missing symbols"), llvm::cl::value_desc("warning/error") );
+
