@@ -563,9 +563,10 @@ static void EmitNullBaseClassInitialization(CodeGenFunction &CGF,
       CharUnits StoreOffset = Store.first;
       CharUnits StoreSize = Store.second;
       llvm::Value *StoreSizeVal = CGF.CGM.getSize(StoreSize);
+      assert(CGF.getTarget().isByteAddressable() || StoreOffset.isZero());
       CGF.Builder.CreateMemCpy(
-          CGF.Builder.CreateConstInBoundsByteGEP(DestPtr, StoreOffset),
-          CGF.Builder.CreateConstInBoundsByteGEP(SrcPtr, StoreOffset),
+          CGF.getTarget().isByteAddressable() ? CGF.Builder.CreateConstInBoundsByteGEP(DestPtr, StoreOffset) : DestPtr,
+          CGF.getTarget().isByteAddressable() ? CGF.Builder.CreateConstInBoundsByteGEP(SrcPtr, StoreOffset) : SrcPtr,
           StoreSizeVal, false, CGF.getTarget().isByteAddressable());
     }
 
@@ -577,8 +578,9 @@ static void EmitNullBaseClassInitialization(CodeGenFunction &CGF,
       CharUnits StoreOffset = Store.first;
       CharUnits StoreSize = Store.second;
       llvm::Value *StoreSizeVal = CGF.CGM.getSize(StoreSize);
+      assert(CGF.getTarget().isByteAddressable() || StoreOffset.isZero());
       CGF.Builder.CreateMemSet(
-          CGF.Builder.CreateConstInBoundsByteGEP(DestPtr, StoreOffset),
+          CGF.getTarget().isByteAddressable() ? CGF.Builder.CreateConstInBoundsByteGEP(DestPtr, StoreOffset) : DestPtr,
           CGF.Builder.getInt8(0), StoreSizeVal, false, CGF.getTarget().isByteAddressable());
     }
   }
