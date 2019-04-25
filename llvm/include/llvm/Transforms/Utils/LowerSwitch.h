@@ -17,9 +17,10 @@
 
 #include "llvm/IR/PassManager.h"
 
-void ProcessSwitchInst(SwitchInst *SI,
-                           SmallPtrSetImpl<BasicBlock *> &DeleteList,
-                           AssumptionCache *AC, LazyValueInfo *LVI);
+typedef bool (*KeepSwitch)(const SwitchInst* si);
+
+bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC, KeepSwitch* keepSwitch);
+
 namespace llvm {
 struct LowerSwitchPass : public PassInfoMixin<LowerSwitchPass> {
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
