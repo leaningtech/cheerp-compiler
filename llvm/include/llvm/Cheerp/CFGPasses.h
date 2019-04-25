@@ -44,6 +44,11 @@ FunctionPass *createRemoveFwdBlocksPass();
 // CheerpLowerSwitch
 //
 FunctionPass* createCheerpLowerSwitchPass();
+//===----------------------------------------------------------------------===//
+//
+// FixFunctionCasts
+//
+ModulePass* createFixFunctionCastsPass();
 
 }
 
