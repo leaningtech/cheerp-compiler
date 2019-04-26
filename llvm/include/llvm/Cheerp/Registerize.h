@@ -103,9 +103,9 @@ public:
 	}
 	void dump() const
 	{
-		llvm::errs() << std::string(N, ' ') << "\t\t\tnum(1)\t\tnum(x)\n";
 		for (uint32_t i=0; i<N; i++)
 		{
+			llvm::errs() << "| | ";
 			for (uint32_t j=0; j<N; j++)
 			{
 				bool isFriend = false;
@@ -126,9 +126,9 @@ public:
 				else
 					llvm::errs() << ".";
 			}
-			llvm::errs()<<"\t\t\t"<<constraints[i].count() << "\t\t"<<friends[i].size() << "\n";
+			llvm::errs()<<"\n";
 		}
-		llvm::errs() << "1 = constraints |  x = friendships | . = nothing\n\n";
+		llvm::errs() << "| | 1 = constraints |  x = friendships | . = nothing\n| L"<<std::string(40, '-')<<"\n";
 	}
 	const Coloring& getSolution() const
 	{
@@ -650,6 +650,10 @@ private:
 		}
 		void printChoicesMade() const
 		{
+			if (choicesMade.empty())
+			{
+				llvm::errs() << "none";
+			}
 			for (uint32_t i=0; i<choicesMade.size(); i++)
 			{
 				llvm::errs() << (choicesMade[i]?"1":"0");
@@ -872,7 +876,7 @@ public:
 	bool perform();
 	void dumpDescription() const
 	{
-		llvm::errs() <<std::string(instance.depthRecursion, ' ')<< reductionName() << "   ";
+		llvm::errs() <<"|"<<std::string(instance.depthRecursion, ' ')<< reductionName() << "   ";
 		getDerived()->dumpSpecificDescription();
 		llvm::errs() << "\n";
 	}
