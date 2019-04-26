@@ -641,7 +641,7 @@ void VertexColorer::DFSwithLimitedDepth(SearchState& state)
 			if (state.improveScore(localSolution))
 			{
 #ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
-				llvm:: errs() << "\t"<< computeNumberOfColors(colors) <<"\t"<<state.minimalNumberOfColors<< "\t" << localSolution.first <<"\t";
+				llvm:: errs() << "|\tCurrent state evaluated: \tcolors="<< computeNumberOfColors(colors) <<" (minimal is "<<state.minimalNumberOfColors<< ")\t\t score=" << localSolution.first <<"\t\tchoices made up to now = ";
 				state.printChoicesMade();
 				llvm::errs () << "\n";
 #endif
@@ -797,7 +797,7 @@ void VertexColorer::iterativeDeepening(IterationsCounter& counter)
 	while (counter.remaining()>0 && depth <= friendships.size())
 	{
 #ifdef REGISTERIZE_DEBUG_EXAUSTIVE_SEARCH
-		llvm::errs() << "--------------------- starting at "<<previousDepth<<" up to reaching " <<depth<<"\n";
+		llvm::errs() << "| ----- Exaustive search starting at depths "<<previousDepth<<" - " <<depth<<"\n";
 #endif
 		SearchState state(best, lowerBound, counter.remaining(), depth, previousDepth, positiveFriendships, costPerColor);
 		DFSwithLimitedDepth(state);
@@ -1348,7 +1348,7 @@ bool Reduction<Derived>::perform()
 
 #ifdef REGISTERIZE_DEBUG
 	//Dump informations
-	derived.dumpDescription();
+	derive.dumpDescription();
 #endif
 #ifdef REGISTERIZE_STATS
 	REGISTERIZE_STATISTICS_ON_REDUCTIONS[derived.id()].add(instance.N);
@@ -2674,14 +2674,15 @@ void VertexColorer::solveInvariantsAlreadySet()
 	const Coloring& colors = retColors;
 	if (colors.size() > 1)
 	{
-		llvm::errs() << std::string(depthRecursion, ' ') << "Solving subproblem of size\t" << colors.size() << ":\t(score/colors/iterations)\t"; 
-		llvm::errs() << computeScore(colors, lowerBoundOnNumberOfColors(/*forceEvaluation*/true)) <<"\t" << lowerBoundOnNumberOfColors(/*forceEvaluation*/true) << "/"<<computeNumberOfColors(colors)<<"\t\t";
-		for (uint32_t i=0; i<debugStats.size(); i++)
-		{
-			llvm::errs () << debugStats[i] << "\t";
-		}
+		llvm::errs() <<"|"<< std::string(depthRecursion, ' ') << "Solving subproblem of size\t" << colors.size() << ":\tscore="; 
+		llvm::errs() << computeScore(colors, lowerBoundOnNumberOfColors(/*forceEvaluation*/true)) <<"\tcolors (minimal/current)=" << lowerBoundOnNumberOfColors(/*forceEvaluation*/true) << "/"<<computeNumberOfColors(colors)<<"\n";
+		llvm::errs() << "| |\t\t";
+		llvm::errs() << "greedy evaluations=" << debugStats[GREEDY_EVALUATIONS] << "\t";
+		llvm::errs() << "node visited=" << debugStats[NODE_VISITED] << "\t";
+		llvm::errs() << "forced union=" << debugStats[CONTRACTIONS] << "\t";
+		llvm::errs() << "forced separation=" << debugStats[SEPARATIONS] << "\t";
 		if (counter.remaining() == 0)
-			llvm::errs() << "\tsearch not exausted";
+			llvm::errs() << "search not exausted";
 		llvm::errs() << "\n";
 		dump();
 	}
