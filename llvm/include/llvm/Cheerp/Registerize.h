@@ -1405,19 +1405,7 @@ private:
 		{
 			//TODO: possibly store the computed values to avoid recalculations
 		}
-		uint32_t getWeight(const llvm::BasicBlock* A, const llvm::BasicBlock* B) const
-		{
-			//Takes a phi_edge as input, return his weight
-
-			//TODO: change this to find the common loop between the two edges (or it is already like this?)
-			const uint32_t depth = std::min(LI->getLoopDepth(A), LI->getLoopDepth(B));
-			uint32_t res = 1;
-			for (uint32_t i=0; i<depth && res < 100000; i++)
-			{
-				res *= 10;
-			}
-			return res;
-		}
+		uint32_t getWeight(const llvm::BasicBlock* from, const llvm::BasicBlock* to) const;
 	private:
 		llvm::LoopInfo* LI;
 	};

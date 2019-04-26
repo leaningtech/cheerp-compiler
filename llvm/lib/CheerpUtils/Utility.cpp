@@ -952,6 +952,59 @@ bool needsSecondaryName(const Value* V, const PointerAnalyzer& PA)
 	return false;
 }
 
+const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBlock* first, const llvm::BasicBlock* second)
+{
+	//Find the innermost common loop between two BB.
+	//Note that nullptr is returned when there are no common loops
+
+	struct LoopAndDepth
+	{
+		LoopAndDepth(const llvm::BasicBlock* BB, const llvm::LoopInfo* LI)
+			: LI(LI), loop(LI->getLoopFor(BB)), depth(getDepth(loop))
+		{}
+		uint32_t getDepth(const llvm::Loop* loop)
+		{
+			if (loop == nullptr)
+				return 0;
+			return loop->getLoopDepth();
+		}
+		void stepBack()
+		{
+			assert(depth && loop);
+			--depth;
+			loop = loop->getParentLoop();
+		}
+		const llvm::LoopInfo* LI;
+		const llvm::Loop* loop;
+		uint32_t depth;
+	};
+
+	LoopAndDepth A(first, LI);
+	LoopAndDepth B(second, LI);
+
+	//If they are in a common loop, it should have the same depth
+	while (A.depth != B.depth)
+	{
+		if (A.depth > B.depth)
+			A.stepBack();
+		else
+			B.stepBack();
+	}
+
+	//And should also be in the same loop
+	while (A.loop && A.loop != B.loop)
+	{
+		A.stepBack();
+		B.stepBack();
+	}
+
+	assert(A.depth == B.depth);
+	assert(A.loop == B.loop);
+
+	//Either a common loop has been found, or we stopped since they were both NULL
+	return A.loop;
+}
+
 Instruction* findCommonInsertionPoint(Instruction* I, DominatorTree* DT, Instruction* currentInsertionPoint, Instruction* user)
 {
 	if(PHINode* phi = dyn_cast<PHINode>(user))
