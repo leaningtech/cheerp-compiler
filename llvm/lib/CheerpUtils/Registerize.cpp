@@ -523,6 +523,19 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	return registers.size();
 }
 
+uint32_t Registerize::FrequencyInfo::getWeight (const llvm::BasicBlock* from, const llvm::BasicBlock* to) const
+{
+	//Takes a phi_edge as input, return his weight calculated as 10^(depth of the edge)
+	const llvm::Loop* loop = findCommonLoop(LI, from, to);
+	const uint32_t depth = loop ? loop->getLoopDepth() : 0;
+	uint32_t res = 1;
+	for (uint32_t i=0; i<depth && res < 100000; i++)
+	{
+		res *= 10;
+	}
+	return res;
+}
+
 Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, const InstIdMapTy& instIdMap, const LiveRangesTy& liveRanges, const PointerAnalyzer& PA, Registerize* registerize)
 	: F(F_), registerize(registerize), PA(PA), emptyFunction(false), frequencyInfo(F, registerize->LI)
 {

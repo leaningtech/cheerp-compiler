@@ -15,6 +15,7 @@
 #include <cctype>
 #include <set>
 #include <unordered_set>
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
@@ -205,6 +206,8 @@ inline bool isFreeFunctionName(llvm::StringRef name)
 {
 	return name=="free" || name=="_ZdlPv" || name=="_ZdaPv";
 }
+
+const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBlock* A, const llvm::BasicBlock* B);
 
 /**
  * Find out the lowest insertion point for an instruction which is used in multiple places
