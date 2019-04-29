@@ -2204,6 +2204,16 @@ void Interpreter::callFunction(Function *F, ArrayRef<GenericValue> ArgVals) {
   StackFrame.CurBB     = &F->front();
   StackFrame.CurInst   = StackFrame.CurBB->begin();
 
+  if((ArgVals.size() != F->arg_size() &&
+         !(ArgVals.size() > F->arg_size() && F->getFunctionType()->isVarArg())) &&
+         ForPreExecute)
+  {
+    errs() << "Invalid number of values passed to function invocation!\n";
+    errs() << "Trying to call " << F->getName()<<"\n";
+    printCallTrace();
+    CleanAbort = true;
+    return;
+  }
   // Run through the function arguments and initialize their values...
   assert((ArgVals.size() == F->arg_size() ||
          (ArgVals.size() > F->arg_size() && F->getFunctionType()->isVarArg()))&&
