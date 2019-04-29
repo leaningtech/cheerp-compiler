@@ -1211,10 +1211,10 @@ public:
 		}
 		void extendOrPush(const LiveRangeChunk& chunk)
 		{
-			if (empty() || peekLast() != chunk.start)
+			if (empty() || peekLast() < chunk.start)
 				push_back(chunk);
 			else
-				back().end = chunk.end;
+				back().end = std::max(back().end, chunk.end);
 		}
 	};
 
