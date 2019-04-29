@@ -864,33 +864,54 @@ void EndOfBlockPHIHandler::runOnPHI(PHIRegs& phiRegs, uint32_t regId, const llvm
 	regData.status=PHIRegData::VISITED;
 }
 
+uint32_t EndOfBlockPHIHandler::countIncomingRegisters(const uint32_t current, const std::vector<uint32_t>& registerIds, const IncomingRegs& incomingRegs)
+{
+	uint32_t countIncoming = 0;
+	assert(std::is_sorted(incomingRegs.begin(), incomingRegs.end(), [](const std::pair<uint32_t, const Instruction*>& a, const std::pair<uint32_t, const Instruction*>& b)->bool
+				{
+					return a.first < b.first;
+				}));
+	uint32_t i=0;
+	uint32_t j=0;
+	while (i < registerIds.size() && j < incomingRegs.size())
+	{
+		if (registerIds[i] == incomingRegs[j].first)
+		{
+			if (current != incomingRegs[j].first)
+				countIncoming++;
+			while (j < incomingRegs.size() && registerIds[i] == incomingRegs[j].first)
+			{
+				++j;
+			}
+			++i;
+		}
+		else if (registerIds[i] < incomingRegs[j].first)
+			++i;
+		else
+			++j;
+	}
+	return countIncoming;
+}
+
 void EndOfBlockPHIHandler::runOnSCC(const std::vector<uint32_t>& registerIds, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs)
 {
-	//TODO: better greedy strategy (better ordering, could help in certain cases for example A->B, B->A, B->C, C->B.
-	//Here starting from B leads to 2 temp while starting from A or C leads to only 1)
-	//instead of picking the first, pick the one with more outgoing edges
+	assert(std::is_sorted(registerIds.begin(), registerIds.end()));
 
-	uint32_t whoToCalculate = 0;
-
-	std::map<uint32_t, std::set<uint32_t>> S;
-	std::set<uint32_t> K(registerIds.begin(), registerIds.end());
-
-	for (auto& X : phiRegs)
+	//Find what phi to process first (the one with more incoming registers)
+	//TODO: possibly it could be improved to count even itself if a temporary is needed for selfreferencing
+	std::pair<uint32_t, uint32_t> best({0,0});
+	uint32_t k =0;
+	for (const auto& X : phiRegs)
 	{
-		for (const auto& pair : X.second.incomingRegs)
-		{
-			if (K.count(X.first) && K.count(pair.first) && X.first != pair.first)
-				S[X.first].insert(pair.first);
-		}
-	}
+		if (k == registerIds.size() || X.first != registerIds[k])
+			continue;
+		++k;
 
-	for (uint32_t i=0; i<registerIds.size(); i++)
-	{
-		if (S[registerIds[i]].size() > S[registerIds[whoToCalculate]].size())
-			whoToCalculate = i;
+		best = std::max(best, {countIncomingRegisters(X.first, registerIds, X.second.incomingRegs), X.first});
 	}
+	const uint32_t whoToProcess = best.second;
 
-	//TODO: possibly even if a temporary is needed for selfreferencing
+	//If the SCC is a multi-node loop, there is need to create a temporary
 	if (registerIds.size() > 1)
 	{
 		const Instruction* incoming = phiRegs.at(whoToProcess).incomingInst;
@@ -899,34 +920,33 @@ void EndOfBlockPHIHandler::runOnSCC(const std::vector<uint32_t>& registerIds, PH
 		edgeContext.processAssigment();
 	}
 
-	setRegisterUsed(registerIds[whoToCalculate]);
-	const PHINode* phi=phiRegs.at(registerIds[whoToCalculate]).phiInst;
+	setRegisterUsed(whoToProcess);
+	const PHINode* phi=phiRegs.at(whoToProcess).phiInst;
 	const Value* val=phi->getIncomingValueForBlock(edgeContext.fromBB);
 	// Call specialized function to process the actual assignment to the PHI
-	handlePHI(phi, val, phiRegs.at(registerIds[whoToCalculate]).selfReferencing);
+	handlePHI(phi, val, phiRegs.at(whoToProcess).selfReferencing);
 	edgeContext.processAssigment();
 
-	for (const auto& pair : phiRegs.at(registerIds[whoToCalculate]).incomingRegs)
+	for (const auto& pair : phiRegs.at(whoToProcess).incomingRegs)
 	{
 		removeRegisterUse(pair.first);
 	}
-	if (phiRegs.at(registerIds[whoToCalculate]).selfReferencing)
+	if (phiRegs.at(whoToProcess).selfReferencing)
 	{
-		removeRegisterUse(registerIds[whoToCalculate]);
+		removeRegisterUse(whoToProcess);
 	}
 
+	//If there are other nodes, solve them recursively on the graph with the current node removed
 	if (registerIds.size() > 1)
 	{
-		//Examine the remaining nodes
 		PHIRegs filteredPhiRegs;
-		uint32_t CCC = 0;
 		for (uint32_t id : registerIds)
 		{
-			if (CCC++ == whoToCalculate)
+			if (id == whoToProcess)
 				continue;
 			filteredPhiRegs.insert(std::make_pair(id, PHIRegData(phiRegs.at(id).phiInst, phiRegs.at(id).incomingRegs, phiRegs.at(id).selfReferencing)));
 		}
-		runOnConnectionGraph(DependencyGraph(filteredPhiRegs, registerIds[whoToCalculate]), phiRegs, orderedPHIs);
+		runOnConnectionGraph(DependencyGraph(filteredPhiRegs, whoToProcess), phiRegs, orderedPHIs);
 	}
 }
 
@@ -958,9 +978,10 @@ void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph,
 
 	reverse(regions.begin(), regions.end());
 
-	for (const std::vector<uint32_t>& registerIds : regions)
+	for (std::vector<uint32_t>& registerIds : regions)
 	{
 		assert(!registerIds.empty());
+		sort(registerIds.begin(), registerIds.end());
 		runOnSCC(registerIds, phiRegs, orderedPHIs);
 	}
 }
