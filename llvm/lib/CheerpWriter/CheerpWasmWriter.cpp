@@ -3789,9 +3789,12 @@ void CheerpWasmWriter::compileExportSection()
 		exports.push_back(entry);
 	}
 
-	if (llvm::Function* _start = module.getFunction("_start"))
-		exports.push_back(_start);
-
+	// Add the static constructors
+	for (const Function * F : globalDeps.constructors() )
+	{
+		if (F->getSection() == StringRef("asmjs"))
+			exports.push_back(F);
+	}
 	// Add the list of asmjs-exported functions.
 	exports.insert(exports.end(), globalDeps.asmJSExports().begin(),
 			globalDeps.asmJSExports().end());
