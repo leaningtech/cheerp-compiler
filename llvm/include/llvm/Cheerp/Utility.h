@@ -742,14 +742,6 @@ private:
 
 class EndOfBlockPHIHandler
 {
-public:
-	EndOfBlockPHIHandler(const PointerAnalyzer& PA, EdgeContext& edgeContext);
-	void runOnEdge(const Registerize& registerize, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB);
-protected:
-	const PointerAnalyzer& PA;
-	EdgeContext& edgeContext;
-	virtual ~EndOfBlockPHIHandler();
-private:
 	struct PHIRegData
 	{
 		const llvm::PHINode* phiInst;
@@ -757,29 +749,13 @@ private:
 		enum STATUS { NOT_VISITED=0, VISITING, VISITED };
 		STATUS status;
 		bool selfReferencing;
-		PHIRegData(const llvm::PHINode* p, llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2>&& r, bool selfReferencing):
-			phiInst(p), incomingRegs(std::move(r)), status(NOT_VISITED), selfReferencing(selfReferencing)
+		PHIRegData(const llvm::PHINode* p, const llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2>& r, bool selfReferencing):
+			phiInst(p), incomingRegs(r), status(NOT_VISITED), selfReferencing(selfReferencing)
 		{
 			sort(incomingRegs.begin(), incomingRegs.end());
-			incomingRegs.erase(std::unique(incomingRegs.begin(), incomingRegs.end()), incomingRegs.end());
-			for (uint32_t i=1; i<incomingRegs.size(); i++)
-			{
-				assert(incomingRegs[i-1].first != incomingRegs[i].first);
-				assert(incomingRegs[i-1].second != incomingRegs[i].second);
-			}
 		}
 	};
 	typedef std::map<uint32_t, PHIRegData> PHIRegs;
-	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
-	// Callbacks implemented by derived classes
-	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
-	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
-	// Called for every register which is either assigned or used by PHIs in the edge
-	virtual void setRegisterUsed(uint32_t reg) {};
-	virtual void addRegisterUse(uint32_t reg) {};
-	virtual void removeRegisterUse(uint32_t reg) {};
-	virtual void resetRegistersState() {};
-
 public:
 	class DependencyGraph;
 	struct GraphNode {
@@ -814,7 +790,7 @@ public:
 	public:
 		typedef std::unordered_map<uint32_t, GraphNode> NodeMap;
 
-		explicit DependencyGraph(const PHIRegs& PHIData): PHIData(PHIData)
+		explicit DependencyGraph(const PHIRegs& PHIData, uint32_t toSkip = -1): PHIData(PHIData), toSkip(toSkip)
 		{
 		}
 		uint32_t getEntry() const
@@ -823,7 +799,7 @@ public:
 		}
 		bool shouldBeRepresented(const uint32_t id) const
 		{
-			return PHIData.count(id);
+			return PHIData.count(id) && id != toSkip;
 		}
 	private:
 		GraphNode* getOrCreate(uint32_t id)
@@ -840,7 +816,27 @@ public:
 
 		const PHIRegs& PHIData;
 		NodeMap Nodes;
+		const uint32_t toSkip;
 	};
+	EndOfBlockPHIHandler(const PointerAnalyzer& PA, EdgeContext& edgeContext);
+	void runOnEdge(const Registerize& registerize, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB);
+protected:
+	const PointerAnalyzer& PA;
+	EdgeContext& edgeContext;
+	virtual ~EndOfBlockPHIHandler();
+private:
+	void runOnSCC(const std::vector<uint32_t>& registerIds, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
+	void runOnConnectionGraph(DependencyGraph dependecyGraph, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
+	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
+	// Callbacks implemented by derived classes
+	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
+	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
+	// Called for every register which is either assigned or used by PHIs in the edge
+	virtual void setRegisterUsed(uint32_t reg) {};
+	virtual void addRegisterUse(uint32_t reg) {};
+	virtual void reportRegisterUse() const {};
+	virtual void removeRegisterUse(uint32_t reg) {};
+	virtual void resetRegistersState() {};
 };
 
 template<class U, class V>
