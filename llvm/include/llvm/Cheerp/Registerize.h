@@ -849,7 +849,7 @@ private:
 	friend class RemoveFewConstraints;
 	friend class RemoveDominated;
 	friend class SplitArticulation;
-	friend class SplitConflictingBase;
+	template <typename T> friend class SplitConflictingBase;
 	friend class SplitUnconnected;
 	friend class SplitInverseUnconnected;
 public:
@@ -867,17 +867,17 @@ class Reduction
 public:
 	std::string reductionName() const
 	{
-		return VertexColorer::reductionPassesNames(getDerived()->id());
+		return VertexColorer::reductionPassesNames(getDerived().id());
 	}
 	bool couldBeAvoided() const
 	{
-		return instance.avoidPass[getDerived()->id()];
+		return instance.avoidPass[getDerived().id()];
 	}
 	bool perform();
 	void dumpDescription() const
 	{
 		llvm::errs() <<"|"<<std::string(instance.depthRecursion, ' ')<< reductionName() << "   ";
-		getDerived()->dumpSpecificDescription();
+		getDerived().dumpSpecificDescription();
 		llvm::errs() << "\n";
 	}
 	VertexColorer& instance;
@@ -890,13 +890,13 @@ private:
 	Reduction(VertexColorer& instance)
 		: instance(instance)
 	{}
-	Derived* getDerived()
+	Derived& getDerived()
 	{
-		return static_cast<Derived*>(this);
+		return *static_cast<Derived*>(this);
 	}
-	const Derived* getDerived() const
+	const Derived& getDerived() const
 	{
-		return static_cast<const Derived*>(this);
+		return *static_cast<const Derived*>(this);
 	}
 };
 
@@ -1048,14 +1048,10 @@ private:
 	std::vector<VertexColorer> subproblems;
 };
 
-class SplitConflictingBase : public Reduction<SplitConflictingBase>
+template<typename Derived>
+class SplitConflictingBase : public Reduction<SplitConflictingBase<Derived>>
 {
 public:
-	SplitConflictingBase(VertexColorer& instance, const bool conflicting)
-		: Reduction(instance), conflicting(conflicting), newIndex(instance.N, 0), whichSubproblem(instance.N, 0), numerositySubproblem(instance.N, 0)
-	{}
-	virtual ~SplitConflictingBase()
-	{}
 	bool couldBePerformed();
 	bool couldBePerformedPhiEdges();
 	void reduce();
@@ -1063,10 +1059,23 @@ public:
 	void dumpSubproblems() const;
 	void dumpSpecificDescription() const;
 	void buildSubproblems();
-	virtual void preprocessing(VertexColorer& subsolution) const = 0;
-	virtual void postprocessing(VertexColorer& subsolution) = 0;
-	virtual uint32_t id() const = 0;
+	uint32_t id() const
+	{
+		return getDerived().id();
+	}
 private:
+	friend Derived;
+	SplitConflictingBase(VertexColorer& instance, const bool conflicting)
+		: Reduction<SplitConflictingBase<Derived>>(instance), conflicting(conflicting), newIndex(instance.N, 0), whichSubproblem(instance.N, 0), numerositySubproblem(instance.N, 0)
+	{}
+	Derived& getDerived()
+	{
+		return *static_cast<Derived*>(this);
+	}
+	const Derived& getDerived() const
+	{
+		return *static_cast<const Derived*>(this);
+	}
 	const bool conflicting;
 	llvm::IntEqClasses eqClasses;
 	std::vector<uint32_t> newIndex;
@@ -1075,7 +1084,7 @@ private:
 	std::vector<VertexColorer> subproblems;
 };
 
-class SplitUnconnected : public SplitConflictingBase
+class SplitUnconnected : public SplitConflictingBase<SplitUnconnected>
 {
 public:
 	SplitUnconnected(VertexColorer& instance)
@@ -1091,7 +1100,7 @@ private:
 	uint32_t sumColors;
 };
 
-class SplitInverseUnconnected : public SplitConflictingBase
+class SplitInverseUnconnected : public SplitConflictingBase<SplitInverseUnconnected>
 {
 public:
 	SplitInverseUnconnected(VertexColorer& instance)
