@@ -2563,13 +2563,15 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	class WriterPHIHandler: public EndOfBlockPHIHandler
 	{
 	public:
-		WriterPHIHandler(CheerpWriter& w):EndOfBlockPHIHandler(w.PA, w.edgeContext),writer(w)
+		WriterPHIHandler(CheerpWriter& w, const Function* F):
+			EndOfBlockPHIHandler(w.PA, w.edgeContext),writer(w),asmjs(F->getSection() == StringRef("asmjs"))
 		{
 		}
 		~WriterPHIHandler()
 		{
 		}
 	private:
+		const bool asmjs;
 		CheerpWriter& writer;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
@@ -2662,13 +2664,27 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			}
 			else
 			{
-				writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
-				writer.compileOperand(incoming, LOWEST);
+				writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true);
+
+				const llvm::Instruction* instIncoming = dyn_cast<const Instruction>(incoming);
+				if (writer.registerize.getRegisterId(phi, EdgeContext::emptyContext()) == writer.registerize.getRegisterId(phi, edgeContext) &&
+						!asmjs &&
+						instIncoming &&
+						isInlineable(*instIncoming, PA) &&
+						writer.compileCompoundStatement(instIncoming, writer.registerize.getRegisterId(phi, edgeContext)))
+				{
+					//compileCompoundStattement whenever returns true has also written into the stream the appropriate operation
+				}
+				else
+				{
+					writer.stream << "=";
+					writer.compileOperand(incoming, LOWEST);
+				}
 			}
 			writer.stream << ';' << writer.NewLine;
 		}
 	};
-	WriterPHIHandler(*this).runOnEdge(registerize, from, to);
+	WriterPHIHandler(*this, from->getParent()).runOnEdge(registerize, from, to);
 }
 
 void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_iterator itE, ImmutableCallSite callV, bool forceBoolean)
@@ -4274,7 +4290,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 
 bool CheerpWriter::compileCompoundStatement(const Instruction* I, uint32_t regId)
 {
-	assert(edgeContext.isNull());
 	StringRef oper;
 	bool checkOp0 = false;
 	bool checkOp1 = false;
