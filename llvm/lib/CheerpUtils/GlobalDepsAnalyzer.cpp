@@ -500,7 +500,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		}
 	}
 
-	callGlobalConstructorsOnStart(module, *this);
+	// Create the start function only if we have a wasm module without js loader
+	if (!WasmFile.empty() && WasmLoader.empty())
+		callGlobalConstructorsOnStart(module, *this);
 
 	return true;
 }
