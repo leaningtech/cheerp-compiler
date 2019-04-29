@@ -26,7 +26,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cmath>
-#include <cxxabi.h>
 
 using namespace llvm;
 
@@ -1209,19 +1208,7 @@ void Interpreter::visitCallBase(CallBase &I) {
   {
     errs() << "Tried to execute inline asm: "
       << *SF.Caller.getCalledValue() << "\n";
-    errs() << "Call trace:\n";
-    for (auto& s: ECStack)
-    {
-      int status = 0;
-      char* demangled = abi::__cxa_demangle(s.CurFunction->getName().str().c_str(), 0, 0, &status);
-      errs() << '\t';
-      if (status == 0)
-        errs() << demangled;
-      else
-        errs() << s.CurFunction->getName();
-      free(demangled);
-      errs() <<"\n";
-    }
+    printCallTrace();
     CleanAbort = true;
     return;
   }
