@@ -2543,6 +2543,8 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 		const Registerize& registerize;
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
+			//Whenever we need to move to a temporary, we will also need to materialize the block
+			needsPointerKindConversion = true;
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
 		{
