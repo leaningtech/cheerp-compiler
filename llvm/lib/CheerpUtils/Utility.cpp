@@ -958,25 +958,26 @@ void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph,
 	//4. Use a greedy strategy to minimize the number of temporary needed inside a given SCC
 	// Note that since we process SCC in order, we are free to recycle temporary registers eventually created
 
-	std::vector<std::vector<uint32_t>> regions;
+	std::deque<std::vector<uint32_t>> regions;
 
 	for (auto& SCC: make_range(scc_begin(&dependencyGraph), scc_end(&dependencyGraph)))
 	{
-		regions.push_back(std::vector<uint32_t>());
-		//TODO: currently the order is the one found by the scc_iterator. It could be possible to investigate whether better choices leads to even less copyies
+		std::vector<uint32_t> region;
 		//Collect register ids in the current Strongly Connected Components
 		for (auto & node : SCC)
 		{
 			if (node->registerId == dependencyGraph.getEntry())
-			{
-				regions.pop_back();
-				continue;
-			}
-			regions.back().push_back(node->registerId);
+				break;
+			region.push_back(node->registerId);
 		}
+		if (region.empty())
+			continue;
+		//Single nodes that do not depends on other registers should be processed last
+		if (region.size() == 1 && countIncomingRegisters(region.front(), dependencyGraph.listRegisters(), phiRegs.at(region.front()).incomingRegs) == 0)
+			regions.push_back(region);
+		else
+			regions.push_front(region);
 	}
-
-	reverse(regions.begin(), regions.end());
 
 	for (std::vector<uint32_t>& registerIds : regions)
 	{

@@ -799,6 +799,16 @@ public:
 		{
 			return -1;
 		}
+		std::vector<uint32_t> listRegisters() const
+		{
+			std::vector<uint32_t> res;
+			for (const auto& x : PHIData)
+			{
+				res.push_back(x.first);
+			}
+			assert(std::is_sorted(res.begin(), res.end()));
+			return res;
+		}
 		bool shouldBeRepresented(const uint32_t id) const
 		{
 			return PHIData.count(id) && id != toSkip;
