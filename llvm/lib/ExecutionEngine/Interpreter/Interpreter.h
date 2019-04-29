@@ -22,6 +22,7 @@
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include <cxxabi.h>
 
 namespace llvm {
 
@@ -122,6 +123,21 @@ public:
   }
 
   bool hasFailed() const override { return CleanAbort; }
+  void printCallTrace() const override {
+    errs() << "Call trace:\n";
+    for (auto& s: ECStack)
+    {
+      int status = 0;
+      char* demangled = abi::__cxa_demangle(s.CurFunction->getName().str().c_str(), 0, 0, &status);
+      errs() << '\t';
+      if (status == 0)
+        errs() << demangled;
+      else
+        errs() << s.CurFunction->getName();
+      free(demangled);
+      errs() <<"\n";
+    }
+  }
   void resetFailed() override { ECStack.clear(); CleanAbort = false; }
 
   // Methods used to execute code:
