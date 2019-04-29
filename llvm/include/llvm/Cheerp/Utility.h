@@ -742,11 +742,12 @@ private:
 
 class EndOfBlockPHIHandler
 {
+	typedef llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2> IncomingRegs;
 	struct PHIRegData
 	{
 		const llvm::PHINode* phiInst;
 		const llvm::Instruction* incomingInst;
-		llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2> incomingRegs;
+		IncomingRegs incomingRegs;
 		enum STATUS { NOT_VISITED=0, VISITING, VISITED };
 		STATUS status;
 		bool selfReferencing;
@@ -826,6 +827,7 @@ protected:
 	EdgeContext& edgeContext;
 	virtual ~EndOfBlockPHIHandler();
 private:
+	static uint32_t countIncomingRegisters(const uint32_t current, const std::vector<uint32_t>& registerIds, const IncomingRegs& incomingRegs);
 	void runOnSCC(const std::vector<uint32_t>& registerIds, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
 	void runOnConnectionGraph(DependencyGraph dependecyGraph, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
 	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
