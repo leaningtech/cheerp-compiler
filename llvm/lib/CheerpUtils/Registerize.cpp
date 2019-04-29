@@ -1333,7 +1333,7 @@ void VertexColorer::permuteFirstElements(Coloring& coloring, const uint32_t N)
 template<typename Derived>
 bool Reduction<Derived>::perform()
 {
-	Derived& derived = *getDerived();
+	Derived& derived = getDerived();
 
 	if (derived.couldBeAvoided())
 		return false;
@@ -1967,7 +1967,8 @@ bool SplitArticulation::couldBePerformed()
 	return !articulations.empty();
 }
 
-bool SplitConflictingBase::couldBePerformed()
+template<typename Derived>
+bool SplitConflictingBase<Derived>::couldBePerformed()
 {
 
 	//If the graph can be divided in unconnected areas, do so and recombine the partial solutions
@@ -1976,20 +1977,20 @@ bool SplitConflictingBase::couldBePerformed()
 	//	in this case when combining the subsolutions, colors should be keept separated between sub-solutions (since it is guaranteed they conflict)
 	//-two node are connected if there is a constraint or a non-zero friendship between them
 	//	in this case the same colors can be reused, since there are no possible conflicts
-	assert(instance.areAllAlive());
+	assert(this->instance.areAllAlive());
 
-	eqClasses.grow(instance.N);
-	llvm::BitVector region(instance.N, false);
-	llvm::BitVector processed(instance.N, false);
+	eqClasses.grow(this->instance.N);
+	llvm::BitVector region(this->instance.N, false);
+	llvm::BitVector processed(this->instance.N, false);
 
-	for (uint32_t i=0; i<instance.N; i++)
+	for (uint32_t i=0; i<this->instance.N; i++)
 	{
 		if (processed[i])
 			continue;
 
-		instance.floodFillOnBits(region, i, conflicting);
+		this->instance.floodFillOnBits(region, i, conflicting);
 		processed |= region;
-		for (uint32_t j=0; j<instance.N; j++)
+		for (uint32_t j=0; j<this->instance.N; j++)
 		{
 			if (!region[j])
 				continue;
@@ -2007,18 +2008,19 @@ bool SplitArticulation::couldBePerformedPhiEdges()
 	return whichSubproblem.front() != instance.N;
 }
 
-bool SplitConflictingBase::couldBePerformedPhiEdges()
+template<typename Derived>
+bool SplitConflictingBase<Derived>::couldBePerformedPhiEdges()
 {
 	eqClasses.uncompress();
 
-	for (const auto& E : instance.groupedLinks)
+	for (const auto& E : this->instance.groupedLinks)
 	{
-		uint32_t edgeLeader = instance.N;
+		uint32_t edgeLeader = this->instance.N;
 		for (const VertexColorer::Link& link : E)
 		{
 			const uint32_t a = link.first;
 			const uint32_t b = link.second;
-			if (edgeLeader == instance.N)
+			if (edgeLeader == this->instance.N)
 				edgeLeader = eqClasses.findLeader(a);
 			eqClasses.join(edgeLeader, a);
 			eqClasses.join(edgeLeader, b);
@@ -2035,7 +2037,8 @@ bool SplitConflictingBase::couldBePerformedPhiEdges()
 	return true;
 }
 
-void SplitConflictingBase::dumpSpecificDescription() const
+template<typename Derived>
+void SplitConflictingBase<Derived>::dumpSpecificDescription() const
 {
 	SplitConflictingBase::dumpSubproblems();
 }
@@ -2046,7 +2049,8 @@ void SplitArticulation::dumpSpecificDescription() const
 	SplitArticulation::dumpSubproblems();
 }
 
-void SplitConflictingBase::dumpSubproblems() const
+template<typename Derived>
+void SplitConflictingBase<Derived>::dumpSubproblems() const
 {
 	for (const uint32_t n : numerositySubproblem)
 	{
@@ -2100,10 +2104,11 @@ void SplitInverseUnconnected::postprocessing(VertexColorer& subsolution)
 	instance.improveLowerBound(subsolution.lowerBoundOnNumberOfColors());
 }
 
-void SplitConflictingBase::relabelNodes()
+template<typename Derived>
+void SplitConflictingBase<Derived>::relabelNodes()
 {
-	whichSubproblem = computeLeaders(eqClasses);
-	assignIndexes(whichSubproblem, numerositySubproblem, newIndex);
+	whichSubproblem = this->computeLeaders(eqClasses);
+	this->assignIndexes(whichSubproblem, numerositySubproblem, newIndex);
 }
 
 void SplitArticulation::relabelNodes()
@@ -2308,30 +2313,31 @@ void SplitArticulation::reduce()
 	}
 }
 
-void SplitConflictingBase::buildSubproblems()
+template<typename Derived>
+void SplitConflictingBase<Derived>::buildSubproblems()
 {
 	subproblems.reserve(eqClasses.getNumClasses());
 
 	for (const uint32_t dim : numerositySubproblem)
 	{
-		subproblems.push_back(VertexColorer(dim, instance));
+		subproblems.push_back(VertexColorer(dim, this->instance));
 	}
 
-	for (const VertexColorer::Link& link : instance.constraintIterable())
+	for (const VertexColorer::Link& link : this->instance.constraintIterable())
 	{
 		const uint32_t a = link.first;
 		const uint32_t b = link.second;
 		if (whichSubproblem[a] == whichSubproblem[b])
 			subproblems[whichSubproblem[a]].addConstraint(newIndex[a], newIndex[b]);
 	}
-	for (const VertexColorer::Link& link : instance.positiveWeightFriendshipIterable())
+	for (const VertexColorer::Link& link : this->instance.positiveWeightFriendshipIterable())
 	{
 		const uint32_t a = link.first;
 		const uint32_t b = link.second;
 		assert(whichSubproblem[a] == whichSubproblem[b]);
 		subproblems[whichSubproblem[a]].addFriendship(link.weight, newIndex[a], newIndex[b]);
 	}
-	for (const std::vector<VertexColorer::Link>& edge : instance.groupedLinks)
+	for (const std::vector<VertexColorer::Link>& edge : this->instance.groupedLinks)
 	{
 		for (VertexColorer& sub : subproblems)
 		{
@@ -2347,15 +2353,16 @@ void SplitConflictingBase::buildSubproblems()
 	}
 }
 
-void SplitConflictingBase::reduce()
+template<typename Derived>
+void SplitConflictingBase<Derived>::reduce()
 {
 	std::vector<VertexColorer::Coloring> solutions;
 
 	for (VertexColorer& sub : subproblems)
 	{
-		preprocessing(sub);
+		getDerived().preprocessing(sub);
 		sub.solve();
-		postprocessing(sub);
+		getDerived().postprocessing(sub);
 
 		solutions.push_back(sub.getSolution());
 	}
@@ -2369,10 +2376,10 @@ void SplitConflictingBase::reduce()
 		}
 	}
 
-	instance.retColors.resize(instance.N);
-	for (uint32_t i = 0; i<instance.N; i++)
+	this->instance.retColors.resize(this->instance.N);
+	for (uint32_t i = 0; i<this->instance.N; i++)
 	{
-		instance.retColors[i] = solutions[whichSubproblem[i]][newIndex[i]] + toAdd[whichSubproblem[i]];
+		this->instance.retColors[i] = solutions[whichSubproblem[i]][newIndex[i]] + toAdd[whichSubproblem[i]];
 	}
 }
 
