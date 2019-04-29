@@ -404,38 +404,25 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	// Assign registers for temporary values required to break loops in PHIs
 	class RegisterizePHIHandler: public EndOfBlockPHIHandler
 	{
-		enum REGISTER_STATUS{FREE=0, TEMPORARILY_USED=10000, USED=1000000};
+		enum REGISTER_STATUS{FREE=0, USED=-1u};
 	public:
-		RegisterizePHIHandler(const BasicBlock* f, const BasicBlock* t, Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs,
+		RegisterizePHIHandler(Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs,
 				const InstIdMapTy& i, const PointerAnalyzer& _PA, EdgeContext& edgeContext):
-			EndOfBlockPHIHandler(_PA, edgeContext), fromBB(f), toBB(t), registerize(r), PA(_PA),registers(rs),  instIdMap(i)
+			EndOfBlockPHIHandler(_PA, edgeContext), registerize(r), PA(_PA),registers(rs),  instIdMap(i)
 		{
 			// We should be carefull when using again the same tmpphi in the same edge
 			statusRegisters.resize(registers.size(), REGISTER_STATUS::FREE);
 		}
 	private:
-		const BasicBlock* fromBB;
-		const BasicBlock* toBB;
 		Registerize& registerize;
 		const PointerAnalyzer& PA;
 		llvm::SmallVector<RegisterRange, 4>& registers;
 		const InstIdMapTy& instIdMap;
 
-		std::vector<int> statusRegisters;
-		void resetRegistersState()
-		{
-			//The legacy algorithm do not enforce the right invariants on the orders on which phi are considered
-			assert(!RegisterizeLegacy);
-
-			//Reserved registers should be kept untouched, while used one could be used multiple times (eg. to store a temporary)
-			for (auto & state : statusRegisters)
-			{
-				if (state >= REGISTER_STATUS::TEMPORARILY_USED && state <= REGISTER_STATUS::USED/2)
-					state -= REGISTER_STATUS::TEMPORARILY_USED;
-			}
-		}
+		std::vector<uint32_t> statusRegisters;
 		uint32_t assignTempReg(uint32_t regId, Registerize::REGISTER_KIND kind, bool needsSecondaryName)
 		{
+			assert(statusRegisters.at(regId) != REGISTER_STATUS::FREE);
 			for(unsigned i=0;i<registers.size();i++)
 			{
 				if(registers[i].info.regKind != kind)
@@ -446,15 +433,16 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 				// The check on statusRegisters will skip all registers already assigned or used by PHIs
 				// we still need to make sure we are not interfering with registers which are
 				// alive across the whole range
-				assert(instIdMap.count(&(*toBB->begin())));
-				uint32_t beginOfToBlock = instIdMap.find(&(*toBB->begin()))->second;
+				assert(instIdMap.count(&(*edgeContext.toBB->begin())));
+				uint32_t beginOfToBlock = instIdMap.find(&(*edgeContext.toBB->begin()))->second;
+				assert(statusRegisters[i] == 0);
 				if(registers[i].range.doesInterfere(beginOfToBlock))
 				{
 					statusRegisters[i] = REGISTER_STATUS::USED;
 					continue;
 				}
 				// We can use this register for the tmpphi, make sure we don't use it twice
-				statusRegisters[i] = REGISTER_STATUS::TEMPORARILY_USED;
+				statusRegisters[i] = statusRegisters[regId];
 				registers[i].info.needsSecondaryName |= needsSecondaryName;
 				return i;
 			}
@@ -462,7 +450,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			// It is not a problem since we mark it as used in the block
 			uint32_t chosenReg = registers.size();
 			registers.push_back(RegisterRange(LiveRange(), kind, needsSecondaryName));
-			statusRegisters.push_back(REGISTER_STATUS::TEMPORARILY_USED);
+			statusRegisters.push_back(statusRegisters[regId]);
 			return chosenReg;
 		}
 		void handleRecursivePHIDependency(const Instruction* incoming) override
@@ -486,21 +474,37 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 			if(registerize.edgeRegistersMap.count(regId, edgeContext))
 				return;
 			uint32_t chosenReg = assignTempReg(regId, Registerize::INTEGER, false);
-			registerize.selfRefRegistersMap.insert(std::make_pair(InstOnEdge(fromBB, toBB, regId), chosenReg));
+			registerize.selfRefRegistersMap.insert(std::make_pair(InstOnEdge(edgeContext.fromBB, edgeContext.toBB, regId), chosenReg));
 		}
 		void setRegisterUsed(uint32_t regId) override
 		{
 			assert(regId < statusRegisters.size());
 			statusRegisters[regId] = REGISTER_STATUS::USED;
 		}
+		void reportRegisterUse() const override
+		{
+			int i = 0;
+			for (auto x : statusRegisters)
+			{
+				llvm::errs() << i++ << ":" << x << "  ";
+			}
+			llvm::errs() << "\n";
+		}
 		void addRegisterUse(uint32_t regId) override
 		{
 			assert(regId < statusRegisters.size());
+			if (statusRegisters[regId] == REGISTER_STATUS::USED)
+				return;
 			++statusRegisters[regId];
 		}
 		void removeRegisterUse(uint32_t regId) override
 		{
 			assert(regId < statusRegisters.size());
+			regId = registerize.edgeRegistersMap.findCurrentRegisterId(regId, edgeContext);
+			if (statusRegisters[regId] == REGISTER_STATUS::USED)
+				return;
+			assert(regId < statusRegisters.size());
+			assert(statusRegisters[regId]!=0);
 			--statusRegisters[regId];
 		}
 	};
@@ -520,7 +524,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 		{
 			//TODO: improve how thet are assigned
 			const BasicBlock* succBB=term->getSuccessor(i);
-			RegisterizePHIHandler(&bb, succBB, *this, registers, instIdMap, PA, edgeContext).runOnEdge(*this, &bb, succBB);
+			RegisterizePHIHandler(*this, registers, instIdMap, PA, edgeContext).runOnEdge(*this, &bb, succBB);
 		}
 	}
 #ifndef NDEBUG
