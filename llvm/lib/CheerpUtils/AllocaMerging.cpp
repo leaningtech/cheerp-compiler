@@ -41,6 +41,7 @@ void AllocaMergingBase::analyzeBlock(const cheerp::Registerize& registerize, Bas
 			if(AI->isArrayAllocation())
 				continue;
 			allocaInfos.push_back(std::make_pair(AI, registerize.getLiveRangeForAlloca(AI)));
+			assert(registerize.getLiveRangeForAlloca(AI).invariantsHold());
 		}
 	}
 }
