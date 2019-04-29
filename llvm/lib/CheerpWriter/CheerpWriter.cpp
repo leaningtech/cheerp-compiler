@@ -2578,7 +2578,9 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			{
 				writer.stream << writer.getSecondaryName(incoming);
 				writer.stream << '=';
+				edgeContext.undoAssigment();
 				writer.compilePointerOffset(incoming, LOWEST);
+				edgeContext.processAssigment();
 				writer.stream << ';' << writer.NewLine;
 			}
 			writer.stream << writer.getName(incoming);
