@@ -6093,17 +6093,12 @@ void CheerpWriter::makeJS()
 	}
 
 	//Call constructors
-	if (wasmFile.empty()) {
-		for (const Function * F : globalDeps.constructors() )
-		{
-			if (F->getSection() == StringRef("asmjs"))
-				stream << "__asm.";
-			stream << namegen.getName(F) << "();" << NewLine;
-		}
-	} else {
-		llvm::Function* entry = module.getFunction("_start");
-		if(entry)
-			stream << "__asm." << namegen.getName(entry) << "();" << NewLine;
+	for (const Function * F : globalDeps.constructors() )
+	{
+		bool asmjs = F->getSection() == StringRef("asmjs");
+		if (asmjs)
+			stream << "__asm.";
+		stream << namegen.getName(F) << "();" << NewLine;
 	}
 
 	//Invoke the entry point
