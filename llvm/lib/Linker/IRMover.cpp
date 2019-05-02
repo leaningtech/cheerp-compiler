@@ -115,24 +115,14 @@ void TypeMapTy::addTypeMapping(Type *DstTy, Type *SrcTy) {
 /// Recursively walk this pair of types, returning true if they are isomorphic,
 /// false if they are not.
 bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
+  // Two types with differing kinds are clearly not isomorphic.
+  if (DstTy->getTypeID() != SrcTy->getTypeID())
+    return false;
+
   // If we have an entry in the MappedTypes table, then we have our answer.
   Type *&Entry = MappedTypes[SrcTy];
   if (Entry)
     return Entry == DstTy;
-
-  // If this is an opaque struct type, special case it.
-  if (StructType *SSTy = dyn_cast<StructType>(SrcTy)) {
-    // Mapping an opaque type to any struct, just keep the dest struct.
-    if (SSTy->isOpaque()) {
-      Entry = DstTy;
-      SpeculativeTypes.push_back(SrcTy);
-      return true;
-    }
-  }
-
-  // Two types with differing kinds are clearly not isomorphic.
-  if (DstTy->getTypeID() != SrcTy->getTypeID())
-    return false;
 
   // Two identical types are clearly isomorphic.  Remember this
   // non-speculatively.
@@ -145,13 +135,18 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
 
   // If this is an opaque struct type, special case it.
   if (StructType *SSTy = dyn_cast<StructType>(SrcTy)) {
+    // Mapping an opaque type to any struct, just keep the dest struct.
+    if (SSTy->isOpaque()) {
+      Entry = DstTy;
+      SpeculativeTypes.push_back(SrcTy);
+      return true;
+    }
+
     // Mapping a non-opaque source type to an opaque dest.  If this is the first
     // type that we're mapping onto this destination type then we succeed.  Keep
     // the dest, but fill it in later. If this is the second (different) type
     // that we're trying to map onto the same opaque type then we fail.
     if (cast<StructType>(DstTy)->isOpaque()) {
-      if (!SSTy->getName().startswith(cast<StructType>(DstTy)->getName()))
-        return false;
       // We can only map one source type onto the opaque destination type.
       if (!DstResolvedOpaqueTypes.insert(cast<StructType>(DstTy)).second)
         return false;
@@ -335,6 +330,12 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
     if (STy->isOpaque()) {
       DstStructTypesSet.addOpaque(STy);
       return *Entry = Ty;
+    }
+
+    if (StructType *OldT =
+            DstStructTypesSet.findNonOpaque(ElementTypes, IsPacked)) {
+      STy->setName("");
+      return *Entry = OldT;
     }
 
     if (!AnyChange) {
@@ -819,12 +820,8 @@ void IRLinker::computeTypeMapping() {
     }
 
     auto STTypePrefix = getTypeNamePrefix(ST->getName());
-    if (STTypePrefix.size() == ST->getName().size()) {
-      // Add this type to the set of known destination types
-      if(!ST->isOpaque())
-        TypeMap.DstStructTypesSet.addNonOpaque(ST);
+    if (STTypePrefix.size() == ST->getName().size())
       continue;
-    }
 
     // Check to see if the destination module has a struct with the prefix name.
     StructType *DST = StructType::getTypeByName(ST->getContext(), STTypePrefix);
