@@ -745,12 +745,13 @@ class EndOfBlockPHIHandler
 	struct PHIRegData
 	{
 		const llvm::PHINode* phiInst;
+		const llvm::Instruction* incomingInst;
 		llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2> incomingRegs;
 		enum STATUS { NOT_VISITED=0, VISITING, VISITED };
 		STATUS status;
 		bool selfReferencing;
 		PHIRegData(const llvm::PHINode* p, const llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2>& r, bool selfReferencing):
-			phiInst(p), incomingRegs(r), status(NOT_VISITED), selfReferencing(selfReferencing)
+			phiInst(p), incomingInst(nullptr), incomingRegs(r), status(NOT_VISITED), selfReferencing(selfReferencing)
 		{
 			sort(incomingRegs.begin(), incomingRegs.end());
 		}
