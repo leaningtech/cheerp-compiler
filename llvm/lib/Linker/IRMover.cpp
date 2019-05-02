@@ -329,9 +329,10 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
     auto *STy = cast<StructType>(Ty);
 
     bool asmjs = STy->hasAsmJS();
+    bool ByteLayout = STy->hasByteLayout();
     bool IsPacked = STy->isPacked();
     if (IsUniqued)
-      return *Entry = StructType::get(Ty->getContext(), ElementTypes, IsPacked, DirectBase, /*ByteLayout*/false, asmjs);
+      return *Entry = StructType::get(Ty->getContext(), ElementTypes, IsPacked, DirectBase, ByteLayout, asmjs);
 
     // If the type is opaque, we can just use it directly.
     if (STy->isOpaque()) {
@@ -340,7 +341,7 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
     }
 
     if (StructType *OldT =
-            DstStructTypesSet.findNonOpaque(ElementTypes, IsPacked)) {
+            DstStructTypesSet.findNonOpaque(ElementTypes, DirectBase, IsPacked, ByteLayout, asmjs)) {
       STy->setName("");
       return *Entry = OldT;
     }
@@ -1496,11 +1497,11 @@ Error IRLinker::run() {
   return linkModuleFlagsMetadata();
 }
 
-IRMover::StructTypeKeyInfo::KeyTy::KeyTy(ArrayRef<Type *> E, bool P)
-    : ETypes(E), IsPacked(P) {}
+IRMover::StructTypeKeyInfo::KeyTy::KeyTy(ArrayRef<Type *> E, Type* D, bool P, bool B, bool A)
+    : ETypes(E), DirectBase(D), IsPacked(P), ByteLayout(B), AsmJS(A) {}
 
 IRMover::StructTypeKeyInfo::KeyTy::KeyTy(const StructType *ST)
-    : ETypes(ST->elements()), IsPacked(ST->isPacked()) {}
+    : ETypes(ST->elements()), DirectBase(ST->getDirectBase()), IsPacked(ST->isPacked()), ByteLayout(ST->hasByteLayout()), AsmJS(ST->hasAsmJS()) {}
 
 bool IRMover::StructTypeKeyInfo::KeyTy::operator==(const KeyTy &That) const {
   return IsPacked == That.IsPacked && ETypes == That.ETypes;
@@ -1561,8 +1562,11 @@ void IRMover::IdentifiedStructTypeSet::addOpaque(StructType *Ty) {
 
 StructType *
 IRMover::IdentifiedStructTypeSet::findNonOpaque(ArrayRef<Type *> ETypes,
-                                                bool IsPacked) {
-  IRMover::StructTypeKeyInfo::KeyTy Key(ETypes, IsPacked);
+                                                Type* DirectBase,
+                                                bool IsPacked,
+                                                bool ByteLayout,
+                                                bool AsmJS) {
+  IRMover::StructTypeKeyInfo::KeyTy Key(ETypes, DirectBase, IsPacked, ByteLayout, AsmJS);
   auto I = NonOpaqueStructTypes.find_as(Key);
   return I == NonOpaqueStructTypes.end() ? nullptr : *I;
 }
