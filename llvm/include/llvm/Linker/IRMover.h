@@ -27,8 +27,11 @@ class IRMover {
   struct StructTypeKeyInfo {
     struct KeyTy {
       ArrayRef<Type *> ETypes;
+      Type* DirectBase;
       bool IsPacked;
-      KeyTy(ArrayRef<Type *> E, bool P);
+      bool ByteLayout;
+      bool AsmJS;
+      KeyTy(ArrayRef<Type *> E, Type* D, bool P, bool B, bool A);
       KeyTy(const StructType *ST);
       bool operator==(const KeyTy &that) const;
       bool operator!=(const KeyTy &that) const;
@@ -56,7 +59,7 @@ public:
     void addNonOpaque(StructType *Ty);
     void switchToNonOpaque(StructType *Ty);
     void addOpaque(StructType *Ty);
-    StructType *findNonOpaque(ArrayRef<Type *> ETypes, bool IsPacked);
+    StructType *findNonOpaque(ArrayRef<Type *> ETypes, Type* DirectBase, bool IsPacked, bool ByteLayout, bool AsmJS);
     bool hasType(StructType *Ty);
   };
 
