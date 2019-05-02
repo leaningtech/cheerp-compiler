@@ -893,7 +893,9 @@ void EndOfBlockPHIHandler::runOnSCC(const std::vector<uint32_t>& registerIds, PH
 	//TODO: possibly even if a temporary is needed for selfreferencing
 	if (registerIds.size() > 1)
 	{
-		handleRecursivePHIDependency(phiRegs.at(registerIds[whoToCalculate]).phiInst);
+		const Instruction* incoming = phiRegs.at(whoToProcess).incomingInst;
+		assert(incoming);
+		handleRecursivePHIDependency(incoming);
 		edgeContext.processAssigment();
 	}
 
@@ -1053,8 +1055,13 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	{
 		for (auto& X : phiRegs)
 		{
+			//Set incomingInst AND the counter of how many times a input register is used
 			for (const auto& pair : X.second.incomingRegs)
 			{
+				auto it = phiRegs.find(pair.first);
+				if (it != phiRegs.end())
+					it->second.incomingInst = pair.second;
+
 				addRegisterUse(pair.first);
 			}
 		}
