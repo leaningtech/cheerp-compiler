@@ -2667,8 +2667,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 				writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true);
 
 				const llvm::Instruction* instIncoming = dyn_cast<const Instruction>(incoming);
-				if (writer.registerize.getRegisterId(phi, EdgeContext::emptyContext()) == writer.registerize.getRegisterId(phi, edgeContext) &&
-						!asmjs &&
+				if (!asmjs && writer.registerize.getRegisterId(phi, EdgeContext::emptyContext()) == writer.registerize.getRegisterId(phi, edgeContext) &&
 						instIncoming &&
 						isInlineable(*instIncoming, PA) &&
 						writer.compileCompoundStatement(instIncoming, writer.registerize.getRegisterId(phi, edgeContext)))
