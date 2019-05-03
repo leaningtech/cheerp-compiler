@@ -802,6 +802,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::thumbeb:
   case Triple::ve:
   case Triple::xcore:
+  case Triple::cheerp:
     return Triple::ELF;
 
   case Triple::ppc64:
@@ -1618,6 +1619,7 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::xcore:
   case Triple::ve:
   case Triple::csky:
+  case Triple::cheerp:
 
   // ARM is intentionally unsupported here, changing the architecture would
   // drop any arch suffixes.
@@ -1727,6 +1729,7 @@ bool Triple::isLittleEndian() const {
   case Triple::x86:
   case Triple::x86_64:
   case Triple::xcore:
+  case Triple::cheerp:
     return true;
   default:
     return false;
