@@ -341,7 +341,7 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
     }
 
     if (StructType *OldT =
-            DstStructTypesSet.findNonOpaque(ElementTypes, DirectBase, IsPacked, ByteLayout, asmjs)) {
+            DstStructTypesSet.findNonOpaque(ElementTypes, DirectBase, IsPacked, ByteLayout, asmjs, STy->getName())) {
       STy->setName("");
       return *Entry = OldT;
     }
@@ -1497,18 +1497,36 @@ Error IRLinker::run() {
   return linkModuleFlagsMetadata();
 }
 
-IRMover::StructTypeKeyInfo::KeyTy::KeyTy(ArrayRef<Type *> E, Type* D, bool P, bool B, bool A)
-    : ETypes(E), DirectBase(D), IsPacked(P), ByteLayout(B), AsmJS(A) {}
+IRMover::StructTypeKeyInfo::KeyTy::KeyTy(ArrayRef<Type *> E, Type* D, bool P, bool B, bool A, StringRef N)
+    : ETypes(E), DirectBase(D), IsPacked(P), ByteLayout(B), AsmJS(A), StructName(filterName(N)) {}
 
 IRMover::StructTypeKeyInfo::KeyTy::KeyTy(const StructType *ST)
-    : ETypes(ST->elements()), DirectBase(ST->getDirectBase()), IsPacked(ST->isPacked()), ByteLayout(ST->hasByteLayout()), AsmJS(ST->hasAsmJS()) {}
+    : ETypes(ST->elements()), DirectBase(ST->getDirectBase()), IsPacked(ST->isPacked()), ByteLayout(ST->hasByteLayout()), AsmJS(ST->hasAsmJS()), StructName(filterName(ST->getName())) {}
 
 bool IRMover::StructTypeKeyInfo::KeyTy::operator==(const KeyTy &That) const {
-  return IsPacked == That.IsPacked && ETypes == That.ETypes;
+  if (IsPacked != That.IsPacked || ByteLayout != That.ByteLayout || AsmJS != That.AsmJS)
+    return false;
+  if (DirectBase != That.DirectBase)
+    return false;
+  if (ETypes != That.ETypes)
+    return false;
+  if (StructName != That.StructName)
+    return false;
+  return true;
 }
 
 bool IRMover::StructTypeKeyInfo::KeyTy::operator!=(const KeyTy &That) const {
   return !this->operator==(That);
+}
+
+StringRef IRMover::StructTypeKeyInfo::KeyTy::filterName(StringRef n) {
+    size_t DotPos = n.rfind('.');
+    if (DotPos == 0 || DotPos == StringRef::npos ||
+        n.back() == '.' ||
+        !isdigit(static_cast<unsigned char>(n[DotPos + 1]))) {
+      return n;
+    }
+    return n.substr(0, DotPos);
 }
 
 StructType *IRMover::StructTypeKeyInfo::getEmptyKey() {
@@ -1565,8 +1583,9 @@ IRMover::IdentifiedStructTypeSet::findNonOpaque(ArrayRef<Type *> ETypes,
                                                 Type* DirectBase,
                                                 bool IsPacked,
                                                 bool ByteLayout,
-                                                bool AsmJS) {
-  IRMover::StructTypeKeyInfo::KeyTy Key(ETypes, DirectBase, IsPacked, ByteLayout, AsmJS);
+                                                bool AsmJS,
+                                                StringRef StructName) {
+  IRMover::StructTypeKeyInfo::KeyTy Key(ETypes, DirectBase, IsPacked, ByteLayout, AsmJS, StructName);
   auto I = NonOpaqueStructTypes.find_as(Key);
   return I == NonOpaqueStructTypes.end() ? nullptr : *I;
 }
