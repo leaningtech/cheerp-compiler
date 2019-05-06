@@ -669,7 +669,7 @@ uint32_t DelayInsts::countInputRegisters(Instruction* I, const cheerp::PointerAn
 }
 
 DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps,
-					LoopInfo* LI, DominatorTree* DT, const cheerp::PointerAnalyzer& PA, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
+					LoopInfo* LI, DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, const cheerp::PointerAnalyzer& PA, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
 {
 	// Do not move problematic instructions
 	// TODO: Call/Invoke may be moved in some conditions
@@ -703,27 +703,88 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 	bool firstUser = true;
 	for(User* U: I->users())
 	{
-		InsertPoint insertPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, PA, visited, moveAllocas);
+		InsertPoint insertPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, PDT, PA, visited, moveAllocas);
+		insertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, nullptr, insertPoint.insertInst);
+		if (PHINode* phi = dyn_cast<PHINode>(U))
+		{
+			uint32_t count = 0;
+// It must dominate all incoming blocks that has the value as an incoming value
+			for(unsigned i = 0; i < phi->getNumIncomingValues(); i++)
+			{
+				if(phi->getIncomingValue(i) != I)
+					continue;
+				insertPoint.source = phi->getIncomingBlock(i);
+				count++;
+			}
+			assert(count >= 1);
+			if (count == 1)
+			{
+				insertPoint.target = phi->getParent();
+			}
+			else
+			{
+				insertPoint.target = nullptr;
+				insertPoint.source = nullptr;
+			}
+		}
 		// Deal with potential forward block terminators
 		// It is safe to use them on the first user or if it is always the same
-		finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
 		if(firstUser)
 		{
-			finalInsertPoint.source = insertPoint.source;
-			finalInsertPoint.target = insertPoint.target;
+			finalInsertPoint = insertPoint;
 			firstUser = false;
 		}
-		else if(finalInsertPoint.source != insertPoint.source ||
-			finalInsertPoint.target != insertPoint.target)
+		else
 		{
-			finalInsertPoint.source = nullptr;
-			finalInsertPoint.target = nullptr;
+			assert(finalInsertPoint.insertInst);
+			BasicBlock* BB = finalInsertPoint.insertInst->getParent();
+			if (insertPoint.target &&
+					insertPoint.source != insertPoint.target &&
+					DT->dominates(insertPoint.source, insertPoint.target) &&
+					PDT->dominates(insertPoint.source, insertPoint.target) &&
+					(insertPoint.target == BB || DT->dominates(insertPoint.target, BB)))
+			{
+				finalInsertPoint = insertPoint;
+				continue;
+			}
+			BB = insertPoint.insertInst->getParent();
+			if (finalInsertPoint.target &&
+					finalInsertPoint.source != finalInsertPoint.target &&
+					DT->dominates(finalInsertPoint.source, finalInsertPoint.target) &&
+					PDT->dominates(finalInsertPoint.source, finalInsertPoint.target) &&
+					(finalInsertPoint.target == BB || DT->dominates(finalInsertPoint.target, BB)))
+			{
+				finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
+				continue;
+			}
+			if (finalInsertPoint.source == nullptr ||
+				finalInsertPoint.source != insertPoint.source ||
+				finalInsertPoint.target != insertPoint.target)
+			{
+				finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
+				finalInsertPoint.source = nullptr;
+				finalInsertPoint.target = nullptr;
+
+			}
+			else if (finalInsertPoint.source == insertPoint.source &&
+				finalInsertPoint.target == insertPoint.target)
+			{
+				finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
+			}
 		}
 	}
+
+	//TODO: check whenever finalInsertPoint.source and target are in different SCC. if so, everything good. (and create the forwarding block)
+
 	// Never sink an instruction in an inner loop
 	// Special case Allocas, we really want to put them outside of loops
-	Loop* initialLoop = I->getOpcode() == Instruction::Alloca ? nullptr : LI->getLoopFor(I->getParent());
-	Loop* loop = LI->getLoopFor(finalInsertPoint.insertInst->getParent());
+	bool isAlloca = I->getOpcode() == Instruction::Alloca;
+	Loop* initialLoop = I->getOpcode() == isAlloca ? nullptr : LI->getLoopFor(I->getParent());
+	const Loop* loop;
+	if (finalInsertPoint.source)
+		loop = cheerp::findCommonLoop(LI, finalInsertPoint.source, finalInsertPoint.target);
+	else
+		loop = LI->getLoopFor(finalInsertPoint.insertInst->getParent());
 	// If loop is now NULL we managed to move the instruction outside of any loop. Good.
 	if(loop && loop != initialLoop)
 	{
@@ -764,14 +825,25 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 					loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
 				}
 			}
-			if(createForwardBlock && loopDominator->getTerminator()->getNumSuccessors()>1)
+			finalInsertPoint.target = nullptr;
+			finalInsertPoint.source = nullptr;
+			if (loopDominator)
 			{
-				finalInsertPoint.source = loopDominator;
-				finalInsertPoint.target = loopHeader;
+				if(createForwardBlock && loopDominator->getTerminator()->getNumSuccessors()>1)
+				{
+					finalInsertPoint.source = loopDominator;
+					finalInsertPoint.target = loopHeader;
+				}
+				finalInsertPoint.insertInst = loopDominator->getTerminator();
 			}
-			finalInsertPoint.insertInst = loopDominator->getTerminator();
+		}
+		else
+		{
+			assert(false);
 		}
 	}
+
+	assert(isAlloca || I == finalInsertPoint.insertInst || DT->dominates(I, finalInsertPoint.insertInst));
 	movedAllocaMaps.emplace_back(I, finalInsertPoint);
 	visited.insert(std::make_pair(I, finalInsertPoint));
 	return finalInsertPoint;
@@ -788,14 +860,18 @@ bool DelayInsts::runOnFunction(Function& F)
 	cheerp::Registerize& registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
 
+	DominatorTreeBase<BasicBlock> PDT(true);
+	PDT.recalculate(F);
+	assert(PDT.isPostDominator());
+
 	std::unordered_map<Instruction*, InsertPoint> visited;
 	std::vector<std::pair<Instruction*, InsertPoint>> movedAllocaMaps;
 	for ( BasicBlock& BB : F )
 	{
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
 		{
-			Instruction* I = it;
-			InsertPoint insertPoint = delayInst(I, movedAllocaMaps, LI, DT, PA, visited, moveAllocas);
+			Instruction* I = &*it;
+			InsertPoint insertPoint = delayInst(I, movedAllocaMaps, LI, DT, &PDT, PA, visited, moveAllocas);
 			if(insertPoint.insertInst == I)
 				continue;
 			else if(insertPoint.source == nullptr && insertPoint.insertInst == I->getNextNode())
