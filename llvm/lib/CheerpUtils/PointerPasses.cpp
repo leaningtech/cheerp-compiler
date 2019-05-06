@@ -699,82 +699,68 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 	// Delay the alloca as much as possible by putting it in the dominator block of all the uses
 	// Unless that block is in a loop, then put it above the loop
 	// Instead of the actual user we use to insertion point after it is delayed
-	InsertPoint finalInsertPoint(nullptr, nullptr, nullptr);
-	bool firstUser = true;
-	for(User* U: I->users())
+	std::vector<InsertPoint> insertPoints;
+	std::set<const User*> processedUsers;
+
+	//Collect the insertion points for the different users
+	for (User* U: I->users())
 	{
+		if (processedUsers.count(U))
+			continue;
+		processedUsers.insert(U);
+
 		InsertPoint insertPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, PDT, PA, visited, moveAllocas);
-		insertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, nullptr, insertPoint.insertInst);
 		if (PHINode* phi = dyn_cast<PHINode>(U))
 		{
-			uint32_t count = 0;
-// It must dominate all incoming blocks that has the value as an incoming value
+			insertPoint.target = phi->getParent();
 			for(unsigned i = 0; i < phi->getNumIncomingValues(); i++)
 			{
 				if(phi->getIncomingValue(i) != I)
 					continue;
 				insertPoint.source = phi->getIncomingBlock(i);
-				count++;
-			}
-			assert(count >= 1);
-			if (count == 1)
-			{
-				insertPoint.target = phi->getParent();
-			}
-			else
-			{
-				insertPoint.target = nullptr;
-				insertPoint.source = nullptr;
+				insertPoint.insertInst = insertPoint.source->getTerminator();
+				insertPoints.push_back(insertPoint);
 			}
 		}
+		else
+			insertPoints.push_back(insertPoint);
+	}
+
+	InsertPoint finalInsertPoint = insertPoints.front();
+	//Iterate over the collected insertPoints, keeping finalInsertPoint updated
+	for(InsertPoint insertPoint : insertPoints)
+	{
+		//If they are equal, it's good for sure (this cover also the case of equal forward blocks)
+		if (insertPoint == finalInsertPoint)
+			continue;
+
+		finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
+
 		// Deal with potential forward block terminators
-		// It is safe to use them on the first user or if it is always the same
-		if(firstUser)
+		if (insertPoint.fwdBlockDominatesInsertionPoint(finalInsertPoint, DT, PDT))
 		{
+			// It is safe to use them if the inserted forward block dominates the current
 			finalInsertPoint = insertPoint;
-			firstUser = false;
+		}
+		else if (finalInsertPoint.fwdBlockDominatesInsertionPoint(insertPoint, DT, PDT))
+		{
+			//Or the current dominates the inserted, so no need to update anything
 		}
 		else
 		{
-			assert(finalInsertPoint.insertInst);
-			BasicBlock* BB = finalInsertPoint.insertInst->getParent();
-			if (insertPoint.target &&
-					insertPoint.source != insertPoint.target &&
-					DT->dominates(insertPoint.source, insertPoint.target) &&
-					PDT->dominates(insertPoint.source, insertPoint.target) &&
-					(insertPoint.target == BB || DT->dominates(insertPoint.target, BB)))
-			{
-				finalInsertPoint = insertPoint;
-				continue;
-			}
-			BB = insertPoint.insertInst->getParent();
-			if (finalInsertPoint.target &&
-					finalInsertPoint.source != finalInsertPoint.target &&
-					DT->dominates(finalInsertPoint.source, finalInsertPoint.target) &&
-					PDT->dominates(finalInsertPoint.source, finalInsertPoint.target) &&
-					(finalInsertPoint.target == BB || DT->dominates(finalInsertPoint.target, BB)))
-			{
-				finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
-				continue;
-			}
-			if (finalInsertPoint.source == nullptr ||
-				finalInsertPoint.source != insertPoint.source ||
-				finalInsertPoint.target != insertPoint.target)
-			{
-				finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
-				finalInsertPoint.source = nullptr;
-				finalInsertPoint.target = nullptr;
-
-			}
-			else if (finalInsertPoint.source == insertPoint.source &&
-				finalInsertPoint.target == insertPoint.target)
-			{
-				finalInsertPoint.insertInst = cheerp::findCommonInsertionPoint(I, DT, finalInsertPoint.insertInst, insertPoint.insertInst);
-			}
+			//Otherwise no forward block works for this subset
+			finalInsertPoint.source = nullptr;
+			finalInsertPoint.target = nullptr;
 		}
 	}
 
-	//TODO: check whenever finalInsertPoint.source and target are in different SCC. if so, everything good. (and create the forwarding block)
+	//Find the loop our finalInsertPoint is in
+	const Loop* loop;
+	if (finalInsertPoint.source)
+		loop = cheerp::findCommonLoop(LI, finalInsertPoint.source, finalInsertPoint.target);
+	else
+		loop = LI->getLoopFor(finalInsertPoint.insertInst->getParent());
+	cheerp::LoopWithDepth current(loop);
 
 	// Never sink an instruction in an inner loop
 	// Special case Allocas, we really want to put them outside of loops
@@ -782,12 +768,6 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 	cheerp::LoopWithDepth original(isAlloca ?
 				nullptr :
 				LI->getLoopFor(I->getParent()));
-	const Loop* loop;
-	if (finalInsertPoint.source)
-		loop = cheerp::findCommonLoop(LI, finalInsertPoint.source, finalInsertPoint.target);
-	else
-		loop = LI->getLoopFor(finalInsertPoint.insertInst->getParent());
-	cheerp::LoopWithDepth current(loop);
 	while (original.depth > current.depth)
 	{
 		original.stepBack();
@@ -804,52 +784,53 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 				original.stepBack();
 
 			Loop* parentLoop = current.loop->getParentLoop();
-			if(parentLoop || parentLoop == original.loop)
+			if(!parentLoop || parentLoop == original.loop)
 				break;
 
 			current.loop = parentLoop;
 			--current.depth;
 		}
 		loop = current.loop;
-		if(loop)
+		assert(loop && "We should still have a valid loop");
+
+		BasicBlock* loopHeader = loop->getHeader();
+		// We need to put the instruction in the dominator of the loop, not in the loop header itself
+		BasicBlock* loopDominator = NULL;
+		// It may be convenient to put the instruction into a new loop pre-header
+		// Do that if there is only 1 forward edge and it has a conditional branch
+		bool createForwardBlock = true;
+		for(auto it = pred_begin(loopHeader);it != pred_end(loopHeader); ++it)
 		{
-			BasicBlock* loopHeader = loop->getHeader();
-			// We need to put the instruction in the dominator of the loop, not in the loop header itself
-			BasicBlock* loopDominator = NULL;
-			// It may be convenient to put the instruction into a new loop pre-header
-			// Do that if there is only 1 forward edge and it has a conditional branch
-			bool createForwardBlock = true;
-			for(auto it = pred_begin(loopHeader);it != pred_end(loopHeader); ++it)
+			// Skip all backedges
+			if(loopHeader == *it || DT->dominates(loopHeader, *it))
+				continue;
+			if(!loopDominator)
+				loopDominator = *it;
+			else if(DT->dominates(loopDominator, *it))
+				createForwardBlock = false;
+			else if(DT->dominates(*it, loopDominator))
 			{
-				// Skip all backedges
-				if(loopHeader == *it || DT->dominates(loopHeader, *it))
-					continue;
-				if(!loopDominator)
-					loopDominator = *it;
-				else if(DT->dominates(loopDominator, *it))
-					createForwardBlock = false;
-				else if(DT->dominates(*it, loopDominator))
-				{
-					createForwardBlock = false;
-					loopDominator = *it;
-				}
-				else // Find a common dominator
-				{
-					createForwardBlock = false;
-					loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
-				}
+				createForwardBlock = false;
+				loopDominator = *it;
 			}
-			finalInsertPoint.target = nullptr;
-			finalInsertPoint.source = nullptr;
-			if (loopDominator && createForwardBlock)
+			else // Find a common dominator
 			{
-				finalInsertPoint.source = loopDominator;
-				finalInsertPoint.target = loopHeader;
+				createForwardBlock = false;
+				loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
 			}
+		}
+		if (loopDominator)
+			finalInsertPoint.insertInst = loopDominator->getTerminator();
+
+		if (loopDominator && createForwardBlock)
+		{
+			finalInsertPoint.source = loopDominator;
+			finalInsertPoint.target = loopHeader;
 		}
 		else
 		{
-			llvm_unreachable("We should not have ended without a referece loop (since we started with one)");
+			finalInsertPoint.target = nullptr;
+			finalInsertPoint.source = nullptr;
 		}
 	}
 
