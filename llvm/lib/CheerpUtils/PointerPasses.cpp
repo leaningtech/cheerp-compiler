@@ -779,24 +779,38 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 	// Never sink an instruction in an inner loop
 	// Special case Allocas, we really want to put them outside of loops
 	bool isAlloca = I->getOpcode() == Instruction::Alloca;
-	Loop* initialLoop = I->getOpcode() == isAlloca ? nullptr : LI->getLoopFor(I->getParent());
+	cheerp::LoopWithDepth original(isAlloca ?
+				nullptr :
+				LI->getLoopFor(I->getParent()));
 	const Loop* loop;
 	if (finalInsertPoint.source)
 		loop = cheerp::findCommonLoop(LI, finalInsertPoint.source, finalInsertPoint.target);
 	else
 		loop = LI->getLoopFor(finalInsertPoint.insertInst->getParent());
-	// If loop is now NULL we managed to move the instruction outside of any loop. Good.
-	if(loop && loop != initialLoop)
+	cheerp::LoopWithDepth current(loop);
+	while (original.depth > current.depth)
 	{
-		// The new insert point is in a loop, but not in the previous one
+		original.stepBack();
+	}
+
+	// If loop is now NULL we managed to move the instruction outside of any loop. Good.
+	if(current.loop && current.loop != original.loop)
+	{
+		// The new insert point is in a loop, but not in the same of the initial instruction location
 		// Check if the new loop is an inner loop
-		while(loop)
+		while(current.loop)
 		{
-			Loop* parentLoop = loop->getParentLoop();
-			if(parentLoop == initialLoop)
+			if (original.depth == current.depth)
+				original.stepBack();
+
+			Loop* parentLoop = current.loop->getParentLoop();
+			if(parentLoop || parentLoop == original.loop)
 				break;
-			loop = parentLoop;
+
+			current.loop = parentLoop;
+			--current.depth;
 		}
+		loop = current.loop;
 		if(loop)
 		{
 			BasicBlock* loopHeader = loop->getHeader();
@@ -827,20 +841,24 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 			}
 			finalInsertPoint.target = nullptr;
 			finalInsertPoint.source = nullptr;
-			if (loopDominator)
+			if (loopDominator && createForwardBlock)
 			{
-				if(createForwardBlock && loopDominator->getTerminator()->getNumSuccessors()>1)
-				{
-					finalInsertPoint.source = loopDominator;
-					finalInsertPoint.target = loopHeader;
-				}
-				finalInsertPoint.insertInst = loopDominator->getTerminator();
+				finalInsertPoint.source = loopDominator;
+				finalInsertPoint.target = loopHeader;
 			}
 		}
 		else
 		{
-			assert(false);
+			llvm_unreachable("We should not have ended without a referece loop (since we started with one)");
 		}
+	}
+
+	if(finalInsertPoint.source && finalInsertPoint.source->getTerminator()->getNumSuccessors()==1)
+	{
+		//Do not create an ad-hoc block if the source has a single successor
+		finalInsertPoint.insertInst = finalInsertPoint.source->getTerminator();
+		finalInsertPoint.source = nullptr;
+		finalInsertPoint.target = nullptr;
 	}
 
 	assert(isAlloca || I == finalInsertPoint.insertInst || DT->dominates(I, finalInsertPoint.insertInst));
