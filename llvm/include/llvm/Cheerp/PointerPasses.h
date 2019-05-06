@@ -164,6 +164,20 @@ private:
 		InsertPoint(llvm::Instruction* i, BasicBlock* s = nullptr, BasicBlock* t = nullptr):insertInst(i),source(s),target(t)
 		{
 		}
+		bool operator==(const InsertPoint& other) const
+		{
+			return insertInst == other.insertInst && source == other.source && target == other.target;
+		}
+		bool fwdBlockDominatesInsertionPoint(const InsertPoint& other, const DominatorTree* DT, const DominatorTreeBase<llvm::BasicBlock>* PDT) const
+		{
+			//Return true whether the insertionPoint represent a forward block AND this forward block dominates the other insert point
+			llvm::BasicBlock* BB = other.insertInst->getParent();
+			return (target &&
+				source != target &&
+				DT->dominates(source, target) &&
+				PDT->dominates(source, target) &&
+				(target == BB || DT->dominates(target, BB)));
+		}
 	};
 	InsertPoint delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps, LoopInfo* LI,
 					DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, const cheerp::PointerAnalyzer& PA, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas);
