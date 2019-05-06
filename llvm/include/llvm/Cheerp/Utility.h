@@ -209,6 +209,28 @@ inline bool isFreeFunctionName(llvm::StringRef name)
 	return name=="free" || name=="_ZdlPv" || name=="_ZdaPv";
 }
 
+struct LoopWithDepth
+{
+	LoopWithDepth(const llvm::Loop* loop)
+		: loop(loop), depth(calculateDepth(loop))
+	{}
+	void stepBack()
+	{
+		assert(depth && loop);
+		--depth;
+		loop = loop->getParentLoop();
+	}
+	const llvm::Loop* loop;
+	uint32_t depth;
+private:
+	uint32_t calculateDepth(const llvm::Loop* loop)
+	{
+		if (loop == nullptr)
+			return 0;
+		return loop->getLoopDepth();
+	}
+};
+
 const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBlock* A, const llvm::BasicBlock* B);
 
 /**
