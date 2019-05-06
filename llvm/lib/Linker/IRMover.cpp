@@ -583,7 +583,7 @@ Value *GlobalValueMaterializer::materialize(Value *SGV) {
 }
 
 Value *LocalValueMaterializer::materialize(Value *SGV) {
-  return TheIRLinker.materialize(SGV, true);
+  return TheIRLinker.materialize(SGV, false);
 }
 
 Value *IRLinker::materialize(Value *V, bool ForIndirectSymbol) {
