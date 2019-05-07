@@ -2904,28 +2904,29 @@ public:
                                            SourceLocation RAngleLoc,
                                            SourceLocation LParenLoc,
                                            Expr *SubExpr,
-                                           SourceLocation RParenLoc) {
+                                           SourceLocation RParenLoc,
+                                           bool CheerpSafe) {
     switch (Class) {
     case Stmt::CXXStaticCastExprClass:
       return getDerived().RebuildCXXStaticCastExpr(OpLoc, LAngleLoc, TInfo,
                                                    RAngleLoc, LParenLoc,
-                                                   SubExpr, RParenLoc);
+                                                   SubExpr, RParenLoc, CheerpSafe);
 
     case Stmt::CXXDynamicCastExprClass:
       return getDerived().RebuildCXXDynamicCastExpr(OpLoc, LAngleLoc, TInfo,
                                                     RAngleLoc, LParenLoc,
-                                                    SubExpr, RParenLoc);
+                                                    SubExpr, RParenLoc, CheerpSafe);
 
     case Stmt::CXXReinterpretCastExprClass:
       return getDerived().RebuildCXXReinterpretCastExpr(OpLoc, LAngleLoc, TInfo,
                                                         RAngleLoc, LParenLoc,
                                                         SubExpr,
-                                                        RParenLoc);
+                                                        RParenLoc, CheerpSafe);
 
     case Stmt::CXXConstCastExprClass:
       return getDerived().RebuildCXXConstCastExpr(OpLoc, LAngleLoc, TInfo,
                                                    RAngleLoc, LParenLoc,
-                                                   SubExpr, RParenLoc);
+                                                   SubExpr, RParenLoc, CheerpSafe);
 
     case Stmt::CXXAddrspaceCastExprClass:
       return getDerived().RebuildCXXAddrspaceCastExpr(
@@ -2946,11 +2947,13 @@ public:
                                             SourceLocation RAngleLoc,
                                             SourceLocation LParenLoc,
                                             Expr *SubExpr,
-                                            SourceLocation RParenLoc) {
+                                            SourceLocation RParenLoc,
+                                            bool CheerpSafe) {
     return getSema().BuildCXXNamedCast(OpLoc, tok::kw_static_cast,
                                        TInfo, SubExpr,
                                        SourceRange(LAngleLoc, RAngleLoc),
-                                       SourceRange(LParenLoc, RParenLoc));
+                                       SourceRange(LParenLoc, RParenLoc),
+                                       CheerpSafe);
   }
 
   /// Build a new C++ dynamic_cast expression.
@@ -2963,11 +2966,13 @@ public:
                                              SourceLocation RAngleLoc,
                                              SourceLocation LParenLoc,
                                              Expr *SubExpr,
-                                             SourceLocation RParenLoc) {
+                                             SourceLocation RParenLoc,
+                                             bool CheerpSafe) {
     return getSema().BuildCXXNamedCast(OpLoc, tok::kw_dynamic_cast,
                                        TInfo, SubExpr,
                                        SourceRange(LAngleLoc, RAngleLoc),
-                                       SourceRange(LParenLoc, RParenLoc));
+                                       SourceRange(LParenLoc, RParenLoc),
+                                       CheerpSafe);
   }
 
   /// Build a new C++ reinterpret_cast expression.
@@ -2980,11 +2985,13 @@ public:
                                                  SourceLocation RAngleLoc,
                                                  SourceLocation LParenLoc,
                                                  Expr *SubExpr,
-                                                 SourceLocation RParenLoc) {
+                                                 SourceLocation RParenLoc,
+                                                 bool CheerpSafe) {
     return getSema().BuildCXXNamedCast(OpLoc, tok::kw_reinterpret_cast,
                                        TInfo, SubExpr,
                                        SourceRange(LAngleLoc, RAngleLoc),
-                                       SourceRange(LParenLoc, RParenLoc));
+                                       SourceRange(LParenLoc, RParenLoc),
+                                       CheerpSafe);
   }
 
   /// Build a new C++ const_cast expression.
@@ -2997,11 +3004,13 @@ public:
                                            SourceLocation RAngleLoc,
                                            SourceLocation LParenLoc,
                                            Expr *SubExpr,
-                                           SourceLocation RParenLoc) {
+                                           SourceLocation RParenLoc,
+                                           bool CheerpSafe) {
     return getSema().BuildCXXNamedCast(OpLoc, tok::kw_const_cast,
                                        TInfo, SubExpr,
                                        SourceRange(LAngleLoc, RAngleLoc),
-                                       SourceRange(LParenLoc, RParenLoc));
+                                       SourceRange(LParenLoc, RParenLoc),
+                                       CheerpSafe);
   }
 
   ExprResult
@@ -11714,7 +11723,7 @@ TreeTransform<Derived>::TransformCXXNamedCastExpr(CXXNamedCastExpr *E) {
       E->getOperatorLoc(), E->getStmtClass(), E->getAngleBrackets().getBegin(),
       Type, E->getAngleBrackets().getEnd(),
       // FIXME. this should be '(' location
-      E->getAngleBrackets().getEnd(), SubExpr.get(), E->getRParenLoc());
+      E->getAngleBrackets().getEnd(), SubExpr.get(), E->getRParenLoc(), E->isCheerpSafe());
 }
 
 template<typename Derived>
