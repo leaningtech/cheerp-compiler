@@ -4567,7 +4567,7 @@ static Expr *CastForMoving(Sema &SemaRef, Expr *E, QualType T = QualType()) {
 
   return SemaRef.BuildCXXNamedCast(ExprLoc, tok::kw_static_cast, TargetLoc, E,
                                    SourceRange(ExprLoc, ExprLoc),
-                                   E->getSourceRange()).get();
+                                   E->getSourceRange(), /*isCheerpSafe*/false).get();
 }
 
 /// ImplicitInitializerKind - How an implicit base or member initializer should
