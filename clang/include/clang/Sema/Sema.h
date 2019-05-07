@@ -6165,7 +6165,7 @@ public:
                                TypeSourceInfo *Ty,
                                Expr *E,
                                SourceRange AngleBrackets,
-                               SourceRange Parens, bool isCheerpSafe = false);
+                               SourceRange Parens, bool isCheerpSafe);
 
   ExprResult ActOnBuiltinBitCastExpr(SourceLocation KWLoc, Declarator &Dcl,
                                      ExprResult Operand,
