@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2015 Leaning Technologies
+// Copyright 2011-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,7 +25,7 @@
 
 namespace cheerp {
 
-enum POINTER_KIND {
+enum POINTER_KIND : uint8_t {
 	COMPLETE_OBJECT,  // object with aN, iN and dN fields.
 	SPLIT_REGULAR,    // two local vars "X" and "Xo".
 	REGULAR,          // pointer object {o: ..., d: ...}.
@@ -133,6 +133,7 @@ private:
 		constraints.clear();
 	}
 public:
+	mutable bool isBeingVisited = false;
 	// We can store pointers to constraint as they are made unique by PointerData::getConstraintPtr
 	cheerp::DeterministicPtrSet<const IndirectPointerKindConstraint*> constraints;
 	PointerKindWrapper():kind(COMPLETE_OBJECT),regularCause(NULL)
@@ -155,6 +156,7 @@ public:
 		std::swap(kind, rhs.kind);
 		constraints.swap(rhs.constraints);
 		std::swap(regularCause, rhs.regularCause);
+		std::swap(isBeingVisited, rhs.isBeingVisited);
 	}
 	bool operator==(POINTER_KIND rhs) const
 	{
@@ -170,6 +172,7 @@ public:
 		kind = rhs.kind;
 		constraints = rhs.constraints;
 		regularCause = rhs.regularCause;
+		isBeingVisited = rhs.isBeingVisited;
 		return *this;
 	}
 	PointerKindWrapper& operator|=(const PointerKindWrapper& rhs);
