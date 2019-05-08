@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2015 Leaning Technologies
+// Copyright 2011-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -1002,6 +1002,8 @@ void PointerResolverForKindVisitor::cacheResolvedConstraint(const IndirectPointe
 
 const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(const PointerKindWrapper& k, bool& mayCache)
 {
+	mayCache = false;
+
 	assert(k==INDIRECT);
 	// If mayCache is initially false we can't cache anything
 	bool initialMayCache = mayCache;
@@ -1018,6 +1020,8 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 		closedset.push_back(constraint);
 		const PointerKindWrapper& retKind=resolveConstraint(*constraint);
 		assert(retKind.isKnown());
+		if (retKind.isBeingVisited)
+			continue;
 		if(retKind==REGULAR || retKind==BYTE_LAYOUT)
 			return retKind;
 		else if(retKind == SPLIT_REGULAR)
@@ -1025,7 +1029,9 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 		else if(retKind==INDIRECT)
 		{
 			bool subMayCache = initialMayCache;
+			retKind.isBeingVisited = true;
 			const PointerKindWrapper& resolvedKind=resolvePointerKind(retKind, subMayCache);
+			retKind.isBeingVisited = false;
 			if(subMayCache)
 				cacheResolvedConstraint(*constraint, resolvedKind);
 			else
