@@ -1035,7 +1035,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			setOriginalOperandType(&a, a.getType());
 			a.mutateType(newArgType);
 		}
-		F->mutateFunctionType(newFT);
+		F->setValueType(newFT);
 	}
 	// Remove byval attribute from pointer to array arguments, see CallInst handling below
 	bool attributesChanged = false;
