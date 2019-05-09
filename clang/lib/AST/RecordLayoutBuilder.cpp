@@ -2197,7 +2197,7 @@ void ItaniumRecordLayoutBuilder::FinishLayout(const NamedDecl *D) {
   setSize(RoundedSize);
   // On non-byte addressable architecture we can't reuse the eventual spare bits, so skip them
   if (!Context.getTargetInfo().isByteAddressable())
-    setDataSize(llvm::RoundUpToAlignment(getDataSizeInBits(), Context.toBits(Alignment)));
+    setDataSize(llvm::alignTo(getDataSizeInBits(), Context.toBits(Alignment)));
 
   unsigned CharBitNum = Context.getTargetInfo().getCharWidth();
   if (const RecordDecl *RD = dyn_cast<RecordDecl>(D)) {
