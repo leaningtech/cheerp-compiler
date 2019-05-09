@@ -13,6 +13,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Cheerp/DeterministicPtrSet.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
@@ -480,7 +481,7 @@ FunctionPass *createPointerArithmeticToArrayIndexingPass() { return new PointerA
 
 void PointerToImmutablePHIRemoval::hoistBlock(BasicBlock* targetBlock)
 {
-	std::unordered_set<BasicBlock*> predBlocks(pred_begin(targetBlock), pred_end(targetBlock));;
+	cheerp::DeterministicPtrSet<BasicBlock*> predBlocks(pred_begin(targetBlock), pred_end(targetBlock));
 	for(BasicBlock* curBlock: predBlocks)
 	{
 		ValueToValueMapTy valueMap;
