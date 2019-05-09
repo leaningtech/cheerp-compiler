@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2018 Leaning Technologies
+// Copyright 2018-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,6 +18,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Cheerp/DeterministicPtrSet.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -39,14 +40,15 @@ public:
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 private:
+	typedef cheerp::DeterministicPtrSet<BasicBlock *> DeterministicBBSet;
 	/// An header of a (possibly) multi-header loop
 	class Header {
 		BasicBlock *BB;
 		// The original predecessors of this header. The actual predecessor will
 		// eventually be the dispatch block
-		SmallPtrSet<BasicBlock *, 2> Preds;
+		DeterministicBBSet Preds;
 		// The forward blocks that logically lead TOWARDS this header
-		SmallPtrSet<BasicBlock *, 2> Forwards;
+		DeterministicBBSet Forwards;
 	public:
 		explicit Header(BasicBlock* BB, DominatorTree& DT): BB(BB)
 		{
@@ -62,10 +64,10 @@ private:
 
 		BasicBlock *getBB() const { return BB; }
 
-		const SmallPtrSetImpl<BasicBlock *> &predecessors() const {
+		const DeterministicBBSet &predecessors() const {
 			return Preds;
 		}
-		const SmallPtrSetImpl<BasicBlock *> &forwards() const {
+		const DeterministicBBSet &forwards() const {
 			return Forwards;
 		}
 
@@ -83,7 +85,7 @@ public:
 	};
 	class SubGraph {
 	public:
-		typedef SmallPtrSet<BasicBlock*, 8> BlockSet;
+		typedef DeterministicBBSet BlockSet;
 		typedef std::unordered_map<BasicBlock*, GraphNode> NodeMap;
 
 		explicit SubGraph(BasicBlock* Entry, BlockSet Blocks): Entry(Entry), Blocks(std::move(Blocks))
