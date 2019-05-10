@@ -19,6 +19,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Timer.h"
+#include "llvm/Cheerp/DeterministicPtrSet.h"
 #include <unordered_map>
 #include <unordered_set>
 
@@ -133,7 +134,7 @@ private:
 	}
 public:
 	// We can store pointers to constraint as they are made unique by PointerData::getConstraintPtr
-	llvm::DenseSet<const IndirectPointerKindConstraint*> constraints;
+	cheerp::DeterministicPtrSet<const IndirectPointerKindConstraint*> constraints;
 	PointerKindWrapper():kind(COMPLETE_OBJECT),regularCause(NULL)
 	{
 	}
