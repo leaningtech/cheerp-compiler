@@ -121,7 +121,8 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	};
 	if(I.getOpcode()==Instruction::GetElementPtr)
 	{
-		if(PA.getPointerKind(&I) == RAW)
+		POINTER_KIND IPointerKind = PA.getPointerKind(&I);
+		if(IPointerKind == RAW)
 		{
 			// Geps with constant indices can be compactly encoded.
 			auto& gep = cast<GetElementPtrInst>(I);
@@ -141,7 +142,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 		if (I.getNumOperands() == 2)
 			return true;
 
-		if (PA.getPointerKind(&I) == COMPLETE_OBJECT) {
+		if (IPointerKind == COMPLETE_OBJECT) {
 			auto type = cast<GetElementPtrInst>(I).getType()->getElementType();
 			// Always inline geps to immutable fields of a complete object.
 			if (TypeSupport::isImmutableType(type))
@@ -155,7 +156,8 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	}
 	else if(I.getOpcode()==Instruction::BitCast)
 	{
-		if(PA.getPointerKind(&I) == RAW)
+		POINTER_KIND IPointerKind = PA.getPointerKind(&I);
+		if(IPointerKind == RAW)
 		{
 			if(GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(I.getOperand(0)))
 			{
@@ -165,7 +167,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
 		}
 
-		if (PA.getPointerKind(&I) == COMPLETE_OBJECT) {
+		if (IPointerKind == COMPLETE_OBJECT) {
 			// Never inline if the source is REGULAR (forces conversion to CO)
 			if(PA.getPointerKind(I.getOperand(0)) == REGULAR)
 				return false;
