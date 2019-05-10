@@ -141,7 +141,7 @@ void PointerKindWrapper::dump() const
 	else if(kind==INDIRECT)
 		dbgs() << "Indirect kind\n";
 	else
-		dbgs() << "Wraps plain kind " << kind << "\n";
+		dbgs() << "Wraps plain kind " << int(kind) << "\n";
 	if(regularCause)
 	{
 		dbgs() << "Reason for REGULAR is " << *regularCause;

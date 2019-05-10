@@ -925,7 +925,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_kind)
 	{
-		stream << PA.getPointerKind(*it);
+		stream << (int)PA.getPointerKind(*it);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_create_closure)
@@ -1668,7 +1668,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 
 		if(!isOffsetConstantZero)
 		{
-			llvm::errs() << "Can not access a " << kind << " pointer with non zero offset:" << *offset << "\n";
+			llvm::errs() << "Can not access a " << int(kind) << " pointer with non zero offset:" << *offset << "\n";
 			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 		}
 	}
