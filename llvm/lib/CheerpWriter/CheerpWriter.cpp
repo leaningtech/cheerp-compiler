@@ -2564,7 +2564,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	{
 	public:
 		WriterPHIHandler(CheerpWriter& w, const Function* F):
-			EndOfBlockPHIHandler(w.PA, w.edgeContext),writer(w),asmjs(F->getSection() == StringRef("asmjs"))
+			EndOfBlockPHIHandler(w.PA, w.edgeContext),asmjs(F->getSection() == StringRef("asmjs")),writer(w)
 		{
 		}
 		~WriterPHIHandler()
