@@ -651,12 +651,12 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
-uint32_t DelayInsts::countInputRegisters(Instruction* I, cheerp::InlineableCache& cache)
+uint32_t DelayInsts::countInputRegisters(const Instruction* I, cheerp::InlineableCache& cache) const
 {
 	uint32_t count = 0;
-	for(Value* Op: I->operands())
+	for(const Value* Op: I->operands())
 	{
-		Instruction* opI = dyn_cast<Instruction>(Op);
+		const Instruction* opI = dyn_cast<const Instruction>(Op);
 		if(!opI)
 			continue;
 		if(cache.isInlineable(*opI))
@@ -669,8 +669,7 @@ uint32_t DelayInsts::countInputRegisters(Instruction* I, cheerp::InlineableCache
 	return count;
 }
 
-DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps,
-					LoopInfo* LI, DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, cheerp::InlineableCache& inlineableCache, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
+DelayInsts::InsertPoint DelayInsts::delayInst(const Instruction* I, const LoopInfo* LI, const DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, cheerp::InlineableCache& inlineableCache, bool moveAllocas)
 {
 	// Do not move problematic instructions
 	// TODO: Call/Invoke may be moved in some conditions
@@ -704,14 +703,14 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 	std::set<const User*> processedUsers;
 
 	//Collect the insertion points for the different users
-	for (User* U: I->users())
+	for (const User* U: I->users())
 	{
 		if (processedUsers.count(U))
 			continue;
 		processedUsers.insert(U);
 
-		InsertPoint insertPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, PDT, inlineableCache, visited, moveAllocas);
-		if (PHINode* phi = dyn_cast<PHINode>(U))
+		InsertPoint insertPoint = delayInst(cast<const Instruction>(U), LI, DT, PDT, inlineableCache, moveAllocas);
+		if (const PHINode* phi = dyn_cast<PHINode>(U))
 		{
 			insertPoint.target = phi->getParent();
 			for(unsigned i = 0; i < phi->getNumIncomingValues(); i++)
@@ -729,7 +728,7 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 
 	InsertPoint finalInsertPoint = insertPoints.front();
 	//Iterate over the collected insertPoints, keeping finalInsertPoint updated
-	for(InsertPoint insertPoint : insertPoints)
+	for(const InsertPoint insertPoint : insertPoints)
 	{
 		//If they are equal, it's good for sure (this cover also the case of equal forward blocks)
 		if (insertPoint == finalInsertPoint)
@@ -794,9 +793,9 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 		loop = current.loop;
 		assert(loop && "We should still have a valid loop");
 
-		BasicBlock* loopHeader = loop->getHeader();
+		const BasicBlock* loopHeader = loop->getHeader();
 		// We need to put the instruction in the dominator of the loop, not in the loop header itself
-		BasicBlock* loopDominator = NULL;
+		const BasicBlock* loopDominator = NULL;
 		// It may be convenient to put the instruction into a new loop pre-header
 		// Do that if there is only 1 forward edge and it has a conditional branch
 		bool createForwardBlock = true;
@@ -817,7 +816,8 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 			else // Find a common dominator
 			{
 				createForwardBlock = false;
-				loopDominator = DT->findNearestCommonDominator(loopDominator, *it);
+				//llvm::findNearestCommonDominator should become a const function, and the const_cast could then be dropped
+				loopDominator = const_cast<DominatorTree*>(DT)->findNearestCommonDominator(loopDominator, *it);
 			}
 		}
 		if (loopDominator)
@@ -849,52 +849,67 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 	return finalInsertPoint;
 }
 
-bool DelayInsts::runOnFunction(Function& F)
+void DelayInsts::calculatePlacementOfInstructions(const Function& F, const bool moveAllocas)
 {
-	// Only move allocas on genericjs
-	bool moveAllocas = F.getSection()==StringRef("");
-	bool Changed = false;
-	bool allocaInvalidated = false;
-	LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	cheerp::Registerize& registerize = getAnalysis<cheerp::Registerize>();
-	cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
-	cheerp::InlineableCache inlineableCache(PA);
+	const LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+	const DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+	const cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
 
 	DominatorTreeBase<BasicBlock> PDT(true);
-	PDT.recalculate(F);
+	PDT.recalculate(const_cast<Function&>(F));
 	assert(PDT.isPostDominator());
 
-	std::unordered_map<Instruction*, InsertPoint> visited;
-	std::vector<std::pair<Instruction*, InsertPoint>> movedAllocaMaps;
-	for ( BasicBlock& BB : F )
+	cheerp::InlineableCache inlineableCache(PA);
+	for (const BasicBlock& BB : F )
 	{
-		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
+		for (BasicBlock::const_iterator it = BB.begin(); it != BB.end(); ++it)
 		{
-			Instruction* I = &*it;
-			InsertPoint insertPoint = delayInst(I, movedAllocaMaps, LI, DT, &PDT, inlineableCache, visited, moveAllocas);
-			if(insertPoint.insertInst == I)
-				continue;
-			else if(insertPoint.source == nullptr && insertPoint.insertInst == I->getNextNode())
-				continue;
-			if(moveAllocas && !allocaInvalidated && I->getOpcode() == Instruction::Alloca)
-			{
-				registerize.invalidateLiveRangeForAllocas(F);
-				allocaInvalidated = true;
-			}
-			Changed = true;
+			delayInst(&*it, LI, DT, &PDT, inlineableCache, moveAllocas);
 		}
 	}
-	if(!Changed)
-		return false;
+}
+
+bool DelayInsts::runOnFunction(Function& F)
+{
+	assert(visited.empty());
+	assert(movedAllocaMaps.empty());
+
+	// Only move allocas on genericjs
+	const bool moveAllocas = F.getSection()==StringRef("");
+
+	// Calculate where all the function should be placed
+	calculatePlacementOfInstructions(F, moveAllocas);
+
+	// Checks wheteher anything has actually changed/has been invalidated
+	bool Changed = false;
+	bool allocaInvalidated = false;
+	cheerp::Registerize& registerize = getAnalysis<cheerp::Registerize>();
+	for (const auto& pair : movedAllocaMaps)
+	{
+		const Instruction* I = pair.first;
+		const InsertPoint& insertPoint = pair.second;
+		if(insertPoint.insertInst == I)
+			continue;
+		else if(insertPoint.source == nullptr && insertPoint.insertInst == I->getNextNode())
+			continue;
+		if(moveAllocas && !allocaInvalidated && I->getOpcode() == Instruction::Alloca)
+		{
+			registerize.invalidateLiveRangeForAllocas(F);
+			allocaInvalidated = true;
+		}
+		Changed = true;
+	}
+
 	// Create forward blocks as required, unique them based on the source/target
 	std::map<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>, llvm::BasicBlock*> forwardBlocks;
 	for(auto it = movedAllocaMaps.rbegin(); it != movedAllocaMaps.rend(); ++it)
 	{
+		// Here we need to trow the constness away to actually modify the function
+		Instruction* I = const_cast<Instruction*>(it->first);
 		if(it->second.source)
 		{
-			BasicBlock* source = it->second.source;
-			BasicBlock* target = it->second.target;
+			BasicBlock* source = const_cast<BasicBlock*>(it->second.source);
+			BasicBlock* target = const_cast<BasicBlock*>(it->second.target);
 			assert(target);
 			auto fwd = forwardBlocks.find(std::make_pair(source, target));
 			if(fwd == forwardBlocks.end())
@@ -920,13 +935,18 @@ bool DelayInsts::runOnFunction(Function& F)
 				}
 				fwd = forwardBlocks.insert(std::make_pair(std::make_pair(source, target), newB)).first;
 			}
-			it->first->moveBefore(fwd->second->getTerminator());
+			I->moveBefore(fwd->second->getTerminator());
 		}
 		else
-			it->first->moveBefore(it->second.insertInst);
+		{
+			Instruction* insertInst = const_cast<Instruction*>(it->second.insertInst);
+			I->moveBefore(insertInst);
+		}
 	}
 	if(allocaInvalidated)
 		registerize.computeLiveRangeForAllocas(F);
+	visited.clear();
+	movedAllocaMaps.clear();
 	return Changed;
 }
 
