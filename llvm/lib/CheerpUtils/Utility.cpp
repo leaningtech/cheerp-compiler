@@ -1193,7 +1193,12 @@ const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBloc
 	return A.loop;
 }
 
-Instruction* findCommonInsertionPoint(Instruction* I, DominatorTree* DT, Instruction* currentInsertionPoint, Instruction* user)
+const Instruction* findCommonInsertionPoint(const Instruction* I, const DominatorTree* DT, const Instruction* currentInsertionPoint, const Instruction* user)
+{
+	return const_cast<const Instruction*>(findCommonInsertionPoint(I, DT, const_cast<Instruction*>(currentInsertionPoint), const_cast<Instruction*>(user)));
+}
+
+Instruction* findCommonInsertionPoint(const Instruction* I, const DominatorTree* DT, Instruction* currentInsertionPoint, Instruction* user)
 {
 	if(PHINode* phi = dyn_cast<PHINode>(user))
 	{
@@ -1229,7 +1234,8 @@ Instruction* findCommonInsertionPoint(Instruction* I, DominatorTree* DT, Instruc
 	}
 	else // Find a common dominator
 	{
-		BasicBlock* common = DT->findNearestCommonDominator(currentInsertionPoint->getParent(),user->getParent());
+		//llvm::findNearestCommonDominator should become a const function, and the const_cast could then be dropped
+		BasicBlock* common = const_cast<DominatorTree*>(DT)->findNearestCommonDominator(currentInsertionPoint->getParent(),user->getParent());
 		return common->getTerminator();
 	}
 }
