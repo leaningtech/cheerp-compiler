@@ -18,6 +18,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
+#include "llvm/Cheerp/Utility.h"
 
 #include <functional>
 #include <unordered_map>
@@ -180,11 +181,11 @@ private:
 		}
 	};
 	InsertPoint delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps, LoopInfo* LI,
-					DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, const cheerp::PointerAnalyzer& PA, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas);
+					DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, cheerp::InlineableCache& inlineableCache, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas);
 	/**
 	 * Return the count of registers used, capped at 2 for speed
 	 */
-	static uint32_t countInputRegisters(Instruction* I, const cheerp::PointerAnalyzer& PA);
+	uint32_t countInputRegisters(Instruction* I, cheerp::InlineableCache& inlineableCache);
 public:
 	static char ID;
 	explicit DelayInsts() : FunctionPass(ID) { }
