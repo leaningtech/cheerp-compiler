@@ -651,7 +651,7 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 
 FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
-uint32_t DelayInsts::countInputRegisters(Instruction* I, const cheerp::PointerAnalyzer& PA)
+uint32_t DelayInsts::countInputRegisters(Instruction* I, cheerp::InlineableCache& cache)
 {
 	uint32_t count = 0;
 	for(Value* Op: I->operands())
@@ -659,8 +659,8 @@ uint32_t DelayInsts::countInputRegisters(Instruction* I, const cheerp::PointerAn
 		Instruction* opI = dyn_cast<Instruction>(Op);
 		if(!opI)
 			continue;
-		if(isInlineable(*opI, PA))
-			count += countInputRegisters(opI, PA);
+		if(cache.isInlineable(*opI))
+			count += countInputRegisters(opI, cache);
 		else
 			count += 1;
 		if(count >= 2)
@@ -670,7 +670,7 @@ uint32_t DelayInsts::countInputRegisters(Instruction* I, const cheerp::PointerAn
 }
 
 DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps,
-					LoopInfo* LI, DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, const cheerp::PointerAnalyzer& PA, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
+					LoopInfo* LI, DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, cheerp::InlineableCache& inlineableCache, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas)
 {
 	// Do not move problematic instructions
 	// TODO: Call/Invoke may be moved in some conditions
@@ -690,7 +690,7 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 	}
 	// Do not delay instructions that depend on more than 1 input register
 	// Delaying those may increase the amount of live variables
-	if(countInputRegisters(I, PA) >= 2)
+	if(countInputRegisters(I, inlineableCache) >= 2)
 	{
 		InsertPoint ret(I);
 		visited.insert(std::make_pair(I, ret));
@@ -710,7 +710,7 @@ DelayInsts::InsertPoint DelayInsts::delayInst(Instruction* I, std::vector<std::p
 			continue;
 		processedUsers.insert(U);
 
-		InsertPoint insertPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, PDT, PA, visited, moveAllocas);
+		InsertPoint insertPoint = delayInst(cast<Instruction>(U), movedAllocaMaps, LI, DT, PDT, inlineableCache, visited, moveAllocas);
 		if (PHINode* phi = dyn_cast<PHINode>(U))
 		{
 			insertPoint.target = phi->getParent();
@@ -859,6 +859,7 @@ bool DelayInsts::runOnFunction(Function& F)
 	DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	cheerp::Registerize& registerize = getAnalysis<cheerp::Registerize>();
 	cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
+	cheerp::InlineableCache inlineableCache(PA);
 
 	DominatorTreeBase<BasicBlock> PDT(true);
 	PDT.recalculate(F);
@@ -871,7 +872,7 @@ bool DelayInsts::runOnFunction(Function& F)
 		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); ++it)
 		{
 			Instruction* I = &*it;
-			InsertPoint insertPoint = delayInst(I, movedAllocaMaps, LI, DT, &PDT, PA, visited, moveAllocas);
+			InsertPoint insertPoint = delayInst(I, movedAllocaMaps, LI, DT, &PDT, inlineableCache, visited, moveAllocas);
 			if(insertPoint.insertInst == I)
 				continue;
 			else if(insertPoint.source == nullptr && insertPoint.insertInst == I->getNextNode())
