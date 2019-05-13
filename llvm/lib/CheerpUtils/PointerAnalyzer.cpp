@@ -372,6 +372,8 @@ struct PointerResolverBaseVisitor
 	{
 		for(const IndirectPointerKindConstraint* c: closedset)
 			c->isBeingVisited = false;
+		for(const PointerKindWrapper* c: visitedPKW)
+			c->isBeingVisited = false;
 	}
 
 	const T& resolveConstraint(const IndirectPointerKindConstraint& c);
@@ -379,6 +381,7 @@ struct PointerResolverBaseVisitor
 	PointerAnalyzer::PointerData<T>& pointerData;
 	PointerAnalyzer::AddressTakenMap& addressTakenCache;
 	std::vector< const IndirectPointerKindConstraint* > closedset;
+	std::vector<const PointerKindWrapper*> visitedPKW;
 };
 
 struct PointerResolverForKindVisitor: public PointerResolverBaseVisitor<PointerKindWrapper>
@@ -1005,6 +1008,12 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 	mayCache = false;
 
 	assert(k==INDIRECT);
+
+	if (k.isBeingVisited)
+		return PointerKindWrapper::staticDefaultValue;
+	k.isBeingVisited = true;
+	visitedPKW.push_back(&k);
+
 	// If mayCache is initially false we can't cache anything
 	bool initialMayCache = mayCache;
 	// Temporary value to store a SPLIT_REGULAR kind, as we can't stop immediately like we do for REGULAR
@@ -1029,9 +1038,7 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 		else if(retKind==INDIRECT)
 		{
 			bool subMayCache = initialMayCache;
-			retKind.isBeingVisited = true;
 			const PointerKindWrapper& resolvedKind=resolvePointerKind(retKind, subMayCache);
-			retKind.isBeingVisited = false;
 			if(subMayCache)
 				cacheResolvedConstraint(*constraint, resolvedKind);
 			else
