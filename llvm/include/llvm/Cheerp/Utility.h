@@ -262,7 +262,8 @@ const llvm::Loop* findCommonLoop(const llvm::LoopInfo* LI, const llvm::BasicBloc
  * currentInsertionPoint can be NULL, this is useful to start the process
  * I can be NULL as far as user is not a PHI
  */
-llvm::Instruction* findCommonInsertionPoint(llvm::Instruction* I, llvm::DominatorTree* DT, llvm::Instruction* currentInsertionPoint, llvm::Instruction* user);
+const llvm::Instruction* findCommonInsertionPoint(const llvm::Instruction* I, const llvm::DominatorTree* DT, const llvm::Instruction* currentInsertionPoint, const llvm::Instruction* user);
+llvm::Instruction* findCommonInsertionPoint(const llvm::Instruction* I, const llvm::DominatorTree* DT, llvm::Instruction* currentInsertionPoint, llvm::Instruction* user);
 
 /**
  * Returns the incoming not-inlineable instruction for v
