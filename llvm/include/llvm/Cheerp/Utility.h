@@ -44,6 +44,29 @@ inline bool isValidVoidPtrSource(const llvm::Value* val)
 	return isValidVoidPtrSource(val, visitedPhis);
 }
 
+class InlineableCache
+{
+	typedef llvm::DenseMap<const llvm::Instruction*, bool> Cache;
+	typedef bool(InlineableCache::*InstructionToBoolFunction)(const llvm::Instruction&);
+	//TODO: a more general solution would require limiting the cache size, but here the dimension of the cache is limited by the total number of Instruction
+public:
+	InlineableCache(const PointerAnalyzer& PA) : PA(PA)
+	{
+	}
+	void clearCache()
+	{
+		cache.clear();
+	}
+	bool isInlineable(const llvm::Instruction& I);
+	template<InstructionToBoolFunction recursiveCall>
+	bool isInlineableImpl(const llvm::Instruction& I);
+private:
+	bool isInlineableWithoutCache(const llvm::Instruction& I);
+	Cache cache;
+	const PointerAnalyzer& PA;
+	friend bool isInlineable(const llvm::Instruction& I, const PointerAnalyzer& PA);
+};
+
 bool isInlineable(const llvm::Instruction& I, const PointerAnalyzer& PA);
 
 bool mayContainSideEffects(const llvm::Value* V, const PointerAnalyzer& PA);
