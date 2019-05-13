@@ -159,10 +159,10 @@ class DelayInsts: public FunctionPass
 private:
 	struct InsertPoint
 	{
-		llvm::Instruction* insertInst;
-		llvm::BasicBlock* source;
-		llvm::BasicBlock* target;
-		InsertPoint(llvm::Instruction* i, BasicBlock* s = nullptr, BasicBlock* t = nullptr):insertInst(i),source(s),target(t)
+		const llvm::Instruction* insertInst;
+		const llvm::BasicBlock* source;
+		const llvm::BasicBlock* target;
+		InsertPoint(const llvm::Instruction* i, BasicBlock* s = nullptr, BasicBlock* t = nullptr):insertInst(i),source(s),target(t)
 		{
 		}
 		bool operator==(const InsertPoint& other) const
@@ -172,7 +172,7 @@ private:
 		bool fwdBlockDominatesInsertionPoint(const InsertPoint& other, const DominatorTree* DT, const DominatorTreeBase<llvm::BasicBlock>* PDT) const
 		{
 			//Return true whether the insertionPoint represent a forward block AND this forward block dominates the other insert point
-			llvm::BasicBlock* BB = other.insertInst->getParent();
+			const llvm::BasicBlock* BB = other.insertInst->getParent();
 			return (target &&
 				source != target &&
 				DT->dominates(source, target) &&
@@ -180,12 +180,15 @@ private:
 				(target == BB || DT->dominates(target, BB)));
 		}
 	};
-	InsertPoint delayInst(Instruction* I, std::vector<std::pair<Instruction*, InsertPoint>>& movedAllocaMaps, LoopInfo* LI,
-					DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, cheerp::InlineableCache& inlineableCache, std::unordered_map<Instruction*, InsertPoint>& visited, bool moveAllocas);
+	InsertPoint delayInst(const Instruction* I, const LoopInfo* LI, const DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, cheerp::InlineableCache& inlineableCache, bool moveAllocas);
+	void calculatePlacementOfInstructions(const Function& F, const bool moveAllocas);
+	std::unordered_map<const Instruction*, InsertPoint> visited;
+	std::vector<std::pair<const Instruction*, InsertPoint>> movedAllocaMaps;
+
 	/**
 	 * Return the count of registers used, capped at 2 for speed
 	 */
-	uint32_t countInputRegisters(Instruction* I, cheerp::InlineableCache& inlineableCache);
+	uint32_t countInputRegisters(const Instruction* I, cheerp::InlineableCache& inlineableCache) const;
 public:
 	static char ID;
 	explicit DelayInsts() : FunctionPass(ID) { }
