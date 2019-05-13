@@ -82,6 +82,43 @@ bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhi
 
 bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 {
+	InlineableCache cache(PA);
+	return cache.isInlineableWithoutCache(I);
+}
+
+bool InlineableCache::isInlineableWithoutCache(const Instruction& I)
+{
+	//This version do not cache (but still needs the CacheIsInlineable object to operate on)
+	//It calls isInlineableImpl, that calls back this function of recursion. It's basically a helper function since the "natural"
+	//way of expressing isInlineableImpl<&CacheIsInlineable::isInlineableImpl<...??..>> would be infinitely recursive.
+
+	//A cleaner solution would be the one proposed here: https://stackoverflow.com/questions/25078734/recursive-lambda-callbacks-without-y-combinator/25085574#25085574
+	return isInlineableImpl<&InlineableCache::isInlineableWithoutCache>(I);
+}
+
+bool InlineableCache::isInlineable(const Instruction& I)
+{
+	//This is the function that checks whether the information is already cached, and it's called back on recursion
+
+	auto it = cache.find(&I);
+	if (it == cache.end())
+	{
+		it = cache.insert(std::make_pair(&I, isInlineableImpl<&InlineableCache::isInlineable>(I))).first;
+	}
+	assert(it->first == &I);
+	return it->second;
+}
+
+template<InlineableCache::InstructionToBoolFunction recursiveCall>
+bool InlineableCache::isInlineableImpl(const Instruction& I)
+{
+	//Take care when invoking recursiveCall: it has to be called like: (this->*recursiveCall)(paramethers)
+	//This helper lamba probably keeps it easier
+	auto isInlineableRecursion = [this](const Instruction& I) -> bool
+		{
+			return (this->*recursiveCall)(I);
+		};
+
 	//Beside a few cases, instructions with a single use may be inlined
 	//TODO: Find out a better heuristic for inlining, it seems that computing
 	//may be faster even on more than 1 use
@@ -164,7 +201,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 				if (isPositiveOffsetGep(*gep))
 					return true;
 			}
-			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
+			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineableRecursion(*cast<Instruction>(I.getOperand(0)));
 		}
 
 		if (IPointerKind == COMPLETE_OBJECT) {
@@ -180,7 +217,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 	}
 	else if(I.getOpcode()==Instruction::Trunc)
 	{
-		return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
+		return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineableRecursion(*cast<Instruction>(I.getOperand(0)));
 	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
 	{
@@ -251,7 +288,7 @@ bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 							// Avoid interacting with intrinsics logic for now
 							break;
 						}
-						else if(!isInlineable(*nextInst, PA))
+						else if(!isInlineableRecursion(*nextInst))
 						{
 							// Not inlineable, it is safe to inline
 							return true;
