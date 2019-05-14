@@ -504,7 +504,10 @@ ExprResult Sema::DefaultFunctionArrayConversion(Expr *E, bool Diagnose) {
     if (CurScope && CurScope->getFnParent() && CurScope->getFnParent()->getEntity()) {
       if (FunctionDecl* Caller = dyn_cast<FunctionDecl>(CurScope->getFnParent()->getEntity())) {
         if (DeclRefExpr* DR = dyn_cast<DeclRefExpr>(E)) {
-          FunctionDecl* Callee = cast<FunctionDecl>(DR->getFoundDecl());
+          NamedDecl* D = DR->getFoundDecl();
+          FunctionDecl* Callee = isa<FunctionTemplateDecl>(D) ?
+					cast<FunctionTemplateDecl>(D)->getTemplatedDecl() :
+					cast<FunctionDecl>(D);
           // Overloaded operators end up here when called, but not when their address is taken,
           // because they require the `&` in front of them
           bool oper = Callee->isOverloadedOperator();
