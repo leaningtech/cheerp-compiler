@@ -4028,9 +4028,21 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
       CGF.disableDebugInfo();
       llvm::Value* SafeInit = CGF.EmitScalarExpr(InitExpr, false);
       CGF.enableDebugInfo();
-      llvm::Constant* Init2 = dyn_cast<llvm::Constant>(SafeInit);
-      if(Init2)
+      if(llvm::Constant* Init2 = dyn_cast<llvm::Constant>(SafeInit))
         Init = Init2;
+      else if(llvm::Instruction* II = dyn_cast<llvm::Instruction>(SafeInit)) {
+        // We may have generated an expression tree, clean it up
+        llvm::SmallVector<llvm::Instruction*, 4> DeleteQueue;
+        DeleteQueue.push_back(II);
+        while(!DeleteQueue.empty()) {
+          llvm::Instruction* I = DeleteQueue.pop_back_val();
+          for(llvm::Value* Op: I->operands()) {
+            if(llvm::Instruction* OpI = dyn_cast<llvm::Instruction>(Op))
+              DeleteQueue.push_back(OpI);
+          }
+          delete I;
+        }
+      }
     }
 
     if (!Init) {
