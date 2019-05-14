@@ -169,7 +169,7 @@ private:
 		{
 			return insertInst == other.insertInst && source == other.source && target == other.target;
 		}
-		bool fwdBlockDominatesInsertionPoint(const InsertPoint& other, const DominatorTree* DT, const DominatorTreeBase<llvm::BasicBlock>* PDT) const
+		bool fwdBlockDominatesInsertionPoint(const InsertPoint& other, const DominatorTree* DT, const PostDominatorTree* PDT) const
 		{
 			//Return true whether the insertionPoint represent a forward block AND this forward block dominates the other insert point
 			const llvm::BasicBlock* BB = other.insertInst->getParent();
@@ -180,7 +180,7 @@ private:
 				(target == BB || DT->dominates(target, BB)));
 		}
 	};
-	InsertPoint delayInst(const Instruction* I, const LoopInfo* LI, const DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, cheerp::InlineableCache& inlineableCache, bool moveAllocas);
+	InsertPoint delayInst(const Instruction* I, const LoopInfo* LI, const DominatorTree* DT, const PostDominatorTree* PDT, cheerp::InlineableCache& inlineableCache, bool moveAllocas);
 	void calculatePlacementOfInstructions(const Function& F, const bool moveAllocas);
 	std::unordered_map<const Instruction*, InsertPoint> visited;
 	std::vector<std::pair<const Instruction*, InsertPoint>> movedAllocaMaps;
