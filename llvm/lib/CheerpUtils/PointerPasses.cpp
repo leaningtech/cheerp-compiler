@@ -12,6 +12,7 @@
 #define DEBUG_TYPE "CheerpPointerPasses"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/DeterministicPtrSet.h"
 #include "llvm/Cheerp/PointerPasses.h"
@@ -669,7 +670,7 @@ uint32_t DelayInsts::countInputRegisters(const Instruction* I, cheerp::Inlineabl
 	return count;
 }
 
-DelayInsts::InsertPoint DelayInsts::delayInst(const Instruction* I, const LoopInfo* LI, const DominatorTree* DT, const DominatorTreeBase<BasicBlock>* PDT, cheerp::InlineableCache& inlineableCache, bool moveAllocas)
+DelayInsts::InsertPoint DelayInsts::delayInst(const Instruction* I, const LoopInfo* LI, const DominatorTree* DT, const PostDominatorTree* PDT, cheerp::InlineableCache& inlineableCache, bool moveAllocas)
 {
 	// Do not move problematic instructions
 	// TODO: Call/Invoke may be moved in some conditions
@@ -854,17 +855,14 @@ void DelayInsts::calculatePlacementOfInstructions(const Function& F, const bool 
 	const LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 	const DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	const cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
-
-	DominatorTreeBase<BasicBlock> PDT(true);
-	PDT.recalculate(const_cast<Function&>(F));
-	assert(PDT.isPostDominator());
+	const PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
 
 	cheerp::InlineableCache inlineableCache(PA);
 	for (const BasicBlock& BB : F )
 	{
 		for (BasicBlock::const_iterator it = BB.begin(); it != BB.end(); ++it)
 		{
-			delayInst(&*it, LI, DT, &PDT, inlineableCache, moveAllocas);
+			delayInst(&*it, LI, DT, PDT, inlineableCache, moveAllocas);
 		}
 	}
 }
@@ -963,6 +961,7 @@ void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<DominatorTreeWrapperPass>();
+	AU.addRequired<PostDominatorTree>();
 	AU.addRequired<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addRequired<LoopInfoWrapperPass>();
@@ -983,6 +982,7 @@ INITIALIZE_PASS_END(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR 
 
 INITIALIZE_PASS_BEGIN(DelayInsts, "DelayInsts", "Moves instructions as close as possible to the actual users",
 			false, false)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_END(DelayInsts, "DelayInsts", "Moves instrucitions as close as possible to the actual users",
 			false, false)
 
