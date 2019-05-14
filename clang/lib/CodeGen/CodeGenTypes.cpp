@@ -56,7 +56,12 @@ void CodeGenTypes::getRecordTypeName(const RecordDecl *RD,
   if (RD->getIdentifier()) {
     // FIXME: We should not have to check for a null decl context here.
     // Right now we do it because the implicit Obj-C decls don't have one.
-    getCXXABI().getMangleContext().mangleName(RD, OS);
+    if(getTarget().getCXXABI().isItaniumFamily())
+      getCXXABI().getMangleContext().mangleName(RD, OS);
+    else if (RD->getDeclContext())
+      RD->printQualifiedName(OS);
+    else
+      RD->printName(OS);
   } else if (const TypedefNameDecl *TDD = RD->getTypedefNameForAnonDecl()) {
     // FIXME: We should not have to check for a null decl context here.
     // Right now we do it because the implicit Obj-C decls don't have one.
