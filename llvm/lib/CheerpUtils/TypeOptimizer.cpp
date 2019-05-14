@@ -1405,8 +1405,8 @@ bool TypeOptimizer::runOnModule(Module& M)
 	// Now that all functions are fixes, update the global initializer
 	for(GlobalVariable& GV: M.getGlobalList())
 	{
-		rewriteGlobalInit(&GV);
 		GV.setValueType(rewriteType(GV.getValueType()));
+		rewriteGlobalInit(&GV);
 	}
 	for(GlobalAlias& GA: M.getAliasList())
 	{
