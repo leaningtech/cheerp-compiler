@@ -19,6 +19,7 @@
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
@@ -154,6 +155,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createGEPOptimizerPass());
   PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround));
   PM.add(cheerp::createPointerAnalyzerPass());
+  PM.add(createPostDomTree());
   PM.add(createDelayInstsPass());
   PM.add(cheerp::createAllocaMergingPass());
   PM.add(createAllocaArraysPass());
