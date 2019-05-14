@@ -151,7 +151,10 @@ bool ExecutionEngine::removeModule(Module *M) {
     if (Found == M) {
       I->release();
       Modules.erase(I);
-      clearGlobalMappingsFromModule(M);
+      if (Modules.empty())
+        clearAllGlobalMappings();
+      else
+        clearGlobalMappingsFromModule(M);
       return true;
     }
   }
