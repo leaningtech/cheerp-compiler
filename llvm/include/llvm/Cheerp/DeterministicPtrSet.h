@@ -14,6 +14,7 @@
 
 #include <unordered_map>
 #include <deque>
+#include <cassert>
 
 /*
    Deterministic Pointer Set
@@ -64,6 +65,7 @@ public:
 	{
 		map = rhs.map;
 		vec = rhs.vec;
+		normalize();
 		return *this;
 	}
 	DeterministicPtrSet& operator=(DeterministicPtrSet&& rhs)
@@ -77,8 +79,12 @@ public:
 	}
 	void swap(DeterministicPtrSet& rhs)
 	{
+		if (&rhs == this)
+			return;
 		map.swap(rhs.map);
 		vec.swap(rhs.vec);
+		normalize();
+		rhs.normalize();
 	}
 	iterator find(const T t)
 	{
@@ -115,15 +121,18 @@ public:
 		if (W == end())
 			return false;
 		iterator K = find(vec.back());
-		map.erase(*W);
-		*W = *K;
-		map[*W] = W;
+		assert(K != end());
+		std::swap<T>(*K, *W);
+		map.at(*W) = W;
+		assert(*K == t);
+		map.erase(*K);
 		assert(vec.back() == t);
 		vec.pop_back();
 		return true;
 	}
 	bool empty() const
 	{
+		assert(map.size() == vec.size());
 		return vec.empty();
 	}
 	void clear()
@@ -137,6 +146,7 @@ public:
 	}
 	size_type size() const
 	{
+		assert(map.size() == vec.size());
 		return vec.size();
 	}
 	const_iterator begin() const
@@ -156,6 +166,16 @@ public:
 		return vec.end();
 	}
 private:
+	void normalize()
+	{
+		iterator i = begin();
+		iterator e = end();
+		while (i != e)
+		{
+			map[*i] = i;
+			++i;
+		}
+	}
 	std::deque<T> vec;
 	std::unordered_map<T, iterator> map;
 };
