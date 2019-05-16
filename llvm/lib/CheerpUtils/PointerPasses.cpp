@@ -965,7 +965,6 @@ void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addRequired<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addRequired<LoopInfoWrapperPass>();
-	AU.addPreserved<LoopInfoWrapperPass>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
