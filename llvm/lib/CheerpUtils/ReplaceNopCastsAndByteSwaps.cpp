@@ -52,7 +52,7 @@ bool ReplaceNopCastsAndByteSwaps::processBasicBlock(BasicBlock& BB)
 	 */
 	for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
 	{
-		Instruction * Inst = it++;
+		Instruction * Inst = &*it++;
 		
 		if (isNopCast(Inst) )
 		{

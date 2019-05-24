@@ -865,7 +865,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 	// Detach all the global variables, and put the unused ones in the eraseQueue
 	for ( Module::global_iterator it = module.global_begin(); it != module.global_end(); )
 	{
-		GlobalVariable * var = it++;
+		GlobalVariable * var = &*it++;
 		var->removeFromParent();
 		if ( ! isReachable(var) )
 			eraseQueue.push_back(var);
@@ -881,7 +881,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 	// Detach all the functions, and put the unused ones in the eraseQueue
 	for (Module::iterator it = module.begin(); it != module.end(); )
 	{
-		Function * f = it++;
+		Function * f = &*it++;
 		if ( !isReachable(f) )
 		{
 			eraseQueue.push_back(f);
@@ -916,7 +916,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 	// Detach only the unreachable aliases
 	for (Module::alias_iterator it = module.alias_begin(); it != module.alias_end(); )
 	{
-		GlobalAlias * GA = it++;
+		GlobalAlias * GA = &*it++;
 		
 		if ( isReachable(GA) )
 		{

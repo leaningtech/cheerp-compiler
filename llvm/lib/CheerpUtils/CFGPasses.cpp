@@ -52,7 +52,7 @@ bool RemoveFwdBlocks::runOnFunction(Function& F)
 		// Finally, replace this block with the successor
 		BB->replaceAllUsesWith(predBB);
 		BB->eraseFromParent();
-		BB = predBB;
+		BB = predBB->getIterator();
 
 		changed = true;
 	}

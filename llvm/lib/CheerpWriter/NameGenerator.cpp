@@ -251,10 +251,11 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		uint32_t currentArgPos=thisFunctionLocals.size();
 		thisFunctionLocals.resize(currentArgPos+f.arg_size());
 		// Insert the arguments
-		for ( auto arg_it = f.arg_begin(); arg_it != f.arg_end(); ++arg_it, currentArgPos++ )
+		for ( auto& arg: f.args())
 		{
 			thisFunctionLocals[currentArgPos].first = f.getNumUses();
-			thisFunctionLocals[currentArgPos].second = localData{arg_it, 0, needsSecondaryName(arg_it, PA)};
+			thisFunctionLocals[currentArgPos].second = localData{&arg, 0, needsSecondaryName(&arg, PA)};
+			currentArgPos++;
 		}
 
 		// Resize allLocalValues so that we have empty useValuesPair at the end of the container
@@ -460,20 +461,20 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 				regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((name+"o").str()));
 		}
 
-		for ( auto arg_it = f.arg_begin(); arg_it != f.arg_end(); ++arg_it )
+		for ( auto& arg: f.args())
 		{
-			bool needsTwoNames = needsSecondaryName(arg_it, PA);
-			if ( arg_it->hasName() )
+			bool needsTwoNames = needsSecondaryName(&arg, PA);
+			if ( arg.hasName() )
 			{
-				namemap.emplace( arg_it, filterLLVMName(arg_it->getName(), LOCAL) );
+				namemap.emplace( &arg, filterLLVMName(arg.getName(), LOCAL) );
 				if(needsTwoNames)
-					secondaryNamemap.emplace( arg_it, filterLLVMName(arg_it->getName(), LOCAL_SECONDARY) );
+					secondaryNamemap.emplace( &arg, filterLLVMName(arg.getName(), LOCAL_SECONDARY) );
 			}
 			else
 			{
-				namemap.emplace( arg_it, StringRef( "Larg" + std::to_string(arg_it->getArgNo()) ) );
+				namemap.emplace( &arg, StringRef( "Larg" + std::to_string(arg.getArgNo()) ) );
 				if(needsTwoNames)
-					secondaryNamemap.emplace( arg_it, StringRef( "Marg" + std::to_string(arg_it->getArgNo()) ) );
+					secondaryNamemap.emplace( &arg, StringRef( "Marg" + std::to_string(arg.getArgNo()) ) );
 			}
 		}
 	}
