@@ -27,7 +27,7 @@ namespace cheerp {
 
 class TokenList;
 
-class Token: public llvm::ilist_node<Token> {
+class Token: public llvm::ilist_node_with_parent<Token, TokenList> {
 public:
 	friend class TokenList;
 
@@ -80,16 +80,16 @@ public:
 		return Match;
 	}
 	llvm::iplist<Token>::iterator getIter() {
-		return llvm::iplist<Token>::iterator(this);
+		return llvm::iplist<Token>::iterator(*this);
 	}
 	llvm::iplist<Token>::reverse_iterator getRevIter() {
-		return llvm::iplist<Token>::reverse_iterator(this);
+		return llvm::iplist<Token>::reverse_iterator(getIterator());
 	}
 	llvm::iplist<Token>::const_iterator getIter() const {
-		return llvm::iplist<Token>::const_iterator(this);
+		return llvm::iplist<Token>::const_iterator(*this);
 	}
 	llvm::iplist<Token>::const_reverse_iterator getRevIter() const {
-		return llvm::iplist<Token>::const_reverse_iterator(this);
+		return llvm::iplist<Token>::const_reverse_iterator(getIterator());
 	}
 	static Token* createBasicBlock(const llvm::BasicBlock* BB, int Id) {
 		return new Token(TK_BasicBlock, BB, nullptr);
@@ -280,6 +280,9 @@ public:
 		assert(T);
 		T->Parent = nullptr;
 		return List.erase(T);
+	}
+	static TokenListType TokenList::*getSublistAccess(Token *) {
+		return &TokenList::List;
 	}
 #ifdef DEBUG_TOKENLIST
 	void dump(const Token* Pos = nullptr) const
