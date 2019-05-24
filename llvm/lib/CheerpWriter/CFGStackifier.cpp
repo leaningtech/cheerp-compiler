@@ -474,7 +474,7 @@ void TokenListBuilder::processLoopScopes(const BasicBlock* CurBB)
 
 		LoopCounts.insert(std::make_pair(CurL, CurL->getNumBlocks()));
 
-		LoopHeaders.insert(std::make_pair(CurBB, LoopPt));
+		LoopHeaders.insert(std::make_pair(CurBB, &*LoopPt));
 	}
 	// Decrement the loop count, and if necessary update outer loops too
 	auto LoopCountIt = LoopCounts.find(CurL);
@@ -506,7 +506,7 @@ void TokenListBuilder::processBlockScopes(const std::vector<Token*>& Branches)
 		Branch->setMatch(End);
 
 		auto TargetPt = Tokens.insertAfter(EndPt, End);
-		auto BlockPt = findBlockBegin(TargetPt, Branch);
+		auto BlockPt = findBlockBegin(TargetPt, Branch->getIter());
 		Tokens.insertAfter(BlockPt, Block);
 	}
 	InsertPt--;
@@ -603,14 +603,14 @@ TokenList::iterator TokenListBuilder::findBlockBegin(TokenList::iterator Target,
 				break;
 			case Token::TK_Else:
 				LastUnmatchedScope = it->getMatch()->getMatch();
-				it = it->getMatch();
+				it = it->getMatch()->getIter();
 				break;
 			case Token::TK_If:
 			case Token::TK_Loop:
 			case Token::TK_Block:
 			case Token::TK_Switch:
 				while(it->getKind() != Token::TK_End)
-					it = it->getMatch();
+					it = it->getMatch()->getIter();
 				break;
 			default:
 				break;
@@ -618,9 +618,9 @@ TokenList::iterator TokenListBuilder::findBlockBegin(TokenList::iterator Target,
 	}
 	// If we have an unopened scope, move the candidate to it
 	if (LastUnmatchedScope)
-		Candidate = LastUnmatchedScope;
+		Candidate = LastUnmatchedScope->getIter();
 	// Return the node before the final candidate. We will insert after it
-	return Candidate->getPrevNode();
+	return Candidate->getPrevNode()->getIter();
 }
 
 class TokenListOptimizer {
@@ -664,7 +664,7 @@ private:
 				ItPt++;
 				continue;
 			}
-			f(ItPt);
+			f(&*ItPt);
 			if (RemovedItPt)
 			{
 				RemovedItPt = false;
@@ -681,9 +681,9 @@ private:
 	bool RemovedItPt;
 	// Helper function for removing Tokens from the list without invalidating
 	// the iteration during `for_each_kind`
-	void erase(TokenList::iterator ToRemove)
+	void erase(Token* ToRemove)
 	{
-		if (ToRemove == ItPt)
+		if (ToRemove->getIter() == ItPt)
 		{
 			RemovedItPt = true;
 			ItPt++;
@@ -715,7 +715,7 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
 		switch (it->getKind())
 		{
 			case Token::TK_Else:
-				it = it->getMatch();
+				it = it->getMatch()->getIter();
 				break;
 			case Token::TK_End:
 			case Token::TK_Loop:
@@ -729,16 +729,16 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
 }
 void TokenListOptimizer::removeRedundantBranches()
 {
-	for_each_kind<Token::TK_Branch>([&](TokenList::iterator Branch)
+	for_each_kind<Token::TK_Branch>([&](Token* Branch)
 	{
-		TokenList::iterator End = Branch->getMatch();
+		Token* End = Branch->getMatch();
 		if (End->getKind() == Token::TK_Loop)
 			return;
 		assert(End->getKind() == Token::TK_End);
-		TokenList::iterator Block = End->getMatch();
+		Token* Block = End->getMatch();
 		assert(Block->getKind() == Token::TK_Block);
 		assert(Branch->getNextNode() != nullptr);
-		if (isNaturalFlow(Branch, End))
+		if (isNaturalFlow(Branch->getIter(), End->getIter()))
 		{
 			erase(Branch);
 			erase(Block);
@@ -749,17 +749,17 @@ void TokenListOptimizer::removeRedundantBranches()
 
 void TokenListOptimizer::removeRedundantLoops()
 {
-	for_each_kind<Token::TK_Loop>([&](TokenList::iterator Loop)
+	for_each_kind<Token::TK_Loop>([&](Token* Loop)
 	{
 		DenseSet<Token*> ExtraLoops;
-		auto ItPt = Loop;
+		auto ItPt = Loop->getIter();
 		while((++ItPt)->getKind() == Token::TK_Loop)
 		{
-			ExtraLoops.insert(ItPt);
+			ExtraLoops.insert(&*ItPt);
 		}
 		if (ExtraLoops.empty())
 			return;
-		TokenList::iterator SearchEndPt = Loop->getNextNode()->getMatch();
+		TokenList::iterator SearchEndPt = Loop->getNextNode()->getMatch()->getIter();
 		assert(SearchEndPt->getKind() == Token::TK_End);
 		for_each_kind<Token::TK_Branch>(ItPt, SearchEndPt, [&](Token* Br)
 		{
@@ -770,7 +770,7 @@ void TokenListOptimizer::removeRedundantLoops()
 		});
 		for (Token* EL: ExtraLoops)
 		{
-			TokenList::iterator End = EL->getMatch();
+			Token* End = EL->getMatch();
 			erase(End);
 			erase(EL);
 		}
@@ -791,7 +791,7 @@ static bool isEmptyPrologue(const BasicBlock* From, const BasicBlock* To,
 }
 void TokenListOptimizer::removeEmptyPrologues()
 {
-	for_each_kind<Token::TK_Prologue>([&](TokenList::iterator Prologue)
+	for_each_kind<Token::TK_Prologue>([&](Token* Prologue)
 	{
 		if (isEmptyPrologue(Prologue->getBB(),
 			Prologue->getBB()->getTerminator()->getSuccessor(Prologue->getId()), R, PA))
@@ -803,7 +803,7 @@ void TokenListOptimizer::removeEmptyPrologues()
 
 void TokenListOptimizer::removeEmptyBasicBlocks()
 {
-	for_each_kind<Token::TK_BasicBlock>([&](TokenList::iterator BBT)
+	for_each_kind<Token::TK_BasicBlock>([&](Token* BBT)
 	{
 		if (isNumStatementsLessThan<1>(BBT->getBB(), PA, R))
 			erase(BBT);
@@ -812,7 +812,7 @@ void TokenListOptimizer::removeEmptyBasicBlocks()
 
 void TokenListOptimizer::removeEmptyIfs()
 {
-	for_each_kind<Token::TK_End | Token::TK_Else>([&](TokenList::iterator T)
+	for_each_kind<Token::TK_End | Token::TK_Else>([&](Token* T)
 	{
 		Token* Prev = T->getPrevNode();
 		if (Prev->getKind() & (Token::TK_If | Token::TK_Else | Token::TK_IfNot)
@@ -828,7 +828,7 @@ void TokenListOptimizer::removeEmptyIfs()
 					Token* IfNot = Token::createIfNot(EmptyIf->getBB());
 					IfNot->setMatch(End);
 					End->setMatch(IfNot);
-					Tokens.insertAfter(EmptyIf, IfNot);
+					Tokens.insertAfter(EmptyIf->getIter(), IfNot);
 					erase(EmptyIf);
 					erase(Else);
 				}
@@ -840,7 +840,7 @@ void TokenListOptimizer::removeEmptyIfs()
 					if (mayContainSideEffects(Cond, PA))
 					{
 						Token* CondT = Token::createCondition(EmptyIf->getBB());
-						Tokens.insert(EmptyIf, CondT);
+						Tokens.insert(EmptyIf->getIter(), CondT);
 					}
 					erase(EmptyIf);
 					erase(T);
@@ -861,7 +861,7 @@ void TokenListOptimizer::removeEmptyIfs()
 
 void TokenListOptimizer::createBrIfs()
 {
-	for_each_kind<Token::TK_If | Token::TK_IfNot>([&](TokenList::iterator T)
+	for_each_kind<Token::TK_If | Token::TK_IfNot>([&](Token* T)
 	{
 		Token* End = T->getMatch();
 		if (End->getKind() != Token::TK_End)
@@ -873,28 +873,28 @@ void TokenListOptimizer::createBrIfs()
 		Token* BrIf = IsIfNot
 			? Token::createBrIfNot(T->getBB(), Branch->getMatch())
 			: Token::createBrIf(T->getBB(), Branch->getMatch());
-		Tokens.insert(T, BrIf);
+		Tokens.insert(T->getIter(), BrIf);
 		erase(T);
 		erase(Branch);
-		erase(End); 
+		erase(End);
 	});
 }
 
 void TokenListOptimizer::mergeBlocks()
 {
-	for_each_kind<Token::TK_Branch>([&](TokenList::iterator Br)
+	for_each_kind<Token::TK_Branch>([&](Token* Br)
 	{
 		// Look for branches that target Block Tokens
-		TokenList::iterator End = Br->getMatch();
+		Token* End = Br->getMatch();
 		if (End->getKind() != Token::TK_End)
 			return;
 		// If we have an outer Block Token that ends here, we can branch to that,
 		// and remove the current one
-		TokenList::iterator NewEnd = End;
-		while(std::next(NewEnd)->getKind() == Token::TK_End
-			&& std::next(NewEnd)->getMatch()->getKind() == Token::TK_Block)
+		Token* NewEnd = End;
+		while(NewEnd->getNextNode()->getKind() == Token::TK_End
+			&& NewEnd->getNextNode()->getMatch()->getKind() == Token::TK_Block)
 		{
-			NewEnd++;
+			NewEnd = NewEnd->getNextNode();
 		}
 		if (NewEnd == End)
 			return;
@@ -940,28 +940,28 @@ static bool canFallThrough(Token* T)
 void TokenListOptimizer::removeUnnededNesting()
 {
 	// Iterate the End Tokens, so we handle the innermost Ifs first
-	for_each_kind<Token::TK_End>([&](TokenList::iterator End)
+	for_each_kind<Token::TK_End>([&](Token* End)
 	{
-		TokenList::iterator If = End->getMatch();
+		Token* If = End->getMatch();
 		if (If->getKind() != Token::TK_If)
 			return;
-		TokenList::iterator Else = If->getMatch();
+		Token* Else = If->getMatch();
 		if (Else->getKind() != Token::TK_Else)
 			return;
 		auto removeElse = [&]()
 		{
 			Token* NewEnd = Token::createIfEnd(If, nullptr);
-			Tokens.insert(Else, NewEnd);
+			Tokens.insert(Else->getIter(), NewEnd);
 			erase(Else);
 			erase(End);
 		};
 		auto removeIf = [&]()
 		{
-			Tokens.moveAfter(End, std::next(If), Else);
+			Tokens.moveAfter(End->getIter(), std::next(If->getIter()), Else->getIter());
 			Token* IfNot = Token::createIfNot(If->getBB());
 			IfNot->setMatch(End);
 			End->setMatch(IfNot);
-			Tokens.insert(Else, IfNot);
+			Tokens.insert(Else->getIter(), IfNot);
 			erase(If);
 			erase(Else);
 		};
@@ -1000,10 +1000,10 @@ void TokenListOptimizer::removeUnnededNesting()
 
 void TokenListOptimizer::adjustLoopEnds()
 {
-	for_each_kind<Token::TK_Loop>([&](TokenList::iterator Loop)
+	for_each_kind<Token::TK_Loop>([&](Token* Loop)
 	{
-		TokenList::iterator End = Loop->getMatch();
-		TokenList::iterator Cur = std::prev(End);
+		Token* End = Loop->getMatch();
+		Token* Cur = End->getPrevNode();
 		Token* LastDepth0 = nullptr;
 		int Depth = 0;
 		while (Cur != Loop)
@@ -1023,11 +1023,11 @@ void TokenListOptimizer::adjustLoopEnds()
 			{
 				break;
 			}
-			Cur--;
+			Cur = Cur->getPrevNode();
 		}
-		if (LastDepth0 != nullptr && LastDepth0 != std::prev(End))
+		if (LastDepth0 != nullptr && LastDepth0 != End->getPrevNode())
 		{
-			Tokens.moveAfter(LastDepth0, End, std::next(End));
+			Tokens.moveAfter(LastDepth0->getIter(), End->getIter(), std::next(End->getIter()));
 		}
 	});
 }
@@ -1051,7 +1051,7 @@ void TokenListOptimizer::removeRedundantBlocks()
 			BlockLikeTokens = Token::TK_If|Token::TK_IfNot;
 			break;
 	}
-	for_each_kind<Token::TK_End>([&](TokenList::iterator End)
+	for_each_kind<Token::TK_End>([&](Token* End)
 	{
 		Token* Block = End->getMatch();
 		if (Block->getKind() != Token::TK_Block)
@@ -1066,7 +1066,7 @@ void TokenListOptimizer::removeRedundantBlocks()
 		if (InnerEnd->getNextNode() != End)
 			return;
 
-		for_each_kind<Token::TK_Branch|Token::TK_BrIf|Token::TK_BrIfNot>(Block, End, [&](TokenList::iterator Branch)
+		for_each_kind<Token::TK_Branch|Token::TK_BrIf|Token::TK_BrIfNot>(Block->getIter(), End->getIter(), [&](Token* Branch)
 		{
 			if (Branch->getMatch() == End)
 				Branch->setMatch(InnerEnd);
