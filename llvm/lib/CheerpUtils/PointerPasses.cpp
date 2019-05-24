@@ -201,7 +201,7 @@ bool IndirectCallOptimizer::runOnModule(Module & m)
 					 return ImmutableCallSite(u.getUser());
 				 }) )
 		{
-			Function * oldFun = it;
+			Function * oldFun = &*it;
 			PA.invalidate(oldFun);
 			Function * newFun = Function::Create( oldFun->getFunctionType(),
 							      oldFun->getLinkage(),
@@ -214,8 +214,8 @@ bool IndirectCallOptimizer::runOnModule(Module & m)
 
 			SmallVector< Value *, 8 > newFunArgs;
 			newFunArgs.reserve ( newFun->arg_size() );
-			for ( Function::arg_iterator arg = newFun->arg_begin(); arg != newFun->arg_end(); ++ arg)
-				newFunArgs.push_back(arg);
+			for (auto& arg: newFun->args())
+				newFunArgs.push_back(&arg);
 			
 			// Fill the new function
 			BasicBlock * newBody = BasicBlock::Create( newFun->getContext(), 
@@ -401,7 +401,7 @@ Value* PHIVisitor::rewrite(Instruction* I, Value* base)
 		if(isa<ConstantInt>(newOffset) && cast<ConstantInt>(newOffset)->getZExtValue()==0)
 			newGep=base;
 		else
-			newGep=GetElementPtrInst::Create(base->getType()->getPointerElementType(), base, newOffset, "geptoindex",phi->getParent()->getFirstInsertionPt());
+			newGep=GetElementPtrInst::Create(base->getType()->getPointerElementType(), base, newOffset, "geptoindex",&*phi->getParent()->getFirstInsertionPt());
 		phi->replaceAllUsesWith(newGep);
 		return newOffset;
 	}

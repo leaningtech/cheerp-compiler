@@ -53,7 +53,7 @@ void FixIrreducibleControlFlow::SCCVisitor::makeDispatchPHIs(const Header& H)
 		PHINode* P = dyn_cast<PHINode>(I);
 		if (P == nullptr)
 			break;
-		PHINode* NewP = PHINode::Create(P->getType(), Label->getNumIncomingValues(), {P->getName(),".dispatch"}, Dispatcher->getFirstInsertionPt());
+		PHINode* NewP = PHINode::Create(P->getType(), Label->getNumIncomingValues(), {P->getName(),".dispatch"}, &*Dispatcher->getFirstInsertionPt());
 		for (auto F: H.forwards())
 		{
 			BasicBlock* Pred = F->getUniquePredecessor();

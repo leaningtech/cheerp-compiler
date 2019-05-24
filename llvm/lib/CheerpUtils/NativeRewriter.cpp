@@ -280,22 +280,18 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 		return;
 
 	//Visit each instruction and take note of the ones that needs to be replaced
-	Function::const_iterator B=F.begin();
-	Function::const_iterator BE=F.end();
 	ValueToValueMapTy valueMap;
 	CallInst* lowerConstructor = NULL;
 	BitCastInst* lowerCast = NULL;
 	const CallInst* oldLowerConstructor = NULL;
-	for(;B!=BE;++B)
+	for(const auto& BB: F)
 	{
-		BasicBlock::const_iterator I=B->begin();
-		BasicBlock::const_iterator IE=B->end();
-		for(;I!=IE;++I)
+		for(const auto& I: BB)
 		{
-			if(I->getOpcode()!=Instruction::Call)
+			if(I.getOpcode()!=Instruction::Call)
 				continue;
-			const CallInst* callInst=cast<CallInst>(&(*I));
-			Function* f=callInst->getCalledFunction();
+			const CallInst& callInst=cast<CallInst>(I);
+			Function* f=callInst.getCalledFunction();
 			if(!f)
 				continue;
 			const char* startOfType;
@@ -303,22 +299,22 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 			if(!CheerpNativeRewriter::isBuiltinConstructor(f->getName().data(), startOfType, endOfType))
 				continue;
 			//Check that the constructor is for 'this'
-			Value* firstArg = callInst->getOperand(0);
+			Value* firstArg = callInst.getOperand(0);
 			while(cheerp::isBitCast(firstArg))
 			{
 				valueMap.insert(make_pair(firstArg, UndefValue::get(firstArg->getType())));
 				firstArg = cast<User>(firstArg)->getOperand(0);
 			}
-			if(firstArg!=F.arg_begin())
+			if(firstArg!=&*F.arg_begin())
 				continue;
 			//If this is another constructor for the same type, change it to a
 			//returning constructor and use it as the 'this' argument
 			Function* newFunc = getReturningConstructor(M, f);
 			llvm::SmallVector<Value*, 4> newArgs;
-			for(unsigned i=1;i<callInst->getNumArgOperands();i++)
-				newArgs.push_back(callInst->getArgOperand(i));
+			for(auto& arg: make_range(callInst.arg_begin()+1, callInst.arg_end()))
+				newArgs.push_back(arg.get());
 			lowerConstructor = CallInst::Create(newFunc, newArgs);
-			oldLowerConstructor = callInst;
+			oldLowerConstructor = &callInst;
 			break;
 		}
 		if(lowerConstructor)
@@ -333,10 +329,10 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	if(lowerConstructor->getType() != F.arg_begin()->getType())
 	{
 		lowerCast = new BitCastInst( lowerConstructor, F.arg_begin()->getType());
-		valueMap.insert(make_pair(F.arg_begin(), lowerCast));
+		valueMap.insert(make_pair(&*F.arg_begin(), lowerCast));
 	}
 	else
-		valueMap.insert(make_pair(F.arg_begin(), lowerConstructor));
+		valueMap.insert(make_pair(&*F.arg_begin(), lowerConstructor));
 
 	for(unsigned i=1;i<F.arg_size();i++)
 	{
@@ -416,18 +412,14 @@ bool CheerpNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function&
 	SmallVector<Instruction*, 4> toRemove;
 
 	bool Changed = false;
-	Function::iterator B=F.begin();
-	Function::iterator BE=F.end();
-	for(;B!=BE;++B)
+	for(auto& BB: F)
 	{
-		BasicBlock::iterator I=B->begin();
-		BasicBlock::iterator IE=B->end();
-		for(;I!=IE;++I)
+		for(auto& I: BB)
 		{
-			if(I->getOpcode()==Instruction::Alloca)
+			if(I.getOpcode()==Instruction::Alloca)
 			{
-				AllocaInst* i=cast<AllocaInst>(&(*I));
-				Type* t=i->getAllocatedType();
+				AllocaInst& i=cast<AllocaInst>(I);
+				Type* t=i.getAllocatedType();
 
 				std::string builtinTypeName;
 				if(!t->isStructTy() || !cast<StructType>(t)->hasName() ||
@@ -435,25 +427,25 @@ bool CheerpNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function&
 				{
 					continue;
 				}
-				rewriteNativeAllocationUsers(M,toRemove,i,t,builtinTypeName);
+				rewriteNativeAllocationUsers(M,toRemove,&i,t,builtinTypeName);
 				Changed = true;
 			}
-			else if(I->getOpcode()==Instruction::Call)
+			else if(I.getOpcode()==Instruction::Call)
 			{
-				CallInst* i=cast<CallInst>(&(*I));
+				CallInst& i=cast<CallInst>(I);
 				//Check if the function is the C++ new
-				Function* called=i->getCalledFunction();
+				Function* called=i.getCalledFunction();
 				if(called==NULL)
 					continue;
 				if(called->getIntrinsicID() != Intrinsic::cheerp_allocate &&
 				   called->getIntrinsicID() != Intrinsic::cheerp_allocate_array)
 					continue;
 				//This should be a typed new
-				Type* t=i->getType()->getPointerElementType();
+				Type* t=i.getType()->getPointerElementType();
 				std::string builtinTypeName;
 				if(!t->isStructTy() || !isBuiltinType(t->getStructName().data(), builtinTypeName))
 					continue;
-				rewriteNativeAllocationUsers(M,toRemove,i,t,builtinTypeName);
+				rewriteNativeAllocationUsers(M,toRemove,&i,t,builtinTypeName);
 				Changed = true;
 			}
 		}
