@@ -936,7 +936,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		//keeping all local variable around. The helper
 		//method is printed on demand depending on a flag
 		assert( isa<Function>( callV.getArgument(0) ) );
-		POINTER_KIND argKind = PA.getPointerKind( cast<Function>(callV.getArgument(0))->arg_begin() );
+		POINTER_KIND argKind = PA.getPointerKind( &*cast<Function>(callV.getArgument(0))->arg_begin() );
 		if(argKind == SPLIT_REGULAR)
 			stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE_SPLIT) << "(";
 		else
@@ -2757,7 +2757,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 				argKind = PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex);
 			}
 			else if (arg_it != F->arg_end())
-				argKind = PA.getPointerKind(arg_it);
+				argKind = PA.getPointerKind(&*arg_it);
 			else
 			{
 				if(isa<ConstantPointerNull>(*cur) && (cur+1)==itE && cur!=it)
@@ -4375,20 +4375,18 @@ bool CheerpWriter::compileCompoundStatement(const Instruction* I, uint32_t regId
 
 void CheerpWriter::compileBB(const BasicBlock& BB)
 {
-	BasicBlock::const_iterator I=BB.begin();
-	BasicBlock::const_iterator IE=BB.end();
 	bool asmjs = BB.getParent()->getSection() == StringRef("asmjs");
 	bool emptyBlock = true;
-	for(;I!=IE;++I)
+	for(const auto& I: BB)
 	{
-		if(isInlineable(*I, PA))
+		if(isInlineable(I, PA))
 			continue;
-		if(const PHINode* phi = dyn_cast<PHINode>(I))
+		if(const PHINode* phi = dyn_cast<PHINode>(&I))
 		{
 			if(!canDelayPHI(phi, PA, registerize))
 				continue;
 		}
-		const DebugLoc& debugLoc = I->getDebugLoc();
+		const DebugLoc& debugLoc = I.getDebugLoc();
 		if(sourceMapGenerator)
 		{
 			if(debugLoc)
@@ -4397,7 +4395,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 				sourceMapGenerator->setDebugLoc(nullptr);
 		}
 		bool isDowncast = false;
-		if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&(*I)))
+		if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
 		{
 			//Skip some kind of intrinsics
 			if(II->getIntrinsicID()==Intrinsic::lifetime_start ||
@@ -4411,18 +4409,18 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 			else if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
 				isDowncast = true;
 		}
-		if(!I->use_empty())
+		if(!I.use_empty())
 		{
-			if(I->getType()->isPointerTy() && (I->getOpcode() != Instruction::Call || isDowncast) && PA.getPointerKind(I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(I))
+			if(I.getType()->isPointerTy() && (I.getOpcode() != Instruction::Call || isDowncast) && PA.getPointerKind(&I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&I))
 			{
-				stream << getSecondaryName(&*I) << '=';
+				stream << getSecondaryName(&I) << '=';
 			}
-			else if(!I->getType()->isVoidTy())
+			else if(!I.getType()->isVoidTy())
 			{
-				uint32_t regId = registerize.getRegisterId(&*I, edgeContext);
-				assert(namegen.getName(BB.getParent(), regId) == getName(&*I));
+				uint32_t regId = registerize.getRegisterId(&I, edgeContext);
+				assert(namegen.getName(BB.getParent(), regId) == getName(&I));
 				stream << namegen.getName(BB.getParent(), regId);
-				if(!asmjs && compileCompoundStatement(&*I, regId))
+				if(!asmjs && compileCompoundStatement(&I, regId))
 				{
 					stream << ';' << NewLine;
 					emptyBlock = false;
@@ -4432,15 +4430,15 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 					stream << "=";
 			}
 		}
-		if(I->isTerminator())
+		if(I.isTerminator())
 		{
-			auto ret = compileTerminatorInstruction(*dyn_cast<TerminatorInst>(I));
+			auto ret = compileTerminatorInstruction(cast<TerminatorInst>(I));
 			if (ret == COMPILE_OK)
 				emptyBlock = false;
 		}
-		else if(!I->use_empty() || I->mayHaveSideEffects())
+		else if(!I.use_empty() || I.mayHaveSideEffects())
 		{
-			COMPILE_INSTRUCTION_FEEDBACK ret=compileNotInlineableInstruction(*I, LOWEST);
+			COMPILE_INSTRUCTION_FEEDBACK ret=compileNotInlineableInstruction(I, LOWEST);
 
 			if(ret==COMPILE_OK)
 			{
@@ -5206,7 +5204,7 @@ void CheerpWriter::compileMethod(Function& F)
 	if(F.size()==1)
 	{
 		compileMethodLocals(F, false);
-		lastDepth0Block = F.begin();
+		lastDepth0Block = &*F.begin();
 		compileBB(*F.begin());
 	}
 	else

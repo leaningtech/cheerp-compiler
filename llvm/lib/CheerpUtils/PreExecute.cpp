@@ -961,10 +961,9 @@ bool PreExecute::runOnModule(Module& m)
             Constant* newArray = ConstantArray::get(ArrayType::get(newConstructors[0]->getType(), newConstructors.size()), newConstructors);
             // Code borrowed from removeGlobalCtors
             // Create the new global and insert it next to the existing list.
-            GlobalVariable *NGV = new GlobalVariable(newArray->getType(), constructorVar->isConstant(), constructorVar->getLinkage(),
-                         newArray, "", constructorVar->getThreadLocalMode());
+            GlobalVariable *NGV = new GlobalVariable(m, newArray->getType(), constructorVar->isConstant(), constructorVar->getLinkage(),
+                         newArray, "", constructorVar, constructorVar->getThreadLocalMode());
             NGV->setSection(constructorVar->getSection());
-            constructorVar->getParent()->getGlobalList().insert(constructorVar, NGV);
             NGV->takeName(constructorVar);
 
             // Nuke the old list, replacing any uses with the new one.

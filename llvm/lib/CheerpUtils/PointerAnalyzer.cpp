@@ -886,7 +886,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 
 		Function::const_arg_iterator arg = calledFunction->arg_begin();
 		std::advance(arg, argNo);
-		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, arg));
+		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(DIRECT_ARG_CONSTRAINT, &*arg));
 	}
 
 	if ( const ReturnInst * retInst = dyn_cast<ReturnInst>(p) )

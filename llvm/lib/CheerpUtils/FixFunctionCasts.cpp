@@ -51,7 +51,7 @@ static Function* addCastWrapper(Module& M, Function& F, FunctionType* NewTy)
 	SmallVector<Value*, 4> Args;
 	for (uint32_t i = 0; i < F.arg_size(); ++i)
 	{
-		Args.push_back(ArgIt++);
+		Args.push_back(&*ArgIt++);
 	}
 	CallInst * Call = CallInst::Create(&F, Args, "", Body);
 
