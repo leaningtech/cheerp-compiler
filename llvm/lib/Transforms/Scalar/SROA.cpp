@@ -1054,15 +1054,16 @@ private:
       // Check if the PHI or select can be unconditionally loaded between the first load/store in the BB
       SmallPtrSet<User*, 4> users(I.users().begin(), I.users().end());
       Instruction* firstUser = NULL;
-      BasicBlock::iterator NE = I.getParent()->getTerminator();
-      for(BasicBlock::iterator NI=&I; NI!=NE; ++NI) {
-        if(!users.count(NI))
+      BasicBlock::iterator NE(I.getParent()->getTerminator());
+      for(BasicBlock::iterator NI(&I); NI!=NE; ++NI) {
+        auto* Cur = &*NI;
+        if(!users.count(Cur))
           continue;
-        if(isa<BitCastInst>(NI) || isa<GetElementPtrInst>(NI)) {
-          users.insert(NI->users().begin(), NI->users().end());
+        if(isa<BitCastInst>(Cur) || isa<GetElementPtrInst>(Cur)) {
+          users.insert(Cur->users().begin(), Cur->users().end());
           continue;
         }
-        firstUser = ++NI;
+        firstUser = &*(++NI);
         break;
       }
       if(!firstUser || !isSafeToLoadUnconditionally(&I, 1, DL, firstUser))
@@ -3299,9 +3300,9 @@ private:
         if (oldInst == OldPtr)
           oldInst = &NewAI;
         if (isa<PHINode>(oldInst))
-          PtrBuilder.SetInsertPoint(oldInst->getParent()->getFirstInsertionPt());
+          PtrBuilder.SetInsertPoint(oldInst->getParent(), oldInst->getParent()->getFirstInsertionPt());
         else
-          PtrBuilder.SetInsertPoint(++BasicBlock::iterator(oldInst));
+          PtrBuilder.SetInsertPoint(oldInst->getParent(), ++BasicBlock::iterator(oldInst));
         Value* newValue = getAdjustedPtr(PtrBuilder, DL, oldInst, 
                                          APInt(DL.getPointerSizeInBits(), Offset), NewAI.getType(), Twine());
         PN.setOperand(i, newValue);

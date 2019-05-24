@@ -100,13 +100,13 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 			return false;
 		It++;
 	}
-	for(; It != BB->end(); ++It)
+	for (const auto& I: make_range(It, BB->end()))
 	{
-		if (llvm::isa<llvm::TerminatorInst>(It))
+		if (llvm::isa<llvm::TerminatorInst>(I))
 			break;
-		if (isInlineable(*It, PA))
+		if (isInlineable(I, PA))
 			continue;
-		if (auto II = llvm::dyn_cast<llvm::IntrinsicInst>(It))
+		if (const auto* II = llvm::dyn_cast<llvm::IntrinsicInst>(&I))
 		{
 			//Skip some kind of intrinsics
 			if(II->getIntrinsicID()==llvm::Intrinsic::lifetime_start ||
@@ -123,9 +123,9 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 				Count+=!asmjs;
 			}
 		}
-		if (It->getType()->isPointerTy() && PA.getPointerKind(It) == SPLIT_REGULAR)
+		if (I.getType()->isPointerTy() && PA.getPointerKind(&I) == SPLIT_REGULAR)
 			Count++;
-		if (auto Store = llvm::dyn_cast<llvm::StoreInst>(It))
+		if (auto Store = llvm::dyn_cast<llvm::StoreInst>(&I))
 		{
 			const llvm::Value* ValueOp = Store->getValueOperand();
 			if (ValueOp->getType()->isPointerTy()
@@ -134,7 +134,7 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 				Count++;
 			}
 		}
-		else if (llvm::isa<llvm::VAArgInst>(It))
+		else if (llvm::isa<llvm::VAArgInst>(I))
 		{
 			Count+= asmjs;
 		}
@@ -142,7 +142,7 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 		if (Count >= N)
 			return false;
 	}
-	if (llvm::isa<llvm::ReturnInst>(It))
+	if (llvm::isa<llvm::ReturnInst>(BB->getTerminator()))
 	{
 		const llvm::Function* F = BB->getParent();
 		if (F->getReturnType()->isPointerTy()

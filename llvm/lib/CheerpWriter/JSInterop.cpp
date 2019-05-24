@@ -55,15 +55,13 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 	std::vector<StringRef> exportedNames;
 	//Look for metadata which ends in _methods. They are lists
 	//of exported methods for JS layout classes
-	for( Module::const_named_metadata_iterator it = module.named_metadata_begin(),
-		itE = module.named_metadata_end(); it!=itE; ++it)
+	for( const NamedMDNode& namedNode: module.named_metadata())
 	{
-		const NamedMDNode* namedNode = it;
-		StringRef name = namedNode->getName();
+		StringRef name = namedNode.getName();
 
 		if(name == "jsexported_methods")
 		{
-			addExportedFreeFunctions(exportedNames, namedNode);
+			addExportedFreeFunctions(exportedNames, &namedNode);
 			continue;
 		}
 
@@ -102,16 +100,16 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 			return getMethodName(node).startswith("C1");
 		};
 
-		auto constructor = std::find_if(namedNode->op_begin(), namedNode->op_end(), isConstructor );
+		auto constructor = std::find_if(namedNode.op_begin(), namedNode.op_end(), isConstructor );
 
 		//First compile the constructor
-		if (constructor == namedNode->op_end() )
+		if (constructor == namedNode.op_end() )
 		{
 			llvm::report_fatal_error( Twine("Class: ", jsClassName).concat(" does not define a constructor!") );
 			return exportedNames;
 		}
 
-		if ( std::find_if( std::next(constructor), namedNode->op_end(), isConstructor ) != namedNode->op_end() )
+		if ( std::find_if( std::next(constructor), namedNode.op_end(), isConstructor ) != namedNode.op_end() )
 		{
 			llvm::report_fatal_error( Twine("More than one constructor defined for class: ", jsClassName) );
 			return exportedNames;
@@ -142,7 +140,7 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 			<< "}" << NewLine;
 		compileOperand(f);
 		stream << '(';
-		if(PA.getPointerKind(f->arg_begin())==COMPLETE_OBJECT)
+		if(PA.getPointerKind(&*f->arg_begin())==COMPLETE_OBJECT)
 			stream << "this";
 		else
 			stream << "{d:this.d,o:0}";
@@ -154,7 +152,7 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		assert( globalDeps.isReachable(f) );
 
 		//Then compile other methods and add them to the prototype
-		for ( NamedMDNode::const_op_iterator it = namedNode->op_begin(); it != namedNode->op_end(); ++ it )
+		for ( NamedMDNode::const_op_iterator it = namedNode.op_begin(); it != namedNode.op_end(); ++ it )
 		{
 			if ( isConstructor(*it) )
 				continue;
@@ -182,7 +180,7 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 			// If the method is not static, the first argument is the implicit `this`
 			if(!isStatic)
 			{
-				if(PA.getPointerKind(f->arg_begin())==COMPLETE_OBJECT)
+				if(PA.getPointerKind(&*f->arg_begin())==COMPLETE_OBJECT)
 					stream << "this";
 				else
 					stream << "{d:this.d,o:0}";
