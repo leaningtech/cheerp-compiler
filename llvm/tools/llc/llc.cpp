@@ -320,6 +320,7 @@ int main(int argc, char **argv) {
   initializeExpandReductionsPass(*Registry);
   initializeHardwareLoopsPass(*Registry);
   initializeTransformUtils(*Registry);
+  initializeCheerpOpts(*Registry);
 
   // Initialize debugging passes.
   initializeScavengerTestPass(*Registry);
