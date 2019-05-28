@@ -369,6 +369,7 @@ int main(int argc, char **argv) {
   initializeHardwareLoopsPass(*Registry);
   initializeTransformUtils(*Registry);
   initializeReplaceWithVeclibLegacyPass(*Registry);
+  initializeCheerpOpts(*Registry);
 
   // Initialize debugging passes.
   initializeScavengerTestPass(*Registry);
