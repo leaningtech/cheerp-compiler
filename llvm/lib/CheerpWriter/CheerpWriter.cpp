@@ -5934,7 +5934,7 @@ void CheerpWriter::makeJS()
 			{
 				assert(imported->hasFnAttribute(Attribute::Static) && "Only static client functions can be imported");
 				StringRef className, funcName;
-				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data()+10);
+				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
 				name = (className + "." + funcName).str();
 			}
 			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
@@ -6039,7 +6039,7 @@ void CheerpWriter::makeJS()
 			{
 				assert(imported->hasFnAttribute(Attribute::Static) && "Only static client functions can be imported");
 				StringRef className, funcName;
-				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data()+10);
+				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
 				name = (className + "." + funcName).str();
 			}
 			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
