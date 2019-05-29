@@ -6050,27 +6050,27 @@ void CheerpWriter::makeJS()
 				name = ("_asm_"+getName(imported)).str();
 			stream << getName(imported) << ':' << name  << ',' << NewLine;
 		}
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ACOS_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ACOS_F64))
 			stream << namegen.getBuiltinName(NameGenerator::ACOS) << ":Math.acos," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ASIN_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ASIN_F64))
 			stream << namegen.getBuiltinName(NameGenerator::ASIN) << ":Math.asin," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ATAN_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN_F64))
 			stream << namegen.getBuiltinName(NameGenerator::ATAN) << ":Math.atan," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ATAN2_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN2_F64))
 			stream << namegen.getBuiltinName(NameGenerator::ATAN2) << ":Math.atan2," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::COS_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::COS_F64))
 			stream << namegen.getBuiltinName(NameGenerator::COS) << ":Math.cos," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::EXP_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::EXP_F64))
 			stream << namegen.getBuiltinName(NameGenerator::EXP) << ":Math.exp," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::LOG_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::LOG_F64))
 			stream << namegen.getBuiltinName(NameGenerator::LOG) << ":Math.log," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::POW_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::POW_F64))
 			stream << namegen.getBuiltinName(NameGenerator::POW) << ":Math.pow," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::SIN_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::SIN_F64))
 			stream << namegen.getBuiltinName(NameGenerator::SIN) << ":Math.sin," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::TAN_F64))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::TAN_F64))
 			stream << namegen.getBuiltinName(NameGenerator::TAN) << ":Math.tan," << NewLine;
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
 		{
 			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
 			stream << ':';
