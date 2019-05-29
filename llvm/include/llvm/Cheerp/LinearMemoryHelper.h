@@ -180,9 +180,10 @@ public:
 
 	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA,
 		uint32_t memorySize, uint32_t stackSize):
-		module(module), mode(mode), globalDeps(GDA), builtinIds{{0}}, maxFunctionId(0),
+		module(module), mode(mode), globalDeps(GDA), maxFunctionId(0),
 		memorySize(memorySize*1024*1024), stackSize(stackSize*1024*1024)
 	{
+		builtinIds.fill(std::numeric_limits<uint32_t>::max());
 		addFunctions();
 		addStack();
 		addGlobals();
@@ -272,6 +273,7 @@ public:
 	static const llvm::Value* compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener);
 	uint32_t getBuiltinId(GlobalDepsAnalyzer::BUILTIN b) const
 	{
+		assert(builtinIds[b] != std::numeric_limits<uint32_t>::max());
 		return builtinIds[b];
 	}
 private:
