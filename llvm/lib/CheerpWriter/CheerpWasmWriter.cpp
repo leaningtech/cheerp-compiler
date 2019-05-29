@@ -2094,7 +2094,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::cheerp_grow_memory:
 					{
 						uint32_t importedId = linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM);
-						assert(importedId);
 						compileOperand(code, ci.getOperand(0));
 						encodeU32Inst(0x10, "call", importedId, code);
 						return false;
@@ -3295,7 +3294,7 @@ void CheerpWasmWriter::compileImportSection()
 	uint32_t importedBuiltins = 0;
 	for(uint32_t i=0;i<GlobalDepsAnalyzer::MAX_BUILTIN;i++)
 	{
-		if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::BUILTIN(i)))
+		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::BUILTIN(i)))
 			importedBuiltins++;
 	}
 
@@ -3322,27 +3321,27 @@ void CheerpWasmWriter::compileImportSection()
 	FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
 	FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
 	FunctionType* i32_i32_1 = FunctionType::get(i32, i32_1, false);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ACOS_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ACOS_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ACOS), f64_f64_1);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ASIN_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ASIN_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ASIN), f64_f64_1);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ATAN_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ATAN), f64_f64_1);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::ATAN2_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN2_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ATAN2), f64_f64_2);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::COS_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::COS_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::COS), f64_f64_1);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::EXP_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::EXP_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::EXP), f64_f64_1);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::LOG_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::LOG_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::LOG), f64_f64_1);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::POW_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::POW_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::POW), f64_f64_2);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::SIN_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::SIN_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::SIN), f64_f64_1);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::TAN_F64))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::TAN_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::TAN), f64_f64_1);
-	if(linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM))
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::GROW_MEM), i32_i32_1);
 }
 
