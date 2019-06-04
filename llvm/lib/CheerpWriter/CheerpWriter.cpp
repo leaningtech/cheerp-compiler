@@ -5291,9 +5291,9 @@ CheerpWriter::GlobalSubExprInfo CheerpWriter::compileGlobalSubExpr(const GlobalD
 			}
 		}
 		else
-			assert(false);
+			llvm_unreachable("Should be addressed by one of the ifs");
 	}
-	assert(false);
+	llvm_unreachable("Should be addressed in the for cycle");
 }
 
 void CheerpWriter::compileGlobal(const GlobalVariable& G)

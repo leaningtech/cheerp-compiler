@@ -962,7 +962,7 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 			}
 		}
 	}
-	assert(false);
+	llvm_unreachable("All constraints kind should be addressed by the switch");
 }
 
 void PointerResolverForKindVisitor::cacheResolvedConstraint(const IndirectPointerKindConstraint& c, const PointerKindWrapper& t)
@@ -1546,7 +1546,7 @@ REGULAR_POINTER_PREFERENCE PointerAnalyzer::getRegularPreference(const IndirectP
 		case STORED_TYPE_CONSTRAINT:
 			return PREF_REGULAR;
 	}
-	assert(false);
+	llvm_unreachable("Switch should support all kind of pointers");
 }
 
 const ConstantInt* PointerAnalyzer::getConstantOffsetForPointer(const Value * v) const
