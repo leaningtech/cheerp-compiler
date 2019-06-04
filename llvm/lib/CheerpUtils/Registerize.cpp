@@ -1369,7 +1369,7 @@ bool Reduction<Derived>::perform()
 
 #ifdef REGISTERIZE_DEBUG
 	//Dump informations
-	derive.dumpDescription();
+	derived.dumpDescription();
 #endif
 #ifdef REGISTERIZE_STATS
 	REGISTERIZE_STATISTICS_ON_REDUCTIONS[derived.id()].add(instance.N);
