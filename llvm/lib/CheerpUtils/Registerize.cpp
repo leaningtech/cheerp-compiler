@@ -1485,7 +1485,7 @@ void RemoveFewConstraints::dumpSpecificDescription() const
 
 void RemoveFewConstraints::buildSubproblems()
 {
-	subproblems.push_back(VertexColorer(alive.size(), instance));
+	subproblems.emplace_back(alive.size(), instance);
 
 	VertexColorer& subproblem = subproblems.front();
 
@@ -1804,7 +1804,7 @@ void RemoveDominated::dumpSpecificDescription() const
 
 void RemoveDominated::buildSubproblems()
 {
-	subproblems.push_back(VertexColorer(eqClasses.getNumClasses(), instance));
+	subproblems.emplace_back(eqClasses.getNumClasses(), instance);
 	VertexColorer& subproblem = subproblems.front();
 
 	for (const VertexColorer::Link& link : instance.constraintIterable())
@@ -1852,8 +1852,8 @@ void EnumerateAllPhiEdges::buildSubproblems()
 	}
 	std::swap(instance.groupedLinks[indexGroupedLink], instance.groupedLinks.back());
 
-	subproblems.push_back(VertexColorer(eqClasses.getNumClasses(), instance));
-	subproblems.push_back(VertexColorer(instance.N, instance));
+	subproblems.emplace_back(eqClasses.getNumClasses(), instance);
+	subproblems.emplace_back(instance.N, instance);
 
 	VertexColorer& good = subproblems.front();
 	VertexColorer& bad = subproblems.back();
@@ -2230,11 +2230,10 @@ void SplitArticulation::relabelNodes()
 
 void SplitArticulation::buildSubproblems()
 {
-	subproblems.reserve(numerositySubproblem.size() - 1);
 
 	for (uint32_t i=1; i<numerositySubproblem.size(); i++)
 	{
-		subproblems.push_back(VertexColorer(numerositySubproblem[i], instance));
+		subproblems.emplace_back(numerositySubproblem[i], instance);
 	}
 
 	for (const VertexColorer::Link& link : instance.constraintIterable())
@@ -2337,11 +2336,10 @@ void SplitArticulation::reduce()
 template<typename Derived>
 void SplitConflictingBase<Derived>::buildSubproblems()
 {
-	subproblems.reserve(eqClasses.getNumClasses());
 
 	for (const uint32_t dim : numerositySubproblem)
 	{
-		subproblems.push_back(VertexColorer(dim, this->instance));
+		subproblems.emplace_back(dim, this->instance);
 	}
 
 	for (const VertexColorer::Link& link : this->instance.constraintIterable())
