@@ -214,12 +214,12 @@ public:
 			constraints[i].reset(i);
 		}
 	}
-private:
 	VertexColorer(const uint32_t N, const VertexColorer& parent)
 		: VertexColorer(N, parent.costPerColor, parent.times, parent.costPerPhiEdge)
 	{
 		depthRecursion = parent.depthRecursion + 1;
 	}
+private:
 	template <bool constraints, bool zeroWeight, bool positiveWeight, bool singleRow>
 	class ConstFriendIterator
 	{
@@ -921,7 +921,7 @@ public:
 	}
 private:
 	std::vector<uint32_t> newIndex;
-	std::vector<VertexColorer> subproblems;
+	std::deque<VertexColorer> subproblems;
 	llvm::IntEqClasses eqClasses;
 	bool goodIsValid{};
 };
@@ -949,7 +949,7 @@ private:
 	std::vector<bool> toBePostProcessed;
 	std::vector<uint32_t> alive;
 	std::vector<uint32_t> newIndex;
-	std::vector<VertexColorer> subproblems;
+	std::deque<VertexColorer> subproblems;
 };
 
 class RemoveDominated : public Reduction<RemoveDominated>
@@ -1010,7 +1010,7 @@ private:
 	llvm::IntEqClasses eqClasses;
 	llvm::BitVector isNodeAlive;
 	std::vector<uint32_t> newIndex;
-	std::vector<VertexColorer> subproblems;
+	std::deque<VertexColorer> subproblems;
 };
 
 class SplitArticulation : public Reduction<SplitArticulation>
@@ -1046,7 +1046,7 @@ private:
 	std::vector<uint32_t> whichSubproblem;
 	std::vector<uint32_t> numerositySubproblem;
 	std::vector<uint32_t> articulations;
-	std::vector<VertexColorer> subproblems;
+	std::deque<VertexColorer> subproblems;
 };
 
 template<typename Derived>
@@ -1082,7 +1082,7 @@ private:
 	std::vector<uint32_t> newIndex;
 	std::vector<uint32_t> whichSubproblem;
 	std::vector<uint32_t> numerositySubproblem;
-	std::vector<VertexColorer> subproblems;
+	std::deque<VertexColorer> subproblems;
 };
 
 class SplitUnconnected : public SplitConflictingBase<SplitUnconnected>
