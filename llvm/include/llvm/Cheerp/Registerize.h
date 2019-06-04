@@ -843,7 +843,7 @@ public:
 		};
 	}
 private:
-	std::array<bool, 5> avoidPass{};
+	std::array<bool, REDUCTIONPASSES_FINAL_ELEMENT> avoidPass{};
 	uint32_t depthRecursion;
 	template <typename T> friend class Reduction;
 	friend class EnumerateAllPhiEdges;
