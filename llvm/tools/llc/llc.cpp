@@ -370,6 +370,7 @@ int main(int argc, char **argv) {
   initializeTransformUtils(*Registry);
   initializeReplaceWithVeclibLegacyPass(*Registry);
   initializeCheerpOpts(*Registry);
+  initializeLowerSwitchPass(*Registry);
 
   // Initialize debugging passes.
   initializeScavengerTestPass(*Registry);
