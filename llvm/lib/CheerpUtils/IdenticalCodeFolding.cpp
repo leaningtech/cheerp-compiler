@@ -829,8 +829,12 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 			continue;
 
 		DEBUG(dbgs() << "group(" << functions.size() << "):");
-		for (auto& function: functions)
-			DEBUG(dbgs() << " " << function->getName());
+		DEBUG(
+			for (auto& function: functions)
+			{
+				dbgs() << " " << function->getName();
+			}
+		);
 		DEBUG(dbgs() << "\n");
 
 		std::unordered_map<Function*, Function*> fold;

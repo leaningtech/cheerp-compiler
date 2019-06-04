@@ -84,6 +84,7 @@ static char* most_derived_pointer(char* Addr) {
   // Verify that the address is in the memory block
   assert (Addr >= it->first);
   AllocData& allocData = it->second;
+  (void)allocData;
   // The edge of the allocation is a valid pointer
   assert(Addr <= (it->first + allocData.size));
   return it->first;
@@ -284,6 +285,7 @@ static StructType* most_derived_class(char* Addr)
     // Verify that the address is in the memory block
     assert (Addr >= it->first);
     AllocData& allocData = it->second;
+    (void)allocData;
     // The edge of the allocation is a valid pointer
     assert(Addr <= (it->first + allocData.size));
     Ty = dyn_cast<StructType>(it->second.allocType);
@@ -380,6 +382,7 @@ static GenericValue pre_execute_downcast_current(FunctionType *FT,
 
   uint32_t baseIndex = 0;
   bool check = get_subobject_base_offset(derivedType, derivedAddr, Addr, baseIndex);
+  (void)check;
   assert(check && "subobject not found");
 
   GenericValue ret;
@@ -442,6 +445,7 @@ static GenericValue pre_execute_virtualcast(FunctionType *FT,
     uint32_t byteOffset = 0;
     uint32_t curIndex = 0;
     bool ret = get_subobject_byte_offset(derivedType, baseIndex, curIndex, byteOffset);
+    (void)ret;
     assert(ret);
     return currentEE->RPTOGV(derivedAddr + byteOffset);
 }
@@ -852,6 +856,7 @@ bool PreExecute::runOnConstructor( const llvm::Target* target, const std::string
 #endif
 
     bool removed = currentEE->removeModule(&m);
+    (void)removed;
     assert(removed && "failed to free the module from ExecutionEngine");
 
     allocator = nullptr;

@@ -125,6 +125,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 					{
 						assert(isa<CallInst>(u));
 						CallInst* restore = cast<CallInst>(u);
+						(void)restore;
 						assert(restore->getCalledFunction());
 						assert(restore->getCalledFunction()->getIntrinsicID() == Intrinsic::stackrestore);
 						toRemove.push_back(cast<CallInst>(u));

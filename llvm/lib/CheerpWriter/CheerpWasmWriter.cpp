@@ -365,6 +365,7 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 	{
 		assert(branchIds.size() == 1);
 		int branchId = branchIds[0];
+		(void)branchId;
 		const BranchInst* bi=cast<BranchInst>(term);
 		assert(bi->isConditional());
 		//The second branch is the default
@@ -529,6 +530,7 @@ void CheerpWasmRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 void CheerpWasmRenderInterface::renderCaseOnLabel(int)
 {
 	BlockType prevBlock = blockTypes.back();
+	(void)prevBlock;
 	assert(prevBlock.type == CASE && prevBlock.depth > 0);
 }
 
@@ -647,6 +649,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 void CheerpWasmRenderInterface::renderCaseBlockBegin(const BasicBlock*, int branchId)
 {
 	BlockType prevBlock = blockTypes.back();
+	(void)prevBlock;
 	assert(prevBlock.type == CASE && prevBlock.depth > 0);
 }
 
@@ -1530,6 +1533,7 @@ void CheerpWasmWriter::compileFloatToText(WasmBuffer& code, const APFloat& f, ui
 		char buf[40];
 		// TODO: Figure out the right amount of hexdigits
 		unsigned charCount = f.convertToHexString(buf, precision, false, APFloat::roundingMode::rmNearestTiesToEven);
+		(void)charCount;
 		assert(charCount < 40);
 		code << buf;
 	}

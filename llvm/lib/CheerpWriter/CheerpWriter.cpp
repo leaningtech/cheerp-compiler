@@ -1581,7 +1581,7 @@ void CheerpWriter::compileOffsetForGEP(Type* pointerOperandType, ArrayRef< const
 		// Literal index
 		assert(isa<ConstantInt>(indices.back()));
 		const ConstantInt* idx = cast<ConstantInt>(indices.back());
-
+		(void)idx;
 		assert(types.useWrapperArrayForMember(PA, cast<StructType>(tp), idx->getZExtValue()));
 
 		stream << '0';
