@@ -844,7 +844,7 @@ public:
 	}
 private:
 	std::array<bool, REDUCTIONPASSES_FINAL_ELEMENT> avoidPass{};
-	uint32_t depthRecursion;
+	uint32_t depthRecursion{};
 	template <typename T> friend class Reduction;
 	friend class EnumerateAllPhiEdges;
 	friend class RemoveFewConstraints;
@@ -858,7 +858,7 @@ public:
 	enum PrintStatistics{GREEDY_EVALUATIONS=0, NODE_VISITED=1, CONTRACTIONS=2, SEPARATIONS=3};
 	std::array<uint32_t, 4> debugStats{};
 #endif
-	uint32_t times;
+	uint32_t times{};
 };
 
 //Base class accordingly to Curiously Recurring Template Paramether pattern
@@ -923,7 +923,7 @@ private:
 	std::vector<uint32_t> newIndex;
 	std::vector<VertexColorer> subproblems;
 	llvm::IntEqClasses eqClasses;
-	bool goodIsValid;
+	bool goodIsValid{};
 };
 
 class RemoveFewConstraints : public Reduction<RemoveFewConstraints>
@@ -945,7 +945,7 @@ public:
 		return VertexColorer::REMOVE_SMALL;
 	}
 private:
-	uint32_t howManyOnCutoff;
+	uint32_t howManyOnCutoff{};
 	std::vector<bool> toBePostProcessed;
 	std::vector<uint32_t> alive;
 	std::vector<uint32_t> newIndex;
@@ -1162,8 +1162,8 @@ public:
 	}
 private:
 	std::array<uint32_t, N> data;
-	uint32_t totalNumber;
-	uint32_t biggest;
+	uint32_t totalNumber{};
+	uint32_t biggest{};
 };
 void reportRegisterizeStatistics();
 #endif
