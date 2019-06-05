@@ -242,7 +242,7 @@ BasicBlockForest ValidBasicBlockForestGraph::getValidBlocks()
 	return ret;
 }
 
-std::vector<BasicBlock*> findRepresentingBasicBlock(const DominatorTree* DT, const std::vector<BasicBlock*> blocks)
+std::vector<BasicBlock*> findRepresentingBasicBlock(const DominatorTree* DT, const std::vector<BasicBlock*>& blocks)
 {
 	//Given a vector of BasicBlocks, we return for each one of which region he is a member.
 	//Each region is represented by the root of the BasicBlockForest
