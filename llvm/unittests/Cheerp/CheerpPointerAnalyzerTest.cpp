@@ -57,9 +57,10 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 	
 	/** Check f1 **/
 	{
-		const Argument * a = f1->arg_begin();
-		const Argument * obj = a->getNextNode();
-		const Argument * obj2 = obj->getNextNode();
+		auto it = f1->arg_begin();
+		const Argument * a = &*(it++);
+		const Argument * obj = &*(it++);
+		const Argument * obj2 = &*(it++);
 		
 		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(a) );
 		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(obj) );
@@ -70,8 +71,9 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 	{
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKindForReturn(f2) );
 		
-		const Argument * obj = f2->arg_begin();
-		const Argument * b = obj->getNextNode();
+		auto it = f2->arg_begin();
+		const Argument * obj = &*(it++);
+		const Argument * b = &*(it++);
 		
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(obj) );
 		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(b) );
@@ -81,8 +83,9 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 	{
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKindForReturn(f3) );
 		
-		const Argument * obj = f3->arg_begin();
-		const Argument * b = obj->getNextNode();
+		auto it = f3->arg_begin();
+		const Argument * obj = &*(it++);
+		const Argument * b = &*(it++);
 		
 		EXPECT_EQ( COMPLETE_OBJECT, PA.getPointerKind(obj) );
 		EXPECT_EQ( SPLIT_REGULAR, PA.getPointerKind(b) );
@@ -90,7 +93,8 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 	
 	/** Check f4 **/
 	{
-		const Argument * p = f4->arg_begin();
+		auto it = f4->arg_begin();
+		const Argument * p = &*(it++);
 		const IntrinsicInst * d = dyn_cast<IntrinsicInst>(f4->begin()->begin());
 		
 		ASSERT_TRUE(d);
@@ -102,7 +106,8 @@ TEST(CheerpTest, PointerAnalyzerTest) {
 	
 	/** Check f5 **/
 	{
-		const Argument * p = f5->arg_begin();
+		auto it = f4->arg_begin();
+		const Argument * p = &*(it++);
 		const IntrinsicInst * d = dyn_cast<IntrinsicInst>(f5->begin()->begin());
 		
 		ASSERT_TRUE(d);
