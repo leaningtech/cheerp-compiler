@@ -5932,10 +5932,10 @@ void CheerpWriter::makeJS()
 			std::string name;
 			if (imported->empty() && TypeSupport::isClientFunc(imported))
 			{
-				assert(imported->hasFnAttribute(Attribute::Static) && "Only static client functions can be imported");
-				StringRef className, funcName;
+				std::string className, funcName;
 				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
-				name = (className + "." + funcName).str();
+				assert(className.empty() || imported->hasFnAttribute(Attribute::Static) && "Only static client methods can be imported");
+				name = className.empty() ? funcName : (className + "." + funcName);
 			}
 			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
 				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
@@ -6037,10 +6037,10 @@ void CheerpWriter::makeJS()
 			std::string name;
 			if (imported->empty() && TypeSupport::isClientFunc(imported))
 			{
-				assert(imported->hasFnAttribute(Attribute::Static) && "Only static client functions can be imported");
-				StringRef className, funcName;
+				std::string className, funcName;
 				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
-				name = (className + "." + funcName).str();
+				assert(className.empty() || imported->hasFnAttribute(Attribute::Static) && "Only static client methods can be imported");
+				name = className.empty() ? funcName : (className + "." + funcName);
 			}
 			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
 				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
