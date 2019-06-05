@@ -14,6 +14,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/FormattedStream.h"
+#include "memory"
 
 namespace cheerp {
 
@@ -26,7 +27,7 @@ bool ReplaceNopCastsAndByteSwaps::runOnFunction(Function & F)
 	{
 		const DataLayout* DL = &F.getParent()->getDataLayout();
 		assert(DL);
-		IL = new IntrinsicLowering(*DL);
+		IL = std::unique_ptr<IntrinsicLowering>(new IntrinsicLowering(*DL));
 	}
 
 	if ( F.empty() )
