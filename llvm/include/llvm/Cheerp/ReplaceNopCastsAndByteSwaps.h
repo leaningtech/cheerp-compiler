@@ -24,7 +24,7 @@ class ReplaceNopCastsAndByteSwaps: public llvm::FunctionPass
 public:
 	static char ID;
 
-	explicit ReplaceNopCastsAndByteSwaps() : FunctionPass(ID), IL(NULL) { }
+	explicit ReplaceNopCastsAndByteSwaps() : FunctionPass(ID), IL() { }
 
 	virtual bool runOnFunction(llvm::Function &F) override;
 	
@@ -33,7 +33,7 @@ public:
 private:
 	bool processBasicBlock(llvm::BasicBlock & BB);
 	
-	llvm::IntrinsicLowering* IL;
+	std::unique_ptr<llvm::IntrinsicLowering> IL;
 };
 
 //===----------------------------------------------------------------------===//
