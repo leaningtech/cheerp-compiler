@@ -97,10 +97,11 @@ bool CheerpWritePass::runOnModule(Module& M)
   }
 
   cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, ReservedNames, PrettyCode);
+  const std::string wasmFile;
   cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut.get(), AsmJSMemFile,
           sourceMapGenerator.get(), PrettyCode, MakeModule, !NoNativeJavaScriptMath,
           !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
-          BoundsCheck, CfgLegacy, SymbolicGlobalsAsmJS, std::string(), ForceTypedArrays);
+          BoundsCheck, CfgLegacy, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
   writer.makeJS();
   if (ErrorCode)
   {
