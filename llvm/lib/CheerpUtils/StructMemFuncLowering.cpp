@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2015 Leaning Technologies
+// Copyright 2014-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -335,18 +335,18 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 					isDoubleAggregate(dst->getType()->getPointerElementType()) &&
 					(mode==MEMSET || isDoubleAggregate(src->getType()->getPointerElementType()))) {
 				Type* doubleType = Type::getDoubleTy(BB.getContext());
-				IRBuilder<>* IRB = new IRBuilder<>(CI);
-				dst = IRB->CreateBitCast(dst, doubleType->getPointerTo());
+				IRBuilder<> IRB(CI);
+				dst = IRB.CreateBitCast(dst, doubleType->getPointerTo());
 				// In MEMSET mode src is the i8 value to write
 				if(mode != MEMSET)
-					src = IRB->CreateBitCast(src, doubleType->getPointerTo());
+					src = IRB.CreateBitCast(src, doubleType->getPointerTo());
 				pointedType = doubleType;
 			} else if (alignInt % 4 == 0 && sizeInt % 4 == 0) {
-				IRBuilder<>* IRB = new IRBuilder<>(CI);
-				dst = IRB->CreateBitCast(dst, int32Type->getPointerTo());
+				IRBuilder<> IRB(CI);
+				dst = IRB.CreateBitCast(dst, int32Type->getPointerTo());
 				// In MEMSET mode src is the i8 value to write
 				if(mode != MEMSET)
-					src = IRB->CreateBitCast(src, int32Type->getPointerTo());
+					src = IRB.CreateBitCast(src, int32Type->getPointerTo());
 				pointedType = int32Type;
 			}
 		}
@@ -360,10 +360,10 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		//Instead we need to check if we need to enter the loop
 		Instruction* oldBranch = BB.getTerminator();
 		//Delete the old branch
-		IRBuilder<>* IRB = new IRBuilder<>(&BB);
-		Value* fixedSize = IRB->CreateZExtOrTrunc(size, int32Type);
-		Value* elementsCount=IRB->CreateUDiv(fixedSize, ConstantInt::get(int32Type, byteSize));
-		Value* countIsZero=IRB->CreateICmp(CmpInst::ICMP_EQ, elementsCount, ConstantInt::get(int32Type, 0));
+		IRBuilder<> IRB(&BB);
+		Value* fixedSize = IRB.CreateZExtOrTrunc(size, int32Type);
+		Value* elementsCount=IRB.CreateUDiv(fixedSize, ConstantInt::get(int32Type, byteSize));
+		Value* countIsZero=IRB.CreateICmp(CmpInst::ICMP_EQ, elementsCount, ConstantInt::get(int32Type, 0));
 		// Handle the cases when countIsZero is a constant. This pass is the very last one in the LTO phase and inefficient code is left otherwise.
 		ConstantInt* constantCondition = dyn_cast<ConstantInt>(countIsZero);
 		if(constantCondition && !constantCondition->isZeroValue())
@@ -375,27 +375,27 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		oldBranch->eraseFromParent();
 		BasicBlock* memfuncBody=BasicBlock::Create(BB.getContext(), "memfunc.body", BB.getParent());
 		if(constantCondition && constantCondition->isZeroValue())
-			IRB->CreateBr(memfuncBody);
+			IRB.CreateBr(memfuncBody);
 		else
-			IRB->CreateCondBr(countIsZero, endLoop, memfuncBody);
-		IRB->SetInsertPoint(memfuncBody);
+			IRB.CreateCondBr(countIsZero, endLoop, memfuncBody);
+		IRB.SetInsertPoint(memfuncBody);
 		if (mode == MEMMOVE)
 		{
 			// For memmove we need to check the relative ordering of src and dst and select a direction accordingly
-			Value* srcAfterDst = IRB->CreateICmp(CmpInst::ICMP_UGE, src, dst);
+			Value* srcAfterDst = IRB.CreateICmp(CmpInst::ICMP_UGE, src, dst);
 			// Create two basic blocks, one is for the forward case, the other for the backward case
 			BasicBlock* memmoveForward=BasicBlock::Create(BB.getContext(), "memmove.forward", BB.getParent());
 			BasicBlock* memmoveBackward=BasicBlock::Create(BB.getContext(), "memmove.backward", BB.getParent());
-			IRB->CreateCondBr(srcAfterDst, memmoveForward, memmoveBackward);
+			IRB.CreateCondBr(srcAfterDst, memmoveForward, memmoveBackward);
 			// Do the forward side
-			IRB->SetInsertPoint(memmoveForward);
-			createForwardLoop(IRB, memfuncBody, endLoop, memmoveForward, pointedType, dst, src, elementsCount, mode);
+			IRB.SetInsertPoint(memmoveForward);
+			createForwardLoop(&IRB, memfuncBody, endLoop, memmoveForward, pointedType, dst, src, elementsCount, mode);
 			// Do the backward side
-			IRB->SetInsertPoint(memmoveBackward);
-			createBackwardLoop(IRB, memfuncBody, endLoop, memmoveBackward, pointedType, dst, src, elementsCount);
+			IRB.SetInsertPoint(memmoveBackward);
+			createBackwardLoop(&IRB, memfuncBody, endLoop, memmoveBackward, pointedType, dst, src, elementsCount);
 		}
 		else //if(mode == MEMCPY || mode == MEMSET)
-			createForwardLoop(IRB, &BB, endLoop, memfuncBody, pointedType, dst, src, elementsCount, mode);
+			createForwardLoop(&IRB, &BB, endLoop, memfuncBody, pointedType, dst, src, elementsCount, mode);
 		CI->eraseFromParent();
 		return true;
 	}
