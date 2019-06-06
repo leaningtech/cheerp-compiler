@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2016 Leaning Technologies
+// Copyright 2011-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -365,8 +365,9 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	{
 		Instruction* newInst = ReturnInst::Create(M.getContext(), lowerCast ? (Instruction*)lowerCast : (Instruction*)lowerConstructor);
 		newInst->insertBefore(returns[i]);
-		returns[i]->removeFromParent();
+		returns[i]->eraseFromParent();
 	}
+	returns.clear();
 	//Recursively move all the users of the lower constructor after the call itself
 	Instruction* reorderStart = lowerCast ? (Instruction*)lowerCast : (Instruction*)lowerConstructor;
 	Instruction* insertPoint = reorderStart->getNextNode();
