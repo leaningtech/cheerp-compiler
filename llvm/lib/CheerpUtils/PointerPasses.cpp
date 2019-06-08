@@ -855,7 +855,7 @@ void DelayInsts::calculatePlacementOfInstructions(const Function& F, const bool 
 	const LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 	const DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	const cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
-	const PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
+	const PostDominatorTree* PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 
 	cheerp::InlineableCache inlineableCache(PA);
 	for (const BasicBlock& BB : F )
@@ -961,7 +961,7 @@ void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<DominatorTreeWrapperPass>();
-	AU.addRequired<PostDominatorTree>();
+	AU.addRequired<PostDominatorTreeWrapperPass>();
 	AU.addRequired<cheerp::PointerAnalyzer>();
 	AU.addRequired<cheerp::Registerize>();
 	AU.addRequired<LoopInfoWrapperPass>();
@@ -981,7 +981,7 @@ INITIALIZE_PASS_END(AllocaArrays, "AllocaArrays", "Transform allocas of REGULAR 
 
 INITIALIZE_PASS_BEGIN(DelayInsts, "DelayInsts", "Moves instructions as close as possible to the actual users",
 			false, false)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_END(DelayInsts, "DelayInsts", "Moves instrucitions as close as possible to the actual users",
 			false, false)
 
