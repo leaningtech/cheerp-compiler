@@ -26,7 +26,7 @@ bool RemoveFwdBlocks::runOnFunction(Function& F)
 
 		// If the successor block has a phi node, abort
 		// TODO: relax this a bit?
-		if (succBB->getFirstNonPHI() != succBB->begin()) continue;
+		if (succBB->getFirstNonPHI() != &*succBB->begin()) continue;
 
 		TerminatorInst* predTerm = predBB->getTerminator();
 		// If the predecessor's terminator now branches only to the current
@@ -34,7 +34,7 @@ bool RemoveFwdBlocks::runOnFunction(Function& F)
 		bool unconditional = true;
 		for (uint32_t i = 0; i < predTerm->getNumSuccessors(); i++)
 		{
-			if (predTerm->getSuccessor(i) == BB)
+			if (predTerm->getSuccessor(i) == &*BB)
 			{
 				predTerm->setSuccessor(i, succBB);
 			}
