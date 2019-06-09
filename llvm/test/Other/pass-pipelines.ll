@@ -50,7 +50,7 @@
 ; CHECK-O2-NEXT: Deduce function attributes
 ; Next up is the main function pass pipeline. It shouldn't be split up and
 ; should contain the main loop pass pipeline as well.
-; CHECK-O2-NEXT: FunctionPass Manager
+; CHECK-O2: FunctionPass Manager
 ; CHECK-O2-NOT: Manager
 ; CHECK-O2: Loop Pass Manager
 ; CHECK-O2: Loop Pass Manager
