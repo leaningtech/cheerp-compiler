@@ -657,9 +657,11 @@ Address EmitVAArgInstr(CodeGenFunction &CGF, Address VAListAddr, QualType Ty,
 
     llvm::Type *BaseTy =
         llvm::PointerType::getUnqual(CGF.ConvertTypeForMem(Ty));
+    Address Temp = CGF.CreateMemTemp(CGF.getContext().getPointerType(Ty), "varet");
     llvm::Value *Addr =
         CGF.Builder.CreateVAArg(VAListAddr.getPointer(), BaseTy);
-    return Address(Addr, TyAlignForABI);
+    CGF.Builder.CreateStore(Addr, Temp);
+    return Temp;
   } else {
     assert((AI.isDirect() || AI.isExtend()) &&
            "Unexpected ArgInfo Kind in generic VAArg emitter!");
