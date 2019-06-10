@@ -175,9 +175,9 @@ private:
     static const Builtin::Info BuiltinInfo[];
 public:
   CheerpTargetInfo(const llvm::Triple &triple) : TargetInfo(triple) {
-    DataLayoutString = "b-e-p:32:8-i16:8-i32:8-"
+    resetDataLayout("b-e-p:32:8-i16:8-i32:8-"
                         "i64:8-f32:8-f64:8-"
-                        "a:0:8-f80:8-n8:8:8-S8";
+                        "a:0:8-f80:8-n8:8:8-S8");
     BigEndian = false;
     ByteAddressable = false;
     PointerAlign = 32;
@@ -201,7 +201,6 @@ public:
     // We don't have multiple asm variants, and we want to be able to use
     // '{' and '}' in the asm code
     NoAsmVariants = true;
-    UserLabelPrefix = "";
   }
 
   virtual ArrayRef<Builtin::Info> getTargetBuiltins() const {
