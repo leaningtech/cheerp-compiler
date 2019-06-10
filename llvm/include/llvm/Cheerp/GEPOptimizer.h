@@ -45,6 +45,22 @@ public:
 	BasicBlockForest(const BasicBlockForest& other) : DT(other.DT), roots(other.roots)
 	{
 	}
+	BasicBlockForest(BasicBlockForest&& other) : BasicBlockForest(other.DT)
+	{
+		roots = std::move(other.roots);
+	}
+	BasicBlockForest& operator=(const BasicBlockForest& other)
+	{
+		DT = other.DT;
+		roots = other.roots;
+		return *this;
+	}
+	BasicBlockForest& operator=(BasicBlockForest&& other)
+	{
+		DT = other.DT;
+		roots = std::move(other.roots);
+		return *this;
+	}
 	static BasicBlockForest expandToTheWholeFunction(const BasicBlockForest& other)
 	{
 		BasicBlockForest ret(other);
