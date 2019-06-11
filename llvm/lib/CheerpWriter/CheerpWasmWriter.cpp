@@ -2097,9 +2097,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					}
 					case Intrinsic::cheerp_grow_memory:
 					{
-						uint32_t importedId = linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM);
 						compileOperand(code, ci.getOperand(0));
-						encodeU32Inst(0x10, "call", importedId, code);
+						if(useWasmLoader)
+						{
+							uint32_t importedId = linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM);
+							encodeU32Inst(0x10, "call", importedId, code);
+						}
+						else
+						{
+							encodeS32Inst(0x40, "grow_memory", 0, code);
+						}
 						return false;
 					}
 					case Intrinsic::flt_rounds:
