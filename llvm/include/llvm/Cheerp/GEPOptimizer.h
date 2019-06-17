@@ -256,7 +256,6 @@ private:
 	}
 	const DominatorTree* DT;
 	BlockSet roots;
-	friend std::vector<BasicBlock*> findRepresentingBasicBlock(const DominatorTree* DT, const std::vector<BasicBlock*> blocks);
 };
 
 std::vector<BasicBlock*> findRepresentingBasicBlock(const DominatorTree* DT, const std::vector<BasicBlock*>& blocks);
@@ -320,6 +319,11 @@ public:
 		: ValidBasicBlockForestGraph(knownPostdominated, BasicBlockForest::expandToTheWholeFunction(knownPostdominated))
 	{
 	}
+	ValidBasicBlockForestGraph(const ValidBasicBlockForestGraph&) = delete;
+	ValidBasicBlockForestGraph(ValidBasicBlockForestGraph&&) = delete;
+	ValidBasicBlockForestGraph& operator= (const ValidBasicBlockForestGraph&) = delete;
+	ValidBasicBlockForestGraph& operator= (ValidBasicBlockForestGraph&&) = delete;
+
 	const DominatorTree* getDominatorTree() const
 	{
 		assert(knownValid.getDominatorTree() == toBeClassified.getDominatorTree());
@@ -652,7 +656,7 @@ public:
 			return;
 		map.insert({t, firstUnused++});
 	}
-	uint32_t count(const T t)
+	uint32_t count(const T t) const
 	{
 		return map.count(t);
 	}
