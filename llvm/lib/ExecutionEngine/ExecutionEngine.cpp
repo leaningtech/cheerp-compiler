@@ -110,6 +110,7 @@ public:
   static char *Create(AddressMapBase& ValueAddresses, const GlobalVariable *GV, const DataLayout& TD) {
     Type *ElTy = GV->getValueType();
     size_t GVSize = (size_t)TD.getTypeAllocSize(ElTy);
+    GVSize = alignTo(GVSize, 4);
     char* addr = static_cast<char*>(::operator new(GVSize));
     ValueAddresses.map(addr, GVSize + 4);
     return addr;
