@@ -168,22 +168,24 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
   size_t size=(size_t)(Args[1].IntVal.getLimitedValue());
   void* ret = PreExecute::currentPreExecutePass->allocator->allocate(size);
   memset(ret, 0, size);
-  // Find out the old size
-  auto it = PreExecute::currentPreExecutePass->typedAllocations.find((char*)p);
-  uint32_t oldSize = 0;
-  if(it == PreExecute::currentPreExecutePass->typedAllocations.end())
+  if(p != nullptr)
   {
-    // In PreExecuter context it may happen to resize a global, since it may have been from malloc before.
-    const GlobalValue* GV=currentEE->getGlobalValueAtAddress((char*)p);
-    assert(GV);
-    const DataLayout *DL = &PreExecute::currentPreExecutePass->currentModule->getDataLayout();
-    oldSize = DL->getTypeAllocSize(GV->getType());
+    // Find out the old size
+    auto it = PreExecute::currentPreExecutePass->typedAllocations.find((char*)p);
+    uint32_t oldSize = 0;
+    if(it == PreExecute::currentPreExecutePass->typedAllocations.end())
+    {
+      // In PreExecuter context it may happen to resize a global, since it may have been from malloc before.
+      const GlobalValue* GV=currentEE->getGlobalValueAtAddress((char*)p);
+      assert(GV);
+      const DataLayout *DL = &PreExecute::currentPreExecutePass->currentModule->getDataLayout();
+      oldSize = DL->getTypeAllocSize(GV->getType());
+    }
+    else
+      oldSize = it->second.size;
+    // Copy the old contents in the new buffer
+    memcpy(ret, p, oldSize);
   }
-  else
-    oldSize = it->second.size;
-  // Copy the old contents in the new buffer
-  memcpy(ret, p, oldSize);
-
 #ifdef DEBUG_PRE_EXECUTE
   llvm::errs() << "Reallocating " << ret << " of size " << size << " and type " << *FT->getReturnType() << "\n";
 #endif
