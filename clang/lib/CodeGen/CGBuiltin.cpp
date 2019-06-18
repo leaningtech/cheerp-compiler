@@ -11246,8 +11246,31 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
       // The call is fully valid, so set the return type to the existing type
       Tys[0]=Tys[1];
     }
-    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_reallocate, Tys);
-    return Builder.CreateCall(F, Ops);
+
+    Function *reallocFunc = CGM.getIntrinsic(Intrinsic::cheerp_reallocate, Tys);
+    if(asmjs) {
+      return Builder.CreateCall(reallocFunc, Ops);
+    } else {
+      // realloc needs to behave like malloc if the operand is null
+      llvm::Value* opIsNull = Builder.CreateIsNull(Ops[0]);
+      BasicBlock* mallocBlock = createBasicBlock("malloc", this->CurFn);
+      BasicBlock* reallocBlock = createBasicBlock("realloc", this->CurFn);
+      BasicBlock* endBlock = createBasicBlock("realloc_end", this->CurFn);
+      Builder.CreateCondBr(opIsNull, mallocBlock, reallocBlock);
+      Builder.SetInsertPoint(mallocBlock);
+      llvm::Type *mallocTys[] = { Tys[0] };
+      Function *mallocFunc = CGM.getIntrinsic(Intrinsic::cheerp_allocate, mallocTys);
+      llvm::Value* mallocRet = Builder.CreateCall(mallocFunc, Ops[1]);
+      Builder.CreateBr(endBlock);
+      Builder.SetInsertPoint(reallocBlock);
+      llvm::Value* reallocRet = Builder.CreateCall(reallocFunc, Ops);
+      Builder.CreateBr(endBlock);
+      Builder.SetInsertPoint(endBlock);
+      llvm::PHINode* Result = Builder.CreatePHI(Tys[0], 2);
+      Result->addIncoming(mallocRet, mallocBlock);
+      Result->addIncoming(reallocRet, reallocBlock);
+      return Result;
+    }
   }
   else if (BuiltinID == Builtin::BIfree) {
     if (CallInst* CI = dyn_cast<CallInst>(Ops[0])) {
