@@ -184,7 +184,7 @@ static GenericValue pre_execute_reallocate(FunctionType *FT,
     else
       oldSize = it->second.size;
     // Copy the old contents in the new buffer
-    memcpy(ret, p, oldSize);
+    memcpy(ret, p, std::min((uint32_t)size, oldSize));
   }
 #ifdef DEBUG_PRE_EXECUTE
   llvm::errs() << "Reallocating " << ret << " of size " << size << " and type " << *FT->getReturnType() << "\n";
