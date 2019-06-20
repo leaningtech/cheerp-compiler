@@ -6029,8 +6029,9 @@ void CheerpWriter::makeJS()
 			for (StringRef &className : exportedClassNames)
 				stream << className << ".promise=" << NewLine;
 		}
-		stream << "fetchBuffer('" << wasmFile << "').then(r=>" << NewLine;
-		stream << "WebAssembly.instantiate(r," << NewLine;
+		const std::string shortestName = namegen.getShortestLocalName();
+		stream << "fetchBuffer('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
+		stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
 		stream << "{i:{" << NewLine;
 		for (const Function* imported: globalDeps.asmJSImports())
 		{
@@ -6078,8 +6079,8 @@ void CheerpWriter::makeJS()
 			stream << ',' << NewLine;
 		}
 		stream << "}})" << NewLine;
-		stream << ",console.log).then(r=>{" << NewLine;
-		stream << "var i=r.instance;" << NewLine;
+		stream << ",console.log).then(" << shortestName << "=>{" << NewLine;
+		stream << "var i="<< shortestName <<".instance;" << NewLine;
 		for (int i = HEAP8; i<=HEAPF64; i++)
 			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
 		stream << "__asm=i.exports;" << NewLine;

@@ -160,6 +160,15 @@ public:
 	*/
 	llvm::StringRef getNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
 	llvm::StringRef getSecondaryNameForEdge(const llvm::Value* v, const EdgeContext& edgeContext) const;
+	std::string getShortestLocalName() const
+	{
+		if (shortestLocalName.size() == 0)
+		{
+			//TODO: add a solution even if there are no locals AND no arguments
+			llvm_unreachable("There are no locals");
+		}
+		return shortestLocalName;
+	}
 
 	enum NAME_FILTER_MODE { GLOBAL = 0, GLOBAL_SECONDARY, LOCAL, LOCAL_SECONDARY };
 	// Filter the original string so that it no longer contains invalid JS characters.
@@ -169,6 +178,11 @@ public:
 	bool needsName(const llvm::Instruction &, const PointerAnalyzer& PA) const;
 
 private:
+	void assignLocalName(llvm::StringRef name)
+	{
+		if (shortestLocalName.size() == 0 || name.size() < shortestLocalName.size())
+			shortestLocalName = name;
+	}
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper);
 	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper );
 	static std::vector<std::string> buildReservedNamesList(const llvm::Module& M, const std::vector<std::string>& fromOption);
@@ -184,6 +198,7 @@ private:
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > arraymap;
 	std::array<llvm::SmallString<4>, Builtin::END> builtins;
 	const std::vector<std::string> reservedNames;
+	std::string shortestLocalName;
 };
 
 }

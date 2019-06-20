@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2018 Leaning Technologies
+// Copyright 2014-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -373,6 +373,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 					if(v.needsSecondaryName)
 						secondaryNamemap.emplace( v.argOrFunc, secondaryName );
 				}
+				assignLocalName(primaryName);
 			}
 			
 			++local_it;
@@ -444,6 +445,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 						continue;
 					// If this instruction has a name, use it
 					auto& name = regNamemap.emplace( std::make_pair(&f, registerId), filterLLVMName(I.getName(), LOCAL) ).first->second;
+					assignLocalName(name);
 					if(regsInfo[registerId].needsSecondaryName)
 						regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((name+"o").str()));
 					doneRegisters[registerId] = true;
@@ -457,6 +459,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 			if(doneRegisters[registerId])
 				continue;
 			auto& name = regNamemap.emplace( std::make_pair(&f, registerId), StringRef( "tmp" + std::to_string(registerId) ) ).first->second;
+			assignLocalName(name);
 			if(regsInfo[registerId].needsSecondaryName)
 				regSecondaryNamemap.emplace( std::make_pair(&f, registerId), StringRef((name+"o").str()));
 		}
@@ -476,6 +479,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 				if(needsTwoNames)
 					secondaryNamemap.emplace( &arg, StringRef( "Marg" + std::to_string(arg.getArgNo()) ) );
 			}
+			assignLocalName(namemap.at(&arg));
 		}
 	}
 
