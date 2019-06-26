@@ -4966,7 +4966,7 @@ class LabelNameGenerator
 	std::vector<SmallString<2>> LabelList;
 	uint32_t NextLabel{0};
 	std::vector<std::string> External;
-	name_iterator<JSSymbols, 2> NameIt{JSSymbols(External)};
+	name_iterator<JSSymbols, 2> NameIt{"", JSSymbols(External)};
 public:
 	using iterator = std::vector<SmallString<2>>::iterator;
 	iterator end()

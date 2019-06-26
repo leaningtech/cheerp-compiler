@@ -518,16 +518,12 @@ class name_iterator :
 	SymbolTraits // Empty base opt
 {
 public:
-	name_iterator(SymbolTraits st) : 
-		SymbolTraits( std::move(st) )
+	name_iterator(llvm::StringRef prefix, SymbolTraits st) : 
+		SymbolTraits( std::move(st) ), prefixLength(prefix.size())
 	{
-		value_.assign(1, SymbolTraits::first_symbol );
+		value_ = prefix;
+		value_.push_back(SymbolTraits::first_symbol);
 	}
-	
-	explicit name_iterator(llvm::StringRef s, SymbolTraits st) : 
-		SymbolTraits( std::move(st) ),
-		value_(s)
-	{}
 	
 	const llvm::SmallString<StringSize>& operator*() const { return value_; }
 	const llvm::SmallString<StringSize>* operator->() const { return &value_; }
@@ -538,28 +534,32 @@ public:
 	bool operator==(const name_iterator & other) const { return value_ == other.value_; }
 	bool operator!=(const name_iterator & other) const { return ! operator==(other); }
 	
-private:
-	void advance()
+	void advance(std::size_t endPos)
 	{
 		do
 		{
-			for ( std::size_t i = value_.size(); (i--) > 0; )
+			for ( std::size_t i = endPos; (i--) > prefixLength; )
 			{
 				value_[i] = SymbolTraits::next(value_[i]);
 				
-				if ( i == 0 )
+				if ( i == prefixLength )
 				{
-					if ( value_[0] == SymbolTraits::first_symbol )
-						value_.insert( value_.begin(), SymbolTraits::first_symbol );
+					if ( value_[i] == SymbolTraits::first_symbol )
+						value_.insert( value_.begin() + i, SymbolTraits::first_symbol );
 				}
 				else if ( value_[i] != SymbolTraits::first_symbol  )
 					break;
 			}
 		}
-		while( !SymbolTraits::is_valid( value_ ) );
+		while( !SymbolTraits::is_valid( value_, prefixLength != 0 ) );
 	}
-	
+private:
+	void advance()
+	{
+		advance(value_.size());
+	}
 	llvm::SmallString<StringSize> value_;
+	uint32_t prefixLength;
 };
 
 /**
@@ -585,7 +585,7 @@ struct JSSymbols
 	}
 
 	template< class String >
-	bool is_valid( String & s )
+	bool is_valid( String & s, bool hasPrefix )
 	{
 		// Can not be empty
 		if ( s.empty() ) return false;
@@ -600,11 +600,14 @@ struct JSSymbols
 		// Check for reserved keywords
 		if ( is_reserved_name(s) )
 			return false;
-		
+
 		// "null" is used by cheerp internally
 		if ( s == "null" )
 			return false;
 		
+		if ( hasPrefix )
+			return true;
+
 		// In the rare case that a name is longer than 4 characters, it need to start with an underscore
 		// just to be safe.
 		if ( s.size() > 4 && s.front() != '_' )
