@@ -4394,6 +4394,8 @@ def cheerp_no_icf : Flag<["-"], "cheerp-no-icf">, Flags<[DriverOption]>,
   HelpText<"Disable identical code folding on wasm/asmjs">;
 def cheerp_reserved_names_EQ : Joined<["-"], "cheerp-reserved-names=">, Flags<[DriverOption]>,
   HelpText<"A list of JS identifiers that should not be used by Cheerp">;
+def cheerp_global_prefix_EQ : Joined<["-"], "cheerp-global-prefix=">, Flags<[DriverOption]>,
+  HelpText<"Prefix all global names with the given string">;
 def cheerp_bounds_check : Flag<["-"], "cheerp-bounds-check">, Flags<[DriverOption]>,
   HelpText<"Generate debug code for bounds-checking array and object members accesses">;
 def cheerp_cfg_legacy : Flag<["-"], "cheerp-cfg-legacy">, Flags<[DriverOption]>,

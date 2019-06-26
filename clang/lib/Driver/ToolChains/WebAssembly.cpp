@@ -534,6 +534,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpForceTypedArrays->render(Args, CmdArgs);
   if(Arg* cheerpReservedNames = Args.getLastArg(options::OPT_cheerp_reserved_names_EQ))
     cheerpReservedNames->render(Args, CmdArgs);
+  if(Arg* cheerpGlobalPrefix = Args.getLastArg(options::OPT_cheerp_global_prefix_EQ))
+    cheerpGlobalPrefix->render(Args, CmdArgs);
   if(Arg *cheerpHeapSize = Args.getLastArg(options::OPT_cheerp_linear_heap_size))
     cheerpHeapSize->render(Args, CmdArgs);
   if(Arg *cheerpStackSize = Args.getLastArg(options::OPT_cheerp_linear_stack_size))
