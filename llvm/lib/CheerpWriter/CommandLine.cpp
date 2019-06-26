@@ -39,6 +39,8 @@ llvm::cl::opt<bool> ForceTypedArrays("cheerp-force-typed-arrays", llvm::cl::desc
 
 llvm::cl::list<std::string> ReservedNames("cheerp-reserved-names", llvm::cl::value_desc("list"), llvm::cl::desc("A list of JS identifiers that should not be used by Cheerp"), llvm::cl::CommaSeparated);
 
+llvm::cl::opt<std::string> GlobalPrefix("cheerp-global-prefix", llvm::cl::Optional, llvm::cl::desc("Prefix all global names with the given string"));
+
 llvm::cl::opt<unsigned> CheerpHeapSize("cheerp-linear-heap-size", llvm::cl::init(8), llvm::cl::desc("Desired heap size for the cheerp wasm/asmjs module (in MB)") );
 
 llvm::cl::opt<unsigned> CheerpStackSize("cheerp-linear-stack-size", llvm::cl::init(1), llvm::cl::desc("Desired stack size for the cheerp wasm/asmjs module (in MB)") );

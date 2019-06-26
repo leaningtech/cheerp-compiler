@@ -293,23 +293,58 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		allGlobalValues.emplace( GV.getNumUses(), &GV );
 	}
 
-	/**
-	 * Now generate the names and fill the namemap.
-	 * 
+	/*
+	 * Helper class to deal with name iteration logic, we want to apply the prefix (if any)
+	 * only to global names. Local names should be allowed to use any name.
+	 * When generating a local name we will skip anything which starts with the prefix
+	 *
 	 * Note that there will never be a global with the same name as a local.
 	 * This is suboptimal, since in theory we could check out for the uses
 	 * of the global inside the function.
 	 */
-	name_iterator<JSSymbols> name_it((JSSymbols(reservedNames)));
-	
+	class NameHelper
+	{
+	private:
+		name_iterator<JSSymbols> global_name_iterator;
+		name_iterator<JSSymbols> local_name_iterator;
+		StringRef globalPrefix;
+	public:
+		NameHelper(StringRef p, const std::vector<std::string>& reservedNames):global_name_iterator(p, JSSymbols(reservedNames)),
+					local_name_iterator(StringRef(), JSSymbols(reservedNames)),
+					globalPrefix(p)
+		{
+		}
+		SmallString<4> makeGlobalName()
+		{
+			return *global_name_iterator++;
+		}
+		SmallString<4> makeLocalName()
+		{
+			if(globalPrefix.empty())
+			{
+				// We need to use the global iterator
+				return makeGlobalName();
+			}
+			if(local_name_iterator->startswith(globalPrefix))
+			{
+				// Skip over all this sub-part of the range
+				local_name_iterator.advance(globalPrefix.size());
+				assert(!local_name_iterator->startswith(globalPrefix));
+			}
+			return *local_name_iterator++;
+		}
+	};
+
+	NameHelper nameHelper(GlobalPrefix, reservedNames);
+
 	// Generate HEAP names first to keep them short
 	if(gda.needAsmJS())
 	{
-		builtins[HEAP8] = *name_it++;
-		builtins[HEAP16] = *name_it++;
-		builtins[HEAP32] = *name_it++;
-		builtins[HEAPF32] = *name_it++;
-		builtins[HEAPF64] = *name_it++;
+		builtins[HEAP8] = nameHelper.makeGlobalName();
+		builtins[HEAP16] = nameHelper.makeGlobalName();
+		builtins[HEAP32] = nameHelper.makeGlobalName();
+		builtins[HEAPF32] = nameHelper.makeGlobalName();
+		builtins[HEAPF64] = nameHelper.makeGlobalName();
 	}
 
 	// We need to iterate over allGlobalValues and allLocalValues
@@ -326,7 +361,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	bool classTypesFinished = class_it == classTypes.end();
 	bool constructorTypesFinished = constructor_it == constructorTypes.end();
 	bool arrayTypesFinished = array_it == arrayTypes.end();
-	for ( ; !globalsFinished || !localsFinished || !classTypesFinished || !constructorTypesFinished || !arrayTypesFinished; ++name_it )
+	for ( ; !globalsFinished || !localsFinished || !classTypesFinished || !constructorTypesFinished || !arrayTypesFinished; )
 	{
 		if ( !globalsFinished &&
 			(localsFinished || global_it->first >= local_it->first) &&
@@ -335,12 +370,11 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			(arrayTypesFinished || global_it->first >= array_it->first))
 		{
 			// Assign this name to a global value
-			namemap.emplace( global_it->second, *name_it );
+			namemap.emplace( global_it->second, nameHelper.makeGlobalName() );
 			// We need to consume another name to assign the secondary one
 			if(needsSecondaryName(global_it->second, PA))
 			{
-				++name_it;
-				secondaryNamemap.emplace( global_it->second, *name_it );
+				secondaryNamemap.emplace( global_it->second, nameHelper.makeGlobalName() );
 			}
 			++global_it;
 		}
@@ -351,14 +385,13 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			(arrayTypesFinished || local_it->first >= array_it->first))
 		{
 			// Assign this name to all the local values
-			SmallString<4> primaryName = *name_it;
+			SmallString<4> primaryName = nameHelper.makeLocalName();
 			SmallString<4> secondaryName;
 			for ( const localData& v : local_it->second )
 			{
 				if(v.needsSecondaryName && secondaryName.empty())
 				{
-					++name_it;
-					secondaryName = *name_it;
+					secondaryName = nameHelper.makeLocalName();
 				}
 				if(const llvm::Function* f = dyn_cast<llvm::Function>(v.argOrFunc))
 				{
@@ -384,8 +417,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			(constructorTypesFinished || class_it->first >= constructor_it->first) &&
 			(arrayTypesFinished || class_it->first >= array_it->first))
 		{
-			SmallString<4> name = *name_it;
-			++name_it;
+			SmallString<4> name = nameHelper.makeGlobalName();
 			classmap.emplace(class_it->second, name);
 			++class_it;
 		}
@@ -395,15 +427,13 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			(classTypesFinished || constructor_it->first >= class_it->first) &&
 			(arrayTypesFinished || constructor_it->first >= array_it->first))
 		{
-			SmallString<4> name = *name_it;
-			++name_it;
+			SmallString<4> name = nameHelper.makeGlobalName();
 			constructormap.emplace(constructor_it->second, name);
 			++constructor_it;
 		}
 		else
 		{
-			SmallString<4> name = *name_it;
-			++name_it;
+			SmallString<4> name = nameHelper.makeGlobalName();
 			arraymap.emplace(array_it->second, name);
 			++array_it;
 		}
@@ -416,11 +446,11 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	}
 	for(auto& tableIt: linearHelper.getFunctionTables())
 	{
-		tableIt.second.name = *name_it++;
+		tableIt.second.name = nameHelper.makeGlobalName();
 	}
 	// Generate the rest of the builtins
 	for(int i=IMUL;i<=HANDLE_VAARG;i++)
-		builtins[i] = *name_it++;
+		builtins[i] = nameHelper.makeGlobalName();
 }
 
 void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnalyzer& gda, LinearMemoryHelper& linearHelper)
