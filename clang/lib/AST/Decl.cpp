@@ -4614,6 +4614,8 @@ bool RecordDecl::isOrContainsUnion() const {
 
 bool RecordDecl::isByteLayout() const
 {
+  if (hasAttr<AsmJSAttr>())
+    return false;
   // Unions and anonymous structures inside unions use bytelayout
   const RecordDecl *CurDecl = this;
   while (CurDecl && (CurDecl->isUnion() || CurDecl->isAnonymousStructOrUnion()))
