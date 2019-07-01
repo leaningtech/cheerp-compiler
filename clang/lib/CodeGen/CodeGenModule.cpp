@@ -4613,7 +4613,11 @@ llvm::Function* CodeGenModule::GetUserCastIntrinsic(const CastExpr* CE, QualType
 {
   bool isFunctionCast = SrcTy->isFunctionPointerType() || DestTy->isFunctionPointerType();
   bool isVoidPtrCast = DestTy->isVoidPointerType();
-  if(!CE->isCheerpSafe() && !isFunctionCast && !isVoidPtrCast && !asmjs)
+  bool isByteLayoutCast = false;
+  if (const TagDecl *Record = SrcTy->getPointeeType()->getAsTagDecl())
+    isByteLayoutCast = Record->hasAttr<ByteLayoutAttr>();
+
+  if(!CE->isCheerpSafe() && !isFunctionCast && !isVoidPtrCast && !asmjs && !isByteLayoutCast)
     getDiags().Report(CE->getBeginLoc(), diag::warn_cheerp_unsafe_cast);
 
   llvm::Type* types[] = { getTypes().ConvertType(DestTy), getTypes().ConvertType(SrcTy) };
