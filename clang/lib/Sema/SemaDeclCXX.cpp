@@ -2548,8 +2548,19 @@ Sema::CheckBaseSpecifier(CXXRecordDecl *Class,
         << CXXBaseDecl->getDeclName() << FA->getRange();
     return nullptr;
   }
+  // CHEERP: ByteLayout types must be consistent
+  if (CXXBaseDecl->hasAttr<ByteLayoutAttr>() && !Class->hasAttr<ByteLayoutAttr>()) {
+    Diag(BaseLoc, diag::err_cheerp_incompatible_attributes)
+      << CXXBaseDecl->getAttr<ByteLayoutAttr>() << "base class" << CXXBaseDecl
+      << "<none>" << "derived class" << Class;
+    return nullptr;
+  } else if (!CXXBaseDecl->hasAttr<ByteLayoutAttr>() && Class->hasAttr<ByteLayoutAttr>()) {
+    Diag(BaseLoc, diag::err_cheerp_incompatible_attributes)
+      << "<none>" << "base class" << CXXBaseDecl
+      << Class->getAttr<ByteLayoutAttr>() << "derived class" << Class;
+    return nullptr;
   // CHEERP: Derived class must have the same asmjs/genericjs attribute as the base
-  if (CXXBaseDecl->hasAttr<AsmJSAttr>() && Class->hasAttr<GenericJSAttr>()) {
+  } else if (CXXBaseDecl->hasAttr<AsmJSAttr>() && Class->hasAttr<GenericJSAttr>()) {
     Diag(BaseLoc, diag::err_cheerp_incompatible_attributes)
       << CXXBaseDecl->getAttr<AsmJSAttr>() << "base class" << CXXBaseDecl
       << Class->getAttr<GenericJSAttr>() << "derived class" << Class;
