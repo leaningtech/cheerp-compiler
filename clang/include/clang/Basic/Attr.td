@@ -1876,6 +1876,11 @@ def GenericJS : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def ByteLayout : InheritableAttr {
+  let Spellings = [CXX11<"cheerp", "bytelayout">, GNU<"cheerp_bytelayout">];
+  let Documentation = [Undocumented];
+}
+
 def DefaultNew : Attr {
   let Spellings = [CXX11<"cheerp", "default_new">, GNU<"cheerp_default_new">];
   let Documentation = [Undocumented];

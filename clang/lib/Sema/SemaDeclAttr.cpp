@@ -6818,6 +6818,14 @@ static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 static void handleGenericJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   D->addAttr(::new (S.Context) GenericJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
+
+static void handleByteLayoutAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (!isa<RecordDecl>(D))
+    S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
+  else
+    D->addAttr(::new (S.Context) ByteLayoutAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
 static void handleDefaultNewAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   D->addAttr(::new (S.Context) DefaultNewAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
@@ -7512,8 +7520,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_GenericJS:
     handleGenericJSAttr(S, D, AL);
     break;
+  case AttributeList::AT_ByteLayout:
+    handleByteLayoutAttr(S, D, AL);
+    break;
   case AttributeList::AT_DefaultNew:
-    handleDefaultNewAttr(S, D, Attr);
+    handleDefaultNewAttr(S, D, AL);
     break;
   }
 }
