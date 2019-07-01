@@ -7887,6 +7887,9 @@ static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (D->hasAttr<AsmJSAttr>() && isa<CXXRecordDecl>(D))
     S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
       << Attr.getName() << D->getAttr<AsmJSAttr>();
+  else if (D->hasAttr<ByteLayoutAttr>() && isa<CXXRecordDecl>(D))
+    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
+      << Attr.getName() << D->getAttr<ByteLayoutAttr>();
   else if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
     D->addAttr(::new (S.Context) JsExportAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
   else
@@ -7897,6 +7900,9 @@ static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (D->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(D)) {
     S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
       << Attr.getName() << D->getAttr<JsExportAttr>();
+  } else if (D->hasAttr<ByteLayoutAttr>() && isa<CXXRecordDecl>(D)) {
+    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
+      << Attr.getName() << D->getAttr<ByteLayoutAttr>();
   } else {
     D->addAttr(::new (S.Context) AsmJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
   }
@@ -7909,6 +7915,12 @@ static void handleGenericJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 static void handleByteLayoutAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (!isa<RecordDecl>(D))
     S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
+  else if (D->hasAttr<AsmJSAttr>())
+    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
+      << Attr.getName() << D->getAttr<AsmJSAttr>();
+  else if (D->hasAttr<JsExportAttr>())
+    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
+      << Attr.getName() << D->getAttr<JsExportAttr>();
   else
     D->addAttr(::new (S.Context) ByteLayoutAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
