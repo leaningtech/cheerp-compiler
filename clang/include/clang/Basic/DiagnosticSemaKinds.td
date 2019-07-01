@@ -10912,8 +10912,8 @@ def err_cheerp_invalid_plament_new : Error<
   "Cheerp: Placement new is only valid on memory of the same type. If this is a custom allocator, disable it">;
 def err_cheerp_attribute_not_on_function : Error<
   "Cheerp: This attribute can only be used on functions">;
-def err_cheerp_jsexport_on_virtual_class : Error<
-  "Cheerp: A virtual class cannot have the [[jsexport]] attribute">;
+def err_cheerp_attribute_on_virtual_class : Error<
+  "Cheerp: A virtual class cannot have the %0 attribute">;
 def err_cheerp_jsexport_on_class_without_constructor : Error<
   "Cheerp: A class should have a constructor to have the [[jsexport]] attribute">;
 def err_cheerp_jsexport_with_non_trivial_destructor : Error<

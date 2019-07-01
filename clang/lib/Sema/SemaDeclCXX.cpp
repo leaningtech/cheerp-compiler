@@ -6876,7 +6876,7 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   if (Record->hasAttr<JsExportAttr>())
   {
     if (Record->isDynamicClass())
-      Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_virtual_class);
+      Diag(Record->getLocation(), diag::err_cheerp_attribute_on_virtual_class) << Record->getAttr<JsExportAttr>();
 
     if (!Record->hasUserDeclaredConstructor())
       Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
@@ -6896,6 +6896,11 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
      }
     }
     //TODO: Check for any public data or static member
+  }
+  if(Record->hasAttr<ByteLayoutAttr>())
+  {
+    if (Record->isDynamicClass())
+      Diag(Record->getLocation(), diag::err_cheerp_attribute_on_virtual_class) << Record->getAttr<ByteLayoutAttr>();
   }
   // CHEERP: If the record type is asmjs, disallow genericjs fields, including pointers
   if (Record->hasAttr<AsmJSAttr>()) {
