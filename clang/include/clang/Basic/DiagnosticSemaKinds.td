@@ -10906,8 +10906,8 @@ def warn_cheerp_ptr_to_int : Warning<
   "Cheerp: Casting genericjs pointers to integers may be slow.">;
 def err_cheerp_missing_special_definition : Error<
   "Cheerp: '%0' is undeclared">;
-def err_cheerp_field_not_supported_in_union : Error<
-  "Cheerp: Field not supported in union">;
+def err_cheerp_field_not_supported : Error<
+  "Cheerp: Field not supported in %0">;
 def err_cheerp_invalid_plament_new : Error<
   "Cheerp: Placement new is only valid on memory of the same type. If this is a custom allocator, disable it">;
 def err_cheerp_attribute_not_on_function : Error<

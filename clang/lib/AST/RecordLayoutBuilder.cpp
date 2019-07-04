@@ -1371,23 +1371,24 @@ bool ItaniumRecordLayoutBuilder::verifyDataOnlyUnion(const RecordDecl* RD)
       if(rt->getDecl()->isByteLayout())
         continue;
     }
-    Diag(it->getLocation(), diag::err_cheerp_field_not_supported_in_union);
+    Diag(it->getLocation(), diag::err_cheerp_field_not_supported) << RD->getSourceRange() << RD;
     return false;
   }
   return true;
 }
 
 void ItaniumRecordLayoutBuilder::InitializeLayout(const Decl *D) {
+  bool isByteLayout = false;
   if (const RecordDecl *RD = dyn_cast<RecordDecl>(D)) {
     IsUnion = RD->isUnion();
-    bool asmjs = RD->hasAttr<AsmJSAttr>();
-    if (IsUnion && !Context.getTargetInfo().isByteAddressable() && !asmjs)
+    isByteLayout = !Context.getTargetInfo().isByteAddressable() && RD->isByteLayout();
+    if (isByteLayout)
     {
       //Check that the union can be supported
       //Currently only data only unions are
       bool isDataOnly = verifyDataOnlyUnion(RD);
       //Even if the union is suppported, tell the user it is less efficient
-      if(isDataOnly)
+      if(IsUnion && isDataOnly)
         Diag(RD->getLocation(), diag::warn_cheerp_inefficient_unions);
     }
     IsMsStruct = RD->isMsStruct(Context);
@@ -1403,7 +1404,7 @@ void ItaniumRecordLayoutBuilder::InitializeLayout(const Decl *D) {
   }
 
   // CHEERP: generic code has 1 byte alignment
-  if (D->hasAttr<GenericJSAttr>()) {
+  if (D->hasAttr<GenericJSAttr>() && !isByteLayout) {
     MaxFieldAlignment = CharUnits::fromQuantity(1);
     Alignment = CharUnits::fromQuantity(1);
   }
