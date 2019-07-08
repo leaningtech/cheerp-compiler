@@ -40,7 +40,7 @@ template <typename T>
 class DeterministicPtrSet
 {
 	//This is a specialized set only meant to work with pointers
-	static_assert(std::is_pointer<T>::value, "Indexer currently index only pointer types");
+	static_assert(std::is_pointer<T>::value, "DeterministicPtrSet currently index only pointer types");
 	using size_type = unsigned;
 public:
 	typedef typename std::deque<T>::iterator iterator;
@@ -72,8 +72,8 @@ public:
 	{
 		if (&rhs != this)
 		{
-			this->swap(rhs);
-			rhs.clear();
+			map = std::move(rhs.map);
+			vec = std::move(rhs.vec);
 		}
 		return *this;
 	}
