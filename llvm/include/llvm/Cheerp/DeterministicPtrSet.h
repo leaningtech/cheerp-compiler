@@ -23,10 +23,9 @@
    with a slight per-operation additional cost over a std::unordered_set (roughly 2x in memory size and negligible in time-complexity)
    while allowing faster iterations over the collection of items.
    All operation, iterations comprised, are deterministic
-   Note that for operations that returns iterators, it means that the returned iterator - begin() is constant over different executions.
 
    erase() invalidates iterators, so combining iterations with erase should be avoided.
-   The same is true for indirect operations that relies on iteration+erase, line remove_if()
+   The same is true for indirect operations that relies on iteration+erase, like remove_if()
 
    The determinism is achieved by keeping 2 different datastructure updated at the same time, a std::unordered_map<pointer,std::deque<pointer>::iterator> and a std::deque<pointer>.
    Iterations are done on the deque iterators while the other operations are performed first on the unordered_map
