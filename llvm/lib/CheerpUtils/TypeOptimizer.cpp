@@ -5,10 +5,11 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015 Leaning Technologies
+// Copyright 2015-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Cheerp/DeterministicPtrMap.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/TypeOptimizer.h"
 #include "llvm/IR/IRBuilder.h"
@@ -1010,7 +1011,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		localTypeMapping[v] = t;
 	};
 	// Keep track of instructions which have been remapped
-	std::unordered_map<Value*, std::pair<Value*, uint8_t>> localInstMapping;
+	DeterministicPtrMap<Value*, std::pair<Value*, uint8_t>> localInstMapping;
 	auto getMappedOperand = [&](Value* v) -> std::pair<Value*, uint8_t>
 	{
 		if(Constant* C=dyn_cast<Constant>(v))
