@@ -19,6 +19,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -36,6 +38,11 @@ char Registerize::ID = 0;
 void Registerize::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addRequired<LoopInfoWrapperPass>();
+	AU.addRequired<DominatorTreeWrapperPass>();
+	AU.addRequired<PostDominatorTree>();
+	AU.addPreserved<LoopInfoWrapperPass>();
+	AU.addPreserved<DominatorTreeWrapperPass>();
+	AU.addPreserved<PostDominatorTree>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
@@ -135,6 +142,8 @@ void Registerize::computeLiveRangeForAllocas(Function& F)
 	assert(!RegistersAssigned);
 	if (F.empty())
 		return;
+	DT = &getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+	PDT = &getAnalysis<PostDominatorTree>(F);
 	AllocaSetTy allocaSet;
 	InstIdMapTy instIdMap;
 	// Assign sequential identifiers to all instructions
@@ -3254,6 +3263,9 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 		allUses.push_back(&U);
 
 	bool escapes = false;
+	SmallVector<const IntrinsicInst*, 1> lifetimeStarts;
+	SmallVector<const IntrinsicInst*, 1> lifetimeEnds;
+	SmallPtrSet<const Instruction*, 4> escapingInsts;
 	// NOTE: allUses.size() will grow over time, that's fine
 	for(uint32_t i=0;i<allUses.size();i++)
 	{
@@ -3274,7 +3286,7 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 				// If we are storing away one of the values, it escape
 				// NOTE: Operand 0 is the value
 				if (U->getOperandNo() == 0)
-					escapes = true;
+					escapingInsts.insert(I);
 				break;
 			}
 			case Instruction::Load:
@@ -3286,23 +3298,61 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 			{
 				const CallInst* CI = cast<CallInst>(I);
 				const Function* F = CI->getCalledFunction();
-				// Lifetime intrinsics are ok
-				if(F && (F->getIntrinsicID()==Intrinsic::lifetime_start ||
-					F->getIntrinsicID()==Intrinsic::lifetime_end))
+				if(F)
 				{
-					break;
+					// Lifetime intrinsics are ok
+					if(F->getIntrinsicID()==Intrinsic::lifetime_start)
+					{
+						lifetimeStarts.push_back(cast<IntrinsicInst>(CI));
+						break;
+					}
+					else if(F->getIntrinsicID()==Intrinsic::lifetime_end)
+					{
+						lifetimeEnds.push_back(cast<IntrinsicInst>(CI));
+						break;
+					}
+					// This escapes, unless the argument is flagged as nocapture
+					//NOTE: Parameter attributes start at index 1
+					if(F->getAttributes().hasAttribute(U->getOperandNo()+1, Attribute::NoCapture))
+						break;
 				}
-				// This escapes, unless the argument is flagged as nocapture
-				//NOTE: Parameter attributes start at index 1
-				if(F && F->getAttributes().hasAttribute(U->getOperandNo()+1, Attribute::NoCapture))
-					break;
-				escapes = true;
+				escapingInsts.insert(CI);
 				break;
 			}
 			default:
 				// Be conservative
 				escapes = true;
 				break;
+		}
+		for (auto E: escapingInsts)
+		{
+			bool dominated = false, postdominated = false;
+			for (auto S: lifetimeStarts)
+			{
+				if (DT->dominates(S, E))
+				{
+					dominated = true;
+					break;
+				}
+			}
+			if (!dominated)
+			{
+				escapes = true;
+				break;
+			}
+			for (auto S: lifetimeEnds)
+			{
+				if (PDT->dominates(S->getParent(), E->getParent()))
+				{
+					postdominated = true;
+					break;
+				}
+			}
+			if (!postdominated)
+			{
+				escapes = true;
+				break;
+			}
 		}
 		if (escapes)
 		{
@@ -3317,11 +3367,9 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 		// Skip instruction which only touch the pointer and not the actual memory
 		if(isa<BitCastInst>(userI) || isa<GetElementPtrInst>(userI))
 			continue;
-		if(IntrinsicInst* II = dyn_cast<IntrinsicInst>(userI))
-		{
-			if(II->getIntrinsicID() == Intrinsic::lifetime_start || II->getIntrinsicID() == Intrinsic::lifetime_end)
-				continue;
-		}
+		// Skip instructions that are enclosed in lifetime_start/lifetime_end
+		if (escapingInsts.count(userI))
+			continue;
 		ret.insert(userI);
 	}
 	return ret;
@@ -3475,5 +3523,8 @@ using namespace cheerp;
 
 INITIALIZE_PASS_BEGIN(Registerize, "Registerize", "Allocate stack registers for each virtual register",
 			false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_END(Registerize, "Registerize", "Allocate stack registers for each virtual register",
 			false, false)
