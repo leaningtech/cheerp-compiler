@@ -11,6 +11,7 @@
 
 #define DEBUG_TYPE "CheerpAllocaLowering"
 #include "llvm/Cheerp/AllocaLowering.h"
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Instructions.h"
@@ -23,16 +24,14 @@ STATISTIC(NumAllocasTransformedToGEPs, "Number of allocas of values transformed 
 
 namespace llvm {
 
-static Function* getOrCreateGetStackWrapper(Module* M)
+static Function* getOrCreateGetStackWrapper(Module* M, cheerp::GlobalDepsAnalyzer& GDA)
 {
-	Function* wrapper = M->getFunction("__getStackPtr");
-	if (wrapper)
-		return wrapper;
-
 	Type* i8Ty = IntegerType::getInt8Ty(M->getContext());
 	Type* i8PtrTy = PointerType::get(i8Ty, 0);
 	FunctionType* fTy = FunctionType::get(i8PtrTy,{});
-	wrapper = cast<Function>(M->getOrInsertFunction("__getStackPtr", fTy));
+	Function* wrapper = cast<Function>(M->getOrInsertFunction("__getStackPtr", fTy));
+	if (!wrapper->empty())
+		return wrapper;
 	BasicBlock* entry = BasicBlock::Create(M->getContext(),"entry", wrapper);
 	IRBuilder<> Builder(entry);
 	Function* getStackIntr = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
@@ -40,19 +39,18 @@ static Function* getOrCreateGetStackWrapper(Module* M)
 	Builder.CreateRet(ret);
 
 	wrapper->setSection("asmjs");
+	GDA.insertAsmJSExport(wrapper);
 	return wrapper;
 }
-static Function* getOrCreateSetStackWrapper(Module* M)
+static Function* getOrCreateSetStackWrapper(Module* M, cheerp::GlobalDepsAnalyzer& GDA)
 {
-	Function* wrapper = M->getFunction("__setStackPtr");
-	if (wrapper)
-		return wrapper;
-
 	Type* i8Ty = IntegerType::getInt8Ty(M->getContext());
 	Type* i8PtrTy = PointerType::get(i8Ty, 0);
 	Type* argTy[] = {i8PtrTy};
 	FunctionType* fTy = FunctionType::get(Type::getVoidTy(M->getContext()),ArrayRef<Type*>(argTy,1), false);
-	wrapper = cast<Function>(M->getOrInsertFunction("__setStackPtr", fTy));
+	Function* wrapper = cast<Function>(M->getOrInsertFunction("__setStackPtr", fTy));
+	if (!wrapper->empty())
+		return wrapper;
 	BasicBlock* entry = BasicBlock::Create(M->getContext(),"entry", wrapper);
 	IRBuilder<> Builder(entry);
 	Function* setStackIntr = Intrinsic::getDeclaration(M, Intrinsic::stackrestore);
@@ -61,6 +59,7 @@ static Function* getOrCreateSetStackWrapper(Module* M)
 	Builder.CreateRetVoid();
 
 	wrapper->setSection("asmjs");
+	GDA.insertAsmJSExport(wrapper);
 	return wrapper;
 }
 
@@ -177,8 +176,9 @@ bool AllocaLowering::runOnFunction(Function& F)
 	}
 	else
 	{
-		getStack = getOrCreateGetStackWrapper(M);
-		setStack = getOrCreateSetStackWrapper(M);
+		cheerp::GlobalDepsAnalyzer& GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
+		getStack = getOrCreateGetStackWrapper(M, GDA);
+		setStack = getOrCreateSetStackWrapper(M, GDA);
 	}
 
 	Type* int32Ty = IntegerType::getInt32Ty(M->getContext());
@@ -301,6 +301,10 @@ char AllocaLowering::ID = 0;
 
 void AllocaLowering::getAnalysisUsage(AnalysisUsage & AU) const
 {
+	AU.addPreserved<cheerp::PointerAnalyzer>();
+	AU.addPreserved<cheerp::Registerize>();
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
