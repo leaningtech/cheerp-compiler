@@ -41,6 +41,7 @@ IdenticalCodeFolding::IdenticalCodeFolding() : ModulePass(ID)
 
 void IdenticalCodeFolding::getAnalysisUsage(AnalysisUsage& AU) const
 {
+	AU.addPreserved<Registerize>();
 	AU.addPreserved<GlobalDepsAnalyzer>();
 	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 
