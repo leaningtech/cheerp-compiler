@@ -145,7 +145,6 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
     PM.add(createFixFunctionCastsPass());
   PM.add(createCheerpLowerSwitchPass());
   PM.add(createStructMemFuncLowering());
-  PM.add(createAllocaLoweringPass());
   PM.add(createFreeAndDeleteRemovalPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass(NoNativeJavaScriptMath ? cheerp::GlobalDepsAnalyzer::NO_BUILTINS : cheerp::GlobalDepsAnalyzer::USE_BUILTINS, /*resolveAliases*/true));
   PM.add(createFixIrreducibleControlFlowPass());
@@ -153,6 +152,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(createGEPOptimizerPass());
   PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround));
+  PM.add(createAllocaLoweringPass());
   if (!CheerpNoICF)
     PM.add(cheerp::createIdenticalCodeFoldingPass());
   PM.add(cheerp::createPointerAnalyzerPass());

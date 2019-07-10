@@ -166,7 +166,6 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
     PM.add(createFixFunctionCastsPass());
   PM.add(createCheerpLowerSwitchPass());
   PM.add(createStructMemFuncLowering());
-  PM.add(createAllocaLoweringPass());
   PM.add(createFreeAndDeleteRemovalPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass(cheerp::GlobalDepsAnalyzer::NO_BUILTINS, /*resolveAliases*/true));
   PM.add(createFixIrreducibleControlFlowPass());
@@ -174,6 +173,7 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(createGEPOptimizerPass());
   PM.add(cheerp::createRegisterizePass(true));
+  PM.add(createAllocaLoweringPass());
   if (!CheerpNoICF)
     PM.add(cheerp::createIdenticalCodeFoldingPass());
   PM.add(cheerp::createPointerAnalyzerPass());
