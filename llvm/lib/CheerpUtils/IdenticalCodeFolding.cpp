@@ -663,11 +663,7 @@ bool IdenticalCodeFolding::equivalentType(const llvm::Type* A, const llvm::Type*
 	llvm::errs() << "TB: "; B->dump();
 #endif
 
-	if (A->isFloatTy() && B->isFloatTy())
-		return true;
-	if (A->isDoubleTy() && B->isDoubleTy())
-		return true;
-	if (A->isIntegerTy() && B->isIntegerTy())
+	if (A == B)
 		return true;
 
 	if (A->isArrayTy() && B->isArrayTy()) {
