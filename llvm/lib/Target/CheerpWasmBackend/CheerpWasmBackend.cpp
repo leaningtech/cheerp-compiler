@@ -24,6 +24,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
+#include "llvm/Cheerp/ByValLowering.h"
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/GEPOptimizer.h"
 #include "llvm/Cheerp/CFGPasses.h"

@@ -18,6 +18,7 @@ add_llvm_library(LLVMCheerpUtils
   FixIrreducibleControlFlow.cpp
   LowerSwitch.cpp
   FixFunctionCasts.cpp
+  ByValLowering.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)
