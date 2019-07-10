@@ -204,7 +204,8 @@ static bool isShortenableAtTheEnd(Instruction *I) {
 static bool isShortenableAtTheBeginning(Instruction *I) {
   // FIXME: Handle only memset for now. Supporting memcpy/memmove should be
   // easily done by offsetting the source address.
-  return isa<AnyMemSetInst>(I);
+  const DataLayout& DL = I->getParent()->getParent()->getParent()->getDataLayout();
+  return isa<AnyMemSetInst>(I) && DL.isByteAddressable();
 }
 
 static uint64_t getPointerSize(const Value *V, const DataLayout &DL,
