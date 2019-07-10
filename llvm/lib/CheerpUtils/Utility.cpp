@@ -1300,6 +1300,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeAllocaStoresExtractorPass(Registry);
 	initializeFixIrreducibleControlFlowPass(Registry);
 	initializeCheerpLowerSwitchPass(Registry);
+	initializeByValLoweringPass(Registry);
 }
 
 }
