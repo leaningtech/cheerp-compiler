@@ -1267,6 +1267,8 @@ public:
 	REGISTER_KIND getRegKindFromType(const llvm::Type*, bool asmjs) const;
 
 	llvm::LoopInfo* LI;
+	llvm::DominatorTree* DT;
+	llvm::PostDominatorTree* PDT;
 public:
 	template <typename T>
 	class Indexer
