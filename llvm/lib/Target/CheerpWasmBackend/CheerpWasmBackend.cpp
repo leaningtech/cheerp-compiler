@@ -177,7 +177,6 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   if (!CheerpNoICF)
     PM.add(cheerp::createIdenticalCodeFoldingPass());
   PM.add(cheerp::createPointerAnalyzerPass());
-  PM.add(createPostDomTree());
   PM.add(createDelayInstsPass());
   PM.add(cheerp::createAllocaMergingPass());
   PM.add(createRemoveFwdBlocksPass());
