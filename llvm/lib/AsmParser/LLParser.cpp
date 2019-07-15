@@ -1751,8 +1751,6 @@ bool LLParser::ParseOptionalParamAttrs(AttrBuilder &B) {
     case lltok::kw_shadowcallstack:
     case lltok::kw_strictfp:
     case lltok::kw_uwtable:
-    case lltok::kw_client:
-    case lltok::kw_server:
       HaveError |= Error(Lex.getLoc(), "invalid use of function-only attribute");
       break;
     }
@@ -1857,8 +1855,6 @@ bool LLParser::ParseOptionalReturnAttrs(AttrBuilder &B) {
     case lltok::kw_shadowcallstack:
     case lltok::kw_strictfp:
     case lltok::kw_uwtable:
-    case lltok::kw_client:
-    case lltok::kw_server:
       HaveError |= Error(Lex.getLoc(), "invalid use of function-only attribute");
       break;
     case lltok::kw_readnone:
