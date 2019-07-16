@@ -216,20 +216,28 @@ void CheerpWriter::compileBitCastBase(const llvm::User* bi, bool forEscapingPoin
 		llvm::Type* pointedType = (isArray)?elementType->getSequentialElementType():elementType;
 		if(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true))
 		{
-			stream << "new ";
+			stream << "(";
+			if(isa<AllocaInst>(bi->getOperand(0)))
+				compileCompleteObject(bi->getOperand(0));
+			else
+				compilePointerBase(bi->getOperand(0));
+			stream << ".";
+			compileTypedArrayType(pointedType);
+			stream << "||(";
+			if(isa<AllocaInst>(bi->getOperand(0)))
+				compileCompleteObject(bi->getOperand(0));
+			else
+				compilePointerBase(bi->getOperand(0));
+			stream << ".";
+			compileTypedArrayType(pointedType);
+			stream << "=new ";
 			compileTypedArrayType(pointedType);
 			stream << '(';
 			if(isa<AllocaInst>(bi->getOperand(0)))
 				compileCompleteObject(bi->getOperand(0));
 			else
 				compilePointerBase(bi->getOperand(0));
-			stream << ".buffer";
-			if(!isa<AllocaInst>(bi->getOperand(0)))
-			{
-				stream << ',';
-				compilePointerOffset(bi->getOperand(0), LOWEST, false);
-			}
-			stream << ')';
+			stream << ".buffer)))";
 			return;
 		}
 	}
@@ -249,7 +257,10 @@ void CheerpWriter::compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY pa
 		llvm::Type* pointedType = (isArray)?elementType->getSequentialElementType():elementType;
 		if(TypeSupport::isTypedArrayType(pointedType, /* forceTypedArray*/ true))
 		{
-			stream << '0';
+			compileByteLayoutOffset( bi->getOperand(0), BYTE_LAYOUT_OFFSET_FULL );
+			uint32_t size = targetData.getTypeAllocSize(pointedType);
+			if(size != 1)
+				stream << ">>" << Log2_32(size);
 			return;
 		}
 	}
