@@ -3224,17 +3224,21 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 		else if (!TypeSupport::hasByteLayout(targetType) && forEscapingPointer)
 		{
 			assert(TypeSupport::isTypedArrayType(targetType, /* forceTypedArray*/ true));
-			// Forge an appropiate typed array
+			// Recycle or create an appropiate typed array
 			assert (!TypeSupport::hasByteLayout(targetType));
-			stream << "new ";
+			stream << "(";
+			compilePointerBase( baseOperand );
+			stream << ".";
+			compileTypedArrayType(targetType);
+			stream << "||(";
+			compilePointerBase( baseOperand );
+			stream << ".";
+			compileTypedArrayType(targetType);
+			stream << "=new ";
 			compileTypedArrayType(targetType);
 			stream << '(';
 			compilePointerBase( baseOperand );
-			stream << ".buffer,";
-			// If this GEP or a previous one passed through an array of immutables generate a regular from
-			// the start of the array and not from the pointed element
-			compileByteLayoutOffset( gep_inst, BYTE_LAYOUT_OFFSET_STOP_AT_ARRAY );
-			stream << ')';
+			stream << ".buffer)))";
 		}
 		else
 			compilePointerBase( baseOperand );
@@ -3295,13 +3299,10 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 		else
 		{
 			assert(TypeSupport::isTypedArrayType(targetType, /* forceTypedArray*/ true));
-			// If this GEP or a previous one passed through an array of immutables generate a regular from
-			// the start of the array and not from the pointed element
-			const Value* lastOffset = compileByteLayoutOffset( gep_inst, BYTE_LAYOUT_OFFSET_NO_PRINT );
-			if (lastOffset)
-				compileOperand(lastOffset);
-			else
-				stream << '0';
+			compileByteLayoutOffset( gep_inst, BYTE_LAYOUT_OFFSET_FULL );
+			uint32_t size = targetData.getTypeAllocSize(targetType);
+			if(size != 1)
+				stream << ">>" << Log2_32(size);
 		}
 	}
 	else if (indices.size() == 1)
