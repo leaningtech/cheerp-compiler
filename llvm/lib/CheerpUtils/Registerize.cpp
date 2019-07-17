@@ -3369,6 +3369,13 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 		// Skip instructions that are enclosed in lifetime_start/lifetime_end
 		if (escapingInsts.count(userI))
 			continue;
+		// If no instruction escapes, do not include the lifetime intrinsics
+		if(IntrinsicInst* II = dyn_cast<IntrinsicInst>(userI))
+		{
+			if(escapingInsts.empty() &&
+				(II->getIntrinsicID() == Intrinsic::lifetime_start || II->getIntrinsicID() == Intrinsic::lifetime_end))
+				continue;
+		}
 		ret.insert(userI);
 	}
 	return ret;
