@@ -3324,41 +3324,40 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 				escapes = true;
 				break;
 		}
-		for (auto E: escapingInsts)
+	}
+	for (auto E: escapingInsts)
+	{
+		bool dominated = false, postdominated = false;
+		for (auto S: lifetimeStarts)
 		{
-			bool dominated = false, postdominated = false;
-			for (auto S: lifetimeStarts)
+			if (DT->dominates(S, E))
 			{
-				if (DT->dominates(S, E))
-				{
-					dominated = true;
-					break;
-				}
-			}
-			if (!dominated)
-			{
-				escapes = true;
-				break;
-			}
-			for (auto S: lifetimeEnds)
-			{
-				if (PDT->dominates(S->getParent(), E->getParent()))
-				{
-					postdominated = true;
-					break;
-				}
-			}
-			if (!postdominated)
-			{
-				escapes = true;
+				dominated = true;
 				break;
 			}
 		}
-		if (escapes)
+		if (!dominated)
 		{
-			allUses.clear();
+			escapes = true;
 			break;
 		}
+		for (auto S: lifetimeEnds)
+		{
+			if (PDT->dominates(S->getParent(), E->getParent()))
+			{
+				postdominated = true;
+				break;
+			}
+		}
+		if (!postdominated)
+		{
+			escapes = true;
+			break;
+		}
+	}
+	if (escapes)
+	{
+		allUses.clear();
 	}
 	InstructionSetOrderedByID ret(instIdMap);
 	for(const Use* U: allUses)
