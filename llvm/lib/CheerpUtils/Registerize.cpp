@@ -39,10 +39,10 @@ void Registerize::getAnalysisUsage(AnalysisUsage & AU) const
 {
 	AU.addRequired<LoopInfoWrapperPass>();
 	AU.addRequired<DominatorTreeWrapperPass>();
-	AU.addRequired<PostDominatorTree>();
+	AU.addRequired<PostDominatorTreeWrapperPass>();
 	AU.addPreserved<LoopInfoWrapperPass>();
 	AU.addPreserved<DominatorTreeWrapperPass>();
-	AU.addPreserved<PostDominatorTree>();
+	AU.addPreserved<PostDominatorTreeWrapperPass>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
@@ -143,7 +143,7 @@ void Registerize::computeLiveRangeForAllocas(Function& F)
 	if (F.empty())
 		return;
 	DT = &getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-	PDT = &getAnalysis<PostDominatorTree>(F);
+	PDT = &getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
 	AllocaSetTy allocaSet;
 	InstIdMapTy instIdMap;
 	// Assign sequential identifiers to all instructions
@@ -3531,6 +3531,6 @@ INITIALIZE_PASS_BEGIN(Registerize, "Registerize", "Allocate stack registers for 
 			false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_END(Registerize, "Registerize", "Allocate stack registers for each virtual register",
 			false, false)
