@@ -4187,17 +4187,31 @@ void ItaniumRTTIBuilder::BuildVMIClassTypeInfo(const CXXRecordDecl *RD) {
     basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, NULL, asmjs));
   }
   if(!CGM.getTarget().isByteAddressable()) {
+    typedef std::pair<const CXXRecordDecl*, unsigned> RdUnsignedPair;
+    std::vector<RdUnsignedPair> vbases;
     for (auto it = CGLayout.vbases_begin(); it != CGLayout.vbases_end(); ++it) {
+      vbases.push_back(*it);
+    }
+    //We sort the vbases according to the second field
+    std::sort(vbases.begin(), vbases.end(),
+		    [](const RdUnsignedPair& a, const RdUnsignedPair& b) -> bool {
+			if (a.second != b.second)
+				return a.second < b.second;
+			assert(a.first->getName() != b.first->getName());
+			return a.first->getName() < b.first->getName();
+			});
+    for (const RdUnsignedPair& pair : vbases) {
       llvm::SmallVector<llvm::Constant*, 8> baseFields;
       // The __base_type member points to the RTTI for the base type.
-      QualType VBaseTy = CGM.getContext().getCanonicalType(CGM.getContext().getTagDeclType(it->first));
+      QualType VBaseTy = CGM.getContext().getCanonicalType(CGM.getContext().getTagDeclType(pair.first));
       baseFields.push_back(ItaniumRTTIBuilder(CXXABI).BuildTypeInfo(VBaseTy));
       unsigned Offset = 0;
       if (asmjs)
-        Offset = Layout.getVBaseClassOffset(it->first).getQuantity();
+        Offset = Layout.getVBaseClassOffset(pair.first).getQuantity();
       else
-        Offset = CGLayout.getTotalOffsetToBase(it->second);
+        Offset = CGLayout.getTotalOffsetToBase(pair.second);
       baseFields.push_back(llvm::ConstantInt::get(OffsetFlagsLTy, Offset));
+
       basesFields.push_back(llvm::ConstantStruct::getAnon(baseFields, false, NULL, asmjs));
     }
   }
