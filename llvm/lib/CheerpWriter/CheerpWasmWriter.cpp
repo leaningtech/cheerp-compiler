@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2018 Leaning Technologies
+// Copyright 2017-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -3555,6 +3555,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 	// Temporary map for the globalized constants. We update the global one at the end, to avoid
 	// global constants referencing each other
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstantsTmp;
+	std::unordered_map<const llvm::Constant*, uint32_t> orderOfInsertion;
 	// Gather all constants used multiple times, we want to encode those in the global section
 	for (Function* F: linearHelper.functions())
 	{
@@ -3578,6 +3579,8 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 					if(isa<Function>(C) || isa<ConstantPointerNull>(C))
 						continue;
 					globalizedConstantsTmp[C].first++;
+					if (orderOfInsertion.count(C) == 0)
+						orderOfInsertion[C] = orderOfInsertion.size();
 				}
 			}
 		}
@@ -3588,11 +3591,14 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 		const Constant* C;
 		uint32_t useCount;
 		GLOBAL_CONSTANT_ENCODING encoding;
+		uint32_t insertionIndex;
 		// NOTE: We want to have the high use counts first
 		bool operator<(const GlobalConstant& rhs) const
 		{
 			// TODO: We need to fully order these to keep the output consistent
-			return useCount > rhs.useCount;
+			if (useCount != rhs.useCount)
+				return useCount > rhs.useCount;
+			return insertionIndex < rhs.insertionIndex;
 		}
 	};
 	std::vector<GlobalConstant> orderedConstants;
@@ -3605,7 +3611,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			it = globalizedConstantsTmp.erase(it);
 		else
 		{
-			orderedConstants.push_back(GlobalConstant{it->first, it->second.first, it->second.second});
+			orderedConstants.push_back(GlobalConstant{it->first, it->second.first, it->second.second, orderOfInsertion.at(it->first)});
 			++it;
 		}
 	}
