@@ -50,7 +50,7 @@ define i32 @bar2() {
 }
 
 ; CHECK-LABEL: @bar2
-; CHECK: store i64 0, i64* getelementptr inbounds ([100 x i64], [100 x i64]* @__msan_va_arg_tls, i32 0, i32 0), align 8
+; CHECK: store i64 0, i64* bitcast ([100 x i64]* @__msan_va_arg_tls to i64*), align 8
 ; CHECK: store i64 0, i64* inttoptr (i64 add (i64 ptrtoint ([100 x i64]* @__msan_va_arg_tls to i64), i64 8) to i64*), align 8
 ; CHECK: store {{.*}} 16, {{.*}} @__msan_va_arg_overflow_size_tls
 
