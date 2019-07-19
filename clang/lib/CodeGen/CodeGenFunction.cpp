@@ -1174,7 +1174,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   if (!CGM.getTarget().isByteAddressable() && D && isa<CXXMethodDecl>(D)) {
     //Cheerp: Emit metadata to know about member methods in the backend
     const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
-    if (MD->getParent()->hasAttr<JsExportAttr>() &&
+    if (MD->getParent()->hasAttr<JsExportAttr>() && MD->getAccess() == AS_public &&
         (!CXXConstructorDecl::classof(GD.getDecl()) || GD.getCtorType()==Ctor_Complete))
     {
       llvm::StructType *classType = cast<llvm::StructType>(ConvertType(MD->getParent()));
