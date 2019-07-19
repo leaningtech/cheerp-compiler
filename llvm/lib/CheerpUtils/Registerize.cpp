@@ -1,4 +1,3 @@
-
 //===-- Registerize.cpp - Compute live ranges to minimize variables--------===//
 //
 //                     Cheerp: The C++ compiler for the Web
@@ -3341,9 +3340,31 @@ Registerize::InstructionSetOrderedByID Registerize::gatherDerivedMemoryAccesses(
 			escapes = true;
 			break;
 		}
+		auto postDominates = [this](const Instruction* A, const Instruction* B) -> bool
+		{
+			//If they are the same instruction, there can't be no postdomination
+			if (A == B)
+				return false;
+
+			const BasicBlock* blockA = A->getParent();
+			const BasicBlock* blockB = B->getParent();
+
+			if (blockA != blockB)
+			{
+				//If the blocks are different, then PDT can be queried whether blockA is postdominator than blockB
+				return PDT->dominates(blockA, blockB);
+			}
+			else
+			{
+				//If the blocks are equal AND the intruction different,
+						//then DT can be queried whether B dominates A
+						//(that means that A postDominates B)
+				return DT->dominates(B, A);
+			}
+		};
 		for (auto S: lifetimeEnds)
 		{
-			if (PDT->dominates(S->getParent(), E->getParent()))
+			if (postDominates(S, E))
 			{
 				postdominated = true;
 				break;
