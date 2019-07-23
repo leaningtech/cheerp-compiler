@@ -925,6 +925,10 @@ bool PreExecute::runOnModule(Module& m)
     FD.detach("malloc");
     FD.detach("free");
     FD.detach("realloc");
+    FD.detach("cALLOc");
+    FD.detach("mALLOc");
+    FD.detach("fREe");
+    FD.detach("rEALLOc");
 
     if (constructorVar)
     {
