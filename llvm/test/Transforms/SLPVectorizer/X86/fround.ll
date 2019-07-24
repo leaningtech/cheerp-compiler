@@ -36,15 +36,15 @@ define void @ceil_2f64() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @ceil_2f64(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.ceil.v2f64(<2 x double> [[TMP1]])
-; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @ceil_2f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.ceil.v2f64(<2 x double> [[TMP1]])
-; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -82,9 +82,9 @@ define void @ceil_4f64() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @ceil_4f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @src64 to <4 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x double> @llvm.ceil.v4f64(<4 x double> [[TMP1]])
-; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast ([8 x double]* @dst64 to <4 x double>*), align 8
+; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -164,9 +164,9 @@ define void @ceil_8f64() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @ceil_8f64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <8 x double> @llvm.ceil.v8f64(<8 x double> [[TMP1]])
-; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast ([8 x double]* @dst64 to <8 x double>*), align 8
+; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -207,15 +207,15 @@ define void @floor_2f64() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @floor_2f64(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.floor.v2f64(<2 x double> [[TMP1]])
-; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @floor_2f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.floor.v2f64(<2 x double> [[TMP1]])
-; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -253,9 +253,9 @@ define void @floor_4f64() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @floor_4f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @src64 to <4 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x double> @llvm.floor.v4f64(<4 x double> [[TMP1]])
-; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast ([8 x double]* @dst64 to <4 x double>*), align 8
+; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -335,9 +335,9 @@ define void @floor_8f64() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @floor_8f64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <8 x double> @llvm.floor.v8f64(<8 x double> [[TMP1]])
-; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast ([8 x double]* @dst64 to <8 x double>*), align 8
+; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -378,15 +378,15 @@ define void @nearbyint_2f64() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @nearbyint_2f64(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> [[TMP1]])
-; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @nearbyint_2f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> [[TMP1]])
-; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -424,9 +424,9 @@ define void @nearbyint_4f64() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @nearbyint_4f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @src64 to <4 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> [[TMP1]])
-; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast ([8 x double]* @dst64 to <4 x double>*), align 8
+; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -506,9 +506,9 @@ define void @nearbyint_8f64() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @nearbyint_8f64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> [[TMP1]])
-; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast ([8 x double]* @dst64 to <8 x double>*), align 8
+; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -549,15 +549,15 @@ define void @rint_2f64() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @rint_2f64(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.rint.v2f64(<2 x double> [[TMP1]])
-; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @rint_2f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.rint.v2f64(<2 x double> [[TMP1]])
-; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -595,9 +595,9 @@ define void @rint_4f64() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @rint_4f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @src64 to <4 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x double> @llvm.rint.v4f64(<4 x double> [[TMP1]])
-; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast ([8 x double]* @dst64 to <4 x double>*), align 8
+; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -677,9 +677,9 @@ define void @rint_8f64() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @rint_8f64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <8 x double> @llvm.rint.v8f64(<8 x double> [[TMP1]])
-; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast ([8 x double]* @dst64 to <8 x double>*), align 8
+; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -720,15 +720,15 @@ define void @trunc_2f64() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @trunc_2f64(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; SSE41-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.trunc.v2f64(<2 x double> [[TMP1]])
-; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; SSE41-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @trunc_2f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.trunc.v2f64(<2 x double> [[TMP1]])
-; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; AVX-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -766,9 +766,9 @@ define void @trunc_4f64() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @trunc_4f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @src64 to <4 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x double> @llvm.trunc.v4f64(<4 x double> [[TMP1]])
-; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast ([8 x double]* @dst64 to <4 x double>*), align 8
+; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -848,9 +848,9 @@ define void @trunc_8f64() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @trunc_8f64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <8 x double> @llvm.trunc.v8f64(<8 x double> [[TMP1]])
-; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast ([8 x double]* @dst64 to <8 x double>*), align 8
+; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <8 x double>*), align 8
 ; AVX512-NEXT:    ret void
 ;
   %ld0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
@@ -897,15 +897,15 @@ define void @ceil_4f32() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @ceil_4f32(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.ceil.v4f32(<4 x float> [[TMP1]])
-; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @ceil_4f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.ceil.v4f32(<4 x float> [[TMP1]])
-; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -961,9 +961,9 @@ define void @ceil_8f32() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @ceil_8f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.ceil.v8f32(<8 x float> [[TMP1]])
-; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast ([16 x float]* @dst32 to <8 x float>*), align 4
+; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -1079,9 +1079,9 @@ define void @ceil_16f32() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @ceil_16f32(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @src32 to <16 x float>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <16 x float> @llvm.ceil.v16f32(<16 x float> [[TMP1]])
-; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast ([16 x float]* @dst32 to <16 x float>*), align 4
+; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %ld0  = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0 ), align 4
@@ -1152,15 +1152,15 @@ define void @floor_4f32() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @floor_4f32(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.floor.v4f32(<4 x float> [[TMP1]])
-; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @floor_4f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.floor.v4f32(<4 x float> [[TMP1]])
-; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -1216,9 +1216,9 @@ define void @floor_8f32() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @floor_8f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.floor.v8f32(<8 x float> [[TMP1]])
-; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast ([16 x float]* @dst32 to <8 x float>*), align 4
+; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -1334,9 +1334,9 @@ define void @floor_16f32() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @floor_16f32(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @src32 to <16 x float>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <16 x float> @llvm.floor.v16f32(<16 x float> [[TMP1]])
-; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast ([16 x float]* @dst32 to <16 x float>*), align 4
+; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %ld0  = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0 ), align 4
@@ -1407,15 +1407,15 @@ define void @nearbyint_4f32() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @nearbyint_4f32(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> [[TMP1]])
-; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @nearbyint_4f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> [[TMP1]])
-; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -1471,9 +1471,9 @@ define void @nearbyint_8f32() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @nearbyint_8f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> [[TMP1]])
-; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast ([16 x float]* @dst32 to <8 x float>*), align 4
+; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -1589,9 +1589,9 @@ define void @nearbyint_16f32() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @nearbyint_16f32(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @src32 to <16 x float>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> [[TMP1]])
-; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast ([16 x float]* @dst32 to <16 x float>*), align 4
+; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %ld0  = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0 ), align 4
@@ -1662,15 +1662,15 @@ define void @rint_4f32() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @rint_4f32(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.rint.v4f32(<4 x float> [[TMP1]])
-; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @rint_4f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.rint.v4f32(<4 x float> [[TMP1]])
-; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -1726,9 +1726,9 @@ define void @rint_8f32() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @rint_8f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.rint.v8f32(<8 x float> [[TMP1]])
-; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast ([16 x float]* @dst32 to <8 x float>*), align 4
+; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -1844,9 +1844,9 @@ define void @rint_16f32() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @rint_16f32(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @src32 to <16 x float>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <16 x float> @llvm.rint.v16f32(<16 x float> [[TMP1]])
-; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast ([16 x float]* @dst32 to <16 x float>*), align 4
+; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %ld0  = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0 ), align 4
@@ -1917,15 +1917,15 @@ define void @trunc_4f32() #0 {
 ; SSE2-NEXT:    ret void
 ;
 ; SSE41-LABEL: @trunc_4f32(
-; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; SSE41-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.trunc.v4f32(<4 x float> [[TMP1]])
-; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; SSE41-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @trunc_4f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.trunc.v4f32(<4 x float> [[TMP1]])
-; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -1981,9 +1981,9 @@ define void @trunc_8f32() #0 {
 ; SSE41-NEXT:    ret void
 ;
 ; AVX-LABEL: @trunc_8f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.trunc.v8f32(<8 x float> [[TMP1]])
-; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast ([16 x float]* @dst32 to <8 x float>*), align 4
+; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0), align 4
@@ -2099,9 +2099,9 @@ define void @trunc_16f32() #0 {
 ; AVX2-NEXT:    ret void
 ;
 ; AVX512-LABEL: @trunc_16f32(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @src32 to <16 x float>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <16 x float> @llvm.trunc.v16f32(<16 x float> [[TMP1]])
-; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast ([16 x float]* @dst32 to <16 x float>*), align 4
+; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %ld0  = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0 ), align 4
