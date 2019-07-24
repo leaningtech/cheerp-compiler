@@ -54,9 +54,9 @@ define void @bitreverse_4i64() #0 {
 ; AVX-NEXT:    ret void
 ;
 ; XOP-LABEL: @bitreverse_4i64(
-; XOP-NEXT:    [[TMP1:%.*]] = load <4 x i64>, <4 x i64>* bitcast ([4 x i64]* @src64 to <4 x i64>*), align 4
+; XOP-NEXT:    [[TMP1:%.*]] = load <4 x i64>, <4 x i64>* bitcast (i64* getelementptr inbounds ([4 x i64], [4 x i64]* @src64, i64 0, i64 0) to <4 x i64>*), align 4
 ; XOP-NEXT:    [[TMP2:%.*]] = call <4 x i64> @llvm.bitreverse.v4i64(<4 x i64> [[TMP1]])
-; XOP-NEXT:    store <4 x i64> [[TMP2]], <4 x i64>* bitcast ([4 x i64]* @dst64 to <4 x i64>*), align 4
+; XOP-NEXT:    store <4 x i64> [[TMP2]], <4 x i64>* bitcast (i64* getelementptr inbounds ([4 x i64], [4 x i64]* @dst64, i64 0, i64 0) to <4 x i64>*), align 4
 ; XOP-NEXT:    ret void
 ;
   %ld0 = load i64, i64* getelementptr inbounds ([4 x i64], [4 x i64]* @src64, i64 0, i64 0), align 4
@@ -107,15 +107,15 @@ define void @bitreverse_8i32() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @bitreverse_8i32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* bitcast ([8 x i32]* @src32 to <8 x i32>*), align 2
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @src32, i32 0, i64 0) to <8 x i32>*), align 2
 ; AVX-NEXT:    [[TMP2:%.*]] = call <8 x i32> @llvm.bitreverse.v8i32(<8 x i32> [[TMP1]])
-; AVX-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast ([8 x i32]* @dst32 to <8 x i32>*), align 2
+; AVX-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @dst32, i32 0, i64 0) to <8 x i32>*), align 2
 ; AVX-NEXT:    ret void
 ;
 ; XOP-LABEL: @bitreverse_8i32(
-; XOP-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* bitcast ([8 x i32]* @src32 to <8 x i32>*), align 2
+; XOP-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @src32, i32 0, i64 0) to <8 x i32>*), align 2
 ; XOP-NEXT:    [[TMP2:%.*]] = call <8 x i32> @llvm.bitreverse.v8i32(<8 x i32> [[TMP1]])
-; XOP-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast ([8 x i32]* @dst32 to <8 x i32>*), align 2
+; XOP-NEXT:    store <8 x i32> [[TMP2]], <8 x i32>* bitcast (i32* getelementptr inbounds ([8 x i32], [8 x i32]* @dst32, i32 0, i64 0) to <8 x i32>*), align 2
 ; XOP-NEXT:    ret void
 ;
   %ld0 = load i32, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @src32, i32 0, i64 0), align 2
@@ -190,15 +190,15 @@ define void @bitreverse_16i16() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @bitreverse_16i16(
-; AVX-NEXT:    [[TMP1:%.*]] = load <16 x i16>, <16 x i16>* bitcast ([16 x i16]* @src16 to <16 x i16>*), align 2
+; AVX-NEXT:    [[TMP1:%.*]] = load <16 x i16>, <16 x i16>* bitcast (i16* getelementptr inbounds ([16 x i16], [16 x i16]* @src16, i16 0, i64 0) to <16 x i16>*), align 2
 ; AVX-NEXT:    [[TMP2:%.*]] = call <16 x i16> @llvm.bitreverse.v16i16(<16 x i16> [[TMP1]])
-; AVX-NEXT:    store <16 x i16> [[TMP2]], <16 x i16>* bitcast ([16 x i16]* @dst16 to <16 x i16>*), align 2
+; AVX-NEXT:    store <16 x i16> [[TMP2]], <16 x i16>* bitcast (i16* getelementptr inbounds ([16 x i16], [16 x i16]* @dst16, i16 0, i64 0) to <16 x i16>*), align 2
 ; AVX-NEXT:    ret void
 ;
 ; XOP-LABEL: @bitreverse_16i16(
-; XOP-NEXT:    [[TMP1:%.*]] = load <16 x i16>, <16 x i16>* bitcast ([16 x i16]* @src16 to <16 x i16>*), align 2
+; XOP-NEXT:    [[TMP1:%.*]] = load <16 x i16>, <16 x i16>* bitcast (i16* getelementptr inbounds ([16 x i16], [16 x i16]* @src16, i16 0, i64 0) to <16 x i16>*), align 2
 ; XOP-NEXT:    [[TMP2:%.*]] = call <16 x i16> @llvm.bitreverse.v16i16(<16 x i16> [[TMP1]])
-; XOP-NEXT:    store <16 x i16> [[TMP2]], <16 x i16>* bitcast ([16 x i16]* @dst16 to <16 x i16>*), align 2
+; XOP-NEXT:    store <16 x i16> [[TMP2]], <16 x i16>* bitcast (i16* getelementptr inbounds ([16 x i16], [16 x i16]* @dst16, i16 0, i64 0) to <16 x i16>*), align 2
 ; XOP-NEXT:    ret void
 ;
   %ld0  = load i16, i16* getelementptr inbounds ([16 x i16], [16 x i16]* @src16, i16 0, i64  0), align 2

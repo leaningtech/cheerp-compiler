@@ -1,7 +1,7 @@
 ; RUN: opt < %s -O2 -S | FileCheck %s
 
 ; performCallSlotOptzn in MemCpy should not exchange the calls to
-; @llvm.lifetime.start and @llvm.memcpy.
+; @llvm.lifetime.start.p0i8 and @llvm.memcpy.
 
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture readonly, i64, i1) #1
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
@@ -10,7 +10,7 @@ declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
 define void @_ZN4CordC2EOS_(i8* nocapture dereferenceable(16) %arg1) {
 bb:
 ; CHECK-LABEL: @_ZN4CordC2EOS_
-; CHECK-NOT: call void @llvm.lifetime.start
+; CHECK-NOT: call void @llvm.lifetime.start.p0i8
 ; CHECK: ret void
   %tmp = alloca [8 x i8], align 8
   %tmp5 = bitcast [8 x i8]* %tmp to i8*
