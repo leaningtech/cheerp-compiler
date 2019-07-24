@@ -148,9 +148,9 @@ void af(A *a) {
   // NDIAG-NEXT: unreachable
   // DIAG-NEXT: [[VTINT:%[^ ]*]] = ptrtoint i8* [[VT]] to i64
   // DIAG-NEXT: [[VTVALID:%[^ ]*]] = zext i1 [[VTVALID0]] to i64
-  // DIAG-ABORT-NEXT: call void @__ubsan_handle_cfi_check_fail_abort(i8* getelementptr inbounds ({{.*}} @[[BADTYPESTATIC]], i32 0, i32 0), i64 [[VTINT]], i64 [[VTVALID]])
+  // DIAG-ABORT-NEXT: call void @__ubsan_handle_cfi_check_fail_abort(i8* bitcast ({{.*}} @[[BADTYPESTATIC]] to i8*), i64 [[VTINT]], i64 [[VTVALID]])
   // DIAG-ABORT-NEXT: unreachable
-  // DIAG-RECOVER-NEXT: call void @__ubsan_handle_cfi_check_fail(i8* getelementptr inbounds ({{.*}} @[[BADTYPESTATIC]], i32 0, i32 0), i64 [[VTINT]], i64 [[VTVALID]])
+  // DIAG-RECOVER-NEXT: call void @__ubsan_handle_cfi_check_fail(i8* bitcast ({{.*}} @[[BADTYPESTATIC]] to i8*), i64 [[VTINT]], i64 [[VTVALID]])
   // DIAG-RECOVER-NEXT: br label %[[CONTBB]]
 
   // CFI: [[CONTBB]]
