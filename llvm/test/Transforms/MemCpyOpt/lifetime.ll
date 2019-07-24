@@ -2,7 +2,7 @@
 ; RUN: opt < %s -O2 -S -verify-memoryssa | FileCheck %s
 
 ; performCallSlotOptzn in MemCpy should not exchange the calls to
-; @llvm.lifetime.start and @llvm.memcpy.
+; @llvm.lifetime.start.p0i8 and @llvm.memcpy.
 
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture readonly, i64, i1) #1
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
