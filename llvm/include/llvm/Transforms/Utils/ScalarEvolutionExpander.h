@@ -462,6 +462,8 @@ private:
 
   Value *visitNegPointer(const SCEVNegPointer *S);
 
+  Value *visitGEPPointer(const SCEVGEPPointer *S);
+
   Value *visitZeroExtendExpr(const SCEVZeroExtendExpr *S);
 
   Value *visitSignExtendExpr(const SCEVSignExtendExpr *S);

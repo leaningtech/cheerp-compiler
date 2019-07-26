@@ -1672,6 +1672,21 @@ Value *SCEVExpander::visitPtrToIntExpr(const SCEVPtrToIntExpr *S) {
                            GetOptimalInsertionPointForCastOf(V));
 }
 
+Value *SCEVExpander::visitGEPPointer(const SCEVGEPPointer *S) {
+  llvm::Value* ptrVal = expand(S->getOperand(0));
+  llvm::Type* ptrType = ptrVal->getType();
+  SmallVector<Value *, 4> GepIndices;
+  // The pointer is implicitly dereferenced
+  GepIndices.push_back(ConstantInt::get(Type::getInt32Ty(SE.getContext()), 0));
+  for(uint32_t i=1;i<S->getNumOperands();i++) {
+    llvm::Value* indexVal = expand(S->getOperand(i));
+    GepIndices.push_back(indexVal);
+  }
+  Value *GEP = Builder.CreateGEP(ptrType->getPointerElementType(), ptrVal, GepIndices, "safescevgep");
+  rememberInstruction(GEP);
+  return GEP;
+}
+
 Value *SCEVExpander::visitNegPointer(const SCEVNegPointer *S) {
   Value *V = expandCodeFor(S->getOperand(),
                            SE.getEffectiveSCEVType(S->getOperand()->getType()));
