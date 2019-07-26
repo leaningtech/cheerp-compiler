@@ -296,6 +296,7 @@ void SCEV::print(raw_ostream &OS) const {
   }
   case scAddExpr:
   case scMulExpr:
+  case scGEPPointer:
   case scUMaxExpr:
   case scSMaxExpr:
   case scUMinExpr:
@@ -313,6 +314,7 @@ void SCEV::print(raw_ostream &OS) const {
     case scSMinExpr:
       OpStr = " smin ";
       break;
+    case scGEPPointer: OpStr = ", "; break;
     }
     OS << "(";
     for (SCEVNAryExpr::op_iterator I = NAry->op_begin(), E = NAry->op_end();
@@ -375,6 +377,8 @@ Type *SCEV::getType() const {
     return cast<SCEVConstant>(this)->getType();
   case scNegPointer:
     return cast<SCEVNegPointer>(this)->getType();
+  case scGEPPointer:
+    return cast<SCEVGEPPointer>(this)->getType();
   case scTruncate:
   case scZeroExtend:
   case scSignExtend:
@@ -768,6 +772,7 @@ static int CompareSCEVComplexity(
 
   case scAddExpr:
   case scMulExpr:
+  case scGEPPointer:
   case scSMaxExpr:
   case scUMaxExpr:
   case scSMinExpr:
@@ -2600,8 +2605,6 @@ ScalarEvolution::getOrCreateAddExpr(ArrayRef<const SCEV *> Ops,
   ID.AddInteger(scAddExpr);
   for (const SCEV *Op : Ops)
     ID.AddPointer(Op);
-  if (ExprTy)
-    ID.AddPointer(ExprTy);
   void *IP = nullptr;
   SCEVAddExpr *S =
       static_cast<SCEVAddExpr *>(UniqueSCEVs.FindNodeOrInsertPos(ID, IP));
@@ -2637,6 +2640,37 @@ ScalarEvolution::getOrCreateAddRecExpr(ArrayRef<const SCEV *> Ops,
     addToLoopUseLists(S);
   }
   S->setNoWrapFlags(Flags);
+  return S;
+}
+
+const SCEV *ScalarEvolution::getGEPPointer(const SCEV* ptr, const ArrayRef<const SCEV *> &Ops) {
+  if (Ops.empty()) return ptr;
+
+  if (const SCEVGEPPointer* gepPtr = dyn_cast<SCEVGEPPointer>(ptr)) {
+    // Merge the indexed and recurse
+    llvm::SmallVector<const SCEV*, 4> NewOps;
+    for(uint32_t i=1;i<gepPtr->getNumOperands();i++)
+      NewOps.push_back(gepPtr->getOperand(i));
+    NewOps.insert(NewOps.end(), Ops.begin(), Ops.end());
+    return getGEPPointer(gepPtr->getOperand(0), NewOps);
+  }
+
+  FoldingSetNodeID ID;
+  ID.AddInteger(scGEPPointer);
+  ID.AddPointer(ptr);
+  for (unsigned i = 0, e = Ops.size(); i != e; ++i)
+    ID.AddPointer(Ops[i]);
+  void *IP = nullptr;
+  SCEVGEPPointer *S =
+    static_cast<SCEVGEPPointer *>(UniqueSCEVs.FindNodeOrInsertPos(ID, IP));
+  if (!S) {
+    const SCEV **O = SCEVAllocator.Allocate<const SCEV *>(Ops.size()+1);
+    O[0] = ptr;
+    std::uninitialized_copy(Ops.begin(), Ops.end(), O+1);
+    S = new (SCEVAllocator) SCEVGEPPointer(ID.Intern(SCEVAllocator),
+                                        O, Ops.size()+1);
+    UniqueSCEVs.InsertNode(S, IP);
+  }
   return S;
 }
 
@@ -3337,9 +3371,11 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
   SCEV::NoWrapFlags Wrap = GEP->isInBounds() ? SCEV::FlagNSW
                                              : SCEV::FlagAnyWrap;
 
-  const SCEV *TotalOffset = getZero(IntIdxTy);
+  const DataLayout &DL = F.getParent()->getDataLayout();
+  const SCEV *TotalOffset = DL.isByteAddressable() ? getZero(IntIdxTy) : nullptr;
   Type *CurTy = GEP->getType();
   bool FirstIter = true;
+  const SCEV *FirstOffset = nullptr;
   for (const SCEV *IndexExpr : IndexExprs) {
     // Compute the (potentially symbolic) offset in bytes for this index.
     if (StructType *STy = dyn_cast<StructType>(CurTy)) {
@@ -3348,8 +3384,12 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
       unsigned FieldNo = Index->getZExtValue();
       const SCEV *FieldOffset = getOffsetOfExpr(IntIdxTy, STy, FieldNo);
 
-      // Add the field offset to the running total offset.
-      TotalOffset = getAddExpr(TotalOffset, FieldOffset);
+      if(DL.isByteAddressable()) {
+        // Add the field offset to the running total offset.
+        TotalOffset = getAddExpr(TotalOffset, FieldOffset);
+      } else {
+        TotalOffset = nullptr;
+      }
 
       // Update CurTy to the type of the field at Index.
       CurTy = STy->getTypeAtIndex(Index);
@@ -3371,13 +3411,33 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
       // Multiply the index by the element size to compute the element offset.
       const SCEV *LocalOffset = getMulExpr(IndexExpr, ElementSize, Wrap);
 
-      // Add the element offset to the running total offset.
-      TotalOffset = getAddExpr(TotalOffset, LocalOffset);
+      if(DL.isByteAddressable()) {
+        // Add the element offset to the running total offset.
+        TotalOffset = getAddExpr(TotalOffset, LocalOffset);
+      } else if (FirstOffset == nullptr) {
+        FirstOffset = LocalOffset;
+      } else {
+        TotalOffset = LocalOffset;
+      }
     }
   }
 
-  // Add the total offset from all the GEP indices to the base.
-  return getAddExpr(BaseExpr, TotalOffset, Wrap);
+  if(DL.isByteAddressable()) {
+    // Add the total offset from all the GEP indices to the base.
+    return getAddExpr(BaseExpr, TotalOffset, Wrap);
+  } else {
+    assert(FirstOffset);
+    const SCEV* derefBase = getAddExpr(BaseExpr, FirstOffset);
+    if(TotalOffset) {
+      assert(IndexExprs.size() >= 2);
+      // Last value in the GEP was an array type, allow GEP reasoning over the last index
+      return getAddExpr(getGEPPointer(derefBase, ArrayRef<const SCEV*>(IndexExprs).drop_front().drop_back()), TotalOffset);
+    } else {
+      assert(IndexExprs.size() >= 1);
+      // Last value was a struct, do not allow any SCEV reasoning
+      return getGEPPointer(derefBase, ArrayRef<const SCEV*>(IndexExprs).drop_front());
+    }
+  }
 }
 
 std::tuple<SCEV *, FoldingSetNodeID, void *>
@@ -5052,6 +5112,7 @@ static bool IsAvailableOnEntry(const Loop *L, DominatorTree &DT, const SCEV *S,
       case scAddExpr: case scMulExpr: case scUMaxExpr: case scSMaxExpr:
       case scUMinExpr:
       case scSMinExpr:
+      case scNegPointer: case scGEPPointer:
         // These expressions are available if their operand(s) is/are.
         return true;
 
@@ -7999,6 +8060,7 @@ static Constant *BuildConstantFromSCEV(const SCEV *V) {
         return ConstantExpr::getSExt(CastOp, SS->getType());
       break;
     }
+    case scGEPPointer:
     case scNegPointer: {
       return 0;
     }
@@ -8233,6 +8295,24 @@ const SCEV *ScalarEvolution::computeSCEVAtScope(const SCEV *V, const Loop *L) {
     }
     // If we got here, all operands are loop invariant.
     return Comm;
+  }
+
+  if (const SCEVGEPPointer *GEP = dyn_cast<SCEVGEPPointer>(V)) {
+    for (unsigned i = 0, e = GEP->getNumOperands(); i != e; ++i) {
+      const SCEV *OpAtScope = getSCEVAtScope(GEP->getOperand(i), L);
+      if (OpAtScope != GEP->getOperand(i)) {
+        SmallVector<const SCEV *, 8> NewOps(GEP->op_begin(),
+                                            GEP->op_begin()+i);
+        NewOps.push_back(OpAtScope);
+
+        for (++i; i != e; ++i) {
+          OpAtScope = getSCEVAtScope(GEP->getOperand(i), L);
+          NewOps.push_back(OpAtScope);
+        }
+        return getGEPPointer(NewOps[0], ArrayRef<const SCEV*>(NewOps).slice(1));
+      }
+    }
+    return GEP;
   }
 
   if (const SCEVUDivExpr *Div = dyn_cast<SCEVUDivExpr>(V)) {
@@ -11702,6 +11782,7 @@ ScalarEvolution::computeLoopDisposition(const SCEV *S, const Loop *L) {
   }
   case scAddExpr:
   case scMulExpr:
+  case scGEPPointer:
   case scUMaxExpr:
   case scSMaxExpr:
   case scUMinExpr:
@@ -11793,6 +11874,7 @@ ScalarEvolution::computeBlockDisposition(const SCEV *S, const BasicBlock *BB) {
   }
   case scAddExpr:
   case scMulExpr:
+  case scGEPPointer:
   case scUMaxExpr:
   case scSMaxExpr:
   case scUMinExpr:

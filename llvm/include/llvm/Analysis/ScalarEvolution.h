@@ -516,6 +516,7 @@ public:
   const SCEV *getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
   const SCEV *getSignExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
   const SCEV *getAnyExtendExpr(const SCEV *Op, Type *Ty);
+  const SCEV *getGEPPointer(const SCEV* ptr, const ArrayRef<const SCEV *> &Ops);
   const SCEV *getAddExpr(SmallVectorImpl<const SCEV *> &Ops,
                          SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap,
                          unsigned Depth = 0);
