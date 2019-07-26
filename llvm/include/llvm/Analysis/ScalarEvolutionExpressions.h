@@ -40,7 +40,7 @@ class Type;
     // folders simpler.
     scConstant, scTruncate, scZeroExtend, scSignExtend, scAddExpr, scMulExpr,
     scUDivExpr, scAddRecExpr, scUMaxExpr, scSMaxExpr, scUMinExpr, scSMinExpr,
-    scPtrToInt, scNegPointer, scUnknown, scCouldNotCompute
+    scPtrToInt, scNegPointer, scGEPPointer, scUnknown, scCouldNotCompute
   };
 
   /// This class represents a constant integer value.
@@ -248,6 +248,7 @@ class Type;
       return S->getSCEVType() == scAddExpr || S->getSCEVType() == scMulExpr ||
              S->getSCEVType() == scSMaxExpr || S->getSCEVType() == scUMaxExpr ||
              S->getSCEVType() == scSMinExpr || S->getSCEVType() == scUMinExpr ||
+             S->getSCEVType() == scGEPPointer ||
              S->getSCEVType() == scAddRecExpr;
     }
   };
@@ -270,6 +271,26 @@ class Type;
     /// Set flags for a non-recurrence without clearing previously set flags.
     void setNoWrapFlags(NoWrapFlags Flags) {
       SubclassData |= Flags;
+    }
+  };
+
+  /// This node represents a NBA GEP
+  class SCEVGEPPointer : public SCEVNAryExpr {
+    friend class ScalarEvolution;
+
+    SCEVGEPPointer(const FoldingSetNodeIDRef ID,
+                const SCEV *const *O, size_t N)
+      : SCEVNAryExpr(ID, scGEPPointer, O, N) {
+    }
+
+  public:
+    Type *getType() const {
+      return getOperand(0)->getType();
+    }
+
+    /// Methods for support type inquiry through isa, cast, and dyn_cast:
+    static inline bool classof(const SCEV *S) {
+      return S->getSCEVType() == scGEPPointer;
     }
   };
 
@@ -599,6 +620,8 @@ class Type;
         return ((SC *)this)->visitPtrToIntExpr((const SCEVPtrToIntExpr *)S);
       case scNegPointer:
         return ((SC*)this)->visitNegPointer((const SCEVNegPointer*)S);
+      case scGEPPointer:
+        return ((SC*)this)->visitGEPPointer((const SCEVGEPPointer*)S);
       case scTruncate:
         return ((SC*)this)->visitTruncateExpr((const SCEVTruncateExpr*)S);
       case scZeroExtend:
@@ -675,6 +698,7 @@ class Type;
           continue;
         case scAddExpr:
         case scMulExpr:
+        case scGEPPointer:
         case scSMaxExpr:
         case scUMaxExpr:
         case scSMinExpr:
@@ -770,6 +794,13 @@ class Type;
     const SCEV *visitNegPointer(const SCEVNegPointer *Expr) {
       const SCEV *Operand = ((SC*)this)->visit(Expr->getOperand());
       return SE.getNegPointer(Operand);
+    }
+
+    const SCEV *visitGEPPointer(const SCEVGEPPointer *Expr) {
+      SmallVector<const SCEV *, 2> Operands;
+      for (int i = 0, e = Expr->getNumOperands(); i < e; ++i)
+        Operands.push_back(((SC*)this)->visit(Expr->getOperand(i)));
+      return SE.getGEPPointer(Operands[0], ArrayRef<const SCEV*>(Operands).slice(1));
     }
 
     const SCEV *visitTruncateExpr(const SCEVTruncateExpr *Expr) {
