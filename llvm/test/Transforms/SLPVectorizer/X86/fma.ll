@@ -39,11 +39,11 @@ define void @fma_2f64() #0 {
 ; NO-FMA-NEXT:    ret void
 ;
 ; FMA-LABEL: @fma_2f64(
-; FMA-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @srcA64 to <2 x double>*), align 8
-; FMA-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @srcB64 to <2 x double>*), align 8
-; FMA-NEXT:    [[TMP3:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @srcC64 to <2 x double>*), align 8
+; FMA-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0) to <2 x double>*), align 8
+; FMA-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcB64, i32 0, i64 0) to <2 x double>*), align 8
+; FMA-NEXT:    [[TMP3:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcC64, i32 0, i64 0) to <2 x double>*), align 8
 ; FMA-NEXT:    [[TMP4:%.*]] = call <2 x double> @llvm.fma.v2f64(<2 x double> [[TMP1]], <2 x double> [[TMP2]], <2 x double> [[TMP3]])
-; FMA-NEXT:    store <2 x double> [[TMP4]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; FMA-NEXT:    store <2 x double> [[TMP4]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; FMA-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0), align 8
@@ -84,11 +84,11 @@ define void @fma_4f64() #0 {
 ; NO-FMA-NEXT:    ret void
 ;
 ; FMA-LABEL: @fma_4f64(
-; FMA-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @srcA64 to <4 x double>*), align 8
-; FMA-NEXT:    [[TMP2:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @srcB64 to <4 x double>*), align 8
-; FMA-NEXT:    [[TMP3:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @srcC64 to <4 x double>*), align 8
+; FMA-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0) to <4 x double>*), align 8
+; FMA-NEXT:    [[TMP2:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcB64, i32 0, i64 0) to <4 x double>*), align 8
+; FMA-NEXT:    [[TMP3:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcC64, i32 0, i64 0) to <4 x double>*), align 8
 ; FMA-NEXT:    [[TMP4:%.*]] = call <4 x double> @llvm.fma.v4f64(<4 x double> [[TMP1]], <4 x double> [[TMP2]], <4 x double> [[TMP3]])
-; FMA-NEXT:    store <4 x double> [[TMP4]], <4 x double>* bitcast ([8 x double]* @dst64 to <4 x double>*), align 8
+; FMA-NEXT:    store <4 x double> [[TMP4]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <4 x double>*), align 8
 ; FMA-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0), align 8
@@ -159,24 +159,24 @@ define void @fma_8f64() #0 {
 ; NO-FMA-NEXT:    ret void
 ;
 ; FMA256-LABEL: @fma_8f64(
-; FMA256-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @srcA64 to <4 x double>*), align 4
+; FMA256-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0) to <4 x double>*), align 4
 ; FMA256-NEXT:    [[TMP2:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 4) to <4 x double>*), align 4
-; FMA256-NEXT:    [[TMP3:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @srcB64 to <4 x double>*), align 4
+; FMA256-NEXT:    [[TMP3:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcB64, i32 0, i64 0) to <4 x double>*), align 4
 ; FMA256-NEXT:    [[TMP4:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcB64, i32 0, i64 4) to <4 x double>*), align 4
-; FMA256-NEXT:    [[TMP5:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @srcC64 to <4 x double>*), align 4
+; FMA256-NEXT:    [[TMP5:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcC64, i32 0, i64 0) to <4 x double>*), align 4
 ; FMA256-NEXT:    [[TMP6:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcC64, i32 0, i64 4) to <4 x double>*), align 4
 ; FMA256-NEXT:    [[TMP7:%.*]] = call <4 x double> @llvm.fma.v4f64(<4 x double> [[TMP1]], <4 x double> [[TMP3]], <4 x double> [[TMP5]])
 ; FMA256-NEXT:    [[TMP8:%.*]] = call <4 x double> @llvm.fma.v4f64(<4 x double> [[TMP2]], <4 x double> [[TMP4]], <4 x double> [[TMP6]])
-; FMA256-NEXT:    store <4 x double> [[TMP7]], <4 x double>* bitcast ([8 x double]* @dst64 to <4 x double>*), align 4
+; FMA256-NEXT:    store <4 x double> [[TMP7]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <4 x double>*), align 4
 ; FMA256-NEXT:    store <4 x double> [[TMP8]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 4) to <4 x double>*), align 4
 ; FMA256-NEXT:    ret void
 ;
 ; FMA512-LABEL: @fma_8f64(
-; FMA512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @srcA64 to <8 x double>*), align 4
-; FMA512-NEXT:    [[TMP2:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @srcB64 to <8 x double>*), align 4
-; FMA512-NEXT:    [[TMP3:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @srcC64 to <8 x double>*), align 4
+; FMA512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0) to <8 x double>*), align 4
+; FMA512-NEXT:    [[TMP2:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcB64, i32 0, i64 0) to <8 x double>*), align 4
+; FMA512-NEXT:    [[TMP3:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcC64, i32 0, i64 0) to <8 x double>*), align 4
 ; FMA512-NEXT:    [[TMP4:%.*]] = call <8 x double> @llvm.fma.v8f64(<8 x double> [[TMP1]], <8 x double> [[TMP2]], <8 x double> [[TMP3]])
-; FMA512-NEXT:    store <8 x double> [[TMP4]], <8 x double>* bitcast ([8 x double]* @dst64 to <8 x double>*), align 4
+; FMA512-NEXT:    store <8 x double> [[TMP4]], <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <8 x double>*), align 4
 ; FMA512-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0), align 4
@@ -247,11 +247,11 @@ define void @fma_4f32() #0 {
 ; NO-FMA-NEXT:    ret void
 ;
 ; FMA-LABEL: @fma_4f32(
-; FMA-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @srcA32 to <4 x float>*), align 4
-; FMA-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @srcB32 to <4 x float>*), align 4
-; FMA-NEXT:    [[TMP3:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @srcC32 to <4 x float>*), align 4
+; FMA-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0) to <4 x float>*), align 4
+; FMA-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcB32, i32 0, i64 0) to <4 x float>*), align 4
+; FMA-NEXT:    [[TMP3:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcC32, i32 0, i64 0) to <4 x float>*), align 4
 ; FMA-NEXT:    [[TMP4:%.*]] = call <4 x float> @llvm.fma.v4f32(<4 x float> [[TMP1]], <4 x float> [[TMP2]], <4 x float> [[TMP3]])
-; FMA-NEXT:    store <4 x float> [[TMP4]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; FMA-NEXT:    store <4 x float> [[TMP4]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; FMA-NEXT:    ret void
 ;
   %a0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0), align 4
@@ -322,11 +322,11 @@ define void @fma_8f32() #0 {
 ; NO-FMA-NEXT:    ret void
 ;
 ; FMA-LABEL: @fma_8f32(
-; FMA-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @srcA32 to <8 x float>*), align 4
-; FMA-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @srcB32 to <8 x float>*), align 4
-; FMA-NEXT:    [[TMP3:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @srcC32 to <8 x float>*), align 4
+; FMA-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0) to <8 x float>*), align 4
+; FMA-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcB32, i32 0, i64 0) to <8 x float>*), align 4
+; FMA-NEXT:    [[TMP3:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcC32, i32 0, i64 0) to <8 x float>*), align 4
 ; FMA-NEXT:    [[TMP4:%.*]] = call <8 x float> @llvm.fma.v8f32(<8 x float> [[TMP1]], <8 x float> [[TMP2]], <8 x float> [[TMP3]])
-; FMA-NEXT:    store <8 x float> [[TMP4]], <8 x float>* bitcast ([16 x float]* @dst32 to <8 x float>*), align 4
+; FMA-NEXT:    store <8 x float> [[TMP4]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <8 x float>*), align 4
 ; FMA-NEXT:    ret void
 ;
   %a0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0), align 4
@@ -457,24 +457,24 @@ define void @fma_16f32() #0 {
 ; NO-FMA-NEXT:    ret void
 ;
 ; FMA256-LABEL: @fma_16f32(
-; FMA256-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @srcA32 to <8 x float>*), align 4
+; FMA256-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0) to <8 x float>*), align 4
 ; FMA256-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 8) to <8 x float>*), align 4
-; FMA256-NEXT:    [[TMP3:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @srcB32 to <8 x float>*), align 4
+; FMA256-NEXT:    [[TMP3:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcB32, i32 0, i64 0) to <8 x float>*), align 4
 ; FMA256-NEXT:    [[TMP4:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcB32, i32 0, i64 8) to <8 x float>*), align 4
-; FMA256-NEXT:    [[TMP5:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @srcC32 to <8 x float>*), align 4
+; FMA256-NEXT:    [[TMP5:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcC32, i32 0, i64 0) to <8 x float>*), align 4
 ; FMA256-NEXT:    [[TMP6:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcC32, i32 0, i64 8) to <8 x float>*), align 4
 ; FMA256-NEXT:    [[TMP7:%.*]] = call <8 x float> @llvm.fma.v8f32(<8 x float> [[TMP1]], <8 x float> [[TMP3]], <8 x float> [[TMP5]])
 ; FMA256-NEXT:    [[TMP8:%.*]] = call <8 x float> @llvm.fma.v8f32(<8 x float> [[TMP2]], <8 x float> [[TMP4]], <8 x float> [[TMP6]])
-; FMA256-NEXT:    store <8 x float> [[TMP7]], <8 x float>* bitcast ([16 x float]* @dst32 to <8 x float>*), align 4
+; FMA256-NEXT:    store <8 x float> [[TMP7]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <8 x float>*), align 4
 ; FMA256-NEXT:    store <8 x float> [[TMP8]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 8) to <8 x float>*), align 4
 ; FMA256-NEXT:    ret void
 ;
 ; FMA512-LABEL: @fma_16f32(
-; FMA512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @srcA32 to <16 x float>*), align 4
-; FMA512-NEXT:    [[TMP2:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @srcB32 to <16 x float>*), align 4
-; FMA512-NEXT:    [[TMP3:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @srcC32 to <16 x float>*), align 4
+; FMA512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0) to <16 x float>*), align 4
+; FMA512-NEXT:    [[TMP2:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcB32, i32 0, i64 0) to <16 x float>*), align 4
+; FMA512-NEXT:    [[TMP3:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcC32, i32 0, i64 0) to <16 x float>*), align 4
 ; FMA512-NEXT:    [[TMP4:%.*]] = call <16 x float> @llvm.fma.v16f32(<16 x float> [[TMP1]], <16 x float> [[TMP2]], <16 x float> [[TMP3]])
-; FMA512-NEXT:    store <16 x float> [[TMP4]], <16 x float>* bitcast ([16 x float]* @dst32 to <16 x float>*), align 4
+; FMA512-NEXT:    store <16 x float> [[TMP4]], <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <16 x float>*), align 4
 ; FMA512-NEXT:    ret void
 ;
   %a0  = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64  0), align 4
