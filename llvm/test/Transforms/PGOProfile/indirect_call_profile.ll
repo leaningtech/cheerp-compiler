@@ -66,7 +66,7 @@ bb:
   invoke void %tmp2()
           to label %bb10 unwind label %bb2
 ; GEN: [[ICALL_TARGET2:%[0-9]+]] = ptrtoint void ()* %tmp2 to i64
-; GEN-NEXT: call void @llvm.instrprof.value.profile(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @__profn_foo2, i32 0, i32 0), i64 [[FOO2_HASH:[0-9]+]], i64 [[ICALL_TARGET2]], i32 0, i32 0)
+; GEN-NEXT: call void @llvm.instrprof.value.profile(i8* bitcast ([4 x i8]* @__profn_foo2 to i8*), i64 [[FOO2_HASH:[0-9]+]], i64 [[ICALL_TARGET2]], i32 0, i32 0)
 
 bb2:                                              ; preds = %bb
   %tmp3 = landingpad { i8*, i32 }
