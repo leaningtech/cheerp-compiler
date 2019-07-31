@@ -184,7 +184,7 @@ namespace pr28595 {
   }
 }
 
-// CHECK-LABEL: define internal void @"_ZZ1e1ES_bEN3$_5D2Ev"
+// CHECK-LABEL: define internal void @"_ZZ1e1ES_bEN3$_7D2Ev"
 
 // CHECK-LABEL: define internal i32 @"_ZZ1fvEN3$_88__invokeEii"
 // CHECK: store i32
