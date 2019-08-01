@@ -751,6 +751,13 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			newTys.insert(newTys.end(),localTys,localTys+1);
 			break;
 		}
+		case Intrinsic::invariant_start:
+		case Intrinsic::invariant_end:
+		{
+			Type* localTys[] = { FT->getParamType(1) };
+			newTys.insert(newTys.end(),localTys,localTys+1);
+			break;
+		}
 		case Intrinsic::lifetime_start:
 		case Intrinsic::lifetime_end:
 		{
