@@ -278,9 +278,11 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 							// Avoid interacting with the bitcast/trunc logic for now
 							break;
 						}
-						else if(hasSideEffects && nextInst->getOpcode() == Instruction::Select)
+						else if(hasSideEffects &&
+							(nextInst->getOpcode() == Instruction::Select ||
+							(I.getType()->isIntegerTy(1) && (nextInst->getOpcode() == Instruction::And || nextInst->getOpcode() == Instruction::Or))))
 						{
-							// Do not inline side effects in selects, they don't evaluate both sides
+							// Do not inline side effects in selects and logical and/or, they don't evaluate both sides
 							break;
 						}
 						else if(isa<IntrinsicInst>(nextInst))
