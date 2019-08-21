@@ -184,13 +184,12 @@ public:
     ShortAlign = 16;
     IntAlign = 32;
     LongAlign = 32;
-    LongLongAlign = 64;
+    LongLongAlign = 32;
     SuitableAlign = 64;
     HalfAlign = 16;
     FloatAlign = 32;
     DoubleAlign = 64;
     LongDoubleAlign = 64;
-    //NOTE: We support float only for usage in typed array
     SizeType = UnsignedInt;
 
     // Use 32-bit integers for two separated bit fields.
