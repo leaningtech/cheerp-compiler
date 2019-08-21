@@ -1800,8 +1800,8 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
   if (IsHighInt(Ty)) {
     llvm::Value *high = EmitLoadHighBitsOfHighInt(Value);
     llvm::Value *low = EmitLoadLowBitsOfHighInt(Value);
-    Address highLoc = Builder.CreateStructGEP(Addr, 0, CharUnits());
-    Address lowLoc = Builder.CreateStructGEP(Addr, 1, CharUnits());
+    Address highLoc = Builder.CreateStructGEP(Addr, 1, CharUnits());
+    Address lowLoc = Builder.CreateStructGEP(Addr, 0, CharUnits());
     Builder.CreateStore(high, highLoc, Volatile);
     Builder.CreateStore(low, lowLoc, Volatile);
     return;
@@ -2313,8 +2313,8 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   } else {
     llvm::Value *highVal = EmitLoadHighBitsOfHighInt(SrcVal);
     llvm::Value *lowVal = EmitLoadLowBitsOfHighInt(SrcVal);
-    Address highLoc = Builder.CreateStructGEP(Ptr, 0, CharUnits());
-    Address lowLoc = Builder.CreateStructGEP(Ptr, 1, CharUnits());
+    Address highLoc = Builder.CreateStructGEP(Ptr, 1, CharUnits());
+    Address lowLoc = Builder.CreateStructGEP(Ptr, 0, CharUnits());
     Builder.CreateStore(highVal, highLoc, Volatile);
     Builder.CreateStore(lowVal, lowLoc, Volatile);
   }

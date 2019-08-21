@@ -3269,8 +3269,8 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
       llvm::Value* truncatedInt = Builder.CreateTrunc(lhsLow, destPtr.getElementType());
       Builder.CreateStore(truncatedInt, destPtr, /*volatile*/false);
     } else {
-      llvm::Value* highLoc = Builder.CreateStructGEP(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 0);
-      llvm::Value* lowLoc = Builder.CreateStructGEP(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 1);
+      llvm::Value* highLoc = Builder.CreateStructGEP(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 1);
+      llvm::Value* lowLoc = Builder.CreateStructGEP(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 0);
       Builder.CreateAlignedStore(lhsHigh, highLoc, CharUnits::fromQuantity(4), /*volatile*/false);
       Builder.CreateAlignedStore(lhsLow, lowLoc, CharUnits::fromQuantity(4), /*volatile*/false);
     }
