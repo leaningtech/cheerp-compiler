@@ -5525,8 +5525,8 @@ void CheerpWriter::compileNullPtrs()
 
 void CheerpWriter::compileCreateClosure()
 {
-	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE) << "(func, obj){return function(e){func(obj,e);};}" << NewLine;
-	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE_SPLIT) << "(func, obj, objo){return function(e){func(obj,objo,e);};}" << NewLine;
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE) << "(func, obj){return function(){var a=Array.prototype.slice.call(arguments);a.unshift(obj);return func.apply(null,a);};}" << NewLine;
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE_SPLIT) << "(func, obj, objo){return function(){var a=Array.prototype.slice.call(arguments);a.unshift(obj,objo);return func.apply(null,a);};}" << NewLine;
 }
 
 void CheerpWriter::compileHandleVAArg()
