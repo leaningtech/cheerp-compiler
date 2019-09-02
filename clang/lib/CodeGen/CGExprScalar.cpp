@@ -723,36 +723,30 @@ public:
   // Binary Operators.
   Value *EmitMul(const BinOpInfo &Ops) {
     if (CGF.IsHighInt(Ops.Ty)) {
+      //    Split the numbers according to this:
+      //    low bits                                               high bits
+      //    0000000000000001111111111111111122222222222222223333333333333333
+      //    0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      //    \----a4/b4-----/\-----a3/b3----/
+      //    \--------rhsLow/lhsLow---------/\---------rhsHigh/lhsHigh------/
+
+      //    Then multiply each of {a3,a4} with each of {b3,b4} -> 4 i32 mult
+      //    And then rhsLow * lhsHigh + rhsHigh * lhsLow       -> 2 i32 mult
       llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.LHS);
       llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
       llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
       llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
 
-      llvm::Value *a1 = Builder.CreateLShr(lhsHigh, Builder.getInt32(16));
-      llvm::Value *a2 = Builder.CreateAnd(lhsHigh, Builder.getInt32(0xffff));
       llvm::Value *a3 = Builder.CreateLShr(lhsLow, Builder.getInt32(16));
       llvm::Value *a4 = Builder.CreateAnd(lhsLow, Builder.getInt32(0xffff));
 
-      llvm::Value *b1 = Builder.CreateLShr(rhsHigh, Builder.getInt32(16));
-      llvm::Value *b2 = Builder.CreateAnd(rhsHigh, Builder.getInt32(0xffff));
       llvm::Value *b3 = Builder.CreateLShr(rhsLow, Builder.getInt32(16));
       llvm::Value *b4 = Builder.CreateAnd(rhsLow, Builder.getInt32(0xffff));
 
-      llvm::Value *highHigh = Builder.CreateAdd(
+      llvm::Value *high = Builder.CreateAdd(
         Builder.CreateAdd(
-            Builder.CreateMul(a1, b4),
-            Builder.CreateMul(b1, a4)
-        ),
-        Builder.CreateAdd(
-          Builder.CreateMul(a2, b3),
-          Builder.CreateMul(a3, b2)
-        )
-      );
-
-      llvm::Value *highLow = Builder.CreateAdd(
-        Builder.CreateAdd(
-            Builder.CreateMul(a2, b4),
-            Builder.CreateMul(b2, a4)
+            Builder.CreateMul(lhsHigh, rhsLow),
+            Builder.CreateMul(lhsLow, rhsHigh)
         ),
         Builder.CreateMul(a3, b3)
       );
@@ -767,28 +761,23 @@ public:
       // overflow, and add one to the high bits of the highint if it does.
       llvm::Value *diff = Builder.CreateSub(Builder.getInt32(0xffffffff), lh2);
       llvm::Value *overflow1 = Builder.CreateICmpUGT(lh1, diff);
-      llvm::Value *one = Builder.getInt32(1);
-      llvm::Value *highHighPlusOne = Builder.CreateAdd(highHigh, one);
-      highHigh = Builder.CreateSelect(overflow1, highHighPlusOne, highHigh);
+      llvm::Value *two16 = Builder.getInt32(65536);
+      llvm::Value *highPlusTwo16 = Builder.CreateAdd(high, two16);
+      high = Builder.CreateSelect(overflow1, highPlusTwo16, high);
 
       llvm::Value *l1 = Builder.CreateShl(lowHigh, Builder.getInt32(16));
       llvm::Value *l2 = lowLow;
 
       llvm::Value *diff2 = Builder.CreateSub(Builder.getInt32(0xffffffff), l2);
       llvm::Value *overflow2 = Builder.CreateICmpUGT(l1, diff2);
-      highLow = Builder.CreateAdd(
-        highLow,
+      high = Builder.CreateAdd(
+        high,
         Builder.CreateZExt(overflow2, CGF.Int32Ty)
       );
 
-      highLow = Builder.CreateAdd(
-        highLow,
+      high = Builder.CreateAdd(
+        high,
         Builder.CreateLShr(lowHigh, Builder.getInt32(16))
-      );
-
-      llvm::Value *high = Builder.CreateAdd(
-        Builder.CreateShl(highHigh, Builder.getInt32(16)),
-        highLow
       );
 
       llvm::Value *low = Builder.CreateAdd(l1, l2);
