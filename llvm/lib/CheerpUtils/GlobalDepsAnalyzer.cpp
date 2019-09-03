@@ -297,6 +297,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		SubExprVec vec; \
 		visitGlobal(f, visited, vec); \
 		assert(visited.empty()); \
+		/* Make sure the method is not internalized, otherwise it will be dropped */ \
+		externals.push_back(f); \
 	}
 	USE_MEMORY_FUNC(foundMemset, memset)
 	USE_MEMORY_FUNC(foundMemcpy, memcpy)
@@ -689,6 +691,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 							visitGlobal(fmalloc, visited, vec );
 							if(!isAsmJS)
 								asmJSExportedFuncions.insert(fmalloc);
+							externals.push_back(fmalloc);
 						}
 					}
 				}
@@ -705,6 +708,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 							visitGlobal(frealloc, visited, vec );
 							if(!isAsmJS)
 								asmJSExportedFuncions.insert(frealloc);
+							externals.push_back(frealloc);
 						}
 					}
 				}
@@ -721,6 +725,7 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 							visitGlobal(ffree, visited, vec );
 							if(!isAsmJS)
 								asmJSExportedFuncions.insert(ffree);
+							externals.push_back(ffree);
 						}
 					}
 				}
@@ -857,6 +862,27 @@ void GlobalDepsAnalyzer::logUndefinedSymbol(const GlobalValue* GV)
 	}
 }
 
+bool GlobalDepsAnalyzer::isMathIntrinsic(StringRef funcName)
+{
+#define CHECK_MATH_FUNC(x) if(funcName == x) return true;
+	CHECK_MATH_FUNC("fabs"); CHECK_MATH_FUNC("fabsf");
+	CHECK_MATH_FUNC("acos"); CHECK_MATH_FUNC("acosf");
+	CHECK_MATH_FUNC("asin"); CHECK_MATH_FUNC("asinf");
+	CHECK_MATH_FUNC("atan"); CHECK_MATH_FUNC("atanf");
+	CHECK_MATH_FUNC("ceil"); CHECK_MATH_FUNC("ceilf");
+	CHECK_MATH_FUNC("cos"); CHECK_MATH_FUNC("cosf");
+	CHECK_MATH_FUNC("exp"); CHECK_MATH_FUNC("expf");
+	CHECK_MATH_FUNC("floor"); CHECK_MATH_FUNC("floorf");
+	CHECK_MATH_FUNC("log"); CHECK_MATH_FUNC("logf");
+	CHECK_MATH_FUNC("pow"); CHECK_MATH_FUNC("powf");
+	CHECK_MATH_FUNC("sin"); CHECK_MATH_FUNC("sinf");
+	CHECK_MATH_FUNC("sqrt"); CHECK_MATH_FUNC("sqrtf");
+	CHECK_MATH_FUNC("tan"); CHECK_MATH_FUNC("tanf");
+	CHECK_MATH_FUNC("fmod"); CHECK_MATH_FUNC("fmodf");
+#undef CHECK_MATH_FUNC
+	return false;
+}
+
 int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMathBuiltins, Module & module )
 {
 	std::vector< llvm::GlobalValue * > eraseQueue;
@@ -889,17 +915,8 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		else if( !f->empty() )
 		{
 			// Never internalize functions that may have a better native implementation
-			LibFunc::Func Func;
-			if (TLI->getLibFunc(f->getName(), Func))
-			{
-				if(isWasmIntrinsic(f))
-				{
-					// Avoid inlining of functions which can be implemented by a single wasm opcode
-					f->setLinkage(GlobalValue::WeakAnyLinkage);
-				}
-				else
-					f->setLinkage(GlobalValue::ExternalLinkage);
-			}
+			if(isWasmIntrinsic(f) || isMathIntrinsic(f->getName()))
+				f->setLinkage(GlobalValue::WeakAnyLinkage);
 			else
 				f->setLinkage(GlobalValue::InternalLinkage);
 		}
