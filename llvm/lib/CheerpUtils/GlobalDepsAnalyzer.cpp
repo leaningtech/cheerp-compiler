@@ -244,6 +244,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		DROP_MATH_FUNC("sin"); DROP_MATH_FUNC("sinf");
 		DROP_MATH_FUNC("sqrt"); DROP_MATH_FUNC("sqrtf");
 		DROP_MATH_FUNC("tan"); DROP_MATH_FUNC("tanf");
+		DROP_MATH_FUNC("fmod"); DROP_MATH_FUNC("fmodf");
 #undef DROP_MATH_FUNC
 	}
 
