@@ -395,11 +395,18 @@ struct PointerResolverForKindVisitor: public PointerResolverBaseVisitor<PointerK
 bool PointerUsageVisitor::visitRawChain( const Value * p)
 {
 	const Value * origP = p;
-	// ignore geps and bitcasts
-	while ( isGEP(p) || isBitCast(p) )
+	while(true)
 	{
-		const User* u = cast<User>(p);
-		p = u->getOperand(0);
+		if (TypeSupport::isAsmJSPointer(p->getType()))
+			return true;
+		// ignore geps and bitcasts
+		if ( isGEP(p) || isBitCast(p) )
+		{
+			const User* u = cast<User>(p);
+			p = u->getOperand(0);
+			continue;
+		}
+		break;
 	}
 	const GlobalValue* top = nullptr;
 	if (isa<ConstantPointerNull>(p) && isa<Instruction>(origP))
@@ -431,8 +438,6 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 	{
 		return true;
 	}
-	if (TypeSupport::isAsmJSPointer(p->getType()))
-		return true;
 	return false;
 }
 
