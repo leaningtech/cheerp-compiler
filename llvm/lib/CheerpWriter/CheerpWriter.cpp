@@ -2791,6 +2791,8 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 					compileRawPointer(*cur, SHIFT);
 					stream << ">>" << shift;
 				}
+				else if(PA.getConstantOffsetForPointer(&*arg_it))
+					compilePointerBase(*cur, true);
 				else
 				{
 					compilePointerBase(*cur, true);
@@ -5187,7 +5189,7 @@ void CheerpWriter::compileMethod(Function& F)
 	{
 		if(curArg!=A)
 			stream << ',';
-		if(curArg->getType()->isPointerTy() && PA.getPointerKind(&*curArg) == SPLIT_REGULAR)
+		if(curArg->getType()->isPointerTy() && PA.getPointerKind(&*curArg) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&*curArg))
 			stream << getName(&*curArg) << ',' << getSecondaryName(&*curArg);
 		else
 			stream << getName(&*curArg);
