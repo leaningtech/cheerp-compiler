@@ -1485,22 +1485,6 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 				isInlineable(*cast<Instruction>(lhs), PA));
 		assert(PA.getPointerKind(rhs) != COMPLETE_OBJECT || !isa<Instruction>(rhs) ||
 				isInlineable(*cast<Instruction>(rhs), PA));
-		if(isa<ConstantPointerNull>(lhs))
-			stream << '1';
-		else
-		{
-			compilePointerBase(lhs);
-			stream << ".length";
-		}
-		stream << compareString;
-		if(isa<ConstantPointerNull>(rhs))
-			stream << '1';
-		else
-		{
-			compilePointerBase(rhs);
-			stream << ".length";
-		}
-		stream << joinString;
 		compilePointerBase(lhs);
 		stream << compareString;
 		compilePointerBase(rhs);
