@@ -3626,7 +3626,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				//If the source type is i1, attempt casting from Boolean
 				if(parentPrio >= TERNARY) stream << '(';
-				compileOperand(bi.getOperand(0), TERNARY);
+				compileOperand(bi.getOperand(0), TERNARY, /*allowBooleanObjects*/true);
 				stream << "?1:0";
 				if(parentPrio >= TERNARY) stream << ')';
 			}
