@@ -1058,12 +1058,14 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 
 struct PointerConstantOffsetVisitor
 {
-	PointerConstantOffsetVisitor( PointerAnalyzer::PointerOffsetData& pointerOffsetData ) : pointerOffsetData(pointerOffsetData) {}
+	PointerConstantOffsetVisitor( PointerAnalyzer::PointerOffsetData& pointerOffsetData, PointerAnalyzer::AddressTakenMap& addressTakenCache  ) :
+				pointerOffsetData(pointerOffsetData), addressTakenCache(addressTakenCache) {}
 
 	PointerConstantOffsetWrapper& visitValue(PointerConstantOffsetWrapper& ret, const Value* v, bool first);
 	static const llvm::ConstantInt* getPointerOffsetFromGEP( const llvm::Value* v );
 
 	PointerAnalyzer::PointerOffsetData& pointerOffsetData;
+	PointerAnalyzer::AddressTakenMap& addressTakenCache;
 	llvm::DenseSet< const llvm::Value* > closedset;
 };
 
@@ -1223,6 +1225,25 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 	if(isa<ConstantPointerNull>(v))
 		return CacheAndReturn(ret |= Zero);
 
+	if(const Argument* arg = dyn_cast<Argument>(v))
+	{
+		const Function* parentFunc = arg->getParent();
+		if(!parentFunc->hasExternalLinkage() && !addressTakenCache.checkAddressTaken(parentFunc))
+		{
+			const Function* parentFunc = arg->getParent();
+			for(const User* U: parentFunc->users())
+			{
+				assert(isa<CallInst>(U));
+				const CallInst& CI = cast<CallInst>(*U);
+				llvm::Value* op = CI.getOperand(arg->getArgNo());
+				PointerConstantOffsetWrapper localRet;
+				PointerConstantOffsetWrapper& callerRet = visitValue(localRet, op, false);
+				ret |= callerRet;
+			}
+			return CacheAndReturn(ret);
+		}
+	}
+
 	if(const CallInst * CI = dyn_cast<CallInst>(v))
 	{
 		Function* F = CI->getCalledFunction();
@@ -1377,7 +1398,7 @@ const PointerConstantOffsetWrapper& PointerAnalyzer::getFinalPointerConstantOffs
 	}
 
 	PointerConstantOffsetWrapper ret;
-	PointerConstantOffsetWrapper& o = PointerConstantOffsetVisitor(pointerOffsetData).visitValue(ret, p, /*first*/ true);
+	PointerConstantOffsetWrapper& o = PointerConstantOffsetVisitor(pointerOffsetData, addressTakenCache).visitValue(ret, p, /*first*/ true);
 #ifndef NDEBUG
 	it = pointerOffsetData.valueMap.find(p);
 	assert(it!=pointerOffsetData.valueMap.end());
