@@ -201,6 +201,8 @@ private:
 	 */
 	int filterModule( const llvm::DenseSet<const llvm::Function*>&, llvm::Module & );
 
+	static bool isMathIntrinsic(llvm::StringRef funcName);
+
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
