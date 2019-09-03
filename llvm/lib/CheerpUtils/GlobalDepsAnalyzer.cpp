@@ -234,7 +234,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		DROP_MATH_FUNC("acos"); DROP_MATH_FUNC("acosf");
 		DROP_MATH_FUNC("asin"); DROP_MATH_FUNC("asinf");
 		DROP_MATH_FUNC("atan"); DROP_MATH_FUNC("atanf");
-		DROP_MATH_FUNC("atan2"); DROP_MATH_FUNC("atan2f");
 		DROP_MATH_FUNC("ceil"); DROP_MATH_FUNC("ceilf");
 		DROP_MATH_FUNC("cos"); DROP_MATH_FUNC("cosf");
 		DROP_MATH_FUNC("exp"); DROP_MATH_FUNC("expf");
@@ -452,7 +451,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		CHECK_MATH_FUNC(ACOS, "acos", "acosf");
 		CHECK_MATH_FUNC(ASIN, "asin", "asinf");
 		CHECK_MATH_FUNC(ATAN, "atan", "atanf");
-		CHECK_MATH_FUNC(ATAN2, "atan2", "atan2f");
 		CHECK_MATH_FUNC(CEIL, "ceil", "ceilf");
 		CHECK_MATH_FUNC(COS, "cos", "cosf");
 		CHECK_MATH_FUNC(EXP, "exp", "expf");
