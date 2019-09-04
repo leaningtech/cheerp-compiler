@@ -209,7 +209,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			if(PA.getPointerKind(I.getOperand(0)) == REGULAR)
 				return false;
 
-			return !hasMoreThan1Use;
+			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineableRecursion(*cast<Instruction>(I.getOperand(0)));
 		}
 
 		// Split regular, regular, and byte layout are always inlined.
@@ -272,8 +272,9 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 					if(curInst->user_back() == nextInst)
 					{
 						// Reached the direct user
-						if(nextInst->getOpcode() == Instruction::BitCast ||
-							nextInst->getOpcode() == Instruction::Trunc)
+						if(!nextInst->hasOneUse() &&
+							(nextInst->getOpcode() == Instruction::BitCast ||
+							nextInst->getOpcode() == Instruction::Trunc))
 						{
 							// Avoid interacting with the bitcast/trunc logic for now
 							break;
