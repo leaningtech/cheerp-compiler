@@ -334,7 +334,7 @@ uint32_t CheerpWriter::compileComplexType(Type* t, COMPILE_TYPE_STYLE style, Str
 			else
 			{
 				assert( globalDeps.dynAllocArrays().count(element) );
-				stream <<  namegen.getArrayName(element) << "([],0," << at->getNumElements() << ')';
+				stream <<  namegen.getArrayName(element) << "(" << at->getNumElements() << ')';
 			}
 		}
 		else
@@ -464,6 +464,18 @@ void CheerpWriter::compileArrayClassType(Type* T)
 {
 	stream << "function ";
 	stream << namegen.getArrayName(T);
+	stream << "(e){" << NewLine;
+	stream << "var r=[];" << NewLine;
+	stream << "for(var i=0;i<e;i++)" << NewLine;
+	stream << "r[i]=";
+	compileType(T, LITERAL_OBJ, "r[i]");
+	stream << ';' << NewLine << "return r;" << NewLine << '}' << NewLine;
+}
+
+void CheerpWriter::compileResizeArrayClassType(Type* T)
+{
+	stream << "function ";
+	stream << namegen.getArrayResizeName(T);
 	stream << "(r,s,e){" << NewLine;
 	stream << "for(var i=s;i<e;i++)" << NewLine;
 	stream << "r[i]=";

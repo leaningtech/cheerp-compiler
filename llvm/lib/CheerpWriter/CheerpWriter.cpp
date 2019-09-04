@@ -611,11 +611,11 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 	}
 	else if (info.useCreateArrayFunc() )
 	{
-		assert( globalDeps.dynAllocArrays().count(t) );
-
-		stream << namegen.getArrayName(t) << '(';
 		if (info.getAllocType() == DynamicAllocInfo::cheerp_reallocate)
 		{
+			assert( globalDeps.dynResizeArrays().count(t) );
+
+			stream << namegen.getArrayResizeName(t) << '(';
 			compilePointerBase(info.getMemoryArg());
 			stream << ',';
 			compilePointerBase(info.getMemoryArg());
@@ -625,7 +625,8 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 		}
 		else
 		{
-			stream << "[],0,";
+			assert( globalDeps.dynAllocArrays().count(t) );
+			stream << namegen.getArrayName(t) << '(';
 			compileArraySize(info, /* shouldPrint */true);
 			stream << ')';
 		}
@@ -5990,6 +5991,9 @@ void CheerpWriter::makeJS()
 
 	for ( Type * st : globalDeps.dynAllocArrays() )
 		compileArrayClassType(st);
+
+	for ( Type * st : globalDeps.dynResizeArrays() )
+		compileResizeArrayClassType(st);
 
 	if ( globalDeps.needCreatePointerArray() )
 		compileArrayPointerType();

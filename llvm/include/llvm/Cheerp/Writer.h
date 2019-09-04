@@ -485,6 +485,7 @@ private:
 	void compileClassType(llvm::StructType* T);
 	void compileClassConstructor(llvm::StructType* T);
 	void compileArrayClassType(llvm::Type* T);
+	void compileResizeArrayClassType(llvm::Type* T);
 	void compileArrayPointerType();
 	static bool needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const llvm::Value* v, bool asmjs);
 
