@@ -20,6 +20,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Cheerp/DeterministicPtrSet.h"
+#include "llvm/Cheerp/TypeAndIndex.h"
 #include <unordered_map>
 #include <unordered_set>
 
@@ -36,50 +37,6 @@ enum POINTER_KIND : uint8_t {
 };
 
 enum REGULAR_POINTER_PREFERENCE { PREF_NONE, PREF_SPLIT_REGULAR, PREF_REGULAR };
-
-struct TypeAndIndex
-{
-	llvm::Type* type;
-	uint32_t index;
-	enum CANONICALIZE_TYPE { STRUCT_MEMBER = 0, ARGUMENT };
-	TypeAndIndex(llvm::Type* t, uint32_t i, CANONICALIZE_TYPE c):type(t),index(i)
-	{
-		if(!t)
-			return;
-		assert(c == STRUCT_MEMBER || c == ARGUMENT);
-		if (c == STRUCT_MEMBER)
-		{
-			// Find if a direct base is the actual owner of the field
-			if(llvm::StructType* st=llvm::dyn_cast<llvm::StructType>(t))
-			{
-				while(st->getDirectBase() && st->getDirectBase()->getNumElements() > i)
-					st = st->getDirectBase();
-				type = st;
-			}
-		}
-		else if(c == ARGUMENT)
-		{
-			// Collapse every argument to the least derived one
-			if(llvm::StructType* st=llvm::dyn_cast<llvm::StructType>(t))
-			{
-				while(st->getDirectBase())
-					st = st->getDirectBase();
-				type = st;
-			}
-		}
-	}
-	bool operator<(const TypeAndIndex& rhs) const
-	{
-		if(type==rhs.type)
-			return index < rhs.index;
-		else
-			return type < rhs.type;
-	}
-	operator bool() const
-	{
-		return type != NULL;
-	}
-};
 
 enum INDIRECT_POINTER_KIND_CONSTRAINT { RETURN_CONSTRAINT, DIRECT_ARG_CONSTRAINT, STORED_TYPE_CONSTRAINT, RETURN_TYPE_CONSTRAINT, BASE_AND_INDEX_CONSTRAINT,
 	INDIRECT_ARG_CONSTRAINT, DIRECT_ARG_CONSTRAINT_IF_ADDRESS_TAKEN };
