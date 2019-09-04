@@ -12,6 +12,7 @@
 #ifndef CHEERP_TYPE_OPTIMIZER_H
 #define CHEERP_TYPE_OPTIMIZER_H
 
+#include "llvm/Cheerp/TypeAndIndex.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include <map>
@@ -54,7 +55,7 @@ private:
 	std::unordered_map<llvm::Type*, TypeMappingInfo> typesMapping;
 	std::unordered_set<llvm::Function*> pendingFunctions;
 	// In this context a field "escapes" if it has any use which is not just a load/store
-	std::unordered_set<std::pair<llvm::StructType*, uint32_t>, PairHash<llvm::StructType*, uint32_t>> escapingFields;
+	std::set<TypeAndIndex> escapingFields;
 #ifndef NDEBUG
 	std::unordered_set<llvm::Type*> newStructTypes;
 #endif
