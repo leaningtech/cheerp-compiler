@@ -158,13 +158,7 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 					if(!containerStructType)
 						continue;
 					uint32_t fieldIndex = cast<ConstantInt>(*std::prev(GEP->op_end()))->getZExtValue();
-					while(StructType* directBase = containerStructType->getDirectBase())
-					{
-						if(directBase->getNumElements() <= fieldIndex)
-							break;
-						containerStructType = directBase;
-					}
-					escapingFields.insert(std::make_pair(containerStructType, fieldIndex));
+					escapingFields.emplace(containerStructType, fieldIndex, TypeAndIndex::STRUCT_MEMBER);
 				}
 			}
 		}
@@ -178,13 +172,7 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 		if(!containerStructType)
 			continue;
 		uint32_t fieldIndex = cast<ConstantInt>(*std::prev(GEP->op_end()))->getZExtValue();
-		while(StructType* directBase = containerStructType->getDirectBase())
-		{
-			if(directBase->getNumElements() <= fieldIndex)
-				break;
-			containerStructType = directBase;
-		}
-		escapingFields.insert(std::make_pair(containerStructType, fieldIndex));
+		escapingFields.emplace(containerStructType, fieldIndex, TypeAndIndex::STRUCT_MEMBER);
 	}
 }
 
@@ -326,7 +314,6 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			// Keep track of currently fillable integers
 			std::vector<std::pair<uint32_t, uint8_t>> mergedInts;
 			uint32_t directBaseLimit=0;
-			StructType* directBase = nullptr;
 			// We may need to update the bases metadata for this type
 			NamedMDNode* namedBasesMetadata = TypeSupport::getBasesMetadata(newStruct, *module);
 			uint32_t firstBaseBegin, firstBaseEnd;
@@ -345,9 +332,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 					arraysFound.clear();
 					mergedInts.clear();
 					StructType* curBase=st;
-					while(curBase->getDirectBase() && curBase->getDirectBase()->getNumElements()>i)
+					while(curBase->getDirectBase() && curBase->getDirectBase()->getNumElements()>i && isa<StructType>(rewriteType(curBase->getDirectBase()).mappedType))
 						curBase=curBase->getDirectBase();
-					directBase = curBase;
 					directBaseLimit=curBase->getNumElements();
 				}
 				Type* elementType=st->getElementType(i);
@@ -379,7 +365,8 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 				}
 				else if(IntegerType* it=dyn_cast<IntegerType>(rewrittenType))
 				{
-					bool fieldEscapes = escapingFields.count(std::make_pair(directBase, i));
+					TypeAndIndex typeAndIndex(st, i, TypeAndIndex::STRUCT_MEMBER);
+					bool fieldEscapes = escapingFields.count(typeAndIndex);
 					// Merge small integers together to reduce memory usage
 					if(!fieldEscapes && it->getBitWidth() < 32)
 					{
