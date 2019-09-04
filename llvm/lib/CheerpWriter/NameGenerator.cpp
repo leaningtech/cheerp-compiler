@@ -163,6 +163,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	useTypesSet classTypes;
 	useTypesSet constructorTypes;
 	useTypesSet arrayTypes;
+	useTypesSet resizeTypes;
 	for(Type* T: gda.classesWithBaseInfo())
 	{
 		classTypes.insert(std::make_pair(1,T));
@@ -174,6 +175,10 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	for(Type* T: gda.dynAllocArrays())
 	{
 		arrayTypes.insert(std::make_pair(1,T));
+	}
+	for(Type* T: gda.dynResizeArrays())
+	{
+		resizeTypes.insert(std::make_pair(1,T));
 	}
 
 	/**
@@ -355,19 +360,22 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	useTypesSet::const_iterator class_it = classTypes.begin();
 	useTypesSet::const_iterator constructor_it = constructorTypes.begin();
 	useTypesSet::const_iterator array_it = arrayTypes.begin();
+	useTypesSet::const_iterator resize_it = resizeTypes.begin();
 
 	bool globalsFinished = global_it == allGlobalValues.end();
 	bool localsFinished = local_it == allLocalValues.end();
 	bool classTypesFinished = class_it == classTypes.end();
 	bool constructorTypesFinished = constructor_it == constructorTypes.end();
 	bool arrayTypesFinished = array_it == arrayTypes.end();
-	for ( ; !globalsFinished || !localsFinished || !classTypesFinished || !constructorTypesFinished || !arrayTypesFinished; )
+	bool resizeTypesFinished = resize_it == resizeTypes.end();
+	for ( ; !globalsFinished || !localsFinished || !classTypesFinished || !constructorTypesFinished || !arrayTypesFinished || !resizeTypesFinished; )
 	{
 		if ( !globalsFinished &&
 			(localsFinished || global_it->first >= local_it->first) &&
 			(classTypesFinished || global_it->first >= class_it->first) &&
 			(constructorTypesFinished || global_it->first >= constructor_it->first) &&
-			(arrayTypesFinished || global_it->first >= array_it->first))
+			(arrayTypesFinished || global_it->first >= array_it->first) &&
+			(resizeTypesFinished || global_it->first >= resize_it->first))
 		{
 			// Assign this name to a global value
 			namemap.emplace( global_it->second, nameHelper.makeGlobalName() );
@@ -382,7 +390,8 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			(globalsFinished || local_it->first >= global_it->first) &&
 			(classTypesFinished || local_it->first >= class_it->first) &&
 			(constructorTypesFinished || local_it->first >= constructor_it->first) &&
-			(arrayTypesFinished || local_it->first >= array_it->first))
+			(arrayTypesFinished || local_it->first >= array_it->first) &&
+			(resizeTypesFinished || local_it->first >= resize_it->first))
 		{
 			// Assign this name to all the local values
 			SmallString<4> primaryName = nameHelper.makeLocalName();
@@ -415,7 +424,8 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			(globalsFinished || class_it->first >= global_it->first) &&
 			(localsFinished || class_it->first >= local_it->first) &&
 			(constructorTypesFinished || class_it->first >= constructor_it->first) &&
-			(arrayTypesFinished || class_it->first >= array_it->first))
+			(arrayTypesFinished || class_it->first >= array_it->first) &&
+			(resizeTypesFinished || class_it->first >= resize_it->first))
 		{
 			SmallString<4> name = nameHelper.makeGlobalName();
 			classmap.emplace(class_it->second, name);
@@ -425,17 +435,29 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 			(globalsFinished || constructor_it->first >= global_it->first) &&
 			(localsFinished || constructor_it->first >= local_it->first) &&
 			(classTypesFinished || constructor_it->first >= class_it->first) &&
-			(arrayTypesFinished || constructor_it->first >= array_it->first))
+			(arrayTypesFinished || constructor_it->first >= array_it->first) &&
+			(resizeTypesFinished || constructor_it->first >= resize_it->first))
 		{
 			SmallString<4> name = nameHelper.makeGlobalName();
 			constructormap.emplace(constructor_it->second, name);
 			++constructor_it;
 		}
-		else
+		else if ( !arrayTypesFinished &&
+			(globalsFinished || array_it->first >= global_it->first) &&
+			(localsFinished || array_it->first >= local_it->first) &&
+			(classTypesFinished || array_it->first >= class_it->first) &&
+			(constructorTypesFinished || class_it->first >= constructor_it->first) &&
+			(resizeTypesFinished || array_it->first >= resize_it->first))
 		{
 			SmallString<4> name = nameHelper.makeGlobalName();
 			arraymap.emplace(array_it->second, name);
 			++array_it;
+		}
+		else
+		{
+			SmallString<4> name = nameHelper.makeGlobalName();
+			resizemap.emplace(resize_it->second, name);
+			++resize_it;
 		}
 
 		globalsFinished = global_it == allGlobalValues.end();
@@ -443,6 +465,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		classTypesFinished = class_it == classTypes.end();
 		constructorTypesFinished = constructor_it == constructorTypes.end();
 		arrayTypesFinished = array_it == arrayTypes.end();
+		resizeTypesFinished = resize_it == resizeTypes.end();
 	}
 	for(auto& tableIt: linearHelper.getFunctionTables())
 	{
@@ -564,6 +587,17 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 		}
 		else
 			arraymap.insert(std::make_pair(T, StringRef("createArray_literal" + std::to_string(arraymap.size()))));
+	}
+	for(Type* T: gda.dynResizeArrays())
+	{
+		if(isa<StructType>(T) && cast<StructType>(T)->hasName())
+		{
+			llvm::SmallString<4> name = llvm::SmallString<4>("resizeArray");
+			name.append(filterLLVMName(cast<StructType>(T)->getName(), GLOBAL).str());
+			resizemap.insert(std::make_pair(T, name));
+		}
+		else
+			resizemap.insert(std::make_pair(T, StringRef("resizeArray_literal" + std::to_string(resizemap.size()))));
 	}
 	for(auto& tableIt: linearHelper.getFunctionTables())
 	{
