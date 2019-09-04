@@ -146,6 +146,11 @@ public:
 		assert(arraymap.count(T));
 		return arraymap.at(T);
 	}
+	llvm::StringRef getArrayResizeName(llvm::Type* T) const
+	{
+		assert(resizemap.count(T));
+		return resizemap.at(T);
+	}
 	/**
 	 * Return a name for the requested builtin, potentially minimized
 	 */
@@ -196,6 +201,7 @@ private:
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > classmap;
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > constructormap;
 	std::unordered_map<llvm::Type*, llvm::SmallString<4> > arraymap;
+	std::unordered_map<llvm::Type*, llvm::SmallString<4> > resizemap;
 	std::array<llvm::SmallString<4>, Builtin::END> builtins;
 	const std::vector<std::string> reservedNames;
 	std::string shortestLocalName;
