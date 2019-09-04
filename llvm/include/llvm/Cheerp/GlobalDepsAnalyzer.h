@@ -76,6 +76,11 @@ public:
 	 * Get a list of the arrays which are dynamically allocated with unknown size
 	 */
 	const std::unordered_set<llvm::Type*> & dynAllocArrays() const { return arraysNeeded; }
+
+	/**
+	 * Get a list of the arrays which are dynamically resized
+	 */
+	const std::unordered_set<llvm::Type*> & dynResizeArrays() const { return arrayResizesNeeded; }
 	
 	/**
 	 * Get a list of the asm.js functions called from outside
@@ -209,6 +214,7 @@ private:
 	std::unordered_set<llvm::StructType* > classesWithBaseInfoNeeded;
 	std::unordered_set<llvm::StructType* > classesNeeded;
 	std::unordered_set<llvm::Type* > arraysNeeded;
+	std::unordered_set<llvm::Type* > arrayResizesNeeded;
 	std::unordered_set<const llvm::Function* > asmJSExportedFuncions;
 	std::unordered_set<const llvm::Function* > asmJSImportedFuncions;
 	std::vector< const llvm::Function* > constructorsNeeded;
