@@ -19389,12 +19389,13 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
         auto d = Diag((*a)->getLocStart(),
              diag::err_cheerp_wrong_basic_pointer_param)
           << FDecl << FDecl->getAttr<AsmJSAttr>()
-          << Parent << Parent->getAttr<GenericJSAttr>()
-          << "pointer";
+          << Parent << Parent->getAttr<GenericJSAttr>();
         if (p != pe)
           d << *p;
         else
           d << "variadic";
+
+        d << "pointer";
       } else if (pt && pt->isReferenceType() && pt->getPointeeType()->isFundamentalType()) {
         Diag((*a)->getLocStart(), diag::err_cheerp_wrong_basic_pointer_param)
           << FDecl << FDecl->getAttr<AsmJSAttr>()
