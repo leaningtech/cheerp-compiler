@@ -1798,7 +1798,7 @@ template <class _Rp, class... _ArgTypes> class __value_func<_Rp(_ArgTypes...)>
         if (__function::__not_null(__f))
         {
             _FunAlloc __af(__a);
-#ifndef __CHEERP__
+#if !defined(__CHEERP__) || defined(__ASMJS__)
             if (sizeof(_Fun) <= sizeof(__buf_) &&
                 is_nothrow_copy_constructible<_Fp>::value &&
                 is_nothrow_copy_constructible<_FunAlloc>::value)
@@ -1965,7 +1965,7 @@ template <class _Rp, class... _ArgTypes> class __value_func<_Rp(_ArgTypes...)>
 // destruction.
 union __policy_storage
 {
-#ifndef __CHEERP__
+#if !defined(__CHEERP__) || defined(__ASMJS__)
     mutable char __small[sizeof(void*) * 2];
 #endif
     void* __large;
@@ -1975,13 +1975,13 @@ union __policy_storage
 template <typename _Fun>
 struct __use_small_storage
     : public _VSTD::integral_constant<
-#ifdef __CHEERP__
-          bool, false> {};
-#else
+#if !defined(__CHEERP__) || defined(__ASMJS__)
           bool, sizeof(_Fun) <= sizeof(__policy_storage) &&
                     _LIBCPP_ALIGNOF(_Fun) <= _LIBCPP_ALIGNOF(__policy_storage) &&
                     _VSTD::is_trivially_copy_constructible<_Fun>::value &&
                     _VSTD::is_trivially_destructible<_Fun>::value> {};
+#else
+          bool, false> {};
 #endif
 
 // Policy contains information about how to copy, destroy, and move the
@@ -2105,12 +2105,12 @@ struct __policy_invoker<_Rp(_ArgTypes...)>
     static _Rp __call_impl(const __policy_storage* __buf,
                            __fast_forward<_ArgTypes>... __args)
     {
-#ifdef __CHEERP__
-        _Fun* __f = reinterpret_cast<_Fun*>(__buf->__large);
-#else
+#if !defined(__CHEERP__) || defined(__ASMJS__)
         _Fun* __f = reinterpret_cast<_Fun*>(__use_small_storage<_Fun>::value
                                                 ? &__buf->__small
                                                 : __buf->__large);
+#else
+        _Fun* __f = reinterpret_cast<_Fun*>(__buf->__large);
 #endif
         return (*__f)(_VSTD::forward<_ArgTypes>(__args)...);
     }
@@ -2155,7 +2155,7 @@ template <class _Rp, class... _ArgTypes> class __policy_func<_Rp(_ArgTypes...)>
             __policy_ = __policy::__create<_Fun>();
 
             _FunAlloc __af(__a);
-#ifndef __CHEERP__
+#if !defined(__CHEERP__) || defined(__ASMJS__)
             if (__use_small_storage<_Fun>())
             {
                 ::new ((void*)&__buf_.__small)
@@ -2278,7 +2278,7 @@ template <class _Rp, class... _ArgTypes> class __policy_func<_Rp(_ArgTypes...)>
             return nullptr;
         if (__policy_->__clone) // Out of line storage.
             return reinterpret_cast<const _Tp*>(__buf_.__large);
-#ifndef __CHEERP__
+#if !defined(__CHEERP__) || defined(__ASMJS__)
         else
             return reinterpret_cast<const _Tp*>(&__buf_.__small);
 #endif
