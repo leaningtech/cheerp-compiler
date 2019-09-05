@@ -20662,8 +20662,6 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
             d << "variadic";
         }
       }
-      if (p != pe)
-        p++;
     }
   }
 }
