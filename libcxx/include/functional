@@ -2388,8 +2388,17 @@ class _LIBCPP_TEMPLATE_VIS function<_Rp(_ArgTypes...)>
             static const bool value = false;
         };
 
+    // This is needed to allow calling the constructor from genericjs when
+    // std::function is in asmjs and vice-versa
+#ifdef __ASMJS__
+    struct _Dummy {};
+    typedef _Dummy _void;
+#else
+    typedef void _void;
+#endif
+
   template <class _Fp>
-  using _EnableIfLValueCallable = typename enable_if<__callable<_Fp&>::value>::type;
+  using _EnableIfLValueCallable = typename enable_if<__callable<_Fp&>::value, _void>::type;
 public:
     typedef _Rp result_type;
 
