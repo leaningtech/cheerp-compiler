@@ -26,9 +26,6 @@
 #   define _LIBCXXABI_USE_CRASHREPORTER_CLIENT
 #endif
 
-#ifdef __CHEERP__
-__attribute__((cheerp_genericjs))
-#endif
 void abort_message(const char* format, ...)
 {
 #ifndef __CHEERP__
