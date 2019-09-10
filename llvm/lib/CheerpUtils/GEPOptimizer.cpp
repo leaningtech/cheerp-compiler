@@ -187,6 +187,7 @@ template <> struct GraphTraits<ValidBasicBlockForestGraph::Node*> {
 	static inline ChildIteratorType child_end(NodeType *N) {
 		return ChildIteratorType(N, true);
 	}
+	typedef ValidBasicBlockForestGraph::Node* NodeRef;
 };
 template <> struct GraphTraits<Inverse<ValidBasicBlockForestGraph::Node*>> {
 	typedef ValidBasicBlockForestGraph::Node NodeType;
@@ -199,17 +200,18 @@ template <> struct GraphTraits<Inverse<ValidBasicBlockForestGraph::Node*>> {
 	static inline ChildIteratorType child_end(NodeType *N) {
 		return ChildIteratorType(N, true);
 	}
+	typedef ValidBasicBlockForestGraph::Node* NodeRef;
 };
 template <> struct GraphTraits<ValidBasicBlockForestGraph*> : public GraphTraits<ValidBasicBlockForestGraph::Node*> {
 	static NodeType *getEntryNode(ValidBasicBlockForestGraph *G) { return G->getEntryNode(); }
 
 	typedef mapped_iterator<
 		ValidBasicBlockForestGraph::NodeMap::iterator,
-		std::function<ValidBasicBlockForestGraph::Node&(ValidBasicBlockForestGraph::NodeMap::iterator::reference)>
+		std::function<ValidBasicBlockForestGraph::Node*(ValidBasicBlockForestGraph::NodeMap::iterator::reference)>
 	> mapped_iterator_type;
-	static NodeType& get_second_ptr(ValidBasicBlockForestGraph::NodeMap::iterator::reference pair)
+	static NodeType* get_second_ptr(ValidBasicBlockForestGraph::NodeMap::iterator::reference pair)
 	{
-		return pair.second;
+		return &pair.second;
 	}
 	 // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
 	typedef mapped_iterator_type nodes_iterator;
