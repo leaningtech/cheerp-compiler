@@ -145,6 +145,7 @@ private:
 
 template <> struct GraphTraits<FixIrreducibleControlFlow::SubGraph*> {
 	typedef FixIrreducibleControlFlow::GraphNode NodeType;
+	typedef NodeType* NodeRef;
 	typedef mapped_iterator<SmallVectorImpl<BasicBlock*>::iterator, std::function<FixIrreducibleControlFlow::GraphNode*(BasicBlock*)>> ChildIteratorType;
 
 	static NodeType *getEntryNode(FixIrreducibleControlFlow::SubGraph* G) { return G->getOrCreate(G->Entry); }
