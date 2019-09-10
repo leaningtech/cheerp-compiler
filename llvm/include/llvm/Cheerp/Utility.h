@@ -915,6 +915,7 @@ namespace llvm
 {
 template <> struct GraphTraits<cheerp::EndOfBlockPHIHandler::DependencyGraph*> {
 	typedef cheerp::EndOfBlockPHIHandler::GraphNode NodeType;
+	typedef NodeType* NodeRef;
 	typedef llvm::mapped_iterator<SmallVectorImpl<uint32_t>::iterator, std::function<cheerp::EndOfBlockPHIHandler::GraphNode*(uint32_t)>> ChildIteratorType;
 
 	static NodeType *getEntryNode(cheerp::EndOfBlockPHIHandler::DependencyGraph* G) { return G->getOrCreate(G->getEntry()); }

@@ -370,6 +370,7 @@ private:
 		return Kind::Regular;
 	}
 	struct Node {
+		typedef Node* NodeRef;
 		BasicBlock* BB;
 		Kind kind;
 		ValidBasicBlockForestGraph& G;
