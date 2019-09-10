@@ -137,9 +137,11 @@ class FreeAndDeleteRemoval: public FunctionPass
 {
 private:
 	void deleteInstructionAndUnusedOperands(Instruction* I);
+	bool moduleIterationIsDone;
+	bool isAllGenericJS;
 public:
 	static char ID;
-	explicit FreeAndDeleteRemoval() : FunctionPass(ID) { }
+	explicit FreeAndDeleteRemoval() : FunctionPass(ID), moduleIterationIsDone(false), isAllGenericJS(false) { }
 	bool runOnFunction(Function &F) override;
 	StringRef getPassName() const override;
 
