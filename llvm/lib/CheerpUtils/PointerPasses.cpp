@@ -599,14 +599,18 @@ bool FreeAndDeleteRemoval::runOnFunction(Function& F)
 	if (F.getSection()==StringRef("asmjs"))
 		return false;
 
-	bool isAllGenericJS = true;
-	for (const Function& f: *F.getParent())
+	if (!moduleIterationIsDone)
 	{
-		if (f.getSection() == StringRef("asmjs"))
+		isAllGenericJS = true;
+		for (const Function& f: *F.getParent())
 		{
-			isAllGenericJS = false;
-			break;
+			if (f.getSection() == StringRef("asmjs"))
+			{
+				isAllGenericJS = false;
+				break;
+			}
 		}
+		moduleIterationIsDone = true;
 	}
 	for ( BasicBlock& BB : F )
 	{
