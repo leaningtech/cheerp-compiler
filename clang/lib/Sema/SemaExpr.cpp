@@ -6472,10 +6472,10 @@ ExprResult Sema::BuildCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
       return ExprError();
 
     checkDirectCallValidity(*this, Fn, FD, ArgExprs);
-    if (S && S->getFnParent())
+    if (Scope && Scope->getFnParent())
     {
-      if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity()))
-        CheckCheerpFFICall(Parent, FD, Fn->getLocStart(), ArgExprs);
+      if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(Scope->getFnParent()->getEntity()))
+        S.CheckCheerpFFICall(Parent, FD, Fn->getLocStart(), ArgExprs);
     }
   }
 
