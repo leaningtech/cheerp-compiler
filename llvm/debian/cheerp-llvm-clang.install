@@ -18,7 +18,7 @@ opt/cheerp/lib/clang/4.0.0/include/limits.h
 opt/cheerp/lib/clang/4.0.0/include/mmintrin.h
 opt/cheerp/lib/clang/4.0.0/include/module.modulemap
 opt/cheerp/lib/clang/4.0.0/include/lzcntintrin.h
-opt/cheerp/lib/clang/4.0.0/include/Intrin.h
+opt/cheerp/lib/clang/4.0.0/include/intrin.h
 opt/cheerp/lib/clang/4.0.0/include/varargs.h
 opt/cheerp/lib/clang/4.0.0/include/rdseedintrin.h
 opt/cheerp/lib/clang/4.0.0/include/tbmintrin.h
