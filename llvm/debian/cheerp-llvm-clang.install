@@ -52,7 +52,7 @@ opt/cheerp/lib/clang/4.0.0/include/stdarg.h
 opt/cheerp/lib/libclang.so*
 opt/cheerp/bin/
 opt/cheerp/bin/clang-check
-opt/cheerp/bin/clang-3.9
+opt/cheerp/bin/clang-4.0
 opt/cheerp/bin/llvm-nm
 opt/cheerp/bin/llvm-mcmarkup
 opt/cheerp/bin/llvm-as
