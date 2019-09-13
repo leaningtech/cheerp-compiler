@@ -83,13 +83,13 @@ public:
 		return llvm::iplist<Token>::iterator(*this);
 	}
 	llvm::iplist<Token>::reverse_iterator getRevIter() {
-		return llvm::iplist<Token>::reverse_iterator(getIterator());
+		return (--getIterator()).getReverse();
 	}
 	llvm::iplist<Token>::const_iterator getIter() const {
 		return llvm::iplist<Token>::const_iterator(*this);
 	}
 	llvm::iplist<Token>::const_reverse_iterator getRevIter() const {
-		return llvm::iplist<Token>::const_reverse_iterator(getIterator());
+		return (--getIterator()).getReverse();
 	}
 	static Token* createBasicBlock(const llvm::BasicBlock* BB, int Id) {
 		return new Token(TK_BasicBlock, BB, nullptr);
