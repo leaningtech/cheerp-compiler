@@ -15,4 +15,4 @@ C::~C() {}
 // CHECK-SAME:  i32 1,
 // CHECK-SAME:  ptr @_ZTI1A,
 //    This i64 is important, it should be an i64, not an i32.
-// CHECK-SAME:  i64 -6141 }, comdat
+// CHECK-SAME:  i64 -6141 }] }, comdat
