@@ -66,13 +66,13 @@ auto [e1, e2] = make<E>();
 // CHECK: store {{.*}}, <2 x i32>* @_ZDC2d12d2E, align 8
 
 // CHECK: call {{.*}}* @_Z4makeICiERT_v()
-// CHECK: store i32 %{{.*}}, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @_ZDC2e12e2E, i32 0, i32 0)
-// CHECK: store i32 %{{.*}}, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @_ZDC2e12e2E, i32 0, i32 1)
+// CHECK: store i32 %{{.*}}, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @_ZDC2e12e2E, i32 0, i32 0)
+// CHECK: store i32 %{{.*}}, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @_ZDC2e12e2E, i32 0, i32 1)
 
 // CHECK: define i32 @_Z12test_globalsv()
 int test_globals() {
   return a2 + b2 + c2 + d2 + e2;
-  // CHECK: load i8, i8* getelementptr inbounds (%struct.A, %struct.A* @_ZDC2a12a2E, i32 0, i32 1)
+  // CHECK: load i8, i8* getelementptr inbounds (%struct._Z1A, %struct._Z1A* @_ZDC2a12a2E, i32 0, i32 1)
   //
   // CHECK: %[[b2:.*]] = load i32*, i32** @b2
   // CHECK: load i32, i32* %[[b2]]
@@ -84,7 +84,7 @@ int test_globals() {
   // CHECK: %[[d1d2:.*]] = load <2 x i32>, <2 x i32>* @_ZDC2d12d2E
   // CHECK: extractelement <2 x i32> %[[d1d2]], i32 1
   //
-  // CHECK: load i32, i32* getelementptr inbounds ({ i32, i32 }, { i32, i32 }* @_ZDC2e12e2E, i32 0, i32 1)
+  // CHECK: load i32, i32* getelementptr inbounds (%complex._ZTSi, %complex._ZTSi* @_ZDC2e12e2E, i32 0, i32 1)
 }
 
 // CHECK: define i32 @_Z11test_localsv()

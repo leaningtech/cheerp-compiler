@@ -15,4 +15,4 @@ C::~C() {}
 // CHECK-SAME:  i32 1,
 // CHECK-SAME:  i8* bitcast ({ i8*, i8* }* @_ZTI1A to i8*),
 //    This i64 is important, it should be an i64, not an i32.
-// CHECK-SAME:  i64 -6141 }, comdat
+// CHECK-SAME:  i64 -6141 }] }, comdat
