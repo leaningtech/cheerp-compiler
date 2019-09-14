@@ -207,6 +207,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						REPLACE_MATH_FUNC(Intrinsic::ceil, "ceilf", "ceil");
 						REPLACE_MATH_FUNC(Intrinsic::cos, "cosf", "cos");
 						REPLACE_MATH_FUNC(Intrinsic::exp, "expf", "exp");
+						REPLACE_MATH_FUNC(Intrinsic::exp2, "exp2f", "exp2");
 						REPLACE_MATH_FUNC(Intrinsic::floor, "floorf", "floor");
 						REPLACE_MATH_FUNC(Intrinsic::log, "logf", "log");
 						REPLACE_MATH_FUNC(Intrinsic::pow, "powf", "pow");
