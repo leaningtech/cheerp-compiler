@@ -2458,7 +2458,7 @@ private:
         curType = curType->getSequentialElementType();
       newIndexes.push_back(Zero);
     }
-    llvm::Instruction* newGEP = GetElementPtrInst::Create(GEPI.getSourceElementType(), GEPI.getOperand(0), newIndexes);
+    llvm::Instruction* newGEP = GetElementPtrInst::Create(NewAI.getAllocatedType(), GEPI.getOperand(0), newIndexes);
     newGEP->takeName(&GEPI);
     newGEP->insertAfter(&GEPI);
     GEPI.replaceAllUsesWith(newGEP);
