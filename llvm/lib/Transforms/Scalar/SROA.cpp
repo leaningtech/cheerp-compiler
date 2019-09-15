@@ -3331,11 +3331,30 @@ private:
     assert(EndOffset <= NewAllocaEndOffset && "Selects are unsplittable");
 
     Value *NewPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
-    // Replace the operands which were using the old pointer.
-    if (SI.getOperand(1) == OldPtr)
-      SI.setOperand(1, NewPtr);
-    if (SI.getOperand(2) == OldPtr)
-      SI.setOperand(2, NewPtr);
+    if(NewPtr) {
+      // Replace the operands which were using the old pointer.
+      if (SI.getOperand(1) == OldPtr)
+        SI.setOperand(1, NewPtr);
+      if (SI.getOperand(2) == OldPtr)
+        SI.setOperand(2, NewPtr);
+    } else {
+      IRBuilderTy PtrBuilder(IRB);
+      PtrBuilder.SetInsertPoint(&SI);
+      // We can't get the old pointer type from the new alloca
+      uint64_t Offset = NewBeginOffset - NewAllocaBeginOffset;
+      for(unsigned i=1;i<SI.getNumOperands();i++) {
+        Value* oldValue = SI.getOperand(i);
+        if (oldValue == OldPtr)
+          oldValue = &NewAI;
+        Value* newValue = getAdjustedPtr(PtrBuilder, DL, oldValue, 
+                                         APInt(DL.getPointerSizeInBits(), Offset), NewAI.getType(), Twine());
+        SI.setOperand(i, newValue);
+      }
+      SI.mutateType(NewAI.getType());
+      for(User* U: SI.users()) {
+        visit(cast<Instruction>(U));
+      }
+    }
 
     LLVM_DEBUG(dbgs() << "          to: " << SI << "\n");
     deleteIfTriviallyDead(OldPtr);
