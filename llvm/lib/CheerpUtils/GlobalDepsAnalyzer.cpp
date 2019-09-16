@@ -203,6 +203,16 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						foundMemmove |= II == Intrinsic::memmove;
 					}
 
+					if(II == Intrinsic::exp2)
+					{
+						// Expand this to pow, we can't simply forward to the libc since exp2 is optimized away to the intrinsic itself
+						Type* t = ci.getType();
+						Function* F = module.getFunction(t->isFloatTy() ? "powf" : "pow");
+						Value* newCall = CallInst::Create(F, { ConstantFP::get(t, 2.0), ci.getOperand(0) }, "", &ci);
+						ci.replaceAllUsesWith(newCall);
+						deleteList.push_back(&ci);
+					}
+
 					// Replace math intrinsics with C library calls if necessary
 					if(mathMode == NO_BUILTINS)
 					{
@@ -211,7 +221,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						REPLACE_MATH_FUNC(Intrinsic::ceil, "ceilf", "ceil");
 						REPLACE_MATH_FUNC(Intrinsic::cos, "cosf", "cos");
 						REPLACE_MATH_FUNC(Intrinsic::exp, "expf", "exp");
-						REPLACE_MATH_FUNC(Intrinsic::exp2, "exp2f", "exp2");
 						REPLACE_MATH_FUNC(Intrinsic::floor, "floorf", "floor");
 						REPLACE_MATH_FUNC(Intrinsic::log, "logf", "log");
 						REPLACE_MATH_FUNC(Intrinsic::pow, "powf", "pow");
