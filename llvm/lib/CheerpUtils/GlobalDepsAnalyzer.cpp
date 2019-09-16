@@ -143,8 +143,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						continue;
 
 					if (Value* with = callSimplifier.optimizeCall(&ci)) {
-						ci.replaceAllUsesWith(with);
-						deleteList.push_back(&ci);
+						// Do not introduce further intrinsics now
+						if(!isa<IntrinsicInst>(with)) {
+							ci.replaceAllUsesWith(with);
+							deleteList.push_back(&ci);
+							continue;
+						}
 					}
 					unsigned II = calledFunc->getIntrinsicID();
 
