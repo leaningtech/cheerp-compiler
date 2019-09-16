@@ -2466,6 +2466,16 @@ private:
     return true;
   }
 
+  bool visitBitCastInst(BitCastInst &BCI) {
+    // Cheerp: We only allow SROA for casts to directbases and all directbases have a compatible layout
+    //         Make the bitcast a NOP and recursively visit it's users to cleanup GEPs
+    BCI.mutateType(BCI.getOperand(0)->getType());
+    for(User* U: BCI.users()) {
+        visit(cast<Instruction>(U));
+    }
+    return true;
+  }
+
   Value *getNewAllocaSlicePtr(IRBuilderTy &IRB, Type *PointerTy) {
     // Note that the offset computation can use BeginOffset or NewBeginOffset
     // interchangeably for unsplit slices.
@@ -3292,22 +3302,16 @@ private:
       assert(inserted);
       // We can't get the old pointer type from the new alloca
       uint64_t Offset = NewBeginOffset - NewAllocaBeginOffset;
-      for(unsigned i=0;i<PN.getNumOperands();i++) {
-        Value* oldValue = PN.getOperand(i);
-        Instruction* oldInst = dyn_cast<Instruction>(oldValue);
-        if (!oldInst)
-          continue;
-        if (oldInst == OldPtr)
-          oldInst = &NewAI;
-        if (isa<PHINode>(oldInst))
-          PtrBuilder.SetInsertPoint(oldInst->getParent(), oldInst->getParent()->getFirstInsertionPt());
-        else
-          PtrBuilder.SetInsertPoint(oldInst->getParent(), ++BasicBlock::iterator(oldInst));
-        Value* newValue = getAdjustedPtr(PtrBuilder, DL, oldInst, 
+      for(unsigned i=0;i<PN.getNumIncomingValues();i++) {
+        Value* oldValue = PN.getIncomingValue(i);
+        if (oldValue == OldPtr)
+          oldValue = &NewAI;
+        BasicBlock* incomingBB = PN.getIncomingBlock(i);
+        IRB.SetInsertPoint(incomingBB, BasicBlock::iterator(incomingBB->getTerminator()));
+        Value* newValue = getAdjustedPtr(IRB, DL, oldValue,
                                          APInt(DL.getPointerSizeInBits(), Offset), NewAI.getType(), Twine());
         PN.setOperand(i, newValue);
       }
-      // TODO: Adjust all incoming pointers to the new type
       PN.mutateType(NewAI.getType());
       for(User* U: PN.users()) {
         visit(cast<Instruction>(U));
