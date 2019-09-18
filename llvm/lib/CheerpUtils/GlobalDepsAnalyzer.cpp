@@ -268,7 +268,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	{
 		StringRef name = namedNode.getName();
 
-		if(name.endswith("_methods") && name.startswith("class._Z"))
+		if(name.endswith("_methods") && (name.startswith("class._Z") || name.startswith("struct._Z")))
 		{
 			StructType * t = TypeSupport::getJSExportedTypeFromMetadata(name, module).first;
 			visitStruct(t);
