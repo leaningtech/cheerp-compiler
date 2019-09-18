@@ -161,6 +161,7 @@ bool CheerpBaseTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            bool DisableVerify,
                                            AnalysisID StartBefore,
                                            AnalysisID StartAfter,
+                                           AnalysisID StopBefore,
                                            AnalysisID StopAfter,
                                            MachineFunctionInitializer* MFInit) {
   if (FixWrongFuncCasts)
