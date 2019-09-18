@@ -65,7 +65,7 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 			continue;
 		}
 
-		if (!name.endswith("_methods") || !name.startswith("class.") )
+		if (!name.endswith("_methods") || !(name.startswith("class.") || name.startswith("struct.")) )
 			continue;
 
 		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, module);
