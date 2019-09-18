@@ -36,6 +36,7 @@ public:
                                    bool DisableVerify,
                                    AnalysisID StartBefore,
                                    AnalysisID StartAfter,
+                                   AnalysisID StopBefore,
                                    AnalysisID StopAfter,
                                    MachineFunctionInitializer* MFInit) override;
   virtual ModulePass* createCheerpWritePass(raw_ostream &o) = 0;
