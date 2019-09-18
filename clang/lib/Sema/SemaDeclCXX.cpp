@@ -6906,8 +6906,11 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   if (Record->hasAttr<AsmJSAttr>()) {
     for (const auto* f: Record->fields()) {
       if (!isAsmJSCompatible(f->getType())) {
+        auto t = f->getType()->isPointerType()
+          ? f->getType()->getPointeeType()->getAsTagDecl()
+          : f->getType()->getAsTagDecl();
         Diag(f->getLocation(), diag::err_cheerp_incompatible_attributes)
-          << f->getType()->getAsTagDecl()->getAttr<GenericJSAttr>() << "field" << f
+          << t->getAttr<GenericJSAttr>() << "field" << f
           << Record->getAttr<AsmJSAttr>() << "class" << Record;
       }
     }
