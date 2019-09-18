@@ -373,7 +373,14 @@ void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varN
 	if(style == LITERAL_OBJ && isa<StructType>(t) && TypeSupport::isJSExportedType(cast<StructType>(t), module))
 	{
 		assert(offsetToValueMap == nullptr);
-		StringRef mangledName = t->getStructName().drop_front(6);
+		StringRef mangledName = t->getStructName();
+		if(mangledName.startswith("class."))
+			mangledName = mangledName.drop_front(6);
+		else
+		{
+			assert(mangledName.startswith("struct."));
+			mangledName = mangledName.drop_front(7);
+		}
 		demangler_iterator demangler( mangledName );
 		StringRef jsClassName = *demangler++;
 

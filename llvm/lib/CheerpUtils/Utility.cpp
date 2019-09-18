@@ -607,7 +607,15 @@ bool TypeSupport::isJSExportedType(StructType* st, const Module& m)
 
 std::pair<StructType*, StringRef> TypeSupport::getJSExportedTypeFromMetadata(StringRef name, const Module& module)
 {
-	StringRef mangledName = name.drop_front(6).drop_back(8);
+	StringRef mangledName = name.drop_back(8);;
+	if(name.startswith("class."))
+		mangledName = mangledName.drop_front(6);
+	else
+	{
+		assert(mangledName.startswith("struct."));
+		mangledName = mangledName.drop_front(7);
+	}
+
 
 	demangler_iterator demangler( mangledName );
 
