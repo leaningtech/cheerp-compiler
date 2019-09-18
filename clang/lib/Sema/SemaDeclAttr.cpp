@@ -1349,6 +1349,9 @@ static void handleExtVectorTypeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handlePackedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (S.LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS &&
+      checkAttrMutualExclusion<AsmJSAttr>(S, D, AL.getRange(), AL.getName()))
+    return;
   if (auto *TD = dyn_cast<TagDecl>(D))
     TD->addAttr(::new (S.Context) PackedAttr(S.Context, AL));
   else if (auto *FD = dyn_cast<FieldDecl>(D)) {
@@ -6797,45 +6800,42 @@ static void handleNoInit(Sema &S, Decl* D, const AttributeList &Attr)
 }
 
 static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (D->hasAttr<AsmJSAttr>() && isa<CXXRecordDecl>(D))
-    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
-      << Attr.getName() << D->getAttr<AsmJSAttr>();
-  else if (D->hasAttr<ByteLayoutAttr>() && isa<CXXRecordDecl>(D))
-    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
-      << Attr.getName() << D->getAttr<ByteLayoutAttr>();
-  else if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
-    D->addAttr(::new (S.Context) JsExportAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  if (isa<CXXRecordDecl>(D)) {
+    if (checkAttrMutualExclusion<AsmJSAttr>(S, D, Attr.getRange(),
+                                                             Attr.getName()))
+      return;
+    if (checkAttrMutualExclusion<ByteLayoutAttr>(S, D, Attr.getRange(),
+                                                             Attr.getName()))
+      return;
+  }
+  if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
+    handleSimpleAttribute<JsExportAttr>(S, D, Attr);
   else
     S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
 }
 
 static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (D->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(D)) {
-    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
-      << Attr.getName() << D->getAttr<JsExportAttr>();
-  } else if (D->hasAttr<ByteLayoutAttr>() && isa<CXXRecordDecl>(D)) {
-    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
-      << Attr.getName() << D->getAttr<ByteLayoutAttr>();
-  } else {
-    D->addAttr(::new (S.Context) AsmJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  if (isa<CXXRecordDecl>(D)) {
+    if (checkAttrMutualExclusion<JsExportAttr>(S, D, Attr.getRange(),
+                                                             Attr.getName()))
+      return;
+    if (checkAttrMutualExclusion<ByteLayoutAttr>(S, D, Attr.getRange(),
+                                                             Attr.getName()))
+      return;
   }
+  handleSimpleAttributeWithExclusions<AsmJSAttr, GenericJSAttr, PackedAttr>(S, D, Attr);
 }
 
 static void handleGenericJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  D->addAttr(::new (S.Context) GenericJSAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  handleSimpleAttributeWithExclusions<GenericJSAttr, AsmJSAttr, ByteLayoutAttr>(S, D, Attr);
 }
 
 static void handleByteLayoutAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-  if (!isa<RecordDecl>(D))
+  if (!isa<RecordDecl>(D)) {
     S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
-  else if (D->hasAttr<AsmJSAttr>())
-    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
-      << Attr.getName() << D->getAttr<AsmJSAttr>();
-  else if (D->hasAttr<JsExportAttr>())
-    S.Diag(Attr.getLoc(), diag::err_attributes_are_not_compatible)
-      << Attr.getName() << D->getAttr<JsExportAttr>();
-  else
-    D->addAttr(::new (S.Context) ByteLayoutAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+    return;
+  }
+  handleSimpleAttributeWithExclusions<ByteLayoutAttr, JsExportAttr>(S, D, Attr);
 }
 
 static void handleDefaultNewAttr(Sema &S, Decl *D, const AttributeList &Attr) {
@@ -7804,7 +7804,10 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
       Diag(D->getLocStart(), diag::err_attributes_are_not_compatible)
         << (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ? "'asmjs'" : "'wasm'")
         << D->getAttr<JsExportAttr>();
-    else
+    else if (D->hasAttr<PackedAttr>())
+      Diag(D->getLocStart(), diag::err_attributes_are_not_compatible)
+        << (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ? "'asmjs'" : "'wasm'")
+        << D->getAttr<PackedAttr>();
       D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::CXX11_cheerp_asmjs));
   } else if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_GenericJS) {
       D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::CXX11_cheerp_genericjs));
