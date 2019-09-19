@@ -20,7 +20,7 @@ declare double @llvm.sqrt.f64(double)
 
 define void @sqrt_2f64() #0 {
 ; CHECK-LABEL: @sqrt_2f64(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x double> @llvm.sqrt.v2f64(<2 x double> [[TMP1]])
 ; CHECK-NEXT:    store <2 x double> [[TMP2]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; CHECK-NEXT:    ret void
@@ -36,7 +36,7 @@ define void @sqrt_2f64() #0 {
 
 define void @sqrt_4f64() #0 {
 ; SSE-LABEL: @sqrt_4f64(
-; SSE-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 8
+; SSE-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 8
 ; SSE-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 2) to <2 x double>*), align 8
 ; SSE-NEXT:    [[TMP3:%.*]] = call <2 x double> @llvm.sqrt.v2f64(<2 x double> [[TMP1]])
 ; SSE-NEXT:    [[TMP4:%.*]] = call <2 x double> @llvm.sqrt.v2f64(<2 x double> [[TMP2]])
@@ -45,7 +45,7 @@ define void @sqrt_4f64() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @sqrt_4f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @src64 to <4 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = call <4 x double> @llvm.sqrt.v4f64(<4 x double> [[TMP1]])
 ; AVX-NEXT:    store <4 x double> [[TMP2]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    ret void
@@ -67,7 +67,7 @@ define void @sqrt_4f64() #0 {
 
 define void @sqrt_8f64() #0 {
 ; SSE-LABEL: @sqrt_8f64(
-; SSE-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @src64 to <2 x double>*), align 4
+; SSE-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <2 x double>*), align 4
 ; SSE-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 2) to <2 x double>*), align 4
 ; SSE-NEXT:    [[TMP3:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 4) to <2 x double>*), align 4
 ; SSE-NEXT:    [[TMP4:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 6) to <2 x double>*), align 4
@@ -82,7 +82,7 @@ define void @sqrt_8f64() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX256-LABEL: @sqrt_8f64(
-; AVX256-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @src64 to <4 x double>*), align 4
+; AVX256-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <4 x double>*), align 4
 ; AVX256-NEXT:    [[TMP2:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 4) to <4 x double>*), align 4
 ; AVX256-NEXT:    [[TMP3:%.*]] = call <4 x double> @llvm.sqrt.v4f64(<4 x double> [[TMP1]])
 ; AVX256-NEXT:    [[TMP4:%.*]] = call <4 x double> @llvm.sqrt.v4f64(<4 x double> [[TMP2]])
@@ -91,7 +91,7 @@ define void @sqrt_8f64() #0 {
 ; AVX256-NEXT:    ret void
 ;
 ; AVX512-LABEL: @sqrt_8f64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <8 x double> @llvm.sqrt.v8f64(<8 x double> [[TMP1]])
 ; AVX512-NEXT:    store <8 x double> [[TMP2]], <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <8 x double>*), align 4
 ; AVX512-NEXT:    ret void
@@ -125,7 +125,7 @@ define void @sqrt_8f64() #0 {
 
 define void @sqrt_4f32() #0 {
 ; CHECK-LABEL: @sqrt_4f32(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <4 x float> @llvm.sqrt.v4f32(<4 x float> [[TMP1]])
 ; CHECK-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    ret void
@@ -147,7 +147,7 @@ define void @sqrt_4f32() #0 {
 
 define void @sqrt_8f32() #0 {
 ; SSE-LABEL: @sqrt_8f32(
-; SSE-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; SSE-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 4) to <4 x float>*), align 4
 ; SSE-NEXT:    [[TMP3:%.*]] = call <4 x float> @llvm.sqrt.v4f32(<4 x float> [[TMP1]])
 ; SSE-NEXT:    [[TMP4:%.*]] = call <4 x float> @llvm.sqrt.v4f32(<4 x float> [[TMP2]])
@@ -156,7 +156,7 @@ define void @sqrt_8f32() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @sqrt_8f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.sqrt.v8f32(<8 x float> [[TMP1]])
 ; AVX-NEXT:    store <8 x float> [[TMP2]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    ret void
@@ -190,7 +190,7 @@ define void @sqrt_8f32() #0 {
 
 define void @sqrt_16f32() #0 {
 ; SSE-LABEL: @sqrt_16f32(
-; SSE-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @src32 to <4 x float>*), align 4
+; SSE-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <4 x float>*), align 4
 ; SSE-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 4) to <4 x float>*), align 4
 ; SSE-NEXT:    [[TMP3:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 8) to <4 x float>*), align 4
 ; SSE-NEXT:    [[TMP4:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 12) to <4 x float>*), align 4
@@ -205,7 +205,7 @@ define void @sqrt_16f32() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX256-LABEL: @sqrt_16f32(
-; AVX256-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @src32 to <8 x float>*), align 4
+; AVX256-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX256-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 8) to <8 x float>*), align 4
 ; AVX256-NEXT:    [[TMP3:%.*]] = call <8 x float> @llvm.sqrt.v8f32(<8 x float> [[TMP1]])
 ; AVX256-NEXT:    [[TMP4:%.*]] = call <8 x float> @llvm.sqrt.v8f32(<8 x float> [[TMP2]])
@@ -214,7 +214,7 @@ define void @sqrt_16f32() #0 {
 ; AVX256-NEXT:    ret void
 ;
 ; AVX512-LABEL: @sqrt_16f32(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @src32 to <16 x float>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @src32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    [[TMP2:%.*]] = call <16 x float> @llvm.sqrt.v16f32(<16 x float> [[TMP1]])
 ; AVX512-NEXT:    store <16 x float> [[TMP2]], <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    ret void
