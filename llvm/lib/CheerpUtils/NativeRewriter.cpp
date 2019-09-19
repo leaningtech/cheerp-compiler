@@ -146,9 +146,16 @@ void CheerpNativeRewriter::baseSubstitutionForBuiltin(User* i, Instruction* old,
  */
 bool CheerpNativeRewriter::isBuiltinType(const char* typeName, std::string& builtinName)
 {
-	if(strncmp(typeName, "class.", 6)!=0)
+	if(strncmp(typeName, "class.", 6)==0)
+	{
+		typeName+=6;
+	}
+	else if(strncmp(typeName, "struct.", 7)==0)
+	{
+		typeName+=7;
+	}
+	else
 		return false;
-	typeName+=6;
 	const char* mangledName;
 	int mangledNameLen;
 	if(findMangledClassName(typeName, mangledName, mangledNameLen)==false)
