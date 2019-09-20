@@ -309,6 +309,13 @@ bool PointerAnalyzer::runOnModule(Module& M)
 		}
 	}
 
+	SmallVector<ConstantExpr*, 4> ConstantGEPs;
+	ConstantExpr::getAllFromOpcode(ConstantGEPs, M.getContext(), Instruction::GetElementPtr);
+	for(ConstantExpr* GEP: ConstantGEPs)
+	{
+		globalsUsersQueue.push_back(GEP);
+	}
+
 	while(!globalsUsersQueue.empty())
 	{
 		const User* u = globalsUsersQueue.pop_back_val();
