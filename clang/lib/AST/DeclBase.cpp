@@ -1137,6 +1137,19 @@ bool DeclContext::isStdNamespace() const {
   return II && II->isStr("std");
 }
 
+bool DeclContext::isClientNamespace() const {
+  if (!isNamespace())
+    return false;
+  const auto *ND = cast<NamespaceDecl>(this);
+  if (ND->isInline()) {
+    return ND->getParent()->isClientNamespace();
+  }
+  if (!ND->getParent()->getRedeclContext()->isTranslationUnit())
+    return false;
+  const IdentifierInfo *II = ND->getIdentifier();
+  return II && II->isStr("client");
+};
+
 bool DeclContext::isDependentContext() const {
   if (isFileContext())
     return false;

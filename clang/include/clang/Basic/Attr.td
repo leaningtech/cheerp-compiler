@@ -1891,6 +1891,11 @@ def SafeCast : Attr {
   let Documentation = [Undocumented];
 }
 
+def ClientLayout : Attr {
+  let Spellings = [CXX11<"cheerp", "client_layout">, GNU<"cheerp_client_layout">];
+  let Documentation = [Undocumented];
+}
+
 def ObjCBridge : InheritableAttr {
   let Spellings = [Clang<"objc_bridge">];
   let Subjects = SubjectList<[Record, TypedefName], ErrorDiag>;

@@ -16339,6 +16339,16 @@ void Sema::ActOnStartCXXMemberDeclarations(Scope *S, Decl *TagD,
          "Broken injected-class-name");
 }
 
+// Check whether the class itself has the client_layout attribute, or if the first
+// base has the client layout, recursively
+static bool hasClientLayout(CXXRecordDecl* RD)
+{
+  if (RD->hasAttr<ClientLayoutAttr>())
+    return true;
+  if (RD->bases_begin() == RD->bases_end())
+    return false;
+  return hasClientLayout(RD->bases_begin()->getType()->getAsCXXRecordDecl());
+}
 void Sema::ActOnTagFinishDefinition(Scope *S, Decl *TagD,
                                     SourceRange BraceRange) {
   AdjustDeclIfTemplate(TagD);
@@ -16356,6 +16366,14 @@ void Sema::ActOnTagFinishDefinition(Scope *S, Decl *TagD,
     FieldCollector->FinishClass();
   }
 
+  if (!Context.getTargetInfo().isByteAddressable() &&
+      isa<CXXRecordDecl>(Tag) && Tag->getDeclContext()->isClientNamespace()) {
+    CXXRecordDecl* RD = cast<CXXRecordDecl>(Tag);
+    if (!hasClientLayout(RD)) {
+      Diag(RD->getLocStart(), diag::err_cheerp_missing_client_layout);
+    }
+
+  }
   // Exit this scope of this tag's definition.
   PopDeclContext();
 
