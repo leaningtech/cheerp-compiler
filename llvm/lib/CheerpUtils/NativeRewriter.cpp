@@ -332,7 +332,14 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	newFunc->setLinkage(F.getLinkage());
 	Function::arg_iterator origArg=++F.arg_begin();
 	Function::arg_iterator newArg=newFunc->arg_begin();
-	assert(lowerConstructor);
+	if (!lowerConstructor)
+	{
+		const char *startOfType, *endOfType;
+		isBuiltinConstructor(F.getName().data(), startOfType, endOfType);
+		std::string diag = "No native constructor found for class ";
+		diag.append(startOfType, endOfType-startOfType);
+		llvm::report_fatal_error(diag, false);
+	}
 	if(lowerConstructor->getType() != F.arg_begin()->getType())
 	{
 		lowerCast = new BitCastInst( lowerConstructor, F.arg_begin()->getType());
@@ -351,7 +358,8 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	CloneFunctionInto(newFunc, &F, valueMap, false, returns);
 
 	//Find the right place to add the base construtor call
-	assert(lowerConstructor->getNumArgOperands()<=1 && "Native constructors with multiple args are not supported");
+	if (lowerConstructor->getNumArgOperands()>1)
+		llvm::report_fatal_error("Native constructors with multiple args are not supported", false);
 	Instruction* callPred = NULL;
 	if (lowerConstructor->getNumArgOperands()==1 && Instruction::classof(lowerConstructor->getArgOperand(0)))
 	{
