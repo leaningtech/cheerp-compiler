@@ -274,7 +274,7 @@ void PointerConstantOffsetWrapper::dump() const
 
 char PointerAnalyzer::ID = 0;
 
-const char* PointerAnalyzer::getPassName() const
+StringRef PointerAnalyzer::getPassName() const
 {
 	return "CheerpPointerAnalyzer";
 }

@@ -59,7 +59,7 @@ namespace {
     explicit CheerpWasmWritePass(raw_ostream &o, cheerp::CheerpMode cheerpMode) :
       ModulePass(ID), Out(o), cheerpMode(cheerpMode) { }
     bool runOnModule(Module &M);
-    const char *getPassName() const {
+    StringRef getPassName() const {
 	return "CheerpWasmWritePass";
     }
   };

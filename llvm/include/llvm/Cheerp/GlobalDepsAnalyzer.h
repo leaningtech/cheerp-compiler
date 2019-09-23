@@ -159,7 +159,7 @@ public:
 private:
 	typedef llvm::SmallSet<const llvm::GlobalValue*, 8> VisitedSet;
 	
-	const char* getPassName() const override;
+	llvm::StringRef getPassName() const override;
 
 	void logUndefinedSymbol(const llvm::GlobalValue* GV);
 

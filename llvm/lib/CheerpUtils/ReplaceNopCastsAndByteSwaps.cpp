@@ -106,7 +106,7 @@ bool ReplaceNopCastsAndByteSwaps::processBasicBlock(BasicBlock& BB)
 	return Changed;
 }
 
-const char *ReplaceNopCastsAndByteSwaps::getPassName() const {
+StringRef ReplaceNopCastsAndByteSwaps::getPassName() const {
 	return "ReplaceNopCastsAndByteSwaps";
 }
 

@@ -23,7 +23,7 @@ using namespace llvm;
 namespace cheerp
 {
 
-const char *TypeOptimizer::getPassName() const {
+StringRef TypeOptimizer::getPassName() const {
 	return "TypeOptimizer";
 }
 

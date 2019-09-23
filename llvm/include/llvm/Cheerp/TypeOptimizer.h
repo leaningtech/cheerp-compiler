@@ -79,7 +79,7 @@ public:
 	static char ID;
 	explicit TypeOptimizer() : ModulePass(ID) { }
 	bool runOnModule(llvm::Module &M);
-	const char *getPassName() const;
+	llvm::StringRef getPassName() const;
 };
 
 //===----------------------------------------------------------------------===//

@@ -574,7 +574,7 @@ void GEPOptimizer::GEPRecursionData::compressGEPTree(const ShortGEPPolicy shortG
 	}
 }
 
-const char* GEPOptimizer::getPassName() const
+StringRef GEPOptimizer::getPassName() const
 {
 	return "GEPOptimizer";
 }

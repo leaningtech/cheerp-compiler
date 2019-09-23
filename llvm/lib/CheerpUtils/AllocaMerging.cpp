@@ -315,7 +315,7 @@ bool AllocaMerging::runOnFunction(Function& F)
 	return true;
 }
 
-const char *AllocaMerging::getPassName() const {
+StringRef AllocaMerging::getPassName() const {
 	return "AllocaMerging";
 }
 
@@ -591,7 +591,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 	return Changed;
 }
 
-const char *AllocaArraysMerging::getPassName() const {
+StringRef AllocaArraysMerging::getPassName() const {
 	return "AllocaArraysMerging";
 }
 
@@ -882,7 +882,7 @@ const AllocaStoresExtractor::OffsetToValueMap* AllocaStoresExtractor::getValuesF
 		return &it->second;
 }
 
-const char *AllocaStoresExtractor::getPassName() const {
+StringRef AllocaStoresExtractor::getPassName() const {
 	return "AllocaStoresExtractor";
 }
 

@@ -25,7 +25,7 @@ namespace {
 class FixFunctionCasts: public ModulePass {
 public:
 	FixFunctionCasts(): ModulePass(ID) {}
-	const char *getPassName() const override {
+	StringRef getPassName() const override {
 		return "FixFunctionCasts";
 	}
 	bool runOnModule(Module &M) override;
