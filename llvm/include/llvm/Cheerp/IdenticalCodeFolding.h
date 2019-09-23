@@ -48,7 +48,7 @@ public:
 
 private:
 	std::unordered_map<std::pair<const llvm::Instruction*, const llvm::Instruction*>, bool, pair_hash> equivalenceCache;
-	const char* getPassName() const override;
+	llvm::StringRef getPassName() const override;
 	uint64_t hashFunction(llvm::Function& F);
 
 	bool equivalentFunction(const llvm::Function* A, const llvm::Function* B);

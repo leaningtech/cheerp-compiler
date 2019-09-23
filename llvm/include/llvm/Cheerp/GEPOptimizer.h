@@ -860,7 +860,7 @@ public:
 	static char ID;
 	explicit GEPOptimizer() : FunctionPass(ID), DT(NULL) { }
 	bool runOnFunction(Function &F) override;
-	const char *getPassName() const override;
+	StringRef getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };

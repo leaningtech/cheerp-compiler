@@ -264,7 +264,7 @@ public:
 
 	bool runOnModule( llvm::Module & ) override;
 
-	const char *getPassName() const override;
+	llvm::StringRef getPassName() const override;
 
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
 	POINTER_KIND getPointerKindForReturn(const llvm::Function* F) const;

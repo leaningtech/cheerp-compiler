@@ -130,7 +130,7 @@ bool ByValLowering::runOnModule(Module& M)
 	return Modified;
 }
 
-const char* ByValLowering::getPassName() const
+StringRef ByValLowering::getPassName() const
 {
 	return "ByValLowering";
 }

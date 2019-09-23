@@ -35,7 +35,7 @@ using namespace std;
 char GlobalDepsAnalyzer::ID = 0;
 const char* wasmNullptrName = "__wasm_nullptr";
 
-const char* GlobalDepsAnalyzer::getPassName() const
+StringRef GlobalDepsAnalyzer::getPassName() const
 {
 	return "GlobalDepsAnalyzer";
 }

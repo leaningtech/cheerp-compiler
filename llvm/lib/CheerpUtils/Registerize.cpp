@@ -66,7 +66,7 @@ void Registerize::assignRegisters(Module & M, cheerp::PointerAnalyzer& PA)
 #endif
 }
 
-const char* Registerize::getPassName() const
+StringRef Registerize::getPassName() const
 {
 	return "CheerpRegisterize";
 }

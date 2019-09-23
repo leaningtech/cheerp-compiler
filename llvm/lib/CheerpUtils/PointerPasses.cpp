@@ -149,7 +149,7 @@ bool AllocaArrays::runOnFunction(Function& F)
 	return Changed;
 }
 
-const char* AllocaArrays::getPassName() const
+StringRef AllocaArrays::getPassName() const
 {
 	return "AllocaArrays";
 }
@@ -170,7 +170,7 @@ void AllocaArrays::getAnalysisUsage(AnalysisUsage & AU) const
 FunctionPass *createAllocaArraysPass() { return new AllocaArrays(); }
 
 
-const char* IndirectCallOptimizer::getPassName() const
+StringRef IndirectCallOptimizer::getPassName() const
 {
 	return "IndirectCallOptimizer";
 }
@@ -465,7 +465,7 @@ bool PointerArithmeticToArrayIndexing::runOnFunction(Function& F)
 	return Changed;
 }
 
-const char* PointerArithmeticToArrayIndexing::getPassName() const
+StringRef PointerArithmeticToArrayIndexing::getPassName() const
 {
 	return "PointerArithmeticToArrayIndexing";
 }
@@ -561,7 +561,7 @@ bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
 	return Changed;
 }
 
-const char* PointerToImmutablePHIRemoval::getPassName() const
+StringRef PointerToImmutablePHIRemoval::getPassName() const
 {
 	return "PointerToImmutablePHIRemoval";
 }
@@ -638,7 +638,7 @@ bool FreeAndDeleteRemoval::runOnFunction(Function& F)
 	return Changed;
 }
 
-const char* FreeAndDeleteRemoval::getPassName() const
+StringRef FreeAndDeleteRemoval::getPassName() const
 {
 	return "FreeAndDeleteRemoval";
 }
@@ -948,7 +948,7 @@ bool DelayInsts::runOnFunction(Function& F)
 	return Changed;
 }
 
-const char* DelayInsts::getPassName() const
+StringRef DelayInsts::getPassName() const
 {
 	return "DelayInsts";
 }

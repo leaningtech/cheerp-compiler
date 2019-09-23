@@ -28,7 +28,7 @@ public:
 
 	virtual bool runOnFunction(llvm::Function &F) override;
 	
-	virtual const char *getPassName() const override;
+	virtual llvm::StringRef getPassName() const override;
 	
 private:
 	bool processBasicBlock(llvm::BasicBlock & BB);

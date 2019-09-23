@@ -36,7 +36,7 @@ public:
 	static char ID;
 	explicit FixIrreducibleControlFlow() : FunctionPass(ID) { }
 	bool runOnFunction(Function &F) override;
-	const char *getPassName() const override;
+	StringRef getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 private:
