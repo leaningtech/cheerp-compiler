@@ -27,7 +27,7 @@ public:
 	static char ID;
 	explicit ByValLowering() : ModulePass(ID) { }
 	bool runOnModule(Module &M) override;
-	const char *getPassName() const override;
+	StringRef getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };

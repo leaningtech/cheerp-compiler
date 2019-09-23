@@ -18,7 +18,7 @@ namespace {
 
 class CheerpLowerSwitch: public LowerSwitch {
 public:
-	const char *getPassName() const override {
+	StringRef getPassName() const override {
 		return "CheerpLowerSwitch";
 	}
 	static char ID;

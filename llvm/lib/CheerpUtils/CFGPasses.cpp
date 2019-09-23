@@ -58,7 +58,7 @@ bool RemoveFwdBlocks::runOnFunction(Function& F)
 	}
 	return changed;
 }
-const char* RemoveFwdBlocks::getPassName() const
+StringRef RemoveFwdBlocks::getPassName() const
 {
 	return "RemoveFwdBlocks";
 }

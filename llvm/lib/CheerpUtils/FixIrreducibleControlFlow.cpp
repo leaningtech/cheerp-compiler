@@ -235,7 +235,7 @@ bool FixIrreducibleControlFlow::runOnFunction(Function& F)
 	return Changed;
 }
 
-const char* FixIrreducibleControlFlow::getPassName() const
+StringRef FixIrreducibleControlFlow::getPassName() const
 {
 	return "FixIrreducibleControlFlow";
 }

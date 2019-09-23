@@ -34,7 +34,7 @@ namespace cheerp {
 
 PreExecute* PreExecute::currentPreExecutePass = NULL;
 
-const char* PreExecute::getPassName() const
+StringRef PreExecute::getPassName() const
 {
     return "CheerpPreExecute";
 }

@@ -59,7 +59,7 @@ template <typename T> T *CopyDebug(T *New, Instruction *Original) {
   return New;
 }
 
-const char *ExpandStructRegs::getPassName() const {
+StringRef ExpandStructRegs::getPassName() const {
 	return "ExpandStructRegs";
 }
 

@@ -1230,7 +1230,7 @@ public:
 
 	bool runOnModule(llvm::Module& M) override;
 	
-	const char *getPassName() const override;
+	llvm::StringRef getPassName() const override;
 
 	uint32_t getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
 	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;

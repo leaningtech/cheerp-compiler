@@ -458,7 +458,7 @@ bool CheerpNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function&
 	return Changed;
 }
 
-const char *CheerpNativeRewriter::getPassName() const {
+StringRef CheerpNativeRewriter::getPassName() const {
 	return "CheerpNativeRewriter";
 }
 

@@ -292,7 +292,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 	return true;
 }
 
-const char* AllocaLowering::getPassName() const
+StringRef AllocaLowering::getPassName() const
 {
 	return "AllocaLowering";
 }
