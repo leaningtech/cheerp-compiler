@@ -844,16 +844,21 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
     // Create metadata with bases range
     if (RL->firstBaseElement != 0xffffffff)
     {
-      llvm::Metadata* basesRange[] = {llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, RL->firstBaseElement))};
-      llvm::MDNode* meta = llvm::MDNode::get(getLLVMContext(), basesRange);
-      llvm::NamedMDNode* basesMeta = TheModule.getOrInsertNamedMetadata((Ty->getName() + "_bases").str());
-      basesMeta->addOperand(meta);
-      // Do it also for the .base type, if needed
-      if(BaseTy && BaseTy != Ty && RL->firstBaseElement < BaseTy->getNumElements())
+      // If there is a .base type only assign the virtual bases to the primary type
+      uint32_t curFirstBase = RL->firstBaseElement;
+      if(BaseTy && BaseTy != Ty && curFirstBase < BaseTy->getNumElements())
       {
-        llvm::Metadata* basesRange[] = {llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, RL->firstBaseElement))};
+        llvm::Metadata* basesRange[] = {llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, curFirstBase))};
         llvm::MDNode* meta = llvm::MDNode::get(getLLVMContext(), basesRange);
         llvm::NamedMDNode* basesMeta = TheModule.getOrInsertNamedMetadata((BaseTy->getName() + "_bases").str());
+        basesMeta->addOperand(meta);
+        curFirstBase = BaseTy->getNumElements();
+      }
+      if(curFirstBase < Ty->getNumElements())
+      {
+        llvm::Metadata* basesRange[] = {llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(CGM.Int32Ty, curFirstBase))};
+        llvm::MDNode* meta = llvm::MDNode::get(getLLVMContext(), basesRange);
+        llvm::NamedMDNode* basesMeta = TheModule.getOrInsertNamedMetadata((Ty->getName() + "_bases").str());
         basesMeta->addOperand(meta);
       }
     }
