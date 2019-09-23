@@ -553,12 +553,7 @@ bool TypeSupport::getBasesInfo(const Module& module, const StructType* t, uint32
 {
 	const NamedMDNode* basesNamedMeta = getBasesMetadata(t, module);
 	if(!basesNamedMeta)
-	{
-		// Before giving up, check if the direct base has any bases
-		if(t->getDirectBase())
-			return getBasesInfo(module,t->getDirectBase(),firstBase,baseCount);
 		return false;
-	}
 
 	MDNode* basesMeta=basesNamedMeta->getOperand(0);
 	assert(basesMeta->getNumOperands()>=1);
@@ -575,11 +570,11 @@ bool TypeSupport::useWrapperArrayForMember(const PointerAnalyzer& PA, StructType
 	uint32_t firstBase, baseCount;
 	if(getBasesInfo(st, firstBase, baseCount))
 	{
-		if(st->getDirectBase() && memberIndex < st->getDirectBase()->getNumElements())
-			return useWrapperArrayForMember(PA, st->getDirectBase(), memberIndex);
 		if(memberIndex >= firstBase && memberIndex < (firstBase+baseCount) && st->getElementType(memberIndex)->isStructTy())
 			return false;
 	}
+	if(st->getDirectBase() && memberIndex < st->getDirectBase()->getNumElements())
+		return useWrapperArrayForMember(PA, st->getDirectBase(), memberIndex);
 	// We don't want to use the wrapper array if the downcast array is alredy available
 	TypeAndIndex baseAndIndex(st, memberIndex, TypeAndIndex::STRUCT_MEMBER);
 	assert(PA.getPointerKindForMember(baseAndIndex)!=SPLIT_REGULAR);
