@@ -26,7 +26,7 @@ public:
 	static char ID;
 	explicit ExpandStructRegs() : FunctionPass(ID), DL(NULL) { }
 	bool runOnFunction(Function &F);
-	const char *getPassName() const;
+	StringRef getPassName() const;
 };
 
 //===----------------------------------------------------------------------===//

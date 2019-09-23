@@ -44,7 +44,7 @@ public:
 	static char ID;
 	explicit CheerpNativeRewriter() : FunctionPass(ID) { }
 	bool runOnFunction(Function &F);
-	const char *getPassName() const;
+	StringRef getPassName() const;
 };
 
 //===----------------------------------------------------------------------===//

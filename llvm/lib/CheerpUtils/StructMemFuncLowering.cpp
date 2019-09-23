@@ -19,7 +19,7 @@ using namespace llvm;
 
 const unsigned INLINE_WRITE_LOOP_MAX = 128;
 
-const char *StructMemFuncLowering::getPassName() const {
+StringRef StructMemFuncLowering::getPassName() const {
 	return "StructMemFuncLowering";
 }
 

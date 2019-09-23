@@ -30,7 +30,7 @@ using namespace std;
 
 char IdenticalCodeFolding::ID = 0;
 
-const char* IdenticalCodeFolding::getPassName() const
+StringRef IdenticalCodeFolding::getPassName() const
 {
 	return "IdenticalCodeFolding";
 }

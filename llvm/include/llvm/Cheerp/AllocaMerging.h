@@ -45,7 +45,7 @@ public:
 	explicit AllocaMerging() : AllocaMergingBase(ID) { }
 	bool runOnFunctionLegacy(llvm::Function &F);
 	bool runOnFunction(llvm::Function &F);
-	const char *getPassName() const;
+	llvm::StringRef getPassName() const;
 	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
 };
 
@@ -58,7 +58,7 @@ public:
 	static char ID;
 	explicit AllocaArraysMerging() : AllocaMergingBase(ID) { }
 	bool runOnFunction(llvm::Function &F);
-	const char *getPassName() const;
+	llvm::StringRef getPassName() const;
 	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
 };
 
@@ -85,7 +85,7 @@ public:
 	static char ID;
 	explicit AllocaStoresExtractor() : llvm::ModulePass(ID), DL(nullptr), TLI(nullptr) { }
 	bool runOnModule(llvm::Module& M);
-	const char *getPassName() const;
+	llvm::StringRef getPassName() const;
 	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;
 	const OffsetToValueMap* getValuesForAlloca(const llvm::AllocaInst* AI) const;
 	// Removes the extracted stores, and clean up instructions which become dead afterwards
