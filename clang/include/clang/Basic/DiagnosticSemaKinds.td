@@ -10904,6 +10904,12 @@ def warn_cheerp_deprecated_attribute : Warning<
   "Cheerp: Unprefixed attribute %0 is deprecated. Add 'cheerp::' namespace">;
 def warn_cheerp_ptr_to_int : Warning<
   "Cheerp: Casting genericjs pointers to integers may be slow.">;
+def warn_cheerp_client_layout_ctor : Warning<
+  "Cheerp: This will be constructed in JavaScript with 'new %0'">;
+def note_cheerp_client_layout_ctor : Note<
+  "Cheerp: To construct it with 'new %0', make this a delegating constructor">;
+def note_cheerp_client_layout_ctor2 : Note<
+  "Cheerp: To suppress this warning, explicitly initialize the base class '%0'">;
 def err_cheerp_missing_special_definition : Error<
   "Cheerp: '%0' is undeclared">;
 def err_cheerp_field_not_supported : Error<
@@ -10961,6 +10967,8 @@ def err_cheerp_client_value : Error<
   "Cheerp: Objects of types declared in the 'client' namespace cannot be used as values">;
 def err_cheerp_missing_client_layout : Error<
   "Cheerp: classes in the 'client' namespace must have client::Object as their first base, either directly or indirectly">;
+def err_cheerp_client_layout_ctor : Error<
+  "Cheerp: Constructor definitions of classes in the 'client' namespace must delegate initialization to another constructor">;
 } // end of cheerp issue category
 
 } // end of sema component.

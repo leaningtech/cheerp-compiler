@@ -5134,6 +5134,26 @@ bool Sema::SetCtorInitializers(CXXConstructorDecl *Constructor, bool AnyErrors,
           = Info.AllBaseFields.lookup(Base.getType()->getAs<RecordType>())) {
       Info.AllToInit.push_back(Value);
     } else if (!AnyErrors) {
+      if (!Context.getTargetInfo().isByteAddressable() &&
+          ClassDecl->getDeclContext()->isClientNamespace() &&
+          &Base == ClassDecl->bases_begin() &&
+          Base.getType()->isRecordType() &&
+          !Constructor->isImplicit()) // TODO enable it for implicit constructors too
+      {
+        auto* BD = Base.getType()->getAsCXXRecordDecl();
+        Diag(Constructor->getSourceRange().getEnd(), diag::warn_cheerp_client_layout_ctor)
+          << BD->getName();
+        llvm::SmallString<256> Suggestion;
+        llvm::raw_svector_ostream(Suggestion) << ":" << ClassDecl->getName() << "(...)";
+        Diag(Constructor->getSourceRange().getEnd(), diag::note_cheerp_client_layout_ctor)
+         << ClassDecl->getName()
+         << FixItHint::CreateInsertion(Constructor->getSourceRange().getEnd(), Suggestion);
+        Suggestion.clear();
+        llvm::raw_svector_ostream(Suggestion) << ":" << BD->getName() << "(...)";
+        Diag(Constructor->getSourceRange().getEnd(), diag::note_cheerp_client_layout_ctor2)
+         << BD->getName()
+         << FixItHint::CreateInsertion(Constructor->getSourceRange().getEnd(), Suggestion);
+      }
       CXXCtorInitializer *CXXBaseInit;
       if (BuildImplicitBaseInitializer(*this, Constructor, Info.IIK,
                                        &Base, /*IsInheritedVirtualBase=*/false,
@@ -5144,6 +5164,14 @@ bool Sema::SetCtorInitializers(CXXConstructorDecl *Constructor, bool AnyErrors,
 
       Info.AllToInit.push_back(CXXBaseInit);
     }
+  }
+  if (!Context.getTargetInfo().isByteAddressable() &&
+      ClassDecl->getDeclContext()->isClientNamespace() &&
+      ClassDecl->bases_begin() == ClassDecl->bases_end() &&
+      !Constructor->isDelegatingConstructor())
+  {
+    Diag(Constructor->getSourceRange().getBegin(),
+                 diag::err_cheerp_client_layout_ctor);
   }
 
   // Fields.
