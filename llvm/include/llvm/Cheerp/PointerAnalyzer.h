@@ -256,6 +256,15 @@ public:
 		,fullyResolved(false)
 #endif //NDEBUG
 	{}
+	PointerAnalyzer(const PointerAnalyzer& other) : PointerAnalyzer()
+	{
+#ifndef NDEBUG
+		fullyResolved = other.fullyResolved;
+#endif //NDEBUG
+		pointerKindData = other.pointerKindData;
+		pointerOffsetData = other.pointerOffsetData;
+		addressTakenCache = other.addressTakenCache;
+	}
 
 	void prefetchFunc( const llvm::Function & ) const;
 	static char ID;
