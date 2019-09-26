@@ -10963,8 +10963,6 @@ def err_cheerp_asm_in_asmjs : Error<
   "Cheerp: Cannot use inline asm in a %0 function">;
 def err_cheerp_delete_client : Error<
   "Cheerp: Types declared in the 'client' namespace are managed by the JavaScript GC. Cannot delete.">;
-def err_cheerp_client_value : Error<
-  "Cheerp: Objects of types declared in the 'client' namespace cannot be used as values">;
 def err_cheerp_missing_client_layout : Error<
   "Cheerp: classes in the 'client' namespace must have client::Object as their first base, either directly or indirectly">;
 def err_cheerp_client_layout_ctor : Error<
