@@ -845,19 +845,17 @@ DelayInsts::InsertPoint DelayInsts::delayInst(const Instruction* I, const LoopIn
 	}
 
 	assert(isAlloca || I == finalInsertPoint.insertInst || DT->dominates(I, finalInsertPoint.insertInst));
-	movedAllocaMaps.emplace_back(I, finalInsertPoint);
+	movedAllocaMapsPerFunction[I->getParent()->getParent()].emplace_back(I, finalInsertPoint);
 	visited.insert(std::make_pair(I, finalInsertPoint));
 	return finalInsertPoint;
 }
 
-void DelayInsts::calculatePlacementOfInstructions(const Function& F, const bool moveAllocas)
+void DelayInsts::calculatePlacementOfInstructions(const Function& F, const bool moveAllocas, cheerp::InlineableCache& inlineableCache)
 {
-	const LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-	const DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	const cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
-	const PostDominatorTree* PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
+	const LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>(const_cast<Function &>(F)).getLoopInfo();
+	const DominatorTree* DT = &getAnalysis<DominatorTreeWrapperPass>(const_cast<Function &>(F)).getDomTree();
+	const PostDominatorTree* PDT = &getAnalysis<PostDominatorTreeWrapperPass>(const_cast<Function &>(F)).getPostDomTree();
 
-	cheerp::InlineableCache inlineableCache(PA);
 	for (const BasicBlock& BB : F )
 	{
 		for (BasicBlock::const_iterator it = BB.begin(); it != BB.end(); ++it)
@@ -867,16 +865,37 @@ void DelayInsts::calculatePlacementOfInstructions(const Function& F, const bool 
 	}
 }
 
+bool DelayInsts::runOnModule(Module& M)
+{
+	const cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
+	cheerp::InlineableCache inlineableCache(PA);
+	for (const auto& F : M)
+	{
+		if (F.isDeclaration())
+			continue;
+		const bool moveAllocas = F.getSection()==StringRef("");
+
+		// Calculate where all the function should be placed
+		calculatePlacementOfInstructions(F, moveAllocas, inlineableCache);
+	}
+	bool Changed = false;
+	for (auto& F : M)
+	{
+		if (F.isDeclaration())
+			continue;
+		Changed |= runOnFunction(F);
+	}
+	return Changed;
+}
+
 bool DelayInsts::runOnFunction(Function& F)
 {
-	assert(visited.empty());
-	assert(movedAllocaMaps.empty());
+	const auto& movedAllocaMaps = movedAllocaMapsPerFunction[&F];
 
 	// Only move allocas on genericjs
 	const bool moveAllocas = F.getSection()==StringRef("");
 
 	// Calculate where all the function should be placed
-	calculatePlacementOfInstructions(F, moveAllocas);
 
 	// Checks wheteher anything has actually changed/has been invalidated
 	bool Changed = false;
@@ -943,8 +962,6 @@ bool DelayInsts::runOnFunction(Function& F)
 	}
 	if(allocaInvalidated)
 		registerize.computeLiveRangeForAllocas(F);
-	visited.clear();
-	movedAllocaMaps.clear();
 	return Changed;
 }
 
@@ -968,7 +985,7 @@ void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
-FunctionPass *createDelayInstsPass() { return new DelayInsts(); }
+ModulePass *createDelayInstsPass() { return new DelayInsts(); }
 
 }
 
