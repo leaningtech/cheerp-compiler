@@ -7460,7 +7460,8 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     CompleteMemberSpecialization(NewVD, Previous);
 
   // CHEERP: Disallow variables with global storage from having an attribute
-  // incompatible with the attribute of their type
+  // incompatible with the attribute of their type.
+  // Also forbid globals of value types with client layout.
   if (NewVD->hasGlobalStorage()) {
     if (NewVD->hasAttr<AsmJSAttr>() && isGenericJSValue(NewVD->getType())) {
       Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes)
@@ -7471,6 +7472,11 @@ NamedDecl *Sema::ActOnVariableDeclarator(
       Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes)
         << NewVD->getAttr<GenericJSAttr>() << "global variable" << NewVD
         << getAsmJSAttr(NewVD->getType()) << "type" << NewVD->getType();
+    }
+    if (auto* RD = NewVD->getType()->getAsCXXRecordDecl()) {
+      if (RD->getDeclContext()->isClientNamespace() && !NewVD->hasExternalStorage()) {
+        Diag(NewVD->getLocation(), diag::err_cheerp_client_layout_lvalue);
+      }
     }
   } else {
     // CHEERP: Disallow explicitly putting the cheerp attributes on local variables
@@ -7486,9 +7492,16 @@ NamedDecl *Sema::ActOnVariableDeclarator(
       if (FD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(NewVD->getType())) {
         Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes)
           << NewVD->getAttr<AsmJSAttr>() << "local variable" << NewVD
-	    << FD->getAttr<AsmJSAttr>() << "function" << FD;
+          << FD->getAttr<AsmJSAttr>() << "function" << FD;
       }
     }
+    // CHEERP: Also forbid locals of value types with client layout
+    if (auto* RD = NewVD->getType()->getAsCXXRecordDecl()) {
+      if (RD->getDeclContext()->isClientNamespace() && !NewVD->hasExternalStorage()) {
+        Diag(NewVD->getLocation(), diag::err_cheerp_client_layout_lvalue);
+      }
+    }
+
   }
   return NewVD;
 }

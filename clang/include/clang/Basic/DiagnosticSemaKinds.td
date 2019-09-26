@@ -10969,6 +10969,8 @@ def err_cheerp_missing_client_layout : Error<
   "Cheerp: classes in the 'client' namespace must have client::Object as their first base, either directly or indirectly">;
 def err_cheerp_client_layout_ctor : Error<
   "Cheerp: Constructor definitions of classes in the 'client' namespace must delegate initialization to another constructor">;
+def err_cheerp_client_layout_lvalue : Error<
+  "Cheerp: Types defined in the client namespace can only be used through pointers and references">;
 } // end of cheerp issue category
 
 } // end of sema component.
