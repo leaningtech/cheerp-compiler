@@ -154,7 +154,7 @@ FunctionPass *createFreeAndDeleteRemovalPass();
 /**
  * This pass moves instructions as close as possible to the actual users
  */
-class DelayInsts: public FunctionPass
+class DelayInsts: public ModulePass
 {
 private:
 	struct InsertPoint
@@ -181,9 +181,9 @@ private:
 		}
 	};
 	InsertPoint delayInst(const Instruction* I, const LoopInfo* LI, const DominatorTree* DT, const PostDominatorTree* PDT, cheerp::InlineableCache& inlineableCache, bool moveAllocas);
-	void calculatePlacementOfInstructions(const Function& F, const bool moveAllocas);
+	void calculatePlacementOfInstructions(const Function& F, const bool moveAllocas, cheerp::InlineableCache& inlineableCache);
 	std::unordered_map<const Instruction*, InsertPoint> visited;
-	std::vector<std::pair<const Instruction*, InsertPoint>> movedAllocaMaps;
+	std::unordered_map<const Function*, std::vector<std::pair<const Instruction*, InsertPoint>>> movedAllocaMapsPerFunction;
 
 	/**
 	 * Return the count of registers used, capped at 2 for speed
@@ -191,8 +191,9 @@ private:
 	uint32_t countInputRegisters(const Instruction* I, cheerp::InlineableCache& inlineableCache) const;
 public:
 	static char ID;
-	explicit DelayInsts() : FunctionPass(ID) { }
-	bool runOnFunction(Function &F) override;
+	explicit DelayInsts() : ModulePass(ID) { }
+	bool runOnModule(Module &M) override;
+	bool runOnFunction(Function &F);
 	StringRef getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
@@ -202,7 +203,7 @@ public:
 //
 // DelayInsts
 //
-FunctionPass *createDelayInstsPass();
+ModulePass *createDelayInstsPass();
 
 }
 #endif
