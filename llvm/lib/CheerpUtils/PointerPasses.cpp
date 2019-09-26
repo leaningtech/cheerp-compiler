@@ -867,7 +867,14 @@ void DelayInsts::calculatePlacementOfInstructions(const Function& F, const bool 
 
 bool DelayInsts::runOnModule(Module& M)
 {
-	const cheerp::PointerAnalyzer& PA = getAnalysis<cheerp::PointerAnalyzer>();
+	//Build an exact copy of the current PA state, and call fullResolve on it
+	//This is because all calls to calculatePlacementOfInstructions will not change the topology of the PA graph,
+	//and so not modify it's results
+	//
+	//TODO: this method could be generalized by using the PassManager, and having a PointerAnalyzerBase and a PointerAnalyzerFullResolved
+	//		then PointerAnalyzerFullResolved could be saved between passes if not invalidated
+	cheerp::PointerAnalyzer PA(getAnalysis<cheerp::PointerAnalyzer>());
+	PA.fullResolve();
 	cheerp::InlineableCache inlineableCache(PA);
 	for (const auto& F : M)
 	{
