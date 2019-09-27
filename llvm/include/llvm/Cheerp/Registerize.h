@@ -1236,8 +1236,8 @@ public:
 	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 
 	void assignRegisters(llvm::Module& M, cheerp::PointerAnalyzer& PA);
-	void computeLiveRangeForAllocas(llvm::Function& F);
-	void invalidateLiveRangeForAllocas(llvm::Function& F);
+	void computeLiveRangeForAllocas(const llvm::Function& F);
+	void invalidateLiveRangeForAllocas(const llvm::Function& F);
 
 	const LiveRange& getLiveRangeForAlloca(const llvm::AllocaInst* alloca) const
 	{
