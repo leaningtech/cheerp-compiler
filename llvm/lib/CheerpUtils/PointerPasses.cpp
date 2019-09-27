@@ -861,7 +861,13 @@ DelayInsts::InsertPoint DelayInsts::delayInst(const Instruction* I, const LoopIn
 void DelayInsts::instructionToBeMoved(const Instruction* I, const InsertPoint& insertPoint)
 {
 	const Function* F = I->getParent()->getParent();
-	movedAllocaMapsPerFunction[F].emplace_back(I, insertPoint);
+	auto& vectorOfStacks = movedInstructionsPerFunction;
+	if (vectorOfStacks.size() == 0 || vectorOfStacks.back().first != F)
+	{
+		//Start a new stack for the current function
+		vectorOfStacks.push_back({F,{}});
+	}
+	vectorOfStacks.back().second.push({I, insertPoint});
 
 	if(insertPoint.insertInst == I)
 		return;
@@ -932,11 +938,11 @@ bool DelayInsts::runOnModule(Module& M)
 		registerize.invalidateLiveRangeForAllocas(*F);
 	}
 
-	for (auto& F : M)
+	//Actually move the Instructions
+	for (std::pair<const Function*, StackInstructionsLocations>& p: movedInstructionsPerFunction)
 	{
-		if (F.isDeclaration())
-			continue;
-		runOnFunction(F);
+		//We need to cast away the constness
+		moveOnFunction(const_cast<Function&>(*p.first), p.second);
 	}
 
 	//Restore Registerize invariants
@@ -948,21 +954,21 @@ bool DelayInsts::runOnModule(Module& M)
 	return Changed;
 }
 
-void DelayInsts::runOnFunction(Function& F)
+void DelayInsts::moveOnFunction(Function& F, StackInstructionsLocations& stackInstructionsToBeMoved)
 {
-	const auto& movedAllocaMaps = movedAllocaMapsPerFunction[&F];
-
-
 	// Create forward blocks as required, unique them based on the source/target
 	std::map<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>, llvm::BasicBlock*> forwardBlocks;
-	for(auto it = movedAllocaMaps.rbegin(); it != movedAllocaMaps.rend(); ++it)
+	while(!stackInstructionsToBeMoved.empty())
 	{
+		auto it = stackInstructionsToBeMoved.top();
+		stackInstructionsToBeMoved.pop();
 		// Here we need to trow the constness away to actually modify the function
-		Instruction* I = const_cast<Instruction*>(it->first);
-		if(it->second.source)
+		Instruction* I = const_cast<Instruction*>(it.first);
+		InsertPoint& insertPoint = it.second;
+		if(it.second.source)
 		{
-			BasicBlock* source = const_cast<BasicBlock*>(it->second.source);
-			BasicBlock* target = const_cast<BasicBlock*>(it->second.target);
+			BasicBlock* source = const_cast<BasicBlock*>(insertPoint.source);
+			BasicBlock* target = const_cast<BasicBlock*>(insertPoint.target);
 			assert(target);
 			auto fwd = forwardBlocks.find(std::make_pair(source, target));
 			if(fwd == forwardBlocks.end())
@@ -992,7 +998,7 @@ void DelayInsts::runOnFunction(Function& F)
 		}
 		else
 		{
-			Instruction* insertInst = const_cast<Instruction*>(it->second.insertInst);
+			Instruction* insertInst = const_cast<Instruction*>(insertPoint.insertInst);
 			I->moveBefore(insertInst);
 		}
 	}
