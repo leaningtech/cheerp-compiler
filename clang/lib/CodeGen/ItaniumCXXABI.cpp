@@ -688,8 +688,9 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   // Load the function pointer.
   llvm::Value *FnAsInt = Builder.CreateExtractValue(MemFnPtr, 0, "memptr.ptr");
   
-  if (!CGF.getTarget().isByteAddressable())
-    return Builder.CreateBitCast(FnAsInt, FTy->getPointerTo(), "memptr.nonvirtualfn");
+  if (!CGF.getTarget().isByteAddressable()) {
+    return CGCallee(FPT, Builder.CreateBitCast(FnAsInt, FTy->getPointerTo(), "memptr.nonvirtualfn"));
+  }
 
   // If the LSB in the function pointer is 1, the function pointer points to
   // a virtual function.

@@ -398,8 +398,7 @@ void CodeGenFunction::EmitCallAndReturnForThunk(llvm::FunctionCallee Callee,
 
   // Now emit our call.
   llvm::CallBase *CallOrInvoke;
-  RValue RV = EmitCall(*CurFnInfo, CGCallee::forDirect(Callee, CurGD), Slot,
-                       CallArgs, &CallOrInvoke);
+  RValue RV = EmitCall(*CurFnInfo, CGCallee::forDirect(Callee, CurGD), Slot, CallArgs, &CallOrInvoke);
 
   // Consider return adjustment if we have ThunkInfo.
   if (Thunk && !Thunk->Return.isEmpty())
@@ -489,18 +488,21 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
   else
     Ty = CGM.getTypes().GetFunctionType(FnInfo);
 
-  llvm::Constant *Callee = nullptr;
+  CGCallee Callee;
   if(Thunk.isMemberPointerThunk && OriginalMethod->isVirtual())
     Callee = CGM.getCXXABI().getVirtualFunctionPointer(*this, OriginalMethod, LoadCXXThisAddress(), Ty, SourceLocation());
   else
-    Callee = CGM.GetAddrOfFunction(GD, Ty, /*ForVTable=*/true);
+  {
+    const CXXMethodDecl *MD = cast<CXXMethodDecl>(CurGD.getDecl());
+    Callee = CGCallee::forDirect(CGM.GetAddrOfFunction(GD, Ty, /*ForVTable=*/true), GD);
+  }
 
   // Fix up the function type for an unprototyped musttail call.
   if (IsUnprototyped)
     Callee = llvm::ConstantExpr::getBitCast(Callee, Fn->getType());
 
   // Make the call and return the result.
-  EmitCallAndReturnForThunk(llvm::FunctionCallee(Fn->getFunctionType(), Callee),
+  EmitCallAndReturnForThunk(llvm::FunctionCallee(Fn->getFunctionType(), Callee.getFunctionPointer()),
                             &Thunk, IsUnprototyped);
 }
 
