@@ -21,6 +21,7 @@
 #include "llvm/Cheerp/Utility.h"
 
 #include <functional>
+#include <stack>
 #include <unordered_map>
 
 namespace llvm
@@ -185,8 +186,11 @@ private:
 	void calculatePlacementOfInstructions(const Function& F, cheerp::InlineableCache& inlineableCache);
 	void calculatePlacementOfInstructions(const Module& M);
 
+	typedef std::pair<const Instruction*, InsertPoint> PairInstructionLocation;
+	typedef std::stack<PairInstructionLocation> StackInstructionsLocations;
+
 	std::unordered_map<const Instruction*, InsertPoint> visited;
-	std::unordered_map<const Function*, std::vector<std::pair<const Instruction*, InsertPoint>>> movedAllocaMapsPerFunction;
+	std::vector<std::pair<const Function*, StackInstructionsLocations>> movedInstructionsPerFunction;
 	std::unordered_set<const Function*> movedAllocaOnFunction;
 	bool Changed;
 
@@ -194,7 +198,7 @@ private:
 	 * Return the count of registers used, capped at 2 for speed
 	 */
 	uint32_t countInputRegisters(const Instruction* I, cheerp::InlineableCache& inlineableCache) const;
-	void runOnFunction(Function &F);
+	void moveOnFunction(Function &F, StackInstructionsLocations& stackInstructionsToBeMoved);
 public:
 	static char ID;
 	explicit DelayInsts() : ModulePass(ID) { }
