@@ -136,13 +136,14 @@ void Registerize::assignRegistersToInstructions(Function& F, cheerp::PointerAnal
 #endif
 }
 
-void Registerize::computeLiveRangeForAllocas(Function& F)
+void Registerize::computeLiveRangeForAllocas(const Function& F)
 {
 	assert(!RegistersAssigned);
 	if (F.empty())
 		return;
-	DT = &getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-	PDT = &getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
+	//We need to cast away the cast since data will be memoized by the (post-)dominator tree builder
+	DT = &getAnalysis<DominatorTreeWrapperPass>(const_cast<Function&>(F)).getDomTree();
+	PDT = &getAnalysis<PostDominatorTreeWrapperPass>(const_cast<Function&>(F)).getPostDomTree();
 	AllocaSetTy allocaSet;
 	InstIdMapTy instIdMap;
 	// Assign sequential identifiers to all instructions
@@ -3525,7 +3526,7 @@ Registerize::UpAndMarkAllocaState Registerize::doUpAndMarkForAlloca(AllocaBlocks
 	return finalState;
 }
 
-void Registerize::invalidateLiveRangeForAllocas(llvm::Function& F)
+void Registerize::invalidateLiveRangeForAllocas(const llvm::Function& F)
 {
 	assert(!RegistersAssigned);
 	for(const llvm::BasicBlock& BB: F)
