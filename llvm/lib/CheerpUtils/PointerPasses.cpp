@@ -896,6 +896,8 @@ void DelayInsts::calculatePlacementOfInstructions(const Function& F, cheerp::Inl
 			delayInst(&*it, LI, DT, PDT, inlineableCache, moveAllocas);
 		}
 	}
+	//visited caches the result of delayInst, but the cache can be cleared since we will only visit other functions
+	visited.clear();
 }
 
 void DelayInsts::calculatePlacementOfInstructions(const Module& M)
