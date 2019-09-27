@@ -181,19 +181,24 @@ private:
 		}
 	};
 	InsertPoint delayInst(const Instruction* I, const LoopInfo* LI, const DominatorTree* DT, const PostDominatorTree* PDT, cheerp::InlineableCache& inlineableCache, bool moveAllocas);
-	void calculatePlacementOfInstructions(const Function& F, const bool moveAllocas, cheerp::InlineableCache& inlineableCache);
+	void instructionToBeMoved(const Instruction* I, const InsertPoint& insertionPoint);
+	void calculatePlacementOfInstructions(const Function& F, cheerp::InlineableCache& inlineableCache);
+	void calculatePlacementOfInstructions(const Module& M);
+
 	std::unordered_map<const Instruction*, InsertPoint> visited;
 	std::unordered_map<const Function*, std::vector<std::pair<const Instruction*, InsertPoint>>> movedAllocaMapsPerFunction;
+	std::unordered_set<const Function*> movedAllocaOnFunction;
+	bool Changed;
 
 	/**
 	 * Return the count of registers used, capped at 2 for speed
 	 */
 	uint32_t countInputRegisters(const Instruction* I, cheerp::InlineableCache& inlineableCache) const;
+	void runOnFunction(Function &F);
 public:
 	static char ID;
 	explicit DelayInsts() : ModulePass(ID) { }
 	bool runOnModule(Module &M) override;
-	bool runOnFunction(Function &F);
 	StringRef getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
