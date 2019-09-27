@@ -1446,10 +1446,13 @@ private:
 		CompareInstructionByID(const InstIdMapTy& i):instIdMap(&i)
 		{
 		}
-		bool operator()(const llvm::Instruction* l, const llvm::Instruction*r) const
+		bool operator()(const llvm::Instruction* L, const llvm::Instruction* R) const
 		{
-			assert(instIdMap->count(l) && instIdMap->count(r));
-			return instIdMap->find(l)->second < instIdMap->find(r)->second;
+			auto l = instIdMap->find(L);
+			assert(l != instIdMap->end());
+			auto r = instIdMap->find(R);
+			assert(r != instIdMap->end());
+			return l->second < r->second;
 		}
 	};
 	// Map from instructions to their live ranges
