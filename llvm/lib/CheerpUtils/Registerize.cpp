@@ -237,7 +237,7 @@ void Registerize::doUpAndMark(BlocksState& blocksState, BasicBlock* BB, Instruct
 void Registerize::assignInstructionsIds(InstIdMapTy& instIdMap, const Function& F, AllocaSetTy& allocaSet, const PointerAnalyzer* PA)
 {
 	SmallVector<const BasicBlock*, 4> bbQueue;
-	std::set<const BasicBlock*> doneBlocks;
+	llvm::DenseSet<const BasicBlock*> doneBlocks;
 	uint32_t nextIndex = 1;
 
 	bbQueue.push_back(&F.getEntryBlock());
