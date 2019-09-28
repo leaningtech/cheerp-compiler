@@ -250,8 +250,8 @@ public:
 class PointerAnalyzer : public llvm::ModulePass
 {
 public:
-	PointerAnalyzer() : 
-		ModulePass(ID)
+	PointerAnalyzer() :
+		ModulePass(ID), PACache(status)
 	{
 		status = MODIFICABLE;
 	}
@@ -334,21 +334,39 @@ public:
 
 	typedef PointerData<PointerKindWrapper> PointerKindData;
 	typedef PointerData<PointerConstantOffsetWrapper> PointerOffsetData;
+	enum PAstatus{MODIFICABLE, CACHING_STARTED, FULL_RESOLVED} status;
 
-	struct PointerAnalyzerCache
+	class PointerAnalyzerCache
 	{
+	public:
+		PointerAnalyzerCache(PAstatus& status)
+			: status(status)
+		{
+		}
+		bool mayCache() const
+		{
+			return status != MODIFICABLE;
+		}
+		PointerAnalyzerCache& operator=(const PointerAnalyzerCache& other)
+		{
+			pointerKindData = other.pointerKindData;
+			pointerOffsetData = other.pointerOffsetData;
+			addressTakenCache = other.addressTakenCache;
+
+			return *this;
+		}
 		PointerKindData pointerKindData;
 		PointerOffsetData pointerOffsetData;
 		AddressTakenMap addressTakenCache;
+	private:
+		PAstatus& status;
 	};
 	mutable PointerAnalyzerCache PACache;
 
 	static REGULAR_POINTER_PREFERENCE getRegularPreference(const IndirectPointerKindConstraint& c, PointerAnalyzerCache& cache);
 	static POINTER_KIND getPointerKindForMemberImpl(const TypeAndIndex& baseAndIndex, PointerAnalyzerCache& cache);
 private:
-	enum PAstatus{MODIFICABLE, CACHING_STARTED, FULL_RESOLVED} status;
 	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Value*) const;
-
 };
 
 #ifndef NDEBUG
