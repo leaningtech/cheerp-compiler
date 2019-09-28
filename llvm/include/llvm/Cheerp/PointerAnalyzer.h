@@ -257,9 +257,7 @@ public:
 	}
 	PointerAnalyzer(const PointerAnalyzer& other) : PointerAnalyzer()
 	{
-		pointerKindData = other.pointerKindData;
-		pointerOffsetData = other.pointerOffsetData;
-		addressTakenCache = other.addressTakenCache;
+		PACache = other.PACache;
 		status = other.status;
 	}
 
@@ -337,14 +335,20 @@ public:
 	typedef PointerData<PointerKindWrapper> PointerKindData;
 	typedef PointerData<PointerConstantOffsetWrapper> PointerOffsetData;
 
-	static REGULAR_POINTER_PREFERENCE getRegularPreference(const IndirectPointerKindConstraint& c, PointerKindData& pointerKindData, AddressTakenMap& addressTakenCache);
-	static POINTER_KIND getPointerKindForMemberImpl(const TypeAndIndex& baseAndIndex, PointerKindData& pointerKindData, AddressTakenMap& addressTakenCache);
+	struct PointerAnalyzerCache
+	{
+		PointerKindData pointerKindData;
+		PointerOffsetData pointerOffsetData;
+		AddressTakenMap addressTakenCache;
+	};
+	mutable PointerAnalyzerCache PACache;
+
+	static REGULAR_POINTER_PREFERENCE getRegularPreference(const IndirectPointerKindConstraint& c, PointerAnalyzerCache& cache);
+	static POINTER_KIND getPointerKindForMemberImpl(const TypeAndIndex& baseAndIndex, PointerAnalyzerCache& cache);
 private:
 	enum PAstatus{MODIFICABLE, CACHING_STARTED, FULL_RESOLVED} status;
 	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Value*) const;
-	mutable PointerKindData pointerKindData;
-	mutable PointerOffsetData pointerOffsetData;
-	mutable AddressTakenMap addressTakenCache;
+
 };
 
 #ifndef NDEBUG
