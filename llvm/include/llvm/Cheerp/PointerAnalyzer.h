@@ -252,18 +252,15 @@ class PointerAnalyzer : public llvm::ModulePass
 public:
 	PointerAnalyzer() : 
 		ModulePass(ID)
-#ifndef NDEBUG
-		,fullyResolved(false)
-#endif //NDEBUG
-	{}
+	{
+		status = MODIFICABLE;
+	}
 	PointerAnalyzer(const PointerAnalyzer& other) : PointerAnalyzer()
 	{
-#ifndef NDEBUG
-		fullyResolved = other.fullyResolved;
-#endif //NDEBUG
 		pointerKindData = other.pointerKindData;
 		pointerOffsetData = other.pointerOffsetData;
 		addressTakenCache = other.addressTakenCache;
+		status = other.status;
 	}
 
 	void prefetchFunc( const llvm::Function & ) const;
@@ -299,7 +296,6 @@ public:
 	void computeConstantOffsets(const llvm::Module& M );
 
 #ifndef NDEBUG
-	mutable bool fullyResolved;
 	// Dump a pointer value info
 	void dumpPointer(const llvm::Value * v, bool dumpOwnerFuncion = true) const;
 #endif //NDEBUG
@@ -344,6 +340,7 @@ public:
 	static REGULAR_POINTER_PREFERENCE getRegularPreference(const IndirectPointerKindConstraint& c, PointerKindData& pointerKindData, AddressTakenMap& addressTakenCache);
 	static POINTER_KIND getPointerKindForMemberImpl(const TypeAndIndex& baseAndIndex, PointerKindData& pointerKindData, AddressTakenMap& addressTakenCache);
 private:
+	enum PAstatus{MODIFICABLE, CACHING_STARTED, FULL_RESOLVED} status;
 	const PointerConstantOffsetWrapper& getFinalPointerConstantOffsetWrapper(const llvm::Value*) const;
 	mutable PointerKindData pointerKindData;
 	mutable PointerOffsetData pointerOffsetData;
