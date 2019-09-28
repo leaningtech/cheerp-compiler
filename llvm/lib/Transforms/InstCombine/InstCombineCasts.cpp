@@ -2352,6 +2352,11 @@ Instruction *InstCombinerImpl::optimizeBitCastFromPhi(CastInst &CI,
         continue;
 
       if (auto *LI = dyn_cast<LoadInst>(IncValue)) {
+        // Cheerp: On native load + bitcasts can be fused, but that's type unsafe
+        // We disable the transformation for loads since that just adds more bitcasts
+        // which, in turn, may cause infinite loops here
+        if (!DL.isByteAddressable())
+          return nullptr;
         // If there is a sequence of one or more load instructions, each loaded
         // value is used as address of later load instruction, bitcast is
         // necessary to change the value type, don't optimize it. For
