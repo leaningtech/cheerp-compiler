@@ -1638,9 +1638,8 @@ const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForMember( const Type
 
 void PointerAnalyzer::invalidate(const Value * v)
 {
-#ifndef NDEBUG
-	assert(!fullyResolved);
-#endif
+	assert(status == MODIFICABLE);
+
 	if ( pointerKindData.valueMap.erase(v) )
 	{
 		const User * u = dyn_cast<User>(v);
@@ -1672,6 +1671,9 @@ void PointerAnalyzer::invalidate(const Value * v)
 
 void PointerAnalyzer::fullResolve()
 {
+	if (status == FULL_RESOLVED)
+		return;
+	status = CACHING_STARTED;
 	for(auto& it: pointerKindData.argsMap)
 	{
 		if(it.second!=INDIRECT)
@@ -1723,16 +1725,13 @@ void PointerAnalyzer::fullResolve()
 		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR || k==SPLIT_REGULAR);
 		it.second = k;
 	}
-#ifndef NDEBUG
-	fullyResolved = true;
-#endif
+	status = FULL_RESOLVED;
 }
 
 void PointerAnalyzer::computeConstantOffsets(const Module& M)
 {
-#ifndef NDEBUG
-	assert(fullyResolved);
-#endif
+	assert(status == FULL_RESOLVED);
+
 	for(const Function & F : M)
 	{
 		for(const BasicBlock & BB : F)
