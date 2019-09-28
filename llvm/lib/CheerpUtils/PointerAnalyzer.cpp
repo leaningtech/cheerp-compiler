@@ -983,6 +983,9 @@ const T& PointerResolverBaseVisitor<T>::resolveConstraint(const IndirectPointerK
 
 void PointerResolverForKindVisitor::cacheResolvedConstraint(const IndirectPointerKindConstraint& c, const PointerKindWrapper& t)
 {
+	//It's possible that this is called without the global state allowing caching
+	if (!cache.mayCache())
+		return;
 	switch(c.kind)
 	{
 		case DIRECT_ARG_CONSTRAINT:
@@ -1065,14 +1068,19 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKindImpl(
 		{
 			bool subMayCache = initialMayCache;
 			const PointerKindWrapper& resolvedKind=resolvePointerKindImpl(retKind, subMayCache);
+			if(resolvedKind==REGULAR)
+			{
+				cacheResolvedConstraint(*constraint, resolvedKind);
+				mayCache = true;
+				return resolvedKind;
+			}
+
 			if(subMayCache)
 				cacheResolvedConstraint(*constraint, resolvedKind);
 			else
 				mayCache = false;
 
-			if(resolvedKind==REGULAR)
-				return resolvedKind;
-			else if(resolvedKind==SPLIT_REGULAR)
+			if(resolvedKind==SPLIT_REGULAR)
 				tmpRet = &resolvedKind;
 		}
 	}
