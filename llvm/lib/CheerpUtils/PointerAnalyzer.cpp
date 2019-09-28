@@ -1027,12 +1027,13 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 
 const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKindImpl(const PointerKindWrapper& k, bool& mayCache)
 {
-	mayCache = false;
-
 	assert(k==INDIRECT);
 
 	if (k.isBeingVisited)
+	{
+		mayCache = false;
 		return PointerKindWrapper::staticDefaultValue;
+	}
 	k.isBeingVisited = true;
 	visitedPKW.push_back(&k);
 
@@ -1052,7 +1053,10 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKindImpl(
 		const PointerKindWrapper& retKind=resolveConstraint(*constraint);
 		assert(retKind.isKnown());
 		if (retKind.isBeingVisited)
+		{
+			mayCache = false;
 			continue;
+		}
 		if(retKind==REGULAR || retKind==BYTE_LAYOUT)
 			return retKind;
 		else if(retKind == SPLIT_REGULAR)
