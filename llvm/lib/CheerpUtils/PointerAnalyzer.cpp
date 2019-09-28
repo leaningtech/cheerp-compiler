@@ -398,7 +398,8 @@ struct PointerResolverForKindVisitor: public PointerResolverBaseVisitor<PointerK
 {
 	PointerResolverForKindVisitor(PointerAnalyzer::PointerAnalyzerCache& cache) :
 				PointerResolverBaseVisitor<PointerKindWrapper>(cache, cache.pointerKindData, cache.addressTakenCache){}
-	const PointerKindWrapper& resolvePointerKind(const PointerKindWrapper& k, bool& mayCache);
+	const PointerKindWrapper& resolvePointerKind(const PointerKindWrapper& k);
+	const PointerKindWrapper& resolvePointerKindImpl(const PointerKindWrapper& k, bool& mayCache);
 	void cacheResolvedConstraint(const IndirectPointerKindConstraint& c, const PointerKindWrapper& d);
 };
 
@@ -1018,7 +1019,13 @@ void PointerResolverForKindVisitor::cacheResolvedConstraint(const IndirectPointe
 	}
 }
 
-const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(const PointerKindWrapper& k, bool& mayCache)
+const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(const PointerKindWrapper& k)
+{
+	bool mayCache = cache.mayCache();
+	return resolvePointerKindImpl(k, mayCache);
+}
+
+const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKindImpl(const PointerKindWrapper& k, bool& mayCache)
 {
 	mayCache = false;
 
@@ -1053,7 +1060,7 @@ const PointerKindWrapper& PointerResolverForKindVisitor::resolvePointerKind(cons
 		else if(retKind==INDIRECT)
 		{
 			bool subMayCache = initialMayCache;
-			const PointerKindWrapper& resolvedKind=resolvePointerKind(retKind, subMayCache);
+			const PointerKindWrapper& resolvedKind=resolvePointerKindImpl(retKind, subMayCache);
 			if(subMayCache)
 				cacheResolvedConstraint(*constraint, resolvedKind);
 			else
@@ -1433,8 +1440,7 @@ POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 		return k.getPointerKind(PREF_NONE);
 
 	// Got an indirect value, we need to resolve it now
-	bool mayCache = false;
-	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k, mayCache).getPointerKind(PREF_NONE);
+	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(PREF_NONE);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
@@ -1459,8 +1465,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 	if (k!=INDIRECT)
 		return k.getPointerKind(regularPreference);
 
-	bool mayCache = false;
-	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k, mayCache).getPointerKind(regularPreference);
+	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(regularPreference);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) const
@@ -1476,8 +1481,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 	if (k!=INDIRECT)
 		return k.getPointerKind(regularPreference);
 
-	bool mayCache = false;
-	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k, mayCache).getPointerKind(regularPreference);
+	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(regularPreference);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeAndIndex& argTypeAndIndex ) const
@@ -1493,8 +1497,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForArgumentTypeAndIndex( const TypeA
 	if (k!=INDIRECT)
 		return k.getPointerKind(regularPreference);
 
-	bool mayCache = false;
-	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k, mayCache).getPointerKind(regularPreference);
+	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(regularPreference);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex& baseAndIndex) const
@@ -1514,8 +1517,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMemberPointer(const TypeAndIndex&
 	if (k!=INDIRECT)
 		return k.getPointerKind(regularPreference);
 
-	bool mayCache = false;
-	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k, mayCache).getPointerKind(regularPreference);
+	return PointerResolverForKindVisitor(PACache).resolvePointerKind(k).getPointerKind(regularPreference);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForMemberImpl(const TypeAndIndex& baseAndIndex, PointerAnalyzerCache& cache)
@@ -1530,8 +1532,7 @@ POINTER_KIND PointerAnalyzer::getPointerKindForMemberImpl(const TypeAndIndex& ba
 	if (k!=INDIRECT)
 		return k.getPointerKind(PREF_REGULAR);
 
-	bool mayCache = false;
-	return PointerResolverForKindVisitor(cache).resolvePointerKind(k, mayCache).getPointerKind(PREF_REGULAR);
+	return PointerResolverForKindVisitor(cache).resolvePointerKind(k).getPointerKind(PREF_REGULAR);
 }
 
 POINTER_KIND PointerAnalyzer::getPointerKindForMember(const TypeAndIndex& baseAndIndex) const
@@ -1689,8 +1690,7 @@ void PointerAnalyzer::fullResolve()
 			it.second.applyRegularPreference(PREF_SPLIT_REGULAR);
 			continue;
 		}
-		bool mayCache = true;
-		const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolvePointerKind(it.second, mayCache);
+		const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolvePointerKind(it.second);
 		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==SPLIT_REGULAR || k==REGULAR);
 		it.second = k;
 		it.second.applyRegularPreference(PREF_SPLIT_REGULAR);
@@ -1702,8 +1702,7 @@ void PointerAnalyzer::fullResolve()
 			it.second.applyRegularPreference(PREF_REGULAR);
 			continue;
 		}
-		bool mayCache = true;
-		const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolvePointerKind(it.second, mayCache);
+		const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolvePointerKind(it.second);
 		// BYTE_LAYOUT is not expected for the kind of pointers to member
 		assert(k==COMPLETE_OBJECT || k==SPLIT_REGULAR || k==REGULAR);
 		it.second = k;
@@ -1718,8 +1717,7 @@ void PointerAnalyzer::fullResolve()
 			it.second.applyRegularPreference(pref);
 			continue;
 		}
-		bool mayCache = true;
-		const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolvePointerKind(it.second, mayCache);
+		const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolvePointerKind(it.second);
 		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR || k==SPLIT_REGULAR);
 		it.second = k;
 		it.second.applyRegularPreference(pref);
@@ -1728,8 +1726,7 @@ void PointerAnalyzer::fullResolve()
 	{
 		if(it.second!=INDIRECT)
 			continue;
-		bool mayCache = true;
-		const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolvePointerKind(it.second, mayCache);
+		const PointerKindWrapper& k=PointerResolverForKindVisitor(PACache).resolvePointerKind(it.second);
 		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR || k==SPLIT_REGULAR);
 		it.second = k;
 	}
