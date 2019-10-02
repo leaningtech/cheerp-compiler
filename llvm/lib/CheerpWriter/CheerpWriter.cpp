@@ -2098,6 +2098,15 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, PARENT_PRIORITY p
 			stream << "|0)";
 			break;
 		}
+		case Instruction::Or:
+		{
+			stream << '(';
+			compileOperand(ce->getOperand(0), BIT_OR);
+			stream << "|";
+			compileOperand(ce->getOperand(1), BIT_OR);
+			stream << "|0)";
+			break;
+		}
 		default:
 			stream << "undefined";
 			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
