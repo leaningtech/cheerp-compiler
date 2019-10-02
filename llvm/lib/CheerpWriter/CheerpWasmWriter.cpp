@@ -1429,6 +1429,13 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 			encodeInst(0x71, "i32.and", code);
 			break;
 		}
+		case Instruction::Or:
+		{
+			compileOperand(code, ce->getOperand(0));
+			compileOperand(code, ce->getOperand(1));
+			encodeInst(0x73, "i32.or", code);
+			break;
+		}
 		case Instruction::Sub:
 		{
 			compileOperand(code, ce->getOperand(0));
