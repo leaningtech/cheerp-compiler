@@ -3164,14 +3164,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			// If we get here we know that all the values are rendered indentically
 			const Value* incoming = phi->getIncomingValue(0);
 			POINTER_KIND k = PA.getPointerKind(phi);
-			if(k == SPLIT_REGULAR)
+			if((k == REGULAR || k == SPLIT_REGULAR || k == BYTE_LAYOUT) && PA.getConstantOffsetForPointer(phi))
+				compilePointerBase(incoming);
+			else if(k == SPLIT_REGULAR)
 			{
-				if(!PA.getConstantOffsetForPointer(phi))
-				{
-					compilePointerOffset(incoming, LOWEST);
-					stream << ';' << NewLine;
-					stream << getName(phi) << '=';
-				}
+				compilePointerOffset(incoming, LOWEST);
+				stream << ';' << NewLine;
+				stream << getName(phi) << '=';
 				compilePointerBase(incoming);
 			}
 			else
