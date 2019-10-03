@@ -180,7 +180,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			return true;
 
 		if (IPointerKind == COMPLETE_OBJECT) {
-			auto type = cast<GetElementPtrInst>(I).getType()->getElementType();
+			auto type = cast<GetElementPtrInst>(I).getType()->getPointerElementType();
 			// Always inline geps to immutable fields of a complete object.
 			if (TypeSupport::isImmutableType(type))
 				return true;
