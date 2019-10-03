@@ -1891,7 +1891,7 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
   auto components = builder.beginStruct();
   CGVT.createVTableInitializer(components, RD, VTLayout, RTTI,
                                llvm::GlobalValue::isLocalLinkage(Linkage));
-  components.finishAndSetAsInitializer(VTable);
+  components.finishAndSetAsInitializer(VTable, nullptr, RD->hasAttr<AsmJSAttr>());
 
   // Set the correct linkage.
   VTable->setLinkage(Linkage);
