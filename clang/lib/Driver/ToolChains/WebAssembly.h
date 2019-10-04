@@ -123,20 +123,20 @@ public:
   Cheerp(const Driver &D, const llvm::Triple& Triple,
          const llvm::opt::ArgList &Args);
 
-  virtual bool IsUnwindTablesDefault() const;
-  virtual bool isPICDefault() const;
-  virtual bool isPIEDefault() const;
-  virtual bool isPICDefaultForced() const;
+  bool IsUnwindTablesDefault() const override;
+  bool isPICDefault() const override;
+  bool isPIEDefault() const override;
+  bool isPICDefaultForced() const override;
 
-  virtual void
+  void
   AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
-                            llvm::opt::ArgStringList &CC1Args) const;
-  virtual void
+                            llvm::opt::ArgStringList &CC1Args) const override;
+  void
   AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
-                               llvm::opt::ArgStringList &CC1Args) const;
+                               llvm::opt::ArgStringList &CC1Args) const override;
 
-  virtual Tool *buildLinker() const;
-  virtual Tool *getTool(Action::ActionClass AC) const;
+  Tool *buildLinker() const override;
+  Tool *getTool(Action::ActionClass AC) const override;
 };
  
 } // end namespace toolchains
