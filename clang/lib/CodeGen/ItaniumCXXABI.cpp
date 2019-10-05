@@ -1956,8 +1956,14 @@ ItaniumCXXABI::getVTableAddressPoint(BaseSubobject Base,
     llvm::ConstantInt::get(CGM.Int32Ty, AddressPoint.AddressPointIndex),
   };
 
+  llvm::ArrayRef<llvm::Value*> iRef(Indices);
+
+  if (!CGM.getTarget().isByteAddressable()) {
+    iRef = iRef.drop_back();
+  }
+
   return llvm::ConstantExpr::getGetElementPtr(VTable->getValueType(), VTable,
-                                              Indices, /*InBounds=*/true,
+                                              iRef, /*InBounds=*/true,
                                               /*InRangeIndex=*/1);
 }
 

@@ -80,8 +80,14 @@ CodeGenVTables::EmitVTTDefinition(llvm::GlobalVariable *VTT,
        llvm::ConstantInt::get(Int32Ty, AddressPoint.AddressPointIndex),
      };
 
+     llvm::ArrayRef<llvm::Value*> iRef(Idxs);
+
+     if (!CGM.getTarget().isByteAddressable()) {
+       iRef = iRef.drop_back();
+     }
+
      llvm::Constant *Init = llvm::ConstantExpr::getGetElementPtr(
-         VTable->getValueType(), VTable, Idxs, /*InBounds=*/true,
+         VTable->getValueType(), VTable, iRef, /*InBounds=*/true,
          /*InRangeIndex=*/1);
 
      Init = llvm::ConstantExpr::getBitCast(Init, Int8PtrTy);
