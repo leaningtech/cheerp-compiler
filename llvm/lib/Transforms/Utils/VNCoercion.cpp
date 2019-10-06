@@ -605,9 +605,9 @@ T *getMemInstValueForLoadHelper(MemIntrinsic *SrcInst, unsigned Offset,
       APInt intData(LoadSize*8, bitData);
       assert(LoadTy->isFloatTy() || LoadTy->isDoubleTy() || LoadTy->isIntegerTy());
       if (LoadTy->isFloatTy())
-        return ConstantFP::get(Ctx, APFloat(APFloat::IEEEsingle, bitData));
+        return ConstantFP::get(Ctx, APFloat(APFloat::IEEEsingle(), bitData));
       else if (LoadTy->isDoubleTy())
-        return ConstantFP::get(Ctx, APFloat(APFloat::IEEEdouble, bitData));
+        return ConstantFP::get(Ctx, APFloat(APFloat::IEEEdouble(), bitData));
       else if (LoadTy->isIntegerTy())
         return ConstantInt::get(LoadTy, intData);
     }

@@ -169,9 +169,9 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		}
 		Value* floatResetVal = NULL;
 		if(curType->isFloatTy())
-			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEsingle, floatConstant));
+			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEsingle(), floatConstant));
 		else
-			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEdouble, floatConstant));
+			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEdouble(), floatConstant));
 		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
 		IRB->CreateStore(floatResetVal, elementDst);
 	}
