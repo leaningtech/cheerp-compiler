@@ -471,7 +471,7 @@ bool PointerUsageVisitor::visitByteLayoutChain( const Value * p )
 			else
 			{
 				// This case also handles the first index
-				curType = curType->getSequentialElementType();
+				curType = getElementType(curType);
 			}
 		}
 		return false;

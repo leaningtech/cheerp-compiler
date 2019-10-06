@@ -1906,10 +1906,10 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 						if (!isOffsetConstantZero)
 						{
 							compileOperand( indices[i], MUL_DIV );
-							stream << '*' << targetData.getTypeAllocSize(curType->getSequentialElementType()) << '+';
+							stream << '*' << targetData.getTypeAllocSize(getElementType(curType)) << '+';
 						}
 					}
-					curType = curType->getSequentialElementType();
+					curType = getElementType(curType);
 				}
 				if (skipUntilBytelayout && TypeSupport::hasByteLayout(curType))
 					skipUntilBytelayout = false;
