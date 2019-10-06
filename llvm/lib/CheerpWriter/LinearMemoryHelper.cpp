@@ -104,8 +104,8 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 						}
 						else
 						{
-							offset += index*targetData.getTypeAllocSize(curTy->getSequentialElementType());
-							curTy = curTy->getSequentialElementType();
+							offset += index*targetData.getTypeAllocSize(getElementType(curTy));
+							curTy = getElementType(curTy);
 						}
 					}
 					compileConstantAsBytes(ce->getOperand(0), asmjs, listener, offset);
@@ -263,7 +263,7 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module& module, co
 				}
 				else
 				{
-					curType = curType->getSequentialElementType();
+					curType = getElementType(curType);
 					uint32_t size = targetData.getTypeAllocSize(curType);
 					if (const ConstantInt* idx = dyn_cast<ConstantInt>(indices[i]))
 					{
