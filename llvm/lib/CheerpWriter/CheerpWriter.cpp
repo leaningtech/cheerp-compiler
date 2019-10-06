@@ -2297,7 +2297,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			bool losesInfo = false;
 			SmallString<32> buf;
 
-			apf.convert(APFloat::IEEEdouble, APFloat::roundingMode::rmNearestTiesToEven, &losesInfo);
+			apf.convert(APFloat::IEEEdouble(), APFloat::roundingMode::rmNearestTiesToEven, &losesInfo);
 			assert(!losesInfo);
 			double original = apf.convertToDouble();
 
@@ -2310,7 +2310,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 				apf.toString(buf, std::numeric_limits<double>::max_digits10);
 			}
 
-			apf.convert(APFloat::IEEEsingle, APFloat::roundingMode::rmNearestTiesToEven, &losesInfo);
+			apf.convert(APFloat::IEEEsingle(), APFloat::roundingMode::rmNearestTiesToEven, &losesInfo);
 			// If we don't lose information or if the actual type is a float
 			// (and thus we don't care that we are losing it), try to see if
 			// it is shorter to use a float instead of a double (using fround)
