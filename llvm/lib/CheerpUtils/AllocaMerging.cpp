@@ -720,9 +720,9 @@ bool AllocaStoresExtractor::runOnBasicBlock(BasicBlock& BB, const Module& module
 				}
 				else
 				{
-					uint32_t elementSize = DL->getTypeAllocSize(curType->getSequentialElementType());
+					uint32_t elementSize = DL->getTypeAllocSize(getElementType(curType));
 					totalOffset += elementSize * index;
-					curType = curType->getSequentialElementType();
+					curType = getElementType(curType);
 				}
 			}
 			// If totalOffset is negative we can't analyze across this GEP, but we still need to check for memory escaping it
