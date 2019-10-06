@@ -44,6 +44,14 @@ inline bool isValidVoidPtrSource(const llvm::Value* val)
 	return isValidVoidPtrSource(val, visitedPhis);
 }
 
+inline llvm::Type* getElementType(llvm::Type* t)
+{
+	if(llvm::isa<llvm::PointerType>(t))
+		return t->getPointerElementType();
+	else
+		return t->getSequentialElementType();
+}
+
 class InlineableCache
 {
 	typedef llvm::DenseMap<const llvm::Instruction*, bool> Cache;

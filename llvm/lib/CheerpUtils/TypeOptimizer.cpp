@@ -885,6 +885,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 						// All offsets should be multiple of the base type size
 						assert(!(elementSize % baseTypeSize));
 						AddMultipliedIndex(idxs[i], elementSize / baseTypeSize);
+						assert(isa<SequentialType>(curType));
 						curType = curType->getSequentialElementType();
 					}
 					addToLastIndex = true;
@@ -909,8 +910,8 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 			case TypeMappingInfo::FLATTENED_ARRAY:
 			{
 				// We had something like [ N x [ M x T ] ] which is now [ N*M x T ]
-				uint32_t oldTypeSize = DL->getTypeAllocSize(rewriteType(curType->getSequentialElementType()));
-				uint32_t elementSize = DL->getTypeAllocSize(curTypeMappingInfo.mappedType->getSequentialElementType());
+				uint32_t oldTypeSize = DL->getTypeAllocSize(rewriteType(getElementType(curType)));
+				uint32_t elementSize = DL->getTypeAllocSize(getElementType(curTypeMappingInfo.mappedType));
 				assert(!(oldTypeSize % elementSize));
 				uint32_t numElements=oldTypeSize/elementSize;
 				AddMultipliedIndex(idxs[i], numElements);
@@ -954,7 +955,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 		if(StructType* ST=dyn_cast<StructType>(curType))
 			curType = ST->getElementType(cast<ConstantInt>(idxs[i])->getZExtValue());
 		else
-			curType = curType->getSequentialElementType();
+			curType = getElementType(curType);
 	}
 	assert(rewriteType(curType) == targetType);
 	if(targetType->isArrayTy())
