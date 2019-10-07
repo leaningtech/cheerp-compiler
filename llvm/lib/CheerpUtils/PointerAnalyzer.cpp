@@ -1656,7 +1656,7 @@ const llvm::ConstantInt* PointerAnalyzer::getConstantOffsetForMember( const Type
 
 void PointerAnalyzer::invalidate(const Value * v)
 {
-	assert(status == MODIFICABLE);
+	assert(status == MODIFIABLE);
 
 	if ( PACache.pointerKindData.valueMap.erase(v) )
 	{
@@ -1689,7 +1689,7 @@ void PointerAnalyzer::invalidate(const Value * v)
 
 void PointerAnalyzer::fullResolve()
 {
-	if (status == FULL_RESOLVED)
+	if (status == FULLY_RESOLVED)
 		return;
 	status = CACHING_STARTED;
 
@@ -1742,12 +1742,12 @@ void PointerAnalyzer::fullResolve()
 		assert(k==COMPLETE_OBJECT || k==BYTE_LAYOUT || k==REGULAR || k==SPLIT_REGULAR);
 		it.second = k;
 	}
-	status = FULL_RESOLVED;
+	status = FULLY_RESOLVED;
 }
 
 void PointerAnalyzer::computeConstantOffsets(const Module& M)
 {
-	assert(status == FULL_RESOLVED);
+	assert(status == FULLY_RESOLVED);
 
 	for(const Function & F : M)
 	{

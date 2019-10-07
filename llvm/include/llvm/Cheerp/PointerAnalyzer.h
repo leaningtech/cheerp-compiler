@@ -251,9 +251,8 @@ class PointerAnalyzer : public llvm::ModulePass
 {
 public:
 	PointerAnalyzer() :
-		ModulePass(ID), PACache(status)
+		ModulePass(ID), status(MODIFIABLE), PACache(status)
 	{
-		status = MODIFICABLE;
 	}
 	PointerAnalyzer(const PointerAnalyzer& other) : PointerAnalyzer()
 	{
@@ -334,7 +333,7 @@ public:
 
 	typedef PointerData<PointerKindWrapper> PointerKindData;
 	typedef PointerData<PointerConstantOffsetWrapper> PointerOffsetData;
-	enum PAstatus{MODIFICABLE, CACHING_STARTED, FULL_RESOLVED} status;
+	enum PAstatus{MODIFIABLE, CACHING_STARTED, FULLY_RESOLVED} status;
 
 	class PointerAnalyzerCache
 	{
@@ -345,7 +344,7 @@ public:
 		}
 		bool mayCache() const
 		{
-			return status != MODIFICABLE;
+			return status != MODIFIABLE;
 		}
 		PointerAnalyzerCache& operator=(const PointerAnalyzerCache& other)
 		{
