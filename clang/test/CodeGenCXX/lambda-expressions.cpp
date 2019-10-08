@@ -62,8 +62,8 @@ int d(int x) { D y[10]; return [x,y] { return y[x].x; }(); }
 // CHECK: call void @_ZN1DC1ERKS_
 // CHECK: icmp eq i64 %{{.*}}, 10
 // CHECK: br i1
-// CHECK: call i32 @"_ZZ1diENK3$_4clEv"
-// CHECK-LABEL: define internal i32 @"_ZZ1diENK3$_4clEv"
+// CHECK: call i32 @"_ZZ1diENK3$_6clEv"
+// CHECK-LABEL: define internal i32 @"_ZZ1diENK3$_6clEv"
 // CHECK: load i32, i32*
 // CHECK: load i32, i32*
 // CHECK: ret i32
