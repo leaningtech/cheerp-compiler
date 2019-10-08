@@ -18,7 +18,7 @@ target datalayout = "e-p:64:64"
 ; NATIVE: private constant [0 x i8] zeroinitializer
 ; WASM32: private constant [0 x i8] zeroinitializer
 
-; NATIVE: @f = alias void (), void ()* @[[JT:.*]]
+; NATIVE: @f = alias void (), {{.*}}void ()* {{.*}}@[[JT:.*]] to [{{.*}}
 
 ; X86: @g = internal alias void (), bitcast ([8 x i8]* getelementptr inbounds ([2 x [8 x i8]], [2 x [8 x i8]]* bitcast (void ()* @[[JT]] to [2 x [8 x i8]]*), i64 0, i64 1) to void ()*)
 ; ARM: @g = internal alias void (), bitcast ([4 x i8]* getelementptr inbounds ([2 x [4 x i8]], [2 x [4 x i8]]* bitcast (void ()* @[[JT]] to [2 x [4 x i8]]*), i64 0, i64 1) to void ()*)
