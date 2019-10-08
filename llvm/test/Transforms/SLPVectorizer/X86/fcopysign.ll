@@ -26,10 +26,10 @@ declare double @llvm.copysign.f64(double, double)
 
 define void @fcopysign_2f64() #0 {
 ; CHECK-LABEL: @fcopysign_2f64(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @srcA64 to <2 x double>*), align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* bitcast ([8 x double]* @srcB64 to <2 x double>*), align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0) to <2 x double>*), align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcB64, i32 0, i64 0) to <2 x double>*), align 8
 ; CHECK-NEXT:    [[TMP3:%.*]] = call <2 x double> @llvm.copysign.v2f64(<2 x double> [[TMP1]], <2 x double> [[TMP2]])
-; CHECK-NEXT:    store <2 x double> [[TMP3]], <2 x double>* bitcast ([8 x double]* @dst64 to <2 x double>*), align 8
+; CHECK-NEXT:    store <2 x double> [[TMP3]], <2 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <2 x double>*), align 8
 ; CHECK-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0), align 8
@@ -56,10 +56,10 @@ define void @fcopysign_4f64() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @fcopysign_4f64(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @srcA64 to <4 x double>*), align 8
-; AVX-NEXT:    [[TMP2:%.*]] = load <4 x double>, <4 x double>* bitcast ([8 x double]* @srcB64 to <4 x double>*), align 8
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0) to <4 x double>*), align 8
+; AVX-NEXT:    [[TMP2:%.*]] = load <4 x double>, <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcB64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    [[TMP3:%.*]] = call <4 x double> @llvm.copysign.v4f64(<4 x double> [[TMP1]], <4 x double> [[TMP2]])
-; AVX-NEXT:    store <4 x double> [[TMP3]], <4 x double>* bitcast ([8 x double]* @dst64 to <4 x double>*), align 8
+; AVX-NEXT:    store <4 x double> [[TMP3]], <4 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <4 x double>*), align 8
 ; AVX-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0), align 8
@@ -113,10 +113,10 @@ define void @fcopysign_8f64() #0 {
 ; AVX256-NEXT:    ret void
 ;
 ; AVX512-LABEL: @fcopysign_8f64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @srcA64 to <8 x double>*), align 4
-; AVX512-NEXT:    [[TMP2:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @srcB64 to <8 x double>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0) to <8 x double>*), align 4
+; AVX512-NEXT:    [[TMP2:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @srcB64, i32 0, i64 0) to <8 x double>*), align 4
 ; AVX512-NEXT:    [[TMP3:%.*]] = call <8 x double> @llvm.copysign.v8f64(<8 x double> [[TMP1]], <8 x double> [[TMP2]])
-; AVX512-NEXT:    store <8 x double> [[TMP3]], <8 x double>* bitcast ([8 x double]* @dst64 to <8 x double>*), align 4
+; AVX512-NEXT:    store <8 x double> [[TMP3]], <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @dst64, i32 0, i64 0) to <8 x double>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @srcA64, i32 0, i64 0), align 4
@@ -156,10 +156,10 @@ define void @fcopysign_8f64() #0 {
 
 define void @fcopysign_4f32() #0 {
 ; CHECK-LABEL: @fcopysign_4f32(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @srcA32 to <4 x float>*), align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast ([16 x float]* @srcB32 to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0) to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcB32, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = call <4 x float> @llvm.copysign.v4f32(<4 x float> [[TMP1]], <4 x float> [[TMP2]])
-; CHECK-NEXT:    store <4 x float> [[TMP3]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 4
+; CHECK-NEXT:    store <4 x float> [[TMP3]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    ret void
 ;
   %a0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0), align 4
@@ -194,10 +194,10 @@ define void @fcopysign_8f32() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @fcopysign_8f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @srcA32 to <8 x float>*), align 4
-; AVX-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast ([16 x float]* @srcB32 to <8 x float>*), align 4
+; AVX-NEXT:    [[TMP1:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0) to <8 x float>*), align 4
+; AVX-NEXT:    [[TMP2:%.*]] = load <8 x float>, <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcB32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    [[TMP3:%.*]] = call <8 x float> @llvm.copysign.v8f32(<8 x float> [[TMP1]], <8 x float> [[TMP2]])
-; AVX-NEXT:    store <8 x float> [[TMP3]], <8 x float>* bitcast ([16 x float]* @dst32 to <8 x float>*), align 4
+; AVX-NEXT:    store <8 x float> [[TMP3]], <8 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <8 x float>*), align 4
 ; AVX-NEXT:    ret void
 ;
   %a0 = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0), align 4
@@ -267,10 +267,10 @@ define void @fcopysign_16f32() #0 {
 ; AVX256-NEXT:    ret void
 ;
 ; AVX512-LABEL: @fcopysign_16f32(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @srcA32 to <16 x float>*), align 4
-; AVX512-NEXT:    [[TMP2:%.*]] = load <16 x float>, <16 x float>* bitcast ([16 x float]* @srcB32 to <16 x float>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64 0) to <16 x float>*), align 4
+; AVX512-NEXT:    [[TMP2:%.*]] = load <16 x float>, <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @srcB32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    [[TMP3:%.*]] = call <16 x float> @llvm.copysign.v16f32(<16 x float> [[TMP1]], <16 x float> [[TMP2]])
-; AVX512-NEXT:    store <16 x float> [[TMP3]], <16 x float>* bitcast ([16 x float]* @dst32 to <16 x float>*), align 4
+; AVX512-NEXT:    store <16 x float> [[TMP3]], <16 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <16 x float>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %a0  = load float, float* getelementptr inbounds ([16 x float], [16 x float]* @srcA32, i32 0, i64  0), align 4

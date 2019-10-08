@@ -202,9 +202,9 @@ define void @ctlz_8i32() #0 {
 
 define void @ctlz_8i16() #0 {
 ; CHECK-LABEL: @ctlz_8i16(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x i16>, <8 x i16>* bitcast ([16 x i16]* @src16 to <8 x i16>*), align 2
+; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([16 x i16], [16 x i16]* @src16, i16 0, i64 0) to <8 x i16>*), align 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <8 x i16> @llvm.ctlz.v8i16(<8 x i16> [[TMP1]], i1 false)
-; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast ([16 x i16]* @dst16 to <8 x i16>*), align 2
+; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast (i16* getelementptr inbounds ([16 x i16], [16 x i16]* @dst16, i16 0, i64 0) to <8 x i16>*), align 2
 ; CHECK-NEXT:    ret void
 ;
   %ld0 = load i16, i16* getelementptr inbounds ([16 x i16], [16 x i16]* @src16, i16 0, i64 0), align 2
@@ -303,9 +303,9 @@ define void @ctlz_16i16() #0 {
 
 define void @ctlz_16i8() #0 {
 ; CHECK-LABEL: @ctlz_16i8(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <16 x i8>, <16 x i8>* bitcast ([32 x i8]* @src8 to <16 x i8>*), align 1
+; CHECK-NEXT:    [[TMP1:%.*]] = load <16 x i8>, <16 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64 0) to <16 x i8>*), align 1
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <16 x i8> @llvm.ctlz.v16i8(<16 x i8> [[TMP1]], i1 false)
-; CHECK-NEXT:    store <16 x i8> [[TMP2]], <16 x i8>* bitcast ([32 x i8]* @dst8 to <16 x i8>*), align 1
+; CHECK-NEXT:    store <16 x i8> [[TMP2]], <16 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @dst8, i8 0, i64 0) to <16 x i8>*), align 1
 ; CHECK-NEXT:    ret void
 ;
   %ld0  = load i8, i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64  0), align 1
@@ -742,9 +742,9 @@ define void @ctlz_undef_8i32() #0 {
 
 define void @ctlz_undef_8i16() #0 {
 ; CHECK-LABEL: @ctlz_undef_8i16(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x i16>, <8 x i16>* bitcast ([16 x i16]* @src16 to <8 x i16>*), align 2
+; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x i16>, <8 x i16>* bitcast (i16* getelementptr inbounds ([16 x i16], [16 x i16]* @src16, i16 0, i64 0) to <8 x i16>*), align 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <8 x i16> @llvm.ctlz.v8i16(<8 x i16> [[TMP1]], i1 true)
-; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast ([16 x i16]* @dst16 to <8 x i16>*), align 2
+; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast (i16* getelementptr inbounds ([16 x i16], [16 x i16]* @dst16, i16 0, i64 0) to <8 x i16>*), align 2
 ; CHECK-NEXT:    ret void
 ;
   %ld0 = load i16, i16* getelementptr inbounds ([16 x i16], [16 x i16]* @src16, i16 0, i64 0), align 2
@@ -843,9 +843,9 @@ define void @ctlz_undef_16i16() #0 {
 
 define void @ctlz_undef_16i8() #0 {
 ; CHECK-LABEL: @ctlz_undef_16i8(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <16 x i8>, <16 x i8>* bitcast ([32 x i8]* @src8 to <16 x i8>*), align 1
+; CHECK-NEXT:    [[TMP1:%.*]] = load <16 x i8>, <16 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64 0) to <16 x i8>*), align 1
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <16 x i8> @llvm.ctlz.v16i8(<16 x i8> [[TMP1]], i1 true)
-; CHECK-NEXT:    store <16 x i8> [[TMP2]], <16 x i8>* bitcast ([32 x i8]* @dst8 to <16 x i8>*), align 1
+; CHECK-NEXT:    store <16 x i8> [[TMP2]], <16 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @dst8, i8 0, i64 0) to <16 x i8>*), align 1
 ; CHECK-NEXT:    ret void
 ;
   %ld0  = load i8, i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64  0), align 1

@@ -33,7 +33,7 @@ declare !type !0 extern_weak void @f()
 ; CHECK: define zeroext i1 @check_f()
 define zeroext i1 @check_f() {
 entry:
-; CHECK: ret i1 icmp ne (void ()* select (i1 icmp ne (void ()* @f, void ()* null), void ()* @[[JT:.*]], void ()* null), void ()* null)
+; CHECK: ret i1 icmp ne (void ()* select (i1 icmp ne (void ()* @f, void ()* null), void ()* {{.*}}@[[JT:.*]] to [{{.*}}, void ()* null), void ()* null)
   ret i1 icmp ne (void ()* @f, void ()* null)
 }
 

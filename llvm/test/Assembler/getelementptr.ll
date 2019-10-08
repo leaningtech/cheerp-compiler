@@ -27,7 +27,7 @@
 
 @nestedarray = global [2 x [4 x i8*]] zeroinitializer
 
-; CHECK: @nestedarray.1 = alias i8*, getelementptr inbounds ([2 x [4 x i8*]], [2 x [4 x i8*]]* @nestedarray, inrange i32 0, i64 1, i32 0)
+; CHECK: @nestedarray.1 = alias i8*, getelementptr inbounds ([2 x [4 x i8*]], [2 x [4 x i8*]]* @nestedarray, inrange i32 0, i32 0, i32 4)
 @nestedarray.1 = alias i8*, getelementptr inbounds ([2 x [4 x i8*]], [2 x [4 x i8*]]* @nestedarray, inrange i32 0, i32 0, i32 4)
 
 ; CHECK: @nestedarray.2 = alias i8*, getelementptr inbounds ([2 x [4 x i8*]], [2 x [4 x i8*]]* @nestedarray, i32 0, inrange i32 0, i32 4)
