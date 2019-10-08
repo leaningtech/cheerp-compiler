@@ -4,7 +4,7 @@
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: @vtt = constant [3 x i8*] [i8* bitcast ([2 x i8* ()*]* @global.0 to i8*), i8* bitcast (i8* ()** getelementptr inbounds ([2 x i8* ()*], [2 x i8* ()*]* @global.0, i32 0, i32 1) to i8*), i8* bitcast ([1 x i8* ()*]* @global.1 to i8*)]
+; CHECK: @vtt = constant [3 x i8*] [i8* bitcast (i8* ()** getelementptr inbounds ([2 x i8* ()*], [2 x i8* ()*]* @global.0, i32 0, i32 0) to i8*), i8* bitcast (i8* ()** getelementptr inbounds ([2 x i8* ()*], [2 x i8* ()*]* @global.0, i32 0, i32 1) to i8*), i8* bitcast (i8* ()** getelementptr inbounds ([1 x i8* ()*], [1 x i8* ()*]* @global.1, i32 0, i32 0) to i8*)]
 @vtt = constant [3 x i8*] [
   i8* bitcast (i8* ()** getelementptr ({ [2 x i8* ()*], [1 x i8* ()*] }, { [2 x i8* ()*], [1 x i8* ()*] }* @global, i32 0, inrange i32 0, i32 0) to i8*),
   i8* bitcast (i8* ()** getelementptr ({ [2 x i8* ()*], [1 x i8* ()*] }, { [2 x i8* ()*], [1 x i8* ()*] }* @global, i32 0, inrange i32 0, i32 1) to i8*),
@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: define i8* @f1()
 define i8* @f1() {
-  ; CHECK-NEXT: ret i8* bitcast ([2 x i8* ()*]* @global.0 to i8*)
+  ; CHECK-NEXT: ret i8* bitcast (i8* ()** getelementptr inbounds ([2 x i8* ()*], [2 x i8* ()*]* @global.0, i32 0, i32 0) to i8*)
   ret i8* bitcast (i8* ()** getelementptr ({ [2 x i8* ()*], [1 x i8* ()*] }, { [2 x i8* ()*], [1 x i8* ()*] }* @global, i32 0, inrange i32 0, i32 0) to i8*)
 }
 
@@ -34,13 +34,13 @@ define i8* @f2() {
 
 ; CHECK: define i8* @f3()
 define i8* @f3() {
-  ; CHECK-NEXT: ret i8* bitcast (i8* ()** getelementptr inbounds ([2 x i8* ()*], [2 x i8* ()*]* @global.0, i64 1, i32 0) to i8*)
+  ; CHECK-NEXT: ret i8* bitcast (i8* ()** getelementptr inbounds ([2 x i8* ()*], [2 x i8* ()*]* @global.0, i32 0, i32 2) to i8*)
   ret i8* bitcast (i8* ()** getelementptr ({ [2 x i8* ()*], [1 x i8* ()*] }, { [2 x i8* ()*], [1 x i8* ()*] }* @global, i32 0, inrange i32 0, i32 2) to i8*)
 }
 
 ; CHECK: define i8* @f4()
 define i8* @f4() {
-  ; CHECK-NEXT: ret i8* bitcast ([1 x i8* ()*]* @global.1 to i8*)
+  ; CHECK-NEXT: ret i8* bitcast (i8* ()** getelementptr inbounds ([1 x i8* ()*], [1 x i8* ()*]* @global.1, i32 0, i32 0) to i8*)
   ret i8* bitcast (i8* ()** getelementptr ({ [2 x i8* ()*], [1 x i8* ()*] }, { [2 x i8* ()*], [1 x i8* ()*] }* @global, i32 0, inrange i32 1, i32 0) to i8*)
 }
 
