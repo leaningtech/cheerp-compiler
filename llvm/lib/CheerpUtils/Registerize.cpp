@@ -601,7 +601,9 @@ Registerize::RegisterAllocatorInst::RegisterAllocatorInst(llvm::Function& F_, co
 					registerize->getRegKindFromType(I->getType(), asmjs),
 					cheerp::needsSecondaryName(I, PA)
 					));
-		instructionLocations.push_back(instIdMap.at(I));
+		const auto& iter = instIdMap.find(I);
+		assert(iter != instIdMap.end());
+		instructionLocations.push_back(iter->second);
 	}
 	computeBitsetConstraints();
 	buildFriends(PA);
