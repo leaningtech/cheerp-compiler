@@ -1437,7 +1437,7 @@ private:
 		void addUse(uint32_t codePathId, uint32_t thisIndex);
 	};
 	// Map from instructions to their unique identifier
-	typedef std::unordered_map<const llvm::Instruction*, uint32_t> InstIdMapTy;
+	typedef llvm::DenseMap<const llvm::Instruction*, uint32_t> InstIdMapTy;
 	struct CompareInstructionByID
 	{
 	private:
