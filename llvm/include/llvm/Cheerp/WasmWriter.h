@@ -30,11 +30,6 @@ namespace cheerp
 
 const uint32_t WasmPage = 64*1024;
 
-enum CheerpMode {
-	CHEERP_MODE_WASM = 0,
-	CHEERP_MODE_WAST = 1,
-};
-
 class CheerpWasmWriter;
 
 typedef std::iostream WasmBuffer;
@@ -50,6 +45,12 @@ public:
 
 class CheerpWasmWriter
 {
+public:
+	enum OutputMode {
+		WASM = 0,
+		WAST = 1,
+	};
+
 private:
 	llvm::Module& module;
 	llvm::Pass& pass;
@@ -104,7 +105,7 @@ private:
 public:
 	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, INT, FLOAT32 };
 	const PointerAnalyzer & PA;
-	CheerpMode cheerpMode;
+	OutputMode mode;
 
 private:
 	void compileModule();
@@ -186,7 +187,7 @@ public:
 			bool useWasmLoader,
 			bool prettyCode,
 			bool useCfgLegacy,
-			CheerpMode cheerpMode):
+			OutputMode mode):
 		module(m),
 		pass(p),
 		targetData(&m),
@@ -207,7 +208,7 @@ public:
 		hasSetLocal(false),
 		setLocalId((uint32_t)-1),
 		PA(PA),
-		cheerpMode(cheerpMode),
+		mode(mode),
 		stream(s)
 	{
 	}

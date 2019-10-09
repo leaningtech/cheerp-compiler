@@ -40,10 +40,11 @@ StringRef GlobalDepsAnalyzer::getPassName() const
 	return "GlobalDepsAnalyzer";
 }
 
-GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass) : ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
-	TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
-	hasPointerArrays(false), hasAsmJS(false),
-	llcPass(llcPass), delayPrintf(true),
+GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass, bool wasmStart)
+	: ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
+	  TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
+	  hasPointerArrays(false), hasAsmJS(false),
+	  llcPass(llcPass), wasmStart(wasmStart), delayPrintf(true),
 	hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
@@ -516,7 +517,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	// Create the start function only if we have a wasm module without js loader
-	if (!WasmFile.empty() && WasmLoader.empty())
+	if (wasmStart)
 		callGlobalConstructorsOnStart(module, *this);
 
 	return true;
