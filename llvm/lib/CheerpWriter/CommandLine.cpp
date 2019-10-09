@@ -1,13 +1,13 @@
 #include "llvm/Cheerp/CommandLine.h"
 
-llvm::cl::opt<std::string> WasmLoader("cheerp-wasm-loader", llvm::cl::Optional,
-  llvm::cl::desc("If specified, the file name of the wasm loader"), llvm::cl::value_desc("filename"));
+llvm::cl::opt<std::string> LinearOutput("cheerp-linear-output", llvm::cl::Optional,
+  llvm::cl::desc("The output format of the linear memory part of the program [wasm/wast/asmjs]. Default: wasm"), llvm::cl::value_desc("output"));
 
-llvm::cl::opt<std::string> WasmFile("cheerp-wasm-file", llvm::cl::Optional,
-  llvm::cl::desc("If specified, the file name of the wasm file"), llvm::cl::value_desc("filename"));
+llvm::cl::opt<std::string> SecondaryOutputFile("cheerp-secondary-output-file", llvm::cl::Optional,
+  llvm::cl::desc("If specified, the file name of the secondary output file"), llvm::cl::value_desc("filename"));
 
-llvm::cl::opt<std::string> AsmJSMemFile("cheerp-asmjs-mem-file", llvm::cl::Optional,
-  llvm::cl::desc("If specified, the file name of the asm.js module initialized memory dump"), llvm::cl::value_desc("filename"));
+llvm::cl::opt<std::string> SecondaryOutputPath("cheerp-secondary-output-path", llvm::cl::Optional,
+  llvm::cl::desc("If specified, the runtime relative path of the secondary output file"), llvm::cl::value_desc("filename"));
 
 llvm::cl::opt<std::string> SourceMap("cheerp-sourcemap", llvm::cl::Optional,
   llvm::cl::desc("If specified, the file name of the source map"), llvm::cl::value_desc("filename"));
@@ -16,6 +16,8 @@ llvm::cl::opt<std::string> SourceMapPrefix("cheerp-sourcemap-prefix", llvm::cl::
   llvm::cl::desc("If specified, this prefix will be removed from source map file paths"), llvm::cl::value_desc("path"));
 
 llvm::cl::opt<std::string> MakeModule("cheerp-make-module", llvm::cl::Optional, llvm::cl::desc("Create a [closure/commonjs] module around the generated code.") );
+
+llvm::cl::opt<bool> WasmOnly("cheerp-wasm-only", llvm::cl::desc("Generate only the wasm module without the genericjs functions and the JS glue code") );
 
 llvm::cl::opt<bool> SourceMapStandAlone("cheerp-sourcemap-standalone", llvm::cl::desc("Generate a standalone sourcemap by including _all_ sources in the map file") );
 

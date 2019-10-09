@@ -388,7 +388,7 @@ void LinearMemoryHelper::addFunctions()
 
 	// Add the asm.js imports to the function type list. The non-imported
 	// asm.js functions will be added below.
-	if (!WasmLoader.empty()) {
+	if (!wasmOnly) {
 #define ADD_FUNCTION_TYPE(fTy) \
 if (!functionTypeIndices.count(fTy)) { \
 	uint32_t idx = functionTypeIndices.size(); \

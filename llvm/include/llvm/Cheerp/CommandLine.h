@@ -14,12 +14,13 @@
 
 #include "llvm/Support/CommandLine.h"
 
-extern llvm::cl::opt<std::string> WasmLoader;
-extern llvm::cl::opt<std::string> WasmFile;
-extern llvm::cl::opt<std::string> AsmJSMemFile;
+extern llvm::cl::opt<std::string> LinearOutput;
+extern llvm::cl::opt<std::string> SecondaryOutputFile;
+extern llvm::cl::opt<std::string> SecondaryOutputPath;
 extern llvm::cl::opt<std::string> SourceMap;
 extern llvm::cl::opt<std::string> SourceMapPrefix;
 extern llvm::cl::opt<std::string> MakeModule;
+extern llvm::cl::opt<bool> WasmOnly;
 extern llvm::cl::opt<bool> SourceMapStandAlone;
 extern llvm::cl::opt<bool> PrettyCode;
 extern llvm::cl::opt<bool> SymbolicGlobalsAsmJS;
