@@ -19380,9 +19380,9 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
         else
           d << "variadic";
       } else if (t->hasPointerRepresentation() && !t->getPointeeType().isNull() && t->getPointeeType()->isFundamentalType()) {
-        // string literals are allowed if we are in asmjs mode, since they are all compiled
-        // into the asmjs section
-        if (LangOpts.getCheerpMode() != LangOptions::CHEERP_MODE_GenericJS &&
+        // string literals are allowed for the Wasm environment,
+        // since they are all compiled into the asmjs section
+        if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm &&
            (isa<StringLiteral>(aNoCast) || isa<PredefinedExpr>(aNoCast)))
             continue;
 

@@ -210,17 +210,14 @@ public:
                                 MacroBuilder &Builder) const {
     // Target identification.
     Builder.defineMacro("__CHEERP__");
-    if (Opts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
-        Opts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
-        Opts.getCheerpMode() == LangOptions::CHEERP_MODE_Wasm)
-    {
-        Builder.defineMacro("__ASMJS__");
-    }
 
-    if (Opts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
-       Opts.getCheerpMode() == LangOptions::CHEERP_MODE_Wasm)
-    {
+    if (getTriple().getEnvironment() == llvm::Triple::Wasm) {
+      Builder.defineMacro("__ASMJS__");
+      if (Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wasm ||
+          Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
+      {
         Builder.defineMacro("__WASM__");
+      }
     }
 
     if (Opts.CPlusPlus)

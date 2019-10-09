@@ -1417,7 +1417,7 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
 
   llvm::FunctionType *FTy = NULL;
   if(!CGF.getTarget().isByteAddressable()) {
-    bool asmjs = CGF.CGM.getLangOpts().getCheerpMode() != LangOptions::CHEERP_MODE_GenericJS;
+    bool asmjs = CGF.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm;
     llvm::Type* classTypeInfoPtr = CGF.getTypes().GetClassTypeInfoType()->getPointerTo();
     llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
     FTy = llvm::FunctionType::get(PtrDiffTy, Args, false);
@@ -3232,13 +3232,12 @@ llvm::GlobalVariable *ItaniumRTTIBuilder::GetAddrOfTypeName(
   GV->setInitializer(Init);
 
   // CHEERP: NOTE: For now the TypeInfo Name for built-in and pointer types is 
-  // either in the normal or in the asmjs section based on the -cheerp-mode option,
-  // and not on attributes like record types. Possible solution: inline namespace
+  // either in the normal or in the asmjs section based on the Environment component
+  // of the Triple, and not on attributes like record types.
+  // Possible solution: inline namespace.
   // (see: https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
   if (Ty->isBuiltinType() || Ty->isPointerType() || Ty->isFunctionProtoType()) {
-    if (CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
-        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
-        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wasm)
+    if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm)
     {
       GV->setSection("asmjs");
     }
@@ -3640,9 +3639,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     if (Ty->isRecordType()){
       asmjs = cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl())->hasAttr<AsmJSAttr>();
     } else {
-      asmjs = (CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
-        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
-        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wasm);
+      asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm;
     }
     llvm::Type* WrapperTypes[] = {CGM.getTypes().GetBasicVTableType(8, asmjs)};
     llvm::Type* VTableType = llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL, /*bytelayout*/false, asmjs);
@@ -3746,12 +3743,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(QualType Ty) {
   Ty = Ty.getCanonicalType();
 
   // CHEERP: TODO duplicate typeinfo for basic types
-  bool asmjs = false;
-  if (CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
-      CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
-      CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wasm) {
-    asmjs = true;
-  }
+  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm;
   // Check if we've already emitted an RTTI descriptor for this type.
   SmallString<256> Name;
   llvm::raw_svector_ostream Out(Name);
@@ -3932,13 +3924,12 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
                                /*isConstant=*/true, Linkage, Init, Name);
 
   // CHEERP: NOTE: For now the TypeInfo Name for built-in and pointer types is 
-  // either in the normal or in the asmjs section based on the -cheerp-mode option,
-  // and not on attributes like record types. Possible solution: inline namespace
+  // either in the normal or in the asmjs section based on the Environment component
+  // of the Triple, and not on attributes like record types.
+  // Possible solution: inline namespace.
   // (see: https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
   if (Ty->isBuiltinType() || Ty->isPointerType() || Ty->isFunctionProtoType()) {
-    if (CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
-        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
-        CGM.getLangOpts().getCheerpMode() == LangOptions::CHEERP_MODE_Wasm) {
+    if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm) {
       GV->setSection("asmjs");
     }
   }

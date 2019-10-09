@@ -1349,7 +1349,7 @@ static void handleExtVectorTypeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handlePackedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (S.LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS &&
+  if (S.LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs &&
       checkAttrMutualExclusion<AsmJSAttr>(S, D, AL.getRange(), AL.getName()))
     return;
   if (auto *TD = dyn_cast<TagDecl>(D))
@@ -7803,20 +7803,18 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
       return;
     }
   }
-  // Set default attr based on command line option
-  if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
-      LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
-      LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wasm) {
+  // Set default attr based on Triple Environment component
+  if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm) {
     if (D->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(D))
       Diag(D->getLocStart(), diag::err_attributes_are_not_compatible)
-        << (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ? "'asmjs'" : "'wasm'")
+        << (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'")
         << D->getAttr<JsExportAttr>();
     else if (D->hasAttr<PackedAttr>())
       Diag(D->getLocStart(), diag::err_attributes_are_not_compatible)
-        << (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ? "'asmjs'" : "'wasm'")
+        << (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'")
         << D->getAttr<PackedAttr>();
       D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::CXX11_cheerp_asmjs));
-  } else if (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_GenericJS) {
+  } else if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
       D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::CXX11_cheerp_genericjs));
   }
 }

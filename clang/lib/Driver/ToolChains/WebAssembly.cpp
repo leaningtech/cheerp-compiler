@@ -395,8 +395,16 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Add wasm helper if needed
   Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
-  if(CheerpMode && CheerpMode->getValue() == StringRef("wasm"))
+  Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
+  if((CheerpMode &&
+      (CheerpMode->getValue() == StringRef("wasm") ||
+       CheerpMode->getValue() == StringRef("wast"))) ||
+     (CheerpLinearOutput &&
+       (CheerpLinearOutput->getValue() == StringRef("wasm") ||
+        CheerpLinearOutput->getValue() == StringRef("wast"))))
+  {
     CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasm.bc")));
+  }
  
   // Do not add the same library more than once
   std::set<std::string> usedLibs;
@@ -469,26 +477,72 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   const Driver &D = getToolChain().getDriver();
   ArgStringList CmdArgs;
 
-  Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ);
-  if(CheerpMode && CheerpMode->getValue() == StringRef("wasm"))
-    CmdArgs.push_back("-march=cheerp-wasm");
-  else if(CheerpMode && CheerpMode->getValue() == StringRef("wast"))
-    CmdArgs.push_back("-march=cheerp-wast");
-  else
-    CmdArgs.push_back("-march=cheerp");
-  CmdArgs.push_back("-o");
-  CmdArgs.push_back(Output.getFilename());
+  CmdArgs.push_back("-march=cheerp");
 
-  if(Arg* cheerpWasmLoader = Args.getLastArg(options::OPT_cheerp_wasm_loader_EQ)) {
-    std::string wasmFile("-cheerp-wasm-file=");
-    if(Arg* cheerpWasmFile = Args.getLastArg(options::OPT_cheerp_wasm_file_EQ)) {
-      wasmFile.append(cheerpWasmFile->getValue());
-    } else {
-      wasmFile.append(llvm::sys::path::filename(Output.getFilename()));
-    }
-    CmdArgs.push_back(Args.MakeArgString(wasmFile));
-    cheerpWasmLoader->render(Args, CmdArgs);
+  if(Arg* cheerpAsmJSMemFile = Args.getLastArg(options::OPT_cheerp_asmjs_mem_file_EQ))
+  {
+    CmdArgs.push_back("-o");
+    CmdArgs.push_back(Output.getFilename());
+
+    std::string secondaryFile("-cheerp-secondary-output-file=");
+    secondaryFile += cheerpAsmJSMemFile->getValue();
+    CmdArgs.push_back(Args.MakeArgString(secondaryFile));
+
+    std::string secondaryPath("-cheerp-secondary-output-path=");
+    secondaryPath += cheerpAsmJSMemFile->getValue();
+    CmdArgs.push_back(Args.MakeArgString(secondaryPath));
   }
+  else if(Arg* cheerpWasmLoader = Args.getLastArg(options::OPT_cheerp_wasm_loader_EQ))
+  {
+    CmdArgs.push_back("-o");
+    CmdArgs.push_back(Args.MakeArgString(cheerpWasmLoader->getValue()));
+
+    std::string secondaryFile("-cheerp-secondary-output-file=");
+    secondaryFile += Output.getFilename();
+    CmdArgs.push_back(Args.MakeArgString(secondaryFile));
+ 
+    std::string secondaryPath("-cheerp-secondary-output-path=");
+     if(Arg* cheerpWasmFile = Args.getLastArg(options::OPT_cheerp_wasm_file_EQ)) {
+      secondaryPath.append(llvm::sys::path::filename(cheerpWasmFile->getValue()));
+     } else {
+      secondaryPath.append(llvm::sys::path::filename(Output.getFilename()));
+     }
+    CmdArgs.push_back(Args.MakeArgString(secondaryPath));
+  }
+  else
+  {
+    CmdArgs.push_back("-o");
+    CmdArgs.push_back(Output.getFilename());
+    if (Arg* cheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ))
+    {
+      if (cheerpMode->getValue() == StringRef("wasm") || cheerpMode->getValue() == StringRef("wast"))
+      {
+        CmdArgs.push_back("-cheerp-wasm-only");
+      }
+    }
+  }
+
+  if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
+    cheerpLinearOutput->render(Args, CmdArgs);
+  else if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
+  {
+    std::string linearOut("-cheerp-linear-output=");
+    if (CheerpMode->getValue() == StringRef("wast"))
+    {
+      linearOut += "wast";
+    }
+    else if (CheerpMode->getValue() == StringRef("asmjs"))
+    {
+      linearOut += "asmjs";
+    }
+    else
+    {
+      // NOTE: we use "wasm" also for -cheerp-mode=genericjs
+      linearOut += "wasm";
+    }
+    CmdArgs.push_back(Args.MakeArgString(linearOut));
+  }
+
   if(Args.getLastArg(options::OPT_cheerp_make_module)) {
     CmdArgs.push_back("-cheerp-make-module=closure");
   }
@@ -510,8 +564,6 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpStrictLinkingEq->render(Args, CmdArgs);
   }
 
-  if(Arg* cheerpAsmJSMemFile = Args.getLastArg(options::OPT_cheerp_asmjs_mem_file_EQ))
-    cheerpAsmJSMemFile->render(Args, CmdArgs);
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);
   if(Arg* cheerpSourceMapPrefix = Args.getLastArg(options::OPT_cheerp_sourcemap_prefix_EQ))

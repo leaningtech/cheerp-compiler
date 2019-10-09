@@ -18452,7 +18452,7 @@ void Sema::CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool
     if (New->hasAttr<AsmJSAttr>() &&
         New->getAttr<AsmJSAttr>()->isInherited() &&
         !newIsDefinition &&
-        LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_GenericJS) {
+        Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
       Diag(New->getLocation(), diag::err_attributes_are_not_compatible)
           << "'genericjs'" << Old->getAttr<AsmJSAttr>();
       Diag(Old->getLocation(), diag::note_previous_decl)
@@ -18460,11 +18460,9 @@ void Sema::CheckCheerpAttributesConsistency(NamedDecl* New, NamedDecl* Old, bool
     } else if (New->hasAttr<GenericJSAttr>() &&
         New->getAttr<GenericJSAttr>()->isInherited() &&
         !newIsDefinition &&
-        (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ||
-         LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wast ||
-         LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_Wasm)) {
+        Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm) {
       Diag(New->getLocation(), diag::err_attributes_are_not_compatible)
-          << (LangOpts.getCheerpMode() == LangOptions::CHEERP_MODE_AsmJS ? "'asmjs'" : "'wasm'") << Old->getAttr<GenericJSAttr>();
+          << (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'") << Old->getAttr<GenericJSAttr>();
       Diag(Old->getLocation(), diag::note_previous_decl)
           << Old;
     }

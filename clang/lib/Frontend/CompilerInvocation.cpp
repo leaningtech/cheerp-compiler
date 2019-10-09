@@ -2542,20 +2542,44 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
-  if (const Arg *CheerpMode = Args.getLastArg(OPT_cheerp_mode_EQ))
+  // Parse cheerp options
+  const Arg *CheerpMode = Args.getLastArg(OPT_cheerp_mode_EQ);
+  const Arg *CheerpLinearOutput = Args.getLastArg(OPT_cheerp_linear_output_EQ);
+  if (CheerpMode && CheerpLinearOutput)
   {
-    LangOptions::CheerpModeTy s = llvm::StringSwitch<LangOptions::CheerpModeTy>(CheerpMode->getValue())
-    .Case("genericjs", LangOptions::CHEERP_MODE_GenericJS)
-    .Case("asmjs", LangOptions::CHEERP_MODE_AsmJS)
-    .Case("wast", LangOptions::CHEERP_MODE_Wast)
-    .Case("wasm", LangOptions::CHEERP_MODE_Wasm)
-    .Default(LangOptions::CHEERP_MODE_Invalid);
+    Diags.Report(diag::err_drv_argument_not_allowed_with)
+      << CheerpMode->getAsString(Args) << CheerpLinearOutput->getAsString(Args);
+  }
+  else if (CheerpMode)
+  {
+    LangOptions::CheerpLinearOutputTy s
+      = llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpMode->getValue())
+        .Case("genericjs", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
+        .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
+        .Case("wast", LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
+        .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
+        .Default(LangOptions::CHEERP_LINEAR_OUTPUT_Invalid);
 
-    Opts.setCheerpMode(s);
-    if (s == LangOptions::CHEERP_MODE_Invalid)
+    Opts.setCheerpLinearOutput(s);
+    if (s == LangOptions::CHEERP_LINEAR_OUTPUT_Invalid)
     {
       Diags.Report(diag::err_drv_invalid_value)
       << CheerpMode->getAsString(Args) << CheerpMode->getValue();
+    }
+  }
+  else if (CheerpLinearOutput)
+  {
+    LangOptions::CheerpLinearOutputTy s =
+      llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpLinearOutput->getValue())
+        .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
+        .Case("wast", LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
+        .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
+        .Default(LangOptions::CHEERP_LINEAR_OUTPUT_Invalid);
+    Opts.setCheerpLinearOutput(s);
+    if (s == LangOptions::CHEERP_LINEAR_OUTPUT_Invalid)
+    {
+      Diags.Report(diag::err_drv_invalid_value)
+      << CheerpMode->getAsString(Args) << CheerpLinearOutput->getValue();
     }
   }
 
