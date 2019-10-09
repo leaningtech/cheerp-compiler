@@ -169,7 +169,8 @@ public:
     Mesa,
     SUSE,
     OpenEmbedded,
-    LastVendorType = OpenEmbedded
+    Leaningtech,
+    LastVendorType = Leaningtech
   };
   enum OSType {
     UnknownOS,
@@ -251,7 +252,9 @@ public:
     Mesh,
     Amplification,
 
-    LastEnvironmentType = Amplification
+    GenericJs,
+    Wasm,
+    LastEnvironmentType = Wasm
   };
   enum ObjectFormatType {
     UnknownObjectFormat,
