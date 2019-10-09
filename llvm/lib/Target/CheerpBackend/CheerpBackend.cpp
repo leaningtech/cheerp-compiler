@@ -60,13 +60,39 @@ namespace {
   };
 } // end anonymous namespace.
 
+enum LinearOutputTy {
+  Wasm,
+  Wast,
+  AsmJs,
+};
+LinearOutputTy parseLinearOutput()
+{
+  if (LinearOutput.empty())
+    return LinearOutputTy::Wasm;
+  if (LinearOutput.getValue() == "wast")
+  {
+    return LinearOutputTy::Wast;
+  }
+  if (LinearOutput.getValue() == "asmjs")
+  {
+    return LinearOutputTy::AsmJs;
+  }
+  return LinearOutputTy::Wasm;
+}
+
 bool CheerpWritePass::runOnModule(Module& M)
 {
+  LinearOutputTy outputMode = parseLinearOutput();
+
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
   cheerp::AllocaStoresExtractor &allocaStoresExtractor = getAnalysis<cheerp::AllocaStoresExtractor>();
-  cheerp::LinearMemoryHelper linearHelper(M, cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS, GDA, CheerpHeapSize, CheerpStackSize);
+  auto functionAddressMode = outputMode == LinearOutputTy::AsmJs
+    ? cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS
+    : cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm;
+
+  cheerp::LinearMemoryHelper linearHelper(M, functionAddressMode, GDA, CheerpHeapSize, CheerpStackSize, WasmOnly);
   std::unique_ptr<cheerp::SourceMapGenerator> sourceMapGenerator;
   GDA.forceTypedArrays = ForceTypedArrays;
   if (!SourceMap.empty())
@@ -90,31 +116,64 @@ bool CheerpWritePass::runOnModule(Module& M)
 #endif
 
   std::error_code ErrorCode;
-  llvm::tool_output_file memFile(AsmJSMemFile, ErrorCode, sys::fs::F_None);
-  std::unique_ptr<llvm::formatted_raw_ostream> memOut;
-  if (!AsmJSMemFile.empty())
+  llvm::tool_output_file secondaryFile(SecondaryOutputFile, ErrorCode, sys::fs::F_None);
+  std::unique_ptr<llvm::formatted_raw_ostream> secondaryOut;
+  if (!SecondaryOutputFile.empty())
   {
-    memOut.reset(new formatted_raw_ostream(memFile.os()));
+    secondaryOut.reset(new formatted_raw_ostream(secondaryFile.os()));
+  }
+  else if (WasmOnly && outputMode != AsmJs)
+  {
+    secondaryOut.reset(new formatted_raw_ostream(Out));
   }
 
-  cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, ReservedNames, PrettyCode);
-  const std::string wasmFile;
-  cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut.get(), AsmJSMemFile,
-          sourceMapGenerator.get(), PrettyCode, MakeModule, !NoNativeJavaScriptMath,
-          !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
-          BoundsCheck, CfgLegacy, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
-  writer.makeJS();
-  if (ErrorCode)
+  // Build the ordered list of reserved names
+  std::vector<std::string> reservedNames(ReservedNames.begin(), ReservedNames.end());
+  std::sort(reservedNames.begin(), reservedNames.end());
+
+  cheerp::NameGenerator namegen(M, GDA, registerize, PA, linearHelper, reservedNames, PrettyCode);
+
+  std::string wasmFile;
+  std::string asmjsMemFile;
+  llvm::formatted_raw_ostream* memOut = nullptr;
+  switch (outputMode)
   {
-    if(!AsmJSMemFile.empty())
-    {
-      // An error occurred opening the asm.js memory file, bail out
-      llvm::report_fatal_error(ErrorCode.message(), false);
-    }
+    case Wasm:
+    case Wast:
+      wasmFile = SecondaryOutputPath.getValue();
+      break;
+    case AsmJs:
+      asmjsMemFile = SecondaryOutputPath.getValue();
+      memOut = secondaryOut.get();
+      break;
+  }
+  if (!WasmOnly)
+  {
+    cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut, asmjsMemFile,
+            sourceMapGenerator.get(), PrettyCode, MakeModule, !NoNativeJavaScriptMath,
+            !NoJavaScriptMathImul, !NoJavaScriptMathFround, !NoCredits, MeasureTimeToMain, CheerpHeapSize,
+            BoundsCheck, CfgLegacy, SymbolicGlobalsAsmJS, wasmFile, ForceTypedArrays);
+    writer.makeJS();
+  }
+
+  if (outputMode != AsmJs && secondaryOut)
+  {
+    auto mode = outputMode == Wasm
+      ? cheerp::CheerpWasmWriter::OutputMode::WASM
+      : cheerp::CheerpWasmWriter::OutputMode::WAST;
+    cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, namegen,
+                                    M.getContext(), CheerpHeapSize, !WasmOnly,
+                                    PrettyCode, CfgLegacy, mode);
+    wasmWriter.makeWasm();
+  }
+  if (!SecondaryOutputFile.empty() && ErrorCode)
+  {
+    // An error occurred opening the asm.js memory file, bail out
+    llvm::report_fatal_error(ErrorCode.message(), false);
     return false;
   }
-  memFile.keep();
-
+  if (!WasmOnly)
+    secondaryFile.keep();
   return false;
 }
 
@@ -143,12 +202,21 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            AnalysisID StopBefore,
                                            AnalysisID StopAfter,
                                            MachineFunctionInitializer* MFInit) {
+
+  LinearOutputTy outputMode = parseLinearOutput();
+  cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
+  if (NoNativeJavaScriptMath ||
+      (getTargetTriple().getEnvironment() == llvm::Triple::Wasm && outputMode != AsmJs))
+    mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
+  else
+    mathMode = cheerp::GlobalDepsAnalyzer::USE_BUILTINS;
+
   if (FixWrongFuncCasts)
     PM.add(createFixFunctionCastsPass());
   PM.add(createCheerpLowerSwitchPass());
   PM.add(createStructMemFuncLowering());
   PM.add(createFreeAndDeleteRemovalPass());
-  PM.add(cheerp::createGlobalDepsAnalyzerPass(NoNativeJavaScriptMath ? cheerp::GlobalDepsAnalyzer::NO_BUILTINS : cheerp::GlobalDepsAnalyzer::USE_BUILTINS, /*resolveAliases*/true));
+  PM.add(cheerp::createGlobalDepsAnalyzerPass(mathMode,/*resolveAliases*/true, WasmOnly));
   PM.add(createFixIrreducibleControlFlowPass());
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());

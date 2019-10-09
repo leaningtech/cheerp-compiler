@@ -179,9 +179,10 @@ public:
 		FunctionSignatureHash,FunctionSignatureCmp> FunctionTypeIndicesMap;
 
 	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA,
-		uint32_t memorySize, uint32_t stackSize):
+		uint32_t memorySize, uint32_t stackSize, bool wasmOnly):
 		module(module), mode(mode), globalDeps(GDA), maxFunctionId(0),
-		memorySize(memorySize*1024*1024), stackSize(stackSize*1024*1024)
+		memorySize(memorySize*1024*1024), stackSize(stackSize*1024*1024),
+		wasmOnly(wasmOnly)
 	{
 		builtinIds.fill(std::numeric_limits<uint32_t>::max());
 		addFunctions();
@@ -310,6 +311,7 @@ private:
 	uint32_t stackSize;
 	// Stack start (it grows downwards)
 	uint32_t stackStart;
+	bool wasmOnly;
 };
 
 }
