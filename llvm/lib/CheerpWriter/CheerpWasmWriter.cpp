@@ -1678,7 +1678,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	else
 	{
 		c->dump();
-		assert(false);
+		llvm::report_fatal_error("Cannot handle this constant");
 	}
 }
 
