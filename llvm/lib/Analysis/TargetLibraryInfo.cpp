@@ -193,9 +193,9 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
 
   // Disable functions that we don't have natively in JS
   if (T.getArch() == Triple::cheerp) {
-    TLI.setUnavailable(LibFunc::exp2);
-    TLI.setUnavailable(LibFunc::exp2f);
-    TLI.setUnavailable(LibFunc::exp2l);
+    TLI.setUnavailable(LibFunc_exp2);
+    TLI.setUnavailable(LibFunc_exp2f);
+    TLI.setUnavailable(LibFunc_exp2l);
   }
 
   // There is really no runtime library on AMDGPU, apart from
