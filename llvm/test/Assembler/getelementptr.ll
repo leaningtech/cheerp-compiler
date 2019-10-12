@@ -4,9 +4,9 @@
 ; Verify that over-indexed getelementptrs are folded.
 @A = external global [2 x [3 x [5 x [7 x i32]]]]
 @B = global i32* getelementptr ([2 x [3 x [5 x [7 x i32]]]], [2 x [3 x [5 x [7 x i32]]]]* @A, i64 0, i64 0, i64 2, i64 1, i64 7523)
-; XFAIL: @B = global i32* getelementptr ([2 x [3 x [5 x [7 x i32]]]], [2 x [3 x [5 x [7 x i32]]]]* @A, i64 36, i64 0, i64 1, i64 0, i64 5)
+; CHECK: @B = global i32* getelementptr ([2 x [3 x [5 x [7 x i32]]]], [2 x [3 x [5 x [7 x i32]]]]* @A, i64 0, i64 0, i64 2, i64 1, i64 7523)
 @C = global i32* getelementptr ([2 x [3 x [5 x [7 x i32]]]], [2 x [3 x [5 x [7 x i32]]]]* @A, i64 3, i64 2, i64 0, i64 0, i64 7523)
-; XFAIL: @C = global i32* getelementptr ([2 x [3 x [5 x [7 x i32]]]], [2 x [3 x [5 x [7 x i32]]]]* @A, i64 39, i64 1, i64 1, i64 4, i64 5)
+; CHECK: @C = global i32* getelementptr ([2 x [3 x [5 x [7 x i32]]]], [2 x [3 x [5 x [7 x i32]]]]* @A, i64 3, i64 2, i64 0, i64 0, i64 7523)
 
 ; Verify that constant expression GEPs work with i84 indices.
 @D = external global [1 x i32]
