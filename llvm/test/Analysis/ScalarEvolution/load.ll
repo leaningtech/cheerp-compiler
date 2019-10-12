@@ -57,7 +57,7 @@ for.body:                                         ; preds = %entry, %for.body
   %add = add nsw i32 %0, %sum.02
   %next = getelementptr inbounds %struct.ListNode, %struct.ListNode* %n.01, i64 0, i32 0
   %1 = load %struct.ListNode*, %struct.ListNode** %next, align 8
-; XFAIL: -->  %1{{ U: [^ ]+ S: [^ ]+}}{{ *}}Exits: 0
+; CHECK: -->  %1{{ U: [^ ]+ S: [^ ]+}}{{ *}}Exits: 0
   %cmp = icmp eq %struct.ListNode* %1, null
   br i1 %cmp, label %for.end, label %for.body
 

@@ -11,7 +11,7 @@ target datalayout = "n8:16:32:64"
 ; Verify that identical edges are merged. rdar://problem/6453893
 ; CHECK-LABEL: @test1(
 ; CHECK: bb89:
-; XFAIL: phi i8* [ %lsr.iv.next1, %bbA.bb89_crit_edge ], [ %lsr.iv.next1, %bbB.bb89_crit_edge ]{{$}}
+; CHECK: phi i8* [ %lsr.iv.next1, %bbA.bb89_crit_edge ], [ %lsr.iv.next1, %bbB.bb89_crit_edge ]{{$}}
 
 define i8* @test1() {
 entry:
@@ -49,7 +49,7 @@ exit:
 ; Handle single-predecessor phis: PR13756
 ; CHECK-LABEL: @test2(
 ; CHECK: bb89:
-; XFAIL: phi i8* [ %lsr.iv.next1, %bbA ], [ %lsr.iv.next1, %bbA ], [ %lsr.iv.next1, %bbA ]{{$}}
+; CHECK: phi i8* [ %lsr.iv.next1, %bbA ], [ %lsr.iv.next1, %bbA ], [ %lsr.iv.next1, %bbA ]{{$}}
 define i8* @test2() {
 entry:
   br label %loop
