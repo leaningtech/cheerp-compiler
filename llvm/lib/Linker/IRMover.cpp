@@ -1501,7 +1501,7 @@ IRMover::StructTypeKeyInfo::KeyTy::KeyTy(ArrayRef<Type *> E, Type* D, bool P, bo
     : ETypes(E), DirectBase(D), IsPacked(P), ByteLayout(B), AsmJS(A), StructName(filterName(N)) {}
 
 IRMover::StructTypeKeyInfo::KeyTy::KeyTy(const StructType *ST)
-    : ETypes(ST->elements()), DirectBase(ST->getDirectBase()), IsPacked(ST->isPacked()), ByteLayout(ST->hasByteLayout()), AsmJS(ST->hasAsmJS()), StructName(filterName(ST->getName())) {}
+    : ETypes(ST->elements()), DirectBase(ST->getDirectBase()), IsPacked(ST->isPacked()), ByteLayout(ST->hasByteLayout()), AsmJS(ST->hasAsmJS()), StructName(ST->hasName() ? filterName(ST->getName()) : "") {}
 
 bool IRMover::StructTypeKeyInfo::KeyTy::operator==(const KeyTy &That) const {
   if (IsPacked != That.IsPacked || ByteLayout != That.ByteLayout || AsmJS != That.AsmJS)
