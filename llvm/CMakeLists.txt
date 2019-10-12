@@ -314,7 +314,6 @@ set(LLVM_ALL_TARGETS
   AVR
   BPF
   CheerpBackend
-  CheerpWasmBackend
   Hexagon
   Lanai
   Mips
