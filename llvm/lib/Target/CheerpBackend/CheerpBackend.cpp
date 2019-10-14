@@ -206,7 +206,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   LinearOutputTy outputMode = parseLinearOutput();
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
   if (NoNativeJavaScriptMath ||
-      (getTargetTriple().getEnvironment() == llvm::Triple::Wasm && outputMode != AsmJs))
+      (getTargetTriple().getEnvironment() == llvm::Triple::WebAssembly && outputMode != AsmJs))
     mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
   else
     mathMode = cheerp::GlobalDepsAnalyzer::USE_BUILTINS;
