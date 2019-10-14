@@ -1386,7 +1386,7 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
 
   llvm::FunctionType *FTy = NULL;
   if(!CGF.getTarget().isByteAddressable()) {
-    bool asmjs = CGF.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm;
+    bool asmjs = CGF.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
     llvm::Type* classTypeInfoPtr = CGF.getTypes().GetClassTypeInfoType()->getPointerTo();
     llvm::Type *Args[5] = { PtrDiffTy, CGF.getTypes().GetVTableBaseType(asmjs)->getPointerTo(), classTypeInfoPtr, classTypeInfoPtr, PtrDiffTy };
     FTy = llvm::FunctionType::get(PtrDiffTy, Args, false);
@@ -3422,7 +3422,7 @@ llvm::GlobalVariable *ItaniumRTTIBuilder::GetAddrOfTypeName(
   // Possible solution: inline namespace.
   // (see: https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
   if (Ty->isBuiltinType() || Ty->isPointerType() || Ty->isFunctionProtoType()) {
-    if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm)
+    if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly)
     {
       GV->setSection("asmjs");
     }
@@ -3841,7 +3841,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     if (Ty->isRecordType()){
       asmjs = cast<CXXRecordDecl>(cast<RecordType>(Ty)->getDecl())->hasAttr<AsmJSAttr>();
     } else {
-      asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm;
+      asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
     }
     llvm::Type* WrapperTypes[] = {CGM.getTypes().GetBasicVTableType(8, asmjs)};
     llvm::Type* VTableType = llvm::StructType::get(CGM.getLLVMContext(), WrapperTypes, false, NULL, /*bytelayout*/false, asmjs);
@@ -3945,7 +3945,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(QualType Ty) {
   Ty = Ty.getCanonicalType();
 
   // CHEERP: TODO duplicate typeinfo for basic types
-  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm;
+  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
   // Check if we've already emitted an RTTI descriptor for this type.
   SmallString<256> Name;
   llvm::raw_svector_ostream Out(Name);
@@ -4145,7 +4145,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   // Possible solution: inline namespace.
   // (see: https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
   if (Ty->isBuiltinType() || Ty->isPointerType() || Ty->isFunctionProtoType()) {
-    if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::Wasm) {
+    if (CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
       GV->setSection("asmjs");
     }
   }
