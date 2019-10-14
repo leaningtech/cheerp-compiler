@@ -253,8 +253,8 @@ public:
     Amplification,
 
     GenericJs,
-    Wasm,
-    LastEnvironmentType = Wasm
+    WebAssembly,
+    LastEnvironmentType = WebAssembly
   };
   enum ObjectFormatType {
     UnknownObjectFormat,
