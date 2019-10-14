@@ -587,7 +587,7 @@ static llvm::Triple computeTargetTriple(const Driver &D,
       if (CheerpMode && (CheerpMode->getValue() == StringRef("asmjs") ||
                          CheerpMode->getValue() == StringRef("wast") ||
                          CheerpMode->getValue() == StringRef("wasm"))) {
-        Target.setEnvironment(llvm::Triple::Wasm);
+        Target.setEnvironment(llvm::Triple::WebAssembly);
       } else {
         Target.setEnvironment(llvm::Triple::GenericJs);
       }

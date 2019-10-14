@@ -211,7 +211,7 @@ public:
     // Target identification.
     Builder.defineMacro("__CHEERP__");
 
-    if (getTriple().getEnvironment() == llvm::Triple::Wasm) {
+    if (getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
       Builder.defineMacro("__ASMJS__");
       if (Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wasm ||
           Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
