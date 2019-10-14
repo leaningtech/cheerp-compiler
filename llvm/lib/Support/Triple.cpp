@@ -647,7 +647,7 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
       .StartsWith("mesh", Triple::Mesh)
       .StartsWith("amplification", Triple::Amplification)
       .StartsWith("genericjs", Triple::GenericJs)
-      .StartsWith("wasm", Triple::WebAssembly)
+      .Case("wasm", Triple::WebAssembly)
       .Default(Triple::UnknownEnvironment);
 }
 
