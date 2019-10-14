@@ -551,7 +551,7 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
     .StartsWith("simulator", Triple::Simulator)
     .StartsWith("macabi", Triple::MacABI)
     .StartsWith("genericjs", Triple::GenericJs)
-    .StartsWith("wasm", Triple::WebAssembly)
+    .Case("wasm", Triple::WebAssembly)
     .Default(Triple::UnknownEnvironment);
 }
 
