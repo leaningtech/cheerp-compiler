@@ -2797,7 +2797,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 					compileRawPointer(*cur, SHIFT);
 					stream << ">>" << shift;
 				}
-				else if(PA.getConstantOffsetForPointer(&*arg_it))
+				else if(F && PA.getConstantOffsetForPointer(&*arg_it))
 					compilePointerBase(*cur, true);
 				else
 				{
