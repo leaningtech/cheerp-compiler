@@ -522,6 +522,11 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+  if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
+    cheerpSecondaryOutputFile->render(Args, CmdArgs);
+  if(Arg* cheerpSecondaryOutputPath = Args.getLastArg(options::OPT_cheerp_secondary_output_path_EQ))
+    cheerpSecondaryOutputPath->render(Args, CmdArgs);
+
   if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
     cheerpLinearOutput->render(Args, CmdArgs);
   else if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
