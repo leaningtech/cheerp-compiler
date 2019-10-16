@@ -13,6 +13,7 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Function.h"
@@ -140,13 +141,20 @@ bool CheerpWritePass::runOnModule(Module& M)
   {
     case Wasm:
     case Wast:
-      wasmFile = SecondaryOutputPath.getValue();
+      if (!SecondaryOutputPath.empty())
+        wasmFile = SecondaryOutputPath.getValue();
+      else if (!SecondaryOutputFile.empty())
+        wasmFile = llvm::sys::path::filename(SecondaryOutputFile.getValue());
       break;
     case AsmJs:
-      asmjsMemFile = SecondaryOutputPath.getValue();
+      if (!SecondaryOutputPath.empty())
+        asmjsMemFile = SecondaryOutputPath.getValue();
+      else if (!SecondaryOutputFile.empty())
+        asmjsMemFile = llvm::sys::path::filename(SecondaryOutputFile.getValue());
       memOut = secondaryOut.get();
       break;
   }
+
   if (!WasmOnly)
   {
     cheerp::CheerpWriter writer(M, *this, Out, PA, registerize, GDA, linearHelper, namegen, allocaStoresExtractor, memOut, asmjsMemFile,

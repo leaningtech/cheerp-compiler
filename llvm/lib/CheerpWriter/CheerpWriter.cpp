@@ -23,7 +23,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Path.h"
 
 using namespace llvm;
 using namespace std;
@@ -6105,7 +6104,7 @@ void CheerpWriter::makeJS()
 		{
 			stream << "module.exports=";
 		}
-		stream << "fetchBuffer('" << sys::path::filename(asmJSMemFile) << "').then(r=>{" << NewLine;
+		stream << "fetchBuffer('" << asmJSMemFile << "').then(r=>{" << NewLine;
 		stream << heapNames[HEAP8] << ".set(new Uint8Array(r),";
 		stream << linearHelper.getStackStart() << ");" << NewLine;
 		stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
