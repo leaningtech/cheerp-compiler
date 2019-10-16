@@ -469,12 +469,46 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
 
+bool incompatibleWith(const Driver&, const ArgList&, Arg*)
+{
+  return true;
+}
+template<typename... TS>
+bool incompatibleWith(const Driver& D, const ArgList& Args, Arg* a, Arg* b, TS... args)
+{
+  bool compatible = !a || !b;
+  if (!compatible)
+      D.Diag(diag::err_drv_argument_not_allowed_with)
+        << a->getAsString(Args) << b->getAsString(Args);
+  return compatible & incompatibleWith(D, Args, a, args...);
+}
+void checkCheerpArgCompatibility(const Driver& D, const ArgList& Args)
+{
+  Arg* memFile = Args.getLastArg(options::OPT_cheerp_asmjs_mem_file_EQ);
+  Arg* wasmLoader = Args.getLastArg(options::OPT_cheerp_wasm_loader_EQ);
+  Arg* wasmFile = Args.getLastArg(options::OPT_cheerp_wasm_file_EQ);
+  Arg* mode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
+  Arg* linearOut = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
+  Arg* secondaryFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ);
+  Arg* secondaryPath = Args.getLastArg(options::OPT_cheerp_secondary_output_path_EQ);
+
+  incompatibleWith(D, Args, memFile,
+      linearOut, secondaryPath, secondaryFile);
+  incompatibleWith(D, Args, wasmLoader,
+      linearOut, secondaryPath, secondaryFile);
+  incompatibleWith(D, Args, wasmFile,
+      linearOut, secondaryPath, secondaryFile);
+  incompatibleWith(D, Args, mode,
+      linearOut, secondaryPath, secondaryFile);
+}
 void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
                                           const InputInfo &Output,
                                           const InputInfoList &Inputs,
                                           const ArgList &Args,
                                           const char *LinkingOutput) const {
   const Driver &D = getToolChain().getDriver();
+  checkCheerpArgCompatibility(D, Args);
+
   ArgStringList CmdArgs;
 
   CmdArgs.push_back("-march=cheerp");
