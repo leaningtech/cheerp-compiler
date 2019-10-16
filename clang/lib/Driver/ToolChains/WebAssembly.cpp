@@ -556,14 +556,34 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+  llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
+  Arg* cheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
+  Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
+  if (cheerpLinearOutput)
+    cheerpLinearOutput->render(Args, CmdArgs);
+
   if(Arg* cheerpSecondaryOutputFile = Args.getLastArg(options::OPT_cheerp_secondary_output_file_EQ))
     cheerpSecondaryOutputFile->render(Args, CmdArgs);
+  else if(!cheerpMode &&
+      ((env == llvm::Triple::WebAssembly && !cheerpLinearOutput) ||
+        (cheerpLinearOutput && cheerpLinearOutput->getValue() != StringRef("asmjs"))))
+  {
+    SmallString<64> path(Output.getFilename());
+    StringRef ext = (cheerpLinearOutput && cheerpLinearOutput->getValue() == StringRef("wast")) ? ".wast" : ".wasm";
+    llvm::errs()<<llvm::sys::path::extension(path)<<"\n";
+    if (llvm::sys::path::extension(path) == ext)
+    {
+      path.append(ext);
+    }
+    else
+      llvm::sys::path::replace_extension(path, ext);
+    CmdArgs.push_back(Args.MakeArgString(Twine("-cheerp-secondary-output-file=")+path));
+  }
+
   if(Arg* cheerpSecondaryOutputPath = Args.getLastArg(options::OPT_cheerp_secondary_output_path_EQ))
     cheerpSecondaryOutputPath->render(Args, CmdArgs);
 
-  if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
-    cheerpLinearOutput->render(Args, CmdArgs);
-  else if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
+  if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
   {
     std::string linearOut("-cheerp-linear-output=");
     if (CheerpMode->getValue() == StringRef("wast"))
