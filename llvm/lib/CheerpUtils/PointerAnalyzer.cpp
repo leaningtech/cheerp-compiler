@@ -828,7 +828,6 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::invariant_end:
 		case Intrinsic::lifetime_start:
 		case Intrinsic::lifetime_end:
-		case Intrinsic::cheerp_deallocate:
 		case Intrinsic::cheerp_make_regular:
 		case Intrinsic::cheerp_make_complete_object:
 		case Intrinsic::cheerp_downcast_current:
@@ -861,6 +860,14 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 				return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 			else
 				llvm::report_fatal_error("Unreachable code in cheerp::PointerAnalyzer::visitUse, cheerp_create_closure");
+		case Intrinsic::cheerp_deallocate:
+		{
+			if (TypeSupport::isTypedArrayType(U->get()->getType()->getPointerElementType(), true))
+			{
+				return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
+			}
+			return ret |= COMPLETE_OBJECT;
+		}
 		case Intrinsic::flt_rounds:
 		case Intrinsic::cheerp_allocate:
 		case Intrinsic::cheerp_allocate_array:
@@ -884,6 +891,15 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		{
 			TypeAndIndex typeAndIndex(pointedType, U->getOperandNo(), TypeAndIndex::ARGUMENT);
 			return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(INDIRECT_ARG_CONSTRAINT, typeAndIndex));
+		}
+
+		if (isFreeFunctionName(calledFunction->getName()))
+		{
+			if (TypeSupport::isTypedArrayType(U->get()->getType()->getPointerElementType(), true))
+			{
+				return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
+			}
+			return ret |= COMPLETE_OBJECT;
 		}
 
 		unsigned argNo = cs.getArgumentNo(U);
