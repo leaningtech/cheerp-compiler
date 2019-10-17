@@ -4414,6 +4414,10 @@ def cheerp_fix_wrong_func_casts : Flag<["-"], "cheerp-fix-wrong-func-casts">, Fl
   HelpText<"Generate wrappers for functions casted to types with more arguments">;
 def cheerp_strict_linking_EQ : Joined<["-"], "cheerp-strict-linking=">, Flags<[DriverOption]>,
   HelpText<"Enable link time checks for undefined symbols [warning/error]">;
+def cheerp_wasm_enable_EQ : CommaJoined<["-"], "cheerp-wasm-enable=">, Flags<[DriverOption]>,
+  HelpText<"Comma separated list of WebAssembly features to enable [sharedmem/growmem]">;
+def cheerp_wasm_disable_EQ : CommaJoined<["-"], "cheerp-wasm-disable=">, Flags<[DriverOption]>,
+  HelpText<"Comma separated list of WebAssembly features to disable [sharedmem/growmem]">;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options

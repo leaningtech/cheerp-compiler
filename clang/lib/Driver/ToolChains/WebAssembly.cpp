@@ -501,6 +501,64 @@ void checkCheerpArgCompatibility(const Driver& D, const ArgList& Args)
   incompatibleWith(D, Args, mode,
       linearOut, secondaryPath, secondaryFile);
 }
+
+enum CheerpWasmOpt
+{
+  INVALID,
+  GROWMEM,
+  SHAREDMEM,
+};
+static CheerpWasmOpt parseWasmOpt(StringRef opt)
+{
+  return llvm::StringSwitch<CheerpWasmOpt>(opt)
+    .Case("growmem", GROWMEM)
+    .Case("sharedmem", SHAREDMEM)
+    .Default(INVALID);
+}
+static std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const ArgList& Args)
+{
+  // Figure out which Wasm optional feature to enable/disable
+  std::vector<CheerpWasmOpt> features;
+  // We enable memory growth by default
+  features.push_back(GROWMEM);
+  if(Arg* cheerpWasmEnable = Args.getLastArg(options::OPT_cheerp_wasm_enable_EQ)) {
+    for (StringRef opt: cheerpWasmEnable->getValues())
+    {
+      CheerpWasmOpt o = parseWasmOpt(opt);
+      if (o == INVALID)
+      {
+        D.Diag(diag::err_drv_unsupported_option_argument)
+          << cheerpWasmEnable->getOption().getName() << opt;
+      }
+      else
+      {
+        features.push_back(o);
+      }
+    }
+  }
+  // Sort and remove duplicates
+  std::sort(features.begin(), features.end());
+  auto last = std::unique(features.begin(), features.end());
+  features.erase(last, features.end());
+
+  if(Arg* cheerpWasmDisable = Args.getLastArg(options::OPT_cheerp_wasm_disable_EQ)) {
+    for (StringRef opt: cheerpWasmDisable->getValues())
+    {
+      CheerpWasmOpt o = parseWasmOpt(opt);
+      if (o == INVALID)
+      {
+        D.Diag(diag::err_drv_unsupported_option_argument)
+          << cheerpWasmDisable->getOption().getName() << opt;
+      }
+      else
+      {
+        auto last = std::remove(features.begin(), features.end(), o);
+        features.erase(last, features.end());
+      }
+    }
+  }
+  return features;
+}
 void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
                                           const InputInfo &Output,
                                           const InputInfoList &Inputs,
@@ -622,6 +680,27 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     }
     cheerpStrictLinkingEq->render(Args, CmdArgs);
   }
+
+  // Figure out which Wasm optional feature to enable/disable
+  auto features = getWasmFeatures(D, Args);
+  bool noGrowMem = true;
+  for (CheerpWasmOpt o: features)
+  {
+    switch(o)
+    {
+      case SHAREDMEM:
+        CmdArgs.push_back("-cheerp-wasm-shared-memory");
+        break;
+      case GROWMEM:
+        noGrowMem = false;
+        break;
+      default:
+        llvm_unreachable("invalid wasm option");
+        break;
+    }
+  }
+  if (noGrowMem)
+    CmdArgs.push_back("-cheerp-wasm-no-grow-memory");
 
   if(Arg* cheerpSourceMap = Args.getLastArg(options::OPT_cheerp_sourcemap_EQ))
     cheerpSourceMap->render(Args, CmdArgs);
