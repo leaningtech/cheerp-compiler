@@ -42,5 +42,7 @@ extern llvm::cl::opt<bool> AvoidWasmTraps;
 extern llvm::cl::opt<bool> AggressiveGepOptimizer;
 extern llvm::cl::opt<bool> FixWrongFuncCasts;
 extern llvm::cl::opt<std::string> StrictLinking;
+extern llvm::cl::opt<bool> WasmSharedMemory;
+extern llvm::cl::opt<bool> WasmNoGrowMemory;
 
 #endif //_CHEERP_COMMAND_LINE_H

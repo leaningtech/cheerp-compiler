@@ -3550,19 +3550,31 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 
 	// TODO use WasmPage variable instead of hardcoded '1>>16'.
 	assert(WasmPage == 64 * 1024);
-
+	
+	// NOTE: this is not actually required by the spec, but for now chrome
+	// doesn't like growing shared memory
+	if (sharedMemory || noGrowMemory)
+		minMemory = maxMemory;
 	{
 		Section section(0x05, "Memory", this);
 
 		if (mode == CheerpWasmWriter::WASM) {
-			// There is 1 memtype, and the memtype is encoded as {min,max} (= 0x01).
 			internal::encodeULEB128(1, section);
-			internal::encodeULEB128(0x01, section);
+			// from the spec:
+			//limits ::= 0x00 n:u32          => {min n, max e, unshared}
+			//           0x01 n:u32 m:u32    => {min n, max m, unshared}
+			//           0x03 n:u32 m:u32    => {min n, max m, shared}
+			// We use 0x01 and 0x03 only for now
+			int memType = sharedMemory ? 0x03 : 0x01;
+			internal::encodeULEB128(memType, section);
 			// Encode minimum and maximum memory parameters.
 			internal::encodeULEB128(minMemory, section);
 			internal::encodeULEB128(maxMemory, section);
 		} else {
-			section << "(memory (export \"" << namegen.getBuiltinName(NameGenerator::MEMORY).str() << "\") " << minMemory << ' ' << maxMemory << ")\n";
+			section << "(memory (export \"" << namegen.getBuiltinName(NameGenerator::MEMORY).str() << "\") " << minMemory << ' ' << maxMemory;
+			if (sharedMemory)
+				section << " shared";
+			section << ")\n";
 		}
 	}
 
