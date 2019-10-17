@@ -469,12 +469,12 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
 
-bool incompatibleWith(const Driver&, const ArgList&, Arg*)
+static bool incompatibleWith(const Driver&, const ArgList&, Arg*)
 {
   return true;
 }
 template<typename... TS>
-bool incompatibleWith(const Driver& D, const ArgList& Args, Arg* a, Arg* b, TS... args)
+static bool incompatibleWith(const Driver& D, const ArgList& Args, Arg* a, Arg* b, TS... args)
 {
   bool compatible = !a || !b;
   if (!compatible)
@@ -482,7 +482,7 @@ bool incompatibleWith(const Driver& D, const ArgList& Args, Arg* a, Arg* b, TS..
         << a->getAsString(Args) << b->getAsString(Args);
   return compatible & incompatibleWith(D, Args, a, args...);
 }
-void checkCheerpArgCompatibility(const Driver& D, const ArgList& Args)
+static void checkCheerpArgCompatibility(const Driver& D, const ArgList& Args)
 {
   Arg* memFile = Args.getLastArg(options::OPT_cheerp_asmjs_mem_file_EQ);
   Arg* wasmLoader = Args.getLastArg(options::OPT_cheerp_wasm_loader_EQ);
