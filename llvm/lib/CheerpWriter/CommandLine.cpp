@@ -61,3 +61,6 @@ llvm::cl::opt<bool> FixWrongFuncCasts("cheerp-fix-wrong-func-casts", llvm::cl::O
 
 llvm::cl::opt<std::string> StrictLinking("cheerp-strict-linking", llvm::cl::Optional, llvm::cl::desc("Emit warnings/errors on missing symbols"), llvm::cl::value_desc("warning/error") );
 
+llvm::cl::opt<bool> WasmSharedMemory("cheerp-wasm-shared-memory", llvm::cl::desc("Enable sharing wasm module memory between workers"));
+
+llvm::cl::opt<bool> WasmNoGrowMemory("cheerp-wasm-no-grow-memory", llvm::cl::desc("Disable memory growth and allocate all the wasm module memory upfront"));

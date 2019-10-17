@@ -102,6 +102,11 @@ private:
 	// local variable.
 	std::vector<int> localMap;
 
+	// Whether to enable shared memory
+	bool sharedMemory;
+
+	// Whether to disable memory growth
+	bool noGrowMemory;
 public:
 	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, INT, FLOAT32 };
 	const PointerAnalyzer & PA;
@@ -187,6 +192,8 @@ public:
 			bool useWasmLoader,
 			bool prettyCode,
 			bool useCfgLegacy,
+			bool sharedMemory,
+			bool noGrowMemory,
 			OutputMode mode):
 		module(m),
 		pass(p),
@@ -207,6 +214,8 @@ public:
 		useCfgLegacy(useCfgLegacy),
 		hasSetLocal(false),
 		setLocalId((uint32_t)-1),
+		sharedMemory(sharedMemory),
+		noGrowMemory(noGrowMemory),
 		PA(PA),
 		mode(mode),
 		stream(s)
