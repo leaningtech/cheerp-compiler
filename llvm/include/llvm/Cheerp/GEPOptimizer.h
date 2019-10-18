@@ -13,6 +13,7 @@
 #define _CHEERP_GEP_OPTIMIZER_H
 
 #include "llvm/Pass.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
@@ -166,7 +167,7 @@ public:
 	void expandUpwards()
 	{
 		std::vector<BasicBlock*> V(roots.begin(), roots.end());
-		std::set<BasicBlock*> S;
+		BlockSet S;
 		while (!V.empty() || !S.empty())
 		{
 			if (!V.empty())
@@ -671,8 +672,8 @@ private:
  */
 class GEPOptimizer: public FunctionPass
 {
-	//TODO: move this to std::set<const BasicBlock*> when getNode(const BB) will be supported by llvm
-	typedef std::set<BasicBlock*> BlockSet;
+	//TODO: move this to llvm::DenseSet<const BasicBlock*> when getNode(const BasicBlock*) will be supported by llvm
+	typedef llvm::DenseSet<BasicBlock*> BlockSet;
 	typedef BasicBlockForest ValidGEPLocations;
 public:
 	/// This struct represents a subset of a GEP, from operand 0 to operand
