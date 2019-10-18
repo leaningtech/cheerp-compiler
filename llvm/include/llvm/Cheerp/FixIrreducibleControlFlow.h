@@ -18,7 +18,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Cheerp/DeterministicPtrSet.h"
+#include "llvm/Cheerp/DeterministicUnorderedSet.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -40,7 +40,7 @@ public:
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 private:
-	typedef cheerp::DeterministicPtrSet<BasicBlock *> DeterministicBBSet;
+	typedef cheerp::DeterministicUnorderedSet<BasicBlock *, cheerp::RestrictionsLifted::NoErasure> DeterministicBBSet;
 	/// An header of a (possibly) multi-header loop
 	class Header {
 		BasicBlock *BB;
