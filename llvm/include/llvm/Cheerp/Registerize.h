@@ -21,6 +21,7 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/IntEqClasses.h"
 #include "llvm/Cheerp/CommandLine.h"
+#include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/Cheerp/EdgeContext.h"
 #include <array>
 #include <set>
@@ -1311,7 +1312,7 @@ public:
 		}
 	private:
 		std::vector<T> vec;
-		std::unordered_map<T, uint32_t> map;
+		cheerp::DeterministicUnorderedMap<T, uint32_t, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> map;
 	};
 private:
 	// Final data structures
@@ -1337,7 +1338,7 @@ private:
 			}
 		};
 	};
-	std::unordered_map<const llvm::Instruction*, uint32_t> registersMap;
+	llvm::DenseMap<const llvm::Instruction*, uint32_t> registersMap;
 
 	//Class that keeps track for a single instruction which register it occupies at any given point
 	class RegisterUpdates
@@ -1414,13 +1415,13 @@ private:
 		{
 			return InstOnEdge(edgeContext.fromBB, edgeContext.toBB, regId);
 		}
-		std::unordered_map<InstOnEdge, RegisterUpdates, InstOnEdge::Hash> edgeRegistersMap;
+		cheerp::DeterministicUnorderedMap<InstOnEdge, RegisterUpdates, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism, InstOnEdge::Hash> edgeRegistersMap;
 	};
 	EdgeRegistersMap edgeRegistersMap;
 
-	std::unordered_map<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
-	std::unordered_map<const llvm::Function*, std::vector<RegisterInfo>> registersForFunctionMap;
-	std::unordered_map<InstOnEdge, uint32_t, InstOnEdge::Hash> selfRefRegistersMap;
+	llvm::DenseMap<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
+	llvm::DenseMap<const llvm::Function*, std::vector<RegisterInfo>> registersForFunctionMap;
+	cheerp::DeterministicUnorderedMap<InstOnEdge, uint32_t, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism, InstOnEdge::Hash> selfRefRegistersMap;
 	bool useFloats;
 #ifndef NDEBUG
 	bool RegistersAssigned;
@@ -1690,7 +1691,7 @@ private:
 		{
 		}
 	};
-	typedef std::unordered_map<llvm::BasicBlock*, BlockState> BlocksState;
+	typedef cheerp::DeterministicUnorderedMap<llvm::BasicBlock*, BlockState, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> BlocksState;
 	// Temporary data used to registerize allocas
 	typedef std::vector<const llvm::AllocaInst*> AllocaSetTy;
 	typedef std::map<uint32_t, uint32_t> RangeChunksTy;
