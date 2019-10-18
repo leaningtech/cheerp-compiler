@@ -567,7 +567,10 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 	
 	if ( C->getName() == StringRef("free") )
 		mayNeedAsmJSFree = true;
-	else if ( reachableGlobals.insert(C).second )
+	else if (C->getName() == StringRef("malloc"))
+		hasAsmJSMalloc = true;
+
+	if ( reachableGlobals.insert(C).second )
 	{
 
 		if(const GlobalAlias * GA = dyn_cast<GlobalAlias>(C) )
