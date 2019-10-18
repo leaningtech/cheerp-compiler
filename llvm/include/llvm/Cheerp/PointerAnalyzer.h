@@ -90,7 +90,7 @@ private:
 		constraints.clear();
 	}
 public:
-	mutable bool isBeingVisited = false;
+	mutable bool isBeingVisited{false};
 	// We can store pointers to constraint as they are made unique by PointerData::getConstraintPtr
 	cheerp::DeterministicPtrSet<const IndirectPointerKindConstraint*> constraints;
 	PointerKindWrapper():kind(COMPLETE_OBJECT),regularCause(NULL)
@@ -113,7 +113,12 @@ public:
 		std::swap(kind, rhs.kind);
 		constraints.swap(rhs.constraints);
 		std::swap(regularCause, rhs.regularCause);
-		std::swap(isBeingVisited, rhs.isBeingVisited);
+#ifndef NDEBUG
+		//swap should never be called on a PointerKindWrapper while is actually begin visited
+		//Currently this do not happen, since it's in the visit phase that swap is called
+		assert(!isBeingVisited);
+		assert(!rhs.isBeingVisited);
+#endif
 	}
 	bool operator==(POINTER_KIND rhs) const
 	{
@@ -125,11 +130,12 @@ public:
 	}
 	PointerKindWrapper& operator=(const PointerKindWrapper& rhs)
 	{
-		assert(this != &rhs);
-		kind = rhs.kind;
-		constraints = rhs.constraints;
-		regularCause = rhs.regularCause;
-		isBeingVisited = rhs.isBeingVisited;
+		if (this != &rhs)
+		{
+			kind = rhs.kind;
+			constraints = rhs.constraints;
+			regularCause = rhs.regularCause;
+		}
 		return *this;
 	}
 	PointerKindWrapper& operator|=(const PointerKindWrapper& rhs);
