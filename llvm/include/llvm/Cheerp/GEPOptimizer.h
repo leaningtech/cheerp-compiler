@@ -371,17 +371,21 @@ private:
 		//Otherwise they are just regular nodes
 		return Kind::Regular;
 	}
+	static ValidBasicBlockForestGraph* current_VBBFGraph;
 	struct Node {
 		typedef Node* NodeRef;
 		BasicBlock* BB;
 		Kind kind;
-		ValidBasicBlockForestGraph& G;
-		explicit Node(BasicBlock* BB, ValidBasicBlockForestGraph& G): BB(BB), kind(G.determineKind(BB)), G(G)
+		ValidBasicBlockForestGraph& getGraph() const {return const_cast<ValidBasicBlockForestGraph&>(*current_VBBFGraph);}
+		explicit Node(BasicBlock* BB, ValidBasicBlockForestGraph& G): BB(BB), kind(G.determineKind(BB))
 		{
+			current_VBBFGraph = &G;
 			assert(BB);
 		}
-		explicit Node(Kind kind, ValidBasicBlockForestGraph& G): BB(nullptr), kind(kind), G(G)
-		{}
+		explicit Node(Kind kind, ValidBasicBlockForestGraph& G): BB(nullptr), kind(kind)
+		{
+			current_VBBFGraph = &G;
+		}
 		void printAsOperand(llvm::raw_ostream& o, bool b) const
 		{
 			if (BB)
@@ -449,7 +453,7 @@ private:
 		{
 			assert(N->BB);
 			while (Idx < (int)N->BB->getTerminator()->getNumSuccessors() &&
-					N->G.nodeExist(N->BB->getTerminator()->getSuccessor(Idx)) == false)
+					N->getGraph().nodeExist(N->BB->getTerminator()->getSuccessor(Idx)) == false)
 			{
 				++Idx;
 			}
@@ -484,12 +488,12 @@ private:
 		{
 			assert(Idx > -3);
 			if (Idx == -2)
-				return N->G.getOrCreate(Kind::Bad);
+				return N->getGraph().getOrCreate(Kind::Bad);
 			if (Idx == -1)
-				return N->G.getOrCreate(Kind::Good);
+				return N->getGraph().getOrCreate(Kind::Good);
 			assert(Idx >= 0);
 			BasicBlock* BB = N->BB->getTerminator()->getSuccessor(Idx);
-			return N->G.getOrCreate(BB);
+			return N->getGraph().getOrCreate(BB);
 		}
 		SuccIterator& operator++()
 		{
@@ -525,7 +529,7 @@ private:
 		void skipNonExistantPredecessors()
 		{
 			assert(N->BB);
-			while(It != pred_end(N->BB) && N->G.nodeExist(*It) == false)
+			while(It != pred_end(N->BB) && N->getGraph().nodeExist(*It) == false)
 			{
 				++It;
 			}
@@ -547,9 +551,9 @@ private:
 			{
 				VirtualNode = true;
 				if (N->kind == Kind::Good)
-					VirtIt = N->G.GoodPred.begin();
+					VirtIt = N->getGraph().GoodPred.begin();
 				else
-					VirtIt = N->G.BadPred.begin();
+					VirtIt = N->getGraph().BadPred.begin();
 			}
 		}
 		PredIterator(Node* N, bool): N(N)
@@ -563,9 +567,9 @@ private:
 			{
 				VirtualNode = true;
 				if (N->kind == Kind::Good)
-					VirtIt = N->G.GoodPred.end();
+					VirtIt = N->getGraph().GoodPred.end();
 				else
-					VirtIt = N->G.BadPred.end();
+					VirtIt = N->getGraph().BadPred.end();
 			}
 		}
 		bool operator==(const Self& x) const
@@ -588,7 +592,7 @@ private:
 			}
 			else
 			{
-				return N->G.getOrCreate(*It);
+				return N->getGraph().getOrCreate(*It);
 			}
 		}
 		Self& operator++()
