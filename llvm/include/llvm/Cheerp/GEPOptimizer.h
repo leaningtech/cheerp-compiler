@@ -421,7 +421,7 @@ private:
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.emplace(BasicBlockKindPair(BB, Kind::Regular), Node(BB)).first;
+			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, Kind::Regular), Node(BB))).first;
 		}
 		return &it->second;
 	}
@@ -435,7 +435,7 @@ private:
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.emplace(BasicBlockKindPair(BB, kind), Node(kind)).first;
+			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, kind), Node(kind))).first;
 		}
 		return &it->second;
 	}
@@ -618,18 +618,8 @@ private:
 			Self tmp = *this; ++*this; return tmp;
 		}
 	};
-	struct NodeHasher
-	{
-		inline size_t operator()(const BasicBlockKindPair& p) const
-		{
-			size_t seed = 0x9e3779b9;
-			if (p.getInt() == Kind::Good) seed = 0x2e6739b1;
-			seed ^=  reinterpret_cast<size_t>(p.getPointer()) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-			return seed;
-		}
-	};
 
-	typedef std::unordered_map<BasicBlockKindPair, Node, NodeHasher> NodeMap;
+	typedef llvm::DenseMap<BasicBlockKindPair, Node> NodeMap;
 	friend struct GraphTraits<ValidBasicBlockForestGraph*>;
 	friend struct GraphTraits<ValidBasicBlockForestGraph::Node*>;
 	friend struct GraphTraits<Inverse<ValidBasicBlockForestGraph::Node*>>;
