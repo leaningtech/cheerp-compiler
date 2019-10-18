@@ -19,7 +19,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Cheerp/CommandLine.h"
-#include <unordered_map>
+#include "llvm/Cheerp/DeterministicUnorderedMap.h"
 
 namespace llvm
 {
@@ -39,7 +39,7 @@ static BasicBlock* immediateDominator(BasicBlock* BB, const DominatorTree* DT)
  */
 class BasicBlockForest
 {
-	typedef std::set<BasicBlock*> BlockSet;
+	typedef llvm::DenseSet<BasicBlock*> BlockSet;
 public:
 	BasicBlockForest(const DominatorTree* DT) : DT(DT), roots()
 	{
@@ -127,7 +127,7 @@ public:
 			else if (DT->dominates(BB, block))
 				next.insert(const_cast<BasicBlock*>(block));
 		}
-		swap (roots, next);
+		std::swap (roots, next);
 	}
 	BasicBlockForest keepOnlyDominated(const BasicBlockForest& dominant) const
 	{
@@ -789,7 +789,7 @@ private:
 		const OrderOfAppearence& orderOfAppearence;
 	};
 	typedef std::vector<GetElementPtrInst*> OrderedGEPs;
-	typedef std::unordered_map<GEPRange, ValidGEPLocations, GEPRangeHasher> ValidGEPMap;
+	typedef cheerp::DeterministicUnorderedMap<GEPRange, ValidGEPLocations, cheerp::RestrictionsLifted::NoErasure | cheerp::RestrictionsLifted::NoDeterminism, GEPRangeHasher> ValidGEPMap;
 	DominatorTree* DT;
 	ValidGEPMap validGEPMap;
 	ValidGEPMap subsetGEPMap;
