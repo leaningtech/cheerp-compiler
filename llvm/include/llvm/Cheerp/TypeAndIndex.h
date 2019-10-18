@@ -43,6 +43,13 @@ struct TypeAndIndex
 			}
 		}
 	}
+	struct Hash
+	{
+		uint32_t operator()(const TypeAndIndex& x) const
+		{
+			return std::hash<llvm::Type*>()(x.type) ^ std::hash<uint32_t>()(x.index);
+		}
+	};
 	bool operator<(const TypeAndIndex& rhs) const
 	{
 		if(type==rhs.type)
