@@ -14,6 +14,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Dominators.h"
@@ -407,11 +408,11 @@ private:
 	Node* getOrCreate(BasicBlock* BB, bool create = false)
 	{
 		// Non-virtual nodes are stored as Regular (as to avoid computing the kind here)
-		auto it = Nodes.find(std::make_pair(BB, Kind::Regular));
+		auto it = Nodes.find(BasicBlockKindPair(BB, Kind::Regular));
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.emplace(std::make_pair(BB, Kind::Regular), Node(BB, *this)).first;
+			it = Nodes.emplace(BasicBlockKindPair(BB, Kind::Regular), Node(BB, *this)).first;
 		}
 		return &it->second;
 	}
@@ -421,18 +422,18 @@ private:
 		assert(kind != Kind::ConnectedToBad);
 		assert(kind != Kind::ConnectedToGood);
 		BasicBlock* BB = nullptr;
-		auto it = Nodes.find(std::make_pair(BB, kind));
+		auto it = Nodes.find(BasicBlockKindPair(BB, kind));
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.emplace(std::make_pair(BB, kind), Node(kind, *this)).first;
+			it = Nodes.emplace(BasicBlockKindPair(BB, kind), Node(kind, *this)).first;
 		}
 		return &it->second;
 	}
 	bool nodeExist(BasicBlock* BB) const
 	{
 		assert(BB);
-		auto it = Nodes.find(std::make_pair(BB, Kind::Regular));
+		auto it = Nodes.find(BasicBlockKindPair(BB, Kind::Regular));
 		return (it != Nodes.end());
 	}
 	Node* getEntryNode()
@@ -608,18 +609,19 @@ private:
 			Self tmp = *this; ++*this; return tmp;
 		}
 	};
+	typedef llvm::PointerIntPair<llvm::BasicBlock*, 3, Kind> BasicBlockKindPair;
 	struct NodeHasher
 	{
-		inline size_t operator()(const std::pair<BasicBlock*, Kind>& p) const
+		inline size_t operator()(const BasicBlockKindPair& p) const
 		{
 			size_t seed = 0x9e3779b9;
-			if (p.second == Kind::Good) seed = 0x2e6739b1;
-			seed ^=  reinterpret_cast<size_t>(p.first) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			if (p.getInt() == Kind::Good) seed = 0x2e6739b1;
+			seed ^=  reinterpret_cast<size_t>(p.getPointer()) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			return seed;
 		}
 	};
 
-	typedef std::unordered_map<std::pair<BasicBlock*, Kind>, Node, NodeHasher> NodeMap;
+	typedef std::unordered_map<BasicBlockKindPair, Node, NodeHasher> NodeMap;
 	friend struct GraphTraits<ValidBasicBlockForestGraph*>;
 	friend struct GraphTraits<ValidBasicBlockForestGraph::Node*>;
 	friend struct GraphTraits<Inverse<ValidBasicBlockForestGraph::Node*>>;
