@@ -18,7 +18,7 @@
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Cheerp/DeterministicPtrMap.h"
+#include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/Cheerp/Utility.h"
 
 #include <map>
@@ -78,7 +78,7 @@ public:
     llvm::Module *currentModule;
     std::unique_ptr<Allocator> allocator;
 
-    DeterministicPtrMap<llvm::GlobalVariable *, llvm::Constant *>  modifiedGlobals;
+    DeterministicUnorderedMap<llvm::GlobalVariable *, llvm::Constant *, RestrictionsLifted::NoErasure>  modifiedGlobals;
     std::map<char *, AllocData> typedAllocations;
 
     explicit PreExecute() : llvm::ModulePass(ID) {
