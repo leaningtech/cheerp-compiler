@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Cheerp/DeterministicPtrMap.h"
+#include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/TypeOptimizer.h"
 #include "llvm/IR/IRBuilder.h"
@@ -999,7 +999,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		localTypeMapping[v] = t;
 	};
 	// Keep track of instructions which have been remapped
-	DeterministicPtrMap<Value*, std::pair<Value*, uint8_t>> localInstMapping;
+	DeterministicUnorderedMap<Value*, std::pair<Value*, uint8_t>, RestrictionsLifted::NoErasure> localInstMapping;
 	auto getMappedOperand = [&](Value* v) -> std::pair<Value*, uint8_t>
 	{
 		if(Constant* C=dyn_cast<Constant>(v))
