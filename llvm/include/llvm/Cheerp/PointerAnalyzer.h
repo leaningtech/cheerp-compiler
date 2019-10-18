@@ -19,7 +19,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Timer.h"
-#include "llvm/Cheerp/DeterministicPtrSet.h"
+#include "llvm/Cheerp/DeterministicUnorderedSet.h"
+#include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/Cheerp/TypeAndIndex.h"
 #include <unordered_map>
 #include <unordered_set>
@@ -92,7 +93,7 @@ private:
 public:
 	mutable bool isBeingVisited{false};
 	// We can store pointers to constraint as they are made unique by PointerData::getConstraintPtr
-	cheerp::DeterministicPtrSet<const IndirectPointerKindConstraint*> constraints;
+	cheerp::DeterministicUnorderedSet<const IndirectPointerKindConstraint*, RestrictionsLifted::NoErasure> constraints;
 	PointerKindWrapper():kind(COMPLETE_OBJECT),regularCause(NULL)
 	{
 	}
@@ -322,7 +323,7 @@ public:
 	{
 		typedef llvm::DenseMap<const llvm::Value*, T> ValueKindMap;
 		typedef std::map<TypeAndIndex, T> TypeAndIndexMap;
-		typedef std::unordered_map<IndirectPointerKindConstraint, T, IndirectPointerKindConstraint::Hash> ConstraintsMap;
+		typedef cheerp::DeterministicUnorderedMap<IndirectPointerKindConstraint, T, RestrictionsLifted::NoErasure, IndirectPointerKindConstraint::Hash> ConstraintsMap;
 		ConstraintsMap constraintsMap;
 		// Helper function to make constraints unique, they are stored as the key field into constraintsMap
 		// and may or may not hold any actual pointer data as the corresponding valiue
