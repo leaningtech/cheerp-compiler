@@ -302,9 +302,9 @@ public:
 				continue;
 
 			Node* N = getOrCreate(BB, true);
-			if (N->kind == Kind::ConnectedToGood)
+			if (N->kind() == Kind::ConnectedToGood)
 				GoodPred.push_back(N);
-			else if (N->kind == Kind::ConnectedToBad)
+			else if (N->kind() == Kind::ConnectedToBad)
 				BadPred.push_back(N);
 			//A node could be either connected to Good or Bad, since node connected to both
 			//are only connected to Bad (since they will never be postdominated by Good, we could avoid the processing)
@@ -377,30 +377,32 @@ private:
 		return Kind::Regular;
 	}
 	static ValidBasicBlockForestGraph* current_VBBFGraph;
+	typedef llvm::PointerIntPair<llvm::BasicBlock*, 3, Kind> BasicBlockKindPair;
 	struct Node {
 		typedef Node* NodeRef;
-		BasicBlock* BB;
-		Kind kind;
+		const llvm::PointerIntPair<llvm::BasicBlock*, 3, Kind> pair;
+		constexpr BasicBlock* BB() const {return pair.getPointer();}
+		constexpr Kind kind() const {return pair.getInt();}
 		ValidBasicBlockForestGraph& getGraph() const {return const_cast<ValidBasicBlockForestGraph&>(*current_VBBFGraph);}
-		explicit Node(BasicBlock* BB): BB(BB), kind(getGraph().determineKind(BB))
+		explicit Node(BasicBlock* BB): pair(BB, getGraph().determineKind(BB))
 		{
 			assert(BB);
 		}
-		explicit Node(Kind kind): BB(nullptr), kind(kind)
+		explicit Node(Kind kind): pair(nullptr, kind)
 		{
 		}
 		void printAsOperand(llvm::raw_ostream& o, bool b) const
 		{
-			if (BB)
-				BB->printAsOperand(o, b);
+			if (BB())
+				BB()->printAsOperand(o, b);
 			llvm::errs() << " ";
-			if (kind == Kind::Good)
+			if (kind() == Kind::Good)
 				llvm::errs() << "Good";
-			else if (kind == Kind::ConnectedToGood)
+			else if (kind() == Kind::ConnectedToGood)
 				llvm::errs() << "ConnectedToGood";
-			else if (kind == Kind::Regular)
+			else if (kind() == Kind::Regular)
 				llvm::errs() << "Regular";
-			else if (kind == Kind::ConnectedToBad)
+			else if (kind() == Kind::ConnectedToBad)
 				llvm::errs() << "ConnectedToBad";
 			else
 				llvm::errs() << "Bad";
@@ -454,9 +456,9 @@ private:
 		: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node, Node> {
 		void skipNonExistentSuccessors()
 		{
-			assert(N->BB);
-			while (Idx < (int)N->BB->getTerminator()->getNumSuccessors() &&
-					N->getGraph().nodeExist(N->BB->getTerminator()->getSuccessor(Idx)) == false)
+			assert(N->BB());
+			while (Idx < (int)N->BB()->getTerminator()->getNumSuccessors() &&
+					N->getGraph().nodeExist(N->BB()->getTerminator()->getSuccessor(Idx)) == false)
 			{
 				++Idx;
 			}
@@ -464,13 +466,13 @@ private:
 	public:
 		explicit SuccIterator(Node* N): N(N)
 		{
-			if (N->BB == nullptr)
+			if (N->BB() == nullptr)
 			{
 				Idx = -3;
 			}
-			else if (N->kind == Kind::ConnectedToBad)
+			else if (N->kind() == Kind::ConnectedToBad)
 				Idx = -2;
-			else if (N->kind == Kind::ConnectedToGood)
+			else if (N->kind() == Kind::ConnectedToGood)
 				Idx = -1;
 			else
 			{
@@ -480,12 +482,12 @@ private:
 		}
 		explicit SuccIterator(Node* N, bool): N(N)
 		{
-			if (N->BB == nullptr)
+			if (N->BB() == nullptr)
 			{
 				Idx = -3;
 			}
 			else
-				Idx = N->BB->getTerminator()->getNumSuccessors();
+				Idx = N->BB()->getTerminator()->getNumSuccessors();
 		}
 		Node* operator*() const
 		{
@@ -495,7 +497,7 @@ private:
 			if (Idx == -1)
 				return N->getGraph().getOrCreate(Kind::Good);
 			assert(Idx >= 0);
-			BasicBlock* BB = N->BB->getTerminator()->getSuccessor(Idx);
+			BasicBlock* BB = N->BB()->getTerminator()->getSuccessor(Idx);
 			return N->getGraph().getOrCreate(BB);
 		}
 		SuccIterator& operator++()
@@ -531,8 +533,8 @@ private:
 
 		void skipNonExistantPredecessors()
 		{
-			assert(N->BB);
-			while(It != pred_end(N->BB) && N->getGraph().nodeExist(*It) == false)
+			assert(N->BB());
+			while(It != pred_end(N->BB()) && N->getGraph().nodeExist(*It) == false)
 			{
 				++It;
 			}
@@ -544,16 +546,16 @@ private:
 		PredIterator() {}
 		explicit PredIterator(Node* N): N(N)
 		{
-			if (N->BB)
+			if (N->BB())
 			{
 				VirtualNode = false;
-				It = pred_begin(N->BB);
+				It = pred_begin(N->BB());
 				skipNonExistantPredecessors();
 			}
 			else
 			{
 				VirtualNode = true;
-				if (N->kind == Kind::Good)
+				if (N->kind() == Kind::Good)
 					VirtIt = N->getGraph().GoodPred.begin();
 				else
 					VirtIt = N->getGraph().BadPred.begin();
@@ -561,15 +563,15 @@ private:
 		}
 		PredIterator(Node* N, bool): N(N)
 		{
-			if (N->BB)
+			if (N->BB())
 			{
 				VirtualNode = false;
-				It = pred_end(N->BB);
+				It = pred_end(N->BB());
 			}
 			else
 			{
 				VirtualNode = true;
-				if (N->kind == Kind::Good)
+				if (N->kind() == Kind::Good)
 					VirtIt = N->getGraph().GoodPred.end();
 				else
 					VirtIt = N->getGraph().BadPred.end();
@@ -577,7 +579,7 @@ private:
 		}
 		bool operator==(const Self& x) const
 		{
-			if (N->kind != x.N->kind)
+			if (N->kind() != x.N->kind())
 				return false;
 			if (VirtualNode)
 				return VirtIt == x.VirtIt;
@@ -616,7 +618,6 @@ private:
 			Self tmp = *this; ++*this; return tmp;
 		}
 	};
-	typedef llvm::PointerIntPair<llvm::BasicBlock*, 3, Kind> BasicBlockKindPair;
 	struct NodeHasher
 	{
 		inline size_t operator()(const BasicBlockKindPair& p) const

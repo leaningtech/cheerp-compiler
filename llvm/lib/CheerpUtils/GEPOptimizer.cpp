@@ -236,9 +236,9 @@ BasicBlockForest ValidBasicBlockForestGraph::getValidBlocks()
 	//and all nodes postdominates by "Good"
 	for (const auto& V: ValidNodes)
 	{
-		if (V->BB)
+		if (V->BB())
 		{
-			ret.insert(V->BB);
+			ret.insert(V->BB());
 		}
 	}
 	ret.simplify();
