@@ -280,6 +280,8 @@ public:
 	explicit ValidBasicBlockForestGraph(const BasicBlockForest& knownPostdominated, const BasicBlockForest& toBeClassified)
 		: knownValid(knownPostdominated.keepOnlyDominated(toBeClassified)), toBeClassified(toBeClassified)
 	{
+		assert(current_VBBFGraph == NULL);
+		current_VBBFGraph = this;
 		const DominatorTree* DT = getDominatorTree();
 		//Blocks in the CFG could be of three kinds;
 		// -knownValid: blocks already classified as valid (it's known they lead to visit a valid BasicBlock and are a subset of toBeClassified-forest)
@@ -320,6 +322,9 @@ public:
 	explicit ValidBasicBlockForestGraph(const BasicBlockForest& knownPostdominated)
 		: ValidBasicBlockForestGraph(knownPostdominated, BasicBlockForest::expandToTheWholeFunction(knownPostdominated))
 	{
+	}
+	~ValidBasicBlockForestGraph() {
+		current_VBBFGraph = NULL;
 	}
 	ValidBasicBlockForestGraph(const ValidBasicBlockForestGraph&) = delete;
 	ValidBasicBlockForestGraph(ValidBasicBlockForestGraph&&) = delete;
@@ -377,14 +382,12 @@ private:
 		BasicBlock* BB;
 		Kind kind;
 		ValidBasicBlockForestGraph& getGraph() const {return const_cast<ValidBasicBlockForestGraph&>(*current_VBBFGraph);}
-		explicit Node(BasicBlock* BB, ValidBasicBlockForestGraph& G): BB(BB), kind(G.determineKind(BB))
+		explicit Node(BasicBlock* BB): BB(BB), kind(getGraph().determineKind(BB))
 		{
-			current_VBBFGraph = &G;
 			assert(BB);
 		}
-		explicit Node(Kind kind, ValidBasicBlockForestGraph& G): BB(nullptr), kind(kind)
+		explicit Node(Kind kind): BB(nullptr), kind(kind)
 		{
-			current_VBBFGraph = &G;
 		}
 		void printAsOperand(llvm::raw_ostream& o, bool b) const
 		{
@@ -416,7 +419,7 @@ private:
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.emplace(BasicBlockKindPair(BB, Kind::Regular), Node(BB, *this)).first;
+			it = Nodes.emplace(BasicBlockKindPair(BB, Kind::Regular), Node(BB)).first;
 		}
 		return &it->second;
 	}
@@ -430,7 +433,7 @@ private:
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.emplace(BasicBlockKindPair(BB, kind), Node(kind, *this)).first;
+			it = Nodes.emplace(BasicBlockKindPair(BB, kind), Node(kind)).first;
 		}
 		return &it->second;
 	}
