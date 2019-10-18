@@ -1563,15 +1563,29 @@ static bool canSinkInstructions(
   // FIXME: This is a workaround for a deficiency in SROA - see
   // https://llvm.org/bugs/show_bug.cgi?id=30188
   if (isa<StoreInst>(I0) && any_of(Insts, [](const Instruction *I) {
-        return isa<AllocaInst>(I->getOperand(1)->stripPointerCasts());
+        const DataLayout& DL = I->getModule()->getDataLayout();
+        if (!DL.isByteAddressable()) {
+          if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(I->getOperand(1))) {
+            gep_type_iterator It = std::next(gep_type_begin(GEP), GEP->getNumOperands() - 1);
+            return It.isStruct();
+          }
+        }
+        return isa<AllocaInst>(I->getOperand(1)->stripPointerCastsSafe());
       }))
     return false;
   if (isa<LoadInst>(I0) && any_of(Insts, [](const Instruction *I) {
-        return isa<AllocaInst>(I->getOperand(0)->stripPointerCasts());
+        const DataLayout& DL = I->getModule()->getDataLayout();
+        if (!DL.isByteAddressable()) {
+          if (GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(I->getOperand(0))) {
+            gep_type_iterator It = std::next(gep_type_begin(GEP), GEP->getNumOperands() - 1);
+            return It.isStruct();
+          }
+        }
+        return isa<AllocaInst>(I->getOperand(0)->stripPointerCastsSafe());
       }))
     return false;
   if (isLifeTimeMarker(I0) && any_of(Insts, [](const Instruction *I) {
-        return isa<AllocaInst>(I->getOperand(1)->stripPointerCasts());
+        return isa<AllocaInst>(I->getOperand(1)->stripPointerCastsSafe());
       }))
     return false;
 
