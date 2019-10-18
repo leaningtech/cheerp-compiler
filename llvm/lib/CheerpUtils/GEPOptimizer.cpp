@@ -242,7 +242,7 @@ BasicBlockForest ValidBasicBlockForestGraph::getValidBlocks()
 		}
 	}
 	ret.simplify();
-	assert(all_of(ret.getRoots().begin(), ret.getRoots().end(), [this](BasicBlock* bb) -> bool { return toBeClassified.count(bb); } ));
+	assert(std::all_of(ret.getRoots().begin(), ret.getRoots().end(), [this](BasicBlock* bb) -> bool { return toBeClassified.count(bb); } ));
 	return ret;
 }
 
