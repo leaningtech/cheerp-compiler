@@ -23,6 +23,8 @@
 
 namespace llvm {
 
+ValidBasicBlockForestGraph* ValidBasicBlockForestGraph::current_VBBFGraph = NULL;
+
 Value* GEPOptimizer::GEPRecursionData::getValueNthOperator(const GetElementPtrInst* gep, const uint32_t index)
 {
 	if (index >= gep->getNumOperands())
