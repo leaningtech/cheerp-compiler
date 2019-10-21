@@ -226,7 +226,11 @@ RValue CodeGenFunction::EmitAnyExprToTemp(const Expr *E) {
   AggValueSlot AggSlot = AggValueSlot::ignored();
 
   if (hasAggregateEvaluationKind(E->getType()))
+  {
     AggSlot = CreateAggTemp(E->getType(), "agg.tmp");
+    auto *Size = EmitLifetimeStart(-1, AggSlot.getPointer());
+    EHStack.pushCleanup<CallLifetimeEnd>(NormalCleanup, AggSlot.getAddress(), Size);
+  }
   return EmitAnyExpr(E, AggSlot);
 }
 
