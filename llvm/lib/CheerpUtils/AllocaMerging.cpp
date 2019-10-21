@@ -785,7 +785,7 @@ bool AllocaStoresExtractor::runOnBasicBlock(BasicBlock& BB, const Module& module
 				if(it != instsToAlloca.end())
 				{
 					// TODO: Improve logic to handle non-constants, we could also allow insts defined above the alloca
-					if(it->second.second < 0 || !isa<Constant>(SI->getValueOperand()))
+					if(it->second.second < 0 || isa<Instruction>(SI->getValueOperand()))
 					{
 						// This offset/value is not trackable, but it is also not an escape
 						// use 'continue' to avoid falling in the escaping logic
