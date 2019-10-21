@@ -360,6 +360,11 @@ private:
 		//ConnectedToGood and ConnectedToBad have all they regular predecessors and successors + Good/Bad as additional successor
 		Good, Bad, ConnectedToGood, ConnectedToBad, Regular
 	};
+	static Kind compressKind(const Kind& k)
+	{
+		//There are 5 kinds, but to compress them in 2 bits Good and Regular share the same value (and are kept apart by BB() being non null)
+		return Kind((int)k%4);
+	}
 	Kind determineKind(BasicBlock* BB) const
 	{
 		assert(BB);
@@ -377,14 +382,21 @@ private:
 		return Kind::Regular;
 	}
 	static ValidBasicBlockForestGraph* current_VBBFGraph;
-	typedef llvm::PointerIntPair<llvm::BasicBlock*, 3, Kind> BasicBlockKindPair;
+	typedef llvm::PointerIntPair<llvm::BasicBlock*, 2, Kind> BasicBlockKindPair;
 	struct Node {
 		typedef Node* NodeRef;
-		const llvm::PointerIntPair<llvm::BasicBlock*, 3, Kind> pair;
-		constexpr BasicBlock* BB() const {return pair.getPointer();}
-		constexpr Kind kind() const {return pair.getInt();}
+		const llvm::PointerIntPair<llvm::BasicBlock*, 2, Kind> pair;
+		constexpr BasicBlock* BB() const
+		{
+			return pair.getPointer();
+		}
+		constexpr Kind kind() const
+		{
+			//There are 5 kinds, but to compress them in 2 bits Good and Regular share the same value (and are kept apart by BB() being non null)
+			return (pair.getInt() == Kind::Good && BB()) ? Kind::Regular : pair.getInt();
+		}
 		ValidBasicBlockForestGraph& getGraph() const {return const_cast<ValidBasicBlockForestGraph&>(*current_VBBFGraph);}
-		explicit Node(BasicBlock* BB): pair(BB, getGraph().determineKind(BB))
+		explicit Node(BasicBlock* BB): pair(BB, compressKind(getGraph().determineKind(BB)))
 		{
 			assert(BB);
 		}
@@ -417,11 +429,11 @@ private:
 	Node* getOrCreate(BasicBlock* BB, bool create = false)
 	{
 		// Non-virtual nodes are stored as Regular (as to avoid computing the kind here)
-		auto it = Nodes.find(BasicBlockKindPair(BB, Kind::Regular));
+		auto it = Nodes.find(BasicBlockKindPair(BB, compressKind(Kind::Regular)));
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, Kind::Regular), Node(BB))).first;
+			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, compressKind(Kind::Regular)), Node(BB))).first;
 		}
 		return &it->second;
 	}
@@ -431,18 +443,18 @@ private:
 		assert(kind != Kind::ConnectedToBad);
 		assert(kind != Kind::ConnectedToGood);
 		BasicBlock* BB = nullptr;
-		auto it = Nodes.find(BasicBlockKindPair(BB, kind));
+		auto it = Nodes.find(BasicBlockKindPair(BB, compressKind(kind)));
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, kind), Node(kind))).first;
+			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, compressKind(kind)), Node(kind))).first;
 		}
 		return &it->second;
 	}
 	bool nodeExist(BasicBlock* BB) const
 	{
 		assert(BB);
-		auto it = Nodes.find(BasicBlockKindPair(BB, Kind::Regular));
+		auto it = Nodes.find(BasicBlockKindPair(BB, compressKind(Kind::Regular)));
 		return (it != Nodes.end());
 	}
 	Node* getEntryNode()
