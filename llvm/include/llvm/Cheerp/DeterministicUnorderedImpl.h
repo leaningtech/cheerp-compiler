@@ -21,6 +21,32 @@
 #include <iostream>
 #include "llvm/ADT/DenseMap.h"
 
+/*
+   Deterministic Unordered Container Implementation
+
+   There are 2 choices that are made are compile time:
+   -Should the linear container be std::list or std::deque?
+   -Should the associative container have Key or Key* as key?
+
+
+   -Should the linear container be std::list or std::deque?
+   std::list is more general, preserve pointer and interator stability.
+   std::deque is faster, but works only if additional guarantee are given: either NoErasure will be done (and so it's fine just to append to the deque)
+   or if no pointer & iterator stability is needed (and so on erasure elements can be shuffled around)
+
+   At compile time it will be checked whether Value is movable at all, and whether NoErasure or NoPointerStability has been specified,
+   and the appropriate container is chosen
+
+
+   -Should the associative container have Key or Key* as key?
+   Generally, it should hold Key* with an appropriate Hash function and Equality function.
+   If Key is already a pointer (and this happens in most cases), we can store it directly and save us an additional indirections.
+   Also this is chosen at compile time.
+*/
+
+namespace deterministicUnorderedImplementation
+{
+
 template <typename Key, typename Value, class Hash_Key, template<typename, typename...> class Container, bool CouldErase>
 class DeterministicUnorderedImpl
 {
@@ -29,27 +55,6 @@ public:
 	using ContainerLocal = Container<Value>;
 	using iterator = typename ContainerLocal::iterator;
 	using const_iterator = typename ContainerLocal::const_iterator;
-	constexpr static bool isKeyPointer()
-	{
-		return std::is_pointer<Key>();// || std::is_fundamental<Key>();
-	}
-	typedef typename std::conditional<isKeyPointer(), Key, const Key*>::type Key_ptr;
-	template <bool isPointer>
-	static Key_ptr mappedImpl(const Key& key);
-	template <>
-	static Key_ptr mappedImpl</*isPointer*/true>(const Key& key)
-	{
-		return key;
-	}
-	template <>
-	static Key_ptr mappedImpl</*isPointer*/false>(const Key& key)
-	{
-		return &key;
-	}
-	static Key_ptr mapped(const Key& key)
-	{
-		return mappedImpl<isKeyPointer()>(key);
-	}
 	DeterministicUnorderedImpl()
 	{
 	}
@@ -83,21 +88,6 @@ public:
 	const_iterator find(const Key& key) const
 	{
 		return const_cast<DeterministicUnorderedImpl*>(this)->find(key);
-	}
-	template <class T>
-	void removeFrom (iterator& iter);
-	template <>
-	void removeFrom<std::list<Value>> (iterator& iter)
-	{
-		container.erase(iter);
-	}
-	template <>
-	void removeFrom<std::deque<Value>> (iterator& iter)
-	{
-		std::swap(const_cast<Key>(iter->first), const_cast<Key>(container.back()->first));
-		std::swap(iter->second, container.back()->second);
-		map[mapped(iter->first)] = iter;
-		container.pop_back();
 	}
 	bool empty() const
 	{
@@ -133,6 +123,43 @@ public:
 	iterator end()
 	{
 		return container.end();
+	}
+protected:
+	constexpr static bool isKeyPointer()
+	{
+		return std::is_pointer<Key>();// || std::is_fundamental<Key>();
+	}
+	typedef typename std::conditional<isKeyPointer(), Key, const Key*>::type Key_ptr;
+	template <bool isPointer>
+	static Key_ptr mappedImpl(const Key& key);
+	template <>
+	static Key_ptr mappedImpl</*isPointer*/true>(const Key& key)
+	{
+		return key;
+	}
+	template <>
+	static Key_ptr mappedImpl</*isPointer*/false>(const Key& key)
+	{
+		return &key;
+	}
+	static Key_ptr mapped(const Key& key)
+	{
+		return mappedImpl<isKeyPointer()>(key);
+	}
+	template <class T>
+	void removeFrom (iterator& iter);
+	template <>
+	void removeFrom<std::list<Value>> (iterator& iter)
+	{
+		container.erase(iter);
+	}
+	template <>
+	void removeFrom<std::deque<Value>> (iterator& iter)
+	{
+		std::swap(const_cast<Key>(iter->first), const_cast<Key>(container.back()->first));
+		std::swap(iter->second, container.back()->second);
+		map[mapped(iter->first)] = iter;
+		container.pop_back();
 	}
 	
 	//In this cases we store pointers to Key in the map
@@ -254,6 +281,8 @@ constexpr bool couldBeDeque(const RestrictionsLifted& restrictionVoided)
 	//Either there are no Erase or (value_type is movable and pointer stability is not needed)
 	return nonEraseable(restrictionVoided) ||
 		(isMovable<Value_type>() && nonStable(restrictionVoided) );
+}
+
 }
 
 #endif
