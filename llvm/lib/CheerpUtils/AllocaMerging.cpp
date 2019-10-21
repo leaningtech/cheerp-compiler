@@ -809,6 +809,18 @@ bool AllocaStoresExtractor::runOnBasicBlock(BasicBlock& BB, const Module& module
 				}
 			}
 		}
+		else if(IntrinsicInst* II = dyn_cast<IntrinsicInst>(&I))
+		{
+			// Skip some intrinsics which do not cause allocas to escape
+                        if(II->getIntrinsicID()==Intrinsic::lifetime_start ||
+                                II->getIntrinsicID()==Intrinsic::lifetime_end ||
+                                II->getIntrinsicID()==Intrinsic::dbg_declare ||
+                                II->getIntrinsicID()==Intrinsic::dbg_value ||
+                                II->getIntrinsicID()==Intrinsic::assume)
+			{
+				continue;
+			}
+		}
 		// If any of the tracked values are used by not handled instructions, the corresponding alloca escapes
 		for(Value* op: I.operands())
 		{
