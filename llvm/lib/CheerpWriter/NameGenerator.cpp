@@ -474,6 +474,9 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	// Generate the rest of the builtins
 	for(int i=IMUL;i<=HANDLE_VAARG;i++)
 		builtins[i] = nameHelper.makeGlobalName();
+
+	if (shortestLocalName.size() == 0)
+		assignLocalName(nameHelper.makeLocalName());
 }
 
 void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnalyzer& gda, LinearMemoryHelper& linearHelper)
@@ -635,6 +638,9 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[HEAP32] = "HEAP32";
 	builtins[HEAPF32] = "HEAPF32";
 	builtins[HEAPF64] = "HEAPF64";
+
+	if (shortestLocalName.size() == 0)
+		assignLocalName("Z");
 }
 
 bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) const
