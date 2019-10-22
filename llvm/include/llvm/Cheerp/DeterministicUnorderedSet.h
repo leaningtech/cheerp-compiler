@@ -87,7 +87,7 @@ public:
 	}
 	bool erase(const Key& t)
 	{
-		return eraseImpl<CouldErase>(t);
+		return eraseImpl(t);
 	}
 private:
 	using BaseClass::map;
@@ -102,23 +102,15 @@ private:
 		map[this->mapped(*W)] = W;
 		return {W, true};
 	}
-	template<bool couldErase>
-	bool eraseImpl(const Key& t);
-	template<>
-	bool eraseImpl<true>(const Key& t)
+	bool eraseImpl(const Key& t)
 	{
+		static_assert(CouldErase);
 		iterator W = find(t);
 		if (W == BaseClass::end())
 			return false;
 		map.erase(this->mapped(*W));
 		BaseClass::removeFrom<BaseClass::ContainerLocal>(W);
 		return true;
-	}
-	template<>
-	bool eraseImpl<false>(const Key& t)
-	{
-		static_assert(CouldErase, "No erase are possible");
-		return false;
 	}
 };
 
