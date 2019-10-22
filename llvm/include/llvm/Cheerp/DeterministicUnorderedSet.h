@@ -104,7 +104,7 @@ private:
 	}
 	bool eraseImpl(const Key& t)
 	{
-		static_assert(CouldErase);
+		static_assert(CouldErase, "Could not actually erase, modify instantiation of the class");
 		iterator W = find(t);
 		if (W == BaseClass::end())
 			return false;
