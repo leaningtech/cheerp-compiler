@@ -47,6 +47,7 @@
 namespace deterministicUnorderedImplementation
 {
 
+
 template <typename Key, typename Value, class Hash_Key, template<typename, typename...> class Container, bool CouldErase>
 class DeterministicUnorderedImpl
 {
@@ -130,38 +131,73 @@ protected:
 		return std::is_pointer<Key>();// || std::is_fundamental<Key>();
 	}
 	typedef typename std::conditional<isKeyPointer(), Key, const Key*>::type Key_ptr;
-	template <bool isPointer>
-	static Key_ptr mappedImpl(const Key& key);
-	template <>
-	static Key_ptr mappedImpl</*isPointer*/true>(const Key& key)
+
+	template <typename Ret, typename Arg, bool isPointer>
+	struct mappedImpl
 	{
-		return key;
-	}
-	template <>
-	static Key_ptr mappedImpl</*isPointer*/false>(const Key& key)
+		static Ret func(const Arg& key);
+	};
+	template <typename Ret, typename Arg>
+	struct mappedImpl<Ret, Arg, true>
 	{
-		return &key;
-	}
+		static Ret func(const Arg& key)
+		{
+			return key;
+		}
+	};
+	template <typename Ret, typename Arg>
+	struct mappedImpl<Ret, Arg, false>
+	{
+		static Ret func(const Arg& key)
+		{
+			return &key;
+		}
+	};
 	static Key_ptr mapped(const Key& key)
 	{
-		return mappedImpl<isKeyPointer()>(key);
+		return mappedImpl<Key_ptr, Key, isKeyPointer()>::func(key);
 	}
-	template <class T>
-	void removeFrom (iterator& iter);
-	template <>
-	void removeFrom<std::list<Value>> (iterator& iter)
+
+
+	void eraseImplFromList(iterator& iter)
 	{
 		container.erase(iter);
 	}
-	template <>
-	void removeFrom<std::deque<Value>> (iterator& iter)
+	void eraseImplFromDeque(iterator& iter)
 	{
 		std::swap(const_cast<Key>(iter->first), const_cast<Key>(container.back()->first));
 		std::swap(iter->second, container.back()->second);
 		map[mapped(iter->first)] = iter;
 		container.pop_back();
 	}
-	
+
+	template <typename inner_iterator, typename Class, class T>
+	struct removeFromImpl
+	{
+		static void erase(inner_iterator& iter, Class& obj);
+	};
+	template <typename inner_iterator, typename Class>
+	struct removeFromImpl<inner_iterator, Class, std::list<Value>>
+	{
+		static void erase(inner_iterator& iter, Class& obj)
+		{
+			obj.eraseImplFromList(iter);
+		}
+	};
+	template <typename inner_iterator, typename Class>
+	struct removeFromImpl<inner_iterator, Class, std::deque<Value>>
+	{
+		static void erase(inner_iterator& iter, Class& obj)
+		{
+			obj.eraseImplFromDeque(iter);
+		}
+	};
+	template <class T>
+	void removeFrom (iterator& iter)
+	{
+		removeFromImpl<iterator, DeterministicUnorderedImpl, T>::erase(iter, *this);
+	}
+
 	//In this cases we store pointers to Key in the map
 	struct KeyPtr_Hash
 	{
