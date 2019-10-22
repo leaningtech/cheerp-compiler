@@ -530,7 +530,7 @@ void LinearMemoryHelper::addHeapStartAndEnd()
 		heapStartVar->setInitializer(startInit);
 		heapStartVar->setSection("asmjs");
 
-		uint32_t heapEnd = mode == FunctionAddressMode::Wasm ? heapStart : memorySize;
+		uint32_t heapEnd = growMem ? heapStart : memorySize;
 		ConstantInt* endAddr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapEnd, false);
 		Constant* endInit = ConstantExpr::getIntToPtr(endAddr, heapEndVar->getType()->getElementType(), false);
 		heapEndVar->setInitializer(endInit);
