@@ -3551,10 +3551,9 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 	// TODO use WasmPage variable instead of hardcoded '1>>16'.
 	assert(WasmPage == 64 * 1024);
 	
-	// NOTE: this is not actually required by the spec, but for now chrome
-	// doesn't like growing shared memory
-	if (sharedMemory || noGrowMemory)
+	if (noGrowMemory)
 		minMemory = maxMemory;
+
 	{
 		Section section(0x05, "Memory", this);
 

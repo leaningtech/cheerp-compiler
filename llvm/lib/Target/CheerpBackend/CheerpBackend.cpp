@@ -92,8 +92,13 @@ bool CheerpWritePass::runOnModule(Module& M)
   auto functionAddressMode = outputMode == LinearOutputTy::AsmJs
     ? cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS
     : cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm;
+  bool growMem = !WasmNoGrowMemory &&
+                 functionAddressMode == cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm &&
+                 // NOTE: this is not actually required by the spec, but for now chrome
+                 // doesn't like growing shared memory
+                 !WasmSharedMemory;
 
-  cheerp::LinearMemoryHelper linearHelper(M, functionAddressMode, GDA, CheerpHeapSize, CheerpStackSize, WasmOnly);
+  cheerp::LinearMemoryHelper linearHelper(M, functionAddressMode, GDA, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem);
   std::unique_ptr<cheerp::SourceMapGenerator> sourceMapGenerator;
   GDA.forceTypedArrays = ForceTypedArrays;
   if (!SourceMap.empty())
@@ -172,7 +177,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmOnly,
                                     PrettyCode, CfgLegacy, WasmSharedMemory,
-                                    WasmNoGrowMemory, mode);
+                                    !growMem, mode);
     wasmWriter.makeWasm();
   }
   if (!SecondaryOutputFile.empty() && ErrorCode)

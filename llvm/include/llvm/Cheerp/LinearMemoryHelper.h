@@ -179,10 +179,10 @@ public:
 		FunctionSignatureHash,FunctionSignatureCmp> FunctionTypeIndicesMap;
 
 	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA,
-		uint32_t memorySize, uint32_t stackSize, bool wasmOnly):
+		uint32_t memorySize, uint32_t stackSize, bool wasmOnly, bool growMem):
 		module(module), mode(mode), globalDeps(GDA), maxFunctionId(0),
 		memorySize(memorySize*1024*1024), stackSize(stackSize*1024*1024),
-		wasmOnly(wasmOnly)
+		wasmOnly(wasmOnly), growMem(growMem)
 	{
 		builtinIds.fill(std::numeric_limits<uint32_t>::max());
 		addFunctions();
@@ -311,7 +311,10 @@ private:
 	uint32_t stackSize;
 	// Stack start (it grows downwards)
 	uint32_t stackStart;
+	// We are producing a standalone wasm module
 	bool wasmOnly;
+	// Whether memory can grow at runtime or not
+	bool growMem;
 };
 
 }
