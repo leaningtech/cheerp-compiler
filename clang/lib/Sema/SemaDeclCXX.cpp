@@ -34,6 +34,7 @@
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/ParsedTemplate.h"
+#include "clang/Sema/SemaCheerp.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
@@ -6906,8 +6907,19 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     if (Record->isDynamicClass())
       Diag(Record->getLocation(), diag::err_cheerp_attribute_on_virtual_class) << Record->getAttr<JsExportAttr>();
 
-    if (!Record->hasUserDeclaredConstructor())
-      Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
+    uint32_t numUserDeclared = cheerp::getNumUserDefinedMethods<CapturedDecl::specific_decl_iterator< CXXConstructorDecl > >(Record->ctors());
+    if (numUserDeclared != 1)
+    {
+      if (numUserDeclared == 0)
+      {
+        assert(!Record->hasUserDeclaredConstructor());
+        Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
+      }
+      else
+      {
+        Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
+      }
+    }
 
     if (Record->hasNonTrivialDestructor())
       Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
