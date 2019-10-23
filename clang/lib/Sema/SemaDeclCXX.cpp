@@ -6904,25 +6904,8 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   //Verify that this object is simple enough to have JS layout
   if (Record->hasAttr<JsExportAttr>())
   {
-    if (Record->isDynamicClass())
-      Diag(Record->getLocation(), diag::err_cheerp_attribute_on_virtual_class) << Record->getAttr<JsExportAttr>();
-
-    uint32_t numUserDeclared = cheerp::getNumUserDefinedMethods<CapturedDecl::specific_decl_iterator< CXXConstructorDecl > >(Record->ctors());
-    if (numUserDeclared != 1)
+    if (cheerp::couldBeJsExported(Record, *this))
     {
-      if (numUserDeclared == 0)
-      {
-        assert(!Record->hasUserDeclaredConstructor());
-        Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
-      }
-      else
-      {
-        Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
-      }
-    }
-
-    if (Record->hasNonTrivialDestructor())
-      Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
 
     //Mark all methods as used
     CXXRecordDecl::method_iterator it=Record->method_begin();
@@ -6934,6 +6917,7 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
       if((*it)->isExplicitlyDefaulted()) {
         Consumer.HandleTopLevelDecl(DeclGroupRef(*it));
      }
+    }
     }
     //TODO: Check for any public data or static member
   }
