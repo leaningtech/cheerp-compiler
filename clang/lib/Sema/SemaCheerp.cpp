@@ -47,6 +47,9 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 		return false;
 	}
 
+	//TODO: templated classes should be checked elsewhere, double check that all error here are also catched for template
+
+
 	//TODO: Check for any public data or static member
 	return true;
 }
