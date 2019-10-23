@@ -30,6 +30,7 @@ add_clang_library(clangSema
   SemaCXXScopeSpec.cpp
   SemaCast.cpp
   SemaChecking.cpp
+  SemaCheerp.cpp
   SemaCodeComplete.cpp
   SemaConcept.cpp
   SemaConsumer.cpp
