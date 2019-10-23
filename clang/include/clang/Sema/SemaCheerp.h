@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/iterator_range.h"
 #include "clang/AST/DeclCXX.h"
+#include "clang/Sema/Sema.h"
 
 namespace cheerp{
 
@@ -31,6 +32,8 @@ unsigned int getNumUserDefinedMethods(const llvm::iterator_range<T>& range)
 	}
 	return count;
 }
+
+bool couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema);
 
 }  //end namespace cheerp
 #endif //_CHEERP_SEMA_CHEERP_H
