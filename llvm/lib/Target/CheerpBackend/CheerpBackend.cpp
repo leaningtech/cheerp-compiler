@@ -177,7 +177,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmOnly,
                                     PrettyCode, CfgLegacy, WasmSharedMemory,
-                                    !growMem, mode);
+                                    !growMem, WasmExportedTable, mode);
     wasmWriter.makeWasm();
   }
   if (!SecondaryOutputFile.empty() && ErrorCode)
