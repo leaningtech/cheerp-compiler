@@ -680,12 +680,14 @@ enum CheerpWasmOpt
   INVALID,
   GROWMEM,
   SHAREDMEM,
+  EXPORTEDTABLE,
 };
 static CheerpWasmOpt parseWasmOpt(StringRef opt)
 {
   return llvm::StringSwitch<CheerpWasmOpt>(opt)
     .Case("growmem", GROWMEM)
     .Case("sharedmem", SHAREDMEM)
+    .Case("exportedtable", EXPORTEDTABLE)
     .Default(INVALID);
 }
 static std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const ArgList& Args)
@@ -866,6 +868,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         break;
       case GROWMEM:
         noGrowMem = false;
+        break;
+      case EXPORTEDTABLE:
+        CmdArgs.push_back("-cheerp-wasm-exported-table");
         break;
       default:
         llvm_unreachable("invalid wasm option");
