@@ -10921,13 +10921,13 @@ def err_cheerp_attribute_not_on_function : Error<
 def err_cheerp_attribute_on_virtual_class : Error<
   "Cheerp: A virtual class cannot have the %0 attribute">;
 def err_cheerp_jsexport_on_class_template : Error<
-  "Cheerp: A template class (or struct) can not have the [[jsexport]] attribute">;
+  "Cheerp: A template class (or struct) can not have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_class_without_constructor : Error<
-  "Cheerp: A class should have a constructor to have the [[jsexport]] attribute">;
+  "Cheerp: A class should have a constructor to have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor : Error<
-  "Cheerp: A class should have no more than 1 user defined constructor to have the [[jsexport]] attribute">;
+  "Cheerp: A class should have no more than 1 user defined constructor to have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_with_non_trivial_destructor : Error<
-  "Cheerp: A class with non trivial destrutor cannot have the [[jsexport]] attribute">;
+  "Cheerp: A class with non trivial destructor cannot have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_memintrinsic_type_unknown : Error<
   "Cheerp: Memory operations require the actual type of the pointers. Pass the typed pointers instead of a generic void*">;
 def err_cheerp_memintrinsic_same_type : Error<
