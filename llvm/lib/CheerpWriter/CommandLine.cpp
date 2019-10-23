@@ -64,3 +64,5 @@ llvm::cl::opt<std::string> StrictLinking("cheerp-strict-linking", llvm::cl::Opti
 llvm::cl::opt<bool> WasmSharedMemory("cheerp-wasm-shared-memory", llvm::cl::desc("Enable sharing wasm module memory between workers"));
 
 llvm::cl::opt<bool> WasmNoGrowMemory("cheerp-wasm-no-grow-memory", llvm::cl::desc("Disable memory growth and allocate all the wasm module memory upfront"));
+
+llvm::cl::opt<bool> WasmExportedTable("cheerp-wasm-exported-table", llvm::cl::desc("Export the function table from the wasm module as 'tbl'"));

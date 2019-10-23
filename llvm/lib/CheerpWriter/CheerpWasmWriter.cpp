@@ -3836,15 +3836,28 @@ void CheerpWasmWriter::compileExportSection()
 	exports.insert(exports.end(), globalDeps.asmJSExports().begin(),
 			globalDeps.asmJSExports().end());
 
-	// Add 1 to the count, since we always want to export the memory.
-	internal::encodeULEB128(exports.size() + 1, section);
+	// We export the memory unconditionally, but may also need to export the table
+	uint32_t extraExports = 1;
+	if(exportedTable)
+		extraExports = 2;
+	internal::encodeULEB128(exports.size() + extraExports, section);
 
 	// Encode the memory.
-	std::string name = namegen.getBuiltinName(NameGenerator::MEMORY);
+	StringRef name = namegen.getBuiltinName(NameGenerator::MEMORY);
 	internal::encodeULEB128(name.size(), section);
 	section.write(name.data(), name.size());
 	internal::encodeULEB128(0x02, section);
 	internal::encodeULEB128(0, section);
+
+	if(exportedTable)
+	{
+		// Encode the table
+		StringRef name = "tbl";
+		internal::encodeULEB128(name.size(), section);
+		section.write(name.data(), name.size());
+		internal::encodeULEB128(0x01, section);
+		internal::encodeULEB128(0, section);
+	}
 
 	for (const llvm::Function* F : exports) {
 		// Encode the method name.
