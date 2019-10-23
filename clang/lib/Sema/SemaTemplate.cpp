@@ -27,6 +27,7 @@
 #include "clang/Sema/Overload.h"
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/Scope.h"
+#include "clang/Sema/SemaCheerp.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
@@ -1897,6 +1898,11 @@ DeclResult Sema::CheckClassTemplate(
   inferGslOwnerPointerAttribute(NewClass);
 
   MaybeInjectCheerpModeAttr(NewClass);
+
+  if (NewClass->hasAttr<JsExportAttr>())
+  {
+    Diag(NameLoc, diag::err_cheerp_jsexport_on_class_template);
+  }
 
   if (TUK != TUK_Friend) {
     // Per C++ [basic.scope.temp]p2, skip the template parameter scopes.
