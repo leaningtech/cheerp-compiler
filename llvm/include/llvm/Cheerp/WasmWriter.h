@@ -107,6 +107,9 @@ private:
 
 	// Whether to disable memory growth
 	bool noGrowMemory;
+
+	// Whether to export the function table from the module
+	bool exportedTable;
 public:
 	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, INT, FLOAT32 };
 	const PointerAnalyzer & PA;
@@ -194,6 +197,7 @@ public:
 			bool useCfgLegacy,
 			bool sharedMemory,
 			bool noGrowMemory,
+			bool exportedTable,
 			OutputMode mode):
 		module(m),
 		pass(p),
@@ -216,6 +220,7 @@ public:
 		setLocalId((uint32_t)-1),
 		sharedMemory(sharedMemory),
 		noGrowMemory(noGrowMemory),
+		exportedTable(exportedTable),
 		PA(PA),
 		mode(mode),
 		stream(s)
