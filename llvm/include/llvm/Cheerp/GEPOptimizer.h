@@ -636,7 +636,7 @@ private:
 	friend struct GraphTraits<ValidBasicBlockForestGraph::Node*>;
 	friend struct GraphTraits<Inverse<ValidBasicBlockForestGraph::Node*>>;
 	const BasicBlockForest knownValid;
-	const BasicBlockForest& toBeClassified;
+	const BasicBlockForest toBeClassified;
 	NodeMap Nodes;
 	std::vector<Node*> GoodPred;
 	std::vector<Node*> BadPred;
