@@ -10920,6 +10920,8 @@ def err_cheerp_attribute_not_on_function : Error<
   "Cheerp: This attribute can only be used on functions">;
 def err_cheerp_attribute_on_virtual_class : Error<
   "Cheerp: A virtual class cannot have the %0 attribute">;
+def err_cheerp_jsexport_with_operators : Error<
+  "Cheerp: Public operator overload is not compatible with the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_class_template : Error<
   "Cheerp: A template class (or struct) can not have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_class_without_constructor : Error<

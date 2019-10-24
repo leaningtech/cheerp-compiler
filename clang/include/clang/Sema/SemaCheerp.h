@@ -35,5 +35,7 @@ unsigned int getNumUserDefinedMethods(const llvm::iterator_range<T>& range)
 
 bool couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema);
 
+bool couldBeJsExported(clang::CXXMethodDecl* Method, clang::Sema& sema);
+
 }  //end namespace cheerp
 #endif //_CHEERP_SEMA_CHEERP_H
