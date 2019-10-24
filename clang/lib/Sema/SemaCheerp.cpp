@@ -49,7 +49,27 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 
 	//TODO: templated classes should be checked elsewhere, double check that all error here are also catched for template
 
+	for (auto method : Record->methods())
+	{
+		if (method->getAccess() != AS_public)
+			continue;
+		couldBeJsExported(method, sema);
+//		sema.Diag(field->getLocation(), diag::err_cheerp_jsexport_with_public_fields) << field << Record;
+	}
 
 	//TODO: Check for any public data or static member
+	return true;
+}
+
+
+bool cheerp::couldBeJsExported(clang::CXXMethodDecl* method, clang::Sema& sema)
+{
+	using namespace clang;
+
+	if (method->isOverloadedOperator())
+	{
+		sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_with_operators);
+		return false;
+	}
 	return true;
 }
