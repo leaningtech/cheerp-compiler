@@ -47,5 +47,9 @@ template<class P>
 size_t __builtin_cheerp_pointer_kind(const P* ptr);
 
 int __builtin_cheerp_grow_memory(int bytes);
+
+void* __buitin_cheerp_stack_save();
+
+void __buitin_cheerp_stack_restore(void*);
 }
 #endif /* __CHEERPINTRIN_H */

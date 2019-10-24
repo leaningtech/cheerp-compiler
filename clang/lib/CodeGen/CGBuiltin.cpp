@@ -11163,6 +11163,14 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_grow_memory);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_save) {
+    Function *F = CGM.getIntrinsic(Intrinsic::stacksave);
+    return Builder.CreateCall(F, Ops);
+  }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_stack_restore) {
+    Function *F = CGM.getIntrinsic(Intrinsic::stackrestore);
+    return Builder.CreateCall(F, Ops);
+  }
   else if (BuiltinID == Builtin::BImalloc) {
     const FunctionDecl* FD=dyn_cast<FunctionDecl>(CurFuncDecl);
     assert(FD);
