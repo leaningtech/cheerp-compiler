@@ -21,5 +21,7 @@ BUILTIN(__builtin_cheerp_make_complete_object, "", "h")
 BUILTIN(__builtin_cheerp_make_regular, "", "h")
 BUILTIN(__builtin_cheerp_pointer_kind, "", "h")
 BUILTIN(__builtin_cheerp_grow_memory, "", "h")
+BUILTIN(__builtin_cheerp_stack_save, "v*", "")
+BUILTIN(__builtin_cheerp_stack_restore, "vv*", "")
 
 #undef BUILTIN
