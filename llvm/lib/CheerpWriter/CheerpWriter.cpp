@@ -692,7 +692,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileFree(const Value* obj)
 {
 	// Only arrays of primitives can be backed by the linear heap
-	bool needsLinearCheck = TypeSupport::isTypedArrayType(obj->getType()->getPointerElementType(), /*forceTypedArray*/ true) && globalDeps.usesASmJSMalloc();
+	bool needsLinearCheck = TypeSupport::isTypedArrayType(obj->getType()->getPointerElementType(), /*forceTypedArray*/ true) && globalDeps.usesAsmJSMalloc();
 	if(const ConstantInt* CI = PA.getConstantOffsetForPointer(obj))
 	{
 		// 0 is clearly not a good address in the linear address space
