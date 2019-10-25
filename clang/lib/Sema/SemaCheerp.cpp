@@ -49,6 +49,7 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 		}
 		if (isa<CXXConstructorDecl>(method))
 		{
+			could &= checkParameters(method, sema);
 			++publicConstructors;
 			continue;
 		}
@@ -77,6 +78,23 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 	return could;
 }
 
+bool cheerp::checkParameters(clang::CXXMethodDecl* method, clang::Sema& sema)
+{
+	bool could = true;
+
+	for (auto it : method->parameters())
+	{
+		if (it->hasDefaultArg())
+		{
+			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << method->getParent();
+			could = false;
+		}
+		could &= couldParameterBeJsExported(it->getOriginalType().getTypePtr(), method, sema);
+	}
+
+	return could;
+}
+
 bool cheerp::couldBeJsExported(clang::CXXMethodDecl* method, clang::Sema& sema)
 {
 	using namespace clang;
@@ -90,15 +108,7 @@ bool cheerp::couldBeJsExported(clang::CXXMethodDecl* method, clang::Sema& sema)
 
 	bool could = couldReturnBeJsExported(method->getReturnType().getTypePtr(), method, sema);
 
-	for (auto it : method->parameters())
-	{
-		if (it->hasDefaultArg())
-		{
-			sema.Diag(it->getLocation(), diag::err_cheerp_jsexport_with_default_arg) << method->getParent();
-			could = false;
-		}
-		could &= couldParameterBeJsExported(it->getOriginalType().getTypePtr(), method, sema);
-	}
+	could &= checkParameters(method, sema);
 
 	return could;
 }

@@ -45,6 +45,7 @@ bool couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema);
 bool couldReturnBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* method, clang::Sema& sema);
 bool couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* method, clang::Sema& sema);
 
+bool checkParameters(clang::CXXMethodDecl* Method, clang::Sema& sema);
 bool couldBeJsExported(clang::CXXMethodDecl* Method, clang::Sema& sema);
 
 }  //end namespace cheerp
