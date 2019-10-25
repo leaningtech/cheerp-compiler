@@ -10922,6 +10922,8 @@ def err_cheerp_attribute_on_virtual_class : Error<
   "Cheerp: A virtual class cannot have the %0 attribute">;
 def err_cheerp_jsexport_TODO : Error<
   "Cheerp: Unknown [[cheerp::jsexport]] related problem">;
+def err_cheerp_jsexport_same_name_methods : Error<
+  "Cheerp: Public methods of [[cheerp::jsexport]] class/struct cannot have the same name: %0">;
 def err_cheerp_jsexport_with_operators : Error<
   "Cheerp: Public operator overload is not compatible with the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_double_pointer : Error<
