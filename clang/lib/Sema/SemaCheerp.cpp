@@ -26,21 +26,6 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 		return false;
 	}
 
-	uint32_t numUserDeclared = cheerp::getNumUserDefinedMethods<CapturedDecl::specific_decl_iterator< CXXConstructorDecl > >(Record->ctors());
-	if (numUserDeclared != 1)
-	{
-		if (numUserDeclared == 0)
-		{
-			assert(!Record->hasUserDeclaredConstructor());
-			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
-		}
-		else
-		{
-			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
-		}
-		return false;
-	}
-
 	if (Record->hasNonTrivialDestructor())
 	{
 		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
@@ -49,13 +34,26 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 
 	//TODO: templated classes should be checked elsewhere, double check that all error here are also catched for template
 
+	int publicConstructors = 0;
 	for (auto method : Record->methods())
 	{
 		if (method->getAccess() != AS_public)
 			continue;
 		if (isa<CXXConstructorDecl>(method))
+		{
+			++publicConstructors;
 			continue;
+		}
 		couldBeJsExported(method, sema);
+	}
+
+	if (publicConstructors != 1)
+	{
+		if (publicConstructors == 0)
+			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
+		else
+			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
+		return false;
 	}
 
 	//TODO: Check for any public data or static member
@@ -71,6 +69,7 @@ bool cheerp::couldBeJsExported(clang::CXXMethodDecl* method, clang::Sema& sema)
 		sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_with_operators);
 		return false;
 	}
+	//TODO: Template public methods should be checked in SemaTemplate
 
 	bool could = couldReturnBeJsExported(method->getReturnType().getTypePtr(), method, sema);
 
