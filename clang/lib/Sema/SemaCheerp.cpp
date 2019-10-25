@@ -345,3 +345,32 @@ cheerp::TypeKind cheerp::classifyType(const clang::Type* Ty)
 	}
 	return TypeKind::Other;
 }
+
+void cheerp::checkFunction(clang::FunctionDecl* FD, clang::Sema& sema)
+{
+	using namespace clang;
+	std::string name = FD->getNameInfo().getName().getAsString();
+	const bool isTemplate = (FD->getTemplatedKind() != FunctionDecl::TemplatedKind::TK_NonTemplate);
+
+	bool isMethod = false;
+	bool isJsExported = FD->hasAttr<JsExportAttr>();
+	bool isInJsExported = false;
+	if (isa<CXXMethodDecl>(FD))
+	{
+		CXXMethodDecl* method = (CXXMethodDecl*)(FD);
+		isInJsExported = method->getParent()->hasAttr<JsExportAttr>();
+		isMethod = true;
+	}
+
+	if (isTemplate && (isJsExported || isInJsExported))
+	{
+		if (isMethod)
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_method_template);
+		else
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_function_template);
+	}
+	if (isMethod && isJsExported)
+	{
+		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_method);
+	}
+}

@@ -48,5 +48,7 @@ bool couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* met
 bool checkParameters(clang::CXXMethodDecl* Method, clang::Sema& sema);
 bool couldBeJsExported(clang::CXXMethodDecl* Method, clang::Sema& sema);
 
+void checkFunction(clang::FunctionDecl* FD, clang::Sema& sema);
+
 }  //end namespace cheerp
 #endif //_CHEERP_SEMA_CHEERP_H
