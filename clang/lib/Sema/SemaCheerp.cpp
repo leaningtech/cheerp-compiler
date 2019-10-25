@@ -35,16 +35,33 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 	//TODO: templated classes should be checked elsewhere, double check that all error here are also catched for template
 
 	int publicConstructors = 0;
+	std::set<std::string> publicMethodNames;
+	std::set<std::string> staticPublicMethodNames;
+	bool could = true;
+
 	for (auto method : Record->methods())
 	{
 		if (method->getAccess() != AS_public)
 			continue;
+		if (isa<CXXDestructorDecl>(method))
+		{
+			continue;
+		}
 		if (isa<CXXConstructorDecl>(method))
 		{
 			++publicConstructors;
 			continue;
 		}
-		couldBeJsExported(method, sema);
+		could &= couldBeJsExported(method, sema);
+		const auto& name = method->getNameInfo().getName().getAsString();
+		const auto pair = method->isStatic() ?
+			staticPublicMethodNames.insert(name) :
+			publicMethodNames.insert(name);
+		if (pair.second == false)
+		{
+			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_same_name_methods) << method;
+			could = false;
+		}
 	}
 
 	if (publicConstructors != 1)
@@ -53,11 +70,11 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
 		else
 			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
-		return false;
+		could = false;
 	}
 
 	//TODO: Check for any public data or static member
-	return true;
+	return could;
 }
 
 bool cheerp::couldBeJsExported(clang::CXXMethodDecl* method, clang::Sema& sema)
