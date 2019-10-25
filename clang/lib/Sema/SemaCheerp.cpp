@@ -73,13 +73,105 @@ bool cheerp::couldBeJsExported(clang::CXXMethodDecl* method, clang::Sema& sema)
 
 	bool could = couldReturnBeJsExported(method->getReturnType().getTypePtr(), method, sema);
 
-//TODO: introduce check also for paramethers of methods (more tricky, since passing functions should be ok)
-//	for (auto it : method->parameters())
-//	{
-//		could &= couldBeUsedJsExported(it->getOriginalType().getTypePtr(), method, sema);
-//	}
+	for (auto it : method->parameters())
+	{
+		could &= couldParameterBeJsExported(it->getOriginalType().getTypePtr(), method, sema);
+	}
 
 	return could;
+}
+
+bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* method, clang::Sema& sema)
+{
+	using namespace cheerp;
+	using namespace clang;
+
+	//TODO: have to be checked again, may be possible to be more restrictive on some things while permitting others
+
+	switch (classifyType(Ty))
+	{
+		case TypeKind::Void:
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_TODO);
+			return false;
+		}
+		case TypeKind::FunctionPointer:
+		case TypeKind::IntMax32Bit:
+		case TypeKind::FloatingPoint:
+		{
+			return true;
+		}
+		case TypeKind::NamespaceClient:
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_naked_client);
+			return false;
+		}
+		case TypeKind::Other:
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_unknow_type);
+			return false;
+		//TODO: If Ty is Other, it may be ok as long as it's already tagged as JsExportable or could be tagged JsExportable
+			//(possibly by voiding some restrictions, for example existence of public constructor since it's already created)
+			//but both loop detection and tagging of classes should be first implemented
+		//	CXXRecordDecl* Record = Ty->getAsCXXRecordDecl();
+		//	return (couldBeJsExported(Record, sema) && hasJsExportedAttr(Record));
+		}
+		case TypeKind::IntGreater32Bit:
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_longlong);
+			return false;
+		}
+		case TypeKind::Pointer:
+		{
+			break;
+		}
+		case TypeKind::Reference:
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_reference);
+			return false;
+		}
+		default:
+		{
+			llvm_unreachable("Should have been catched earlier");
+		}
+	}
+	assert(Ty->isPointerType());
+	const clang::Type* Ty2 = Ty->getPointeeType().getTypePtr();
+
+	switch (classifyType(Ty2))
+	{
+		case TypeKind::Void:
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_void_pointer);
+			return false;
+		}
+		case TypeKind::IntMax32Bit:
+		case TypeKind::FloatingPoint:
+		case TypeKind::NamespaceClient:
+		{
+			return true;
+		}
+		case TypeKind::Other:
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_unknow_type);
+			return false;
+		}
+		case TypeKind::IntGreater32Bit:
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_TODO);
+			return false;
+		}
+		case TypeKind::Pointer:
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_double_pointer);
+			return false;
+		}
+		default:
+		{
+			llvm_unreachable("Should have been catched earlier");
+		}
+	}
+	llvm_unreachable("Should have been catched earlier");
 }
 
 bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* method, clang::Sema& sema)
