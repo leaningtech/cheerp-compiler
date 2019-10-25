@@ -10946,6 +10946,12 @@ def err_cheerp_jsexport_unknow_type : Error<
   "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] can only be fundamental, pointer to fundamental, namespace client or [[cheerp::jsexport]-able types">;
 def err_cheerp_jsexport_on_class_template : Error<
   "Cheerp: A template class (or struct) can not have the [[cheerp::jsexport]] attribute">;
+def err_cheerp_jsexport_on_function_template : Error<
+  "Cheerp: A template function can not have the [[cheerp::jsexport]] attribute">;
+def err_cheerp_jsexport_on_method_template : Error<
+  "Cheerp: A template method can not have the [[cheerp::jsexport]] attribute (directly or indirectly)">;
+def err_cheerp_jsexport_on_method : Error<
+  "Cheerp: Currently only classes, struct and free-functions can be tagged [[cheerp::jsexport]]">;
 def err_cheerp_jsexport_on_class_without_constructor : Error<
   "Cheerp: A class should have a constructor to have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor : Error<
