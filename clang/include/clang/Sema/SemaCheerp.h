@@ -18,6 +18,13 @@
 
 namespace cheerp{
 
+enum class TypeKind
+{
+	Void, IntMax32Bit, IntGreater32Bit, FloatingPoint, NamespaceClient, Pointer, Function, FunctionPointer, Reference, Other
+};
+
+TypeKind classifyType(const clang::Type* Ty);
+
 template <typename T>
 unsigned int getNumUserDefinedMethods(const llvm::iterator_range<T>& range)
 {
@@ -34,6 +41,8 @@ unsigned int getNumUserDefinedMethods(const llvm::iterator_range<T>& range)
 }
 
 bool couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema);
+
+bool couldReturnBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* method, clang::Sema& sema);
 
 bool couldBeJsExported(clang::CXXMethodDecl* Method, clang::Sema& sema);
 

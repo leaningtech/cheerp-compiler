@@ -10920,8 +10920,26 @@ def err_cheerp_attribute_not_on_function : Error<
   "Cheerp: This attribute can only be used on functions">;
 def err_cheerp_attribute_on_virtual_class : Error<
   "Cheerp: A virtual class cannot have the %0 attribute">;
+def err_cheerp_jsexport_TODO : Error<
+  "Cheerp: Unknown [[cheerp::jsexport]] related problem">;
 def err_cheerp_jsexport_with_operators : Error<
   "Cheerp: Public operator overload is not compatible with the [[cheerp::jsexport]] attribute">;
+def err_cheerp_jsexport_on_double_pointer : Error<
+  "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] attribute can not be double pointers">;
+def err_cheerp_jsexport_on_reference : Error<
+  "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] attribute can not be a reference">;
+def err_cheerp_jsexport_on_function_pointer : Error<
+  "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] attribute can not be a function pointer">;
+def err_cheerp_jsexport_on_void_pointer : Error<
+  "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] attribute can not be void pointers">;
+def err_cheerp_jsexport_on_naked_client : Error<
+  "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] attribute can not be client-types, only pointer to client types">;
+def err_cheerp_jsexport_unknow_pointer_type : Error<
+  "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] can be pointer only if they point to fundamental types or client-namespace">;
+def err_cheerp_jsexport_longlong : Error<
+  "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] can be integral up to 32 bits">;
+def err_cheerp_jsexport_unknow_type : Error<
+  "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] can only be fundamental, pointer to fundamental, namespace client or [[cheerp::jsexport]-able types">;
 def err_cheerp_jsexport_on_class_template : Error<
   "Cheerp: A template class (or struct) can not have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_class_without_constructor : Error<
