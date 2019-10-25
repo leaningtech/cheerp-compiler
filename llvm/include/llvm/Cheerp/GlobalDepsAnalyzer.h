@@ -125,7 +125,7 @@ public:
 	/**
 	 * Determine if linear memory malloc is ever used
 	 */
-	bool usesASmJSMalloc() const { return hasAsmJSMalloc; }
+	bool usesAsmJSMalloc() const { return hasAsmJSMalloc; }
 
 	bool runOnModule( llvm::Module & ) override;
 
