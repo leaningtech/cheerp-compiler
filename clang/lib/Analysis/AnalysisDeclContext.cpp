@@ -337,6 +337,26 @@ bool AnalysisDeclContext::isInStdNamespace(const Decl *D) {
   return ND->isStdNamespace();
 }
 
+bool AnalysisDeclContext::isInClientNamespace(const Decl *D) {
+//Implementation took from isInStdNamespace
+  const DeclContext *DC = D->getDeclContext()->getEnclosingNamespaceContext();
+  const NamespaceDecl *ND = dyn_cast<NamespaceDecl>(DC);
+  if (!ND)
+    return false;
+  if (ND->isClientNamespace())
+    return true;
+
+  while (const DeclContext *Parent = ND->getParent()) {
+    if (!isa<NamespaceDecl>(Parent))
+      break;
+    ND = cast<NamespaceDecl>(Parent);
+    if (ND->isClientNamespace())
+      return true;
+  }
+
+  return ND->isClientNamespace();
+}
+
 LocationContextManager &AnalysisDeclContext::getLocationContextManager() {
   assert(
       ADCMgr &&

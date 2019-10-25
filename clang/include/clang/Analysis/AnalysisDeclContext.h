@@ -199,6 +199,7 @@ public:
 
   /// \returns Whether the root namespace of \p D is the \c std C++ namespace.
   static bool isInStdNamespace(const Decl *D);
+  static bool isInClientNamespace(const Decl *D);
 
 private:
   std::unique_ptr<ManagedAnalysis> &getAnalysisImpl(const void *tag);
