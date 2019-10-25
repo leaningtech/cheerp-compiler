@@ -232,8 +232,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				}
 			}
 		}
-		if (asmjs)
-			hasAsmJS = true;
 	}
 	for (CallInst* ci : deleteList) {
 		ci->eraseFromParent();
@@ -564,7 +562,12 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 		}
 		return;
 	}
-	
+
+	if (C->getSection() == StringRef("asmjs"))
+	{
+		hasAsmJS = true;
+	}
+
 	if ( C->getName() == StringRef("free") )
 		mayNeedAsmJSFree = true;
 	else if (C->getName() == StringRef("malloc"))
