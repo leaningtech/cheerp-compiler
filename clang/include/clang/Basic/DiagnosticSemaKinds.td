@@ -10924,6 +10924,8 @@ def err_cheerp_jsexport_TODO : Error<
   "Cheerp: Unknown [[cheerp::jsexport]] related problem">;
 def err_cheerp_jsexport_same_name_methods : Error<
   "Cheerp: Public methods of [[cheerp::jsexport]] class/struct cannot have the same name: %0">;
+def err_cheerp_jsexport_with_default_arg : Error<
+  "Cheerp: Public methods of [[cheerp::jsexport]] class/struct %0 cannot have the default arguments">;
 def err_cheerp_jsexport_with_operators : Error<
   "Cheerp: Public operator overload is not compatible with the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_double_pointer : Error<
