@@ -92,6 +92,11 @@ bool cheerp::couldBeJsExported(clang::CXXMethodDecl* method, clang::Sema& sema)
 
 	for (auto it : method->parameters())
 	{
+		if (it->hasDefaultArg())
+		{
+			sema.Diag(it->getLocation(), diag::err_cheerp_jsexport_with_default_arg) << method->getParent();
+			could = false;
+		}
 		could &= couldParameterBeJsExported(it->getOriginalType().getTypePtr(), method, sema);
 	}
 
