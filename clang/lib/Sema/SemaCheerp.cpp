@@ -78,18 +78,18 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 	return could;
 }
 
-bool cheerp::checkParameters(clang::CXXMethodDecl* method, clang::Sema& sema)
+bool cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
 {
 	bool could = true;
 
-	for (auto it : method->parameters())
+	for (auto it : FD->parameters())
 	{
 		if (it->hasDefaultArg())
 		{
-			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << method->getParent();
+			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << FD->getParent();
 			could = false;
 		}
-		could &= couldParameterBeJsExported(it->getOriginalType().getTypePtr(), method, sema);
+		could &= couldParameterBeJsExported(it->getOriginalType().getTypePtr(), FD, sema);
 	}
 
 	return could;
@@ -113,7 +113,7 @@ bool cheerp::couldBeJsExported(clang::CXXMethodDecl* method, clang::Sema& sema)
 	return could;
 }
 
-bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* method, clang::Sema& sema)
+bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -124,7 +124,7 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodD
 	{
 		case TypeKind::Void:
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_TODO);
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_TODO);
 			return false;
 		}
 		case TypeKind::FunctionPointer:
@@ -135,12 +135,12 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodD
 		}
 		case TypeKind::NamespaceClient:
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_naked_client);
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_naked_client);
 			return false;
 		}
 		case TypeKind::Other:
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_unknow_type);
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_unknow_type);
 			return false;
 		//TODO: If Ty is Other, it may be ok as long as it's already tagged as JsExportable or could be tagged JsExportable
 			//(possibly by voiding some restrictions, for example existence of public constructor since it's already created)
@@ -150,7 +150,7 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodD
 		}
 		case TypeKind::IntGreater32Bit:
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_longlong);
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_longlong);
 			return false;
 		}
 		case TypeKind::Pointer:
@@ -159,7 +159,7 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodD
 		}
 		case TypeKind::Reference:
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_reference);
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_reference);
 			return false;
 		}
 		default:
@@ -174,7 +174,7 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodD
 	{
 		case TypeKind::Void:
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_void_pointer);
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_void_pointer);
 			return false;
 		}
 		case TypeKind::IntMax32Bit:
@@ -185,17 +185,17 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodD
 		}
 		case TypeKind::Other:
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_unknow_type);
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_unknow_type);
 			return false;
 		}
 		case TypeKind::IntGreater32Bit:
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_TODO);
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_TODO);
 			return false;
 		}
 		case TypeKind::Pointer:
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_double_pointer);
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_double_pointer);
 			return false;
 		}
 		default:
@@ -206,7 +206,7 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodD
 	llvm_unreachable("Should have been catched earlier");
 }
 
-bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* method, clang::Sema& sema)
+bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl* method, clang::Sema& sema)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -348,29 +348,52 @@ cheerp::TypeKind cheerp::classifyType(const clang::Type* Ty)
 
 void cheerp::checkFunction(clang::FunctionDecl* FD, clang::Sema& sema)
 {
-	using namespace clang;
-	std::string name = FD->getNameInfo().getName().getAsString();
-	const bool isTemplate = (FD->getTemplatedKind() != FunctionDecl::TemplatedKind::TK_NonTemplate);
+	sema.cheerpSemaData.addFunction(FD);
+}
 
-	bool isMethod = false;
-	bool isJsExported = FD->hasAttr<JsExportAttr>();
-	bool isInJsExported = false;
+void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD)
+{
+	using namespace cheerp;
+	using namespace clang;
 	if (isa<CXXMethodDecl>(FD))
 	{
-		CXXMethodDecl* method = (CXXMethodDecl*)(FD);
-		isInJsExported = method->getParent()->hasAttr<JsExportAttr>();
-		isMethod = true;
+		return;
+	}
+	if (FD->hasAttr<JsExportAttr>())
+		checkFreeJsExportedFunction(FD);
+}
+
+void cheerp::CheerpSemaData::checkFreeJsExportedFunction(clang::FunctionDecl* FD)
+{
+	using namespace cheerp;
+	using namespace clang;
+	const bool isTemplate = (FD->getTemplatedKind() != FunctionDecl::TemplatedKind::TK_NonTemplate);
+	if (isTemplate)
+	{
+		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_function_template);
+		return;
 	}
 
-	if (isTemplate && (isJsExported || isInJsExported))
+	couldReturnBeJsExported(FD->getReturnType().getTypePtr(), FD, sema);
+	checkParameters(FD, sema);
+
+	std::string name = FD->getNameInfo().getName().getAsString();
+	auto pair = jsexportedFreeFunction.insert(name);
+	if (!pair.second)
+		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_same_name_methods) << name;
+}
+
+void cheerp::CheerpSemaData::checkMethod(clang::CXXMethodDecl* method)
+{
+	using namespace cheerp;
+	using namespace clang;
+
+	//TODO: add this method to the class, then decide whether this makes any sense
+
+	const bool isTemplate = (method->getTemplatedKind() != FunctionDecl::TemplatedKind::TK_NonTemplate);
+	if (isTemplate)
 	{
-		if (isMethod)
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_method_template);
-		else
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_function_template);
-	}
-	if (isMethod && isJsExported)
-	{
-		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_method);
+		sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_method_template);
+		return;
 	}
 }
