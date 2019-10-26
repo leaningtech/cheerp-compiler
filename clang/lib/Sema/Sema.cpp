@@ -217,7 +217,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       ArgumentPackSubstitutionIndex(-1), CurrentInstantiationScope(nullptr),
       DisableTypoCorrection(false), TyposCorrected(0), AnalysisWarnings(*this),
       ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
-      CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr) {
+      CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr), cheerpSemaData(*this) {
   assert(pp.TUKind == TUKind);
   TUScope = nullptr;
   isConstantEvaluatedOverride = false;

@@ -14,7 +14,9 @@
 
 #include "llvm/ADT/iterator_range.h"
 #include "clang/AST/DeclCXX.h"
-#include "clang/Sema/Sema.h"
+#include "clang/Sema/AttributeList.h"
+#include <set>
+#include <string>
 
 namespace cheerp{
 
@@ -42,13 +44,28 @@ unsigned int getNumUserDefinedMethods(const llvm::iterator_range<T>& range)
 
 bool couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema);
 
-bool couldReturnBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* method, clang::Sema& sema);
-bool couldParameterBeJsExported(const clang::Type* Ty, clang::CXXMethodDecl* method, clang::Sema& sema);
+bool couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema);
+bool couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema);
 
-bool checkParameters(clang::CXXMethodDecl* Method, clang::Sema& sema);
+bool checkParameters(clang::FunctionDecl* Method, clang::Sema& sema);
 bool couldBeJsExported(clang::CXXMethodDecl* Method, clang::Sema& sema);
 
 void checkFunction(clang::FunctionDecl* FD, clang::Sema& sema);
+
+class CheerpSemaData
+{
+public:
+	CheerpSemaData(clang::Sema& sema) : sema(sema)
+	{
+	}
+	void addFunction(clang::FunctionDecl* FD);
+private:
+	void checkFreeJsExportedFunction(clang::FunctionDecl* FD);
+	void checkMethod(clang::CXXMethodDecl* method);
+	typedef std::set<std::string> FunctionSet;
+	FunctionSet jsexportedFreeFunction;
+	clang::Sema& sema;
+};
 
 }  //end namespace cheerp
 #endif //_CHEERP_SEMA_CHEERP_H
