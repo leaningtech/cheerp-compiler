@@ -367,6 +367,13 @@ void cheerp::CheerpSemaData::checkFreeJsExportedFunction(clang::FunctionDecl* FD
 {
 	using namespace cheerp;
 	using namespace clang;
+	if (FD->hasAttr<AsmJSAttr>())
+	{
+		sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_attributes) << FD->getAttr<AsmJSAttr>() << "function" << FD <<
+				FD->getAttr<JsExportAttr>() << "function" << FD;
+		return;
+	}
+
 	const bool isTemplate = (FD->getTemplatedKind() != FunctionDecl::TemplatedKind::TK_NonTemplate);
 	if (isTemplate)
 	{
