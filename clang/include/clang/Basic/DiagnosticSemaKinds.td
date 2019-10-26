@@ -10922,8 +10922,12 @@ def err_cheerp_attribute_on_virtual_class : Error<
   "Cheerp: A virtual class cannot have the %0 attribute">;
 def err_cheerp_jsexport_TODO : Error<
   "Cheerp: Unknown [[cheerp::jsexport]] related problem">;
+def err_cheerp_jsexport_on_method_of_not_jsexported_class : Error<
+  "Cheerp: Method tagged [[cheerp::jsexport]] should be part of jsexport-ed class/struct">;
 def err_cheerp_jsexport_same_name_methods : Error<
   "Cheerp: Public methods of [[cheerp::jsexport]] class/struct cannot have the same name: %0">;
+def err_cheerp_jsexport_same_name_free_function : Error<
+  "Cheerp: [[cheerp::jsexport]]-ed free functions cannot have the same name: %0">;
 def err_cheerp_jsexport_with_default_arg : Error<
   "Cheerp: Public methods of [[cheerp::jsexport]] class/struct %0 cannot have the default arguments">;
 def err_cheerp_jsexport_with_operators : Error<
@@ -10950,8 +10954,8 @@ def err_cheerp_jsexport_on_function_template : Error<
   "Cheerp: A template function can not have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_method_template : Error<
   "Cheerp: A template method can not have the [[cheerp::jsexport]] attribute (directly or indirectly)">;
-def err_cheerp_jsexport_on_method : Error<
-  "Cheerp: Currently only classes, struct and free-functions can be tagged [[cheerp::jsexport]]">;
+def err_cheerp_jsexport_on_non_public_method : Error<
+  "Cheerp: Only public methods can be tagged [[cheerp::jsexport]]">;
 def err_cheerp_jsexport_on_class_without_constructor : Error<
   "Cheerp: A class should have a constructor to have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor : Error<

@@ -50,6 +50,7 @@
 #include "clang/Sema/IdentifierResolver.h"
 #include "clang/Sema/ObjCMethodList.h"
 #include "clang/Sema/Ownership.h"
+#include "clang/Sema/SemaCheerp.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaConcept.h"
 #include "clang/Sema/TypoCorrection.h"
@@ -12395,6 +12396,7 @@ protected:
   friend class ASTWriter;
 
 public:
+  cheerp::CheerpSemaData cheerpSemaData;
   /// Retrieve the keyword associated
   IdentifierInfo *getNullabilityKeyword(NullabilityKind nullability);
 
