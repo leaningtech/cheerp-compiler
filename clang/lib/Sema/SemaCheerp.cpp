@@ -34,48 +34,8 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 
 	//TODO: templated classes should be checked elsewhere, double check that all error here are also catched for template
 
-	int publicConstructors = 0;
-	std::set<std::string> publicMethodNames;
-	std::set<std::string> staticPublicMethodNames;
-	bool could = true;
-
-	for (auto method : Record->methods())
-	{
-		if (method->getAccess() != AS_public)
-			continue;
-		if (isa<CXXDestructorDecl>(method))
-		{
-			continue;
-		}
-		if (isa<CXXConstructorDecl>(method))
-		{
-			could &= checkParameters(method, sema);
-			++publicConstructors;
-			continue;
-		}
-		could &= couldBeJsExported(method, sema);
-		const auto& name = method->getNameInfo().getName().getAsString();
-		const auto pair = method->isStatic() ?
-			staticPublicMethodNames.insert(name) :
-			publicMethodNames.insert(name);
-		if (pair.second == false)
-		{
-			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_same_name_methods) << method;
-			could = false;
-		}
-	}
-
-	if (publicConstructors != 1)
-	{
-		if (publicConstructors == 0)
-			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
-		else
-			sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
-		could = false;
-	}
-
 	//TODO: Check for any public data or static member
-	return could;
+	return true;
 }
 
 bool cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
@@ -369,30 +329,39 @@ void cheerp::CheerpSemaData::checkFreeJsExportedFunction(clang::FunctionDecl* FD
 {
 	using namespace cheerp;
 	using namespace clang;
+
+	checkFunctionToBeJsExported(FD, /*isMethod*/false, sema);
+
+	//TODO: implement on the backend the check that every jsexported/class has to have a different name
+}
+
+bool cheerp::isTemplate(clang::FunctionDecl* FD)
+{
+	return FD->getTemplatedKind() != clang::FunctionDecl::TemplatedKind::TK_NonTemplate;
+}
+
+void cheerp::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod, clang::Sema& sema)
+{
+	using namespace cheerp;
+	using namespace clang;
 	if (FD->hasAttr<AsmJSAttr>())
 	{
-		sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_attributes) << FD->getAttr<AsmJSAttr>() << "function" << FD <<
-				FD->getAttr<JsExportAttr>() << "function" << FD;
-		return;
+		const std::string kind = isMethod ? "method" : "free function";
+		sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_attributes) << FD->getAttr<AsmJSAttr>() << kind << FD <<
+				"[[cheerp::jsexport]]" << kind << FD;
 	}
 
-	const bool isTemplate = (FD->getTemplatedKind() != FunctionDecl::TemplatedKind::TK_NonTemplate);
-	if (isTemplate)
+	if (isTemplate(FD))
 	{
 		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_function_template);
 		return;
 	}
 
-	couldReturnBeJsExported(FD->getReturnType().getTypePtr(), FD, sema);
+	if (!isa<CXXConstructorDecl>(FD))
+	{
+		couldReturnBeJsExported(FD->getReturnType().getTypePtr(), FD, sema);
+	}
 	checkParameters(FD, sema);
-
-	std::string name = FD->getNameInfo().getName().getAsString();
-	auto pair = jsexportedFreeFunction.insert(name);
-	if (!pair.second)
-		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_name_clash) << name << "function" << "function";
-	auto pair2 = jsexportedNames.insert(name);
-	if (!pair2.second)
-		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_name_clash) << name << "function" << "class";
 }
 
 void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method)
@@ -404,20 +373,92 @@ void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method)
 void cheerp::CheerpSemaData::checkRecord(clang::CXXRecordDecl* record)
 {
 	//Here all checks about external feasibility of jsexporting a class/struct have to be perfomed (eg. checking for name clashes against other functions)
-	std::string name = record->getName();
-	auto pair = jsexportedNames.insert(name);
-	if (!pair.second)
-	{
-		sema.Diag(record->getLocation(), clang::diag::err_cheerp_jsexport_name_clash) << name << "class" << "function";
-	}
 
 	classData.emplace(record, CheerpSemaClassData(record, sema)).first->second.checkRecord();
 }
 
 void cheerp::CheerpSemaClassData::checkRecord()
 {
+	using namespace std;
+	using namespace clang;
 	//Here all checks regarding internal feasibility of jsexporting a class/struct have to be performed
 	couldBeJsExported(recordDecl, sema);
+
+	Interface publicInterface;
+	Interface explicitlyJsExportedInterface;
+
+	for (auto method : recordDecl->methods())
+	{
+		if (method->getAccess() != AS_public)
+			continue;
+
+		publicInterface.insert(method);
+		if (method->hasAttr<JsExportAttr>())
+			explicitlyJsExportedInterface.insert(method);
+	}
+
+	for (auto field : recordDecl->fields())
+	{
+		if (field->getAccess() != AS_public)
+			continue;
+
+		publicInterface.insert(field);
+		if (field->clang::CapturedDecl::hasAttr<JsExportAttr>())
+			explicitlyJsExportedInterface.insert(field);
+	}
+
+	if (!explicitlyJsExportedInterface.empty())
+	{
+		//Currently not supported, so fail here
+		//TODO: support explicitly jsExported or public fields methods
+		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_TODO);
+		return;
+	}
+
+
+	Interface& toBeJsExported =
+		explicitlyJsExportedInterface.empty() ?
+		publicInterface :
+		explicitlyJsExportedInterface;
+
+	if (!toBeJsExported.fields.empty())
+	{
+		//Currently not supported, so fail here
+		//TODO: support getter and setter on methods
+		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_with_public_fields) << *toBeJsExported.fields.begin() << recordDecl;
+		return;
+	}
+
+	int publicConstructors = 0;
+	std::set<std::string> JsExportedMethodNames;
+	std::set<std::string> staticJsExportedMethodNames;
+	for (auto method : toBeJsExported.methods)
+	{
+		checkFunctionToBeJsExported(method, /*isMethod*/true, sema);
+
+		if (isa<CXXConstructorDecl>(method))
+		{
+			++publicConstructors;
+			continue;
+		}
+
+		const auto& name = method->getNameInfo().getName().getAsString();
+		const auto pair = method->isStatic() ?
+			staticJsExportedMethodNames.insert(name) :
+			JsExportedMethodNames.insert(name);
+		if (pair.second == false)
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_same_name_methods) << method;
+		}
+	}
+
+	if (publicConstructors != 1)
+	{
+		if (publicConstructors == 0)
+			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
+		else
+			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
+	}
 
 	//TODO: Implement more checks (eg. whether template functions names clashes) and add logic to jsexport only a subset of the public methods
 }
@@ -427,6 +468,5 @@ void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
 	//Methods here are only added to the classes/struct, and only later they are checked
 	//They have to be added here since this is the only moment that will capture templated methods (that possibly will never be instantiated)
 	//But the actual checks have to be performed later when all methods are known
-	std::string name = method->getNameInfo().getName().getAsString();
 	methods.insert(method);
 }
