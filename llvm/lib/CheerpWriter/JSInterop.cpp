@@ -26,11 +26,18 @@ const std::deque<CheerpWriter::FunctionAndName>& CheerpWriter::getExportedFreeFu
 	if (namedNode==nullptr)
 		return jsexportedFreeFunctions;
 
+	auto getFunctionName = [&](const Function * f) -> StringRef
+	{
+		StringRef mangledName = f->getName();
+		demangler_iterator dmg(mangledName);
+		return *dmg;
+	};
+
 	for (auto it = namedNode->op_begin(); it != namedNode->op_end(); ++ it )
 	{
 		const MDNode * node = *it;
 		const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
-		jsexportedFreeFunctions.push_back({f, f->getName()});
+		jsexportedFreeFunctions.push_back({f, getFunctionName(f)});
 	}
 	return jsexportedFreeFunctions;
 }
@@ -219,6 +226,14 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 			assert( globalDeps.isReachable(f) );
 		}
 	}
+
+	std::sort(exportedNames.begin(), exportedNames.end());
+	auto it = adjacent_find(exportedNames.begin(), exportedNames.end());
+	if (it != exportedNames.end())
+	{
+		llvm::report_fatal_error( Twine("Name clash on [[cheerp::jsexport]]-ed items on the name: ", *it));
+	}
+
 	return exportedNames;
 }
 
