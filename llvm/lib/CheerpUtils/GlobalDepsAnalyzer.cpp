@@ -43,8 +43,8 @@ StringRef GlobalDepsAnalyzer::getPassName() const
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass, bool wasmStart)
 	: ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
 	  TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
-	  hasPointerArrays(false), hasAsmJS(false), hasAsmJSMalloc(false), mayNeedAsmJSFree(false),
-	  llcPass(llcPass), wasmStart(wasmStart), delayPrintf(true),
+	  hasPointerArrays(false), hasAsmJS(false), hasAsmJSMalloc(false),
+	  mayNeedAsmJSFree(false), llcPass(llcPass), wasmStart(wasmStart), delayPrintf(true),
 	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
 {
 }
@@ -451,12 +451,22 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				ffree->setSection("");
 				ffree->deleteBody();
 			}
-			reachableGlobals.insert(ffree);
-			visitFunction( ffree, visited);
-			assert( visited.empty() );
-			if(ffree->getSection() == StringRef("asmjs"))
+			else
+			{
+				hasAsmJS = true;
 				asmJSExportedFuncions.insert(ffree);
-			externals.push_back(ffree);
+				externals.push_back(ffree);
+				// Visit free and friends
+				functionsQueue.push_back(ffree);
+				while (!functionsQueue.empty())
+				{
+					const Function* F = functionsQueue.back();
+					functionsQueue.pop_back();
+					visitFunction( F, visited);
+					assert( visited.empty() );
+				}
+			}
+			reachableGlobals.insert(ffree);
 		}
 	}
 
@@ -563,16 +573,6 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 		return;
 	}
 
-	if (C->getSection() == StringRef("asmjs"))
-	{
-		hasAsmJS = true;
-	}
-
-	if ( C->getName() == StringRef("free") )
-		mayNeedAsmJSFree = true;
-	else if (C->getName() == StringRef("malloc"))
-		hasAsmJSMalloc = true;
-
 	if ( reachableGlobals.insert(C).second )
 	{
 
@@ -582,9 +582,31 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 			visitGlobal(cast<GlobalValue>(GA->getAliasee()), visited, vec );
 		}
 		else if (const Function * F = dyn_cast<Function>(C) )
-			functionsQueue.push_back(F);
+		{
+			if ( C->getName() == StringRef("free") )
+			{
+				// Don't visit free right now. We do it only if
+				// actyally needed at the end
+				mayNeedAsmJSFree = true;
+			}
+			else
+			{
+				if (C->getName() == StringRef("malloc"))
+					hasAsmJSMalloc = true;
+
+				if (C->getSection() == StringRef("asmjs"))
+				{
+					hasAsmJS = true;
+				}
+				functionsQueue.push_back(F);
+			}
+		}
 		else if (const GlobalVariable * GV = dyn_cast<GlobalVariable>(C) )
 		{
+			if (C->getSection() == StringRef("asmjs"))
+			{
+				hasAsmJS = true;
+			}
 			if (GV->hasInitializer() )
 			{
 				// Add the "GlobalVariable - initializer" use to the subexpr,
@@ -762,7 +784,8 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				{
 					Type* ty = ci.getOperand(0)->getType();
 					bool basicType = !ty->isAggregateType();
-					if (hasAsmJS && (isAsmJS || basicType))
+					bool asmjsPtr = TypeSupport::isAsmJSPointer(ty);
+					if (isAsmJS || basicType || asmjsPtr)
 					{
 						// Delay adding free, it will be done only if asm.js malloc is actually there
 						mayNeedAsmJSFree = true;
