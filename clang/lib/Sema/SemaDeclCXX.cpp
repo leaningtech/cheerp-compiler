@@ -7181,8 +7181,7 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   //Verify that this object is simple enough to have JS layout
   if (Record->hasAttr<JsExportAttr>())
   {
-    if (cheerp::couldBeJsExported(Record, *this))
-    {
+    cheerpSemaData.checkRecord(Record);
 
     //Mark all methods as used
     CXXRecordDecl::method_iterator it=Record->method_begin();
@@ -7195,8 +7194,6 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
         Consumer.HandleTopLevelDecl(DeclGroupRef(*it));
      }
     }
-    }
-    //TODO: Check for any public data or static member
   }
   if(Record->hasAttr<ByteLayoutAttr>())
   {
