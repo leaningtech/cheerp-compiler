@@ -78,6 +78,8 @@ private:
 			methods.insert(method);
 		}
 	};
+	template <class T>
+	void insertIntoInterfaces(T* item, Interface& tagged_, Interface& public_);
 	clang::CXXRecordDecl* recordDecl;
 	MethodSet methods;
 	MethodSet toBeJsExportedMethods;
