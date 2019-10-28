@@ -385,6 +385,26 @@ void cheerp::CheerpSemaData::checkRecord(clang::CXXRecordDecl* record)
 	classData.emplace(record, CheerpSemaClassData(record, sema)).first->second.checkRecord();
 }
 
+template <class T>
+void cheerp::CheerpSemaClassData::insertIntoInterfaces(T* item, Interface& tagged, Interface& implicit)
+{
+	using namespace clang;
+	const bool isJsExport = item->template hasAttr<JsExportAttr>();
+	const bool isPublic = item->getAccess() == AS_public;
+	const bool isConstructor = isa<CXXConstructorDecl>(item);
+
+	if (isJsExport && !isPublic && !isConstructor)
+	{
+		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_TODO);
+		return;
+	}
+
+	if (isJsExport)
+		tagged.insert(item);
+	else if (isPublic)
+		implicit.insert(item);
+};
+
 void cheerp::CheerpSemaClassData::checkRecord()
 {
 	using namespace std;
@@ -392,52 +412,42 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	//Here all checks regarding internal feasibility of jsexporting a class/struct have to be performed
 	couldBeJsExported(recordDecl, sema);
 
-	Interface publicInterface;
-	Interface explicitlyJsExportedInterface;
+	//There are 2 possible interfaces: the implicit one, based on the public member, and the explicit one, based on the member/fields tagged [[cheerp::jsexport]]
+	Interface taggedInterface;
+	Interface implicitInterface;
 
 	for (auto method : recordDecl->methods())
 	{
-		if (method->getAccess() != AS_public)
-			continue;
-
-		publicInterface.insert(method);
-		if (method->hasAttr<JsExportAttr>())
-			explicitlyJsExportedInterface.insert(method);
+		insertIntoInterfaces<CXXMethodDecl>(method, taggedInterface, implicitInterface);
 	}
 
 	for (auto field : recordDecl->fields())
 	{
-		if (field->getAccess() != AS_public)
-			continue;
-
-		publicInterface.insert(field);
-		if (field->clang::CapturedDecl::hasAttr<JsExportAttr>())
-			explicitlyJsExportedInterface.insert(field);
+		insertIntoInterfaces<FieldDecl>(field, taggedInterface, implicitInterface);
 	}
 
-	if (!explicitlyJsExportedInterface.empty())
+	if (!taggedInterface.empty())
 	{
-		//Currently not supported, so fail here
+		//Currently not supported the explicit interface, so fail here
 		//TODO: support explicitly jsExported or public fields methods
 		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_TODO);
 		return;
 	}
 
-
 	Interface& toBeJsExported =
-		explicitlyJsExportedInterface.empty() ?
-		publicInterface :
-		explicitlyJsExportedInterface;
+		taggedInterface.empty() ?
+		implicitInterface :
+		taggedInterface;
 
 	if (!toBeJsExported.fields.empty())
 	{
-		//Currently not supported, so fail here
+		//Currently not supported jsexporting fields, so fail here
 		//TODO: support getter and setter on methods
 		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_with_public_fields) << *toBeJsExported.fields.begin() << recordDecl;
 		return;
 	}
 
-	int publicConstructors = 0;
+	int JsExportedConstructors = 0;
 	std::set<std::string> JsExportedMethodNames;
 	std::set<std::string> staticJsExportedMethodNames;
 	for (auto method : toBeJsExported.methods)
@@ -446,7 +456,7 @@ void cheerp::CheerpSemaClassData::checkRecord()
 
 		if (isa<CXXConstructorDecl>(method))
 		{
-			++publicConstructors;
+			++JsExportedConstructors;
 			continue;
 		}
 
@@ -460,9 +470,9 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		}
 	}
 
-	if (publicConstructors != 1)
+	if (JsExportedConstructors != 1)
 	{
-		if (publicConstructors == 0)
+		if (JsExportedConstructors == 0)
 			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
 		else
 			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
