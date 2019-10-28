@@ -23,7 +23,7 @@ namespace cheerp{
 
 enum class TypeKind
 {
-	Void, IntMax32Bit, IntGreater32Bit, FloatingPoint, NamespaceClient, Pointer, Function, FunctionPointer, Reference, Other
+	Void, IntMax32Bit, IntGreater32Bit, FloatingPoint, NamespaceClient, Pointer, Function, FunctionPointer, Reference, JsExportable, Other
 };
 
 TypeKind classifyType(const clang::Type* Ty);
