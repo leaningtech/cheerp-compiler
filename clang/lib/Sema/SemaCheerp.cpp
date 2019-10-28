@@ -32,9 +32,6 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 		return false;
 	}
 
-	//TODO: templated classes should be checked elsewhere, double check that all error here are also catched for template
-
-	//TODO: Check for any public data or static member
 	return true;
 }
 
@@ -176,6 +173,7 @@ bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl*
 		case TypeKind::Void:
 		case TypeKind::IntMax32Bit:
 		case TypeKind::FloatingPoint:
+		case TypeKind::JsExportable:
 		{
 			return true;
 		}
@@ -188,11 +186,7 @@ bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl*
 		{
 			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_unknow_type);
 			return false;
-		//TODO: If Ty is Other, it may be ok as long as it's already tagged as JsExportable or could be tagged JsExportable
-			//(possibly by voiding some restrictions, for example existence of public constructor since it's already created)
-			//but both loop detection and tagging of classes should be first implemented
-		//	CXXRecordDecl* Record = Ty->getAsCXXRecordDecl();
-		//	return (couldBeJsExported(Record, sema) && hasJsExportedAttr(Record));
+		//TODO: If Ty is Other, it may be ok as long as it's sort of Weakly JsExportable, but possibly voiding restriction on the need of public constructor
 		}
 		case TypeKind::IntGreater32Bit:
 		{
@@ -232,6 +226,7 @@ bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl*
 		case TypeKind::IntMax32Bit:
 		case TypeKind::FloatingPoint:
 		case TypeKind::NamespaceClient:
+		case TypeKind::JsExportable:
 		{
 			return true;
 		}
@@ -302,6 +297,12 @@ cheerp::TypeKind cheerp::classifyType(const clang::Type* Ty)
 	if (clang::AnalysisDeclContext::isInClientNamespace(Record))
 	{
 		return TypeKind::NamespaceClient;
+	}
+	using namespace clang;
+	if (Record->hasAttr<JsExportAttr>())
+	{
+		//The actual check about whether is actually JsExporable is done somewhere else (TODO: it is?)
+		return TypeKind::JsExportable;
 	}
 	return TypeKind::Other;
 }
