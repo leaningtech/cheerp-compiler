@@ -16,6 +16,7 @@
 #include "clang/AST/DeclCXX.h"
 #include "clang/Sema/AttributeList.h"
 #include <set>
+#include <unordered_map>
 #include <string>
 
 namespace cheerp{
@@ -52,6 +53,23 @@ bool couldBeJsExported(clang::CXXMethodDecl* Method, clang::Sema& sema);
 
 void checkFunction(clang::FunctionDecl* FD, clang::Sema& sema);
 
+class CheerpSemaClassData
+{
+public:
+	CheerpSemaClassData(clang::CXXRecordDecl* record, clang::Sema& sema) : recordDecl(record), sema(sema)
+	{
+	}
+	void addMethod(clang::CXXMethodDecl* FD);
+	void checkRecord();
+private:
+	typedef std::set<clang::CXXMethodDecl*> MethodSet;
+	clang::CXXRecordDecl* recordDecl;
+	MethodSet methods;
+	MethodSet toBeJsExportedMethods;
+	void buildToBeJsExportedMethods();
+	clang::Sema& sema;
+};
+
 class CheerpSemaData
 {
 public:
@@ -59,11 +77,16 @@ public:
 	{
 	}
 	void addFunction(clang::FunctionDecl* FD);
+	void checkRecord(clang::CXXRecordDecl* record);
 private:
 	void checkFreeJsExportedFunction(clang::FunctionDecl* FD);
-	void checkMethod(clang::CXXMethodDecl* method);
-	typedef std::set<std::string> FunctionSet;
-	FunctionSet jsexportedFreeFunction;
+	void addMethod(clang::CXXMethodDecl* method);
+
+	typedef std::set<std::string> NameSet;
+	NameSet jsexportedFreeFunction;
+	NameSet jsexportedRecord;
+	NameSet jsexportedNames;
+	std::unordered_map<clang::CXXRecordDecl*, CheerpSemaClassData> classData;
 	clang::Sema& sema;
 };
 

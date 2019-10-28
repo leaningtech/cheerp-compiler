@@ -357,10 +357,12 @@ void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD)
 	using namespace clang;
 	if (isa<CXXMethodDecl>(FD))
 	{
-		return;
+		addMethod((CXXMethodDecl*)FD);
 	}
-	if (FD->hasAttr<JsExportAttr>())
+	else if (FD->hasAttr<JsExportAttr>())
+	{
 		checkFreeJsExportedFunction(FD);
+	}
 }
 
 void cheerp::CheerpSemaData::checkFreeJsExportedFunction(clang::FunctionDecl* FD)
@@ -387,20 +389,44 @@ void cheerp::CheerpSemaData::checkFreeJsExportedFunction(clang::FunctionDecl* FD
 	std::string name = FD->getNameInfo().getName().getAsString();
 	auto pair = jsexportedFreeFunction.insert(name);
 	if (!pair.second)
-		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_same_name_methods) << name;
+		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_name_clash) << name << "function" << "function";
+	auto pair2 = jsexportedNames.insert(name);
+	if (!pair2.second)
+		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_name_clash) << name << "function" << "class";
 }
 
-void cheerp::CheerpSemaData::checkMethod(clang::CXXMethodDecl* method)
+void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method)
 {
-	using namespace cheerp;
-	using namespace clang;
+	clang::CXXRecordDecl* record = method->getParent();
+	classData.emplace(record, CheerpSemaClassData(record, sema)).first->second.addMethod(method);
+}
 
-	//TODO: add this method to the class, then decide whether this makes any sense
-
-	const bool isTemplate = (method->getTemplatedKind() != FunctionDecl::TemplatedKind::TK_NonTemplate);
-	if (isTemplate)
+void cheerp::CheerpSemaData::checkRecord(clang::CXXRecordDecl* record)
+{
+	//Here all checks about external feasibility of jsexporting a class/struct have to be perfomed (eg. checking for name clashes against other functions)
+	std::string name = record->getName();
+	auto pair = jsexportedNames.insert(name);
+	if (!pair.second)
 	{
-		sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_method_template);
-		return;
+		sema.Diag(record->getLocation(), clang::diag::err_cheerp_jsexport_name_clash) << name << "class" << "function";
 	}
+
+	classData.emplace(record, CheerpSemaClassData(record, sema)).first->second.checkRecord();
+}
+
+void cheerp::CheerpSemaClassData::checkRecord()
+{
+	//Here all checks regarding internal feasibility of jsexporting a class/struct have to be performed
+	couldBeJsExported(recordDecl, sema);
+
+	//TODO: Implement more checks (eg. whether template functions names clashes) and add logic to jsexport only a subset of the public methods
+}
+
+void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
+{
+	//Methods here are only added to the classes/struct, and only later they are checked
+	//They have to be added here since this is the only moment that will capture templated methods (that possibly will never be instantiated)
+	//But the actual checks have to be performed later when all methods are known
+	std::string name = method->getNameInfo().getName().getAsString();
+	methods.insert(method);
 }
