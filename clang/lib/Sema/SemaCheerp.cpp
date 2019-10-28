@@ -26,6 +26,13 @@ bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 		return false;
 	}
 
+	if (Record->getNumBases())
+	{
+		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_inheritance);
+		return false;
+	}
+	assert(Record->getNumVBases() == 0);
+
 	if (Record->hasNonTrivialDestructor())
 	{
 		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
