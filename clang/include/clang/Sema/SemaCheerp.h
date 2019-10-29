@@ -13,6 +13,10 @@
 #define _CHEERP_SEMA_CHEERP_H
 
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/Sema/AttributeList.h"
 #include <set>
@@ -118,6 +122,7 @@ private:
 	llvm::IntegerType* intType;
 };
 
+bool shouldBeJsExported(const clang::Decl *D, const bool isMethod);
 
 }  //end namespace cheerp
 #endif //_CHEERP_SEMA_CHEERP_H
