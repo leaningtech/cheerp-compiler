@@ -488,3 +488,22 @@ void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
 	//But the actual checks have to be performed later when all methods are known
 	methods.insert(method);
 }
+
+void cheerp::JsExportContext::addFreeFunctionJsExportMetadata(llvm::Function* F)
+{
+       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata("jsexported_methods");
+       llvm::SmallVector<llvm::Metadata*,1> values;
+       values.push_back(llvm::ConstantAsMetadata::get(F));
+       llvm::MDNode* node = llvm::MDNode::get(context,values);
+       namedNode->addOperand(node);
+}
+
+void cheerp::JsExportContext::addRecordJsExportMetadata(const clang::CXXMethodDecl *method, llvm::Function* F, const std::string& className)
+{
+       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata(llvm::Twine(className,"_methods").str());
+       llvm::SmallVector<llvm::Metadata*,2> values;
+       values.push_back(llvm::ConstantAsMetadata::get(F));
+       values.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(intType, method->isStatic())));
+       llvm::MDNode* node = llvm::MDNode::get(context,values);
+       namedNode->addOperand(node);
+}

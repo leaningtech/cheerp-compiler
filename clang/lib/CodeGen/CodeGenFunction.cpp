@@ -36,6 +36,7 @@
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
+#include "clang/Sema/SemaCheerp.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/FPEnv.h"
@@ -1181,13 +1182,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     if (MD->getParent()->hasAttr<JsExportAttr>() && MD->getAccess() == AS_public &&
         (!CXXConstructorDecl::classof(GD.getDecl()) || GD.getCtorType()==Ctor_Complete))
     {
-      llvm::StructType *classType = cast<llvm::StructType>(ConvertType(MD->getParent()));
-      llvm::NamedMDNode* namedNode = CGM.getModule().getOrInsertNamedMetadata(Twine(classType->getName(),"_methods").str());
-      llvm::SmallVector<llvm::Metadata*,2> values;
-      values.push_back(llvm::ConstantAsMetadata::get(CurFn));
-      values.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, MD->isStatic())));
-      llvm::MDNode* node = llvm::MDNode::get(getLLVMContext(),values);
-      namedNode->addOperand(node);
+      const std::string className = clang::cast<llvm::StructType>(ConvertType(MD->getParent()))->getName();
+      cheerp::JsExportContext jsExportContext(CGM.getModule(), getLLVMContext(), Int32Ty);
+      jsExportContext.addRecordJsExportMetadata(MD, CurFn, className);
     }
   }
 
