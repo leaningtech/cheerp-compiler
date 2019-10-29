@@ -6034,8 +6034,11 @@ void CheerpWriter::makeJS()
 	//Load Wast module
 	if (!wasmFile.empty())
 	{
-		for (int i = HEAP8; i<=HEAPF64; i++)
-			stream << "var " << heapNames[i] << "=null;" << NewLine;
+		if (globalDeps.needAsmJS())
+		{
+			for (int i = HEAP8; i<=HEAPF64; i++)
+				stream << "var " << heapNames[i] << "=null;" << NewLine;
+		}
 		stream << "var __asm=null;" << NewLine;
 		stream << "var __heap=null;" << NewLine;
 		compileAsmJSImports();
@@ -6102,8 +6105,11 @@ void CheerpWriter::makeJS()
 		stream << "}})" << NewLine;
 		stream << ",console.log).then(" << shortestName << "=>{" << NewLine;
 		stream << "var i="<< shortestName <<".instance;" << NewLine;
-		for (int i = HEAP8; i<=HEAPF64; i++)
-			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
+		if (globalDeps.needAsmJS())
+		{
+			for (int i = HEAP8; i<=HEAPF64; i++)
+				stream << heapNames[i] << "=new " << typedArrayNames[i] << "(i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
+		}
 		stream << "__asm=i.exports;" << NewLine;
 		stream << "__heap=i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
 	}
