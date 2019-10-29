@@ -426,14 +426,6 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		insertIntoInterfaces<FieldDecl>(field, taggedInterface, implicitInterface);
 	}
 
-	if (!taggedInterface.empty())
-	{
-		//Currently not supported the explicit interface, so fail here
-		//TODO: support explicitly jsExported or public fields methods
-		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_TODO);
-		return;
-	}
-
 	Interface& toBeJsExported =
 		taggedInterface.empty() ?
 		implicitInterface :
