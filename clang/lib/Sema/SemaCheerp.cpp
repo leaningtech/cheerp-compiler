@@ -478,6 +478,11 @@ void cheerp::CheerpSemaClassData::checkRecord()
 			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
 	}
 
+	for (auto method : toBeJsExported.methods)
+	{
+		method->addAttr(JsExportAttr::CreateImplicit(sema.Context));
+	}
+
 	//TODO: Implement more checks (eg. whether template functions names clashes) and add logic to jsexport only a subset of the public methods
 }
 
@@ -507,3 +512,9 @@ void cheerp::JsExportContext::addRecordJsExportMetadata(const clang::CXXMethodDe
        llvm::MDNode* node = llvm::MDNode::get(context,values);
        namedNode->addOperand(node);
 }
+
+bool cheerp::shouldBeJsExported(const clang::Decl *D, const bool isMethod)
+{
+	return D->hasAttr<clang::JsExportAttr>() && (clang::isa<clang::CXXMethodDecl>(D) == isMethod);
+}
+
