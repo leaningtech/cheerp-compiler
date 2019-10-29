@@ -103,5 +103,21 @@ private:
 	clang::Sema& sema;
 };
 
+class JsExportContext
+{
+public:
+	explicit JsExportContext(llvm::Module& module, llvm::LLVMContext& context, llvm::IntegerType* type)
+		: module(module), context(context), intType(type)
+	{
+	}
+	void addFreeFunctionJsExportMetadata(llvm::Function* F);
+	void addRecordJsExportMetadata(const clang::CXXMethodDecl *method, llvm::Function* F, const std::string& className);
+private:
+	llvm::Module& module;
+	llvm::LLVMContext& context;
+	llvm::IntegerType* intType;
+};
+
+
 }  //end namespace cheerp
 #endif //_CHEERP_SEMA_CHEERP_H
