@@ -1920,7 +1920,7 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
     }
   }
 
-  if(D->hasAttr<JsExportAttr>())
+  if (cheerp::shouldBeJsExported(D, /*isMethod*/false))
   {
     cheerp::JsExportContext jsExportContext(getModule(), getLLVMContext(), Int32Ty);
     jsExportContext.addFreeFunctionJsExportMetadata(F);
