@@ -11,7 +11,7 @@
 
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/InlineAsm.h"
-
+#include "llvm/Cheerp/JsExport.h"
 #include <numeric>
 
 using namespace llvm;
@@ -118,14 +118,16 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		auto isStaticMethod = [&](const MDNode * node) -> bool {
 			assert(node->getNumOperands() >= 2);
 			assert( isa<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue()) );
-			bool isStatic = cast<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
-			return isStatic;
+			const uint32_t value = cast<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
+			return cheerp::isStatic(value);
 		};
 
-		//TODO many things to check.. For. ex C1/C2/C3, names collisions, template classes!
 		auto isConstructor = [&](const MDNode * node ) -> bool
 		{
-			return getMethodName(node).startswith("C1");
+			assert(node->getNumOperands() >= 2);
+			assert( isa<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue()) );
+			const uint32_t value = cast<ConstantInt>(cast<ConstantAsMetadata>(node->getOperand(1))->getValue())->getZExtValue();
+			return cheerp::isConstructor(value);
 		};
 
 		auto constructor = std::find_if(namedNode.op_begin(), namedNode.op_end(), isConstructor );
