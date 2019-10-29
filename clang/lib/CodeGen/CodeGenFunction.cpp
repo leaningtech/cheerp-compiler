@@ -1080,16 +1080,20 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 
   EmitFunctionProlog(*CurFnInfo, CurFn, Args);
 
-  if (!CGM.getTarget().isByteAddressable() && D && isa<CXXMethodDecl>(D)) {
+  if (!CGM.getTarget().isByteAddressable() && D) {
     //Cheerp: Emit metadata to know about member methods in the backend
-    const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
-    if (MD->getParent()->hasAttr<JsExportAttr>() && MD->getAccess() == AS_public &&
-        (!CXXConstructorDecl::classof(GD.getDecl()) || GD.getCtorType()==Ctor_Complete))
-    {
-      const std::string className = clang::cast<llvm::StructType>(ConvertType(MD->getParent()))->getName();
-      cheerp::JsExportContext jsExportContext(CGM.getModule(), getLLVMContext(), Int32Ty);
-      jsExportContext.addRecordJsExportMetadata(MD, CurFn, className);
-    }
+     if (cheerp::shouldBeJsExported(D, /*isMethod*/true))
+     {
+       //The following line seems to avoid certaint cases of walking over a constructor twice
+       //TODO: factor it away somehow
+       if (!CXXConstructorDecl::classof(GD.getDecl()) || GD.getCtorType()==Ctor_Complete)
+       {
+	 const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
+         const std::string className = clang::cast<llvm::StructType>(ConvertType(MD->getParent()))->getName();
+         cheerp::JsExportContext jsExportContext(CGM.getModule(), getLLVMContext(), Int32Ty);
+         jsExportContext.addRecordJsExportMetadata(MD, CurFn, className);
+       }
+     }
   }
 
   if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
