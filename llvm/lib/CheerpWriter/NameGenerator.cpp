@@ -13,6 +13,7 @@
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PHIHandler.h"
+#include "llvm/Cheerp/JsExport.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InlineAsm.h"
@@ -690,6 +691,31 @@ std::vector<std::string> NameGenerator::buildReservedNamesList(const Module& M, 
 			}
 		}
 	}
+
+	auto getFunctionName = [&](const Function * f) -> StringRef
+	{
+		StringRef mangledName = f->getName();
+		demangler_iterator dmg(mangledName);
+		return *dmg;
+	};
+
+	auto processFunction = [&ret, &getFunctionName](const Function * f) -> void
+	{
+		const StringRef name = getFunctionName(f);
+		ret.insert(name);
+	};
+
+	auto processRecord = [&M, &ret](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
+	{
+		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, M);
+		StringRef jsClassName = structAndName.second;
+		ret.insert(jsClassName);
+	};
+
+	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
+	//and processRecord on each jsexport-ed class/struct
+	iterateOverJsExportedMetadata(M, processFunction, processRecord);
+
 	return std::vector<std::string>(ret.begin(), ret.end());
 }
 
