@@ -45,6 +45,7 @@
 #include "clang/Basic/Version.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
+#include "clang/Sema/SemaCheerp.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -1725,11 +1726,8 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
 
   if(D->hasAttr<JsExportAttr>())
   {
-      llvm::NamedMDNode* namedNode = getModule().getOrInsertNamedMetadata("jsexported_methods");
-      llvm::SmallVector<llvm::Metadata*,1> values;
-      values.push_back(llvm::ConstantAsMetadata::get(F));
-      llvm::MDNode* node = llvm::MDNode::get(getLLVMContext(),values);
-      namedNode->addOperand(node);
+    cheerp::JsExportContext jsExportContext(getModule(), getLLVMContext(), Int32Ty);
+    jsExportContext.addFreeFunctionJsExportMetadata(F);
   }
 }
 
