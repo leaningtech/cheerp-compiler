@@ -2574,10 +2574,10 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
   if (!ADL && R.isSingleResult() && !R.getAsSingle<FunctionTemplateDecl>() && S->getFnParent()) {
     if (FunctionDecl* FD = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity())) {
       if (VarDecl* Found = dyn_cast<VarDecl>(R.getFoundDecl())) {
-        if (FD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(Found->getType())) {
+        if (FD->hasAttr<AsmJSAttr>() && Found->hasAttr<GenericJSAttr>() && Found->hasGlobalStorage()) {
           Diag(R.getLookupNameInfo().getLoc(), diag::err_cheerp_incompatible_attributes)
             << FD->getAttr<AsmJSAttr>() << "function" << FD
-            << getGenericJSAttr(Found->getType()) << "global variable" << Found;
+            << Found->getAttr<GenericJSAttr>() << "global variable" << Found;
         }
       }
     }
