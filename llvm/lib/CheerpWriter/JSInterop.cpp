@@ -82,20 +82,23 @@ bool CheerpWriter::hasJSExports()
 std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 {
 	std::vector<StringRef> exportedNames;
-	//Look for metadata which ends in _methods. They are lists
-	//of exported methods for JS layout classes
-	for( const NamedMDNode& namedNode: module.named_metadata())
+
+	auto getFunctionName = [&](const Function * f) -> StringRef
 	{
-		StringRef name = namedNode.getName();
+		StringRef mangledName = f->getName();
+		demangler_iterator dmg(mangledName);
+		return *dmg;
+	};
 
-		if(name == "jsexported_methods")
-		{
-			continue;
-		}
+	auto processFunction = [&](const Function * f) -> void
+	{
+		const StringRef name = getFunctionName(f);
+		stream << "var " << name << '=' << namegen.getName(f) << ';' << NewLine;
+		exportedNames.push_back(name);
+	};
 
-		if (!name.endswith("_methods") || !(name.startswith("class.") || name.startswith("struct.")) )
-			continue;
-
+	auto processRecord = [&](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
+	{
 		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, module);
 		StructType* t = structAndName.first;
 		StringRef jsClassName = structAndName.second;
@@ -136,13 +139,13 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		if (constructor == namedNode.op_end() )
 		{
 			llvm::report_fatal_error( Twine("Class: ", jsClassName).concat(" does not define a constructor!") );
-			return exportedNames;
+			return;
 		}
 
 		if ( std::find_if( std::next(constructor), namedNode.op_end(), isConstructor ) != namedNode.op_end() )
 		{
 			llvm::report_fatal_error( Twine("More than one constructor defined for class: ", jsClassName) );
-			return exportedNames;
+			return;
 		}
 
 		const MDNode* node = *constructor;
@@ -227,7 +230,11 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 
 			assert( globalDeps.isReachable(f) );
 		}
-	}
+	};
+
+	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
+	//and processRecord on each jsexport-ed class/struct
+	iterateOverJsExportedMetadata(module, processFunction, processRecord);
 
 	std::sort(exportedNames.begin(), exportedNames.end());
 	auto it = adjacent_find(exportedNames.begin(), exportedNames.end());
