@@ -630,7 +630,6 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   {
     SmallString<64> path(Output.getFilename());
     StringRef ext = (cheerpLinearOutput && cheerpLinearOutput->getValue() == StringRef("wast")) ? ".wast" : ".wasm";
-    llvm::errs()<<llvm::sys::path::extension(path)<<"\n";
     if (llvm::sys::path::extension(path) == ext)
     {
       path.append(ext);
