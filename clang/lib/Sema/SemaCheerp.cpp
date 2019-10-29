@@ -14,6 +14,7 @@
 #include "clang/Sema/SemaCheerp.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Sema/SemaInternal.h"
+#include "llvm/Cheerp/JsExport.h"
 
 bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 {
@@ -500,7 +501,11 @@ void cheerp::JsExportContext::addRecordJsExportMetadata(const clang::CXXMethodDe
        llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata(llvm::Twine(className,"_methods").str());
        llvm::SmallVector<llvm::Metadata*,2> values;
        values.push_back(llvm::ConstantAsMetadata::get(F));
-       values.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(intType, method->isStatic())));
+
+       const MemberKind kind = clang::isa<clang::CXXConstructorDecl>(method) ? MemberKind::Constructor : MemberKind::Method;
+       const uint32_t representation = cheerp::getRepresentation(kind, method->isStatic(), method->isConst());
+       values.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(intType, representation)));
+
        llvm::MDNode* node = llvm::MDNode::get(context,values);
        namedNode->addOperand(node);
 }
