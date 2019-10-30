@@ -392,9 +392,8 @@ void cheerp::CheerpSemaClassData::insertIntoInterfaces(T* item, Interface& tagge
 	using namespace clang;
 	const bool isJsExport = item->template hasAttr<JsExportAttr>();
 	const bool isPublic = item->getAccess() == AS_public;
-	const bool isConstructor = isa<CXXConstructorDecl>(item);
 
-	if (isJsExport && !isPublic && !isConstructor)
+	if (isJsExport && !isPublic)
 	{
 		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_TODO);
 		return;
@@ -427,8 +426,9 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		insertIntoInterfaces<FieldDecl>(field, taggedInterface, implicitInterface);
 	}
 
+	const bool isPublicInterface = taggedInterface.empty();
 	Interface& toBeJsExported =
-		taggedInterface.empty() ?
+		isPublicInterface ?
 		implicitInterface :
 		taggedInterface;
 
@@ -465,9 +465,9 @@ void cheerp::CheerpSemaClassData::checkRecord()
 
 	if (JsExportedConstructors != 1)
 	{
-		if (JsExportedConstructors == 0)
+		if (JsExportedConstructors == 0 && isPublicInterface)
 			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
-		else
+		else if (JsExportedConstructors > 1)
 			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
 	}
 
