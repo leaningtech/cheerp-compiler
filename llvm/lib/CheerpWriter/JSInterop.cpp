@@ -103,6 +103,8 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		StructType* t = structAndName.first;
 		StringRef jsClassName = structAndName.second;
 
+		exportedNames.push_back(jsClassName);
+
 		auto getMethodName = [&](const MDNode * node) -> StringRef
 		{
 			assert( isa<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue()) );
@@ -135,26 +137,26 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 
 		auto constructor = std::find_if(namedNode.op_begin(), namedNode.op_end(), isConstructor );
 
-		//First compile the constructor
-		if (constructor == namedNode.op_end() )
-		{
-			llvm::report_fatal_error( Twine("Class: ", jsClassName).concat(" does not define a constructor!") );
-			return;
-		}
+		const bool hasConstructor = (constructor != namedNode.op_end());
 
-		if ( std::find_if( std::next(constructor), namedNode.op_end(), isConstructor ) != namedNode.op_end() )
+		if (hasConstructor && std::find_if( std::next(constructor), namedNode.op_end(), isConstructor ) != namedNode.op_end() )
 		{
 			llvm::report_fatal_error( Twine("More than one constructor defined for class: ", jsClassName) );
 			return;
 		}
 
-		const MDNode* node = *constructor;
-		const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
-
-		exportedNames.push_back(jsClassName);
-
 		stream << "function " << jsClassName << '(';
-		uint32_t fwdArgsCount = countJsParameters(f, /*isStatic*/false);
+		const Function * f = NULL;
+		uint32_t fwdArgsCount = 0;
+
+		//First compile the constructor
+		if (hasConstructor)
+		{
+			const MDNode* node = *constructor;
+			f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
+
+			fwdArgsCount = countJsParameters(f, /*isStatic*/false);
+		}
 		for(uint32_t i=0;i<fwdArgsCount;i++)
 		{
 			if(i!=0)
@@ -171,18 +173,26 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		stream << "if (arguments.length===1&&arguments[0]===undefined){" << NewLine
 			<< "return;" << NewLine
 			<< "}" << NewLine;
-		compileOperand(f);
-		stream << '(';
-		if(PA.getPointerKind(&*f->arg_begin())==COMPLETE_OBJECT)
-			stream << "this";
+		if (hasConstructor)
+		{
+			compileOperand(f);
+			stream << '(';
+			if(PA.getPointerKind(&*f->arg_begin())==COMPLETE_OBJECT)
+				stream << "this";
+			else
+				stream << "{d:this.d,o:0}";
+
+			for(uint32_t i=0;i<fwdArgsCount;i++)
+				stream << ",a" << i;
+			stream << ");";
+
+			assert( globalDeps.isReachable(f) );
+		}
 		else
-			stream << "{d:this.d,o:0}";
-
-		for(uint32_t i=0;i<fwdArgsCount;i++)
-			stream << ",a" << i;
-		stream << ");" << NewLine << "}" << NewLine;
-
-		assert( globalDeps.isReachable(f) );
+		{
+			stream << "throw \"Class/Struct " << jsClassName << " do not have a [[cheerp::jsexport]] tagged constructor\";";
+		}
+		stream << NewLine << "}" << NewLine;
 
 		//Then compile other methods and add them to the prototype
 		for ( NamedMDNode::const_op_iterator it = namedNode.op_begin(); it != namedNode.op_end(); ++ it )
