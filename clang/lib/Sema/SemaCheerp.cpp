@@ -98,6 +98,7 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDe
 		{
 			return true;
 		}
+		case TypeKind::JsExportable:
 		case TypeKind::NamespaceClient:
 		{
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_naked_client);
@@ -107,11 +108,6 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDe
 		{
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_unknow_type);
 			return false;
-		//TODO: If Ty is Other, it may be ok as long as it's already tagged as JsExportable or could be tagged JsExportable
-			//(possibly by voiding some restrictions, for example existence of public constructor since it's already created)
-			//but both loop detection and tagging of classes should be first implemented
-		//	CXXRecordDecl* Record = Ty->getAsCXXRecordDecl();
-		//	return (couldBeJsExported(Record, sema) && hasJsExportedAttr(Record));
 		}
 		case TypeKind::IntGreater32Bit:
 		{
@@ -145,6 +141,7 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDe
 		case TypeKind::IntMax32Bit:
 		case TypeKind::FloatingPoint:
 		case TypeKind::NamespaceClient:
+		case TypeKind::JsExportable:
 		{
 			return true;
 		}
@@ -181,10 +178,10 @@ bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl*
 		case TypeKind::Void:
 		case TypeKind::IntMax32Bit:
 		case TypeKind::FloatingPoint:
-		case TypeKind::JsExportable:
 		{
 			return true;
 		}
+		case TypeKind::JsExportable:
 		case TypeKind::NamespaceClient:
 		{
 			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_naked_client);
@@ -194,7 +191,6 @@ bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl*
 		{
 			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_unknow_type);
 			return false;
-		//TODO: If Ty is Other, it may be ok as long as it's sort of Weakly JsExportable, but possibly voiding restriction on the need of public constructor
 		}
 		case TypeKind::IntGreater32Bit:
 		{
