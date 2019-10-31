@@ -20,7 +20,10 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Utility.h"
+#include <string>
+#include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <array>
 
 namespace cheerp {
@@ -192,8 +195,7 @@ private:
 	}
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper);
 	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper );
-	static std::vector<std::string> buildReservedNamesList(const llvm::Module& M, const std::vector<std::string>& fromOption);
-	
+
 	Registerize& registerize;
 	const PointerAnalyzer& PA;
 	std::unordered_map<const llvm::Value*, llvm::SmallString<4> > namemap;
@@ -208,6 +210,10 @@ private:
 	const std::vector<std::string> reservedNames;
 	std::string shortestLocalName;
 };
+
+std::vector<std::string> buildReservedNamesList(const llvm::Module& M, const std::vector<std::string>& fromOption);
+std::vector<llvm::StringRef> buildJsExportedNamesList(const llvm::Module& M);
+std::unordered_set<std::string> buildAsmClobberNamesList(const llvm::Module& M);
 
 }
 

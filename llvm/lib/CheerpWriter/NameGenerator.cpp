@@ -660,9 +660,43 @@ bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) 
 	return !isInlineable(I, PA) && !I.getType()->isVoidTy() && !I.use_empty();
 }
 
-std::vector<std::string> NameGenerator::buildReservedNamesList(const Module& M, const std::vector<std::string>& fromOption)
+std::vector<llvm::StringRef> buildJsExportedNamesList(const Module& M)
 {
-	std::set<std::string> ret(fromOption.begin(), fromOption.end());
+	//Here a vector is used since repetitions are not allowed
+	std::vector<llvm::StringRef> names;
+
+	auto getFunctionName = [&](const Function * f) -> StringRef
+	{
+		StringRef mangledName = f->getName();
+		demangler_iterator dmg(mangledName);
+		return *dmg;
+	};
+
+	auto processFunction = [&names, &getFunctionName](const Function * f) -> void
+	{
+		const StringRef name = getFunctionName(f);
+		names.push_back(name);
+	};
+
+	auto processRecord = [&M, &names](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
+	{
+		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, M);
+		StringRef jsClassName = structAndName.second;
+		names.push_back(jsClassName);
+	};
+
+	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
+	//and processRecord on each jsexport-ed class/struct
+	iterateOverJsExportedMetadata(M, processFunction, processRecord);
+
+	return names;
+}
+
+std::unordered_set<std::string> buildAsmClobberNamesList(const Module& M)
+{
+	//We use an (unordered_)set since we expect repetitions
+	std::unordered_set<std::string> ret;
+
 	// Look for clobber lists from inline asm calls
 	for(const Function& F: M)
 	{
@@ -692,29 +726,18 @@ std::vector<std::string> NameGenerator::buildReservedNamesList(const Module& M, 
 		}
 	}
 
-	auto getFunctionName = [&](const Function * f) -> StringRef
-	{
-		StringRef mangledName = f->getName();
-		demangler_iterator dmg(mangledName);
-		return *dmg;
-	};
+	return ret;
+}
 
-	auto processFunction = [&ret, &getFunctionName](const Function * f) -> void
-	{
-		const StringRef name = getFunctionName(f);
-		ret.insert(name);
-	};
+std::vector<std::string> buildReservedNamesList(const Module& M, const std::vector<std::string>& fromOption)
+{
+	std::set<std::string> ret(fromOption.begin(), fromOption.end());
 
-	auto processRecord = [&M, &ret](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
-	{
-		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, M);
-		StringRef jsClassName = structAndName.second;
-		ret.insert(jsClassName);
-	};
+	const auto& asmClobber = buildAsmClobberNamesList(M);
+	ret.insert(asmClobber.begin(), asmClobber.end());
 
-	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
-	//and processRecord on each jsexport-ed class/struct
-	iterateOverJsExportedMetadata(M, processFunction, processRecord);
+	const auto& jsExported = buildJsExportedNamesList(M);
+	ret.insert(jsExported.begin(), jsExported.end());
 
 	return std::vector<std::string>(ret.begin(), ret.end());
 }
