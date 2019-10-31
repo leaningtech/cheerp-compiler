@@ -6904,12 +6904,17 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   //Verify that this object is simple enough to have JS layout
   if (Record->hasAttr<JsExportAttr>())
   {
+    //This function will also tag all [[cheerp::jsexport]]-ed methods, so after this point we can rely on the tag existing on the relevant methods
     cheerpSemaData.checkRecord(Record);
 
     //Mark all methods as used
     CXXRecordDecl::method_iterator it=Record->method_begin();
     CXXRecordDecl::method_iterator itE=Record->method_end();
     for(;it!=itE;++it) {
+      //Skip non-tagged methods
+      if (!(*it)->hasAttr<JsExportAttr>())
+        continue;
+
      (*it)->addAttr(::new (Context) UsedAttr(Record->getLocation(), Context, 0));
       MarkFunctionReferenced(Record->getLocation(), *it);
       // Force generation of explicitly defaulted methods
