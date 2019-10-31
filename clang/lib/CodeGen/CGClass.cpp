@@ -968,7 +968,7 @@ bool CodeGenFunction::IsConstructorDelegationValid(
   }
 
   // Do not elide js-exported constructors
-  if (Ctor->getParent()->hasAttr<JsExportAttr>()) {
+  if (Ctor->hasAttr<JsExportAttr>()) {
     return false;
   }
 
@@ -2069,7 +2069,7 @@ namespace {
 /// operator delete completely overrides the definition.
 void CodeGenFunction::EnterDtorCleanups(const CXXDestructorDecl *DD,
                                         CXXDtorType DtorType) {
-  assert((!DD->isTrivial() || DD->hasAttr<DLLExportAttr>() || DD->getParent()->hasAttr<JsExportAttr>()) &&
+  assert((!DD->isTrivial() || DD->hasAttr<DLLExportAttr>() || DD->hasAttr<JsExportAttr>()) &&
          "Should not emit dtor epilogue for non-exported trivial dtor!");
 
   // The deleting-destructor phase just needs to call the appropriate
