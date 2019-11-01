@@ -349,7 +349,7 @@ void cheerp::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod,
 {
 	using namespace cheerp;
 	using namespace clang;
-	if (FD->hasAttr<AsmJSAttr>())
+	if (isMethod && FD->hasAttr<AsmJSAttr>())
 	{
 		const std::string kind = isMethod ? "method" : "free function";
 		sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_attributes) << FD->getAttr<AsmJSAttr>() << kind << FD <<
