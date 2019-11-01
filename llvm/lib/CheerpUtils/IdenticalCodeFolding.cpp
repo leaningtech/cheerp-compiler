@@ -350,6 +350,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					case Intrinsic::cheerp_upcast_collapsed:
 					case Intrinsic::cheerp_cast_user:
 					case Intrinsic::flt_rounds:
+					case Intrinsic::fabs:
 					case Intrinsic::ctlz:
 					case Intrinsic::invariant_start:
 					case Intrinsic::stackrestore:
