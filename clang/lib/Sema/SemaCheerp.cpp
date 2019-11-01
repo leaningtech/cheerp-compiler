@@ -439,6 +439,9 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	int JsExportedConstructors = 0;
 	std::set<std::string> JsExportedMethodNames;
 	std::set<std::string> staticJsExportedMethodNames;
+
+	staticJsExportedMethodNames.insert("promise");
+
 	for (auto method : toBeJsExported.methods)
 	{
 		checkFunctionToBeJsExported(method, /*isMethod*/true, sema);
@@ -455,7 +458,10 @@ void cheerp::CheerpSemaClassData::checkRecord()
 			JsExportedMethodNames.insert(name);
 		if (pair.second == false)
 		{
-			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_same_name_methods) << method;
+			if (name == "promise" && method->isStatic())
+				sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_promise_static_method);
+			else
+				sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_same_name_methods) << method;
 		}
 	}
 
