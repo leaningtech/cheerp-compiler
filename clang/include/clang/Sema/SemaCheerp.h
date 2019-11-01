@@ -47,6 +47,8 @@ unsigned int getNumUserDefinedMethods(const llvm::iterator_range<T>& range)
 	return count;
 }
 
+bool isInAnyNamespace(const clang::Decl* decl);
+
 bool couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema);
 
 bool couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema);

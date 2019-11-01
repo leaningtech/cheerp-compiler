@@ -15,11 +15,30 @@
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/Cheerp/JsExport.h"
+#include "clang/AST/Decl.h"
+#include "clang/AST/DeclBase.h"
+
+bool cheerp::isInAnyNamespace(const clang::Decl* decl)
+{
+	auto context = decl->getDeclContext();
+	while (context->isTransparentContext())
+	{
+		//This serves to skip things like: extern "C" that are a context but that are transparent for namespace rules
+		context = context->getParent();
+	}
+	return (context->getParent() != NULL);
+}
 
 bool cheerp::couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
 {
 	//class or struct
 	using namespace clang;
+
+	if (isInAnyNamespace(Record))
+	{
+		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_namespace);
+		return false;
+	}
 
 	if (Record->isDynamicClass())
 	{
@@ -355,6 +374,16 @@ void cheerp::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod,
 		sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_attributes) << FD->getAttr<AsmJSAttr>() << kind << FD <<
 				"[[cheerp::jsexport]]" << kind << FD;
 	}
+
+	if (!isMethod)
+	{
+		if (isInAnyNamespace(FD))
+		{
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_namespace);
+			return;
+		}
+	}
+
 
 	if (isTemplate(FD))
 	{
