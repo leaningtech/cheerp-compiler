@@ -84,7 +84,7 @@ public:
 	void addFunction(clang::FunctionDecl* FD);
 	void checkRecord(clang::CXXRecordDecl* record);
 private:
-	void addMethod(clang::CXXMethodDecl* method);
+	void addMethod(clang::CXXMethodDecl* method, const bool isJsExport);
 
 	std::unordered_map<clang::CXXRecordDecl*, CheerpSemaClassData> classData;
 	clang::Sema& sema;
