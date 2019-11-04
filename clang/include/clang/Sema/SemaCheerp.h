@@ -88,8 +88,6 @@ private:
 	void insertIntoInterfaces(T* item, Interface& tagged_, Interface& public_);
 	clang::CXXRecordDecl* recordDecl;
 	MethodSet methods;
-	MethodSet toBeJsExportedMethods;
-	void buildToBeJsExportedMethods();
 	clang::Sema& sema;
 };
 
