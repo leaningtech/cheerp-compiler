@@ -32,21 +32,6 @@ enum class TypeKind
 
 TypeKind classifyType(const clang::Type* Ty);
 
-template <typename T>
-unsigned int getNumUserDefinedMethods(const llvm::iterator_range<T>& range)
-{
-	auto it = range.begin();
-	const auto& end = range.end();
-	unsigned int count = 0;
-	while (it != end)
-	{
-		if (it->isUserProvided())
-			++count;
-		++it;
-	}
-	return count;
-}
-
 bool isInAnyNamespace(const clang::Decl* decl);
 
 bool couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema);
@@ -55,7 +40,6 @@ bool couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, cla
 bool couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParamether = true);
 
 bool checkParameters(clang::FunctionDecl* Method, clang::Sema& sema);
-bool couldBeJsExported(clang::CXXMethodDecl* Method, clang::Sema& sema);
 
 void checkFunction(clang::FunctionDecl* FD, clang::Sema& sema);
 
