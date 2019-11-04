@@ -10960,6 +10960,8 @@ def err_cheerp_jsexport_unknow_pointer_type : Error<
   "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] can be pointer only if they point to fundamental types or client-namespace">;
 def err_cheerp_jsexport_longlong : Error<
   "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] can be integral up to 32 bits">;
+def err_cheerp_jsexport_on_parameter_or_return : Error<
+  "Cheerp: Functions or methods that needs to be [[cheerp::jsexport]]-ed can not have %0 as %1 type">;
 def err_cheerp_jsexport_unknow_type : Error<
   "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] can only be fundamental, pointer to fundamental, namespace client or [[cheerp::jsexport]-able types">;
 def err_cheerp_jsexport_on_class_template : Error<
