@@ -278,7 +278,7 @@ cheerp::TypeKind cheerp::classifyType(const clang::Type* Ty)
 	using namespace clang;
 	if (Record->hasAttr<JsExportAttr>())
 	{
-		//The actual check about whether is actually JsExporable is done somewhere else (TODO: it is?)
+		//The actual check about whether is actually JsExporable is done somewhere else
 		return TypeKind::JsExportable;
 	}
 	return TypeKind::Other;
@@ -391,11 +391,17 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	//Here all checks regarding internal feasibility of jsexporting a class/struct have to be performed
 	couldBeJsExported(recordDecl, sema);
 
+	//Add all the methods. This is needed since recordDecl->methods() would skip templated methods non instantiated, but we already collected them earlier
+	for (auto method : recordDecl->methods())
+	{
+		addMethod(method);
+	}
+
 	//There are 2 possible interfaces: the implicit one, based on the public member, and the explicit one, based on the member/fields tagged [[cheerp::jsexport]]
 	Interface taggedInterface;
 	Interface implicitInterface;
 
-	for (auto method : recordDecl->methods())
+	for (auto method : methods)
 	{
 		insertIntoInterfaces<CXXMethodDecl>(method, taggedInterface, implicitInterface);
 	}
