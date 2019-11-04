@@ -645,12 +645,12 @@ std::pair<StructType*, StringRef> TypeSupport::getJSExportedTypeFromMetadata(Str
 
 	if ( demangler != demangler_iterator() )
 	{
-		Twine errorString("Class: ",jsClassName);
+		std::string errorString = "Class: " + std::string(jsClassName);
 
 		for ( ; demangler != demangler_iterator(); ++ demangler )
-			errorString.concat("::").concat(*demangler);
+			errorString += "::" + std::string(*demangler);
 
-		errorString.concat(" is not a valid [[jsexport]] class (not in global namespace)\n");
+		errorString += " is not a valid [[jsexport]] class (not in global namespace)\n";
 
 		llvm::report_fatal_error( errorString );
 	}
