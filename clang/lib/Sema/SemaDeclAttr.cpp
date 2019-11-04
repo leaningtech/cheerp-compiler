@@ -6811,7 +6811,7 @@ static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
     handleSimpleAttribute<JsExportAttr>(S, D, Attr);
   else
-    S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
+    S.Diag(Attr.getLoc(), diag::err_cheerp_jsexport_ignored);
 }
 
 static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
