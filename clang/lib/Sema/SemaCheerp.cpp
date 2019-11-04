@@ -275,11 +275,13 @@ void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD)
 {
 	using namespace cheerp;
 	using namespace clang;
+	const bool isJsExport = FD->hasAttr<JsExportAttr>();
+
 	if (isa<CXXMethodDecl>(FD))
 	{
-		addMethod((CXXMethodDecl*)FD);
+		addMethod((CXXMethodDecl*)FD, isJsExport);
 	}
-	else if (FD->hasAttr<JsExportAttr>())
+	else if (isJsExport)
 	{
 		checkFunctionToBeJsExported(FD, /*isMethod*/false, sema);
 	}
@@ -334,9 +336,20 @@ void cheerp::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod,
 	checkParameters(FD, sema);
 }
 
-void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method)
+void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method, const bool isJsExport)
 {
+	using namespace clang;
 	clang::CXXRecordDecl* record = method->getParent();
+
+	if (isJsExport)
+	{
+		if (!record->hasAttr<JsExportAttr>())
+		{
+			sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_on_method_of_not_jsexported_class) << record->getLocation();
+			return;
+		}
+	}
+
 	classData.emplace(record, CheerpSemaClassData(record, sema)).first->second.addMethod(method);
 }
 
