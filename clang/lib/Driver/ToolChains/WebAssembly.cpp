@@ -391,19 +391,19 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libc.bc")));
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libm.bc")));
     }
-  }
 
-  // Add wasm helper if needed
-  Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
-  Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
-  if((CheerpMode &&
-      (CheerpMode->getValue() == StringRef("wasm") ||
-       CheerpMode->getValue() == StringRef("wast"))) ||
-     (CheerpLinearOutput &&
-       (CheerpLinearOutput->getValue() == StringRef("wasm") ||
-        CheerpLinearOutput->getValue() == StringRef("wast"))))
-  {
-    CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasm.bc")));
+    // Add wasm helper if needed
+    Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
+    Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
+    if((CheerpMode &&
+        (CheerpMode->getValue() == StringRef("wasm") ||
+         CheerpMode->getValue() == StringRef("wast"))) ||
+       (CheerpLinearOutput &&
+         (CheerpLinearOutput->getValue() == StringRef("wasm") ||
+          CheerpLinearOutput->getValue() == StringRef("wast"))))
+    {
+      CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasm.bc")));
+    }
   }
  
   // Do not add the same library more than once
