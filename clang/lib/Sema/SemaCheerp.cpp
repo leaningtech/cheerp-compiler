@@ -299,18 +299,8 @@ void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD)
 	}
 	else if (FD->hasAttr<JsExportAttr>())
 	{
-		checkFreeJsExportedFunction(FD);
+		checkFunctionToBeJsExported(FD, /*isMethod*/false, sema);
 	}
-}
-
-void cheerp::CheerpSemaData::checkFreeJsExportedFunction(clang::FunctionDecl* FD)
-{
-	using namespace cheerp;
-	using namespace clang;
-
-	checkFunctionToBeJsExported(FD, /*isMethod*/false, sema);
-
-	//TODO: implement on the backend the check that every jsexported/class has to have a different name
 }
 
 bool cheerp::isTemplate(clang::FunctionDecl* FD)
