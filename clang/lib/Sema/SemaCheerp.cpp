@@ -422,7 +422,7 @@ void cheerp::CheerpSemaClassData::insertIntoInterfaces(T* item, Interface& tagge
 
 	if (isJsExport && !isPublic)
 	{
-		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_TODO);
+		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_non_public_member);
 		return;
 	}
 
