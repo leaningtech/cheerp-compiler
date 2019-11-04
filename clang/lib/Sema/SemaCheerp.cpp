@@ -81,24 +81,6 @@ bool cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
 	return could;
 }
 
-bool cheerp::couldBeJsExported(clang::CXXMethodDecl* method, clang::Sema& sema)
-{
-	using namespace clang;
-
-	if (method->isOverloadedOperator())
-	{
-		sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_with_operators);
-		return false;
-	}
-	//TODO: Template public methods should be checked in SemaTemplate
-
-	bool could = couldReturnBeJsExported(method->getReturnType().getTypePtr(), method, sema);
-
-	could &= checkParameters(method, sema);
-
-	return could;
-}
-
 bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParamether)
 {
 	using namespace cheerp;
@@ -312,15 +294,25 @@ void cheerp::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod,
 {
 	using namespace cheerp;
 	using namespace clang;
-	if (isMethod && FD->hasAttr<AsmJSAttr>())
-	{
-		const std::string kind = isMethod ? "method" : "free function";
-		sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_attributes) << FD->getAttr<AsmJSAttr>() << kind << FD <<
-				"[[cheerp::jsexport]]" << kind << FD;
-	}
 
-	if (!isMethod)
+	if (isMethod)
 	{
+		//Method specific checks
+		if (FD->hasAttr<AsmJSAttr>())
+		{
+			sema.Diag(FD->getLocation(), diag::err_cheerp_incompatible_attributes) << FD->getAttr<AsmJSAttr>() << "method" << FD <<
+					"[[cheerp::jsexport]]" << "method" << FD;
+		}
+
+		if (FD->isOverloadedOperator())
+		{
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_with_operators);
+			return;
+		}
+	}
+	else
+	{
+		//Free function specific checks
 		if (isInAnyNamespace(FD))
 		{
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_namespace);
@@ -456,8 +448,6 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	{
 		method->addAttr(JsExportAttr::CreateImplicit(sema.Context));
 	}
-
-	//TODO: Implement more checks (eg. whether template functions names clashes) and add logic to jsexport only a subset of the public methods
 }
 
 void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
