@@ -100,7 +100,6 @@ public:
 	void addFunction(clang::FunctionDecl* FD);
 	void checkRecord(clang::CXXRecordDecl* record);
 private:
-	void checkFreeJsExportedFunction(clang::FunctionDecl* FD);
 	void addMethod(clang::CXXMethodDecl* method);
 
 	std::unordered_map<clang::CXXRecordDecl*, CheerpSemaClassData> classData;
