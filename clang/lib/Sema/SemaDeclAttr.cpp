@@ -6810,6 +6810,10 @@ static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   }
   if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
     handleSimpleAttribute<JsExportAttr>(S, D, Attr);
+  else if (isa<FieldDecl>(D))
+    S.Diag(Attr.getLoc(), diag::err_cheerp_jsexport_field);
+  else if (isa<VarDecl>(D))
+    S.Diag(Attr.getLoc(), diag::err_cheerp_jsexport_variable);
   else
     S.Diag(Attr.getLoc(), diag::err_cheerp_jsexport_ignored);
 }

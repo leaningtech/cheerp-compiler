@@ -10922,6 +10922,12 @@ def err_cheerp_attribute_on_virtual_class : Error<
   "Cheerp: A virtual class cannot have the %0 attribute">;
 def err_cheerp_jsexport_TODO : Error<
   "Cheerp: Unknown [[cheerp::jsexport]] related problem">;
+def err_cheerp_jsexport_ignored : Error<
+  "Cheerp: [[cheerp::jsexport]] attribute is only allowed on class, struct, methods of class or struct, and free functions">;
+def err_cheerp_jsexport_field : Error<
+  "Cheerp: [[cheerp::jsexport]] attribute is not allowed on class/struct fields">;
+def err_cheerp_jsexport_variable : Error<
+  "Cheerp: [[cheerp::jsexport]] attribute is not allowed on variables">;
 def err_cheerp_jsexport_inheritance : Error<
   "Cheerp: Inherited classes can not be tagged with [[cheerp::jsexport]]">;
 def err_cheerp_jsexport_on_method_of_not_jsexported_class : Error<
