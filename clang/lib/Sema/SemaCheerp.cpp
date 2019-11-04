@@ -390,6 +390,9 @@ void cheerp::CheerpSemaClassData::checkRecord()
 {
 	using namespace std;
 	using namespace clang;
+
+	assert(recordDecl->hasAttr<JsExportAttr>());
+
 	//Here all checks regarding internal feasibility of jsexporting a class/struct have to be performed
 	couldBeJsExported(recordDecl, sema);
 
@@ -408,6 +411,17 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	}
 
 	const bool isPublicInterface = interface.isPublicInterface;
+
+	if (isPublicInterface)
+	{
+		for (auto decl : recordDecl->decls())
+		{
+			if (decl->isImplicit())
+				continue;
+			if (decl->getAccess() == AS_public && isa<RecordDecl>(decl))
+				sema.Diag(decl->getLocation(), diag::err_cheerp_jsexport_inner_RecordDecl);
+		}
+	}
 
 	int JsExportedConstructors = 0;
 	std::unordered_set<std::string> JsExportedMethodNames;
