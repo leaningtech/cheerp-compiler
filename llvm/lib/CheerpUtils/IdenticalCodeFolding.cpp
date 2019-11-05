@@ -13,6 +13,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/IdenticalCodeFolding.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -815,8 +816,7 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 		if (F.isDeclaration() || F.getSection() != StringRef("asmjs"))
 			continue;
 
-		// Do not remove functions that are exported to generic JS.
-		if (GDA.asmJSExports().find(&F) != GDA.asmJSExports().end())
+		if (F.getLinkage() == llvm::GlobalValue::ExternalLinkage)
 			continue;
 
 		uint64_t hash = hashFunction(F);
