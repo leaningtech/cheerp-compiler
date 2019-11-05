@@ -10922,6 +10922,8 @@ def err_cheerp_attribute_on_virtual_class : Error<
   "Cheerp: A virtual class cannot have the %0 attribute">;
 def err_cheerp_jsexport_TODO : Error<
   "Cheerp: Unknown [[cheerp::jsexport]] related problem">;
+def err_cheerp_jsexport_only_static : Error<
+  "Cheerp: A [[cheerp::jsexport]]-ed class/struct needs at least a non-static member">;
 def err_cheerp_jsexport_inner_RecordDecl : Error<
   "Cheerp: Inner classes cannot be implicitly [[cheerp::jsexport]]-ed: either declare it private or tag the subset of methods you need with [[cheerp::jsexport]]">;
 def err_cheerp_jsexport_ignored : Error<

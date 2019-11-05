@@ -428,6 +428,7 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	std::unordered_set<std::string> staticJsExportedMethodNames;
 
 	staticJsExportedMethodNames.insert("promise");
+	bool isAnyNonStatic = false;
 
 	for (auto method : interface.methods)
 	{
@@ -435,8 +436,13 @@ void cheerp::CheerpSemaClassData::checkRecord()
 
 		if (isa<CXXConstructorDecl>(method))
 		{
+			isAnyNonStatic = true;
 			++JsExportedConstructors;
 			continue;
+		}
+		if (!method->isStatic())
+		{
+			isAnyNonStatic = true;
 		}
 
 		const auto& name = method->getNameInfo().getAsString();
@@ -458,6 +464,11 @@ void cheerp::CheerpSemaClassData::checkRecord()
 			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
 		else if (JsExportedConstructors > 1)
 			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
+	}
+
+	if (!isAnyNonStatic)
+	{
+		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_only_static);
 	}
 
 	for (auto method : interface.methods)
