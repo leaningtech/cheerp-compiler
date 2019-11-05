@@ -816,8 +816,6 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 		if (F.isDeclaration() || F.getSection() != StringRef("asmjs"))
 			continue;
 
-		if (F.getLinkage() == llvm::GlobalValue::ExternalLinkage)
-			continue;
 
 		uint64_t hash = hashFunction(F);
 		const auto& found = functionHashes.find(hash);
@@ -848,6 +846,10 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 
 		for (unsigned i = 0; i < functions.size(); i++) {
 			assert(!fold.count(functions[i]));
+
+			//TODO: even certain external name are foldable, taking care of recreating the right functions in the Writer
+			if (functions[i]->getLinkage() == llvm::GlobalValue::ExternalLinkage)
+				continue;
 
 			for (unsigned j = 0; j < functions.size(); j++) {
 				if (i == j || fold.count(functions[j]))
@@ -892,7 +894,9 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 
 			mergeTwoFunctions(item.first, replacement);
 
-			if (!replacement->getName().endswith("_icf")) {
+			//TODO: move extenal name to metadata and it becames again possible to set _icf
+			if (!replacement->getName().endswith("_icf") && (replacement->getLinkage() != llvm::GlobalValue::ExternalLinkage))
+			{
 				DEBUG(dbgs() << "rename " << replacement->getName() <<
 						" to " << replacement->getName() + "_icf" << '\n');
 				replacement->setName(replacement->getName() + "_icf");
