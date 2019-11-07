@@ -405,7 +405,7 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	//There are 2 possible interfaces: the implicit one, based on the public member, and the explicit one, based on the member tagged [[cheerp::jsexport]]
 	Interface interface;
 
-	for (auto method : methods)
+	for (auto method : declared_methods)
 	{
 		interface.addToInterface<CXXMethodDecl>(method, sema);
 	}
@@ -482,7 +482,7 @@ void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
 	//Methods here are only added to the classes/struct, and only later they are checked
 	//They have to be added here since this is the only moment that will capture templated methods (that possibly will never be instantiated)
 	//But the actual checks have to be performed later when all methods are known
-	methods.insert(method);
+	declared_methods.insert(method);
 }
 
 void cheerp::JsExportContext::addFreeFunctionJsExportMetadata(llvm::Function* F)
