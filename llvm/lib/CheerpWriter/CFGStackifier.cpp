@@ -408,7 +408,9 @@ void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* Cur
 	}
 	else
 	{
+#ifndef NDEBUG
 		BBT->getBB()->getTerminator()->dump();
+#endif
 		report_fatal_error("Unsupported terminator");
 	}
 }
