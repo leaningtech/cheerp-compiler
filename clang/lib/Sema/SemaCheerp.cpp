@@ -86,7 +86,7 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDe
 	using namespace cheerp;
 	using namespace clang;
 
-	const std::string where = isParameter ? "parameter" : "return";
+	const llvm::StringRef where = isParameter ? "parameter" : "return";
 
 	//TODO: have to be checked again, may be possible to be more restrictive on some things while permitting others
 
@@ -494,7 +494,7 @@ void cheerp::JsExportContext::addFreeFunctionJsExportMetadata(llvm::Function* F)
        namedNode->addOperand(node);
 }
 
-void cheerp::JsExportContext::addRecordJsExportMetadata(const clang::CXXMethodDecl *method, llvm::Function* F, const std::string& className)
+void cheerp::JsExportContext::addRecordJsExportMetadata(const clang::CXXMethodDecl *method, llvm::Function* F, const llvm::StringRef className)
 {
        llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata(llvm::Twine(className,"_methods").str());
        llvm::SmallVector<llvm::Metadata*,2> values;
