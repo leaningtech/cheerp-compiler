@@ -10897,7 +10897,7 @@ def err_probability_out_of_range : Error<
 
 let CategoryName = "Cheerp Issue" in {
 def warn_cheerp_unsafe_cast : Warning<
-  "Cheerp: Using values casted to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
+  "Cheerp: Using values cast to unrelated types is undefined behaviour unless the destination type is the actual type of the value">;
 def warn_cheerp_inefficient_unions : Warning<
   "Cheerp: Unions are less efficient than on native targets">;
 def warn_cheerp_deprecated_attribute : Warning<
@@ -10931,9 +10931,9 @@ def err_cheerp_memintrinsic_same_type : Error<
 def err_cheerp_bad_function_to_non_function_cast : Error<
   "Cheerp: Casting from function pointers to non-function pointers is not allowed">;
 def err_cheerp_alloc_requires_cast : Error<
-  "Cheerp: Legacy C memory allocation must be immediately casted to the actual type. Any other use of the return value is invalid">;
+  "Cheerp: Legacy C memory allocation must be immediately cast to the actual type. Any other use of the return value is invalid">;
 def err_cheerp_realloc_different_types : Error<
-  "Cheerp: the memory returned by realloc should be casted to the same type of the memory passed as the first argument">;
+  "Cheerp: the memory returned by realloc should be cast to the same type of the memory passed as the first argument">;
 def err_cheerp_switch_64bit : Error<
   "Cheerp: Switch statements with 64-bit integer values are not supported">;
 def err_cheerp_type_unsafe_functions : Error<
