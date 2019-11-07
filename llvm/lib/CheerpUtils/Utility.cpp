@@ -772,6 +772,7 @@ PointerType * DynamicAllocInfo::computeCastedType() const
 		call->user_end(),
 		[&]( const User * U ) { return getTypeForUse(U) == pt; }) )
 	{
+#ifndef NDEBUG
 		call->getParent()->getParent()->dump();
 		llvm::errs() << "Can not deduce valid type for allocation instruction: " << call->getName() << '\n';
 		llvm::errs() << "In function: " << call->getParent()->getParent()->getName() << "\n";
@@ -782,6 +783,7 @@ PointerType * DynamicAllocInfo::computeCastedType() const
 		{
 			u->dump();
 		}
+#endif
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
 	
