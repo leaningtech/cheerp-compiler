@@ -147,15 +147,13 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 		else
 		{
 			// TODO: It could make sense to emit the right number of zeroes anyway
-			llvm::errs() << "Unsupported constant type for bytes in asm.js module :";
-			c->getType()->dump();
+			llvm::errs() << "Unsupported constant type for bytes in asm.js module :" << *c->getType() << "\n";
 		}
 	}
 	else
 	{
 		// TODO: It could make sense to emit the right number of zeroes anyway
-		llvm::errs() << "Unsupported constant type for bytes ";
-		c->dump();
+		llvm::errs() << "Unsupported constant type for bytes " << *c << "\n";
 	}
 }
 
@@ -231,7 +229,9 @@ bool LinearMemoryHelper::isZeroInitializer(const llvm::Constant* c) const
 		return false;
 	}
 
+#ifndef NDEBUG
 	c->dump();
+#endif
 	llvm_unreachable("Unsupported constant type");
 }
 

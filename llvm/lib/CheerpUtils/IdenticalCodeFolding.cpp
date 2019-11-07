@@ -370,10 +370,12 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					}
 					default:
 					{
+#ifndef NDEBUG
 						if (intrinsic != Intrinsic::not_intrinsic) {
 							A->dump();
 							calledValue->dump();
 						}
+#endif
 						assert(intrinsic == Intrinsic::not_intrinsic);
 					}
 					break;
@@ -514,7 +516,9 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		}
 		default:
 		{
+#ifndef NDEBUG
 			A->dump();
+#endif
 			llvm_unreachable("Unknown instruction");
 		}
 	}
@@ -554,8 +558,10 @@ bool IdenticalCodeFolding::equivalentOperand(const llvm::Value* A, const llvm::V
 		return a->getArgNo() == b->getArgNo();
 	}
 
+#ifndef NDEBUG
 	A->dump();
 	B->dump();
+#endif
 	llvm_unreachable("unknown operand");
 }
 
@@ -650,8 +656,10 @@ bool IdenticalCodeFolding::equivalentConstant(const llvm::Constant* A, const llv
 	if (isa<UndefValue>(A) || isa<UndefValue>(B))
 		return isa<UndefValue>(A) && isa<UndefValue>(B);
 
+#ifndef NDEBUG
 	A->dump();
 	B->dump();
+#endif
 	llvm_unreachable("unknown constant");
 }
 

@@ -144,8 +144,10 @@ static uint32_t getValType(const Type* t)
 		return 0x7c;
 	else
 	{
+#ifndef NDEBUG
 		llvm::errs() << "Unsupported type ";
 		t->dump();
+#endif
 		llvm_unreachable("Unsuppored type");
 	}
 }
@@ -165,8 +167,10 @@ static void encodeLiteralType(const Type* t, WasmBuffer& stream)
 		encodeULEB128(0x44, stream);
 	else
 	{
+#ifndef NDEBUG
 		llvm::errs() << "Unsupported type: ";
 		t->dump();
+#endif
 		llvm_unreachable("Unsuppored type");
 	}
 }
@@ -463,7 +467,9 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 	}
 	else
 	{
+#ifndef NDEBUG
 		term->dump();
+#endif
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
 }
@@ -1067,12 +1073,16 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 #undef BINOPF
 		default:
 		{
+#ifndef NDEBUG
 			I.dump();
+#endif
 			llvm_unreachable("unknown binop instruction");
 		}
 	}
 
+#ifndef NDEBUG
 	I.dump();
+#endif
 	llvm_unreachable("unknown type for binop instruction");
 }
 
@@ -1304,8 +1314,10 @@ const char* CheerpWasmWriter::getTypeString(const Type* t)
 		return "f64";
 	else
 	{
+#ifndef NDEBUG
 		llvm::errs() << "Unsupported type ";
 		t->dump();
+#endif
 		llvm_unreachable("Unsuppored type");
 	}
 }
@@ -1677,7 +1689,9 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	}
 	else
 	{
+#ifndef NDEBUG
 		c->dump();
+#endif
 		llvm::report_fatal_error("Cannot handle this constant");
 	}
 }
@@ -1722,7 +1736,9 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	}
 	else
 	{
+#ifndef NDEBUG
 		v->dump();
+#endif
 		assert(false);
 	}
 }
@@ -2218,8 +2234,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					default:
 					{
 						unsigned intrinsic = calledFunc->getIntrinsicID();
+#ifndef NDEBUG
 						if (intrinsic != Intrinsic::not_intrinsic)
 							ci.dump();
+#endif
 						assert(intrinsic == Intrinsic::not_intrinsic);
 					}
 					break;
@@ -2694,7 +2712,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		default:
 		{
+#ifndef NDEBUG
 			I.dump();
+#endif
 			llvm::errs() << "\tImplement inst " << I.getOpcodeName() << '\n';
 		}
 	}
