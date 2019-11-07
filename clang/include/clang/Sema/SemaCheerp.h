@@ -12,14 +12,15 @@
 #ifndef _CHEERP_SEMA_CHEERP_H
 #define _CHEERP_SEMA_CHEERP_H
 
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/Sema/AttributeList.h"
-#include <set>
 #include <unordered_map>
 #include <string>
 
@@ -55,7 +56,7 @@ public:
 	void addMethod(clang::CXXMethodDecl* FD);
 	void checkRecord();
 private:
-	typedef std::set<clang::CXXMethodDecl*> MethodSet;
+	typedef cheerp::DeterministicUnorderedSet<clang::CXXMethodDecl*> MethodSet;
 	struct Interface
 	{
 		bool isPublicInterface{true};
