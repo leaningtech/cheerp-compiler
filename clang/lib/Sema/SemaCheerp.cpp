@@ -17,6 +17,8 @@
 #include "llvm/Cheerp/JsExport.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
+#include <string>
+#include <unordered_set>
 
 bool cheerp::isInAnyNamespace(const clang::Decl* decl)
 {
@@ -466,8 +468,8 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	}
 
 	int JsExportedConstructors = 0;
-	std::set<std::string> JsExportedMethodNames;
-	std::set<std::string> staticJsExportedMethodNames;
+	std::unordered_set<std::string> JsExportedMethodNames;
+	std::unordered_set<std::string> staticJsExportedMethodNames;
 
 	staticJsExportedMethodNames.insert("promise");
 
