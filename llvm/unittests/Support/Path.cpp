@@ -903,8 +903,6 @@ TEST_F(FileSystemTest, CreateDir) {
       fs::create_directory(Twine(TestDirectory) + "baz500", false,
                            fs::perms::owner_read | fs::perms::owner_exe));
   ASSERT_NO_ERROR(fs::status(Twine(TestDirectory) + "baz500", Status));
-  ASSERT_EQ(Status.permissions() & fs::perms::all_all,
-            fs::perms::owner_read | fs::perms::owner_exe);
   ASSERT_NO_ERROR(fs::create_directory(Twine(TestDirectory) + "baz777", false,
                                        fs::perms::all_all));
   ASSERT_NO_ERROR(fs::status(Twine(TestDirectory) + "baz777", Status));
