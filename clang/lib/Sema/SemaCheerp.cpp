@@ -81,12 +81,12 @@ bool cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
 	return could;
 }
 
-bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParamether)
+bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParameter)
 {
 	using namespace cheerp;
 	using namespace clang;
 
-	const std::string where = isParamether ? "paramether" : "return";
+	const std::string where = isParameter ? "parameter" : "return";
 
 	//TODO: have to be checked again, may be possible to be more restrictive on some things while permitting others
 
@@ -104,37 +104,37 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDe
 		}
 		case TypeKind::Void:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "void" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "void" << where;
 			return false;
 		}
 		case TypeKind::JsExportable:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "naked JsExportable types" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "naked JsExportable types" << where;
 			return false;
 		}
 		case TypeKind::NamespaceClient:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "naked Client types" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "naked Client types" << where;
 			return false;
 		}
 		case TypeKind::Other:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "unknown types" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "unknown types" << where;
 			return false;
 		}
 		case TypeKind::IntGreater32Bit:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "greater than 32bit integers" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "greater than 32bit integers" << where;
 			return false;
 		}
 		case TypeKind::Reference:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "references" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "references" << where;
 			return false;
 		}
 		default:
 		{
-			llvm_unreachable("Should have been catched earlier");
+			llvm_unreachable("Should have been caught earlier");
 		}
 	}
 	assert(Ty->isPointerType());
@@ -144,7 +144,7 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDe
 	{
 		case TypeKind::Void:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "void*" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "void*" << where;
 			return false;
 		}
 		case TypeKind::IntMax32Bit:
@@ -156,32 +156,32 @@ bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDe
 		}
 		case TypeKind::Other:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) <<
-				"pointers to unknows (neither client namespace nor jsexportable) types" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) <<
+				"pointers to unknown (neither client namespace nor jsexportable) types" << where;
 			return false;
 		}
 		case TypeKind::IntGreater32Bit:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "poiners to integer bigger than 32 bits" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to integer bigger than 32 bits" << where;
 			return false;
 		}
 		case TypeKind::Pointer:
 		case TypeKind::FunctionPointer:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "pointers to pointer" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to pointer" << where;
 			return false;
 		}
 		case TypeKind::Reference:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "pointers to references" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to references" << where;
 			return false;
 		}
 		default:
 		{
-			llvm_unreachable("Should have been catched earlier");
+			llvm_unreachable("Should have been caught earlier");
 		}
 	}
-	llvm_unreachable("Should have been catched earlier");
+	llvm_unreachable("Should have been caught earlier");
 }
 
 bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema)
@@ -193,23 +193,23 @@ bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl*
 	{
 		case TypeKind::Void:
 		{
-			//No return is fine (while no paramethers is not
+			//No return is fine (while no parameters is not
 			return true;
 		}
 		case TypeKind::FunctionPointer:
 		{
-			//Returning a function pointer could be ok in certain cases, but we have to check whether the function itselves could be jsexported
+			//Returning a function pointer could be OK in certain cases, but we have to check whether the function itself could be jsexported
 			//In general the answer is no
 			//TODO: possibly relax this check
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_paramether_or_return) << "function pointers" << "return";
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "function pointers" << "return";
 			return false;
 		}
 		default:
 			break;
 	}
 
-	//In all other cases, if something could be a paramether it could also work as return
-	return couldParameterBeJsExported(Ty, FD, sema, /*isParamether*/false);
+	//In all other cases, if something could be a parameter it could also work as return
+	return couldParameterBeJsExported(Ty, FD, sema, /*isParameter*/false);
 }
 
 cheerp::TypeKind cheerp::classifyType(const clang::Type* Ty)
@@ -260,7 +260,7 @@ cheerp::TypeKind cheerp::classifyType(const clang::Type* Ty)
 	using namespace clang;
 	if (Record->hasAttr<JsExportAttr>())
 	{
-		//The actual check about whether is actually JsExporable is done somewhere else
+		//The actual check about whether it is actually JsExportable is done somewhere else
 		return TypeKind::JsExportable;
 	}
 	return TypeKind::Other;
@@ -342,7 +342,7 @@ void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method)
 
 void cheerp::CheerpSemaData::checkRecord(clang::CXXRecordDecl* record)
 {
-	//Here all checks about external feasibility of jsexporting a class/struct have to be perfomed (eg. checking for name clashes against other functions)
+	//Here all checks about external feasibility of jsexporting a class/struct have to be performed (eg. checking for name clashes against other functions)
 
 	classData.emplace(record, CheerpSemaClassData(record, sema)).first->second.checkRecord();
 }
