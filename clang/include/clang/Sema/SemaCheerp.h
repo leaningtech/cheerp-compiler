@@ -15,13 +15,13 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
+#include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/Sema/AttributeList.h"
-#include <unordered_map>
 #include <string>
 
 namespace cheerp{
@@ -94,7 +94,7 @@ public:
 private:
 	void addMethod(clang::CXXMethodDecl* method, const bool isJsExport);
 
-	std::unordered_map<clang::CXXRecordDecl*, CheerpSemaClassData> classData;
+	cheerp::DeterministicUnorderedMap<clang::CXXRecordDecl*, CheerpSemaClassData, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> classData;
 	clang::Sema& sema;
 };
 
