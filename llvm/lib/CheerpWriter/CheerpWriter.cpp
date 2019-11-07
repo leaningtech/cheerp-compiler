@@ -281,9 +281,7 @@ void CheerpWriter::compileCopyElement(const Value* baseDest,
 			// Fallthrough if not byte layout
 		}
 		default:
-			llvm::errs() << "Support type in copy ";
-			currentType->dump();
-			llvm::errs() << '\n';
+			llvm::errs() << "Support type in copy " << *currentType << "\n";
 	}
 }
 
@@ -1773,8 +1771,10 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 {
 	if (!isa<PointerType>(p->getType()))
 	{
+#ifndef NDEBUG
 		llvm::errs() << "not a pointer type:\n";
 		p->dump();
+#endif
 		llvm::report_fatal_error("please report a bug");
 		return;
 	}
@@ -2438,8 +2438,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	}
 	else
 	{
-		llvm::errs() << "Unsupported constant type ";
-		c->dump();
+		llvm::errs() << "Unsupported constant type " << *c << "\n";
 		stream << "null";
 	}
 }
@@ -2506,8 +2505,7 @@ void CheerpWriter::compileOperand(const Value* v, PARENT_PRIORITY parentPrio, bo
 	}
 	else
 	{
-		llvm::errs() << "No name for value ";
-		v->dump();
+		llvm::errs() << "No name for value " << *v << "\n";
 	}
 }
 
@@ -4586,7 +4584,9 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 	}
 	else
 	{
+#ifndef NDEBUG
 		term->dump();
+#endif
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 	}
 }
@@ -5403,9 +5403,11 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 		const GlobalVariable* otherGV = cast<GlobalVariable>(subExpr.front()->getUser());
 		if(!otherGV->hasInitializer())
 		{
+#ifndef NDEBUG
 			llvm::errs() << "Expected initializer for ";
 			otherGV->dump();
 			llvm::errs() << "\n";
+#endif
 			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 			continue;
 		}
@@ -5447,7 +5449,9 @@ void CheerpWriter::compileGlobalAsmJS(const GlobalVariable& G)
 	{
 		// Extern globals in the client namespace are only placeholders for JS globals
 		llvm::errs() << "client namespace functions not supported in asmjs mode yet:\n";
+#ifndef NDEBUG
 		G.dump();
+#endif
 		return;
 	}
 	if (symbolicGlobalsAsmJS)
@@ -6273,7 +6277,9 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 		else if(term->getNumSuccessors())
 		{
 			//Only a problem if there are successors
+#ifndef NDEBUG
 			term->dump();
+#endif
 			llvm::report_fatal_error("Unsupported code found, please report a bug", false);
 		}
 
