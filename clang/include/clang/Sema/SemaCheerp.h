@@ -37,7 +37,7 @@ bool isInAnyNamespace(const clang::Decl* decl);
 bool couldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema);
 
 bool couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema);
-bool couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParamether = true);
+bool couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParameter = true);
 
 bool checkParameters(clang::FunctionDecl* Method, clang::Sema& sema);
 
