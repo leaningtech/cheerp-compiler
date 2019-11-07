@@ -77,7 +77,8 @@ private:
 		void addToInterface (T* item, clang::Sema& sema);
 	};
 	clang::CXXRecordDecl* recordDecl;
-	MethodSet methods;
+	//Set of methods declared in a class/struct
+	MethodSet declared_methods;
 	clang::Sema& sema;
 };
 
