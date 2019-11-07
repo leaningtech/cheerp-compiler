@@ -1089,7 +1089,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
        if (!CXXConstructorDecl::classof(GD.getDecl()) || GD.getCtorType()==Ctor_Complete)
        {
 	 const CXXMethodDecl *MD = cast<CXXMethodDecl>(D);
-         const std::string className = clang::cast<llvm::StructType>(ConvertType(MD->getParent()))->getName();
+	 const llvm::StringRef className = clang::cast<llvm::StructType>(ConvertType(MD->getParent()))->getName();
          cheerp::JsExportContext jsExportContext(CGM.getModule(), getLLVMContext(), Int32Ty);
          jsExportContext.addRecordJsExportMetadata(MD, CurFn, className);
        }
