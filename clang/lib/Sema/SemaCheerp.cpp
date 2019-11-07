@@ -442,7 +442,7 @@ void cheerp::CheerpSemaClassData::checkRecord()
 			continue;
 		}
 
-		const auto& name = method->getNameInfo().getName().getAsString();
+		const auto& name = method->getNameInfo().getAsString();
 		const auto pair = method->isStatic() ?
 			staticJsExportedMethodNames.insert(name) :
 			JsExportedMethodNames.insert(name);
