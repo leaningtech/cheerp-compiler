@@ -258,7 +258,8 @@ llvm::Constant *CGCXXABI::getMemberPointerAdjustment(const CastExpr *E) {
   const CXXRecordDecl *derivedClass =
     derivedType->castAs<MemberPointerType>()->getClass()->getAsCXXRecordDecl();
 
-  if (!CGM.getTarget().isByteAddressable()) {
+  bool asmjs = derivedClass->hasAttr<AsmJSAttr>();
+  if (!CGM.getTarget().isByteAddressable() && !asmjs) {
     llvm::SmallVector<const CXXBaseSpecifier*, 4> path;
     for (CastExpr::path_const_iterator I = E->path_begin(); I != E->path_end(); ++I)
       path.push_back(*I);
