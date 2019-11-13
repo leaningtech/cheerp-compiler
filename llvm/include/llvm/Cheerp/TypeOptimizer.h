@@ -47,12 +47,12 @@ private:
 	};
 	llvm::Module* module;
 	const llvm::DataLayout* DL;
-	std::unordered_map<llvm::StructType*,std::set<llvm::StructType*>> downcastSourceToDestinationsMapping;
-	std::unordered_map<llvm::StructType*, std::vector<std::pair<uint32_t, uint32_t>>> membersMappingData;
+	std::unordered_map<const llvm::StructType*,std::set<llvm::StructType*>> downcastSourceToDestinationsMapping;
+	std::unordered_map<const llvm::StructType*, std::vector<std::pair<uint32_t, uint32_t>>> membersMappingData;
 	std::unordered_map<llvm::GlobalVariable*, llvm::Constant*> globalsMapping;
 	std::unordered_map<llvm::GlobalValue*, llvm::Type*> globalTypeMapping;
-	std::unordered_map<llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
-	std::unordered_map<llvm::Type*, TypeMappingInfo> typesMapping;
+	std::unordered_map<const llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
+	std::unordered_map<const llvm::Type*, TypeMappingInfo> typesMapping;
 	std::unordered_set<llvm::Function*> pendingFunctions;
 	// In this context a field "escapes" if it has any use which is not just a load/store
 	std::set<TypeAndIndex> escapingFields;
