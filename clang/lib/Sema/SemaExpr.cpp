@@ -13483,6 +13483,12 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
           // Under the MS ABI, lock down the inheritance model now.
           if (Context.getTargetInfo().getCXXABI().isMicrosoft())
             (void)isCompleteType(OpLoc, MPTy);
+
+          // Cheerp: We still don't support member field pointers for genericjs
+          if (cast<RecordDecl>(Ctx)->hasAttr<GenericJSAttr>())
+            Diag(OpLoc,
+                diag::err_cheerp_wrong_member_field_ptr)
+              << cast<RecordDecl>(Ctx)->getAttr<GenericJSAttr>();
           return MPTy;
         }
       }

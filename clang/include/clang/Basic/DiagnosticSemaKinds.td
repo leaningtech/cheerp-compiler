@@ -10938,7 +10938,8 @@ def err_cheerp_switch_64bit : Error<
   "Cheerp: Switch statements with 64-bit integer values are not supported">;
 def err_cheerp_type_unsafe_functions : Error<
   "Cheerp: Function %0 is type unsafe, use %1 instead">;
-
+def err_cheerp_wrong_member_field_ptr: Error<
+  "Cheerp: Cannot get a member field pointer for classes and structs with the %0 attribute">;
 def err_cheerp_incompatible_attributes : Error<
   "Cheerp: Attribute %0 of %1 %2 is incompatible with attribute %3 of %4 %5">;
 def err_cheerp_wrong_local_attribute : Error<
