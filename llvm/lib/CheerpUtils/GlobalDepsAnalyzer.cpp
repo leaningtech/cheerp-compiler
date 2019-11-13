@@ -800,11 +800,10 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 		Type* retType = F->getReturnType()->getPointerElementType();
 		// A downcast from a type to i8* is conventially used to support pointers to
 		// member functions and does not imply that the type needs the downcast array
-		if(retType->isIntegerTy(8))
-			return;
-		assert(retType->isStructTy());
+		Type* ty = retType->isIntegerTy(8) ? F->arg_begin()->getType()->getPointerElementType() : retType;
+		assert(ty->isStructTy());
 		
-		StructType * st = cast<StructType>(retType);
+		StructType * st = cast<StructType>(ty);
 		
 		// We only need metadata for non client objects and if there are bases
 		if (TypeSupport::isClientType(retType))

@@ -120,9 +120,30 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 				{
 					if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
 					{
+						StructType* sourceType = cast<StructType>(II->getOperand(0)->getType()->getPointerElementType());
+						// In the special case of downcast to i8* we are dealing with member function pointers
+						// Just give up and assume that all the bases may be needed
+						if(II->getFunctionType()->getReturnType()->getPointerElementType()->isIntegerTy(8))
+						{
+							do
+							{
+								downcastSourceToDestinationsMapping[sourceType].clear();
+								uint32_t firstBase;
+								uint32_t baseCount;
+								bool hasBases = TypeSupport::getBasesInfo(M, sourceType, firstBase, baseCount);
+								if (!hasBases)
+									continue;
+								StructType::element_iterator el, end;
+								for (el = sourceType->element_begin()+firstBase, end = sourceType->element_begin()+firstBase+baseCount; el != end; ++el)
+								{
+									downcastSourceToDestinationsMapping[cast<StructType>(*el)].clear();
+								}
+							}
+							while((sourceType = sourceType->getDirectBase()));
+							continue;
+						}
 						// If a source type is downcasted with an offset != 0 we can't collapse the type
 						// we keep track of this by setting the mapping to an empty vector
-						StructType* sourceType = cast<StructType>(II->getOperand(0)->getType()->getPointerElementType());
 						if(!isa<ConstantInt>(II->getOperand(1)) || cast<ConstantInt>(II->getOperand(1))->getZExtValue() != 0)
 						{
 							downcastSourceToDestinationsMapping[sourceType].clear();
