@@ -13423,6 +13423,18 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
     // Under the MS ABI, lock down the inheritance model now.
     if (Context.getTargetInfo().getCXXABI().isMicrosoft())
       (void)isCompleteType(OpLoc, MPTy);
+
+    // Cheerp: disallow taking the address of a member function with a different
+    // cheerp attribute than the class it belongs to (genericjs/asmjs).
+    if (MD->getParent()->hasAttr<AsmJSAttr>() && MD->hasAttr<GenericJSAttr>()) {
+      Diag(OpLoc, diag::err_cheerp_wrong_member_func_addr)
+        << MD->getParent() << MD->getParent()->getAttr<AsmJSAttr>()
+        << MD << MD->getAttr<GenericJSAttr>();
+    } else if (MD->getParent()->hasAttr<GenericJSAttr>() && MD->hasAttr<AsmJSAttr>()) {
+      Diag(OpLoc, diag::err_cheerp_wrong_member_func_addr)
+        << MD->getParent() << MD->getParent()->getAttr<GenericJSAttr>()
+        << MD << MD->getAttr<AsmJSAttr>();
+    }
     return MPTy;
   } else if (lval != Expr::LV_Valid && lval != Expr::LV_IncompleteVoidType) {
     // C99 6.5.3.2p1
