@@ -251,7 +251,7 @@ Section::Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* 
 	: writer(writer)
 {
 	if (writer->mode == CheerpWasmWriter::WASM) {
-		std::stringstream header;
+		std::ostringstream header;
 		internal::encodeULEB128(sectionId, header);
 		writer->stream << header.str();
 
@@ -275,7 +275,7 @@ Section::~Section()
 #endif
 #endif
 
-		std::stringstream prefix;
+		std::ostringstream prefix;
 		internal::encodeULEB128(buf.size(), prefix);
 		writer->stream << prefix.str();
 	}
@@ -1492,7 +1492,7 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 
 uint32_t CheerpWasmWriter::getIntEncodingLength(int32_t val) const
 {
-	std::stringstream tmp;
+	std::ostringstream tmp;
 	internal::encodeSLEB128(val, tmp);
 	return tmp.str().size();
 }
@@ -3943,7 +3943,7 @@ void CheerpWasmWriter::compileElementSection()
 	internal::encodeULEB128(0x0b, section);
 
 	// Encode the sequence of function indices.
-	std::stringstream elem;
+	std::ostringstream elem;
 	size_t count = 0;
 	for (const FunctionType* fTy: linearHelper.getFunctionTableOrder()) {
 		const auto table = linearHelper.getFunctionTables().find(fTy);
@@ -3977,7 +3977,7 @@ void CheerpWasmWriter::compileCodeSection()
 	for (Function* F: linearHelper.functions())
 	{
 		if (mode == CheerpWasmWriter::WASM) {
-			std::stringstream method;
+			std::ostringstream method;
 #if WASM_DUMP_METHODS
 			llvm::errs() << i << " method name: " << F->getName() << '\n';
 #endif
@@ -4049,7 +4049,7 @@ void CheerpWasmWriter::compileDataSection()
 {
 	Section section(0x0b, "Data", this);
 
-	std::stringstream data;
+	std::ostringstream data;
 	uint32_t count = 0;
 
 	auto globals = linearHelper.globals();
@@ -4067,7 +4067,7 @@ void CheerpWasmWriter::compileDataSection()
 		// Concatenate global variables into one big binary blob. This
 		// optimization omits the data section item header, and that will save
 		// a minimum of 5 bytes per global variable.
-		std::stringstream bytes;
+		std::ostringstream bytes;
 		WasmBytesWriter bytesWriter(bytes, *this);
 
 		for (; g != e; ++g) {
@@ -4131,7 +4131,7 @@ void CheerpWasmWriter::compileNameSection()
 
 	// Assign names to functions
 	{
-		std::stringstream data;
+		std::ostringstream data;
 		uint32_t count = linearHelper.functions().size();
 		internal::encodeULEB128(count, data);
 
@@ -4157,7 +4157,7 @@ void CheerpWasmWriter::compileModule()
 		stream << "(module\n";
 	} else {
 		assert(mode == CheerpWasmWriter::WASM);
-		std::stringstream code;
+		std::ostringstream code;
 
 		// Magic number for wasm.
 		internal::encodeULEB128(0x00, code);
