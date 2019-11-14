@@ -75,6 +75,8 @@ private:
 	// The wasm module heap size
 	uint32_t heapSize;
 
+	uint32_t instStartPos;
+
 	// If true, the Wasm file is loaded using a JavaScript loader. This allows
 	// FFI calls to methods outside of the Wasm file. When false, write
 	// opcode 'unreachable' for calls to unknown functions.
@@ -102,6 +104,88 @@ private:
 	// local variable.
 	std::vector<int> localMap;
 
+	class TeeLocals
+	{
+		struct TeeLocalCandidate
+		{
+			uint32_t localId;
+			uint32_t bufferOffset;
+			bool used;
+			TeeLocalCandidate(uint32_t l, uint32_t o):localId(l),bufferOffset(o),used(false)
+			{
+			}
+		};
+		typedef std::vector<TeeLocalCandidate> TeeLocalCandidatesVector;
+		std::vector<TeeLocalCandidatesVector> teeLocalCandidatesStack;
+	public:
+		TeeLocals()
+		{
+		}
+		uint32_t findOffsetCandidate(const uint32_t local)
+		{
+			// Search for candidates
+			TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back();
+			for(auto it = teeLocalCandidates.rbegin(); it != teeLocalCandidates.rend(); ++it)
+			{
+				if(it->used)
+					break;
+				if(it->localId == local)
+				{
+					it->used = true;
+					return it->bufferOffset;
+				}
+			}
+			//0 means no candidate found
+			return 0;
+		}
+		void addCandidate(const uint32_t local, const uint32_t offset)
+		{
+			teeLocalCandidatesStack.back().emplace_back(local, offset);
+		}
+		void removeConsumed()
+		{
+			// Remove consumed tee local candidates
+			TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back();
+			auto firstUsedIt = std::find_if(teeLocalCandidates.begin(), teeLocalCandidates.end(), [](const TeeLocalCandidate& c) { return c.used; });
+			teeLocalCandidates.erase(firstUsedIt, teeLocalCandidates.end());
+		}
+		void removePreviousCandidates(unsigned local)
+		{
+			for(TeeLocalCandidatesVector& v: teeLocalCandidatesStack)
+			{
+				// Remove any previous candidate for the same local
+				auto sameLocalIt = std::find_if(v.begin(), v.end(), [local](const TeeLocalCandidate& c) { return c.localId == local; });
+				if(sameLocalIt != v.end())
+					v.erase(sameLocalIt);
+			}
+		}
+		void addIndentation()
+		{
+			teeLocalCandidatesStack.emplace_back();
+		}
+		void decreaseIndentation()
+		{
+			teeLocalCandidatesStack.pop_back();
+		}
+		void clearTopmostCandidates()
+		{
+			decreaseIndentation();
+			addIndentation();
+		}
+		void performInitialization()
+		{
+			//There should be no layers when in the initial state
+			assert(teeLocalCandidatesStack.empty());
+			addIndentation();
+		}
+		void clear()
+		{
+			//There should be only the last layer when we call clear
+			decreaseIndentation();
+			assert(teeLocalCandidatesStack.empty());
+		}
+	};
+
 	// Whether to enable shared memory
 	bool sharedMemory;
 
@@ -111,6 +195,7 @@ private:
 	// Whether to export the function table from the module
 	bool exportedTable;
 public:
+	TeeLocals teeLocals;
 	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, INT, FLOAT32, GLOBAL };
 	const PointerAnalyzer & PA;
 	OutputMode mode;
@@ -146,6 +231,7 @@ private:
 	bool compileInlineInstruction(WasmBuffer& code, const llvm::Instruction& I);
 	void compileGEP(WasmBuffer& code, const llvm::User* gepInst, bool standalone = false);
 	void compileLoad(WasmBuffer& code, const llvm::LoadInst& I, bool signExtend);
+	void compileGetLocal(WasmBuffer& code, uint32_t localId);
 	// Returns true if all the uses have signed semantics
 	// NOTE: Careful, this is not in sync with needsUnsignedTruncation!
 	//       All the users listed here must _not_ call needsUnsignedTruncation!
@@ -224,6 +310,7 @@ public:
 		usedGlobals(0),
 		stackTopGlobal(0),
 		heapSize(heapSize),
+		instStartPos(0),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
 		useCfgLegacy(useCfgLegacy),
