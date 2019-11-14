@@ -404,9 +404,9 @@ bool FunctionType::isValidArgumentType(Type *ArgTy) {
 // Primitive Constructors.
 
 StructType *StructType::get(LLVMContext &Context, ArrayRef<Type*> ETypes,
-                            bool isPacked, StructType* directBase, bool isByteLayout, bool AsmJS) {
+                            bool isPacked, StructType* directBase, bool isByteLayout, bool isAsmJS) {
   LLVMContextImpl *pImpl = Context.pImpl;
-  const AnonStructTypeKeyInfo::KeyTy Key(ETypes, directBase, isPacked, isByteLayout, AsmJS);
+  const AnonStructTypeKeyInfo::KeyTy Key(ETypes, directBase, isPacked, isByteLayout, isAsmJS);
 
   StructType *ST;
   // Since we only want to allocate a fresh struct type in case none is found
@@ -420,7 +420,7 @@ StructType *StructType::get(LLVMContext &Context, ArrayRef<Type*> ETypes,
     // in-place.
     ST = new (Context.pImpl->Alloc) StructType(Context);
     ST->setSubclassData(SCDB_IsLiteral);  // Literal struct.
-    ST->setBody(ETypes, isPacked, directBase, isByteLayout, AsmJS);
+    ST->setBody(ETypes, isPacked, directBase, isByteLayout, isAsmJS);
     *Insertion.first = ST;
   } else {
     // The struct type was found. Just return it.
@@ -533,14 +533,15 @@ StructType *StructType::create(LLVMContext &Context, StringRef Name) {
 }
 
 StructType *StructType::get(LLVMContext &Context, bool isPacked, StructType* directBase,
-                            bool isByteLayout, bool AsmJS) {
-  return get(Context, None, isPacked, directBase, isByteLayout, AsmJS);
+                            bool isByteLayout, bool isAsmJS) {
+  return get(Context, None, isPacked, directBase, isByteLayout, isAsmJS);
 }
 
 StructType *StructType::create(LLVMContext &Context, ArrayRef<Type*> Elements,
-                               StringRef Name, bool isPacked, StructType* directBase) {
+                               StringRef Name, bool isPacked, StructType* directBase,
+                               bool isByteLayout, bool isAsmJS) {
   StructType *ST = create(Context, Name);
-  ST->setBody(Elements, isPacked, directBase);
+  ST->setBody(Elements, isPacked, directBase, isByteLayout, isAsmJS);
   return ST;
 }
 
@@ -553,10 +554,11 @@ StructType *StructType::create(LLVMContext &Context) {
 }
 
 StructType *StructType::create(ArrayRef<Type*> Elements, StringRef Name,
-                               bool isPacked, StructType* directBase) {
+                               bool isPacked, StructType* directBase,
+                               bool isByteLayout, bool isAsmJS) {
   assert(!Elements.empty() &&
          "This method may not be invoked with an empty list");
-  return create(Elements[0]->getContext(), Elements, Name, isPacked, directBase);
+  return create(Elements[0]->getContext(), Elements, Name, isPacked, directBase, isByteLayout, isAsmJS);
 }
 
 StructType *StructType::create(ArrayRef<Type*> Elements) {
