@@ -45,16 +45,18 @@ class ItaniumCXXABI : public CodeGen::CGCXXABI {
   /// VTables - All the vtables which have been defined.
   llvm::DenseMap<const CXXRecordDecl *, llvm::GlobalVariable *> VTables;
   /// MemberPointerTy - Store the member pointer type
-  llvm::StructType* MemberPtrTyCache;
+  llvm::StructType* MemberPtrTyCache[2];
 
-  llvm::StructType* GetMemberPtrTy() {
-    if (MemberPtrTyCache)
-      return MemberPtrTyCache;
+  llvm::StructType* GetMemberPtrTy(bool asmjs) {
+    if (MemberPtrTyCache[asmjs])
+      return MemberPtrTyCache[asmjs];
     llvm::Type* elementType = CGM.getTarget().isByteAddressable()?
                               (llvm::Type*)CGM.PtrDiffTy:
                               (llvm::Type*)llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo();
-    MemberPtrTyCache = llvm::StructType::create("memberptr", elementType, CGM.PtrDiffTy);
-    return MemberPtrTyCache;
+    SmallVector<llvm::Type*, 2> Tys { elementType, CGM.PtrDiffTy };
+    StringRef name = asmjs ? "memberptr.asmjs" : "memberptr";
+    MemberPtrTyCache[asmjs] = llvm::StructType::create(Tys, name, false, nullptr, false, asmjs);
+    return MemberPtrTyCache[asmjs];
   }
 
   /// All the thread wrapper functions that have been used.
@@ -74,7 +76,7 @@ public:
   ItaniumCXXABI(CodeGen::CodeGenModule &CGM,
                 bool UseARMMethodPtrABI = false,
                 bool UseARMGuardVarABI = false) :
-    CGCXXABI(CGM), MemberPtrTyCache(0), UseARMMethodPtrABI(UseARMMethodPtrABI),
+    CGCXXABI(CGM), MemberPtrTyCache{nullptr, nullptr}, UseARMMethodPtrABI(UseARMMethodPtrABI),
     UseARMGuardVarABI(UseARMGuardVarABI),
     Use32BitVTableOffsetABI(false) { }
 
@@ -605,7 +607,8 @@ llvm::Type *
 ItaniumCXXABI::ConvertMemberPointerType(const MemberPointerType *MPT) {
   if (MPT->isMemberDataPointer())
     return CGM.PtrDiffTy;
-  return GetMemberPtrTy();
+  bool asmjs = MPT->getClass()->getAsCXXRecordDecl()->hasAttr<AsmJSAttr>();
+  return GetMemberPtrTy(asmjs);
 }
 
 /// In the Itanium and ARM ABIs, method pointers have the form:
@@ -1042,7 +1045,8 @@ ItaniumCXXABI::EmitNullMemberPointer(const MemberPointerType *MPT) {
                           (llvm::Constant*)llvm::ConstantPointerNull::get(
 					llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
   llvm::Constant *Values[2] = { Zero2, Zero };
-  return llvm::ConstantStruct::get(GetMemberPtrTy(), Values);
+  bool asmjs = MPT->getClass()->getAsCXXRecordDecl()->hasAttr<AsmJSAttr>();
+  return llvm::ConstantStruct::get(GetMemberPtrTy(asmjs), Values);
 }
 
 llvm::Constant *
@@ -1068,6 +1072,8 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
   // Get the function pointer (or index if this is a virtual function).
   llvm::Constant *MemPtr[2];
 
+  bool asmjs = MD->getParent()->hasAttr<AsmJSAttr>();
+
   if (!CGM.getTarget().isByteAddressable()) {
     // We handle pointers to both virtual and not virtual members in the same way, using a thunk
     GlobalDecl GD(MD, true);
@@ -1077,7 +1083,7 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
     CGM.addDeferredDeclToEmit(cast<llvm::Function>(Thunk), GD);
     MemPtr[0] = llvm::ConstantExpr::getBitCast(Thunk, llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
     MemPtr[1] = llvm::ConstantInt::get(CGM.PtrDiffTy, ThisAdjustment.getQuantity());
-    return llvm::ConstantStruct::get(GetMemberPtrTy(), MemPtr);
+    return llvm::ConstantStruct::get(GetMemberPtrTy(asmjs), MemPtr);
   }
 
   if (MD->isVirtual()) {
@@ -1132,7 +1138,7 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
                                        ThisAdjustment.getQuantity());
   }
   
-  return llvm::ConstantStruct::get(GetMemberPtrTy(), MemPtr);
+  return llvm::ConstantStruct::get(GetMemberPtrTy(asmjs), MemPtr);
 }
 
 llvm::Constant *ItaniumCXXABI::EmitMemberPointer(const APValue &MP,
