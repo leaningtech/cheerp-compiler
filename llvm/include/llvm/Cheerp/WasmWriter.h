@@ -32,9 +32,9 @@ const uint32_t WasmPage = 64*1024;
 
 class CheerpWasmWriter;
 
-typedef std::iostream WasmBuffer;
+typedef std::ostringstream WasmBuffer;
 
-class Section : public std::stringstream {
+class Section : public std::ostringstream {
 private:
 	CheerpWasmWriter* writer;
 
