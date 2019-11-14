@@ -2507,12 +2507,12 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			{
 				compileOperand(code, si.getTrueValue());
 				compileOperand(code, si.getFalseValue());
-				compileOperand(code, si.getCondition());
+				compileCondition(code, si.getCondition(), /*booleanInvert*/false);
 				encodeInst(0x1b, "select", code);
 			}
 			else
 			{
-				compileOperand(code, si.getCondition());
+				compileCondition(code, si.getCondition(), /*booleanInvert*/false);
 				encodeU32Inst(0x04, "if", internal::getValType(si.getType()), code);
 				compileOperand(code, si.getTrueValue());
 				encodeInst(0x05, "else", code);
@@ -2867,14 +2867,8 @@ void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 	}
 }
 
-void CheerpWasmWriter::compileCondition(WasmBuffer& code, const BasicBlock* BB, bool booleanInvert)
+void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* cond, bool booleanInvert)
 {
-	const TerminatorInst* term = BB->getTerminator();
-	assert(isa<BranchInst>(term));
-	const BranchInst* bi=cast<BranchInst>(term);
-	assert(bi->isConditional());
-
-	const Value* cond = bi->getCondition();
 	bool canInvertCond = isa<Instruction>(cond) && isInlineable(*cast<Instruction>(cond), PA);
 
 	if(canInvertCond && isa<ICmpInst>(cond))
@@ -2910,7 +2904,7 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const BasicBlock* BB, 
 	}
 	else
 	{
-		compileOperand(code, bi->getCondition());
+		compileOperand(code, cond);
 		if (booleanInvert) {
 			// Invert result
 			encodeInst(0x45, "i32.eqz", code);
@@ -3039,7 +3033,9 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			}
 			case Token::TK_Condition:
 			{
-				compileCondition(code, T.getBB(), false);
+				const BranchInst* bi=cast<BranchInst>(T.getBB()->getTerminator());
+				assert(bi->isConditional());
+				compileCondition(code, bi->getCondition(), /*booleanInvert*/false);
 				break;
 			}
 			case Token::TK_BrIf:
@@ -3047,7 +3043,9 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			{
 				bool IfNot = T.getKind() == Token::TK_BrIfNot;
 				// The condition goes first
-				compileCondition(code, T.getBB(), IfNot);
+				const BranchInst* bi=cast<BranchInst>(T.getBB()->getTerminator());
+				assert(bi->isConditional());
+				compileCondition(code, bi->getCondition(), IfNot);
 				int Depth = getDepth(T.getMatch());
 				encodeU32Inst(0x0d, "br_if", Depth, code);
 				break;
@@ -3057,7 +3055,9 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			{
 				bool IfNot = T.getKind() == Token::TK_IfNot;
 				// The condition goes first
-				compileCondition(code, T.getBB(), IfNot);
+				const BranchInst* bi=cast<BranchInst>(T.getBB()->getTerminator());
+				assert(bi->isConditional());
+				compileCondition(code, bi->getCondition(), IfNot);
 				indent();
 				encodeU32Inst(0x04, "if", 0x40, code);
 				ScopeStack.push_back(&T);

@@ -136,7 +136,7 @@ private:
 
 	void compileBranchTable(WasmBuffer& code, const llvm::SwitchInst* si,
 		const std::vector<std::pair<int, int>>& cases);
-	void compileCondition(WasmBuffer& code, const llvm::BasicBlock* BB, bool booleanInvert);
+	void compileCondition(WasmBuffer& code, const llvm::Value* cond, bool booleanInvert);
 	const llvm::BasicBlock* compileTokens(WasmBuffer& code, const TokenList& Tokens);
 	void compileMethod(WasmBuffer& code, llvm::Function& F);
 	void compileImport(WasmBuffer& code, llvm::StringRef funcName, llvm::FunctionType* FTy);
