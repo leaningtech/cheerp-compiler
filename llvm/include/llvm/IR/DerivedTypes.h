@@ -244,10 +244,12 @@ public:
   static StructType *create(LLVMContext &Context);
 
   static StructType *create(ArrayRef<Type *> Elements, StringRef Name,
-                            bool isPacked = false, StructType* directBase = NULL);
+                            bool isPacked = false, StructType* directBase = NULL,
+                            bool isByteLayout = false, bool isAsmJS = false);
   static StructType *create(ArrayRef<Type *> Elements);
   static StructType *create(LLVMContext &Context, ArrayRef<Type *> Elements,
-                            StringRef Name, bool isPacked = false, StructType* directBase = NULL);
+                            StringRef Name, bool isPacked = false, StructType* directBase = NULL,
+                            bool isByteLayout = false, bool isAsmJS = false);
   static StructType *create(LLVMContext &Context, ArrayRef<Type *> Elements);
   template <class... Tys>
   static std::enable_if_t<are_base_of<Type, Tys...>::value, StructType *>
@@ -260,10 +262,10 @@ public:
   /// This static method is the primary way to create a literal StructType.
   static StructType *get(LLVMContext &Context, ArrayRef<Type*> Elements,
                          bool isPacked = false, StructType* directBase = NULL,
-                         bool isByteLayout = false, bool AsmJS = false);
+                         bool isByteLayout = false, bool isAsmJS = false);
 
   /// Create an empty structure type.
-  static StructType *get(LLVMContext &Context, bool isPacked = false, StructType* directBase = NULL, bool isByteLayout = false, bool AsmJS = false);
+  static StructType *get(LLVMContext &Context, bool isPacked = false, StructType* directBase = NULL, bool isByteLayout = false, bool isAsmJS = false);
 
   /// This static method is a convenience method for creating structure types by
   /// specifying the elements as arguments. Note that this method always returns
