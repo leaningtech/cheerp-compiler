@@ -75,8 +75,6 @@ private:
 	// The wasm module heap size
 	uint32_t heapSize;
 
-	uint32_t instStartPos;
-
 	// If true, the Wasm file is loaded using a JavaScript loader. This allows
 	// FFI calls to methods outside of the Wasm file. When false, write
 	// opcode 'unreachable' for calls to unknown functions.
@@ -108,39 +106,47 @@ private:
 	{
 		struct TeeLocalCandidate
 		{
+			const llvm::Value* v;
 			uint32_t localId;
 			uint32_t bufferOffset;
 			bool used;
-			TeeLocalCandidate(uint32_t l, uint32_t o):localId(l),bufferOffset(o),used(false)
+			TeeLocalCandidate(const llvm::Value* v, uint32_t l, uint32_t o):v(v),localId(l),bufferOffset(o),used(false)
 			{
 			}
 		};
 		typedef std::vector<TeeLocalCandidate> TeeLocalCandidatesVector;
 		std::vector<TeeLocalCandidatesVector> teeLocalCandidatesStack;
+
+		// Last point on the buffer where there was nothing on top of the stack
+		uint32_t instStartPos{0};
 	public:
 		TeeLocals()
 		{
 		}
-		uint32_t findOffsetCandidate(const uint32_t local)
+		bool couldPutTeeLocalOnStack(const llvm::Value* v, const uint32_t currOffset, uint32_t& bufferOffset, uint32_t& localId)
 		{
+			if(currOffset != instStartPos)
+				return false;
+
 			// Search for candidates
 			TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back();
 			for(auto it = teeLocalCandidates.rbegin(); it != teeLocalCandidates.rend(); ++it)
 			{
 				if(it->used)
 					break;
-				if(it->localId == local)
+				if(it->v == v)
 				{
 					it->used = true;
-					return it->bufferOffset;
+					bufferOffset = it->bufferOffset;
+					localId = it->localId;
+					return true;
 				}
 			}
-			//0 means no candidate found
-			return 0;
+			return false;
 		}
-		void addCandidate(const uint32_t local, const uint32_t offset)
+		void addCandidate(const llvm::Value* v, const uint32_t local, const uint32_t offset)
 		{
-			teeLocalCandidatesStack.back().emplace_back(local, offset);
+			teeLocalCandidatesStack.back().emplace_back(v, local, offset);
 		}
 		void removeConsumed()
 		{
@@ -167,10 +173,12 @@ private:
 		{
 			teeLocalCandidatesStack.pop_back();
 		}
-		void clearTopmostCandidates()
+		void clearTopmostCandidates(const uint32_t depth = 1)
 		{
-			decreaseIndentation();
-			addIndentation();
+			for (uint32_t d=0; d<depth; d++)
+				decreaseIndentation();
+			for (uint32_t d=0; d<depth; d++)
+				addIndentation();
 		}
 		void performInitialization()
 		{
@@ -183,6 +191,10 @@ private:
 			//There should be only the last layer when we call clear
 			decreaseIndentation();
 			assert(teeLocalCandidatesStack.empty());
+		}
+		void instructionStart(WasmBuffer& code)
+		{
+			instStartPos = code.tellp();
 		}
 	};
 
@@ -199,6 +211,22 @@ public:
 	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, INT, FLOAT32, GLOBAL };
 	const PointerAnalyzer & PA;
 	OutputMode mode;
+
+	//IFF returns true, it has modified the buffer so to obtain an extra value on the stack
+	bool hasPutTeeLocalOnStack(WasmBuffer& code, const llvm::Value* v)
+	{
+		const uint32_t currOffset = code.tellp();
+		uint32_t bufferOffset;
+		uint32_t localId;
+		if (teeLocals.couldPutTeeLocalOnStack(v, currOffset, bufferOffset, localId))
+		{
+			code.seekp(bufferOffset);
+			encodeU32Inst(0x22, "tee_local", localId, code);
+			code.seekp(currOffset);
+			return true;
+		}
+		return false;
+	}
 
 private:
 	void compileModule();
@@ -231,7 +259,7 @@ private:
 	bool compileInlineInstruction(WasmBuffer& code, const llvm::Instruction& I);
 	void compileGEP(WasmBuffer& code, const llvm::User* gepInst, bool standalone = false);
 	void compileLoad(WasmBuffer& code, const llvm::LoadInst& I, bool signExtend);
-	void compileGetLocal(WasmBuffer& code, uint32_t localId);
+	void compileGetLocal(WasmBuffer& code, const llvm::Value* v, uint32_t localId);
 	// Returns true if all the uses have signed semantics
 	// NOTE: Careful, this is not in sync with needsUnsignedTruncation!
 	//       All the users listed here must _not_ call needsUnsignedTruncation!
@@ -310,7 +338,6 @@ public:
 		usedGlobals(0),
 		stackTopGlobal(0),
 		heapSize(heapSize),
-		instStartPos(0),
 		useWasmLoader(useWasmLoader),
 		prettyCode(prettyCode),
 		useCfgLegacy(useCfgLegacy),
