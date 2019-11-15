@@ -1293,6 +1293,9 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			// We can avoid assignment from the same register if no pointer kind conversion is required
 			if(!writer.needsPointerKindConversion(phi, incoming))
 				return;
+			// We can leave undefined values undefined
+			if (isa<UndefValue>(incoming))
+				return;
 			// 1) Put the value on the stack
 			writer.compileOperand(code, incoming);
 			// 2) Save the value in the phi
