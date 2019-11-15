@@ -1300,7 +1300,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			assert(incoming);
 			uint32_t reg = writer.registerize.getRegisterId(incoming, EdgeContext::emptyContext());
 			uint32_t local = writer.localMap.at(reg);
-			writer.compileGetLocal(code, local);
+			writer.compileGetLocal(code, incoming, local);
 			writer.teeLocals.removeConsumed();
 
 			reg = writer.registerize.getRegisterId(incoming, edgeContext);
@@ -1318,6 +1318,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			// We can leave undefined values undefined
 			if (isa<UndefValue>(incoming))
 				return;
+			writer.teeLocals.instructionStart(code);
 			// 1) Put the value on the stack
 			writer.compileOperand(code, incoming);
 			writer.teeLocals.removeConsumed();
@@ -1325,8 +1326,9 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			uint32_t reg = writer.registerize.getRegisterId(phi, EdgeContext::emptyContext());
 			//writer.lastWrittenReg = reg;
 			uint32_t local = writer.localMap.at(reg);
-			writer.encodeU32Inst(0x21, "set_local", local, code);
 			writer.teeLocals.removePreviousCandidates(local);
+			writer.teeLocals.addCandidate(incoming, local, code.tellp());
+			writer.encodeU32Inst(0x21, "set_local", local, code);
 		}
 	};
 	WriterPHIHandler(*this, code).runOnEdge(registerize, from, to);
@@ -1720,26 +1722,24 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	}
 }
 
-void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, uint32_t localId)
+void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Value* v, uint32_t localId)
 {
-	if(code.tellp() == instStartPos)
+	if (hasPutTeeLocalOnStack(code, v))
 	{
-		// Search for candidates
-		const uint32_t bufferOffset = teeLocals.findOffsetCandidate(localId);
-		if (bufferOffset > 0)
-		{
-			uint32_t oldOffset = code.tellp();
-			code.seekp(bufferOffset);
-			encodeU32Inst(0x22, "tee_local", localId, code);
-			code.seekp(oldOffset);
-			return;
-		}
+		//Successfully find a candidate to transform in tee local
+		return;
 	}
 	encodeU32Inst(0x20, "get_local", localId, code);
 }
 
 void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 {
+	if (hasPutTeeLocalOnStack(code, v))
+	{
+		//Successfully find a candidate to transform in tee local
+		return;
+	}
+
 	if(const Constant* c=dyn_cast<Constant>(v))
 	{
 		auto it = globalizedConstants.find(c);
@@ -1768,7 +1768,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 		} else {
 			uint32_t idx = registerize.getRegisterId(it, edgeContext);
 			uint32_t local = localMap.at(idx);
-			compileGetLocal(code, local);
+			compileGetLocal(code, it, local);
 		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
@@ -2077,6 +2077,7 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 
 bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
 {
+	teeLocals.instructionStart(code);
 	switch(I.getOpcode())
 	{
 		case Instruction::GetElementPtr:
@@ -2977,7 +2978,6 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 
 		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
 		{
-			instStartPos = code.tellp();
 			bool ret = compileInstruction(code, *I);
 
 			teeLocals.removeConsumed();
@@ -2991,7 +2991,7 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 					lastWrittenReg = reg;
 					uint32_t local = localMap.at(reg);
 					teeLocals.removePreviousCandidates(local);
-					teeLocals.addCandidate(local, code.tellp());
+					teeLocals.addCandidate(&*I, local, code.tellp());
 					encodeU32Inst(0x21, "set_local", local, code);
 				}
 			}
@@ -3248,6 +3248,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 	for (TokenList::const_iterator it = Tokens.begin(), ie = Tokens.end(); it != ie; ++it)
 	{
 		const Token& T = *it;
+		teeLocals.instructionStart(code);
 		switch (T.getKind())
 		{
 			case Token::TK_BasicBlock:
@@ -3297,7 +3298,8 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				const BranchInst* bi=cast<BranchInst>(T.getBB()->getTerminator());
 				assert(bi->isConditional());
 				compileCondition(code, bi->getCondition(), IfNot);
-				int Depth = getDepth(T.getMatch());
+				const int Depth = getDepth(T.getMatch());
+				teeLocals.clearTopmostCandidates(Depth+1);
 				encodeU32Inst(0x0d, "br_if", Depth, code);
 				break;
 			}
@@ -3324,7 +3326,8 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			}
 			case Token::TK_Branch:
 			{
-				int Depth = getDepth(T.getMatch());
+				const int Depth = getDepth(T.getMatch());
+				teeLocals.clearTopmostCandidates(Depth+1);
 				encodeU32Inst(0x0c, "br", Depth, code);
 				break;
 			}
