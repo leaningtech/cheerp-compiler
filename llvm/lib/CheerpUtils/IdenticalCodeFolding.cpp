@@ -816,6 +816,11 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 		if (F.isDeclaration() || F.getSection() != StringRef("asmjs"))
 			continue;
 
+		// Skip functions with special semantics, we really don't want to merge them with anything
+		if (F.getName() == "malloc" || F.getName() == "calloc" ||
+			F.getName() == "realloc" || F.getName() == "free") {
+			continue;
+		}
 
 		uint64_t hash = hashFunction(F);
 		const auto& found = functionHashes.find(hash);
