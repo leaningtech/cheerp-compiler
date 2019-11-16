@@ -121,6 +121,8 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 					if(II->getIntrinsicID()==Intrinsic::cheerp_downcast)
 					{
 						StructType* sourceType = cast<StructType>(II->getOperand(0)->getType()->getPointerElementType());
+						if(sourceType->hasAsmJS())
+							continue;
 						// In the special case of downcast to i8* we are dealing with member function pointers
 						// Just give up and assume that all the bases may be needed
 						if(II->getFunctionType()->getReturnType()->getPointerElementType()->isIntegerTy(8))
