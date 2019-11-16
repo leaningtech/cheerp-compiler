@@ -894,7 +894,7 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 
 			mergeTwoFunctions(item.first, replacement);
 
-			//TODO: move extenal name to metadata and it becames again possible to set _icf
+			//TODO: move external name to metadata and it becames again possible to set _icf
 			if (!replacement->getName().endswith("_icf") && (replacement->getLinkage() != llvm::GlobalValue::ExternalLinkage))
 			{
 				DEBUG(dbgs() << "rename " << replacement->getName() <<
