@@ -1973,7 +1973,31 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 			offset += gepWriter.constPart;
 		}
 	} else {
-		compileOperand(code, ptrOp);
+		const Constant* C = dyn_cast<Constant>(ptrOp);
+		if (C && !globalizedConstants.count(C))
+		{
+			struct AddrListener: public LinearMemoryHelper::ByteListener
+			{
+				uint32_t addr;
+				uint32_t off;
+				AddrListener():addr(0),off(0)
+				{
+				}
+				void addByte(uint8_t b) override
+				{
+					addr |= b << off;
+					off += 8;
+				}
+			};
+			AddrListener addrListener;
+			linearHelper.compileConstantAsBytes(C, /* asmjs */ true, &addrListener);
+			encodeS32Inst(0x41, "i32.const", 0, code);
+			offset = addrListener.addr;
+		}
+		else
+		{
+			compileOperand(code, ptrOp);
+		}
 	}
 	return offset;
 }
