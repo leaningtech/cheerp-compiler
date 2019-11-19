@@ -1803,6 +1803,12 @@ bool CheerpWasmWriter::isSignedLoad(const Value* V) const
 	const LoadInst* LI = dyn_cast<LoadInst>(V);
 	if(!LI)
 		return false;
+	if(GlobalVariable* ptrGV = dyn_cast<GlobalVariable>(LI->getOperand(0)))
+	{
+		auto it = globalizedGlobalsIDs.find(ptrGV);
+		if(it != globalizedGlobalsIDs.end())
+			return false;
+	}
 	for(const User* U: LI->users())
 	{
 		const Instruction* userI = cast<Instruction>(U);
@@ -2465,6 +2471,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::Load:
 		{
 			const LoadInst& li = cast<LoadInst>(I);
+			if(GlobalVariable* ptrGV = dyn_cast<GlobalVariable>(li.getOperand(0)))
+			{
+				auto it = globalizedGlobalsIDs.find(ptrGV);
+				if(it != globalizedGlobalsIDs.end())
+				{
+					// We can encode this as a get_global
+					encodeU32Inst(0x23, "get_global", it->second, code);
+					break;
+				}
+			}
 			compileLoad(code, li, /*signExtend*/isSignedLoad(&li));
 			break;
 		}
@@ -2478,6 +2494,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const StoreInst& si = cast<StoreInst>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
+			if(const GlobalVariable* ptrGV = dyn_cast<GlobalVariable>(ptrOp))
+			{
+				auto it = globalizedGlobalsIDs.find(ptrGV);
+				if(it != globalizedGlobalsIDs.end())
+				{
+					// We can encode this as a set_global
+					compileOperand(code, valOp);
+					encodeU32Inst(0x24, "set_global", it->second, code);
+					break;
+				}
+			}
 			// 1) The pointer
 			uint32_t offset = compileLoadStorePointer(code, ptrOp);
 			// Special case writing 0 to floats/double
@@ -3649,6 +3676,13 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 	// global constants referencing each other
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstantsTmp;
 	std::unordered_map<const llvm::Constant*, uint32_t> orderOfInsertion;
+	const LinearMemoryHelper::GlobalUsageMap& globalizedGlobalsUsage(linearHelper.getGlobalizedGlobalUsage());
+
+	for (auto G : linearHelper.globals())
+	{
+		if (globalizedGlobalsUsage.count(G))
+			orderOfInsertion[G] = orderOfInsertion.size();
+	}
 	// Gather all constants used multiple times, we want to encode those in the global section
 	for (Function* F: linearHelper.functions())
 	{
@@ -3671,6 +3705,11 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 						continue;
 					if(isa<Function>(C) || isa<ConstantPointerNull>(C))
 						continue;
+					if(isa<GlobalVariable>(C) && globalizedGlobalsUsage.count(cast<GlobalVariable>(C)))
+					{
+						// The whole global is globalized, there is no point in globalizing the address
+						continue;
+					}
 					globalizedConstantsTmp[C].first++;
 					if (orderOfInsertion.count(C) == 0)
 						orderOfInsertion[C] = orderOfInsertion.size();
@@ -3688,7 +3727,8 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 		// NOTE: We want to have the high use counts first
 		bool operator<(const GlobalConstant& rhs) const
 		{
-			// TODO: We need to fully order these to keep the output consistent
+			// We need to fully order these to keep the output consistent
+			// So we use insertionIndex as tie-breaker
 			if (useCount != rhs.useCount)
 				return useCount > rhs.useCount;
 			return insertionIndex < rhs.insertionIndex;
@@ -3708,6 +3748,10 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			++it;
 		}
 	}
+	for(auto& it: globalizedGlobalsUsage)
+	{
+		orderedConstants.push_back(GlobalConstant{it.first, it.second, GLOBAL, orderOfInsertion.at(it.first)});
+	}
 
 	std::sort(orderedConstants.begin(), orderedConstants.end());
 
@@ -3716,6 +3760,13 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 	for(uint32_t i=0;i<orderedConstants.size();i++)
 	{
 		GlobalConstant& GC = orderedConstants[i];
+		if(GC.encoding == GLOBAL)
+		{
+			auto it = globalizedGlobalsUsage.find(cast<GlobalVariable>(GC.C));
+			assert(it != globalizedGlobalsUsage.end());
+			globalizedGlobalsIDs[it->first] = globalId++;
+			continue;
+		}
 		// TODO: We need al helper function for this
 		// NOTE: It is not the same as getIntEncodingLength since the global id is unsigned
 		uint32_t getGlobalCost = 0;
@@ -3750,7 +3801,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 
 		if (mode == CheerpWasmWriter::WASM) {
 			// There is the stack and the globalized constants
-			internal::encodeULEB128(1 + globalizedConstantsTmp.size(), section);
+			internal::encodeULEB128(1 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
 			// The global has type i32 (0x7f) and is mutable (0x01).
 			internal::encodeULEB128(0x7f, section);
 			internal::encodeULEB128(0x01, section);
@@ -3765,6 +3816,17 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 				const Constant* C = it->C;
 				if(it->encoding == NONE)
 					continue;
+				else if(it->encoding == GLOBAL)
+				{
+					const GlobalVariable* GV = cast<GlobalVariable>(C);
+					internal::encodeULEB128(internal::getValType(GV->getValueType()), section);
+					// Mutable -> 1
+					internal::encodeULEB128(0x01, section);
+					assert(GV->hasInitializer());
+					compileConstant(section, GV->getInitializer(), /*forGlobalInit*/true);
+					internal::encodeULEB128(0x0b, section);
+					continue;
+				}
 				// Constant type
 				uint32_t valType = 0;
 				switch(it->encoding)
@@ -4100,7 +4162,7 @@ void CheerpWasmWriter::compileDataSection()
 	std::ostringstream data;
 	uint32_t count = 0;
 
-	auto globals = linearHelper.globals();
+	auto globals = linearHelper.addressableGlobals();
 	for (auto g = globals.begin(), e = globals.end(); g != e; ++g)
 	{
 		const GlobalVariable* GV = *g;
