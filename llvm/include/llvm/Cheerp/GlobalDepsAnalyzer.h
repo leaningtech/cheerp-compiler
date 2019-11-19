@@ -40,7 +40,7 @@ public:
 	/**
 	 * Select how to deal with math functions which are provided natively by JS
 	 */
-	enum MATH_MODE { NO_BUILTINS = 0, USE_BUILTINS };
+	enum MATH_MODE { NO_BUILTINS = 0, JS_BUILTINS, WASM_BUILTINS };
 	static char ID;
 	typedef llvm::SmallVector<const llvm::Use *, 8> SubExprVec;
 	typedef std::unordered_multimap< const llvm::GlobalVariable *, SubExprVec > FixupMap;
