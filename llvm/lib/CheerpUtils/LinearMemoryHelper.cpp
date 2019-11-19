@@ -297,6 +297,8 @@ bool LinearMemoryHelper::hasNonZeroInitialiser(const GlobalVariable* G) const
 
 void LinearMemoryHelper::addGlobals()
 {
+	generateGlobalizedGlobalsUsage();
+
 	const auto& targetData = module.getDataLayout();
 	// The global variable list has a special order:
 	// 1. Move non-initialised and zero-initialised variables to end of
@@ -333,6 +335,10 @@ void LinearMemoryHelper::addGlobals()
 
 	// Compute the global variable addresses.
 	for (const auto G: asmjsGlobals) {
+		//Globalized globals do not need an address
+		if (globalizedGlobalsUsage.count(G))
+			continue;
+		asmjsAddressableGlobals.push_back(G);
 		Type* ty = G->getType();
 		uint32_t size = targetData.getTypeAllocSize(ty->getPointerElementType());
 		// Ensure the right alignment for the type
@@ -341,6 +347,39 @@ void LinearMemoryHelper::addGlobals()
 		heapStart = (heapStart + alignment - 1) & ~(alignment - 1);
 		globalAddresses.emplace(G, heapStart);
 		heapStart += size;
+	}
+}
+
+void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
+{
+	// TODO: add globalizedGlobals in the JS writer
+	if (mode == FunctionAddressMode::AsmJS)
+		return;
+	// Identify all globals which are only ever accessed with with load/store, we can promote those to globals
+	for (const GlobalVariable& GV: module.globals())
+	{
+		// Don't deal with undefined variables
+		if(!GV.hasInitializer())
+			continue;
+		uint32_t useCount = 0;
+		for(const Use& U: GV.uses())
+		{
+			useCount++;
+			const User* user = U.getUser();
+			if ((isa<StoreInst>(user) && U.getOperandNo()==1) ||
+				isa<LoadInst>(user))
+			{
+				if (cast<Instruction>(user)->getFunction()->getSection() == StringRef("asmjs"))
+					continue;
+			}
+			useCount = 0;
+			break;
+		}
+		// useCount == 0 means either access from outside linear memory, non-load/store user, or no user at all
+		if(useCount == 0)
+			continue;
+		// We want to globalize this global, add it to the final map with his use count
+		globalizedGlobalsUsage.insert(std::make_pair(&GV, useCount));
 	}
 }
 

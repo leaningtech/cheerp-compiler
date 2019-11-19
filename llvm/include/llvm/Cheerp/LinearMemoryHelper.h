@@ -245,6 +245,16 @@ public:
 		return asmjsGlobals;
 	}
 
+	const std::vector<const llvm::GlobalVariable*> & addressableGlobals() const {
+		return asmjsAddressableGlobals;
+	}
+
+	typedef llvm::DenseMap<const llvm::GlobalVariable*, uint32_t> GlobalUsageMap;
+	const GlobalUsageMap& getGlobalizedGlobalUsage() const
+	{
+		return globalizedGlobalsUsage;
+	}
+
 	struct ByteListener
 	{
 		virtual void addByte(uint8_t b) = 0;
@@ -294,6 +304,9 @@ private:
 	FunctionTypeIndicesMap functionTypeIndices;
 
 	std::vector<const llvm::GlobalVariable*> asmjsGlobals;
+	std::vector<const llvm::GlobalVariable*> asmjsAddressableGlobals;
+	GlobalUsageMap globalizedGlobalsUsage;
+	void generateGlobalizedGlobalsUsage();
 
 	FunctionAddressesMap functionAddresses;
 	GlobalAddressesMap globalAddresses;
