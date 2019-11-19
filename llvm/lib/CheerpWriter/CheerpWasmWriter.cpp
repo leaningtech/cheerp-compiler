@@ -33,7 +33,7 @@ using namespace std;
 //#define WASM_DUMP_METHOD_DATA 1
 
 // Calling math builtins is very expensive on SpiderMonkey at this time
-//#define USE_BUILTINS 1
+#define USE_BUILTINS 1
 
 static uint32_t COMPILE_METHOD_LIMIT = 100000;
 
@@ -2389,6 +2389,18 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							llvm::report_fatal_error("missing free definition");
 						break;
 					}
+					case Intrinsic::fabs:
+					{
+						assert(!ci.use_empty());
+						compileOperand(code, ci.op_begin()->get());
+						if(ci.getType()->isFloatTy())
+							encodeInst(0x8b, "f32.abs", code);
+						else if(ci.getType()->isDoubleTy())
+							encodeInst(0x99, "f64.abs", code);
+						else
+							break;
+						return false;
+					}
 #ifdef USE_BUILTINS
 					case Intrinsic::cos:
 					case Intrinsic::exp:
@@ -2416,7 +2428,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				{
 					StringRef ident = calledFunc->getName();
 					bool builtinFound = false;
-					GlobalDepsAnalyzer::BUILTIN b;
+					BuiltinInstr::BUILTIN b;
 					if(ident=="acos" || ident=="acosf")
 					{
 						builtinFound = true;
@@ -2465,7 +2477,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					else if(ident=="tan" || ident=="tanf")
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::TAN_F;
+						b = BuiltinInstr::BUILTIN::TAN_F;
 					}
 
 					if(builtinFound)
