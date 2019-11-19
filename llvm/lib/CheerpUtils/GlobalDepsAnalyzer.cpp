@@ -293,12 +293,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	DenseSet<const Function*> droppedMathBuiltins;
 
 	// Drop the code for math functions that will be replaced by builtins
-	if (mathMode == USE_BUILTINS && llcPass)
+	if (mathMode != NO_BUILTINS && llcPass)
 	{
 		for (Function& F : module.getFunctionList())
 		{
 			const auto builtinID = BuiltinInstr::getMathBuiltin(F);
-			if (cheerp::BuiltinInstr::isFloatMathRenderedInJS(builtinID))
+			if (cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID))
 			{
 				F.deleteBody();
 				droppedMathBuiltins.insert(&F);
@@ -498,7 +498,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		llvm::report_fatal_error("String linking enabled and undefined symbols found");
 
 	// Detect all used math builtins
-	if (mathMode == USE_BUILTINS && llcPass)
+	if (mathMode != NO_BUILTINS && llcPass)
 	{
 		// We have already dropped all unused functions, so we can simply check if these exists
 		for(const Function& F: module)
@@ -507,6 +507,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 			if (cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID))
 				hasBuiltin[builtinID] = true;
+		}
+		if (mathMode == WASM_BUILTINS)
+		{
+			//There is no need to export these JS builtin to Wasm
+			hasBuiltin[BuiltinInstr::BUILTIN::ABS_F] = false;
+			hasBuiltin[BuiltinInstr::BUILTIN::CEIL_F] = false;
+			hasBuiltin[BuiltinInstr::BUILTIN::FLOOR_F] = false;
+			hasBuiltin[BuiltinInstr::BUILTIN::SQRT_F] = false;
 		}
 	}
 	// Detect all used non-math builtins

@@ -215,11 +215,12 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
 
   LinearOutputTy outputMode = parseLinearOutput();
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
-  if (NoNativeJavaScriptMath ||
-      (getTargetTriple().getEnvironment() == llvm::Triple::WebAssembly && outputMode != AsmJs))
+  if (NoNativeJavaScriptMath)
     mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
+  else if(getTargetTriple().getEnvironment() == llvm::Triple::WebAssembly && outputMode != AsmJs)
+    mathMode = cheerp::GlobalDepsAnalyzer::WASM_BUILTINS;
   else
-    mathMode = cheerp::GlobalDepsAnalyzer::USE_BUILTINS;
+    mathMode = cheerp::GlobalDepsAnalyzer::JS_BUILTINS;
 
   if (FixWrongFuncCasts)
     PM.add(createFixFunctionCastsPass());
