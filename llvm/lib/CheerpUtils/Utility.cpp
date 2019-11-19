@@ -123,9 +123,23 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 	//TODO: Find out a better heuristic for inlining, it seems that computing
 	//may be faster even on more than 1 use
 	bool hasMoreThan1Use = I.hasNUsesOrMore(2);
+	auto isUserAPhiInNextBlock = [](const Instruction& I)
+	{
+		assert(I.hasOneUse());
+		const Use& U = *I.use_begin();
+		const Instruction* userInst = cast<Instruction>(U.getUser());
+		// Also allow PHIs in immediately following blocks
+		if(const PHINode* phi = dyn_cast<PHINode>(userInst))
+		{
+			const BasicBlock* incomingBlock = phi->getIncomingBlock(U);
+			if(incomingBlock==I.getParent())
+				return true;
+		}
+		return false;
+	};
 	// Do not inline the instruction if the use is in another block
 	// If this happen the instruction may have been hoisted outside a loop and we want to keep it there
-	auto isUserInOtherBlock = [](const Instruction& I)
+	auto isUserInOtherBlock = [&isUserAPhiInNextBlock](const Instruction& I)
 	{
 		// We should get here only if there is just 1 user
 		if(I.use_empty())
@@ -136,13 +150,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		if(userBlock==I.getParent())
 			return false;
 		// Also allow PHIs in immediately following blocks
-		if(const PHINode* phi = dyn_cast<PHINode>(userInst))
-		{
-			const BasicBlock* incomingBlock = phi->getIncomingBlock(*I.use_begin());
-			if(incomingBlock==I.getParent())
-				return false;
-		}
-		return true;
+		return !isUserAPhiInNextBlock(I);
 	};
 	// On wasm it is efficient to inline constant geps, but only if the offset is positve
 	// NOTE: This only checks the first index as an approximation, we would need DataLayout
@@ -237,6 +245,10 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 	{
 		return !I.getOperand(0)->getType()->isPointerTy();
 	}
+	else if (I.use_empty())
+	{
+		return false;
+	}
 	else if(!hasMoreThan1Use)
 	{
 		if(isUserInOtherBlock(I))
@@ -247,8 +259,6 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::Call:
 			case Instruction::Load:
 			{
-				if(I.use_empty())
-					return false;
 				// We can only inline COMPLETE_OBJECT and RAW pointers, other kinds may actually require multiple accesses while rendering
 				// NOTE: When RAW pointers are converted to REGULAR/SPLIT_REGULAR only one access (the offset part) is used, the base is a constant HEAP*
 				if(I.getType()->isPointerTy())
@@ -322,7 +332,10 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 					}
 					else if(isa<TerminatorInst>(nextInst))
 					{
-						// We have reached the end of the block without finding the final user, can't inline
+						// We have reached the end of the block without finding the final user
+						// If the user is a phi directly following, good, otherwise we can't inline
+						if (isUserAPhiInNextBlock(I))
+							return true;
 						break;
 					}
 				}
