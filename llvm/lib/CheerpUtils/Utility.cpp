@@ -263,7 +263,6 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 				// If we find no interfering instructions along the way it is safe to inline
 				// TODO: Currently we assume that crossing an instruction implies reordering, but in reality this actually depends on rendering
 				//       for example call(a, b) in JS guarantees that all the expression for 'a' in evaluated before 'b'
-				uint32_t maxSkip = 10;
 				const Instruction* curInst = &I;
 				const Instruction* nextInst = &I;
 				while(1)
@@ -319,11 +318,6 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 					else if(nextInst->mayHaveSideEffects())
 					{
 						// This instruction is not the user and has side effects, give up
-						break;
-					}
-					else if(--maxSkip == 0)
-					{
-						// Can't skip anymore
 						break;
 					}
 					else if(isa<TerminatorInst>(nextInst))
