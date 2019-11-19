@@ -111,7 +111,7 @@ private:
 	// Whether to export the function table from the module
 	bool exportedTable;
 public:
-	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, INT, FLOAT32 };
+	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, INT, FLOAT32, GLOBAL };
 	const PointerAnalyzer & PA;
 	OutputMode mode;
 
@@ -183,6 +183,7 @@ private:
 		bool isInlineable(const llvm::Value* p) override;
 	};
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstants;
+	LinearMemoryHelper::GlobalUsageMap globalizedGlobalsIDs;
 public:
 	llvm::raw_ostream& stream;
 	CheerpWasmWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
