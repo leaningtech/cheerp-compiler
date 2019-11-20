@@ -172,15 +172,18 @@ private:
 	{
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
-		bool first;
+		std::vector<std::pair<const llvm::Value*, uint32_t>> addedValues;
 		int32_t constPart;
 		WasmGepWriter(CheerpWasmWriter& writer, WasmBuffer& code)
-			: writer(writer), code(code), first(true), constPart(0)
+			: writer(writer), code(code), constPart(0)
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
 		void addConst(int64_t v) override;
 		bool isInlineable(const llvm::Value* p) override;
+		void compileValue(const llvm::Value* v, uint32_t size, bool first) const;
+		void compileValues() const;
+		bool hasValues() const;
 	};
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstants;
 	LinearMemoryHelper::GlobalUsageMap globalizedGlobalsIDs;
