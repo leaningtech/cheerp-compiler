@@ -284,6 +284,7 @@ public:
 		}
 		bool isInlineable(const llvm::Value* p);
 	};
+	static int64_t compileGEPOperand(const llvm::Value* idxVal, uint32_t size, GepListener* listener);
 	// Returns the base of the compiled expression
 	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener) const;
 	static const llvm::Value* compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener);
