@@ -180,9 +180,8 @@ private:
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
 		void addConst(int64_t v) override;
-		void compileValue(const llvm::Value* v, uint32_t size, bool first) const;
-		void compileValues() const;
-		bool hasValues() const;
+		void compileValue(const llvm::Value* v, uint32_t size) const;
+		bool compileValues(bool useConstPart) const;
 	};
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstants;
 	LinearMemoryHelper::GlobalUsageMap globalizedGlobalsIDs;
