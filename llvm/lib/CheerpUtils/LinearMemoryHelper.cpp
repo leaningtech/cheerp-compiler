@@ -240,27 +240,39 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListe
 	return compileGEP(module, p, listener);
 }
 
-int64_t LinearMemoryHelper::compileGEPOperand(const llvm::Value* idxVal, uint32_t size, GepListener* listener)
+int64_t LinearMemoryHelper::compileGEPOperand(const llvm::Value* idxVal, uint32_t size, GepListener* listener, bool invert)
 {
 	if (const ConstantInt* idx = dyn_cast<ConstantInt>(idxVal))
 	{
-		return idx->getSExtValue()*size;
+		int64_t ret = idx->getSExtValue()*size;
+		if(invert)
+			ret = -ret;
+		return ret;
 	}
 	else
 	{
 		if (isa<Instruction>(idxVal) && listener->isInlineable(idxVal))
 		{
 			const Instruction* idxI = cast<Instruction>(idxVal);
-			// TODO: Support Sub
 			if (idxI->getOpcode() == Instruction::Add)
 			{
 				int64_t ret = 0;
-				ret += compileGEPOperand(idxI->getOperand(0), size, listener);
-				ret += compileGEPOperand(idxI->getOperand(1), size, listener);
+				ret += compileGEPOperand(idxI->getOperand(0), size, listener, invert);
+				ret += compileGEPOperand(idxI->getOperand(1), size, listener, invert);
+				return ret;
+			}
+			else if (listener->hasSubValue() && idxI->getOpcode() == Instruction::Sub)
+			{
+				int64_t ret = 0;
+				ret += compileGEPOperand(idxI->getOperand(0), size, listener, invert);
+				ret += compileGEPOperand(idxI->getOperand(1), size, listener, !invert);
 				return ret;
 			}
 		}
-		listener->addValue(idxVal, size);
+		if(invert)
+			listener->subValue(idxVal, size);
+		else
+			listener->addValue(idxVal, size);
 		return 0;
 	}
 }
@@ -290,7 +302,7 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module& module, co
 				{
 					curType = getElementType(curType);
 					uint32_t size = targetData.getTypeAllocSize(curType);
-					constPart += compileGEPOperand(indices[i], size, listener);
+					constPart += compileGEPOperand(indices[i], size, listener, false);
 				}
 			}
 		}

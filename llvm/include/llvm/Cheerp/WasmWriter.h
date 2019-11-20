@@ -173,13 +173,19 @@ private:
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
 		std::vector<std::pair<const llvm::Value*, uint32_t>> addedValues;
+		std::vector<std::pair<const llvm::Value*, uint32_t>> subbedValues;
 		int32_t constPart;
 		WasmGepWriter(CheerpWasmWriter& writer, WasmBuffer& code)
 			: LinearMemoryHelper::LinearGepListener(writer.PA), writer(writer), code(code), constPart(0)
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
+		void subValue(const llvm::Value* v, uint32_t size) override;
 		void addConst(int64_t v) override;
+		bool hasSubValue() const override
+		{
+			return true;
+		}
 		void compileValue(const llvm::Value* v, uint32_t size) const;
 		bool compileValues(bool useConstPart) const;
 	};

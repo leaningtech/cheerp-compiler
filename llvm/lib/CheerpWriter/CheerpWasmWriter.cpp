@@ -4345,6 +4345,11 @@ void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t si
 	addedValues.emplace_back(v, size);
 }
 
+void CheerpWasmWriter::WasmGepWriter::subValue(const llvm::Value* v, uint32_t size)
+{
+	subbedValues.emplace_back(v, size);
+}
+
 void CheerpWasmWriter::WasmGepWriter::compileValue(const llvm::Value* v, uint32_t size) const
 {
 	writer.compileOperand(code, v);
@@ -4380,7 +4385,17 @@ bool CheerpWasmWriter::WasmGepWriter::compileValues(bool useConstPart) const
 			writer.encodeInst(0x6a, "i32.add", code);
 		first = false;
 	}
-	return first;
+	if(subbedValues.empty())
+		return first;
+	// To deal with subtracted values we need at least a value
+	if(first)
+		writer.encodeS32Inst(0x41, "i32.const", 0, code);
+	for(auto& it: subbedValues)
+	{
+		compileValue(it.first, it.second);
+		writer.encodeInst(0x6b, "i32.sub", code);
+	}
+	return false;
 }
 
 void CheerpWasmWriter::WasmGepWriter::addConst(int64_t v)
