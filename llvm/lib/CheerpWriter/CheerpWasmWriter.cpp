@@ -1361,7 +1361,8 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	WasmGepWriter gepWriter(*this, code);
 	uint32_t base = 0;
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
-	bool firstOperand = gepWriter.first;
+	gepWriter.compileValues();
+	bool firstOperand = !gepWriter.hasValues();
 	if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
 		base = linearHelper.getGlobalVariableAddress(GV);
 	else
@@ -2001,7 +2002,8 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 		// Calling compileGEP is safe on any instruction
 		WasmGepWriter gepWriter(*this, code);
 		auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
-		bool firstOperand = gepWriter.first;
+		gepWriter.compileValues();
+		bool firstOperand = !gepWriter.hasValues();
 		if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
 		{
 			uint32_t address = linearHelper.getGlobalVariableAddress(GV);
@@ -4365,6 +4367,11 @@ void CheerpWasmWriter::WasmBytesWriter::addByte(uint8_t byte)
 
 void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t size)
 {
+	addedValues.emplace_back(v, size);
+}
+
+void CheerpWasmWriter::WasmGepWriter::compileValue(const llvm::Value* v, uint32_t size, bool first) const
+{
 	writer.compileOperand(code, v);
 	if (size > 1)
 	{
@@ -4381,7 +4388,21 @@ void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t si
 	}
 	if(!first)
 		writer.encodeInst(0x6a, "i32.add", code);
-	first = false;
+}
+
+void CheerpWasmWriter::WasmGepWriter::compileValues() const
+{
+	bool first = true;
+	for(auto& it: addedValues)
+	{
+		compileValue(it.first, it.second, first);
+		first = false;
+	}
+}
+
+bool CheerpWasmWriter::WasmGepWriter::hasValues() const
+{
+	return !addedValues.empty();
 }
 
 void CheerpWasmWriter::WasmGepWriter::addConst(int64_t v)
