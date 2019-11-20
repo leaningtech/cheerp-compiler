@@ -1498,9 +1498,7 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 		case Instruction::ICmp:
 		{
 			CmpInst::Predicate p = (CmpInst::Predicate)ce->getPredicate();
-			compileOperand(code, ce->getOperand(0));
-			compileOperand(code, ce->getOperand(1));
-			encodePredicate(ce->getOperand(0)->getType(), p, code);
+			compileICmp(ce->getOperand(0), ce->getOperand(1), p, code);
 			break;
 		}
 		case Instruction::PtrToInt:
@@ -1822,40 +1820,70 @@ bool CheerpWasmWriter::isSignedLoad(const Value* V) const
 	return true;
 }
 
-void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate p,
+void CheerpWasmWriter::compileICmp(const Value* op0, const Value* op1, const CmpInst::Predicate p,
 		WasmBuffer& code)
 {
-	if(ci.getOperand(0)->getType()->isPointerTy())
+	bool useEqz = false;
+	if(p == CmpInst::ICMP_EQ)
 	{
-		compileOperand(code, ci.getOperand(0));
-		compileOperand(code, ci.getOperand(1));
+		// Move the constant on op1 to simplify the logic below
+		if(isa<Constant>(op0))
+			std::swap(op0, op1);
+		if(isa<Constant>(op1) && cast<Constant>(op1)->isNullValue())
+			useEqz = true;
+	}
+	if(op0->getType()->isPointerTy())
+	{
+		compileOperand(code, op0);
+		if(useEqz)
+		{
+			encodeInst(0x45, "i32.eqz", code);
+			return;
+		}
+		compileOperand(code, op1);
 	}
 	else if(CmpInst::isSigned(p))
 	{
-		bool isOp0Signed = isSignedLoad(ci.getOperand(0));
-		bool isOp1Signed = isSignedLoad(ci.getOperand(1));
+		bool isOp0Signed = isSignedLoad(op0);
+		bool isOp1Signed = isSignedLoad(op1);
 		// Only use the "forComparison" trick if neither operands are signed loads
 		bool useForComparison = !isOp0Signed && !isOp1Signed;
 		if(isOp0Signed)
-			compileOperand(code, ci.getOperand(0));
+			compileOperand(code, op0);
 		else
-			compileSignedInteger(code, ci.getOperand(0), useForComparison);
+			compileSignedInteger(code, op0, useForComparison);
 		if(isOp1Signed)
-			compileOperand(code, ci.getOperand(1));
+			compileOperand(code, op1);
 		else
-			compileSignedInteger(code, ci.getOperand(1), useForComparison);
+			compileSignedInteger(code, op1, useForComparison);
 	}
-	else if (CmpInst::isUnsigned(p) || !ci.getOperand(0)->getType()->isIntegerTy(32))
+	else if (CmpInst::isUnsigned(p) || !op0->getType()->isIntegerTy(32))
 	{
-		compileUnsignedInteger(code, ci.getOperand(0));
-		compileUnsignedInteger(code, ci.getOperand(1));
+		compileUnsignedInteger(code, op0);
+		if(useEqz)
+		{
+			encodeInst(0x45, "i32.eqz", code);
+			return;
+		}
+		compileUnsignedInteger(code, op1);
 	}
 	else
 	{
-		compileSignedInteger(code, ci.getOperand(0), true);
-		compileSignedInteger(code, ci.getOperand(1), true);
+		compileSignedInteger(code, op0, true);
+		if(useEqz)
+		{
+			encodeInst(0x45, "i32.eqz", code);
+			return;
+		}
+		compileSignedInteger(code, op1, true);
 	}
-	encodePredicate(ci.getOperand(0)->getType(), p, code);
+	encodePredicate(op0->getType(), p, code);
+}
+
+void CheerpWasmWriter::compileICmp(const ICmpInst& ci, const CmpInst::Predicate p,
+		WasmBuffer& code)
+{
+	compileICmp(ci.getOperand(0), ci.getOperand(1), p, code);
 }
 
 void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::Predicate p, WasmBuffer& code)
@@ -2952,22 +2980,29 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* con
 		CmpInst::Predicate p = ci->getPredicate();
 		if(booleanInvert)
 			p = CmpInst::getInversePredicate(p);
+		Value* op0 = ci->getOperand(0);
+		Value* op1 = ci->getOperand(1);
+		if(ci->isCommutative() && isa<Constant>(op0))
+		{
+			// Move the constant on op1 to simplify the logic below
+			std::swap(op0, op1);
+		}
 		// Optimize "if (a != 0)" to "if (a)" and "if (a == 0)" to "if (!a)".
 		if ((p == CmpInst::ICMP_NE || p == CmpInst::ICMP_EQ) &&
-				isa<Constant>(ci->getOperand(1)) &&
-				cast<Constant>(ci->getOperand(1))->isNullValue())
+				isa<Constant>(op1) &&
+				cast<Constant>(op1)->isNullValue())
 		{
-			if(ci->getOperand(0)->getType()->isPointerTy())
-				compileOperand(code, ci->getOperand(0));
-			else if(ci->getOperand(0)->getType()->isIntegerTy(32))
-				compileSignedInteger(code, ci->getOperand(0), /*forComparison*/true);
+			if(op0->getType()->isPointerTy())
+				compileOperand(code, op0);
+			else if(op0->getType()->isIntegerTy(32))
+				compileSignedInteger(code, op0, /*forComparison*/true);
 			else
-				compileUnsignedInteger(code, ci->getOperand(0));
+				compileUnsignedInteger(code, op0);
 			if(p == CmpInst::ICMP_EQ)
 				encodeInst(0x45, "i32.eqz", code);
 			return;
 		}
-		compileICmp(*ci, p, code);
+		compileICmp(op0, op1, p, code);
 	}
 	else if(canInvertCond && isa<FCmpInst>(cond))
 	{
