@@ -1359,25 +1359,12 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	}
 
 	WasmGepWriter gepWriter(*this, code);
-	uint32_t base = 0;
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
-	gepWriter.compileValues();
-	bool firstOperand = !gepWriter.hasValues();
 	if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
-		base = linearHelper.getGlobalVariableAddress(GV);
+		gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
 	else
-	{
-		compileOperand(code, p);
-		if(firstOperand)
-			firstOperand = false;
-		else
-			encodeInst(0x6a, "i32.add", code);
-	}
-	if (gepWriter.constPart + base) {
-		encodeS32Inst(0x41, "i32.const", gepWriter.constPart + base, code);
-		if(!firstOperand)
-			encodeInst(0x6a, "i32.add", code);
-	}
+		gepWriter.addValue(p, 1);
+	gepWriter.compileValues(/*useConstPart*/true);
 }
 
 void CheerpWasmWriter::encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock)
@@ -2002,28 +1989,16 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 		// Calling compileGEP is safe on any instruction
 		WasmGepWriter gepWriter(*this, code);
 		auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
-		gepWriter.compileValues();
-		bool firstOperand = !gepWriter.hasValues();
 		if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
-		{
-			uint32_t address = linearHelper.getGlobalVariableAddress(GV);
-			offset += address;
-		}
+			gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
 		else
-		{
-			compileOperand(code, p);
-			if(firstOperand)
-				firstOperand = false;
-			else
-				encodeInst(0x6a, "i32.add", code);
-		}
+			gepWriter.addValue(p, 1);
 		// The immediate offset of a load instruction is an unsigned
 		// 32-bit integer. Negative immediate offsets are not supported.
-		if (gepWriter.constPart < 0) {
-			encodeS32Inst(0x41, "i32.const", gepWriter.constPart, code);
-			if(!firstOperand)
-				encodeInst(0x6a, "i32.add", code);
-		} else {
+		// So let compileValues deal with the value
+		bool negativeConstPart = gepWriter.constPart < 0;
+		bool firstOperand = gepWriter.compileValues(/*useConstPart*/negativeConstPart);
+		if (!negativeConstPart) {
 			// There must be something on the stack
 			if (firstOperand)
 				encodeS32Inst(0x41, "i32.const", 0, code);
@@ -4370,7 +4345,7 @@ void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t si
 	addedValues.emplace_back(v, size);
 }
 
-void CheerpWasmWriter::WasmGepWriter::compileValue(const llvm::Value* v, uint32_t size, bool first) const
+void CheerpWasmWriter::WasmGepWriter::compileValue(const llvm::Value* v, uint32_t size) const
 {
 	writer.compileOperand(code, v);
 	if (size > 1)
@@ -4386,23 +4361,26 @@ void CheerpWasmWriter::WasmGepWriter::compileValue(const llvm::Value* v, uint32_
 			writer.encodeInst(0x6c, "i32.mul", code);
 		}
 	}
-	if(!first)
-		writer.encodeInst(0x6a, "i32.add", code);
 }
 
-void CheerpWasmWriter::WasmGepWriter::compileValues() const
+bool CheerpWasmWriter::WasmGepWriter::compileValues(bool useConstPart) const
 {
 	bool first = true;
 	for(auto& it: addedValues)
 	{
-		compileValue(it.first, it.second, first);
+		compileValue(it.first, it.second);
+		if(!first)
+			writer.encodeInst(0x6a, "i32.add", code);
 		first = false;
 	}
-}
-
-bool CheerpWasmWriter::WasmGepWriter::hasValues() const
-{
-	return !addedValues.empty();
+	if(useConstPart && constPart != 0)
+	{
+		writer.encodeS32Inst(0x41, "i32.const", constPart, code);
+		if(!first)
+			writer.encodeInst(0x6a, "i32.add", code);
+		first = false;
+	}
+	return first;
 }
 
 void CheerpWasmWriter::WasmGepWriter::addConst(int64_t v)
@@ -4413,5 +4391,5 @@ void CheerpWasmWriter::WasmGepWriter::addConst(int64_t v)
 	assert(v>=std::numeric_limits<int32_t>::min());
 	assert(v<=std::numeric_limits<int32_t>::max());
 
-	constPart = v;
+	constPart += v;
 }
