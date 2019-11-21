@@ -527,21 +527,28 @@ bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
 	for ( BasicBlock* BB : blocks )
 	{
 		// TODO: This should be another pass
-		if(BranchInst* BI = dyn_cast<BranchInst>(BB->getTerminator()))
+		for ( Instruction& I: *BB )
 		{
-			if(BI->isConditional() && BI->getCondition()->hasOneUse())
+			if(!(isa<BranchInst>(I) && cast<BranchInst>(I).isConditional()) && !isa<SelectInst>(I))
+				continue;
+			llvm::Value* cond = I.getOperand(0);
+			assert(cond->getType()->isIntegerTy(1));
+			if(cond->hasOneUse())
 			{
-				if(FCmpInst* FC = dyn_cast<FCmpInst>(BI->getCondition()))
+				if(FCmpInst* FC = dyn_cast<FCmpInst>(cond))
 				{
 					if(CmpInst::isUnordered(FC->getPredicate()))
 					{
 						// Invert the condition and swap the targets
 						FC->setPredicate(FC->getInversePredicate());
-						BI->swapSuccessors();
+						llvm::Value* trueVal = I.getOperand(1);
+						llvm::Value* falseVal = I.getOperand(2);
+						I.setOperand(1, falseVal);
+						I.setOperand(2, trueVal);
 						Changed = true;
 					}
 				}
-				else if(ICmpInst* IC = dyn_cast<ICmpInst>(BI->getCondition()))
+				else if(ICmpInst* IC = dyn_cast<ICmpInst>(cond))
 				{
 					Value* op0 = IC->getOperand(0);
 					Value* op1 = IC->getOperand(1);
@@ -553,7 +560,10 @@ bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
 					{
 						// Invert the condition and swap the targets
 						IC->setPredicate(ICmpInst::ICMP_NE);
-						BI->swapSuccessors();
+						llvm::Value* trueVal = I.getOperand(1);
+						llvm::Value* falseVal = I.getOperand(2);
+						I.setOperand(1, falseVal);
+						I.setOperand(2, trueVal);
 						Changed = true;
 					}
 				}
