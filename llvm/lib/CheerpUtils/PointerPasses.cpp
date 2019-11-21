@@ -529,14 +529,30 @@ bool PointerToImmutablePHIRemoval::runOnFunction(Function& F)
 		// TODO: This should be another pass
 		if(BranchInst* BI = dyn_cast<BranchInst>(BB->getTerminator()))
 		{
-			if(BI->isConditional())
+			if(BI->isConditional() && BI->getCondition()->hasOneUse())
 			{
 				if(FCmpInst* FC = dyn_cast<FCmpInst>(BI->getCondition()))
 				{
-					if(CmpInst::isUnordered(FC->getPredicate()) && FC->getNumUses() == 1)
+					if(CmpInst::isUnordered(FC->getPredicate()))
 					{
 						// Invert the condition and swap the targets
 						FC->setPredicate(FC->getInversePredicate());
+						BI->swapSuccessors();
+						Changed = true;
+					}
+				}
+				else if(ICmpInst* IC = dyn_cast<ICmpInst>(BI->getCondition()))
+				{
+					Value* op0 = IC->getOperand(0);
+					Value* op1 = IC->getOperand(1);
+					// Move the constant in op1 to simplify the check
+					if(isa<Constant>(op0))
+						std::swap(op0, op1);
+					// Favor if(a) instead of if(a == 0)
+					if(IC->getPredicate() == ICmpInst::ICMP_EQ && isa<Constant>(op1) && cast<Constant>(op1)->isNullValue())
+					{
+						// Invert the condition and swap the targets
+						IC->setPredicate(ICmpInst::ICMP_NE);
 						BI->swapSuccessors();
 						Changed = true;
 					}
