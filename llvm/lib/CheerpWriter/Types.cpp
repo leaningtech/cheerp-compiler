@@ -498,6 +498,11 @@ void CheerpWriter::compileArrayPointerType()
 
 bool CheerpWriter::needsUnsignedTruncation(std::unordered_set<const llvm::Value*> visited, const Value* v, bool asmjs)
 {
+	if(isa<CmpInst>(v))
+	{
+		// Always 0/1
+		return false;
+	}
 	if(!v->getType()->isIntegerTy(8) && !v->getType()->isIntegerTy(16))
 		return true;
 	if(!visited.insert(v).second)
