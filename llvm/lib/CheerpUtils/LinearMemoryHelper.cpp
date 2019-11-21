@@ -254,6 +254,7 @@ int64_t LinearMemoryHelper::compileGEPOperand(const llvm::Value* idxVal, uint32_
 		if (isa<Instruction>(idxVal) && listener->isInlineable(idxVal))
 		{
 			const Instruction* idxI = cast<Instruction>(idxVal);
+			// We can look into Adds and Subs to merge away more constants
 			if (idxI->getOpcode() == Instruction::Add)
 			{
 				int64_t ret = 0;
@@ -267,6 +268,28 @@ int64_t LinearMemoryHelper::compileGEPOperand(const llvm::Value* idxVal, uint32_
 				ret += compileGEPOperand(idxI->getOperand(0), size, listener, invert);
 				ret += compileGEPOperand(idxI->getOperand(1), size, listener, !invert);
 				return ret;
+			}
+			// We can also look into Shls and Muls and merge a constant into the size
+			else if(idxI->getOpcode() == Instruction::Shl)
+			{
+				if(isa<ConstantInt>(idxI->getOperand(1)))
+				{
+					uint32_t shiftAmount = cast<ConstantInt>(idxI->getOperand(1))->getZExtValue();
+					return compileGEPOperand(idxI->getOperand(0), (1<<shiftAmount)*size, listener, invert);
+				}
+			}
+			else if(idxI->getOpcode() == Instruction::Mul)
+			{
+				if(isa<ConstantInt>(idxI->getOperand(0)))
+				{
+					uint32_t mulAmount = cast<ConstantInt>(idxI->getOperand(0))->getZExtValue();
+					return compileGEPOperand(idxI->getOperand(1), mulAmount*size, listener, invert);
+				}
+				else if(isa<ConstantInt>(idxI->getOperand(1)))
+				{
+					uint32_t mulAmount = cast<ConstantInt>(idxI->getOperand(1))->getZExtValue();
+					return compileGEPOperand(idxI->getOperand(0), mulAmount*size, listener, invert);
+				}
 			}
 		}
 		if(invert)
