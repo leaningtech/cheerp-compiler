@@ -18,8 +18,14 @@
 #include "llvm/IR/Instructions.h"
 
 #define DEBUG_TOKENLIST 1
+//#define TOKEN_OPT_DUMP
+
+#ifdef TOKEN_OPT_DUMP
+	#define DEBUG_TOKENLIST 1
+#endif
 
 #ifdef DEBUG_TOKENLIST
+	#include <vector>
 	#include "llvm/Support/raw_ostream.h"
 #endif
 
@@ -285,6 +291,77 @@ public:
 		return &TokenList::List;
 	}
 #ifdef DEBUG_TOKENLIST
+	void CFGdump() const
+	{
+		std::vector<char> openParenthesis;
+		int lineLenght = 80;
+		for (const Token& T: List)
+		{
+			if (lineLenght-- == 0)
+			{
+				llvm::errs() << "...";
+				break;
+			}
+			char representative = ' ';
+			switch (T.getKind())
+			{
+				case Token::TK_BasicBlock:
+					representative = 'B';
+					break;
+				case Token::TK_Loop:
+					representative = '[';
+					openParenthesis.push_back(representative);
+					break;
+				case Token::TK_Block:
+					representative = '{';
+					openParenthesis.push_back(representative);
+					break;
+				case Token::TK_If:
+				case Token::TK_IfNot:
+					representative = '(';
+					openParenthesis.push_back(representative);
+					break;
+				case Token::TK_Switch:
+					//Switch also open a parenthesis
+					openParenthesis.push_back('{');
+					representative = 's';
+					break;
+				case Token::TK_Else:
+					representative = '|';
+					break;
+				case Token::TK_End:
+					representative = openParenthesis.back();
+					openParenthesis.pop_back();
+					if (representative == '{')
+						representative = '}';
+					else if (representative == '[')
+						representative = ']';
+					else if (representative == '(')
+						representative = ')';
+					break;
+				case Token::TK_Branch:
+					representative = '!';
+					break;
+				case Token::TK_BrIf:
+				case Token::TK_BrIfNot:
+					representative = '?';
+					break;
+				case Token::TK_Prologue:
+					representative = 'p';
+					break;
+				case Token::TK_Condition:
+					representative = 'c';
+					break;
+				case Token::TK_Case:
+					representative = '*';
+					break;
+				default:
+					assert(false);
+			}
+			llvm::errs() << representative;
+		}
+		llvm::errs() << "\n";
+	}
 	void dump(const Token* Pos = nullptr) const
 	{
 		int indentLevel = Pos != nullptr;
