@@ -692,6 +692,12 @@ private:
 		}
 		Tokens.erase(ToRemove);
 	}
+	void passStart()
+	{
+#ifdef TOKEN_OPT_DUMP
+		Tokens.CFGdump();
+#endif
+	}
 };
 void TokenListOptimizer::runAll()
 {
@@ -731,6 +737,7 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
 }
 void TokenListOptimizer::removeRedundantBranches()
 {
+	passStart();
 	for_each_kind<Token::TK_Branch>([&](Token* Branch)
 	{
 		Token* End = Branch->getMatch();
@@ -751,6 +758,7 @@ void TokenListOptimizer::removeRedundantBranches()
 
 void TokenListOptimizer::removeRedundantLoops()
 {
+	passStart();
 	for_each_kind<Token::TK_Loop>([&](Token* Loop)
 	{
 		DenseSet<Token*> ExtraLoops;
@@ -793,6 +801,7 @@ static bool isEmptyPrologue(const BasicBlock* From, const BasicBlock* To,
 }
 void TokenListOptimizer::removeEmptyPrologues()
 {
+	passStart();
 	for_each_kind<Token::TK_Prologue>([&](Token* Prologue)
 	{
 		if (isEmptyPrologue(Prologue->getBB(),
@@ -805,6 +814,7 @@ void TokenListOptimizer::removeEmptyPrologues()
 
 void TokenListOptimizer::removeEmptyBasicBlocks()
 {
+	passStart();
 	for_each_kind<Token::TK_BasicBlock>([&](Token* BBT)
 	{
 		if (isNumStatementsLessThan<1>(BBT->getBB(), PA, R))
@@ -814,6 +824,7 @@ void TokenListOptimizer::removeEmptyBasicBlocks()
 
 void TokenListOptimizer::removeEmptyIfs()
 {
+	passStart();
 	for_each_kind<Token::TK_End | Token::TK_Else>([&](Token* T)
 	{
 		Token* Prev = T->getPrevNode();
@@ -863,6 +874,7 @@ void TokenListOptimizer::removeEmptyIfs()
 
 void TokenListOptimizer::createBrIfs()
 {
+	passStart();
 	for_each_kind<Token::TK_If | Token::TK_IfNot>([&](Token* T)
 	{
 		Token* End = T->getMatch();
@@ -884,6 +896,7 @@ void TokenListOptimizer::createBrIfs()
 
 void TokenListOptimizer::mergeBlocks()
 {
+	passStart();
 	for_each_kind<Token::TK_Branch>([&](Token* Br)
 	{
 		// Look for branches that target Block Tokens
@@ -941,6 +954,7 @@ static bool canFallThrough(Token* T)
 }
 void TokenListOptimizer::removeUnnededNesting()
 {
+	passStart();
 	// Iterate the End Tokens, so we handle the innermost Ifs first
 	for_each_kind<Token::TK_End>([&](Token* End)
 	{
@@ -1002,6 +1016,7 @@ void TokenListOptimizer::removeUnnededNesting()
 
 void TokenListOptimizer::adjustLoopEnds()
 {
+	passStart();
 	for_each_kind<Token::TK_Loop>([&](Token* Loop)
 	{
 		Token* End = Loop->getMatch();
@@ -1036,6 +1051,7 @@ void TokenListOptimizer::adjustLoopEnds()
 
 void TokenListOptimizer::removeRedundantBlocks()
 {
+	passStart();
 	// We can branch out of some tokens like they were Block tokens.
 	// Which ones depends on the actual target
 	uint32_t BlockLikeTokens = 0;
@@ -1088,6 +1104,9 @@ CFGStackifier::CFGStackifier(const llvm::Function &F, const llvm::LoopInfo& LI,
 		TokenListVerifier Verifier(Tokens);
 		assert(Verifier.verify());
 	}
+#endif
+#ifdef TOKEN_OPT_DUMP
+	llvm::errs() << F.getName() << "\n";
 #endif
 	TokenListOptimizer Opt(Tokens, R, PA, M);
 	Opt.runAll();
