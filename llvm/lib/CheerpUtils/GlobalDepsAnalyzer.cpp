@@ -300,6 +300,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			const auto builtinID = BuiltinInstr::getMathBuiltin(F);
 			if (cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID))
 			{
+				//Preserve sinf and cosf if in WASM modality
+				if (mathMode == WASM_BUILTINS &&
+					(BuiltinInstr::BUILTIN::COS_F == builtinID ||
+					BuiltinInstr::BUILTIN::SIN_F == builtinID))
+					continue;
+
 				F.deleteBody();
 				droppedMathBuiltins.insert(&F);
 			}
@@ -511,6 +517,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		if (mathMode == WASM_BUILTINS)
 		{
 			//There is no need to export these JS builtin to Wasm
+			hasBuiltin[BuiltinInstr::BUILTIN::COS_F] = false;
+			hasBuiltin[BuiltinInstr::BUILTIN::SIN_F] = false;
 			hasBuiltin[BuiltinInstr::BUILTIN::ABS_F] = false;
 			hasBuiltin[BuiltinInstr::BUILTIN::CEIL_F] = false;
 			hasBuiltin[BuiltinInstr::BUILTIN::FLOOR_F] = false;
