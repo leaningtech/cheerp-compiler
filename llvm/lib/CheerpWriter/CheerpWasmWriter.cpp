@@ -2401,6 +2401,18 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							break;
 						return false;
 					}
+					case Intrinsic::floor:
+					{
+						assert(!ci.use_empty());
+						compileOperand(code, ci.op_begin()->get());
+						if(ci.getType()->isFloatTy())
+							encodeInst(0x8e, "f32.floor", code);
+						else if(ci.getType()->isDoubleTy())
+							encodeInst(0x9c, "f64.floor", code);
+						else
+							break;
+						return false;
+					}
 #ifdef USE_BUILTINS
 					case Intrinsic::cos:
 					case Intrinsic::exp:
@@ -2427,60 +2439,53 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				if(!NoNativeJavaScriptMath || intrinsicId)
 				{
 					StringRef ident = calledFunc->getName();
-					bool builtinFound = false;
-					BuiltinInstr::BUILTIN b;
+					BuiltinInstr::BUILTIN b = BuiltinInstr::BUILTIN::NONE;
 					if(ident=="acos" || ident=="acosf")
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::ACOS_F;
 					}
 					else if(ident=="asin" || ident=="asinf")
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::ASIN_F;
 					}
 					else if(ident=="atan" || ident=="atanf")
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::ATAN_F;
 					}
 					else if(ident=="atan2" || ident=="atan2f")
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::ATAN2_F;
 					}
 					else if(ident=="cos" || ident=="cosf" || intrinsicId==Intrinsic::cos)
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::COS_F;
 					}
 					else if(ident=="exp" || ident=="expf" || intrinsicId==Intrinsic::exp)
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::EXP_F;
 					}
 					else if(ident=="log" || ident=="logf" || intrinsicId==Intrinsic::log)
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::LOG_F;
 					}
 					else if(ident=="pow" || ident=="powf" || intrinsicId==Intrinsic::pow)
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::POW_F;
 					}
 					else if(ident=="sin" || ident=="sinf" || intrinsicId==Intrinsic::sin)
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::SIN_F;
 					}
 					else if(ident=="tan" || ident=="tanf")
 					{
-						builtinFound = true;
 						b = BuiltinInstr::BUILTIN::TAN_F;
 					}
 
-					if(builtinFound)
+					if (b == BuiltinInstr::BUILTIN::SIN_F ||
+						b == BuiltinInstr::BUILTIN::COS_F)
+						b = BuiltinInstr::BUILTIN::NONE;
+
+					if(b != BuiltinInstr::BUILTIN::NONE)
 					{
 						// We will use a builtin, do float conversion if needed
 						bool floatType = calledFunc->getReturnType()->isFloatTy();
