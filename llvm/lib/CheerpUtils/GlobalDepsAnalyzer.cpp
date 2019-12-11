@@ -1006,6 +1006,7 @@ bool GlobalDepsAnalyzer::isMathIntrinsic(StringRef funcName)
 	CHECK_MATH_FUNC("acos"); CHECK_MATH_FUNC("acosf");
 	CHECK_MATH_FUNC("asin"); CHECK_MATH_FUNC("asinf");
 	CHECK_MATH_FUNC("atan"); CHECK_MATH_FUNC("atanf");
+	CHECK_MATH_FUNC("atan2"); CHECK_MATH_FUNC("atan2f");
 	CHECK_MATH_FUNC("ceil"); CHECK_MATH_FUNC("ceilf");
 	CHECK_MATH_FUNC("cos"); CHECK_MATH_FUNC("cosf");
 	CHECK_MATH_FUNC("exp"); CHECK_MATH_FUNC("expf");
