@@ -195,7 +195,7 @@ template <> struct GraphTraits<Inverse<ValidBasicBlockForestGraph::Node*>> {
 	typedef ValidBasicBlockForestGraph::Node NodeType;
 	typedef ValidBasicBlockForestGraph::PredIterator ChildIteratorType;
 
-	static NodeType *getEntryNode(NodeType* N) { return N; }
+	static NodeType *getEntryNode(Inverse<NodeType*> N) { return N.Graph; }
 	static inline ChildIteratorType child_begin(NodeType *N) {
 		return ChildIteratorType(N);
 	}
