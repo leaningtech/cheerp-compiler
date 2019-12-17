@@ -675,7 +675,7 @@ void CodeGenVTables::EmitThunks(GlobalDecl GD) {
     maybeEmitThunk(GD, Thunk, /*ForVTable=*/false);
 }
 
-void CodeGenVTables::addRelativeComponent(AggregateBuilderPublic &builder,
+void CodeGenVTables::addRelativeComponent(ConstantAggregateBuilderBase &builder,
                                           llvm::Constant *component,
                                           unsigned vtableAddressPoint,
                                           bool vtableHasLocalLinkage,
@@ -750,7 +750,7 @@ static void AddRelativeLayoutOffset(const CodeGenModule &CGM,
   builder.add(llvm::ConstantInt::get(CGM.Int32Ty, offset.getQuantity()));
 }
 
-void CodeGenVTables::addVTableComponent(AggregateBuilderPublic &builder,
+void CodeGenVTables::addVTableComponent(ConstantAggregateBuilderBase &builder,
                                         const CXXRecordDecl *LayoutClass,
                                         const VTableLayout &layout,
                                         unsigned componentIndex,

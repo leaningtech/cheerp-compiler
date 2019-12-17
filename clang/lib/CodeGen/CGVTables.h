@@ -28,7 +28,7 @@ namespace CodeGen {
   class CodeGenModule;
   class ConstantArrayBuilder;
   class ConstantStructBuilder;
-  class AggregateBuilderPublic;
+  class ConstantAggregateBuilderBase;
 
 class CodeGenVTables {
   CodeGenModule &CGM;
@@ -64,7 +64,7 @@ public:
                                  bool ForVTable);
 private:
 
-  void addVTableComponent(AggregateBuilderPublic &builder,
+  void addVTableComponent(ConstantAggregateBuilderBase &builder,
                           const CXXRecordDecl *LayoutClass,
                           const VTableLayout &layout, unsigned componentIndex,
                           llvm::Constant *rtti, unsigned &nextVTableThunkIndex,
@@ -73,7 +73,7 @@ private:
 
   /// Add a 32-bit offset to a component relative to the vtable when using the
   /// relative vtables ABI. The array builder points to the start of the vtable.
-  void addRelativeComponent(AggregateBuilderPublic &builder,
+  void addRelativeComponent(ConstantAggregateBuilderBase &builder,
                             llvm::Constant *component,
                             unsigned vtableAddressPoint,
                             bool vtableHasLocalLinkage,
