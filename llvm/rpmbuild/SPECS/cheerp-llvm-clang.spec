@@ -7,7 +7,7 @@ License:  NCSA and MIT
 URL: https://leaningtech.com/cheerp
 Source0: %{NAME}-%{VERSION}.tar.gz
 
-BuildRequires: clang cmake make python3
+BuildRequires: clang lld cmake make python3
 
 %description
 Cheerp is a tool to bring C++ programming to the Web. It can generate a seamless
