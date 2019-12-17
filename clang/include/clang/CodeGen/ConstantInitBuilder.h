@@ -325,7 +325,7 @@ public:
 
 protected:
   llvm::Constant *finishArray(llvm::Type *eltTy);
-  llvm::Constant *finishStruct(llvm::StructType *structTy);
+  llvm::Constant *finishStruct(llvm::StructType *structTy, llvm::StructType* directBase, bool asmjs);
 
 private:
   void getGEPIndicesTo(llvm::SmallVectorImpl<llvm::Constant*> &indices,
@@ -376,9 +376,9 @@ public:
   /// builder.  This aids in readability by making it easier to find the
   /// places that add components to a builder, as well as "bookending"
   /// the sub-builder more explicitly.
-  void finishAndAddTo(AggregateBuilderBase &parent) {
+  void finishAndAddTo(AggregateBuilderBase &parent, llvm::StructType* directBase = nullptr, bool asmjs = false) {
     assert(this->Parent == &parent && "adding to non-parent builder");
-    parent.add(asImpl().finishImpl());
+    parent.add(asImpl().finishImpl(directBase, asmjs));
   }
 
   /// Given that this builder was created by beginning an array or struct
@@ -387,16 +387,16 @@ public:
   template <class... As>
   llvm::GlobalVariable *finishAndCreateGlobal(As &&...args) {
     assert(!this->Parent && "finishing non-root builder");
-    return this->Builder.createGlobal(asImpl().finishImpl(),
+    return this->Builder.createGlobal(asImpl().finishImpl(nullptr, /*asmjs*/false),
                                       std::forward<As>(args)...);
   }
 
   /// Given that this builder was created by beginning an array or struct
   /// directly on a ConstantInitBuilder, finish the array/struct and
   /// set it as the initializer of the given global variable.
-  void finishAndSetAsInitializer(llvm::GlobalVariable *global) {
+  void finishAndSetAsInitializer(llvm::GlobalVariable *global, llvm::StructType* directBase = nullptr, bool asmjs = false) {
     assert(!this->Parent && "finishing non-root builder");
-    return this->Builder.setGlobalInitializer(global, asImpl().finishImpl());
+    return this->Builder.setGlobalInitializer(global, asImpl().finishImpl(directBase, asmjs));
   }
 
   /// Given that this builder was created by beginning an array or struct
@@ -439,7 +439,8 @@ protected:
 private:
   /// Form an array constant from the values that have been added to this
   /// builder.
-  llvm::Constant *finishImpl() {
+  llvm::Constant *finishImpl(llvm::StructType* directBase, bool asmjs) {
+    assert(directBase == nullptr);
     return AggregateBuilderBase::finishArray(EltTy);
   }
 };
@@ -490,8 +491,8 @@ public:
 private:
   /// Form an array constant from the values that have been added to this
   /// builder.
-  llvm::Constant *finishImpl() {
-    return AggregateBuilderBase::finishStruct(StructTy);
+  llvm::Constant *finishImpl(llvm::StructType* directBase, bool asmjs) {
+    return AggregateBuilderBase::finishStruct(StructTy, directBase, asmjs);
   }
 };
 
