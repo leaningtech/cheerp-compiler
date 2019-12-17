@@ -11,12 +11,15 @@
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/Compilation.h"
+#include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/ArgList.h"
+#include "llvm/Support/Path.h"
 
 using namespace clang::driver;
 using namespace clang::driver::tools;

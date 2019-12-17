@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ToolChains.h"
+#include "ToolChains/WebAssembly.h"
 
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
