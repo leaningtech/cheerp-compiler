@@ -240,20 +240,6 @@ protected:
 	};
 
 	//In this cases Key is already pointer-like, so we store it twice, one in the map and one in the deque/list
-	struct Key_Hash
-	{
-		size_t operator() (const Key& p) const
-		{
-			return Hash_Key().operator()(p);
-		}
-	};
-	struct Key_Equal
-	{
-		bool operator() (const Key& a, const Key& b) const
-		{
-				return a == b;
-		}
-	};
 	struct DenseMapInfoSpecial {
 		using T = Key;
 		static inline T getEmptyKey()
@@ -266,20 +252,21 @@ protected:
 			uintptr_t Val = static_cast<uintptr_t>(-2);
 			return reinterpret_cast<T>(Val);
 		}
-		static unsigned getHashValue(const T PtrVal)
+		template<typename U>
+		static inline unsigned getHashValue(const U& PtrVal)
 		{
-			return (unsigned)Key_Hash().operator()(PtrVal);
+			// The const cast here is very ugly
+			return (unsigned)Hash_Key().operator()(const_cast<T>(PtrVal));
 		}
-		static bool isEqual(const T LHS, const T RHS)
+		template<typename U, typename V>
+		static inline bool isEqual(const U& LHS, const V& RHS)
 		{
-			return Key_Equal().operator()(LHS, RHS);
+			return LHS == RHS;
 		}
 	};
 
 	ContainerLocal container;
 	typename std::conditional<isKeyPointer(),
-//		 std::unordered_map<Key, iterator, Key_Hash, Key_Equal>,
-//		 std::unordered_map<Key_ptr, iterator, KeyPtr_Hash, KeyPtr_Equal>
 		 llvm::DenseMap<Key, iterator, DenseMapInfoSpecial>,
 		 llvm::DenseMap<Key_ptr, iterator, DenseMapInfoSpecialPtr>
 			 >::type map;
