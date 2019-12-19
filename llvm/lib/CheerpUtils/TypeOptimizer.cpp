@@ -1046,7 +1046,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		else
 			F->mutateType(newFuncType);
 		// Change the types of the arguments
-		for(Argument& a: F->getArgumentList())
+		for(Argument& a: F->args())
 		{
 			Type* newArgType=cast<FunctionType>(newFuncType->getPointerElementType())->getParamType(a.getArgNo());
 			if(newArgType==a.getType())
