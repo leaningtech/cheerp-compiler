@@ -350,7 +350,7 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 
 	//Clone the linkage first
 	newFunc->setLinkage(F.getLinkage());
-	Function::arg_iterator origArg=++F.arg_begin();
+	Function::arg_iterator origArg=F.arg_begin() + 1;
 	Function::arg_iterator newArg=newFunc->arg_begin();
 	if (!lowerConstructor)
 	{
