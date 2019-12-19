@@ -1388,7 +1388,7 @@ PointerConstantOffsetWrapper PointerResolverForOffsetVisitor::resolvePointerOffs
 
 void PointerAnalyzer::prefetchFunc(const Function& F) const
 {
-	for(const Argument & arg : F.getArgumentList())
+	for(const Argument & arg : F.args())
 		if(arg.getType()->isPointerTy())
 			getFinalPointerKindWrapper(&arg);
 	for(const BasicBlock & BB : F)
@@ -1697,7 +1697,7 @@ void PointerAnalyzer::invalidate(const Value * v)
 	// If v is a function invalidate also all its call and arguments
 	if ( const Function * F = dyn_cast<Function>(v) )
 	{
-		for ( const Argument & arg : F->getArgumentList() )
+		for ( const Argument & arg : F->args() )
 			if (arg.getType()->isPointerTy())
 				invalidate(&arg);
 		PACache.addressTakenCache.erase(F);
@@ -1878,7 +1878,7 @@ void dumpAllPointers(const Function & F, const PointerAnalyzer & analyzer)
 
 	llvm::errs() << "\n";
 
-	for ( const Argument & arg : F.getArgumentList() )
+	for ( const Argument & arg : F.args() )
 		analyzer.dumpPointer(&arg, false);
 
 	for ( const BasicBlock & BB : F )
