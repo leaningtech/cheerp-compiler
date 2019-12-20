@@ -24,9 +24,9 @@ STATISTIC(NumNewAllocas, "Number of new allocas created");
 
 namespace llvm {
 
-static AttributeSet ChangeAttrs(LLVMContext& Context, AttributeSet Attrs)
+static AttributeList ChangeAttrs(LLVMContext& Context, AttributeList Attrs)
 {
-	SmallVector<AttributeSet, 8> AttrList;
+	SmallVector<AttributeList, 8> AttrList;
 	for (unsigned Slot = 0; Slot < Attrs.getNumSlots(); ++Slot)
 	{
 		unsigned Index = Attrs.getSlotIndex(Slot);
@@ -47,15 +47,15 @@ static AttributeSet ChangeAttrs(LLVMContext& Context, AttributeSet Attrs)
 				//AB.addAttribute(Attribute::get(Context, Attribute::NoCapture));
 			}
 		}
-		AttrList.push_back(AttributeSet::get(Context, Index, AB));
+		AttrList.push_back(AttributeList::get(Context, Index, AB));
 	}
-	return AttributeSet::get(Context, AttrList);
+	return AttributeList::get(Context, AttrList);
 }
 
 static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 {
 	bool Modify = false;
-	AttributeSet Attrs = Call->getAttributes();
+	AttributeList Attrs = Call->getAttributes();
 	for (unsigned ArgIdx = 0; ArgIdx < Call->getNumArgOperands(); ++ArgIdx)
 	{
 		unsigned AttrIdx = ArgIdx + 1;
@@ -112,8 +112,8 @@ bool ByValLowering::runOnModule(Module& M)
 	bool Modified = false;
 	for (auto& Func: M.functions())
 	{
-		AttributeSet Attrs = Func.getAttributes();
-		AttributeSet NewAttrs = ChangeAttrs(Func.getContext(), Attrs);
+		AttributeList Attrs = Func.getAttributes();
+		AttributeList NewAttrs = ChangeAttrs(Func.getContext(), Attrs);
 		Modified |= (NewAttrs != Attrs);
 		if (Modified)
 			Func.setAttributes(NewAttrs);

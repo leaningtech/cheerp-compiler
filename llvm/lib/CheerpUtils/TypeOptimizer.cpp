@@ -1058,7 +1058,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	}
 	// Remove byval attribute from pointer to array arguments, see CallInst handling below
 	bool attributesChanged = false;
-	AttributeSet newAttrs=F->getAttributes();
+	AttributeList newAttrs=F->getAttributes();
 	for(uint32_t i=0;i<F->arg_size();i++)
 	{
 		if(!newAttrs.hasAttribute(i+1, Attribute::ByVal))
@@ -1180,7 +1180,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							// We need to make sure that no byval attribute is applied to pointers to arrays
 							// as they will be rewritten to plain pointers and less memory will be copied
 							// Get the original type of the called function
-							AttributeSet newAttrs=CI->getAttributes();
+							AttributeList newAttrs=CI->getAttributes();
 							bool attributesChanged=false;
 							Function* calledFunction = CI->getCalledFunction();
 							for(uint32_t i=0;i<CI->getNumArgOperands();i++)
