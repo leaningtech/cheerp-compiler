@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2018 Leaning Technologies
+// Copyright 2011-2019 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -22,6 +22,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
 
 using namespace llvm;
@@ -542,6 +543,57 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		{
 			hasBuiltin[GROW_MEM] = true;
 		}
+	}
+
+	//Build the set of existing functions types that are called indirectly
+	std::unordered_set<FunctionType*, LinearMemoryHelper::FunctionSignatureHash, LinearMemoryHelper::FunctionSignatureCmp> validIndirectCallTypes;
+	for (Function& F : module.getFunctionList())
+	{
+		if(F.hasAddressTaken())
+			validIndirectCallTypes.insert(F.getFunctionType());
+	}
+
+	//Check agains the previous set what CallInstruction are actually impossible (and remove them)
+	std::vector<llvm::CallInst*> unreachList;
+
+	//Fixing Function Cast means invalidation the assumpion that we could group call on the function type
+	if (!FixWrongFuncCasts)
+	{
+		for (Function& F : module.getFunctionList())
+		{
+			if (F.getSection() != StringRef("asmjs"))
+				continue;
+			if (WasmExportedTable)
+				continue;
+			for (BasicBlock& bb : F)
+			{
+				for (Instruction& I : bb)
+				{
+					CallInst* ci = dyn_cast<CallInst>(&I);
+					if (!ci)
+						continue;
+					Function* calledFunc = ci->getCalledFunction();
+					if (calledFunc)
+						continue;
+					//This is an indirect call, and we can check whether the called function type exist at all
+					if(!validIndirectCallTypes.count(ci->getFunctionType())) {
+						unreachList.push_back(ci);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	std::set<llvm::Function*> modifiedFunctions;
+	for (CallInst* ci : unreachList)
+	{
+		modifiedFunctions.insert(ci->getParent()->getParent());
+		llvm::changeToUnreachable(ci, /*UseTrap*/false);
+	}
+	for (Function* F : modifiedFunctions)
+	{
+		removeUnreachableBlocks(*F);
 	}
 
 	// Create the start function only if we have a wasm module without js loader
