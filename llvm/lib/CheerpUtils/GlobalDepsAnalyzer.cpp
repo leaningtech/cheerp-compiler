@@ -1070,6 +1070,8 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 	for (Module::alias_iterator it = module.alias_begin(); it != module.alias_end(); )
 	{
 		GlobalAlias * GA = &*it++;
+		if(!GA->getName().endswith("printf"))
+			GA->setLinkage(GlobalValue::InternalLinkage);
 		
 		if ( isReachable(GA) )
 		{
