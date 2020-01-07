@@ -80,42 +80,36 @@ public:
 	};
 	struct FunctionSignatureCmp
 	{
+	private:
+		size_t kindOf(const llvm::Type* type) const
+		{
+			if (type->isPointerTy())
+				return 1;
+			else if (type->isIntegerTy())
+				return 1;
+			else if (type->isDoubleTy())
+				return 2;
+			else if (type->isFloatTy())
+				return 3;
+			return 0;
+		}
+	public:
 		bool operator()(const llvm::FunctionType* const& lhs, const llvm::FunctionType* const& rhs) const
 		{
-			size_t r1 = 0, r2 = 0;
-			const llvm::Type* retTy = lhs->getReturnType();
-			if (retTy->isPointerTy() || retTy->isIntegerTy())
-				r1 = 1;
-			else if (retTy->isDoubleTy())
-				r1 = 2;
-			else if (retTy->isFloatTy())
-				r1 = 3;
-			retTy = rhs->getReturnType();
-			if (retTy->isPointerTy() || retTy->isIntegerTy())
-				r2 = 1;
-			else if (retTy->isDoubleTy())
-				r2 = 2;
-			else if (retTy->isFloatTy())
-				r2 = 3;
-			if (r1 != r2) return false;
-			if (lhs->getNumParams() != rhs->getNumParams()) return false;
+			size_t r1 = kindOf(lhs->getReturnType());
+			size_t r2 = kindOf(rhs->getReturnType());
+			if (r1 != r2)
+				return false;
+			if (lhs->getNumParams() != rhs->getNumParams())
+				return false;
 			auto lit = lhs->param_begin();
 			auto rit = rhs->param_begin();
 			for (;lit != lhs->param_end(); lit++,rit++)
 			{
-				if ((*lit)->isPointerTy() || (*lit)->isIntegerTy())
-					r1 = 1;
-				else if ((*lit)->isDoubleTy())
-					r1 = 2;
-				else if ((*lit)->isFloatTy())
-					r1 = 3;
-				if ((*rit)->isPointerTy() || (*rit)->isIntegerTy())
-					r2 = 1;
-				else if ((*rit)->isDoubleTy())
-					r2 = 2;
-				else if ((*rit)->isFloatTy())
-					r2 = 3;
-				if (r1 != r2) return false;
+				r1 = kindOf(*lit);
+				r2 = kindOf(*rit);
+				if (r1 != r2)
+					return false;
 			}
 			return true;
 		}
