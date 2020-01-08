@@ -430,9 +430,9 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 			SwitchInst::ConstCaseIt it=si->case_begin();
 			for(int i=1;i<branchId;i++)
 				++it;
-			const BasicBlock* dest=it.getCaseSuccessor();
+			const BasicBlock* dest=it->getCaseSuccessor();
 			writer->compileOperand(code, si->getCondition());
-			writer->compileOperand(code, it.getCaseValue());
+			writer->compileOperand(code, it->getCaseValue());
 			if(mode == InvertCondition)
 				writer->encodeInst(0x47, "i32.ne", code);
 			else
@@ -441,11 +441,11 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 			//destination though
 			for(++it;it!=si->case_end();++it)
 			{
-				if(it.getCaseSuccessor()==dest)
+				if(it->getCaseSuccessor()==dest)
 				{
 					//Also add this condition
 					writer->compileOperand(code, si->getCondition());
-					writer->compileOperand(code, it.getCaseValue());
+					writer->compileOperand(code, it->getCaseValue());
 					if(mode == InvertCondition)
 					{
 						writer->encodeInst(0x47, "i32.ne", code);
@@ -565,9 +565,9 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 
 	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
 
-	auto getCaseValue = [](SwitchInst::ConstCaseIt& c, uint32_t bitWidth) -> int64_t
+	auto getCaseValue = [](const ConstantInt* c, uint32_t bitWidth) -> int64_t
 	{
-		return bitWidth == 32 ? c.getCaseValue()->getSExtValue() : c.getCaseValue()->getZExtValue();
+		return bitWidth == 32 ? c->getSExtValue() : c->getZExtValue();
 	};
 
 	llvm::BasicBlock* defaultDest = si->getDefaultDest();
@@ -577,7 +577,7 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	{
 		if (c.getCaseSuccessor() == defaultDest)
 			continue;
-		int64_t curr = getCaseValue(c, bitWidth);
+		int64_t curr = getCaseValue(c.getCaseValue(), bitWidth);
 		max = std::max(max, curr);
 		min = std::min(min, curr);
 	}
@@ -593,9 +593,11 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	std::unordered_map<const llvm::BasicBlock*, uint32_t> blockIndexMap;
 	uint32_t caseBlocks = 0;
 
-	for (auto it : si->cases())
+	auto it = si->case_begin();
+	auto itE = si->case_begin();
+	for (;it != itE; ++it)
 	{
-		const BasicBlock* dest = it.getCaseSuccessor();
+		const BasicBlock* dest = it->getCaseSuccessor();
 		if (dest == defaultDest)
 			continue;
 		const auto& found = blockIndexMap.find(dest);
@@ -607,17 +609,17 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 			// with the order of the LLVM Basic Blocks.
 			uint32_t blockIndex = findBlockInBranchesOutMap(dest, branchesOut);
 			blockIndexMap.emplace(dest, blockIndex);
-			table.at(getCaseValue(it, bitWidth) - min) = blockIndex;
+			table.at(getCaseValue(it->getCaseValue(), bitWidth) - min) = blockIndex;
 			assert(blockIndex != numeric_limits<uint32_t>::max());
 
 			// Add cases that have the same destination
 			auto it_next = it;
 			for (++it_next; it_next != si->case_end(); ++it_next)
 			{
-				if (it_next.getCaseSuccessor() != dest)
+				if (it_next->getCaseSuccessor() != dest)
 					continue;
 
-				table.at(getCaseValue(it_next, bitWidth) - min) = blockIndex;
+				table.at(getCaseValue(it_next->getCaseValue(), bitWidth) - min) = blockIndex;
 			}
 
 			caseBlocks++;
