@@ -70,7 +70,7 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 			unsigned AllocAlignment =
 					std::max(Alignment, DL.getABITypeAlignment(ArgType));
 			// Make a copy of the byval argument.
-			Instruction *CopyBuf = new AllocaInst(ArgType, 0, AllocAlignment,
+			Instruction *CopyBuf = new AllocaInst(ArgType, 0, 0, AllocAlignment,
 				ArgPtr->getName() + ".byval_copy");
 			NumNewAllocas++;
 			Function *Func = Call->getParent()->getParent();
