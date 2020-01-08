@@ -538,7 +538,7 @@ bool AllocaArraysMerging::runOnFunction(Function& F)
 			Instruction* insertionPoint = nullptr;
 			for(auto it: arraysToMerge)
 				insertionPoint = cheerp::findCommonInsertionPoint(nullptr, DT, insertionPoint, it.first);
-			AllocaInst* newAlloca = new AllocaInst(newAllocaType, "mergedArray", insertionPoint);
+			AllocaInst* newAlloca = new AllocaInst(newAllocaType, 0, "mergedArray", insertionPoint);
 			Type* indexType = IntegerType::get(newAllocaType->getContext(), 32);
 			// Change every use of every merged array with an appropiate GEP
 			for(auto it: arraysToMerge)
