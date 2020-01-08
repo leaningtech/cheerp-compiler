@@ -4564,21 +4564,21 @@ void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, 
 				joinString = "||";
 			}
 		}
-		const BasicBlock* dest=it.getCaseSuccessor();
+		const BasicBlock* dest=it->getCaseSuccessor();
 		writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 		writer->stream << compareString;
-		writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
+		writer->compileOperandForIntegerPredicate(it->getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 		//We found the destination, there may be more cases for the same
 		//destination though
 		for(++it;it!=si->case_end();++it)
 		{
-			if(it.getCaseSuccessor()==dest)
+			if(it->getCaseSuccessor()==dest)
 			{
 				//Also add this condition
 				writer->stream << joinString;
 				writer->compileOperandForIntegerPredicate(si->getCondition(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 				writer->stream << compareString;
-				writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
+				writer->compileOperandForIntegerPredicate(it->getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::COMPARISON);
 			}
 		}
 	}
@@ -4628,17 +4628,17 @@ void CheerpRenderInterface::renderCaseBlockBegin(const BasicBlock* bb, int branc
 	for(int i=1;i<branchId;i++)
 		++it;
 	writer->stream << "case ";
-	writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
+	writer->compileOperandForIntegerPredicate(it->getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 	writer->stream << ':' << NewLine;
 	//We found the destination, there may be more cases for the same
 	//destination though
-	const BasicBlock* dest=it.getCaseSuccessor();
+	const BasicBlock* dest=it->getCaseSuccessor();
 	for(++it;it!=si->case_end();++it)
 	{
-		if(it.getCaseSuccessor()==dest)
+		if(it->getCaseSuccessor()==dest)
 		{
 			writer->stream << "case ";
-			writer->compileOperandForIntegerPredicate(it.getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
+			writer->compileOperandForIntegerPredicate(it->getCaseValue(), CmpInst::ICMP_EQ, CheerpWriter::LOWEST);
 			writer->stream << ':' << NewLine;
 		}
 	}
