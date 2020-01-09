@@ -411,10 +411,9 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
  
   // Do not add the same library more than once
   std::set<std::string> usedLibs;
-  for (arg_iterator it = Args.filtered_begin(options::OPT_l),
-         ie = Args.filtered_end(); it != ie; ++it) {
+  for (auto& it: Args.filtered(options::OPT_l)) {
     std::string libName("lib");
-    libName += (*it)->getValue();
+    libName += it->getValue();
     std::string bcLibName = libName + ".bc";
     std::string foundLib = getToolChain().GetFilePath(bcLibName.c_str());
     if (foundLib == bcLibName) {

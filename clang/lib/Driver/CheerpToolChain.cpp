@@ -43,10 +43,9 @@ Cheerp::Cheerp(const Driver &D, const llvm::Triple& Triple, const llvm::opt::Arg
   filePaths.push_back(InstalledDir + "/../lib");
 
   // Add paths passed from the command line
-  for (arg_iterator it = Args.filtered_begin(options::OPT_L),
-         ie = Args.filtered_end(); it != ie; ++it) {
-    (*it)->claim();
-    filePaths.push_back((*it)->getValue());
+  for (auto& it: Args.filtered(options::OPT_L)) {
+    it->claim();
+    filePaths.push_back(it->getValue());
   }
 }
 
