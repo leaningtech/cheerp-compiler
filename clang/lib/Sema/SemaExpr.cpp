@@ -19442,33 +19442,29 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
       return;
     }
     // Since variadic functions are not permitted, we have as many arguments as parameters
-    auto p = FDecl->parameters().begin();
-    auto a = Args.begin();
-    auto ae = Args.end();
-    for(;a != ae; a++, p++) {
-      const Type* t = (*a)->getType().getTypePtr();
-      const Type* pt = (*p)->getType().getTypePtr();
+    for(auto p: FDecl->parameters()) {
+      const Type* pt = p->getType().getTypePtr();
       if (pt->hasPointerRepresentation() && (pt->getPointeeType()->hasPointerRepresentation() || pt->getPointeeType()->isArrayType())) {
         Diag(Loc,
              diag::err_cheerp_wrong_pointer_pointer_param)
           << FDecl << FDecl->getAttr<GenericJSAttr>()
           << Parent << Parent->getAttr<AsmJSAttr>()
-          << *p;
-      } else if (t->hasPointerRepresentation() && t->getPointeeType()->isFunctionType()) {
+          << p;
+      } else if (pt->hasPointerRepresentation() && pt->getPointeeType()->isFunctionType()) {
         Diag(Loc,
              diag::err_cheerp_wrong_func_pointer_param)
-          << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << *p;
-      } else if (!Sema::isAsmJSCompatible(t->getCanonicalTypeInternal())) {
+          << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
+      } else if (!Sema::isAsmJSCompatible(pt->getCanonicalTypeInternal())) {
         Diag(Loc,
              diag::err_cheerp_incompatible_attributes)
-          << FDecl->getAttr<GenericJSAttr>() << "function parameter" << *p
+          << FDecl->getAttr<GenericJSAttr>() << "function parameter" << p
           << Parent->getAttr<AsmJSAttr>() << "caller" << Parent;
       } else if (auto ut = dyn_cast<BuiltinType>(pt->getUnqualifiedDesugaredType())) {
         if(ut->isHighInt()) {
           Diag(Loc,
                diag::err_cheerp_wrong_64bit_param)
             << FDecl << FDecl->getAttr<GenericJSAttr>()
-            << Parent << Parent->getAttr<AsmJSAttr>() << *p;
+            << Parent << Parent->getAttr<AsmJSAttr>() << p;
         }
       }
     }
