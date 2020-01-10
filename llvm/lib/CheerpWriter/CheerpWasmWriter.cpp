@@ -1007,6 +1007,27 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 			compileSignedInteger(code, I.getOperand(0), /*forComparison*/ false);
 			compileOperand(code, I.getOperand(1));
 			break;
+		case Instruction::FSub:
+			if (I.getOperand(0) == ConstantFP::getZeroValueForNegation(I.getOperand(0)->getType()))
+			{
+				//Wasm has an operator negate on floating point
+				//(-0.0) - something -> neg(something)
+				//Note that this transformation is safe only for negative zero
+				compileOperand(code, I.getOperand(1));
+				const Type* t = I.getType();
+				if (t->isFloatTy())
+					encodeInst(0x8c, "f32.neg", code);
+				else if (t->isDoubleTy())
+					encodeInst(0x9a, "f64.neg", code);
+				//We just encoded the operation, so now we can return
+				return;
+			}
+			else
+			{
+				compileOperand(code, I.getOperand(0));
+				compileOperand(code, I.getOperand(1));
+				break;
+			}
 		default:
 			if(I.isCommutative())
 			{
