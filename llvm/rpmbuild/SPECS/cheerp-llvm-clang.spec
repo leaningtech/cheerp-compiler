@@ -25,6 +25,7 @@ cmake -C ../CheerpCmakeConf.cmake \
   -DCMAKE_CXX_COMPILER=clang++ \
   -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
   -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
+  -DCLANG_VENDOR="Cheerp %{VERSION}"
   -DCMAKE_BUILD_TYPE=Release \
   ..
 
