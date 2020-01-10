@@ -706,7 +706,7 @@ const Value *Value::stripInBoundsConstantOffsets() const {
 }
 
 const Value *Value::stripPointerCastsForAliasAnalysis() const {
-  return stripPointerCastsAndOffsets<PSK_ForAliasAnalysis>(this);
+  return stripPointerCastsAndOffsets<PSK_ForAliasAnalysis>(this, false);
 }
 
 const Value *Value::stripAndAccumulateConstantOffsets(
