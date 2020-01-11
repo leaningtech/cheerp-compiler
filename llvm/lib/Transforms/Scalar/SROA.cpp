@@ -3292,7 +3292,7 @@ private:
     // PHIs can't be promoted on their own, but often can be speculated. We
     // check the speculation outside of the rewriter so that we see the
     // fully-rewritten alloca.
-    bool inserted=PHIUsers.insert(&PN).second;
+    bool inserted=PHIUsers.insert(&PN);
 
     Value *NewPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
     if(NewPtr) {
