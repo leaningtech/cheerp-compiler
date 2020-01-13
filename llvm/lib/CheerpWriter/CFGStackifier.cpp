@@ -257,7 +257,7 @@ static void for_each_succ(const BasicBlock* BB, F f)
 	}
 	for (size_t i = 0; i < Term->getNumSuccessors(); ++i)
 	{
-		if (i == DefaultIdx)
+		if (Term->getSuccessor(i) == Term->getSuccessor(DefaultIdx))
 			continue;
 		auto it = Destinations.find(Term->getSuccessor(i));
 		if (it == Destinations.end())
