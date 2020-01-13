@@ -24,34 +24,6 @@ STATISTIC(NumNewAllocas, "Number of new allocas created");
 
 namespace llvm {
 
-static AttributeList ChangeAttrs(LLVMContext& Context, AttributeList Attrs)
-{
-	SmallVector<AttributeList, 8> AttrList;
-	for (unsigned Slot = 0; Slot < Attrs.getNumSlots(); ++Slot)
-	{
-		unsigned Index = Attrs.getSlotIndex(Slot);
-		AttrBuilder AB;
-		for (auto Attr = Attrs.begin(Slot), E = Attrs.end(Slot); Attr != E; ++Attr)
-		{
-			if (Attr->isEnumAttribute()
-				&& Attr->getKindAsEnum() != Attribute::ByVal)
-			{
-				AB.addAttribute(*Attr);
-			}
-			// IR semantics require that ByVal implies NoAlias.
-			if (Attr->isEnumAttribute()
-				&& Attr->getKindAsEnum() == Attribute::ByVal)
-			{
-				++NumByValLowered;
-				AB.addAttribute(Attribute::get(Context, Attribute::NoAlias));
-				//AB.addAttribute(Attribute::get(Context, Attribute::NoCapture));
-			}
-		}
-		AttrList.push_back(AttributeList::get(Context, Index, AB));
-	}
-	return AttributeList::get(Context, AttrList);
-}
-
 static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 {
 	bool Modify = false;
@@ -66,7 +38,7 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 			Type *ArgType = ArgPtr->getType()->getPointerElementType();
 			ConstantInt *ArgSize = ConstantInt::get(
 				Call->getContext(), APInt(64, DL.getTypeStoreSize(ArgType)));
-			unsigned Alignment = Attrs.getParamAlignment(AttrIdx);
+			unsigned Alignment = Attrs.getParamAlignment(ArgIdx);
 			unsigned AllocAlignment =
 					std::max(Alignment, DL.getABITypeAlignment(ArgType));
 			// Make a copy of the byval argument.
@@ -91,17 +63,15 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 			assert(isa<CallInst>(Call));
 			Builder.SetInsertPoint(Call->getNextNode());
 			Builder.CreateLifetimeEnd(CopyBuf, ArgSize);
+			Call->removeAttribute(AttrIdx, Attribute::ByVal);
+			Call->addAttribute(AttrIdx, Attribute::NoAlias);
 		}
 	}
 	if (Modify)
 	{
-		Call->setAttributes(ChangeAttrs(Call->getContext(), Attrs));
-		if (CallInst *CI = dyn_cast<CallInst>(Call))
-		{
-			// This is no longer a tail call because the callee references
-			// memory alloca'd by the caller.
-			CI->setTailCall(false);
-		}
+		// This is no longer a tail call because the callee references
+		// memory alloca'd by the caller.
+		Call->setTailCall(false);
 	}
 	return Modify;
 }
@@ -113,10 +83,16 @@ bool ByValLowering::runOnModule(Module& M)
 	for (auto& Func: M.functions())
 	{
 		AttributeList Attrs = Func.getAttributes();
-		AttributeList NewAttrs = ChangeAttrs(Func.getContext(), Attrs);
-		Modified |= (NewAttrs != Attrs);
-		if (Modified)
-			Func.setAttributes(NewAttrs);
+		for (unsigned ArgIdx = 0; ArgIdx < Func.arg_size(); ++ArgIdx)
+		{
+			unsigned AttrIdx = ArgIdx + 1;
+			if (Attrs.hasAttribute(AttrIdx, Attribute::ByVal))
+			{
+				Func.removeAttribute(AttrIdx, Attribute::ByVal);
+				Func.addAttribute(AttrIdx, Attribute::NoAlias);
+				Modified |= true;
+			}
+		}
 		for (auto BB = Func.begin(), E = Func.end(); BB != E; ++BB)
 		{
 			for (auto Inst = BB->begin(), E = BB->end(); Inst != E; ++Inst)
