@@ -549,6 +549,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	std::unordered_map<FunctionType*, Function*, LinearMemoryHelper::FunctionSignatureHash, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
 	for (Function& F : module.getFunctionList())
 	{
+		if (F.getSection() != StringRef("asmjs"))
+			continue;
 		if(!F.hasAddressTaken())
 			continue;
 		auto it = validIndirectCallTypesMap.insert(std::make_pair(F.getFunctionType(), &F));
