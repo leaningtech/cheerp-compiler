@@ -546,7 +546,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	//Build the set of existing functions types that are called indirectly
-	std::unordered_set<FunctionType*, LinearMemoryHelper::FunctionSignatureHash, LinearMemoryHelper::FunctionSignatureCmp> validIndirectCallTypes;
+	std::unordered_set<FunctionType*, LinearMemoryHelper::FunctionSignatureHash, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
 	for (Function& F : module.getFunctionList())
 	{
 		if(F.hasAddressTaken())
