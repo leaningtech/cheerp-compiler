@@ -5,7 +5,7 @@ Summary: A C++ compiler for the Web
 
 License:  NCSA and MIT
 URL: https://leaningtech.com/cheerp
-Source0: %{NAME}-%{VERSION}.tar.gz
+Source0: %{NAME}_%{VERSION}.orig.tar.gz
 
 BuildRequires: clang lld cmake make python3
 
