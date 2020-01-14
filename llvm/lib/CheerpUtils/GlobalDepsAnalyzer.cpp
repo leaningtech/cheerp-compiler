@@ -562,14 +562,13 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	//Check agains the previous set what CallInstruction are actually impossible (and remove them)
 	std::vector<llvm::CallInst*> unreachList;
 
-	//Fixing Function Cast means invalidation the assumpion that we could group call on the function type
-	if (!FixWrongFuncCasts)
+	//Fixing function casts implies that new functions types will be created
+	//Exporting the table implies that functions can be added outside of our control
+	if (!FixWrongFuncCasts && !WasmExportedTable)
 	{
 		for (Function& F : module.getFunctionList())
 		{
 			if (F.getSection() != StringRef("asmjs"))
-				continue;
-			if (WasmExportedTable)
 				continue;
 			for (BasicBlock& bb : F)
 			{
