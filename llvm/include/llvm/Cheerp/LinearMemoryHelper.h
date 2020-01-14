@@ -78,15 +78,16 @@ public:
 			return hash;
 		}
 	};
+	template<bool isStrict = false>
 	struct FunctionSignatureCmp
 	{
 	private:
 		size_t kindOf(const llvm::Type* type) const
 		{
 			if (type->isPointerTy())
-				return 1;
+				return (isStrict ? 10 : 1);
 			else if (type->isIntegerTy())
-				return 1;
+				return (isStrict ? 11 : 1);
 			else if (type->isDoubleTy())
 				return 2;
 			else if (type->isFloatTy())
@@ -158,7 +159,7 @@ public:
 	 * function tables for indirect calls
 	 */
 	typedef std::unordered_map<const llvm::FunctionType*,FunctionTableInfo,
-		  FunctionSignatureHash,FunctionSignatureCmp> FunctionTableInfoMap;
+		  FunctionSignatureHash,FunctionSignatureCmp<>> FunctionTableInfoMap;
 	typedef std::vector<const llvm::FunctionType*> FunctionTableOrder;
 	/**
 	 * Used to assign asm.js function pointers
@@ -170,7 +171,7 @@ public:
 	typedef std::unordered_map<const llvm::GlobalVariable*, int32_t> GlobalAddressesMap;
 
 	typedef std::unordered_map<const llvm::FunctionType*, size_t,
-		FunctionSignatureHash,FunctionSignatureCmp> FunctionTypeIndicesMap;
+		FunctionSignatureHash,FunctionSignatureCmp<>> FunctionTypeIndicesMap;
 
 	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA,
 		uint32_t memorySize, uint32_t stackSize, bool wasmOnly, bool growMem):
