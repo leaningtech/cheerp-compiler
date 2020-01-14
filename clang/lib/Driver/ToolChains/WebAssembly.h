@@ -34,6 +34,15 @@ public:
 
 /// Cheerp tools: llvm-link, opt and llc
 namespace cheerp {
+  enum CheerpWasmOpt
+  {
+    INVALID,
+    GROWMEM,
+    SHAREDMEM,
+    EXPORTEDTABLE,
+  };
+  std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const llvm::opt::ArgList& Args);
+
   class LLVM_LIBRARY_VISIBILITY Link : public Tool {
   public:
     Link(const ToolChain &TC) : Tool("cheerp::Link", "linker", TC) {}
