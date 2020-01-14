@@ -504,22 +504,16 @@ static void checkCheerpArgCompatibility(const Driver& D, const ArgList& Args)
       linearOut, secondaryPath, secondaryFile);
 }
 
-enum CheerpWasmOpt
+static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
 {
-  INVALID,
-  GROWMEM,
-  SHAREDMEM,
-  EXPORTEDTABLE,
-};
-static CheerpWasmOpt parseWasmOpt(StringRef opt)
-{
-  return llvm::StringSwitch<CheerpWasmOpt>(opt)
-    .Case("growmem", GROWMEM)
-    .Case("sharedmem", SHAREDMEM)
-    .Case("exportedtable", EXPORTEDTABLE)
-    .Default(INVALID);
+  return llvm::StringSwitch<cheerp::CheerpWasmOpt>(opt)
+    .Case("growmem", cheerp::GROWMEM)
+    .Case("sharedmem", cheerp::SHAREDMEM)
+    .Case("exportedtable", cheerp::EXPORTEDTABLE)
+    .Default(cheerp::INVALID);
 }
-static std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const ArgList& Args)
+
+std::vector<cheerp::CheerpWasmOpt> cheerp::getWasmFeatures(const Driver& D, const ArgList& Args)
 {
   // Figure out which Wasm optional feature to enable/disable
   std::vector<CheerpWasmOpt> features;
@@ -563,6 +557,7 @@ static std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const ArgList
   }
   return features;
 }
+
 void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
                                           const InputInfo &Output,
                                           const InputInfoList &Inputs,
