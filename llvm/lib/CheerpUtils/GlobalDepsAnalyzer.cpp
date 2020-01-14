@@ -545,12 +545,18 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		}
 	}
 
-	//Build the set of existing functions types that are called indirectly
-	std::unordered_set<FunctionType*, LinearMemoryHelper::FunctionSignatureHash, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
+	//Build the map of existing functions types that are called indirectly to their representative (or nullptr if multiple representative exist)
+	std::unordered_map<FunctionType*, Function*, LinearMemoryHelper::FunctionSignatureHash, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
 	for (Function& F : module.getFunctionList())
 	{
-		if(F.hasAddressTaken())
-			validIndirectCallTypes.insert(F.getFunctionType());
+		if(!F.hasAddressTaken())
+			continue;
+		auto it = validIndirectCallTypesMap.insert(std::make_pair(F.getFunctionType(), &F));
+		if(!it.second)
+		{
+			// An entry was already there, reset the unique function
+			it.first->second = nullptr;
+		}
 	}
 
 	//Check agains the previous set what CallInstruction are actually impossible (and remove them)
@@ -572,13 +578,26 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					CallInst* ci = dyn_cast<CallInst>(&I);
 					if (!ci)
 						continue;
-					Function* calledFunc = ci->getCalledFunction();
-					if (calledFunc)
+					Value* calledValue = ci->getCalledValue();
+					if (!isa<Instruction>(calledValue))
 						continue;
 					//This is an indirect call, and we can check whether the called function type exist at all
-					if(!validIndirectCallTypes.count(ci->getFunctionType())) {
+					auto it = validIndirectCallTypesMap.find(ci->getFunctionType());
+					if (it == validIndirectCallTypesMap.end())
+					{
+						// There is no indirectly used function with the signature, the code must be unreachable
 						unreachList.push_back(ci);
 						break;
+					}
+					else if(it->second)
+					{
+						// For this signature there is only one indirectly use function, we can devirtualize it
+						assert(ci->getCalledFunction() == nullptr);
+						assert(!isa<Function>(ci->getCalledValue()));
+						llvm::Constant* devirtualizedCall = it->second;
+						if(devirtualizedCall->getType() != calledValue->getType())
+							devirtualizedCall = ConstantExpr::getBitCast(devirtualizedCall, calledValue->getType());
+						ci->setCalledFunction(devirtualizedCall);
 					}
 				}
 			}
