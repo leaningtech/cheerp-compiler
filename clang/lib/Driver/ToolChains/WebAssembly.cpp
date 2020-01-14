@@ -443,8 +443,13 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-PreExecute");
   if(Args.hasArg(options::OPT_cheerp_preexecute_main))
     CmdArgs.push_back("-cheerp-preexecute-main");
-  if(Args.hasArg(options::OPT_cheerp_fix_wrong_func_casts))
-    CmdArgs.push_back("-cheerp-fix-wrong-func-casts");
+  if(Arg* cheerpFixFuncCasts = Args.getLastArg(options::OPT_cheerp_fix_wrong_func_casts))
+    cheerpFixFuncCasts->render(Args, CmdArgs);
+  const Driver &D = getToolChain().getDriver();
+  auto features = getWasmFeatures(D, Args);
+  if(std::find(features.begin(), features.end(), EXPORTEDTABLE) != features.end())
+    CmdArgs.push_back("-cheerp-wasm-exported-table");
+
   CmdArgs.push_back("-GlobalDepsAnalyzer");
   if(!Args.hasArg(options::OPT_cheerp_no_type_optimizer))
     CmdArgs.push_back("-TypeOptimizer");
