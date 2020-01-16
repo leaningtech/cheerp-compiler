@@ -1080,7 +1080,7 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
     ThunkInfo TI;
     TI.Method = MD;
     llvm::Constant* Thunk = CGM.GetAddrOfThunk(GD, TI);
-    CGM.addDeferredDeclToEmit(cast<llvm::Function>(Thunk), GD);
+    CGM.addDeferredDeclToEmit(GD);
     MemPtr[0] = llvm::ConstantExpr::getBitCast(Thunk, llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
     MemPtr[1] = llvm::ConstantInt::get(CGM.PtrDiffTy, ThisAdjustment.getQuantity());
     return llvm::ConstantStruct::get(GetMemberPtrTy(asmjs), MemPtr);
