@@ -1194,7 +1194,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 									continue;
 								// The pointer is to an array, we need to make an explicit copy here
 								// and remove the attribute unless the called function is known and the argument is readonly
-								if(!calledFunction || !calledFunction->onlyReadsMemory(i+1))
+								if(!calledFunction || !calledFunction->hasParamAttribute(i, Attribute::NoCapture))
 								{
 									IRBuilder<> Builder(CI);
 									auto rewrittenOperand = getMappedOperand(CI->getOperand(i));
