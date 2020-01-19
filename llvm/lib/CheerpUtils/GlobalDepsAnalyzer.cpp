@@ -1098,7 +1098,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 
 	// Now we can safely invoke operator delete
 	for ( GlobalValue * var : eraseQueue )
-		delete var;
+		var->deleteValue();
 
 	for ( GlobalValue * var: externals)
 		var->setLinkage(GlobalValue::ExternalLinkage);
