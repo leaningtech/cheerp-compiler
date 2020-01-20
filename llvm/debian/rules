@@ -3,15 +3,15 @@
 deb_version := $(shell dpkg-parsechangelog | sed -n 's/^Version: //p')
 
 %:
-	dh $@ -Scmake --parallel
+	dh $@  -Scmake --parallel --builddirectory=build
 
 override_dh_auto_configure:
-	dh_auto_configure -- \
+	mkdir -p build
+	cd build && cmake \
+	    -C ../CheerpCmakeConf.cmake \
 	    -DCMAKE_BUILD_TYPE=Release \
-	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
-	    -DLLVM_DEFAULT_TARGET_TRIPLE=cheerp-wasm \
-	    -DLLVM_TARGETS_TO_BUILD="CheerpBackend;X86" \
-	    -DCLANG_VENDOR="Cheerp ${deb_version}"
+	    -DCLANG_VENDOR="Cheerp ${deb_version}" \
+	    ..
 
 override_dh_auto_install:
-	dh_auto_install --destdir=debian/tmp
+	dh_auto_install --builddirectory=build --destdir=debian/tmp
