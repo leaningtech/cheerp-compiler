@@ -3692,6 +3692,9 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
       << CheerpMode->getAsString(Args) << CheerpLinearOutput->getValue();
     }
   }
+  if (const Arg *A = Args.getLastArg(OPT_cheerp_wasm_anyref)) {
+    Opts.CheerpAnyref = 1;
+  }
 
   // -cl-std only applies for OpenCL language standards.
   // Override the -std option in this case.
