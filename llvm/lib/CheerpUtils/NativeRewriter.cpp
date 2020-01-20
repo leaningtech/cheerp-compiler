@@ -173,6 +173,19 @@ Function* CheerpNativeRewriter::getReturningConstructor(Module& M, Function* cal
 	return cast<Function>(M.getOrInsertFunction(Twine("cheerpCreate",called->getName()).str(),newFunctionType));
 }
 
+static bool redundantStringConstructor(Instruction* ci, SmallVectorImpl<Value*>& initialArgs)
+{
+	if (initialArgs.size() != 1)
+		return false;
+	Type* ty = ci->getOperand(0)->getType();
+	Type* argTy = initialArgs[0]->getType();
+	if (!argTy->isPointerTy() || !argTy->getPointerElementType()->isStructTy())
+		return false;
+	if (ty == argTy && ty->getPointerElementType()->getStructName() == StringRef("class._ZN6client6StringE"))
+		return true;
+	return false;
+}
+
 bool CheerpNativeRewriter::rewriteIfNativeConstructorCall(Module& M, Instruction* i, AllocaInst* newI, Instruction* callInst,
 						  Function* called, const std::string& builtinTypeName,
 						  SmallVector<Value*, 4>& initialArgs)
@@ -194,6 +207,13 @@ bool CheerpNativeRewriter::rewriteIfNativeConstructorCall(Module& M, Instruction
 	if(!callInst->getType()->isVoidTy())
 		return false;
 
+	//We optimize the special case of String(String), removing the constructor
+	//call entirely
+	if (redundantStringConstructor(callInst, initialArgs))
+	{
+		new StoreInst(initialArgs[0], newI, callInst);
+		return true;
+	}
 	Function* newFunc = getReturningConstructor(M, called);
 	CallInst* newCall=CallInst::Create(newFunc, initialArgs, "retConstructor", callInst);
 	new StoreInst(newCall, newI, callInst);
