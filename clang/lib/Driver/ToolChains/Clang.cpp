@@ -22,6 +22,7 @@
 #include "InputInfo.h"
 #include "MSP430.h"
 #include "PS4CPU.h"
+#include "WebAssembly.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/LangOptions.h"
@@ -5006,6 +5007,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev)) {
     CmdArgs.push_back("-mllvm");
     CheerpNoPointerSCEV->render(Args, CmdArgs);
+  }
+
+  // Pass cheerp-wasm-anyref if anyref feature enabled
+  auto wasmFeatures = cheerp::getWasmFeatures(D, Args);
+  if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::ANYREF)) {
+    CmdArgs.push_back("-cheerp-wasm-anyref");
   }
 
   // GCC's behavior for -Wwrite-strings is a bit strange:

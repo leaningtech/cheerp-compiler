@@ -515,6 +515,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("growmem", cheerp::GROWMEM)
     .Case("sharedmem", cheerp::SHAREDMEM)
     .Case("exportedtable", cheerp::EXPORTEDTABLE)
+    .Case("anyref", cheerp::ANYREF)
     .Default(cheerp::INVALID);
 }
 
@@ -699,6 +700,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         break;
       case EXPORTEDTABLE:
         CmdArgs.push_back("-cheerp-wasm-exported-table");
+      case ANYREF:
         break;
       default:
         llvm_unreachable("invalid wasm option");

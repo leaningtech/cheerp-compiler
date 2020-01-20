@@ -7489,7 +7489,8 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     }
     // CHEERP: Disallow variables with genericjs types in asmjs functions
     if (FunctionDecl* FD = dyn_cast<FunctionDecl>(NewVD->getDeclContext())) {
-      if (FD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(NewVD->getType())) {
+      bool anyref = getLangOpts().CheerpAnyref;
+      if (FD->hasAttr<AsmJSAttr>() && !isAsmJSCompatible(NewVD->getType(), anyref)) {
         Diag(NewVD->getLocation(), diag::err_cheerp_incompatible_attributes)
           << NewVD->getAttr<AsmJSAttr>() << "local variable" << NewVD
           << FD->getAttr<AsmJSAttr>() << "function" << FD;
@@ -10970,15 +10971,16 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
       checkCUDATargetOverload(NewFD, Previous);
   }
   // CHEERP:  check if asmjs functions have genericjs parameters, and if so, complain
-  if (NewFD->hasAttr<AsmJSAttr>()) {
+  if (NewFD->hasAttr<AsmJSAttr>() && !getLangOpts().CheerpAnyref) {
+    bool anyref = getLangOpts().CheerpAnyref;
     for (auto p: NewFD->parameters()) {
-      if (!isAsmJSCompatible(p->getType())) {
+      if (!isAsmJSCompatible(p->getType(), anyref)) {
         Diag(NewFD->getLocation(), diag::err_cheerp_incompatible_attributes)
           << NewFD->getAttr<AsmJSAttr>() << "function" << NewFD
           << getGenericJSAttr(p->getType()) << "parameter" << p;
       }
     }
-    if (!isAsmJSCompatible(NewFD->getReturnType())) {
+    if (!isAsmJSCompatible(NewFD->getReturnType(), anyref)) {
         Diag(NewFD->getLocation(), diag::err_cheerp_incompatible_attributes)
           << NewFD->getAttr<AsmJSAttr>() << "function" << NewFD
           << getGenericJSAttr(NewFD->getReturnType())

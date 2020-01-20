@@ -12577,12 +12577,14 @@ public:
   bool checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee);
 
   // CHEERP: Utility function for checking if a type can be used in the asmjs section
-  static bool isAsmJSCompatible(QualType pt) {
+  bool isAsmJSCompatible(QualType pt, bool allowAnyref) {
     pt = pt.getNonReferenceType();
     while (pt->isAnyPointerType())
       pt = pt->getPointeeType();
     TagDecl* pd = pt->getAsTagDecl();
-    return !pd || pd->isEnum() || pd->hasAttr<AsmJSAttr>();
+    if (!pd) return true;
+    bool client = pd->getDeclContext()->isClientNamespace();
+    return (client&&allowAnyref) || pd->isEnum() || pd->hasAttr<AsmJSAttr>();
   }
   static AsmJSAttr* getAsmJSAttr(QualType pt) {
     pt = pt.getNonReferenceType();

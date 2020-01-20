@@ -14150,7 +14150,7 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
   if (const FunctionDecl *Caller = dyn_cast<FunctionDecl>(CurContext)) {
     Expr* Obj = TheCall->getImplicitObjectArgument();
     if (Caller->hasAttr<AsmJSAttr>()) {
-      if (!isAsmJSCompatible(Obj->getType())) {
+      if (!isAsmJSCompatible(Obj->getType(), false)) {
         Diag(MemExpr->getMemberLoc(), diag::err_cheerp_incompatible_attributes)
           << Caller->getAttr<AsmJSAttr>() << "function" << Caller
           << getGenericJSAttr(Obj->getType()) << "'this' argument" << Obj;

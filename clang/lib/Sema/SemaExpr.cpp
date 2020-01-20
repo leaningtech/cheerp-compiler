@@ -19442,6 +19442,8 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
       return;
     }
     // Since variadic functions are not permitted, we have as many arguments as parameters
+
+    bool anyref = getLangOpts().CheerpAnyref;
     for(auto p: FDecl->parameters()) {
       const Type* pt = p->getType().getTypePtr();
       if (pt->hasPointerRepresentation() && (pt->getPointeeType()->hasPointerRepresentation() || pt->getPointeeType()->isArrayType())) {
@@ -19454,7 +19456,7 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
         Diag(Loc,
              diag::err_cheerp_wrong_func_pointer_param)
           << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
-      } else if (!Sema::isAsmJSCompatible(pt->getCanonicalTypeInternal())) {
+      } else if (!Sema::isAsmJSCompatible(pt->getCanonicalTypeInternal(), anyref)) {
         Diag(Loc,
              diag::err_cheerp_incompatible_attributes)
           << FDecl->getAttr<GenericJSAttr>() << "function parameter" << p
