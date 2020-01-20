@@ -4040,7 +4040,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
             if(llvm::Instruction* OpI = dyn_cast<llvm::Instruction>(Op))
               DeleteQueue.push_back(OpI);
           }
-          delete I;
+          I->deleteValue();
         }
       }
     }
