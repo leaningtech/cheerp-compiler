@@ -1595,7 +1595,7 @@ static Expr *castForMoving(Sema &S, Expr *E, QualType T = QualType()) {
 
   return S
       .BuildCXXNamedCast(ExprLoc, tok::kw_static_cast, TargetLoc, E,
-                         SourceRange(ExprLoc, ExprLoc), E->getSourceRange())
+                         SourceRange(ExprLoc, ExprLoc), E->getSourceRange(), /*isCheerpSafe*/false)
       .get();
 }
 
