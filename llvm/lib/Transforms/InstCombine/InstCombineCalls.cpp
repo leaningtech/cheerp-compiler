@@ -1372,6 +1372,11 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
       }
     }
 
+    if (II->getParent()->getParent()->getSection() == StringRef("asmjs")) {
+      // Cheerp: We use this instrinsic to manipulate the stack global variable, do not remove it
+      break;
+    }
+
     // Scan down this block to see if there is another stack restore in the
     // same block without an intervening call/alloca.
     BasicBlock::iterator BI(II);
