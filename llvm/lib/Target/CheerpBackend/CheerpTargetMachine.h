@@ -57,8 +57,7 @@ public:
                                    AnalysisID StartBefore,
                                    AnalysisID StartAfter,
                                    AnalysisID StopBefore,
-                                   AnalysisID StopAfter,
-                                   MachineFunctionInitializer* MFInit) override;
+                                   AnalysisID StopAfter) override;
   virtual const CheerpSubtarget* getSubtargetImpl(const Function &F) const override;
 };
 

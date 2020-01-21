@@ -214,8 +214,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            AnalysisID StartBefore,
                                            AnalysisID StartAfter,
                                            AnalysisID StopBefore,
-                                           AnalysisID StopAfter,
-                                           MachineFunctionInitializer* MFInit) {
+                                           AnalysisID StopAfter) {
 
   LinearOutputTy outputMode = parseLinearOutput();
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
