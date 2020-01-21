@@ -4415,14 +4415,3 @@ void CheerpWasmWriter::WasmGepWriter::addConst(int64_t v)
 
 	constPart = v;
 }
-
-bool CheerpWasmWriter::WasmGepWriter::isInlineable(const llvm::Value* p)
-{
-	if (const auto I = dyn_cast<BitCastInst>(p))
-		return ::isInlineable(*I, writer.PA);
-
-	if (const auto I = dyn_cast<GetElementPtrInst>(p))
-		return ::isInlineable(*I, writer.PA);
-
-	return true;
-}

@@ -274,6 +274,16 @@ public:
 		{
 		}
 	};
+	class LinearGepListener: public GepListener
+	{
+	private:
+		const PointerAnalyzer& PA;
+	public:
+		LinearGepListener(const PointerAnalyzer& PA):PA(PA)
+		{
+		}
+		bool isInlineable(const llvm::Value* p);
+	};
 	// Returns the base of the compiled expression
 	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener) const;
 	static const llvm::Value* compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener);

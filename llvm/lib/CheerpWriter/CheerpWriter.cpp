@@ -6403,14 +6403,3 @@ void CheerpWriter::AsmJSGepWriter::addConst(int64_t v)
 	offset = true;
 	writer.stream << v << '+';
 }
-
-bool CheerpWriter::AsmJSGepWriter::isInlineable(const llvm::Value* p)
-{
-	if (const auto I = dyn_cast<BitCastInst>(p))
-		return ::isInlineable(*I, writer.PA);
-
-	if (const auto I = dyn_cast<GetElementPtrInst>(p))
-		return ::isInlineable(*I, writer.PA);
-
-	return true;
-}
