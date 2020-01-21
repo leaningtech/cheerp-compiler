@@ -250,3 +250,13 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(new CheerpWritePass(o));
   return false;
 }
+
+const CheerpTargetLowering* CheerpSubtarget::getTargetLowering() const
+{
+  return &targetLowering;
+}
+
+const CheerpSubtarget* CheerpTargetMachine::getSubtargetImpl(const Function &F) const
+{
+  return &subTargetInfo;
+}
