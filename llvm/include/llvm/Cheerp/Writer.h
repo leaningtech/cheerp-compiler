@@ -523,17 +523,16 @@ private:
 		void addByte(uint8_t b) override {stream <<(char)b;};
 	};
 
-	struct AsmJSGepWriter: public LinearMemoryHelper::GepListener
+	struct AsmJSGepWriter: public LinearMemoryHelper::LinearGepListener
 	{
 		CheerpWriter& writer;
 		bool offset;
 		bool use_imul;
-		AsmJSGepWriter(CheerpWriter& writer, bool use_imul=true): writer(writer), offset(false), use_imul(use_imul)
+		AsmJSGepWriter(CheerpWriter& writer, bool use_imul=true): LinearMemoryHelper::LinearGepListener(writer.PA), writer(writer), offset(false), use_imul(use_imul)
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
 		void addConst(int64_t v) override;
-		bool isInlineable(const llvm::Value* p) override;
 	};
 public:
 	// Data to optimize asm.js rendering of return statements
