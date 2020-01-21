@@ -606,3 +606,11 @@ uint32_t LinearMemoryHelper::getFunctionAddressMask(const llvm::FunctionType* Ft
 	return mask;
 
 }
+
+bool LinearMemoryHelper::LinearGepListener::isInlineable(const llvm::Value* p)
+{
+	if (const auto I = dyn_cast<Instruction>(p))
+		return ::isInlineable(*I, PA);
+
+	return true;
+}
