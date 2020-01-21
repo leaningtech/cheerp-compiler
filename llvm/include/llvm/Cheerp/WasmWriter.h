@@ -168,19 +168,18 @@ private:
 		void addByte(uint8_t b) override;
 	};
 
-	struct WasmGepWriter: public LinearMemoryHelper::GepListener
+	struct WasmGepWriter: public LinearMemoryHelper::LinearGepListener
 	{
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
 		std::vector<std::pair<const llvm::Value*, uint32_t>> addedValues;
 		int32_t constPart;
 		WasmGepWriter(CheerpWasmWriter& writer, WasmBuffer& code)
-			: writer(writer), code(code), constPart(0)
+			: LinearMemoryHelper::LinearGepListener(writer.PA), writer(writer), code(code), constPart(0)
 		{
 		}
 		void addValue(const llvm::Value* v, uint32_t size) override;
 		void addConst(int64_t v) override;
-		bool isInlineable(const llvm::Value* p) override;
 		void compileValue(const llvm::Value* v, uint32_t size, bool first) const;
 		void compileValues() const;
 		bool hasValues() const;
