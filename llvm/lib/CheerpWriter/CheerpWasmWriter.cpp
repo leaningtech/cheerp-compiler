@@ -1362,7 +1362,7 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
 	if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
 		gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
-	else
+	else if(!isa<ConstantPointerNull>(p))
 		gepWriter.addValue(p, 1);
 	gepWriter.compileValues(/*useConstPart*/true);
 }
