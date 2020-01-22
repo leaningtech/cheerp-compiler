@@ -546,7 +546,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	//Build the map of existing functions types that are called indirectly to their representative (or nullptr if multiple representative exist)
-	std::unordered_map<FunctionType*, Function*, LinearMemoryHelper::FunctionSignatureHash, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
+	std::unordered_map<FunctionType*, Function*, LinearMemoryHelper::FunctionSignatureHash<true>, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
 	for (Function& F : module.getFunctionList())
 	{
 		if (F.getSection() != StringRef("asmjs"))
