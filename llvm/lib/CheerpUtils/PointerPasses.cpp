@@ -513,6 +513,14 @@ void PointerToImmutablePHIRemoval::hoistBlock(BasicBlock* targetBlock)
 			if (curTerm->getSuccessor(j) == targetBlock)
 				curTerm->setSuccessor(j, newBlock);
 		}
+		// If there is only one successor simplify the CFG by moving the instructions to the predecessor
+		if(curTerm->getNumSuccessors() == 1)
+		{
+			BasicBlock* pred = curTerm->getParent();
+			pred->getInstList().splice(curTerm->getIterator(), newBlock->getInstList());
+			curTerm->eraseFromParent();
+			newBlock->eraseFromParent();
+		}
 	}
 	targetBlock->eraseFromParent();
 }
