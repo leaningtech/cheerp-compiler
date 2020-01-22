@@ -52,28 +52,17 @@ public:
 	 * they return equivalent types and they have parameters with equivalent
 	 * types in the same order
 	 */
+	template<bool isStrict = false>
 	struct FunctionSignatureHash
 	{
 		std::size_t operator()(const llvm::FunctionType* const& fTy) const 
 		{
 			const llvm::Type* retTy = fTy->getReturnType();
 			size_t hash = 31;
-			if (retTy->isVoidTy())
-				hash = hash*31 + std::hash<size_t>()(0);
-			else if (retTy->isPointerTy() || retTy->isIntegerTy())
-				hash = hash*31 + std::hash<size_t>()(1);
-			else if (retTy->isDoubleTy())
-				hash = hash*31 + std::hash<size_t>()(2);
-			else if (retTy->isFloatTy())
-				hash = hash*31 + std::hash<size_t>()(3);
+			hash = hash*31 + std::hash<size_t>()(typeKindOf<isStrict>(retTy));
 			for (const auto& pTy: fTy->params())
 			{
-				if (pTy->isPointerTy() || pTy->isIntegerTy())
-					hash = hash*31 + std::hash<size_t>()(1);
-				else if (pTy->isDoubleTy())
-					hash = hash*31 + std::hash<size_t>()(2);
-				else if (pTy->isFloatTy())
-					hash = hash*31 + std::hash<size_t>()(3);
+				hash = hash*31 + std::hash<size_t>()(typeKindOf<isStrict>(pTy));
 			}
 			return hash;
 		}
@@ -81,24 +70,11 @@ public:
 	template<bool isStrict = false>
 	struct FunctionSignatureCmp
 	{
-	private:
-		size_t kindOf(const llvm::Type* type) const
-		{
-			if (type->isPointerTy())
-				return (isStrict ? 10 : 1);
-			else if (type->isIntegerTy())
-				return (isStrict ? 11 : 1);
-			else if (type->isDoubleTy())
-				return 2;
-			else if (type->isFloatTy())
-				return 3;
-			return 0;
-		}
 	public:
 		bool operator()(const llvm::FunctionType* const& lhs, const llvm::FunctionType* const& rhs) const
 		{
-			size_t r1 = kindOf(lhs->getReturnType());
-			size_t r2 = kindOf(rhs->getReturnType());
+			size_t r1 = typeKindOf<isStrict>(lhs->getReturnType());
+			size_t r2 = typeKindOf<isStrict>(rhs->getReturnType());
 			if (r1 != r2)
 				return false;
 			if (lhs->getNumParams() != rhs->getNumParams())
@@ -107,8 +83,8 @@ public:
 			auto rit = rhs->param_begin();
 			for (;lit != lhs->param_end(); lit++,rit++)
 			{
-				r1 = kindOf(*lit);
-				r2 = kindOf(*rit);
+				r1 = typeKindOf<isStrict>(*lit);
+				r2 = typeKindOf<isStrict>(*rit);
 				if (r1 != r2)
 					return false;
 			}
@@ -118,38 +94,27 @@ public:
 
 	static std::string getFunctionTableName(const llvm::FunctionType* ft)
 	{
+		auto getTypeKindChar = [](const llvm::Type* ty)
+		{
+			switch (typeKindOf(ty))
+			{
+				case TypeKind::Void:
+					return 'v';
+				case TypeKind::Integer:
+				case TypeKind::RawPointer:
+					return 'i';
+				case TypeKind::Double:
+					return 'd';
+				case TypeKind::Float:
+					return 'f';
+			}
+		};
 		std::string table_name;
 		llvm::Type* ret = ft->getReturnType();
-		if (ret->isVoidTy())
-		{
-			table_name += 'v';
-		}
-		else if (ret->isIntegerTy() || ret->isPointerTy())
-		{
-			table_name += 'i';
-		}
-		else if (ret->isDoubleTy())
-		{
-			table_name += 'd';
-		}
-		else if (ret->isFloatTy())
-		{
-			table_name += 'f';
-		}
+		table_name += getTypeKindChar(ret);
 		for (const auto& param : ft->params())
 		{
-			if (param->isIntegerTy() || param->isPointerTy())
-			{
-				table_name += 'i';
-			}
-			else if (param->isDoubleTy())
-			{
-				table_name += 'd';
-			}
-			else if (param->isFloatTy())
-			{
-				table_name += 'f';
-			}
+			table_name += getTypeKindChar(param);
 		}
 		return table_name;
 	}
@@ -159,7 +124,7 @@ public:
 	 * function tables for indirect calls
 	 */
 	typedef std::unordered_map<const llvm::FunctionType*,FunctionTableInfo,
-		  FunctionSignatureHash,FunctionSignatureCmp<>> FunctionTableInfoMap;
+		  FunctionSignatureHash<>,FunctionSignatureCmp<>> FunctionTableInfoMap;
 	typedef std::vector<const llvm::FunctionType*> FunctionTableOrder;
 	/**
 	 * Used to assign asm.js function pointers
@@ -171,7 +136,7 @@ public:
 	typedef std::unordered_map<const llvm::GlobalVariable*, int32_t> GlobalAddressesMap;
 
 	typedef std::unordered_map<const llvm::FunctionType*, size_t,
-		FunctionSignatureHash,FunctionSignatureCmp<>> FunctionTypeIndicesMap;
+		FunctionSignatureHash<>,FunctionSignatureCmp<>> FunctionTypeIndicesMap;
 
 	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA,
 		uint32_t memorySize, uint32_t stackSize, bool wasmOnly, bool growMem):
@@ -302,6 +267,30 @@ public:
 		return builtinIds[b];
 	}
 private:
+	// Different kind of types for the purpose of comparing function signatures
+	enum TypeKind {
+		Void = 0,
+		Integer,
+		Double,
+		Float,
+		RawPointer,
+	};
+	template<bool isStrict = false>
+	static TypeKind typeKindOf(const llvm::Type* type)
+	{
+		if (type->isIntegerTy())
+			return TypeKind::Integer;
+		if (type->isDoubleTy())
+			return TypeKind::Double;
+		if (type->isFloatTy())
+			return TypeKind::Float;
+		if (type->isPointerTy())
+			return (isStrict ? TypeKind::RawPointer : TypeKind::Integer);
+		if (type->isVoidTy())
+			return TypeKind::Void;
+		llvm_unreachable("unrecognized type kind");
+	}
+
 	void addGlobals();
 	void addFunctions();
 	void addStack();
