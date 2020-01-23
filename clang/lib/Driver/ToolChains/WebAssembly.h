@@ -41,6 +41,7 @@ namespace cheerp {
     SHAREDMEM,
     EXPORTEDTABLE,
     ANYREF,
+    RETURNCALLS,
   };
   std::vector<CheerpWasmOpt> getWasmFeatures(const Driver& D, const llvm::opt::ArgList& Args);
 
