@@ -700,7 +700,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         break;
       case EXPORTEDTABLE:
         CmdArgs.push_back("-cheerp-wasm-exported-table");
+        break;
       case ANYREF:
+        CmdArgs.push_back("-cheerp-wasm-anyref");
         break;
       default:
         llvm_unreachable("invalid wasm option");
