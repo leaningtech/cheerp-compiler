@@ -605,6 +605,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("sharedmem", cheerp::SHAREDMEM)
     .Case("exportedtable", cheerp::EXPORTEDTABLE)
     .Case("anyref", cheerp::ANYREF)
+    .Case("returncalls", cheerp::RETURNCALLS)
     .Default(cheerp::INVALID);
 }
 
@@ -792,6 +793,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         break;
       case ANYREF:
         CmdArgs.push_back("-cheerp-wasm-anyref");
+        break;
+      case RETURNCALLS:
+        CmdArgs.push_back("-cheerp-wasm-return-calls");
         break;
       default:
         llvm_unreachable("invalid wasm option");
