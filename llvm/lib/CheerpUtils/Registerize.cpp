@@ -2918,11 +2918,8 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, 
 		return FLOAT;
 	else if(t->isFloatingPointTy())
 		return DOUBLE;
-	// Pointers in asm.js are just integers
-	else if(asmjs)
-		return INTEGER;
-	// Pointers to asm.js types are just integers
-	else if(TypeSupport::isAsmJSPointer(t))
+	// Raw pointers are just integers
+	else if(TypeSupport::isRawPointer(t, asmjs))
 		return INTEGER;
 	// NOTE: the Void type is considered an OBJECT
 	else

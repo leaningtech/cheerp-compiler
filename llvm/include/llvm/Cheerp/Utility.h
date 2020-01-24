@@ -28,6 +28,7 @@
 #include "llvm/Cheerp/EdgeContext.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/CommandLine.h"
 
 namespace cheerp
 {
@@ -356,6 +357,25 @@ public:
 					return st->hasAsmJS();
 			}
 		}
+		return false;
+	}
+	static bool isRawPointer(const llvm::Type* t, bool asmjs)
+	{
+		if (isAsmJSPointer(t))
+			return true;
+		if (!asmjs)
+			return false;
+		if (!t->isPointerTy())
+			return false;
+		llvm::Type* et = t->getPointerElementType();
+		if (isTypedArrayType(et, true) || et->isIntegerTy(1))
+			return true;
+		if (et->isPointerTy() || et->isArrayTy())
+			return true;
+		if (et->isFunctionTy())
+			return true;
+		if (!WasmAnyref)
+			llvm::report_fatal_error("Found an anyref, but anyref support is not enabled");
 		return false;
 	}
 
