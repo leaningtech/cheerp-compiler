@@ -66,3 +66,5 @@ llvm::cl::opt<bool> WasmSharedMemory("cheerp-wasm-shared-memory", llvm::cl::desc
 llvm::cl::opt<bool> WasmNoGrowMemory("cheerp-wasm-no-grow-memory", llvm::cl::desc("Disable memory growth and allocate all the wasm module memory upfront"));
 
 llvm::cl::opt<bool> WasmExportedTable("cheerp-wasm-exported-table", llvm::cl::desc("Export the function table from the wasm module as 'tbl'"));
+
+llvm::cl::opt<bool> WasmAnyref("cheerp-wasm-anyref", llvm::cl::desc("Enable support for the anyref value type in wasm"));

@@ -129,19 +129,22 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, WasmBu
 		case Registerize::INTEGER:
 			encodeULEB128(0x7f, stream);
 			break;
-		default:
-			assert(false);
+		case Registerize::OBJECT:
+			encodeULEB128(0x6f, stream);
+			break;
 	}
 }
 
 static uint32_t getValType(const Type* t)
 {
-	if (t->isIntegerTy() || t->isPointerTy())
+	if (t->isIntegerTy() || TypeSupport::isRawPointer(t, true))
 		return 0x7f;
 	else if (t->isFloatTy())
 		return 0x7d;
 	else if (t->isDoubleTy())
 		return 0x7c;
+	else if (t->isPointerTy())
+		return 0x6f;
 	else
 	{
 #ifndef NDEBUG
@@ -159,7 +162,7 @@ static void encodeValType(const Type* t, WasmBuffer& stream)
 
 static void encodeLiteralType(const Type* t, WasmBuffer& stream)
 {
-	if (t->isIntegerTy() || t->isPointerTy())
+	if (t->isIntegerTy() || TypeSupport::isRawPointer(t, true))
 		encodeULEB128(0x41, stream);
 	else if(t->isFloatTy())
 		encodeULEB128(0x43, stream);
@@ -1330,12 +1333,14 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 
 const char* CheerpWasmWriter::getTypeString(const Type* t)
 {
-	if(t->isIntegerTy() || t->isPointerTy())
+	if (t->isIntegerTy() || TypeSupport::isRawPointer(t, true))
 		return "i32";
 	else if(t->isFloatTy())
 		return "f32";
 	else if(t->isDoubleTy())
 		return "f64";
+	else if(t->isPointerTy())
+		return "anyref";
 	else
 	{
 #ifndef NDEBUG
@@ -2860,6 +2865,7 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 		uint32_t groups = (uint32_t) locals.at(Registerize::INTEGER) > 0;
 		groups += (uint32_t) locals.at(Registerize::DOUBLE) > 0;
 		groups += (uint32_t) locals.at(Registerize::FLOAT) > 0;
+		groups += (uint32_t) locals.at(Registerize::OBJECT) > 0;
 
 		// Local declarations are compressed into a vector whose entries
 		// consist of:
@@ -2884,6 +2890,11 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 			internal::encodeULEB128(locals.at(Registerize::FLOAT), code);
 			internal::encodeRegisterKind(Registerize::FLOAT, code);
 		}
+
+		if (locals.at(Registerize::OBJECT)) {
+			internal::encodeULEB128(locals.at(Registerize::OBJECT), code);
+			internal::encodeRegisterKind(Registerize::OBJECT, code);
+		}
 	} else {
 		code << "(local";
 
@@ -2900,6 +2911,11 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 		if (locals.at(Registerize::FLOAT)) {
 			for (int i = 0; i < locals.at(Registerize::FLOAT); i++)
 				code << " f32";
+		}
+
+		if (locals.at(Registerize::OBJECT)) {
+			for (int i = 0; i < locals.at(Registerize::OBJECT); i++)
+				code << " anyref";
 		}
 
 		code << ")\n";
@@ -3249,7 +3265,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 	// Make lookup table for registers to locals.
 	for(const Registerize::RegisterInfo& regInfo: regsInfo)
 	{
-		assert(regInfo.regKind != Registerize::OBJECT);
 		assert(!regInfo.needsSecondaryName);
 
 		// Save the current local index
@@ -3280,7 +3295,9 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 				offset += locals.at((int)Registerize::DOUBLE);
 				break;
 			case Registerize::OBJECT:
-				assert(false);
+				offset += locals.at((int)Registerize::INTEGER);
+				offset += locals.at((int)Registerize::DOUBLE);
+				offset += locals.at((int)Registerize::FLOAT);
 				break;
 		}
 		localMap[reg++] += offset;
