@@ -439,7 +439,10 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 	}
 	else if (isa<Argument>(p) )
 	{
-		top = cast<Argument>(p)->getParent();
+		if (TypeSupport::isRawPointer(p->getType(), true))
+			top = cast<Argument>(p)->getParent();
+		else
+			return false;
 	}
 	else if (isa<GlobalValue>(p))
 	{
@@ -1483,6 +1486,8 @@ POINTER_KIND PointerAnalyzer::getPointerKindForReturn(const Function* F) const
 	{
 		if (F->getName() == StringRef("__getStackPtr"))
 			return RAW;
+		if (TypeSupport::isClientType(F->getReturnType()->getPointerElementType()))
+			return COMPLETE_OBJECT;
 		return SPLIT_REGULAR;
 	}
 	IndirectPointerKindConstraint c(RETURN_CONSTRAINT, F);

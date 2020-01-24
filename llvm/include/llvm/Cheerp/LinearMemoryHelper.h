@@ -103,6 +103,8 @@ public:
 				case TypeKind::Integer:
 				case TypeKind::RawPointer:
 					return 'i';
+				case TypeKind::RefPointer:
+					return 'r';
 				case TypeKind::Double:
 					return 'd';
 				case TypeKind::Float:
@@ -274,6 +276,7 @@ private:
 		Double,
 		Float,
 		RawPointer,
+		RefPointer,
 	};
 	template<bool isStrict = false>
 	static TypeKind typeKindOf(const llvm::Type* type)
@@ -284,8 +287,10 @@ private:
 			return TypeKind::Double;
 		if (type->isFloatTy())
 			return TypeKind::Float;
-		if (type->isPointerTy())
+		if (type->isPointerTy() && TypeSupport::isRawPointer(type, true))
 			return (isStrict ? TypeKind::RawPointer : TypeKind::Integer);
+		if (type->isPointerTy())
+			return TypeKind::RefPointer;
 		if (type->isVoidTy())
 			return TypeKind::Void;
 		llvm_unreachable("unrecognized type kind");
