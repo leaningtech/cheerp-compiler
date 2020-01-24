@@ -191,9 +191,10 @@ private:
 	};
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstants;
 	LinearMemoryHelper::GlobalUsageMap globalizedGlobalsIDs;
+	mutable InlineableCache inlineableCache;
 public:
 	llvm::raw_ostream& stream;
-	CheerpWasmWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, cheerp::PointerAnalyzer & PA,
+	CheerpWasmWriter(llvm::Module& m, llvm::Pass& p, llvm::raw_ostream& s, const cheerp::PointerAnalyzer & PA,
 			cheerp::Registerize & registerize,
 			cheerp::GlobalDepsAnalyzer & gda,
 			const LinearMemoryHelper& linearHelper,
@@ -231,6 +232,7 @@ public:
 		exportedTable(exportedTable),
 		PA(PA),
 		mode(mode),
+		inlineableCache(PA),
 		stream(s)
 	{
 	}
@@ -265,6 +267,10 @@ public:
 	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantIntAsGlobal(int32_t val, uint32_t useCount, uint32_t getGlobalCost);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	void compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
+	bool isInlineable(const llvm::Instruction& I) const
+	{
+		return inlineableCache.isInlineable(I);
+	}
 };
 
 }

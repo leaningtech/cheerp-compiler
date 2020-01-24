@@ -379,7 +379,7 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 		assert(branchId==0);
 
 		const Value* cond = bi->getCondition();
-		bool canInvertCond = isa<Instruction>(cond) && isInlineable(*cast<Instruction>(cond), writer->PA);
+		bool canInvertCond = isa<Instruction>(cond) && writer->isInlineable(*cast<Instruction>(cond));
 
 		if(canInvertCond && isa<ICmpInst>(cond))
 		{
@@ -969,7 +969,7 @@ bool CheerpWasmWriter::mayHaveLastWrittenRegAsFirstOperand(const Value* v) const
 	const Instruction* I = dyn_cast<Instruction>(v);
 	if(!I)
 		return false;
-	if(isInlineable(*I, PA))
+	if(isInlineable(*I))
 	{
 		if(I->getNumOperands() < 1)
 			return false;
@@ -1034,8 +1034,8 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 		default:
 			if(I.isCommutative())
 			{
-				bool isOp0Register = isa<Instruction>(I.getOperand(0)) && !isInlineable(*cast<Instruction>(I.getOperand(0)), PA);
-				bool isOp1Register = isa<Instruction>(I.getOperand(1)) && !isInlineable(*cast<Instruction>(I.getOperand(1)), PA);
+				bool isOp0Register = isa<Instruction>(I.getOperand(0)) && !isInlineable(*cast<Instruction>(I.getOperand(0)));
+				bool isOp1Register = isa<Instruction>(I.getOperand(1)) && !isInlineable(*cast<Instruction>(I.getOperand(1)));
 				// Favor tee_local if possible, otherwise favor any local
 				if((hasSetLocal && mayHaveLastWrittenRegAsFirstOperand(I.getOperand(1))) ||
 					(!isOp0Register && isOp1Register))
@@ -1281,7 +1281,7 @@ bool CheerpWasmWriter::needsPointerKindConversion(const Instruction* phi, const 
 	const Instruction* incomingInst=getUniqueIncomingInst(incoming, PA);
 	if(!incomingInst)
 		return true;
-	assert(!isInlineable(*incomingInst, PA));
+	assert(!isInlineable(*incomingInst));
 	return registerize.getRegisterId(phi, EdgeContext::emptyContext())!=registerize.getRegisterId(incomingInst, edgeContext);
 }
 
@@ -1354,7 +1354,7 @@ const char* CheerpWasmWriter::getTypeString(const Type* t)
 void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, bool standalone)
 {
 	const auto I = dyn_cast<Instruction>(gep_inst);
-	if (I && !isInlineable(*I, PA)) {
+	if (I && !isInlineable(*I)) {
 		if (!standalone) {
 			uint32_t reg = registerize.getRegisterId(I, edgeContext);
 			uint32_t local = localMap.at(reg);
@@ -1736,7 +1736,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	}
 	else if(const Instruction* it=dyn_cast<Instruction>(v))
 	{
-		if(isInlineable(*it, PA)) {
+		if(isInlineable(*it)) {
 			compileInlineInstruction(code, *it);
 		} else {
 			uint32_t idx = registerize.getRegisterId(it, edgeContext);
@@ -1990,7 +1990,7 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV
 uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value* ptrOp)
 {
 	uint32_t offset = 0;
-	if(isa<Instruction>(ptrOp) && isInlineable(*cast<Instruction>(ptrOp), PA)) {
+	if(isa<Instruction>(ptrOp) && isInlineable(*cast<Instruction>(ptrOp))) {
 		// Calling compileGEP is safe on any instruction
 		WasmGepWriter gepWriter(*this, code);
 		auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
@@ -2812,7 +2812,7 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 	BasicBlock::const_iterator IE=BB.end();
 	for(;I!=IE;++I)
 	{
-		if(isInlineable(*I, PA))
+		if(isInlineable(*I))
 			continue;
 		if(I->getOpcode()==Instruction::PHI) //Phis are manually handled
 			continue;
@@ -2965,7 +2965,7 @@ void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 
 void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* cond, bool booleanInvert)
 {
-	bool canInvertCond = isa<Instruction>(cond) && isInlineable(*cast<Instruction>(cond), PA);
+	bool canInvertCond = isa<Instruction>(cond) && isInlineable(*cast<Instruction>(cond));
 
 	if(canInvertCond && isa<ICmpInst>(cond))
 	{
