@@ -2745,7 +2745,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 			bool isImport = F && globalDeps.asmJSImports().count(F);
 			PARENT_PRIORITY prio = LOWEST;
-			if (tp->isPointerTy() || (tp->isIntegerTy() &&
+			if (TypeSupport::isRawPointer(tp, true) || (tp->isIntegerTy() &&
 				(isImport ||
 				(!F && !linearHelper.getFunctionTables().count(fTy)))))
 			{
@@ -5535,8 +5535,7 @@ void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
 				stream << '+' << getName(&*curArg);
 				break;
 			case Registerize::OBJECT:
-				llvm::errs() << "OBJECT register kind should not appear in asm.js functions\n";
-				llvm::report_fatal_error("please report a bug");
+				stream << getName(&*curArg);
 				break;
 		}
 		stream << ';' << NewLine;
@@ -5711,7 +5710,7 @@ void CheerpWriter::compileAsmJSImports()
 			if(curArg!=A)
 				stream << ',';
 			int shift = 0;
-			if(curArg->getType()->isPointerTy() && !TypeSupport::isAsmJSPointer(curArg->getType()))
+			if(curArg->getType()->isPointerTy() && PA.getPointerKind(&*curArg) == SPLIT_REGULAR)
 			{
 				shift = compileHeapForType(cast<PointerType>(curArg->getType())->getPointerElementType());
 				stream << ',';
@@ -5731,7 +5730,7 @@ void CheerpWriter::compileAsmJSExports()
 		if(F->empty()) continue;
 		Type* retTy = F->getReturnType();
 		POINTER_KIND retKind = retTy->isPointerTy()? PA.getPointerKindForReturn(F): UNKNOWN; 
-		assert(retKind == UNKNOWN || retKind == RAW || retKind == SPLIT_REGULAR);
+		assert(retKind == UNKNOWN || retKind == RAW || retKind == SPLIT_REGULAR || retKind == COMPLETE_OBJECT);
 
 		stream << "function " << getName(F) << '(';
 		const Function::const_arg_iterator A=F->arg_begin();
@@ -6068,7 +6067,6 @@ void CheerpWriter::makeJS()
 			{
 				std::string className, funcName;
 				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
-				assert(className.empty() || imported->hasFnAttribute(Attribute::Static) && "Only static client methods can be imported");
 				name = className.empty() ? funcName : (className + "." + funcName);
 			}
 			else if (imported->empty() && !TypeSupport::isClientFunc(imported))

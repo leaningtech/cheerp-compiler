@@ -18,6 +18,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Support/raw_ostream.h"
 
 STATISTIC(NumAllocasTransformedToGEPs, "Number of allocas of values transformed to GEPs in the stack");
@@ -71,6 +72,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 
 	SmallVector<std::pair<AllocaInst*, int32_t>, 8> allocas;
 	SmallVector<std::pair<AllocaInst*, Value*>, 8> dynAllocas;
+	SmallVector<AllocaInst*, 8> allocasToPromote;
 	SmallVector<ReturnInst*, 8> returns;
 	SmallVector<CallInst*, 8> vastarts;
 	SmallVector<CallInst*, 8> varargCalls;
@@ -83,11 +85,21 @@ bool AllocaLowering::runOnFunction(Function& F)
 		{
 			if (AllocaInst * ai = dyn_cast<AllocaInst>(it))
 			{
-				// Skip if not asmjs or RAW pointer
-				if (!asmjs && !cheerp::TypeSupport::isAsmJSPointer(ai->getType()))
+				// Skip if not RAW pointer
+				if (!cheerp::TypeSupport::isRawPointer(ai->getType(), asmjs))
+				{
 					continue;
+				}
 
 				Type* allocTy = ai->getAllocatedType();
+				// Frontend checks should have made sure that allocas of anyrefs are
+				// always promotable to registers, so if we find one, just promote it
+				if (allocTy->isPointerTy() && cheerp::TypeSupport::isClientType(allocTy->getPointerElementType()))
+				{
+					assert(isAllocaPromotable(ai) && "Alloca of anyref not promotable to register");
+					allocasToPromote.push_back(ai);
+					continue;
+				}
 				uint32_t size = targetData.getTypeAllocSize(allocTy);
 				uint32_t alignment = cheerp::TypeSupport::getAlignmentAsmJS(targetData, allocTy);
 				size_t num  = 1;
@@ -156,6 +168,12 @@ bool AllocaLowering::runOnFunction(Function& F)
 	for (auto r: toRemove)
 	{
 		r->eraseFromParent();
+	}
+	// Promote stuff
+	if (allocasToPromote.size() != 0)
+	{
+		DominatorTree& DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+		PromoteMemToReg(allocasToPromote, DT);
 	}
 	// Nothing else to do
 	if (allocas.size() == 0 && dynAllocas.size() == 0 && varargCalls.size() == 0 && vastarts.size() == 0)
@@ -305,6 +323,7 @@ void AllocaLowering::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
+	AU.addRequired<DominatorTreeWrapperPass>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
