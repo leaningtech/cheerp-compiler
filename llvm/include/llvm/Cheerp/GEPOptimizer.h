@@ -386,6 +386,8 @@ private:
 	struct Node {
 		typedef Node* NodeRef;
 		const llvm::PointerIntPair<llvm::BasicBlock*, 2, Kind> pair;
+		// NOTE: This may be used only in assertions
+		ValidBasicBlockForestGraph* parent;
 		constexpr BasicBlock* BB() const
 		{
 			return pair.getPointer();
@@ -396,11 +398,11 @@ private:
 			return (pair.getInt() == Kind::Good && BB()) ? Kind::Regular : pair.getInt();
 		}
 		ValidBasicBlockForestGraph& getGraph() const {return const_cast<ValidBasicBlockForestGraph&>(*current_VBBFGraph);}
-		explicit Node(BasicBlock* BB): pair(BB, compressKind(getGraph().determineKind(BB)))
+		explicit Node(ValidBasicBlockForestGraph* p, BasicBlock* BB): pair(BB, compressKind(getGraph().determineKind(BB))), parent(p)
 		{
 			assert(BB);
 		}
-		explicit Node(Kind kind): pair(nullptr, kind)
+		explicit Node(ValidBasicBlockForestGraph* p, Kind kind): pair(nullptr, kind), parent(p)
 		{
 		}
 		void printAsOperand(llvm::raw_ostream& o, bool b) const
@@ -420,6 +422,10 @@ private:
 				llvm::errs() << "Bad";
 			llvm::errs() << " ; ";
 		}
+		ValidBasicBlockForestGraph* getParent() const
+		{
+			assert(false);
+		}
 		void dump() const
 		{
 			printAsOperand(llvm::errs(), false);
@@ -433,7 +439,7 @@ private:
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, compressKind(Kind::Regular)), Node(BB))).first;
+			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, compressKind(Kind::Regular)), Node(this, BB))).first;
 		}
 		return &it->second;
 	}
@@ -447,7 +453,7 @@ private:
 		if (it == Nodes.end())
 		{
 			assert(create);
-			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, compressKind(kind)), Node(kind))).first;
+			it = Nodes.insert(std::make_pair(BasicBlockKindPair(BB, compressKind(kind)), Node(this, kind))).first;
 		}
 		return &it->second;
 	}
