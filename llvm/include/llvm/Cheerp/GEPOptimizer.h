@@ -465,7 +465,7 @@ private:
 		return getOrCreate(Kind::Good);
 	}
 	class SuccIterator
-		: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node, Node> {
+		: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node*, Node*> {
 		void skipNonExistentSuccessors()
 		{
 			assert(N->BB());
@@ -512,7 +512,7 @@ private:
 			BasicBlock* BB = N->BB()->getTerminator()->getSuccessor(Idx);
 			return N->getGraph().getOrCreate(BB);
 		}
-		SuccIterator& operator++()
+		SuccIterator& operator--()
 		{
 			if (Idx == -2)
 				Idx = -1;
@@ -521,9 +521,9 @@ private:
 			skipNonExistentSuccessors();
 			return *this;
 		}
-		SuccIterator operator++(int)
+		SuccIterator operator--(int)
 		{
-			SuccIterator tmp = *this; ++*this; return tmp;
+			SuccIterator tmp = *this; --*this; return tmp;
 		}
 		bool operator==(const SuccIterator& I) const
 		{
