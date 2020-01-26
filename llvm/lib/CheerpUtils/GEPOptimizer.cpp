@@ -225,7 +225,7 @@ template <> struct GraphTraits<ValidBasicBlockForestGraph*> : public GraphTraits
 BasicBlockForest ValidBasicBlockForestGraph::getValidBlocks()
 {
 	//This function takes the direct graph defined in ValidBasicBlockForestGraph, compute the post dominator tree, and build the result
-	DominatorTreeBase<Node> PDT(true);
+	DominatorTreeBase<Node, true> PDT;
 	PDT.recalculate(*this);
 	SmallVector<ValidBasicBlockForestGraph::Node*, 8> ValidNodes;
 	PDT.getDescendants(getOrCreate(Kind::Good), ValidNodes);
