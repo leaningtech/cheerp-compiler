@@ -202,29 +202,9 @@ public:
     NoAsmVariants = true;
   }
 
-  virtual ArrayRef<Builtin::Info> getTargetBuiltins() const {
-    return llvm::makeArrayRef(BuiltinInfo, clang::Cheerp::LastTSBuiltin - Builtin::FirstTSBuiltin);
-  }
-
+  virtual ArrayRef<Builtin::Info> getTargetBuiltins() const;
   virtual void getTargetDefines(const LangOptions &Opts,
-                                MacroBuilder &Builder) const {
-    // Target identification.
-    Builder.defineMacro("__CHEERP__");
-
-    if (getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
-      Builder.defineMacro("__ASMJS__");
-      if (Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wasm ||
-          Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
-      {
-        Builder.defineMacro("__WASM__");
-      }
-    }
-
-    if (Opts.CPlusPlus)
-      Builder.defineMacro("_GNU_SOURCE");
-
-    Builder.defineMacro("__LITTLE_ENDIAN__");
-  }
+                                MacroBuilder &Builder) const;
 
   virtual BuiltinVaListKind getBuiltinVaListKind() const {
     return TargetInfo::CharPtrBuiltinVaList;

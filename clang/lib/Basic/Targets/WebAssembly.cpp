@@ -263,6 +263,30 @@ void WebAssembly64TargetInfo::getTargetDefines(const LangOptions &Opts,
   defineCPUMacros(Builder, "wasm64", /*Tuning=*/false);
 }
 
+ArrayRef<Builtin::Info> CheerpTargetInfo::getTargetBuiltins() const {
+  return llvm::makeArrayRef(BuiltinInfo, clang::Cheerp::LastTSBuiltin - Builtin::FirstTSBuiltin);
+}
+
+void CheerpTargetInfo::getTargetDefines(const LangOptions &Opts,
+                                MacroBuilder &Builder) const {
+  // Target identification.
+  Builder.defineMacro("__CHEERP__");
+
+  if (getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
+    Builder.defineMacro("__ASMJS__");
+    if (Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wasm ||
+        Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
+    {
+      Builder.defineMacro("__WASM__");
+    }
+  }
+
+  if (Opts.CPlusPlus)
+    Builder.defineMacro("_GNU_SOURCE");
+
+  Builder.defineMacro("__LITTLE_ENDIAN__");
+}
+
 const Builtin::Info CheerpTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS) { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
 #define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) { #ID, TYPE, ATTRS, HEADER,\
