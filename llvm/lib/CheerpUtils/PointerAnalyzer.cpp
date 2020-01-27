@@ -439,9 +439,8 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 	}
 	else if (isa<Argument>(p) )
 	{
-		if (TypeSupport::isRawPointer(p->getType(), true))
-			top = cast<Argument>(p)->getParent();
-		else
+		top = cast<Argument>(p)->getParent();
+		if (!TypeSupport::isRawPointer(p->getType(), top->getSection() == StringRef("asmjs")))
 			return false;
 	}
 	else if (isa<GlobalValue>(p))
