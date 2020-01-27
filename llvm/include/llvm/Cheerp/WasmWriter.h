@@ -150,6 +150,8 @@ private:
 	// NOTE: Careful, this is not in sync with needsUnsignedTruncation!
 	//       All the users listed here must _not_ call needsUnsignedTruncation!
 	bool isSignedLoad(const llvm::Value* V) const;
+	bool isReturnPartOfTailCall(const llvm::Instruction& ti) const;
+	bool isTailCall(const llvm::CallInst& ci) const;
 	// Returns true if, by potentially inverting commutative instructions, there is a way
 	// to use the last written register as the first operand
 	bool mayHaveLastWrittenRegAsFirstOperand(const llvm::Value* v) const;
