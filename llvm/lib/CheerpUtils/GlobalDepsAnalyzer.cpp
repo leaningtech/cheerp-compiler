@@ -11,6 +11,7 @@
 
 #define DEBUG_TYPE "GlobalDepsAnalyzer"
 #include <algorithm>
+#include <llvm/Analysis/OptimizationDiagnosticInfo.h>
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
@@ -128,7 +129,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		I->replaceAllUsesWith(With);
 		I->eraseFromParent();
 	};
-	LibCallSimplifier callSimplifier(*DL, TLI, LibCallReplacer);
+	OptimizationRemarkEmitter ORE;
+	LibCallSimplifier callSimplifier(*DL, TLI, ORE, LibCallReplacer);
 	for (Function& F : module.getFunctionList()) {
 		F.setPersonalityFn(nullptr);
 		bool asmjs = F.getSection() == StringRef("asmjs");
