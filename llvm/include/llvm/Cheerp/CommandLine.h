@@ -46,5 +46,6 @@ extern llvm::cl::opt<bool> WasmSharedMemory;
 extern llvm::cl::opt<bool> WasmNoGrowMemory;
 extern llvm::cl::opt<bool> WasmExportedTable;
 extern llvm::cl::opt<bool> WasmAnyref;
+extern llvm::cl::opt<bool> WasmReturnCalls;
 
 #endif //_CHEERP_COMMAND_LINE_H
