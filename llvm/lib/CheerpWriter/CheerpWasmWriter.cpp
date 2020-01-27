@@ -2063,6 +2063,34 @@ bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I
 	return false;
 }
 
+bool CheerpWasmWriter::isTailCall(const CallInst& ci) const
+{
+	if(!WasmReturnCalls || !ci.isTailCall())
+		return false;
+	const Instruction* nextI = ci.getNextNode();
+	// The next inst must be a return
+	if(!isa<ReturnInst>(nextI))
+		return false;
+	// Both call and return are void
+	if(currentFun->getReturnType()->isVoidTy())
+		return ci.getType()->isVoidTy();
+	// The return uses the call
+	return nextI->getOperand(0) == &ci;
+}
+
+bool CheerpWasmWriter::isReturnPartOfTailCall(const Instruction& ti) const
+{
+	const BasicBlock* BB = ti.getParent();
+	// Make sure this return is not the first instruction of the block
+	if(&*BB->begin() == &ti)
+		return false;
+	const Instruction* TermPrev = ti.getPrevNode();
+	// Make sure the previous instruction is a call
+	if(!isa<CallInst>(TermPrev))
+		return false;
+	return isTailCall(*cast<CallInst>(TermPrev));
+}
+
 bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruction& I)
 {
 	switch(I.getOpcode())
@@ -2126,6 +2154,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const PointerType* pTy = cast<PointerType>(calledValue->getType());
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 			assert(!ci.isInlineAsm());
+			// NOTE: If 'useTailCall' the code _must_ use return_call or insert a return
+			//       Returns are not otherwise added in such cases
+			const bool useTailCall = isTailCall(ci);
 
 			if (calledFunc)
 			{
@@ -2135,17 +2166,25 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::trap:
 					{
 						encodeInst(0x00, "unreachable", code);
+						// NOTE: No point in adding a return even if 'useTailCall' is true
 						return true;
 					}
 					case Intrinsic::stacksave:
 					{
 						encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
+						if(useTailCall)
+						{
+							encodeInst(0x0f, "return", code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::stackrestore:
 					{
 						compileOperand(code, ci.getOperand(0));
 						encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
+						if(useTailCall)
+							encodeInst(0x0f, "return", code);
 						return true;
 					}
 					case Intrinsic::vastart:
@@ -2158,35 +2197,59 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(1));
 						encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
 						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
+						if(useTailCall)
+							encodeInst(0x0f, "return", code);
 						return true;
 					}
 					case Intrinsic::vaend:
 					{
 						// Do nothing.
+						if(useTailCall)
+							encodeInst(0x0f, "return", code);
 						return true;
 					}
 					case Intrinsic::cheerp_downcast:
 					case Intrinsic::cheerp_virtualcast:
 					{
 						compileDowncast(code, &ci);
+						if(useTailCall)
+						{
+							encodeInst(0x0f, "return", code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::cheerp_downcast_current:
 					{
 						compileOperand(code, ci.getOperand(0));
+						if(useTailCall)
+						{
+							encodeInst(0x0f, "return", code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::cheerp_upcast_collapsed:
 					{
 						compileOperand(code, ci.getOperand(0));
+						if(useTailCall)
+						{
+							encodeInst(0x0f, "return", code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::cheerp_cast_user:
 					{
 						if(ci.use_empty())
 							return true;
-
 						compileOperand(code, ci.getOperand(0));
+						// NOTE: If there are no uses this cannot be a tail-call (the user would have been the return)
+						if(useTailCall)
+						{
+							encodeInst(0x0f, "return", code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::cheerp_grow_memory:
@@ -2195,11 +2258,22 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						if(useWasmLoader)
 						{
 							uint32_t importedId = linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM);
-							encodeU32Inst(0x10, "call", importedId, code);
+							if(useTailCall)
+							{
+								encodeU32Inst(0x12, "return_call", importedId, code);
+								return true;
+							}
+							else
+								encodeU32Inst(0x10, "call", importedId, code);
 						}
 						else
 						{
 							encodeS32Inst(0x40, "grow_memory", 0, code);
+							if(useTailCall)
+							{
+								encodeInst(0x0f, "return", code);
+								return true;
+							}
 						}
 						return false;
 					}
@@ -2207,12 +2281,22 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					{
 						// Rounding mode 1: nearest
 						encodeS32Inst(0x41, "i32.const", 1, code);
+						if(useTailCall)
+						{
+							encodeInst(0x0f, "return", code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::ctlz:
 					{
 						compileOperand(code, ci.getOperand(0));
 						encodeInst(0x67, "i32.clz", code);
+						if(useTailCall)
+						{
+							encodeInst(0x0f, "return", code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::invariant_start:
@@ -2222,11 +2306,19 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							return true;
 
 						compileOperand(code, ci.getOperand(1));
+						// NOTE: If there are no uses this cannot be a tail-call (the user would have been the return)
+						if(useTailCall)
+						{
+							encodeInst(0x0f, "return", code);
+							return true;
+						}
 						return false;
 					}
 					case Intrinsic::invariant_end:
 					{
 						// Do nothing.
+						if(useTailCall)
+							encodeInst(0x0f, "return", code);
 						return true;
 					}
 					case Intrinsic::memmove:
@@ -2238,6 +2330,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						uint32_t functionId = linearHelper.getFunctionIds().at(f);
 						encodeU32Inst(0x10, "call", functionId, code);
 						encodeInst(0x1a, "drop", code);
+						// NOTE: Cannot tail call, the return type is different
+						if(useTailCall)
+							encodeInst(0x0f, "return", code);
 						return true;
 					}
 					case Intrinsic::memcpy:
@@ -2249,6 +2344,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						uint32_t functionId = linearHelper.getFunctionIds().at(f);
 						encodeU32Inst(0x10, "call", functionId, code);
 						encodeInst(0x1a, "drop", code);
+						// NOTE: Cannot tail call, the return type is different
+						if(useTailCall)
+							encodeInst(0x0f, "return", code);
 						return true;
 					}
 					case Intrinsic::memset:
@@ -2260,6 +2358,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						uint32_t functionId = linearHelper.getFunctionIds().at(f);
 						encodeU32Inst(0x10, "call", functionId, code);
 						encodeInst(0x1a, "drop", code);
+						// NOTE: Cannot tail call, the return type is different
+						if(useTailCall)
+							encodeInst(0x0f, "return", code);
 						return true;
 					}
 					case Intrinsic::cheerp_allocate:
@@ -2378,6 +2479,12 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						encodeU32Inst(0x10, "call", importedId, code);
 						if(floatType)
 							encodeInst(0xb6, "f32.demote/f64", code);
+						// TODO: We could tail call if the type matches
+						if(useTailCall)
+						{
+							encodeInst(0x0f, "return", code);
+							return true;
+						}
 						return false;
 					}
 				}
@@ -2395,12 +2502,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				if (isWasmIntrinsic(calledFunc))
 				{
 					encodeWasmIntrinsic(code, calledFunc);
+					if(useTailCall)
+						encodeInst(0x0f, "return", code);
 				}
 				else if (linearHelper.getFunctionIds().count(calledFunc))
 				{
 					uint32_t functionId = linearHelper.getFunctionIds().at(calledFunc);
 					if (functionId < COMPILE_METHOD_LIMIT) {
-						encodeU32Inst(0x10, "call", functionId, code);
+						if(useTailCall)
+							encodeU32Inst(0x12, "return_call", functionId, code);
+						else
+							encodeU32Inst(0x10, "call", functionId, code);
 					} else {
 						encodeInst(0x00, "unreachable", code);
 					}
@@ -2419,7 +2531,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					const auto& table = linearHelper.getFunctionTables().at(fTy);
 					compileOperand(code, calledValue);
 					if (mode == CheerpWasmWriter::WASM) {
-						encodeU32U32Inst(0x11, "call_indirect", table.typeIndex, 0, code);
+						if(useTailCall)
+							encodeU32U32Inst(0x13, "return_call_indirect", table.typeIndex, 0, code);
+						else
+							encodeU32U32Inst(0x11, "call_indirect", table.typeIndex, 0, code);
 					} else {
 						//code << "call_indirect $vt_" << table.name << '\n';
 						code << "call_indirect " << table.typeIndex << '\n';
@@ -2581,8 +2696,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			const ReturnInst& ri = cast<ReturnInst>(I);
 			Value* retVal = ri.getReturnValue();
 			if(retVal)
+			{
+				// NOTE: If the retValue is inlineable we must render it here
+				//       If 'isReturnPartOfTailCall' return true then retVal must be a CallInst
+				//       so blindly casting it to Instruction is safe
+				if(isReturnPartOfTailCall(ri) && !isInlineable(*cast<Instruction>(retVal)))
+					break;
 				compileOperand(code, I.getOperand(0));
-
+			}
 			break;
 		}
 		case Instruction::Select:
@@ -3114,9 +3235,12 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				else
 					lastDepth0Block = nullptr;
 				compileBB(code, *T.getBB());
-				if (!lastDepth0Block && isa<ReturnInst>(T.getBB()->getTerminator()))
+				if(!lastDepth0Block)
 				{
-					encodeInst(0x0f, "return", code);
+					const BasicBlock* BB = T.getBB();
+					const Instruction* Term = BB->getTerminator();
+					if (isa<ReturnInst>(Term) && !isReturnPartOfTailCall(*Term))
+						encodeInst(0x0f, "return", code);
 				}
 				break;
 			}
