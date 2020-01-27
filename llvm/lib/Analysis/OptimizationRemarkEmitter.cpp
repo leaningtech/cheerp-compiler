@@ -22,6 +22,10 @@
 
 using namespace llvm;
 
+OptimizationRemarkEmitter::OptimizationRemarkEmitter()
+    : F(nullptr), BFI(nullptr) {
+}
+
 OptimizationRemarkEmitter::OptimizationRemarkEmitter(const Function *F)
     : F(F), BFI(nullptr) {
   if (!F->getContext().getDiagnosticsHotnessRequested())

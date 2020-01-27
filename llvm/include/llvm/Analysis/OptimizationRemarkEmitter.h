@@ -35,6 +35,7 @@ public:
   OptimizationRemarkEmitter(const Function *F, BlockFrequencyInfo *BFI)
       : F(F), BFI(BFI) {}
 
+  OptimizationRemarkEmitter();
   /// This variant can be used to generate ORE on demand (without the
   /// analysis pass).
   ///
