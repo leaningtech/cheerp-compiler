@@ -5179,7 +5179,7 @@ void CheerpWriter::compileTokens(const TokenList& Tokens)
 		}
 	}
 }
-void CheerpWriter::compileMethod(Function& F)
+void CheerpWriter::compileMethod(const Function& F)
 {
 	bool asmjs = F.getSection() == StringRef("asmjs");
 	if (sourceMapGenerator) {
@@ -5239,8 +5239,8 @@ void CheerpWriter::compileMethod(Function& F)
 			compileMethodLocals(F, false);
 			CheerpRenderInterface ri(this, namegen.getBuiltinName(NameGenerator::Builtin::LABEL), NewLine, asmjs);
 
-			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(const_cast<Function&>(F)).getDomTree();
+			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(const_cast<Function&>(F)).getLoopInfo();
 			CFGStackifier::Mode Mode = asmjs ? CFGStackifier::AsmJS : CFGStackifier::GenericJS;
 			CFGStackifier CN(F, LI, DT, registerize, PA, Mode);
 			compileTokens(CN.Tokens);
