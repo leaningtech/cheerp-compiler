@@ -211,10 +211,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            raw_pwrite_stream &o,
                                            CodeGenFileType FileType,
                                            bool DisableVerify,
-                                           AnalysisID StartBefore,
-                                           AnalysisID StartAfter,
-                                           AnalysisID StopBefore,
-                                           AnalysisID StopAfter) {
+                                           MachineModuleInfo *MMI) {
 
   LinearOutputTy outputMode = parseLinearOutput();
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
