@@ -54,10 +54,7 @@ public:
                                    raw_pwrite_stream &Out,
                                    CodeGenFileType FileType,
                                    bool DisableVerify,
-                                   AnalysisID StartBefore,
-                                   AnalysisID StartAfter,
-                                   AnalysisID StopBefore,
-                                   AnalysisID StopAfter) override;
+                                   MachineModuleInfo *MMI = nullptr) override;
   virtual const CheerpSubtarget* getSubtargetImpl(const Function &F) const override;
 };
 
