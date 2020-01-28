@@ -3350,7 +3350,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 	}
 	return lastDepth0Block;
 }
-void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
+void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 {
 	assert(!F.empty());
 	currentFun = &F;
@@ -3451,8 +3451,8 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, Function& F)
 		}
 		else
 		{
-			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(const_cast<Function&>(F)).getDomTree();
+			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(const_cast<Function&>(F)).getLoopInfo();
 			CFGStackifier CN(F, LI, DT, registerize, PA, CFGStackifier::Wasm);
 			lastDepth0Block = compileTokens(code, CN.Tokens);
 		}
@@ -3839,11 +3839,11 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			orderOfInsertion[G] = orderOfInsertion.size();
 	}
 	// Gather all constants used multiple times, we want to encode those in the global section
-	for (Function* F: linearHelper.functions())
+	for (const Function* F: linearHelper.functions())
 	{
-		for(BasicBlock& BB: *F)
+		for(const BasicBlock& BB: *F)
 		{
-			for(Instruction& I: BB)
+			for(const Instruction& I: BB)
 			{
 				// Heuristic: Avoid globalizing values which will be anyway encoded as a load/store offset
 				// Fully constant GEPs will be a ConstantExpr, so when we see a GEP there are 2 possibilities
@@ -4239,7 +4239,7 @@ void CheerpWasmWriter::compileCodeSection()
 
 	size_t i = 0;
 
-	for (Function* F: linearHelper.functions())
+	for (const Function* F: linearHelper.functions())
 	{
 		if (mode == CheerpWasmWriter::WASM) {
 			std::ostringstream method;
