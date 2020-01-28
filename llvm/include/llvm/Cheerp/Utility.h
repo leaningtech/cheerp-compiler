@@ -933,6 +933,8 @@ struct PairHash
 		}
 };
 
+	// Handy alias for a deterministic set of const llvm::Function* with no erasures
+	using DeterministicFunctionSet = llvm::DenseSet<const llvm::Function*>;
 }
 namespace llvm
 {
