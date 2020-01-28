@@ -16,6 +16,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include <array>
 #include <string>
@@ -83,14 +84,24 @@ public:
 	const std::unordered_set<llvm::Type*> & dynResizeArrays() const { return arrayResizesNeeded; }
 	
 	/**
-	 * Get a list of the asm.js functions called from outside
+	 * Get a list of the asm.js functions called from genericjs
 	 */
 	const std::unordered_set<const llvm::Function*> & asmJSExports() const { return asmJSExportedFuncions; }
 
 	/**
-	 * Get a list of the normal functions called from asm.js
+	 * Get a list of the genericjs functions called from asm.js
 	 */
 	const std::unordered_set<const llvm::Function*> & asmJSImports() const { return asmJSImportedFuncions; }
+
+	/**
+	 * Get a list of functions to compile outside of the asm.js/wasm module
+	 */
+	const DeterministicFunctionSet& outsideModule() const { return functionsOutsideModule; }
+
+	/**
+	 * Get a list of functions to compile inside of the asm.js/wasm module
+	 */
+	const DeterministicFunctionSet& insideModule() const { return functionsInsideModule; }
 
 	/**
 	 * Get the list of constructors (static initializers) required by the program
@@ -222,6 +233,8 @@ private:
 	std::unordered_set<llvm::Type* > arrayResizesNeeded;
 	std::unordered_set<const llvm::Function* > asmJSExportedFuncions;
 	std::unordered_set<const llvm::Function* > asmJSImportedFuncions;
+	DeterministicFunctionSet functionsInsideModule;
+	DeterministicFunctionSet functionsOutsideModule;
 	std::vector< const llvm::Function* > constructorsNeeded;
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;

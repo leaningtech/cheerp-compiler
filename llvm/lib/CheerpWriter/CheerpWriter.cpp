@@ -5934,11 +5934,11 @@ void CheerpWriter::compileAsmJS()
 	for ( const GlobalVariable* GV : linearHelper.globals() )
 		compileGlobalAsmJS(*GV);
 
-	for ( Function & F : module.getFunctionList() )
+	for (const Function* F : globalDeps.insideModule())
 	{
-		if (!F.empty() && F.getSection() == StringRef("asmjs"))
+		if (!F->empty())
 		{
-			compileMethod(F);
+			compileMethod(*F);
 		}
 	}
 
@@ -6019,14 +6019,16 @@ void CheerpWriter::compileAsmJS()
 
 void CheerpWriter::compileGenericJS()
 {
-	for ( Function & F : module.getFunctionList() )
-		if (!F.empty() && F.getSection() != StringRef("asmjs"))
+	for (const Function* F: globalDeps.outsideModule())
+	{
+		if (!F->empty())
 		{
 #ifdef CHEERP_DEBUG_POINTERS
-			dumpAllPointers(F, PA);
+			dumpAllPointers(*F, PA);
 #endif //CHEERP_DEBUG_POINTERS
-			compileMethod(F);
+			compileMethod(*F);
 		}
+	}
 	for ( const GlobalVariable & GV : module.getGlobalList() )
 	{
 		// Skip global ctors array

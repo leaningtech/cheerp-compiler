@@ -754,6 +754,10 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 
 	const Module* module = F->getParent();
 	bool isAsmJS = F->getSection() == StringRef("asmjs");
+	if (isAsmJS)
+		functionsInsideModule.insert(F);
+	else
+		functionsOutsideModule.insert(F);
 	for ( const BasicBlock & bb : *F )
 		for (const Instruction & I : bb)
 		{
@@ -1131,6 +1135,8 @@ void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {
 	asmJSExportedFuncions.erase(F);
 	asmJSImportedFuncions.erase(F);
 	reachableGlobals.erase(F);
+	functionsInsideModule.erase(F);
+	functionsOutsideModule.erase(F);
 }
 
 }
