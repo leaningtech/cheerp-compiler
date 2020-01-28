@@ -481,9 +481,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	// Mark the __wasm_nullptr as reachable.
 	llvm::Function* wasmNullptr = module.getFunction(StringRef(wasmNullptrName));
 	if (wasmNullptr) {
-		SubExprVec vec;
-		visitGlobal(wasmNullptr, visited, vec);
+		visitFunction(wasmNullptr, visited);
 		assert(visited.empty());
+		reachableGlobals.insert(wasmNullptr);
 	}
 
 	NumRemovedGlobals = filterModule(droppedMathBuiltins, module);
