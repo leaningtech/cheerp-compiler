@@ -374,6 +374,8 @@ public:
 			return true;
 		if (et->isFunctionTy())
 			return true;
+		if (llvm::isa<llvm::StructType>(et) && llvm::cast<llvm::StructType>(et)->isOpaque())
+			return asmjs;
 		if (!WasmAnyref)
 			llvm::report_fatal_error("Found an anyref, but anyref support is not enabled");
 		return false;
