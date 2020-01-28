@@ -436,7 +436,7 @@ private:
 	static llvm::DenseSet<const Token*> getLabeledTokens(const TokenList& Tokens);
 	static bool omitBraces(const Token& T, const PointerAnalyzer& PA, const Registerize& registerize);
 	void compileTokens(const TokenList& Tokens);
-	void compileMethod(llvm::Function& F);
+	void compileMethod(const llvm::Function& F);
 	/**
 	 * Helper structure for compiling globals
 	 */

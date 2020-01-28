@@ -473,7 +473,7 @@ void LinearMemoryHelper::addFunctions()
 
 	// Sort the list of functions by their usage.
 	std::sort(unsorted.begin(), unsorted.end(),
-		[] (Function* a, Function* b) {
+		[] (const Function* a, const Function* b) {
 			return a->getNumUses() > b->getNumUses();
 		}
 	);
