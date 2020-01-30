@@ -224,6 +224,8 @@ private:
 	bool symbolicGlobalsAsmJS;
 	// Flag to signal if we should emit readable or compressed output
 	bool readableOutput;
+	// Names of js-exported items
+	std::vector<llvm::StringRef> exportedClassNames;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -502,7 +504,7 @@ private:
 	//JS interoperability support
 	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
 	std::vector<llvm::StringRef> compileClassesExportedToJs();
-	void addExportedFreeFunctions(std::vector<llvm::StringRef>& namesList, const llvm::NamedMDNode* namedNode);
+	std::vector<const llvm::Function*> getExportedFreeFunctions();
 	void compileInlineAsm(const llvm::CallInst& ci);
 
 	struct JSBytesWriter: public LinearMemoryHelper::ByteListener
@@ -672,6 +674,25 @@ public:
 	static bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from,
 	                                                const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsUnsignedTruncation(const llvm::Value* v, bool asmjs);
+
+	void compileSourceMapsBegin();
+	void compileSourceMapsEnd();
+	void compileTimeToMainBegin();
+	void compileTimeToMainEnd();
+	void compileModuleClosureBegin();
+	void compileModuleClosureEnd();
+	void compileHelpers();
+	void compileAsmJS();
+	void compileGenericJS();
+	void compileWasmLoader();
+	void compileAsmJSLoader();
+	void compileLoaderEnd();
+	void compileNoLoaderAsmJS();
+	void compileNoLoaderEnd();
+	void compileDeclareExports();
+	void compileDefineExports(bool alsoDeclare);
+	void compileCommonJSExports();
+	void compileConstructors();
 };
 
 }

@@ -17,16 +17,19 @@
 using namespace llvm;
 using namespace cheerp;
 
-void CheerpWriter::addExportedFreeFunctions(std::vector<StringRef>& namesList, const NamedMDNode* namedNode)
+std::vector<const Function*> CheerpWriter::getExportedFreeFunctions()
 {
-	for ( NamedMDNode::const_op_iterator it = namedNode->op_begin(); it != namedNode->op_end(); ++ it )
+	std::vector<const Function*> exported;
+	NamedMDNode* namedNode = module.getNamedMetadata("jsexported_methods");
+	if (namedNode==nullptr)
+		return exported;
+	for (auto it = namedNode->op_begin(); it != namedNode->op_end(); ++ it )
 	{
 		const MDNode * node = *it;
 		const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
-		// Currently we assign the function to the mangled name, it works better with extern "C" functions
-		stream << "var " << f->getName() << '=' << namegen.getName(f) << ';' << NewLine;
-		namesList.push_back(f->getName());
+		exported.push_back(f);
 	}
+	return exported;
 }
 
 uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic) const
@@ -61,7 +64,6 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 
 		if(name == "jsexported_methods")
 		{
-			addExportedFreeFunctions(exportedNames, &namedNode);
 			continue;
 		}
 
