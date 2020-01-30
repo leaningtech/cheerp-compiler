@@ -5797,57 +5797,87 @@ void CheerpWriter::compileFetchBuffer()
 	stream << "}" << NewLine;
 }
 
-void CheerpWriter::makeJS()
+
+void CheerpWriter::compileSourceMapsBegin()
 {
-	if (sourceMapGenerator) {
-		sourceMapGenerator->beginFile();
+	sourceMapGenerator->beginFile();
 
-		NamedMDNode *cu = module.getNamedMetadata("llvm.dbg.cu");
-		if (!cu || cu->getNumOperands() == 0) {
-			llvm::errs() << "warning: no debug symbols found but source map is requested\n";
-		}
-
-		DebugInfoFinder finder;
-		finder.processModule(module);
-
-		for (const DISubprogram *method : finder.subprograms()) {
-#ifdef CHEERP_DEBUG_SOURCE_MAP
-			llvm::errs() << "Name: " << method.getName()
-				<< " LinkageName: " << method.getLinkageName()
-				<< " Line: " << method.getLineNumber()
-				<< " ScopeLine: " << method.getScopeLineNumber()
-				<< " Type: " << method.getType()
-				<< " IsLocalToUnit: " << method.isLocalToUnit()
-				<< " IsDefinition: " << method.isDefinition()
-				<< "\n";
-#endif
-
-			StringRef linkName = method->getLinkageName();
-			if (linkName.empty())
-				linkName = method->getName();
-			auto it = functionToDebugInfoMap.find(linkName);
-			if(it == functionToDebugInfoMap.end())
-				functionToDebugInfoMap.insert(std::make_pair(linkName, method));
-			else if(method->isDefinition() && !it->second->isDefinition())
-				it->second = method;
-		}
+	NamedMDNode *cu = module.getNamedMetadata("llvm.dbg.cu");
+	if (!cu || cu->getNumOperands() == 0) {
+		llvm::errs() << "warning: no debug symbols found but source map is requested\n";
 	}
 
-	if (makeModule==MODULE_TYPE::CLOSURE)
-		stream << "(function(){" << NewLine;
+	DebugInfoFinder finder;
+	finder.processModule(module);
 
+	for (const DISubprogram *method : finder.subprograms()) {
+#ifdef CHEERP_DEBUG_SOURCE_MAP
+		llvm::errs() << "Name: " << method.getName()
+			<< " LinkageName: " << method.getLinkageName()
+			<< " Line: " << method.getLineNumber()
+			<< " ScopeLine: " << method.getScopeLineNumber()
+			<< " Type: " << method.getType()
+			<< " IsLocalToUnit: " << method.isLocalToUnit()
+			<< " IsDefinition: " << method.isDefinition()
+			<< "\n";
+#endif
+
+		StringRef linkName = method->getLinkageName();
+		if (linkName.empty())
+			linkName = method->getName();
+		auto it = functionToDebugInfoMap.find(linkName);
+		if(it == functionToDebugInfoMap.end())
+			functionToDebugInfoMap.insert(std::make_pair(linkName, method));
+		else if(method->isDefinition() && !it->second->isDefinition())
+			it->second = method;
+	}
+}
+void CheerpWriter::compileSourceMapsEnd()
+{
+	sourceMapGenerator->endFile();
+	stream << "//# sourceMappingURL=" << sourceMapGenerator->getSourceMapName();
+}
+
+void CheerpWriter::compileTimeToMainBegin()
+{
+	stream << "var __cheerp_now = typeof dateNow!==\"undefined\"?dateNow:(typeof performance!==\"undefined\"?performance.now:function(){return new Date().getTime()});" << NewLine;
+	stream << "var __cheerp_main_time = -0;" << NewLine;
+	stream << "var __cheerp_start_time = __cheerp_now();" << NewLine;
+}
+void CheerpWriter::compileTimeToMainEnd()
+{
+	stream << "console.log(\"main() called after\", __cheerp_main_time-__cheerp_start_time, \"ms\");" << NewLine;
+}
+
+void CheerpWriter::compileModuleClosureBegin()
+{
+	stream << "(function(){" << NewLine;
+
+	if (!exportedClassNames.empty() || !getExportedFreeFunctions().empty()) {
+		// The following JavaScript code originates from:
+		// https://github.com/jashkenas/underscore/blob/master/underscore.js
+		// Establish the root object, `window` (`self`) in the browser, `global`
+		// on the server, or `this` in some virtual machines. We use `self`
+		// instead of `window` for `WebWorker` support.
+		stream << "var __root =" << NewLine;
+		stream << "\ttypeof self === 'object' && self.self === self && self ||" << NewLine;
+		stream << "\ttypeof global === 'object' && global.global === global && global ||" << NewLine;
+		stream << "\tthis;" << NewLine;
+	}
+
+}
+void CheerpWriter::compileModuleClosureEnd()
+{
+	stream << "})();" << NewLine;
+}
+
+void CheerpWriter::compileHelpers()
+{
 	// Enable strict mode first
 	stream << "\"use strict\";" << NewLine;
 
 	if(addCredits)
 		stream << "/*Compiled using Cheerp (R) by Leaning Technologies Ltd*/" << NewLine;
-
-	if (measureTimeToMain)
-	{
-		stream << "var __cheerp_now = typeof dateNow!==\"undefined\"?dateNow:(typeof performance!==\"undefined\"?performance.now:function(){return new Date().getTime()});" << NewLine;
-		stream << "var __cheerp_main_time = -0;" << NewLine;
-		stream << "var __cheerp_start_time = __cheerp_now();" << NewLine;
-	}
 
 	//Compile the bound-checking function
 	if ( checkBounds )
@@ -5858,7 +5888,6 @@ void CheerpWriter::makeJS()
 
 	compileBuiltins(false);
 
-	std::vector<StringRef> exportedClassNames = compileClassesExportedToJs();
 	compileNullPtrs();
 
 	// Utility function for loading files
@@ -5869,124 +5898,127 @@ void CheerpWriter::makeJS()
 	{
 		compileCheckBoundsAsmJSHelper();
 	}
+}
 
-	if (globalDeps.needAsmJS() && wasmFile.empty())
+void CheerpWriter::compileAsmJS()
+{
+	// compile boilerplate
+	stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
+	stream << "\"use asm\";" << NewLine;
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.stackStart|0;" << NewLine;
+	for (int i = HEAP8; i<=HEAPF64; i++)
 	{
-		// compile boilerplate
-		stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
-		stream << "\"use asm\";" << NewLine;
-		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.stackStart|0;" << NewLine;
-		for (int i = HEAP8; i<=HEAPF64; i++)
-		{
-			stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
-		}
-		compileMathDeclAsmJS();
-		compileBuiltins(true);
-		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "=ffi." << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ";" << NewLine;
-		if (checkBounds)
-		{
-			stream << "var checkBoundsAsmJS=ffi.checkBoundsAsmJS;" << NewLine;
-		}
-		for (const Function* imported: globalDeps.asmJSImports())
-		{
-			stream << "var " << getName(imported) << "=ffi." << getName(imported) << ';' << NewLine;
-		}
-		if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
-		{
+		stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
+	}
+	compileMathDeclAsmJS();
+	compileBuiltins(true);
+	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "=ffi." << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ";" << NewLine;
+	if (checkBounds)
+	{
+		stream << "var checkBoundsAsmJS=ffi.checkBoundsAsmJS;" << NewLine;
+	}
+	for (const Function* imported: globalDeps.asmJSImports())
+	{
+		stream << "var " << getName(imported) << "=ffi." << getName(imported) << ';' << NewLine;
+	}
+	if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
+	{
 
-			stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
-			stream << "=ffi.";
-			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
-			stream << ';' << NewLine;
-		}
-
-		// Declare globals
-		for ( const GlobalVariable* GV : linearHelper.globals() )
-			compileGlobalAsmJS(*GV);
-
-		for ( Function & F : module.getFunctionList() )
-		{
-			if (!F.empty() && F.getSection() == StringRef("asmjs"))
-			{
-				compileMethod(F);
-			}
-		}
-
-		compileFunctionTablesAsmJS();
-
-		stream << "return {" << NewLine;
-		// export constructors
-		for (const Function * F : globalDeps.constructors() )
-		{
-			if (F->getSection() == StringRef("asmjs"))
-				stream << getName(F) << ':' << getName(F) << ',' << NewLine;
-		}
-		// if entry point is in asm.js, explicitly export it
-		if ( const Function * entryPoint = globalDeps.getEntryPoint())
-		{
-			if (entryPoint->getSection() == StringRef("asmjs"))
-				stream << getName(entryPoint) << ':' << getName(entryPoint) << ',' << NewLine;
-		}
-		for (const Function* exported: globalDeps.asmJSExports())
-		{
-			StringRef name = getName(exported);
-			stream << name << ':' << name << ',' << NewLine;
-		}
-		stream << "};" << NewLine;
-		stream << "};" << NewLine;
-		stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
-		for (int i = HEAP8; i<=HEAPF64; i++)
-			stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
-		compileAsmJSImports();
-		compileAsmJSExports();
-		stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
-		stream << "var ffi = {" << NewLine;
-		stream << "heapSize:__heap.byteLength," << NewLine;
-		stream << "stackStart:" << linearHelper.getStackStart() << ',' << NewLine;
-		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ":" << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "," << NewLine;
-		if (checkBounds)
-		{
-			stream << "checkBoundsAsmJS:checkBoundsAsmJS," << NewLine;
-		}
-		for (const Function* imported: globalDeps.asmJSImports())
-		{
-			std::string name;
-			if (imported->empty() && TypeSupport::isClientFunc(imported))
-			{
-				std::string className, funcName;
-				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
-				assert(className.empty() || imported->hasFnAttribute(Attribute::Static) && "Only static client methods can be imported");
-				name = className.empty() ? funcName : (className + "." + funcName);
-			}
-			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
-				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-			else if (imported->arg_size() == 0)
-				name = getName(imported);
-			else
-				name = ("_asm_"+getName(imported)).str();
-			stream << getName(imported) << ':' << name  << ',' << NewLine;
-		}
-		if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
-		{
-
-			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
-			stream << ':';
-			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
-			stream << ',' << NewLine;
-		}
-		stream << "};" << NewLine;
-		stream << "var stdlib = {"<<NewLine;
-		stream << "Math:Math,"<<NewLine;
-		stream << "Infinity:Infinity,"<<NewLine;
-		stream << "NaN:NaN,"<<NewLine;
-		for (int i = HEAP8; i<=HEAPF64; i++)
-		{
-			stream << typedArrayNames[i] << ':' << typedArrayNames[i] << ',' << NewLine;
-		}
-		stream << "};" << NewLine;
-		compileGlobalsInitAsmJS();
+		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+		stream << "=ffi.";
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+		stream << ';' << NewLine;
 	}
 
+	// Declare globals
+	for ( const GlobalVariable* GV : linearHelper.globals() )
+		compileGlobalAsmJS(*GV);
+
+	for ( Function & F : module.getFunctionList() )
+	{
+		if (!F.empty() && F.getSection() == StringRef("asmjs"))
+		{
+			compileMethod(F);
+		}
+	}
+
+	compileFunctionTablesAsmJS();
+
+	stream << "return {" << NewLine;
+	// export constructors
+	for (const Function * F : globalDeps.constructors() )
+	{
+		if (F->getSection() == StringRef("asmjs"))
+			stream << getName(F) << ':' << getName(F) << ',' << NewLine;
+	}
+	// if entry point is in asm.js, explicitly export it
+	if ( const Function * entryPoint = globalDeps.getEntryPoint())
+	{
+		if (entryPoint->getSection() == StringRef("asmjs"))
+			stream << getName(entryPoint) << ':' << getName(entryPoint) << ',' << NewLine;
+	}
+	for (const Function* exported: globalDeps.asmJSExports())
+	{
+		StringRef name = getName(exported);
+		stream << name << ':' << name << ',' << NewLine;
+	}
+	stream << "};" << NewLine;
+	stream << "};" << NewLine;
+	stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
+	for (int i = HEAP8; i<=HEAPF64; i++)
+		stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
+	compileAsmJSImports();
+	compileAsmJSExports();
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
+	stream << "var ffi = {" << NewLine;
+	stream << "heapSize:__heap.byteLength," << NewLine;
+	stream << "stackStart:" << linearHelper.getStackStart() << ',' << NewLine;
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ":" << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "," << NewLine;
+	if (checkBounds)
+	{
+		stream << "checkBoundsAsmJS:checkBoundsAsmJS," << NewLine;
+	}
+	for (const Function* imported: globalDeps.asmJSImports())
+	{
+		std::string name;
+		if (imported->empty() && TypeSupport::isClientFunc(imported))
+		{
+			std::string className, funcName;
+			std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
+			assert(className.empty() || imported->hasFnAttribute(Attribute::Static) && "Only static client methods can be imported");
+			name = className.empty() ? funcName : (className + "." + funcName);
+		}
+		else if (imported->empty() && !TypeSupport::isClientFunc(imported))
+			name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
+		else if (imported->arg_size() == 0)
+			name = getName(imported);
+		else
+			name = ("_asm_"+getName(imported)).str();
+		stream << getName(imported) << ':' << name  << ',' << NewLine;
+	}
+	if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
+	{
+
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+		stream << ':';
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+		stream << ',' << NewLine;
+	}
+	stream << "};" << NewLine;
+	stream << "var stdlib = {"<<NewLine;
+	stream << "Math:Math,"<<NewLine;
+	stream << "Infinity:Infinity,"<<NewLine;
+	stream << "NaN:NaN,"<<NewLine;
+	for (int i = HEAP8; i<=HEAPF64; i++)
+	{
+		stream << typedArrayNames[i] << ':' << typedArrayNames[i] << ',' << NewLine;
+	}
+	stream << "};" << NewLine;
+	compileGlobalsInitAsmJS();
+}
+
+void CheerpWriter::compileGenericJS()
+{
 	for ( Function & F : module.getFunctionList() )
 		if (!F.empty() && F.getSection() != StringRef("asmjs"))
 		{
@@ -6033,110 +6065,227 @@ void CheerpWriter::makeJS()
 	//Compile growLinearMemory if needed
 	if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
 		compileGrowMem();
-	
-	//Load Wast module
-	if (!wasmFile.empty())
+
+	exportedClassNames = compileClassesExportedToJs();
+}
+
+void CheerpWriter::compileWasmLoader()
+{
+	if (globalDeps.needAsmJS())
 	{
-		if (globalDeps.needAsmJS())
-		{
-			for (int i = HEAP8; i<=HEAPF64; i++)
-				stream << "var " << heapNames[i] << "=null;" << NewLine;
-		}
-		stream << "var __asm=null;" << NewLine;
-		stream << "var __heap=null;" << NewLine;
-		compileAsmJSImports();
-		compileAsmJSExports();
-		stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
-		if (makeModule == MODULE_TYPE::COMMONJS)
-		{
-			stream << "module.exports=";
-		}
-		else
-		{
-			for (StringRef &className : exportedClassNames)
-				stream << className << ".promise=" << NewLine;
-		}
-		const std::string shortestName = namegen.getShortestLocalName();
-		stream << "fetchBuffer('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
-		stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
-		stream << "{i:{" << NewLine;
-		for (const Function* imported: globalDeps.asmJSImports())
-		{
-			std::string name;
-			if (imported->empty() && TypeSupport::isClientFunc(imported))
-			{
-				std::string className, funcName;
-				std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
-				name = className.empty() ? funcName : (className + "." + funcName);
-			}
-			else if (imported->empty() && !TypeSupport::isClientFunc(imported))
-				name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-			else if (imported->arg_size() == 0)
-				name = getName(imported);
-			else
-				name = ("_asm_"+getName(imported)).str();
-			stream << getName(imported) << ':' << name  << ',' << NewLine;
-		}
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ACOS_F64))
-			stream << namegen.getBuiltinName(NameGenerator::ACOS) << ":Math.acos," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ASIN_F64))
-			stream << namegen.getBuiltinName(NameGenerator::ASIN) << ":Math.asin," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN_F64))
-			stream << namegen.getBuiltinName(NameGenerator::ATAN) << ":Math.atan," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN2_F64))
-			stream << namegen.getBuiltinName(NameGenerator::ATAN2) << ":Math.atan2," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::COS_F64))
-			stream << namegen.getBuiltinName(NameGenerator::COS) << ":Math.cos," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::EXP_F64))
-			stream << namegen.getBuiltinName(NameGenerator::EXP) << ":Math.exp," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::LOG_F64))
-			stream << namegen.getBuiltinName(NameGenerator::LOG) << ":Math.log," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::POW_F64))
-			stream << namegen.getBuiltinName(NameGenerator::POW) << ":Math.pow," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::SIN_F64))
-			stream << namegen.getBuiltinName(NameGenerator::SIN) << ":Math.sin," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::TAN_F64))
-			stream << namegen.getBuiltinName(NameGenerator::TAN) << ":Math.tan," << NewLine;
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
-		{
-			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
-			stream << ':';
-			stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
-			stream << ',' << NewLine;
-		}
-		stream << "}})" << NewLine;
-		stream << ",console.log).then(" << shortestName << "=>{" << NewLine;
-		stream << "var i="<< shortestName <<".instance;" << NewLine;
-		if (globalDeps.needAsmJS())
-		{
-			for (int i = HEAP8; i<=HEAPF64; i++)
-				stream << heapNames[i] << "=new " << typedArrayNames[i] << "(i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
-		}
-		stream << "__asm=i.exports;" << NewLine;
-		stream << "__heap=i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
+		for (int i = HEAP8; i<=HEAPF64; i++)
+			stream << "var " << heapNames[i] << "=null;" << NewLine;
 	}
-	//Load asm.js module
-	else if (globalDeps.needAsmJS() && asmJSMem)
+	stream << "var __asm=null;" << NewLine;
+	stream << "var __heap=null;" << NewLine;
+	compileAsmJSImports();
+	compileAsmJSExports();
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
+	compileDeclareExports();
+	const std::string shortestName = namegen.getShortestLocalName();
+	stream << "fetchBuffer('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
+	stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
+	stream << "{i:{" << NewLine;
+	for (const Function* imported: globalDeps.asmJSImports())
 	{
-		stream << "var __asm=null;" << NewLine;
-		if (makeModule == MODULE_TYPE::COMMONJS)
+		std::string name;
+		if (imported->empty() && TypeSupport::isClientFunc(imported))
 		{
-			stream << "module.exports=";
+			std::string className, funcName;
+			std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
+			name = className.empty() ? funcName : (className + "." + funcName);
 		}
-		stream << "fetchBuffer('" << asmJSMemFile << "').then(r=>{" << NewLine;
-		stream << heapNames[HEAP8] << ".set(new Uint8Array(r),";
-		stream << linearHelper.getStackStart() << ");" << NewLine;
-		stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
+		else if (imported->empty() && !TypeSupport::isClientFunc(imported))
+			name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
+		else if (imported->arg_size() == 0)
+			name = getName(imported);
+		else
+			name = ("_asm_"+getName(imported)).str();
+		stream << getName(imported) << ':' << name  << ',' << NewLine;
+	}
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ACOS_F64))
+		stream << namegen.getBuiltinName(NameGenerator::ACOS) << ":Math.acos," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ASIN_F64))
+		stream << namegen.getBuiltinName(NameGenerator::ASIN) << ":Math.asin," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN_F64))
+		stream << namegen.getBuiltinName(NameGenerator::ATAN) << ":Math.atan," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN2_F64))
+		stream << namegen.getBuiltinName(NameGenerator::ATAN2) << ":Math.atan2," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::COS_F64))
+		stream << namegen.getBuiltinName(NameGenerator::COS) << ":Math.cos," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::EXP_F64))
+		stream << namegen.getBuiltinName(NameGenerator::EXP) << ":Math.exp," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::LOG_F64))
+		stream << namegen.getBuiltinName(NameGenerator::LOG) << ":Math.log," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::POW_F64))
+		stream << namegen.getBuiltinName(NameGenerator::POW) << ":Math.pow," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::SIN_F64))
+		stream << namegen.getBuiltinName(NameGenerator::SIN) << ":Math.sin," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::TAN_F64))
+		stream << namegen.getBuiltinName(NameGenerator::TAN) << ":Math.tan," << NewLine;
+	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
+	{
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+		stream << ':';
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
+		stream << ',' << NewLine;
+	}
+	stream << "}})" << NewLine;
+	stream << ",console.log).then(" << shortestName << "=>{" << NewLine;
+	stream << "var i="<< shortestName <<".instance;" << NewLine;
+	if (globalDeps.needAsmJS())
+	{
+		for (int i = HEAP8; i<=HEAPF64; i++)
+			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
+	}
+	stream << "__asm=i.exports;" << NewLine;
+	stream << "__heap=i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
+
+	compileDefineExports(false);
+}
+
+void CheerpWriter::compileDeclareExports()
+{
+	auto exportedFunctions = getExportedFreeFunctions();
+	if (makeModule != MODULE_TYPE::COMMONJS)
+	{
+		for (auto jsex: exportedFunctions)
+		{
+			if (makeModule == MODULE_TYPE::CLOSURE)
+				stream << "__root.";
+			else
+				stream << "var ";
+			stream << jsex->getName() << "={};" << NewLine;
+		}
+		if (makeModule == MODULE_TYPE::CLOSURE)
+		{
+			for (auto cls: exportedClassNames)
+			{
+					stream << "__root." << cls << '=' << cls << ';' << NewLine;
+			}
+		}
+	}
+	if (makeModule == MODULE_TYPE::COMMONJS)
+	{
+		stream << "module.exports=" << NewLine;
 	}
 	else
 	{
-		if (globalDeps.needAsmJS())
-			stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
+		for (auto jsex: exportedFunctions)
+		{
+			if (makeModule == MODULE_TYPE::CLOSURE)
+				stream << "__root.";
+			stream << jsex->getName() << ".promise=" << NewLine;
+		}
+		for (auto cls: exportedClassNames)
+		{
+			if (makeModule == MODULE_TYPE::CLOSURE)
+				stream << "__root.";
+			stream << cls << ".promise=" << NewLine;
+		}
+	}
+}
 
-		if (makeModule == MODULE_TYPE::COMMONJS)
-			stream << "module.exports=Promise.resolve().then(_=>{" << NewLine;
+void CheerpWriter::compileDefineExports(bool alsoDeclare)
+{
+	auto exportedFunctions = getExportedFreeFunctions();
+	if (makeModule != MODULE_TYPE::COMMONJS)
+	{
+		for (auto jsex: exportedFunctions)
+		{
+			if (alsoDeclare && makeModule != MODULE_TYPE::CLOSURE)
+				stream << "var ";
+			if (makeModule == MODULE_TYPE::CLOSURE)
+				stream << "__root.";
+			stream << jsex->getName() << '=' << getName(jsex) <<";" << NewLine;
+		}
+		if (alsoDeclare && makeModule == MODULE_TYPE::CLOSURE)
+		{
+			for (auto cls: exportedClassNames)
+			{
+				stream << "__root." << cls << '=' << cls << ';' << NewLine;
+			}
+		}
+		for (auto jsex: exportedFunctions)
+		{
+			if (makeModule == MODULE_TYPE::CLOSURE)
+				stream << "__root.";
+			stream << jsex->getName() << ".promise=" << NewLine;
+		}
+		for (auto cls: exportedClassNames)
+		{
+			if (makeModule == MODULE_TYPE::CLOSURE)
+				stream << "__root.";
+			stream << cls << ".promise=" << NewLine;
+		}
+		stream << "Promise.resolve();" << NewLine;
+	}
+}
+
+void CheerpWriter::compileAsmJSLoader()
+{
+	stream << "var __asm=null;" << NewLine;
+
+	compileDeclareExports();
+
+	stream << "fetchBuffer('" << asmJSMemFile << "').then(r=>{" << NewLine;
+	stream << heapNames[HEAP8] << ".set(new Uint8Array(r),";
+	stream << linearHelper.getStackStart() << ");" << NewLine;
+	stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
+
+	compileDefineExports(false);
+}
+
+void CheerpWriter::compileLoaderEnd()
+{
+	if (makeModule == MODULE_TYPE::COMMONJS)
+		compileCommonJSExports();
+	stream << "},console.log,console.log);" << NewLine;
+}
+
+void CheerpWriter::compileNoLoaderEnd()
+{
+	if (makeModule == MODULE_TYPE::COMMONJS)
+	{
+		compileCommonJSExports();
+		stream << "},console.log,console.log);" << NewLine;
+	}
+}
+
+void CheerpWriter::compileNoLoaderAsmJS()
+{
+	bool declareExports = makeModule == MODULE_TYPE::COMMONJS;
+	if (declareExports)
+		compileDeclareExports();
+
+	if (makeModule == MODULE_TYPE::COMMONJS)
+		stream << "Promise.resolve().then(_=>{" << NewLine;
+
+	if (globalDeps.needAsmJS())
+		stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
+
+
+	compileDefineExports(!declareExports);
+
+
+}
+
+void CheerpWriter::compileCommonJSExports()
+{
+	stream << "return{" << NewLine;
+	for (StringRef &className : exportedClassNames)
+		stream << className << ':' << className << ',' << NewLine;
+
+	for (const Function* f: getExportedFreeFunctions())
+	{
+		stream << f->getName() << ':' << namegen.getName(f) << ',' << NewLine;
 	}
 
+	stream << "};" << NewLine;
+}
+
+void CheerpWriter::compileConstructors()
+{
 	//Call constructors
 	for (const Function * F : globalDeps.constructors() )
 	{
@@ -6155,60 +6304,43 @@ void CheerpWriter::makeJS()
 			stream << "__asm.";
 		stream << getName(entryPoint) << "();" << NewLine;
 	}
-	if (makeModule == MODULE_TYPE::COMMONJS)
-	{
-		stream << "return{" << NewLine;
-		for (StringRef &className : exportedClassNames)
-			stream << className << ":" << className << ',' << NewLine;
-		stream << "};" << NewLine;
-	}
-	if (!wasmFile.empty() || (globalDeps.needAsmJS() && asmJSMem))
-	{
-		stream << "},console.log,console.log);" << NewLine;
-	}
-	else if (makeModule == MODULE_TYPE::COMMONJS)
-	{
-		stream << "});" << NewLine;
-	}
+}
 
-	if (makeModule==MODULE_TYPE::CLOSURE) {
-		if (!exportedClassNames.empty()) {
-			// The following JavaScript code originates from:
-			// https://github.com/jashkenas/underscore/blob/master/underscore.js
-			// Establish the root object, `window` (`self`) in the browser, `global`
-			// on the server, or `this` in some virtual machines. We use `self`
-			// instead of `window` for `WebWorker` support.
-			stream << "var __root =" << NewLine;
-			stream << "\ttypeof self === 'object' && self.self === self && self ||" << NewLine;
-			stream << "\ttypeof global === 'object' && global.global === global && global ||" << NewLine;
-			stream << "\tthis;" << NewLine;
-		}
+void CheerpWriter::makeJS()
+{
+	bool needSourceMaps = sourceMapGenerator!=nullptr;
+	bool needModuleClosure = makeModule==MODULE_TYPE::CLOSURE;
+	bool needAsmJSModule = globalDeps.needAsmJS() && wasmFile.empty();
+	bool needWasmLoader = !wasmFile.empty();
+	bool needAsmJSLoader = needAsmJSModule && asmJSMem;
 
-		for (StringRef &className : exportedClassNames)
-		{
-			// Genericjs and asmjs should export a promise property as well.
-			// It will resolve immediately since there is no asynchronous
-			// module compilation required.
-			if (wasmFile.empty())
-				stream << className << ".promise=Promise.resolve();";
-			stream << "__root." << className << " = " << className << ";" << NewLine;
-		}
-
-		stream << "})();" << NewLine;
-	}
-
+	if (needSourceMaps)
+		compileSourceMapsBegin();
 	if (measureTimeToMain)
-	{
-		stream << "console.log(\"main() called after\", __cheerp_main_time-__cheerp_start_time, \"ms\");" << NewLine;
-	}
-
-
-	// Link the source map if necessary
-	if(sourceMapGenerator)
-	{
-		sourceMapGenerator->endFile();
-		stream << "//# sourceMappingURL=" << sourceMapGenerator->getSourceMapName();
-	}
+		compileTimeToMainBegin();
+	if (needModuleClosure)
+		compileModuleClosureBegin();
+	compileHelpers();
+	if (needAsmJSModule)
+		compileAsmJS();
+	compileGenericJS();
+	if (needWasmLoader)
+		compileWasmLoader();
+	else if (needAsmJSLoader)
+		compileAsmJSLoader();
+	else
+		compileNoLoaderAsmJS();
+		compileConstructors();
+	if (needWasmLoader || needAsmJSLoader)
+		compileLoaderEnd();
+	else
+		compileNoLoaderEnd();
+	if (needModuleClosure)
+		compileModuleClosureEnd();
+	if (measureTimeToMain)
+		compileTimeToMainEnd();
+	if (needSourceMaps)
+		compileSourceMapsEnd();
 }
 
 Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const PointerAnalyzer& PA,
