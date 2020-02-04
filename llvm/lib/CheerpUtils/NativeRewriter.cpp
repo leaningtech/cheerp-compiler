@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2019 Leaning Technologies
+// Copyright 2011-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,6 +16,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
 
 using namespace llvm;
 using namespace std;
@@ -311,8 +312,24 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	CallInst* lowerConstructor = NULL;
 	BitCastInst* lowerCast = NULL;
 	const CallInst* oldLowerConstructor = NULL;
-	for(const auto& BB: F)
+	for(auto& BB: F)
 	{
+		SmallVector<AllocaInst*, 8> allocasToPromote;
+		for(auto& I: BB)
+		{
+			if(I.getOpcode() != Instruction::Alloca)
+				continue;
+			// Remove allocas, to be able to track how values are used
+			AllocaInst* AI = cast<AllocaInst>(&I);
+			if(!isAllocaPromotable(AI))
+				continue;
+			allocasToPromote.push_back(AI);
+		}
+		if(!allocasToPromote.empty())
+		{
+			DominatorTree& DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+			PromoteMemToReg(allocasToPromote, DT);
+		}
 		for(const auto& I: BB)
 		{
 			if(I.getOpcode()!=Instruction::Call)
@@ -501,6 +518,12 @@ bool CheerpNativeRewriter::runOnFunction(Function& F)
 {
 	rewriteNativeObjectsConstructors(*F.getParent(), F);
 	return true;
+}
+
+void CheerpNativeRewriter::getAnalysisUsage(AnalysisUsage & AU) const
+{
+	AU.addRequired<DominatorTreeWrapperPass>();
+	llvm::Pass::getAnalysisUsage(AU);
 }
 
 char CheerpNativeRewriter::ID = 0;
