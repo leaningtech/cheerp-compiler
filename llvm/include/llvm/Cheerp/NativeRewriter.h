@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2014 Leaning Technologies
+// Copyright 2011-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,8 +28,8 @@ private:
 	static void baseSubstitutionForBuiltin(llvm::User* i, llvm::Instruction* old, llvm::AllocaInst* source);
 	static bool findMangledClassName(const char* const s, const char* &className, int& classLen);
 	static llvm::Function* getReturningConstructor(llvm::Module& M, llvm::Function* called);
-	static void rewriteConstructorImplementation(llvm::Module& M, llvm::Function& F);
-	static bool rewriteNativeObjectsConstructors(llvm::Module& M, llvm::Function& F);
+	void rewriteConstructorImplementation(llvm::Module& M, llvm::Function& F);
+	bool rewriteNativeObjectsConstructors(llvm::Module& M, llvm::Function& F);
 	/*
 	 * Return true if callInst has been rewritten and it must be deleted
 	 */
@@ -44,6 +44,7 @@ public:
 	static char ID;
 	explicit CheerpNativeRewriter() : FunctionPass(ID) { }
 	bool runOnFunction(Function &F);
+	void getAnalysisUsage(AnalysisUsage & AU) const;
 	StringRef getPassName() const;
 };
 
