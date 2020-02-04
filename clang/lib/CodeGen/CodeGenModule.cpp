@@ -534,7 +534,8 @@ void CodeGenModule::Release() {
   // TargetLibraryInfo.
   uint64_t WCharWidth =
       Context.getTypeSizeInChars(Context.getWideCharType()).getQuantity();
-  getModule().addModuleFlag(llvm::Module::Error, "wchar_size", WCharWidth);
+  if (Context.getTargetInfo().isByteAddressable())
+    getModule().addModuleFlag(llvm::Module::Error, "wchar_size", WCharWidth);
 
   llvm::Triple::ArchType Arch = Context.getTargetInfo().getTriple().getArch();
   if (   Arch == llvm::Triple::arm
