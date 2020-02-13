@@ -20,6 +20,7 @@
 #include <cassert>
 #include <iostream>
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseMapInfo.h"
 
 /*
    Deterministic Unordered Container Implementation
@@ -238,36 +239,9 @@ protected:
 			return KeyPtr_Equal().operator()(LHS, RHS);
 		}
 	};
-
-	//In this cases Key is already pointer-like, so we store it twice, one in the map and one in the deque/list
-	struct DenseMapInfoSpecial {
-		using T = Key;
-		static inline T getEmptyKey()
-		{
-			uintptr_t Val = static_cast<uintptr_t>(-1);
-			return reinterpret_cast<T>(Val);
-		}
-		static inline T getTombstoneKey()
-		{
-			uintptr_t Val = static_cast<uintptr_t>(-2);
-			return reinterpret_cast<T>(Val);
-		}
-		template<typename U>
-		static inline unsigned getHashValue(const U& PtrVal)
-		{
-			// The const cast here is very ugly
-			return (unsigned)Hash_Key().operator()(const_cast<T>(PtrVal));
-		}
-		template<typename U, typename V>
-		static inline bool isEqual(const U& LHS, const V& RHS)
-		{
-			return LHS == RHS;
-		}
-	};
-
 	ContainerLocal container;
 	typename std::conditional<isKeyPointer(),
-		 llvm::DenseMap<Key, iterator, DenseMapInfoSpecial>,
+		 llvm::DenseMap<Key, iterator, llvm::DenseMapInfo<Key>>,
 		 llvm::DenseMap<Key_ptr, iterator, DenseMapInfoSpecialPtr>
 			 >::type map;
 };
