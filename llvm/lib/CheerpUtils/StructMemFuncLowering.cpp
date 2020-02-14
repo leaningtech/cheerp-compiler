@@ -330,24 +330,27 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			uint32_t sizeInt = sizeConst->getZExtValue();
 			uint32_t alignInt = cast<ConstantInt>(CI->getOperand(3))->getZExtValue();
 			assert(alignInt != 0);
+			uint32_t elemSize = 1;
 			// Take advantage of double moves when available
 			if (alignInt % 8 == 0 && sizeInt % 8 == 0 &&
-					isDoubleAggregate(dst->getType()->getPointerElementType()) &&
-					(mode==MEMSET || isDoubleAggregate(src->getType()->getPointerElementType()))) {
+					(mode==MEMSET ?
+						// For MEMSET the dst must be compatible, but also allow constant 0
+						isDoubleAggregate(dst->getType()->getPointerElementType()) || (isa<Constant>(src) && cast<Constant>(src)->isNullValue()) :
+						// Otherwise dst and src must be compatible
+						isDoubleAggregate(dst->getType()->getPointerElementType()) && isDoubleAggregate(src->getType()->getPointerElementType()))) {
 				Type* doubleType = Type::getDoubleTy(BB.getContext());
-				IRBuilder<> IRB(CI);
-				dst = IRB.CreateBitCast(dst, doubleType->getPointerTo());
-				// In MEMSET mode src is the i8 value to write
-				if(mode != MEMSET)
-					src = IRB.CreateBitCast(src, doubleType->getPointerTo());
 				pointedType = doubleType;
+				elemSize = 8;
 			} else if (alignInt % 4 == 0 && sizeInt % 4 == 0) {
+				pointedType = int32Type;
+				elemSize = 4;
+			}
+			if (elemSize > 1) {
 				IRBuilder<> IRB(CI);
-				dst = IRB.CreateBitCast(dst, int32Type->getPointerTo());
+				dst = IRB.CreateBitCast(dst, pointedType->getPointerTo());
 				// In MEMSET mode src is the i8 value to write
 				if(mode != MEMSET)
-					src = IRB.CreateBitCast(src, int32Type->getPointerTo());
-				pointedType = int32Type;
+					src = IRB.CreateBitCast(src, pointedType->getPointerTo());
 			}
 		}
 		assert(dst->getType() == src->getType() || mode==MEMSET);
