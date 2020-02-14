@@ -457,8 +457,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-TypeOptimizer");
   CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
   CmdArgs.push_back("-FreeAndDeleteRemoval");
-  // Inlining from -Os may generate additional memcpy calls that we will remove in the backend
-  CmdArgs.push_back("-StructMemFuncLowering");
+  CmdArgs.push_back("-cheerp-lto");
   CmdArgs.push_back("-Os");
   // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
   CmdArgs.push_back("-simplifycfg");
