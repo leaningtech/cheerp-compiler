@@ -22,6 +22,7 @@
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/Cheerp/StructMemFuncLowering.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
@@ -181,6 +182,9 @@ cl::opt<AttributorRunOption> AttributorRun(
 
 extern cl::opt<bool> EnableKnowledgeRetention;
 } // namespace llvm
+
+static cl::opt<bool> CheerpLTO("cheerp-lto", cl::init(false), cl::Hidden,
+                               cl::desc("Run passes needed for Cheerp LTO phase"));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -522,6 +526,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createAggressiveDCEPass()); // Delete dead instructions
 
   MPM.add(createMemCpyOptPass());               // Remove memcpy / form memset
+  if (CheerpLTO)
+    MPM.add(createStructMemFuncLowering());
   // TODO: Investigate if this is too expensive at O1.
   if (OptLevel > 1) {
     MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
