@@ -18,6 +18,7 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/IntEqClasses.h"
 #include "llvm/Cheerp/CommandLine.h"
