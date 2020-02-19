@@ -945,6 +945,8 @@ bool MemCpyOptPass::processMemCpyMemCpyDependence(MemCpyInst *M,
   // example we could be moving from movaps -> movq on x86.
   IRBuilder<> Builder(M);
   const DataLayout &DL = M->getModule()->getDataLayout();
+  if (!DL.isByteAddressable())
+    return false;
   if (UseMemMove)
     Builder.CreateMemMove(M->getRawDest(), M->getDestAlign(),
                           MDep->getRawSource(), MDep->getSourceAlign(),
