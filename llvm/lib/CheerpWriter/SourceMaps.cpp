@@ -103,9 +103,8 @@ void SourceMapGenerator::setDebugLoc(const llvm::DebugLoc* debugLoc)
 		return;
 	MDNode* file = debugLoc->getScope();
 	assert(file->getNumOperands()>=2);
-	MDNode* fileNamePath = cast<MDNode>(file->getOperand(1));
-	assert(fileNamePath->getNumOperands()==2);
-	StringRef fileName = cast<MDString>(fileNamePath->getOperand(0))->getString();
+	DIFile* fileNamePath = cast<DIFile>(file->getOperand(1));
+	StringRef fileName = fileNamePath->getFilename();
 
 	auto fileMapIt = fileMap.find(fileName);
 	if (fileMapIt == fileMap.end())
