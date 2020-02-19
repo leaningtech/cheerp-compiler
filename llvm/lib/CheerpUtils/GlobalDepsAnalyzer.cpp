@@ -1032,13 +1032,17 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		var->removeFromParent();
 		if ( ! isReachable(var) )
 			eraseQueue.push_back(var);
-		else if( var->hasInitializer() )
+		else
 		{
-			if( var->getName()!="llvm.global_ctors" )
-				var->setLinkage(GlobalValue::InternalLinkage);
+			bool isClient = TypeSupport::isClientGlobal(var);
+			if( var->hasInitializer() )
+			{
+				if( !isClient && var->getName()!="llvm.global_ctors" )
+					var->setLinkage(GlobalValue::InternalLinkage);
+			}
+			else if( !isClient )
+				logUndefinedSymbol(var);
 		}
-		else if( !TypeSupport::isClientGlobal(var) )
-			logUndefinedSymbol(var);
 	}
 	
 	// Detach all the functions, and put the unused ones in the eraseQueue
