@@ -1712,7 +1712,18 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
 
   // On the off chance we were targeting i8*, guard the bitcast here.
   if (cast<PointerType>(Ptr->getType()) != TargetPtrTy) {
-    // Cheerp: We don't accept a unsafe cast, unless we are in asm.js mode
+    Type* targetType = PointerTy->getPointerElementType();
+    // Cheerp: Only allow safe casts to direct bases, unless we are in asm.js mode
+    if(StructType* StTy = dyn_cast<StructType>(Ptr->getType()->getPointerElementType())) {
+      while(StructType* directBase = StTy->getDirectBase()) {
+        if(directBase == targetType) {
+          // The target type is a directbase of the current one, we can create a bitcast
+          Ptr = IRB.CreateBitCast(Ptr, PointerTy);
+          return Ptr;
+        }
+        StTy = directBase;
+      }
+    }
     if(!DL.isByteAddressable() && IRB.GetInsertBlock()->getParent()->getSection() != StringRef("asmjs"))
       return NULL;
     Ptr = IRB.CreatePointerBitCastOrAddrSpaceCast(Ptr,
@@ -3006,7 +3017,7 @@ private:
     bool IsDest = &II.getRawDestUse() == OldUse;
     assert((IsDest && II.getRawDest() == OldPtr) ||
            (!IsDest && II.getRawSource() == OldPtr));
-    Type *RealPtrTy = OldPtr->stripPointerCastsSafe()->getType();
+    Type *RealPtrTy = DL.isByteAddressable() ? OldPtr->stripPointerCastsSafe()->getType() : OldPtr->getType();
 
     MaybeAlign SliceAlign = getSliceAlign();
 
