@@ -18,16 +18,16 @@ define void @addsub() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[BB1:%.*]]
 ; CHECK:       bb1:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @b to <4 x i32>*), align 16
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @c to <4 x i32>*), align 16
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @b, i64 0, i64 0) to <4 x i32>*), align 16
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @c, i64 0, i64 0) to <4 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nsw <4 x i32> [[TMP0]], [[TMP1]]
-; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @d to <4 x i32>*), align 16
-; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @e to <4 x i32>*), align 16
+; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @d, i64 0, i64 0) to <4 x i32>*), align 16
+; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @e, i64 0, i64 0) to <4 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <4 x i32> [[TMP3]], [[TMP4]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <4 x i32> [[TMP2]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = sub nsw <4 x i32> [[TMP2]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP6]], <4 x i32> [[TMP7]], <4 x i32> <i32 0, i32 5, i32 2, i32 7>
-; CHECK-NEXT:    store <4 x i32> [[TMP8]], <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align 16
+; CHECK-NEXT:    store <4 x i32> [[TMP8]], <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @a, i64 0, i64 0) to <4 x i32>*), align 16
 ; CHECK-NEXT:    ret void
 ;
 entry:
