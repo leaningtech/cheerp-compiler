@@ -27,7 +27,7 @@ define i32 @f() #0 !dbg !4 {
 entry:
   %x = alloca i32, align 4
   %0 = bitcast i32* %x to i8*, !dbg !14
-  call void @llvm.lifetime.start(i64 4, i8* %0) #4, !dbg !14
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #4, !dbg !14
   tail call void @llvm.dbg.value(metadata i32 23, metadata !9, metadata !15), !dbg !16
   store i32 23, i32* %x, align 4, !dbg !16, !tbaa !17
   tail call void @llvm.dbg.value(metadata i32* %x, metadata !9, metadata !DIExpression(DW_OP_deref)), !dbg !16
@@ -45,7 +45,7 @@ if.then:                                          ; preds = %entry
 if.end:                                           ; preds = %if.then, %entry
   %2 = phi i32 [ 43, %if.then ], [ %1, %entry ], !dbg !27
   call void @llvm.dbg.value(metadata i32* %x, metadata !9, metadata !DIExpression(DW_OP_deref)), !dbg !16
-  call void @llvm.lifetime.end(i64 4, i8* %0) #4, !dbg !28
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %0) #4, !dbg !28
   ret i32 %2, !dbg !29
 }
 
