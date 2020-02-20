@@ -25,7 +25,7 @@ entry:
 ; CHECK: ret void
 
 ; ADDR-LABEL: @getcsr(
-; ADDR: %[[A:.*]] = load i64, i64* getelementptr inbounds {{.*}} @__msan_param_tls, i32 0, i32 0), align 8
+; ADDR: %[[A:.*]] = load i64, i64* bitcast {{.*}} @__msan_param_tls to i64*), align 8
 ; ADDR: %[[B:.*]] = icmp ne i64 %[[A]], 0
 ; ADDR: br i1 %[[B]], label {{.*}}, label
 ; ADDR: call void @__msan_warning_with_origin_noreturn(i32 0)
@@ -49,7 +49,7 @@ entry:
 ; CHECK: ret void
 
 ; ADDR-LABEL: @setcsr(
-; ADDR: %[[A:.*]] = load i64, i64* getelementptr inbounds {{.*}} @__msan_param_tls, i32 0, i32 0), align 8
+; ADDR: %[[A:.*]] = load i64, i64* bitcast {{.*}} @__msan_param_tls to i64*), align 8
 ; ADDR: %[[B:.*]] = icmp ne i64 %[[A]], 0
 ; ADDR: br i1 %[[B]], label {{.*}}, label
 ; ADDR: call void @__msan_warning_with_origin_noreturn(i32 0)

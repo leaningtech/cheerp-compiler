@@ -40,7 +40,7 @@ define void @f3(i32 %x) !type !8 {
 ; CHECK-DAG: @__typeid_typeid1_align = hidden alias i8, inttoptr (i8 3 to i8*)
 ; CHECK-DAG: @__typeid_typeid1_size_m1 = hidden alias i8, inttoptr (i64 4 to i8*)
 
-; CHECK-DAG: @h                    = alias void (i8), bitcast (void ()* [[JT1]] to void (i8)*)
+; CHECK-DAG: @h                    = alias void (i8), {{.*}}getelementptr {{.*}}void ()* [[JT1]]
 ; CHECK-DAG: @f                    = alias void (i32), {{.*}}getelementptr {{.*}}void ()* [[JT1]]
 ; CHECK-DAG: @f2                   = alias void (i32), {{.*}}getelementptr {{.*}}void ()* [[JT1]]
 ; CHECK-DAG: @external.cfi_jt      = hidden alias void (), {{.*}}getelementptr {{.*}}void ()* [[JT1]]
@@ -48,7 +48,7 @@ define void @f3(i32 %x) !type !8 {
 
 ; CHECK-DAG: @__typeid_typeid2_global_addr = hidden alias i8, bitcast (void ()* [[JT2:.*]] to i8*)
 
-; CHECK-DAG: @g                    = alias void (), void ()* [[JT2]]
+; CHECK-DAG: @g                    = alias void (), {{.*}}getelementptr {{.*}}void ()* [[JT2]]
 
 ; CHECK-DAG: define hidden void @h.cfi(i8 {{.*}}) !type !{{.*}}
 ; CHECK-DAG: declare !type !{{.*}} void @external()

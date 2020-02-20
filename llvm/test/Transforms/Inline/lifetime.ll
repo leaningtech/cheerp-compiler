@@ -91,9 +91,9 @@ define void @helper_arrays_alloca() {
 define void @test_arrays_alloca() {
 ; CHECK-LABEL: @test_arrays_alloca(
 ; CHECK-NOT: lifetime
-; CHECK: llvm.lifetime.start.p0i8(i64 40,
+; CHECK: llvm.lifetime.start.p0a10i32(i64 40,
 ; CHECK-NOT: lifetime
-; CHECK: llvm.lifetime.end.p0i8(i64 40,
+; CHECK: llvm.lifetime.end.p0a10i32(i64 40,
   call void @helper_arrays_alloca()
 ; CHECK-NOT: lifetime
 ; CHECK: ret void
