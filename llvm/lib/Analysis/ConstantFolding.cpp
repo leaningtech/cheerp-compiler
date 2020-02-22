@@ -917,11 +917,11 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
   // If this is a constant expr gep that is effectively computing an
   // "offsetof", fold it into 'cast int Size to T*' instead of 'gep 0, 0, 12'
   for (unsigned i = 1, e = Ops.size(); i != e; ++i)
-      if (!isa<ConstantInt>(Ops[i]) && DL.isByteAddressable()) {
+      if (!isa<ConstantInt>(Ops[i])) {
 
         // If this is "gep i8* Ptr, (sub 0, V)", fold this as:
         // "inttoptr (sub (ptrtoint Ptr), V)"
-        if (Ops.size() == 2 && ResElemTy->isIntegerTy(8)) {
+        if (Ops.size() == 2 && ResElemTy->isIntegerTy(8) && DL.isByteAddressable()) {
           auto *CE = dyn_cast<ConstantExpr>(Ops[1]);
           assert((!CE || CE->getType() == IntIdxTy) &&
                  "CastGEPIndices didn't canonicalize index types!");
