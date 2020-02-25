@@ -680,6 +680,7 @@ public:
 	void compileModuleClosureBegin();
 	void compileModuleClosureEnd();
 	void compileHelpers();
+	void compileImports();
 	void compileAsmJS();
 	void compileGenericJS();
 	void compileWasmLoader();
