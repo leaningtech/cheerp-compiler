@@ -5832,6 +5832,32 @@ void CheerpWriter::compileHelpers()
 	}
 }
 
+void CheerpWriter::compileImports()
+{
+	for (const Function* imported: globalDeps.asmJSImports())
+	{
+		stream << getName(imported) << ':';
+		if (TypeSupport::isClientFunc(imported))
+		{
+			std::string className;
+			std::string funcName;
+			std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
+			//Regular call
+			if(!className.empty())
+			{
+				assert(imported->hasFnAttribute(Attribute::Static));
+				stream << className << '.';
+			}
+			stream << funcName;
+		}
+		else
+		{
+			stream << getName(imported);
+		}
+		stream << ',' << NewLine;
+	}
+}
+
 void CheerpWriter::compileAsmJS()
 {
 	// compile boilerplate
@@ -5908,10 +5934,7 @@ void CheerpWriter::compileAsmJS()
 	{
 		stream << "checkBoundsAsmJS:checkBoundsAsmJS," << NewLine;
 	}
-	for (const Function* imported: globalDeps.asmJSImports())
-	{
-		stream << getName(imported) << ':' << getName(imported)  << ',' << NewLine;
-	}
+	compileImports();
 	if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
 	{
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
@@ -6003,10 +6026,7 @@ void CheerpWriter::compileWasmLoader()
 	stream << "fetchBuffer('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
 	stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
 	stream << "{i:{" << NewLine;
-	for (const Function* imported: globalDeps.asmJSImports())
-	{
-		stream << getName(imported) << ':' << getName(imported)  << ',' << NewLine;
-	}
+	compileImports();
 	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ACOS_F64))
 		stream << namegen.getBuiltinName(NameGenerator::ACOS) << ":Math.acos," << NewLine;
 	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ASIN_F64))
