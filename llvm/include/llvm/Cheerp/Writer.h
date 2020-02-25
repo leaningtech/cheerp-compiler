@@ -460,8 +460,6 @@ private:
 	void compileCreateClosure();
 	void compileHandleVAArg();
 	void compileBuiltins(bool asmjs);
-	void compileAsmJSImports();
-	void compileAsmJSExports();
 	/**
 	 * This method compiles an helper function for getting an ArrayBuffer from
 	 * a file, usable from the browser and node

@@ -21,6 +21,7 @@ add_llvm_library(LLVMCheerpUtils
   LowerSwitch.cpp
   FixFunctionCasts.cpp
   ByValLowering.cpp
+  FFIWrapping.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)

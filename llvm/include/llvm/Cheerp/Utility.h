@@ -935,6 +935,26 @@ struct PairHash
 
 	// Handy alias for a deterministic set of const llvm::Function* with no erasures
 	using DeterministicFunctionSet = llvm::DenseSet<const llvm::Function*>;
+
+	// Utility function to create a wrapper for FFI interoperability with
+	// asm.js/wasm
+	class FFIWrapping {
+	public:
+		FFIWrapping(llvm::Module& M,
+				std::unordered_set<const llvm::Function*>& imports,
+				DeterministicFunctionSet& insideModule,
+				DeterministicFunctionSet& outsideModule)
+				: M(M), imports(imports),
+				  insideModule(insideModule), outsideModule(outsideModule)
+		{
+		}
+		void run();
+	private:
+		llvm::Module& M;
+		std::unordered_set<const llvm::Function*>& imports;
+		DeterministicFunctionSet& insideModule;
+		DeterministicFunctionSet& outsideModule;
+	};
 }
 namespace llvm
 {
