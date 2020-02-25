@@ -2710,6 +2710,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 
 	const Function* F = callV.getCalledFunction();
 	bool asmjs = callV.getCaller()->getSection() == StringRef("asmjs");
+	bool asmjsCallee = (F && F->getSection() == StringRef("asmjs")) || (!F && asmjs);
 
 	Function::const_arg_iterator arg_it;
 
@@ -2739,25 +2740,13 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 
 		Type* tp = (*cur)->getType();
 
-		if (asmjs)
+		bool isImport = F && asmjs && globalDeps.asmJSImports().count(F);
+		if(isImport && tp->isFloatTy())
 		{
-			const PointerType* pTy = cast<PointerType>(callV.getCalledValue()->getType());
-			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
-			bool isImport = F && globalDeps.asmJSImports().count(F);
-			PARENT_PRIORITY prio = LOWEST;
-			if (TypeSupport::isRawPointer(tp, true) || (tp->isIntegerTy() &&
-				(isImport ||
-				(!F && !linearHelper.getFunctionTables().count(fTy)))))
-			{
-				prio = BIT_OR;
-			}
-			else if(isImport && tp->isFloatTy())
-				stream << "+";
-			compileOperand(*cur,prio);
-			if (prio == BIT_OR)
-				stream << "|0";
+			stream << "+";
+			compileOperand(*cur,LOWEST);
 		}
-		else if(tp->isPointerTy())
+		else if(tp->isPointerTy() && !TypeSupport::isRawPointer(tp, asmjsCallee))
 		{
 			POINTER_KIND argKind = UNKNOWN;
 			// Calling convention:
@@ -2821,13 +2810,26 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			else if(argKind != UNKNOWN)
 				compilePointerAs(*cur, argKind);
 		}
-		else if(tp->isIntegerTy(1) && forceBoolean)
+		else if(tp->isIntegerTy(1) && forceBoolean && !asmjs)
 		{
 			stream << "!!";
 			compileOperand(*cur, HIGHEST);
 		}
 		else
-			compileOperand(*cur,LOWEST);
+		{
+			PARENT_PRIORITY prio = LOWEST;
+			const PointerType* pTy = cast<PointerType>(callV.getCalledValue()->getType());
+			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
+			if (asmjs && (TypeSupport::isRawPointer(tp, true) || (tp->isIntegerTy() &&
+				(isImport ||
+				(!F && !linearHelper.getFunctionTables().count(fTy))))))
+			{
+				prio = BIT_OR;
+			}
+			compileOperand(*cur,prio);
+			if (prio == BIT_OR)
+				stream << "|0";
+		}
 
 		if(F && arg_it != F->arg_end())
 		{
@@ -4054,6 +4056,20 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			// NOTE: if the type is void, OBJECT is returned, but we explicitly
 			// check the void case later
 			Registerize::REGISTER_KIND kind = registerize.getRegKindFromType(retTy, asmjs);
+
+			// If the caller is genericjs, the callee is asmjs, and a SPLIT_REGULAR is returned,
+			// the function is returning the offset, not the object. So assign the main name now
+			// to the correct heap type, and the return value to oSlot, correctly shifted,
+			// afterwards
+			bool asmjsCallee = calledFunc && calledFunc->getSection() == StringRef("asmjs");
+			uint32_t addrShift = 0;
+			if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
+			{
+				addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
+				stream << ';' << NewLine;
+				stream << getSecondaryName(&ci) << '=';
+			}
+
 			if(!retTy->isVoidTy())
 			{
 				if(kind == Registerize::DOUBLE)
@@ -4164,8 +4180,18 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 						if(PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
 						{
 							assert(!isInlineable(ci, PA));
-							stream << ';' << NewLine;
-							stream << getSecondaryName(&ci) << "=oSlot";
+							if (asmjsCallee)
+							{
+								if (addrShift != 0)
+									stream << ">>" << addrShift;
+								else
+									stream << "|0";
+							}
+							else
+							{
+								stream << ';' << NewLine;
+								stream << getSecondaryName(&ci) << "=oSlot";
+							}
 						}
 						break;
 				}
@@ -5684,94 +5710,6 @@ void CheerpWriter::compileMathDeclAsmJS()
 		stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::CLZ32) << "=stdlib.Math.clz32;" << NewLine;
 }
 
-void CheerpWriter::compileAsmJSImports()
-{
-	for (const Function* F: globalDeps.asmJSImports())
-	{
-		if(F->empty() || F->arg_size() == 0) continue;
-
-		stream << "function _asm_" << getName(F) << '(';
-		const Function::const_arg_iterator A=F->arg_begin();
-		const Function::const_arg_iterator AE=F->arg_end();
-		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
-		{
-			if(curArg!=A)
-			{
-				stream << ',';
-			}
-			stream << getName(&*curArg);
-		}
-		stream << "){" << NewLine;
-		if (!F->getReturnType()->isVoidTy())
-			stream << "return ";
-		stream << getName(F) << '(';
-		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
-		{
-			if(curArg!=A)
-				stream << ',';
-			int shift = 0;
-			if(curArg->getType()->isPointerTy() && PA.getPointerKind(&*curArg) == SPLIT_REGULAR)
-			{
-				shift = compileHeapForType(cast<PointerType>(curArg->getType())->getPointerElementType());
-				stream << ',';
-			}
-			stream << getName(&*curArg);
-			if (shift)
-				stream << ">>" << shift;
-		}
-		stream << ");" << NewLine;
-		stream << '}' << NewLine;
-	}
-}
-void CheerpWriter::compileAsmJSExports()
-{
-	for (const Function* F: globalDeps.asmJSExports())
-	{
-		if(F->empty()) continue;
-		Type* retTy = F->getReturnType();
-		POINTER_KIND retKind = retTy->isPointerTy()? PA.getPointerKindForReturn(F): UNKNOWN; 
-		assert(retKind == UNKNOWN || retKind == RAW || retKind == SPLIT_REGULAR || retKind == COMPLETE_OBJECT);
-
-		stream << "function " << getName(F) << '(';
-		const Function::const_arg_iterator A=F->arg_begin();
-		const Function::const_arg_iterator AE=F->arg_end();
-		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
-		{
-			if(curArg!=A)
-			{
-				stream << ',';
-			}
-			stream << getName(&*curArg);
-		}
-		stream << "){" << NewLine;
-		if (retKind == SPLIT_REGULAR)
-		{
-			stream << "oSlot=";
-		}
-		else if (!F->getReturnType()->isVoidTy())
-			stream << "return ";
-		stream << "__asm." << getName(F) << '(';
-		for(Function::const_arg_iterator curArg=A;curArg!=AE;++curArg)
-		{
-			if(curArg!=A)
-				stream << ',';
-			stream << getName(&*curArg);
-		}
-		stream << ')';
-		if (retKind == SPLIT_REGULAR)
-		{
-			int shift =  getHeapShiftForType(cast<PointerType>(F->getReturnType())->getPointerElementType());
-			if (shift != 0)
-				stream << ">>" << shift;
-			stream << ';' << NewLine;
-			stream << "return ";
-			compileHeapForType(cast<PointerType>(F->getReturnType())->getPointerElementType());
-		}
-		stream << ';' << NewLine;
-		stream << '}' << NewLine;
-	}
-}
-
 void CheerpWriter::compileFetchBuffer()
 {
 	stream << "function fetchBuffer(p) {" << NewLine;
@@ -5967,8 +5905,6 @@ void CheerpWriter::compileAsmJS()
 	stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 	for (int i = HEAP8; i<=HEAPF64; i++)
 		stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
-	compileAsmJSImports();
-	compileAsmJSExports();
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
 	stream << "var ffi = {" << NewLine;
 	stream << "heapSize:__heap.byteLength," << NewLine;
@@ -5980,25 +5916,10 @@ void CheerpWriter::compileAsmJS()
 	}
 	for (const Function* imported: globalDeps.asmJSImports())
 	{
-		std::string name;
-		if (imported->empty() && TypeSupport::isClientFunc(imported))
-		{
-			std::string className, funcName;
-			std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
-			assert(className.empty() || imported->hasFnAttribute(Attribute::Static) && "Only static client methods can be imported");
-			name = className.empty() ? funcName : (className + "." + funcName);
-		}
-		else if (imported->empty() && !TypeSupport::isClientFunc(imported))
-			name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-		else if (imported->arg_size() == 0)
-			name = getName(imported);
-		else
-			name = ("_asm_"+getName(imported)).str();
-		stream << getName(imported) << ':' << name  << ',' << NewLine;
+		stream << getName(imported) << ':' << getName(imported)  << ',' << NewLine;
 	}
 	if (globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
 	{
-
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
 		stream << ':';
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM);
@@ -6080,30 +6001,17 @@ void CheerpWriter::compileWasmLoader()
 	}
 	stream << "var __asm=null;" << NewLine;
 	stream << "var __heap=null;" << NewLine;
-	compileAsmJSImports();
-	compileAsmJSExports();
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
+
 	compileDeclareExports();
+
 	const std::string shortestName = namegen.getShortestLocalName();
 	stream << "fetchBuffer('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
 	stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
 	stream << "{i:{" << NewLine;
 	for (const Function* imported: globalDeps.asmJSImports())
 	{
-		std::string name;
-		if (imported->empty() && TypeSupport::isClientFunc(imported))
-		{
-			std::string className, funcName;
-			std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
-			name = className.empty() ? funcName : (className + "." + funcName);
-		}
-		else if (imported->empty() && !TypeSupport::isClientFunc(imported))
-			name = namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-		else if (imported->arg_size() == 0)
-			name = getName(imported);
-		else
-			name = ("_asm_"+getName(imported)).str();
-		stream << getName(imported) << ':' << name  << ',' << NewLine;
+		stream << getName(imported) << ':' << getName(imported)  << ',' << NewLine;
 	}
 	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ACOS_F64))
 		stream << namegen.getBuiltinName(NameGenerator::ACOS) << ":Math.acos," << NewLine;
@@ -6149,6 +6057,12 @@ void CheerpWriter::compileWasmLoader()
 void CheerpWriter::compileDeclareExports()
 {
 	auto exportedFunctions = getExportedFreeFunctions();
+	for (auto i: globalDeps.asmJSExports())
+	{
+		if(i->empty()) continue;
+
+		stream << "var " << getName(i) << "=null;" << NewLine;
+	}
 	if (makeModule != MODULE_TYPE::COMMONJS)
 	{
 		for (auto jsex: exportedFunctions)
@@ -6191,6 +6105,14 @@ void CheerpWriter::compileDeclareExports()
 void CheerpWriter::compileDefineExports(bool alsoDeclare)
 {
 	auto exportedFunctions = getExportedFreeFunctions();
+	for (auto i: globalDeps.asmJSExports())
+	{
+		if(i->empty()) continue;
+
+		if (alsoDeclare)
+			stream << "var ";
+		stream << getName(i) << "=__asm." << getName(i) <<";" << NewLine;
+	}
 	if (makeModule != MODULE_TYPE::COMMONJS)
 	{
 		for (auto jsex: exportedFunctions)
