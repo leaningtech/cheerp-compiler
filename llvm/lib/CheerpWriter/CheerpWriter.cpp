@@ -705,7 +705,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileFree(const Value
 
 	stream << "if(";
 	compilePointerBase(obj);
-	stream << ".buffer==__heap){__asm.";
+	stream << ".buffer==__heap){";
 	Function* Free = module.getFunction("free");
 	if (Free)
 		stream << getName(Free) << '(';
@@ -1029,8 +1029,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			Function* ffree = module.getFunction("free");
 			if (!ffree)
 				llvm::report_fatal_error("missing free definition");
-			if(!asmjs)
-				stream << "__asm.";
 			stream << getName(ffree) <<'(';
 			compileOperand(*it, PARENT_PRIORITY::BIT_OR);
 			stream << "|0)";
@@ -1331,8 +1329,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		Function* fmalloc = module.getFunction("malloc");
 		if (!fmalloc)
 			llvm::report_fatal_error("missing malloc definition");
-		if(!asmjs)
-			stream << "__asm.";
 		stream << getName(fmalloc) << "(";
 		compileOperand(*it, PARENT_PRIORITY::LOWEST);
 		stream << ")|0";
@@ -1343,8 +1339,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		Function* frealloc = module.getFunction("realloc");
 		if (!frealloc)
 			llvm::report_fatal_error("missing realloc definition");
-		if(!asmjs)
-			stream << "__asm.";
 		stream << getName(frealloc) <<'(';
 		compileOperand(*it);
 		stream << ',';
@@ -6222,9 +6216,8 @@ void CheerpWriter::compileConstructors()
 	//Invoke the entry point
 	if ( const Function * entryPoint = globalDeps.getEntryPoint() )
 	{
-		if (!wasmFile.empty() && entryPoint->getSection() == StringRef("asmjs"))
-			stream << "i.exports.";
-		else if (wasmFile.empty() && entryPoint->getSection() == StringRef("asmjs"))
+		bool asmjs = entryPoint->getSection() == StringRef("asmjs");
+		if (asmjs)
 			stream << "__asm.";
 		stream << getName(entryPoint) << "();" << NewLine;
 	}
