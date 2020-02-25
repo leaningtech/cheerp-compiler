@@ -169,6 +169,9 @@ public:
 	// to re-insert the replacement function into the exported function list.
 	void insertAsmJSExport(llvm::Function* F);
 
+	// Add a function generated after GDA to the list
+	void insertFunction(llvm::Function* F, bool insideModule);
+
 	// Remove function from GDA's function list.
 	void eraseFunction(llvm::Function* F);
 
