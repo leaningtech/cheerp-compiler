@@ -41,7 +41,13 @@ static Function* wrapImport(Module& M, const Function* Orig)
 
 static bool needsWrapping(const Function* F)
 {
-	return true;
+	for (const auto& arg: F->args())
+	{
+		if (arg.getType()->isPointerTy())
+			return true;
+	}
+
+	return false;
 }
 
 static void replaceAllUsesWithFiltered(Value* Old, Value* New,
