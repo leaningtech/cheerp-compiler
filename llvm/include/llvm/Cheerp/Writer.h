@@ -673,6 +673,9 @@ public:
 	                                                const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsUnsignedTruncation(const llvm::Value* v, bool asmjs);
 
+	/*
+	 * Helper functions to make makeJS more modular
+	 */
 	void compileSourceMapsBegin();
 	void compileSourceMapsEnd();
 	void compileTimeToMainBegin();
