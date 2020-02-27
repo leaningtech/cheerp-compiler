@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2019 Leaning Technologies
+// Copyright 2011-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -29,6 +29,7 @@
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/CommandLine.h"
+#include "llvm/Cheerp/DeterministicUnorderedSet.h"
 
 namespace cheerp
 {
@@ -934,7 +935,7 @@ struct PairHash
 };
 
 	// Handy alias for a deterministic set of const llvm::Function* with no erasures
-	using DeterministicFunctionSet = llvm::DenseSet<const llvm::Function*>;
+	using DeterministicFunctionSet = cheerp::DeterministicUnorderedSet<const llvm::Function*, RestrictionsLifted::NoPointerStability>;
 
 	// Utility function to create a wrapper for FFI interoperability with
 	// asm.js/wasm
