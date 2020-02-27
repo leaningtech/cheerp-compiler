@@ -53,6 +53,22 @@ uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic)
 	return ret;
 }
 
+bool CheerpWriter::hasJSExports()
+{
+
+	for( const NamedMDNode& namedNode: module.named_metadata())
+	{
+		StringRef name = namedNode.getName();
+
+		if(name == "jsexported_methods")
+			return true;
+
+		if (name.endswith("_methods") && (name.startswith("class.") || name.startswith("struct.")) )
+			return true;
+	}
+	return false;
+}
+
 std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 {
 	std::vector<StringRef> exportedNames;
