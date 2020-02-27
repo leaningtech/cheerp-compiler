@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019 Leaning Technologies
+// Copyright 2019-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -126,7 +126,7 @@ private:
 		if (W == BaseClass::end())
 			return false;
 		map.erase(this->mapped(W->first));
-		BaseClass::removeFrom<BaseClass::ContainerLocal>(W);
+		BaseClass::template removeFrom<decltype(container)>(W);
 		return true;
 	}
 };

@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019 Leaning Technologies
+// Copyright 2019-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -54,7 +54,7 @@ class DeterministicUnorderedImpl
 {
 public:
 	using size_type = unsigned;
-	using ContainerLocal = Container<Value>;
+	using ContainerLocal = class Container<Value>;
 	using iterator = typename ContainerLocal::iterator;
 	using const_iterator = typename ContainerLocal::const_iterator;
 	DeterministicUnorderedImpl()
@@ -166,9 +166,9 @@ protected:
 	}
 	void eraseImplFromDeque(iterator& iter)
 	{
-		std::swap(const_cast<Key>(iter->first), const_cast<Key>(container.back()->first));
-		std::swap(iter->second, container.back()->second);
-		map[mapped(iter->first)] = iter;
+		std::swap((*iter), (container.back()));
+		map[*iter] = iter;
+		map.erase(container.back());
 		container.pop_back();
 	}
 

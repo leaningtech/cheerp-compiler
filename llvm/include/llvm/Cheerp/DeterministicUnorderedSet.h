@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019 Leaning Technologies
+// Copyright 2019-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -105,11 +105,11 @@ private:
 	bool eraseImpl(const Key& t)
 	{
 		static_assert(CouldErase, "Could not actually erase, modify instantiation of the class");
-		iterator W = find(t);
+		iterator W = this->find(t);
 		if (W == BaseClass::end())
 			return false;
 		map.erase(this->mapped(*W));
-		BaseClass::removeFrom<BaseClass::ContainerLocal>(W);
+		BaseClass::template removeFrom<decltype(container)>(W);
 		return true;
 	}
 };
@@ -124,7 +124,7 @@ class DequeSet : public DeterministicUnorderedSetImpl<Key, Hash_Key, std::deque,
 template <typename Key, class Hash_Key, bool CouldErase>
 class ListSet : public DeterministicUnorderedSetImpl<Key, Hash_Key, std::list, CouldErase>
 {
-	using BaseClass = DeterministicUnorderedSetImpl<Key, Hash_Key, std::deque, CouldErase>;
+	using BaseClass = DeterministicUnorderedSetImpl<Key, Hash_Key, std::list, CouldErase>;
 	using BaseClass::BaseClass;
 };
 
