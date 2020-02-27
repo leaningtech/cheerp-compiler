@@ -503,6 +503,7 @@ private:
 	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
 	std::vector<llvm::StringRef> compileClassesExportedToJs();
 	std::vector<const llvm::Function*> getExportedFreeFunctions();
+	bool hasJSExports();
 	void compileInlineAsm(const llvm::CallInst& ci);
 
 	struct JSBytesWriter: public LinearMemoryHelper::ByteListener
