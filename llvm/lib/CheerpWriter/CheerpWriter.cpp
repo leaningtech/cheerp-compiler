@@ -5850,6 +5850,10 @@ void CheerpWriter::compileImports()
 			}
 			stream << funcName;
 		}
+		else if (imported->empty())
+		{
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
+		}
 		else
 		{
 			stream << getName(imported);
