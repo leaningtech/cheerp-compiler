@@ -5785,7 +5785,7 @@ void CheerpWriter::compileModuleClosureBegin()
 {
 	stream << "(function(){" << NewLine;
 
-	if (!exportedClassNames.empty() || !getExportedFreeFunctions().empty()) {
+	if (hasJSExports()) {
 		// The following JavaScript code originates from:
 		// https://github.com/jashkenas/underscore/blob/master/underscore.js
 		// Establish the root object, `window` (`self`) in the browser, `global`
