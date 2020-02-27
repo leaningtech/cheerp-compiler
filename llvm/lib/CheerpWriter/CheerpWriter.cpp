@@ -5837,7 +5837,7 @@ void CheerpWriter::compileImports()
 	for (const Function* imported: globalDeps.asmJSImports())
 	{
 		stream << getName(imported) << ':';
-		if (TypeSupport::isClientFunc(imported))
+		if (TypeSupport::isClientFunc(imported) && imported->empty())
 		{
 			std::string className;
 			std::string funcName;
