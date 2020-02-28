@@ -217,6 +217,7 @@ bool CheerpNativeRewriter::rewriteIfNativeConstructorCall(Module& M, Instruction
 	}
 	Function* newFunc = getReturningConstructor(M, called);
 	CallInst* newCall=CallInst::Create(newFunc, initialArgs, "retConstructor", callInst);
+	newCall->setDebugLoc(callInst->getDebugLoc());
 	new StoreInst(newCall, newI, callInst);
 	return true;
 }
@@ -392,7 +393,7 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 		++newArg;
 	}
 	SmallVector<ReturnInst*, 4> returns;
-	CloneFunctionInto(newFunc, &F, valueMap, false, returns);
+	CloneFunctionInto(newFunc, &F, valueMap, F.getSubprogram() != nullptr, returns);
 
 	//Find the right place to add the base construtor call
 	if (lowerConstructor->getNumArgOperands()>1)
