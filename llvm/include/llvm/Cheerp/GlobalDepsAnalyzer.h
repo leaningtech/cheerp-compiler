@@ -236,6 +236,9 @@ private:
 	//Pre-process direct calls to possibly simplify them
 	void simplifyCalls(llvm::Module & module) const;
 
+	//Extend lifetime of function, visiting them and declaring external
+	void extendLifetime(llvm::Function* F);
+
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
