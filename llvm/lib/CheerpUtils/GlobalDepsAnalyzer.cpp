@@ -399,13 +399,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		reachableGlobals.insert(constructorVar);
 		varsOrder.push_back(constructorVar);
 	}
-	while (!functionsQueue.empty())
-	{
-		const Function* F = functionsQueue.back();
-		functionsQueue.pop_back();
-		visitFunction( F, visited);
-		assert( visited.empty() );
-	}
+
+	processEnqueuedFunctions();
+
 	// Detect if the code actually uses printf_float
 	delayPrintf = false;
 	bool usesFloatPrintf = false;
@@ -435,14 +431,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			printfFloat->replaceAllUsesWith(UndefValue::get(printfFloat->getType()));
 		}
 	}
+
 	// Flush out all functions
-	while (!functionsQueue.empty())
-	{
-		const Function* F = functionsQueue.back();
-		functionsQueue.pop_back();
-		visitFunction( F, visited);
-		assert( visited.empty() );
-	}
+	processEnqueuedFunctions();
 
 	if(mayNeedAsmJSFree)
 	{
@@ -461,14 +452,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				asmJSExportedFuncions.insert(ffree);
 				externals.push_back(ffree);
 				// Visit free and friends
-				functionsQueue.push_back(ffree);
-				while (!functionsQueue.empty())
-				{
-					const Function* F = functionsQueue.back();
-					functionsQueue.pop_back();
-					visitFunction( F, visited);
-					assert( visited.empty() );
-				}
+				enqueueFunction(ffree);
+				processEnqueuedFunctions();
 			}
 			reachableGlobals.insert(ffree);
 		}
@@ -680,7 +665,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 				{
 					hasAsmJS = true;
 				}
-				functionsQueue.push_back(F);
+				enqueueFunction(F);
 			}
 		}
 		else if (const GlobalVariable * GV = dyn_cast<GlobalVariable>(C) )
@@ -1125,6 +1110,23 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		var->setLinkage(GlobalValue::ExternalLinkage);
 
 	return eraseQueue.size();
+}
+
+//Insert Function on execution queue
+void GlobalDepsAnalyzer::enqueueFunction(const llvm::Function* F) {
+	functionsQueue.push_back(F);
+}
+
+//Process Functions in the execution queue
+void GlobalDepsAnalyzer::processEnqueuedFunctions() {
+	while (!functionsQueue.empty())
+	{
+		const Function* F = functionsQueue.back();
+		functionsQueue.pop_back();
+		VisitedSet visited;
+		visitFunction(F, visited);
+		assert( visited.empty() );
+	}
 }
 
 void GlobalDepsAnalyzer::insertAsmJSExport(llvm::Function* F) {
