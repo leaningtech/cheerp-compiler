@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/GlobalDCE.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
@@ -28,6 +29,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/CtorUtils.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
+#include <vector>
 
 using namespace llvm;
 
@@ -97,13 +99,60 @@ static bool isEmptyFunction(Function *F) {
   return false;
 }
 
+//Return which globalVariable depends from a given Instruction
+//There are 3 cases:
+//	- IF it's a non-volatile store to inside an "internal" GV, return it
+//	- othwerwise return the containing function for instructions
+//		that may in other way modify the state/execution
+//	- or return nullptr (in this case it will be calculated as union of the users's dependencies
+static GlobalValue* dependentGlobalVariable(Instruction* I)
+{
+  if (isa<StoreInst>(I) && !dyn_cast<StoreInst>(I)->isVolatile()) {
+    Value* currOp = I->getOperand(1);
+    while (!isa<GlobalValue>(currOp)) {
+      if (isa<ConstantExpr>(currOp) && (dyn_cast<ConstantExpr>(currOp)->isCast() ||
+                dyn_cast<ConstantExpr>(currOp)->isGEPWithNoNotionalOverIndexing()))
+        currOp = dyn_cast<ConstantExpr>(currOp)->getOperand(0);
+      else if (isa<GetElementPtrInst>(currOp) && dyn_cast<GetElementPtrInst>(currOp)->isInBounds())
+        currOp = dyn_cast<GetElementPtrInst>(currOp)->getOperand(0);
+      else if (isa<BitCastInst>(currOp))
+        currOp = dyn_cast<BitCastInst>(currOp)->getOperand(0);
+      else
+        break;
+    }
+
+    if (GlobalValue* GV = dyn_cast<GlobalValue>(currOp))
+      if (GV->isDiscardableIfUnused())
+        return GV;
+  }
+  if (I->isTerminator() || isa<CallInst>(I) || isa<InvokeInst>(I) || isa<PHINode>(I) ||
+                (isa<LoadInst>(I) && dyn_cast<LoadInst>(I)->isVolatile()) ||
+                (isa<StoreInst>(I)))		//StoreInst not catched by the previous case should fail
+    return I->getFunction();
+
+  return nullptr;
+}
 /// Compute the set of GlobalValue that depends from V.
 /// The recursion stops as soon as a GlobalValue is met.
 void GlobalDCEPass::ComputeDependencies(Value *V,
                                         SmallPtrSetImpl<GlobalValue *> &Deps) {
   if (auto *I = dyn_cast<Instruction>(V)) {
-    Function *Parent = I->getParent()->getParent();
-    Deps.insert(Parent);
+    auto Where = InstructionDependenciesCache.find(I);
+    if (Where != InstructionDependenciesCache.end()) {
+      auto const &K = Where->second;
+      Deps.insert(K.begin(), K.end());
+    } else {
+      SmallPtrSetImpl<GlobalValue *> &LocalDeps = InstructionDependenciesCache[I];
+      GlobalValue* dependentGV = dependentGlobalVariable(I);
+      if (dependentGV)
+        LocalDeps.insert(dependentGV);
+
+      if (!isa<PHINode>(I))
+        for (User *CEUser : I->users())
+          ComputeDependencies(CEUser, LocalDeps);
+
+      Deps.insert(LocalDeps.begin(), LocalDeps.end());
+    }
   } else if (auto *GV = dyn_cast<GlobalValue>(V)) {
     Deps.insert(GV);
   } else if (auto *CE = dyn_cast<Constant>(V)) {
@@ -400,6 +449,65 @@ PreservedAnalyses GlobalDCEPass::run(Module &M, ModuleAnalysisManager &MAM) {
       GIF.setResolver(nullptr);
     }
 
+  //Drop instructions that were used only by GlobalVariables that we will be deleting
+  llvm::DenseSet<Instruction*> insertedInstruction;
+  std::vector<Instruction*> toProcessInstruction;
+  llvm::DenseSet<ConstantExpr*> insertedConstExpr;
+  std::vector<ConstantExpr*> toProcessConstExpr;
+  auto InsertIfUnseen = [&](Value* V) {
+    assert(V && "Null values shold not be possible");
+    if (Instruction* I = dyn_cast<Instruction>(V)) {
+      if (insertedInstruction.insert(I).second)
+        toProcessInstruction.push_back(I);
+    }
+    else if (ConstantExpr* CE = dyn_cast<ConstantExpr>(V)) {
+      if (insertedConstExpr.insert(CE).second)
+        toProcessConstExpr.push_back(CE);
+    }
+    // Only Instructions and ConstantExprs are managed
+  };
+
+  for (GlobalVariable*GV : DeadGlobalVars)
+    for (User *User : GV->users())
+      if (isa<Instruction>(User) || isa<ConstantExpr>(User))
+        InsertIfUnseen(User);
+
+  for (Function* F : DeadFunctions)
+    for (User *User : F->users())
+      if (isa<Instruction>(User) || isa<ConstantExpr>(User))
+        InsertIfUnseen(User);
+
+  for (GlobalAlias *GA : DeadAliases)
+    for (User *User : GA->users())
+      if (isa<Instruction>(User) || isa<ConstantExpr>(User))
+        InsertIfUnseen(User);
+
+  for (GlobalIFunc *GIF : DeadIFuncs)
+    for (User *User : GIF->users())
+      if (isa<Instruction>(User) || isa<ConstantExpr>(User))
+        InsertIfUnseen(User);
+
+  //Collect Instructions or CEs that are to be deleted
+  for (unsigned int i=0; i<toProcessConstExpr.size(); i++) {
+    ConstantExpr* CE = toProcessConstExpr[i];
+    for (User *User : CE->users())
+      InsertIfUnseen(User);
+  }
+
+  //Collect more Instructions that are to be deleted
+  for (unsigned int i=0; i<toProcessInstruction.size(); i++) {
+    Instruction* I = toProcessInstruction[i];
+    for (User *User : I->users())
+      InsertIfUnseen(User);
+  }
+
+  //Erase Instructions (in two steps)
+  for (Instruction* I : toProcessInstruction)
+    I->replaceAllUsesWith(llvm::UndefValue::get(I->getType()));
+
+  for (Instruction* I : toProcessInstruction)
+    I->eraseFromParent();
+
   // Now that all interferences have been dropped, delete the actual objects
   // themselves.
   auto EraseUnusedGlobalValue = [&](GlobalValue *GV) {
@@ -436,6 +544,7 @@ PreservedAnalyses GlobalDCEPass::run(Module &M, ModuleAnalysisManager &MAM) {
   // Make sure that all memory is released
   AliveGlobals.clear();
   ConstantDependenciesCache.clear();
+  InstructionDependenciesCache.clear();
   GVDependencies.clear();
   ComdatMembers.clear();
   TypeIdMap.clear();

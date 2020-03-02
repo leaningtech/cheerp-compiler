@@ -54,8 +54,6 @@ entry:
 ; which should be prove that globalsAA survives until the optimization
 ; that can use it to optimize away the duplicate load/stores on
 ; variable v.
-; CHECK:     load i32, i32* @v, align 4
-; CHECK:     store i32 {{.*}}, i32* @v, align 4
 ; CHECK-NOT: load i32, i32* @v, align 4
 ; CHECK-NOT:     store i32 {{.*}}, i32* @v, align 4
 

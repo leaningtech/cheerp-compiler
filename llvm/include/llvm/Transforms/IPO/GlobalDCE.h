@@ -40,6 +40,10 @@ private:
   std::unordered_map<Constant *, SmallPtrSet<GlobalValue *, 8>>
       ConstantDependenciesCache;
 
+  /// Instruction -> Globals that use this global cache.
+  std::unordered_map<Instruction *, SmallPtrSet<GlobalValue *, 8>>
+      InstructionDependenciesCache;
+
   /// Comdat -> Globals in that Comdat section.
   std::unordered_multimap<Comdat *, GlobalValue *> ComdatMembers;
 
