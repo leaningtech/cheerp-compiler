@@ -227,6 +227,12 @@ private:
 
 	static bool isMathIntrinsic(llvm::StringRef funcName);
 
+	//Insert Function on execution queue
+	void enqueueFunction(const llvm::Function* F);
+
+	//Process Functions in the execution queue
+	void processEnqueuedFunctions();
+
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
