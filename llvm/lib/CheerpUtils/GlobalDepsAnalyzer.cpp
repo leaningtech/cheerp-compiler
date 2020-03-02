@@ -163,7 +163,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	simplifyCalls(module);
 
 	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
-	bool foundMemset = false, foundMemcpy = false, foundMemmove = false;
 	std::vector<llvm::CallInst*> deleteList;
 	for (Function& F : module.getFunctionList()) {
 		F.setPersonalityFn(nullptr);
@@ -227,10 +226,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 								ci.setOperand(0, newCast);
 							}
 						}
-
-						foundMemset |= II == Intrinsic::memset;
-						foundMemcpy |= II == Intrinsic::memcpy;
-						foundMemmove |= II == Intrinsic::memmove;
 					}
 
 					if(II == Intrinsic::exp2)
@@ -332,21 +327,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				basesInfo.emplace(t, firstBase);
 		}
 	}
-
-#define USE_MEMORY_FUNC(var, name) \
-	if (var) { \
-		llvm::Function* f = module.getFunction(#name); \
-		assert(f); \
-		SubExprVec vec; \
-		visitGlobal(f, visited, vec); \
-		assert(visited.empty()); \
-		/* Make sure the method is not internalized, otherwise it will be dropped */ \
-		externals.push_back(f); \
-	}
-	USE_MEMORY_FUNC(foundMemset, memset)
-	USE_MEMORY_FUNC(foundMemcpy, memcpy)
-	USE_MEMORY_FUNC(foundMemmove, memmove)
-#undef USE_MEMORY_FUNC
 
 	llvm::Function* webMainOrMain = module.getFunction("_Z7webMainv");
 	if (webMainOrMain || (webMainOrMain = module.getFunction("webMain")) ||
@@ -887,6 +867,23 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						// Delay adding free, it will be done only if asm.js malloc is actually there
 						mayNeedAsmJSFree = true;
 					}
+				}
+				{
+				       VisitedSet visited;
+#define USE_MEMORY_FUNC(var, name) \
+					if (var) { \
+						llvm::Function* f = module->getFunction(#name); \
+						assert(f); \
+						SubExprVec vec; \
+						visitGlobal(f, visited, vec); \
+						assert(visited.empty()); \
+						/* Make sure the method is not internalized, otherwise it will be dropped */ \
+						externals.push_back(f); \
+					}
+					USE_MEMORY_FUNC(calledFunc->getIntrinsicID() == Intrinsic::memset, memset)
+					USE_MEMORY_FUNC(calledFunc->getIntrinsicID() == Intrinsic::memcpy, memcpy)
+					USE_MEMORY_FUNC(calledFunc->getIntrinsicID() == Intrinsic::memmove, memmove)
+#undef USE_MEMORY_FUNC
 				}
 			}
 		}
