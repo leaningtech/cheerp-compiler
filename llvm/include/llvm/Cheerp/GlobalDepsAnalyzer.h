@@ -233,6 +233,9 @@ private:
 	//Process Functions in the execution queue
 	void processEnqueuedFunctions();
 
+	//Pre-process direct calls to possibly simplify them
+	void simplifyCalls(llvm::Module & module) const;
+
 	std::unordered_set< const llvm::GlobalValue * > reachableGlobals; // Set of all the reachable globals
 	
 	FixupMap varsFixups;
