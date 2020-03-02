@@ -1141,7 +1141,7 @@ void GlobalDepsAnalyzer::insertFunction(llvm::Function* F, bool insideModule) {
 }
 
 void GlobalDepsAnalyzer::eraseFunction(llvm::Function* F) {
-	// TODO getEntryPoint should also be checked.
+	assert(F && F != entryPoint && "Cound not erase entry point!");
 
 	auto it = std::find(constructorsNeeded.begin(), constructorsNeeded.end(), F);
 	if (it != constructorsNeeded.end())
