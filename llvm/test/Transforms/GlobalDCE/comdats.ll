@@ -10,7 +10,6 @@ $test1_c = comdat any
 ; Second test checks that if one function in a comdat group is used, both other
 ; functions and other globals even if unused will be preserved.
 $test2_c = comdat any
-; CHECK: $test2_c = comdat any
 
 ; Third test checks that calling a function in a comdat group with an alias
 ; preserves the alias.
@@ -59,10 +58,8 @@ $test10_c = comdat any
 ; CHECK: @test1_gv = linkonce_odr unnamed_addr global
 
 @test2_used = linkonce_odr unnamed_addr global i32 42, comdat($test2_c)
-; CHECK: @test2_used = linkonce_odr unnamed_addr global
 
 @test2_gv = linkonce_odr unnamed_addr global i32 42, comdat($test2_c)
-; CHECK: @test2_gv = linkonce_odr unnamed_addr global
 
 @test8_gv = linkonce_odr unnamed_addr global i32 42, comdat($test8_c)
 ; CHECK-NOT: @test8_gv
@@ -97,14 +94,6 @@ entry:
 
 define linkonce_odr void @test1_f() comdat($test1_c) {
 ; CHECK: define linkonce_odr void @test1_f()
-entry:
-  ret void
-}
-
-; Now test that a function, global variable, alias, and ifunc in the same
-; comdat are kept.
-define linkonce_odr void @test2_f() comdat($test2_c) {
-; CHECK: define linkonce_odr void @test2_f()
 entry:
   ret void
 }
