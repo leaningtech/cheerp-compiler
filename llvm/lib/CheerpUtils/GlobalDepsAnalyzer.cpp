@@ -112,6 +112,44 @@ static void callGlobalConstructorsOnStart(llvm::Module& M, GlobalDepsAnalyzer& G
 	return;
 }
 
+void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
+{
+	std::vector<llvm::CallInst*> deleteList;
+	auto LibCallReplacer = [](Instruction *I, Value *With)
+	{
+		I->replaceAllUsesWith(With);
+		I->eraseFromParent();
+	};
+	OptimizationRemarkEmitter ORE;
+	LibCallSimplifier callSimplifier(*DL, TLI, ORE, LibCallReplacer);
+	for (Function& F : module.getFunctionList()) {
+		F.setPersonalityFn(nullptr);
+		for (BasicBlock& bb : F)
+		{
+			for (Instruction& I : bb)
+			{
+				if (isa<CallInst>(I)) {
+					CallInst& ci = cast<CallInst>(I);
+					Function* calledFunc = ci.getCalledFunction();
+
+					// Skip indirect calls
+					if (calledFunc == nullptr)
+						continue;
+
+					if (Value* with = callSimplifier.optimizeCall(&ci)) {
+						ci.replaceAllUsesWith(with);
+						deleteList.push_back(&ci);
+						continue;
+					}
+				}
+			}
+		}
+	}
+	for (CallInst* ci : deleteList) {
+		ci->eraseFromParent();
+	}
+}
+
 bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
 	DL = &module.getDataLayout();
@@ -121,16 +159,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	assert(TLI);
 	VisitedSet visited;
 
+
+	simplifyCalls(module);
+
 	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
 	bool foundMemset = false, foundMemcpy = false, foundMemmove = false;
 	std::vector<llvm::CallInst*> deleteList;
-	auto LibCallReplacer = [](Instruction *I, Value *With)
-	{
-		I->replaceAllUsesWith(With);
-		I->eraseFromParent();
-	};
-	OptimizationRemarkEmitter ORE;
-	LibCallSimplifier callSimplifier(*DL, TLI, ORE, LibCallReplacer);
 	for (Function& F : module.getFunctionList()) {
 		F.setPersonalityFn(nullptr);
 		bool asmjs = F.getSection() == StringRef("asmjs");
@@ -146,14 +180,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					if (calledFunc == nullptr)
 						continue;
 
-					if (Value* with = callSimplifier.optimizeCall(&ci)) {
-						// Do not introduce further intrinsics now
-						if(!isa<IntrinsicInst>(with)) {
-							ci.replaceAllUsesWith(with);
-							deleteList.push_back(&ci);
-							continue;
-						}
-					}
 					unsigned II = calledFunc->getIntrinsicID();
 
 					if(asmjs)
