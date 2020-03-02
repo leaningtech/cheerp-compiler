@@ -150,6 +150,17 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 	}
 }
 
+void GlobalDepsAnalyzer::extendLifetime(Function* F)
+{
+	assert(F);
+
+	externals.push_back(F);
+	VisitedSet visited;
+	SubExprVec vec;
+	visitGlobal( F, visited, vec );
+	assert( visited.empty() );
+}
+
 bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
 	DL = &module.getDataLayout();
@@ -159,8 +170,25 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	assert(TLI);
 	VisitedSet visited;
 
-
 	simplifyCalls(module);
+
+	if (!llcPass)
+	{
+		//Those intrinsics may come back as result of other optimizations
+		//And we may need the actual functions to lower the intrinsics
+		const auto ToBePreserved = {"pow", "powf",			// exp2 lowering
+			"fabsf", "fabs", "ceilf", "ceil", "cosf", "cos",	// Intrinsic lowering when NO_BUILTIN
+			"expf", "exp", "floorf", "floor", "logf", "log",	// ...^
+			"powf", "pow", "sinf", "sin", "sqrtf", "sqrt",		// ...^
+			"memcpy", "memset", "memmove"};				// Memory intrinsic lowering
+
+		for (const auto& name : ToBePreserved)
+		{
+			Function* F = module.getFunction(name);
+			if (F)
+				extendLifetime(F);
+		}
+	}
 
 	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
 	std::vector<llvm::CallInst*> deleteList;
@@ -228,7 +256,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						}
 					}
 
-					if(II == Intrinsic::exp2)
+					if(II == Intrinsic::exp2 && llcPass)
 					{
 						// Expand this to pow, we can't simply forward to the libc since exp2 is optimized away to the intrinsic itself
 						Type* t = ci.getType();
@@ -238,8 +266,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						deleteList.push_back(&ci);
 					}
 
+
 					// Replace math intrinsics with C library calls if necessary
-					if(mathMode == NO_BUILTINS)
+					if(mathMode == NO_BUILTINS && llcPass)
 					{
 #define REPLACE_MATH_FUNC(ii, f, d) if(II == ii) { Function* F = module.getFunction(calledFunc->getReturnType()->isFloatTy() ? f : d); assert(F); ci.setCalledFunction(F); }
 						REPLACE_MATH_FUNC(Intrinsic::fabs, "fabsf", "fabs");
@@ -264,7 +293,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	DenseSet<const Function*> droppedMathBuiltins;
 
 	// Drop the code for math functions that will be replaced by builtins
-	if (mathMode == USE_BUILTINS)
+	if (mathMode == USE_BUILTINS && llcPass)
 	{
 #define DROP_MATH_FUNC(x) if(Function* F = module.getFunction(x)) { F->deleteBody(); droppedMathBuiltins.insert(F); }
 		DROP_MATH_FUNC("fabs"); DROP_MATH_FUNC("fabsf");
@@ -303,11 +332,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		{
 			assert( isa<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue()) );
 			Function* f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
-			
-			SubExprVec vec;
-			visitGlobal( f, visited, vec );
-			assert( visited.empty() );
-			externals.push_back(f);
+
+			extendLifetime(f);
 			if (f->getSection() == StringRef("asmjs"))
 			{
 				asmJSExportedFuncions.insert(f);
@@ -333,10 +359,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		(webMainOrMain = module.getFunction("main")))
 	{
 		// Webmain entry point
-		SubExprVec vec;
-		visitGlobal( webMainOrMain, visited, vec );
-		assert( visited.empty() );
-		externals.push_back(webMainOrMain);
+		extendLifetime(webMainOrMain);
 	}
 	else
 	{
@@ -483,7 +506,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		llvm::report_fatal_error("String linking enabled and undefined symbols found");
 
 	// Detect all used math builtins
-	if (mathMode == USE_BUILTINS)
+	if (mathMode == USE_BUILTINS && llcPass)
 	{
 		// We have already dropped all unused functions, so we can simply check if these exists
 #define CHECK_MATH_FUNC(x, d, f) { hasBuiltin[x ## _F64] = module.getFunction(f) || module.getFunction(d); }
@@ -868,23 +891,12 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 						mayNeedAsmJSFree = true;
 					}
 				}
-				{
-				       VisitedSet visited;
-#define USE_MEMORY_FUNC(var, name) \
-					if (var) { \
-						llvm::Function* f = module->getFunction(#name); \
-						assert(f); \
-						SubExprVec vec; \
-						visitGlobal(f, visited, vec); \
-						assert(visited.empty()); \
-						/* Make sure the method is not internalized, otherwise it will be dropped */ \
-						externals.push_back(f); \
-					}
-					USE_MEMORY_FUNC(calledFunc->getIntrinsicID() == Intrinsic::memset, memset)
-					USE_MEMORY_FUNC(calledFunc->getIntrinsicID() == Intrinsic::memcpy, memcpy)
-					USE_MEMORY_FUNC(calledFunc->getIntrinsicID() == Intrinsic::memmove, memmove)
-#undef USE_MEMORY_FUNC
-				}
+				else if (calledFunc->getIntrinsicID() == Intrinsic::memset)
+					extendLifetime(module->getFunction("memset"));
+				else if (calledFunc->getIntrinsicID() == Intrinsic::memcpy)
+					extendLifetime(module->getFunction("memcpy"));
+				else if (calledFunc->getIntrinsicID() == Intrinsic::memmove)
+					extendLifetime(module->getFunction("memmove"));
 			}
 		}
 	
