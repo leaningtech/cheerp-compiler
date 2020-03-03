@@ -464,7 +464,7 @@ void LinearMemoryHelper::addFunctions()
 		// WebAssembly has some builtin functions (sqrt, abs, copysign, etc.)
 		// which should be omitted, and is therefore a subset of the asmjs
 		// function list.
-		if (mode == FunctionAddressMode::Wasm && isWasmIntrinsic(F) && !F->hasAddressTaken()) {
+		if (mode == FunctionAddressMode::Wasm && TypedBuiltinInstr::isWasmIntrinsic(F) && !F->hasAddressTaken()) {
 			continue;
 		}
 
