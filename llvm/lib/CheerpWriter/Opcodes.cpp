@@ -184,7 +184,7 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 void CheerpWriter::compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind, PARENT_PRIORITY parentPrio)
 {
 	if (kind == RAW)
-		compileRawPointer(bc_inst->getOperand(0), parentPrio);
+		compilePointerAs(bc_inst->getOperand(0), RAW, parentPrio);
 	else if(kind==COMPLETE_OBJECT)
 		compileCompleteObject(bc_inst->getOperand(0));
 	else
