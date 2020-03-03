@@ -16,6 +16,7 @@
 #include "CFGStackifier.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Cheerp/BuiltinInstructions.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/WasmWriter.h"
@@ -2259,7 +2260,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(0));
 						if(useWasmLoader)
 						{
-							uint32_t importedId = linearHelper.getBuiltinId(BuiltinInstr::GROW_MEM);
+							uint32_t importedId = linearHelper.getBuiltinId(BuiltinInstr::BUILTIN::GROW_MEM);
 							if(useTailCall)
 							{
 								encodeU32Inst(0x12, "return_call", importedId, code);
@@ -2418,52 +2419,52 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					if(ident=="acos" || ident=="acosf")
 					{
 						builtinFound = true;
-						b = BuiltinInstr::ACOS_F64;
+						b = BuiltinInstr::BUILTIN::ACOS_F;
 					}
 					else if(ident=="asin" || ident=="asinf")
 					{
 						builtinFound = true;
-						b = BuiltinInstr::ASIN_F64;
+						b = BuiltinInstr::BUILTIN::ASIN_F;
 					}
 					else if(ident=="atan" || ident=="atanf")
 					{
 						builtinFound = true;
-						b = BuiltinInstr::ATAN_F64;
+						b = BuiltinInstr::BUILTIN::ATAN_F;
 					}
 					else if(ident=="atan2" || ident=="atan2f")
 					{
 						builtinFound = true;
-						b = BuiltinInstr::ATAN2_F64;
+						b = BuiltinInstr::BUILTIN::ATAN2_F;
 					}
 					else if(ident=="cos" || ident=="cosf" || intrinsicId==Intrinsic::cos)
 					{
 						builtinFound = true;
-						b = BuiltinInstr::COS_F64;
+						b = BuiltinInstr::BUILTIN::COS_F;
 					}
 					else if(ident=="exp" || ident=="expf" || intrinsicId==Intrinsic::exp)
 					{
 						builtinFound = true;
-						b = BuiltinInstr::EXP_F64;
+						b = BuiltinInstr::BUILTIN::EXP_F;
 					}
 					else if(ident=="log" || ident=="logf" || intrinsicId==Intrinsic::log)
 					{
 						builtinFound = true;
-						b = BuiltinInstr::LOG_F64;
+						b = BuiltinInstr::BUILTIN::LOG_F;
 					}
 					else if(ident=="pow" || ident=="powf" || intrinsicId==Intrinsic::pow)
 					{
 						builtinFound = true;
-						b = BuiltinInstr::POW_F64;
+						b = BuiltinInstr::BUILTIN::POW_F;
 					}
 					else if(ident=="sin" || ident=="sinf" || intrinsicId==Intrinsic::sin)
 					{
 						builtinFound = true;
-						b = BuiltinInstr::SIN_F64;
+						b = BuiltinInstr::BUILTIN::SIN_F;
 					}
 					else if(ident=="tan" || ident=="tanf")
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::TAN_F64;
+						b = GlobalDepsAnalyzer::TAN_F;
 					}
 
 					if(builtinFound)
@@ -3567,7 +3568,7 @@ void CheerpWasmWriter::compileImportSection()
 {
 	// Count imported builtins
 	uint32_t importedBuiltins = 0;
-	for(uint32_t i=0;i<BuiltinInstr::MAX_BUILTIN;i++)
+	for(uint32_t i=0;i<BuiltinInstr::numGenericBuiltins();i++)
 	{
 		if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN(i)))
 			importedBuiltins++;
@@ -3596,27 +3597,27 @@ void CheerpWasmWriter::compileImportSection()
 	FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
 	FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
 	FunctionType* i32_i32_1 = FunctionType::get(i32, i32_1, false);
-	if(globalDeps.needsBuiltin(BuiltinInstr::ACOS_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::ACOS_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ACOS), f64_f64_1);
-	if(globalDeps.needsBuiltin(BuiltinInstr::ASIN_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::ASIN_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ASIN), f64_f64_1);
-	if(globalDeps.needsBuiltin(BuiltinInstr::ATAN_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::ATAN_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ATAN), f64_f64_1);
-	if(globalDeps.needsBuiltin(BuiltinInstr::ATAN2_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::ATAN2_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ATAN2), f64_f64_2);
-	if(globalDeps.needsBuiltin(BuiltinInstr::COS_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::COS_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::COS), f64_f64_1);
-	if(globalDeps.needsBuiltin(BuiltinInstr::EXP_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::EXP_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::EXP), f64_f64_1);
-	if(globalDeps.needsBuiltin(BuiltinInstr::LOG_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::LOG_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::LOG), f64_f64_1);
-	if(globalDeps.needsBuiltin(BuiltinInstr::POW_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::POW_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::POW), f64_f64_2);
-	if(globalDeps.needsBuiltin(BuiltinInstr::SIN_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::SIN_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::SIN), f64_f64_1);
-	if(globalDeps.needsBuiltin(BuiltinInstr::TAN_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::TAN_F))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::TAN), f64_f64_1);
-	if(globalDeps.needsBuiltin(BuiltinInstr::GROW_MEM))
+	if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::GROW_MEM), i32_i32_1);
 }
 
