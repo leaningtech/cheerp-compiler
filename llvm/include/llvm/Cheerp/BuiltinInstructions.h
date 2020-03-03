@@ -158,7 +158,7 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 	return 0;
 }
 
-inline std::string nameWasmBuiltin(const TYPED_BUILTIN& b)
+inline const char* nameWasmBuiltin(const TYPED_BUILTIN& b)
 {
 	switch (b)
 	{
@@ -186,6 +186,12 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 		return SQRT_F64;
 
 	return NONE;
+}
+
+inline bool isWasmIntrinsic(const llvm::Function* F)
+{
+	const auto& builtin = getMathTypedBuiltin(*F);
+	return isValidWasmMathBuiltin(builtin);
 }
 
 };	//close TypedBuiltinInstr

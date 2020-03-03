@@ -1271,12 +1271,13 @@ void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 
 void CheerpWasmWriter::encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F)
 {
-	if (false) {}
-#define WASM_INTRINSIC(name, opcode, symbol) \
-	else if (F->getName() == symbol) \
-		encodeInst(opcode, name, code);
-WASM_INTRINSIC_LIST(WASM_INTRINSIC)
-#undef WASM_INTRINSIC
+	const auto& builtin = TypedBuiltinInstr::getMathTypedBuiltin(*F);
+
+	assert(TypedBuiltinInstr::isValidWasmMathBuiltin(builtin) && "Only proper Wasm builtin can be emitted");
+
+	encodeInst(TypedBuiltinInstr::opcodeWasmBuiltin(builtin),
+			TypedBuiltinInstr::nameWasmBuiltin(builtin),
+			code);
 }
 
 bool CheerpWasmWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
@@ -2502,7 +2503,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 
 			if (calledFunc)
 			{
-				if (isWasmIntrinsic(calledFunc))
+				if (TypedBuiltinInstr::isWasmIntrinsic(calledFunc))
 				{
 					encodeWasmIntrinsic(code, calledFunc);
 					if(useTailCall)
