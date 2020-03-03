@@ -295,23 +295,15 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	// Drop the code for math functions that will be replaced by builtins
 	if (mathMode == USE_BUILTINS && llcPass)
 	{
-#define DROP_MATH_FUNC(x) if(Function* F = module.getFunction(x)) { F->deleteBody(); droppedMathBuiltins.insert(F); }
-		DROP_MATH_FUNC("fabs"); DROP_MATH_FUNC("fabsf");
-		DROP_MATH_FUNC("acos"); DROP_MATH_FUNC("acosf");
-		DROP_MATH_FUNC("asin"); DROP_MATH_FUNC("asinf");
-		DROP_MATH_FUNC("atan"); DROP_MATH_FUNC("atanf");
-		DROP_MATH_FUNC("atan2"); DROP_MATH_FUNC("atan2f");
-		DROP_MATH_FUNC("ceil"); DROP_MATH_FUNC("ceilf");
-		DROP_MATH_FUNC("cos"); DROP_MATH_FUNC("cosf");
-		DROP_MATH_FUNC("exp"); DROP_MATH_FUNC("expf");
-		DROP_MATH_FUNC("floor"); DROP_MATH_FUNC("floorf");
-		DROP_MATH_FUNC("log"); DROP_MATH_FUNC("logf");
-		DROP_MATH_FUNC("pow"); DROP_MATH_FUNC("powf");
-		DROP_MATH_FUNC("sin"); DROP_MATH_FUNC("sinf");
-		DROP_MATH_FUNC("sqrt"); DROP_MATH_FUNC("sqrtf");
-		DROP_MATH_FUNC("tan"); DROP_MATH_FUNC("tanf");
-		DROP_MATH_FUNC("fmod"); DROP_MATH_FUNC("fmodf");
-#undef DROP_MATH_FUNC
+		for (Function& F : module.getFunctionList())
+		{
+			const auto builtinID = BuiltinInstr::getMathBuiltin(F);
+			if (cheerp::BuiltinInstr::isFloatMathRenderedInJS(builtinID))
+			{
+				F.deleteBody();
+				droppedMathBuiltins.insert(&F);
+			}
+		}
 	}
 
 	//Compile the list of JS methods
@@ -509,49 +501,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	if (mathMode == USE_BUILTINS && llcPass)
 	{
 		// We have already dropped all unused functions, so we can simply check if these exists
-#define CHECK_MATH_FUNC(x, d, f) { hasBuiltin[BuiltinInstr::x ## _F64] = module.getFunction(f) || module.getFunction(d); }
-		CHECK_MATH_FUNC(ABS, "fabs", "fabsf");
-		CHECK_MATH_FUNC(ACOS, "acos", "acosf");
-		CHECK_MATH_FUNC(ASIN, "asin", "asinf");
-		CHECK_MATH_FUNC(ATAN, "atan", "atanf");
-		CHECK_MATH_FUNC(ATAN2, "atan2", "atan2f");
-		CHECK_MATH_FUNC(CEIL, "ceil", "ceilf");
-		CHECK_MATH_FUNC(COS, "cos", "cosf");
-		CHECK_MATH_FUNC(EXP, "exp", "expf");
-		CHECK_MATH_FUNC(FLOOR, "floor", "floorf");
-		CHECK_MATH_FUNC(LOG, "log", "logf");
-		CHECK_MATH_FUNC(POW, "pow", "powf");
-		CHECK_MATH_FUNC(SIN, "sin", "sinf");
-		CHECK_MATH_FUNC(SQRT, "sqrt", "sqrtf");
-		CHECK_MATH_FUNC(TAN, "tan", "tanf");
-#undef CHECK_MATH_FUNC
-
-		// Also look for intrinsics
 		for(const Function& F: module)
 		{
-			uint32_t II = F.getIntrinsicID();
-			if(!II)
-				continue;
-			if(II == Intrinsic::fabs)
-				hasBuiltin[BuiltinInstr::ABS_F64] = true;
-			else if(II == Intrinsic::ceil)
-				hasBuiltin[BuiltinInstr::CEIL_F64] = true;
-			else if(II == Intrinsic::cos)
-				hasBuiltin[BuiltinInstr::COS_F64] = true;
-			else if(II == Intrinsic::exp)
-				hasBuiltin[BuiltinInstr::EXP_F64] = true;
-			else if(II == Intrinsic::floor)
-				hasBuiltin[BuiltinInstr::FLOOR_F64] = true;
-			else if(II == Intrinsic::log)
-				hasBuiltin[BuiltinInstr::LOG_F64] = true;
-			else if(II == Intrinsic::pow)
-				hasBuiltin[BuiltinInstr::POW_F64] = true;
-			else if(II == Intrinsic::sin)
-				hasBuiltin[BuiltinInstr::SIN_F64] = true;
-			else if(II == Intrinsic::sqrt)
-				hasBuiltin[BuiltinInstr::SQRT_F64] = true;
-			else if(II == Intrinsic::ctlz)
-				hasBuiltin[BuiltinInstr::CLZ32] = true;
+			const auto builtinID = BuiltinInstr::getMathBuiltin(F);
+
+			if (cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID))
+				hasBuiltin[builtinID] = true;
 		}
 	}
 	// Detect all used non-math builtins
@@ -1029,26 +984,10 @@ void GlobalDepsAnalyzer::logUndefinedSymbol(const GlobalValue* GV)
 	}
 }
 
-bool GlobalDepsAnalyzer::isMathIntrinsic(StringRef funcName)
+bool GlobalDepsAnalyzer::isMathIntrinsic(const llvm::Function* F)
 {
-#define CHECK_MATH_FUNC(x) if(funcName == x) return true;
-	CHECK_MATH_FUNC("fabs"); CHECK_MATH_FUNC("fabsf");
-	CHECK_MATH_FUNC("acos"); CHECK_MATH_FUNC("acosf");
-	CHECK_MATH_FUNC("asin"); CHECK_MATH_FUNC("asinf");
-	CHECK_MATH_FUNC("atan"); CHECK_MATH_FUNC("atanf");
-	CHECK_MATH_FUNC("atan2"); CHECK_MATH_FUNC("atan2f");
-	CHECK_MATH_FUNC("ceil"); CHECK_MATH_FUNC("ceilf");
-	CHECK_MATH_FUNC("cos"); CHECK_MATH_FUNC("cosf");
-	CHECK_MATH_FUNC("exp"); CHECK_MATH_FUNC("expf");
-	CHECK_MATH_FUNC("floor"); CHECK_MATH_FUNC("floorf");
-	CHECK_MATH_FUNC("log"); CHECK_MATH_FUNC("logf");
-	CHECK_MATH_FUNC("pow"); CHECK_MATH_FUNC("powf");
-	CHECK_MATH_FUNC("sin"); CHECK_MATH_FUNC("sinf");
-	CHECK_MATH_FUNC("sqrt"); CHECK_MATH_FUNC("sqrtf");
-	CHECK_MATH_FUNC("tan"); CHECK_MATH_FUNC("tanf");
-	CHECK_MATH_FUNC("fmod"); CHECK_MATH_FUNC("fmodf");
-#undef CHECK_MATH_FUNC
-	return false;
+	const auto builtinID = cheerp::BuiltinInstr::getMathBuiltin(*F);
+	return cheerp::BuiltinInstr::isFloatMathRenderedInJS(builtinID);
 }
 
 int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMathBuiltins, Module & module )
@@ -1087,7 +1026,7 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		else if( !f->empty() )
 		{
 			// Never internalize functions that may have a better native implementation
-			if(isWasmIntrinsic(f) || isMathIntrinsic(f->getName()))
+			if(isWasmIntrinsic(f) || isMathIntrinsic(f))
 				f->setLinkage(GlobalValue::WeakAnyLinkage);
 			else
 				f->setLinkage(GlobalValue::InternalLinkage);
