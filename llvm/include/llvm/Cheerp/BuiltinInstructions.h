@@ -185,6 +185,24 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 	if (F.getName() == "__ieee754_sqrt")
 		return SQRT_F64;
 
+	const bool floatType = F.getReturnType()->isFloatTy();
+
+	switch (F.getIntrinsicID())
+	{
+	case llvm::Intrinsic::fabs:
+		return floatType ? ABS_F32 : ABS_F64;
+	case llvm::Intrinsic::ceil:
+		return floatType ? CEIL_F32 : CEIL_F64;
+	case llvm::Intrinsic::floor:
+		return floatType ? FLOOR_F32 : FLOOR_F64;
+	case llvm::Intrinsic::sqrt:
+		return floatType ? SQRT_F32 : SQRT_F64;
+	case llvm::Intrinsic::ctlz:
+		return CLZ_32;
+	default:
+		break;
+	}
+
 	return NONE;
 }
 
