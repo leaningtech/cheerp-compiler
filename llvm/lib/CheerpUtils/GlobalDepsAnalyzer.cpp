@@ -200,8 +200,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			for (Instruction& I : bb)
 			{
 				if (isa<CallInst>(I)) {
-					CallInst& ci = cast<CallInst>(I);
-					Function* calledFunc = ci.getCalledFunction();
+					CallInst* ci = cast<CallInst>(&I);
+					Function* calledFunc = ci->getCalledFunction();
 
 					// Skip indirect calls
 					if (calledFunc == nullptr)
@@ -215,43 +215,43 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						{
 							Function* F = module.getFunction("malloc");
 							assert(F);
-							ci.setCalledFunction(F);
-							Type* oldType = ci.getType();
+							ci->setCalledFunction(F);
+							Type* oldType = ci->getType();
 							if(oldType != F->getReturnType())
 							{
-								Instruction* newCast = new BitCastInst(UndefValue::get(F->getReturnType()), oldType, "", ci.getNextNode());
-								ci.replaceAllUsesWith(newCast);
-								ci.mutateType(F->getReturnType());
-								newCast->setOperand(0, &ci);
+								Instruction* newCast = new BitCastInst(UndefValue::get(F->getReturnType()), oldType, "", ci->getNextNode());
+								ci->replaceAllUsesWith(newCast);
+								ci->mutateType(F->getReturnType());
+								newCast->setOperand(0, ci);
 							}
 						}
 						else if(II == Intrinsic::cheerp_reallocate)
 						{
 							Function* F = module.getFunction("realloc");
 							assert(F);
-							ci.setCalledFunction(F);
-							Type* oldType = ci.getType();
+							ci->setCalledFunction(F);
+							Type* oldType = ci->getType();
 							if(oldType != F->getReturnType())
 							{
-								Instruction* newParamCast = new BitCastInst(ci.getOperand(0), F->getReturnType(), "", &ci);
-								ci.setOperand(0, newParamCast);
-								Instruction* newCast = new BitCastInst(UndefValue::get(F->getReturnType()), oldType, "", ci.getNextNode());
-								ci.replaceAllUsesWith(newCast);
-								ci.mutateType(F->getReturnType());
-								newCast->setOperand(0, &ci);
+								Instruction* newParamCast = new BitCastInst(ci->getOperand(0), F->getReturnType(), "", ci);
+								ci->setOperand(0, newParamCast);
+								Instruction* newCast = new BitCastInst(UndefValue::get(F->getReturnType()), oldType, "", ci->getNextNode());
+								ci->replaceAllUsesWith(newCast);
+								ci->mutateType(F->getReturnType());
+								newCast->setOperand(0, ci);
 							}
 						}
 						else if(II == Intrinsic::cheerp_deallocate)
 						{
 							Function* F = module.getFunction("free");
 							assert(F);
-							ci.setCalledFunction(F);
-							Type* oldType = ci.getOperand(0)->getType();
+							ci->setCalledFunction(F);
+							Type* oldType = ci->getOperand(0)->getType();
 							Type* newType = F->arg_begin()->getType();
 							if(oldType != newType)
 							{
-								Instruction* newCast = new BitCastInst(ci.getOperand(0), newType, "", &ci);
-								ci.setOperand(0, newCast);
+								Instruction* newCast = new BitCastInst(ci->getOperand(0), newType, "", ci);
+								ci->setOperand(0, newCast);
 							}
 						}
 					}
@@ -259,18 +259,24 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					if(II == Intrinsic::exp2 && llcPass)
 					{
 						// Expand this to pow, we can't simply forward to the libc since exp2 is optimized away to the intrinsic itself
-						Type* t = ci.getType();
+						Type* t = ci->getType();
 						Function* F = module.getFunction(t->isFloatTy() ? "powf" : "pow");
-						Value* newCall = CallInst::Create(F, { ConstantFP::get(t, 2.0), ci.getOperand(0) }, "", &ci);
-						ci.replaceAllUsesWith(newCall);
-						deleteList.push_back(&ci);
+						CallInst* newCall = CallInst::Create(F, { ConstantFP::get(t, 2.0), ci->getOperand(0) }, "", ci);
+						ci->replaceAllUsesWith(newCall);
+						deleteList.push_back(ci);
+						ci = newCall;
+						calledFunc = ci->getCalledFunction();
+
+						assert (calledFunc && "Call to pow should be direct");
+
+						II = calledFunc->getIntrinsicID();
 					}
 
 
 					// Replace math intrinsics with C library calls if necessary
 					if(mathMode == NO_BUILTINS && llcPass)
 					{
-#define REPLACE_MATH_FUNC(ii, f, d) if(II == ii) { Function* F = module.getFunction(calledFunc->getReturnType()->isFloatTy() ? f : d); assert(F); ci.setCalledFunction(F); }
+#define REPLACE_MATH_FUNC(ii, f, d) if(II == ii) { Function* F = module.getFunction(calledFunc->getReturnType()->isFloatTy() ? f : d); assert(F); ci->setCalledFunction(F); }
 						REPLACE_MATH_FUNC(Intrinsic::fabs, "fabsf", "fabs");
 						REPLACE_MATH_FUNC(Intrinsic::ceil, "ceilf", "ceil");
 						REPLACE_MATH_FUNC(Intrinsic::cos, "cosf", "cos");
