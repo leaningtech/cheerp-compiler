@@ -38,7 +38,7 @@ class GlobalDepsAnalyzer : public llvm::ModulePass
 {
 public:
 	/**
-	 * Select how to deal with math functions which are provided natively by JS
+	 * Select how to deal with math functions which are provided natively by JS or Wasm
 	 */
 	enum MATH_MODE { NO_BUILTINS = 0, JS_BUILTINS, WASM_BUILTINS };
 	static char ID;
@@ -283,6 +283,10 @@ public:
 	bool needsBuiltin(BuiltinInstr::BUILTIN b)
 	{
 		return hasBuiltin[b];
+	}
+	MATH_MODE getMathMode() const
+	{
+		return mathMode;
 	}
 
 	/**
