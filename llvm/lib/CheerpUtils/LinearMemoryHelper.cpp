@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -491,7 +491,7 @@ if (!functionTypeIndices.count(fTy)) { \
 	functionTypes.push_back(fTy); \
 	assert(idx < functionTypes.size()); \
 }
-#define ADD_BUILTIN(x, sig) if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::x)) { needs_ ## sig = true; builtinIds[GlobalDepsAnalyzer::x] = maxFunctionId++; }
+#define ADD_BUILTIN(x, sig) if(globalDeps.needsBuiltin(BuiltinInstr::x)) { needs_ ## sig = true; builtinIds[BuiltinInstr::x] = maxFunctionId++; }
 
 		for (const Function* F : globalDeps.asmJSImports()) {
 			const FunctionType* fTy = F->getFunctionType();
