@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2019 Leaning Technologies
+// Copyright 2011-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -509,7 +509,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	if (mathMode == USE_BUILTINS && llcPass)
 	{
 		// We have already dropped all unused functions, so we can simply check if these exists
-#define CHECK_MATH_FUNC(x, d, f) { hasBuiltin[x ## _F64] = module.getFunction(f) || module.getFunction(d); }
+#define CHECK_MATH_FUNC(x, d, f) { hasBuiltin[BuiltinInstr::x ## _F64] = module.getFunction(f) || module.getFunction(d); }
 		CHECK_MATH_FUNC(ABS, "fabs", "fabsf");
 		CHECK_MATH_FUNC(ACOS, "acos", "acosf");
 		CHECK_MATH_FUNC(ASIN, "asin", "asinf");
@@ -533,25 +533,25 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			if(!II)
 				continue;
 			if(II == Intrinsic::fabs)
-				hasBuiltin[ABS_F64] = true;
+				hasBuiltin[BuiltinInstr::ABS_F64] = true;
 			else if(II == Intrinsic::ceil)
-				hasBuiltin[CEIL_F64] = true;
+				hasBuiltin[BuiltinInstr::CEIL_F64] = true;
 			else if(II == Intrinsic::cos)
-				hasBuiltin[COS_F64] = true;
+				hasBuiltin[BuiltinInstr::COS_F64] = true;
 			else if(II == Intrinsic::exp)
-				hasBuiltin[EXP_F64] = true;
+				hasBuiltin[BuiltinInstr::EXP_F64] = true;
 			else if(II == Intrinsic::floor)
-				hasBuiltin[FLOOR_F64] = true;
+				hasBuiltin[BuiltinInstr::FLOOR_F64] = true;
 			else if(II == Intrinsic::log)
-				hasBuiltin[LOG_F64] = true;
+				hasBuiltin[BuiltinInstr::LOG_F64] = true;
 			else if(II == Intrinsic::pow)
-				hasBuiltin[POW_F64] = true;
+				hasBuiltin[BuiltinInstr::POW_F64] = true;
 			else if(II == Intrinsic::sin)
-				hasBuiltin[SIN_F64] = true;
+				hasBuiltin[BuiltinInstr::SIN_F64] = true;
 			else if(II == Intrinsic::sqrt)
-				hasBuiltin[SQRT_F64] = true;
+				hasBuiltin[BuiltinInstr::SQRT_F64] = true;
 			else if(II == Intrinsic::ctlz)
-				hasBuiltin[CLZ32] = true;
+				hasBuiltin[BuiltinInstr::CLZ32] = true;
 		}
 	}
 	// Detect all used non-math builtins
@@ -559,7 +559,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	{
 		if(F.getIntrinsicID() == Intrinsic::cheerp_grow_memory)
 		{
-			hasBuiltin[GROW_MEM] = true;
+			hasBuiltin[BuiltinInstr::GROW_MEM] = true;
 		}
 	}
 

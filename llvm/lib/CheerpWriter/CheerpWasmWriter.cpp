@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017-2019 Leaning Technologies
+// Copyright 2017-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -2259,7 +2259,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(0));
 						if(useWasmLoader)
 						{
-							uint32_t importedId = linearHelper.getBuiltinId(GlobalDepsAnalyzer::GROW_MEM);
+							uint32_t importedId = linearHelper.getBuiltinId(BuiltinInstr::GROW_MEM);
 							if(useTailCall)
 							{
 								encodeU32Inst(0x12, "return_call", importedId, code);
@@ -2418,47 +2418,47 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					if(ident=="acos" || ident=="acosf")
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::ACOS_F64;
+						b = BuiltinInstr::ACOS_F64;
 					}
 					else if(ident=="asin" || ident=="asinf")
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::ASIN_F64;
+						b = BuiltinInstr::ASIN_F64;
 					}
 					else if(ident=="atan" || ident=="atanf")
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::ATAN_F64;
+						b = BuiltinInstr::ATAN_F64;
 					}
 					else if(ident=="atan2" || ident=="atan2f")
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::ATAN2_F64;
+						b = BuiltinInstr::ATAN2_F64;
 					}
 					else if(ident=="cos" || ident=="cosf" || intrinsicId==Intrinsic::cos)
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::COS_F64;
+						b = BuiltinInstr::COS_F64;
 					}
 					else if(ident=="exp" || ident=="expf" || intrinsicId==Intrinsic::exp)
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::EXP_F64;
+						b = BuiltinInstr::EXP_F64;
 					}
 					else if(ident=="log" || ident=="logf" || intrinsicId==Intrinsic::log)
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::LOG_F64;
+						b = BuiltinInstr::LOG_F64;
 					}
 					else if(ident=="pow" || ident=="powf" || intrinsicId==Intrinsic::pow)
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::POW_F64;
+						b = BuiltinInstr::POW_F64;
 					}
 					else if(ident=="sin" || ident=="sinf" || intrinsicId==Intrinsic::sin)
 					{
 						builtinFound = true;
-						b = GlobalDepsAnalyzer::SIN_F64;
+						b = BuiltinInstr::SIN_F64;
 					}
 					else if(ident=="tan" || ident=="tanf")
 					{
@@ -3567,9 +3567,9 @@ void CheerpWasmWriter::compileImportSection()
 {
 	// Count imported builtins
 	uint32_t importedBuiltins = 0;
-	for(uint32_t i=0;i<GlobalDepsAnalyzer::MAX_BUILTIN;i++)
+	for(uint32_t i=0;i<BuiltinInstr::MAX_BUILTIN;i++)
 	{
-		if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::BUILTIN(i)))
+		if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN(i)))
 			importedBuiltins++;
 	}
 
@@ -3596,27 +3596,27 @@ void CheerpWasmWriter::compileImportSection()
 	FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
 	FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
 	FunctionType* i32_i32_1 = FunctionType::get(i32, i32_1, false);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ACOS_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::ACOS_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ACOS), f64_f64_1);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ASIN_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::ASIN_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ASIN), f64_f64_1);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::ATAN_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ATAN), f64_f64_1);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::ATAN2_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::ATAN2_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::ATAN2), f64_f64_2);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::COS_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::COS_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::COS), f64_f64_1);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::EXP_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::EXP_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::EXP), f64_f64_1);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::LOG_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::LOG_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::LOG), f64_f64_1);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::POW_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::POW_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::POW), f64_f64_2);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::SIN_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::SIN_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::SIN), f64_f64_1);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::TAN_F64))
+	if(globalDeps.needsBuiltin(BuiltinInstr::TAN_F64))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::TAN), f64_f64_1);
-	if(globalDeps.needsBuiltin(GlobalDepsAnalyzer::GROW_MEM))
+	if(globalDeps.needsBuiltin(BuiltinInstr::GROW_MEM))
 		compileImport(section, namegen.getBuiltinName(NameGenerator::GROW_MEM), i32_i32_1);
 }
 
