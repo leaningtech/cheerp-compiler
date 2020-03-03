@@ -337,7 +337,7 @@ private:
 	/**
 	 * Compile a pointer with the specified kind
 	 */
-	void compilePointerAs(const llvm::Value* p, POINTER_KIND kind)
+	void compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PARENT_PRIORITY prio = HIGHEST)
 	{
 		assert(p->getType()->isPointerTy());
 		assert(kind != SPLIT_REGULAR);
@@ -349,7 +349,10 @@ private:
 		}
 		else if (kind == RAW)
 		{
-			compileRawPointer(p);
+			if (valueKind == RAW)
+				compileRawPointer(p, prio);
+			else
+				compilePointerOffset(p, prio);
 		}
 		else if (llvm::isa<llvm::ConstantPointerNull>(p))
 		{
