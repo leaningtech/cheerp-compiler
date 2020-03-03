@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2018 Leaning Technologies
+// Copyright 2011-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,6 +18,7 @@
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Cheerp/BuiltinInstructions.h"
 #include <array>
 #include <string>
 #include <unordered_map>
@@ -36,8 +37,6 @@ extern const char* wasmNullptrName;
 class GlobalDepsAnalyzer : public llvm::ModulePass
 {
 public:
-	enum BUILTIN { ABS_F64, ACOS_F64, ASIN_F64, ATAN_F64, ATAN2_F64, CEIL_F64, COS_F64, EXP_F64, FLOOR_F64, LOG_F64, POW_F64, SIN_F64, SQRT_F64, TAN_F64,
-				CLZ32, GROW_MEM, MAX_BUILTIN };
 	/**
 	 * Select how to deal with math functions which are provided natively by JS
 	 */
@@ -259,7 +258,7 @@ private:
 
 	std::unordered_map<llvm::StructType*, uint32_t> basesInfo;
 
-	std::array<bool, MAX_BUILTIN> hasBuiltin;
+	std::array<bool, BuiltinInstr::MAX_BUILTIN> hasBuiltin;
 
 	MATH_MODE mathMode;
 
@@ -281,7 +280,7 @@ private:
 	bool hasUndefinedSymbolErrors;
 public:
 	bool forceTypedArrays;
-	bool needsBuiltin(BUILTIN b)
+	bool needsBuiltin(BuiltinInstr::BUILTIN b)
 	{
 		return hasBuiltin[b];
 	}

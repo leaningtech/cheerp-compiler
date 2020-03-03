@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,6 +15,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/BuiltinInstructions.h"
 #include <map>
 #include <unordered_map>
 
@@ -263,7 +264,7 @@ public:
 	// Returns the base of the compiled expression
 	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener) const;
 	static const llvm::Value* compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener);
-	uint32_t getBuiltinId(GlobalDepsAnalyzer::BUILTIN b) const
+	uint32_t getBuiltinId(BuiltinInstr::BUILTIN b) const
 	{
 		assert(builtinIds[b] != std::numeric_limits<uint32_t>::max());
 		return builtinIds[b];
@@ -311,7 +312,7 @@ private:
 	std::vector<const llvm::Function*> asmjsFunctions_;
 
 	std::unordered_map<const llvm::Function*, uint32_t> functionIds;
-	std::array<uint32_t, GlobalDepsAnalyzer::MAX_BUILTIN> builtinIds;
+	std::array<uint32_t, BuiltinInstr::MAX_BUILTIN> builtinIds;
 	uint32_t maxFunctionId;
 	std::vector<const llvm::FunctionType*> functionTypes;
 	FunctionTypeIndicesMap functionTypeIndices;
