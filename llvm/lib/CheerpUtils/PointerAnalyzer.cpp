@@ -580,7 +580,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		Type* pointedValueType = SI->getValueOperand()->getType()->getPointerElementType();
 		if(TypeSupport::hasByteLayout(pointedValueType))
 			return CacheAndReturn(ret = BYTE_LAYOUT);
-		else if (visitRawChain(SI->getValueOperand()))
+		else if (visitRawChain(SI->getPointerOperand()))
 			return CacheAndReturn(ret = RAW);
 		else if(TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 			ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex ));
