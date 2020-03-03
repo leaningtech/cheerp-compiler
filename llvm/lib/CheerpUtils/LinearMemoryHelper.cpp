@@ -491,7 +491,7 @@ if (!functionTypeIndices.count(fTy)) { \
 	functionTypes.push_back(fTy); \
 	assert(idx < functionTypes.size()); \
 }
-#define ADD_BUILTIN(x, sig) if(globalDeps.needsBuiltin(BuiltinInstr::x)) { needs_ ## sig = true; builtinIds[BuiltinInstr::x] = maxFunctionId++; }
+#define ADD_BUILTIN(x, sig) if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::x)) { needs_ ## sig = true; builtinIds[BuiltinInstr::x] = maxFunctionId++; }
 
 		for (const Function* F : globalDeps.asmJSImports()) {
 			const FunctionType* fTy = F->getFunctionType();
@@ -508,16 +508,16 @@ if (!functionTypeIndices.count(fTy)) { \
 			FunctionType* f64_f64_2 = FunctionType::get(f64, f64_2, false);
 			bool needs_f64_f64_1 = false;
 			bool needs_f64_f64_2 = false;
-			ADD_BUILTIN(ACOS_F64, f64_f64_1);
-			ADD_BUILTIN(ASIN_F64, f64_f64_1);
-			ADD_BUILTIN(ATAN_F64, f64_f64_1);
-			ADD_BUILTIN(ATAN2_F64, f64_f64_2);
-			ADD_BUILTIN(COS_F64, f64_f64_1);
-			ADD_BUILTIN(EXP_F64, f64_f64_1);
-			ADD_BUILTIN(LOG_F64, f64_f64_1);
-			ADD_BUILTIN(POW_F64, f64_f64_2);
-			ADD_BUILTIN(SIN_F64, f64_f64_1);
-			ADD_BUILTIN(TAN_F64, f64_f64_1);
+			ADD_BUILTIN(ACOS_F, f64_f64_1);
+			ADD_BUILTIN(ASIN_F, f64_f64_1);
+			ADD_BUILTIN(ATAN_F, f64_f64_1);
+			ADD_BUILTIN(ATAN2_F, f64_f64_2);
+			ADD_BUILTIN(COS_F, f64_f64_1);
+			ADD_BUILTIN(EXP_F, f64_f64_1);
+			ADD_BUILTIN(LOG_F, f64_f64_1);
+			ADD_BUILTIN(POW_F, f64_f64_2);
+			ADD_BUILTIN(SIN_F, f64_f64_1);
+			ADD_BUILTIN(TAN_F, f64_f64_1);
 			if(needs_f64_f64_1)
 				ADD_FUNCTION_TYPE(f64_f64_1);
 			if(needs_f64_f64_2)

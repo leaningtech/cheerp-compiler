@@ -224,7 +224,7 @@ private:
 	 */
 	int filterModule( const llvm::DenseSet<const llvm::Function*>&, llvm::Module & );
 
-	static bool isMathIntrinsic(llvm::StringRef funcName);
+	static bool isMathIntrinsic(const llvm::Function* F);
 
 	//Insert Function on execution queue
 	void enqueueFunction(const llvm::Function* F);
@@ -258,7 +258,7 @@ private:
 
 	std::unordered_map<llvm::StructType*, uint32_t> basesInfo;
 
-	std::array<bool, BuiltinInstr::MAX_BUILTIN> hasBuiltin;
+	std::array<bool, BuiltinInstr::numGenericBuiltins()> hasBuiltin;
 
 	MATH_MODE mathMode;
 
