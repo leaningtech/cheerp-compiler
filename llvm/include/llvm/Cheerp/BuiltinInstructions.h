@@ -174,6 +174,22 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 	return "";
 }
 
+inline std::string functionName(const TYPED_BUILTIN& b)
+{
+	switch (b)
+	{
+#define WASM_INTRINSIC(name, opcode, Fname, builtin) \
+	case TYPED_BUILTIN::builtin: \
+		return Fname;
+WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
+#undef WASM_INTRINSIC
+	default:
+		break;
+	}
+	llvm_unreachable("A builtin should have been found");
+	return "";
+}
+
 inline TYPED_BUILTIN getMathTypedBuiltin(const llvm::Function& F)
 {
 #define WASM_INTRINSIC(name, opcode, Fname, builtin) \
