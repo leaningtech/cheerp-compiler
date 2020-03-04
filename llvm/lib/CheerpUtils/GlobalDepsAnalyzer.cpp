@@ -274,19 +274,16 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 
 					// Replace math intrinsics with C library calls if necessary
-					if(mathMode == NO_BUILTINS && llcPass)
+					if(mathMode == NO_BUILTINS && llcPass && II > 0)
 					{
-#define REPLACE_MATH_FUNC(ii, f, d) if(II == ii) { Function* F = module.getFunction(calledFunc->getReturnType()->isFloatTy() ? f : d); assert(F); ci->setCalledFunction(F); }
-						REPLACE_MATH_FUNC(Intrinsic::fabs, "fabsf", "fabs");
-						REPLACE_MATH_FUNC(Intrinsic::ceil, "ceilf", "ceil");
-						REPLACE_MATH_FUNC(Intrinsic::cos, "cosf", "cos");
-						REPLACE_MATH_FUNC(Intrinsic::exp, "expf", "exp");
-						REPLACE_MATH_FUNC(Intrinsic::floor, "floorf", "floor");
-						REPLACE_MATH_FUNC(Intrinsic::log, "logf", "log");
-						REPLACE_MATH_FUNC(Intrinsic::pow, "powf", "pow");
-						REPLACE_MATH_FUNC(Intrinsic::sin, "sinf", "sin");
-						REPLACE_MATH_FUNC(Intrinsic::sqrt, "sqrtf", "sqrt");
-#undef REPLACE_MATH_FUNC
+						const auto& builtin = TypedBuiltinInstr::getMathTypedBuiltin(*calledFunc);
+
+						if (builtin == TypedBuiltinInstr::NONE)
+							continue;
+
+						Function* F = module.getFunction(functionName(builtin));
+						assert(F);
+						ci->setCalledFunction(F);
 					}
 				}
 			}
