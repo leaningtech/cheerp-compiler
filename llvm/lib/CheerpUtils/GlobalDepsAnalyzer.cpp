@@ -305,8 +305,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			{
 				//Preserve sinf and cosf if in WASM modality
 				if (mathMode == WASM_BUILTINS &&
-					(BuiltinInstr::BUILTIN::COS_F == builtinID ||
-					BuiltinInstr::BUILTIN::SIN_F == builtinID))
+					(BuiltinInstr::COS_F == builtinID ||
+					BuiltinInstr::SIN_F == builtinID))
 					continue;
 
 				F.deleteBody();
@@ -515,17 +515,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			const auto builtinID = BuiltinInstr::getMathBuiltin(F);
 
 			if (cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID))
-				hasBuiltin[builtinID] = true;
+				if (mathMode != WASM_BUILTINS || !TypedBuiltinInstr::isWasmIntrinsic(&F))
+					hasBuiltin[builtinID] = true;
 		}
 		if (mathMode == WASM_BUILTINS)
 		{
-			//There is no need to export these JS builtin to Wasm
-			hasBuiltin[BuiltinInstr::BUILTIN::COS_F] = false;
-			hasBuiltin[BuiltinInstr::BUILTIN::SIN_F] = false;
-			hasBuiltin[BuiltinInstr::BUILTIN::ABS_F] = false;
-			hasBuiltin[BuiltinInstr::BUILTIN::CEIL_F] = false;
-			hasBuiltin[BuiltinInstr::BUILTIN::FLOOR_F] = false;
-			hasBuiltin[BuiltinInstr::BUILTIN::SQRT_F] = false;
+			//In Wasm, these are better implemented as function calls than JS builtins
+			hasBuiltin[BuiltinInstr::COS_F] = false;
+			hasBuiltin[BuiltinInstr::SIN_F] = false;
 		}
 	}
 	// Detect all used non-math builtins
