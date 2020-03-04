@@ -300,6 +300,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	{
 		for (Function& F : module.getFunctionList())
 		{
+			//Builtins could be inserted in the function table, for now just avoid to drop them
+			if (F.hasAddressTaken())
+				continue;
+
 			const auto builtinID = BuiltinInstr::getMathBuiltin(F);
 			if (cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID))
 			{
