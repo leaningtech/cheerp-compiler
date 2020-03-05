@@ -429,6 +429,12 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				elemSize = 2;
 			}
 			if (elemSize > 1) {
+				// Unroll small loops
+				// NOTE: Moving more than 1 element per iteration is only safe if there is no overlapping
+				if(mode != MEMMOVE && (sizeInt / elemSize <= 3)) {
+					pointedType = ArrayType::get(pointedType, sizeInt / elemSize);
+					elemSize = sizeInt - (sizeInt % elemSize);
+				}
 				IRBuilder<> IRB(CI);
 				dst = IRB.CreateBitCast(dst, pointedType->getPointerTo());
 				// In MEMSET mode src is the i8 value to write
