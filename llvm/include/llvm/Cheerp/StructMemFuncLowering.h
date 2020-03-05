@@ -23,14 +23,14 @@ class StructMemFuncLowering: public FunctionPass
 private:
 	enum MODE { NONE = 0, MEMCPY, MEMMOVE, MEMSET };
 	bool runOnBlock(BasicBlock& BB, bool asmjs);
-	void recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* indexType, SmallVector<Value*, 8>& indexes);
-	void recursiveReset(IRBuilder<>* IRB, Value* baseDst, Value* resetVal, Type* curType, Type* indexType, SmallVector<Value*, 8>& indexes);
+	void recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType, Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes);
+	void recursiveReset(IRBuilder<>* IRB, Value* baseDst, Value* resetVal, Type* curType, Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes);
 	void createMemFunc(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, size_t size, SmallVector<Value*, 8>& indexes);
 	void createBackwardLoop(IRBuilder<>* IRB, BasicBlock* BB, BasicBlock* endLoop, BasicBlock* memfuncBody,
-				Type* pointedType, Value* dst, Value* src, Value* elementsCount);
+				Type* pointedType, Value* dst, Value* src, Value* elementsCount, uint32_t baseAlign);
 	void createForwardLoop(IRBuilder<>* IRB, BasicBlock* BB, BasicBlock* endLoop, BasicBlock* memfuncBody,
-				Type* pointedType, Value* dst, Value* src, Value* elementsCount, MODE);
-	bool createLoops(BasicBlock& BB, BasicBlock* endLoop, Type* int32Type, Value* src, Value* dst, Value* size, Type* pointedType, MODE mode);
+				Type* pointedType, Value* dst, Value* src, Value* elementsCount, MODE mode, uint32_t baseAlign);
+	bool createLoops(BasicBlock& BB, BasicBlock* endLoop, Type* int32Type, Value* src, Value* dst, Value* size, Type* pointedType, MODE mode, uint32_t baseAlign);
 	static bool isDoubleAggregate(llvm::Type* t);
 	SmallVector<BasicBlock*, 10> basicBlocks;
 	const DataLayout* DL;
