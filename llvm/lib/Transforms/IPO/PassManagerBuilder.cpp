@@ -453,8 +453,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
                    : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies
   }
   MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
-  if (CheerpLTO)
+  if (CheerpLTO) {
     MPM.add(createStructMemFuncLowering());
+    // The newly expanded loop may have redundancies that can be removed
+    MPM.add(NewGVN ? createNewGVNPass()
+                   : createGVNPass(DisableGVNLoadPRE));
+  }
   MPM.add(createSCCPPass());                  // Constant prop with SCCP
 
   // Delete dead bit computations (instcombine runs after to fold away the dead
