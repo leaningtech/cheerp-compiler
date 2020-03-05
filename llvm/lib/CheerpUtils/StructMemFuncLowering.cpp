@@ -34,7 +34,7 @@ void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Valu
 }
 
 void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType,
-						Type* indexType, SmallVector<Value*, 8>& indexes)
+						Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes)
 {
 	// For aggregates we push a new index and overwrite it for each element
 	if(StructType* ST=dyn_cast<StructType>(curType))
@@ -42,10 +42,15 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 		if (ST->hasByteLayout())
 			return createMemFunc(IRB, baseDst, baseSrc, DL->getTypeAllocSize(curType), indexes);
 		indexes.push_back(NULL);
+		const StructLayout* SL = DL->getStructLayout(ST);
 		for(uint32_t i=0;i<ST->getNumElements();i++)
 		{
 			indexes.back() = ConstantInt::get(indexType, i);
-			recursiveCopy(IRB, baseDst, baseSrc, ST->getElementType(i), indexType, indexes);
+			uint32_t elemOffset = SL->getElementOffset(i);
+			uint32_t elemAlign = baseAlign;
+			while(elemOffset % elemAlign != 0)
+				elemAlign /= 2;
+			recursiveCopy(IRB, baseDst, baseSrc, ST->getElementType(i), indexType, elemAlign, indexes);
 		}
 		indexes.pop_back();
 	}
@@ -53,6 +58,10 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 	{
 		Type* elementType = AT->getElementType();
 		indexes.push_back(NULL);
+		uint32_t elemSize = DL->getTypeAllocSize(elementType);
+		uint32_t elemAlign = baseAlign;
+		while(elemSize % elemAlign != 0)
+			elemAlign /= 2;
 		if(AT->getNumElements() > 6)
 		{
 			// Create a loop instead of unrolling
@@ -64,7 +73,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			llvm::PHINode* index=IRB->CreatePHI(indexType, 2);
 			index->addIncoming(ConstantInt::get(indexType, 0), prevBlock);
 			indexes.back() = index;
-			recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, indexes);
+			recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, elemAlign, indexes);
 			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
 			index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
@@ -76,7 +85,7 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			for(uint32_t i=0;i<AT->getNumElements();i++)
 			{
 				indexes.back() = ConstantInt::get(indexType, i);
-				recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, indexes);
+				recursiveCopy(IRB, baseDst, baseSrc, elementType, indexType, elemAlign, indexes);
 			}
 		}
 		indexes.pop_back();
@@ -90,22 +99,27 @@ void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Valu
 			elementSrc = IRB->CreateGEP(baseSrc, indexes);
 			elementDst = IRB->CreateGEP(baseDst, indexes);
 		}
-		Value* element = IRB->CreateLoad(elementSrc);
-		IRB->CreateStore(element, elementDst);
+		Value* element = IRB->CreateAlignedLoad(elementSrc, baseAlign);
+		IRB->CreateAlignedStore(element, elementDst, baseAlign);
 	}
 }
 
 void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Value* resetVal, Type* curType,
-						Type* indexType, SmallVector<Value*, 8>& indexes)
+						Type* indexType, uint32_t baseAlign, SmallVector<Value*, 8>& indexes)
 {
 	// For aggregates we push a new index and overwrite it for each element
 	if(StructType* ST=dyn_cast<StructType>(curType))
 	{
 		indexes.push_back(NULL);
+		const StructLayout* SL = DL->getStructLayout(ST);
 		for(uint32_t i=0;i<ST->getNumElements();i++)
 		{
 			indexes.back() = ConstantInt::get(indexType, i);
-			recursiveReset(IRB, baseDst, resetVal, ST->getElementType(i), indexType, indexes);
+			uint32_t elemOffset = SL->getElementOffset(i);
+			uint32_t elemAlign = baseAlign;
+			while(elemOffset % elemAlign != 0)
+				elemAlign /= 2;
+			recursiveReset(IRB, baseDst, resetVal, ST->getElementType(i), indexType, elemAlign, indexes);
 		}
 		indexes.pop_back();
 	}
@@ -113,6 +127,10 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 	{
 		Type* elementType = AT->getElementType();
 		indexes.push_back(NULL);
+		uint32_t elemSize = DL->getTypeAllocSize(elementType);
+		uint32_t elemAlign = baseAlign;
+		while(elemSize % elemAlign != 0)
+			elemAlign /= 2;
 		if(AT->getNumElements() > 6)
 		{
 			// Create a loop instead of unrolling
@@ -124,7 +142,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			llvm::PHINode* index=IRB->CreatePHI(indexType, 2);
 			index->addIncoming(ConstantInt::get(indexType, 0), prevBlock);
 			indexes.back() = index;
-			recursiveReset(IRB, baseDst, resetVal, elementType, indexType, indexes);
+			recursiveReset(IRB, baseDst, resetVal, elementType, indexType, elemAlign, indexes);
 			Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(indexType, 1));
 			index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
 			Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(indexType, AT->getNumElements()), incrementedIndex);
@@ -136,7 +154,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			for(uint32_t i=0;i<AT->getNumElements();i++)
 			{
 				indexes.back() = ConstantInt::get(indexType, i);
-				recursiveReset(IRB, baseDst, resetVal, elementType, indexType, indexes);
+				recursiveReset(IRB, baseDst, resetVal, elementType, indexType, elemAlign, indexes);
 			}
 		}
 		indexes.pop_back();
@@ -153,7 +171,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 			computedResetVal=IRB->CreateOr(computedResetVal, expandedResetVal);
 		}
 		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
-		IRB->CreateStore(computedResetVal, elementDst);
+		IRB->CreateAlignedStore(computedResetVal, elementDst, baseAlign);
 	}
 	else if(curType->isFloatTy() || curType->isDoubleTy())
 	{
@@ -173,7 +191,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		else
 			floatResetVal = ConstantFP::get(curType->getContext(), APFloat(APFloat::IEEEdouble(), floatConstant));
 		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
-		IRB->CreateStore(floatResetVal, elementDst);
+		IRB->CreateAlignedStore(floatResetVal, elementDst, baseAlign);
 	}
 	else if(PointerType* PT=dyn_cast<PointerType>(curType))
 	{
@@ -181,7 +199,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 		// TODO: Stop non constant in the frontend
 		assert(cast<ConstantInt>( resetVal )->getZExtValue() == 0);
 		Value* elementDst = IRB->CreateGEP(baseDst, indexes);
-		IRB->CreateStore(ConstantPointerNull::get(PT), elementDst);
+		IRB->CreateAlignedStore(ConstantPointerNull::get(PT), elementDst, baseAlign);
 	}
 	else
 	{
@@ -191,7 +209,7 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 
 // Create a forward loop, the index is incremented until elementsCount is reached. IRB already inserts inside currentBlock.
 void StructMemFuncLowering::createForwardLoop(IRBuilder<>* IRB, BasicBlock* previousBlock, BasicBlock* endBlock, BasicBlock* currentBlock,
-						Type* pointedType, Value* dst, Value* src, Value* elementsCount, MODE mode)
+						Type* pointedType, Value* dst, Value* src, Value* elementsCount, MODE mode, uint32_t baseAlign)
 {
 	Type* int32Type = IntegerType::get(previousBlock->getContext(), 32);
 	bool needsLoop = !isa<ConstantInt>(elementsCount) || cast<ConstantInt>(elementsCount)->getZExtValue() != 1;
@@ -210,9 +228,9 @@ void StructMemFuncLowering::createForwardLoop(IRBuilder<>* IRB, BasicBlock* prev
 		indexes.push_back(ConstantInt::get(int32Type, 0));
 
 	if (mode == MEMSET)
-		recursiveReset(IRB, dst, src, pointedType, int32Type, indexes);
+		recursiveReset(IRB, dst, src, pointedType, int32Type, baseAlign, indexes);
 	else
-		recursiveCopy(IRB, dst, src, pointedType, int32Type, indexes);
+		recursiveCopy(IRB, dst, src, pointedType, int32Type, baseAlign, indexes);
 	if(needsLoop)
 	{
 		// Increment the index
@@ -229,7 +247,7 @@ void StructMemFuncLowering::createForwardLoop(IRBuilder<>* IRB, BasicBlock* prev
 
 // Create a backward loop, the index is increment from elementsCount-1 to 0. IRB already inserts inside currentBlock.
 void StructMemFuncLowering::createBackwardLoop(IRBuilder<>* IRB, BasicBlock* previousBlock, BasicBlock* endBlock, BasicBlock* currentBlock,
-						Type* pointedType, Value* dst, Value* src, Value* elementsCount)
+						Type* pointedType, Value* dst, Value* src, Value* elementsCount, uint32_t baseAlign)
 {
 	Type* int32Type = IntegerType::get(previousBlock->getContext(), 32);
 	bool needsLoop = !isa<ConstantInt>(elementsCount) || cast<ConstantInt>(elementsCount)->getZExtValue() != 1;
@@ -251,7 +269,7 @@ void StructMemFuncLowering::createBackwardLoop(IRBuilder<>* IRB, BasicBlock* pre
 	// Now, recursively descend into the object to copy all the values
 	SmallVector<Value*, 8> indexes;
 	indexes.push_back(decrementedIndex);
-	recursiveCopy(IRB, dst, src, pointedType, int32Type, indexes);
+	recursiveCopy(IRB, dst, src, pointedType, int32Type, baseAlign, indexes);
 	if(needsLoop)
 	{
 		// Close the loop for index
@@ -285,7 +303,7 @@ bool StructMemFuncLowering::isDoubleAggregate(llvm::Type* t)
 		return false;
 }
 
-bool StructMemFuncLowering::createLoops(llvm::BasicBlock& BB, llvm::BasicBlock* endLoop, llvm::Type* int32Type, llvm::Value* src, llvm::Value* dst, llvm::Value* size, llvm::Type* pointedType, MODE mode)
+bool StructMemFuncLowering::createLoops(llvm::BasicBlock& BB, llvm::BasicBlock* endLoop, llvm::Type* int32Type, llvm::Value* src, llvm::Value* dst, llvm::Value* size, llvm::Type* pointedType, MODE mode, uint32_t baseAlign)
 {
 	assert(dst->getType() == src->getType() || mode==MEMSET);
 	uint32_t byteSize = DL->getTypeAllocSize(pointedType);
@@ -316,13 +334,13 @@ bool StructMemFuncLowering::createLoops(llvm::BasicBlock& BB, llvm::BasicBlock* 
 		IRB.CreateCondBr(srcAfterDst, memmoveForward, memmoveBackward);
 		// Do the forward side
 		IRB.SetInsertPoint(memmoveForward);
-		createForwardLoop(&IRB, memfuncBody, endLoop, memmoveForward, pointedType, dst, src, elementsCount, mode);
+		createForwardLoop(&IRB, memfuncBody, endLoop, memmoveForward, pointedType, dst, src, elementsCount, mode, baseAlign);
 		// Do the backward side
 		IRB.SetInsertPoint(memmoveBackward);
-		createBackwardLoop(&IRB, memfuncBody, endLoop, memmoveBackward, pointedType, dst, src, elementsCount);
+		createBackwardLoop(&IRB, memfuncBody, endLoop, memmoveBackward, pointedType, dst, src, elementsCount, baseAlign);
 	}
 	else //if(mode == MEMCPY || mode == MEMSET)
-		createForwardLoop(&IRB, &BB, endLoop, memfuncBody, pointedType, dst, src, elementsCount, mode);
+		createForwardLoop(&IRB, &BB, endLoop, memfuncBody, pointedType, dst, src, elementsCount, mode, baseAlign);
 	return true;
 }
 
@@ -361,6 +379,8 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		Value* src=CI->getOperand(1);
 		Value* size=CI->getOperand(2);
 		Type* int32Type = IntegerType::get(BB.getContext(), 32);
+		uint32_t alignInt = cast<ConstantInt>(CI->getOperand(3))->getZExtValue();
+		assert(alignInt != 0);
 		// Do not inline memory intrinsics with a large or non-constant size
 		// argument, when in linear memory mode.
 		// Also, if the memcpy is nicely aligned, use 32 bit loads and stores
@@ -369,8 +389,6 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			if (!sizeConst || sizeConst->getZExtValue() > INLINE_WRITE_LOOP_MAX)
 				continue;
 			uint32_t sizeInt = sizeConst->getZExtValue();
-			uint32_t alignInt = cast<ConstantInt>(CI->getOperand(3))->getZExtValue();
-			assert(alignInt != 0);
 			uint32_t elemSize = 1;
 			// Take advantage of double moves when available
 			if (alignInt % 8 == 0 && sizeInt >= 8 &&
@@ -424,7 +442,7 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		//Now BB is linked to endblock by an unconditional jump
 		//Instead we need to check if we need to enter the loop
 		Instruction* oldBranch = BB.getTerminator();
-		if(createLoops(BB, endLoop, int32Type, src, dst, size, pointedType, mode)) {
+		if(createLoops(BB, endLoop, int32Type, src, dst, size, pointedType, mode, alignInt)) {
 			//Delete the old branch
 			oldBranch->eraseFromParent();
 		}
