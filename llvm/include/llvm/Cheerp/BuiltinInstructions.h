@@ -46,11 +46,6 @@ inline bool isValidJSMathBuiltin(const BUILTIN& b)
 	return b > NONE && b <= TAN_F;
 }
 
-inline bool isFloatMathRenderedInJS(const BUILTIN& b)
-{
-	return b > NONE && b <= MOD_F;
-}
-
 inline BUILTIN getMathBuiltin(const llvm::Function& F)
 {
 #define IS_MATH_FUNC(x, d, f) { if (F.getName() == d || F.getName() == f) return x;}
