@@ -1006,8 +1006,10 @@ void GlobalDepsAnalyzer::logUndefinedSymbol(const GlobalValue* GV)
 
 bool GlobalDepsAnalyzer::isMathIntrinsic(const llvm::Function* F)
 {
+	//modf is not properly a builtin, but we can call operator% on floating point in JavaScript
 	const auto builtinID = cheerp::BuiltinInstr::getMathBuiltin(*F);
-	return cheerp::BuiltinInstr::isFloatMathRenderedInJS(builtinID);
+	return cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID) ||
+		(builtinID == BuiltinInstr::MOD_F);
 }
 
 int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMathBuiltins, Module & module )
