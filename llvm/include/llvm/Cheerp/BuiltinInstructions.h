@@ -20,8 +20,8 @@ namespace cheerp
 namespace BuiltinInstr
 {
 
-enum BUILTIN {NONE, ABS_F, ACOS_F, ASIN_F, ATAN_F, ATAN2_F, CEIL_F, COS_F, EXP_F, FLOOR_F, LOG_F, POW_F, SIN_F, SQRT_F, TAN_F,
-				MOD_F, CLZ, GROW_MEM, MAX_BUILTIN};
+enum BUILTIN {NONE, ABS_F, ACOS_F, ASIN_F, ATAN_F, ATAN2_F, CEIL_F, COS_F, EXP_F, FLOOR_F, LOG_F, POW_F, SIN_F, SQRT_F, TAN_F, CLZ,
+				MOD_F, GROW_MEM, MAX_BUILTIN};
 };	//close BuiltinInstr
 
 namespace TypedBuiltinInstr
@@ -43,7 +43,7 @@ inline constexpr uint32_t numGenericBuiltins()
 
 inline bool isValidJSMathBuiltin(const BUILTIN& b)
 {
-	return b > NONE && b <= TAN_F;
+	return b > NONE && b <= CLZ;
 }
 
 inline BUILTIN getMathBuiltin(const llvm::Function& F)
