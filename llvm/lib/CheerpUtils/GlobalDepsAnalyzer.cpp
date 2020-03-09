@@ -174,19 +174,23 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	if (!llcPass)
 	{
-		//Those intrinsics may come back as result of other optimizations
-		//And we may need the actual functions to lower the intrinsics
-		const auto ToBePreserved = {"pow", "powf",			// exp2 lowering
-			"fabsf", "fabs", "ceilf", "ceil", "cosf", "cos",	// Intrinsic lowering when NO_BUILTIN
-			"expf", "exp", "floorf", "floor", "logf", "log",	// ...^
-			"powf", "pow", "sinf", "sin", "sqrtf", "sqrt",		// ...^
-			"memcpy", "memset", "memmove"};				// Memory intrinsic lowering
-
-		for (const auto& name : ToBePreserved)
+		for (Function& F : module.getFunctionList())
 		{
-			Function* F = module.getFunction(name);
-			if (F)
-				extendLifetime(F);
+			//Those intrinsics may come back as result of other optimizations
+			//And we may need the actual functions to lower the intrinsics
+			const auto builtinID = BuiltinInstr::getMathBuiltin(F);
+			const auto typedBuiltinID = TypedBuiltinInstr::getMathTypedBuiltin(F);
+
+			if (cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID)
+				|| isValidWasmMathBuiltin(typedBuiltinID)
+				|| F.getName() == "memcpy"
+				|| F.getName() == "memset"
+				|| F.getName() == "memmove")
+			{
+				if (TypedBuiltinInstr::isAlwaysExactNatively(typedBuiltinID))
+					continue;
+				extendLifetime(&F);
+			}
 		}
 	}
 
