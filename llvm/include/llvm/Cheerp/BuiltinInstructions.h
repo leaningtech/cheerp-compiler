@@ -30,7 +30,7 @@ enum TYPED_BUILTIN { NONE, ABS_F32, ABS_F64, ACOS_F32, ACOS_F64, ASIN_F32, ASIN_
 				CEIL_F32, CEIL_F64, COS_F32, COS_F64, EXP_F32, EXP_F64, FLOOR_F32, FLOOR_F64, LOG_F32, LOG_F64,
 				POW_F32, POW_F64, SIN_F32, SIN_F64, SQRT_F32, SQRT_F64, TAN_F32, TAN_F64, MOD_F32, MOD_F64,
 				TRUNC_F32, TRUNC_F64, ROUND_F32, ROUND_F64, MIN_F32, MIN_F64, MAX_F32, MAX_F64, COPYSIGN_F32, COPYSIGN_F64,
-				CLZ_32, GROW_MEM, MAX_BUILTIN};
+				CLZ_32, GROW_MEM, MAX_BUILTIN, UNSUPPORTED};
 };	//close TypedBuiltinInstr
 
 namespace BuiltinInstr
@@ -217,10 +217,13 @@ inline TYPED_BUILTIN getMathTypedBuiltin(const llvm::Function& F)
 WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 #undef WASM_INTRINSIC
 
-	if (F.getName() == "__ieee754_sqrt")
-		return SQRT_F64;
-
 	const bool floatType = F.getReturnType()->isFloatTy();
+
+	if (F.getName() == "__ieee754_sqrt")
+	{
+		assert(!floatType);
+		return SQRT_F64;
+	}
 
 	switch (F.getIntrinsicID())
 	{
@@ -232,8 +235,43 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 		return floatType ? FLOOR_F32 : FLOOR_F64;
 	case llvm::Intrinsic::sqrt:
 		return floatType ? SQRT_F32 : SQRT_F64;
+	case llvm::Intrinsic::trunc:
+		return floatType ? TRUNC_F32 : TRUNC_F64;
+	case llvm::Intrinsic::round:
+		return floatType ? ROUND_F32 : ROUND_F64;
+	case llvm::Intrinsic::minnum:
+//	case llvm::Intrinsic::minimum:	<-- to be introduced later
+		return floatType ? MIN_F32 : MIN_F64;
+	case llvm::Intrinsic::maxnum:
+//	case llvm::Intrinsic::maximum:	<-- to be introduced later
+		return floatType ? MAX_F32 : MAX_F64;
+	case llvm::Intrinsic::copysign:
+		return floatType ? COPYSIGN_F32 : COPYSIGN_F64;
+	case llvm::Intrinsic::cos:
+		return floatType ? COS_F32 : COS_F64;
+	case llvm::Intrinsic::exp:
+		return floatType ? EXP_F32 : EXP_F64;
+	case llvm::Intrinsic::log:
+		return floatType ? LOG_F32 : LOG_F64;
+	case llvm::Intrinsic::pow:
+		return floatType ? POW_F32 : POW_F64;
+	case llvm::Intrinsic::sin:
+		return floatType ? SIN_F32 : SIN_F64;
 	case llvm::Intrinsic::ctlz:
+		//TODO: add 64 bit
 		return CLZ_32;
+	case llvm::Intrinsic::powi:
+	case llvm::Intrinsic::exp2:
+	case llvm::Intrinsic::log10:
+	case llvm::Intrinsic::log2:
+	case llvm::Intrinsic::fma:
+	case llvm::Intrinsic::rint:
+	case llvm::Intrinsic::nearbyint:
+//	case llvm::Intrinsic::lround:	<-- to be introduced later
+//	case llvm::Intrinsic::llround:	<-- to be introduced later
+//	case llvm::Intrinsic::lrint:	<-- to be introduced later
+//	case llvm::Intrinsic::llrint:	<-- to be introduced later
+		return UNSUPPORTED;
 	default:
 		break;
 	}
