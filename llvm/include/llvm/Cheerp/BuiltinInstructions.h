@@ -217,6 +217,16 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 	return NONE;
 }
 
+inline bool isAlwaysExactNatively(const TYPED_BUILTIN& b)
+{
+	if (b == CLZ_32)
+		return true;
+
+	//Other builtins that returns the same bit-to-bit result as the libc implementation could return true
+
+	return false;
+}
+
 inline bool isWasmIntrinsic(const llvm::Function* F)
 {
 	const auto& builtin = getMathTypedBuiltin(*F);
