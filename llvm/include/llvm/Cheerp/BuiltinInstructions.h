@@ -122,6 +122,18 @@ namespace TypedBuiltinInstr
 	\
 	x("i32.clz", 0x67, "", CLZ_32) \
 
+#define TYPED_FUNCTIONS_LIST(x) \
+	x(ACOS_F32, ACOS_F64, "acos", "acosf") \
+	x(ASIN_F32, ASIN_F64, "asin", "asinf") \
+	x(ATAN_F32, ATAN_F64, "atan", "atanf") \
+	x(ATAN2_F32, ATAN2_F64, "atan2", "atan2f") \
+	x(COS_F32, COS_F64, "cos", "cosf") \
+	x(EXP_F32, EXP_F64, "exp", "expf") \
+	x(LOG_F32, LOG_F64, "log", "logf") \
+	x(POW_F32, POW_F64, "pow", "powf") \
+	x(SIN_F32, SIN_F64, "sin", "sinf") \
+	x(TAN_F32, TAN_F64, "tan", "tanf") \
+
 inline bool isValidWasmMathBuiltin(const TYPED_BUILTIN& b)
 {
 	switch (b)
@@ -178,6 +190,18 @@ inline std::string functionName(const TYPED_BUILTIN& b)
 		return Fname;
 WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 #undef WASM_INTRINSIC
+	default:
+		break;
+	}
+	switch (b)
+	{
+#define TYPED_FUNCTIONS(opcode32, opcode64, Fname32, Fname64) \
+	case TYPED_BUILTIN::opcode32: \
+		return Fname32;	\
+	case TYPED_BUILTIN::opcode64: \
+		return Fname64;
+TYPED_FUNCTIONS_LIST(TYPED_FUNCTIONS)
+#undef TYPED_FUNCTIONS
 	default:
 		break;
 	}
