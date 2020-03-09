@@ -281,6 +281,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						if (builtin == TypedBuiltinInstr::NONE)
 							continue;
 
+						if (TypedBuiltinInstr::isAlwaysExactNatively(builtin))
+							continue;
+
 						Function* F = module.getFunction(functionName(builtin));
 						assert(F);
 						ci->setCalledFunction(F);
