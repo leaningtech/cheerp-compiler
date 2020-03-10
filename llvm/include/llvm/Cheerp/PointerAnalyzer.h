@@ -277,6 +277,7 @@ public:
 
 	llvm::StringRef getPassName() const override;
 
+	POINTER_KIND getPointerKindAssert(const llvm::Value* v) const;
 	POINTER_KIND getPointerKind(const llvm::Value* v) const;
 	POINTER_KIND getPointerKindForReturn(const llvm::Function* F) const;
 	POINTER_KIND getPointerKindForStoredType( llvm::Type * pointerType ) const;

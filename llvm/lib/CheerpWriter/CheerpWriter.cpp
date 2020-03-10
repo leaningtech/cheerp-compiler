@@ -290,7 +290,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 	assert( callV.arg_size() == 2 );
 	assert( callV.getCalledFunction() && callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast);
 
-	POINTER_KIND result_kind = PA.getPointerKind(callV.getInstruction());
+	POINTER_KIND result_kind = PA.getPointerKindAssert(callV.getInstruction());
 	const Value * src = callV.getArgument(0);
 	const Value * offset = callV.getArgument(1);
 
@@ -357,7 +357,7 @@ void CheerpWriter::compileVirtualcast( ImmutableCallSite callV )
 	assert( callV.arg_size() == 2 );
 	assert( callV.getCalledFunction() && callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_virtualcast);
 
-	POINTER_KIND result_kind = PA.getPointerKind(callV.getInstruction());
+	POINTER_KIND result_kind = PA.getPointerKindAssert(callV.getInstruction());
 	const Value * src = callV.getArgument(0);
 	const Value * offset = callV.getArgument(1);
 
@@ -431,7 +431,7 @@ void CheerpWriter::compileMemFunc(const Value* dest, const Value* src, const Val
 		stream << "if(__numElem__>1)" << NewLine << '{';
 	if(!constantNumElements || numElem>1)
 	{
-		bool byteLayout = PA.getPointerKind(dest) == BYTE_LAYOUT;
+		bool byteLayout = PA.getPointerKindAssert(dest) == BYTE_LAYOUT;
 		// The semantics of TypedArray.set is memmove-like, no need to care about direction
 		if(byteLayout)
 			stream << "(new Int8Array(";
@@ -539,7 +539,7 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 
 	Type * t = info.getCastedType()->getElementType();
 
-	POINTER_KIND result = PA.getPointerKind(info.getInstruction());
+	POINTER_KIND result = PA.getPointerKindAssert(info.getInstruction());
 	const ConstantInt* constantOffset = PA.getConstantOffsetForPointer(info.getInstruction());
 	bool needsDowncastArray = isa<StructType>(t) && globalDeps.needsDowncastArray(cast<StructType>(t));
 	bool needsRegular = result==REGULAR && !constantOffset && !needsDowncastArray;
@@ -911,7 +911,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::cheerp_upcast_collapsed)
 	{
-		compilePointerAs(*it, PA.getPointerKind(callV.getInstruction()));
+		compilePointerAs(*it, PA.getPointerKindAssert(callV.getInstruction()));
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_cast_user)
@@ -919,7 +919,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		if(callV.getInstruction()->use_empty())
 			return COMPILE_EMPTY;
 
-		compileBitCast(callV.getInstruction(), PA.getPointerKind(callV.getInstruction()), HIGHEST);
+		compileBitCast(callV.getInstruction(), PA.getPointerKindAssert(callV.getInstruction()), HIGHEST);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_base)
@@ -934,7 +934,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_kind)
 	{
-		stream << (int)PA.getPointerKind(*it);
+		stream << (int)PA.getPointerKindAssert(*it);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_create_closure)
@@ -945,7 +945,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		//keeping all local variable around. The helper
 		//method is printed on demand depending on a flag
 		assert( isa<Function>( callV.getArgument(0) ) );
-		POINTER_KIND argKind = PA.getPointerKind( &*cast<Function>(callV.getArgument(0))->arg_begin() );
+		POINTER_KIND argKind = PA.getPointerKindAssert( &*cast<Function>(callV.getArgument(0))->arg_begin() );
 		if(argKind == SPLIT_REGULAR)
 			stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE_SPLIT) << "(";
 		else
@@ -1603,7 +1603,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 
 	const llvm::Instruction* I = dyn_cast<Instruction>(p);
 	if (I && !isInlineable(*I, PA) &&
-		(isGEP(I) || isBitCast(I)) && PA.getPointerKind(I) == COMPLETE_OBJECT)
+		(isGEP(I) || isBitCast(I)) && PA.getPointerKindAssert(I) == COMPLETE_OBJECT)
 	{
 		stream << getName(I);
 		return;
@@ -1625,7 +1625,7 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 		}
 	}
 
-	POINTER_KIND kind = PA.getPointerKind(p);
+	POINTER_KIND kind = PA.getPointerKindAssert(p);
 
 	if(kind == REGULAR || kind == SPLIT_REGULAR)
 	{
@@ -1879,7 +1879,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 	while ( isBitCast(p) || isGEP(p) )
 	{
 		const User * u = cast<User>(p);
-		bool byteLayoutFromHere = PA.getPointerKind(u->getOperand(0)) != BYTE_LAYOUT;
+		bool byteLayoutFromHere = PA.getPointerKindAssert(u->getOperand(0)) != BYTE_LAYOUT;
 		Type* curType = u->getOperand(0)->getType();
 		if (isGEP(p))
 		{
@@ -1934,7 +1934,7 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 		p = u->getOperand(0);
 		continue;
 	}
-	assert (PA.getPointerKind(p) == BYTE_LAYOUT);
+	assert (PA.getPointerKindAssert(p) == BYTE_LAYOUT);
 	if(offsetMode != BYTE_LAYOUT_OFFSET_NO_PRINT)
 	{
 		if(const ConstantInt* CI=PA.getConstantOffsetForPointer(p))
@@ -2050,12 +2050,12 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, PARENT_PRIORITY p
 	{
 		case Instruction::GetElementPtr:
 		{
-			compileGEP(ce, PA.getPointerKind(ce), parentPrio);
+			compileGEP(ce, PA.getPointerKindAssert(ce), parentPrio);
 			break;
 		}
 		case Instruction::BitCast:
 		{
-			POINTER_KIND k = PA.getPointerKind(ce);
+			POINTER_KIND k = PA.getPointerKindAssert(ce);
 			compileBitCast(ce, k, parentPrio);
 			break;
 		}
@@ -2386,9 +2386,10 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
+		assert(false);
 		if (asmjs)
 			stream << '0';
-		else if(PA.getPointerKind(c) == COMPLETE_OBJECT)
+		else if(PA.getPointerKindAssert(c) == COMPLETE_OBJECT)
 			stream << "null";
 		else
 			stream << "nullObj";
@@ -2519,8 +2520,8 @@ bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* i
 	const llvm::ConstantInt* phiOffset = nullptr;
 	if(phiType->isPointerTy())
 	{
-		incomingKind = PA.getPointerKind(incomingInst);
-		phiKind = PA.getPointerKind(phi);
+		incomingKind = PA.getPointerKindAssert(incomingInst);
+		phiKind = PA.getPointerKindAssert(phi);
 		if(incomingKind == SPLIT_REGULAR || incomingKind == REGULAR || incomingKind == BYTE_LAYOUT)
 			incomingOffset = PA.getConstantOffsetForPointer(incomingInst);
 		if(phiKind == SPLIT_REGULAR || phiKind == REGULAR || phiKind == BYTE_LAYOUT)
@@ -2584,7 +2585,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 		void handleRecursivePHIDependency(const Instruction* incoming) override
 		{
 			assert(incoming);
-			if(incoming->getType()->isPointerTy() && writer.PA.getPointerKind(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
+			if(incoming->getType()->isPointerTy() && writer.PA.getPointerKindAssert(incoming)==SPLIT_REGULAR && !writer.PA.getConstantOffsetForPointer(incoming))
 			{
 				writer.stream << writer.getSecondaryName(incoming);
 				writer.stream << '=';
@@ -2627,7 +2628,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 					if(selfReferencing)
 					{
 						assert(!PA.getConstantOffsetForPointer(incoming));
-						assert(PA.getPointerKind(incoming) == SPLIT_REGULAR);
+						assert(PA.getPointerKindAssert(incoming) == SPLIT_REGULAR);
 					}
 					uint32_t tmpOffsetReg = -1;
 					if(selfReferencing)
@@ -2745,7 +2746,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			POINTER_KIND argKind = UNKNOWN;
 			// Calling convention:
 			// If this is a direct call and the argument is not a variadic one,
-			// we pass the kind decided by getPointerKind(arg_it).
+			// we pass the kind decided by getPointerKindAssert(arg_it).
 			// If it's variadic we use the base kind derived from the type
 			// If it's indirect we use a kind good for any argument of a given type at a given position
 			if (!F)
@@ -2754,7 +2755,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 				argKind = PA.getPointerKindForArgumentTypeAndIndex(typeAndIndex);
 			}
 			else if (arg_it != F->arg_end())
-				argKind = PA.getPointerKind(&*arg_it);
+				argKind = PA.getPointerKindAssert(&*arg_it);
 			else
 			{
 				if(isa<ConstantPointerNull>(*cur) && (cur+1)==itE && cur!=it)
@@ -2957,7 +2958,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 		{
 			const AllocaInst* ai = cast<AllocaInst>(&I);
 			const auto* allocaStores = allocaStoresExtractor.getValuesForAlloca(ai);
-			POINTER_KIND k = PA.getPointerKind(ai);
+			POINTER_KIND k = PA.getPointerKindAssert(ai);
 			assert(k != RAW && "Allocas to RAW pointers are removed in the AllocaLowering pass");
 
 			StringRef varName = getName(&I);
@@ -3068,7 +3069,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const StoreInst& si = cast<StoreInst>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
-			POINTER_KIND kind = PA.getPointerKind(ptrOp);
+			POINTER_KIND kind = PA.getPointerKindAssert(ptrOp);
 			if (checkBounds)
 			{
 				if(kind == REGULAR || kind == SPLIT_REGULAR)
@@ -3078,7 +3079,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				}
 				else if(kind == COMPLETE_OBJECT && isGEP(ptrOp))
 				{
-					bool needsOffset = valOp->getType()->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
+					bool needsOffset = valOp->getType()->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&si);
 					compileCheckDefined(ptrOp, needsOffset);
 					stream<<",";
 				}
@@ -3129,7 +3130,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			stream << '=';
 			if(!asmjs && valOp->getType()->isPointerTy())
 			{
-				POINTER_KIND storedKind = PA.getPointerKind(&si);
+				POINTER_KIND storedKind = PA.getPointerKindAssert(&si);
 				// If regular see if we can omit the offset part
 				if((storedKind==SPLIT_REGULAR || storedKind==REGULAR || storedKind==BYTE_LAYOUT) && PA.getConstantOffsetForPointer(&si))
 					compilePointerBase(valOp);
@@ -3170,7 +3171,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			assert(canDelayPHI(phi, PA, registerize));
 			// If we get here we know that all the values are rendered indentically
 			const Value* incoming = phi->getIncomingValue(0);
-			POINTER_KIND k = PA.getPointerKind(phi);
+			POINTER_KIND k = PA.getPointerKindAssert(phi);
 			if((k == REGULAR || k == SPLIT_REGULAR || k == BYTE_LAYOUT) && PA.getConstantOffsetForPointer(phi))
 				compilePointerBase(incoming);
 			else if(k == SPLIT_REGULAR)
@@ -3225,11 +3226,11 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 		uint32_t lastOffsetConstant = idx->getZExtValue();
 		useDownCastArray = !types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
 	}
-	bool byteLayout = PA.getPointerKind(gep_inst) == BYTE_LAYOUT;
+	bool byteLayout = PA.getPointerKindAssert(gep_inst) == BYTE_LAYOUT;
 	if (byteLayout)
 	{
 		const Value* baseOperand = gep_inst->getOperand(0);
-		bool byteLayoutFromHere = PA.getPointerKind(baseOperand) != BYTE_LAYOUT;
+		bool byteLayoutFromHere = PA.getPointerKindAssert(baseOperand) != BYTE_LAYOUT;
 		if (byteLayoutFromHere)
 			compileCompleteObject(gep_inst);
 		else if (!TypeSupport::hasByteLayout(targetType) && forEscapingPointer)
@@ -3302,7 +3303,7 @@ void CheerpWriter::compileGEPOffset(const llvm::User* gep_inst, PARENT_PRIORITY 
 		useDownCastArray = !types.useWrapperArrayForMember(PA, containerStructType, lastOffsetConstant);
 	}
 
-	bool byteLayout = PA.getPointerKind(gep_inst) == BYTE_LAYOUT;
+	bool byteLayout = PA.getPointerKindAssert(gep_inst) == BYTE_LAYOUT;
 	if (byteLayout)
 	{
 		if (TypeSupport::hasByteLayout(targetType))
@@ -3377,7 +3378,7 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PAR
 	{
 		const llvm::Instruction* I = dyn_cast<Instruction>(gep_inst->getOperand(0));
 		if (I && !isInlineable(*I, PA) &&
-			(isGEP(I) || isBitCast(I)) && PA.getPointerKind(I) == COMPLETE_OBJECT)
+			(isGEP(I) || isBitCast(I)) && PA.getPointerKindAssert(I) == COMPLETE_OBJECT)
 		{
 			stream << getName(I);
 		} else {
@@ -3488,7 +3489,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 	{
 		case Instruction::BitCast:
 		{
-			POINTER_KIND k=PA.getPointerKind(&I);
+			POINTER_KIND k=PA.getPointerKindAssert(&I);
 			compileBitCast(&I, k, parentPrio);
 			return COMPILE_OK;
 		}
@@ -3543,13 +3544,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				//Client objects are just passed through
 				compileOperand(gep.getOperand(0), parentPrio);
 			}
-			else if (!isInlineable(gep, PA) && PA.getPointerKind(&gep) == RAW)
+			else if (!isInlineable(gep, PA) && PA.getPointerKindAssert(&gep) == RAW)
 			{
 				compileRawPointer(&gep, parentPrio, /*forceGEP*/true);
 			}
 			else
 			{
-				compileGEP(&gep, PA.getPointerKind(&gep), parentPrio);
+				compileGEP(&gep, PA.getPointerKindAssert(&gep), parentPrio);
 			}
 			return COMPILE_OK;
 		}
@@ -3920,7 +3921,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::Select:
 		{
 			const SelectInst& si = cast<SelectInst>(I);
-			if(si.getType()->isPointerTy() && PA.getPointerKind(&si) == SPLIT_REGULAR)
+			if(si.getType()->isPointerTy() && PA.getPointerKindAssert(&si) == SPLIT_REGULAR)
 			{
 				compileOperand(si.getOperand(0), TERNARY, /*allowBooleanObjects*/ true);
 				stream << '?';
@@ -4057,7 +4058,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			// afterwards
 			bool asmjsCallee = calledFunc && calledFunc->getSection() == StringRef("asmjs");
 			uint32_t addrShift = 0;
-			if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
+			if (!asmjs && asmjsCallee && kind == Registerize::OBJECT && PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
 			{
 				addrShift = compileHeapForType(cast<PointerType>(ci.getType())->getPointerElementType());
 				stream << ';' << NewLine;
@@ -4171,7 +4172,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 						stream << ')';
 						break;
 					case Registerize::OBJECT:
-						if(PA.getPointerKind(&ci) == SPLIT_REGULAR && !ci.use_empty())
+						if(PA.getPointerKindAssert(&ci) == SPLIT_REGULAR && !ci.use_empty())
 						{
 							assert(!isInlineable(ci, PA));
 							if (asmjsCallee)
@@ -4197,8 +4198,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			const LoadInst& li = cast<LoadInst>(I);
 			const Value* ptrOp=li.getPointerOperand();
 			bool asmjs = currentFun->getSection()==StringRef("asmjs");
-			POINTER_KIND kind = PA.getPointerKind(ptrOp);
-			bool needsOffset = !li.use_empty() && li.getType()->isPointerTy() && PA.getPointerKind(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
+			POINTER_KIND kind = PA.getPointerKindAssert(ptrOp);
+			bool needsOffset = !li.use_empty() && li.getType()->isPointerTy() && PA.getPointerKindAssert(&li) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&li);
 			bool needsCheckBounds = false;
 			if (checkBounds)
 			{
@@ -4447,7 +4448,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		}
 		if(!I.use_empty())
 		{
-			if(I.getType()->isPointerTy() && (I.getOpcode() != Instruction::Call || isDowncast) && PA.getPointerKind(&I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&I))
+			if(I.getType()->isPointerTy() && (I.getOpcode() != Instruction::Call || isDowncast) && PA.getPointerKindAssert(&I) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&I))
 			{
 				stream << getSecondaryName(&I) << '=';
 			}
@@ -5224,7 +5225,7 @@ void CheerpWriter::compileMethod(const Function& F)
 	{
 		if(curArg!=A)
 			stream << ',';
-		if(curArg->getType()->isPointerTy() && PA.getPointerKind(&*curArg) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&*curArg))
+		if(curArg->getType()->isPointerTy() && PA.getPointerKindAssert(&*curArg) == SPLIT_REGULAR && !PA.getConstantOffsetForPointer(&*curArg))
 			stream << getName(&*curArg) << ',' << getSecondaryName(&*curArg);
 		else
 			stream << getName(&*curArg);
@@ -5348,7 +5349,7 @@ void CheerpWriter::compileGlobal(const GlobalVariable& G)
 	{
 		stream << '=';
 		const Constant* C = G.getInitializer();
-		POINTER_KIND k = PA.getPointerKind(&G);
+		POINTER_KIND k = PA.getPointerKindAssert(&G);
 
 		if(k == REGULAR)
 		{
