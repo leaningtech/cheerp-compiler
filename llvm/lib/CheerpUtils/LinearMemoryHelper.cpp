@@ -235,9 +235,9 @@ bool LinearMemoryHelper::isZeroInitializer(const llvm::Constant* c) const
 	llvm_unreachable("Unsupported constant type");
 }
 
-const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListener* listener) const
+const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA) const
 {
-	return compileGEP(module, p, listener);
+	return compileGEP(module, p, listener, PA);
 }
 
 int64_t LinearMemoryHelper::compileGEPOperand(const llvm::Value* idxVal, uint32_t size, GepListener* listener, bool invert)
@@ -300,7 +300,7 @@ int64_t LinearMemoryHelper::compileGEPOperand(const llvm::Value* idxVal, uint32_
 	}
 }
 
-const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener)
+const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA)
 {
 	const auto& targetData = module.getDataLayout();
 	int64_t constPart = 0;
@@ -328,6 +328,14 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module& module, co
 					constPart += compileGEPOperand(indices[i], size, listener, false);
 				}
 			}
+		}
+		else if (PA != nullptr)
+		{
+			POINTER_KIND kind = PA->getPointerKindAssert(p);
+			POINTER_KIND prevKind = PA->getPointerKindAssert(cast<User>(p)->getOperand(0));
+			assert(kind==RAW);
+			if (prevKind != RAW)
+				break;
 		}
 		p = u->getOperand(0);
 

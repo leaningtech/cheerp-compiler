@@ -1365,7 +1365,7 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	}
 
 	WasmGepWriter gepWriter(*this, code);
-	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter);
+	const llvm::Value *p = linearHelper.compileGEP(gep_inst, &gepWriter, &PA);
 	if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
 		gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
 	else if(!isa<ConstantPointerNull>(p))
@@ -2002,7 +2002,7 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 	if(isa<Instruction>(ptrOp) && isInlineable(*cast<Instruction>(ptrOp))) {
 		// Calling compileGEP is safe on any instruction
 		WasmGepWriter gepWriter(*this, code);
-		auto p = linearHelper.compileGEP(ptrOp, &gepWriter);
+		auto p = linearHelper.compileGEP(ptrOp, &gepWriter, &PA);
 		if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(p))
 			gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
 		else
