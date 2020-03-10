@@ -16,6 +16,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/BuiltinInstructions.h"
+#include "llvm/Cheerp/PointerAnalyzer.h"
 #include <map>
 #include <unordered_map>
 
@@ -262,8 +263,8 @@ public:
 	};
 	static int64_t compileGEPOperand(const llvm::Value* idxVal, uint32_t size, GepListener* listener, bool invert);
 	// Returns the base of the compiled expression
-	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener) const;
-	static const llvm::Value* compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener);
+	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA) const;
+	static const llvm::Value* compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA);
 	uint32_t getBuiltinId(BuiltinInstr::BUILTIN b) const
 	{
 		assert(builtinIds[b] != std::numeric_limits<uint32_t>::max());
