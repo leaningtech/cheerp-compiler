@@ -68,6 +68,7 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper& rhs
 
 	assert(lhs!=BYTE_LAYOUT && rhs!=BYTE_LAYOUT);
 	assert(lhs!=RAW && rhs!=RAW);
+	assert(lhs!=CONSTANT && rhs!=CONSTANT);
 	
 	// Handle 1
 	if (lhs==REGULAR || rhs==REGULAR)
@@ -113,6 +114,8 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const IndirectPointerKindCons
 	PointerKindWrapper& lhs=*this;
 
 	assert(lhs!=BYTE_LAYOUT);
+	assert(lhs!=RAW);
+	assert(lhs!=CONSTANT);
 
 	// Handle 1
 	if (lhs==REGULAR)
@@ -500,6 +503,11 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 {
 	if (p->getType()->isPointerTy())
 	{
+		if (isa<ConstantPointerNull>(p))
+		{
+			return pointerKindData.valueMap.insert( std::make_pair(p, CONSTANT ) ).first->second;
+		}
+
 		if (visitRawChain(p))
 		{
 			if (isa<Argument>(p))
@@ -1846,6 +1854,8 @@ void PointerAnalyzer::dumpPointer(const Value* v, bool dumpOwnerFunc) const
 			case REGULAR: fmt << "REGULAR"; break;
 			case SPLIT_REGULAR: fmt << "SPLIT_REGULAR"; break;
 			case BYTE_LAYOUT: fmt << "BYTE_LAYOUT"; break;
+			case RAW: fmt << "RAW"; break;
+			case CONSTANT: fmt << "CONSTANT"; break;
 			default:
 				assert(false && "Unexpected pointer kind");
 		}
