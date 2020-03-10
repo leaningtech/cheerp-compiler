@@ -1464,17 +1464,17 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	POINTER_KIND rhsKind = PA.getPointerKind(rhs);
 
 	if(lhsKind == RAW)
-		assert(asmjs || rhsKind == RAW || dyn_cast<ConstantPointerNull>(rhs));
+		assert(rhsKind == RAW || rhsKind == CONSTANT);
 	if(rhsKind == RAW)
-		assert(asmjs || lhsKind == RAW || dyn_cast<ConstantPointerNull>(lhs));
+		assert(lhsKind == RAW || lhsKind == CONSTANT);
 
-	if (asmjs || lhsKind == RAW || rhsKind == RAW)
+	if (lhsKind == RAW || rhsKind == RAW)
 		compareString = (p == CmpInst::ICMP_NE) ? "!=" : "==";
 	else
 		compareString = (p == CmpInst::ICMP_NE) ? "!==" : "===";
 
 	// in asmjs mode all the pointers are RAW pointers
-	if(asmjs || lhsKind == RAW || rhsKind == RAW)
+	if(lhsKind == RAW || rhsKind == RAW)
 	{
 		stream << "(";
 		compileRawPointer(lhs, PARENT_PRIORITY::BIT_OR);
@@ -1487,9 +1487,9 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	else if((lhsKind == REGULAR || lhsKind == SPLIT_REGULAR || (isGEP(lhs) && cast<User>(lhs)->getNumOperands()==2)) &&
 		(rhsKind == REGULAR || rhsKind == SPLIT_REGULAR || (isGEP(rhs) && cast<User>(rhs)->getNumOperands()==2)))
 	{
-		assert(PA.getPointerKind(lhs) != COMPLETE_OBJECT || !isa<Instruction>(lhs) ||
+		assert(lhsKind != COMPLETE_OBJECT || !isa<Instruction>(lhs) ||
 				isInlineable(*cast<Instruction>(lhs), PA));
-		assert(PA.getPointerKind(rhs) != COMPLETE_OBJECT || !isa<Instruction>(rhs) ||
+		assert(rhsKind != COMPLETE_OBJECT || !isa<Instruction>(rhs) ||
 				isInlineable(*cast<Instruction>(rhs), PA));
 		compilePointerBase(lhs);
 		stream << compareString;
@@ -1501,8 +1501,8 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	}
 	else if(lhsKind == BYTE_LAYOUT || rhsKind == BYTE_LAYOUT)
 	{
-		assert(PA.getPointerKind(lhs) != COMPLETE_OBJECT);
-		assert(PA.getPointerKind(rhs) != COMPLETE_OBJECT);
+		assert(lhsKind != COMPLETE_OBJECT);
+		assert(rhsKind != COMPLETE_OBJECT);
 		compilePointerBase(lhs);
 		stream << compareString;
 		compilePointerBase(rhs);
@@ -1513,8 +1513,8 @@ void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const 
 	}
 	else
 	{
-		assert(PA.getPointerKind(lhs) != BYTE_LAYOUT);
-		assert(PA.getPointerKind(rhs) != BYTE_LAYOUT);
+		assert(lhsKind != BYTE_LAYOUT);
+		assert(rhsKind != BYTE_LAYOUT);
 		compilePointerAs(lhs, COMPLETE_OBJECT);
 		stream << compareString;
 		compilePointerAs(rhs, COMPLETE_OBJECT);
@@ -1789,7 +1789,8 @@ void CheerpWriter::compileHeapAccess(const Value* p, Type* t)
 }
 void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 {
-	if(PA.getPointerKind(p) == RAW)
+	POINTER_KIND kind = PA.getPointerKind(p);
+	if(kind == RAW)
 	{
 		assert(isa<PointerType>(p->getType()));
 		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
@@ -1810,13 +1811,13 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		return;
 	}
 
-	if(isa<ConstantPointerNull>(p))
+	if(kind == CONSTANT)
 	{
 		stream << "nullArray";
 		return;
 	}
 
-	if(PA.getPointerKind(p) == COMPLETE_OBJECT)
+	if(kind == COMPLETE_OBJECT)
 	{
 		llvm::errs() << "compilePointerBase with COMPLETE_OBJECT pointer:" << *p << '\n' << "In function: " << *currentFun << '\n';
 		llvm::report_fatal_error("Unsupported code found, please report a bug", false);
@@ -1856,7 +1857,7 @@ void CheerpWriter::compilePointerBase(const Value* p, bool forEscapingPointer)
 		return;
 	}
 
-	if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && PA.getPointerKind(p) == SPLIT_REGULAR)
+	if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && kind == SPLIT_REGULAR)
 	{
 		stream << getName(p);
 		return;
@@ -1960,8 +1961,9 @@ const Value* CheerpWriter::compileByteLayoutOffset(const Value* p, BYTE_LAYOUT_O
 
 void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPrio, bool forEscapingPointer)
 {
-	bool byteLayout = PA.getPointerKind(p) == BYTE_LAYOUT;
-	if ( PA.getPointerKind(p) == RAW)
+	POINTER_KIND kind = PA.getPointerKind(p);
+	bool byteLayout = kind == BYTE_LAYOUT;
+	if ( kind == RAW)
 	{
 		assert(isa<PointerType>(p->getType()));
 		Type* ty = llvm::cast<PointerType>(p->getType())->getPointerElementType();
@@ -1973,13 +1975,13 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 			stream << ')';
 		return;
 	}
-	if ( PA.getPointerKind(p) == COMPLETE_OBJECT && !isGEP(p) )
+	if ( kind == COMPLETE_OBJECT && !isGEP(p) )
 	{
 		// This may still happen when doing ptrtoint of a function
 		stream << '0';
 	}
 	// null must be handled first, even if it is bytelayout
-	else if(isa<ConstantPointerNull>(p) || isa<UndefValue>(p))
+	else if(kind == CONSTANT || isa<UndefValue>(p))
 	{
 		stream << '0';
 	}
@@ -2018,7 +2020,7 @@ void CheerpWriter::compilePointerOffset(const Value* p, PARENT_PRIORITY parentPr
 		if(parentPrio >= TERNARY)
 			stream << ')';
 	}
-	else if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && PA.getPointerKind(p) == SPLIT_REGULAR)
+	else if((!isa<Instruction>(p) || !isInlineable(*cast<Instruction>(p), PA)) && kind == SPLIT_REGULAR)
 	{
 		stream << getSecondaryName(p);
 	}
