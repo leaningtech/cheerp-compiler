@@ -1470,6 +1470,12 @@ const PointerConstantOffsetWrapper& PointerAnalyzer::getFinalPointerConstantOffs
 	return o;
 }
 
+POINTER_KIND PointerAnalyzer::getPointerKindAssert(const Value* p) const
+{
+	auto r = getPointerKind(p);
+	assert(r != CONSTANT);
+	return r;
+}
 POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
 {
 	const PointerKindWrapper& k = getFinalPointerKindWrapper(p);
