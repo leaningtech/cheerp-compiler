@@ -1687,7 +1687,7 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 	if(parentPrio > basePrio)
 		stream << "(";
 	AsmJSGepWriter gepWriter(*this, use_imul);
-	p = linearHelper.compileGEP(p, &gepWriter);
+	p = linearHelper.compileGEP(p, &gepWriter, &PA);
 	PARENT_PRIORITY gepPrio = gepWriter.offset?ADD_SUB:basePrio;
 	compileOperand(p, gepPrio);
 	if(needsCoercion)
