@@ -34,7 +34,8 @@ enum POINTER_KIND : uint8_t {
 	BYTE_LAYOUT,      // slow, and mostly used for unions.
 	UNKNOWN,
 	INDIRECT,
-	RAW               // very fast, and used in asm.js mode.
+	RAW,              // very fast, and used in asm.js mode.
+	CONSTANT,         // A constant value known at compile time
 };
 
 enum REGULAR_POINTER_PREFERENCE { PREF_NONE, PREF_SPLIT_REGULAR, PREF_REGULAR };
