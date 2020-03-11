@@ -425,7 +425,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			return cast<ConstantInt>(p->getAggregateElement(0u) )->getSExtValue();
 		};
 		
-		auto getConstructorFunction = []( const Constant * p ) -> const llvm::Function *
+		auto getConstructorFunction = []( const Constant * p ) -> llvm::Function *
 		{
 			assert( isa< ConstantStruct >(p) );
 			assert( isa< Function >(p->getAggregateElement(1) ) );
@@ -469,6 +469,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				requiredConstructors.end(),
 				std::back_inserter(constructorsNeeded),
 				getConstructorFunction );
+
+		// Make sure the constructors are considered externals
+		for(Function* F: constructorsNeeded)
+			externals.push_back(F);
 
 		auto constructorVar = module.getGlobalVariable("llvm.global_ctors");
 		reachableGlobals.insert(constructorVar);

@@ -105,7 +105,7 @@ public:
 	/**
 	 * Get the list of constructors (static initializers) required by the program
 	 */
-	const std::vector<const llvm::Function*> & constructors() const { return constructorsNeeded; }
+	const std::vector<llvm::Function*> & constructors() const { return constructorsNeeded; }
 
 	/**
 	 * Get the entry point of the program, might be webMain or main
@@ -249,7 +249,7 @@ private:
 	std::unordered_set<const llvm::Function* > asmJSImportedFuncions;
 	DeterministicFunctionSet functionsInsideModule;
 	DeterministicFunctionSet functionsOutsideModule;
-	std::vector< const llvm::Function* > constructorsNeeded;
+	std::vector< llvm::Function* > constructorsNeeded;
 		
 	std::vector< const llvm::GlobalVariable * > varsOrder;
 	std::vector< llvm::GlobalValue * > externals;
