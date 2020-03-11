@@ -3755,26 +3755,6 @@ CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstan
 				return NONE;
 		}
 	}
-	else if(C->getType()->isPointerTy())
-	{
-		struct AddrListener: public LinearMemoryHelper::ByteListener
-		{
-			uint32_t addr;
-			uint32_t off;
-			AddrListener():addr(0),off(0)
-			{
-			}
-			void addByte(uint8_t b) override
-			{
-				addr |= b << off;
-				off += 8;
-			}
-		};
-		AddrListener addrListener;
-		linearHelper.compileConstantAsBytes(C, /* asmjs */ true, &addrListener);
-		// We could use the same logic for integers
-		return shouldEncodeConstantIntAsGlobal(addrListener.addr, useCount, getGlobalCost);
-	}
 	else
 	{
 		// We don't try to globalize integer constants as that has a negative performance impact
