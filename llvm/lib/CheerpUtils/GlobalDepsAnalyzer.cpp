@@ -593,19 +593,53 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	//Build the map of existing functions types that are called indirectly to their representative (or nullptr if multiple representative exist)
-	std::unordered_map<FunctionType*, Function*, LinearMemoryHelper::FunctionSignatureHash<true>, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
+	struct FunctionData
+	{
+		Function* F;
+		bool directlyUsed;
+		FunctionData(Function* F, bool directlyUsed):F(F),directlyUsed(directlyUsed)
+		{
+		}
+	};
+	struct IndirectFunctionsData
+	{
+		std::vector<FunctionData> funcs;
+		bool signatureUsed;
+		IndirectFunctionsData():signatureUsed(false)
+		{
+		}
+	};
+	std::unordered_map<FunctionType*, IndirectFunctionsData, LinearMemoryHelper::FunctionSignatureHash<true>, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
 	for (Function& F : module.getFunctionList())
 	{
 		if (F.getSection() != StringRef("asmjs"))
 			continue;
-		if(!F.hasAddressTaken())
-			continue;
-		auto it = validIndirectCallTypesMap.insert(std::make_pair(F.getFunctionType(), &F));
-		if(!it.second)
+		// Similar logic to hasAddressTaken, but we also need to find out if there is any direct use
+		bool hasIndirectUse = false;
+		bool hasDirectUse = F.hasExternalLinkage();
+		for (const Use &U : F.uses())
 		{
-			// An entry was already there, reset the unique function
-			it.first->second = nullptr;
+			if(hasDirectUse && hasIndirectUse)
+				break;
+			const User *FU = U.getUser();
+			if (!isa<CallInst>(FU) && !isa<InvokeInst>(FU))
+			{
+				hasIndirectUse = true;
+				continue;
+			}
+			ImmutableCallSite CS(cast<Instruction>(FU));
+			if (CS.isCallee(&U))
+			{
+				hasDirectUse = true;
+			}
+			else
+			{
+				hasIndirectUse = true;
+			}
 		}
+		if(!hasIndirectUse)
+			continue;
+		validIndirectCallTypesMap[F.getFunctionType()].funcs.emplace_back(&F, hasDirectUse);
 	}
 
 	//Check agains the previous set what CallInstruction are actually impossible (and remove them)
@@ -637,17 +671,35 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						unreachList.push_back(ci);
 						break;
 					}
-					else if(it->second)
+					else if(it->second.funcs.size() == 1)
 					{
 						// For this signature there is only one indirectly use function, we can devirtualize it
 						assert(ci->getCalledFunction() == nullptr);
 						assert(!isa<Function>(ci->getCalledValue()));
-						llvm::Constant* devirtualizedCall = it->second;
+						llvm::Constant* devirtualizedCall = it->second.funcs[0].F;
 						if(devirtualizedCall->getType() != calledValue->getType())
 							devirtualizedCall = ConstantExpr::getBitCast(devirtualizedCall, calledValue->getType());
 						ci->setCalledFunction(devirtualizedCall);
 					}
+					it->second.signatureUsed = true;
 				}
+			}
+		}
+		// Apply the argument in reverse, if there is no call with a given signature we can drop the functions
+		for(auto& it: validIndirectCallTypesMap)
+		{
+			if(it.second.signatureUsed)
+				continue;
+			// This signature was never used, we can drop corresponding methods if they have no direct call either
+			for(auto& fIt: it.second.funcs)
+			{
+				if(fIt.directlyUsed)
+					continue;
+				// Replace the body with a single unreachable instruction
+				// We need this placeholder to properly satisfy code that wants a non-zero address for this function
+				fIt.F->deleteBody();
+				llvm::BasicBlock* unreachableBlock = llvm::BasicBlock::Create(fIt.F->getContext(), "", fIt.F);
+				new llvm::UnreachableInst(unreachableBlock->getContext(), unreachableBlock);
 			}
 		}
 	}
