@@ -573,7 +573,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					if (!ci)
 						continue;
 					Value* calledValue = ci->getCalledValue();
-					if (!isa<Instruction>(calledValue))
+					if (isa<Function>(calledValue))
 						continue;
 					//This is an indirect call, and we can check whether the called function type exist at all
 					auto it = validIndirectCallTypesMap.find(ci->getFunctionType());
