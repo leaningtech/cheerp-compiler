@@ -195,14 +195,25 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	}
 
 	// Replace calls like 'printf("Hello!")' with 'puts("Hello!")'.
-	std::vector<llvm::CallInst*> deleteList;
 	for (Function& F : module.getFunctionList()) {
 		F.setPersonalityFn(nullptr);
 		bool asmjs = F.getSection() == StringRef("asmjs");
 		for (BasicBlock& bb : F)
 		{
-			for (Instruction& I : bb)
+			bool advance = false;	//Do not advance at the start
+			for (BasicBlock::iterator instructionIterator = bb.begin(); ;)
 			{
+				//Might be useful NOT to advance mid-iteration in case of deletions
+				//The base case is doing the advancement at the start of the cycle
+				if (advance)
+				{
+					++instructionIterator;
+				}
+				advance = true;
+				if (instructionIterator == bb.end())
+					break;
+				Instruction& I = *instructionIterator;
+
 				if (isa<CallInst>(I)) {
 					CallInst* ci = cast<CallInst>(&I);
 					Function* calledFunc = ci->getCalledFunction();
@@ -267,13 +278,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						Function* F = module.getFunction(t->isFloatTy() ? "powf" : "pow");
 						CallInst* newCall = CallInst::Create(F, { ConstantFP::get(t, 2.0), ci->getOperand(0) }, "", ci);
 						ci->replaceAllUsesWith(newCall);
-						deleteList.push_back(ci);
-						ci = newCall;
-						calledFunc = ci->getCalledFunction();
 
-						assert (calledFunc && "Call to pow should be direct");
+						//Set up loop variable, so the next loop will check and possibly expand newCall
+						--instructionIterator;
+						advance = false;
+						assert(&*instructionIterator == newCall);
 
-						II = calledFunc->getIntrinsicID();
+						ci->eraseFromParent();
+						continue;
 					}
 
 
@@ -295,9 +307,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				}
 			}
 		}
-	}
-	for (CallInst* ci : deleteList) {
-		ci->eraseFromParent();
 	}
 
 	DenseSet<const Function*> droppedMathBuiltins;
