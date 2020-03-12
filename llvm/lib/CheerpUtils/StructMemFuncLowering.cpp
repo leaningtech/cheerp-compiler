@@ -385,6 +385,9 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			} else if (alignInt % 4 == 0 && sizeInt >= 4) {
 				pointedType = int32Type;
 				elemSize = 4;
+			} else if (alignInt % 2 == 0 && sizeInt >= 2) {
+				pointedType = IntegerType::get(BB.getContext(), 16);
+				elemSize = 2;
 			}
 			if (elemSize > 1) {
 				IRBuilder<> IRB(CI);
