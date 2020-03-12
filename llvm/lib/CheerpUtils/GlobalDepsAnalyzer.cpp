@@ -290,7 +290,20 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						ci->eraseFromParent();
 						continue;
 					}
+					if(II == Intrinsic::fma)
+					{
+						// Expand fused multiply add
+						// TODO: this is NOT the real fma, but a reasonable approximation given the absence of true fma intrinsic
 
+						Instruction* mul = BinaryOperator::CreateFMul(ci->getOperand(0), ci->getOperand(1), "", ci);
+						Instruction* add = BinaryOperator::CreateFAdd(ci->getOperand(2), mul, "", ci);
+
+						ci->replaceAllUsesWith(add);
+						++instructionIterator;
+						advance = false;
+						ci->eraseFromParent();
+						continue;
+					}
 
 					// Replace math intrinsics with C library calls if necessary
 					if(llcPass)
