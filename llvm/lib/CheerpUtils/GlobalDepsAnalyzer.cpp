@@ -271,9 +271,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						}
 					}
 
-					if(II == Intrinsic::exp2 && llcPass)
+					if(II == Intrinsic::exp2)
 					{
 						// Expand this to pow, we can't simply forward to the libc since exp2 is optimized away to the intrinsic itself
+						if (!llcPass)
+							continue;
+
 						Type* t = ci->getType();
 						Function* F = module.getFunction(t->isFloatTy() ? "powf" : "pow");
 						CallInst* newCall = CallInst::Create(F, { ConstantFP::get(t, 2.0), ci->getOperand(0) }, "", ci);
@@ -290,9 +293,18 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 
 					// Replace math intrinsics with C library calls if necessary
-					if(mathMode == NO_BUILTINS && llcPass && II > 0)
+					if(llcPass)
 					{
 						const auto& builtin = TypedBuiltinInstr::getMathTypedBuiltin(*calledFunc);
+
+						if (builtin == TypedBuiltinInstr::UNSUPPORTED)
+						{
+							llvm::errs() << calledFunc->getName() << " is not supported\n";
+							llvm_unreachable("Unsupported builtin can not be lowered\n");
+						}
+
+						if (mathMode != NO_BUILTINS)
+							continue;
 
 						if (builtin == TypedBuiltinInstr::NONE)
 							continue;
