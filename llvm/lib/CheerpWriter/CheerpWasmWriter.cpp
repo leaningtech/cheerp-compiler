@@ -1500,6 +1500,14 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 			compileOperand(code, ce->getOperand(0));
 			break;
 		}
+		case Instruction::Select:
+		{
+			compileOperand(code, ce->getOperand(1));
+			compileOperand(code, ce->getOperand(2));
+			compileCondition(code, ce->getOperand(0), /*booleanInvert*/false);
+			encodeInst(0x1b, "select", code);
+			break;
+		}
 		default:
 			encodeInst(0x00, "unreachable", code);
 			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
