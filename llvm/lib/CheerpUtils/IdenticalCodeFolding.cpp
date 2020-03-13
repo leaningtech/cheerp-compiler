@@ -818,7 +818,8 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 
 		// Skip functions with special semantics, we really don't want to merge them with anything
 		if (F.getName() == "malloc" || F.getName() == "calloc" ||
-			F.getName() == "realloc" || F.getName() == "free") {
+			F.getName() == "realloc" || F.getName() == "free" ||
+			F.getName() == wasmNullptrName) {
 			continue;
 		}
 
