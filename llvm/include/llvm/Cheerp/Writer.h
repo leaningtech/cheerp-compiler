@@ -337,43 +337,7 @@ private:
 	/**
 	 * Compile a pointer with the specified kind
 	 */
-	void compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PARENT_PRIORITY prio = HIGHEST)
-	{
-		assert(p->getType()->isPointerTy());
-		assert(kind != SPLIT_REGULAR);
-		POINTER_KIND valueKind = PA.getPointerKind(p);
-
-		if(kind == COMPLETE_OBJECT)
-		{
-			compileCompleteObject(p);
-		}
-		else if (kind == RAW)
-		{
-			if (valueKind == RAW)
-				compileRawPointer(p, prio);
-			else
-				compilePointerOffset(p, prio);
-		}
-		else if (llvm::isa<llvm::ConstantPointerNull>(p))
-		{
-			stream << "nullObj";
-		}
-		else if (PA.getConstantOffsetForPointer(p) ||
-			valueKind == SPLIT_REGULAR ||
-			valueKind == RAW)
-		{
-			stream << "{d:";
-			compilePointerBase(p, true);
-			stream << ",o:";
-			compilePointerOffset(p, LOWEST);
-			stream << "}";
-		}
-		else
-		{
-			assert(valueKind == REGULAR || valueKind == BYTE_LAYOUT);
-			compileOperand(p);
-		}
-	}
+	void compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PARENT_PRIORITY prio = HIGHEST);
 
 	/**
 	 * Decide if `v` needs to be coerced to its integer type, based on the value of
