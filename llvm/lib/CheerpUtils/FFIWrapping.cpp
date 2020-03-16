@@ -41,6 +41,8 @@ static Function* wrapImport(Module& M, const Function* Orig)
 
 static bool needsWrapping(const Function* F)
 {
+	if (F->empty())
+		return false;
 	for (const auto& arg: F->args())
 	{
 		if (arg.getType()->isPointerTy())
