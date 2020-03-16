@@ -425,12 +425,7 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 		break;
 	}
 	const GlobalValue* top = nullptr;
-	if (isa<ConstantPointerNull>(p) && isa<Instruction>(origP))
-	{
-		// By following geps and bitcast we reached a null, make the kind depend on the container function
-		top = cast<Instruction>(origP)->getParent()->getParent();
-	}
-	else if (isa<Instruction>(p))
+	if (isa<Instruction>(p))
 	{
 		if (const CallInst* ci = dyn_cast<CallInst>(p))
 		{
@@ -448,14 +443,24 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 		if (!TypeSupport::isRawPointer(p->getType(), top->getSection() == StringRef("asmjs")))
 			return false;
 	}
+	else if (isa<ConstantExpr>(p) && cast<ConstantExpr>(p)->getOpcode() == Instruction::IntToPtr)
+	{
+		return true;
+	}
 	else if (isa<GlobalValue>(p))
 	{
 		top = cast<GlobalValue>(p);
 	}
-	if (top && top->getSection() == StringRef("asmjs"))
+	else if (isa<Constant>(p))
 	{
-		return true;
+		// By following geps and bitcast we reached a null, make the kind depend on the container function
+		if (isa<Instruction>(origP))
+			top = cast<Instruction>(origP)->getParent()->getParent();
+		else if (isa<GlobalValue>(origP))
+			top = cast<GlobalValue>(origP);
 	}
+	if (top && top->getSection() == StringRef("asmjs"))
+		return true;
 	return false;
 }
 
