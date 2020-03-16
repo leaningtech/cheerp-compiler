@@ -1674,12 +1674,6 @@ void CheerpWriter::compileCompleteObject(const Value* p, const Value* offset)
 
 void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio, bool forceGEP)
 {
-	if (isa<ConstantPointerNull>(p))
-	{
-		stream << '0';
-		return;
-	}
-
 	const llvm::Instruction* I = dyn_cast<Instruction>(p);
 	if (I && !isInlineable(*I, PA) && !forceGEP) {
 		stream << getName(I);
@@ -1697,7 +1691,10 @@ void CheerpWriter::compileRawPointer(const Value* p, PARENT_PRIORITY parentPrio,
 	AsmJSGepWriter gepWriter(*this, use_imul);
 	p = linearHelper.compileGEP(p, &gepWriter, &PA);
 	PARENT_PRIORITY gepPrio = gepWriter.offset?ADD_SUB:basePrio;
-	compileOperand(p, gepPrio);
+	if (isa<ConstantPointerNull>(p))
+		stream << '0';
+	else
+		compileOperand(p, gepPrio);
 	if(needsCoercion)
 		stream << "|0";
 	if(parentPrio > basePrio)
@@ -2626,6 +2623,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 			if(phiType->isPointerTy())
 			{
 				POINTER_KIND k=writer.PA.getPointerKind(phi);
+				assert(k!=CONSTANT);
 				if((k==REGULAR || k==SPLIT_REGULAR || k==BYTE_LAYOUT) && writer.PA.getConstantOffsetForPointer(phi))
 				{
 					writer.stream << writer.getName(phi, /*doNotConsiderEdgeContext*/true) << '=';
@@ -2756,7 +2754,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			POINTER_KIND argKind = UNKNOWN;
 			// Calling convention:
 			// If this is a direct call and the argument is not a variadic one,
-			// we pass the kind decided by getPointerKindAssert(arg_it).
+			// we pass the kind decided by getPointerKind(arg_it).
 			// If it's variadic we use the base kind derived from the type
 			// If it's indirect we use a kind good for any argument of a given type at a given position
 			if (!F)
@@ -3071,7 +3069,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			const StoreInst& si = cast<StoreInst>(I);
 			const Value* ptrOp=si.getPointerOperand();
 			const Value* valOp=si.getValueOperand();
-			POINTER_KIND kind = PA.getPointerKindAssert(ptrOp);
+			POINTER_KIND kind = PA.getPointerKind(ptrOp);
+			assert(kind != CONSTANT);
 			if (checkBounds)
 			{
 				if(kind == REGULAR || kind == SPLIT_REGULAR)
@@ -3091,11 +3090,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 					stream<<",";
 				}
 			}
-			// TODO: we need this hack because PointerAnalyzer cannot correctly assign
-			// the RAW kind to null pointers
 			bool asmjs = currentFun && currentFun->getSection()==StringRef("asmjs");
-			bool asmjs_nullptr = asmjs && isa<ConstantPointerNull>(ptrOp);
-			if (RAW == kind || asmjs_nullptr)
+			if (RAW == kind || (asmjs && kind == CONSTANT))
 			{
 				compileHeapAccess(ptrOp);
 			}
@@ -3130,9 +3126,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 			}
 
 			stream << '=';
-			if(!asmjs && valOp->getType()->isPointerTy())
+			if(valOp->getType()->isPointerTy())
 			{
-				POINTER_KIND storedKind = PA.getPointerKindAssert(&si);
+				POINTER_KIND storedKind = PA.getPointerKind(&si);
+				assert(storedKind != CONSTANT);
 				// If regular see if we can omit the offset part
 				if((storedKind==SPLIT_REGULAR || storedKind==REGULAR || storedKind==BYTE_LAYOUT) && PA.getConstantOffsetForPointer(&si))
 					compilePointerBase(valOp);
