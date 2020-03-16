@@ -591,11 +591,13 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 
 	if(const StoreInst* SI=dyn_cast<StoreInst>(p))
 	{
-		assert(SI->getValueOperand()->getType()->isPointerTy());
-		Type* pointedValueType = SI->getValueOperand()->getType()->getPointerElementType();
+		Type* valueType = SI->getValueOperand()->getType();
+		assert(valueType->isPointerTy());
+		Type* pointedValueType = valueType->getPointerElementType();
+		bool asmjs = SI->getParent()->getParent()->getSection() == StringRef("asmjs");
 		if(TypeSupport::hasByteLayout(pointedValueType))
 			return CacheAndReturn(ret = BYTE_LAYOUT);
-		else if (visitRawChain(SI->getPointerOperand()))
+		else if (TypeSupport::isRawPointer(valueType, asmjs))
 			return CacheAndReturn(ret = RAW);
 		else if(TypeAndIndex baseAndIndex = PointerAnalyzer::getBaseStructAndIndexFromGEP(SI->getPointerOperand()))
 			ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint( BASE_AND_INDEX_CONSTRAINT, baseAndIndex ));
