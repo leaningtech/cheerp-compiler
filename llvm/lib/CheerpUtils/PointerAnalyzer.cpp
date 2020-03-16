@@ -944,9 +944,12 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return ret |= pointerKindData.getConstraintPtr(IndirectPointerKindConstraint(RETURN_CONSTRAINT, retInst->getParent()->getParent()));
 
 	// Bitcasts from byte layout types require COMPLETE_OBJECT, and generate BYTE_LAYOUT
+	// Bitcasts to RAW force SPLIT_REGULAR or REGULAR
 	if(isBitCast(p))
 	{
-		if (TypeSupport::hasByteLayout(p->getOperand(0)->getType()->getPointerElementType()))
+		if (TypeSupport::isRawPointer(p->getType(), false))
+			return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
+		else if (TypeSupport::hasByteLayout(p->getOperand(0)->getType()->getPointerElementType()))
 			return ret |= COMPLETE_OBJECT;
 		else
 			return visitValue( ret, p, /*first*/ false );
