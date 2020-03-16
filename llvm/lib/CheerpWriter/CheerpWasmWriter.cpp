@@ -2297,17 +2297,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						}
 						return false;
 					}
-					case Intrinsic::ctlz:
-					{
-						compileOperand(code, ci.getOperand(0));
-						encodeInst(0x67, "i32.clz", code);
-						if(useTailCall)
-						{
-							encodeInst(0x0f, "return", code);
-							return true;
-						}
-						return false;
-					}
 					case Intrinsic::invariant_start:
 					{
 						//TODO: Try to optimize using this, for now just pass the second arg
@@ -2394,29 +2383,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							llvm::report_fatal_error("missing free definition");
 						break;
 					}
+					case Intrinsic::ctlz:
 					case Intrinsic::fabs:
-					{
-						assert(!ci.use_empty());
-						compileOperand(code, ci.op_begin()->get());
-						if(ci.getType()->isFloatTy())
-							encodeInst(0x8b, "f32.abs", code);
-						else if(ci.getType()->isDoubleTy())
-							encodeInst(0x99, "f64.abs", code);
-						else
-							break;
-						return false;
-					}
+					case Intrinsic::ceil:
 					case Intrinsic::floor:
+					case Intrinsic::trunc:
+					case Intrinsic::minnum:
+					case Intrinsic::maxnum:
+					case Intrinsic::copysign:
 					{
-						assert(!ci.use_empty());
-						compileOperand(code, ci.op_begin()->get());
-						if(ci.getType()->isFloatTy())
-							encodeInst(0x8e, "f32.floor", code);
-						else if(ci.getType()->isDoubleTy())
-							encodeInst(0x9c, "f64.floor", code);
-						else
-							break;
-						return false;
+						//Handled below inside if (isWasmIntrinsic(calledFunction))
+						break;
 					}
 					case Intrinsic::cos:
 					case Intrinsic::exp:
