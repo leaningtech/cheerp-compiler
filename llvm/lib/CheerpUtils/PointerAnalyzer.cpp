@@ -413,6 +413,8 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 	{
 		if (TypeSupport::isAsmJSPointer(p->getType()))
 			return true;
+		if (TypeSupport::isGenericJSPointer(p->getType()))
+			return false;
 		// ignore geps and bitcasts
 		if ( isGEP(p) || isBitCast(p) )
 		{
