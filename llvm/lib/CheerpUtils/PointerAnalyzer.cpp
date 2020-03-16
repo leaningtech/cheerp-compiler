@@ -510,7 +510,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 {
 	if (p->getType()->isPointerTy())
 	{
-		if (isa<ConstantPointerNull>(p))
+		if (isa<ConstantPointerNull>(p) || isa<UndefValue>(p))
 		{
 			return pointerKindData.valueMap.insert( std::make_pair(p, CONSTANT ) ).first->second;
 		}
