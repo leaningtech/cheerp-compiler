@@ -2855,7 +2855,12 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 				{
 					case Registerize::INTEGER:
 						stream << "return ";
-						compileOperand(retVal, BIT_OR);
+						if (retVal->getType()->isPointerTy())
+							compilePointerAs(retVal, RAW, BIT_OR);
+						else
+						{
+							compileOperand(retVal, BIT_OR);
+						}
 						stream << "|0";
 						break;
 					case Registerize::DOUBLE:
