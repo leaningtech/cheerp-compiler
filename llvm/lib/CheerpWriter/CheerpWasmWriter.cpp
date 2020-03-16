@@ -2530,6 +2530,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					encodeWasmIntrinsic(code, calledFunc);
 					if(useTailCall)
 						encodeInst(0x0f, "return", code);
+					return useTailCall;
 				}
 				else if (linearHelper.getFunctionIds().count(calledFunc))
 				{
