@@ -320,6 +320,7 @@ public:
 		else
 			return false;
 	}
+	// Is this type a pointer to a asmjs struct type?
 	static bool isAsmJSPointer(const llvm::Type* t)
 	{
 		if (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
@@ -335,6 +336,23 @@ public:
 		}
 		return false;
 	}
+	// Is this type a pointer to a genericjs struct type?
+	static bool isGenericJSPointer(const llvm::Type* t)
+	{
+		if (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
+		{
+			t = pt->getPointerElementType();
+			if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
+				return !st->hasAsmJS();
+			else if ( const llvm::ArrayType * at = llvm::dyn_cast<llvm::ArrayType>(t) )
+			{
+				if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(at->getElementType()) )
+					return !st->hasAsmJS();
+			}
+		}
+		return false;
+	}
+	// Is the kind of values of this type RAW, in the given context?
 	static bool isRawPointer(const llvm::Type* t, bool asmjs)
 	{
 		if (isAsmJSPointer(t))
