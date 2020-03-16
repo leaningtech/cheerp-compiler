@@ -1531,7 +1531,12 @@ POINTER_KIND PointerAnalyzer::getPointerKindForStoredType(Type* pointerType) con
 	IndirectPointerKindConstraint c(STORED_TYPE_CONSTRAINT, pointerType->getPointerElementType());
 	auto it=PACache.pointerKindData.constraintsMap.find(c);
 	if(it==PACache.pointerKindData.constraintsMap.end())
-		return COMPLETE_OBJECT;
+	{
+		if (TypeSupport::isRawPointer(pointerType, false))
+			return RAW;
+		else
+			return COMPLETE_OBJECT;
+	}
 	REGULAR_POINTER_PREFERENCE regularPreference = getRegularPreference(c, PACache);
 
 	const PointerKindWrapper& k = it->second;
