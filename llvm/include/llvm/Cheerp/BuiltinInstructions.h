@@ -149,6 +149,22 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 	return false;
 }
 
+inline uint32_t numExtraParameters(const llvm::Function* F)
+{
+	if (F)
+	{
+		switch (F->getIntrinsicID())
+		{
+		case llvm::Intrinsic::ctlz:
+		case llvm::Intrinsic::cttz:
+			return 1;
+		default:
+			break;
+		};
+	}
+	return 0;
+}
+
 inline uint32_t opcodeWasmBuiltin(const TYPED_BUILTIN& b)
 {
 	switch (b)

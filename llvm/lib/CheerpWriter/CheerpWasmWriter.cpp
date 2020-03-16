@@ -2494,8 +2494,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				}
 			}
 
+			//This corrections is needed basically for ctlz / cttz since they have an extra parameters to be ignored
+			const unsigned int numUsedParameters = fTy->getNumParams() - TypedBuiltinInstr::numExtraParameters(calledFunc);
 			for (auto op = ci.op_begin();
-					op != ci.op_begin() + fTy->getNumParams(); ++op)
+					op != ci.op_begin() + numUsedParameters; ++op)
 			{
 				compileOperand(code, op->get());
 			}
