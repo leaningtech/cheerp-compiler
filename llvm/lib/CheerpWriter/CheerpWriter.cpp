@@ -192,7 +192,15 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			stream << '[';
 			compileOperand(callV.getArgument(1), LOWEST);
 			stream << "]=";
-			compileOperand(callV.getArgument(2), LOWEST);
+			const Value* v = callV.getArgument(2);
+			if (v->getType()->isPointerTy())
+			{
+				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
+			}
+			else
+			{
+				compileOperand(v, LOWEST);
+			}
 		}
 		else
 		{
@@ -2784,14 +2792,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			if(argKind == SPLIT_REGULAR ||
 				(argKind == COMPLETE_OBJECT && curKind == BYTE_LAYOUT))
 			{
-				if(curKind == RAW)
-				{
-					int shift = compileHeapForType(cast<PointerType>(cur->get()->getType())->getPointerElementType());
-					stream << ',';
-					compileRawPointer(*cur, SHIFT);
-					stream << ">>" << shift;
-				}
-				else if(F && PA.getConstantOffsetForPointer(&*arg_it))
+				if(F && PA.getConstantOffsetForPointer(&*arg_it))
 					compilePointerBase(*cur, true);
 				else
 				{
@@ -2800,12 +2801,8 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 					compilePointerOffset(*cur, LOWEST, true);
 				}
 			}
-			else if(argKind == RAW)
-			{
-				compileRawPointer(*cur, LOWEST);
-			}
 			else if(argKind != UNKNOWN)
-				compilePointerAs(*cur, argKind);
+				compilePointerAs(*cur, argKind, LOWEST);
 		}
 		else if(tp->isIntegerTy(1) && forceBoolean && !asmjs)
 		{
@@ -2823,7 +2820,10 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 			{
 				prio = BIT_OR;
 			}
-			compileOperand(*cur,prio);
+			if (tp->isPointerTy())
+				compilePointerAs(*cur, RAW, prio);
+			else
+				compileOperand(*cur,prio);
 			if (prio == BIT_OR)
 				stream << "|0";
 		}
@@ -3285,6 +3285,87 @@ void CheerpWriter::compileGEPBase(const llvm::User* gep_inst, bool forEscapingPo
 		else
 		{
 			compileAccessToElement(basePointedType, makeArrayRef(std::next(indices.begin()),std::prev(indices.end())), /*compileLastWrapperArray*/true);
+		}
+	}
+}
+
+void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PARENT_PRIORITY prio)
+{
+	assert(p->getType()->isPointerTy());
+	assert(kind != SPLIT_REGULAR);
+	assert(kind != CONSTANT);
+	POINTER_KIND valueKind = PA.getPointerKind(p);
+
+	switch(kind)
+	{
+		case COMPLETE_OBJECT:
+		{
+			if (valueKind == RAW)
+			{
+				p->dump();
+			}
+			assert(valueKind != BYTE_LAYOUT);
+			assert(valueKind != RAW);
+			compileCompleteObject(p);
+			break;
+		}
+		case RAW:
+		{
+			if (valueKind == COMPLETE_OBJECT)
+			{
+				p->dump();
+			}
+			assert(valueKind != BYTE_LAYOUT);
+			assert(valueKind != COMPLETE_OBJECT);
+			if (valueKind == RAW)
+				compileRawPointer(p, prio);
+			else
+				compilePointerOffset(p, prio);
+			break;
+		}
+		case REGULAR:
+		{
+			assert(valueKind != BYTE_LAYOUT);
+			if (PA.getConstantOffsetForPointer(p) ||
+					valueKind == SPLIT_REGULAR ||
+					valueKind == RAW ||
+					valueKind == CONSTANT)
+			{
+				stream << "{d:";
+				compilePointerBase(p, true);
+				stream << ",o:";
+				compilePointerOffset(p, LOWEST);
+				stream << "}";
+			}
+			else
+			{
+				compileOperand(p);
+			}
+			break;
+		}
+		case BYTE_LAYOUT:
+		{
+			assert(valueKind==BYTE_LAYOUT);
+			if (PA.getConstantOffsetForPointer(p) ||
+					valueKind == SPLIT_REGULAR ||
+					valueKind == RAW ||
+					valueKind == CONSTANT)
+			{
+				stream << "{d:";
+				compilePointerBase(p, true);
+				stream << ",o:";
+				compilePointerOffset(p, LOWEST);
+				stream << "}";
+			}
+			else
+			{
+				compileOperand(p);
+			}
+			break;
+		}
+		default:
+		{
+			llvm::report_fatal_error("Unexpected pointer kind. This is a bug");
 		}
 	}
 }

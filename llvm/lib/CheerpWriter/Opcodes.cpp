@@ -274,7 +274,7 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 	compileOperand(cond, TERNARY, /*allowBooleanObjects*/ true);
 	stream << '?';
 
-	if(select->getType()->isPointerTy() && PA.getPointerKind(select) != RAW)
+	if(select->getType()->isPointerTy())
 	{
 		POINTER_KIND k = PA.getPointerKind(select);
 		compilePointerAs(lhs, k);
