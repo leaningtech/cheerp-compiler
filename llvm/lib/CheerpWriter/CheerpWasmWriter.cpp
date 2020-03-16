@@ -2419,7 +2419,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					break;
 				}
 
-				if (globalDeps.getMathMode() == GlobalDepsAnalyzer::WASM_BUILTINS) if(!NoNativeJavaScriptMath || intrinsicId)
+				if (globalDeps.getMathMode() == GlobalDepsAnalyzer::WASM_BUILTINS)
 				{
 					StringRef ident = calledFunc->getName();
 					BuiltinInstr::BUILTIN b = BuiltinInstr::BUILTIN::NONE;
