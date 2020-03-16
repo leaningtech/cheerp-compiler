@@ -2715,6 +2715,13 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 	bool asmjs = callV.getCaller()->getSection() == StringRef("asmjs");
 	bool asmjsCallee = (F && F->getSection() == StringRef("asmjs")) || (!F && asmjs);
 
+	// If the function is only declared and not in client namespace, skip arguments altogether
+	if (F && F->empty() && !TypeSupport::isClientFunc(F) && !TypeSupport::isClientConstructorName(F->getName()))
+	{
+		stream << ')';
+		return;
+	}
+
 	Function::const_arg_iterator arg_it;
 
 	// Check if we have a direct call
