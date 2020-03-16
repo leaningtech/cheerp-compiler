@@ -1539,6 +1539,25 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
         assert(!emission.useLifetimeMarkers());
       }
     }
+  } else if (!getTarget().isByteAddressable() && CurFn && CurFn->getSection()!=StringRef("asmjs")) {
+    EnsureInsertPoint();
+
+    llvm::Value *elementCount;
+    QualType elementType;
+    std::tie(elementCount, elementType) = getVLASize(Ty);
+
+    llvm::Type *llvmTy = ConvertTypeForMem(elementType);
+    uint64_t size = CGM.getDataLayout().getTypeAllocSize(llvmTy);
+    llvm::Constant* typeSize = llvm::ConstantInt::get(elementCount->getType(), size);
+
+    llvm::Type* Tys = { llvmTy->getPointerTo() };
+    llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::cheerp_allocate, Tys);
+    // Compute the size in bytes
+    llvm::Value* sizeInBytes = Builder.CreateMul(elementCount, typeSize);
+    llvm::Value* Args[1] = { sizeInBytes };
+    // Allocate memory for the array.
+    llvm::Value* Ret = Builder.CreateCall(F, Args);
+    address = Address(Ret, CharUnits::One());
   } else {
     EnsureInsertPoint();
 
