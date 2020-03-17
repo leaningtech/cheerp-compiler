@@ -34,11 +34,33 @@ public:
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
 };
 
+/*
+ * This pass will expand branches on boolean and/or instructions
+ * to multiple branches. Engines uses inefficient materialization
+ * of flag values to compute the and/or result, so it's more efficient
+ * to simply branch twice.
+ */
+class LowerAndOrBranches: public FunctionPass
+{
+private:
+	void fixTargetPhis(llvm::BasicBlock* originalPred, llvm::BasicBlock* newBlock, llvm::BasicBlock* singleBlock, llvm::BasicBlock* doubleBlock);
+public:
+	static char ID;
+	explicit LowerAndOrBranches() : FunctionPass(ID) { }
+	bool runOnFunction(Function &F) override;
+	StringRef getPassName() const override;
+};
+
 //===----------------------------------------------------------------------===//
 //
 // RemoveFwdBlocks
 //
 FunctionPass *createRemoveFwdBlocksPass();
+//===----------------------------------------------------------------------===//
+//
+// LowerAndOrBranches
+//
+FunctionPass *createLowerAndOrBranchesPass();
 //===----------------------------------------------------------------------===//
 //
 // CheerpLowerSwitch
