@@ -225,6 +225,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   if (FixWrongFuncCasts)
     PM.add(createFixFunctionCastsPass());
   PM.add(createCheerpLowerSwitchPass());
+  PM.add(createLowerAndOrBranchesPass());
   PM.add(createStructMemFuncLowering());
   PM.add(createFreeAndDeleteRemovalPass());
   PM.add(cheerp::createGlobalDepsAnalyzerPass(mathMode,/*resolveAliases*/true, WasmOnly));

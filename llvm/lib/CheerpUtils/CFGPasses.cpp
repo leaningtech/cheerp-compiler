@@ -74,4 +74,101 @@ void RemoveFwdBlocks::getAnalysisUsage(AnalysisUsage & AU) const
 }
 
 FunctionPass *createRemoveFwdBlocksPass() { return new RemoveFwdBlocks(); }
+
+void LowerAndOrBranches::fixTargetPhis(llvm::BasicBlock* originalPred, llvm::BasicBlock* newBlock, llvm::BasicBlock* singleBlock, llvm::BasicBlock* doubleBlock)
+{
+	// Fix PHI nodes in target blocks
+	auto trueIt = singleBlock->begin();
+	while(llvm::PHINode* phi = dyn_cast<llvm::PHINode>(&*trueIt))
+	{
+		++trueIt;
+		int predIndex = phi->getBasicBlockIndex(originalPred);
+		assert(predIndex >= 0);
+		phi->setIncomingBlock(predIndex, newBlock);
+	}
+	auto falseIt = doubleBlock->begin();
+	while(llvm::PHINode* phi = dyn_cast<llvm::PHINode>(&*falseIt))
+	{
+		++falseIt;
+		int predIndex = phi->getBasicBlockIndex(originalPred);
+		assert(predIndex >= 0);
+		llvm::Value* incoming = phi->getIncomingValue(predIndex);
+		phi->addIncoming(incoming, newBlock);
+	}
+}
+
+bool LowerAndOrBranches::runOnFunction(Function& F)
+{
+	// Gather all the BranchInst we need to analyze, this vector can grow over time
+	llvm::SmallVector<llvm::BranchInst*, 4> condBraches;
+	for(llvm::BasicBlock& BB: F)
+	{
+		llvm::TerminatorInst* ti = BB.getTerminator();
+		llvm::BranchInst* bi = dyn_cast<llvm::BranchInst>(ti);
+		if(bi == nullptr || bi->isUnconditional())
+			continue;
+		condBraches.push_back(bi);
+	}
+	bool Changed = false;
+	for(uint32_t i=0;i<condBraches.size();i++)
+	{
+		llvm::BranchInst* bi = condBraches[i];
+		llvm::Value* cond = bi->getCondition();
+		// Only interested in And/Or instructions
+		llvm::Instruction* condI = dyn_cast<llvm::Instruction>(cond);
+		if(condI == nullptr)
+			continue;
+		if(condI->getOpcode() == llvm::Instruction::And)
+		{
+			Changed = true;
+			// Split in 2 branches, only reach the target if both are true
+			llvm::BasicBlock* trueBlock = bi->getSuccessor(0);
+			llvm::BasicBlock* falseBlock = bi->getSuccessor(1);
+			llvm::BasicBlock* newBlock = llvm::BasicBlock::Create(F.getContext(), "andbranch", &F);
+			llvm::BranchInst* firstBranch = llvm::BranchInst::Create(newBlock, falseBlock, condI->getOperand(0), bi);
+			llvm::BranchInst* secondBranch = llvm::BranchInst::Create(trueBlock, falseBlock, condI->getOperand(1), newBlock);
+			fixTargetPhis(bi->getParent(), newBlock, trueBlock, falseBlock);
+			// Enqueue the new branches in the vector, we may need to split them again
+			condBraches.push_back(firstBranch);
+			condBraches.push_back(secondBranch);
+			assert(bi->use_empty());
+			// The old branch can be removed
+			bi->eraseFromParent();
+			// The old condition may still be used elsewhere
+			if(condI->use_empty())
+				condI->eraseFromParent();
+		}
+		else if(condI->getOpcode() == llvm::Instruction::Or)
+		{
+			Changed = true;
+			// Split in 2 branches, reach the target if either is true
+			llvm::BasicBlock* trueBlock = bi->getSuccessor(0);
+			llvm::BasicBlock* falseBlock = bi->getSuccessor(1);
+			llvm::BasicBlock* newBlock = llvm::BasicBlock::Create(F.getContext(), "orbranch", &F);
+			llvm::BranchInst* firstBranch = llvm::BranchInst::Create(trueBlock, newBlock, condI->getOperand(0), bi);
+			llvm::BranchInst* secondBranch = llvm::BranchInst::Create(trueBlock, falseBlock, condI->getOperand(1), newBlock);
+			fixTargetPhis(bi->getParent(), newBlock, falseBlock, trueBlock);
+			// Enqueue the new branches in the vector, we may need to split them again
+			condBraches.push_back(firstBranch);
+			condBraches.push_back(secondBranch);
+			assert(bi->use_empty());
+			// The old branch can be removed
+			bi->eraseFromParent();
+			// The old condition may still be used elsewhere
+			if(condI->use_empty())
+				condI->eraseFromParent();
+		}
+	}
+	return Changed;
+}
+
+StringRef LowerAndOrBranches::getPassName() const
+{
+	return "LowerAndOrBranches";
+}
+
+char LowerAndOrBranches::ID = 0;
+
+FunctionPass *createLowerAndOrBranchesPass() { return new LowerAndOrBranches(); }
+
 }
