@@ -22,7 +22,7 @@ namespace BuiltinInstr
 
 enum BUILTIN {NONE, ABS_F, ACOS_F, ASIN_F, ATAN_F, ATAN2_F, CEIL_F, COS_F, EXP_F, FLOOR_F, LOG_F, POW_F, SIN_F, SQRT_F, TAN_F, CLZ,
 				MOD_F, GROW_MEM, MAX_BUILTIN};
-};	//close BuiltinInstr
+}	//close BuiltinInstr
 
 namespace TypedBuiltinInstr
 {
@@ -31,7 +31,7 @@ enum TYPED_BUILTIN { NONE, ABS_F32, ABS_F64, ACOS_F32, ACOS_F64, ASIN_F32, ASIN_
 				POW_F32, POW_F64, SIN_F32, SIN_F64, SQRT_F32, SQRT_F64, TAN_F32, TAN_F64, MOD_F32, MOD_F64,
 				TRUNC_F32, TRUNC_F64, ROUND_F32, ROUND_F64, MIN_F32, MIN_F64, MAX_F32, MAX_F64, COPYSIGN_F32, COPYSIGN_F64,
 				CLZ_32, GROW_MEM, MAX_BUILTIN, UNSUPPORTED};
-};	//close TypedBuiltinInstr
+}	//close TypedBuiltinInstr
 
 namespace BuiltinInstr
 {
@@ -95,7 +95,7 @@ inline BUILTIN getMathBuiltin(const llvm::Function& F)
 	return NONE;
 }
 
-};	//close BuiltinsInstr
+}	//close BuiltinsInstr
 
 namespace TypedBuiltinInstr
 {
@@ -311,8 +311,8 @@ inline bool isWasmIntrinsic(const llvm::Function* F)
 	return isValidWasmMathBuiltin(builtin);
 }
 
-};	//close TypedBuiltinInstr
+}	//close TypedBuiltinInstr
 
-};	//close cheerp
+}	//close cheerp
 
 #endif
