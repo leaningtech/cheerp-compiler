@@ -3309,10 +3309,6 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 	{
 		case COMPLETE_OBJECT:
 		{
-			if (valueKind == RAW)
-			{
-				p->dump();
-			}
 			assert(valueKind != BYTE_LAYOUT);
 			assert(valueKind != RAW);
 			compileCompleteObject(p);
@@ -3320,10 +3316,6 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 		}
 		case RAW:
 		{
-			if (valueKind == COMPLETE_OBJECT)
-			{
-				p->dump();
-			}
 			assert(valueKind != BYTE_LAYOUT);
 			assert(valueKind != COMPLETE_OBJECT);
 			if (valueKind == RAW)
