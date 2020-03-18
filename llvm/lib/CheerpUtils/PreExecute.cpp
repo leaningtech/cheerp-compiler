@@ -913,7 +913,9 @@ bool PreExecute::runOnModule(Module& m)
     {
         // Random things which may go boom
         if (!constructorVar->hasInitializer() || !isa<ConstantArray>(constructorVar->getInitializer()))
-            return false;
+        {
+          constructorVar = nullptr;
+        }
     }
 
     std::vector<Constant*> newConstructors;
