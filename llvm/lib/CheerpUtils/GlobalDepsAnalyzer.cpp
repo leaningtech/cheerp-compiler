@@ -522,8 +522,15 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			if(!hasAsmJSMalloc)
 			{
 				// The symbol is still used around, so keep it but make it empty
-				ffree->setSection("");
 				ffree->deleteBody();
+				// If the address is taken, keep a body but just put
+				// and unreachable in it
+				if (ffree->hasAddressTaken())
+				{
+					BasicBlock* Entry = BasicBlock::Create(module.getContext(),"entry", ffree);
+					IRBuilder<> Builder(Entry);
+					Builder.CreateUnreachable();
+				}
 			}
 			else
 			{
