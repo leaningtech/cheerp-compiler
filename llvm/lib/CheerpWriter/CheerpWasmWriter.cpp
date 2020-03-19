@@ -342,7 +342,7 @@ void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
 		lastDepth0Block = bb;
 	else
 		lastDepth0Block = nullptr;
-	writer->teeLocals.clearTopmostCandidates();
+
 	writer->compileBB(code, *bb);
 
 	if (!lastDepth0Block && isa<ReturnInst>(bb->getTerminator()))
