@@ -3435,9 +3435,9 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 
 		// label is the very last local
 		uint32_t labelLocal = needsLabel ? localMap[numRegs] : 0;
-		CheerpWasmRenderInterface ri(this, code, labelLocal);
 		if (useCfgLegacy)
 		{
+			CheerpWasmRenderInterface ri(this, code, labelLocal);
 			rl->Render(&ri);
 			lastDepth0Block = ri.lastDepth0Block;
 		}
