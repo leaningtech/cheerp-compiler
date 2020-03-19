@@ -927,13 +927,72 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 	unsigned MaxAlignment = std::max(F->getAlignment(), G->getAlignment());
 	G->setAlignment(MaxAlignment);
 	
-	Value* replacement = G;
-	if (F->getType() != G->getType()) {
-		llvm::IRBuilder<> builder(F->getContext());
-		replacement = builder.CreateBitCast(G, F->getType(), "icf");
+	// Replace F with G is all uses, special case direct call and then do a bulk replace for the rest
+	SmallVector<CallSite, 4> directCalls;
+
+	for (const Use &U : F->uses()) {
+		User *FU = U.getUser();
+		if (!isa<CallInst>(FU) && !isa<InvokeInst>(FU))
+			continue;
+		CallSite CS(cast<Instruction>(FU));
+		if (CS.isCallee(&U))
+			directCalls.push_back(CS);
 	}
 
-	F->replaceAllUsesWith(replacement);
+	auto AddNeededCast = [](Value* src, Type* oldType, Type* newType, Instruction* insertPoint) -> Instruction*
+	{
+		if(oldType->isIntegerTy() && newType->isPointerTy()) {
+			return new IntToPtrInst(src, newType, "", insertPoint);
+		} else if(oldType->isPointerTy() && newType->isIntegerTy()) {
+			return new PtrToIntInst(src, newType, "", insertPoint);
+		} else if(oldType->isPointerTy() && newType->isPointerTy()) {
+			return new BitCastInst(src, newType, "", insertPoint);
+		} else {
+			assert(false);
+		}
+	};
+
+	FunctionType* FType = F->getFunctionType();
+	FunctionType* GType = G->getFunctionType();
+
+	assert(FType->getNumParams() == GType->getNumParams());
+	for (CallSite& CS: directCalls) {
+		// BitCasts in call sites causes spurious indirect call
+		// Avoid this problem by bitcasting parameters and return values as appropriate
+		CallInst* callInst = cast<CallInst>(CS.getInstruction());
+		for(uint32_t i=0;i<FType->getNumParams();i++) {
+			Type* fParamType = FType->getParamType(i);
+			Type* gParamType = GType->getParamType(i);
+			if(fParamType != gParamType)
+			{
+				Instruction* n = AddNeededCast(callInst->getOperand(i), fParamType, gParamType, callInst);
+				callInst->setOperand(i, n);
+			}
+		}
+		Type* fReturnType = FType->getReturnType();
+		Type* gReturnType = GType->getReturnType();
+		if (fReturnType->isVoidTy()){
+			assert(gReturnType->isVoidTy());
+		} else if (fReturnType != gReturnType) {
+			Instruction* n = AddNeededCast(callInst, gReturnType, fReturnType, callInst->getNextNode());
+			assert(n != callInst);
+			callInst->replaceAllUsesWith(n);
+			n->setOperand(0, callInst);
+			callInst->mutateType(gReturnType);
+		}
+		// Parameters and returns are fixed, now fix the types and the called functions
+		callInst->mutateFunctionType(GType);
+		callInst->setCalledFunction(G);
+	}
+	if(!F->use_empty()){
+		Value* replacement = G;
+		if (F->getType() != G->getType()) {
+			llvm::IRBuilder<> builder(F->getContext());
+			replacement = builder.CreateBitCast(G, F->getType(), "icf");
+		}
+
+		F->replaceAllUsesWith(replacement);
+	}
 	F->dropAllReferences();
 
 	F->removeFromParent();
