@@ -133,16 +133,15 @@ FunctionPass *createPointerToImmutablePHIRemovalPass();
 /**
  * This pass removes all free/delete/delete[] calls as their are no-op in Cheerp
  */
-class FreeAndDeleteRemoval: public FunctionPass
+class FreeAndDeleteRemoval: public ModulePass
 {
 private:
 	void deleteInstructionAndUnusedOperands(Instruction* I);
-	bool moduleIterationIsDone;
 	bool isAllGenericJS;
 public:
 	static char ID;
-	explicit FreeAndDeleteRemoval() : FunctionPass(ID), moduleIterationIsDone(false), isAllGenericJS(false) { }
-	bool runOnFunction(Function &F) override;
+	explicit FreeAndDeleteRemoval() : ModulePass(ID), isAllGenericJS(false) { }
+	bool runOnModule(Module &M) override;
 	StringRef getPassName() const override;
 
 	virtual void getAnalysisUsage(AnalysisUsage&) const override;
@@ -152,7 +151,7 @@ public:
 //
 // FreeAndDeleteRemoval
 //
-FunctionPass *createFreeAndDeleteRemovalPass();
+ModulePass *createFreeAndDeleteRemovalPass();
 
 /**
  * This pass moves instructions as close as possible to the actual users
