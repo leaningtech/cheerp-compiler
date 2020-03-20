@@ -626,49 +626,60 @@ void FreeAndDeleteRemoval::deleteInstructionAndUnusedOperands(Instruction* I)
 		deleteInstructionAndUnusedOperands(I);
 }
 
-bool FreeAndDeleteRemoval::runOnFunction(Function& F)
+bool FreeAndDeleteRemoval::runOnModule(Module& M)
 {
 	bool Changed = false;
 
-	if (F.getSection()==StringRef("asmjs"))
-		return false;
-
-	if (!moduleIterationIsDone)
+	isAllGenericJS = true;
+	for (const Function& f: M)
 	{
-		isAllGenericJS = true;
-		for (const Function& f: *F.getParent())
+		if (f.getSection() == StringRef("asmjs"))
 		{
-			if (f.getSection() == StringRef("asmjs"))
+			isAllGenericJS = false;
+			break;
+		}
+	}
+
+	for (Function& f: M)
+	{
+		if (cheerp::isFreeFunctionName(f.getName()))
+		{
+			auto UI = f.use_begin(), E = f.use_end();
+			for (; UI != E;)
 			{
-				isAllGenericJS = false;
-				break;
+				Use &U = *UI;
+				++UI;
+				if (CallInst* call = dyn_cast<CallInst>(U.getUser()))
+				{
+					if (isAllGenericJS)
+					{
+						deleteInstructionAndUnusedOperands(call);
+						Changed = true;
+						continue;
+					}
+				}
 			}
 		}
-		moduleIterationIsDone = true;
-	}
-	for ( BasicBlock& BB : F )
-	{
-		for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
+		else if (f.getIntrinsicID() == Intrinsic::cheerp_deallocate)
 		{
-			CallInst * call = dyn_cast<CallInst>(it++);
-			if (!call)
-				continue;
-			Function* F = call->getCalledFunction();
-			if(!F)
-				continue;
-			if(cheerp::isFreeFunctionName(F->getName()) && isAllGenericJS)
+			auto UI = f.use_begin(), E = f.use_end();
+			for (; UI != E;)
 			{
-				deleteInstructionAndUnusedOperands(call);
-				Changed = true;
-			}
-			else if(F->getIntrinsicID()==Intrinsic::cheerp_deallocate)
-			{
-				Type* ty = call->getOperand(0)->getType();
-				assert(isa<PointerType>(ty));
-				Type* elemTy = cast<PointerType>(ty)->getElementType();
-				if (isAllGenericJS || (!cheerp::TypeSupport::isAsmJSPointer(ty) && elemTy->isAggregateType())) {
-					deleteInstructionAndUnusedOperands(call);
-					Changed = true;
+				Use &U = *UI;
+				++UI;
+				if (CallInst* call = dyn_cast<CallInst>(U.getUser()))
+				{
+					bool asmjs = call->getParent()->getParent()->getSection()==StringRef("asmjs");
+					if (asmjs)
+						continue;
+					Type* ty = call->getOperand(0)->getType();
+					assert(isa<PointerType>(ty));
+					Type* elemTy = cast<PointerType>(ty)->getElementType();
+					if (isAllGenericJS || (!cheerp::TypeSupport::isAsmJSPointer(ty) && elemTy->isAggregateType()))
+					{
+						deleteInstructionAndUnusedOperands(call);
+						Changed = true;
+					}
 				}
 			}
 		}
@@ -688,7 +699,7 @@ void FreeAndDeleteRemoval::getAnalysisUsage(AnalysisUsage & AU) const
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
-FunctionPass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
+ModulePass *createFreeAndDeleteRemovalPass() { return new FreeAndDeleteRemoval(); }
 
 uint32_t DelayInsts::countInputRegisters(const Instruction* I, cheerp::InlineableCache& cache) const
 {
