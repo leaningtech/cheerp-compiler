@@ -184,7 +184,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			return;
 		}
 
-		compileOperand(callV.getArgument(0), HIGHEST);
+		compilePointerAs(callV.getArgument(0), COMPLETE_OBJECT, HIGHEST);
 		if(funcName.size() == 4)
 		{
 			// Generic setter
@@ -206,7 +206,15 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		{
 			assert(callV.arg_size()==2);
 			stream << '.' << funcName.drop_front(4) <<  '=';
-			compileOperand(callV.getArgument(1), LOWEST);
+			const Value* v = callV.getArgument(1);
+			if (v->getType()->isPointerTy())
+			{
+				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
+			}
+			else
+			{
+				compileOperand(v, LOWEST);
+			}
 		}
 	}
 	else if(funcName == StringRef("operator[]"))
@@ -218,9 +226,17 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			return;
 		}
 		assert(callV.arg_size()==2);
-		compileOperand(callV.getArgument(0), HIGHEST);
+		compilePointerAs(callV.getArgument(0), COMPLETE_OBJECT, HIGHEST);
 		stream << '[';
-		compileOperand(callV.getArgument(1), LOWEST);
+		const Value* v = callV.getArgument(1);
+		if (v->getType()->isPointerTy())
+		{
+			compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
+		}
+		else
+		{
+			compileOperand(v, LOWEST);
+		}
 		stream << ']';
 	}
 	else
@@ -240,7 +256,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 			}
 			else
 			{
-				compileOperand(*it, HIGHEST);
+				compilePointerAs(*it, COMPLETE_OBJECT, HIGHEST);
 				++it;
 			}
 			stream << '.';
