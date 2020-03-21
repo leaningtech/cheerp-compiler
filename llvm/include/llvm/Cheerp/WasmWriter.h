@@ -123,6 +123,21 @@ private:
 		TeeLocals()
 		{
 		}
+		uint32_t findDepth(const llvm::Value* v) const
+		{
+			uint32_t c = 0;
+			const TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back();
+			for(auto it = teeLocalCandidates.rbegin(); it != teeLocalCandidates.rend(); ++it)
+			{
+				++c;
+				if(it->used)
+					break;
+				if(it->v == v)
+					return c;
+			}
+			return -1;
+
+		}
 		bool couldPutTeeLocalOnStack(const llvm::Value* v, const uint32_t currOffset, uint32_t& bufferOffset, uint32_t& localId)
 		{
 			if(currOffset != instStartPos)
@@ -217,6 +232,7 @@ public:
 		}
 		return false;
 	}
+	uint32_t findDepth(const llvm::Value* v) const;
 
 private:
 	void compileModule();
