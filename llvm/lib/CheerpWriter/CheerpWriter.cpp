@@ -3374,11 +3374,14 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 		}
 		case BYTE_LAYOUT:
 		{
-			assert(valueKind==BYTE_LAYOUT);
-			if (PA.getConstantOffsetForPointer(p) ||
+			assert(valueKind==BYTE_LAYOUT || valueKind == CONSTANT);
+			if (valueKind == CONSTANT)
+			{
+				stream << "nullObj";
+			}
+			else if (PA.getConstantOffsetForPointer(p) ||
 					valueKind == SPLIT_REGULAR ||
-					valueKind == RAW ||
-					valueKind == CONSTANT)
+					valueKind == RAW)
 			{
 				stream << "{d:";
 				compilePointerBase(p, true);
