@@ -964,29 +964,27 @@ void CheerpWasmWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer&
 	internal::encodeOpcode(opcode, name, *this, code);
 }
 
-bool CheerpWasmWriter::mayHaveLastWrittenRegAsFirstOperand(const Value* v) const
+uint32_t CheerpWasmWriter::findDepth(const Value* v) const
 {
 	// Must be an instruction
 	const Instruction* I = dyn_cast<Instruction>(v);
 	if(!I)
-		return false;
+		return -1;
 	if(isInlineable(*I))
 	{
 		if(I->getNumOperands() < 1)
-			return false;
-		if(mayHaveLastWrittenRegAsFirstOperand(I->getOperand(0)))
-			return true;
-		if(!I->isCommutative())
-			return false;
-		assert(I->getNumOperands() == 2);
-		if(mayHaveLastWrittenRegAsFirstOperand(I->getOperand(1)))
-			return true;
-		return false;
+			return -1;
+		uint32_t res = findDepth(I->getOperand(0));
+		if(I->isCommutative())
+		{
+			assert(I->getNumOperands() == 2);
+			res = std::min(res, findDepth(I->getOperand(1)));
+		}
+		return res;
 	}
 	else
 	{
-		uint32_t reg = registerize.getRegisterId(I, edgeContext);
-		return reg == lastWrittenReg;
+		return teeLocals.findDepth(v);
 	}
 }
 
@@ -1035,11 +1033,8 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 		default:
 			if(I.isCommutative())
 			{
-				bool isOp0Register = isa<Instruction>(I.getOperand(0)) && !isInlineable(*cast<Instruction>(I.getOperand(0)));
-				bool isOp1Register = isa<Instruction>(I.getOperand(1)) && !isInlineable(*cast<Instruction>(I.getOperand(1)));
-				// Favor tee_local if possible, otherwise favor any local
-				if((mayHaveLastWrittenRegAsFirstOperand(I.getOperand(1))) ||
-					(!isOp0Register && isOp1Register))
+				// Favor tee_local from the current candidate's stack
+				if (findDepth(I.getOperand(0)) > findDepth(I.getOperand(1)))
 				{
 					compileOperand(code, I.getOperand(1));
 					compileOperand(code, I.getOperand(0));
