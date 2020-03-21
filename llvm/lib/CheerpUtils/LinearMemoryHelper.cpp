@@ -332,7 +332,7 @@ const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module& module, co
 		else if (PA != nullptr)
 		{
 			POINTER_KIND kind = PA->getPointerKindAssert(p);
-			POINTER_KIND prevKind = PA->getPointerKindAssert(cast<User>(p)->getOperand(0));
+			POINTER_KIND prevKind = PA->getPointerKind(cast<User>(p)->getOperand(0));
 			assert(kind==RAW);
 			if (prevKind != RAW)
 				break;
