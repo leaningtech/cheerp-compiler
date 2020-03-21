@@ -3379,9 +3379,7 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 			{
 				stream << "nullObj";
 			}
-			else if (PA.getConstantOffsetForPointer(p) ||
-					valueKind == SPLIT_REGULAR ||
-					valueKind == RAW)
+			else if (PA.getConstantOffsetForPointer(p))
 			{
 				stream << "{d:";
 				compilePointerBase(p, true);
