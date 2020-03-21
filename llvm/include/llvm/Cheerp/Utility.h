@@ -326,13 +326,10 @@ public:
 		if (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
 		{
 			t = pt->getPointerElementType();
+			while ( t->isArrayTy() )
+				t = t->getArrayElementType();
 			if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
 				return st->hasAsmJS();
-			else if ( const llvm::ArrayType * at = llvm::dyn_cast<llvm::ArrayType>(t) )
-			{
-				if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(at->getElementType()) )
-					return st->hasAsmJS();
-			}
 		}
 		return false;
 	}
@@ -342,13 +339,10 @@ public:
 		if (const llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t))
 		{
 			t = pt->getPointerElementType();
+			while ( t->isArrayTy() )
+				t = t->getArrayElementType();
 			if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
 				return !st->hasAsmJS();
-			else if ( const llvm::ArrayType * at = llvm::dyn_cast<llvm::ArrayType>(t) )
-			{
-				if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(at->getElementType()) )
-					return !st->hasAsmJS();
-			}
 		}
 		return false;
 	}
