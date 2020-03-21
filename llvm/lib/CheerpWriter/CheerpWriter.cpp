@@ -3353,7 +3353,6 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 		}
 		case REGULAR:
 		{
-			assert(valueKind != BYTE_LAYOUT);
 			assert(valueKind != FREE);
 			if (valueKind == CONSTANT)
 			{
