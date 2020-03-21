@@ -342,7 +342,7 @@ public:
 			while ( t->isArrayTy() )
 				t = t->getArrayElementType();
 			if ( const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
-				return !st->hasAsmJS();
+				return !st->isOpaque() && !st->hasAsmJS();
 		}
 		return false;
 	}
