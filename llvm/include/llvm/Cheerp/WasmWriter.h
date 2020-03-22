@@ -155,16 +155,6 @@ private:
 			auto firstUsedIt = std::find_if(teeLocalCandidates.begin(), teeLocalCandidates.end(), [](const TeeLocalCandidate& c) { return c.used; });
 			teeLocalCandidates.erase(firstUsedIt, teeLocalCandidates.end());
 		}
-		void removePreviousCandidates(unsigned local)
-		{
-			for(TeeLocalCandidatesVector& v: teeLocalCandidatesStack)
-			{
-				// Remove any previous candidate for the same local
-				auto sameLocalIt = std::find_if(v.begin(), v.end(), [local](const TeeLocalCandidate& c) { return c.localId == local; });
-				if(sameLocalIt != v.end())
-					v.erase(sameLocalIt);
-			}
-		}
 		void addIndentation()
 		{
 			teeLocalCandidatesStack.emplace_back();

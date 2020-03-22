@@ -1307,7 +1307,6 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			//writer.lastWrittenReg = reg;
 			local = writer.localMap.at(reg);
 			writer.encodeU32Inst(0x21, "set_local", local, code);
-			writer.teeLocals.removePreviousCandidates(local);
 
 		}
 		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
@@ -1326,7 +1325,6 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			uint32_t reg = writer.registerize.getRegisterId(phi, EdgeContext::emptyContext());
 			//writer.lastWrittenReg = reg;
 			uint32_t local = writer.localMap.at(reg);
-			writer.teeLocals.removePreviousCandidates(local);
 			writer.teeLocals.addCandidate(incoming, local, code.tellp());
 			writer.encodeU32Inst(0x21, "set_local", local, code);
 		}
@@ -2990,7 +2988,6 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 					uint32_t reg = registerize.getRegisterId(&*I, edgeContext);
 					lastWrittenReg = reg;
 					uint32_t local = localMap.at(reg);
-					teeLocals.removePreviousCandidates(local);
 					teeLocals.addCandidate(&*I, local, code.tellp());
 					encodeU32Inst(0x21, "set_local", local, code);
 				}
