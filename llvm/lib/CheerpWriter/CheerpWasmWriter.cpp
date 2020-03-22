@@ -64,9 +64,6 @@ BlockType* findSwitchBlockType(std::vector<BlockType>& blocks)
 	llvm_unreachable("switch render block not found");
 }
 
-// Methods in this namespace require that |encodeBufferedSetLocal| is called
-// before calling the internal method. Otherwise, a buffered set_local will be
-// encoded after the to be encoded value, causes subtle bugs.
 namespace internal {
 
 // The methods encodeSLEB128 and encodeULEB128 are identical to the ones in
@@ -960,7 +957,6 @@ void CheerpWasmRenderInterface::renderIfOnLabel(int labelId, bool first)
 
 void CheerpWasmWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer& code)
 {
-	encodeBufferedSetLocal(code);
 	internal::encodeOpcode(opcode, name, *this, code);
 }
 
@@ -1108,28 +1104,11 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 
 void CheerpWasmWriter::encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code)
 {
-	encodeBufferedSetLocal(code);
 	internal::encodeS32Opcode(opcode, name, immediate, *this, code);
 }
 
 void CheerpWasmWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code)
 {
-	// It should not be possible to have two consecutive set_local's with
-	// the same local ID.
-	assert(opcode != 0x21 || !hasSetLocal || immediate != setLocalId);
-
-	// If this is a get_local instruction and the immediate matches with the
-	// buffered set_local instruction, clear the buffered set_local and emit a
-	// tee_local.
-	if (opcode == 0x20 && hasSetLocal && setLocalId == immediate) {
-		internal::encodeU32Opcode(0x22, "tee_local", immediate, *this, code);
-		hasSetLocal = false;
-		setLocalId = (uint32_t) -1;
-		return;
-	}
-
-	encodeBufferedSetLocal(code);
-
 	if (mode == CheerpWasmWriter::WAST) {
 		// Do not print the immediate for some opcodes when mode is set to
 		// wast. Wast doesn't need the immediate, while wasm does.
@@ -1146,21 +1125,8 @@ void CheerpWasmWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t
 	internal::encodeU32Opcode(opcode, name, immediate, *this, code);
 }
 
-void CheerpWasmWriter::encodeBufferedSetLocal(WasmBuffer& code)
-{
-	if (hasSetLocal) {
-		assert(setLocalId != (uint32_t) -1);
-		internal::encodeU32Opcode(0x21, "set_local", setLocalId, *this, code);
-		setLocalId = (uint32_t) -1;
-		hasSetLocal = false;
-	} else {
-		assert(setLocalId == (uint32_t) -1);
-	}
-}
-
 void CheerpWasmWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code)
 {
-	encodeBufferedSetLocal(code);
 	if (mode == CheerpWasmWriter::WAST) {
 		// Do not print the immediates for some opcodes when mode is set to
 		// wast. Wast doesn't need the immediate, while wasm does.
@@ -1368,8 +1334,6 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 
 void CheerpWasmWriter::encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock)
 {
-	encodeBufferedSetLocal(code);
-
 	if (mode == CheerpWasmWriter::WASM) {
 		encodeInst(0x0e, "br_table", code);
 		internal::encodeULEB128(table.size(), code);
@@ -1602,10 +1566,6 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
-		// Flush the set local buffer since the next methods use the code
-		// stream directly.
-		encodeBufferedSetLocal(code);
-
 		if (mode == CheerpWasmWriter::WASM) {
 			// When initializing global we can only use pure constants, not expressions
 			if(!forGlobalInit)
@@ -1686,10 +1646,6 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	}
 	else if (isa<UndefValue>(c))
 	{
-		// Flush the set local buffer since the next methods use the code
-		// stream directly.
-		encodeBufferedSetLocal(code);
-
 		if (mode == CheerpWasmWriter::WASM) {
 			// Encode a literal f64, f32 or i32 zero as the return value.
 			internal::encodeLiteralType(c->getType(), code);
@@ -3498,8 +3454,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 			}
 		}
 	}
-
-	assert(!hasSetLocal && setLocalId == (uint32_t) -1);
 
 	if (mode == CheerpWasmWriter::WASM) {
 		// Encode the end of the method.
