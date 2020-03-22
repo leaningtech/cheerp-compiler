@@ -56,7 +56,6 @@ private:
 	llvm::Pass& pass;
 	llvm::DataLayout targetData;
 	const llvm::Function* currentFun;
-	uint32_t lastWrittenReg;
 	Registerize & registerize;
 
 	llvm::LLVMContext& Ctx;
@@ -334,7 +333,6 @@ public:
 		pass(p),
 		targetData(&m),
 		currentFun(NULL),
-		lastWrittenReg(0xffffffff),
 		registerize(registerize),
 		Ctx(C),
 		edgeContext(),
