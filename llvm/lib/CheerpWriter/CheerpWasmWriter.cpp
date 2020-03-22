@@ -1299,7 +1299,6 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			writer.teeLocals.removeConsumed();
 
 			reg = writer.registerize.getRegisterId(incoming, edgeContext);
-			//writer.lastWrittenReg = reg;
 			local = writer.localMap.at(reg);
 			writer.encodeU32Inst(0x21, "set_local", local, code);
 
@@ -1318,7 +1317,6 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			writer.teeLocals.removeConsumed();
 			// 2) Save the value in the phi
 			uint32_t reg = writer.registerize.getRegisterId(phi, EdgeContext::emptyContext());
-			//writer.lastWrittenReg = reg;
 			uint32_t local = writer.localMap.at(reg);
 			writer.teeLocals.addCandidate(incoming, local, code.tellp());
 			writer.encodeU32Inst(0x21, "set_local", local, code);
@@ -2981,7 +2979,6 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 					encodeInst(0x1a, "drop", code);
 				} else {
 					uint32_t reg = registerize.getRegisterId(&*I, edgeContext);
-					lastWrittenReg = reg;
 					uint32_t local = localMap.at(reg);
 					teeLocals.addCandidate(&*I, local, code.tellp());
 					encodeU32Inst(0x21, "set_local", local, code);
@@ -3374,7 +3371,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 {
 	assert(!F.empty());
 	currentFun = &F;
-	lastWrittenReg = 0xffffffff;
 
 	if (mode == CheerpWasmWriter::WAST)
 	{
