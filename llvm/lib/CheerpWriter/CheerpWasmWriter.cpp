@@ -3483,7 +3483,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 
 	// A function has to terminate with a return value when the return type is
 	// not void.
-	if (!lastDepth0Block || !isa<ReturnInst>(lastDepth0Block->getTerminator()))
+	if (!lastDepth0Block || (!isa<ReturnInst>(lastDepth0Block->getTerminator()) && !isa<UnreachableInst>(lastDepth0Block->getTerminator())))
 	{
 		if(!F.getReturnType()->isVoidTy())
 		{
