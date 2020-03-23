@@ -266,75 +266,14 @@ void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* prev
 void StructMemFuncLowering::createForwardLoop(IRBuilder<>* IRB, BasicBlock* previousBlock, BasicBlock* endBlock, BasicBlock* currentBlock,
 						Type* pointedType, Value* dst, Value* src, Value* elementsCount, MODE mode, uint32_t baseAlign)
 {
-	Type* int32Type = IntegerType::get(previousBlock->getContext(), 32);
-	bool needsLoop = !isa<ConstantInt>(elementsCount) || cast<ConstantInt>(elementsCount)->getZExtValue() != 1;
-	// We need an index variable, that may be zero or a PHI
-	SmallVector<Value*, 8> indexes;
-	PHINode* index = NULL;
-	if(needsLoop)
-	{
-		index=IRB->CreatePHI(int32Type, 2);
-		// Start from 0 if coming from the previous block, later on we will add the modified index
-		index->addIncoming(ConstantInt::get(int32Type, 0), previousBlock);
-		// Now, recursively descend into the object to copy all the values
-		indexes.push_back(index);
-	}
-	else
-		indexes.push_back(ConstantInt::get(int32Type, 0));
-
-	if (mode == MEMSET)
-		recursiveReset(IRB, dst, src, pointedType, int32Type, baseAlign, indexes);
-	else
-		recursiveCopy(IRB, dst, src, pointedType, int32Type, baseAlign, indexes);
-	if(needsLoop)
-	{
-		// Increment the index
-		Value* incrementedIndex = IRB->CreateAdd(index, ConstantInt::get(int32Type, 1));
-		// Close the loop for index
-		index->addIncoming(incrementedIndex, IRB->GetInsertBlock());
-		// Check if we have finished, if not loop again
-		Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, elementsCount, incrementedIndex);
-		IRB->CreateCondBr(finishedLooping, endBlock, currentBlock);
-	}
-	else
-		IRB->CreateBr(endBlock);
+	createGenericLoop(IRB, previousBlock, endBlock, currentBlock, pointedType, dst, src, elementsCount, mode, baseAlign, /*isForward*/true);
 }
 
 // Create a backward loop, the index is increment from elementsCount-1 to 0. IRB already inserts inside currentBlock.
 void StructMemFuncLowering::createBackwardLoop(IRBuilder<>* IRB, BasicBlock* previousBlock, BasicBlock* endBlock, BasicBlock* currentBlock,
 						Type* pointedType, Value* dst, Value* src, Value* elementsCount, uint32_t baseAlign)
 {
-	Type* int32Type = IntegerType::get(previousBlock->getContext(), 32);
-	bool needsLoop = !isa<ConstantInt>(elementsCount) || cast<ConstantInt>(elementsCount)->getZExtValue() != 1;
-	// We need an index variable, that may be zero or a PHI
-	PHINode* indexPHI = NULL;
-	Value* index = NULL;
-	if(needsLoop)
-	{
-		indexPHI=IRB->CreatePHI(int32Type, 2);
-		// Start from elementsCount if coming from the previous block, later on we will add the modified index
-		indexPHI->addIncoming(elementsCount, previousBlock);
-		index = indexPHI;
-	}
-	else
-		index = elementsCount;
-		
-	// Immediately decrement by one, so that we are accessing a valid element
-	Value* decrementedIndex = IRB->CreateSub(index, ConstantInt::get(int32Type, 1));
-	// Now, recursively descend into the object to copy all the values
-	SmallVector<Value*, 8> indexes;
-	indexes.push_back(decrementedIndex);
-	recursiveCopy(IRB, dst, src, pointedType, int32Type, baseAlign, indexes);
-	if(needsLoop)
-	{
-		// Close the loop for index
-		indexPHI->addIncoming(decrementedIndex, currentBlock);
-		// Check if we have finished, if not loop again
-		Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, ConstantInt::get(int32Type, 0), decrementedIndex);
-		IRB->CreateCondBr(finishedLooping, endBlock, currentBlock);
-	}
-	else
-		IRB->CreateBr(endBlock);
+	createGenericLoop(IRB, previousBlock, endBlock, currentBlock, pointedType, dst, src, elementsCount, MODE::MEMMOVE, baseAlign, /*isForward*/false);
 }
 
 bool StructMemFuncLowering::isDoubleAggregate(llvm::Type* t)
