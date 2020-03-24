@@ -212,50 +212,77 @@ void StructMemFuncLowering::recursiveReset(IRBuilder<>* IRB, Value* baseDst, Val
 void StructMemFuncLowering::createGenericLoop(IRBuilder<>* IRB, BasicBlock* previousBlock, BasicBlock* endBlock, BasicBlock* currentBlock,
 						Type* pointedType, Value* dst, Value* src, Value* elementsCount, MODE mode, uint32_t baseAlign, const bool isForward)
 {
-	assert(isForward || mode == MEMMOVE);
 	Type* int32Type = IntegerType::get(previousBlock->getContext(), 32);
 	const bool needsLoop = !isa<ConstantInt>(elementsCount) || cast<ConstantInt>(elementsCount)->getZExtValue() != 1;
-	// We need an index variable, that may be zero or a PHI
-	Value* index = NULL;
-	PHINode* indexPHI = NULL;
 
-	Value* startIndex = ConstantInt::get(int32Type, 0);
-	Value* endIndex = elementsCount;
-	if (!isForward)
-		std::swap(startIndex, endIndex);
+	Value* endPtr = NULL;
+
+	//These are loop-invariants, so are moved to the end of the previous block
+	{
+		IRB->SetInsertPoint(previousBlock->getTerminator());
+		if (needsLoop)
+			endPtr = IRB->CreateInBoundsGEP(dst, isForward ? elementsCount : ConstantInt::get(int32Type, 0));
+		if (!isForward)
+		{
+			assert(mode == MEMMOVE);
+			//Move src and dst past the end of the range (we copy backwards)
+			src = IRB->CreateInBoundsGEP(src, elementsCount);
+			dst = IRB->CreateInBoundsGEP(dst, elementsCount);
+		}
+		IRB->SetInsertPoint(currentBlock);
+	}
+
+	PHINode* srcPHI = NULL;
+	PHINode* dstPHI = NULL;
+	Value* srcVal = src;
+	Value* dstVal = dst;
 
 	if(needsLoop)
 	{
-		indexPHI=IRB->CreatePHI(int32Type, 2);
-		// Start from elementsCount if coming from the previous block, later on we will add the modified index
-		indexPHI->addIncoming(startIndex, previousBlock);
-		index = indexPHI;
+		if(mode != MEMSET)
+		{
+			srcPHI = IRB->CreatePHI(pointedType->getPointerTo(), 2);
+			srcPHI->addIncoming(src, previousBlock);
+			srcVal = srcPHI;
+		}
+		dstPHI = IRB->CreatePHI(pointedType->getPointerTo(), 2);
+		dstPHI->addIncoming(dst, previousBlock);
+		dstVal = dstPHI;
 	}
-	else
-		index = startIndex;
 
-	// Immediately decrement by one, so that we are accessing a valid element
+	// Immediately decrement by one, so that we are accessing a valid elements
 	if (!isForward)
-		index = IRB->CreateSub(index, ConstantInt::get(int32Type, 1));
+	{
+		srcVal = IRB->CreateInBoundsGEP(srcVal, ConstantInt::get(int32Type, -1));
+		dstVal = IRB->CreateInBoundsGEP(dstVal, ConstantInt::get(int32Type, -1));
+	}
 
 	// Now, recursively descend into the object to copy all the values
 	SmallVector<Value*, 8> indexes;
-	indexes.push_back(index);
+	indexes.push_back(ConstantInt::get(int32Type, 0));
 
 	if (mode == MEMSET)
-		recursiveReset(IRB, dst, src, pointedType, int32Type, baseAlign, indexes);
+		recursiveReset(IRB, dstVal, srcVal, pointedType, int32Type, baseAlign, indexes);
 	else
-		recursiveCopy(IRB, dst, src, pointedType, int32Type, baseAlign, indexes);
+		recursiveCopy(IRB, dstVal, srcVal, pointedType, int32Type, baseAlign, indexes);
 
 	if(needsLoop)
 	{
-		// Increment the index
+		// Increment the pointer(s) now
 		if (isForward)
-			index = IRB->CreateAdd(index, ConstantInt::get(int32Type, 1));
-		// Close the loop for index
-		indexPHI->addIncoming(index, currentBlock);
+		{
+			if (mode != MEMSET)
+				srcVal = IRB->CreateInBoundsGEP(srcVal, ConstantInt::get(int32Type, 1));
+			dstVal = IRB->CreateInBoundsGEP(dstVal, ConstantInt::get(int32Type, 1));
+		}
+
+		// Close the loop for dst (and src)
+		if(mode != MEMSET)
+			srcPHI->addIncoming(srcVal, IRB->GetInsertBlock());
+		dstPHI->addIncoming(dstVal, IRB->GetInsertBlock());
+
 		// Check if we have finished, if not loop again
-		Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, endIndex, index);
+		Value* finishedLooping=IRB->CreateICmp(CmpInst::ICMP_EQ, endPtr, dstVal);
 		IRB->CreateCondBr(finishedLooping, endBlock, currentBlock);
 	}
 	else
