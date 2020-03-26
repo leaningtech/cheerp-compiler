@@ -956,6 +956,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		compilePointerOffset(*it, HIGHEST, true);
 		return COMPILE_OK;
 	}
+	else if(intrinsicId==Intrinsic::cheerp_is_linear_heap)
+	{
+		stream << '(';
+		compilePointerBase(*it);
+		stream<<".buffer===__heap)";
+		return COMPILE_OK;
+	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_kind)
 	{
 		stream << (int)PA.getPointerKindAssert(*it);
