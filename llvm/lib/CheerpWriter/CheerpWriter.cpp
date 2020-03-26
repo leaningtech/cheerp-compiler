@@ -3333,7 +3333,6 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 	assert(p->getType()->isPointerTy());
 	assert(kind != SPLIT_REGULAR);
 	assert(kind != CONSTANT);
-	assert(kind != FREE);
 	POINTER_KIND valueKind = PA.getPointerKind(p);
 
 	switch(kind)
@@ -3342,21 +3341,14 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 		{
 			assert(valueKind != BYTE_LAYOUT);
 			assert(valueKind != RAW);
-			if (valueKind == FREE)
-			{
-				stream<<"function(){}";
-			}
-			else
-			{
-				compileCompleteObject(p);
-			}
+			compileCompleteObject(p);
 			break;
 		}
 		case RAW:
 		{
 			assert(valueKind != BYTE_LAYOUT);
 			assert(valueKind != COMPLETE_OBJECT);
-			if (valueKind == RAW || valueKind == FREE)
+			if (valueKind == RAW)
 				compileRawPointer(p, prio);
 			else
 				compilePointerOffset(p, prio);
@@ -3364,7 +3356,6 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 		}
 		case REGULAR:
 		{
-			assert(valueKind != FREE);
 			if (valueKind == CONSTANT)
 			{
 				stream << "nullObj";
