@@ -626,6 +626,44 @@ void FreeAndDeleteRemoval::deleteInstructionAndUnusedOperands(Instruction* I)
 		deleteInstructionAndUnusedOperands(I);
 }
 
+static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
+{
+	Function* Orig = M.getFunction("free");
+	assert(Orig);
+	FunctionType* Ty = Orig->getFunctionType();
+	Function* New = cast<Function>(M.getOrInsertFunction("__genericjs__free", Ty));
+	if (!New->empty())
+		return New;
+	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", New);
+	IRBuilder<> Builder(Entry);
+
+	if (!isAllGenericJS)
+	{
+		Type* VoidPtr = IntegerType::get(M.getContext(), 8)->getPointerTo();
+		Type* Tys[] = { VoidPtr };
+		Function *GetBase = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_is_linear_heap, Tys);
+
+		BasicBlock* ExitBlock = BasicBlock::Create(M.getContext(), "exitblk", New);
+		BasicBlock* ForwardBlock = BasicBlock::Create(M.getContext(), "fwdblk", New);
+
+		Value* Params[] = { &*New->arg_begin() };
+		CallInst* IntrCall = Builder.CreateCall(GetBase, Params);
+		Builder.CreateCondBr(IntrCall, ForwardBlock, ExitBlock);
+
+		Builder.SetInsertPoint(ExitBlock);
+		Builder.CreateRetVoid();
+
+		Builder.SetInsertPoint(ForwardBlock);
+		Function *PtrOffset = Intrinsic::getDeclaration(&M, Intrinsic::cheerp_pointer_offset, Tys);
+		CallInst* Offset = Builder.CreateCall(PtrOffset, Params);
+		Value* OffsetP = Builder.CreateIntToPtr(Offset, VoidPtr);
+		Value* Params2[] = { OffsetP };
+		Builder.CreateCall(Orig, Params2);
+	}
+	Builder.CreateRetVoid();
+
+	return New;
+}
 bool FreeAndDeleteRemoval::runOnModule(Module& M)
 {
 	bool Changed = false;
@@ -633,13 +671,14 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 	isAllGenericJS = true;
 	for (const Function& f: M)
 	{
-		if (f.getSection() == StringRef("asmjs"))
+		if (f.getSection() == StringRef("asmjs") && !cheerp::isFreeFunctionName(f.getName()))
 		{
 			isAllGenericJS = false;
 			break;
 		}
 	}
 
+	DenseMap<Constant*, Value*> ConstantReplacements;
 	for (Function& f: M)
 	{
 		if (cheerp::isFreeFunctionName(f.getName()))
@@ -649,7 +688,8 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 			{
 				Use &U = *UI;
 				++UI;
-				if (CallInst* call = dyn_cast<CallInst>(U.getUser()))
+				User* Usr = U.getUser();
+				if (CallInst* call = dyn_cast<CallInst>(Usr))
 				{
 					if (isAllGenericJS)
 					{
@@ -658,6 +698,39 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 						continue;
 					}
 				}
+
+				if (Instruction* inst = dyn_cast<Instruction>(Usr))
+				{
+					Function* Parent = inst->getParent()->getParent();
+					if (Parent->getSection() == StringRef("asmjs") || Parent->getName() == StringRef("__genericjs__free"))
+					{
+						continue;
+					}
+					U.set(getOrCreateGenericJSFree(M, isAllGenericJS));
+					Changed = true;
+				}
+				else if (GlobalValue* gv = dyn_cast<GlobalValue>(Usr))
+				{
+					if (gv->getSection() == StringRef("asmjs"))
+					{
+						continue;
+					}
+					U.set(getOrCreateGenericJSFree(M, isAllGenericJS));
+					Changed = true;
+				}
+				else if (Constant* c = dyn_cast<Constant>(Usr))
+				{
+					if (isa<Function>(U.get()) && cheerp::isFreeFunctionName(cast<Function>(U.get())->getName()))
+					{
+						ConstantReplacements[c] = U.get();
+					}
+				}
+				else
+				{
+					U.set(getOrCreateGenericJSFree(M, isAllGenericJS));
+					Changed = true;
+				}
+
 			}
 		}
 		else if (f.getIntrinsicID() == Intrinsic::cheerp_deallocate)
@@ -683,6 +756,11 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				}
 			}
 		}
+	}
+	for (auto cr: ConstantReplacements)
+	{
+		cr.first->handleOperandChange(cr.second, getOrCreateGenericJSFree(M, isAllGenericJS));
+		Changed = true;
 	}
 	return Changed;
 }
