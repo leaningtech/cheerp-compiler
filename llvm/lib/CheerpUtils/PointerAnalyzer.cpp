@@ -437,6 +437,10 @@ bool PointerUsageVisitor::visitRawChain( const Value * p)
 			if (getStackPtrCall)
 				return true;
 		}
+		else if (isa<IntToPtrInst>(p))
+		{
+			return true;
+		}
 		top = cast<Instruction>(p)->getParent()->getParent();
 	}
 	else if (isa<Argument>(p) )
