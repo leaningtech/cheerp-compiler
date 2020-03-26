@@ -69,7 +69,6 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const PointerKindWrapper& rhs
 	assert(lhs!=BYTE_LAYOUT && rhs!=BYTE_LAYOUT);
 	assert(lhs!=RAW && rhs!=RAW);
 	assert(lhs!=CONSTANT && rhs!=CONSTANT);
-	assert(lhs!=FREE && rhs!=FREE);
 	
 	// Handle 1
 	if (lhs==REGULAR || rhs==REGULAR)
@@ -117,7 +116,6 @@ PointerKindWrapper& PointerKindWrapper::operator|=(const IndirectPointerKindCons
 	assert(lhs!=BYTE_LAYOUT);
 	assert(lhs!=RAW);
 	assert(lhs!=CONSTANT);
-	assert(lhs!=FREE);
 
 	// Handle 1
 	if (lhs==REGULAR)
@@ -520,24 +518,17 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		{
 			return pointerKindData.valueMap.insert( std::make_pair(p, CONSTANT ) ).first->second;
 		}
-		else if (isa<Function>(p) && cheerp::isFreeFunctionName(cast<Function>(p)->getName()))
-		{
-			return pointerKindData.valueMap.insert( std::make_pair(p, FREE ) ).first->second;
-		}
-		else if (visitRawChain(p))
+
+		if (visitRawChain(p))
 		{
 			if (isa<Argument>(p))
 				pointerKindData.argsMap.insert( std::make_pair(p, RAW ) );
 			return pointerKindData.valueMap.insert( std::make_pair(p, RAW ) ).first->second;
 		}
-		else if (visitByteLayoutChain(p))
-		{
+		if (visitByteLayoutChain(p))
 			return pointerKindData.valueMap.insert( std::make_pair(p, BYTE_LAYOUT ) ).first->second;
-		}
 		else if(getKindForType(p->getType()->getPointerElementType()) == COMPLETE_OBJECT)
-		{
 			return pointerKindData.valueMap.insert( std::make_pair(p, COMPLETE_OBJECT ) ).first->second;
-		}
 	}
 
 	auto existingValueIt = pointerKindData.valueMap.find(p);
@@ -1501,7 +1492,6 @@ POINTER_KIND PointerAnalyzer::getPointerKindAssert(const Value* p) const
 {
 	auto r = getPointerKind(p);
 	assert(r != CONSTANT);
-	assert(r != FREE);
 	return r;
 }
 POINTER_KIND PointerAnalyzer::getPointerKind(const Value* p) const
@@ -1895,7 +1885,6 @@ void PointerAnalyzer::dumpPointer(const Value* v, bool dumpOwnerFunc) const
 			case BYTE_LAYOUT: fmt << "BYTE_LAYOUT"; break;
 			case RAW: fmt << "RAW"; break;
 			case CONSTANT: fmt << "CONSTANT"; break;
-			case FREE: fmt << "FREE"; break;
 			default:
 				assert(false && "Unexpected pointer kind");
 		}
