@@ -727,16 +727,13 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileFree(const Value
 	if(!needsLinearCheck)
 		return COMPILE_EMPTY;
 
-	stream << "if(";
-	compilePointerBase(obj);
-	stream << ".buffer==__heap){";
 	Function* Free = module.getFunction("free");
 	if (Free)
 		stream << getName(Free) << '(';
 	else
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-	compilePointerOffset(obj, PARENT_PRIORITY::LOWEST);
-	stream << ")}";
+	compilePointerAs(obj, RAW, PARENT_PRIORITY::LOWEST);
+	stream << ')';
 
 	return COMPILE_OK;
 }
@@ -2443,6 +2440,13 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 
 		if(asmjs && isa<Function>(c))
 		{
+			const Function* f = cast<Function>(c);
+			if (f->getName() == StringRef("__genericjs__free"))
+			{
+				const Function* ffree = module.getFunction("free");
+				assert(ffree);
+				c = ffree;
+			}
 			if (linearHelper.functionHasAddress(cast<Function>(c))) {
 				int addr = linearHelper.getFunctionAddress(cast<Function>(c));
 				stream << addr;

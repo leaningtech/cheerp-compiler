@@ -77,6 +77,12 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 		{
 			assert(offset==0);
 			uint32_t addr = 0;
+			if (F->getName() == StringRef("__genericjs__free"))
+			{
+				const Function* ffree = module.getFunction("free");
+				assert(ffree);
+				F = ffree;
+			}
 			if (functionAddresses.count(F))
 			{
 				addr = getFunctionAddress(F);
