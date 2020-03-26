@@ -4425,12 +4425,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::IntToPtr:
 		{
-			if (asmjs)
-			{
-				compileOperand(I.getOperand(0));
-				return COMPILE_OK;
-			}
-			// FALLTHROUGH if !asmjs
+			compileOperand(I.getOperand(0), parentPrio);
+			return COMPILE_OK;
 		}
 		default:
 			stream << "alert('Unsupported code')";
