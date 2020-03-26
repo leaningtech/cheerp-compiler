@@ -655,6 +655,7 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 		case Intrinsic::memset:
 			return CacheAndReturn(visitValue(ret, intrinsic->getArgOperand(0), /*first*/ false));
 		case Intrinsic::cheerp_pointer_offset:
+		case Intrinsic::cheerp_is_linear_heap:
 		case Intrinsic::invariant_start:
 			return CacheAndReturn(visitValue(ret, intrinsic->getArgOperand(1), /*first*/ false));
 		case Intrinsic::invariant_end:
@@ -881,6 +882,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		case Intrinsic::cheerp_reallocate:
 		case Intrinsic::cheerp_pointer_base:
 		case Intrinsic::cheerp_pointer_offset:
+		case Intrinsic::cheerp_is_linear_heap:
 		case Intrinsic::vastart:
 		case Intrinsic::vacopy:
 		case Intrinsic::vaend:
