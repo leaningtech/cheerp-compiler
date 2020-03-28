@@ -5762,14 +5762,22 @@ void CheerpWriter::compileFunctionTablesAsmJS()
 	}
 }
 
+void CheerpWriter::compileAssignHeaps()
+{
+	const std::string shortestName = namegen.getShortestLocalName();
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(" << shortestName << "){" << NewLine;
+	for (int i = HEAP8; i<=HEAPF64; i++)
+		stream << heapNames[i] << "=new " << typedArrayNames[i] << "(" << shortestName << ");" << NewLine;
+	stream << "}" << NewLine;
+}
+
 void CheerpWriter::compileGrowMem()
 {
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::GROW_MEM) << "(bytes){" << NewLine;
 	stream << "var pages=(bytes+65535)>>16;" << NewLine;
 	stream << "try{" << NewLine;
 	stream << "__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".grow(pages);" << NewLine;
-	for (int i = HEAP8; i<=HEAPF64; i++)
-		stream << heapNames[i] << "=new " << typedArrayNames[i] << "(__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
 	stream << "return pages<<16;" << NewLine;
 	stream << "}catch(e){" << NewLine;
 	stream << "return -1;" << NewLine;
@@ -6164,14 +6172,12 @@ void CheerpWriter::compileWasmLoader()
 	}
 	stream << "}})" << NewLine;
 	stream << ",console.log).then(" << shortestName << "=>{" << NewLine;
-	stream << "var i="<< shortestName <<".instance;" << NewLine;
+	stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
+	stream << "__heap=__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
 	if (globalDeps.needAsmJS())
 	{
-		for (int i = HEAP8; i<=HEAPF64; i++)
-			stream << heapNames[i] << "=new " << typedArrayNames[i] << "(i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer);" << NewLine;
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	}
-	stream << "__asm=i.exports;" << NewLine;
-	stream << "__heap=i.exports." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
 
 	compileDefineExports(false);
 }
@@ -6358,6 +6364,8 @@ void CheerpWriter::makeJS()
 	bool needAsmJSModule = globalDeps.needAsmJS() && wasmFile.empty();
 	bool needWasmLoader = !wasmFile.empty();
 	bool needAsmJSLoader = needAsmJSModule && asmJSMem;
+	bool needAssignHeaps = globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM) ||
+				(needWasmLoader && globalDeps.needAsmJS());
 
 	if (needSourceMaps)
 		compileSourceMapsBegin();
@@ -6369,6 +6377,8 @@ void CheerpWriter::makeJS()
 	if (needAsmJSModule)
 		compileAsmJS();
 	compileGenericJS();
+	if (needAssignHeaps)
+		compileAssignHeaps();
 	if (needWasmLoader)
 		compileWasmLoader();
 	else if (needAsmJSLoader)

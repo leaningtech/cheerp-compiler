@@ -595,6 +595,10 @@ public:
 	 */
 	void compileGrowMem();
 	/**
+	 * Compile an helper function to assign all global heap symbols
+	 */
+	void compileAssignHeaps();
+	/**
 	 * Compile the helper functions for exposing the asm.js stack pointer
 	 */
 	void compileStackPtrHelpersAsmJS();
