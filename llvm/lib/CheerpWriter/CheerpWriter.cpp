@@ -6127,13 +6127,14 @@ void CheerpWriter::compileGenericJS()
 
 void CheerpWriter::compileWasmLoader()
 {
+	stream << "var ";
 	if (globalDeps.needAsmJS())
 	{
 		for (int i = HEAP8; i<=HEAPF64; i++)
-			stream << "var " << heapNames[i] << "=null;" << NewLine;
+			stream << heapNames[i] << "=null,";
 	}
-	stream << "var __asm=null;" << NewLine;
-	stream << "var __heap=null;" << NewLine;
+	stream << "__asm=null,";
+	stream << "__heap=null;";
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
 
 	compileDeclareExports();
