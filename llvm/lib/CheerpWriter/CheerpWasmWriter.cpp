@@ -1343,9 +1343,7 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 	const auto I = dyn_cast<Instruction>(gep_inst);
 	if (I && !isInlineable(*I)) {
 		if (!standalone) {
-			uint32_t reg = registerize.getRegisterId(I, edgeContext);
-			uint32_t local = localMap.at(reg);
-			encodeU32Inst(0x20, "get_local", local, code);
+			compileGetLocal(code, I);
 			return;
 		}
 	}
@@ -1610,13 +1608,15 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	}
 }
 
-void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Value* v, uint32_t localId)
+void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction* I)
 {
-	if (hasPutTeeLocalOnStack(code, v))
+	if (hasPutTeeLocalOnStack(code, I))
 	{
 		//Successfully find a candidate to transform in tee local
 		return;
 	}
+	uint32_t idx = registerize.getRegisterId(I, edgeContext);
+	uint32_t localId = localMap.at(idx);
 	encodeU32Inst(0x20, "get_local", localId, code);
 }
 
@@ -1641,9 +1641,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 		if(isInlineable(*it)) {
 			compileInlineInstruction(code, *it);
 		} else {
-			uint32_t idx = registerize.getRegisterId(it, edgeContext);
-			uint32_t local = localMap.at(idx);
-			compileGetLocal(code, it, local);
+			compileGetLocal(code, it);
 		}
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
