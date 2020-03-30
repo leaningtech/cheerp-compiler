@@ -1627,12 +1627,6 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	else if(isa<Function>(c))
 	{
 		const Function* F = cast<Function>(c);
-		if (F->getName() == StringRef("__genericjs__free"))
-		{
-			const Function* ffree = module.getFunction("free");
-			assert(ffree);
-			F = ffree;
-		}
 		if (linearHelper.functionHasAddress(F))
 		{
 			uint32_t addr = linearHelper.getFunctionAddress(F);

@@ -2441,12 +2441,6 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		if(asmjs && isa<Function>(c))
 		{
 			const Function* f = cast<Function>(c);
-			if (f->getName() == StringRef("__genericjs__free"))
-			{
-				const Function* ffree = module.getFunction("free");
-				assert(ffree);
-				f = ffree;
-			}
 			if (linearHelper.functionHasAddress(f)) {
 				int addr = linearHelper.getFunctionAddress(f);
 				stream << addr;
