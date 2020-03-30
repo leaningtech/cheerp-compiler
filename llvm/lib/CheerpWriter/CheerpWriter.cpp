@@ -2445,12 +2445,13 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 			{
 				const Function* ffree = module.getFunction("free");
 				assert(ffree);
-				c = ffree;
+				f = ffree;
 			}
-			if (linearHelper.functionHasAddress(cast<Function>(c))) {
-				int addr = linearHelper.getFunctionAddress(cast<Function>(c));
+			if (linearHelper.functionHasAddress(f)) {
+				int addr = linearHelper.getFunctionAddress(f);
 				stream << addr;
 			} else {
+				assert(f->empty());
 				stream << '0';
 			}
 		}
