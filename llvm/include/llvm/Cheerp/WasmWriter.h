@@ -255,7 +255,7 @@ private:
 	bool compileInlineInstruction(WasmBuffer& code, const llvm::Instruction& I);
 	void compileGEP(WasmBuffer& code, const llvm::User* gepInst, bool standalone = false);
 	void compileLoad(WasmBuffer& code, const llvm::LoadInst& I, bool signExtend);
-	void compileGetLocal(WasmBuffer& code, const llvm::Value* v, uint32_t localId);
+	void compileGetLocal(WasmBuffer& code, const llvm::Instruction* v);
 	// Returns true if all the uses have signed semantics
 	// NOTE: Careful, this is not in sync with needsUnsignedTruncation!
 	//       All the users listed here must _not_ call needsUnsignedTruncation!
