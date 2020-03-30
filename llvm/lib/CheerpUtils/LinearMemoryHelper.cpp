@@ -548,11 +548,14 @@ if (!functionTypeIndices.count(fTy)) { \
 #undef ADD_FUNCTION_TYPE
 	}
 
+	// Check if the __genericjs__free function is present. If so, consider
+	// "free()" as if its address is taken
+	bool freeTaken = module.getFunction("__genericjs__free") != nullptr;
 	// Build the function tables first
 	for (const Function* F : asmjsFunctions_)
 	{
 		const FunctionType* fTy = F->getFunctionType();
-		if (F->hasAddressTaken() || F->getName() == StringRef(wasmNullptrName)) {
+		if (F->hasAddressTaken() || F->getName() == StringRef(wasmNullptrName) || (freeTaken && F->getName() == StringRef("free"))) {
 			auto it = functionTables.find(fTy);
 			if (it == functionTables.end())
 			{

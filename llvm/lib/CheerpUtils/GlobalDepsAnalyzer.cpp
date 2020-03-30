@@ -537,10 +537,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				hasAsmJS = true;
 				asmJSExportedFuncions.insert(ffree);
 				externals.push_back(ffree);
-				// Visit free and friends
-				enqueueFunction(ffree);
-				processEnqueuedFunctions();
 			}
+			// Visit free and friends
+			enqueueFunction(ffree);
+			processEnqueuedFunctions();
 			reachableGlobals.insert(ffree);
 		}
 	}
