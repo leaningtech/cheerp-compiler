@@ -525,7 +525,9 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				ffree->deleteBody();
 				// If the address is taken, keep a body but just put
 				// and unreachable in it
-				if (ffree->hasAddressTaken())
+				Function* jsfree = module.getFunction("__genericjs__free");
+				bool freeTaken = ffree->hasAddressTaken() || (jsfree && jsfree->hasAddressTaken());
+				if (freeTaken)
 				{
 					BasicBlock* Entry = BasicBlock::Create(module.getContext(),"entry", ffree);
 					IRBuilder<> Builder(Entry);
