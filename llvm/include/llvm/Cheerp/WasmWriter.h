@@ -413,6 +413,7 @@ public:
 	void compileDowncast(WasmBuffer& code, llvm::ImmutableCallSite callV);
 	void compileConstantExpr(WasmBuffer& code, const llvm::ConstantExpr* ce);
 	void compileConstant(WasmBuffer& code, const llvm::Constant* c, bool forGlobalInit);
+	void compileInstructionAndSet(WasmBuffer& code, const llvm::Instruction& I);
 	void compileOperand(WasmBuffer& code, const llvm::Value* v);
 	void compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison);
 	void compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v);

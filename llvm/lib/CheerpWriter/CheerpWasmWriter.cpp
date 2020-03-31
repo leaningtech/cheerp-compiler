@@ -2847,6 +2847,25 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 	return false;
 }
 
+void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::Instruction& I)
+{
+	const bool ret = compileInstruction(code, I);
+
+	teeLocals.removeConsumed();
+
+	if(!ret && !I.getType()->isVoidTy())
+	{
+		if(I.use_empty()) {
+			encodeInst(0x1a, "drop", code);
+		} else {
+			uint32_t reg = registerize.getRegisterId(&I, edgeContext);
+			uint32_t local = localMap.at(reg);
+			teeLocals.addCandidate(&I, /*isInstructionAssigment*/true, local, code.tellp());
+			encodeU32Inst(0x21, "set_local", local, code);
+		}
+	}
+}
+
 void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 {
 	BasicBlock::const_iterator I=BB.begin();
@@ -2885,21 +2904,7 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 
 		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
 		{
-			bool ret = compileInstruction(code, *I);
-
-			teeLocals.removeConsumed();
-
-			if(!ret && !I->getType()->isVoidTy())
-			{
-				if(I->use_empty()) {
-					encodeInst(0x1a, "drop", code);
-				} else {
-					uint32_t reg = registerize.getRegisterId(&*I, edgeContext);
-					uint32_t local = localMap.at(reg);
-					teeLocals.addCandidate(&*I, /*isInstructionAssigment*/true, local, code.tellp());
-					encodeU32Inst(0x21, "set_local", local, code);
-				}
-			}
+			compileInstructionAndSet(code, *I);
 		}
 	}
 }
