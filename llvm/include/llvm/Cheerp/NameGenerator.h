@@ -64,6 +64,7 @@ public:
 		DUMMY,
 		MEMORY,
 		HANDLE_VAARG,
+		FETCHBUFFER,
 		HEAP8,
 		HEAP16,
 		HEAP32,
