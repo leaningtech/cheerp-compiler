@@ -985,6 +985,34 @@ uint32_t CheerpWasmWriter::findDepth(const Value* v) const
 	}
 }
 
+void CheerpWasmWriter::filterNop(std::string& buf) const
+{
+	assert(buf.back() == 0x0b);
+	nopLocations.push_back(buf.size());
+	std::sort(nopLocations.begin(), nopLocations.end());
+	uint32_t nopIndex = 0;
+	uint32_t old = 0;
+	uint32_t curr = 0;
+	while (old < buf.size())
+	{
+		if (nopLocations[nopIndex] <= old)
+		{
+			while (buf[old] == 0x01)
+			{
+				++old;
+			}
+			++nopIndex;
+			continue;
+		}
+		buf[curr] = buf[old];
+		++curr;
+		++old;
+	}
+	while (curr < buf.size())
+		buf.pop_back();
+	assert(buf.back() == 0x0b);
+}
+
 void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 {
 	switch (I.getOpcode()) {
@@ -4056,6 +4084,10 @@ void CheerpWasmWriter::compileCodeSection()
 #endif
 			compileMethod(method, *F);
 			std::string buf = method.str();
+
+			filterNop(buf);
+			nopLocations.clear();
+
 #if WASM_DUMP_METHOD_DATA
 			llvm::errs() << "method length: " << buf.size() << '\n';
 			llvm::errs() << "method: " << string_to_hex(buf) << '\n';
