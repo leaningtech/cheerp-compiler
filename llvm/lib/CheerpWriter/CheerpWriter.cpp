@@ -5815,26 +5815,21 @@ void CheerpWriter::compileMathDeclAsmJS()
 
 void CheerpWriter::compileFetchBuffer()
 {
-	stream << "function fetchBuffer(p) {" << NewLine;
-	stream << "var bytes = null;" << NewLine;
-	stream << "if (typeof window === 'undefined' && typeof self === 'undefined' && typeof require === 'undefined') {" << NewLine;
-	stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
-	stream << "resolve(read(p,'binary'));" << NewLine;
-	stream << "});" << NewLine;
-	stream << "} else if (typeof window === 'undefined' && typeof self === 'undefined') {" << NewLine;
-	stream << "var fs = require('fs');" << NewLine;
-	stream << "var path = require('path');" << NewLine;
-	stream << "p = path.join(__dirname, p);" << NewLine;
-	stream << "bytes = new Promise( (resolve, reject) => {" << NewLine;
-	stream << "fs.readFile(p, function(error, data) {" << NewLine;
-	stream << "if(error) reject(error);" << NewLine;
-	stream << "else resolve(data);" << NewLine;
+	stream << "function _cheerpFetch(p){" << NewLine;
+	stream << "var b=null,f='function';" << NewLine;
+	stream << "if(typeof fetch===f)b=fetch(p).then(r=>r.arrayBuffer());" << NewLine;
+	stream << "else if(typeof require===f){" << NewLine;
+	stream << "p=require('path').join(__dirname, p);" << NewLine;
+	stream << "b=new Promise((y,n)=>{" << NewLine;
+	stream << "require('fs').readFile(p,(e,d)=>{" << NewLine;
+	stream << "if(e)n(e);" << NewLine;
+	stream << "else y(d);" << NewLine;
 	stream << "});" << NewLine;
 	stream << "});" << NewLine;
-	stream << "} else {" << NewLine;
-	stream << "bytes = fetch(p).then(response => response.arrayBuffer());" << NewLine;
-	stream << "}" << NewLine;
-	stream << "return bytes;" << NewLine;
+	stream << "}else b=new Promise((y,n)=>{" << NewLine;
+	stream << "y(read(p,'binary'));" << NewLine;
+	stream << "});" << NewLine;
+	stream << "return b;" << NewLine;
 	stream << "}" << NewLine;
 }
 
@@ -6136,7 +6131,7 @@ void CheerpWriter::compileWasmLoader()
 	compileDeclareExports();
 
 	const std::string shortestName = namegen.getShortestLocalName();
-	stream << "fetchBuffer('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
+	stream << "_cheerpFetch('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
 	stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
 	stream << "{i:{" << NewLine;
 	compileImports();
@@ -6279,7 +6274,7 @@ void CheerpWriter::compileAsmJSLoader()
 
 	compileDeclareExports();
 
-	stream << "fetchBuffer('" << asmJSMemFile << "').then(r=>{" << NewLine;
+	stream << "_cheerpFetch('" << asmJSMemFile << "').then(r=>{" << NewLine;
 	stream << heapNames[HEAP8] << ".set(new Uint8Array(r),";
 	stream << linearHelper.getStackStart() << ");" << NewLine;
 	stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
