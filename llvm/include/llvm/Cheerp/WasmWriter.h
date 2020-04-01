@@ -240,6 +240,10 @@ private:
 
 	// Whether to export the function table from the module
 	bool exportedTable;
+
+	mutable std::vector<uint32_t> nopLocations;
+
+	void filterNop(std::string& buffer) const;
 public:
 	TeeLocals teeLocals;
 	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, GLOBAL };
@@ -259,6 +263,7 @@ public:
 		code.seekp(bufferOffset);
 		if (!isValueUsed)
 			code << (char)0x1A; //DROP the value
+		nopLocations.push_back(code.tellp());
 		while (code.tellp() != currOffset)
 		{
 			code << (char)0x1; //NOP!
