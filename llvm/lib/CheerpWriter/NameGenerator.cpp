@@ -351,6 +351,14 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		builtins[HEAPF32] = nameHelper.makeGlobalName();
 		builtins[HEAPF64] = nameHelper.makeGlobalName();
 	}
+	else
+	{
+		builtins[HEAP8] = "null";
+		builtins[HEAP16] = "null";
+		builtins[HEAP32] = "null";
+		builtins[HEAPF32] = "null";
+		builtins[HEAPF64] = "null";
+	}
 
 	// We need to iterate over allGlobalValues and allLocalValues
 	// at the same time incrementing selectively only one of the iterators
