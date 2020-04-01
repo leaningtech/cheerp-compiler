@@ -5815,7 +5815,7 @@ void CheerpWriter::compileMathDeclAsmJS()
 
 void CheerpWriter::compileFetchBuffer()
 {
-	stream << "function _cheerpFetch(p){" << NewLine;
+	stream << "function " << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) <<"(p){" << NewLine;
 	stream << "var b=null,f='function';" << NewLine;
 	stream << "if(typeof fetch===f)b=fetch(p).then(r=>r.arrayBuffer());" << NewLine;
 	stream << "else if(typeof require===f){" << NewLine;
@@ -6131,7 +6131,7 @@ void CheerpWriter::compileWasmLoader()
 	compileDeclareExports();
 
 	const std::string shortestName = namegen.getShortestLocalName();
-	stream << "_cheerpFetch('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
+	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "('" << wasmFile << "').then(" << shortestName << "=>" << NewLine;
 	stream << "WebAssembly.instantiate(" << shortestName << "," << NewLine;
 	stream << "{i:{" << NewLine;
 	compileImports();
@@ -6274,7 +6274,7 @@ void CheerpWriter::compileAsmJSLoader()
 
 	compileDeclareExports();
 
-	stream << "_cheerpFetch('" << asmJSMemFile << "').then(r=>{" << NewLine;
+	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "('" << asmJSMemFile << "').then(r=>{" << NewLine;
 	stream << heapNames[HEAP8] << ".set(new Uint8Array(r),";
 	stream << linearHelper.getStackStart() << ");" << NewLine;
 	stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
