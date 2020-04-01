@@ -480,7 +480,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		tableIt.second.name = nameHelper.makeGlobalName();
 	}
 	// Generate the rest of the builtins
-	for(int i=IMUL;i<=HANDLE_VAARG;i++)
+	for(int i=IMUL;i<=FETCHBUFFER;i++)
 		builtins[i] = nameHelper.makeGlobalName();
 
 	if (shortestLocalName.size() == 0)
@@ -639,6 +639,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[DUMMY] = "__dummy";
 	builtins[MEMORY] = "memory";
 	builtins[HANDLE_VAARG] = "handleVAArg";
+	builtins[FETCHBUFFER] = "fetchBuffer";
 	builtins[LABEL] = "label";
 	builtins[STACKPTR] = "__stackPtr";
 	builtins[HEAP8] = "HEAP8";
