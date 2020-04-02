@@ -11139,6 +11139,11 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_pointer_offset, Tys);
     return Builder.CreateCall(F, Ops);
   }
+  else if (BuiltinID == Cheerp::BI__builtin_cheerp_is_linear_heap) {
+    llvm::Type *Tys[] = { Ops[0]->getType() };
+    Function *F = CGM.getIntrinsic(Intrinsic::cheerp_is_linear_heap, Tys);
+    return Builder.CreateCall(F, Ops);
+  }
   else if (BuiltinID == Cheerp::BI__builtin_cheerp_create_closure) {
     llvm::Type *Tys[] = { ConvertType(E->getType()), Ops[0]->getType(), Ops[1]->getType() };
     Function *F = CGM.getIntrinsic(Intrinsic::cheerp_create_closure, Tys);
