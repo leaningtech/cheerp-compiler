@@ -164,14 +164,42 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			return false;
 		return firstOffset->getSExtValue() >= 0;
 	};
+	auto isGepOnlyUsedInLoadStore = [&isPositiveOffsetGep](const Instruction& I)
+	{
+		auto& gep = cast<GetElementPtrInst>(I);
+		if (!isPositiveOffsetGep(gep))
+			return false;
+		//If used only as pointerOperand for Store or Load, could be efficiently encoded in the offset of the Load/Store
+
+		std::vector<const Instruction*> toCheck;
+		for (const User* U : gep.users())
+			toCheck.push_back(cast<Instruction>(U));
+
+		while (!toCheck.empty())
+		{
+			const Instruction* I = toCheck.back();
+			toCheck.pop_back();
+
+			if (isa<LoadInst>(I) || isa<StoreInst>(I))
+				continue;
+			if (isa<BitCastInst>(I) ||
+					(isa<GetElementPtrInst>(I) && isPositiveOffsetGep(*cast<GetElementPtrInst>(I))))
+			{
+				for (const User* U : I->users())
+					toCheck.push_back(cast<Instruction>(U));
+				continue;
+			}
+			return false;
+		}
+		return true;
+	};
 	if(I.getOpcode()==Instruction::GetElementPtr)
 	{
 		POINTER_KIND IPointerKind = PA.getPointerKind(&I);
 		if(IPointerKind == RAW)
 		{
-			// Geps with constant indices can be compactly encoded.
-			auto& gep = cast<GetElementPtrInst>(I);
-			if (isPositiveOffsetGep(gep))
+			// Geps with constant indices used (in)directly only in Load or Store can be compactly encoded.
+			if (isGepOnlyUsedInLoadStore(I))
 				return true;
 			if (hasMoreThan1Use || isUserInOtherBlock(I))
 				return false;
@@ -206,7 +234,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		{
 			if(GetElementPtrInst* gep = dyn_cast<GetElementPtrInst>(I.getOperand(0)))
 			{
-				if (isPositiveOffsetGep(*gep))
+				if (isGepOnlyUsedInLoadStore(*gep))
 					return true;
 			}
 			return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineableRecursion(*cast<Instruction>(I.getOperand(0)));
