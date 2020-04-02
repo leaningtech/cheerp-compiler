@@ -2554,7 +2554,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   {
     LangOptions::CheerpLinearOutputTy s
       = llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpMode->getValue())
-        .Case("genericjs", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
+        .Case("genericjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
         .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
         .Case("wast", LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
         .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)

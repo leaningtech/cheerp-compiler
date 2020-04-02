@@ -658,9 +658,13 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     {
       linearOut += "asmjs";
     }
+    else if (CheerpMode->getValue() == StringRef("genericjs"))
+    {
+      // NOTE: we use "asmjs" also for -cheerp-mode=genericjs
+      linearOut += "asmjs";
+    }
     else
     {
-      // NOTE: we use "wasm" also for -cheerp-mode=genericjs
       linearOut += "wasm";
     }
     CmdArgs.push_back(Args.MakeArgString(linearOut));
