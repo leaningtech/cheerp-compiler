@@ -16,6 +16,7 @@
 
 BUILTIN(__builtin_cheerp_pointer_base, "", "h")
 BUILTIN(__builtin_cheerp_pointer_offset, "", "h")
+BUILTIN(__builtin_cheerp_is_linear_heap, "", "h")
 BUILTIN(__builtin_cheerp_create_closure, "", "h")
 BUILTIN(__builtin_cheerp_make_complete_object, "", "h")
 BUILTIN(__builtin_cheerp_make_regular, "", "h")
