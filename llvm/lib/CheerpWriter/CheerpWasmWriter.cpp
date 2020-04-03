@@ -1471,58 +1471,6 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 	}
 }
 
-uint32_t CheerpWasmWriter::getIntEncodingLength(int32_t val) const
-{
-	std::ostringstream tmp;
-	internal::encodeSLEB128(val, tmp);
-	return tmp.str().size();
-}
-
-bool CheerpWasmWriter::tryEncodeFloatAsInt(const ConstantFP* f, int32_t& value)
-{
-	APFloat apf = f->getValueAPF();
-	if (!apf.isInteger())
-		return false;
-	if (apf.isNegative() && apf.isZero())
-	{
-		// We can't represent negative 0 as an int
-		return false;
-	}
-
-	APFloat truncated = apf;
-	truncated.roundToIntegral(APFloat::rmTowardZero);
-	if (f->getType()->isDoubleTy())
-	{
-		double origVal = truncated.convertToDouble();
-		value = static_cast<int32_t>(origVal);
-		if(origVal != double(value))
-			return false;
-	}
-	else
-	{
-		float origVal = truncated.convertToFloat();
-		value = static_cast<int32_t>(value);
-		if(origVal != float(value))
-			return false;
-	}
-
-	return true;
-}
-
-bool CheerpWasmWriter::tryEncodeFloat64AsFloat32(const ConstantFP* f, float& floatValue)
-{
-	APFloat apf = f->getValueAPF();
-	if (f->getType()->isFloatTy())
-		return false;
-
-	double d = apf.convertToDouble();
-	floatValue = d;
-	if (double(floatValue) != d)
-		return false;
-
-	return true;
-}
-
 void CheerpWasmWriter::compileFloatToText(WasmBuffer& code, const APFloat& f, uint32_t precision)
 {
 	if(f.isInfinity())
@@ -1567,40 +1515,6 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
 		if (mode == CheerpWasmWriter::WASM) {
-			// When initializing global we can only use pure constants, not expressions
-			if(!forGlobalInit)
-			{
-				// Try to encode the float/double using a more compact representation.
-				int32_t intValue = 0;
-				if (tryEncodeFloatAsInt(f, intValue))
-				{
-					// Check that the integer bytes plus conversion byte is smaller than the
-					// original float/double in bytes.
-					const uint32_t intEncodingLength = getIntEncodingLength(intValue);
-					// Total length of encoding: 1 (integer const opcode) + intEncodingLength + 1 (conversion opcode)
-					const uint32_t totalEncodingLength = 2 + intEncodingLength;
-					const uint32_t costAsLiteral = c->getType()->isDoubleTy() ? 9 : 5;
-					if (totalEncodingLength < costAsLiteral)
-					{
-						// Encode the float/double using an integer representation.
-						encodeS32Inst(0x41, "i32.const", intValue, code);
-
-						if (c->getType()->isDoubleTy())
-							encodeInst(0xb7, "f64.convert_s/i32", code);
-						else
-							encodeInst(0xb2, "f32.convert_s/i32", code);
-						return;
-					}
-				}
-				float floatValue = 0;
-				if (tryEncodeFloat64AsFloat32(f, floatValue))
-				{
-					encodeInst(0x43, "f32.const", code);
-					internal::encodeF32(floatValue, code);
-					encodeInst(0xbb, "f64.promote/f32", code);
-					return;
-				}
-			}
 			internal::encodeLiteralType(c->getType(), code);
 			if (c->getType()->isDoubleTy()) {
 				internal::encodeF64(f->getValueAPF().convertToDouble(), code);
@@ -1691,20 +1605,7 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	{
 		auto it = globalizedConstants.find(c);
 		if(it != globalizedConstants.end())
-		{
 			encodeU32Inst(0x23, "get_global", it->second.first, code);
-			if(it->second.second == INT)
-			{
-				if (c->getType()->isDoubleTy())
-					encodeInst(0xb7, "f64.convert_s/i32", code);
-				else
-					encodeInst(0xb2, "f32.convert_s/i32", code);
-			}
-			else if(it->second.second == FLOAT32)
-			{
-				encodeInst(0xbb, "f64.promote/f32", code);
-			}
-		}
 		else
 			compileConstant(code, c, /*forGlobalInit*/false);
 	}
@@ -3663,19 +3564,6 @@ void CheerpWasmWriter::compileTableSection()
 	}
 }
 
-CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstantIntAsGlobal(int32_t intVal, uint32_t useCount, uint32_t getGlobalCost)
-{
-	// Add 1 for the const opcode
-	const uint32_t intEncodingLength = getIntEncodingLength(intVal) + 1;
-	const uint32_t directUsesCost = intEncodingLength * useCount;
-	const uint32_t globalInitCost = 3/*type+immutable+end*/ + intEncodingLength;
-	const uint32_t globalUsesCost = globalInitCost + getGlobalCost * useCount;
-	if(globalUsesCost < directUsesCost)
-		return FULL;
-	else
-		return NONE;
-}
-
 CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstantAsGlobal(const Constant* C, uint32_t useCount, uint32_t getGlobalCost)
 {
 	assert(useCount > 1);
@@ -3685,56 +3573,11 @@ CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstan
 		// 1 (type) + costAsLiteral + 1 (end byte)
 		const uint32_t globalInitCost = 2 + costAsLiteral;
 		const uint32_t globalUsesCost = globalInitCost + getGlobalCost * useCount;
-		int32_t intValue = 0;
-		float floatValue = 0;
-		if(tryEncodeFloatAsInt(CF, intValue))
-		{
-			const uint32_t intEncodingLength = getIntEncodingLength(intValue);
-			// i32.const opcode + conversion opcode + int encoding
-			const uint32_t costAsInt = 2 + intEncodingLength;
-			const uint32_t directUsesCost = costAsInt * useCount;
-			if(globalUsesCost < directUsesCost)
-				return FULL;
-			else
-			{
-				// Could we encode the int as a global?
-				assert(intEncodingLength >= 1);
-				const uint32_t globalInitCost = 3 + intEncodingLength;
-				// NOTE: Add 1 to the get_global cost, we need a conversion opcode in every use
-				const uint32_t globalUsesCost = globalInitCost + (getGlobalCost + 1) * useCount;
-				if(globalUsesCost < directUsesCost)
-					return INT;
-				else
-					return NONE;
-			}
-		}
-		else if(tryEncodeFloat64AsFloat32(CF, floatValue))
-		{
-			// f32.const opcode + conversion opcode + 4 bytes
-			const uint32_t costAsFloat = 6;
-			const uint32_t directUsesCost = costAsFloat * useCount;
-			if(globalUsesCost < directUsesCost)
-				return FULL;
-			else
-			{
-				// Could we encode the float as a global?
-				const uint32_t globalInitCost = 2 + 5;
-				// NOTE: Add 1 to the get_global cost, we need a conversion opcode in every use
-				const uint32_t globalUsesCost = globalInitCost + (getGlobalCost + 1) * useCount;
-				if(globalUsesCost < directUsesCost)
-					return FLOAT32;
-				else
-					return NONE;
-			}
-		}
+		uint32_t directUsesCost = costAsLiteral * useCount;
+		if(globalUsesCost < directUsesCost)
+			return FULL;
 		else
-		{
-			uint32_t directUsesCost = costAsLiteral * useCount;
-			if(globalUsesCost < directUsesCost)
-				return FULL;
-			else
-				return NONE;
-		}
+			return NONE;
 	}
 	else
 	{
@@ -3942,12 +3785,6 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 					case FULL:
 						valType = internal::getValType(C->getType());
 						break;
-					case INT:
-						valType = 0x7f;
-						break;
-					case FLOAT32:
-						valType = 0x7d;
-						break;
 					default:
 						assert(false);
 				}
@@ -3959,27 +3796,6 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 					case FULL:
 					{
 						compileConstant(section, C, /*forGlobalInit*/true);
-						break;
-					}
-					case INT:
-					{
-						const ConstantFP* CF = cast<ConstantFP>(C);
-						int32_t intValue = 0;
-						bool ret = tryEncodeFloatAsInt(CF, intValue);
-						(void)ret;
-						assert(ret);
-						encodeS32Inst(0x41, "i32.const", intValue, section);
-						break;
-					}
-					case FLOAT32:
-					{
-						const ConstantFP* CF = cast<ConstantFP>(C);
-						float floatValue = 0;
-						bool ret = tryEncodeFloat64AsFloat32(CF, floatValue);
-						(void)ret;
-						assert(ret);
-						encodeInst(0x43, "f32.const", section);
-						internal::encodeF32(floatValue, section);
 						break;
 					}
 					default:
@@ -4000,12 +3816,6 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 					case FULL:
 						strType = getTypeString(C->getType());
 						break;
-					case INT:
-						strType = "i32";
-						break;
-					case FLOAT32:
-						strType = "f32";
-						break;
 					default:
 						assert(false);
 				}
@@ -4016,27 +3826,6 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 					case FULL:
 					{
 						compileConstant(section, C, /*forGlobalInit*/true);
-						break;
-					}
-					case INT:
-					{
-						const ConstantFP* CF = cast<ConstantFP>(C);
-						int32_t intValue = 0;
-						bool ret = tryEncodeFloatAsInt(CF, intValue);
-						(void)ret;
-						assert(ret);
-						encodeS32Inst(0x41, "i32.const", intValue, section);
-						break;
-					}
-					case FLOAT32:
-					{
-						const ConstantFP* CF = cast<ConstantFP>(C);
-						float floatValue = 0;
-						bool ret = tryEncodeFloat64AsFloat32(CF, floatValue);
-						(void)ret;
-						assert(ret);
-						encodeInst(0x43, "f32.const", section);
-						compileFloatToText(section, APFloat(floatValue), 8);
 						break;
 					}
 					default:
