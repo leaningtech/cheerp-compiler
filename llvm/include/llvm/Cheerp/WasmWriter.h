@@ -203,7 +203,7 @@ private:
 	bool exportedTable;
 public:
 	TeeLocals teeLocals;
-	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, INT, FLOAT32, GLOBAL };
+	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, GLOBAL };
 	const PointerAnalyzer & PA;
 	OutputMode mode;
 
@@ -367,12 +367,8 @@ public:
 	void encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock);
 	void encodeDataSectionChunk(WasmBuffer& data, uint32_t address, const std::string& buf);
 	uint32_t encodeDataSectionChunks(WasmBuffer& data, uint32_t address, const std::string& buf);
-	bool tryEncodeFloatAsInt(const llvm::ConstantFP* f, int32_t& value);
-	bool tryEncodeFloat64AsFloat32(const llvm::ConstantFP* f, float& value);
-	uint32_t getIntEncodingLength(int32_t val) const;
 	void compileFloatToText(WasmBuffer& code, const llvm::APFloat& f, uint32_t precision);
 	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantAsGlobal(const llvm::Constant* C, uint32_t useCount, uint32_t getGlobalCost);
-	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantIntAsGlobal(int32_t val, uint32_t useCount, uint32_t getGlobalCost);
 	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
 	void compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	bool isInlineable(const llvm::Instruction& I) const
