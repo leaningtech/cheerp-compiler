@@ -1,5 +1,5 @@
 Name: cheerp-llvm-clang
-Version: 2.0
+Version: 2.5
 Release:        1%{?dist}
 Summary: A C++ compiler for the Web
 
