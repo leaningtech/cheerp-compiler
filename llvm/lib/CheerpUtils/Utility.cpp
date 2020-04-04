@@ -170,26 +170,28 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		if (!isPositiveOffsetGep(gep))
 			return false;
 		//If used only as pointerOperand for Store or Load, could be efficiently encoded in the offset of the Load/Store
-
 		std::vector<const Instruction*> toCheck;
-		for (const User* U : gep.users())
-			toCheck.push_back(cast<Instruction>(U));
+		toCheck.push_back(&gep);
 
 		while (!toCheck.empty())
 		{
 			const Instruction* I = toCheck.back();
 			toCheck.pop_back();
-
-			if (isa<LoadInst>(I) || isa<StoreInst>(I))
-				continue;
-			if (isa<BitCastInst>(I) ||
-					(isa<GetElementPtrInst>(I) && isPositiveOffsetGep(*cast<GetElementPtrInst>(I))))
+			for(const Use& u: I->uses())
 			{
-				for (const User* U : I->users())
-					toCheck.push_back(cast<Instruction>(U));
-				continue;
+				Instruction* userI = cast<Instruction>(u.getUser());
+				if(isa<LoadInst>(userI))
+					continue;
+				else if(isa<StoreInst>(userI) && u.getOperandNo() == 1)
+					continue;
+				else if (isa<BitCastInst>(userI) ||
+						(isa<GetElementPtrInst>(userI) && isPositiveOffsetGep(*cast<GetElementPtrInst>(userI))))
+				{
+					toCheck.push_back(userI);
+					continue;
+				}
+				return false;
 			}
-			return false;
 		}
 		return true;
 	};
