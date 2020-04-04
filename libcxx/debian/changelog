@@ -1,3 +1,9 @@
+cheerp-libcxx (2.5-1ubuntu1) bionic; urgency=medium
+
+  * New release
+
+ -- Alessandro Pignotti <alessandro@leaningtech.com>  Sat, 04 Apr 2020 18:35:26 +0200
+
 cheerp-libcxx (2.0-1ubuntu1) bionic; urgency=medium
 
   * New release
