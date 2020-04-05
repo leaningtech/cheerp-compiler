@@ -40,12 +40,12 @@ public:
 struct CheerpTargetMachine : public LLVMTargetMachine {
   CheerpTargetMachine(const Target &T, const Triple& TT,
                    StringRef CPU, StringRef FS, const TargetOptions &Options,
-                   Optional<Reloc::Model> RM, CodeModel::Model CM,
-                   CodeGenOpt::Level OL)
+                   Optional<Reloc::Model> RM, Optional<CodeModel::Model> CM,
+                   CodeGenOpt::Level OL, bool JIT)
       : LLVMTargetMachine(T, "b-e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i24:8:8-i32:32:32-"
                         "i64:64:64-f32:32:32-f64:64:64-"
                         "a:0:32-f16:16:16-f32:32:32-f64:64:64-n8:16:32-S64",
-                      TT, CPU, FS, Options, Reloc::PIC_, CM, OL),
+                      TT, CPU, FS, Options, Reloc::PIC_, CM ? *CM : CodeModel::Medium, OL),
         subTargetInfo(*this, T, TT, CPU, FS) { }
   CheerpSubtarget subTargetInfo;
 
