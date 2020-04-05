@@ -27,5 +27,5 @@ parent = Target
 type = Library
 name = CheerpBackendCodeGen
 parent = CheerpBackend
-required_libraries = Core CheerpBackendInfo CheerpBackendDesc Support Target CheerpWriter
+required_libraries = Core CheerpBackendInfo CheerpBackendDesc SelectionDAG Support Target CheerpWriter
 add_to_library_groups = CheerpBackend
