@@ -2569,11 +2569,11 @@ bool CheerpWriter::needsPointerKindConversion(const PHINode* phi, const Value* i
 bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, const BasicBlock* from,
                                                        const PointerAnalyzer& PA, const Registerize& registerize)
 {
-	class PHIHandler: public EndOfBlockPHIHandler
+	class PHIHandler: public PHIHandlerUsingTemp
 	{
 	public:
 		PHIHandler(const PointerAnalyzer& PA, EdgeContext& edgeContext, const Registerize& registerize):
-		           EndOfBlockPHIHandler(PA, edgeContext),needsPointerKindConversion(false),PA(PA),registerize(registerize)
+		           PHIHandlerUsingTemp(PA, edgeContext),needsPointerKindConversion(false),PA(PA),registerize(registerize)
 		{
 		}
 		~PHIHandler()
@@ -2602,11 +2602,11 @@ bool CheerpWriter::needsPointerKindConversionForBlocks(const BasicBlock* to, con
 
 void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const BasicBlock* from)
 {
-	class WriterPHIHandler: public EndOfBlockPHIHandler
+	class WriterPHIHandler: public PHIHandlerUsingTemp
 	{
 	public:
 		WriterPHIHandler(CheerpWriter& w, const Function* F):
-			EndOfBlockPHIHandler(w.PA, w.edgeContext),asmjs(F->getSection() == StringRef("asmjs")),writer(w)
+			PHIHandlerUsingTemp(w.PA, w.edgeContext),asmjs(F->getSection() == StringRef("asmjs")),writer(w)
 		{
 		}
 		~WriterPHIHandler()
