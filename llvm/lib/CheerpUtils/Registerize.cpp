@@ -412,13 +412,13 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 
 	EdgeContext edgeContext;
 	// Assign registers for temporary values required to break loops in PHIs
-	class RegisterizePHIHandler: public EndOfBlockPHIHandler
+	class RegisterizePHIHandler: public PHIHandlerUsingTemp
 	{
 		enum REGISTER_STATUS{FREE=0, USED=-1u};
 	public:
 		RegisterizePHIHandler(Registerize& r, llvm::SmallVector<RegisterRange, 4>& rs,
 				const InstIdMapTy& i, const PointerAnalyzer& _PA, EdgeContext& edgeContext):
-			EndOfBlockPHIHandler(_PA, edgeContext), registerize(r), PA(_PA),registers(rs),  instIdMap(i)
+			PHIHandlerUsingTemp(_PA, edgeContext), registerize(r), PA(_PA),registers(rs),  instIdMap(i)
 		{
 			// We should be carefull when using again the same tmpphi in the same edge
 			statusRegisters.resize(registers.size(), REGISTER_STATUS::FREE);

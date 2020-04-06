@@ -137,6 +137,18 @@ private:
 	virtual void resetRegistersState() {};
 };
 
+class PHIHandlerUsingTemp : public EndOfBlockPHIHandler
+{
+public:
+	PHIHandlerUsingTemp(const PointerAnalyzer& PA, EdgeContext& edgeContext) : EndOfBlockPHIHandler(PA, edgeContext)
+	{
+	}
+	// Callbacks implemented by derived classes
+	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
+	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
+
+};
+
 }
 namespace llvm
 {
