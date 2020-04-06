@@ -12,6 +12,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/PHIHandler.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InlineAsm.h"
