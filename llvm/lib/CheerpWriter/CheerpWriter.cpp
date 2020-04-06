@@ -14,6 +14,7 @@
 #include "CFGStackifier.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Cheerp/PHIHandler.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/Writer.h"
 #include "llvm/IR/IntrinsicInst.h"
