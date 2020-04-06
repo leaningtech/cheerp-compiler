@@ -1244,11 +1244,11 @@ bool CheerpWasmWriter::needsPointerKindConversion(const Instruction* phi, const 
 
 void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from)
 {
-	class WriterPHIHandler: public EndOfBlockPHIHandler
+	class WriterPHIHandler: public PHIHandlerUsingTemp
 	{
 	public:
 		WriterPHIHandler(CheerpWasmWriter& w, WasmBuffer& c)
-			:EndOfBlockPHIHandler(w.PA, w.edgeContext),writer(w), code(c)
+			:PHIHandlerUsingTemp(w.PA, w.edgeContext),writer(w), code(c)
 		{
 		}
 		~WriterPHIHandler()

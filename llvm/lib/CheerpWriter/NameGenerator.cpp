@@ -127,11 +127,11 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 	typedef std::set<useTypesPair, std::greater<useTypesPair>> useTypesSet;
         
 	// Class to handle giving names to temporary variables needed for recursively dependent PHIs
-	class CompressedPHIHandler: public EndOfBlockPHIHandler
+	class CompressedPHIHandler: public PHIHandlerUsingTemp
 	{
 	public:
 		CompressedPHIHandler(NameGenerator& n, EdgeContext& edgeContext, useLocalVec& l):
-			EndOfBlockPHIHandler(n.PA, edgeContext), namegen(n), thisFunctionLocals(l)
+			PHIHandlerUsingTemp(n.PA, edgeContext), namegen(n), thisFunctionLocals(l)
 		{
 		}
 	private:
