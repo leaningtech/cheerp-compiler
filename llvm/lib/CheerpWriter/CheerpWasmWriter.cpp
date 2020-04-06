@@ -18,6 +18,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Cheerp/BuiltinInstructions.h"
 #include "llvm/Cheerp/CommandLine.h"
+#include "llvm/Cheerp/PHIHandler.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/WasmWriter.h"
 #include "llvm/Cheerp/Writer.h"
