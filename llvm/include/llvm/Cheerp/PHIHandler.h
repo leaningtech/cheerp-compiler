@@ -124,11 +124,12 @@ protected:
 private:
 	static uint32_t countIncomingRegisters(const uint32_t current, const std::vector<uint32_t>& registerIds, const IncomingRegs& incomingRegs);
 	void runOnSCC(const std::vector<uint32_t>& registerIds, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
-	void runOnConnectionGraph(DependencyGraph dependecyGraph, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
+	void runOnConnectionGraph(DependencyGraph dependecyGraph, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs, bool isRecursiveCall);
 	void runOnPHI(PHIRegs& phiRegs, uint32_t phiId, const llvm::Instruction* incoming, llvm::SmallVector<std::pair<const llvm::PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs);
 	// Callbacks implemented by derived classes
 	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
 	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
+	virtual void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) = 0;
 	// Called for every register which is either assigned or used by PHIs in the edge
 	virtual void setRegisterUsed(uint32_t reg) {};
 	virtual void addRegisterUse(uint32_t reg) {};
@@ -143,10 +144,25 @@ public:
 	PHIHandlerUsingTemp(const PointerAnalyzer& PA, EdgeContext& edgeContext) : EndOfBlockPHIHandler(PA, edgeContext)
 	{
 	}
-	// Callbacks implemented by derived classes
+	// Callbacks that have to be implemented by derived classes
 	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) = 0;
 	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) = 0;
+	// Callbacks that should NOT be implemented by derived classes
+	virtual void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) {}
+};
 
+class PHIHandlerUsingStack : public EndOfBlockPHIHandler
+{
+	EdgeContext edgeContext;
+public:
+	PHIHandlerUsingStack(const PointerAnalyzer& PA) : EndOfBlockPHIHandler(PA, edgeContext)
+	{
+	}
+	// Callbacks that should NOT be implemented by derived classes
+	virtual void handleRecursivePHIDependency(const llvm::Instruction* incoming) {}
+	virtual void handlePHI(const llvm::PHINode* phi, const llvm::Value* incoming, bool selfReferencing) {}
+	// Callbacks that have to be implemented by derived classes
+	virtual void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) = 0;
 };
 
 }

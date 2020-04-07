@@ -134,11 +134,11 @@ void EndOfBlockPHIHandler::runOnSCC(const std::vector<uint32_t>& registerIds, PH
 				continue;
 			filteredPhiRegs.insert(std::make_pair(id, PHIRegData(phiRegs.at(id).phiInst, phiRegs.at(id).incomingRegs, phiRegs.at(id).selfReferencing)));
 		}
-		runOnConnectionGraph(DependencyGraph(filteredPhiRegs, whoToProcess), phiRegs, orderedPHIs);
+		runOnConnectionGraph(DependencyGraph(filteredPhiRegs, whoToProcess), phiRegs, orderedPHIs, /*isRecursiveCall*/true);
 	}
 }
 
-void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs)
+void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph, PHIRegs& phiRegs, llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4>& orderedPHIs, bool isRecursiveCall)
 {
 	//1. Assign trivially assignable phi(eg. has a constant as incoming)
 	//2. Build the dependency graph (phi with register X uses information stored into register Y to compute its value)
@@ -171,6 +171,17 @@ void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph,
 	{
 		assert(!registerIds.empty());
 		sort(registerIds.begin(), registerIds.end());
+
+		//If using stack to resolve temporaries, do it now
+		if (!isRecursiveCall)
+		{
+			std::vector<const PHINode*> toProcessOnStack;
+			for (auto id : registerIds)
+				toProcessOnStack.push_back(phiRegs.at(id).phiInst);
+
+			handlePHIStackGroup(toProcessOnStack);
+		}
+
 		runOnSCC(registerIds, phiRegs, orderedPHIs);
 	}
 }
@@ -182,6 +193,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 	BasicBlock::const_iterator IE=toBB->end();
 	PHIRegs phiRegs;
 	llvm::SmallVector<std::pair<const PHINode*, /*selfReferencing*/bool>, 4> orderedPHIs;
+	std::vector<const PHINode*> toProcessOnStack;
 	for(;I!=IE;++I)
 	{
 		// Gather the dependency graph between registers for PHIs and incoming values
@@ -195,6 +207,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		const Instruction* I=dyn_cast<Instruction>(val);
 		if(!I)
 		{
+			toProcessOnStack.push_back(phi);
 			orderedPHIs.push_back(std::make_pair(phi, /*selfReferencing*/false));
 			continue;
 		}
@@ -275,7 +288,7 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 				addRegisterUse(pair.first);
 			}
 		}
-		runOnConnectionGraph(DependencyGraph(phiRegs), phiRegs, orderedPHIs);
+		runOnConnectionGraph(DependencyGraph(phiRegs), phiRegs, orderedPHIs, /*isRecursiveCall*/false);
 	}
 
 	// Notify the user for each PHI, in the right order to avoid accidental overwriting
@@ -287,6 +300,8 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 		handlePHI(phi, val, orderedPHIs[i-1].second);
 		edgeContext.processAssigment();
 	}
+
+	handlePHIStackGroup(toProcessOnStack);
 	edgeContext.clear();
 }
 
