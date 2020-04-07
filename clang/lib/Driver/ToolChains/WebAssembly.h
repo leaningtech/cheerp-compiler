@@ -148,7 +148,6 @@ public:
   Cheerp(const Driver &D, const llvm::Triple& Triple,
          const llvm::opt::ArgList &Args);
 
-  bool IsUnwindTablesDefault() const override;
   bool isPICDefault() const override;
   bool isPIEDefault() const override;
   bool isPICDefaultForced() const override;
