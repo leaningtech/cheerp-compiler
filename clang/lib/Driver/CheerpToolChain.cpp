@@ -82,10 +82,6 @@ void Cheerp::AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
 		   InstalledDir + "/../include/c++/v1");
 }
 
-bool Cheerp::IsUnwindTablesDefault() const {
-  return false;
-}
-
 bool Cheerp::isPICDefault() const {
   return false;
 }
