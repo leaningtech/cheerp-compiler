@@ -1895,9 +1895,6 @@ private:
 
   /// Apply the value offset to the given constant.
   llvm::Constant *applyOffset(llvm::Constant *C) {
-    if (!hasNonZeroOffset())
-      return C;
-
     uint64_t OffsetVal = Value.getLValueOffset().getQuantity();
 
     llvm::SmallVector<llvm::Constant*, 4> Indexes;
