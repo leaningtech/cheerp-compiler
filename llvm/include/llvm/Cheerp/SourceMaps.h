@@ -24,7 +24,7 @@ namespace cheerp
 class SourceMapGenerator
 {
 private:
-	llvm::tool_output_file sourceMap;
+	llvm::ToolOutputFile sourceMap;
 	const std::string& sourceMapName;
 	const std::string& sourceMapPrefix;
 	std::map<llvm::StringRef, uint32_t> fileMap;
