@@ -1244,11 +1244,11 @@ bool CheerpWasmWriter::needsPointerKindConversion(const Instruction* phi, const 
 
 void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from)
 {
-	class WriterPHIHandler: public PHIHandlerUsingTemp
+	class WriterPHIHandler: public PHIHandlerUsingStack
 	{
 	public:
-		WriterPHIHandler(CheerpWasmWriter& w, WasmBuffer& c)
-			:PHIHandlerUsingTemp(w.PA, w.edgeContext),writer(w), code(c)
+		WriterPHIHandler(CheerpWasmWriter& w, WasmBuffer& c, const BasicBlock* from)
+			:PHIHandlerUsingStack(w.PA),writer(w), code(c), fromBB(from)
 		{
 		}
 		~WriterPHIHandler()
@@ -1257,39 +1257,65 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 	private:
 		CheerpWasmWriter& writer;
 		WasmBuffer& code;
-		void handleRecursivePHIDependency(const Instruction* incoming) override
+		const BasicBlock* fromBB;
+		void handlePHIStackGroup(const std::vector<const llvm::PHINode*>& phiToHandle) override
 		{
-			assert(incoming);
-			uint32_t reg = writer.registerize.getRegisterId(incoming, EdgeContext::emptyContext());
-			uint32_t local = writer.localMap.at(reg);
-			writer.compileGetLocal(code, incoming, local);
-			writer.teeLocals.removeConsumed();
+			std::vector<std::pair<const Value*, std::vector<const llvm::PHINode*>>> toProcessOrdered;
+			std::map<const Value*, std::vector<const llvm::PHINode*>> toProcessMap;
+			for (auto& phi : phiToHandle)
+			{
+				const Value* incoming = phi->getIncomingValueForBlock(fromBB);
+				// We can avoid assignment from the same register if no pointer kind conversion is required
+				if(!writer.needsPointerKindConversion(phi, incoming))
+					continue;
+				// We can leave undefined values undefined
+				if (isa<UndefValue>(incoming))
+					continue;
 
-			reg = writer.registerize.getRegisterId(incoming, edgeContext);
-			local = writer.localMap.at(reg);
-			writer.encodeU32Inst(0x21, "set_local", local, code);
+				if (toProcessMap.count(incoming) == 0)
+					toProcessOrdered.push_back({incoming,{}});
 
-		}
-		void handlePHI(const PHINode* phi, const Value* incoming, bool selfReferencing) override
-		{
-			// We can avoid assignment from the same register if no pointer kind conversion is required
-			if(!writer.needsPointerKindConversion(phi, incoming))
-				return;
-			// We can leave undefined values undefined
-			if (isa<UndefValue>(incoming))
-				return;
+				toProcessMap[incoming].push_back(phi);
+			}
+
 			writer.teeLocals.instructionStart(code);
-			// 1) Put the value on the stack
-			writer.compileOperand(code, incoming);
+
+			//Note that any process order works, as long as it's deterministic
+			//So reordering for leaving on the stack whatever is needed also works
+			for (auto& pair : toProcessOrdered)
+			{
+				// 1) Put the value on the stack
+				writer.compileOperand(code, pair.first);
+				pair.second = std::move(toProcessMap[pair.first]);
+			}
+
 			writer.teeLocals.removeConsumed();
-			// 2) Save the value in the phi
-			uint32_t reg = writer.registerize.getRegisterId(phi, EdgeContext::emptyContext());
-			uint32_t local = writer.localMap.at(reg);
-			writer.teeLocals.addCandidate(incoming, local, code.tellp());
-			writer.encodeU32Inst(0x21, "set_local", local, code);
+
+			while (!toProcessOrdered.empty())
+			{
+				const Value* incoming = toProcessOrdered.back().first;
+				const auto& phiVector  = toProcessOrdered.back().second;
+
+				for (const PHINode* phi : phiVector)
+				{
+					// 2) Save the value in the phi
+					uint32_t reg = writer.registerize.getRegisterId(phi, EdgeContext::emptyContext());
+					uint32_t local = writer.localMap.at(reg);
+					if (phi == phiVector.back())
+					{
+						if (toProcessOrdered.size() == 1)
+							writer.teeLocals.addCandidate(incoming, local, code.tellp());
+						writer.encodeU32Inst(0x21, "set_local", local, code);
+					}
+					else
+						writer.encodeU32Inst(0x22, "tee_local", local, code);
+				}
+				toProcessOrdered.pop_back();
+			}
 		}
 	};
-	WriterPHIHandler(*this, code).runOnEdge(registerize, from, to);
+
+	WriterPHIHandler(*this, code, from).runOnEdge(registerize, from, to);
 }
 
 const char* CheerpWasmWriter::getTypeString(const Type* t)
