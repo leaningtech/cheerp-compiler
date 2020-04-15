@@ -42,9 +42,9 @@ struct CheerpTargetMachine : public LLVMTargetMachine {
                    StringRef CPU, StringRef FS, const TargetOptions &Options,
                    Optional<Reloc::Model> RM, CodeModel::Model CM,
                    CodeGenOpt::Level OL)
-      : LLVMTargetMachine(T, "b-e-p:32:8:8-i1:8:8-i8:8:8-i16:8:8-i32:8:8-"
-                        "i64:8:8-f32:8:8-f64:8:8-"
-                        "a0:0:8-f80:8:8-n8:8:8-S8",
+      : LLVMTargetMachine(T, "b-e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-"
+                        "i64:32:32-f32:32:32-f64:64:64-"
+                        "a:0:32-f16:16:16-f32:32:32-f64:64:64-n8:16:32-S64",
                       TT, CPU, FS, Options, Reloc::PIC_, CM, OL),
         subTargetInfo(*this, T, TT, CPU, FS) { }
   CheerpSubtarget subTargetInfo;
