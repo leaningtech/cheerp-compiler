@@ -71,7 +71,7 @@ static void replaceAllUsesWithFiltered(Value* Old, Value* New,
 
 void FFIWrapping::run()
 {
-	std::unordered_set<const Function*> newImports;
+	DeterministicFunctionSet newImports;
 	for (auto* F: imports)
 	{
 		if (needsWrapping(F))
