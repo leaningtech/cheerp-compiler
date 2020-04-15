@@ -817,7 +817,7 @@ struct PairHash
 	class FFIWrapping {
 	public:
 		FFIWrapping(llvm::Module& M,
-				std::unordered_set<const llvm::Function*>& imports,
+				DeterministicFunctionSet& imports,
 				DeterministicFunctionSet& insideModule,
 				DeterministicFunctionSet& outsideModule)
 				: M(M), imports(imports),
@@ -827,7 +827,7 @@ struct PairHash
 		void run();
 	private:
 		llvm::Module& M;
-		std::unordered_set<const llvm::Function*>& imports;
+		DeterministicFunctionSet& imports;
 		DeterministicFunctionSet& insideModule;
 		DeterministicFunctionSet& outsideModule;
 	};
