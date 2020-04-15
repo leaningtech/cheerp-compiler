@@ -1,5 +1,5 @@
 ; ModuleID = 'pa.cpp'
-target datalayout = "b-e-p:32:8-i16:8-i32:8-i64:8-f32:8-f64:8-a:0:8-f80:8-n8:8:8-S8"
+target datalayout = "b-e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:32-f32:32:32-f64:64:64-a:0:32-f16:16:16-f32:32:32-f64:64:64-n8:16:32-S64"
 target triple = "cheerp--webbrowser"
 
 %struct._Z1A = type { i32, i32, i32 }
