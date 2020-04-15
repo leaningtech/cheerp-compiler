@@ -527,14 +527,21 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	const uint32_t originalRegistersSize = registers.size();
 #endif
 
-	for (const BasicBlock & bb : F)
+	if (F.getSection() == "asmjs" && stackBasedPHIHandling)
 	{
-		const TerminatorInst* term=bb.getTerminator();
-		for(uint32_t i=0;i<term->getNumSuccessors();i++)
+		//Wasm-like stack based handling requires no temporaries
+	}
+	else
+	{
+		for (const BasicBlock & bb : F)
 		{
-			//TODO: improve how thet are assigned
-			const BasicBlock* succBB=term->getSuccessor(i);
-			RegisterizePHIHandler(*this, registers, instIdMap, PA, edgeContext).runOnEdge(*this, &bb, succBB);
+			const TerminatorInst* term=bb.getTerminator();
+			for(uint32_t i=0;i<term->getNumSuccessors();i++)
+			{
+				//TODO: improve how thet are assigned
+				const BasicBlock* succBB=term->getSuccessor(i);
+				RegisterizePHIHandler(*this, registers, instIdMap, PA, edgeContext).runOnEdge(*this, &bb, succBB);
+			}
 		}
 	}
 #ifndef NDEBUG
@@ -3540,9 +3547,9 @@ void Registerize::invalidateLiveRangeForAllocas(const llvm::Function& F)
 	}
 }
 
-ModulePass* createRegisterizePass(bool useFloats)
+ModulePass* createRegisterizePass(bool useFloats, bool stackBasedPHIHandling)
 {
-	return new Registerize(useFloats);
+	return new Registerize(useFloats, stackBasedPHIHandling);
 }
 
 }
