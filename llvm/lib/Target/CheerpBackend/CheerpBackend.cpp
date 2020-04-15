@@ -233,7 +233,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(createGEPOptimizerPass());
-  PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround));
+  PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, outputMode == Wasm));
   PM.add(createAllocaLoweringPass());
   if (!CheerpNoICF)
     PM.add(cheerp::createIdenticalCodeFoldingPass());
