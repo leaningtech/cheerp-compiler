@@ -85,12 +85,12 @@ public:
 	/**
 	 * Get a list of the asm.js functions called from genericjs
 	 */
-	const std::unordered_set<const llvm::Function*> & asmJSExports() const { return asmJSExportedFuncions; }
+	const DeterministicFunctionSet & asmJSExports() const { return asmJSExportedFuncions; }
 
 	/**
 	 * Get a list of the genericjs functions called from asm.js
 	 */
-	const std::unordered_set<const llvm::Function*> & asmJSImports() const { return asmJSImportedFuncions; }
+	const DeterministicFunctionSet & asmJSImports() const { return asmJSImportedFuncions; }
 
 	/**
 	 * Get a list of functions to compile outside of the asm.js/wasm module
@@ -245,8 +245,8 @@ private:
 	std::unordered_set<llvm::StructType* > classesNeeded;
 	std::unordered_set<llvm::Type* > arraysNeeded;
 	std::unordered_set<llvm::Type* > arrayResizesNeeded;
-	std::unordered_set<const llvm::Function* > asmJSExportedFuncions;
-	std::unordered_set<const llvm::Function* > asmJSImportedFuncions;
+	DeterministicFunctionSet asmJSExportedFuncions;
+	DeterministicFunctionSet asmJSImportedFuncions;
 	DeterministicFunctionSet functionsInsideModule;
 	DeterministicFunctionSet functionsOutsideModule;
 	std::vector< llvm::Function* > constructorsNeeded;
