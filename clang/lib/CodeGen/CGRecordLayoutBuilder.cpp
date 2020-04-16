@@ -643,6 +643,13 @@ void CGRecordLowering::clipTailPadding() {
 void CGRecordLowering::determinePacked(bool NVBaseType) {
   if (Packed)
     return;
+
+  // Cheerp: genericjs structs are implicitly packed (BL excluded)
+  if (D->hasAttr<GenericJSAttr>() && !D->isByteLayout()) {
+    Packed = true;
+    return;
+  }
+
   CharUnits Alignment = CharUnits::One();
   CharUnits NVAlignment = CharUnits::One();
   CharUnits NVSize =
