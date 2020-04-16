@@ -1233,13 +1233,18 @@ void CheerpWasmWriter::encodeWasmIntrinsic(WasmBuffer& code, const llvm::Functio
 			code);
 }
 
-bool CheerpWasmWriter::needsPointerKindConversion(const Instruction* phi, const Value* incoming)
+//Return whether explicit assigment to the phi is needed
+//Also insert the relevant instruction into getLocalDone when needed
+bool CheerpWasmWriter::requiresExplicitAssigment(const Instruction* phi, const Value* incoming)
 {
 	const Instruction* incomingInst=getUniqueIncomingInst(incoming, PA);
 	if(!incomingInst)
 		return true;
 	assert(!isInlineable(*incomingInst));
-	return registerize.getRegisterId(phi, EdgeContext::emptyContext())!=registerize.getRegisterId(incomingInst, edgeContext);
+	const bool isSameRegister = (registerize.getRegisterId(phi, EdgeContext::emptyContext())==registerize.getRegisterId(incomingInst, edgeContext));
+	if (isSameRegister)
+		getLocalDone.insert(incomingInst);
+	return !isSameRegister;
 }
 
 void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from)
@@ -1266,7 +1271,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 			{
 				const Value* incoming = phi->getIncomingValueForBlock(fromBB);
 				// We can avoid assignment from the same register if no pointer kind conversion is required
-				if(!writer.needsPointerKindConversion(phi, incoming))
+				if(!writer.requiresExplicitAssigment(phi, incoming))
 					continue;
 				// We can leave undefined values undefined
 				if (isa<UndefValue>(incoming))
@@ -1304,7 +1309,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 					if (phi == phiVector.back())
 					{
 						if (toProcessOrdered.size() == 1)
-							writer.teeLocals.addCandidate(incoming, local, code.tellp());
+							writer.teeLocals.addCandidate(incoming, /*isInstructionAssigment*/false, local, code.tellp());
 						writer.encodeU32Inst(0x21, "set_local", local, code);
 					}
 					else
@@ -1617,6 +1622,7 @@ void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction
 	}
 	uint32_t idx = registerize.getRegisterId(I, edgeContext);
 	uint32_t localId = localMap.at(idx);
+	getLocalDone.insert(I);
 	encodeU32Inst(0x20, "get_local", localId, code);
 }
 
@@ -2862,7 +2868,7 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 				} else {
 					uint32_t reg = registerize.getRegisterId(&*I, edgeContext);
 					uint32_t local = localMap.at(reg);
-					teeLocals.addCandidate(&*I, local, code.tellp());
+					teeLocals.addCandidate(&*I, /*isInstructionAssigment*/true, local, code.tellp());
 					encodeU32Inst(0x21, "set_local", local, code);
 				}
 			}
@@ -3357,6 +3363,14 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 			lastDepth0Block = compileTokens(code, CN.Tokens);
 		}
 	}
+
+	if (!useCfgLegacy)
+	{
+		checkImplicitedAssignedPhi(F);
+		generateNOP(code);
+	}
+
+	getLocalDone.clear();
 	teeLocals.clear();
 
 	// A function has to terminate with a return value when the return type is
@@ -3387,6 +3401,33 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	} else {
 		assert(mode == CheerpWasmWriter::WAST);
 		code << ")\n";
+	}
+}
+
+//The call to requiresExplicitAssigment has the side effect of perfomring bookkeeping on the implicited assigned instructions
+void CheerpWasmWriter::checkImplicitedAssignedPhi(const llvm::Function& F)
+{
+	for (const BasicBlock& BB : F)
+	{
+		for (const Instruction& I : BB)
+		{
+			if (!isa<PHINode>(I))
+				break;
+			const PHINode& phi = cast<PHINode>(I);
+			for (uint32_t index = 0; index < phi.getNumIncomingValues(); index++)
+				requiresExplicitAssigment(&phi, phi.getIncomingValue(index));
+		}
+	}
+}
+
+void CheerpWasmWriter::generateNOP(WasmBuffer& code)
+{
+	for (const TeeLocals::LocalInserted& localInserted : teeLocals.getLocalInserted())
+	{
+		const Instruction* I = localInserted.I;
+		if (getLocalDone.count(I))
+			continue;
+		putNOP(code, localInserted.localId, localInserted.bufferOffset, teeLocals.isValueUsed(I));
 	}
 }
 
