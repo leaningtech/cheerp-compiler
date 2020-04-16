@@ -189,7 +189,8 @@ public:
     HalfAlign = 16;
     FloatAlign = 32;
     DoubleAlign = 64;
-    LongDoubleAlign = 64;
+    LongDoubleWidth = LongDoubleAlign = 64;
+    LongDoubleFormat = &llvm::APFloat::IEEEdouble();
     SizeType = UnsignedInt;
 
     // Use 32-bit integers for two separated bit fields.
