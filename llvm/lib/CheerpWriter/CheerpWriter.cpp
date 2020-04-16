@@ -1485,7 +1485,6 @@ void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Pr
 void CheerpWriter::compileEqualPointersComparison(const llvm::Value* lhs, const llvm::Value* rhs, CmpInst::Predicate p)
 {
 	StringRef compareString;
-	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	StringRef joinString;
 	joinString = (p == CmpInst::ICMP_NE) ? "||" : "&&";
 
