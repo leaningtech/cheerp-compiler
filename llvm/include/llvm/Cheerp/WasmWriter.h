@@ -20,6 +20,7 @@
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/TokenList.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/DebugInfo.h"
@@ -97,16 +98,29 @@ private:
 		struct TeeLocalCandidate
 		{
 			const llvm::Value* v;
+			bool isInstructionAssigment;
 			uint32_t localId;
 			uint32_t bufferOffset;
 			bool used;
-			TeeLocalCandidate(const llvm::Value* v, uint32_t l, uint32_t o):v(v),localId(l),bufferOffset(o),used(false)
+			TeeLocalCandidate(const llvm::Value* v, bool isInstructionAssigment, uint32_t l, uint32_t o) :
+				v(v),isInstructionAssigment(isInstructionAssigment),localId(l),bufferOffset(o),used(false)
 			{
 			}
 		};
 		typedef std::vector<TeeLocalCandidate> TeeLocalCandidatesVector;
 		std::vector<TeeLocalCandidatesVector> teeLocalCandidatesStack;
 
+	public:
+		struct LocalInserted
+		{
+			const llvm::Instruction* I;
+			uint32_t localId;
+			uint32_t bufferOffset;
+		};
+
+	private:
+		std::vector<LocalInserted> localInserted;
+		llvm::DenseSet<const llvm::Instruction*> valueUsed;
 		// Last point on the buffer where there was nothing on top of the stack
 		uint32_t instStartPos{0};
 	public:
@@ -144,14 +158,27 @@ private:
 					it->used = true;
 					bufferOffset = it->bufferOffset;
 					localId = it->localId;
+					if (it->isInstructionAssigment)
+					{
+						//We could safely remove a tee_local only if it comes from an Instruction assigment
+						//(the other case being setting incoming into a phi, and that could not be removed)
+						const llvm::Instruction* I = llvm::cast<llvm::Instruction>(v);
+						localInserted.push_back({I, localId, bufferOffset});
+						valueUsed.insert(I);
+					}
 					return true;
 				}
 			}
 			return false;
 		}
-		void addCandidate(const llvm::Value* v, const uint32_t local, const uint32_t offset)
+		void addCandidate(const llvm::Value* v, bool isInstructionAssigment, const uint32_t local, const uint32_t offset)
 		{
-			teeLocalCandidatesStack.back().emplace_back(v, local, offset);
+			teeLocalCandidatesStack.back().emplace_back(v, isInstructionAssigment, local, offset);
+			if (isInstructionAssigment)
+			{
+				const llvm::Instruction* I = llvm::cast<llvm::Instruction>(v);
+				localInserted.push_back({I, local, offset});
+			}
 		}
 		void removeConsumed()
 		{
@@ -181,17 +208,29 @@ private:
 			assert(teeLocalCandidatesStack.empty());
 			addIndentation();
 		}
+		const std::vector<LocalInserted>& getLocalInserted()
+		{
+			return localInserted;
+		}
+		bool isValueUsed(const llvm::Instruction* I)
+		{
+			return valueUsed.count(I);
+		}
 		void clear()
 		{
 			//There should be only the last layer when we call clear
 			decreaseIndentation();
 			assert(teeLocalCandidatesStack.empty());
+			localInserted.clear();
+			valueUsed.clear();
 		}
 		void instructionStart(WasmBuffer& code)
 		{
 			instStartPos = code.tellp();
 		}
 	};
+
+	llvm::DenseSet<const llvm::Instruction*> getLocalDone;
 
 	// Whether to enable shared memory
 	bool sharedMemory;
@@ -207,6 +246,25 @@ public:
 	const PointerAnalyzer & PA;
 	OutputMode mode;
 
+	void checkImplicitedAssignedPhi(const llvm::Function& F);
+	void generateNOP(WasmBuffer& code);
+	void putNOP(WasmBuffer& code, uint32_t localId, uint32_t bufferOffset, bool isValueUsed)
+	{
+		if (mode != CheerpWasmWriter::WASM)
+			return;
+		const uint32_t old = code.tellp();
+		code.seekp(bufferOffset);
+		encodeU32Inst(0x22, "tee_local", localId, code);
+		const uint32_t currOffset = code.tellp();
+		code.seekp(bufferOffset);
+		if (!isValueUsed)
+			code << (char)0x1A; //DROP the value
+		while (code.tellp() != currOffset)
+		{
+			code << (char)0x1; //NOP!
+		}
+		code.seekp(old);
+	}
 	//IFF returns true, it has modified the buffer so to obtain an extra value on the stack
 	bool hasPutTeeLocalOnStack(WasmBuffer& code, const llvm::Value* v)
 	{
@@ -369,7 +427,7 @@ public:
 	uint32_t encodeDataSectionChunks(WasmBuffer& data, uint32_t address, const std::string& buf);
 	void compileFloatToText(WasmBuffer& code, const llvm::APFloat& f, uint32_t precision);
 	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantAsGlobal(const llvm::Constant* C, uint32_t useCount, uint32_t getGlobalCost);
-	bool needsPointerKindConversion(const llvm::Instruction* phi, const llvm::Value* incoming);
+	bool requiresExplicitAssigment(const llvm::Instruction* phi, const llvm::Value* incoming);
 	void compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const llvm::BasicBlock* to, const llvm::BasicBlock* from);
 	bool isInlineable(const llvm::Instruction& I) const
 	{
