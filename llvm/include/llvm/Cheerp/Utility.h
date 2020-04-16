@@ -692,7 +692,12 @@ struct demangler_iterator : std::iterator<
 
 	explicit demangler_iterator( llvm::StringRef i ) : tokenSize(0),isNested(false),hasFailed(false)
 	{
-		if ( i.startswith("_ZN") )
+		if ( i.startswith("_ZNK") )
+		{
+			isNested = true;
+			input = i.drop_front(4);
+		}
+		else if ( i.startswith("_ZN") )
 		{
 			isNested = true;
 			input = i.drop_front(3);
