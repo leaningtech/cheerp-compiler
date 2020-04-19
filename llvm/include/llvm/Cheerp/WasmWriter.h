@@ -107,8 +107,21 @@ private:
 			{
 			}
 		};
+
 		typedef std::vector<TeeLocalCandidate> TeeLocalCandidatesVector;
-		std::vector<TeeLocalCandidatesVector> teeLocalCandidatesStack;
+		struct TeeLocalStack
+		{
+			TeeLocalCandidatesVector stack;
+			// Last point on the buffer where there was nothing on top of the stack
+			uint32_t instStartPos;
+			TeeLocalStack(TeeLocalCandidatesVector&& vector, uint32_t instStartPos) : stack(std::move(vector)), instStartPos(instStartPos)
+			{
+			}
+			TeeLocalStack() : stack(), instStartPos(0)
+			{
+			}
+		};
+		std::deque<TeeLocalStack> teeLocalCandidatesStack;
 
 	public:
 		struct LocalInserted
@@ -121,8 +134,6 @@ private:
 	private:
 		std::vector<LocalInserted> localInserted;
 		llvm::DenseSet<const llvm::Instruction*> valueUsed;
-		// Last point on the buffer where there was nothing on top of the stack
-		uint32_t instStartPos{0};
 	public:
 		TeeLocals()
 		{
@@ -130,7 +141,7 @@ private:
 		uint32_t findDepth(const llvm::Value* v) const
 		{
 			uint32_t c = 0;
-			const TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back();
+			const TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back().stack;
 			for(auto it = teeLocalCandidates.rbegin(); it != teeLocalCandidates.rend(); ++it)
 			{
 				++c;
@@ -144,11 +155,11 @@ private:
 		}
 		bool couldPutTeeLocalOnStack(const llvm::Value* v, const uint32_t currOffset, uint32_t& bufferOffset, uint32_t& localId)
 		{
-			if(currOffset != instStartPos)
+			if(currOffset != teeLocalCandidatesStack.back().instStartPos)
 				return false;
 
 			// Search for candidates
-			TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back();
+			TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back().stack;
 			for(auto it = teeLocalCandidates.rbegin(); it != teeLocalCandidates.rend(); ++it)
 			{
 				if(it->used)
@@ -173,7 +184,7 @@ private:
 		}
 		void addCandidate(const llvm::Value* v, bool isInstructionAssigment, const uint32_t local, const uint32_t offset)
 		{
-			teeLocalCandidatesStack.back().emplace_back(v, isInstructionAssigment, local, offset);
+			teeLocalCandidatesStack.back().stack.emplace_back(v, isInstructionAssigment, local, offset);
 			if (isInstructionAssigment)
 			{
 				const llvm::Instruction* I = llvm::cast<llvm::Instruction>(v);
@@ -183,7 +194,7 @@ private:
 		void removeConsumed()
 		{
 			// Remove consumed tee local candidates
-			TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back();
+			TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back().stack;
 			auto firstUsedIt = std::find_if(teeLocalCandidates.begin(), teeLocalCandidates.end(), [](const TeeLocalCandidate& c) { return c.used; });
 			teeLocalCandidates.erase(firstUsedIt, teeLocalCandidates.end());
 		}
@@ -226,7 +237,7 @@ private:
 		}
 		void instructionStart(WasmBuffer& code)
 		{
-			instStartPos = code.tellp();
+			teeLocalCandidatesStack.back().instStartPos = code.tellp();
 		}
 	};
 
