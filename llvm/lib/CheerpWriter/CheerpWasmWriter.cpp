@@ -1311,6 +1311,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				toProcessMap[incoming].push_back(phi);
 			}
 
+			//TODO: remove me
 			writer.teeLocals.instructionStart(code);
 
 			//Note that any process order works, as long as it's deterministic
@@ -1345,6 +1346,7 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				}
 				toProcessOrdered.pop_back();
 			}
+			writer.teeLocals.instructionStart(code);
 		}
 	};
 
@@ -1984,7 +1986,6 @@ void CheerpWasmWriter::compileLoad(WasmBuffer& code, const LoadInst& li, bool si
 
 bool CheerpWasmWriter::compileInstruction(WasmBuffer& code, const Instruction& I)
 {
-	teeLocals.instructionStart(code);
 	switch(I.getOpcode())
 	{
 		case Instruction::GetElementPtr:
@@ -2849,7 +2850,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 
 void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::Instruction& I)
 {
+	const bool needsSubStack = teeLocals.needsSubStack(code);
+
+	assert(needsSubStack == false);
+
+	if (needsSubStack)
+		teeLocals.addIndentation(code);
+
 	const bool ret = compileInstruction(code, I);
+
+	if (needsSubStack)
+		teeLocals.decreaseIndentation(code);
 
 	teeLocals.removeConsumed();
 
@@ -2864,6 +2875,8 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 			encodeU32Inst(0x21, "set_local", local, code);
 		}
 	}
+
+	teeLocals.instructionStart(code);
 }
 
 void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
@@ -3179,7 +3192,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			}
 			case Token::TK_Loop:
 			{
-				teeLocals.addIndentation();
+				teeLocals.addIndentation(code);
 				indent();
 				encodeU32Inst(0x03, "loop", 0x40, code);
 				ScopeStack.push_back(&T);
@@ -3187,7 +3200,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			}
 			case Token::TK_Block:
 			{
-				teeLocals.addIndentation();
+				teeLocals.addIndentation(code);
 				indent();
 				encodeU32Inst(0x02, "block", 0x40, code);
 				ScopeStack.emplace_back(&T);
@@ -3209,7 +3222,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				assert(bi->isConditional());
 				compileCondition(code, bi->getCondition(), IfNot);
 				const int Depth = getDepth(T.getMatch());
-				teeLocals.clearTopmostCandidates(Depth+1);
+				teeLocals.clearTopmostCandidates(code, Depth+1);
 				encodeU32Inst(0x0d, "br_if", Depth, code);
 				break;
 			}
@@ -3221,7 +3234,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				const BranchInst* bi=cast<BranchInst>(T.getBB()->getTerminator());
 				assert(bi->isConditional());
 				compileCondition(code, bi->getCondition(), IfNot);
-				teeLocals.addIndentation();
+				teeLocals.addIndentation(code);
 				indent();
 				encodeU32Inst(0x04, "if", 0x40, code);
 				ScopeStack.push_back(&T);
@@ -3229,7 +3242,8 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			}
 			case Token::TK_Else:
 			{
-				teeLocals.clearTopmostCandidates();	//Close If + Open Else bracket
+				teeLocals.decreaseIndentation(code);
+				teeLocals.addIndentation(code);
 				indent();
 				encodeInst(0x05, "else", code);
 				break;
@@ -3237,13 +3251,13 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			case Token::TK_Branch:
 			{
 				const int Depth = getDepth(T.getMatch());
-				teeLocals.clearTopmostCandidates(Depth+1);
+				teeLocals.clearTopmostCandidates(code, Depth+1);
 				encodeU32Inst(0x0c, "br", Depth, code);
 				break;
 			}
 			case Token::TK_End:
 			{
-				teeLocals.decreaseIndentation();
+				teeLocals.decreaseIndentation(code);
 				ScopeStack.pop_back();
 				indent();
 				encodeInst(0x0b, "end", code);
@@ -3368,7 +3382,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 
 	compileMethodLocals(code, locals);
 
-	teeLocals.performInitialization();
+	teeLocals.performInitialization(code);
 
 	if (F.size() == 1)
 	{
@@ -3404,7 +3418,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	}
 
 	getLocalDone.clear();
-	teeLocals.clear();
+	teeLocals.clear(code);
 
 	// A function has to terminate with a return value when the return type is
 	// not void.
