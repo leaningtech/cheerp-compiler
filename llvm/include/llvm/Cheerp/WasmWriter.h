@@ -155,7 +155,7 @@ private:
 		}
 		bool couldPutTeeLocalOnStack(const llvm::Value* v, const uint32_t currOffset, uint32_t& bufferOffset, uint32_t& localId)
 		{
-			if(currOffset != teeLocalCandidatesStack.back().instStartPos)
+			if(teeLocalCandidatesStack.empty() || currOffset != teeLocalCandidatesStack.back().instStartPos)
 				return false;
 
 			// Search for candidates
@@ -198,26 +198,29 @@ private:
 			auto firstUsedIt = std::find_if(teeLocalCandidates.begin(), teeLocalCandidates.end(), [](const TeeLocalCandidate& c) { return c.used; });
 			teeLocalCandidates.erase(firstUsedIt, teeLocalCandidates.end());
 		}
-		void addIndentation()
+		void addIndentation(WasmBuffer& code)
 		{
 			teeLocalCandidatesStack.emplace_back();
+			instructionStart(code);
 		}
-		void decreaseIndentation()
+		void decreaseIndentation(WasmBuffer& code, bool performCheck = true)
 		{
+			if (performCheck)
+				assert(teeLocalCandidatesStack.back().instStartPos == code.tellp());
 			teeLocalCandidatesStack.pop_back();
 		}
-		void clearTopmostCandidates(const uint32_t depth = 1)
+		void clearTopmostCandidates(WasmBuffer& code, const uint32_t depth)
 		{
 			for (uint32_t d=0; d<depth; d++)
-				decreaseIndentation();
+				decreaseIndentation(code, /*performCheck*/false);
 			for (uint32_t d=0; d<depth; d++)
-				addIndentation();
+				addIndentation(code);
 		}
-		void performInitialization()
+		void performInitialization(WasmBuffer& code)
 		{
 			//There should be no layers when in the initial state
 			assert(teeLocalCandidatesStack.empty());
-			addIndentation();
+			addIndentation(code);
 		}
 		const std::vector<LocalInserted>& getLocalInserted()
 		{
@@ -227,10 +230,10 @@ private:
 		{
 			return valueUsed.count(I);
 		}
-		void clear()
+		void clear(WasmBuffer& code)
 		{
 			//There should be only the last layer when we call clear
-			decreaseIndentation();
+			decreaseIndentation(code, /*performCheck*/false);
 			assert(teeLocalCandidatesStack.empty());
 			localInserted.clear();
 			valueUsed.clear();
@@ -238,6 +241,11 @@ private:
 		void instructionStart(WasmBuffer& code)
 		{
 			teeLocalCandidatesStack.back().instStartPos = code.tellp();
+		}
+		bool needsSubStack(WasmBuffer& code) const
+		{
+			const uint32_t pos = teeLocalCandidatesStack.back().instStartPos;
+			return pos != 0 && pos != code.tellp();
 		}
 	};
 
