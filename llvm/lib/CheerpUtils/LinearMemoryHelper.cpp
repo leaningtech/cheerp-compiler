@@ -35,11 +35,28 @@ void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, B
 		for (uint32_t i = 0; i < size; i++)
 			listener->addByte(0);
 	}
-	else if(isa<ConstantArray>(c) || isa<ConstantStruct>(c))
+	else if(isa<ConstantArray>(c))
 	{
 		assert(offset==0);
 		for(uint32_t i=0;i<c->getNumOperands();i++)
 			compileConstantAsBytes(cast<Constant>(c->getOperand(i)), asmjs, listener);
+	}
+	else if(const ConstantStruct* CS = dyn_cast<ConstantStruct>(c))
+	{
+		assert(offset==0);
+		int64_t currentOffset = 0;
+		StructType* ST = CS->getType();
+		for(int64_t i=0;i<c->getNumOperands();i++)
+		{
+			const StructLayout* SL = targetData.getStructLayout( ST );
+			int64_t elementOffset =  SL->getElementOffset(i);
+			Type* elementType =  ST->getElementType(i);
+			int64_t elementSize = targetData.getTypeAllocSize(elementType);
+			for (int64_t p = currentOffset; p < elementOffset; ++p)
+				listener->addByte(0);
+			currentOffset = elementOffset + elementSize;
+			compileConstantAsBytes(cast<Constant>(c->getOperand(i)), asmjs, listener);
+		}
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
