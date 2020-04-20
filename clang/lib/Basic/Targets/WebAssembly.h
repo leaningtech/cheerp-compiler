@@ -176,7 +176,7 @@ private:
 public:
   CheerpTargetInfo(const llvm::Triple &triple) : TargetInfo(triple) {
     resetDataLayout("b-e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-"
-                        "i64:32:32-f32:32:32-f64:64:64-"
+                        "i64:64:64-f32:32:32-f64:64:64-"
                         "a:0:32-f16:16:16-f32:32:32-f64:64:64-n8:16:32-S64");
     BigEndian = false;
     ByteAddressable = false;
@@ -184,7 +184,7 @@ public:
     ShortAlign = 16;
     IntAlign = 32;
     LongAlign = 32;
-    LongLongAlign = 32;
+    LongLongAlign = 64;
     SuitableAlign = 64;
     HalfAlign = 16;
     FloatAlign = 32;
