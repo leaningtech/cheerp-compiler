@@ -712,12 +712,27 @@ void CGRecordLowering::fillOutputFields() {
                                                MemberEnd = Members.end();
        Member != MemberEnd; ++Member) {
     if (!Types.getTarget().isByteAddressable() && Member->Offset.isZero() &&
-		(Member->Kind == MemberInfo::Base ||
+                (Member->Kind == MemberInfo::Base ||
                 (Member->Kind == MemberInfo::Field && Member->FD && Member->FD->getType()->isStructureOrClassType() && !D->isUnion())))
     {
       assert(isa<llvm::StructType>(Member->Data));
       llvm::StructType* ST = cast<llvm::StructType>(Member->Data);
-      FieldTypes.insert(FieldTypes.end(), ST->element_begin(), ST->element_end());
+      CharUnits Offset = CharUnits::Zero();
+      for (auto* el: ST->elements())
+      {
+        // Insert explicit padding where needed.
+        // This is technically only required if the llvm type for the derived class
+        // ends up packed, but we do it regardless. If the base is packed we don't
+        // insert the padding
+        if (!ST->isPacked())
+        {
+          CharUnits Size = Offset.alignTo(getAlignment(el));
+          appendPaddingBytes(Size - Offset);
+          Offset = Size;
+        }
+        FieldTypes.push_back(el);
+        Offset += getSize(el);
+      }
       DirectBase = ST;
       if (Member->Kind == MemberInfo::Base)
         DirectBaseLayout = &Types.getCGRecordLayout(Member->RD);
