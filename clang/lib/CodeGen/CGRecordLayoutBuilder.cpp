@@ -659,6 +659,17 @@ void CGRecordLowering::determinePacked(bool NVBaseType) {
        Member != MemberEnd; ++Member) {
     if (!Member->Data)
       continue;
+    // Cheerp: If we are embedding the fields of the direct base into the derived
+    // class, we need to propagate the Packed attribute if present
+    if (!Types.getTarget().isByteAddressable() && Member->Offset.isZero() &&
+                (Member->Kind == MemberInfo::Base ||
+                (Member->Kind == MemberInfo::Field && Member->FD && Member->FD->getType()->isStructureOrClassType() && !D->isUnion())))
+    {
+      assert(isa<llvm::StructType>(Member->Data));
+      llvm::StructType* ST = cast<llvm::StructType>(Member->Data);
+      if (ST->isPacked())
+        Packed = true;
+    }
     // If any member falls at an offset that it not a multiple of its alignment,
     // then the entire record must be packed.
     if (Member->Offset % getAlignment(Member->Data))
