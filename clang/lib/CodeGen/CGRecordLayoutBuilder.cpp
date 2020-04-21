@@ -337,8 +337,8 @@ void CGRecordLowering::lowerUnion() {
       continue;
     // Conditionally update our storage type if we've got a new "better" one.
     if (!StorageType ||
-        getAlignment(FieldType) >  getAlignment(StorageType) ||
-        (getAlignment(FieldType) == getAlignment(StorageType) &&
+        (Types.getTarget().isByteAddressable() && getAlignment(FieldType) >  getAlignment(StorageType)) ||
+        ((!Types.getTarget().isByteAddressable() || getAlignment(FieldType) == getAlignment(StorageType)) &&
         getSize(FieldType) > getSize(StorageType)))
       StorageType = FieldType;
   }
