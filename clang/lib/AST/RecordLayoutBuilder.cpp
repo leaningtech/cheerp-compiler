@@ -1643,8 +1643,8 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   unsigned FieldAlign = FieldInfo.Align;
   bool AlignIsRequired = FieldInfo.isAlignRequired();
   bool byteAddressable = Context.getTargetInfo().isByteAddressable();
-  // We always allocate 32-bit units for bitfields
-  if(!byteAddressable) {
+  // We always allocate at least 32-bit units for bitfields
+  if(!byteAddressable && TypeSize <= 32) {
     TypeSize = 32;
     FieldAlign = 32;
   }
