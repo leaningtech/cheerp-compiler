@@ -194,7 +194,7 @@ public:
     SizeType = UnsignedInt;
 
     // Use 32-bit integers for two separated bit fields.
-    UseBitFieldTypeAlignment = false;
+    UseBitFieldTypeAlignment = true;
     UseZeroLengthBitfieldAlignment = true;
     ZeroLengthBitfieldBoundary = 32;
 
