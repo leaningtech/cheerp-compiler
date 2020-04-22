@@ -7809,11 +7809,11 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
       Diag(D->getLocStart(), diag::err_attributes_are_not_compatible)
         << (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'")
         << D->getAttr<JsExportAttr>();
-    else if (D->hasAttr<PackedAttr>())
+    else if (D->hasAttr<PackedAttr>() && (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs))
       Diag(D->getLocStart(), diag::err_attributes_are_not_compatible)
-        << (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'")
+        << "'asmjs'"
         << D->getAttr<PackedAttr>();
-      D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::CXX11_cheerp_asmjs));
+    D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::CXX11_cheerp_asmjs));
   } else if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
       D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::CXX11_cheerp_genericjs));
   }
