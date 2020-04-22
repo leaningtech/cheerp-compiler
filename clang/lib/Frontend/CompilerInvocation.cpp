@@ -2579,7 +2579,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     if (s == LangOptions::CHEERP_LINEAR_OUTPUT_Invalid)
     {
       Diags.Report(diag::err_drv_invalid_value)
-      << CheerpMode->getAsString(Args) << CheerpLinearOutput->getValue();
+      << CheerpLinearOutput->getAsString(Args) << CheerpLinearOutput->getValue();
     }
   }
   if (const Arg *A = Args.getLastArg(OPT_cheerp_wasm_anyref)) {
