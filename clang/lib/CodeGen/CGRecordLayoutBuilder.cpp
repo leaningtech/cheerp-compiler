@@ -473,7 +473,8 @@ CGRecordLowering::accumulateBitFields(RecordDecl::field_iterator Field,
         (!Field->isZeroLengthBitField(Context) ||
          (!Context.getTargetInfo().useZeroLengthBitfieldAlignment() &&
           !Context.getTargetInfo().useBitFieldTypeAlignment())) &&
-        Tail == getFieldBitOffset(*Field)) {
+        Tail == getFieldBitOffset(*Field) &&
+        (Types.getTarget().isByteAddressable() || Tail % 32 != 0)) {
       Tail += Field->getBitWidthValue(Context);
       ++Field;
       continue;
