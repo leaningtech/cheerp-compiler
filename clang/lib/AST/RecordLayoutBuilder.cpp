@@ -1642,6 +1642,12 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   uint64_t StorageUnitSize = FieldInfo.Width;
   unsigned FieldAlign = FieldInfo.Align;
   bool AlignIsRequired = FieldInfo.isAlignRequired();
+  bool byteAddressable = Context.getTargetInfo().isByteAddressable();
+  // We always allocate 32-bit units for bitfields
+  if(!byteAddressable) {
+    TypeSize = 32;
+    FieldAlign = 32;
+  }
 
   // UnfilledBitsInLastUnit is the difference between the end of the
   // last allocated bitfield (i.e. the first bit offset available for
@@ -1742,6 +1748,14 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
     }
   }
 
+  //Cheerp: We must fit inside the unfilled space, otherwise we need to allocate a new slot
+  // If it is safe for msstruct to wipe out these fields, it is also safe for us
+  if (!byteAddressable && FieldSize > UnfilledBitsInLastUnit)
+  {
+      UnfilledBitsInLastUnit = 0;
+      LastBitfieldTypeSize = 0;
+  }
+
   // If the field is wider than its declared type, it follows
   // different rules in all cases, except on AIX.
   // On AIX, wide bitfield follows the same rules as normal bitfield.
@@ -1833,7 +1847,11 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
     bool AllowPadding = MaxFieldAlignment.isZero();
 
     // Compute the real offset.
-    if (FieldSize == 0 ||
+    if (FieldSize == 0 || 
+        // This check normally deals both with re-using bitfields and re-using extra space for bitfields
+        // Cheerp: Only allow to skip alignment (and merge bitfields) if there is sufficient space in the last unit
+        // checked above
+        (!byteAddressable && UnfilledBitsInLastUnit == 0) ||
         (AllowPadding &&
          (FieldOffset & (FieldAlign - 1)) + FieldSize > StorageUnitSize)) {
       FieldOffset = llvm::alignTo(FieldOffset, FieldAlign);
@@ -1866,13 +1884,6 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   if (UseExternalLayout)
     FieldOffset = updateExternalFieldOffset(D, FieldOffset);
 
-  //Cheerp: We must fit inside the unfilled space, otherwise we need to allocate a new slot
-  bool byteAddressable = Context.getTargetInfo().isByteAddressable();
-  if (!byteAddressable && FieldSize > UnfilledBitsInLastUnit)
-  {
-    FieldOffset += UnfilledBitsInLastUnit;
-    UnfilledBitsInLastUnit = 0;
-  }
   // Okay, place the bitfield at the calculated offset.
   FieldOffsets.push_back(FieldOffset);
 
