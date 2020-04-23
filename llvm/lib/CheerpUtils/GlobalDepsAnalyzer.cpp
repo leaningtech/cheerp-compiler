@@ -523,15 +523,14 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			{
 				// The symbol is still used around, so keep it but make it empty
 				ffree->deleteBody();
-				// If the address is taken, keep a body but just put
-				// and unreachable in it
 				Function* jsfree = module.getFunction("__genericjs__free");
-				bool freeTaken = ffree->hasAddressTaken() || (jsfree && jsfree->hasAddressTaken());
-				if (freeTaken)
+				// For jsfree, keep an empty body (could still be called if we don't run lto)
+				if (jsfree)
 				{
-					BasicBlock* Entry = BasicBlock::Create(module.getContext(),"entry", ffree);
+					jsfree->deleteBody();
+					BasicBlock* Entry = BasicBlock::Create(module.getContext(),"entry", jsfree);
 					IRBuilder<> Builder(Entry);
-					Builder.CreateUnreachable();
+					Builder.CreateRetVoid();
 				}
 			}
 			else
@@ -539,11 +538,11 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				hasAsmJS = true;
 				asmJSExportedFuncions.insert(ffree);
 				externals.push_back(ffree);
+				// Visit free and friends
+				enqueueFunction(ffree);
+				processEnqueuedFunctions();
+				reachableGlobals.insert(ffree);
 			}
-			// Visit free and friends
-			enqueueFunction(ffree);
-			processEnqueuedFunctions();
-			reachableGlobals.insert(ffree);
 		}
 	}
 
