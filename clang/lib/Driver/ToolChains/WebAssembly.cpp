@@ -453,14 +453,16 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-wasm-exported-table");
 
   CmdArgs.push_back("-GlobalDepsAnalyzer");
-  if(!Args.hasArg(options::OPT_cheerp_no_type_optimizer))
-    CmdArgs.push_back("-TypeOptimizer");
+  CmdArgs.push_back("-TypeOptimizer");
   CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
-  CmdArgs.push_back("-FreeAndDeleteRemoval");
-  CmdArgs.push_back("-cheerp-lto");
-  CmdArgs.push_back("-Os");
-  // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
-  CmdArgs.push_back("-simplifycfg");
+  if(!Args.hasArg(options::OPT_cheerp_no_lto))
+  {
+    CmdArgs.push_back("-FreeAndDeleteRemoval");
+    CmdArgs.push_back("-cheerp-lto");
+    CmdArgs.push_back("-Os");
+    // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
+    CmdArgs.push_back("-simplifycfg");
+  }
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 

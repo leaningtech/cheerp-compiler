@@ -3594,17 +3594,10 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       // First link the whole program
       Action* linkJob = C.MakeAction<LinkJobAction>(LinkerInputs, types::TY_LLVM_BC);
       ActionList cheerpOptimizerList, cheerpCompilerList;
-      // Check if we need to run link time optimization or not
-      if (Args.hasArg(options::OPT_cheerp_no_lto) ||
-              Args.hasFlag(options::OPT_O0, options::OPT_O_Group, false))
-        cheerpCompilerList.push_back(linkJob);
-      else
-      {
-        cheerpOptimizerList.push_back(linkJob);
-        // Then optimize it
-        Action* optJob = C.MakeAction<CheerpOptimizeJobAction>(cheerpOptimizerList, types::TY_LLVM_BC);
-        cheerpCompilerList.push_back(optJob);
-      }
+      cheerpOptimizerList.push_back(linkJob);
+      // Then optimize it
+      Action* optJob = C.MakeAction<CheerpOptimizeJobAction>(cheerpOptimizerList, types::TY_LLVM_BC);
+      cheerpCompilerList.push_back(optJob);
       // Check if we only want the final bc file
       if (Args.hasArg(options::OPT_cheerp_dump_bc)) {
         Actions.append(cheerpCompilerList.begin(),cheerpCompilerList.end());
