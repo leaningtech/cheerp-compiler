@@ -41,12 +41,33 @@ static Function* wrapImport(Module& M, const Function* Orig)
 
 static bool needsWrapping(const Function* F)
 {
-	if (F->empty())
-		return false;
+	// Client methods always need wrapping
+	// TODO: avoid wrapper for static methods (F->hasFnAttribute(Attribute::Static))
+	// It requires some special handling in the writer
+	if (TypeSupport::isClientFunc(F))
+	{
+		// This could still be a free function. Try to xtract the class name
+		// from the mangled name. If we succeed, it is a method.
+		std::string className;
+		std::string funcName;
+		std::tie(className, funcName) = TypeSupport::getClientClassAndFunc(F->getName().data());
+		bool isMethod = !className.empty();
+		if (isMethod)
+			return true;
+	}
+	// Check argument types
 	for (const auto& arg: F->args())
 	{
-		if (arg.getType()->isPointerTy())
+		Type* ty = arg.getType();
+		// non pointers are fine (TODO i64 eventually)
+		if (!ty->isPointerTy())
+			continue;
+		// Excluding client pointers (which are always anyref), we support only
+		// split regulars, and they always need the wrapper
+		if (!TypeSupport::isClientType(ty->getPointerElementType()))
+		{
 			return true;
+		}
 	}
 
 	return false;
