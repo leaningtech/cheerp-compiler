@@ -1153,6 +1153,8 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 		}
 		else if( !f->empty() )
 		{
+			// We need to modify code to enforce correctness
+			f->removeFnAttr(Attribute::OptimizeNone);
 			// Never internalize functions that may have a better native implementation
 			if(TypedBuiltinInstr::isWasmIntrinsic(f) || isMathIntrinsic(f))
 				f->setLinkage(GlobalValue::WeakAnyLinkage);
