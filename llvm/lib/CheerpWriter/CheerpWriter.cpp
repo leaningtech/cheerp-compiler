@@ -9,7 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cxxabi.h>
 #include "Relooper.h"
 #include "CFGStackifier.h"
 #include "llvm/ADT/StringExtras.h"
@@ -74,89 +73,12 @@ public:
 	void renderIfOnLabel(int labelId, bool first);
 };
 
-std::pair<std::string, std::string> CheerpWriter::getBuiltinClassAndFunc(const char* identifier)
-{
-	int status =0;
-	char* const demangledName = abi::__cxa_demangle(identifier, NULL, NULL, &status);
-	// Find the opening parenthesis
-	char* parenOpen = demangledName;
-	while(*parenOpen != '(')
-		parenOpen++;
-
-	// Remove the template data
-	auto skipTemplates = [](char* nameEnd) -> char*
-	{
-		nameEnd--;
-		if(*nameEnd != '>')
-			return nameEnd+1;
-		uint32_t templateCount = 1;
-		do
-		{
-			nameEnd--;
-			if(*nameEnd == '>')
-				templateCount++;
-			else if(*nameEnd == '<')
-				templateCount--;
-		}
-		while(templateCount);
-		return nameEnd;
-	};
-
-	// We will have something like "{retType ,}client::(type{<>,}::)+"
-	std::vector<std::string> scopes;
-	char* cur = parenOpen;
-	bool lastScope = false;
-	while(!lastScope)
-	{
-		char* nameEnd = skipTemplates(cur);
-		char* nameStart = nameEnd - 1;
-		while(1)
-		{
-			if(nameStart == demangledName)
-			{
-				scopes.emplace_back(nameStart, nameEnd);
-				lastScope = true;
-				break;
-			}
-			else if(*nameStart == ' ')
-			{
-				scopes.emplace_back(nameStart+1, nameEnd);
-				lastScope = true;
-				break;
-			}
-			else if(*nameStart == ':')
-			{
-				scopes.emplace_back(nameStart+1, nameEnd);
-				nameStart--;
-				assert(*nameStart == ':');
-				break;
-			}
-			nameStart--;
-		}
-		cur = nameStart;
-	}
-
-	free(demangledName);
-
-	assert(scopes.back() == "client");
-	assert(scopes.size() == 2 || scopes.size() == 3);
-
-	if(scopes.size() == 2 || scopes[0] == scopes[1])
-	{
-		// No class is present
-		return std::make_pair(std::string(), std::move(scopes[0]));
-	}
-	else
-	{
-		return std::make_pair(std::move(scopes[1]), std::move(scopes[0]));
-	}
-}
 void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV)
 {
 	assert(callV.getCalledFunction());
 	std::string classNameStr;
 	std::string funcNameStr;
-	std::tie(classNameStr, funcNameStr) = getBuiltinClassAndFunc(identifier);
+	std::tie(classNameStr, funcNameStr) = TypeSupport::getClientClassAndFunc(identifier);
 	StringRef className(classNameStr);
 	StringRef funcName(funcNameStr);
 
@@ -5953,7 +5875,7 @@ void CheerpWriter::compileImports()
 		{
 			std::string className;
 			std::string funcName;
-			std::tie(className, funcName) = getBuiltinClassAndFunc(imported->getName().data());
+			std::tie(className, funcName) = TypeSupport::getClientClassAndFunc(imported->getName().data());
 			//Regular call
 			if(!className.empty())
 			{

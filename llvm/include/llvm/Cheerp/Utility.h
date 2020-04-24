@@ -292,6 +292,8 @@ public:
 		else 
 			return false;
 	}
+	
+	static std::pair<std::string, std::string> getClientClassAndFunc(const char* identifier);
 
 	static bool isI32Type(llvm::Type* t)
 	{
