@@ -37,6 +37,7 @@
 #include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
 #include "llvm/Cheerp/CommandLine.h"
+#include "llvm/Transforms/Scalar.h"
 
 using namespace llvm;
 
@@ -233,6 +234,9 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(createGEPOptimizerPass());
+  // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
+  // inside not used instructions which are then not rendered.
+  PM.add(createDeadInstEliminationPass());
   PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, outputMode == Wasm));
   PM.add(createAllocaLoweringPass());
   if (!CheerpNoICF)
