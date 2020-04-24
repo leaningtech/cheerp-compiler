@@ -1316,7 +1316,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	if(userImplemented)
 		return COMPILE_UNSUPPORTED;
 
-	if(TypeSupport::isClientFuncName(ident) && !asmjs)
+	if(TypeSupport::isClientFuncName(ident))
 	{
 		handleBuiltinNamespace(ident.data(),callV);
 		return COMPILE_OK;
