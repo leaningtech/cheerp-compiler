@@ -164,15 +164,16 @@ void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 	stream << ')';
 }
 
-void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio)
+void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio, bool asmjs)
 {
 	//Integer subtraction
 	PARENT_PRIORITY subPrio = ADD_SUB;
 	if(needsIntCoercion(Registerize::INTEGER, parentPrio))
 		subPrio = BIT_OR;
 	if(parentPrio > subPrio) stream << '(';
-	// Optimize negation
-	if(!(isa<ConstantInt>(lhs) && cast<ConstantInt>(lhs)->isZero()))
+	// Optimize negation, unless in asm.js mode
+	// In asm.js, if the expression happens to be -0 the type checker will see a double and get confused
+	if(asmjs || !(isa<ConstantInt>(lhs) && cast<ConstantInt>(lhs)->isZero()))
 		compileOperand(lhs, ADD_SUB);
 	stream << '-';
 	compileOperand(rhs, nextPrio(ADD_SUB));

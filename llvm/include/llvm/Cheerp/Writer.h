@@ -460,7 +460,7 @@ private:
 	 * Methods implemented in Opcodes.cpp
 	 */
 	void compilePtrToInt(const llvm::Value* v);
-	void compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio);
+	void compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio, bool asmjs);
 	void compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind, PARENT_PRIORITY parentPrio);
 	void compileBitCastBase(const llvm::User* bi, bool forEscapingPointer);
 	void compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY parentPrio);
