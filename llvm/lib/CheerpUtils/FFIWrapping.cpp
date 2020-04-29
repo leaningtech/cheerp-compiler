@@ -39,6 +39,20 @@ static Function* wrapImport(Module& M, const Function* Orig)
 	return Wrapper;
 }
 
+static Function* wrapGlobal(Module& M, GlobalVariable* G)
+{
+	Type* RetTy = G->getType();
+	FunctionType* FTy = FunctionType::get(RetTy, false);
+	Function* Wrapper = cast<Function>(M.getOrInsertFunction(Twine("__wrapper__",G->getName()).str(), FTy));
+	if (!Wrapper->empty())
+		return Wrapper;
+	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Wrapper);
+	IRBuilder<> Builder(Entry);
+	Builder.CreateRet(G);
+
+	return Wrapper;
+}
+
 static bool needsWrapping(const Function* F)
 {
 	// Client methods always need wrapping
@@ -73,7 +87,8 @@ static bool needsWrapping(const Function* F)
 	return false;
 }
 
-static void replaceAllUsesWithFiltered(Value* Old, Value* New,
+template<typename T>
+static void replaceAllUsesWithFiltered(Value* Old, T GetNew,
 		const DeterministicFunctionSet& whitelist)
 {
 	auto UI = Old->use_begin(), E = Old->use_end();
@@ -86,7 +101,7 @@ static void replaceAllUsesWithFiltered(Value* Old, Value* New,
 			continue;
 		if (!whitelist.count(Usr->getParent()->getParent()))
 			continue;
-		U.set(New);
+		U.set(GetNew(U));
 	}
 }
 
@@ -100,12 +115,25 @@ void FFIWrapping::run()
 			Function* W = wrapImport(M, F);
 			newImports.insert(W);
 			outsideModule.insert(W);
-			replaceAllUsesWithFiltered(const_cast<Function*>(F), W, insideModule);
+			replaceAllUsesWithFiltered(const_cast<Function*>(F), [W](const Use& U) { return W; }, insideModule);
 		}
 		else
 		{
 			newImports.insert(F);
 		}
+	}
+	// Replace client globals uses in asmjs with getter function wrappers
+	for (GlobalVariable& G: M.globals())
+	{
+		if (!TypeSupport::isClientGlobal(&G))
+			continue;
+		replaceAllUsesWithFiltered(&G, [&G, &newImports, this](const Use& U) {
+			Function* W = wrapGlobal(M, &G);
+			newImports.insert(W);
+			outsideModule.insert(W);
+			CallInst* C = CallInst::Create(W, "", cast<Instruction>(U.getUser()));
+			return C;
+		}, insideModule);
 	}
 	imports = std::move(newImports);
 }
