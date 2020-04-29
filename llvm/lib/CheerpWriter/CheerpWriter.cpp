@@ -2042,7 +2042,7 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, PARENT_PRIORITY p
 		}
 		case Instruction::Sub:
 		{
-			compileSubtraction(ce->getOperand(0), ce->getOperand(1), parentPrio);
+			compileSubtraction(ce->getOperand(0), ce->getOperand(1), parentPrio, asmjs);
 			break;
 		}
 		case Instruction::Add:
@@ -3641,7 +3641,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::Sub:
 		{
-			compileSubtraction(I.getOperand(0), I.getOperand(1), parentPrio);
+			compileSubtraction(I.getOperand(0), I.getOperand(1), parentPrio, asmjs);
 			return COMPILE_OK;
 		}
 		case Instruction::FSub:
