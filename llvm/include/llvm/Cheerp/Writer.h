@@ -270,7 +270,7 @@ private:
 	/** @} */
 
 	std::pair<std::string, std::string> getBuiltinClassAndFunc(const char* identifier);
-	void handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV);
+	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV);
 	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(llvm::ImmutableCallSite callV, const llvm::Function* f);
 
 	void compilePredicate(llvm::CmpInst::Predicate p);
