@@ -55,12 +55,10 @@ static Function* wrapGlobal(Module& M, GlobalVariable* G)
 
 static bool needsWrapping(const Function* F)
 {
-	// Client methods always need wrapping
-	// TODO: avoid wrapper for static methods (F->hasFnAttribute(Attribute::Static))
-	// It requires some special handling in the writer
-	if (TypeSupport::isClientFunc(F))
+	// Client non-static methods always need wrapping
+	if (TypeSupport::isClientFunc(F) && !F->hasFnAttribute(Attribute::Static))
 	{
-		// This could still be a free function. Try to xtract the class name
+		// This could still be a free function. Try to extract the class name
 		// from the mangled name. If we succeed, it is a method.
 		std::string className;
 		std::string funcName;

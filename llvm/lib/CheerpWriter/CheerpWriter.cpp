@@ -73,7 +73,7 @@ public:
 	void renderIfOnLabel(int labelId, bool first);
 };
 
-void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV)
+CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV)
 {
 	assert(callV.getCalledFunction());
 	std::string classNameStr;
@@ -83,6 +83,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 	StringRef funcName(funcNameStr);
 
 	bool isClientStatic = callV.getCalledFunction()->hasFnAttribute(Attribute::Static);
+	bool asmjs = callV.getCaller()->getSection() == StringRef("asmjs");
 
 	//The first arg should be the object
 	if(funcName.startswith("get_"))
@@ -92,7 +93,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		if(className.empty())
 		{
 			llvm::report_fatal_error(Twine("Unexpected getter without class: ", StringRef(identifier)), false);
-			return;
+			return COMPILE_UNSUPPORTED;
 		}
 
 		compileOperand(callV.getArgument(0), HIGHEST);
@@ -104,7 +105,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		if(className.empty())
 		{
 			llvm::report_fatal_error(Twine("Unexpected setter without class: ", StringRef(identifier)), false);
-			return;
+			return COMPILE_UNSUPPORTED;
 		}
 
 		compilePointerAs(callV.getArgument(0), COMPLETE_OBJECT, HIGHEST);
@@ -146,7 +147,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		if(className.empty())
 		{
 			llvm::report_fatal_error(Twine("Unexpected operator[] without class: ", StringRef(identifier)), false);
-			return;
+			return COMPILE_UNSUPPORTED;
 		}
 		assert(callV.arg_size()==2);
 		compilePointerAs(callV.getArgument(0), COMPLETE_OBJECT, HIGHEST);
@@ -170,12 +171,17 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		if(!className.empty())
 		{
 			if(isClientStatic)
+			{
+				// In asmjs we import static client function with their mangled name
+				if (asmjs)
+					return COMPILE_UNSUPPORTED;
 				stream << className;
+			}
 			else if(callV.arg_empty())
 			{
 				llvm::report_fatal_error(Twine("At least 'this' parameter was expected: ",
 					StringRef(identifier)), false);
-				return;
+				return COMPILE_UNSUPPORTED;
 			}
 			else
 			{
@@ -187,6 +193,7 @@ void CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::Immutabl
 		stream << funcName;
 		compileMethodArgs(it,callV.arg_end(), callV, /*forceBoolean*/ true);
 	}
+	return COMPILE_OK;
 }
 
 void CheerpWriter::compileCopyElement(const Value* baseDest,
@@ -1318,8 +1325,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 
 	if(TypeSupport::isClientFuncName(ident))
 	{
-		handleBuiltinNamespace(ident.data(),callV);
-		return COMPILE_OK;
+		return handleBuiltinNamespace(ident.data(),callV);
 	}
 	else if(TypeSupport::isClientConstructorName(ident))
 	{
