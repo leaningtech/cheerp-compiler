@@ -745,6 +745,13 @@ void CGRecordLowering::fillOutputFields() {
         FieldTypes.push_back(el);
         Offset += getSize(el);
       }
+      // For C-style inheritance, we cannot avoid padding after the "base"
+      if (Member->Kind != MemberInfo::Base && !ST->isPacked())
+      {
+          CharUnits Size = Offset.alignTo(getAlignment(ST));
+          appendPaddingBytes(Size - Offset);
+          Offset = Size;
+      }
       DirectBase = ST;
       if (Member->Kind == MemberInfo::Base)
         DirectBaseLayout = &Types.getCGRecordLayout(Member->RD);
