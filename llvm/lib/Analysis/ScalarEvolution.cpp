@@ -817,7 +817,7 @@ static int CompareSCEVComplexity(
     const SCEVNegPointer *RC = cast<SCEVNegPointer>(RHS);
 
      // Compare cast expressions by operand.
-    return CompareSCEVComplexity(EqCacheSCEV, LI, LC->getOperand(), RC->getOperand(), DT, Depth + 1);
+    return CompareSCEVComplexity(EqCacheSCEV, EqCacheValue, LI, LC->getOperand(), RC->getOperand(), DT, Depth + 1);
   }
 
   case scTruncate:
