@@ -14,9 +14,9 @@
 
 #include "llvm/ADT/Optional.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/Target/TargetLowering.h"
+#include "llvm/CodeGen/TargetLowering.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
 
 namespace llvm {
 
