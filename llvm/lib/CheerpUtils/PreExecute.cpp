@@ -20,7 +20,6 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/Target/TargetSubtargetInfo.h"
 #include <string.h>
 #include <algorithm>
 
