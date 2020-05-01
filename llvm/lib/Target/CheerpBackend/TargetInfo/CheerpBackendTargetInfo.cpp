@@ -18,5 +18,5 @@ Target llvm::TheCheerpBackendTarget;
 
 extern "C" void LLVMInitializeCheerpBackendTargetInfo() { 
   RegisterTarget<Triple::cheerp, /*HasJIT=*/false>
-    X(TheCheerpBackendTarget, "cheerp", "Cheerp client side backend");
+    X(TheCheerpBackendTarget, "cheerp", "Cheerp client side backend", "Cheerp");
 }
