@@ -108,7 +108,7 @@ private:
 			}
 		};
 
-		typedef std::vector<TeeLocalCandidate> TeeLocalCandidatesVector;
+		typedef std::deque<TeeLocalCandidate> TeeLocalCandidatesVector;
 		struct TeeLocalStack
 		{
 			TeeLocalCandidatesVector stack;
@@ -191,12 +191,32 @@ private:
 				localInserted.push_back({I, local, offset});
 			}
 		}
-		void removeConsumed()
+		void removeConsumed(const TeeLocalCandidate* candidate = NULL)
 		{
 			// Remove consumed tee local candidates
 			TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back().stack;
-			auto firstUsedIt = std::find_if(teeLocalCandidates.begin(), teeLocalCandidates.end(), [](const TeeLocalCandidate& c) { return c.used; });
-			teeLocalCandidates.erase(firstUsedIt, teeLocalCandidates.end());
+
+			uint32_t index = 0;
+			for (auto& c : teeLocalCandidates)
+			{
+				if (candidate == NULL && c.used)
+				{
+					teeLocalCandidates.erase(teeLocalCandidates.begin() + index, teeLocalCandidates.end());
+					break;
+				}
+
+				if (&c == candidate)
+					candidate = NULL;
+				index++;
+			}
+		}
+		const TeeLocalCandidate* lastUsed() const
+		{
+			const TeeLocalCandidatesVector& teeLocalCandidates = teeLocalCandidatesStack.back().stack;
+			auto lastUsedIt = std::find_if(teeLocalCandidates.rbegin(), teeLocalCandidates.rend(), [](const TeeLocalCandidate& c) { return c.used; });
+			if (lastUsedIt == teeLocalCandidates.rend())
+				return NULL;
+			return &*lastUsedIt;
 		}
 		void addIndentation(WasmBuffer& code)
 		{
