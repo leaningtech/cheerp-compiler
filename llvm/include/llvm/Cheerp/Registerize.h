@@ -1234,6 +1234,7 @@ public:
 	
 	llvm::StringRef getPassName() const override;
 
+	bool hasRegister(const llvm::Instruction* I) const;
 	uint32_t getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const;
 	uint32_t getSelfRefTmpReg(const llvm::Instruction* I, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB) const;
 
