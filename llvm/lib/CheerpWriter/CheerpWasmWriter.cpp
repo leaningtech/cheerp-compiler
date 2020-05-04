@@ -1658,12 +1658,6 @@ void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction
 
 void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 {
-	if (hasPutTeeLocalOnStack(code, v))
-	{
-		//Successfully find a candidate to transform in tee local
-		return;
-	}
-
 	if(const Constant* c=dyn_cast<Constant>(v))
 	{
 		auto it = globalizedConstants.find(c);
