@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,6 +20,7 @@
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/TokenList.h"
+#include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
@@ -47,6 +48,8 @@ public:
 class CheerpWasmWriter
 {
 public:
+	bool shouldDefer(const llvm::Instruction* I) const;
+
 	enum OutputMode {
 		WASM = 0,
 		WAST = 1,
@@ -285,6 +288,15 @@ private:
 	void filterNop(std::string& buffer) const;
 public:
 	TeeLocals teeLocals;
+	std::vector<const llvm::Instruction*> deferred;
+	using DeterministicInstructionSet = cheerp::DeterministicUnorderedSet<const llvm::Instruction*, RestrictionsLifted::NoPointerStability>;
+	using InstructionToDependenciesMap = llvm::DenseMap<const llvm::Instruction*, DeterministicInstructionSet>;
+	InstructionToDependenciesMap memoryDependencies;
+	InstructionToDependenciesMap localsDependencies;
+	llvm::DenseSet<const llvm::Instruction*> compiled;
+
+	void renderDeferred(WasmBuffer& code, const std::vector<const llvm::Instruction*>& deferred);
+
 	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, GLOBAL };
 	const PointerAnalyzer & PA;
 	OutputMode mode;
@@ -370,6 +382,11 @@ private:
 	// Returns the constant unsigned offset to use in the load/store
 	uint32_t compileLoadStorePointer(WasmBuffer& code, const llvm::Value* ptrOp);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
+
+	const llvm::BasicBlock* currentBB{NULL};
+	void checkAndSanitizeDependencies(InstructionToDependenciesMap& dependencies) const;
+	void flushMemoryDependencies(WasmBuffer& code, const llvm::Instruction& I);
+	void flushSetLocalDependencies(WasmBuffer& code, const llvm::Instruction& I);
 
 	struct WasmBytesWriter: public LinearMemoryHelper::ByteListener
 	{
