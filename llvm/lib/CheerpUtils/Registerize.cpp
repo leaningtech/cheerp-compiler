@@ -72,6 +72,11 @@ StringRef Registerize::getPassName() const
 	return "CheerpRegisterize";
 }
 
+bool Registerize::hasRegister(const llvm::Instruction* I) const
+{
+	return registersMap.count(I);
+}
+
 uint32_t Registerize::getRegisterId(const llvm::Instruction* I, const EdgeContext& edgeContext) const
 {
 	assert(RegistersAssigned);
