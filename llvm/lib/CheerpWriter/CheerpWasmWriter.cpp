@@ -1645,6 +1645,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 
 void CheerpWasmWriter::compileGetLocal(WasmBuffer& code, const llvm::Instruction* I)
 {
+	compileInstructionAndSet(code, *I);
 	if (hasPutTeeLocalOnStack(code, I))
 	{
 		//Successfully find a candidate to transform in tee local
@@ -2019,6 +2020,42 @@ bool CheerpWasmWriter::isReturnPartOfTailCall(const Instruction& ti) const
 	if(!isa<CallInst>(TermPrev))
 		return false;
 	return isTailCall(*cast<CallInst>(TermPrev));
+}
+
+void CheerpWasmWriter::checkAndSanitizeDependencies(InstructionToDependenciesMap& dependencies) const
+{
+	for (auto& pair : dependencies)
+	{
+		assert(pair.first->getParent() == currentBB);
+		pair.second.erase(pair.first);
+		for (const auto& I : pair.second)
+		{
+			assert(!isInlineable(*I));
+			assert(I->getParent() == currentBB);
+		}
+	}
+}
+
+void CheerpWasmWriter::flushMemoryDependencies(WasmBuffer& code, const Instruction& I)
+{
+	const bool needsSubStack = teeLocals.needsSubStack(code);
+	if (needsSubStack)
+		teeLocals.addIndentation(code);
+	for (const auto& x : memoryDependencies[&I])
+		compileInstructionAndSet(code, *x);
+	if (needsSubStack)
+		teeLocals.decreaseIndentation(code, false);
+}
+
+void CheerpWasmWriter::flushSetLocalDependencies(WasmBuffer& code, const Instruction& I)
+{
+	const bool needsSubStack = teeLocals.needsSubStack(code);
+	if (needsSubStack)
+		teeLocals.addIndentation(code);
+	for (const auto& x : localsDependencies[&I])
+		compileInstructionAndSet(code, *x);
+	if (needsSubStack)
+		teeLocals.decreaseIndentation(code, false);
 }
 
 bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruction& I)
@@ -2844,19 +2881,42 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 
 void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::Instruction& I)
 {
-	const bool needsSubStack = teeLocals.needsSubStack(code);
+	if (compiled.count(&I) || I.getParent() != currentBB)
+		return;
+	if (isa<PHINode>(&I) || isInlineable(I))
+		return;
+	if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
+	{
+		//Skip some kind of intrinsics
+		if(II->getIntrinsicID()==Intrinsic::lifetime_start ||
+			II->getIntrinsicID()==Intrinsic::lifetime_end ||
+			II->getIntrinsicID()==Intrinsic::dbg_declare ||
+			II->getIntrinsicID()==Intrinsic::dbg_value ||
+			II->getIntrinsicID()==Intrinsic::assume)
+		{
+			return;
+		}
+	}
 
-	assert(needsSubStack == false);
+	const bool needsSubStack = teeLocals.needsSubStack(code);
 
 	if (needsSubStack)
 		teeLocals.addIndentation(code);
 
+	auto lastUsedCandidate = teeLocals.lastUsed();
+
+	flushMemoryDependencies(code, I);
+
+	assert(compiled.count(&I) == 0);
+	compiled.insert(&I);
 	const bool ret = compileInstruction(code, I);
 
-	if (needsSubStack)
-		teeLocals.decreaseIndentation(code);
+	flushSetLocalDependencies(code, I);
 
-	teeLocals.removeConsumed();
+	teeLocals.removeConsumed(lastUsedCandidate);
+
+	if (needsSubStack)
+		teeLocals.decreaseIndentation(code, /*performCheck*/false);
 
 	if(!ret && !I.getType()->isVoidTy())
 	{
@@ -2869,20 +2929,103 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 			encodeU32Inst(0x21, "set_local", local, code);
 		}
 	}
-
 	teeLocals.instructionStart(code);
+}
+
+bool CheerpWasmWriter::shouldDefer(const llvm::Instruction* I) const
+{
+	// Figure out if we can defer this instruction for a gain
+	// Must have a user in the same BB (this also automatically deals with instruction without users
+	bool hasUserInSameBlock = false;
+	for(const User* u: I->users())
+	{
+		if(cast<Instruction>(u)->getParent() == currentBB)
+		{
+			hasUserInSameBlock = true;
+			break;
+		}
+	}
+	return !hasUserInSameBlock;
 }
 
 void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 {
+	assert(localsDependencies.empty());
+	assert(memoryDependencies.empty());
+	assert(!currentBB);
+	currentBB = &BB;
+	assert(deferred.empty());
 	BasicBlock::const_iterator I=BB.begin();
 	BasicBlock::const_iterator IE=BB.end();
+	const llvm::Instruction* lastStoreLike = nullptr;
+	std::vector<const llvm::Instruction*> instructionsLoadLike;
+	llvm::DenseMap<uint32_t, std::vector<const Instruction*>> getLocalFromRegister;
+	llvm::DenseMap<uint32_t, const Instruction*> lastAssignedToRegister;
+
 	for(;I!=IE;++I)
 	{
-		if(isInlineable(*I))
+		//Calculate dependencies for each get local in a tree of inlineable instructions
+		if(I->getOpcode()!=Instruction::PHI)
+		{
+			std::vector<const llvm::Instruction*> queue;
+			queue.push_back(&*I);
+			while (!queue.empty())
+			{
+				const llvm::Instruction* curr = queue.back();
+				queue.pop_back();
+				for (const auto& op : curr->operands())
+				{
+					if (!isa<Instruction>(op))
+						continue;
+					const llvm::Instruction* next = cast<Instruction>(op);
+					if (registerize.hasRegister(next))
+					{
+						const uint32_t ID = registerize.getRegisterId(next, edgeContext);
+						if (lastAssignedToRegister.count(ID))
+							localsDependencies[&*I].insert(lastAssignedToRegister[ID]);
+						getLocalFromRegister[ID].push_back(&*I);
+					}
+					else
+						queue.push_back(next);
+				}
+			}
+		}
+
+		//Calculate dependencies for a setLocal, that is all getLocal done on the previously set setLocal for the same ID
+		//Note that this HAS to be performed also for PHI
+		if (registerize.hasRegister(&*I))
+		{
+			assert(!isInlineable(*I));
+
+			const uint32_t ID = registerize.getRegisterId(&*I, edgeContext);
+
+			std::vector<const llvm::Instruction*> queue(getLocalFromRegister[ID].begin(), getLocalFromRegister[ID].end());
+			while (!queue.empty())
+			{
+				const llvm::Instruction* curr = queue.back();
+				queue.pop_back();
+				if (!isInlineable(*curr))
+					localsDependencies[&*I].insert(curr);
+				else
+				{
+					for (const User* User : curr->users())
+					{
+						const llvm::Instruction* next = cast<Instruction>(User);
+						if (!isa<PHINode>(next) && next->getParent() == currentBB)
+							queue.push_back(next);
+					}
+				}
+			}
+			getLocalFromRegister[ID].clear();
+
+			lastAssignedToRegister[ID] = &*I;
+		}
+
+		if(I->getOpcode()==Instruction::PHI)
+		{
+			//Phis are manually handled
 			continue;
-		if(I->getOpcode()==Instruction::PHI) //Phis are manually handled
-			continue;
+		}
 		if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&(*I)))
 		{
 			//Skip some kind of intrinsics
@@ -2909,11 +3052,74 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 			code << ";; " << fileName.str() << ":" << currentLine << "\n";
 		}
 
-		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
+//		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
+		if (!isInlineable(*I))
 		{
-			compileInstructionAndSet(code, *I);
+			deferred.push_back(&*I);
+
+			bool mayHaveSideEffects = I->mayHaveSideEffects();
+			bool mayReadFromMemory = I->mayReadFromMemory();
+			std::vector<const Instruction*> queue;
+			for (auto & op : I->operands())
+				if (isa<Instruction>(op))
+					queue.push_back(cast<Instruction>(op));
+			while (!queue.empty())
+			{
+				const Instruction* curr = queue.back();
+				queue.pop_back();
+				if (!isInlineable(*curr))
+					continue;
+				if (curr->mayReadFromMemory())
+					mayReadFromMemory = true;
+				if (curr->mayHaveSideEffects())
+					mayHaveSideEffects = true;
+				for (auto & op : curr->operands())
+					if (isa<Instruction>(op))
+						queue.push_back(cast<Instruction>(op));
+			}
+
+			if (mayHaveSideEffects)
+			{
+				assert(isInlineable(*I) == false);
+				if (lastStoreLike)
+					memoryDependencies[&*I].insert(lastStoreLike);
+				lastStoreLike = &*I;
+				for (auto& x: instructionsLoadLike)
+					memoryDependencies[&*I].insert(x);
+				instructionsLoadLike.clear();
+			}
+			else if (mayReadFromMemory)
+			{
+				instructionsLoadLike.push_back(&*I);
+				if (lastStoreLike)
+					memoryDependencies[&*I].insert(lastStoreLike);
+			}
 		}
 	}
+
+	checkAndSanitizeDependencies(memoryDependencies);
+	checkAndSanitizeDependencies(localsDependencies);
+
+#ifdef STRESS_DEFERRED
+	reverse(deferred.begin(), deferred.end()-1);
+#endif
+	renderDeferred(code, deferred);
+
+	deferred.clear();
+	currentBB = nullptr;
+	localsDependencies.clear();
+	memoryDependencies.clear();
+}
+
+void CheerpWasmWriter::renderDeferred(WasmBuffer& code, const vector<const llvm::Instruction*>& deferred)
+{
+	for (const llvm::Instruction* I : deferred)
+	{
+		if (shouldDefer(I))
+			compileInstructionAndSet(code, *I);
+	}
+	for (const llvm::Instruction* I : deferred)
+		compileInstructionAndSet(code, *I);
 }
 
 void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& locals)
@@ -3413,6 +3619,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 
 	getLocalDone.clear();
 	teeLocals.clear(code);
+	compiled.clear();
 
 	// A function has to terminate with a return value when the return type is
 	// not void.
