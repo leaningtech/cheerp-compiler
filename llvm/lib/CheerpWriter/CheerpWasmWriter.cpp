@@ -32,6 +32,7 @@ using namespace std;
 //#define WASM_DUMP_SECTION_DATA 1
 //#define WASM_DUMP_METHODS 1
 //#define WASM_DUMP_METHOD_DATA 1
+//#define STRESS_DEFERRED 1
 
 static uint32_t COMPILE_METHOD_LIMIT = 100000;
 
