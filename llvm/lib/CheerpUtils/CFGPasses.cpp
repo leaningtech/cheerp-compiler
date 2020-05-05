@@ -1,3 +1,14 @@
+//===-- CFGPasses.cpp - Optimizations on the control flow graph --------===//
+//
+//                     Cheerp: The C++ compiler for the Web
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+// Copyright 2017-2020 Leaning Technologies
+//
+//===----------------------------------------------------------------------===//
+
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
