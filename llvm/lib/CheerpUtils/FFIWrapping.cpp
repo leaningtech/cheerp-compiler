@@ -94,12 +94,25 @@ static void replaceAllUsesWithFiltered(Value* Old, T GetNew,
 	{
 		Use &U = *UI;
 		++UI;
-		auto *Usr = dyn_cast<Instruction>(U.getUser());
-		if (!Usr)
-			continue;
-		if (!whitelist.count(Usr->getParent()->getParent()))
-			continue;
-		U.set(GetNew(U));
+		if (Instruction* I = dyn_cast<Instruction>(U.getUser()))
+		{
+			if (!whitelist.count(I->getParent()->getParent()))
+				continue;
+			IRBuilder<> Builder(I);
+			Value* New = GetNew(Builder);
+			U.set(New);
+		}
+		else if (ConstantExpr* CE = dyn_cast<ConstantExpr>(U.getUser()))
+		{
+			// We can only see bitcasts here since for globals we
+			// allow only client types, which are opaque, and functions
+			// can only be bitcasted
+			assert(CE->getOpcode() == Instruction::BitCast);
+			replaceAllUsesWithFiltered<std::function<Value*(IRBuilder<>&)>>(CE, [&GetNew, CE](IRBuilder<>& Builder) {
+				Value* New = GetNew(Builder);
+				return Builder.CreateBitCast(New, CE->getType());
+			}, whitelist);
+		}
 	}
 }
 
@@ -113,7 +126,7 @@ void FFIWrapping::run()
 			Function* W = wrapImport(M, F);
 			newImports.insert(W);
 			outsideModule.insert(W);
-			replaceAllUsesWithFiltered(const_cast<Function*>(F), [W](const Use& U) { return W; }, insideModule);
+			replaceAllUsesWithFiltered(const_cast<Function*>(F), [W](IRBuilder<>&) { return W; }, insideModule);
 		}
 		else
 		{
@@ -125,12 +138,11 @@ void FFIWrapping::run()
 	{
 		if (!TypeSupport::isClientGlobal(&G))
 			continue;
-		replaceAllUsesWithFiltered(&G, [&G, &newImports, this](const Use& U) {
+		replaceAllUsesWithFiltered(&G, [&G, &newImports, this](IRBuilder<>& Builder) {
 			Function* W = wrapGlobal(M, &G);
 			newImports.insert(W);
 			outsideModule.insert(W);
-			CallInst* C = CallInst::Create(W, "", cast<Instruction>(U.getUser()));
-			return C;
+			return Builder.CreateCall(W);
 		}, insideModule);
 	}
 	imports = std::move(newImports);
