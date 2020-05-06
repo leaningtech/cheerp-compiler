@@ -385,7 +385,7 @@ private:
 
 	const llvm::BasicBlock* currentBB{NULL};
 	void checkAndSanitizeDependencies(InstructionToDependenciesMap& dependencies) const;
-	void flushGeneric(WasmBuffer& code, const llvm::Instruction& I, InstructionToDependenciesMap& dependencies);
+	void flushGeneric(WasmBuffer& code, const llvm::Instruction& I, const InstructionToDependenciesMap& dependencies);
 	void flushMemoryDependencies(WasmBuffer& code, const llvm::Instruction& I);
 	void flushSetLocalDependencies(WasmBuffer& code, const llvm::Instruction& I);
 
