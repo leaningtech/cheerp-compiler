@@ -289,7 +289,7 @@ private:
 public:
 	TeeLocals teeLocals;
 	std::vector<const llvm::Instruction*> deferred;
-	using DeterministicInstructionSet = llvm::DenseSet<const llvm::Instruction*>;
+	using DeterministicInstructionSet = cheerp::DeterministicUnorderedSet<const llvm::Instruction*, RestrictionsLifted::NoPointerStability>;
 	using InstructionToDependenciesMap = llvm::DenseMap<const llvm::Instruction*, DeterministicInstructionSet>;
 	InstructionToDependenciesMap memoryDependencies;
 	InstructionToDependenciesMap localsDependencies;
