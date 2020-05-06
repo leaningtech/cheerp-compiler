@@ -2037,26 +2037,25 @@ void CheerpWasmWriter::checkAndSanitizeDependencies(InstructionToDependenciesMap
 	}
 }
 
-void CheerpWasmWriter::flushMemoryDependencies(WasmBuffer& code, const Instruction& I)
+void CheerpWasmWriter::flushGeneric(WasmBuffer& code, const Instruction& I, InstructionToDependenciesMap& dependencies)
 {
 	const bool needsSubStack = teeLocals.needsSubStack(code);
 	if (needsSubStack)
 		teeLocals.addIndentation(code);
-	for (const auto& x : memoryDependencies[&I])
+	for (const auto& x : dependencies[&I])
 		compileInstructionAndSet(code, *x);
 	if (needsSubStack)
 		teeLocals.decreaseIndentation(code, false);
 }
 
+void CheerpWasmWriter::flushMemoryDependencies(WasmBuffer& code, const Instruction& I)
+{
+	flushGeneric(code, I, memoryDependencies);
+}
+
 void CheerpWasmWriter::flushSetLocalDependencies(WasmBuffer& code, const Instruction& I)
 {
-	const bool needsSubStack = teeLocals.needsSubStack(code);
-	if (needsSubStack)
-		teeLocals.addIndentation(code);
-	for (const auto& x : localsDependencies[&I])
-		compileInstructionAndSet(code, *x);
-	if (needsSubStack)
-		teeLocals.decreaseIndentation(code, false);
+	flushGeneric(code, I, localsDependencies);
 }
 
 bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruction& I)
