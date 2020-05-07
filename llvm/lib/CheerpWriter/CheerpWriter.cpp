@@ -1329,7 +1329,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(TypeSupport::isClientConstructorName(ident))
 	{
-		assert(!asmjs && "Unsupported client function for asmjs");
 		//Default handling of builtin constructors
 		char* typeName;
 		int typeLen=strtol(ident.data()+22,&typeName,10);
