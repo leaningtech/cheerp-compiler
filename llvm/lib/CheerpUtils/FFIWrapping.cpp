@@ -67,6 +67,9 @@ static bool needsWrapping(const Function* F)
 		if (isMethod)
 			return true;
 	}
+	// Client native constructors always need wrapping
+	if (TypeSupport::isClientConstructorName(F->getName()))
+		return true;
 	// Check argument types
 	for (const auto& arg: F->args())
 	{
