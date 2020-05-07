@@ -457,8 +457,9 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			// by a different type in a derived class
 			// TODO: If pointers could be collapsed we may have implicit casts between base classes and derived classes
 			// NOTE: We allow the collapsing of client pointers
-			if((newTypes[0]->isPointerTy() && TypeSupport::isClientType(newTypes[0]->getPointerElementType())) ||
-				(!newTypes[0]->isIntegerTy(8) && !newTypes[0]->isPointerTy() && !TypeSupport::isJSExportedType(newStruct, *module) && !TypeSupport::hasByteLayout(st)))
+			if(!TypeSupport::isJSExportedType(newStruct, *module) &&
+				!TypeSupport::hasByteLayout(st) &&
+				!newTypes[0]->isIntegerTy(8) && (!newTypes[0]->isPointerTy() || TypeSupport::isClientType(newTypes[0]->getPointerElementType())))
 			{
 				// If this type is an unsafe downcast source and can't be collapse
 				// we need to fall through to correctly set the mapped element
