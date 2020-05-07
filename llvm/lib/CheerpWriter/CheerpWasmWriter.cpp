@@ -1312,9 +1312,6 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				toProcessMap[incoming].push_back(phi);
 			}
 
-			//TODO: remove me
-			writer.teeLocals.instructionStart(code);
-
 			//Note that any process order works, as long as it's deterministic
 			//So reordering for leaving on the stack whatever is needed also works
 			for (auto& pair : toProcessOrdered)
@@ -3056,7 +3053,6 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 			code << ";; " << fileName.str() << ":" << currentLine << "\n";
 		}
 
-//		if(I->isTerminator() || !I->use_empty() || I->mayHaveSideEffects())
 		if (!isInlineable(*I))
 		{
 			deferred.push_back(&*I);
