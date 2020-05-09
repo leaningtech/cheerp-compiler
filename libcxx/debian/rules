@@ -11,7 +11,8 @@ override_dh_auto_configure:
 	    -DLIBCXX_ENABLE_SHARED=OFF \
 	    -DLIBCXX_ENABLE_ASSERTIONS=OFF \
 	    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
-	    -DLIBCXX_CXX_ABI=libcxxabi
+	    -DLIBCXX_CXX_ABI=libcxxabi \
+	    -DCMAKE_CXX_FLAGS="-fexceptions"
 	dh_auto_configure -Bbuild_asmjs -- \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
@@ -19,7 +20,8 @@ override_dh_auto_configure:
 	    -DLIBCXX_ENABLE_SHARED=OFF \
 	    -DLIBCXX_ENABLE_ASSERTIONS=OFF \
 	    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(CURDIR)/libcxxabi/include \
-	    -DLIBCXX_CXX_ABI=libcxxabi
+	    -DLIBCXX_CXX_ABI=libcxxabi \
+	    -DCMAKE_CXX_FLAGS="-fexceptions"
 
 override_dh_auto_build:
 	dh_auto_build -Bbuild_genericjs
