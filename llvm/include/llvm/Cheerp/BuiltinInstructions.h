@@ -134,6 +134,40 @@ namespace TypedBuiltinInstr
 	x(SIN_F32, SIN_F64, "sin", "sinf") \
 	x(TAN_F32, TAN_F64, "tan", "tanf") \
 
+
+#define LLVM_BUILTINS_TO_LOWER_LIST(x) \
+	x(llvm::Intrinsic::log2, "log2", "log2f") \
+	x(llvm::Intrinsic::fma, "fma", "fmaf") \
+
+inline bool mayBeLoweredInto(const llvm::Function& F)
+{
+#define TO_BE_LOWERED_INTO(builtin, FNameDouble, FNameFloat) \
+	if (F.getName() == FNameDouble || F.getName() == FNameFloat) \
+		return true;
+LLVM_BUILTINS_TO_LOWER_LIST(TO_BE_LOWERED_INTO)
+#undef TO_BE_LOWERED_INTO
+	return false;
+}
+
+inline llvm::Function* functionToLowerInto(const llvm::Function& F, llvm::Module& module)
+{
+	const bool floatType = F.getReturnType()->isFloatTy();
+	const uint32_t builtinId = F.getIntrinsicID();
+
+	(void)floatType;
+
+	switch (builtinId)
+	{
+#define TO_BE_LOWERED_INTO(builtin, FNameDouble, FNameFloat) \
+	case builtin: \
+		return module.getFunction(floatType ? FNameFloat : FNameDouble);
+LLVM_BUILTINS_TO_LOWER_LIST(TO_BE_LOWERED_INTO)
+#undef TO_BE_LOWERED_INTO
+	default:
+		return nullptr;
+	}
+}
+
 inline bool isValidWasmMathBuiltin(const TYPED_BUILTIN& b)
 {
 	switch (b)
