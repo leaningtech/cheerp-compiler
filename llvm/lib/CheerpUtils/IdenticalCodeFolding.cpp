@@ -336,6 +336,9 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					case Intrinsic::lifetime_start:
 					case Intrinsic::lifetime_end:
 					case Intrinsic::cheerp_reallocate:
+					case Intrinsic::copysign:
+					case Intrinsic::maxnum:
+					case Intrinsic::minnum:
 					{
 						return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
 							equivalentOperand(A->getOperand(1), B->getOperand(1)));
@@ -352,6 +355,8 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					case Intrinsic::cheerp_cast_user:
 					case Intrinsic::flt_rounds:
 					case Intrinsic::fabs:
+					case Intrinsic::floor:
+					case Intrinsic::round:
 					case Intrinsic::ctlz:
 					case Intrinsic::invariant_start:
 					case Intrinsic::stackrestore:
