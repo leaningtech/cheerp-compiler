@@ -138,6 +138,10 @@ namespace TypedBuiltinInstr
 #define LLVM_BUILTINS_TO_LOWER_LIST(x) \
 	x(llvm::Intrinsic::log2, "log2", "log2f") \
 	x(llvm::Intrinsic::fma, "fma", "fmaf") \
+	x(llvm::Intrinsic::maxnum, "fmax", "fmaxf") \
+	x(llvm::Intrinsic::minnum, "fmin", "fminf") \
+	x(llvm::Intrinsic::rint, "rint", "rintf") \
+	x(llvm::Intrinsic::round, "round", "roundf") \
 
 inline bool mayBeLoweredInto(const llvm::Function& F)
 {
