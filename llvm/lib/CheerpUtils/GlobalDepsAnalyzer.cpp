@@ -183,6 +183,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 			if (cheerp::BuiltinInstr::isValidJSMathBuiltin(builtinID)
 				|| isValidWasmMathBuiltin(typedBuiltinID)
+				|| cheerp::TypedBuiltinInstr::mayBeLoweredInto(F)
 				|| F.getName() == "memcpy"
 				|| F.getName() == "memset"
 				|| F.getName() == "memmove")
@@ -221,6 +222,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					// Skip indirect calls
 					if (calledFunc == nullptr)
 						continue;
+
+					if (Function* F = TypedBuiltinInstr::functionToLowerInto(*calledFunc, module))
+					{
+						ci->setCalledFunction(F);
+						continue;
+					}
 
 					unsigned II = calledFunc->getIntrinsicID();
 
@@ -287,20 +294,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						advance = false;
 						assert(&*instructionIterator == newCall);
 
-						ci->eraseFromParent();
-						continue;
-					}
-					if(II == Intrinsic::fma)
-					{
-						// Expand fused multiply add
-						// TODO: this is NOT the real fma, but a reasonable approximation given the absence of true fma intrinsic
-
-						Instruction* mul = BinaryOperator::CreateFMul(ci->getOperand(0), ci->getOperand(1), "", ci);
-						Instruction* add = BinaryOperator::CreateFAdd(ci->getOperand(2), mul, "", ci);
-
-						ci->replaceAllUsesWith(add);
-						++instructionIterator;
-						advance = false;
 						ci->eraseFromParent();
 						continue;
 					}
