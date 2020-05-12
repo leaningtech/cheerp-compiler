@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015-2018 Leaning Technologies
+// Copyright 2015-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,19 +17,22 @@
 using namespace llvm;
 using namespace cheerp;
 
-std::vector<const Function*> CheerpWriter::getExportedFreeFunctions()
+const std::deque<CheerpWriter::FunctionAndName>& CheerpWriter::getExportedFreeFunctions()
 {
-	std::vector<const Function*> exported;
+	if (!jsexportedFreeFunctions.empty())
+		return jsexportedFreeFunctions;
+
 	NamedMDNode* namedNode = module.getNamedMetadata("jsexported_methods");
 	if (namedNode==nullptr)
-		return exported;
+		return jsexportedFreeFunctions;
+
 	for (auto it = namedNode->op_begin(); it != namedNode->op_end(); ++ it )
 	{
 		const MDNode * node = *it;
 		const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
-		exported.push_back(f);
+		jsexportedFreeFunctions.push_back({f, f->getName()});
 	}
-	return exported;
+	return jsexportedFreeFunctions;
 }
 
 uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic) const

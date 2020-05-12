@@ -469,7 +469,18 @@ private:
 	//JS interoperability support
 	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
 	std::vector<llvm::StringRef> compileClassesExportedToJs();
-	std::vector<const llvm::Function*> getExportedFreeFunctions();
+
+	struct FunctionAndName
+	{
+		FunctionAndName(const llvm::Function* F, llvm::StringRef name) : F(F), name(name)
+		{
+		}
+		const llvm::Function* F;
+		llvm::StringRef name;
+	};
+	std::deque<FunctionAndName> jsexportedFreeFunctions{};
+
+	const std::deque<FunctionAndName>& getExportedFreeFunctions();
 	bool hasJSExports();
 	void compileInlineAsm(const llvm::CallInst& ci);
 
