@@ -6129,7 +6129,7 @@ void CheerpWriter::compileWasmLoader()
 
 void CheerpWriter::compileDeclareExports()
 {
-	auto exportedFunctions = getExportedFreeFunctions();
+	const auto& exportedFunctions = getExportedFreeFunctions();
 	for (auto i: globalDeps.asmJSExports())
 	{
 		if(i->empty()) continue;
@@ -6144,7 +6144,7 @@ void CheerpWriter::compileDeclareExports()
 				stream << "__root.";
 			else
 				stream << "var ";
-			stream << jsex->getName() << "={};" << NewLine;
+			stream << jsex.name << "={};" << NewLine;
 		}
 		if (makeModule == MODULE_TYPE::CLOSURE)
 		{
@@ -6164,7 +6164,7 @@ void CheerpWriter::compileDeclareExports()
 		{
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
-			stream << jsex->getName() << ".promise=" << NewLine;
+			stream << jsex.name << ".promise=" << NewLine;
 		}
 		for (auto cls: exportedClassNames)
 		{
@@ -6177,7 +6177,7 @@ void CheerpWriter::compileDeclareExports()
 
 void CheerpWriter::compileDefineExports(bool alsoDeclare)
 {
-	auto exportedFunctions = getExportedFreeFunctions();
+	const auto& exportedFunctions = getExportedFreeFunctions();
 	for (auto i: globalDeps.asmJSExports())
 	{
 		if(i->empty()) continue;
@@ -6194,7 +6194,7 @@ void CheerpWriter::compileDefineExports(bool alsoDeclare)
 				stream << "var ";
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
-			stream << jsex->getName() << '=' << getName(jsex) <<";" << NewLine;
+			stream << jsex.name << '=' << getName(jsex.F) <<";" << NewLine;
 		}
 		if (alsoDeclare && makeModule == MODULE_TYPE::CLOSURE)
 		{
@@ -6207,7 +6207,7 @@ void CheerpWriter::compileDefineExports(bool alsoDeclare)
 		{
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
-			stream << jsex->getName() << ".promise=" << NewLine;
+			stream << jsex.name << ".promise=" << NewLine;
 		}
 		for (auto cls: exportedClassNames)
 		{
@@ -6273,9 +6273,9 @@ void CheerpWriter::compileCommonJSExports()
 	for (StringRef &className : exportedClassNames)
 		stream << className << ':' << className << ',' << NewLine;
 
-	for (const Function* f: getExportedFreeFunctions())
+	for (const auto& jsex: getExportedFreeFunctions())
 	{
-		stream << f->getName() << ':' << namegen.getName(f) << ',' << NewLine;
+		stream << jsex.name << ':' << namegen.getName(jsex.F) << ',' << NewLine;
 	}
 
 	stream << "};" << NewLine;
