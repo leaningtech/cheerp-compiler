@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019 Leaning Technologies
+// Copyright 2019-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -75,13 +75,13 @@ bool cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
 			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << FD->getParent();
 			could = false;
 		}
-		could &= couldParameterBeJsExported(it->getOriginalType().getTypePtr(), FD, sema);
+		could &= couldBeParameterOfJsExported(it->getOriginalType().getTypePtr(), FD, sema);
 	}
 
 	return could;
 }
 
-bool cheerp::couldParameterBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParameter)
+bool cheerp::couldBeParameterOfJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParameter)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -209,7 +209,7 @@ bool cheerp::couldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl*
 	}
 
 	//In all other cases, if something could be a parameter it could also work as return
-	return couldParameterBeJsExported(Ty, FD, sema, /*isParameter*/false);
+	return couldBeParameterOfJsExported(Ty, FD, sema, /*isParameter*/false);
 }
 
 cheerp::TypeKind cheerp::classifyType(const clang::Type* Ty)
