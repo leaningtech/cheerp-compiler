@@ -16,7 +16,7 @@ define i1 @bytearray7(i8* %p) {
   ; CHECK-NEXT: br i1 [[ule]], label %[[t1:.*]], label %[[f:.*]]
 
   ; CHECK: [[t1]]:
-  ; CHECK-NEXT: [[gep:%.*]] = getelementptr i8, i8* getelementptr inbounds ([0 x i8], [0 x i8]* @__typeid_bytearray7_byte_array, i32 0, i32 0), i64 [[or]]
+  ; CHECK-NEXT: [[gep:%.*]] = getelementptr i8, i8* bitcast ([0 x i8]* @__typeid_bytearray7_byte_array to i8*), i64 [[or]]
   ; CHECK-NEXT: [[load:%.*]] = load i8, i8* [[gep]]
   ; CHECK-NEXT: [[and:%.*]] = and i8 [[load]], ptrtoint ([0 x i8]* @__typeid_bytearray7_bit_mask to i8)
   ; CHECK-NEXT: [[ne:%.*]] = icmp ne i8 [[and]], 0
