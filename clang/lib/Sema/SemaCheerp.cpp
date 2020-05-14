@@ -31,7 +31,18 @@ bool cheerp::isInAnyNamespace(const clang::Decl* decl)
 	return (context->getParent() != NULL);
 }
 
-void cheerp::checkCouldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema)
+void cheerp::checkDestructor(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue)
+{
+	using namespace clang;
+	//TODO: expand this check
+	if (Record->hasNonTrivialDestructor())
+	{
+		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
+		shouldContinue = false;
+	}
+}
+
+void cheerp::checkCouldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue)
 {
 	//class or struct
 	using namespace clang;
@@ -47,8 +58,7 @@ void cheerp::checkCouldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& s
 	else
 		assert(Record->getNumVBases() == 0);
 
-	if (Record->hasNonTrivialDestructor())
-		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
+	checkDestructor(Record, sema, shouldContinue);
 }
 
 void cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
@@ -363,8 +373,12 @@ void cheerp::CheerpSemaClassData::checkRecord()
 
 	assert(recordDecl->hasAttr<JsExportAttr>());
 
+	bool shouldContinue = true;
 	//Here all checks regarding internal feasibility of jsexporting a class/struct have to be performed
-	checkCouldBeJsExported(recordDecl, sema);
+	checkCouldBeJsExported(recordDecl, sema, shouldContinue);
+
+	if (!shouldContinue)
+		return;
 
 	//Add all the methods. This is needed since recordDecl->methods() would skip templated methods non instantiated, but we already collected them earlier
 	for (auto method : recordDecl->methods())
