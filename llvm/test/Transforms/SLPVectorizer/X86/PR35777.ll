@@ -6,7 +6,7 @@
 define { i64, i64 } @patatino(double %arg) {
 ; CHECK-LABEL: @patatino(
 ; CHECK-NEXT:  bb:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x double>, <2 x double>* bitcast ([6 x double]* @global to <2 x double>*), align 16
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([6 x double], [6 x double]* @global, i64 0, i64 0) to <2 x double>*), align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([6 x double], [6 x double]* @global, i64 0, i64 2) to <2 x double>*), align 16
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> poison, double [[ARG:%.*]], i32 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x double> [[TMP2]], <2 x double> poison, <2 x i32> zeroinitializer

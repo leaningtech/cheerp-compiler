@@ -77,7 +77,7 @@ define i1 @bytearray7(i8* %p) {
   ; CHECK-NEXT: br i1 [[ule]], label %[[t:.*]], label %[[f:.*]]
 
   ; CHECK: [[t]]:
-  ; CHECK-NEXT: [[gep:%.*]] = getelementptr i8, i8* getelementptr inbounds ([0 x i8], [0 x i8]* @__typeid_bytearray7_byte_array, i32 0, i32 0), i64 [[or]]
+  ; CHECK-NEXT: [[gep:%.*]] = getelementptr i8, i8* bitcast ([0 x i8]* @__typeid_bytearray7_byte_array to i8*), i64 [[or]]
   ; CHECK-NEXT: [[load:%.*]] = load i8, i8* [[gep]]
   ; X86-NEXT: [[and:%.*]] = and i8 [[load]], ptrtoint ([0 x i8]* @__typeid_bytearray7_bit_mask to i8)
   ; ARM-NEXT: [[and:%.*]] = and i8 [[load]], ptrtoint (i8* inttoptr (i64 64 to i8*) to i8)
@@ -105,7 +105,7 @@ define i1 @bytearray32(i8* %p) {
   ; CHECK-NEXT: br i1 [[ule]], label %[[t:.*]], label %[[f:.*]]
 
   ; CHECK: [[t]]:
-  ; CHECK-NEXT: [[gep:%.*]] = getelementptr i8, i8* getelementptr inbounds ([0 x i8], [0 x i8]* @__typeid_bytearray32_byte_array, i32 0, i32 0), i64 [[or]]
+  ; CHECK-NEXT: [[gep:%.*]] = getelementptr i8, i8* bitcast ([0 x i8]* @__typeid_bytearray32_byte_array to i8*), i64 [[or]]
   ; CHECK-NEXT: [[load:%.*]] = load i8, i8* [[gep]]
   ; X86-NEXT: [[and:%.*]] = and i8 [[load]], ptrtoint ([0 x i8]* @__typeid_bytearray32_bit_mask to i8)
   ; ARM-NEXT: [[and:%.*]] = and i8 [[load]], ptrtoint (i8* inttoptr (i64 128 to i8*) to i8)
