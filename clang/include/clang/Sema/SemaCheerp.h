@@ -35,13 +35,14 @@ TypeKind classifyType(const clang::Type* Ty);
 
 bool isInAnyNamespace(const clang::Decl* decl);
 
-void checkCouldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema);
+void checkCouldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
 
 void checkCouldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema);
 void checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParameter = true);
 
 void checkParameters(clang::FunctionDecl* Method, clang::Sema& sema);
 
+void checkDestructor(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
 void checkFunction(clang::FunctionDecl* FD, clang::Sema& sema);
 
 bool isTemplate(clang::FunctionDecl* FD);
