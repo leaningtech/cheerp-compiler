@@ -101,7 +101,7 @@ IncrementalParseAST(CompilerInstance& CI, Parser& P,
 
 const Function* getGlobalInit(llvm::Module& M) {
   for (const auto& Func: M)
-    if (Func.hasName() && Func.getName().startswith("_GLOBAL__sub_I_"))
+    if (Func.hasName() && Func.getName().startswith("__cxx_global_var_init"))
       return &Func;
 
   return nullptr;
@@ -170,8 +170,6 @@ TEST(IncrementalProcessing, EmitCXXGlobalInitFunc) {
 
     const Function* GlobalInit2 = getGlobalInit(*M[2]);
     ASSERT_TRUE(GlobalInit2);
-
-    ASSERT_FALSE(GlobalInit1->getName() == GlobalInit2->getName());
 
 }
 

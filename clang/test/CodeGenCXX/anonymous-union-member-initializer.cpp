@@ -80,14 +80,14 @@ namespace PR10512 {
   };
 
   // CHECK-LABEL: define void @_ZN7PR105121AC2Ev
-  // CHECK: [[THISADDR:%[a-zA-Z0-9.]+]] = alloca [[A:%"struct[A-Za-z0-9:.]+"]]
+  // CHECK: [[THISADDR:%[a-zA-Z0-9.]+]] = alloca [[A:%struct[_A-Za-z0-9:.]+]]
   // CHECK-NEXT: store [[A]]* [[THIS:%[a-zA-Z0-9.]+]], [[A]]** [[THISADDR]]
   // CHECK-NEXT: [[THIS1:%[a-zA-Z0-9.]+]] = load [[A]]*, [[A]]** [[THISADDR]]
   // CHECK-NEXT: ret void
   A::A() {}
 
   // CHECK-LABEL: define void @_ZN7PR105121AC2Ei
-  // CHECK: [[THISADDR:%[a-zA-Z0-9.]+]] = alloca [[A:%"struct[A-Za-z0-9:.]+"]]
+  // CHECK: [[THISADDR:%[a-zA-Z0-9.]+]] = alloca [[A:%struct[_A-Za-z0-9:.]+]]
   // CHECK-NEXT: [[XADDR:%[a-zA-Z0-9.]+]] = alloca i32
   // CHECK-NEXT: store [[A]]* [[THIS:%[a-zA-Z0-9.]+]], [[A]]** [[THISADDR]]
   // CHECK-NEXT: store i32 [[X:%[a-zA-Z0-9.]+]], i32* [[XADDR]]
@@ -101,7 +101,7 @@ namespace PR10512 {
   A::A(int x) : x(x) { }
 
   // CHECK-LABEL: define void @_ZN7PR105121AC2El
-  // CHECK: [[THISADDR:%[a-zA-Z0-9.]+]] = alloca [[A:%"struct[A-Za-z0-9:.]+"]]
+  // CHECK: [[THISADDR:%[a-zA-Z0-9.]+]] = alloca [[A:%struct[A-Za-z0-9:._]+]]
   // CHECK-NEXT: [[XADDR:%[a-zA-Z0-9.]+]] = alloca i64
   // CHECK-NEXT: store [[A]]* [[THIS:%[a-zA-Z0-9.]+]], [[A]]** [[THISADDR]]
   // CHECK-NEXT: store i64 [[X:%[a-zA-Z0-9.]+]], i64* [[XADDR]]

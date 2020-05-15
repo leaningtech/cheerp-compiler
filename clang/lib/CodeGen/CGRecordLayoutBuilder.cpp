@@ -855,7 +855,8 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
       BaseTy->setBody(BaseBuilder.FieldTypes, BaseBuilder.Packed, DirectBase, isByteLayout, isAsmJS);
       addRecordTypeName(D, BaseTy, ".base");
       // Use the .base type as the directbase, which itself has the right type as the directbase
-      DirectBase = BaseTy;
+      if(!getTarget().isByteAddressable())
+        DirectBase = BaseTy;
       // BaseTy and Ty must agree on their packedness for getLLVMFieldNo to work
       // on both of them with the same index.
       assert(Builder.Packed == BaseBuilder.Packed &&

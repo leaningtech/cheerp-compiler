@@ -15,13 +15,13 @@ void foo (void) {
   ls = gs;
 }
 // CHECK-LABEL: define void @_Z3foov()
-// CHECK: %[[LS:.*]] = alloca %struct.s, align 4
-// CHECK-NEXT: %[[ZERO:.*]] = bitcast %struct.s* %[[LS]] to i8*
-// CHECK-NEXT:  %[[ONE:.*]] = bitcast %struct.s* %[[LS]] to i8*
+// CHECK: %[[LS:.*]] = alloca %struct._Z1s, align 4
+// CHECK-NEXT: %[[ZERO:.*]] = bitcast %struct._Z1s* %[[LS]] to i8*
+// CHECK-NEXT:  %[[ONE:.*]] = bitcast %struct._Z1s* %[[LS]] to i8*
 // CHECK-NEXT:  call void @llvm.memcpy.{{.*}}(i8* align 4 %[[ZERO]], i8* align 4 %[[ONE]], i64 132, i1 true)
-// CHECK-NEXT:  call void @llvm.memcpy.{{.*}}(i8* align 4 getelementptr inbounds (%struct.s, %struct.s* @gs, i32 0, i32 0, i32 0), i8* align 4 getelementptr inbounds (%struct.s, %struct.s* @gs, i32 0, i32 0, i32 0), i64 132, i1 true)
-// CHECK-NEXT:  %[[TWO:.*]] = bitcast %struct.s* %[[LS]] to i8*
-// CHECK-NEXT:  call void @llvm.memcpy.{{.*}}(i8* align 4 %[[TWO]], i8* align 4 getelementptr inbounds (%struct.s, %struct.s* @gs, i32 0, i32 0, i32 0), i64 132, i1 true)
+// CHECK-NEXT:  call void @llvm.memcpy.{{.*}}(i8* align 4 bitcast (%struct._Z1s* @gs to i8*), i8* align 4 bitcast (%struct._Z1s* @gs to i8*), i64 132, i1 true)
+// CHECK-NEXT:  %[[TWO:.*]] = bitcast %struct._Z1s* %[[LS]] to i8*
+// CHECK-NEXT:  call void @llvm.memcpy.{{.*}}(i8* align 4 %[[TWO]], i8* align 4 bitcast (%struct._Z1s* @gs to i8*), i64 132, i1 true)
 
 
 struct s1 {
@@ -35,8 +35,8 @@ void fee (void) {
   s.y = gs;
 }
 // CHECK-LABEL: define void @_Z3feev()
-// CHECK: call void @llvm.memcpy.{{.*}}(i8* align 4 getelementptr inbounds (%struct.s1, %struct.s1* @s, i32 0, i32 0, i32 0, i32 0), i8* align 4 getelementptr inbounds (%struct.s1, %struct.s1* @s, i32 0, i32 0, i32 0, i32 0), i64 132, i1 true)
-// CHECK-NEXT: call void @llvm.memcpy.{{.*}}(i8* align 4 getelementptr inbounds (%struct.s1, %struct.s1* @s, i32 0, i32 0, i32 0, i32 0), i8* align 4 getelementptr inbounds (%struct.s, %struct.s* @gs, i32 0, i32 0, i32 0), i64 132, i1 true)
+// CHECK: call void @llvm.memcpy.{{.*}}(i8* align 4 bitcast (%struct._Z2s1* @s to i8*), i8* align 4 bitcast (%struct._Z2s1* @s to i8*), i64 132, i1 true)
+// CHECK-NEXT: call void @llvm.memcpy.{{.*}}(i8* align 4 bitcast (%struct._Z1s* getelementptr inbounds (%struct._Z2s1, %struct._Z2s1* @s, i32 0, i32 0) to i8*), i8* align 4 bitcast (%struct._Z1s* @gs to i8*), i64 132, i1 true)
 
 struct d : s1 {
 };
@@ -47,4 +47,4 @@ void gorf(void) {
   gd = gd;
 }
 // CHECK-LABEL: define void @_Z4gorfv()
-// CHECK:   call void @llvm.memcpy.{{.*}}(i8* align 4 getelementptr inbounds (%struct.d, %struct.d* @gd, i32 0, i32 0, i32 0, i32 0, i32 0), i8* align 4 getelementptr inbounds (%struct.d, %struct.d* @gd, i32 0, i32 0, i32 0, i32 0, i32 0), i64 132, i1 true)
+// CHECK:   call void @llvm.memcpy.{{.*}}(i8* align 4 bitcast (%struct._Z1d* @gd to i8*), i8* align 4 bitcast (%struct._Z1d* @gd to i8*), i64 132, i1 true)

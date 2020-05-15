@@ -17,16 +17,16 @@
 
 #include <stdarg.h>
 
-// AARCH64-C: define {{.*}} @f(i32 %n, %struct.__va_list* %list)
-// AARCH64-CXX: define {{.*}} @_Z1fiSt9__va_list(i32 %n, %"struct.std::__va_list"* %list)
-// X86_64-C: define {{.*}} @f(i32 %n, %struct.__va_list_tag* %list)
-// X86_64-CXX: define {{.*}} @_Z1fiP13__va_list_tag(i32 %n, %struct.__va_list_tag* %list)
+// AARCH64-C: define {{.*}} @f(i32 %n, %struct._Z9__va_list* %list)
+// AARCH64-CXX: define {{.*}} @_Z1fiSt9__va_list(i32 %n, %struct._ZSt9__va_list* %list)
+// X86_64-C: define {{.*}} @f(i32 %n, %struct._Z13__va_list_tag* %list)
+// X86_64-CXX: define {{.*}} @_Z1fiP13__va_list_tag(i32 %n, %struct._Z13__va_list_tag* %list)
 // PPC64-C: define {{.*}} @f(i32 signext %n, i8* %list)
 // PPC64-CXX: define {{.*}} @_Z1fiPc(i32 signext %n, i8* %list)
 // AAPCS-C: define {{.*}} @f(i32 %n, [1 x i32] %list.coerce)
 // AAPCS-CXX: define {{.*}} @_Z1fiSt9__va_list(i32 %n, [1 x i32] %list.coerce)
-// SYSTEMZ-C: define {{.*}} @f(i32 signext %n, %struct.__va_list_tag* %list)
-// SYSTEMZ-CXX: define {{.*}} @_Z1fiP13__va_list_tag(i32 signext %n, %struct.__va_list_tag* %list)
+// SYSTEMZ-C: define {{.*}} @f(i32 signext %n, %struct._Z13__va_list_tag* %list)
+// SYSTEMZ-CXX: define {{.*}} @_Z1fiP13__va_list_tag(i32 signext %n, %struct._Z13__va_list_tag* %list)
 // PNACL-C: define {{.*}} @f(i32 %n, i32* %list)
 // PNACL-CXX: define {{.*}} @_Z1fiPi(i32 %n, i32* %list)
 // CHARPTR-C: define {{.*}} @f(i32 %n, i8* %list)
