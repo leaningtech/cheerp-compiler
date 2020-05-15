@@ -13,6 +13,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -400,7 +401,7 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		Value* src=CI->getOperand(1);
 		Value* size=CI->getOperand(2);
 		Type* int32Type = IntegerType::get(BB.getContext(), 32);
-		uint32_t alignInt = cast<ConstantInt>(CI->getOperand(3))->getZExtValue();
+		uint32_t alignInt = cast<MemIntrinsic>(CI)->getAlignment();
 		assert(alignInt != 0);
 		// Do not inline memory intrinsics with a large or non-constant size
 		// argument, when in linear memory mode.
