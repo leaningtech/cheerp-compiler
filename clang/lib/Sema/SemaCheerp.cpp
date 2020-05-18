@@ -128,7 +128,13 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, clang:
 		}
 	}
 
-	const clang::Type* Ty2 = Ty->getPointeeType().getTypePtr();
+	const clang::QualType& Ty2 = Ty.getTypePtr()->getPointeeType();
+
+	if (!isParameter && Ty2.isConstQualified())
+	{
+		//TODO: is possible in practice to have const-jsexported elements, but for now keep it at no
+		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "const-qualified pointer or reference" << where;
+	}
 
 	switch (classifyType(Ty2.getTypePtr()))
 	{
@@ -184,7 +190,7 @@ void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, clang::Func
 	{
 		case TypeKind::Void:
 		{
-			//No return is fine (while no parameters is not)
+			//No return is fine (while no parameter is not)
 			return;
 		}
 		case TypeKind::Function:
@@ -192,7 +198,7 @@ void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, clang::Func
 		{
 			//Returning a function pointer could be OK in certain cases, but we have to check whether the function itself could be jsexported
 			//In general the answer is no
-			//TODO: possibly relax this check
+			//TODO: possibly relax this check (or maybe not since it's actually complex, will require checking that every possible return value is jsExported
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "function pointers" << "return";
 		}
 		default:
