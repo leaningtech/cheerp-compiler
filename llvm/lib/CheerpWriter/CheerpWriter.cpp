@@ -6099,7 +6099,7 @@ void CheerpWriter::compileWasmLoader()
 		stream << ',' << NewLine;
 	}
 	stream << "}})" << NewLine;
-	stream << ",console.log).then(" << shortestName << "=>{" << NewLine;
+	stream << ").then(" << shortestName << "=>{" << NewLine;
 	stream << "__asm=" << shortestName << ".instance.exports;" << NewLine;
 	stream << "__heap=__asm." << namegen.getBuiltinName(NameGenerator::MEMORY) << ".buffer;" << NewLine;
 	if (globalDeps.needAsmJS())
@@ -6220,7 +6220,7 @@ void CheerpWriter::compileLoaderEnd()
 {
 	if (makeModule == MODULE_TYPE::COMMONJS)
 		compileCommonJSExports();
-	stream << "},console.log,console.log);" << NewLine;
+	stream << "});" << NewLine;
 }
 
 void CheerpWriter::compileNoLoaderEnd()
@@ -6228,7 +6228,7 @@ void CheerpWriter::compileNoLoaderEnd()
 	if (makeModule == MODULE_TYPE::COMMONJS)
 	{
 		compileCommonJSExports();
-		stream << "},console.log,console.log);" << NewLine;
+		stream << "});" << NewLine;
 	}
 }
 
