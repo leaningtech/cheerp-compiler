@@ -83,6 +83,7 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::Fun
 
 	switch (classifyType(Ty))
 	{
+		case TypeKind::Function:
 		case TypeKind::FunctionPointer:
 		case TypeKind::IntMax32Bit:
 		case TypeKind::FloatingPoint:
@@ -91,6 +92,7 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::Fun
 			return;
 		}
 		case TypeKind::Pointer:
+		case TypeKind::Reference:
 		{
 			break;
 		}
@@ -119,17 +121,13 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::Fun
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "greater than 32bit integers" << where;
 			return;
 		}
-		case TypeKind::Reference:
-		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "references" << where;
-			return;
-		}
 		default:
 		{
+			Ty->dump();
 			llvm_unreachable("Should have been caught earlier");
 		}
 	}
-	assert(Ty->isPointerType());
+
 	const clang::Type* Ty2 = Ty->getPointeeType().getTypePtr();
 
 	switch (classifyType(Ty2))
@@ -189,6 +187,7 @@ void cheerp::checkCouldReturnBeJsExported(const clang::Type* Ty, clang::Function
 			//No return is fine (while no parameters is not)
 			return;
 		}
+		case TypeKind::Function:
 		case TypeKind::FunctionPointer:
 		{
 			//Returning a function pointer could be OK in certain cases, but we have to check whether the function itself could be jsexported
@@ -209,6 +208,8 @@ cheerp::TypeKind cheerp::classifyType(const clang::Type* Ty)
 	using namespace cheerp;
 	if (Ty->isReferenceType())
 	{
+		if (clang::cast<clang::ReferenceType>(Ty)->getPointeeType()->isFunctionType())
+			return TypeKind::FunctionPointer;
 		return TypeKind::Reference;
 	}
 	if (Ty->isIntegerType())
