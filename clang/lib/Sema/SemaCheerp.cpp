@@ -68,11 +68,11 @@ void cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
 		if (it->hasDefaultArg())
 			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << FD->getParent();
 
-		checkCouldBeParameterOfJsExported(it->getOriginalType().getTypePtr(), &*it, sema);
+		checkCouldBeParameterOfJsExported(it->getOriginalType(), &*it, sema);
 	}
 }
 
-void cheerp::checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::Decl* FD, clang::Sema& sema, const bool isParameter)
+void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, clang::Decl* FD, clang::Sema& sema, const bool isParameter)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -81,7 +81,7 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::Dec
 
 	//TODO: have to be checked again, may be possible to be more restrictive on some things while permitting others
 
-	switch (classifyType(Ty))
+	switch (classifyType(Ty.getTypePtr()))
 	{
 		case TypeKind::Function:
 		case TypeKind::FunctionPointer:
@@ -130,7 +130,7 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::Dec
 
 	const clang::Type* Ty2 = Ty->getPointeeType().getTypePtr();
 
-	switch (classifyType(Ty2))
+	switch (classifyType(Ty2.getTypePtr()))
 	{
 		case TypeKind::Void:
 		{
@@ -175,12 +175,12 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::Dec
 	llvm_unreachable("Should have been caught earlier");
 }
 
-void cheerp::checkCouldReturnBeJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema)
+void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, clang::FunctionDecl* FD, clang::Sema& sema)
 {
 	using namespace cheerp;
 	using namespace clang;
 
-	switch (classifyType(Ty))
+	switch (classifyType(Ty.getTypePtr()))
 	{
 		case TypeKind::Void:
 		{
@@ -312,7 +312,7 @@ void cheerp::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod,
 		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_function_template);
 
 	if (!isa<CXXConstructorDecl>(FD))
-		checkCouldReturnBeJsExported(FD->getReturnType().getTypePtr(), FD, sema);
+		checkCouldReturnBeJsExported(FD->getReturnType(), FD, sema);
 
 	checkParameters(FD, sema);
 }
