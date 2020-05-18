@@ -68,11 +68,11 @@ void cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
 		if (it->hasDefaultArg())
 			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << FD->getParent();
 
-		checkCouldBeParameterOfJsExported(it->getOriginalType().getTypePtr(), FD, sema);
+		checkCouldBeParameterOfJsExported(it->getOriginalType().getTypePtr(), &*it, sema);
 	}
 }
 
-void cheerp::checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::FunctionDecl* FD, clang::Sema& sema, const bool isParameter)
+void cheerp::checkCouldBeParameterOfJsExported(const clang::Type* Ty, clang::Decl* FD, clang::Sema& sema, const bool isParameter)
 {
 	using namespace cheerp;
 	using namespace clang;
