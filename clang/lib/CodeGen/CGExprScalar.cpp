@@ -449,13 +449,7 @@ public:
 
   // Leaves.
   Value *VisitIntegerLiteral(const IntegerLiteral *E) {
-    if (CGF.IsHighInt(E->getType())) {
-      assert(cast<BuiltinType>(E->getType())->getKind() == BuiltinType::ULongLong || cast<BuiltinType>(E->getType())->getKind() == BuiltinType::LongLong);
-      llvm::Value *high = Builder.getInt(E->getValue().getHiBits(32).trunc(32));
-      llvm::Value *low = Builder.getInt(E->getValue().trunc(32));
-      return CGF.EmitHighInt(E->getType(), high, low);
-    } else
-      return Builder.getInt(E->getValue());
+    return Builder.getInt(E->getValue());
   }
   Value *VisitFixedPointLiteral(const FixedPointLiteral *E) {
     return Builder.getInt(E->getValue());
@@ -722,69 +716,6 @@ public:
 
   // Binary Operators.
   Value *EmitMul(const BinOpInfo &Ops) {
-    if (CGF.IsHighInt(Ops.Ty)) {
-      //    Split the numbers according to this:
-      //    low bits                                               high bits
-      //    0000000000000001111111111111111122222222222222223333333333333333
-      //    0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-      //    \----a4/b4-----/\-----a3/b3----/
-      //    \--------rhsLow/lhsLow---------/\---------rhsHigh/lhsHigh------/
-
-      //    Then multiply each of {a3,a4} with each of {b3,b4} -> 4 i32 mult
-      //    And then rhsLow * lhsHigh + rhsHigh * lhsLow       -> 2 i32 mult
-      llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.LHS);
-      llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
-      llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
-      llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
-
-      llvm::Value *a3 = Builder.CreateLShr(lhsLow, Builder.getInt32(16));
-      llvm::Value *a4 = Builder.CreateAnd(lhsLow, Builder.getInt32(0xffff));
-
-      llvm::Value *b3 = Builder.CreateLShr(rhsLow, Builder.getInt32(16));
-      llvm::Value *b4 = Builder.CreateAnd(rhsLow, Builder.getInt32(0xffff));
-
-      llvm::Value *high = Builder.CreateAdd(
-        Builder.CreateAdd(
-            Builder.CreateMul(lhsHigh, rhsLow),
-            Builder.CreateMul(lhsLow, rhsHigh)
-        ),
-        Builder.CreateMul(a3, b3)
-      );
-
-      llvm::Value *lh1 = Builder.CreateMul(a3, b4);
-      llvm::Value *lh2 = Builder.CreateMul(b3, a4);
-
-      llvm::Value *lowHigh = Builder.CreateAdd(lh1, lh2);
-      llvm::Value *lowLow = Builder.CreateMul(a4, b4);
-
-      // Check if the most left bits of the highint's lower part bits will
-      // overflow, and add one to the high bits of the highint if it does.
-      llvm::Value *diff = Builder.CreateSub(Builder.getInt32(0xffffffff), lh2);
-      llvm::Value *overflow1 = Builder.CreateICmpUGT(lh1, diff);
-      llvm::Value *two16 = Builder.getInt32(65536);
-      llvm::Value *highPlusTwo16 = Builder.CreateAdd(high, two16);
-      high = Builder.CreateSelect(overflow1, highPlusTwo16, high);
-
-      llvm::Value *l1 = Builder.CreateShl(lowHigh, Builder.getInt32(16));
-      llvm::Value *l2 = lowLow;
-
-      llvm::Value *diff2 = Builder.CreateSub(Builder.getInt32(0xffffffff), l2);
-      llvm::Value *overflow2 = Builder.CreateICmpUGT(l1, diff2);
-      high = Builder.CreateAdd(
-        high,
-        Builder.CreateZExt(overflow2, CGF.Int32Ty)
-      );
-
-      high = Builder.CreateAdd(
-        high,
-        Builder.CreateLShr(lowHigh, Builder.getInt32(16))
-      );
-
-      llvm::Value *low = Builder.CreateAdd(l1, l2);
-
-      return CGF.EmitHighInt(Ops.Ty, high, low);
-    }
-
     if (Ops.Ty->isSignedIntegerOrEnumerationType()) {
       switch (CGF.getLangOpts().getSignedOverflowBehavior()) {
       case LangOptions::SOB_Defined:
@@ -851,39 +782,12 @@ public:
   Value *EmitShl(const BinOpInfo &Ops);
   Value *EmitShr(const BinOpInfo &Ops);
   Value *EmitAnd(const BinOpInfo &Ops) {
-    if (CGF.IsHighInt(Ops.Ty)) {
-      llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.LHS);
-      llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
-      llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
-      llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
-      llvm::Value *high = Builder.CreateAnd(lhsHigh, rhsHigh, "andHigh");
-      llvm::Value *low = Builder.CreateAnd(lhsLow, rhsLow, "andLow");
-      return CGF.EmitHighInt(Ops.Ty, high, low);
-    }
     return Builder.CreateAnd(Ops.LHS, Ops.RHS, "and");
   }
   Value *EmitXor(const BinOpInfo &Ops) {
-    if (CGF.IsHighInt(Ops.Ty)) {
-      llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.LHS);
-      llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
-      llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
-      llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
-      llvm::Value *high = Builder.CreateXor(lhsHigh, rhsHigh, "xorHigh");
-      llvm::Value *low = Builder.CreateXor(lhsLow, rhsLow, "xorLow");
-      return CGF.EmitHighInt(Ops.Ty, high, low);
-    }
     return Builder.CreateXor(Ops.LHS, Ops.RHS, "xor");
   }
   Value *EmitOr (const BinOpInfo &Ops) {
-    if (CGF.IsHighInt(Ops.Ty)) {
-      llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.LHS);
-      llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.LHS);
-      llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(Ops.RHS);
-      llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(Ops.RHS);
-      llvm::Value *high = Builder.CreateOr(lhsHigh, rhsHigh, "orHigh");
-      llvm::Value *low = Builder.CreateOr(lhsLow, rhsLow, "orLow");
-      return CGF.EmitHighInt(Ops.Ty, high, low);
-    }
     return Builder.CreateOr(Ops.LHS, Ops.RHS, "or");
   }
 
@@ -986,18 +890,6 @@ Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
 
   assert((SrcType->isIntegerType() || isa<llvm::PointerType>(Src->getType())) &&
          "Unknown scalar type to convert");
-
-  if (CGF.IsHighInt(SrcType)) {
-    llvm::Value *srcHigh = CGF.EmitLoadHighBitsOfHighInt(Src);
-    llvm::Value *srcLow = CGF.EmitLoadLowBitsOfHighInt(Src);
-
-    Value *Zero = Builder.getInt32(0);
-    Value *high = Builder.CreateICmp(llvm::CmpInst::ICMP_NE, srcHigh, Zero, "cmp");
-    Value *low = Builder.CreateICmp(llvm::CmpInst::ICMP_NE, srcLow, Zero, "cmp");
-    Value *result = Builder.CreateOr(high, low, "or");
-
-    return EmitIntToBoolConversion(result);
-  }
 
   if (isa<llvm::IntegerType>(Src->getType()))
     return EmitIntToBoolConversion(Src);
@@ -1398,69 +1290,6 @@ Value *ScalarExprEmitter::EmitScalarConversion(Value *Src, QualType SrcType,
     return Src;
   }
 
-  // Type cast to an highint
-  if (CGF.IsHighInt(DstType)) {
-    // Do not type cast a highint into highint
-    if (CGF.IsHighInt(SrcType)) {
-      return Src;
-    }
-
-    // Cast float or double values to int64
-    if (Src->getType()->isFloatingPointTy()) {
-      // 1. if number is negative: multiply by -1
-      llvm::Value *negative = Builder.CreateFCmp(llvm::CmpInst::FCMP_OLT,
-              Src, llvm::ConstantFP::get(Src->getType(), (double) 0), "cmp");
-      llvm::Value *minusOne = llvm::ConstantFP::get(Src->getType(), (double) -1);
-      llvm::Value *SrcNegated = Builder.CreateFMul(Src, minusOne);
-      Src = Builder.CreateSelect(negative, SrcNegated, Src);
-      // 2. div high, mod low
-      llvm::Value *c = llvm::ConstantFP::get(Src->getType(), (double)(1LL << 32));
-      llvm::Value *high = Builder.CreateFDiv(Src, c);
-      high = Builder.CreateFPToUI(high, CGF.Int32Ty, "conv");
-      llvm::Value *low = Builder.CreateFRem(Src, c);
-      low = Builder.CreateFPToUI(low, CGF.Int32Ty, "conv");
-      // 3. if number was negative: invert number
-      llvm::Value *result = CGF.EmitHighInt(DstType, high, low);
-
-      // Emit unary minus with EmitSub so we handle overflow cases etc.
-      BinOpInfo BinOp;
-      BinOp.RHS = result;
-      llvm::Value *zero = Builder.getInt32(0);
-      BinOp.LHS = CGF.EmitHighInt(DstType, zero, zero);
-      BinOp.Ty = DstType;
-      BinOp.Opcode = BO_Sub;
-
-      llvm::Value *resultInverted = EmitSub(BinOp);
-      result = Builder.CreateSelect(negative, resultInverted, result);
-      return result;
-    }
-    return CGF.EmitHighIntFromInt(DstType, SrcType, Src);
-  }
-  // Type cast from an highint
-  else if (CGF.IsHighInt(SrcType)) {
-    // Convert highint to a floating point number
-    if (DstTy->isFloatingPointTy()) {
-      llvm::Value *low = CGF.EmitLoadLowBitsOfHighInt(Src);
-      low = Builder.CreateUIToFP(low, DstTy);
-      llvm::Value *high = CGF.EmitLoadHighBitsOfHighInt(Src);
-
-      if (SrcType->isSignedIntegerType()) {
-        high = Builder.CreateSIToFP(high, DstTy);
-      } else {
-        high = Builder.CreateUIToFP(high, DstTy);
-      }
-
-      llvm::Value *c = llvm::ConstantFP::get(DstTy, (double)(1LL << 32));
-      llvm::Value *result;
-      result = Builder.CreateFMul(c, high);
-      result = Builder.CreateFAdd(result, low);
-
-      return result;
-    } else {
-      Src = CGF.EmitLoadLowBitsOfHighInt(Src);
-      SrcTy = CGF.Int32Ty;
-    }
-  }
   // Handle pointer conversions next: pointers can only be converted to/from
   // other pointers and integers. Check for pointer types in terms of LLVM, as
   // some native types (like Obj-C id) may map to a pointer type.
@@ -1730,9 +1559,6 @@ Value *ScalarExprEmitter::EmitComplexToScalarConversion(
 }
 
 Value *ScalarExprEmitter::EmitNullValue(QualType Ty) {
-  if (CGF.IsHighInt(Ty)) {
-    return CGF.EmitHighInt(Ty, Builder.getInt32(0), Builder.getInt32(0));
-  }
   return CGF.EmitFromMemory(CGF.CGM.EmitNullConstant(Ty), Ty);
 }
 
@@ -2421,9 +2247,6 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     // extension.
     auto DestLLVMTy = ConvertType(DestTy);
     llvm::Type *MiddleTy = CGF.CGM.getDataLayout().getIntPtrType(DestLLVMTy);
-    if (CGF.IsHighInt(E->getType())) {
-      Src = CGF.EmitLoadLowBitsOfHighInt(Src);
-    }
     bool InputSigned = E->getType()->isSignedIntegerOrEnumerationType();
     llvm::Value* IntResult =
       Builder.CreateIntCast(Src, MiddleTy, InputSigned, "conv");
@@ -2512,19 +2335,6 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
                                 CE->getExprLoc(), Opts);
   }
   case CK_IntegralToBoolean:
-    // Type cast from an highint
-    if (CGF.IsHighInt(E->getType())) {
-      Value *Elt = Visit(E);
-      llvm::Value *eltHigh = CGF.EmitLoadHighBitsOfHighInt(Elt);
-      llvm::Value *eltLow = CGF.EmitLoadLowBitsOfHighInt(Elt);
-
-      Value *Zero = Builder.getInt32(0);
-      Value *high = Builder.CreateICmp(llvm::CmpInst::ICMP_NE, eltHigh, Zero, "cmp");
-      Value *low = Builder.CreateICmp(llvm::CmpInst::ICMP_NE, eltLow, Zero, "cmp");
-      Value *result = Builder.CreateOr(high, low, "or");
-
-      return EmitIntToBoolConversion(result);
-    }
     return EmitIntToBoolConversion(Visit(E));
   case CK_PointerToBoolean:
     return EmitPointerToBoolConversion(Visit(E), E->getType());
@@ -2974,11 +2784,6 @@ Value *ScalarExprEmitter::VisitUnaryMinus(const UnaryOperator *E) {
 Value *ScalarExprEmitter::VisitUnaryNot(const UnaryOperator *E) {
   TestAndClearIgnoreResultAssign();
   Value *Op = Visit(E->getSubExpr());
-  if (CGF.IsHighInt(E->getType())) {
-    llvm::Value *high = Builder.CreateNot(CGF.EmitLoadHighBitsOfHighInt(Op), "not");
-    llvm::Value *low = Builder.CreateNot(CGF.EmitLoadLowBitsOfHighInt(Op), "not");
-    return CGF.EmitHighInt(E->getType().getCanonicalType(), high, low);
-  }
   return Builder.CreateNot(Op, "neg");
 }
 
@@ -3220,51 +3025,6 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
 
   // Load/convert the LHS.
   LValue LHSLV = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-  if (CGF.IsHighInt(E->getComputationResultType())) {
-    // Make sure both operands are high ints
-    if(!CGF.IsHighInt(E->getLHS()->getType())) {
-      OpInfo.LHS = EmitLoadOfLValue(LHSLV, E->getExprLoc());
-      OpInfo.LHS = CGF.EmitHighIntFromInt(E->getComputationResultType(), E->getLHS()->getType(), OpInfo.LHS);
-    } else
-      OpInfo.LHS = LHSLV.getAddress().getPointer();
-    llvm::Value *highint = NULL;
-
-    switch (OpInfo.Opcode) {
-      case BO_MulAssign: highint = EmitMul(OpInfo); break;
-      case BO_DivAssign: highint = EmitDiv(OpInfo); break;
-      case BO_RemAssign: highint = EmitRem(OpInfo); break;
-      case BO_ShlAssign: highint = EmitShl(OpInfo); break;
-      case BO_ShrAssign: highint = EmitShr(OpInfo); break;
-      case BO_AddAssign: highint = EmitAdd(OpInfo); break;
-      case BO_SubAssign: highint = EmitSub(OpInfo); break;
-      case BO_AndAssign: highint = EmitAnd(OpInfo); break;
-      case BO_XorAssign: highint = EmitXor(OpInfo); break;
-      case BO_OrAssign: highint = EmitOr(OpInfo); break;
-      default:
-        llvm_unreachable("Invalid compound assignment type");
-    }
-    Result = highint;
-
-    if (!highint)
-        return LHSLV;
-
-    llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(highint);
-    llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(highint);
-
-    if(!CGF.IsHighInt(E->getLHS()->getType())) {
-      // We need to store only the low part into a smaller integer
-      Address destPtr = LHSLV.getAddress();
-      llvm::Value* truncatedInt = Builder.CreateTrunc(lhsLow, destPtr.getElementType());
-      Builder.CreateStore(truncatedInt, destPtr, /*volatile*/false);
-    } else {
-      llvm::Value* highLoc = Builder.CreateStructGEP(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 1);
-      llvm::Value* lowLoc = Builder.CreateStructGEP(OpInfo.LHS->getType()->getPointerElementType(), OpInfo.LHS, 0);
-      Builder.CreateAlignedStore(lhsHigh, highLoc, CharUnits::fromQuantity(4), /*volatile*/false);
-      Builder.CreateAlignedStore(lhsLow, lowLoc, CharUnits::fromQuantity(4), /*volatile*/false);
-    }
-
-    return LHSLV;
-  }
 
   llvm::PHINode *atomicPHI = nullptr;
   if (const AtomicType *atomicTy = LHSTy->getAs<AtomicType>()) {
@@ -3486,17 +3246,6 @@ Value *ScalarExprEmitter::EmitRem(const BinOpInfo &Ops) {
     EmitUndefinedBehaviorIntegerDivAndRemCheck(Ops, Zero, false);
   }
 
-  if (CGF.IsHighInt(Ops.Ty)) {
-    // Handle it using a runtime call
-    llvm::Type* HighInt64PtrTy = CGF.ConvertType(Ops.Ty)->getPointerTo();
-    llvm::Type *argTypes[] = { HighInt64PtrTy, HighInt64PtrTy, HighInt64PtrTy };
-    llvm::FunctionType *runtimeFuncTy = llvm::FunctionType::get(CGF.VoidTy, argTypes, false);
-    llvm::Value *runtimeFunc = CGF.CGM.CreateRuntimeFunction(runtimeFuncTy, Ops.Ty->hasUnsignedIntegerRepresentation() ? "__umodti3" : "__modti3");
-    Address result = CGF.CreateMemTemp(Ops.Ty, "mod.result");
-    llvm::Value *runtimeArgs[] = { result.getPointer(), Ops.LHS, Ops.RHS };
-    CGF.EmitNounwindRuntimeCall(runtimeFunc, runtimeArgs);
-    return result.getPointer();
-  }
   if (Ops.Ty->hasUnsignedIntegerRepresentation())
     return Builder.CreateURem(Ops.LHS, Ops.RHS, "rem");
   else
@@ -3809,27 +3558,6 @@ static Value* tryEmitFMulAdd(const BinOpInfo &op,
 }
 
 Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
-  if (CGF.IsHighInt(op.Ty)) {
-    llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(op.LHS);
-    llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(op.LHS);
-    llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(op.RHS);
-    llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(op.RHS);
-
-    llvm::Value *highNormal = Builder.CreateAdd(lhsHigh, rhsHigh, "add");
-    llvm::Value *low = Builder.CreateAdd(lhsLow, rhsLow, "add");
-
-    llvm::Value *one = Builder.getInt32(1);
-    llvm::Value *highPlusOne = Builder.CreateAdd(highNormal, one, "add");
-
-    // Check if the low bits of the highint will overflow, and add one to the
-    // high bits if it does overflow.
-    llvm::Value *max = Builder.getInt32(0xffffffff);
-    llvm::Value *difference = Builder.CreateSub(max, rhsLow);
-    llvm::Value *overflow = Builder.CreateICmpUGT(lhsLow, difference);
-    llvm::Value *high = Builder.CreateSelect(overflow, highPlusOne, highNormal);
-
-    return CGF.EmitHighInt(op.Ty, high, low);
-  }
 
   if (op.LHS->getType()->isPointerTy() ||
       op.RHS->getType()->isPointerTy())
@@ -4018,23 +3746,6 @@ Value *ScalarExprEmitter::EmitFixedPointBinOp(const BinOpInfo &op) {
 }
 
 Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
-  if (CGF.IsHighInt(op.Ty)) {
-    llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(op.LHS);
-    llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(op.LHS);
-    llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(op.RHS);
-    llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(op.RHS);
-
-    llvm::Value *highNormal = Builder.CreateSub(lhsHigh, rhsHigh, "sub");
-    llvm::Value *low = Builder.CreateSub(lhsLow, rhsLow, "sub");
-
-    llvm::Value *one = Builder.getInt32(1);
-    llvm::Value *highMinusOne = Builder.CreateSub(highNormal, one, "sub");
-
-    llvm::Value *overflow = Builder.CreateICmpUGT(rhsLow, lhsLow);
-    llvm::Value *high = Builder.CreateSelect(overflow, highMinusOne, highNormal);
-
-    return CGF.EmitHighInt(op.Ty, high, low);
-  }
   // The LHS is always a pointer if either side is.
   if (!op.LHS->getType()->isPointerTy()) {
     if (op.Ty->isSignedIntegerOrEnumerationType()) {
@@ -4160,13 +3871,6 @@ Value *ScalarExprEmitter::ConstrainShiftValue(Value *LHS, Value *RHS,
 Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
 
-  if (CGF.IsHighInt(Ops.Ty)) {
-    // RHS must be 32-bit wide, there is no point is using the full 64-bit value anyway
-    if (!RHS->getType()->isIntegerTy(32))
-      RHS = CGF.EmitLoadLowBitsOfHighInt(RHS);
-    return CGF.EmitHighIntShl(Ops.Ty, Ops.LHS, RHS);
-  }
-
   // LLVM requires the LHS and RHS to be the same type: promote or truncate the
   // RHS to the same size as the LHS.
   if (Ops.LHS->getType() != RHS->getType())
@@ -4234,13 +3938,6 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
 
 Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
-
-  if (CGF.IsHighInt(Ops.Ty)) {
-    // RHS must be 32-bit wide, there is no point is using the full 64-bit value anyway
-    if (!RHS->getType()->isIntegerTy(32))
-      RHS = CGF.EmitLoadLowBitsOfHighInt(RHS);
-    return CGF.EmitHighIntShr(Ops.Ty, Ops.LHS, RHS);
-  }
 
   // LLVM requires the LHS and RHS to be the same type: promote or truncate the
   // RHS to the same size as the LHS.
@@ -4315,76 +4012,6 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
   Value *Result;
   QualType LHSTy = E->getLHS()->getType();
   QualType RHSTy = E->getRHS()->getType();
-
-  if (CGF.IsHighInt(LHSTy)) {
-    Value *LHS = Visit(E->getLHS());
-    Value *RHS = Visit(E->getRHS());
-
-    llvm::Value *lhsHigh = CGF.EmitLoadHighBitsOfHighInt(LHS);
-    llvm::Value *lhsLow = CGF.EmitLoadLowBitsOfHighInt(LHS);
-    llvm::Value *rhsHigh = CGF.EmitLoadHighBitsOfHighInt(RHS);
-    llvm::Value *rhsLow = CGF.EmitLoadLowBitsOfHighInt(RHS);
-
-    llvm::ICmpInst::Predicate slt = llvm::ICmpInst::ICMP_SLT;
-    llvm::ICmpInst::Predicate ult = llvm::ICmpInst::ICMP_ULT;
-    llvm::ICmpInst::Predicate sgt = llvm::ICmpInst::ICMP_SGT;
-    llvm::ICmpInst::Predicate ugt = llvm::ICmpInst::ICMP_UGT;
-    bool isUnsigned = LHSTy->isUnsignedIntegerType();
-
-    Value* result = nullptr;
-    switch (E->getOpcode()) {
-    default: llvm_unreachable("unexpected comparison type");
-    case BO_LT:
-      result = Builder.CreateOr(
-        Builder.CreateICmp(isUnsigned ? ult : slt, lhsHigh, rhsHigh),
-        Builder.CreateAnd(
-          Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
-          Builder.CreateICmp(llvm::ICmpInst::ICMP_ULT, lhsLow, rhsLow)
-        )
-      );
-      break;
-    case BO_LE:
-      result = Builder.CreateOr(
-        Builder.CreateICmp(isUnsigned ? ult : slt, lhsHigh, rhsHigh),
-        Builder.CreateAnd(
-          Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
-          Builder.CreateICmp(llvm::ICmpInst::ICMP_ULE, lhsLow, rhsLow)
-        )
-      );
-      break;
-    case BO_GT:
-      result = Builder.CreateOr(
-        Builder.CreateICmp(isUnsigned ? ugt : sgt, lhsHigh, rhsHigh),
-        Builder.CreateAnd(
-          Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
-          Builder.CreateICmp(llvm::ICmpInst::ICMP_UGT, lhsLow, rhsLow)
-        )
-      );
-      break;
-    case BO_GE:
-      result = Builder.CreateOr(
-        Builder.CreateICmp(isUnsigned ? ugt : sgt, lhsHigh, rhsHigh),
-        Builder.CreateAnd(
-          Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
-          Builder.CreateICmp(llvm::ICmpInst::ICMP_UGE, lhsLow, rhsLow)
-        )
-      );
-      break;
-    case BO_EQ:
-      result = Builder.CreateAnd(
-        Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsHigh, rhsHigh),
-        Builder.CreateICmp(llvm::ICmpInst::ICMP_EQ, lhsLow, rhsLow)
-      );
-      break;
-    case BO_NE:
-      result = Builder.CreateOr(
-        Builder.CreateICmp(llvm::ICmpInst::ICMP_NE, lhsHigh, rhsHigh),
-        Builder.CreateICmp(llvm::ICmpInst::ICMP_NE, lhsLow, rhsLow)
-      );
-      break;
-    }
-    return EmitScalarConversion(result, CGF.getContext().BoolTy, E->getType(), E->getExprLoc());
-  }
 
   if (const MemberPointerType *MPT = LHSTy->getAs<MemberPointerType>()) {
     assert(E->getOpcode() == BO_EQ ||

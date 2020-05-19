@@ -24,6 +24,7 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
+#include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/NativeRewriter.h"
 #include "llvm/Cheerp/ExpandStructRegs.h"
 #include "llvm/Cheerp/ByValLowering.h"
@@ -587,6 +588,9 @@ static void addCheerpPasses(const PassManagerBuilder &Builder,
   PM.add(createCheerpNativeRewriterPass());
   //Cheerp is single threaded, convert atomic instructions to regular ones
   PM.add(createLowerAtomicPass());
+  //The backends do not currently support 64-bit ops, so lower them
+  //TODO: Keep them for wasm, as they can be natively supported
+  PM.add(cheerp::createI64LoweringPass(true));
 }
 
 static void addPostInlineCheerpPasses(const PassManagerBuilder &Builder,

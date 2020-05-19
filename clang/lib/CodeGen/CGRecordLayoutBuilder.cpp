@@ -485,7 +485,7 @@ CGRecordLowering::accumulateBitFields(RecordDecl::field_iterator Field,
     if (!Types.getTarget().isByteAddressable())
     {
       if (Tail-StartBitOffset > 32 && Types.isHighInt(Run->getType())) {
-        Type = Types.ConvertType(Run->getType());
+        Type = Types.ConvertTypeForMem(Run->getType());
       } else {
         //Cheerp: 32 should not be hardcoded
         assert (Tail-StartBitOffset <= 32);

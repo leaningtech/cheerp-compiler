@@ -1156,12 +1156,7 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
     {
       llvm::Value* Ret = EmitScalarExpr(RV);
       if(IsHighInt(RV->getType())) {
-        llvm::Value* high = EmitLoadHighBitsOfHighInt(Ret);
-        llvm::Value* low = EmitLoadLowBitsOfHighInt(Ret);
-        Address highLoc = Builder.CreateStructGEP(ReturnValue, 1, CharUnits());
-        Address lowLoc = Builder.CreateStructGEP(ReturnValue, 0, CharUnits());
-        Builder.CreateStore(high, highLoc, /*volatile*/false);
-        Builder.CreateStore(low, lowLoc, /*volatile*/false);
+        EmitStoreHighInt(Ret, ReturnValue, false);
       } else
         Builder.CreateStore(Ret, ReturnValue);
       break;

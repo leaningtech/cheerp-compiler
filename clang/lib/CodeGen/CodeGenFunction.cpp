@@ -311,32 +311,6 @@ static void EmitIfUsed(CodeGenFunction &CGF, llvm::BasicBlock *BB) {
   delete BB;
 }
 
-llvm::Value *CodeGenFunction::EmitHighIntFromInt(QualType Ty,
-                                          QualType ValTy,
-                                          llvm::Value *v) {
-  llvm::Value* low, *high;
-  if (ValTy->isSignedIntegerOrEnumerationType()) {
-    low = Builder.CreateSExt(v, Int32Ty);
-    high = Builder.CreateAShr(low, Builder.getInt32(31));
-  } else {
-    low = Builder.CreateZExt(v, Int32Ty);
-    high = llvm::ConstantInt::get(Int32Ty, 0);
-  }
-  return EmitHighInt(Ty, high, low);
-}
-
-llvm::Value *CodeGenFunction::EmitHighInt(QualType Ty,
-                                          llvm::Value *high,
-                                          llvm::Value *low) {
-  llvm::Type* T = ConvertType(Ty);
-  llvm::AllocaInst *highint = new llvm::AllocaInst(T, 0, nullptr, "", AllocaInsertPt);
-  llvm::Value *highLoc = Builder.CreateConstGEP2_32(T, highint, 0, 1);
-  llvm::Value *lowLoc = Builder.CreateConstGEP2_32(T, highint, 0, 0);
-  Builder.CreateAlignedStore(high, highLoc, CharUnits::fromQuantity(4), /*volatile*/false);
-  Builder.CreateAlignedStore(low, lowLoc, CharUnits::fromQuantity(4), /*volatile*/false);
-  return highint;
-}
-
 llvm::Value *CodeGenFunction::EmitLoadHighBitsOfHighInt(llvm::Value *highint) {
   return Builder.CreateAlignedLoad(Builder.CreateStructGEP(highint->getType()->getPointerElementType(), highint, 1), CharUnits::fromQuantity(4));
 }
@@ -345,92 +319,25 @@ llvm::Value *CodeGenFunction::EmitLoadLowBitsOfHighInt(llvm::Value *highint) {
   return Builder.CreateAlignedLoad(Builder.CreateStructGEP(highint->getType()->getPointerElementType(), highint, 0), CharUnits::fromQuantity(4));
 }
 
-
-llvm::Value *CodeGenFunction::EmitHighIntShl(QualType Ty,
-                                             llvm::Value *LHS,
-                                             llvm::Value *RHS) {
-  // { h, l } << N =>
-  // { (N >= 32) ? l << (N - 32) : (h << N) | (l >> (32 - N)),
-  //   (N >= 32) ? 0 : l << N }
-  assert(RHS->getType()->isIntegerTy(32));
-
-  llvm::Value *h = EmitLoadHighBitsOfHighInt(LHS);
-  llvm::Value *l = EmitLoadLowBitsOfHighInt(LHS);
-
-  llvm::Value* NGE32 = Builder.CreateICmpUGE(RHS, Builder.getInt32(32));
-  llvm::Value* NMinus32 = Builder.CreateSub(RHS, Builder.getInt32(32));
-  llvm::Value* _32MinusN = Builder.CreateSub(Builder.getInt32(32), RHS);
-
-  // Compute values for N >= 32, case A
-  llvm::Value* shlHForCaseA = Builder.CreateShl(l, NMinus32);
-  llvm::Value* shlLForCaseA = Builder.getInt32(0);
-
-  // Compute values for N < 32, case B
-  llvm::Value* shlHForCaseB = Builder.CreateOr(
-    Builder.CreateShl(h, RHS),
-    Builder.CreateLShr(l, _32MinusN)
-  );
-  llvm::Value* shlLForCaseB = Builder.CreateShl(l, RHS);
-
-  // Compute final values
-  llvm::Value* shlH = Builder.CreateSelect(NGE32, shlHForCaseA, shlHForCaseB);
-  llvm::Value* shlL = Builder.CreateSelect(NGE32, shlLForCaseA, shlLForCaseB);
-
-  llvm::Value* NEQ0 = Builder.CreateICmpEQ(RHS, Builder.getInt32(0));
-  shlH = Builder.CreateSelect(NEQ0, h, shlH);
-  shlL = Builder.CreateSelect(NEQ0, l, shlL);
-
-  return EmitHighInt(Ty, shlH, shlL);
+llvm::Value *CodeGenFunction::EmitLoadHighInt(llvm::Value *highint) {
+  llvm::Value* high = EmitLoadHighBitsOfHighInt(highint);
+  llvm::Value* low = EmitLoadLowBitsOfHighInt(highint);
+  llvm::Value* h64 = Builder.CreateZExt(high, Int64Ty);
+  llvm::Value* l64 = Builder.CreateZExt(low, Int64Ty);
+  h64 = Builder.CreateShl(h64, 32);
+  return Builder.CreateOr(h64, l64);
 }
 
-llvm::Value *CodeGenFunction::EmitHighIntShr(QualType Ty,
-                                             llvm::Value *LHS,
-                                             llvm::Value *RHS) {
-  // { h, l } >> N =>
-  // { ( N >= 32) ? 0 : h >> N ,
-  //   ( N >= 32) ? h >> (N - 32) : h << (32 - N) | L >> N }
-  assert(RHS->getType()->isIntegerTy(32));
-
-  llvm::Value *h = EmitLoadHighBitsOfHighInt(LHS);
-  llvm::Value *l = EmitLoadLowBitsOfHighInt(LHS);
-
-  llvm::Value* NGE32 = Builder.CreateICmpUGE(RHS, Builder.getInt32(32));
-  llvm::Value* NMinus32 = Builder.CreateSub(RHS, Builder.getInt32(32));
-  llvm::Value* _32MinusN = Builder.CreateSub(Builder.getInt32(32), RHS);
-
-  // Compute values for N >= 32, case A
-  llvm::Value* shrHForCaseA, *shrLForCaseA;
-  if (Ty->hasUnsignedIntegerRepresentation())
-    shrHForCaseA = Builder.getInt32(0);
-  else
-    shrHForCaseA = Builder.CreateAShr(h, Builder.getInt32(31));
-
-  if (Ty->hasUnsignedIntegerRepresentation())
-    shrLForCaseA = Builder.CreateLShr(h, NMinus32);
-  else
-    shrLForCaseA = Builder.CreateAShr(h, NMinus32);
-
-  // Compute values for N < 32, case B
-  llvm::Value* shrHForCaseB;
-  if (Ty->hasUnsignedIntegerRepresentation())
-    shrHForCaseB = Builder.CreateLShr(h, RHS);
-  else
-    shrHForCaseB = Builder.CreateAShr(h, RHS);
-  llvm::Value* shrLForCaseB = Builder.CreateOr(
-    Builder.CreateShl(h, _32MinusN),
-    Builder.CreateLShr(l, RHS)
-  );
-
-  // Compute final values
-  llvm::Value* shrH = Builder.CreateSelect(NGE32, shrHForCaseA, shrHForCaseB);
-  llvm::Value* shrL = Builder.CreateSelect(NGE32, shrLForCaseA, shrLForCaseB);
-
-  llvm::Value* NEQ0 = Builder.CreateICmpEQ(RHS, Builder.getInt32(0));
-  shrH = Builder.CreateSelect(NEQ0, h, shrH);
-  shrL = Builder.CreateSelect(NEQ0, l, shrL);
-
-  return EmitHighInt(Ty, shrH, shrL);
+void CodeGenFunction::EmitStoreHighInt(llvm::Value *Value, Address Addr, bool Volatile) {
+  llvm::Value *high = Builder.CreateTrunc(Builder.CreateLShr(Value, 32), Int32Ty);
+  llvm::Value *low = Builder.CreateTrunc(Value, Int32Ty);
+  Address highLoc = Builder.CreateStructGEP(Addr, 1, CharUnits::Zero());
+  Address lowLoc = Builder.CreateStructGEP(Addr, 0, CharUnits::Zero());
+  Builder.CreateStore(high, highLoc, Volatile);
+  Builder.CreateStore(low, lowLoc, Volatile);
 }
+
+
 
 void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   assert(BreakContinueStack.empty() &&
