@@ -1666,6 +1666,8 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
   if (IRFunctionArgs.hasSRetArg()) {
     QualType Ret = FI.getReturnType();
     llvm::Type *Ty = ConvertType(Ret);
+    if (Ty->isIntegerTy(64))
+      Ty = ConvertTypeForMem(Ret);
     unsigned AddressSpace = Context.getTargetAddressSpace(Ret);
     ArgTypes[IRFunctionArgs.getSRetArgNo()] =
         llvm::PointerType::get(Ty, AddressSpace);

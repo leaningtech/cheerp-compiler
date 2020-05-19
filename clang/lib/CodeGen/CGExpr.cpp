@@ -1699,7 +1699,7 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
       Addr = Addr.withPointer(Builder.CreateThreadLocalAddress(GV));
 
   if (IsHighInt(Ty)) {
-    return Addr.getPointer();
+    return EmitLoadHighInt(Addr.getPointer());
   }
 
   if (const auto *ClangVecTy = Ty->getAs<VectorType>()) {
@@ -1851,12 +1851,7 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
       Addr = Addr.withPointer(Builder.CreateThreadLocalAddress(GV));
 
   if (IsHighInt(Ty)) {
-    llvm::Value *high = EmitLoadHighBitsOfHighInt(Value);
-    llvm::Value *low = EmitLoadLowBitsOfHighInt(Value);
-    Address highLoc = Builder.CreateStructGEP(Addr, 1, CharUnits());
-    Address lowLoc = Builder.CreateStructGEP(Addr, 0, CharUnits());
-    Builder.CreateStore(high, highLoc, Volatile);
-    Builder.CreateStore(low, lowLoc, Volatile);
+    EmitStoreHighInt(Value, Addr, Volatile);
     return;
   }
 
@@ -2234,15 +2229,10 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   // Get the source value, truncated to the width of the bit-field.
   llvm::Value *SrcVal = Src.getScalarVal();
 
-  // When storing an highint value into a small bitfield we can drop the high bits
-  if (IsHighInt(Dst.getType()) && Info.StorageSize <= 32)
-    SrcVal = EmitLoadLowBitsOfHighInt(SrcVal);
-
   // Cast the source to the storage type and shift it into place.
-  if (!IsHighInt(Dst.getType()) || Info.StorageSize <= 32) {
-    SrcVal = Builder.CreateIntCast(SrcVal, Ptr.getElementType(),
+  llvm::Type* CastTy = IsHighInt(Dst.getType()) && Info.StorageSize > 32 ? ConvertType(Dst.getType()) : Ptr.getElementType();
+  SrcVal = Builder.CreateIntCast(SrcVal, CastTy,
                                  /*isSigned=*/false);
-  }
   llvm::Value *MaskedVal = SrcVal;
 
   const bool UseVolatile =
@@ -2286,22 +2276,19 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
       Builder.CreateLoad(Ptr, true, "bf.load");
   }
 
-  bool Volatile = Dst.isVolatileQualified();
-  if (!IsHighInt(Dst.getType()) || Info.StorageSize <= 32) {
-    // Write the new value back out.
-    Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
+  // Write the new value back out.
+  if (IsHighInt(Dst.getType())) {
+      if (Info.StorageSize <= 32) {
+        Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
+      } else {
+        EmitStoreHighInt(SrcVal, Ptr, Dst.isVolatileQualified());
+      }
   } else {
-    llvm::Value *highVal = EmitLoadHighBitsOfHighInt(SrcVal);
-    llvm::Value *lowVal = EmitLoadLowBitsOfHighInt(SrcVal);
-    Address highLoc = Builder.CreateStructGEP(Ptr, 1, CharUnits());
-    Address lowLoc = Builder.CreateStructGEP(Ptr, 0, CharUnits());
-    Builder.CreateStore(highVal, highLoc, Volatile);
-    Builder.CreateStore(lowVal, lowLoc, Volatile);
+    Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
   }
 
   // Return the new value of the bit-field, if requested.
   if (Result) {
-    assert(!IsHighInt(Dst.getType()) || Info.StorageSize <= 32);
     llvm::Value *ResultVal = MaskedVal;
 
     // Sign extend the value if needed.
@@ -3839,9 +3826,7 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
 
     // Extend or truncate the index type to 32 or 64-bits.
     if (Promote) {
-      if (IsHighInt(IdxTy))
-        Idx = EmitLoadLowBitsOfHighInt(Idx);
-      else if(Idx->getType() != IntPtrTy)
+      if(Idx->getType() != IntPtrTy)
         Idx = Builder.CreateIntCast(Idx, IntPtrTy, IdxSigned, "idxprom");
     }
 
