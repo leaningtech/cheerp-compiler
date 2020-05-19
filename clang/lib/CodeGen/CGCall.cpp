@@ -1646,6 +1646,8 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
   if (IRFunctionArgs.hasSRetArg()) {
     QualType Ret = FI.getReturnType();
     llvm::Type *Ty = ConvertType(Ret);
+    if (Ty->isIntegerTy(64))
+      Ty = ConvertTypeForMem(Ret);
     unsigned AddressSpace = Context.getTargetAddressSpace(Ret);
     ArgTypes[IRFunctionArgs.getSRetArgNo()] =
         llvm::PointerType::get(Ty, AddressSpace);
@@ -3484,9 +3486,8 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
       // Do nothing; aggregrates get evaluated directly into the destination.
       break;
     case TEK_Scalar:
-      if(IsHighInt(RetTy))
-        break;
-      EmitStoreOfScalar(Builder.CreateLoad(ReturnValue),
+      llvm::Value* LoadedReturn = IsHighInt(RetTy) ? EmitLoadHighInt(ReturnValue.getPointer()) : Builder.CreateLoad(ReturnValue);
+      EmitStoreOfScalar(LoadedReturn,
                         MakeNaturalAlignAddrLValue(&*AI, RetTy),
                         /*isInit*/ true);
       break;
