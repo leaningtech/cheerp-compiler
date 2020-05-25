@@ -1249,12 +1249,12 @@ public:
 	}
 
 	// Registers should have a consistent JS type
-	enum REGISTER_KIND { OBJECT=0, INTEGER, DOUBLE, FLOAT };
+	enum REGISTER_KIND { OBJECT=0, INTEGER, INTEGER64, DOUBLE, FLOAT };
 
 	struct RegisterInfo
 	{
 		// Try to save bits, we may need more flags here
-		const REGISTER_KIND regKind : 2;
+		const REGISTER_KIND regKind : 3;
 		int needsSecondaryName : 1;
 		RegisterInfo(REGISTER_KIND k, bool n):regKind(k),needsSecondaryName(n)
 		{

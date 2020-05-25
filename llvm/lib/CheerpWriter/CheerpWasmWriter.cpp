@@ -126,6 +126,9 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, WasmBu
 		case Registerize::INTEGER:
 			encodeULEB128(0x7f, stream);
 			break;
+		case Registerize::INTEGER64:
+			encodeULEB128(0x7e, stream);
+			break;
 		case Registerize::OBJECT:
 			encodeULEB128(0x6f, stream);
 			break;
@@ -1081,7 +1084,12 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 		case Instruction::Ty: \
 		{ \
 			assert(t->isIntegerTy() || t->isPointerTy()); \
-			encodeInst(i32, "i32."#name, code); \
+			if (t->isIntegerTy(64)) { \
+				encodeInst(i64, "i64."#name, code); \
+			} \
+			else { \
+				encodeInst(i32, "i32."#name, code); \
+			} \
 			return; \
 		}
 		BINOPI( Add,   add, 0x6a, 0x7c)
@@ -1106,9 +1114,12 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 				encodeInst(f32, "f32."#name, code); \
 				return; \
 			} \
-			if (t->isDoubleTy()) { \
+			else if (t->isDoubleTy()) { \
 				encodeInst(f64, "f64."#name, code); \
 				return; \
+			} \
+			else { \
+				llvm_unreachable("unsupported type"); \
 			} \
 			break; \
 		}
@@ -1189,24 +1200,26 @@ void CheerpWasmWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint3
 
 void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code)
 {
-	// TODO add i64 support.
 	assert(ty->isIntegerTy() || ty->isPointerTy());
 	switch(predicate)
 	{
-#define PREDICATE(Ty, name, opcode) \
+#define PREDICATE(Ty, name, i32, i64) \
 		case CmpInst::ICMP_##Ty: \
-			encodeInst(opcode, "i32."#name, code); \
+			if (ty->isIntegerTy(64)) \
+				encodeInst(i64, "i64."#name, code); \
+			else \
+				encodeInst(i32, "i32."#name, code); \
 			break;
-		PREDICATE( EQ,   eq, 0x46);
-		PREDICATE( NE,   ne, 0x47);
-		PREDICATE(SLT, lt_s, 0x48);
-		PREDICATE(ULT, lt_u, 0x49);
-		PREDICATE(SGT, gt_s, 0x4a);
-		PREDICATE(UGT, gt_u, 0x4b);
-		PREDICATE(SLE, le_s, 0x4c);
-		PREDICATE(ULE, le_u, 0x4d);
-		PREDICATE(SGE, ge_s, 0x4e);
-		PREDICATE(UGE, ge_u, 0x4f);
+		PREDICATE( EQ,   eq, 0x46, 0x51);
+		PREDICATE( NE,   ne, 0x47, 0x52);
+		PREDICATE(SLT, lt_s, 0x48, 0x53);
+		PREDICATE(ULT, lt_u, 0x49, 0x54);
+		PREDICATE(SGT, gt_s, 0x4a, 0x55);
+		PREDICATE(UGT, gt_u, 0x4b, 0x56);
+		PREDICATE(SLE, le_s, 0x4c, 0x57);
+		PREDICATE(ULE, le_u, 0x4d, 0x58);
+		PREDICATE(SGE, ge_s, 0x4e, 0x59);
+		PREDICATE(UGE, ge_u, 0x4f, 0x5a);
 #undef PREDICATE
 		default:
 			llvm::errs() << "Handle predicate " << predicate << "\n";
@@ -1408,13 +1421,16 @@ void CheerpWasmWriter::encodeBranchTable(WasmBuffer& code, std::vector<uint32_t>
 
 void CheerpWasmWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison)
 {
-	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
+	uint32_t shiftAmount = std::max(32-(int)v->getType()->getIntegerBitWidth(), 0);
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
 		int32_t value = C->getSExtValue();
 		if(forComparison)
 			value <<= shiftAmount;
-		encodeS32Inst(0x41, "i32.const", value, code);
+		if (v->getType()->isIntegerTy(64))
+			encodeS32Inst(0x42, "i64.const", value, code);
+		else
+			encodeS32Inst(0x41, "i32.const", value, code);
 		return;
 	}
 
@@ -1442,14 +1458,17 @@ void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 {
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
-		encodeS32Inst(0x41, "i32.const", C->getZExtValue(), code);
+		if (v->getType()->isIntegerTy(64))
+			encodeS32Inst(0x42, "i64.const", C->getZExtValue(), code);
+		else
+			encodeS32Inst(0x41, "i32.const", C->getZExtValue(), code);
 		return;
 	}
 
 	compileOperand(code, v);
 
 	uint32_t initialSize = v->getType()->getIntegerBitWidth();
-	if(initialSize != 32 && CheerpWriter::needsUnsignedTruncation(v, /*asmjs*/true))
+	if(initialSize < 32 && CheerpWriter::needsUnsignedTruncation(v, /*asmjs*/true))
 	{
 		encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(initialSize), code);
 		encodeInst(0x71, "i32.and", code);
@@ -1562,9 +1581,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	{
 		assert(i->getType()->isIntegerTy() && i->getBitWidth() <= 64);
 		if (i->getBitWidth() == 64) {
-			assert(i->getSExtValue() <= INT32_MAX);
-			assert(i->getSExtValue() >= INT32_MIN);
-			encodeS32Inst(0x41, "i32.const", i->getSExtValue(), code);
+			encodeS32Inst(0x42, "i64.const", i->getSExtValue(), code);
 		} else if (i->getBitWidth() == 32)
 			encodeS32Inst(0x41, "i32.const", i->getSExtValue(), code);
 		else
@@ -1784,7 +1801,10 @@ void CheerpWasmWriter::compileICmp(const Value* op0, const Value* op1, const Cmp
 		compileUnsignedInteger(code, op0);
 		if(useEqz)
 		{
-			encodeInst(0x45, "i32.eqz", code);
+			if (op0->getType()->isIntegerTy(64))
+				encodeInst(0x50, "i64.eqz", code);
+			else
+				encodeInst(0x45, "i32.eqz", code);
 			return;
 		}
 		compileUnsignedInteger(code, op1);
@@ -1794,7 +1814,10 @@ void CheerpWasmWriter::compileICmp(const Value* op0, const Value* op1, const Cmp
 		compileSignedInteger(code, op0, true);
 		if(useEqz)
 		{
-			encodeInst(0x45, "i32.eqz", code);
+			if (op0->getType()->isIntegerTy(64))
+				encodeInst(0x50, "i64.eqz", code);
+			else
+				encodeInst(0x45, "i32.eqz", code);
 			return;
 		}
 		compileSignedInteger(code, op1, true);
@@ -2655,6 +2678,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::Trunc:
 		{
 			compileOperand(code, I.getOperand(0));
+			if (I.getOperand(0)->getType()->isIntegerTy(64))
+				encodeInst(0xa7, "i32.wrap_i64", code);
 			break;
 		}
 		case Instruction::Ret:
@@ -2693,6 +2718,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
 				encodeInst(0x75, "i32.shr_s", code);
 			}
+			// TODO convert directly to i64 without passing from i32
+			if (I.getType()->isIntegerTy(64))
+				encodeInst(0xac, "i64.extend_s/i32", code);
 			break;
 		}
 		case Instruction::FPToSI:
@@ -2703,12 +2731,23 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			{
 				compileOperand(code, I.getOperand(0));
 				if(I.getOperand(0)->getType()->isFloatTy())
-					encodeInst(0xa8, "i32.trunc_s/f32", code);
+				{
+					if (I.getType()->isIntegerTy(64))
+						encodeInst(0xae, "i64.trunc_s/f32", code);
+					else
+						encodeInst(0xa8, "i32.trunc_s/f32", code);
+				}
 				else
-					encodeInst(0xaa, "i32.trunc_s/f64", code);
+				{
+					if (I.getType()->isIntegerTy(64))
+						encodeInst(0xb0, "i64.trunc_s/f64", code);
+					else
+						encodeInst(0xaa, "i32.trunc_s/f64", code);
+				}
 			}
 			else if (I.getOperand(0)->getType()->isFloatTy())
 			{
+				// TODO i64
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x8b, "f32.abs", code);
 				encodeInst(0x43, "f32.const", code);
@@ -2725,6 +2764,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			}
 			else
 			{
+				// TODO i64
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x99, "f64.abs", code);
 				encodeInst(0x43, "f32.const", code);
@@ -2744,18 +2784,28 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::FPToUI:
 		{
-			// TODO: add support for i64.
 			// Wasm opcodes traps on invalid values, we need to do an explicit check if requested
 			if(!AvoidWasmTraps)
 			{
 				compileOperand(code, I.getOperand(0));
 				if(I.getOperand(0)->getType()->isFloatTy())
-					encodeInst(0xa9, "i32.trunc_u/f32", code);
+				{
+					if (I.getType()->isIntegerTy(64))
+						encodeInst(0xaf, "i64.trunc_u/f32", code);
+					else
+						encodeInst(0xa9, "i32.trunc_u/f32", code);
+				}
 				else
-					encodeInst(0xab, "i32.trunc_u/f64", code);
+				{
+					if (I.getType()->isIntegerTy(64))
+						encodeInst(0xb1, "i64.trunc_u/f64", code);
+					else
+						encodeInst(0xab, "i32.trunc_u/f64", code);
+				}
 			}
 			else if (I.getOperand(0)->getType()->isFloatTy())
 			{
+				// TODO: add support for i64.
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x43, "f32.const", code);
 				internal::encodeF32(0x100000000LL, code);
@@ -2776,6 +2826,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			}
 			else
 			{
+				// TODO: add support for i64.
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x43, "f32.const", code);
 				internal::encodeF32(0x100000000LL, code);
@@ -2803,7 +2854,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			assert(I.getOperand(0)->getType()->isIntegerTy());
 			compileOperand(code, I.getOperand(0));
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
-			if(bitWidth != 32)
+			if(bitWidth < 32)
 			{
 				// Sign extend
 				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
@@ -2811,12 +2862,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
 				encodeInst(0x75, "i32.shr_s", code);
 			}
-			// TODO: add support for i64.
 			if (I.getType()->isDoubleTy()) {
-				encodeInst(0xb7, "f64.convert_s/i32", code);
+				if (bitWidth == 64)
+					encodeInst(0xb9, "f64.convert_s/i64", code);
+				else
+					encodeInst(0xb7, "f64.convert_s/i32", code);
 			} else {
 				assert(I.getType()->isFloatTy());
-				encodeInst(0xb2, "f32.convert_s/i32", code);
+				if (bitWidth == 64)
+					encodeInst(0xb4, "f32.convert_s/i64", code);
+				else
+					encodeInst(0xb2, "f32.convert_s/i32", code);
 			}
 			break;
 		}
@@ -2825,17 +2881,22 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			assert(I.getOperand(0)->getType()->isIntegerTy());
 			compileOperand(code, I.getOperand(0));
 			uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
-			if(bitWidth != 32)
+			if(bitWidth < 32)
 			{
 				encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
 				encodeInst(0x71, "i32.and", code);
 			}
-			// TODO: add support for i64.
 			if (I.getType()->isDoubleTy()) {
-				encodeInst(0xb8, "f64.convert_u/i32", code);
+				if (bitWidth == 64)
+					encodeInst(0xba, "f64.convert_u/i64", code);
+				else
+					encodeInst(0xb8, "f64.convert_u/i32", code);
 			} else {
 				assert(I.getType()->isFloatTy());
-				encodeInst(0xb3, "f32.convert_u/i32", code);
+				if (bitWidth == 64)
+					encodeInst(0xb5, "f32.convert_u/i64", code);
+				else
+					encodeInst(0xb3, "f32.convert_u/i32", code);
 			}
 			break;
 		}
@@ -2858,6 +2919,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::ZExt:
 		{
 			compileUnsignedInteger(code, I.getOperand(0));
+			if (I.getType()->isIntegerTy(64))
+				encodeInst(0xad, "i64.extend_i32_u", code);
 			break;
 		}
 		case Instruction::IntToPtr:
@@ -3127,6 +3190,7 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 {
 	if (mode == CheerpWasmWriter::WASM) {
 		uint32_t groups = (uint32_t) locals.at(Registerize::INTEGER) > 0;
+		groups += (uint32_t) locals.at(Registerize::INTEGER64) > 0;
 		groups += (uint32_t) locals.at(Registerize::DOUBLE) > 0;
 		groups += (uint32_t) locals.at(Registerize::FLOAT) > 0;
 		groups += (uint32_t) locals.at(Registerize::OBJECT) > 0;
@@ -3143,6 +3207,11 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 		if (locals.at(Registerize::INTEGER)) {
 			internal::encodeULEB128(locals.at(Registerize::INTEGER), code);
 			internal::encodeRegisterKind(Registerize::INTEGER, code);
+		}
+
+		if (locals.at(Registerize::INTEGER64)) {
+			internal::encodeULEB128(locals.at(Registerize::INTEGER64), code);
+			internal::encodeRegisterKind(Registerize::INTEGER64, code);
 		}
 
 		if (locals.at(Registerize::DOUBLE)) {
@@ -3165,6 +3234,11 @@ void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& 
 		if (locals.at(Registerize::INTEGER)) {
 			for (int i = 0; i < locals.at(Registerize::INTEGER); i++)
 				code << " i32";
+		}
+
+		if (locals.at(Registerize::INTEGER64)) {
+			for (int i = 0; i < locals.at(Registerize::INTEGER64); i++)
+				code << " i64";
 		}
 
 		if (locals.at(Registerize::DOUBLE)) {
@@ -3247,7 +3321,8 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* con
 		// Optimize "if (a != 0)" to "if (a)" and "if (a == 0)" to "if (!a)".
 		if ((p == CmpInst::ICMP_NE || p == CmpInst::ICMP_EQ) &&
 				isa<Constant>(op1) &&
-				cast<Constant>(op1)->isNullValue())
+				cast<Constant>(op1)->isNullValue() &&
+				!op0->getType()->isIntegerTy(64))
 		{
 			if(op0->getType()->isPointerTy())
 				compileOperand(code, op0);
@@ -3536,7 +3611,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	const std::vector<Registerize::RegisterInfo>& regsInfo = registerize.getRegistersForFunction(&F);
 	uint32_t localCount = regsInfo.size() + (int)needsLabel;
 
-	vector<int> locals(4, 0);
+	vector<int> locals(5, 0);
 	localMap.assign(localCount, 0);
 	uint32_t reg = 0;
 
@@ -3565,15 +3640,21 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		switch (regInfo.regKind) {
 			case Registerize::INTEGER:
 				break;
+			case Registerize::INTEGER64:
+				offset += locals.at((int)Registerize::INTEGER);
+				break;
 			case Registerize::DOUBLE:
 				offset += locals.at((int)Registerize::INTEGER);
+				offset += locals.at((int)Registerize::INTEGER64);
 				break;
 			case Registerize::FLOAT:
 				offset += locals.at((int)Registerize::INTEGER);
+				offset += locals.at((int)Registerize::INTEGER64);
 				offset += locals.at((int)Registerize::DOUBLE);
 				break;
 			case Registerize::OBJECT:
 				offset += locals.at((int)Registerize::INTEGER);
+				offset += locals.at((int)Registerize::INTEGER64);
 				offset += locals.at((int)Registerize::DOUBLE);
 				offset += locals.at((int)Registerize::FLOAT);
 				break;
