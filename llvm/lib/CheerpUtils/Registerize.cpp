@@ -2924,7 +2924,9 @@ uint32_t Registerize::findOrCreateRegister(llvm::SmallVector<RegisterRange, 4>& 
 
 Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, bool asmjs) const
 {
-	if(t->isIntegerTy())
+	if(t->isIntegerTy(64))
+		return INTEGER64;
+	else if(t->isIntegerTy())
 		return INTEGER;
 	// We distinguish between FLOAT and DOUBLE only in asm.js functions
 	else if(asmjs && useFloats && t->isFloatTy())
