@@ -2822,6 +2822,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 						}
 						stream << "|0";
 						break;
+					case Registerize::INTEGER64:
+						report_fatal_error("unsupported INTEGER64 register");
+						break;
 					case Registerize::DOUBLE:
 						stream << "return ";
 						compileOperand(retVal, LOWEST);
@@ -4147,6 +4150,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 						if(parentPrio > BIT_OR)
 							stream << ')';
 						break;
+					case Registerize::INTEGER64:
+						report_fatal_error("unsupported INTEGER64 register");
+						break;
 					case Registerize::DOUBLE:
 						break;
 					case Registerize::FLOAT:
@@ -4204,6 +4210,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 						stream << "|0";
 						if(parentPrio > BIT_OR)
 							stream << ')';
+						break;
+					case Registerize::INTEGER64:
+						report_fatal_error("unsupported INTEGER64 register");
 						break;
 					case Registerize::DOUBLE:
 						break;
@@ -4863,6 +4872,8 @@ void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND
 	stream << name << '=';
 	if(kind == Registerize::INTEGER)
 		stream << '0';
+	else if (kind == Registerize::INTEGER64)
+		report_fatal_error("unsupported INTEGER64 register");
 	else if(kind == Registerize::DOUBLE)
 	{
 		// NOTE: V8 requires the `.` to identify it as a double in asm.js
@@ -5315,6 +5326,9 @@ void CheerpWriter::compileMethod(const Function& F)
 				case Registerize::INTEGER:
 					stream << " 0";
 					break;
+				case Registerize::INTEGER64:
+					report_fatal_error("unsupported INTEGER64 register");
+					break;
 				case Registerize::FLOAT:
 					stream << " " << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << "(0.)";
 					break;
@@ -5582,6 +5596,9 @@ void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
 		{
 			case Registerize::INTEGER:
 				stream << getName(&*curArg) << "|0";
+				break;
+			case Registerize::INTEGER64:
+				report_fatal_error("unsupported INTEGER64 register");
 				break;
 			case Registerize::FLOAT:
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
