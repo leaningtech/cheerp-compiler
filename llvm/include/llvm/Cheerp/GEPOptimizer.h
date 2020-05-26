@@ -471,14 +471,30 @@ private:
 		return getOrCreate(Kind::Good);
 	}
 	class SuccIterator
-		: public iterator_facade_base<SuccIterator, std::forward_iterator_tag, Node, int, Node*, Node*> {
-		void skipNonExistentSuccessors()
+		: public iterator_facade_base<SuccIterator, std::bidirectional_iterator_tag, Node, int, Node*, Node*> {
+		void skipNonExistentSuccessorsForward()
 		{
 			assert(N->BB());
+			assert(Idx >=0);
 			while (Idx < (int)N->BB()->getTerminator()->getNumSuccessors() &&
 					N->getGraph().nodeExist(N->BB()->getTerminator()->getSuccessor(Idx)) == false)
 			{
 				++Idx;
+			}
+		}
+		void skipNonExistentSuccessorsBackward()
+		{
+			assert(N->BB());
+			while(Idx>=0 && N->getGraph().nodeExist(N->BB()->getTerminator()->getSuccessor(Idx)) == false)
+			{
+				--Idx;
+			}
+			if (Idx == -1)
+			{
+				if (N->kind() == Kind::ConnectedToBad)
+					Idx = -2;
+				else
+					assert(N->kind() == Kind::ConnectedToGood);
 			}
 		}
 	public:
@@ -495,7 +511,7 @@ private:
 			else
 			{
 				Idx = 0;
-				skipNonExistentSuccessors();
+				skipNonExistentSuccessorsForward();
 			}
 		}
 		explicit SuccIterator(Node* N, bool): N(N)
@@ -523,13 +539,23 @@ private:
 			if (Idx == -2)
 				Idx = -1;
 			++Idx;
-			assert(Idx >= 0);
-			skipNonExistentSuccessors();
+			skipNonExistentSuccessorsForward();
 			return *this;
 		}
 		SuccIterator operator++(int)
 		{
 			SuccIterator tmp = *this; ++*this; return tmp;
+		}
+		SuccIterator& operator--()
+		{
+			assert(Idx >= 0);
+			Idx--;
+			skipNonExistentSuccessorsBackward();
+			return *this;
+		}
+		SuccIterator operator--(int)
+		{
+			SuccIterator tmp = *this; --*this; return tmp;
 		}
 		bool operator==(const SuccIterator& I) const
 		{
