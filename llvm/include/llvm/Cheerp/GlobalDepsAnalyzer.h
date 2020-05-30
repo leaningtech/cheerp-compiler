@@ -224,6 +224,8 @@ private:
 	 */
 	int filterModule( const llvm::DenseSet<const llvm::Function*>&, llvm::Module & );
 
+	static bool isPrintfFamily(const llvm::StringRef& n);
+
 	static bool isMathIntrinsic(const llvm::Function* F);
 
 	//Insert Function on execution queue
