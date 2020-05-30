@@ -480,15 +480,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	for (const GlobalValue* v: printfLikeQueue)
 	{
 		StringRef n = v->getName();
-		if(!usesFloatPrintf && (n == "asnprintf" || n == "asprintf" || n == "dprintf" || n == "fprintf" ||
-			n == "vfprintf" || n == "printf" || n == "snprintf" || n == "sprintf" ||
-			n == "vasnprintf" || n == "vasprintf" || n == "vdprintf" || n == "vprintf" ||
-			n == "vsnprintf" || n == "vsprintf"))
-		{
-			// In this list only keep non-wide and non-i-prefixed printf functions
-			// NOTE: Wide char versions do not have a separate printf_float method
+		if(!usesFloatPrintf && isPrintfFamily(n))
 			usesFloatPrintf = true;
-		}
 		SubExprVec vec;
 		visitGlobal(v, visited, vec);
 		assert(visited.empty());
@@ -1110,6 +1103,16 @@ bool GlobalDepsAnalyzer::isMathIntrinsic(const llvm::Function* F)
 		(builtinID == BuiltinInstr::MOD_F);
 }
 
+bool GlobalDepsAnalyzer::isPrintfFamily(const llvm::StringRef& n)
+{
+	// In this list only keep non-wide and non-i-prefixed printf functions
+	// NOTE: Wide char versions do not have a separate printf_float method
+	return n == "asnprintf" || n == "asprintf" || n == "dprintf" || n == "fprintf" ||
+			n == "vfprintf" || n == "printf" || n == "snprintf" || n == "sprintf" ||
+			n == "vasnprintf" || n == "vasprintf" || n == "vdprintf" || n == "vprintf" ||
+			n == "vsnprintf" || n == "vsprintf";
+}
+
 int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMathBuiltins, Module & module )
 {
 	std::vector< llvm::GlobalValue * > eraseQueue;
@@ -1148,7 +1151,8 @@ int GlobalDepsAnalyzer::filterModule( const DenseSet<const Function*>& droppedMa
 			// We need to modify code to enforce correctness
 			f->removeFnAttr(Attribute::OptimizeNone);
 			// Never internalize functions that may have a better native implementation
-			if(TypedBuiltinInstr::isWasmIntrinsic(f) || isMathIntrinsic(f))
+			// Also, make sure printf like methods do not disappear, we need them to identify if printf_float is needed
+			if(TypedBuiltinInstr::isWasmIntrinsic(f) || isMathIntrinsic(f) || isPrintfFamily(f->getName()))
 				f->setLinkage(GlobalValue::WeakAnyLinkage);
 			else
 				f->setLinkage(GlobalValue::InternalLinkage);
