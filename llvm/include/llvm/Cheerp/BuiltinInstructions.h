@@ -142,6 +142,8 @@ namespace TypedBuiltinInstr
 	x(llvm::Intrinsic::minnum, "fmin", "fminf") \
 	x(llvm::Intrinsic::rint, "rint", "rintf") \
 	x(llvm::Intrinsic::round, "round", "roundf") \
+	x(llvm::Intrinsic::sin, "sin", "sinf") \
+	x(llvm::Intrinsic::cos, "cos", "cosf") \
 
 inline bool mayBeLoweredInto(const llvm::Function& F)
 {
