@@ -2350,6 +2350,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					case Intrinsic::minnum:
 					case Intrinsic::maxnum:
 					case Intrinsic::copysign:
+					case Intrinsic::sqrt:
 					{
 						//Handled below inside if (isWasmIntrinsic(calledFunction))
 						break;
