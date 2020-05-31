@@ -1542,9 +1542,9 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   } else if (!getTarget().isByteAddressable() && CurFn && CurFn->getSection()!=StringRef("asmjs")) {
     EnsureInsertPoint();
 
-    llvm::Value *elementCount;
-    QualType elementType;
-    std::tie(elementCount, elementType) = getVLASize(Ty);
+    auto vlaData = getVLASize(Ty);
+    llvm::Value *elementCount = vlaData.NumElts;
+    QualType elementType = vlaData.Type;
 
     llvm::Type *llvmTy = ConvertTypeForMem(elementType);
     uint64_t size = CGM.getDataLayout().getTypeAllocSize(llvmTy);
