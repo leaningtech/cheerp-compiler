@@ -170,7 +170,7 @@ void EndOfBlockPHIHandler::runOnConnectionGraph(DependencyGraph dependencyGraph,
 	for (std::vector<uint32_t>& registerIds : regions)
 	{
 		assert(!registerIds.empty());
-		sort(registerIds.begin(), registerIds.end());
+		std::sort(registerIds.begin(), registerIds.end());
 
 		//If using stack to resolve temporaries, do it now
 		if (!isRecursiveCall)
