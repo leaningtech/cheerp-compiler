@@ -226,6 +226,8 @@ private:
 	bool readableOutput;
 	// Flag to signal if we should declare exports
 	bool areExportsDeclared{false};
+	// Flag to signal whether a module/promise should be closed
+	bool isPromiseOrModuleOpen{false};
 	// Names of js-exported items
 	std::vector<llvm::StringRef> exportedClassNames;
 
@@ -673,9 +675,8 @@ public:
 	void compileGenericJS();
 	void compileWasmLoader();
 	void compileAsmJSLoader();
-	void compileLoaderEnd();
 	void compileNoLoaderAsmJS();
-	void compileNoLoaderEnd();
+	void compileLoaderOrModuleEnd();
 	void compileDeclareExports();
 	void compileDefineExports();
 	void compileCommonJSExports();

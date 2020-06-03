@@ -6123,6 +6123,7 @@ void CheerpWriter::compileWasmLoader()
 	{
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	}
+	isPromiseOrModuleOpen = true;
 }
 
 void CheerpWriter::compileDeclareExports()
@@ -6232,17 +6233,17 @@ void CheerpWriter::compileAsmJSLoader()
 	stream << heapNames[HEAP8] << ".set(new Uint8Array(r),";
 	stream << linearHelper.getStackStart() << ");" << NewLine;
 	stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
+
+	isPromiseOrModuleOpen = true;
 }
 
-void CheerpWriter::compileLoaderEnd()
+void CheerpWriter::compileLoaderOrModuleEnd()
 {
-	stream << "});" << NewLine;
-}
-
-void CheerpWriter::compileNoLoaderEnd()
-{
-	if (makeModule == MODULE_TYPE::COMMONJS)
+	if (isPromiseOrModuleOpen)
+	{
+		isPromiseOrModuleOpen = false;
 		stream << "});" << NewLine;
+	}
 }
 
 void CheerpWriter::compileNoLoaderAsmJS()
@@ -6250,6 +6251,7 @@ void CheerpWriter::compileNoLoaderAsmJS()
 	if (makeModule == MODULE_TYPE::COMMONJS)
 	{
 		compileDeclareExports();
+		isPromiseOrModuleOpen = true;
 		stream << "Promise.resolve().then(_=>{" << NewLine;
 	}
 
@@ -6326,10 +6328,8 @@ void CheerpWriter::makeJS()
 	if (makeModule == MODULE_TYPE::COMMONJS)
 		compileCommonJSExports();
 
-	if (needWasmLoader || needAsmJSLoader)
-		compileLoaderEnd();
-	else
-		compileNoLoaderEnd();
+	compileLoaderOrModuleEnd();
+
 	if (needModuleClosure)
 		compileModuleClosureEnd();
 	if (measureTimeToMain)
