@@ -6123,12 +6123,12 @@ void CheerpWriter::compileWasmLoader()
 	{
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	}
-
-	compileDefineExports(false);
 }
 
 void CheerpWriter::compileDeclareExports()
 {
+	areExportsDeclared = true;
+
 	const auto& exportedFunctions = getExportedFreeFunctions();
 	for (auto i: globalDeps.asmJSExports())
 	{
@@ -6175,8 +6175,11 @@ void CheerpWriter::compileDeclareExports()
 	}
 }
 
-void CheerpWriter::compileDefineExports(bool alsoDeclare)
+void CheerpWriter::compileDefineExports()
 {
+	const bool alsoDeclare = !areExportsDeclared;
+	areExportsDeclared = true;
+
 	const auto& exportedFunctions = getExportedFreeFunctions();
 	for (auto i: globalDeps.asmJSExports())
 	{
@@ -6229,8 +6232,6 @@ void CheerpWriter::compileAsmJSLoader()
 	stream << heapNames[HEAP8] << ".set(new Uint8Array(r),";
 	stream << linearHelper.getStackStart() << ");" << NewLine;
 	stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
-
-	compileDefineExports(false);
 }
 
 void CheerpWriter::compileLoaderEnd()
@@ -6260,11 +6261,6 @@ void CheerpWriter::compileNoLoaderAsmJS()
 
 	if (globalDeps.needAsmJS())
 		stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
-
-
-	compileDefineExports(!declareExports);
-
-
 }
 
 void CheerpWriter::compileCommonJSExports()
@@ -6330,6 +6326,8 @@ void CheerpWriter::makeJS()
 		compileAsmJSLoader();
 	else
 		compileNoLoaderAsmJS();
+
+	compileDefineExports();
 	compileConstructors();
 	if (needWasmLoader || needAsmJSLoader)
 		compileLoaderEnd();
