@@ -224,6 +224,8 @@ private:
 	bool symbolicGlobalsAsmJS;
 	// Flag to signal if we should emit readable or compressed output
 	bool readableOutput;
+	// Flag to signal if we should declare exports
+	bool areExportsDeclared{false};
 	// Names of js-exported items
 	std::vector<llvm::StringRef> exportedClassNames;
 
@@ -675,7 +677,7 @@ public:
 	void compileNoLoaderAsmJS();
 	void compileNoLoaderEnd();
 	void compileDeclareExports();
-	void compileDefineExports(bool alsoDeclare);
+	void compileDefineExports();
 	void compileCommonJSExports();
 	void compileConstructors();
 };
