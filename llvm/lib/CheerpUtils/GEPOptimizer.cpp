@@ -432,7 +432,7 @@ void GEPOptimizer::GEPRecursionData::sortGEPs()
 	//(it is not important the actual order, only two property matters:
 	//-GEP with a common prefix should be close to each other
 	//-a GEP that is a subset of another GEP should come earlier
-	sort(orderedGeps.begin(), orderedGeps.end(), OrderByOperands(order));
+	std::sort(orderedGeps.begin(), orderedGeps.end(), OrderByOperands(order));
 
 	assert(checkInvariantsOnOrderedGEPs(orderedGeps));
 }
