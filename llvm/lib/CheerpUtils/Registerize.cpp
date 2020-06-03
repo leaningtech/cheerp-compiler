@@ -1693,7 +1693,7 @@ RemoveDominated::SamplesData RemoveDominated::precomputeSamples() const
 	{
 		sampleIndexPairs.push_back({samples[i], i});
 	}
-	sort(sampleIndexPairs.begin(), sampleIndexPairs.end());
+	std::sort(sampleIndexPairs.begin(), sampleIndexPairs.end());
 
 	for (const auto& pair : sampleIndexPairs)
 	{
@@ -2439,7 +2439,7 @@ void VertexColorer::establishInvariantsFriendships()
 	}
 
 	//Merge equivalents
-	sort(friendships.begin(), friendships.end(), [](const Friendship& a, const Friendship& b) -> bool
+	std::sort(friendships.begin(), friendships.end(), [](const Friendship& a, const Friendship& b) -> bool
 			{
 				if (a.second.first != b.second.first)
 					return a.second.first < b.second.first;
@@ -2461,7 +2461,7 @@ void VertexColorer::establishInvariantsFriendships()
 	}
 
 	//Sort in inverse weight order
-	sort(friendships.begin(), friendships.end(), [](const Friendship& a, const Friendship& b)->bool
+	std::sort(friendships.begin(), friendships.end(), [](const Friendship& a, const Friendship& b)->bool
 			{
 				return a.first > b.first;
 			});
@@ -2483,7 +2483,7 @@ void VertexColorer::establishInvariantsFriends()
 
 void VertexColorer::establishInvariantsFriend(std::vector<Friend>& F)
 {
-	sort(F.begin(), F.end());
+	std::sort(F.begin(), F.end());
 
 	uint32_t i = 0, j = 0;
 
@@ -2522,7 +2522,7 @@ bool VertexColorer::friendshipsInvariantsHolds() const
 	{
 		edges.push_back(F.second);
 	}
-	sort(edges.begin(), edges.end());
+	std::sort(edges.begin(), edges.end());
 	for (uint32_t i=1; i<edges.size(); i++)
 	{
 		if (edges[i-1] == edges[i])
@@ -2582,9 +2582,9 @@ void VertexColorer::buildOrderedLinks()
 	}
 
 	//Lexicographical order work in this case
-	sort(orderedFriendships.begin(), orderedFriendships.end());
+	std::sort(orderedFriendships.begin(), orderedFriendships.end());
 
-	sort(orderedLinks.begin(), orderedLinks.end(), [](const std::pair<Link, uint32_t>& a, const std::pair<Link,uint32_t>& b) -> bool
+	std::sort(orderedLinks.begin(), orderedLinks.end(), [](const std::pair<Link, uint32_t>& a, const std::pair<Link,uint32_t>& b) -> bool
 			{
 				if (a.first.first != b.first.first)
 					return a.first.first < b.first.first;
@@ -2622,7 +2622,7 @@ void VertexColorer::buildOrderedLinks()
 		++j;
 	}
 
-	sort(orderedLinks.begin(), orderedLinks.end(), [](const std::pair<Link, uint32_t>& a, const std::pair<Link,uint32_t>& b) -> bool
+	std::sort(orderedLinks.begin(), orderedLinks.end(), [](const std::pair<Link, uint32_t>& a, const std::pair<Link,uint32_t>& b) -> bool
 			{
 				return a.first.weight < b.first.weight;
 			});
@@ -2798,7 +2798,7 @@ void Registerize::RegisterAllocatorInst::solve()
 		{
 			V.push_back({eqClasses.findLeader(i), i});
 		}
-		sort(V.begin(), V.end());
+		std::sort(V.begin(), V.end());
 		for (uint32_t i=0; i<V.size(); i++)
 		{
 			for (uint32_t j=i+1; j<V.size() && V[i].first == V[j].first; j++)

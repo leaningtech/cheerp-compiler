@@ -39,7 +39,7 @@ class EndOfBlockPHIHandler
 		PHIRegData(const llvm::PHINode* p, const llvm::SmallVector<std::pair<uint32_t, const llvm::Instruction*>,2>& r, bool selfReferencing):
 			phiInst(p), incomingInst(nullptr), incomingRegs(r), status(NOT_VISITED), selfReferencing(selfReferencing)
 		{
-			sort(incomingRegs.begin(), incomingRegs.end());
+			std::sort(incomingRegs.begin(), incomingRegs.end());
 		}
 	};
 	typedef std::map<uint32_t, PHIRegData> PHIRegs;
