@@ -54,8 +54,8 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 			// the alignment attribute specifies "the alignment of the stack
 			// slot to form and the known alignment of the pointer specified
 			// to the call site".
-			Instruction *MemCpy = Builder.CreateMemCpy(CopyBuf, ArgPtr, ArgSize,
-				Alignment, false, nullptr, nullptr, nullptr, nullptr, false);
+			Instruction *MemCpy = Builder.CreateMemCpy(CopyBuf, Alignment, ArgPtr, Alignment, ArgSize,
+				false, nullptr, nullptr, nullptr, nullptr, false);
 			MemCpy->setDebugLoc(Call->getDebugLoc());
 			Call->setArgOperand(ArgIdx, CopyBuf);
 			// Mark the argument copy as unused using llvm.lifetime.end.
