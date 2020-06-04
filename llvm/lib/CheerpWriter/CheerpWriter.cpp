@@ -6236,28 +6236,22 @@ void CheerpWriter::compileAsmJSLoader()
 
 void CheerpWriter::compileLoaderEnd()
 {
-	if (makeModule == MODULE_TYPE::COMMONJS)
-		compileCommonJSExports();
 	stream << "});" << NewLine;
 }
 
 void CheerpWriter::compileNoLoaderEnd()
 {
 	if (makeModule == MODULE_TYPE::COMMONJS)
-	{
-		compileCommonJSExports();
 		stream << "});" << NewLine;
-	}
 }
 
 void CheerpWriter::compileNoLoaderAsmJS()
 {
-	bool declareExports = makeModule == MODULE_TYPE::COMMONJS;
-	if (declareExports)
-		compileDeclareExports();
-
 	if (makeModule == MODULE_TYPE::COMMONJS)
+	{
+		compileDeclareExports();
 		stream << "Promise.resolve().then(_=>{" << NewLine;
+	}
 
 	if (globalDeps.needAsmJS())
 		stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
@@ -6329,6 +6323,9 @@ void CheerpWriter::makeJS()
 
 	compileDefineExports();
 	compileConstructors();
+	if (makeModule == MODULE_TYPE::COMMONJS)
+		compileCommonJSExports();
+
 	if (needWasmLoader || needAsmJSLoader)
 		compileLoaderEnd();
 	else
