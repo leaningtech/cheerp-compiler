@@ -1369,7 +1369,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
                                 use_array? llvm::Intrinsic::cheerp_allocate_array :
                                          llvm::Intrinsic::cheerp_allocate,
                                 types);
-    llvm::Value* Arg[] = { Args[0].RV.getScalarVal() };
+    llvm::Value* Arg[] = { Args[0].getKnownRValue().getScalarVal() };
     CallOrInvoke = CGF.Builder.CreateCall(CalleeAddr, Arg);
     RV = RValue::get(CallOrInvoke);
   }
@@ -1379,7 +1379,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     llvm::Type* types[] = { CGF.ConvertType(retType) };
     llvm::Constant* CalleeAddr = llvm::Intrinsic::getDeclaration(&CGF.CGM.getModule(),
                                 llvm::Intrinsic::cheerp_deallocate, types);
-    llvm::Value* Arg[] = { Args[0].RV.getScalarVal() };
+    llvm::Value* Arg[] = { Args[0].getKnownRValue().getScalarVal() };
     if (Arg[0]->getType() != types[0]) {
       Arg[0] = CGF.Builder.CreateBitCast(Arg[0], types[0]);
     }
