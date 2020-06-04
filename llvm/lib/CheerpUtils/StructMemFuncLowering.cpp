@@ -31,7 +31,7 @@ void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Valu
 	Value* dst = IRB->CreateGEP(baseDst, indexes);
 	assert(!src->getType()->getPointerElementType()->isArrayTy());
 	// Create a type safe memcpy
-	IRB->CreateMemCpy(dst, src, size, 1, false, NULL, NULL, NULL, NULL, false);
+	IRB->CreateMemCpy(dst, 1, src, 1, size, false, NULL, NULL, NULL, NULL, false);
 }
 
 void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType,
@@ -386,12 +386,19 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		if(mode==NONE)
 			continue;
 		Type* pointedType = F->getFunctionType()->getParamType(0)->getPointerElementType();
+		uint32_t alignInt = 0;
 		//We want to decompose everything which is not a byte layout structure. memset is always decomposed.
 		if(mode != MEMSET)
 		{
 			bool isByteLayout = isa<StructType>(pointedType) && cast<StructType>(pointedType)->hasByteLayout();
 			if(isByteLayout)
 				continue;
+			MemTransferInst* MTI = cast<MemTransferInst>(CI);
+			alignInt = std::min(MTI->getSourceAlignment(), MTI->getDestAlignment());
+		}
+		else
+		{
+			alignInt = cast<MemSetInst>(CI)->getDestAlignment();
 		}
 
 		//We have a typed mem func on a struct
@@ -401,7 +408,6 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 		Value* src=CI->getOperand(1);
 		Value* size=CI->getOperand(2);
 		Type* int32Type = IntegerType::get(BB.getContext(), 32);
-		uint32_t alignInt = cast<MemIntrinsic>(CI)->getAlignment();
 		assert(alignInt != 0);
 		// Do not inline memory intrinsics with a large or non-constant size
 		// argument, when in linear memory mode.
@@ -454,9 +460,9 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 					while(elemSize % newAlign != 0)
 						newAlign /= 2;
 					if(mode == MEMCPY)
-						IRB.CreateMemCpy(tailDst, tailSrc, tailSize, newAlign);
+						IRB.CreateMemCpy(tailDst, newAlign, tailSrc, newAlign, tailSize);
 					else if(mode == MEMMOVE)
-						IRB.CreateMemMove(tailDst, tailSrc, tailSize, newAlign);
+						IRB.CreateMemMove(tailDst, newAlign, tailSrc, newAlign, tailSize);
 					else //if(mode == MEMSET)
 						IRB.CreateMemSet(tailDst, tailSrc, tailSize, newAlign);
 					size = ConstantInt::get(int32Type, sizeInt - tailSize);
