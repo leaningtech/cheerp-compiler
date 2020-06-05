@@ -777,7 +777,7 @@ void GlobalDepsAnalyzer::visitGlobal( const GlobalValue * C, VisitedSet & visite
 				visitConstant( GV->getInitializer(), visited, Newsubexpr);
 				Type* globalType = GV->getInitializer()->getType();
 				if(GV->getSection() != StringRef("asmjs"))
-					visitType(globalType, /*forceTypedArray*/ true);
+					visitType(globalType, /*forceTypedArray*/ false);
 			}
 			varsOrder.push_back(GV);
 		}
@@ -1054,7 +1054,7 @@ void GlobalDepsAnalyzer::visitType( Type* t, bool forceTypedArray )
 			hasPointerArrays = true;
 		else if(!TypeSupport::isTypedArrayType(elementType, forceTypedArray) && AT->getNumElements() > 8)
 			arraysNeeded.insert(elementType);
-		visitType(elementType, /*forceTypedArray*/ false);
+		visitType(elementType, forceTypedArray);
 	}
 	else if( StructType* ST=dyn_cast<StructType>(t) )
 		visitStruct(ST);
