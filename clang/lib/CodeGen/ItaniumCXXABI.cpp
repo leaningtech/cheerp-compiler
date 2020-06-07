@@ -1079,7 +1079,15 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
     GlobalDecl GD(MD, true);
     ThunkInfo TI;
     TI.Method = MD;
-    llvm::Constant* Thunk = CGM.GetAddrOfThunk(GD, TI);
+    SmallString<256> Name;
+    MangleContext &MCtx = getMangleContext();
+    llvm::raw_svector_ostream Out(Name);
+    if (const CXXDestructorDecl *DD = dyn_cast<CXXDestructorDecl>(MD))
+      MCtx.mangleCXXDtorThunk(DD, GD.getDtorType(), TI.This, Out);
+    else
+      MCtx.mangleThunk(MD, TI, Out);
+    llvm::Type *ThunkVTableTy = CGM.getTypes().GetFunctionTypeForVTable(GD);
+    llvm::Constant *Thunk = CGM.GetAddrOfThunk(Name, ThunkVTableTy, GD);
     CGM.addDeferredDeclToEmit(GD);
     MemPtr[0] = llvm::ConstantExpr::getBitCast(Thunk, llvm::FunctionType::get(CGM.Int32Ty, true)->getPointerTo());
     MemPtr[1] = llvm::ConstantInt::get(CGM.PtrDiffTy, ThisAdjustment.getQuantity());

@@ -498,8 +498,7 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
   }
 
   // Fix up the function type for an unprototyped musttail call.
-  if (IsUnprototyped)
-    Callee = llvm::ConstantExpr::getBitCast(Callee, Fn->getType());
+  assert (!IsUnprototyped);
 
   // Make the call and return the result.
   EmitCallAndReturnForThunk(llvm::FunctionCallee(Fn->getFunctionType(), Callee.getFunctionPointer()),
@@ -552,7 +551,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   else
     MCtx.mangleThunk(MD, TI, Out);
   llvm::Type *ThunkVTableTy = CGM.getTypes().GetFunctionTypeForVTable(
-                                  getTarget().isByteAddressable()?GD:GD.getWithDecl(OriginalMethod));
+                                  byteAddressable?GD:GD.getWithDecl(OriginalMethod));
   llvm::Constant *Thunk = CGM.GetAddrOfThunk(Name, ThunkVTableTy, GD);
 
   // If we don't need to emit a definition, return this declaration as is.
@@ -571,7 +570,7 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
 
   // If the type of the underlying GlobalValue is wrong, we'll have to replace
   // it. It should be a declaration.
-  llvm::Function *ThunkFn = cast<llvm::Function>(Thunk->stripPointerCasts());
+  llvm::Function *ThunkFn = cast<llvm::Function>(Thunk->stripPointerCastsSafe());
   if (ThunkFn->getFunctionType() != ThunkFnTy) {
     llvm::GlobalValue *OldThunkFn = ThunkFn;
 
