@@ -9,7 +9,6 @@ set(LLVM_TARGETS_TO_BUILD X86;CheerpBackend CACHE STRING "")
 set(LLVM_INSTALL_TOOLCHAIN_ONLY ON CACHE BOOL "")
 set(LLVM_TOOLCHAIN_TOOLS
   llvm-nm
-  llvm-mcmarkup
   llvm-as
   llvm-bcanalyzer
   llvm-extract
