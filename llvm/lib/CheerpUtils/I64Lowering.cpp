@@ -735,6 +735,9 @@ StringRef I64Lowering::getPassName() const {
 
 bool I64Lowering::runOnFunction(Function& F)
 {
+	if (!lowerAsmJSSection && F.getSection() == StringRef("asmjs"))
+		return false;
+
 	bool Changed = false;
 
 	I64LoweringVisitor Visitor(*F.getParent());
@@ -748,7 +751,7 @@ bool I64Lowering::runOnFunction(Function& F)
 
 char I64Lowering::ID = 0;
 
-FunctionPass *createI64LoweringPass() { return new I64Lowering(); }
+FunctionPass *createI64LoweringPass(bool lowerAsmJSSection) { return new I64Lowering(lowerAsmJSSection); }
 
 }
 
