@@ -13,6 +13,7 @@
 #include "CFGStackifier.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PHIHandler.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/Writer.h"
@@ -6066,7 +6067,10 @@ void CheerpWriter::compileGenericJS()
 	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileGrowMem();
 
-	exportedClassNames = compileClassesExportedToJs();
+	exportedClassNames = buildJsExportedNamesList(module);
+	normalizeNameList(exportedClassNames);
+
+	compileClassesExportedToJs();
 }
 
 void CheerpWriter::compileWasmLoader()
