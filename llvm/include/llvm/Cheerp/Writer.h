@@ -472,7 +472,8 @@ private:
 
 	//JS interoperability support
 	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
-	std::vector<llvm::StringRef> compileClassesExportedToJs();
+	void compileClassesExportedToJs();
+	static void normalizeNameList(std::vector<llvm::StringRef> & exportedNames);
 
 	struct FunctionAndName
 	{
