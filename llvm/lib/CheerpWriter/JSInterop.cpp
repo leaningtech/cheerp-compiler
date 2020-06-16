@@ -79,10 +79,8 @@ bool CheerpWriter::hasJSExports()
 	return false;
 }
 
-std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
+void CheerpWriter::compileClassesExportedToJs()
 {
-	std::vector<StringRef> exportedNames;
-
 	auto getFunctionName = [&](const Function * f) -> StringRef
 	{
 		StringRef mangledName = f->getName();
@@ -94,7 +92,6 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 	{
 		const StringRef name = getFunctionName(f);
 		stream << "var " << name << '=' << namegen.getName(f) << ';' << NewLine;
-		exportedNames.push_back(name);
 	};
 
 	auto processRecord = [&](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
@@ -102,8 +99,6 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, module);
 		StructType* t = structAndName.first;
 		StringRef jsClassName = structAndName.second;
-
-		exportedNames.push_back(jsClassName);
 
 		auto getMethodName = [&](const MDNode * node) -> StringRef
 		{
@@ -245,15 +240,16 @@ std::vector<StringRef> CheerpWriter::compileClassesExportedToJs()
 	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
 	//and processRecord on each jsexport-ed class/struct
 	iterateOverJsExportedMetadata(module, processFunction, processRecord);
+}
 
+void CheerpWriter::normalizeNameList(std::vector<llvm::StringRef> & exportedNames)
+{
 	std::sort(exportedNames.begin(), exportedNames.end());
 	auto it = adjacent_find(exportedNames.begin(), exportedNames.end());
 	if (it != exportedNames.end())
 	{
 		llvm::report_fatal_error( Twine("Name clash on [[cheerp::jsexport]]-ed items on the name: ", *it));
 	}
-
-	return exportedNames;
 }
 
 void CheerpWriter::compileInlineAsm(const CallInst& ci)
