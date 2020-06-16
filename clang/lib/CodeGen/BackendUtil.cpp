@@ -588,9 +588,12 @@ static void addCheerpPasses(const PassManagerBuilder &Builder,
   PM.add(createCheerpNativeRewriterPass());
   //Cheerp is single threaded, convert atomic instructions to regular ones
   PM.add(createLowerAtomicPass());
-  //The backends do not currently support 64-bit ops, so lower them
-  //TODO: Keep them for wasm, as they can be natively supported
-  PM.add(cheerp::createI64LoweringPass(true));
+  // The genericjs and asmjs backends do not support i64 instructions, so
+  // lower them
+  const PassManagerBuilderWrapper &BuilderWrapper =
+      static_cast<const PassManagerBuilderWrapper&>(Builder);
+  bool lowerAsmJSSection = BuilderWrapper.getLangOpts().getCheerpLinearOutput()!=LangOptions::CHEERP_LINEAR_OUTPUT_Wasm;
+  PM.add(cheerp::createI64LoweringPass(lowerAsmJSSection));
 }
 
 static void addPostInlineCheerpPasses(const PassManagerBuilder &Builder,
