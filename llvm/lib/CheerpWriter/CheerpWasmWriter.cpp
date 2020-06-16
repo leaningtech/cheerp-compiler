@@ -203,6 +203,19 @@ static void encodeS32Opcode(uint32_t opcode, const char* name,
 	}
 }
 
+static void encodeS64Opcode(uint32_t opcode, const char* name,
+		int64_t immediate, CheerpWasmWriter& writer, WasmBuffer& code)
+{
+	if (writer.mode == CheerpWasmWriter::WASM) {
+		assert(opcode <= 255);
+		code << char(opcode);
+		encodeSLEB128(immediate, code);
+	} else {
+		assert(writer.mode == CheerpWasmWriter::WAST);
+		code << name << ' ' << immediate << '\n';
+	}
+}
+
 static void encodeU32Opcode(uint32_t opcode, const char* name,
 		uint32_t immediate, CheerpWasmWriter& writer, WasmBuffer& code)
 {
@@ -1148,6 +1161,11 @@ void CheerpWasmWriter::encodeS32Inst(uint32_t opcode, const char* name, int32_t 
 	internal::encodeS32Opcode(opcode, name, immediate, *this, code);
 }
 
+void CheerpWasmWriter::encodeS64Inst(uint32_t opcode, const char* name, int64_t immediate, WasmBuffer& code)
+{
+	internal::encodeS64Opcode(opcode, name, immediate, *this, code);
+}
+
 void CheerpWasmWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code)
 {
 	if (mode == CheerpWasmWriter::WAST) {
@@ -1428,7 +1446,7 @@ void CheerpWasmWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value*
 		if(forComparison)
 			value <<= shiftAmount;
 		if (v->getType()->isIntegerTy(64))
-			encodeS32Inst(0x42, "i64.const", value, code);
+			encodeS64Inst(0x42, "i64.const", value, code);
 		else
 			encodeS32Inst(0x41, "i32.const", value, code);
 		return;
@@ -1459,7 +1477,7 @@ void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
 		if (v->getType()->isIntegerTy(64))
-			encodeS32Inst(0x42, "i64.const", C->getZExtValue(), code);
+			encodeS64Inst(0x42, "i64.const", C->getZExtValue(), code);
 		else
 			encodeS32Inst(0x41, "i32.const", C->getZExtValue(), code);
 		return;
@@ -1581,7 +1599,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	{
 		assert(i->getType()->isIntegerTy() && i->getBitWidth() <= 64);
 		if (i->getBitWidth() == 64) {
-			encodeS32Inst(0x42, "i64.const", i->getSExtValue(), code);
+			encodeS64Inst(0x42, "i64.const", i->getSExtValue(), code);
 		} else if (i->getBitWidth() == 32)
 			encodeS32Inst(0x41, "i32.const", i->getSExtValue(), code);
 		else
@@ -2632,7 +2650,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				else
 				{
 					assert(valOp->getType()->isDoubleTy());
-					encodeS32Inst(0x42, "i64.const", 0, code);
+					encodeS64Inst(0x42, "i64.const", 0, code);
 					encodeU32U32Inst(0x37, "i64.store", 0x3, offset, code);
 				}
 				break;
