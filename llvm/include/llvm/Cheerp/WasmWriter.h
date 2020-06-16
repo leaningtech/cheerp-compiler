@@ -477,6 +477,7 @@ public:
 	void encodeInst(uint32_t opcode, const char* name, WasmBuffer& code);
 	void encodeBinOp(const llvm::Instruction& I, WasmBuffer& code);
 	void encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code);
+	void encodeS64Inst(uint32_t opcode, const char* name, int64_t immediate, WasmBuffer& code);
 	void encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code);
 	void encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code);
