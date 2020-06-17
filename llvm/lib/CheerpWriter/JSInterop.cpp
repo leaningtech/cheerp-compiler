@@ -54,7 +54,7 @@ bool CheerpWriter::hasJSExports()
 	return false;
 }
 
-void CheerpWriter::compileDeclExportedToJs()
+void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
 	auto getFunctionName = [&](const Function * f) -> StringRef
 	{
@@ -66,7 +66,9 @@ void CheerpWriter::compileDeclExportedToJs()
 	auto processFunction = [&](const Function * f) -> void
 	{
 		const StringRef name = getFunctionName(f);
-		stream << "var " << name << '=' << namegen.getName(f) << ';' << NewLine;
+		if (alsoDeclare)
+			stream << "var ";
+		stream << name << '=' << namegen.getName(f) << ';' << NewLine;
 	};
 
 	auto processRecord = [&](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
@@ -115,7 +117,10 @@ void CheerpWriter::compileDeclExportedToJs()
 			return;
 		}
 
-		stream << "function " << jsClassName << '(';
+		if (alsoDeclare)
+			stream << "function " << jsClassName << '(';
+		else
+			stream << jsClassName << "=function (";
 		const Function * f = NULL;
 		uint32_t fwdArgsCount = 0;
 
