@@ -1,11 +1,11 @@
-//===-- Opcodes.cpp - The Cheerp JavaScript generator ---------------------===//
+//===-- NameGenerator.cpp - The Cheerp name generator ---------------------===//
 //
 //                     Cheerp: The C++ compiler for the Web
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2019 Leaning Technologies
+// Copyright 2014-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -662,32 +662,15 @@ bool NameGenerator::needsName(const Instruction & I, const PointerAnalyzer& PA) 
 
 std::vector<llvm::StringRef> buildJsExportedNamesList(const Module& M)
 {
-	//Here a vector is used since repetitions are not allowed
 	std::vector<llvm::StringRef> names;
 
-	auto getFunctionName = [&](const Function * f) -> StringRef
-	{
-		StringRef mangledName = f->getName();
-		demangler_iterator dmg(mangledName);
-		return *dmg;
-	};
+	const auto & jsexportedDecl = CheerpWriter::buildJsExportedFuncAndName(M);
 
-	auto processFunction = [&names, &getFunctionName](const Function * f) -> void
+	for (const auto& jsex : jsexportedDecl)
 	{
-		const StringRef name = getFunctionName(f);
-		names.push_back(name);
-	};
-
-	auto processRecord = [&M, &names](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
-	{
-		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, M);
-		StringRef jsClassName = structAndName.second;
-		names.push_back(jsClassName);
-	};
-
-	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
-	//and processRecord on each jsexport-ed class/struct
-	iterateOverJsExportedMetadata(M, processFunction, processRecord);
+		if (!jsex.isClass())
+			names.push_back(jsex.name);
+	}
 
 	return names;
 }
