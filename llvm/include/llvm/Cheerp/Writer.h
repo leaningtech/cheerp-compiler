@@ -229,7 +229,7 @@ private:
 	// Flag to signal whether a module/promise should be closed
 	bool isPromiseOrModuleOpen{false};
 	// Names of js-exported items
-	std::vector<llvm::StringRef> exportedClassNames;
+	std::vector<llvm::StringRef> exportedDeclNames;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -472,7 +472,7 @@ private:
 
 	//JS interoperability support
 	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
-	void compileClassesExportedToJs();
+	void compileDeclExportedToJs();
 	static void normalizeNameList(std::vector<llvm::StringRef> & exportedNames);
 
 	struct FunctionAndName
