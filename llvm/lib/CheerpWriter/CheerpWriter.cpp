@@ -6153,22 +6153,22 @@ void CheerpWriter::compileDeclareExports()
 	}
 	else
 	{
-		//TODO: first all have to initialized to DUMMY, then DUMMY should get a promise, and the declaration have to be done way later
+		//Set all jsExportedDecls equal to DUMMY
+		bool isFirst = true;
 		for (auto jsex: jsExportedDecls)
 		{
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
-			else
+			else if (isFirst)
 				stream << "var ";
-			stream << jsex.name << "={};" << NewLine;
+			isFirst = false;
+			stream << jsex.name << "=";
 		}
-		//TODO: fix this
-		for (auto jsex: jsExportedDecls)
-		{
-			if (makeModule == MODULE_TYPE::CLOSURE)
-				stream << "__root.";
-			stream << jsex.name << ".promise=" << NewLine;
-		}
+		if (!isFirst)
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) <<";" << NewLine;
+
+		//Set the promise of DUMMY_WITH_PROMISE
+		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise=" << NewLine;
 	}
 }
 
