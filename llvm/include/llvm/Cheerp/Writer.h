@@ -228,8 +228,6 @@ private:
 	bool areExportsDeclared{false};
 	// Flag to signal whether a module/promise should be closed
 	bool isPromiseOrModuleOpen{false};
-	// Names of js-exported items
-	std::vector<llvm::StringRef> exportedDeclNames;
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -473,8 +471,8 @@ private:
 	//JS interoperability support
 	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
 	void compileDeclExportedToJs();
-	static void normalizeNameList(std::vector<llvm::StringRef> & exportedNames);
 
+public:
 	struct FunctionAndName
 	{
 		FunctionAndName(const llvm::Function* F, llvm::StringRef name) : F(F), name(name)
@@ -482,10 +480,18 @@ private:
 		}
 		const llvm::Function* F;
 		llvm::StringRef name;
+		bool isClass() const
+		{
+			return !F;
+		}
 	};
-	std::deque<FunctionAndName> jsexportedFreeFunctions{};
+	static std::deque<FunctionAndName> buildJsExportedFuncAndName(const llvm::Module& M);
+	static void normalizeDeclList(std::deque<CheerpWriter::FunctionAndName> & exportedDecls);
 
-	const std::deque<FunctionAndName>& getExportedFreeFunctions();
+private:
+	// Names of js-exported items
+	std::deque<CheerpWriter::FunctionAndName> jsExportedDecls;
+
 	bool hasJSExports();
 	void compileInlineAsm(const llvm::CallInst& ci);
 

@@ -6067,8 +6067,8 @@ void CheerpWriter::compileGenericJS()
 	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileGrowMem();
 
-	exportedDeclNames = buildJsExportedNamesList(module);
-	normalizeNameList(exportedDeclNames);
+	jsExportedDecls = buildJsExportedFuncAndName(module);
+	normalizeDeclList(jsExportedDecls);
 
 	compileDeclExportedToJs();
 }
@@ -6134,30 +6134,11 @@ void CheerpWriter::compileDeclareExports()
 {
 	areExportsDeclared = true;
 
-	const auto& exportedFunctions = getExportedFreeFunctions();
 	for (auto i: globalDeps.asmJSExports())
 	{
 		if(i->empty()) continue;
 
 		stream << "var " << getName(i) << "=null;" << NewLine;
-	}
-	if (makeModule != MODULE_TYPE::COMMONJS)
-	{
-		for (auto jsex: exportedFunctions)
-		{
-			if (makeModule == MODULE_TYPE::CLOSURE)
-				stream << "__root.";
-			else
-				stream << "var ";
-			stream << jsex.name << "={};" << NewLine;
-		}
-		if (makeModule == MODULE_TYPE::CLOSURE)
-		{
-			for (auto cls: exportedDeclNames)
-			{
-					stream << "__root." << cls << '=' << cls << ';' << NewLine;
-			}
-		}
 	}
 	if (makeModule == MODULE_TYPE::COMMONJS)
 	{
@@ -6165,17 +6146,21 @@ void CheerpWriter::compileDeclareExports()
 	}
 	else
 	{
-		for (auto jsex: exportedFunctions)
+		//TODO: first all have to initialized to DUMMY, then DUMMY should get a promise, and the declaration have to be done way later
+		for (auto jsex: jsExportedDecls)
+		{
+			if (makeModule == MODULE_TYPE::CLOSURE)
+				stream << "__root.";
+			else
+				stream << "var ";
+			stream << jsex.name << "={};" << NewLine;
+		}
+		//TODO: fix this
+		for (auto jsex: jsExportedDecls)
 		{
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
 			stream << jsex.name << ".promise=" << NewLine;
-		}
-		for (auto cls: exportedDeclNames)
-		{
-			if (makeModule == MODULE_TYPE::CLOSURE)
-				stream << "__root.";
-			stream << cls << ".promise=" << NewLine;
 		}
 	}
 }
@@ -6185,7 +6170,6 @@ void CheerpWriter::compileDefineExports()
 	const bool alsoDeclare = !areExportsDeclared;
 	areExportsDeclared = true;
 
-	const auto& exportedFunctions = getExportedFreeFunctions();
 	for (auto i: globalDeps.asmJSExports())
 	{
 		if(i->empty()) continue;
@@ -6196,32 +6180,30 @@ void CheerpWriter::compileDefineExports()
 	}
 	if (makeModule != MODULE_TYPE::COMMONJS)
 	{
-		for (auto jsex: exportedFunctions)
+		for (auto jsex: jsExportedDecls)
 		{
+			if (!jsex.isClass())
+				return;
 			if (alsoDeclare && makeModule != MODULE_TYPE::CLOSURE)
 				stream << "var ";
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
 			stream << jsex.name << '=' << getName(jsex.F) <<";" << NewLine;
 		}
-		if (alsoDeclare && makeModule == MODULE_TYPE::CLOSURE)
+		if (makeModule == MODULE_TYPE::CLOSURE)
 		{
-			for (auto cls: exportedDeclNames)
+			//TODO: extend this, here we should declare all classes
+			for (auto jsex: jsExportedDecls)
 			{
-				stream << "__root." << cls << '=' << cls << ';' << NewLine;
+				if (jsex.isClass())
+					stream << "__root." << jsex.name << '=' << jsex.name << ';' << NewLine;
 			}
 		}
-		for (auto jsex: exportedFunctions)
+		for (auto jsex: jsExportedDecls)
 		{
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
 			stream << jsex.name << ".promise=" << NewLine;
-		}
-		for (auto cls: exportedDeclNames)
-		{
-			if (makeModule == MODULE_TYPE::CLOSURE)
-				stream << "__root.";
-			stream << cls << ".promise=" << NewLine;
 		}
 		stream << "Promise.resolve();" << NewLine;
 	}
@@ -6266,12 +6248,12 @@ void CheerpWriter::compileNoLoaderAsmJS()
 void CheerpWriter::compileCommonJSExports()
 {
 	stream << "return{" << NewLine;
-	for (StringRef &className : exportedDeclNames)
-		stream << className << ':' << className << ',' << NewLine;
-
-	for (const auto& jsex: getExportedFreeFunctions())
+	for (const auto& jsex : jsExportedDecls)
 	{
-		stream << jsex.name << ':' << namegen.getName(jsex.F) << ',' << NewLine;
+		if (jsex.isClass())
+			stream << jsex.name << ':' << jsex.name << ',' << NewLine;
+		else
+			stream << jsex.name << ':' << namegen.getName(jsex.F) << ',' << NewLine;
 	}
 
 	stream << "};" << NewLine;

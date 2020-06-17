@@ -17,31 +17,6 @@
 using namespace llvm;
 using namespace cheerp;
 
-const std::deque<CheerpWriter::FunctionAndName>& CheerpWriter::getExportedFreeFunctions()
-{
-	if (!jsexportedFreeFunctions.empty())
-		return jsexportedFreeFunctions;
-
-	NamedMDNode* namedNode = module.getNamedMetadata("jsexported_methods");
-	if (namedNode==nullptr)
-		return jsexportedFreeFunctions;
-
-	auto getFunctionName = [&](const Function * f) -> StringRef
-	{
-		StringRef mangledName = f->getName();
-		demangler_iterator dmg(mangledName);
-		return *dmg;
-	};
-
-	for (auto it = namedNode->op_begin(); it != namedNode->op_end(); ++ it )
-	{
-		const MDNode * node = *it;
-		const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
-		jsexportedFreeFunctions.push_back({f, getFunctionName(f)});
-	}
-	return jsexportedFreeFunctions;
-}
-
 uint32_t CheerpWriter::countJsParameters(const llvm::Function* F, bool isStatic) const
 {
 	uint32_t ret = 0;
@@ -242,13 +217,48 @@ void CheerpWriter::compileDeclExportedToJs()
 	iterateOverJsExportedMetadata(module, processFunction, processRecord);
 }
 
-void CheerpWriter::normalizeNameList(std::vector<llvm::StringRef> & exportedNames)
+std::deque<CheerpWriter::FunctionAndName> CheerpWriter::buildJsExportedFuncAndName(const llvm::Module& M)
 {
-	std::sort(exportedNames.begin(), exportedNames.end());
-	auto it = adjacent_find(exportedNames.begin(), exportedNames.end());
-	if (it != exportedNames.end())
+	//Here a vector is used since repetitions are not allowed
+	std::deque<CheerpWriter::FunctionAndName> jsExported;
+
+	auto getFunctionName = [&](const Function * f) -> StringRef
 	{
-		llvm::report_fatal_error( Twine("Name clash on [[cheerp::jsexport]]-ed items on the name: ", *it));
+		StringRef mangledName = f->getName();
+		demangler_iterator dmg(mangledName);
+		return *dmg;
+	};
+
+	auto processFunction = [&jsExported, &getFunctionName](const Function * f) -> void
+	{
+		const StringRef name = getFunctionName(f);
+		jsExported.emplace_back(f, name);
+	};
+
+	auto processRecord = [&M, &jsExported](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
+	{
+		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, M);
+		StringRef jsClassName = structAndName.second;
+		jsExported.emplace_back(nullptr, jsClassName);
+	};
+
+	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
+	//and processRecord on each jsexport-ed class/struct
+	iterateOverJsExportedMetadata(M, processFunction, processRecord);
+
+	return jsExported;
+}
+
+void CheerpWriter::normalizeDeclList(std::deque<CheerpWriter::FunctionAndName> & exportedDecls)
+{
+	auto comparator = [](const FunctionAndName& a, const FunctionAndName& b) -> bool {return a.name < b.name;};
+	auto equality = [](const FunctionAndName& a, const FunctionAndName& b) -> bool {return a.name == b.name;};
+
+	std::sort(exportedDecls.begin(), exportedDecls.end(), comparator);
+	auto it = adjacent_find(exportedDecls.begin(), exportedDecls.end(), equality);
+	if (it != exportedDecls.end())
+	{
+		llvm::report_fatal_error( Twine("Name clash on [[cheerp::jsexport]]-ed items on the name: ", it->name));
 	}
 }
 
