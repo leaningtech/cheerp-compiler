@@ -6067,10 +6067,10 @@ void CheerpWriter::compileGenericJS()
 	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileGrowMem();
 
-	exportedClassNames = buildJsExportedNamesList(module);
-	normalizeNameList(exportedClassNames);
+	exportedDeclNames = buildJsExportedNamesList(module);
+	normalizeNameList(exportedDeclNames);
 
-	compileClassesExportedToJs();
+	compileDeclExportedToJs();
 }
 
 void CheerpWriter::compileWasmLoader()
@@ -6153,7 +6153,7 @@ void CheerpWriter::compileDeclareExports()
 		}
 		if (makeModule == MODULE_TYPE::CLOSURE)
 		{
-			for (auto cls: exportedClassNames)
+			for (auto cls: exportedDeclNames)
 			{
 					stream << "__root." << cls << '=' << cls << ';' << NewLine;
 			}
@@ -6171,7 +6171,7 @@ void CheerpWriter::compileDeclareExports()
 				stream << "__root.";
 			stream << jsex.name << ".promise=" << NewLine;
 		}
-		for (auto cls: exportedClassNames)
+		for (auto cls: exportedDeclNames)
 		{
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
@@ -6206,7 +6206,7 @@ void CheerpWriter::compileDefineExports()
 		}
 		if (alsoDeclare && makeModule == MODULE_TYPE::CLOSURE)
 		{
-			for (auto cls: exportedClassNames)
+			for (auto cls: exportedDeclNames)
 			{
 				stream << "__root." << cls << '=' << cls << ';' << NewLine;
 			}
@@ -6217,7 +6217,7 @@ void CheerpWriter::compileDefineExports()
 				stream << "__root.";
 			stream << jsex.name << ".promise=" << NewLine;
 		}
-		for (auto cls: exportedClassNames)
+		for (auto cls: exportedDeclNames)
 		{
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
@@ -6266,7 +6266,7 @@ void CheerpWriter::compileNoLoaderAsmJS()
 void CheerpWriter::compileCommonJSExports()
 {
 	stream << "return{" << NewLine;
-	for (StringRef &className : exportedClassNames)
+	for (StringRef &className : exportedDeclNames)
 		stream << className << ':' << className << ',' << NewLine;
 
 	for (const auto& jsex: getExportedFreeFunctions())
