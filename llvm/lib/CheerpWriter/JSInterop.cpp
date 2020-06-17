@@ -79,7 +79,7 @@ bool CheerpWriter::hasJSExports()
 	return false;
 }
 
-void CheerpWriter::compileClassesExportedToJs()
+void CheerpWriter::compileDeclExportedToJs()
 {
 	auto getFunctionName = [&](const Function * f) -> StringRef
 	{
