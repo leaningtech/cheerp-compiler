@@ -6071,8 +6071,6 @@ void CheerpWriter::compileGenericJS()
 
 	jsExportedDecls = buildJsExportedFuncAndName(module);
 	normalizeDeclList(jsExportedDecls);
-
-	compileDeclExportedToJs();
 }
 
 void CheerpWriter::compileDummies()
@@ -6177,6 +6175,8 @@ void CheerpWriter::compileDefineExports()
 	const bool alsoDeclare = !areExportsDeclared;
 	areExportsDeclared = true;
 
+	compileDeclExportedToJs(/*alsoDeclare*/ alsoDeclare);
+
 	for (auto i: globalDeps.asmJSExports())
 	{
 		if(i->empty()) continue;
@@ -6185,34 +6185,29 @@ void CheerpWriter::compileDefineExports()
 			stream << "var ";
 		stream << getName(i) << "=__asm." << getName(i) <<";" << NewLine;
 	}
-	if (makeModule != MODULE_TYPE::COMMONJS)
+	if (makeModule == MODULE_TYPE::CLOSURE)
 	{
 		for (auto jsex: jsExportedDecls)
 		{
-			if (!jsex.isClass())
-				return;
-			if (alsoDeclare && makeModule != MODULE_TYPE::CLOSURE)
-				stream << "var ";
-			if (makeModule == MODULE_TYPE::CLOSURE)
-				stream << "__root.";
-			stream << jsex.name << '=' << getName(jsex.F) <<";" << NewLine;
+			stream << "__root." << jsex.name << '=';
+			if (jsex.isClass())
+				stream << jsex.name << ';' << NewLine;
+			else
+				stream << getName(jsex.F) <<";" << NewLine;
 		}
-		if (makeModule == MODULE_TYPE::CLOSURE)
-		{
-			//TODO: extend this, here we should declare all classes
-			for (auto jsex: jsExportedDecls)
-			{
-				if (jsex.isClass())
-					stream << "__root." << jsex.name << '=' << jsex.name << ';' << NewLine;
-			}
-		}
+	}
+	if (makeModule != MODULE_TYPE::COMMONJS)
+	{
+		bool anyJSEx = false;
 		for (auto jsex: jsExportedDecls)
 		{
+			anyJSEx = true;
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
 			stream << jsex.name << ".promise=" << NewLine;
 		}
-		stream << "Promise.resolve();" << NewLine;
+		if (anyJSEx)
+			stream << "Promise.resolve();" << NewLine;
 	}
 }
 

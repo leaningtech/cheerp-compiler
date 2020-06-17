@@ -470,7 +470,7 @@ private:
 
 	//JS interoperability support
 	uint32_t countJsParameters(const llvm::Function* F, bool isStatic) const;
-	void compileDeclExportedToJs();
+	void compileDeclExportedToJs(const bool alsoDeclare);
 
 public:
 	struct FunctionAndName
