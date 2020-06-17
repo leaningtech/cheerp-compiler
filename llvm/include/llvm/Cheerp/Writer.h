@@ -667,6 +667,8 @@ public:
 	                                                const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsUnsignedTruncation(const llvm::Value* v, bool asmjs);
 
+	void compileDummies();
+
 	/*
 	 * Helper functions to make makeJS more modular
 	 */
