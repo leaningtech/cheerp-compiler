@@ -5986,7 +5986,9 @@ void CheerpWriter::compileAsmJS()
 	stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 	for (int i = HEAP8; i<=HEAPF64; i++)
 		stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
-	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
+
+	compileDummies();
+
 	stream << "var ffi = {" << NewLine;
 	stream << "heapSize:__heap.byteLength," << NewLine;
 	stream << "stackStart:" << linearHelper.getStackStart() << ',' << NewLine;
@@ -6073,6 +6075,11 @@ void CheerpWriter::compileGenericJS()
 	compileDeclExportedToJs();
 }
 
+void CheerpWriter::compileDummies()
+{
+	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
+}
+
 void CheerpWriter::compileWasmLoader()
 {
 	stream << "var ";
@@ -6083,7 +6090,7 @@ void CheerpWriter::compileWasmLoader()
 	}
 	stream << "__asm=null,";
 	stream << "__heap=null;";
-	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
+	compileDummies();
 
 	compileDeclareExports();
 
