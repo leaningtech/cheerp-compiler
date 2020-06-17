@@ -167,7 +167,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		{
 			stream << "throw \"Class/Struct " << jsClassName << " do not have a [[cheerp::jsexport]] tagged constructor\";";
 		}
-		stream << NewLine << "}" << NewLine;
+		stream << NewLine << "};" << NewLine;
 
 		//Then compile other methods and add them to the prototype
 		for ( NamedMDNode::const_op_iterator it = namedNode.op_begin(); it != namedNode.op_end(); ++ it )
