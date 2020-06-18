@@ -4603,10 +4603,11 @@ Value *ScalarExprEmitter::VisitVAArgExpr(VAArgExpr *VE) {
   Address ArgValue = Address::invalid();
   Address ArgPtr = CGF.EmitVAArg(VE, ArgValue);
 
-  llvm::Type *ArgTy = ConvertType(VE->getType());
-  // High ints are stored as pointer
+  llvm::Type *ArgTy;
   if (CGF.IsHighInt(Ty))
-    ArgTy = ArgTy->getPointerTo();
+    ArgTy = CGF.ConvertTypeForMem(VE->getType())->getPointerTo();
+  else
+    ArgTy = ConvertType(VE->getType());
 
   // If EmitVAArg fails, emit an error.
   if (!ArgPtr.isValid()) {
@@ -4623,6 +4624,10 @@ Value *ScalarExprEmitter::VisitVAArgExpr(VAArgExpr *VE) {
       Val = Builder.CreateIntToPtr(Val, ArgTy);
     else
       Val = Builder.CreateTrunc(Val, ArgTy);
+  }
+
+  if (CGF.IsHighInt(Ty)) {
+    Val = CGF.EmitLoadHighInt(Val);
   }
 
   return Val;
