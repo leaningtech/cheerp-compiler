@@ -595,8 +595,13 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 
 		IRBuilder<> Builder(&I);
 		HighInt H = visitValue(I.getOperand(0));
+		Value* Res = H.low;
+		if (Res->getType() != I.getType())
+		{
+			Res = Builder.CreateTrunc(Res, I.getType());
+		}
 
-		I.replaceAllUsesWith(H.low);
+		I.replaceAllUsesWith(Res);
 		ToDelete.push_back(&I);
 		Changed = true;
 		return HighInt();
