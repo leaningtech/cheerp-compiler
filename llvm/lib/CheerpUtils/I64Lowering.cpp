@@ -606,6 +606,23 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		Changed = true;
 		return HighInt();
 	}
+	HighInt visitSelectInst(SelectInst& I)
+	{
+		if(!I.getType()->isIntegerTy(64))
+			return HighInt();
+
+		IRBuilder<> Builder(&I);
+		HighInt RHS = visitValue(I.getTrueValue());
+		HighInt LHS = visitValue(I.getFalseValue());
+		Value* high = Builder.CreateSelect(I.getCondition(), RHS.high, LHS.high);
+		Value* low = Builder.CreateSelect(I.getCondition(), RHS.low, LHS.low);
+		HighInt Res(high, low);
+
+		ToDelete.push_back(&I);
+		Changed = true;
+		return Res;
+	}
+
 	void storeHighInt(IRBuilder<>& Builder, HighInt H, Value* Ptr)
 	{
 		Value* lowPtr = Builder.CreateStructGEP(HighIntTy, Ptr, 0);
