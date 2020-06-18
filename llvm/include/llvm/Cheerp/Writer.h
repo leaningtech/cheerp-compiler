@@ -224,7 +224,8 @@ private:
 	bool symbolicGlobalsAsmJS;
 	// Flag to signal if we should emit readable or compressed output
 	bool readableOutput;
-	// Flag to signal if we should declare exports
+	// Flag to keep track of state of already declared stuff
+	bool areDummiesDeclared{false};
 	bool areAsmJSExportsDeclared{false};
 	bool areJsExportedExportsDeclared{false};
 	// Flag to signal whether a module/promise should be closed
