@@ -6076,6 +6076,8 @@ void CheerpWriter::compileGenericJS()
 void CheerpWriter::compileDummies()
 {
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "(){throw new Error('this should be unreachable');};" << NewLine;
+
+	areDummiesDeclared = true;
 }
 
 void CheerpWriter::compileWasmLoader()
@@ -6145,11 +6147,6 @@ void CheerpWriter::compileDeclareExports()
 	}
 	areAsmJSExportsDeclared = true;
 
-	if (makeModule == MODULE_TYPE::COMMONJS)
-	{
-		stream << "module.exports=" << NewLine;
-	}
-	else
 	{
 		//Set all jsExportedDecls equal to DUMMY
 		bool isFirst = true;
@@ -6166,8 +6163,21 @@ void CheerpWriter::compileDeclareExports()
 			stream << jsex.name << "=";
 		}
 		if (!isFirst)
-			stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) <<";" << NewLine;
+		{
+			if (areDummiesDeclared)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) <<";" << NewLine;
+			else
+				stream << "{};" << NewLine;
+		}
+	}
 
+	if (makeModule == MODULE_TYPE::COMMONJS)
+	{
+		stream << "module.exports=" << NewLine;
+	}
+	else
+	{
+		assert(areDummiesDeclared);
 		//Set the promise of DUMMY_WITH_PROMISE
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise=" << NewLine;
 	}
