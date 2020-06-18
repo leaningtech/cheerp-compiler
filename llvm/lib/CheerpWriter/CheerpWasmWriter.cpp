@@ -1254,7 +1254,6 @@ void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 		if(bitWidth == 1)
 			bitWidth = 8;
 
-		// TODO add support for i64.
 		switch (bitWidth)
 		{
 			// Currently assume unsigned, like Cheerp. We may optimize
@@ -1267,6 +1266,9 @@ void CheerpWasmWriter::encodeLoad(const llvm::Type* ty, uint32_t offset,
 				break;
 			case 32:
 				encodeU32U32Inst(0x28, "i32.load", 0x2, offset, code);
+				break;
+			case 64:
+				encodeU32U32Inst(0x29, "i64.load", 0x2, offset, code);
 				break;
 			default:
 				llvm::errs() << "bit width: " << bitWidth << '\n';
@@ -2676,6 +2678,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						break;
 					case 32:
 						encodeU32U32Inst(0x36, "i32.store", 0x2, offset, code);
+						break;
+					case 64:
+						encodeU32U32Inst(0x37, "i64.store", 0x2, offset, code);
 						break;
 					default:
 						llvm::errs() << "bit width: " << bitWidth << '\n';
