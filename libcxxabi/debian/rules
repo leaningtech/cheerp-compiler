@@ -8,6 +8,7 @@ override_dh_auto_configure:
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
 	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpToolchain.cmake \
+	    -DCHEERP_LINEAR_OUTPUT=asmjs \
 	    -DLIBCXXABI_ENABLE_SHARED=OFF \
 	    -DLIBCXXABI_ENABLE_ASSERTIONS=OFF \
 	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
@@ -18,6 +19,7 @@ override_dh_auto_configure:
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=/opt/cheerp \
 	    -DCMAKE_TOOLCHAIN_FILE=/opt/cheerp/share/cmake/Modules/CheerpWasmToolchain.cmake \
+	    -DCHEERP_LINEAR_OUTPUT=asmjs \
 	    -DLIBCXXABI_ENABLE_SHARED=OFF \
 	    -DLIBCXXABI_ENABLE_ASSERTIONS=OFF \
 	    -DLIBCXXABI_LIBCXX_PATH=$(CURDIR)/libcxx/ \
