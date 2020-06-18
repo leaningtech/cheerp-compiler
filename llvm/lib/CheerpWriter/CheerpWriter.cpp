@@ -6137,14 +6137,14 @@ void CheerpWriter::compileWasmLoader()
 
 void CheerpWriter::compileDeclareExports()
 {
-	areExportsDeclared = true;
-
 	for (auto i: globalDeps.asmJSExports())
 	{
 		if(i->empty()) continue;
 
 		stream << "var " << getName(i) << "=null;" << NewLine;
 	}
+	areAsmJSExportsDeclared = true;
+
 	if (makeModule == MODULE_TYPE::COMMONJS)
 	{
 		stream << "module.exports=" << NewLine;
@@ -6158,7 +6158,10 @@ void CheerpWriter::compileDeclareExports()
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
 			else if (isFirst)
+			{
 				stream << "var ";
+				areJsExportedExportsDeclared = true;
+			}
 			isFirst = false;
 			stream << jsex.name << "=";
 		}
@@ -6172,19 +6175,22 @@ void CheerpWriter::compileDeclareExports()
 
 void CheerpWriter::compileDefineExports()
 {
-	const bool alsoDeclare = !areExportsDeclared;
-	areExportsDeclared = true;
+	const bool alsoDeclareAsmJS = !areAsmJSExportsDeclared;
 
-	compileDeclExportedToJs(/*alsoDeclare*/ alsoDeclare);
+	compileDeclExportedToJs(/*alsoDeclare*/ !areJsExportedExportsDeclared);
+	areJsExportedExportsDeclared = true;
 
 	for (auto i: globalDeps.asmJSExports())
 	{
 		if(i->empty()) continue;
 
-		if (alsoDeclare)
+		if (alsoDeclareAsmJS)
 			stream << "var ";
 		stream << getName(i) << "=__asm." << getName(i) <<";" << NewLine;
 	}
+	areAsmJSExportsDeclared = true;
+	//We just did
+
 	if (makeModule == MODULE_TYPE::CLOSURE)
 	{
 		for (auto jsex: jsExportedDecls)

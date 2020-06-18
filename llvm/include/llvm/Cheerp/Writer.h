@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2019 Leaning Technologies
+// Copyright 2011-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -225,7 +225,8 @@ private:
 	// Flag to signal if we should emit readable or compressed output
 	bool readableOutput;
 	// Flag to signal if we should declare exports
-	bool areExportsDeclared{false};
+	bool areAsmJSExportsDeclared{false};
+	bool areJsExportedExportsDeclared{false};
 	// Flag to signal whether a module/promise should be closed
 	bool isPromiseOrModuleOpen{false};
 
