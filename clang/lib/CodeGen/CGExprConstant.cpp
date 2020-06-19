@@ -2540,8 +2540,12 @@ llvm::Constant *CodeGenModule::EmitNullConstant(QualType T) {
         cast<llvm::PointerType>(getTypes().ConvertTypeForMem(T)), T);
 
   if (getTypes().isZeroInitializable(T))
+  {
+    if (CodeGenTypes::isHighInt(T))
+      return llvm::Constant::getNullValue(getTypes().ConvertType(T));
     return llvm::Constant::getNullValue(getTypes().ConvertTypeForMem(T));
-
+  }
+    
   if (const ConstantArrayType *CAT = Context.getAsConstantArrayType(T)) {
     llvm::ArrayType *ATy =
       cast<llvm::ArrayType>(getTypes().ConvertTypeForMem(T));
