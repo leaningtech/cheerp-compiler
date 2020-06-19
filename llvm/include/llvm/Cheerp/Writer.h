@@ -668,9 +668,7 @@ public:
 	static bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from,
 	                                                const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsUnsignedTruncation(const llvm::Value* v, bool asmjs);
-
-	void compileDummies();
-
+private:
 	/*
 	 * Helper functions to make makeJS more modular
 	 */
@@ -692,6 +690,7 @@ public:
 	void compileDefineExports();
 	void compileCommonJSExports();
 	void compileConstructors();
+	void compileDummies();
 };
 
 }
