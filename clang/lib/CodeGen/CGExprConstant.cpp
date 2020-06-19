@@ -1804,6 +1804,15 @@ llvm::Constant *ConstantEmitter::emitForMemory(CodeGenModule &CGM,
     return llvm::ConstantExpr::getZExt(C, boolTy);
   }
 
+  // Cheerp: i64 is a [2 x i32] in memory
+  if (CodeGenTypes::isHighInt(destType)) {
+    llvm::APInt v = llvm::cast<llvm::ConstantInt>(C)->getValue();
+    llvm::Constant *elements[] = {llvm::ConstantInt::get(CGM.Int32Ty, v.trunc(32)),
+                                  llvm::ConstantInt::get(CGM.Int32Ty, v.getHiBits(32).trunc(32))};
+    llvm::ArrayType* highIntType = cast<llvm::ArrayType>(CGM.getTypes().ConvertTypeForMem(destType));
+    return llvm::ConstantArray::get(highIntType, elements);
+  }
+
   return C;
 }
 
