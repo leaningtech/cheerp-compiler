@@ -6180,6 +6180,7 @@ void CheerpWriter::compileDeclareExports()
 		assert(areDummiesDeclared);
 		//Set the promise of DUMMY_WITH_PROMISE
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise=" << NewLine;
+		arePromiseAssigned = true;
 	}
 }
 
@@ -6212,7 +6213,7 @@ void CheerpWriter::compileDefineExports()
 				stream << getName(jsex.F) <<";" << NewLine;
 		}
 	}
-	if (makeModule != MODULE_TYPE::COMMONJS)
+	if (arePromiseAssigned)
 	{
 		bool anyJSEx = false;
 		for (auto jsex: jsExportedDecls)
