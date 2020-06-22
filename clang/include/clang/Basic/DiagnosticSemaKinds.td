@@ -10940,6 +10940,8 @@ def err_cheerp_jsexport_same_name_methods : Error<
   "Cheerp: Public methods of [[cheerp::jsexport]] class/struct cannot have the same name: %0">;
 def err_cheerp_jsexport_promise_static_method : Error<
   "Cheerp: 'promise' as a static method of a [[cheerp::jsexport]]-ed class or struct is reserved">;
+def err_cheerp_jsexport_valueOf_static_method : Error<
+  "Cheerp: 'valueOf' as a static method of a [[cheerp::jsexport]]-ed class or struct is reserved">;
 def err_cheerp_jsexport_on_namespace : Error<
   "Cheerp: [[cheerp::jsexport]]-ed classes, struct and free function cannot be enclosed in a namespace">;
 def err_cheerp_jsexport_name_clash : Error<
