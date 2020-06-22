@@ -521,7 +521,7 @@ public:
                          MaybeAlign Align, bool isVolatile = false,
                          MDNode *TBAATag = nullptr, MDNode *ScopeTag = nullptr,
                          MDNode *NoAliasTag = nullptr, bool byteLayout = true) {
-    return CreateMemSet(Ptr, Val, getInt64(Size), Align, isVolatile,
+    return CreateMemSet(Ptr, Val, getInt32(Size), Align, isVolatile,
                         TBAATag, ScopeTag, NoAliasTag, byteLayout);
   }
 
@@ -626,7 +626,7 @@ public:
                           bool isVolatile = false, MDNode *TBAATag = nullptr,
                           MDNode *ScopeTag = nullptr,
                           MDNode *NoAliasTag = nullptr) {
-    return CreateMemMove(Dst, DstAlign, Src, SrcAlign, getInt64(Size),
+    return CreateMemMove(Dst, DstAlign, Src, SrcAlign, getInt32(Size),
                          isVolatile, TBAATag, ScopeTag, NoAliasTag);
   }
 
