@@ -664,7 +664,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     OS << "complex.";
     getCXXABI().getMangleContext().mangleTypeName(cast<ComplexType>(Ty)->getElementType(), OS);
 
-    ResultType = llvm::StructType::create(OS.str(), EltTy, EltTy);
+
+    llvm::Type *elts[] = {
+      EltTy, EltTy
+    };
+    bool asmjs = CGM.getTriple().getEnvironment() == llvm::Triple::WebAssembly;
+    ResultType = llvm::StructType::create(llvm::makeArrayRef(elts), OS.str(), false, nullptr, false, asmjs);
     break;
   }
   case Type::LValueReference:
