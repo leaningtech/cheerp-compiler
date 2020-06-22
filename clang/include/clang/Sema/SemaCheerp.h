@@ -58,7 +58,13 @@ private:
 	typedef std::set<clang::CXXMethodDecl*> MethodSet;
 	struct Interface
 	{
+		bool isPublicInterface{true};
 		MethodSet methods;
+		void clear()
+		{
+			assert(isPublicInterface);
+			methods.clear();
+		}
 		bool empty() const
 		{
 			return methods.empty();
@@ -67,9 +73,9 @@ private:
 		{
 			methods.insert(method);
 		}
+		template <class T>
+		void addToInterface (T* item, clang::Sema& sema);
 	};
-	template <class T>
-	void insertIntoInterfaces(T* item, Interface& tagged_, Interface& public_);
 	clang::CXXRecordDecl* recordDecl;
 	MethodSet methods;
 	clang::Sema& sema;
