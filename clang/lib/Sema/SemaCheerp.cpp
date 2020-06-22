@@ -415,11 +415,11 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	}
 
 	int JsExportedConstructors = 0;
-	std::unordered_set<std::string> JsExportedMethodNames;
-	std::unordered_set<std::string> staticJsExportedMethodNames;
+	std::unordered_map<std::string, const clang::CXXMethodDecl*> JsExportedMethodNames;
+	std::unordered_map<std::string, const clang::CXXMethodDecl*> staticJsExportedMethodNames;
 
-	staticJsExportedMethodNames.insert("promise");
-	staticJsExportedMethodNames.insert("valueOf");
+	staticJsExportedMethodNames.emplace("promise", nullptr);
+	staticJsExportedMethodNames.emplace("valueOf", nullptr);
 	bool isAnyNonStatic = false;
 
 	for (auto method : interface.methods)
@@ -439,8 +439,8 @@ void cheerp::CheerpSemaClassData::checkRecord()
 
 		const auto& name = method->getNameInfo().getAsString();
 		const auto pair = method->isStatic() ?
-			staticJsExportedMethodNames.insert(name) :
-			JsExportedMethodNames.insert(name);
+			staticJsExportedMethodNames.emplace(name, method) :
+			JsExportedMethodNames.emplace(name, method);
 		if (pair.second == false)
 		{
 			if (name == "promise" && method->isStatic())
@@ -448,7 +448,10 @@ void cheerp::CheerpSemaClassData::checkRecord()
 			if (name == "valueOf" && method->isStatic())
 				sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_valueOf_static_method);
 			else
+			{
 				sema.Diag(method->getLocation(), diag::err_cheerp_jsexport_same_name_methods) << method;
+				sema.Diag(pair.first->second->getLocation(), diag::note_previous_definition);
+			}
 		}
 	}
 
