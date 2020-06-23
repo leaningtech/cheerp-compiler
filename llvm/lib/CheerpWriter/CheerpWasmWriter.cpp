@@ -2743,7 +2743,6 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::FPToSI:
 		{
-			// TODO: add support for i64.
 			// Wasm opcodes traps on invalid values, we need to do an explicit check if requested
 			if(!AvoidWasmTraps)
 			{
@@ -2765,37 +2764,55 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			}
 			else if (I.getOperand(0)->getType()->isFloatTy())
 			{
-				// TODO i64
+				int bits = I.getType()->getIntegerBitWidth();
+				float threshold = bits == 64 ? (1ull << 63) : (1ull << 31);
+				int typeVal = bits == 64 ? 0x7e : 0x7f;
+
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x8b, "f32.abs", code);
 				encodeInst(0x43, "f32.const", code);
-				internal::encodeF32(0x80000000, code);
+				internal::encodeF32(threshold, code);
 				// Use LT here, we are using the first invalid positive integer as the limit value
 				encodeInst(0x5d, "f32.lt", code);
-				encodeU32Inst(0x04, "if", 0x7f, code);
+				encodeU32Inst(0x04, "if", typeVal, code);
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0xa8, "i32.trunc_s/f32", code);
+				if (bits == 64)
+					encodeInst(0xae, "i64.trunc_s/f32", code);
+				else
+					encodeInst(0xa8, "i32.trunc_s/f32", code);
 				encodeInst(0x05, "else", code);
 				// We excluded the valid INT32_MIN in the range above, but in the undefined case we use it unconditionally
-				encodeS32Inst(0x41, "i32.const", INT32_MIN, code);
+				if (bits == 64)
+					encodeS64Inst(0x42, "i64.const", INT64_MIN, code);
+				else
+					encodeS32Inst(0x41, "i32.const", INT32_MIN, code);
 				encodeInst(0x0b, "end", code);
 			}
 			else
 			{
-				// TODO i64
+				int bits = I.getType()->getIntegerBitWidth();
+				float threshold = bits == 64 ? (1ull << 63) : (1ull << 31);
+				int typeVal = bits == 64 ? 0x7e : 0x7f;
+
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x99, "f64.abs", code);
 				encodeInst(0x43, "f32.const", code);
-				internal::encodeF32(0x80000000, code);
+				internal::encodeF32(threshold, code);
 				encodeInst(0xbb, "f64.promote/f32", code);
 				// Use LT here, we are using the first invalid positive integer as the limit value
 				encodeInst(0x63, "f64.lt", code);
-				encodeU32Inst(0x04, "if", 0x7f, code);
+				encodeU32Inst(0x04, "if", typeVal, code);
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0xaa, "i32.trunc_s/f64", code);
+				if (bits == 64)
+					encodeInst(0xb0, "i64.trunc_s/f64", code);
+				else
+					encodeInst(0xaa, "i32.trunc_s/f64", code);
 				encodeInst(0x05, "else", code);
 				// We excluded the valid INT32_MIN in the range above, but in the undefined case we use it unconditionally
-				encodeS32Inst(0x41, "i32.const", INT32_MIN, code);
+				if (bits == 64)
+					encodeS64Inst(0x42, "i64.const", INT64_MIN, code);
+				else
+					encodeS32Inst(0x41, "i32.const", INT32_MIN, code);
 				encodeInst(0x0b, "end", code);
 			}
 			break;
@@ -2823,10 +2840,13 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			}
 			else if (I.getOperand(0)->getType()->isFloatTy())
 			{
-				// TODO: add support for i64.
+				int bits = I.getType()->getIntegerBitWidth();
+				float threshold = bits == 64 ? 18446744073709551616.0 : 4294967296.0;
+				int typeVal = bits == 64 ? 0x7e : 0x7f;
+
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x43, "f32.const", code);
-				internal::encodeF32(0x100000000LL, code);
+				internal::encodeF32(threshold, code);
 				// Use LT here, we are using the first invalid positive integer as the limit value
 				encodeInst(0x5d, "f32.lt", code);
 				// Also compare against 0
@@ -2835,19 +2855,28 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				internal::encodeF32(0, code);
 				encodeInst(0x60, "f32.ge", code);
 				encodeInst(0x71, "i32.and", code);
-				encodeU32Inst(0x04, "if", 0x7f, code);
+				encodeU32Inst(0x04, "if", typeVal, code);
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0xa9, "i32.trunc_u/f32", code);
+				if (bits == 64)
+					encodeInst(0xaf, "i64.trunc_u/f32", code);
+				else
+					encodeInst(0xa9, "i32.trunc_u/f32", code);
 				encodeInst(0x05, "else", code);
-				encodeS32Inst(0x41, "i32.const", 0, code);
+				if (bits == 64)
+					encodeS64Inst(0x42, "i64.const", 0, code);
+				else
+					encodeS32Inst(0x41, "i32.const", 0, code);
 				encodeInst(0x0b, "end", code);
 			}
 			else
 			{
-				// TODO: add support for i64.
+				int bits = I.getType()->getIntegerBitWidth();
+				float threshold = bits == 64 ? 18446744073709551616.0 : 4294967296.0;
+				int typeVal = bits == 64 ? 0x7e : 0x7f;
+
 				compileOperand(code, I.getOperand(0));
 				encodeInst(0x43, "f32.const", code);
-				internal::encodeF32(0x100000000LL, code);
+				internal::encodeF32(threshold, code);
 				encodeInst(0xbb, "f64.promote/f32", code);
 				// Use LT here, we are using the first invalid positive integer as the limit value
 				encodeInst(0x63, "f64.lt", code);
@@ -2858,11 +2887,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				encodeInst(0xbb, "f64.promote/f32", code);
 				encodeInst(0x66, "f64.ge", code);
 				encodeInst(0x71, "i32.and", code);
-				encodeU32Inst(0x04, "if", 0x7f, code);
+				encodeU32Inst(0x04, "if", typeVal, code);
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0xab, "i32.trunc_u/f64", code);
+				if (bits == 64)
+					encodeInst(0xb1, "i64.trunc_u/f64", code);
+				else
+					encodeInst(0xab, "i32.trunc_u/f64", code);
 				encodeInst(0x05, "else", code);
-				encodeS32Inst(0x41, "i32.const", 0, code);
+				if (bits == 64)
+					encodeS64Inst(0x42, "i64.const", 0, code);
+				else
+					encodeS32Inst(0x41, "i32.const", 0, code);
 				encodeInst(0x0b, "end", code);
 			}
 			break;
