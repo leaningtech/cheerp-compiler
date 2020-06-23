@@ -31,7 +31,7 @@ cmake -C ../CheerpCmakeConf.cmake \
 
 
 %build
-%make_build -C build
+/usr/bin/make -C build
 
 %check
 %make_build -C build check
