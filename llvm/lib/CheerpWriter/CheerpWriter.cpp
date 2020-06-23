@@ -6148,22 +6148,18 @@ void CheerpWriter::compileDeclareExports()
 	areAsmJSExportsDeclared = true;
 
 	{
-		//Set all jsExportedDecls equal to DUMMY
-		bool isFirst = true;
+		//Set all jsExportedDecls equal to DUMMY / {}
 		for (auto jsex: jsExportedDecls)
 		{
 			if (makeModule == MODULE_TYPE::CLOSURE)
 				stream << "__root.";
-			else if (isFirst)
+			else
 			{
-				stream << "var ";
 				areJsExportedExportsDeclared = true;
+				stream << "var ";
 			}
-			isFirst = false;
+
 			stream << jsex.name << "=";
-		}
-		if (!isFirst)
-		{
 			if (areDummiesDeclared)
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) <<";" << NewLine;
 			else
