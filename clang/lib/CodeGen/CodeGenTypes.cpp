@@ -105,7 +105,7 @@ llvm::Type *CodeGenTypes::ConvertTypeForMem(QualType T, bool ForBitField) {
   if ((ForBitField && T->isExtIntType()) || R->isIntegerTy(1))
     return llvm::IntegerType::get(getLLVMContext(),
                                   (unsigned)Context.getTypeSize(T));
-  if (R->isIntegerTy(64)) {
+  if (isHighInt(T)) {
     llvm::Type *EltTy = llvm::IntegerType::get(getLLVMContext(), 32);
     // We really want to use the same struct for signed and unsigned
     return llvm::ArrayType::get(EltTy, 2);
