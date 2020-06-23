@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @copy(%S* %src, %S* %dst) {
 ; CHECK-LABEL: copy
 ; CHECK-NOT: load
-; CHECK: call void @llvm.memmove.p0i8.p0i8.i64
+; CHECK: call void @llvm.memmove.p0i8.p0i8.i32
 ; CHECK-NEXT: ret void
   %1 = load %S, %S* %src
   store %S %1, %S* %dst
@@ -18,7 +18,7 @@ define void @copy(%S* %src, %S* %dst) {
 define void @noaliassrc(%S* noalias %src, %S* %dst) {
 ; CHECK-LABEL: noaliassrc
 ; CHECK-NOT: load
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
+; CHECK: call void @llvm.memcpy.p0i8.p0i8.i32
 ; CHECK-NEXT: ret void
   %1 = load %S, %S* %src
   store %S %1, %S* %dst
@@ -28,7 +28,7 @@ define void @noaliassrc(%S* noalias %src, %S* %dst) {
 define void @noaliasdst(%S* %src, %S* noalias %dst) {
 ; CHECK-LABEL: noaliasdst
 ; CHECK-NOT: load
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
+; CHECK: call void @llvm.memcpy.p0i8.p0i8.i32
 ; CHECK-NEXT: ret void
   %1 = load %S, %S* %src
   store %S %1, %S* %dst
@@ -38,7 +38,7 @@ define void @noaliasdst(%S* %src, %S* noalias %dst) {
 define void @destroysrc(%S* %src, %S* %dst) {
 ; CHECK-LABEL: destroysrc
 ; CHECK: load %S, %S* %src
-; CHECK: call void @llvm.memset.p0i8.i64
+; CHECK: call void @llvm.memset.p0i8.i32
 ; CHECK-NEXT: store %S %1, %S* %dst
 ; CHECK-NEXT: ret void
   %1 = load %S, %S* %src
@@ -50,8 +50,8 @@ define void @destroysrc(%S* %src, %S* %dst) {
 define void @destroynoaliassrc(%S* noalias %src, %S* %dst) {
 ; CHECK-LABEL: destroynoaliassrc
 ; CHECK-NOT: load
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
-; CHECK-NEXT: call void @llvm.memset.p0i8.i64
+; CHECK: call void @llvm.memcpy.p0i8.p0i8.i32
+; CHECK-NEXT: call void @llvm.memset.p0i8.i32
 ; CHECK-NEXT: ret void
   %1 = load %S, %S* %src
   store %S zeroinitializer, %S* %src
@@ -63,7 +63,7 @@ define void @copyalias(%S* %src, %S* %dst) {
 ; CHECK-LABEL: copyalias
 ; CHECK-NEXT: [[LOAD:%[a-z0-9\.]+]] = load %S, %S* %src
 ; CHECK-NOT: load
-; CHECK: call void @llvm.memmove.p0i8.p0i8.i64
+; CHECK: call void @llvm.memmove.p0i8.p0i8.i32
 ; CHECK-NEXT: store %S [[LOAD]], %S* %dst
 ; CHECK-NEXT: ret void
   %1 = load %S, %S* %src

@@ -715,7 +715,7 @@ define void @VACopy(i8* %p1, i8* %p2) nounwind uwtable sanitize_memory {
 }
 
 ; CHECK-LABEL: @VACopy
-; CHECK: call void @llvm.memset.p0i8.i64({{.*}}, i8 0, i64 24, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32({{.*}}, i8 0, i32 24, i1 false)
 ; CHECK: ret void
 
 

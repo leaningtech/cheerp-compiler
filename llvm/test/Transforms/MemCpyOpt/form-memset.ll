@@ -50,7 +50,7 @@ entry:
 	ret void
 ; CHECK-LABEL: @test1(
 ; CHECK-NOT: store
-; CHECK: call void @llvm.memset.p0i8.i64
+; CHECK: call void @llvm.memset.p0i8.i32
 ; CHECK-NOT: store
 ; CHECK: ret
 }
@@ -152,11 +152,11 @@ entry:
         
 ; CHECK-LABEL: @test2(
 ; CHECK-NOT: store
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 1 %tmp41, i8 -1, i64 8, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 1 %tmp41, i8 -1, i32 8, i1 false)
 ; CHECK-NOT: store
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 8 %0, i8 0, i64 32, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 8 %0, i8 0, i32 32, i1 false)
 ; CHECK-NOT: store
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 8 %1, i8 0, i64 32, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 8 %1, i8 0, i32 32, i1 false)
 ; CHECK-NOT: store
 ; CHECK: ret
 }
@@ -175,7 +175,7 @@ entry:
   ret void
 ; CHECK-LABEL: @test3(
 ; CHECK-NOT: store
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 4 %1, i8 0, i64 15, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 4 %1, i8 0, i32 15, i1 false)
 }
 
 ; store followed by memset, different offset scenario
@@ -188,7 +188,7 @@ entry:
   ret void
 ; CHECK-LABEL: @test4(
 ; CHECK-NOT: store
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 4 %1, i8 0, i64 15, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 4 %1, i8 0, i32 15, i1 false)
 }
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i1) nounwind
@@ -204,7 +204,7 @@ entry:
   ret void
 ; CHECK-LABEL: @test5(
 ; CHECK-NOT: store
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 4 %1, i8 0, i64 15, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 4 %1, i8 0, i32 15, i1 false)
 }
 
 ;; Memset followed by memset.
@@ -233,7 +233,7 @@ define void @test7(i32* nocapture %c) nounwind optsize {
   %4 = getelementptr inbounds i32, i32* %c, i32 4
   store i32 -1, i32* %4, align 4
 ; CHECK-LABEL: @test7(
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 4 %5, i8 -1, i64 20, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 4 %5, i8 -1, i32 20, i1 false)
   ret void
 }
 
@@ -270,7 +270,7 @@ define void @test9() nounwind {
   store i8 -1, i8* getelementptr (i8, i8* bitcast ([16 x i64]* @test9buf to i8*), i64 15), align 1
   ret void
 ; CHECK-LABEL: @test9(
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 16 bitcast ([16 x i64]* @test9buf to i8*), i8 -1, i64 16, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 16 bitcast ([16 x i64]* @test9buf to i8*), i8 -1, i32 16, i1 false)
 }
 
 ; PR19092
@@ -297,7 +297,7 @@ entry:
   ret void
 ; CHECK-LABEL: @test11(
 ; CHECK-NOT: store
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 4 %1, i8 1, i64 23, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 4 %1, i8 1, i32 23, i1 false)
 }
 
 ; Alignment should be preserved when there is a store with default align

@@ -9,7 +9,7 @@ declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i1) nounwind
 
 define void @foo(i32* %p) {
 ; CHECK-LABEL: @foo(
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 4 {{.*}}, i8 0, i64 16, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 4 {{.*}}, i8 0, i32 16, i1 false)
   %a0 = getelementptr i32, i32* %p, i64 0
   store i32 0, i32* %a0, align 4
   %a1 = getelementptr i32, i32* %p, i64 1
