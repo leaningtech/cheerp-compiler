@@ -460,6 +460,19 @@ llvm::Constant *ConstantAggregateBuilder::buildFrom(
     UnpackedElems = UnpackedElemStorage;
   }
 
+  // Fix the packed attribute before the final padding is computed
+  llvm::StructType *DirectBaseTy = NULL;
+  bool isByteLayout = false;
+  if (llvm::StructType *ValSTy = dyn_cast<llvm::StructType>(DesiredTy)) {
+    // It makes sense to make the struct packed if the target one is
+    if (ValSTy->isPacked() && !Packed) {
+      NaturalLayout = false;
+      Packed = true;
+    }
+    DirectBaseTy = ValSTy->getDirectBase();
+    isByteLayout = ValSTy->hasByteLayout();
+  }
+
   // If we don't have a natural layout, insert padding as necessary.
   // As we go, double-check to see if we can actually just emit Elems
   // as a non-packed struct and do so opportunistically if possible.
