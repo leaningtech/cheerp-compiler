@@ -6187,9 +6187,6 @@ void CheerpWriter::compileDefineExports()
 {
 	const bool alsoDeclareAsmJS = !areAsmJSExportsDeclared;
 
-	compileDeclExportedToJs(/*alsoDeclare*/ !areJsExportedExportsDeclared);
-	areJsExportedExportsDeclared = true;
-
 	for (auto i: globalDeps.asmJSExports())
 	{
 		if(i->empty()) continue;
@@ -6200,6 +6197,9 @@ void CheerpWriter::compileDefineExports()
 	}
 	areAsmJSExportsDeclared = true;
 	//We just did
+
+	compileDeclExportedToJs(/*alsoDeclare*/ !areJsExportedExportsDeclared);
+	areJsExportedExportsDeclared = true;
 
 	if (makeModule == MODULE_TYPE::CLOSURE)
 	{
