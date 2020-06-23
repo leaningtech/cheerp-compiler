@@ -225,7 +225,6 @@ private:
 	// Flag to signal if we should emit readable or compressed output
 	bool readableOutput;
 	// Flag to keep track of state of already declared stuff
-	bool arePromiseAssigned{false};
 	bool areDummiesDeclared{false};
 	bool areAsmJSExportsDeclared{false};
 	bool areJsExportedExportsDeclared{false};
