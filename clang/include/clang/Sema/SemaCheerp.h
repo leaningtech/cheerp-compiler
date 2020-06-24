@@ -12,15 +12,10 @@
 #ifndef _CHEERP_SEMA_CHEERP_H
 #define _CHEERP_SEMA_CHEERP_H
 
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/DeterministicUnorderedMap.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/Sema/AttributeList.h"
 
@@ -97,21 +92,6 @@ private:
 
 	cheerp::DeterministicUnorderedMap<clang::CXXRecordDecl*, CheerpSemaClassData, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> classData;
 	clang::Sema& sema;
-};
-
-class JsExportContext
-{
-public:
-	explicit JsExportContext(llvm::Module& module, llvm::LLVMContext& context, llvm::IntegerType* type)
-		: module(module), context(context), intType(type)
-	{
-	}
-	void addFreeFunctionJsExportMetadata(llvm::Function* F);
-	void addRecordJsExportMetadata(const clang::CXXMethodDecl *method, llvm::Function* F, const llvm::StringRef className);
-private:
-	llvm::Module& module;
-	llvm::LLVMContext& context;
-	llvm::IntegerType* intType;
 };
 
 bool shouldBeJsExported(const clang::Decl *D, const bool isMethod);

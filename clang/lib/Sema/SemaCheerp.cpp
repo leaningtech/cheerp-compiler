@@ -18,7 +18,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
 #include <string>
-#include <unordered_set>
+#include <unordered_map>
 
 bool cheerp::isInAnyNamespace(const clang::Decl* decl)
 {
@@ -480,29 +480,6 @@ void cheerp::CheerpSemaClassData::addMethod(clang::CXXMethodDecl* method)
 	//They have to be added here since this is the only moment that will capture templated methods (that possibly will never be instantiated)
 	//But the actual checks have to be performed later when all methods are known
 	declared_methods.insert(method);
-}
-
-void cheerp::JsExportContext::addFreeFunctionJsExportMetadata(llvm::Function* F)
-{
-       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata("jsexported_methods");
-       llvm::SmallVector<llvm::Metadata*,1> values;
-       values.push_back(llvm::ConstantAsMetadata::get(F));
-       llvm::MDNode* node = llvm::MDNode::get(context,values);
-       namedNode->addOperand(node);
-}
-
-void cheerp::JsExportContext::addRecordJsExportMetadata(const clang::CXXMethodDecl *method, llvm::Function* F, const llvm::StringRef className)
-{
-       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata(llvm::Twine(className,"_methods").str());
-       llvm::SmallVector<llvm::Metadata*,2> values;
-       values.push_back(llvm::ConstantAsMetadata::get(F));
-
-       const MemberKind kind = clang::isa<clang::CXXConstructorDecl>(method) ? MemberKind::Constructor : MemberKind::Method;
-       const uint32_t representation = cheerp::getRepresentation(kind, method->isStatic(), method->isConst());
-       values.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(intType, representation)));
-
-       llvm::MDNode* node = llvm::MDNode::get(context,values);
-       namedNode->addOperand(node);
 }
 
 bool cheerp::shouldBeJsExported(const clang::Decl *D, const bool isMethod)
