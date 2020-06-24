@@ -14,7 +14,6 @@
 #include "clang/Sema/SemaCheerp.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Sema/SemaInternal.h"
-#include "llvm/Cheerp/JsExport.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
 #include <string>
