@@ -30,7 +30,7 @@ enum TYPED_BUILTIN { NONE, ABS_F32, ABS_F64, ACOS_F32, ACOS_F64, ASIN_F32, ASIN_
 				CEIL_F32, CEIL_F64, COS_F32, COS_F64, EXP_F32, EXP_F64, FLOOR_F32, FLOOR_F64, LOG_F32, LOG_F64,
 				POW_F32, POW_F64, SIN_F32, SIN_F64, SQRT_F32, SQRT_F64, TAN_F32, TAN_F64, MOD_F32, MOD_F64,
 				TRUNC_F32, TRUNC_F64, ROUND_F32, ROUND_F64, MIN_F32, MIN_F64, MAX_F32, MAX_F64, COPYSIGN_F32, COPYSIGN_F64,
-				CLZ_32, GROW_MEM, MAX_BUILTIN, UNSUPPORTED};
+				CLZ_32, CLZ_64, GROW_MEM, MAX_BUILTIN, UNSUPPORTED};
 }	//close TypedBuiltinInstr
 
 namespace BuiltinInstr
@@ -121,6 +121,7 @@ namespace TypedBuiltinInstr
 	x("f64.copysign", 0xa6, "copysign", COPYSIGN_F64) \
 	\
 	x("i32.clz", 0x67, "", CLZ_32) \
+	x("i64.clz", 0x79, "", CLZ_64) \
 
 #define TYPED_FUNCTIONS_LIST(x) \
 	x(ACOS_F32, ACOS_F64, "acos", "acosf") \
@@ -274,6 +275,7 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 #undef WASM_INTRINSIC
 
 	const bool floatType = F.getReturnType()->isFloatTy();
+	const bool i64Type = F.getReturnType()->isIntegerTy(64);
 
 	if (F.getName() == "__ieee754_sqrt")
 	{
@@ -314,8 +316,7 @@ WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 	case llvm::Intrinsic::sin:
 		return floatType ? SIN_F32 : SIN_F64;
 	case llvm::Intrinsic::ctlz:
-		//TODO: add 64 bit
-		return CLZ_32;
+		return i64Type ? CLZ_64 : CLZ_32;
 	case llvm::Intrinsic::powi:
 	case llvm::Intrinsic::exp2:
 	case llvm::Intrinsic::log10:
