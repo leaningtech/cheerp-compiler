@@ -3295,6 +3295,52 @@ static StringRef GetInputKindName(InputKind IK) {
   llvm_unreachable("unknown input language");
 }
 
+static void ParseCheerpArgs(LangOptions &Opts, ArgList &Args,
+                          DiagnosticsEngine &Diags) {
+  const Arg *CheerpMode = Args.getLastArg(OPT_cheerp_mode_EQ);
+  const Arg *CheerpLinearOutput = Args.getLastArg(OPT_cheerp_linear_output_EQ);
+  if (CheerpMode && CheerpLinearOutput)
+  {
+    Diags.Report(diag::err_drv_argument_not_allowed_with)
+      << CheerpMode->getAsString(Args) << CheerpLinearOutput->getAsString(Args);
+  }
+  else if (CheerpMode)
+  {
+    LangOptions::CheerpLinearOutputTy s
+      = llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpMode->getValue())
+        .Case("genericjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
+        .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
+        .Case("wast", LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
+        .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
+        .Default(LangOptions::CHEERP_LINEAR_OUTPUT_Invalid);
+
+    Opts.setCheerpLinearOutput(s);
+    if (s == LangOptions::CHEERP_LINEAR_OUTPUT_Invalid)
+    {
+      Diags.Report(diag::err_drv_invalid_value)
+      << CheerpMode->getAsString(Args) << CheerpMode->getValue();
+    }
+  }
+  else if (CheerpLinearOutput)
+  {
+    LangOptions::CheerpLinearOutputTy s =
+      llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpLinearOutput->getValue())
+        .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
+        .Case("wast", LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
+        .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
+        .Default(LangOptions::CHEERP_LINEAR_OUTPUT_Invalid);
+    Opts.setCheerpLinearOutput(s);
+    if (s == LangOptions::CHEERP_LINEAR_OUTPUT_Invalid)
+    {
+      Diags.Report(diag::err_drv_invalid_value)
+      << CheerpLinearOutput->getAsString(Args) << CheerpLinearOutput->getValue();
+    }
+  }
+  if (const Arg *A = Args.getLastArg(OPT_cheerp_wasm_anyref)) {
+    Opts.CheerpAnyref = 1;
+  }
+}
+
 void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
                                           SmallVectorImpl<const char *> &Args,
                                           StringAllocator SA,
@@ -3331,7 +3377,6 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
 
   auto LangStandard = LangStandard::getLangStandardForKind(Opts.LangStd);
   GenerateArg(Args, StdOpt, LangStandard.getName(), SA);
-
   if (Opts.IncludeDefaultHeader)
     GenerateArg(Args, OPT_finclude_default_header, SA);
   if (Opts.DeclareOpenCLBuiltins)
@@ -3626,50 +3671,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
           << A->getAsString(Args) << GetInputKindName(IK);
       }
     }
-  }
-
-  // Parse cheerp options
-  const Arg *CheerpMode = Args.getLastArg(OPT_cheerp_mode_EQ);
-  const Arg *CheerpLinearOutput = Args.getLastArg(OPT_cheerp_linear_output_EQ);
-  if (CheerpMode && CheerpLinearOutput)
-  {
-    Diags.Report(diag::err_drv_argument_not_allowed_with)
-      << CheerpMode->getAsString(Args) << CheerpLinearOutput->getAsString(Args);
-  }
-  else if (CheerpMode)
-  {
-    LangOptions::CheerpLinearOutputTy s
-      = llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpMode->getValue())
-        .Case("genericjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
-        .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
-        .Case("wast", LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
-        .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
-        .Default(LangOptions::CHEERP_LINEAR_OUTPUT_Invalid);
-
-    Opts.setCheerpLinearOutput(s);
-    if (s == LangOptions::CHEERP_LINEAR_OUTPUT_Invalid)
-    {
-      Diags.Report(diag::err_drv_invalid_value)
-      << CheerpMode->getAsString(Args) << CheerpMode->getValue();
-    }
-  }
-  else if (CheerpLinearOutput)
-  {
-    LangOptions::CheerpLinearOutputTy s =
-      llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpLinearOutput->getValue())
-        .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
-        .Case("wast", LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
-        .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
-        .Default(LangOptions::CHEERP_LINEAR_OUTPUT_Invalid);
-    Opts.setCheerpLinearOutput(s);
-    if (s == LangOptions::CHEERP_LINEAR_OUTPUT_Invalid)
-    {
-      Diags.Report(diag::err_drv_invalid_value)
-      << CheerpLinearOutput->getAsString(Args) << CheerpLinearOutput->getValue();
-    }
-  }
-  if (const Arg *A = Args.getLastArg(OPT_cheerp_wasm_anyref)) {
-    Opts.CheerpAnyref = 1;
   }
 
   // -cl-std only applies for OpenCL language standards.
@@ -4548,6 +4549,8 @@ bool CompilerInvocation::CreateFromArgsImpl(
       Res.getCodeGenOpts().MisExpect = true;
     }
   }
+
+  ParseCheerpArgs(LangOpts, Args, Diags);
 
   if (LangOpts.CUDA) {
     // During CUDA device-side compilation, the aux triple is the
