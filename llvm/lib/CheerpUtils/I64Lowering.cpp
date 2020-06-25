@@ -653,6 +653,56 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		return Res;
 	}
 
+	HighInt visitCallInst(CallInst& I)
+	{
+		if(!I.getType()->isIntegerTy(64))
+			return HighInt();
+
+		Function* calledFunc = I.getCalledFunction();
+		if (calledFunc == nullptr)
+			return HighInt();
+
+		Intrinsic::ID intrinsicId = calledFunc->getIntrinsicID();
+
+		HighInt Res;
+		IRBuilder<> Builder(&I);
+		auto ctlz_cttz_impl = [&Builder, &Res, intrinsicId, &I, this](Value* firstHalf, Value* secondHalf)
+		{
+				Function* Intr = Intrinsic::getDeclaration(&M, intrinsicId, Int32Ty);
+				Value* Cond = Builder.CreateICmpEQ(firstHalf, ConstantInt::get(Int32Ty, 0));
+				Value* Args1[] = { firstHalf, I.getOperand(1) };
+				Value* Args2[] = { secondHalf, I.getOperand(1) };
+				Value* Call1 = Builder.CreateCall(Intr, Args1);
+				Value* Call2 = Builder.CreateCall(Intr, Args2);
+				Value* Sum = Builder.CreateAdd(ConstantInt::get(Int32Ty, 32), Call2);
+				Res.high = ConstantInt::get(Int64Ty, 0);
+				Res.low = Builder.CreateSelect(Cond, Sum, Call1, "sel.ctlz");
+		};
+		switch (intrinsicId)
+		{
+			case Intrinsic::ctlz:
+			{
+				HighInt Arg = visitValue(I.getOperand(0));
+				ctlz_cttz_impl(Arg.high, Arg.low);
+				break;
+			}
+			case Intrinsic::cttz:
+			{
+				HighInt Arg = visitValue(I.getOperand(0));
+				ctlz_cttz_impl(Arg.low, Arg.high);
+				break;
+			}
+			default:
+			{
+				report_fatal_error("Unsupported 64 bit intrinsic");
+				return HighInt();
+			}
+		}
+		ToDelete.push_back(&I);
+		Changed = true;
+		return Res;
+	}
+
 	void storeHighInt(IRBuilder<>& Builder, HighInt H, Value* Ptr)
 	{
 		Value* lowPtr = Builder.CreateStructGEP(HighIntTy, Ptr, 0);
