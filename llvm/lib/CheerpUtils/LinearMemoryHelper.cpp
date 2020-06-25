@@ -386,13 +386,16 @@ void LinearMemoryHelper::addGlobals()
 	for (const auto& G: module.globals())
 	{
 		if (G.getSection() != StringRef("asmjs")) continue;
-		if (!hasNonZeroInitialiser(&G)) continue;
-
 		asmjsGlobals.push_back(&G);
 	}
 
 	std::sort(asmjsGlobals.begin(), asmjsGlobals.end(),
-		[targetData] (const GlobalVariable* a, const GlobalVariable* b) {
+		[targetData,this] (const GlobalVariable* a, const GlobalVariable* b) {
+			// Encode zero-initialized globals after all the others
+			uint32_t nonZeroInitializedA = hasNonZeroInitialiser(a);
+			uint32_t nonZeroInitializedB = hasNonZeroInitialiser(b);
+			if(nonZeroInitializedA != nonZeroInitializedB)
+				return nonZeroInitializedA > nonZeroInitializedB;
 			Type* aTy = a->getType()->getPointerElementType();
 			Type* bTy = b->getType()->getPointerElementType();
 			uint32_t typeAlignA = TypeSupport::getAlignmentAsmJS(targetData, aTy);
@@ -403,13 +406,6 @@ void LinearMemoryHelper::addGlobals()
 			return alignA > alignB;
 		}
 	);
-
-	for (const auto& G: module.globals())
-	{
-		if (G.getSection() != StringRef("asmjs")) continue;
-		if (hasNonZeroInitialiser(&G)) continue;
-		asmjsGlobals.push_back(&G);
-	}
 
 	// Compute the global variable addresses.
 	for (const auto G: asmjsGlobals) {
