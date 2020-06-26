@@ -337,6 +337,7 @@ llvm::Value *CodeGenFunction::EmitLoadHighInt(llvm::Value *highint) {
 }
 
 void CodeGenFunction::EmitStoreHighInt(llvm::Value *Value, Address Addr, bool Volatile) {
+  assert(Value->getType()->isIntegerTy(64) && "wrong type for HighInt");
   if (getLangOpts().getCheerpLinearOutput()==LangOptions::CHEERP_LINEAR_OUTPUT_Wasm &&
       CurFn->getSection() == StringRef("asmjs")) {
     Address bc = Builder.CreateBitCast(Addr, Int64Ty->getPointerTo());
