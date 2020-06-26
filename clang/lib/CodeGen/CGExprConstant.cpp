@@ -1767,6 +1767,10 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
   // Try to emit the initializer.  Note that this can allow some things that
   // are not allowed by tryEmitPrivateForMemory alone.
   if (auto value = D.evaluateValue()) {
+    if (CodeGenTypes::isHighInt(destType)) {
+      auto nonMemoryDestType = getNonMemoryType(CGM, destType);
+      return tryEmitPrivate(*value, nonMemoryDestType);
+    }
     return tryEmitPrivateForMemory(*value, destType);
   }
 
@@ -1785,6 +1789,8 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
   auto nonMemoryDestType = getNonMemoryType(CGM, destType);
   auto C =
     ConstExprEmitter(*this).Visit(const_cast<Expr*>(E), nonMemoryDestType);
+  if (CodeGenTypes::isHighInt(destType))
+    return C;
   return (C ? emitForMemory(C, destType) : nullptr);
 }
 
