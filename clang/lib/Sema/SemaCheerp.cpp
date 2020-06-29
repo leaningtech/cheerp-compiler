@@ -16,6 +16,7 @@
 #include "clang/Sema/SemaInternal.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
+#include "llvm/Cheerp/ForbiddenIdentifiers.h"
 #include <string>
 #include <unordered_map>
 
@@ -39,6 +40,12 @@ void cheerp::checkDestructor(clang::CXXRecordDecl* Record, clang::Sema& sema, bo
 		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_with_non_trivial_destructor);
 		shouldContinue = false;
 	}
+}
+
+static void checkName(clang::Decl* decl, const llvm::StringRef& name, clang::Sema& sema)
+{
+	if (cheerp::isForbiddenJSIdentifier(name))
+		sema.Diag(decl->getLocation(), clang::diag::err_cheerp_jsexport_forbidden_identifier) << name;
 }
 
 void cheerp::checkCouldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue)
@@ -320,6 +327,8 @@ void cheerp::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod,
 		checkCouldReturnBeJsExported(FD->getReturnType(), FD, sema);
 
 	checkParameters(FD, sema);
+
+	checkName(FD, FD->getNameInfo().getAsString(), sema);
 }
 
 void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method, const bool isJsExport)
@@ -342,6 +351,9 @@ void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method, const bool 
 void cheerp::CheerpSemaData::checkRecord(clang::CXXRecordDecl* record)
 {
 	//Here all checks about external feasibility of jsexporting a class/struct have to be performed (eg. checking for name clashes against other functions)
+	checkName(record, record->getName(), sema);
+
+	//TODO: name check against known function/classes with the same name
 
 	classData.emplace(record, CheerpSemaClassData(record, sema)).first->second.checkRecord();
 }
