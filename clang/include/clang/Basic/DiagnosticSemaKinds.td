@@ -10938,6 +10938,8 @@ def err_cheerp_jsexport_on_method_of_not_jsexported_class : Error<
   "Cheerp: Method tagged [[cheerp::jsexport]] should be part of jsexport-ed class/struct">;
 def err_cheerp_jsexport_same_name_methods : Error<
   "Cheerp: Public methods of [[cheerp::jsexport]] class/struct cannot have the same name: %0">;
+def err_cheerp_jsexport_forbidden_identifier : Error<
+  "Cheerp: %0 is a reserved name in JavaScript and it can't be jsexported">;
 def err_cheerp_jsexport_promise_static_method : Error<
   "Cheerp: 'promise' as a static method of a [[cheerp::jsexport]]-ed class or struct is reserved">;
 def err_cheerp_jsexport_valueOf_static_method : Error<
