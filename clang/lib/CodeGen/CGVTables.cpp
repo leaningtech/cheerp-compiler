@@ -568,13 +568,42 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
                      +                byteAddressable?GD:GD.getWithDecl(OriginalMethod));
   llvm::FunctionType *ThunkFnTy = CGM.getTypes().GetFunctionType(FnInfo);
 
+  llvm::Function *ThunkFn = cast<llvm::Function>(Thunk->stripPointerCastsSafe());
+
   // If the type of the underlying GlobalValue is wrong, we'll have to replace
   // it. It should be a declaration.
-  llvm::Function *ThunkFn = cast<llvm::Function>(Thunk->stripPointerCastsSafe());
-  if (ThunkFn->getFunctionType() != ThunkFnTy) {
+  // CHEERP: If there are virtual bases it is possible that the type of `this` mismatches
+  // between the existing and new think, but one is directbase of the other.
+  // We keep the thunk with the most basic `this` type
+  bool NewIsDirectBase = false;
+  bool CurrentIsDirectBase = false;
+  llvm::FunctionType* NewThunkFnTy = ThunkFn->getFunctionType();
+  if (!CGM.getTarget().isByteAddressable()) {
+    // Geth the `this` type. It can be the first or second parameter (if there is a
+    // struct return pointer)
+    bool sret = ThunkFn->hasStructRetAttr();
+    llvm::StructType* NewThisTy = cast<llvm::StructType>(NewThunkFnTy->getParamType(sret? 1 : 0)->getPointerElementType());
+    llvm::StructType* CurrentThisTy = cast<llvm::StructType>(ThunkFnTy->getParamType(sret? 1: 0)->getPointerElementType());
+    // Check if one of the types is directbase of the other (check all the directbase hierarchy)
+    for (llvm::StructType* I = NewThisTy; I != nullptr; I = I->getDirectBase()) {
+      if (I == CurrentThisTy) {
+        NewIsDirectBase = true;
+        break;
+      }
+    }
+    for (llvm::StructType* I = CurrentThisTy; I != nullptr; I = I->getDirectBase()) {
+      if (I == NewThisTy) {
+        CurrentIsDirectBase = true;
+        break;
+      }
+    }
+  }
+  if (ThunkFn->getFunctionType() != ThunkFnTy && !NewIsDirectBase) {
     llvm::GlobalValue *OldThunkFn = ThunkFn;
 
-    assert(OldThunkFn->isDeclaration() && "Shouldn't replace non-declaration");
+    // If the types mismatch then we have to rewrite the definition.
+    assert((OldThunkFn->isDeclaration() || CurrentIsDirectBase) &&
+           "Shouldn't replace non-declaration");
 
     // Remove the name from the old thunk function and get a new thunk.
     OldThunkFn->setName(StringRef());
