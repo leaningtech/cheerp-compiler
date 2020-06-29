@@ -30,6 +30,7 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
+#include "llvm/Cheerp/ForbiddenIdentifiers.h"
 
 namespace cheerp
 {
@@ -642,28 +643,7 @@ struct JSSymbols
 	template< class String >
 	bool is_reserved_name( String& s)
 	{
-		const char* reserved_names[] = {
-			"byte",
-			"case",
-			"char",
-			"do",
-			"else",
-			"enum",
-			"for",
-			"goto",
-			"if",
-			"in",
-			"int",
-			"let",
-			"new",
-			"this",
-			"top",
-			"try",
-			"var",
-			"void",
-			"with"
-		};
-		return std::binary_search(reserved_names, reserved_names+(sizeof(reserved_names)/sizeof(const char*)), s) ||
+		return cheerp::isForbiddenJSIdentifier(s) ||
 			std::binary_search(externallyReservedNames.begin(), externallyReservedNames.end(), s);
 	}
 	const std::vector<std::string>& externallyReservedNames;
