@@ -634,6 +634,7 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 	Function* New = cast<Function>(M.getOrInsertFunction("__genericjs__free", Ty));
 	if (!New->empty())
 		return New;
+	New->addFnAttr(Attribute::NoInline);
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", New);
 	IRBuilder<> Builder(Entry);
 
