@@ -10218,6 +10218,8 @@ public:
       return nullptr;
     if(Constraint[0] != 'r')
       return nullptr;
+    if(Ty->isIntegerTy(64))
+      return nullptr;
     // Only allow basic types and pointers to client objects
     if(Ty->isIntegerTy() || Ty->isFloatingPointTy() || (Ty->isPointerTy() && cheerp::TypeSupport::isClientType(Ty->getPointerElementType())))
       return Ty;
