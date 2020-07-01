@@ -365,7 +365,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			StructType * t = TypeSupport::getJSExportedTypeFromMetadata(name, module).first;
 			visitStruct(t);
 		}
-		else if(name!="jsexported_methods")
+		else if(name!="jsexported_free_functions")
 			continue;
 		for (const MDNode * node : namedNode.operands() )
 		{
