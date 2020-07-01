@@ -87,7 +87,7 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, clang:
 
 	//TODO: have to be checked again, may be possible to be more restrictive on some things while permitting others
 
-	switch (classifyType(Ty.getTypePtr()))
+	switch (classifyType(Ty, sema))
 	{
 		case TypeKind::Function:
 		case TypeKind::FunctionPointer:
@@ -142,7 +142,7 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, clang:
 		sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "const-qualified pointer or reference" << where;
 	}
 
-	switch (classifyType(Ty2.getTypePtr()))
+	switch (classifyType(Ty2, sema))
 	{
 		case TypeKind::Void:
 		{
@@ -192,7 +192,7 @@ void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, clang::Func
 	using namespace cheerp;
 	using namespace clang;
 
-	switch (classifyType(Ty.getTypePtr()))
+	switch (classifyType(Ty, sema))
 	{
 		case TypeKind::Void:
 		{
@@ -215,8 +215,9 @@ void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, clang::Func
 	checkCouldBeParameterOfJsExported(Ty, FD, sema, /*isParameter*/false);
 }
 
-cheerp::TypeKind cheerp::classifyType(const clang::Type* Ty)
+cheerp::TypeKind cheerp::classifyType(const clang::QualType& Qy, const clang::Sema& sema)
 {
+	const clang::Type* Ty = Qy.getDesugaredType(sema.Context).getTypePtr();
 	using namespace cheerp;
 	if (Ty->isReferenceType())
 	{
