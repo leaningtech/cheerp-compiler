@@ -532,7 +532,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	const uint32_t originalRegistersSize = registers.size();
 #endif
 
-	if (F.getSection() == "asmjs" && stackBasedPHIHandling)
+	if (F.getSection() == "asmjs" && wasm)
 	{
 		//Wasm-like stack based handling requires no temporaries
 	}
@@ -2928,8 +2928,9 @@ Registerize::REGISTER_KIND Registerize::getRegKindFromType(const llvm::Type* t, 
 		return INTEGER64;
 	else if(t->isIntegerTy())
 		return INTEGER;
-	// We distinguish between FLOAT and DOUBLE only in asm.js functions
-	else if(asmjs && useFloats && t->isFloatTy())
+	// We distinguish between FLOAT and DOUBLE only in asmjs functions
+	// We don't in actual asm.js if fround is not available. We always do in wasm
+	else if(asmjs && (froundAvailable || wasm) && t->isFloatTy())
 		return FLOAT;
 	else if(t->isFloatingPointTy())
 		return DOUBLE;
@@ -3554,9 +3555,9 @@ void Registerize::invalidateLiveRangeForAllocas(const llvm::Function& F)
 	}
 }
 
-ModulePass* createRegisterizePass(bool useFloats, bool stackBasedPHIHandling)
+ModulePass* createRegisterizePass(bool froundAvailable, bool wasm)
 {
-	return new Registerize(useFloats, stackBasedPHIHandling);
+	return new Registerize(froundAvailable, wasm);
 }
 
 }

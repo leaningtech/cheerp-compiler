@@ -1222,7 +1222,7 @@ public:
 
 	static char ID;
 	
-	explicit Registerize(bool useFloats = false, bool stackBasedPHIHandling = false) : ModulePass(ID), useFloats(useFloats), stackBasedPHIHandling(stackBasedPHIHandling)
+	explicit Registerize(bool froundAvailable = false, bool wasm = false) : ModulePass(ID), froundAvailable(froundAvailable), wasm(wasm)
 #ifndef NDEBUG
 			, RegistersAssigned(false)
 #endif
@@ -1424,8 +1424,8 @@ private:
 	llvm::DenseMap<const llvm::AllocaInst*, LiveRange> allocaLiveRanges;
 	llvm::DenseMap<const llvm::Function*, std::vector<RegisterInfo>> registersForFunctionMap;
 	cheerp::DeterministicUnorderedMap<InstOnEdge, uint32_t, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism, InstOnEdge::Hash> selfRefRegistersMap;
-	bool useFloats;
-	const bool stackBasedPHIHandling;
+	const bool froundAvailable;
+	const bool wasm;
 #ifndef NDEBUG
 	bool RegistersAssigned;
 #endif
@@ -1810,7 +1810,7 @@ private:
 	void assignRegistersToInstructions(llvm::Function& F, cheerp::PointerAnalyzer& PA);
 };
 
-llvm::ModulePass *createRegisterizePass(bool useFloats, bool stackBasedPHIHandling = false);
+llvm::ModulePass *createRegisterizePass(bool froundAvailable, bool wasm = false);
 
 }
 
