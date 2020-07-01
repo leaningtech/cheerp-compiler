@@ -227,15 +227,12 @@ cheerp::TypeKind cheerp::classifyType(const clang::QualType& Qy, const clang::Se
 	}
 	if (Ty->isIntegerType())
 	{
-		const clang::BuiltinType* builtin = (const clang::BuiltinType*) Ty;
-		switch (builtin->getKind())
-		{
-			case clang::BuiltinType::LongLong:
-			case clang::BuiltinType::ULongLong:
-				return TypeKind::IntGreater32Bit;
-			default:
-				return TypeKind::IntMax32Bit;
-		}
+		const clang::BuiltinType* builtin = clang::cast<clang::BuiltinType>(Ty);
+
+		if (builtin->isHighInt())
+			return TypeKind::IntGreater32Bit;
+		else
+			return TypeKind::IntMax32Bit;
 	}
 	if (Ty->isRealFloatingType())
 	{
