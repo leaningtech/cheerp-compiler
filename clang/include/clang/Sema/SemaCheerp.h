@@ -26,7 +26,7 @@ enum class TypeKind
 	Void, IntMax32Bit, IntGreater32Bit, FloatingPoint, NamespaceClient, Pointer, Function, FunctionPointer, Reference, JsExportable, Other
 };
 
-TypeKind classifyType(const clang::Type* Ty);
+TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
 
 bool isInAnyNamespace(const clang::Decl* decl);
 
