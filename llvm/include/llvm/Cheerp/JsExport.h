@@ -51,7 +51,7 @@ void iterateOverJsExportedMetadata(const llvm::Module& M, FuncOnFunctions funcOn
 	{
 		llvm::StringRef name = namedNode.getName();
 
-		if(name == "jsexported_methods")
+		if(name == "jsexported_free_functions")
 		{
 			for ( llvm::NamedMDNode::const_op_iterator it = namedNode.op_begin(); it != namedNode.op_end(); ++ it )
 			{

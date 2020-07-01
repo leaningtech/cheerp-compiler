@@ -45,7 +45,7 @@ bool CheerpWriter::hasJSExports()
 	{
 		StringRef name = namedNode.getName();
 
-		if(name == "jsexported_methods")
+		if(name == "jsexported_free_functions")
 			return true;
 
 		if (name.endswith("_methods") && (name.startswith("class.") || name.startswith("struct.")) )
