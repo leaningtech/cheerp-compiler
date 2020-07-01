@@ -14,7 +14,7 @@
 
 void cheerp::JsExportContext::addFreeFunctionJsExportMetadata(llvm::Function* F)
 {
-       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata("jsexported_methods");
+       llvm::NamedMDNode* namedNode = module.getOrInsertNamedMetadata("jsexported_free_functions");
        llvm::SmallVector<llvm::Metadata*,1> values;
        values.push_back(llvm::ConstantAsMetadata::get(F));
        llvm::MDNode* node = llvm::MDNode::get(context,values);
