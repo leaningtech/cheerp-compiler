@@ -349,24 +349,16 @@ private:
 	 * it means that the coercion has already been done, and can be skipped by
 	 * the caller of this function.
 	 */
-	bool needsIntCoercion(Registerize::REGISTER_KIND kind, PARENT_PRIORITY coercionPrio)
+	bool needsIntCoercion(PARENT_PRIORITY coercionPrio)
 	{
-		if (kind == Registerize::INTEGER)
-		{
-			return (coercionPrio != BIT_OR && coercionPrio != BIT_AND && coercionPrio != SHIFT);
-		}
-		return false;
+		return (coercionPrio != BIT_OR && coercionPrio != BIT_AND && coercionPrio != SHIFT);
 	}
 	/**
 	 * Decide if 'v' needs to be coerced to float.
 	 */
-	bool needsFloatCoercion(Registerize::REGISTER_KIND kind, PARENT_PRIORITY coercionPrio)
+	bool needsFloatCoercion(PARENT_PRIORITY coercionPrio)
 	{
-		if(kind == Registerize::FLOAT)
-		{
-			return coercionPrio != FROUND;
-		}
-		return false;
+		return coercionPrio != FROUND;
 	}
 	/**
 	 * Return the next priority higher than `prio`.
