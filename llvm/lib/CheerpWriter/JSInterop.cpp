@@ -54,6 +54,21 @@ bool CheerpWriter::hasJSExports()
 	return false;
 }
 
+static std::vector<const llvm::MDNode*> uniqueMDNodes(const llvm::NamedMDNode& namedNode)
+{
+	std::vector<const llvm::MDNode*> vectorMDNode;
+	{
+		//There might be repeated nodes, here we unique them while keeping sorted
+		llvm::DenseSet<const llvm::MDNode*> set;
+		for ( NamedMDNode::const_op_iterator it = namedNode.op_begin(); it != namedNode.op_end(); ++ it )
+		{
+			if (set.insert(*it).second)
+				vectorMDNode.push_back(*it);
+		}
+	}
+	return vectorMDNode;
+}
+
 void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
 	auto getFunctionName = [&](const Function * f) -> StringRef
@@ -73,6 +88,8 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 
 	auto processRecord = [&](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
 	{
+		auto vectorMDNode = uniqueMDNodes(namedNode);
+
 		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, module);
 		StructType* t = structAndName.first;
 		StringRef jsClassName = structAndName.second;
@@ -107,11 +124,12 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			return cheerp::isConstructor(value);
 		};
 
-		auto constructor = std::find_if(namedNode.op_begin(), namedNode.op_end(), isConstructor );
 
-		const bool hasConstructor = (constructor != namedNode.op_end());
+		auto constructor = std::find_if(vectorMDNode.begin(), vectorMDNode.end(), isConstructor );
 
-		if (hasConstructor && std::find_if( std::next(constructor), namedNode.op_end(), isConstructor ) != namedNode.op_end() )
+		const bool hasConstructor = (constructor != vectorMDNode.end());
+
+		if (hasConstructor && std::find_if( std::next(constructor), vectorMDNode.end(), isConstructor ) != vectorMDNode.end() )
 		{
 			llvm::report_fatal_error( Twine("More than one constructor defined for class: ", jsClassName) );
 			return;
@@ -170,15 +188,14 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		stream << NewLine << "};" << NewLine;
 
 		//Then compile other methods and add them to the prototype
-		for ( NamedMDNode::const_op_iterator it = namedNode.op_begin(); it != namedNode.op_end(); ++ it )
+		for ( const MDNode* node : vectorMDNode)
 		{
-			if ( isConstructor(*it) )
+			if ( isConstructor(node) )
 				continue;
 
-			StringRef methodName = getMethodName(*it);
-			bool isStatic = isStaticMethod(*it);
+			StringRef methodName = getMethodName(node);
+			bool isStatic = isStaticMethod(node);
 
-			const MDNode * node = *it;
 			const Function * f = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue());
 
 			stream << jsClassName;
