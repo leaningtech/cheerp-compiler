@@ -988,7 +988,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 			Function* ffree = module.getFunction("free");
 			if (!ffree)
 				llvm::report_fatal_error("missing free definition");
-			stream << getName(ffree) <<'(';
+			if (ffree->empty() && asmjs)
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
+			else
+				stream << getName(ffree);
+			stream <<'(';
 			compileOperand(*it, PARENT_PRIORITY::BIT_OR);
 			stream << "|0)";
 			return COMPILE_OK;
@@ -5679,8 +5683,8 @@ void CheerpWriter::compileCheckBoundsAsmJSHelper()
 void CheerpWriter::compileCheckBoundsAsmJS(const Value* p, int alignMask)
 {
 	stream<<"checkBoundsAsmJS(";
-	compileOperand(p,LOWEST);
-	stream<<','<<alignMask<<','<<heapSize*1024*1024<<"|0)|0";
+	compileOperand(p,BIT_OR);
+	stream<<"|0,"<<alignMask<<"|0,"<<heapSize*1024*1024<<"|0)|0";
 }
 
 void CheerpWriter::compileFunctionTablesAsmJS()
