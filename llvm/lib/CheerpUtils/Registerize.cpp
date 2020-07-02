@@ -126,7 +126,7 @@ void Registerize::assignRegistersToInstructions(Function& F, cheerp::PointerAnal
 	uint32_t registersCount = assignToRegisters(F, instIdMap, liveRanges, PA);
 	NumRegisters += registersCount;
 	// To debug we need to know the ranges for each instructions and the assigned register
-	DEBUG(if (registersCount) dbgs() << "Function " << F.getName() << " needs " << registersCount << " registers\n");
+	LLVM_DEBUG(if (registersCount) dbgs() << "Function " << F.getName() << " needs " << registersCount << " registers\n");
 	// Very verbose debugging below, activate if needed
 #ifdef VERBOSEDEBUG
 	for(auto it: liveRanges)
