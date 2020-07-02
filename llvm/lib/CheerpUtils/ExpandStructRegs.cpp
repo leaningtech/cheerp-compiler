@@ -327,7 +327,7 @@ static bool ExpandExtractValue(ExtractValueInst *EV,
     return false;
 
   for (;;) {
-    DEBUG(dbgs() << "Expanding struct value: " << *StructVal << "\n");
+    LLVM_DEBUG(dbgs() << "Expanding struct value: " << *StructVal << "\n");
 
     if (InsertValueInst *IV = dyn_cast<InsertValueInst>(StructVal)) {
 

@@ -844,14 +844,14 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 		if (functions.size() < 2)
 			continue;
 
-		DEBUG(dbgs() << "group(" << functions.size() << "):");
-		DEBUG(
+		LLVM_DEBUG(dbgs() << "group(" << functions.size() << "):");
+		LLVM_DEBUG(
 			for (auto& function: functions)
 			{
 				dbgs() << " " << function->getName();
 			}
 		);
-		DEBUG(dbgs() << "\n");
+		LLVM_DEBUG(dbgs() << "\n");
 
 		std::unordered_map<Function*, Function*> fold;
 		std::vector<std::pair<Function*, Function*>> foldOrder;
@@ -891,7 +891,7 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 			}
 		}
 
-		DEBUG(dbgs() << "fold " << foldOrder.size() << " of " << functions.size() << '\n');
+		LLVM_DEBUG(dbgs() << "fold " << foldOrder.size() << " of " << functions.size() << '\n');
 		assert(foldOrder.size() < functions.size());
 
 		for (auto item : foldOrder) {
@@ -909,7 +909,7 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 			//TODO: move external name to metadata and it becames again possible to set _icf
 			if (!replacement->getName().endswith("_icf") && (replacement->getLinkage() != llvm::GlobalValue::ExternalLinkage))
 			{
-				DEBUG(dbgs() << "rename " << replacement->getName() <<
+				LLVM_DEBUG(dbgs() << "rename " << replacement->getName() <<
 						" to " << replacement->getName() + "_icf" << '\n');
 				replacement->setName(replacement->getName() + "_icf");
 			}
@@ -927,7 +927,7 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 
 // Merge two equivalent functions. Upon completion, function F is deleted.
 void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
-	DEBUG(dbgs() << "replace " << F->getName() << " with " << G->getName() << '\n');
+	LLVM_DEBUG(dbgs() << "replace " << F->getName() << " with " << G->getName() << '\n');
 
 	// TODO is this necessary?
 	unsigned MaxAlignment = std::max(F->getAlignment(), G->getAlignment());
