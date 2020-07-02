@@ -210,6 +210,7 @@ char CheerpWritePass::ID = 0;
 
 bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            raw_pwrite_stream &o,
+                                           raw_pwrite_stream *DwoOut,
                                            CodeGenFileType FileType,
                                            bool DisableVerify,
                                            MachineModuleInfo *MMI) {

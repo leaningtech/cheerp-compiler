@@ -52,6 +52,7 @@ struct CheerpTargetMachine : public LLVMTargetMachine {
 public:
   virtual bool addPassesToEmitFile(PassManagerBase &PM,
                                    raw_pwrite_stream &Out,
+                                   raw_pwrite_stream *DwoOut,
                                    CodeGenFileType FileType,
                                    bool DisableVerify,
                                    MachineModuleInfo *MMI = nullptr) override;
