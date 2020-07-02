@@ -8135,7 +8135,7 @@ LoopVectorizeResult LoopVectorizePass::runImpl(
   //they might be supported in the future though.
   const DataLayout &DL = F.getParent()->getDataLayout();
   if (!DL.isByteAddressable()) {
-    DEBUG(dbgs() << "LV: Not vectorizing on NBA target");
+    LLVM_DEBUG(dbgs() << "LV: Not vectorizing on NBA target");
     return false;
   }
   bool Changed = false, CFGChanged = false;
