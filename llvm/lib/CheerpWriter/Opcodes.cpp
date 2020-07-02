@@ -168,7 +168,7 @@ void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value*
 {
 	//Integer subtraction
 	PARENT_PRIORITY subPrio = ADD_SUB;
-	if(needsIntCoercion(Registerize::INTEGER, parentPrio))
+	if(needsIntCoercion(parentPrio))
 		subPrio = BIT_OR;
 	if(parentPrio > subPrio) stream << '(';
 	// Optimize negation, unless in asm.js mode
@@ -285,9 +285,8 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 	else
 	{
 		PARENT_PRIORITY prio = TERNARY;
-		bool asmjs = currentFun && currentFun->getSection() == StringRef("asmjs");
-		Registerize::REGISTER_KIND regKind = registerize.getRegKindFromType(lhs->getType(),asmjs);
-		if(needsIntCoercion(regKind, TERNARY))
+		bool isIntTy = lhs->getType()->isIntegerTy();
+		if(isIntTy)
 			prio = BIT_OR;
 		compileOperand(lhs, prio);
 		if (prio == BIT_OR)
