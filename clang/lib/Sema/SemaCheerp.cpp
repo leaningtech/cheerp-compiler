@@ -286,7 +286,7 @@ void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD)
 	}
 	else if (isJsExport)
 	{
-		checkFunctionToBeJsExported(FD, /*isMethod*/false, sema);
+		checkFunctionToBeJsExported(FD, /*isMethod*/false);
 	}
 }
 
@@ -295,10 +295,11 @@ bool cheerp::isTemplate(clang::FunctionDecl* FD)
 	return FD->getTemplatedKind() != clang::FunctionDecl::TemplatedKind::TK_NonTemplate;
 }
 
-void cheerp::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod, clang::Sema& sema)
+void cheerp::CheerpSemaData::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod)
 {
 	using namespace cheerp;
 	using namespace clang;
+	clang::Sema& sema = get_sema();
 
 	if (isMethod)
 	{
@@ -440,7 +441,7 @@ void cheerp::CheerpSemaClassData::checkRecord()
 
 	for (auto method : interface.methods)
 	{
-		checkFunctionToBeJsExported(method, /*isMethod*/true, sema);
+		cheerpSema->checkFunctionToBeJsExported(method, /*isMethod*/true);
 
 		if (isa<CXXConstructorDecl>(method))
 		{

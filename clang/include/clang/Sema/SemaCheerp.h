@@ -41,7 +41,6 @@ void checkDestructor(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shou
 void checkFunction(clang::FunctionDecl* FD, clang::Sema& sema);
 
 bool isTemplate(clang::FunctionDecl* FD);
-void checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod, clang::Sema& sema);
 
 class CheerpSemaData;
 
@@ -95,6 +94,7 @@ public:
 	{
 		return sema;
 	}
+	void checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod);
 private:
 	void addMethod(clang::CXXMethodDecl* method, const bool isJsExport);
 
