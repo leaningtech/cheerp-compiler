@@ -343,7 +343,7 @@ void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method, const bool 
 		}
 	}
 
-	classData.emplace(record, CheerpSemaClassData(record, sema)).first->second.addMethod(method);
+	classData.emplace(record, CheerpSemaClassData(record, this)).first->second.addMethod(method);
 }
 
 void cheerp::CheerpSemaData::checkRecord(clang::CXXRecordDecl* record)
@@ -353,7 +353,12 @@ void cheerp::CheerpSemaData::checkRecord(clang::CXXRecordDecl* record)
 
 	//TODO: name check against known function/classes with the same name
 
-	classData.emplace(record, CheerpSemaClassData(record, sema)).first->second.checkRecord();
+	classData.emplace(record, CheerpSemaClassData(record, this)).first->second.checkRecord();
+}
+
+clang::Sema& cheerp::CheerpSemaClassData::get_sema() const
+{
+	return cheerpSema->get_sema();
 }
 
 template <class T>
@@ -386,6 +391,8 @@ void cheerp::CheerpSemaClassData::checkRecord()
 {
 	using namespace std;
 	using namespace clang;
+
+	clang::Sema& sema = get_sema();
 
 	assert(recordDecl->hasAttr<JsExportAttr>());
 
