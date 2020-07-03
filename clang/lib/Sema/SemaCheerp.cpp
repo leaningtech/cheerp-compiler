@@ -31,7 +31,7 @@ bool cheerp::isInAnyNamespace(const clang::Decl* decl)
 	return (context->getParent() != NULL);
 }
 
-void cheerp::checkDestructor(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue)
+void cheerp::checkDestructor(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue)
 {
 	using namespace clang;
 	//TODO: expand this check
@@ -42,13 +42,13 @@ void cheerp::checkDestructor(clang::CXXRecordDecl* Record, clang::Sema& sema, bo
 	}
 }
 
-static void checkName(clang::Decl* decl, const llvm::StringRef& name, clang::Sema& sema)
+static void checkName(const clang::Decl* decl, const llvm::StringRef& name, clang::Sema& sema)
 {
 	if (cheerp::isForbiddenJSIdentifier(name))
 		sema.Diag(decl->getLocation(), clang::diag::err_cheerp_jsexport_forbidden_identifier) << name;
 }
 
-void cheerp::checkCouldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue)
+void cheerp::checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue)
 {
 	//class or struct
 	using namespace clang;
@@ -67,7 +67,7 @@ void cheerp::checkCouldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& s
 	checkDestructor(Record, sema, shouldContinue);
 }
 
-void cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
+void cheerp::checkParameters(const clang::FunctionDecl* FD, clang::Sema& sema)
 {
 	for (auto it : FD->parameters())
 	{
@@ -78,7 +78,7 @@ void cheerp::checkParameters(clang::FunctionDecl* FD, clang::Sema& sema)
 	}
 }
 
-void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, clang::Decl* FD, clang::Sema& sema, const bool isParameter)
+void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const clang::Decl* FD, clang::Sema& sema, const bool isParameter)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -187,7 +187,7 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, clang:
 	llvm_unreachable("Should have been caught earlier");
 }
 
-void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, clang::FunctionDecl* FD, clang::Sema& sema)
+void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, const clang::FunctionDecl* FD, clang::Sema& sema)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -290,12 +290,12 @@ void cheerp::CheerpSemaData::addFunction(clang::FunctionDecl* FD)
 	}
 }
 
-bool cheerp::isTemplate(clang::FunctionDecl* FD)
+bool cheerp::isTemplate(const clang::FunctionDecl* FD)
 {
 	return FD->getTemplatedKind() != clang::FunctionDecl::TemplatedKind::TK_NonTemplate;
 }
 
-void cheerp::CheerpSemaData::checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod)
+void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDecl* FD, bool isMethod)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -349,7 +349,7 @@ void cheerp::CheerpSemaData::checkTopLevelName(const clang::NamedDecl* ND)
 void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method, const bool isJsExport)
 {
 	using namespace clang;
-	clang::CXXRecordDecl* record = method->getParent();
+	const clang::CXXRecordDecl* record = method->getParent();
 
 	if (isJsExport)
 	{
@@ -363,7 +363,7 @@ void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method, const bool 
 	classData.emplace(record, CheerpSemaClassData(record, this)).first->second.addMethod(method);
 }
 
-void cheerp::CheerpSemaData::checkRecord(clang::CXXRecordDecl* record)
+void cheerp::CheerpSemaData::checkRecord(const clang::CXXRecordDecl* record)
 {
 	checkTopLevelName(record);
 	//Here all checks about external feasibility of jsexporting a class/struct have to be performed (eg. checking for name clashes against other functions)
