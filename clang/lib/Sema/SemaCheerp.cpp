@@ -149,8 +149,6 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const 
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "void*" << where;
 			return;
 		}
-		case TypeKind::IntMax32Bit:
-		case TypeKind::FloatingPoint:
 		case TypeKind::NamespaceClient:
 		case TypeKind::JsExportable:
 		{
@@ -163,9 +161,11 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const 
 				"pointers to unknown (neither client namespace nor jsexportable) types" << where;
 			return;
 		}
+		case TypeKind::IntMax32Bit:
+		case TypeKind::FloatingPoint:
 		case TypeKind::IntGreater32Bit:
 		{
-			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to integer bigger than 32 bits" << where;
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to base type" << where;
 			return;
 		}
 		case TypeKind::Pointer:
