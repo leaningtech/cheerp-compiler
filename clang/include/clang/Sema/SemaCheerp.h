@@ -12,6 +12,7 @@
 #ifndef _CHEERP_SEMA_CHEERP_H
 #define _CHEERP_SEMA_CHEERP_H
 
+#include <unordered_map>
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
@@ -97,8 +98,10 @@ public:
 	void checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod);
 private:
 	void addMethod(clang::CXXMethodDecl* method, const bool isJsExport);
+	void checkTopLevelName(const clang::NamedDecl* FD);
 
-	cheerp::DeterministicUnorderedMap<clang::CXXRecordDecl*, CheerpSemaClassData, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> classData;
+	cheerp::DeterministicUnorderedMap<const clang::CXXRecordDecl*, CheerpSemaClassData, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> classData;
+	std::unordered_map<std::string, const clang::NamedDecl*> topLevelNames;
 	clang::Sema& sema;
 };
 
