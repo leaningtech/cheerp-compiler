@@ -4378,59 +4378,64 @@ bool CheerpWriter::compileCompoundStatement(const Instruction* I, uint32_t regId
 	StringRef oper;
 	bool checkOp0 = false;
 	bool checkOp1 = false;
-	switch(I->getOpcode())
+	// We don't use a compound statement if float 32 bit precision is enabled,
+	// because we need to wrap every operation in fround()
+	if (!I->getType()->isFloatTy() || NoJavaScriptMathFround)
 	{
-		//Commutative operations
-		case Instruction::FAdd:
-			checkOp0 = true;
-			checkOp1 = true;
-			oper = "+=";
-			break;
-		case Instruction::FMul:
-			checkOp0 = true;
-			checkOp1 = true;
-			oper = "*=";
-			break;
-		case Instruction::Or:
-			checkOp0 = true;
-			checkOp1 = true;
-			oper = "|=";
-			break;
-		case Instruction::And:
-			checkOp0 = true;
-			checkOp1 = true;
-			oper = "&=";
-			break;
-		case Instruction::Xor:
-			checkOp0 = true;
-			checkOp1 = true;
-			oper = "^=";
-			break;
-		//Non-commutative operations
-		case Instruction::FSub:
-			checkOp0 = true;
-			oper = "-=";
-			break;
-		case Instruction::FDiv:
-			checkOp0 = true;
-			oper = "/=";
-			break;
-		case Instruction::FRem:
-			checkOp0 = true;
-			oper = "%=";
-			break;
-		case Instruction::LShr:
-			checkOp0 = true;
-			oper = ">>>=";
-			break;
-		case Instruction::AShr:
-			checkOp0 = true;
-			oper = ">>=";
-			break;
-		case Instruction::Shl:
-			checkOp0 = true;
-			oper = "<<=";
-			break;
+		switch(I->getOpcode())
+		{
+			//Commutative operations
+			case Instruction::FAdd:
+				checkOp0 = true;
+				checkOp1 = true;
+				oper = "+=";
+				break;
+			case Instruction::FMul:
+				checkOp0 = true;
+				checkOp1 = true;
+				oper = "*=";
+				break;
+			case Instruction::Or:
+				checkOp0 = true;
+				checkOp1 = true;
+				oper = "|=";
+				break;
+			case Instruction::And:
+				checkOp0 = true;
+				checkOp1 = true;
+				oper = "&=";
+				break;
+			case Instruction::Xor:
+				checkOp0 = true;
+				checkOp1 = true;
+				oper = "^=";
+				break;
+			//Non-commutative operations
+			case Instruction::FSub:
+				checkOp0 = true;
+				oper = "-=";
+				break;
+			case Instruction::FDiv:
+				checkOp0 = true;
+				oper = "/=";
+				break;
+			case Instruction::FRem:
+				checkOp0 = true;
+				oper = "%=";
+				break;
+			case Instruction::LShr:
+				checkOp0 = true;
+				oper = ">>>=";
+				break;
+			case Instruction::AShr:
+				checkOp0 = true;
+				oper = ">>=";
+				break;
+			case Instruction::Shl:
+				checkOp0 = true;
+				oper = "<<=";
+				break;
+		}
 	}
 	auto DoCompount = [this](Value* op, uint32_t regId) -> bool
 	{
