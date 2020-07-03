@@ -43,10 +43,12 @@ void checkFunction(clang::FunctionDecl* FD, clang::Sema& sema);
 bool isTemplate(clang::FunctionDecl* FD);
 void checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod, clang::Sema& sema);
 
+class CheerpSemaData;
+
 class CheerpSemaClassData
 {
 public:
-	CheerpSemaClassData(clang::CXXRecordDecl* record, clang::Sema& sema) : recordDecl(record), sema(sema)
+	CheerpSemaClassData(clang::CXXRecordDecl* record, cheerp::CheerpSemaData* cheerpSema) : recordDecl(record), cheerpSema(cheerpSema)
 	{
 	}
 	void addMethod(clang::CXXMethodDecl* FD);
@@ -73,11 +75,13 @@ private:
 		template <class T>
 		void addToInterface (T* item, clang::Sema& sema);
 	};
+	clang::Sema& get_sema() const;
 	clang::CXXRecordDecl* recordDecl;
 	//Set of methods declared in a class/struct
 	MethodSet declared_methods;
-	clang::Sema& sema;
+	cheerp::CheerpSemaData* cheerpSema;
 };
+
 
 class CheerpSemaData
 {
@@ -87,6 +91,10 @@ public:
 	}
 	void addFunction(clang::FunctionDecl* FD);
 	void checkRecord(clang::CXXRecordDecl* record);
+	clang::Sema& get_sema() const
+	{
+		return sema;
+	}
 private:
 	void addMethod(clang::CXXMethodDecl* method, const bool isJsExport);
 
