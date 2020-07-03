@@ -31,24 +31,24 @@ TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
 
 bool isInAnyNamespace(const clang::Decl* decl);
 
-void checkCouldBeJsExported(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
+void checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
 
-void checkCouldReturnBeJsExported(const clang::QualType& Ty, clang::FunctionDecl* FD, clang::Sema& sema);
-void checkCouldBeParameterOfJsExported(const clang::QualType& Ty, clang::Decl* FD, clang::Sema& sema, const bool isParameter = true);
+void checkCouldReturnBeJsExported(const clang::QualType& Ty, const clang::FunctionDecl* FD, clang::Sema& sema);
+void checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const clang::Decl* FD, clang::Sema& sema, const bool isParameter = true);
 
-void checkParameters(clang::FunctionDecl* Method, clang::Sema& sema);
+void checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);
 
-void checkDestructor(clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
+void checkDestructor(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
 void checkFunction(clang::FunctionDecl* FD, clang::Sema& sema);
 
-bool isTemplate(clang::FunctionDecl* FD);
+bool isTemplate(const clang::FunctionDecl* FD);
 
 class CheerpSemaData;
 
 class CheerpSemaClassData
 {
 public:
-	CheerpSemaClassData(clang::CXXRecordDecl* record, cheerp::CheerpSemaData* cheerpSema) : recordDecl(record), cheerpSema(cheerpSema)
+	CheerpSemaClassData(const clang::CXXRecordDecl* record, cheerp::CheerpSemaData* cheerpSema) : recordDecl(record), cheerpSema(cheerpSema)
 	{
 	}
 	void addMethod(clang::CXXMethodDecl* FD);
@@ -76,7 +76,7 @@ private:
 		void addToInterface (T* item, clang::Sema& sema);
 	};
 	clang::Sema& get_sema() const;
-	clang::CXXRecordDecl* recordDecl;
+	const clang::CXXRecordDecl* recordDecl;
 	//Set of methods declared in a class/struct
 	MethodSet declared_methods;
 	cheerp::CheerpSemaData* cheerpSema;
@@ -90,12 +90,12 @@ public:
 	{
 	}
 	void addFunction(clang::FunctionDecl* FD);
-	void checkRecord(clang::CXXRecordDecl* record);
+	void checkRecord(const clang::CXXRecordDecl* record);
 	clang::Sema& get_sema() const
 	{
 		return sema;
 	}
-	void checkFunctionToBeJsExported(clang::FunctionDecl* FD, bool isMethod);
+	void checkFunctionToBeJsExported(const clang::FunctionDecl* FD, bool isMethod);
 private:
 	void addMethod(clang::CXXMethodDecl* method, const bool isJsExport);
 	void checkTopLevelName(const clang::NamedDecl* FD);
