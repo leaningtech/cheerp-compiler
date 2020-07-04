@@ -71,6 +71,7 @@ private:
 				llvm::Type* targetType, llvm::Instruction* insertionPoint);
 	bool isUnsafeDowncastSource(llvm::StructType* st);
 	void addAllBaseTypesForByteLayout(llvm::StructType* st, llvm::Type* base);
+	bool canCollapseStruct(llvm::StructType* st, llvm::StructType* newStruct, llvm::Type* newType);
 	static void pushAllBaseConstantElements(llvm::SmallVector<llvm::Constant*, 4>& newElements, llvm::Constant* C, llvm::Type* baseType);
 	// Helper function to handle the various kind of arrays in constants
 	static void pushAllArrayConstantElements(llvm::SmallVector<llvm::Constant*, 4>& newElements, llvm::Constant* array);
