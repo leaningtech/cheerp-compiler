@@ -221,6 +221,27 @@ bool TypeOptimizer::isUnsafeDowncastSource(StructType* st)
 	return false;
 }
 
+bool TypeOptimizer::canCollapseStruct(llvm::StructType* st, llvm::StructType* newStruct, llvm::Type* newType)
+{
+	// Stop if the element is just a int8, we may be dealing with an empty struct
+	// Empty structs are unsafe as the int8 inside is just a placeholder and will be replaced
+	// by a different type in a derived class
+	// TODO: If pointers could be collapsed we may have implicit casts between base classes and derived classes
+	// NOTE: We allow the collapsing of client pointers
+	if(!TypeSupport::isJSExportedType(newStruct, *module) &&
+		!TypeSupport::hasByteLayout(st) &&
+		!newType->isIntegerTy(8) && (!newType->isPointerTy() || TypeSupport::isClientType(newType->getPointerElementType())))
+	{
+		// If this type is an unsafe downcast source and can't be collapse
+		// we need to fall through to correctly set the mapped element
+		if(!isUnsafeDowncastSource(st))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 {
 	assert(!newStructTypes.count(t));
@@ -442,48 +463,44 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 						namedBasesMetadata->setOperand(i, newMD);
 				}
 			}
+
+			if(newTypes.size() == 1 && !st->hasAsmJS() && canCollapseStruct(st, newStruct, newTypes[0]))
+			{
+				Type* collapsed = newTypes[0];
+				if(newStructKind != TypeMappingInfo::MERGED_MEMBER_ARRAYS)
+					return CacheAndReturn(collapsed, TypeMappingInfo::COLLAPSED);
+				else
+					return CacheAndReturn(collapsed, TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED);
+			}
+
 		}
 		else if(st->getNumElements() == 1)
 		{
-			// We push the original type here, below we will try to collapse the struct to this element
-			newTypes.push_back(st->getElementType(0));
-		}
-
-		// newTypes may have a single element because st has a single element or because all the elements collapsed into one
-		if(newTypes.size() == 1 && !st->hasAsmJS())
-		{
-			// Stop if the element is just a int8, we may be dealing with an empty struct
-			// Empty structs are unsafe as the int8 inside is just a placeholder and will be replaced
-			// by a different type in a derived class
-			// TODO: If pointers could be collapsed we may have implicit casts between base classes and derived classes
-			// NOTE: We allow the collapsing of client pointers
-			if(!TypeSupport::isJSExportedType(newStruct, *module) &&
-				!TypeSupport::hasByteLayout(st) &&
-				!newTypes[0]->isIntegerTy(8) && (!newTypes[0]->isPointerTy() || TypeSupport::isClientType(newTypes[0]->getPointerElementType())))
+			// Try to collapse the struct to this element
+			llvm::Type* elementType = st->getElementType(0);
+			if(!st->hasAsmJS() && canCollapseStruct(st, newStruct, elementType))
 			{
-				// If this type is an unsafe downcast source and can't be collapse
-				// we need to fall through to correctly set the mapped element
-				if(!isUnsafeDowncastSource(st))
+				// To fix the following case A { B { C { A* } } } -> C { C* }
+				// we prime the mapping to the contained element and use the COLLAPSING flag
+				typesMapping[st] = TypeMappingInfo(elementType, TypeMappingInfo::COLLAPSING);
+				Type* collapsed = rewriteType(elementType);
+				if(typesMapping[st].elementMappingKind != TypeMappingInfo::COLLAPSING_BUT_USED)
 				{
-					// To fix the following case A { B { C { A* } } } -> C { C* }
-					// we prime the mapping to the contained element and use the COLLAPSING flag
-					typesMapping[st] = TypeMappingInfo(newTypes[0], TypeMappingInfo::COLLAPSING);
-					Type* collapsed = rewriteType(newTypes[0]);
-					if(typesMapping[st].elementMappingKind != TypeMappingInfo::COLLAPSING_BUT_USED)
-					{
-						assert(typesMapping[st].elementMappingKind == TypeMappingInfo::COLLAPSING);
-						if(newStructKind != TypeMappingInfo::MERGED_MEMBER_ARRAYS)
-							return CacheAndReturn(collapsed, TypeMappingInfo::COLLAPSED);
-						else
-							return CacheAndReturn(collapsed, TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED);
-					}
-					typesMapping[st] = TypeMappingInfo(newStruct, TypeMappingInfo::IDENTICAL);
+					assert(typesMapping[st].elementMappingKind == TypeMappingInfo::COLLAPSING);
+					if(newStructKind != TypeMappingInfo::MERGED_MEMBER_ARRAYS)
+						return CacheAndReturn(collapsed, TypeMappingInfo::COLLAPSED);
+					else
+						return CacheAndReturn(collapsed, TypeMappingInfo::MERGED_MEMBER_ARRAYS_AND_COLLAPSED);
 				}
+				typesMapping[st] = TypeMappingInfo(newStruct, TypeMappingInfo::IDENTICAL);
+				elementType = collapsed;
 			}
-			// Can't collapse, rewrite the member now
-			Type* elementType=newTypes[0];
-			Type* rewrittenType=rewriteType(elementType);
-			newTypes[0]=rewrittenType;
+			else
+			{
+				// Can't collapse, rewrite the member now
+				elementType = rewriteType(elementType);
+			}
+			newTypes.push_back(elementType);
 		}
 
 		StructType* newDirectBase = st->getDirectBase() ? dyn_cast<StructType>(rewriteType(st->getDirectBase()).mappedType) : NULL;
