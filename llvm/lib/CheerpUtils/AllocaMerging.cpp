@@ -21,7 +21,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Analysis/Utils/Local.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 using namespace llvm;
 
