@@ -10973,7 +10973,7 @@ def err_cheerp_jsexport_on_parameter_or_return : Error<
 def err_cheerp_jsexport_unknow_type : Error<
   "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] can only be fundamental, pointer to fundamental, namespace client or [[cheerp::jsexport]-able types">;
 def err_cheerp_jsexport_on_class_template : Error<
-  "Cheerp: A template class (or struct) can not have the [[cheerp::jsexport]] attribute">;
+  "Cheerp: A template class/struct can not have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_function_template : Error<
   "Cheerp: A template function can not have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_method_template : Error<
@@ -10981,9 +10981,9 @@ def err_cheerp_jsexport_on_method_template : Error<
 def err_cheerp_jsexport_on_non_public_member : Error<
   "Cheerp: Only public members can be tagged [[cheerp::jsexport]]">;
 def err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor : Error<
-  "Cheerp: A class should have no more than 1 user defined constructor to have the [[cheerp::jsexport]] attribute">;
+  "Cheerp: A class/struct should have no more than 1 user defined constructor tagged [[cheerp::jsexport]]">;
 def err_cheerp_jsexport_with_non_trivial_destructor : Error<
-  "Cheerp: A class with non trivial destructor cannot have the [[cheerp::jsexport]] attribute">;
+  "Cheerp: A class/struct with non trivial destructor cannot have the [[cheerp::jsexport]] attribute">;
 def err_cheerp_memintrinsic_type_unknown : Error<
   "Cheerp: Memory operations require the actual type of the pointers. Pass the typed pointers instead of a generic void*">;
 def err_cheerp_memintrinsic_same_type : Error<
