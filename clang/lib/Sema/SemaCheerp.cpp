@@ -489,12 +489,9 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		}
 	}
 
-	if (JsExportedConstructors != 1)
+	if (JsExportedConstructors > 1)
 	{
-		if (JsExportedConstructors == 0 && isPublicInterface)
-			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_without_constructor);
-		else if (JsExportedConstructors > 1)
-			sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
+		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
 	}
 
 	if (!isAnyNonStatic)
