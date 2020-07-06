@@ -448,7 +448,7 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		}
 	}
 
-	int JsExportedConstructors = 0;
+	std::vector<const CXXConstructorDecl*> JsExportedConstructors;
 	std::unordered_map<std::string, const clang::CXXMethodDecl*> JsExportedMethodNames;
 	std::unordered_map<std::string, const clang::CXXMethodDecl*> staticJsExportedMethodNames;
 
@@ -460,10 +460,10 @@ void cheerp::CheerpSemaClassData::checkRecord()
 	{
 		cheerpSema->checkFunctionToBeJsExported(method, /*isMethod*/true);
 
-		if (isa<CXXConstructorDecl>(method))
+		if (const CXXConstructorDecl* constructor = clang::dyn_cast<CXXConstructorDecl>(method))
 		{
 			isAnyNonStatic = true;
-			++JsExportedConstructors;
+			JsExportedConstructors.push_back(constructor);
 			continue;
 		}
 		if (!method->isStatic())
@@ -489,9 +489,11 @@ void cheerp::CheerpSemaClassData::checkRecord()
 		}
 	}
 
-	if (JsExportedConstructors > 1)
+	if (JsExportedConstructors.size() > 1)
 	{
-		sema.Diag(recordDecl->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
+		sema.Diag(JsExportedConstructors[0]->getLocation(), diag::err_cheerp_jsexport_on_class_with_multiple_user_defined_constructor);
+		for (unsigned int i = 1; i<JsExportedConstructors.size(); i++)
+			sema.Diag(JsExportedConstructors[i]->getLocation(), diag::note_previous_definition);
 	}
 
 	if (!isAnyNonStatic)
