@@ -358,7 +358,7 @@ private:
 	 */
 	bool needsFloatCoercion(PARENT_PRIORITY coercionPrio)
 	{
-		return coercionPrio != FROUND;
+		return useMathFround && coercionPrio != FROUND;
 	}
 	/**
 	 * Return the next priority higher than `prio`.
