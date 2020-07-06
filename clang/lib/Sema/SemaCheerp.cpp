@@ -339,7 +339,7 @@ void cheerp::CheerpSemaData::checkTopLevelName(const clang::NamedDecl* ND)
 
 	const auto pair = topLevelNames.emplace(name, ND);
 
-	if (!pair.second)
+	if (!pair.second && pair.first->second->getCanonicalDecl() != ND->getCanonicalDecl())
 	{
 		sema.Diag(ND->getLocation(), diag::err_cheerp_jsexport_same_name_top_level) << name;
 		sema.Diag(pair.first->second->getLocation(), diag::note_previous_definition);
