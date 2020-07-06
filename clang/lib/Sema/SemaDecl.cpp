@@ -9614,9 +9614,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   // Handle attributes.
   ProcessDeclAttributes(S, NewFD, D);
 
-  //Perform all checks related to functions and methods. Currently limited to [[cheerp::jsexport]] attribute but expansible
-  cheerp::checkFunction(NewFD, *this);
-
   if (getLangOpts().OpenCL) {
     // OpenCL v1.1 s6.5: Using an address space qualifier in a function return
     // type declaration will generate a compilation error.
@@ -9945,6 +9942,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       }
     }
   }
+
+  //Perform all checks related to functions and methods. Currently limited to [[cheerp::jsexport]] attribute but expansible
+  cheerp::checkFunction(NewFD, *this);
 
   ProcessPragmaWeak(S, NewFD);
   checkAttributesAfterMerging(*this, *NewFD);
