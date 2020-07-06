@@ -183,7 +183,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		}
 		else
 		{
-			stream << "throw \"Class/Struct " << jsClassName << " do not have a [[cheerp::jsexport]] tagged constructor\";";
+			stream << "throw \"Class/Struct " << jsClassName << " do not have a [[cheerp::jsexport]]-ed constructor\";";
 		}
 		stream << NewLine << "};" << NewLine;
 
