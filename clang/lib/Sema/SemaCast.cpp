@@ -292,16 +292,14 @@ Sema::ActOnCXXNamedCast(SourceLocation OpLoc, tok::TokenKind Kind,
     CheckExtraCXXDefaultArguments(D);
   }
 
-  AttributeList* Attrs = D.getDeclSpec().getAttributes().getList();
   bool isCheerpSafe = false;
-  while(Attrs)
+  for(const ParsedAttr& Attr: D.getDeclSpec().getAttributes())
   {
-    if (Attrs->getKind() == AttributeList::AT_SafeCast)
+    if (Attr.getKind() == ParsedAttr::AT_SafeCast)
     {
       isCheerpSafe = true;
       break;
     }
-    Attrs = Attrs->getNext();
   }
 
   return BuildCXXNamedCast(OpLoc, Kind, TInfo, E,

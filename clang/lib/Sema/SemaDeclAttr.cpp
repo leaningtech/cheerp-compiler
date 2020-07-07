@@ -6786,7 +6786,7 @@ static void handleCFGuardAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context) CFGuardAttr(S.Context, AL, Arg));
 }
 
-static void handleStatic(Sema &S, Decl *D, const AttributeList &Attr)
+static void handleStatic(Sema &S, Decl *D, const ParsedAttr &Attr)
 {
   D->addAttr(::new (S.Context) StaticAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
   //This should be a function
@@ -6794,12 +6794,12 @@ static void handleStatic(Sema &S, Decl *D, const AttributeList &Attr)
     S.Diag(Attr.getLoc(), diag::err_cheerp_attribute_not_on_function);
 }
 
-static void handleNoInit(Sema &S, Decl* D, const AttributeList &Attr)
+static void handleNoInit(Sema &S, Decl* D, const ParsedAttr &Attr)
 {
   D->addAttr(::new (S.Context) NoInitAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
 
-static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+static void handleJsExportAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (isa<CXXRecordDecl>(D)) {
     if (checkAttrMutualExclusion<AsmJSAttr>(S, D, Attr.getRange(),
                                                              Attr.getName()))
@@ -6818,7 +6818,7 @@ static void handleJsExportAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     S.Diag(Attr.getLoc(), diag::err_cheerp_jsexport_ignored);
 }
 
-static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+static void handleAsmJSAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (isa<CXXRecordDecl>(D)) {
     if (checkAttrMutualExclusion<JsExportAttr>(S, D, Attr.getRange(),
                                                              Attr.getName()))
@@ -6830,11 +6830,11 @@ static void handleAsmJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   handleSimpleAttributeWithExclusions<AsmJSAttr, GenericJSAttr, PackedAttr>(S, D, Attr);
 }
 
-static void handleGenericJSAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+static void handleGenericJSAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   handleSimpleAttributeWithExclusions<GenericJSAttr, AsmJSAttr, ByteLayoutAttr>(S, D, Attr);
 }
 
-static void handleByteLayoutAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+static void handleByteLayoutAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!isa<RecordDecl>(D)) {
     S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
     return;
@@ -6842,11 +6842,11 @@ static void handleByteLayoutAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   handleSimpleAttributeWithExclusions<ByteLayoutAttr, JsExportAttr>(S, D, Attr);
 }
 
-static void handleDefaultNewAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+static void handleDefaultNewAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   D->addAttr(::new (S.Context) DefaultNewAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
 
-static void handleClientLayoutAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+static void handleClientLayoutAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   D->addAttr(::new (S.Context) ClientLayoutAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
 }
 
@@ -6855,7 +6855,7 @@ static void handleClientLayoutAttr(Sema &S, Decl *D, const AttributeList &Attr) 
 //===----------------------------------------------------------------------===//
 
 static void checkCheerpUnprefixedDeprecations(Sema &S,
-                                              const AttributeList &Attr) {
+                                              const ParsedAttr &Attr) {
   IdentifierInfo *scope = Attr.getScopeName();
   if (!scope || scope->getName() != "cheerp") {
     S.Diag(Attr.getLoc(), diag::warn_cheerp_deprecated_attribute)
@@ -6875,7 +6875,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   // Ignore C++11 attributes on declarator chunks: they appertain to the type
   // instead.
   if (AL.isCXX11Attribute() && !IncludeCXX11Attributes &&
-      AL.getKind()!=AttributeList::AT_Static)
+      AL.getKind()!=ParsedAttr::AT_Static)
   {
     return;
   }
@@ -7522,31 +7522,31 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
 
   // Cheerp attributes
-  case AttributeList::AT_Static:
+  case ParsedAttr::AT_Static:
     checkCheerpUnprefixedDeprecations(S, AL);
     handleStatic(S, D, AL);
     break;
-  case AttributeList::AT_NoInit:
+  case ParsedAttr::AT_NoInit:
     checkCheerpUnprefixedDeprecations(S, AL);
     handleNoInit(S, D, AL);
     break;
-  case AttributeList::AT_JsExport:
+  case ParsedAttr::AT_JsExport:
     checkCheerpUnprefixedDeprecations(S, AL);
     handleJsExportAttr(S, D, AL);
     break;
-  case AttributeList::AT_AsmJS:
+  case ParsedAttr::AT_AsmJS:
     handleAsmJSAttr(S, D, AL);
     break;
-  case AttributeList::AT_GenericJS:
+  case ParsedAttr::AT_GenericJS:
     handleGenericJSAttr(S, D, AL);
     break;
-  case AttributeList::AT_ByteLayout:
+  case ParsedAttr::AT_ByteLayout:
     handleByteLayoutAttr(S, D, AL);
     break;
-  case AttributeList::AT_DefaultNew:
+  case ParsedAttr::AT_DefaultNew:
     handleDefaultNewAttr(S, D, AL);
     break;
-  case AttributeList::AT_ClientLayout:
+  case ParsedAttr::AT_ClientLayout:
     handleClientLayoutAttr(S, D, AL);
     break;
   }

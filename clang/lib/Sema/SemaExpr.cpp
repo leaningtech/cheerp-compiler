@@ -7469,17 +7469,15 @@ Sema::ActOnCastExpr(Scope *S, SourceLocation LParenLoc,
     CastExpr = Res.get();
   }
 
-  AttributeList* Attrs = D.getDeclSpec().getAttributes().getList();
   bool isCheerpSafe = false;
-  while(Attrs)
+  for(ParsedAttr& Attr: D.getDeclSpec().getAttributes())
   {
-    if (Attrs->getKind() == AttributeList::AT_SafeCast)
+    if (Attr.getKind() == ParsedAttr::AT_SafeCast)
     {
-      Attrs->setUsedAsTypeAttr();
+      Attr.setUsedAsTypeAttr();
       isCheerpSafe = true;
       break;
     }
-    Attrs = Attrs->getNext();
   }
 
   checkUnusedDeclAttributes(D);

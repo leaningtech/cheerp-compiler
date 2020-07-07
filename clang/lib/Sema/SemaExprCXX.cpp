@@ -1791,26 +1791,22 @@ Sema::ActOnCXXNew(SourceLocation StartLoc, bool UseGlobal,
 
   // Find out if [[noinit]] has been used
   bool isNoInit = false;
-  const AttributeList* Attrs = D.getAttributes();
-  while(Attrs)
+  for(const ParsedAttr& Attr: D.getAttributes())
   {
-    if (Attrs->getKind() == AttributeList::AT_NoInit)
+    if (Attr.getKind() == ParsedAttr::AT_NoInit)
     {
       isNoInit = true;
       break;
     }
-    Attrs = Attrs->getNext();
   }
   // Also try on the declspec
-  Attrs = D.getDeclSpec().getAttributes().getList();
-  while(Attrs)
+  for(const ParsedAttr& Attr: D.getDeclSpec().getAttributes())
   {
-    if (Attrs->getKind() == AttributeList::AT_NoInit)
+    if (Attr.getKind() == ParsedAttr::AT_NoInit)
     {
       isNoInit = true;
       break;
     }
-    Attrs = Attrs->getNext();
   }
 
   return BuildCXXNew(SourceRange(StartLoc, D.getLocEnd()), UseGlobal,
