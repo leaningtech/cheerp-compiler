@@ -17,7 +17,7 @@
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
 #include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "clang/AST/DeclCXX.h"
-#include "clang/Sema/AttributeList.h"
+#include "clang/Sema/ParsedAttr.h"
 
 namespace cheerp{
 
