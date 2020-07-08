@@ -7,8 +7,6 @@
 ; The stub symbol should have pointer-size (8 byte) alignment.
 ; CHECK:      .data
 ; CHECK-NEXT: .p2align 3
-; CHECK-NEXT: .L.Lstr.DW.stub:
-; CHECK-NEXT: .quad   .Lstr
 
 @str = private unnamed_addr constant [12 x i8] c"NSException\00"
 define void @f() personality i8* bitcast (void ()* @h to i8*) {

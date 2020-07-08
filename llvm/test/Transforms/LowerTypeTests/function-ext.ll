@@ -28,7 +28,7 @@ define i1 @baz(i8* %ptr) {
 
 ; CHECK-LABEL: @addrtaken
 define void()* @addrtaken() {
-  ; X64: ret void ()* @[[JT:.*]]
+  ; X64: ret void ()* {{.*}}@[[JT:[^ ]*]]
   ret void()* @foo1
 }
 
