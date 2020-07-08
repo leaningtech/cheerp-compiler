@@ -16,8 +16,8 @@ target triple = "x86_64--linux-gnu"
 define double @return1() {
 ; CHECK-LABEL: @return1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x double>, <2 x double>* bitcast ([4 x double]* @a to <2 x double>*), align 8
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast ([4 x double]* @b to <2 x double>*), align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([4 x double], [4 x double]* @a, i32 0, i32 0) to <2 x double>*), align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x double>, <2 x double>* bitcast (double* getelementptr inbounds ([4 x double], [4 x double]* @b, i32 0, i32 0) to <2 x double>*), align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = fadd <2 x double> [[TMP0]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = extractelement <2 x double> [[TMP2]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <2 x double> [[TMP2]], i32 1

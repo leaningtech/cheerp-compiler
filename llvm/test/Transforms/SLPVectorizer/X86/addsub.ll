@@ -17,16 +17,16 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @addsub() #0 {
 ; CHECK-LABEL: @addsub(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @b to <4 x i32>*), align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @c to <4 x i32>*), align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @b, i32 0, i64 0) to <4 x i32>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @c, i32 0, i64 0) to <4 x i32>*), align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nsw <4 x i32> [[TMP0]], [[TMP1]]
-; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @d to <4 x i32>*), align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @e to <4 x i32>*), align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @d, i32 0, i64 0) to <4 x i32>*), align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @e, i32 0, i64 0) to <4 x i32>*), align 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <4 x i32> [[TMP3]], [[TMP4]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <4 x i32> [[TMP2]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = sub nsw <4 x i32> [[TMP2]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP6]], <4 x i32> [[TMP7]], <4 x i32> <i32 0, i32 5, i32 2, i32 7>
-; CHECK-NEXT:    store <4 x i32> [[TMP8]], <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align 4
+; CHECK-NEXT:    store <4 x i32> [[TMP8]], <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @a, i32 0, i64 0) to <4 x i32>*), align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -69,16 +69,16 @@ entry:
 define void @subadd() #0 {
 ; CHECK-LABEL: @subadd(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @b to <4 x i32>*), align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @c to <4 x i32>*), align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @b, i32 0, i64 0) to <4 x i32>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @c, i32 0, i64 0) to <4 x i32>*), align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nsw <4 x i32> [[TMP0]], [[TMP1]]
-; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @d to <4 x i32>*), align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([4 x i32]* @e to <4 x i32>*), align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @d, i32 0, i64 0) to <4 x i32>*), align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @e, i32 0, i64 0) to <4 x i32>*), align 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <4 x i32> [[TMP3]], [[TMP4]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = sub nsw <4 x i32> [[TMP2]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = add nsw <4 x i32> [[TMP2]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP6]], <4 x i32> [[TMP7]], <4 x i32> <i32 0, i32 5, i32 2, i32 7>
-; CHECK-NEXT:    store <4 x i32> [[TMP8]], <4 x i32>* bitcast ([4 x i32]* @a to <4 x i32>*), align 4
+; CHECK-NEXT:    store <4 x i32> [[TMP8]], <4 x i32>* bitcast (i32* getelementptr inbounds ([4 x i32], [4 x i32]* @a, i32 0, i64 0) to <4 x i32>*), align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -121,12 +121,12 @@ entry:
 define void @faddfsub() #0 {
 ; CHECK-LABEL: @faddfsub(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fb to <4 x float>*), align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fc to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fb, i32 0, i64 0) to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fc, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = fadd <4 x float> [[TMP0]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = fsub <4 x float> [[TMP0]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <4 x float> [[TMP2]], <4 x float> [[TMP3]], <4 x i32> <i32 0, i32 5, i32 2, i32 7>
-; CHECK-NEXT:    store <4 x float> [[TMP4]], <4 x float>* bitcast ([4 x float]* @fa to <4 x float>*), align 4
+; CHECK-NEXT:    store <4 x float> [[TMP4]], <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fa, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -153,12 +153,12 @@ entry:
 define void @fsubfadd() #0 {
 ; CHECK-LABEL: @fsubfadd(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fb to <4 x float>*), align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fc to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fb, i32 0, i64 0) to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fc, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = fsub <4 x float> [[TMP0]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = fadd <4 x float> [[TMP0]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <4 x float> [[TMP2]], <4 x float> [[TMP3]], <4 x i32> <i32 0, i32 5, i32 2, i32 7>
-; CHECK-NEXT:    store <4 x float> [[TMP4]], <4 x float>* bitcast ([4 x float]* @fa to <4 x float>*), align 4
+; CHECK-NEXT:    store <4 x float> [[TMP4]], <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fa, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -185,12 +185,12 @@ entry:
 define void @faddfsub_select() #0 {
 ; CHECK-LABEL: @faddfsub_select(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fb to <4 x float>*), align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fc to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fb, i32 0, i64 0) to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fc, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = fadd <4 x float> [[TMP0]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = fsub <4 x float> [[TMP0]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <4 x float> [[TMP2]], <4 x float> [[TMP3]], <4 x i32> <i32 0, i32 1, i32 2, i32 7>
-; CHECK-NEXT:    store <4 x float> [[TMP4]], <4 x float>* bitcast ([4 x float]* @fa to <4 x float>*), align 4
+; CHECK-NEXT:    store <4 x float> [[TMP4]], <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fa, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -221,12 +221,12 @@ entry:
 
 define void @reorder_alt() #0 {
 ; CHECK-LABEL: @reorder_alt(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fa to <4 x float>*), align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fb to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fa, i32 0, i64 0) to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fb, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = fadd <4 x float> [[TMP1]], [[TMP2]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = fsub <4 x float> [[TMP1]], [[TMP2]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <4 x float> [[TMP3]], <4 x float> [[TMP4]], <4 x i32> <i32 0, i32 5, i32 2, i32 7>
-; CHECK-NEXT:    store <4 x float> [[TMP5]], <4 x float>* bitcast ([4 x float]* @fc to <4 x float>*), align 4
+; CHECK-NEXT:    store <4 x float> [[TMP5]], <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fc, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    ret void
 ;
   %1 = load float, float* getelementptr inbounds ([4 x float], [4 x float]* @fb, i32 0, i64 0), align 4
@@ -256,16 +256,16 @@ define void @reorder_alt() #0 {
 
 define void @reorder_alt_subTree() #0 {
 ; CHECK-LABEL: @reorder_alt_subTree(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fa to <4 x float>*), align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fd to <4 x float>*), align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x float>, <4 x float>* bitcast ([4 x float]* @fb to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fa, i32 0, i64 0) to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fd, i32 0, i64 0) to <4 x float>*), align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x float>, <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fb, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = fsub <4 x float> [[TMP3]], [[TMP2]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = fadd <4 x float> [[TMP3]], [[TMP2]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <4 x float> [[TMP4]], <4 x float> [[TMP5]], <4 x i32> <i32 0, i32 5, i32 2, i32 7>
 ; CHECK-NEXT:    [[TMP7:%.*]] = fadd <4 x float> [[TMP1]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = fsub <4 x float> [[TMP1]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = shufflevector <4 x float> [[TMP7]], <4 x float> [[TMP8]], <4 x i32> <i32 0, i32 5, i32 2, i32 7>
-; CHECK-NEXT:    store <4 x float> [[TMP9]], <4 x float>* bitcast ([4 x float]* @fc to <4 x float>*), align 4
+; CHECK-NEXT:    store <4 x float> [[TMP9]], <4 x float>* bitcast (float* getelementptr inbounds ([4 x float], [4 x float]* @fc, i32 0, i64 0) to <4 x float>*), align 4
 ; CHECK-NEXT:    ret void
 ;
   %1 = load float, float* getelementptr inbounds ([4 x float], [4 x float]* @fa, i32 0, i64 0), align 4

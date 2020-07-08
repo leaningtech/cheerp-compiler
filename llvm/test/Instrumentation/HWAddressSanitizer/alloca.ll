@@ -42,8 +42,8 @@ define void @test_alloca() sanitize_hwaddress {
 ; CHECK: %[[F2:[^ ]*]] = lshr i64 %[[E2]], 4
 ; DYNAMIC-SHADOW: %[[X_SHADOW2:[^ ]*]] = getelementptr i8, i8* %.hwasan.shadow, i64 %[[F2]]
 ; ZERO-BASED-SHADOW: %[[X_SHADOW2:[^ ]*]] = inttoptr i64 %[[F2]] to i8*
-; NO-UAR-TAGS: call void @llvm.memset.p0i8.i64(i8* align 1 %[[X_SHADOW2]], i8 0, i64 1, i1 false)
-; UAR-TAGS: call void @llvm.memset.p0i8.i64(i8* align 1 %[[X_SHADOW2]], i8 %[[X_TAG_UAR]], i64 1, i1 false)
+; NO-UAR-TAGS: call void @llvm.memset.p0i8.i32(i8* align 1 %[[X_SHADOW2]], i8 0, i32 1, i1 false)
+; UAR-TAGS: call void @llvm.memset.p0i8.i32(i8* align 1 %[[X_SHADOW2]], i8 %[[X_TAG_UAR]], i32 1, i1 false)
 ; CHECK: ret void
 
 

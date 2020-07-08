@@ -9,7 +9,7 @@ define void @test_memmove(%T* align 8 %a, %T* align 16 %b) {
 ; CHECK-LABEL: @test_memmove(
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast %T* [[B:%.*]] to i8*
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast %T* [[A:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.memmove.p0i8.p0i8.i64(i8* align 16 [[TMP1]], i8* align 8 [[TMP2]], i64 8, i1 false)
+; CHECK-NEXT:    call void @llvm.memmove.p0i8.p0i8.i32(i8* align 16 [[TMP1]], i8* align 8 [[TMP2]], i32 8, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   %val = load %T, %T* %a, align 8
@@ -23,7 +23,7 @@ define void @test_memcpy(%T* noalias align 8 %a, %T* noalias align 16 %b) {
 ; CHECK-LABEL: @test_memcpy(
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast %T* [[B:%.*]] to i8*
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast %T* [[A:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 16 [[TMP1]], i8* align 8 [[TMP2]], i64 8, i1 false)
+; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 16 [[TMP1]], i8* align 8 [[TMP2]], i32 8, i1 false)
 ; CHECK-NEXT:    ret void
 ;
   %val = load %T, %T* %a, align 8

@@ -50,7 +50,7 @@ entry:
 
 ; ADDR-LABEL: @Store(
 ; ADDR: %[[MASKSHADOW:.*]] = load <4 x i1>, {{.*}}@__msan_param_tls to i64), i64 40)
-; ADDR: %[[ADDRSHADOW:.*]] = load i64, {{.*}}[100 x i64]* @__msan_param_tls, i32 0, i32 0)
+; ADDR: %[[ADDRSHADOW:.*]] = load i64, {{.*}}[100 x i64]* @__msan_param_tls to i64*)
 
 ; ADDR: %[[ADDRBAD:.*]] = icmp ne i64 %[[ADDRSHADOW]], 0
 ; ADDR: br i1 %[[ADDRBAD]], label {{.*}}, label {{.*}}
@@ -90,7 +90,7 @@ entry:
 
 ; ADDR-LABEL: @Load(
 ; ADDR: %[[MASKSHADOW:.*]] = load <4 x i1>, {{.*}}@__msan_param_tls to i64), i64 40)
-; ADDR: %[[ADDRSHADOW:.*]] = load i64, {{.*}}[100 x i64]* @__msan_param_tls, i32 0, i32 0)
+; ADDR: %[[ADDRSHADOW:.*]] = load i64, {{.*}}[100 x i64]* @__msan_param_tls to i64*)
 
 ; ADDR: %[[ADDRBAD:.*]] = icmp ne i64 %[[ADDRSHADOW]], 0
 ; ADDR: br i1 %[[ADDRBAD]], label {{.*}}, label {{.*}}

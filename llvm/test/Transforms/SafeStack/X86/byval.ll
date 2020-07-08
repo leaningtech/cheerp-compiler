@@ -43,7 +43,7 @@ entry:
   ; CHECK: store {{.*}} @__safestack_unsafe_stack_ptr
   ; CHECK: %[[B:.*]] = getelementptr i8, i8* %[[A]], i32 -400
   ; CHECK: %[[C:.*]] = bitcast %struct.S* %zzz to i8*
-  ; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 %[[B]], i8* %[[C]], i64 400, i1 false)
+  ; CHECK: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 %[[B]], i8* %[[C]], i32 400, i1 false)
   ; CHECK: ret i32
   %arrayidx = getelementptr inbounds %struct.S, %struct.S* %zzz, i64 0, i32 0, i64 %idx
   %0 = load i32, i32* %arrayidx, align 4

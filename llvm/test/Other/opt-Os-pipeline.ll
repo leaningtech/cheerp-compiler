@@ -61,7 +61,7 @@
 ; CHECK-NEXT:       Function Integration/Inlining
 ; CHECK-NEXT:       OpenMP specific optimizations
 ; CHECK-NEXT:       Deduce function attributes
-; CHECK-NEXT:       FunctionPass Manager
+; CHECK:       FunctionPass Manager
 ; CHECK-NEXT:         Dominator Tree Construction
 ; CHECK-NEXT:         SROA
 ; CHECK-NEXT:         Basic Alias Analysis (stateless AA impl)

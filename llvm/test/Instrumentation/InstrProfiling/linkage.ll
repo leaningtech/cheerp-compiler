@@ -24,7 +24,7 @@
 ; COFF-NOT: comdat
 ; COFF: @__profd_foo = internal global
 define void @foo() {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_foo, i32 0, i32 0), i64 0, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([3 x i8]* @__profn_foo to i8*), i64 0, i32 1, i32 0)
   ret void
 }
 
@@ -33,7 +33,7 @@ define void @foo() {
 ; COFF: @__profc_foo_weak = internal global
 ; COFF: @__profd_foo_weak = internal global
 define weak void @foo_weak() {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @__profn_foo_weak, i32 0, i32 0), i64 0, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([8 x i8]* @__profn_foo_weak to i8*), i64 0, i32 1, i32 0)
   ret void
 }
 
@@ -42,7 +42,7 @@ define weak void @foo_weak() {
 ; COFF: @"__profc_linkage.ll:foo_internal" = internal global
 ; COFF: @"__profd_linkage.ll:foo_internal" = internal global
 define internal void @foo_internal() {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([23 x i8], [23 x i8]* @"__profn_linkage.ll:foo_internal", i32 0, i32 0), i64 0, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([23 x i8]* @"__profn_linkage.ll:foo_internal" to i8*), i64 0, i32 1, i32 0)
   ret void
 }
 
@@ -51,7 +51,7 @@ define internal void @foo_internal() {
 ; COFF: @__profc_foo_inline = internal global{{.*}} section ".lprfc$M", align 8
 ; COFF: @__profd_foo_inline = internal global{{.*}} section ".lprfd$M", align 8
 define linkonce_odr void @foo_inline() {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @__profn_foo_inline, i32 0, i32 0), i64 0, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([10 x i8]* @__profn_foo_inline to i8*), i64 0, i32 1, i32 0)
   ret void
 }
 
@@ -62,7 +62,7 @@ define linkonce_odr void @foo_inline() {
 ; COFF: @__profc_foo_extern = linkonce_odr hidden global {{.*}}section ".lprfc$M", comdat, align 8
 ; COFF: @__profd_foo_extern = linkonce_odr hidden global {{.*}}section ".lprfd$M", comdat, align 8
 define available_externally void @foo_extern() {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @__profn_foo_extern, i32 0, i32 0), i64 0, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([10 x i8]* @__profn_foo_extern to i8*), i64 0, i32 1, i32 0)
   ret void
 }
 

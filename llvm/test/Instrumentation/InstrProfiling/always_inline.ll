@@ -20,7 +20,7 @@ declare void @llvm.instrprof.increment(i8*, i64, i32, i32) #0
 ; CHECK-NOT: define available_externally i32 @foo
 define available_externally i32 @foo() #1 {
 entry:
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_foo, i32 0, i32 0), i64 0, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([3 x i8]* @__profn_foo to i8*), i64 0, i32 1, i32 0)
   ret i32 0
 }
 
