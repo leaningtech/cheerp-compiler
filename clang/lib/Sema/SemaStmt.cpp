@@ -759,8 +759,7 @@ StmtResult Sema::ActOnStartOfSwitchStmt(SourceLocation SwitchLoc,
     }
   }
 
-  QualType CondType = Cond.get().second->getType().getCanonicalType();
-  if(isa<BuiltinType>(CondType) && cast<BuiltinType>(CondType)->isHighInt()) {
+  if(CondExpr && isa<BuiltinType>(CondExpr->getType().getCanonicalType()) && cast<BuiltinType>(CondExpr->getType().getCanonicalType())->isHighInt()) {
     Diag(SwitchLoc, diag::err_cheerp_switch_64bit);
     return StmtError();
   }
