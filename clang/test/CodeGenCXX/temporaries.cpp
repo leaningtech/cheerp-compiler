@@ -271,7 +271,6 @@ namespace PR5867 {
     // CHECK: call void @_ZN6PR58671SC1Ev
     // CHECK-NEXT: call void @_ZN6PR58671fENS_1SEi
     // CHECK-NEXT: call void @_ZN6PR58671SD1Ev
-    // CHECK-NEXT: call void @"llvm.lifetime.end
     // CHECK-NEXT: ret void
     (f)(S(), 0);
   }
@@ -282,7 +281,6 @@ namespace PR5867 {
     // CHECK: call void @_ZN6PR58671SC1Ev
     // CHECK-NEXT: call void @_ZN6PR58671fENS_1SEi
     // CHECK-NEXT: call void @_ZN6PR58671SD1Ev
-    // CHECK-NEXT: call void @"llvm.lifetime.end
     // CHECK-NEXT: ret void
     (f)(S(), 0);
   }

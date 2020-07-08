@@ -7,7 +7,7 @@
 
 // CHECK: @__const.test6.x = private unnamed_addr constant %struct.SelectDest { i8 1, i8 2, i32 3, i32 0 }
 
-// CHECK: @test7 = {{(dso_local )?}}global [2 x %struct.test7s] [%struct.test7s { i32 1, i32 2 }, %struct.test7s { i32 4, i32 0 }]
+// CHECK: @test7 = {{(dso_local )?}}global [2 x %struct._Z6test7s] [%struct._Z6test7s { i32 1, i32 2 }, %struct._Z6test7s { i32 4, i32 0 }]
 
 void test1() {
   // This should codegen as a "@test1.x" global.
