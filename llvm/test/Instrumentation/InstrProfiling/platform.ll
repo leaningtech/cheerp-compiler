@@ -35,7 +35,7 @@
 ; AIX: @__llvm_prf_nm = private constant [{{.*}} x i8] c"{{.*}}", section "{{.*}}__llvm_prf_names", align 1
 
 define void @foo() {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @__profn_foo, i32 0, i32 0), i64 0, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([3 x i8]* @__profn_foo to i8*), i64 0, i32 1, i32 0)
   ret void
 }
 
