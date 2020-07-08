@@ -3756,8 +3756,6 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(QualType Ty) {
   // We want to operate on the canonical type.
   Ty = Ty.getCanonicalType();
 
-  // CHEERP: TODO duplicate typeinfo for basic types
-  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
   // Check if we've already emitted an RTTI descriptor for this type.
   SmallString<256> Name;
   llvm::raw_svector_ostream Out(Name);
@@ -3833,6 +3831,9 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
     TypeNameField = llvm::ConstantExpr::getGetElementPtr(TypeName->getType()->getPointerElementType(), TypeName, Zeros);
   }
   Fields.push_back(TypeNameField);
+
+  // CHEERP: TODO duplicate typeinfo for basic types
+  bool asmjs = CGM.getContext().getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly;
 
   switch (Ty->getTypeClass()) {
 #define TYPE(Class, Base)
