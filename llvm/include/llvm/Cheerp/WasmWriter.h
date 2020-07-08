@@ -474,6 +474,7 @@ public:
 	void compileOperand(WasmBuffer& code, const llvm::Value* v);
 	void compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison);
 	void compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v);
+	void compileTypedZero(WasmBuffer& code, llvm::Type* t);
 	void encodeInst(uint32_t opcode, const char* name, WasmBuffer& code);
 	void encodeBinOp(const llvm::Instruction& I, WasmBuffer& code);
 	void encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code);
