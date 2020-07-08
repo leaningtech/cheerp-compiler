@@ -2529,6 +2529,9 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeU32Inst(0x10, "call", functionId, code);
 					} else {
 						encodeInst(0x00, "unreachable", code);
+						// Make sure that we leave a value on the stack anyway (old Edge's validation get unhappy otherwise)
+						if(!fTy->getReturnType()->isVoidTy())
+							compileTypedZero(code, fTy->getReturnType());
 					}
 				}
 				else
@@ -2557,6 +2560,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				else
 				{
 					encodeInst(0x00, "unreachable", code);
+					if(!fTy->getReturnType()->isVoidTy())
+						compileTypedZero(code, fTy->getReturnType());
 					return true;
 				}
 			}
