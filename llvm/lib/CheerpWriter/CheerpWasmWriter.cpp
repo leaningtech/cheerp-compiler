@@ -1580,7 +1580,7 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 			break;
 		}
 		default:
-			encodeInst(0x00, "unreachable", code);
+			compileTypedZero(code, ce->getType());
 			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
 	}
 }
