@@ -1495,6 +1495,23 @@ void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 	}
 }
 
+void CheerpWasmWriter::compileTypedZero(WasmBuffer& code, llvm::Type* t)
+{
+	if (mode == CheerpWasmWriter::WASM) {
+		// Encode a literal f64, f32 or i32 zero as the return value.
+		internal::encodeLiteralType(t, code);
+		if (t->isDoubleTy()) {
+			internal::encodeF64(0., code);
+		} else if (t->isFloatTy()) {
+			internal::encodeF32(0.f, code);
+		} else {
+			internal::encodeSLEB128(0, code);
+		}
+	} else {
+		code << getTypeString(t) << ".const 0\n";
+	}
+}
+
 void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr* ce)
 {
 	switch(ce->getOpcode())
@@ -1655,19 +1672,7 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	}
 	else if (isa<UndefValue>(c))
 	{
-		if (mode == CheerpWasmWriter::WASM) {
-			// Encode a literal f64, f32 or i32 zero as the return value.
-			internal::encodeLiteralType(c->getType(), code);
-			if (c->getType()->isDoubleTy()) {
-				internal::encodeF64(0., code);
-			} else if (c->getType()->isFloatTy()) {
-				internal::encodeF32(0.f, code);
-			} else {
-				internal::encodeSLEB128(0, code);
-			}
-		} else {
-			code << getTypeString(c->getType()) << ".const 0\n";
-		}
+		compileTypedZero(code, c->getType());
 	}
 	else
 	{
@@ -3767,19 +3772,7 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 	{
 		if(!F.getReturnType()->isVoidTy())
 		{
-			if (mode == CheerpWasmWriter::WASM) {
-				// Encode a literal f64, f32 or i32 zero as the return value.
-				internal::encodeLiteralType(F.getReturnType(), code);
-				if (F.getReturnType()->isDoubleTy()) {
-					internal::encodeF64(0., code);
-				} else if (F.getReturnType()->isFloatTy()) {
-					internal::encodeF32(0.f, code);
-				} else {
-					internal::encodeSLEB128(0, code);
-				}
-			} else {
-				code << getTypeString(F.getReturnType()) << ".const 0\n";
-			}
+			compileTypedZero(code, F.getReturnType());
 		}
 	}
 
