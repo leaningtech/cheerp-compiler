@@ -8,7 +8,7 @@ unsigned v2[2][3] = {[0 ... 1][0 ... 1] = 2222, 3333};
 // CHECK-DAG: %struct._Z1M = type { [2 x %struct._Z1I] }
 // CHECK-DAG: %struct._Z1I = type { [3 x i32] }
 
-// CHECK-DAG: [1 x %struct.M] [%struct.M { [2 x %struct.I] [%struct.I { [3 x i32] [i32 4, i32 4, i32 0] }, %struct.I { [3 x i32] [i32 4, i32 4, i32 5] }] }],
+// CHECK-DAG: [1 x %struct._Z1M] [%struct._Z1M { [2 x %struct._Z1I] [%struct._Z1I { [3 x i32] [i32 4, i32 4, i32 0] }, %struct._Z1I { [3 x i32] [i32 4, i32 4, i32 5] }] }],
 // CHECK-DAG: [2 x [3 x i32]] {{[[][[]}}3 x i32] [i32 2222, i32 2222, i32 0], [3 x i32] [i32 2222, i32 2222, i32 3333]],
 // CHECK-DAG: [[INIT14:.*]] = private global [16 x i32] [i32 0, i32 0, i32 0, i32 0, i32 0, i32 17, i32 17, i32 17, i32 17, i32 17, i32 17, i32 17, i32 0, i32 0, i32 0, i32 0], align 4
 
