@@ -12,7 +12,7 @@
 #ifndef _CHEERP_SEMA_CHEERP_H
 #define _CHEERP_SEMA_CHEERP_H
 
-#include <unordered_map>
+#include <map>
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
@@ -28,8 +28,6 @@ enum class TypeKind
 };
 
 TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
-
-bool isInAnyNamespace(const clang::Decl* decl);
 
 void checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
 
@@ -101,7 +99,7 @@ private:
 	void checkTopLevelName(const clang::NamedDecl* FD);
 
 	cheerp::DeterministicUnorderedMap<const clang::CXXRecordDecl*, CheerpSemaClassData, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> classData;
-	std::unordered_map<std::string, const clang::NamedDecl*> topLevelNames;
+	std::map<std::pair<const clang::DeclContext*, std::string>, const clang::NamedDecl*> namedDecl;
 	clang::Sema& sema;
 };
 
