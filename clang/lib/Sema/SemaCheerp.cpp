@@ -20,15 +20,22 @@
 #include <string>
 #include <unordered_map>
 
-bool cheerp::isInAnyNamespace(const clang::Decl* decl)
+static const clang::DeclContext* getCanonicalContext(const clang::Decl* decl)
 {
 	auto context = decl->getDeclContext();
-	while (context->isTransparentContext())
+	while (context && context->isTransparentContext())
 	{
 		//This serves to skip things like: extern "C" that are a context but that are transparent for namespace rules
 		context = context->getParent();
 	}
-	return (context->getParent() != NULL);
+	return context;
+}
+
+static bool isInsideClass(const clang::Decl* decl)
+{
+	auto context = getCanonicalContext(decl);
+
+	return (context && context->isRecord());
 }
 
 void cheerp::checkDestructor(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue)
@@ -53,7 +60,7 @@ void cheerp::checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::S
 	//class or struct
 	using namespace clang;
 
-	if (isInAnyNamespace(Record))
+	if (isInsideClass(Record))
 		sema.Diag(Record->getLocation(), diag::err_cheerp_jsexport_on_namespace);
 
 	if (Record->isDynamicClass())
@@ -358,7 +365,7 @@ void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDe
 		//Free function specific checks
 		checkTopLevelName(FD);
 
-		if (isInAnyNamespace(FD))
+		if (isInsideClass(FD))
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_namespace);
 	}
 
@@ -378,8 +385,9 @@ void cheerp::CheerpSemaData::checkTopLevelName(const clang::NamedDecl* ND)
 {
 	using namespace clang;
 	const auto& name = ND->getName();
+	auto context = getCanonicalContext(ND);
 
-	const auto pair = topLevelNames.emplace(name, ND);
+	const auto pair = namedDecl.emplace(std::pair<const clang::DeclContext*, std::string>(context, name), ND);
 
 	if (!pair.second && pair.first->second->getCanonicalDecl() != ND->getCanonicalDecl())
 	{
