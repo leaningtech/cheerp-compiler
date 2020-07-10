@@ -1579,6 +1579,17 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 			encodeInst(0x1b, "select", code);
 			break;
 		}
+		case Instruction::ZExt:
+		{
+			compileUnsignedInteger(code, ce->getOperand(0));
+			if (ce->getType()->isIntegerTy(64))
+			{
+				assert(!ce->getOperand(0)->getType()->isIntegerTy(64));
+				encodeInst(0xad, "i64.extend_i32_u", code);
+			}
+			break;
+		}
+
 		default:
 			compileTypedZero(code, ce->getType());
 			llvm::errs() << "warning: Unsupported constant expr " << ce->getOpcodeName() << '\n';
