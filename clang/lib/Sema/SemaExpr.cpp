@@ -19461,7 +19461,9 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
       } else if (pt->hasPointerRepresentation() && pt->getPointeeType()->isFunctionType()) {
         Diag(Loc,
              diag::err_cheerp_wrong_func_pointer_param)
-          << FDecl->getAttr<GenericJSAttr>() << FDecl << Parent->getAttr<AsmJSAttr>() << p;
+          << FDecl << FDecl->getAttr<GenericJSAttr>()
+          << Parent << Parent->getAttr<AsmJSAttr>()
+          << p;
       } else if (!Sema::isAsmJSCompatible(pt->getCanonicalTypeInternal(), anyref)) {
         Diag(Loc,
              diag::err_cheerp_incompatible_attributes)
