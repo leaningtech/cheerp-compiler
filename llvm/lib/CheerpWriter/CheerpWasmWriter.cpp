@@ -2391,6 +2391,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						break;
 					}
 					case Intrinsic::ctlz:
+					case Intrinsic::cttz:
 					case Intrinsic::fabs:
 					case Intrinsic::ceil:
 					case Intrinsic::floor:
