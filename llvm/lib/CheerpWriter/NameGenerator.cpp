@@ -668,8 +668,8 @@ std::vector<llvm::StringRef> buildJsExportedNamesList(const Module& M)
 
 	for (const auto& jsex : jsexportedDecl)
 	{
-		if (!jsex.isClass())
-			names.push_back(jsex.name);
+		//TODO: Check with Namespaces
+		names.push_back(jsex.name);
 	}
 
 	return names;
