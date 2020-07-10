@@ -24,7 +24,7 @@ namespace cheerp{
 
 enum class TypeKind
 {
-	Void, IntMax32Bit, IntGreater32Bit, FloatingPoint, NamespaceClient, Pointer, Function, FunctionPointer, Reference, JsExportable, Other
+	Void, Boolean, IntLess32Bit, UnsignedInt32Bit, SignedInt32Bit, IntGreater32Bit, FloatingPoint, NamespaceClient, Pointer, Function, FunctionPointer, Reference, JsExportable, Other
 };
 
 TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
