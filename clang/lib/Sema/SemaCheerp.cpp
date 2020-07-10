@@ -104,7 +104,10 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const 
 				return;
 			}
 		}
-		case TypeKind::IntMax32Bit:
+		case TypeKind::Boolean:
+		case TypeKind::IntLess32Bit:
+		case TypeKind::UnsignedInt32Bit:
+		case TypeKind::SignedInt32Bit:
 		case TypeKind::FloatingPoint:
 		{
 			//Good!
@@ -174,9 +177,12 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const 
 				"pointers to unknown (neither client namespace nor jsexportable) types" << where;
 			return;
 		}
-		case TypeKind::IntMax32Bit:
-		case TypeKind::FloatingPoint:
+		case TypeKind::Boolean:
+		case TypeKind::IntLess32Bit:
+		case TypeKind::UnsignedInt32Bit:
+		case TypeKind::SignedInt32Bit:
 		case TypeKind::IntGreater32Bit:
+		case TypeKind::FloatingPoint:
 		{
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "pointers to base type" << where;
 			return;
@@ -219,6 +225,19 @@ void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, const clang
 			//In general the answer is no
 			//TODO: possibly relax this check (or maybe not since it's actually complex, will require checking that every possible return value is jsExported
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "function pointers" << "return";
+			break;
+		}
+		case TypeKind::UnsignedInt32Bit:
+		{
+			//Unsigned integer can't be represented in JavaScript
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "unsigned interger" << "return";
+			break;
+		}
+		case TypeKind::IntLess32Bit:
+		{
+			//Interger shorter than 32 bit would need to carry metatada around to specify whether signed or unsigned
+			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_or_return) << "integer smaller than 32bit" << "return";
+			break;
 		}
 		default:
 			break;
@@ -230,7 +249,8 @@ void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, const clang
 
 cheerp::TypeKind cheerp::classifyType(const clang::QualType& Qy, const clang::Sema& sema)
 {
-	const clang::Type* Ty = Qy.getDesugaredType(sema.Context).getTypePtr();
+	const clang::QualType& Desugared = Qy.getDesugaredType(sema.Context);
+	const clang::Type* Ty = Desugared.getTypePtr();
 	using namespace cheerp;
 	if (Ty->isReferenceType())
 	{
@@ -244,8 +264,17 @@ cheerp::TypeKind cheerp::classifyType(const clang::QualType& Qy, const clang::Se
 
 		if (builtin->isHighInt())
 			return TypeKind::IntGreater32Bit;
+		else if (sema.Context.getIntWidth(Desugared) == 1)
+			return TypeKind::Boolean;
+		else if (sema.Context.getIntWidth(Desugared) == 32)
+		{
+			if (builtin->isSignedInteger())
+				return TypeKind::SignedInt32Bit;
+			else
+				return TypeKind::UnsignedInt32Bit;
+		}
 		else
-			return TypeKind::IntMax32Bit;
+			return TypeKind::IntLess32Bit;
 	}
 	if (Ty->isRealFloatingType())
 	{
