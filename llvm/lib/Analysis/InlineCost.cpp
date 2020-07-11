@@ -3039,6 +3039,8 @@ bool llvm::isInlineViableCheerp(Function &F, Function &Caller) {
         if (li->getType()->isPointerTy() && li->getType()->getPointerElementType()->isPointerTy())
           return false;
       }
+      if (II->getType()->isIntegerTy(64))
+	return false;
     }
   }
   return true;
