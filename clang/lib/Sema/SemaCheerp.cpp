@@ -74,11 +74,11 @@ void cheerp::checkParameters(const clang::FunctionDecl* FD, clang::Sema& sema)
 		if (it->hasDefaultArg())
 			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << FD->getParent();
 
-		checkCouldBeParameterOfJsExported(it->getOriginalType(), &*it, sema, FD->hasAttr<clang::AsmJSAttr>());
+		checkCouldBeParameterOfJsExported(it->getOriginalType(), &*it, sema, FD->getAttr<clang::AsmJSAttr>());
 	}
 }
 
-void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const clang::Decl* FD, clang::Sema& sema, const bool isAsmjs, const bool isParameter)
+void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const clang::Decl* FD, clang::Sema& sema, const clang::Attr* asmJSAttr, const bool isParameter)
 {
 	using namespace cheerp;
 	using namespace clang;
@@ -92,10 +92,10 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const 
 		case TypeKind::Function:
 		case TypeKind::FunctionPointer:
 		{
-			if (isAsmjs)
+			if (asmJSAttr)
 			{
-				//asmjs / wasm functions can't take (yet) functions pointers as paramethers
-				sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_amsjs_function) << FD->getAttr<AsmJSAttr>()->getSpelling() << where;
+				//asmjs / wasm functions can't take (yet) functions pointers as parameters
+				sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_amsjs_function) << asmJSAttr;
 				return;
 			}
 			else
@@ -244,7 +244,7 @@ void cheerp::checkCouldReturnBeJsExported(const clang::QualType& Ty, const clang
 	}
 
 	//In all other cases, if something could be a parameter it could also work as return
-	checkCouldBeParameterOfJsExported(Ty, FD, sema, FD->hasAttr<AsmJSAttr>(), /*isParameter*/false);
+	checkCouldBeParameterOfJsExported(Ty, FD, sema, FD->getAttr<AsmJSAttr>(), /*isParameter*/false);
 }
 
 cheerp::TypeKind cheerp::classifyType(const clang::QualType& Qy, const clang::Sema& sema)
