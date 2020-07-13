@@ -7209,11 +7209,8 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
   if (Record->hasAttr<AsmJSAttr>()) {
     for (const auto* f: Record->fields()) {
       if (!isAsmJSCompatible(f->getType(), false)) {
-        auto t = f->getType()->isPointerType()
-          ? f->getType()->getPointeeType()->getAsTagDecl()
-          : f->getType()->getAsTagDecl();
         Diag(f->getLocation(), diag::err_cheerp_incompatible_attributes)
-          << t->getAttr<GenericJSAttr>() << "field" << f
+          << getGenericJSAttr(f->getType()) << "field" << f
           << Record->getAttr<AsmJSAttr>() << "class" << Record;
       }
     }
@@ -7224,7 +7221,7 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
     for (const auto* f: Record->fields()) {
       if (isAsmJSValue(f->getType())) {
         Diag(f->getLocation(), diag::err_cheerp_incompatible_attributes)
-          << f->getType()->getAsTagDecl()->getAttr<AsmJSAttr>() << "field" << f
+          << getAsmJSAttr(f->getType()) << "field" << f
           << Record->getAttr<GenericJSAttr>() << "class" << Record;
       } else if (auto TD = f->getType()->getAsTagDecl()) {
         const DeclContext* Ctx = TD->getDeclContext();
