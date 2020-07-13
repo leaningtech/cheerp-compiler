@@ -12579,41 +12579,49 @@ public:
   bool checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee);
 
   // CHEERP: Utility function for checking if a type can be used in the asmjs section
-  bool isAsmJSCompatible(QualType pt, bool allowAnyref) {
-    pt = pt.getNonReferenceType();
+  bool isAsmJSCompatible(QualType qt, bool allowAnyref) {
+    const Type* pt = qt.getNonReferenceType().getTypePtr();
     while (pt->isAnyPointerType())
-      pt = pt->getPointeeType();
+      pt = pt->getPointeeType().getTypePtr();
+    if (pt->isArrayType())
+      pt = pt->getArrayElementTypeNoTypeQual();
     TagDecl* pd = pt->getAsTagDecl();
     if (!pd) return true;
     bool client = pd->getDeclContext()->isClientNamespace();
     return (client&&allowAnyref) || pd->isEnum() || pd->hasAttr<AsmJSAttr>();
   }
-  static AsmJSAttr* getAsmJSAttr(QualType pt) {
-    pt = pt.getNonReferenceType();
+  static AsmJSAttr* getAsmJSAttr(QualType qt) {
+    const Type* pt = qt.getNonReferenceType().getTypePtr();
     while (pt->isAnyPointerType())
-      pt = pt->getPointeeType();
+      pt = pt->getPointeeType().getTypePtr();
+    if (pt->isArrayType())
+      pt = pt->getArrayElementTypeNoTypeQual();
     TagDecl* pd = pt->getAsTagDecl();
     assert(pd && "Not a TagDecl");
     assert(pd->hasAttr<AsmJSAttr>() && "No AsmJSAttr");
     return pd->getAttr<AsmJSAttr>();
   }
-  static GenericJSAttr* getGenericJSAttr(QualType pt) {
-    pt = pt.getNonReferenceType();
+  static GenericJSAttr* getGenericJSAttr(QualType qt) {
+    const Type* pt = qt.getNonReferenceType().getTypePtr();
     while (pt->isAnyPointerType())
-      pt = pt->getPointeeType();
+      pt = pt->getPointeeType().getTypePtr();
+    if (pt->isArrayType())
+      pt = pt->getArrayElementTypeNoTypeQual();
     TagDecl* pd = pt->getAsTagDecl();
     assert(pd && "Not a TagDecl");
     assert(pd->hasAttr<GenericJSAttr>() && "No GenericJSAttr");
     return pd->getAttr<GenericJSAttr>();
   }
   // CHEERP: Utility function for checking if a type is an asmjs value type
-  static bool isAsmJSValue(QualType pt) {
-    TagDecl* pd = pt->getAsTagDecl();
+  static bool isAsmJSValue(QualType qt) {
+    const Type* t = qt->isArrayType() ? qt->getArrayElementTypeNoTypeQual() : qt.getTypePtr(); 
+    TagDecl* pd = t->getAsTagDecl();
     return pd && pd->hasAttr<AsmJSAttr>();
   }
   // CHEERP: Utility function for checking if a type is a genericjs value type
-  static bool isGenericJSValue(QualType pt) {
-    TagDecl* pd = pt->getAsTagDecl();
+  static bool isGenericJSValue(QualType qt) {
+    const Type* t = qt->isArrayType() ? qt->getArrayElementTypeNoTypeQual() : qt.getTypePtr(); 
+    TagDecl* pd = t->getAsTagDecl();
     return pd && pd->hasAttr<GenericJSAttr>();
   }
   // CHEERP: Disallow calls to asmjs functions with pointer to basic type parameters from genericjs
