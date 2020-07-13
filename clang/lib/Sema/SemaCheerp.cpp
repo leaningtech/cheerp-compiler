@@ -95,7 +95,7 @@ void cheerp::checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const 
 			if (isAsmjs)
 			{
 				//asmjs / wasm functions can't take (yet) functions pointers as paramethers
-				sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_amsjs_function) << where;
+				sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_parameter_amsjs_function) << FD->getAttr<AsmJSAttr>()->getSpelling() << where;
 				return;
 			}
 			else
