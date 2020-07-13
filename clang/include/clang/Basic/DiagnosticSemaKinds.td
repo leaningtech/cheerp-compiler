@@ -10955,7 +10955,7 @@ def err_cheerp_jsexport_with_default_arg : Error<
 def err_cheerp_jsexport_with_operators : Error<
   "Cheerp: Public operator overload is not compatible with the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_parameter_amsjs_function : Error<
-  "Cheerp: [[asmjs]]-tagged functions can't take function pointers as parameters">;
+  "Cheerp: %0 function can't take function pointer as parameter">;
 def err_cheerp_jsexport_on_double_pointer : Error<
   "Cheerp: Parameters/return types of function with the [[cheerp::jsexport]] attribute can not be double pointers">;
 def err_cheerp_jsexport_on_reference : Error<
