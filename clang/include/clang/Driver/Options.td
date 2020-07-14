@@ -6352,7 +6352,7 @@ def source_date_epoch : Separate<["-"], "source-date-epoch">,
 def cheerp_mode_EQ : Joined<["-"], "cheerp-mode=">, Flags<[CC1Option]>,
   Group<CompileOnly_Group>, HelpText<"Specify which mode to use by default [genericjs/asmjs]">;
 def cheerp_linear_output_EQ : Joined<["-"], "cheerp-linear-output=">, Flags<[CC1Option]>,
-  Group<CompileOnly_Group>, HelpText<"Output format for the linear memory part of the program [wasm/wast/asmjs]">;
+  Group<CompileOnly_Group>, HelpText<"Output format for the linear memory part of the program [wasm/asmjs]">;
 def cheerp_secondary_output_file_EQ : Joined<["-"], "cheerp-secondary-output-file=">, Flags<[DriverOption]>,
   HelpText<"Write the secondary output file (wasm module or asm.js memory file) to <file>">, MetaVarName<"<file>">;
 def cheerp_secondary_output_path_EQ : Joined<["-"], "cheerp-secondary-output-path=">, Flags<[DriverOption]>,
@@ -6363,8 +6363,6 @@ def cheerp_linear_stack_size : Joined<["-"], "cheerp-linear-stack-size=">, Flags
   HelpText<"Set wasm/asm.js stack size (in MB, default is 1)">;
 def cheerp_wasm_loader_EQ : Joined<["-"], "cheerp-wasm-loader=">, Flags<[DriverOption]>,
   HelpText<"Write wasm loader to <file>">, MetaVarName<"<file>">;
-def cheerp_wast_loader_EQ : Joined<["-"], "cheerp-wast-loader=">,
-    Alias<cheerp_wasm_loader_EQ>;
 def cheerp_wasm_file_EQ : Joined<["-"], "cheerp-wasm-file=">, Flags<[DriverOption]>,
   HelpText<"Assume wasm file is <file>">, MetaVarName<"<file>">;
 def cheerp_asmjs_mem_file_EQ : Joined<["-"], "cheerp-asmjs-mem-file=">, Flags<[DriverOption]>,

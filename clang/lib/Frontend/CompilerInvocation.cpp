@@ -3310,7 +3310,6 @@ static void ParseCheerpArgs(LangOptions &Opts, ArgList &Args,
       = llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpMode->getValue())
         .Case("genericjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
         .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
-        .Case("wast", LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
         .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
         .Default(LangOptions::CHEERP_LINEAR_OUTPUT_Invalid);
 
@@ -3326,7 +3325,6 @@ static void ParseCheerpArgs(LangOptions &Opts, ArgList &Args,
     LangOptions::CheerpLinearOutputTy s =
       llvm::StringSwitch<LangOptions::CheerpLinearOutputTy>(CheerpLinearOutput->getValue())
         .Case("wasm", LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
-        .Case("wast", LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
         .Case("asmjs", LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs)
         .Default(LangOptions::CHEERP_LINEAR_OUTPUT_Invalid);
     Opts.setCheerpLinearOutput(s);
