@@ -314,7 +314,7 @@ VALUE_LANGOPT(TrivialAutoVarInitStopAfter, 32, 0,
 ENUM_LANGOPT(SignedOverflowBehavior, SignedOverflowBehaviorTy, 2, SOB_Undefined,
              "signed integer overflow handling")
 ENUM_LANGOPT(CheerpLinearOutput, CheerpLinearOutputTy, 2, CHEERP_LINEAR_OUTPUT_Wasm,
-             "Output format for the linear memory part of the program [wasm/wast/asmjs]")
+             "Output format for the linear memory part of the program [wasm/asmjs]")
 LANGOPT(CheerpAnyref, 1, 0,
              "Enable use of anyref in wasm. This relaxes some interoperability checks")
 

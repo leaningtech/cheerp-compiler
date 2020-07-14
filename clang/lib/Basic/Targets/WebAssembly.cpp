@@ -274,8 +274,7 @@ void CheerpTargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
     Builder.defineMacro("__ASMJS__");
-    if (Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wasm ||
-        Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wast)
+    if (Opts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_Wasm)
     {
       Builder.defineMacro("__WASM__");
     }

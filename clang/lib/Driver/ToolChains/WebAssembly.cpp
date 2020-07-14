@@ -398,12 +398,8 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     // Add wasm helper if needed
     Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
-    if((CheerpMode &&
-        (CheerpMode->getValue() == StringRef("wasm") ||
-         CheerpMode->getValue() == StringRef("wast"))) ||
-       (CheerpLinearOutput &&
-         (CheerpLinearOutput->getValue() == StringRef("wasm") ||
-          CheerpLinearOutput->getValue() == StringRef("wast"))))
+    if((CheerpMode && CheerpMode->getValue() == StringRef("wasm")) ||
+       (CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")))
     {
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasm.bc")));
     }
@@ -616,7 +612,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Output.getFilename());
     if (Arg* cheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ))
     {
-      if (cheerpMode->getValue() == StringRef("wasm") || cheerpMode->getValue() == StringRef("wast"))
+      if (cheerpMode->getValue() == StringRef("wasm"))
       {
         CmdArgs.push_back("-cheerp-wasm-only");
       }
@@ -636,7 +632,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         (cheerpLinearOutput && cheerpLinearOutput->getValue() != StringRef("asmjs"))))
   {
     SmallString<64> path(Output.getFilename());
-    StringRef ext = (cheerpLinearOutput && cheerpLinearOutput->getValue() == StringRef("wast")) ? ".wast" : ".wasm";
+    StringRef ext = ".wasm";
     if (llvm::sys::path::extension(path) == ext)
     {
       path.append(ext);
@@ -652,11 +648,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
   if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
   {
     std::string linearOut("-cheerp-linear-output=");
-    if (CheerpMode->getValue() == StringRef("wast"))
-    {
-      linearOut += "wast";
-    }
-    else if (CheerpMode->getValue() == StringRef("asmjs"))
+    if (CheerpMode->getValue() == StringRef("asmjs"))
     {
       linearOut += "asmjs";
     }
