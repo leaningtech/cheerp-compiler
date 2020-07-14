@@ -34,11 +34,12 @@ const uint32_t WasmPage = 64*1024;
 
 class CheerpWasmWriter;
 
-typedef std::ostringstream WasmBuffer;
+typedef llvm::raw_pwrite_stream WasmBuffer;
 
-class Section : public std::ostringstream {
+class Section : public llvm::raw_svector_ostream {
 private:
 	CheerpWasmWriter* writer;
+	llvm::SmallString<128> buffer;
 
 public:
 	Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer);
@@ -224,7 +225,7 @@ private:
 		void decreaseIndentation(WasmBuffer& code, bool performCheck = true)
 		{
 			if (performCheck)
-				assert(teeLocalCandidatesStack.back().instStartPos == code.tellp());
+				assert(teeLocalCandidatesStack.back().instStartPos == code.tell());
 			teeLocalCandidatesStack.pop_back();
 		}
 		void clearTopmostCandidates(WasmBuffer& code, const uint32_t depth)
@@ -258,12 +259,12 @@ private:
 		}
 		void instructionStart(WasmBuffer& code)
 		{
-			teeLocalCandidatesStack.back().instStartPos = code.tellp();
+			teeLocalCandidatesStack.back().instStartPos = code.tell();
 		}
 		bool needsSubStack(WasmBuffer& code) const
 		{
 			const uint32_t pos = teeLocalCandidatesStack.back().instStartPos;
-			return pos != 0 && pos != code.tellp();
+			return pos != 0 && pos != code.tell();
 		}
 	};
 
@@ -280,7 +281,7 @@ private:
 
 	mutable std::vector<uint32_t> nopLocations;
 
-	void filterNop(std::string& buffer) const;
+	void filterNop(llvm::SmallVectorImpl<char>& buffer) const;
 public:
 	TeeLocals teeLocals;
 	std::vector<const llvm::Instruction*> deferred;
@@ -299,31 +300,33 @@ public:
 	void generateNOP(WasmBuffer& code);
 	void putNOP(WasmBuffer& code, uint32_t localId, uint32_t bufferOffset, bool isValueUsed)
 	{
-		const uint32_t old = code.tellp();
-		code.seekp(bufferOffset);
-		encodeU32Inst(0x22, "tee_local", localId, code);
-		const uint32_t currOffset = code.tellp();
-		code.seekp(bufferOffset);
+		llvm::SmallString<8> buf;
+		llvm::raw_svector_ostream wbuf(buf);
+		encodeU32Inst(0x22, "tee_local", localId, wbuf);
+		uint32_t teeSize = wbuf.tell();
 		if (!isValueUsed)
-			code << (char)0x1A; //DROP the value
-		nopLocations.push_back(code.tellp());
-		while (code.tellp() != currOffset)
 		{
-			code << (char)0x1; //NOP!
+			char drop = 0x1A; // DROP the value on the stack
+			code.pwrite(&drop, 1, bufferOffset++);
+			teeSize -= 1;
 		}
-		code.seekp(old);
+		nopLocations.push_back(bufferOffset);
+		buf.clear();
+		buf.assign(teeSize, 0x1 /*NOP*/);
+		code.pwrite(buf.begin(), teeSize, bufferOffset);
 	}
 	//IFF returns true, it has modified the buffer so to obtain an extra value on the stack
 	bool hasPutTeeLocalOnStack(WasmBuffer& code, const llvm::Value* v)
 	{
-		const uint32_t currOffset = code.tellp();
+		const uint32_t currOffset = code.tell();
 		uint32_t bufferOffset;
 		uint32_t localId;
 		if (teeLocals.couldPutTeeLocalOnStack(v, currOffset, bufferOffset, localId))
 		{
-			code.seekp(bufferOffset);
-			encodeU32Inst(0x22, "tee_local", localId, code);
-			code.seekp(currOffset);
+			llvm::SmallString<8> buf;
+			llvm::raw_svector_ostream wbuf(buf);
+			encodeU32Inst(0x22, "tee_local", localId, wbuf);
+			code.pwrite(buf.begin(), wbuf.tell(), bufferOffset);
 			return true;
 		}
 		return false;
@@ -383,7 +386,7 @@ private:
 
 	struct WasmBytesWriter: public LinearMemoryHelper::ByteListener
 	{
-		std::ostream& code;
+		WasmBuffer& code;
 		const CheerpWasmWriter& writer;
 		WasmBytesWriter(WasmBuffer& code, const CheerpWasmWriter& writer)
 			: code(code), writer(writer)
@@ -478,8 +481,8 @@ public:
 	void encodeLoad(const llvm::Type* ty, uint32_t offset, WasmBuffer& code, bool signExtend);
 	void encodeWasmIntrinsic(WasmBuffer& code, const llvm::Function* F);
 	void encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock);
-	void encodeDataSectionChunk(WasmBuffer& data, uint32_t address, const std::string& buf);
-	uint32_t encodeDataSectionChunks(WasmBuffer& data, uint32_t address, const std::string& buf);
+	void encodeDataSectionChunk(WasmBuffer& data, uint32_t address, llvm::StringRef buf);
+	uint32_t encodeDataSectionChunks(WasmBuffer& data, uint32_t address, llvm::StringRef buf);
 	void compileFloatToText(WasmBuffer& code, const llvm::APFloat& f, uint32_t precision);
 	GLOBAL_CONSTANT_ENCODING shouldEncodeConstantAsGlobal(const llvm::Constant* C, uint32_t useCount, uint32_t getGlobalCost);
 	bool requiresExplicitAssigment(const llvm::Instruction* phi, const llvm::Value* incoming);
