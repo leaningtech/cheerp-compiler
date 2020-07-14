@@ -64,17 +64,12 @@ namespace {
 
 enum LinearOutputTy {
   Wasm,
-  Wast,
   AsmJs,
 };
 LinearOutputTy parseLinearOutput()
 {
   if (LinearOutput.empty())
     return LinearOutputTy::Wasm;
-  if (LinearOutput.getValue() == "wast")
-  {
-    return LinearOutputTy::Wast;
-  }
   if (LinearOutput.getValue() == "asmjs")
   {
     return LinearOutputTy::AsmJs;
@@ -146,7 +141,6 @@ bool CheerpWritePass::runOnModule(Module& M)
   switch (outputMode)
   {
     case Wasm:
-    case Wast:
       if (!SecondaryOutputPath.empty())
         wasmFile = SecondaryOutputPath.getValue();
       else if (!SecondaryOutputFile.empty())
@@ -172,13 +166,10 @@ bool CheerpWritePass::runOnModule(Module& M)
 
   if (outputMode != AsmJs && secondaryOut)
   {
-    auto mode = outputMode == Wasm
-      ? cheerp::CheerpWasmWriter::OutputMode::WASM
-      : cheerp::CheerpWasmWriter::OutputMode::WAST;
     cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmOnly,
                                     PrettyCode, CfgLegacy, WasmSharedMemory,
-                                    !growMem, WasmExportedTable, mode);
+                                    !growMem, WasmExportedTable);
     wasmWriter.makeWasm();
   }
   if (!SecondaryOutputFile.empty() && ErrorCode)
