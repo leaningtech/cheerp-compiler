@@ -50,11 +50,6 @@ class CheerpWasmWriter
 public:
 	bool shouldDefer(const llvm::Instruction* I) const;
 
-	enum OutputMode {
-		WASM = 0,
-		WAST = 1,
-	};
-
 private:
 	llvm::Module& module;
 	llvm::Pass& pass;
@@ -299,14 +294,11 @@ public:
 
 	enum GLOBAL_CONSTANT_ENCODING { NONE = 0, FULL, GLOBAL };
 	const PointerAnalyzer & PA;
-	OutputMode mode;
 
 	void checkImplicitedAssignedPhi(const llvm::Function& F);
 	void generateNOP(WasmBuffer& code);
 	void putNOP(WasmBuffer& code, uint32_t localId, uint32_t bufferOffset, bool isValueUsed)
 	{
-		if (mode != CheerpWasmWriter::WASM)
-			return;
 		const uint32_t old = code.tellp();
 		code.seekp(bufferOffset);
 		encodeU32Inst(0x22, "tee_local", localId, code);
@@ -438,8 +430,7 @@ public:
 			bool useCfgLegacy,
 			bool sharedMemory,
 			bool noGrowMemory,
-			bool exportedTable,
-			OutputMode mode):
+			bool exportedTable):
 		module(m),
 		pass(p),
 		targetData(&m),
@@ -460,7 +451,6 @@ public:
 		noGrowMemory(noGrowMemory),
 		exportedTable(exportedTable),
 		PA(PA),
-		mode(mode),
 		inlineableCache(PA),
 		stream(s)
 	{
