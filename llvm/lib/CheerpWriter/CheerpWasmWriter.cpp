@@ -181,66 +181,41 @@ static void encodeLiteralType(const Type* t, WasmBuffer& stream)
 static void encodeOpcode(uint32_t opcode, const char* name,
 		CheerpWasmWriter& writer, WasmBuffer& code)
 {
-	if (writer.mode == CheerpWasmWriter::WASM) {
-		assert(opcode <= 255);
-		code << char(opcode);
-	} else {
-		assert(writer.mode == CheerpWasmWriter::WAST);
-		code << name << '\n';
-	}
+	assert(opcode <= 255);
+	code << char(opcode);
 }
 
 static void encodeS32Opcode(uint32_t opcode, const char* name,
 		int32_t immediate, CheerpWasmWriter& writer, WasmBuffer& code)
 {
-	if (writer.mode == CheerpWasmWriter::WASM) {
-		assert(opcode <= 255);
-		code << char(opcode);
-		encodeSLEB128(immediate, code);
-	} else {
-		assert(writer.mode == CheerpWasmWriter::WAST);
-		code << name << ' ' << immediate << '\n';
-	}
+	assert(opcode <= 255);
+	code << char(opcode);
+	encodeSLEB128(immediate, code);
 }
 
 static void encodeS64Opcode(uint32_t opcode, const char* name,
 		int64_t immediate, CheerpWasmWriter& writer, WasmBuffer& code)
 {
-	if (writer.mode == CheerpWasmWriter::WASM) {
-		assert(opcode <= 255);
-		code << char(opcode);
-		encodeSLEB128(immediate, code);
-	} else {
-		assert(writer.mode == CheerpWasmWriter::WAST);
-		code << name << ' ' << immediate << '\n';
-	}
+	assert(opcode <= 255);
+	code << char(opcode);
+	encodeSLEB128(immediate, code);
 }
 
 static void encodeU32Opcode(uint32_t opcode, const char* name,
 		uint32_t immediate, CheerpWasmWriter& writer, WasmBuffer& code)
 {
-	if (writer.mode == CheerpWasmWriter::WASM) {
-		assert(opcode <= 255);
-		code << char(opcode);
-		encodeULEB128(immediate, code);
-	} else {
-		assert(writer.mode == CheerpWasmWriter::WAST);
-		code << name << ' ' << immediate << '\n';
-	}
+	assert(opcode <= 255);
+	code << char(opcode);
+	encodeULEB128(immediate, code);
 }
 
 static void encodeU32U32Opcode(uint32_t opcode, const char* name,
 		uint32_t i1, uint32_t i2, CheerpWasmWriter& writer, WasmBuffer& code)
 {
-	if (writer.mode == CheerpWasmWriter::WASM) {
-		assert(opcode <= 255);
-		code << char(opcode);
-		encodeULEB128(i1, code);
-		encodeULEB128(i2, code);
-	} else {
-		assert(writer.mode == CheerpWasmWriter::WAST);
-		code << name << ' ' << i1 << ' ' << i2 << '\n';
-	}
+	assert(opcode <= 255);
+	code << char(opcode);
+	encodeULEB128(i1, code);
+	encodeULEB128(i2, code);
 }
 
 }
@@ -266,35 +241,31 @@ std::string string_to_hex(const std::string& input)
 Section::Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer)
 	: writer(writer)
 {
-	if (writer->mode == CheerpWasmWriter::WASM) {
-		std::ostringstream header;
-		internal::encodeULEB128(sectionId, header);
-		writer->stream << header.str();
+	std::ostringstream header;
+	internal::encodeULEB128(sectionId, header);
+	writer->stream << header.str();
 
-		// Custom sections have a section name.
-		if (!sectionId) {
-			internal::encodeULEB128(strlen(sectionName), *this);
-			(*this) << sectionName;
-		}
+	// Custom sections have a section name.
+	if (!sectionId) {
+		internal::encodeULEB128(strlen(sectionName), *this);
+		(*this) << sectionName;
 	}
 }
 Section::~Section()
 {
 	std::string buf = str();
-	if (writer->mode == CheerpWasmWriter::WASM) {
 #if WASM_DUMP_SECTIONS
-		uint64_t start = writer->stream.tell();
-		fprintf(stderr, "%10s id=0x%x start=0x%08lx end=0x%08lx size=0x%08lx\n",
-				sectionName, sectionId, start, start + buf.size(), buf.size());
+	uint64_t start = writer->stream.tell();
+	fprintf(stderr, "%10s id=0x%x start=0x%08lx end=0x%08lx size=0x%08lx\n",
+			sectionName, sectionId, start, start + buf.size(), buf.size());
 #if WASM_DUMP_SECTION_DATA
-		llvm::errs() << "section: " << string_to_hex(buf) << '\n';
+	llvm::errs() << "section: " << string_to_hex(buf) << '\n';
 #endif
 #endif
 
-		std::ostringstream prefix;
-		internal::encodeULEB128(buf.size(), prefix);
-		writer->stream << prefix.str();
-	}
+	std::ostringstream prefix;
+	internal::encodeULEB128(buf.size(), prefix);
+	writer->stream << prefix.str();
 	writer->stream << buf;
 }
 
@@ -312,7 +283,6 @@ private:
 	uint32_t labelLocal;
 	void renderCondition(const BasicBlock* B, const std::vector<int>& branchIds,
 			ConditionRenderMode mode);
-	void indent();
 	int findIndexFromLabel(int labelId);
 	int findClosestBlockIndex();
 public:
@@ -364,15 +334,6 @@ void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
 	{
 		writer->encodeInst(0x0f, "return", code);
 	}
-}
-
-void CheerpWasmRenderInterface::indent()
-{
-	if (writer->mode == CheerpWasmWriter::WASM)
-		return;
-
-	for(uint32_t i=0;i<blockTypes.size();i++)
-		code << "  ";
 }
 
 void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
@@ -493,10 +454,7 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 
 void CheerpWasmRenderInterface::renderLabelForSwitch(int labelId)
 {
-	if (writer->mode == CheerpWasmWriter::WASM)
-		writer->encodeU32Inst(0x02, "block", 0x40, code);
-	else
-		code << "block $" << labelId << '\n';
+	writer->encodeU32Inst(0x02, "block", 0x40, code);
 	blockTypes.emplace_back(LABEL_FOR_SWITCH, 1, labelId);
 }
 
@@ -687,12 +645,10 @@ void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int bra
 {
 	if(!first)
 	{
-		indent();
 		writer->encodeInst(0x05, "else", code);
 	}
 	// The condition goes first
 	renderCondition(bb, {branchId}, NormalCondition);
-	indent();
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	if(first)
 	{
@@ -709,12 +665,10 @@ void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const s
 {
 	if(!first)
 	{
-		indent();
 		writer->encodeInst(0x05, "else", code);
 	}
 	// The condition goes first
 	renderCondition(bb, skipBranchIds, InvertCondition);
-	indent();
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 
 	if(first)
@@ -733,7 +687,6 @@ void CheerpWasmRenderInterface::renderElseBlockBegin()
 	assert(!blockTypes.empty());
 	assert(blockTypes.back().type == IF);
 
-	indent();
 	writer->encodeInst(0x05, "else", code);
 }
 
@@ -746,7 +699,6 @@ void CheerpWasmRenderInterface::renderIfBlockEnd(bool)
 
 	for(uint32_t i = 0; i < block.depth; i++)
 	{
-		indent();
 		writer->encodeInst(0x0b, "end", code);
 	}
 }
@@ -773,7 +725,6 @@ void CheerpWasmRenderInterface::renderBlockEnd(bool)
 	{
 		for(uint32_t i = 0; i < block.depth; i++)
 		{
-			indent();
 			writer->encodeInst(0x0b, "end", code);
 		}
 	}
@@ -801,9 +752,7 @@ void CheerpWasmRenderInterface::renderWhileBlockBegin()
 	// Wrap a block in a loop so that:
 	// br 1 -> break
 	// br 2 -> continue
-	indent();
 	writer->encodeU32Inst(0x03, "loop", 0x40, code);
-	indent();
 	writer->encodeU32Inst(0x02, "block", 0x40, code);
 
 	blockTypes.emplace_back(WHILE1, 2);
@@ -814,38 +763,23 @@ void CheerpWasmRenderInterface::renderWhileBlockBegin(int blockLabel)
 	// Wrap a block in a loop so that:
 	// br 1 -> break
 	// br 2 -> continue
-	indent();
 
-	if (writer->mode == CheerpWasmWriter::WASM)
-		writer->encodeU32Inst(0x03, "loop", 0x40, code);
-	else
-		code << "loop $c" << blockLabel << "\n";
+	writer->encodeU32Inst(0x03, "loop", 0x40, code);
 
-	indent();
-
-	if (writer->mode == CheerpWasmWriter::WASM)
-		writer->encodeU32Inst(0x02, "block", 0x40, code);
-	else
-		code << "block $" << blockLabel << "\n";
+	writer->encodeU32Inst(0x02, "block", 0x40, code);
 
 	blockTypes.emplace_back(WHILE1, 2, blockLabel);
 }
 
 void CheerpWasmRenderInterface::renderDoBlockBegin()
 {
-	indent();
 	writer->encodeU32Inst(0x02, "block", 0x40, code);
 	blockTypes.emplace_back(DO, 1);
 }
 
 void CheerpWasmRenderInterface::renderDoBlockBegin(int blockLabel)
 {
-	indent();
-
-	if (writer->mode == CheerpWasmWriter::WASM)
-		writer->encodeU32Inst(0x02, "block", 0x40, code);
-	else
-		code << "block $" << blockLabel << "\n";
+	writer->encodeU32Inst(0x02, "block", 0x40, code);
 
 	blockTypes.emplace_back(DO, 1, blockLabel);
 }
@@ -856,7 +790,6 @@ void CheerpWasmRenderInterface::renderDoBlockEnd()
 	assert(blockTypes.back().type == DO);
 	blockTypes.pop_back();
 
-	indent();
 	writer->encodeInst(0x0b, "end", code);
 }
 
@@ -968,7 +901,6 @@ void CheerpWasmRenderInterface::renderIfOnLabel(int labelId, bool first)
 	writer->encodeS32Inst(0x41, "i32.const", labelId, code);
 	writer->encodeU32Inst(0x20, "get_local", labelLocal, code);
 	writer->encodeInst(0x46, "i32.eq", code);
-	indent();
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	blockTypes.emplace_back(IF, 1);
 }
@@ -1168,51 +1100,11 @@ void CheerpWasmWriter::encodeS64Inst(uint32_t opcode, const char* name, int64_t 
 
 void CheerpWasmWriter::encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code)
 {
-	if (mode == CheerpWasmWriter::WAST) {
-		// Do not print the immediate for some opcodes when mode is set to
-		// wast. Wast doesn't need the immediate, while wasm does.
-		switch(opcode) {
-			case 0x02: // "block"
-			case 0x03: // "loop"
-			case 0x04: // "if"
-				internal::encodeOpcode(opcode, name, *this, code);
-				return;
-			default:
-				break;
-		}
-	}
 	internal::encodeU32Opcode(opcode, name, immediate, *this, code);
 }
 
 void CheerpWasmWriter::encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code)
 {
-	if (mode == CheerpWasmWriter::WAST) {
-		// Do not print the immediates for some opcodes when mode is set to
-		// wast. Wast doesn't need the immediate, while wasm does.
-		switch(opcode) {
-			case 0x28: // "i32.load"
-			case 0x2a: // "f32.load"
-			case 0x2b: // "f64.load"
-			case 0x2c: // "i32.load8_s"
-			case 0x2d: // "i32.load8_u"
-			case 0x2e: // "i32.load16_s"
-			case 0x2f: // "i32.load16_u"
-			case 0x36: // "i32.store"
-			case 0x38: // "f32.store"
-			case 0x39: // "f64.store"
-			case 0x3a: // "i32.store8"
-			case 0x3b: // "i32.store16"
-				code << name;
-				if (i2)
-					code << " offset=" << i2;
-				if (i1)
-					code << " align=" << (1 << i1);
-				code << '\n';
-				return;
-			default:
-				break;
-		}
-	}
 	internal::encodeU32U32Opcode(opcode, name, i1, i2, *this, code);
 }
 
@@ -1425,18 +1317,11 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 
 void CheerpWasmWriter::encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock)
 {
-	if (mode == CheerpWasmWriter::WASM) {
-		encodeInst(0x0e, "br_table", code);
-		internal::encodeULEB128(table.size(), code);
-		for (auto label : table)
-			internal::encodeULEB128(label, code);
-		internal::encodeULEB128(defaultBlock, code);
-	} else {
-		code << "br_table";
-		for (auto label : table)
-			code << " " << label;
-		code << " " << defaultBlock << "\n";
-	}
+	encodeInst(0x0e, "br_table", code);
+	internal::encodeULEB128(table.size(), code);
+	for (auto label : table)
+		internal::encodeULEB128(label, code);
+	internal::encodeULEB128(defaultBlock, code);
 }
 
 void CheerpWasmWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison)
@@ -1497,18 +1382,14 @@ void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 
 void CheerpWasmWriter::compileTypedZero(WasmBuffer& code, llvm::Type* t)
 {
-	if (mode == CheerpWasmWriter::WASM) {
-		// Encode a literal f64, f32 or i32 zero as the return value.
-		internal::encodeLiteralType(t, code);
-		if (t->isDoubleTy()) {
-			internal::encodeF64(0., code);
-		} else if (t->isFloatTy()) {
-			internal::encodeF32(0.f, code);
-		} else {
-			internal::encodeSLEB128(0, code);
-		}
+	// Encode a literal f64, f32 or i32 zero as the return value.
+	internal::encodeLiteralType(t, code);
+	if (t->isDoubleTy()) {
+		internal::encodeF64(0., code);
+	} else if (t->isFloatTy()) {
+		internal::encodeF32(0.f, code);
 	} else {
-		code << getTypeString(t) << ".const 0\n";
+		internal::encodeSLEB128(0, code);
 	}
 }
 
@@ -1637,19 +1518,12 @@ void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool
 	}
 	else if(const ConstantFP* f=dyn_cast<ConstantFP>(c))
 	{
-		if (mode == CheerpWasmWriter::WASM) {
-			internal::encodeLiteralType(c->getType(), code);
-			if (c->getType()->isDoubleTy()) {
-				internal::encodeF64(f->getValueAPF().convertToDouble(), code);
-			} else {
-				assert(c->getType()->isFloatTy());
-				internal::encodeF32(f->getValueAPF().convertToFloat(), code);
-			}
+		internal::encodeLiteralType(c->getType(), code);
+		if (c->getType()->isDoubleTy()) {
+			internal::encodeF64(f->getValueAPF().convertToDouble(), code);
 		} else {
-			// TODO: use encodeInst() and friends.
-			code << getTypeString(f->getType()) << ".const ";
-			compileFloatToText(code, f->getValueAPF(), f->getType()->isFloatTy() ? 8 : 16);
-			code << '\n';
+			assert(c->getType()->isFloatTy());
+			internal::encodeF32(f->getValueAPF().convertToFloat(), code);
 		}
 	}
 	else if(const GlobalVariable* GV = dyn_cast<GlobalVariable>(c))
@@ -2559,15 +2433,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				{
 					const auto& table = linearHelper.getFunctionTables().at(fTy);
 					compileOperand(code, calledValue);
-					if (mode == CheerpWasmWriter::WASM) {
-						if(useTailCall)
-							encodeU32U32Inst(0x13, "return_call_indirect", table.typeIndex, 0, code);
-						else
-							encodeU32U32Inst(0x11, "call_indirect", table.typeIndex, 0, code);
-					} else {
-						//code << "call_indirect $vt_" << table.name << '\n';
-						code << "call_indirect " << table.typeIndex << '\n';
-					}
+					if(useTailCall)
+						encodeU32U32Inst(0x13, "return_call_indirect", table.typeIndex, 0, code);
+					else
+						encodeU32U32Inst(0x11, "call_indirect", table.typeIndex, 0, code);
 				}
 				else
 				{
@@ -3184,19 +3053,6 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 			}
 		}
 
-		// Display file and line markers in WAST for debugging purposes
-		const llvm::DebugLoc& debugLoc = I->getDebugLoc();
-		if (debugLoc && mode == CheerpWasmWriter::WAST) {
-			MDNode* file = debugLoc.getScope();
-			assert(file);
-			assert(file->getNumOperands()>=2);
-			MDNode* fileNamePath = cast<MDNode>(file->getOperand(1));
-			assert(fileNamePath->getNumOperands()==2);
-			StringRef fileName = cast<MDString>(fileNamePath->getOperand(0))->getString();
-			uint32_t currentLine = debugLoc.getLine();
-			code << ";; " << fileName.str() << ":" << currentLine << "\n";
-		}
-
 		if (!isInlineable(*I))
 		{
 			deferred.push_back(&*I);
@@ -3268,116 +3124,66 @@ void CheerpWasmWriter::renderDeferred(WasmBuffer& code, const vector<const llvm:
 
 void CheerpWasmWriter::compileMethodLocals(WasmBuffer& code, const vector<int>& locals)
 {
-	if (mode == CheerpWasmWriter::WASM) {
-		uint32_t groups = (uint32_t) locals.at(Registerize::INTEGER) > 0;
-		groups += (uint32_t) locals.at(Registerize::INTEGER64) > 0;
-		groups += (uint32_t) locals.at(Registerize::DOUBLE) > 0;
-		groups += (uint32_t) locals.at(Registerize::FLOAT) > 0;
-		groups += (uint32_t) locals.at(Registerize::OBJECT) > 0;
+	uint32_t groups = (uint32_t) locals.at(Registerize::INTEGER) > 0;
+	groups += (uint32_t) locals.at(Registerize::INTEGER64) > 0;
+	groups += (uint32_t) locals.at(Registerize::DOUBLE) > 0;
+	groups += (uint32_t) locals.at(Registerize::FLOAT) > 0;
+	groups += (uint32_t) locals.at(Registerize::OBJECT) > 0;
 
-		// Local declarations are compressed into a vector whose entries
-		// consist of:
-		//
-		//   - a u32 `count',
-		//   - a `ValType',
-		//
-		// denoting `count' locals of the same `ValType'.
-		internal::encodeULEB128(groups, code);
+	// Local declarations are compressed into a vector whose entries
+	// consist of:
+	//
+	//   - a u32 `count',
+	//   - a `ValType',
+	//
+	// denoting `count' locals of the same `ValType'.
+	internal::encodeULEB128(groups, code);
 
-		if (locals.at(Registerize::INTEGER)) {
-			internal::encodeULEB128(locals.at(Registerize::INTEGER), code);
-			internal::encodeRegisterKind(Registerize::INTEGER, code);
-		}
+	if (locals.at(Registerize::INTEGER)) {
+		internal::encodeULEB128(locals.at(Registerize::INTEGER), code);
+		internal::encodeRegisterKind(Registerize::INTEGER, code);
+	}
 
-		if (locals.at(Registerize::INTEGER64)) {
-			internal::encodeULEB128(locals.at(Registerize::INTEGER64), code);
-			internal::encodeRegisterKind(Registerize::INTEGER64, code);
-		}
+	if (locals.at(Registerize::INTEGER64)) {
+		internal::encodeULEB128(locals.at(Registerize::INTEGER64), code);
+		internal::encodeRegisterKind(Registerize::INTEGER64, code);
+	}
 
-		if (locals.at(Registerize::DOUBLE)) {
-			internal::encodeULEB128(locals.at(Registerize::DOUBLE), code);
-			internal::encodeRegisterKind(Registerize::DOUBLE, code);
-		}
+	if (locals.at(Registerize::DOUBLE)) {
+		internal::encodeULEB128(locals.at(Registerize::DOUBLE), code);
+		internal::encodeRegisterKind(Registerize::DOUBLE, code);
+	}
 
-		if (locals.at(Registerize::FLOAT)) {
-			internal::encodeULEB128(locals.at(Registerize::FLOAT), code);
-			internal::encodeRegisterKind(Registerize::FLOAT, code);
-		}
+	if (locals.at(Registerize::FLOAT)) {
+		internal::encodeULEB128(locals.at(Registerize::FLOAT), code);
+		internal::encodeRegisterKind(Registerize::FLOAT, code);
+	}
 
-		if (locals.at(Registerize::OBJECT)) {
-			internal::encodeULEB128(locals.at(Registerize::OBJECT), code);
-			internal::encodeRegisterKind(Registerize::OBJECT, code);
-		}
-	} else {
-		code << "(local";
-
-		if (locals.at(Registerize::INTEGER)) {
-			for (int i = 0; i < locals.at(Registerize::INTEGER); i++)
-				code << " i32";
-		}
-
-		if (locals.at(Registerize::INTEGER64)) {
-			for (int i = 0; i < locals.at(Registerize::INTEGER64); i++)
-				code << " i64";
-		}
-
-		if (locals.at(Registerize::DOUBLE)) {
-			for (int i = 0; i < locals.at(Registerize::DOUBLE); i++)
-				code << " f64";
-		}
-
-		if (locals.at(Registerize::FLOAT)) {
-			for (int i = 0; i < locals.at(Registerize::FLOAT); i++)
-				code << " f32";
-		}
-
-		if (locals.at(Registerize::OBJECT)) {
-			for (int i = 0; i < locals.at(Registerize::OBJECT); i++)
-				code << " anyref";
-		}
-
-		code << ")\n";
+	if (locals.at(Registerize::OBJECT)) {
+		internal::encodeULEB128(locals.at(Registerize::OBJECT), code);
+		internal::encodeRegisterKind(Registerize::OBJECT, code);
 	}
 }
 
 void CheerpWasmWriter::compileMethodParams(WasmBuffer& code, const FunctionType* fTy)
 {
 	uint32_t numArgs = fTy->getNumParams();
-	if (mode == CheerpWasmWriter::WASM)
-	{
 		internal::encodeULEB128(numArgs, code);
 
-		for(uint32_t i = 0; i < numArgs; i++)
-			internal::encodeValType(fTy->getParamType(i), code);
-	}
-	else if(fTy->getNumParams())
-	{
-		assert(mode == CheerpWasmWriter::WAST);
-		code << "(param";
-		for(uint32_t i = 0; i < numArgs; i++)
-			code << ' ' << getTypeString(fTy->getParamType(i));
-		code << ')';
-	}
+	for(uint32_t i = 0; i < numArgs; i++)
+		internal::encodeValType(fTy->getParamType(i), code);
 }
 
 void CheerpWasmWriter::compileMethodResult(WasmBuffer& code, const Type* ty)
 {
-	if (mode == CheerpWasmWriter::WASM)
+	if (ty->isVoidTy())
 	{
-		if (ty->isVoidTy())
-		{
-			internal::encodeULEB128(0, code);
-		}
-		else
-		{
-			internal::encodeULEB128(1, code);
-			internal::encodeValType(ty, code);
-		}
+		internal::encodeULEB128(0, code);
 	}
-	else if(!ty->isVoidTy())
+	else
 	{
-		assert(mode == CheerpWasmWriter::WAST);
-		code << "(result " << getTypeString(ty) << ')';
+		internal::encodeULEB128(1, code);
+		internal::encodeValType(ty, code);
 	}
 }
 
@@ -3508,14 +3314,6 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 {
 	std::vector<const Token*> ScopeStack;
 	const BasicBlock* lastDepth0Block = nullptr;
-	auto indent = [&]()
-	{
-		if (mode == CheerpWasmWriter::WASM)
-			return;
-
-		for(uint32_t i=0;i<ScopeStack.size();i++)
-			code << "  ";
-	};
 	auto getDepth = [&](const Token* Scope)
 	{
 		Scope = Scope->getKind() == Token::TK_Loop ? Scope : Scope->getMatch();
@@ -3549,7 +3347,6 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			case Token::TK_Loop:
 			{
 				teeLocals.addIndentation(code);
-				indent();
 				encodeU32Inst(0x03, "loop", 0x40, code);
 				ScopeStack.push_back(&T);
 				break;
@@ -3557,7 +3354,6 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			case Token::TK_Block:
 			{
 				teeLocals.addIndentation(code);
-				indent();
 				encodeU32Inst(0x02, "block", 0x40, code);
 				ScopeStack.emplace_back(&T);
 				break;
@@ -3591,7 +3387,6 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				assert(bi->isConditional());
 				compileCondition(code, bi->getCondition(), IfNot);
 				teeLocals.addIndentation(code);
-				indent();
 				encodeU32Inst(0x04, "if", 0x40, code);
 				ScopeStack.push_back(&T);
 				break;
@@ -3600,7 +3395,6 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			{
 				teeLocals.decreaseIndentation(code);
 				teeLocals.addIndentation(code);
-				indent();
 				encodeInst(0x05, "else", code);
 				break;
 			}
@@ -3615,7 +3409,6 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			{
 				teeLocals.decreaseIndentation(code);
 				ScopeStack.pop_back();
-				indent();
 				encodeInst(0x0b, "end", code);
 				break;
 			}
@@ -3662,20 +3455,6 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 {
 	assert(!F.empty());
 	currentFun = &F;
-
-	if (mode == CheerpWasmWriter::WAST)
-	{
-		code << "(func $" << F.getName().str();
-
-		// TODO: We should not export them all
-		code << " (export \"" << NameGenerator::filterLLVMName(F.getName(),
-					NameGenerator::NAME_FILTER_MODE::GLOBAL).str().str() << "\")";
-
-		compileMethodParams(code, F.getFunctionType());
-		compileMethodResult(code, F.getReturnType());
-
-		code << '\n';
-	}
 
 	uint32_t numArgs = F.arg_size();
 	const llvm::BasicBlock* lastDepth0Block = nullptr;
@@ -3793,13 +3572,8 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 		}
 	}
 
-	if (mode == CheerpWasmWriter::WASM) {
-		// Encode the end of the method.
-		internal::encodeULEB128(0x0b, code);
-	} else {
-		assert(mode == CheerpWasmWriter::WAST);
-		code << ")\n";
-	}
+	// Encode the end of the method.
+	internal::encodeULEB128(0x0b, code);
 }
 
 //The call to requiresExplicitAssigment has the side effect of perfomring bookkeeping on the implicited assigned instructions
@@ -3836,27 +3610,15 @@ void CheerpWasmWriter::compileTypeSection()
 
 	Section section(0x01, "Type", this);
 
-	if (mode == CheerpWasmWriter::WASM)
-	{
-		// Encode number of entries in the type section.
-		internal::encodeULEB128(linearHelper.getFunctionTypes().size(), section);
+	// Encode number of entries in the type section.
+	internal::encodeULEB128(linearHelper.getFunctionTypes().size(), section);
 
-		// Define function type variables
-		for (const auto& fTy : linearHelper.getFunctionTypes())
-		{
-			internal::encodeULEB128(0x60, section);
-			compileMethodParams(section, fTy);
-			compileMethodResult(section, fTy->getReturnType());
-		}
-	} else {
-		// Define function type variables
-		for (const auto& fTy : linearHelper.getFunctionTypes())
-		{
-			section << "(type " << "$vt_" << linearHelper.getFunctionTableName(fTy) << " (func ";
-			compileMethodParams(section, fTy);
-			compileMethodResult(section, fTy->getReturnType());
-			section << "))\n";
-		}
+	// Define function type variables
+	for (const auto& fTy : linearHelper.getFunctionTypes())
+	{
+		internal::encodeULEB128(0x60, section);
+		compileMethodParams(section, fTy);
+		compileMethodResult(section, fTy->getReturnType());
 	}
 }
 
@@ -3866,39 +3628,22 @@ void CheerpWasmWriter::compileImport(WasmBuffer& code, StringRef funcName, Funct
 
 	std::string fieldName = funcName;
 
-	if (mode == CheerpWasmWriter::WASM) {
-		// Encode the module name.
-		std::string moduleName = "i";
-		internal::encodeULEB128(moduleName.size(), code);
-		code.write(moduleName.data(), moduleName.size());
+	// Encode the module name.
+	std::string moduleName = "i";
+	internal::encodeULEB128(moduleName.size(), code);
+	code.write(moduleName.data(), moduleName.size());
 
-		// Encode the field name.
-		internal::encodeULEB128(fieldName.size(), code);
-		code.write(fieldName.data(), fieldName.size());
+	// Encode the field name.
+	internal::encodeULEB128(fieldName.size(), code);
+	code.write(fieldName.data(), fieldName.size());
 
-		// Encode kind as 'Function' (= 0).
-		internal::encodeULEB128(0x00, code);
+	// Encode kind as 'Function' (= 0).
+	internal::encodeULEB128(0x00, code);
 
-		// Encode type index of function signature.
-		const auto& found = linearHelper.getFunctionTypeIndices().find(fTy);
-		assert(found != linearHelper.getFunctionTypeIndices().end());
-		internal::encodeULEB128(found->second, code);
-	} else {
-		code << "(func (import \"i\" \"";
-		code.write(fieldName.data(), fieldName.size());
-		code << "\")";
-		uint32_t numArgs = fTy->getNumParams();
-		if(numArgs)
-		{
-			code << "(param";
-			for(uint32_t i = 0; i < numArgs; i++)
-				code << ' ' << getTypeString(fTy->getParamType(i));
-			code << ')';
-		}
-		if(!fTy->getReturnType()->isVoidTy())
-			code << "(result " << getTypeString(fTy->getReturnType()) << ')';
-		code << ")\n";
-	}
+	// Encode type index of function signature.
+	const auto& found = linearHelper.getFunctionTypeIndices().find(fTy);
+	assert(found != linearHelper.getFunctionTypeIndices().end());
+	internal::encodeULEB128(found->second, code);
 }
 
 void CheerpWasmWriter::compileImportSection()
@@ -3918,10 +3663,8 @@ void CheerpWasmWriter::compileImportSection()
 
 	Section section(0x02, "Import", this);
 
-	if (mode == CheerpWasmWriter::WASM) {
-		// Encode number of entries in the import section.
-		internal::encodeULEB128(importedTotal, section);
-	}
+	// Encode number of entries in the import section.
+	internal::encodeULEB128(importedTotal, section);
 
 	for (const Function* F : globalDeps.asmJSImports())
 		compileImport(section, namegen.getName(F), F->getFunctionType());
@@ -3960,7 +3703,7 @@ void CheerpWasmWriter::compileImportSection()
 
 void CheerpWasmWriter::compileFunctionSection()
 {
-	if (linearHelper.getFunctionTypes().empty() || mode != CheerpWasmWriter::WASM)
+	if (linearHelper.getFunctionTypes().empty())
 		return;
 
 	Section section(0x03, "Function", this);
@@ -3998,34 +3741,16 @@ void CheerpWasmWriter::compileTableSection()
 
 	Section section(0x04, "Table", this);
 
-	if (mode == CheerpWasmWriter::WASM) {
-		// Encode number of function tables in the table section.
-		internal::encodeULEB128(1, section);
+	// Encode number of function tables in the table section.
+	internal::encodeULEB128(1, section);
 
-		// Encode element type 'anyfunc'.
-		internal::encodeULEB128(0x70, section);
+	// Encode element type 'anyfunc'.
+	internal::encodeULEB128(0x70, section);
 
-		// Encode function tables in the table section.
-		// Use a 'limit' (= 0x00) with only a maximum value.
-		internal::encodeULEB128(0x00, section);
-		internal::encodeULEB128(count, section);
-	} else {
-		assert(mode == CheerpWasmWriter::WAST);
-		section << "(table anyfunc (elem";
-		size_t j = 0;
-		for (const FunctionType* fTy: linearHelper.getFunctionTableOrder()) {
-			const auto table = linearHelper.getFunctionTables().find(fTy);
-			for (const auto& F : table->second.functions) {
-				section << " $" << F->getName().str();
-				if (++j == COMPILE_METHOD_LIMIT)
-					break; // TODO
-			}
-			if (j == COMPILE_METHOD_LIMIT)
-				break; // TODO
-		}
-		section << "))\n";
-
-	}
+	// Encode function tables in the table section.
+	// Use a 'limit' (= 0x00) with only a maximum value.
+	internal::encodeULEB128(0x00, section);
+	internal::encodeULEB128(count, section);
 }
 
 CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstantAsGlobal(const Constant* C, uint32_t useCount, uint32_t getGlobalCost)
@@ -4067,24 +3792,17 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 	{
 		Section section(0x05, "Memory", this);
 
-		if (mode == CheerpWasmWriter::WASM) {
-			internal::encodeULEB128(1, section);
-			// from the spec:
-			//limits ::= 0x00 n:u32          => {min n, max e, unshared}
-			//           0x01 n:u32 m:u32    => {min n, max m, unshared}
-			//           0x03 n:u32 m:u32    => {min n, max m, shared}
-			// We use 0x01 and 0x03 only for now
-			int memType = sharedMemory ? 0x03 : 0x01;
-			internal::encodeULEB128(memType, section);
-			// Encode minimum and maximum memory parameters.
-			internal::encodeULEB128(minMemory, section);
-			internal::encodeULEB128(maxMemory, section);
-		} else {
-			section << "(memory (export \"" << namegen.getBuiltinName(NameGenerator::MEMORY).str() << "\") " << minMemory << ' ' << maxMemory;
-			if (sharedMemory)
-				section << " shared";
-			section << ")\n";
-		}
+		internal::encodeULEB128(1, section);
+		// from the spec:
+		//limits ::= 0x00 n:u32          => {min n, max e, unshared}
+		//           0x01 n:u32 m:u32    => {min n, max m, unshared}
+		//           0x03 n:u32 m:u32    => {min n, max m, shared}
+		// We use 0x01 and 0x03 only for now
+		int memType = sharedMemory ? 0x03 : 0x01;
+		internal::encodeULEB128(memType, section);
+		// Encode minimum and maximum memory parameters.
+		internal::encodeULEB128(minMemory, section);
+		internal::encodeULEB128(maxMemory, section);
 	}
 
 	// Temporary map for the globalized constants. We update the global one at the end, to avoid
@@ -4214,89 +3932,57 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 		stackTopGlobal = usedGlobals++;
 		uint32_t stackTop = linearHelper.getStackStart();
 
-		if (mode == CheerpWasmWriter::WASM) {
-			// There is the stack and the globalized constants
-			internal::encodeULEB128(1 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
-			// The global has type i32 (0x7f) and is mutable (0x01).
-			internal::encodeULEB128(0x7f, section);
-			internal::encodeULEB128(0x01, section);
-			// The global value is a 'i32.const' literal.
-			internal::encodeLiteralType(Type::getInt32Ty(Ctx), section);
-			internal::encodeSLEB128(stackTop, section);
-			// Encode the end of the instruction sequence.
-			internal::encodeULEB128(0x0b, section);
-			// Render globals in reverse order
-			for(auto it = orderedConstants.begin(); it != orderedConstants.end(); ++it)
+		// There is the stack and the globalized constants
+		internal::encodeULEB128(1 + globalizedConstantsTmp.size() + globalizedGlobalsIDs.size(), section);
+		// The global has type i32 (0x7f) and is mutable (0x01).
+		internal::encodeULEB128(0x7f, section);
+		internal::encodeULEB128(0x01, section);
+		// The global value is a 'i32.const' literal.
+		internal::encodeLiteralType(Type::getInt32Ty(Ctx), section);
+		internal::encodeSLEB128(stackTop, section);
+		// Encode the end of the instruction sequence.
+		internal::encodeULEB128(0x0b, section);
+		// Render globals in reverse order
+		for(auto it = orderedConstants.begin(); it != orderedConstants.end(); ++it)
+		{
+			const Constant* C = it->C;
+			if(it->encoding == NONE)
+				continue;
+			else if(it->encoding == GLOBAL)
 			{
-				const Constant* C = it->C;
-				if(it->encoding == NONE)
-					continue;
-				else if(it->encoding == GLOBAL)
-				{
-					const GlobalVariable* GV = cast<GlobalVariable>(C);
-					internal::encodeULEB128(internal::getValType(GV->getValueType()), section);
-					// Mutable -> 1
-					internal::encodeULEB128(0x01, section);
-					assert(GV->hasInitializer());
-					compileConstant(section, GV->getInitializer(), /*forGlobalInit*/true);
-					internal::encodeULEB128(0x0b, section);
-					continue;
-				}
-				// Constant type
-				uint32_t valType = 0;
-				switch(it->encoding)
-				{
-					case FULL:
-						valType = internal::getValType(C->getType());
-						break;
-					default:
-						assert(false);
-				}
-				internal::encodeULEB128(valType, section);
-				// Immutable -> 0
-				internal::encodeULEB128(0x00, section);
-				switch(it->encoding)
-				{
-					case FULL:
-					{
-						compileConstant(section, C, /*forGlobalInit*/true);
-						break;
-					}
-					default:
-						assert(false);
-				}
+				const GlobalVariable* GV = cast<GlobalVariable>(C);
+				internal::encodeULEB128(internal::getValType(GV->getValueType()), section);
+				// Mutable -> 1
+				internal::encodeULEB128(0x01, section);
+				assert(GV->hasInitializer());
+				compileConstant(section, GV->getInitializer(), /*forGlobalInit*/true);
 				internal::encodeULEB128(0x0b, section);
+				continue;
 			}
-		} else {
-			section << "(global (mut i32) (i32.const " << stackTop << "))\n";
-			for(auto it = orderedConstants.begin(); it != orderedConstants.end(); ++it)
+			// Constant type
+			uint32_t valType = 0;
+			switch(it->encoding)
 			{
-				const Constant* C = it->C;
-				if(it->encoding == NONE)
-					continue;
-				const char* strType = nullptr;
-				switch(it->encoding)
-				{
-					case FULL:
-						strType = getTypeString(C->getType());
-						break;
-					default:
-						assert(false);
-				}
-				stream << "(global " << strType << " (";
-				// Compile the constant expression
-				switch(it->encoding)
-				{
-					case FULL:
-					{
-						compileConstant(section, C, /*forGlobalInit*/true);
-						break;
-					}
-					default:
-						assert(false);
-				}
-				stream << "))\n";
+				case FULL:
+					valType = internal::getValType(C->getType());
+					break;
+				default:
+					assert(false);
 			}
+			internal::encodeULEB128(valType, section);
+			// Immutable -> 0
+			internal::encodeULEB128(0x00, section);
+			switch(it->encoding)
+			{
+				case FULL:
+				{
+					compileConstant(section, C, /*forGlobalInit*/true);
+					break;
+				}
+				default:
+					assert(false);
+			}
+			internal::encodeULEB128(0x0b, section);
 		}
 	}
 	globalizedConstants = std::move(globalizedConstantsTmp);
@@ -4304,9 +3990,6 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 
 void CheerpWasmWriter::compileExportSection()
 {
-	if (mode == CheerpWasmWriter::WAST)
-		return;
-
 	Section section(0x07, "Export", this);
 	std::vector<const llvm::Function*> exports;
 
@@ -4384,17 +4067,11 @@ void CheerpWasmWriter::compileStartSection()
 
 	Section section(0x08, "Start", this);
 
-	if (mode == CheerpWasmWriter::WASM) {
-		internal::encodeULEB128(functionId, section);
-	} else {
-		section << "(start " << functionId << ")\n";
-	}
+	internal::encodeULEB128(functionId, section);
 }
 
 void CheerpWasmWriter::compileElementSection()
 {
-	if (mode == CheerpWasmWriter::WAST)
-		return;
 	if (linearHelper.getFunctionTables().empty())
 		return;
 
@@ -4433,40 +4110,35 @@ void CheerpWasmWriter::compileCodeSection()
 {
 	Section section(0x0a, "Code", this);
 
-	if (mode == CheerpWasmWriter::WASM) {
-		// Encode the number of methods in the code section.
-		uint32_t count = linearHelper.functions().size();
-		count = std::min(count, COMPILE_METHOD_LIMIT);
-		internal::encodeULEB128(count, section);
+	// Encode the number of methods in the code section.
+	uint32_t count = linearHelper.functions().size();
+	count = std::min(count, COMPILE_METHOD_LIMIT);
+	internal::encodeULEB128(count, section);
 #if WASM_DUMP_METHODS
-		llvm::errs() << "method count: " << count << '\n';
+	llvm::errs() << "method count: " << count << '\n';
 #endif
-	}
 
 	size_t i = 0;
 
 	for (const Function* F: linearHelper.functions())
 	{
-		if (mode == CheerpWasmWriter::WASM) {
-			std::ostringstream method;
+		std::ostringstream method;
 #if WASM_DUMP_METHODS
-			llvm::errs() << i << " method name: " << F->getName() << '\n';
+		llvm::errs() << i << " method name: " << F->getName() << '\n';
 #endif
-			compileMethod(method, *F);
-			std::string buf = method.str();
+		compileMethod(method, *F);
+		std::string buf = method.str();
 
-			filterNop(buf);
-			nopLocations.clear();
+		filterNop(buf);
+		nopLocations.clear();
 
 #if WASM_DUMP_METHOD_DATA
-			llvm::errs() << "method length: " << buf.size() << '\n';
-			llvm::errs() << "method: " << string_to_hex(buf) << '\n';
+		llvm::errs() << "method length: " << buf.size() << '\n';
+		llvm::errs() << "method: " << string_to_hex(buf) << '\n';
 #endif
-			internal::encodeULEB128(buf.size(), section);
-			section << buf;
-		} else {
-			compileMethod(section, *F);
-		}
+		internal::encodeULEB128(buf.size(), section);
+		section << buf;
+
 		if (++i == COMPILE_METHOD_LIMIT)
 			break; // TODO
 	}
@@ -4474,21 +4146,17 @@ void CheerpWasmWriter::compileCodeSection()
 
 void CheerpWasmWriter::encodeDataSectionChunk(WasmBuffer& data, uint32_t address, const std::string& buf)
 {
-	if (mode == CheerpWasmWriter::WASM) {
-		// In the current version of WebAssembly, at most one memory is
-		// allowed in a module. Consequently, the only valid memidx is 0.
-		internal::encodeULEB128(0, data);
-		// The offset into memory, which is the address
-		internal::encodeLiteralType(Type::getInt32Ty(Ctx), data);
-		internal::encodeSLEB128(address, data);
-		// Encode the end of the instruction sequence.
-		internal::encodeULEB128(0x0b, data);
-		// Prefix the number of bytes to the bytes vector.
-		internal::encodeULEB128(buf.size(), data);
-		data.write(buf.data(), buf.size());
-	} else {
-		data << "(data (i32.const " << address << ") \"" << buf << "\")\n";
-	}
+	// In the current version of WebAssembly, at most one memory is
+	// allowed in a module. Consequently, the only valid memidx is 0.
+	internal::encodeULEB128(0, data);
+	// The offset into memory, which is the address
+	internal::encodeLiteralType(Type::getInt32Ty(Ctx), data);
+	internal::encodeSLEB128(address, data);
+	// Encode the end of the instruction sequence.
+	internal::encodeULEB128(0x0b, data);
+	// Prefix the number of bytes to the bytes vector.
+	internal::encodeULEB128(buf.size(), data);
+	data.write(buf.data(), buf.size());
 }
 
 uint32_t CheerpWasmWriter::encodeDataSectionChunks(WasmBuffer& data, uint32_t address, const std::string& buf)
@@ -4589,8 +4257,7 @@ void CheerpWasmWriter::compileDataSection()
 			break;
 	}
 
-	if (mode == CheerpWasmWriter::WASM)
-		internal::encodeULEB128(count, section);
+	internal::encodeULEB128(count, section);
 
 	std::string buf = data.str();
 	section.write(buf.data(), buf.size());
@@ -4598,9 +4265,6 @@ void CheerpWasmWriter::compileDataSection()
 
 void CheerpWasmWriter::compileNameSection()
 {
-	if (mode != CheerpWasmWriter::WASM)
-		return;
-
 	assert(prettyCode);
 	Section section(0x00, "name", this);
 
@@ -4628,25 +4292,20 @@ void CheerpWasmWriter::compileNameSection()
 
 void CheerpWasmWriter::compileModule()
 {
-	if (mode == CheerpWasmWriter::WAST) {
-		stream << "(module\n";
-	} else {
-		assert(mode == CheerpWasmWriter::WASM);
-		std::ostringstream code;
+	std::ostringstream code;
 
-		// Magic number for wasm.
-		internal::encodeULEB128(0x00, code);
-		internal::encodeULEB128(0x61, code);
-		internal::encodeULEB128(0x73, code);
-		internal::encodeULEB128(0x6D, code);
-		// Version number.
-		internal::encodeULEB128(0x01, code);
-		internal::encodeULEB128(0x00, code);
-		internal::encodeULEB128(0x00, code);
-		internal::encodeULEB128(0x00, code);
+	// Magic number for wasm.
+	internal::encodeULEB128(0x00, code);
+	internal::encodeULEB128(0x61, code);
+	internal::encodeULEB128(0x73, code);
+	internal::encodeULEB128(0x6D, code);
+	// Version number.
+	internal::encodeULEB128(0x01, code);
+	internal::encodeULEB128(0x00, code);
+	internal::encodeULEB128(0x00, code);
+	internal::encodeULEB128(0x00, code);
 
-		stream << code.str();
-	}
+	stream << code.str();
 
 	compileTypeSection();
 
@@ -4671,10 +4330,6 @@ void CheerpWasmWriter::compileModule()
 	if (prettyCode) {
 		compileNameSection();
 	}
-	
-	if (mode == CheerpWasmWriter::WAST) {
-		stream << ')';
-	}
 }
 
 void CheerpWasmWriter::makeWasm()
@@ -4684,13 +4339,7 @@ void CheerpWasmWriter::makeWasm()
 
 void CheerpWasmWriter::WasmBytesWriter::addByte(uint8_t byte)
 {
-	if (writer.mode == CheerpWasmWriter::WASM) {
-		code.write(reinterpret_cast<char*>(&byte), 1);
-	} else {
-		char buf[4];
-		snprintf(buf, 4, "\\%02x", byte);
-		code << buf;
-	}
+	code.write(reinterpret_cast<char*>(&byte), 1);
 }
 
 void CheerpWasmWriter::WasmGepWriter::addValue(const llvm::Value* v, uint32_t size)
