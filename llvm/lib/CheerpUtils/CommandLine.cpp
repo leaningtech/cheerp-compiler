@@ -1,7 +1,7 @@
 #include "llvm/Cheerp/CommandLine.h"
 
 llvm::cl::opt<std::string> LinearOutput("cheerp-linear-output", llvm::cl::Optional,
-  llvm::cl::desc("The output format of the linear memory part of the program [wasm/wast/asmjs]. Default: wasm"), llvm::cl::value_desc("output"));
+  llvm::cl::desc("The output format of the linear memory part of the program [wasm/asmjs]. Default: wasm"), llvm::cl::value_desc("output"));
 
 llvm::cl::opt<std::string> SecondaryOutputFile("cheerp-secondary-output-file", llvm::cl::Optional,
   llvm::cl::desc("If specified, the file name of the secondary output file"), llvm::cl::value_desc("filename"));
