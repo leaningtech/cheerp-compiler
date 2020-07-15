@@ -381,12 +381,23 @@ void CheerpWriter::compileType(Type* t, COMPILE_TYPE_STYLE style, StringRef varN
 			assert(mangledName.startswith("struct."));
 			mangledName = mangledName.drop_front(7);
 		}
-		demangler_iterator demangler( mangledName );
-		StringRef jsClassName = *demangler++;
 
 		// Special argument for only allocating the object, without calling the
 		// C++ constructor
-		stream << "new " << jsClassName << "(undefined)";
+		stream << "new ";
+
+		bool isFirst = true;
+		demangler_iterator demangler( mangledName );
+
+		while (demangler != demangler_iterator())
+		{
+			if (!isFirst)
+				stream << ".";
+			isFirst = false;
+			stream << *demangler++;
+		}
+
+		stream << "(undefined)";
 	}
 	else if(TypeSupport::isSimpleType(t, forceTypedArrays))
 	{

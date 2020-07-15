@@ -627,9 +627,10 @@ bool TypeSupport::isJSExportedType(StructType* st, const Module& m)
 	return m.getNamedMetadata(llvm::Twine(st->getName(),"_methods"))!=NULL;
 }
 
-std::pair<StructType*, StringRef> TypeSupport::getJSExportedTypeFromMetadata(StringRef name, const Module& module)
+std::pair<StructType*, std::string> TypeSupport::getJSExportedTypeFromMetadata(StringRef name, const Module& module)
 {
 	StringRef mangledName = name.drop_back(8);;
+
 	if(name.startswith("class."))
 		mangledName = mangledName.drop_front(6);
 	else
@@ -641,24 +642,20 @@ std::pair<StructType*, StringRef> TypeSupport::getJSExportedTypeFromMetadata(Str
 
 	demangler_iterator demangler( mangledName );
 
-	StringRef jsClassName = *demangler++;
+	std::string jsClassNameS = "";
 
-	if ( demangler != demangler_iterator() )
+	while (demangler != demangler_iterator())
 	{
-		std::string errorString = "Class: " + std::string(jsClassName);
-
-		for ( ; demangler != demangler_iterator(); ++ demangler )
-			errorString += "::" + std::string(*demangler);
-
-		errorString += " is not a valid [[jsexport]] class (not in global namespace)\n";
-
-		llvm::report_fatal_error( errorString );
+		jsClassNameS += *demangler++;
+		jsClassNameS += ".";
 	}
 
-	assert( jsClassName.end() > name.begin() && std::size_t(jsClassName.end() - name.begin()) <= name.size() );
-	StructType * t = module.getTypeByName( StringRef(name.begin(), jsClassName.end() - name.begin() ) );
+	jsClassNameS.pop_back();
+
+	assert( mangledName.end() > name.begin() && std::size_t(mangledName.end() - name.begin()) <= name.size() );
+	StructType * t = module.getTypeByName( StringRef(name.begin(), mangledName.end() - name.begin() ) );
 	assert(t);
-	return std::make_pair(t, jsClassName);
+	return std::make_pair(t, jsClassNameS);
 }
 
 bool TypeSupport::isSimpleType(Type* t, bool forceTypedArrays)
