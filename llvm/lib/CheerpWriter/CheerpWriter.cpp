@@ -6168,7 +6168,14 @@ void CheerpWriter::compileDeclareExports()
 			else
 			{
 				areJsExportedExportsDeclared = true;
-				stream << "var ";
+				
+				unsigned int i = 0;
+				for (unsigned int j=0; j<jsex.name[j]; j++)
+					if (jsex.name[j]=='.')
+						i++;
+				if (i==0)
+
+					stream << "var ";
 			}
 
 			stream << jsex.name << "=";
