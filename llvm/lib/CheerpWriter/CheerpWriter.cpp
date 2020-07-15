@@ -6080,6 +6080,9 @@ void CheerpWriter::compileGenericJS()
 
 	jsExportedDecls = buildJsExportedFuncAndName(module);
 	normalizeDeclList(jsExportedDecls);
+
+	//Now that jsExportedDecls are sorted, compile namespaces
+	compileNamespaces();
 }
 
 void CheerpWriter::compileDummies()
@@ -6185,6 +6188,94 @@ void CheerpWriter::compileDeclareExports()
 		assert(areDummiesDeclared);
 		//Set the promise of DUMMY_WITH_PROMISE
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ".promise=" << NewLine;
+	}
+}
+
+void CheerpWriter::compileNamespaces()
+{
+	class NestedNamespaceDeclarator
+	{
+	public:
+		NestedNamespaceDeclarator(CheerpWriter& writer)
+			: writer(writer), stream(writer.stream)
+		{}
+		void addName(StringRef name)
+		{
+			std::vector<StringRef> curr = decompose(name);
+
+			//Skip over top level declarations
+			if (curr.size() == 1)
+				return;
+
+			while (index >= curr.size())
+				doDecrease();
+
+			while (index>0 && curr[index] != last[index])
+				doDecrease();
+
+			last = curr;
+
+			while (index < curr.size())
+				doIncrease();
+		}
+		~NestedNamespaceDeclarator()
+		{
+			while (index > 0)
+				doDecrease();
+		}
+	private:
+		std::vector<StringRef> decompose(StringRef name)
+		{
+			std::vector<StringRef> layered;
+			unsigned int last = 0;
+			for (unsigned int i = 0;; i++)
+			{
+				if (i==name.size() || name[i] == '.')
+				{
+					assert(i > last);
+					layered.push_back(StringRef(name.begin()+last, i-last));
+					last = i+1;
+				}
+				if (i == name.size())
+					break;
+			}
+			return layered;
+		}
+		void doDecrease()
+		{
+			if (index != last.size())
+				stream << "}";
+			--index;
+			if (index == 0)
+				stream <<";";
+			else
+				stream <<",";
+			stream << writer.NewLine;
+		}
+		void doIncrease()
+		{
+			if (index == 0)
+				stream << "var " << last[index] << "=";
+			else
+				stream << last[index] << ":";
+			++index;
+			if (index == last.size())
+				stream << "null";
+			else
+				stream << "{" << writer.NewLine;
+		}
+		CheerpWriter& writer;
+		ostream_proxy& stream;
+		std::vector<StringRef> last;
+		StringRef lastWritten;
+		unsigned int index{0};
+	};
+
+	NestedNamespaceDeclarator NND(*this);
+
+	for (auto jsex : jsExportedDecls)
+	{
+		NND.addName(jsex.name);
 	}
 }
 
