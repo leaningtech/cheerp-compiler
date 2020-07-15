@@ -71,6 +71,14 @@ static std::vector<const llvm::MDNode*> uniqueMDNodes(const llvm::NamedMDNode& n
 
 void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
+	auto isNamespaced = [](const llvm::StringRef name) -> bool
+	{
+		for (auto x : name)
+			if (x == '.')
+				return true;
+		return false;
+	};
+
 	auto getFunctionName = [&](const Function * f) -> StringRef
 	{
 		StringRef mangledName = f->getName();
@@ -81,7 +89,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 	auto processFunction = [&](const Function * f) -> void
 	{
 		const StringRef name = getFunctionName(f);
-		if (alsoDeclare)
+		if (alsoDeclare && !isNamespaced(name))
 			stream << "var ";
 		stream << name << '=' << namegen.getName(f) << ';' << NewLine;
 	};
@@ -140,7 +148,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			return;
 		}
 
-		if (alsoDeclare)
+		if (alsoDeclare && !isNamespaced(jsClassName))
 			stream << "function " << jsClassName << '(';
 		else
 			stream << jsClassName << "=function (";
