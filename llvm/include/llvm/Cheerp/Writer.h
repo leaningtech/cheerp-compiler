@@ -683,6 +683,7 @@ private:
 	void compileCommonJSExports();
 	void compileConstructors();
 	void compileDummies();
+	void compileNamespaces();
 };
 
 }
