@@ -101,8 +101,13 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			StringRef mangledName = cast<Function>(cast<ConstantAsMetadata>(node->getOperand(0))->getValue())->getName();
 
 			demangler_iterator dmg(mangledName);
-			if ( *dmg++ != jsClassName )
-				assert( false && "[[jsexport]]: method should be in class" );
+
+			for (unsigned int i=0;i<jsClassName.size(); i++)
+			{
+				if (jsClassName[i] == '.')
+					dmg++;
+			}
+			dmg++;
 
 			StringRef functionName = *dmg++;
 
