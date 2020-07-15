@@ -14,6 +14,7 @@
 
 #include <cctype>
 #include <set>
+#include <string>
 #include <unordered_set>
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/SmallString.h"
@@ -397,7 +398,7 @@ public:
 
 	static bool isJSExportedType(llvm::StructType* st, const llvm::Module& m);
 
-	static std::pair<llvm::StructType*, llvm::StringRef> getJSExportedTypeFromMetadata(llvm::StringRef name, const llvm::Module & module);
+	static std::pair<llvm::StructType*, std::string> getJSExportedTypeFromMetadata(llvm::StringRef name, const llvm::Module & module);
 
 	// Returns true if the type is not considered a literal object or array in JS
 	static bool isSimpleType(llvm::Type* t, bool forceTypedArrays);

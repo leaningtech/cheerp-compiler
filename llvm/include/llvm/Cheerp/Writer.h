@@ -473,7 +473,7 @@ public:
 		{
 		}
 		const llvm::Function* F;
-		llvm::StringRef name;
+		std::string name;
 		bool isClass() const
 		{
 			return !F;
