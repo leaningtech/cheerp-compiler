@@ -201,7 +201,7 @@ std::string string_to_hex(StringRef input)
 }
 
 Section::Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer)
-	: llvm::raw_svector_ostream(buffer), writer(writer)
+	: writer(writer)
 {
 	encodeULEB128(sectionId, writer->stream);
 
@@ -4047,8 +4047,7 @@ void CheerpWasmWriter::compileElementSection()
 	encodeULEB128(0x0b, section);
 
 	// Encode the sequence of function indices.
-	llvm::SmallString<128> buffer;
-	llvm::raw_svector_ostream elem(buffer);
+	Chunk<128> elem;
 	size_t count = 0;
 	for (const FunctionType* fTy: linearHelper.getFunctionTableOrder()) {
 		const auto table = linearHelper.getFunctionTables().find(fTy);
@@ -4078,23 +4077,21 @@ void CheerpWasmWriter::compileCodeSection()
 
 	for (const Function* F: linearHelper.functions())
 	{
-		llvm::SmallString<128> buffer;
-		llvm::raw_svector_ostream method(buffer);
+		Chunk<128> method;
 #if WASM_DUMP_METHODS
 		llvm::errs() << i << " method name: " << F->getName() << '\n';
 #endif
 		compileMethod(method, *F);
-		buffer.resize(method.tell());
 
-		filterNop(buffer);
+		filterNop(method.buf());
 		nopLocations.clear();
 
 #if WASM_DUMP_METHOD_DATA
-		llvm::errs() << "method length: " << buffer.size() << '\n';
-		llvm::errs() << "method: " << string_to_hex(buffer) << '\n';
+		llvm::errs() << "method length: " << method.tell() << '\n';
+		llvm::errs() << "method: " << string_to_hex(method.str()) << '\n';
 #endif
-		encodeULEB128(buffer.size(), section);
-		section << buffer;
+		encodeULEB128(method.tell(), section);
+		section << method.str();
 
 		if (++i == COMPILE_METHOD_LIMIT)
 			break; // TODO
@@ -4149,8 +4146,7 @@ void CheerpWasmWriter::compileDataSection()
 {
 	Section section(0x0b, "Data", this);
 
-	llvm::SmallString<128> buffer;
-	llvm::raw_svector_ostream data(buffer);
+	Chunk<128> data;
 	uint32_t count = 0;
 
 	auto globals = linearHelper.addressableGlobals();
@@ -4168,8 +4164,7 @@ void CheerpWasmWriter::compileDataSection()
 		// Concatenate global variables into one big binary blob. This
 		// optimization omits the data section item header, and that will save
 		// a minimum of 5 bytes per global variable.
-		llvm::SmallString<128> bytesBuffer;
-		llvm::raw_svector_ostream bytes(bytesBuffer);
+		Chunk<128> bytes;
 		WasmBytesWriter bytesWriter(bytes, *this);
 
 		for (; g != e; ++g) {
@@ -4227,8 +4222,7 @@ void CheerpWasmWriter::compileNameSection()
 
 	// Assign names to functions
 	{
-		llvm::SmallString<128> buffer;
-		llvm::raw_svector_ostream data(buffer);
+		Chunk<128> data;
 		uint32_t count = linearHelper.functions().size();
 		encodeULEB128(count, data);
 
