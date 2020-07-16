@@ -126,31 +126,31 @@ namespace TypedBuiltinInstr
 	x("i64.ctz", 0x7a, "", CTZ_64) \
 
 #define TYPED_FUNCTIONS_LIST(x) \
-	x(ACOS_F32, ACOS_F64, "acos", "acosf") \
-	x(ASIN_F32, ASIN_F64, "asin", "asinf") \
-	x(ATAN_F32, ATAN_F64, "atan", "atanf") \
-	x(ATAN2_F32, ATAN2_F64, "atan2", "atan2f") \
-	x(COS_F32, COS_F64, "cos", "cosf") \
-	x(EXP_F32, EXP_F64, "exp", "expf") \
-	x(LOG_F32, LOG_F64, "log", "logf") \
-	x(POW_F32, POW_F64, "pow", "powf") \
-	x(SIN_F32, SIN_F64, "sin", "sinf") \
-	x(TAN_F32, TAN_F64, "tan", "tanf") \
+	x(ACOS_F32, ACOS_F64, "acosf", "acos") \
+	x(ASIN_F32, ASIN_F64, "asinf", "asin") \
+	x(ATAN_F32, ATAN_F64, "atanf", "atan") \
+	x(ATAN2_F32, ATAN2_F64, "atan2f", "atan2") \
+	x(COS_F32, COS_F64, "cosf", "cos") \
+	x(EXP_F32, EXP_F64, "expf", "exp") \
+	x(LOG_F32, LOG_F64, "logf", "log") \
+	x(POW_F32, POW_F64, "powf", "pow") \
+	x(SIN_F32, SIN_F64, "sinf", "sin") \
+	x(TAN_F32, TAN_F64, "tanf", "tan") \
 
 
 #define LLVM_BUILTINS_TO_LOWER_LIST(x) \
-	x(llvm::Intrinsic::log2, "log2", "log2f") \
-	x(llvm::Intrinsic::fma, "fma", "fmaf") \
-	x(llvm::Intrinsic::maxnum, "fmax", "fmaxf") \
-	x(llvm::Intrinsic::minnum, "fmin", "fminf") \
-	x(llvm::Intrinsic::rint, "rint", "rintf") \
-	x(llvm::Intrinsic::round, "round", "roundf") \
-	x(llvm::Intrinsic::sin, "sin", "sinf") \
-	x(llvm::Intrinsic::cos, "cos", "cosf") \
+	x(llvm::Intrinsic::log2, "log2f", "log2") \
+	x(llvm::Intrinsic::fma, "fmaf", "fma") \
+	x(llvm::Intrinsic::maxnum, "fmaxf", "fmax") \
+	x(llvm::Intrinsic::minnum, "fminf", "fmin") \
+	x(llvm::Intrinsic::rint, "rintf", "rint") \
+	x(llvm::Intrinsic::round, "roundf", "round") \
+	x(llvm::Intrinsic::sin, "sinf", "sin") \
+	x(llvm::Intrinsic::cos, "cosf", "cos") \
 
 inline bool mayBeLoweredInto(const llvm::Function& F)
 {
-#define TO_BE_LOWERED_INTO(builtin, FNameDouble, FNameFloat) \
+#define TO_BE_LOWERED_INTO(builtin, FNameFloat, FNameDouble) \
 	if (F.getName() == FNameDouble || F.getName() == FNameFloat) \
 		return true;
 LLVM_BUILTINS_TO_LOWER_LIST(TO_BE_LOWERED_INTO)
@@ -167,7 +167,7 @@ inline llvm::Function* functionToLowerInto(const llvm::Function& F, llvm::Module
 
 	switch (builtinId)
 	{
-#define TO_BE_LOWERED_INTO(builtin, FNameDouble, FNameFloat) \
+#define TO_BE_LOWERED_INTO(builtin, FNameFloat, FNameDouble) \
 	case builtin: \
 		return module.getFunction(floatType ? FNameFloat : FNameDouble);
 LLVM_BUILTINS_TO_LOWER_LIST(TO_BE_LOWERED_INTO)
