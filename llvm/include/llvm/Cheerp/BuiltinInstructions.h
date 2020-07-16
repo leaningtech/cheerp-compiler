@@ -14,6 +14,7 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Cheerp/WasmOpcodes.h"
 
 namespace cheerp
 {
@@ -100,30 +101,30 @@ inline BUILTIN getMathBuiltin(const llvm::Function& F)
 namespace TypedBuiltinInstr
 {
 #define WASM_INTRINSIC_LIST_BUILTIN(x) \
-	x("f32.abs", 0x8b, "fabsf", ABS_F32) \
-	x("f32.ceil", 0x8d, "ceilf", CEIL_F32) \
-	x("f32.floor", 0x8e, "floorf", FLOOR_F32) \
-	x("f32.trunc", 0x8f, "truncf", TRUNC_F32) \
-	x("f32.nearest", 0x90, "roundf", ROUND_F32) \
-	x("f32.sqrt", 0x91, "sqrtf", SQRT_F32) \
-	x("f32.min", 0x96, "fminf", MIN_F32) \
-	x("f32.max", 0x97, "fmaxf", MAX_F32) \
-	x("f32.copysign", 0x98, "copysignf", COPYSIGN_F32) \
+	x(F32_ABS, "fabsf", ABS_F32) \
+	x(F32_CEIL, "ceilf", CEIL_F32) \
+	x(F32_FLOOR, "floorf", FLOOR_F32) \
+	x(F32_TRUNC, "truncf", TRUNC_F32) \
+	x(F32_NEAREST, "roundf", ROUND_F32) \
+	x(F32_SQRT, "sqrtf", SQRT_F32) \
+	x(F32_MIN, "fminf", MIN_F32) \
+	x(F32_MAX, "fmaxf", MAX_F32) \
+	x(F32_COPYSIGN, "copysignf", COPYSIGN_F32) \
 	\
-	x("f64.abs", 0x99, "fabs", ABS_F64) \
-	x("f64.ceil", 0x9b, "ceil", CEIL_F64) \
-	x("f64.floor", 0x9c, "floor", FLOOR_F64) \
-	x("f64.trunc", 0x9d, "trunc", TRUNC_F64) \
-	x("f64.nearest", 0x9e, "round", ROUND_F64) \
-	x("f64.sqrt", 0x9f, "sqrt", SQRT_F64) \
-	x("f64.min", 0xa4, "fmin", MIN_F64) \
-	x("f64.max", 0xa5, "fmax", MAX_F64) \
-	x("f64.copysign", 0xa6, "copysign", COPYSIGN_F64) \
+	x(F64_ABS, "fabs", ABS_F64) \
+	x(F64_CEIL, "ceil", CEIL_F64) \
+	x(F64_FLOOR, "floor", FLOOR_F64) \
+	x(F64_TRUNC, "trunc", TRUNC_F64) \
+	x(F64_NEAREST, "round", ROUND_F64) \
+	x(F64_SQRT, "sqrt", SQRT_F64) \
+	x(F64_MIN, "fmin", MIN_F64) \
+	x(F64_MAX, "fmax", MAX_F64) \
+	x(F64_COPYSIGN, "copysign", COPYSIGN_F64) \
 	\
-	x("i32.clz", 0x67, "", CLZ_32) \
-	x("i32.ctz", 0x68, "", CTZ_32) \
-	x("i64.clz", 0x79, "", CLZ_64) \
-	x("i64.ctz", 0x7a, "", CTZ_64) \
+	x(I32_CLZ, "", CLZ_32) \
+	x(I32_CTZ, "", CTZ_32) \
+	x(I64_CLZ, "", CLZ_64) \
+	x(I64_CTZ, "", CTZ_64) \
 
 #define TYPED_FUNCTIONS_LIST(x) \
 	x(ACOS_F32, ACOS_F64, "acosf", "acos") \
@@ -181,7 +182,7 @@ inline bool isValidWasmMathBuiltin(const TYPED_BUILTIN& b)
 {
 	switch (b)
 	{
-#define WASM_INTRINSIC(name, opcode, Fname, builtin) \
+#define WASM_INTRINSIC(opcode, Fname, builtin) \
 	case builtin: \
 		return true;
 WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
@@ -208,43 +209,27 @@ inline uint32_t numExtraParameters(const llvm::Function* F)
 	return 0;
 }
 
-inline uint32_t opcodeWasmBuiltin(const TYPED_BUILTIN& b)
+inline WasmOpcode opcodeWasmBuiltin(const TYPED_BUILTIN& b)
 {
 	switch (b)
 	{
-#define WASM_INTRINSIC(name, opcode, Fname, builtin) \
+#define WASM_INTRINSIC(opcode, Fname, builtin) \
 	case builtin: \
-		return opcode;
+		return WasmOpcode::opcode;
 WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
 #undef WASM_INTRINSIC
 	default:
 		break;
 	}
 	llvm_unreachable("A builtin should have been found");
-	return 0;
-}
-
-inline const char* nameWasmBuiltin(const TYPED_BUILTIN& b)
-{
-	switch (b)
-	{
-#define WASM_INTRINSIC(name, opcode, Fname, builtin) \
-	case builtin: \
-		return name;
-WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
-#undef WASM_INTRINSIC
-	default:
-		break;
-	}
-	llvm_unreachable("A builtin should have been found");
-	return "";
+	return WasmOpcode::UNREACHABLE;
 }
 
 inline std::string functionName(const TYPED_BUILTIN& b)
 {
 	switch (b)
 	{
-#define WASM_INTRINSIC(name, opcode, Fname, builtin) \
+#define WASM_INTRINSIC(opcode, Fname, builtin) \
 	case TYPED_BUILTIN::builtin: \
 		return Fname;
 WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
@@ -270,7 +255,7 @@ TYPED_FUNCTIONS_LIST(TYPED_FUNCTIONS)
 
 inline TYPED_BUILTIN getMathTypedBuiltin(const llvm::Function& F)
 {
-#define WASM_INTRINSIC(name, opcode, Fname, builtin) \
+#define WASM_INTRINSIC(opcode, Fname, builtin) \
 	if (F.getName() == Fname) \
 		return builtin;
 WASM_INTRINSIC_LIST_BUILTIN(WASM_INTRINSIC)
