@@ -230,6 +230,8 @@ private:
 	bool areJsExportedExportsDeclared{false};
 	// Flag to signal whether a module/promise should be closed
 	bool isPromiseOrModuleOpen{false};
+	// Flag to signal whether the root object has been deemed necessary
+	bool isRootNeeded{false};
 
 	/**
 	 * \addtogroup MemFunction methods to handle memcpy, memmove, mallocs and free (and alike)
@@ -684,7 +686,7 @@ private:
 	void compileConstructors();
 	void compileDummies();
 	void compileNamespaces();
-	void compileRoot();
+	void compileRootIfNeeded();
 };
 
 }
