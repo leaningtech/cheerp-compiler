@@ -6088,9 +6088,6 @@ void CheerpWriter::compileGenericJS()
 
 	jsExportedDecls = buildJsExportedFuncAndName(module);
 	normalizeDeclList(jsExportedDecls);
-
-	//Now that jsExportedDecls are sorted, compile namespaces
-	compileNamespaces();
 }
 
 void CheerpWriter::compileDummies()
@@ -6286,6 +6283,8 @@ void CheerpWriter::compileNamespaces()
 		unsigned int index{0};
 	};
 
+	compileRootIfNeeded();
+
 	NestedNamespaceDeclarator NND(*this);
 
 	for (auto jsex : jsExportedDecls)
@@ -6431,7 +6430,7 @@ void CheerpWriter::makeJS()
 		compileAsmJS();
 	compileGenericJS();
 
-	compileRootIfNeeded();
+	compileNamespaces();
 
 	if (needAssignHeaps)
 		compileAssignHeaps();
