@@ -5851,11 +5851,14 @@ void CheerpWriter::compileModuleClosureBegin()
 {
 	stream << "(function(){" << NewLine;
 
-	compileRoot();
+	isRootNeeded = true;
 }
 
-void CheerpWriter::compileRoot()
+void CheerpWriter::compileRootIfNeeded()
 {
+	if (!isRootNeeded)
+		return;
+
 	if (hasJSExports()) {
 		// The following JavaScript code originates from:
 		// https://github.com/jashkenas/underscore/blob/master/underscore.js
@@ -6427,6 +6430,9 @@ void CheerpWriter::makeJS()
 	if (needAsmJSModule)
 		compileAsmJS();
 	compileGenericJS();
+
+	compileRootIfNeeded();
+
 	if (needAssignHeaps)
 		compileAssignHeaps();
 	if (needWasmLoader)
