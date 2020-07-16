@@ -684,6 +684,7 @@ private:
 	void compileConstructors();
 	void compileDummies();
 	void compileNamespaces();
+	void compileRoot();
 };
 
 }
