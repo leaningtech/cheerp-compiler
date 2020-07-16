@@ -21,6 +21,7 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/TokenList.h"
 #include "llvm/Cheerp/DeterministicUnorderedSet.h"
+#include "llvm/Cheerp/WasmOpcodes.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Metadata.h"
@@ -481,7 +482,7 @@ public:
 	void compileSignedInteger(WasmBuffer& code, const llvm::Value* v, bool forComparison);
 	void compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v);
 	void compileTypedZero(WasmBuffer& code, llvm::Type* t);
-	void encodeInst(uint32_t opcode, const char* name, WasmBuffer& code);
+	static void encodeInst(WasmOpcode opcode, WasmBuffer& code);
 	void encodeBinOp(const llvm::Instruction& I, WasmBuffer& code);
 	void encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code);
 	void encodeS64Inst(uint32_t opcode, const char* name, int64_t immediate, WasmBuffer& code);
