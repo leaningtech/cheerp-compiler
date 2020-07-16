@@ -142,13 +142,6 @@ static void encodeLiteralType(const Type* t, WasmBuffer& stream)
 	}
 }
 
-static void encodeOpcode(uint32_t opcode, const char* name,
-		CheerpWasmWriter& writer, WasmBuffer& code)
-{
-	assert(opcode <= 255);
-	code << char(opcode);
-}
-
 static void encodeS32Opcode(uint32_t opcode, const char* name,
 		int32_t immediate, CheerpWasmWriter& writer, WasmBuffer& code)
 {
@@ -289,7 +282,7 @@ void CheerpWasmRenderInterface::renderBlock(const BasicBlock* bb)
 
 	if (!lastDepth0Block && isa<ReturnInst>(bb->getTerminator()))
 	{
-		writer->encodeInst(0x0f, "return", code);
+		writer->encodeInst(WasmOpcode::RETURN, code);
 	}
 }
 
@@ -331,7 +324,7 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 				else
 					writer->compileUnsignedInteger(code, ci->getOperand(0));
 				if(p == CmpInst::ICMP_EQ)
-					writer->encodeInst(0x45, "i32.eqz", code);
+					writer->encodeInst(WasmOpcode::I32_EQZ, code);
 				return;
 			}
 			writer->compileICmp(*ci, p, code);
@@ -349,7 +342,7 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 			writer->compileOperand(code, bi->getCondition());
 			if (mode == InvertCondition) {
 				// Invert result
-				writer->encodeInst(0x45, "i32.eqz", code);
+				writer->encodeInst(WasmOpcode::I32_EQZ, code);
 			}
 		}
 	}
@@ -366,9 +359,9 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 			writer->compileOperand(code, si->getCondition());
 			writer->compileOperand(code, it->getCaseValue());
 			if(mode == InvertCondition)
-				writer->encodeInst(0x47, "i32.ne", code);
+				writer->encodeInst(WasmOpcode::I32_NE, code);
 			else
-				writer->encodeInst(0x46, "i32.eq", code);
+				writer->encodeInst(WasmOpcode::I32_EQ, code);
 			//We found the destination, there may be more cases for the same
 			//destination though
 			for(++it;it!=si->case_end();++it)
@@ -380,22 +373,22 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 					writer->compileOperand(code, it->getCaseValue());
 					if(mode == InvertCondition)
 					{
-						writer->encodeInst(0x47, "i32.ne", code);
-						writer->encodeInst(0x71, "i32.and", code);
+						writer->encodeInst(WasmOpcode::I32_NE, code);
+						writer->encodeInst(WasmOpcode::I32_AND, code);
 					}
 					else
 					{
-						writer->encodeInst(0x46, "i32.eq", code);
-						writer->encodeInst(0x72, "i32.or", code);
+						writer->encodeInst(WasmOpcode::I32_EQ, code);
+						writer->encodeInst(WasmOpcode::I32_OR, code);
 					}
 				}
 			}
 			if (!first)
 			{
 				if(mode == InvertCondition)
-					writer->encodeInst(0x71, "i32.and", code);
+					writer->encodeInst(WasmOpcode::I32_AND, code);
 				else
-					writer->encodeInst(0x72, "i32.or", code);
+					writer->encodeInst(WasmOpcode::I32_OR, code);
 			}
 			first = false;
 		}
@@ -450,16 +443,16 @@ void CheerpWasmRenderInterface::renderSwitchOnLabel(IdShapeMap& idShapeMap)
 	if (min != 0)
 	{
 		writer->encodeS32Inst(0x41, "i32.const", min, code);
-		writer->encodeInst(0x6b, "i32.sub", code);
+		writer->encodeInst(WasmOpcode::I32_SUB, code);
 	}
 
 	writer->encodeBranchTable(code, table, 0);
 
-	writer->encodeInst(0x0b, "end", code);
+	writer->encodeInst(WasmOpcode::END, code);
 
 	// The first block does not do anything, and breaks out of the switch.
 	writer->encodeU32Inst(0x0c, "br", idShapeMap.size(), code);
-	writer->encodeInst(0x0b, "end", code);
+	writer->encodeInst(WasmOpcode::END, code);
 
 	blockTypes.emplace_back(SWITCH, 0);
 	blockTypes.emplace_back(CASE, idShapeMap.size());
@@ -568,19 +561,19 @@ void CheerpWasmRenderInterface::renderSwitchBlockBegin(const SwitchInst* si, Blo
 	if (min != 0)
 	{
 		writer->encodeS32Inst(0x41, "i32.const", min, code);
-		writer->encodeInst(0x6b, "i32.sub", code);
+		writer->encodeInst(WasmOpcode::I32_SUB, code);
 	}
 	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
 	{
 		assert(bitWidth < 32);
 		writer->encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
-		writer->encodeInst(0x71, "i32.and", code);
+		writer->encodeInst(WasmOpcode::I32_AND, code);
 	}
 
 	// Print the case labels and the default label.
 	writer->encodeBranchTable(code, table, caseBlocks);
 
-	writer->encodeInst(0x0b, "end", code);
+	writer->encodeInst(WasmOpcode::END, code);
 
 	blockTypes.emplace_back(SWITCH, 0);
 	blockTypes.emplace_back(CASE, caseBlocks + 1);
@@ -602,7 +595,7 @@ void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, int bra
 {
 	if(!first)
 	{
-		writer->encodeInst(0x05, "else", code);
+		writer->encodeInst(WasmOpcode::ELSE, code);
 	}
 	// The condition goes first
 	renderCondition(bb, {branchId}, NormalCondition);
@@ -622,7 +615,7 @@ void CheerpWasmRenderInterface::renderIfBlockBegin(const BasicBlock* bb, const s
 {
 	if(!first)
 	{
-		writer->encodeInst(0x05, "else", code);
+		writer->encodeInst(WasmOpcode::ELSE, code);
 	}
 	// The condition goes first
 	renderCondition(bb, skipBranchIds, InvertCondition);
@@ -644,7 +637,7 @@ void CheerpWasmRenderInterface::renderElseBlockBegin()
 	assert(!blockTypes.empty());
 	assert(blockTypes.back().type == IF);
 
-	writer->encodeInst(0x05, "else", code);
+	writer->encodeInst(WasmOpcode::ELSE, code);
 }
 
 void CheerpWasmRenderInterface::renderIfBlockEnd(bool)
@@ -656,7 +649,7 @@ void CheerpWasmRenderInterface::renderIfBlockEnd(bool)
 
 	for(uint32_t i = 0; i < block.depth; i++)
 	{
-		writer->encodeInst(0x0b, "end", code);
+		writer->encodeInst(WasmOpcode::END, code);
 	}
 }
 
@@ -669,20 +662,20 @@ void CheerpWasmRenderInterface::renderBlockEnd(bool)
 	if(block.type == WHILE1)
 	{
 		writer->encodeU32Inst(0x0c, "br", 1, code);
-		writer->encodeInst(0x0b, "end", code);
-		writer->encodeInst(0x0b, "end", code);
+		writer->encodeInst(WasmOpcode::END, code);
+		writer->encodeInst(WasmOpcode::END, code);
 	}
 	else if (block.type == CASE)
 	{
 		if (--block.depth > 0)
 			blockTypes.push_back(block);
-		writer->encodeInst(0x0b, "end", code);
+		writer->encodeInst(WasmOpcode::END, code);
 	}
 	else if(block.type == IF || block.type == DO)
 	{
 		for(uint32_t i = 0; i < block.depth; i++)
 		{
-			writer->encodeInst(0x0b, "end", code);
+			writer->encodeInst(WasmOpcode::END, code);
 		}
 	}
 	else if (block.type == SWITCH)
@@ -690,7 +683,7 @@ void CheerpWasmRenderInterface::renderBlockEnd(bool)
 		assert(block.depth == 0);
 		if (!blockTypes.empty() && blockTypes.back().type == LABEL_FOR_SWITCH) {
 			blockTypes.pop_back();
-			writer->encodeInst(0x0b, "end", code);
+			writer->encodeInst(WasmOpcode::END, code);
 		}
 	}
 	else
@@ -747,7 +740,7 @@ void CheerpWasmRenderInterface::renderDoBlockEnd()
 	assert(blockTypes.back().type == DO);
 	blockTypes.pop_back();
 
-	writer->encodeInst(0x0b, "end", code);
+	writer->encodeInst(WasmOpcode::END, code);
 }
 
 void CheerpWasmRenderInterface::renderBlockBegin(int labelId)
@@ -857,14 +850,14 @@ void CheerpWasmRenderInterface::renderIfOnLabel(int labelId, bool first)
 	// TODO: Use first to optimize dispatch
 	writer->encodeS32Inst(0x41, "i32.const", labelId, code);
 	writer->encodeU32Inst(0x20, "get_local", labelLocal, code);
-	writer->encodeInst(0x46, "i32.eq", code);
+	writer->encodeInst(WasmOpcode::I32_EQ, code);
 	writer->encodeU32Inst(0x04, "if", 0x40, code);
 	blockTypes.emplace_back(IF, 1);
 }
 
-void CheerpWasmWriter::encodeInst(uint32_t opcode, const char* name, WasmBuffer& code)
+void CheerpWasmWriter::encodeInst(WasmOpcode opcode, WasmBuffer& code)
 {
-	encodeOpcode(opcode, name, *this, code);
+	code << static_cast<char>(opcode);
 }
 
 uint32_t CheerpWasmWriter::findDepth(const Value* v) const
@@ -948,9 +941,9 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 				compileOperand(code, I.getOperand(1));
 				const Type* t = I.getType();
 				if (t->isFloatTy())
-					encodeInst(0x8c, "f32.neg", code);
+					encodeInst(WasmOpcode::F32_NEG, code);
 				else if (t->isDoubleTy())
-					encodeInst(0x9a, "f64.neg", code);
+					encodeInst(WasmOpcode::F64_NEG, code);
 				//We just encoded the operation, so now we can return
 				return;
 			}
@@ -981,42 +974,42 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 	const Type* t = I.getType();
 	switch (I.getOpcode())
 	{
-#define BINOPI(Ty, name, i32, i64) \
+#define BINOPI(Ty, name) \
 		case Instruction::Ty: \
 		{ \
 			assert(t->isIntegerTy() || t->isPointerTy()); \
 			if (t->isIntegerTy(64)) { \
-				encodeInst(i64, "i64."#name, code); \
+				encodeInst(WasmOpcode::I64_##name, code); \
 			} \
 			else { \
-				encodeInst(i32, "i32."#name, code); \
+				encodeInst(WasmOpcode::I32_##name, code); \
 			} \
 			return; \
 		}
-		BINOPI( Add,   add, 0x6a, 0x7c)
-		BINOPI( Sub,   sub, 0x6b, 0x7d)
-		BINOPI( Mul,   mul, 0x6c, 0x7e)
-		BINOPI(SDiv, div_s, 0x6d, 0x7f)
-		BINOPI(UDiv, div_u, 0x6e, 0x80)
-		BINOPI(SRem, rem_s, 0x6f, 0x81)
-		BINOPI(URem, rem_u, 0x70, 0x82)
-		BINOPI( And,   and, 0x71, 0x83)
-		BINOPI(  Or,    or, 0x72, 0x84)
-		BINOPI( Xor,   xor, 0x73, 0x85)
-		BINOPI( Shl,   shl, 0x74, 0x86)
-		BINOPI(AShr, shr_s, 0x75, 0x87)
-		BINOPI(LShr, shr_u, 0x76, 0x88)
+		BINOPI( Add,   ADD)
+		BINOPI( Sub,   SUB)
+		BINOPI( Mul,   MUL)
+		BINOPI(SDiv, DIV_S)
+		BINOPI(UDiv, DIV_U)
+		BINOPI(SRem, REM_S)
+		BINOPI(URem, REM_U)
+		BINOPI( And,   AND)
+		BINOPI(  Or,    OR)
+		BINOPI( Xor,   XOR)
+		BINOPI( Shl,   SHL)
+		BINOPI(AShr, SHR_S)
+		BINOPI(LShr, SHR_U)
 #undef BINOPI
 
-#define BINOPF(Ty, name, f32, f64) \
+#define BINOPF(Ty, name) \
 		case Instruction::Ty: \
 		{ \
 			if (t->isFloatTy()) { \
-				encodeInst(f32, "f32."#name, code); \
+				encodeInst(WasmOpcode::F32_##name, code); \
 				return; \
 			} \
 			else if (t->isDoubleTy()) { \
-				encodeInst(f64, "f64."#name, code); \
+				encodeInst(WasmOpcode::F64_##name, code); \
 				return; \
 			} \
 			else { \
@@ -1024,10 +1017,10 @@ void CheerpWasmWriter::encodeBinOp(const llvm::Instruction& I, WasmBuffer& code)
 			} \
 			break; \
 		}
-		BINOPF(FAdd,   add, 0x92, 0xa0)
-		BINOPF(FSub,   sub, 0x93, 0xa1)
-		BINOPF(FMul,   mul, 0x94, 0xa2)
-		BINOPF(FDiv,   div, 0x95, 0xa3)
+		BINOPF(FAdd,   ADD)
+		BINOPF(FSub,   SUB)
+		BINOPF(FMul,   MUL)
+		BINOPF(FDiv,   DIV)
 #undef BINOPF
 		default:
 		{
@@ -1069,23 +1062,23 @@ void CheerpWasmWriter::encodePredicate(const llvm::Type* ty, const llvm::CmpInst
 	assert(ty->isIntegerTy() || ty->isPointerTy());
 	switch(predicate)
 	{
-#define PREDICATE(Ty, name, i32, i64) \
+#define PREDICATE(Ty, name) \
 		case CmpInst::ICMP_##Ty: \
 			if (ty->isIntegerTy(64)) \
-				encodeInst(i64, "i64."#name, code); \
+				encodeInst(WasmOpcode::I64_##name, code); \
 			else \
-				encodeInst(i32, "i32."#name, code); \
+				encodeInst(WasmOpcode::I32_##name, code); \
 			break;
-		PREDICATE( EQ,   eq, 0x46, 0x51);
-		PREDICATE( NE,   ne, 0x47, 0x52);
-		PREDICATE(SLT, lt_s, 0x48, 0x53);
-		PREDICATE(ULT, lt_u, 0x49, 0x54);
-		PREDICATE(SGT, gt_s, 0x4a, 0x55);
-		PREDICATE(UGT, gt_u, 0x4b, 0x56);
-		PREDICATE(SLE, le_s, 0x4c, 0x57);
-		PREDICATE(ULE, le_u, 0x4d, 0x58);
-		PREDICATE(SGE, ge_s, 0x4e, 0x59);
-		PREDICATE(UGE, ge_u, 0x4f, 0x5a);
+		PREDICATE( EQ,   EQ);
+		PREDICATE( NE,   NE);
+		PREDICATE(SLT, LT_S);
+		PREDICATE(ULT, LT_U);
+		PREDICATE(SGT, GT_S);
+		PREDICATE(UGT, GT_U);
+		PREDICATE(SLE, LE_S);
+		PREDICATE(ULE, LE_U);
+		PREDICATE(SGE, GE_S);
+		PREDICATE(UGE, GE_U);
 #undef PREDICATE
 		default:
 			llvm::errs() << "Handle predicate " << predicate << "\n";
@@ -1138,9 +1131,7 @@ void CheerpWasmWriter::encodeWasmIntrinsic(WasmBuffer& code, const llvm::Functio
 
 	assert(TypedBuiltinInstr::isValidWasmMathBuiltin(builtin) && "Only proper Wasm builtin can be emitted");
 
-	encodeInst(TypedBuiltinInstr::opcodeWasmBuiltin(builtin),
-			TypedBuiltinInstr::nameWasmBuiltin(builtin),
-			code);
+	encodeInst(TypedBuiltinInstr::opcodeWasmBuiltin(builtin),code);
 }
 
 //Return whether explicit assigment to the phi is needed
@@ -1273,7 +1264,7 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 
 void CheerpWasmWriter::encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock)
 {
-	encodeInst(0x0e, "br_table", code);
+	encodeInst(WasmOpcode::BR_TABLE, code);
 	encodeULEB128(table.size(), code);
 	for (auto label : table)
 		encodeULEB128(label, code);
@@ -1304,14 +1295,14 @@ void CheerpWasmWriter::compileSignedInteger(WasmBuffer& code, const llvm::Value*
 	{
 		// When comparing two signed values we can avoid the right shift
 		encodeS32Inst(0x41, "i32.const", shiftAmount, code);
-		encodeInst(0x74, "i32.shl", code);
+		encodeInst(WasmOpcode::I32_SHL, code);
 	}
 	else
 	{
 		encodeS32Inst(0x41, "i32.const", shiftAmount, code);
-		encodeInst(0x74, "i32.shl", code);
+		encodeInst(WasmOpcode::I32_SHL, code);
 		encodeS32Inst(0x41, "i32.const", shiftAmount, code);
-		encodeInst(0x75, "i32.shr_s", code);
+		encodeInst(WasmOpcode::I32_SHR_S, code);
 	}
 }
 
@@ -1332,7 +1323,7 @@ void CheerpWasmWriter::compileUnsignedInteger(WasmBuffer& code, const llvm::Valu
 	if(initialSize < 32 && CheerpWriter::needsUnsignedTruncation(v, /*asmjs*/true))
 	{
 		encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(initialSize), code);
-		encodeInst(0x71, "i32.and", code);
+		encodeInst(WasmOpcode::I32_AND, code);
 	}
 }
 
@@ -1357,28 +1348,28 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 		{
 			compileOperand(code, ce->getOperand(0));
 			compileOperand(code, ce->getOperand(1));
-			encodeInst(0x6a, "i32.add", code);
+			encodeInst(WasmOpcode::I32_ADD, code);
 			break;
 		}
 		case Instruction::And:
 		{
 			compileOperand(code, ce->getOperand(0));
 			compileOperand(code, ce->getOperand(1));
-			encodeInst(0x71, "i32.and", code);
+			encodeInst(WasmOpcode::I32_AND, code);
 			break;
 		}
 		case Instruction::Or:
 		{
 			compileOperand(code, ce->getOperand(0));
 			compileOperand(code, ce->getOperand(1));
-			encodeInst(0x73, "i32.or", code);
+			encodeInst(WasmOpcode::I32_OR, code);
 			break;
 		}
 		case Instruction::Sub:
 		{
 			compileOperand(code, ce->getOperand(0));
 			compileOperand(code, ce->getOperand(1));
-			encodeInst(0x6b, "i32.sub", code);
+			encodeInst(WasmOpcode::I32_SUB, code);
 			break;
 		}
 		case Instruction::GetElementPtr:
@@ -1413,7 +1404,7 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 			compileOperand(code, ce->getOperand(1));
 			compileOperand(code, ce->getOperand(2));
 			compileCondition(code, ce->getOperand(0), /*booleanInvert*/false);
-			encodeInst(0x1b, "select", code);
+			encodeInst(WasmOpcode::SELECT, code);
 			break;
 		}
 		case Instruction::ZExt:
@@ -1422,7 +1413,7 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 			if (ce->getType()->isIntegerTy(64))
 			{
 				assert(!ce->getOperand(0)->getType()->isIntegerTy(64));
-				encodeInst(0xad, "i64.extend_i32_u", code);
+				encodeInst(WasmOpcode::I64_EXTEND_I32_U, code);
 			}
 			break;
 		}
@@ -1642,7 +1633,7 @@ void CheerpWasmWriter::compileICmp(const Value* op0, const Value* op1, const Cmp
 		compileOperand(code, op0);
 		if(useEqz)
 		{
-			encodeInst(0x45, "i32.eqz", code);
+			encodeInst(WasmOpcode::I32_EQZ, code);
 			return;
 		}
 		compileOperand(code, op1);
@@ -1668,9 +1659,9 @@ void CheerpWasmWriter::compileICmp(const Value* op0, const Value* op1, const Cmp
 		if(useEqz)
 		{
 			if (op0->getType()->isIntegerTy(64))
-				encodeInst(0x50, "i64.eqz", code);
+				encodeInst(WasmOpcode::I64_EQZ, code);
 			else
-				encodeInst(0x45, "i32.eqz", code);
+				encodeInst(WasmOpcode::I32_EQZ, code);
 			return;
 		}
 		compileUnsignedInteger(code, op1);
@@ -1681,9 +1672,9 @@ void CheerpWasmWriter::compileICmp(const Value* op0, const Value* op1, const Cmp
 		if(useEqz)
 		{
 			if (op0->getType()->isIntegerTy(64))
-				encodeInst(0x50, "i64.eqz", code);
+				encodeInst(WasmOpcode::I64_EQZ, code);
 			else
-				encodeInst(0x45, "i32.eqz", code);
+				encodeInst(WasmOpcode::I32_EQZ, code);
 			return;
 		}
 		compileSignedInteger(code, op1, true);
@@ -1711,18 +1702,18 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 		compileOperand(code, lhs);
 		compileOperand(code, lhs);
 		if (ty->isDoubleTy())
-			encodeInst(0x61, "f64.eq", code);
+			encodeInst(WasmOpcode::F64_EQ, code);
 		else
-			encodeInst(0x5b, "f32.eq", code);
+			encodeInst(WasmOpcode::F32_EQ, code);
 
 		compileOperand(code, rhs);
 		compileOperand(code, rhs);
 		if (ty->isDoubleTy())
-			encodeInst(0x61, "f64.eq", code);
+			encodeInst(WasmOpcode::F64_EQ, code);
 		else
-			encodeInst(0x5b, "f32.eq", code);
+			encodeInst(WasmOpcode::F32_EQ, code);
 
-		encodeInst(0x71, "i32.and", code);
+		encodeInst(WasmOpcode::I32_AND, code);
 	} else if (p == CmpInst::FCMP_UNO) {
 		Type* ty = lhs->getType();
 		assert(ty->isDoubleTy() || ty->isFloatTy());
@@ -1734,18 +1725,18 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 		compileOperand(code, lhs);
 		compileOperand(code, lhs);
 		if (ty->isDoubleTy())
-			encodeInst(0x62, "f64.ne", code);
+			encodeInst(WasmOpcode::F64_NE, code);
 		else
-			encodeInst(0x5c, "f32.ne", code);
+			encodeInst(WasmOpcode::F32_NE, code);
 
 		compileOperand(code, rhs);
 		compileOperand(code, rhs);
 		if (ty->isDoubleTy())
-			encodeInst(0x62, "f64.ne", code);
+			encodeInst(WasmOpcode::F64_NE, code);
 		else
-			encodeInst(0x5c, "f32.ne", code);
+			encodeInst(WasmOpcode::F32_NE, code);
 
-		encodeInst(0x73, "i32.or", code);
+		encodeInst(WasmOpcode::I32_OR, code);
 	} else {
 		compileOperand(code, lhs);
 		compileOperand(code, rhs);
@@ -1758,19 +1749,19 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 		assert(!CmpInst::isUnordered(p));
 		switch(p)
 		{
-#define PREDICATE(Ty, name, f32, f64) \
+#define PREDICATE(Ty, name) \
 			case CmpInst::FCMP_O##Ty: \
 				if (ty->isDoubleTy()) \
-					encodeInst(f64, "f64."#name, code); \
+					encodeInst(WasmOpcode::F64_##name, code); \
 				else \
-					encodeInst(f32, "f32."#name, code); \
+					encodeInst(WasmOpcode::F32_##name, code); \
 				break;
-			PREDICATE(EQ, eq, 0x5b, 0x61)
-			PREDICATE(NE, ne, 0x5c, 0x62)
-			PREDICATE(LT, lt, 0x5d, 0x63)
-			PREDICATE(GT, gt, 0x5e, 0x64)
-			PREDICATE(LE, le, 0x5f, 0x65)
-			PREDICATE(GE, ge, 0x60, 0x66)
+			PREDICATE(EQ, EQ)
+			PREDICATE(NE, NE)
+			PREDICATE(LT, LT)
+			PREDICATE(GT, GT)
+			PREDICATE(LE, LE)
+			PREDICATE(GE, GE)
 #undef PREDICATE
 			default:
 				llvm::errs() << "Handle predicate " << p << "\n";
@@ -1779,7 +1770,7 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 		if(invertForUnordered)
 		{
 			// Invert result
-			encodeInst(0x45, "i32.eqz", code);
+			encodeInst(WasmOpcode::I32_EQZ, code);
 		}
 	}
 }
@@ -1801,7 +1792,7 @@ void CheerpWasmWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV
 			(!isa<ConstantInt>(offset) || !cast<ConstantInt>(offset)->isNullValue()))
 	{
 		compileOperand(code, offset);
-		encodeInst(0x6a, "i32.add", code);
+		encodeInst(WasmOpcode::I32_ADD, code);
 	}
 }
 
@@ -1999,7 +1990,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			compileOperand(code, vi.getPointerOperand());
 			encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
 			encodeS32Inst(0x41, "i32.const", 8, code);
-			encodeInst(0x6a, "i32.add", code);
+			encodeInst(WasmOpcode::I32_ADD, code);
 			encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
 			break;
 		}
@@ -2022,7 +2013,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				{
 					case Intrinsic::trap:
 					{
-						encodeInst(0x00, "unreachable", code);
+						encodeInst(WasmOpcode::UNREACHABLE, code);
 						// NOTE: No point in adding a return even if 'useTailCall' is true
 						return true;
 					}
@@ -2031,7 +2022,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						encodeU32Inst(0x23, "get_global", stackTopGlobal, code);
 						if(useTailCall)
 						{
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 							return true;
 						}
 						return false;
@@ -2041,7 +2032,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(0));
 						encodeU32Inst(0x24, "set_global", stackTopGlobal, code);
 						if(useTailCall)
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
 					case Intrinsic::vastart:
@@ -2055,14 +2046,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						encodeU32U32Inst(0x28, "i32.load", 0x2, 0x0, code);
 						encodeU32U32Inst(0x36, "i32.store", 0x2, 0x0, code);
 						if(useTailCall)
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
 					case Intrinsic::vaend:
 					{
 						// Do nothing.
 						if(useTailCall)
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
 					case Intrinsic::cheerp_downcast:
@@ -2071,7 +2062,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileDowncast(code, &ci);
 						if(useTailCall)
 						{
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 							return true;
 						}
 						return false;
@@ -2081,7 +2072,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(0));
 						if(useTailCall)
 						{
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 							return true;
 						}
 						return false;
@@ -2091,7 +2082,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						compileOperand(code, ci.getOperand(0));
 						if(useTailCall)
 						{
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 							return true;
 						}
 						return false;
@@ -2104,7 +2095,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						// NOTE: If there are no uses this cannot be a tail-call (the user would have been the return)
 						if(useTailCall)
 						{
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 							return true;
 						}
 						return false;
@@ -2128,7 +2119,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							encodeS32Inst(0x40, "grow_memory", 0, code);
 							if(useTailCall)
 							{
-								encodeInst(0x0f, "return", code);
+								encodeInst(WasmOpcode::RETURN, code);
 								return true;
 							}
 						}
@@ -2140,7 +2131,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						encodeS32Inst(0x41, "i32.const", 1, code);
 						if(useTailCall)
 						{
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 							return true;
 						}
 						return false;
@@ -2155,7 +2146,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						// NOTE: If there are no uses this cannot be a tail-call (the user would have been the return)
 						if(useTailCall)
 						{
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 							return true;
 						}
 						return false;
@@ -2164,7 +2155,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 					{
 						// Do nothing.
 						if(useTailCall)
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
 					case Intrinsic::memmove:
@@ -2175,10 +2166,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						llvm::Function* f = module.getFunction("memmove");
 						uint32_t functionId = linearHelper.getFunctionIds().at(f);
 						encodeU32Inst(0x10, "call", functionId, code);
-						encodeInst(0x1a, "drop", code);
+						encodeInst(WasmOpcode::DROP, code);
 						// NOTE: Cannot tail call, the return type is different
 						if(useTailCall)
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
 					case Intrinsic::memcpy:
@@ -2189,10 +2180,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						llvm::Function* f = module.getFunction("memcpy");
 						uint32_t functionId = linearHelper.getFunctionIds().at(f);
 						encodeU32Inst(0x10, "call", functionId, code);
-						encodeInst(0x1a, "drop", code);
+						encodeInst(WasmOpcode::DROP, code);
 						// NOTE: Cannot tail call, the return type is different
 						if(useTailCall)
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
 					case Intrinsic::memset:
@@ -2203,10 +2194,10 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						llvm::Function* f = module.getFunction("memset");
 						uint32_t functionId = linearHelper.getFunctionIds().at(f);
 						encodeU32Inst(0x10, "call", functionId, code);
-						encodeInst(0x1a, "drop", code);
+						encodeInst(WasmOpcode::DROP, code);
 						// NOTE: Cannot tail call, the return type is different
 						if(useTailCall)
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 						return true;
 					}
 					case Intrinsic::cheerp_allocate:
@@ -2326,17 +2317,17 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						{
 							compileOperand(code, op->get());
 							if(floatType)
-								encodeInst(0xbb, "f64.promote/f32", code);
+								encodeInst(WasmOpcode::F64_PROMOTE_F32, code);
 						}
 						uint32_t importedId = linearHelper.getBuiltinId(b);
 						assert(importedId);
 						encodeU32Inst(0x10, "call", importedId, code);
 						if(floatType)
-							encodeInst(0xb6, "f32.demote/f64", code);
+							encodeInst(WasmOpcode::F32_DEMOTE_F64, code);
 						// TODO: We could tail call if the type matches
 						if(useTailCall)
 						{
-							encodeInst(0x0f, "return", code);
+							encodeInst(WasmOpcode::RETURN, code);
 							return true;
 						}
 						return false;
@@ -2358,7 +2349,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				{
 					encodeWasmIntrinsic(code, calledFunc);
 					if(useTailCall)
-						encodeInst(0x0f, "return", code);
+						encodeInst(WasmOpcode::RETURN, code);
 					return useTailCall;
 				}
 				else if (linearHelper.getFunctionIds().count(calledFunc))
@@ -2370,7 +2361,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 						else
 							encodeU32Inst(0x10, "call", functionId, code);
 					} else {
-						encodeInst(0x00, "unreachable", code);
+						encodeInst(WasmOpcode::UNREACHABLE, code);
 						// Make sure that we leave a value on the stack anyway (old Edge's validation get unhappy otherwise)
 						if(!fTy->getReturnType()->isVoidTy())
 							compileTypedZero(code, fTy->getReturnType());
@@ -2379,7 +2370,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				else
 				{
 					llvm::errs() << "warning: Undefined function " << calledFunc->getName() << " called\n";
-					encodeInst(0x00, "unreachable", code);
+					encodeInst(WasmOpcode::UNREACHABLE, code);
 					return true;
 				}
 			}
@@ -2396,7 +2387,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				}
 				else
 				{
-					encodeInst(0x00, "unreachable", code);
+					encodeInst(WasmOpcode::UNREACHABLE, code);
 					if(!fTy->getReturnType()->isVoidTy())
 						compileTypedZero(code, fTy->getReturnType());
 					return true;
@@ -2420,20 +2411,20 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			compileOperand(code, I.getOperand(0));
 			compileOperand(code, I.getOperand(0));
 			compileOperand(code, I.getOperand(1));
-#define BINOPF(name, f32, f64) \
+#define BINOPF(name) \
 			if (I.getType()->isFloatTy()) { \
-				encodeInst(f32, "f32."#name, code); \
+				encodeInst(WasmOpcode::F32_##name, code); \
 			} \
 			else if (I.getType()->isDoubleTy()) { \
-				encodeInst(f64, "f64."#name, code); \
+				encodeInst(WasmOpcode::F64_##name, code); \
 			} else { \
-				assert(false); \
+				llvm_unreachable("unsupported type"); \
 			}
-			BINOPF(  div, 0x95, 0xa3)
-			BINOPF(trunc, 0x8f, 0x9d)
+			BINOPF(  DIV)
+			BINOPF(TRUNC)
 			compileOperand(code, I.getOperand(1));
-			BINOPF(  mul, 0x94, 0xa2)
-			BINOPF(  sub, 0x93, 0xa1)
+			BINOPF(  MUL)
+			BINOPF(  SUB)
 #undef BINOPF
 			break;
 		}
@@ -2549,7 +2540,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		{
 			compileOperand(code, I.getOperand(0));
 			if (I.getOperand(0)->getType()->isIntegerTy(64))
-				encodeInst(0xa7, "i32.wrap_i64", code);
+				encodeInst(WasmOpcode::I32_WRAP_I64, code);
 			break;
 		}
 		case Instruction::Ret:
@@ -2573,7 +2564,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			compileOperand(code, si.getTrueValue());
 			compileOperand(code, si.getFalseValue());
 			compileCondition(code, si.getCondition(), /*booleanInvert*/false);
-			encodeInst(0x1b, "select", code);
+			encodeInst(WasmOpcode::SELECT, code);
 			break;
 		}
 		case Instruction::SExt:
@@ -2584,13 +2575,13 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			{
 				uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
 				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
-				encodeInst(0x74, "i32.shl", code);
+				encodeInst(WasmOpcode::I32_SHL, code);
 				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
-				encodeInst(0x75, "i32.shr_s", code);
+				encodeInst(WasmOpcode::I32_SHR_S, code);
 			}
 			// TODO convert directly to i64 without passing from i32
 			if (I.getType()->isIntegerTy(64))
-				encodeInst(0xac, "i64.extend_s/i32", code);
+				encodeInst(WasmOpcode::I64_EXTEND_S_I32, code);
 			break;
 		}
 		case Instruction::FPToSI:
@@ -2602,16 +2593,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				if(I.getOperand(0)->getType()->isFloatTy())
 				{
 					if (I.getType()->isIntegerTy(64))
-						encodeInst(0xae, "i64.trunc_s/f32", code);
+						encodeInst(WasmOpcode::I64_TRUNC_S_F32, code);
 					else
-						encodeInst(0xa8, "i32.trunc_s/f32", code);
+						encodeInst(WasmOpcode::I32_TRUNC_S_F32, code);
 				}
 				else
 				{
 					if (I.getType()->isIntegerTy(64))
-						encodeInst(0xb0, "i64.trunc_s/f64", code);
+						encodeInst(WasmOpcode::I64_TRUNC_S_F64, code);
 					else
-						encodeInst(0xaa, "i32.trunc_s/f64", code);
+						encodeInst(WasmOpcode::I32_TRUNC_S_F64, code);
 				}
 			}
 			else if (I.getOperand(0)->getType()->isFloatTy())
@@ -2621,24 +2612,24 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				int typeVal = bits == 64 ? 0x7e : 0x7f;
 
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0x8b, "f32.abs", code);
-				encodeInst(0x43, "f32.const", code);
+				encodeInst(WasmOpcode::F32_ABS, code);
+				encodeInst(WasmOpcode::F32_CONST, code);
 				encodeF32(threshold, code);
 				// Use LT here, we are using the first invalid positive integer as the limit value
-				encodeInst(0x5d, "f32.lt", code);
+				encodeInst(WasmOpcode::F32_LT, code);
 				encodeU32Inst(0x04, "if", typeVal, code);
 				compileOperand(code, I.getOperand(0));
 				if (bits == 64)
-					encodeInst(0xae, "i64.trunc_s/f32", code);
+					encodeInst(WasmOpcode::I64_TRUNC_S_F32, code);
 				else
-					encodeInst(0xa8, "i32.trunc_s/f32", code);
-				encodeInst(0x05, "else", code);
+					encodeInst(WasmOpcode::I32_TRUNC_S_F32, code);
+				encodeInst(WasmOpcode::ELSE, code);
 				// We excluded the valid INT32_MIN in the range above, but in the undefined case we use it unconditionally
 				if (bits == 64)
 					encodeS64Inst(0x42, "i64.const", INT64_MIN, code);
 				else
 					encodeS32Inst(0x41, "i32.const", INT32_MIN, code);
-				encodeInst(0x0b, "end", code);
+				encodeInst(WasmOpcode::END, code);
 			}
 			else
 			{
@@ -2647,25 +2638,25 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				int typeVal = bits == 64 ? 0x7e : 0x7f;
 
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0x99, "f64.abs", code);
-				encodeInst(0x43, "f32.const", code);
+				encodeInst(WasmOpcode::F64_ABS, code);
+				encodeInst(WasmOpcode::F32_CONST, code);
 				encodeF32(threshold, code);
-				encodeInst(0xbb, "f64.promote/f32", code);
+				encodeInst(WasmOpcode::F64_PROMOTE_F32, code);
 				// Use LT here, we are using the first invalid positive integer as the limit value
-				encodeInst(0x63, "f64.lt", code);
+				encodeInst(WasmOpcode::F64_LT, code);
 				encodeU32Inst(0x04, "if", typeVal, code);
 				compileOperand(code, I.getOperand(0));
 				if (bits == 64)
-					encodeInst(0xb0, "i64.trunc_s/f64", code);
+					encodeInst(WasmOpcode::I64_TRUNC_S_F64, code);
 				else
-					encodeInst(0xaa, "i32.trunc_s/f64", code);
-				encodeInst(0x05, "else", code);
+					encodeInst(WasmOpcode::I32_TRUNC_S_F64, code);
+				encodeInst(WasmOpcode::ELSE, code);
 				// We excluded the valid INT32_MIN in the range above, but in the undefined case we use it unconditionally
 				if (bits == 64)
 					encodeS64Inst(0x42, "i64.const", INT64_MIN, code);
 				else
 					encodeS32Inst(0x41, "i32.const", INT32_MIN, code);
-				encodeInst(0x0b, "end", code);
+				encodeInst(WasmOpcode::END, code);
 			}
 			break;
 		}
@@ -2678,16 +2669,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				if(I.getOperand(0)->getType()->isFloatTy())
 				{
 					if (I.getType()->isIntegerTy(64))
-						encodeInst(0xaf, "i64.trunc_u/f32", code);
+						encodeInst(WasmOpcode::I64_TRUNC_U_F32, code);
 					else
-						encodeInst(0xa9, "i32.trunc_u/f32", code);
+						encodeInst(WasmOpcode::I32_TRUNC_U_F32, code);
 				}
 				else
 				{
 					if (I.getType()->isIntegerTy(64))
-						encodeInst(0xb1, "i64.trunc_u/f64", code);
+						encodeInst(WasmOpcode::I64_TRUNC_U_F64, code);
 					else
-						encodeInst(0xab, "i32.trunc_u/f64", code);
+						encodeInst(WasmOpcode::I32_TRUNC_U_F64, code);
 				}
 			}
 			else if (I.getOperand(0)->getType()->isFloatTy())
@@ -2697,28 +2688,28 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				int typeVal = bits == 64 ? 0x7e : 0x7f;
 
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0x43, "f32.const", code);
+				encodeInst(WasmOpcode::F32_CONST, code);
 				encodeF32(threshold, code);
 				// Use LT here, we are using the first invalid positive integer as the limit value
-				encodeInst(0x5d, "f32.lt", code);
+				encodeInst(WasmOpcode::F32_LT, code);
 				// Also compare against 0
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0x43, "f32.const", code);
+				encodeInst(WasmOpcode::F32_CONST, code);
 				encodeF32(0, code);
-				encodeInst(0x60, "f32.ge", code);
-				encodeInst(0x71, "i32.and", code);
+				encodeInst(WasmOpcode::F32_GE, code);
+				encodeInst(WasmOpcode::I32_AND, code);
 				encodeU32Inst(0x04, "if", typeVal, code);
 				compileOperand(code, I.getOperand(0));
 				if (bits == 64)
-					encodeInst(0xaf, "i64.trunc_u/f32", code);
+					encodeInst(WasmOpcode::I64_TRUNC_U_F32, code);
 				else
-					encodeInst(0xa9, "i32.trunc_u/f32", code);
-				encodeInst(0x05, "else", code);
+					encodeInst(WasmOpcode::I32_TRUNC_U_F32, code);
+				encodeInst(WasmOpcode::ELSE, code);
 				if (bits == 64)
 					encodeS64Inst(0x42, "i64.const", 0, code);
 				else
 					encodeS32Inst(0x41, "i32.const", 0, code);
-				encodeInst(0x0b, "end", code);
+				encodeInst(WasmOpcode::END, code);
 			}
 			else
 			{
@@ -2727,30 +2718,30 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 				int typeVal = bits == 64 ? 0x7e : 0x7f;
 
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0x43, "f32.const", code);
+				encodeInst(WasmOpcode::F32_CONST, code);
 				encodeF32(threshold, code);
-				encodeInst(0xbb, "f64.promote/f32", code);
+				encodeInst(WasmOpcode::F64_PROMOTE_F32, code);
 				// Use LT here, we are using the first invalid positive integer as the limit value
-				encodeInst(0x63, "f64.lt", code);
+				encodeInst(WasmOpcode::F64_LT, code);
 				// Also compare against 0
 				compileOperand(code, I.getOperand(0));
-				encodeInst(0x43, "f32.const", code);
+				encodeInst(WasmOpcode::F32_CONST, code);
 				encodeF32(0, code);
-				encodeInst(0xbb, "f64.promote/f32", code);
-				encodeInst(0x66, "f64.ge", code);
-				encodeInst(0x71, "i32.and", code);
+				encodeInst(WasmOpcode::F64_PROMOTE_F32, code);
+				encodeInst(WasmOpcode::F64_GE, code);
+				encodeInst(WasmOpcode::I32_AND, code);
 				encodeU32Inst(0x04, "if", typeVal, code);
 				compileOperand(code, I.getOperand(0));
 				if (bits == 64)
-					encodeInst(0xb1, "i64.trunc_u/f64", code);
+					encodeInst(WasmOpcode::I64_TRUNC_U_F64, code);
 				else
-					encodeInst(0xab, "i32.trunc_u/f64", code);
-				encodeInst(0x05, "else", code);
+					encodeInst(WasmOpcode::I32_TRUNC_U_F64, code);
+				encodeInst(WasmOpcode::ELSE, code);
 				if (bits == 64)
 					encodeS64Inst(0x42, "i64.const", 0, code);
 				else
 					encodeS32Inst(0x41, "i32.const", 0, code);
-				encodeInst(0x0b, "end", code);
+				encodeInst(WasmOpcode::END, code);
 			}
 			break;
 		}
@@ -2763,21 +2754,21 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			{
 				// Sign extend
 				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
-				encodeInst(0x74, "i32.shl", code);
+				encodeInst(WasmOpcode::I32_SHL, code);
 				encodeS32Inst(0x41, "i32.const", 32-bitWidth, code);
-				encodeInst(0x75, "i32.shr_s", code);
+				encodeInst(WasmOpcode::I32_SHR_S, code);
 			}
 			if (I.getType()->isDoubleTy()) {
 				if (bitWidth == 64)
-					encodeInst(0xb9, "f64.convert_s/i64", code);
+					encodeInst(WasmOpcode::F64_CONVERT_S_I64, code);
 				else
-					encodeInst(0xb7, "f64.convert_s/i32", code);
+					encodeInst(WasmOpcode::F64_CONVERT_S_I32, code);
 			} else {
 				assert(I.getType()->isFloatTy());
 				if (bitWidth == 64)
-					encodeInst(0xb4, "f32.convert_s/i64", code);
+					encodeInst(WasmOpcode::F32_CONVERT_S_I64, code);
 				else
-					encodeInst(0xb2, "f32.convert_s/i32", code);
+					encodeInst(WasmOpcode::F32_CONVERT_S_I32, code);
 			}
 			break;
 		}
@@ -2789,19 +2780,19 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			if(bitWidth < 32)
 			{
 				encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
-				encodeInst(0x71, "i32.and", code);
+				encodeInst(WasmOpcode::I32_AND, code);
 			}
 			if (I.getType()->isDoubleTy()) {
 				if (bitWidth == 64)
-					encodeInst(0xba, "f64.convert_u/i64", code);
+					encodeInst(WasmOpcode::F64_CONVERT_U_I64, code);
 				else
-					encodeInst(0xb8, "f64.convert_u/i32", code);
+					encodeInst(WasmOpcode::F64_CONVERT_U_I32, code);
 			} else {
 				assert(I.getType()->isFloatTy());
 				if (bitWidth == 64)
-					encodeInst(0xb5, "f32.convert_u/i64", code);
+					encodeInst(WasmOpcode::F32_CONVERT_U_I64, code);
 				else
-					encodeInst(0xb3, "f32.convert_u/i32", code);
+					encodeInst(WasmOpcode::F32_CONVERT_U_I32, code);
 			}
 			break;
 		}
@@ -2810,7 +2801,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			assert(I.getType()->isFloatTy());
 			assert(I.getOperand(0)->getType()->isDoubleTy());
 			compileOperand(code, I.getOperand(0));
-			encodeInst(0xb6, "f32.demote/f64", code);
+			encodeInst(WasmOpcode::F32_DEMOTE_F64, code);
 			break;
 		}
 		case Instruction::FPExt:
@@ -2818,14 +2809,14 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			assert(I.getType()->isDoubleTy());
 			assert(I.getOperand(0)->getType()->isFloatTy());
 			compileOperand(code, I.getOperand(0));
-			encodeInst(0xbb, "f64.promote/f32", code);
+			encodeInst(WasmOpcode::F64_PROMOTE_F32, code);
 			break;
 		}
 		case Instruction::ZExt:
 		{
 			compileUnsignedInteger(code, I.getOperand(0));
 			if (I.getType()->isIntegerTy(64))
-				encodeInst(0xad, "i64.extend_i32_u", code);
+				encodeInst(WasmOpcode::I64_EXTEND_I32_U, code);
 			break;
 		}
 		case Instruction::IntToPtr:
@@ -2835,7 +2826,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		}
 		case Instruction::Unreachable:
 		{
-			encodeInst(0x00, "unreachable", code);
+			encodeInst(WasmOpcode::UNREACHABLE, code);
 			break;
 		}
 		default:
@@ -2891,7 +2882,7 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 	if(!ret && !I.getType()->isVoidTy())
 	{
 		if(I.use_empty()) {
-			encodeInst(0x1a, "drop", code);
+			encodeInst(WasmOpcode::DROP, code);
 		} else {
 			uint32_t reg = registerize.getRegisterId(&I, edgeContext);
 			uint32_t local = localMap.at(reg);
@@ -3173,7 +3164,7 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* con
 			else
 				compileUnsignedInteger(code, op0);
 			if(p == CmpInst::ICMP_EQ)
-				encodeInst(0x45, "i32.eqz", code);
+				encodeInst(WasmOpcode::I32_EQZ, code);
 			teeLocals.removeConsumed();
 			return;
 		}
@@ -3192,7 +3183,7 @@ void CheerpWasmWriter::compileCondition(WasmBuffer& code, const llvm::Value* con
 		compileOperand(code, cond);
 		if (booleanInvert) {
 			// Invert result
-			encodeInst(0x45, "i32.eqz", code);
+			encodeInst(WasmOpcode::I32_EQZ, code);
 		}
 	}
 	teeLocals.removeConsumed();
@@ -3252,13 +3243,13 @@ void CheerpWasmWriter::compileBranchTable(WasmBuffer& code, const llvm::SwitchIn
 	if (min != 0)
 	{
 		encodeS32Inst(0x41, "i32.const", min, code);
-		encodeInst(0x6b, "i32.sub", code);
+		encodeInst(WasmOpcode::I32_SUB, code);
 	}
 	if (bitWidth != 32 && CheerpWriter::needsUnsignedTruncation(si->getCondition(), /*asmjs*/true))
 	{
 		assert(bitWidth < 32);
 		encodeS32Inst(0x41, "i32.const", getMaskForBitWidth(bitWidth), code);
-		encodeInst(0x71, "i32.and", code);
+		encodeInst(WasmOpcode::I32_AND, code);
 	}
 
 	// Print the case labels and the default label.
@@ -3296,7 +3287,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 					const BasicBlock* BB = T.getBB();
 					const Instruction* Term = BB->getTerminator();
 					if (isa<ReturnInst>(Term) && !isReturnPartOfTailCall(*Term))
-						encodeInst(0x0f, "return", code);
+						encodeInst(WasmOpcode::RETURN, code);
 				}
 				break;
 			}
@@ -3351,7 +3342,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			{
 				teeLocals.decreaseIndentation(code);
 				teeLocals.addIndentation(code);
-				encodeInst(0x05, "else", code);
+				encodeInst(WasmOpcode::ELSE, code);
 				break;
 			}
 			case Token::TK_Branch:
@@ -3365,7 +3356,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			{
 				teeLocals.decreaseIndentation(code);
 				ScopeStack.pop_back();
-				encodeInst(0x0b, "end", code);
+				encodeInst(WasmOpcode::END, code);
 				break;
 			}
 			case Token::TK_Prologue:
@@ -3907,7 +3898,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			else if(it->encoding == GLOBAL)
 			{
 				const GlobalVariable* GV = cast<GlobalVariable>(C);
-				encodeULEB128(getValType(GV->getValueType()), section);
+				encodeValType(GV->getValueType(), section);
 				// Mutable -> 1
 				encodeULEB128(0x01, section);
 				assert(GV->hasInitializer());
@@ -3916,28 +3907,11 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 				continue;
 			}
 			// Constant type
-			uint32_t valType = 0;
-			switch(it->encoding)
-			{
-				case FULL:
-					valType = getValType(C->getType());
-					break;
-				default:
-					assert(false);
-			}
-			encodeULEB128(valType, section);
+			assert(it->encoding == FULL);
+			encodeValType(C->getType(), section);
 			// Immutable -> 0
 			encodeULEB128(0x00, section);
-			switch(it->encoding)
-			{
-				case FULL:
-				{
-					compileConstant(section, C, /*forGlobalInit*/true);
-					break;
-				}
-				default:
-					assert(false);
-			}
+			compileConstant(section, C, /*forGlobalInit*/true);
 			encodeULEB128(0x0b, section);
 		}
 	}
@@ -4306,12 +4280,12 @@ void CheerpWasmWriter::WasmGepWriter::compileValue(const llvm::Value* v, uint32_
 		if (isPowerOf2_32(size))
 		{
 			writer.encodeS32Inst(0x41, "i32.const", Log2_32(size), code);
-			writer.encodeInst(0x74, "i32.shl", code);
+			writer.encodeInst(WasmOpcode::I32_SHL, code);
 		}
 		else
 		{
 			writer.encodeS32Inst(0x41, "i32.const", size, code);
-			writer.encodeInst(0x6c, "i32.mul", code);
+			writer.encodeInst(WasmOpcode::I32_MUL, code);
 		}
 	}
 }
@@ -4323,14 +4297,14 @@ bool CheerpWasmWriter::WasmGepWriter::compileValues(bool useConstPart) const
 	{
 		compileValue(it.first, it.second);
 		if(!first)
-			writer.encodeInst(0x6a, "i32.add", code);
+			writer.encodeInst(WasmOpcode::I32_ADD, code);
 		first = false;
 	}
 	if(useConstPart && constPart != 0)
 	{
 		writer.encodeS32Inst(0x41, "i32.const", constPart, code);
 		if(!first)
-			writer.encodeInst(0x6a, "i32.add", code);
+			writer.encodeInst(WasmOpcode::I32_ADD, code);
 		first = false;
 	}
 	if(subbedValues.empty())
@@ -4341,7 +4315,7 @@ bool CheerpWasmWriter::WasmGepWriter::compileValues(bool useConstPart) const
 	for(auto& it: subbedValues)
 	{
 		compileValue(it.first, it.second);
-		writer.encodeInst(0x6b, "i32.sub", code);
+		writer.encodeInst(WasmOpcode::I32_SUB, code);
 	}
 	return false;
 }
