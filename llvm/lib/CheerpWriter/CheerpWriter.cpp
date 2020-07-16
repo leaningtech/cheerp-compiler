@@ -5851,6 +5851,11 @@ void CheerpWriter::compileModuleClosureBegin()
 {
 	stream << "(function(){" << NewLine;
 
+	compileRoot();
+}
+
+void CheerpWriter::compileRoot()
+{
 	if (hasJSExports()) {
 		// The following JavaScript code originates from:
 		// https://github.com/jashkenas/underscore/blob/master/underscore.js
