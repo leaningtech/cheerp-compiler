@@ -469,24 +469,30 @@ private:
 	void compileDeclExportedToJs(const bool alsoDeclare);
 
 public:
-	struct FunctionAndName
+	struct JSExportedNamedDecl
 	{
-		FunctionAndName(const llvm::Function* F, llvm::StringRef name) : F(F), name(name)
+		JSExportedNamedDecl(const llvm::Function* F, llvm::StringRef name) : F(F), t(nullptr), node(nullptr), name(name)
+		{
+		}
+		JSExportedNamedDecl(const llvm::StructType* t, const llvm::NamedMDNode& node, llvm::StringRef name) : F(nullptr), t(t), node(&node), name(name)
 		{
 		}
 		const llvm::Function* F;
+		const llvm::StructType* t;
+		const llvm::NamedMDNode* node;
 		std::string name;
 		bool isClass() const
 		{
-			return !F;
+			return t;
 		}
 	};
-	static std::deque<FunctionAndName> buildJsExportedFuncAndName(const llvm::Module& M);
-	static void normalizeDeclList(std::deque<CheerpWriter::FunctionAndName> & exportedDecls);
+	static std::deque<JSExportedNamedDecl> buildJsExportedNamedDecl(const llvm::Module& M);
+	static void prependRootToNames(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls);
+	static void normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls);
 
 private:
 	// Names of js-exported items
-	std::deque<CheerpWriter::FunctionAndName> jsExportedDecls;
+	std::deque<CheerpWriter::JSExportedNamedDecl> jsExportedDecls;
 
 	bool hasJSExports();
 	void compileInlineAsm(const llvm::CallInst& ci);

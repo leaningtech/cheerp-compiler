@@ -6086,7 +6086,9 @@ void CheerpWriter::compileGenericJS()
 	if (globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM))
 		compileGrowMem();
 
-	jsExportedDecls = buildJsExportedFuncAndName(module);
+	jsExportedDecls = buildJsExportedNamedDecl(module);
+	if (isRootNeeded)
+		prependRootToNames(jsExportedDecls);
 	normalizeDeclList(jsExportedDecls);
 }
 
@@ -6168,14 +6170,15 @@ void CheerpWriter::compileDeclareExports()
 		//Set all jsExportedDecls equal to DUMMY / {}
 		for (auto jsex: jsExportedDecls)
 		{
-			if (makeModule == MODULE_TYPE::CLOSURE)
-				stream << "__root.";
-			else
+			if (!isRootNeeded)
 			{
+				//__root is already declared top-level
+
+				//TODO: This has to become a utility function
 				areJsExportedExportsDeclared = true;
-				
+
 				unsigned int i = 0;
-				for (unsigned int j=0; j<jsex.name[j]; j++)
+				for (unsigned int j=0; j<jsex.name.size(); j++)
 					if (jsex.name[j]=='.')
 						i++;
 				if (i==0)
@@ -6208,21 +6211,22 @@ void CheerpWriter::compileNamespaces()
 	class NestedNamespaceDeclarator
 	{
 	public:
-		NestedNamespaceDeclarator(CheerpWriter& writer)
-			: writer(writer), stream(writer.stream)
-		{}
+		NestedNamespaceDeclarator(CheerpWriter& writer, const bool isRootDeclared)
+			: writer(writer), stream(writer.stream), isRootDeclared(isRootDeclared), lowestIndex(isRootDeclared?1:0), index(lowestIndex)
+		{
+		}
 		void addName(StringRef name)
 		{
 			std::vector<StringRef> curr = decompose(name);
 
 			//Skip over top level declarations
-			if (curr.size() == 1)
+			if (curr.size() == 1+lowestIndex)
 				return;
 
 			while (index >= curr.size())
 				doDecrease();
 
-			while (index>0 && curr[index] != last[index])
+			while (index>lowestIndex && curr[index-1] != last[index-1])
 				doDecrease();
 
 			last = curr;
@@ -6232,7 +6236,7 @@ void CheerpWriter::compileNamespaces()
 		}
 		~NestedNamespaceDeclarator()
 		{
-			while (index > 0)
+			while (index > lowestIndex)
 				doDecrease();
 		}
 	private:
@@ -6258,7 +6262,7 @@ void CheerpWriter::compileNamespaces()
 			if (index != last.size())
 				stream << "}";
 			--index;
-			if (index == 0)
+			if (index == lowestIndex)
 				stream <<";";
 			else
 				stream <<",";
@@ -6266,8 +6270,14 @@ void CheerpWriter::compileNamespaces()
 		}
 		void doIncrease()
 		{
-			if (index == 0)
-				stream << "var " << last[index] << "=";
+			if (index == lowestIndex)
+			{
+				if (isRootDeclared)
+					stream << last[0] << ".";
+				else
+					stream << "var ";
+				stream << last[index] << "=";
+			}
 			else
 				stream << last[index] << ":";
 			++index;
@@ -6280,14 +6290,16 @@ void CheerpWriter::compileNamespaces()
 		ostream_proxy& stream;
 		std::vector<StringRef> last;
 		StringRef lastWritten;
-		unsigned int index{0};
+		const bool isRootDeclared;
+		const unsigned int lowestIndex;
+		unsigned int index;
 	};
 
 	compileRootIfNeeded();
 
-	NestedNamespaceDeclarator NND(*this);
+	NestedNamespaceDeclarator NND(*this, isRootNeeded);
 
-	for (auto jsex : jsExportedDecls)
+	for (const auto& jsex : jsExportedDecls)
 	{
 		NND.addName(jsex.name);
 	}
@@ -6311,17 +6323,6 @@ void CheerpWriter::compileDefineExports()
 	compileDeclExportedToJs(/*alsoDeclare*/ !areJsExportedExportsDeclared);
 	areJsExportedExportsDeclared = true;
 
-	if (makeModule == MODULE_TYPE::CLOSURE)
-	{
-		for (auto jsex: jsExportedDecls)
-		{
-			stream << "__root." << jsex.name << '=';
-			if (jsex.isClass())
-				stream << jsex.name << ';' << NewLine;
-			else
-				stream << getName(jsex.F) <<";" << NewLine;
-		}
-	}
 	if (makeModule != MODULE_TYPE::COMMONJS)
 	{
 		//CommonJS modules have already the promise on module.exports
@@ -6329,8 +6330,6 @@ void CheerpWriter::compileDefineExports()
 		for (auto jsex: jsExportedDecls)
 		{
 			anyJSEx = true;
-			if (makeModule == MODULE_TYPE::CLOSURE)
-				stream << "__root.";
 			stream << jsex.name << ".promise=" << NewLine;
 		}
 		if (anyJSEx)
@@ -6376,13 +6375,27 @@ void CheerpWriter::compileNoLoaderAsmJS()
 
 void CheerpWriter::compileCommonJSExports()
 {
+	assert(!isRootNeeded);
+
 	stream << "return{" << NewLine;
+
+	std::string old = "";
+
 	for (const auto& jsex : jsExportedDecls)
 	{
-		if (jsex.isClass())
-			stream << jsex.name << ':' << jsex.name << ',' << NewLine;
-		else
-			stream << jsex.name << ':' << namegen.getName(jsex.F) << ',' << NewLine;
+		std::string curr = "";
+
+		//Build the top level identifier (either the whole name or up to a '.')
+		for (auto c : jsex.name)
+		{
+			if (c == '.')
+				break;
+			curr += c;
+		}
+
+		if (curr != old)
+			stream << curr << ':' << curr << ',' << NewLine;
+		old = curr;
 	}
 
 	stream << "};" << NewLine;

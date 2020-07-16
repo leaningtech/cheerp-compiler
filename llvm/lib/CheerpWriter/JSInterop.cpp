@@ -79,28 +79,16 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		return false;
 	};
 
-	auto getFunctionName = [&](const Function * f) -> StringRef
+	auto processFunction = [&](const Function * f, const StringRef& name) -> void
 	{
-		StringRef mangledName = f->getName();
-		demangler_iterator dmg(mangledName);
-		return *dmg;
-	};
-
-	auto processFunction = [&](const Function * f) -> void
-	{
-		const StringRef name = getFunctionName(f);
 		if (alsoDeclare && !isNamespaced(name))
 			stream << "var ";
 		stream << name << '=' << namegen.getName(f) << ';' << NewLine;
 	};
 
-	auto processRecord = [&](const llvm::NamedMDNode& namedNode, const llvm::StringRef& name) -> void
+	auto processRecord = [&](const StructType* t, const llvm::NamedMDNode& namedNode, const llvm::StringRef& jsClassName) -> void
 	{
 		auto vectorMDNode = uniqueMDNodes(namedNode);
-
-		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, module);
-		StructType* t = structAndName.first;
-		StringRef jsClassName = structAndName.second;
 
 		auto getMethodName = [&](const MDNode * node) -> StringRef
 		{
@@ -115,7 +103,8 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 				if (jsClassName[i] == '.')
 					dmg++;
 			}
-			dmg++;
+			if (!isRootNeeded)
+				dmg++;
 
 			StringRef functionName = *dmg++;
 
@@ -170,7 +159,7 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 			stream << 'a' << i;
 		}
 		stream << "){" << NewLine;
-		compileType(t, THIS_OBJ);
+		compileType(const_cast<StructType*>(t), THIS_OBJ);
 		//We need to manually add the self pointer
 		stream << ';' << NewLine << "this.d=[this];" << NewLine;
 
@@ -247,26 +236,24 @@ void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 		}
 	};
 
-	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
-	//and processRecord on each jsexport-ed class/struct
-	iterateOverJsExportedMetadata(module, processFunction, processRecord);
+
+	for (const auto& jsex : jsExportedDecls)
+	{
+		if (jsex.isClass())
+			processRecord(jsex.t, *jsex.node, jsex.name);
+		else
+			processFunction(jsex.F, jsex.name);
+	}
 }
 
-std::deque<CheerpWriter::FunctionAndName> CheerpWriter::buildJsExportedFuncAndName(const llvm::Module& M)
+std::deque<CheerpWriter::JSExportedNamedDecl> CheerpWriter::buildJsExportedNamedDecl(const llvm::Module& M)
 {
 	//Here a vector is used since repetitions are not allowed
-	std::deque<CheerpWriter::FunctionAndName> jsExported;
+	std::deque<CheerpWriter::JSExportedNamedDecl> jsExported;
 
-	auto getFunctionName = [&](const Function * f) -> StringRef
+	auto processFunction = [&jsExported](const Function * f) -> void
 	{
-		StringRef mangledName = f->getName();
-		demangler_iterator dmg(mangledName);
-		return *dmg;
-	};
-
-	auto processFunction = [&jsExported, &getFunctionName](const Function * f) -> void
-	{
-		const StringRef name = getFunctionName(f);
+		const std::string name = TypeSupport::getNamespacedFunctionName(f->getName());
 		jsExported.emplace_back(f, name);
 	};
 
@@ -274,7 +261,7 @@ std::deque<CheerpWriter::FunctionAndName> CheerpWriter::buildJsExportedFuncAndNa
 	{
 		auto structAndName = TypeSupport::getJSExportedTypeFromMetadata(name, M);
 		StringRef jsClassName = structAndName.second;
-		jsExported.emplace_back(nullptr, jsClassName);
+		jsExported.emplace_back(structAndName.first, namedNode, jsClassName);
 	};
 
 	//This functions take cares of iterating over all metadata, executing processFunction on each jsexport-ed function
@@ -284,10 +271,19 @@ std::deque<CheerpWriter::FunctionAndName> CheerpWriter::buildJsExportedFuncAndNa
 	return jsExported;
 }
 
-void CheerpWriter::normalizeDeclList(std::deque<CheerpWriter::FunctionAndName> & exportedDecls)
+void CheerpWriter::prependRootToNames(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls)
 {
-	auto comparator = [](const FunctionAndName& a, const FunctionAndName& b) -> bool {return a.name < b.name;};
-	auto equality = [](const FunctionAndName& a, const FunctionAndName& b) -> bool {return a.name == b.name;};
+	//We will then consider "__root" as a namespace
+	for (auto& jsex : exportedDecls)
+	{
+		jsex.name = "__root." + jsex.name;
+	}
+}
+
+void CheerpWriter::normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls)
+{
+	auto comparator = [](const JSExportedNamedDecl& a, const JSExportedNamedDecl& b) -> bool {return a.name < b.name;};
+	auto equality = [](const JSExportedNamedDecl& a, const JSExportedNamedDecl& b) -> bool {return a.name == b.name;};
 
 	std::sort(exportedDecls.begin(), exportedDecls.end(), comparator);
 	auto it = adjacent_find(exportedDecls.begin(), exportedDecls.end(), equality);

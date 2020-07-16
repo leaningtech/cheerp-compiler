@@ -664,7 +664,7 @@ std::vector<std::string> buildJsExportedNamesList(const Module& M)
 {
 	std::vector<std::string> names;
 
-	const auto & jsexportedDecl = CheerpWriter::buildJsExportedFuncAndName(M);
+	const auto & jsexportedDecl = CheerpWriter::buildJsExportedNamedDecl(M);
 
 	for (const auto& jsex : jsexportedDecl)
 	{
