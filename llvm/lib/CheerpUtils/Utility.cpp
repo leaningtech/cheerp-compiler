@@ -627,6 +627,23 @@ bool TypeSupport::isJSExportedType(StructType* st, const Module& m)
 	return m.getNamedMetadata(llvm::Twine(st->getName(),"_methods"))!=NULL;
 }
 
+std::string TypeSupport::getNamespacedFunctionName(StringRef name)
+{
+	demangler_iterator demangler( name );
+
+	std::string namespacedName = "";
+
+	while (demangler != demangler_iterator())
+	{
+		namespacedName += *demangler++;
+		namespacedName += ".";
+	}
+
+	namespacedName.pop_back();
+
+	return namespacedName;
+}
+
 std::pair<StructType*, std::string> TypeSupport::getJSExportedTypeFromMetadata(StringRef name, const Module& module)
 {
 	StringRef mangledName = name.drop_back(8);;

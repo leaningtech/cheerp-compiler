@@ -398,6 +398,8 @@ public:
 
 	static bool isJSExportedType(llvm::StructType* st, const llvm::Module& m);
 
+	static std::string getNamespacedFunctionName(llvm::StringRef name);
+
 	static std::pair<llvm::StructType*, std::string> getJSExportedTypeFromMetadata(llvm::StringRef name, const llvm::Module & module);
 
 	// Returns true if the type is not considered a literal object or array in JS
