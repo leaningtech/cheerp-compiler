@@ -36,10 +36,23 @@ class CheerpWasmWriter;
 
 typedef llvm::raw_pwrite_stream WasmBuffer;
 
-class Section : public llvm::raw_svector_ostream {
+
+template<unsigned N>
+class Chunk: public llvm::raw_svector_ostream {
+private:
+	llvm::SmallString<N> buffer;
+public:
+	Chunk(): llvm::raw_svector_ostream(buffer)
+	{}
+	llvm::SmallVectorImpl<char>& buf()
+	{
+		return buffer;
+	}
+};
+
+class Section : public Chunk<256> {
 private:
 	CheerpWasmWriter* writer;
-	llvm::SmallString<128> buffer;
 
 public:
 	Section(uint32_t sectionId, const char* sectionName, CheerpWasmWriter* writer);
