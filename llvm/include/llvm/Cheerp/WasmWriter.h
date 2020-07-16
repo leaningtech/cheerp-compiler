@@ -316,7 +316,7 @@ public:
 	{
 		llvm::SmallString<8> buf;
 		llvm::raw_svector_ostream wbuf(buf);
-		encodeU32Inst(0x22, "tee_local", localId, wbuf);
+		encodeInst(WasmU32Opcode::TEE_LOCAL, localId, wbuf);
 		uint32_t teeSize = wbuf.tell();
 		if (!isValueUsed)
 		{
@@ -339,7 +339,7 @@ public:
 		{
 			llvm::SmallString<8> buf;
 			llvm::raw_svector_ostream wbuf(buf);
-			encodeU32Inst(0x22, "tee_local", localId, wbuf);
+			encodeInst(WasmU32Opcode::TEE_LOCAL, localId, wbuf);
 			code.pwrite(buf.begin(), wbuf.tell(), bufferOffset);
 			return true;
 		}
@@ -483,11 +483,11 @@ public:
 	void compileUnsignedInteger(WasmBuffer& code, const llvm::Value* v);
 	void compileTypedZero(WasmBuffer& code, llvm::Type* t);
 	static void encodeInst(WasmOpcode opcode, WasmBuffer& code);
+	static void encodeInst(WasmS32Opcode opcode, int32_t immediate, WasmBuffer& code);
+	static void encodeInst(WasmS64Opcode opcode, int64_t immediate, WasmBuffer& code);
+	static void encodeInst(WasmU32Opcode opcode, uint32_t immediate, WasmBuffer& code);
+	static void encodeInst(WasmU32U32Opcode opcode, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	void encodeBinOp(const llvm::Instruction& I, WasmBuffer& code);
-	void encodeS32Inst(uint32_t opcode, const char* name, int32_t immediate, WasmBuffer& code);
-	void encodeS64Inst(uint32_t opcode, const char* name, int64_t immediate, WasmBuffer& code);
-	void encodeU32Inst(uint32_t opcode, const char* name, uint32_t immediate, WasmBuffer& code);
-	void encodeU32U32Inst(uint32_t opcode, const char* name, uint32_t i1, uint32_t i2, WasmBuffer& code);
 	void encodePredicate(const llvm::Type* ty, const llvm::CmpInst::Predicate predicate, WasmBuffer& code);
 	void compileICmp(const llvm::ICmpInst& ci, const llvm::CmpInst::Predicate p, WasmBuffer& code);
 	void compileICmp(const llvm::Value* op0, const llvm::Value* op1, const llvm::CmpInst::Predicate p, WasmBuffer& code);
