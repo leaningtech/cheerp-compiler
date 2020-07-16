@@ -136,4 +136,47 @@ enum class WasmOpcode {
 	F64_PROMOTE_F32 = 0xbb,
 };
 
+enum class WasmS32Opcode {
+	GROW_MEMORY = 0x40,
+	I32_CONST = 0x41,
+};
+
+enum class WasmS64Opcode {
+	I64_CONST = 0x42,
+};
+
+enum class WasmU32Opcode {
+	BLOCK = 0x02,
+	LOOP = 0x03,
+	IF = 0x04,
+	BR = 0x0c,
+	BR_IF = 0x0d,
+	CALL = 0x10,
+	RETURN_CALL = 0x12,
+	GET_LOCAL = 0x20,
+	SET_LOCAL = 0x21,
+	TEE_LOCAL = 0x22,
+	GET_GLOBAL = 0x23,
+	SET_GLOBAL = 0x24,
+};
+
+enum class WasmU32U32Opcode {
+	CALL_INDIRECT = 0x11,
+	RETURN_CALL_INDIRECT = 0x13,
+	I32_LOAD = 0x28,
+	I64_LOAD = 0x29,
+	F32_LOAD = 0x2a,
+	F64_LOAD = 0x2b,
+	I32_LOAD8_S = 0x2c,
+	I32_LOAD8_U = 0x2d,
+	I32_LOAD16_S = 0x2e,
+	I32_LOAD16_U = 0x2f,
+	I32_STORE = 0x36,
+	I64_STORE = 0x37,
+	F32_STORE = 0x38,
+	F64_STORE = 0x39,
+	I32_STORE8 = 0x3a,
+	I32_STORE16 = 0x3b,
+};
+
 #endif // _CHEERP_WASM_OPCODES_H
