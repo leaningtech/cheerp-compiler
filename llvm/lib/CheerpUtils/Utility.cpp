@@ -1140,6 +1140,7 @@ void initializeCheerpOpts(PassRegistry &Registry)
 	initializeFixIrreducibleControlFlowPass(Registry);
 	initializeCheerpLowerSwitchPass(Registry);
 	initializeByValLoweringPass(Registry);
+	initializeI64LoweringPass(Registry);
 }
 
 }
