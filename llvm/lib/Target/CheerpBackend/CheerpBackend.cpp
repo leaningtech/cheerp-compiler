@@ -36,6 +36,7 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/SourceMaps.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
+#include "llvm/Cheerp/ConstantExprLowering.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 
@@ -217,6 +218,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
 
   if (FixWrongFuncCasts)
     PM.add(createFixFunctionCastsPass());
+  PM.add(cheerp::createConstantExprLoweringPass());
   PM.add(createCheerpLowerSwitchPass());
   PM.add(createLowerAndOrBranchesPass());
   PM.add(createStructMemFuncLowering());
