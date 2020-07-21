@@ -71,14 +71,6 @@ static std::vector<const llvm::MDNode*> uniqueMDNodes(const llvm::NamedMDNode& n
 
 void CheerpWriter::compileDeclExportedToJs(const bool alsoDeclare)
 {
-	auto isNamespaced = [](const llvm::StringRef name) -> bool
-	{
-		for (auto x : name)
-			if (x == '.')
-				return true;
-		return false;
-	};
-
 	auto processFunction = [&](const Function * f, const StringRef& name) -> void
 	{
 		if (alsoDeclare && !isNamespaced(name))

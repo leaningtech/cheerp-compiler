@@ -490,6 +490,11 @@ public:
 	static void prependRootToNames(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls);
 	static void normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDecl> & exportedDecls);
 
+	static bool isNamespaced(const llvm::StringRef str)
+	{
+		return (str.find('.') < str.size());
+	}
+
 private:
 	// Names of js-exported items
 	std::deque<CheerpWriter::JSExportedNamedDecl> jsExportedDecls;
