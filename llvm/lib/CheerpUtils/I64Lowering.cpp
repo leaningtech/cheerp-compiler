@@ -831,10 +831,6 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 namespace cheerp
 {
 
-StringRef I64Lowering::getPassName() const {
-	return "I64Lowering";
-}
-
 bool I64Lowering::runOnFunction(Function& F)
 {
 	if (!lowerAsmJSSection && F.getSection() == StringRef("asmjs"))
@@ -851,15 +847,24 @@ bool I64Lowering::runOnFunction(Function& F)
 	return Changed;
 }
 
-char I64Lowering::ID = 0;
+StringRef I64LoweringPass::getPassName() const {
+	return "I64LoweringPass";
+}
 
-FunctionPass *createI64LoweringPass(bool lowerAsmJSSection) { return new I64Lowering(lowerAsmJSSection); }
+bool I64LoweringPass::runOnFunction(Function& F)
+{
+	return Lowerer.runOnFunction(F);
+}
+
+char I64LoweringPass::ID = 0;
+
+FunctionPass *createI64LoweringPass(bool lowerAsmJSSection) { return new I64LoweringPass(lowerAsmJSSection); }
 
 }
 
 using namespace cheerp;
 
-INITIALIZE_PASS_BEGIN(I64Lowering, "I64Lowering", "Converts 64-bit integer operations into 32-bit ones",
+INITIALIZE_PASS_BEGIN(I64LoweringPass, "I64Lowering", "Converts 64-bit integer operations into 32-bit ones",
                       false, false)
-INITIALIZE_PASS_END(I64Lowering, "I64Lowering", "Converts 64-bit integer operations into 32-bit ones",
+INITIALIZE_PASS_END(I64LoweringPass, "I64Lowering", "Converts 64-bit integer operations into 32-bit ones",
                     false, false)
