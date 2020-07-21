@@ -6170,20 +6170,10 @@ void CheerpWriter::compileDeclareExports()
 		//Set all jsExportedDecls equal to DUMMY / {}
 		for (auto jsex: jsExportedDecls)
 		{
-			if (!isRootNeeded)
+			if (!isRootNeeded && !isNamespaced(jsex.name))
 			{
-				//__root is already declared top-level
-
-				//TODO: This has to become a utility function
 				areJsExportedExportsDeclared = true;
-
-				unsigned int i = 0;
-				for (unsigned int j=0; j<jsex.name.size(); j++)
-					if (jsex.name[j]=='.')
-						i++;
-				if (i==0)
-
-					stream << "var ";
+				stream << "var ";
 			}
 
 			stream << jsex.name << "=";
