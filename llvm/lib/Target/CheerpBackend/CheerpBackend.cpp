@@ -86,16 +86,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
   cheerp::AllocaStoresExtractor &allocaStoresExtractor = getAnalysis<cheerp::AllocaStoresExtractor>();
-  auto functionAddressMode = outputMode == LinearOutputTy::AsmJs
-    ? cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS
-    : cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm;
-  bool growMem = !WasmNoGrowMemory &&
-                 functionAddressMode == cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm &&
-                 // NOTE: this is not actually required by the spec, but for now chrome
-                 // doesn't like growing shared memory
-                 !WasmSharedMemory;
-
-  cheerp::LinearMemoryHelper linearHelper(M, functionAddressMode, GDA, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem);
+  cheerp::LinearMemoryHelper &linearHelper = getAnalysis<cheerp::LinearMemoryHelper>();
   std::unique_ptr<cheerp::SourceMapGenerator> sourceMapGenerator;
   GDA.forceTypedArrays = ForceTypedArrays;
   if (!SourceMap.empty())
@@ -170,7 +161,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmOnly,
                                     PrettyCode, CfgLegacy, WasmSharedMemory,
-                                    !growMem, WasmExportedTable);
+                                    WasmExportedTable);
     wasmWriter.makeWasm();
   }
   if (!SecondaryOutputFile.empty() && ErrorCode)
@@ -189,6 +180,7 @@ void CheerpWritePass::getAnalysisUsage(AnalysisUsage& AU) const
   AU.addRequired<cheerp::GlobalDepsAnalyzer>();
   AU.addRequired<cheerp::PointerAnalyzer>();
   AU.addRequired<cheerp::Registerize>();
+  AU.addRequired<cheerp::LinearMemoryHelper>();
   AU.addRequired<cheerp::AllocaStoresExtractor>();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
@@ -243,6 +235,17 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createRemoveFwdBlocksPass());
   // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
   PM.add(cheerp::createAllocaStoresExtractor());
+
+  auto functionAddressMode = outputMode == LinearOutputTy::AsmJs
+    ? cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS
+    : cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm;
+  bool growMem = !WasmNoGrowMemory &&
+                 functionAddressMode == cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm &&
+                 // NOTE: this is not actually required by the spec, but for now chrome
+                 // doesn't like growing shared memory
+                 !WasmSharedMemory;
+
+  PM.add(cheerp::createLinearMemoryHelperPass(functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem));
   PM.add(new CheerpWritePass(o));
   return false;
 }
