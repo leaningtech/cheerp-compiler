@@ -18,6 +18,7 @@
 #include "llvm/Cheerp/PointerPasses.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
@@ -164,6 +165,7 @@ void AllocaArrays::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::LinearMemoryHelper>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
@@ -1146,6 +1148,7 @@ void DelayInsts::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::LinearMemoryHelper>();
 	AU.addRequired<DominatorTreeWrapperPass>();
 	AU.addRequired<PostDominatorTreeWrapperPass>();
 	AU.addRequired<cheerp::PointerAnalyzer>();
