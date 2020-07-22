@@ -18,6 +18,7 @@
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/GEPOptimizer.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
@@ -329,6 +330,7 @@ void AllocaMerging::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<DominatorTreeWrapperPass>();
 	AU.addPreserved<DominatorTreeWrapperPass>();
+	AU.addPreserved<LinearMemoryHelper>();
 
 	llvm::FunctionPass::getAnalysisUsage(AU);
 }
@@ -605,6 +607,7 @@ void AllocaArraysMerging::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
 	AU.addRequired<DominatorTreeWrapperPass>();
 	AU.addPreserved<DominatorTreeWrapperPass>();
+	AU.addPreserved<LinearMemoryHelper>();
 
 	llvm::FunctionPass::getAnalysisUsage(AU);
 }
@@ -903,6 +906,7 @@ void AllocaStoresExtractor::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<LinearMemoryHelper>();
 	llvm::ModulePass::getAnalysisUsage(AU);
 }
 

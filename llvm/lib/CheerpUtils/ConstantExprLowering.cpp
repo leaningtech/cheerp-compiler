@@ -11,6 +11,9 @@
 
 #include "llvm/Cheerp/ConstantExprLowering.h"
 #include "llvm/Cheerp/I64Lowering.h"
+#include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -94,6 +97,16 @@ bool ConstantExprLowering::runOnFunction(Function& F)
 	}
 
 	return Changed;
+}
+
+void ConstantExprLowering::getAnalysisUsage(llvm::AnalysisUsage & AU) const
+{
+	AU.addRequired<cheerp::LinearMemoryHelper>();
+	AU.addPreserved<cheerp::LinearMemoryHelper>();
+	AU.addPreserved<Registerize>();
+	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.setPreservesCFG();
+	llvm::Pass::getAnalysisUsage(AU);
 }
 
 char ConstantExprLowering::ID = 0;

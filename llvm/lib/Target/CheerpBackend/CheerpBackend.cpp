@@ -208,9 +208,18 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   else
     mathMode = cheerp::GlobalDepsAnalyzer::JS_BUILTINS;
 
+  auto functionAddressMode = outputMode == LinearOutputTy::AsmJs
+    ? cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS
+    : cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm;
+  bool growMem = !WasmNoGrowMemory &&
+                 functionAddressMode == cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm &&
+                 // NOTE: this is not actually required by the spec, but for now chrome
+                 // doesn't like growing shared memory
+                 !WasmSharedMemory;
+
+
   if (FixWrongFuncCasts)
     PM.add(createFixFunctionCastsPass());
-  PM.add(cheerp::createConstantExprLoweringPass());
   PM.add(createCheerpLowerSwitchPass());
   PM.add(createLowerAndOrBranchesPass());
   PM.add(createStructMemFuncLowering());
@@ -227,6 +236,9 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createAllocaLoweringPass());
   if (!CheerpNoICF)
     PM.add(cheerp::createIdenticalCodeFoldingPass());
+
+  PM.add(cheerp::createLinearMemoryHelperPass(functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem));
+  PM.add(cheerp::createConstantExprLoweringPass());
   PM.add(cheerp::createPointerAnalyzerPass());
   PM.add(createDelayInstsPass());
   PM.add(cheerp::createAllocaMergingPass());
@@ -236,16 +248,6 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   // Keep this pass last, it is going to remove stores to memory from the LLVM visible code, so further optimizing afterwards will break
   PM.add(cheerp::createAllocaStoresExtractor());
 
-  auto functionAddressMode = outputMode == LinearOutputTy::AsmJs
-    ? cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS
-    : cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm;
-  bool growMem = !WasmNoGrowMemory &&
-                 functionAddressMode == cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm &&
-                 // NOTE: this is not actually required by the spec, but for now chrome
-                 // doesn't like growing shared memory
-                 !WasmSharedMemory;
-
-  PM.add(cheerp::createLinearMemoryHelperPass(functionAddressMode, CheerpHeapSize, CheerpStackSize, WasmOnly, growMem));
   PM.add(new CheerpWritePass(o));
   return false;
 }
