@@ -284,8 +284,7 @@ StringRef PointerAnalyzer::getPassName() const
 
 void PointerAnalyzer::getAnalysisUsage(AnalysisUsage& AU) const
 {
-	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
-	AU.addPreserved<cheerp::Registerize>();
+	AU.setPreservesAll();
 
 	llvm::Pass::getAnalysisUsage(AU);
 }

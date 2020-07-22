@@ -13,6 +13,7 @@
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
 #include "llvm/Cheerp/Registerize.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 namespace llvm {
@@ -81,6 +82,7 @@ void RemoveFwdBlocks::getAnalysisUsage(AnalysisUsage & AU) const
 	AU.addPreserved<cheerp::PointerAnalyzer>();
 	AU.addPreserved<cheerp::Registerize>();
 	AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
+	AU.addPreserved<cheerp::LinearMemoryHelper>();
 	llvm::Pass::getAnalysisUsage(AU);
 }
 
