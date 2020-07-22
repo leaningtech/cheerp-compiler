@@ -37,24 +37,38 @@ static bool runOnInstruction(Instruction* I, bool& hasI64)
 	{
 		Instruction* Cur = Stack.back();
 		Stack.pop_back();
+		SmallDenseMap<BasicBlock*, Instruction*> PHICache;
 		for (auto& O: Cur->operands())
 		{
 			if (ConstantExpr* CE = dyn_cast<ConstantExpr>(O.get()))
 			{
-				Instruction* Conv = CE->getAsInstruction();
-				if (Conv->getType()->isIntegerTy(64))
+				if (CE->getType()->isIntegerTy(64))
 					hasI64 |= true;
+
+				Instruction* Conv;
+
 				if (PHINode* P = dyn_cast<PHINode>(Cur))
 				{
 					BasicBlock* Incoming = P->getIncomingBlock(O);
-					Conv->insertBefore(Incoming->getTerminator());
+					auto it = PHICache.find(Incoming);
+					if (it != PHICache.end())
+					{
+						Conv = it->second;
+					}
+					else
+					{
+						Conv = CE->getAsInstruction();
+						Conv->insertBefore(Incoming->getTerminator());
+						PHICache.insert(std::make_pair(Incoming, Conv));
+					}
 				}
 				else
 				{
+					Conv = CE->getAsInstruction();
 					Conv->insertBefore(Cur);
 				}
-				O.set(Conv);
 				Stack.push_back(Conv);
+				O.set(Conv);
 				Changed = true;
 			}
 		}
