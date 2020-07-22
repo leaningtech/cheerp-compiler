@@ -736,8 +736,8 @@ bool IdenticalCodeFolding::equivalentGep(const llvm::GetElementPtrInst* A, const
 	const llvm::Module& module = *A->getParent()->getParent()->getParent();
 	GepListener gepListenerA;
 	GepListener gepListenerB;
-	const auto a = LinearMemoryHelper::compileGEP(module, A, &gepListenerA, nullptr);
-	const auto b = LinearMemoryHelper::compileGEP(module, B, &gepListenerB, nullptr);
+	const auto a = LinearMemoryHelper::compileGEP(&module, A, &gepListenerA, nullptr);
+	const auto b = LinearMemoryHelper::compileGEP(&module, B, &gepListenerB, nullptr);
 
 	if (gepListenerA.offset != gepListenerB.offset ||
 		gepListenerA.values.size() != gepListenerB.values.size())
