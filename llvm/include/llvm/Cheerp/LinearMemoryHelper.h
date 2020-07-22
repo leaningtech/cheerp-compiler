@@ -14,6 +14,7 @@
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/Pass.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/BuiltinInstructions.h"
 #include "llvm/Cheerp/PointerAnalyzer.h"
@@ -22,7 +23,7 @@
 
 namespace cheerp
 {
-class LinearMemoryHelper
+class LinearMemoryHelper: public llvm::ModulePass
 {
 public:
 	/**
@@ -142,19 +143,30 @@ public:
 	typedef std::unordered_map<const llvm::FunctionType*, size_t,
 		FunctionSignatureHash<>,FunctionSignatureCmp<>> FunctionTypeIndicesMap;
 
-	LinearMemoryHelper(llvm::Module& module, FunctionAddressMode mode, GlobalDepsAnalyzer& GDA,
-		uint32_t memorySize, uint32_t stackSize, bool wasmOnly, bool growMem):
-		module(module), mode(mode), globalDeps(GDA), maxFunctionId(0),
-		memorySize(memorySize*1024*1024), stackSize(stackSize*1024*1024),
-		wasmOnly(wasmOnly), growMem(growMem)
+	static char ID;
+
+	LinearMemoryHelper(FunctionAddressMode mode, uint32_t memorySize,
+		uint32_t stackSize, bool wasmOnly, bool growMem):
+		llvm::ModulePass(ID), module(nullptr), globalDeps(nullptr),
+		mode(mode), maxFunctionId(0), memorySize(memorySize*1024*1024),
+		stackSize(stackSize*1024*1024), wasmOnly(wasmOnly), growMem(growMem)
 	{
+	}
+	virtual bool runOnModule(llvm::Module& module) override
+	{
+		this->module = &module;
+		globalDeps = &getAnalysis<GlobalDepsAnalyzer>();
 		builtinIds.fill(std::numeric_limits<uint32_t>::max());
 		addFunctions();
 		addStack();
 		addGlobals();
 		checkMemorySize();
 		addHeapStartAndEnd();
+
+		return false;
 	}
+
+	void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
 
 	uint32_t getGlobalVariableAddress(const llvm::GlobalVariable* G) const;
 	uint32_t getFunctionAddress(const llvm::Function* F) const;
@@ -264,11 +276,16 @@ public:
 	static int64_t compileGEPOperand(const llvm::Value* idxVal, uint32_t size, GepListener* listener, bool invert);
 	// Returns the base of the compiled expression
 	const llvm::Value* compileGEP(const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA) const;
-	static const llvm::Value* compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA);
+	static const llvm::Value* compileGEP(const llvm::Module* module, const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA);
+
 	uint32_t getBuiltinId(BuiltinInstr::BUILTIN b) const
 	{
 		assert(builtinIds[b] != std::numeric_limits<uint32_t>::max());
 		return builtinIds[b];
+	}
+
+	bool canGrowMemory() const {
+		return growMem;
 	}
 private:
 	// Different kind of types for the purpose of comparing function signatures
@@ -304,9 +321,10 @@ private:
 	void addHeapStartAndEnd();
 	void checkMemorySize();
 
-	llvm::Module& module;
+	llvm::Module* module;
+	GlobalDepsAnalyzer* globalDeps;
+
 	FunctionAddressMode mode;
-	GlobalDepsAnalyzer& globalDeps;
 
 	FunctionTableInfoMap functionTables;
 	FunctionTableOrder functionTableOrder;
@@ -339,6 +357,9 @@ private:
 	// Whether memory can grow at runtime or not
 	bool growMem;
 };
+
+llvm::ModulePass *createLinearMemoryHelperPass(LinearMemoryHelper::FunctionAddressMode mode,
+		uint32_t memorySize,uint32_t stackSize, bool wasmOnly, bool growMem);
 
 }
 

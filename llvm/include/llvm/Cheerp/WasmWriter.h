@@ -446,7 +446,6 @@ public:
 			bool prettyCode,
 			bool useCfgLegacy,
 			bool sharedMemory,
-			bool noGrowMemory,
 			bool exportedTable):
 		module(m),
 		pass(p),
@@ -465,7 +464,7 @@ public:
 		prettyCode(prettyCode),
 		useCfgLegacy(useCfgLegacy),
 		sharedMemory(sharedMemory),
-		noGrowMemory(noGrowMemory),
+		noGrowMemory(!linearHelper.canGrowMemory()),
 		exportedTable(exportedTable),
 		PA(PA),
 		inlineableCache(PA),

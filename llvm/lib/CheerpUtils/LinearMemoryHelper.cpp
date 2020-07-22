@@ -21,7 +21,7 @@ using namespace llvm;
 
 void LinearMemoryHelper::compileConstantAsBytes(const Constant* c, bool asmjs, ByteListener* listener, int32_t offset) const
 {
-	const auto& targetData = module.getDataLayout();
+	const auto& targetData = module->getDataLayout();
 	if(const ConstantDataSequential* CD = dyn_cast<ConstantDataSequential>(c))
 	{
 		assert(offset==0);
@@ -317,9 +317,9 @@ int64_t LinearMemoryHelper::compileGEPOperand(const llvm::Value* idxVal, uint32_
 	}
 }
 
-const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module& module, const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA)
+const llvm::Value* LinearMemoryHelper::compileGEP(const llvm::Module* module, const llvm::Value* p, GepListener* listener, const PointerAnalyzer* PA)
 {
-	const auto& targetData = module.getDataLayout();
+	const auto& targetData = module->getDataLayout();
 	int64_t constPart = 0;
 	while ( isBitCast(p) || isGEP(p) )
 	{
@@ -377,13 +377,13 @@ void LinearMemoryHelper::addGlobals()
 {
 	generateGlobalizedGlobalsUsage();
 
-	const auto& targetData = module.getDataLayout();
+	const auto& targetData = module->getDataLayout();
 	// The global variable list has a special order:
 	// 1. Move non-initialised and zero-initialised variables to end of
 	// global variable list.
 	// 2. Sort non-zero initialised variables on alignment to reduce the number
 	// of padding bytes.
-	for (const auto& G: module.globals())
+	for (const auto& G: module->globals())
 	{
 		if (G.getSection() != StringRef("asmjs")) continue;
 		asmjsGlobals.push_back(&G);
@@ -430,7 +430,7 @@ void LinearMemoryHelper::generateGlobalizedGlobalsUsage()
 	if (mode == FunctionAddressMode::AsmJS)
 		return;
 	// Identify all globals which are only ever accessed with with load/store, we can promote those to globals
-	for (const GlobalVariable& GV: module.globals())
+	for (const GlobalVariable& GV: module->globals())
 	{
 		// Don't deal with undefined variables
 		if(!GV.hasInitializer())
@@ -463,13 +463,13 @@ void LinearMemoryHelper::addFunctions()
 	// the first list entry, if defined.
 	if (mode == FunctionAddressMode::Wasm)
 	{
-		llvm::Function* wasmNullptr = module.getFunction(StringRef(wasmNullptrName));
+		llvm::Function* wasmNullptr = module->getFunction(StringRef(wasmNullptrName));
 		if (wasmNullptr)
 			asmjsFunctions_.push_back(wasmNullptr);
 	}
 
 	std::vector<const llvm::Function*> unsorted;
-	for (auto* F: globalDeps.insideModule())
+	for (auto* F: globalDeps->insideModule())
 	{
 		if (F->getSection() != StringRef("asmjs"))
 			continue;
@@ -512,9 +512,9 @@ if (!functionTypeIndices.count(fTy)) { \
 	functionTypes.push_back(fTy); \
 	assert(idx < functionTypes.size()); \
 }
-#define ADD_BUILTIN(x, sig) if(globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::x)) { needs_ ## sig = true; builtinIds[BuiltinInstr::x] = maxFunctionId++; }
+#define ADD_BUILTIN(x, sig) if(globalDeps->needsBuiltin(BuiltinInstr::BUILTIN::x)) { needs_ ## sig = true; builtinIds[BuiltinInstr::x] = maxFunctionId++; }
 
-		for (const Function* F : globalDeps.asmJSImports()) {
+		for (const Function* F : globalDeps->asmJSImports()) {
 			const FunctionType* fTy = F->getFunctionType();
 			ADD_FUNCTION_TYPE(fTy);
 			functionIds.insert(std::make_pair(F, maxFunctionId++));
@@ -522,7 +522,7 @@ if (!functionTypeIndices.count(fTy)) { \
 		if(!NoNativeJavaScriptMath && mode == FunctionAddressMode::Wasm)
 		{
 			// Synthetize the function type for float/double builtins
-			Type* f64 = Type::getDoubleTy(module.getContext());
+			Type* f64 = Type::getDoubleTy(module->getContext());
 			Type* f64_1[] = { f64 };
 			Type* f64_2[] = { f64, f64 };
 			FunctionType* f64_f64_1 = FunctionType::get(f64, f64_1, false);
@@ -544,7 +544,7 @@ if (!functionTypeIndices.count(fTy)) { \
 			if(needs_f64_f64_2)
 				ADD_FUNCTION_TYPE(f64_f64_2);
 		}
-		Type* i32 = Type::getInt32Ty(module.getContext());
+		Type* i32 = Type::getInt32Ty(module->getContext());
 		Type* i32_1[] = { i32 };
 		FunctionType* i32_i32_1 = FunctionType::get(i32, i32_1, false);
 		bool needs_i32_i32_1 = false;
@@ -557,7 +557,7 @@ if (!functionTypeIndices.count(fTy)) { \
 
 	// Check if the __genericjs__free function is present. If so, consider
 	// "free()" as if its address is taken
-	bool freeTaken = module.getFunction("__genericjs__free") != nullptr;
+	bool freeTaken = module->getFunction("__genericjs__free") != nullptr;
 	// Build the function tables first
 	for (const Function* F : asmjsFunctions_)
 	{
@@ -636,21 +636,21 @@ void LinearMemoryHelper::checkMemorySize()
 }
 void LinearMemoryHelper::addHeapStartAndEnd()
 {
-	GlobalVariable* heapStartVar = module.getNamedGlobal("_heapStart");
-	GlobalVariable* heapEndVar = module.getNamedGlobal("_heapEnd");
+	GlobalVariable* heapStartVar = module->getNamedGlobal("_heapStart");
+	GlobalVariable* heapEndVar = module->getNamedGlobal("_heapEnd");
 
 	if (heapStartVar)
 	{
 		assert(heapEndVar && "No _heapEnd global variable found");
 		// Align to 8 bytes
 		heapStart = (heapStart + 7) & ~7;
-		ConstantInt* startAddr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapStart, false);
+		ConstantInt* startAddr = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), heapStart, false);
 		Constant* startInit = ConstantExpr::getIntToPtr(startAddr, heapStartVar->getType()->getElementType(), false);
 		heapStartVar->setInitializer(startInit);
 		heapStartVar->setSection("asmjs");
 
 		uint32_t heapEnd = growMem ? heapStart : memorySize;
-		ConstantInt* endAddr = ConstantInt::get(IntegerType::getInt32Ty(module.getContext()), heapEnd, false);
+		ConstantInt* endAddr = ConstantInt::get(IntegerType::getInt32Ty(module->getContext()), heapEnd, false);
 		Constant* endInit = ConstantExpr::getIntToPtr(endAddr, heapEndVar->getType()->getElementType(), false);
 		heapEndVar->setInitializer(endInit);
 		heapEndVar->setSection("asmjs");
@@ -666,7 +666,7 @@ uint32_t LinearMemoryHelper::getFunctionAddress(const llvm::Function* F) const
 {
 	if (F->getName() == StringRef("__genericjs__free"))
 	{
-		const Function* ffree = module.getFunction("free");
+		const Function* ffree = module->getFunction("free");
 		assert(ffree);
 		F = ffree;
 	}
@@ -677,7 +677,7 @@ bool LinearMemoryHelper::functionHasAddress(const llvm::Function* F) const
 {
 	if (F->getName() == StringRef("__genericjs__free"))
 	{
-		const Function* ffree = module.getFunction("free");
+		const Function* ffree = module->getFunction("free");
 		assert(ffree);
 		F = ffree;
 	}
@@ -703,3 +703,18 @@ bool LinearMemoryHelper::LinearGepListener::isInlineable(const llvm::Value* p)
 
 	return true;
 }
+
+void LinearMemoryHelper::getAnalysisUsage(llvm::AnalysisUsage & AU) const
+{
+	AU.addRequired<cheerp::GlobalDepsAnalyzer>();
+	AU.setPreservesAll();
+	llvm::Pass::getAnalysisUsage(AU);
+}
+
+llvm::ModulePass *cheerp::createLinearMemoryHelperPass(LinearMemoryHelper::FunctionAddressMode mode,
+		uint32_t memorySize,uint32_t stackSize, bool wasmOnly, bool growMem)
+{
+	return new LinearMemoryHelper(mode, memorySize, stackSize, wasmOnly, growMem);
+}
+
+char LinearMemoryHelper::ID = 0;
