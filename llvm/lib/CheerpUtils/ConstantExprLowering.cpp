@@ -13,15 +13,12 @@
 #include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
-#include "llvm/Cheerp/LinearMemoryHelper.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Analysis/ConstantFolding.h"
 
 using namespace llvm;
-
-
 
 namespace cheerp
 {
@@ -30,8 +27,92 @@ StringRef ConstantExprLowering::getPassName() const {
 	return "ConstantExprLowering";
 }
 
+Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallDenseMap<Constant *, Constant *> &FoldedOps)
+{
+	SmallVector<Constant *, 8> Ops;
+	for (const Use &NewU : CE->operands())
+	{
+		auto *NewC = cast<Constant>(&NewU);
+		// Recursively fold the ConstantExpr's operands. If we have already folded
+		// a ConstantExpr, we don't have to process it again.
+		if (auto *NewCE = dyn_cast<ConstantExpr>(NewC))
+		{
+			auto It = FoldedOps.find(NewC);
+			if (It == FoldedOps.end())
+			{
+				if (auto *FoldedC = visitConstantExpr(NewCE, FoldedOps))
+				{
+					FoldedOps.insert({NewC, FoldedC});
+					NewC = FoldedC;
+				}
+				else
+				{
+					FoldedOps.insert({NewC, NewC});
+				}
+			}
+			else
+			{
+				NewC = It->second;
+			}
+		}
+		else if (auto *GV = dyn_cast<GlobalVariable>(NewC))
+		{
+			if (GV->GlobalValue::getSection() == StringRef("asmjs"))
+			{
+				auto *CI = ConstantInt::get(IntegerType::get(CE->getContext(), 32), LH->getGlobalVariableAddress(GV));
+				NewC = ConstantExpr::getIntToPtr(CI, NewC->getType());
+			}
+		}
+		Ops.push_back(NewC);
+	}
+	auto Opcode = CE->getOpcode();
+	// Handle easy binops first.
+	if (Instruction::isBinaryOp(Opcode))
+		return ConstantFoldBinaryOpOperands(Opcode, Ops[0], Ops[1], *DL);
+	if (CE->isCompare())
+		return ConstantFoldCompareInstOperands(CE->getPredicate(), Ops[0], Ops[1], *DL);
+	if (Instruction::isCast(Opcode))
+		return ConstantFoldCastOperand(Opcode, Ops[0], CE->getType(), *DL);
 
-static bool runOnInstruction(Instruction* I, bool& hasI64)
+	if (auto *GEP = dyn_cast<GEPOperator>(CE)) {
+		ArrayRef<Constant*> Indices = Ops;
+		Indices = Indices.slice(1);
+		ConstantExpr* ITP = dyn_cast<ConstantExpr>(Ops[0]);
+		if (ITP && ITP->getOpcode() == Instruction::IntToPtr)
+		{
+			if (auto *Base = dyn_cast<ConstantInt>(ITP->getOperand(0)))
+			{
+				uint32_t Addr = Base->getValue().getZExtValue();
+				Type* curTy = CE->getOperand(0)->getType();
+
+				for (Constant* idx: Indices)
+				{
+					int64_t index = cast<ConstantInt>(idx)->getZExtValue();
+					if (StructType* ST = dyn_cast<StructType>(curTy))
+					{
+						const StructLayout* SL = DL->getStructLayout( ST );
+						Addr += SL->getElementOffset(index);
+						curTy = ST->getElementType(index);
+					}
+					else
+					{
+						Addr += index*DL->getTypeAllocSize(getElementType(curTy));
+						curTy = getElementType(curTy);
+					}
+				}
+				auto *CI = ConstantInt::get(IntegerType::get(CE->getContext(), 32), Addr);
+				return ConstantExpr::getIntToPtr(CI, CE->getType());
+			}
+		}
+		return ConstantExpr::getGetElementPtr(GEP->getSourceElementType(), Ops[0],
+			Indices, GEP->isInBounds(),
+			GEP->getInRangeIndex());
+	}
+
+	return nullptr;
+}
+
+bool ConstantExprLowering::runOnInstruction(Instruction* I, bool& hasI64)
 {
 	bool Changed = false;
 	std::vector<Instruction*> Stack;
@@ -41,12 +122,25 @@ static bool runOnInstruction(Instruction* I, bool& hasI64)
 		Instruction* Cur = Stack.back();
 		Stack.pop_back();
 		SmallDenseMap<BasicBlock*, Instruction*> PHICache;
+		SmallDenseMap<Constant*, Constant*> FoldedOps;
 		for (auto& O: Cur->operands())
 		{
 			if (ConstantExpr* CE = dyn_cast<ConstantExpr>(O.get()))
 			{
 				if (CE->getType()->isIntegerTy(64))
 					hasI64 |= true;
+
+				if (Constant* C = visitConstantExpr(CE, FoldedOps))
+				{
+					if (isa<ConstantExpr>(C))
+						CE = cast<ConstantExpr>(C);
+					else
+					{
+						O.set(C);
+						Changed = true;
+						continue;
+					}
+				}
 
 				Instruction* Conv;
 
@@ -82,6 +176,9 @@ bool ConstantExprLowering::runOnFunction(Function& F)
 {
 	bool Changed = false;
 	bool hasI64 = false;
+
+	LH = &getAnalysis<cheerp::LinearMemoryHelper>();
+	DL = &F.getParent()->getDataLayout();
 
 	for (BasicBlock& BB: F)
 	{

@@ -14,7 +14,9 @@
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Pass.h"
+#include "llvm/Cheerp/LinearMemoryHelper.h"
 
 namespace cheerp {
 
@@ -25,12 +27,19 @@ public:
 	static char ID;
 
 	explicit ConstantExprLowering()
-		: FunctionPass(ID)
+		: FunctionPass(ID), DL(nullptr), LH(nullptr)
 	{ }
 
 	virtual bool runOnFunction(llvm::Function &F) override;
 	virtual void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
 	virtual llvm::StringRef getPassName() const override;
+
+private:
+	bool runOnInstruction(llvm::Instruction* I, bool& hasI64);
+	llvm::Constant* visitConstantExpr(const llvm::ConstantExpr *CE, llvm::SmallDenseMap<llvm::Constant *, llvm::Constant *> &FoldedOps);
+
+	const llvm::DataLayout* DL;
+	const cheerp::LinearMemoryHelper* LH;
 };
 
 //===----------------------------------------------------------------------===//
