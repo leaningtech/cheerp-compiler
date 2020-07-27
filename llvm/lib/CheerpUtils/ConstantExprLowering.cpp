@@ -57,6 +57,8 @@ Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallD
 		}
 		else if (auto *GV = dyn_cast<GlobalVariable>(NewC))
 		{
+			// In asmjs, addresses of globals  are just integers
+			// Ask LinearMemoryHelper for the value and cast to the pointer type
 			if (GV->GlobalValue::getSection() == StringRef("asmjs"))
 			{
 				auto *CI = ConstantInt::get(IntegerType::get(CE->getContext(), 32), LH->getGlobalVariableAddress(GV));
@@ -80,6 +82,7 @@ Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallD
 	if (Instruction::isCast(Opcode))
 		return ConstantFoldCastOperand(Opcode, Ops[0], CE->getType(), *DL);
 
+	// Manually fold GEPs of globals. Maybe we can let llvm do this too
 	if (auto *GEP = dyn_cast<GEPOperator>(CE)) {
 		ArrayRef<Constant*> Indices = Ops;
 		Indices = Indices.slice(1);
