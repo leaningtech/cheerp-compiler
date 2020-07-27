@@ -63,6 +63,12 @@ Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallD
 				NewC = ConstantExpr::getIntToPtr(CI, NewC->getType());
 			}
 		}
+		else if (isa<UndefValue>(NewC) && NewC->getType()->isFloatingPointTy())
+		{
+			// For some reason, undef floating points are not folded
+			// So we replace them with NaNs
+			NewC = ConstantFP::getNaN(NewC->getType());
+		}
 		Ops.push_back(NewC);
 	}
 	auto Opcode = CE->getOpcode();
