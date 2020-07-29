@@ -269,7 +269,7 @@ cheerp::TypeKind cheerp::classifyType(const clang::QualType& Qy, const clang::Se
 	{
 		const clang::BuiltinType* builtin = clang::cast<clang::BuiltinType>(Ty);
 
-		if (builtin->isHighInt())
+		if (sema.Context.getIntWidth(Desugared) > 32)
 			return TypeKind::IntGreater32Bit;
 		else if (sema.Context.getIntWidth(Desugared) == 1)
 			return TypeKind::Boolean;

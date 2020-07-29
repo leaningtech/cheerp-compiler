@@ -2583,9 +2583,6 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
   bool isSubtraction = !isInc;
 
   if (const AtomicType *atomicTy = type->getAs<AtomicType>()) {
-    if (CGF.IsHighInt(type)) {
-      llvm_unreachable("int64_t does not support atomic type");
-    }
     type = atomicTy->getValueType();
     if (isInc && type->isBooleanType()) {
       llvm::Value *True = CGF.EmitToMemory(Builder.getTrue(), type);
@@ -4946,10 +4943,7 @@ Value *ScalarExprEmitter::VisitVAArgExpr(VAArgExpr *VE) {
   Address ArgPtr = CGF.EmitVAArg(VE, ArgValue);
 
   llvm::Type *ArgTy;
-  if (CGF.IsHighInt(Ty))
-    ArgTy = CGF.ConvertTypeForMem(VE->getType())->getPointerTo();
-  else
-    ArgTy = ConvertType(VE->getType());
+  ArgTy = ConvertType(VE->getType());
 
   // If EmitVAArg fails, emit an error.
   if (!ArgPtr.isValid()) {
@@ -4966,10 +4960,6 @@ Value *ScalarExprEmitter::VisitVAArgExpr(VAArgExpr *VE) {
       Val = Builder.CreateIntToPtr(Val, ArgTy);
     else
       Val = Builder.CreateTrunc(Val, ArgTy);
-  }
-
-  if (CGF.IsHighInt(Ty)) {
-    Val = CGF.EmitLoadHighInt(Val);
   }
 
   return Val;
