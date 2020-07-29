@@ -1705,10 +1705,6 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
                                                LValueBaseInfo BaseInfo,
                                                TBAAAccessInfo TBAAInfo,
                                                bool isNontemporal) {
-  if (IsHighInt(Ty)) {
-    return EmitLoadHighInt(Addr.getPointer());
-  }
-
   if (!CGM.getCodeGenOpts().PreserveVec3Type) {
     // For better performance, handle vector loads differently.
     if (Ty->isVectorType()) {
@@ -1826,11 +1822,6 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
                                         LValueBaseInfo BaseInfo,
                                         TBAAAccessInfo TBAAInfo,
                                         bool isInit, bool isNontemporal) {
-  if (IsHighInt(Ty)) {
-    EmitStoreHighInt(Value, Addr, Volatile);
-    return;
-  }
-
   if (!CGM.getCodeGenOpts().PreserveVec3Type) {
     // Handle vectors differently to get better performance.
     if (Ty->isVectorType()) {
@@ -2188,8 +2179,7 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   llvm::Value *SrcVal = Src.getScalarVal();
 
   // Cast the source to the storage type and shift it into place.
-  llvm::Type* CastTy = IsHighInt(Dst.getType()) && Info.StorageSize > 32 ? ConvertType(Dst.getType()) : Ptr.getElementType();
-  SrcVal = Builder.CreateIntCast(SrcVal, CastTy,
+  SrcVal = Builder.CreateIntCast(SrcVal, Ptr.getElementType(),
                                  /*isSigned=*/false);
   llvm::Value *MaskedVal = SrcVal;
 
@@ -2235,15 +2225,7 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   }
 
   // Write the new value back out.
-  if (IsHighInt(Dst.getType())) {
-      if (Info.StorageSize <= 32) {
-        Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
-      } else {
-        EmitStoreHighInt(SrcVal, Ptr, Dst.isVolatileQualified());
-      }
-  } else {
-    Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
-  }
+  Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
 
   // Return the new value of the bit-field, if requested.
   if (Result) {
