@@ -121,12 +121,6 @@ llvm::Type *CodeGenTypes::ConvertTypeForMem(QualType T, bool ForBitField) {
       (!T->isBitIntType() && R->isIntegerTy(1)))
     return llvm::IntegerType::get(getLLVMContext(),
                                   (unsigned)Context.getTypeSize(T));
-  if (isHighInt(T)) {
-    llvm::Type *EltTy = llvm::IntegerType::get(getLLVMContext(), 32);
-    // We really want to use the same struct for signed and unsigned
-    return llvm::ArrayType::get(EltTy, 2);
-  }
-
   // Else, don't map it.
   return R;
 }
@@ -993,13 +987,4 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
 
 bool CodeGenTypes::isZeroInitializable(const RecordDecl *RD) {
   return getCGRecordLayout(RD).isZeroInitializable();
-}
-
-bool CodeGenTypes::isHighInt(QualType Ty) {
-  if(const EnumType* et = dyn_cast<EnumType>(Ty.getCanonicalType())) {
-    Ty = et->getDecl()->getIntegerType();
-  }
-  if(const BuiltinType* bt = dyn_cast<BuiltinType>(Ty.getCanonicalType()))
-    return bt->isHighInt();
-  return false;
 }
