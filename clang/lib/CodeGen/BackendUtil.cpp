@@ -593,7 +593,7 @@ static void addCheerpPasses(const PassManagerBuilder &Builder,
   const PassManagerBuilderWrapper &BuilderWrapper =
       static_cast<const PassManagerBuilderWrapper&>(Builder);
   bool lowerAsmJSSection = BuilderWrapper.getLangOpts().getCheerpLinearOutput()!=LangOptions::CHEERP_LINEAR_OUTPUT_Wasm;
-  PM.add(cheerp::createI64LoweringPass(lowerAsmJSSection));
+  //PM.add(cheerp::createI64LoweringPass(lowerAsmJSSection));
 }
 
 static void addPostInlineCheerpPasses(const PassManagerBuilder &Builder,

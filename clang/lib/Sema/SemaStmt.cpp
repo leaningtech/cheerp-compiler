@@ -739,7 +739,7 @@ ExprResult Sema::CheckSwitchCondition(SourceLocation SwitchLoc, Expr *Cond) {
 }
 
 StmtResult Sema::ActOnStartOfSwitchStmt(SourceLocation SwitchLoc,
-                                        Stmt *InitStmt, ConditionResult Cond) {
+                                      Stmt *InitStmt, ConditionResult Cond) {
   Expr *CondExpr = Cond.get().second;
   assert((Cond.isInvalid() || CondExpr) && "switch with no condition");
 
@@ -759,9 +759,13 @@ StmtResult Sema::ActOnStartOfSwitchStmt(SourceLocation SwitchLoc,
     }
   }
 
-  if(CondExpr && isa<BuiltinType>(CondExpr->getType().getCanonicalType()) && cast<BuiltinType>(CondExpr->getType().getCanonicalType())->isHighInt()) {
-    Diag(SwitchLoc, diag::err_cheerp_switch_64bit);
-    return StmtError();
+  if(CondExpr) {
+    QualType CondType = CondExpr->getType().getCanonicalType();
+    if(CondType->isSpecificBuiltinType(BuiltinType::ULongLong) ||
+       CondType->isSpecificBuiltinType(BuiltinType::LongLong)) {
+      Diag(SwitchLoc, diag::err_cheerp_switch_64bit);
+      return StmtError();
+    }
   }
 
   setFunctionHasBranchIntoScope();

@@ -78,8 +78,7 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
 
 static bool isAggregateTypeForABI(QualType T) {
   return !CodeGenFunction::hasScalarEvaluationKind(T) ||
-         T->isMemberFunctionPointerType() ||
-         CodeGenFunction::IsHighInt(T);
+         T->isMemberFunctionPointerType();
 }
 
 ABIArgInfo
@@ -9717,9 +9716,53 @@ public:
 
 namespace {
 
-class CheerpTargetCodeGenInfo : public DefaultTargetCodeGenInfo {
+class CheerpABIInfo final : public DefaultABIInfo {
 public:
-  CheerpTargetCodeGenInfo(CodeGenTypes &CGT) : DefaultTargetCodeGenInfo(CGT) {}
+  explicit CheerpABIInfo(CodeGen::CodeGenTypes &CGT)
+      : DefaultABIInfo(CGT) {}
+
+private:
+  ABIArgInfo classifyReturnType(QualType RetTy) const {
+    if (RetTy->isSpecificBuiltinType(BuiltinType::LongLong) ||
+        RetTy->isSpecificBuiltinType(BuiltinType::ULongLong)) {
+
+      return getNaturalAlignIndirect(RetTy);
+    }
+    return DefaultABIInfo::classifyReturnType(RetTy);
+  };
+  ABIArgInfo classifyArgumentType(QualType Ty) const {
+    if (Ty->isSpecificBuiltinType(BuiltinType::LongLong) ||
+        Ty->isSpecificBuiltinType(BuiltinType::ULongLong)) {
+
+      return getNaturalAlignIndirect(Ty);
+    }
+    return DefaultABIInfo::classifyArgumentType(Ty);
+  };
+
+  // DefaultABIInfo's classifyReturnType and classifyArgumentType are
+  // non-virtual, but computeInfo and EmitVAArg are virtual, so we
+  // overload them.
+  void computeInfo(CGFunctionInfo &FI) const override {
+    if (!getCXXABI().classifyReturnType(FI))
+      FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
+    for (auto &Arg : FI.arguments())
+      Arg.info = classifyArgumentType(Arg.type);
+  }
+  Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                    QualType Ty) const override {
+    Address VA = EmitVAArgInstr(CGF, VAListAddr, Ty, classifyArgumentType(Ty));
+    if (Ty->isSpecificBuiltinType(BuiltinType::ULongLong) ||
+        Ty->isSpecificBuiltinType(BuiltinType::LongLong)) {
+        CGBuilderTy &Builder = CGF.Builder;
+        VA = Address (Builder.CreateLoad(VA), CharUnits::fromQuantity(8));
+    }
+    return VA;
+  }
+};
+
+class CheerpTargetCodeGenInfo : public TargetCodeGenInfo {
+public:
+  CheerpTargetCodeGenInfo(CodeGenTypes &CGT) : TargetCodeGenInfo(new CheerpABIInfo(CGT)) {}
 
   llvm::Type* adjustInlineAsmType(CodeGen::CodeGenFunction &CGF,
                                   StringRef Constraint,

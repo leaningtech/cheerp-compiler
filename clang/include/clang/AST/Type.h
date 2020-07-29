@@ -1559,8 +1559,6 @@ protected:
 
     /// The kind (BuiltinType::Kind) of builtin type this is.
     unsigned Kind : 8;
-
-    unsigned HighInt : 1;
   };
 
   /// FunctionTypeBitfields store various bits belonging to FunctionProtoType.
@@ -2542,12 +2540,10 @@ private:
              K == Dependent ? TypeDependence::DependentInstantiation
                             : TypeDependence::None) {
     BuiltinTypeBits.Kind = K;
-    BuiltinTypeBits.HighInt = HighInt;
   }
 
 public:
   Kind getKind() const { return static_cast<Kind>(BuiltinTypeBits.Kind); }
-  bool isHighInt() const { return static_cast<bool>(BuiltinTypeBits.HighInt); }
   StringRef getName(const PrintingPolicy &Policy) const;
 
   const char *getNameAsCString(const PrintingPolicy &Policy) const {

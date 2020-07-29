@@ -19427,7 +19427,8 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           << *p
           << "reference";
       } else if (auto ut = dyn_cast<BuiltinType>(t->getUnqualifiedDesugaredType())) {
-        if(ut->isHighInt()) {
+        if(ut->isSpecificBuiltinType(BuiltinType::ULongLong) ||
+           ut->isSpecificBuiltinType(BuiltinType::LongLong)) {
           auto d = Diag((*a)->getLocStart(),
                diag::err_cheerp_wrong_64bit_param)
             << FDecl << FDecl->getAttr<AsmJSAttr>()
@@ -19470,7 +19471,8 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           << FDecl->getAttr<GenericJSAttr>() << "function parameter" << p
           << Parent->getAttr<AsmJSAttr>() << "caller" << Parent;
       } else if (auto ut = dyn_cast<BuiltinType>(pt->getUnqualifiedDesugaredType())) {
-        if(ut->isHighInt()) {
+        if(ut->isSpecificBuiltinType(BuiltinType::ULongLong) ||
+           ut->isSpecificBuiltinType(BuiltinType::LongLong)) {
           Diag(Loc,
                diag::err_cheerp_wrong_64bit_param)
             << FDecl << FDecl->getAttr<GenericJSAttr>()

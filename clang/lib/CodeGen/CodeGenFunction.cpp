@@ -313,47 +313,6 @@ static void EmitIfUsed(CodeGenFunction &CGF, llvm::BasicBlock *BB) {
   delete BB;
 }
 
-llvm::Value *CodeGenFunction::EmitLoadHighBitsOfHighInt(llvm::Value *highint) {
-  return Builder.CreateAlignedLoad(Builder.CreateStructGEP(highint->getType()->getPointerElementType(), highint, 1), CharUnits::fromQuantity(4));
-}
-
-llvm::Value *CodeGenFunction::EmitLoadLowBitsOfHighInt(llvm::Value *highint) {
-  return Builder.CreateAlignedLoad(Builder.CreateStructGEP(highint->getType()->getPointerElementType(), highint, 0), CharUnits::fromQuantity(4));
-}
-
-llvm::Value *CodeGenFunction::EmitLoadHighInt(llvm::Value *highint) {
-  if (getLangOpts().getCheerpLinearOutput()==LangOptions::CHEERP_LINEAR_OUTPUT_Wasm &&
-      CurFn->getSection() == StringRef("asmjs")) {
-    llvm::Value* bc = Builder.CreateBitCast(highint, Int64Ty->getPointerTo());
-    Address Addr(bc, CharUnits::fromQuantity(4));
-    return Builder.CreateLoad(Addr);
-  }
-  llvm::Value* high = EmitLoadHighBitsOfHighInt(highint);
-  llvm::Value* low = EmitLoadLowBitsOfHighInt(highint);
-  llvm::Value* h64 = Builder.CreateZExt(high, Int64Ty);
-  llvm::Value* l64 = Builder.CreateZExt(low, Int64Ty);
-  h64 = Builder.CreateShl(h64, 32);
-  return Builder.CreateOr(h64, l64);
-}
-
-void CodeGenFunction::EmitStoreHighInt(llvm::Value *Value, Address Addr, bool Volatile) {
-  assert(Value->getType()->isIntegerTy(64) && "wrong type for HighInt");
-  if (getLangOpts().getCheerpLinearOutput()==LangOptions::CHEERP_LINEAR_OUTPUT_Wasm &&
-      CurFn->getSection() == StringRef("asmjs")) {
-    Address bc = Builder.CreateBitCast(Addr, Int64Ty->getPointerTo());
-    Builder.CreateStore(Value, bc);
-    return;
-  }
-  llvm::Value *high = Builder.CreateTrunc(Builder.CreateLShr(Value, 32), Int32Ty);
-  llvm::Value *low = Builder.CreateTrunc(Value, Int32Ty);
-  Address highLoc = Builder.CreateStructGEP(Addr, 1, CharUnits::Zero());
-  Address lowLoc = Builder.CreateStructGEP(Addr, 0, CharUnits::Zero());
-  Builder.CreateStore(high, highLoc, Volatile);
-  Builder.CreateStore(low, lowLoc, Volatile);
-}
-
-
-
 void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   assert(BreakContinueStack.empty() &&
          "mismatched push/pop in break/continue stack!");

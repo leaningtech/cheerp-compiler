@@ -1739,10 +1739,6 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
   // Try to emit the initializer.  Note that this can allow some things that
   // are not allowed by tryEmitPrivateForMemory alone.
   if (auto value = D.evaluateValue()) {
-    if (CodeGenTypes::isHighInt(destType)) {
-      auto nonMemoryDestType = getNonMemoryType(CGM, destType);
-      return tryEmitPrivate(*value, nonMemoryDestType);
-    }
     return tryEmitPrivateForMemory(*value, destType);
   }
 
@@ -1761,8 +1757,6 @@ llvm::Constant *ConstantEmitter::tryEmitPrivateForVarInit(const VarDecl &D) {
   auto nonMemoryDestType = getNonMemoryType(CGM, destType);
   auto C =
     ConstExprEmitter(*this).Visit(const_cast<Expr*>(E), nonMemoryDestType);
-  if (CodeGenTypes::isHighInt(destType))
-    return C;
   return (C ? emitForMemory(C, destType) : nullptr);
 }
 
@@ -1821,15 +1815,6 @@ llvm::Constant *ConstantEmitter::emitForMemory(CodeGenModule &CGM,
   if (C->getType()->isIntegerTy(1)) {
     llvm::Type *boolTy = CGM.getTypes().ConvertTypeForMem(destType);
     return llvm::ConstantExpr::getZExt(C, boolTy);
-  }
-
-  // Cheerp: i64 is a [2 x i32] in memory
-  if (CodeGenTypes::isHighInt(destType)) {
-    llvm::APInt v = llvm::cast<llvm::ConstantInt>(C)->getValue();
-    llvm::Constant *elements[] = {llvm::ConstantInt::get(CGM.Int32Ty, v.trunc(32)),
-                                  llvm::ConstantInt::get(CGM.Int32Ty, v.getHiBits(32).trunc(32))};
-    llvm::ArrayType* highIntType = cast<llvm::ArrayType>(CGM.getTypes().ConvertTypeForMem(destType));
-    return llvm::ConstantArray::get(highIntType, elements);
   }
 
   return C;
@@ -2560,8 +2545,6 @@ llvm::Constant *CodeGenModule::EmitNullConstant(QualType T) {
 
   if (getTypes().isZeroInitializable(T))
   {
-    if (CodeGenTypes::isHighInt(T))
-      return llvm::Constant::getNullValue(getTypes().ConvertType(T));
     return llvm::Constant::getNullValue(getTypes().ConvertTypeForMem(T));
   }
     

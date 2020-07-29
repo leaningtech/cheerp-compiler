@@ -484,11 +484,11 @@ CGRecordLowering::accumulateBitFields(RecordDecl::field_iterator Field,
     llvm::Type *Type = NULL;
     if (!Types.getTarget().isByteAddressable())
     {
-      if (Tail-StartBitOffset > 32 && Types.isHighInt(Run->getType())) {
-        Type = Types.ConvertTypeForMem(Run->getType());
+      if (Tail-StartBitOffset > 32) {
+        assert(Run->getType()->isSpecificBuiltinType(BuiltinType::ULongLong) ||
+               Run->getType()->isSpecificBuiltinType(BuiltinType::LongLong));
+        Type = llvm::Type::getInt64Ty(Types.getLLVMContext());
       } else {
-        //Cheerp: 32 should not be hardcoded
-        assert (Tail-StartBitOffset <= 32);
         Type = llvm::Type::getInt32Ty(Types.getLLVMContext());
       }
     }

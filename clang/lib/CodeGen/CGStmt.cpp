@@ -1153,14 +1153,8 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
   } else {
     switch (getEvaluationKind(RV->getType())) {
     case TEK_Scalar:
-    {
-      llvm::Value* Ret = EmitScalarExpr(RV);
-      if(IsHighInt(RV->getType())) {
-        EmitStoreHighInt(Ret, ReturnValue, false);
-      } else
-        Builder.CreateStore(Ret, ReturnValue);
+      Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);
       break;
-    }
     case TEK_Complex:
       EmitComplexExprIntoLValue(RV, MakeAddrLValue(ReturnValue, RV->getType()),
                                 /*isInit*/ true);
