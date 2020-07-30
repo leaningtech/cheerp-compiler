@@ -43,6 +43,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 	Type* HighIntTy;
 	bool Changed;
 	SmallVector<Instruction*, 16> ToDelete;
+	SmallVector<PHINode*, 16> DelayedPHIs;
 	DenseMap<Value*, HighInt> Cache;
 
 	I64LoweringVisitor(Module& M): M(M), Ctx(M.getContext()), Changed(false)
@@ -73,24 +74,14 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 			return HighInt();
 
 		IRBuilder<> Builder(&I);
-		SmallVector<HighInt, 2> IncomingHigh;
-		for (Value* Inc: I.incoming_values())
-		{
-			IncomingHigh.push_back(visitValue(Inc));
-		}
 		unsigned Ninc = I.getNumIncomingValues();
 		PHINode* PHILow = Builder.CreatePHI(Int32Ty, Ninc);
 		PHINode* PHIHigh = Builder.CreatePHI(Int32Ty, Ninc);
-		for (unsigned i = 0; i < Ninc; ++i)
-		{
-			BasicBlock* BB = I.getIncomingBlock(i);
-			PHILow->addIncoming(IncomingHigh[i].low, BB);
-			PHIHigh->addIncoming(IncomingHigh[i].high, BB);
-		}
-
-		ToDelete.push_back(&I);
-		Changed = true;
-		return HighInt(PHIHigh, PHILow);
+		HighInt Self(PHIHigh, PHILow);
+		// In order to handle recursive PHIs, we lazily build them here,
+		// and finish them later at the end of the function
+		DelayedPHIs.push_back(&I);
+		return Self;
 	}
 
 	HighInt visitICmpInst(ICmpInst& cmpI)
@@ -788,6 +779,30 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 			Cache.insert(std::make_pair(&I, ret));
 		}
 		return ret;
+	}
+	void visit(Function& F)
+	{
+		InstVisitor::visit(F);
+		for (PHINode* P: DelayedPHIs)
+		{
+			HighInt Self = visitValue(P);
+			PHINode* PHILow = cast<PHINode>(Self.low);
+			PHINode* PHIHigh = cast<PHINode>(Self.high);
+			SmallVector<HighInt, 2> IncomingHigh;
+			for (Value* Inc: P->incoming_values())
+			{
+				IncomingHigh.push_back(visitValue(Inc));
+			}
+			unsigned Ninc = P->getNumIncomingValues();
+			for (unsigned i = 0; i < Ninc; ++i)
+			{
+				BasicBlock* BB = P->getIncomingBlock(i);
+				PHILow->addIncoming(IncomingHigh[i].low, BB);
+				PHIHigh->addIncoming(IncomingHigh[i].high, BB);
+			}
+
+			ToDelete.push_back(P);
+		}
 	}
 	using InstVisitor::visit;
 
