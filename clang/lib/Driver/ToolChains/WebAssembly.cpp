@@ -443,6 +443,26 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-preexecute-main");
   if(Arg* cheerpFixFuncCasts = Args.getLastArg(options::OPT_cheerp_fix_wrong_func_casts))
     cheerpFixFuncCasts->render(Args, CmdArgs);
+  if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
+    cheerpLinearOutput->render(Args, CmdArgs);
+  if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
+  {
+    std::string linearOut("-cheerp-linear-output=");
+    if (CheerpMode->getValue() == StringRef("asmjs"))
+    {
+      linearOut += "asmjs";
+    }
+    else if (CheerpMode->getValue() == StringRef("genericjs"))
+    {
+      // NOTE: we use "asmjs" also for -cheerp-mode=genericjs
+      linearOut += "asmjs";
+    }
+    else
+    {
+      linearOut += "wasm";
+    }
+    CmdArgs.push_back(Args.MakeArgString(linearOut));
+  }
   const Driver &D = getToolChain().getDriver();
   auto features = getWasmFeatures(D, Args);
   if(std::find(features.begin(), features.end(), EXPORTEDTABLE) != features.end())

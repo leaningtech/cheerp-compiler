@@ -24,7 +24,6 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
-#include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/NativeRewriter.h"
 #include "llvm/Cheerp/ExpandStructRegs.h"
 #include "llvm/Cheerp/ByValLowering.h"
@@ -588,12 +587,6 @@ static void addCheerpPasses(const PassManagerBuilder &Builder,
   PM.add(createCheerpNativeRewriterPass());
   //Cheerp is single threaded, convert atomic instructions to regular ones
   PM.add(createLowerAtomicPass());
-  // The genericjs and asmjs backends do not support i64 instructions, so
-  // lower them
-  const PassManagerBuilderWrapper &BuilderWrapper =
-      static_cast<const PassManagerBuilderWrapper&>(Builder);
-  bool lowerAsmJSSection = BuilderWrapper.getLangOpts().getCheerpLinearOutput()!=LangOptions::CHEERP_LINEAR_OUTPUT_Wasm;
-  //PM.add(cheerp::createI64LoweringPass(lowerAsmJSSection));
 }
 
 static void addPostInlineCheerpPasses(const PassManagerBuilder &Builder,
