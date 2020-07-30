@@ -21,11 +21,8 @@ namespace cheerp {
 // Converts 64-bit integer operations into 32-bit ones
 class I64Lowering
 {
-private:
-	bool lowerAsmJSSection;
 public:
-	explicit I64Lowering(bool lowerAsmJSSection = true)
-		: lowerAsmJSSection(lowerAsmJSSection)
+	explicit I64Lowering()
 	{ }
 
 	bool runOnFunction(llvm::Function &F);
@@ -39,7 +36,7 @@ public:
 	static char ID;
 
 	explicit I64LoweringPass(bool lowerAsmJSSection = true)
-		: FunctionPass(ID), Lowerer(lowerAsmJSSection)
+		: FunctionPass(ID)
 	{ }
 
 	virtual bool runOnFunction(llvm::Function &F) override;
@@ -51,7 +48,7 @@ public:
 //
 // I64LoweringPass
 //
-llvm::FunctionPass *createI64LoweringPass(bool lowerAsmJSSection);
+llvm::FunctionPass *createI64LoweringPass();
 }
 
 #endif //_CHEERP_I64_LOWERING_H
