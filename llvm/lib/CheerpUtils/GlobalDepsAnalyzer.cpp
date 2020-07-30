@@ -536,12 +536,26 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	if(hasAsmJS)
 		createNullptrFunction(module);
 
+	auto markAsReachableIfPresent = [this, &visited](Function* F)
+	{
+		if (F) {
+			visitFunction(F, visited);
+			assert(visited.empty());
+			reachableGlobals.insert(F);
+		}
+	};
+
 	// Mark the __wasm_nullptr as reachable.
 	llvm::Function* wasmNullptr = module.getFunction(StringRef(wasmNullptrName));
-	if (wasmNullptr) {
-		visitFunction(wasmNullptr, visited);
-		assert(visited.empty());
-		reachableGlobals.insert(wasmNullptr);
+	markAsReachableIfPresent(wasmNullptr);
+
+	// Mark the 64-bit division functions as reachable if we are in opt.
+	if (!llcPass)
+	{
+		markAsReachableIfPresent(module.getFunction("__modti3"));
+		markAsReachableIfPresent(module.getFunction("__umodti3"));
+		markAsReachableIfPresent(module.getFunction("__divti3"));
+		markAsReachableIfPresent(module.getFunction("__udivti3"));
 	}
 
 	NumRemovedGlobals = filterModule(droppedMathBuiltins, module);
