@@ -512,7 +512,11 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		Type* newReturnType=rewriteType(ft->getReturnType());
 		SmallVector<Type*, 4> newParameters;
 		for(uint32_t i=0;i<ft->getNumParams();i++)
-			newParameters.push_back(rewriteType(ft->getParamType(i)));
+		{
+			Type* oldP = ft->getParamType(i);
+			Type* newP = oldP->isIntegerTy(64) ? oldP : rewriteType(oldP);
+			newParameters.push_back(newP);
+		}
 		return CacheAndReturn(FunctionType::get(newReturnType, newParameters, ft->isVarArg()), TypeMappingInfo::IDENTICAL);
 	}
 	if(PointerType* pt=dyn_cast<PointerType>(t))
@@ -544,6 +548,11 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 			return CacheAndReturn(at, TypeMappingInfo::IDENTICAL);
 		else
 			return CacheAndReturn(ArrayType::get(newType, at->getNumElements()), TypeMappingInfo::IDENTICAL);
+	}
+	if (t->isIntegerTy(64))
+	{
+		t = ArrayType::get(IntegerType::get(t->getContext(), 32), 2);
+		return CacheAndReturn(t, TypeMappingInfo::IDENTICAL);
 	}
 	return CacheAndReturn(t, TypeMappingInfo::IDENTICAL);
 }
@@ -731,6 +740,15 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 		return std::make_pair(ConstantPointerNull::get(cast<PointerType>(newTypeInfo.mappedType)), 0);
 	else if(isa<UndefValue>(C))
 		return std::make_pair(UndefValue::get(newTypeInfo.mappedType), 0);
+	else if(C->getType()->isIntegerTy(64))
+	{
+		Type* Int32Ty = IntegerType::get(C->getContext(), 32);
+		Constant* Low = ConstantExpr::getTrunc(C, Int32Ty);
+		Constant* High = ConstantExpr::getTrunc(ConstantExpr::getLShr(C, ConstantInt::get(C->getType(), 32)), Int32Ty);
+		Constant* Arr[2] = {Low, High};
+		ArrayType* ArrTy = ArrayType::get(Int32Ty, 2);
+		return std::make_pair(ConstantArray::get(ArrTy, Arr), TypeMappingInfo::IDENTICAL);
+	}
 	else
 		assert(false && "Unexpected constant in TypeOptimizer");
 	return std::make_pair((Constant*)NULL, 0);
@@ -1043,6 +1061,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	DeterministicUnorderedMap<Value*, std::pair<Value*, uint8_t>, RestrictionsLifted::NoErasure> localInstMapping;
 	auto getMappedOperand = [&](Value* v) -> std::pair<Value*, uint8_t>
 	{
+		if(v->getType()->isIntegerTy(64))
+			return std::make_pair(v, 0);
 		if(Constant* C=dyn_cast<Constant>(v))
 			return rewriteConstant(C);
 		auto it = localInstMapping.find(v);
@@ -1118,6 +1138,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	}
 
 	SmallVector<PHINode*, 4> delayedPHIs;
+	SmallVector<Instruction*, 4> ToDelete;
 	// Rewrite instructions as needed
 	for(BasicBlock* BB: blocksInDFSOrder)
 	{
@@ -1254,6 +1275,22 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					auto rewritteValue = getMappedOperand(I.getOperand(0));
 					assert(rewritteValue.second == 0);
 					llvm::Value* mappedValue = rewritteValue.first;
+					if(mappedValue->getType()->isIntegerTy(64))
+					{
+						IRBuilder<> Builder(&I);
+						Type* Int32Ty = IntegerType::get(F->getContext(), 32);
+						Value* Low = Builder.CreateTrunc(mappedValue, Int32Ty, Twine(mappedValue->getName(),".low"));
+						Value* High = Builder.CreateLShr(mappedValue, 32, Twine(mappedValue->getName(),".highShl"));
+						High = Builder.CreateTrunc(High, Int32Ty, Twine(mappedValue->getName(),".high"));
+						Value* Base = mappedOperand.first;
+						Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
+						Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
+						Builder.CreateStore(Low, LowPtr);
+						Builder.CreateStore(High, HighPtr);
+						ToDelete.push_back(&I);
+						needsDefaultHandling = false;
+						break;
+					}
 					llvm::Type* oldType = mappedValue->getType();
 					bool isMergedPointer = mappedOperand.first->getType() != I.getOperand(1)->getType();
 					if(!isMergedPointer)
@@ -1280,6 +1317,25 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						break;
 					auto mappedOperand = getMappedOperand(I.getOperand(0));
 					llvm::Type* oldType = I.getType();
+					if(I.getType()->isIntegerTy(64))
+					{
+						IRBuilder<> Builder(&I);
+						Type* Int32Ty = IntegerType::get(F->getContext(), 32);
+						Type* Int64Ty = IntegerType::get(F->getContext(), 64);
+						Value* Base = mappedOperand.first;
+						Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
+						Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
+						Value* Low = Builder.CreateLoad(LowPtr);
+						Low = Builder.CreateZExt(Low, Int64Ty);
+						Value* High = Builder.CreateLoad(HighPtr);
+						High = Builder.CreateZExt(High, Int64Ty);
+						High = Builder.CreateShl(High, 32);
+						Value* V = Builder.CreateOr(Low, High);
+						I.replaceAllUsesWith(V);
+						ToDelete.push_back(&I);
+						needsDefaultHandling = false;
+						break;
+					}
 					bool isMergedPointer = mappedOperand.first->getType() != I.getOperand(0)->getType();
 					if(!isMergedPointer)
 						break;
@@ -1334,7 +1390,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::VAArg:
 					break;
 			}
-			if(needsDefaultHandling && !I.getType()->isVoidTy())
+			if(needsDefaultHandling && !I.getType()->isVoidTy() && !I.getType()->isIntegerTy(64))
 			{
 				TypeMappingInfo newInfo = rewriteType(I.getType());
 				if(newInfo.mappedType!=I.getType())
@@ -1359,6 +1415,10 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				I.setOperand(i, rewrittenOperand.first);
 			}
 		}
+	}
+	for(Instruction* I: ToDelete)
+	{
+		I->eraseFromParent();
 	}
 	for(PHINode* phi: delayedPHIs)
 	{
