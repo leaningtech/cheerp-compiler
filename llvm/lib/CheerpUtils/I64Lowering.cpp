@@ -721,7 +721,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		HighInt LHS = visitValue(I.getOperand(0));
 		HighInt RHS = visitValue(I.getOperand(1));
 
-		llvm::Type* HighIntPtrTy = HighIntTy->getPointerTo();
+		llvm::Type* HighIntPtrTy = Int32Ty->getPointerTo();
 		llvm::Type *ArgTypes[] = { HighIntPtrTy, HighIntPtrTy, HighIntPtrTy };
 		llvm::FunctionType *FuncTy = llvm::FunctionType::get(Type::getVoidTy(I.getContext()), ArgTypes, false);
 		llvm::Function* Func = cast<Function>(M.getOrInsertFunction(fname, FuncTy));
@@ -730,7 +730,11 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		llvm::Value* AllocaRes = AllocaBuilder.CreateAlloca(HighIntTy);
 		llvm::Value* AllocaArg1 = AllocaBuilder.CreateAlloca(HighIntTy);
 		llvm::Value* AllocaArg2 = AllocaBuilder.CreateAlloca(HighIntTy);
-		llvm::Value *Args[] = { AllocaRes, AllocaArg1, AllocaArg2 };
+		llvm::Value *Args[] = {
+			Builder.CreateConstInBoundsGEP2_32(HighIntTy, AllocaRes, 0, 0),
+			Builder.CreateConstInBoundsGEP2_32(HighIntTy, AllocaArg1, 0, 0),
+			Builder.CreateConstInBoundsGEP2_32(HighIntTy, AllocaArg2, 0, 0),
+		};
 
 		storeHighInt(Builder, LHS, AllocaArg1);
 		storeHighInt(Builder, RHS, AllocaArg2);
