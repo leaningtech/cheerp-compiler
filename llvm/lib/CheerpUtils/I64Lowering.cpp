@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Cheerp/I64Lowering.h"
+#include "llvm/Cheerp/CommandLine.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/Support/raw_ostream.h"
@@ -852,7 +853,9 @@ namespace cheerp
 
 bool I64Lowering::runOnFunction(Function& F)
 {
-	if (!lowerAsmJSSection && F.getSection() == StringRef("asmjs"))
+	bool lowerAsmJSSection = LinearOutput.getValue() == StringRef("asmjs");
+	bool asmjs = F.getSection() == StringRef("asmjs");
+	if (!lowerAsmJSSection && asmjs )
 		return false;
 
 	bool Changed = false;
@@ -877,7 +880,7 @@ bool I64LoweringPass::runOnFunction(Function& F)
 
 char I64LoweringPass::ID = 0;
 
-FunctionPass *createI64LoweringPass(bool lowerAsmJSSection) { return new I64LoweringPass(lowerAsmJSSection); }
+FunctionPass *createI64LoweringPass() { return new I64LoweringPass(); }
 
 }
 
