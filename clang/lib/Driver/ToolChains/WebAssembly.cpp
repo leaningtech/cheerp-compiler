@@ -429,73 +429,6 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
 
-void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
-                                          const InputInfo &Output,
-                                          const InputInfoList &Inputs,
-                                          const ArgList &Args,
-                                          const char *LinkingOutput) const {
-  ArgStringList CmdArgs;
-
-  CmdArgs.push_back("-march=cheerp");
-  if(Args.hasArg(options::OPT_cheerp_preexecute))
-    CmdArgs.push_back("-PreExecute");
-  if(Args.hasArg(options::OPT_cheerp_preexecute_main))
-    CmdArgs.push_back("-cheerp-preexecute-main");
-  if(Arg* cheerpFixFuncCasts = Args.getLastArg(options::OPT_cheerp_fix_wrong_func_casts))
-    cheerpFixFuncCasts->render(Args, CmdArgs);
-  if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
-    cheerpLinearOutput->render(Args, CmdArgs);
-  if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
-  {
-    std::string linearOut("-cheerp-linear-output=");
-    if (CheerpMode->getValue() == StringRef("asmjs"))
-    {
-      linearOut += "asmjs";
-    }
-    else if (CheerpMode->getValue() == StringRef("genericjs"))
-    {
-      // NOTE: we use "asmjs" also for -cheerp-mode=genericjs
-      linearOut += "asmjs";
-    }
-    else
-    {
-      linearOut += "wasm";
-    }
-    CmdArgs.push_back(Args.MakeArgString(linearOut));
-  }
-  const Driver &D = getToolChain().getDriver();
-  auto features = getWasmFeatures(D, Args);
-  if(std::find(features.begin(), features.end(), EXPORTEDTABLE) != features.end())
-    CmdArgs.push_back("-cheerp-wasm-exported-table");
-
-  CmdArgs.push_back("-GlobalDepsAnalyzer");
-  CmdArgs.push_back("-TypeOptimizer");
-  CmdArgs.push_back("-I64Lowering");
-  CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
-  if(!Args.hasArg(options::OPT_cheerp_no_lto))
-  {
-    CmdArgs.push_back("-FreeAndDeleteRemoval");
-    CmdArgs.push_back("-cheerp-lto");
-    CmdArgs.push_back("-Os");
-    // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
-    CmdArgs.push_back("-simplifycfg");
-  }
-  CmdArgs.push_back("-o");
-  CmdArgs.push_back(Output.getFilename());
-
-  const InputInfo &II = *Inputs.begin();
-  CmdArgs.push_back(II.getFilename());
-
-  // Honor -mllvm
-  Args.AddAllArgValues(CmdArgs, options::OPT_mllvm);
-  // Honor -cheerp-no-pointer-scev
-  if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev))
-    CheerpNoPointerSCEV->render(Args, CmdArgs);
-
-  const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("opt")));
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
-}
-
 static bool incompatibleWith(const Driver&, const ArgList&, Arg*)
 {
   return true;
@@ -527,6 +460,77 @@ static void checkCheerpArgCompatibility(const Driver& D, const ArgList& Args)
       linearOut, secondaryPath, secondaryFile);
   incompatibleWith(D, Args, mode,
       linearOut, secondaryPath, secondaryFile);
+}
+
+void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
+                                          const InputInfo &Output,
+                                          const InputInfoList &Inputs,
+                                          const ArgList &Args,
+                                          const char *LinkingOutput) const {
+  ArgStringList CmdArgs;
+  const Driver &D = getToolChain().getDriver();
+  checkCheerpArgCompatibility(D, Args);
+
+  CmdArgs.push_back("-march=cheerp");
+  if(Args.hasArg(options::OPT_cheerp_preexecute))
+    CmdArgs.push_back("-PreExecute");
+  if(Args.hasArg(options::OPT_cheerp_preexecute_main))
+    CmdArgs.push_back("-cheerp-preexecute-main");
+  if(Arg* cheerpFixFuncCasts = Args.getLastArg(options::OPT_cheerp_fix_wrong_func_casts))
+    cheerpFixFuncCasts->render(Args, CmdArgs);
+
+  if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
+    cheerpLinearOutput->render(Args, CmdArgs);
+  else if(Arg *CheerpMode = C.getArgs().getLastArg(options::OPT_cheerp_mode_EQ))
+  {
+    // cheerp-mode is mutually exclusive with cheerp-linear-output, but this is
+    // taken care of by checkCheerpArgCompatibility
+    std::string linearOut("-cheerp-linear-output=");
+    if (CheerpMode->getValue() == StringRef("asmjs"))
+    {
+      linearOut += "asmjs";
+    }
+    else if (CheerpMode->getValue() == StringRef("genericjs"))
+    {
+      // NOTE: we use "asmjs" also for -cheerp-mode=genericjs
+      linearOut += "asmjs";
+    }
+    else
+    {
+      linearOut += "wasm";
+    }
+    CmdArgs.push_back(Args.MakeArgString(linearOut));
+  }
+  auto features = getWasmFeatures(D, Args);
+  if(std::find(features.begin(), features.end(), EXPORTEDTABLE) != features.end())
+    CmdArgs.push_back("-cheerp-wasm-exported-table");
+
+  CmdArgs.push_back("-GlobalDepsAnalyzer");
+  CmdArgs.push_back("-TypeOptimizer");
+  CmdArgs.push_back("-I64Lowering");
+  CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
+  if(!Args.hasArg(options::OPT_cheerp_no_lto))
+  {
+    CmdArgs.push_back("-FreeAndDeleteRemoval");
+    CmdArgs.push_back("-cheerp-lto");
+    CmdArgs.push_back("-Os");
+    // -Os converts loops to canonical form, which may causes empty forwarding branches, remove those
+    CmdArgs.push_back("-simplifycfg");
+  }
+  CmdArgs.push_back("-o");
+  CmdArgs.push_back(Output.getFilename());
+
+  const InputInfo &II = *Inputs.begin();
+  CmdArgs.push_back(II.getFilename());
+
+  // Honor -mllvm
+  Args.AddAllArgValues(CmdArgs, options::OPT_mllvm);
+  // Honor -cheerp-no-pointer-scev
+  if (Arg *CheerpNoPointerSCEV = Args.getLastArg(options::OPT_cheerp_no_pointer_scev))
+    CheerpNoPointerSCEV->render(Args, CmdArgs);
+
+  const char *Exec = Args.MakeArgString((getToolChain().GetProgramPath("opt")));
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
 
 static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
