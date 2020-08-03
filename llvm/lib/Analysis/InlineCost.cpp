@@ -2354,7 +2354,7 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
 
   Function* caller=CS.getCaller();
   if (!isInlineViableCheerp(*Callee, *caller))
-    return llvm::InlineCost::getNever();
+    return llvm::InlineCost::getNever("not Cheerp viable");
 
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
