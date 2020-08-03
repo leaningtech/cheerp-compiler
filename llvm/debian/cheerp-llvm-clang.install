@@ -52,9 +52,8 @@ opt/cheerp/lib/clang/7.0.0/include/stdarg.h
 opt/cheerp/lib/libclang.so*
 opt/cheerp/bin/
 opt/cheerp/bin/clang-check
-opt/cheerp/bin/clang-7.0
+opt/cheerp/bin/clang-7
 opt/cheerp/bin/llvm-nm
-opt/cheerp/bin/llvm-mcmarkup
 opt/cheerp/bin/llvm-as
 opt/cheerp/bin/llvm-bcanalyzer
 opt/cheerp/bin/llvm-extract
