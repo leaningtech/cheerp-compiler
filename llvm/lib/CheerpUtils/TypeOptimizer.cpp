@@ -578,7 +578,7 @@ void TypeOptimizer::pushAllArrayConstantElements(SmallVector<Constant*, 4>& newE
 	}
 }
 
-std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
+std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool rewriteI64)
 {
 	// Immediately return for globals, we should never try to map their type as they are already rewritten
 	if(GlobalVariable* GV=dyn_cast<GlobalVariable>(C))
@@ -589,7 +589,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 	else if(isa<GlobalValue>(C))
 		return std::make_pair(C, 0);
 	TypeMappingInfo newTypeInfo = rewriteType(C->getType());
-	if(ConstantExpr* CE=dyn_cast<ConstantExpr>(C))
+	if (ConstantExpr* CE=dyn_cast<ConstantExpr>(C))
 	{
 		auto getOriginalGlobalType = [&](Constant* C) -> Type*
 		{
@@ -608,7 +608,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 			{
 				Constant* ptrOperand = CE->getOperand(0);
 				Type* ptrType = getOriginalGlobalType(ptrOperand);
-				auto rewrittenOperand = rewriteConstant(ptrOperand);
+				auto rewrittenOperand = rewriteConstant(ptrOperand, false);
 				assert(rewrittenOperand.second==0);
 				ptrOperand = rewrittenOperand.first;
 				SmallVector<Value*, 4> newIndexes;
@@ -618,7 +618,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 			}
 			case Instruction::BitCast:
 			{
-				auto rewrittenOperand = rewriteConstant(CE->getOperand(0));
+				auto rewrittenOperand = rewriteConstant(CE->getOperand(0), false);
 				assert(rewrittenOperand.second == 0);
 				Constant* srcOperand = rewrittenOperand.first;
 				return std::make_pair(ConstantExpr::getBitCast(srcOperand, newTypeInfo.mappedType), 0);
@@ -633,7 +633,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 				std::vector<Constant*> newOperands;
 				for(Use& op: CE->operands())
 				{
-					auto rewrittenOperand = rewriteConstant(cast<Constant>(op));
+					auto rewrittenOperand = rewriteConstant(cast<Constant>(op), false);
 					assert(rewrittenOperand.second == 0);
 					newOperands.push_back(rewrittenOperand.first);
 				}
@@ -659,7 +659,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 		{
 			assert(cast<StructType>(CS->getType())->getNumElements()==1);
 			Constant* element = CS->getOperand(0);
-			return rewriteConstant(element);
+			return rewriteConstant(element, rewriteI64);
 		}
 		auto membersMappingIt = membersMappingData.find(CS->getType());
 		bool hasMergedArrays = newTypeInfo.elementMappingKind == TypeMappingInfo::MERGED_MEMBER_ARRAYS ||
@@ -670,7 +670,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 		for(uint32_t i=0;i<CS->getNumOperands();i++)
 		{
 			Constant* element = CS->getOperand(i);
-			auto rewrittenOperand = rewriteConstant(element);
+			auto rewrittenOperand = rewriteConstant(element, rewriteI64);
 			assert(rewrittenOperand.second == 0);
 			Constant* newElement = rewrittenOperand.first;
 			if(hasMergedArrays && membersMappingIt->second[i].first != (newElements.size()))
@@ -719,7 +719,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 		for(uint32_t i=0;i<CA->getNumOperands();i++)
 		{
 			Constant* element = CA->getOperand(i);
-			auto rewrittenOperand = rewriteConstant(element);
+			auto rewrittenOperand = rewriteConstant(element, rewriteI64);
 			assert(rewrittenOperand.second == 0);
 			Constant* newElement = rewrittenOperand.first;
 			if(newTypeInfo.elementMappingKind == TypeMappingInfo::FLATTENED_ARRAY)
@@ -742,6 +742,8 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C)
 		return std::make_pair(UndefValue::get(newTypeInfo.mappedType), 0);
 	else if(C->getType()->isIntegerTy(64))
 	{
+		if (!rewriteI64)
+			return std::make_pair(C, TypeMappingInfo::IDENTICAL);
 		Type* Int32Ty = IntegerType::get(C->getContext(), 32);
 		Constant* Low = ConstantExpr::getTrunc(C, Int32Ty);
 		Constant* High = ConstantExpr::getTrunc(ConstantExpr::getLShr(C, ConstantInt::get(C->getType(), 32)), Int32Ty);
@@ -1061,10 +1063,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	DeterministicUnorderedMap<Value*, std::pair<Value*, uint8_t>, RestrictionsLifted::NoErasure> localInstMapping;
 	auto getMappedOperand = [&](Value* v) -> std::pair<Value*, uint8_t>
 	{
-		if(v->getType()->isIntegerTy(64))
-			return std::make_pair(v, 0);
 		if(Constant* C=dyn_cast<Constant>(v))
-			return rewriteConstant(C);
+			return rewriteConstant(C, false);
 		auto it = localInstMapping.find(v);
 		if(it != localInstMapping.end())
 			return it->second;
@@ -1475,7 +1475,7 @@ void TypeOptimizer::rewriteGlobalInit(GlobalVariable* GV)
 	if(!GV->hasInitializer())
 		return;
 	// We need to change type, so we have to forge a new initializer
-	auto rewrittenInit = rewriteConstant(GV->getInitializer());
+	auto rewrittenInit = rewriteConstant(GV->getInitializer(), true);
 	assert(rewrittenInit.second==0);
 	GV->setInitializer(rewrittenInit.first);
 }
