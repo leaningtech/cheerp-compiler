@@ -834,6 +834,13 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 			uint32_t high = i >> 32;
 			ret = HighInt(ConstantInt::get(Int32Ty, high), ConstantInt::get(Int32Ty, low));
 		}
+		else if (Constant* C = dyn_cast<Constant>(V))
+		{
+			Constant* CLow = ConstantExpr::getTrunc(C, Int32Ty);
+			Constant* CHigh = ConstantExpr::getLShr(C, ConstantInt::get(Int64Ty, 32));
+			CHigh = ConstantExpr::getTrunc(CHigh, Int32Ty);
+			ret = HighInt(CLow, CHigh);
+		}
 
 		if (!ret.isNull())
 		{
