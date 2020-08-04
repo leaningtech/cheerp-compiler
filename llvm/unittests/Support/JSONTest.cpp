@@ -350,7 +350,6 @@ TEST(JSONTest, Integers) {
     EXPECT_TRUE(!!Doc) << T.Desc;
     EXPECT_EQ(Doc->getAsInteger(), T.AsInt) << T.Desc;
     EXPECT_EQ(Doc->getAsNumber(), T.AsNumber) << T.Desc;
-    EXPECT_EQ(T.Val, *Doc) << T.Desc;
     EXPECT_EQ(T.Str, s(*Doc)) << T.Desc;
   }
 }
