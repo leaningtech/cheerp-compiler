@@ -1397,7 +1397,7 @@ bool SimplifyCFGOpt::FoldValueComparisonIntoPredecessors(Instruction *TI,
 
     // See if the predecessor is a comparison with the same value.
     Value *PCV = isValueEqualityComparison(PTI); // PredCondVal
-    if (PCV != CV || (CV->getType()->isPointerTy() && !DL.isByteAddressable()))
+    if (PCV != CV || ((CV->getType()->isPointerTy() || CV->getType()->isIntegerTy(64)) && !DL.isByteAddressable()))
       continue;
 
     SmallSetVector<BasicBlock *, 4> FailBlocks;
