@@ -690,10 +690,8 @@ Constant* PreExecute::computeInitializerFromMemory(const DataLayout* DL,
 {
     if (IntegerType* IT=dyn_cast<IntegerType>(memType))
     {
-        if (IT->getBitWidth() > 32)
-            return NULL;
         // Assume little endian
-        uint32_t integerVal = 0;
+        uint64_t integerVal = 0;
         memcpy(&integerVal, Addr, std::max(IT->getBitWidth()/8, 1u));
         return ConstantInt::get(IT, integerVal);
     }
