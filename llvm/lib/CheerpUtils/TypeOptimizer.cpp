@@ -738,8 +738,6 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 		return std::make_pair(Constant::getNullValue(newTypeInfo.mappedType), 0);
 	else if(isa<ConstantPointerNull>(C))
 		return std::make_pair(ConstantPointerNull::get(cast<PointerType>(newTypeInfo.mappedType)), 0);
-	else if(isa<UndefValue>(C))
-		return std::make_pair(UndefValue::get(newTypeInfo.mappedType), 0);
 	else if(C->getType()->isIntegerTy(64))
 	{
 		if (!rewriteI64)
@@ -751,6 +749,8 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 		ArrayType* ArrTy = ArrayType::get(Int32Ty, 2);
 		return std::make_pair(ConstantArray::get(ArrTy, Arr), TypeMappingInfo::IDENTICAL);
 	}
+	else if(isa<UndefValue>(C))
+		return std::make_pair(UndefValue::get(newTypeInfo.mappedType), 0);
 	else
 		assert(false && "Unexpected constant in TypeOptimizer");
 	return std::make_pair((Constant*)NULL, 0);
