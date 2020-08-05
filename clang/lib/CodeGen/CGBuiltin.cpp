@@ -3490,7 +3490,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       llvm::Type *Tys[] = { VoidPtrTy };
       const CastExpr* retCE=dyn_cast_or_null<CastExpr>(parent);
       if (!retCE || retCE->getType()->isVoidPointerType())
-        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_alloc_requires_cast);
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
       else
       {
           QualType returnType=retCE->getType();
@@ -3548,9 +3548,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
       const CastExpr *SrcCast = dyn_cast<CastExpr>(SrcE);
       if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(DestE->getLocStart(), diag::err_cheerp_memintrinsic_type_unknown);
+        CGM.getDiags().Report(DestE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
       else if (!SrcCast || SrcCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_type_unknown);
+        CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
       else
       {
         // Discard the casts to void*
@@ -3562,7 +3562,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
             (!SrcType->isIntegerType() || !DestType->isIntegerType() ||
              cast<llvm::IntegerType>(ConvertType(SrcType))->getBitWidth()
              != cast<llvm::IntegerType>(ConvertType(DestType))->getBitWidth()))
-          CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_same_type)
+          CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_same_type)
             << SrcE->getType() << DestE->getType();
       }
     }
@@ -3652,9 +3652,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
       const CastExpr *SrcCast = dyn_cast<CastExpr>(SrcE);
       if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(DestE->getLocStart(), diag::err_cheerp_memintrinsic_type_unknown);
+        CGM.getDiags().Report(DestE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
       else if (!SrcCast || SrcCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_type_unknown);
+        CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
       else
       {
         // Discard the casts to void*
@@ -3666,7 +3666,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
             (!SrcType->isIntegerType() || !DestType->isIntegerType() ||
              cast<llvm::IntegerType>(ConvertType(SrcType))->getBitWidth()
              != cast<llvm::IntegerType>(ConvertType(DestType))->getBitWidth()))
-          CGM.getDiags().Report(SrcE->getLocStart(), diag::err_cheerp_memintrinsic_same_type)
+          CGM.getDiags().Report(SrcE->getBeginLoc(), diag::err_cheerp_memintrinsic_same_type)
             << SrcE->getType() << DestE->getType();
       }
     }
@@ -3688,7 +3688,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       // There must be a cast from a valid type to void*
       const CastExpr *DestCast = dyn_cast<CastExpr>(DestE);
       if (!DestCast || DestCast->getSubExpr()->getType()->isVoidPointerType())
-        CGM.getDiags().Report(DestE->getLocStart(), diag::err_cheerp_memintrinsic_type_unknown);
+        CGM.getDiags().Report(DestE->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
       else
       {
         // Discard the cast to void*
@@ -12208,7 +12208,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     if (!retCE || retCE->getType()->isVoidPointerType())
     {
         if (asmjs) return 0;
-        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_alloc_requires_cast);
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
     }
     else
     {
@@ -12229,7 +12229,7 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     if (!retCE || retCE->getType()->isVoidPointerType())
     {
         if (asmjs) return 0;
-        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_alloc_requires_cast);
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
     }
     else
     {
@@ -12269,12 +12269,12 @@ Value *CodeGenFunction::EmitCheerpBuiltinExpr(unsigned BuiltinID,
     if (!retCE || retCE->getType()->isVoidPointerType())
     {
         if (asmjs) return 0;
-        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_alloc_requires_cast);
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_alloc_requires_cast);
     }
     else if(retCE->getType().getCanonicalType()!=reallocType.getCanonicalType())
     {
         if (asmjs) return 0;
-        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_realloc_different_types);
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_realloc_different_types);
     }
     else {
       // The call is fully valid, so set the return type to the existing type
