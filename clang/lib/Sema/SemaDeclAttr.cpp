@@ -1350,7 +1350,7 @@ static void handleExtVectorTypeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 
 static void handlePackedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (S.LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs &&
-      checkAttrMutualExclusion<AsmJSAttr>(S, D, AL.getRange(), AL.getName()))
+      checkAttrMutualExclusion<AsmJSAttr>(S, D, AL))
     return;
   if (auto *TD = dyn_cast<TagDecl>(D))
     TD->addAttr(::new (S.Context) PackedAttr(S.Context, AL));
@@ -6801,11 +6801,9 @@ static void handleNoInit(Sema &S, Decl* D, const ParsedAttr &Attr)
 
 static void handleJsExportAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (isa<CXXRecordDecl>(D)) {
-    if (checkAttrMutualExclusion<AsmJSAttr>(S, D, Attr.getRange(),
-                                                             Attr.getName()))
+    if (checkAttrMutualExclusion<AsmJSAttr>(S, D, Attr))
       return;
-    if (checkAttrMutualExclusion<ByteLayoutAttr>(S, D, Attr.getRange(),
-                                                             Attr.getName()))
+    if (checkAttrMutualExclusion<ByteLayoutAttr>(S, D, Attr))
       return;
   }
   if (isa<CXXRecordDecl>(D) || isa<FunctionDecl>(D))
@@ -6820,11 +6818,9 @@ static void handleJsExportAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
 static void handleAsmJSAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (isa<CXXRecordDecl>(D)) {
-    if (checkAttrMutualExclusion<JsExportAttr>(S, D, Attr.getRange(),
-                                                             Attr.getName()))
+    if (checkAttrMutualExclusion<JsExportAttr>(S, D, Attr))
       return;
-    if (checkAttrMutualExclusion<ByteLayoutAttr>(S, D, Attr.getRange(),
-                                                             Attr.getName()))
+    if (checkAttrMutualExclusion<ByteLayoutAttr>(S, D, Attr))
       return;
   }
   handleSimpleAttributeWithExclusions<AsmJSAttr, GenericJSAttr, PackedAttr>(S, D, Attr);
