@@ -4049,7 +4049,7 @@ bool Sema::CheckCheerpBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall)
       const CastExpr* argCE=dyn_cast<CastExpr>(TheCall->getArg(0));
       if (!argCE || argCE->getSubExpr()->getType()->isVoidPointerType())
       {
-        Diag(TheCall->getArg(0)->getLocStart(), diag::err_cheerp_memintrinsic_type_unknown);
+        Diag(TheCall->getArg(0)->getBeginLoc(), diag::err_cheerp_memintrinsic_type_unknown);
         return true;
       }
       // NOTE: It's not possible to analyze the return type here since we can't build the parent map
