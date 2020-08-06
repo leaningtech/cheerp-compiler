@@ -13,9 +13,11 @@
 #define CHEERP_TYPE_OPTIMIZER_H
 
 #include "llvm/Cheerp/TypeAndIndex.h"
+#include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
-#include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <set>
 
 namespace cheerp
@@ -45,15 +47,87 @@ private:
 			return k == COLLAPSED || k == MERGED_MEMBER_ARRAYS_AND_COLLAPSED;
 		}
 	};
+	class LocalTypeMapping {
+	public:
+		llvm::Type* getOriginalOperandType(llvm::Value* v)
+		{
+			auto it = localTypeMapping.find(v);
+			if(it != localTypeMapping.end())
+				return it->second;
+			else if(llvm::GlobalValue* GV=llvm::dyn_cast<llvm::GlobalValue>(v))
+			{
+				auto it=globalTypeMapping.find(GV);
+				if(it==globalTypeMapping.end())
+					return GV->getType();
+				else
+					return it->second;
+			}
+			else
+				return v->getType();
+		}
+		void setOriginalOperandType(llvm::Value* v, llvm::Type* t)
+		{
+			localTypeMapping[v] = t;
+		}
+
+		LocalTypeMapping(std::unordered_map<llvm::GlobalValue*, llvm::Type*>& globalTypeMapping)
+			: globalTypeMapping(globalTypeMapping)
+		{
+		}
+	private:
+		std::unordered_map<llvm::Value*, llvm::Type*> localTypeMapping;
+		std::unordered_map<llvm::GlobalValue*, llvm::Type*>& globalTypeMapping;
+	};
+
+
+	class LocalInstMapping
+	{
+	public:
+		LocalInstMapping(TypeOptimizer& TO): TO(TO)
+		{}
+		std::pair<llvm::Value*, uint8_t> getMappedOperand(llvm::Value* v) 
+		{
+			assert(v);
+			if(llvm::Constant* C=llvm::dyn_cast<llvm::Constant>(v))
+				return TO.rewriteConstant(C, false);
+			auto it = localInstMapping.find(v);
+			if(it != localInstMapping.end())
+				return it->second;
+			if(auto A = llvm::dyn_cast<llvm::Argument>(v))
+			{
+				auto it = TO.globalsMapping.find(A->getParent());
+				assert(it == TO.globalsMapping.end() || it->second == it->first);
+			}
+			return std::make_pair(v, 0);
+		};
+		void setMappedOperand(llvm::Value* v, llvm::Value* m, uint8_t o)
+		{
+			localInstMapping[v] = std::make_pair(m, o);
+		};
+		DeterministicUnorderedMap<llvm::Value*, std::pair<llvm::Value*, uint8_t>, RestrictionsLifted::NoErasure>::iterator begin()
+		{
+			return localInstMapping.begin();
+		}
+		DeterministicUnorderedMap<llvm::Value*, std::pair<llvm::Value*, uint8_t>, RestrictionsLifted::NoErasure>::iterator end()
+		{
+			return localInstMapping.end();
+		}
+
+	private:
+		DeterministicUnorderedMap<llvm::Value*, std::pair<llvm::Value*, uint8_t>, RestrictionsLifted::NoErasure> localInstMapping;
+		TypeOptimizer& TO;
+	};
+
 	llvm::Module* module;
 	const llvm::DataLayout* DL;
 	std::unordered_map<const llvm::StructType*,std::set<llvm::StructType*>> downcastSourceToDestinationsMapping;
 	std::unordered_map<const llvm::StructType*, std::vector<std::pair<uint32_t, uint32_t>>> membersMappingData;
-	std::unordered_map<llvm::GlobalVariable*, llvm::Constant*> globalsMapping;
+	std::unordered_map<llvm::GlobalValue*, llvm::Constant*> globalsMapping;
 	std::unordered_map<llvm::GlobalValue*, llvm::Type*> globalTypeMapping;
 	std::unordered_map<const llvm::StructType*, llvm::Type*> baseTypesForByteLayout;
 	std::unordered_map<const llvm::Type*, TypeMappingInfo> typesMapping;
 	std::unordered_set<llvm::Function*> pendingFunctions;
+	std::vector<llvm::Function*> emptiedFunctions;
 	// In this context a field "escapes" if it has any use which is not just a load/store
 	std::set<TypeAndIndex> escapingFields;
 #ifndef NDEBUG
@@ -62,12 +136,14 @@ private:
 	llvm::Constant* rewriteGlobal(llvm::GlobalVariable* GV);
 	void rewriteGlobalInit(llvm::GlobalVariable* GV);
 	TypeMappingInfo rewriteType(llvm::Type* t);
+	llvm::FunctionType* rewriteFunctionType(llvm::FunctionType* t, bool forIntrinsic);
+	llvm::Function* rewriteFunctionSignature(llvm::Function* F);
 	void rewriteUses(llvm::Value* V, llvm::Value* NewV);
 	std::pair<llvm::Constant*, uint8_t> rewriteConstant(llvm::Constant* C, bool rewriteI64);
 	void rewriteFunction(llvm::Function* F);
-	void rewriteIntrinsic(llvm::Function* F, llvm::FunctionType* FT);
+	llvm::Function* rewriteIntrinsic(llvm::Function* F, llvm::FunctionType* FT);
 	void gatherAllTypesInfo(const llvm::Module& M);
-	uint8_t rewriteGEPIndexes(llvm::SmallVector<llvm::Value*, 4>& newIndexes, llvm::Type* ptrType, llvm::ArrayRef<llvm::Use> idxs,
+	uint8_t rewriteGEPIndexes(llvm::SmallVector<llvm::Value*, 4>& newIndexes, llvm::Type* ptrType, llvm::ArrayRef<llvm::Value*> idxs,
 				llvm::Type* targetType, llvm::Instruction* insertionPoint);
 	bool isUnsafeDowncastSource(llvm::StructType* st);
 	void addAllBaseTypesForByteLayout(llvm::StructType* st, llvm::Type* base);
