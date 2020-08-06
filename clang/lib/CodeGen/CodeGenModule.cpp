@@ -4836,6 +4836,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
       // since it generates more type safe code.
       // TODO: We are leaking the constant
       CodeGenFunction CGF(*this);
+      CGF.CurCodeDecl = nullptr;
       CGF.disableDebugInfo();
       llvm::Value* SafeInit = CGF.EmitScalarExpr(InitExpr, false);
       CGF.enableDebugInfo();
