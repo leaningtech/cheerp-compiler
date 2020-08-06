@@ -9,12 +9,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Cheerp/DeterministicUnorderedMap.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/TypeOptimizer.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/raw_ostream.h"
 #include <set>
 
@@ -509,15 +509,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 	}
 	if(FunctionType* ft=dyn_cast<FunctionType>(t))
 	{
-		Type* newReturnType=rewriteType(ft->getReturnType());
-		SmallVector<Type*, 4> newParameters;
-		for(uint32_t i=0;i<ft->getNumParams();i++)
-		{
-			Type* oldP = ft->getParamType(i);
-			Type* newP = oldP->isIntegerTy(64) ? oldP : rewriteType(oldP);
-			newParameters.push_back(newP);
-		}
-		return CacheAndReturn(FunctionType::get(newReturnType, newParameters, ft->isVarArg()), TypeMappingInfo::IDENTICAL);
+		return CacheAndReturn(rewriteFunctionType(ft, false), TypeMappingInfo::IDENTICAL);
 	}
 	if(PointerType* pt=dyn_cast<PointerType>(t))
 	{
@@ -557,6 +549,18 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 	return CacheAndReturn(t, TypeMappingInfo::IDENTICAL);
 }
 
+FunctionType* TypeOptimizer::rewriteFunctionType(FunctionType* ft, bool forIntrinsic)
+{
+	Type* newReturnType= (ft->getReturnType()->isIntegerTy(64) && forIntrinsic) ? ft->getReturnType() : rewriteType(ft->getReturnType());
+	SmallVector<Type*, 4> newParameters;
+	for(uint32_t i=0;i<ft->getNumParams();i++)
+	{
+		Type* oldP = ft->getParamType(i);
+		newParameters.push_back((oldP->isIntegerTy(64) && forIntrinsic) ? oldP : rewriteType(oldP));
+	}
+	return FunctionType::get(newReturnType, newParameters, ft->isVarArg());
+}
+
 void TypeOptimizer::pushAllArrayConstantElements(SmallVector<Constant*, 4>& newElements, Constant* array)
 {
 	ArrayType* AT=cast<ArrayType>(array->getType());
@@ -581,13 +585,13 @@ void TypeOptimizer::pushAllArrayConstantElements(SmallVector<Constant*, 4>& newE
 std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool rewriteI64)
 {
 	// Immediately return for globals, we should never try to map their type as they are already rewritten
-	if(GlobalVariable* GV=dyn_cast<GlobalVariable>(C))
+	if(isa<GlobalAlias>(C))
+		return std::make_pair(C, 0);
+	if(GlobalValue* GV=dyn_cast<GlobalValue>(C))
 	{
 		assert(globalsMapping.count(GV));
 		return std::make_pair(globalsMapping[GV], 0);
 	}
-	else if(isa<GlobalValue>(C))
-		return std::make_pair(C, 0);
 	TypeMappingInfo newTypeInfo = rewriteType(C->getType());
 	if (ConstantExpr* CE=dyn_cast<ConstantExpr>(C))
 	{
@@ -613,7 +617,12 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 				ptrOperand = rewrittenOperand.first;
 				SmallVector<Value*, 4> newIndexes;
 				Type* targetType = rewriteType(CE->getType()->getPointerElementType());
-				uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(CE->op_begin()+1,CE->op_end()), targetType, NULL);
+				SmallVector<Value*, 2> idxs;
+				for (auto Op = CE->op_begin()+1; Op != CE->op_end(); ++Op)
+				{
+					idxs.push_back(*Op);
+				}
+				uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, idxs, targetType, NULL);
 				return std::make_pair(ConstantExpr::getGetElementPtr(ptrOperand->getType()->getPointerElementType(), ptrOperand, newIndexes), mergedIntegerOffset);
 			}
 			case Instruction::BitCast:
@@ -756,27 +765,20 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 	return std::make_pair((Constant*)NULL, 0);
 }
 
-void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
+Function* TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 {
-	// If a type for this intrinsic is collapsed we need to use a differently named intrinsic
-	// Make sure that this new intrinsic is also mapped to new types.
-	// This lambda returns true if the name has not changed, as in that case we don't need a new intrinsic
-	auto fixDepedendentIntrinsic = [&](Intrinsic::ID id, ArrayRef<Type*> Tys) -> bool
+	auto fixFuncType = [](Function* F, FunctionType* FT)
 	{
-		const std::string& intrName = Intrinsic::getName(id, Tys);
-		// If the name does not change we only need to fix the type
-		if(F->getName() == intrName)
+		F->mutateType(FT->getPointerTo());
+		F->setValueType(FT);
+		auto AI = F->arg_begin();
+		auto TI = FT->param_begin();
+		for (; AI != F->arg_end(); ++AI, ++TI)
 		{
-			F->mutateType(FT->getPointerTo());
-			return true;
+			AI->mutateType(*TI);
 		}
-		Function* intrF = F->getParent()->getFunction(intrName);
-		// If the intrinsic with the new types is not already defined we will create a new fixed one later on
-		if(!intrF || !pendingFunctions.count(intrF))
-			return false;
-		rewriteFunction(intrF);
-		return false;
 	};
+
 	SmallVector<Type*, 3> newTys;
 	switch(F->getIntrinsicID())
 	{
@@ -845,21 +847,30 @@ void TypeOptimizer::rewriteIntrinsic(Function* F, FunctionType* FT)
 			break;
 		}
 	}
-	if(!fixDepedendentIntrinsic((Intrinsic::ID)F->getIntrinsicID(), newTys))
+
+
+	const std::string& intrName = Intrinsic::getName(F->getIntrinsicID(), newTys);
+
+	// If the name does not change we only need to fix the type
+	if(F->getName() == intrName)
 	{
-		Function* newFunc = Intrinsic::getDeclaration(F->getParent(), (Intrinsic::ID)F->getIntrinsicID(), newTys);
-		assert(newFunc != F);
-		while(!F->use_empty())
-		{
-			Use& U = *F->use_begin();
-			CallInst* CI=cast<CallInst>(U.getUser());
-			assert(U.getOperandNo()==CI->getNumArgOperands());
-			CI->setOperand(U.getOperandNo(), newFunc);
-		}
+		fixFuncType(F, FT);
+		return F;
 	}
+
+	// If an intrinsic with the new name already exists, just return it.
+	// We will fix the type (if necessary) when we iterate on it.
+	Function* newF = module->getFunction(intrName);
+	if (newF)
+		return newF;
+
+	// We need a new function. Create it.
+	newF = Intrinsic::getDeclaration(F->getParent(), (Intrinsic::ID)F->getIntrinsicID(), newTys);
+	assert(newF != F);
+	return newF;
 }
 
-uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, ArrayRef<Use> idxs, Type* targetType, Instruction* insertionPoint)
+uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Type* ptrType, ArrayRef<Value*> idxs, Type* targetType, Instruction* insertionPoint)
 {
 	// The addToLastIndex flag should be set to true if the following index should be added to the previouly pushed one
 	bool addToLastIndex = false;
@@ -1028,91 +1039,112 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 	return integerOffset;
 }
 
+Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
+{
+	FunctionType* oldFuncType = F->getFunctionType();
+	FunctionType* newFuncType = rewriteFunctionType(oldFuncType, F->isIntrinsic());
+	if(newFuncType==oldFuncType)
+		return F;
+
+	if(F->isIntrinsic())
+	{
+		return rewriteIntrinsic(F, newFuncType);
+	}
+
+	SmallVector<AttributeSet, 8> ArgAttrVec;
+	AttributeList PAL = F->getAttributes();
+	for(unsigned i = 0; i < F->arg_size(); ++i)
+	{
+		Argument* CurA = F->arg_begin()+i;
+		if (CurA->getType()->isIntegerTy(64))
+		{
+			ArgAttrVec.push_back(AttributeSet());
+			ArgAttrVec.push_back(AttributeSet());
+		}
+		else
+		{
+			AttributeSet CurAttrs = PAL.getParamAttributes(i);
+			if(CurAttrs.hasAttribute(Attribute::ByVal))
+			{
+				Type* argType = oldFuncType->getParamType(i);
+				assert(argType->isPointerTy());
+				Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
+				if(rewrittenArgType->isArrayTy())
+				{
+					CurAttrs.removeAttribute(F->getContext(), Attribute::ByVal);
+				}
+			}
+			ArgAttrVec.push_back(CurAttrs);
+		}
+
+	}
+
+	// Create the new function body and insert it into the module.
+	Function *NF = Function::Create(newFuncType, F->getLinkage(), F->getName());
+	NF->copyAttributesFrom(F);
+
+	// Patch the pointer to LLVM function in debug info descriptor.
+	NF->setSubprogram(F->getSubprogram());
+	F->setSubprogram(nullptr);
+
+	// Recompute the parameter attributes list based on the new arguments for
+	// the function.
+	NF->setAttributes(AttributeList::get(F->getContext(), PAL.getFnAttributes(),
+				PAL.getRetAttributes(), ArgAttrVec));
+
+	F->getParent()->getFunctionList().insert(F->getIterator(), NF);
+
+	// Transfer the name
+	NF->takeName(F);
+
+	return NF;
+}
+
 void TypeOptimizer::rewriteFunction(Function* F)
 {
 	bool erased = pendingFunctions.erase(F);
 	(void)erased;
 	assert(erased);
-	FunctionType* oldFuncType = cast<FunctionType>(F->getType()->getPointerElementType());
-	globalTypeMapping[F] = F->getType();
 	// Rewrite the type
-	Type* newFuncType = rewriteType(F->getType());
 	// Keep track of the original types of local instructions
-	std::unordered_map<Value*, Type*> localTypeMapping;
-	auto getOriginalOperandType = [&](Value* v) -> Type*
-	{
-		auto it = localTypeMapping.find(v);
-		if(it != localTypeMapping.end())
-			return it->second;
-		else if(GlobalValue* GV=dyn_cast<GlobalValue>(v))
-		{
-			auto it=globalTypeMapping.find(GV);
-			if(it==globalTypeMapping.end())
-				return GV->getType();
-			else
-				return it->second;
-		}
-		else
-			return v->getType();
-	};
-	auto setOriginalOperandType = [&](Value* v, Type* t) -> void
-	{
-		localTypeMapping[v] = t;
-	};
+	LocalTypeMapping localTypeMapping(globalTypeMapping);
 	// Keep track of instructions which have been remapped
-	DeterministicUnorderedMap<Value*, std::pair<Value*, uint8_t>, RestrictionsLifted::NoErasure> localInstMapping;
-	auto getMappedOperand = [&](Value* v) -> std::pair<Value*, uint8_t>
-	{
-		if(Constant* C=dyn_cast<Constant>(v))
-			return rewriteConstant(C, false);
-		auto it = localInstMapping.find(v);
-		if(it != localInstMapping.end())
-			return it->second;
-		else
-			return std::make_pair(v, 0);
-	};
-	auto setMappedOperand = [&](Value* v, Value* m, uint8_t o) -> void
-	{
-		//assert(v->getType()->isPointerTy() && m->getType()->isPointerTy());
-		localInstMapping[v] = std::make_pair(m, o);
-	};
-	if(newFuncType!=F->getType())
-	{
-		FunctionType* newFT = cast<FunctionType>(newFuncType->getPointerElementType());
-		if(F->getIntrinsicID())
-			rewriteIntrinsic(F, newFT);
-		else
-			F->mutateType(newFuncType);
-		// Change the types of the arguments
-		for(Argument& a: F->args())
-		{
-			Type* newArgType=cast<FunctionType>(newFuncType->getPointerElementType())->getParamType(a.getArgNo());
-			if(newArgType==a.getType())
-				continue;
-			setOriginalOperandType(&a, a.getType());
-			a.mutateType(newArgType);
-		}
-		F->setValueType(newFT);
-	}
-	// Remove byval attribute from pointer to array arguments, see CallInst handling below
-	bool attributesChanged = false;
-	AttributeList newAttrs=F->getAttributes();
-	for(uint32_t i=0;i<F->arg_size();i++)
-	{
-		if(!newAttrs.hasAttribute(i+1, Attribute::ByVal))
-			continue;
-		Type* argType = oldFuncType->getParamType(i);
-		assert(argType->isPointerTy());
-		Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
-		if(!rewrittenArgType->isArrayTy())
-			continue;
-		newAttrs=newAttrs.removeAttribute(module->getContext(), i+1, Attribute::ByVal);
-		attributesChanged = true;
-	}
-	if(attributesChanged)
-		F->setAttributes(newAttrs);
+	LocalInstMapping localInstMapping(*this);
+	auto it = globalsMapping.find(F);
+	assert(it != globalsMapping.end());
 	if(F->empty())
 		return;
+	if (it->first != it->second)
+	{
+		Function* NF = cast<Function>(it->second);
+		// Transfer the body
+		NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+		// Loop over the argument list, mapping the old arguments to
+		// the new arguments, also transferring over the names as well.
+		IRBuilder<> Builder(NF->getEntryBlock().getFirstNonPHI());
+		for (auto A = F->arg_begin(), AE = F->arg_end(), NA = NF->arg_begin();A != AE; ++A, ++NA)
+		{
+			if (A->getType()->isIntegerTy(64))
+			{
+				Value* Low = NA++;
+				Value* High = NA;
+				Type* Int64Ty = IntegerType::get(F->getContext(), 64);
+				Low = Builder.CreateZExt(Low, Int64Ty);
+				High = Builder.CreateZExt(High, Int64Ty);
+				High = Builder.CreateShl(High, 32);
+				Value* V = Builder.CreateOr(Low, High);
+				V->takeName(A);
+				localInstMapping.setMappedOperand(A, V, 0);
+			}
+			else
+			{
+				NA->takeName(A);
+				localInstMapping.setMappedOperand(A, NA, 0);
+			}
+		}
+		F = NF;
+	}
+
 	SmallVector<BasicBlock*, 4> blocksInDFSOrder;
 	std::unordered_set<BasicBlock*> usedBlocks;
 	usedBlocks.insert(&F->getEntryBlock());
@@ -1138,7 +1170,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	}
 
 	SmallVector<PHINode*, 4> delayedPHIs;
-	SmallVector<Instruction*, 4> ToDelete;
+	SmallVector<Instruction*, 4> InstsToDelete;
 	// Rewrite instructions as needed
 	for(BasicBlock* BB: blocksInDFSOrder)
 	{
@@ -1156,20 +1188,29 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::GetElementPtr:
 				{
 					Value* ptrOperand = I.getOperand(0);
-					Type* ptrType = getOriginalOperandType(ptrOperand);
+					Type* ptrType = localTypeMapping.getOriginalOperandType(ptrOperand);
 					Type* newPtrType = rewriteType(ptrType);
 					if(newPtrType != ptrType || rewriteType(I.getType()) != I.getType())
 					{
 						SmallVector<Value*, 4> newIndexes;
 						Type* targetType = rewriteType(I.getType()->getPointerElementType());
-						uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, ArrayRef<Use>(I.op_begin()+1,I.op_end()), targetType, &I);
-						auto rewrittenOperand = getMappedOperand(ptrOperand);
+						SmallVector<Value*, 2> idxs;
+						for (auto Op = I.op_begin()+1; Op != I.op_end(); ++Op)
+						{
+							idxs.push_back(localInstMapping.getMappedOperand(*Op).first);
+						}
+						uint8_t mergedIntegerOffset=rewriteGEPIndexes(newIndexes, ptrType, idxs, targetType, &I);
+						auto rewrittenOperand = localInstMapping.getMappedOperand(ptrOperand);
+						if (auto A = dyn_cast<Argument>(rewrittenOperand.first))
+						{
+							assert(A->getParent() == F);
+						}
 						assert(rewrittenOperand.second == 0);
 						GetElementPtrInst* NewInst = GetElementPtrInst::Create(newPtrType->getPointerElementType(), rewrittenOperand.first, newIndexes);
 						assert(!NewInst->getType()->getPointerElementType()->isArrayTy());
 						NewInst->takeName(&I);
 						NewInst->setIsInBounds(cast<GetElementPtrInst>(I).isInBounds());
-						setMappedOperand(&I, NewInst, mergedIntegerOffset);
+						localInstMapping.setMappedOperand(&I, NewInst, mergedIntegerOffset);
 						// We are done with handling this case
 						needsDefaultHandling = false;
 					}
@@ -1186,7 +1227,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							// If the return type is not a struct anymore while the source type is still a
 							// struct replace the upcast with a GEP
 							Value* ptrOperand = I.getOperand(0);
-							Type* curType = getOriginalOperandType(ptrOperand)->getPointerElementType();
+							Type* curType = localTypeMapping.getOriginalOperandType(ptrOperand)->getPointerElementType();
 							TypeMappingInfo newRetInfo = rewriteType(I.getType()->getPointerElementType());
 							TypeMappingInfo newOpInfo = rewriteType(curType);
 							if(TypeMappingInfo::isCollapsedStruct(newRetInfo.elementMappingKind) &&
@@ -1195,7 +1236,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								Type* Int32 = IntegerType::get(II->getContext(), 32);
 								Value* Zero = ConstantInt::get(Int32, 0);
 								Value* Indexes[] = { Zero, Zero };
-								auto rewrittenOperand = getMappedOperand(ptrOperand);
+								auto rewrittenOperand = localInstMapping.getMappedOperand(ptrOperand);
 								assert(rewrittenOperand.second == 0);
 								Value* newPtrOperand = rewrittenOperand.first;
 								Type* newType = GetElementPtrInst::getIndexedType(newPtrOperand->getType()->getPointerElementType(), Indexes);
@@ -1207,8 +1248,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								}
 								else
 									newGEP = GetElementPtrInst::Create(newOpInfo.mappedType, newPtrOperand, Indexes, "gepforupcast");
-								setMappedOperand(&I, newGEP, 0);
+								localInstMapping.setMappedOperand(&I, newGEP, 0);
 								needsDefaultHandling = false;
+								continue;
 							}
 						}
 					}
@@ -1226,7 +1268,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							{
 								if(!newAttrs.hasAttribute(i+1, Attribute::ByVal))
 									continue;
-								Type* argType = getOriginalOperandType(CI->getArgOperand(i));
+								Type* argType = localTypeMapping.getOriginalOperandType(CI->getArgOperand(i));
 								assert(argType->isPointerTy());
 								Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
 								if(!rewrittenArgType->isArrayTy())
@@ -1236,7 +1278,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								if(!calledFunction || !calledFunction->hasParamAttribute(i, Attribute::NoCapture))
 								{
 									IRBuilder<> Builder(CI);
-									auto rewrittenOperand = getMappedOperand(CI->getOperand(i));
+									auto rewrittenOperand = localInstMapping.getMappedOperand(CI->getOperand(i));
 									assert(rewrittenOperand.second==0);
 									Value* mappedOp = rewrittenOperand.first;
 									assert(mappedOp->getType()->isPointerTy() &&
@@ -1260,10 +1302,71 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						}
 					}
 					Type* oldType = CI->getType();
-					Type* rewrittenFuncType = rewriteType(CI->getFunctionType());
-					CI->mutateFunctionType(cast<FunctionType>(rewrittenFuncType));
+					bool isIntrinsic = CI->getCalledFunction() && CI->getCalledFunction()->isIntrinsic();
+					FunctionType* rewrittenFuncType = rewriteFunctionType(CI->getFunctionType(), isIntrinsic);
+					if (rewrittenFuncType != CI->getFunctionType())
+					{
+						SmallVector<Value *, 16> Args;
+						SmallVector<AttributeSet, 8> ArgAttrVec;
+						Type* Int32Ty = IntegerType::get(F->getContext(), 32);
+						const AttributeList &CallPAL = CI->getAttributes();
+				
+						// Loop over the operands, unpacking i64s into i32s when necessary.
+						CallSite::arg_iterator AI = CI->arg_begin();
+						unsigned ArgNo = 0;
+						for (CallSite::arg_iterator AE = CI->arg_end(); AI != AE;
+							++AI, ++ArgNo)
+						{
+							if ((*AI)->getType()->isIntegerTy(64) && !isIntrinsic)
+							{
+								IRBuilder<> Builder(CI);
+								Value* Low = Builder.CreateTrunc(*AI, Int32Ty);
+								Value* High = Builder.CreateLShr(*AI, 32);
+								High = Builder.CreateTrunc(High, Int32Ty);
+								Args.push_back(Low);
+								Args.push_back(High);
+								ArgAttrVec.push_back(AttributeSet());
+								ArgAttrVec.push_back(AttributeSet());
+							}
+							else
+							{
+								Value* Op = localInstMapping.getMappedOperand(*AI).first;
+								Args.push_back(Op); // Unmodified argument
+								ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
+							}
+						}
+				
+						// Push any varargs arguments on the list.
+						for (; AI != CI->arg_end(); ++AI, ++ArgNo) {
+							Value* Op = localInstMapping.getMappedOperand(*AI).first;
+							Args.push_back(Op);
+							ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
+						}
+				
+						SmallVector<OperandBundleDef, 1> OpBundles;
+						CI->getOperandBundlesAsDefs(OpBundles);
+				
+						Value* Callee = localInstMapping.getMappedOperand(CI->getCalledValue()).first;
+
+						auto *NewCall = CallInst::Create(Callee, Args, OpBundles, "", CI);
+						NewCall->setTailCallKind(CI->getTailCallKind());
+						NewCall->setCallingConv(CI->getCallingConv());
+						NewCall->setAttributes(
+							AttributeList::get(F->getContext(), CallPAL.getFnAttributes(),
+							CallPAL.getRetAttributes(), ArgAttrVec));
+						NewCall->setDebugLoc(CI->getDebugLoc());
+						uint64_t W;
+						if (CI->extractProfTotalWeight(W))
+							NewCall->setProfWeight(W);
+						Args.clear();
+						ArgAttrVec.clear();
+				
+						localInstMapping.setMappedOperand(CI, NewCall, 0);
+						NewCall->takeName(CI);
+						CI = NewCall;
+					}
 					if(CI->getType() != oldType)
-						setOriginalOperandType(&I, oldType);
+						localTypeMapping.setOriginalOperandType(&I, oldType);
 					needsDefaultHandling = false;
 					break;
 				}
@@ -1271,8 +1374,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				{
 					if(!I.getOperand(0)->getType()->isIntegerTy())
 						break;
-					auto mappedOperand = getMappedOperand(I.getOperand(1));
-					auto rewritteValue = getMappedOperand(I.getOperand(0));
+					auto mappedOperand = localInstMapping.getMappedOperand(I.getOperand(1));
+					auto rewritteValue = localInstMapping.getMappedOperand(I.getOperand(0));
 					assert(rewritteValue.second == 0);
 					llvm::Value* mappedValue = rewritteValue.first;
 					if(mappedValue->getType()->isIntegerTy(64))
@@ -1287,7 +1390,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
 						Builder.CreateStore(Low, LowPtr);
 						Builder.CreateStore(High, HighPtr);
-						ToDelete.push_back(&I);
+						InstsToDelete.push_back(&I);
 						needsDefaultHandling = false;
 						break;
 					}
@@ -1315,7 +1418,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				{
 					if(!I.getType()->isIntegerTy())
 						break;
-					auto mappedOperand = getMappedOperand(I.getOperand(0));
+					auto mappedOperand = localInstMapping.getMappedOperand(I.getOperand(0));
 					llvm::Type* oldType = I.getType();
 					if(I.getType()->isIntegerTy(64))
 					{
@@ -1332,7 +1435,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						High = Builder.CreateShl(High, 32);
 						Value* V = Builder.CreateOr(Low, High);
 						I.replaceAllUsesWith(V);
-						ToDelete.push_back(&I);
+						InstsToDelete.push_back(&I);
 						needsDefaultHandling = false;
 						break;
 					}
@@ -1348,7 +1451,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							ConstantInt::get(cast<IntegerType>(I.getType()), mappedOperand.second), "mergedshift", mergedValue->getNextNode());
 					}
 					llvm::Value* truncated = new TruncInst(mergedValue, oldType, "mergedtrunc", mergedValue->getNextNode());
-					setMappedOperand(&I, truncated, 0);
+					localInstMapping.setMappedOperand(&I, truncated, 0);
 					needsDefaultHandling = false;
 					break;
 				}
@@ -1360,7 +1463,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					{
 						Type* newAllocatedType = rewriteType(I.getType()->getPointerElementType());
 						AI->setAllocatedType(newAllocatedType);
-						setOriginalOperandType(&I, I.getType());
+						localTypeMapping.setOriginalOperandType(&I, I.getType());
 						// Special handling for Alloca
 						if(newInfo.elementMappingKind == TypeMappingInfo::POINTER_FROM_ARRAY)
 						{
@@ -1372,7 +1475,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							Value* Zero = ConstantInt::get(Int32, 0);
 							Value* Indexes[] = { Zero, Zero };
 							Instruction* newGEP = GetElementPtrInst::Create(newAllocatedType, &I, Indexes, "allocadecay");
-							setMappedOperand(&I, newGEP, 0);
+							localInstMapping.setMappedOperand(&I, newGEP, 0);
 						}
 						else
 							I.mutateType(newInfo.mappedType);
@@ -1395,28 +1498,29 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				TypeMappingInfo newInfo = rewriteType(I.getType());
 				if(newInfo.mappedType!=I.getType())
 				{
-					setOriginalOperandType(&I, I.getType());
+					localTypeMapping.setOriginalOperandType(&I, I.getType());
 					I.mutateType(newInfo.mappedType);
 				}
 			}
-			// We need to handle pointer PHIs later on, when all instructions are redefined
+			// We need to handle PHI operands later on, when all instructions are redefined
 			if(PHINode* phi = dyn_cast<PHINode>(&I))
 			{
-				if(phi->getType()->isPointerTy() || phi->getType()->isIntegerTy())
-				{
-					delayedPHIs.push_back(phi);
-					continue;
-				}
+				delayedPHIs.push_back(phi);
+				continue;
 			}
 			for(uint32_t i=0;i<I.getNumOperands();i++)
 			{
 				Value* op=I.getOperand(i);
-				auto rewrittenOperand = getMappedOperand(op);
-				I.setOperand(i, rewrittenOperand.first);
+				auto rewrittenOperand = localInstMapping.getMappedOperand(op).first;
+				if (auto A = dyn_cast<Argument>(rewrittenOperand))
+				{
+					assert(A->getParent() == F);
+				}
+				I.setOperand(i, rewrittenOperand);
 			}
 		}
 	}
-	for(Instruction* I: ToDelete)
+	for(Instruction* I: InstsToDelete)
 	{
 		I->eraseFromParent();
 	}
@@ -1425,7 +1529,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		for(uint32_t i=0;i<phi->getNumIncomingValues();i++)
 		{
 			Value* op=phi->getIncomingValue(i);
-			auto rewrittenOperand = getMappedOperand(op);
+			auto rewrittenOperand = localInstMapping.getMappedOperand(op);
 			assert(rewrittenOperand.second == 0);
 			// Work around setIncomingValue assertion by using setOperand directly
 			phi->setOperand(i, rewrittenOperand.first);
@@ -1433,6 +1537,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	}
 	for(auto it: localInstMapping)
 	{
+		if (!isa<Instruction>(it.second.first))
+			continue;
 		// Insert new instruction, if necessary
 		if(!cast<Instruction>(it.second.first)->getParent())
 			cast<Instruction>(it.second.first)->insertAfter(cast<Instruction>(it.first));
@@ -1444,6 +1550,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		cast<Instruction>(it.first)->replaceAllUsesWith(UndefValue::get(it.first->getType()));
 		cast<Instruction>(it.first)->eraseFromParent();
 	}
+	assert(!verifyFunction(*F, &errs()));
 }
 
 Constant* TypeOptimizer::rewriteGlobal(GlobalVariable* GV)
@@ -1488,14 +1595,35 @@ bool TypeOptimizer::runOnModule(Module& M)
 	assert(DL);
 	// Do a preprocessing step to gather data that we can't get online
 	gatherAllTypesInfo(M);
+	std::vector<Function*> originalFuncs;
+	// Queue the functions for updating
+	for(Function& F: M)
+	{
+		pendingFunctions.insert(&F);
+	}
+	// Update function signatures
+	for(Function* F: pendingFunctions)
+	{
+		Type* oldType = F->getType();
+		Function* NF = rewriteFunctionSignature(F);
+		globalsMapping.insert(std::make_pair(F, NF));
+		if (oldType != NF->getType())
+			globalTypeMapping.insert(std::make_pair(NF, oldType));
+	}
 	// Update the type for all global variables
 	for(GlobalVariable& GV: M.getGlobalList())
 	{
 		Constant* rewrittenGlobal=rewriteGlobal(&GV);
 		globalsMapping.insert(std::make_pair(&GV, rewrittenGlobal));
 	}
-	for(Function& F: M)
-		pendingFunctions.insert(&F);
+	// Update aliases
+	for(GlobalAlias& GA: M.getAliasList())
+	{
+		Type* rewrittenType = rewriteType(GA.getType());
+		GA.mutateType(rewrittenType);
+		GA.setValueType(rewriteType(GA.getValueType()));
+		GA.setAliasee(rewriteConstant(GA.getAliasee(), false).first);
+	}
 	// Rewrite all functions
 	while(!pendingFunctions.empty())
 		rewriteFunction(*pendingFunctions.begin());
@@ -1505,20 +1633,22 @@ bool TypeOptimizer::runOnModule(Module& M)
 		GV.setValueType(rewriteType(GV.getValueType()));
 		rewriteGlobalInit(&GV);
 	}
-	for(GlobalAlias& GA: M.getAliasList())
+	for(auto it: globalsMapping)
 	{
-		Type* rewrittenType = rewriteType(GA.getType());
-		GA.mutateType(rewrittenType);
-		GA.setValueType(rewriteType(GA.getValueType()));
+		if (Function* F = dyn_cast<Function>(it.first))
+		{
+			Function* New = cast<Function>(it.second);
+			if (F != New)
+			{
+				F->replaceNonMetadataUsesWith(UndefValue::get(F->getType()));
+				F->mutateType(New->getType());
+				F->setValueType(New->getValueType());
+				F->replaceAllUsesWith(New);
+				F->eraseFromParent();
+			}
+		}
 	}
-	// Reuse pendingFunctions to store intrinsics that should be deleted
-	for(Function& F: M)
-	{
-		if(F.getIntrinsicID() && F.use_empty())
-			pendingFunctions.insert(&F);
-	}
-	for(Function* F: pendingFunctions)
-		F->eraseFromParent();
+	assert(!verifyModule(*module, &errs()));
 	module = NULL;
 	return true;
 }
