@@ -16391,7 +16391,7 @@ void Sema::ActOnTagFinishDefinition(Scope *S, Decl *TagD,
       isa<CXXRecordDecl>(Tag) && Tag->getDeclContext()->isClientNamespace()) {
     CXXRecordDecl* RD = cast<CXXRecordDecl>(Tag);
     if (!hasClientLayout(RD)) {
-      Diag(RD->getLocStart(), diag::err_cheerp_missing_client_layout);
+      Diag(RD->getBeginLoc(), diag::err_cheerp_missing_client_layout);
     }
 
   }

@@ -7807,11 +7807,11 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
   // Set default attr based on Triple Environment component
   if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::WebAssembly) {
     if (D->hasAttr<JsExportAttr>() && isa<CXXRecordDecl>(D))
-      Diag(D->getLocStart(), diag::err_attributes_are_not_compatible)
+      Diag(D->getBeginLoc(), diag::err_attributes_are_not_compatible)
         << (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs ? "'asmjs'" : "'wasm'")
         << D->getAttr<JsExportAttr>();
     else if (D->hasAttr<PackedAttr>() && (LangOpts.getCheerpLinearOutput() == LangOptions::CHEERP_LINEAR_OUTPUT_AsmJs))
-      Diag(D->getLocStart(), diag::err_attributes_are_not_compatible)
+      Diag(D->getBeginLoc(), diag::err_attributes_are_not_compatible)
         << "'asmjs'"
         << D->getAttr<PackedAttr>();
     D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSSpelling));

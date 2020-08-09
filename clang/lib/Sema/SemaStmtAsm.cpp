@@ -307,7 +307,7 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
     QualType OutTy = OutputExpr->getType().getDesugaredType(Context);
     if(OutTy->isSpecificBuiltinType(BuiltinType::ULongLong) ||
        OutTy->isSpecificBuiltinType(BuiltinType::LongLong)) {
-      return StmtError(Diag(Literal->getLocStart(),
+      return StmtError(Diag(Literal->getBeginLoc(),
                             diag::err_asm_invalid_type_in_input)
                        << OutputExpr->getType() << Info.getConstraintStr());
     }
@@ -454,7 +454,7 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
     QualType InTy = InputExpr->getType().getDesugaredType(Context);
     if(InTy->isSpecificBuiltinType(BuiltinType::ULongLong) ||
        InTy->isSpecificBuiltinType(BuiltinType::LongLong)) {
-      return StmtError(Diag(Literal->getLocStart(),
+      return StmtError(Diag(Literal->getBeginLoc(),
                             diag::err_asm_invalid_type_in_input)
                        << InputExpr->getType() << Info.getConstraintStr());
     }

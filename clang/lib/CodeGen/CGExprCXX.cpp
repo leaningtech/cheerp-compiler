@@ -1678,7 +1678,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
       if (castExpr == NULL ||
           castExpr->getSubExpr()->getType()->getPointeeType().getCanonicalType().getUnqualifiedType()!=allocType.getCanonicalType().getUnqualifiedType())
       {
-        CGM.getDiags().Report(E->getLocStart(), diag::err_cheerp_invalid_plament_new) << E->getSourceRange();
+        CGM.getDiags().Report(E->getBeginLoc(), diag::err_cheerp_invalid_plament_new) << E->getSourceRange();
       }
     }
     LValueBaseInfo BaseInfo;
