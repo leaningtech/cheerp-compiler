@@ -1910,7 +1910,7 @@ Sema::ActOnCXXNew(SourceLocation StartLoc, bool UseGlobal,
     }
   }
 
-  return BuildCXXNew(SourceRange(StartLoc, D.getLocEnd()), UseGlobal,
+  return BuildCXXNew(SourceRange(StartLoc, D.getEndLoc()), UseGlobal,
                      PlacementLParen,
                      PlacementArgs,
                      PlacementRParen,
