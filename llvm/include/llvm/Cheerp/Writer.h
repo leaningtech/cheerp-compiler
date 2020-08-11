@@ -387,7 +387,7 @@ private:
 	void compileConstantExpr(const llvm::ConstantExpr* ce, PARENT_PRIORITY parentPrio, bool asmjs);
 	bool doesConstantDependOnUndefined(const llvm::Constant* C) const;
 	void compileMethodArgs(llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, llvm::ImmutableCallSite, bool forceBoolean);
-	COMPILE_INSTRUCTION_FEEDBACK compileTerminatorInstruction(const llvm::TerminatorInst& I);
+	COMPILE_INSTRUCTION_FEEDBACK compileTerminatorInstruction(const llvm::Instruction& I);
 	bool compileCompoundStatement(const llvm::Instruction* I, uint32_t regId);
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
 	COMPILE_INSTRUCTION_FEEDBACK compileInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
@@ -667,7 +667,7 @@ public:
 	/**
 	 * Returns if a switch/br_table is appropriate to render this terminator
 	 */
-	static bool useSwitch(const llvm::TerminatorInst* term);
+	static bool useSwitch(const llvm::Instruction* term);
 	static bool needsPointerKindConversion(const llvm::PHINode* phi, const llvm::Value* incoming,
 	                                       const PointerAnalyzer& PA, const Registerize& registerize, const EdgeContext& edgeContext);
 	static bool needsPointerKindConversionForBlocks(const llvm::BasicBlock* to, const llvm::BasicBlock* from,

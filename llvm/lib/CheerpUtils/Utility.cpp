@@ -360,7 +360,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 						// This instruction is not the user and has side effects, give up
 						break;
 					}
-					else if(isa<TerminatorInst>(nextInst))
+					else if(nextInst->isTerminator())
 					{
 						// We have reached the end of the block without finding the final user
 						// If the user is a phi directly following, good, otherwise we can't inline

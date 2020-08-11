@@ -248,7 +248,7 @@ bool TokenListBuilder::enqueueSucc(const BasicBlock* CurBB, const BasicBlock* Su
 template<typename F>
 static void for_each_succ(const BasicBlock* BB, F f)
 {
-	const TerminatorInst* Term = BB->getTerminator();
+	const Instruction* Term = BB->getTerminator();
 	size_t DefaultIdx = isa<SwitchInst>(Term) ? 0 : Term->getNumSuccessors()-1;
 	DenseMap<const BasicBlock*, SmallVector<int, 2>> Destinations;
 	for (size_t i = 0; i < Term->getNumSuccessors(); ++i)
@@ -273,7 +273,7 @@ static void for_each_succ(const BasicBlock* BB, F f)
 void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* CurNode)
 {
 	assert(BBT->getKind() == Token::TK_BasicBlock);
-	const TerminatorInst* Term = BBT->getBB()->getTerminator();
+	const Instruction* Term = BBT->getBB()->getTerminator();
 	if (const BranchInst* BrInst = dyn_cast<BranchInst>(Term))
 	{
 		if (BrInst->isUnconditional())
@@ -546,7 +546,7 @@ void TokenListBuilder::processBlock(const BasicBlock* CurBB, bool Delayed)
 	processBlockTerminator(BBT, CurNode);
 	// Enqueue successors on the visit stack
 	// (in reverse order so they are popped in the correct order)
-	const TerminatorInst* Term = CurBB->getTerminator();
+	const Instruction* Term = CurBB->getTerminator();
 	int ie = 0;
 	if (isa<SwitchInst>(Term))
 	{
@@ -847,7 +847,7 @@ void TokenListOptimizer::removeEmptyIfs()
 				}
 				else
 				{
-					const TerminatorInst* Term = EmptyIf->getBB()->getTerminator();
+					const Instruction* Term = EmptyIf->getBB()->getTerminator();
 					assert(isa<BranchInst>(Term));
 					const Value* Cond = cast<BranchInst>(Term)->getCondition();
 					if (mayContainSideEffects(Cond, PA))

@@ -440,7 +440,7 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 			continue;
 		movedInstructions.insert(cur);
 		// Terminators should not move from their position
-		if(isa<TerminatorInst>(cur))
+		if(cur->isTerminator())
 			continue;
 		cur->moveBefore(insertPoint);
 		//Add users of this instrucution as well
