@@ -265,7 +265,7 @@ void Registerize::assignInstructionsIds(InstIdMapTy& instIdMap, const Function& 
 			instIdMap[&I]=thisIndex;
 		}
 
-		const TerminatorInst* term=BB->getTerminator();
+		const Instruction* term=BB->getTerminator();
 		uint32_t numSuccessors = term->getNumSuccessors();
 		for(uint32_t i=0;i<numSuccessors;i++)
 		{
@@ -321,7 +321,7 @@ uint32_t Registerize::dfsLiveRangeInBlock(BlocksState& blocksState, LiveRangesTy
 	}
 	// Extend the live range of live-out instrution to the end of the block
 	uint32_t endOfBlockIndex=nextIndex;
-	TerminatorInst* term=BB.getTerminator();
+	Instruction* term=BB.getTerminator();
 	for(Instruction* outLiveInst: blockState.outSet)
 	{
 		// If inlineable we need to extend the life of the not-inlineable operands
@@ -540,7 +540,7 @@ uint32_t Registerize::assignToRegisters(Function& F, const InstIdMapTy& instIdMa
 	{
 		for (const BasicBlock & bb : F)
 		{
-			const TerminatorInst* term=bb.getTerminator();
+			const Instruction* term=bb.getTerminator();
 			for(uint32_t i=0;i<term->getNumSuccessors();i++)
 			{
 				//TODO: improve how thet are assigned
@@ -957,7 +957,7 @@ bool Registerize::RegisterAllocatorInst::couldAvoidToBeMaterialized(const BasicB
 	//Only blocks containing only phi and exactly 1 successor can avoid to be materialized
 	if (!isNumStatementsLessThan<1>(&BB, PA, *registerize, /*skipPhi*/true))
 		return false;
-	const TerminatorInst* term=BB.getTerminator();
+	const Instruction* term=BB.getTerminator();
 	return (term->getNumSuccessors() == 1);
 }
 
@@ -968,7 +968,7 @@ void Registerize::RegisterAllocatorInst::buildEdgesData(Function& F)
 		if (!couldAvoidToBeMaterialized(fromBB))
 			continue;
 
-		const TerminatorInst* term=fromBB.getTerminator();
+		const Instruction* term=fromBB.getTerminator();
 		for(uint32_t i=0;i<term->getNumSuccessors();i++)
 		{
 			const BasicBlock* toBB=term->getSuccessor(i);

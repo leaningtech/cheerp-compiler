@@ -258,7 +258,7 @@ void CheerpWasmRenderInterface::renderCondition(const BasicBlock* bb,
 		ConditionRenderMode mode)
 {
 	assert(!branchIds.empty());
-	const TerminatorInst* term=bb->getTerminator();
+	const Instruction* term=bb->getTerminator();
 
 	if(isa<BranchInst>(term))
 	{

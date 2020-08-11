@@ -246,7 +246,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 				}
 			}
 			// Handle the special names required for the edges between blocks
-			const TerminatorInst* term=bb.getTerminator();
+			const Instruction* term=bb.getTerminator();
 			for(uint32_t i=0;i<term->getNumSuccessors();i++)
 			{
 				EdgeContext localEdgeContext;
