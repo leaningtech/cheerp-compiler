@@ -25,7 +25,7 @@ bool RemoveFwdBlocks::runOnFunction(Function& F)
 	{
 		// We are only interested in blocks containing only the terminator
 		if (!BB->begin()->isTerminator()) continue;
-		TerminatorInst* term = BB->getTerminator();
+		Instruction* term = BB->getTerminator();
 		// We are only interested in unconditional branches
 		if (term->getNumSuccessors() != 1) continue;
 		BasicBlock* predBB = BB->getSinglePredecessor();
@@ -40,7 +40,7 @@ bool RemoveFwdBlocks::runOnFunction(Function& F)
 		// TODO: relax this a bit?
 		if (succBB->getFirstNonPHI() != &*succBB->begin()) continue;
 
-		TerminatorInst* predTerm = predBB->getTerminator();
+		Instruction* predTerm = predBB->getTerminator();
 		// If the predecessor's terminator now branches only to the current
 		// block, turn it into an unconditional branch
 		bool unconditional = true;
@@ -116,7 +116,7 @@ bool LowerAndOrBranches::runOnFunction(Function& F)
 	llvm::SmallVector<llvm::BranchInst*, 4> condBraches;
 	for(llvm::BasicBlock& BB: F)
 	{
-		llvm::TerminatorInst* ti = BB.getTerminator();
+		llvm::Instruction* ti = BB.getTerminator();
 		llvm::BranchInst* bi = dyn_cast<llvm::BranchInst>(ti);
 		if(bi == nullptr || bi->isUnconditional())
 			continue;

@@ -30,7 +30,7 @@ void FixIrreducibleControlFlow::SCCVisitor::fixPredecessor(Header& H, BasicBlock
 	Function& F = *BB->getParent();
 	auto& Context = F.getParent()->getContext();
 	IntegerType* Int32Ty = IntegerType::getInt32Ty(Context);
-	TerminatorInst* Term = Pred->getTerminator();
+	Instruction* Term = Pred->getTerminator();
 	BasicBlock *Fwd = nullptr;
 	for (size_t i = 0; i < Term->getNumSuccessors(); i++)
 	{

@@ -89,7 +89,7 @@ uint64_t IdenticalCodeFolding::hashFunction(llvm::Function& F)
 			}
 		}
 
-		const TerminatorInst *Term = BB->getTerminator();
+		const Instruction *Term = BB->getTerminator();
 		for (unsigned i = 0, e = Term->getNumSuccessors(); i != e; ++i) {
 			if (!visited.insert(Term->getSuccessor(i)).second)
 				continue;
@@ -141,8 +141,8 @@ bool IdenticalCodeFolding::equivalentFunction(const llvm::Function* A, const llv
 		if (!equivalentBlock(blockA, blockB))
 			return false;
 
-		const TerminatorInst *termA = blockA->getTerminator();
-		const TerminatorInst *termB = blockB->getTerminator();
+		const Instruction *termA = blockA->getTerminator();
+		const Instruction *termB = blockB->getTerminator();
 		if (termA->getNumSuccessors() != termB->getNumSuccessors())
 			return false;
 
