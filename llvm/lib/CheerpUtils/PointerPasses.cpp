@@ -509,7 +509,7 @@ void PointerToImmutablePHIRemoval::hoistBlock(BasicBlock* targetBlock)
 			}
 		}
 		// Update the terminator to go to the new block
-		TerminatorInst* curTerm = curBlock->getTerminator();
+		Instruction* curTerm = curBlock->getTerminator();
 		for(uint32_t j = 0; j < curTerm->getNumSuccessors(); j++)
 		{
 			if (curTerm->getSuccessor(j) == targetBlock)
@@ -1107,7 +1107,7 @@ void DelayInsts::moveOnFunction(Function& F, StackInstructionsLocations& stackIn
 			{
 				BasicBlock* newB = BasicBlock::Create(F.getContext(), "delayFwd", &F);
 				BranchInst::Create(target, newB);
-				TerminatorInst* sourceTerm = source->getTerminator();
+				Instruction* sourceTerm = source->getTerminator();
 				for(unsigned i=0;i<sourceTerm->getNumSuccessors();i++)
 				{
 					if(sourceTerm->getSuccessor(i) == target)

@@ -2810,7 +2810,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 /*
  * This method is fragile, each opcode must handle the phis in the correct place
  */
-CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstruction(const TerminatorInst& I)
+CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstruction(const Instruction& I)
 {
 	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	switch(I.getOpcode())
@@ -4532,7 +4532,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 		}
 		if(I.isTerminator())
 		{
-			auto ret = compileTerminatorInstruction(cast<TerminatorInst>(I));
+			auto ret = compileTerminatorInstruction(I);
 			if (ret == COMPILE_OK)
 				emptyBlock = false;
 		}
@@ -4577,7 +4577,7 @@ void CheerpRenderInterface::renderBlock(const BasicBlock* bb)
 
 void CheerpRenderInterface::renderCondition(const BasicBlock* bb, int branchId, CheerpWriter::PARENT_PRIORITY parentPrio, bool booleanInvert)
 {
-	const TerminatorInst* term=bb->getTerminator();
+	const Instruction* term=bb->getTerminator();
 
 	bool asmjs = bb->getParent()->getSection() == StringRef("asmjs");
 	if(isa<BranchInst>(term))
@@ -4704,7 +4704,7 @@ void CheerpRenderInterface::renderSwitchBlockBegin(const SwitchInst* switchInst,
 }
 void CheerpRenderInterface::renderCaseBlockBegin(const BasicBlock* bb, int branchId)
 {
-	const TerminatorInst* term = bb->getTerminator();
+	const Instruction* term = bb->getTerminator();
 	assert(isa<SwitchInst>(term));
 	const SwitchInst* si=cast<SwitchInst>(term);
 	assert(branchId > 0);
@@ -4934,7 +4934,7 @@ void CheerpWriter::compileMethodLocals(const Function& F, bool needsLabel)
 
 void CheerpWriter::compileCondition(const BasicBlock* BB, bool booleanInvert)
 {
-	const TerminatorInst* term=BB->getTerminator();
+	const Instruction* term=BB->getTerminator();
 	bool asmjs = BB->getParent()->getSection() == StringRef("asmjs");
 	assert(isa<BranchInst>(term));
 	const BranchInst* bi=cast<BranchInst>(term);
@@ -6488,7 +6488,7 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 		bool isSplittable = B->size()<3 && isa<ReturnInst>(B->getTerminator());
 		//Decide if we can use a switch instead of an if/else chain for 
 		//the control flow
-		const TerminatorInst* term = B->getTerminator();
+		const Instruction* term = B->getTerminator();
 		// If this is not null, we can use a switch
 		const SwitchInst* switchInst = useSwitch(term) ? cast<SwitchInst>(term) : nullptr;
 		Block* rlBlock = new Block(&(*B), isSplittable, BlockId++, switchInst);
@@ -6502,7 +6502,7 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 	{
 		if(B->isLandingPad())
 			continue;
-		const TerminatorInst* term=B->getTerminator();
+		const Instruction* term=B->getTerminator();
 		uint32_t defaultBranchId=-1;
 		//Find out which branch id is the default
 		if(isa<BranchInst>(term))
@@ -6574,7 +6574,7 @@ Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const Poi
 	rl->Calculate(relooperMap[&F.getEntryBlock()]);
 	return rl;
 }
-bool CheerpWriter::useSwitch(const TerminatorInst* term)
+bool CheerpWriter::useSwitch(const Instruction* term)
 {
 	// Consider only switch instructions
 	if (!isa<SwitchInst>(term))

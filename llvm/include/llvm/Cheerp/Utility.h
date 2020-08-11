@@ -114,7 +114,7 @@ bool isNumStatementsLessThan(const llvm::BasicBlock* BB,
 	}
 	for (const auto& I: make_range(It, BB->end()))
 	{
-		if (llvm::isa<llvm::TerminatorInst>(I))
+		if (I.isTerminator())
 			break;
 		if (isInlineable(I, PA))
 			continue;

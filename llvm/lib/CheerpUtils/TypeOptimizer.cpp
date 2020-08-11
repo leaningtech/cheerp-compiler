@@ -1121,7 +1121,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	for(uint32_t i=0;i<blocksInDFSOrder.size();i++)
 	{
 		BasicBlock* BB = blocksInDFSOrder[i];
-		TerminatorInst* term = BB->getTerminator();
+		Instruction* term = BB->getTerminator();
 		for(uint32_t i=0;i<term->getNumSuccessors();i++)
 		{
 			BasicBlock* succ = term->getSuccessor(i);
