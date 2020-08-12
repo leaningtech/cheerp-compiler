@@ -3017,7 +3017,7 @@ private:
     bool IsDest = &II.getRawDestUse() == OldUse;
     assert((IsDest && II.getRawDest() == OldPtr) ||
            (!IsDest && II.getRawSource() == OldPtr));
-    Type *RealPtrTy = DL.isByteAddressable() ? OldPtr->stripPointerCastsSafe()->getType() : OldPtr->getType();
+    Type *RealPtrTy = OldPtr->getType();
 
     MaybeAlign SliceAlign = getSliceAlign();
 

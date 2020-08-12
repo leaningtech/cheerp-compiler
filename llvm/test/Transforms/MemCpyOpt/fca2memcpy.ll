@@ -81,8 +81,8 @@ define void @addrproducer(%S* %src, %S* %dst) {
 ; CHECK-NEXT: %dst2 = getelementptr %S, %S* %dst, i64 1
 ; CHECK-NEXT: %[[DST2CAST:[0-9]+]] = bitcast %S* %dst2 to i8*
 ; CHECK-NEXT: %[[SRCCAST:[0-9]+]] = bitcast %S* %src to i8*
-; CHECK-NEXT: call void @llvm.memmove.p0i8.p0i8.i64(i8* align 8 %[[DST2CAST]], i8* align 8 %[[SRCCAST]], i64 16, i1 false)
-; CHECK-NEXT: call void @llvm.memset.p0i8.i64(i8* align 8 %[[DSTCAST]], i8 undef, i64 16, i1 false)
+; CHECK-NEXT: call void @llvm.memmove.p0i8.p0i8.i32(i8* align 8 %[[DST2CAST]], i8* align 8 %[[SRCCAST]], i32 16, i1 false)
+; CHECK-NEXT: call void @llvm.memset.p0i8.i32(i8* align 8 %[[DSTCAST]], i8 undef, i32 16, i1 false)
 ; CHECK-NEXT: ret void
   %1 = load %S, %S* %src
   store %S undef, %S* %dst
@@ -95,7 +95,7 @@ define void @aliasaddrproducer(%S* %src, %S* %dst, i32* %dstidptr) {
 ; CHECK-LABEL: aliasaddrproducer(
 ; CHECK-NEXT: %[[SRC:[0-9]+]] = load %S, %S* %src
 ; CHECK-NEXT: %[[DSTCAST:[0-9]+]] = bitcast %S* %dst to i8*
-; CHECK-NEXT: call void @llvm.memset.p0i8.i64(i8* align 8 %[[DSTCAST]], i8 undef, i64 16, i1 false)
+; CHECK-NEXT: call void @llvm.memset.p0i8.i32(i8* align 8 %[[DSTCAST]], i8 undef, i32 16, i1 false)
 ; CHECK-NEXT: %dstindex = load i32, i32* %dstidptr
 ; CHECK-NEXT: %dst2 = getelementptr %S, %S* %dst, i32 %dstindex
 ; CHECK-NEXT: store %S %[[SRC]], %S* %dst2
@@ -116,8 +116,8 @@ define void @noaliasaddrproducer(%S* %src, %S* noalias %dst, i32* noalias %dstid
 ; CHECK-NEXT: %dst2 = getelementptr %S, %S* %dst, i32 %dstindex
 ; CHECK-NEXT: %[[DST2CAST:[0-9]+]] = bitcast %S* %dst2 to i8*
 ; CHECK-NEXT: %[[SRCCAST2:[0-9]+]] = bitcast %S* %src to i8*
-; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 %[[DST2CAST]], i8* align 8 %[[SRCCAST2]], i64 16, i1 false)
-; CHECK-NEXT: call void @llvm.memset.p0i8.i64(i8* align 8 %[[SRCCAST]], i8 undef, i64 16, i1 false)
+; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 %[[DST2CAST]], i8* align 8 %[[SRCCAST2]], i32 16, i1 false)
+; CHECK-NEXT: call void @llvm.memset.p0i8.i32(i8* align 8 %[[SRCCAST]], i8 undef, i32 16, i1 false)
 ; CHECK-NEXT: ret void
   %1 = load %S, %S* %src
   store %S undef, %S* %src
