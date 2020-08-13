@@ -161,7 +161,7 @@ void test1(int argc, char **argv)
     .b = 1024,
   };
 
-  // CHECK: bitcast %union.anon.5* %u2
+  // CHECK: bitcast %"union._ZZ5test1E3$_3"* %u2
   // CHECK: call void @llvm.memset
    union { int i; float f; } u2 = { };
 
