@@ -55,22 +55,22 @@ struct X8 : X6 { };
 struct X9 : X6, X7 { };
 
 void test() {
-  // CHECK: define linkonce_odr void @_ZN2X8C1Ev(%struct.X8* %this) unnamed_addr
+  // CHECK: define linkonce_odr void @_ZN2X8C1Ev(%struct._Z2X8* %this) unnamed_addr
   // CHECK:      call void @_ZN2X8C2Ev({{.*}}) [[NUW]]
   // CHECK-NEXT: ret void
   X8();
 
-  // CHECK: define linkonce_odr void @_ZN2X9C1Ev(%struct.X9* %this) unnamed_addr
+  // CHECK: define linkonce_odr void @_ZN2X9C1Ev(%struct._Z2X9* %this) unnamed_addr
   //   FIXME: check that this is the end of the line here:
   // CHECK:      call void @_ZN2X9C2Ev({{.*}})
   // CHECK-NEXT: ret void
   X9();
 
-  // CHECK: define linkonce_odr void @_ZN2X8C2Ev(%struct.X8* %this) unnamed_addr
+  // CHECK: define linkonce_odr void @_ZN2X8C2Ev(%struct._Z2X8* %this) unnamed_addr
   // CHECK:      call void @_ZN2X6C2Ev({{.*}}) [[NUW]]
   // CHECK-NEXT: ret void
 
-  // CHECK: define linkonce_odr void @_ZN2X9C2Ev(%struct.X9* %this) unnamed_addr
+  // CHECK: define linkonce_odr void @_ZN2X9C2Ev(%struct._Z2X9* %this) unnamed_addr
   // CHECK:      call void @_ZN2X6C2Ev({{.*}}) [[NUW]]
   //   FIXME: and here:
   // CHECK-NEXT: bitcast

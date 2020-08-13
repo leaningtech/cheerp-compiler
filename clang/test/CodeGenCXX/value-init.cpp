@@ -326,7 +326,7 @@ int explicitly_defaulted() {
   return a.n;
 } // CHECK-LABEL: }
 
-// CHECK-LABEL: define linkonce_odr void @_ZN8zeroinit2X3IiEC2Ev(%"struct.zeroinit::X3"* %this) unnamed_addr
+// CHECK-LABEL: define linkonce_odr void @_ZN8zeroinit2X3IiEC2Ev(%struct._ZN8zeroinit2X3IiEE* %this) unnamed_addr
 // CHECK: call void @llvm.memset.p0i8.i64
 // CHECK-NEXT: call void @_ZN8zeroinit2X2IiEC2Ev
 // CHECK-NEXT: ret void

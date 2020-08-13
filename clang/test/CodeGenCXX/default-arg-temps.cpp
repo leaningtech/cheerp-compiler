@@ -61,7 +61,7 @@ namespace test1 {
     C c;
     A a;
 
-    // CHECK-LABEL: define linkonce_odr void @_ZN5test11DC2Ev(%"struct.test1::D"* %this) unnamed_addr
+    // CHECK-LABEL: define linkonce_odr void @_ZN5test11DC2Ev(%struct._ZN5test11DE* %this) unnamed_addr
     // CHECK:      call void @_ZN5test11BC1Ev(
     // CHECK-NEXT: call void @_ZN5test11CC1ERKNS_1BE(
     // CHECK-NEXT: call void @_ZN5test11BD1Ev(

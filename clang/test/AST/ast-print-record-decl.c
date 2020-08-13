@@ -99,7 +99,7 @@
 
 struct B {};
 
-// CHECK-LABEL: defFirst
+// CHECK-LABEL: {{^[^.]*}}defFirst
 void defFirst() {
   // PRINT-NEXT: [[KW]]
   // PRINT-DAG:  __attribute__((aligned(16)))

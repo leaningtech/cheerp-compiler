@@ -13,8 +13,8 @@ struct Empty {
 };
 
 bool foo(Empty e) {
-// CHECK: @_Z3foo5Empty(%struct.Empty* %e)
-// CHECK: call {{.*}} @_ZN5Empty5checkEv(%struct.Empty* %e)
+// CHECK: @_Z3foo5Empty(%struct._Z5Empty* %e)
+// CHECK: call {{.*}} @_ZN5Empty5checkEv(%struct._Z5Empty* %e)
   return e.check();
 }
 
