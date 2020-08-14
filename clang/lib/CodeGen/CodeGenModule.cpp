@@ -46,6 +46,8 @@
 #include "clang/CodeGen/ConstantInitBuilder.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/CodeGen/CodeGenCheerp.h"
+#include "clang/Sema/SemaCheerp.h"
+#include "clang/Sema/SemaDiagnostic.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"

@@ -34,6 +34,7 @@
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "clang/CodeGen/CodeGenCheerp.h"
+#include "clang/Sema/SemaCheerp.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/FPEnv.h"
