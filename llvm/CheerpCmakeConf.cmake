@@ -2,7 +2,7 @@
 # bootstrap build.
 
 set(CMAKE_INSTALL_PREFIX /opt/cheerp CACHE STRING "")
-set(LLVM_DEFAULT_TARGET_TRIPLE cheerp-wasm CACHE STRING "")
+set(LLVM_DEFAULT_TARGET_TRIPLE cheerp-leaningtech-webbrowser-wasm CACHE STRING "")
 set(LLVM_TARGETS_TO_BUILD X86;CheerpBackend CACHE STRING "")
 
 # setup toolchain
