@@ -90,7 +90,7 @@ class SCEVNegPointer : public SCEV {
 
   const SCEV* Op;
   SCEVNegPointer(const FoldingSetNodeIDRef ID, const SCEV *op) :
-    SCEV(ID, scNegPointer), Op(op) {}
+     SCEV(ID, scNegPointer, computeExpressionSize(op)), Op(op) {}
 public:
   const SCEV *getOperand() const { return Op; }
   Type *getType() const { return Op->getType(); }
