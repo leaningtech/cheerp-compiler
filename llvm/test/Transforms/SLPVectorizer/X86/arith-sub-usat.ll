@@ -73,10 +73,10 @@ define void @sub_v8i64() {
 ; AVX-NEXT:    ret void
 ;
 ; AVX512-LABEL: @sub_v8i64(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x i64>, <8 x i64>* bitcast ([8 x i64]* @a64 to <8 x i64>*), align 8
-; AVX512-NEXT:    [[TMP2:%.*]] = load <8 x i64>, <8 x i64>* bitcast ([8 x i64]* @b64 to <8 x i64>*), align 8
+; AVX512-NEXT:    [[TMP1:%.*]] = load <8 x i64>, <8 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 0) to <8 x i64>*), align 8
+; AVX512-NEXT:    [[TMP2:%.*]] = load <8 x i64>, <8 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @b64, i32 0, i64 0) to <8 x i64>*), align 8
 ; AVX512-NEXT:    [[TMP3:%.*]] = call <8 x i64> @llvm.usub.sat.v8i64(<8 x i64> [[TMP1]], <8 x i64> [[TMP2]])
-; AVX512-NEXT:    store <8 x i64> [[TMP3]], <8 x i64>* bitcast ([8 x i64]* @c64 to <8 x i64>*), align 8
+; AVX512-NEXT:    store <8 x i64> [[TMP3]], <8 x i64>* bitcast (i64* getelementptr inbounds ([8 x i64], [8 x i64]* @c64, i32 0, i64 0) to <8 x i64>*), align 8
 ; AVX512-NEXT:    ret void
 ;
   %a0 = load i64, i64* getelementptr inbounds ([8 x i64], [8 x i64]* @a64, i32 0, i64 0), align 8
@@ -146,10 +146,10 @@ define void @sub_v16i32() {
 ; AVX-NEXT:    ret void
 ;
 ; AVX512-LABEL: @sub_v16i32(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast ([16 x i32]* @a32 to <16 x i32>*), align 4
-; AVX512-NEXT:    [[TMP2:%.*]] = load <16 x i32>, <16 x i32>* bitcast ([16 x i32]* @b32 to <16 x i32>*), align 4
+; AVX512-NEXT:    [[TMP1:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0) to <16 x i32>*), align 4
+; AVX512-NEXT:    [[TMP2:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @b32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    [[TMP3:%.*]] = call <16 x i32> @llvm.usub.sat.v16i32(<16 x i32> [[TMP1]], <16 x i32> [[TMP2]])
-; AVX512-NEXT:    store <16 x i32> [[TMP3]], <16 x i32>* bitcast ([16 x i32]* @c32 to <16 x i32>*), align 4
+; AVX512-NEXT:    store <16 x i32> [[TMP3]], <16 x i32>* bitcast (i32* getelementptr inbounds ([16 x i32], [16 x i32]* @c32, i32 0, i64 0) to <16 x i32>*), align 4
 ; AVX512-NEXT:    ret void
 ;
   %a0  = load i32, i32* getelementptr inbounds ([16 x i32], [16 x i32]* @a32, i32 0, i64 0 ), align 4
