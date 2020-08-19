@@ -210,7 +210,7 @@ void test_alloca_with_align(int size) {
 // PATTERN:  br i1 %vla.iszerosized, label %vla-init.cont, label %vla-setup.loop
 // PATTERN: vla-setup.loop:
 // PATTERN:  %[[SIZE:[0-9]+]] = mul nuw i64 %{{.*}}, 16
-// PATTERN:  %vla.begin = bitcast %struct.anon* %vla to i8*
+// PATTERN:  %vla.begin = bitcast %"struct._ZZ15test_struct_vlaE3$_0"* %vla to i8*
 // PATTERN:  %vla.end = getelementptr inbounds i8, i8* %vla.begin, i64 %[[SIZE]]
 // PATTERN:  br label %vla-init.loop
 // PATTERN: vla-init.loop:
@@ -280,9 +280,9 @@ void test_huge_small_init() {
 
 // UNINIT-LABEL:  test_huge_larger_init(
 // ZERO-LABEL:    test_huge_larger_init(
-// ZERO:  call void @llvm.memcpy{{.*}} @__const.test_huge_larger_init.big, {{.*}}, i64 65536,
+// ZERO:  call void @llvm.memcpy{{.*}} @__const.test_huge_larger_init.big to {{.*}}, i64 65536,
 // PATTERN-LABEL: test_huge_larger_init(
-// PATTERN:  call void @llvm.memcpy{{.*}} @__const.test_huge_larger_init.big, {{.*}}, i64 65536,
+// PATTERN:  call void @llvm.memcpy{{.*}} @__const.test_huge_larger_init.big to {{.*}}, i64 65536,
 void test_huge_larger_init() {
   char big[65536] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
   used(big);
