@@ -723,22 +723,20 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		HighInt RHS = visitValue(I.getOperand(1));
 
 		llvm::Type* HighIntPtrTy = Int32Ty->getPointerTo();
-		llvm::Type *ArgTypes[] = { HighIntPtrTy, HighIntPtrTy, HighIntPtrTy };
+		llvm::Type *ArgTypes[] = { HighIntPtrTy, Int32Ty, Int32Ty, Int32Ty, Int32Ty };
 		llvm::FunctionType *FuncTy = llvm::FunctionType::get(Type::getVoidTy(I.getContext()), ArgTypes, false);
 		llvm::Function* Func = cast<Function>(M.getOrInsertFunction(fname, FuncTy));
 
 		IRBuilder<> AllocaBuilder(I.getParent()->getParent()->getEntryBlock().getFirstNonPHI());
 		llvm::Value* AllocaRes = AllocaBuilder.CreateAlloca(HighIntTy);
-		llvm::Value* AllocaArg1 = AllocaBuilder.CreateAlloca(HighIntTy);
-		llvm::Value* AllocaArg2 = AllocaBuilder.CreateAlloca(HighIntTy);
 		llvm::Value *Args[] = {
 			Builder.CreateConstInBoundsGEP2_32(HighIntTy, AllocaRes, 0, 0),
-			Builder.CreateConstInBoundsGEP2_32(HighIntTy, AllocaArg1, 0, 0),
-			Builder.CreateConstInBoundsGEP2_32(HighIntTy, AllocaArg2, 0, 0),
+			LHS.low,
+			LHS.high,
+			RHS.low,
+			RHS.high
 		};
 
-		storeHighInt(Builder, LHS, AllocaArg1);
-		storeHighInt(Builder, RHS, AllocaArg2);
 		Builder.CreateCall(Func, Args);
 		HighInt Res = loadHighInt(Builder, AllocaRes);
 
