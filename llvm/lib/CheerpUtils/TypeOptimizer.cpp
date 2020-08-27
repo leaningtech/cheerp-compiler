@@ -556,7 +556,19 @@ FunctionType* TypeOptimizer::rewriteFunctionType(FunctionType* ft, bool forIntri
 	for(uint32_t i=0;i<ft->getNumParams();i++)
 	{
 		Type* oldP = ft->getParamType(i);
-		newParameters.push_back((oldP->isIntegerTy(64) && forIntrinsic) ? oldP : rewriteType(oldP));
+		if (oldP->isIntegerTy(64))
+		{
+			if (forIntrinsic)
+				newParameters.push_back(oldP);
+			else
+			{
+				Type* Int32Ty = IntegerType::get(oldP->getContext(), 32);
+				newParameters.push_back(Int32Ty);
+				newParameters.push_back(Int32Ty);
+			}
+		}
+		else
+			newParameters.push_back(rewriteType(oldP));
 	}
 	return FunctionType::get(newReturnType, newParameters, ft->isVarArg());
 }
@@ -1124,10 +1136,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		IRBuilder<> Builder(NF->getEntryBlock().getFirstNonPHI());
 		for (auto A = F->arg_begin(), AE = F->arg_end(), NA = NF->arg_begin();A != AE; ++A, ++NA)
 		{
+			Value* New = nullptr;
 			if (A->getType()->isIntegerTy(64))
 			{
 				Value* Low = NA++;
 				Value* High = NA;
+				Low->setName(Twine(A->getName(), ".low"));
+				High->setName(Twine(A->getName(), ".high"));
 				Type* Int64Ty = IntegerType::get(F->getContext(), 64);
 				Low = Builder.CreateZExt(Low, Int64Ty);
 				High = Builder.CreateZExt(High, Int64Ty);
@@ -1135,11 +1150,17 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				Value* V = Builder.CreateOr(Low, High);
 				V->takeName(A);
 				localInstMapping.setMappedOperand(A, V, 0);
+				New = V;
 			}
 			else
 			{
 				NA->takeName(A);
 				localInstMapping.setMappedOperand(A, NA, 0);
+				New = NA;
+			}
+			if (New->getType() == A->getType())
+			{
+				A->replaceAllUsesWith(New);
 			}
 		}
 		F = NF;
@@ -1304,13 +1325,25 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					Type* oldType = CI->getType();
 					bool isIntrinsic = CI->getCalledFunction() && CI->getCalledFunction()->isIntrinsic();
 					FunctionType* rewrittenFuncType = rewriteFunctionType(CI->getFunctionType(), isIntrinsic);
-					if (rewrittenFuncType != CI->getFunctionType())
+					bool needsRewrite = rewrittenFuncType != CI->getFunctionType();
+					if (!needsRewrite && CI->getFunctionType()->isVarArg())
+					{
+						for (auto& A: CI->arg_operands())
+						{
+							if (A->getType()->isIntegerTy(64))
+							{
+								needsRewrite = true;
+								break;
+							}
+						}
+					}
+					if (needsRewrite)
 					{
 						SmallVector<Value *, 16> Args;
 						SmallVector<AttributeSet, 8> ArgAttrVec;
 						Type* Int32Ty = IntegerType::get(F->getContext(), 32);
 						const AttributeList &CallPAL = CI->getAttributes();
-				
+
 						// Loop over the operands, unpacking i64s into i32s when necessary.
 						CallSite::arg_iterator AI = CI->arg_begin();
 						unsigned ArgNo = 0;
@@ -1335,14 +1368,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 								ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
 							}
 						}
-				
-						// Push any varargs arguments on the list.
-						for (; AI != CI->arg_end(); ++AI, ++ArgNo) {
-							Value* Op = localInstMapping.getMappedOperand(*AI).first;
-							Args.push_back(Op);
-							ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
-						}
-				
+
 						SmallVector<OperandBundleDef, 1> OpBundles;
 						CI->getOperandBundlesAsDefs(OpBundles);
 				
@@ -1539,16 +1565,20 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	{
 		if (!isa<Instruction>(it.second.first))
 			continue;
+		if (!isa<Instruction>(it.first))
+			continue;
+		Instruction* oldI = cast<Instruction>(it.first);
+		Instruction* newI = cast<Instruction>(it.second.first);
 		// Insert new instruction, if necessary
-		if(!cast<Instruction>(it.second.first)->getParent())
-			cast<Instruction>(it.second.first)->insertAfter(cast<Instruction>(it.first));
+		if(!newI->getParent())
+			newI->insertAfter(oldI);
 		// Alloca are only replaced for POINTER_FROM_ARRAY, and should not be removed
 		// Loads are replaced when merged integers, and should not be removed
-		if(isa<AllocaInst>(it.first) || isa<LoadInst>(it.first))
+		if(isa<AllocaInst>(oldI) || isa<LoadInst>(oldI))
 			continue;
 		// Delete old instructions
-		cast<Instruction>(it.first)->replaceAllUsesWith(UndefValue::get(it.first->getType()));
-		cast<Instruction>(it.first)->eraseFromParent();
+		oldI->replaceAllUsesWith(UndefValue::get(it.first->getType()));
+		oldI->eraseFromParent();
 	}
 	assert(!verifyFunction(*F, &errs()));
 }
