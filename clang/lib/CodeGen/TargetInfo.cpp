@@ -9731,11 +9731,6 @@ private:
     return DefaultABIInfo::classifyReturnType(RetTy);
   };
   ABIArgInfo classifyArgumentType(QualType Ty) const {
-    if (Ty->isSpecificBuiltinType(BuiltinType::LongLong) ||
-        Ty->isSpecificBuiltinType(BuiltinType::ULongLong)) {
-
-      return getNaturalAlignIndirect(Ty);
-    }
     return DefaultABIInfo::classifyArgumentType(Ty);
   };
 
@@ -9747,16 +9742,6 @@ private:
       FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
     for (auto &Arg : FI.arguments())
       Arg.info = classifyArgumentType(Arg.type);
-  }
-  Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
-                    QualType Ty) const override {
-    Address VA = EmitVAArgInstr(CGF, VAListAddr, Ty, classifyArgumentType(Ty));
-    if (Ty->isSpecificBuiltinType(BuiltinType::ULongLong) ||
-        Ty->isSpecificBuiltinType(BuiltinType::LongLong)) {
-        CGBuilderTy &Builder = CGF.Builder;
-        VA = Address (Builder.CreateLoad(VA), CharUnits::fromQuantity(8));
-    }
-    return VA;
   }
 };
 
