@@ -1112,6 +1112,16 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 	return NF;
 }
 
+static Value* AssembleI64(Value* Low, Value* High, IRBuilder<>& Builder)
+{
+	Type* Int64Ty = IntegerType::get(Low->getContext(), 64);
+
+	Low = Builder.CreateZExt(Low, Int64Ty);
+	High = Builder.CreateZExt(High, Int64Ty);
+	High = Builder.CreateShl(High, 32);
+	return Builder.CreateOr(Low, High);
+}
+
 void TypeOptimizer::rewriteFunction(Function* F)
 {
 	bool erased = pendingFunctions.erase(F);
@@ -1147,11 +1157,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				Value* High = NA;
 				Low->setName(Twine(A->getName(), ".low"));
 				High->setName(Twine(A->getName(), ".high"));
-				Type* Int64Ty = IntegerType::get(F->getContext(), 64);
-				Low = Builder.CreateZExt(Low, Int64Ty);
-				High = Builder.CreateZExt(High, Int64Ty);
-				High = Builder.CreateShl(High, 32);
-				Value* V = Builder.CreateOr(Low, High);
+				Value* V = AssembleI64(Low, High, Builder);
 				V->takeName(A);
 				localInstMapping.setMappedOperand(A, V, 0);
 				New = V;
