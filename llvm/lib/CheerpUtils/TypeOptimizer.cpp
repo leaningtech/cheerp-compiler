@@ -1216,6 +1216,22 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				default:
 					assert(!I.getType()->isPointerTy() && "Unexpected instruction in TypeOptimizer");
 					break;
+				case Instruction::VAArg:
+				{
+					if(!I.getType()->isIntegerTy(64))
+						break;
+
+					VAArgInst& VA = cast<VAArgInst>(I);
+					IRBuilder<> Builder(&VA);
+					Value* Ptr = localInstMapping.getMappedOperand(VA.getPointerOperand()).first;
+					Value* Low = Builder.CreateVAArg(Ptr, Int32Ty);
+					Value* High = Builder.CreateVAArg(Ptr, Int32Ty);
+					Value* V = AssembleI64(Low, High, Builder);
+
+					localInstMapping.setMappedOperand(&I, V, 0);
+					needsDefaultHandling = false;
+					break;
+				}
 				case Instruction::GetElementPtr:
 				{
 					Value* ptrOperand = I.getOperand(0);
@@ -1522,7 +1538,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::PHI:
 				case Instruction::Ret:
 				case Instruction::Select:
-				case Instruction::VAArg:
 					break;
 			}
 			if(needsDefaultHandling && !I.getType()->isVoidTy() && !I.getType()->isIntegerTy(64))
