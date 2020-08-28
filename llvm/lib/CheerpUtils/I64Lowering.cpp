@@ -695,24 +695,6 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		return Res;
 	}
 
-	void storeHighInt(IRBuilder<>& Builder, HighInt H, Value* Ptr)
-	{
-		Value* lowPtr = Builder.CreateStructGEP(HighIntTy, Ptr, 0);
-		Builder.CreateStore(H.low, lowPtr);
-		Value* highPtr = Builder.CreateStructGEP(HighIntTy, Ptr, 1);
-		Builder.CreateStore(H.high, highPtr);
-	}
-
-	HighInt loadHighInt(IRBuilder<>& Builder, Value* Ptr)
-	{
-		Value* lowPtr = Builder.CreateStructGEP(HighIntTy, Ptr, 0);
-		Value* highPtr = Builder.CreateStructGEP(HighIntTy, Ptr, 1);
-		Value* low = Builder.CreateLoad(Int32Ty, lowPtr);
-		Value* high = Builder.CreateLoad(Int32Ty, highPtr);
-
-		return HighInt(high, low);
-	}
-
 	HighInt visitDivRem(Instruction& I, const char* fname)
 	{
 		if(!I.getType()->isIntegerTy(64))
@@ -722,27 +704,24 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		HighInt LHS = visitValue(I.getOperand(0));
 		HighInt RHS = visitValue(I.getOperand(1));
 
-		llvm::Type* HighIntPtrTy = Int32Ty->getPointerTo();
-		llvm::Type *ArgTypes[] = { HighIntPtrTy, Int32Ty, Int32Ty, Int32Ty, Int32Ty };
-		llvm::FunctionType *FuncTy = llvm::FunctionType::get(Type::getVoidTy(I.getContext()), ArgTypes, false);
+		llvm::Type *ArgTypes[] = { Int32Ty, Int32Ty, Int32Ty, Int32Ty };
+		llvm::FunctionType *FuncTy = llvm::FunctionType::get(Int32Ty, ArgTypes, false);
 		llvm::Function* Func = cast<Function>(M.getOrInsertFunction(fname, FuncTy));
 
-		IRBuilder<> AllocaBuilder(I.getParent()->getParent()->getEntryBlock().getFirstNonPHI());
-		llvm::Value* AllocaRes = AllocaBuilder.CreateAlloca(HighIntTy);
 		llvm::Value *Args[] = {
-			Builder.CreateConstInBoundsGEP2_32(HighIntTy, AllocaRes, 0, 0),
 			LHS.low,
 			LHS.high,
 			RHS.low,
 			RHS.high
 		};
 
-		Builder.CreateCall(Func, Args);
-		HighInt Res = loadHighInt(Builder, AllocaRes);
+		Value* Low = Builder.CreateCall(Func, Args);
+		GlobalVariable* Sret = cast<GlobalVariable>(M.getOrInsertGlobal("cheerpSretSlot", Int32Ty));
+		Value* High = Builder.CreateLoad(Sret); 
 
 		ToDelete.push_back(&I);
 		Changed = true;
-		return Res;
+		return HighInt(High, Low);
 	}
 
 	HighInt visitSRem(BinaryOperator& I)
