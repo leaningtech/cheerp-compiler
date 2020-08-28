@@ -536,6 +536,11 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	if(hasAsmJS)
 		createNullptrFunction(module);
 
+	// Set the sret slot in the asmjs section if there is asmjs code
+	GlobalVariable* Sret = module.getGlobalVariable("cheerpSretSlot");
+	if (hasAsmJS && Sret)
+		Sret->setSection(StringRef("asmjs"));
+
 	auto markAsReachableIfPresent = [this, &visited](Function* F)
 	{
 		if (F) {

@@ -551,7 +551,19 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 
 FunctionType* TypeOptimizer::rewriteFunctionType(FunctionType* ft, bool forIntrinsic)
 {
-	Type* newReturnType= (ft->getReturnType()->isIntegerTy(64) && forIntrinsic) ? ft->getReturnType() : rewriteType(ft->getReturnType());
+	Type* newReturnType = nullptr;
+	if (ft->getReturnType()->isIntegerTy(64) && forIntrinsic)
+	{
+		newReturnType = ft->getReturnType();
+	}
+	else if (ft->getReturnType()->isIntegerTy(64))
+	{
+		newReturnType = IntegerType::get(ft->getContext(), 32);
+	}
+	else
+	{
+		newReturnType = rewriteType(ft->getReturnType());
+	}
 	SmallVector<Type*, 4> newParameters;
 	for(uint32_t i=0;i<ft->getNumParams();i++)
 	{
@@ -1116,10 +1128,21 @@ static Value* AssembleI64(Value* Low, Value* High, IRBuilder<>& Builder)
 {
 	Type* Int64Ty = IntegerType::get(Low->getContext(), 64);
 
-	Low = Builder.CreateZExt(Low, Int64Ty);
-	High = Builder.CreateZExt(High, Int64Ty);
-	High = Builder.CreateShl(High, 32);
-	return Builder.CreateOr(Low, High);
+	Low = Builder.CreateZExt(Low, Int64Ty, Twine(Low->getName(), ".zext"));
+	High = Builder.CreateZExt(High, Int64Ty, Twine(High->getName(), ".zext"));
+	High = Builder.CreateShl(High, 32, Twine(High->getName(), ".shl"));
+	return Builder.CreateOr(Low, High, Twine(Low->getName(), ".").concat(Twine(High->getName(), ".i64")));
+}
+
+static std::pair<Value*, Value*> SplitI64(Value* V, IRBuilder<>& Builder)
+{
+	Type* Int32Ty = IntegerType::get(V->getContext(), 32);
+
+	Value* Low = Builder.CreateTrunc(V, Int32Ty, Twine(V->getName(),".low"));
+	Value* High = Builder.CreateLShr(V, 32, Twine(V->getName(),".highShl"));
+	High = Builder.CreateTrunc(High, Int32Ty, Twine(V->getName(),".high"));
+
+	return std::make_pair(Low, High);
 }
 
 void TypeOptimizer::rewriteFunction(Function* F)
@@ -1129,7 +1152,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	assert(erased);
 
 	Type* Int32Ty = IntegerType::get(F->getContext(), 32);
-	Type* Int64Ty = IntegerType::get(F->getContext(), 64);
 
 	// Rewrite the type
 	// Keep track of the original types of local instructions
@@ -1216,6 +1238,25 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				default:
 					assert(!I.getType()->isPointerTy() && "Unexpected instruction in TypeOptimizer");
 					break;
+				case Instruction::Ret:
+				{
+					Value* Ret = cast<ReturnInst>(I).getReturnValue();
+					if (!Ret || !Ret->getType()->isIntegerTy(64))
+						break;
+
+					IRBuilder<> Builder(&I);
+					auto V = SplitI64(localInstMapping.getMappedOperand(Ret).first, Builder);
+					Value* Low = V.first;
+					Value* High = V.second;
+
+					GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
+					Builder.CreateStore(High, Sret);
+					Builder.CreateRet(Low);
+
+					InstsToDelete.push_back(&I);
+					needsDefaultHandling = false;
+					break;
+				}
 				case Instruction::VAArg:
 				{
 					if(!I.getType()->isIntegerTy(64))
@@ -1375,12 +1416,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						for (CallSite::arg_iterator AE = CI->arg_end(); AI != AE;
 							++AI, ++ArgNo)
 						{
+							Value* Op = localInstMapping.getMappedOperand(*AI).first;
 							if ((*AI)->getType()->isIntegerTy(64) && !isIntrinsic)
 							{
 								IRBuilder<> Builder(CI);
-								Value* Low = Builder.CreateTrunc(*AI, Int32Ty);
-								Value* High = Builder.CreateLShr(*AI, 32);
-								High = Builder.CreateTrunc(High, Int32Ty);
+								auto V = SplitI64(Op, Builder);
+								Value* Low = V.first;
+								Value* High = V.second;
 								Args.push_back(Low);
 								Args.push_back(High);
 								ArgAttrVec.push_back(AttributeSet());
@@ -1388,7 +1430,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							}
 							else
 							{
-								Value* Op = localInstMapping.getMappedOperand(*AI).first;
 								Args.push_back(Op); // Unmodified argument
 								ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
 							}
@@ -1412,7 +1453,16 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						Args.clear();
 						ArgAttrVec.clear();
 				
-						localInstMapping.setMappedOperand(CI, NewCall, 0);
+						Value* Ret = NewCall;
+						if (CI->getType()->isIntegerTy(64))
+						{
+							GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
+							IRBuilder<> Builder(CI);
+							Value* Low = Ret;
+							Value* High = Builder.CreateLoad(Sret);
+							Ret = AssembleI64(Low, High, Builder);
+						}
+						localInstMapping.setMappedOperand(CI, Ret, 0);
 						NewCall->takeName(CI);
 						CI = NewCall;
 					}
@@ -1432,9 +1482,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					if(mappedValue->getType()->isIntegerTy(64))
 					{
 						IRBuilder<> Builder(&I);
-						Value* Low = Builder.CreateTrunc(mappedValue, Int32Ty, Twine(mappedValue->getName(),".low"));
-						Value* High = Builder.CreateLShr(mappedValue, 32, Twine(mappedValue->getName(),".highShl"));
-						High = Builder.CreateTrunc(High, Int32Ty, Twine(mappedValue->getName(),".high"));
+						auto V = SplitI64(mappedValue, Builder);
+						Value* Low = V.first;
+						Value* High = V.second;
 						Value* Base = mappedOperand.first;
 						Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
 						Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
@@ -1477,11 +1527,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
 						Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
 						Value* Low = Builder.CreateLoad(LowPtr);
-						Low = Builder.CreateZExt(Low, Int64Ty);
 						Value* High = Builder.CreateLoad(HighPtr);
-						High = Builder.CreateZExt(High, Int64Ty);
-						High = Builder.CreateShl(High, 32);
-						Value* V = Builder.CreateOr(Low, High);
+						Value* V = AssembleI64(Low, High, Builder);
 						I.replaceAllUsesWith(V);
 						InstsToDelete.push_back(&I);
 						needsDefaultHandling = false;
@@ -1536,7 +1583,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::InsertValue:
 				case Instruction::IntToPtr:
 				case Instruction::PHI:
-				case Instruction::Ret:
 				case Instruction::Select:
 					break;
 			}
