@@ -1117,6 +1117,10 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	bool erased = pendingFunctions.erase(F);
 	(void)erased;
 	assert(erased);
+
+	Type* Int32Ty = IntegerType::get(F->getContext(), 32);
+	Type* Int64Ty = IntegerType::get(F->getContext(), 64);
+
 	// Rewrite the type
 	// Keep track of the original types of local instructions
 	LocalTypeMapping localTypeMapping(globalTypeMapping);
@@ -1341,7 +1345,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					{
 						SmallVector<Value *, 16> Args;
 						SmallVector<AttributeSet, 8> ArgAttrVec;
-						Type* Int32Ty = IntegerType::get(F->getContext(), 32);
 						const AttributeList &CallPAL = CI->getAttributes();
 
 						// Loop over the operands, unpacking i64s into i32s when necessary.
@@ -1407,7 +1410,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					if(mappedValue->getType()->isIntegerTy(64))
 					{
 						IRBuilder<> Builder(&I);
-						Type* Int32Ty = IntegerType::get(F->getContext(), 32);
 						Value* Low = Builder.CreateTrunc(mappedValue, Int32Ty, Twine(mappedValue->getName(),".low"));
 						Value* High = Builder.CreateLShr(mappedValue, 32, Twine(mappedValue->getName(),".highShl"));
 						High = Builder.CreateTrunc(High, Int32Ty, Twine(mappedValue->getName(),".high"));
@@ -1449,8 +1451,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					if(I.getType()->isIntegerTy(64))
 					{
 						IRBuilder<> Builder(&I);
-						Type* Int32Ty = IntegerType::get(F->getContext(), 32);
-						Type* Int64Ty = IntegerType::get(F->getContext(), 64);
 						Value* Base = mappedOperand.first;
 						Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
 						Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
