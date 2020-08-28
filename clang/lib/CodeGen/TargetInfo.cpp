@@ -10212,11 +10212,6 @@ public:
 
 private:
   ABIArgInfo classifyReturnType(QualType RetTy) const {
-    if (RetTy->isSpecificBuiltinType(BuiltinType::LongLong) ||
-        RetTy->isSpecificBuiltinType(BuiltinType::ULongLong)) {
-
-      return getNaturalAlignIndirect(RetTy);
-    }
     return DefaultABIInfo::classifyReturnType(RetTy);
   };
   ABIArgInfo classifyArgumentType(QualType Ty) const {
