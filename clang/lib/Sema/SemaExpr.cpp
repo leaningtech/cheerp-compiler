@@ -19426,18 +19426,6 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
           << Parent << Parent->getAttr<GenericJSAttr>()
           << *p
           << "reference";
-      } else if (auto ut = dyn_cast<BuiltinType>(t->getUnqualifiedDesugaredType())) {
-        if(ut->isSpecificBuiltinType(BuiltinType::ULongLong) ||
-           ut->isSpecificBuiltinType(BuiltinType::LongLong)) {
-          auto d = Diag((*a)->getBeginLoc(),
-               diag::err_cheerp_wrong_64bit_param)
-            << FDecl << FDecl->getAttr<AsmJSAttr>()
-            << Parent << Parent->getAttr<GenericJSAttr>();
-          if (p != pe)
-            d << *p;
-          else
-            d << "variadic";
-        }
       }
     }
   } else if (Parent->hasAttr<AsmJSAttr>() && FDecl->hasAttr<GenericJSAttr>()) {
@@ -19470,14 +19458,6 @@ void Sema::CheckCheerpFFICall(const FunctionDecl* Parent, const FunctionDecl* FD
              diag::err_cheerp_incompatible_attributes)
           << FDecl->getAttr<GenericJSAttr>() << "function parameter" << p
           << Parent->getAttr<AsmJSAttr>() << "caller" << Parent;
-      } else if (auto ut = dyn_cast<BuiltinType>(pt->getUnqualifiedDesugaredType())) {
-        if(ut->isSpecificBuiltinType(BuiltinType::ULongLong) ||
-           ut->isSpecificBuiltinType(BuiltinType::LongLong)) {
-          Diag(Loc,
-               diag::err_cheerp_wrong_64bit_param)
-            << FDecl << FDecl->getAttr<GenericJSAttr>()
-            << Parent << Parent->getAttr<AsmJSAttr>() << p;
-        }
       }
     }
   }
