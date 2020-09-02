@@ -478,6 +478,8 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-cheerp-preexecute-main");
   if(Arg* cheerpFixFuncCasts = Args.getLastArg(options::OPT_cheerp_fix_wrong_func_casts))
     cheerpFixFuncCasts->render(Args, CmdArgs);
+  if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
+    cheerpUseBigInts->render(Args, CmdArgs);
 
   if(Arg* cheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ))
     cheerpLinearOutput->render(Args, CmdArgs);
@@ -780,6 +782,8 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
     cheerpAvoidWasmTraps->render(Args, CmdArgs);
   if(Arg* cheerpFixFuncCasts = Args.getLastArg(options::OPT_cheerp_fix_wrong_func_casts))
     cheerpFixFuncCasts->render(Args, CmdArgs);
+  if(Arg* cheerpUseBigInts = Args.getLastArg(options::OPT_cheerp_use_bigints))
+    cheerpUseBigInts->render(Args, CmdArgs);
 
   // Set output to binary mode to avoid linefeed conversion on Windows.
   CmdArgs.push_back("-filetype");
