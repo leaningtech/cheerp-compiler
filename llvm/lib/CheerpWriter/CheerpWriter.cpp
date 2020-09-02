@@ -1405,7 +1405,7 @@ void CheerpWriter::compileOperandForIntegerPredicate(const Value* v, CmpInst::Pr
 	assert(v->getType()->isIntegerTy());
 	if(CmpInst::isSigned(p))
 		compileSignedInteger(v, /*forComparison*/ true, parentPrio);
-	else if(CmpInst::isUnsigned(p) || !v->getType()->isIntegerTy(32))
+	else if(CmpInst::isUnsigned(p) || v->getType()->getIntegerBitWidth() < 32)
 	{
 		bool asmjs = currentFun->getSection() == StringRef("asmjs");
 		compileUnsignedInteger(v, /*forAsmJSComparison*/ asmjs, parentPrio);
@@ -2031,7 +2031,7 @@ void CheerpWriter::compileConstantExpr(const ConstantExpr* ce, PARENT_PRIORITY p
 			if(asmjs)
 				compileRawPointer(ce->getOperand(0), parentPrio);
 			else
-				compilePtrToInt(ce->getOperand(0));
+				compilePtrToInt(ce->getOperand(0), ce->getType()->isIntegerTy(64));
 			break;
 		}
 		case Instruction::ICmp:
@@ -2354,6 +2354,10 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 		}
 		else
 			stream << i->getZExtValue();
+		if(i->getBitWidth()==64)
+		{
+			stream << 'n';
+		}
 	}
 	else if(isa<ConstantPointerNull>(c))
 	{
@@ -2837,7 +2841,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 						stream << "|0";
 						break;
 					case Registerize::INTEGER64:
-						report_fatal_error("unsupported INTEGER64 register");
+						stream << "return ";
+						compileOperand(retVal, LOWEST);
 						break;
 					case Registerize::DOUBLE:
 						stream << "return ";
@@ -3464,10 +3469,13 @@ void CheerpWriter::compileGEP(const llvm::User* gep_inst, POINTER_KIND kind, PAR
 void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison, PARENT_PRIORITY parentPrio)
 {
 	//We anyway have to use 32 bits for sign extension to work
-	uint32_t shiftAmount = 32-v->getType()->getIntegerBitWidth();
+	uint32_t width = v->getType()->getIntegerBitWidth();
+	uint32_t shiftAmount = width < 32 ? 32-width : 0;
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
-		if(forComparison)
+		if (width == 64)
+			stream << C->getSExtValue() << 'n';
+		else if(forComparison)
 			stream << (C->getSExtValue() << shiftAmount);
 		else
 			stream << C->getSExtValue();
@@ -3475,7 +3483,11 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 	}
 	PARENT_PRIORITY signedPrio = shiftAmount == 0 ? BIT_OR : SHIFT;
 	if(parentPrio > signedPrio) stream << '(';
-	if(shiftAmount==0)
+	if(width == 64)
+	{
+		compileOperand(v, parentPrio);
+	}
+	else if(width == 32)
 	{
 		//Use simpler code
 		compileOperand(v, BIT_OR);
@@ -3497,14 +3509,22 @@ void CheerpWriter::compileSignedInteger(const llvm::Value* v, bool forComparison
 
 void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, bool forAsmJSComparison, PARENT_PRIORITY parentPrio, bool forceTruncation)
 {
+	//We anyway have to use 32 bits for sign extension to work
+	uint32_t width = v->getType()->getIntegerBitWidth();
 	if(const ConstantInt* C = dyn_cast<ConstantInt>(v))
 	{
 		stream << C->getZExtValue();
+		if (width == 64)
+			stream << 'n';
 		return;
 	}
-	//We anyway have to use 32 bits for sign extension to work
-	uint32_t initialSize = v->getType()->getIntegerBitWidth();
-	if(initialSize == 32)
+	if (width == 64)
+	{
+		stream << "BigInt.asUintN(64,";
+		compileOperand(v, INTN);
+		stream << ')';
+	}
+	else if(width == 32)
 	{
 		if(parentPrio > SHIFT) stream << '(';
 		//Use simpler code
@@ -3528,7 +3548,7 @@ void CheerpWriter::compileUnsignedInteger(const llvm::Value* v, bool forAsmJSCom
 	{
 		if(parentPrio > BIT_AND) stream << '(';
 		compileOperand(v, BIT_AND);
-		stream << '&' << getMaskForBitWidth(initialSize);
+		stream << '&' << getMaskForBitWidth(width);
 		if(parentPrio > BIT_AND) stream << ')';
 	}
 }
@@ -3541,6 +3561,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 {
 	bool asmjs = currentFun->getSection() == StringRef("asmjs");
 	bool isFloat = I.getType()->isFloatTy();
+	bool isInt64 = I.getType()->isIntegerTy(64);
 	switch(I.getOpcode())
 	{
 		case Instruction::BitCast:
@@ -3550,41 +3571,63 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			return COMPILE_OK;
 		}
 		case Instruction::FPToSI:
-		{
-			const CastInst& ci = cast<CastInst>(I);
-			stream << "~~";
-			compileOperand(ci.getOperand(0), HIGHEST);
-			return COMPILE_OK;
-		}
 		case Instruction::FPToUI:
 		{
-			// TODO: When we will keep track of signedness to avoid useless casts we will need to fix this
 			const CastInst& ci = cast<CastInst>(I);
-			//Cast to signed anyway
-			stream << "~~";
-			compileOperand(ci.getOperand(0), HIGHEST);
+			PARENT_PRIORITY prio = HIGHEST;
+			if (isInt64)
+			{
+				stream << "BigInt(Math.trunc(";
+				prio = LOWEST;
+			}
+			else
+			{
+				stream << "~~";
+			}
+			compileOperand(ci.getOperand(0), prio);
+			if (isInt64)
+			{
+				stream << "))";
+			}
 			return COMPILE_OK;
 		}
 		case Instruction::SIToFP:
 		{
 			const CastInst& ci = cast<CastInst>(I);
+			bool opIsI64 = ci.getOperand(0)->getType()->isIntegerTy(64);
 			if (isFloat && needsFloatCoercion(parentPrio))
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			else
 				stream << "(+";
-			compileSignedInteger(ci.getOperand(0), /*forComparison*/ false, HIGHEST);
+			if (opIsI64)
+			{
+				stream << "Number(";
+				compileOperand(ci.getOperand(0));
+				stream << ')';
+			}
+			else
+				compileSignedInteger(ci.getOperand(0), /*forComparison*/ false, HIGHEST);
 			stream << ')';
 			return COMPILE_OK;
 		}
 		case Instruction::UIToFP:
 		{
 			const CastInst& ci = cast<CastInst>(I);
+			bool opIsI64 = ci.getOperand(0)->getType()->isIntegerTy(64);
 			if (isFloat && needsFloatCoercion(parentPrio))
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
 			else
 				stream << "(+";
 			//We need to cast to unsigned before
+			if (opIsI64)
+			{
+				stream << "Number(";
+			}
 			compileUnsignedInteger(ci.getOperand(0), /*forAsmJSComparison*/ false, HIGHEST, /*forceTruncation*/ true);
+			if (opIsI64)
+			{
+				stream << ')';
+			}
 			stream << ')';
 			return COMPILE_OK;
 		}
@@ -3614,10 +3657,16 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer addition
 			PARENT_PRIORITY addPrio = ADD_SUB;
-			if(needsIntCoercion(parentPrio))
-				addPrio = BIT_OR;
 			Value* lhs = I.getOperand(0);
 			Value* rhs = I.getOperand(1);
+			if(isInt64 && parentPrio!=INTN)
+			{
+				addPrio = INTN;
+				parentPrio = LOWEST;
+				stream << "BigInt.asIntN(64,";
+			}
+			else if(!isInt64 && needsIntCoercion(parentPrio))
+				addPrio = BIT_OR;
 			// TODO: Move negative constants on RHS
 			if(parentPrio > addPrio) stream << '(';
 			compileOperand(lhs, ADD_SUB);
@@ -3632,7 +3681,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << "+";
 				compileOperand(rhs, ADD_SUB);
 			}
-			if(addPrio == BIT_OR)
+			if(addPrio == INTN)
+				stream << ')';
+			else if(addPrio == BIT_OR)
 				stream << "|0";
 			if(parentPrio > addPrio) stream << ')';
 			return COMPILE_OK;
@@ -3684,84 +3735,55 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const ZExtInst& bi = cast<ZExtInst>(I);
 			Type* src=bi.getSrcTy();
-#ifndef NDEBUG
 			Type* dst=bi.getDestTy();
-#endif
+			PARENT_PRIORITY prio = parentPrio;
 			assert(src->isIntegerTy() && dst->isIntegerTy());
+
+			if (dst->isIntegerTy(64))
+			{
+				assert(!asmjs);
+				stream << "BigInt(";
+				prio = LOWEST;
+			}
 			if(src->isIntegerTy(1) && !asmjs)
 			{
 				//If the source type is i1, attempt casting from Boolean
-				if(parentPrio >= TERNARY) stream << '(';
+				if(prio >= TERNARY) stream << '(';
 				compileOperand(bi.getOperand(0), TERNARY, /*allowBooleanObjects*/true);
 				stream << "?1:0";
-				if(parentPrio >= TERNARY) stream << ')';
+				if(prio >= TERNARY) stream << ')';
 			}
 			else
 			{
 				//Let's mask out upper bits, to make sure we get zero extension
 				//The value might have been initialized with a negative value
-				compileUnsignedInteger(I.getOperand(0), /*forAsmJSComparison*/ false, parentPrio);
+				compileUnsignedInteger(I.getOperand(0), /*forAsmJSComparison*/ false, prio);
+			}
+			if (dst->isIntegerTy(64))
+			{
+				stream << ")";
 			}
 			return COMPILE_OK;
 		}
 		case Instruction::SDiv:
 		{
-			//Integer signed division
-			PARENT_PRIORITY sdivPrio = MUL_DIV;
-			if(needsIntCoercion(parentPrio))
-				sdivPrio = BIT_OR;
-			if(parentPrio > sdivPrio) stream << '(';
-			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
-			stream << '/';
-			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, nextPrio(MUL_DIV));
-			if(sdivPrio == BIT_OR)
-				stream << "|0";
-			if(parentPrio > sdivPrio) stream << ')';
+
+			compileDivRem(I.getOperand(0), I.getOperand(1), parentPrio, '/', /*isSigned*/true);
 			return COMPILE_OK;
 		}
 		case Instruction::UDiv:
 		{
-			//Integer unsigned division
-			PARENT_PRIORITY udivPrio = MUL_DIV;
-			if(needsIntCoercion(parentPrio))
-				udivPrio = BIT_OR;
-			if(parentPrio > udivPrio) stream << '(';
-			compileUnsignedInteger(I.getOperand(0), /*forAsmJSComparison*/ false, MUL_DIV);
-			stream << '/';
-			compileUnsignedInteger(I.getOperand(1), /*forAsmJSComparison*/ false, nextPrio(MUL_DIV));
-			if(udivPrio == BIT_OR)
-				stream << "|0";
-			if(parentPrio > udivPrio) stream << ')';
+			compileDivRem(I.getOperand(0), I.getOperand(1), parentPrio, '/', /*isSigned*/false);
 			return COMPILE_OK;
 		}
 		case Instruction::SRem:
 		{
-			//Integer signed remainder
-			PARENT_PRIORITY sremPrio = MUL_DIV;
-			if(needsIntCoercion(parentPrio))
-				sremPrio = BIT_OR;
-			if(parentPrio > sremPrio) stream << '(';
-			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, MUL_DIV);
-			stream << '%';
-			compileSignedInteger(I.getOperand(1), /*forComparison*/ false, nextPrio(MUL_DIV));
-			if(sremPrio == BIT_OR)
-				stream << "|0";
-			if(parentPrio > sremPrio) stream << ')';
+			compileDivRem(I.getOperand(0), I.getOperand(1), parentPrio, '%', /*isSigned*/true);
 			return COMPILE_OK;
 		}
 		case Instruction::URem:
 		{
-			//Integer unsigned remainder
-			PARENT_PRIORITY uremPrio = MUL_DIV;
-			if(needsIntCoercion(parentPrio))
-				uremPrio = BIT_OR;
-			if(parentPrio > uremPrio) stream << '(';
-			compileUnsignedInteger(I.getOperand(0), /*forAsmJSComparison*/ false, MUL_DIV);
-			stream << '%';
-			compileUnsignedInteger(I.getOperand(1), /*forAsmJSComparison*/ false, nextPrio(MUL_DIV));
-			if(uremPrio == BIT_OR)
-				stream << "|0";
-			if(parentPrio > uremPrio) stream << ')';
+			compileDivRem(I.getOperand(0), I.getOperand(1), parentPrio, '%', /*isSigned*/false);
 			return COMPILE_OK;
 		}
 		case Instruction::FDiv:
@@ -3817,12 +3839,17 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer signed multiplication
 			PARENT_PRIORITY mulPrio = MUL_DIV;
+			if(isInt64 && parentPrio!=INTN)
+			{
+				mulPrio = INTN;
+				parentPrio = LOWEST;
+				stream << "BigInt.asIntN(64,";
+			}
 			// NOTE: V8 requires imul to be coerced with `|0` no matter what in asm.js
-			if(needsIntCoercion(parentPrio) || asmjs)
+			else if(!isInt64 && (needsIntCoercion(parentPrio) || asmjs))
 				mulPrio = BIT_OR;
-			// NOTE: V8 requires imul to be coerced to int like normal functions
 			if(parentPrio > mulPrio) stream << '(';
-			if(useMathImul || asmjs)
+			if(!isInt64 && (useMathImul || asmjs))
 			{
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << '(';
 				compileOperand(I.getOperand(0), LOWEST);
@@ -3836,7 +3863,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				stream << '*';
 				compileOperand(I.getOperand(1), MUL_DIV);
 			}
-			if(mulPrio == BIT_OR)
+			if(mulPrio == INTN)
+				stream << ')';
+			else if(mulPrio == BIT_OR)
 				stream << "|0";
 			if(parentPrio > mulPrio) stream << ')';
 			return COMPILE_OK;
@@ -3892,19 +3921,33 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer logical shift right
 			PARENT_PRIORITY shiftPrio = SHIFT;
+			if(isInt64 && parentPrio!=INTN)
+			{
+				shiftPrio = INTN;
+				parentPrio = LOWEST;
+				stream << "BigInt.asIntN(64,";
+			}
 			int width = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(parentPrio > SHIFT) stream << '(';
-			bool needsTruncation = width != 32 && needsUnsignedTruncation(I.getOperand(0), asmjs);
+			bool needsTruncation = width < 32 && needsUnsignedTruncation(I.getOperand(0), asmjs);
 			if(needsTruncation)
 			{
 				shiftPrio = BIT_AND;
 				stream << '(';
 			}
-			compileOperand(I.getOperand(0), shiftPrio);
+			if(width == 64)
+				compileUnsignedInteger(I.getOperand(0), false, shiftPrio);
+			else
+				compileOperand(I.getOperand(0), shiftPrio);
 			if(needsTruncation)
 				stream << '&' << getMaskForBitWidth(width) << ')';
-			stream << ">>>";
+			if(width == 64)
+				stream << ">>";
+			else
+				stream << ">>>";
 			compileOperand(I.getOperand(1), nextPrio(SHIFT));
+			if (shiftPrio == INTN)
+				stream << ')';
 			if(parentPrio > SHIFT) stream << ')';
 			return COMPILE_OK;
 		}
@@ -3912,8 +3955,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer arithmetic shift right
 			//No need to apply the >> operator. The result is an integer by spec
+			int width = I.getOperand(0)->getType()->getIntegerBitWidth();
 			if(parentPrio > SHIFT) stream << '(';
-			if(types.isI32Type(I.getOperand(0)->getType()))
+			if(width >= 32)
 				compileOperand(I.getOperand(0), SHIFT);
 			else
 				compileSignedInteger(I.getOperand(0), /*forComparison*/ false, SHIFT);
@@ -3926,11 +3970,25 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			//Integer shift left
 			//No need to apply the >> operator. The result is an integer by spec
+			PARENT_PRIORITY shiftPrio = SHIFT;
+			if(isInt64 && parentPrio!=INTN)
+			{
+				shiftPrio = INTN;
+				parentPrio = LOWEST;
+				stream << "BigInt.asIntN(64,";
+			}
+
 			if(parentPrio > SHIFT) stream << '(';
+
 			compileOperand(I.getOperand(0), SHIFT);
 			stream << "<<";
 			compileOperand(I.getOperand(1), nextPrio(SHIFT));
+
+			if (shiftPrio == INTN)
+				stream << ')';
+
 			if(parentPrio > SHIFT) stream << ')';
+
 			return COMPILE_OK;
 		}
 		case Instruction::Or:
@@ -3965,13 +4023,38 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::Trunc:
 		{
-			compileOperand(I.getOperand(0), parentPrio);
+			const TruncInst& ti = cast<TruncInst>(I);
+			Type* src=ti.getSrcTy();
+			PARENT_PRIORITY prio = parentPrio;
+			if (src->isIntegerTy(64))
+			{
+				stream << "Number(BigInt.asIntN(32,";
+				prio = INTN;
+			}
+			compileOperand(I.getOperand(0), prio);
+			if (src->isIntegerTy(64))
+			{
+				stream << "))|0";
+			}
 			return COMPILE_OK;
 		}
 		case Instruction::SExt:
 		{
+			const SExtInst& si = cast<SExtInst>(I);
+			Type* dst=si.getDestTy();
+			PARENT_PRIORITY prio = parentPrio;
+			if (dst->isIntegerTy(64))
+			{
+				assert(!asmjs);
+				stream << "BigInt(";
+				prio = LOWEST;
+			}
 			//We can use a couple of shift to make this work
-			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, parentPrio);
+			compileSignedInteger(I.getOperand(0), /*forComparison*/ false, prio);
+			if (dst->isIntegerTy(64))
+			{
+				stream << ")";
+			}
 			return COMPILE_OK;
 		}
 		case Instruction::Select:
@@ -4053,7 +4136,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::PtrToInt:
 		{
 			const PtrToIntInst& pi=cast<PtrToIntInst>(I);
-			compilePtrToInt(pi.getOperand(0));
+			compilePtrToInt(pi.getOperand(0), pi.getType()->isIntegerTy(64));
 			return COMPILE_OK;
 		}
 		case Instruction::VAArg:
@@ -4165,7 +4248,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 							stream << ')';
 						break;
 					case Registerize::INTEGER64:
-						report_fatal_error("unsupported INTEGER64 register");
 						break;
 					case Registerize::DOUBLE:
 						break;
@@ -4226,7 +4308,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 							stream << ')';
 						break;
 					case Registerize::INTEGER64:
-						report_fatal_error("unsupported INTEGER64 register");
 						break;
 					case Registerize::DOUBLE:
 						break;
@@ -4372,7 +4453,18 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		}
 		case Instruction::IntToPtr:
 		{
-			compileOperand(I.getOperand(0), parentPrio);
+			bool opIsI64 = I.getOperand(0)->getType()->isIntegerTy(64);
+			PARENT_PRIORITY prio = parentPrio;
+			if (opIsI64)
+			{
+				stream << "Number(BigInt.asIntN(32,";
+				prio = INTN;
+			}
+			compileOperand(I.getOperand(0), prio);
+			if (opIsI64)
+			{
+				stream << "))|0";
+			}
 			return COMPILE_OK;
 		}
 		default:
@@ -4389,7 +4481,9 @@ bool CheerpWriter::compileCompoundStatement(const Instruction* I, uint32_t regId
 	bool checkOp1 = false;
 	// We don't use a compound statement if float 32 bit precision is enabled,
 	// because we need to wrap every operation in fround()
-	if (!I->getType()->isFloatTy() || NoJavaScriptMathFround)
+	// We also don't use it with 64 bit integers, because we need to wrap
+	// every operation with BigInt.asIntN()
+	if (!I->getType()->isIntegerTy(64) && (!I->getType()->isFloatTy() || NoJavaScriptMathFround))
 	{
 		switch(I->getOpcode())
 		{
@@ -4893,7 +4987,11 @@ void CheerpWriter::compileMethodLocal(StringRef name, Registerize::REGISTER_KIND
 	if(kind == Registerize::INTEGER)
 		stream << '0';
 	else if (kind == Registerize::INTEGER64)
-		report_fatal_error("unsupported INTEGER64 register");
+	{
+		if (!UseBigInts)
+			report_fatal_error("unsupported INTEGER64 register");
+		stream << "0n";
+	}
 	else if(kind == Registerize::DOUBLE)
 	{
 		// NOTE: V8 requires the `.` to identify it as a double in asm.js
@@ -5347,7 +5445,9 @@ void CheerpWriter::compileMethod(const Function& F)
 					stream << " 0";
 					break;
 				case Registerize::INTEGER64:
-					report_fatal_error("unsupported INTEGER64 register");
+					if (!UseBigInts)
+						report_fatal_error("unsupported INTEGER64 register");
+					stream << " 0n";
 					break;
 				case Registerize::FLOAT:
 					stream << " " << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << "(0.)";
