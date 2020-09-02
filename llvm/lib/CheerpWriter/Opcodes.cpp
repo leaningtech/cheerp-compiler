@@ -132,10 +132,17 @@ void CheerpWriter::compileFloatComparison(const llvm::Value* lhs, const llvm::Va
 	}
 }
 
-void CheerpWriter::compilePtrToInt(const llvm::Value* v)
+void CheerpWriter::compilePtrToInt(const llvm::Value* v, bool isInt64)
 {
-	stream << '(';
 	Type* pointedType = v->getType()->getPointerElementType();
+	if (isInt64)
+	{
+		stream << "BigInt(";
+	}
+	else
+	{
+		stream << '(';
+	}
 	// Multiplying by the size is only required for pointer subtraction, which implies that the type is sized
 	uint64_t typeSize = pointedType->isSized() ? targetData.getTypeAllocSize(pointedType) : 0;
 	if (PA.getPointerKind(v) == RAW)
@@ -167,19 +174,67 @@ void CheerpWriter::compilePtrToInt(const llvm::Value* v)
 void CheerpWriter::compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio, bool asmjs)
 {
 	//Integer subtraction
+	bool isInt64 = lhs->getType()->isIntegerTy(64);
 	PARENT_PRIORITY subPrio = ADD_SUB;
-	if(needsIntCoercion(parentPrio))
+	if(isInt64 && parentPrio!=INTN)
+	{
+		subPrio = INTN;
+		parentPrio = LOWEST;
+		stream << "BigInt.asIntN(64,";
+	}
+	else if(!isInt64 && needsIntCoercion(parentPrio))
 		subPrio = BIT_OR;
+
 	if(parentPrio > subPrio) stream << '(';
+
 	// Optimize negation, unless in asm.js mode
 	// In asm.js, if the expression happens to be -0 the type checker will see a double and get confused
 	if(asmjs || !(isa<ConstantInt>(lhs) && cast<ConstantInt>(lhs)->isZero()))
 		compileOperand(lhs, ADD_SUB);
 	stream << '-';
 	compileOperand(rhs, nextPrio(ADD_SUB));
-	if(subPrio == BIT_OR)
-			stream << "|0";
+
+	if(subPrio == INTN)
+		stream << ')';
+	else if(subPrio == BIT_OR)
+		stream << "|0";
 	if(parentPrio > subPrio) stream << ')';
+}
+
+void CheerpWriter::compileDivRem(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio, char op, bool isSigned)
+{
+	//Integer signed division
+	bool isInt64 = lhs->getType()->isIntegerTy(64);
+	PARENT_PRIORITY myPrio = MUL_DIV;
+	if(isInt64 && parentPrio!=INTN)
+	{
+		myPrio = INTN;
+		parentPrio = LOWEST;
+		stream << "BigInt.asIntN(64,";
+	}
+	else if(!isInt64 && needsIntCoercion(parentPrio))
+		myPrio = BIT_OR;
+
+	if(parentPrio > myPrio) stream << '(';
+
+	if (isSigned)
+		compileSignedInteger(lhs, /*forComparison*/ false, MUL_DIV);
+	else
+		compileUnsignedInteger(lhs, /*forComparison*/ false, MUL_DIV);
+
+	stream << op;
+
+	if (isSigned)
+		compileSignedInteger(rhs, /*forComparison*/ false, nextPrio(MUL_DIV));
+	else
+		compileUnsignedInteger(rhs, /*forComparison*/ false, nextPrio(MUL_DIV));
+
+	if(myPrio == INTN)
+		stream << ')';
+	else if(myPrio == BIT_OR)
+		stream << "|0";
+
+	if(parentPrio > myPrio) stream << ')';
 }
 
 void CheerpWriter::compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind, PARENT_PRIORITY parentPrio)
@@ -286,7 +341,8 @@ void CheerpWriter::compileSelect(const llvm::User* select, const llvm::Value* co
 	{
 		PARENT_PRIORITY prio = TERNARY;
 		bool isIntTy = lhs->getType()->isIntegerTy();
-		if(isIntTy)
+		bool isInt64Ty = lhs->getType()->isIntegerTy(64);
+		if(isIntTy && !isInt64Ty)
 			prio = BIT_OR;
 		compileOperand(lhs, prio);
 		if (prio == BIT_OR)

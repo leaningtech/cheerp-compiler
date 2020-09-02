@@ -47,5 +47,6 @@ extern llvm::cl::opt<bool> WasmNoGrowMemory;
 extern llvm::cl::opt<bool> WasmExportedTable;
 extern llvm::cl::opt<bool> WasmAnyref;
 extern llvm::cl::opt<bool> WasmReturnCalls;
+extern llvm::cl::opt<bool> UseBigInts;
 
 #endif //_CHEERP_COMMAND_LINE_H

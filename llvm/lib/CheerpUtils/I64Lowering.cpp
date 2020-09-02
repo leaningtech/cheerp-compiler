@@ -838,8 +838,9 @@ namespace cheerp
 bool I64Lowering::runOnFunction(Function& F)
 {
 	bool lowerAsmJSSection = LinearOutput.getValue() == StringRef("asmjs");
+	bool lowerGenericJSSection = !UseBigInts;
 	bool asmjs = F.getSection() == StringRef("asmjs");
-	if (!lowerAsmJSSection && asmjs )
+	if ((!lowerAsmJSSection && asmjs) || (!lowerGenericJSSection && !asmjs))
 		return false;
 
 	bool Changed = false;
