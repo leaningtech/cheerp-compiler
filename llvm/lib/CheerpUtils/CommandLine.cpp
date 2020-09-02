@@ -70,3 +70,5 @@ llvm::cl::opt<bool> WasmExportedTable("cheerp-wasm-exported-table", llvm::cl::de
 llvm::cl::opt<bool> WasmAnyref("cheerp-wasm-anyref", llvm::cl::desc("Enable support for the anyref value type in wasm"));
 
 llvm::cl::opt<bool> WasmReturnCalls("cheerp-wasm-return-calls", llvm::cl::desc("Enable return-call and return-call-indirect opcodes"));
+
+llvm::cl::opt<bool> UseBigInts("cheerp-use-bigints", llvm::cl::desc("Use the BigInt type in JS to represent i64 values"));

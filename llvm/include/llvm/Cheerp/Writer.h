@@ -162,7 +162,7 @@ private:
 class CheerpWriter
 {
 public:
-	enum PARENT_PRIORITY { LOWEST = 0, FROUND, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
+	enum PARENT_PRIORITY { LOWEST = 0, INTN, UINTN, FROUND, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
 private:
 	enum HEAP_TYPE {HEAP8=0, HEAP16, HEAP32, HEAPF32, HEAPF64};
 	enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS };
@@ -457,8 +457,9 @@ private:
 	/**
 	 * Methods implemented in Opcodes.cpp
 	 */
-	void compilePtrToInt(const llvm::Value* v);
+	void compilePtrToInt(const llvm::Value* v, bool isInt64);
 	void compileSubtraction(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio, bool asmjs);
+	void compileDivRem(const llvm::Value* lhs, const llvm::Value* rhs, PARENT_PRIORITY parentPrio, char op, bool isSigned);
 	void compileBitCast(const llvm::User* bc_inst, POINTER_KIND kind, PARENT_PRIORITY parentPrio);
 	void compileBitCastBase(const llvm::User* bi, bool forEscapingPointer);
 	void compileBitCastOffset(const llvm::User* bi, PARENT_PRIORITY parentPrio);
