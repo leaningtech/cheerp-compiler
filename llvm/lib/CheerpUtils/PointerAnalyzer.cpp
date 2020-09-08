@@ -1140,6 +1140,7 @@ struct PointerConstantOffsetVisitor
 
 	PointerConstantOffsetWrapper& visitValue(PointerConstantOffsetWrapper& ret, const Value* v, bool first);
 	static const llvm::ConstantInt* getPointerOffsetFromGEP( const llvm::Value* v );
+	void visitConstantStruct(const ConstantStruct* CS);
 
 	PointerAnalyzer::PointerOffsetData& pointerOffsetData;
 	PointerAnalyzer::AddressTakenMap& addressTakenCache;
@@ -1168,6 +1169,29 @@ const ConstantInt* PointerConstantOffsetVisitor::getPointerOffsetFromGEP(const V
 	if (containerType->isStructTy() || TypeSupport::hasByteLayout(containerType))
 		return NULL;
 	return dyn_cast<ConstantInt>(*std::prev(gep->op_end()));
+}
+
+void PointerConstantOffsetVisitor::visitConstantStruct(const ConstantStruct* CS)
+{
+	Type* structType = CS->getType();
+	// We need to keep track of all offsets for each member
+	for(uint32_t i=0;i<CS->getNumOperands();i++)
+	{
+		// TODO: We might need to handle ConstantArray and ConstantAggregateZero here
+		const Value* op = CS->getOperand(i);
+		if(op->getType()->isPointerTy())
+		{
+			PointerConstantOffsetWrapper localRet;
+			TypeAndIndex typeAndIndex(structType, i, TypeAndIndex::STRUCT_MEMBER);
+			PointerConstantOffsetWrapper& memberRet = visitValue(localRet, op, false);
+			assert(!memberRet.isUnknown());
+			pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, typeAndIndex)] |= memberRet;
+		}
+		else if(isa<ConstantStruct>(op))
+		{
+			visitConstantStruct(cast<ConstantStruct>(op));
+		}
+	}
 }
 
 PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerConstantOffsetWrapper& ret, const Value* v, bool first)
@@ -1281,19 +1305,7 @@ PointerConstantOffsetWrapper& PointerConstantOffsetVisitor::visitValue(PointerCo
 
 	if(const ConstantStruct* CS=dyn_cast<ConstantStruct>(v))
 	{
-		Type* structType = CS->getType();
-		// We need to keep track of all offsets for each member
-		for(uint32_t i=0;i<CS->getNumOperands();i++)
-		{
-			const Value* op = CS->getOperand(i);
-			if(!op->getType()->isPointerTy())
-				continue;
-			PointerConstantOffsetWrapper localRet;
-			TypeAndIndex typeAndIndex(structType, i, TypeAndIndex::STRUCT_MEMBER);
-			PointerConstantOffsetWrapper& memberRet = visitValue(localRet, op, false);
-			assert(!memberRet.isUnknown());
-			pointerOffsetData.constraintsMap[IndirectPointerKindConstraint(BASE_AND_INDEX_CONSTRAINT, typeAndIndex)] |= memberRet;
-		}
+		visitConstantStruct(CS);
 		return CacheAndReturn(ret |= PointerConstantOffsetWrapper::INVALID);
 	}
 
