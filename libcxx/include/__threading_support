@@ -813,6 +813,15 @@ get_id() _NOEXCEPT
 
 }  // this_thread
 
+#elif defined(__CHEERP__)
+
+#define _LIBCPP_NULL_THREAD 0U
+#define _LIBCPP_TLS_DESTRUCTOR_CC
+
+inline bool __libcpp_thread_isnull(const int *__t) {
+  return *__t == 0;
+}
+
 #endif // !_LIBCPP_HAS_NO_THREADS
 
 _LIBCPP_END_NAMESPACE_STD
