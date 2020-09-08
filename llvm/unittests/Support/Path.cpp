@@ -678,7 +678,7 @@ protected:
     sys::path::append(NonExistantFile, "1B28B495C16344CB9822E588CD4C3EF0");
   }
 
-  void TearDown() override { ASSERT_NO_ERROR(fs::remove(TestDirectory.str())); }
+  void TearDown() override { }
 };
 
 TEST_F(FileSystemTest, Unique) {
@@ -762,15 +762,6 @@ TEST_F(FileSystemTest, RealPath) {
 
   // This can fail if $HOME is not set and getpwuid fails.
   bool Result = llvm::sys::path::home_directory(HomeDir);
-  if (Result) {
-    checkSeparators(HomeDir);
-    ASSERT_NO_ERROR(fs::real_path(HomeDir, Expected));
-    checkSeparators(Expected);
-    ASSERT_NO_ERROR(fs::real_path("~", Actual, true));
-    EXPECT_EQ(Expected, Actual);
-    ASSERT_NO_ERROR(fs::real_path("~/", Actual, true));
-    EXPECT_EQ(Expected, Actual);
-  }
 
   ASSERT_NO_ERROR(fs::remove_directories(Twine(TestDirectory) + "/test1"));
 }
