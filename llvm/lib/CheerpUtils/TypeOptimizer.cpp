@@ -11,6 +11,7 @@
 
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/TypeOptimizer.h"
+#include "llvm/Cheerp/CommandLine.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -25,6 +26,11 @@ namespace cheerp
 
 StringRef TypeOptimizer::getPassName() const {
 	return "TypeOptimizer";
+}
+
+bool TypeOptimizer::isI64ToRewrite(Type* t)
+{
+	return t->isIntegerTy(64) && !UseBigInts;
 }
 
 void TypeOptimizer::addAllBaseTypesForByteLayout(StructType* st, Type* baseType)
@@ -541,7 +547,7 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 		else
 			return CacheAndReturn(ArrayType::get(newType, at->getNumElements()), TypeMappingInfo::IDENTICAL);
 	}
-	if (t->isIntegerTy(64))
+	if (isI64ToRewrite(t))
 	{
 		t = ArrayType::get(IntegerType::get(t->getContext(), 32), 2);
 		return CacheAndReturn(t, TypeMappingInfo::IDENTICAL);
@@ -552,11 +558,11 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 FunctionType* TypeOptimizer::rewriteFunctionType(FunctionType* ft, bool forIntrinsic)
 {
 	Type* newReturnType = nullptr;
-	if (ft->getReturnType()->isIntegerTy(64) && forIntrinsic)
+	if (isI64ToRewrite(ft->getReturnType()) && forIntrinsic)
 	{
 		newReturnType = ft->getReturnType();
 	}
-	else if (ft->getReturnType()->isIntegerTy(64))
+	else if (isI64ToRewrite(ft->getReturnType()))
 	{
 		newReturnType = IntegerType::get(ft->getContext(), 32);
 	}
@@ -568,7 +574,7 @@ FunctionType* TypeOptimizer::rewriteFunctionType(FunctionType* ft, bool forIntri
 	for(uint32_t i=0;i<ft->getNumParams();i++)
 	{
 		Type* oldP = ft->getParamType(i);
-		if (oldP->isIntegerTy(64))
+		if (isI64ToRewrite(oldP))
 		{
 			if (forIntrinsic)
 				newParameters.push_back(oldP);
@@ -771,7 +777,7 @@ std::pair<Constant*, uint8_t> TypeOptimizer::rewriteConstant(Constant* C, bool r
 		return std::make_pair(Constant::getNullValue(newTypeInfo.mappedType), 0);
 	else if(isa<ConstantPointerNull>(C))
 		return std::make_pair(ConstantPointerNull::get(cast<PointerType>(newTypeInfo.mappedType)), 0);
-	else if(C->getType()->isIntegerTy(64))
+	else if(isI64ToRewrite(C->getType()))
 	{
 		if (!rewriteI64)
 			return std::make_pair(C, TypeMappingInfo::IDENTICAL);
@@ -1080,7 +1086,7 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 	for(unsigned i = 0; i < F->arg_size(); ++i)
 	{
 		Argument* CurA = F->arg_begin()+i;
-		if (CurA->getType()->isIntegerTy(64))
+		if (isI64ToRewrite(CurA->getType()))
 		{
 			ArgAttrVec.push_back(AttributeSet());
 			ArgAttrVec.push_back(AttributeSet());
@@ -1173,7 +1179,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		for (auto A = F->arg_begin(), AE = F->arg_end(), NA = NF->arg_begin();A != AE; ++A, ++NA)
 		{
 			Value* New = nullptr;
-			if (A->getType()->isIntegerTy(64))
+			if (isI64ToRewrite(A->getType()))
 			{
 				Value* Low = NA++;
 				Value* High = NA;
@@ -1241,7 +1247,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::Ret:
 				{
 					Value* Ret = cast<ReturnInst>(I).getReturnValue();
-					if (!Ret || !Ret->getType()->isIntegerTy(64))
+					if (!Ret || !isI64ToRewrite(Ret->getType()))
 						break;
 
 					IRBuilder<> Builder(&I);
@@ -1259,7 +1265,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				}
 				case Instruction::VAArg:
 				{
-					if(!I.getType()->isIntegerTy(64))
+					if(!isI64ToRewrite(I.getType()))
 						break;
 
 					VAArgInst& VA = cast<VAArgInst>(I);
@@ -1397,7 +1403,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					{
 						for (auto& A: CI->arg_operands())
 						{
-							if (A->getType()->isIntegerTy(64))
+							if (isI64ToRewrite(A->getType()))
 							{
 								needsRewrite = true;
 								break;
@@ -1417,7 +1423,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							++AI, ++ArgNo)
 						{
 							Value* Op = localInstMapping.getMappedOperand(*AI).first;
-							if ((*AI)->getType()->isIntegerTy(64) && !isIntrinsic)
+							if (isI64ToRewrite((*AI)->getType()) && !isIntrinsic)
 							{
 								IRBuilder<> Builder(CI);
 								auto V = SplitI64(Op, Builder);
@@ -1454,7 +1460,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						ArgAttrVec.clear();
 				
 						Value* Ret = NewCall;
-						if (CI->getType()->isIntegerTy(64))
+						if (isI64ToRewrite(CI->getType()))
 						{
 							GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
 							IRBuilder<> Builder(CI);
@@ -1479,7 +1485,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					auto rewritteValue = localInstMapping.getMappedOperand(I.getOperand(0));
 					assert(rewritteValue.second == 0);
 					llvm::Value* mappedValue = rewritteValue.first;
-					if(mappedValue->getType()->isIntegerTy(64))
+					if(isI64ToRewrite(mappedValue->getType()))
 					{
 						IRBuilder<> Builder(&I);
 						auto V = SplitI64(mappedValue, Builder);
@@ -1520,7 +1526,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						break;
 					auto mappedOperand = localInstMapping.getMappedOperand(I.getOperand(0));
 					llvm::Type* oldType = I.getType();
-					if(I.getType()->isIntegerTy(64))
+					if(isI64ToRewrite(I.getType()))
 					{
 						IRBuilder<> Builder(&I);
 						Value* Base = mappedOperand.first;
@@ -1586,7 +1592,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::Select:
 					break;
 			}
-			if(needsDefaultHandling && !I.getType()->isVoidTy() && !I.getType()->isIntegerTy(64))
+			if(needsDefaultHandling && !I.getType()->isVoidTy() && !isI64ToRewrite(I.getType()))
 			{
 				TypeMappingInfo newInfo = rewriteType(I.getType());
 				if(newInfo.mappedType!=I.getType())
