@@ -2346,7 +2346,7 @@ void CheerpWriter::compileConstant(const Constant* c, PARENT_PRIORITY parentPrio
 	else if(isa<ConstantInt>(c))
 	{
 		const ConstantInt* i=cast<ConstantInt>(c);
-		if(i->getBitWidth()==32)
+		if(i->getBitWidth()>=32)
 		{
 			if(parentPrio > LOWEST && i->isNegative())
 				stream << ' ';
