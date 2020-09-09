@@ -24,6 +24,8 @@ void CheerpWriter::compileTypedArrayType(Type* t)
 		stream << "Uint16Array";
 	else if(t->isIntegerTy(32))
 		stream << "Int32Array";
+	else if(t->isIntegerTy(64))
+		stream << "BigInt64Array";
 	else if(t->isFloatTy())
 		stream << "Float32Array";
 	else if(t->isDoubleTy())
