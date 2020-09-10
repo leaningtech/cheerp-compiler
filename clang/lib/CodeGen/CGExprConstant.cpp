@@ -861,7 +861,7 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
       return false;
 
     if (!CGM.getTarget().isByteAddressable() && Field->getFieldIndex() == 0 && Field->getType()->isStructureOrClassType() && !RD->isUnion()) {
-      const RecordDecl* RD = Field->getType()->getAsStructureType()->getDecl();
+      const RecordDecl* RD = Field->getType()->getAsRecordDecl();
       const CXXRecordDecl *CD = dyn_cast<CXXRecordDecl>(RD);
       assert(Layout.getFieldOffset(FieldNo) == 0);
       assert(Offset.getQuantity() == 0);
