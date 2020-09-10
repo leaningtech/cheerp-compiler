@@ -3113,14 +3113,14 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileNotInlineableIns
 				assert(storedKind != CONSTANT);
 				// If regular see if we can omit the offset part
 				if((storedKind==SPLIT_REGULAR || storedKind==REGULAR || storedKind==BYTE_LAYOUT) && PA.getConstantOffsetForPointer(&si))
-					compilePointerBase(valOp);
+					compilePointerBase(valOp, /*forEscapingPointer*/true);
 				else if(storedKind==SPLIT_REGULAR)
 				{
-					compilePointerBase(valOp);
+					compilePointerBase(valOp, /*forEscapingPointer*/true);
 					stream << ';' << NewLine;
 					compileCompleteObject(ptrOp);
 					stream << "o=";
-					compilePointerOffset(valOp, LOWEST);
+					compilePointerOffset(valOp, LOWEST, /*forEscapingPointer*/true);
 				}
 				else
 					compilePointerAs(valOp, storedKind);
@@ -3306,7 +3306,7 @@ void CheerpWriter::compilePointerAs(const llvm::Value* p, POINTER_KIND kind, PAR
 				stream << "{d:";
 				compilePointerBase(p, true);
 				stream << ",o:";
-				compilePointerOffset(p, LOWEST);
+				compilePointerOffset(p, LOWEST, true);
 				stream << "}";
 			}
 			else
