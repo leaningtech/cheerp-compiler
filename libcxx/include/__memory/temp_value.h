@@ -25,10 +25,14 @@ template <class _Tp, class _Alloc>
 struct __temp_value {
     typedef allocator_traits<_Alloc> _Traits;
 
+#ifdef __CHEERP__
+    _Tp __v [[cheerp::noinit]];
+#else
 #ifdef _LIBCPP_CXX03_LANG
     typename aligned_storage<sizeof(_Tp), _LIBCPP_ALIGNOF(_Tp)>::type __v;
 #else
     union { _Tp __v; };
+#endif
 #endif
     _Alloc &__a;
 
