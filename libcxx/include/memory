@@ -5193,7 +5193,11 @@ template <class _Tp, class _Alloc>
 struct __temp_value {
     typedef allocator_traits<_Alloc> _Traits;
 
+#ifdef __CHEERP__
+    _Tp __v [[cheerp::noinit]];
+#else
     typename aligned_storage<sizeof(_Tp), _LIBCPP_ALIGNOF(_Tp)>::type __v;
+#endif
     _Alloc &__a;
 
     _Tp *__addr() { return reinterpret_cast<_Tp *>(addressof(__v)); }
