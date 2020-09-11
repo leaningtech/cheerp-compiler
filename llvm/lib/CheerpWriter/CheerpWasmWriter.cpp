@@ -101,7 +101,9 @@ static inline void encodeRegisterKind(Registerize::REGISTER_KIND regKind, WasmBu
 
 static uint32_t getValType(const Type* t)
 {
-	if (t->isIntegerTy() || TypeSupport::isRawPointer(t, true))
+	if (t->isIntegerTy(64))
+		return 0x7e;
+	else if (t->isIntegerTy() || TypeSupport::isRawPointer(t, true))
 		return 0x7f;
 	else if (t->isFloatTy())
 		return 0x7d;
@@ -126,7 +128,9 @@ static void encodeValType(const Type* t, WasmBuffer& stream)
 
 static void encodeLiteralType(const Type* t, WasmBuffer& stream)
 {
-	if (t->isIntegerTy() || TypeSupport::isRawPointer(t, true))
+	if (t->isIntegerTy(64))
+		encodeULEB128(0x42, stream);
+	else if (t->isIntegerTy() || TypeSupport::isRawPointer(t, true))
 		encodeULEB128(0x41, stream);
 	else if(t->isFloatTy())
 		encodeULEB128(0x43, stream);
