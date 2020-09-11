@@ -209,6 +209,7 @@ namespace __cxxabiv1 {
 
 struct __attribute__((aligned)) __aligned_type {};
 
+#ifndef __CHEERP__
 void* __aligned_malloc_with_fallback(size_t size) {
 #if defined(_WIN32)
   if (void* dest = _aligned_malloc(size, alignof(__aligned_type)))
@@ -255,5 +256,6 @@ void __free_with_fallback(void* ptr) {
   else
     ::free(ptr);
 }
+#endif
 
 } // namespace __cxxabiv1
