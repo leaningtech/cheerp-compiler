@@ -106,6 +106,8 @@ public:
 				case TypeKind::Integer:
 				case TypeKind::RawPointer:
 					return 'i';
+				case TypeKind::Integer64:
+					return 'j';
 				case TypeKind::RefPointer:
 					return 'r';
 				case TypeKind::Double:
@@ -292,6 +294,7 @@ private:
 	enum TypeKind {
 		Void = 0,
 		Integer,
+		Integer64,
 		Double,
 		Float,
 		RawPointer,
@@ -300,6 +303,8 @@ private:
 	template<bool isStrict = false>
 	static TypeKind typeKindOf(const llvm::Type* type)
 	{
+		if (type->isIntegerTy(64))
+			return TypeKind::Integer64;
 		if (type->isIntegerTy())
 			return TypeKind::Integer;
 		if (type->isDoubleTy())
