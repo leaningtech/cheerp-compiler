@@ -2825,6 +2825,7 @@ void CheerpWasmWriter::compileInstructionAndSet(WasmBuffer& code, const llvm::In
 			II->getIntrinsicID()==Intrinsic::lifetime_end ||
 			II->getIntrinsicID()==Intrinsic::dbg_declare ||
 			II->getIntrinsicID()==Intrinsic::dbg_value ||
+			II->getIntrinsicID()==Intrinsic::dbg_label ||
 			II->getIntrinsicID()==Intrinsic::assume)
 		{
 			return;
