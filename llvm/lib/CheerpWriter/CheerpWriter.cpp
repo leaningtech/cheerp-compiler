@@ -4502,6 +4502,7 @@ void CheerpWriter::compileBB(const BasicBlock& BB)
 				II->getIntrinsicID()==Intrinsic::lifetime_end ||
 				II->getIntrinsicID()==Intrinsic::dbg_declare ||
 				II->getIntrinsicID()==Intrinsic::dbg_value ||
+				II->getIntrinsicID()==Intrinsic::dbg_label ||
 				II->getIntrinsicID()==Intrinsic::assume)
 			{
 				continue;
