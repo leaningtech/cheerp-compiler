@@ -1258,6 +1258,12 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
 					Builder.CreateStore(High, Sret);
 					Builder.CreateRet(Low);
+					// Since we are writing to global memory,
+					// remove attributes that say otherwise
+					F->removeFnAttr(Attribute::ReadNone);
+					F->removeFnAttr(Attribute::ReadOnly);
+					F->removeFnAttr(Attribute::InaccessibleMemOnly);
+					F->removeFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
 
 					InstsToDelete.push_back(&I);
 					needsDefaultHandling = false;
@@ -1467,6 +1473,11 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							Value* Low = Ret;
 							Value* High = Builder.CreateLoad(Sret);
 							Ret = AssembleI64(Low, High, Builder);
+							// Since we are reading from global memory,
+							// remove attributes that say otherwise
+							F->removeFnAttr(Attribute::ReadNone);
+							F->removeFnAttr(Attribute::InaccessibleMemOnly);
+							F->removeFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
 						}
 						localInstMapping.setMappedOperand(CI, Ret, 0);
 						NewCall->takeName(CI);
