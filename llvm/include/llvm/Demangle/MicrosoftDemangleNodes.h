@@ -14,6 +14,8 @@
 #define LLVM_DEMANGLE_MICROSOFTDEMANGLENODES_H
 
 #include "llvm/Demangle/StringView.h"
+#include <cstdint>
+#include <string>
 #include <array>
 #include <cstdint>
 #include <string>
