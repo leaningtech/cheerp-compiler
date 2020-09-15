@@ -10951,7 +10951,7 @@ def err_cheerp_jsexport_name_clash : Error<
 def err_cheerp_jsexport_same_name_top_level : Error<
   "Cheerp: [[cheerp::jsexport]]-ed top level identifiers cannot have the same name: %0">;
 def err_cheerp_jsexport_with_default_arg : Error<
-  "Cheerp: Public methods of [[cheerp::jsexport]] class/struct %0 cannot have the default arguments">;
+  "Cheerp: [[cheerp::jsexport]] function %0 cannot have default arguments">;
 def err_cheerp_jsexport_with_operators : Error<
   "Cheerp: Public operator overload is not compatible with the [[cheerp::jsexport]] attribute">;
 def err_cheerp_jsexport_on_parameter_amsjs_function : Error<
