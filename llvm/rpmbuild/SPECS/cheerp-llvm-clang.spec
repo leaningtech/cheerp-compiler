@@ -35,6 +35,7 @@ cmake -C ../CheerpCmakeConf.cmake \
 
 %check
 %make_build -C build check
+%make_build -C build check-clang-cheerp
 
 %install
 /usr/bin/make -C build install-distribution DESTDIR=%{buildroot} INSTALL="/usr/bin/install -p"
