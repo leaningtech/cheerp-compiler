@@ -79,7 +79,7 @@ void cheerp::checkParameters(const clang::FunctionDecl* FD, clang::Sema& sema)
 	for (auto it : FD->parameters())
 	{
 		if (it->hasDefaultArg())
-			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << FD->getParent();
+			sema.Diag(it->getLocation(), clang::diag::err_cheerp_jsexport_with_default_arg) << FD;
 
 		checkCouldBeParameterOfJsExported(it->getOriginalType(), &*it, sema, FD->getAttr<clang::AsmJSAttr>());
 	}
