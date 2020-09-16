@@ -304,11 +304,17 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 				// TODO: Currently we assume that crossing an instruction implies reordering, but in reality this actually depends on rendering
 				//       for example call(a, b) in JS guarantees that all the expression for 'a' in evaluated before 'b'
 				const Instruction* curInst = &I;
+				const Instruction* curUser = cast<Instruction>(I.user_back());
+				if(curUser->getType()->isPointerTy() && PA.getPointerKind(curUser) == SPLIT_REGULAR)
+				{
+					// The user is rendered twice, do not inline
+					return false;
+				}
 				const Instruction* nextInst = &I;
 				while(1)
 				{
 					nextInst = nextInst->getNextNode();
-					if(curInst->user_back() == nextInst)
+					if(curUser == nextInst)
 					{
 						// Reached the direct user
 						if(!nextInst->hasOneUse() &&
@@ -348,6 +354,12 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 						{
 							// It is inlineable, if it has only one user we can keep going
 							curInst = nextInst;
+							curUser = cast<Instruction>(curInst->user_back());
+							if(curUser->getType()->isPointerTy() && PA.getPointerKind(curUser) == SPLIT_REGULAR)
+							{
+								// The user is rendered twice, do not inline
+								return false;
+							}
 						}
 					}
 					else if(hasSideEffects && nextInst->mayReadOrWriteMemory())
