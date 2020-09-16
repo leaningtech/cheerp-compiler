@@ -191,6 +191,34 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 				}
 			}
 		}
+
+		// Mark the function as only used by wasm if it is used only by direct calls
+		// from other wasm functions. If so, we don't need to lower i64 in the
+		// signature
+		if (!F.hasAddressTaken() && F.getSection() == StringRef("asmjs") && LinearOutput == StringRef("wasm"))
+		{
+			bool onlyCalledByWasm = true;
+			for (auto& U: F.uses())
+			{
+				if (Instruction* I = dyn_cast<Instruction>(U.getUser()))
+				{
+					if (I->getParent()->getParent()->getSection() != StringRef("asmjs"))
+					{
+						onlyCalledByWasm = false;
+						break;
+					}
+				}
+				else
+				{
+					onlyCalledByWasm = false;
+					break;
+				}
+			}
+			if (onlyCalledByWasm)
+			{
+				onlyCalledByWasmFuncs.insert(&F);
+			}
+		}
 	}
 	// Ugly, we need to iterate over constant GEPs, but they are per-context and not per-module
 	SmallVector<ConstantExpr*, 4> ConstantGEPs;
@@ -555,10 +583,10 @@ TypeOptimizer::TypeMappingInfo TypeOptimizer::rewriteType(Type* t)
 	return CacheAndReturn(t, TypeMappingInfo::IDENTICAL);
 }
 
-FunctionType* TypeOptimizer::rewriteFunctionType(FunctionType* ft, bool forIntrinsic)
+FunctionType* TypeOptimizer::rewriteFunctionType(FunctionType* ft, bool keepI64)
 {
 	Type* newReturnType = nullptr;
-	if (isI64ToRewrite(ft->getReturnType()) && forIntrinsic)
+	if (isI64ToRewrite(ft->getReturnType()) && keepI64)
 	{
 		newReturnType = ft->getReturnType();
 	}
@@ -576,7 +604,7 @@ FunctionType* TypeOptimizer::rewriteFunctionType(FunctionType* ft, bool forIntri
 		Type* oldP = ft->getParamType(i);
 		if (isI64ToRewrite(oldP))
 		{
-			if (forIntrinsic)
+			if (keepI64)
 				newParameters.push_back(oldP);
 			else
 			{
@@ -1072,7 +1100,8 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 {
 	FunctionType* oldFuncType = F->getFunctionType();
-	FunctionType* newFuncType = rewriteFunctionType(oldFuncType, F->isIntrinsic());
+	bool onlyCalledByWasm = onlyCalledByWasmFuncs.count(F);
+	FunctionType* newFuncType = rewriteFunctionType(oldFuncType, F->isIntrinsic() || onlyCalledByWasm);
 	if(newFuncType==oldFuncType)
 		return F;
 
@@ -1086,7 +1115,7 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 	for(unsigned i = 0; i < F->arg_size(); ++i)
 	{
 		Argument* CurA = F->arg_begin()+i;
-		if (isI64ToRewrite(CurA->getType()))
+		if (isI64ToRewrite(CurA->getType()) && !onlyCalledByWasm)
 		{
 			ArgAttrVec.push_back(AttributeSet());
 			ArgAttrVec.push_back(AttributeSet());
@@ -1158,6 +1187,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	assert(erased);
 
 	Type* Int32Ty = IntegerType::get(F->getContext(), 32);
+	Type* Int64Ty = IntegerType::get(F->getContext(), 64);
 
 	// Rewrite the type
 	// Keep track of the original types of local instructions
@@ -1168,6 +1198,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	assert(it != globalsMapping.end());
 	if(F->empty())
 		return;
+	bool onlyCalledByWasm = onlyCalledByWasmFuncs.count(F);
 	if (it->first != it->second)
 	{
 		Function* NF = cast<Function>(it->second);
@@ -1179,7 +1210,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		for (auto A = F->arg_begin(), AE = F->arg_end(), NA = NF->arg_begin();A != AE; ++A, ++NA)
 		{
 			Value* New = nullptr;
-			if (isI64ToRewrite(A->getType()))
+			if (isI64ToRewrite(A->getType()) && !onlyCalledByWasm)
 			{
 				Value* Low = NA++;
 				Value* High = NA;
@@ -1247,7 +1278,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::Ret:
 				{
 					Value* Ret = cast<ReturnInst>(I).getReturnValue();
-					if (!Ret || !isI64ToRewrite(Ret->getType()))
+					if (!Ret || !isI64ToRewrite(Ret->getType()) || onlyCalledByWasm)
 						break;
 
 					IRBuilder<> Builder(&I);
@@ -1403,9 +1434,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					}
 					Type* oldType = CI->getType();
 					bool isIntrinsic = CI->getCalledFunction() && CI->getCalledFunction()->isIntrinsic();
-					FunctionType* rewrittenFuncType = rewriteFunctionType(CI->getFunctionType(), isIntrinsic);
+					bool calleeOnlyCalledByWasm = onlyCalledByWasmFuncs.count(CI->getCalledFunction());
+					// NOTE: if the function is vararg, we can never keep i64s in the signature
+					// for the vararg part. For now, we don't keep them entirely
+					bool keepI64 = (isIntrinsic || calleeOnlyCalledByWasm) && !CI->getFunctionType()->isVarArg();
+					FunctionType* rewrittenFuncType = rewriteFunctionType(CI->getFunctionType(), keepI64);
 					bool needsRewrite = rewrittenFuncType != CI->getFunctionType();
-					if (!needsRewrite && CI->getFunctionType()->isVarArg())
+					if (!needsRewrite && !keepI64 && CI->getFunctionType()->isVarArg())
 					{
 						for (auto& A: CI->arg_operands())
 						{
@@ -1429,7 +1464,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							++AI, ++ArgNo)
 						{
 							Value* Op = localInstMapping.getMappedOperand(*AI).first;
-							if (isI64ToRewrite((*AI)->getType()) && !isIntrinsic)
+							if (isI64ToRewrite((*AI)->getType()) && !keepI64)
 							{
 								IRBuilder<> Builder(CI);
 								auto V = SplitI64(Op, Builder);
@@ -1466,7 +1501,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						ArgAttrVec.clear();
 				
 						Value* Ret = NewCall;
-						if (isI64ToRewrite(CI->getType()))
+						if (isI64ToRewrite(CI->getType()) && !keepI64)
 						{
 							GlobalVariable* Sret = cast<GlobalVariable>(module->getOrInsertGlobal("cheerpSretSlot", Int32Ty));
 							IRBuilder<> Builder(CI);
