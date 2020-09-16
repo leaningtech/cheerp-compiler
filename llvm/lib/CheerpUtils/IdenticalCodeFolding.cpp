@@ -980,11 +980,15 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 		if (fReturnType->isVoidTy()){
 			assert(gReturnType->isVoidTy());
 		} else if (fReturnType != gReturnType) {
+			callInst->mutateType(gReturnType);
 			Instruction* n = AddNeededCast(callInst, gReturnType, fReturnType, callInst->getNextNode());
 			assert(n != callInst);
+			// Appease 'replaceAllUsesWith'
+			callInst->mutateType(fReturnType);
 			callInst->replaceAllUsesWith(n);
-			n->setOperand(0, callInst);
 			callInst->mutateType(gReturnType);
+			// 'replaceAllUsesWith' also changes the cast, restore it
+			n->setOperand(0, callInst);
 		}
 		// Parameters and returns are fixed, now fix the types and the called functions
 		callInst->mutateFunctionType(GType);
