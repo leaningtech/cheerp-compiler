@@ -130,13 +130,15 @@ private:
 	std::vector<llvm::Function*> emptiedFunctions;
 	// In this context a field "escapes" if it has any use which is not just a load/store
 	std::set<TypeAndIndex> escapingFields;
+	// Wasm functions used only by wasm. We can keep i64 in the ABI for these
+	std::set<const llvm::Function*> onlyCalledByWasmFuncs;
 #ifndef NDEBUG
 	std::unordered_set<llvm::Type*> newStructTypes;
 #endif
 	llvm::Constant* rewriteGlobal(llvm::GlobalVariable* GV);
 	void rewriteGlobalInit(llvm::GlobalVariable* GV);
 	TypeMappingInfo rewriteType(llvm::Type* t);
-	llvm::FunctionType* rewriteFunctionType(llvm::FunctionType* t, bool forIntrinsic);
+	llvm::FunctionType* rewriteFunctionType(llvm::FunctionType* t, bool keepI64);
 	llvm::Function* rewriteFunctionSignature(llvm::Function* F);
 	void rewriteUses(llvm::Value* V, llvm::Value* NewV);
 	std::pair<llvm::Constant*, uint8_t> rewriteConstant(llvm::Constant* C, bool rewriteI64);
