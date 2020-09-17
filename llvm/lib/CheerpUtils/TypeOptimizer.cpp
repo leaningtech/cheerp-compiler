@@ -1259,6 +1259,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			blocksInDFSOrder.push_back(&BB);
 	}
 
+	bool wasm = F->getSection() == StringRef("asmjs") && LinearOutput == StringRef("wasm");
+
 	SmallVector<PHINode*, 4> delayedPHIs;
 	SmallVector<Instruction*, 4> InstsToDelete;
 	// Rewrite instructions as needed
@@ -1534,14 +1536,22 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					if(isI64ToRewrite(mappedValue->getType()))
 					{
 						IRBuilder<> Builder(&I);
-						auto V = SplitI64(mappedValue, Builder);
-						Value* Low = V.first;
-						Value* High = V.second;
 						Value* Base = mappedOperand.first;
-						Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
-						Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
-						Builder.CreateStore(Low, LowPtr);
-						Builder.CreateStore(High, HighPtr);
+						if (wasm)
+						{
+							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo());
+							Builder.CreateStore(mappedValue, BC);
+						}
+						else
+						{
+							auto V = SplitI64(mappedValue, Builder);
+							Value* Low = V.first;
+							Value* High = V.second;
+							Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
+							Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
+							Builder.CreateStore(Low, LowPtr);
+							Builder.CreateStore(High, HighPtr);
+						}
 						InstsToDelete.push_back(&I);
 						needsDefaultHandling = false;
 						break;
@@ -1576,11 +1586,20 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					{
 						IRBuilder<> Builder(&I);
 						Value* Base = mappedOperand.first;
-						Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
-						Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
-						Value* Low = Builder.CreateLoad(LowPtr);
-						Value* High = Builder.CreateLoad(HighPtr);
-						Value* V = AssembleI64(Low, High, Builder);
+						Value* V = nullptr;
+						if (wasm)
+						{
+							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo());
+							V = Builder.CreateLoad(Int64Ty, BC);
+						}
+						else
+						{
+							Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
+							Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
+							Value* Low = Builder.CreateLoad(LowPtr);
+							Value* High = Builder.CreateLoad(HighPtr);
+							V = AssembleI64(Low, High, Builder);
+						}
 						I.replaceAllUsesWith(V);
 						InstsToDelete.push_back(&I);
 						needsDefaultHandling = false;
