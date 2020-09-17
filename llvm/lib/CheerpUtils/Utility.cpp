@@ -626,7 +626,7 @@ char TypeSupport::getPrefixCharForMember(const PointerAnalyzer& PA, llvm::Struct
 	Type* elementType = st->getElementType(memberIndex);
 	if(useWrapperArray)
 		return 'a';
-	else if(elementType->isIntegerTy())
+	else if(elementType->isIntegerTy() && !elementType->isIntegerTy(64))
 		return 'i';
 	else if(elementType->isFloatTy() || elementType->isDoubleTy())
 		return 'd';
