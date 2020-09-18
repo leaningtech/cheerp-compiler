@@ -582,6 +582,8 @@ void CheerpWriter::compileAllocation(const DynamicAllocInfo & info)
 			compileArraySize(info, /* shouldPrint */true);
 			stream << ')';
 		}
+		if(result == COMPLETE_OBJECT)
+			stream << "[0]";
 	}
 	else if (!info.sizeIsRuntime() )
 	{
