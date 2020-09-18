@@ -1518,6 +1518,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						}
 						localInstMapping.setMappedOperand(CI, Ret, 0);
 						NewCall->takeName(CI);
+						NewCall->copyMetadata(*CI);
 						CI = NewCall;
 					}
 					if(CI->getType() != oldType)
