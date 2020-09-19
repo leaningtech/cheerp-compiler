@@ -72,6 +72,7 @@ public:
 		HEAP8,
 		HEAP16,
 		HEAP32,
+		HEAP64,
 		HEAPF32,
 		HEAPF64,
 		END // This is used to get the number of builtins, keep it last

@@ -350,6 +350,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		builtins[HEAP8] = nameHelper.makeGlobalName();
 		builtins[HEAP16] = nameHelper.makeGlobalName();
 		builtins[HEAP32] = nameHelper.makeGlobalName();
+		builtins[HEAP64] = nameHelper.makeGlobalName();
 		builtins[HEAPF32] = nameHelper.makeGlobalName();
 		builtins[HEAPF64] = nameHelper.makeGlobalName();
 	}
@@ -358,6 +359,7 @@ void NameGenerator::generateCompressedNames(const Module& M, const GlobalDepsAna
 		builtins[HEAP8] = "null";
 		builtins[HEAP16] = "null";
 		builtins[HEAP32] = "null";
+		builtins[HEAP64] = "null";
 		builtins[HEAPF32] = "null";
 		builtins[HEAPF64] = "null";
 	}
@@ -648,6 +650,7 @@ void NameGenerator::generateReadableNames(const Module& M, const GlobalDepsAnaly
 	builtins[HEAP8] = "HEAP8";
 	builtins[HEAP16] = "HEAP16";
 	builtins[HEAP32] = "HEAP32";
+	builtins[HEAP64] = "HEAP64";
 	builtins[HEAPF32] = "HEAPF32";
 	builtins[HEAPF64] = "HEAPF64";
 
