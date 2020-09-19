@@ -1677,7 +1677,7 @@ int CheerpWriter::getHeapShiftForType(Type* et)
 	{
 		shift = 2;
 	}
-	else if(et->isDoubleTy())
+	else if(et->isDoubleTy() || et->isIntegerTy(64))
 	{
 		shift = 3;
 	}
@@ -1705,6 +1705,11 @@ int CheerpWriter::compileHeapForType(Type* et)
 	{
 		stream << heapNames[HEAP32];
 		shift = 2;
+	}
+	else if(et->isIntegerTy(32))
+	{
+		stream << heapNames[HEAP64];
+		shift = 3;
 	}
 	else if(et->isFloatTy())
 	{
