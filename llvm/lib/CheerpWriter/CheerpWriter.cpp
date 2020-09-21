@@ -234,6 +234,7 @@ void CheerpWriter::compileCopyElement(const Value* baseDest,
 				break;
 			}
 			// Fallthrough if not byte layout
+			[[clang::fallthrough]];
 		}
 		default:
 			llvm::errs() << "Support type in copy " << *currentType << "\n";
