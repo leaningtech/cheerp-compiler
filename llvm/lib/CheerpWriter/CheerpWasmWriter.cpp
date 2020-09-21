@@ -2253,6 +2253,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 							// Handled below
 							break;
 						}
+						[[clang::fallthrough]];
 					}
 					default:
 					{
