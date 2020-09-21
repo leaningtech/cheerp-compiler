@@ -1706,7 +1706,7 @@ int CheerpWriter::compileHeapForType(Type* et)
 		stream << heapNames[HEAP32];
 		shift = 2;
 	}
-	else if(et->isIntegerTy(32))
+	else if(et->isIntegerTy(64))
 	{
 		stream << heapNames[HEAP64];
 		shift = 3;
