@@ -3582,8 +3582,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const CastInst& ci = cast<CastInst>(I);
 			PARENT_PRIORITY prio = HIGHEST;
+			bool isSigned = I.getOpcode() == Instruction::FPToSI;
 			if (isInt64)
 			{
+				if (parentPrio != INTN)
+					stream << "BigInt.as" << (isSigned?"Int":"Uint") << "N(64,";
 				stream << "BigInt(Math.trunc(";
 				prio = LOWEST;
 			}
@@ -3595,6 +3598,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if (isInt64)
 			{
 				stream << "))";
+				if (parentPrio != INTN)
+					stream << ')';
 			}
 			return COMPILE_OK;
 		}
