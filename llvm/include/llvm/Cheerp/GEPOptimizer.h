@@ -425,6 +425,7 @@ private:
 		ValidBasicBlockForestGraph* getParent() const
 		{
 			assert(false);
+			return nullptr;
 		}
 		void dump() const
 		{
