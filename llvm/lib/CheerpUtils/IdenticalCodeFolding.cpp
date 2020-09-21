@@ -955,6 +955,7 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 			return new BitCastInst(src, newType, "", insertPoint);
 		} else {
 			assert(false);
+			return nullptr;
 		}
 	};
 
