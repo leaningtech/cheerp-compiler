@@ -30,7 +30,7 @@ StringRef TypeOptimizer::getPassName() const {
 
 bool TypeOptimizer::isI64ToRewrite(Type* t)
 {
-	return t->isIntegerTy(64) && !UseBigInts;
+	return t->isIntegerTy(64) && (!UseBigInts || LinearOutput == StringRef("asmjs"));
 }
 
 void TypeOptimizer::addAllBaseTypesForByteLayout(StructType* st, Type* baseType)
