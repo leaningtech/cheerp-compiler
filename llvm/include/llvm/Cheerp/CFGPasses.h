@@ -65,7 +65,7 @@ FunctionPass *createLowerAndOrBranchesPass();
 //
 // CheerpLowerSwitch
 //
-FunctionPass* createCheerpLowerSwitchPass();
+FunctionPass* createCheerpLowerSwitchPass(bool onlyLowerI64);
 //===----------------------------------------------------------------------===//
 //
 // FixFunctionCasts
