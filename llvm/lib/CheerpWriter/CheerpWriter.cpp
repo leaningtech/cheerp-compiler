@@ -4040,6 +4040,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			PARENT_PRIORITY prio = parentPrio;
 			if (src->isIntegerTy(64))
 			{
+				if (parentPrio > BIT_OR)
+					stream << '(';
 				stream << "Number(BigInt.asIntN(32,";
 				prio = INTN;
 			}
@@ -4047,6 +4049,8 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			if (src->isIntegerTy(64))
 			{
 				stream << "))|0";
+				if (parentPrio > BIT_OR)
+					stream << ')';
 			}
 			return COMPILE_OK;
 		}
