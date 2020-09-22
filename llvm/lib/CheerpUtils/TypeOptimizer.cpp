@@ -1534,6 +1534,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 					auto rewritteValue = localInstMapping.getMappedOperand(I.getOperand(0));
 					assert(rewritteValue.second == 0);
 					llvm::Value* mappedValue = rewritteValue.first;
+					bool isVolatile = cast<StoreInst>(I).isVolatile();
 					if(isI64ToRewrite(mappedValue->getType()))
 					{
 						IRBuilder<> Builder(&I);
@@ -1541,7 +1542,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						if (wasm)
 						{
 							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo());
-							Builder.CreateStore(mappedValue, BC);
+							Builder.CreateStore(mappedValue, BC, isVolatile);
 						}
 						else
 						{
@@ -1550,8 +1551,8 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							Value* High = V.second;
 							Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
 							Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
-							Builder.CreateStore(Low, LowPtr);
-							Builder.CreateStore(High, HighPtr);
+							Builder.CreateStore(Low, LowPtr, isVolatile);
+							Builder.CreateStore(High, HighPtr, isVolatile);
 						}
 						InstsToDelete.push_back(&I);
 						needsDefaultHandling = false;
@@ -1583,6 +1584,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						break;
 					auto mappedOperand = localInstMapping.getMappedOperand(I.getOperand(0));
 					llvm::Type* oldType = I.getType();
+					bool isVolatile = cast<LoadInst>(I).isVolatile();
 					if(isI64ToRewrite(I.getType()))
 					{
 						IRBuilder<> Builder(&I);
@@ -1591,14 +1593,14 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						if (wasm)
 						{
 							Value* BC = Builder.CreateBitCast(Base, Int64Ty->getPointerTo());
-							V = Builder.CreateLoad(Int64Ty, BC);
+							V = Builder.CreateLoad(Int64Ty, BC, isVolatile);
 						}
 						else
 						{
 							Value* LowPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 0);
 							Value* HighPtr = Builder.CreateConstInBoundsGEP1_32(Int32Ty, Base, 1);
-							Value* Low = Builder.CreateLoad(LowPtr);
-							Value* High = Builder.CreateLoad(HighPtr);
+							Value* Low = Builder.CreateLoad(Int32Ty, LowPtr, isVolatile);
+							Value* High = Builder.CreateLoad(Int32Ty, HighPtr, isVolatile);
 							V = AssembleI64(Low, High, Builder);
 						}
 						I.replaceAllUsesWith(V);
