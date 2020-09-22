@@ -164,7 +164,16 @@ class CheerpWriter
 public:
 	enum PARENT_PRIORITY { LOWEST = 0, INTN, UINTN, FROUND, TERNARY, LOGICAL_OR, LOGICAL_AND, BIT_OR, BIT_XOR, BIT_AND, COMPARISON, SHIFT, ADD_SUB, MUL_DIV, HIGHEST };
 private:
-	enum HEAP_TYPE {HEAP8=0, HEAP16, HEAP32, HEAP64, HEAPF32, HEAPF64 };
+	enum HEAP_TYPE {
+		HEAP8=0,
+		HEAP16,
+		HEAP32,
+		HEAPF32,
+		HEAPF64,
+		HEAP64,
+		LAST_WASM = HEAP64,
+		LAST_ASMJS = HEAPF64
+	};
 	enum MODULE_TYPE { NONE = 0, CLOSURE, COMMONJS };
 	// COMPILE_EMPTY is returned if there is no need to add a ;\n to end the line
 	enum COMPILE_INSTRUCTION_FEEDBACK { COMPILE_OK = 0, COMPILE_UNSUPPORTED, COMPILE_EMPTY };
@@ -183,7 +192,7 @@ private:
 	const AllocaStoresExtractor& allocaStoresExtractor;
 	TypeSupport types;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
-	const std::array<const char*,6> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","BigInt64Array","Float32Array","Float64Array"}};
+	const std::array<const char*,6> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array","BigInt64Array"}};
 	const std::array<llvm::StringRef,6> heapNames;
 
 	// Stream to put the initialized asmjs memory into.
@@ -572,8 +581,8 @@ public:
 		allocaStoresExtractor(allocaStoresExtractor),
 		types(m),
 		heapNames{{namegen.getBuiltinName(NameGenerator::Builtin::HEAP8), namegen.getBuiltinName(NameGenerator::Builtin::HEAP16),
-			namegen.getBuiltinName(NameGenerator::Builtin::HEAP32), namegen.getBuiltinName(NameGenerator::Builtin::HEAP64), 
-			namegen.getBuiltinName(NameGenerator::Builtin::HEAPF32), namegen.getBuiltinName(NameGenerator::Builtin::HEAPF64)}},
+			namegen.getBuiltinName(NameGenerator::Builtin::HEAP32), namegen.getBuiltinName(NameGenerator::Builtin::HEAPF32),
+			namegen.getBuiltinName(NameGenerator::Builtin::HEAPF64), namegen.getBuiltinName(NameGenerator::Builtin::HEAP64)}},
 		asmJSMem(asmJSMem),
 		asmJSMemFile(asmJSMemFile),
 		sourceMapGenerator(sourceMapGenerator),
@@ -627,7 +636,7 @@ public:
 	/**
 	 * Compile an helper function to assign all global heap symbols
 	 */
-	void compileAssignHeaps();
+	void compileAssignHeaps(bool wasm);
 	/**
 	 * Compile the helper functions for exposing the asm.js stack pointer
 	 */

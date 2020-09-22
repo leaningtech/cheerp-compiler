@@ -5838,11 +5838,12 @@ void CheerpWriter::compileFunctionTablesAsmJS()
 	}
 }
 
-void CheerpWriter::compileAssignHeaps()
+void CheerpWriter::compileAssignHeaps(bool wasm)
 {
 	const std::string shortestName = namegen.getShortestLocalName();
+	int last = wasm ? LAST_WASM : LAST_ASMJS;
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(" << shortestName << "){" << NewLine;
-	for (int i = HEAP8; i<=HEAPF64; i++)
+	for (int i = HEAP8; i<=last; i++)
 		stream << heapNames[i] << "=new " << typedArrayNames[i] << "(" << shortestName << ");" << NewLine;
 	stream << "}" << NewLine;
 }
@@ -6064,7 +6065,7 @@ void CheerpWriter::compileAsmJS()
 	stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
 	stream << "\"use asm\";" << NewLine;
 	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.stackStart|0;" << NewLine;
-	for (int i = HEAP8; i<=HEAPF64; i++)
+	for (int i = HEAP8; i<=LAST_ASMJS; i++)
 	{
 		stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
 	}
@@ -6123,7 +6124,7 @@ void CheerpWriter::compileAsmJS()
 	stream << "};" << NewLine;
 	stream << "};" << NewLine;
 	stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
-	for (int i = HEAP8; i<=HEAPF64; i++)
+	for (int i = HEAP8; i<=LAST_ASMJS; i++)
 		stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
 
 	compileDummies();
@@ -6149,7 +6150,7 @@ void CheerpWriter::compileAsmJS()
 	stream << "Math:Math,"<<NewLine;
 	stream << "Infinity:Infinity,"<<NewLine;
 	stream << "NaN:NaN,"<<NewLine;
-	for (int i = HEAP8; i<=HEAPF64; i++)
+	for (int i = HEAP8; i<=LAST_ASMJS; i++)
 	{
 		stream << typedArrayNames[i] << ':' << typedArrayNames[i] << ',' << NewLine;
 	}
@@ -6226,7 +6227,7 @@ void CheerpWriter::compileWasmLoader()
 	stream << "var ";
 	if (globalDeps.needAsmJS())
 	{
-		for (int i = HEAP8; i<=HEAPF64; i++)
+		for (int i = HEAP8; i<=LAST_WASM; i++)
 			stream << heapNames[i] << "=null,";
 	}
 	stream << "__asm=null,";
@@ -6558,7 +6559,7 @@ void CheerpWriter::makeJS()
 	compileNamespaces();
 
 	if (needAssignHeaps)
-		compileAssignHeaps();
+		compileAssignHeaps(needWasmLoader);
 	if (needWasmLoader)
 		compileWasmLoader();
 	else if (needAsmJSLoader)
