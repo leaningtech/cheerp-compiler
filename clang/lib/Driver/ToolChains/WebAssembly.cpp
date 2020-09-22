@@ -509,6 +509,7 @@ void cheerp::CheerpOptimizer::ConstructJob(Compilation &C, const JobAction &JA,
 
   CmdArgs.push_back("-GlobalDepsAnalyzer");
   CmdArgs.push_back("-TypeOptimizer");
+  CmdArgs.push_back("-CheerpLowerSwitch");
   CmdArgs.push_back("-I64Lowering");
   CmdArgs.push_back("-ReplaceNopCastsAndByteSwaps");
   if(!Args.hasArg(options::OPT_cheerp_no_lto))

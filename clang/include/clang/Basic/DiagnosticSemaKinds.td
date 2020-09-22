@@ -10996,8 +10996,6 @@ def err_cheerp_alloc_requires_cast : Error<
   "Cheerp: Legacy C memory allocation must be immediately cast to the actual type. Any other use of the return value is invalid">;
 def err_cheerp_realloc_different_types : Error<
   "Cheerp: the memory returned by realloc should be cast to the same type of the memory passed as the first argument">;
-def err_cheerp_switch_64bit : Error<
-  "Cheerp: Switch statements with 64-bit integer values are not supported">;
 def err_cheerp_type_unsafe_functions : Error<
   "Cheerp: Function %0 is type unsafe, use %1 instead">;
 def err_cheerp_wrong_member_field_ptr: Error<
