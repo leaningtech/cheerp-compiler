@@ -18,11 +18,16 @@ namespace {
 
 class CheerpLowerSwitch: public LowerSwitch {
 public:
+	CheerpLowerSwitch(bool onlyLowerI64 = true): onlyLowerI64(onlyLowerI64)
+	{
+	}
 	StringRef getPassName() const override {
 		return "CheerpLowerSwitch";
 	}
 	static char ID;
 private:
+	bool onlyLowerI64;
+
         void processSwitchInst(SwitchInst *SI,
                            SmallPtrSetImpl<BasicBlock *> &DeleteList,
                            AssumptionCache *AC, LazyValueInfo *LVI) override;
@@ -41,14 +46,16 @@ bool CheerpLowerSwitch::keepSwitch(const SwitchInst* si)
 	// At least 3 successors
 	if (si->getNumSuccessors() < 3)
 		return false;
-	//In asm.js cases values must be in the range [-2^31,2^31),
-	//and the difference between the biggest and the smaller must be < 2^31
-	int64_t max = std::numeric_limits<int64_t>::min();
-	int64_t min = std::numeric_limits<int64_t>::max();
 	uint32_t bitWidth = si->getCondition()->getType()->getIntegerBitWidth();
 	// No 64 bit
 	if (bitWidth == 64)
 		return false;
+	if (onlyLowerI64)
+		return true;
+	//In asm.js cases values must be in the range [-2^31,2^31),
+	//and the difference between the biggest and the smaller must be < 2^31
+	int64_t max = std::numeric_limits<int64_t>::min();
+	int64_t min = std::numeric_limits<int64_t>::max();
 	for (auto& c: si->cases())
 	{
 		int64_t curr = getCaseValue(c.getCaseValue(), bitWidth);
@@ -79,9 +86,9 @@ char CheerpLowerSwitch::ID = 0;
 
 namespace llvm {
 
-FunctionPass* createCheerpLowerSwitchPass()
+FunctionPass* createCheerpLowerSwitchPass(bool onlyLowerI64)
 {
-	return new CheerpLowerSwitch();
+	return new CheerpLowerSwitch(onlyLowerI64);
 }
 
 }

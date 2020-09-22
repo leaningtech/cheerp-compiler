@@ -220,7 +220,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
 
   if (FixWrongFuncCasts)
     PM.add(createFixFunctionCastsPass());
-  PM.add(createCheerpLowerSwitchPass());
+  PM.add(createCheerpLowerSwitchPass(/*onlyLowerI64*/false));
   PM.add(createLowerAndOrBranchesPass());
   PM.add(createStructMemFuncLowering());
   PM.add(createFreeAndDeleteRemovalPass());
