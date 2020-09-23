@@ -14,7 +14,11 @@
 
 #include "llvm/Support/CommandLine.h"
 
-extern llvm::cl::opt<std::string> LinearOutput;
+enum LinearOutputTy {
+  Wasm,
+  AsmJs,
+};
+extern llvm::cl::opt<LinearOutputTy> LinearOutput;
 extern llvm::cl::opt<std::string> SecondaryOutputFile;
 extern llvm::cl::opt<std::string> SecondaryOutputPath;
 extern llvm::cl::opt<std::string> SourceMap;
