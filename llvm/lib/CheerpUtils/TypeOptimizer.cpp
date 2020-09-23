@@ -30,7 +30,7 @@ StringRef TypeOptimizer::getPassName() const {
 
 bool TypeOptimizer::isI64ToRewrite(Type* t)
 {
-	return t->isIntegerTy(64) && (!UseBigInts || LinearOutput == StringRef("asmjs"));
+	return t->isIntegerTy(64) && (!UseBigInts || LinearOutput == AsmJs);
 }
 
 void TypeOptimizer::addAllBaseTypesForByteLayout(StructType* st, Type* baseType)
@@ -195,7 +195,7 @@ void TypeOptimizer::gatherAllTypesInfo(const Module& M)
 		// Mark the function as only used by wasm if it is used only by direct calls
 		// from other wasm functions. If so, we don't need to lower i64 in the
 		// signature
-		if (!F.hasAddressTaken() && F.getSection() == StringRef("asmjs") && LinearOutput == StringRef("wasm"))
+		if (!F.hasAddressTaken() && F.getSection() == StringRef("asmjs") && LinearOutput == Wasm)
 		{
 			bool onlyCalledByWasm = true;
 			for (auto& U: F.uses())
@@ -1259,7 +1259,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 			blocksInDFSOrder.push_back(&BB);
 	}
 
-	bool wasm = F->getSection() == StringRef("asmjs") && LinearOutput == StringRef("wasm");
+	bool wasm = F->getSection() == StringRef("asmjs") && LinearOutput == Wasm;
 
 	SmallVector<PHINode*, 4> delayedPHIs;
 	SmallVector<Instruction*, 4> InstsToDelete;
