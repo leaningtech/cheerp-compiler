@@ -63,25 +63,8 @@ namespace {
   };
 } // end anonymous namespace.
 
-enum LinearOutputTy {
-  Wasm,
-  AsmJs,
-};
-LinearOutputTy parseLinearOutput()
-{
-  if (LinearOutput.empty())
-    return LinearOutputTy::Wasm;
-  if (LinearOutput.getValue() == "asmjs")
-  {
-    return LinearOutputTy::AsmJs;
-  }
-  return LinearOutputTy::Wasm;
-}
-
 bool CheerpWritePass::runOnModule(Module& M)
 {
-  LinearOutputTy outputMode = parseLinearOutput();
-
   cheerp::PointerAnalyzer &PA = getAnalysis<cheerp::PointerAnalyzer>();
   cheerp::GlobalDepsAnalyzer &GDA = getAnalysis<cheerp::GlobalDepsAnalyzer>();
   cheerp::Registerize &registerize = getAnalysis<cheerp::Registerize>();
@@ -116,7 +99,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   {
     secondaryOut.reset(new formatted_raw_ostream(secondaryFile.os()));
   }
-  else if (WasmOnly && outputMode != AsmJs)
+  else if (WasmOnly && LinearOutput != AsmJs)
   {
     secondaryOut.reset(new formatted_raw_ostream(Out));
   }
@@ -130,7 +113,7 @@ bool CheerpWritePass::runOnModule(Module& M)
   std::string wasmFile;
   std::string asmjsMemFile;
   llvm::formatted_raw_ostream* memOut = nullptr;
-  switch (outputMode)
+  switch (LinearOutput)
   {
     case Wasm:
       if (!SecondaryOutputPath.empty())
@@ -156,7 +139,7 @@ bool CheerpWritePass::runOnModule(Module& M)
     writer.makeJS();
   }
 
-  if (outputMode != AsmJs && secondaryOut)
+  if (LinearOutput != AsmJs && secondaryOut)
   {
     cheerp::CheerpWasmWriter wasmWriter(M, *this, *secondaryOut, PA, registerize, GDA, linearHelper, namegen,
                                     M.getContext(), CheerpHeapSize, !WasmOnly,
@@ -199,16 +182,15 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            bool DisableVerify,
                                            MachineModuleInfo *MMI) {
 
-  LinearOutputTy outputMode = parseLinearOutput();
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
   if (NoNativeJavaScriptMath)
     mathMode = cheerp::GlobalDepsAnalyzer::NO_BUILTINS;
-  else if(getTargetTriple().getEnvironment() == llvm::Triple::WebAssembly && outputMode != AsmJs)
+  else if(getTargetTriple().getEnvironment() == llvm::Triple::WebAssembly && LinearOutput != AsmJs)
     mathMode = cheerp::GlobalDepsAnalyzer::WASM_BUILTINS;
   else
     mathMode = cheerp::GlobalDepsAnalyzer::JS_BUILTINS;
 
-  auto functionAddressMode = outputMode == LinearOutputTy::AsmJs
+  auto functionAddressMode = LinearOutput == LinearOutputTy::AsmJs
     ? cheerp::LinearMemoryHelper::FunctionAddressMode::AsmJS
     : cheerp::LinearMemoryHelper::FunctionAddressMode::Wasm;
   bool growMem = !WasmNoGrowMemory &&
@@ -232,7 +214,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
   // inside not used instructions which are then not rendered.
   PM.add(createDeadInstEliminationPass());
-  PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, outputMode == Wasm));
+  PM.add(cheerp::createRegisterizePass(!NoJavaScriptMathFround, LinearOutput == Wasm));
   PM.add(createAllocaLoweringPass());
   if (!CheerpNoICF)
     PM.add(cheerp::createIdenticalCodeFoldingPass());
