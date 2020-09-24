@@ -5734,7 +5734,9 @@ void CheerpWriter::compileParamTypeAnnotationsAsmJS(const Function* F)
 				stream << getName(&*curArg) << "|0";
 				break;
 			case Registerize::INTEGER64:
-				report_fatal_error("unsupported INTEGER64 register");
+				if (LinearOutput==AsmJs)
+					report_fatal_error("unsupported INTEGER64 register");
+				stream << getName(&*curArg);
 				break;
 			case Registerize::FLOAT:
 				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
