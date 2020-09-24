@@ -70,6 +70,10 @@ static bool needsWrapping(const Function* F)
 	// Client native constructors always need wrapping
 	if (TypeSupport::isClientConstructorName(F->getName()))
 		return true;
+	// If the function is not implemented and not client, avoid the wrapper:
+	// we will import the dummy function
+	if (!TypeSupport::isClientFunc(F) && F->empty())
+		return false;
 	// Check argument types
 	for (const auto& arg: F->args())
 	{
