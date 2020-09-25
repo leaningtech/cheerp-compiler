@@ -5,10 +5,11 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2019 Leaning Technologies
+// Copyright 2014-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/Instructions.h"
@@ -416,22 +417,38 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 			ConstantInt *sizeConst = dyn_cast<ConstantInt>(size);
 			if (!sizeConst || sizeConst->getZExtValue() > INLINE_WRITE_LOOP_MAX)
 				continue;
+			bool useUnaligned = LinearOutput == Wasm && mode != MEMMOVE;
+			uint32_t effectiveAlignInt = alignInt;
+			if(useUnaligned)
+			{
+				// In wasm unaligned memory accesses are allowed
+				// NOTE: This would not be safe in MEMMOVE mode, we only have
+				//       guaranteed non-overlap when the alignment is larger than the element size
+				effectiveAlignInt = 0;
+			}
 			uint32_t sizeInt = sizeConst->getZExtValue();
 			uint32_t elemSize = 1;
-			// Take advantage of double moves when available
-			if (alignInt % 8 == 0 && sizeInt >= 8 &&
+			if (useUnaligned && sizeInt >= 8) {
+				// i64 can only be used in wasm mode
+				Type* int64Type = IntegerType::get(BB.getContext(), 64);
+				pointedType = int64Type;
+				elemSize = 8;
+			} else if (effectiveAlignInt % 8 == 0 && sizeInt >= 8 &&
 					(mode==MEMSET ?
 						// For MEMSET the dst must be compatible, but also allow constant 0
 						isDoubleAggregate(dst->getType()->getPointerElementType()) || (isa<Constant>(src) && cast<Constant>(src)->isNullValue()) :
 						// Otherwise dst and src must be compatible
 						isDoubleAggregate(dst->getType()->getPointerElementType()) && isDoubleAggregate(src->getType()->getPointerElementType()))) {
+				// NOTE: We expect to get here only when _not_ using wasm
+				assert(effectiveAlignInt == alignInt && useUnaligned == false);
+				// We must be in asm.js mode, take advantage of double moves when possible
 				Type* doubleType = Type::getDoubleTy(BB.getContext());
 				pointedType = doubleType;
 				elemSize = 8;
-			} else if (alignInt % 4 == 0 && sizeInt >= 4) {
+			} else if (effectiveAlignInt % 4 == 0 && sizeInt >= 4) {
 				pointedType = int32Type;
 				elemSize = 4;
-			} else if (alignInt % 2 == 0 && sizeInt >= 2) {
+			} else if (effectiveAlignInt % 2 == 0 && sizeInt >= 2) {
 				pointedType = IntegerType::get(BB.getContext(), 16);
 				elemSize = 2;
 			}
@@ -439,7 +456,9 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 				// Unroll small loops
 				// NOTE: Moving more than 1 element per iteration is only safe if there is no overlapping
 				if(mode != MEMMOVE && (sizeInt / elemSize <= 3)) {
+					// Unrolling works by forging a virtual [N x pointedType] array for the memory
 					pointedType = ArrayType::get(pointedType, sizeInt / elemSize);
+					// The elem size is the whole array size, there may be an extra tail
 					elemSize = sizeInt - (sizeInt % elemSize);
 				}
 				IRBuilder<> IRB(CI);
