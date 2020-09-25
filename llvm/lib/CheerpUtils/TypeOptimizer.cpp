@@ -1704,6 +1704,13 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	}
 	for(auto it: localInstMapping)
 	{
+		// The arguments may have some metadata uses left. Replace with undef
+		// to avoid validation errors
+		if (isa<Argument>(it.first))
+		{
+			it.first->replaceAllUsesWith(UndefValue::get(it.first->getType()));
+			continue;
+		}
 		if (!isa<Instruction>(it.second.first))
 			continue;
 		if (!isa<Instruction>(it.first))
