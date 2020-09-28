@@ -1846,7 +1846,7 @@ static void CheckAggExprForMemSetUse(AggValueSlot &Slot, const Expr *E,
     return;
 
   // Okay, it seems like a good idea to use an initial memset, emit the call.
-  llvm::Constant *SizeVal = CGF.Builder.getInt64(Size.getQuantity());
+  llvm::Constant *SizeVal = CGF.Builder.getInt32(Size.getQuantity());
 
   Address Loc = Slot.getAddress();  
   if (CGF.getTarget().isByteAddressable())

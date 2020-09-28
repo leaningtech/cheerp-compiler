@@ -666,7 +666,7 @@ struct GenDefaultInitialize
       return;
     }
 
-    llvm::Constant *SizeVal = CGF->Builder.getInt64(Size.getQuantity());
+    llvm::Constant *SizeVal = CGF->Builder.getInt32(Size.getQuantity());
     Address DstAddr = getAddrWithOffset(Addrs[DstIdx], CurStructOffset, FD);
     Address Loc = CGF->Builder.CreateElementBitCast(DstAddr, CGF->Int8Ty);
     CGF->Builder.CreateMemSet(Loc, CGF->Builder.getInt8(0), SizeVal,
