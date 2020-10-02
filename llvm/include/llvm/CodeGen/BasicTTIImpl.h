@@ -380,7 +380,8 @@ public:
     // general.
     const TargetLoweringBase *TLI = getTLI();
     EVT VT = TLI->getValueType(DL, Ty);
-    if (TLI->isOperationLegalOrCustomOrPromote(ISD::FADD, VT))
+    const DataLayout &DL = this->getDataLayout();
+    if (TLI->isOperationLegalOrCustomOrPromote(ISD::FADD, VT) || !DL.isByteAddressable())
       return TargetTransformInfo::TCC_Basic;
     return TargetTransformInfo::TCC_Expensive;
   }
