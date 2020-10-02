@@ -2581,10 +2581,13 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			if(!isSignedLoad(op))
 			{
 				uint32_t bitWidth = I.getOperand(0)->getType()->getIntegerBitWidth();
-				encodeInst(WasmS32Opcode::I32_CONST, 32-bitWidth, code);
-				encodeInst(WasmOpcode::I32_SHL, code);
-				encodeInst(WasmS32Opcode::I32_CONST, 32-bitWidth, code);
-				encodeInst(WasmOpcode::I32_SHR_S, code);
+				if (bitWidth < 32)
+				{
+					encodeInst(WasmS32Opcode::I32_CONST, 32-bitWidth, code);
+					encodeInst(WasmOpcode::I32_SHL, code);
+					encodeInst(WasmS32Opcode::I32_CONST, 32-bitWidth, code);
+					encodeInst(WasmOpcode::I32_SHR_S, code);
+				}
 			}
 			// TODO convert directly to i64 without passing from i32
 			if (I.getType()->isIntegerTy(64))
