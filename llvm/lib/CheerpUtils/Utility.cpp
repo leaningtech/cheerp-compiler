@@ -255,6 +255,9 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 	}
 	else if(I.getOpcode()==Instruction::Trunc)
 	{
+		//64 to 32 Trunc are not no-op, since they require explicitly to call the truncation in wasm (and in genericjs with BigInts they still require a call)
+		if (I.getType()->isIntegerTy(32) && I.getOperand(0)->getType()->isIntegerTy(64))
+			return !hasMoreThan1Use;
 		return !hasMoreThan1Use || !isa<Instruction>(I.getOperand(0)) || !isInlineableRecursion(*cast<Instruction>(I.getOperand(0)));
 	}
 	else if(const IntrinsicInst* II=dyn_cast<IntrinsicInst>(&I))
