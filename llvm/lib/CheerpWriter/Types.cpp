@@ -67,6 +67,7 @@ void CheerpWriter::compileSimpleType(Type* t, llvm::Value* init)
 				stream << ")";
 				break;
 			}
+			[[clang::fallthrough]];
 		}
 		case Type::DoubleTyID:
 		{
