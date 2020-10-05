@@ -1038,6 +1038,7 @@ void Registerize::RegisterAllocatorInst::buildFriendsSingleCompressibleInstr(con
 		case Instruction::Xor:
 			assert(I->getNumOperands() == 2);
 			createSingleFriendship(i, I->getOperand(1));
+			[[clang::fallthrough]];
 			//Fall through!
 		//Non-commutative operations
 		case Instruction::FSub:
