@@ -1704,12 +1704,24 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	}
 	for(auto it: localInstMapping)
 	{
-		// The arguments may have some metadata uses left. Replace with undef
-		// to avoid validation errors
-		if (isa<Argument>(it.first))
+		// Transfer metadata info to the mapped value
+		if (auto M = ValueAsMetadata::getIfExists(it.first))
 		{
-			it.first->replaceAllUsesWith(UndefValue::get(it.first->getType()));
-			continue;
+			if (auto *MDV = MetadataAsValue::getIfExists(it.first->getContext(), M))
+			{
+				auto NM = ValueAsMetadata::get(it.second.first);
+				auto NMDV = MetadataAsValue::get(it.first->getContext(), NM);
+				SmallVector<Use*, 4> Uses;
+				for (auto& U: MDV->uses())
+				{
+					Uses.push_back(&U);
+				}
+				for (auto U: Uses)
+				{
+					U->set(NMDV);
+				}
+				MDV->deleteValue();
+			}
 		}
 		if (!isa<Instruction>(it.second.first))
 			continue;
