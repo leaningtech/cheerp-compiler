@@ -1070,8 +1070,8 @@ public:
 
 // Return true if CB is the sole call to local function Callee.
 static bool isSoleCallToLocalFunction(const CallBase &CB,
-                                      const Function &Callee) {
-  return DL.isByteAddressable() && Callee.hasLocalLinkage() && Callee.hasOneLiveUse() &&
+                                      const Function &Callee, const DataLayout& DL) {
+  return (DL.isByteAddressable() || Callee.getSection() == "asmjs") && Callee.hasLocalLinkage() && Callee.hasOneLiveUse() &&
          &Callee == CB.getCalledFunction();
 }
 
@@ -1248,7 +1248,7 @@ private:
         (F.getCallingConv() == CallingConv::Cold));
 
     set(InlineCostFeatureIndex::LastCallToStaticBonus,
-        isSoleCallToLocalFunction(CandidateCall, F));
+        isSoleCallToLocalFunction(CandidateCall, F, DL));
 
     // FIXME: we shouldn't repeat this logic in both the Features and Cost
     // analyzer - instead, we should abstract it to a common method in the
@@ -1927,7 +1927,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically. It may seem odd to update
   // Cost in updateThreshold, but the bonus depends on the logic in this method.
-  if (isSoleCallToLocalFunction(Call, F)) {
+  if (isSoleCallToLocalFunction(Call, F, DL)) {
     Cost -= LastCallToStaticBonus;
     StaticBonusApplied = LastCallToStaticBonus;
   }
@@ -2736,7 +2736,7 @@ InlineResult CallAnalyzer::analyze() {
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
   // is not actually duplicated, just moved).
-  if (!isSoleCallToLocalFunction(CandidateCall, F) && ContainsNoDuplicateCall)
+  if (!isSoleCallToLocalFunction(CandidateCall, F, DL) && ContainsNoDuplicateCall)
     return InlineResult::failure("noduplicate");
 
   // If the callee's stack size exceeds the user-specified threshold,
