@@ -398,8 +398,10 @@ void cheerp::Link::ConstructJob(Compilation &C, const JobAction &JA,
     // Add wasm helper if needed
     Arg *CheerpMode = Args.getLastArg(options::OPT_cheerp_mode_EQ);
     Arg *CheerpLinearOutput = Args.getLastArg(options::OPT_cheerp_linear_output_EQ);
+    llvm::Triple::EnvironmentType env = getToolChain().getTriple().getEnvironment();
     if((CheerpMode && CheerpMode->getValue() == StringRef("wasm")) ||
-       (CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")))
+       (CheerpLinearOutput && CheerpLinearOutput->getValue() == StringRef("wasm")) ||
+       (!CheerpMode && !CheerpLinearOutput && env == llvm::Triple::WebAssembly))
     {
       CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath("libwasm.bc")));
     }
