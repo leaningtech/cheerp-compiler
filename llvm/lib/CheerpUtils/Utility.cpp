@@ -375,8 +375,9 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 					else if(nextInst->isTerminator())
 					{
 						// We have reached the end of the block without finding the final user
-						// If the user is a phi directly following, good, otherwise we can't inline
-						if (isUserAPhiInNextBlock(I))
+						// If the user is a phi directly following AND the function has no sideEffects -> good
+						//		otherwise we cannot inline
+						if (isUserAPhiInNextBlock(I) && !hasSideEffects)
 							return true;
 						break;
 					}
