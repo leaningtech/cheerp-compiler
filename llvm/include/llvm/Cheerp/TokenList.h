@@ -54,6 +54,14 @@ public:
 		TK_BrIfNot = 1<<12,
 		TK_Condition = 1<<13,
 	};
+
+	enum TokenResultType {
+		NONE,
+		I32,
+		I64,
+		F32,
+		F64,
+	};
 private:
 	TokenKind Kind;
 	const llvm::BasicBlock* BB;
@@ -66,6 +74,20 @@ public:
 	const llvm::BasicBlock* getBB() const {
 		assert(BB);
 		return BB;
+	}
+	bool needsResultType()
+	{
+		return Kind & (TK_Loop | TK_Block | TK_If | TK_IfNot);
+	}
+	void setResultType(const TokenResultType& type)
+	{
+		assert(needsResultType());
+		Id = (int)(type);
+	}
+	TokenResultType getResultType() const
+	{
+		assert(needsResultType());
+		return (TokenResultType)Id;
 	}
 	int getId() const {
 		assert(Id != -1);
