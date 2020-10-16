@@ -129,7 +129,7 @@ public:
 	llvm::iplist<Token>::const_reverse_iterator getRevIter() const {
 		return (--getIterator()).getReverse();
 	}
-	static Token* createBasicBlock(const llvm::BasicBlock* BB, int Id) {
+	static Token* createBasicBlock(const llvm::BasicBlock* BB) {
 		return new Token(TK_BasicBlock, BB, nullptr);
 	}
 	static Token* createLoop() {
