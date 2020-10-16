@@ -43,7 +43,6 @@ public:
 		bool NestSwitches)
 		: F(const_cast<Function&>(F)), Tokens(Tokens)
 		, InsertPt(Tokens.begin())
-		, NextId(0)
 		, LI(LI), DT(DT)
 		, NestSwitches(NestSwitches)
 	{
@@ -76,7 +75,6 @@ private:
 	const Function& F;
 	TokenList& Tokens;
 	TokenList::iterator InsertPt;
-	int NextId;
 	const LoopInfo& LI;
 	const DominatorTree& DT;
 	bool NestSwitches;
@@ -534,7 +532,7 @@ void TokenListBuilder::processBlock(const BasicBlock* CurBB, bool Delayed)
 	processLoopScopes(CurBB);
 
 	// Create the token for this basic block and add it to the list
-	Token* BBT = Token::createBasicBlock(CurBB, NextId++);
+	Token* BBT = Token::createBasicBlock(CurBB);
 	InsertPt = Tokens.insertAfter(InsertPt, BBT);
 	BlockTokenMap.insert(std::make_pair(CurBB, BBT));
 
