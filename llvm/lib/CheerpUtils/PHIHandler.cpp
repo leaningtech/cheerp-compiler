@@ -203,6 +203,8 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 			break;
 		if(phi->use_empty())
 			continue;
+		if(phiToBeSkipped.count(phi))
+			continue;
 		const Value* val=phi->getIncomingValueForBlock(fromBB);
 		const Instruction* I=dyn_cast<Instruction>(val);
 		if(!I)
@@ -303,6 +305,16 @@ void EndOfBlockPHIHandler::runOnEdge(const Registerize& registerize, const Basic
 
 	handlePHIStackGroup(toProcessOnStack);
 	edgeContext.clear();
+}
+
+void EndOfBlockPHIHandler::skipPHI(const PHINode* toSkip)
+{
+	phiToBeSkipped.insert(toSkip);
+}
+
+bool EndOfBlockPHIHandler::hasToSkipPHIs() const
+{
+	return !phiToBeSkipped.empty();
 }
 
 }
