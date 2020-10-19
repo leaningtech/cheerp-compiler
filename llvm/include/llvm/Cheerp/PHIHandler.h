@@ -117,6 +117,8 @@ public:
 	};
 	EndOfBlockPHIHandler(const PointerAnalyzer& PA, EdgeContext& edgeContext);
 	void runOnEdge(const Registerize& registerize, const llvm::BasicBlock* fromBB, const llvm::BasicBlock* toBB);
+	void skipPHI(const llvm::PHINode* phiToSkip);
+	bool hasToSkipPHIs() const;
 protected:
 	const PointerAnalyzer& PA;
 	EdgeContext& edgeContext;
@@ -136,6 +138,7 @@ private:
 	virtual void reportRegisterUse() const {};
 	virtual void removeRegisterUse(uint32_t reg) {};
 	virtual void resetRegistersState() {};
+	llvm::DenseSet<const llvm::PHINode*> phiToBeSkipped;
 };
 
 class PHIHandlerUsingTemp : public EndOfBlockPHIHandler
