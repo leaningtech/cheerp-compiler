@@ -3395,6 +3395,23 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 	}
 	return lastDepth0Block;
 }
+
+std::map<const llvm::BasicBlock*, const llvm::PHINode*> CheerpWasmWriter::selectPHINodesHandledAsResult(const std::vector<const llvm::BasicBlock*>& possibleBB) const
+{
+	std::map<const llvm::BasicBlock*, const llvm::PHINode*> phiNodesHandledAsResult;
+
+	//TODO implement logic to find what's the most proficous PHINode
+	//For now select the first phi (if existing)
+
+	for (auto BB : possibleBB)
+	{
+		if (const PHINode* phi = dyn_cast<PHINode>(&*BB->begin()))
+			phiNodesHandledAsResult.insert({BB, phi});
+	}
+
+	return phiNodesHandledAsResult;
+}
+
 void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 {
 	assert(!F.empty());
@@ -3494,12 +3511,13 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 			CFGStackifier CN(F, LI, DT, registerize, PA, CFGStackifier::Wasm);
 
 			const auto possibleBBs = CN.selectBasicBlocksWithPossibleIncomingResult();
-			assert(possibleBBs.empty());
 
-			std::map<const llvm::BasicBlock*, const llvm::PHINode*> specialPHINodes;
-			//TODO: populate specialPHINodes as function of possibleBBs
+			//Select a subset of possibleBBs, and for each a PHINode that will be handled as result
+			const auto phiHandledAsResult = selectPHINodesHandledAsResult(possibleBBs);
 
-			CN.addResultToTokens(specialPHINodes, registerize);
+			//Use the selected PHINodes to assign a result type to the relevant tokens (blocks/loops/ifs)
+			//And tag the relevat tokens with the PHI to be handled there
+			CN.addResultToTokens(phiHandledAsResult, registerize);
 
 			lastDepth0Block = compileTokens(code, CN.Tokens);
 		}
