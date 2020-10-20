@@ -1180,6 +1180,8 @@ void CFGStackifier::addResultToTokens(const std::map<const llvm::BasicBlock*, co
 			continue;
 
 		const PHINode* phi = mapIterator->second;
+		assert(phi->getParent() == toBB);
+
 		const auto tokenResultType = getTokenResultType(phi, registerize);
 
 		auto tokenIterator = token.getIter();
