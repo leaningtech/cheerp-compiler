@@ -4420,6 +4420,32 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 		{
 			return constantPart != 0 || !valuesToAdd.empty();
 		}
+		void sort(const CheerpWasmWriter& writer)
+		{
+			sortImpl(writer, valuesToAdd);
+			sortImpl(writer, valuesToInvert);
+		}
+	private:
+		void sortImpl(const CheerpWasmWriter& writer, std::vector<const llvm::Value*>& toSort)
+		{
+			std::vector<std::pair<uint32_t, const llvm::Value*>> V;
+			for (const llvm::Value* v : toSort)
+			{
+				V.push_back({writer.findDepth(v), v});
+			}
+			std::sort(V.begin(), V.end(), [](const std::pair<uint32_t, const llvm::Value*>& A, const std::pair<uint32_t, const llvm::Value*>&B) -> bool
+					{
+						if (A.first != B.first)
+							return A.first < B.first;
+						return false;
+					});
+			for (uint32_t i=0; i<V.size(); i++)
+			{
+				toSort[i] = V[i].second;
+			}
+
+		}
+	public:
 		uint32_t constantPart;
 		uint32_t multiplier;
 		std::vector<const llvm::Value*> valuesToAdd;
@@ -4465,6 +4491,11 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 		writer.encodeInst(WasmS32Opcode::I32_CONST, smallOffset, code);
 		yetToBeEncodedOffset -= smallOffset;
 		first = false;
+	}
+
+	for (GroupedValuesToAdd& p : V2)
+	{
+		p.sort(writer);
 	}
 
 	for (const GroupedValuesToAdd& p : V2)
