@@ -1433,6 +1433,12 @@ void CheerpWasmWriter::compileConstantExpr(WasmBuffer& code, const ConstantExpr*
 	}
 }
 
+static uint32_t getSLEBEncodingLength(int64_t val)
+{
+	uint8_t tmp[100];
+	return encodeSLEB128(val, tmp);
+}
+
 void CheerpWasmWriter::compileFloatToText(WasmBuffer& code, const APFloat& f, uint32_t precision)
 {
 	if(f.isInfinity())
@@ -3778,12 +3784,31 @@ void CheerpWasmWriter::compileTableSection()
 CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstantAsGlobal(const Constant* C, uint32_t useCount, uint32_t getGlobalCost)
 {
 	assert(useCount > 1);
-	if(const ConstantFP* CF = dyn_cast<ConstantFP>(C))
+
+	auto computeCostAsLiteral = [](const Constant* C) -> std::pair<bool, uint32_t> {
+		const Type* type = C->getType();
+		if (type->isDoubleTy())
+			return {true, 9};
+		if (type->isFloatTy())
+			return {true, 5};
+		if (type->isIntegerTy(64))
+		{
+			const uint32_t encodingLength = getSLEBEncodingLength(cast<ConstantInt>(C)->getSExtValue());
+			return {true, encodingLength};
+		}
+		// We don't try to globalize 32bit integer constants as that has a negative performance impact
+		return {false, 0};
+	};
+
+	const auto computeCost = computeCostAsLiteral(C);
+
+	if (computeCost.first)
 	{
-		const uint32_t costAsLiteral = C->getType()->isDoubleTy() ? 9 : 5;
+		const uint32_t costAsLiteral = computeCost.second;
 		// 1 (type) + costAsLiteral + 1 (end byte)
 		const uint32_t globalInitCost = 2 + costAsLiteral;
 		const uint32_t globalUsesCost = globalInitCost + getGlobalCost * useCount;
+
 		uint32_t directUsesCost = costAsLiteral * useCount;
 		if(globalUsesCost < directUsesCost)
 			return FULL;
@@ -3792,7 +3817,6 @@ CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstan
 	}
 	else
 	{
-		// We don't try to globalize integer constants as that has a negative performance impact
 		return NONE;
 	}
 }
