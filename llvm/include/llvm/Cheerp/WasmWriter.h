@@ -392,6 +392,8 @@ private:
 	uint32_t compileLoadStorePointer(WasmBuffer& code, const llvm::Value* ptrOp);
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
+	std::map<const llvm::BasicBlock*, const llvm::PHINode*> selectPHINodesHandledAsResult(const std::vector<const llvm::BasicBlock*>& possibleBB) const;
+
 	const llvm::BasicBlock* currentBB{NULL};
 	void checkAndSanitizeDependencies(InstructionToDependenciesMap& dependencies) const;
 	void flushGeneric(WasmBuffer& code, const llvm::Instruction& I, const InstructionToDependenciesMap& dependencies);
