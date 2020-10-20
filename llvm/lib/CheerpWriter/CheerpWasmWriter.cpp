@@ -3233,6 +3233,26 @@ void CheerpWasmWriter::compileBranchTable(WasmBuffer& code, const llvm::SwitchIn
 	encodeBranchTable(code, table, defaultIdx);
 }
 
+static int getResultKind(const Token& T)
+{
+	switch (T.getResultType())
+	{
+		case Token::TokenResultType::NONE:
+			return 0x40;
+		case Token::TokenResultType::I32:
+			return 0x7F;
+		case Token::TokenResultType::I64:
+			return 0x7E;
+		case Token::TokenResultType::F32:
+			return 0x7D;
+		case Token::TokenResultType::F64:
+			return 0x7C;
+		default:
+			break;
+	}
+	llvm_unreachable("Add code in getResultKind");
+}
+
 const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 	const TokenList& Tokens)
 {
@@ -3271,14 +3291,14 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			case Token::TK_Loop:
 			{
 				teeLocals.addIndentation(code);
-				encodeInst(WasmU32Opcode::LOOP, 0x40, code);
+				encodeInst(WasmU32Opcode::LOOP, getResultKind(T), code);
 				ScopeStack.push_back(&T);
 				break;
 			}
 			case Token::TK_Block:
 			{
 				teeLocals.addIndentation(code);
-				encodeInst(WasmU32Opcode::BLOCK, 0x40, code);
+				encodeInst(WasmU32Opcode::BLOCK, getResultKind(T), code);
 				ScopeStack.emplace_back(&T);
 				break;
 			}
@@ -3311,7 +3331,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 				assert(bi->isConditional());
 				compileCondition(code, bi->getCondition(), IfNot);
 				teeLocals.addIndentation(code);
-				encodeInst(WasmU32Opcode::IF, 0x40, code);
+				encodeInst(WasmU32Opcode::IF, getResultKind(T), code);
 				ScopeStack.push_back(&T);
 				break;
 			}
@@ -3472,6 +3492,15 @@ void CheerpWasmWriter::compileMethod(WasmBuffer& code, const Function& F)
 			DominatorTree &DT = pass.getAnalysis<DominatorTreeWrapperPass>(const_cast<Function&>(F)).getDomTree();
 			LoopInfo &LI = pass.getAnalysis<LoopInfoWrapperPass>(const_cast<Function&>(F)).getLoopInfo();
 			CFGStackifier CN(F, LI, DT, registerize, PA, CFGStackifier::Wasm);
+
+			const auto possibleBBs = CN.selectBasicBlocksWithPossibleIncomingResult();
+			assert(possibleBBs.empty());
+
+			std::map<const llvm::BasicBlock*, const llvm::PHINode*> specialPHINodes;
+			//TODO: populate specialPHINodes as function of possibleBBs
+
+			CN.addResultToTokens(specialPHINodes, registerize);
+
 			lastDepth0Block = compileTokens(code, CN.Tokens);
 		}
 	}
