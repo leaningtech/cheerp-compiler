@@ -1439,6 +1439,12 @@ static uint32_t getSLEBEncodingLength(int64_t val)
 	return encodeSLEB128(val, tmp);
 }
 
+static uint32_t getULEBEncodingLength(int64_t val)
+{
+	uint8_t tmp[100];
+	return encodeULEB128(val, tmp);
+}
+
 void CheerpWasmWriter::compileFloatToText(WasmBuffer& code, const APFloat& f, uint32_t precision)
 {
 	if(f.isInfinity())
@@ -3946,15 +3952,10 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			globalizedGlobalsIDs[it->first] = globalId++;
 			continue;
 		}
-		// TODO: We need al helper function for this
+
 		// NOTE: It is not the same as getIntEncodingLength since the global id is unsigned
-		uint32_t getGlobalCost = 0;
-		if(globalId < (1<<7))
-			getGlobalCost = 2;
-		else if(globalId < (1<<14))
-			getGlobalCost = 3;
-		else
-			getGlobalCost = 4;
+		const uint32_t getGlobalCost = getULEBEncodingLength(globalId) + 1;
+
 		GLOBAL_CONSTANT_ENCODING encoding = shouldEncodeConstantAsGlobal(GC.C, GC.useCount, getGlobalCost);
 		GC.encoding = encoding;
 		auto it = globalizedConstantsTmp.find(GC.C);
