@@ -1117,3 +1117,97 @@ CFGStackifier::CFGStackifier(const llvm::Function &F, const llvm::LoopInfo& LI,
 	}
 #endif
 }
+
+std::vector<const llvm::BasicBlock*> CFGStackifier::selectBasicBlocksWithPossibleIncomingResult() const
+{
+	std::vector<const llvm::BasicBlock*> blocksWithPossibleResult;
+
+	//Returning nothing is a legitimate choice
+
+	return blocksWithPossibleResult;
+}
+
+static Token::TokenResultType getTokenResultType(const llvm::Instruction* I, const Registerize& registerize)
+{
+	switch (registerize.getRegKindFromType(I->getType(), /*asmjs*/true))
+	{
+		case Registerize::INTEGER:
+			return Token::TokenResultType::I32;
+		case Registerize::INTEGER64:
+			return Token::TokenResultType::I64;
+		case Registerize::FLOAT:
+			return Token::TokenResultType::F32;
+		case Registerize::DOUBLE:
+			return Token::TokenResultType::F64;
+		default:
+			break;
+	}
+	llvm_unreachable("Unsupported getTokenResultType");
+}
+
+
+void CFGStackifier::addResultToTokens(const std::map<const llvm::BasicBlock*, const llvm::PHINode*>& specialPHINodes, const Registerize& registerize)
+{
+	//Every block / if / loop gets initialized with NONE as result type
+	for (auto& token : Tokens)
+	{
+		if (token.needsResultType())
+		{
+			token.setResultType(Token::TokenResultType::NONE);
+		}
+	}
+
+	//Initialize map to speed up processing
+	llvm::DenseMap<const BasicBlock*, Token*> mapBBtoToken;
+	for (auto& token : Tokens)
+	{
+		if (token.getKind() == Token::TK_BasicBlock)
+		{
+			mapBBtoToken[token.getBB()] = &token;
+		}
+	}
+
+	for (auto& token : Tokens)
+	{
+		if (token.getKind() != Token::TK_Prologue)
+			continue;
+
+		const BasicBlock* fromBB = token.getBB();
+		const BasicBlock* toBB = fromBB->getTerminator()->getSuccessor(token.getId());
+
+		auto mapIterator = specialPHINodes.find(toBB);
+		if (mapIterator == specialPHINodes.end())
+			continue;
+
+		const PHINode* phi = mapIterator->second;
+		const auto tokenResultType = getTokenResultType(phi, registerize);
+
+		auto tokenIterator = token.getIter();
+		const auto tokenDestinationIterator = mapBBtoToken[toBB]->getIter();
+
+		//We start in a prologue, so we can directly go to the following
+		assert(tokenIterator->getKind() == Token::TK_Prologue);
+		tokenIterator++;
+
+		for (; tokenIterator != tokenDestinationIterator; )
+		{
+			//isNaturalFlow like iteration
+			switch (tokenIterator->getKind())
+			{
+				case Token::TK_Else:
+				case Token::TK_Branch:
+					tokenIterator = tokenIterator->getMatch()->getIter();
+					break;
+				case Token::TK_End:
+					tokenIterator->getMatch()->setResultType(tokenResultType);
+					tokenIterator++;
+					break;
+				default:
+					llvm_unreachable("Unexpected token kind");
+			}
+		}
+
+		//We end up in a BasicBlock
+		assert(tokenIterator->getKind() == Token::TK_BasicBlock);
+	}
+}
