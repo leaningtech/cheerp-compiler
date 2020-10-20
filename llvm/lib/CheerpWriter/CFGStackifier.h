@@ -38,6 +38,8 @@ public:
 		const PointerAnalyzer& PA, Mode M);
 
 	TokenList Tokens;
+	std::vector<const llvm::BasicBlock*> selectBasicBlocksWithPossibleIncomingResult() const;
+	void addResultToTokens(const std::map<const llvm::BasicBlock*, const llvm::PHINode*>& specialPHINodes, const Registerize& registerize);
 };
 
 
