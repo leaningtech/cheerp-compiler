@@ -68,6 +68,7 @@ private:
 	Token* Match;
 	TokenList* Parent;
 	int Id;
+	const llvm::PHINode* phiNodeToBeHandledAsResult{nullptr};
 public:
 	TokenKind getKind() const  { return Kind; }
 	TokenList* getParent() const { return Parent; }
@@ -88,6 +89,15 @@ public:
 	{
 		assert(needsResultType());
 		return (TokenResultType)Id;
+	}
+	void setPhiHandledAsResult(const llvm::PHINode* phi)
+	{
+		assert(phiNodeToBeHandledAsResult == nullptr || phiNodeToBeHandledAsResult == phi);
+		phiNodeToBeHandledAsResult = phi;
+	}
+	const llvm::PHINode* getPhiHandledAsResult() const
+	{
+		return phiNodeToBeHandledAsResult;
 	}
 	int getId() const {
 		assert(Id != -1);

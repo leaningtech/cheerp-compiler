@@ -1182,6 +1182,9 @@ void CFGStackifier::addResultToTokens(const std::map<const llvm::BasicBlock*, co
 		const PHINode* phi = mapIterator->second;
 		assert(phi->getParent() == toBB);
 
+		//TK_Prologue keeps note of which phi it will have to skip
+		token.setPhiHandledAsResult(phi);
+
 		const auto tokenResultType = getTokenResultType(phi, registerize);
 
 		auto tokenIterator = token.getIter();
@@ -1211,5 +1214,8 @@ void CFGStackifier::addResultToTokens(const std::map<const llvm::BasicBlock*, co
 
 		//We end up in a BasicBlock
 		assert(tokenIterator->getKind() == Token::TK_BasicBlock);
+
+		//TK_BasicBlock keeps note of which phi it will have to assign
+		tokenIterator->setPhiHandledAsResult(phi);
 	}
 }
