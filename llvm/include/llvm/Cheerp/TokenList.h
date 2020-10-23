@@ -76,7 +76,7 @@ public:
 		assert(BB);
 		return BB;
 	}
-	bool needsResultType()
+	bool needsResultType() const
 	{
 		return Kind & (TK_Loop | TK_Block | TK_If | TK_IfNot);
 	}
