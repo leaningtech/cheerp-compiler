@@ -2886,7 +2886,7 @@ bool CheerpWasmWriter::shouldDefer(const llvm::Instruction* I) const
 	return !hasUserInSameBlock;
 }
 
-void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
+void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB, const PHINode* phiHandledAsResult)
 {
 	assert(localsDependencies.empty());
 	assert(memoryDependencies.empty());
@@ -2899,6 +2899,18 @@ void CheerpWasmWriter::compileBB(WasmBuffer& code, const BasicBlock& BB)
 	std::vector<const llvm::Instruction*> instructionsLoadLike;
 	llvm::DenseMap<uint32_t, std::vector<const Instruction*>> getLocalFromRegister;
 	llvm::DenseMap<uint32_t, const Instruction*> lastAssignedToRegister;
+
+	if (phiHandledAsResult)
+	{
+		//Here we need to assign the PHI handled via Wasm's generalized block results
+
+		const uint32_t reg = registerize.getRegisterId(phiHandledAsResult, EdgeContext::emptyContext());
+		const uint32_t local = localMap.at(reg);
+		teeLocals.addCandidate(phiHandledAsResult, /*isInstructionAssigment*/true, local, code.tell());
+		encodeInst(WasmU32Opcode::SET_LOCAL, local, code);
+
+		teeLocals.instructionStart(code);
+	}
 
 	for(;I!=IE;++I)
 	{
@@ -3278,7 +3290,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 					lastDepth0Block = T.getBB();
 				else
 					lastDepth0Block = nullptr;
-				compileBB(code, *T.getBB());
+				compileBB(code, *T.getBB(), T.getPhiHandledAsResult());
 				if(!lastDepth0Block)
 				{
 					const BasicBlock* BB = T.getBB();
