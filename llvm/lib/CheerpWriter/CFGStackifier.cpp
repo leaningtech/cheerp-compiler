@@ -1122,7 +1122,88 @@ std::vector<const llvm::BasicBlock*> CFGStackifier::selectBasicBlocksWithPossibl
 {
 	std::vector<const llvm::BasicBlock*> blocksWithPossibleResult;
 
-	//Returning nothing is a legitimate choice
+	std::unordered_map<const BasicBlock*, std::unordered_set<const Token*>> BBtoRenderedPrologue;
+
+	for (const auto& token : Tokens)
+	{
+		if (token.getKind() != Token::TK_Prologue)
+			continue;
+
+		const llvm::BasicBlock* fromBB = token.getBB();
+		const llvm::BasicBlock* toBB = fromBB->getTerminator()->getSuccessor(token.getId());
+
+		BBtoRenderedPrologue[toBB].insert(&token);
+	}
+
+	for (const auto& token : Tokens)
+	{
+		if (token.getKind() != Token::TK_BasicBlock)
+			continue;
+
+		const llvm::BasicBlock* BB = token.getBB();
+
+		const uint32_t numIncomingPrologues = BBtoRenderedPrologue[BB].size();
+
+		//No prologues -> nothing to optimize
+		if (numIncomingPrologues == 0)
+			continue;
+
+		std::unordered_set<const llvm::BasicBlock*> pred;
+
+		for (const llvm::BasicBlock* bb : predecessors(BB))
+			pred.insert(bb);
+
+		//We bail out if the number of prologues is different that the number of predecessors for 2 reasons
+		//1. we lost track of the information about where the missing prologues would have been located
+		//2. if the whole prologue is a no-op, it's probably optimal not to render it
+		//TODO: find whether this could be relaxed
+		if (numIncomingPrologues != pred.size())
+			continue;
+
+		std::unordered_map<const Token*, uint32_t> numberOfVisits;
+
+		for (const Token* T : BBtoRenderedPrologue.at(BB))
+		{
+			for (auto it = T->getIter(); it != token.getIter();)
+			{
+				if (it == T->getIter())
+				{
+					assert(it->getKind() == Token::TK_Prologue);
+					numberOfVisits[&*it]++;
+					it++;
+					continue;
+				}
+				if (it->getKind() == Token::TK_Block || it->getKind() == Token::TK_Loop)
+				{
+					//Currently any Block or Loop cause to bail out, this is generalizable by adding a token kind "prologue assigment"
+					break;
+				}
+
+				//isNaturalFlow like iteration
+				switch (it->getKind())
+				{
+					case Token::TK_Else:
+					case Token::TK_Branch:
+						it = it->getMatch()->getIter();
+						break;
+					case Token::TK_End:
+						it++;
+						break;
+					default:
+						llvm_unreachable("Unexpected token encountered");
+						break;
+				}
+
+				numberOfVisits[&*it]++;
+			}
+			//Increment at the exit of the loop on the destination
+		}
+
+		if (numberOfVisits[&token] != numIncomingPrologues)
+			continue;
+
+		blocksWithPossibleResult.push_back(BB);
+	}
 
 	return blocksWithPossibleResult;
 }
