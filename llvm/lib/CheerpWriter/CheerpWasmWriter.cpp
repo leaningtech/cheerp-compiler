@@ -1124,7 +1124,7 @@ bool CheerpWasmWriter::requiresExplicitAssigment(const Instruction* phi, const V
 	return !isSameRegister;
 }
 
-void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from)
+void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from, const PHINode* phiHandledAsResult)
 {
 	class WriterPHIHandler: public PHIHandlerUsingStack
 	{
@@ -1196,7 +1196,15 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 		}
 	};
 
-	WriterPHIHandler(*this, code, from).runOnEdge(registerize, from, to);
+	WriterPHIHandler phiHandler(*this, code, from);
+	if (phiHandledAsResult)
+	{
+		//Put the relevant incoming value on the stack, to be used as result from a Wasm generalized block
+		compileOperand(code, phiHandledAsResult->getIncomingValueForBlock(from));
+		//Inform phiHanlder that will have to skip that PHINode
+		phiHandler.skipPHI(phiHandledAsResult);
+	}
+	phiHandler.runOnEdge(registerize, from, to);
 }
 
 const char* CheerpWasmWriter::getTypeString(const Type* t)
@@ -3371,7 +3379,7 @@ const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,
 			case Token::TK_Prologue:
 			{
 				const BasicBlock* To = T.getBB()->getTerminator()->getSuccessor(T.getId());
-				compilePHIOfBlockFromOtherBlock(code, To, T.getBB());
+				compilePHIOfBlockFromOtherBlock(code, To, T.getBB(), T.getPhiHandledAsResult());
 				break;
 			}
 			case Token::TK_Switch:
