@@ -1299,4 +1299,53 @@ void CFGStackifier::addResultToTokens(const std::map<const llvm::BasicBlock*, co
 		//TK_BasicBlock keeps note of which phi it will have to assign
 		tokenIterator->setPhiHandledAsResult(phi);
 	}
+
+	//Here we handle a stuble corner case: in the case of multiple consecutive token End followed by possibly a token Else,
+	//where the relevant matching blocks should all have the same result of the last End/Else
+
+	//The idea is this:
+	//We walk backwards.
+	//Whenever we encounter something not End not Else we set previousWasEnd to false;
+	//Whenever we encounter a End or a Else, AND previousWasEnd is false, we switch previousWasEnd and set lastEndType to the right type
+	//Whenever we encounter a End or a Else, AND previousWasEnd is true, we set its result type to match the lastEndType
+	auto iterator = Tokens.rbegin();
+	const auto rendIterator = Tokens.rend();
+
+	bool previousWasEnd = false;
+	Token::TokenResultType lastEndType;
+
+	while (iterator != rendIterator)
+	{
+		if ((iterator->getKind() == Token::TK_End) || (iterator->getKind() == Token::TK_Else))	// previous ?, current !END
+		{
+			Token* matched = iterator->getMatch();
+
+			if (matched->getKind() == Token::TK_Switch)
+			{
+				//In Wasm TK_Switch is followed by some TK_Case and then a TK_End that would not be rendered, so it's not relevant the eventual result
+				iterator++;
+				continue;
+			}
+
+			if (matched->getKind() == Token::TK_End)
+				matched = matched->getMatch();
+
+			if (previousWasEnd)	// -> previous END, current END
+			{
+				matched->setResultType(lastEndType);
+			}
+			else	// -> previous ! END, current END
+			{
+				lastEndType = matched->getResultType();
+				previousWasEnd = true;
+			}
+		}
+		else
+		{
+			previousWasEnd = false;
+		}
+
+		//We are going to the previous token, since the iterator is a reverse one
+		iterator++;
+	}
 }
