@@ -1213,7 +1213,8 @@ void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const B
 				}
 				toProcessOrdered.pop_back();
 			}
-			writer.teeLocals.instructionStart(code);
+			if (!hasToSkipPHIs())
+				writer.teeLocals.instructionStart(code);
 		}
 	};
 
