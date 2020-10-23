@@ -393,6 +393,9 @@ private:
 	static const char* getIntegerPredicate(llvm::CmpInst::Predicate p);
 
 	std::map<const llvm::BasicBlock*, const llvm::PHINode*> selectPHINodesHandledAsResult(const std::vector<const llvm::BasicBlock*>& possibleBB) const;
+	int gainOfHandlingPhiOnTheEdge(const llvm::PHINode* phi, const llvm::Value* incoming) const;
+	int gainOfHandlingPhiOnTheEdge(const llvm::PHINode* phi) const;
+
 
 	const llvm::BasicBlock* currentBB{NULL};
 	void checkAndSanitizeDependencies(InstructionToDependenciesMap& dependencies) const;

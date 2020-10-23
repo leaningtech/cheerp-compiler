@@ -1124,6 +1124,27 @@ bool CheerpWasmWriter::requiresExplicitAssigment(const Instruction* phi, const V
 	return !isSameRegister;
 }
 
+int CheerpWasmWriter::gainOfHandlingPhiOnTheEdge(const PHINode* phi, const Value* incoming) const
+{
+	const Instruction* incomingInst=getUniqueIncomingInst(incoming, PA);
+	if(!incomingInst)
+		return 2;
+	assert(!isInlineable(*incomingInst));
+	const bool isSameRegister = (registerize.getRegisterId(phi, EdgeContext::emptyContext())==registerize.getRegisterId(incomingInst, edgeContext));
+
+	return (isSameRegister ? -2 : +2);
+}
+
+int CheerpWasmWriter::gainOfHandlingPhiOnTheEdge(const PHINode* phi) const
+{
+	int res = -2;
+	for (unsigned int i = 0; i<phi->getNumIncomingValues(); i++)
+	{
+		res += gainOfHandlingPhiOnTheEdge(phi, phi->getIncomingValue(i));
+	}
+	return res;
+}
+
 void CheerpWasmWriter::compilePHIOfBlockFromOtherBlock(WasmBuffer& code, const BasicBlock* to, const BasicBlock* from, const PHINode* phiHandledAsResult)
 {
 	class WriterPHIHandler: public PHIHandlerUsingStack
