@@ -3441,13 +3441,25 @@ std::map<const llvm::BasicBlock*, const llvm::PHINode*> CheerpWasmWriter::select
 {
 	std::map<const llvm::BasicBlock*, const llvm::PHINode*> phiNodesHandledAsResult;
 
-	//TODO implement logic to find what's the most proficous PHINode
-	//For now select the first phi (if existing)
-
 	for (auto BB : possibleBB)
 	{
-		if (const PHINode* phi = dyn_cast<PHINode>(&*BB->begin()))
-			phiNodesHandledAsResult.insert({BB, phi});
+		std::pair<int, const llvm::PHINode*> best{0, nullptr};
+		for (const PHINode& phi : BB->phis())
+		{
+			std::pair<int, const llvm::PHINode*> curr{gainOfHandlingPhiOnTheEdge(&phi), &phi};
+			if (curr > best)
+				best = curr;
+		}
+
+		//Either best as be assigned something, so it's first member is > 0,
+		//or there weren't phi at all (and it remained 0),
+		//or there were not phi to be rentered for a gain (and it remained 0)
+		if (best.first > 0)
+		{
+			assert(best.second);
+			const PHINode* selectedPHI = best.second;
+			phiNodesHandledAsResult.insert({selectedPHI->getParent(), selectedPHI});
+		}
 	}
 
 	return phiNodesHandledAsResult;
