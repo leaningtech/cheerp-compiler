@@ -265,7 +265,10 @@ static void for_each_succ(const BasicBlock* BB, F f)
 	}
 	auto it = Destinations.find(Term->getSuccessor(DefaultIdx));
 	assert(it != Destinations.end());
-	f(it->first, it->second);
+
+	//The default destination might be nullptr
+	if (it->first)
+		f(it->first, it->second);
 }
 
 void TokenListBuilder::processBlockTerminator(Token* BBT, const DomTreeNode* CurNode)
