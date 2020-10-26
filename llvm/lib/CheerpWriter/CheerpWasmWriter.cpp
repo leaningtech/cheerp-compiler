@@ -2461,6 +2461,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::PtrToInt:
 		{
 			compileOperand(code, I.getOperand(0));
+			if (I.getType()->isIntegerTy(64))
+				encodeInst(WasmOpcode::I64_EXTEND_I32_U, code);
 			break;
 		}
 		case Instruction::Store:
@@ -2827,6 +2829,8 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		case Instruction::IntToPtr:
 		{
 			compileOperand(code, I.getOperand(0));
+			if (I.getType()->isIntegerTy(64))
+				encodeInst(WasmOpcode::I64_EXTEND_I32_U, code);
 			break;
 		}
 		case Instruction::Unreachable:
