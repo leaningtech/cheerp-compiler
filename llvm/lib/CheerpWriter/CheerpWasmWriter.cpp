@@ -4363,31 +4363,159 @@ void CheerpWasmWriter::WasmGepWriter::compileValue(const llvm::Value* v, uint32_
 
 uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllowed) const
 {
-	bool first = true;
-	for(auto& it: addedValues)
+	struct ValuesToAdd
 	{
-		compileValue(it.first, it.second);
-		if(!first)
-			writer.encodeInst(WasmOpcode::I32_ADD, code);
-		first = false;
+		ValuesToAdd(const llvm::Value* v, bool toInvert, uint32_t multiplier)
+			: v(v), toInvert(toInvert), multiplier(multiplier)
+		{
+		}
+		const llvm::Value* v;
+		bool toInvert;
+		uint32_t multiplier;
+	};
+
+	std::vector<ValuesToAdd> V;
+
+	for (auto& it: addedValues)
+	{
+		V.push_back(ValuesToAdd(it.first, /*toInvert*/false, it.second));
 	}
+
+	for (auto& it: subbedValues)
+	{
+		V.push_back(ValuesToAdd(it.first, /*toInvert*/true, it.second));
+	}
+	//Since we first insert addedValues and only then subbedValues
+	//And the sorting method is stable, for a given multiplier class,
+	//IFF there are values with toInvert == false they have to be clustered at the beginning
+
+	std::sort(V.begin(), V.end(), [](const ValuesToAdd& A, const ValuesToAdd& B) -> bool {
+				if (A.multiplier != B.multiplier)
+					return (A.multiplier > B.multiplier);
+				return false;
+			}
+	    );
+
+	struct GroupedValuesToAdd
+	{
+		GroupedValuesToAdd(uint32_t multiplier)
+			: constantPart(0), multiplier(multiplier)
+		{
+		}
+		void add(const ValuesToAdd& v)
+		{
+			assert(v.multiplier == multiplier);
+			if (v.toInvert)
+				valuesToInvert.push_back(v.v);
+			else
+				valuesToAdd.push_back(v.v);
+		}
+		void addConstant(uint32_t c)
+		{
+			assert(c % multiplier == 0);
+			assert(c > 0);
+			constantPart = c/multiplier;
+		}
+		bool hasPositive() const
+		{
+			return constantPart != 0 || !valuesToAdd.empty();
+		}
+		uint32_t constantPart;
+		uint32_t multiplier;
+		std::vector<const llvm::Value*> valuesToAdd;
+		std::vector<const llvm::Value*> valuesToInvert;
+	};
+
+	std::vector<GroupedValuesToAdd> V2;
+
+	for (auto& v: V)
+	{
+		if (V2.empty() || V2.back().multiplier != v.multiplier)
+		{
+			V2.push_back(GroupedValuesToAdd(v.multiplier));
+		}
+		V2.back().add(v);
+	}
+
+
+	std::sort(V2.begin(), V2.end(), [](const GroupedValuesToAdd& A, const GroupedValuesToAdd& B) -> bool {
+				if (A.hasPositive() != B.hasPositive())
+					return (!A.hasPositive());
+				return false;
+			}
+	    );
+
+	bool first = true;
 	uint32_t yetToBeEncodedOffset = constPart;
+
 	if(!positiveOffsetAllowed || constPart < 0)
 	{
 		writer.encodeInst(WasmS32Opcode::I32_CONST, constPart, code);
-		if(!first)
-			writer.encodeInst(WasmOpcode::I32_ADD, code);
 		first = false;
 		yetToBeEncodedOffset = 0;
 	}
+	else if (!V2.empty() && V2.front().hasPositive() == false)
+	{
+		writer.encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+		first = false;
+	}
+
+	for (const GroupedValuesToAdd& p : V2)
+	{
+		const bool hasPositive = p.hasPositive();
+		bool is_first = true;
+
+		if (p.constantPart)
+		{
+			writer.encodeInst(WasmS32Opcode::I32_CONST, p.constantPart, code);
+			is_first = false;
+		}
+
+		for (const llvm::Value* v : p.valuesToAdd)
+		{
+			writer.compileOperand(code, v);
+			if (!is_first)
+				writer.encodeInst(WasmOpcode::I32_ADD, code);
+			is_first = false;
+		}
+
+		for (const llvm::Value* v : p.valuesToInvert)
+		{
+			writer.compileOperand(code, v);
+			if (!is_first)
+				writer.encodeInst(WasmOpcode::I32_SUB, code);
+			is_first = false;
+		}
+
+		const uint32_t sizeCurr = p.multiplier;
+		if (sizeCurr > 1)
+		{
+			if (isPowerOf2_32(sizeCurr))
+			{
+				writer.encodeInst(WasmS32Opcode::I32_CONST, Log2_32(sizeCurr), code);
+				writer.encodeInst(WasmOpcode::I32_SHL, code);
+			}
+			else
+			{
+				writer.encodeInst(WasmS32Opcode::I32_CONST, sizeCurr, code);
+				writer.encodeInst(WasmOpcode::I32_MUL, code);
+			}
+		}
+
+		if(!first)
+		{
+			if (hasPositive)
+				writer.encodeInst(WasmOpcode::I32_ADD, code);
+			else
+				writer.encodeInst(WasmOpcode::I32_SUB, code);
+		}
+		first = false;
+	}
+
 	//In any case we should put something on the stack
 	if(first)
 		writer.encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-	for(auto& it: subbedValues)
-	{
-		compileValue(it.first, it.second);
-		writer.encodeInst(WasmOpcode::I32_SUB, code);
-	}
+
 	return yetToBeEncodedOffset;
 }
 
