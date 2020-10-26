@@ -818,7 +818,8 @@ void TokenListOptimizer::removeEmptyBasicBlocks()
 	passStart();
 	for_each_kind<Token::TK_BasicBlock>([&](Token* BBT)
 	{
-		if (isNumStatementsLessThan<1>(BBT->getBB(), PA, R))
+		if (isNumStatementsLessThan<1>(BBT->getBB(), PA, R)
+			&& !isa<UnreachableInst>(BBT->getBB()->getTerminator()))
 			erase(BBT);
 	});
 }
