@@ -4456,7 +4456,14 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 	}
 	else if (!V2.empty() && V2.front().hasPositive() == false)
 	{
-		writer.encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+		//If we have to put a 0, it's always beneficial to put the maximum value that comes in the single byte encoding
+		int smallOffset;
+		if (constPart > 0)
+			smallOffset = std::min(constPart, (int32_t)63);
+		else
+			smallOffset = std::max(constPart, (int32_t)-64);
+		writer.encodeInst(WasmS32Opcode::I32_CONST, smallOffset, code);
+		yetToBeEncodedOffset -= smallOffset;
 		first = false;
 	}
 
