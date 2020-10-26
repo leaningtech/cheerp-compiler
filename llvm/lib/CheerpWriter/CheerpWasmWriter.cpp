@@ -4454,7 +4454,7 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 		first = false;
 		yetToBeEncodedOffset = 0;
 	}
-	else if (!V2.empty() && V2.front().hasPositive() == false)
+	else if (V2.empty() || V2.front().hasPositive() == false)
 	{
 		//If we have to put a 0, it's always beneficial to put the maximum value that comes in the single byte encoding
 		int smallOffset;
@@ -4519,9 +4519,8 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 		first = false;
 	}
 
-	//In any case we should put something on the stack
-	if(first)
-		writer.encodeInst(WasmS32Opcode::I32_CONST, 0, code);
+	//In any case we have put something on the stack
+	assert(!first);
 
 	return yetToBeEncodedOffset;
 }
