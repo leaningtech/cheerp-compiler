@@ -1265,7 +1265,10 @@ void CheerpWasmWriter::compileGEP(WasmBuffer& code, const llvm::User* gep_inst, 
 		gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
 	else if(!isa<ConstantPointerNull>(p))
 		gepWriter.addValue(p, 1);
-	gepWriter.compileValues(/*useConstPart*/true);
+
+	//compileValues should encode the pointer completely
+	const uint32_t offset = gepWriter.compileValues(/*positiveOffsetAllowed*/false);
+	assert(offset == 0);
 }
 
 void CheerpWasmWriter::encodeBranchTable(WasmBuffer& code, std::vector<uint32_t> table, int32_t defaultBlock)
@@ -1813,17 +1816,9 @@ uint32_t CheerpWasmWriter::compileLoadStorePointer(WasmBuffer& code, const Value
 			gepWriter.addConst(linearHelper.getGlobalVariableAddress(GV));
 		else
 			gepWriter.addValue(p, 1);
-		// The immediate offset of a load instruction is an unsigned
-		// 32-bit integer. Negative immediate offsets are not supported.
-		// So let compileValues deal with the value
-		bool negativeConstPart = gepWriter.constPart < 0;
-		bool firstOperand = gepWriter.compileValues(/*useConstPart*/negativeConstPart);
-		if (!negativeConstPart) {
-			// There must be something on the stack
-			if (firstOperand)
-				encodeInst(WasmS32Opcode::I32_CONST, 0, code);
-			offset += gepWriter.constPart;
-		}
+
+		//compileValues returs the offset yet to be handled
+		offset = gepWriter.compileValues(/*positiveOffsetAllowed*/true);
 	} else {
 		const Constant* C = dyn_cast<Constant>(ptrOp);
 		if (C && !globalizedConstants.count(C))
@@ -4366,7 +4361,7 @@ void CheerpWasmWriter::WasmGepWriter::compileValue(const llvm::Value* v, uint32_
 	}
 }
 
-bool CheerpWasmWriter::WasmGepWriter::compileValues(bool useConstPart) const
+uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllowed) const
 {
 	bool first = true;
 	for(auto& it: addedValues)
@@ -4376,16 +4371,16 @@ bool CheerpWasmWriter::WasmGepWriter::compileValues(bool useConstPart) const
 			writer.encodeInst(WasmOpcode::I32_ADD, code);
 		first = false;
 	}
-	if(useConstPart && constPart != 0)
+	uint32_t yetToBeEncodedOffset = constPart;
+	if(!positiveOffsetAllowed || constPart < 0)
 	{
 		writer.encodeInst(WasmS32Opcode::I32_CONST, constPart, code);
 		if(!first)
 			writer.encodeInst(WasmOpcode::I32_ADD, code);
 		first = false;
+		yetToBeEncodedOffset = 0;
 	}
-	if(subbedValues.empty())
-		return first;
-	// To deal with subtracted values we need at least a value
+	//In any case we should put something on the stack
 	if(first)
 		writer.encodeInst(WasmS32Opcode::I32_CONST, 0, code);
 	for(auto& it: subbedValues)
@@ -4393,7 +4388,7 @@ bool CheerpWasmWriter::WasmGepWriter::compileValues(bool useConstPart) const
 		compileValue(it.first, it.second);
 		writer.encodeInst(WasmOpcode::I32_SUB, code);
 	}
-	return false;
+	return yetToBeEncodedOffset;
 }
 
 void CheerpWasmWriter::WasmGepWriter::addConst(int64_t v)
