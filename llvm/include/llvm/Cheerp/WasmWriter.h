@@ -433,7 +433,11 @@ private:
 			return true;
 		}
 		void compileValue(const llvm::Value* v, uint32_t size) const;
-		bool compileValues(bool useConstPart) const;
+
+		//compileValues will always put something on the stack
+		//the result will be the offset to be encoded in the load/store
+		//if positiveOffsetAllowed == false, the result will be always 0
+		uint32_t compileValues(bool positiveOffsetAllowed) const;
 	};
 	std::unordered_map<const llvm::Constant*, std::pair<uint32_t, GLOBAL_CONSTANT_ENCODING>> globalizedConstants;
 	LinearMemoryHelper::GlobalUsageMap globalizedGlobalsIDs;
