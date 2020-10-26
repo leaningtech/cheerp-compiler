@@ -3281,22 +3281,16 @@ void CheerpWasmWriter::compileBranchTable(WasmBuffer& code, const llvm::SwitchIn
 
 static int getResultKind(const Token& T)
 {
-	switch (T.getResultType())
-	{
-		case Token::TokenResultType::NONE:
-			return 0x40;
-		case Token::TokenResultType::I32:
-			return 0x7F;
-		case Token::TokenResultType::I64:
-			return 0x7E;
-		case Token::TokenResultType::F32:
-			return 0x7D;
-		case Token::TokenResultType::F64:
-			return 0x7C;
-		default:
-			break;
-	}
-	llvm_unreachable("Add code in getResultKind");
+	const int kind = T.getResultType();
+
+	//getResultType will map to the proper kind only for
+	//	NONE -> 0x40 and {I32, I64, F32 and F64} -> {0x7F, 0x7E, 0x7D, 0x7C}
+	if (kind != 0x40 && (kind > 0x7F || kind < 0x7C))
+		llvm_unreachable("Unexpected result type");
+
+	//currently anyref or multi-values are not handled
+
+	return kind;
 }
 
 const BasicBlock* CheerpWasmWriter::compileTokens(WasmBuffer& code,

@@ -56,11 +56,11 @@ public:
 	};
 
 	enum TokenResultType {
-		NONE,
-		I32,
-		I64,
-		F32,
-		F64,
+		NONE = 0x40,
+		I32 = 0x7F,
+		I64 = 0x7E,
+		F32 = 0x7D,
+		F64 = 0x7C,
 	};
 private:
 	TokenKind Kind;
