@@ -25,6 +25,7 @@ add_llvm_library(LLVMCheerpUtils
   FFIWrapping.cpp
   I64Lowering.cpp
   ConstantExprLowering.cpp
+  StoreMerging.cpp
   )
 
 add_dependencies(LLVMCheerpUtils intrinsics_gen)

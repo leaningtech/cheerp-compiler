@@ -491,6 +491,7 @@ void initializeFixFunctionCastsPass(PassRegistry&);
 void initializeByValLoweringPass(PassRegistry&);
 void initializeI64LoweringPassPass(PassRegistry&);
 void initializeConstantExprLoweringPass(PassRegistry&);
+void initializeStoreMergingPass(PassRegistry&);
 
 } // end namespace llvm
 
