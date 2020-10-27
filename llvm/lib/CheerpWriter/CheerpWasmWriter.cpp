@@ -4471,27 +4471,36 @@ uint32_t CheerpWasmWriter::WasmGepWriter::compileValues(bool positiveOffsetAllow
 			}
 	    );
 
-	bool first = true;
-	uint32_t yetToBeEncodedOffset = constPart;
-
-	if(!positiveOffsetAllowed || constPart < 0)
+	auto initializeYetToBeEncodedOffset = [this, &positiveOffsetAllowed](const std::vector<GroupedValuesToAdd>& V2, bool& first) -> uint32_t
 	{
-		writer.encodeInst(WasmS32Opcode::I32_CONST, constPart, code);
-		first = false;
-		yetToBeEncodedOffset = 0;
-	}
-	else if (V2.empty() || V2.front().hasPositive() == false)
-	{
-		//If we have to put a 0, it's always beneficial to put the maximum value that comes in the single byte encoding
-		int smallOffset;
-		if (constPart > 0)
-			smallOffset = std::min(constPart, (int32_t)63);
+		if(!positiveOffsetAllowed || constPart < 0)
+		{
+			writer.encodeInst(WasmS32Opcode::I32_CONST, constPart, code);
+			first = false;
+			return 0;
+		}
+		else if (V2.empty() || V2.front().hasPositive() == false)
+		{
+			//If we have to put a 0, it's always beneficial to put the maximum value that comes in the single byte encoding
+			int smallOffset;
+			if (constPart > 0)
+				smallOffset = std::min(constPart, (int32_t)63);
+			else
+				smallOffset = std::max(constPart, (int32_t)-64);
+			writer.encodeInst(WasmS32Opcode::I32_CONST, smallOffset, code);
+			first = false;
+			return constPart - smallOffset;
+		}
 		else
-			smallOffset = std::max(constPart, (int32_t)-64);
-		writer.encodeInst(WasmS32Opcode::I32_CONST, smallOffset, code);
-		yetToBeEncodedOffset -= smallOffset;
-		first = false;
-	}
+		{
+			return constPart;
+		}
+	};
+
+	bool first = true;
+	//The call to the lambda will properly initialize yetToBeEncodedOffset AND set first to true if something has been written in the stack
+	uint32_t yetToBeEncodedOffset = initializeYetToBeEncodedOffset(V2, first);
+
 
 	for (GroupedValuesToAdd& p : V2)
 	{
