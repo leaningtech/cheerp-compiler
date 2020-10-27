@@ -97,17 +97,8 @@ Constant* ConstantExprLowering::visitConstantExpr(const ConstantExpr *CE, SmallD
 				for (Constant* idx: Indices)
 				{
 					int64_t index = cast<ConstantInt>(idx)->getZExtValue();
-					if (StructType* ST = dyn_cast<StructType>(curTy))
-					{
-						const StructLayout* SL = DL->getStructLayout( ST );
-						Addr += SL->getElementOffset(index);
-						curTy = ST->getElementType(index);
-					}
-					else
-					{
-						Addr += index*DL->getTypeAllocSize(getElementType(curTy));
-						curTy = getElementType(curTy);
-					}
+					//curTy is modifyed by partialOffset
+					Addr += partialOffset(curTy, *DL, index);
 				}
 				auto *CI = ConstantInt::get(IntegerType::get(CE->getContext(), 32), Addr);
 				return ConstantExpr::getIntToPtr(CI, CE->getType());
