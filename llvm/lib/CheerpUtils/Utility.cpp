@@ -80,6 +80,24 @@ bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhi
 	return false;
 }
 
+int32_t partialOffset(llvm::Type* & curType, const llvm::DataLayout& DL, const int32_t index)
+{
+	int32_t partialOffset = 0;
+	if(llvm::StructType* ST = dyn_cast<llvm::StructType>(curType))
+	{
+		const llvm::StructLayout* SL = DL.getStructLayout( ST );
+		partialOffset = SL->getElementOffset(index);
+		curType = ST->getElementType(index);
+	}
+	else
+	{
+		const uint32_t elementSize = DL.getTypeAllocSize(getElementType(curType));
+		partialOffset = elementSize * index;
+		curType = getElementType(curType);
+	}
+	return partialOffset;
+}
+
 bool isInlineable(const Instruction& I, const PointerAnalyzer& PA)
 {
 	InlineableCache cache(PA);
