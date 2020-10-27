@@ -184,8 +184,16 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 		const Constant* constantLowValue = dyn_cast<Constant>(lowValue);
 		const Constant* constantHighValue = dyn_cast<Constant>(highValue);
 
-		//Only when both ValueOperands constants they are folded in a single store
-		if (!constantLowValue || !constantHighValue)
+		bool isConvenient = false;
+
+		//Both ValueOperands constants -> folded in a single store
+		if (constantLowValue && constantHighValue)
+			isConvenient = true;
+		//Higher ValueOperands 0 -> folded in a single store
+		if (constantHighValue && constantHighValue->isNullValue())
+			isConvenient = true;
+
+		if (!isConvenient)
 			continue;
 
 		auto& context = groupedSamePointer[a].first->getParent()->getContext();
