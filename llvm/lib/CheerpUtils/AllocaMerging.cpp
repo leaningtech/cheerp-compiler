@@ -715,18 +715,9 @@ bool AllocaStoresExtractor::runOnBasicBlock(BasicBlock& BB, const Module& module
 					totalOffset = -1;
 					break;
 				}
-				if(StructType* ST = dyn_cast<StructType>(curType))
-				{
-					const StructLayout* SL = DL->getStructLayout( ST );
-					totalOffset += SL->getElementOffset(index);
-					curType = ST->getElementType(index);
-				}
-				else
-				{
-					uint32_t elementSize = DL->getTypeAllocSize(getElementType(curType));
-					totalOffset += elementSize * index;
-					curType = getElementType(curType);
-				}
+
+				//curType is modifyed by the call
+				totalOffset += partialOffset(curType, *DL, index);
 			}
 			// If totalOffset is negative we can't analyze across this GEP, but we still need to check for memory escaping it
 			if(totalOffset >= 0)
