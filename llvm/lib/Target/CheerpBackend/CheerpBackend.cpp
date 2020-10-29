@@ -212,7 +212,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   PM.add(createPointerArithmeticToArrayIndexingPass());
   PM.add(createPointerToImmutablePHIRemovalPass());
   PM.add(createGEPOptimizerPass());
-  PM.add(cheerp::createStoreMergingPass());
+  PM.add(cheerp::createStoreMergingPass(LinearOutput == Wasm));
   // Remove obviously dead instruction, this avoids problems caused by inlining of effectfull instructions
   // inside not used instructions which are then not rendered.
   PM.add(createDeadInstEliminationPass());
