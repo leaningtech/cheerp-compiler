@@ -141,6 +141,10 @@ void StoreMerging::processBlockOfStores(std::vector<std::pair<llvm::StoreInst*, 
 	processBlockOfStores(2, groupedSamePointer, dimension, IRB);
 	filterAlreadyProcessedStores(groupedSamePointer, dimension);
 
+	//Do not create 64-bit asmjs stores
+	if (!isWasm)
+		return;
+
 	processBlockOfStores(4, groupedSamePointer, dimension, IRB);
 	filterAlreadyProcessedStores(groupedSamePointer, dimension);
 }
@@ -161,6 +165,11 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 
 		//Check they are consecutive
 		if (dim + groupedSamePointer[a].second != groupedSamePointer[b].second)
+			continue;
+
+		const uint32_t alignment = groupedSamePointer[a].first->getAlignment();
+
+		if (!isWasm && alignment < dim * 2)
 			continue;
 
 		Value* lowValue = groupedSamePointer[a].first->getValueOperand();
@@ -208,6 +217,7 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 
 		//Actually create the store
 		StoreInst* biggerStore = cast<StoreInst>(builder.CreateStore(sum, bitcast));
+		biggerStore->setAlignment(alignment);
 
 		//Bookkeeping 1: take note of what to later erase
 		toErase.push_back(groupedSamePointer[a].first);
@@ -261,7 +271,7 @@ std::pair<const llvm::Value*, int> StoreMerging::findBasePointerAndOffset(const 
 
 char StoreMerging::ID = 0;
 
-BasicBlockPass *cheerp::createStoreMergingPass() { return new StoreMerging(); }
+BasicBlockPass *cheerp::createStoreMergingPass(const bool isWasm) { return new StoreMerging(isWasm); }
 
 INITIALIZE_PASS_BEGIN(StoreMerging, "StoreMerging", "Merge adjacent stores",
                       false, false)

@@ -22,6 +22,7 @@ namespace cheerp
 class StoreMerging: public llvm::BasicBlockPass
 {
 private:
+	const bool isWasm;
 	const llvm::DataLayout* DL;
 	std::vector<llvm::StoreInst*> toErase;
 	std::pair<const llvm::Value*, int> findBasePointerAndOffset(const llvm::Value* pointer);
@@ -30,7 +31,7 @@ private:
 	void processBlockOfStores(const uint32_t dim, std::vector<std::pair<llvm::StoreInst*, int> > & groupedSamePointer, std::vector<uint32_t>& dimension, llvm::IRBuilder<>& builder);
 public:
 	static char ID;
-	explicit StoreMerging() : llvm::BasicBlockPass(ID), DL(NULL) { }
+	explicit StoreMerging(const bool isWasm = false) : llvm::BasicBlockPass(ID), isWasm(isWasm), DL(NULL) { }
 	bool runOnBasicBlock(llvm::BasicBlock& BB);
 	llvm::StringRef getPassName() const;
 };
@@ -42,7 +43,7 @@ public:
 // StoreMerging - This pass transform a pair of store to adjacent memory locations
 // to a single store for the integer type twice as big
 //
-llvm::BasicBlockPass *createStoreMergingPass();
+llvm::BasicBlockPass *createStoreMergingPass(const bool isWasm);
 
 }	//end namespace cheerp
 
