@@ -78,6 +78,24 @@ bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 	return Changed;
 }
 
+static void filterAlreadyProcessedStores(std::vector<std::pair<llvm::StoreInst*, int>>& groupedSamePointer, std::vector<uint32_t>& dimension)
+{
+	//Bookkeeping 3: remove the stores with dimension set to 0
+	//We use two temporary vectors, and then swap them out for the older ones
+	std::vector<std::pair<llvm::StoreInst*, int> > newGroupedSamePointer;
+	std::vector<uint32_t> newDimension;
+
+	for (uint32_t i=0; i<dimension.size(); i++)
+		if (dimension[i])
+	{
+		newGroupedSamePointer.push_back(groupedSamePointer[i]);
+		newDimension.push_back(dimension[i]);
+	}
+
+	std::swap(newGroupedSamePointer, groupedSamePointer);
+	std::swap(newDimension, dimension);
+}
+
 void StoreMerging::processBlockOfStores(std::vector<std::pair<llvm::StoreInst*, int> > groupedSamePointer)
 {
 	if (groupedSamePointer.size() < 2)
@@ -115,9 +133,16 @@ void StoreMerging::processBlockOfStores(std::vector<std::pair<llvm::StoreInst*, 
 	if (overlap)
 		return;
 
+	//Alternatively process a block of stores and filter out already consumed ones
+	//Processing with increasing dimension means that we may optimize even already optimized stores
 	processBlockOfStores(1, groupedSamePointer, dimension, IRB);
+	filterAlreadyProcessedStores(groupedSamePointer, dimension);
+
 	processBlockOfStores(2, groupedSamePointer, dimension, IRB);
+	filterAlreadyProcessedStores(groupedSamePointer, dimension);
+
 	processBlockOfStores(4, groupedSamePointer, dimension, IRB);
+	filterAlreadyProcessedStores(groupedSamePointer, dimension);
 }
 
 void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pair<llvm::StoreInst*, int> > & groupedSamePointer, std::vector<uint32_t>& dimension, IRBuilder<>& builder)
@@ -195,21 +220,6 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 
 		i = b;
 	}
-
-	//Bookkeeping 3: remove the stores with dimension set to 0
-	//We use two temporary vectors, and then swap them out for the older ones
-	std::vector<std::pair<llvm::StoreInst*, int> > newGroupedSamePointer;
-	std::vector<int> newDimension;
-
-	for (uint32_t i=0; i<N; i++)
-		if (dimension[i])
-	{
-		newGroupedSamePointer.push_back(groupedSamePointer[i]);
-		newDimension.push_back(dimension[i]);
-	}
-
-	std::swap(newGroupedSamePointer, groupedSamePointer);
-	std::swap(newDimension, dimension);
 }
 
 std::pair<const llvm::Value*, int> StoreMerging::findBasePointerAndOffset(const llvm::Value* pointer)
