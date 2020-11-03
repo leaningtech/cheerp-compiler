@@ -663,6 +663,7 @@ public:
 	void removeRedundantLoops();
 	void removeEmptyIfs();
 	void createBrIfs();
+	void createBrIfsFromIfs();
 	void mergeBlocks();
 	void removeUnnededNesting();
 	void adjustLoopEnds();
@@ -737,6 +738,7 @@ void TokenListOptimizer::runAll()
 	{
 		createBrIfs();
 		adjustBranchTarget();
+		createBrIfsFromIfs();
 	}
 }
 
@@ -917,6 +919,35 @@ void TokenListOptimizer::createBrIfs()
 		Tokens.insert(T->getIter(), BrIf);
 		erase(T);
 		erase(Branch);
+		erase(End);
+	});
+}
+
+void TokenListOptimizer::createBrIfsFromIfs()
+{
+	passStart();
+	for_each_kind<Token::TK_If | Token::TK_IfNot>([&](Token* T)
+	{
+		Token* End = T->getMatch();
+		if (End->getKind() != Token::TK_End)
+			return;
+		Token* End2 = End->getNextNode();
+
+		while (End2->getKind() == Token::TK_End && End2->getMatch()->getKind() == Token::TK_Loop)
+			End2 = End2->getNextNode();
+
+		if (End2->getKind() != Token::TK_End)
+			return;
+
+		if ((End2->getMatch()->getKind() & (Token::TK_Block | Token::TK_IfNot | Token::TK_If)) == 0)
+			return;
+
+		bool IsIfNot = T->getKind() == Token::TK_IfNot;
+		Token* BrIf = IsIfNot
+			? Token::createBrIf(T->getBB(), End2)
+			: Token::createBrIfNot(T->getBB(), End2);
+		Tokens.insert(T->getIter(), BrIf);
+		erase(T);
 		erase(End);
 	});
 }
