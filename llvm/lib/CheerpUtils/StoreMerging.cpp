@@ -175,6 +175,12 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 		Value* lowValue = groupedSamePointer[a].first->getValueOperand();
 		Value* highValue = groupedSamePointer[b].first->getValueOperand();
 
+		//For now avoid complexities related to float/double to int bitcasts
+		if (lowValue->getType()->isFloatTy())
+			continue;
+		if (highValue->getType()->isFloatTy())
+			continue;
+
 		const Constant* constantLowValue = dyn_cast<Constant>(lowValue);
 		const Constant* constantHighValue = dyn_cast<Constant>(highValue);
 
