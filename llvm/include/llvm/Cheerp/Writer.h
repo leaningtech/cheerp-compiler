@@ -202,19 +202,38 @@ private:
 				namegen.getBuiltinName(NameGenerator::Builtin::HEAP32), namegen.getBuiltinName(NameGenerator::Builtin::HEAPF32),
 				namegen.getBuiltinName(NameGenerator::Builtin::HEAPF64), namegen.getBuiltinName(NameGenerator::Builtin::HEAP64)}}
 		{
+			used.fill(false);
 		}
 		const llvm::StringRef& getHeapName(const int id)
 		{
+			markHeapNameAsUsed(id);
 			return heapNames[id];
+		}
+		bool isHeapNameUsed(const int id) const
+		{
+			return used[id];
+		}
+		void markHeapNameAsUsed(const int id)
+		{
+			used[id] = true;
 		}
 	private:
 		const std::array<llvm::StringRef,6> heapNames;
+		std::array<bool, 6> used;
 
 	} heapNames;
 
 	const llvm::StringRef& getHeapName(const int id)
 	{
 		return heapNames.getHeapName(id);
+	}
+	bool isHeapNameUsed(const int id) const
+	{
+		return heapNames.isHeapNameUsed(id);
+	}
+	void markHeapNameAsUsed(const int id)
+	{
+		heapNames.markHeapNameAsUsed(id);
 	}
 
 	// Stream to put the initialized asmjs memory into.

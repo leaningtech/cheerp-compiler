@@ -5712,6 +5712,7 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 				if (linearHelper.isZeroInitializer(init))
 					continue;
 
+				assert(isHeapNameUsed(HEAP8));
 				stream  << getHeapName(HEAP8) << ".set([";
 				JSBytesWriter bytesWriter(stream);
 				linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
@@ -5851,7 +5852,11 @@ void CheerpWriter::compileAssignHeaps(bool wasm)
 	int last = wasm ? LAST_WASM : LAST_ASMJS;
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(" << shortestName << "){" << NewLine;
 	for (int i = HEAP8; i<=last; i++)
+	{
+		if (!isHeapNameUsed(i))
+			continue;
 		stream << getHeapName(i) << "=new " << typedArrayNames[i] << "(" << shortestName << ");" << NewLine;
+	}
 	stream << "}" << NewLine;
 }
 
@@ -6068,6 +6073,9 @@ void CheerpWriter::compileImports()
 
 void CheerpWriter::compileAsmJSClosure()
 {
+	//HEAP8 is used in various special situations (eg. initialization of globals) in AsmJs
+	markHeapNameAsUsed(HEAP8);
+
 	// compile boilerplate
 	stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
 	stream << "\"use asm\";" << NewLine;
@@ -6239,7 +6247,11 @@ void CheerpWriter::compileWasmLoader()
 	if (globalDeps.needAsmJS())
 	{
 		for (int i = HEAP8; i<=LAST_WASM; i++)
+		{
+			if (!isHeapNameUsed(i))
+				continue;
 			stream << getHeapName(i) << "=null,";
+		}
 	}
 	stream << "__asm=null,";
 	stream << "__heap=null;";
