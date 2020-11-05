@@ -657,7 +657,7 @@ public:
 		: Tokens(Tokens), R(R), PA(PA), Mode(Mode)
 		, ItPt(Tokens.end()), RemovedItPt(false) {}
 	void runAll();
-	void removeRedundantBranches();
+	void removeRedundantBranches(const bool removeAlsoBlockAndEnd = false);
 	void removeEmptyBasicBlocks();
 	void removeEmptyPrologues();
 	void removeRedundantLoops();
@@ -724,7 +724,7 @@ private:
 };
 void TokenListOptimizer::runAll()
 {
-	removeRedundantBranches();
+	removeRedundantBranches(/*removeAlsoBlockAndEnd*/true);
 	removeEmptyPrologues();
 	removeEmptyBasicBlocks();
 	removeRedundantLoops();
@@ -740,6 +740,7 @@ void TokenListOptimizer::runAll()
 		adjustBranchTarget();
 		createBrIfsFromIfs();
 	}
+	removeRedundantBranches(/*removeAlsoBlockAndEnd*/false);
 }
 
 static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
@@ -763,7 +764,7 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
 	}
 	return true;
 }
-void TokenListOptimizer::removeRedundantBranches()
+void TokenListOptimizer::removeRedundantBranches(const bool removeAlsoBlockAndEnd)
 {
 	passStart();
 	for_each_kind<Token::TK_Branch>([&](Token* Branch)
@@ -771,15 +772,25 @@ void TokenListOptimizer::removeRedundantBranches()
 		Token* End = Branch->getMatch();
 		if (End->getKind() == Token::TK_Loop)
 			return;
+
 		assert(End->getKind() == Token::TK_End);
 		Token* Block = End->getMatch();
-		assert(Block->getKind() == Token::TK_Block);
+		if (Block->getKind() != Token::TK_Block)
+		{
+			assert(!removeAlsoBlockAndEnd);
+			return;
+		}
+
 		assert(Branch->getNextNode() != nullptr);
 		if (isNaturalFlow(Branch->getIter(), End->getIter()))
 		{
 			erase(Branch);
-			erase(Block);
-			erase(End);
+
+			if (removeAlsoBlockAndEnd)
+			{
+				erase(Block);
+				erase(End);
+			}
 		}
 	});
 }
