@@ -193,10 +193,28 @@ private:
 	TypeSupport types;
 	std::set<const llvm::GlobalVariable*> compiledGVars;
 	const std::array<const char*,6> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array","BigInt64Array"}};
-	const std::array<llvm::StringRef,6> heapNames;
+
+	class HeapNames
+	{
+	public:
+		HeapNames(NameGenerator& namegen) :
+			heapNames{{namegen.getBuiltinName(NameGenerator::Builtin::HEAP8), namegen.getBuiltinName(NameGenerator::Builtin::HEAP16),
+				namegen.getBuiltinName(NameGenerator::Builtin::HEAP32), namegen.getBuiltinName(NameGenerator::Builtin::HEAPF32),
+				namegen.getBuiltinName(NameGenerator::Builtin::HEAPF64), namegen.getBuiltinName(NameGenerator::Builtin::HEAP64)}}
+		{
+		}
+		const llvm::StringRef& getHeapName(const int id)
+		{
+			return heapNames[id];
+		}
+	private:
+		const std::array<llvm::StringRef,6> heapNames;
+
+	} heapNames;
+
 	const llvm::StringRef& getHeapName(const int id)
 	{
-		return heapNames[id];
+		return heapNames.getHeapName(id);
 	}
 
 	// Stream to put the initialized asmjs memory into.
@@ -584,9 +602,7 @@ public:
 		namegen(namegen),
 		allocaStoresExtractor(allocaStoresExtractor),
 		types(m),
-		heapNames{{namegen.getBuiltinName(NameGenerator::Builtin::HEAP8), namegen.getBuiltinName(NameGenerator::Builtin::HEAP16),
-			namegen.getBuiltinName(NameGenerator::Builtin::HEAP32), namegen.getBuiltinName(NameGenerator::Builtin::HEAPF32),
-			namegen.getBuiltinName(NameGenerator::Builtin::HEAPF64), namegen.getBuiltinName(NameGenerator::Builtin::HEAP64)}},
+		heapNames(namegen),
 		asmJSMem(asmJSMem),
 		asmJSMemFile(asmJSMemFile),
 		sourceMapGenerator(sourceMapGenerator),
