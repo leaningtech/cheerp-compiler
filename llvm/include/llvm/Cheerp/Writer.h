@@ -194,6 +194,10 @@ private:
 	std::set<const llvm::GlobalVariable*> compiledGVars;
 	const std::array<const char*,6> typedArrayNames = {{"Uint8Array","Uint16Array","Int32Array","Float32Array","Float64Array","BigInt64Array"}};
 	const std::array<llvm::StringRef,6> heapNames;
+	const llvm::StringRef& getHeapName(const int id)
+	{
+		return heapNames[id];
+	}
 
 	// Stream to put the initialized asmjs memory into.
 	llvm::raw_ostream* asmJSMem;
