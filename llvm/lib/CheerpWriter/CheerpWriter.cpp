@@ -816,10 +816,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	{
 		if (asmjs)
 		{
-			stream << heapNames[HEAP32] << '[';
+			stream << getHeapName(HEAP32) << '[';
 			compileRawPointer(*it, PARENT_PRIORITY::SHIFT);
 			stream << ">>2]=";
-			stream << heapNames[HEAP32] << '[';
+			stream << getHeapName(HEAP32) << '[';
 			compileRawPointer(*(it+1), PARENT_PRIORITY::SHIFT);
 			stream << ">>2]|0";
 			return COMPILE_OK;
@@ -1694,32 +1694,32 @@ int CheerpWriter::compileHeapForType(Type* et)
 	uint32_t shift=0;
 	if(et->isIntegerTy(8) || et->isIntegerTy(1))
 	{
-		stream << heapNames[HEAP8];
+		stream << getHeapName(HEAP8);
 		shift = 0;
 	}
 	else if(et->isIntegerTy(16))
 	{
-		stream << heapNames[HEAP16];
+		stream << getHeapName(HEAP16);
 		shift = 1;
 	}
 	else if(et->isIntegerTy(32) || et->isPointerTy() || et->isArrayTy())
 	{
-		stream << heapNames[HEAP32];
+		stream << getHeapName(HEAP32);
 		shift = 2;
 	}
 	else if(et->isIntegerTy(64))
 	{
-		stream << heapNames[HEAP64];
+		stream << getHeapName(HEAP64);
 		shift = 3;
 	}
 	else if(et->isFloatTy())
 	{
-		stream << heapNames[HEAPF32];
+		stream << getHeapName(HEAPF32);
 		shift = 2;
 	}
 	else if(et->isDoubleTy())
 	{
-		stream << heapNames[HEAPF64];
+		stream << getHeapName(HEAPF64);
 		shift = 3;
 	}
 	else
@@ -4163,10 +4163,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			{
 				// floats are promoted to double as per standard
 				if (vi.getType()->isFloatingPointTy())
-					stream<< '+' << heapNames[HEAPF64];
+					stream<< '+' << getHeapName(HEAPF64);
 				// int8 and int16 are promoted to int32 as per standard
 				else if (vi.getType()->isIntegerTy() || vi.getType()->isPointerTy())
-					stream << heapNames[HEAP32];
+					stream << getHeapName(HEAP32);
 				stream << '[';
 				compileHeapAccess(vi.getPointerOperand());
 				if (vi.getType()->isIntegerTy() || vi.getType()->isPointerTy() || vi.getType()->isFloatTy())
@@ -5712,7 +5712,7 @@ void CheerpWriter::compileGlobalsInitAsmJS()
 				if (linearHelper.isZeroInitializer(init))
 					continue;
 
-				stream  << heapNames[HEAP8] << ".set([";
+				stream  << getHeapName(HEAP8) << ".set([";
 				JSBytesWriter bytesWriter(stream);
 				linearHelper.compileConstantAsBytes(init,/* asmjs */ true, &bytesWriter);
 				stream << "]," << linearHelper.getGlobalVariableAddress(GV) << ");" << NewLine;
@@ -5851,7 +5851,7 @@ void CheerpWriter::compileAssignHeaps(bool wasm)
 	int last = wasm ? LAST_WASM : LAST_ASMJS;
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(" << shortestName << "){" << NewLine;
 	for (int i = HEAP8; i<=last; i++)
-		stream << heapNames[i] << "=new " << typedArrayNames[i] << "(" << shortestName << ");" << NewLine;
+		stream << getHeapName(i) << "=new " << typedArrayNames[i] << "(" << shortestName << ");" << NewLine;
 	stream << "}" << NewLine;
 }
 
@@ -6074,7 +6074,7 @@ void CheerpWriter::compileAsmJS()
 	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.stackStart|0;" << NewLine;
 	for (int i = HEAP8; i<=LAST_ASMJS; i++)
 	{
-		stream << "var "<<heapNames[i]<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
+		stream << "var "<<getHeapName(i)<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
 	}
 	compileMathDeclAsmJS();
 	compileBuiltins(true);
@@ -6132,7 +6132,7 @@ void CheerpWriter::compileAsmJS()
 	stream << "};" << NewLine;
 	stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 	for (int i = HEAP8; i<=LAST_ASMJS; i++)
-		stream << "var " << heapNames[i] << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
+		stream << "var " << getHeapName(i) << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
 
 	compileDummies();
 
@@ -6235,7 +6235,7 @@ void CheerpWriter::compileWasmLoader()
 	if (globalDeps.needAsmJS())
 	{
 		for (int i = HEAP8; i<=LAST_WASM; i++)
-			stream << heapNames[i] << "=null,";
+			stream << getHeapName(i) << "=null,";
 	}
 	stream << "__asm=null,";
 	stream << "__heap=null;";
@@ -6464,7 +6464,7 @@ void CheerpWriter::compileAsmJSLoader()
 	compileDeclareExports();
 
 	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "('" << asmJSMemFile << "').then(r=>{" << NewLine;
-	stream << heapNames[HEAP8] << ".set(new Uint8Array(r),";
+	stream << getHeapName(HEAP8) << ".set(new Uint8Array(r),";
 	stream << linearHelper.getStackStart() << ");" << NewLine;
 	stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
 
