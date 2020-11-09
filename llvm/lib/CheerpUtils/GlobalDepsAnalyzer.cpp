@@ -648,6 +648,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	//Check agains the previous set what CallInstruction are actually impossible (and remove them)
 	std::vector<llvm::CallInst*> unreachList;
+	std::vector<std::pair<llvm::CallInst*, llvm::Function*> > devirtualizedCalls;
 
 	//Fixing function casts implies that new functions types will be created
 	//Exporting the table implies that functions can be added outside of our control
@@ -680,10 +681,13 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						// For this signature there is only one indirectly use function, we can devirtualize it
 						assert(ci->getCalledFunction() == nullptr);
 						assert(!isa<Function>(ci->getCalledValue()));
-						llvm::Constant* devirtualizedCall = it->second.funcs[0].F;
+						llvm::Function* toBeCalledFunc = it->second.funcs[0].F;
+						llvm::Constant* devirtualizedCall = toBeCalledFunc;
 						if(devirtualizedCall->getType() != calledValue->getType())
 							devirtualizedCall = ConstantExpr::getBitCast(devirtualizedCall, calledValue->getType());
 						ci->setCalledFunction(devirtualizedCall);
+
+						devirtualizedCalls.push_back({ci, toBeCalledFunc});
 					}
 					it->second.signatureUsed = true;
 				}
@@ -706,6 +710,20 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				new llvm::UnreachableInst(unreachableBlock->getContext(), unreachableBlock);
 			}
 		}
+	}
+
+	//Avoid too much inlining of devirtualized calls
+	for (auto pair : devirtualizedCalls)
+	{
+		llvm::CallInst& CI = *pair.first;
+		llvm::Function& F = *pair.second;
+
+		int countUsers = 0;
+		for (const Use& U : F.uses())
+			countUsers++;
+
+		if (countUsers > 1 && F.getInstructionCount() > 10u)
+			CI.setIsNoInline();
 	}
 
 	std::set<llvm::Function*> modifiedFunctions;
