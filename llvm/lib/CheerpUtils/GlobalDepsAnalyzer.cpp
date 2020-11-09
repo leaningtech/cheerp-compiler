@@ -613,11 +613,30 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		{
 		}
 	};
+
+	auto isSingleUnreachable = [](const llvm::Function& F) -> bool
+	{
+		if (F.getInstructionCount() != 1)
+			return false;
+
+		for (const llvm::BasicBlock& BB : F)
+			for (const llvm::Instruction& I : BB)
+				if (!isa<UnreachableInst>(I))
+					return false;
+
+		return true;
+	};
+
 	std::unordered_map<FunctionType*, IndirectFunctionsData, LinearMemoryHelper::FunctionSignatureHash<true>, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
 	for (Function& F : module.getFunctionList())
 	{
 		if (F.getSection() != StringRef("asmjs"))
 			continue;
+
+		//If a given function is composed only of unreachable instructions, it can be excluded from consideration as possible call_indirect target
+		if (isSingleUnreachable(F))
+			continue;
+
 		// Similar logic to hasAddressTaken, but we also need to find out if there is any direct use
 		bool hasIndirectUse = false;
 		bool hasDirectUse = F.hasExternalLinkage();
