@@ -726,12 +726,18 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			CI.setIsNoInline();
 	}
 
-	std::set<llvm::Function*> modifiedFunctions;
+	std::unordered_set<llvm::Function*> modifiedFunctions;
+
+	//Processing has to be done in reverse, so that multiple unreachable callInst in the same BasicBlock are processed from the last to the first
+	//This avoid erasing the latter ones while processing the first
+	std::reverse(unreachList.begin(), unreachList.end());
 	for (CallInst* ci : unreachList)
 	{
 		modifiedFunctions.insert(ci->getParent()->getParent());
 		llvm::changeToUnreachable(ci, /*UseTrap*/false);
 	}
+
+	//Clean up unreachable blocks
 	for (Function* F : modifiedFunctions)
 	{
 		removeUnreachableBlocks(*F);
