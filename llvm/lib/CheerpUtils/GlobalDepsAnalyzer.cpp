@@ -749,8 +749,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	//Processing has to be done in reverse, so that multiple unreachable callInst in the same BasicBlock are processed from the last to the first
 	//This avoid erasing the latter ones while processing the first
-	std::reverse(unreachList.begin(), unreachList.end());
-	for (CallInst* ci : unreachList)
+	for (CallInst* ci : reverse(unreachList))
 	{
 		modifiedFunctions.insert(ci->getParent()->getParent());
 		llvm::changeToUnreachable(ci, /*UseTrap*/false);
