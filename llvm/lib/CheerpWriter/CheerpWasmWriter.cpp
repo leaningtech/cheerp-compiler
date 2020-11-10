@@ -3791,30 +3791,30 @@ CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstan
 {
 	assert(useCount > 1);
 
-	auto computeCostAsLiteral = [](const Constant* C) -> std::pair<bool, uint32_t> {
+	auto computeCostAsLiteral = [](const Constant* C) -> uint32_t {
 		const Type* type = C->getType();
 		if (type->isDoubleTy())
-			return {true, 9};
+			return 9;
 		if (type->isFloatTy())
-			return {true, 5};
+			return 5;
 		if (type->isIntegerTy(64))
 		{
 			//The case left out is Undefined (+possibly other corner cases), that it not worth encoding
 			if (const ConstantInt* CI = dyn_cast<ConstantInt>(C))
 			{
 				const uint32_t encodingLength = getSLEBEncodingLength(CI->getSExtValue());
-				return {true, encodingLength};
+				return 1+encodingLength;
 			}
 		}
 		// We don't try to globalize 32bit integer constants as that has a negative performance impact
-		return {false, 0};
+		return 0;
 	};
 
-	const auto computeCost = computeCostAsLiteral(C);
+	const uint32_t computeCost = computeCostAsLiteral(C);
 
-	if (computeCost.first)
+	if (computeCost)	//0 => globalization do not make sense
 	{
-		const uint32_t costAsLiteral = computeCost.second;
+		const uint32_t costAsLiteral = computeCost;
 		// 1 (type) + costAsLiteral + 1 (end byte)
 		const uint32_t globalInitCost = 2 + costAsLiteral;
 		const uint32_t globalUsesCost = globalInitCost + getGlobalCost * useCount;
