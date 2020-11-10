@@ -627,6 +627,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		return true;
 	};
 
+	std::vector<Function*> toUnreachable;
 	std::unordered_map<FunctionType*, IndirectFunctionsData, LinearMemoryHelper::FunctionSignatureHash<true>, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
 	for (Function& F : module.getFunctionList())
 	{
@@ -660,6 +661,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				hasIndirectUse = true;
 			}
 		}
+
 		if(!hasIndirectUse)
 			continue;
 		validIndirectCallTypesMap[F.getFunctionType()].funcs.emplace_back(&F, hasDirectUse);
@@ -722,11 +724,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 			{
 				if(fIt.directlyUsed)
 					continue;
-				// Replace the body with a single unreachable instruction
-				// We need this placeholder to properly satisfy code that wants a non-zero address for this function
-				fIt.F->deleteBody();
-				llvm::BasicBlock* unreachableBlock = llvm::BasicBlock::Create(fIt.F->getContext(), "", fIt.F);
-				new llvm::UnreachableInst(unreachableBlock->getContext(), unreachableBlock);
+				toUnreachable.push_back(fIt.F);
 			}
 		}
 	}
@@ -753,6 +751,15 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	{
 		modifiedFunctions.insert(ci->getParent()->getParent());
 		llvm::changeToUnreachable(ci, /*UseTrap*/false);
+	}
+
+	for (auto f : toUnreachable)
+	{
+		// Replace the body with a single unreachable instruction
+		// We need this placeholder to properly satisfy code that wants a non-zero address for this function
+		f->deleteBody();
+		llvm::BasicBlock* unreachableBlock = llvm::BasicBlock::Create(f->getContext(), "", f);
+		new llvm::UnreachableInst(unreachableBlock->getContext(), unreachableBlock);
 	}
 
 	//Clean up unreachable blocks
