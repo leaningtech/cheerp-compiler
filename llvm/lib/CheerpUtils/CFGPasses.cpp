@@ -112,6 +112,117 @@ void LowerAndOrBranches::fixTargetPhis(llvm::BasicBlock* originalPred, llvm::Bas
 
 bool LowerAndOrBranches::runOnFunction(Function& F)
 {
+	bool Changed = false;
+
+	const Type* boolean = Type::getInt1Ty(F.getContext());
+	std::vector<Instruction*> toBeErased;
+	for (llvm::BasicBlock& BB: F)
+	{
+		for (Instruction& I : BB)
+		{
+			if (I.getType() != boolean)
+				continue;
+			if (I.getOpcode() != Instruction::And)
+				continue;
+
+			ICmpInst* A = dyn_cast<ICmpInst>(I.getOperand(0));
+			ICmpInst* B = dyn_cast<ICmpInst>(I.getOperand(1));
+
+			//Consider only integer aritmethics
+			if (A && B)
+			{
+				//Consider only ( a==b && c==d)
+				if (A->getPredicate() != ICmpInst::ICMP_EQ)
+					continue;
+				if (B->getPredicate() != ICmpInst::ICMP_EQ)
+					continue;
+
+				//We may consider pointer operands only in linear addressing mode (since it requires a PtrToInt
+				if ((A->getOperand(0)->getType()->isPointerTy() || B->getOperand(0)->getType()->isPointerTy()) &&
+					(F.getSection() != StringRef("asmjs")))
+					continue;
+
+				auto requiredSize = [](const Type* type) -> int
+				{
+					if (type->isPointerTy())
+						return 32;
+					if (type->isIntegerTy(32))
+						return 32;
+					if (type->isIntegerTy(64))
+						return 64;
+					if (type->isIntegerTy(16))
+						return 16;
+					if (type->isIntegerTy(8))
+						return 8;
+					return 32;
+				};
+
+				Type* targetType = Type::getInt32Ty(F.getContext());
+				int maxSize = std::max(requiredSize(A->getOperand(0)->getType()), requiredSize(B->getOperand(0)->getType()));
+				if (maxSize == 64)
+					targetType = Type::getInt64Ty(F.getContext());
+
+				auto getOperandToIntegerType = [&](Value* value) -> Value*
+				{
+					if (value->getType()->isPointerTy())
+						return new PtrToIntInst(value, Type::getInt32Ty(F.getContext()), value->getName()+".toint", &I);
+					return value;
+				};
+
+				//Gather the 4 operands (possibly after performing PtrToInt on them)
+				Value *A0 = getOperandToIntegerType(A->getOperand(0));
+				Value *A1 = getOperandToIntegerType(A->getOperand(1));
+				Value *B0 = getOperandToIntegerType(B->getOperand(0));
+				Value *B1 = getOperandToIntegerType(B->getOperand(1));
+
+				auto doXorAndExtend = [&](Value* a, Value* b) -> Value*
+				{
+					bool isZero = false;
+					if (Constant* C = dyn_cast<Constant>(b))
+						if (C->isZeroValue())
+							isZero = true;
+
+					Value* res = nullptr;
+					if (isZero)
+						res = a;
+					else
+						res = BinaryOperator::CreateXor(a, b, "", &I);
+
+					if (res->getType() != targetType)
+						res = new ZExtInst(res, targetType, "", &I);
+
+					return res;
+				};
+
+				//Xor the couple of values, so if (a == b) is the same as ((a^b) == 0)
+				Value* xor1 = doXorAndExtend(A0, A1);
+				Value* xor2 = doXorAndExtend(B0, B1);
+
+				//Or the xors, since only if both were 0 the orOfXor would be 0, and >0 in all other cases
+				Instruction * orOfXor = BinaryOperator::CreateOr(xor1, xor2, "", &I);
+
+				//New comparions, orOfXor against 0
+				ICmpInst * compare = new ICmpInst(ICmpInst::ICMP_EQ, orOfXor, ConstantInt::get(targetType, 0));
+				compare->insertAfter(orOfXor);
+
+				I.replaceAllUsesWith(compare);
+				toBeErased.push_back(&I);
+
+				if (A->use_empty())
+					A->eraseFromParent();
+				if (B->use_empty())
+					B->eraseFromParent();
+
+				Changed = true;
+			}
+		}
+	}
+
+	for (Instruction* I : toBeErased)
+	{
+		I->eraseFromParent();
+	}
+
 	// Gather all the BranchInst we need to analyze, this vector can grow over time
 	llvm::SmallVector<llvm::BranchInst*, 4> condBraches;
 	for(llvm::BasicBlock& BB: F)
@@ -122,7 +233,6 @@ bool LowerAndOrBranches::runOnFunction(Function& F)
 			continue;
 		condBraches.push_back(bi);
 	}
-	bool Changed = false;
 	for(uint32_t i=0;i<condBraches.size();i++)
 	{
 		llvm::BranchInst* bi = condBraches[i];
