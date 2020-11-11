@@ -3799,8 +3799,12 @@ CheerpWasmWriter::GLOBAL_CONSTANT_ENCODING CheerpWasmWriter::shouldEncodeConstan
 			return {true, 5};
 		if (type->isIntegerTy(64))
 		{
-			const uint32_t encodingLength = getSLEBEncodingLength(cast<ConstantInt>(C)->getSExtValue());
-			return {true, encodingLength};
+			//The case left out is Undefined (+possibly other corner cases), that it not worth encoding
+			if (const ConstantInt* CI = dyn_cast<ConstantInt>(C))
+			{
+				const uint32_t encodingLength = getSLEBEncodingLength(CI->getSExtValue());
+				return {true, encodingLength};
+			}
 		}
 		// We don't try to globalize 32bit integer constants as that has a negative performance impact
 		return {false, 0};
