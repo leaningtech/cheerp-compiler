@@ -3957,7 +3957,7 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 			continue;
 		}
 
-		// NOTE: It is not the same as getIntEncodingLength since the global id is unsigned
+		// NOTE: It is not the same as getSLEBEcodingLength since the global id is unsigned
 		const uint32_t getGlobalCost = getULEBEncodingLength(globalId) + 1;
 
 		GLOBAL_CONSTANT_ENCODING encoding = shouldEncodeConstantAsGlobal(GC.C, GC.useCount, getGlobalCost);
