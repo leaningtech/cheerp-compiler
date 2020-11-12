@@ -715,7 +715,8 @@ private:
 	void compileModuleClosureEnd();
 	void compileHelpers();
 	void compileImports();
-	void compileAsmJS();
+	void compileAsmJSClosure();
+	void compileAsmJSTopLevel();
 	void compileGenericJS();
 	void compileWasmLoader();
 	void compileAsmJSLoader();
