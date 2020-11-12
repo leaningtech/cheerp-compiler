@@ -735,11 +735,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 		llvm::CallInst& CI = *pair.first;
 		llvm::Function& F = *pair.second;
 
-		int countUsers = 0;
-		for (const Use& U : F.uses())
-			countUsers++;
-
-		if (countUsers > 1 && F.getInstructionCount() > 10u)
+		if (F.getInstructionCount() > 10u)
 			CI.setIsNoInline();
 	}
 
