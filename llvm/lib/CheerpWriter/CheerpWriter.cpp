@@ -6066,7 +6066,7 @@ void CheerpWriter::compileImports()
 	}
 }
 
-void CheerpWriter::compileAsmJS()
+void CheerpWriter::compileAsmJSClosure()
 {
 	// compile boilerplate
 	stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
@@ -6130,11 +6130,15 @@ void CheerpWriter::compileAsmJS()
 	}
 	stream << "};" << NewLine;
 	stream << "};" << NewLine;
+}
+
+void CheerpWriter::compileAsmJSTopLevel()
+{
+	compileDummies();
+
 	stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
 	for (int i = HEAP8; i<=LAST_ASMJS; i++)
 		stream << "var " << getHeapName(i) << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
-
-	compileDummies();
 
 	stream << "var ffi = {" << NewLine;
 	stream << "heapSize:__heap.byteLength," << NewLine;
@@ -6560,13 +6564,17 @@ void CheerpWriter::makeJS()
 		compileModuleClosureBegin();
 	compileHelpers();
 	if (needAsmJSModule)
-		compileAsmJS();
+		compileAsmJSClosure();
 	compileGenericJS();
 
 	compileNamespaces();
 
 	if (needAssignHeaps)
 		compileAssignHeaps(needWasmLoader);
+
+	if (needAsmJSModule)
+		compileAsmJSTopLevel();
+
 	if (needWasmLoader)
 		compileWasmLoader();
 	else if (needAsmJSLoader)
