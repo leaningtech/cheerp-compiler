@@ -6080,10 +6080,7 @@ void CheerpWriter::compileAsmJSClosure()
 	stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
 	stream << "\"use asm\";" << NewLine;
 	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.stackStart|0;" << NewLine;
-	for (int i = HEAP8; i<=LAST_ASMJS; i++)
-	{
-		stream << "var "<<getHeapName(i)<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
-	}
+
 	compileMathDeclAsmJS();
 	compileBuiltins(true);
 	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << "=ffi." << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY) << ";" << NewLine;
@@ -6118,6 +6115,13 @@ void CheerpWriter::compileAsmJSClosure()
 
 	compileFunctionTablesAsmJS();
 
+	for (int i = HEAP8; i<=LAST_ASMJS; i++)
+	{
+		if (!isHeapNameUsed(i))
+			continue;
+		stream << "var "<<getHeapName(i)<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
+	}
+
 	stream << "return {" << NewLine;
 	// export constructors
 	for (const Function * F : globalDeps.constructors() )
@@ -6145,9 +6149,27 @@ void CheerpWriter::compileAsmJSTopLevel()
 	compileDummies();
 
 	stream << "var __heap = new ArrayBuffer("<<heapSize*1024*1024<<");" << NewLine;
-	for (int i = HEAP8; i<=LAST_ASMJS; i++)
-		stream << "var " << getHeapName(i) << "= new " << typedArrayNames[i] << "(__heap);" << NewLine;
+	{
+		//Declare used HEAPs variables to null, to be inizializated by a later call to ASSIGN_HEAPS
+		bool isFirst = true;
+		for (int i = HEAP8; i<=LAST_ASMJS; i++)
+		{
+			if (!isHeapNameUsed(i))
+				continue;
 
+			if (isFirst)
+				stream << "var ";
+			else
+				stream << ",";
+			isFirst = false;
+			stream << getHeapName(i) << "=null";
+		}
+		if (!isFirst)
+			stream << ";" << NewLine;
+		else
+			llvm_unreachable("We expect to have at least HEAP8");
+	}
+	stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	stream << "var ffi = {" << NewLine;
 	stream << "heapSize:__heap.byteLength," << NewLine;
 	stream << "stackStart:" << linearHelper.getStackStart() << ',' << NewLine;
@@ -6171,6 +6193,7 @@ void CheerpWriter::compileAsmJSTopLevel()
 	stream << "NaN:NaN,"<<NewLine;
 	for (int i = HEAP8; i<=LAST_ASMJS; i++)
 	{
+		//Here we forward declare all types, since they may be used even without explicitly mentioning the relative HEAPs
 		stream << typedArrayNames[i] << ':' << typedArrayNames[i] << ',' << NewLine;
 	}
 	stream << "};" << NewLine;
@@ -6566,7 +6589,8 @@ void CheerpWriter::makeJS()
 	bool needWasmLoader = !wasmFile.empty();
 	bool needAsmJSLoader = needAsmJSModule && asmJSMem;
 	bool needAssignHeaps = globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM) ||
-				(needWasmLoader && globalDeps.needAsmJS());
+				(needWasmLoader && globalDeps.needAsmJS()) ||
+				needAsmJSModule;
 
 	if (needSourceMaps)
 		compileSourceMapsBegin();
