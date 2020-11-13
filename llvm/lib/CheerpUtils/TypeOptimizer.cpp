@@ -1131,13 +1131,13 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 				Type* rewrittenArgType = rewriteType(argType->getPointerElementType());
 				if(rewrittenArgType->isArrayTy())
 				{
-					CurAttrs.removeAttribute(F->getContext(), Attribute::ByVal);
+					PAL = PAL.removeParamAttribute(F->getContext(), i, Attribute::ByVal);
 				}
 			}
-			ArgAttrVec.push_back(CurAttrs);
+			ArgAttrVec.push_back(PAL.getParamAttributes(i));
 		}
-
 	}
+	F->setAttributes(PAL);
 
 	// Create the new function body and insert it into the module.
 	Function *NF = Function::Create(newFuncType, F->getLinkage(), F->getName());
