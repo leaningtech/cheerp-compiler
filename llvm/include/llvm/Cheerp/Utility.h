@@ -318,11 +318,11 @@ public:
 		return false;
 	}
 
-	static bool hasByteLayout(llvm::Type* t)
+	static bool hasByteLayout(const llvm::Type* t)
 	{
-		if ( llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
+		if (const llvm::StructType * st = llvm::dyn_cast<llvm::StructType>(t) )
 			return st->hasByteLayout();
-		else if ( llvm::ArrayType * at = llvm::dyn_cast<llvm::ArrayType>(t) )
+		else if (const llvm::ArrayType * at = llvm::dyn_cast<llvm::ArrayType>(t) )
 			return hasByteLayout(at->getElementType());
 		else
 			return false;
