@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2019 Leaning Technologies
+// Copyright 2019-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,10 +14,10 @@
 
 struct TypeAndIndex
 {
-	llvm::Type* type;
+	const llvm::Type* type;
 	uint32_t index;
 	enum CANONICALIZE_TYPE { STRUCT_MEMBER = 0, ARGUMENT };
-	TypeAndIndex(llvm::Type* t, uint32_t i, CANONICALIZE_TYPE c):type(t),index(i)
+	TypeAndIndex(const llvm::Type* t, uint32_t i, CANONICALIZE_TYPE c):type(t),index(i)
 	{
 		if(!t)
 			return;
@@ -25,7 +25,7 @@ struct TypeAndIndex
 		if (c == STRUCT_MEMBER)
 		{
 			// Find if a direct base is the actual owner of the field
-			if(llvm::StructType* st=llvm::dyn_cast<llvm::StructType>(t))
+			if(const llvm::StructType* st=llvm::dyn_cast<llvm::StructType>(t))
 			{
 				while(st->getDirectBase() && st->getDirectBase()->getNumElements() > i)
 					st = st->getDirectBase();
@@ -35,7 +35,7 @@ struct TypeAndIndex
 		else if(c == ARGUMENT)
 		{
 			// Collapse every argument to the least derived one
-			if(llvm::StructType* st=llvm::dyn_cast<llvm::StructType>(t))
+			if(const llvm::StructType* st=llvm::dyn_cast<llvm::StructType>(t))
 			{
 				while(st->getDirectBase())
 					st = st->getDirectBase();
@@ -47,7 +47,7 @@ struct TypeAndIndex
 	{
 		uint32_t operator()(const TypeAndIndex& x) const
 		{
-			return std::hash<llvm::Type*>()(x.type) ^ std::hash<uint32_t>()(x.index);
+			return std::hash<const llvm::Type*>()(x.type) ^ std::hash<uint32_t>()(x.index);
 		}
 	};
 	bool operator<(const TypeAndIndex& rhs) const
