@@ -6605,7 +6605,6 @@ void CheerpWriter::makeJS()
 {
 	bool needAsmJSModule = globalDeps.needAsmJS() && wasmFile.empty();
 	bool needWasmLoader = !wasmFile.empty();
-	bool needAsmJSLoader = needAsmJSModule && asmJSMem;
 	bool needAssignHeaps = globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM) ||
 				(needWasmLoader && globalDeps.needAsmJS()) ||
 				needAsmJSModule;
@@ -6634,7 +6633,7 @@ void CheerpWriter::makeJS()
 
 	if (needWasmLoader)
 		compileWasmLoader();
-	else if (needAsmJSLoader)
+	else if (needAsmJSModule && asmJSMem)
 		compileAsmJSLoader();
 	else
 		compileNoLoaderAsmJS();
