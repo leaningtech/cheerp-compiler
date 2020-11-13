@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2015-2019 Leaning Technologies
+// Copyright 2015-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -1036,6 +1036,7 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 				assert(i==0);
 				// We need to multiply the index by the right number of elements, corresponding to the size of the old type
 				// Fall through, the code is identical for POINTER_FROM_ARRAY and FLATTENED_ARRAY
+				[[clang::fallthrough]];
 			}
 			case TypeMappingInfo::FLATTENED_ARRAY:
 			{
