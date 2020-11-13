@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2014-2019 Leaning Technologies
+// Copyright 2014-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -84,6 +84,22 @@ bool AllocaMerging::areTypesEquivalent(const cheerp::TypeSupport& types, cheerp:
 				return false;
 			if(!areTypesEquivalent(types, PA, elementA, elementB, asmjs))
 				return false;
+			if (asmjs)
+				continue;
+
+			if (elementA->isPointerTy())
+			{
+				assert(elementB->isPointerTy());
+
+				auto getPointerKindPA = [&PA](const StructType* sTy, int index)
+				{
+					TypeAndIndex baseAndIndex(sTy, index, TypeAndIndex::STRUCT_MEMBER);
+					return PA.getPointerKindForMemberPointer(baseAndIndex);
+				};
+
+				if (getPointerKindPA(stA, i) != getPointerKindPA(stB, i))
+					return false;
+			}
 		}
 		return true;
 	}
