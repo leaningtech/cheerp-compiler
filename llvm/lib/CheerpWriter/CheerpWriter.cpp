@@ -6581,10 +6581,28 @@ void CheerpWriter::compileConstructors()
 	}
 }
 
+void CheerpWriter::compileFileBegin(const OptionsSet& options)
+{
+	if (options[Options::NEED_SOURCE_MAPS])
+		compileSourceMapsBegin();
+	if (options[Options::MEASURE_TIME_TO_MAIN])
+		compileTimeToMainBegin();
+	if (options[Options::NEED_MODULE_CLOSURE])
+		compileModuleClosureBegin();
+}
+
+void CheerpWriter::compileFileEnd(const OptionsSet& options)
+{
+	if (options[Options::NEED_SOURCE_MAPS])
+		compileSourceMapsEnd();
+	if (options[Options::MEASURE_TIME_TO_MAIN])
+		compileTimeToMainEnd();
+	if (options[Options::NEED_MODULE_CLOSURE])
+		compileModuleClosureEnd();
+}
+
 void CheerpWriter::makeJS()
 {
-	bool needSourceMaps = sourceMapGenerator!=nullptr;
-	bool needModuleClosure = makeModule==MODULE_TYPE::CLOSURE;
 	bool needAsmJSModule = globalDeps.needAsmJS() && wasmFile.empty();
 	bool needWasmLoader = !wasmFile.empty();
 	bool needAsmJSLoader = needAsmJSModule && asmJSMem;
@@ -6592,12 +6610,14 @@ void CheerpWriter::makeJS()
 				(needWasmLoader && globalDeps.needAsmJS()) ||
 				needAsmJSModule;
 
-	if (needSourceMaps)
-		compileSourceMapsBegin();
-	if (measureTimeToMain)
-		compileTimeToMainBegin();
-	if (needModuleClosure)
-		compileModuleClosureBegin();
+	OptionsSet options;
+
+	options[Options::NEED_SOURCE_MAPS] = (sourceMapGenerator != nullptr);
+	options[Options::MEASURE_TIME_TO_MAIN] = measureTimeToMain;
+	options[Options::NEED_MODULE_CLOSURE] = (makeModule == MODULE_TYPE::CLOSURE);
+
+	compileFileBegin(options);
+
 	compileHelpers();
 	compileGenericJS();
 
@@ -6626,12 +6646,7 @@ void CheerpWriter::makeJS()
 
 	compileLoaderOrModuleEnd();
 
-	if (needModuleClosure)
-		compileModuleClosureEnd();
-	if (measureTimeToMain)
-		compileTimeToMainEnd();
-	if (needSourceMaps)
-		compileSourceMapsEnd();
+	compileFileEnd(options);
 }
 
 Relooper* CheerpWriter::runRelooperOnFunction(const llvm::Function& F, const PointerAnalyzer& PA,
