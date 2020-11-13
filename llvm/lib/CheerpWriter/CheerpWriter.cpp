@@ -6498,14 +6498,11 @@ void CheerpWriter::compileDefineExports()
 
 void CheerpWriter::compileAsmJSLoader()
 {
-	stream << "var __asm=null;" << NewLine;
-
 	compileDeclareExports();
 
 	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "('" << asmJSMemFile << "').then(r=>{" << NewLine;
 	stream << getHeapName(HEAP8) << ".set(new Uint8Array(r),";
 	stream << linearHelper.getStackStart() << ");" << NewLine;
-	stream << "__asm=asmJS(stdlib, ffi, __heap);" << NewLine;
 
 	isPromiseOrModuleOpen = true;
 }
@@ -6527,9 +6524,6 @@ void CheerpWriter::compileNoLoaderAsmJS()
 		isPromiseOrModuleOpen = true;
 		stream << "Promise.resolve().then(_=>{" << NewLine;
 	}
-
-	if (globalDeps.needAsmJS())
-		stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
 }
 
 void CheerpWriter::compileCommonJSExports()
@@ -6639,6 +6633,9 @@ void CheerpWriter::makeJS()
 			compileAsmJSLoader();
 		else
 			compileNoLoaderAsmJS();
+
+		if (globalDeps.needAsmJS())
+			stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
 	}
 
 	compileDefineExports();
