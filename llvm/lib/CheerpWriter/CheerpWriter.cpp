@@ -6635,7 +6635,7 @@ void CheerpWriter::makeJS()
 		compileWasmLoader();
 	else
 	{
-		if (needAsmJSModule && asmJSMem)
+		if (globalDeps.needAsmJS() && asmJSMem)
 			compileAsmJSLoader();
 		else
 			compileNoLoaderAsmJS();
