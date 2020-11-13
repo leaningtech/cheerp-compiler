@@ -6322,7 +6322,6 @@ void CheerpWriter::compileWasmLoader()
 	{
 		stream << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(__heap);" << NewLine;
 	}
-	isPromiseOrModuleOpen = true;
 }
 
 void CheerpWriter::compileDeclareExports()
@@ -6503,23 +6502,16 @@ void CheerpWriter::compileAsmJSLoader()
 	stream << namegen.getBuiltinName(NameGenerator::FETCHBUFFER) << "('" << asmJSMemFile << "').then(r=>{" << NewLine;
 	stream << getHeapName(HEAP8) << ".set(new Uint8Array(r),";
 	stream << linearHelper.getStackStart() << ");" << NewLine;
-
-	isPromiseOrModuleOpen = true;
 }
 
 void CheerpWriter::compileLoaderOrModuleEnd()
 {
-	if (isPromiseOrModuleOpen)
-	{
-		isPromiseOrModuleOpen = false;
-		stream << "});" << NewLine;
-	}
+	stream << "});" << NewLine;
 }
 
 void CheerpWriter::compileCommonJSModule()
 {
 	compileDeclareExports();
-	isPromiseOrModuleOpen = true;
 	stream << "Promise.resolve().then(_=>{" << NewLine;
 }
 
@@ -6622,6 +6614,8 @@ void CheerpWriter::makeJS()
 		compileAsmJSTopLevel();
 	}
 
+	bool areExtraParenthesisOpen = true;
+
 	if (needWasmLoader)
 		compileWasmLoader();
 	else
@@ -6630,6 +6624,8 @@ void CheerpWriter::makeJS()
 			compileAsmJSLoader();
 		else if (makeModule == MODULE_TYPE::COMMONJS)
 			compileCommonJSModule();
+		else
+			areExtraParenthesisOpen = false;
 
 		if (globalDeps.needAsmJS())
 			stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
@@ -6640,7 +6636,8 @@ void CheerpWriter::makeJS()
 	if (makeModule == MODULE_TYPE::COMMONJS)
 		compileCommonJSExports();
 
-	compileLoaderOrModuleEnd();
+	if (areExtraParenthesisOpen)
+		compileLoaderOrModuleEnd();
 
 	compileFileEnd(options);
 }

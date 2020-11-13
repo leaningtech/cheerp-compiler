@@ -278,8 +278,6 @@ private:
 	bool areDummiesDeclared{false};
 	bool areAsmJSExportsDeclared{false};
 	bool areJsExportedExportsDeclared{false};
-	// Flag to signal whether a module/promise should be closed
-	bool isPromiseOrModuleOpen{false};
 	// Flag to signal whether the root object has been deemed necessary
 	bool isRootNeeded{false};
 
