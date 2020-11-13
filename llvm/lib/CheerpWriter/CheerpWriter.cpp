@@ -6599,8 +6599,6 @@ void CheerpWriter::makeJS()
 	if (needModuleClosure)
 		compileModuleClosureBegin();
 	compileHelpers();
-	if (needAsmJSModule)
-		compileAsmJSClosure();
 	compileGenericJS();
 
 	compileNamespaces();
@@ -6609,7 +6607,10 @@ void CheerpWriter::makeJS()
 		compileAssignHeaps(needWasmLoader);
 
 	if (needAsmJSModule)
+	{
+		compileAsmJSClosure();
 		compileAsmJSTopLevel();
+	}
 
 	if (needWasmLoader)
 		compileWasmLoader();
