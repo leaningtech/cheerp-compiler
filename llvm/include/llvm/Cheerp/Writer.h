@@ -723,9 +723,15 @@ public:
 	                                                const PointerAnalyzer& PA, const Registerize& registerize);
 	static bool needsUnsignedTruncation(const llvm::Value* v, bool asmjs);
 private:
+
+	enum Options{NEED_SOURCE_MAPS, MEASURE_TIME_TO_MAIN, NEED_MODULE_CLOSURE, MAX_OPTION};
+	typedef std::array<bool,Options::MAX_OPTION> OptionsSet;
+
 	/*
 	 * Helper functions to make makeJS more modular
 	 */
+	void compileFileBegin(const OptionsSet& options);
+	void compileFileEnd(const OptionsSet& options);
 	void compileSourceMapsBegin();
 	void compileSourceMapsEnd();
 	void compileTimeToMainBegin();
