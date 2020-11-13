@@ -6516,14 +6516,11 @@ void CheerpWriter::compileLoaderOrModuleEnd()
 	}
 }
 
-void CheerpWriter::compileNoLoaderAsmJS()
+void CheerpWriter::compileCommonJSModule()
 {
-	if (makeModule == MODULE_TYPE::COMMONJS)
-	{
-		compileDeclareExports();
-		isPromiseOrModuleOpen = true;
-		stream << "Promise.resolve().then(_=>{" << NewLine;
-	}
+	compileDeclareExports();
+	isPromiseOrModuleOpen = true;
+	stream << "Promise.resolve().then(_=>{" << NewLine;
 }
 
 void CheerpWriter::compileCommonJSExports()
@@ -6631,8 +6628,8 @@ void CheerpWriter::makeJS()
 	{
 		if (globalDeps.needAsmJS() && asmJSMem)
 			compileAsmJSLoader();
-		else
-			compileNoLoaderAsmJS();
+		else if (makeModule == MODULE_TYPE::COMMONJS)
+			compileCommonJSModule();
 
 		if (globalDeps.needAsmJS())
 			stream << "var __asm=asmJS(stdlib, ffi, __heap);" << NewLine;
