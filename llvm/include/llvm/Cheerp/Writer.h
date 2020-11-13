@@ -745,7 +745,7 @@ private:
 	void compileGenericJS();
 	void compileWasmLoader();
 	void compileAsmJSLoader();
-	void compileNoLoaderAsmJS();
+	void compileCommonJSModule();
 	void compileLoaderOrModuleEnd();
 	void compileDeclareExports();
 	void compileDefineExports();
