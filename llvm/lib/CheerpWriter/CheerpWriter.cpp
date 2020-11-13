@@ -6590,11 +6590,17 @@ void CheerpWriter::makeJS()
 	const bool needAssignHeaps = globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM) ||
 				globalDeps.needAsmJS();
 
-	OptionsSet options;
+	auto initializeOptions = [&]() -> OptionsSet
+	{
+		OptionsSet options;
 
-	options[Options::NEED_SOURCE_MAPS] = (sourceMapGenerator != nullptr);
-	options[Options::MEASURE_TIME_TO_MAIN] = measureTimeToMain;
-	options[Options::NEED_MODULE_CLOSURE] = (makeModule == MODULE_TYPE::CLOSURE);
+		options[Options::NEED_SOURCE_MAPS] = (sourceMapGenerator != nullptr);
+		options[Options::MEASURE_TIME_TO_MAIN] = measureTimeToMain;
+		options[Options::NEED_MODULE_CLOSURE] = (makeModule == MODULE_TYPE::CLOSURE);
+
+		return options;
+	};
+	const OptionsSet options = initializeOptions();
 
 	compileFileBegin(options);
 
