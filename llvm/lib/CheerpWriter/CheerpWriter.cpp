@@ -6608,18 +6608,18 @@ void CheerpWriter::makeJS()
 	if (needAssignHeaps)
 		compileAssignHeaps(needWasmLoader);
 
-	if (needAsmJSModule)
-	{
-		compileAsmJSClosure();
-		compileAsmJSTopLevel();
-	}
-
 	bool areExtraParenthesisOpen = true;
 
 	if (needWasmLoader)
 		compileWasmLoader();
 	else
 	{
+		if (globalDeps.needAsmJS())
+		{
+			compileAsmJSClosure();
+			compileAsmJSTopLevel();
+		}
+
 		if (globalDeps.needAsmJS() && asmJSMem)
 			compileAsmJSLoader();
 		else if (makeModule == MODULE_TYPE::COMMONJS)
