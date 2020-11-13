@@ -6586,11 +6586,10 @@ void CheerpWriter::compileFileEnd(const OptionsSet& options)
 
 void CheerpWriter::makeJS()
 {
-	bool needAsmJSModule = globalDeps.needAsmJS() && wasmFile.empty();
 	bool needWasmLoader = !wasmFile.empty();
 	bool needAssignHeaps = globalDeps.needsBuiltin(BuiltinInstr::BUILTIN::GROW_MEM) ||
 				(needWasmLoader && globalDeps.needAsmJS()) ||
-				needAsmJSModule;
+				(globalDeps.needAsmJS() && wasmFile.empty());
 
 	OptionsSet options;
 
