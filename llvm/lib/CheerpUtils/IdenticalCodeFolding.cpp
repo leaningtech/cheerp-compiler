@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -945,20 +945,6 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 			directCalls.push_back(CS);
 	}
 
-	auto AddNeededCast = [](Value* src, Type* oldType, Type* newType, Instruction* insertPoint) -> Instruction*
-	{
-		if(oldType->isIntegerTy() && newType->isPointerTy()) {
-			return new IntToPtrInst(src, newType, "", insertPoint);
-		} else if(oldType->isPointerTy() && newType->isIntegerTy()) {
-			return new PtrToIntInst(src, newType, "", insertPoint);
-		} else if(oldType->isPointerTy() && newType->isPointerTy()) {
-			return new BitCastInst(src, newType, "", insertPoint);
-		} else {
-			assert(false);
-			return nullptr;
-		}
-	};
-
 	FunctionType* FType = F->getFunctionType();
 	FunctionType* GType = G->getFunctionType();
 
@@ -967,33 +953,9 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 		// BitCasts in call sites causes spurious indirect call
 		// Avoid this problem by bitcasting parameters and return values as appropriate
 		CallInst* callInst = cast<CallInst>(CS.getInstruction());
-		for(uint32_t i=0;i<FType->getNumParams();i++) {
-			Type* fParamType = FType->getParamType(i);
-			Type* gParamType = GType->getParamType(i);
-			if(fParamType != gParamType)
-			{
-				Instruction* n = AddNeededCast(callInst->getOperand(i), fParamType, gParamType, callInst);
-				callInst->setOperand(i, n);
-			}
-		}
-		Type* fReturnType = FType->getReturnType();
-		Type* gReturnType = GType->getReturnType();
-		if (fReturnType->isVoidTy()){
-			assert(gReturnType->isVoidTy());
-		} else if (fReturnType != gReturnType) {
-			callInst->mutateType(gReturnType);
-			Instruction* n = AddNeededCast(callInst, gReturnType, fReturnType, callInst->getNextNode());
-			assert(n != callInst);
-			// Appease 'replaceAllUsesWith'
-			callInst->mutateType(fReturnType);
-			callInst->replaceAllUsesWith(n);
-			callInst->mutateType(gReturnType);
-			// 'replaceAllUsesWith' also changes the cast, restore it
-			n->setOperand(0, callInst);
-		}
-		// Parameters and returns are fixed, now fix the types and the called functions
-		callInst->mutateFunctionType(GType);
-		callInst->setCalledFunction(G);
+		callInst->setCalledOperand(ConstantExpr::getBitCast(G, callInst->getCalledValue()->getType()));
+
+		replaceCallOfBitCastWithBitCastOfCall(*callInst, /*mayFail*/ false, /*performPtrIntConversions*/ true);
 	}
 	if(!F->use_empty()){
 		Value* replacement = G;
