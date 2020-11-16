@@ -4153,7 +4153,10 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		case Instruction::PtrToInt:
 		{
 			const PtrToIntInst& pi=cast<PtrToIntInst>(I);
-			compilePtrToInt(pi.getOperand(0), pi.getType()->isIntegerTy(64));
+			if(asmjs)
+				compileRawPointer(pi.getOperand(0), parentPrio);
+			else
+				compilePtrToInt(pi.getOperand(0), pi.getType()->isIntegerTy(64));
 			return COMPILE_OK;
 		}
 		case Instruction::VAArg:
