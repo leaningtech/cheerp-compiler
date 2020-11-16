@@ -1175,6 +1175,8 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, boo
 			return new PtrToIntInst(src, newType, "", insertPoint);
 		} else if(oldType->isPointerTy() && newType->isPointerTy()) {
 			return new BitCastInst(src, newType, "", insertPoint);
+		} else if (oldType->isVoidTy()) {
+			return cast<Instruction>(src);
 		} else {
 			llvm_unreachable("Unexpected cast required");
 		}
@@ -1223,18 +1225,18 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, boo
 	Type* oldReturnType = callInst.getType();
 	Type* newReturnType = FTy->getReturnType();
 
-	if (oldReturnType->isVoidTy()){
-		assert(newReturnType->isVoidTy());
-	} else if (oldReturnType != newReturnType) {
+	if (oldReturnType != newReturnType) {
 		callInst.mutateType(newReturnType);
 		Instruction* n = addCast(&callInst, newReturnType, oldReturnType, callInst.getNextNode());
-		assert(n != &callInst);
-		// Appease 'replaceAllUsesWith'
-		callInst.mutateType(oldReturnType);
-		callInst.replaceAllUsesWith(n);
-		callInst.mutateType(newReturnType);
-		// 'replaceAllUsesWith' also changes the cast, restore it
-		n->setOperand(0, &callInst);
+		if (n != &callInst)
+		{
+			// Appease 'replaceAllUsesWith'
+			callInst.mutateType(oldReturnType);
+			callInst.replaceAllUsesWith(n);
+			callInst.mutateType(newReturnType);
+			// 'replaceAllUsesWith' also changes the cast, restore it
+			n->setOperand(0, &callInst);
+		}
 	}
 	// Parameters and returns are fixed, now fix the types and the called functions
 	callInst.mutateFunctionType(FTy);
