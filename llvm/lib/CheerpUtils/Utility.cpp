@@ -1163,6 +1163,86 @@ bool mayContainSideEffects(const Value* V, const PointerAnalyzer& PA)
 	return false;
 }
 
+bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, bool performPtrIntConversions)
+{
+	auto addCast = [&performPtrIntConversions](Value* src, Type* oldType, Type* newType, Instruction* insertPoint) -> Instruction*
+	{
+		if(oldType->isIntegerTy() && newType->isPointerTy()) {
+			assert(performPtrIntConversions);
+			return new IntToPtrInst(src, newType, "", insertPoint);
+		} else if(oldType->isPointerTy() && newType->isIntegerTy()) {
+			assert(performPtrIntConversions);
+			return new PtrToIntInst(src, newType, "", insertPoint);
+		} else if(oldType->isPointerTy() && newType->isPointerTy()) {
+			return new BitCastInst(src, newType, "", insertPoint);
+		} else {
+			llvm_unreachable("Unexpected cast required");
+		}
+	};
+
+	ConstantExpr* bitCast = dyn_cast<ConstantExpr>(callInst.getCalledValue());
+
+	if (!bitCast)
+	{
+		//All is already taken care of
+		return false;
+	}
+
+	if (bitCast->getOpcode() != Instruction::BitCast)
+	{
+		assert(mayFail && "ConstantExpr BitCast expected");
+		return false;
+	}
+
+	Function* F = dyn_cast<Function>(bitCast->getOperand(0));
+	if (!F)
+	{
+		assert(mayFail && "Function expected");
+		return false;
+	}
+	FunctionType* FTy = F->getFunctionType();
+
+	if (FTy->getNumParams() != callInst.getNumArgOperands())
+	{
+		assert(mayFail && "Equal number of paramether expected");
+		return false;
+	}
+
+	//Add casts for each operand that needs them
+	for (uint32_t i=0; i<FTy->getNumParams(); i++)
+	{
+		Type* originalTy = callInst.getArgOperand(i)->getType();
+		Type* nextTy = FTy->getParamType(i);
+		if (originalTy != nextTy)
+		{
+			Instruction* cast = addCast(callInst.getArgOperand(i), originalTy, nextTy, &callInst);
+			callInst.setArgOperand(i, cast);
+		}
+	}
+
+	Type* oldReturnType = callInst.getType();
+	Type* newReturnType = FTy->getReturnType();
+
+	if (oldReturnType->isVoidTy()){
+		assert(newReturnType->isVoidTy());
+	} else if (oldReturnType != newReturnType) {
+		callInst.mutateType(newReturnType);
+		Instruction* n = addCast(&callInst, newReturnType, oldReturnType, callInst.getNextNode());
+		assert(n != &callInst);
+		// Appease 'replaceAllUsesWith'
+		callInst.mutateType(oldReturnType);
+		callInst.replaceAllUsesWith(n);
+		callInst.mutateType(newReturnType);
+		// 'replaceAllUsesWith' also changes the cast, restore it
+		n->setOperand(0, &callInst);
+	}
+	// Parameters and returns are fixed, now fix the types and the called functions
+	callInst.mutateFunctionType(FTy);
+	callInst.setCalledFunction(F);
+
+	return true;
+}
+
 }
 
 namespace llvm
