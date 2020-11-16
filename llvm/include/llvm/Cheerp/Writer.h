@@ -209,6 +209,10 @@ private:
 			markHeapNameAsUsed(id);
 			return heapNames[id];
 		}
+		const llvm::StringRef& getHeapNameWithoutMarking(const int id) const
+		{
+			return heapNames[id];
+		}
 		bool isHeapNameUsed(const int id) const
 		{
 			return used[id];
@@ -226,6 +230,10 @@ private:
 	const llvm::StringRef& getHeapName(const int id)
 	{
 		return heapNames.getHeapName(id);
+	}
+	const llvm::StringRef& getHeapNameWithoutMarking(const int id) const
+	{
+		return heapNames.getHeapNameWithoutMarking(id);
 	}
 	bool isHeapNameUsed(const int id) const
 	{
