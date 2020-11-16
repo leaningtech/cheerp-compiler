@@ -525,6 +525,9 @@ private:
 	bool forceTypedArrays;
 };
 
+//replace CallInst(bitcast someFunc, ....) with BitCast(CalInst someFunc), returning whether something has been modified
+bool replaceCallOfBitCastWithBitCastOfCall(llvm::CallInst& callInst, bool mayFail = false, bool performPtrIntConversions = false);
+
 /**
  * Iterator over all the words composed by a given set of symbols.
  * 
