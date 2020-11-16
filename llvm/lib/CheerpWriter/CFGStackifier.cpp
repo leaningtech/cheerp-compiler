@@ -666,6 +666,7 @@ public:
 	void mergeBlocks();
 	void removeUnnededNesting();
 	void adjustLoopEnds();
+	void adjustBranchTarget();
 	void removeRedundantBlocks();
 private:
 	// Helper function for iterating on one or more kinds of tokens
@@ -731,8 +732,12 @@ void TokenListOptimizer::runAll()
 	removeUnnededNesting();
 	adjustLoopEnds();
 	removeRedundantBlocks();
+	adjustBranchTarget();
 	if (Mode == CFGStackifier::Wasm)
+	{
 		createBrIfs();
+		adjustBranchTarget();
+	}
 }
 
 static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
