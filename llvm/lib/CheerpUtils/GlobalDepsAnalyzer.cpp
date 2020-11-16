@@ -708,6 +708,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 							devirtualizedCall = ConstantExpr::getBitCast(devirtualizedCall, calledValue->getType());
 						ci->setCalledFunction(devirtualizedCall);
 
+						replaceCallOfBitCastWithBitCastOfCall(*ci);
+
 						devirtualizedCalls.push_back({ci, toBeCalledFunc});
 					}
 					it->second.signatureUsed = true;
