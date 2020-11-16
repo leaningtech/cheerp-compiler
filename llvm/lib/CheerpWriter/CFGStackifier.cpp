@@ -187,6 +187,26 @@ bool TokenListVerifier::verify()
 	return true;
 }
 
+static uint32_t blockLikeTokens(const CFGStackifier::Mode& mode)
+{
+	uint32_t BlockLikeTokens = Token::TK_Block;
+	switch (mode)
+	{
+		case CFGStackifier::GenericJS:
+			BlockLikeTokens |= Token::TK_If|Token::TK_IfNot|Token::TK_Switch|Token::TK_Loop;
+			break;
+		case CFGStackifier::AsmJS:
+			// TODO: there should be also TK_If|TK_IfNot and TK_Loop here,
+			// but there are 2 bugs in V8 that prevent it.
+			BlockLikeTokens |= Token::TK_Switch;
+			break;
+		case CFGStackifier::Wasm:
+			BlockLikeTokens |= Token::TK_If|Token::TK_IfNot;
+			break;
+	}
+	return BlockLikeTokens;
+}
+
 static const BasicBlock* getUniqueForwardPredecessor(const BasicBlock* BB, const LoopInfo& LI)
 {
 	Loop* L = LI.isLoopHeader(const_cast<BasicBlock*>(BB)) ? LI.getLoopFor(BB) : nullptr;
@@ -1051,26 +1071,50 @@ void TokenListOptimizer::adjustLoopEnds()
 	});
 }
 
+void TokenListOptimizer::adjustBranchTarget()
+{
+	passStart();
+	// We can branch out of some tokens like they were Block tokens.
+	// Which ones depends on the actual target
+	const uint32_t BlockLikeTokens = blockLikeTokens(Mode);
+
+	for_each_kind<Token::TK_Branch | Token::TK_BrIf | Token::TK_BrIfNot>([&](Token* BranchLike)
+	{
+		Token* CurrTarget = BranchLike->getMatch();
+
+		Token* lastGood = nullptr;
+		Token* Next = CurrTarget->getNextNode();
+
+		while (Next->getKind() & (Token::TK_Branch | Token::TK_End))
+		{
+			if (Next->getKind() == Token::TK_Branch)
+			{
+				Next = Next->getMatch();
+				lastGood = Next;
+			}
+			else if (Next->getMatch()->getKind() & BlockLikeTokens)
+			{
+				lastGood = Next;
+				Next = Next->getNextNode();
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		if (lastGood)
+			BranchLike->setMatch(lastGood);
+	});
+}
+
 void TokenListOptimizer::removeRedundantBlocks()
 {
 	passStart();
 	// We can branch out of some tokens like they were Block tokens.
 	// Which ones depends on the actual target
-	uint32_t BlockLikeTokens = 0;
-	switch (Mode)
-	{
-		case CFGStackifier::GenericJS:
-			BlockLikeTokens = Token::TK_If|Token::TK_IfNot|Token::TK_Switch|Token::TK_Loop;
-			break;
-		case CFGStackifier::AsmJS:
-			// TODO: there should be also TK_If|TK_IfNot and TK_Loop here,
-			// but there are 2 bugs in V8 that prevent it.
-			BlockLikeTokens = Token::TK_Switch;
-			break;
-		case CFGStackifier::Wasm:
-			BlockLikeTokens = Token::TK_If|Token::TK_IfNot;
-			break;
-	}
+	const uint32_t BlockLikeTokens = blockLikeTokens(Mode);
+
 	for_each_kind<Token::TK_End>([&](Token* End)
 	{
 		Token* Block = End->getMatch();
