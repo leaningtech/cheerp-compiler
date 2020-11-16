@@ -743,7 +743,7 @@ void TokenListOptimizer::runAll()
 	removeRedundantBranches(/*removeAlsoBlockAndEnd*/false);
 }
 
-static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
+static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To, const bool allowBranches)
 {
 	if (From == To)
 		return true;
@@ -753,11 +753,24 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
 		{
 			case Token::TK_Else:
 				it = it->getMatch()->getIter();
+				if (it == To)
+					return true;
 				break;
 			case Token::TK_End:
 			case Token::TK_Loop:
 			case Token::TK_Block:
 				break;
+			case Token::TK_Branch:
+			{
+				if (allowBranches)
+				{
+					it = it->getMatch()->getIter();
+					if (it == To)
+						return true;
+					break;
+				}
+				[[clang::fallthrough]];
+			}
 			default:
 				return false;
 		}
@@ -767,6 +780,7 @@ static bool isNaturalFlow(TokenList::iterator From, TokenList::iterator To)
 void TokenListOptimizer::removeRedundantBranches(const bool removeAlsoBlockAndEnd)
 {
 	passStart();
+	const uint32_t BlockLikeTokens = removeAlsoBlockAndEnd ? blockLikeTokens(Mode) : Token::TK_Block;
 	for_each_kind<Token::TK_Branch>([&](Token* Branch)
 	{
 		Token* End = Branch->getMatch();
@@ -774,15 +788,16 @@ void TokenListOptimizer::removeRedundantBranches(const bool removeAlsoBlockAndEn
 			return;
 
 		assert(End->getKind() == Token::TK_End);
+
+
 		Token* Block = End->getMatch();
-		if (Block->getKind() != Token::TK_Block)
+		if ((Block->getKind() & BlockLikeTokens) == 0)
 		{
-			assert(!removeAlsoBlockAndEnd);
 			return;
 		}
 
 		assert(Branch->getNextNode() != nullptr);
-		if (isNaturalFlow(Branch->getIter(), End->getIter()))
+		if (isNaturalFlow(Branch->getIter(), End->getIter(), /*allowBranches*/true))
 		{
 			erase(Branch);
 
