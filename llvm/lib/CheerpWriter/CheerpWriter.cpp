@@ -6079,6 +6079,12 @@ void CheerpWriter::compileAsmJSClosure()
 	// compile boilerplate
 	stream << "function asmJS(stdlib, ffi, __heap){" << NewLine;
 	stream << "\"use asm\";" << NewLine;
+
+	for (int i = HEAP8; i<=LAST_ASMJS; i++)
+	{
+		stream << "var "<<getHeapNameWithoutMarking(i)<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
+	}
+
 	stream << "var " << namegen.getBuiltinName(NameGenerator::Builtin::STACKPTR) << "=ffi.stackStart|0;" << NewLine;
 
 	compileMathDeclAsmJS();
@@ -6114,13 +6120,6 @@ void CheerpWriter::compileAsmJSClosure()
 	}
 
 	compileFunctionTablesAsmJS();
-
-	for (int i = HEAP8; i<=LAST_ASMJS; i++)
-	{
-		if (!isHeapNameUsed(i))
-			continue;
-		stream << "var "<<getHeapName(i)<<"=new stdlib."<<typedArrayNames[i]<<"(__heap);" << NewLine;
-	}
 
 	stream << "return {" << NewLine;
 	// export constructors
