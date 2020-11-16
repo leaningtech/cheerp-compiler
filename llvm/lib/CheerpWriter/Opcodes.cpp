@@ -154,7 +154,7 @@ void CheerpWriter::compilePtrToInt(const llvm::Value* v, bool isInt64)
 	{
 		if(useMathImul)
 		{
-			stream << "Math.imul(";
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::IMUL) << "(";
 			compilePointerOffset(v, LOWEST);
 			stream << ',' << typeSize << ')';
 		}
