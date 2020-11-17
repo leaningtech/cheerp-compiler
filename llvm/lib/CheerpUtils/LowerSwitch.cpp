@@ -315,7 +315,7 @@ private:
 
 		//Note that generally the number of incomings on the phis may increase, since the lowering might have multiple leaf branching to the same BB
 	}
-	enum TestKind {EQUALITY, RANGE_MEMBERSHIP};
+	enum TestKind {EQUALITY, RANGE_MEMBERSHIP, HALF_OPEN_RANGE_MEMBERSHIP};
 	struct Transformation
 	{
 		Transformation(int64_t succ, int64_t fail, TestKind testKind)
@@ -339,6 +339,8 @@ private:
 					return 1.0;
 				case TestKind::RANGE_MEMBERSHIP:
 					return 1.2;
+				case TestKind::HALF_OPEN_RANGE_MEMBERSHIP:
+					return 1.05;
 			}
 			llvm_unreachable("TestKind not handled in getOperationCost");
 		}
@@ -408,6 +410,17 @@ private:
 					const RangeDest& range2 = data.getRange(id2);
 					possibleTransformations.back().a = range2.low;
 					possibleTransformations.back().b = range.high;
+				}
+			}
+			{
+				//Test for lower than a given value
+				const int64_t A = (pow-1) & representation;
+				const int64_t B = representation ^ A;
+				if (isGoodSplit(A, B, representation))
+				{
+					const RangeDest& range = data.getRange(id);
+					possibleTransformations.push_back(Transformation(A, B, TestKind::HALF_OPEN_RANGE_MEMBERSHIP));
+					possibleTransformations.back().a = range.low - 1;
 				}
 			}
 		}
@@ -485,6 +498,8 @@ private:
 				return testForEquality(bb, incoming, transformation.a);
 			case TestKind::RANGE_MEMBERSHIP:
 				return testForRangeMembership(bb, incoming, transformation.a, transformation.b);
+			case TestKind::HALF_OPEN_RANGE_MEMBERSHIP:
+				return testForHalfOpenRangeMembership(bb, incoming, transformation.a);
 		}
 		llvm_unreachable("TestKind not handled in generateComparison");
 	}
@@ -556,6 +571,10 @@ private:
 		}
 
 		return new ICmpInst(bb, ICmpInst::ICMP_ULE, toCompare, getConstantInt(b), "testRangeMembership");
+	}
+	ICmpInst* testForHalfOpenRangeMembership(BasicBlock& bb, Value* incoming, const int64_t a)
+	{
+		return new ICmpInst(bb, ICmpInst::ICMP_SLE, condition, getConstantInt(a), "testHalfOpenRangeMembership");
 	}
 	Constant* getConstantInt(const int64_t a)
 	{
