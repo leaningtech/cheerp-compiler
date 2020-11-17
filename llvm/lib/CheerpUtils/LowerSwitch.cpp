@@ -315,7 +315,7 @@ private:
 
 		//Note that generally the number of incomings on the phis may increase, since the lowering might have multiple leaf branching to the same BB
 	}
-	enum TestKind {EQUALITY, RANGE_MEMBERSHIP, HALF_OPEN_RANGE_MEMBERSHIP};
+	enum TestKind {EQUALITY, RANGE_MEMBERSHIP, HALF_OPEN_RANGE_MEMBERSHIP, PAIR_MEMBERSHIP};
 	struct Transformation
 	{
 		Transformation(int64_t succ, int64_t fail, TestKind testKind)
@@ -341,6 +341,8 @@ private:
 					return 1.2;
 				case TestKind::HALF_OPEN_RANGE_MEMBERSHIP:
 					return 1.05;
+				case TestKind::PAIR_MEMBERSHIP:
+					return 1.4;
 			}
 			llvm_unreachable("TestKind not handled in getOperationCost");
 		}
@@ -423,6 +425,24 @@ private:
 					possibleTransformations.back().a = range.low - 1;
 				}
 			}
+			for (int64_t pow2 = 1, id2 = 0; pow2 < pow; pow2 *=2, id2++)
+			{
+				const int64_t A = (pow + pow2) & representation;
+				const int64_t B = representation ^ A;
+				if (A > 0 && B > 0 && (representation & A) == A && (representation & B) == B && (A | B) == representation)
+				{
+					const RangeDest& range = data.getRange(id);
+					const RangeDest& range2 = data.getRange(id2);
+
+					if (!range.isSingleValue() || !range2.isSingleValue())
+						continue;
+
+					possibleTransformations.push_back(Transformation(A, B, TestKind::PAIR_MEMBERSHIP));
+
+					possibleTransformations.back().a = range.low;
+					possibleTransformations.back().b = range2.low;
+				}
+			}
 		}
 
 		return possibleTransformations;
@@ -500,6 +520,8 @@ private:
 				return testForRangeMembership(bb, incoming, transformation.a, transformation.b);
 			case TestKind::HALF_OPEN_RANGE_MEMBERSHIP:
 				return testForHalfOpenRangeMembership(bb, incoming, transformation.a);
+			case TestKind::PAIR_MEMBERSHIP:
+				return testForPairMembership(bb, incoming, transformation.a, transformation.b);
 		}
 		llvm_unreachable("TestKind not handled in generateComparison");
 	}
@@ -555,6 +577,99 @@ private:
 	ICmpInst* testForEquality(BasicBlock& bb, Value* incoming, const int64_t a)
 	{
 		return new ICmpInst(bb, ICmpInst::ICMP_EQ, incoming, getConstantInt(a), "testEquality");
+	}
+	ICmpInst* testForPairMembership(BasicBlock& bb, Value* incoming, int64_t a, int64_t b)
+	{
+		if (a > b)
+			std::swap(a,b);
+		assert(a != b);
+		const uint64_t diff = b-a;
+
+		auto greatestPowerOf2 = [](uint64_t diff) -> uint64_t
+		{
+			assert(diff >= 0);
+			uint64_t pow = 1;
+			while ((diff & pow) == 0)
+				pow *= 2;
+
+			return pow;
+		};
+
+		const uint64_t pow = greatestPowerOf2(diff);
+		assert((pow&(pow-1)) == 0);
+		//pow is the greatest power of 2 that divides diff (that generally is equal to 2**b * odd_number)
+
+		//		-------
+		//How to test for (x == A) || (x == B) in a single comparison?
+
+		//There are 2 cases that turns out when combined covers all possibilities
+
+		//1. The difference is a power of 2
+		//1a. First we need to normalize {A, B} -> {0, diff} by adding (-A) (=subtracting A)
+		//1b. Then we note that difference is a power of 2, so we can do |= diff that leads from 0|diff = diff, diff|diff = diff
+		//1c. and all other values will map to something different than diff (since diff = 2**b it will have a single bit set)
+		//1d. Now with a single equality against diff we could discover whether (x==A) || (x == B) holds
+
+		//2. The difference is odd
+		//2a. First we need to normalize {A, B} -> {-n-1, n} by adding (-A-n-1) for n = diff/2
+		//2b. Then we do ^= n. n^n -> 0, and (-n-1)^n -> -1 [Why?]
+		//		We start from		-n == (not n) + 1
+		//		Then we move the 1	-n-1 == not n
+		//		Then we xor by n	(-n-1)^n == not n ^ n == -1	(the last equality since not n and n have no bits in common)
+		//2c. Now we add 1, and we go from {-1, 0} to {0, 1}
+		//2d. Now a single unsigned less than 2 can discriminate between either A or B or all other values
+
+		//3. If the difference is neither odd nor power of 2, we scompose the difference in odd_number * 2**bits
+		//	then we apply the same strategy as in 2 but multipliying each step by 2**bits
+		//	The basic idea is that we leave the lower bits untouched, and we ends up at the step c with {0, 2**bits}
+		//	Now we use the same idea of 1, doing an OR + one equality
+
+		const uint64_t n = (diff-pow)/2;
+
+		Value* previous = incoming;
+
+		if (diff == 1)
+		{
+			//difference = 1 means two consecutive values
+			return testForRangeMembership(bb, incoming, a, b);
+		}
+		else if (pow != diff)
+		{
+			if (a + n + pow != 0)
+			{
+				previous = BinaryOperator::CreateAdd(previous, getConstantInt(-(a + n + pow)), previous->getName()+".off", &bb);
+			}
+			assert(n > 0);
+			//Now we mapped one number to (-n-pow) and the other to (n)
+
+			previous = BinaryOperator::CreateXor(previous, getConstantInt(n), previous->getName()+".xor", &bb);
+			//Now we mapped one number to (-pow) and the other to (0)
+
+			previous = BinaryOperator::CreateAdd(previous, getConstantInt(pow), previous->getName()+".plus1", &bb);
+			//Now we mapped one number to (0) and the other to (pow)
+		}
+		else
+		{
+			if (a != 0)
+			{
+				previous = BinaryOperator::CreateAdd(previous, getConstantInt(-a), previous->getName()+".off", &bb);
+			}
+			//Now we mapped one number to (0) and the other to (pow)
+		}
+
+		if (pow > 1)
+		{
+			//If we are here we have {0, 2**bit}
+			Instruction* Or = BinaryOperator::CreateOr(previous, getConstantInt(pow), previous->getName()+".or", &bb);
+			//After the or we have {2**bit, 2**bit}, so a single equality works
+
+			return new ICmpInst(bb, ICmpInst::ICMP_EQ, getConstantInt(pow), Or, "membershipPairGenericDistance");
+		}
+		else
+		{
+			//If we are here we have {0, 1}, so a single unsigned <= 1 works
+			return new ICmpInst(bb, ICmpInst::ICMP_ULE, previous, getConstantInt(pow), "membershipPairOddDistance");
+		}
 	}
 	ICmpInst* testForRangeMembership(BasicBlock& bb, Value* incoming, int64_t a, int64_t b)
 	{
