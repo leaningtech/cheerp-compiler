@@ -191,6 +191,9 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 		std::vector<const Instruction*> toCheck;
 		toCheck.push_back(&gep);
 
+		//Allow a single NON Load/Store use
+		bool anyNonLoadStoreUse = false;
+
 		while (!toCheck.empty())
 		{
 			const Instruction* I = toCheck.back();
@@ -208,7 +211,9 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 					toCheck.push_back(userI);
 					continue;
 				}
-				return false;
+				if (anyNonLoadStoreUse)
+					return false;
+				anyNonLoadStoreUse = true;
 			}
 		}
 		return true;
