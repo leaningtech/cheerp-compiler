@@ -395,6 +395,21 @@ private:
 					}
 				}
 			}
+			for (int64_t pow2 = 1, id2=0; pow2 < pow; pow2 *=2, id2++)
+			{
+				const int64_t A = (pow-pow2) & representation;
+				const int64_t B = representation ^ A;
+				if (isGoodSplit(A, B, representation))
+				{
+					possibleTransformations.push_back(Transformation(A, B, TestKind::RANGE_MEMBERSHIP));
+					//TODO -> Find higher and lower bits!!!!
+
+					const RangeDest& range = data.getRange(id-1);
+					const RangeDest& range2 = data.getRange(id2);
+					possibleTransformations.back().a = range2.low;
+					possibleTransformations.back().b = range.high;
+				}
+			}
 		}
 
 		return possibleTransformations;
