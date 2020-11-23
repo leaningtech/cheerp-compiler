@@ -5853,6 +5853,12 @@ void CheerpWriter::compileAssignHeaps(bool wasm)
 {
 	const std::string shortestName = namegen.getShortestLocalName();
 	int last = wasm ? LAST_WASM : LAST_ASMJS;
+
+	if (isHeapNameUsed(HEAP64) && !UseBigInts)
+	{
+		llvm_unreachable("Unexpected BigInt");
+	}
+
 	stream << "function " << namegen.getBuiltinName(NameGenerator::Builtin::ASSIGN_HEAPS) << "(" << shortestName << "){" << NewLine;
 	for (int i = HEAP8; i<=last; i++)
 	{
