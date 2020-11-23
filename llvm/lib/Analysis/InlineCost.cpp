@@ -2461,8 +2461,11 @@ bool llvm::isInlineViableCheerp(Function &F, Function &Caller) {
       if (isa<AllocaInst>(II))
         return false;
       // No stores of pointers (TODO relax this)
+      // No stores of int64
       if (const StoreInst* si = dyn_cast<StoreInst>(II)) {
         if (si->getValueOperand()->getType()->isPointerTy())
+          return false;
+        if (si->getValueOperand()->getType()->isIntegerTy(64))
           return false;
       }
       // No loads of pointers of pointers (TODO relax this)
