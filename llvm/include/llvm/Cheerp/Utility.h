@@ -372,7 +372,7 @@ public:
 		if (llvm::isa<llvm::StructType>(et) && llvm::cast<llvm::StructType>(et)->isOpaque())
 			return asmjs;
 		if (!WasmAnyref)
-			llvm::report_fatal_error("Found an anyref, but anyref support is not enabled");
+			llvm::report_fatal_error("Found an externref, but externref support is not enabled");
 		return false;
 	}
 
