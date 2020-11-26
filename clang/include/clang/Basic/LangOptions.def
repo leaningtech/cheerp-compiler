@@ -316,7 +316,7 @@ ENUM_LANGOPT(SignedOverflowBehavior, SignedOverflowBehaviorTy, 2, SOB_Undefined,
 ENUM_LANGOPT(CheerpLinearOutput, CheerpLinearOutputTy, 2, CHEERP_LINEAR_OUTPUT_Wasm,
              "Output format for the linear memory part of the program [wasm/asmjs]")
 LANGOPT(CheerpAnyref, 1, 0,
-             "Enable use of anyref in wasm. This relaxes some interoperability checks")
+             "Enable use of externref in wasm. This relaxes some interoperability checks")
 
 BENIGN_LANGOPT(ArrowDepth, 32, 256,
                "maximum number of operator->s to follow")

@@ -5012,10 +5012,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CheerpNoPointerSCEV->render(Args, CmdArgs);
   }
 
-  // Pass cheerp-wasm-anyref if anyref feature enabled
+  // Pass cheerp-wasm-externref if anyref feature enabled
   auto wasmFeatures = cheerp::getWasmFeatures(D, Args);
   if (std::binary_search(wasmFeatures.begin(), wasmFeatures.end(), cheerp::ANYREF)) {
-    CmdArgs.push_back("-cheerp-wasm-anyref");
+    CmdArgs.push_back("-cheerp-wasm-externref");
   }
 
   // GCC's behavior for -Wwrite-strings is a bit strange:

@@ -544,7 +544,7 @@ static cheerp::CheerpWasmOpt parseWasmOpt(StringRef opt)
     .Case("growmem", cheerp::GROWMEM)
     .Case("sharedmem", cheerp::SHAREDMEM)
     .Case("exportedtable", cheerp::EXPORTEDTABLE)
-    .Case("anyref", cheerp::ANYREF)
+    .Case("externref", cheerp::ANYREF)
     .Case("returncalls", cheerp::RETURNCALLS)
     .Default(cheerp::INVALID);
 }
@@ -732,7 +732,7 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-cheerp-wasm-exported-table");
         break;
       case ANYREF:
-        CmdArgs.push_back("-cheerp-wasm-anyref");
+        CmdArgs.push_back("-cheerp-wasm-externref");
         break;
       case RETURNCALLS:
         CmdArgs.push_back("-cheerp-wasm-return-calls");
