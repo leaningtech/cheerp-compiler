@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2017 Leaning Technologies
+// Copyright 2017-2020 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
@@ -97,7 +97,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 				// always promotable to registers, so if we find one, just promote it
 				if (allocTy->isPointerTy() && cheerp::TypeSupport::isClientType(allocTy->getPointerElementType()))
 				{
-					assert(isAllocaPromotable(ai) && "Alloca of anyref not promotable to register");
+					assert(isAllocaPromotable(ai) && "Alloca of externref not promotable to register");
 					allocasToPromote.push_back(ai);
 					continue;
 				}
