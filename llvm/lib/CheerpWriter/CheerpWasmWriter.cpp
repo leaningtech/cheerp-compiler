@@ -3894,14 +3894,14 @@ void CheerpWasmWriter::compileMemoryAndGlobalSection()
 						continue;
 					if(isa<Function>(C) || isa<ConstantPointerNull>(C))
 						continue;
+					if (orderOfInsertion.count(C) == 0)
+						orderOfInsertion[C] = orderOfInsertion.size();
 					if(isa<GlobalVariable>(C) && globalizedGlobalsUsage.count(cast<GlobalVariable>(C)))
 					{
 						// The whole global is globalized, there is no point in globalizing the address
 						continue;
 					}
 					globalizedConstantsTmp[C].first++;
-					if (orderOfInsertion.count(C) == 0)
-						orderOfInsertion[C] = orderOfInsertion.size();
 				}
 			}
 		}
