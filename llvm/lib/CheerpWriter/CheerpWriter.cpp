@@ -6617,9 +6617,6 @@ void CheerpWriter::makeJS()
 
 	compileNamespaces();
 
-	if (needAssignHeaps)
-		compileAssignHeaps(needWasmLoader);
-
 	bool areExtraParenthesisOpen = true;
 
 	if (needWasmLoader)
@@ -6650,6 +6647,9 @@ void CheerpWriter::makeJS()
 
 	if (areExtraParenthesisOpen)
 		compileLoaderOrModuleEnd();
+
+	if (needAssignHeaps)
+		compileAssignHeaps(needWasmLoader);
 
 	compileFileEnd(options);
 }
