@@ -332,58 +332,23 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 					{
 						llvm::report_fatal_error("Vastart in wasm should be removed in the AllocaLowering pass. This is a bug");
 					}
-					case Intrinsic::vacopy:
-					case Intrinsic::lifetime_start:
-					case Intrinsic::lifetime_end:
-					case Intrinsic::cheerp_reallocate:
-					case Intrinsic::copysign:
-					case Intrinsic::maxnum:
-					case Intrinsic::minnum:
-					{
-						return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
-							equivalentOperand(A->getOperand(1), B->getOperand(1)));
-					}
+					case Intrinsic::not_intrinsic:
+						break;
 					case Intrinsic::cheerp_downcast:
 					case Intrinsic::cheerp_virtualcast:
 					{
-						return CacheAndReturn(equivalentType(A->getType(), B->getType()) &&
-							equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
-							equivalentOperand(A->getOperand(1), B->getOperand(1)));
-					}
-					case Intrinsic::cheerp_downcast_current:
-					case Intrinsic::cheerp_upcast_collapsed:
-					case Intrinsic::cheerp_cast_user:
-					case Intrinsic::flt_rounds:
-					case Intrinsic::ceil:
-					case Intrinsic::fabs:
-					case Intrinsic::floor:
-					case Intrinsic::round:
-					case Intrinsic::ctlz:
-					case Intrinsic::invariant_start:
-					case Intrinsic::stackrestore:
-					case Intrinsic::bswap:
-					case Intrinsic::cheerp_allocate:
-					case Intrinsic::cheerp_deallocate:
-					{
-						return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)));
-					}
-					case Intrinsic::memmove:
-					case Intrinsic::memcpy:
-					case Intrinsic::memset:
-					{
-						return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)) &&
-							equivalentOperand(A->getOperand(1), B->getOperand(1)) &&
-							equivalentOperand(A->getOperand(2), B->getOperand(2)));
+						if (!equivalentType(A->getType(), B->getType()))
+							return CacheAndReturn(false);
+						[[clang::fallthrough]];
 					}
 					default:
 					{
-#ifndef NDEBUG
-						if (intrinsic != Intrinsic::not_intrinsic) {
-							A->dump();
-							calledValue->dump();
+						for (unsigned int i=0; i<A->getNumOperands(); i++)
+						{
+							if (!equivalentOperand(A->getOperand(i), B->getOperand(i)))
+								return CacheAndReturn(false);
 						}
-#endif
-						assert(intrinsic == Intrinsic::not_intrinsic);
+						return CacheAndReturn(true);
 					}
 					break;
 				}
