@@ -638,6 +638,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 	std::vector<Function*> toUnreachable;
 	std::unordered_map<FunctionType*, IndirectFunctionsData, LinearMemoryHelper::FunctionSignatureHash<true>, LinearMemoryHelper::FunctionSignatureCmp<true>> validIndirectCallTypesMap;
+	std::unordered_set<FunctionType*, LinearMemoryHelper::FunctionSignatureHash<true>, LinearMemoryHelper::FunctionSignatureCmp<true>> validTargetOfIndirectCall;
 	for (Function& F : module.getFunctionList())
 	{
 		if (F.getSection() != StringRef("asmjs"))
@@ -680,6 +681,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	std::vector<llvm::CallInst*> unreachList;
 	std::vector<std::pair<llvm::CallInst*, llvm::Function*> > devirtualizedCalls;
 
+
+
 	//Fixing function casts implies that new functions types will be created
 	//Exporting the table implies that functions can be added outside of our control
 	if (!FixWrongFuncCasts && !WasmExportedTable)
@@ -720,6 +723,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						replaceCallOfBitCastWithBitCastOfCall(*ci);
 
 						devirtualizedCalls.push_back({ci, toBeCalledFunc});
+					}
+					else
+					{
+						validTargetOfIndirectCall.insert(it->second.funcs[0].F->getFunctionType());
 					}
 					it->second.signatureUsed = true;
 				}
@@ -773,6 +780,71 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	for (Function* F : modifiedFunctions)
 	{
 		removeUnreachableBlocks(*F);
+	}
+
+	std::vector<Function*> toBeSubstitutedIndirectUses;
+
+	if (!llcPass)
+	{
+		for (Function& F : module.getFunctionList())
+		{
+			if (F.getSection() != StringRef("asmjs"))
+				continue;
+
+			if (reachableGlobals.count(&F))
+				continue;
+
+			if (F.getLinkage() != GlobalValue::InternalLinkage)
+				continue;
+
+			if (validTargetOfIndirectCall.count(F.getFunctionType()))
+				continue;
+
+			//If we are here it's an amsjs function, not reachable from genericjs, with internal linking and no valid indirect calls
+			toBeSubstitutedIndirectUses.push_back(&F);
+		}
+	}
+
+	for (Function* F : toBeSubstitutedIndirectUses)
+	{
+		std::vector<Use*> indirectUses;
+		for (Use &U : F->uses())
+		{
+			const User *FU = U.getUser();
+			if (!isa<CallInst>(FU) && !isa<InvokeInst>(FU))
+			{
+				indirectUses.push_back(&U);
+				continue;
+			}
+			ImmutableCallSite CS(cast<Instruction>(FU));
+			if (CS.isCallee(&U))
+			{
+				//Nothing to do
+			}
+			else
+			{
+				indirectUses.push_back(&U);
+			}
+		}
+
+		if (indirectUses.empty())
+		{
+			//Nothing to substitute, avoid creating an empty function
+			continue;
+		}
+
+		//Create an function (with the right type) composed by a single unreachable statement
+		Function* placeholderFunc = Function::Create(F->getFunctionType(), F->getLinkage(), F->getName() + "_unreachable", module);
+		llvm::BasicBlock* unreachableBlock = llvm::BasicBlock::Create(placeholderFunc->getContext(), "", placeholderFunc);
+		new llvm::UnreachableInst(unreachableBlock->getContext(), unreachableBlock);
+		placeholderFunc->setSection("asmjs");
+
+		//Visit the function, so it's in the relevant GlobalDepsAnalyzer data structures
+		VisitedSet visited;
+		visitFunction(placeholderFunc, visited);
+
+		//Visit the indirect uses of the old functions, and change them to use the new (almost empty) function
+		replaceSomeUsesWith(indirectUses, placeholderFunc);
 	}
 
 	// Create the start function only if we have a wasm module without js loader
