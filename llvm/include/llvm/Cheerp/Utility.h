@@ -528,6 +528,8 @@ private:
 //replace CallInst(bitcast someFunc, ....) with BitCast(CalInst someFunc), returning whether something has been modified
 bool replaceCallOfBitCastWithBitCastOfCall(llvm::CallInst& callInst, bool mayFail = false, bool performPtrIntConversions = false);
 
+void replaceSomeUsesWith(std::vector<llvm::Use*> uses, llvm::Value* toSubstitute);
+
 /**
  * Iterator over all the words composed by a given set of symbols.
  * 
