@@ -1250,6 +1250,23 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, boo
 	return true;
 }
 
+void replaceSomeUsesWith(std::vector<Use*> uses, Value* toSubstitute)
+{
+	for (auto U : uses)
+	{
+		if (Constant* C = dyn_cast<Constant>(U->getUser()))
+		{
+			Value* V = U->get();
+			if (V != toSubstitute)
+				C->handleOperandChange(V, toSubstitute);
+		}
+		else
+		{
+			U->set(toSubstitute);
+		}
+	}
+}
+
 }
 
 namespace llvm
