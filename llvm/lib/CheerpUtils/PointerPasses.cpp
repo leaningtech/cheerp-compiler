@@ -681,7 +681,7 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 		}
 	}
 
-	DenseMap<Constant*, Value*> ConstantReplacements;
+	std::vector<Use*> usesToBeReplaced;
 	for (Function& f: M)
 	{
 		if (cheerp::isFreeFunctionName(f.getName()))
@@ -725,7 +725,8 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				{
 					if (isa<Function>(U.get()) && cheerp::isFreeFunctionName(cast<Function>(U.get())->getName()))
 					{
-						ConstantReplacements[c] = U.get();
+						usesToBeReplaced.push_back(&U);
+						Changed = true;
 					}
 				}
 				else
@@ -760,11 +761,12 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 			}
 		}
 	}
-	for (auto cr: ConstantReplacements)
+
+	if (!usesToBeReplaced.empty())
 	{
-		cr.first->handleOperandChange(cr.second, getOrCreateGenericJSFree(M, isAllGenericJS));
-		Changed = true;
+		cheerp::replaceSomeUsesWith(usesToBeReplaced, getOrCreateGenericJSFree(M, isAllGenericJS));
 	}
+
 	return Changed;
 }
 
