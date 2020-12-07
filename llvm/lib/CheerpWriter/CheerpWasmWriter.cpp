@@ -1470,6 +1470,8 @@ void CheerpWasmWriter::compileFloatToText(WasmBuffer& code, const APFloat& f, ui
 
 void CheerpWasmWriter::compileConstant(WasmBuffer& code, const Constant* c, bool forGlobalInit)
 {
+	if (hasPutTeeLocalOnStack(code, c))
+		return;
 	if(const ConstantExpr* CE = dyn_cast<ConstantExpr>(c))
 	{
 		compileConstantExpr(code, CE);
@@ -1570,6 +1572,8 @@ void CheerpWasmWriter::compileOperand(WasmBuffer& code, const llvm::Value* v)
 	}
 	else if(const Argument* arg=dyn_cast<Argument>(v))
 	{
+		if (hasPutTeeLocalOnStack(code, arg))
+			return;
 		uint32_t local = arg->getArgNo();
 		encodeInst(WasmU32Opcode::GET_LOCAL, local, code);
 	}
