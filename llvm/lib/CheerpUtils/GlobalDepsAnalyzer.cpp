@@ -772,6 +772,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 		//Check (only once for the whole group of indirect functions) all possible indirect call sites
 		std::vector<Value*> constantArgs(numArgs, nullptr);
+		std::vector<bool> toReplaceInIndirectCalls(numArgs, true);
 		for (uint32_t numArg=0; numArg<numArgs; numArg++)
 		{
 			Value* curr = pair.second.indirectCallSites[0]->getArgOperand(numArg);
@@ -841,6 +842,22 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						ci->setArgOperand(numArg, UndefValue::get(V->getType()));
 					}
 				}
+
+				if (!Arg->user_empty())
+					toReplaceInIndirectCalls[numArg] = false;
+			}
+		}
+
+		for (uint32_t numArg=0; numArg<numArgs; numArg++)
+		{
+			if (!toReplaceInIndirectCalls[numArg])
+				continue;
+
+			//If the common constant has been substituted in all functions of the group, we can as well change the operand to UndefValue
+			for (auto& ci : pair.second.indirectCallSites)
+			{
+				Value* V = ci->getArgOperand(numArg);
+				ci->setArgOperand(numArg, UndefValue::get(V->getType()));
 			}
 		}
 	}
