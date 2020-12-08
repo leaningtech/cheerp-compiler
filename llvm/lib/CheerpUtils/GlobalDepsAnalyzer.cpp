@@ -617,6 +617,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 	struct IndirectFunctionsData
 	{
 		std::vector<FunctionData> funcs;
+		std::vector<CallInst*> indirectCallSites;
 		bool signatureUsed;
 		IndirectFunctionsData():signatureUsed(false)
 		{
@@ -726,6 +727,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					}
 					else
 					{
+						it->second.indirectCallSites.push_back(ci);
 						validTargetOfIndirectCall.insert(it->second.funcs[0].F->getFunctionType());
 					}
 					it->second.signatureUsed = true;
@@ -755,6 +757,92 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 
 		if (F.getInstructionCount() > 10u)
 			CI.setIsNoInline();
+	}
+
+	//Loop over every possible call site (either direct or indirect that matches the signature)
+	//and check whether it happens to be that a given argument is always the same global (while skipping over UndefValues)
+	for (auto pair : validIndirectCallTypesMap)
+	{
+		if (pair.second.indirectCallSites.empty())
+			continue;
+
+		//The function can be variadic and so take a variable number of arguments in the call sites
+		//but up to numArgs we can find commonality and substitute them directly in the function
+		const uint32_t numArgs = pair.first->getNumParams();
+
+		//Check (only once for the whole group of indirect functions) all possible indirect call sites
+		std::vector<Value*> constantArgs(numArgs, nullptr);
+		for (uint32_t numArg=0; numArg<numArgs; numArg++)
+		{
+			Value* curr = pair.second.indirectCallSites[0]->getArgOperand(numArg);
+
+			for (auto& ci : pair.second.indirectCallSites)
+			{
+				Value* V = ci->getArgOperand(numArg);
+				if (curr && isa<UndefValue>(curr))
+					curr = V;
+				if (V != curr)
+					curr = nullptr;
+			}
+
+			if (curr && isa<Constant>(curr))
+				constantArgs[numArg] = curr;
+		}
+
+		//Now constantArg[0...numARgs] is either nullptr or the Constant to be substituted
+
+		for (auto& x : pair.second.funcs)
+		{
+			std::vector<CallBase*> directCalls;
+
+			//Collect all relevant direct call sites
+			for (Use &U : x.F->uses())
+			{
+				User *FU = U.getUser();
+				if (!isa<CallInst>(FU) && !isa<InvokeInst>(FU))
+					continue;
+				ImmutableCallSite CS(cast<Instruction>(FU));
+				if (CS.isCallee(&U))
+				{
+					directCalls.push_back(cast<CallBase>(FU));
+				}
+			}
+
+			for (uint32_t numArg=0; numArg<numArgs; numArg++)
+			{
+				Value* toSubstitute = constantArgs[numArg];
+
+				//Check if all direct call sites have always the same constant
+				for (auto& ci : directCalls)
+				{
+					Value * V = ci->getArgOperand(numArg);
+
+					if (toSubstitute && isa<UndefValue>(toSubstitute))
+						toSubstitute = V;
+					if (V != toSubstitute)
+						toSubstitute = nullptr;
+				}
+
+				auto Arg = x.F->arg_begin();
+				Arg += numArg;
+
+				if (toSubstitute && isa<UndefValue>(toSubstitute))
+					toSubstitute = UndefValue::get(Arg->getType());
+
+				if (toSubstitute && isa<Constant>(toSubstitute) && Arg->getType() == toSubstitute->getType())
+				{
+					//Change every use of the Argument to the relevant Constant
+					Arg->replaceAllUsesWith(toSubstitute);
+
+					//Change in every direct call site the Constant with UndefValue
+					for (auto& ci : directCalls)
+					{
+						Value * V = ci->getArgOperand(numArg);
+						ci->setArgOperand(numArg, UndefValue::get(V->getType()));
+					}
+				}
+			}
+		}
 	}
 
 	std::unordered_set<llvm::Function*> modifiedFunctions;
