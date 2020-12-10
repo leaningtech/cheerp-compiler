@@ -76,6 +76,9 @@ public:
 	public:
 		bool operator()(const llvm::FunctionType* const& lhs, const llvm::FunctionType* const& rhs) const
 		{
+			if (isStrict && lhs->isVarArg() != rhs->isVarArg())
+				return false;
+
 			size_t r1 = typeKindOf<isStrict>(lhs->getReturnType());
 			size_t r2 = typeKindOf<isStrict>(rhs->getReturnType());
 			if (r1 != r2)
