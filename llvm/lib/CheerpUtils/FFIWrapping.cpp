@@ -21,7 +21,7 @@ using namespace llvm;
 static Function* wrapImport(Module& M, const Function* Orig)
 {
 	FunctionType* Ty = Orig->getFunctionType();
-	Function* Wrapper = cast<Function>(M.getOrInsertFunction(Twine("__wrapper__",Orig->getName()).str(), Ty));
+	Function* Wrapper = cast<Function>(M.getOrInsertFunction(Twine("__wrapper__",Orig->getName()).str(), Ty).getCallee());
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Wrapper);
 	IRBuilder<> Builder(Entry);
 
@@ -43,7 +43,7 @@ static Function* wrapGlobal(Module& M, GlobalVariable* G)
 {
 	Type* RetTy = G->getType();
 	FunctionType* FTy = FunctionType::get(RetTy, false);
-	Function* Wrapper = cast<Function>(M.getOrInsertFunction(Twine("__wrapper__",G->getName()).str(), FTy));
+	Function* Wrapper = cast<Function>(M.getOrInsertFunction(Twine("__wrapper__",G->getName()).str(), FTy).getCallee());
 	if (!Wrapper->empty())
 		return Wrapper;
 	BasicBlock* Entry = BasicBlock::Create(M.getContext(),"entry", Wrapper);
