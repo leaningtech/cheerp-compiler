@@ -30,7 +30,7 @@ static Function* getOrCreateGetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 	Type* i8Ty = IntegerType::getInt8Ty(M->getContext());
 	Type* i8PtrTy = PointerType::get(i8Ty, 0);
 	FunctionType* fTy = FunctionType::get(i8PtrTy,{});
-	Function* wrapper = cast<Function>(M->getOrInsertFunction("__getStackPtr", fTy));
+	Function* wrapper = cast<Function>(M->getOrInsertFunction("__getStackPtr", fTy).getCallee());
 	if (!wrapper->empty())
 		return wrapper;
 	BasicBlock* entry = BasicBlock::Create(M->getContext(),"entry", wrapper);
@@ -50,7 +50,7 @@ static Function* getOrCreateSetStackWrapper(Module* M, cheerp::GlobalDepsAnalyze
 	Type* i8PtrTy = PointerType::get(i8Ty, 0);
 	Type* argTy[] = {i8PtrTy};
 	FunctionType* fTy = FunctionType::get(Type::getVoidTy(M->getContext()),ArrayRef<Type*>(argTy,1), false);
-	Function* wrapper = cast<Function>(M->getOrInsertFunction("__setStackPtr", fTy));
+	Function* wrapper = cast<Function>(M->getOrInsertFunction("__setStackPtr", fTy).getCallee());
 	if (!wrapper->empty())
 		return wrapper;
 	BasicBlock* entry = BasicBlock::Create(M->getContext(),"entry", wrapper);
