@@ -633,7 +633,7 @@ static Function* getOrCreateGenericJSFree(Module& M, bool isAllGenericJS)
 	Function* Orig = M.getFunction("free");
 	assert(Orig);
 	FunctionType* Ty = Orig->getFunctionType();
-	Function* New = cast<Function>(M.getOrInsertFunction("__genericjs__free", Ty));
+	Function* New = cast<Function>(M.getOrInsertFunction("__genericjs__free", Ty).getCallee());
 	if (!New->empty())
 		return New;
 	New->addFnAttr(Attribute::NoInline);
