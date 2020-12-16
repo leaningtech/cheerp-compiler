@@ -706,7 +706,7 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 
 		llvm::Type *ArgTypes[] = { Int32Ty, Int32Ty, Int32Ty, Int32Ty };
 		llvm::FunctionType *FuncTy = llvm::FunctionType::get(Int32Ty, ArgTypes, false);
-		llvm::Function* Func = cast<Function>(M.getOrInsertFunction(fname, FuncTy));
+		llvm::Function* Func = cast<Function>(M.getOrInsertFunction(fname, FuncTy).getCallee());
 
 		llvm::Value *Args[] = {
 			LHS.low,
