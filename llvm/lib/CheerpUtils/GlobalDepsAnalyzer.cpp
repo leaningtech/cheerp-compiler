@@ -719,7 +719,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						llvm::Constant* devirtualizedCall = toBeCalledFunc;
 						if(devirtualizedCall->getType() != calledValue->getType())
 							devirtualizedCall = ConstantExpr::getBitCast(devirtualizedCall, calledValue->getType());
-						ci->setCalledFunction(devirtualizedCall);
+						ci->setCalledOperand(devirtualizedCall);
 
 						replaceCallOfBitCastWithBitCastOfCall(*ci);
 
