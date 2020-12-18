@@ -1883,7 +1883,7 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
       Init && emission.IsEscapingByRef && isCapturedBy(D, Init);
 
   bool locIsByrefHeader = !capturedByInit;
-  const Address Loc =
+  Address Loc =
       locIsByrefHeader ? emission.getObjectAddress(*this) : emission.Addr;
 
   // Note: constexpr already initializes everything correctly.
@@ -1947,7 +1947,7 @@ void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
   }
 
   if (D.getType()->isArrayType())
-    Loc = Builder.CreateConstArrayGEP(Loc, 0, CharUnits());
+    Loc = Builder.CreateConstArrayGEP(Loc, 0);
 
   emitStoresForConstant(CGM, D, getTarget().isByteAddressable() ? Builder.CreateElementBitCast(Loc, CGM.Int8Ty) : Loc,
                         type.isVolatileQualified(), Builder, constant,
