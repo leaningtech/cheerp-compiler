@@ -263,7 +263,7 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
       // Get the layout.
       const CGRecordLayout &Layout = getTypes().getCGRecordLayout(Derived);
       uint32_t index = BaseIsVirtual ? Layout.getVirtualBaseIndex(Base) : Layout.getNonVirtualBaseLLVMFieldNo(Base);
-      return Builder.CreateStructGEP(This, index, CharUnits());
+      return Builder.CreateStructGEP(This, index);
     }
   }
 
@@ -2872,7 +2872,7 @@ llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
   assert(This.getType()->isPointerTy());
   Address VTablePtrSrc = Address::invalid();
   if(This.getType()->getPointerElementType()->isStructTy())
-    VTablePtrSrc = Builder.CreateStructGEP(This, 0, CharUnits());
+    VTablePtrSrc = Builder.CreateStructGEP(This, 0);
   else
     VTablePtrSrc = This;
   if(!VTablePtrSrc.getType()->getPointerElementType()->isPointerTy())

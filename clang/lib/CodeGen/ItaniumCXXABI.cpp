@@ -1663,7 +1663,7 @@ llvm::Value *ItaniumCXXABI::EmitDynamicCastToVoid(CodeGenFunction &CGF,
     if (asmjs) {
       llvm::Type* VTableType = CGM.getTypes().GetSecondaryVTableType(SrcDecl)->getPointerTo();
       Address VTable = Address(CGF.GetVTablePtr(ThisAddr, VTableType, ClassDecl), ThisAddr.getAlignment());
-      Address Tmp = CGF.Builder.CreateStructGEP(VTable, 0, CharUnits());
+      Address Tmp = CGF.Builder.CreateStructGEP(VTable, 0);
       OffsetToTop = CGF.Builder.CreateLoad(Tmp, "offset.to.top");
     } else {
       OffsetToTop = llvm::ConstantInt::get(CGM.Int32Ty, 0);

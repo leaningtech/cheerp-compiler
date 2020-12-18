@@ -4609,7 +4609,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
 
   case CK_ArrayToPointerDecay: {
     LValue LV = EmitLValue(E->getSubExpr());
-    Address V = Builder.CreateConstArrayGEP(LV.getAddress(), 0, CharUnits());
+    Address V = Builder.CreateConstArrayGEP(LV.getAddress(), 0);
     return MakeAddrLValue(V, E->getType());
   }
   case CK_ConstructorConversion:
