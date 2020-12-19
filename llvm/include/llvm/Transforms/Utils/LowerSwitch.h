@@ -1,3 +1,5 @@
+#include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/ADT/STLExtras.h"
