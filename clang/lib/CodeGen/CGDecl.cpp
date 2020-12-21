@@ -1210,7 +1210,7 @@ static void emitStoresForConstant(CodeGenModule &CGM, const VarDecl &D,
           Address EltPtr = Builder.CreateStructGEP(Loc, i);
           emitStoresForConstant(
               CGM, D, EltPtr, isVolatile, Builder,
-              cast<llvm::Constant>(Builder.CreateExtractValue(constant, i)));
+              cast<llvm::Constant>(Builder.CreateExtractValue(constant, i)), CurFn);
         }
         return;
       }
@@ -1221,7 +1221,7 @@ static void emitStoresForConstant(CodeGenModule &CGM, const VarDecl &D,
           Address EltPtr = Builder.CreateConstArrayGEP(Loc, i);
           emitStoresForConstant(
               CGM, D, EltPtr, isVolatile, Builder,
-              cast<llvm::Constant>(Builder.CreateExtractValue(constant, i)));
+              cast<llvm::Constant>(Builder.CreateExtractValue(constant, i)), CurFn);
         }
         return;
       }
