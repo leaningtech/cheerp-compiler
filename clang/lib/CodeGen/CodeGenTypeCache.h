@@ -113,6 +113,9 @@ struct CodeGenTypeCache {
   llvm::CallingConv::ID getRuntimeCC() const { return RuntimeCC; }
 
   LangAS getASTAllocaAddressSpace() const { return ASTAllocaAddressSpace; }
+
+  const llvm::DataLayout& DL;
+  CodeGenTypeCache(const llvm::DataLayout& DL):DL(DL) {}
 };
 
 }  // end namespace CodeGen

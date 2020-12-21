@@ -173,7 +173,7 @@ public:
   Address CreateStructGEP(Address Addr, unsigned Index,
                           const llvm::Twine &Name = "") {
     llvm::StructType *ElTy = cast<llvm::StructType>(Addr.getElementType());
-    const llvm::DataLayout &DL = BB->getParent()->getParent()->getDataLayout();
+    const llvm::DataLayout &DL = TypeCache.DL;
     const llvm::StructLayout *Layout = DL.getStructLayout(ElTy);
     auto Offset = CharUnits::fromQuantity(Layout->getElementOffset(Index));
 
@@ -193,7 +193,7 @@ public:
   Address CreateConstArrayGEP(Address Addr, uint64_t Index,
                               const llvm::Twine &Name = "") {
     llvm::ArrayType *ElTy = cast<llvm::ArrayType>(Addr.getElementType());
-    const llvm::DataLayout &DL = BB->getParent()->getParent()->getDataLayout();
+    const llvm::DataLayout &DL = TypeCache.DL;
     CharUnits EltSize =
         CharUnits::fromQuantity(DL.getTypeAllocSize(ElTy->getElementType()));
 
@@ -211,7 +211,7 @@ public:
   Address CreateConstInBoundsGEP(Address Addr, uint64_t Index,
                                  const llvm::Twine &Name = "") {
     llvm::Type *ElTy = Addr.getElementType();
-    const llvm::DataLayout &DL = BB->getParent()->getParent()->getDataLayout();
+    const llvm::DataLayout &DL = TypeCache.DL;
     CharUnits EltSize = CharUnits::fromQuantity(DL.getTypeAllocSize(ElTy));
 
     return Address(CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
@@ -226,7 +226,7 @@ public:
   /// where i64 is actually the target word size.
   Address CreateConstGEP(Address Addr, uint64_t Index,
                          const llvm::Twine &Name = "") {
-    const llvm::DataLayout &DL = BB->getParent()->getParent()->getDataLayout();
+    const llvm::DataLayout &DL = TypeCache.DL;
     CharUnits EltSize =
         CharUnits::fromQuantity(DL.getTypeAllocSize(Addr.getElementType()));
 
@@ -252,7 +252,7 @@ public:
   using CGBuilderBaseTy::CreateConstInBoundsGEP2_32;
   Address CreateConstInBoundsGEP2_32(Address Addr, unsigned Idx0, unsigned Idx1,
                                      const llvm::Twine &Name = "") {
-    const llvm::DataLayout &DL = BB->getParent()->getParent()->getDataLayout();
+    const llvm::DataLayout &DL = TypeCache.DL;
 
     auto *GEP = cast<llvm::GetElementPtrInst>(CreateConstInBoundsGEP2_32(
         Addr.getElementType(), Addr.getPointer(), Idx0, Idx1, Name));
