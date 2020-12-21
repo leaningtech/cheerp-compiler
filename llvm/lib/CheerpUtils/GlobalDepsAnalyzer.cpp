@@ -246,7 +246,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 						{
 							Function* F = module.getFunction("malloc");
 							assert(F);
-							ci->setCalledFunction(F);
 							Type* oldType = ci->getType();
 							if(oldType != F->getReturnType())
 							{
@@ -255,12 +254,12 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 								ci->mutateType(F->getReturnType());
 								newCast->setOperand(0, ci);
 							}
+							ci->setCalledFunction(F);
 						}
 						else if(II == Intrinsic::cheerp_reallocate)
 						{
 							Function* F = module.getFunction("realloc");
 							assert(F);
-							ci->setCalledFunction(F);
 							Type* oldType = ci->getType();
 							if(oldType != F->getReturnType())
 							{
@@ -271,6 +270,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 								ci->mutateType(F->getReturnType());
 								newCast->setOperand(0, ci);
 							}
+							ci->setCalledFunction(F);
 						}
 						else if(II == Intrinsic::cheerp_deallocate)
 						{
