@@ -1248,7 +1248,7 @@ static void emitStoresForConstant(CodeGenModule &CGM, const VarDecl &D,
           emitStoresForConstant(
               CGM, D, EltPtr, isVolatile, Builder,
               cast<llvm::Constant>(Builder.CreateExtractValue(constant, i)),
-              IsAutoInit);
+              IsAutoInit, CurFn);
         }
         return;
       }
@@ -1260,7 +1260,7 @@ static void emitStoresForConstant(CodeGenModule &CGM, const VarDecl &D,
           emitStoresForConstant(
               CGM, D, EltPtr, isVolatile, Builder,
               cast<llvm::Constant>(Builder.CreateExtractValue(constant, i)),
-              IsAutoInit);
+              IsAutoInit, CurFn);
         }
         return;
       }
