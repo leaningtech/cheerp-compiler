@@ -33,7 +33,7 @@ set(LLVM_TOOLCHAIN_TOOLS
 
 set(LLVM_DISTRIBUTION_COMPONENTS
   clang
-  clang-headers
+  clang-resource-headers
   ${LLVM_TOOLCHAIN_TOOLS}
   CACHE STRING "")
 
