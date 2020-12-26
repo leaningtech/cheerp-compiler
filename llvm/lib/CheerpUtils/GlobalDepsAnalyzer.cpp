@@ -121,7 +121,7 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 		I->eraseFromParent();
 	};
 	OptimizationRemarkEmitter ORE;
-	LibCallSimplifier callSimplifier(*DL, TLI, ORE, LibCallReplacer);
+	LibCallSimplifier callSimplifier(*DL, TLI, ORE, nullptr, nullptr, LibCallReplacer);
 	for (Function& F : module.getFunctionList()) {
 		F.setPersonalityFn(nullptr);
 
