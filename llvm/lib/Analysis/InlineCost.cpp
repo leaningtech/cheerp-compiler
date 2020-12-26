@@ -2872,7 +2872,7 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
                                      " address space");
     }
 
-  Function* caller=CS.getCaller();
+  Function* caller=Call.getCaller();
   if (!isInlineViableCheerp(*Callee, *caller))
     return llvm::InlineCost::getNever("not Cheerp viable");
 
