@@ -679,7 +679,6 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
 
     CodeGenFunction(*this).GenerateCXXGlobalInitFunc(Fn, CXXGlobalInits);
     AddGlobalCtor(Fn);
-  }
 
   // In OpenCL global init functions must be converted to kernels in order to
   // be able to launch them from the host.
@@ -692,6 +691,7 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
   if (getLangOpts().OpenCL) {
     GenOpenCLArgMetadata(Fn);
     Fn->setCallingConv(llvm::CallingConv::SPIR_KERNEL);
+  }
   }
 
   if (getLangOpts().HIP) {
