@@ -1926,7 +1926,7 @@ private:
     ArrayRef<APValue::LValuePathEntry> Path = Value.getLValuePath();
     for (unsigned I = 0; I != Path.size(); ++I) {
       if (const RecordType* CurClass = CurType->getAs<RecordType>()) {
-        const Decl *BaseOrMember = APValue::BaseOrMemberType::getFromOpaqueValue(Path[I].BaseOrMember).getPointer();
+        const Decl *BaseOrMember = Path[I].getAsBaseOrMember().getPointer();
         if (const CXXRecordDecl *Base = dyn_cast<CXXRecordDecl>(BaseOrMember)) {
           CurType = CGM.getContext().getRecordType(Base);
           const CGRecordLayout &cgLayout = CGM.getTypes().getCGRecordLayout(CurClass->getDecl());
@@ -1947,7 +1947,7 @@ private:
           Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, fieldIndex));
         }
       } else {
-        Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, Path[I].ArrayIndex));
+        Indexes.push_back(llvm::ConstantInt::get(CGM.Int32Ty, Path[I].getAsArrayIndex()));
         CurType = CGM.getContext().getAsArrayType(CurType)->getElementType();
       }
     }
