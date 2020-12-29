@@ -1919,6 +1919,9 @@ private:
       CurType = D->getType();
     else if (const Expr *E = base.dyn_cast<const Expr*>())
       CurType = E->getType();
+    else
+      CurType = base.getTypeInfoType();
+
 
   llvm::Type* CurrentType = C->getType()->getPointerElementType();
 
