@@ -617,7 +617,7 @@ const Value *Value::stripPointerCastsAndAliases() const {
 
 const Value *Value::stripPointerCastsSameRepresentation() const {
   return stripPointerCastsAndOffsets<
-      PSK_ZeroIndicesSameRepresentation>(this);
+      PSK_ZeroIndicesSameRepresentation>(this, false);
 }
 
 const Value *Value::stripInBoundsConstantOffsets() const {
