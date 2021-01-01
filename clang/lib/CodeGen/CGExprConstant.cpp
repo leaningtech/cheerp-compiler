@@ -101,7 +101,7 @@ class ConstantAggregateBuilder : private ConstantAggregateBuilderUtils {
                                    ArrayRef<CharUnits> Offsets,
                                    CharUnits StartOffset, CharUnits Size,
                                    bool NaturalLayout, llvm::Type *DesiredTy,
-                                   bool AllowOversized);
+                                   bool AllowOversized, const RecordDecl* RD);
 
 public:
   ConstantAggregateBuilder(CodeGenModule &CGM)
@@ -119,16 +119,16 @@ public:
 
   /// Attempt to condense the value starting at \p Offset to a constant of type
   /// \p DesiredTy.
-  void condense(CharUnits Offset, llvm::Type *DesiredTy);
+  void condense(CharUnits Offset, llvm::Type *DesiredTy, const RecordDecl* RD);
 
   /// Produce a constant representing the entire accumulated value, ideally of
   /// the specified type. If \p AllowOversized, the constant might be larger
   /// than implied by \p DesiredTy (eg, if there is a flexible array member).
   /// Otherwise, the constant will be of exactly the same size as \p DesiredTy
   /// even if we can't represent it as that type.
-  llvm::Constant *build(llvm::Type *DesiredTy, bool AllowOversized) const {
+  llvm::Constant *build(llvm::Type *DesiredTy, bool AllowOversized, const RecordDecl* RD) const {
     return buildFrom(CGM, Elems, Offsets, CharUnits::Zero(), Size,
-                     NaturalLayout, DesiredTy, AllowOversized);
+                     NaturalLayout, DesiredTy, AllowOversized, RD);
   }
 };
 
@@ -398,7 +398,7 @@ EmitArrayConstant(CodeGenModule &CGM, llvm::ArrayType *DesiredType,
 llvm::Constant *ConstantAggregateBuilder::buildFrom(
     CodeGenModule &CGM, ArrayRef<llvm::Constant *> Elems,
     ArrayRef<CharUnits> Offsets, CharUnits StartOffset, CharUnits Size,
-    bool NaturalLayout, llvm::Type *DesiredTy, bool AllowOversized) {
+    bool NaturalLayout, llvm::Type *DesiredTy, bool AllowOversized, const RecordDecl* RD) {
   ConstantAggregateBuilderUtils Utils(CGM);
 
   if (Elems.empty())
@@ -502,8 +502,13 @@ llvm::Constant *ConstantAggregateBuilder::buildFrom(
     }
   }
 
+  bool asmjs = false;
+  if(RD) {
+    asmjs = RD->hasAttr<AsmJSAttr>();
+  }
+
   llvm::StructType *STy = llvm::ConstantStruct::getTypeForElements(
-      CGM.getLLVMContext(), Packed ? PackedElems : UnpackedElems, Packed, DirectBaseTy, isByteLayout, RD->hasAttr<AsmJSAttr>());
+      CGM.getLLVMContext(), Packed ? PackedElems : UnpackedElems, Packed, DirectBaseTy, isByteLayout, asmjs);
 
   // Pick the type to use.  If the type is layout identical to the desired
   // type then use it, otherwise use whatever the builder produced for us.
@@ -518,7 +523,7 @@ llvm::Constant *ConstantAggregateBuilder::buildFrom(
 }
 
 void ConstantAggregateBuilder::condense(CharUnits Offset,
-                                        llvm::Type *DesiredTy) {
+                                        llvm::Type *DesiredTy, const RecordDecl* RD) {
   CharUnits Size = getSize(DesiredTy);
 
   llvm::Optional<size_t> FirstElemToReplace = splitAt(Offset);
@@ -549,7 +554,7 @@ void ConstantAggregateBuilder::condense(CharUnits Offset,
   llvm::Constant *Replacement = buildFrom(
       CGM, makeArrayRef(Elems).slice(First, Length),
       makeArrayRef(Offsets).slice(First, Length), Offset, getSize(DesiredTy),
-      /*known to have natural layout=*/false, DesiredTy, false);
+      /*known to have natural layout=*/false, DesiredTy, false, RD);
   replace(Elems, First, Last, {Replacement});
   replace(Offsets, First, Last, {Offset});
 }
@@ -568,7 +573,7 @@ public:
   static llvm::Constant *BuildStruct(ConstantEmitter &Emitter,
                                      InitListExpr *ILE, QualType StructTy);
   static llvm::Constant *BuildStruct(ConstantEmitter &Emitter,
-                                     const APValue &Value, QualType ValTy);
+                                     const APValue &Value, const RecordDecl* RD);
   static bool UpdateStruct(ConstantEmitter &Emitter,
                            ConstantAggregateBuilder &Const, CharUnits Offset,
                            InitListExpr *Updater);
@@ -591,7 +596,7 @@ private:
   bool Build(InitListExpr *ILE, bool AllowOverwrite);
   bool Build(const APValue &Val, const RecordDecl *RD, bool IsPrimaryBase,
              const CXXRecordDecl *VTableClass, CharUnits BaseOffset);
-  llvm::Constant *Finalize(QualType Ty);
+  llvm::Constant *Finalize(const RecordDecl* RD);
 };
 
 bool ConstStructBuilder::AppendField(
@@ -674,7 +679,7 @@ static bool EmitDesignatedInitUpdater(ConstantEmitter &Emitter,
                                      ChildILE))
         return false;
       // Attempt to reduce the array element to a single constant if necessary.
-      Const.condense(Offset, ElemTy);
+      Const.condense(Offset, ElemTy, nullptr);
     } else {
       llvm::Constant *Val = Emitter.tryEmitPrivateForMemory(Init, ElemType);
       if (!Const.add(Val, Offset, true))
@@ -712,14 +717,14 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, bool AllowOverwrite) {
     if (Field->isUnnamedBitfield() || Field->isZeroSize(CGM.getContext()))
       continue;
 
-    if (cgLayout.getLLVMFieldNo(*Field) == 0xffffffff) {
+    if (cgLayout.getLLVMFieldNo(Field) == 0xffffffff) {
       // TODO: Deal with direct base init without ILE
       if (ElementNo >= ILE->getNumInits())
         return false;
       InitListExpr* directBaseInit = dyn_cast<InitListExpr>(ILE->getInit(ElementNo++));
       if (!directBaseInit)
         return false;
-      Build(directBaseInit);
+      Build(directBaseInit, AllowOverwrite);
       continue;
     }
 
@@ -745,7 +750,7 @@ bool ConstStructBuilder::Build(InitListExpr *ILE, bool AllowOverwrite) {
         // If we split apart the field's value, try to collapse it down to a
         // single value now.
         Builder.condense(StartOffset + Offset,
-                         CGM.getTypes().ConvertTypeForMem(Field->getType()));
+                         CGM.getTypes().ConvertTypeForMem(Field->getType()), Field->getType()->getUnqualifiedDesugaredType()->getAsRecordDecl());
         continue;
       }
     }
@@ -810,6 +815,10 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
       llvm::Constant *VTableAddressPoint =
           CGM.getCXXABI().getVTableAddressPointForConstExpr(
               BaseSubobject(CD, Offset), VTableClass);
+      if (!CGM.getTarget().isByteAddressable()) {
+        llvm::Type* VTableType = CGM.getTypes().GetVTableBaseType(RD->hasAttr<AsmJSAttr>())->getPointerTo();
+        VTableAddressPoint = llvm::ConstantExpr::getBitCast(VTableAddressPoint, VTableType);
+      }
       if (!AppendBytes(Offset, VTableAddressPoint))
         return false;
     }
@@ -831,7 +840,7 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
       BaseInfo &Base = Bases[I];
 
       bool IsPrimaryBase = Layout.getPrimaryBase() == Base.Decl;
-      if (!CGM.getTarget().isByteAddressable() && !IsPrimaryBase)
+      if (!CGM.getTarget().isByteAddressable() && I != 0)
         continue;
       Build(Val.getStructBase(Base.Index), Base.Decl, IsPrimaryBase,
             VTableClass, Offset + Base.Offset);
@@ -865,7 +874,7 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
       const CXXRecordDecl *CD = dyn_cast<CXXRecordDecl>(RD);
       assert(Layout.getFieldOffset(FieldNo) == 0);
       assert(Offset.getQuantity() == 0);
-      Build(FieldValue, RD, CD, Offset);
+      Build(FieldValue, RD, false, CD, Offset);
     } else if (!Field->isBitField()) {
       // Handle non-bitfield members.
       if (!AppendField(*Field, Layout.getFieldOffset(FieldNo) + OffsetBits,
@@ -884,23 +893,19 @@ bool ConstStructBuilder::Build(const APValue &Val, const RecordDecl *RD,
   }
 
   if (!CGM.getTarget().isByteAddressable()) {
-    for (unsigned I = 0, N = Bases.size(); I != N; ++I) {
+    for (unsigned I = 1, N = Bases.size(); I < N; ++I) {
       BaseInfo &Base = Bases[I];
 
-      bool IsPrimaryBase = Layout.getPrimaryBase() == Base.Decl;
-      if (IsPrimaryBase)
-        continue;
-      Build(Val.getStructBase(Base.Index), Base.Decl, IsPrimaryBase,
-            VTableClass, Offset + Base.Offset);
+      llvm::Constant* BaseConstant = ConstStructBuilder::BuildStruct(Emitter, Val.getStructBase(Base.Index), Base.Decl);
+      AppendBytes(Base.Offset, BaseConstant);
     }
   }
   return true;
 }
 
-llvm::Constant *ConstStructBuilder::Finalize(QualType Type) {
-  RecordDecl *RD = Type->castAs<RecordType>()->getDecl();
-  llvm::Type *ValTy = CGM.getTypes().ConvertType(Type);
-  return Builder.build(ValTy, RD->hasFlexibleArrayMember());
+llvm::Constant *ConstStructBuilder::Finalize(const RecordDecl* RD) {
+  llvm::Type *ValTy = CGM.getTypes().ConvertRecordDeclType(RD);
+  return Builder.build(ValTy, RD->hasFlexibleArrayMember(), RD);
 }
 
 llvm::Constant *ConstStructBuilder::BuildStruct(ConstantEmitter &Emitter,
@@ -912,21 +917,21 @@ llvm::Constant *ConstStructBuilder::BuildStruct(ConstantEmitter &Emitter,
   if (!Builder.Build(ILE, /*AllowOverwrite*/false))
     return nullptr;
 
-  return Builder.Finalize(ValTy);
+  const RecordDecl *RD = ILE->getType()->castAs<RecordType>()->getDecl();
+  return Builder.Finalize(RD);
 }
 
 llvm::Constant *ConstStructBuilder::BuildStruct(ConstantEmitter &Emitter,
                                                 const APValue &Val,
-                                                QualType ValTy) {
+                                                const RecordDecl* RD) {
   ConstantAggregateBuilder Const(Emitter.CGM);
   ConstStructBuilder Builder(Emitter, Const, CharUnits::Zero());
 
-  const RecordDecl *RD = ValTy->castAs<RecordType>()->getDecl();
   const CXXRecordDecl *CD = dyn_cast<CXXRecordDecl>(RD);
   if (!Builder.Build(Val, RD, false, CD, CharUnits::Zero()))
     return nullptr;
 
-  return Builder.Finalize(ValTy);
+  return Builder.Finalize(RD);
 }
 
 bool ConstStructBuilder::UpdateStruct(ConstantEmitter &Emitter,
@@ -1320,9 +1325,12 @@ public:
 
     llvm::Type *ValTy = CGM.getTypes().ConvertType(destType);
     bool HasFlexibleArray = false;
-    if (auto *RT = destType->getAs<RecordType>())
-      HasFlexibleArray = RT->getDecl()->hasFlexibleArrayMember();
-    return Const.build(ValTy, HasFlexibleArray);
+    const RecordDecl* RD = nullptr;
+    if (auto *RT = destType->getAs<RecordType>()) {
+      RD = RT->getDecl();
+      HasFlexibleArray = RD->hasFlexibleArrayMember();
+    }
+    return Const.build(ValTy, HasFlexibleArray, RD);
   }
 
   llvm::Constant* GenerateConstantCXXInitializer(const CXXConstructorDecl* D)
@@ -2327,7 +2335,7 @@ llvm::Constant *ConstantEmitter::tryEmitPrivate(const APValue &Value,
   }
   case APValue::Struct:
   case APValue::Union:
-    return ConstStructBuilder::BuildStruct(*this, Value, DestType);
+    return ConstStructBuilder::BuildStruct(*this, Value, DestType->castAs<RecordType>()->getDecl());
   case APValue::Array: {
     const ConstantArrayType *CAT =
         CGM.getContext().getAsConstantArrayType(DestType);
