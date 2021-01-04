@@ -344,7 +344,7 @@ bool llvm::isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
 /// Tests if a functions is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
 bool llvm::isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, ReallocLike, TLI).hasValue();
+  return getAllocationDataForFunction(F, ReallocLike, TLI, nullptr).hasValue();
 }
 
 /// Tests if a value is a call or invoke to a library function that
