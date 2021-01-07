@@ -4322,6 +4322,9 @@ Instruction *InstCombinerImpl::foldICmpEquality(ICmpInst &I) {
        match(Op1, m_BitReverse(m_Value(B)))))
     return new ICmpInst(Pred, A, B);
 
+  if (!DL.isByteAddressable())
+    return nullptr;
+
   // Canonicalize checking for a power-of-2-or-zero value:
   // (A & (A-1)) == 0 --> ctpop(A) < 2 (two commuted variants)
   // ((A-1) & A) != 0 --> ctpop(A) > 1 (two commuted variants)
