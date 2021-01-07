@@ -20,7 +20,7 @@ $foo_inline = comdat any
 ; COFF: @__profc_foo_inline = linkonce_odr hidden global{{.*}}, section ".lprfc$M", comdat, align 8
 ; COFF: @__profd_foo_inline = linkonce_odr hidden global{{.*}}, section ".lprfd$M", comdat, align 8
 define weak_odr void @foo_inline() comdat {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @__profn_foo_inline, i32 0, i32 0), i64 0, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([10 x i8]* @__profn_foo_inline to i8*), i64 0, i32 1, i32 0)
   ret void
 }
 
@@ -33,6 +33,6 @@ $foo_extern = comdat any
 ; COFF: @__profc_foo_extern = linkonce_odr hidden global{{.*}}, section ".lprfc$M", comdat, align 8
 ; COFF: @__profd_foo_extern = linkonce_odr hidden global{{.*}}, section ".lprfd$M", comdat, align 8
 define available_externally void @foo_extern() {
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @__profn_foo_extern, i32 0, i32 0), i64 0, i32 1, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([10 x i8]* @__profn_foo_extern to i8*), i64 0, i32 1, i32 0)
   ret void
 }

@@ -412,9 +412,9 @@ for.end:                                          ; preds = %for.body
 define i32 @foo1() local_unnamed_addr #0 {
 ; CHECK-LABEL: @foo1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast ([64 x i32]* @ib to <4 x i32>*), align 16
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ib, i64 0, i64 0) to <4 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = xor <4 x i32> [[TMP0]], <i32 -1, i32 -1, i32 -1, i32 -1>
-; CHECK-NEXT:    store <4 x i32> [[TMP1]], <4 x i32>* bitcast ([64 x i32]* @ia to <4 x i32>*), align 16
+; CHECK-NEXT:    store <4 x i32> [[TMP1]], <4 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ia, i64 0, i64 0) to <4 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ib, i64 0, i64 4) to <4 x i32>*), align 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = xor <4 x i32> [[TMP2]], <i32 -1, i32 -1, i32 -1, i32 -1>
 ; CHECK-NEXT:    store <4 x i32> [[TMP3]], <4 x i32>* bitcast (i32* getelementptr inbounds ([64 x i32], [64 x i32]* @ia, i64 0, i64 4) to <4 x i32>*), align 16

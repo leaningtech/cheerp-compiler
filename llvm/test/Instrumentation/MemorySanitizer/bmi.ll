@@ -39,7 +39,7 @@ entry:
 }
 
 ; CHECK-LABEL: @Test_bzhi_64(
-; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls, i32 0, i32 0
+; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls
 ; CHECK-DAG: %[[SB:.*]] = load i64, {{.*}}@__msan_param_tls to i64), i64 8)
 ; CHECK-DAG: %[[SB0:.*]] = icmp ne i64 %[[SB]], 0
 ; CHECK-DAG: %[[SB1:.*]] = sext i1 %[[SB0]] to i64
@@ -72,7 +72,7 @@ entry:
 }
 
 ; CHECK-LABEL: @Test_bextr_64(
-; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls, i32 0, i32 0
+; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls
 ; CHECK-DAG: %[[SB:.*]] = load i64, {{.*}}@__msan_param_tls to i64), i64 8)
 ; CHECK-DAG: %[[SB0:.*]] = icmp ne i64 %[[SB]], 0
 ; CHECK-DAG: %[[SB1:.*]] = sext i1 %[[SB0]] to i64
@@ -105,7 +105,7 @@ entry:
 }
 
 ; CHECK-LABEL: @Test_pdep_64(
-; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls, i32 0, i32 0
+; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls
 ; CHECK-DAG: %[[SB:.*]] = load i64, {{.*}}@__msan_param_tls to i64), i64 8)
 ; CHECK-DAG: %[[SB0:.*]] = icmp ne i64 %[[SB]], 0
 ; CHECK-DAG: %[[SB1:.*]] = sext i1 %[[SB0]] to i64
@@ -137,7 +137,7 @@ entry:
 }
 
 ; CHECK-LABEL: @Test_pext_64(
-; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls, i32 0, i32 0
+; CHECK-DAG: %[[SA:.*]] = load i64, {{.*}}@__msan_param_tls
 ; CHECK-DAG: %[[SB:.*]] = load i64, {{.*}}@__msan_param_tls to i64), i64 8)
 ; CHECK-DAG: %[[SB0:.*]] = icmp ne i64 %[[SB]], 0
 ; CHECK-DAG: %[[SB1:.*]] = sext i1 %[[SB0]] to i64
