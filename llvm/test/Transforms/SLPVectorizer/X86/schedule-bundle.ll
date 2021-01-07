@@ -13,7 +13,7 @@ define i32 @slp_schedule_bundle() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([1 x i32], [1 x i32]* @b, i64 0, i64 0) to <4 x i32>*), align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = lshr <4 x i32> [[TMP0]], <i32 31, i32 31, i32 31, i32 31>
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i32> [[TMP1]], <i32 1, i32 1, i32 1, i32 1>
-; CHECK-NEXT:    store <4 x i32> [[TMP2]], <4 x i32>* bitcast ([1 x i32]* @a to <4 x i32>*), align 4
+; CHECK-NEXT:    store <4 x i32> [[TMP2]], <4 x i32>* bitcast (i32* getelementptr inbounds ([1 x i32], [1 x i32]* @a, i64 0, i64 0) to <4 x i32>*), align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* getelementptr ([1 x i32], [1 x i32]* @b, i64 4, i64 0), align 4
 ; CHECK-NEXT:    [[DOTLOBIT_4:%.*]] = lshr i32 [[TMP3]], 31
 ; CHECK-NEXT:    [[DOTLOBIT_NOT_4:%.*]] = xor i32 [[DOTLOBIT_4]], 1
