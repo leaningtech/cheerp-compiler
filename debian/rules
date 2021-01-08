@@ -12,7 +12,7 @@ override_dh_auto_configure:
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCLANG_VENDOR="Cheerp ${deb_version}" \
 	    -DLLVM_ENABLE_PROJECTS=clang \
-	    ..
+	    ../llvm/
 
 override_dh_auto_install:
 	dh_auto_install --builddirectory=build --destdir=debian/tmp
