@@ -8,9 +8,10 @@ deb_version := $(shell dpkg-parsechangelog | sed -n 's/^Version: //p')
 override_dh_auto_configure:
 	mkdir -p build
 	cd build && cmake \
-	    -C ../CheerpCmakeConf.cmake \
+	    -C ../llvm/CheerpCmakeConf.cmake \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCLANG_VENDOR="Cheerp ${deb_version}" \
+	    -DLLVM_ENABLE_PROJECTS=clang \
 	    ..
 
 override_dh_auto_install:
