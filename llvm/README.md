@@ -36,7 +36,7 @@ We advise doing an out of tree build, but it's not necessary
 ```
 mkdir build
 cd build
-cmake -C ../CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake -C ../llvm/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS=clang ../llvm/
 make
 make install
 ```
