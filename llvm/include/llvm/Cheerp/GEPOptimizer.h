@@ -388,11 +388,11 @@ private:
 		const llvm::PointerIntPair<llvm::BasicBlock*, 2, Kind> pair;
 		// NOTE: This may be used only in assertions
 		ValidBasicBlockForestGraph* parent;
-		constexpr BasicBlock* BB() const
+		BasicBlock* BB() const
 		{
 			return pair.getPointer();
 		}
-		constexpr Kind kind() const
+		Kind kind() const
 		{
 			//There are 5 kinds, but to compress them in 2 bits Good and Regular share the same value (and are kept apart by BB() being non null)
 			return (pair.getInt() == Kind::Good && BB()) ? Kind::Regular : pair.getInt();
