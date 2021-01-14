@@ -5042,7 +5042,7 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       TC = std::make_unique<toolchains::Hurd>(*this, Target, Args);
       break;
     case llvm::Triple::WebBrowser:
-      TC = llvm::make_unique<toolchains::Cheerp>(*this, Target, Args);
+      TC = std::make_unique<toolchains::Cheerp>(*this, Target, Args);
       break;
     default:
       // Of these targets, Hexagon is the only one that might have
