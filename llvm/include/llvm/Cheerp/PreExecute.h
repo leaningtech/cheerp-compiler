@@ -48,7 +48,7 @@ public:
     Allocator(llvm::AddressMapBase& mapping): mapping(mapping) {}
     void* allocate(size_t size)
     {
-        auto memory = llvm::make_unique<char[]>(size);
+        auto memory = std::make_unique<char[]>(size);
         void* ret = memory.get();
         mapping.map(ret, size + 4);
         allocations.push_back(std::move(memory));
