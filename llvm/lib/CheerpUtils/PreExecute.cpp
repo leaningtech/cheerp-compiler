@@ -814,7 +814,7 @@ bool PreExecute::runOnConstructor( const llvm::Target* target, const std::string
     currentEE->InstallRetListener(RetListener);
     currentEE->InstallLazyFunctionCreator(LazyFunctionCreator);
 
-    allocator = make_unique<Allocator>(*currentEE->ValueAddresses);
+    allocator = std::make_unique<Allocator>(*currentEE->ValueAddresses);
 
     currentEE->runFunction(func, std::vector< GenericValue >());
     if(currentEE->hasFailed())
