@@ -10916,6 +10916,8 @@ def err_cheerp_field_not_supported : Error<
   "Cheerp: Field not supported in %0">;
 def err_cheerp_invalid_plament_new : Error<
   "Cheerp: Placement new is only valid on memory of the same type. If this is a custom allocator, disable it">;
+def err_cheerp_invalid_static : Error<
+  "Cheerp: Only static member might be tagged with the legacy [[cheerp::static]] attribute">;
 def err_cheerp_attribute_not_on_function : Error<
   "Cheerp: This attribute can only be used on functions">;
 def err_cheerp_attribute_on_virtual_class : Error<

@@ -1300,8 +1300,13 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
   ConstructAttributeList(F->getName(), Info, GD, PAL, CallingConv, false);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
-  if(GD.getDecl() && GD.getDecl()->hasAttr<StaticAttr>())
-    F->addFnAttr(llvm::Attribute::Static);
+
+  if (auto decl = GD.getDecl()) {
+    if (isa<CXXMethodDecl>(decl) && cast<CXXMethodDecl>(decl)->isStatic())
+      F->addFnAttr(llvm::Attribute::Static);
+    else if (decl->hasAttr<StaticAttr>())
+      getDiags().Report(decl->getLocation(), diag::err_cheerp_invalid_static);
+  }
 }
 
 static void removeImageAccessQualifier(std::string& TyName) {
