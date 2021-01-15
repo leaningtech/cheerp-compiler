@@ -1,35 +1,37 @@
-# The LLVM Compiler Infrastructure
+Cheerp: A C++ compiler for the Web
+==================================
 
 This directory and its sub-directories contain the source code for LLVM,
 a toolkit for the construction of highly optimized compilers,
 optimizers, and run-time environments.
 
-The README briefly describes how to get started with building LLVM.
-For more information on how to contribute to the LLVM project, please
-take a look at the
-[Contributing to LLVM](https://llvm.org/docs/Contributing.html) guide.
+Useful links
+------------
 
-## Getting Started with the LLVM System
+Documentation and tutorials available on github:
+https://github.com/leaningtech/cheerp-meta/wiki
 
-Taken from [here](https://llvm.org/docs/GettingStarted.html).
+Please report bugs on the cheerp-meta repository:
+https://github.com/leaningtech/cheerp-meta/issues
 
-### Overview
+Developers chat on gitter:
+https://gitter.im/leaningtech/cheerp
 
-Welcome to the LLVM project!
+Or ask questions on stackoverflow:
+https://stackoverflow.com/questions/ask?tags=cheerp
 
-The LLVM project has multiple components. The core of the project is
-itself called "LLVM". This contains all of the tools, libraries, and header
-files needed to process intermediate representations and convert them into
-object files. Tools include an assembler, disassembler, bitcode analyzer, and
-bitcode optimizer. It also contains basic regression tests.
+Cheerp compiler build instructions
+----------------------------------
 
-C-like languages use the [Clang](http://clang.llvm.org/) frontend. This
-component compiles C, C++, Objective-C, and Objective-C++ code into LLVM bitcode
--- and from there into object files, using LLVM.
+We advise doing an out of tree build, but it's not necessary
 
-Other components include:
-the [libc++ C++ standard library](https://libcxx.llvm.org),
-the [LLD linker](https://lld.llvm.org), and more.
+```
+mkdir build
+cd build
+cmake -C ../llvm/CheerpCmakeConf.cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS=clang -G Ninja ../llvm/
+ninja
+ninja install
+```
 
 ### Getting the Source Code and Building LLVM
 
