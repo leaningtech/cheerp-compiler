@@ -3654,6 +3654,8 @@ foldShiftIntoShiftInAnotherHandOfAndInICmp(ICmpInst &I, const SimplifyQuery SQ,
 /// Note that the comparison is commutative, while inverted (u>=, ==) predicate
 /// will mean that we are looking for the opposite answer.
 Value *InstCombinerImpl::foldUnsignedMultiplicationOverflowCheck(ICmpInst &I) {
+  if(!DL.isByteAddressable())
+    return nullptr;
   ICmpInst::Predicate Pred;
   Value *X, *Y;
   Instruction *Mul;
