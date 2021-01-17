@@ -16750,6 +16750,7 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
   // Trivial default constructors and destructors are never actually used.
   // FIXME: What about other special members?
   if (Func->isTrivial() && !Func->hasAttr<DLLExportAttr>() &&
+      !Func->hasAttr<JsExportAttr>() &&
       OdrUse == OdrUseContext::Used) {
     if (auto *Constructor = dyn_cast<CXXConstructorDecl>(Func))
       if (Constructor->isDefaultConstructor())
