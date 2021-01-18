@@ -216,11 +216,12 @@ getAllocationData(const Value *V, AllocType AllocTy,
                   function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
                   bool LookThroughBitCast = false) {
   bool IsNoBuiltinCall;
+  const Function *Caller = nullptr;
   if (const Function *Callee =
-          getCalledFunction(V, LookThroughBitCast, IsNoBuiltinCall))
+          getCalledFunction(V, LookThroughBitCast, IsNoBuiltinCall, Caller))
     if (!IsNoBuiltinCall)
       return getAllocationDataForFunction(
-          Callee, AllocTy, &GetTLI(const_cast<Function &>(*Callee)));
+          Callee, AllocTy, &GetTLI(const_cast<Function &>(*Callee)), Caller);
   return None;
 }
 
