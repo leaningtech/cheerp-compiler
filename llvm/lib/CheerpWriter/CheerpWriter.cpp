@@ -6070,7 +6070,11 @@ void CheerpWriter::compileImports()
 	for (const Function* imported: globalDeps.asmJSImports())
 	{
 		stream << getName(imported) << ':';
-		if (TypeSupport::isClientFunc(imported) && imported->empty())
+		if (!imported->empty())
+		{
+			stream << getName(imported);
+		}
+		else if (TypeSupport::isClientFunc(imported))
 		{
 			TypeSupport::ClientFunctionDemangled clientHelper(*imported);
 			//Regular call
@@ -6081,13 +6085,9 @@ void CheerpWriter::compileImports()
 			}
 			stream << clientHelper.funcName;
 		}
-		else if (imported->empty())
-		{
-			stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
-		}
 		else
 		{
-			stream << getName(imported);
+			stream << namegen.getBuiltinName(NameGenerator::Builtin::DUMMY);
 		}
 		stream << ',' << NewLine;
 	}
