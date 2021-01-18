@@ -265,7 +265,6 @@ private:
 	MATH_MODE mathMode;
 
 	const llvm::DataLayout* DL;
-	const llvm::TargetLibraryInfo* TLI;
 
 	const llvm::Function* entryPoint;
 	
