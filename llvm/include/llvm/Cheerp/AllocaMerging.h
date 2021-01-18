@@ -76,14 +76,13 @@ public:
 	typedef std::unordered_map<uint32_t, llvm::Value*> OffsetToValueMap;
 private:
 	const llvm::DataLayout* DL;
-	const llvm::TargetLibraryInfo* TLI;
 	std::unordered_map<const llvm::AllocaInst*, OffsetToValueMap> allocaStores;
 	std::vector<llvm::Instruction*> instsToRemove;
 	bool runOnBasicBlock(llvm::BasicBlock &BB, const llvm::Module& module);
 	static bool validType(llvm::Type* t, const llvm::Module& module);
 public:
 	static char ID;
-	explicit AllocaStoresExtractor() : llvm::ModulePass(ID), DL(nullptr), TLI(nullptr) { }
+	explicit AllocaStoresExtractor() : llvm::ModulePass(ID), DL(nullptr) { }
 	bool runOnModule(llvm::Module& M);
 	llvm::StringRef getPassName() const;
 	void getAnalysisUsage(llvm::AnalysisUsage & AU) const;

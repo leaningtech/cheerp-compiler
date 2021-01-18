@@ -661,9 +661,6 @@ bool AllocaStoresExtractor::runOnBasicBlock(BasicBlock& BB, const Module& module
 	{
 		DL = &module.getDataLayout();
 		assert(DL);
-		auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
-		TLI = TLIP ? &TLIP->getTLI() : nullptr;
-		assert(TLI);
 	}
 	// Map between insts and the underlying allocas/offsets in bytes
 	// NOTE: A negative offset encodes that we can't analyze across this inst, but we still need to account for it to check for escapes
@@ -871,6 +868,9 @@ void AllocaStoresExtractor::destroyStores()
 	// Go over insts in the blocks backward to remove all insts without uses
 	for(BasicBlock* BB: modifiedBlocks)
 	{
+		auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
+		const llvm::TargetLibraryInfo* TLI = TLIP ? &TLIP->getTLI(*BB->getParent()) : nullptr;
+		assert(TLI);
 		auto it = BB->end();
 		--it;
 		do
