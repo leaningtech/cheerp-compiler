@@ -10058,8 +10058,8 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
   }
 
-  //Perform all checks related to functions and methods. Currently limited to [[cheerp::jsexport]] attribute but expansible
-  cheerp::checkFunction(NewFD, *this);
+  //Perform all cheerp specific checks related to functions and methods
+  cheerp::checkFunctionOnDeclaration(NewFD, *this);
 
   ProcessPragmaWeak(S, NewFD);
   checkAttributesAfterMerging(*this, *NewFD);
@@ -14503,6 +14503,10 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D,
       InstantiateDefaultCtorDefaultArgs(Ctor);
     }
   }
+
+  //Perform all cheerp specific checks related to functions and methods that have a body
+  if (FD)
+    cheerp::checkFunctionOnDefinition(FD, *this);
 
   // See if this is a redefinition. If 'will have body' (or similar) is already
   // set, then these checks were already performed when it was set.
