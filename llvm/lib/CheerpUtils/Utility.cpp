@@ -772,7 +772,7 @@ uint32_t TypeSupport::getAlignmentAsmJS(const llvm::DataLayout& dl, llvm::Type* 
 	return alignment;
 }
 
-std::pair<std::string, std::string> TypeSupport::getClientClassAndFunc(const char* identifier)
+std::pair<std::string, std::string> TypeSupport::ClientFunctionDemangled::getClientClassAndFunc(const char* identifier)
 {
 	int status =0;
 	char* const demangledName = abi::__cxa_demangle(identifier, NULL, NULL, &status);
