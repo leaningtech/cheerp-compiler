@@ -60,11 +60,9 @@ static bool needsWrapping(const Function* F)
 	{
 		// This could still be a free function. Try to extract the class name
 		// from the mangled name. If we succeed, it is a method.
-		std::string className;
-		std::string funcName;
-		std::tie(className, funcName) = TypeSupport::getClientClassAndFunc(F->getName().data());
-		bool isMethod = !className.empty();
-		if (isMethod)
+		TypeSupport::ClientFunctionDemangled clientHelper(*F);
+
+		if (clientHelper.isMethod())
 			return true;
 	}
 	// Client native constructors always need wrapping
