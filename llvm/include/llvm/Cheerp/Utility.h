@@ -297,8 +297,29 @@ public:
 		else 
 			return false;
 	}
-	
-	static std::pair<std::string, std::string> getClientClassAndFunc(const char* identifier);
+
+	class ClientFunctionDemangled
+	{
+	public:
+		ClientFunctionDemangled(const char* identifier)
+			: demangled(getClientClassAndFunc(identifier)), className(demangled.first), funcName(demangled.second)
+		{
+		}
+		ClientFunctionDemangled(const llvm::Function& F)
+			: ClientFunctionDemangled(F.getName().data())
+		{
+		}
+		bool isMethod() const
+		{
+			return !className.empty();
+		}
+	private:
+		static std::pair<std::string, std::string> getClientClassAndFunc(const char* identifier);
+		const std::pair<std::string, std::string> demangled;
+	public:
+		const std::string& className;
+		const std::string& funcName;
+	};
 
 	static bool isI32Type(llvm::Type* t)
 	{

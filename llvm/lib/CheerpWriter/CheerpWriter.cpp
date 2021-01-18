@@ -77,11 +77,10 @@ public:
 CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(const char* identifier, const CallBase& callV)
 {
 	assert(callV.getCalledFunction());
-	std::string classNameStr;
-	std::string funcNameStr;
-	std::tie(classNameStr, funcNameStr) = TypeSupport::getClientClassAndFunc(identifier);
-	StringRef className(classNameStr);
-	StringRef funcName(funcNameStr);
+
+	TypeSupport::ClientFunctionDemangled clientHelper(identifier);
+	StringRef className(clientHelper.className);
+	StringRef funcName(clientHelper.funcName);
 
 	bool isClientStatic = callV.getCalledFunction()->hasFnAttribute(Attribute::Static);
 	bool asmjs = callV.getCaller()->getSection() == StringRef("asmjs");
@@ -6073,16 +6072,14 @@ void CheerpWriter::compileImports()
 		stream << getName(imported) << ':';
 		if (TypeSupport::isClientFunc(imported) && imported->empty())
 		{
-			std::string className;
-			std::string funcName;
-			std::tie(className, funcName) = TypeSupport::getClientClassAndFunc(imported->getName().data());
+			TypeSupport::ClientFunctionDemangled clientHelper(*imported);
 			//Regular call
-			if(!className.empty())
+			if(clientHelper.isMethod())
 			{
 				assert(imported->hasFnAttribute(Attribute::Static));
-				stream << className << '.';
+				stream << clientHelper.className << '.';
 			}
-			stream << funcName;
+			stream << clientHelper.funcName;
 		}
 		else if (imported->empty())
 		{
