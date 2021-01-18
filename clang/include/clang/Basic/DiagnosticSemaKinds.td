@@ -11026,6 +11026,10 @@ def err_cheerp_wrong_addrof_ptr_field : Error<
   "Cheerp: Cannot take address of pointer field %0 of %1 struct %2 in a %3 function">;
 def err_cheerp_asm_in_asmjs : Error<
   "Cheerp: Cannot use inline asm in a %0 function">;
+def err_cheerp_client_special_wrong_num_parameters : Error<
+  "Cheerp: %0 %1, declared in 'client' namespace, is a %2 and should have exactly %3 parameters.">;
+def err_cheerp_client_special_has_definition : Error<
+  "Cheerp: %0 %1, declared in 'client' namespace, is a %2 and could only be forward declared.">;
 def err_cheerp_delete_client : Error<
   "Cheerp: Types declared in the 'client' namespace are managed by the JavaScript GC. Cannot delete.">;
 def err_cheerp_missing_client_layout : Error<
