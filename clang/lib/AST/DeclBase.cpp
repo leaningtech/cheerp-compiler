@@ -1138,12 +1138,14 @@ bool DeclContext::isStdNamespace() const {
 }
 
 bool DeclContext::isClientNamespace() const {
-  if (!isNamespace())
+  if (!isNamespace()) {
+    if (getParent())
+      return getParent()->isClientNamespace();
     return false;
-  const auto *ND = cast<NamespaceDecl>(this);
-  if (ND->isInline()) {
-    return ND->getParent()->isClientNamespace();
   }
+  const auto *ND = cast<NamespaceDecl>(this);
+  if (ND->getParent() && ND->getParent()->isClientNamespace())
+    return true;
   if (!ND->getParent()->getRedeclContext()->isTranslationUnit())
     return false;
   const IdentifierInfo *II = ND->getIdentifier();
