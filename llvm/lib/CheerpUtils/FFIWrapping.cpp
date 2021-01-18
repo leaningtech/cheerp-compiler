@@ -58,12 +58,8 @@ static bool needsWrapping(const Function* F)
 	// Client non-static methods always need wrapping
 	if (TypeSupport::isClientFunc(F) && !F->hasFnAttribute(Attribute::Static))
 	{
-		// This could still be a free function. Try to extract the class name
-		// from the mangled name. If we succeed, it is a method.
-		TypeSupport::ClientFunctionDemangled clientHelper(*F);
-
-		if (clientHelper.isMethod())
-			return true;
+		//Attribute::Static is attached both to static methods AND free functions, so only methods do not have it
+		return true;
 	}
 	// Client native constructors always need wrapping
 	if (TypeSupport::isClientConstructorName(F->getName()))
