@@ -318,8 +318,104 @@ cheerp::TypeKind cheerp::classifyType(const clang::QualType& Qy, const clang::Se
 	return TypeKind::Other;
 }
 
-void cheerp::checkFunction(clang::FunctionDecl* FD, clang::Sema& sema)
+static clang::StringRef kinfOfFuncionDecl(const clang::FunctionDecl* FD)
 {
+		const bool isMethod = clang::isa<clang::CXXMethodDecl>(FD);
+		const bool isStatic = (!isMethod) || (clang::dyn_cast<clang::CXXMethodDecl>(FD)->isStatic());
+
+		auto kind = "Free function";
+		if (isMethod)
+			kind = isStatic ? "Static method" : "Method";
+
+		return kind;
+}
+
+cheerp::SpecialFunctionClassify cheerp::classifyNamedFunction(const clang::StringRef name)
+{
+	if (name.startswith("get_"))
+		return SpecialFunctionClassify::Getter;
+
+	if (name.startswith("set_"))
+	{
+		if (name.size() == 4)
+			return SpecialFunctionClassify::GenericSetter;
+		return SpecialFunctionClassify::Setter;
+	}
+
+	return SpecialFunctionClassify::Other;
+}
+
+static clang::StringRef getName(const cheerp::SpecialFunctionClassify& classification)
+{
+	using namespace cheerp;
+
+	switch (classification)
+	{
+	case SpecialFunctionClassify::Getter:
+		return "getter ('get_*')";
+	case SpecialFunctionClassify::GenericSetter:
+		return "generic setter ('set_')";
+	case SpecialFunctionClassify::Setter:
+		return "setter ('set_*')";
+	default:
+		return "non special";
+	}
+}
+
+void cheerp::checkFunctionOnDefinition(clang::FunctionDecl* FD, clang::Sema& sema)
+{
+	const bool isClient = clang::AnalysisDeclContext::isInClientNamespace(FD);
+
+	if (isClient)
+	{
+		if (FD->getIdentifier())
+		{
+			auto kind = kinfOfFuncionDecl(FD);
+			const auto name = FD->getName();
+			const auto classification = classifyNamedFunction(name);
+
+			if (classification != SpecialFunctionClassify::Other)
+				sema.Diag(FD->getLocation(), clang::diag::err_cheerp_client_special_has_definition) << kind << name << getName(classification);
+		}
+	}
+}
+
+void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& sema)
+{
+	const bool isClient = clang::AnalysisDeclContext::isInClientNamespace(FD);
+
+	if (isClient)
+	{
+		//Check naming of namespace client forward declared functions
+		if (FD->getIdentifier())
+		{
+			const auto name = FD->getName();
+			const auto classification = classifyNamedFunction(name);
+
+			uint32_t expectedNumOfParameters = -1;
+			switch (classification)
+			{
+			case SpecialFunctionClassify::Getter:
+				expectedNumOfParameters = 0;
+				break;
+			case SpecialFunctionClassify::GenericSetter:
+				expectedNumOfParameters = 2;
+				break;
+			case SpecialFunctionClassify::Setter:
+				expectedNumOfParameters = 1;
+				break;
+			default:
+				break;
+			}
+
+			const uint32_t numArgs = FD->getNumParams();
+			auto kind = kinfOfFuncionDecl(FD);;
+
+			if (expectedNumOfParameters != -1 && numArgs != expectedNumOfParameters)
+				sema.Diag(FD->getLocation(), clang::diag::err_cheerp_client_special_wrong_num_parameters) << kind << name << getName(classification) << expectedNumOfParameters;
+		}
+	}
+
 	sema.cheerpSemaData.addFunction(FD);
 }
 
@@ -453,7 +549,7 @@ void cheerp::CheerpSemaClassData::Interface::addToInterface(T* item, clang::Sema
 	{
 		insert(item);
 	}
-};
+}
 
 void cheerp::CheerpSemaClassData::checkRecord()
 {
