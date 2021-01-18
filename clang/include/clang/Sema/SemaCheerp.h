@@ -27,6 +27,11 @@ enum class TypeKind
 	Void, Boolean, IntLess32Bit, UnsignedInt32Bit, SignedInt32Bit, IntGreater32Bit, FloatingPoint, NamespaceClient, Pointer, Function, FunctionPointer, Reference, JsExportable, Other
 };
 
+enum class SpecialFunctionClassify
+{
+	Getter, GenericSetter, Setter, Other
+};
+
 TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
 
 void checkCouldBeJsExported(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
@@ -36,8 +41,11 @@ void checkCouldBeParameterOfJsExported(const clang::QualType& Ty, const clang::D
 
 void checkParameters(const clang::FunctionDecl* Method, clang::Sema& sema);
 
+SpecialFunctionClassify classifyNamedFunction(const clang::StringRef name);
+
 void checkDestructor(const clang::CXXRecordDecl* Record, clang::Sema& sema, bool& shouldContinue);
-void checkFunction(clang::FunctionDecl* FD, clang::Sema& sema);
+void checkFunctionOnDefinition(clang::FunctionDecl* FD, clang::Sema& sema);
+void checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& sema);
 
 bool isTemplate(const clang::FunctionDecl* FD);
 
