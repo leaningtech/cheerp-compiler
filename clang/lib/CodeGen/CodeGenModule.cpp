@@ -1302,9 +1302,21 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
 
   if (auto decl = GD.getDecl()) {
-    if (isa<CXXMethodDecl>(decl) && cast<CXXMethodDecl>(decl)->isStatic())
-      F->addFnAttr(llvm::Attribute::Static);
-    else if (decl->hasAttr<StaticAttr>())
+    bool attributeCheerpStaticAllowed = false;
+
+    if (decl->getDeclContext()->isClientNamespace()) {
+      if (isa<CXXMethodDecl>(decl)) {
+        if (cast<CXXMethodDecl>(decl)->isStatic()) {
+          F->addFnAttr(llvm::Attribute::Static);
+	  attributeCheerpStaticAllowed = true;
+        }
+      }
+      else {
+	F->addFnAttr(llvm::Attribute::Static);
+      }
+    }
+
+    if (decl->hasAttr<StaticAttr>() && !attributeCheerpStaticAllowed)
       getDiags().Report(decl->getLocation(), diag::err_cheerp_invalid_static);
   }
 }
