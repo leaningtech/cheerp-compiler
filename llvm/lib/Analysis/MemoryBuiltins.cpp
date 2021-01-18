@@ -253,10 +253,11 @@ static Optional<AllocFnsTy>
 getAllocationData(const Value *V, AllocType AllocTy,
                   function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
   bool IsNoBuiltinCall;
-  if (const Function *Callee = getCalledFunction(V, IsNoBuiltinCall))
+  const Function *Caller = nullptr;
+  if (const Function *Callee = getCalledFunction(V, IsNoBuiltinCall, Caller))
     if (!IsNoBuiltinCall)
       return getAllocationDataForFunction(
-          Callee, AllocTy, &GetTLI(const_cast<Function &>(*Callee)));
+          Callee, AllocTy, &GetTLI(const_cast<Function &>(*Callee)), Caller);
   return None;
 }
 
