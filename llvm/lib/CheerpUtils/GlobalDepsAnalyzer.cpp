@@ -44,7 +44,7 @@ StringRef GlobalDepsAnalyzer::getPassName() const
 
 GlobalDepsAnalyzer::GlobalDepsAnalyzer(MATH_MODE mathMode_, bool llcPass, bool wasmStart)
 	: ModulePass(ID), hasBuiltin{{false}}, mathMode(mathMode_), DL(NULL),
-	  TLI(NULL), entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
+	  entryPoint(NULL), hasCreateClosureUsers(false), hasVAArgs(false),
 	  hasPointerArrays(false), hasAsmJS(false), hasAsmJSMalloc(false),
 	  mayNeedAsmJSFree(false), llcPass(llcPass), wasmStart(wasmStart), delayPrintf(true),
 	  hasUndefinedSymbolErrors(false), forceTypedArrays(false)
@@ -121,8 +121,11 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 		I->eraseFromParent();
 	};
 	OptimizationRemarkEmitter ORE;
-	LibCallSimplifier callSimplifier(*DL, TLI, ORE, nullptr, nullptr, LibCallReplacer);
 	for (Function& F : module.getFunctionList()) {
+		auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
+		const llvm::TargetLibraryInfo* TLI = TLIP ? &TLIP->getTLI(F) : nullptr;
+		assert(TLI);
+		LibCallSimplifier callSimplifier(*DL, TLI, ORE, nullptr, nullptr, LibCallReplacer);
 		F.setPersonalityFn(nullptr);
 
 		const bool isAsmJS = (F.getSection() == StringRef("asmjs"));
@@ -174,9 +177,6 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 {
 	DL = &module.getDataLayout();
 	assert(DL);
-	auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
-	TLI = TLIP ? &TLIP->getTLI() : nullptr;
-	assert(TLI);
 	VisitedSet visited;
 
 	simplifyCalls(module);
