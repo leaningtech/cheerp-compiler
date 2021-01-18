@@ -2843,6 +2843,8 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
 
           return getAddRecExpr(Operands, AddRec->getLoop(),
                                AddRec->getNoWrapFlags(SCEV::FlagNW));
+        } else if(const SCEVNegPointer* NegPtr = dyn_cast<SCEVNegPointer>(Ops[1])) {
+          return NegPtr->getOperand();
         }
       }
     }
