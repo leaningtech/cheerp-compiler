@@ -6915,7 +6915,7 @@ void Sema::CheckCompletedCXXClass(Scope *S, CXXRecordDecl *Record) {
       if (!(*it)->hasAttr<JsExportAttr>())
         continue;
 
-     (*it)->addAttr(::new (Context) UsedAttr(Record->getLocation(), Context, 0));
+     (*it)->addAttr(::new (Context) UsedAttr(Context, {Record->getLocation()}));
       MarkFunctionReferenced(Record->getLocation(), *it);
       // Force generation of explicitly defaulted methods
       if((*it)->isExplicitlyDefaulted()) {

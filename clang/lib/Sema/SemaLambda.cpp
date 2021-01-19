@@ -257,9 +257,9 @@ CXXRecordDecl *Sema::createLambdaClosureType(SourceRange IntroducerRange,
   // CHEERP: Inherit asmjs/genericjs attribute from the parent declaration
   if (Decl* d = dyn_cast<Decl>(DC)) {
     if (d->hasAttr<AsmJSAttr>())
-      Class->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::GNU_cheerp_asmjs));
+      Class->addAttr(AsmJSAttr::CreateImplicit(Context, IntroducerRange.getBegin(), AttributeCommonInfo::AS_GNU, AsmJSAttr::GNU_cheerp_asmjs));
     else if (d->hasAttr<GenericJSAttr>())
-      Class->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::GNU_cheerp_genericjs));
+      Class->addAttr(GenericJSAttr::CreateImplicit(Context, IntroducerRange.getBegin(), AttributeCommonInfo::AS_GNU, GenericJSAttr::GNU_cheerp_genericjs));
   }
 
   return Class;

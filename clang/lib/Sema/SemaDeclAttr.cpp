@@ -6788,7 +6788,7 @@ static void handleCFGuardAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 
 static void handleStatic(Sema &S, Decl *D, const ParsedAttr &Attr)
 {
-  D->addAttr(::new (S.Context) StaticAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) StaticAttr(S.Context, Attr));
   //This should be a function
   if (!isa<FunctionDecl>(D))
     S.Diag(Attr.getLoc(), diag::err_cheerp_attribute_not_on_function);
@@ -6796,7 +6796,7 @@ static void handleStatic(Sema &S, Decl *D, const ParsedAttr &Attr)
 
 static void handleNoInit(Sema &S, Decl* D, const ParsedAttr &Attr)
 {
-  D->addAttr(::new (S.Context) NoInitAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) NoInitAttr(S.Context, Attr));
 }
 
 static void handleJsExportAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -6832,18 +6832,18 @@ static void handleGenericJSAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
 static void handleByteLayoutAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!isa<RecordDecl>(D)) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getName();
+    S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) << Attr.getAttrName();
     return;
   }
   handleSimpleAttributeWithExclusions<ByteLayoutAttr, JsExportAttr>(S, D, Attr);
 }
 
 static void handleDefaultNewAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
-  D->addAttr(::new (S.Context) DefaultNewAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) DefaultNewAttr(S.Context, Attr));
 }
 
 static void handleClientLayoutAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
-  D->addAttr(::new (S.Context) ClientLayoutAttr(Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) ClientLayoutAttr(S.Context, Attr));
 }
 
 //===----------------------------------------------------------------------===//
@@ -6852,10 +6852,10 @@ static void handleClientLayoutAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
 static void checkCheerpUnprefixedDeprecations(Sema &S,
                                               const ParsedAttr &Attr) {
-  IdentifierInfo *scope = Attr.getScopeName();
+  const IdentifierInfo *scope = Attr.getScopeName();
   if (!scope || scope->getName() != "cheerp") {
     S.Diag(Attr.getLoc(), diag::warn_cheerp_deprecated_attribute)
-        << Attr.getName();
+        << Attr.getAttrName();
   }
 }
 
@@ -7797,10 +7797,10 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
   DeclContext* ctx = D->getDeclContext();
   if (Decl* d = dyn_cast<Decl>(ctx)) {
     if (d->hasAttr<AsmJSAttr>()) {
-      D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSSpelling));
+      D->addAttr(AsmJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
       return;
     } else if (d->hasAttr<GenericJSAttr>()) {
-      D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::CXX11_cheerp_genericjs));
+      D->addAttr(GenericJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_CXX11, GenericJSAttr::CXX11_cheerp_genericjs));
       return;
     }
   }
@@ -7814,9 +7814,9 @@ void Sema::MaybeInjectCheerpModeAttr(Decl* D) {
       Diag(D->getBeginLoc(), diag::err_attributes_are_not_compatible)
         << "'asmjs'"
         << D->getAttr<PackedAttr>();
-    D->addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSSpelling));
+    D->addAttr(AsmJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSSpelling));
   } else if (Context.getTargetInfo().getTriple().getEnvironment() == llvm::Triple::GenericJs) {
-      D->addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::CXX11_cheerp_genericjs));
+      D->addAttr(GenericJSAttr::CreateImplicit(Context, D->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::CXX11_cheerp_genericjs));
   }
 }
 

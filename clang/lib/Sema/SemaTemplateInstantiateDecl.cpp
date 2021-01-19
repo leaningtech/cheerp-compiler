@@ -1459,9 +1459,9 @@ Decl *TemplateDeclInstantiator::VisitClassTemplateDecl(ClassTemplateDecl *D) {
       /*DelayTypeCreation=*/true);
 
   if (Pattern->hasAttr<AsmJSAttr>())
-      RecordInst->addAttr(AsmJSAttr::CreateImplicit(SemaRef.Context, AsmJSAttr::GNU_cheerp_asmjs));
+      RecordInst->addAttr(AsmJSAttr::CreateImplicit(SemaRef.Context, Pattern->getBeginLoc(), AttributeCommonInfo::AS_GNU, AsmJSAttr::GNU_cheerp_asmjs));
   else if (Pattern->hasAttr<GenericJSAttr>())
-      RecordInst->addAttr(GenericJSAttr::CreateImplicit(SemaRef.Context, GenericJSAttr::GNU_cheerp_genericjs));
+      RecordInst->addAttr(GenericJSAttr::CreateImplicit(SemaRef.Context, Pattern->getBeginLoc(), AttributeCommonInfo::AS_GNU, GenericJSAttr::GNU_cheerp_genericjs));
 
   if (QualifierLoc)
     RecordInst->setQualifierInfo(QualifierLoc);
@@ -1727,9 +1727,9 @@ Decl *TemplateDeclInstantiator::VisitCXXRecordDecl(CXXRecordDecl *D) {
     SemaRef.CurrentInstantiationScope->InstantiatedLocal(D, Record);
 
   if (D->hasAttr<AsmJSAttr>())
-      Record->addAttr(AsmJSAttr::CreateImplicit(SemaRef.Context, AsmJSAttr::GNU_cheerp_asmjs));
+      Record->addAttr(AsmJSAttr::CreateImplicit(SemaRef.Context, SourceLocation(), AttributeCommonInfo::AS_GNU, AsmJSAttr::GNU_cheerp_asmjs));
   else if (D->hasAttr<GenericJSAttr>())
-      Record->addAttr(GenericJSAttr::CreateImplicit(SemaRef.Context, GenericJSAttr::GNU_cheerp_genericjs));
+      Record->addAttr(GenericJSAttr::CreateImplicit(SemaRef.Context, SourceLocation(), AttributeCommonInfo::AS_GNU, GenericJSAttr::GNU_cheerp_genericjs));
 
   // Forward the mangling number from the template to the instantiated decl.
   SemaRef.Context.setManglingNumber(Record,

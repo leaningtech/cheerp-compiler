@@ -874,9 +874,9 @@ ClassTemplateSpecializationDecl(ASTContext &Context, Kind DK, TagKind TK,
     SpecializationKind(TSK_Undeclared) {
   // CHEERP: propagate asmjs and genericjs attributes to template specializations
   if (SpecializedTemplate->getTemplatedDecl()->hasAttr<AsmJSAttr>()) {
-    addAttr(AsmJSAttr::CreateImplicit(Context, AsmJSAttr::GNU_cheerp_asmjs));
+    addAttr(AsmJSAttr::CreateImplicit(Context, StartLoc, AttributeCommonInfo::AS_GNU, AsmJSAttr::GNU_cheerp_asmjs));
   } else if (SpecializedTemplate->getTemplatedDecl()->hasAttr<GenericJSAttr>()) {
-    addAttr(GenericJSAttr::CreateImplicit(Context, GenericJSAttr::GNU_cheerp_genericjs));
+    addAttr(GenericJSAttr::CreateImplicit(Context, StartLoc, AttributeCommonInfo::AS_GNU, GenericJSAttr::GNU_cheerp_genericjs));
   }
 }
 
