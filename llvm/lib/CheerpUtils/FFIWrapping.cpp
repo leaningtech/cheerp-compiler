@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2020 Leaning Technologies
+// Copyright 2020-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
