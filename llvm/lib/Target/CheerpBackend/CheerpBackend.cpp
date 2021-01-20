@@ -181,7 +181,7 @@ bool CheerpTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
                                            raw_pwrite_stream *DwoOut,
                                            CodeGenFileType FileType,
                                            bool DisableVerify,
-                                           MachineModuleInfo *MMI) {
+                                           MachineModuleInfoWrapperPass *MMIWP) {
 
   cheerp::GlobalDepsAnalyzer::MATH_MODE mathMode;
   if (NoNativeJavaScriptMath)
