@@ -79,7 +79,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	assert(callV.getCalledFunction());
 
 	TypeSupport::ClientFunctionDemangled clientHelper(identifier);
-	StringRef className(clientHelper.className);
+	StringRef namespacedName(clientHelper.namespacedName);
 	StringRef funcName(clientHelper.funcName);
 
 	bool isClientStatic = callV.getCalledFunction()->hasFnAttribute(Attribute::Static);
@@ -89,34 +89,42 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	if(funcName.startswith("get_"))
 	{
 		//Getter
-		assert(callV.arg_size()==1);
-		if(className.empty())
+		if (isClientStatic)
 		{
-			llvm::report_fatal_error(Twine("Unexpected getter without class: ", StringRef(identifier)), false);
-			return COMPILE_UNSUPPORTED;
+			assert(callV.arg_size()==0);
+			stream << namespacedName;	//namespacedName is either empty or ends with '.'
 		}
-
-		compileOperand(callV.getOperand(0), HIGHEST);
-		stream << '.' << funcName.drop_front(4);
+		else
+		{
+			assert(callV.arg_size()==1);
+			compileOperand(callV.getOperand(0), HIGHEST);
+			stream << ".";
+		}
+		stream << funcName.drop_front(4);
 	}
 	else if(funcName.startswith("set_"))
 	{
-		//Setter
-		if(className.empty())
-		{
-			llvm::report_fatal_error(Twine("Unexpected setter without class: ", StringRef(identifier)), false);
-			return COMPILE_UNSUPPORTED;
-		}
-
-		compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 		if(funcName.size() == 4)
 		{
 			// Generic setter
-			assert(callV.arg_size()==3);
+			if (isClientStatic)
+			{
+				assert(callV.arg_size()==2);
+				//namespacedName is either empty (-> error!) or ends with '.' that we have to skip
+				if (namespacedName.empty())
+					llvm_unreachable("Not supported top level setter");
+				else
+					stream << namespacedName.substr(0, namespacedName.size() -1);
+			}
+			else
+			{
+				assert(callV.arg_size()==3);
+				compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
+			}
 			stream << '[';
-			compileOperand(callV.getOperand(1), LOWEST);
+			compileOperand(callV.getOperand(callV.arg_size() - 2), LOWEST);
 			stream << "]=";
-			const Value* v = callV.getOperand(2);
+			const Value* v = callV.getOperand(callV.arg_size() - 1);
 			if (v->getType()->isPointerTy())
 			{
 				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
@@ -128,9 +136,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 		}
 		else
 		{
-			assert(callV.arg_size()==2);
-			stream << '.' << funcName.drop_front(4) <<  '=';
-			const Value* v = callV.getOperand(1);
+			//Setter
+			if (isClientStatic)
+			{
+				assert(callV.arg_size()==1);
+				stream << namespacedName;	//namespacedName is either empty or ends with '.'
+			}
+			else
+			{
+				assert(callV.arg_size()==2);
+				compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
+				stream << ".";
+			}
+
+			stream << funcName.drop_front(4) <<  '=';
+
+			const Value* v = callV.getOperand(callV.arg_size() - 1);
 			if (v->getType()->isPointerTy())
 			{
 				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
@@ -144,7 +165,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	else if(funcName == StringRef("operator[]"))
 	{
 		// operator[]
-		if(className.empty())
+		if(!namespacedName.empty())
 		{
 			llvm::report_fatal_error(Twine("Unexpected operator[] without class: ", StringRef(identifier)), false);
 			return COMPILE_UNSUPPORTED;
@@ -167,29 +188,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	{
 		User::const_op_iterator it = callV.arg_begin();
 
-		//Regular call
-		if(!className.empty())
+		//Normal function
+		if (isClientStatic)
 		{
-			if(isClientStatic)
-			{
-				// In asmjs we import static client function with their mangled name
-				if (asmjs)
-					return COMPILE_UNSUPPORTED;
-				stream << className;
-			}
-			else if(callV.arg_empty())
-			{
-				llvm::report_fatal_error(Twine("At least 'this' parameter was expected: ",
-					StringRef(identifier)), false);
+			// In asmjs we import static client function with their mangled name
+			if (asmjs)
 				return COMPILE_UNSUPPORTED;
-			}
-			else
-			{
-				compilePointerAs(*it, COMPLETE_OBJECT, HIGHEST);
-				++it;
-			}
-			stream << '.';
+			stream << namespacedName;	//namespacedName is either empty or ends with '.'
 		}
+		else
+		{
+			assert(callV.arg_size()>=1);
+			compilePointerAs(*it, COMPLETE_OBJECT, HIGHEST);
+			++it;
+			stream << ".";
+		}
+
 		stream << funcName;
 		compileMethodArgs(it,callV.arg_end(), callV, /*forceBoolean*/ true);
 	}
@@ -6078,10 +6092,9 @@ void CheerpWriter::compileImports()
 		{
 			TypeSupport::ClientFunctionDemangled clientHelper(*imported);
 			//Regular call
-			if(clientHelper.isMethod())
+			if (imported->hasFnAttribute(Attribute::Static))
 			{
-				assert(imported->hasFnAttribute(Attribute::Static));
-				stream << clientHelper.className << '.';
+				stream << clientHelper.namespacedName;	//namespacedName is either empty or ends with '.'
 			}
 			stream << clientHelper.funcName;
 		}
