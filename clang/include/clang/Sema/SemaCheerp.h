@@ -29,7 +29,7 @@ enum class TypeKind
 
 enum class SpecialFunctionClassify
 {
-	Getter, GenericSetter, Setter, Other
+	GenericGetter, Getter, GenericSetter, Setter, Other
 };
 
 TypeKind classifyType(const clang::QualType& Qy, const clang::Sema& sema);
