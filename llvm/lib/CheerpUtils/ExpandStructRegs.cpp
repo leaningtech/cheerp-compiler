@@ -162,7 +162,7 @@ static void ProcessLoadOrStoreAttrs(InstType *Dest, InstType *Src,
 
   const StructLayout *SL = DL->getStructLayout(STy);
   const unsigned Alignment = Src->getAlignment();
-  Dest->setAlignment(MinAlign(Alignment, SL->getElementOffset(Index)));
+  Dest->setAlignment(Align(MinAlign(Alignment, SL->getElementOffset(Index))));
 }
 
 template <class InstType>
@@ -181,7 +181,7 @@ static void ProcessArrayLoadOrStoreAttrs(InstType *Dest, InstType *Src,
   }
 
   const unsigned Alignment = Src->getAlignment();
-  Dest->setAlignment(MinAlign(Alignment, Index * DL->getTypeSizeInBits(ATy->getElementType())));
+  Dest->setAlignment(Align(MinAlign(Alignment, Index * DL->getTypeSizeInBits(ATy->getElementType()))));
 }
 
 static bool SplitUpStore(StoreInst *Store, const DataLayout *DL) {
