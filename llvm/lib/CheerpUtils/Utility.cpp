@@ -772,7 +772,7 @@ uint32_t TypeSupport::getAlignmentAsmJS(const llvm::DataLayout& dl, llvm::Type* 
 	return alignment;
 }
 
-std::pair<std::string, std::string> TypeSupport::ClientFunctionDemangled::getClientClassAndFunc(const char* identifier)
+std::pair<std::string, std::string> TypeSupport::ClientFunctionDemangled::getClientNamespacedAndFunc(const char* identifier)
 {
 	int status =0;
 	char* const demangledName = abi::__cxa_demangle(identifier, NULL, NULL, &status);
@@ -837,17 +837,17 @@ std::pair<std::string, std::string> TypeSupport::ClientFunctionDemangled::getCli
 	free(demangledName);
 
 	assert(scopes.back() == "client");
-	assert(scopes.size() == 2 || scopes.size() == 3);
 
-	if(scopes.size() == 2 || scopes[0] == scopes[1])
+	scopes.pop_back();
+
+	std::string namespaced = "";
+	while (scopes.size() > 1)
 	{
-		// No class is present
-		return std::make_pair(std::string(), std::move(scopes[0]));
+		namespaced += scopes.back() + ".";
+		scopes.pop_back();
 	}
-	else
-	{
-		return std::make_pair(std::move(scopes[1]), std::move(scopes[0]));
-	}
+
+	return std::make_pair(std::move(namespaced), std::move(scopes[0]));
 }
 
 DynamicAllocInfo::DynamicAllocInfo( const CallBase* callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedType(nullptr), forceTypedArrays(forceTypedArrays)
