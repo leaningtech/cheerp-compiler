@@ -302,22 +302,18 @@ public:
 	{
 	public:
 		ClientFunctionDemangled(const char* identifier)
-			: demangled(getClientClassAndFunc(identifier)), className(demangled.first), funcName(demangled.second)
+			: demangled(getClientNamespacedAndFunc(identifier)), namespacedName(demangled.first), funcName(demangled.second)
 		{
 		}
 		ClientFunctionDemangled(const llvm::Function& F)
 			: ClientFunctionDemangled(F.getName().data())
 		{
 		}
-		bool isMethod() const
-		{
-			return !className.empty();
-		}
 	private:
-		static std::pair<std::string, std::string> getClientClassAndFunc(const char* identifier);
+		static std::pair<std::string, std::string> getClientNamespacedAndFunc(const char* identifier);
 		const std::pair<std::string, std::string> demangled;
 	public:
-		const std::string& className;
+		const std::string& namespacedName;
 		const std::string& funcName;
 	};
 
