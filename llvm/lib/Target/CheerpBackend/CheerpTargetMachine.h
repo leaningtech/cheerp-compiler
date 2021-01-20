@@ -55,7 +55,7 @@ public:
                                    raw_pwrite_stream *DwoOut,
                                    CodeGenFileType FileType,
                                    bool DisableVerify,
-                                   MachineModuleInfo *MMI = nullptr) override;
+                                   MachineModuleInfoWrapperPass *MMIWP = nullptr) override;
   virtual const CheerpSubtarget* getSubtargetImpl(const Function &F) const override;
 };
 
