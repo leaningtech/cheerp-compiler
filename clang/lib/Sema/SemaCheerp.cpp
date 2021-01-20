@@ -333,7 +333,11 @@ static clang::StringRef kinfOfFuncionDecl(const clang::FunctionDecl* FD)
 cheerp::SpecialFunctionClassify cheerp::classifyNamedFunction(const clang::StringRef name)
 {
 	if (name.startswith("get_"))
+	{
+		if (name.size() == 4)
+			return SpecialFunctionClassify::GenericGetter;
 		return SpecialFunctionClassify::Getter;
+	}
 
 	if (name.startswith("set_"))
 	{
@@ -351,6 +355,8 @@ static clang::StringRef getName(const cheerp::SpecialFunctionClassify& classific
 
 	switch (classification)
 	{
+	case SpecialFunctionClassify::GenericGetter:
+		return "generic setter ('get_')";
 	case SpecialFunctionClassify::Getter:
 		return "getter ('get_*')";
 	case SpecialFunctionClassify::GenericSetter:
@@ -391,10 +397,14 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 		{
 			const auto name = FD->getName();
 			const auto classification = classifyNamedFunction(name);
+			auto kind = kinfOfFuncionDecl(FD);;
 
 			uint32_t expectedNumOfParameters = -1;
 			switch (classification)
 			{
+			case SpecialFunctionClassify::GenericGetter:
+				expectedNumOfParameters = 1;
+				break;
 			case SpecialFunctionClassify::Getter:
 				expectedNumOfParameters = 0;
 				break;
@@ -409,7 +419,6 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 			}
 
 			const uint32_t numArgs = FD->getNumParams();
-			auto kind = kinfOfFuncionDecl(FD);;
 
 			if (expectedNumOfParameters != -1 && numArgs != expectedNumOfParameters)
 				sema.Diag(FD->getLocation(), clang::diag::err_cheerp_client_special_wrong_num_parameters) << kind << name << getName(classification) << expectedNumOfParameters;
