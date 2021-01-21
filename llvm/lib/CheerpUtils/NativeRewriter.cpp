@@ -5,11 +5,12 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-// Copyright 2011-2020 Leaning Technologies
+// Copyright 2011-2021 Leaning Technologies
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Cheerp/Demangler.h"
 #include "llvm/Cheerp/NativeRewriter.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Constants.h"
@@ -21,7 +22,7 @@
 using namespace llvm;
 using namespace std;
 
-bool CheerpNativeRewriter::findMangledClassName(const char* const s, const char* &className, int& classLen)
+static bool isNamespaceClient(const char* s)
 {
 	if(strncmp(s,"_ZN",3)!=0)
 		return false;
@@ -32,86 +33,44 @@ bool CheerpNativeRewriter::findMangledClassName(const char* const s, const char*
 	if(nsLen==0 || (strncmp(tmp,"client",nsLen)!=0))
 		return false;
 
-	tmp+=nsLen;
-	classLen=strtol(tmp, &endPtr, 10);
-	className=endPtr;
-	// template parameters: I<stuff>E
-	if(className[classLen] == 'I')
-	{
-		classLen++;
-		int extraE = 1;
-		while (extraE != 0)
-		{
-			// end tag E
-			if(className[classLen] == 'E')
-			{
-				classLen++;
-				extraE--;
-				continue;
-			}
-			// nested template parameters: I<stuff>E
-			if(className[classLen] == 'I')
-			{
-				classLen++;
-				extraE++;
-				continue;
-			}
-			// namespaced type: N<stuff>E
-			if(className[classLen] == 'N')
-			{
-				classLen++;
-				extraE++;
-				continue;
-			}
-			// current namespace
-			if(strncmp(className+classLen, "S_", 2) == 0)
-			{
-				classLen += 2;
-				continue;
-			}
-			// struct/class type: X<X chars>
-			char* typeStart;
-			if(int typeLen = strtol(className+classLen, &typeStart, 10))
-			{
-				classLen += (typeStart - className - classLen) + typeLen;
-				continue;
-			}
-			// base type (we should actually check that it makes sense,
-			// e.g. it is one of i,d,c... )
-			classLen++;
-		}
-	}
-	if(classLen==0)
-		return false;
 	return true;
 }
 
-bool CheerpNativeRewriter::isBuiltinConstructor(const char* s, const char*& startOfType, const char*& endOfType)
+bool CheerpNativeRewriter::findMangledClassName(const char* s, std::string& name)
 {
-	const char* mangledName;
-	int mangledNameLen;
-	//Extract the class name from the mangled one
-	if(findMangledClassName(s, mangledName, mangledNameLen)==false)
+	if (!isNamespaceClient(s))
 		return false;
 
-	startOfType = mangledName;
-	endOfType = mangledName+mangledNameLen;
+	name = getClassName(s);
 
-	if(strncmp(mangledName+mangledNameLen, "C1", 2)==0 ||
-	   strncmp(mangledName+mangledNameLen, "C2", 2)==0)
-		return true;
+	return true;
+}
 
-	return false;
+bool CheerpNativeRewriter::isBuiltinConstructor(const char* s)
+{
+	cheerp::Demangler demangler(s);
+
+	return (demangler.isMangled() &&
+			demangler.isNamespaceClient() &&
+			demangler.isFunction() &&
+			demangler.isConstructor());
+}
+
+std::string CheerpNativeRewriter::getClassName(const char* s)
+{
+	cheerp::Demangler demangler(s);
+
+	assert(isNamespaceClient(s));
+
+	return demangler.getJSMangling(/*doCleanup*/false);
 }
 
 bool CheerpNativeRewriter::isBuiltinConstructorForType(const char* s, const std::string& typeName)
 {
-	const char* startOfType;
-	const char* endOfType;
-	if(!isBuiltinConstructor(s, startOfType, endOfType))
+	if(!isBuiltinConstructor(s))
 		return false;
 
-	if(typeName.compare(0, std::string::npos, startOfType, endOfType-startOfType)!=0)
+	if(typeName != getClassName(s))
 		return false;
 
 	return true;
@@ -157,12 +116,12 @@ bool CheerpNativeRewriter::isBuiltinType(const char* typeName, std::string& buil
 	}
 	else
 		return false;
-	const char* mangledName;
-	int mangledNameLen;
-	if(findMangledClassName(typeName, mangledName, mangledNameLen)==false)
+
+	std::string name;
+	if(findMangledClassName(typeName, name)==false)
 		return false;
 
-	builtinName.assign(mangledName, mangledNameLen);
+	builtinName = name;
 	return true;
 }
 
@@ -339,9 +298,7 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 			Function* f=callInst.getCalledFunction();
 			if(!f)
 				continue;
-			const char* startOfType;
-			const char* endOfType;
-			if(!CheerpNativeRewriter::isBuiltinConstructor(f->getName().data(), startOfType, endOfType))
+			if(!CheerpNativeRewriter::isBuiltinConstructor(f->getName().data()))
 				continue;
 			//Check that the constructor is for 'this'
 			Value* firstArg = callInst.getOperand(0);
@@ -372,10 +329,8 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 	Function::arg_iterator newArg=newFunc->arg_begin();
 	if (!lowerConstructor)
 	{
-		const char *startOfType, *endOfType;
-		isBuiltinConstructor(F.getName().data(), startOfType, endOfType);
 		std::string diag = "No native constructor found for class ";
-		diag.append(startOfType, endOfType-startOfType);
+		diag.append(getClassName(F.getName().data()));
 		llvm::report_fatal_error(diag, false);
 	}
 	if(lowerConstructor->getType() != F.arg_begin()->getType())
@@ -453,9 +408,7 @@ void CheerpNativeRewriter::rewriteConstructorImplementation(Module& M, Function&
 
 bool CheerpNativeRewriter::rewriteNativeObjectsConstructors(Module& M, Function& F)
 {
-	const char* startOfType;
-	const char* endOfType;
-	if(isBuiltinConstructor(F.getName().data(), startOfType, endOfType) &&
+	if(isBuiltinConstructor(F.getName().data()) &&
 		F.getReturnType()->isVoidTy())
 	{
 		assert(!F.empty());
