@@ -23,11 +23,13 @@ namespace llvm
 class CheerpNativeRewriter: public FunctionPass
 {
 private:
+	static std::string getClassName(const char* s);
+	static bool isBuiltinConstructor(const char* s);
 	static bool isBuiltinConstructor(const char* s, const char*& startOfType, const char*& endOfType);
 	static bool isBuiltinConstructorForType(const char* s, const std::string& typeName);
 	static bool isBuiltinType(const char* typeName, std::string& builtinName);
 	static void baseSubstitutionForBuiltin(llvm::User* i, llvm::Instruction* old, llvm::AllocaInst* source);
-	static bool findMangledClassName(const char* const s, const char* &className, int& classLen);
+	static bool findMangledClassName(const char* const s, std::string& name);
 	static llvm::Function* getReturningConstructor(llvm::Module& M, llvm::Function* called);
 	void rewriteConstructorImplementation(llvm::Module& M, llvm::Function& F);
 	bool rewriteNativeObjectsConstructors(llvm::Module& M, llvm::Function& F);
