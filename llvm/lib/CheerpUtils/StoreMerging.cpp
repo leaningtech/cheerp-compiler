@@ -231,7 +231,7 @@ void StoreMerging::processBlockOfStores(const uint32_t dim, std::vector<std::pai
 
 		//Actually create the store
 		StoreInst* biggerStore = cast<StoreInst>(builder.CreateStore(sum, bitcast));
-		biggerStore->setAlignment(alignment);
+		biggerStore->setAlignment(llvm::Align(alignment));
 
 		//Bookkeeping 1: take note of what to later erase
 		toErase.push_back(groupedSamePointer[a].first);
