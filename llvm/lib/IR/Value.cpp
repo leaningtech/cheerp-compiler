@@ -612,7 +612,7 @@ const Value *Value::stripPointerCastsSafe() const {
 }
 
 const Value *Value::stripPointerCastsAndAliases() const {
-  return stripPointerCastsAndOffsets<PSK_ZeroIndicesAndAliases>(this);
+  return stripPointerCastsAndOffsets<PSK_ZeroIndicesAndAliases>(this, false);
 }
 
 const Value *Value::stripPointerCastsSameRepresentation() const {
