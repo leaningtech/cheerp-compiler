@@ -12,6 +12,7 @@
 #ifndef CHEERP_STRUCT_MEMFUNC_LOWERING_H
 #define CHEERP_STRUCT_MEMFUNC_LOWERING_H
 
+#include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
 
