@@ -12,6 +12,7 @@
 #ifndef CHEERP_NATIVE_REWRITER_H
 #define CHEERP_NATIVE_REWRITER_H
 
+#include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include <string>
