@@ -692,11 +692,11 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
     GenOpenCLArgMetadata(Fn);
     Fn->setCallingConv(llvm::CallingConv::SPIR_KERNEL);
   }
-  }
 
   if (getLangOpts().HIP) {
     Fn->setCallingConv(llvm::CallingConv::AMDGPU_KERNEL);
     Fn->addFnAttr("device-init");
+  }
   }
 
   CXXGlobalInits.clear();
