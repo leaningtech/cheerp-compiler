@@ -31,7 +31,7 @@ CheerpMCAsmInfo::CheerpMCAsmInfo(const Triple &T) {
   SupportsDebugInformation = false;
 }
 
-static MCAsmInfo *createCheerpMCAsmInfo(const MCRegisterInfo &T, const Triple& TheTriple) {
+static MCAsmInfo *createCheerpMCAsmInfo(const MCRegisterInfo &T, const Triple& TheTriple, const MCTargetOptions&) {
   return new CheerpMCAsmInfo(TheTriple);
 }
 
