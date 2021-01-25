@@ -38,9 +38,14 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 			Type *ArgType = ArgPtr->getType()->getPointerElementType();
 			ConstantInt *ArgSize = ConstantInt::get(
 				Call->getContext(), APInt(64, DL.getTypeStoreSize(ArgType)));
-			unsigned Alignment = Attrs.getParamAlignment(ArgIdx);
-			unsigned AllocAlignment =
-					std::max(Alignment, DL.getABITypeAlignment(ArgType));
+			unsigned AllocAlignment = DL.getABITypeAlignment(ArgType);
+			auto Alignment = Attrs.getParamAlignment(ArgIdx);
+			if(Alignment.hasValue())
+			{
+				Align a = Alignment.getValue();
+				if(a.value() > AllocAlignment)
+					AllocAlignment = a.value();
+			}
 			// Make a copy of the byval argument.
 			Instruction *CopyBuf = new AllocaInst(ArgType, 0, 0, AllocAlignment,
 				ArgPtr->getName() + ".byval_copy");
@@ -54,7 +59,7 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 			// the alignment attribute specifies "the alignment of the stack
 			// slot to form and the known alignment of the pointer specified
 			// to the call site".
-			Instruction *MemCpy = Builder.CreateMemCpy(CopyBuf, Alignment, ArgPtr, Alignment, ArgSize,
+			Instruction *MemCpy = Builder.CreateMemCpy(CopyBuf, AllocAlignment, ArgPtr, AllocAlignment, ArgSize,
 				false, nullptr, nullptr, nullptr, nullptr, false);
 			MemCpy->setDebugLoc(Call->getDebugLoc());
 			Call->setArgOperand(ArgIdx, CopyBuf);
