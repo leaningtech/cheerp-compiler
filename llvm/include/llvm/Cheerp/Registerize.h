@@ -507,7 +507,7 @@ private:
 				if (link.first > link.second)
 					std::swap(link.first, link.second);
 			}
-			sort(V.begin(), V.end(), [](const Link& a, const Link& b) -> bool
+			llvm::sort(V.begin(), V.end(), [](const Link& a, const Link& b) -> bool
 					{
 						if (a.first != b.first)
 							return (a.first < b.first);
