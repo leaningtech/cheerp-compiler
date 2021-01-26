@@ -3724,6 +3724,23 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			compileSubtraction(I.getOperand(0), I.getOperand(1), parentPrio, asmjs);
 			return COMPILE_OK;
 		}
+		case Instruction::FNeg:
+		{
+			//Floating point subtraction
+			bool needsFround = isFloat && needsFloatCoercion(parentPrio);
+			if(needsFround)
+			{
+				stream << namegen.getBuiltinName(NameGenerator::Builtin::FROUND) << '(';
+				parentPrio = FROUND;
+			}
+			if(parentPrio > ADD_SUB) stream << '(';
+			stream << '-';
+			compileOperand(I.getOperand(0), nextPrio(ADD_SUB));
+			if(parentPrio > ADD_SUB) stream << ')';
+			if(needsFround)
+				stream << ')';
+			return COMPILE_OK;
+		}
 		case Instruction::FSub:
 		{
 			//Floating point subtraction

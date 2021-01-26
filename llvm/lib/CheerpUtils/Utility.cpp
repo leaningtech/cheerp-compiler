@@ -440,6 +440,7 @@ bool InlineableCache::isInlineableImpl(const Instruction& I)
 			case Instruction::FAdd:
 			case Instruction::FDiv:
 			case Instruction::FRem:
+			case Instruction::FNeg:
 			case Instruction::FSub:
 			case Instruction::FPTrunc:
 			case Instruction::FPExt:
