@@ -11,6 +11,7 @@
 
 #define DEBUG_TYPE "CheerpAllocaMerging"
 #include <algorithm>
+#include "llvm/InitializePasses.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Cheerp/AllocaMerging.h"

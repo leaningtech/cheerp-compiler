@@ -11,6 +11,7 @@
 
 #define DEBUG_TYPE "CheerpGEPOptimizer"
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/Cheerp/GEPOptimizer.h"
 #include "llvm/Cheerp/Utility.h"
