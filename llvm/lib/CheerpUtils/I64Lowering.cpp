@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/I64Lowering.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/IR/BasicBlock.h"

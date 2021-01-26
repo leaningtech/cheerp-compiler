@@ -12,6 +12,7 @@
 #define DEBUG_TYPE "GlobalDepsAnalyzer"
 #include <algorithm>
 #include <llvm/Analysis/OptimizationRemarkEmitter.h>
+#include "llvm/InitializePasses.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"

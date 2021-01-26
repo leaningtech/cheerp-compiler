@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "CheerpFixIrreducibleControlFlow"
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/FixIrreducibleControlFlow.h"
 #include "llvm/Cheerp/GlobalDepsAnalyzer.h"
 #include "llvm/ADT/SetVector.h"

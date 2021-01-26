@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/LowerSwitch.h"
 #include "llvm/Cheerp/CFGPasses.h"
 #include <unordered_map>

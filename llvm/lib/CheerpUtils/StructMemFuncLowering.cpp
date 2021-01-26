@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/StructMemFuncLowering.h"
 #include "llvm/Analysis/InstructionSimplify.h"
