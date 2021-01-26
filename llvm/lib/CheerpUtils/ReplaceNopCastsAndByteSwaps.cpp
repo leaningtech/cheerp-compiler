@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/ReplaceNopCastsAndByteSwaps.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/IR/Verifier.h"

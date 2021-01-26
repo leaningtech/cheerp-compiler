@@ -13,6 +13,7 @@
 /// common case of calling a function with more arguments (which is fine in X86,
 /// but not in wasm).
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/CFGPasses.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/raw_ostream.h"

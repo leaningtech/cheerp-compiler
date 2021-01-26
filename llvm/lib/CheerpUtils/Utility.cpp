@@ -11,6 +11,7 @@
 
 #include <cxxabi.h>
 #include <sstream>
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/EdgeContext.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"

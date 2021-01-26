@@ -10,6 +10,7 @@
 //===---------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "pre-execute"
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/PreExecute.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
