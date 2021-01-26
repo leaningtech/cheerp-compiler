@@ -1985,6 +1985,16 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 			encodeBinOp(I, code);
 			break;
 		}
+		case Instruction::FNeg:
+		{
+			compileOperand(code, I.getOperand(0));
+			const Type* t = I.getType();
+			if (t->isFloatTy())
+				encodeInst(WasmOpcode::F32_NEG, code);
+			else if (t->isDoubleTy())
+				encodeInst(WasmOpcode::F64_NEG, code);
+			break;
+		}
 		case Instruction::BitCast:
 		{
 			assert(I.getType()->isPointerTy());
