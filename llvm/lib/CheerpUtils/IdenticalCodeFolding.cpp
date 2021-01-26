@@ -242,6 +242,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		case Instruction::FPToUI:
 		case Instruction::FPTrunc:
 		case Instruction::FPExt:
+		case Instruction::FNeg:
 		{
 			return CacheAndReturn(equivalentOperand(A->getOperand(0), B->getOperand(0)));
 		}
