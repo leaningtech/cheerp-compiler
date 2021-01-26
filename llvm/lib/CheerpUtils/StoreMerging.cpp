@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/CommandLine.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/StoreMerging.h"

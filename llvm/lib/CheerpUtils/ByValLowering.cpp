@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "CheerpByValLowering"
+#include "llvm/InitializePasses.h"
 #include "llvm/Cheerp/ByValLowering.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Cheerp/Utility.h"
