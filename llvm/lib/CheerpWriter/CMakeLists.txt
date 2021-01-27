@@ -1,4 +1,4 @@
-add_llvm_library(LLVMCheerpWriter
+add_llvm_component_library(LLVMCheerpWriter
   SourceMaps.cpp
   CheerpWriter.cpp
   CheerpWasmWriter.cpp
