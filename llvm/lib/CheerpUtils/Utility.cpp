@@ -12,6 +12,7 @@
 #include <cxxabi.h>
 #include <sstream>
 #include "llvm/InitializePasses.h"
+#include "llvm/Cheerp/Demangler.h"
 #include "llvm/Cheerp/EdgeContext.h"
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
@@ -774,80 +775,25 @@ uint32_t TypeSupport::getAlignmentAsmJS(const llvm::DataLayout& dl, llvm::Type* 
 
 std::pair<std::string, std::string> TypeSupport::ClientFunctionDemangled::getClientNamespacedAndFunc(const char* identifier)
 {
-	int status =0;
-	char* const demangledName = abi::__cxa_demangle(identifier, NULL, NULL, &status);
-	// Find the opening parenthesis
-	char* parenOpen = demangledName;
-	while(*parenOpen != '(')
-		parenOpen++;
+	cheerp::Demangler demangler(identifier);
 
-	// Remove the template data
-	auto skipTemplates = [](char* nameEnd) -> char*
-	{
-		nameEnd--;
-		if(*nameEnd != '>')
-			return nameEnd+1;
-		uint32_t templateCount = 1;
-		do
-		{
-			nameEnd--;
-			if(*nameEnd == '>')
-				templateCount++;
-			else if(*nameEnd == '<')
-				templateCount--;
-		}
-		while(templateCount);
-		return nameEnd;
-	};
+	assert(demangler.isMangled() && demangler.isNamespaceClient());
 
-	// We will have something like "{retType ,}client::(type{<>,}::)+"
-	std::vector<std::string> scopes;
-	char* cur = parenOpen;
-	bool lastScope = false;
-	while(!lastScope)
+	std::string namespaced = demangler.getJSMangling(/*doCleanup*/true);
+	std::string funcName = "";
+
+	if (demangler.isFunction())
 	{
-		char* nameEnd = skipTemplates(cur);
-		char* nameStart = nameEnd - 1;
-		while(1)
+		while (namespaced.back() != '.' && !namespaced.empty())
 		{
-			if(nameStart == demangledName)
-			{
-				scopes.emplace_back(nameStart, nameEnd);
-				lastScope = true;
-				break;
-			}
-			else if(*nameStart == ' ')
-			{
-				scopes.emplace_back(nameStart+1, nameEnd);
-				lastScope = true;
-				break;
-			}
-			else if(*nameStart == ':')
-			{
-				scopes.emplace_back(nameStart+1, nameEnd);
-				nameStart--;
-				assert(*nameStart == ':');
-				break;
-			}
-			nameStart--;
+			funcName += namespaced.back();
+			namespaced.pop_back();
 		}
-		cur = nameStart;
+
+		std::reverse(funcName.begin(), funcName.end());
 	}
 
-	free(demangledName);
-
-	assert(scopes.back() == "client");
-
-	scopes.pop_back();
-
-	std::string namespaced = "";
-	while (scopes.size() > 1)
-	{
-		namespaced += scopes.back() + ".";
-		scopes.pop_back();
-	}
-
-	return std::make_pair(std::move(namespaced), std::move(scopes[0]));
+	return std::make_pair(namespaced, funcName);
 }
 
 DynamicAllocInfo::DynamicAllocInfo( const CallBase* callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedType(nullptr), forceTypedArrays(forceTypedArrays)
