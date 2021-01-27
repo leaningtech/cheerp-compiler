@@ -1,4 +1,4 @@
-add_llvm_library(LLVMCheerpUtils
+add_llvm_component_library(LLVMCheerpUtils
   AllocaMerging.cpp
   AllocaLowering.cpp
   CommandLine.cpp
