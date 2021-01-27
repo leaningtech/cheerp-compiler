@@ -13,6 +13,7 @@
 #include "CFGStackifier.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Cheerp/Demangler.h"
 #include "llvm/Cheerp/NameGenerator.h"
 #include "llvm/Cheerp/PHIHandler.h"
 #include "llvm/Cheerp/Utility.h"
@@ -1349,13 +1350,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const
 	}
 	else if(TypeSupport::isClientConstructorName(ident))
 	{
-		//Default handling of builtin constructors
-		char* typeName;
-		int typeLen=strtol(ident.data()+22,&typeName,10);
-		//For builtin String, do not use new
-		if(strncmp(typeName, "String", 6)!=0)
+		//12 since it will skip cheerpCreate that was appended in front
+		cheerp::Demangler demangler(ident.data() + 12);
+
+		std::string mangledJS = demangler.getJSMangling(/*doCleanup*/true);
+
+		if (mangledJS != "String")
 			stream << "new ";
-		stream << StringRef(typeName, typeLen);
+		stream << mangledJS;
+
 		compileMethodArgs(it, itE, callV, /*forceBoolean*/ true);
 		return COMPILE_OK;
 	}
