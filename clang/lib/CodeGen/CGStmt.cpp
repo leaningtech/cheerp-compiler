@@ -2146,7 +2146,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                               diag::err_asm_invalid_type_in_input)
             << OutExpr->getType() << OutputConstraint;
       }
-      Args.push_back(Dest.getPointer());
+      Args.push_back(Dest.getPointer(*this));
       Constraints += "=*";
       Constraints += OutputConstraint;
       ReadOnly = ReadNone = false;
