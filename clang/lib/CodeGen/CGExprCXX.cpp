@@ -17,6 +17,7 @@
 #include "CodeGenFunction.h"
 #include "ConstantEmitter.h"
 #include "TargetInfo.h"
+#include "clang/AST/Attr.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Sema/SemaDiagnostic.h"
