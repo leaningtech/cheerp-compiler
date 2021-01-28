@@ -8326,7 +8326,7 @@ private:
       return E;
     return S.BuildCXXNamedCast(Loc, tok::kw_static_cast,
                                S.Context.getTrivialTypeSourceInfo(R, Loc), E,
-                               SourceRange(Loc, Loc), SourceRange(Loc, Loc));
+                               SourceRange(Loc, Loc), SourceRange(Loc, Loc), /*isCheerpSafe*/false);
   }
 };
 }
