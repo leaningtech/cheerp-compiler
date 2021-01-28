@@ -12,6 +12,7 @@
 
 #include "CodeGenModule.h"
 #include "CGCXXABI.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/VTTBuilder.h"
 using namespace clang;
