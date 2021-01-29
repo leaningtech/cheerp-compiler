@@ -123,7 +123,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 				compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 			}
 			stream << '[';
-			compileOperand(callV.getOperand(callV.arg_size() - 2), LOWEST);
+			const Value* v = callV.getOperand(callV.arg_size() - 2);
+			if (v->getType()->isPointerTy())
+			{
+				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
+			}
+			else
+			{
+				compileOperand(v, LOWEST);
+			}
 			stream << "]=";
 			const Value* v = callV.getOperand(callV.arg_size() - 1);
 			if (v->getType()->isPointerTy())
