@@ -101,19 +101,43 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	//The first arg should be the object
 	if(funcName.startswith("get_"))
 	{
-		//Getter
-		if (isClientStatic)
+		if(funcName.size() == 4)
 		{
-			assert(callV.arg_size()==0);
-			stream << namespacedName;	//namespacedName is either empty or ends with '.'
+			// Generic getter
+			if (isClientStatic)
+			{
+				assert(callV.arg_size()==1);
+				//namespacedName is either empty (-> error!) or ends with '.' that we have to skip
+				if (namespacedName.empty())
+					llvm_unreachable("Not supported top level getter");
+				else
+					stream << namespacedName.substr(0, namespacedName.size() -1);
+			}
+			else
+			{
+				assert(callV.arg_size()==2);
+				compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
+			}
+			stream << '[';
+			compileAsPointerOrAsOperand(callV.getOperand(callV.arg_size() - 1));
+			stream << "]";
 		}
 		else
 		{
-			assert(callV.arg_size()==1);
-			compileOperand(callV.getOperand(0), HIGHEST);
-			stream << ".";
+			//Getter
+			if (isClientStatic)
+			{
+				assert(callV.arg_size()==0);
+				stream << namespacedName;	//namespacedName is either empty or ends with '.'
+			}
+			else
+			{
+				assert(callV.arg_size()==1);
+				compileOperand(callV.getOperand(0), HIGHEST);
+				stream << ".";
+			}
+			stream << funcName.drop_front(4);
 		}
-		stream << funcName.drop_front(4);
 	}
 	else if(funcName.startswith("set_"))
 	{
