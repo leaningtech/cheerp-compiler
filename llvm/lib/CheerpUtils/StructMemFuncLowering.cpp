@@ -484,7 +484,7 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 					else if(mode == MEMMOVE)
 						IRB.CreateMemMove(tailDst, newAlign, tailSrc, newAlign, tailSize);
 					else //if(mode == MEMSET)
-						IRB.CreateMemSet(tailDst, tailSrc, tailSize, newAlign);
+						IRB.CreateMemSet(tailDst, tailSrc, tailSize, MaybeAlign(newAlign));
 					size = ConstantInt::get(int32Type, sizeInt - tailSize);
 				}
 			}
