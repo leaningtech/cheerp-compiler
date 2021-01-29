@@ -24,6 +24,16 @@ StringRef StoreMerging::getPassName() const {
 	return "StoreMerging";
 }
 
+bool StoreMerging::runOnFunction(Function& F)
+{
+	bool Changed = false;
+
+	for (BasicBlock& BB : F)
+		Changed |= runOnBasicBlock(BB);
+
+	return Changed;
+}
+
 bool StoreMerging::runOnBasicBlock(BasicBlock& BB)
 {
 	assert(toErase.empty());
@@ -286,7 +296,7 @@ std::pair<const llvm::Value*, int> StoreMerging::findBasePointerAndOffset(const 
 
 char StoreMerging::ID = 0;
 
-BasicBlockPass *cheerp::createStoreMergingPass(const bool isWasm) { return new StoreMerging(isWasm); }
+FunctionPass *cheerp::createStoreMergingPass(const bool isWasm) { return new StoreMerging(isWasm); }
 
 INITIALIZE_PASS_BEGIN(StoreMerging, "StoreMerging", "Merge adjacent stores",
                       false, false)
