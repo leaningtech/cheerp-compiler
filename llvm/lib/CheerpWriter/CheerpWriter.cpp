@@ -86,6 +86,18 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	bool isClientStatic = callV.getCalledFunction()->hasFnAttribute(Attribute::Static);
 	bool asmjs = callV.getCaller()->getSection() == StringRef("asmjs");
 
+	auto compileAsPointerOrAsOperand = [&](const Value* v) -> void
+	{
+		if (v->getType()->isPointerTy())
+		{
+			compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
+		}
+		else
+		{
+			compileOperand(v, LOWEST);
+		}
+	};
+
 	//The first arg should be the object
 	if(funcName.startswith("get_"))
 	{
@@ -123,25 +135,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 				compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 			}
 			stream << '[';
-			const Value* v = callV.getOperand(callV.arg_size() - 2);
-			if (v->getType()->isPointerTy())
-			{
-				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
-			}
-			else
-			{
-				compileOperand(v, LOWEST);
-			}
+			compileAsPointerOrAsOperand(callV.getOperand(callV.arg_size() - 2));
 			stream << "]=";
-			const Value* v = callV.getOperand(callV.arg_size() - 1);
-			if (v->getType()->isPointerTy())
-			{
-				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
-			}
-			else
-			{
-				compileOperand(v, LOWEST);
-			}
+			compileAsPointerOrAsOperand(callV.getOperand(callV.arg_size() - 1));
 		}
 		else
 		{
@@ -160,15 +156,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 
 			stream << funcName.drop_front(4) <<  '=';
 
-			const Value* v = callV.getOperand(callV.arg_size() - 1);
-			if (v->getType()->isPointerTy())
-			{
-				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
-			}
-			else
-			{
-				compileOperand(v, LOWEST);
-			}
+			compileAsPointerOrAsOperand(callV.getOperand(callV.arg_size() - 1));
 		}
 	}
 	else if(funcName == StringRef("operator[]"))
@@ -177,15 +165,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 		assert(callV.arg_size()==2);
 		compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 		stream << '[';
-		const Value* v = callV.getOperand(1);
-		if (v->getType()->isPointerTy())
-		{
-			compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
-		}
-		else
-		{
-			compileOperand(v, LOWEST);
-		}
+		compileAsPointerOrAsOperand(callV.getOperand(1));
 		stream << ']';
 	}
 	else
