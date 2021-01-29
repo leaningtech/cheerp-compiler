@@ -166,11 +166,6 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 	else if(funcName == StringRef("operator[]"))
 	{
 		// operator[]
-		if(!namespacedName.empty())
-		{
-			llvm::report_fatal_error(Twine("Unexpected operator[] without class: ", StringRef(identifier)), false);
-			return COMPILE_UNSUPPORTED;
-		}
 		assert(callV.arg_size()==2);
 		compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 		stream << '[';
