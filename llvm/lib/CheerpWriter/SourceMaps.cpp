@@ -224,7 +224,7 @@ void SourceMapGenerator::endFile()
 
 std::string SourceMapGenerator::getSourceMapName() const
 {
-	return llvm::sys::path::filename(sourceMapName);
+	return std::string(llvm::sys::path::filename(sourceMapName));
 }
 
 }
