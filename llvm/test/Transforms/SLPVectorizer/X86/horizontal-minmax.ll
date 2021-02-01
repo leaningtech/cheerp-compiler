@@ -435,7 +435,7 @@ define i32 @maxi8_mutiple_uses(i32) {
 ; AVX-NEXT:    ret i32 [[TMP14]]
 ;
 ; THRESH-LABEL: @maxi8_mutiple_uses(
-; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x i32>, <2 x i32>* bitcast ([32 x i32]* @arr to <2 x i32>*), align 16
+; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x i32>, <2 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <2 x i32>*), align 16
 ; THRESH-NEXT:    [[TMP3:%.*]] = extractelement <2 x i32> [[TMP2]], i32 0
 ; THRESH-NEXT:    [[TMP4:%.*]] = extractelement <2 x i32> [[TMP2]], i32 1
 ; THRESH-NEXT:    [[TMP5:%.*]] = load <4 x i32>, <4 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 2) to <4 x i32>*), align 8
@@ -534,7 +534,7 @@ define i32 @maxi8_wrong_parent(i32) {
 ; AVX-NEXT:    ret i32 [[OP_EXTRA]]
 ;
 ; THRESH-LABEL: @maxi8_wrong_parent(
-; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x i32>, <2 x i32>* bitcast ([32 x i32]* @arr to <2 x i32>*), align 16
+; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x i32>, <2 x i32>* bitcast (i32* getelementptr inbounds ([32 x i32], [32 x i32]* @arr, i64 0, i64 0) to <2 x i32>*), align 16
 ; THRESH-NEXT:    [[TMP3:%.*]] = extractelement <2 x i32> [[TMP2]], i32 0
 ; THRESH-NEXT:    [[TMP4:%.*]] = extractelement <2 x i32> [[TMP2]], i32 1
 ; THRESH-NEXT:    [[TMP5:%.*]] = icmp sgt i32 [[TMP3]], [[TMP4]]
@@ -616,7 +616,7 @@ define i32* @maxp8(i32) {
 ; DEFAULT-NEXT:    ret i32* [[TMP23]]
 ;
 ; THRESH-LABEL: @maxp8(
-; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x i32*>, <2 x i32*>* bitcast ([32 x i32*]* @arrp to <2 x i32*>*), align 16
+; THRESH-NEXT:    [[TMP2:%.*]] = load <2 x i32*>, <2 x i32*>* bitcast (i32** getelementptr inbounds ([32 x i32*], [32 x i32*]* @arrp, i64 0, i64 0) to <2 x i32*>*), align 16
 ; THRESH-NEXT:    [[TMP3:%.*]] = extractelement <2 x i32*> [[TMP2]], i32 0
 ; THRESH-NEXT:    [[TMP4:%.*]] = extractelement <2 x i32*> [[TMP2]], i32 1
 ; THRESH-NEXT:    [[TMP5:%.*]] = icmp ugt i32* [[TMP3]], [[TMP4]]

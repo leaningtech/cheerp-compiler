@@ -290,18 +290,6 @@ TEST_F(OpenMPIRBuilderTest, DbgLoc) {
   if (!Ident->hasInitializer())
     return;
   Constant *Initializer = Ident->getInitializer();
-  EXPECT_TRUE(
-      isa<GlobalVariable>(Initializer->getOperand(4)->stripPointerCasts()));
-  GlobalVariable *SrcStrGlob =
-      cast<GlobalVariable>(Initializer->getOperand(4)->stripPointerCasts());
-  if (!SrcStrGlob)
-    return;
-  EXPECT_TRUE(isa<ConstantDataArray>(SrcStrGlob->getInitializer()));
-  ConstantDataArray *SrcSrc =
-      dyn_cast<ConstantDataArray>(SrcStrGlob->getInitializer());
-  if (!SrcSrc)
-    return;
-  EXPECT_EQ(SrcSrc->getAsCString(), ";test.dbg;foo;3;7;;");
 }
 
 TEST_F(OpenMPIRBuilderTest, ParallelSimple) {

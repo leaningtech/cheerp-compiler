@@ -72,6 +72,6 @@ entry:
   store i8 %vv, i8* %35, align 1
   ret i8* %0
 ; CHECK-LABEL: @foo
-; CHECK: call void @llvm.memset.p0i8.i64(i8* align 1 %4, i8 %vv, i64 32, i1 false)
+; CHECK: call void @llvm.memset.p0i8.i32(i8* align 1 %4, i8 %vv, i32 32, i1 false)
 }
 

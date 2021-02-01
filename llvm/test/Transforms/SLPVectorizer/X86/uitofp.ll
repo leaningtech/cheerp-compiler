@@ -884,9 +884,9 @@ define void @uitofp_4i16_4f32() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @uitofp_4i16_4f32(
-; AVX-NEXT:    [[TMP1:%.*]] = load <4 x i16>, <4 x i16>* bitcast ([32 x i16]* @src16 to <4 x i16>*), align 64
+; AVX-NEXT:    [[TMP1:%.*]] = load <4 x i16>, <4 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @src16, i32 0, i64 0) to <4 x i16>*), align 64
 ; AVX-NEXT:    [[TMP2:%.*]] = uitofp <4 x i16> [[TMP1]] to <4 x float>
-; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast ([16 x float]* @dst32 to <4 x float>*), align 64
+; AVX-NEXT:    store <4 x float> [[TMP2]], <4 x float>* bitcast (float* getelementptr inbounds ([16 x float], [16 x float]* @dst32, i32 0, i64 0) to <4 x float>*), align 64
 ; AVX-NEXT:    ret void
 ;
   %ld0 = load i16, i16* getelementptr inbounds ([32 x i16], [32 x i16]* @src16, i32 0, i64 0), align 64

@@ -566,7 +566,7 @@ public:
                          MDNode *TBAAStructTag = nullptr,
                          MDNode *ScopeTag = nullptr,
                          MDNode *NoAliasTag = nullptr, bool byteLayout = true) {
-    return CreateMemCpy(Dst, DstAlign, Src, SrcAlign, getInt64(Size),
+    return CreateMemCpy(Dst, DstAlign, Src, SrcAlign, getInt32(Size),
                         isVolatile, TBAATag, TBAAStructTag, ScopeTag,
                         NoAliasTag, byteLayout);
   }

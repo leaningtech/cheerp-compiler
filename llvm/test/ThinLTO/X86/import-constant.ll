@@ -22,11 +22,8 @@
 ; IMPORT-NEXT: @_ZL3Obj.llvm.{{.*}} =  available_externally hidden constant %struct.S { i32 4, i32 8, i32* @val }
 ; IMPORT-NEXT: @val = external dso_local global i32
 
-; OPT: @outer = internal unnamed_addr global %struct.Q zeroinitializer
-
 ; OPT:      define dso_local i32 @main()
 ; OPT-NEXT: entry:
-; OPT-NEXT:   store %struct.S* null, %struct.S** getelementptr inbounds (%struct.Q, %struct.Q* @outer, i64 0, i32 0)
 ; OPT-NEXT:   ret i32 12
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
