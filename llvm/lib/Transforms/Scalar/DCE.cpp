@@ -28,6 +28,8 @@
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Cheerp/GlobalDepsAnalyzer.h"
+
 using namespace llvm;
 
 #define DEBUG_TYPE "dce"
@@ -57,6 +59,7 @@ struct RedundantDbgInstElimination : public FunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<cheerp::GlobalDepsAnalyzer>();
   }
 };
 }
