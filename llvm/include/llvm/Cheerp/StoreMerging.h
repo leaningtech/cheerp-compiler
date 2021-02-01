@@ -30,6 +30,7 @@ private:
 	void processBlockOfStores(std::vector<std::pair<llvm::StoreInst*, int> > groupedSamePointer);
 	void processBlockOfStores(const uint32_t dim, std::vector<std::pair<llvm::StoreInst*, int> > & groupedSamePointer, std::vector<uint32_t>& dimension, llvm::IRBuilder<>& builder);
 	bool runOnBasicBlock(llvm::BasicBlock& BB);
+	void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
 public:
 	static char ID;
 	explicit StoreMerging(const bool isWasm = false) : llvm::FunctionPass(ID), isWasm(isWasm), DL(NULL) { }
