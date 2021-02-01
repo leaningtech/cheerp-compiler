@@ -192,7 +192,7 @@ private:
 	void assignLocalName(llvm::StringRef name)
 	{
 		if (shortestLocalName.size() == 0 || name.size() < shortestLocalName.size())
-			shortestLocalName = name;
+			shortestLocalName = std::string(name);
 	}
 	void generateCompressedNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper);
 	void generateReadableNames( const llvm::Module& M, const GlobalDepsAnalyzer &, LinearMemoryHelper& linearHelper );

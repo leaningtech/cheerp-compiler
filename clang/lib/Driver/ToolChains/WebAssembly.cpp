@@ -630,9 +630,9 @@ void cheerp::CheerpCompiler::ConstructJob(Compilation &C, const JobAction &JA,
  
     std::string secondaryPath("-cheerp-secondary-output-path=");
      if(Arg* cheerpWasmFile = Args.getLastArg(options::OPT_cheerp_wasm_file_EQ)) {
-      secondaryPath.append(llvm::sys::path::filename(cheerpWasmFile->getValue()));
+      secondaryPath.append(std::string(llvm::sys::path::filename(cheerpWasmFile->getValue())));
      } else {
-      secondaryPath.append(llvm::sys::path::filename(Output.getFilename()));
+      secondaryPath.append(std::string(llvm::sys::path::filename(Output.getFilename())));
      }
     CmdArgs.push_back(Args.MakeArgString(secondaryPath));
   }

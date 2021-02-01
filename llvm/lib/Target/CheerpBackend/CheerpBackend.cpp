@@ -120,13 +120,13 @@ bool CheerpWritePass::runOnModule(Module& M)
       if (!SecondaryOutputPath.empty())
         wasmFile = SecondaryOutputPath.getValue();
       else if (!SecondaryOutputFile.empty())
-        wasmFile = llvm::sys::path::filename(SecondaryOutputFile.getValue());
+        wasmFile = std::string(llvm::sys::path::filename(SecondaryOutputFile.getValue()));
       break;
     case AsmJs:
       if (!SecondaryOutputPath.empty())
         asmjsMemFile = SecondaryOutputPath.getValue();
       else if (!SecondaryOutputFile.empty())
-        asmjsMemFile = llvm::sys::path::filename(SecondaryOutputFile.getValue());
+        asmjsMemFile = std::string(llvm::sys::path::filename(SecondaryOutputFile.getValue()));
       memOut = secondaryOut.get();
       break;
   }
