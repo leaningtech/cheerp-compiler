@@ -557,9 +557,9 @@ TEST_F(OpenMPIRBuilderTest, DbgLoc) {
     return;
   Constant *Initializer = Ident->getInitializer();
   EXPECT_TRUE(
-      isa<GlobalVariable>(Initializer->getOperand(4)->stripPointerCasts()));
+      isa<GlobalVariable>(Initializer->getOperand(4)->stripPointerCastsSafe()));
   GlobalVariable *SrcStrGlob =
-      cast<GlobalVariable>(Initializer->getOperand(4)->stripPointerCasts());
+      cast<GlobalVariable>(Initializer->getOperand(4)->stripPointerCastsSafe());
   if (!SrcStrGlob)
     return;
   EXPECT_TRUE(isa<ConstantDataArray>(SrcStrGlob->getInitializer()));

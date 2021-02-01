@@ -378,9 +378,9 @@ define void @cttz_32i8() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @cttz_32i8(
-; AVX-NEXT:    [[TMP1:%.*]] = load <32 x i8>, <32 x i8>* bitcast ([32 x i8]* @src8 to <32 x i8>*), align 1
+; AVX-NEXT:    [[TMP1:%.*]] = load <32 x i8>, <32 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64 0) to <32 x i8>*), align 1
 ; AVX-NEXT:    [[TMP2:%.*]] = call <32 x i8> @llvm.cttz.v32i8(<32 x i8> [[TMP1]], i1 false)
-; AVX-NEXT:    store <32 x i8> [[TMP2]], <32 x i8>* bitcast ([32 x i8]* @dst8 to <32 x i8>*), align 1
+; AVX-NEXT:    store <32 x i8> [[TMP2]], <32 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @dst8, i8 0, i64 0) to <32 x i8>*), align 1
 ; AVX-NEXT:    ret void
 ;
   %ld0  = load i8, i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64  0), align 1
@@ -840,9 +840,9 @@ define void @cttz_undef_32i8() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @cttz_undef_32i8(
-; AVX-NEXT:    [[TMP1:%.*]] = load <32 x i8>, <32 x i8>* bitcast ([32 x i8]* @src8 to <32 x i8>*), align 1
+; AVX-NEXT:    [[TMP1:%.*]] = load <32 x i8>, <32 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64 0) to <32 x i8>*), align 1
 ; AVX-NEXT:    [[TMP2:%.*]] = call <32 x i8> @llvm.cttz.v32i8(<32 x i8> [[TMP1]], i1 true)
-; AVX-NEXT:    store <32 x i8> [[TMP2]], <32 x i8>* bitcast ([32 x i8]* @dst8 to <32 x i8>*), align 1
+; AVX-NEXT:    store <32 x i8> [[TMP2]], <32 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @dst8, i8 0, i64 0) to <32 x i8>*), align 1
 ; AVX-NEXT:    ret void
 ;
   %ld0  = load i8, i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64  0), align 1

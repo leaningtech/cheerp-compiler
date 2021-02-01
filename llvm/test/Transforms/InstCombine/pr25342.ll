@@ -31,7 +31,7 @@ define void @_Z3fooi(i32 signext %n) {
 ; CHECK-NEXT:    [[INC]] = add nuw nsw i32 [[I_0]], 1
 ; CHECK-NEXT:    br label [[FOR_COND]]
 ; CHECK:       for.end:
-; CHECK-NEXT:    store float [[TMP0]], float* getelementptr inbounds (%"struct.std::complex", %"struct.std::complex"* @dd, i64 0, i32 0, i32 0), align 4
+; CHECK-NEXT:    store float [[TMP0]], float* bitcast (%"struct.std::complex"* @dd to float*), align 4
 ; CHECK-NEXT:    store float [[TMP1]], float* getelementptr inbounds (%"struct.std::complex", %"struct.std::complex"* @dd, i64 0, i32 0, i32 1), align 4
 ; CHECK-NEXT:    ret void
 ;
@@ -102,7 +102,7 @@ define void @multi_phi(i32 signext %n) {
 ; CHECK-NEXT:    [[TMP6]] = phi float [ [[ADD_I]], [[FOR_BODY]] ], [ [[TMP5]], [[EVEN_BB]] ]
 ; CHECK-NEXT:    br label [[FOR_COND]]
 ; CHECK:       for.end:
-; CHECK-NEXT:    store float [[TMP0]], float* getelementptr inbounds (%"struct.std::complex", %"struct.std::complex"* @dd, i64 0, i32 0, i32 0), align 4
+; CHECK-NEXT:    store float [[TMP0]], float* bitcast (%"struct.std::complex"* @dd to float*), align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:

@@ -27,7 +27,7 @@ static void initLLVMIfNeeded() {
 }
 
 Triple llvm::dwarf::utils::getNormalizedDefaultTargetTriple() {
-  Triple T(Triple::normalize(sys::getDefaultTargetTriple()));
+  Triple T(Triple::normalize(sys::getProcessTriple()));
 
   return T;
 }

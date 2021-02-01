@@ -252,10 +252,10 @@ define void @lshr_v32i16() {
 ; AVX-NEXT:    ret void
 ;
 ; AVX512-LABEL: @lshr_v32i16(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <32 x i16>, <32 x i16>* bitcast ([32 x i16]* @a16 to <32 x i16>*), align 2
-; AVX512-NEXT:    [[TMP2:%.*]] = load <32 x i16>, <32 x i16>* bitcast ([32 x i16]* @b16 to <32 x i16>*), align 2
+; AVX512-NEXT:    [[TMP1:%.*]] = load <32 x i16>, <32 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @a16, i32 0, i64 0) to <32 x i16>*), align 2
+; AVX512-NEXT:    [[TMP2:%.*]] = load <32 x i16>, <32 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @b16, i32 0, i64 0) to <32 x i16>*), align 2
 ; AVX512-NEXT:    [[TMP3:%.*]] = lshr <32 x i16> [[TMP1]], [[TMP2]]
-; AVX512-NEXT:    store <32 x i16> [[TMP3]], <32 x i16>* bitcast ([32 x i16]* @c16 to <32 x i16>*), align 2
+; AVX512-NEXT:    store <32 x i16> [[TMP3]], <32 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @c16, i32 0, i64 0) to <32 x i16>*), align 2
 ; AVX512-NEXT:    ret void
 ;
 ; XOP-LABEL: @lshr_v32i16(
@@ -432,10 +432,10 @@ define void @lshr_v64i8() {
 ; AVX-NEXT:    ret void
 ;
 ; AVX512-LABEL: @lshr_v64i8(
-; AVX512-NEXT:    [[TMP1:%.*]] = load <64 x i8>, <64 x i8>* bitcast ([64 x i8]* @a8 to <64 x i8>*), align 1
-; AVX512-NEXT:    [[TMP2:%.*]] = load <64 x i8>, <64 x i8>* bitcast ([64 x i8]* @b8 to <64 x i8>*), align 1
+; AVX512-NEXT:    [[TMP1:%.*]] = load <64 x i8>, <64 x i8>* bitcast (i8* getelementptr inbounds ([64 x i8], [64 x i8]* @a8, i32 0, i64 0) to <64 x i8>*), align 1
+; AVX512-NEXT:    [[TMP2:%.*]] = load <64 x i8>, <64 x i8>* bitcast (i8* getelementptr inbounds ([64 x i8], [64 x i8]* @b8, i32 0, i64 0) to <64 x i8>*), align 1
 ; AVX512-NEXT:    [[TMP3:%.*]] = lshr <64 x i8> [[TMP1]], [[TMP2]]
-; AVX512-NEXT:    store <64 x i8> [[TMP3]], <64 x i8>* bitcast ([64 x i8]* @c8 to <64 x i8>*), align 1
+; AVX512-NEXT:    store <64 x i8> [[TMP3]], <64 x i8>* bitcast (i8* getelementptr inbounds ([64 x i8], [64 x i8]* @c8, i32 0, i64 0) to <64 x i8>*), align 1
 ; AVX512-NEXT:    ret void
 ;
 ; XOP-LABEL: @lshr_v64i8(

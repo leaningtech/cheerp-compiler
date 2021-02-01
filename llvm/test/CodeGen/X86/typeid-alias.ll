@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @typeid() {
   ; CHECK: movl $1, %eax
-  %eh_typeid = tail call i32 @llvm.eh.typeid.for( i8* getelementptr (%struct.exception, %struct.exception* @a, i32 0, i32 0))
+  %eh_typeid = tail call i32 @llvm.eh.typeid.for( i8* bitcast (%struct.exception* @a to i8*))
   ret i32 %eh_typeid
 }
 

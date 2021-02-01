@@ -22,9 +22,9 @@ declare  i8 @llvm.ctpop.i8(i8)
 
 define void @ctpop_2i64() #0 {
 ; SSE2-LABEL: @ctpop_2i64(
-; SSE2-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast ([4 x i64]* @src64 to <2 x i64>*), align 8
+; SSE2-NEXT:    [[TMP1:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([4 x i64], [4 x i64]* @src64, i32 0, i64 0) to <2 x i64>*), align 8
 ; SSE2-NEXT:    [[TMP2:%.*]] = call <2 x i64> @llvm.ctpop.v2i64(<2 x i64> [[TMP1]])
-; SSE2-NEXT:    store <2 x i64> [[TMP2]], <2 x i64>* bitcast ([4 x i64]* @dst64 to <2 x i64>*), align 8
+; SSE2-NEXT:    store <2 x i64> [[TMP2]], <2 x i64>* bitcast (i64* getelementptr inbounds ([4 x i64], [4 x i64]* @dst64, i32 0, i64 0) to <2 x i64>*), align 8
 ; SSE2-NEXT:    ret void
 ;
 ; SSE42-LABEL: @ctpop_2i64(
@@ -446,9 +446,9 @@ define void @ctpop_32i8() #0 {
 ; SSE-NEXT:    ret void
 ;
 ; AVX-LABEL: @ctpop_32i8(
-; AVX-NEXT:    [[TMP1:%.*]] = load <32 x i8>, <32 x i8>* bitcast ([32 x i8]* @src8 to <32 x i8>*), align 1
+; AVX-NEXT:    [[TMP1:%.*]] = load <32 x i8>, <32 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64 0) to <32 x i8>*), align 1
 ; AVX-NEXT:    [[TMP2:%.*]] = call <32 x i8> @llvm.ctpop.v32i8(<32 x i8> [[TMP1]])
-; AVX-NEXT:    store <32 x i8> [[TMP2]], <32 x i8>* bitcast ([32 x i8]* @dst8 to <32 x i8>*), align 1
+; AVX-NEXT:    store <32 x i8> [[TMP2]], <32 x i8>* bitcast (i8* getelementptr inbounds ([32 x i8], [32 x i8]* @dst8, i8 0, i64 0) to <32 x i8>*), align 1
 ; AVX-NEXT:    ret void
 ;
   %ld0  = load i8, i8* getelementptr inbounds ([32 x i8], [32 x i8]* @src8, i8 0, i64  0), align 1

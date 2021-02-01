@@ -300,7 +300,7 @@ define i32 @test18() {
 
 define i32 @test19() {
 ; CHECK-LABEL: @test19(
-; CHECK-NEXT:    [[TMP1:%.*]] = call i32 @llvm.objectsize.i32.p0i8(i8* getelementptr inbounds ([60 x i8], [60 x i8]* @globalalias2, i32 0, i32 0), i1 false, i1 false, i1 false)
+; CHECK-NEXT:    [[TMP1:%.*]] = call i32 @llvm.objectsize.i32.p0i8(i8* bitcast ([60 x i8]* @globalalias2 to i8*), i1 false, i1 false, i1 false)
 ; CHECK-NEXT:    ret i32 [[TMP1]]
 ;
   %bc = bitcast [60 x i8]* @globalalias2 to i8*
