@@ -12,11 +12,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @c() #0 {
 entry:
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([1 x i8], [1 x i8]* @__profn_c, i32 0, i32 0), i64 68269137, i32 3, i32 0)
+  call void @llvm.instrprof.increment(i8* bitcast ([1 x i8]* @__profn_c to i8*), i64 68269137, i32 3, i32 0)
   br label %for.cond
 
 for.cond:                                         ; preds = %for.end, %entry
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([1 x i8], [1 x i8]* @__profn_c, i32 0, i32 0), i64 68269137, i32 3, i32 1)
+  call void @llvm.instrprof.increment(i8* bitcast ([1 x i8]* @__profn_c to i8*), i64 68269137, i32 3, i32 1)
   store i32 0, i32* @b, align 4
   br label %for.cond1
 
@@ -28,7 +28,7 @@ for.cond1:                                        ; preds = %for.inc, %for.cond
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond1
-  call void @llvm.instrprof.increment(i8* getelementptr inbounds ([1 x i8], [1 x i8]* @__profn_c, i32 0, i32 0), i64 68269137, i32 3, i32 2)
+  call void @llvm.instrprof.increment(i8* bitcast ([1 x i8]* @__profn_c to i8*), i64 68269137, i32 3, i32 2)
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body

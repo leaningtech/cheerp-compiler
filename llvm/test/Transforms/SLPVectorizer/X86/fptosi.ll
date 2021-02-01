@@ -161,9 +161,9 @@ define void @fptosi_8f64_8i32() #0 {
 
 define void @fptosi_8f64_8i16() #0 {
 ; CHECK-LABEL: @fptosi_8f64_8i16(
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast ([8 x double]* @src64 to <8 x double>*), align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x double>, <8 x double>* bitcast (double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0) to <8 x double>*), align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = fptosi <8 x double> [[TMP1]] to <8 x i16>
-; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast ([32 x i16]* @dst16 to <8 x i16>*), align 2
+; CHECK-NEXT:    store <8 x i16> [[TMP2]], <8 x i16>* bitcast (i16* getelementptr inbounds ([32 x i16], [32 x i16]* @dst16, i32 0, i64 0) to <8 x i16>*), align 2
 ; CHECK-NEXT:    ret void
 ;
   %a0 = load double, double* getelementptr inbounds ([8 x double], [8 x double]* @src64, i32 0, i64 0), align 8
