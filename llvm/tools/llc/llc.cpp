@@ -370,6 +370,7 @@ int main(int argc, char **argv) {
   initializeReplaceWithVeclibLegacyPass(*Registry);
   initializeTLSVariableHoistLegacyPassPass(*Registry);
   initializeCheerpOpts(*Registry);
+  initializePreExecutePass(*Registry);
   initializeLowerSwitchPass(*Registry);
 
   // Initialize debugging passes.

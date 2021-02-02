@@ -6,7 +6,6 @@ add_llvm_component_library(LLVMCheerpUtils
   IdenticalCodeFolding.cpp
   LinearMemoryHelper.cpp
   NativeRewriter.cpp
-  PreExecute.cpp
   PointerAnalyzer.cpp
   PointerPasses.cpp
   GEPOptimizer.cpp

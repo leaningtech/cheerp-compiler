@@ -7,6 +7,7 @@ add_llvm_component_library(LLVMCheerpWriter
   Relooper.cpp
   Types.cpp
   Opcodes.cpp
+  PreExecute.cpp
   CFGStackifier.cpp
   )
 
