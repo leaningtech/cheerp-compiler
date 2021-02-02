@@ -44,6 +44,8 @@
 #include "clang/Serialization/ASTBitCodes.h"
 #include "clang/Serialization/ModuleFileExtension.h"
 #include "clang/StaticAnalyzer/Core/AnalyzerOptions.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/PassRegistry.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/CachedHashString.h"
@@ -2489,6 +2491,8 @@ static const StringRef GetInputKindName(InputKind IK) {
 
 static void ParseCheerpArgs(LangOptions &Opts, ArgList &Args,
                           DiagnosticsEngine &Diags) {
+  // Allow parsing of preexecuter args
+  initializePreExecutePass(*llvm::PassRegistry::getPassRegistry());
   const Arg *CheerpMode = Args.getLastArg(OPT_cheerp_mode_EQ);
   const Arg *CheerpLinearOutput = Args.getLastArg(OPT_cheerp_linear_output_EQ);
   if (CheerpMode && CheerpLinearOutput)

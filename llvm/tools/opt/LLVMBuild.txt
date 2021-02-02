@@ -23,6 +23,7 @@ required_libraries =
  BitReader
  BitWriter
  CheerpUtils
+ CheerpWriter
  CodeGen
  IRReader
  IPO
