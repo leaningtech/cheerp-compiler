@@ -523,7 +523,7 @@ static bool comparePaths(StringRef Path1, StringRef Path2) {
 // as Windows file paths are case-insensitive.
 // CompareStringOrdinal compares two Unicode strings for
 // binary equivalence and allows for case insensitivity.
-#ifdef _WIN32
+#if 0
   SmallVector<wchar_t, 128> WPath1, WPath2;
   failIfError(sys::windows::UTF8ToUTF16(normalizePath(Path1), WPath1));
   failIfError(sys::windows::UTF8ToUTF16(normalizePath(Path2), WPath2));
