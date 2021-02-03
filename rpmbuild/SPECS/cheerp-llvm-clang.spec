@@ -1,5 +1,5 @@
 Name: cheerp-llvm-clang
-Version: 2.5
+Version: 2.6
 Release:        1%{?dist}
 Summary: A C++ compiler for the Web
 
@@ -19,7 +19,7 @@ combination of JavaScript, WebAssembly and Asm.js from a single C++ codebase.
 %autosetup
 mkdir -p build
 cd build
-cmake -C ../CheerpCmakeConf.cmake \
+cmake -C ../llvm/CheerpCmakeConf.cmake \
   -DCMAKE_INSTALL_RPATH:BOOL=";" \
   -DCMAKE_C_COMPILER=clang \
   -DCMAKE_CXX_COMPILER=clang++ \
@@ -27,7 +27,8 @@ cmake -C ../CheerpCmakeConf.cmake \
   -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld" \
   -DCLANG_VENDOR="Cheerp %{VERSION}" \
   -DCMAKE_BUILD_TYPE=Release \
-  ..
+  -DLLVM_ENABLE_PROJECTS=clang \
+  ../llvm/
 
 
 %build
@@ -47,5 +48,7 @@ rm -rf $RPM_BUILD_ROOT
 /opt/cheerp/
 
 %changelog
+* Wed Feb 03 2021 Yuri Iozzelli <yuri@leaningtech.com>
+- Update to new monorepo
 * Tue Dec 10 2019 Yuri Iozzelli <yuri@leaningtech.com>
 - First RPM version
