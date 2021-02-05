@@ -3353,15 +3353,15 @@ private:
       if (SI.getOperand(2) == OldPtr)
         SI.setOperand(2, NewPtr);
     } else {
-      IRBuilderTy PtrBuilder(IRB);
-      PtrBuilder.SetInsertPoint(&SI);
+      auto oldInsertPoint = IRB.GetInsertPoint();
+      IRB.SetInsertPoint(&SI);
       // We can't get the old pointer type from the new alloca
       uint64_t Offset = NewBeginOffset - NewAllocaBeginOffset;
       for(unsigned i=1;i<SI.getNumOperands();i++) {
         Value* oldValue = SI.getOperand(i);
         if (oldValue == OldPtr)
           oldValue = &NewAI;
-        Value* newValue = getAdjustedPtr(PtrBuilder, DL, oldValue, 
+        Value* newValue = getAdjustedPtr(IRB, DL, oldValue, 
                                          APInt(DL.getPointerSizeInBits(), Offset), NewAI.getType(), Twine());
         SI.setOperand(i, newValue);
       }
@@ -3369,6 +3369,7 @@ private:
       for(User* U: SI.users()) {
         visit(cast<Instruction>(U));
       }
+      IRB.SetInsertPoint(&*oldInsertPoint);
     }
 
     LLVM_DEBUG(dbgs() << "          to: " << SI << "\n");
