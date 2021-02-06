@@ -149,7 +149,8 @@ void GlobalDepsAnalyzer::simplifyCalls(llvm::Module & module) const
 					if (calledFunc == nullptr)
 						continue;
 
-					if (Value* with = callSimplifier.optimizeCall(&ci)) {
+					IRBuilder<> Builder(&ci);
+					if (Value* with = callSimplifier.optimizeCall(&ci, Builder)) {
 						ci.replaceAllUsesWith(with);
 						deleteList.push_back(&ci);
 						continue;
