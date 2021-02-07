@@ -2233,6 +2233,7 @@ bool SCEVExpander::isHighCostExpansionHelper(
   switch (S->getSCEVType()) {
   case scUnknown:
   case scConstant:
+  case scNegPointer:
     return false; // Assume to be zero-cost.
   }
 
@@ -2360,6 +2361,7 @@ bool SCEVExpander::isHighCostExpansionHelper(
     int PairCost;
     switch (S->getSCEVType()) {
     case scAddExpr:
+    case scGEPPointer:
       PairCost =
         TTI.getArithmeticInstrCost(Instruction::Add, OpType, CostKind);
       break;
