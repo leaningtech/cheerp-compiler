@@ -2306,6 +2306,7 @@ template<typename T> static InstructionCost costAndCollectOperands(
     break;
   }
   case scAddExpr:
+  case scGEPPointer:
     Cost = ArithCost(Instruction::Add, S->getNumOperands() - 1);
     break;
   case scMulExpr:
@@ -2420,6 +2421,7 @@ bool SCEVExpander::isHighCostExpansionHelper(
   case scCouldNotCompute:
     llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
   case scUnknown:
+  case scNegPointer:
     // Assume to be zero-cost.
     return false;
   case scConstant: {
