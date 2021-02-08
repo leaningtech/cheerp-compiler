@@ -3374,10 +3374,12 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
                                              : SCEV::FlagAnyWrap;
 
   const DataLayout &DL = F.getParent()->getDataLayout();
-  const SCEV *TotalOffset = DL.isByteAddressable() ? getZero(IntIdxTy) : nullptr;
+  bool byteAddressable = DL.isByteAddressable();
+  const SCEV *TotalOffset = byteAddressable ? getZero(IntIdxTy) : nullptr;
   Type *CurTy = GEP->getType();
   bool FirstIter = true;
   const SCEV *FirstOffset = nullptr;
+  llvm::SmallVector<const SCEV*, 4> nonByteAddressableIdxs;
   for (const SCEV *IndexExpr : IndexExprs) {
     // Compute the (potentially symbolic) offset in bytes for this index.
     if (StructType *STy = dyn_cast<StructType>(CurTy)) {
@@ -3386,10 +3388,16 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
       unsigned FieldNo = Index->getZExtValue();
       const SCEV *FieldOffset = getOffsetOfExpr(IntIdxTy, STy, FieldNo);
 
-      if(DL.isByteAddressable()) {
+      if(!byteAddressable && (STy->hasByteLayout() || STy->hasAsmJS())) {
+        byteAddressable = true;
+        TotalOffset = getZero(IntIdxTy);
+      }
+
+      if(byteAddressable) {
         // Add the field offset to the running total offset.
         TotalOffset = getAddExpr(TotalOffset, FieldOffset);
       } else {
+        nonByteAddressableIdxs.push_back(IndexExpr);
         TotalOffset = nullptr;
       }
 
@@ -3413,33 +3421,29 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
       // Multiply the index by the element size to compute the element offset.
       const SCEV *LocalOffset = getMulExpr(IndexExpr, ElementSize, Wrap);
 
-      if(DL.isByteAddressable()) {
+      if(byteAddressable) {
         // Add the element offset to the running total offset.
         TotalOffset = getAddExpr(TotalOffset, LocalOffset);
       } else if (FirstOffset == nullptr) {
         FirstOffset = LocalOffset;
       } else {
         TotalOffset = LocalOffset;
+        nonByteAddressableIdxs.push_back(IndexExpr);
       }
     }
   }
-
-  if(DL.isByteAddressable()) {
-    // Add the total offset from all the GEP indices to the base.
-    return getAddExpr(BaseExpr, TotalOffset, Wrap);
-  } else {
-    assert(FirstOffset);
-    const SCEV* derefBase = getAddExpr(BaseExpr, FirstOffset);
-    if(TotalOffset) {
-      assert(IndexExprs.size() >= 2);
-      // Last value in the GEP was an array type, allow GEP reasoning over the last index
-      return getAddExpr(getGEPPointer(derefBase, ArrayRef<const SCEV*>(IndexExprs).drop_front().drop_back()), TotalOffset);
-    } else {
-      assert(IndexExprs.size() >= 1);
-      // Last value was a struct, do not allow any SCEV reasoning
-      return getGEPPointer(derefBase, ArrayRef<const SCEV*>(IndexExprs).drop_front());
-    }
+  const SCEV* Ret = BaseExpr;
+  if (FirstOffset) {
+    Ret = getAddExpr(Ret, FirstOffset);
   }
+  if (!nonByteAddressableIdxs.empty()) {
+    Ret = getGEPPointer(Ret, nonByteAddressableIdxs);
+  }
+  if (TotalOffset) {
+    // Add the total offset from all the GEP indices to the base.
+    return getAddExpr(Ret, TotalOffset, Wrap);
+  }
+  return Ret;
 }
 
 std::tuple<SCEV *, FoldingSetNodeID, void *>
