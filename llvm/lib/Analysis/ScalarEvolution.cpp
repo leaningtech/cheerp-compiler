@@ -3788,11 +3788,13 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
     AssumeInBoundsFlags ? SCEV::FlagNSW : SCEV::FlagAnyWrap;
 
   const DataLayout &DL = F.getParent()->getDataLayout();
+  bool byteAddressable = DL.isByteAddressable();
   const SCEV *FirstOffset = nullptr;
   const SCEV *LastOffset = nullptr;
   Type *CurTy = GEP->getType();
   bool FirstIter = true;
   SmallVector<const SCEV *, 4> Offsets;
+  SmallVector<const SCEV *, 4> nonByteAddressableIdxs;
   for (const SCEV *IndexExpr : IndexExprs) {
     // Compute the (potentially symbolic) offset in bytes for this index.
     if (StructType *STy = dyn_cast<StructType>(CurTy)) {
@@ -3801,9 +3803,15 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
       unsigned FieldNo = Index->getZExtValue();
       const SCEV *FieldOffset = getOffsetOfExpr(IntIdxTy, STy, FieldNo);
 
-      if(DL.isByteAddressable()) {
+      if(!byteAddressable && (STy->hasByteLayout() || STy->hasAsmJS())) {
+        byteAddressable = true;
+	LastOffset = nullptr;
+      }
+
+      if(byteAddressable) {
         Offsets.push_back(FieldOffset);
       } else {
+        nonByteAddressableIdxs.push_back(IndexExpr);
         LastOffset = nullptr;
       }
 
@@ -3826,12 +3834,14 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
 
       // Multiply the index by the element size to compute the element offset.
       const SCEV *LocalOffset = getMulExpr(IndexExpr, ElementSize, OffsetWrap);
-      if(DL.isByteAddressable()) {
+
+      if(byteAddressable) {
         Offsets.push_back(LocalOffset);
       } else if (FirstOffset == nullptr) {
         FirstOffset = LocalOffset;
       } else {
         LastOffset = LocalOffset;
+        nonByteAddressableIdxs.push_back(IndexExpr);
       }
     }
   }
@@ -3843,14 +3853,12 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
   if(FirstOffset) {
     BaseExpr = getAddExpr(BaseExpr, FirstOffset);
   }
+  if (!nonByteAddressableIdxs.empty()) {
+    BaseExpr = getGEPPointer(BaseExpr, nonByteAddressableIdxs);
+  }
+
   if(LastOffset) {
-    assert(IndexExprs.size() >= 2);
-    // Last value in the GEP was an array type, allow GEP reasoning over the last index
-    BaseExpr = getAddExpr(getGEPPointer(BaseExpr, ArrayRef<const SCEV*>(IndexExprs).drop_front().drop_back()), LastOffset);
-  } else {
-    assert(IndexExprs.size() >= 1);
-    // Last value was a struct, do not allow any SCEV reasoning
-    BaseExpr = getGEPPointer(BaseExpr, ArrayRef<const SCEV*>(IndexExprs).drop_front());
+    Offsets.push_back(LastOffset);
   }
 
   if(Offsets.empty())
