@@ -759,6 +759,21 @@ bool FreeAndDeleteRemoval::runOnModule(Module& M)
 				}
 			}
 		}
+		else
+		{
+			// TODO: Move to a proper pass
+			for(BasicBlock& BB: f)
+			{
+				for ( BasicBlock::iterator it = BB.begin(); it != BB.end(); )
+				{
+					Instruction * Inst = &*it++;
+					if( !isa<FreezeInst>(Inst) )
+						continue;
+					Inst->replaceAllUsesWith(Inst->getOperand(0));
+					Inst->eraseFromParent();
+				}
+			}
+		}
 	}
 
 	if (!usesToBeReplaced.empty())
