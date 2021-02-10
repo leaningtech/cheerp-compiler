@@ -16,6 +16,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
@@ -37,6 +38,15 @@ public:
   virtual const CheerpTargetLowering *getTargetLowering() const override;
 };
 
+class CheerpTargetLoweringObjectFile: public TargetLoweringObjectFile {
+  MCSection* getExplicitSectionGlobal(const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const override {
+    return nullptr;
+  }
+  MCSection* SelectSectionForGlobal(const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const override {
+    return nullptr;
+  }
+};
+
 struct CheerpTargetMachine : public LLVMTargetMachine {
   CheerpTargetMachine(const Target &T, const Triple& TT,
                    StringRef CPU, StringRef FS, const TargetOptions &Options,
@@ -46,8 +56,9 @@ struct CheerpTargetMachine : public LLVMTargetMachine {
                         "i64:64:64-f32:32:32-f64:64:64-"
                         "a:0:32-f16:16:16-f32:32:32-f64:64:64-n8:16:32-S64",
                       TT, CPU, FS, Options, Reloc::PIC_, CM ? *CM : CodeModel::Medium, OL),
-        subTargetInfo(*this, T, TT, CPU, FS) { }
+        subTargetInfo(*this, T, TT, CPU, FS), targetLoweringObjectFile(new CheerpTargetLoweringObjectFile()) { initAsmInfo(); }
   CheerpSubtarget subTargetInfo;
+  CheerpTargetLoweringObjectFile* targetLoweringObjectFile;
 
 public:
   virtual bool addPassesToEmitFile(PassManagerBase &PM,
@@ -57,6 +68,9 @@ public:
                                    bool DisableVerify,
                                    MachineModuleInfoWrapperPass *MMIWP = nullptr) override;
   virtual const CheerpSubtarget* getSubtargetImpl(const Function &F) const override;
+  virtual TargetLoweringObjectFile *getObjFileLowering() const override {
+    return targetLoweringObjectFile;
+  }
 };
 
 extern Target TheCheerpBackendTarget;
