@@ -895,10 +895,6 @@ bool IdenticalCodeFolding::runOnModule(llvm::Module& module)
 void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 	LLVM_DEBUG(dbgs() << "replace " << F->getName() << " with " << G->getName() << '\n');
 
-	// TODO is this necessary?
-	unsigned MaxAlignment = std::max(F->getAlignment(), G->getAlignment());
-	G->setAlignment(MaxAlignment);
-	
 	// Replace F with G is all uses, special case direct call and then do a bulk replace for the rest
 	SmallVector<CallSite, 4> directCalls;
 
