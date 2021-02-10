@@ -33,7 +33,7 @@ void StructMemFuncLowering::createMemFunc(IRBuilder<>* IRB, Value* baseDst, Valu
 	Value* dst = IRB->CreateGEP(baseDst, indexes);
 	assert(!src->getType()->getPointerElementType()->isArrayTy());
 	// Create a type safe memcpy
-	IRB->CreateMemCpy(dst, 1, src, 1, size, false, NULL, NULL, NULL, NULL, false);
+	IRB->CreateMemCpy(dst, MaybeAlign(), src, MaybeAlign(), size, false, NULL, NULL, NULL, NULL, false);
 }
 
 void StructMemFuncLowering::recursiveCopy(IRBuilder<>* IRB, Value* baseDst, Value* baseSrc, Type* curType,
@@ -480,9 +480,9 @@ bool StructMemFuncLowering::runOnBlock(BasicBlock& BB, bool asmjs)
 					while(elemSize % newAlign != 0)
 						newAlign /= 2;
 					if(mode == MEMCPY)
-						IRB.CreateMemCpy(tailDst, newAlign, tailSrc, newAlign, tailSize);
+						IRB.CreateMemCpy(tailDst, MaybeAlign(newAlign), tailSrc, MaybeAlign(newAlign), tailSize);
 					else if(mode == MEMMOVE)
-						IRB.CreateMemMove(tailDst, newAlign, tailSrc, newAlign, tailSize);
+						IRB.CreateMemMove(tailDst, MaybeAlign(newAlign), tailSrc, MaybeAlign(newAlign), tailSize);
 					else //if(mode == MEMSET)
 						IRB.CreateMemSet(tailDst, tailSrc, tailSize, MaybeAlign(newAlign));
 					size = ConstantInt::get(int32Type, sizeInt - tailSize);
