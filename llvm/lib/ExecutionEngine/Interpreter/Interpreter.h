@@ -174,6 +174,7 @@ public:
   void visitPtrToIntInst(PtrToIntInst &I);
   void visitIntToPtrInst(IntToPtrInst &I);
   void visitBitCastInst(BitCastInst &I);
+  void visitFreezeInst(FreezeInst &I);
   void visitSelectInst(SelectInst &I);
 
   void visitVAStartInst(VAStartInst &I);
@@ -266,6 +267,7 @@ private:  // Helper functions
                                    ExecutionContext &SF);
   GenericValue executeBitCastInst(Value *SrcVal, Type *DstTy,
                                   ExecutionContext &SF);
+  GenericValue executeFreezeInst(Value *SrcVal, ExecutionContext &SF);
   GenericValue executeCastOperation(Instruction::CastOps opcode, Value *SrcVal,
                                     Type *Ty, ExecutionContext &SF);
   void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
