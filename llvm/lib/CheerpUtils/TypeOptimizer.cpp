@@ -1422,7 +1422,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 									Value* byValCopy=Builder.CreateAlloca(rewrittenArgType, nullptr, "byvalcopy");
 									byValCopy=Builder.CreateConstGEP2_32(rewrittenArgType, byValCopy, 0, 0);
 									// 2) Create a mempcy
-									Builder.CreateMemCpy(byValCopy, /*align*/1, mappedOp, /*align*/1, DL->getTypeAllocSize(rewrittenArgType),
+									Builder.CreateMemCpy(byValCopy, MaybeAlign(), mappedOp, MaybeAlign(), DL->getTypeAllocSize(rewrittenArgType),
 												/*volatile*/false, nullptr, nullptr,
 												nullptr, nullptr, /*byteLayout*/ false);
 									// 3) Replace the argument
