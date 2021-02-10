@@ -53,7 +53,7 @@ inline llvm::Type* getElementType(llvm::Type* t)
 	if(llvm::isa<llvm::PointerType>(t))
 		return t->getPointerElementType();
 	else
-		return t->getSequentialElementType();
+		return t->getArrayElementType();
 }
 
 class InlineableCache

@@ -406,7 +406,7 @@ llvm::Type* AllocaArraysMerging::collectUniformAlloca(std::vector<AllocaInst*>& 
 			return NULL;
 	}
 
-	Type* elementType = targetAlloca->getAllocatedType()->getSequentialElementType();
+	Type* elementType = targetAlloca->getAllocatedType()->getArrayElementType();
 	auto sourceCandidate=targetCandidate;
 	++sourceCandidate;
 	// Now that we have computed the sourceCandidate we can invalidate the targetCandidate
@@ -421,7 +421,7 @@ llvm::Type* AllocaArraysMerging::collectUniformAlloca(std::vector<AllocaInst*>& 
 			continue;
 		}
 		// Both are arrays, check the types
-		if(elementType != sourceAlloca->getAllocatedType()->getSequentialElementType())
+		if(elementType != sourceAlloca->getAllocatedType()->getArrayElementType())
 		{
 			++sourceCandidate;
 			continue;

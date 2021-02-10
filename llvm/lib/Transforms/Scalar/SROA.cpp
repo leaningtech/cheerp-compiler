@@ -2466,7 +2466,7 @@ private:
       if (StructType* ST=dyn_cast<StructType>(curType))
         curType = ST->getElementType(0);
       else
-        curType = curType->getSequentialElementType();
+        curType = curType->getArrayElementType();
       newIndexes.push_back(Zero);
     }
     llvm::Instruction* newGEP = GetElementPtrInst::Create(NewAI.getAllocatedType(), GEPI.getOperand(0), newIndexes);
@@ -2537,7 +2537,7 @@ private:
       if(TargetTy->isStructTy())
         TargetTy = TargetTy->getContainedType(0);
       else if(TargetTy->isArrayTy())
-        TargetTy = TargetTy->getSequentialElementType();
+        TargetTy = TargetTy->getArrayElementType();
       else
         assert(false && "Unsupported SROA for memcpy");
      }

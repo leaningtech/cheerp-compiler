@@ -368,7 +368,6 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
     }
   }
 
-<<<<<<< HEAD
   // Check to see if this allocation is only modified by a memcpy/memmove from
   // a constant whose alignment is equal to or exceeds that of the allocation.
   // If this is the case, we can change all users to use the constant global
@@ -393,7 +392,7 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
             ConstantInt* op=cast<ConstantInt>(cast<ConstantExpr>(TheSrc)->getOperand(i));
             curType = ST->getElementType(op->getZExtValue());
           } else {
-            curType = curType->getSequentialElementType();
+            curType = curType->getArrayElementType();
           }
           lastIndex++;
         }
