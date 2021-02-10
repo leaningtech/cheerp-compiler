@@ -418,7 +418,7 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
             ConstantInt* op=cast<ConstantInt>(cast<ConstantExpr>(TheSrc)->getOperand(i));
             curType = ST->getElementType(op->getZExtValue());
           } else {
-            curType = curType->getSequentialElementType();
+            curType = curType->getArrayElementType();
           }
           lastIndex++;
         }
