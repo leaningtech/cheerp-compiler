@@ -1016,8 +1016,8 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 						// All offsets should be multiple of the base type size
 						assert(!(elementSize % baseTypeSize));
 						AddMultipliedIndex(idxs[i], elementSize / baseTypeSize);
-						assert(isa<SequentialType>(curType));
-						curType = curType->getSequentialElementType();
+						assert(isa<ArrayType>(curType));
+						curType = curType->getArrayElementType();
 					}
 					addToLastIndex = true;
 				}
