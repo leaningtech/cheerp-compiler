@@ -742,6 +742,14 @@ struct I64LoweringVisitor: public InstVisitor<I64LoweringVisitor, HighInt>
 		return visitDivRem(I, "__udivti3");
 	}
 
+	HighInt visitFreeze (Instruction &I)
+	{
+		if(!I.getType()->isIntegerTy(64))
+			return HighInt();
+
+		return visitValue(I.getOperand(0));
+	}
+
 	HighInt visitInstruction (Instruction &I)
 	{
 		if(I.getType()->isIntegerTy(64))

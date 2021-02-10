@@ -1588,6 +1588,13 @@ GenericValue Interpreter::executeIntToPtrInst(Value *SrcVal, Type *DstTy,
   return Dest;
 }
 
+GenericValue Interpreter::executeFreezeInst(Value *SrcVal,
+                                              ExecutionContext &SF) {
+  GenericValue Src = getOperandValue(SrcVal, SF);
+
+  return Src;
+}
+
 GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
                                              ExecutionContext &SF) {
 
@@ -1811,6 +1818,11 @@ void Interpreter::visitIntToPtrInst(IntToPtrInst &I) {
 void Interpreter::visitBitCastInst(BitCastInst &I) {
   ExecutionContext &SF = ECStack.back();
   SetValue(&I, executeBitCastInst(I.getOperand(0), I.getType(), SF), SF);
+}
+
+void Interpreter::visitFreezeInst(FreezeInst &I) {
+  ExecutionContext &SF = ECStack.back();
+  SetValue(&I, executeFreezeInst(I.getOperand(0), SF), SF);
 }
 
 #define IMPLEMENT_VAARG(TY) \
