@@ -228,7 +228,7 @@ static bool SplitUpLoad(LoadInst *Load, const DataLayout *DL) {
         CopyDebug(GetElementPtrInst::Create(STy, Load->getPointerOperand(), Indexes,
                                             Load->getName() + ".index", Load),
                   Load);
-    LoadInst *NewLoad = new LoadInst(GEP, Load->getName() + ".field", Load);
+    LoadInst *NewLoad = new LoadInst(STy->getElementType(Index), GEP, Load->getName() + ".field", Load);
 
     NeedsAnotherPass = NeedsAnotherPass || DoAnotherPass(NewLoad);
     ProcessLoadOrStoreAttrs(NewLoad, Load, STy, Index, DL);
@@ -290,7 +290,7 @@ static bool SplitUpArrayLoad(LoadInst *Load, const DataLayout *DL) {
         CopyDebug(GetElementPtrInst::Create(ATy, Load->getPointerOperand(), Indexes,
                                             Load->getName() + ".index", Load),
                   Load);
-    LoadInst *NewLoad = new LoadInst(GEP, Load->getName() + ".field", Load);
+    LoadInst *NewLoad = new LoadInst(ATy->getElementType(), GEP, Load->getName() + ".field", Load);
 
     NeedsAnotherPass = NeedsAnotherPass || DoAnotherPass(NewLoad);
     ProcessArrayLoadOrStoreAttrs(NewLoad, Load, ATy, Index, DL);
