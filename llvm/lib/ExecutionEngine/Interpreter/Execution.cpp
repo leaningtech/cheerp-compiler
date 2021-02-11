@@ -1138,7 +1138,8 @@ void Interpreter::visitVAStartInst(VAStartInst &I) {
   // We store the stack index in the higher 16 bit, and the vararg index in the
   // lower 16 bit
   ExecutionContext &SF = ECStack.back();
-  Type* int32Ty = Type::getInt32Ty(F->getContext());
+  GenericValue ArgIndex;
+  Type* int32Ty = Type::getInt32Ty(I.getContext());
   ArgIndex.IntVal = APInt(32,(ECStack.size() - 1)<<16);
   Instruction* bitcast = dyn_cast<Instruction>(I.getOperand(0));
   assert(bitcast);
@@ -1153,7 +1154,7 @@ void Interpreter::visitVAEndInst(VAEndInst &I) {
 
 void Interpreter::visitVACopyInst(VACopyInst &I) {
   ExecutionContext &SF = ECStack.back();
-  Type* int32Ty = Type::getInt32Ty(F->getContext());
+  Type* int32Ty = Type::getInt32Ty(I.getContext());
   Instruction* bitcast = dyn_cast<Instruction>(I.getOperand(0));
   assert(bitcast);
   GenericValue GVDst = getOperandValue(bitcast->getOperand(0), SF);
@@ -1169,7 +1170,7 @@ void Interpreter::visitIntrinsicInst(IntrinsicInst &I) {
   ExecutionContext &SF = ECStack.back();
   // Check if the callback can provide an implementation
   if (LazyFunctionCreator(I.getCalledFunction()->getName().str()))
-    return;
+    return visitCallBase(I);
 
   // If it is an unknown intrinsic function, use the intrinsic lowering
   // class to transform it into hopefully tasty LLVM code.
@@ -1203,7 +1204,7 @@ void Interpreter::visitCallBase(CallBase &I) {
 
   // To handle indirect calls, we must get the pointer value from the argument
   // and treat it as a function pointer.
-  GenericValue SRC = getOperandValue(SF.Caller.getCalledOperand(), SF);
+  GenericValue SRC = getOperandValue(SF.Caller->getCalledOperand(), SF);
   if (SF.Caller->isInlineAsm() && ForPreExecute)
   {
     errs() << "Tried to execute inline asm: "

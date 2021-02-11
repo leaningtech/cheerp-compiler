@@ -216,7 +216,7 @@ public:
   Function* getCurrentCaller() override {
     if (ECStack.size() < 2)
       return nullptr;
-    return ECStack[ECStack.size()-2].Caller.getCaller();
+    return ECStack[ECStack.size()-2].Caller->getCaller();
   }
   Function* getCurrentFunction() override {
     if (ECStack.size() < 1)
