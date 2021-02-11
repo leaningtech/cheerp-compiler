@@ -1461,7 +1461,7 @@ void CheerpWasmWriter::compileFloatToText(WasmBuffer& code, const APFloat& f, ui
 	{
 		char buf[40];
 		// TODO: Figure out the right amount of hexdigits
-		unsigned charCount = f.convertToHexString(buf, precision, false, APFloat::roundingMode::rmNearestTiesToEven);
+		unsigned charCount = f.convertToHexString(buf, precision, false, APFloat::roundingMode::NearestTiesToEven);
 		(void)charCount;
 		assert(charCount < 40);
 		code << buf;

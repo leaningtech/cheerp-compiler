@@ -1368,7 +1368,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
                                          llvm::Intrinsic::cheerp_allocate,
                                 types);
     llvm::Value* Arg[] = { Args[0].getKnownRValue().getScalarVal() };
-    CallOrInvoke = CGF.Builder.CreateCall(CalleeAddr, Arg);
+    CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getType()->getPointerElementType()), CalleeAddr, Arg);
     RV = RValue::get(CallOrInvoke);
   }
   else if(IsDelete && cheerp && !(asmjs && user_defined_new))
@@ -1381,7 +1381,7 @@ static RValue EmitNewDeleteCall(CodeGenFunction &CGF,
     if (Arg[0]->getType() != types[0]) {
       Arg[0] = CGF.Builder.CreateBitCast(Arg[0], types[0]);
     }
-    CallOrInvoke = CGF.Builder.CreateCall(CalleeAddr, Arg);
+    CallOrInvoke = CGF.Builder.CreateCall(cast<llvm::FunctionType>(CalleeAddr->getType()->getPointerElementType()), CalleeAddr, Arg);
     RV = RValue::get(CallOrInvoke);
   }
   else

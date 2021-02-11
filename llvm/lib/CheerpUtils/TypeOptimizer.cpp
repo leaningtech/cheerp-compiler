@@ -1491,7 +1491,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				
 						Value* Callee = localInstMapping.getMappedOperand(CI->getCalledValue()).first;
 
-						auto *NewCall = CallInst::Create(Callee, Args, OpBundles, "", CI);
+						auto *NewCall = CallInst::Create(rewrittenFuncType, Callee, Args, OpBundles, "", CI);
 						NewCall->setTailCallKind(CI->getTailCallKind());
 						NewCall->setCallingConv(CI->getCallingConv());
 						NewCall->setAttributes(
@@ -1566,7 +1566,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						break;
 					I.dropUnknownNonDebugMetadata();
 					// We need to load, mask, insert and store
-					llvm::Instruction* load = new LoadInst(mappedOperand.first, "mergedload", &I);
+					llvm::Instruction* load = new LoadInst(mappedOperand.first->getType()->getPointerElementType(), mappedOperand.first, "mergedload", &I);
 					// Compute a mask to preserve all the not-needed bits
 					uint32_t maskVal = ((1<<(cast<IntegerType>(oldType)->getBitWidth()))-1);
 					maskVal <<= mappedOperand.second;

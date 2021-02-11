@@ -153,7 +153,7 @@ Pass *llvm::createAlwaysInlinerLegacyPass(bool InsertLifetime) {
 InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallBase &CB) {
   Function *Callee = CB.getCalledFunction();
 
-  Function* caller=CS.getCaller();
+  Function* caller=CB.getCaller();
   if (!isInlineViableCheerp(*Callee, *caller))
     return llvm::InlineCost::getNever("not Cheerp viable");
 

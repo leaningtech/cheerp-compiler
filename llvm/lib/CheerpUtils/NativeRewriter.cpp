@@ -130,7 +130,7 @@ void CheerpNativeRewriter::baseSubstitutionForBuiltin(User* i, Instruction* old,
 			if(phi->getIncomingValue(i)==old)
 			{
 				insertPoint=phi->getIncomingBlock(i)->getTerminator();
-				LoadInst* loadI=new LoadInst(source, "cheerpPtrLoad", insertPoint);
+				LoadInst* loadI=new LoadInst(source->getAllocatedType(), source, "cheerpPtrLoad", insertPoint);
 				phi->setIncomingValue(i, loadI);
 				return;
 			}
@@ -138,7 +138,7 @@ void CheerpNativeRewriter::baseSubstitutionForBuiltin(User* i, Instruction* old,
 		assert(false);
 		return;
 	}
-	LoadInst* loadI=new LoadInst(source, "cheerpPtrLoad", insertPoint);
+	LoadInst* loadI=new LoadInst(source->getAllocatedType(), source, "cheerpPtrLoad", insertPoint);
 	userInst->replaceUsesOfWith(old, loadI);
 }
 
