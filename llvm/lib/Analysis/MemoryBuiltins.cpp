@@ -132,8 +132,8 @@ static const Function *getCalledFunction(const Value *V, bool LookThroughBitCast
   IsNoBuiltin = CB->isNoBuiltin();
 
   if (const Function *Callee = CB->getCalledFunction()) {
-    if (CS.getInstruction()->getParent())
-      Caller = CS.getInstruction()->getParent()->getParent();
+    if (CB->getParent())
+      Caller = CB->getParent()->getParent();
     return Callee;
   }
   return nullptr;
