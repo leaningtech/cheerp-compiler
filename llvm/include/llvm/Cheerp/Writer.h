@@ -332,8 +332,8 @@ private:
 	/** @} */
 
 	std::pair<std::string, std::string> getBuiltinClassAndFunc(const char* identifier);
-	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV);
-	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(llvm::ImmutableCallSite callV, const llvm::Function* f);
+	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinNamespace(const char* identifier, const llvm::CallBase& callV);
+	COMPILE_INSTRUCTION_FEEDBACK handleBuiltinCall(const llvm::CallBase& callV, const llvm::Function* f);
 
 	void compilePredicate(llvm::CmpInst::Predicate p);
 
@@ -432,17 +432,17 @@ private:
 	/**
 	 * Compile a (possibly dynamic) downcast
 	 */
-	void compileDowncast(llvm::ImmutableCallSite callV);
+	void compileDowncast(const llvm::CallBase& callV);
 	/**
 	 * Compile a cast to a virtual base
 	 */
-	void compileVirtualcast(llvm::ImmutableCallSite callV);
+	void compileVirtualcast(const llvm::CallBase& callV);
 
 	/** @} */
 
 	void compileConstantExpr(const llvm::ConstantExpr* ce, PARENT_PRIORITY parentPrio, bool asmjs);
 	bool doesConstantDependOnUndefined(const llvm::Constant* C) const;
-	void compileMethodArgs(llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, llvm::ImmutableCallSite, bool forceBoolean);
+	void compileMethodArgs(llvm::User::const_op_iterator it, llvm::User::const_op_iterator itE, const llvm::CallBase&, bool forceBoolean);
 	COMPILE_INSTRUCTION_FEEDBACK compileTerminatorInstruction(const llvm::Instruction& I);
 	bool compileCompoundStatement(const llvm::Instruction* I, uint32_t regId);
 	COMPILE_INSTRUCTION_FEEDBACK compileNotInlineableInstruction(const llvm::Instruction& I, PARENT_PRIORITY parentPrio);
