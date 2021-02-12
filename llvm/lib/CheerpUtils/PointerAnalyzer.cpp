@@ -682,15 +682,15 @@ PointerKindWrapper& PointerUsageVisitor::visitValue(PointerKindWrapper& ret, con
 	// TODO this is not really necessary,
 	// but we need to modify the writer so that CallInst and InvokeInst
 	// perform a demotion in place.
-	if(auto cs = ImmutableCallSite(p))
+	if(auto cs = dyn_cast<CallBase>(p))
 	{
-		assert(cs.getCaller()->getSection()!=StringRef("asmjs"));
+		assert(cs->getCaller()->getSection()!=StringRef("asmjs"));
 		if (!isIntrinsic)
 		{
 			assert(first);
 			PointerKindWrapper& k = visitAllUses(ret, p);
 			k.makeKnown();
-			if(const Function* F = cs.getCalledFunction())
+			if(const Function* F = cs->getCalledFunction())
 			{
 				if (TypeSupport::isAsmJSPointer(F->getReturnType()))
 					return CacheAndReturn(ret = PointerKindWrapper(RAW));
@@ -905,12 +905,12 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 		return ret |= PointerKindWrapper(SPLIT_REGULAR, p);
 	}
 
-	if ( auto cs = ImmutableCallSite(p) )
+	if ( auto cs = dyn_cast<CallBase>(p) )
 	{
-		if ( cs.isCallee(U) )
+		if ( cs->isCallee(U) )
 			return ret |= COMPLETE_OBJECT;
 
-		const Function * calledFunction = cs.getCalledFunction();
+		const Function * calledFunction = cs->getCalledFunction();
 		// TODO: Use function type
 		if ( !calledFunction )
 		{
@@ -927,7 +927,7 @@ PointerKindWrapper& PointerUsageVisitor::visitUse(PointerKindWrapper& ret, const
 			return ret |= COMPLETE_OBJECT;
 		}
 
-		unsigned argNo = cs.getArgumentNo(U);
+		unsigned argNo = cs->getArgOperandNo(U);
 
 		if ( argNo >= calledFunction->arg_size() )
 		{

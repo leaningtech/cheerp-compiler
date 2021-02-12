@@ -19,7 +19,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/CallSite.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
@@ -455,20 +455,20 @@ public:
 	 * isValidAlloc will return false. In this case any other
 	 * use of this object is not permitted.
 	 */
-	DynamicAllocInfo(llvm::ImmutableCallSite, const llvm::DataLayout* DL, bool forceTypedArrays);
+	DynamicAllocInfo(const llvm::CallBase*, const llvm::DataLayout* DL, bool forceTypedArrays);
 	
 	bool isValidAlloc() const { return type != not_an_alloc; }
 	
 	AllocType getAllocType() const { return type; }
 	
-	static AllocType getAllocType(llvm::ImmutableCallSite);
+	static AllocType getAllocType(const llvm::CallBase*);
 
 	/**
 	 * Get the call/invoke instruction
 	 */
 	const llvm::Instruction * getInstruction() const
 	{
-		return call.getInstruction();
+		return call;
 	}
 
 	/**
@@ -518,7 +518,7 @@ public:
 private:
 	llvm::PointerType * computeCastedType() const;
 	
-	llvm::ImmutableCallSite call;
+	const llvm::CallBase* call;
 	AllocType type;
 	uint32_t typeSize;
 	llvm::PointerType * castedType;

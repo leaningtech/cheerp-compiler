@@ -20,7 +20,6 @@
 #include "llvm/Cheerp/Registerize.h"
 #include "llvm/Cheerp/Utility.h"
 #include "llvm/Cheerp/LinearMemoryHelper.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
@@ -201,7 +200,7 @@ bool IndirectCallOptimizer::runOnModule(Module & m)
 				 it->use_end(),
 				 [](const Use & u)
 				 {
-					 return ImmutableCallSite(u.getUser());
+					 return isa<CallBase>(u.getUser());
 				 }) )
 		{
 			Function * oldFun = &*it;
@@ -241,8 +240,7 @@ bool IndirectCallOptimizer::runOnModule(Module & m)
 				Use & u = *ui++;
 				User * U = u.getUser();
 				
-				ImmutableCallSite cs(U);
-				if ( (cs.isCall() || cs.isInvoke()) && cs.isCallee(&u) )
+				if ( isa<CallBase>(U) && cast<CallBase>(U)->isCallee(&u) )
 				{
 					U->setOperand( u.getOperandNo(), oldFun );
 				}
