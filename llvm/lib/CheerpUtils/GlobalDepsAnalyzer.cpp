@@ -664,8 +664,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				hasIndirectUse = true;
 				continue;
 			}
-			ImmutableCallSite CS(cast<Instruction>(FU));
-			if (CS.isCallee(&U))
+			const CallBase* CS = cast<CallBase>(FU);
+			if (CS->isCallee(&U))
 			{
 				hasDirectUse = true;
 			}
@@ -804,10 +804,10 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				User *FU = U.getUser();
 				if (!isa<CallInst>(FU) && !isa<InvokeInst>(FU))
 					continue;
-				ImmutableCallSite CS(cast<Instruction>(FU));
-				if (CS.isCallee(&U))
+				CallBase* CS = cast<CallBase>(FU);
+				if (CS->isCallee(&U))
 				{
-					directCalls.push_back(cast<CallBase>(FU));
+					directCalls.push_back(CS);
 				}
 			}
 
@@ -923,8 +923,8 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 				indirectUses.push_back(&U);
 				continue;
 			}
-			ImmutableCallSite CS(cast<Instruction>(FU));
-			if (CS.isCallee(&U))
+			const CallBase* CS = cast<CallBase>(FU);
+			if (CS->isCallee(&U))
 			{
 				//Nothing to do
 			}
@@ -1117,9 +1117,9 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				if(!isAsmJS)
 					visitType(allocaType, forceTypedArrays);
 			}
-			else if ( ImmutableCallSite(&I).isCall() || ImmutableCallSite(&I).isInvoke() )
+			else if ( const CallBase* CB = dyn_cast<CallBase>(&I) )
 			{
-				DynamicAllocInfo ai (ImmutableCallSite(&I), DL, forceTypedArrays);
+				DynamicAllocInfo ai (CB, DL, forceTypedArrays);
 				if ( !isAsmJS && ai.isValidAlloc() )
 				{
 					assert(!TypeSupport::isAsmJSPointer(ai.getCastedType()));

@@ -56,7 +56,7 @@ bool isNopCast(const Value* val)
 
 bool isValidVoidPtrSource(const Value* val, std::set<const PHINode*>& visitedPhis)
 {
-	if (DynamicAllocInfo::getAllocType(ImmutableCallSite(val)) != DynamicAllocInfo::not_an_alloc )
+	if (DynamicAllocInfo::getAllocType(cast<CallBase>(val)) != DynamicAllocInfo::not_an_alloc )
 		return true;
 	const PHINode* newPHI=dyn_cast<const PHINode>(val);
 	if(newPHI)
@@ -850,7 +850,7 @@ std::pair<std::string, std::string> TypeSupport::getClientClassAndFunc(const cha
 	}
 }
 
-DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedType(nullptr), forceTypedArrays(forceTypedArrays)
+DynamicAllocInfo::DynamicAllocInfo( const CallBase* callV, const DataLayout* DL, bool forceTypedArrays ) : call(callV), type( getAllocType(callV) ), castedType(nullptr), forceTypedArrays(forceTypedArrays)
 {
 	if ( isValidAlloc() )
 	{
@@ -859,16 +859,15 @@ DynamicAllocInfo::DynamicAllocInfo( ImmutableCallSite callV, const DataLayout* D
 	}
 }
 
-DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( ImmutableCallSite callV )
+DynamicAllocInfo::AllocType DynamicAllocInfo::getAllocType( const CallBase* callV )
 {
 	// The alloc type is always not_an_alloc in asmjs, since we don't need
 	// thr DynamicAllocInfo functionality
-	if (callV->getParent()->getParent()->getSection() == StringRef("asmjs"))
+	if (callV == nullptr || callV->getParent()->getParent()->getSection() == StringRef("asmjs"))
 		return not_an_alloc;
 	DynamicAllocInfo::AllocType ret = not_an_alloc;
-	if (callV.isCall() || callV.isInvoke() )
 	{
-		if (const Function * f = callV.getCalledFunction() )
+		if (const Function * f = callV->getCalledFunction() )
 		{
 			if (f->getName() == "malloc")
 				ret = malloc;
@@ -897,8 +896,8 @@ PointerType * DynamicAllocInfo::computeCastedType() const
 	
 	if ( type == cheerp_allocate || type == cheerp_reallocate )
 	{
-		assert( call.getType()->isPointerTy() );
-		return cast<PointerType>(call.getType());
+		assert( call->getType()->isPointerTy() );
+		return cast<PointerType>(call->getType());
 	}
 	
 	auto getTypeForUse = [](const User * U) -> Type *
@@ -956,17 +955,17 @@ const Value * DynamicAllocInfo::getByteSizeArg() const
 
 	if ( calloc == type )
 	{
-		assert( call.arg_size() == 2 );
-		return call.getArgument(1);
+		assert( call->arg_size() == 2 );
+		return call->getOperand(1);
 	}
 	else if ( cheerp_reallocate == type )
 	{
-		assert( call.arg_size() == 2 );
-		return call.getArgument(1);
+		assert( call->arg_size() == 2 );
+		return call->getOperand(1);
 	}
 
-	assert( call.arg_size() == 1 );
-	return call.getArgument(0);
+	assert( call->arg_size() == 1 );
+	return call->getOperand(0);
 }
 
 const Value * DynamicAllocInfo::getNumberOfElementsArg() const
@@ -975,8 +974,8 @@ const Value * DynamicAllocInfo::getNumberOfElementsArg() const
 	
 	if ( type == calloc )
 	{
-		assert( call.arg_size() == 2 );
-		return call.getArgument(0);
+		assert( call->arg_size() == 2 );
+		return call->getOperand(0);
 	}
 	return nullptr;
 }
@@ -987,8 +986,8 @@ const Value * DynamicAllocInfo::getMemoryArg() const
 	
 	if ( type == cheerp_reallocate )
 	{
-		assert( call.arg_size() == 2 );
-		return call.getArgument(0);
+		assert( call->arg_size() == 2 );
+		return call->getOperand(0);
 	}
 	return nullptr;
 }

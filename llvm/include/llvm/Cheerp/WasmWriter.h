@@ -482,7 +482,7 @@ public:
 	}
 	void makeWasm();
 	void compileBB(WasmBuffer& code, const llvm::BasicBlock& BB, const llvm::PHINode* phiHandledAsResult = nullptr);
-	void compileDowncast(WasmBuffer& code, llvm::ImmutableCallSite callV);
+	void compileDowncast(WasmBuffer& code, const llvm::CallBase* callV);
 	void compileConstantExpr(WasmBuffer& code, const llvm::ConstantExpr* ce);
 	void compileConstant(WasmBuffer& code, const llvm::Constant* c, bool forGlobalInit);
 	void compileInstructionAndSet(WasmBuffer& code, const llvm::Instruction& I);
