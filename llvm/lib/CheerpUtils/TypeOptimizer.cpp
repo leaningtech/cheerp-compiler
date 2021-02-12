@@ -1462,9 +1462,9 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						const AttributeList &CallPAL = CI->getAttributes();
 
 						// Loop over the operands, unpacking i64s into i32s when necessary.
-						CallSite::arg_iterator AI = CI->arg_begin();
+						auto AI = CI->arg_begin();
 						unsigned ArgNo = 0;
-						for (CallSite::arg_iterator AE = CI->arg_end(); AI != AE;
+						for (auto AE = CI->arg_end(); AI != AE;
 							++AI, ++ArgNo)
 						{
 							Value* Op = localInstMapping.getMappedOperand(*AI).first;

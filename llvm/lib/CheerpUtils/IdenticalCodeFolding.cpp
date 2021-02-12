@@ -896,14 +896,14 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 	LLVM_DEBUG(dbgs() << "replace " << F->getName() << " with " << G->getName() << '\n');
 
 	// Replace F with G is all uses, special case direct call and then do a bulk replace for the rest
-	SmallVector<CallSite, 4> directCalls;
+	SmallVector<CallBase*, 4> directCalls;
 
 	for (const Use &U : F->uses()) {
 		User *FU = U.getUser();
 		if (!isa<CallInst>(FU) && !isa<InvokeInst>(FU))
 			continue;
-		CallSite CS(cast<Instruction>(FU));
-		if (CS.isCallee(&U))
+		CallBase* CS = cast<CallBase>(FU);
+		if (CS->isCallee(&U))
 			directCalls.push_back(CS);
 	}
 
@@ -911,10 +911,10 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 	FunctionType* GType = G->getFunctionType();
 
 	assert(FType->getNumParams() == GType->getNumParams());
-	for (CallSite& CS: directCalls) {
+	for (CallBase* CS: directCalls) {
 		// BitCasts in call sites causes spurious indirect call
 		// Avoid this problem by bitcasting parameters and return values as appropriate
-		CallInst* callInst = cast<CallInst>(CS.getInstruction());
+		CallInst* callInst = cast<CallInst>(CS);
 		callInst->setCalledOperand(ConstantExpr::getBitCast(G, callInst->getCalledValue()->getType()));
 
 		replaceCallOfBitCastWithBitCastOfCall(*callInst, /*mayFail*/ false, /*performPtrIntConversions*/ true);

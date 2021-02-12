@@ -74,7 +74,7 @@ public:
 	void renderIfOnLabel(int labelId, bool first);
 };
 
-CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(const char* identifier, llvm::ImmutableCallSite callV)
+CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(const char* identifier, const CallBase& callV)
 {
 	assert(callV.getCalledFunction());
 	std::string classNameStr;
@@ -97,7 +97,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 			return COMPILE_UNSUPPORTED;
 		}
 
-		compileOperand(callV.getArgument(0), HIGHEST);
+		compileOperand(callV.getOperand(0), HIGHEST);
 		stream << '.' << funcName.drop_front(4);
 	}
 	else if(funcName.startswith("set_"))
@@ -109,15 +109,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 			return COMPILE_UNSUPPORTED;
 		}
 
-		compilePointerAs(callV.getArgument(0), COMPLETE_OBJECT, HIGHEST);
+		compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 		if(funcName.size() == 4)
 		{
 			// Generic setter
 			assert(callV.arg_size()==3);
 			stream << '[';
-			compileOperand(callV.getArgument(1), LOWEST);
+			compileOperand(callV.getOperand(1), LOWEST);
 			stream << "]=";
-			const Value* v = callV.getArgument(2);
+			const Value* v = callV.getOperand(2);
 			if (v->getType()->isPointerTy())
 			{
 				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
@@ -131,7 +131,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 		{
 			assert(callV.arg_size()==2);
 			stream << '.' << funcName.drop_front(4) <<  '=';
-			const Value* v = callV.getArgument(1);
+			const Value* v = callV.getOperand(1);
 			if (v->getType()->isPointerTy())
 			{
 				compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
@@ -151,9 +151,9 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinNamespace(
 			return COMPILE_UNSUPPORTED;
 		}
 		assert(callV.arg_size()==2);
-		compilePointerAs(callV.getArgument(0), COMPLETE_OBJECT, HIGHEST);
+		compilePointerAs(callV.getOperand(0), COMPLETE_OBJECT, HIGHEST);
 		stream << '[';
-		const Value* v = callV.getArgument(1);
+		const Value* v = callV.getOperand(1);
 		if (v->getType()->isPointerTy())
 		{
 			compilePointerAs(v, COMPLETE_OBJECT, LOWEST);
@@ -241,14 +241,14 @@ void CheerpWriter::compileCopyElement(const Value* baseDest,
 	}
 }
 
-void CheerpWriter::compileDowncast( ImmutableCallSite callV )
+void CheerpWriter::compileDowncast( const CallBase& callV )
 {
 	assert( callV.arg_size() == 2 );
 	assert( callV.getCalledFunction() && callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast);
 
-	POINTER_KIND result_kind = PA.getPointerKindAssert(callV.getInstruction());
-	const Value * src = callV.getArgument(0);
-	const Value * offset = callV.getArgument(1);
+	POINTER_KIND result_kind = PA.getPointerKindAssert(&callV);
+	const Value * src = callV.getOperand(0);
+	const Value * offset = callV.getOperand(1);
 
 	Type* t=src->getType()->getPointerElementType();
 
@@ -258,7 +258,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 		{
 			compilePointerBase(src);
 			stream << ';' << NewLine;
-			stream << getSecondaryName(callV.getInstruction()) << '=';
+			stream << getSecondaryName(&callV) << '=';
 			compilePointerOffset(src, LOWEST);
 		}
 		else
@@ -273,7 +273,7 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 			stream << ".o-";
 			compileOperand(offset, HIGHEST);
 			stream << ";" << NewLine;
-			stream << getName(callV.getInstruction()) << '=';
+			stream << getName(&callV) << '=';
 			compileCompleteObject(src);
 			stream << ".a";
 		}
@@ -308,20 +308,20 @@ void CheerpWriter::compileDowncast( ImmutableCallSite callV )
 	}
 }
 
-void CheerpWriter::compileVirtualcast( ImmutableCallSite callV )
+void CheerpWriter::compileVirtualcast( const CallBase& callV )
 {
 	assert( callV.arg_size() == 2 );
 	assert( callV.getCalledFunction() && callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_virtualcast);
 
-	POINTER_KIND result_kind = PA.getPointerKindAssert(callV.getInstruction());
-	const Value * src = callV.getArgument(0);
-	const Value * offset = callV.getArgument(1);
+	POINTER_KIND result_kind = PA.getPointerKindAssert(&callV);
+	const Value * src = callV.getOperand(0);
+	const Value * offset = callV.getOperand(1);
 
       if(result_kind == SPLIT_REGULAR)
       {
             compileCompleteObject(src);
             stream << ".a;" << NewLine;
-            stream << getSecondaryName(callV.getInstruction()) << '=';
+            stream << getSecondaryName(&callV) << '=';
             compileOperand(offset, HIGHEST);
       }
       else if(result_kind == REGULAR)
@@ -712,15 +712,14 @@ void CheerpWriter::compileEscapedString(raw_ostream& stream, StringRef str, bool
 	}
 }
 
-CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(ImmutableCallSite callV, const Function * func)
+CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(const CallBase& callV, const Function * func)
 {
-	assert( callV.isCall() || callV.isInvoke() );
 	assert( func );
 	assert( (func == callV.getCalledFunction() ) || !(callV.getCalledFunction()) );
 	
 	bool userImplemented = !func->empty();
 	
-	ImmutableCallSite::arg_iterator it = callV.arg_begin(), itE = callV.arg_end();
+	auto it = callV.arg_begin(), itE = callV.arg_end();
 	
 	StringRef ident = func->getName();
 	unsigned intrinsicId = func->getIntrinsicID();
@@ -787,7 +786,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	else if(intrinsicId==Intrinsic::invariant_start)
 	{
 		//TODO: Try to optimize using this, for now just pass the second arg
-		if(!callV.getInstruction()->use_empty())
+		if(!callV.use_empty())
 		{
 			compileOperand(*(it+1));
 			return COMPILE_OK;
@@ -866,15 +865,15 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 	}
 	else if(intrinsicId==Intrinsic::cheerp_upcast_collapsed)
 	{
-		compilePointerAs(*it, PA.getPointerKindAssert(callV.getInstruction()));
+		compilePointerAs(*it, PA.getPointerKindAssert(&callV));
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_cast_user)
 	{
-		if(callV.getInstruction()->use_empty())
+		if(callV.use_empty())
 			return COMPILE_EMPTY;
 
-		compileBitCast(callV.getInstruction(), PA.getPointerKindAssert(callV.getInstruction()), HIGHEST);
+		compileBitCast(&callV, PA.getPointerKindAssert(&callV), HIGHEST);
 		return COMPILE_OK;
 	}
 	else if(intrinsicId==Intrinsic::cheerp_pointer_base)
@@ -906,22 +905,22 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		//We use an helper method to create closures without
 		//keeping all local variable around. The helper
 		//method is printed on demand depending on a flag
-		assert( isa<Function>( callV.getArgument(0) ) );
-		POINTER_KIND argKind = PA.getPointerKindAssert( &*cast<Function>(callV.getArgument(0))->arg_begin() );
+		assert( isa<Function>( callV.getOperand(0) ) );
+		POINTER_KIND argKind = PA.getPointerKindAssert( &*cast<Function>(callV.getOperand(0))->arg_begin() );
 		if(argKind == SPLIT_REGULAR)
 			stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE_SPLIT) << "(";
 		else
 			stream << namegen.getBuiltinName(NameGenerator::Builtin::CREATE_CLOSURE) << "(";
-		compileCompleteObject( callV.getArgument(0) );
+		compileCompleteObject( callV.getOperand(0) );
 		stream << ',';
 		if(argKind == SPLIT_REGULAR)
 		{
-			compilePointerBase( callV.getArgument(1) );
+			compilePointerBase( callV.getOperand(1) );
 			stream << ',';
-			compilePointerOffset( callV.getArgument(1), LOWEST );
+			compilePointerOffset( callV.getOperand(1), LOWEST );
 		}
 		else
-			compilePointerAs( callV.getArgument(1), argKind );
+			compilePointerAs( callV.getOperand(1), argKind );
 		stream << ')';
 		return COMPILE_OK;
 	}
@@ -1280,11 +1279,11 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::handleBuiltinCall(Immut
 		}
 	}
 
-	DynamicAllocInfo da(callV, &targetData, forceTypedArrays);
+	DynamicAllocInfo da(&callV, &targetData, forceTypedArrays);
 	if (da.isValidAlloc())
 	{
 		// Dead allocations won't be removed by LLVM, skip them here
-		if(callV->use_empty())
+		if(callV.use_empty())
 			return COMPILE_EMPTY;
 		compileAllocation(da);
 		return COMPILE_OK;
@@ -2681,7 +2680,7 @@ void CheerpWriter::compilePHIOfBlockFromOtherBlock(const BasicBlock* to, const B
 	WriterPHIHandler(*this, from->getParent()).runOnEdge(registerize, from, to);
 }
 
-void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_iterator itE, ImmutableCallSite callV, bool forceBoolean)
+void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_iterator itE, const CallBase& callV, bool forceBoolean)
 {
 	assert(callV.arg_begin() <= it && it <= callV.arg_end() && "compileMethodArgs, it out of range!");
 	assert(callV.arg_begin() <= itE && itE <= callV.arg_end() && "compileMethodArgs, itE out of range!");
@@ -2707,12 +2706,12 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 	{
 		// Set arg_it to the argument relative to it.
 		arg_it = F->arg_begin();
-		unsigned argNo = callV.getArgumentNo(it);
+		unsigned argNo = callV.getArgOperandNo(it);
 
 		// Check if it is a variadic argument
 		if(argNo < F->arg_size())
 		{
-			std::advance(arg_it, callV.getArgumentNo(it));
+			std::advance(arg_it, callV.getArgOperandNo(it));
 		}
 		else
 		{
@@ -2901,7 +2900,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			if(ci.getCalledFunction())
 			{
 				//Direct call
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, ci.getCalledFunction());
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(ci, ci.getCalledFunction());
 				assert(cf!=COMPILE_EMPTY);
 				if(cf==COMPILE_OK)
 				{
@@ -2920,7 +2919,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 				compileOperand(ci.getCalledValue());
 			}
 
-			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),&ci, /*forceBoolean*/ false);
+			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),ci, /*forceBoolean*/ false);
 			stream << ';' << NewLine;
 			//Only consider the normal successor for PHIs here
 			//For each successor output the variables for the phi nodes
@@ -4260,7 +4259,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 			}
 			if(calledFunc)
 			{
-				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(&ci, calledFunc);
+				COMPILE_INSTRUCTION_FEEDBACK cf=handleBuiltinCall(ci, calledFunc);
 				if(cf!=COMPILE_UNSUPPORTED)
 				{
 					if (!retTy->isVectorTy() && (
@@ -4333,7 +4332,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 				// In calling asmjs functions the varargs are passed on the stack
 				bool asmJSCallingConvention = asmjs || (calledFunc && calledFunc->getSection() == StringRef("asmjs"));
 				size_t n = asmJSCallingConvention ? fTy->getNumParams() : ci.getNumArgOperands();
-				compileMethodArgs(ci.op_begin(),ci.op_begin()+n, &ci, /*forceBoolean*/ false);
+				compileMethodArgs(ci.op_begin(),ci.op_begin()+n, ci, /*forceBoolean*/ false);
 			}
 			if(!retTy->isVoidTy())
 			{

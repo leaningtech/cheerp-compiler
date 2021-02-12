@@ -1800,14 +1800,14 @@ void CheerpWasmWriter::compileFCmp(const Value* lhs, const Value* rhs, CmpInst::
 	}
 }
 
-void CheerpWasmWriter::compileDowncast(WasmBuffer& code, ImmutableCallSite callV)
+void CheerpWasmWriter::compileDowncast(WasmBuffer& code, const CallBase* callV)
 {
-	assert(callV.arg_size() == 2);
-	assert(callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast ||
-		callV.getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_virtualcast);
+	assert(callV->arg_size() == 2);
+	assert(callV->getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_downcast ||
+		callV->getCalledFunction()->getIntrinsicID() == Intrinsic::cheerp_virtualcast);
 
-	const Value* src = callV.getArgument(0);
-	const Value* offset = callV.getArgument(1);
+	const Value* src = callV->getOperand(0);
+	const Value* offset = callV->getOperand(1);
 
 	Type* t = src->getType()->getPointerElementType();
 
