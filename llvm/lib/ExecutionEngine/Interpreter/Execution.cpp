@@ -1203,11 +1203,11 @@ void Interpreter::visitCallBase(CallBase &I) {
 
   // To handle indirect calls, we must get the pointer value from the argument
   // and treat it as a function pointer.
-  GenericValue SRC = getOperandValue(SF.Caller.getCalledValue(), SF);
+  GenericValue SRC = getOperandValue(SF.Caller.getCalledOperand(), SF);
   if (SF.Caller->isInlineAsm() && ForPreExecute)
   {
     errs() << "Tried to execute inline asm: "
-      << *SF.Caller.getCalledValue() << "\n";
+      << *SF.Caller->getCalledOperand() << "\n";
     printCallTrace();
     CleanAbort = true;
     return;

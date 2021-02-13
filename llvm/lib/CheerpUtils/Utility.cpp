@@ -1188,7 +1188,7 @@ bool replaceCallOfBitCastWithBitCastOfCall(CallInst& callInst, bool mayFail, boo
 		}
 	};
 
-	ConstantExpr* bitCast = dyn_cast<ConstantExpr>(callInst.getCalledValue());
+	ConstantExpr* bitCast = dyn_cast<ConstantExpr>(callInst.getCalledOperand());
 
 	if (!bitCast)
 	{
