@@ -9742,7 +9742,7 @@ private:
 
 class CheerpTargetCodeGenInfo : public TargetCodeGenInfo {
 public:
-  CheerpTargetCodeGenInfo(CodeGenTypes &CGT) : TargetCodeGenInfo(new CheerpABIInfo(CGT)) {}
+  CheerpTargetCodeGenInfo(CodeGenTypes &CGT) : TargetCodeGenInfo(std::make_unique<CheerpABIInfo>(CGT)) {}
 
   llvm::Type* adjustInlineAsmType(CodeGen::CodeGenFunction &CGF,
                                   StringRef Constraint,
