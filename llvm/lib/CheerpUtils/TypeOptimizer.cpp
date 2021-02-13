@@ -1489,7 +1489,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 						SmallVector<OperandBundleDef, 1> OpBundles;
 						CI->getOperandBundlesAsDefs(OpBundles);
 				
-						Value* Callee = localInstMapping.getMappedOperand(CI->getCalledValue()).first;
+						Value* Callee = localInstMapping.getMappedOperand(CI->getCalledOperand()).first;
 
 						auto *NewCall = CallInst::Create(rewrittenFuncType, Callee, Args, OpBundles, "", CI);
 						NewCall->setTailCallKind(CI->getTailCallKind());

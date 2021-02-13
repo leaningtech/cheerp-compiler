@@ -701,7 +701,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					CallInst* ci = dyn_cast<CallInst>(&I);
 					if (!ci)
 						continue;
-					Value* calledValue = ci->getCalledValue();
+					Value* calledValue = ci->getCalledOperand();
 					if (isa<Function>(calledValue))
 						continue;
 					//This is an indirect call, and we can check whether the called function type exist at all
@@ -716,7 +716,7 @@ bool GlobalDepsAnalyzer::runOnModule( llvm::Module & module )
 					{
 						// For this signature there is only one indirectly use function, we can devirtualize it
 						assert(ci->getCalledFunction() == nullptr);
-						assert(!isa<Function>(ci->getCalledValue()));
+						assert(!isa<Function>(ci->getCalledOperand()));
 						llvm::Function* toBeCalledFunc = it->second.funcs[0].F;
 						llvm::Constant* devirtualizedCall = toBeCalledFunc;
 						if(devirtualizedCall->getType() != calledValue->getType())
@@ -1146,9 +1146,9 @@ void GlobalDepsAnalyzer::visitFunction(const Function* F, VisitedSet& visited)
 				const Function * calledFunc = ci.getCalledFunction();
 				// calledFunc can be null, but if the calledValue is a bitcast,
 				// this can still be a direct call
-				if (calledFunc == nullptr && isBitCast(ci.getCalledValue()))
+				if (calledFunc == nullptr && isBitCast(ci.getCalledOperand()))
 				{
-					const llvm::User* bc = cast<llvm::User>(ci.getCalledValue());
+					const llvm::User* bc = cast<llvm::User>(ci.getCalledOperand());
 					calledFunc = dyn_cast<Function>(bc->getOperand(0));
 				}
 				// TODO: Handle import/export of indirect calls if possible

@@ -287,7 +287,7 @@ void CheerpWriter::normalizeDeclList(std::deque<CheerpWriter::JSExportedNamedDec
 
 void CheerpWriter::compileInlineAsm(const CallInst& ci)
 {
-	const InlineAsm* a=cast<InlineAsm>(ci.getCalledValue());
+	const InlineAsm* a=cast<InlineAsm>(ci.getCalledOperand());
 	// NOTE: We ignore the constraint string here, since the frontend ensures that only "r" is allowed
 	StringRef str = a->getAsmString();
 	bool needsParamIndex = false;
