@@ -2794,7 +2794,7 @@ void CheerpWriter::compileMethodArgs(User::const_op_iterator it, User::const_op_
 		else
 		{
 			PARENT_PRIORITY prio = LOWEST;
-			const PointerType* pTy = cast<PointerType>(callV.getCalledValue()->getType());
+			const PointerType* pTy = cast<PointerType>(callV.getCalledOperand()->getType());
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 			if (asmjs && (TypeSupport::isRawPointer(tp, true) || (tp->isIntegerTy() &&
 				(isImport ||
@@ -2916,7 +2916,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileTerminatorInstru
 			else
 			{
 				//Indirect call
-				compileOperand(ci.getCalledValue());
+				compileOperand(ci.getCalledOperand());
 			}
 
 			compileMethodArgs(ci.op_begin(),ci.op_begin()+ci.getNumArgOperands(),ci, /*forceBoolean*/ false);
@@ -4213,7 +4213,7 @@ CheerpWriter::COMPILE_INSTRUCTION_FEEDBACK CheerpWriter::compileInlineableInstru
 		{
 			const CallInst& ci = cast<CallInst>(I);
 			const Function * calledFunc = ci.getCalledFunction();
-			const Value * calledValue = ci.getCalledValue();
+			const Value * calledValue = ci.getCalledOperand();
 			const PointerType* pTy = cast<PointerType>(calledValue->getType());
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 			// Skip over bitcasts of function

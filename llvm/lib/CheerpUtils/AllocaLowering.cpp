@@ -142,7 +142,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 				// If caller not asmjs and indirect call, skip (TODO: for now)
 				if (!asmjs && !calledFunc)
 					continue;
-				const PointerType* pTy = cast<PointerType>(ci->getCalledValue()->getType());
+				const PointerType* pTy = cast<PointerType>(ci->getCalledOperand()->getType());
 				const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 				if (fTy->isVarArg())
 				{
@@ -259,7 +259,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 	// Add stack handling instructions to vararg calls
 	for (const auto& ci: varargCalls)
 	{
-		const PointerType* pTy = cast<PointerType>(ci->getCalledValue()->getType());
+		const PointerType* pTy = cast<PointerType>(ci->getCalledOperand()->getType());
 		const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 
 		size_t totalParamNum = ci->getNumArgOperands();
