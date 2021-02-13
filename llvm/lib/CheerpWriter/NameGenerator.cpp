@@ -702,7 +702,7 @@ std::unordered_set<std::string> buildAsmClobberNamesList(const Module& M)
 				const CallInst* CI = dyn_cast<CallInst>(&I);
 				if(!CI)
 					continue;
-				const InlineAsm* IA = dyn_cast<InlineAsm>(CI->getCalledValue());
+				const InlineAsm* IA = dyn_cast<InlineAsm>(CI->getCalledOperand());
 				if(!IA)
 					continue;
 				auto constraints = IA->ParseConstraints();

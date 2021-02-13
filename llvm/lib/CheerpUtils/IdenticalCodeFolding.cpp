@@ -305,7 +305,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 		{
 			const CallInst* ci = cast<CallInst>(A);
 			const Function * calledFunc = ci->getCalledFunction();
-			const Value * calledValue = ci->getCalledValue();
+			const Value * calledValue = ci->getCalledOperand();
 			const PointerType* pTy = cast<PointerType>(calledValue->getType());
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 			assert(!ci->isInlineAsm());
@@ -355,7 +355,7 @@ bool IdenticalCodeFolding::equivalentInstruction(const llvm::Instruction* A, con
 				}
 			}
 
-			const Value* calledValueB = cast<CallInst>(B)->getCalledValue();
+			const Value* calledValueB = cast<CallInst>(B)->getCalledOperand();
 			const PointerType* pTyB = cast<PointerType>(calledValueB->getType());
 			const FunctionType* fTyB = cast<FunctionType>(pTyB->getElementType());
 
@@ -915,7 +915,7 @@ void IdenticalCodeFolding::mergeTwoFunctions(Function *F, Function *G) {
 		// BitCasts in call sites causes spurious indirect call
 		// Avoid this problem by bitcasting parameters and return values as appropriate
 		CallInst* callInst = cast<CallInst>(CS);
-		callInst->setCalledOperand(ConstantExpr::getBitCast(G, callInst->getCalledValue()->getType()));
+		callInst->setCalledOperand(ConstantExpr::getBitCast(G, callInst->getCalledOperand()->getType()));
 
 		replaceCallOfBitCastWithBitCastOfCall(*callInst, /*mayFail*/ false, /*performPtrIntConversions*/ true);
 	}

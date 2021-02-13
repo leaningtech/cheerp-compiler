@@ -2025,7 +2025,7 @@ bool CheerpWasmWriter::compileInlineInstruction(WasmBuffer& code, const Instruct
 		{
 			const CallInst& ci = cast<CallInst>(I);
 			const Function * calledFunc = ci.getCalledFunction();
-			const Value * calledValue = ci.getCalledValue();
+			const Value * calledValue = ci.getCalledOperand();
 			const PointerType* pTy = cast<PointerType>(calledValue->getType());
 			const FunctionType* fTy = cast<FunctionType>(pTy->getElementType());
 			assert(!ci.isInlineAsm());
