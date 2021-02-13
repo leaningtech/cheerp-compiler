@@ -1102,8 +1102,8 @@ uint8_t TypeOptimizer::rewriteGEPIndexes(SmallVector<Value*, 4>& newIndexes, Typ
 Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 {
 	FunctionType* oldFuncType = F->getFunctionType();
-	bool onlyCalledByWasm = onlyCalledByWasmFuncs.count(F);
-	FunctionType* newFuncType = rewriteFunctionType(oldFuncType, F->isIntrinsic() || onlyCalledByWasm);
+	bool keepI64 = onlyCalledByWasmFuncs.count(F) && !F->isVarArg();
+	FunctionType* newFuncType = rewriteFunctionType(oldFuncType, F->isIntrinsic() || keepI64);
 	if(newFuncType==oldFuncType)
 		return F;
 
@@ -1117,7 +1117,7 @@ Function* TypeOptimizer::rewriteFunctionSignature(Function* F)
 	for(unsigned i = 0; i < F->arg_size(); ++i)
 	{
 		Argument* CurA = F->arg_begin()+i;
-		if (isI64ToRewrite(CurA->getType()) && !onlyCalledByWasm)
+		if (isI64ToRewrite(CurA->getType()) && !keepI64)
 		{
 			ArgAttrVec.push_back(AttributeSet());
 			ArgAttrVec.push_back(AttributeSet());
@@ -1200,7 +1200,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 	assert(it != globalsMapping.end());
 	if(F->empty())
 		return;
-	bool onlyCalledByWasm = onlyCalledByWasmFuncs.count(F);
+	bool keepI64 = onlyCalledByWasmFuncs.count(F) && !F->isVarArg();
 	if (it->first != it->second)
 	{
 		Function* NF = cast<Function>(it->second);
@@ -1212,7 +1212,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 		for (auto A = F->arg_begin(), AE = F->arg_end(), NA = NF->arg_begin();A != AE; ++A, ++NA)
 		{
 			Value* New = nullptr;
-			if (isI64ToRewrite(A->getType()) && !onlyCalledByWasm)
+			if (isI64ToRewrite(A->getType()) && !keepI64)
 			{
 				Value* Low = NA++;
 				Value* High = NA;
@@ -1282,7 +1282,7 @@ void TypeOptimizer::rewriteFunction(Function* F)
 				case Instruction::Ret:
 				{
 					Value* Ret = cast<ReturnInst>(I).getReturnValue();
-					if (!Ret || !isI64ToRewrite(Ret->getType()) || onlyCalledByWasm)
+					if (!Ret || !isI64ToRewrite(Ret->getType()) || keepI64)
 						break;
 
 					IRBuilder<> Builder(&I);
