@@ -62,7 +62,7 @@ bool AllocaArrays::replaceAlloca(AllocaInst* ai, cheerp::GlobalDepsAnalyzer& gda
 	}
 
 	llvm::Type * at = llvm::ArrayType::get( ai->getAllocatedType(), ci->getZExtValue() );
-	AllocaInst * newAi = new AllocaInst( at, 0 );
+	AllocaInst * newAi = new AllocaInst( at, 0, nullptr, ai->getAlign() );
 	newAi->insertAfter( ai );
 	ai->removeFromParent();
 	newAi->takeName(ai);
