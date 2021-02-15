@@ -253,7 +253,7 @@ bool AllocaLowering::runOnFunction(Function& F)
 		IRBuilder<> Builder(va);
 		Value* valist = va->getOperand(0);
 		valist = Builder.CreateBitCast(valist, savedStack->getType()->getPointerTo(0));
-		Instruction* store = new StoreInst(savedStack, valist);
+		Instruction* store = new StoreInst(savedStack, valist, /*isVolatile*/false, Align(1));
 		ReplaceInstWithInst(va->getParent()->getInstList(), ii, store);
 	}
 	// Add stack handling instructions to vararg calls

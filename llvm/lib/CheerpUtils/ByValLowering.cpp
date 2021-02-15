@@ -48,7 +48,7 @@ static bool ExpandCall(const DataLayout& DL, CallInst* Call)
 					AllocAlignment = a.value();
 			}
 			// Make a copy of the byval argument.
-			Instruction *CopyBuf = new AllocaInst(ArgType, 0, 0, Alignment,
+			Instruction *CopyBuf = new AllocaInst(ArgType, 0, 0, Align(AllocAlignment),
 				ArgPtr->getName() + ".byval_copy");
 			NumNewAllocas++;
 			Function *Func = Call->getParent()->getParent();

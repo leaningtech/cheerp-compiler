@@ -1066,7 +1066,7 @@ private:
         firstUser = &*(++NI);
         break;
       }
-      if(!firstUser || !isSafeToLoadUnconditionally(&I, I.getType()->getPointerElementType(), MaybeAlign(1), DL, firstUser))
+      if(!firstUser || !isSafeToLoadUnconditionally(&I, I.getType()->getPointerElementType(), Align(1), DL, firstUser))
         return PI.setAborted(&I);
     }
 
