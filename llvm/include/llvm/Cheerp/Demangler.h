@@ -29,6 +29,11 @@ public:
 		if(strncmp(s,"_ZN",3)!=0)
 			return;
 
+		//Due to a LLVM-demangler bug, this is not usable for general classes (= only for namespace client + jsexported)
+		//This restriction could be lifted once:
+		//llvm-cxxfilt _ZN9SomeClassI9SomeOtherI4TypeLS1_n1EEEC2Ev
+		//parses as c++filt
+
 		mangled = true;
 
 		const size_t OriginalSize = 4;
