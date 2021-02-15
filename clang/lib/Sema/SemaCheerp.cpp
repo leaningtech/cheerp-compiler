@@ -468,7 +468,7 @@ void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDe
 	else
 	{
 		//Free function specific checks
-		checkTopLevelName(FD);
+		checkNamespaceLevelName(FD);
 
 		if (isInsideClass(FD))
 			sema.Diag(FD->getLocation(), diag::err_cheerp_jsexport_on_namespace);
@@ -486,7 +486,7 @@ void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDe
 	checkName(FD, FD->getNameInfo().getAsString(), sema);
 }
 
-void cheerp::CheerpSemaData::checkTopLevelName(const clang::NamedDecl* ND)
+void cheerp::CheerpSemaData::checkNamespaceLevelName(const clang::NamedDecl* ND)
 {
 	using namespace clang;
 	const auto& name = ND->getName();
@@ -520,7 +520,7 @@ void cheerp::CheerpSemaData::addMethod(clang::CXXMethodDecl* method, const bool 
 
 void cheerp::CheerpSemaData::checkRecord(const clang::CXXRecordDecl* record)
 {
-	checkTopLevelName(record);
+	checkNamespaceLevelName(record);
 	//Here all checks about external feasibility of jsexporting a class/struct have to be performed (eg. checking for name clashes against other functions)
 	checkName(record, record->getName(), sema);
 
