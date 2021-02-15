@@ -42,7 +42,7 @@ private:
 static int64_t getCaseValue(const ConstantInt* c, uint32_t bitWidth)
 {
 	return bitWidth >= 32 ? c->getSExtValue() : c->getZExtValue();
-};
+}
 
 bool CheerpLowerSwitch::keepSwitch(const SwitchInst* si)
 {
@@ -588,7 +588,7 @@ private:
 
 		auto greatestPowerOf2 = [](uint64_t diff) -> uint64_t
 		{
-			assert(diff >= 0);
+			assert(diff > 0);
 			uint64_t pow = 1;
 			while ((diff & pow) == 0)
 				pow *= 2;
