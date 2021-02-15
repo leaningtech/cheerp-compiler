@@ -48,10 +48,14 @@ bool CheerpNativeRewriter::findMangledClassName(const char* s, std::string& name
 
 bool CheerpNativeRewriter::isBuiltinConstructor(const char* s)
 {
+	if (!isNamespaceClient(s))
+		return false;
+
 	cheerp::Demangler demangler(s);
 
+	assert(demangler.isNamespaceClient());
+
 	return (demangler.isMangled() &&
-			demangler.isNamespaceClient() &&
 			demangler.isFunction() &&
 			demangler.isConstructor());
 }
