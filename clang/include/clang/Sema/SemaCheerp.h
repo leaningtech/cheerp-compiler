@@ -104,7 +104,7 @@ public:
 	void checkFunctionToBeJsExported(const clang::FunctionDecl* FD, bool isMethod);
 private:
 	void addMethod(clang::CXXMethodDecl* method, const bool isJsExport);
-	void checkTopLevelName(const clang::NamedDecl* FD);
+	void checkNamespaceLevelName(const clang::NamedDecl* FD);
 
 	cheerp::DeterministicUnorderedMap<const clang::CXXRecordDecl*, CheerpSemaClassData, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> classData;
 	std::map<std::pair<const clang::DeclContext*, std::string>, const clang::NamedDecl*> namedDecl;
