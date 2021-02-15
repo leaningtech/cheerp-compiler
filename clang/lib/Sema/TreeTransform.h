@@ -2871,7 +2871,7 @@ public:
                               SourceLocation RParenLoc) {
     return getSema().BuildCXXNamedCast(
         OpLoc, tok::kw_addrspace_cast, TInfo, SubExpr,
-        SourceRange(LAngleLoc, RAngleLoc), SourceRange(LParenLoc, RParenLoc));
+        SourceRange(LAngleLoc, RAngleLoc), SourceRange(LParenLoc, RParenLoc), /*CheerpSafe*/false);
   }
 
   /// Build a new C++ functional-style cast expression.
