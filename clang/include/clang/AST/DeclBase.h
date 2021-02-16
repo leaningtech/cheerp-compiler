@@ -1959,6 +1959,8 @@ public:
 
   bool isClientNamespace() const;
 
+  bool isActualClientNamespace() const;
+
   bool isInlineNamespace() const;
 
   /// Determines whether this context is dependent on a
