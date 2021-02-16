@@ -400,6 +400,7 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 			auto kind = kinfOfFuncionDecl(FD);;
 
 			uint32_t expectedNumOfParameters = -1;
+			bool isGetterOrSetter = true;
 			switch (classification)
 			{
 			case SpecialFunctionClassify::GenericGetter:
@@ -415,8 +416,12 @@ void cheerp::checkFunctionOnDeclaration(clang::FunctionDecl* FD, clang::Sema& se
 				expectedNumOfParameters = 1;
 				break;
 			default:
+				isGetterOrSetter = false;
 				break;
 			}
+
+			if (isGetterOrSetter)
+				sema.cheerpSemaData.checkTopLevelSpecialFunctions(FD);
 
 			const uint32_t numArgs = FD->getNumParams();
 
@@ -484,6 +489,18 @@ void cheerp::CheerpSemaData::checkFunctionToBeJsExported(const clang::FunctionDe
 	checkParameters(FD, sema);
 
 	checkName(FD, FD->getNameInfo().getAsString(), sema);
+}
+
+void cheerp::CheerpSemaData::checkTopLevelSpecialFunctions(const clang::FunctionDecl* FD)
+{
+	using namespace clang;
+
+	auto context = getCanonicalContext(FD);
+
+	if (context->isActualClientNamespace())
+	{
+		sema.Diag(FD->getLocation(), diag::err_cheerp_client_top_level_get_set) << FD->getName();
+	}
 }
 
 void cheerp::CheerpSemaData::checkNamespaceLevelName(const clang::NamedDecl* ND)
