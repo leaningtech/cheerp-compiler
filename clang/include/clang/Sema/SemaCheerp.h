@@ -102,9 +102,10 @@ public:
 		return sema;
 	}
 	void checkFunctionToBeJsExported(const clang::FunctionDecl* FD, bool isMethod);
+	void checkTopLevelSpecialFunctions(const clang::FunctionDecl* FD);
 private:
 	void addMethod(clang::CXXMethodDecl* method, const bool isJsExport);
-	void checkNamespaceLevelName(const clang::NamedDecl* FD);
+	void checkNamespaceLevelName(const clang::NamedDecl* ND);
 
 	cheerp::DeterministicUnorderedMap<const clang::CXXRecordDecl*, CheerpSemaClassData, RestrictionsLifted::NoErasure | RestrictionsLifted::NoDeterminism> classData;
 	std::map<std::pair<const clang::DeclContext*, std::string>, const clang::NamedDecl*> namedDecl;
