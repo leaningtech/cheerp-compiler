@@ -1170,6 +1170,17 @@ bool DeclContext::isStdNamespace() const {
   return II && II->isStr("std");
 }
 
+bool DeclContext::isActualClientNamespace() const {
+  if (!isNamespace()) {
+    return false;
+  }
+  const auto *ND = cast<NamespaceDecl>(this);
+  if (!ND->getParent()->getRedeclContext()->isTranslationUnit())
+    return false;
+  const IdentifierInfo *II = ND->getIdentifier();
+  return II && II->isStr("client");
+}
+
 bool DeclContext::isClientNamespace() const {
   if (!isNamespace()) {
     if (getParent())
@@ -1179,10 +1190,7 @@ bool DeclContext::isClientNamespace() const {
   const auto *ND = cast<NamespaceDecl>(this);
   if (ND->getParent() && ND->getParent()->isClientNamespace())
     return true;
-  if (!ND->getParent()->getRedeclContext()->isTranslationUnit())
-    return false;
-  const IdentifierInfo *II = ND->getIdentifier();
-  return II && II->isStr("client");
+  return isActualClientNamespace();
 };
 
 bool DeclContext::isDependentContext() const {
