@@ -10950,8 +10950,8 @@ def err_cheerp_jsexport_on_namespace : Error<
   "Cheerp: [[cheerp::jsexport]]-ed classes, struct and free function cannot be enclosed in a namespace">;
 def err_cheerp_jsexport_name_clash : Error<
   "Cheerp: [[cheerp::jsexport]]-ed classes, struct and free function can never have names that clash: %0 is the same between a %1 and a %2">;
-def err_cheerp_jsexport_same_name_top_level : Error<
-  "Cheerp: [[cheerp::jsexport]]-ed top level identifiers cannot have the same name: %0">;
+def err_cheerp_jsexport_same_name : Error<
+  "Cheerp: [[cheerp::jsexport]]-ed identifiers in the same namespace cannot have the same name: %0">;
 def err_cheerp_jsexport_with_default_arg : Error<
   "Cheerp: [[cheerp::jsexport]] function %0 cannot have default arguments">;
 def err_cheerp_jsexport_with_operators : Error<
