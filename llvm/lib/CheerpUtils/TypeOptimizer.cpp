@@ -1498,9 +1498,6 @@ void TypeOptimizer::rewriteFunction(Function* F)
 							AttributeList::get(F->getContext(), CallPAL.getFnAttributes(),
 							CallPAL.getRetAttributes(), ArgAttrVec));
 						NewCall->setDebugLoc(CI->getDebugLoc());
-						uint64_t W;
-						if (CI->extractProfTotalWeight(W))
-							NewCall->setProfWeight(W);
 						Args.clear();
 						ArgAttrVec.clear();
 				
