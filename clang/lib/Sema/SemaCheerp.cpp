@@ -513,7 +513,7 @@ void cheerp::CheerpSemaData::checkNamespaceLevelName(const clang::NamedDecl* ND)
 
 	if (!pair.second && pair.first->second->getCanonicalDecl() != ND->getCanonicalDecl())
 	{
-		sema.Diag(ND->getLocation(), diag::err_cheerp_jsexport_same_name_top_level) << name;
+		sema.Diag(ND->getLocation(), diag::err_cheerp_jsexport_same_name) << name;
 		sema.Diag(pair.first->second->getLocation(), diag::note_previous_definition);
 	}
 }
