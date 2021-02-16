@@ -11026,6 +11026,8 @@ def err_cheerp_wrong_addrof_ptr_field : Error<
   "Cheerp: Cannot take address of pointer field %0 of %1 struct %2 in a %3 function">;
 def err_cheerp_asm_in_asmjs : Error<
   "Cheerp: Cannot use inline asm in a %0 function">;
+def err_cheerp_client_top_level_get_set : Error<
+  "Cheerp: %0 is a special function (getter or setter) that can not be declared top level in 'client' namespace">;
 def err_cheerp_client_special_wrong_num_parameters : Error<
   "Cheerp: %0 %1, declared in 'client' namespace, is a %2 and should have exactly %3 parameters.">;
 def err_cheerp_client_special_has_definition : Error<
