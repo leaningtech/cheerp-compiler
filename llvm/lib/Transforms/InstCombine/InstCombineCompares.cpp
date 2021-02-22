@@ -1459,7 +1459,7 @@ Instruction *InstCombinerImpl::foldICmpWithConstant(ICmpInst &Cmp) {
     return nullptr;
 
   if (auto *Phi = dyn_cast<PHINode>(Op0))
-    if (all_of(Phi->operands(), [](Value *V) { return isa<Constant>(V); })) {
+    if (Phi->hasOneUse() && all_of(Phi->operands(), [](Value *V) { return isa<Constant>(V); })) {
       Type *Ty = Cmp.getType();
       Builder.SetInsertPoint(Phi);
       PHINode *NewPhi =
