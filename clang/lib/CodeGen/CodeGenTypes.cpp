@@ -350,7 +350,7 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
     SkippedLayout = true;
 
     // Return a placeholder type.
-    return llvm::FunctionType::get(CGM.Int32Ty, true);
+    return llvm::StructType::create(getLLVMContext());
   }
 
   // While we're converting the parameter types for a function, we don't want
@@ -358,7 +358,7 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   // structs is ok though.
   if (!RecordsBeingLaidOut.insert(Ty).second) {
     SkippedLayout = true;
-    return llvm::FunctionType::get(CGM.Int32Ty, true);
+    return llvm::StructType::create(getLLVMContext());
   }
 
   // The function type can be built; call the appropriate routines to
@@ -378,7 +378,7 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   // don't recurse into it again.
   if (FunctionsBeingProcessed.count(FI)) {
 
-    ResultType = llvm::FunctionType::get(CGM.Int32Ty, true);
+    ResultType = llvm::StructType::create(getLLVMContext());
     SkippedLayout = true;
   } else {
 
@@ -671,6 +671,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     const ReferenceType *RTy = cast<ReferenceType>(Ty);
     QualType ETy = RTy->getPointeeType();
     llvm::Type *PointeeType = ConvertTypeForMem(ETy);
+    if (ETy->isFunctionType() && !PointeeType->isFunctionTy()) {
+      assert(cast<llvm::StructType>(PointeeType)->isOpaque());
+      PointeeType = llvm::FunctionType::get(CGM.VoidTy, false);
+    }
     unsigned AS = Context.getTargetAddressSpace(ETy);
     ResultType = llvm::PointerType::get(PointeeType, AS);
     break;
@@ -681,6 +685,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     llvm::Type *PointeeType = ConvertTypeForMem(ETy);
     if (PointeeType->isVoidTy())
       PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
+    else if (ETy->isFunctionType() && !PointeeType->isFunctionTy()) {
+      assert(cast<llvm::StructType>(PointeeType)->isOpaque());
+      PointeeType = llvm::FunctionType::get(CGM.VoidTy, false);
+    }
 
     unsigned AS = PointeeType->isFunctionTy()
                       ? getDataLayout().getProgramAddressSpace()
