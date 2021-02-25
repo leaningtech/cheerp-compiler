@@ -2573,7 +2573,7 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
 
   // Cheerp: forbid using genericjs globals in asmjs
   if (!ADL && R.isSingleResult() && !R.getAsSingle<FunctionTemplateDecl>() && S->getFnParent()) {
-    if (FunctionDecl* FD = dyn_cast<FunctionDecl>(S->getFnParent()->getEntity())) {
+    if (FunctionDecl* FD = dyn_cast_or_null<FunctionDecl>(S->getFnParent()->getEntity())) {
       if (VarDecl* Found = dyn_cast<VarDecl>(R.getFoundDecl())) {
         CXXRecordDecl* RD = Found->getType()->getAsCXXRecordDecl();
         // If anyref is enabled, we allow client globals of client types
@@ -6480,7 +6480,7 @@ ExprResult Sema::BuildCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     checkDirectCallValidity(*this, Fn, FD, ArgExprs);
     if (Scope && Scope->getFnParent())
     {
-      if (FunctionDecl* Parent = dyn_cast<FunctionDecl>(Scope->getFnParent()->getEntity()))
+      if (FunctionDecl* Parent = dyn_cast_or_null<FunctionDecl>(Scope->getFnParent()->getEntity()))
         CheckCheerpFFICall(Parent, FD, Fn->getBeginLoc(), ArgExprs);
     }
   }
@@ -13335,7 +13335,7 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
   // CHEERP: Cannot take function addresses from genericjs to asmjs and vice versa
   else if (op->getType()->isFunctionType()) {
     if (CurScope && CurScope->getFnParent()) {
-      if (FunctionDecl* Caller = dyn_cast<FunctionDecl>(CurScope->getFnParent()->getEntity())) {
+      if (FunctionDecl* Caller = dyn_cast_or_null<FunctionDecl>(CurScope->getFnParent()->getEntity())) {
         if (DeclRefExpr* DR = dyn_cast<DeclRefExpr>(op)) {
           if (FunctionDecl* Callee = dyn_cast<FunctionDecl>(DR->getFoundDecl())) {
             if (Caller->hasAttr<GenericJSAttr>() && Callee->hasAttr<AsmJSAttr>()) {
