@@ -19,9 +19,9 @@ void foo (void) {
 // CHECK-NEXT: %[[ZERO:.*]] = bitcast %struct.s* %[[LS]] to i8*
 // CHECK-NEXT: %[[ONE:.*]] = bitcast %struct.s* %[[LS]] to i8*
 // CHECK-NEXT: call void @llvm.memcpy.{{.*}}(i8* align 4 %[[ZERO]], i8* align 4 %[[ONE]], i64 132, i1 true)
-// CHECK-NEXT: call void @llvm.memcpy.{{.*}}(i8* align 4 bitcast (%struct._Z1s* @gs to i8*), i8* align 4 bitcast (%struct._Z1s* @gs to i8*), i64 132, i1 true)
-// CHECK-NEXT: %[[TWO:.*]] = bitcast %struct._Z1s* %[[LS]] to i8*
-// CHECK-NEXT: call void @llvm.memcpy.{{.*}}(i8* align 4 %[[TWO]], i8* align 4 bitcast (%struct._Z1s* @gs to i8*), i64 132, i1 true)
+// CHECK-NEXT: call void @llvm.memcpy.{{.*}}(i8* align 4 bitcast (%struct.s* @gs to i8*), i8* align 4 bitcast (%struct.s* @gs to i8*), i64 132, i1 true)
+// CHECK-NEXT: %[[TWO:.*]] = bitcast %struct.s* %[[LS]] to i8*
+// CHECK-NEXT: call void @llvm.memcpy.{{.*}}(i8* align 4 %[[TWO]], i8* align 4 bitcast (%struct.s* @gs to i8*), i64 132, i1 true)
 
 
 struct s1 {

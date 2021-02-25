@@ -1,4 +1,7 @@
 ; RUN: %llc_dwarf -O0 < %s | FileCheck %s
+
+target triple = "x86_64-unknown-linux"
+
 ; Do not emit AT_upper_bound for an unbounded array.
 ; radar 9241695
 define i32 @main() nounwind ssp !dbg !0 {

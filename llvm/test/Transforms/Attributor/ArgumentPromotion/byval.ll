@@ -35,7 +35,7 @@ define internal i32 @f(%struct.ss* byval(%struct.ss)  %b) nounwind  {
 ; IS________NPM-NEXT:    ret i32 [[TMP1]]
 ;
 entry:
-  %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
+  %tmp = bitcast %struct.ss* %b to i32*
   %tmp1 = load i32, i32* %tmp, align 4
   %tmp2 = add i32 %tmp1, 1
   store i32 %tmp2, i32* %tmp, align 4
@@ -70,7 +70,7 @@ define internal i32 @g(%struct.ss* byval(%struct.ss) align 32 %b) nounwind {
 ; IS________NPM-NEXT:    ret i32 [[TMP2]]
 ;
 entry:
-  %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
+  %tmp = bitcast %struct.ss* %b to i32*
   %tmp1 = load i32, i32* %tmp, align 4
   %tmp2 = add i32 %tmp1, 1
   store i32 %tmp2, i32* %tmp, align 4
@@ -84,7 +84,7 @@ define i32 @main() nounwind  {
 ; IS__TUNIT_OPM-SAME: () #[[ATTR1:[0-9]+]] {
 ; IS__TUNIT_OPM-NEXT:  entry:
 ; IS__TUNIT_OPM-NEXT:    [[S:%.*]] = alloca [[STRUCT_SS:%.*]], align 4
-; IS__TUNIT_OPM-NEXT:    [[TMP1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 0
+; IS__TUNIT_OPM-NEXT:    [[TMP1:%.*]] = bitcast %struct.ss* [[S]] to i32*
 ; IS__TUNIT_OPM-NEXT:    store i32 1, i32* [[TMP1]], align 8
 ; IS__TUNIT_OPM-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 1
 ; IS__TUNIT_OPM-NEXT:    [[C0:%.*]] = call i32 @f(%struct.ss* noalias nocapture nofree noundef nonnull readonly byval([[STRUCT_SS]]) align 8 dereferenceable(12) [[S]]) #[[ATTR2:[0-9]+]]
@@ -97,7 +97,7 @@ define i32 @main() nounwind  {
 ; IS__TUNIT_NPM-SAME: () #[[ATTR1:[0-9]+]] {
 ; IS__TUNIT_NPM-NEXT:  entry:
 ; IS__TUNIT_NPM-NEXT:    [[S:%.*]] = alloca [[STRUCT_SS:%.*]], align 4
-; IS__TUNIT_NPM-NEXT:    [[TMP1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 0
+; IS__TUNIT_NPM-NEXT:    [[TMP1:%.*]] = bitcast %struct.ss* [[S]] to i32*
 ; IS__TUNIT_NPM-NEXT:    store i32 1, i32* [[TMP1]], align 8
 ; IS__TUNIT_NPM-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 1
 ; IS__TUNIT_NPM-NEXT:    [[S_CAST:%.*]] = bitcast %struct.ss* [[S]] to i32*
@@ -118,7 +118,7 @@ define i32 @main() nounwind  {
 ; IS__CGSCC_OPM-SAME: () #[[ATTR1:[0-9]+]] {
 ; IS__CGSCC_OPM-NEXT:  entry:
 ; IS__CGSCC_OPM-NEXT:    [[S:%.*]] = alloca [[STRUCT_SS:%.*]], align 4
-; IS__CGSCC_OPM-NEXT:    [[TMP1:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 0
+; IS__CGSCC_OPM-NEXT:    [[TMP1:%.*]] = bitcast %struct.ss* [[S]] to i32*
 ; IS__CGSCC_OPM-NEXT:    store i32 1, i32* [[TMP1]], align 32
 ; IS__CGSCC_OPM-NEXT:    [[TMP4:%.*]] = getelementptr [[STRUCT_SS]], %struct.ss* [[S]], i32 0, i32 1
 ; IS__CGSCC_OPM-NEXT:    [[C0:%.*]] = call i32 @f(%struct.ss* noalias nocapture nofree noundef nonnull readonly byval([[STRUCT_SS]]) align 32 dereferenceable(12) [[S]]) #[[ATTR2:[0-9]+]]
@@ -137,7 +137,7 @@ define i32 @main() nounwind  {
 ;
 entry:
   %S = alloca %struct.ss
-  %tmp1 = getelementptr %struct.ss, %struct.ss* %S, i32 0, i32 0
+  %tmp1 = bitcast %struct.ss* %S to i32*
   store i32 1, i32* %tmp1, align 8
   %tmp4 = getelementptr %struct.ss, %struct.ss* %S, i32 0, i32 1
   store i64 2, i64* %tmp4, align 4

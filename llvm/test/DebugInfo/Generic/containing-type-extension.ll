@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s > %t
 ; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Check that any type can have a vtable holder.
 ; CHECK: [[SP:.*]]: DW_TAG_structure_type
 ; CHECK-NOT: TAG

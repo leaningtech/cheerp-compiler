@@ -156,12 +156,12 @@ struct Derived D = {{}, .B.A = 42};
 
 void test1(int argc, char **argv)
 {
-  // CHECK: internal global %struct._Z3foo { i8* null, i32 1024 }
+  // CHECK: internal global %struct.foo { i8* null, i32 1024 }
   static struct foo foo = {
     .b = 1024,
   };
 
-  // CHECK: bitcast %"union._ZZ5test1E3$_3"* %u2
+  // CHECK: bitcast %union.anon.5* %u2
   // CHECK: call void @llvm.memset
    union { int i; float f; } u2 = { };
 

@@ -899,11 +899,11 @@ namespace Conditional {
   // CHECK: br i1
   //
   // CHECK: call {{.*}} @_ZN11Conditional1BC1Ev({{.*}} @_ZGRN11Conditional1rE_)
-  // CHECK: call {{.*}} @__cxa_atexit({{.*}} @_ZN11Conditional1BD1Ev {{.*}} @_ZGRN11Conditional1rE_,
+  // CHECK: call {{.*}} @__cxa_atexit({{.*}} @_ZN11Conditional1BD1Ev {{.*}} @_ZGRN11Conditional1rE_ 
   // CHECK: br label
   //
   // CHECK: call {{.*}} @_ZN11Conditional1CC1Ev({{.*}} @_ZGRN11Conditional1rE0_)
-  // CHECK: call {{.*}} @__cxa_atexit({{.*}} @_ZN11Conditional1CD1Ev {{.*}} @_ZGRN11Conditional1rE0_,
+  // CHECK: call {{.*}} @__cxa_atexit({{.*}} @_ZN11Conditional1CD1Ev {{.*}} @_ZGRN11Conditional1rE0_ 
   // CHECK: br label
   A &&r = b ? static_cast<A&&>(B()) : static_cast<A&&>(C());
 }

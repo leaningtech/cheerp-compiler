@@ -1,5 +1,7 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s | llvm-dwarfdump -debug-info - | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; bool f();
 ; inline __attribute__((always_inline)) int f1() {
 ;   if (bool b = f())

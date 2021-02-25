@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -S %s -fobjc-gc -o /dev/null
+// RUN: %clang_cc1 -triple %itanium_abi_triple -S %s -fobjc-gc -o /dev/null
 typedef int NSInteger;
 typedef struct _NSRect {
   int origin;

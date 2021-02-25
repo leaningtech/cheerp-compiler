@@ -85,8 +85,8 @@ define i1 @call3(i8* %obj) #0 {
 cont:
   %fptr_casted = bitcast i8* %fptr to i1 (i8*, i32)*
   %result = call i1 %fptr_casted(i8* %obj, i32 3)
-  ; UNIQUE-RET-VAL0: icmp ne i8* %vtablei8, getelementptr inbounds ([0 x i8], [0 x i8]* @__typeid_typeid2_8_3_unique_member, i32 0, i32 0)
-  ; UNIQUE-RET-VAL1: icmp eq i8* %vtablei8, getelementptr inbounds ([0 x i8], [0 x i8]* @__typeid_typeid2_8_3_unique_member, i32 0, i32 0)
+  ; UNIQUE-RET-VAL0: icmp ne i8* %vtablei8, bitcast ([0 x i8]* @__typeid_typeid2_8_3_unique_member to i8*)
+  ; UNIQUE-RET-VAL1: icmp eq i8* %vtablei8, bitcast ([0 x i8]* @__typeid_typeid2_8_3_unique_member to i8*)
   ; VCP: [[VT2:%.*]] = bitcast {{.*}} to i8*
   ; VCP-X86: [[GEP2:%.*]] = getelementptr i8, i8* [[VT2]], i32 ptrtoint ([0 x i8]* @__typeid_typeid2_8_3_byte to i32)
   ; VCP-ARM: [[GEP2:%.*]] = getelementptr i8, i8* [[VT2]], i32 43

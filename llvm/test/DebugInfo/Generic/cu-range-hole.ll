@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj %s -o %t
 ; RUN: llvm-dwarfdump %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Check that we emit ranges for this CU since we have a function with and
 ; without debug info.
 ; Note: This depends upon the order of output in the .o file. Currently it's

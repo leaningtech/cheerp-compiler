@@ -1,5 +1,5 @@
-// RUN: %clang %s -fsyntax-only -fbracket-depth=512
-// RUN: not %clang %s -fsyntax-only -fbracket-depth=512 -DFAIL 2>&1 | FileCheck %s
+// RUN: %clang -target x86_64-unknown-gnu %s -fsyntax-only -fbracket-depth=512
+// RUN: not %clang -target x86_64-unknown-gnu %s -fsyntax-only -fbracket-depth=512 -DFAIL 2>&1 | FileCheck %s
 
 template <class T> int foo(T &&t);
 

@@ -251,13 +251,13 @@ int main(void) {
 // CHECK: call void @__atomic_load(i64 noundef 8, i8* noundef bitcast ({ i32, i32 }* [[X_ADDR:@.+]] to i8*), i8* noundef [[BITCAST]], i32 noundef 0)
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[EXPECTED_ADDR]], i32 0, i32 0
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[EXPECTED_ADDR]], i32 0, i32 0
 // CHECK: [[X_RE:%.+]] = load i32, i32* [[X_RE_ADDR]]
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[EXPECTED_ADDR]], i32 0, i32 1
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[EXPECTED_ADDR]], i32 0, i32 1
 // CHECK: [[X_IM:%.+]] = load i32, i32* [[X_IM_ADDR]]
 // <Skip checks for complex calculations>
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[DESIRED_ADDR:%.+]], i32 0, i32 0
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[DESIRED_ADDR]], i32 0, i32 1
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[DESIRED_ADDR:%.+]], i32 0, i32 0
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[DESIRED_ADDR]], i32 0, i32 1
 // CHECK: store i32 %{{.+}}, i32* [[X_RE_ADDR]]
 // CHECK: store i32 %{{.+}}, i32* [[X_IM_ADDR]]
 // CHECK: [[EXPECTED:%.+]] = bitcast { i32, i32 }* [[EXPECTED_ADDR]] to i8*
@@ -273,13 +273,13 @@ int main(void) {
 // CHECK: call void @__atomic_load(i64 noundef 8, i8* noundef bitcast ({ float, float }* [[X_ADDR:@.+]] to i8*), i8* noundef [[BITCAST]], i32 noundef 0)
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[EXPECTED_ADDR]], i32 0, i32 0
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { float, float }, { float, float }* [[EXPECTED_ADDR]], i32 0, i32 0
 // CHECK: [[X_RE:%.+]] = load float, float* [[X_RE_ADDR]]
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[EXPECTED_ADDR]], i32 0, i32 1
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { float, float }, { float, float }* [[EXPECTED_ADDR]], i32 0, i32 1
 // CHECK: [[X_IM:%.+]] = load float, float* [[X_IM_ADDR]]
 // <Skip checks for complex calculations>
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[DESIRED_ADDR:%.+]], i32 0, i32 0
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSf, %complex._ZTSf* [[DESIRED_ADDR]], i32 0, i32 1
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { float, float }, { float, float }* [[DESIRED_ADDR:%.+]], i32 0, i32 0
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { float, float }, { float, float }* [[DESIRED_ADDR]], i32 0, i32 1
 // CHECK: store float %{{.+}}, float* [[X_RE_ADDR]]
 // CHECK: store float %{{.+}}, float* [[X_IM_ADDR]]
 // CHECK: [[EXPECTED:%.+]] = bitcast { float, float }* [[EXPECTED_ADDR]] to i8*
@@ -295,13 +295,13 @@ int main(void) {
 // CHECK: call void @__atomic_load(i64 noundef 16, i8* noundef bitcast ({ double, double }* [[X_ADDR:@.+]] to i8*), i8* noundef [[BITCAST]], i32 noundef 5)
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSd, %complex._ZTSd* [[EXPECTED_ADDR]], i32 0, i32 0
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { double, double }, { double, double }* [[EXPECTED_ADDR]], i32 0, i32 0
 // CHECK: [[X_RE:%.+]] = load double, double* [[X_RE_ADDR]]
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSd, %complex._ZTSd* [[EXPECTED_ADDR]], i32 0, i32 1
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { double, double }, { double, double }* [[EXPECTED_ADDR]], i32 0, i32 1
 // CHECK: [[X_IM:%.+]] = load double, double* [[X_IM_ADDR]]
 // <Skip checks for complex calculations>
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSd, %complex._ZTSd* [[DESIRED_ADDR:%.+]], i32 0, i32 0
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSd, %complex._ZTSd* [[DESIRED_ADDR]], i32 0, i32 1
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { double, double }, { double, double }* [[DESIRED_ADDR:%.+]], i32 0, i32 0
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { double, double }, { double, double }* [[DESIRED_ADDR]], i32 0, i32 1
 // CHECK: store double %{{.+}}, double* [[X_RE_ADDR]]
 // CHECK: store double %{{.+}}, double* [[X_IM_ADDR]]
 // CHECK: [[EXPECTED:%.+]] = bitcast { double, double }* [[EXPECTED_ADDR]] to i8*
@@ -405,13 +405,13 @@ int main(void) {
 // CHECK: call void @__atomic_load(i64 noundef 8, i8* noundef bitcast ({ i32, i32 }* [[X_ADDR:@.+]] to i8*), i8* noundef [[BITCAST]], i32 noundef 0)
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[EXPECTED_ADDR]], i32 0, i32 0
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[EXPECTED_ADDR]], i32 0, i32 0
 // CHECK: [[X_RE:%.+]] = load i32, i32* [[X_RE_ADDR]]
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[EXPECTED_ADDR]], i32 0, i32 1
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[EXPECTED_ADDR]], i32 0, i32 1
 // CHECK: [[X_IM:%.+]] = load i32, i32* [[X_IM_ADDR]]
 // <Skip checks for complex calculations>
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[DESIRED_ADDR:%.+]], i32 0, i32 0
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[DESIRED_ADDR]], i32 0, i32 1
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[DESIRED_ADDR:%.+]], i32 0, i32 0
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[DESIRED_ADDR]], i32 0, i32 1
 // CHECK: store i32 %{{.+}}, i32* [[X_RE_ADDR]]
 // CHECK: store i32 %{{.+}}, i32* [[X_IM_ADDR]]
 // CHECK: [[EXPECTED:%.+]] = bitcast { i32, i32 }* [[EXPECTED_ADDR]] to i8*
@@ -482,13 +482,13 @@ int main(void) {
 // CHECK: call void @__atomic_load(i64 noundef 8, i8* noundef bitcast ({ i32, i32 }* [[X_ADDR:@.+]] to i8*), i8* noundef [[BITCAST]], i32 noundef 0)
 // CHECK: br label %[[CONT:.+]]
 // CHECK: [[CONT]]
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[EXPECTED_ADDR]], i32 0, i32 0
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[EXPECTED_ADDR]], i32 0, i32 0
 // CHECK: [[X_RE:%.+]] = load i32, i32* [[X_RE_ADDR]]
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[EXPECTED_ADDR]], i32 0, i32 1
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[EXPECTED_ADDR]], i32 0, i32 1
 // CHECK: [[X_IM:%.+]] = load i32, i32* [[X_IM_ADDR]]
 // <Skip checks for complex calculations>
-// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[DESIRED_ADDR:%.+]], i32 0, i32 0
-// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds %complex._ZTSi, %complex._ZTSi* [[DESIRED_ADDR]], i32 0, i32 1
+// CHECK: [[X_RE_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[DESIRED_ADDR:%.+]], i32 0, i32 0
+// CHECK: [[X_IM_ADDR:%.+]] = getelementptr inbounds { i32, i32 }, { i32, i32 }* [[DESIRED_ADDR]], i32 0, i32 1
 // CHECK: store i32 %{{.+}}, i32* [[X_RE_ADDR]]
 // CHECK: store i32 %{{.+}}, i32* [[X_IM_ADDR]]
 // CHECK: [[EXPECTED:%.+]] = bitcast { i32, i32 }* [[EXPECTED_ADDR]] to i8*

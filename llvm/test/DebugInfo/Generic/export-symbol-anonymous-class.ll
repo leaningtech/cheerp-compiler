@@ -1,6 +1,8 @@
 ; XFAIL: -aix
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s | llvm-dwarfdump -debug-info - | FileCheck %s
 ;
+target triple = "x86_64-unknown-linux"
+
 ; struct A {
 ;  // Anonymous class exports its symbols into A
 ;  struct {

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++2a -verify %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++2a -verify %s
 
 namespace p3 {
   void bar(...);

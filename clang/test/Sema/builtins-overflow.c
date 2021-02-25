@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -verify %s
 
 #if __has_feature(__builtin_add_overflow)
 #warning defined as expected

@@ -286,7 +286,7 @@ define i8* @test7(i8* %a) {
 ; CHECK-SAME: (i8* nofree readnone returned "no-capture-maybe-returned" [[A:%.*]]) #[[ATTR1]] {
 ; CHECK-NEXT:    ret i8* [[A]]
 ;
-  %b = getelementptr inbounds i8, i8* %a, i64 0
+  %b = bitcast i8* %a to i8*
   ret i8* %b
 }
 

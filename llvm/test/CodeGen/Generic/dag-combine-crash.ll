@@ -1,4 +1,4 @@
-; RUN: llc < %s
+; RUN: llc -march=x86 < %s
 
 define void @main()  {
 if.end:

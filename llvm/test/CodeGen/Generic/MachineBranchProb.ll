@@ -1,5 +1,7 @@
 ; RUN: llc < %s -print-after=finalize-isel -o /dev/null 2>&1 | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Hexagon runs passes that renumber the basic blocks, causing this test
 ; to fail.
 ; XFAIL: hexagon

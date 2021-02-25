@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -emit-llvm -fsanitize=address -fblocks -o - | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple %s -emit-llvm -fsanitize=address -fblocks -o - | FileCheck %s
 
 @interface I0 @end
 @implementation I0

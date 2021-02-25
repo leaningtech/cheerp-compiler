@@ -28,8 +28,7 @@ define void @byval_caller(float* nocapture align 64 %a, float* %b) #0 {
 ; CHECK-SAME: (float* nocapture align 64 [[A:%.*]], float* [[B:%.*]]) #0
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[A1:%.*]] = alloca float, align 128
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[A1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[TMP0]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.{{.*}}(i64 4, {{.*}}* [[A1]])
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast float* [[A1]] to i8*
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast float* [[A]] to i8*
 ; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 [[TMP1]], i8* align 1 [[TMP2]], i64 4, i1 false)
@@ -37,8 +36,7 @@ define void @byval_caller(float* nocapture align 64 %a, float* %b) #0 {
 ; CHECK-NEXT:    [[B_IDX_I:%.*]] = getelementptr inbounds float, float* [[B]], i64 8
 ; CHECK-NEXT:    [[ADD_I:%.*]] = fadd float [[LOAD_I]], 2.000000e+00
 ; CHECK-NEXT:    store float [[ADD_I]], float* [[B_IDX_I]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast float* [[A1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* [[TMP3]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.{{.*}}(i64 4, {{.*}}* [[A1]])
 ; CHECK-NEXT:    [[CALLER_LOAD:%.*]] = load float, float* [[B]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, float* [[A]], i64 7
 ; CHECK-NEXT:    store float [[CALLER_LOAD]], float* [[ARRAYIDX]], align 4

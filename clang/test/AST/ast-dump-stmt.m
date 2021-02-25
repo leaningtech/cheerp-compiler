@@ -1,10 +1,10 @@
 // Test without serialization:
-// RUN: %clang_cc1 -Wno-unused -fobjc-arc -fblocks -fobjc-exceptions -ast-dump -ast-dump-filter Test %s \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -Wno-unused -fobjc-arc -fblocks -fobjc-exceptions -ast-dump -ast-dump-filter Test %s \
 // RUN: | FileCheck -strict-whitespace %s
 //
 // Test with serialization:
-// RUN: %clang_cc1 -Wno-unused -fobjc-arc -fblocks -fobjc-exceptions -emit-pch -o %t %s
-// RUN: %clang_cc1 -x objective-c -Wno-unused -fobjc-arc -fblocks -fobjc-exceptions -include-pch %t \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -Wno-unused -fobjc-arc -fblocks -fobjc-exceptions -emit-pch -o %t %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x objective-c -Wno-unused -fobjc-arc -fblocks -fobjc-exceptions -include-pch %t \
 // RUN: -ast-dump-all -ast-dump-filter Test /dev/null \
 // RUN: | sed -e "s/ <undeserialized declarations>//" -e "s/ imported//" \
 // RUN: | FileCheck -strict-whitespace %s

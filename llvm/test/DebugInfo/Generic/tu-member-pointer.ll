@@ -9,6 +9,8 @@
 ; };
 ; int Foo:*x = 0;
 
+target triple = "x86_64-unknown-linux"
+
 source_filename = "test/DebugInfo/Generic/tu-member-pointer.ll"
 
 @x = global i64 -1, align 8, !dbg !0

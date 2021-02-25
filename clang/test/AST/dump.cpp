@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -verify -fopenmp -ast-dump %s | FileCheck %s -implicit-check-not=openmp_structured_block
-// RUN: %clang_cc1 -verify -fopenmp-simd -ast-dump %s | FileCheck %s -implicit-check-not=openmp_structured_block
+// RUN: %clang_cc1 -triple %itanium_abi_triple -verify -fopenmp -ast-dump %s | FileCheck %s -implicit-check-not=openmp_structured_block
+// RUN: %clang_cc1 -triple %itanium_abi_triple -verify -fopenmp-simd -ast-dump %s | FileCheck %s -implicit-check-not=openmp_structured_block
 // expected-no-diagnostics
 
 int ga, gb;

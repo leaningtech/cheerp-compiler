@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -std=c++1z -verify -fsyntax-only -fblocks %s -fcxx-exceptions
-// RUN: %clang_cc1 -std=c++20 -verify -fsyntax-only -fblocks %s -fcxx-exceptions
-// RUN: %clang_cc1 -std=c++1z -verify -fsyntax-only -fblocks -fdelayed-template-parsing %s -fcxx-exceptions
-// RUN: %clang_cc1 -std=c++14 -verify -fsyntax-only -fblocks %s -DCPP14_AND_EARLIER -fcxx-exceptions
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++1z -verify -fsyntax-only -fblocks %s -fcxx-exceptions
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 -verify -fsyntax-only -fblocks %s -fcxx-exceptions
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++1z -verify -fsyntax-only -fblocks -fdelayed-template-parsing %s -fcxx-exceptions
+// RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++14 -verify -fsyntax-only -fblocks %s -DCPP14_AND_EARLIER -fcxx-exceptions
 
 
 namespace test_lambda_is_literal {

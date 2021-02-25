@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fblocks -emit-llvm %s -o /dev/null
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fblocks -emit-llvm %s -o /dev/null
 // rdar://6394879
 
 @interface bork

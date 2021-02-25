@@ -1,5 +1,7 @@
 ; RUN: llc < %s | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; CHECK-LABEL: test_ult
 define i1 @test_ult(i256 %a) nounwind {
   %1 = icmp ult i256 %a, -6432394258550908438

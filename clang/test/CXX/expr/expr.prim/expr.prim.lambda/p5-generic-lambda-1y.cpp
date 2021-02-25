@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s -std=c++1y -DCXX1Y 
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -verify %s -std=c++1y -DCXX1Y 
 
 namespace test_factorial {
 

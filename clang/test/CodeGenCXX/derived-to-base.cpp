@@ -18,7 +18,7 @@ void f() {
 // CHECK: define{{.*}} %struct.B* @_Z1fP1A(%struct.A* noundef %a) [[NUW:#[0-9]+]]
 B *f(A *a) {
   // CHECK-NOT: br label
-  // CHECK: ret %struct._Z1B*
+  // CHECK: ret %struct.B*
   return static_cast<B*>(a);
 }
 
@@ -28,7 +28,7 @@ namespace PR5965 {
 // CHECK: define{{.*}} %struct.A* @_ZN6PR59651fEP1B(%struct.B* noundef %b) [[NUW]]
 A *f(B* b) {
   // CHECK-NOT: br label
-  // CHECK: ret %struct._Z1A*
+  // CHECK: ret %struct.A*
   return b;
 }
 

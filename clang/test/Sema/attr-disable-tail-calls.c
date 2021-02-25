@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only -verify %s
 
 void __attribute__((disable_tail_calls,naked)) foo1(int a) { // expected-error {{'naked' and 'disable_tail_calls' attributes are not compatible}} expected-note {{conflicting attribute is here}}
   __asm__("");

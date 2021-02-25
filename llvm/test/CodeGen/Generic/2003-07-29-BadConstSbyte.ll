@@ -1,5 +1,7 @@
 ; RUN: llc < %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Bug: PR31341
 
 ;; Date:     Jul 29, 2003.

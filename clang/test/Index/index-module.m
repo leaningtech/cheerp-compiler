@@ -4,11 +4,11 @@
 int glob;
 
 // RUN: rm -rf %t.cache %t.cache.sys
-// RUN: c-index-test -index-file %s -fmodules-cache-path=%t.cache -fmodules -F %S/../Modules/Inputs \
+// RUN: c-index-test -index-file %s -target x86_64-unknown-linux -fmodules-cache-path=%t.cache -fmodules -F %S/../Modules/Inputs \
 // RUN:      -Xclang -fdisable-module-hash | FileCheck %s
-// RUN: c-index-test -index-file %s -fmodules-cache-path=%t.cache.sys -fmodules -iframework %S/../Modules/Inputs \
+// RUN: c-index-test -index-file %s -target x86_64-unknown-linux -fmodules-cache-path=%t.cache.sys -fmodules -iframework %S/../Modules/Inputs \
 // RUN:      -Xclang -fdisable-module-hash | FileCheck %s
-// RUN: c-index-test -index-file %s -fmodules-cache-path=%t.cache -fmodules -gmodules -F %S/../Modules/Inputs \
+// RUN: c-index-test -index-file %s -target x86_64-unknown-linux -fmodules-cache-path=%t.cache -fmodules -gmodules -F %S/../Modules/Inputs \
 // RUN:      -Xclang -fdisable-module-hash | FileCheck %s
 
 // CHECK-NOT: [indexDeclaration]
@@ -19,8 +19,8 @@ int glob;
 // CHECK-NEXT: [indexDeclaration]: kind: variable | name: glob | {{.*}} | loc: 4:5 
 // CHECK-NOT: [indexDeclaration]
 
-// RUN: c-index-test -index-tu %t.cache/DependsOnModule.pcm | FileCheck %s -check-prefix=CHECK-DMOD
-// RUN: c-index-test -index-tu %t.cache.sys/DependsOnModule.pcm | FileCheck %s -check-prefix=CHECK-DMOD-AST
+// RUN: c-index-test -index-tu %t.cache/DependsOnModule.pcm -target x86_64-unknown-linux | FileCheck %s -check-prefix=CHECK-DMOD
+// RUN: c-index-test -index-tu %t.cache.sys/DependsOnModule.pcm -target x86_64-unknown-linux | FileCheck %s -check-prefix=CHECK-DMOD-AST
 
 // CHECK-DMOD:      [startedTranslationUnit]
 // CHECK-DMOD-NEXT: [ppIncludedFile]: [[DMOD_MODULE_H:.*/Modules/Inputs/DependsOnModule\.framework[/\\]Headers[/\\]DependsOnModule\.h]] | {{.*}} | hash loc: <invalid> | {{.*}} | module: DependsOnModule
@@ -41,7 +41,7 @@ int glob;
 
 // CHECK-DMOD-AST: [importedASTFile]: {{.*}}.cache.sys{{[/\\]}}Module.pcm | loc: {{.*}}DependsOnModule.h:1:1 | name: "Module" | isImplicit: 1
 
-// RUN: c-index-test -index-tu %t.cache/Module.pcm | FileCheck %s -check-prefix=CHECK-TMOD
+// RUN: c-index-test -index-tu %t.cache/Module.pcm -target x86_64-unknown-linux | FileCheck %s -check-prefix=CHECK-TMOD
 
 // CHECK-TMOD:      [startedTranslationUnit]
 // CHECK-TMOD-NEXT: [ppIncludedFile]: [[TMOD_MODULE_H:.*/Modules/Inputs/Module\.framework[/\\]Headers[/\\]Module\.h]] | {{.*}} | hash loc: <invalid>

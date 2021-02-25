@@ -2,6 +2,8 @@
 ; RUN: llvm-dwarfdump -debug-pubnames %t.o | FileCheck %s
 ; ModuleID = 'dwarf-public-names.cpp'
 ;
+target triple = "x86_64-unknown-linux"
+
 ; Generated from:
 ;
 ; struct C {

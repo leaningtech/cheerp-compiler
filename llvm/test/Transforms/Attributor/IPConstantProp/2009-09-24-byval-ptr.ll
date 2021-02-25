@@ -50,7 +50,7 @@ define internal void @vfu1(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nounw
 entry:
   %0 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 1 ; <i32*> [#uses=1]
   store i32 99, i32* %0, align 4
-  %1 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 0 ; <i8*> [#uses=1]
+  %1 = bitcast %struct.MYstr* %u to i8*; <i8*> [#uses=1]
   store i8 97, i8* %1, align 4
   %l = load i8, i8* %1
   call void @use(i8 %l)
@@ -93,7 +93,7 @@ define internal i32 @vfu2(%struct.MYstr* byval(%struct.MYstr) align 4 %u) nounwi
 entry:
   %0 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 1 ; <i32*> [#uses=1]
   %1 = load i32, i32* %0
-  %2 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 0 ; <i8*> [#uses=1]
+  %2 = bitcast %struct.MYstr* %u to i8*; <i8*> [#uses=1]
   %3 = load i8, i8* %2
   %4 = zext i8 %3 to i32
   %5 = add i32 %4, %1
@@ -192,7 +192,7 @@ entry:
   store i32 99, i32* %z, align 4
   %0 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 1 ; <i32*> [#uses=1]
   %1 = load i32, i32* %0
-  %2 = getelementptr %struct.MYstr, %struct.MYstr* %u, i32 0, i32 0 ; <i8*> [#uses=1]
+  %2 = bitcast %struct.MYstr* %u to i8*; <i8*> [#uses=1]
   %3 = load i8, i8* %2
   %4 = zext i8 %3 to i32
   %5 = add i32 %4, %1

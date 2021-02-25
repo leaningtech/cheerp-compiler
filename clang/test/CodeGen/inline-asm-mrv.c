@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm %s -o - -O | not grep alloca
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm %s -o - -O | not grep alloca
 // PR2094
 
 int sad16_sse2(void *v, unsigned char *blk2, unsigned char *blk1,

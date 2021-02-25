@@ -1,9 +1,9 @@
-; RUN: llc -O1 -debug %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=LLC-Ox
-; RUN: llc -O2 -debug %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=LLC-Ox
-; RUN: llc -O3 -debug %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=LLC-Ox
-; RUN: llc -misched-postra -debug %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=LLC-MORE
-; RUN: llc -O1 -debug-only=isel %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=FAST
-; RUN: llc -O1 -debug-only=isel -fast-isel=false %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=NOFAST
+; RUN: llc -march=x86 -O1 -debug %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=LLC-Ox
+; RUN: llc -march=x86 -O2 -debug %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=LLC-Ox
+; RUN: llc -march=x86 -O3 -debug %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=LLC-Ox
+; RUN: llc -march=x86 -misched-postra -debug %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=LLC-MORE
+; RUN: llc -march=x86 -O1 -debug-only=isel %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=FAST
+; RUN: llc -march=x86 -O1 -debug-only=isel -fast-isel=false %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=NOFAST
 
 ; REQUIRES: asserts, default_triple
 

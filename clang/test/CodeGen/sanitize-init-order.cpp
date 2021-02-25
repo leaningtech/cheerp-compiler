@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsanitize=address -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsanitize=address -emit-llvm -o - %s | FileCheck %s
 
 // Test ignorelist functionality.
 // RUN: echo "src:%s=init" | sed -e 's/\\/\\\\/g' > %t-file.ignorelist

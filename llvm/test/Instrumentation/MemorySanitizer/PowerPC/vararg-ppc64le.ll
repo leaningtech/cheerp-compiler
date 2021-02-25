@@ -81,7 +81,7 @@ define i32 @bar6([2 x i64]* %arg) {
 }
 
 ; CHECK-LABEL: @bar6
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 bitcast ([100 x i64]* @__msan_va_arg_tls to i8*), i8* align 8 {{.*}}, i64 16, i1 false)
+; CHECK: call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 8 bitcast ([100 x i64]* @__msan_va_arg_tls to i8*), i8* align 8 {{.*}}, i32 16, i1 false)
 ; CHECK: store {{.*}} 16, {{.*}} @__msan_va_arg_overflow_size_tls
 
 ; Check 16-aligned byval.

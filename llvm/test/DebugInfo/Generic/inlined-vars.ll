@@ -2,6 +2,8 @@
 ; RUN: %llc_dwarf -O0 < %s | FileCheck %s -check-prefix VARIABLE
 ; PR 13202
 
+target triple = "x86_64-unknown-linux"
+
 define i32 @main() uwtable !dbg !5 {
 entry:
   tail call void @llvm.dbg.value(metadata i32 0, metadata !18, metadata !DIExpression()), !dbg !21

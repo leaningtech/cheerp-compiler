@@ -21,6 +21,6 @@ void test1() {
 // CHECK-LABEL: define {{.*}} @_ZN1BaSEOS_
 // CHECK: call {{.*}} @_ZN1AaSEOS_
 // CHECK-NOT: store
-// CHECK: call {{.*}}memcpy{{.*}}, i64 24
+// CHECK: call {{.*}}memcpy{{.*}}, i32 24
 // CHECK-NOT: store
 // CHECK: ret

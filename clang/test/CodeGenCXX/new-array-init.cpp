@@ -71,7 +71,7 @@ void string_sufficient() {
   // CHECK-NOT: icmp
   // CHECK: %[[PTR:.*]] = call noalias noundef nonnull i8* @_Zna{{.}}(i{{32|64}} noundef 15)
   // FIXME: For very large arrays, it would be preferable to emit a small copy and a memset.
-  // CHECK: call void @llvm.memcpy{{.*}}(i8* align {{[0-9]+}} %[[PTR]], i8* align {{[0-9]+}} getelementptr inbounds ([15 x i8], [15 x i8]* @[[ABC15]], i32 0, i32 0), i32 15,
+  // CHECK: call void @llvm.memcpy{{.*}}(i8* align {{[0-9]+}} %[[PTR]], i8* align {{[0-9]+}} bitcast ([15 x i8]* @[[ABC15]] to i8*), i32 15,
   // CHECK-NOT: memset
   new char[15] { "abc" };
 }

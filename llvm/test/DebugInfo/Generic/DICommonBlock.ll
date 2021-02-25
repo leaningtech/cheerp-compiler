@@ -1,5 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s > %t
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
+
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: DW_TAG_common_block
 ; CHECK-DAG: DW_AT_name{{.*}}"a"
 ; CHECK-DAG: DW_AT_location

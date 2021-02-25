@@ -7,5 +7,5 @@ void a() {
 }
 
 // CHECK: call {{.*}} @_ZN1BC1Ev
-// CHECK: define linkonce_odr {{.*}} @_ZN1BC1Ev(%struct._Z1B* {{.*}}%this) unnamed_addr
+// CHECK: define linkonce_odr {{.*}} @_ZN1BC1Ev(%struct.B* {{.*}}%this) unnamed_addr
 // CHECK: call {{.*}} @_ZN1AIiEC1Ev

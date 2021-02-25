@@ -9,7 +9,7 @@ void ffcomplex (int a) {
 
   // CHECK: call noundef { double, double } @__muldc3(double noundef %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}}, double noundef %{{.+}})
   dc *= dc;
-  // CHECK: call {{.+}} @__kmpc_fork_call({{.+}} [[REGNAME1:@.*]] to void (i32*, i32*, ...)*), %complex._ZTSd* %{{.+}})
+  // CHECK: call {{.+}} @__kmpc_fork_call({{.+}} [[REGNAME1:@.*]] to void (i32*, i32*, ...)*), { double, double }* %{{.+}})
   #pragma omp parallel
   {
     dc *= dc;

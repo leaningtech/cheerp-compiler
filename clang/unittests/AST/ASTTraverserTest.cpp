@@ -158,7 +158,7 @@ void verifyWithDynNode(T Node, const std::string &DumpString) {
 
 TEST(Traverse, Dump) {
 
-  auto AST = buildASTFromCode(R"cpp(
+  auto AST = buildASTFromCodeWithArgs(R"cpp(
 struct A {
   int m_number;
 
@@ -183,7 +183,7 @@ struct templ<int>
 
 void parmvardecl_attr(struct A __attribute__((address_space(19)))*);
 
-)cpp");
+)cpp", {"-target", "x86_64-unknown-gnu"});
 
   const FunctionDecl *Func = getFunctionNode(AST.get(), "func");
 
@@ -280,7 +280,7 @@ TemplateArgument type int
 
 TEST(Traverse, IgnoreUnlessSpelledInSourceVars) {
 
-  auto AST = buildASTFromCode(R"cpp(
+  auto AST = buildASTFromCodeWithArgs(R"cpp(
 
 struct String
 {
@@ -346,7 +346,7 @@ void varDeclCtors() {
   }
 }
 
-)cpp");
+)cpp", {"-target", "x86_64-unknown-gnu"});
 
   {
     auto FN =
@@ -633,7 +633,7 @@ VarDecl 'var8'
 }
 
 TEST(Traverse, IgnoreUnlessSpelledInSourceStructs) {
-  auto AST = buildASTFromCode(R"cpp(
+  auto AST = buildASTFromCodeWithArgs(R"cpp(
 
 struct MyStruct {
   MyStruct();
@@ -643,7 +643,7 @@ struct MyStruct {
   ~MyStruct();
 };
 
-)cpp");
+)cpp", {"-target", "x86_64-unknown-gnu"});
 
   auto BN = ast_matchers::match(
       cxxConstructorDecl(hasName("MyStruct"),
@@ -674,7 +674,7 @@ CXXConstructorDecl 'MyStruct'
 
 TEST(Traverse, IgnoreUnlessSpelledInSourceReturnStruct) {
 
-  auto AST = buildASTFromCode(R"cpp(
+  auto AST = buildASTFromCodeWithArgs(R"cpp(
 struct Retval {
   Retval() {}
   ~Retval() {}
@@ -686,7 +686,7 @@ void foo()
 {
     someFun();
 }
-)cpp");
+)cpp", {"-target", "x86_64-unknown-gnu"});
 
   auto BN = ast_matchers::match(functionDecl(hasName("foo")).bind("fn"),
                                 AST->getASTContext());
@@ -715,7 +715,7 @@ FunctionDecl 'foo'
 
 TEST(Traverse, IgnoreUnlessSpelledInSourceReturns) {
 
-  auto AST = buildASTFromCode(R"cpp(
+  auto AST = buildASTFromCodeWithArgs(R"cpp(
 
 struct A
 {
@@ -784,7 +784,7 @@ B func12() {
   return c;
 }
 
-)cpp");
+)cpp", {"-target", "x86_64-unknown-gnu"});
 
   auto getFunctionNode = [&AST](const std::string &name) {
     auto BN = ast_matchers::match(functionDecl(hasName(name)).bind("fn"),
@@ -971,7 +971,7 @@ struct SomeStruct {
     }
 };
 )cpp",
-                               {"-Wno-unused-value", "-Wno-c++2a-extensions"});
+                               {"-target", "x86_64-unknown-gnu", "-Wno-unused-value", "-Wno-c++2a-extensions"});
 
   auto getLambdaNode = [&AST](const std::string &name) {
     auto BN = ast_matchers::match(

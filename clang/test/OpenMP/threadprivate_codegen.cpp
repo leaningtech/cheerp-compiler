@@ -311,7 +311,7 @@ S1 arr_x[2][3] = { { 1, 2, 3 }, { 4, 5, 6 } };
 // CHECK:      [[ARR_DONE:%.*]] = icmp eq [[S1]]* [[ARR_ELEMENT]], [[ARR_BEGIN]]
 // CHECK-NEXT: br i1 [[ARR_DONE]], label %[[ARR_EXIT:.*]], label %[[ARR_LOOP]]
 // CHECK:      {{.*}}[[ARR_EXIT]]{{.*}}
-// CHECK: ret void
+// CHECK-NEXT: ret void
 // CHECK:      }
 // CHECK:      define internal {{.*}}void [[ARR_X_INIT:@\.__omp_threadprivate_init_\..*]]()
 // CHECK:      call {{.*}}void @__kmpc_threadprivate_register([[IDENT]]* [[DEFAULT_LOC]], i8* bitcast ([2 x [3 x [[S1]]]]* [[ARR_X]] to i8*), i8* (i8*)* [[ARR_X_CTOR]], i8* (i8*, i8*)* null, void (i8*)* [[ARR_X_DTOR]])
@@ -401,7 +401,7 @@ int main() {
 // CHECK:      call {{.*}}void @__kmpc_threadprivate_register([[IDENT]]* [[DEFAULT_LOC]], i8* bitcast ([[SMAIN]]* [[SM]] to i8*), i8* (i8*)* [[SM_CTOR:@\.__kmpc_global_ctor_\..+]], i8* (i8*, i8*)* null, void (i8*)* [[SM_DTOR:@\.__kmpc_global_dtor_\..+]])
 // CHECK:      [[GS1_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S1]]* [[GS1]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[GS1]].cache.)
 // CHECK-NEXT: [[GS1_ADDR:%.*]] = bitcast i8* [[GS1_TEMP_ADDR]] to [[S1]]*
-// CHECK-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
+// CHECK-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
 // CHECK-NEXT: [[GS1_A:%.*]] = load [[INT]], [[INT]]* [[GS1_A_ADDR]]
 // CHECK-NEXT: invoke {{.*}} [[SMAIN_CTOR:.*]]([[SMAIN]]* {{[^,]*}} [[SM]], [[INT]] {{.*}}[[GS1_A]])
 // CHECK:      call {{.*}}void @__cxa_guard_release
@@ -415,7 +415,7 @@ int main() {
 
 
 // CHECK-DEBUG-NEXT: [[GS1_ADDR:%.*]] = bitcast i8* [[GS1_TEMP_ADDR]] to [[S1]]*
-// CHECK-DEBUG-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
+// CHECK-DEBUG-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
 // CHECK-DEBUG-NEXT: [[GS1_A:%.*]] = load [[INT]], [[INT]]* [[GS1_A_ADDR]]
 // CHECK-DEBUG-NEXT: invoke {{.*}} [[SMAIN_CTOR:.*]]([[SMAIN]]* {{[^,]*}} [[SM]], [[INT]] {{.*}}[[GS1_A]])
 // CHECK-DEBUG:      call {{.*}}void @__cxa_guard_release
@@ -434,14 +434,14 @@ int main() {
 #pragma omp threadprivate(sm)
   // CHECK:      [[STATIC_S_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S3]]* [[STATIC_S]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[STATIC_S]].cache.)
   // CHECK-NEXT: [[STATIC_S_ADDR:%.*]] = bitcast i8* [[STATIC_S_TEMP_ADDR]] to [[S3]]*
-  // CHECK-NEXT: [[STATIC_S_A_ADDR:%.*]] = getelementptr inbounds [[S3]], [[S3]], [[S3]], [[S3]]* [[STATIC_S_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[STATIC_S_A_ADDR:%.*]] = getelementptr inbounds [[S3]], [[S3]]* [[STATIC_S_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[STATIC_S_A:%.*]] = load [[INT]], [[INT]]* [[STATIC_S_A_ADDR]]
   // CHECK-NEXT: store [[INT]] [[STATIC_S_A]], [[INT]]* [[RES_ADDR:[^,]+]]
   // CHECK-DEBUG:[[STATIC_S_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* {{.*}}, i32 {{.*}}, i8* bitcast ([[S3]]* [[STATIC_S]] to i8*), i{{.*}} {{[0-9]+}}, i8***
 
 
   // CHECK-DEBUG-NEXT: [[STATIC_S_ADDR:%.*]] = bitcast i8* [[STATIC_S_TEMP_ADDR]] to [[S3]]*
-  // CHECK-DEBUG-NEXT: [[STATIC_S_A_ADDR:%.*]] = getelementptr inbounds [[S3]], [[S3]], [[S3]], [[S3]]* [[STATIC_S_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[STATIC_S_A_ADDR:%.*]] = getelementptr inbounds [[S3]], [[S3]]* [[STATIC_S_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[STATIC_S_A:%.*]] = load [[INT]], [[INT]]* [[STATIC_S_A_ADDR]]
   // CHECK-DEBUG-NEXT: store [[INT]] [[STATIC_S_A]], [[INT]]* [[RES_ADDR:[^,]+]]
   // CHECK-TLS:      [[STATIC_S_ADDR:%.*]] = call [[S3]]* [[STATIC_S_TLS_INITD:@[^,]+]]
@@ -451,7 +451,7 @@ int main() {
   Res = Static::s.a;
   // CHECK:      [[SM_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[SMAIN]]* [[SM]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[SM]].cache.)
   // CHECK-NEXT: [[SM_ADDR:%.*]] = bitcast i8* [[SM_TEMP_ADDR]] to [[SMAIN]]*
-  // CHECK-NEXT: [[SM_A_ADDR:%.*]] = getelementptr inbounds [[SMAIN]], [[SMAIN]], [[SMAIN]], [[SMAIN]]* [[SM_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[SM_A_ADDR:%.*]] = getelementptr inbounds [[SMAIN]], [[SMAIN]]* [[SM_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[SM_A:%.*]] = load [[INT]], [[INT]]* [[SM_A_ADDR]]
   // CHECK-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[SM_A]]
@@ -460,7 +460,7 @@ int main() {
 
 
   // CHECK-DEBUG-NEXT: [[SM_ADDR:%.*]] = bitcast i8* [[SM_TEMP_ADDR]] to [[SMAIN]]*
-  // CHECK-DEBUG-NEXT: [[SM_A_ADDR:%.*]] = getelementptr inbounds [[SMAIN]], [[SMAIN]], [[SMAIN]], [[SMAIN]]* [[SM_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[SM_A_ADDR:%.*]] = getelementptr inbounds [[SMAIN]], [[SMAIN]]* [[SM_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[SM_A:%.*]] = load [[INT]], [[INT]]* [[SM_A_ADDR]]
   // CHECK-DEBUG-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-DEBUG-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[SM_A]]
@@ -473,7 +473,7 @@ int main() {
   Res += sm.a;
   // CHECK:      [[GS1_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S1]]* [[GS1]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[GS1]].cache.)
   // CHECK-NEXT: [[GS1_ADDR:%.*]] = bitcast i8* [[GS1_TEMP_ADDR]] to [[S1]]*
-  // CHECK-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[GS1_A:%.*]] = load [[INT]], [[INT]]* [[GS1_A_ADDR]]
   // CHECK-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[GS1_A]]
@@ -482,7 +482,7 @@ int main() {
 
 
   // CHECK-DEBUG-NEXT: [[GS1_ADDR:%.*]] = bitcast i8* [[GS1_TEMP_ADDR]] to [[S1]]*
-  // CHECK-DEBUG-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[GS1_A:%.*]] = load [[INT]], [[INT]]* [[GS1_A_ADDR]]
   // CHECK-DEBUG-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-DEBUG-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[GS1_A]]
@@ -509,7 +509,7 @@ int main() {
   Res += gs2.a;
   // CHECK:      [[GS3_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S5]]* [[GS3]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[GS3]].cache.)
   // CHECK-NEXT: [[GS3_ADDR:%.*]] = bitcast i8* [[GS3_TEMP_ADDR]] to [[S5]]*
-  // CHECK-NEXT: [[GS3_A_ADDR:%.*]] = getelementptr inbounds [[S5]], [[S5]], [[S5]], [[S5]]* [[GS3_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[GS3_A_ADDR:%.*]] = getelementptr inbounds [[S5]], [[S5]]* [[GS3_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[GS3_A:%.*]] = load [[INT]], [[INT]]* [[GS3_A_ADDR]]
   // CHECK-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[GS3_A]]
@@ -518,7 +518,7 @@ int main() {
 
 
   // CHECK-DEBUG-NEXT: [[GS3_ADDR:%.*]] = bitcast i8* [[GS3_TEMP_ADDR]] to [[S5]]*
-  // CHECK-DEBUG-NEXT: [[GS3_A_ADDR:%.*]] = getelementptr inbounds [[S5]], [[S5]], [[S5]], [[S5]]* [[GS3_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[GS3_A_ADDR:%.*]] = getelementptr inbounds [[S5]], [[S5]]* [[GS3_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[GS3_A:%.*]] = load [[INT]], [[INT]]* [[GS3_A_ADDR]]
   // CHECK-DEBUG-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-DEBUG-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[GS3_A]]
@@ -532,9 +532,9 @@ int main() {
   Res += gs3.a;
   // CHECK:      [[ARR_X_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([2 x [3 x [[S1]]]]* [[ARR_X]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[ARR_X]].cache.)
   // CHECK-NEXT: [[ARR_X_ADDR:%.*]] = bitcast i8* [[ARR_X_TEMP_ADDR]] to [2 x [3 x [[S1]]]]*
-  // CHECK-NEXT: [[ARR_X_1_ADDR:%.*]] = getelementptr inbounds [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]]* [[ARR_X_ADDR]], i{{.*}} 0, i{{.*}} 1
-  // CHECK-NEXT: [[ARR_X_1_1_ADDR:%.*]] = getelementptr inbounds [3 x [[S1]]], [3 x [[S1]]], [3 x [[S1]]], [3 x [[S1]]]* [[ARR_X_1_ADDR]], i{{.*}} 0, i{{.*}} 1
-  // CHECK-NEXT: [[ARR_X_1_1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[ARR_X_1_1_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[ARR_X_1_ADDR:%.*]] = getelementptr inbounds [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]]* [[ARR_X_ADDR]], i{{.*}} 0, i{{.*}} 1
+  // CHECK-NEXT: [[ARR_X_1_1_ADDR:%.*]] = getelementptr inbounds [3 x [[S1]]], [3 x [[S1]]]* [[ARR_X_1_ADDR]], i{{.*}} 0, i{{.*}} 1
+  // CHECK-NEXT: [[ARR_X_1_1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[ARR_X_1_1_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[ARR_X_1_1_A:%.*]] = load [[INT]], [[INT]]* [[ARR_X_1_1_A_ADDR]]
   // CHECK-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[ARR_X_1_1_A]]
@@ -543,9 +543,9 @@ int main() {
 
 
   // CHECK-DEBUG-NEXT: [[ARR_X_ADDR:%.*]] = bitcast i8* [[ARR_X_TEMP_ADDR]] to [2 x [3 x [[S1]]]]*
-  // CHECK-DEBUG-NEXT: [[ARR_X_1_ADDR:%.*]] = getelementptr inbounds [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]]* [[ARR_X_ADDR]], i{{.*}} 0, i{{.*}} 1
-  // CHECK-DEBUG-NEXT: [[ARR_X_1_1_ADDR:%.*]] = getelementptr inbounds [3 x [[S1]]], [3 x [[S1]]], [3 x [[S1]]], [3 x [[S1]]]* [[ARR_X_1_ADDR]], i{{.*}} 0, i{{.*}} 1
-  // CHECK-DEBUG-NEXT: [[ARR_X_1_1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[ARR_X_1_1_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[ARR_X_1_ADDR:%.*]] = getelementptr inbounds [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]]* [[ARR_X_ADDR]], i{{.*}} 0, i{{.*}} 1
+  // CHECK-DEBUG-NEXT: [[ARR_X_1_1_ADDR:%.*]] = getelementptr inbounds [3 x [[S1]]], [3 x [[S1]]]* [[ARR_X_1_ADDR]], i{{.*}} 0, i{{.*}} 1
+  // CHECK-DEBUG-NEXT: [[ARR_X_1_1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[ARR_X_1_1_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[ARR_X_1_1_A:%.*]] = load [[INT]], [[INT]]* [[ARR_X_1_1_A_ADDR]]
   // CHECK-DEBUG-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-DEBUG-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[ARR_X_1_1_A]]
@@ -602,7 +602,7 @@ int main() {
   Res += static_cast<int>(ST<float>::st);
   // CHECK:      [[ST_S4_ST_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S4]]* [[ST_S4_ST]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[ST_S4_ST]].cache.)
   // CHECK-NEXT: [[ST_S4_ST_ADDR:%.*]] = bitcast i8* [[ST_S4_ST_TEMP_ADDR]] to [[S4]]*
-  // CHECK-NEXT: [[ST_S4_ST_A_ADDR:%.*]] = getelementptr inbounds [[S4]], [[S4]], [[S4]], [[S4]]* [[ST_S4_ST_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[ST_S4_ST_A_ADDR:%.*]] = getelementptr inbounds [[S4]], [[S4]]* [[ST_S4_ST_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[ST_S4_ST_A:%.*]] = load [[INT]], [[INT]]* [[ST_S4_ST_A_ADDR]]
   // CHECK-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[ST_S4_ST_A]]
@@ -611,7 +611,7 @@ int main() {
 
 
   // CHECK-DEBUG-NEXT: [[ST_S4_ST_ADDR:%.*]] = bitcast i8* [[ST_S4_ST_TEMP_ADDR]] to [[S4]]*
-  // CHECK-DEBUG-NEXT: [[ST_S4_ST_A_ADDR:%.*]] = getelementptr inbounds [[S4]], [[S4]], [[S4]], [[S4]]* [[ST_S4_ST_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[ST_S4_ST_A_ADDR:%.*]] = getelementptr inbounds [[S4]], [[S4]]* [[ST_S4_ST_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[ST_S4_ST_A:%.*]] = load [[INT]], [[INT]]* [[ST_S4_ST_A_ADDR]]
   // CHECK-DEBUG-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-DEBUG-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[ST_S4_ST_A]]
@@ -640,7 +640,7 @@ int main() {
 // CHECK:      [[RES:%.*]] = bitcast i8* [[ARG]] to [[SMAIN]]*
 // CHECK:      [[GS1_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S1]]* [[GS1]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[GS1]].cache.)
 // CHECK-NEXT: [[GS1_ADDR:%.*]] = bitcast i8* [[GS1_TEMP_ADDR]] to [[S1]]*
-// CHECK-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
+// CHECK-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
 // CHECK-NEXT: [[GS1_A:%.*]] = load [[INT]], [[INT]]* [[GS1_A_ADDR]]
 // CHECK-NEXT: call {{.*}} [[SMAIN_CTOR:@.+]]([[SMAIN]]* {{[^,]*}} [[RES]], [[INT]] {{.*}}[[GS1_A]])
 // CHECK:      [[ARG:%.+]] = load i8*, i8** [[ARG_ADDR]]
@@ -667,7 +667,7 @@ int main() {
 
 
 // CHECK-DEBUG-NEXT: [[GS1_ADDR:%.*]] = bitcast i8* [[GS1_TEMP_ADDR]] to [[S1]]*
-// CHECK-DEBUG-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
+// CHECK-DEBUG-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
 // CHECK-DEBUG-NEXT: [[GS1_A:%.*]] = load [[INT]], [[INT]]* [[GS1_A_ADDR]]
 // CHECK-DEBUG-NEXT: call {{.*}} [[SMAIN_CTOR:@.+]]([[SMAIN]]* {{[^,]*}} [[RES]], [[INT]] {{.*}}[[GS1_A]])
 // CHECK-DEBUG:      [[ARG:%.+]] = load i8*, i8** [[ARG_ADDR]]
@@ -719,7 +719,7 @@ int foobar() {
   // CHECK:      [[THREAD_NUM:%.+]] = call {{.*}}i32 @__kmpc_global_thread_num([[IDENT]]* [[DEFAULT_LOC]])
   // CHECK:      [[STATIC_S_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S3]]* [[STATIC_S]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[STATIC_S]].cache.)
   // CHECK-NEXT: [[STATIC_S_ADDR:%.*]] = bitcast i8* [[STATIC_S_TEMP_ADDR]] to [[S3]]*
-  // CHECK-NEXT: [[STATIC_S_A_ADDR:%.*]] = getelementptr inbounds [[S3]], [[S3]], [[S3]], [[S3]]* [[STATIC_S_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[STATIC_S_A_ADDR:%.*]] = getelementptr inbounds [[S3]], [[S3]]* [[STATIC_S_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[STATIC_S_A:%.*]] = load [[INT]], [[INT]]* [[STATIC_S_A_ADDR]]
   // CHECK-NEXT: store [[INT]] [[STATIC_S_A]], [[INT]]* [[RES_ADDR:[^,]+]]
   // CHECK-DEBUG:      [[THREAD_NUM:%.+]] = call {{.*}}i32 @__kmpc_global_thread_num([[IDENT]]* {{.*}})
@@ -729,7 +729,7 @@ int foobar() {
 
 
   // CHECK-DEBUG-NEXT: [[STATIC_S_ADDR:%.*]] = bitcast i8* [[STATIC_S_TEMP_ADDR]] to [[S3]]*
-  // CHECK-DEBUG-NEXT: [[STATIC_S_A_ADDR:%.*]] = getelementptr inbounds [[S3]], [[S3]], [[S3]], [[S3]]* [[STATIC_S_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[STATIC_S_A_ADDR:%.*]] = getelementptr inbounds [[S3]], [[S3]]* [[STATIC_S_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[STATIC_S_A:%.*]] = load [[INT]], [[INT]]* [[STATIC_S_A_ADDR]]
   // CHECK-DEBUG-NEXT: store [[INT]] [[STATIC_S_A]], [[INT]]* [[RES_ADDR:[^,]+]]
   // CHECK-TLS:      [[STATIC_S_ADDR:%.*]]  = call [[S3]]* [[STATIC_S_TLS_INITD]]
@@ -739,7 +739,7 @@ int foobar() {
   Res = Static::s.a;
   // CHECK:      [[GS1_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S1]]* [[GS1]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[GS1]].cache.)
   // CHECK-NEXT: [[GS1_ADDR:%.*]] = bitcast i8* [[GS1_TEMP_ADDR]] to [[S1]]*
-  // CHECK-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[GS1_A:%.*]] = load [[INT]], [[INT]]* [[GS1_A_ADDR]]
   // CHECK-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[GS1_A]]
@@ -748,7 +748,7 @@ int foobar() {
 
 
   // CHECK-DEBUG-NEXT: [[GS1_ADDR:%.*]] = bitcast i8* [[GS1_TEMP_ADDR]] to [[S1]]*
-  // CHECK-DEBUG-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[GS1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[GS1_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[GS1_A:%.*]] = load [[INT]], [[INT]]* [[GS1_A_ADDR]]
   // CHECK-DEBUG-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-DEBUG-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[GS1_A]]
@@ -775,7 +775,7 @@ int foobar() {
   Res += gs2.a;
   // CHECK:      [[GS3_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S5]]* [[GS3]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[GS3]].cache.)
   // CHECK-NEXT: [[GS3_ADDR:%.*]] = bitcast i8* [[GS3_TEMP_ADDR]] to [[S5]]*
-  // CHECK-NEXT: [[GS3_A_ADDR:%.*]] = getelementptr inbounds [[S5]], [[S5]], [[S5]], [[S5]]* [[GS3_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[GS3_A_ADDR:%.*]] = getelementptr inbounds [[S5]], [[S5]]* [[GS3_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[GS3_A:%.*]] = load [[INT]], [[INT]]* [[GS3_A_ADDR]]
   // CHECK-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[GS3_A]]
@@ -784,7 +784,7 @@ int foobar() {
 
 
   // CHECK-DEBUG-NEXT: [[GS3_ADDR:%.*]] = bitcast i8* [[GS3_TEMP_ADDR]] to [[S5]]*
-  // CHECK-DEBUG-NEXT: [[GS3_A_ADDR:%.*]] = getelementptr inbounds [[S5]], [[S5]], [[S5]], [[S5]]* [[GS3_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[GS3_A_ADDR:%.*]] = getelementptr inbounds [[S5]], [[S5]]* [[GS3_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[GS3_A:%.*]] = load [[INT]], [[INT]]* [[GS3_A_ADDR]]
   // CHECK-DEBUG-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-DEBUG-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[GS3_A]]
@@ -798,9 +798,9 @@ int foobar() {
   Res += gs3.a;
   // CHECK:      [[ARR_X_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([2 x [3 x [[S1]]]]* [[ARR_X]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[ARR_X]].cache.)
   // CHECK-NEXT: [[ARR_X_ADDR:%.*]] = bitcast i8* [[ARR_X_TEMP_ADDR]] to [2 x [3 x [[S1]]]]*
-  // CHECK-NEXT: [[ARR_X_1_ADDR:%.*]] = getelementptr inbounds [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]]* [[ARR_X_ADDR]], i{{.*}} 0, i{{.*}} 1
-  // CHECK-NEXT: [[ARR_X_1_1_ADDR:%.*]] = getelementptr inbounds [3 x [[S1]]], [3 x [[S1]]], [3 x [[S1]]], [3 x [[S1]]]* [[ARR_X_1_ADDR]], i{{.*}} 0, i{{.*}} 1
-  // CHECK-NEXT: [[ARR_X_1_1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[ARR_X_1_1_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[ARR_X_1_ADDR:%.*]] = getelementptr inbounds [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]]* [[ARR_X_ADDR]], i{{.*}} 0, i{{.*}} 1
+  // CHECK-NEXT: [[ARR_X_1_1_ADDR:%.*]] = getelementptr inbounds [3 x [[S1]]], [3 x [[S1]]]* [[ARR_X_1_ADDR]], i{{.*}} 0, i{{.*}} 1
+  // CHECK-NEXT: [[ARR_X_1_1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[ARR_X_1_1_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[ARR_X_1_1_A:%.*]] = load [[INT]], [[INT]]* [[ARR_X_1_1_A_ADDR]]
   // CHECK-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[ARR_X_1_1_A]]
@@ -809,9 +809,9 @@ int foobar() {
 
 
   // CHECK-DEBUG-NEXT: [[ARR_X_ADDR:%.*]] = bitcast i8* [[ARR_X_TEMP_ADDR]] to [2 x [3 x [[S1]]]]*
-  // CHECK-DEBUG-NEXT: [[ARR_X_1_ADDR:%.*]] = getelementptr inbounds [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]]* [[ARR_X_ADDR]], i{{.*}} 0, i{{.*}} 1
-  // CHECK-DEBUG-NEXT: [[ARR_X_1_1_ADDR:%.*]] = getelementptr inbounds [3 x [[S1]]], [3 x [[S1]]], [3 x [[S1]]], [3 x [[S1]]]* [[ARR_X_1_ADDR]], i{{.*}} 0, i{{.*}} 1
-  // CHECK-DEBUG-NEXT: [[ARR_X_1_1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]], [[S1]], [[S1]]* [[ARR_X_1_1_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[ARR_X_1_ADDR:%.*]] = getelementptr inbounds [2 x [3 x [[S1]]]], [2 x [3 x [[S1]]]]* [[ARR_X_ADDR]], i{{.*}} 0, i{{.*}} 1
+  // CHECK-DEBUG-NEXT: [[ARR_X_1_1_ADDR:%.*]] = getelementptr inbounds [3 x [[S1]]], [3 x [[S1]]]* [[ARR_X_1_ADDR]], i{{.*}} 0, i{{.*}} 1
+  // CHECK-DEBUG-NEXT: [[ARR_X_1_1_A_ADDR:%.*]] = getelementptr inbounds [[S1]], [[S1]]* [[ARR_X_1_1_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[ARR_X_1_1_A:%.*]] = load [[INT]], [[INT]]* [[ARR_X_1_1_A_ADDR]]
   // CHECK-DEBUG-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-DEBUG-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[ARR_X_1_1_A]]
@@ -868,7 +868,7 @@ int foobar() {
   Res += static_cast<int>(ST<float>::st);
   // CHECK:      [[ST_S4_ST_TEMP_ADDR:%.*]] = call {{.*}}i8* @__kmpc_threadprivate_cached([[IDENT]]* [[DEFAULT_LOC]], i32 {{.*}}, i8* bitcast ([[S4]]* [[ST_S4_ST]] to i8*), i{{.*}} {{[0-9]+}}, i8*** [[ST_S4_ST]].cache.)
   // CHECK-NEXT: [[ST_S4_ST_ADDR:%.*]] = bitcast i8* [[ST_S4_ST_TEMP_ADDR]] to [[S4]]*
-  // CHECK-NEXT: [[ST_S4_ST_A_ADDR:%.*]] = getelementptr inbounds [[S4]], [[S4]], [[S4]], [[S4]]* [[ST_S4_ST_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-NEXT: [[ST_S4_ST_A_ADDR:%.*]] = getelementptr inbounds [[S4]], [[S4]]* [[ST_S4_ST_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-NEXT: [[ST_S4_ST_A:%.*]] = load [[INT]], [[INT]]* [[ST_S4_ST_A_ADDR]]
   // CHECK-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[ST_S4_ST_A]]
@@ -877,7 +877,7 @@ int foobar() {
 
 
   // CHECK-DEBUG-NEXT: [[ST_S4_ST_ADDR:%.*]] = bitcast i8* [[ST_S4_ST_TEMP_ADDR]] to [[S4]]*
-  // CHECK-DEBUG-NEXT: [[ST_S4_ST_A_ADDR:%.*]] = getelementptr inbounds [[S4]], [[S4]], [[S4]], [[S4]]* [[ST_S4_ST_ADDR]], i{{.*}} 0, i{{.*}} 0
+  // CHECK-DEBUG-NEXT: [[ST_S4_ST_A_ADDR:%.*]] = getelementptr inbounds [[S4]], [[S4]]* [[ST_S4_ST_ADDR]], i{{.*}} 0, i{{.*}} 0
   // CHECK-DEBUG-NEXT: [[ST_S4_ST_A:%.*]] = load [[INT]], [[INT]]* [[ST_S4_ST_A_ADDR]]
   // CHECK-DEBUG-NEXT: [[RES:%.*]] = load [[INT]], [[INT]]* [[RES_ADDR]]
   // CHECK-DEBUG-NEXT: [[ADD:%.*]] = add {{.*}} [[INT]] [[RES]], [[ST_S4_ST_A]]

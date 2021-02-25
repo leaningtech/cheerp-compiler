@@ -1,4 +1,4 @@
-// RUN: %clang_analyze_cc1 -analyzer-checker=core,debug.ExprInspection -verify %s
+// RUN: %clang_analyze_cc1 -triple %itanium_abi_triple -analyzer-checker=core,debug.ExprInspection -verify %s
 
 // expected-no-diagnostics
 

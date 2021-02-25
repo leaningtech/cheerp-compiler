@@ -246,7 +246,7 @@ float32x4_t f35(int i, s35_with_align s1, s35_with_align s2) {
 // CHECK: %s2 = alloca %struct.s35, align 16
 // CHECK: %[[a:.*]] = bitcast %struct.s35* %s1 to <4 x float>*
 // CHECK: load <4 x float>, <4 x float>* %[[a]], align 16
-// CHECK: %[[b:.*]] = bitcast %struct._Z3s35* %s2 to <4 x float>*
+// CHECK: %[[b:.*]] = bitcast %struct.s35* %s2 to <4 x float>*
 // CHECK: load <4 x float>, <4 x float>* %[[b]], align 16
   float32x4_t v = vaddq_f32(*(float32x4_t *)&s1,
                             *(float32x4_t *)&s2);
@@ -268,7 +268,7 @@ int32x4_t f36(int i, s36_with_align s1, s36_with_align s2) {
 // CHECK: store i128 %s2.coerce, i128* %{{.*}}, align 16
 // CHECK: %[[a:.*]] = bitcast %struct.s36* %s1 to <4 x i32>*
 // CHECK: load <4 x i32>, <4 x i32>* %[[a]], align 16
-// CHECK: %[[b:.*]] = bitcast %struct._Z3s36* %s2 to <4 x i32>*
+// CHECK: %[[b:.*]] = bitcast %struct.s36* %s2 to <4 x i32>*
 // CHECK: load <4 x i32>, <4 x i32>* %[[b]], align 16
   int32x4_t v = vaddq_s32(*(int32x4_t *)&s1,
                           *(int32x4_t *)&s2);
@@ -285,7 +285,7 @@ int32x4_t f37(int i, s37_with_align s1, s37_with_align s2) {
 // CHECK: define{{.*}} <4 x i32> @f37(i32 noundef %i, %struct.s37* noundef %s1, %struct.s37* noundef %s2)
 // CHECK: %[[a:.*]] = bitcast %struct.s37* %s1 to <4 x i32>*
 // CHECK: load <4 x i32>, <4 x i32>* %[[a]], align 16
-// CHECK: %[[b:.*]] = bitcast %struct._Z3s37* %s2 to <4 x i32>*
+// CHECK: %[[b:.*]] = bitcast %struct.s37* %s2 to <4 x i32>*
 // CHECK: load <4 x i32>, <4 x i32>* %[[b]], align 16
   int32x4_t v = vaddq_s32(*(int32x4_t *)&s1,
                           *(int32x4_t *)&s2);
@@ -294,8 +294,8 @@ int32x4_t f37(int i, s37_with_align s1, s37_with_align s2) {
 s37_with_align g37;
 int32x4_t caller37() {
 // CHECK: caller37
-// CHECK: %[[a:.*]] = alloca %struct._Z3s37, align 16
-// CHECK: %[[b:.*]] = alloca %struct._Z3s37, align 16
+// CHECK: %[[a:.*]] = alloca %struct.s37, align 16
+// CHECK: %[[b:.*]] = alloca %struct.s37, align 16
 // CHECK: call void @llvm.memcpy
 // CHECK: call void @llvm.memcpy
 // CHECK: call <4 x i32> @f37(i32 noundef 3, %struct.s37* noundef %[[a]], %struct.s37* noundef %[[b]])
@@ -552,7 +552,7 @@ int caller42() {
 // CHECK: %[[b:.*]] = alloca %struct.s42, align 4
 // CHECK: %[[c:.*]] = bitcast %struct.s42* %[[a]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
-// CHECK: %[[d:.*]] = bitcast %struct._Z3s42* %[[b]] to i8*
+// CHECK: %[[d:.*]] = bitcast %struct.s42* %[[b]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
 // CHECK: call i32 @f42(i32 noundef 3, %struct.s42* noundef %[[a]], %struct.s42* noundef %[[b]])
   return f42(3, g42, g42_2);
@@ -574,7 +574,7 @@ int caller42_stack() {
 // CHECK: %[[b:.*]] = alloca %struct.s42, align 4
 // CHECK: %[[c:.*]] = bitcast %struct.s42* %[[a]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
-// CHECK: %[[d:.*]] = bitcast %struct._Z3s42* %[[b]] to i8*
+// CHECK: %[[d:.*]] = bitcast %struct.s42* %[[b]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
 // CHECK: call i32 @f42_stack(i32 noundef 1, i32 noundef 2, i32 noundef 3, i32 noundef 4, i32 noundef 5, i32 noundef 6, i32 noundef 7, i32 noundef 8, i32 noundef 9, %struct.s42* noundef %[[a]], %struct.s42* noundef %[[b]])
   return f42_stack(1, 2, 3, 4, 5, 6, 7, 8, 9, g42, g42_2);
@@ -609,7 +609,7 @@ int caller43() {
 // CHECK: %[[b:.*]] = alloca %struct.s43, align 16
 // CHECK: %[[c:.*]] = bitcast %struct.s43* %[[a]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
-// CHECK: %[[d:.*]] = bitcast %struct._Z3s43* %[[b]] to i8*
+// CHECK: %[[d:.*]] = bitcast %struct.s43* %[[b]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
 // CHECK: call i32 @f43(i32 noundef 3, %struct.s43* noundef %[[a]], %struct.s43* noundef %[[b]])
   return f43(3, g43, g43_2);
@@ -631,7 +631,7 @@ int caller43_stack() {
 // CHECK: %[[b:.*]] = alloca %struct.s43, align 16
 // CHECK: %[[c:.*]] = bitcast %struct.s43* %[[a]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
-// CHECK: %[[d:.*]] = bitcast %struct._Z3s43* %[[b]] to i8*
+// CHECK: %[[d:.*]] = bitcast %struct.s43* %[[b]] to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
 // CHECK: call i32 @f43_stack(i32 noundef 1, i32 noundef 2, i32 noundef 3, i32 noundef 4, i32 noundef 5, i32 noundef 6, i32 noundef 7, i32 noundef 8, i32 noundef 9, %struct.s43* noundef %[[a]], %struct.s43* noundef %[[b]])
   return f43_stack(1, 2, 3, 4, 5, 6, 7, 8, 9, g43, g43_2);

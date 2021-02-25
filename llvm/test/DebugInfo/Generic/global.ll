@@ -1,6 +1,8 @@
 ; RUN: %llc_dwarf -O0 -filetype=obj < %s > %t
 ; RUN: llvm-dwarfdump %t | FileCheck %s
 
+target triple = "x86_64-unknown-linux"
+
 ; Also test that the null streamer doesn't crash with debug info.
 ; RUN: %llc_dwarf -O0 -filetype=null < %s
 

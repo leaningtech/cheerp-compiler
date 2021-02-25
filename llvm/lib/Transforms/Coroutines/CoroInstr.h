@@ -118,7 +118,7 @@ public:
     Value *Arg = getArgOperand(PromiseArg);
     return isa<ConstantPointerNull>(Arg)
                ? nullptr
-               : cast<AllocaInst>(Arg->stripPointerCastsSafe());
+               : cast<AllocaInst>(Arg->stripPointerCasts(true));
   }
 
   void clearPromise() {

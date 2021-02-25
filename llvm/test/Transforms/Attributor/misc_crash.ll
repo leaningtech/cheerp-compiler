@@ -33,7 +33,7 @@ define i32* @func1() {
 }
 
 define internal i32* @func1a([1 x i32]* %arg) {
-  %ptr = getelementptr inbounds [1 x i32], [1 x i32]* %arg, i64 0, i64 0
+  %ptr = bitcast [1 x i32]* %arg to i32*
   ret i32* %ptr
 }
 

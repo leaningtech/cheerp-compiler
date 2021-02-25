@@ -1,9 +1,9 @@
 // Test without serialization:
-// RUN: %clang_cc1 -fsyntax-only %s -ast-dump | FileCheck %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -fsyntax-only %s -ast-dump | FileCheck %s
 //
 // Test with serialization:
-// RUN: %clang_cc1 -emit-pch -o %t %s
-// RUN: %clang_cc1 -x c++ -include-pch %t -ast-dump-all /dev/null \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-pch -o %t %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x c++ -include-pch %t -ast-dump-all /dev/null \
 // RUN: | sed -e "s/ <undeserialized declarations>//" -e "s/ imported//" \
 // RUN: | FileCheck %s
 

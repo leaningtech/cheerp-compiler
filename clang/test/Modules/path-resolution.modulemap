@@ -7,12 +7,12 @@
 // RUN: cd %t/p1
 //
 // RUN: grep "<AM>" %s > %t/p1/a.modulemap
-// RUN: %clang_cc1 -x c++ -fmodules -emit-module -fmodule-map-file-home-is-cwd \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x c++ -fmodules -emit-module -fmodule-map-file-home-is-cwd \
 // RUN:   -fmodules-embed-all-files -fmodules-local-submodule-visibility \
 // RUN:   -fmodule-name="a" -o a.pcm a.modulemap
 //
 // RUN: grep "<BM>" %s > %t/p1/b.modulemap
-// RUN: %clang_cc1 -x c++ -fmodules -emit-module -fmodule-map-file-home-is-cwd \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x c++ -fmodules -emit-module -fmodule-map-file-home-is-cwd \
 // RUN:   -fmodules-embed-all-files -fmodules-local-submodule-visibility \
 // RUN:   -fmodule-name="b" -o b.pcm b.modulemap
 //
@@ -29,7 +29,7 @@
 // RUN: mkdir %t/p2/c
 // RUN: grep "<CM>" %s > %t/p2/c/c.modulemap
 // RUN: grep "<CH>" %s > %t/p2/c/c.h
-// RUN: %clang_cc1 -x c++ -fmodules -emit-module -fmodule-map-file-home-is-cwd \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -x c++ -fmodules -emit-module -fmodule-map-file-home-is-cwd \
 // RUN:   -fmodules-embed-all-files -fmodules-local-submodule-visibility \
 // RUN:   -fmodule-name="c" -fmodule-file=b.pcm -o c/c.pcm c/c.modulemap
 //
@@ -47,7 +47,7 @@
 // relative path from c.
 //
 // RUN: grep "<CC>" %s > %t/p2/c/c.cpp
-// RUN: %clang_cc1 -I. -x c++ -fmodules \
+// RUN: %clang_cc1 -triple %itanium_abi_triple -I. -x c++ -fmodules \
 // RUN:     -fmodule-file=b.pcm -fmodule-file=a.pcm -fmodule-file=c/c.pcm  \
 // RUN:     -o c/c.o -emit-obj c/c.cpp
 

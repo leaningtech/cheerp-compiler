@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm-only %s
+// RUN: %clang_cc1 -triple %itanium_abi_triple -emit-llvm-only %s
 
 typedef struct {
   unsigned f0;

@@ -77,7 +77,7 @@ define i1 @fcmp_constexpr_one(float %conv) {
 
 define i8* @bitcast_to_gep() {
 ; CHECK-LABEL: @bitcast_to_gep(
-; CHECK-NEXT:    ret i8* getelementptr inbounds (%T, %T* @G, i32 0, i32 0)
+; CHECK-NEXT:    ret i8* bitcast (%T* @G to i8*)
 ;
   %p = bitcast %T* @G to i8*
   ret i8* %p
@@ -85,7 +85,7 @@ define i8* @bitcast_to_gep() {
 
 define i8 addrspace(1)* @addrspacecast_to_gep() {
 ; CHECK-LABEL: @addrspacecast_to_gep(
-; CHECK-NEXT:    ret i8 addrspace(1)* addrspacecast (i8* getelementptr inbounds (%T, %T* @G, i32 0, i32 0) to i8 addrspace(1)*)
+; CHECK-NEXT:    ret i8 addrspace(1)* addrspacecast (i8* bitcast (%T* @G to i8*) to i8 addrspace(1)*)
 ;
   %p = addrspacecast %T* @G to i8 addrspace(1)*
   ret i8 addrspace(1)* %p

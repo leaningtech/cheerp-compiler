@@ -1,6 +1,8 @@
 ; Test (r)value qualifiers on C++11 non-static member functions.
 ; Generated from tools/clang/test/CodeGenCXX/debug-info-qualifiers.cpp
 ;
+target triple = "x86_64-unknown-linux"
+
 ; class A {
 ; public:
 ;   void l() const &;

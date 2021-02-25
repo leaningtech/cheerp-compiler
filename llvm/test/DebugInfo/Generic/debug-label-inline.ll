@@ -3,6 +3,8 @@
 ; Bug 47129
 ; XFAIL: sparc
 ;
+target triple = "x86_64-unknown-linux"
+
 ; CHECK: .debug_info contents:
 ; CHECK: [[LABEL_ORIGIN:0x[0-9a-zA-Z]+]]:{{ *}}DW_TAG_label
 ; CHECK-NEXT: DW_AT_name {{.*}}"top"
