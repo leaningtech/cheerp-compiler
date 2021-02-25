@@ -668,7 +668,7 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
   // For Wast and Wasm, it is important to have all constructors in the
   // llvm.global_ctors list. That way, Cheerp can figure out which constructors
   // can be called in Webassembly without relying on FFI to JavaScript.
-  if (!getLangOpts().ObjCAutoRefCount || !getLangOpts().CPlusPlus) {
+  if (!getTarget().isByteAddressable()) {
     for (unsigned i = 0, e = CXXGlobalInits.size(); i != e; ++i)
       if (CXXGlobalInits[i])
         AddGlobalCtor(CXXGlobalInits[i]);
