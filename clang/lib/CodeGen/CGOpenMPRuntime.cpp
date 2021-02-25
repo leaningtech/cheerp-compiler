@@ -1410,8 +1410,11 @@ Address CGOpenMPRuntime::getOrCreateDefaultLocation(unsigned Flags) {
       // https://github.com/llvm/llvm-project/blob/master/openmp/runtime/src/kmp_str.cpp
       DefaultOpenMPPSource =
           CGM.GetAddrOfConstantCString(";unknown;unknown;0;0;;").getPointer();
+      llvm::Constant* Zero = llvm::ConstantInt::get(CGM.Int32Ty, 0);
+      llvm::Constant* Indexes[] = { Zero, Zero };
       DefaultOpenMPPSource =
-          llvm::ConstantExpr::getBitCast(DefaultOpenMPPSource, CGM.Int8PtrTy);
+          llvm::ConstantExpr::getGetElementPtr(DefaultOpenMPPSource->getType()->getPointerElementType(), DefaultOpenMPPSource, Indexes);
+      assert(DefaultOpenMPPSource->getType() == CGM.Int8PtrTy);
     }
 
     llvm::Constant *Data[] = {
@@ -3159,8 +3162,11 @@ void CGOpenMPRuntime::createOffloadEntry(
       llvm::GlobalValue::InternalLinkage, StrPtrInit, StringName);
   Str->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
+  llvm::Constant* Zero = llvm::ConstantInt::get(CGM.Int32Ty, 0);
+  llvm::Constant* Indexes[] = { Zero, Zero };
+
   llvm::Constant *Data[] = {llvm::ConstantExpr::getBitCast(ID, CGM.VoidPtrTy),
-                            llvm::ConstantExpr::getBitCast(Str, CGM.Int8PtrTy),
+                            llvm::ConstantExpr::getGetElementPtr(Str->getType()->getPointerElementType(), Str, Indexes),
                             llvm::ConstantInt::get(CGM.SizeTy, Size),
                             llvm::ConstantInt::get(CGM.Int32Ty, Flags),
                             llvm::ConstantInt::get(CGM.Int32Ty, 0)};

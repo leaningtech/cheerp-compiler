@@ -5165,8 +5165,11 @@ void CGOpenMPRuntimeGPU::clear() {
           "_openmp_shared_static_glob_rd_$_", /*InsertBefore=*/nullptr,
           llvm::GlobalValue::NotThreadLocal,
           C.getTargetAddressSpace(LangAS::cuda_shared));
-      auto *Replacement = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-          GV, CGM.VoidPtrTy);
+      llvm::Constant* Zero = llvm::ConstantInt::get(CGM.Int32Ty, 0);
+      llvm::Constant* Indexes[] = { Zero, Zero, Zero };
+      auto *Replacement = llvm::ConstantExpr::getGetElementPtr(GV->getValueType(), GV, Indexes);
+      Replacement = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+          Replacement, CGM.VoidPtrTy);
       for (const GlobalPtrSizeRecsTy *Rec : SharedRecs) {
         Rec->Buffer->replaceAllUsesWith(Replacement);
         Rec->Buffer->eraseFromParent();
@@ -5193,8 +5196,11 @@ void CGOpenMPRuntimeGPU::clear() {
           /*isConstant=*/false, llvm::GlobalValue::InternalLinkage,
           llvm::Constant::getNullValue(LLVMArr2Ty),
           "_openmp_static_glob_rd_$_");
-      auto *Replacement = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-          GV, CGM.VoidPtrTy);
+      llvm::Constant* Zero = llvm::ConstantInt::get(CGM.Int32Ty, 0);
+      llvm::Constant* Indexes[] = { Zero, Zero, Zero };
+      auto *Replacement = llvm::ConstantExpr::getGetElementPtr(GV->getValueType(), GV, Indexes);
+      Replacement = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+          Replacement, CGM.VoidPtrTy);
       for (const GlobalPtrSizeRecsTy *Rec : GlobalRecs) {
         Rec->Buffer->replaceAllUsesWith(Replacement);
         Rec->Buffer->eraseFromParent();
