@@ -63,7 +63,7 @@ void CodeGenTypes::getRecordTypeName(const RecordDecl *RD,
   if (RD->getIdentifier()) {
     // FIXME: We should not have to check for a null decl context here.
     // Right now we do it because the implicit Obj-C decls don't have one.
-    if(getTarget().getCXXABI().isItaniumFamily())
+    if(!getTarget().isByteAddressable())
       getCXXABI().getMangleContext().mangleName(RD, OS);
     else if (RD->getDeclContext())
       RD->printQualifiedName(OS);
@@ -76,7 +76,7 @@ void CodeGenTypes::getRecordTypeName(const RecordDecl *RD,
       TDD->printQualifiedName(OS, Policy);
     else
       TDD->printName(OS);
-  } else if (isa<RecordDecl>(RD))
+  } else if (!getTarget().isByteAddressable() && isa<RecordDecl>(RD))
     getCXXABI().getMangleContext().mangleName(RD, OS);
   else
     OS << "anon";
@@ -660,6 +660,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     llvm_unreachable("Unexpected undeduced type!");
   case Type::Complex: {
     llvm::Type *EltTy = ConvertType(cast<ComplexType>(Ty)->getElementType());
+    if (getTarget().isByteAddressable()) {
+      ResultType = llvm::StructType::get(EltTy, EltTy);
+      break;
+    }
     SmallString<16> TypeName;
     llvm::raw_svector_ostream OS(TypeName);
     OS << "complex.";
@@ -881,7 +885,7 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
 
   llvm::StructType *&Entry = RecordDeclTypes[Key];
 
-  if (!Entry) {
+  if (!Entry && !getTarget().isByteAddressable()) {
     // TODO: This can be partially merged with the code below
     SmallString<256> TypeName;
     getRecordTypeName(RD, "", TypeName);
