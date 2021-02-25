@@ -2195,13 +2195,14 @@ static int perform_file_retain_excluded_cb(const char *filename) {
   CXTranslationUnit TU;
   enum CXErrorCode Err;
   int result;
+  const char* cmdArgs[] = { "-target", "x86_64-unknown-gnu" };
 
   Idx = clang_createIndex(/* excludeDeclsFromPCH */1,
                           /* displayDiagnostics=*/1);
 
   Err = clang_parseTranslationUnit2(Idx, filename,
-                                    /*command_line_args=*/NULL,
-                                    /*num_command_line_args=*/0,
+                                    /*command_line_args=*/cmdArgs,
+                                    /*num_command_line_args=*/2,
                                     /*unsaved_files=*/NULL,
                                     /*num_unsaved_files=*/0,
                                     CXTranslationUnit_RetainExcludedConditionalBlocks, &TU);

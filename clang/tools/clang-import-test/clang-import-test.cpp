@@ -202,7 +202,7 @@ std::unique_ptr<CompilerInstance> BuildCompilerInstance() {
   // Needed for testing dynamic_cast.
   Inv->getLangOpts()->RTTI = true;
   Inv->getCodeGenOpts().setDebugInfo(codegenoptions::FullDebugInfo);
-  Inv->getTargetOpts().Triple = llvm::sys::getDefaultTargetTriple();
+  Inv->getTargetOpts().Triple = llvm::sys::getProcessTriple();
 
   Ins->setInvocation(std::move(Inv));
 

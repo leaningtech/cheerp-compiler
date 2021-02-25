@@ -1100,7 +1100,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   // and getToolChain is const.
   if (IsCLMode()) {
     // clang-cl targets MSVC-style Win32.
-    llvm::Triple T(TargetTriple);
+    llvm::Triple T(llvm::sys::getProcessTriple());
     T.setOS(llvm::Triple::Win32);
     T.setVendor(llvm::Triple::PC);
     T.setEnvironment(llvm::Triple::MSVC);
